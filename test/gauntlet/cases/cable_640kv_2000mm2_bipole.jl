@@ -77,11 +77,10 @@ case_definition(
     core = LineCableModels.stranded(
         copper;
         shape = LineCableModels.Disk(p.core_strand_radius),
-        layers = length(p.ring_counts),
-        n = p.ring_counts,
         lay = LineCableModels.LayRatio(p.core_lay_ratio),
-        compact = LineCableModels.FillFactor(1.0),
-        boundary = LineCableModels.Disk(radius)
+        compact = true,
+        boundary = LineCableModels.Disk(radius),
+        fill = matrix
     )
     parts = LineCableModels.AbstractCablePart[core]
     for (tag, thickness, material) in (

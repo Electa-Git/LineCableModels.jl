@@ -94,7 +94,7 @@ end
         alpha = 0.00393)
     insulation_material=Material(kind = :insulator, rho = 1.97e14, eps_r = 2.5)
     primitive=Sector(
-        span = deg2rad(119.0),
+        span = 2pi / 3,
         r_base = 1.10e-3,
         r_back = 10.24e-3,
         fillet = 1.02e-3
@@ -131,6 +131,60 @@ end
     @test getproperty.(getproperty.(conductor_shapes, :at), :φ) ≈
           [0.0, 2pi / 3, 4pi / 3]
 
+    divergent=terminal(
+        :phase,
+        Region(
+            :core,
+            Sector(
+                span = deg2rad(119),
+                r_base = 1.10e-3,
+                r_back = 10.24e-3,
+                fillet = 1.02e-3
+            ),
+            copper
+        )
+    )
+    @test_throws DomainError build(CableDesign, "divergent-sector-sides", assembly(
+        divergent;
+        pattern = Ring(3; r = 0),
+        names = (:a, :b, :c)
+    ))
+
+    touching=terminal(
+        :phase,
+        Region(
+            :core,
+            Sector(span = 2pi / 3, r_base = 0, r_back = 10e-3),
+            copper
+        )
+    )
+    @test_throws DomainError build(CableDesign, "touching-bare-sectors", assembly(
+        touching;
+        pattern = Ring(3; r = 0),
+        names = (:a, :b, :c)
+    ))
+
+    insulation_thickness=0.2e-3
+    insulated_contact=terminal(
+        :phase,
+        Region(
+            :core,
+            Sector(
+                span = 2pi / 3,
+                r_base = insulation_thickness / sin(pi / 3),
+                r_back = 10e-3
+            ),
+            copper
+        ),
+        insulation(insulation_material; t = insulation_thickness)
+    )
+    contacted=build(CableDesign, "insulated-sector-contact", assembly(
+        insulated_contact;
+        pattern = Ring(3; r = 0),
+        names = (:a, :b, :c)
+    ))
+    @test contacted.geometry.outer isa DM.AssemblyShape
+
     varied=Sector(
         span = Grid((deg2rad(118.0), deg2rad(119.0))),
         r_base = Grid((1.00e-3, 1.10e-3)),
@@ -159,7 +213,7 @@ end
         alpha = 0.00393)
     xlpe=Material(kind = :insulator, rho = 1.97e14, eps_r = 2.5)
     primitive=Sector(
-        span = deg2rad(119.0),
+        span = 2pi / 3,
         r_base = 1.10e-3,
         r_back = 10.24e-3,
         fillet = 1.02e-3

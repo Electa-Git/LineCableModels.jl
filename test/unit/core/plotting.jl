@@ -60,23 +60,21 @@
 
     copper=Material(kind = :conductor, rho = 1.7241e-8)
     matrix=Material(kind = :insulator, rho = Inf, eps_r = 2.3)
-    packed=Enclosure(
-        :preview_matrix,
-        terminal(
-            :preview_core,
-            stranded(
-                copper;
-                shape = Disk(0.5),
-                layers = 1,
-                boundary = Disk(1.5)
-            )
-        );
-        primitive = Disk(1.5),
-        fill = matrix
+    packed=terminal(
+        :preview_core,
+        stranded(
+            copper;
+            shape = Disk(0.5),
+            boundary = Disk(1.5),
+            fill = matrix
+        )
     )
     fill=last(LineCableModels.DataModel.resolve(
         LineCableModels.DataModel.EmptyBoundary(), packed
     ).regions)
+    @test any(fill.placement.patterns) do entry
+        entry.pattern isa LineCableModels.DataModel.EnclosureBoundary
+    end
     perforated=only(LineCableModels.DataModel.preview_shapes(fill))
     @test length(perforated.geometry.interiors) == 7
     @test eltype(perforated.geometry.interiors) !== Any

@@ -30,9 +30,8 @@
             stranded(
                 packed_material;
                 shape = Disk(0.5e-3),
-                layers = 2,
                 lay = (LayRatio(15), LayRatio(11)),
-                boundary = Disk(3e-3)
+                boundary = Disk(2.5e-3)
             )
         ),
         insulation(packed_dielectric; t = 1e-3)
@@ -68,7 +67,11 @@
     )
     @test !isempty(sector_wires)
     @test all(region -> region.primitive isa Disk, sector_wires)
-    @test length(sector_design.geometry.regions) == length(sector_wires) + 1
+    @test length(sector_design.geometry.regions) == length(sector_wires) + 2
+    @test count(
+        region -> region.source.material.kind === :insulator,
+        sector_design.geometry.regions
+    ) == 2
     sector_constants=CableConstants(sector_design; frequency = 50.0)
     @test all(isfinite,
         Iterators.flatten(

@@ -81,32 +81,29 @@ end
     copper=Material(kind = :conductor, rho = 1.7241e-8)
     disk=Disk(0.5e-3)
     natural_boundary=Disk(5disk.r)
-    compact_boundary=Disk(sqrt(19 / 0.9) * disk.r)
+    compact_boundary=Disk(sqrt(19) * disk.r)
 
     natural=stranded(
         copper;
         shape = disk,
-        layers = 2,
-        n = (6, 12),
         lay = (LayRatio(15), LayRatio(11)),
         boundary = natural_boundary
     )
     compacted=stranded(
         copper;
         shape = disk,
-        layers = 2,
-        n = (6, 12),
-        compact = FillFactor(0.9),
+        compact = true,
         boundary = compact_boundary
     )
-    @test natural isa Stack
-    natural_courses=only(natural.items).item.items
-    @test all(item -> item isa Group, natural_courses)
-    @test getproperty.(natural_courses, :name) == fill(:strand, 3)
-    @test natural_courses[1].path === nothing
-    @test natural_courses[2].path.lay == LayRatio(15)
-    @test natural_courses[3].path.lay == LayRatio(11)
-    @test all(item -> item.pattern isa Ring, natural_courses[2:3])
+    @test natural isa Enclosure
+    declarations=natural.item.item.items
+    @test all(item -> item isa Group, declarations)
+    @test getproperty.(declarations, :name) == fill(:strand, 2)
+    @test declarations[1].path === nothing
+    @test declarations[2].path == (
+        Helix(LayRatio(15)), Helix(LayRatio(11))
+    )
+    @test all(item -> item.pattern === nothing, declarations)
 
     natural_design=build(
         CableDesign, "natural-circular-strands", terminal(:core, natural)
@@ -114,21 +111,25 @@ end
     compacted_design=build(
         CableDesign, "compacted-circular-strands", terminal(:core, compacted)
     )
-    @test length(natural_design.geometry.regions) == 19
-    @test all(region -> region.primitive isa Disk, natural_design.geometry.regions)
+    natural_conductors=filter(
+        region -> region.source.material.kind === :conductor,
+        natural_design.geometry.regions
+    )
+    @test length(natural_conductors) == 19
+    @test all(region -> region.primitive isa Disk, natural_conductors)
     @test all(region -> region.primitive isa LineCableModels.DataModel.Polygon,
         compacted_design.geometry.regions)
-    @test sum(area, getproperty.(natural_design.geometry.regions, :primitive)) ≈
+    @test sum(area, getproperty.(natural_conductors, :primitive)) ≈
           19pi * disk.r^2
 
     strand_centres=centroid.(getproperty.(
-        natural_design.geometry.regions,
+        natural_conductors,
         :primitive
     ))
     @test hypot(first(strand_centres)...) <= 1e-15
     @test length(unique(strand_centres)) == 19
     @test [last(region.placement.patterns).member
-           for region in natural_design.geometry.regions] == collect(1:19)
+           for region in natural_conductors] == collect(1:19)
     flattened_circular=only(LineCableModels.DataModel.flatten(
         natural_design,
         50.0
@@ -137,7 +138,7 @@ end
                      entry -> overlength(entry.path, entry.radius),
                      region.paths;
                      init = 1.0
-                 ) for region in natural_design.geometry.regions]
+                 ) for region in natural_conductors]
     weights=inv.(resistances) ./ sum(inv, resistances)
     log_gmr=sum(eachindex(strand_centres)) do left
         value=weights[left]^2 * log(disk.r * exp(-copper.mu_r / 4))
@@ -151,29 +152,24 @@ end
         value
     end
     @test flattened_circular.gmr ≈ exp(log_gmr)
-    @test_throws DimensionMismatch stranded(
-        copper; shape = disk, layers = 2, n = (6,), boundary = natural_boundary
-    )
-    @test_throws DimensionMismatch stranded(
-        copper; shape = disk, layers = 2, n = (6, 12), lay = (LayRatio(11),),
-        boundary = natural_boundary
+    @test_throws DimensionMismatch build(
+        CableDesign,
+        "wrong-schedule",
+        terminal(:core, stranded(
+            copper; shape = disk, lay = (LayRatio(11),), boundary = natural_boundary
+        ))
     )
     @test_throws ArgumentError stranded(
         copper;
         shape = Ellipse(0.5e-3, 0.25e-3),
-        layers = 1,
-        n = 6,
         boundary = Disk(2e-3)
     )
-    @test_throws ArgumentError stranded(
+    @test stranded(
         copper;
         center = disk,
         shape = Rectangle(0.35e-3, 0.8e-3),
-        layers = 1,
-        n = 6,
-        compact = FillFactor(1),
         boundary = Disk(2e-3)
-    )
+    ) isa Enclosure
 end
 
 @testitem "DataModel / v1 physical tree / Enclosure and class conveniences" tags=[:unit] begin
@@ -248,18 +244,11 @@ end
         stranded(
             copper;
             shape = Disk(0.5),
-            layers = 1,
-            n = 6,
-            boundary = Disk(1.5)
+            boundary = Disk(1.5),
+            fill = matrix
         )
     )
-    packed=Enclosure(
-        :matrix,
-        bundle;
-        primitive = Disk(1.5),
-        fill = matrix
-    )
-    resolved=DM.resolve(DM.EmptyBoundary(), packed)
+    resolved=DM.resolve(DM.EmptyBoundary(), bundle)
     fill=last(resolved.regions)
 
     @test length(resolved.regions) == 8
@@ -319,8 +308,19 @@ end
         discontinuous_stage
     )
 
-    bare_design=build(CableDesign, "bare-bundle", bundle)
-    packed_design=build(CableDesign, "packed-bundle", packed)
+    bare_design=build(
+        CableDesign,
+        "bare-bundle",
+        terminal(
+            :core,
+            stranded(
+                copper;
+                shape = Disk(0.5),
+                boundary = Disk(1.5)
+            )
+        )
+    )
+    packed_design=build(CableDesign, "packed-bundle", bundle)
     bare=only(DM.flatten(bare_design, 50.0))
     reduced=only(DM.flatten(packed_design, 50.0))
     @test reduced.conductor == bare.conductor
@@ -336,7 +336,7 @@ end
     insulated=build(
         CableDesign,
         "packed-insulated",
-        packed,
+        bundle,
         Region(:insulation, Shell(0.2), insulation_material)
     )
     component=only(DM.flatten(insulated, 50.0))
@@ -344,7 +344,7 @@ end
     @test only(component.dielectric.layers).r_in ≈ 1.5
     @test only(component.dielectric.layers).r_ex ≈ 1.7
 
-    nested=Group(:core, packed; pattern = Ring(2; r = 4.0))
+    nested=Group(:core, bundle; pattern = Ring(2; r = 4.0))
     nested_design=build(CableDesign, "nested-packed", nested)
     @test only(DM.flatten(nested_design, 50.0)).conductor.num_wires == 14
 
@@ -354,27 +354,52 @@ end
     lossy_design=build(
         CableDesign,
         "lossy-matrix",
-        Enclosure(:matrix, bundle; primitive = Disk(1.5), fill = lossy)
+        terminal(
+            :core,
+            stranded(
+                copper;
+                shape = Disk(0.5),
+                boundary = Disk(1.5),
+                fill = lossy
+            )
+        )
     )
     magnetic_design=build(
         CableDesign,
         "magnetic-matrix",
-        Enclosure(:matrix, bundle; primitive = Disk(1.5), fill = magnetic)
+        terminal(
+            :core,
+            stranded(
+                copper;
+                shape = Disk(0.5),
+                boundary = Disk(1.5),
+                fill = magnetic
+            )
+        )
     )
     semiconducting_design=build(
         CableDesign,
         "semiconducting-matrix",
-        Enclosure(:matrix, bundle; primitive = Disk(1.5), fill = semiconducting)
+        terminal(
+            :core,
+            stranded(
+                copper;
+                shape = Disk(0.5),
+                boundary = Disk(1.5),
+                fill = semiconducting
+            )
+        )
     )
     wound_matrix_design=build(
         CableDesign,
         "longitudinal-matrix-path",
-        Group(:wound_core, packed; path = Helix(LayRatio(10.0)))
+        Group(:wound_core, bundle; path = Helix(LayRatio(10.0)))
     )
     @test_throws ArgumentError DM.flatten(lossy_design, 50.0)
     @test_throws ArgumentError DM.flatten(magnetic_design, 50.0)
     @test_throws ArgumentError DM.flatten(semiconducting_design, 50.0)
-    @test_throws ArgumentError DM.flatten(wound_matrix_design, 50.0)
+    wound=only(DM.flatten(wound_matrix_design, 50.0))
+    @test wound.conductor.resistance > reduced.conductor.resistance
 end
 
 @testitem "DataModel / v1 physical tree / placement, Group, and Assembly" tags=[:unit] begin

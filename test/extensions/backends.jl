@@ -51,20 +51,43 @@ end
     insulation_material=Material(
         kind = :insulator, rho = Inf, eps_r = 2.3, mu_r = 1.0
     )
-    perfect_insulator=extension._base_material_color(Inf)
-    @test perfect_insulator.r > 0.8
-    @test perfect_insulator.g > 0.8
-    @test perfect_insulator.b > 0.8
-    @test extension._base_material_color(1e10) != perfect_insulator
+    silver=extension._conductor_color(1.72e-8)
+    bronze=extension._conductor_color(2.5e-7)
+    air=extension._dielectric_color(1.0)
+    amber=extension._dielectric_color(10.0)
+    @test silver.b > bronze.b
+    @test bronze.r > bronze.b
+    @test air.r > 0.95
+    @test air.g > 0.95
+    @test air.b > 0.95
+    @test amber.r > amber.g > amber.b
+
+    conductive_eps=Material(
+        kind = :conductor, rho = copper.rho, eps_r = 8.0, mu_r = 1.0
+    )
+    lossy_insulation=Material(
+        kind = :insulator, rho = 1.0e6, eps_r = 2.3, mu_r = 1.0
+    )
+    magnetic_copper=Material(
+        kind = :conductor, rho = copper.rho, eps_r = 1.0, mu_r = 300.0
+    )
+    earth=(rho = 100.0, eps_r = 4.0, mu_r = 1.0)
+    different_earth_eps=(rho = 100.0, eps_r = 20.0, mu_r = 1.0)
+    @test extension._material_color(copper) ==
+          extension._material_color(conductive_eps)
+    @test extension._material_color(insulation_material) ==
+          extension._material_color(lossy_insulation)
+    @test extension._material_color(copper) !=
+          extension._material_color(magnetic_copper)
+    @test extension._material_color(earth) ==
+          extension._material_color(different_earth_eps)
     strand_radius=0.5e-3
     core_radius=sqrt(7)*strand_radius
     core=stranded(
         copper;
         shape = Disk(strand_radius),
-        layers = 1,
-        n = 6,
         lay = nothing,
-        compact = FillFactor(1),
+        compact = true,
         boundary = Disk(core_radius)
     )
     design=build(
@@ -77,10 +100,28 @@ end
         design, 0.0, 0.0; display_legend = false
     )
     @test length(polygons) == 8
-    @test all(polygon -> polygon.stroke == (:black, 0.35), polygons[1:7])
-    @test all(polygon -> polygon.width == 0.6, polygons[1:7])
-    @test polygons[8].stroke === :transparent
-    @test polygons[8].width == 0.0
+    inner_boundary=extension.RGB(102 / 255, 109 / 255, 118 / 255)
+    @test all(polygon -> polygon.stroke == inner_boundary, polygons[1:7])
+    @test all(polygon -> polygon.width == 0.5, polygons[1:7])
+    @test polygons[8].stroke == inner_boundary
+    @test polygons[8].width == 0.45
+
+    enclosed_design=build(
+        CableDesign,
+        "outlined-enclosure",
+        pipe(
+            terminal(:phase, LineCableModels.core(copper; r = 0.5e-3));
+            shape = Disk(2.0e-3),
+            fill = insulation_material,
+            wall = insulation(insulation_material; t = 0.5e-3)
+        )
+    )
+    enclosed_polygons=extension._native_design_shapes(
+        enclosed_design, 0.0, 0.0; display_legend = false
+    )
+    @test length(enclosed_polygons) == 3
+    @test all(polygon -> polygon.stroke === :black, enclosed_polygons[2:3])
+    @test all(polygon -> polygon.width == 0.8, enclosed_polygons[2:3])
 
     @test_throws ArgumentError Makie.plot(
         parameters; backend = :gl, display_plot = false

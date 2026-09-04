@@ -85,111 +85,197 @@ end
 _member_definition(region::Region) = region.primitive
 _member_definition(::AbstractCablePart) = nothing
 
-function natural_sector_members(group::Group)
-    group.item isa Stack && length(group.item.items) == 1 || throw(ArgumentError(
-        "an uncompacted sector stranded formation uses one circular-wire inventory"
-    ))
-    part = only(group.item.items)
-    part isa Group && part.item isa Region || throw(ArgumentError(
-        "an uncompacted sector stranded formation requires one circular wire declaration"
-    ))
-    part.at == Pose2(0, 0, 0) || throw(ArgumentError(
-        "sector wire packing owns every member placement"
-    ))
-    part.item.primitive isa Disk || throw(ArgumentError(
-        "an uncompacted sector stranded formation requires circular wires"
-    ))
-    pattern = part.pattern
-    pattern isa Ring || throw(ArgumentError(
-        "an uncompacted sector stranded formation requires one wire inventory"
-    ))
-    boundary_shape = resolve(group.at, group.boundary)
-    sites = sector_wire_sites(boundary_shape, part.item.primitive)
-    count = pattern.n isa Int ? pattern.n : length(sites)
-    sites = select_sector_sites(sites, count, centroid(boundary_shape))
-    concrete = Ring(
-        count;
-        r = nothing,
-        φ0 = pattern.φ0,
-        span = pattern.span,
-        gap_frac = pattern.gap_frac
-    )
-    centre = centroid(boundary_shape)
-    return [(
-                source = part.item,
-                course = 1,
-                member,
-                pattern = concrete,
-                path = part.path,
-                angle = atan(site[2] - centre[2], site[1] - centre[1]),
-                site
-            ) for (member, site) in enumerate(sites)]
-end
-
-function bounded_members(group::Group)
-    group.boundary isa Sector && group.compact === nothing &&
-        return natural_sector_members(group)
+function bounded_declarations(group::Group)
     group.item isa Stack || throw(ArgumentError(
-        "a bounded formation must own an ordered Stack of member courses"
+        "a bounded formation must own an ordered Stack of strand declarations"
     ))
-    members = NamedTuple[]
-    course = 0
-    for (part_index, part) in enumerate(group.item.items)
+    parts = collect(group.item.items)
+    for part in parts
         part isa Group || throw(ArgumentError(
-            "a bounded formation Stack may contain only member Groups"
+            "a bounded formation Stack may contain only strand Groups"
         ))
         part.item isa Region || throw(ArgumentError(
-            "each bounded-formation course must repeat one Region"
+            "each bounded strand declaration must own one Region"
         ))
         part.at == Pose2(0, 0, 0) || throw(ArgumentError(
-            "bounded-formation courses must share the formation origin"
+            "bounded strand declarations must share the formation origin"
         ))
         part.boundary === nothing || throw(ArgumentError(
             "nested bounded formations are not supported"
         ))
-        if part.pattern === nothing
-            part_index == 1 || throw(ArgumentError(
-                "only the first bounded-formation member may omit its course pattern"
-            ))
-            push!(members,
-                (
-                    source = part.item,
-                    course,
-                    member = 1,
-                    pattern = nothing,
-                    path = part.path,
-                    angle = zero(eltype(group.at))
-            ))
-            continue
-        end
-        course += 1
-        pattern = part.pattern
-        pattern isa Ring || throw(ArgumentError(
-            "bounded-formation outer courses require a Ring inventory declaration"
+        part.pattern === nothing || throw(ArgumentError(
+            "a bounded strand inventory cannot declare a Ring or other placement"
         ))
-        pattern.n isa Int || throw(ArgumentError(
-            "bounded-formation member counts must be explicit integers"
+        part.compact === nothing || throw(ArgumentError(
+            "bounded compaction belongs to the containing formation"
         ))
-        pattern.r === nothing || throw(ArgumentError(
-            "bounded-formation course radii are resolved by compaction"
-        ))
-        step = pattern.span / pattern.n
-        for member in 1:pattern.n
-            push!(members,
-                (
-                    source = part.item,
-                    course,
-                    member,
-                    pattern,
-                    path = part.path,
-                    angle = pattern.φ0 + (member - 1) * step
-                ))
-        end
     end
-    isempty(members) && throw(ArgumentError(
-        "a bounded formation requires at least one member"
+    return parts
+end
+
+function strand_path(paths, course::Int, maximum_course::Int)
+    iszero(course) && return nothing
+    paths === nothing && return nothing
+    paths isa Tuple || return paths
+    length(paths) == maximum_course || throw(DimensionMismatch(
+        "lay schedule requires exactly $maximum_course inferred courses; got $(length(paths))"
     ))
-    return members
+    return paths[course]
+end
+
+function circular_members(boundary_shape::Disk, parts, compact::Bool)
+    length(parts) == 2 || throw(ArgumentError(
+        "a circular stranded core requires centre and outer strand declarations"
+    ))
+    centre_part, strand_part = parts
+    centre = centre_part.item.primitive
+    strand = strand_part.item.primitive
+    centre isa Disk || throw(ArgumentError(
+        "a circular stranded core requires a Disk centre wire"
+    ))
+    strand isa Disk || throw(ArgumentError(
+        "circular strand packing requires Disk source wires"
+    ))
+    centre.r <= boundary_shape.r || throw(DomainError(
+        centre.r, "the centre wire exceeds the circular core boundary"
+    ))
+
+    sites = if compact
+        available = area(boundary_shape) - area(centre)
+        outer_count = floor(Int, nominal(available / area(strand)) +
+                                 64eps(float(nominal(available / area(strand)))))
+        outer_count > 0 || throw(DomainError(
+            area(strand), "the circular core admits no strand outside its centre wire"
+        ))
+        compact_disk_sites(boundary_shape, outer_count + 1)
+    else
+        outer = disk_wire_sites(boundary_shape, centre, strand)
+        [(site = (boundary_shape.at.x, boundary_shape.at.y), course = 0); outer]
+    end
+    maximum_course = maximum(getproperty.(sites, :course))
+    members = NamedTuple[]
+    for (member, candidate) in enumerate(sites)
+        source = member == 1 ? centre_part.item : strand_part.item
+        path = member == 1 ? nothing :
+               strand_path(strand_part.path, candidate.course, maximum_course)
+        angle = atan(
+            candidate.site[2] - boundary_shape.at.y,
+            candidate.site[1] - boundary_shape.at.x
+        )
+        push!(members, (;
+            source,
+            candidate.course,
+            member,
+            path,
+            angle,
+            candidate.site
+        ))
+    end
+    primitives = compact ? deform_disk_members(boundary_shape, members) :
+                 [resolve(Pose2(member.site..., member.angle), member.source.primitive)
+                  for member in members]
+    return members, primitives
+end
+
+function sector_members(boundary_shape::SectorShape, parts, compact::Bool)
+    length(parts) == 1 || throw(ArgumentError(
+        "a sector stranded core has one wire declaration and no centre wire"
+    ))
+    part = only(parts)
+    wire = part.item.primitive
+    wire isa Disk || throw(ArgumentError(
+        "a sector stranded core requires Disk source wires"
+    ))
+    part.path isa Tuple && length(part.path) != 1 && throw(DimensionMismatch(
+        "a sector stranded core accepts one common lay law"
+    ))
+    sites = if compact
+        count = floor(Int, nominal(area(boundary_shape) / area(wire)) +
+                           64eps(float(nominal(area(boundary_shape) / area(wire)))))
+        sector_compact_sites(boundary_shape, count)
+    else
+        sector_wire_sites(boundary_shape, wire)
+    end
+    path = part.path isa Tuple ? only(part.path) : part.path
+    centre = centroid(boundary_shape)
+    members = [(
+                   source = part.item,
+                   course = 1,
+                   member,
+                   path,
+                   angle = atan(site[2] - centre[2], site[1] - centre[1]),
+                   site
+               ) for (member, site) in enumerate(sites)]
+    primitives = compact ? deform_disk_members(boundary_shape, members) :
+                 [resolve(Pose2(member.site..., member.angle), wire)
+                  for member in members]
+    return members, primitives
+end
+
+function rectangular_members(boundary_shape::Disk, parts, compact::Bool)
+    compact || throw(ArgumentError(
+        "rectangular strands require area-preserving bending"
+    ))
+    length(parts) == 2 || throw(ArgumentError(
+        "a rectangular stranded core requires centre and strand declarations"
+    ))
+    centre_part, strand_part = parts
+    centre = centre_part.item.primitive
+    strand = strand_part.item.primitive
+    centre isa Disk || throw(ArgumentError(
+        "a rectangular stranded core requires a Disk centre wire"
+    ))
+    strand isa Rectangle || throw(ArgumentError(
+        "rectangular strand packing requires Rectangle source strands"
+    ))
+    strips = rectangular_strands(boundary_shape, centre, strand)
+    maximum_course = maximum(getproperty.(strips, :course))
+    members = NamedTuple[(
+        source = centre_part.item,
+        course = 0,
+        member = 1,
+        path = nothing,
+        angle = zero(boundary_shape.r),
+        site = (boundary_shape.at.x, boundary_shape.at.y)
+    )]
+    primitives = AbstractShape[
+        resolve(Pose2(boundary_shape.at.x, boundary_shape.at.y, boundary_shape.at.φ), centre)
+    ]
+    for strip in strips
+        push!(members, (
+            source = strand_part.item,
+            strip.course,
+            member = length(members) + 1,
+            path = strand_path(strand_part.path, strip.course, maximum_course),
+            angle = strip.primitive.at.φ,
+            strip.site
+        ))
+        push!(primitives, strip.primitive)
+    end
+    return members, primitives
+end
+
+function bounded_members(boundary_shape::Disk, parts, compact::Bool)
+    outer = last(parts).item.primitive
+    return outer isa Disk ?
+           circular_members(boundary_shape, parts, compact) :
+           rectangular_members(boundary_shape, parts, compact)
+end
+
+bounded_members(boundary_shape::SectorShape, parts, compact::Bool) =
+    sector_members(boundary_shape, parts, compact)
+
+function bounded_members(group::Group)
+    boundary_shape = resolve(group.at, group.boundary)
+    parts = bounded_declarations(group)
+    group.compact isa Bool || throw(ArgumentError(
+        "bounded stranded formations require a Boolean compaction selection"
+    ))
+    members, primitives = bounded_members(boundary_shape, parts, group.compact)
+    isempty(members) && throw(ArgumentError(
+        "a bounded formation requires at least one strand"
+    ))
+    return boundary_shape, members, primitives
 end
 
 function bounded_pose(absolute, origin::Pose2, angle)
@@ -205,28 +291,20 @@ function bounded_pose(absolute, origin::Pose2, angle)
 end
 
 function resolve_bounded(group::Group)
-    members = bounded_members(group)
-    primitives, outer = compact_bounded_members(
-        group.boundary, members, group.compact, group.at
-    )
+    outer, members, primitives = bounded_members(group)
     length(primitives) == length(members) || throw(DimensionMismatch(
-        "bounded compaction must preserve the declared member count"
+        "bounded resolution must preserve the inferred strand count"
     ))
     formation_centre = centroid(outer)
     regions = PlacedRegion[]
     for (formation_member, (member, primitive)) in enumerate(zip(members, primitives))
         absolute_centre = centroid(primitive)
         pose = bounded_pose(absolute_centre, group.at, member.angle)
-        declared = member.pattern === nothing ? () :
-                   ((pattern = member.pattern, member = member.member, pose = pose),)
-        patterns = (
-            declared...,
-            (
-                pattern = BoundedPlacement(outer),
-                member = formation_member,
-                pose = pose
-            )
-        )
+        patterns = ((
+            pattern = BoundedPlacement(outer),
+            member = formation_member,
+            pose = pose
+        ),)
         paths = member.path === nothing ? () :
                 ((
                     path = member.path,

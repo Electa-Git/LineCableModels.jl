@@ -217,6 +217,14 @@ function _sector_contacts(primitive::Sector)
     return (; points, arcs, segments)
 end
 
+function _sector_side_clearance(primitive::Sector)
+    normal_projection = sin(primitive.span / 2)
+    return 2 * (
+        primitive.r_base * normal_projection -
+        primitive.fillet * (one(normal_projection) - normal_projection)
+    )
+end
+
 function SectorShape(primitive::Sector, at::Pose2 = _origin(eltype(primitive)))
     T = promote_type(eltype(primitive), eltype(at))
     converted = convert(AbstractPrimitive{T}, primitive)
@@ -414,7 +422,7 @@ function tessellate(shape::SectorShape; points_per_arc::Integer = 32)
     return [_transform_point(point, shape.at) for point in points]
 end
 
-function tessellate(shape::ShellShape; points_per_arc::Integer = 32)
+function tessellate(shape::ShellShape; points_per_arc::Integer = 128)
     return (
         outer = tessellate(shape.outer; points_per_arc),
         inner = tessellate(shape.inner; points_per_arc)

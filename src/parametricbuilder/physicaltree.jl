@@ -567,63 +567,75 @@ function _count_schedule(value, count::Int)
     ))
 end
 
+function _stranding_paths(lay, dir, φ0)
+    lay === nothing && return nothing
+    if lay isa Union{Tuple, AbstractVector}
+        count = length(lay)
+        count > 0 || throw(ArgumentError("lay schedule cannot be empty"))
+        directions = _course_schedule(dir, count, :dir)
+        angles = _course_schedule(φ0, count, :φ0)
+        return ntuple(index -> _path(lay[index], directions[index], angles[index]), count)
+    end
+    dir isa Union{Tuple, AbstractVector} && throw(ArgumentError(
+        "a dir schedule requires a lay schedule of the same length"
+    ))
+    φ0 isa Union{Tuple, AbstractVector} && throw(ArgumentError(
+        "a φ0 schedule requires a lay schedule of the same length"
+    ))
+    return _path(lay, dir, φ0)
+end
+
 function _stranded(
         material,
         center,
-        shapes,
-        course_count,
-        counts,
-        lays,
-        directions,
-        angles,
-        compaction,
-        prescribed_boundary
+        shape,
+        lay,
+        dir,
+        φ0,
+        compact,
+        prescribed_boundary,
+        fill
 )
-    course_count isa Integer && !(course_count isa Bool) && course_count >= 0 ||
-        throw(ArgumentError("layers must be a nonnegative integer"))
     material = _require_material(material, :stranded, (:conductor,))
+    fill = _require_material(fill, :stranded_fill, (:insulator, :semicon))
     prescribed_boundary isa Union{DataModel.Disk, DataModel.Sector} ||
         throw(ArgumentError(
             "stranded requires a nonhollow Disk or Sector boundary"
         ))
-    all(shape -> shape isa DataModel.Disk, shapes) || throw(ArgumentError(
-        "stranded members must be circular Disk primitives; use tape for flat strips"
+    shape isa Union{DataModel.Disk, DataModel.Rectangle} || throw(ArgumentError(
+        "stranded members must be Disk wires or Rectangle strands"
     ))
+    compaction = compact === nothing ? shape isa DataModel.Rectangle : compact
+    compaction isa Bool || throw(ArgumentError(
+        "bounded stranded compaction is selected with compact=true or compact=false; " *
+        "FillFactor remains a course-level placement law"
+    ))
+
     if prescribed_boundary isa DataModel.Sector
+        shape isa DataModel.Disk || throw(ArgumentError(
+            "a sector stranded core requires circular Disk wires"
+        ))
         center === nothing || throw(ArgumentError(
             "a sector stranded formation has no central member"
         ))
-        course_count > 0 || throw(ArgumentError(
-            "a sector stranded formation requires at least one strand course"
+    else
+        if shape isa DataModel.Disk
+            center === nothing && (center = shape)
+        else
+            center isa DataModel.Disk || throw(ArgumentError(
+                "a rectangular stranded core requires center=Disk(...)"
+            ))
+            compaction || throw(ArgumentError(
+                "rectangular strands require area-preserving bending; omit compact " *
+                "or pass compact=true"
+            ))
+        end
+        center isa DataModel.Disk || throw(ArgumentError(
+            "a disk-bounded stranded core requires one circular centre wire"
         ))
-    elseif center === nothing
-        isempty(shapes) && throw(ArgumentError(
-            "a zero-course stranded formation requires an explicit centre member"
-        ))
-        center = first(shapes)
     end
-    center === nothing || center isa DataModel.Disk || throw(ArgumentError(
-        "a disk stranded formation requires one circular centre member"
-    ))
 
-    natural_sector = prescribed_boundary isa DataModel.Sector && compaction === nothing
-    all(counts) do count
-        count isa Integer && !(count isa Bool) && count > 0 ||
-            natural_sector && count === DataModel.capacity()
-    end || throw(ArgumentError(
-        "stranded requires positive member counts; only an uncompacted sector accepts capacity()"
-    ))
-    resolved_angles = Any[angles...]
-    angle_zero = prescribed_boundary isa DataModel.Sector ?
-                 zero(float(prescribed_boundary.span)) :
-                 zero(float(prescribed_boundary.r))
-    for course in eachindex(resolved_angles)
-        resolved_angles[course] === nothing || continue
-        resolved_angles[course] = course == 1 ?
-                                  angle_zero :
-                                  resolved_angles[course - 1] +
-                                  π / counts[course - 1]
-    end
+    paths = _stranding_paths(lay, dir, φ0)
     parts = DataModel.AbstractCablePart[]
     center === nothing || push!(parts,
         DataModel.Group(
@@ -634,39 +646,39 @@ function _stranded(
             nothing,
             nothing
         ))
-    for course in 1:course_count
-        pattern = DataModel.Ring(
-            counts[course];
-            r = nothing,
-            φ0 = resolved_angles[course]
-        )
-        push!(parts,
-            DataModel.Group(
-                :strand,
-                DataModel.Pose2(0, 0, 0),
-                DataModel.Region(:wire, shapes[course], material),
-                pattern,
-                _path(lays[course], directions[course], resolved_angles[course]),
-                nothing
-            ))
-    end
-    stack = DataModel.Stack(parts)
+    push!(parts,
+        DataModel.Group(
+            :strand,
+            DataModel.Pose2(0, 0, 0),
+            DataModel.Region(:wire, shape, material),
+            nothing,
+            paths,
+            nothing
+        ))
     bounded = DataModel.Group(
         :core,
         DataModel.Pose2(0, 0, 0),
-        stack,
+        DataModel.Stack(parts),
         nothing,
         nothing,
         compaction,
         prescribed_boundary
     )
-    return DataModel.Stack(bounded)
+    return DataModel.Enclosure(
+        :stranded,
+        DataModel.Pose2(0, 0, 0),
+        prescribed_boundary,
+        bounded,
+        fill,
+        nothing
+    )
 end
 
 """
 $(TYPEDSIGNATURES)
 
-Declare one boundary-constrained conductive core made from discrete members.
+Fill one authoritative core boundary with the maximum admissible inventory of
+equal source strands.
 
 # Arguments
 
@@ -674,84 +686,241 @@ Declare one boundary-constrained conductive core made from discrete members.
 
 # Keywords
 
-- `center=nothing`: Circular centre member for a disk-bounded core. It defaults
-  to `shape`. Sector-bounded cores have no centre member.
-- `shape`: One circular wire primitive, or one circular primitive per course.
+- `center=nothing`: Circular centre member for a disk-bounded core. Circular
+  strands default to one centre wire equal to `shape`; rectangular strands
+  require an explicit `Disk`. Sector-bounded phase cores have no centre wire.
+- `shape`: Circular wire or rectangular strand primitive.
 - `boundary`: Authoritative nonhollow `Disk` or `Sector` core boundary.
-- `layers=nothing`: Number of outer courses \\[dimensionless\\]. Disk boundaries
-  and compacted sector boundaries require it. An uncompacted sector infers one
-  uniformly packed wire inventory.
-- `n=nothing`: Positive base count or exact positive course schedule. It
-  defaults to six per circular course and to `capacity()` for an uncompacted
-  sector.
-- `lay=nothing`: One lay law or one law per outer course. Homogeneous schedules
-  may be declared as `LayRatio(q...)`, `Pitch(p...)`, or `LayAngle(α...)`.
-- `dir=1`: One handedness or one value per outer course.
-- `φ0=nothing`: Optional initial angle or schedule. Omission deterministically
-  staggers consecutive courses.
-- `compact=nothing`: Preserve natural circular wires. A `FillFactor` explicitly
-  requests area-preserving deformation inside the boundary.
+- `fill=air`: Interstitial insulating or semiconducting material. The default
+  is lossless air (``\\rho=\\infty``, ``\\epsilon_r=\\mu_r=1``).
+- `lay=nothing`: One lay law or a schedule matching the inferred radial courses.
+- `dir=1`: Helix handedness or a schedule matching `lay`.
+- `φ0=0`: Helix initial angle or a schedule matching `lay` \\[rad\\].
+- `compact=nothing`: Circular strands remain circular by default; `true`
+  requests area-preserving deformation. Rectangular strands are always bent
+  area-preservingly and therefore default to `true`.
 - `combine=:product`: Gridspace composition rule.
 
 # Returns
 
-- A boundary-owning core `Stack`, or a `Gridspace{Stack}` when a direct
+- A material-complete `Enclosure`, or a `Gridspace{Enclosure}` when a direct
   argument varies.
 """
 function stranded(
         material;
         center = nothing,
         shape,
-        layers = nothing,
-        n = nothing,
         lay = nothing,
         dir = 1,
-        φ0 = nothing,
+        φ0 = 0,
         compact = nothing,
         boundary,
+        fill = Materials.Material(:insulator, Inf),
         combine::Symbol = :product
 )
     caller = function (
-            resolved_material, resolved_center, resolved_shape, resolved_layers, resolved_n,
-            resolved_lay, resolved_dir, resolved_φ0, resolved_compact,
-            resolved_boundary
+            resolved_material, resolved_center, resolved_shape, resolved_lay,
+            resolved_dir, resolved_φ0, resolved_compact, resolved_boundary,
+            resolved_fill
     )
-        natural_sector = resolved_boundary isa DataModel.Sector &&
-                         resolved_compact === nothing
-        count = if natural_sector
-            resolved_layers in (nothing, 1) || throw(ArgumentError(
-                "an uncompacted sector infers one uniform circular-wire inventory"
-            ))
-            1
-        else
-            resolved_layers isa Integer && !(resolved_layers isa Bool) &&
-            resolved_layers >= 0 || throw(ArgumentError(
-                "layers must be a nonnegative integer"
-            ))
-            Int(resolved_layers)
-        end
-        counts = _count_schedule(
-            resolved_n === nothing ?
-            (natural_sector ? DataModel.capacity() : 6) : resolved_n,
-            count
-        )
         return _stranded(
             resolved_material,
             resolved_center,
-            _course_schedule(resolved_shape, count, :shape),
-            count,
-            counts,
-            _course_schedule(resolved_lay, count, :lay),
-            _course_schedule(resolved_dir, count, :dir),
-            _course_schedule(resolved_φ0, count, :φ0),
+            resolved_shape,
+            resolved_lay,
+            resolved_dir,
+            resolved_φ0,
             resolved_compact,
-            resolved_boundary
+            resolved_boundary,
+            resolved_fill
         )
     end
     values = (
-        material, center, shape, layers, n, lay, dir, φ0, compact, boundary
+        material, center, shape, lay, dir, φ0, compact, boundary, fill
     )
-    return parameterize(DataModel.Stack, caller, values; combine)
+    return parameterize(DataModel.Enclosure, caller, values; combine)
+end
+
+function _inner_radius(primitive::DataModel.Disk)
+    return hypot(primitive.at.x, primitive.at.y) - primitive.r
+end
+
+function _inner_radius(primitive::DataModel.Polygon)
+    cosine = cos(primitive.at.φ)
+    sine = sin(primitive.at.φ)
+    points = map(primitive.points) do point
+        return (
+            primitive.at.x + cosine * point[1] - sine * point[2],
+            primitive.at.y + sine * point[1] + cosine * point[2]
+        )
+    end
+    return minimum(eachindex(points)) do index
+        next = mod1(index + 1, length(points))
+        first_point = points[index]
+        last_point = points[next]
+        edge = (
+            last_point[1] - first_point[1],
+            last_point[2] - first_point[2]
+        )
+        length_squared = edge[1]^2 + edge[2]^2
+        fraction = iszero(length_squared) ? zero(length_squared) : clamp(
+            -(first_point[1] * edge[1] + first_point[2] * edge[2]) /
+            length_squared,
+            zero(length_squared),
+            one(length_squared)
+        )
+        hypot(
+            first_point[1] + fraction * edge[1],
+            first_point[2] + fraction * edge[2]
+        )
+    end
+end
+
+function _milliken(
+        material,
+        shape,
+        segment,
+        segments,
+        lay,
+        dir,
+        φ0,
+        compact,
+        fill
+)
+    material = _require_material(material, :milliken, (:conductor,))
+    shape isa DataModel.Disk || throw(ArgumentError(
+        "milliken segment strands must be circular Disk wires"
+    ))
+    segment isa DataModel.Sector || throw(ArgumentError(
+        "milliken segment must be one Sector boundary"
+    ))
+    segments isa Integer && !(segments isa Bool) && segments >= 2 ||
+        throw(ArgumentError("milliken segments must be an integer of at least two"))
+    pitch = 2pi / segments
+    isapprox(segment.span, pitch) || throw(DomainError(
+        segment.span,
+        "milliken segment span must equal its angular pitch $pitch"
+    ))
+    fill = _require_material(fill, :milliken_fill, (:insulator, :semicon))
+
+    segment_part = _stranded(
+        material,
+        nothing,
+        shape,
+        lay,
+        dir,
+        φ0,
+        compact,
+        segment,
+        fill
+    )
+    _, _, segment_primitives = DataModel.bounded_members(segment_part.item)
+    center_radius = minimum(_inner_radius, segment_primitives)
+    center_radius > zero(center_radius) || throw(DomainError(
+        center_radius,
+        "milliken segment strands leave no positive radius for the centre wire"
+    ))
+    center = DataModel.Disk(center_radius)
+    members = DataModel.AssemblyMember[]
+    centre_terminal = DataModel.Group(
+        :milliken_centre,
+        DataModel.Pose2(0, 0, 0),
+        DataModel.Region(:wire, center, material),
+        nothing,
+        nothing,
+        nothing
+    )
+    push!(members, DataModel.AssemblyMember(centre_terminal))
+    for index in 1:Int(segments)
+        name = Symbol(:milliken_segment_, index)
+        terminal = DataModel.Group(
+            name,
+            DataModel.Pose2(0, 0, 0),
+            segment_part.item,
+            nothing,
+            nothing,
+            nothing
+        )
+        push!(members, DataModel.AssemblyMember(
+            terminal,
+            DataModel.Pose2(0, 0, (index - 1) * pitch)
+        ))
+    end
+    assembly = DataModel.Assembly(
+        DataModel.Pose2(0, 0, 0),
+        Tuple(members),
+        nothing,
+        nothing,
+        nothing,
+        nothing
+    )
+    core = DataModel.Group(
+        :core,
+        DataModel.Pose2(0, 0, 0),
+        DataModel.Stack(assembly),
+        nothing,
+        nothing,
+        nothing
+    )
+    return DataModel.Enclosure(
+        :milliken,
+        DataModel.Pose2(0, 0, 0),
+        DataModel.Disk(segment.r_back),
+        core,
+        fill,
+        nothing
+    )
+end
+
+"""
+$(TYPEDSIGNATURES)
+
+Declare one Milliken conductor as a centre wire surrounded by equal stranded
+sector segments. Every conductive descendant resolves to one `:core` terminal.
+
+# Arguments
+
+- `material`: Conductor material shared by the centre and segment strands.
+
+# Keywords
+
+- `shape`: Circular source wire repeated inside every segment.
+- `segment`: Authoritative boundary of one sector segment. Its span must equal
+  ``2\\pi/N`` for `segments=N`.
+- `segments=6`: Number of equal sector segments \\[dimensionless\\].
+- `lay=nothing`: Common strand lay law.
+- `dir=1`: Helix handedness \\[dimensionless\\].
+- `φ0=0`: Helix initial angle \\[rad\\].
+- `compact=nothing`: Preserve circular wires; `true` deforms them while
+  preserving each source area.
+- `fill=air`: Interstitial material around the centre and every segment strand.
+- `combine=:product`: Gridspace composition rule.
+
+The centre-wire radius is inferred from the resolved segment packing so that
+the centre wire is tangent to the innermost strand of every equal segment.
+
+# Returns
+
+- A material-complete `Enclosure`, or a `Gridspace{Enclosure}` when a direct
+  argument varies.
+"""
+function milliken(
+        material;
+        shape,
+        segment,
+        segments = 6,
+        lay = nothing,
+        dir = 1,
+        φ0 = 0,
+        compact = nothing,
+        fill = Materials.Material(:insulator, Inf),
+        combine::Symbol = :product
+)
+    values = (
+        material, shape, segment, segments, lay, dir, φ0,
+        compact, fill
+    )
+    return parameterize(DataModel.Enclosure, _milliken, values; combine)
 end
 
 function _rope(
@@ -997,6 +1166,12 @@ heterogeneous members and their local poses.
 # Returns
 
 - An `Assembly`, or a `Gridspace{Assembly}` when a direct argument varies.
+
+# Notes
+
+Origin-centred repeated sectors require the sector span to equal their angular
+pitch. Their resolved sides must not overlap. An outer insulating layer may
+close the clearance to zero; bare sectors require positive side clearance.
 """
 function cores(
         item;

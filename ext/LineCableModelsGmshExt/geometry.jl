@@ -913,6 +913,10 @@ function _shape_points(shape::DataModel.SectorShape)
     return DataModel.tessellate(shape; points_per_arc = 24)
 end
 
+function _shape_points(shape::DataModel.EllipseOffset)
+    return DataModel.tessellate(shape; points_per_arc = 96)
+end
+
 function _shape_points(shape::DataModel.BentStrip)
     return DataModel.tessellate(shape; points_per_arc = 24)
 end

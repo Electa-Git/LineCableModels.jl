@@ -341,7 +341,7 @@ function balance_power_cells(boundary, sites, targets; maxiter::Integer = 50)
     ))
 end
 
-function compact_power_cells(boundary, sites, targets; relaxations::Integer = 4)
+function compact_power_cells(boundary, sites, targets; relaxations::Integer = 1)
     current_sites = copy(sites)
     cells = Vector{eltype(boundary)}[]
     for pass in 1:Int(relaxations)
@@ -352,133 +352,81 @@ function compact_power_cells(boundary, sites, targets; relaxations::Integer = 4)
     return cells
 end
 
-function sector_course_sites(shape::SectorShape, members, polygon)
-    centre = centroid(shape)
-    maximum_course = maximum(member -> member.course, members)
-    maximum_course > 0 || throw(ArgumentError(
-        "a sector stranded formation requires at least one strand course"
-    ))
-    scale = maximum(point -> hypot(point[1] - centre[1], point[2] - centre[2]), polygon)
-    tolerance = 256eps(float(scale)) * max(scale, one(scale))
-    return map(members) do member
-        member.course > 0 || throw(ArgumentError(
-            "a sector stranded formation cannot contain a central member"
-        ))
-        angle = shape.at.φ + member.angle
-        direction = (cos(angle), sin(angle))
-        extent = oftype(scale, Inf)
-        for index in eachindex(polygon)
-            next = mod1(index + 1, length(polygon))
-            edge = (
-                polygon[next][1] - polygon[index][1],
-                polygon[next][2] - polygon[index][2]
-            )
-            denominator = edge[1] * direction[2] - edge[2] * direction[1]
-            denominator < -tolerance || continue
-            offset = (
-                centre[1] - polygon[index][1],
-                centre[2] - polygon[index][2]
-            )
-            numerator = edge[1] * offset[2] - edge[2] * offset[1]
-            candidate = numerator / -denominator
-            candidate >= -tolerance || continue
-            extent = min(extent, max(candidate, zero(candidate)))
+function axial_lattice(shells::Integer, spacing::Real)
+    shells >= 0 || throw(ArgumentError("axial lattice shell count must be nonnegative"))
+    T = typeof(float(spacing))
+    result = NamedTuple{(:site, :course), Tuple{Tuple{T, T}, Int}}[]
+    push!(result, (site = (zero(T), zero(T)), course = 0))
+    for course in 1:Int(shells)
+        coordinates = Tuple{Int, Int}[]
+        for q in (-course):course, r in (-course):course
+            max(abs(q), abs(r), abs(q + r)) == course || continue
+            push!(coordinates, (q, r))
         end
-        isfinite(extent) && extent > tolerance || throw(ArgumentError(
-            "a sector strand course could not be mapped inside its boundary"
+        sort!(coordinates; by = coordinate -> atan(
+            sqrt(T(3)) * (coordinate[2] + coordinate[1] / 2),
+            T(3) * coordinate[1] / 2
         ))
-        fraction = member.course / (maximum_course + 0.35)
-        return (
-            centre[1] + fraction * extent * direction[1],
-            centre[2] + fraction * extent * direction[2]
-        )
+        for (q, r) in coordinates
+            push!(result, (
+                site = (
+                    T(spacing) * (T(q) + T(r) / 2),
+                    T(spacing) * sqrt(T(3)) * T(r) / 2
+                ),
+                course
+            ))
+        end
     end
+    return result
 end
 
-function disk_course_sites(shape::Disk, members)
-    centre = (shape.at.x, shape.at.y)
-    maximum_course = maximum(member -> member.course, members)
-    maximum_course == 0 && return [centre]
-    sites = map(members) do member
-        member.course == 0 && return centre
-        radial_fraction = member.course / (maximum_course + 0.35)
-        radius = 0.92shape.r * radial_fraction
-        angle = member.angle
-        return (centre[1] + radius * cos(angle), centre[2] + radius * sin(angle))
+function disk_wire_sites(shape::Disk, centre::Disk, wire::Disk)
+    available = shape.r - wire.r
+    available >= zero(available) || throw(DomainError(
+        wire.r, "one circular wire does not fit inside the disk boundary"
+    ))
+    spacing = 2wire.r
+    shell_limit = ceil(Int, nominal(available / spacing)) + 2
+    tolerance = 256 * _geometry_tolerance(max(shape.r, centre.r, wire.r))
+    sites = NamedTuple[]
+    for candidate in Iterators.drop(axial_lattice(shell_limit, spacing), 1)
+        x = shape.at.x + candidate.site[1]
+        y = shape.at.y + candidate.site[2]
+        radius = hypot(candidate.site...)
+        radius + wire.r <= shape.r + tolerance || continue
+        radius + tolerance >= centre.r + wire.r || continue
+        push!(sites, (site = (x, y), course = candidate.course))
     end
+    isempty(sites) && throw(DomainError(
+        wire.r, "the disk boundary admits no strand outside its centre wire"
+    ))
     return sites
 end
 
-function compaction_factor(compact::FillFactor, source_area, boundary_area)
-    derived = source_area / boundary_area
-    positive = derived > zero(derived)
-    admissible = derived <= one(derived) ||
-                 isapprox(derived, one(derived); rtol = 2.0e-6, atol = zero(derived))
-    positive && admissible || throw(DomainError(
-        derived,
-        "bounded strand area must be positive and cannot exceed its boundary area"
-    ))
-    derived = min(derived, one(derived))
-    isapprox(compact.η, derived; rtol = 2.0e-6, atol = zero(derived)) ||
-        throw(DomainError(
-            compact.η,
-            "the declared fill factor conflicts with strand area / boundary area = $derived"
-        ))
-    return derived
-end
-
-function natural_disk_members(shape::Disk, members)
-    centre = (shape.at.x, shape.at.y)
-    resolved = Vector{AbstractShape}(undef, length(members))
-    outer_radius = zero(shape.r)
-    for course in 0:maximum(member -> member.course, members)
-        indices = findall(member -> member.course == course, members)
-        isempty(indices) && throw(ArgumentError(
-            "a natural circular formation must contain every declared course"
-        ))
-        radii = [members[index].source.primitive.r for index in indices]
-        radius = first(radii)
-        all(value -> isapprox(value, radius), radii) || throw(ArgumentError(
-            "one natural circular strand course requires equal wire radii"
-        ))
-        if iszero(course)
-            length(indices) == 1 || throw(ArgumentError(
-                "a natural circular formation requires exactly one central wire"
-            ))
-            resolved[only(indices)] = Disk(radius, Pose2(centre[1], centre[2], shape.at.φ))
-            outer_radius = radius
-            continue
-        end
-        lay_radius = outer_radius + radius
-        count = length(indices)
-        chord = count == 1 ? oftype(lay_radius, Inf) :
-                2lay_radius * sin(π / count)
-        tolerance = sqrt(eps(float(chord))) * max(one(chord), chord)
-        chord + tolerance >= 2radius || throw(DomainError(
-            count,
-            "natural circular strands overlap in course $course"
-        ))
-        for index in indices
-            angle = shape.at.φ + members[index].angle
-            pose = Pose2(
-                centre[1] + lay_radius * cos(angle),
-                centre[2] + lay_radius * sin(angle),
-                angle
-            )
-            resolved[index] = resolve(pose, members[index].source.primitive)
-        end
-        outer_radius = lay_radius + radius
+function compact_disk_sites(shape::Disk, count::Integer)
+    count > 0 || throw(ArgumentError("compacted disk inventory must be positive"))
+    count == 1 && return [(site = (shape.at.x, shape.at.y), course = 0)]
+    shell = 1
+    lattice = axial_lattice(shell, one(shape.r))
+    while length(lattice) < count
+        shell += 1
+        lattice = axial_lattice(shell, one(shape.r))
     end
-    tolerance = sqrt(eps(float(shape.r))) * max(one(shape.r), shape.r)
-    outer_radius <= shape.r + tolerance || throw(DomainError(
-        shape.r,
-        "the natural circular strands require radius $outer_radius"
-    ))
-    return resolved
+    selected = lattice[1:Int(count)]
+    outer = maximum(candidate -> hypot(candidate.site...), selected)
+    scale = iszero(outer) ? zero(shape.r) : 0.82shape.r / outer
+    return [(
+                site = (
+                    shape.at.x + scale * candidate.site[1],
+                    shape.at.y + scale * candidate.site[2]
+                ),
+                candidate.course
+            ) for candidate in selected]
 end
 
-function circle_inside_polygon(point, radius, polygon, tolerance)
-    for index in eachindex(polygon)
+function point_inside_convex(point, polygon)
+    tolerance = 256 * _geometry_tolerance(maximum(value -> hypot(value...), polygon))
+    return all(eachindex(polygon)) do index
         next = mod1(index + 1, length(polygon))
         edge = (
             polygon[next][1] - polygon[index][1],
@@ -488,100 +436,384 @@ function circle_inside_polygon(point, radius, polygon, tolerance)
             point[1] - polygon[index][1],
             point[2] - polygon[index][2]
         )
-        clearance = edge[1] * offset[2] - edge[2] * offset[1]
-        clearance + tolerance >= radius * hypot(edge...) || return false
+        edge[1] * offset[2] - edge[2] * offset[1] >= -tolerance
     end
-    return true
 end
 
-function order_sector_sites(sites, centre)
-    return sort(sites; by = point -> (
-        atan(point[2] - centre[2], point[1] - centre[1]),
-        hypot(point[1] - centre[1], point[2] - centre[2])
-    ))
-end
-
-function select_sector_sites(sites, count::Integer, centre)
-    count > 0 || throw(ArgumentError(
-        "a sector stranded formation requires at least one wire"
-    ))
-    count <= length(sites) || throw(DomainError(
-        count,
-        "the sector admits at most $(length(sites)) natural circular wires"
-    ))
-    count == length(sites) && return order_sector_sites(sites, centre)
-    available = collect(eachindex(sites))
-    first_index = findmin(index -> hypot(
-        sites[index][1] - centre[1], sites[index][2] - centre[2]
-    ), available)[2]
-    selected = Int[available[first_index]]
-    deleteat!(available, first_index)
-    while length(selected) < count
-        position = findmax(available) do candidate
-            minimum(selected) do accepted
-                (sites[candidate][1] - sites[accepted][1])^2 +
-                (sites[candidate][2] - sites[accepted][2])^2
+function sector_compact_sites(shape::SectorShape, count::Integer)
+    count > 0 || throw(ArgumentError("compacted sector inventory must be positive"))
+    polygon = boundary_polygon(shape; points = 64)
+    xs = first.(polygon)
+    ys = last.(polygon)
+    resolution = max(12, ceil(Int, sqrt(12count)))
+    candidates = Tuple{typeof(shape.at.x), typeof(shape.at.y)}[]
+    while length(candidates) < 4count
+        empty!(candidates)
+        for y in range(minimum(ys), maximum(ys); length = resolution)
+            for x in range(minimum(xs), maximum(xs); length = resolution)
+                point_inside_convex((x, y), polygon) && push!(candidates, (x, y))
             end
-        end[2]
-        push!(selected, available[position])
-        deleteat!(available, position)
+        end
+        resolution *= 2
+        resolution <= 2048 || throw(ArgumentError(
+            "could not seed the compacted sector inventory"
+        ))
     end
-    return order_sector_sites(sites[selected], centre)
+    centre = centroid(shape)
+    first_index = findmin(point -> hypot(
+        point[1] - centre[1], point[2] - centre[2]
+    ), candidates)[2]
+    selected = [candidates[first_index]]
+    deleteat!(candidates, first_index)
+    distances = [
+        (point[1] - selected[1][1])^2 + (point[2] - selected[1][2])^2
+        for point in candidates
+    ]
+    while length(selected) < count
+        index = findmax(distances)[2]
+        point = candidates[index]
+        push!(selected, point)
+        deleteat!(candidates, index)
+        deleteat!(distances, index)
+        for candidate in eachindex(candidates)
+            distance = (candidates[candidate][1] - point[1])^2 +
+                       (candidates[candidate][2] - point[2])^2
+            distances[candidate] = min(distances[candidate], distance)
+        end
+    end
+    return selected
+end
+
+function rectangular_strands(shape::Disk, centre::Disk, strand::Rectangle)
+    remaining_area = area(shape) - area(centre)
+    remaining_area > zero(remaining_area) || throw(DomainError(
+        centre.r, "the centre wire leaves no area for rectangular strands"
+    ))
+    count = floor(Int, nominal(remaining_area / area(strand)) +
+                       64eps(float(nominal(remaining_area / area(strand)))))
+    count > 0 || throw(DomainError(
+        area(strand), "one rectangular strand does not fit outside the centre wire"
+    ))
+    result = NamedTuple[]
+    inner = centre.r
+    remaining = count
+    course = 0
+    while remaining > 0
+        course += 1
+        mean_radius = inner + strand.h / 2
+        nominal_count = max(1, floor(Int, nominal(2pi * mean_radius / strand.w)))
+        member_count = min(remaining, nominal_count)
+        outer = sqrt(inner^2 + member_count * area(strand) / pi)
+        if outer > shape.r
+            member_count = min(
+                remaining,
+                floor(Int, nominal(pi * (shape.r^2 - inner^2) / area(strand)))
+            )
+            member_count > 0 || break
+            outer = sqrt(inner^2 + member_count * area(strand) / pi)
+        end
+        span = 2pi / member_count
+        for member in 1:member_count
+            angle = (member - 1) * span
+            primitive = BentStrip(
+                inner,
+                outer,
+                span,
+                Pose2(shape.at.x, shape.at.y, shape.at.φ + angle)
+            )
+            push!(result, (
+                primitive,
+                site = centroid(primitive),
+                course,
+                member
+            ))
+        end
+        inner = outer
+        remaining -= member_count
+    end
+    return result
+end
+
+function clearance(shape::SectorShape, centre)
+    cosine = cos(shape.at.φ)
+    sine = sin(shape.at.φ)
+    dx = centre[1] - shape.at.x
+    dy = centre[2] - shape.at.y
+    point = (cosine * dx + sine * dy, -sine * dx + cosine * dy)
+    distance = oftype(shape.primitive.r_back, Inf)
+
+    for segment in values(shape.contacts.segments)
+        first_point, last_point = segment
+        edge = (
+            last_point[1] - first_point[1],
+            last_point[2] - first_point[2]
+        )
+        edge_length = hypot(edge...)
+        outward = (edge[2] / edge_length, -edge[1] / edge_length)
+        clearance =
+            first_point[1] * outward[1] + first_point[2] * outward[2] -
+            point[1] * outward[1] - point[2] * outward[2]
+        distance = min(distance, clearance)
+    end
+
+    for arc in values(shape.contacts.arcs)
+        iszero(arc.radius) && continue
+        offset = (point[1] - arc.center[1], point[2] - arc.center[2])
+        direction = atan(offset[2], offset[1])
+        projection = if _angle_in_arc(direction, arc)
+            hypot(offset...)
+        else
+            max(
+                offset[1] * cos(arc.start) + offset[2] * sin(arc.start),
+                offset[1] * cos(arc.stop) + offset[2] * sin(arc.stop)
+            )
+        end
+        distance = min(distance, arc.radius - projection)
+    end
+    return distance
+end
+
+function accommodates(shape::SectorShape, centre, radius::Real)
+    tolerance = 256 * _geometry_tolerance(
+        max(shape.primitive.r_back, radius)
+    )
+    return _geometry_scalar(clearance(shape, centre) + tolerance - radius) >= 0
+end
+
+function sector_point(shape::SectorShape, radius, angle)
+    direction = shape.at.φ + angle
+    return (
+        shape.at.x + radius * cos(direction),
+        shape.at.y + radius * sin(direction)
+    )
+end
+
+function sector_limit(shape::SectorShape, radius, strand_radius)
+    accommodates(shape, sector_point(shape, radius, zero(radius)), strand_radius) ||
+        return nothing
+    lower = zero(shape.primitive.span)
+    upper = shape.primitive.span / 2
+    accommodates(shape, sector_point(shape, radius, upper), strand_radius) &&
+        return upper
+    for _ in 1:64
+        middle = (lower + upper) / 2
+        if accommodates(shape, sector_point(shape, radius, middle), strand_radius)
+            lower = middle
+        else
+            upper = middle
+        end
+    end
+    return lower
+end
+
+function shell_clear(left, right, diameter)
+    (isempty(left) || isempty(right)) && return true
+    scale = max(
+        diameter,
+        maximum(point -> hypot(point...), left),
+        maximum(point -> hypot(point...), right)
+    )
+    tolerance = 512 * _geometry_tolerance(scale)
+    threshold = _geometry_scalar(diameter - tolerance)
+    return all(left_point -> all(right_point ->
+            _geometry_scalar(hypot(
+                left_point[1] - right_point[1],
+                left_point[2] - right_point[2]
+            )) >= threshold, right), left)
+end
+
+function shell_gap(left, right)
+    return minimum(left_point -> minimum(right_point -> hypot(
+            left_point[1] - right_point[1],
+            left_point[2] - right_point[2]
+        ), right), left)
+end
+
+function shell_options(shape::SectorShape, radius, wire::Disk, shell::Int)
+    limit = sector_limit(shape, radius, wire.r)
+    limit === nothing && return NamedTuple[]
+    ratio = wire.r / radius
+    _geometry_scalar(ratio) <= 1 || return NamedTuple[]
+    minimum_step = 2asin(ratio)
+    width = 2limit
+    maximum_count = floor(Int,
+        _geometry_scalar(width / minimum_step) + 1 +
+        64eps(float(_geometry_scalar(width / minimum_step))))
+    maximum_count = max(maximum_count, 1)
+    phase_order = isodd(shell) ?
+                  (0.0, 1.0, 0.5, 0.25, 0.75, 0.125, 0.875, 0.375, 0.625) :
+                  (1.0, 0.0, 0.5, 0.75, 0.25, 0.875, 0.125, 0.625, 0.375)
+    options = NamedTuple[]
+    for count in maximum_count:-1:1
+        if count == 1
+            angles = (zero(limit),)
+            points = [sector_point(shape, radius, only(angles))]
+            push!(options, (radius, angles, points, count, arc = zero(radius)))
+            continue
+        end
+        maximum_step = width / (count - 1)
+        _geometry_scalar(maximum_step - minimum_step) >=
+            -256 * _geometry_tolerance(maximum_step) || continue
+        steps = typeof(minimum_step)[]
+        for fraction in phase_order
+            step = minimum_step + fraction * (maximum_step - minimum_step)
+            any(candidate -> isapprox(
+                    _geometry_scalar(candidate), _geometry_scalar(step);
+                    rtol = 64eps(float(_geometry_scalar(step))), atol = 0
+                ), steps) || push!(steps, step)
+        end
+        for step in steps
+            angles = ntuple(
+                index -> (index - (count + 1) / 2) * step,
+                count
+            )
+            points = [sector_point(shape, radius, angle) for angle in angles]
+            all(point -> accommodates(shape, point, wire.r), points) || continue
+            shell_clear(points, 2wire.r) || continue
+            push!(options, (
+                radius,
+                angles,
+                points,
+                count,
+                arc = radius * (last(angles) - first(angles))
+            ))
+        end
+    end
+    return options
+end
+
+function shell_clear(points, diameter)
+    length(points) < 2 && return true
+    scale = max(diameter, maximum(point -> hypot(point...), points))
+    tolerance = 512 * _geometry_tolerance(scale)
+    threshold = _geometry_scalar(diameter - tolerance)
+    return all(
+        _geometry_scalar(hypot(
+            points[left][1] - points[right][1],
+            points[left][2] - points[right][2]
+        )) >= threshold
+        for left in 1:(length(points) - 1)
+        for right in (left + 1):length(points)
+    )
+end
+
+function phase_layout(shape::SectorShape, wire::Disk, radii, odd_first::Bool)
+    states = NamedTuple[]
+    for (shell, radius) in enumerate(radii)
+        options = shell_options(shape, radius, wire, shell)
+        isempty(options) && return nothing
+        odd_shell = isodd(shell) == odd_first
+        candidates = filter(option -> isodd(option.count) == odd_shell, options)
+        isempty(candidates) && return nothing
+
+        if shell == 1
+            states = [(
+                layout = [candidate],
+                score = (
+                    candidate.count,
+                    zero(_geometry_scalar(candidate.arc)),
+                    _geometry_scalar(candidate.arc)
+                )
+            ) for candidate in candidates]
+            continue
+        end
+
+        next_states = NamedTuple[]
+        for candidate in candidates
+            best_state = nothing
+            best_score = nothing
+            for state in states
+                previous = last(state.layout)
+                candidate.count >= previous.count || continue
+                shell_clear(previous.points, candidate.points, 2wire.r) || continue
+                score = (
+                    state.score[1] + candidate.count,
+                    state.score[2] - abs(_geometry_scalar(
+                        shell_gap(previous.points, candidate.points) - 2wire.r
+                    )),
+                    state.score[3] + _geometry_scalar(candidate.arc)
+                )
+                if best_state === nothing || score > best_score
+                    best_state = state
+                    best_score = score
+                end
+            end
+            best_state === nothing && continue
+            push!(next_states, (
+                layout = [best_state.layout; candidate],
+                score = best_score
+            ))
+        end
+        isempty(next_states) && return nothing
+        states = next_states
+    end
+    best = first(states)
+    for state in Iterators.drop(states, 1)
+        state.score > best.score && (best = state)
+    end
+    return best.layout
 end
 
 function sector_wire_sites(shape::SectorShape, wire::Disk)
-    polygon = boundary_polygon(shape; points = 128)
-    centre = centroid(shape)
-    spacing = 2wire.r
-    scale = maximum(point -> hypot(
-        point[1] - centre[1], point[2] - centre[2]
-    ), polygon)
-    tolerance = 512eps(float(scale)) * max(scale, one(scale))
-    limit = ceil(Int, 2nominal(scale / spacing)) + 3
-    best = Tuple{typeof(centre[1]), typeof(centre[2])}[]
-    best_offset = oftype(float(nominal(scale)), Inf)
-    for orientation in range(shape.at.φ, shape.at.φ + π / 6; length = 4)
-        first_basis = (spacing * cos(orientation), spacing * sin(orientation))
-        second_basis = (
-            spacing * cos(orientation + π / 3),
-            spacing * sin(orientation + π / 3)
-        )
-        for first_phase in 0:4, second_phase in 0:4
-            first_fraction = first_phase / 5
-            second_fraction = second_phase / 5
-            sites = Tuple{typeof(centre[1]), typeof(centre[2])}[]
-            for first_index in -limit:limit, second_index in -limit:limit
-                first_coordinate = first_index + first_fraction
-                second_coordinate = second_index + second_fraction
-                point = (
-                    centre[1] + first_coordinate * first_basis[1] +
-                    second_coordinate * second_basis[1],
-                    centre[2] + first_coordinate * first_basis[2] +
-                    second_coordinate * second_basis[2]
-                )
-                circle_inside_polygon(point, wire.r, polygon, tolerance) &&
-                    push!(sites, point)
-            end
-            isempty(sites) && continue
-            site_centre = (
-                sum(first, sites) / length(sites),
-                sum(last, sites) / length(sites)
-            )
-            offset = hypot(
-                site_centre[1] - centre[1], site_centre[2] - centre[2]
-            )
-            if length(sites) > length(best) ||
-               (length(sites) == length(best) && offset < best_offset)
-                best = sites
-                best_offset = offset
-            end
-        end
-    end
-    isempty(best) && throw(DomainError(
+    minimum_pitch = sqrt(oftype(wire.r, 3)) * wire.r
+    maximum_pitch = 2wire.r
+    minimum_radius = shape.primitive.r_base + wire.r
+    maximum_radius = shape.primitive.r_back - wire.r
+    _geometry_scalar(maximum_radius - minimum_radius) >= 0 || throw(DomainError(
         wire.r,
         "one circular wire does not fit inside the sector boundary"
     ))
-    return order_sector_sites(best, centre)
+    best = nothing
+    best_score = nothing
+    tolerance = 256 * _geometry_tolerance(maximum_radius)
+    for pitch_fraction in range(0.0, 1.0; length = 9)
+        radial_pitch = minimum_pitch +
+                       pitch_fraction * (maximum_pitch - minimum_pitch)
+        ratio = _geometry_scalar(
+            (maximum_radius - minimum_radius) / radial_pitch
+        )
+        outer_phase = ratio - floor(ratio)
+        phases = collect(range(0.0, 1.0; length = 9))[1:(end - 1)]
+        any(phase -> isapprox(
+                phase, outer_phase; atol = 64eps(Float64), rtol = 0
+            ), phases) || push!(phases, outer_phase)
+        for phase in phases, odd_first in (true, false)
+            radii = typeof(minimum_radius)[]
+            radius = minimum_radius + phase * radial_pitch
+            while _geometry_scalar(radius - maximum_radius) <= tolerance
+                sector_limit(shape, radius, wire.r) === nothing || push!(radii, radius)
+                radius += radial_pitch
+            end
+            isempty(radii) && continue
+            layout = phase_layout(shape, wire, radii, odd_first)
+            layout === nothing && continue
+            count = sum(option -> option.count, layout)
+            arc = sum(option -> option.arc, layout)
+            radial_extent = last(layout).radius - first(layout).radius
+            contact = sum(2:length(layout); init = zero(radial_pitch)) do shell
+                -abs(shell_gap(layout[shell - 1].points, layout[shell].points) - 2wire.r)
+            end
+            score = (
+                count,
+                length(layout),
+                _geometry_scalar(radial_extent),
+                _geometry_scalar(arc),
+                _geometry_scalar(contact),
+                -pitch_fraction,
+                -phase,
+                odd_first
+            )
+            if best === nothing || score > best_score
+                best = layout
+                best_score = score
+            end
+        end
+    end
+    best === nothing && throw(DomainError(
+        wire.r,
+        "one circular wire does not fit inside the sector boundary"
+    ))
+    return reduce(vcat, getproperty.(best, :points))
 end
 
 function boundary_anchor(cell, boundary, centre)
@@ -645,43 +877,40 @@ function resolved_polygon(points, angle)
         dy = point[2] - centre[2]
         return (cosine * dx + sine * dy, -sine * dx + cosine * dy)
     end
-    return _polygon(Tuple(local_points), Pose2(centre[1], centre[2], angle))
+    return _polygon(local_points, Pose2(centre[1], centre[2], angle))
 end
 
-function compact_disk_members(boundary_shape, members, compact)
+function deform_disk_members(boundary_shape, members)
     all(member -> member.source.primitive isa Disk, members) || throw(ArgumentError(
         "boundary-constrained compaction currently requires circular source strands"
     ))
     source_areas = [area(member.source.primitive) for member in members]
     total_source_area = sum(source_areas)
-    compaction_factor(compact, total_source_area, area(boundary_shape))
+    nominal_source_areas = nominal.(source_areas)
+    nominal_total_source_area = sum(nominal_source_areas)
+    nominal_boundary_area = nominal(area(boundary_shape))
+    nominal_total_source_area <= nominal_boundary_area * (1 + 2.0e-6) ||
+        throw(DomainError(
+            total_source_area,
+            "the compacted strand inventory exceeds its authoritative boundary area"
+        ))
     points = boundary_shape isa Disk ? 256 : 64
-    coordinate_type = foldl(
-        promote_type,
-        (typeof(value) for value in source_areas);
-        init = eltype(boundary_shape)
-    )
-    polygon = [convert.(coordinate_type, point)
+    polygon = [nominal.(point)
                for point in boundary_polygon(boundary_shape; points)]
-    while total_source_area > signed_polygon_area(polygon) * (1 + 2.0e-6)
+    while nominal_total_source_area > signed_polygon_area(polygon) * (1 + 2.0e-6)
         points *= 2
         points <= 16_384 || throw(ArgumentError(
             "bounded compaction could not resolve the declared fill factor " *
             "within its geometric tolerance"
         ))
-        polygon = [convert.(coordinate_type, point)
+        polygon = [nominal.(point)
                    for point in boundary_polygon(boundary_shape; points)]
     end
-    targets = signed_polygon_area(polygon) .* source_areas ./ total_source_area
-    sites = if boundary_shape isa Disk
-        [convert.(coordinate_type, point)
-         for point in disk_course_sites(boundary_shape, members)]
-    else
-        [convert.(coordinate_type, point)
-         for point in sector_course_sites(boundary_shape, members, polygon)]
-    end
+    targets = signed_polygon_area(polygon) .* nominal_source_areas ./
+              nominal_total_source_area
+    sites = [nominal.(member.site) for member in members]
     cells = compact_power_cells(polygon, sites, targets)
-    centre = centroid(boundary_shape)
+    centre = nominal.(centroid(boundary_shape))
     return [
         resolved_polygon(
             area_preserving_strand(
@@ -690,24 +919,4 @@ function compact_disk_members(boundary_shape, members, compact)
             members[index].angle
         ) for index in eachindex(members)
     ]
-end
-
-function compact_bounded_members(boundary, members, compact, at::Pose2)
-    boundary_shape = resolve(at, boundary)
-    source_shapes = map(member -> member.source.primitive, members)
-    all(shape -> shape isa Disk, source_shapes) || throw(ArgumentError(
-        "stranded formations require circular source wires"
-    ))
-    resolved = if compact === nothing && boundary_shape isa Disk
-        natural_disk_members(boundary_shape, members)
-    elseif compact === nothing && boundary_shape isa SectorShape
-        [resolve(Pose2(member.site..., member.angle), member.source.primitive)
-         for member in members]
-    else
-        compact isa FillFactor || throw(ArgumentError(
-            "bounded strand deformation requires one FillFactor"
-        ))
-        compact_disk_members(boundary_shape, members, compact)
-    end
-    return resolved, boundary_shape
 end

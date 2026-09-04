@@ -1064,9 +1064,6 @@ function _radial_regions(regions)
         isapprox(material.mu_r, one(material.mu_r)) || throw(ArgumentError(
             "the coaxial reduction requires a nonmagnetic non-radial enclosure fill"
         ))
-        isempty(source.paths) || throw(ArgumentError(
-            "a non-radial enclosure fill cannot carry a longitudinal path"
-        ))
     end
     return radial
 end
@@ -1170,6 +1167,10 @@ function radial_components(design::CableDesign, ::Type{T}) where {T <: Real}
         nested = any(conductor_sources) do source
             source.primitive isa Union{Polygon, BentStrip} ||
                 source.source.primitive isa Rectangle ||
+                any(
+                    entry -> entry.pattern isa BoundedPlacement,
+                    source.placement.patterns
+                ) ||
                 length(source.placement.patterns) > 1 || length(source.paths) > 1
         end
         conductor = if nested

@@ -157,9 +157,7 @@ end
             stranded(
                 copper;
                 shape = Disk(0.35e-3),
-                layers = 2,
-                n = (6, 12),
-                compact = FillFactor(1),
+                compact = true,
                 boundary = Disk(sqrt(19) * 0.35e-3)
             )
         )
@@ -174,7 +172,8 @@ end
     @test all(
         region -> region.source.primitive isa Disk &&
                   region.primitive isa LineCableModels.DataModel.Polygon,
-        restored_compacted.geometry.regions
+        filter(region -> region.source.material.kind === :conductor,
+            restored_compacted.geometry.regions)
     )
 
     packed=build(
@@ -185,14 +184,11 @@ end
             stranded(
                 copper;
                 shape = Disk(0.35e-3),
-                layers = 2,
                 boundary = Disk(2e-3)
             )
         )
     )
     packed_record=IE.serialize_value(packed)
-    @test packed_record["root"]["item"]["items"][1]["items"][1]["boundary"]["kind"] ==
-          "disk"
     restored_packed=IE.deserialize_value(packed_record)
     @test restored_packed == packed
     @test IE.serialize_value(restored_packed) == packed_record
@@ -205,8 +201,6 @@ end
             stranded(
                 copper;
                 shape = Disk(0.35e-3),
-                layers = 2,
-                n = (6, 12),
                 lay = (LayRatio(12), Pitch(0.1)),
                 dir = (1, -1),
                 φ0 = (0.0, 0.2),
@@ -233,8 +227,6 @@ end
             stranded(
                 copper;
                 shape = Disk(0.35e-3),
-                layers = 1,
-                n = 6,
                 boundary = sector_boundary
             )
         )
@@ -243,7 +235,7 @@ end
     restored_bounded=IE.deserialize_value(bounded_record)
     @test restored_bounded == bounded
     @test IE.serialize_value(restored_bounded) == bounded_record
-    bounded_group=only(only(bounded.root.item.items).items)
+    bounded_group=only(bounded.root.item.items).item
     @test bounded_group isa Group
     @test bounded_group.boundary == sector_boundary
 
@@ -357,7 +349,6 @@ end
                 stranded(
                     TestFixtures.copper_material();
                     shape = Disk(0.5e-3),
-                    layers = 2,
                     boundary = Disk(3e-3)
                 )
             )

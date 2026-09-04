@@ -18,106 +18,85 @@
                                 "kind": "stack",
                                 "items": [
                                     {
-                                        "kind": "stack",
-                                        "items": [
-                                            {
-                                                "kind": "group",
-                                                "name": "core",
-                                                "pattern": null,
-                                                "compact": {
-                                                    "kind": "fill_factor",
-                                                    "η": {
-                                                        "value": 0.9282727454343798,
-                                                        "__type__": "Float64"
-                                                    }
-                                                },
-                                                "item": {
-                                                    "kind": "stack",
-                                                    "items": [
-                                                        {
-                                                            "kind": "group",
-                                                            "name": "strand",
-                                                            "pattern": null,
-                                                            "compact": null,
-                                                            "item": {
-                                                                "kind": "region",
-                                                                "tag": "wire",
-                                                                "material": "conductor_1",
-                                                                "primitive": {
-                                                                    "kind": "disk",
-                                                                    "r": {
-                                                                        "value": 0.00235,
-                                                                        "__type__": "Float64"
-                                                                    }
-                                                                }
-                                                            },
-                                                            "at": {
-                                                                "kind": "pose2",
-                                                                "x": {
-                                                                    "value": 0,
-                                                                    "__type__": "Float64"
-                                                                },
-                                                                "φ": {
-                                                                    "value": 0,
-                                                                    "__type__": "Float64"
-                                                                },
-                                                                "y": {
-                                                                    "value": 0,
+                                        "kind": "enclosure",
+                                        "tag": "stranded",
+                                        "item": {
+                                            "kind": "group",
+                                            "name": "core",
+                                            "pattern": null,
+                                            "compact": true,
+                                            "item": {
+                                                "kind": "stack",
+                                                "items": [
+                                                    {
+                                                        "kind": "group",
+                                                        "name": "strand",
+                                                        "pattern": null,
+                                                        "compact": null,
+                                                        "item": {
+                                                            "kind": "region",
+                                                            "tag": "wire",
+                                                            "material": "conductor_1",
+                                                            "primitive": {
+                                                                "kind": "disk",
+                                                                "r": {
+                                                                    "value": 0.00235,
                                                                     "__type__": "Float64"
                                                                 }
-                                                            },
-                                                            "path": null,
-                                                            "boundary": null
+                                                            }
                                                         },
-                                                        {
-                                                            "kind": "group",
-                                                            "name": "strand",
-                                                            "pattern": {
-                                                                "kind": "ring",
-                                                                "span": {
-                                                                    "value": 6.283185307179586,
-                                                                    "__type__": "Float64"
-                                                                },
-                                                                "φ0": {
-                                                                    "value": 0,
-                                                                    "__type__": "Float64"
-                                                                },
-                                                                "gap_frac": {
-                                                                    "value": 0,
-                                                                    "__type__": "Float64"
-                                                                },
-                                                                "r": null,
-                                                                "n": 6
+                                                        "at": {
+                                                            "kind": "pose2",
+                                                            "x": {
+                                                                "value": 0,
+                                                                "__type__": "Float64"
                                                             },
-                                                            "compact": null,
-                                                            "item": {
-                                                                "kind": "region",
-                                                                "tag": "wire",
-                                                                "material": "conductor_1",
-                                                                "primitive": {
-                                                                    "kind": "disk",
-                                                                    "r": {
-                                                                        "value": 0.00235,
-                                                                        "__type__": "Float64"
-                                                                    }
-                                                                }
+                                                            "φ": {
+                                                                "value": 0,
+                                                                "__type__": "Float64"
                                                             },
-                                                            "at": {
-                                                                "kind": "pose2",
-                                                                "x": {
-                                                                    "value": 0,
-                                                                    "__type__": "Float64"
-                                                                },
-                                                                "φ": {
-                                                                    "value": 0,
-                                                                    "__type__": "Float64"
-                                                                },
-                                                                "y": {
-                                                                    "value": 0,
+                                                            "y": {
+                                                                "value": 0,
+                                                                "__type__": "Float64"
+                                                            }
+                                                        },
+                                                        "path": null,
+                                                        "boundary": null
+                                                    },
+                                                    {
+                                                        "kind": "group",
+                                                        "name": "strand",
+                                                        "pattern": null,
+                                                        "compact": null,
+                                                        "item": {
+                                                            "kind": "region",
+                                                            "tag": "wire",
+                                                            "material": "conductor_1",
+                                                            "primitive": {
+                                                                "kind": "disk",
+                                                                "r": {
+                                                                    "value": 0.00235,
                                                                     "__type__": "Float64"
                                                                 }
+                                                            }
+                                                        },
+                                                        "at": {
+                                                            "kind": "pose2",
+                                                            "x": {
+                                                                "value": 0,
+                                                                "__type__": "Float64"
                                                             },
-                                                            "path": {
+                                                            "φ": {
+                                                                "value": 0,
+                                                                "__type__": "Float64"
+                                                            },
+                                                            "y": {
+                                                                "value": 0,
+                                                                "__type__": "Float64"
+                                                            }
+                                                        },
+                                                        "path": [
+                                                            {
                                                                 "kind": "helix",
                                                                 "φ0": {
                                                                     "value": 0,
@@ -132,60 +111,10 @@
                                                                 },
                                                                 "dir": 1
                                                             },
-                                                            "boundary": null
-                                                        },
-                                                        {
-                                                            "kind": "group",
-                                                            "name": "strand",
-                                                            "pattern": {
-                                                                "kind": "ring",
-                                                                "span": {
-                                                                    "value": 6.283185307179586,
-                                                                    "__type__": "Float64"
-                                                                },
-                                                                "φ0": {
-                                                                    "value": 0.5235987755982988,
-                                                                    "__type__": "Float64"
-                                                                },
-                                                                "gap_frac": {
-                                                                    "value": 0,
-                                                                    "__type__": "Float64"
-                                                                },
-                                                                "r": null,
-                                                                "n": 12
-                                                            },
-                                                            "compact": null,
-                                                            "item": {
-                                                                "kind": "region",
-                                                                "tag": "wire",
-                                                                "material": "conductor_1",
-                                                                "primitive": {
-                                                                    "kind": "disk",
-                                                                    "r": {
-                                                                        "value": 0.00235,
-                                                                        "__type__": "Float64"
-                                                                    }
-                                                                }
-                                                            },
-                                                            "at": {
-                                                                "kind": "pose2",
-                                                                "x": {
-                                                                    "value": 0,
-                                                                    "__type__": "Float64"
-                                                                },
-                                                                "φ": {
-                                                                    "value": 0,
-                                                                    "__type__": "Float64"
-                                                                },
-                                                                "y": {
-                                                                    "value": 0,
-                                                                    "__type__": "Float64"
-                                                                }
-                                                            },
-                                                            "path": {
+                                                            {
                                                                 "kind": "helix",
                                                                 "φ0": {
-                                                                    "value": 0.5235987755982988,
+                                                                    "value": 0,
                                                                     "__type__": "Float64"
                                                                 },
                                                                 "lay": {
@@ -197,60 +126,10 @@
                                                                 },
                                                                 "dir": 1
                                                             },
-                                                            "boundary": null
-                                                        },
-                                                        {
-                                                            "kind": "group",
-                                                            "name": "strand",
-                                                            "pattern": {
-                                                                "kind": "ring",
-                                                                "span": {
-                                                                    "value": 6.283185307179586,
-                                                                    "__type__": "Float64"
-                                                                },
-                                                                "φ0": {
-                                                                    "value": 0.7853981633974483,
-                                                                    "__type__": "Float64"
-                                                                },
-                                                                "gap_frac": {
-                                                                    "value": 0,
-                                                                    "__type__": "Float64"
-                                                                },
-                                                                "r": null,
-                                                                "n": 18
-                                                            },
-                                                            "compact": null,
-                                                            "item": {
-                                                                "kind": "region",
-                                                                "tag": "wire",
-                                                                "material": "conductor_1",
-                                                                "primitive": {
-                                                                    "kind": "disk",
-                                                                    "r": {
-                                                                        "value": 0.00235,
-                                                                        "__type__": "Float64"
-                                                                    }
-                                                                }
-                                                            },
-                                                            "at": {
-                                                                "kind": "pose2",
-                                                                "x": {
-                                                                    "value": 0,
-                                                                    "__type__": "Float64"
-                                                                },
-                                                                "φ": {
-                                                                    "value": 0,
-                                                                    "__type__": "Float64"
-                                                                },
-                                                                "y": {
-                                                                    "value": 0,
-                                                                    "__type__": "Float64"
-                                                                }
-                                                            },
-                                                            "path": {
+                                                            {
                                                                 "kind": "helix",
                                                                 "φ0": {
-                                                                    "value": 0.7853981633974483,
+                                                                    "value": 0,
                                                                     "__type__": "Float64"
                                                                 },
                                                                 "lay": {
@@ -262,60 +141,10 @@
                                                                 },
                                                                 "dir": 1
                                                             },
-                                                            "boundary": null
-                                                        },
-                                                        {
-                                                            "kind": "group",
-                                                            "name": "strand",
-                                                            "pattern": {
-                                                                "kind": "ring",
-                                                                "span": {
-                                                                    "value": 6.283185307179586,
-                                                                    "__type__": "Float64"
-                                                                },
-                                                                "φ0": {
-                                                                    "value": 0.9599310885968813,
-                                                                    "__type__": "Float64"
-                                                                },
-                                                                "gap_frac": {
-                                                                    "value": 0,
-                                                                    "__type__": "Float64"
-                                                                },
-                                                                "r": null,
-                                                                "n": 24
-                                                            },
-                                                            "compact": null,
-                                                            "item": {
-                                                                "kind": "region",
-                                                                "tag": "wire",
-                                                                "material": "conductor_1",
-                                                                "primitive": {
-                                                                    "kind": "disk",
-                                                                    "r": {
-                                                                        "value": 0.00235,
-                                                                        "__type__": "Float64"
-                                                                    }
-                                                                }
-                                                            },
-                                                            "at": {
-                                                                "kind": "pose2",
-                                                                "x": {
-                                                                    "value": 0,
-                                                                    "__type__": "Float64"
-                                                                },
-                                                                "φ": {
-                                                                    "value": 0,
-                                                                    "__type__": "Float64"
-                                                                },
-                                                                "y": {
-                                                                    "value": 0,
-                                                                    "__type__": "Float64"
-                                                                }
-                                                            },
-                                                            "path": {
+                                                            {
                                                                 "kind": "helix",
                                                                 "φ0": {
-                                                                    "value": 0.9599310885968813,
+                                                                    "value": 0,
                                                                     "__type__": "Float64"
                                                                 },
                                                                 "lay": {
@@ -327,40 +156,115 @@
                                                                 },
                                                                 "dir": 1
                                                             },
-                                                            "boundary": null
-                                                        }
-                                                    ]
-                                                },
-                                                "at": {
-                                                    "kind": "pose2",
-                                                    "x": {
-                                                        "value": 0,
-                                                        "__type__": "Float64"
-                                                    },
-                                                    "φ": {
-                                                        "value": 0,
-                                                        "__type__": "Float64"
-                                                    },
-                                                    "y": {
-                                                        "value": 0,
-                                                        "__type__": "Float64"
+                                                            {
+                                                                "kind": "helix",
+                                                                "φ0": {
+                                                                    "value": 0,
+                                                                    "__type__": "Float64"
+                                                                },
+                                                                "lay": {
+                                                                    "kind": "lay_ratio",
+                                                                    "q": {
+                                                                        "value": 11,
+                                                                        "__type__": "Float64"
+                                                                    }
+                                                                },
+                                                                "dir": 1
+                                                            }
+                                                        ],
+                                                        "boundary": null
                                                     }
+                                                ]
+                                            },
+                                            "at": {
+                                                "kind": "pose2",
+                                                "x": {
+                                                    "value": 0,
+                                                    "__type__": "Float64"
                                                 },
-                                                "path": null,
-                                                "boundary": {
-                                                    "kind": "disk",
-                                                    "r": {
-                                                        "value": 0.01905,
-                                                        "__type__": "Float64"
-                                                    }
+                                                "φ": {
+                                                    "value": 0,
+                                                    "__type__": "Float64"
+                                                },
+                                                "y": {
+                                                    "value": 0,
+                                                    "__type__": "Float64"
+                                                }
+                                            },
+                                            "path": null,
+                                            "boundary": {
+                                                "kind": "disk",
+                                                "r": {
+                                                    "value": 0.01905,
+                                                    "__type__": "Float64"
                                                 }
                                             }
-                                        ]
+                                        },
+                                        "at": {
+                                            "kind": "pose2",
+                                            "x": {
+                                                "value": 0,
+                                                "__type__": "Float64"
+                                            },
+                                            "φ": {
+                                                "value": 0,
+                                                "__type__": "Float64"
+                                            },
+                                            "y": {
+                                                "value": 0,
+                                                "__type__": "Float64"
+                                            }
+                                        },
+                                        "primitive": {
+                                            "kind": "disk",
+                                            "r": {
+                                                "value": 0.01905,
+                                                "__type__": "Float64"
+                                            }
+                                        },
+                                        "fill": "insulator_2",
+                                        "wall": null
                                     },
                                     {
                                         "kind": "region",
                                         "tag": "screen",
-                                        "material": "semicon_2",
+                                        "material": "semicon_3",
+                                        "primitive": {
+                                            "kind": "shell",
+                                            "t": {
+                                                "value": 0.0003,
+                                                "__type__": "Float64"
+                                            }
+                                        }
+                                    },
+                                    {
+                                        "kind": "region",
+                                        "tag": "screen",
+                                        "material": "semicon_4",
+                                        "primitive": {
+                                            "kind": "shell",
+                                            "t": {
+                                                "value": 0.0006,
+                                                "__type__": "Float64"
+                                            }
+                                        }
+                                    },
+                                    {
+                                        "kind": "region",
+                                        "tag": "insulation",
+                                        "material": "insulator_5",
+                                        "primitive": {
+                                            "kind": "shell",
+                                            "t": {
+                                                "value": 0.008,
+                                                "__type__": "Float64"
+                                            }
+                                        }
+                                    },
+                                    {
+                                        "kind": "region",
+                                        "tag": "screen",
+                                        "material": "semicon_6",
                                         "primitive": {
                                             "kind": "shell",
                                             "t": {
@@ -373,42 +277,6 @@
                                         "kind": "region",
                                         "tag": "screen",
                                         "material": "semicon_3",
-                                        "primitive": {
-                                            "kind": "shell",
-                                            "t": {
-                                                "value": 0.0006,
-                                                "__type__": "Float64"
-                                            }
-                                        }
-                                    },
-                                    {
-                                        "kind": "region",
-                                        "tag": "insulation",
-                                        "material": "insulator_4",
-                                        "primitive": {
-                                            "kind": "shell",
-                                            "t": {
-                                                "value": 0.008,
-                                                "__type__": "Float64"
-                                            }
-                                        }
-                                    },
-                                    {
-                                        "kind": "region",
-                                        "tag": "screen",
-                                        "material": "semicon_5",
-                                        "primitive": {
-                                            "kind": "shell",
-                                            "t": {
-                                                "value": 0.0003,
-                                                "__type__": "Float64"
-                                            }
-                                        }
-                                    },
-                                    {
-                                        "kind": "region",
-                                        "tag": "screen",
-                                        "material": "semicon_2",
                                         "primitive": {
                                             "kind": "shell",
                                             "t": {
@@ -472,7 +340,7 @@
                                         "item": {
                                             "kind": "region",
                                             "tag": "screen_wire",
-                                            "material": "conductor_6",
+                                            "material": "conductor_7",
                                             "primitive": {
                                                 "kind": "disk",
                                                 "r": {
@@ -537,7 +405,7 @@
                                         "item": {
                                             "kind": "region",
                                             "tag": "copper_tape",
-                                            "material": "conductor_6",
+                                            "material": "conductor_7",
                                             "primitive": {
                                                 "kind": "rectangle",
                                                 "w": {
@@ -605,7 +473,7 @@
                         {
                             "kind": "region",
                             "tag": "screen",
-                            "material": "semicon_2",
+                            "material": "semicon_3",
                             "primitive": {
                                 "kind": "shell",
                                 "t": {
@@ -657,7 +525,7 @@
                         {
                             "kind": "region",
                             "tag": "jacket",
-                            "material": "insulator_4",
+                            "material": "insulator_5",
                             "primitive": {
                                 "kind": "shell",
                                 "t": {
@@ -669,7 +537,7 @@
                         {
                             "kind": "region",
                             "tag": "jacket",
-                            "material": "insulator_4",
+                            "material": "insulator_5",
                             "primitive": {
                                 "kind": "shell",
                                 "t": {
@@ -700,479 +568,155 @@
                                 "kind": "stack",
                                 "items": [
                                     {
-                                        "kind": "stack",
-                                        "items": [
-                                            {
-                                                "kind": "group",
-                                                "name": "core",
-                                                "pattern": null,
-                                                "compact": {
-                                                    "kind": "fill_factor",
-                                                    "η": {
-                                                        "value": 0.7957304858771558,
-                                                        "__type__": "Float64"
-                                                    }
-                                                },
-                                                "item": {
-                                                    "kind": "stack",
-                                                    "items": [
-                                                        {
-                                                            "kind": "group",
-                                                            "name": "strand",
-                                                            "pattern": null,
-                                                            "compact": null,
-                                                            "item": {
-                                                                "kind": "region",
-                                                                "tag": "wire",
-                                                                "material": "conductor_6",
-                                                                "primitive": {
-                                                                    "kind": "disk",
-                                                                    "r": {
-                                                                        "value": 0.00183245,
-                                                                        "__type__": "Float64"
-                                                                    }
-                                                                }
-                                                            },
-                                                            "at": {
-                                                                "kind": "pose2",
-                                                                "x": {
-                                                                    "value": 0,
-                                                                    "__type__": "Float64"
-                                                                },
-                                                                "φ": {
-                                                                    "value": 0,
-                                                                    "__type__": "Float64"
-                                                                },
-                                                                "y": {
-                                                                    "value": 0,
+                                        "kind": "enclosure",
+                                        "tag": "stranded",
+                                        "item": {
+                                            "kind": "group",
+                                            "name": "core",
+                                            "pattern": null,
+                                            "compact": true,
+                                            "item": {
+                                                "kind": "stack",
+                                                "items": [
+                                                    {
+                                                        "kind": "group",
+                                                        "name": "strand",
+                                                        "pattern": null,
+                                                        "compact": null,
+                                                        "item": {
+                                                            "kind": "region",
+                                                            "tag": "wire",
+                                                            "material": "conductor_7",
+                                                            "primitive": {
+                                                                "kind": "disk",
+                                                                "r": {
+                                                                    "value": 0.00183245,
                                                                     "__type__": "Float64"
                                                                 }
-                                                            },
-                                                            "path": null,
-                                                            "boundary": null
+                                                            }
                                                         },
-                                                        {
-                                                            "kind": "group",
-                                                            "name": "strand",
-                                                            "pattern": {
-                                                                "kind": "ring",
-                                                                "span": {
-                                                                    "value": 6.283185307179586,
-                                                                    "__type__": "Float64"
-                                                                },
-                                                                "φ0": {
-                                                                    "value": 0,
-                                                                    "__type__": "Float64"
-                                                                },
-                                                                "gap_frac": {
-                                                                    "value": 0,
-                                                                    "__type__": "Float64"
-                                                                },
-                                                                "r": null,
-                                                                "n": 6
+                                                        "at": {
+                                                            "kind": "pose2",
+                                                            "x": {
+                                                                "value": 0,
+                                                                "__type__": "Float64"
                                                             },
-                                                            "compact": null,
-                                                            "item": {
-                                                                "kind": "region",
-                                                                "tag": "wire",
-                                                                "material": "conductor_6",
-                                                                "primitive": {
-                                                                    "kind": "disk",
-                                                                    "r": {
-                                                                        "value": 0.00183245,
-                                                                        "__type__": "Float64"
-                                                                    }
-                                                                }
+                                                            "φ": {
+                                                                "value": 0,
+                                                                "__type__": "Float64"
                                                             },
-                                                            "at": {
-                                                                "kind": "pose2",
-                                                                "x": {
-                                                                    "value": 0,
-                                                                    "__type__": "Float64"
-                                                                },
-                                                                "φ": {
-                                                                    "value": 0,
-                                                                    "__type__": "Float64"
-                                                                },
-                                                                "y": {
-                                                                    "value": 0,
-                                                                    "__type__": "Float64"
-                                                                }
-                                                            },
-                                                            "path": {
-                                                                "kind": "helix",
-                                                                "φ0": {
-                                                                    "value": 0,
-                                                                    "__type__": "Float64"
-                                                                },
-                                                                "lay": {
-                                                                    "kind": "lay_ratio",
-                                                                    "q": {
-                                                                        "value": 11,
-                                                                        "__type__": "Float64"
-                                                                    }
-                                                                },
-                                                                "dir": 1
-                                                            },
-                                                            "boundary": null
+                                                            "y": {
+                                                                "value": 0,
+                                                                "__type__": "Float64"
+                                                            }
                                                         },
-                                                        {
-                                                            "kind": "group",
-                                                            "name": "strand",
-                                                            "pattern": {
-                                                                "kind": "ring",
-                                                                "span": {
-                                                                    "value": 6.283185307179586,
-                                                                    "__type__": "Float64"
-                                                                },
-                                                                "φ0": {
-                                                                    "value": 0.5235987755982988,
-                                                                    "__type__": "Float64"
-                                                                },
-                                                                "gap_frac": {
-                                                                    "value": 0,
-                                                                    "__type__": "Float64"
-                                                                },
-                                                                "r": null,
-                                                                "n": 12
-                                                            },
-                                                            "compact": null,
-                                                            "item": {
-                                                                "kind": "region",
-                                                                "tag": "wire",
-                                                                "material": "conductor_6",
-                                                                "primitive": {
-                                                                    "kind": "disk",
-                                                                    "r": {
-                                                                        "value": 0.00183245,
-                                                                        "__type__": "Float64"
-                                                                    }
-                                                                }
-                                                            },
-                                                            "at": {
-                                                                "kind": "pose2",
-                                                                "x": {
-                                                                    "value": 0,
-                                                                    "__type__": "Float64"
-                                                                },
-                                                                "φ": {
-                                                                    "value": 0,
-                                                                    "__type__": "Float64"
-                                                                },
-                                                                "y": {
-                                                                    "value": 0,
-                                                                    "__type__": "Float64"
-                                                                }
-                                                            },
-                                                            "path": {
-                                                                "kind": "helix",
-                                                                "φ0": {
-                                                                    "value": 0.5235987755982988,
-                                                                    "__type__": "Float64"
-                                                                },
-                                                                "lay": {
-                                                                    "kind": "lay_ratio",
-                                                                    "q": {
-                                                                        "value": 11,
-                                                                        "__type__": "Float64"
-                                                                    }
-                                                                },
-                                                                "dir": 1
-                                                            },
-                                                            "boundary": null
-                                                        },
-                                                        {
-                                                            "kind": "group",
-                                                            "name": "strand",
-                                                            "pattern": {
-                                                                "kind": "ring",
-                                                                "span": {
-                                                                    "value": 6.283185307179586,
-                                                                    "__type__": "Float64"
-                                                                },
-                                                                "φ0": {
-                                                                    "value": 0.7853981633974483,
-                                                                    "__type__": "Float64"
-                                                                },
-                                                                "gap_frac": {
-                                                                    "value": 0,
-                                                                    "__type__": "Float64"
-                                                                },
-                                                                "r": null,
-                                                                "n": 18
-                                                            },
-                                                            "compact": null,
-                                                            "item": {
-                                                                "kind": "region",
-                                                                "tag": "wire",
-                                                                "material": "conductor_6",
-                                                                "primitive": {
-                                                                    "kind": "disk",
-                                                                    "r": {
-                                                                        "value": 0.00183245,
-                                                                        "__type__": "Float64"
-                                                                    }
-                                                                }
-                                                            },
-                                                            "at": {
-                                                                "kind": "pose2",
-                                                                "x": {
-                                                                    "value": 0,
-                                                                    "__type__": "Float64"
-                                                                },
-                                                                "φ": {
-                                                                    "value": 0,
-                                                                    "__type__": "Float64"
-                                                                },
-                                                                "y": {
-                                                                    "value": 0,
-                                                                    "__type__": "Float64"
-                                                                }
-                                                            },
-                                                            "path": {
-                                                                "kind": "helix",
-                                                                "φ0": {
-                                                                    "value": 0.7853981633974483,
-                                                                    "__type__": "Float64"
-                                                                },
-                                                                "lay": {
-                                                                    "kind": "lay_ratio",
-                                                                    "q": {
-                                                                        "value": 11,
-                                                                        "__type__": "Float64"
-                                                                    }
-                                                                },
-                                                                "dir": 1
-                                                            },
-                                                            "boundary": null
-                                                        },
-                                                        {
-                                                            "kind": "group",
-                                                            "name": "strand",
-                                                            "pattern": {
-                                                                "kind": "ring",
-                                                                "span": {
-                                                                    "value": 6.283185307179586,
-                                                                    "__type__": "Float64"
-                                                                },
-                                                                "φ0": {
-                                                                    "value": 0.9599310885968813,
-                                                                    "__type__": "Float64"
-                                                                },
-                                                                "gap_frac": {
-                                                                    "value": 0,
-                                                                    "__type__": "Float64"
-                                                                },
-                                                                "r": null,
-                                                                "n": 24
-                                                            },
-                                                            "compact": null,
-                                                            "item": {
-                                                                "kind": "region",
-                                                                "tag": "wire",
-                                                                "material": "conductor_6",
-                                                                "primitive": {
-                                                                    "kind": "disk",
-                                                                    "r": {
-                                                                        "value": 0.00183245,
-                                                                        "__type__": "Float64"
-                                                                    }
-                                                                }
-                                                            },
-                                                            "at": {
-                                                                "kind": "pose2",
-                                                                "x": {
-                                                                    "value": 0,
-                                                                    "__type__": "Float64"
-                                                                },
-                                                                "φ": {
-                                                                    "value": 0,
-                                                                    "__type__": "Float64"
-                                                                },
-                                                                "y": {
-                                                                    "value": 0,
-                                                                    "__type__": "Float64"
-                                                                }
-                                                            },
-                                                            "path": {
-                                                                "kind": "helix",
-                                                                "φ0": {
-                                                                    "value": 0.9599310885968813,
-                                                                    "__type__": "Float64"
-                                                                },
-                                                                "lay": {
-                                                                    "kind": "lay_ratio",
-                                                                    "q": {
-                                                                        "value": 11,
-                                                                        "__type__": "Float64"
-                                                                    }
-                                                                },
-                                                                "dir": 1
-                                                            },
-                                                            "boundary": null
-                                                        },
-                                                        {
-                                                            "kind": "group",
-                                                            "name": "strand",
-                                                            "pattern": {
-                                                                "kind": "ring",
-                                                                "span": {
-                                                                    "value": 6.283185307179586,
-                                                                    "__type__": "Float64"
-                                                                },
-                                                                "φ0": {
-                                                                    "value": 1.090830782496456,
-                                                                    "__type__": "Float64"
-                                                                },
-                                                                "gap_frac": {
-                                                                    "value": 0,
-                                                                    "__type__": "Float64"
-                                                                },
-                                                                "r": null,
-                                                                "n": 30
-                                                            },
-                                                            "compact": null,
-                                                            "item": {
-                                                                "kind": "region",
-                                                                "tag": "wire",
-                                                                "material": "conductor_6",
-                                                                "primitive": {
-                                                                    "kind": "disk",
-                                                                    "r": {
-                                                                        "value": 0.00183245,
-                                                                        "__type__": "Float64"
-                                                                    }
-                                                                }
-                                                            },
-                                                            "at": {
-                                                                "kind": "pose2",
-                                                                "x": {
-                                                                    "value": 0,
-                                                                    "__type__": "Float64"
-                                                                },
-                                                                "φ": {
-                                                                    "value": 0,
-                                                                    "__type__": "Float64"
-                                                                },
-                                                                "y": {
-                                                                    "value": 0,
-                                                                    "__type__": "Float64"
-                                                                }
-                                                            },
-                                                            "path": {
-                                                                "kind": "helix",
-                                                                "φ0": {
-                                                                    "value": 1.090830782496456,
-                                                                    "__type__": "Float64"
-                                                                },
-                                                                "lay": {
-                                                                    "kind": "lay_ratio",
-                                                                    "q": {
-                                                                        "value": 11,
-                                                                        "__type__": "Float64"
-                                                                    }
-                                                                },
-                                                                "dir": 1
-                                                            },
-                                                            "boundary": null
-                                                        },
-                                                        {
-                                                            "kind": "group",
-                                                            "name": "strand",
-                                                            "pattern": {
-                                                                "kind": "ring",
-                                                                "span": {
-                                                                    "value": 6.283185307179586,
-                                                                    "__type__": "Float64"
-                                                                },
-                                                                "φ0": {
-                                                                    "value": 1.1955505376161157,
-                                                                    "__type__": "Float64"
-                                                                },
-                                                                "gap_frac": {
-                                                                    "value": 0,
-                                                                    "__type__": "Float64"
-                                                                },
-                                                                "r": null,
-                                                                "n": 36
-                                                            },
-                                                            "compact": null,
-                                                            "item": {
-                                                                "kind": "region",
-                                                                "tag": "wire",
-                                                                "material": "conductor_6",
-                                                                "primitive": {
-                                                                    "kind": "disk",
-                                                                    "r": {
-                                                                        "value": 0.00183245,
-                                                                        "__type__": "Float64"
-                                                                    }
-                                                                }
-                                                            },
-                                                            "at": {
-                                                                "kind": "pose2",
-                                                                "x": {
-                                                                    "value": 0,
-                                                                    "__type__": "Float64"
-                                                                },
-                                                                "φ": {
-                                                                    "value": 0,
-                                                                    "__type__": "Float64"
-                                                                },
-                                                                "y": {
-                                                                    "value": 0,
-                                                                    "__type__": "Float64"
-                                                                }
-                                                            },
-                                                            "path": {
-                                                                "kind": "helix",
-                                                                "φ0": {
-                                                                    "value": 1.1955505376161157,
-                                                                    "__type__": "Float64"
-                                                                },
-                                                                "lay": {
-                                                                    "kind": "lay_ratio",
-                                                                    "q": {
-                                                                        "value": 11,
-                                                                        "__type__": "Float64"
-                                                                    }
-                                                                },
-                                                                "dir": 1
-                                                            },
-                                                            "boundary": null
-                                                        }
-                                                    ]
-                                                },
-                                                "at": {
-                                                    "kind": "pose2",
-                                                    "x": {
-                                                        "value": 0,
-                                                        "__type__": "Float64"
+                                                        "path": null,
+                                                        "boundary": null
                                                     },
-                                                    "φ": {
-                                                        "value": 0,
-                                                        "__type__": "Float64"
-                                                    },
-                                                    "y": {
-                                                        "value": 0,
-                                                        "__type__": "Float64"
+                                                    {
+                                                        "kind": "group",
+                                                        "name": "strand",
+                                                        "pattern": null,
+                                                        "compact": null,
+                                                        "item": {
+                                                            "kind": "region",
+                                                            "tag": "wire",
+                                                            "material": "conductor_7",
+                                                            "primitive": {
+                                                                "kind": "disk",
+                                                                "r": {
+                                                                    "value": 0.00183245,
+                                                                    "__type__": "Float64"
+                                                                }
+                                                            }
+                                                        },
+                                                        "at": {
+                                                            "kind": "pose2",
+                                                            "x": {
+                                                                "value": 0,
+                                                                "__type__": "Float64"
+                                                            },
+                                                            "φ": {
+                                                                "value": 0,
+                                                                "__type__": "Float64"
+                                                            },
+                                                            "y": {
+                                                                "value": 0,
+                                                                "__type__": "Float64"
+                                                            }
+                                                        },
+                                                        "path": {
+                                                            "kind": "helix",
+                                                            "φ0": {
+                                                                "value": 0,
+                                                                "__type__": "Float64"
+                                                            },
+                                                            "lay": {
+                                                                "kind": "lay_ratio",
+                                                                "q": {
+                                                                    "value": 11,
+                                                                    "__type__": "Float64"
+                                                                }
+                                                            },
+                                                            "dir": 1
+                                                        },
+                                                        "boundary": null
                                                     }
+                                                ]
+                                            },
+                                            "at": {
+                                                "kind": "pose2",
+                                                "x": {
+                                                    "value": 0,
+                                                    "__type__": "Float64"
                                                 },
-                                                "path": null,
-                                                "boundary": {
-                                                    "kind": "disk",
-                                                    "r": {
-                                                        "value": 0.02315,
-                                                        "__type__": "Float64"
-                                                    }
+                                                "φ": {
+                                                    "value": 0,
+                                                    "__type__": "Float64"
+                                                },
+                                                "y": {
+                                                    "value": 0,
+                                                    "__type__": "Float64"
+                                                }
+                                            },
+                                            "path": null,
+                                            "boundary": {
+                                                "kind": "disk",
+                                                "r": {
+                                                    "value": 0.02315,
+                                                    "__type__": "Float64"
                                                 }
                                             }
-                                        ]
+                                        },
+                                        "at": {
+                                            "kind": "pose2",
+                                            "x": {
+                                                "value": 0,
+                                                "__type__": "Float64"
+                                            },
+                                            "φ": {
+                                                "value": 0,
+                                                "__type__": "Float64"
+                                            },
+                                            "y": {
+                                                "value": 0,
+                                                "__type__": "Float64"
+                                            }
+                                        },
+                                        "primitive": {
+                                            "kind": "disk",
+                                            "r": {
+                                                "value": 0.02315,
+                                                "__type__": "Float64"
+                                            }
+                                        },
+                                        "fill": "insulator_2",
+                                        "wall": null
                                     },
                                     {
                                         "kind": "region",
                                         "tag": "screen",
-                                        "material": "semicon_3",
+                                        "material": "semicon_4",
                                         "primitive": {
                                             "kind": "shell",
                                             "t": {
@@ -1184,7 +728,7 @@
                                     {
                                         "kind": "region",
                                         "tag": "insulation",
-                                        "material": "insulator_4",
+                                        "material": "insulator_5",
                                         "primitive": {
                                             "kind": "shell",
                                             "t": {
@@ -1196,7 +740,7 @@
                                     {
                                         "kind": "region",
                                         "tag": "screen",
-                                        "material": "semicon_5",
+                                        "material": "semicon_6",
                                         "primitive": {
                                             "kind": "shell",
                                             "t": {
@@ -1208,7 +752,7 @@
                                     {
                                         "kind": "region",
                                         "tag": "screen",
-                                        "material": "semicon_2",
+                                        "material": "semicon_3",
                                         "primitive": {
                                             "kind": "shell",
                                             "t": {
@@ -1248,7 +792,7 @@
                                     {
                                         "kind": "region",
                                         "tag": "sheath",
-                                        "material": "conductor_7",
+                                        "material": "conductor_8",
                                         "primitive": {
                                             "kind": "shell",
                                             "t": {
@@ -1280,7 +824,7 @@
                         {
                             "kind": "region",
                             "tag": "jacket",
-                            "material": "insulator_4",
+                            "material": "insulator_5",
                             "primitive": {
                                 "kind": "shell",
                                 "t": {
@@ -1292,7 +836,7 @@
                         {
                             "kind": "region",
                             "tag": "bedding",
-                            "material": "insulator_8",
+                            "material": "insulator_9",
                             "primitive": {
                                 "kind": "shell",
                                 "t": {
@@ -1333,7 +877,7 @@
                                         "item": {
                                             "kind": "region",
                                             "tag": "armor_wire",
-                                            "material": "conductor_9",
+                                            "material": "conductor_10",
                                             "primitive": {
                                                 "kind": "disk",
                                                 "r": {
@@ -1397,7 +941,7 @@
                         {
                             "kind": "region",
                             "tag": "jacket",
-                            "material": "insulator_8",
+                            "material": "insulator_9",
                             "primitive": {
                                 "kind": "shell",
                                 "t": {
@@ -1436,6 +980,123 @@
                 "__type__": "Float64"
             },
             "eps_r": {
+                "value": 32.3,
+                "__type__": "Float64"
+            },
+            "mu_r": {
+                "value": 1,
+                "__type__": "Float64"
+            },
+            "tan_delta": {
+                "value": 0,
+                "__type__": "Float64"
+            },
+            "sigma_solar": {
+                "value": 0,
+                "__type__": "Float64"
+            },
+            "rho": {
+                "value": 5300,
+                "__type__": "Float64"
+            }
+        },
+        "semicon_6": {
+            "kind": "semicon",
+            "rho_thermal": {
+                "value": 0,
+                "__type__": "Float64"
+            },
+            "T0": {
+                "value": 20,
+                "__type__": "Float64"
+            },
+            "theta_max": {
+                "value": 90,
+                "__type__": "Float64"
+            },
+            "alpha": {
+                "value": 0,
+                "__type__": "Float64"
+            },
+            "eps_r": {
+                "value": 1000,
+                "__type__": "Float64"
+            },
+            "mu_r": {
+                "value": 1,
+                "__type__": "Float64"
+            },
+            "tan_delta": {
+                "value": 0,
+                "__type__": "Float64"
+            },
+            "sigma_solar": {
+                "value": 0,
+                "__type__": "Float64"
+            },
+            "rho": {
+                "value": 500,
+                "__type__": "Float64"
+            }
+        },
+        "conductor_8": {
+            "kind": "conductor",
+            "rho_thermal": {
+                "value": 0,
+                "__type__": "Float64"
+            },
+            "T0": {
+                "value": 20,
+                "__type__": "Float64"
+            },
+            "theta_max": {
+                "value": 90,
+                "__type__": "Float64"
+            },
+            "alpha": {
+                "value": 0.004,
+                "__type__": "Float64"
+            },
+            "eps_r": {
+                "value": 1,
+                "__type__": "Float64"
+            },
+            "mu_r": {
+                "value": 0.999983,
+                "__type__": "Float64"
+            },
+            "tan_delta": {
+                "value": 0,
+                "__type__": "Float64"
+            },
+            "sigma_solar": {
+                "value": 0,
+                "__type__": "Float64"
+            },
+            "rho": {
+                "value": 2.14e-7,
+                "__type__": "Float64"
+            }
+        },
+        "semicon_4": {
+            "kind": "semicon",
+            "rho_thermal": {
+                "value": 0,
+                "__type__": "Float64"
+            },
+            "T0": {
+                "value": 20,
+                "__type__": "Float64"
+            },
+            "theta_max": {
+                "value": 90,
+                "__type__": "Float64"
+            },
+            "alpha": {
+                "value": 0,
+                "__type__": "Float64"
+            },
+            "eps_r": {
                 "value": 1000,
                 "__type__": "Float64"
             },
@@ -1456,7 +1117,7 @@
                 "__type__": "Float64"
             }
         },
-        "insulator_4": {
+        "insulator_5": {
             "kind": "insulator",
             "rho_thermal": {
                 "value": 0,
@@ -1492,45 +1153,6 @@
             },
             "rho": {
                 "value": 197000000000000,
-                "__type__": "Float64"
-            }
-        },
-        "insulator_8": {
-            "kind": "insulator",
-            "rho_thermal": {
-                "value": 0,
-                "__type__": "Float64"
-            },
-            "T0": {
-                "value": 20,
-                "__type__": "Float64"
-            },
-            "theta_max": {
-                "value": 90,
-                "__type__": "Float64"
-            },
-            "alpha": {
-                "value": 0,
-                "__type__": "Float64"
-            },
-            "eps_r": {
-                "value": 2.8,
-                "__type__": "Float64"
-            },
-            "mu_r": {
-                "value": 1,
-                "__type__": "Float64"
-            },
-            "tan_delta": {
-                "value": 0,
-                "__type__": "Float64"
-            },
-            "sigma_solar": {
-                "value": 0,
-                "__type__": "Float64"
-            },
-            "rho": {
-                "value": 1000000000000000,
                 "__type__": "Float64"
             }
         },
@@ -1573,85 +1195,7 @@
                 "__type__": "Float64"
             }
         },
-        "semicon_2": {
-            "kind": "semicon",
-            "rho_thermal": {
-                "value": 0,
-                "__type__": "Float64"
-            },
-            "T0": {
-                "value": 20,
-                "__type__": "Float64"
-            },
-            "theta_max": {
-                "value": 90,
-                "__type__": "Float64"
-            },
-            "alpha": {
-                "value": 0,
-                "__type__": "Float64"
-            },
-            "eps_r": {
-                "value": 32.3,
-                "__type__": "Float64"
-            },
-            "mu_r": {
-                "value": 1,
-                "__type__": "Float64"
-            },
-            "tan_delta": {
-                "value": 0,
-                "__type__": "Float64"
-            },
-            "sigma_solar": {
-                "value": 0,
-                "__type__": "Float64"
-            },
-            "rho": {
-                "value": 5300,
-                "__type__": "Float64"
-            }
-        },
         "conductor_7": {
-            "kind": "conductor",
-            "rho_thermal": {
-                "value": 0,
-                "__type__": "Float64"
-            },
-            "T0": {
-                "value": 20,
-                "__type__": "Float64"
-            },
-            "theta_max": {
-                "value": 90,
-                "__type__": "Float64"
-            },
-            "alpha": {
-                "value": 0.004,
-                "__type__": "Float64"
-            },
-            "eps_r": {
-                "value": 1,
-                "__type__": "Float64"
-            },
-            "mu_r": {
-                "value": 0.999983,
-                "__type__": "Float64"
-            },
-            "tan_delta": {
-                "value": 0,
-                "__type__": "Float64"
-            },
-            "sigma_solar": {
-                "value": 0,
-                "__type__": "Float64"
-            },
-            "rho": {
-                "value": 2.14e-7,
-                "__type__": "Float64"
-            }
-        },
-        "conductor_6": {
             "kind": "conductor",
             "rho_thermal": {
                 "value": 0,
@@ -1690,7 +1234,46 @@
                 "__type__": "Float64"
             }
         },
-        "conductor_9": {
+        "insulator_9": {
+            "kind": "insulator",
+            "rho_thermal": {
+                "value": 0,
+                "__type__": "Float64"
+            },
+            "T0": {
+                "value": 20,
+                "__type__": "Float64"
+            },
+            "theta_max": {
+                "value": 90,
+                "__type__": "Float64"
+            },
+            "alpha": {
+                "value": 0,
+                "__type__": "Float64"
+            },
+            "eps_r": {
+                "value": 2.8,
+                "__type__": "Float64"
+            },
+            "mu_r": {
+                "value": 1,
+                "__type__": "Float64"
+            },
+            "tan_delta": {
+                "value": 0,
+                "__type__": "Float64"
+            },
+            "sigma_solar": {
+                "value": 0,
+                "__type__": "Float64"
+            },
+            "rho": {
+                "value": 1000000000000000,
+                "__type__": "Float64"
+            }
+        },
+        "conductor_10": {
             "kind": "conductor",
             "rho_thermal": {
                 "value": 0,
@@ -1729,8 +1312,8 @@
                 "__type__": "Float64"
             }
         },
-        "semicon_5": {
-            "kind": "semicon",
+        "insulator_2": {
+            "kind": "insulator",
             "rho_thermal": {
                 "value": 0,
                 "__type__": "Float64"
@@ -1748,7 +1331,7 @@
                 "__type__": "Float64"
             },
             "eps_r": {
-                "value": 1000,
+                "value": 1,
                 "__type__": "Float64"
             },
             "mu_r": {
@@ -1764,7 +1347,7 @@
                 "__type__": "Float64"
             },
             "rho": {
-                "value": 500,
+                "special": "Inf",
                 "__type__": "Float64"
             }
         }

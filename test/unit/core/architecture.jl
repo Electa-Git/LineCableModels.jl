@@ -312,7 +312,9 @@ end
     @test Base.ispublic(LineCableModels.DataModel, :AssemblyShape)
     @test Base.ispublic(LineCableModels.DataModel, :BentStrip)
     @test Base.ispublic(LineCableModels.DataModel, :BoundedPlacement)
+    @test Base.ispublic(LineCableModels.DataModel, :EnclosureBoundary)
     @test Base.ispublic(LineCableModels.DataModel, :DifferenceShape)
+    @test Base.ispublic(LineCableModels.DataModel, :EllipseOffset)
     @test !isdefined(LineCableModels.DataModel, :AbstractPrimitiveDefinition)
     for name in (
         :DiskDefinition, :RectangleDefinition, :EllipseDefinition,

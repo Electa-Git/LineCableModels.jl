@@ -282,12 +282,14 @@ function _decode_part(::Val{:stack}, value, materials)
     return _decoded_target(Stack, Stack, decoded)
 end
 function _decode_part(::Val{:group}, value, materials)
+    path = deserialize_value(_required(value, "path", "group"))
+    path isa AbstractVector && (path = Tuple(path))
     values = (
         Symbol(_required(value, "name", "group")),
         deserialize_value(_required(value, "at", "group")),
         _decode_part(_required(value, "item", "group"), materials),
         deserialize_value(_required(value, "pattern", "group")),
-        deserialize_value(_required(value, "path", "group")),
+        path,
         deserialize_value(_required(value, "compact", "group")),
         deserialize_value(_required(value, "boundary", "group"))
     )

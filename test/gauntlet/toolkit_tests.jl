@@ -538,35 +538,35 @@ end
 
     expected_wire_counts=Dict(
         :cable_320kv_armoured_dc_bipole=>(
-            (1, 6, 12, 18, 24, 30, 36), (), (68,)
+            (127,), (), (68,)
         ),
         :cable_320kv_no_armour_dc_bipole=>(
-            (1, 6, 12, 18, 24, 30, 36), ()
+            (127,), ()
         ),
         :cable_380kv_armoured_ac_flat=>(
-            (1, 6, 12, 18, 24, 30, 36), (), (68,)
+            (127,), (), (68,)
         ),
         :cable_380kv_no_armour_ac_flat=>(
-            (1, 6, 12, 18, 24, 30, 36), ()
+            (127,), ()
         ),
         :cable_525kv_land_no_armour_ac_flat=>((), ()),
         :cable_525kv_land_no_armour_dc_bipole=>((), ()),
         :cable_525kv_subsea_armoured_ac_flat=>((), (), (68,)),
         :cable_525kv_subsea_armoured_dc_bipole=>((), (), (68,)),
         :cable_132kv_630mm2_flathor=>(
-            (1, 6, 12, 18, 24), (19, 1), ()
+            (61,), (19, 1), ()
         ),
         :cable_18kv_1000mm2_trefoil=>(
-            (1, 6, 12, 18, 24), (49, 1), ()
+            (61,), (49, 1), ()
         ),
         :cable_380kv_2000mm2_flatver=>(
-            (1, 6, 12, 18, 24), (14, 1), ()
+            (61,), (14, 1), ()
         ),
         :cable_525kv_1600mm2_bipole=>(
-            (1, 6, 12, 18, 24, 30, 36), (), (68,)
+            (127,), (), (68,)
         ),
         :cable_640kv_2000mm2_bipole=>(
-            (1, 6, 12, 18, 24), (), ()
+            (61,), (), ()
         ),
         :solid_1000mm2_single=>((),),
         :two_bare_wires=>((),)
@@ -603,34 +603,38 @@ end
         groups=nested_groups(design.root)
         component_wire_counts=Tuple(
             begin
-                bounded=findfirst(
-                    group->group.name===terminal&&group.boundary!==nothing,
-                    groups
-                )
-                if bounded===nothing
+                bounded=findfirst(group->
+                    group.name===terminal&&group.boundary!==nothing, groups)
+                if bounded === nothing
                     Tuple(group.pattern.n
                     for group in groups
                     if group.name===terminal&&group.pattern isa Ring)
                 else
-                    courses=groups[bounded].item.items
-                    Tuple(group.pattern===nothing ? 1 : group.pattern.n
-                    for group in courses)
+                    formation=groups[bounded]
+                    count=Base.count(design.geometry.regions) do region
+                        region.terminal===terminal&&any(
+                            entry->entry.pattern isa
+                                   LineCableModels.DataModel.BoundedPlacement,
+                            region.placement.patterns
+                        )
+                    end
+                    (count,)
                 end
             end
         for terminal in design.terminal_order
         )
         @test component_wire_counts == expected_wire_counts[id]
         expected_core_counts=first(expected_wire_counts[id])
-        if !isempty(expected_core_counts)&&first(expected_core_counts)==1
+        if !isempty(expected_core_counts)
             bounded=only(group
             for group in groups
             if group.name===:core&&group.boundary!==nothing)
             @test bounded.boundary isa Disk
-            core_patterns=getproperty.(bounded.item.items, :pattern)
-            @test first(core_patterns) === nothing
-            @test all(pattern -> pattern isa Ring, core_patterns[2:end])
-            @test Tuple(getproperty.(core_patterns[2:end], :n)) ==
-                  Base.tail(expected_core_counts)
+            @test bounded.pattern === nothing
+            @test all(
+                group->group.pattern===nothing,
+                bounded.item.items
+            )
         end
         @test basename(index[id]) == string(id, ".jl")
     end

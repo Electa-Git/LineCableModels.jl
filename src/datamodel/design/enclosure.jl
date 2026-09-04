@@ -1,6 +1,16 @@
 """
 $(TYPEDEF)
 
+Mark a resolved fill or wall region that establishes an enclosure boundary.
+
+The marker records construction provenance for geometry consumers. It carries
+no material or rendering policy.
+"""
+struct EnclosureBoundary end
+
+"""
+$(TYPEDEF)
+
 Contain a physical cable object in an explicit cross-section, fill, and wall.
 
 $(TYPEDFIELDS)
@@ -111,7 +121,8 @@ end
 
 function _contained(container::Disk, child::AbstractShape)
     extent = support(child)
-    return extent < container.r || isapprox(extent, container.r)
+    tolerance = 5.0e-6 * container.r
+    return extent <= container.r + tolerance
 end
 
 function _contained(container::Rectangle, child::AbstractShape)
@@ -156,6 +167,23 @@ function _contained(container::Annulus, child::BentStrip)
            (child.ri > container.ri || isapprox(child.ri, container.ri))
 end
 
+function _contained(container::SectorShape, child::Disk)
+    accommodates(container, centroid(child), child.r)
+end
+
+function _contained(container::SectorShape, child::Polygon)
+    cosine = cos(child.at.φ)
+    sine = sin(child.at.φ)
+    tolerance = 5.0e-6 * container.primitive.r_back
+    return all(child.points) do point
+        resolved = (
+            child.at.x + cosine * point[1] - sine * point[2],
+            child.at.y + sine * point[1] + cosine * point[2]
+        )
+        _geometry_scalar(clearance(container, resolved) + tolerance) >= 0
+    end
+end
+
 function _contained(::AbstractShape, ::AbstractShape)
     throw(ArgumentError(
         "enclosure containment is not implemented for this resolved shape pair"
@@ -167,6 +195,15 @@ function fill_holes(::AbstractCablePart, contents::CableGeometry)
 end
 
 fill_holes(::Enclosure, contents::CableGeometry) = (boundary(contents),)
+
+function fill_holes(group::Group, contents::CableGeometry)
+    group.item isa Assembly || return Tuple(source.primitive for source in contents.regions)
+    outer = boundary(contents)
+    outer isa AssemblyShape || throw(ArgumentError(
+        "a grouped assembly must retain its member boundaries"
+    ))
+    return outer.members
+end
 
 function fill_holes(assembly::Assembly, contents::CableGeometry)
     outer = boundary(contents)
@@ -199,27 +236,43 @@ function resolve(context::EmptyBoundary, enclosure::Enclosure)
             ))
     end
 
-    fill_result = resolve(
-        container,
-        holes,
-        enclosure.fill,
-        enclosure.tag
-    )
-    outer_extent = support(container)
-    isapprox(support(boundary(fill_result)), outer_extent) || throw(DomainError(
-        support(boundary(fill_result)),
-        "enclosure fill must reach the containing boundary"
+    remaining_area = area(container) - sum(area, holes; init = zero(area(container)))
+    tolerance = 2.0e-6 * abs(area(container))
+    remaining_area >= -tolerance || throw(DomainError(
+        remaining_area, "enclosure contents exceed the containing boundary area"
     ))
-    for source in fill_result.regions
-        placed = resolve(enclosure.at, source)
-        push!(regions,
-            PlacedRegion(
-                source.source,
-                placed.primitive,
-                source.terminal,
-                placed.placement,
-                source.paths
-            ))
+    if enclosure.fill isa Region || remaining_area > tolerance
+        fill_result = resolve(
+            container,
+            holes,
+            enclosure.fill,
+            enclosure.tag
+        )
+        outer_extent = support(container)
+        isapprox(support(boundary(fill_result)), outer_extent) || throw(DomainError(
+            support(boundary(fill_result)),
+            "enclosure fill must reach the containing boundary"
+        ))
+        for source in fill_result.regions
+            placed = resolve(enclosure.at, source)
+            push!(regions,
+                PlacedRegion(
+                    source.source,
+                    placed.primitive,
+                    source.terminal,
+                    (
+                        patterns = (
+                            placed.placement.patterns...,
+                            (
+                                pattern = EnclosureBoundary(),
+                                member = 1,
+                                pose = enclosure.at
+                            )
+                        ),
+                    ),
+                    source.paths
+                ))
+        end
     end
 
     outer = container
@@ -232,7 +285,16 @@ function resolve(context::EmptyBoundary, enclosure::Enclosure)
                     source.source,
                     placed.primitive,
                     source.terminal,
-                    placed.placement,
+                    (
+                        patterns = (
+                            placed.placement.patterns...,
+                            (
+                                pattern = EnclosureBoundary(),
+                                member = 1,
+                                pose = enclosure.at
+                            )
+                        ),
+                    ),
                     source.paths
                 ))
         end

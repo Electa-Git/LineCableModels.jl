@@ -36,6 +36,13 @@ TextDisplay.@showfields Ellipse "Ellipse" primitive -> (
     at = _display_pose(primitive.at)
 )
 
+TextDisplay.@showfields EllipseOffset "EllipseOffset" shape -> (
+    a = TextDisplay.engineering(shape.a, :meter),
+    b = TextDisplay.engineering(shape.b, :meter),
+    t = TextDisplay.engineering(shape.t, :meter),
+    at = _display_pose(shape.at)
+)
+
 TextDisplay.@showfields Sector "Sector" primitive -> (
     Δφ = TextDisplay.angle(primitive.span),
     rᵢ = TextDisplay.engineering(primitive.r_base, :meter),
@@ -88,6 +95,11 @@ TextDisplay.name(::Type{<:EmptyBoundary}) = "Empty boundary"
 Base.summary(io::IO, ::EmptyBoundary) = print(io, "Empty boundary")
 Base.show(io::IO, ::EmptyBoundary) = print(io, "EmptyBoundary()")
 Base.show(io::IO, ::MIME"text/plain", value::EmptyBoundary) = show(io, value)
+
+TextDisplay.name(::Type{<:EnclosureBoundary}) = "Enclosure boundary"
+Base.summary(io::IO, ::EnclosureBoundary) = print(io, "Enclosure boundary")
+Base.show(io::IO, ::EnclosureBoundary) = print(io, "EnclosureBoundary()")
+Base.show(io::IO, ::MIME"text/plain", value::EnclosureBoundary) = show(io, value)
 
 function _ring_count(pattern::Ring)
     pattern.n isa _DeferredCardinality && return "capacity()"

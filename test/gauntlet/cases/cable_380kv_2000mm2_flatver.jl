@@ -91,17 +91,11 @@ case_definition(
     stranded_core = LineCableModels.stranded(
         copper;
         shape = LineCableModels.Disk(wire_radius),
-        layers = p.core_layers - 1,
-        n = 6,
         lay = LineCableModels.LayRatio(p.core_lay_ratio),
-        boundary = LineCableModels.Disk(radius)
-    )
-    core = LineCableModels.Enclosure(
-        :core_matrix,
-        stranded_core;
-        primitive = LineCableModels.Disk(radius),
+        boundary = LineCableModels.Disk(radius),
         fill = matrix
     )
+    core = stranded_core
     parts = LineCableModels.AbstractCablePart[core]
     for (tag, thickness, material) in (
         (:core_semicon_tape_inner, p.semicon_tape_thickness, polyacrylate),

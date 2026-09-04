@@ -32,7 +32,7 @@ export Disk, Rectangle, Ellipse, Sector, Annulus, Polygon, Shell, Pose2
 export Region, Stack
 export Group, Assembly
 export Enclosure
-export terminal, core, stranded, rope, cores, tape, insulation, screen, sheath
+export terminal, core, stranded, milliken, rope, cores, tape, insulation, screen, sheath
 export armor, bedding, jacket, filler, pipe, duct
 export solid, shell, wires, layers, assembly
 export capacity

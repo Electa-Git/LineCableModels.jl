@@ -1,36 +1,56 @@
-const _RHO_MIN = 1.0e-9
-const _RHO_METAL_MAX = 1.0e-6
-const _RHO_SEMIMETAL_MAX = 1.0e-4
-const _RHO_SEMICON_MAX = 1.0e3
-const _RHO_LEAKY_MAX = 1.0e8
-const _RHO_MAX = 1.0e10
+const _CONDUCTOR_RHO_RANGE = (1.72e-8, 2.5e-7)
+const _SEMICON_RHO_RANGE = (1.0e-2, 1.0e4)
+const _DIELECTRIC_EPS_RANGE = (1.0, 10.0)
+const _MAGNETIC_MU_RANGE = (1.0, 300.0)
+const _EARTH_RHO_RANGE = (1.0e-1, 1.0e4)
 
-const _METAL_COLORS = [
-    RGB(0.92, 0.90, 0.86),
-    RGB(0.89, 0.89, 0.89),
-    RGB(0.86, 0.89, 0.92),
-    RGB(0.70, 0.72, 0.75)
+const _CONDUCTOR_COLORS = [
+    RGB(221 / 255, 228 / 255, 236 / 255),
+    RGB(203 / 255, 185 / 255, 160 / 255),
+    RGB(198 / 255, 134 / 255, 66 / 255)
 ]
-const _SEMIMETAL_COLORS = [RGB(0.70, 0.72, 0.75), RGB(0.80, 0.75, 0.65)]
-const _SEMICON_COLORS = [RGB(1.00, 0.83, 0.40), RGB(0.85, 0.55, 0.18)]
-const _LEAKY_COLORS = [RGB(0.42, 0.55, 0.15), RGB(0.20, 0.24, 0.25)]
-const _INSULATOR_COLORS = [RGB(0.20, 0.24, 0.25), RGB(0.78, 0.86, 0.88)]
-const _PERFECT_INSULATOR_COLOR = RGB(0.90, 0.94, 0.96)
-const _MU_COLORS = [RGB(0.20, 0.50, 0.95), RGB(0.56, 0.00, 0.91)]
-const _EPS_COLORS = [RGB(0.00, 0.85, 0.70), RGB(0.00, 0.55, 0.90)]
+const _DIELECTRIC_COLORS = [
+    RGB(1, 1, 1),
+    RGB(248 / 255, 244 / 255, 232 / 255),
+    RGB(242 / 255, 230 / 255, 200 / 255),
+    RGB(234 / 255, 207 / 255, 154 / 255)
+]
+const _SEMICON_COLORS = [
+    RGB(0.349, 0.392, 0.404),
+    RGB(0.604, 0.467, 0.349)
+]
+const _MAGNETIC_COLORS = [
+    RGB(89 / 255, 102 / 255, 216 / 255),
+    RGB(214 / 255, 79 / 255, 216 / 255)
+]
+const _EARTH_COLORS = [
+    RGB(0.760, 0.704, 0.590),
+    RGB(0.357, 0.286, 0.220)
+]
+
+function _oklab_blend(first_color, second_color, value::Real)
+    t = clamp(Float64(value), 0.0, 1.0)
+    first_oklab = convert(Oklab{Float64}, convert(RGB{Float64}, first_color))
+    second_oklab = convert(Oklab{Float64}, convert(RGB{Float64}, second_color))
+    mixed = Oklab(
+        (1 - t) * first_oklab.l + t * second_oklab.l,
+        (1 - t) * first_oklab.a + t * second_oklab.a,
+        (1 - t) * first_oklab.b + t * second_oklab.b,
+    )
+    rgb = convert(RGB{Float64}, mixed)
+    return RGB(
+        clamp(red(rgb), 0, 1),
+        clamp(green(rgb), 0, 1),
+        clamp(blue(rgb), 0, 1),
+    )
+end
 
 function _gradient(colors, value::Real)
     t = clamp(Float64(value), 0.0, 1.0)
     position = t * (length(colors) - 1)
     index = clamp(floor(Int, position) + 1, 1, length(colors) - 1)
     fraction = position - (index - 1)
-    first_color = RGB(colors[index])
-    second_color = RGB(colors[index + 1])
-    return RGB(
-        (1 - fraction) * red(first_color) + fraction * red(second_color),
-        (1 - fraction) * green(first_color) + fraction * green(second_color),
-        (1 - fraction) * blue(first_color) + fraction * blue(second_color)
-    )
+    return _oklab_blend(colors[index], colors[index + 1], fraction)
 end
 
 function _log_fraction(value, lower, upper)
@@ -38,83 +58,60 @@ function _log_fraction(value, lower, upper)
     return (log10(clamped) - log10(lower)) / (log10(upper) - log10(lower))
 end
 
-function _minimum_lightness(color::RGB, minimum::Float64 = 0.07)
-    hsl = HSL(color)
-    return RGB(HSL(hsl.h, hsl.s, max(hsl.l, minimum)))
+function _linear_fraction(value, lower, upper)
+    clamped = clamp(Float64(value), Float64(lower), Float64(upper))
+    return (clamped - lower) / (upper - lower)
 end
 
-function _base_material_color(resistivity::Real)
-    if !isfinite(resistivity)
-        return _PERFECT_INSULATOR_COLOR
-    elseif resistivity <= _RHO_METAL_MAX
-        return _gradient(
-            _METAL_COLORS,
-            _log_fraction(max(resistivity, 1.0e-8), 1.0e-8, _RHO_METAL_MAX)
-        )
-    elseif resistivity <= _RHO_SEMIMETAL_MAX
-        return _gradient(
-            _SEMIMETAL_COLORS,
-            _log_fraction(resistivity, _RHO_METAL_MAX, _RHO_SEMIMETAL_MAX)
-        )
-    elseif resistivity <= _RHO_SEMICON_MAX
-        return _gradient(
-            _SEMICON_COLORS,
-            _log_fraction(resistivity, _RHO_SEMIMETAL_MAX, _RHO_SEMICON_MAX)
-        )
-    elseif resistivity <= _RHO_LEAKY_MAX
-        return _gradient(
-            _LEAKY_COLORS,
-            _log_fraction(resistivity, _RHO_SEMICON_MAX, _RHO_LEAKY_MAX)
-        )
-    end
-    return _minimum_lightness(_gradient(
-        _INSULATOR_COLORS,
-        _log_fraction(min(resistivity, _RHO_MAX), _RHO_LEAKY_MAX, _RHO_MAX)
+_conductor_color(resistivity::Real) = _gradient(
+    _CONDUCTOR_COLORS,
+    _log_fraction(resistivity, _CONDUCTOR_RHO_RANGE...)
+)
+
+_dielectric_color(relative_permittivity::Real) = _gradient(
+    _DIELECTRIC_COLORS,
+    _linear_fraction(max(relative_permittivity, 1.0), _DIELECTRIC_EPS_RANGE...)
+)
+
+_semicon_color(resistivity::Real) = _gradient(
+    _SEMICON_COLORS,
+    _log_fraction(resistivity, _SEMICON_RHO_RANGE...)
+)
+
+_earth_color(resistivity::Real) = _gradient(
+    _EARTH_COLORS,
+    _log_fraction(resistivity, _EARTH_RHO_RANGE...)
+)
+
+_material_base(::Val{:conductor}, material) = _conductor_color(material.rho)
+_material_base(::Val{:insulator}, material) = _dielectric_color(material.eps_r)
+_material_base(::Val{:semicon}, material) = _semicon_color(material.rho)
+_material_base(::Val{:earth}, material) = _earth_color(material.rho)
+function _material_base(::Val{Kind}, material) where {Kind}
+    throw(ArgumentError(
+        "preview coloring is not defined for material kind :$Kind"
     ))
 end
 
-function _alpha_composite(background::RGBA, foreground::RGBA)
-    output_alpha = alpha(foreground) + alpha(background) * (1 - alpha(foreground))
-    iszero(output_alpha) && return RGBA(0, 0, 0, 0)
-    return RGBA(
-        (red(foreground) * alpha(foreground) +
-         red(background) * alpha(background) * (1 - alpha(foreground))) / output_alpha,
-        (green(foreground) * alpha(foreground) +
-         green(background) * alpha(background) * (1 - alpha(foreground))) / output_alpha,
-        (blue(foreground) * alpha(foreground) +
-         blue(background) * alpha(background) * (1 - alpha(foreground))) / output_alpha,
-        output_alpha
+function _magnetic_overlay(base, relative_permeability::Real)
+    fraction = _log_fraction(
+        max(relative_permeability, 1.0), _MAGNETIC_MU_RANGE...
     )
+    iszero(fraction) && return RGB(base)
+    tint = _gradient(_MAGNETIC_COLORS, fraction)
+    return _oklab_blend(base, tint, 0.35fraction^0.7)
 end
 
 function _material_color(material; alpha::Real = 1.0)
-    resistivity = LineCableModels.nominal(material.rho)
-    relative_permittivity = LineCableModels.nominal(material.eps_r)
     relative_permeability = LineCableModels.nominal(material.mu_r)
-    base = _minimum_lightness(_base_material_color(resistivity))
-    lightness = HSL(base).l
-
-    mu_fraction = clamp(
-        _log_fraction(max(relative_permeability, 1.0), 1.0, 300.0), 0, 1)
-    mu_tint = _gradient(_MU_COLORS, mu_fraction)
-    mu_alpha = 0.50 * mu_fraction * (0.6 + 0.4 * (1 - lightness))
-
-    eps_fraction = clamp(
-        _log_fraction(max(relative_permittivity, 1.0), 1.0, 1000.0), 0, 1)
-    eps_tint = _gradient(_EPS_COLORS, eps_fraction)
-    band_weight = resistivity > _RHO_SEMICON_MAX ? 1.0 :
-                  (resistivity > _RHO_METAL_MAX ? 0.6 : 0.35)
-    eps_alpha = (0.20 + 0.40 * band_weight) * eps_fraction *
-                (0.55 + 0.45 * (1 - lightness))
-
-    color = _alpha_composite(
-        RGBA(base.r, base.g, base.b, 1.0),
-        RGBA(mu_tint.r, mu_tint.g, mu_tint.b, mu_alpha)
+    kind = hasproperty(material, :kind) ? material.kind : :earth
+    values = (;
+        rho = LineCableModels.nominal(material.rho),
+        eps_r = LineCableModels.nominal(material.eps_r),
+        mu_r = relative_permeability
     )
-    color = _alpha_composite(
-        color,
-        RGBA(eps_tint.r, eps_tint.g, eps_tint.b, eps_alpha)
-    )
+    base = _material_base(Val(kind), values)
+    color = _magnetic_overlay(base, relative_permeability)
     return RGBA(red(color), green(color), blue(color), alpha)
 end
 
@@ -144,11 +141,45 @@ function _colorbar_range(property_range)
     return lower, upper, ([0.0, 1.0], [lower_label, upper_label])
 end
 
-function _color_samples(color, lower, upper; count::Int = 256)
+function _color_samples(
+        color,
+        lower,
+        upper;
+        count::Int = 256,
+        logarithmic::Bool = true,
+)
     lower_value = max(Float64(lower), floatmin(Float64))
     upper_value = max(Float64(upper), nextfloat(lower_value))
-    values = 10.0 .^ range(log10(lower_value), log10(upper_value); length = count)
+    values = logarithmic ?
+             10.0 .^ range(log10(lower_value), log10(upper_value); length = count) :
+             range(lower_value, upper_value; length = count)
     return [color(value) for value in values]
+end
+
+function _bounded_property_range(property_range, supported_range)
+    lower, upper = Float64.(property_range)
+    lower <= upper || throw(ArgumentError(
+        "a material property range must be ordered from lower to upper"
+    ))
+    return (
+        clamp(lower, supported_range...),
+        clamp(upper, supported_range...)
+    )
+end
+
+function _material_scheme(
+        label,
+        color,
+        property_range,
+        supported_range,
+        alpha;
+        logarithmic::Bool = true,
+)
+    bounded_range = _bounded_property_range(property_range, supported_range)
+    lower, upper, ticks = _colorbar_range(bounded_range)
+    colors = _color_samples(color, lower, upper; logarithmic)
+    colors = RGBA[RGBA(red(value), green(value), blue(value), alpha) for value in colors]
+    return (; label, colormap = colors, limits = (0.0, 1.0), ticks)
 end
 
 function LineCableModels.materialcolors(
@@ -170,35 +201,23 @@ function LineCableModels.materialcolors(
         "a material property range must be a tuple of two real values",
     ))
 
-    gray = RGB(0.5, 0.5, 0.5)
-    dark = RGB(0.1, 0.1, 0.1)
-    permeability_color(value) = begin
-        fraction = _log_fraction(value, 1.0, 300.0)
-        tint = _gradient(_MU_COLORS, fraction)
-        _alpha_composite(
-            RGBA(gray.r, gray.g, gray.b, 1.0),
-            RGBA(tint.r, tint.g, tint.b, 0.5 * fraction)
-        )
-    end
-    permittivity_color(value) = begin
-        fraction = _log_fraction(value, 1.0, 1000.0)
-        tint = _gradient(_EPS_COLORS, fraction)
-        _alpha_composite(
-            RGBA(dark.r, dark.g, dark.b, 1.0),
-            RGBA(tint.r, tint.g, tint.b, 0.6 * fraction)
-        )
-    end
-    label, color, bounded_range = if property === :rho
-        "ρ [Ω·m]", _base_material_color, resolved_range
+    neutral = RGB(0.94, 0.94, 0.94)
+    permeability_color(value) = _magnetic_overlay(neutral, value)
+    label, color, supported_range, logarithmic = if property === :rho
+        "ρ [Ω·m]", _conductor_color, _CONDUCTOR_RHO_RANGE, true
     elseif property === :mu_r
-        "μᵣ", permeability_color, max.(resolved_range, 1.0)
+        "μᵣ", permeability_color, _MAGNETIC_MU_RANGE, true
     else
-        "εᵣ", permittivity_color, max.(resolved_range, 1.0)
+        "εᵣ", _dielectric_color, _DIELECTRIC_EPS_RANGE, false
     end
-    lower, upper, ticks = _colorbar_range(bounded_range)
-    colors = _color_samples(color, lower, upper)
-    colors = RGBA[RGBA(red(value), green(value), blue(value), alpha) for value in colors]
-    return (; label, colormap = colors, limits = (0.0, 1.0), ticks)
+    return _material_scheme(
+        label,
+        color,
+        resolved_range,
+        supported_range,
+        alpha;
+        logarithmic,
+    )
 end
 
 function _material_schemes(ranges; kwargs...)
@@ -208,5 +227,16 @@ function _material_schemes(ranges; kwargs...)
             getproperty(ranges, property);
             kwargs...
         ) for property in (:rho, :mu_r, :eps_r)
+    )
+end
+
+
+function _earth_material_schemes(ranges; alpha::Real = 0.25)
+    return (
+        _material_scheme(
+            "ρ [Ω·m]", _earth_color, ranges.rho, _EARTH_RHO_RANGE, alpha
+        ),
+        LineCableModels.materialcolors(:mu_r, ranges.mu_r; alpha),
+        LineCableModels.materialcolors(:eps_r, ranges.eps_r; alpha)
     )
 end

@@ -243,6 +243,7 @@ function _validate_fem_shape(
             DataModel.Disk,
             DataModel.Rectangle,
             DataModel.Ellipse,
+            DataModel.EllipseOffset,
             DataModel.Annulus,
             DataModel.Polygon,
             DataModel.BentStrip,

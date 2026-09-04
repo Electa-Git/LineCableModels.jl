@@ -54,7 +54,7 @@ export capacity, FillFactor
 export LayRatio, Pitch, LayAngle, Helix, pitch, angle, overlength
 export at, trefoil, hflat, vflat, layer, homogeneous
 export AbstractEarthModel, EarthLayer, EarthModel
-export terminal, core, stranded, rope, cores, tape, insulation, screen, sheath
+export terminal, core, stranded, milliken, rope, cores, tape, insulation, screen, sheath
 export armor, bedding, jacket, filler, pipe, duct
 export solid, shell, wires, layers, assembly
 export @cable, @system, @earth, @terminal, @assembly, @pipe, @duct
@@ -189,7 +189,7 @@ using .ParametricBuilder:
                           @gridspace,
                           Combinatorial, ParametricProblem, ParametricResult,
                           Conductor, Insulator,
-                          terminal, core, stranded, rope, cores, tape,
+                          terminal, core, stranded, milliken, rope, cores, tape,
                           insulation, screen, sheath, armor, bedding, jacket,
                           filler, pipe, duct, solid, shell, wires, layers,
                           assembly,

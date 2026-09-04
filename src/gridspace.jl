@@ -190,9 +190,71 @@ function _combinations(space::Gridspace{<:Any, <:Any, <:Any, Val{:zip}, <:Any})
     _zip_combinations(space)
 end
 
+_indexed_source(::AbstractGrid) = Val(false)
+_indexed_source(::DeterministicGrid) = Val(true)
+_indexed_source(::RelativeGrid) = Val(true)
+_indexed_source(::AbsoluteGrid) = Val(true)
+_indexed_source(space::Gridspace) = _indexed_sources(space.grids)
+
+_indexed_sources(::Tuple{}) = Val(true)
+function _indexed_sources(sources::Tuple)
+    return _indexed_sources(_indexed_source(first(sources)), Base.tail(sources))
+end
+_indexed_sources(::Val{false}, ::Tuple) = Val(false)
+_indexed_sources(::Val{true}, sources::Tuple) = _indexed_sources(sources)
+
+_source_point(source::AbstractGrid, index::Int) = source[index]
+function _source_point(space::Gridspace{Target}, index::Int) where {Target}
+    return Gridpoint{Target}(space.build, _arguments_at(space, index))
+end
+
+function _arguments_at(
+        space::Gridspace{<:Any, <:Any, <:Any, Val{:product}, <:Any},
+        index::Int
+)
+    1 <= index <= length(space) || throw(BoundsError(space, index))
+    arguments = Vector{Any}(undef, length(space.grids))
+    offset = index - 1
+    for (source_index, source) in pairs(space.grids)
+        count = length(source)
+        arguments[source_index] = _source_point(source, mod(offset, count) + 1)
+        offset = div(offset, count)
+    end
+    return Tuple(arguments)
+end
+
+function _arguments_at(
+        space::Gridspace{<:Any, <:Any, <:Any, Val{:zip}, <:Any},
+        index::Int
+)
+    1 <= index <= length(space) || throw(BoundsError(space, index))
+    arguments = Vector{Any}(undef, length(space.grids))
+    for (source_index, source) in pairs(space.grids)
+        arguments[source_index] = _source_point(
+            source, length(source) == 1 ? 1 : index
+        )
+    end
+    return Tuple(arguments)
+end
+
+function _indexed_points(space::Gridspace{Target}) where {Target}
+    return (Gridpoint{Target}(space.build, _arguments_at(space, index))
+            for index in 1:length(space))
+end
+function _iterated_points(space::Gridspace{Target}) where {Target}
+    return (Gridpoint{Target}(space.build, args) for args in _combinations(space))
+end
+_zip_points(space::Gridspace, ::Val{true}) = _indexed_points(space)
+_zip_points(space::Gridspace, ::Val{false}) = _iterated_points(space)
+
 "Return the lazy unresolved points of a Gridspace."
-function points(space::Gridspace{Target}) where {Target}
-    (Gridpoint{Target}(space.build, args) for args in _combinations(space))
+function points(
+        space::Gridspace{<:Any, <:Any, <:Any, Val{:product}, <:Any}
+)
+    return _iterated_points(space)
+end
+function points(space::Gridspace{<:Any, <:Any, <:Any, Val{:zip}, <:Any})
+    return _zip_points(space, _indexed_sources(space.grids))
 end
 
 "Return a value unchanged during deterministic point materialisation."

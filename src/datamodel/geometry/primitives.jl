@@ -130,15 +130,15 @@ Represent a polygonal cross-section and its composed pose.
 
 $(TYPEDFIELDS)
 """
-struct Polygon{T <: Real, V <: Tuple, P <: Pose2{T}} <: AbstractPrimitive{T}
+struct Polygon{T <: Real, P <: Pose2{T}} <: AbstractPrimitive{T}
     "Ordered local `(x, y)` vertices \\[m\\]."
-    points::V
+    points::Vector{Tuple{T, T}}
     "Pose in the completed cable coordinate system."
     at::P
 
-    function Polygon{T, V, P}(points::V, at::P) where {
-            T <: Real, V <: Tuple, P <: Pose2{T}
-    }
+    function Polygon{T, P}(
+            points::Vector{Tuple{T, T}}, at::P
+    ) where {T <: Real, P <: Pose2{T}}
         length(points) >= 3 ||
             throw(ArgumentError("a polygon requires at least three vertices"))
         all(point -> length(point) == 2 && all(isfinite, point), points) ||
@@ -151,9 +151,15 @@ struct Polygon{T <: Real, V <: Tuple, P <: Pose2{T}} <: AbstractPrimitive{T}
         iszero(twice_area) && throw(DomainError(
             twice_area, "polygon area must be nonzero"
         ))
-        return new{T, V, P}(points, at)
+        return new{T, P}(copy(points), at)
     end
 end
+
+Base.:(==)(left::Polygon, right::Polygon) =
+    left.points == right.points && left.at == right.at
+Base.isequal(left::Polygon, right::Polygon) =
+    isequal(left.points, right.points) && isequal(left.at, right.at)
+Base.hash(value::Polygon, seed::UInt) = hash(value.at, hash(value.points, seed))
 
 """
 Store one exact outer shape with exact material-free holes removed from it.
@@ -203,14 +209,16 @@ function Annulus(ri::Real, ro::Real, at::Pose2)
     return Annulus{T, Pose2{T}}(
         convert(T, ri), convert(T, ro), convert(Pose2{T}, at))
 end
-function _polygon(points::Tuple, at::Pose2)
-    coordinate_types = (
-        (typeof(coordinate) for point in points for coordinate in point)...,
-        eltype(at)
-    )
-    T = promote_type(coordinate_types...)
-    vertices = map(point -> (convert(T, point[1]), convert(T, point[2])), points)
-    return Polygon{T, typeof(vertices), Pose2{T}}(
+function _polygon(points, at::Pose2)
+    Base.@nospecialize points
+    isempty(points) && throw(ArgumentError("a polygon requires at least three vertices"))
+    T = foldl(points; init = eltype(at)) do current, point
+        promote_type(current, typeof(point[1]), typeof(point[2]))
+    end
+    vertices = Tuple{T, T}[
+        (convert(T, point[1]), convert(T, point[2])) for point in points
+    ]
+    return Polygon{T, Pose2{T}}(
         vertices, convert(Pose2{T}, at))
 end
 
@@ -229,7 +237,8 @@ function Annulus(ri::Real, ro::Real)
     T = promote_type(typeof(ri), typeof(ro))
     return Annulus(convert(T, ri), convert(T, ro), _origin(T))
 end
-function Polygon(points::V) where {V <: Tuple}
+function Polygon(points::Union{Tuple, AbstractVector})
+    Base.@nospecialize points
     return _polygon(points, _origin(typeof(float(first(points)[1]))))
 end
 
@@ -376,6 +385,13 @@ end
 
 perimeter(primitive::Disk) = 2π * primitive.r
 perimeter(primitive::Rectangle) = 2 * (primitive.w + primitive.h)
+function _ellipse_perimeter(a, b)
+    major = max(a, b)
+    minor = min(a, b)
+    parameter = one(major) - (minor / major)^2
+    return 4major * ellipe(parameter)
+end
+perimeter(primitive::Ellipse) = _ellipse_perimeter(primitive.a, primitive.b)
 perimeter(primitive::Annulus) = 2π * (primitive.ro + primitive.ri)
 function perimeter(primitive::Polygon)
     return sum(eachindex(primitive.points)) do index

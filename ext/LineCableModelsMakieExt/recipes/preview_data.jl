@@ -65,8 +65,12 @@ function _native_design_shapes(
         bounded = any(region.placement.patterns) do entry
             entry.pattern isa LineCableModels.DataModel.BoundedPlacement
         end
-        stroke = bounded ? (:black, 0.35) : :transparent
-        width = bounded ? 0.6 : 0.0
+        enclosure_boundary = any(region.placement.patterns) do entry
+            entry.pattern isa LineCableModels.DataModel.EnclosureBoundary
+        end
+        stroke = enclosure_boundary ? :black :
+                 RGB(102 / 255, 109 / 255, 118 / 255)
+        width = enclosure_boundary ? 0.8 : (bounded ? 0.5 : 0.45)
         presentation_group = _preview_legend_group(region, legend_group)
         identity = get!(identities, presentation_group) do
             (;
@@ -165,10 +169,7 @@ function _native_earth_colorbars(earth_model)
         mu_r = extrema(permeabilities),
         eps_r = extrema(permittivities)
     )
-    return _material_schemes(
-        ranges;
-        alpha = 0.25
-    )
+    return _earth_material_schemes(ranges; alpha = 0.25)
 end
 
 function _native_system_shapes(

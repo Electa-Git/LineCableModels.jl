@@ -47,8 +47,19 @@
 
     ellipse=DM.resolve(DM.EmptyBoundary(), DM.Ellipse(3, 2))
     @test DM.area(ellipse) ≈ 6π
+    @test DM.perimeter(ellipse) ≈ 15.865439589290588
     @test DM.support(ellipse, 0) == 3.0
     @test DM.support(ellipse, π / 2) ≈ 2.0
+    ellipse_shell=DM.resolve(ellipse, DM.Shell(0.5))
+    @test ellipse_shell isa DM.ShellShape
+    @test ellipse_shell.outer isa DM.EllipseOffset
+    @test DM.support(ellipse_shell.outer, 0) ≈ 3.5
+    @test DM.support(ellipse_shell.outer, π / 2) ≈ 2.5
+    @test DM.area(ellipse_shell.outer) ≈
+          DM.area(ellipse) + DM.perimeter(ellipse) * 0.5 + π * 0.5^2
+    @test DM.perimeter(ellipse_shell.outer) ≈ DM.perimeter(ellipse) + π
+    @test DM.centroid(ellipse_shell.outer) == DM.centroid(ellipse)
+    @test length(DM.tessellate(ellipse_shell.outer; points_per_arc = 64)) == 64
 
     sector=DM.resolve(DM.EmptyBoundary(),
         DM.Sector(span = π / 2, r_base = 0.2, r_back = 2, fillet = 0.1))

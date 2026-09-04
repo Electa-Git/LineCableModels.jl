@@ -9,7 +9,7 @@ using LineCableModels
 using Makie
 using LinearAlgebra: diag
 using Printf: @sprintf
-using Colors: HSL, HSV, RGB, RGBA, alpha, blue, green, red
+using Colors: HSV, Oklab, RGB, RGBA, alpha, blue, green, red
 using Dates
 using Statistics: mean
 

@@ -120,13 +120,11 @@ is the physical order from the cable centre to its outside surface.
 #=
 ## Core and main insulation
 
-The core consists of a central wire and four concentric AAAC layers with 61
-wires arranged in a (1/6/12/18/24) pattern. The respective lay ratios are
-(15/13.5/12.5/11) [CENELEC50182](@cite). [`stranded`](@ref) retains every
-physical strand and the layer-specific longitudinal paths required for
-resistance and GMR calculations. The reported 38.1 mm finished diameter is
-smaller than the 42.3 mm natural circular-wire envelope, so the fill factor is
-stated explicitly rather than silently deforming the wires.
+The reported wire diameter and finished core boundary define the maximum
+admissible strand inventory. The compacted declaration preserves every source
+wire area while resolving that inventory into the finished 38.1 mm circular
+boundary. The reported inner-course lay ratios are retained; the outer partial
+course continues the final reported ratio.
 =#
 
 # Select reusable materials from the library:
@@ -137,19 +135,13 @@ semicon1 = Material(materials, :semicon1)
 semicon2 = Material(materials, :semicon2)
 pe = Material(materials, :pe);
 
-core_strand_count = 1 + 6 + 12 + 18 + 24
-core_fill_factor = core_strand_count * (d_w / d_core)^2;
-
-# State the actual strand count and lay of every noncentral layer. These are the
-# physical declarations reported for this conductor, not inputs from which the
-# API must infer another layout:
+# State the source wire, the inferred-course lay schedule, and the authoritative
+# finished boundary:
 stranded_core = stranded(
     aluminum;
     shape = Disk(d_w / 2),
-    layers = 4,
-    n = (6, 12, 18, 24),
-    lay = LayRatio(15.0, 13.5, 12.5, 11.0),
-    compact = FillFactor(core_fill_factor),
+    lay = LayRatio(15.0, 13.5, 12.5, 11.0, 11.0),
+    compact = true,
     boundary = Disk(d_core / 2)
 );
 

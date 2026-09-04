@@ -257,12 +257,22 @@
           "type": "object", "required": ["kind", "lay", "dir", "φ0"],
           "properties": {"kind": {"const": "helix"}, "lay": {"$ref": "#/$defs/lay"}, "dir": {"enum": [-1, 1]}, "φ0": {"$ref": "#/$defs/scalar"}},
           "additionalProperties": false
+        },
+        {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object", "required": ["kind", "lay", "dir", "φ0"],
+            "properties": {"kind": {"const": "helix"}, "lay": {"$ref": "#/$defs/lay"}, "dir": {"enum": [-1, 1]}, "φ0": {"$ref": "#/$defs/scalar"}},
+            "additionalProperties": false
+          }
         }
       ]
     },
     "compaction": {
       "oneOf": [
         {"type": "null"},
+        {"type": "boolean"},
         {"type": "object", "required": ["kind", "η"], "properties": {"kind": {"const": "fill_factor"}, "η": {"$ref": "#/$defs/scalar"}}, "additionalProperties": false}
       ]
     },

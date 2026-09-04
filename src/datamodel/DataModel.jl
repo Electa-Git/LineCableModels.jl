@@ -39,8 +39,8 @@ export FillFactor
 export LayRatio, Pitch, LayAngle, Helix, pitch, angle, overlength
 export ncables, nphases
 
-public AssemblyMember, AssemblyShape, BentStrip, BoundedPlacement
-public DifferenceShape, ShellShape, SectorShape
+public AssemblyMember, AssemblyShape, BentStrip, BoundedPlacement, EnclosureBoundary
+public DifferenceShape, EllipseOffset, ShellShape, SectorShape
 
 # Module-specific dependencies
 #! explicit-imports: off
@@ -57,6 +57,7 @@ import GeometryBasics
 using GeometryBasics: Point2f
 import Base: angle
 import LinearAlgebra
+using SpecialFunctions: ellipe
 
 # Abstract types and interfaces
 include("interfaces.jl")
@@ -65,6 +66,7 @@ include("geometry/pose.jl")
 include("geometry/primitives.jl")
 include("geometry/shell.jl")
 include("geometry/sector.jl")
+include("geometry/ellipse.jl")
 include("geometry/resolve.jl")
 include("design/region.jl")
 include("design/stack.jl")

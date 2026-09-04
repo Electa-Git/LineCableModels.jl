@@ -273,10 +273,14 @@ _placement_pose(value::_ResolvedPlacement) = value.pose
 _placement_definition(value::Pose2, definition::AbstractPrimitive) = definition
 _placement_definition(value::_ResolvedPlacement, ::AbstractPrimitive) = value.primitive
 
-function _ring_poses(pattern::Ring, count::Int, radius::Real)
-    step = count == 1 ? zero(pattern.span) :
+function _ring_step(pattern::Ring, count::Int)
+    return count == 1 ? zero(pattern.span) :
            isapprox(pattern.span, oftype(pattern.span, 2π)) ?
            pattern.span / count : pattern.span / (count - 1)
+end
+
+function _ring_poses(pattern::Ring, count::Int, radius::Real)
+    step = _ring_step(pattern, count)
     return Pose2[Pose2(
                      radius * cos(pattern.φ0 + index * step),
                      radius * sin(pattern.φ0 + index * step),
@@ -367,14 +371,10 @@ function placements(pattern::Ring, item::Sector, ::Nothing)
         "a contextual ring radius requires placement inside a physical tree"
     ))
     if iszero(pattern.r)
-        occupied = pattern.n * item.span *
-                   (one(pattern.gap_frac) + pattern.gap_frac)
-        tolerance = sqrt(eps(float(pattern.span))) * max(one(pattern.span), pattern.span)
-        occupied <= pattern.span + tolerance || throw(DomainError(
-            pattern.n,
-            "sector members exceed the available angular span"
-        ))
-        return _ring_poses(pattern, pattern.n, pattern.r)
+        return _origin_ring_poses(
+            pattern,
+            resolve(EmptyBoundary(), item)
+        )
     end
     _check_ring_clearance(pattern, _tangential_width(item))
     return _ring_poses(pattern, pattern.n, pattern.r)
@@ -387,24 +387,64 @@ function placements(pattern::Ring, item::CableGeometry, ::Nothing)
     pattern.r === nothing && throw(ArgumentError(
         "a contextual ring radius requires placement inside a physical tree"
     ))
-    iszero(pattern.r) && return _origin_ring_poses(pattern, boundary(item))
+    iszero(pattern.r) && return _origin_ring_poses(pattern, item)
     _check_ring_clearance(pattern, 2support(boundary(item)))
     return _ring_poses(pattern, pattern.n, pattern.r)
 end
 
-function _origin_ring_poses(pattern::Ring, shape::SectorShape)
-    occupied = pattern.n * shape.primitive.span *
-               (one(pattern.gap_frac) + pattern.gap_frac)
-    tolerance = sqrt(eps(float(pattern.span))) * max(one(pattern.span), pattern.span)
-    occupied <= pattern.span + tolerance || throw(DomainError(
-        pattern.n,
-        "sector members exceed the available angular span"
+function _sector_ring_poses(pattern::Ring, shape::SectorShape, allow_contact::Bool)
+    pattern.n == 1 && return _ring_poses(pattern, pattern.n, pattern.r)
+    iszero(pattern.gap_frac) || throw(DomainError(
+        pattern.gap_frac,
+        "origin-centred sector spacing is set by its physical side clearance, " *
+        "not Ring gap_frac"
+    ))
+    pitch = _ring_step(pattern, pattern.n)
+    angle_tolerance = sqrt(eps(float(_geometry_scalar(pitch)))) *
+                      max(one(_geometry_scalar(pitch)), abs(_geometry_scalar(pitch)))
+    isapprox(
+        _geometry_scalar(shape.primitive.span),
+        _geometry_scalar(pitch);
+        atol = angle_tolerance,
+        rtol = sqrt(eps(float(_geometry_scalar(pitch))))
+    ) || throw(DomainError(
+        shape.primitive.span,
+        "an origin-centred sector span must equal its angular pitch $pitch so " *
+        "neighboring wedge sides remain parallel"
+    ))
+    clearance = _sector_side_clearance(shape.primitive)
+    clearance_tolerance = sqrt(eps(float(_geometry_scalar(shape.primitive.r_back)))) *
+                          max(
+        one(_geometry_scalar(shape.primitive.r_back)),
+        abs(_geometry_scalar(shape.primitive.r_back))
+    )
+    valid_clearance = allow_contact ?
+                      _geometry_scalar(clearance) >= -clearance_tolerance :
+                      _geometry_scalar(clearance) > clearance_tolerance
+    valid_clearance || throw(DomainError(
+        clearance,
+        allow_contact ?
+        "sector insulation boundaries overlap" :
+        "bare origin-centred sectors require a positive physical side clearance"
     ))
     return _ring_poses(pattern, pattern.n, pattern.r)
 end
 
-function _origin_ring_poses(pattern::Ring, shape::ShellShape)
-    _origin_ring_poses(pattern, shape.outer)
+_origin_ring_poses(pattern::Ring, shape::SectorShape) =
+    _sector_ring_poses(pattern, shape, false)
+
+function _origin_ring_poses(pattern::Ring, item::CableGeometry)
+    shape = boundary(item)
+    shape isa SectorShape || throw(ArgumentError(
+        "only sector-shaped members can share an origin"
+    ))
+    outer_region = findlast(
+        region -> boundary(region.primitive) === shape,
+        item.regions
+    )
+    allow_contact = outer_region !== nothing &&
+                    item.regions[outer_region].source.material.kind === :insulator
+    return _sector_ring_poses(pattern, shape, allow_contact)
 end
 
 function placements(pattern::Polar, item, ::Nothing)

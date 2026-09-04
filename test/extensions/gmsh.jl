@@ -361,7 +361,7 @@ end
             :core,
             Region(
                 :core_sectors,
-                Sector(span = 0.8, r_base = 0.001, r_back = 0.002),
+                Sector(span = pi / 3, r_base = 0.001, r_back = 0.002),
                 copper
             );
             pattern = Ring(6; r = 0.0)
@@ -922,15 +922,12 @@ end
     end
 
     strand_radius = 0.5e-3
-    strand_layers = 3
-    strand_count = 1 + 3strand_layers * (strand_layers + 1)
+    strand_count = 19
     circular_boundary = Disk(sqrt(strand_count) * strand_radius)
     circular = stranded(
         copper;
         shape = Disk(strand_radius),
-        layers = strand_layers,
-        n = 6,
-        compact = FillFactor(1),
+        compact = true,
         boundary = circular_boundary
     )
     circular_design = build(
@@ -955,41 +952,15 @@ end
         stranded(
             copper;
             shape = Disk(strand_radius),
-            layers = 1,
-            n = 6,
-            compact = FillFactor(0.9),
-            boundary = partial_boundary
+            compact = true,
+            boundary = partial_boundary,
+            fill = dielectric
         )
     )
-    incomplete_design = build(
-        CableDesign, "fem-unassigned-compaction", partial
-    )
-    incomplete_error = try
-        extension_module._resolved_fem_model(
-            problem(
-                incomplete_design,
-                Dict(:core => 1),
-                incomplete_design.cable_id
-            ),
-            formulation
-        )
-        nothing
-    catch exception
-        exception
-    end
-    @test incomplete_error isa LineCableModelsFEMError
-    @test incomplete_error.field === :material_partition
-    @test occursin("Enclosure", incomplete_error.message)
-
     filled_design = build(
         CableDesign,
         "fem-filled-compaction",
-        Enclosure(
-            :core_matrix,
-            partial;
-            primitive = partial_boundary,
-            fill = dielectric
-        )
+        partial
     )
     filled_model = extension_module._resolved_fem_model(
         problem(filled_design, Dict(:core => 1), filled_design.cable_id),
@@ -1018,9 +989,7 @@ end
         stranded(
             copper;
             shape = Disk(sector_strand_radius),
-            layers = 1,
-            n = 6,
-            compact = FillFactor(1),
+            compact = true,
             boundary = sector
         )
     )
@@ -1065,6 +1034,41 @@ end
     ) == 3
     @test all(hole -> !(hole isa DM.Polygon), matrix_plan.shape.holes)
 
+    milliken_core = milliken(
+        copper;
+        shape = Disk(0.4e-3),
+        segment = Sector(
+            span = pi / 3,
+            r_base = 0.85e-3,
+            r_back = 3.0e-3,
+            fillet = 0.1e-3
+        )
+    )
+    milliken_design = build(
+        CableDesign,
+        "fem-milliken-core",
+        terminal(:core, milliken_core)
+    )
+    milliken_model = extension_module._resolved_fem_model(
+        problem(
+            milliken_design,
+            Dict(:core => 1),
+            milliken_design.cable_id
+        ),
+        formulation
+    )
+    @test count(
+        plan -> plan.terminal_index == 1,
+        milliken_model.region_plans
+    ) > 7
+    milliken_fill = only(filter(
+        plan -> plan.terminal_index == 0,
+        milliken_model.region_plans
+    ))
+    @test milliken_fill.shape isa DM.DifferenceShape
+    @test length(milliken_fill.shape.holes) ==
+          count(plan -> plan.terminal_index == 1, milliken_model.region_plans)
+
     Gmsh.initialize(String[]; finalize_atexit = false)
     try
         gmsh.option.set_number("General.Terminal", 1)
@@ -1072,7 +1076,8 @@ end
         for (name, model) in (
             ("fem-compacted-circular-core", circular_model),
             ("fem-filled-compaction", filled_model),
-            ("fem-sector-formations", sector_model)
+            ("fem-sector-formations", sector_model),
+            ("fem-milliken-core", milliken_model)
         )
             geometry = extension_module._build_geometry!(model, name)
             gmsh.model.set_current(geometry.model_name)
@@ -1080,7 +1085,8 @@ end
             @test all(!isempty, geometry.terminal_surfaces)
             name in (
                 "fem-compacted-circular-core",
-                "fem-sector-formations"
+                "fem-sector-formations",
+                "fem-milliken-core"
             ) || continue
             extension_module._configure_mesh!(
                 model, geometry, only(model.mesh_plans)

@@ -121,11 +121,10 @@ case_definition(
     packed_core = LineCableModels.stranded(
         core;
         shape = LineCableModels.Disk(strand_radius),
-        layers = p.strand_layers,
-        n = 6,
         lay = LineCableModels.LayRatio(p.core_lay_ratio),
-        compact = LineCableModels.FillFactor(1),
-        boundary = LineCableModels.Disk(radius)
+        compact = true,
+        boundary = LineCableModels.Disk(radius),
+        fill = LineCableModels.Material(kind = :insulator, rho = Inf)
     )
     parts = LineCableModels.AbstractCablePart[packed_core]
     for (tag, layer_thickness, material) in (

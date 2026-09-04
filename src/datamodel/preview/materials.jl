@@ -77,6 +77,10 @@ function _shape_geometry(shape::SectorShape)
     return GeometryBasics.Polygon(Point2f.(tessellate(shape)))
 end
 
+function _shape_geometry(shape::EllipseOffset)
+    return GeometryBasics.Polygon(Point2f.(tessellate(shape)))
+end
+
 function _shape_geometry(shape::BentStrip)
     return GeometryBasics.Polygon(Point2f.(tessellate(shape)))
 end
