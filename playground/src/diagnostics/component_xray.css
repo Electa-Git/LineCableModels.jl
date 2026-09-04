@@ -263,7 +263,9 @@ button {
 
 .xray-grid {
   display: grid;
-  align-items: baseline;
+  /* Cell borders own the row geometry. Baseline alignment lets Lato and
+   * JuliaMono shift their border boxes independently by a pixel. */
+  align-items: stretch;
   border-top: 1px solid var(--lc-border-soft);
   border-left: 1px solid var(--lc-border-soft);
 }
@@ -277,9 +279,12 @@ button {
 }
 
 .xray-cell {
+  display: flex;
   min-width: 0;
   min-height: 1.7rem;
   padding: 0.3rem 0.4rem;
+  align-items: flex-start;
+  line-height: 1rem;
   overflow-wrap: anywhere;
   border-right: 1px solid var(--lc-border-soft);
   border-bottom: 1px solid var(--lc-border-soft);

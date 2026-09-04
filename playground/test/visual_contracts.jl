@@ -162,6 +162,9 @@
         end
         @test !occursin(r"(?m)^\s*[^/\n]*\boption(?::checked)?[^\{\n]*\{", source)
     end
+    xray_style = read(joinpath(root, "src", "diagnostics", "component_xray.css"), String)
+    @test occursin("align-items: stretch", xray_style)
+    @test !occursin("align-items: baseline", xray_style)
 
     # Literal color values are implementation-local palettes in disguise.
     # All first-party CSS consumes brand.css tokens; only vendored styles and

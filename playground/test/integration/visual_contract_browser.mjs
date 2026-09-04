@@ -389,6 +389,37 @@ async function inspectWorkbenchAffordances(devtools) {
   })()`);
 }
 
+async function inspectXRayGrid(devtools) {
+  return evaluate(devtools, `(() => {
+    const shadow = document.querySelector('.lc-xray-host')?.shadowRoot;
+    const grids = Array.from(shadow?.querySelectorAll('.xray-grid') ?? []);
+    const samples = grids.map(grid => {
+      const columns = grid.classList.contains('xray-grid-4') ? 4 : 2;
+      const cells = Array.from(grid.querySelectorAll(':scope > .xray-cell'));
+      const rows = [];
+      for (let index = 0; index < cells.length; index += columns) {
+        const boxes = cells.slice(index, index + columns).map(cell => cell.getBoundingClientRect());
+        rows.push({
+          topSpread: Math.max(...boxes.map(box => box.top)) - Math.min(...boxes.map(box => box.top)),
+          bottomSpread: Math.max(...boxes.map(box => box.bottom)) - Math.min(...boxes.map(box => box.bottom)),
+        });
+      }
+      return {
+        columns,
+        firstDivider: cells[0]?.getBoundingClientRect().right ?? null,
+        rows,
+      };
+    });
+    return {
+      samples,
+      maximumRowDrift: Math.max(0, ...samples.flatMap(sample =>
+        sample.rows.flatMap(row => [row.topSpread, row.bottomSpread]))),
+      firstDividerDrift: Math.max(0, ...samples.map(sample => sample.firstDivider)) -
+        Math.min(...samples.map(sample => sample.firstDivider)),
+    };
+  })()`);
+}
+
 const pages = await fetch(`${debuggingUrl}/json`);
 assert(pages.ok, `cannot reach Chrome DevTools at ${debuggingUrl}`);
 const targets = await pages.json();
@@ -506,6 +537,17 @@ try {
       assert(workbenchBefore.xray.right <= workbenchBefore.inspectorLeft,
         `X-RAY launcher overlaps the inspector in ${theme}`);
     }
+    await evaluate(devtools, `globalThis.lcmXRay?.enable()`);
+    await hoverSelector(devtools, ".lc-wb-menubar");
+    await waitUntil(devtools,
+      `Boolean(document.querySelector('.lc-xray-host')?.shadowRoot?.querySelector('.xray-panel:not([hidden]) .xray-grid-4'))`,
+      `X-RAY metadata grid did not render in ${theme}`);
+    const xrayGrid = await inspectXRayGrid(devtools);
+    assert(xrayGrid.maximumRowDrift <= 0.1,
+      `X-RAY cell borders drift by ${xrayGrid.maximumRowDrift}px in ${theme}`);
+    assert(xrayGrid.firstDividerDrift <= 0.5,
+      `X-RAY key column drifts by ${xrayGrid.firstDividerDrift}px between sections in ${theme}`);
+    await evaluate(devtools, `globalThis.lcmXRay?.disable()`);
     const handlePoint = {
       x: workbenchBefore.handle.left + workbenchBefore.handle.width / 2,
       y: workbenchBefore.handle.top + workbenchBefore.handle.height / 2,
@@ -694,6 +736,7 @@ try {
       sidebarSpecimen,
       sourceButton,
       workbenchAffordances: {before: workbenchBefore, after: workbenchAfter},
+      xrayGrid,
       toolkit: { secretBoundary, persistentViewport: persistent },
       gallerySizing,
     };
