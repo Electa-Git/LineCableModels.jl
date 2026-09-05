@@ -1,328 +1,467 @@
-@inline function _resolve_dotted_in(path::String, root::Module)
-	cur = root
-	for p in split(path, '.')
-		s = Symbol(p)
-		if isdefined(cur, s)
-			cur = getfield(cur, s)
-		else
-			return nothing
-		end
-	end
-	return cur isa Type ? cur : nothing
+"Decode an extension-owned tagged value from the v1 JSON format."
+function deserialize_extension end
+
+_float_type(::Val{:Float16}) = Float16
+_float_type(::Val{:Float32}) = Float32
+_float_type(::Val{:Float64}) = Float64
+_float_type(::Val{:BigFloat}) = BigFloat
+
+function _required(value, name::AbstractString, owner)
+    haskey(value, name) || throw(ArgumentError(
+        "$owner requires a '$name' field"
+    ))
+    return value[name]
 end
 
-function _module_candidates()
-	pkg = parentmodule(@__MODULE__)  # e.g., LineCableModels
-	cands = Module[@__MODULE__]
-	pkg !== nothing && push!(cands, pkg)
-	push!(cands, Main)
-	if pkg !== nothing
-		for name in (:DataModel, :Materials, :Engine, :EarthProps, :ImportExport)
-			if isdefined(pkg, name)
-				mod = getfield(pkg, name)
-				mod isa Module && push!(cands, mod)
-			end
-		end
-	end
-	return cands
+function _field(value, name::AbstractString)
+    deserialize_value(
+        _required(value, name, get(value, "kind", get(value, "type", "object")))
+    )
+end
+function _optional(value, name::AbstractString)
+    haskey(value, name) ? deserialize_value(value[name]) : nothing
 end
 
-
-"""
-$(TYPEDSIGNATURES)
-
-Resolves a fully qualified type name string (e.g., \"Module.Type\")
-into a Julia `Type` object. 
-
-Resolution order:
-1) If fully-qualified (contains '.') and not parametric, walk modules (no eval).
-2) If bare name (no '.' and not parametric), search candidate modules.
-3) Fallback: parse + eval in `Main` (handles parametric types like `Vector{Float64}`).
-
-# Arguments
-
-- `type_str`: The string representation of the type.
-
-# Returns
-
-- The corresponding Julia `Type` object.
-
-# Throws
-
-- `Error` if the type cannot be resolved.
-"""
-function _resolve_type(type_str::String)
-	pkg = parentmodule(@__MODULE__)
-	try
-		# 1) Fully-qualified, non-parametric: try walking
-		if occursin('.', type_str) && !occursin('{', type_str)
-			if (T = _resolve_dotted_in(type_str, Main)) !== nothing
-				return T
-			end
-			if pkg !== nothing
-				if (T = _resolve_dotted_in(type_str, pkg)) !== nothing
-					return T
-				end
-			end
-		end
-
-		# 2) Bare name, non-parametric: search candidate modules
-		if !occursin('.', type_str) && !occursin('{', type_str)
-			sym = Symbol(type_str)
-			for m in _module_candidates()
-				if isdefined(m, sym)
-					val = getfield(m, sym)
-					if val isa Type
-						return val
-					end
-				end
-			end
-		end
-
-		# 3) General case: parse + eval in package root (or Main as fallback)
-		return Base.eval(pkg === nothing ? Main : pkg, Meta.parse(type_str))
-	catch e
-		@error "Could not resolve type '$type_str'" exception = (e, catch_backtrace())
-		rethrow(e)
-	end
-end
-# function _resolve_type(type_str::String)
-#     try
-#         return Core.eval(@__MODULE__, Meta.parse(type_str))
-#     catch e
-#         @error "Could not resolve type '$type_str'. Ensure module structure is correct and type is loaded in Main."
-#         rethrow(e)
-#     end
-# end
-
-"""
-$(TYPEDSIGNATURES)
-
-Deserializes a value from its JSON representation back into a Julia value.
-Handles special type markers for `Measurements`, `Inf`/`NaN`, and custom structs
-identified by `__julia_type__`. Ensures plain dictionaries use Symbol keys.
-
-# Arguments
-- `value`: The JSON-parsed value (Dict, Vector, Number, String, Bool, Nothing).
-
-# Returns
-- The deserialized Julia value.
-"""
-function _deserialize_value(value)
-	if value isa Dict
-		# Check for special type markers first
-		if haskey(value, "__type__")
-			type_marker = value["__type__"]
-			if type_marker == "Measurement"
-				# Reconstruct Measurement
-				uncval = get_as(value, "uncertainty", nothing, Measurement)
-				if isa(uncval, Measurement)
-					return uncval
-				else
-					@warn "Could not reconstruct Measurement from input: value=$(typeof(get_as(value, "value", nothing, BASE_FLOAT))), uncertainty=$(typeof(get_as(value, "uncertainty", nothing, BASE_FLOAT))). Returning original Dict."
-					return value # Return original dict if parts are invalid
-				end
-
-			elseif type_marker == "SpecialFloat"
-				# Reconstruct Inf/NaN
-				val_str = get(value, "value", "")
-				if val_str == "Inf"
-					return Inf
-				end
-				if val_str == "-Inf"
-					return -Inf
-				end
-				if val_str == "NaN"
-					return NaN
-				end
-				@warn "Unknown SpecialFloat value: '$val_str'. Returning original Dict."
-				return value
-
-			elseif type_marker == "Float"
-				return get_as(value, "value", nothing, BASE_FLOAT)
-
-			elseif type_marker == "Int"
-				return get_as(value, "value", nothing, Int)
-
-			elseif type_marker == "Complex"
-				return get_as(value, "value", nothing, Complex)
-
-			else
-				@warn "Unknown __type__ marker: '$type_marker'. Processing as regular dictionary."
-				# Fall through to regular dictionary processing
-			end
-		end
-
-		# Check for Julia object marker
-		if haskey(value, "__julia_type__")
-			type_str = value["__julia_type__"]
-			try
-				T = _resolve_type(type_str)
-				# Delegate object construction to _deserialize_obj
-				return _deserialize_obj(value, T)
-			catch e
-				# Catch errors specifically from _deserialize_obj or _resolve_type
-				@error "Failed to resolve or deserialize type '$type_str': $e. Returning original Dict."
-				showerror(stderr, e, catch_backtrace())
-				println(stderr)
-				return value # Return original dict on error
-			end
-		end
-		return Dict(Symbol(k) => _deserialize_value(v) for (k, v) in value)
-
-	elseif value isa Vector
-		# Recursively deserialize array elements
-		return [_deserialize_value(v) for v in value]
-
-	else
-		# Basic JSON types (Number, String, Bool, Nothing) pass through
-		return value
-
-	end
+function _decode_named_tuple(value)
+    value isa AbstractVector || throw(ArgumentError(
+        "named-tuple data must be an ordered array"
+    ))
+    names = Tuple(Symbol(_required(entry, "name", "named-tuple entry"))
+    for entry in value)
+    allunique(names) || throw(ArgumentError("named-tuple names must be unique"))
+    values = Tuple(deserialize_value(
+                       _required(entry, "value", "named-tuple entry")
+                   ) for entry in value)
+    return NamedTuple{names}(values)
 end
 
-"""
-$(TYPEDSIGNATURES)
+function _decode_float(type_name::AbstractString, value::AbstractDict)
+    T = _float_type(Val(Symbol(type_name)))
+    if haskey(value, "special")
+        special = value["special"]
+        special == "Inf" && return T(Inf)
+        special == "-Inf" && return T(-Inf)
+        special == "NaN" && return T(NaN)
+        throw(ArgumentError("unknown special floating-point value '$special'"))
+    end
+    payload = _required(value, "value", type_name)
+    return T === BigFloat ? parse(BigFloat, String(payload)) : convert(T, payload)
+end
 
-Retrieves a value from a dictionary by key, deserializes it, and coerces it to the specified type `T`. Returns a default value if the key is missing or the value is `missing`.
+function _decode_material_record(value)
+    raw_kind = deserialize_value(_required(value, "kind", "material"))
+    kind = raw_kind isa AbstractString ? Symbol(raw_kind) : raw_kind
+    fields = (
+        kind,
+        _field(value, "rho"),
+        _field(value, "eps_r"),
+        _field(value, "mu_r"),
+        _field(value, "T0"),
+        _field(value, "alpha"),
+        _field(value, "rho_thermal"),
+        _field(value, "theta_max"),
+        _field(value, "tan_delta"),
+        _field(value, "sigma_solar")
+    )
+    build = (selected_kind,
+        properties...) -> Material(
+        selected_kind isa Symbol ? selected_kind : Symbol(selected_kind),
+        properties...
+    )
+    return _decoded_target(Material, build, fields)
+end
 
-# Arguments
+_decoded_source(value) = value isa Union{AbstractGrid, Gridspace}
+function _decoded_target(::Type{Target}, build, values::Tuple) where {Target}
+    any(_decoded_source, values) || return build(values...)
+    sources = map(values) do value
+        _decoded_source(value) ? value : Grid((value,))
+    end
+    return Gridspace{Target}(build, sources)
+end
 
-- `d`: The dictionary to query.
-- `key`: The key to look up (symbol or string).
-- `default`: The value to return if the key is not present.
-- `T`: The target type for coercion.
+"Decode a supported scalar, collection, Grid, or v1 declaration."
+function deserialize_value(value)
+    value isa AbstractVector && return [deserialize_value(item) for item in value]
+    value isa AbstractDict || return value
+    if haskey(value, "__type__")
+        marker = String(value["__type__"])
+        marker in ("Float16", "Float32", "Float64", "BigFloat") &&
+            return _decode_float(marker, value)
+        marker == "Symbol" && return Symbol(_required(value, "value", marker))
+        marker == "Complex" && return complex(
+            deserialize_value(_required(value, "re", marker)),
+            deserialize_value(_required(value, "im", marker))
+        )
+        if marker == "Measurement"
+            applicable(deserialize_extension, Val(:Measurement), value) || throw(
+                ArgumentError("deserialising Measurement values requires Measurements.jl")
+            )
+            return deserialize_extension(Val(:Measurement), value)
+        end
+        throw(ArgumentError("unsupported serialised scalar tag '$marker'"))
+    end
+    if haskey(value, "grid")
+        values = deserialize_value(value["grid"])
+        haskey(value, "rel") && return Grid(values, deserialize_value(value["rel"]))
+        haskey(value, "abs") && return Grid(
+            values,
+            AbsoluteError(deserialize_value(value["abs"]))
+        )
+        return Grid(values)
+    end
+    if get(value, "type", nothing) == "material"
+        return _decode_material_record(_required(value, "value", "material"))
+    end
+    haskey(value, "type") && throw(ArgumentError(
+        "unsupported serialised object type '$(value["type"])'"
+    ))
+    haskey(value, "kind") && return _decode_node(Val(Symbol(value["kind"])), value)
+    return Dict(String(key) => deserialize_value(item) for (key, item) in value)
+end
 
-# Returns
+_decode_node(::Val{:disk}, value) = _decoded_target(Disk, Disk, (_field(value, "r"),))
+function _decode_node(::Val{:rectangle}, value)
+    _decoded_target(
+        Rectangle,
+        Rectangle,
+        (_field(value, "w"), _field(value, "h"))
+    )
+end
+function _decode_node(::Val{:ellipse}, value)
+    _decoded_target(
+        Ellipse,
+        Ellipse,
+        (_field(value, "a"), _field(value, "b"))
+    )
+end
+function _decode_node(::Val{:sector}, value)
+    _decoded_target(
+        Sector,
+        Sector,
+        (
+            _field(value, "span"),
+            _field(value, "r_base"),
+            _field(value, "r_back"),
+            _field(value, "fillet")
+        )
+    )
+end
+function _decode_node(::Val{:annulus}, value)
+    _decoded_target(
+        Annulus,
+        Annulus,
+        (_field(value, "ri"), _field(value, "ro"))
+    )
+end
+_decode_node(::Val{:shell}, value) = _decoded_target(Shell, Shell, (_field(value, "t"),))
+function _decode_node(::Val{:polygon}, value)
+    _decoded_target(Polygon, Polygon, (_field(value, "points"),))
+end
+function _decode_node(::Val{:pose2}, value)
+    _decoded_target(
+        Pose2,
+        Pose2,
+        (_field(value, "x"), _field(value, "y"), _field(value, "φ"))
+    )
+end
+function _decode_node(::Val{:earth_layer}, value)
+    EarthLayer(
+        _field(value, "rho"),
+        _field(value, "eps_r"),
+        _field(value, "mu_r"),
+        _field(value, "thickness")
+    )
+end
+function _decode_node(::Val{:earth_model}, value)
+    raw_layers = _required(value, "layers", "earth_model")
+    raw_layers isa AbstractVector || throw(ArgumentError(
+        "earth_model layers must be an array"
+    ))
+    layers = EarthLayer[deserialize_value(layer) for layer in raw_layers]
+    isempty(layers) && throw(ArgumentError("earth_model layers cannot be empty"))
+    T = promote_type(map(eltype, layers)...)
+    converted = Tuple(convert(EarthLayer{T}, layer) for layer in layers)
+    length(converted) >= 2 || throw(ArgumentError(
+        "earth_model requires air and at least one earth layer"
+    ))
+    return build(
+        EarthModel,
+        Base.tail(converted);
+        vertical_layers = Bool(_required(value, "vertical_layers", "earth_model")),
+        air_layer = first(converted)
+    )
+end
 
-- The value associated with `key` in `d`, deserialized and coerced to type `T`, or `default` if the key is missing or the value is `missing`.
+function _decode_node(::Val{:ring}, value)
+    values = (
+        _field(value, "n"), _field(value, "r"),
+        _field(value, "φ0"), _field(value, "span"),
+        haskey(value, "gap_frac") ? _field(value, "gap_frac") : 0
+    )
+    build = (n, r, φ0, span, gap_frac) -> Ring(n; r, φ0, span, gap_frac)
+    return _decoded_target(Ring, build, values)
+end
+function _decode_node(::Val{:polar}, value)
+    values = (
+        _field(value, "nr"), _field(value, "nφ"),
+        _field(value, "r0"), _field(value, "dr"),
+        _field(value, "φ0"), _field(value, "span")
+    )
+    build = (nr, nφ, r0, dr, φ0, span) -> Polar(; nr, nφ, r0, dr, φ0, span)
+    return _decoded_target(Polar, build, values)
+end
+function _decode_node(::Val{:fill}, value)
+    values = (
+        _field(value, "r"), _field(value, "φ"),
+        _field(value, "φ0"), _field(value, "span")
+    )
+    build = (r, φ, φ0, span) -> Fill(; r, φ, φ0, span)
+    return _decoded_target(Fill, build, values)
+end
+function _decode_node(::Val{:lattice}, value)
+    values = (
+        _field(value, "nx"), _field(value, "ny"),
+        _field(value, "dx"), _field(value, "dy")
+    )
+    build = (nx, ny, dx, dy) -> Lattice(; nx, ny, dx, dy)
+    return _decoded_target(Lattice, build, values)
+end
+function _decode_node(::Val{:fill_factor}, value)
+    _decoded_target(
+        FillFactor, FillFactor, (_field(value, "η"),)
+    )
+end
+_decode_node(::Val{:capacity}, value) = capacity()
+function _decode_node(::Val{:lay_ratio}, value)
+    _decoded_target(LayRatio, LayRatio, (_field(value, "q"),))
+end
+_decode_node(::Val{:pitch}, value) = _decoded_target(Pitch, Pitch, (_field(value, "p"),))
+function _decode_node(::Val{:lay_angle}, value)
+    _decoded_target(LayAngle, LayAngle, (_field(value, "α"),))
+end
+function _decode_node(::Val{:helix}, value)
+    values = (
+        _field(value, "lay"), _field(value, "dir"), _field(value, "φ0")
+    )
+    build = (lay, dir, φ0) -> Helix(lay; dir, φ0)
+    return _decoded_target(Helix, build, values)
+end
 
-# Examples
+function _material_reference(value, materials)
+    value isa AbstractString && return get(materials, String(value)) do
+        throw(KeyError(String(value)))
+    end
+    decoded = deserialize_value(value)
+    decoded isa Union{Material, Gridspace{Material}} || throw(ArgumentError(
+        "region material must decode as Material"
+    ))
+    return decoded
+end
 
-```julia
-result = $(FUNCTIONNAME)(Dict(:a => 1), :a, 0, Int)  # Returns 1
-result = $(FUNCTIONNAME)(Dict(), :b, 42, Int)        # Returns 42
-```
-"""
-get_as(d::AbstractDict, key::Union{Symbol, AbstractString}, default, ::Type{T}) where {T} =
-	begin
-		v = get(d, key, default)
-		v === missing ? missing : coerce_to_T(_deserialize_value(v), T)
-	end
+function _decode_part(value, materials)
+    value isa AbstractDict || throw(ArgumentError("physical nodes must be objects"))
+    kind = Symbol(_required(value, "kind", "physical node"))
+    return _decode_part(Val(kind), value, materials)
+end
 
-"""
-$(TYPEDSIGNATURES)
+function _decode_part(::Val{:region}, value, materials)
+    values = (
+        Symbol(_required(value, "tag", "region")),
+        deserialize_value(_required(value, "primitive", "region")),
+        _material_reference(_required(value, "material", "region"), materials)
+    )
+    return _decoded_target(Region, Region, values)
+end
+function _decode_part(::Val{:stack}, value, materials)
+    items = _required(value, "items", "stack")
+    items isa AbstractVector && !isempty(items) || throw(ArgumentError(
+        "stack items must be a nonempty array"
+    ))
+    decoded = Tuple(_decode_part(item, materials) for item in items)
+    return _decoded_target(Stack, Stack, decoded)
+end
+function _decode_part(::Val{:group}, value, materials)
+    path = deserialize_value(_required(value, "path", "group"))
+    path isa AbstractVector && (path = Tuple(path))
+    values = (
+        Symbol(_required(value, "name", "group")),
+        deserialize_value(_required(value, "at", "group")),
+        _decode_part(_required(value, "item", "group"), materials),
+        deserialize_value(_required(value, "pattern", "group")),
+        path,
+        deserialize_value(_required(value, "compact", "group")),
+        deserialize_value(_required(value, "boundary", "group"))
+    )
+    return _decoded_target(Group, Group, values)
+end
+function _decode_part(::Val{:assembly}, value, materials)
+    if haskey(value, "members")
+        raw_members = _required(value, "members", "assembly")
+        raw_members isa AbstractVector && !isempty(raw_members) || throw(
+            ArgumentError("explicit assembly members must be a nonempty array")
+        )
+        members = Tuple(map(raw_members) do member
+            member isa AbstractDict || throw(ArgumentError(
+                "explicit assembly members must be objects"
+            ))
+            DataModel.AssemblyMember(
+                _decode_part(_required(member, "item", "assembly member"), materials),
+                deserialize_value(_required(member, "at", "assembly member"))
+            )
+        end)
+        return Assembly(
+            deserialize_value(_required(value, "at", "assembly")),
+            members,
+            nothing,
+            nothing,
+            nothing,
+            nothing
+        )
+    end
+    raw_names = _required(value, "names", "assembly")
+    names = raw_names === nothing ? nothing : Symbol.(raw_names)
+    values = (
+        deserialize_value(_required(value, "at", "assembly")),
+        _decode_part(_required(value, "item", "assembly"), materials),
+        deserialize_value(_required(value, "pattern", "assembly")),
+        deserialize_value(_required(value, "path", "assembly")),
+        deserialize_value(_required(value, "compact", "assembly")),
+        names
+    )
+    return _decoded_target(Assembly, Assembly, values)
+end
+function _decode_part(::Val{:enclosure}, value, materials)
+    raw_fill = _required(value, "fill", "enclosure")
+    fill = raw_fill isa AbstractString ? _material_reference(raw_fill, materials) :
+           get(raw_fill, "kind", nothing) == "region" ?
+           _decode_part(raw_fill, materials) : deserialize_value(raw_fill)
+    raw_wall = _required(value, "wall", "enclosure")
+    wall = raw_wall === nothing ? nothing : _decode_part(raw_wall, materials)
+    values = (
+        Symbol(_required(value, "tag", "enclosure")),
+        deserialize_value(_required(value, "at", "enclosure")),
+        deserialize_value(_required(value, "primitive", "enclosure")),
+        _decode_part(_required(value, "item", "enclosure"), materials),
+        fill,
+        wall
+    )
+    return _decoded_target(Enclosure, Enclosure, values)
+end
+function _decode_part(::Val{kind}, value, materials) where {kind}
+    throw(ArgumentError("unsupported physical node kind '$kind'"))
+end
 
-Deserializes a dictionary (parsed from JSON) into a Julia object of type `T`.
-Attempts keyword constructor first, then falls back to positional constructor
-if the keyword attempt fails with a specific `MethodError`.
+_decode_node(::Val{:region}, value) = _decode_part(value, Dict{String, Material}())
+_decode_node(::Val{:stack}, value) = _decode_part(value, Dict{String, Material}())
+_decode_node(::Val{:group}, value) = _decode_part(value, Dict{String, Material}())
+_decode_node(::Val{:assembly}, value) = _decode_part(value, Dict{String, Material}())
+_decode_node(::Val{:enclosure}, value) = _decode_part(value, Dict{String, Material}())
 
-# Arguments
-- `dict`: Dictionary containing the serialized object data. Keys should match field names.
-- `T`: The target Julia `Type` to instantiate.
+function _decode_design_resolved(value, materials)
+    get(value, "kind", nothing) == "cable_design" || throw(ArgumentError(
+        "cable declaration must have kind 'cable_design'"
+    ))
+    values = (
+        String(_required(value, "cable_id", "cable_design")),
+        _decode_part(_required(value, "root", "cable_design"), materials),
+        haskey(value, "nominal_data") ?
+        _decode_named_tuple(_required(value, "nominal_data", "cable_design")) : (;)
+    )
+    caller = (
+        cable_id, root, nominal_data) -> build(
+        CableDesign, cable_id, root; nominal_data
+    )
+    return _decoded_target(CableDesign, caller, values)
+end
 
-# Returns
-- An instance of type `T`.
+function _decode_design(value, materials = Dict{String, Material}())
+    varying = Tuple(
+        (name, material)
+    for (name, material) in sort!(collect(materials); by = first)
+    if material isa Gridspace{Material}
+    )
+    isempty(varying) && return _decode_design_resolved(value, materials)
+    names = first.(varying)
+    sources = last.(varying)
+    build = function (selected...)
+        resolved = Dict{String, Any}(materials)
+        for (name, material) in zip(names, selected)
+            resolved[name] = material
+        end
+        design = _decode_design_resolved(value, resolved)
+        design isa CableDesign || throw(ArgumentError(
+            "a named-material parameter space cannot be combined with another " *
+            "unresolved design field in the same JSON declaration"
+        ))
+        return design
+    end
+    return Gridspace{CableDesign}(build, sources)
+end
+_decode_node(::Val{:cable_design}, value) = _decode_design(value)
 
-# Throws
-- `Error` if construction fails by both methods.
-"""
-function _deserialize_obj(dict::Dict, ::Type{T}) where {T}
-	# Prepare a dictionary mapping field symbols to deserialized values
-	deserialized_fields = Dict{Symbol, Any}()
-	for (key_str, val) in dict
-		# Skip metadata keys
-		if key_str == "__julia_type__" || key_str == "__type__"
-			continue
-		end
-		key_sym = Symbol(key_str)
-		# Ensure value is deserialized before storing
-		deserialized_fields[key_sym] = _deserialize_value(val)
+function _decode_node(::Val{:line_cable_system}, value)
+    designs = CableDesign[deserialize_value(item)
+                          for item in _required(value, "designs", "line_cable_system")]
+    return build(
+        LineCableSystem,
+        designs,
+        deserialize_value(_required(value, "positions", "line_cable_system"));
+        system_id = String(_required(value, "system_id", "line_cable_system")),
+        line_length = _field(value, "line_length"),
+        connections = deserialize_value(_required(value, "connections", "line_cable_system")),
+        environment = _optional(value, "environment")
+    )
+end
 
-	end
+function _decode_node(::Val{:line_parameters_problem}, value)
+    system = _field(value, "system")
+    system isa LineCableSystem || throw(ArgumentError(
+        "line_parameters_problem system must decode as LineCableSystem"
+    ))
+    earth = _field(value, "earth_props")
+    earth isa EarthModel || throw(ArgumentError(
+        "line_parameters_problem earth_props must decode as EarthModel"
+    ))
+    return Engine.LineParametersProblem(
+        system;
+        temperature = _field(value, "temperature"),
+        earth_props = earth,
+        frequencies = _field(value, "frequencies"),
+        Γ = _optional(value, "Gamma")
+    )
+end
 
-	# --- Attempt 1: Keyword Constructor ---
-	try
-		# Convert Dict{Symbol, Any} to pairs for keyword constructor T(; pairs...)
-		# Ensure kwargs only contain keys that are valid fieldnames for T
-		# This prevents errors if extra keys were present in JSON
-		valid_keys = fieldnames(T)
-		kwargs = pairs(filter(p -> p.first in valid_keys, deserialized_fields))
+function _decode_node(::Val{kind}, value) where {kind}
+    throw(ArgumentError("unsupported declaration kind '$kind'"))
+end
 
-		# @info "Attempting keyword construction for $T with kwargs: $(collect(kwargs))" # Debug logging
-		if !isempty(kwargs) || hasmethod(T, Tuple{}, Symbol[]) # Check if kw constructor exists or if kwargs are empty
-			return T(; kwargs...)
-		else
-			# If no kwargs and no zero-arg kw constructor, trigger fallback
-			error(
-				"No keyword arguments provided and no zero-argument keyword constructor found for $T.",
-			)
-		end
-	catch e
-		# Check if the error is specifically a MethodError for the keyword call
-		is_kw_meth_error =
-			e isa MethodError && (e.f === Core.kwcall || (e.f === T && isempty(e.args))) # Check for kwcall or zero-arg method error
+function _read_document(file_name::AbstractString, expected_format::AbstractString)
+    document = open(file_name, "r") do io
+        #! explicit-imports: off
+        JSON3.read(io, Dict{String, Any})
+        #! explicit-imports: on
+    end
+    _required(document, "\$schema", "LineCableModels document") ==
+    JSON_SCHEMA_DIALECT || throw(ArgumentError(
+        "unsupported JSON Schema dialect"
+    ))
+    format = _required(document, "format", "LineCableModels document")
+    format == expected_format || throw(ArgumentError(
+        "expected format '$expected_format', found '$format'"
+    ))
+    version = _required(document, "version", expected_format)
+    version == JSON_SCHEMA_VERSION || throw(ArgumentError(
+        "unsupported $expected_format version $version; supported version is " *
+        JSON_SCHEMA_VERSION
+    ))
+    return document
+end
 
-		if is_kw_meth_error
-			# @info "Keyword construction failed for $T (as expected for types without kw constructor). Trying positional." # Debug logging
-			# Fall through to positional attempt
-		else
-			# Different error during keyword construction (e.g., type mismatch inside constructor)
-			@error "Keyword construction failed for type $T with unexpected error: $e"
-			println(stderr, "Input dictionary: $dict")
-			println(stderr, "Deserialized fields (kwargs used): $(deserialized_fields)")
-			rethrow(e) # Rethrow unexpected errors
-		end
-	end
-
-	# --- Attempt 2: Positional Constructor (Fallback) ---
-	# @info "Attempting positional construction for $T" # Debug logging
-	fields_in_order = fieldnames(T)
-	positional_args = []
-
-	try
-		# Check if the number of deserialized fields matches the number of struct fields
-		# This is a basic check for suitability of positional constructor
-		# It might be too strict if optional fields were omitted in JSON for keyword constructor types
-		# but for true positional types, all fields should generally be present.
-		# if length(deserialized_fields) != length(fields_in_order)
-		#     Base.error("Number of fields in JSON ($(length(deserialized_fields))) does not match number of fields in struct $T ($(length(fields_in_order))). Cannot use positional constructor.")
-		# end
-
-		for field_sym in fields_in_order
-			if haskey(deserialized_fields, field_sym)
-				push!(positional_args, deserialized_fields[field_sym])
-			else
-				# If a field is missing, positional construction will fail.
-				error(
-					"Cannot attempt positional construction for $T: Missing required field '$field_sym' in input data.",
-				)
-			end
-		end
-
-		# @info "Positional args for $T: $positional_args" # Debug logging
-		return T(positional_args...)
-	catch e
-		# Catch errors during positional construction (e.g., MethodError, TypeError)
-		@error "Positional construction failed for type $T with args: $positional_args. Error: $e"
-		println(stderr, "Input dictionary: $dict")
-		println(
-			stderr,
-			"Deserialized fields used for positional args: $(deserialized_fields)",
-		)
-		# Check argument count mismatch again, although the loop above should ensure it if no error occurred there
-		if length(positional_args) != length(fields_in_order)
-			println(
-				stderr,
-				"Mismatch between number of args provided ($(length(positional_args))) and fields expected ($(length(fields_in_order))).",
-			)
-		end
-		# Rethrow the error after providing context. This indicates neither method worked.
-		rethrow(e)
-	end
-
-	# This line should ideally not be reached
-	error(
-		"Failed to construct object of type $T using both keyword and positional methods.",
-	)
+function _document_materials(document)
+    raw = _required(document, "materials", "LineCableModels document")
+    raw isa AbstractDict || throw(ArgumentError("materials must be an object"))
+    return Dict{String, Any}(
+        String(name) => _decode_material_record(value) for (name, value) in raw
+    )
 end

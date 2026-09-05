@@ -1,0 +1,14 @@
+# Independent scalar references evaluated from the supplied MATLAB recurrences.
+frequencies_hz = [50.0, 1000.0, 1000000.0]
+rho_ohm_m = [100.0, 500.0, 50.0]
+eps_r = [10.0, 20.0, 5.0]
+mu_r = [1.0, 1.0, 1.0]
+thickness_m = [5.0, 10.0]
+
+[formula.MartinsBritto2020]
+rho_ohm_m = [52.28664364311072, 60.210024658292184, 118.17643132963703]
+eps_r = [5.0, 5.0, 5.0]
+
+[formula.Xue2021]
+rho_ohm_m = [52.38636207201525, 62.04897181935256, 91.43603911709877]
+eps_r = [-300334.53712609364, -48961.760747672524, 55.504199487018646]

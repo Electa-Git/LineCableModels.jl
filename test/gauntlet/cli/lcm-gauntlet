@@ -1,0 +1,6 @@
+#!/bin/sh
+set -eu
+
+ROOT=$(CDPATH= cd -- "$(dirname -- "$0")/../../.." && pwd)
+exec julia --project="$ROOT/test/gauntlet" --startup-file=no \
+    "$ROOT/test/gauntlet/cli.jl" "$@"

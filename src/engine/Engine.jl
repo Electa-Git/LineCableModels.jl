@@ -1,57 +1,93 @@
 """
-	LineCableModels.Engine
+    LineCableModels.Engine
 
-The [`Engine`](@ref) module provides the main functionalities of the [`LineCableModels.jl`](index.md) package. This module implements data structures, methods and functions for calculating frequency-dependent electrical parameters (Z/Y matrices) of line and cable systems with uncertainty quantification. 
+Calculate cable constants and frequency-dependent line-parameter matrices from
+completed cable declarations and Engine-owned numerical blueprints.
 
 # Overview
 
-- Calculation of frequency-dependent series impedance (Z) and shunt admittance (Y) matrices.
-- Uncertainty propagation for geometric and material parameters using `Measurements.jl`.
-- Internal impedance computation for solid, tubular and multi-layered coaxial conductors.
-- Earth return impedances/admittances for overhead lines and underground cables (valid up to 10 MHz).
-- Support for frequency-dependent soil properties.
-- Handling of arbitrary polyphase systems with multiple conductors per phase.
-- Phase and sequence domain calculations with uncertainty quantification.
-- Novel N-layer concentric cable formulation with semiconductor modeling.
+- Define scalar problems, formulations, and core results.
+- Calculate conductor, insulation, and earth-return impedance and admittance.
+- Assemble phase-domain series-impedance and shunt-admittance matrices.
+- Apply bundle reduction, Kron elimination, and ideal transposition.
+- Compare, tabulate, and describe plots of completed line-parameter results.
 
 # Dependencies
 
 $(IMPORTS)
 
-# Exports
-
-$(EXPORTS)
 """
 module Engine
 
 # Export public API
-export LineParametersProblem,
-	LineParameters, SeriesImpedance, ShuntAdmittance, per_km,
-	per_m, kronify
-export EMTFormulation, FormulationSet, LineParamOptions
+export LineParametersProblem, CableConstantsProblem,
+       LineParameters, CableConstants, SeriesImpedance, ShuntAdmittance,
+       RMSError, LineParametersBenchmark, compare,
+       absolute_error, relative_error,
+       Z, Y, R, X, L, G, B, C,
+       series_impedance, shunt_admittance,
+       resistance, reactance, inductance,
+       conductance, susceptance, capacitance,
+       frequencies, nconductors, nfrequencies, basis,
+       kronify
+export AbstractFormulation, LineParametersFormulation, CableConstantsFormulation,
+       Formulation
+export AbstractFormulationBackend, AbstractFormulationOptions
+export LineCableModelsCoaxial, LineCableModelsFEM, LineCableModelsFEMOptions,
+       LineCableModelsFEMError, LineParametersWorkspace
+export constitutive, formula_id, EarthPair
+export verbosity
+export InternalImpedance, InsulationImpedance, EarthImpedance
+export InsulationAdmittance, SemiconAdmittance, EarthAdmittance
 
-export compute!, plot
+export compute
 
 # Module-specific dependencies
-using Reexport, ForceImport
-using Measurements
-using LinearAlgebra
-using ..Commons
-import ..Commons: get_description, LineParamsDomain, PhaseDomain, ModalDomain, domain
+using LinearAlgebra: I, checksquare, cond, diag, ldiv!, lu, lu!, mul!, norm
+using DocStringExtensions: IMPORTS, TYPEDEF, TYPEDFIELDS, TYPEDSIGNATURES
+import ..LineCableModels: basis, build, R, L, C,
+                          resistance, inductance, capacitance
+import ..LineCableModels: nominal
+import ..LineCableModels: constitutive, formula, formula_id, FormulaSpec
+import ..LineCableModels: parameterize
+#! explicit-imports: off
+import ..LineCableModels: description
+#! explicit-imports: on
+import ..Grammar: AbstractProblemDefinition, AbstractFormulation,
+                  AbstractProblemResult, AbstractCoreResult,
+                  FormulationOptions, ComputationOptions,
+                  ComputationDetails,
+                  formulation_options, computation_options, computation_details, details,
+                  compute, observe, observables,
+                  observation_request, observation_indices,
+                  publication_table
 
-using ..Utils
+using ..Units
 using ..Materials
-using ..EarthProps: EarthModel
-using ..DataModel: LineCableSystem
-using ..Utils: levelfrom, TimestampLogger
-using Logging, LoggingExtras
+import ..EarthProps
+using ..EarthProps: EarthMaterial, EarthModel, EHEM
+using ..DataModel: CableDesign, LineCableSystem, ncables, nphases
+import ..DataModel
+import ..TextDisplay
+import ..LineCableModels: validate
+import Logging
+using Logging: AbstractLogger, ConsoleLogger, with_logger
+import SpecialFunctions
+using QuadGK: alloc_segbuf, quadgk
 
-include("types.jl")
+include("interfaces.jl")
+include("formulations.jl")
+include("earthkernels.jl")
 
-# Problem definitions
-include("lineparamopts.jl")
-include("problemdefs.jl")
-include("lineparams.jl")
+# Problem and coaxial formulation definitions
+include("problems.jl")
+include("options.jl")
+
+# Line-parameter results and their protocols
+include("lineparameters/lineparameters.jl")
+include("lineparameters/quantities.jl")
+include("lineparameters/benchmark.jl")
+include("matrixops.jl")
 
 # Submodule `InternalImpedance`
 include("internalimpedance/InternalImpedance.jl")
@@ -69,41 +105,33 @@ using .EarthImpedance: EarthImpedance
 include("insulationadmittance/InsulationAdmittance.jl")
 using .InsulationAdmittance: InsulationAdmittance
 
+# Submodule `SemiconAdmittance`
+include("semiconadmittance/SemiconAdmittance.jl")
+using .SemiconAdmittance: SemiconAdmittance
+
 # Submodule `EarthAdmittance`
 include("earthadmittance/EarthAdmittance.jl")
 using .EarthAdmittance: EarthAdmittance
 
-# Submodule `Transforms`
-include("transforms/Transforms.jl")
-using .Transforms
-
-# Submodule `EHEM`
-include("ehem/EHEM.jl")
-using .EHEM
-
-# Helpers
-include("helpers.jl")
-
-# Workspace definition
-include("workspace.jl")
-
-# Computation methods
-include("solver.jl")
+# Native workspace and numerical action
+include("blueprint.jl")
+include("input.jl")
+include("logging.jl")
+include("earthreturn.jl")
+include("impedance.jl")
+include("admittance.jl")
+include("lineparameters.jl")
 include("reduction.jl")
-include("plot.jl")
+include("cableconstants.jl")
 
-# Override I/O methods
-include("base.jl")
-include("dataframe.jl")
+# Line-parameter protocols and observation publication
+include("lineparameters/base.jl")
+include("lineparameters/publication.jl")
+include("textdisplay.jl")
 
-# Submodule `FEM`
-include("fem/FEM.jl")
-
-@reexport using .InternalImpedance: InternalImpedance
-@reexport using .InsulationImpedance: InsulationImpedance
-@reexport using .EarthImpedance: EarthImpedance
-@reexport using .InsulationAdmittance: InsulationAdmittance
-@reexport using .EarthAdmittance: EarthAdmittance
-@reexport using .EHEM, .Transforms
+public has_uncertainty_type
+public reduce_primitive_matrices, potential_to_admittance
+public ConsoleVerbosityLogger
+public CableBlueprint, BlueprintConductor, BlueprintDielectric, flatten
 
 end # module Engine

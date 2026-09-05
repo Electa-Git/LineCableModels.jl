@@ -1,75 +1,71 @@
 """
-	LineCableModels.ImportExport
+    LineCableModels.ImportExport
 
-The [`ImportExport`](@ref) module provides methods for serializing and deserializing data structures in [`LineCableModels.jl`](index.md), and data exchange with external programs.
+Read and write LineCableModels data.
 
 # Overview
 
-This module provides functionality for:
-
-- Saving and loading cable designs and material libraries to/from JSON and other formats.
-- Exporting cable system models to PSCAD and ATP formats.
-- Serializing custom types with special handling for measurements and complex numbers.
-
-The module implements a generic serialization framework with automatic type reconstruction
-and proper handling of Julia-specific types like `Measurement` objects and `Inf`/`NaN` values.
+- Save and load material and cable libraries.
+- Encode package-owned model types in the versioned JSON schema.
+- Export cable systems and calculated matrices to PSCAD, ATPDraw, and TRALIN
+  formats.
+- Import supported PSCAD and TRALIN results.
 
 # Dependencies
 
 $(IMPORTS)
 
-# Exports
-
-$(EXPORTS)
 """
 module ImportExport
 
-# Export public API
 export export_data
-export read_data
+export import_data
 export save
 export load!
 
-# Module-specific dependencies
-using ..Commons
-using ..Utils: display_path, to_nominal, resolve_T, coerce_to_T, isdiag_approx
+#! explicit-imports: off
+# IMPORTS is expanded in the module docstring rather than called as Julia code.
+using DocStringExtensions: IMPORTS
+#! explicit-imports: on
+using DocStringExtensions: TYPEDSIGNATURES, METHODLIST
+import ..LineCableModels: build, validate, nominal
+import ..Grammar: observe
+import ..ReportBuilder
 using ..Materials: Material, MaterialsLibrary
-using ..EarthProps: EarthModel
-using ..DataModel: CablesLibrary, CableDesign, CableComponent, ConductorGroup,
-	InsulatorGroup, CircStrands, RectStrands, Strip, Tubular, Semicon, Insulator,
-	LineCableSystem, NominalData
-import ..Engine: LineParameters, SeriesImpedance, ShuntAdmittance
-using Measurements
-using EzXML
-using Dates
-using Printf # For ATP export
-using JSON3
-using Serialization # For .jls format
-using LinearAlgebra
-using XLSX
-using Tables
-using DataFrames
+using ..EarthProps: EarthLayer, EarthModel
+import ..DataModel
+using ..DataModel: CablesLibrary, DatasheetInfo, CableDesign, LineCableSystem,
+                   AbstractCablePart, Region, Stack, Group, Assembly, Enclosure,
+                   Disk, Rectangle, Ellipse,
+                   Sector, Annulus, Shell,
+                   Polygon, Pose2,
+                   Ring, Polar, Fill, Lattice, capacity,
+                   FillFactor,
+                   LayRatio, Pitch, LayAngle, Helix
+using ..ParametricBuilder: AbstractGrid, DeterministicGrid, RelativeGrid,
+                           AbsoluteGrid, Grid, Gridspace, AbsoluteError
+import ..Engine
+import ..Engine: LineParameters, SeriesImpedance, ShuntAdmittance,
+                 frequencies, Z, Y, C
+import EzXML
+using EzXML: ElementNode, XMLDocument, addelement!, nodename, prettyprint,
+             readxml, root, setroot!
+using Printf: @printf, @sprintf
+import JSON3
+import Serialization
+using LinearAlgebra: tril
 
-"""
-$(TYPEDSIGNATURES)
-
-Export [`LineCableModels`](@ref) data for use in different EMT-type programs.
-
-# Methods
-
-$(METHODLIST)
-"""
-# function export_data end
-export_data(backend::Symbol, args...; kwargs...) =
-	export_data(Val(backend), args...; kwargs...)
-
+include("interfaces.jl")
+include("paths.jl")
 include("serialize.jl")
 include("deserialize.jl")
+include("problem.jl")
 include("cableslibrary.jl")
 include("materialslibrary.jl")
-include("pscad.jl")
+include("pscad/pscad.jl")
 include("atp.jl")
-include("xlsx.jl")
 include("tralin.jl")
+
+public serialize_value, deserialize_value, deserialize_extension
 
 end # module ImportExport

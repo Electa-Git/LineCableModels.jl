@@ -1,0 +1,528 @@
+const LINE_PARAMETER_BASES = (:pul, :total)
+
+@inline function _check_basis(value::Symbol)
+    value in LINE_PARAMETER_BASES || throw(
+        ArgumentError("basis must be :pul or :total; got :$value"),
+    )
+    return value
+end
+
+"""
+    SeriesImpedance{T, Basis}
+
+Store a square series-impedance matrix over frequency. Values use \\[Ω/m\\]
+when `Basis` is `:pul` and \\[Ω\\] when it is `:total`.
+"""
+struct SeriesImpedance{T, Basis} <: AbstractArray{T, 3}
+    "Complex series-impedance tensor with dimensions conductor × conductor × frequency."
+    values::Array{T, 3}
+
+    function SeriesImpedance{T, Basis}(values::Array{T, 3}) where {T, Basis}
+        Basis isa Symbol || throw(
+            ArgumentError("basis must be :pul or :total; got $(repr(Basis))"),
+        )
+        _check_basis(Basis)
+        return new{T, Basis}(values)
+    end
+end
+
+"""
+    ShuntAdmittance{T, Basis}
+
+Store a square shunt-admittance matrix over frequency. Values use \\[S/m\\]
+when `Basis` is `:pul` and \\[S\\] when it is `:total`.
+"""
+struct ShuntAdmittance{T, Basis} <: AbstractArray{T, 3}
+    "Complex shunt-admittance tensor with dimensions conductor × conductor × frequency."
+    values::Array{T, 3}
+
+    function ShuntAdmittance{T, Basis}(values::Array{T, 3}) where {T, Basis}
+        Basis isa Symbol || throw(
+            ArgumentError("basis must be :pul or :total; got $(repr(Basis))"),
+        )
+        _check_basis(Basis)
+        return new{T, Basis}(values)
+    end
+end
+
+function SeriesImpedance(A::AbstractArray{T, 3}; basis::Symbol = :pul) where {T}
+    _check_basis(basis)
+    return SeriesImpedance{T, basis}(Array(A))
+end
+
+function ShuntAdmittance(A::AbstractArray{T, 3}; basis::Symbol = :pul) where {T}
+    _check_basis(basis)
+    return ShuntAdmittance{T, basis}(Array(A))
+end
+
+@inline basis(::Type{<:SeriesImpedance{T, Basis}}) where {T, Basis} = Basis
+@inline basis(::SeriesImpedance{T, Basis}) where {T, Basis} = Basis
+@inline basis(::Type{<:ShuntAdmittance{T, Basis}}) where {T, Basis} = Basis
+@inline basis(::ShuntAdmittance{T, Basis}) where {T, Basis} = Basis
+
+"""
+    LineParameters{T, U, D, Basis, Q}
+
+Frequency-dependent series-impedance and shunt-admittance matrices.
+
+    `Basis` is either `:pul` or `:total`. Per-length values are stored in
+Ω/m and S/m. Total values are stored in Ω and S. Frequencies are stored in
+Hz. `D` is the concrete physical coordinate-domain value. `Q` is the concrete
+named-tuple type of optional computation output.
+"""
+struct LineParameters{
+    T <: Complex,
+    U <: Real,
+    D <: LineParamsDomain,
+    Basis,
+    Q <: NamedTuple
+} <: AbstractCoreResult
+    "Frequency-dependent series impedance \\[Ω/m\\] or \\[Ω\\]."
+    Z::SeriesImpedance{T, Basis}
+    "Frequency-dependent shunt admittance \\[S/m\\] or \\[S\\]."
+    Y::ShuntAdmittance{T, Basis}
+    "Frequency samples \\[Hz\\]."
+    f::Vector{U}
+    "Physical coordinate domain, including any required transformation state."
+    domain::D
+    "Typed supplemental output retained by the computation."
+    details::Q
+
+    function LineParameters(
+            domain::D,
+            Z::SeriesImpedance{T, Basis},
+            Y::ShuntAdmittance{T, Basis},
+            f::AbstractVector{U},
+            details::Q = (;)
+    ) where {
+            D <: LineParamsDomain,
+            T <: Complex,
+            U <: Real,
+            Basis,
+            Q <: NamedTuple
+    }
+        return validate(new{T, U, D, Basis, Q}(
+            Z,
+            Y,
+            Vector{U}(f),
+            domain,
+            details
+        ))
+    end
+end
+
+function validate(parameters::LineParameters{T, U, D, Basis}) where {T, U, D, Basis}
+    Basis in LINE_PARAMETER_BASES || throw(ArgumentError(
+        "LineParameters basis must be :pul or :total; received $(repr(Basis))"
+    ))
+    size(parameters.Z, 1) == size(parameters.Z, 2) || throw(DimensionMismatch(
+        "LineParameters.Z must be square; received size $(size(parameters.Z))"
+    ))
+    size(parameters.Y, 1) == size(parameters.Y, 2) || throw(DimensionMismatch(
+        "LineParameters.Y must be square; received size $(size(parameters.Y))"
+    ))
+    size(parameters.Z) == size(parameters.Y) || throw(DimensionMismatch(
+        "LineParameters.Z and LineParameters.Y must have equal n×n×nfreq " *
+        "dimensions; received $(size(parameters.Z)) and $(size(parameters.Y))"
+    ))
+    size(parameters.Z, 3) == length(parameters.f) || throw(DimensionMismatch(
+        "LineParameters.f must contain one value per matrix frequency plane; " *
+        "received $(length(parameters.f)) values for $(size(parameters.Z, 3)) planes"
+    ))
+    all(isfinite, parameters.f) || throw(ArgumentError(
+        "LineParameters.f must contain only finite frequencies; received " *
+        repr(parameters.f)
+    ))
+    return parameters
+end
+
+function LineParameters(
+        ::Type{PhaseDomain},
+        Z::SeriesImpedance{T, Basis},
+        Y::ShuntAdmittance{T, Basis},
+        f::AbstractVector{U},
+        details::Q = (;)
+) where {T <: Complex, U <: Real, Basis, Q <: NamedTuple}
+    return LineParameters(PhaseDomain(), Z, Y, f, details)
+end
+
+function LineParameters(
+        Z::SeriesImpedance{T, Basis},
+        Y::ShuntAdmittance{T, Basis},
+        f::AbstractVector{U}
+) where {T <: Complex, U <: Real, Basis}
+    return LineParameters(PhaseDomain, Z, Y, f)
+end
+
+function LineParameters(
+        Z::SeriesImpedance{TZ, ZBasis},
+        Y::ShuntAdmittance{TY, YBasis},
+        f::AbstractVector{U}
+) where {
+        TZ <: Complex,
+        TY <: Complex,
+        U <: Real,
+        ZBasis,
+        YBasis
+}
+    ZBasis === YBasis || throw(
+        ArgumentError("Z and Y must have the same basis; got :$ZBasis and :$YBasis"),
+    )
+    element_type = promote_type(TZ, TY)
+    return LineParameters(
+        PhaseDomain,
+        SeriesImpedance(convert(Array{element_type, 3}, Z.values); basis = ZBasis),
+        ShuntAdmittance(convert(Array{element_type, 3}, Y.values); basis = YBasis),
+        f
+    )
+end
+
+function LineParameters(
+        domain::D,
+        Z::AbstractArray{TZ, 3},
+        Y::AbstractArray{TY, 3},
+        f::AbstractVector{U};
+        basis::Symbol = :pul,
+        details::NamedTuple = (;)
+) where {
+        D <: LineParamsDomain,
+        TZ <: Complex,
+        TY <: Complex,
+        U <: Real
+}
+    _check_basis(basis)
+    element_type = promote_type(TZ, TY)
+    return LineParameters(
+        domain,
+        SeriesImpedance(convert(Array{element_type, 3}, Z); basis),
+        ShuntAdmittance(convert(Array{element_type, 3}, Y); basis),
+        f,
+        details
+    )
+end
+
+function LineParameters(
+        ::Type{PhaseDomain},
+        Z::AbstractArray{TZ, 3},
+        Y::AbstractArray{TY, 3},
+        f::AbstractVector{U};
+        basis::Symbol = :pul,
+        details::NamedTuple = (;)
+) where {TZ <: Complex, TY <: Complex, U <: Real}
+    return LineParameters(PhaseDomain(), Z, Y, f; basis, details)
+end
+
+function LineParameters(
+        Z::AbstractArray{TZ, 3},
+        Y::AbstractArray{TY, 3},
+        f::AbstractVector{U};
+        basis::Symbol = :pul,
+        details::NamedTuple = (;)
+) where {
+        TZ <: Complex,
+        TY <: Complex,
+        U <: Real
+}
+    return LineParameters(PhaseDomain, Z, Y, f; basis, details)
+end
+
+@inline domain(::Type{<:LineParameters{
+    T, U, D}}) where {T, U, D <: LineParamsDomain} = domain(D)
+@inline domain(lp::LineParameters) = domain(typeof(lp))
+@inline basis(::Type{<:LineParameters{T, U, D, Basis}}) where {T, U, D, Basis} = Basis
+@inline basis(::LineParameters{T, U, D, Basis}) where {T, U, D, Basis} = Basis
+details(parameters::LineParameters) = parameters.details
+
+observe(lp::LineParameters, ::typeof(frequencies)) = lp.f
+observe(lp::LineParameters, ::typeof(frequencies), indices...) = getindex(lp.f, indices...)
+frequencies(lp::LineParameters, indices...) = observe(lp, frequencies, indices...)
+nconductors(lp::LineParameters) = size(lp.Z, 1)
+nfrequencies(lp::LineParameters) = length(lp.f)
+
+function observables(::Type{<:LineParameters})
+    (
+        frequencies,
+        Z,
+        Y,
+        R,
+        X,
+        L,
+        G,
+        B,
+        C,
+        (Z, abs),
+        (Z, angle),
+        (Y, abs),
+        (Y, angle),
+        (Z, diag),
+        (Y, diag),
+        (R, diag),
+        (X, diag),
+        (L, diag),
+        (G, diag),
+        (B, diag),
+        (C, diag)
+    )
+end
+
+series_impedance(value::Union{LineParameters, SeriesImpedance}) = Z(value)
+shunt_admittance(value::Union{LineParameters, ShuntAdmittance}) = Y(value)
+"""
+    Z(parameters[, i, j[, k]])
+    Y(parameters[, i, j[, k]])
+
+Return series impedance or shunt admittance. With `(i, j)`, return the complete
+frequency response at that matrix position. `k` may be one index, a range, or
+`:`. Stored units follow [`basis`](@ref): \\[Ω/m\\] and \\[S/m\\] for
+`:pul`, or \\[Ω\\] and \\[S\\] for `:total`.
+"""
+@inline _observe_array(values::AbstractArray) = values
+@inline _observe_array(values::AbstractArray, i, j) = view(values, i, j, :)
+@inline _observe_array(values::AbstractArray, indices...) = getindex(values, indices...)
+
+function observe(impedance::SeriesImpedance, ::typeof(Z), indices...)
+    _observe_array(impedance.values, indices...)
+end
+function observe(admittance::ShuntAdmittance, ::typeof(Y), indices...)
+    _observe_array(admittance.values, indices...)
+end
+function observe(lp::LineParameters, ::typeof(Z), indices...)
+    _observe_array(lp.Z.values, indices...)
+end
+function observe(lp::LineParameters, ::typeof(Y), indices...)
+    _observe_array(lp.Y.values, indices...)
+end
+
+function observe(value::Union{LineParameters, SeriesImpedance}, ::typeof(R), indices...)
+    real.(observe(value, Z, indices...))
+end
+function observe(value::Union{LineParameters, SeriesImpedance}, ::typeof(X), indices...)
+    imag.(observe(value, Z, indices...))
+end
+function observe(value::Union{LineParameters, ShuntAdmittance}, ::typeof(G), indices...)
+    real.(observe(value, Y, indices...))
+end
+function observe(value::Union{LineParameters, ShuntAdmittance}, ::typeof(B), indices...)
+    imag.(observe(value, Y, indices...))
+end
+
+function observe(value::LineParameters, ::typeof(Z), ::typeof(abs), indices...)
+    abs.(observe(value, Z, indices...))
+end
+function observe(value::SeriesImpedance, ::typeof(Z), ::typeof(abs), indices...)
+    abs.(observe(value, Z, indices...))
+end
+function observe(value::LineParameters, ::typeof(Z), ::typeof(angle), indices...)
+    angle.(observe(value, Z, indices...))
+end
+function observe(value::SeriesImpedance, ::typeof(Z), ::typeof(angle), indices...)
+    angle.(observe(value, Z, indices...))
+end
+function observe(value::LineParameters, ::typeof(Y), ::typeof(abs), indices...)
+    abs.(observe(value, Y, indices...))
+end
+function observe(value::ShuntAdmittance, ::typeof(Y), ::typeof(abs), indices...)
+    abs.(observe(value, Y, indices...))
+end
+function observe(value::LineParameters, ::typeof(Y), ::typeof(angle), indices...)
+    angle.(observe(value, Y, indices...))
+end
+function observe(value::ShuntAdmittance, ::typeof(Y), ::typeof(angle), indices...)
+    angle.(observe(value, Y, indices...))
+end
+
+function _observe_diagonal(values::AbstractArray{T, 3}, indices...) where {T}
+    size(values, 1) == size(values, 2) || throw(DimensionMismatch(
+        "diagonal observation requires square matrix slices"
+    ))
+    diagonal = Matrix{T}(undef, size(values, 1), size(values, 3))
+    for sample in axes(values, 3), mode in axes(values, 1)
+
+        diagonal[mode, sample] = values[mode, mode, sample]
+    end
+    return isempty(indices) ? diagonal : getindex(diagonal, indices...)
+end
+
+const _SeriesResult = Union{LineParameters, SeriesImpedance}
+const _ShuntResult = Union{LineParameters, ShuntAdmittance}
+
+function observe(value::LineParameters, ::typeof(Z), ::typeof(diag), indices...)
+    _observe_diagonal(observe(value, Z), indices...)
+end
+function observe(value::SeriesImpedance, ::typeof(Z), ::typeof(diag), indices...)
+    _observe_diagonal(observe(value, Z), indices...)
+end
+function observe(value::_SeriesResult, ::typeof(R), ::typeof(diag), indices...)
+    _observe_diagonal(observe(value, R), indices...)
+end
+function observe(value::_SeriesResult, ::typeof(X), ::typeof(diag), indices...)
+    _observe_diagonal(observe(value, X), indices...)
+end
+function observe(value::LineParameters, ::typeof(L), ::typeof(diag), indices...)
+    _observe_diagonal(observe(value, L), indices...)
+end
+function observe(value::_SeriesResult, ::typeof(L), ::typeof(diag), indices...)
+    _observe_diagonal(observe(value, L), indices...)
+end
+
+function observe(value::LineParameters, ::typeof(Y), ::typeof(diag), indices...)
+    _observe_diagonal(observe(value, Y), indices...)
+end
+function observe(value::ShuntAdmittance, ::typeof(Y), ::typeof(diag), indices...)
+    _observe_diagonal(observe(value, Y), indices...)
+end
+function observe(value::_ShuntResult, ::typeof(G), ::typeof(diag), indices...)
+    _observe_diagonal(observe(value, G), indices...)
+end
+function observe(value::_ShuntResult, ::typeof(B), ::typeof(diag), indices...)
+    _observe_diagonal(observe(value, B), indices...)
+end
+function observe(value::LineParameters, ::typeof(C), ::typeof(diag), indices...)
+    _observe_diagonal(observe(value, C), indices...)
+end
+function observe(value::_ShuntResult, ::typeof(C), ::typeof(diag), indices...)
+    _observe_diagonal(observe(value, C), indices...)
+end
+
+function observables(::Type{<:SeriesImpedance})
+    (Z, R, X, L, (Z, abs), (Z, angle), (Z, diag), (R, diag), (X, diag), (L, diag))
+end
+function observables(::Type{<:ShuntAdmittance})
+    (Y, G, B, C, (Y, abs), (Y, angle), (Y, diag), (G, diag), (B, diag), (C, diag))
+end
+
+Z(value::Union{LineParameters, SeriesImpedance}, indices...) = observe(value, Z, indices...)
+Y(value::Union{LineParameters, ShuntAdmittance}, indices...) = observe(value, Y, indices...)
+R(value::Union{LineParameters, SeriesImpedance}, indices...) = observe(value, R, indices...)
+X(value::Union{LineParameters, SeriesImpedance}, indices...) = observe(value, X, indices...)
+G(value::Union{LineParameters, ShuntAdmittance}, indices...) = observe(value, G, indices...)
+B(value::Union{LineParameters, ShuntAdmittance}, indices...) = observe(value, B, indices...)
+
+resistance(value::Union{LineParameters, SeriesImpedance}, args...) = R(value, args...)
+reactance(value::Union{LineParameters, SeriesImpedance}, args...) = X(value, args...)
+conductance(value::Union{LineParameters, ShuntAdmittance}, args...) = G(value, args...)
+susceptance(value::Union{LineParameters, ShuntAdmittance}, args...) = B(value, args...)
+
+@inline function _angular_frequencies(lp::LineParameters, k)
+    selected = lp.f[k]
+    any(iszero, selected isa Number ? (selected,) : selected) && throw(
+        DomainError(selected, "L and C are undefined at zero frequency"),
+    )
+    return 2π .* selected
+end
+
+function _angular_frequencies(frequencies::AbstractVector)
+    any(iszero, frequencies) && throw(
+        DomainError(frequencies, "L and C are undefined at zero frequency"),
+    )
+    return reshape(2π .* frequencies, 1, 1, :)
+end
+
+function observe(
+        impedance::SeriesImpedance,
+        ::typeof(L),
+        frequencies::AbstractVector
+)
+    size(impedance, 3) == length(frequencies) || throw(
+        DimensionMismatch("frequency count must match the impedance third dimension"),
+    )
+    return imag.(impedance.values) ./ _angular_frequencies(frequencies)
+end
+
+function observe(
+        impedance::SeriesImpedance,
+        ::typeof(L),
+        frequencies::AbstractVector,
+        indices...
+)
+    return getindex(observe(impedance, L, frequencies), indices...)
+end
+
+function observe(
+        admittance::ShuntAdmittance,
+        ::typeof(C),
+        frequencies::AbstractVector
+)
+    size(admittance, 3) == length(frequencies) || throw(
+        DimensionMismatch("frequency count must match the admittance third dimension"),
+    )
+    return imag.(admittance.values) ./ _angular_frequencies(frequencies)
+end
+
+function observe(
+        admittance::ShuntAdmittance,
+        ::typeof(C),
+        frequencies::AbstractVector,
+        indices...
+)
+    return getindex(observe(admittance, C, frequencies), indices...)
+end
+
+"""
+$(TYPEDSIGNATURES)
+
+Return series inductance using the same frequency-selection grammar as
+[`Z`](@ref), evaluated as:
+
+```math
+L(f) = \\frac{\\operatorname{Im} Z(f)}{2\\pi f}.
+```
+
+Units are \\[H/m\\] for `:pul` and \\[H\\] for `:total`.
+
+# Errors
+
+Throws `DomainError` when a selected frequency is zero.
+"""
+function observe(lp::LineParameters, ::typeof(L))
+    any(iszero, lp.f) && throw(DomainError(lp.f, "L is undefined at zero frequency"))
+    return imag.(lp.Z.values) ./ reshape(2π .* lp.f, 1, 1, :)
+end
+
+"""
+$(TYPEDSIGNATURES)
+
+Return shunt capacitance using the same frequency-selection grammar as
+[`Y`](@ref), evaluated as:
+
+```math
+C(f) = \\frac{\\operatorname{Im} Y(f)}{2\\pi f}.
+```
+
+Units are \\[F/m\\] for `:pul` and \\[F\\] for `:total`.
+
+# Errors
+
+Throws `DomainError` when a selected frequency is zero.
+"""
+function observe(lp::LineParameters, ::typeof(C))
+    any(iszero, lp.f) && throw(DomainError(lp.f, "C is undefined at zero frequency"))
+    return imag.(lp.Y.values) ./ reshape(2π .* lp.f, 1, 1, :)
+end
+
+observe(lp::LineParameters, ::typeof(L), i, j) = observe(lp, L, i, j, :)
+observe(lp::LineParameters, ::typeof(C), i, j) = observe(lp, C, i, j, :)
+function _divide_by_angular_frequency(component, angular_frequency)
+    angular_frequency isa Number && return component ./ angular_frequency
+    ndims(component) == 1 && return component ./ angular_frequency
+    dimensions = (ntuple(_ -> 1, ndims(component) - 1)..., length(angular_frequency))
+    return component ./ reshape(angular_frequency, dimensions)
+end
+
+function observe(lp::LineParameters, ::typeof(L), i, j, k)
+    return _divide_by_angular_frequency(
+        observe(lp, X, i, j, k),
+        _angular_frequencies(lp, k)
+    )
+end
+function observe(lp::LineParameters, ::typeof(C), i, j, k)
+    return _divide_by_angular_frequency(
+        observe(lp, B, i, j, k),
+        _angular_frequencies(lp, k)
+    )
+end
+
+L(lp::LineParameters, args...) = observe(lp, L, args...)
+C(lp::LineParameters, args...) = observe(lp, C, args...)
+inductance(lp::LineParameters, args...) = L(lp, args...)
+capacitance(lp::LineParameters, args...) = C(lp, args...)

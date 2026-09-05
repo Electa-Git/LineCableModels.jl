@@ -1,91 +1,288 @@
 name: CI
+
 on:
   push:
-    branches:
-      - main
-    tags: ['*']
+    branches: [main]
+    tags: ["*"]
   pull_request:
   workflow_dispatch:
+
 concurrency:
-  # Skip intermediate builds: always.
-  # Cancel intermediate builds: only if it is a pull request build.
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: ${{ startsWith(github.ref, 'refs/pull/') }}
+
+permissions:
+  contents: read
+
 jobs:
-  test:
-    if: ${{ !contains(github.event.head_commit.message, 'skip ci') }}
-    name: Julia ${{ matrix.version }} - ${{ matrix.os }} - ${{ matrix.arch }}
-    runs-on: ${{ matrix.os }}
+  core:
+    name: Core / Julia ${{ matrix.julia }}
+    runs-on: ubuntu-latest
     timeout-minutes: 60
-    permissions: # needed to allow julia-actions/cache to proactively delete old caches that it has created
-      actions: write
-      contents: read
     strategy:
       fail-fast: false
       matrix:
-        version:
-          - '1.12'
-          - 'pre'
-        os:
-          - ubuntu-latest
-        arch:
-          - x64
+        julia: ["1.12", "pre"]
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@v6
       - uses: julia-actions/setup-julia@v3
         with:
-          version: ${{ matrix.version }}
-          arch: ${{ matrix.arch }}
+          version: ${{ matrix.julia }}
       - uses: julia-actions/cache@v3
         with:
-          # Prerelease Julia builds change often, making compiled caches poor value.
-          cache-compiled: ${{ matrix.version != 'pre' }}
-          # Do not publish incomplete depots from failed test runs.
-          save-always: 'false'
+          cache-compiled: ${{ matrix.julia != 'pre' }}
+          save-always: "false"
       - uses: julia-actions/julia-buildpkg@v1
       - uses: julia-actions/julia-runtest@v1
-      - uses: julia-actions/julia-processcoverage@v1
-        if: matrix.version == '1.12'
+
+  fem-numerical:
+    name: Deterministic FEM references / GetDP 3.5.0
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    env:
+      JULIA_NUM_THREADS: "1"
+      OPENBLAS_NUM_THREADS: "1"
+      OMP_NUM_THREADS: "1"
+      DISPLAY: ""
+    steps:
+      - uses: actions/checkout@v6
+      - uses: julia-actions/setup-julia@v3
+        with:
+          version: "1.12"
+      - uses: julia-actions/cache@v3
+      - name: Install the pinned reference solver
+        shell: bash
+        run: |
+          set -euo pipefail
+          solver_dir=$(mktemp -d "$RUNNER_TEMP/lcm-getdp.XXXXXX")
+          curl --fail --location --retry 3 \
+            https://getdp.info/bin/Linux/getdp-3.5.0-Linux64c.tgz \
+            --output "$solver_dir/getdp.tgz"
+          printf '%s  %s\n' \
+            d3c28fa18f20d6147b4c7367d4dd802e9f7ddb58c608688bbb71919dbca8041d \
+            "$solver_dir/getdp.tgz" | sha256sum --check --strict
+          tar -xzf "$solver_dir/getdp.tgz" -C "$solver_dir"
+          solver_executable="$solver_dir/getdp-3.5.0-Linux64/bin/getdp"
+          test -x "$solver_executable"
+          solver_version=$("$solver_executable" -version 2>&1)
+          test "$solver_version" = "3.5.0"
+          printf 'LINECABLEMODELS_GETDP=%s\n' "$solver_executable" >> "$GITHUB_ENV"
+      - name: Run numerical FEM regressions
+        run: |
+          julia --project=test --startup-file=no --compiled-modules=no --code-coverage=@. --color=yes -e '
+            using Pkg
+            Pkg.instantiate()
+            executable = ENV["LINECABLEMODELS_GETDP"]
+            isfile(executable) || error("The numerical FEM gate requires the pinned GetDP executable")
+            push!(ARGS, "tag:fem_numerical")
+            include("test/runtests.jl")
+          '
+      - name: Name FEM coverage traces independently of runner process IDs
+        shell: julia --startup-file=no {0}
+        run: |
+          for directory in ("src", "ext")
+            for (root, _, files) in walkdir(directory), file in files
+              endswith(file, ".cov") || continue
+              mv(joinpath(root, file), joinpath(root, replace(file, r"\.cov$" => ".fem.cov")))
+            end
+          end
+      - uses: actions/upload-artifact@v4
+        with:
+          name: fem-production-coverage
+          path: |
+            src/**/*.fem.cov
+            ext/**/*.fem.cov
+          if-no-files-found: error
+
+  quality:
+    name: Quality contracts
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v6
+      - uses: julia-actions/setup-julia@v3
+        with:
+          version: "1.12"
+      - uses: julia-actions/cache@v3
+      - name: Enforce package and architecture contracts
+        run: |
+          julia --project=test --color=yes -e '
+            using Pkg
+            Pkg.instantiate()
+            push!(ARGS, "tag:quality")
+            include("test/runtests.jl")
+          '
+
+  toolkit:
+    name: Gauntlet toolkit / no external solvers
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v6
+      - uses: julia-actions/setup-julia@v3
+        with:
+          version: "1.12"
+      - uses: julia-actions/cache@v3
+      - name: Test case import, catalogue, fingerprints, and comparison utilities
+        run: |
+          julia --project=test/gauntlet --startup-file=no --color=yes -e '
+            using Pkg
+            Pkg.instantiate()
+            push!(ARGS, "tag:gauntlet_toolkit")
+            include("test/runtests.jl")
+          '
+
+  coverage:
+    name: Merged production coverage
+    needs: fem-numerical
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    env:
+      LINECABLEMODELS_TEST_PLOTTING: "true"
+    steps:
+      - uses: actions/checkout@v6
+      - uses: julia-actions/setup-julia@v3
+        with:
+          version: "1.12"
+      - uses: julia-actions/cache@v3
+      - name: Instantiate coverage tools
+        run: julia --project=test/coverage --color=yes -e 'using Pkg; Pkg.instantiate()'
+      - name: Remove stale coverage traces
+        run: julia --project=test/coverage --color=yes test/coverage.jl clean
+      - name: Collect core and non-graphical extension coverage
+        run: julia --project=. --color=yes -e 'using Pkg; Pkg.test(coverage = true)'
+      - name: Collect core-only boundary coverage
+        run: |
+          julia --project=test/core --code-coverage=@. --color=yes -e '
+            using Pkg
+            Pkg.instantiate()
+            push!(ARGS, "tag:core_only")
+            include("test/runtests.jl")
+          '
+      - name: Collect Cairo and visual coverage
+        run: |
+          julia --project=test/visual --compiled-modules=no --code-coverage=@. --color=yes -e '
+            using Pkg
+            Pkg.instantiate()
+            append!(ARGS, ["tag:visual", "loaded extension activation"])
+            include("test/runtests.jl")
+          '
+      - name: Collect GLMakie boundary coverage
+        shell: bash
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes xvfb xauth libgl1-mesa-dri
+          xvfb-run -a julia --startup-file=no --code-coverage=@. --color=yes -e '
+            using Pkg
+            Pkg.activate(; temp = true)
+            Pkg.develop(PackageSpec(path = pwd()))
+            Pkg.add(PackageSpec(name = "GLMakie", version = "0.13"))
+            Pkg.add(PackageSpec(name = "TestItemRunner", version = "1"))
+            push!(ARGS, "loaded extension activation")
+            include(joinpath(pwd(), "test", "runtests.jl"))
+          '
+      - name: Collect WGLMakie boundary coverage
+        run: |
+          julia --project=. --code-coverage=@. --color=yes -e '
+            using Pkg
+            Pkg.activate(; temp = true)
+            Pkg.develop(PackageSpec(path = pwd()))
+            Pkg.add(PackageSpec(name = "WGLMakie", version = "0.13"))
+            Pkg.add(PackageSpec(name = "TestItemRunner", version = "1"))
+            push!(ARGS, "loaded extension activation")
+            include(joinpath(pwd(), "test", "runtests.jl"))
+          '
+      - uses: actions/download-artifact@v4
+        with:
+          name: fem-production-coverage
+          path: .
+      - name: Enforce source-amended 95% coverage
+        run: julia --project=test/coverage --color=yes test/coverage.jl check
       - uses: codecov/codecov-action@v7
-        if: matrix.version == '1.12'
         with:
           files: lcov.info
           token: ${{ secrets.CODECOV_TOKEN }}
-          fail_ci_if_error: false
+          fail_ci_if_error: true
+
+  aqua:
+    name: Aqua
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v6
+      - uses: julia-actions/setup-julia@v3
+        with:
+          version: "1.12"
+      - uses: julia-actions/cache@v3
+      - name: Run Aqua independently
+        shell: julia --color=yes {0}
+        run: |
+          using Pkg
+          Pkg.activate(; temp = true)
+          Pkg.develop(PackageSpec(path = pwd()))
+          Pkg.add("Aqua")
+          using Aqua, LineCableModels
+          Aqua.test_all(LineCableModels)
+
+  clean-install:
+    name: Clean installation
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v6
+      - uses: julia-actions/setup-julia@v3
+        with:
+          version: "1.12"
+      - name: Install core into an empty depot
+        shell: bash
+        run: |
+          set -euo pipefail
+          export JULIA_DEPOT_PATH
+          JULIA_DEPOT_PATH="$(mktemp -d)"
+          julia --startup-file=no --color=yes -e '
+            using Pkg
+            using TOML
+            package_dependencies = TOML.parsefile(joinpath(pwd(), "Project.toml"))["deps"]
+            @assert !haskey(package_dependencies, "Pluto")
+            @assert !haskey(package_dependencies, "PlutoUI")
+            Pkg.activate(; temp = true)
+            Pkg.develop(PackageSpec(path = pwd()))
+            using LineCableModels
+            @assert Base.get_extension(LineCableModels, :LineCableModelsMakieExt) === nothing
+          '
+
   docs:
-    if: ${{ !contains(github.event.head_commit.message, 'skip ci') }}
     name: Documentation
     runs-on: ubuntu-latest
+    timeout-minutes: 45
     permissions:
-      actions: write # needed to allow julia-actions/cache to proactively delete old caches that it has created
       contents: write
       statuses: write
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@v6
       - uses: julia-actions/setup-julia@v3
         with:
-          version: '1.12'
+          version: "1.12"
       - uses: julia-actions/cache@v3
         with:
-          # Documentation is rebuilt once per run, so compiled caches consume
-          # substantial storage without enough reuse to justify their size.
-          cache-compiled: 'false'
-          save-always: 'false'
-      - name: Configure doc environment
-        shell: julia --project=docs --color=yes {0}
-        run: |
-          using Pkg
-          Pkg.develop(PackageSpec(path=pwd()))
-          Pkg.instantiate()
-      - uses: julia-actions/julia-buildpkg@v1
+          cache-compiled: "false"
+          save-always: "false"
+      - name: Instantiate documentation
+        run: julia --project=docs --color=yes docs/instantiate.jl
+      - name: Generate package-server usage map
+        run: julia --project=docs --color=yes docs/package_stats.jl
+      - name: Upload package-server usage map
+        uses: actions/upload-artifact@v4
+        with:
+          name: package-server-usage-map
+          path: docs/src/assets/user-statistics.svg
       - name: Run doctests
-        shell: julia --project=docs --color=yes {0}
-        run: |
-          using Documenter: DocMeta, doctest
-          using LineCableModels
-          DocMeta.setdocmeta!(LineCableModels, :DocTestSetup, :(using LineCableModels); recursive=true)
-          doctest(LineCableModels)
-      - uses: julia-actions/julia-docdeploy@v1
+        run: julia --project=docs --color=yes docs/doctest.jl
+      - name: Build documentation
+        run: julia --project=docs --color=yes docs/make.jl
+      - name: Deploy documentation
+        if: github.event_name == 'push'
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           DOCUMENTER_KEY: ${{ secrets.DOCUMENTER_KEY }}
+        run: julia --project=docs --color=yes docs/deploy.jl

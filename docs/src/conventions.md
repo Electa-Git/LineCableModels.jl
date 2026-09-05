@@ -1,244 +1,379 @@
-# Package conventions
+# Conventions
 
----
-
-## Function and method names
-
-### Multi-dispatch resolution pattern
-
-The codebase employs a consistent three-tier resolution pattern for handling user input processing through multi-dispatch. This standardized approach allows for predictable code organization and improved maintainability.
-
-#### Resolution pattern naming structure
+LineCableModels follows the SciML formatter style. Run:
 
 ```julia
-_resolve_<entity>           # Primary resolution function
-├─ _parse_inputs_<entity>   # Type conversion & normalization 
-└─ _do_resolve_<entity>     # Core implementation logic
+using JuliaFormatter
+format(".")
 ```
 
-The naming pattern has been carefully selected to reflect the purpose of each dispatch layer:
+before committing Julia source.
 
-1. **`_resolve_<entity>`**: The primary entry point that coordinates the resolution process. The term "resolve" indicates that the function must determine an appropriate course of action based on input types that are not known in advance. This function validates inputs and delegates to specialized implementations.
+## Native-first semantic economy
 
-2. **`_parse_inputs_<entity>`**: The intermediate layer responsible for converting diverse input types into standardized forms that can be processed by the implementation layer. This function normalizes inputs through type-specific conversions.
+Use Julia's existing meanings before adding package vocabulary. Check, in
+order, whether the operation is already expressed by Core, Base, a standard
+library, a direct dependency, or an existing package generic.
 
-3. **`_do_resolve_<entity>`**: The implementation layer that performs the actual computations or transformations once inputs have been standardized. This function contains the core logic specific to each component type.
+A new name must identify a domain action, an invariant, a numerical method, an
+external format, or real state. A name that only forwards arguments, reads one
+field, repacks a tuple, or merges defaults does not add meaning.
 
-#### Function scope and visibility
+| Prefer | Avoid |
+|:--|:--|
+| `Base.length`, iteration, indexing, `show`, and `showerror` | package copies of collection and display operations |
+| constructors, `promote`, and `convert` | a second conversion vocabulary |
+| another method on an owned generic | a synonym that forwards to that generic |
+| dispatch on a scientific type | a symbol switch or dictionary that repeats dispatch |
+| a local method beside its owner | a global `helpers` or `utils` bucket |
 
-All functions in this pattern are prefixed with an underscore (`_`) to indicate they are internal implementation details not intended for direct use by the package consumers.
-
-### Calculation vs. computation pattern
-
-The codebase distinguishes between calculation and computation methods through a clear naming convention:
-
-#### Calculation methods (`calc_`)
-
-Functions prefixed with `calc_` handle intermediate steps within a broader computational framework. These methods:
-
-- Perform specific mathematical operations on well-defined inputs.
-- Typically represent a single conceptual step in a larger process.
-- Return intermediate results that will be used by higher-level functions.
-- Are often associated with specific physical or mathematical formulations.
-
-#### Computation methods (`comp_`)
-
-Functions prefixed with `comp_` represent higher-level operations that perform multiple calculation steps to achieve a complete analysis. These methods:
-
-- Coordinate multiple calculation steps toward a final result.
-- Often work with complex objects rather than primitive types.
-- Represent the primary technical capabilities of the toolbox.
-- May store results in appropriate data structures for further processing.
-
-This distinction reflects the hierarchical nature of the [`LineCableModels.jl`](@ref) package, where individual calculations support the broader computational objectives of modeling transmission lines and cables.
-
-### Library management pattern
-
-The codebase implements a consistent pattern for managing libraries of models and components through standardized naming conventions. This pattern facilitates the storage, retrieval, and management of reusable objects within the framework.
-
-#### Library operations naming structure
+For example, a result that is a finite collection implements Julia's collection
+methods:
 
 ```julia
-store_<library>!       # Add or update an object in a library
-remove_<library>!      # Remove an object from a library
-save_<library>         # Writes the entire library contents to a file
-list_<library>         # Display contents of a library
+Base.length(result::MyResult) = length(result.values)
+Base.getindex(result::MyResult, index::Integer) = result.values[index]
+Base.iterate(result::MyResult, state...) = iterate(result.values, state...)
 ```
 
-Each library operation follows a predictable naming convention:
+It does not add `get_results`, `result_count`, and `iterate_results` as parallel
+names.
 
-1. **`store_<library>!`**: Adds or updates objects in the specified library. The exclamation mark indicates that this operation modifies the library state.
+Small methods are appropriate when each method owns a dispatch choice or an
+invariant. Tiny forwarding helpers that only rename another operation are not.
+Do not add speculative compatibility shims, runtime `eval`, exception-driven
+feature tests, or lookup tables that duplicate Julia methods.
 
-2. **`remove_<library>!`**: Removes an object from the specified library. The exclamation mark indicates that this operation modifies the library state.
+Mutating functions use `!` only when the operation can mutate an argument or
+externally visible state. The suffix states behaviour; it is not decoration.
 
-3. **`save_<library>`**: Persists the current state of the library to external storage, typically a file. This operation does not modify the library itself.
+## Dispatch-driven fixed actions
 
-4. **`list_<library>`**: Displays the contents of the library for inspection without modifying its state.
-
-### Object modification pattern
-
-For operations that modify components within larger structures (e.g., [`AbstractConductorPart`](@ref) within a parent [`ConductorGroup`](@ref)), the codebase employs the `addto_` prefix:
+Use one public action when an operation has one required stage order. The
+action method shows the complete sequence, and concrete definition types add
+methods for the stages they own.
 
 ```julia
-addto_<entity>!        # Add or modify a subcomponent within a larger component
+function process(definition::AbstractDefinition, source)
+    selected = select(definition, source)
+    product = build(definition, selected)
+    return Product(product)
+end
 ```
 
-The `addto_<entity>!` pattern:
-
-- Indicates that a subcomponent is being added to or modified within a parent component.
-- Always includes an exclamation mark to denote state modification.
-- Typically invokes `calc_` methods to update derived properties.
-
-This pattern allows for hierarchical composition of components while maintaining a clear distinction from library management operations.
-
-### DataFrame view pattern
-
-The codebase implements a consistent pattern for generating `DataFrame` views of complex objects through a standardized naming convention:
+Good definition types are concrete and passive: their fields state scientific
+choices or completed configuration. Runtime work belongs to stage methods.
 
 ```julia
-<entity>_todf        # Convert entity to a `DataFrame` representation
+struct FrequencyReport <: AbstractReportDefinition
+    requests::Tuple
+end
+
+select(definition::FrequencyReport, source) =
+    observables(source, definition.requests)
 ```
 
-This pattern:
-
-- Takes an entity object as input and creates a `DataFrame` visualization.
-- Uses the suffix `_todf` to clearly indicate the conversion operation.
-- Produces non-mutating transformations (no exclamation mark needed).
-- Facilitates analysis, visualization, and reporting of complex data structures.
-
-The `_todf` suffix provides a concise and immediately recognizable identifier for functions that expose object data in tabular format.
-
----
-
-## Module organization
-
-### Exports and visibility
-
-- Public API functions have no underscore prefix and are explicitly exported.
-- Internal functions use leading underscore prefix (`_function_name`) and are not exported.
-- Modules use `@reexport` to propagate exports from submodules to parent modules.
-- Exports are placed at the top of each module for visibility.
-
-### Module structure
-
-- Main module (`LineCableModels`) reexports from submodules.
-- Submodules (`DataModel`, `Materials`, etc.) handle their own exports.
-- Maximum nesting depth is 3 levels (parent → child → grandchild).
-- Documentation is maintained at all levels using `DocStringExtensions`.
-
-### Code navigation
-
-- Module docstrings should list key exported functions and types.
-- All exported items require docstrings.
-- Internal implementation details use minimal documentation.
-
----
-
-## Framework design pattern
-
-### Core architecture
-
-The `LineCableModels.jl` package implements a consistent framework pattern across all modules, designed to provide flexibility while maintaining type stability and performance. The architecture is built around three key components:
-
-1. **Problem definition**: Defines the physics/mathematical approach
-2. **Solver**: Controls execution parameters
-3. **Workspace**: Centralizes all state during computation
-
-This pattern separates *what* is being calculated (problem definition, formulation) from *how* calculations are executed (engine used, solver) and *where* data is stored (workspace).
-
-### The workspace pattern
-
-At the core of the framework is the Workspace pattern, exemplified by `FEMWorkspace` in the `FEMTools` module. This pattern can be replicated across other modules (e.g., `EMTWorkspace`).
-
-A workspace:
-
-- Acts as a centralized state container.
-- Stores all intermediate computation data.
-- Manages entity tracking and lookup tables.
-- Provides consistent interfaces for data access.
-- Maintains configuration and results.
-
-### Type hierarchy
-
-Each module follows a consistent type hierarchy:
+Do not replace type-directed stages with a generic `mode`, `style`, or options
+dictionary interpreted by one large switch. Normalize public symbols once at
+the owner's entry point when symbols are part of the public syntax, then use
+the existing `Val` method family:
 
 ```julia
-AbstractProblemFormulation
-  ├── FEMFormulation :> {Darwin, Electrodynamics, ...}
-  ├── AbstractFDEMFormulation :> {CPEarth, CIGRE, ...}
-  ├── AbstractEHEMFormulation :> {EnforceLayer, EquivalentSigma, ...}
-  ├── ...
-  └── [Other specialized formulations, concrete or abstract]
+owned_action(selector::Symbol, args...; kwargs...) =
+    owned_action(Val(selector), args...; kwargs...)
 
-AbstractWorkspace
-  ├── FEMWorkspace
-  ├── EMTWorkspace
-  ├── ...
-  └── [Other specialized workspaces]
-
-AbstractEntityData
-  └── [Domain-specific entity types]
+owned_action(::Val{:example}, args...; kwargs...) = ...
 ```
 
-This hierarchy enables both specialization and shared interfaces.
+Use an explicit no-op method only when doing nothing is a valid stage result.
+Reject unsupported definition/source pairs through required stage dispatch
+before partial work. Introduce a mutable context only when several stages
+genuinely share buffers, resources, or evolving state. CI checks the fixed
+actions listed in [Grammar invariants](developers.md) directly; runtime
+metadata that merely repeats their method definitions is not part of the
+grammar.
 
-### Data flow
+## Ownership-centred recursive module layout
 
-Data flows through the system in a consistent pattern:
+Place code first by the owner that defines when it changes, then by its precise
+responsibility. Files, directories, and Julia modules solve different
+problems:
 
-1. System definition (LineCableSystem instance).
-2. Problem definition (physics parameters, formulations to employ).
-3. Solver configuration (execution parameters).
-4. Workspace initialization (state container).
-5. Execution (multi-phase processing).
-6. Result extraction (from workspace).
+- a file separates one responsibility within an owner;
+- a directory groups several responsibilities that still belong to one owner;
+- a submodule supplies a separate namespace, dependency set, or stated
+  interface;
+- a package is warranted only when the code has independent users and releases.
 
-This pattern applies regardless of the specific module or calculation type.
+Grow code recursively:
 
-### Multi-phase processing
+```text
+single responsibility in owner file
+└─ several responsibilities in owner directory, same module
+   └─ separate namespace or dependency set in child module
+      └─ independent package only when independently consumed
+```
 
-All modules implement a multi-phase execution pattern with clear separation between phases. For example, the `FEMTools` module follows this pattern:
+A module entry file is an index. It contains the module description, explicit
+imports, public names, includes in dependency order, and deliberate child
+reexports. Constructors, algorithms, validation, plotting descriptions, and
+format translations belong in focused files selected by the owner.
 
-1. **Initialization phase**: Setup workspace, load configurations.
-2. **Construction phase**: Create entities based on system definition (may include specific preliminary tasks, e.g. fragments/synchronization steps FEM simulations).
-3. **Processing phase**: Execute main computation loops, store raw results in workspace container.
-4. **Post processing phase**: Assign properties to processed entities.
-5. **Result phase**: Extract and format results.
+Place a method according to the reason it changes. A method that exposes an
+Engine result through `observe` belongs with that result. A method that draws a
+native figure with Makie belongs in the Makie extension. Scientific
+observations and physical preview geometry remain with their owner; plot
+request normalization, presentation groups, palettes, Makie blocks, layouts,
+widgets, callbacks, and backend activation do not. A method that parses an
+external file belongs with the format owner.
 
-This pattern ensures clean separation of concerns, making the code more maintainable.
+Optional dependencies remain in package extensions. Core source may define
+package-neutral requests and completed values, but it does not import Makie,
+XLSX, Measurements, or Distributions.
 
-### State management
+Prefer conceptual groupings such as:
 
-State is managed exclusively through the Workspace, which contains:
+```text
+Owner
+├─ types
+├─ interfaces
+├─ constructors
+├─ action
+├─ Base protocols
+└─ owned optional translations
+```
 
-1. **Configuration state**: Original system, formulation, and opts.
-2. **Entity state**: Collections of typed entities.
-3. **Lookup maps**: Efficient mappings between entities and properties.
-4. **Processing state**: Temporary calculation state.
-5. **Result state**: Final calculation outputs.
+Avoid global mechanism-first trees such as `types/services/managers/handlers`,
+one module per file or per type, empty directory scaffolds, and a common base
+file that accumulates unrelated methods. Do not split a fixed call sequence
+across files merely to make each stage visually separate.
 
-This centralized approach eliminates global state and ensures thread safety.
+## Scientific reads, tables, and plots
 
-### Implementation example: FEMTools.jl
+An owned result exposes numerical meaning through `observe`. A consumer asks
+for explicit requests through `observables` before tabulation or drawing:
 
-The FEMTools module exemplifies this pattern:
+```text
+scientific request
+→ observe / observables
+→ detached values + Quantity + UnitExpr
+→ DataFrame, report, or plot
+```
 
-- `FEMFormulation`: Physics parameters for FEM simulation.
-- `FEMSolver`: Execution parameters for meshing and solving.
-- `FEMWorkspace`: Central state container for all FEM operations.
-- Entity types: Typed data containers for different geometric elements.
-- Multi-phase workflow: Creation → Fragmentation → Identification → Assignment → Meshing → Solving → Post-processing.
+Apply these rules:
 
-### Extension to new modules
+1. Construct scientific requests with `@observe` and retain their tuple form.
+2. Define quantity identity, units, labels, and symbols in `Units`.
+3. Let the result owner implement `observe` and declare supported requests.
+4. Publish once before a table or report consumes values; plotting sugar must
+   use the same public observation protocol rather than Engine internals.
+5. Keep scientific tables wide: coordinates identify rows and each observed
+   quantity owns one column.
+6. Select statistical drawing primitives with Makie function identity itself.
+7. Create ordinary Makie axes directly or through the small addon shell; do not
+   introduce renderer-independent axis or subscription aggregates.
+8. Add physical preview geometry beside the DataModel type that owns the cable
+   part, and add colors or legend grouping only in the Makie extension.
 
-When creating new modules, the following patterns should be followed:
+Do not inspect UQ storage fields from plotting or reporting code. `samples`,
+`statistics`, and `histograms` select stored products; the scientific selector
+still identifies the physical quantity.
 
-1. Define problem & formulation type (physics parameters).
-2. Define solver type (execution parameters).
-3. Define workspace type (state container).
-4. Implement entity types specific to the domain.
-5. Implement multi-phase workflow with clear separation.
-6. Use the workspace pattern for state management.
-7. Follow the standard data flow.
+## Text display and table boundaries
 
-This framework ensures consistency, maintainability, and performance across all modules within the package.
+Human inspection, scientific extraction, and tabulation are separate actions:
+
+```text
+show             bounded semantic inspection
+preview          geometric inspection
+observables      detached scientific publication
+DataFrame/report tabulation of that publication
+JSON             persistence
+```
+
+Each public owned type defines `summary`, two-argument `show`, and
+`show(::MIME"text/plain", ...)`. The two-argument form is one line. Rich output
+honours `:compact`, `:limit`, and `displaysize(io)`, reports truncation, uses
+engineering notation, and omits inactive fields. Libraries sort their keys.
+Result displays summarize dimensions and ranges; numerical values remain
+available through `observe` and `observables`.
+
+Display reads stored state only. A display method must not call `build`,
+`resolve`, `compute`, `observables`, construct a `DataFrame`, materialize a
+`Gridspace`, tessellate geometry, or load a plotting backend.
+
+Domain objects do not implement Tables.jl and do not receive direct
+`DataFrame(domain_object)` adapters. The qualified
+`Grammar.ObservationPublication` is the table boundary:
+
+```julia
+published = observables(
+    parameters,
+    (
+        @observe(R[:, :, :]),
+        @observe(L[:, :, :]),
+    );
+    length_unit = :kilo,
+)
+
+table = DataFrame(published)
+```
+
+Coordinates identify rows, while each scientific quantity occupies one
+column. ReportBuilder consumes the same publication rather than reopening the
+result or maintaining another conversion path.
+
+## Docstrings
+
+Docstrings use DocStringExtensions abbreviations so declarations remain aligned
+with the implementation.
+
+### Placement and content
+
+- Place a docstring immediately before the documented module, type,
+  constructor, function, or constant.
+- Use triple double quotes, except for concise field and constant docstrings.
+- Describe implemented behaviour. Do not infer equations, units, or defaults
+  from a name.
+- State each fact once.
+- Link related local bindings inline when the relationship helps the reader.
+
+Use `@doc` for an inner constructor written inside a `struct`. An outer
+constructor at module scope uses an ordinary preceding docstring.
+
+### Physical quantities and equations
+
+State the SI unit for every physical argument, return value, field, and
+constant. In Julia docstring source, escape square brackets and LaTeX commands:
+
+```julia
+"Series resistance `\\[Ω/m\\]`."
+"Relative permeability `\\[dimensionless\\]`."
+```
+
+Comments inside Julia examples use ordinary brackets, such as `# [m]`.
+
+When code directly evaluates a physical law, approximation, or reduction that
+matters to the method's meaning, include the equation and define its symbols:
+
+````julia
+"""
+$(TYPEDSIGNATURES)
+
+Return the series impedance:
+
+```math
+Z(f) = R + \\mathrm{j} 2 \\pi f L,
+```
+
+where ``R`` is resistance, ``L`` is inductance, and ``f`` is frequency.
+"""
+````
+
+Accessors, forwarding methods, and bookkeeping functions do not need a
+mathematical section unless they evaluate the documented expression.
+
+### DocStringExtensions abbreviations
+
+- `$(TYPEDSIGNATURES)` is the default opening for functions and constructors.
+- `$(SIGNATURES)` is suitable when typed signatures obscure the public call.
+- `$(FUNCTIONNAME)` keeps executable examples aligned with renames.
+- `$(TYPEDEF)` inserts a type declaration.
+- `$(TYPEDFIELDS)` inserts fields, declared types, and field docstrings.
+- `$(FIELDS)` omits declared field types when they would distract from the
+  public meaning.
+- `$(METHODLIST)` is reserved for a multi-method interface whose purpose is to
+  list implementations.
+- `$(IMPORTS)` and `$(EXPORTS)` maintain a module inventory.
+
+Do not repeat generated text by hand.
+
+### Function structure
+
+Use this section order, omitting sections that add no information:
+
+1. description and any implemented equation;
+2. `# Arguments`;
+3. `# Keywords`;
+4. `# Returns`;
+5. `# Notes` for assumptions or limitations;
+6. `# Errors` for deliberate exceptions;
+7. `# Examples`.
+
+````julia
+"""
+$(TYPEDSIGNATURES)
+
+Describe the implemented operation.
+
+# Arguments
+
+- `value`: Physical input `\\[unit\\]`.
+
+# Keywords
+
+- `basis`: `:pul` or `:total`. Default: `:pul`.
+
+# Returns
+
+- Completed value in `\\[unit\\]`.
+
+# Errors
+
+- Throws `ArgumentError` when `basis` is unsupported.
+
+# Examples
+
+```jldoctest
+result = $(FUNCTIONNAME)(1.0; basis=:pul) # [unit]
+@assert isfinite(result)
+# output
+```
+"""
+````
+
+List arguments in declaration order and document each returned tuple member.
+Prefer `jldoctest` for a self-contained public example. Examples requiring an
+external executable, graphical interaction, network access, or repository
+fixtures belong in the developer guides.
+
+### Type and module structure
+
+Use `$(TYPEDEF)` and `$(TYPEDFIELDS)` for a type. Put a concise docstring above
+each field:
+
+````julia
+"""
+$(TYPEDEF)
+
+Represent a cable section.
+
+$(TYPEDFIELDS)
+"""
+struct CableSection{T <: Real}
+    "Section thickness `\\[m\\]`."
+    thickness::T
+end
+````
+
+A module docstring begins with the indented module name, states its purpose,
+then uses `$(IMPORTS)` and `$(EXPORTS)` when those lists aid the reader. A
+physical constant uses a concise single-line docstring with its symbol and SI
+unit.
+
+## Repository practice
+
+Versions follow [Semantic Versioning](https://semver.org/). Public behaviour
+remains compatible within a minor release. A deprecation includes a migration
+path before removal.
+
+Commit subjects use scoped Conventional Commits, begin with a lowercase
+description, and stay within 72 characters:
+
+```text
+fix(engine): reject unsupported formulation options
+```
+
+Every change includes tests at the closest relevant scope. Core tests do not
+load optional packages. CairoMakie and other optional paths run in their own
+environments. Public examples should be executable and self-contained.

@@ -1,52 +1,86 @@
 # LineCableModels.jl
 
-[`LineCableModels.jl`](https://github.com/Electa-Git/LineCableModels.jl) is a specialized Julia package designed to compute the electrical parameters of coaxial arbitrarily-layered underground/overhead cables with uncertainty quantification. It focuses on calculating line and cable impedances and admittances in the frequency-domain, accounting for skin effect, insulation properties, and earth-return impedances with frequency-dependent soil models.
+[`LineCableModels.jl`](https://github.com/Electa-Git/LineCableModels.jl)
+calculates frequency-domain electrical parameters for underground and overhead
+cable systems. The models include conductor skin effect, dielectric loss,
+earth return, frequency-dependent earth properties, and declared uncertainty
+in geometry and material data.
 
-## Documentation outline
+## Documentation
 
-```@contents
-Pages = [
-    "index.md",
-    "tutorials.md",
-    "reference.md",
-    "bib.md",
-]
-Depth = 1
-```
+- [Tutorials](tutorials.md) introduce cable construction and calculation.
+- [Modelling and results](usage.md) covers calculations, result access,
+  uncertainty, tables, and plots.
+- [Gridspace and uncertainty](gridspace.md) specifies finite variation and
+  uncertainty realisation.
+- [API reference](reference.md) lists the line and cable calculation API.
+- [Conveniences](conveniences.md) covers estimates, scalar formulas, and VDE
+  designation parsing.
+- [Benchmarks](gauntlet.md) publishes the Gauntlet validation results and plots.
+- [Developers](developers.md) records grammar invariants, CI checks, extension
+  APIs, and project conventions.
 
 ## Features
 
-- Calculates all base DC parameters of a given cable design (R, L, C and G), for solid, tubular or stranded cores, semiconductors, screens, armors, sheaths, tapes,  and water-blocking materials, with uncertainty propagation using the [Measurements.jl](https://github.com/JuliaPhysics/Measurements.jl) package.
-- Correction factors to account for temperature, stranding and twisting effects on the DC resistance [app14198982](@cite), GMR [6521501](@cite) and base inductance of stranded cores and wire screens [yang2008gmr](@cite).
-- Explicit computation of dielectric losses and effective resistances for insulators and semiconductors [916943](@cite). Correction of the magnetic constant of insulation layers to account for the solenoid effect introduced by twisted strands [5743045](@cite).
-- Computes phase-domain Z/Y matrices for poliphase systems with any number of conductors per phase, and sequence-domain components for three-phase systems, with uncertainty propagation.
-- Improved equivalent tubular representation for EMT simulations and direct export to ATPDraw and PSCAD formats.
-- Computes internal impedances of solid, tubular or coaxial multi-layered single-core (SC) cables, using rigorous [4113884](@cite) or equivalent approximate formulas available in [industry-standard EMT software](https://www.pscad.com/webhelp/EMTDC/Transmission_Lines/Deriving_System_Y_and_Z_Matrices.htm).
-- Computes earth-return impedances and admittances of underground conductors in homogeneous soil, based on a rigorous solution of Helmholtz equation on the electric Hertzian vector, valid up to 10 MHz [5437464](@cite).
+- Construct deterministic and uncertain designs with the typed
+  `Grid`/`Gridspace` grammar and evaluate them with `compute`.
+- Calculate base cable parameters for solid, tubular, and stranded cores,
+  semiconductors, screens, armors, sheaths, tapes, and water-blocking materials.
+- Apply temperature, stranding, and twisting corrections to DC resistance
+  [app14198982](@cite), GMR [6521501](@cite), and base inductance
+  [yang2008gmr](@cite).
+- Calculate dielectric loss and equivalent insulation resistance
+  [916943](@cite), including the solenoid contribution of twisted strands to
+  insulation permeability [5743045](@cite).
+- Assemble phase-domain Z/Y matrices for polyphase systems with any number of
+  conductors per phase, with optional Measurements-based direct propagation or
+  conditional Monte Carlo analysis.
+- Replace stranded assemblies with equivalent tubular conductors for EMT
+  calculations and export cable data to ATPDraw and PSCAD.
+- Calculate internal impedance for solid, tubular, and multilayer coaxial
+  single-core cables with the formulation in [4113884](@cite) or the
+  approximations documented by
+  [PSCAD](https://www.pscad.com/webhelp/EMTDC/Transmission_Lines/Deriving_System_Y_and_Z_Matrices.htm).
+- Calculate earth-return impedance and admittance for underground conductors in
+  homogeneous soil from the electric-Hertz-vector solution of the Helmholtz
+  equation, up to 10 MHz [5437464](@cite).
 
 ## Installation
 
-Clone the package and add to the Julia environment:
+Install the registered package from Julia's package manager:
 
 ```julia-repl
-pkg> add https://github.com/Electa-Git/LineCableModels.jl.git
+pkg> add LineCableModels
 ```
 
-If you are using the finite-element solver, it is recommended to run the build script to retrieve the binaries needed by the [GetDP.jl](https://github.com/Electa-Git/GetDP.jl) front-end:
-
-```julia-repl
-pkg> build LineCableModels
-```
-
-Then, in your Julia code, import the package:
+Then load the core package:
 
 ```julia
 using LineCableModels
 ```
 
+Plotting is optional. Load one backend explicitly before calling `preview` or
+`plot`:
+
+```julia
+using LineCableModels
+using CairoMakie
+```
+
+## User statistics
+
+![Top Julia package-server regions observed for LineCableModels.jl](assets/user-statistics.svg)
+
+The map is generated in CI from Julia's public package-server request logs. It
+shows the top server regions by the sum of `request_addrs` for requests marked
+as user traffic. These regional aggregates are not a count of distinct people
+and do not represent country-level telemetry.
+
+
 ## License
 
-The source code is provided under the [BSD 3-Clause License](https://github.com/Electa-Git/LineCableModels.jl/LICENSE).
+The source code is licensed under the
+[BSD 3-Clause License](https://github.com/Electa-Git/LineCableModels.jl/LICENSE).
 
 ---
 ```@raw html

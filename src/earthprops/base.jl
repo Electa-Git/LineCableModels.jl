@@ -1,82 +1,81 @@
+TextDisplay.@showfields EarthMaterial "EarthMaterial" material -> (
+    ρ = TextDisplay.engineering(material.rho, :ohm_meter),
+    εᵣ = TextDisplay.value(material.eps_r),
+    μᵣ = TextDisplay.value(material.mu_r)
+)
 
-Base.eltype(::EarthModel{T}) where {T} = T
-Base.eltype(::EarthLayer{T}) where {T} = T
+TextDisplay.@showfields EarthLayer "EarthLayer" layer -> (
+    ρ = TextDisplay.engineering(layer.rho, :ohm_meter),
+    εᵣ = TextDisplay.value(layer.eps_r),
+    μᵣ = TextDisplay.value(layer.mu_r),
+    h = isinf(layer.thickness) ? "half-space" :
+        TextDisplay.engineering(layer.thickness, :meter)
+)
 
-function Base.convert(::Type{EarthModel{T}}, model::EarthModel) where {T}
-    # If the model is already the target type, return it without modification.
-    model isa EarthModel{T} && return model
+TextDisplay.name(::Type{<:EarthModel}) = "EarthModel"
 
-    # Delegate the actual conversion logic to the existing coerce_to_T function.
-    return coerce_to_T(model, T)
+function _earth_description(model::EarthModel)
+    earth_count = length(model.layers) - 1
+    earth_count == 1 && return "homogeneous"
+    orientation = model.vertical_layers ? "vertical " : ""
+    return "$earth_count $(orientation)earth layers"
 end
 
-function Base.convert(::Type{EarthLayer{T}}, layer::EarthLayer) where {T}
-    # Avoid unnecessary work if the layer is already the correct type.
-    layer isa EarthLayer{T} && return layer
-
-    # Delegate the conversion logic to the specialized coerce_to_T function.
-    return coerce_to_T(layer, T)
+function Base.summary(io::IO, model::EarthModel)
+    print(io, "EarthModel · ", _earth_description(model))
 end
 
-"""
-$(TYPEDSIGNATURES)
+function Base.show(io::IO, model::EarthModel)
+    print(io, "EarthModel(", _earth_description(model), ")")
+end
 
-Defines the display representation of a [`EarthModel`](@ref) object for REPL or text output.
+function _earth_layer_name(index::Int, count::Int)
+    index == 1 && return "air"
+    count == 2 && return "earth"
+    index == count && return "basement"
+    return "layer $(index - 1)"
+end
 
-# Arguments
+function _earth_resistivity(layer::EarthLayer)
+    return isinf(layer.rho) ? "∞" : TextDisplay.engineering(layer.rho, :ohm_meter)
+end
 
-- `io`: The output stream to write the representation to \\[IO\\].
-- `mime`: The MIME type for plain text output \\[MIME"text/plain"\\].
-- `model`: The [`EarthModel`](@ref) instance to be displayed.
-
-
-# Returns
-
-- Nothing. Modifies `io` to format the output.
-"""
-function Base.show(io::IO, ::MIME"text/plain", model::EarthModel)
-    # Determine model type based on num_layers and vertical_layers flag
-    num_layers = length(model.layers)
-    model_type = num_layers == 2 ? "homogeneous" : "multilayer"
-    orientation = model.vertical_layers ? "vertical" : "horizontal"
-    layer_word = (num_layers - 1) == 1 ? "layer" : "layers"
-
-    # Count frequency samples from the first layer's property arrays
-    num_freq_samples = length(model.layers[1].rho_g)
-    freq_word = (num_freq_samples) == 1 ? "sample" : "samples"
-
-    # Print header with key information
-    println(
-        io,
-        "EarthModel with $(num_layers-1) $(orientation) earth $(layer_word) ($(model_type)) and $(num_freq_samples) frequency $(freq_word)",
+function _earth_layer_text(
+        name::AbstractString,
+        layer::EarthLayer;
+        show_thickness::Bool
+)
+    thickness = if !show_thickness
+        ""
+    elseif isinf(layer.thickness)
+        "half-space"
+    else
+        "h=$(TextDisplay.engineering(layer.thickness, :meter))"
+    end
+    separator = show_thickness ? string("  ", rpad(thickness, 12)) : ""
+    return string(
+        rpad(name, 9), separator,
+        "  ρ=", _earth_resistivity(layer),
+        "  εᵣ=", TextDisplay.value(layer.eps_r),
+        "  μᵣ=", TextDisplay.value(layer.mu_r)
     )
+end
 
-    # Print layers in treeview style
-    for i in 1:num_layers
-        layer = model.layers[i]
-        # Determine prefix based on whether it's the last layer
-        prefix = i == num_layers ? "└─" : "├─"
-
-        # Format thickness value
-        thickness_str = isinf(layer.t) ? "Inf" : "$(round(layer.t, sigdigits=4))"
-
-        # Format layer name
-        layer_name = i == 1 ? "Layer $i (air)" : "Layer $i"
-
-        # Print layer properties with proper formatting
-        println(
-            io,
-            "$prefix $layer_name: [rho_g=$(round(layer.base_rho_g, sigdigits=4)), " *
-            "epsr_g=$(round(layer.base_epsr_g, sigdigits=4)), " *
-            "mur_g=$(round(layer.base_mur_g, sigdigits=4)), " *
-            "t=$thickness_str]",
+function Base.show(io::IO, ::MIME"text/plain", model::EarthModel)
+    get(io, :compact, false) && return show(io, model)
+    show_thickness = length(model.layers) > 2
+    children = [
+        _earth_layer_text(
+            _earth_layer_name(index, length(model.layers)),
+            layer;
+            show_thickness
         )
-    end
-
-    # Add formulation information as child nodes
-    if !isnothing(model.freq_dependence)
-        formulation_tag = get_description(model.freq_dependence)
-        println(io, "   Frequency-dependent model: $(formulation_tag)")
-    end
-
+        for (index, layer) in enumerate(model.layers)
+    ]
+    return TextDisplay.tree(
+        io,
+        "EarthModel · $(_earth_description(model))",
+        children;
+        noun = "layers"
+    )
 end

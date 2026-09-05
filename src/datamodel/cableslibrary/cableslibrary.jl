@@ -1,0 +1,85 @@
+"""
+$(TYPEDEF)
+
+Store cable designs by `cable_id` as an `AbstractDict{String, CableDesign}`.
+
+Ordinary indexed assignment inserts or replaces a design and resets its
+catalogue record from `design.nominal_data`. Use [`add!`](@ref) to reject an
+existing identifier or to supply an explicit catalogue record.
+
+$(TYPEDFIELDS)
+"""
+mutable struct CablesLibrary <: AbstractDict{String, CableDesign}
+    "Cable designs indexed by `cable_id`."
+    data::Dict{String, CableDesign}
+    "Catalogue records indexed by `cable_id`."
+    catalogues::Dict{String, DatasheetInfo}
+
+    @doc """
+     $(TYPEDSIGNATURES)
+
+     Construct an empty cable-design library.
+
+     # Returns
+
+     - An empty [`CablesLibrary`](@ref).
+
+     # Examples
+
+     ```jldoctest
+     library = $(FUNCTIONNAME)()
+     isempty(library)
+     # output
+     true
+     ```
+
+     """
+    function CablesLibrary()::CablesLibrary
+        return new(Dict{String, CableDesign}(), Dict{String, DatasheetInfo}())
+    end
+end
+
+"""
+$(TYPEDSIGNATURES)
+
+Add a cable design under its `cable_id`.
+
+# Arguments
+
+- `library`: Destination library.
+- `design`: Validated cable design.
+
+# Keywords
+
+- `catalogue=design.nominal_data`: Datasheet information stored beside the
+  design. A named tuple is normalized to [`DatasheetInfo`](@ref).
+
+# Returns
+
+- The modified `library`.
+
+# Errors
+
+- Throws `ArgumentError` when `library` already contains `design.cable_id`.
+"""
+function add!(
+        library::CablesLibrary,
+        design::CableDesign;
+        catalogue::Union{DatasheetInfo, NamedTuple} = design.nominal_data
+)
+    haskey(library, design.cable_id) && throw(ArgumentError(
+        "cable design '$(design.cable_id)' already exists",
+    ))
+    candidate = validate(design)
+    record = catalogue isa DatasheetInfo ? catalogue : DatasheetInfo(catalogue)
+    library.data[design.cable_id] = candidate
+    library.catalogues[design.cable_id] = record
+    return library
+end
+
+"Return the catalogue record associated with `cable_id`."
+catalogue(library::CablesLibrary, cable_id::AbstractString) =
+    library.catalogues[String(cable_id)]
+
+include("base.jl")
+include("vdeparse.jl")

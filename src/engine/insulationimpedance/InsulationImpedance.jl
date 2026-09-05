@@ -1,26 +1,58 @@
 """
-	LineCableModels.Engine.InsulationImpedance
+    LineCableModels.Engine.InsulationImpedance
+
+Define registered series-impedance formulas for cable insulation.
 
 # Dependencies
 
 $(IMPORTS)
 
-# Exports
-
-$(EXPORTS)
 """
 module InsulationImpedance
 
 # Export public API
-export Lossless
-
+export Formula, formula_id, assumptions, formulas
 
 # Module-specific dependencies
-using ...Commons
-import ...Commons: get_description
-import ..Engine: InsulationImpedanceFormulation
-using Measurements
+#! explicit-imports: off
+# These abbreviations are expanded in this module docstring and included files.
+using DocStringExtensions: IMPORTS, TYPEDEF, TYPEDFIELDS, TYPEDSIGNATURES
+#! explicit-imports: on
+import ..Engine: InsulationImpedanceFormulation, formula_id
+import ...LineCableModels: FormulaMethod
+#! explicit-imports: off
+import ..Engine: description
+#! explicit-imports: on
 
-include("lossless.jl")
+"Registered insulation-impedance formula selected by `:default`."
+const DEFAULT = :Ametani1980
+
+include("interface.jl")
+
+#! explicit-imports: off
+const FORMULAS = let
+    directory = joinpath(@__DIR__, "formulas")
+    Base.include_dependency(directory)
+    files = sort!(filter(
+        path -> endswith(path, ".jl"),
+        readdir(directory; join = true)
+    ))
+    identifiers = Symbol[]
+    for file in files
+        identifier = include(file)
+        identifier isa Symbol || error(
+            "insulation-impedance formula file $(basename(file)) must return its Symbol identifier"
+        )
+        identifier in identifiers && error(
+            "duplicate insulation-impedance formula identifier :$identifier"
+        )
+        push!(identifiers, identifier)
+    end
+    Tuple(identifiers)
+end
+#! explicit-imports: on
+
+"Return the built-in insulation-impedance formula identifiers."
+formulas() = FORMULAS
 
 end # module InsulationImpedance

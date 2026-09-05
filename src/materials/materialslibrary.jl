@@ -1,147 +1,128 @@
 """
 $(TYPEDEF)
 
-Stores a collection of predefined materials for cable modeling, indexed by material name:
+Store materials by name as an `AbstractDict{String, Material}`.
+
+Ordinary indexed assignment inserts or replaces a material. Use [`add!`](@ref)
+when an existing name must be rejected.
 
 $(TYPEDFIELDS)
 """
 mutable struct MaterialsLibrary <: AbstractDict{String, Material}
-	"Dictionary mapping material names to [`Material`](@ref) objects."
-	data::Dict{String, Material}  # Key: Material name, Value: Material object
+    "Materials indexed by name."
+    data::Dict{String, Material}
 end
 
 """
 $(TYPEDSIGNATURES)
 
-Constructs an empty [`MaterialsLibrary`](@ref) instance and initializes with default materials.
+Construct a material library.
 
-# Arguments
+# Keywords
 
-- None.
+- `add_defaults`: Add the package's built-in material records. Default: `true`.
 
 # Returns
 
-- A [`MaterialsLibrary`](@ref) object populated with default materials.
+- A [`MaterialsLibrary`](@ref), populated with built-in records when
+  `add_defaults` is `true`.
 
 # Examples
 
-```julia
-# Create a new, empty library
-library = $(FUNCTIONNAME)()
+```jldoctest
+library = $(FUNCTIONNAME)(; add_defaults=false)
+isempty(library)
+# output
+true
 ```
 
-# See also
-
-- [`Material`](@ref)
-- [`_add_default_materials!`](@ref)
 """
 function MaterialsLibrary(; add_defaults::Bool = true)::MaterialsLibrary
-	library = MaterialsLibrary(Dict{String, Material}())
+    library = MaterialsLibrary(Dict{String, Material}())
 
-	if add_defaults
-		@info "Initializing default materials database..."
-		_add_default_materials!(library)
-	end
+    if add_defaults
+        _add_default_materials!(library)
+    end
 
-	return library
+    return library
 end
 
 """
 $(TYPEDSIGNATURES)
 
-Populates a [`MaterialsLibrary`](@ref) with commonly used materials, assigning predefined electrical and thermal properties.
+Add the built-in material records to `library`.
 
 # Arguments
 
-- `library`: Instance of [`MaterialsLibrary`](@ref) to be populated.
+- `library`: Destination material library.
 
 # Returns
 
-- The modified instance of [`MaterialsLibrary`](@ref) containing the predefined materials.
+- The modified `library`.
 
-# Examples
-
-```julia
-library = MaterialsLibrary()
-$(FUNCTIONNAME)(library)
-```
-
-# See also
-
-- [`add!`](@ref)
 """
 function _add_default_materials!(library::MaterialsLibrary)
-	add!(library, "air", Material(Inf, 1.0, 1.0, 20.0, 0.0))
-	add!(library, "pec", Material(eps(), 1.0, 1.0, 20.0, 0.0))
-	add!(
-		library,
-		"copper",
-		Material(1.7241e-8, 1.0, 0.999994, 20.0, 0.00393),
-	)
-	add!(
-		library,
-		"aluminum",
-		Material(2.8264e-8, 1.0, 1.000022, 20.0, 0.00429),
-	)
-	add!(library, "xlpe", Material(1.97e14, 2.5, 1.0, 20.0, 0.0))
-	add!(library, "pe", Material(1.97e14, 2.3, 1.0, 20.0, 0.0))
-	add!(
-		library,
-		"semicon1",
-		Material(1000.0, 1000.0, 1.0, 20.0, 0.0),
-	)
-	add!(
-		library,
-		"semicon2",
-		Material(500.0, 1000.0, 1.0, 20.0, 0.0),
-	)
-	add!(
-		library,
-		"polyacrylate",
-		Material(5.3e3, 32.3, 1.0, 20.0, 0.0),
-	)
-	add!(library, "lead", Material(21.4e-8, 1.0, 0.999983, 20.0, 0.00400)) # Lead or lead alloy
-	add!(library, "steel", Material(13.8e-8, 1.0, 300.0, 20.0, 0.00450)) # Steel
-	add!(library, "pp", Material(1e15, 2.8, 1.0, 20.0, 0.0)) # Laminated paper propylene
+    add!(library, "air", Material(:insulator, Inf, 1.0, 1.0, 20.0, 0.0))
+    add!(library, "pec", Material(:conductor, eps(), 1.0, 1.0, 20.0, 0.0))
+    add!(
+        library,
+        "copper",
+        Material(:conductor, 1.7241e-8, 1.0, 0.999994, 20.0, 0.00393)
+    )
+    add!(
+        library,
+        "aluminum",
+        Material(:conductor, 2.8264e-8, 1.0, 1.000022, 20.0, 0.00429)
+    )
+    add!(library, "xlpe", Material(:insulator, 1.97e14, 2.5, 1.0, 20.0, 0.0))
+    add!(library, "pe", Material(:insulator, 1.97e14, 2.3, 1.0, 20.0, 0.0))
+    add!(
+        library,
+        "semicon1",
+        Material(:semicon, 1000.0, 1000.0, 1.0, 20.0, 0.0)
+    )
+    add!(
+        library,
+        "semicon2",
+        Material(:semicon, 500.0, 1000.0, 1.0, 20.0, 0.0)
+    )
+    add!(
+        library,
+        "polyacrylate",
+        Material(:semicon, 5.3e3, 32.3, 1.0, 20.0, 0.0)
+    )
+    add!(library, "lead", Material(:conductor, 21.4e-8, 1.0, 0.999983, 20.0, 0.00400)) # Lead or lead alloy
+    add!(library, "steel", Material(:conductor, 13.8e-8, 1.0, 300.0, 20.0, 0.00450)) # Steel
+    add!(library, "pp", Material(:insulator, 1e15, 2.8, 1.0, 20.0, 0.0)) # Laminated paper propylene
 end
-
 
 """
 $(TYPEDSIGNATURES)
 
-Adds a new material to a [`MaterialsLibrary`](@ref).
+Add `material` under `name`.
 
 # Arguments
 
-- `library`: Instance of [`MaterialsLibrary`](@ref) where the material will be added.
+- `library`: Destination material library.
 - `name`: Name of the material.
-- `material`: Instance of [`Material`](@ref) containing its properties.
+- `material`: Validated material record.
 
 # Returns
 
-- The modified instance of [`MaterialsLibrary`](@ref) with the new material added.
+- The modified `library`.
 
 # Errors
 
-Throws an error if a material with the same name already exists in the library.
-
-# Examples
-
-```julia
-library = MaterialsLibrary()
-material = Material(1.7241e-8, 1.0, 0.999994, 20.0, 0.00393)
-$(FUNCTIONNAME)(library, "copper", material)
-```
+- Throws `ArgumentError` when `name` already exists.
 """
 function add!(
-	library::MaterialsLibrary,
-	name::AbstractString,
-	material::Material,
+        library::MaterialsLibrary,
+        name::Union{AbstractString, Symbol},
+        material::Material
 )
-	if haskey(library, name)
-		Base.error("Material $name already exists in the library.")
-	end
-	library[String(name)] = material
-	library
+    key = String(name)
+    haskey(library, key) && throw(ArgumentError("material '$key' already exists"))
+    candidate = validate(material)
+    library[key] = candidate
+    return library
 end
-

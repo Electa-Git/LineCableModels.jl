@@ -1,104 +1,105 @@
 """
-	LineCableModels.DataModel
+    LineCableModels.DataModel
 
-The [`DataModel`](@ref) module provides data structures, constructors and utilities for modeling power cables within the [`LineCableModels.jl`](index.md) package. This module includes definitions for various cable components, and visualization tools for cable designs.
+Define the physical cable object model and completed line arrangements.
 
 # Overview
 
-- Provides objects for detailed cable modeling with the [`CableDesign`](@ref) and supporting types: [`CircStrands`](@ref), [`Strip`](@ref), [`Tubular`](@ref), [`Semicon`](@ref), and [`Insulator`](@ref).
-- Includes objects for cable **system** modeling with the [`LineCableSystem`](@ref) type, and multiple formation patterns like trifoil and flat arrangements.
-- Contains functions for calculating the base electric properties of all elements within a [`CableDesign`](@ref), namely: resistance, inductance (via GMR), shunt capacitance, and shunt conductance (via loss factor).
-- Offers visualization tools for previewing cable cross-sections and system layouts.
-- Provides a library system for storing and retrieving cable designs.
+- Declare primitives, material-bearing regions, and resolved geometry.
+- Compose regions through [`Stack`](@ref), [`Group`](@ref),
+  [`Assembly`](@ref), and [`Enclosure`](@ref).
+- Build one physical declaration as a completed [`CableDesign`](@ref).
+- Place completed designs and resolve connections as a [`LineCableSystem`](@ref).
+- Expose detached cable geometry and physical material ranges to consumers.
+- Store cable designs in [`CablesLibrary`](@ref).
 
 # Dependencies
 
 $(IMPORTS)
 
-# Exports
-
-$(EXPORTS)
 """
 module DataModel
 
 # Export public API
-export Thickness, Diameter  # Type definitions
-export CircStrands, RectStrands, Strip, Tubular, SectorParams, Sector  # Conductor types
-export Semicon, Insulator, SectorInsulator  # Insulator types
-export ConductorGroup, InsulatorGroup  # Group types
-export CableComponent, CableDesign  # Cable design types
-export CablePosition, LineCableSystem  # System types
-export CablesLibrary, NominalData  # Support types
-export trifoil_formation, flat_formation, get_outer_radius, MaxFill  # Helpers
-export preview, equivalent
+export CableDesign, CableGeometry, PlacedRegion, LineCableSystem
+export build, homogenize
+export CablesLibrary, DatasheetInfo, catalogue
+export trefoil_formation, flat_formation, outer_radius
+export AbstractShape, AbstractPrimitive
+export AbstractCablePart, Region, Stack
+export Group, Assembly
+export Enclosure
+export Disk, Rectangle, Ellipse, Sector, Annulus, Polygon, Shell
+export Pose2
+export EmptyBoundary
+export resolve, boundary, area, perimeter, centroid, support, r_in, r_ex, thickness
+export tessellate
+export Ring, Polar, Fill, Lattice, capacity, placements
+export FillFactor
+export LayRatio, Pitch, LayAngle, Helix, pitch, angle, overlength
+export ncables, nphases
+
+public AssemblyMember, AssemblyShape, BentStrip, BoundedPlacement, EnclosureBoundary
+public DifferenceShape, EllipseOffset, ShellShape, SectorShape
 
 # Module-specific dependencies
-using ..Commons
-import ..Commons: add!
-using ..Utils:
-	resolve_T, to_certain, to_nominal, is_headless,
-	is_in_testset, to_lower, to_upper
-import ..Utils: coerce_to_T, to_lower
+#! explicit-imports: off
+# IMPORTS is expanded in the module docstring rather than called as Julia code.
+using DocStringExtensions: IMPORTS
+#! explicit-imports: on
+using DocStringExtensions: TYPEDEF, TYPEDFIELDS, TYPEDSIGNATURES, FUNCTIONNAME
+import ..Units
+import ..TextDisplay
+import ..LineCableModels: add!, build, homogenize, validate, nominal
+import ..LineCableModels: parameterize
 using ..Materials: Material
-import ..PlotBuilder.BackendHandler: set_backend!, ensure_backend!, current_backend_symbol,
-	backend_available, renderfig, next_fignum
-import ..PlotBuilder.PlotUIComponents: gl_screen, with_icon, MI_REFRESH, MI_SAVE, ICON_TTF
-import ..Validation: Validation, sanitize, validate!, has_radii, has_temperature,
-	extra_rules, IntegerField, Positive, Finite, Normalized, IsA, required_fields,
-	coercive_fields, keyword_fields, keyword_defaults, _kwdefaults_nt, is_radius_input,
-	Nonneg, OneOf, Greater, PhysicalFillLimit, Satisfies
-using Measurements
-using DataFrames
-using Colors
-using Plots
-using DisplayAs: DisplayAs
-using LinearAlgebra
-using Makie: Point, Point2f # otherwise will require adding GeometryBasics as a dependency
-# Abstract types & interfaces
+import GeometryBasics
+using GeometryBasics: Point2f
+import Base: angle
+import LinearAlgebra
+using SpecialFunctions: ellipe
+
+# Abstract types and interfaces
+include("interfaces.jl")
 include("types.jl")
-include("radii.jl")
+include("geometry/pose.jl")
+include("geometry/primitives.jl")
+include("geometry/shell.jl")
+include("geometry/sector.jl")
+include("geometry/ellipse.jl")
+include("geometry/resolve.jl")
+include("design/region.jl")
+include("design/stack.jl")
+include("placement/patterns.jl")
+include("placement/paths.jl")
+include("placement/compaction.jl")
+include("placement/bounded.jl")
+include("design/group.jl")
+include("design/assembly.jl")
+include("design/enclosure.jl")
 
 # Submodule `BaseParams`
 include("baseparams/BaseParams.jl")
 using .BaseParams
 
-# Constructors
-include("macros.jl")
-include("validation.jl")
-
-# Conductors
-include("strands_handler.jl")
-include("circstrands.jl")
-include("rectstrands.jl")
-include("strip.jl")
-include("tubular.jl")
-include("conductorgroup.jl")
-include("sector.jl")
-
-# Insulators
-include("insulator.jl")
-include("semicon.jl")
-include("insulatorgroup.jl")
-include("sectorinsulator.jl")
-
-
-# Groups
-include("nominaldata.jl")
-include("cablecomponent.jl")
-include("cabledesign.jl")
+include("design/cabledesign.jl")
+include("flatten.jl")
 
 # Library
-include("cableslibrary.jl")
-include("linecablesystem.jl")
+include("cableslibrary/datasheetinfo.jl")
+include("cableslibrary/cableslibrary.jl")
+include("linecablesystem/linecablesystem.jl")
 
-# Helpers & overrides
-include("helpers.jl")
-include("preview.jl")
-include("io.jl")
-include("typecoercion.jl")
+# Geometry and language protocols
+include("geometry.jl")
+include("preview/geometry.jl")
+include("preview/materials.jl")
 
-# Aliases for backward compatibility
-const WireArray = CircStrands
-export WireArray
+# Bounded human-readable representations for the completed physical grammar.
+include("textdisplay.jl")
+
+public preview_shapes, preview_materials
+public PreviewShape, material_property_ranges
+public flatten
 
 end # module DataModel

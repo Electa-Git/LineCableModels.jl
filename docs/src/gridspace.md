@@ -1,0 +1,474 @@
+# Gridspace
+
+Gridspace combines explicit finite sources, selects one unresolved point, and
+invokes a typed callable after resolving that point. The declarative cable API
+uses it to delay construction until each finite selection is known.
+Gridspace does not compute line parameters, aggregate uncertainty, validate physical
+objects independently of their constructors, or store traversal state in
+completed results.
+
+The calculation sequence is:
+
+```text
+Grid                 declares explicit finite variation
+Gridspace            composes finite sources and selects one point
+callable              invokes the existing complete construction action
+Engine.compute        evaluates one complete core problem
+ParametricBuilder/UQ  collect stored calculation data
+```
+
+`DataModel` constructors validate physical invariants. Engine calculates
+core results. UQ performs repeated stochastic realisation and aggregation.
+
+## Core invariants
+
+A Gridspace has the semantic shape:
+
+```julia
+Gridspace{Target}(build, grids::Tuple; combine=:product)
+Gridspace{Target}(grids::Tuple; combine=:product)
+```
+
+Every member of `grids` must already be a `Grid` or nested `Gridspace`. The
+constructor never interprets a raw tuple, vector, matrix, or other domain value
+as an axis. `Target` is the semantic result family used for dispatch and
+`build` is the callable that constructs it. A nonempty deterministic space
+advertises a concrete iterator element type when Julia can prove that type
+without evaluating a point. Otherwise—including uncertainty-bearing and empty
+spaces—its iterator uses `Base.EltypeUnknown`; a Gridspace never advertises a
+`UnionAll` element type. `combine` is normalised into the concrete Gridspace
+type. The space is lazy and has an analytic length. `rand(space)` selects and
+realises one point without collecting the space.
+
+The internal selected point contains only the callable and its selected
+arguments. The point is unresolved, unexported, and temporary. The point never enters a
+completed calculation result.
+
+## Grid is the variation marker
+
+`Grid` is the only public marker for finite variation:
+
+```julia
+Grid((1.0, 2.0, 3.0))
+Grid(1.0)                              # one deterministic point
+Grid((1.0, 2.0), (1.0, 5.0))          # nominal × relative error [%]
+Grid((1.0, 2.0), AbsoluteError(0.1))   # nominal × absolute error
+```
+
+The uncertainty-bearing forms yield `UncertainValue(nominal, sigma)`
+descriptors. An `UncertainValue` does not depend on an uncertainty package. The descriptor becomes
+Measurements values during direct propagation or ordinary scalars during
+Monte Carlo realisation.
+
+The constructor laws are:
+
+```text
+Grid(existing Grid)       = the existing Grid
+Grid(existing Gridspace)  = the existing Gridspace
+Grid(tuple or array)      = its elements are alternatives
+Grid(other value)         = one alternative
+```
+
+Grid instances carry no selection identity. Reusing an instance in two source
+positions has the same behaviour as placing two equal, separately constructed
+Grids in those positions.
+
+## Collections are atomic until explicitly varied
+
+Public domain builders know which of their inputs are complete domain values.
+An ordinary tuple, vector, or matrix therefore remains atomic:
+
+```julia
+frequencies = [50.0, 100.0, 1000.0]       # one frequency scan
+payload = [1.0 2.0; 3.0 4.0]              # one matrix
+
+frequency_sets = Grid((
+    [50.0, 100.0],
+    [50.0, 500.0, 5_000.0],
+))                                         # two complete scans
+```
+
+When one sibling varies, the builder wraps every ordinary sibling in a
+one-point source.
+The matrix or frequency vector remains one complete value at every point.
+Calling `Grid(matrix)` is different and explicit: the matrix elements become
+alternatives because the caller requested that variation.
+
+A tuple or vector containing a `Grid` or `Gridspace` is not atomic: the
+explicit finite sources are composed and the collection is rebuilt from their
+selected, completed values. This lets domain collections such as
+`[design_space, design_space]` reach their scalar builder as completed
+`CableDesign` objects. Ordinary collections containing no explicit finite
+source remain one complete value.
+
+## Product and zip composition
+
+Composition is local to each Gridspace node.
+
+### Product
+
+`:product` is the default and forms the lazy Cartesian product. Julia product
+ordering is preserved, so the first source changes fastest:
+
+```julia
+space = Gridspace{Tuple}(
+    tuple,
+    (Grid((1, 2, 3)), Grid((10, 20))),
+)
+
+collect(space)
+# [(1, 10), (2, 10), (3, 10), (1, 20), (2, 20), (3, 20)]
+```
+
+Its length is the product of the direct source lengths. Computing `length`
+does not traverse or materialise any point.
+
+### Zip
+
+`:zip` pairs non-singleton sources row by row and broadcasts singleton
+sources:
+
+```julia
+space = Gridspace{Tuple}(
+    tuple,
+    (Grid((1, 2, 3)), Grid((10, 20, 30)), Grid(:fixed));
+    combine=:zip,
+)
+
+collect(space)
+# [(1, 10, :fixed), (2, 20, :fixed), (3, 30, :fixed)]
+```
+
+All non-singleton direct sources must have equal cardinality. A mismatch
+throws `DimensionMismatch` when the Gridspace is constructed, before any point
+is materialised. Zip traversal is linear in the number of rows.
+
+### Nesting
+
+A nested Gridspace is one finite source at its parent. Its selected value stays
+unresolved until recursive materialisation or realisation reaches it. Nested
+resolution lets one child zip local parameters while its parent forms a
+Cartesian product:
+
+```julia
+paired = Gridspace{Tuple}(
+    tuple,
+    (Grid((1, 2)), Grid((10, 20)));
+    combine=:zip,
+)
+
+outer = Gridspace{Tuple}(tuple, (paired, Grid((:a, :b))))
+collect(outer)
+# [((1, 10), :a), ((2, 20), :a),
+#  ((1, 10), :b), ((2, 20), :b)]
+```
+
+## Public construction boundary
+
+Gridspace delays finite selection. Each lifted public action applies one rule:
+
+```text
+no admitted Grid or Gridspace       -> invoke the scalar action now
+at least one explicit source        -> preserve sources, singleton-wrap siblings,
+                                       and return a Gridspace
+```
+
+For domain arguments that are tuples or vectors, an admitted source may be a
+collection member; the collection itself is reconstructed before the scalar
+action runs.
+
+The current behaviour is:
+
+| Entry point | Scalar or complete input | Explicit varying input |
+|---|---|---|
+| `Material` | `Materials.Material` | `Gridspace{Materials.Material}` |
+| `Disk`, `Shell`, and other physical geometry | concrete primitive or contextual shell | `Gridspace{Primitive}` or `Gridspace{Shell}` |
+| `Region`, `Stack`, `Group`, `Assembly`, `Enclosure` | concrete cable part | `Gridspace{TargetPart}` |
+| `CableDesign` | `DataModel.CableDesign` | `Gridspace{DataModel.CableDesign}` |
+| `at`, `trefoil`, `hflat`, `vflat` | `Pose2` or `Vector{Pose2}` | corresponding `Gridspace` |
+| `homogeneous` | `EarthModel` | `Gridspace{EarthModel}` |
+| `LineCableSystem` | `DataModel.LineCableSystem` | `Gridspace{DataModel.LineCableSystem}` |
+| `LineParametersProblem` | `Engine.LineParametersProblem` | `Gridspace{Engine.LineParametersProblem}` |
+| `CableConstantsProblem` | `Engine.CableConstantsProblem` | `Gridspace{Engine.CableConstantsProblem}` |
+| `CableConstants` | `Engine.CableConstants` | `Gridspace{Engine.CableConstants}` |
+| `Formulation` | `Engine.LineParametersFormulation` | `Gridspace{Engine.LineParametersFormulation}` |
+| `CableConstantsFormulation` | `Engine.CableConstantsFormulation` | `Gridspace{Engine.CableConstantsFormulation}` |
+| `ModalTransformationFormulation` | `Transforms.ModalTransformationFormulation` | `Gridspace{Transforms.ModalTransformationFormulation}` |
+| backend formulation constructor | completed backend formulation | target-bearing formulation `Gridspace` |
+| `@gridspace` keyword constructor | strict struct | `Gridspace{Target}` |
+
+Scalar-complete calls invoke their domain action immediately. A varying call
+stores only that callable and explicit finite sources; each selected point
+invokes the same scalar action.
+
+## Gridspace callables
+
+A Gridspace callable should be a concrete immutable functor whose field types
+are concrete. The callable should perform one construction step and delegate physical
+validation to the target constructors:
+
+```julia
+struct PairValue end
+(::PairValue)(left, right) = (left, right)
+
+space = Gridspace{Tuple}(
+    PairValue(),
+    (Grid((1, 2)), Grid((10, 20))),
+)
+```
+
+Avoid `Function`-typed fields in frequently called builders. A captured closure is suitable
+for local experiments. Reusable callables use concrete types.
+Do not introduce a passive record merely to store arguments that another
+function immediately unpacks.
+
+`@gridspace` applies the same rule to a keyword-constructed struct. The macro
+retains the strict positional constructor, returns the struct immediately for
+scalar keyword input, and creates a Gridspace only when a field is an explicit
+finite source.
+
+## Materialisation and realisation
+
+Ordinary iteration selects an internal target-bearing `Gridpoint{Target}` and recursively
+materialises its arguments. Deterministic values pass through unchanged.
+Nested points invoke their own callable before the parent callable is invoked.
+After loading Measurements, an `UncertainValue` materialises as one
+`Measurement`.
+
+Stochastic realisation follows the same recursion with a caller-owned random
+number generator. Only `UncertainValue` leaves are redrawn. Deterministic
+selections remain fixed. A zero-sigma descriptor resolves deterministically.
+
+Materialisation and realisation are internal. Developers extend the public grammar through
+concrete builders and supported uncertainty extensions, not
+by exposing unresolved points as application data.
+
+## Higher-order computation
+
+`Combinatorial` accepts one completed formulation, a deterministic
+target-bearing formulation `Gridspace`, or a deterministic `Grid` containing
+completed formulations. Formulation points are resolved once. Traversal then
+materialises each selected problem exactly once and gives the complete
+formulation vector to `compute`:
+
+```text
+resolve every formulation point once
+
+for each `Gridpoint{Problem}`
+    materialise the scalar problem once
+    compute(problem, resolved_formulations)
+end
+```
+
+Every problem/formulation pair is evaluated. Composition inside a formulation
+constructor remains local to that formulation: `combine=:product` or
+`combine=:zip` determines its formulation points, while the outer
+problem/formulation relation is always Cartesian.
+
+The generic vector `compute` method delegates to established scalar dispatch.
+Owners may specialize that vector method to share immutable lowering work. The
+Coaxial line-parameter path validates and flattens every selected design once
+per problem point, constructs its formulation-independent local input once,
+then allocates and solves one independent workspace per formulation. The
+cable-constant path independently follows the same one-flatten rule. Mutable
+matrices, formula-dependent earth data, reduction maps, and diagnostic storage
+are never shared. Modal transformation needs no special lowering and uses the
+generic route on the same phase-domain matrices.
+
+`ParametricResult` retains both axes:
+
+```julia
+run.axes.problems
+run.axes.formulations
+run[problem_index, formulation_index]
+```
+
+Its `values` vector and ordinary linear iteration remain available. Storage is
+column-major in `(problem, formulation)` coordinates: the problem index varies
+fastest. Thus every selected value can be traced to its completed formulation,
+for example with
+`formula_id(run.axes.formulations[j].methods.earth_impedance)`. The result does
+not retain unresolved points or traversal state.
+
+Direct linear propagation uses the same traversal. The Measurements extension
+changes only how an uncertain descriptor materialises. `LinearErrorResult`
+likewise stores only its formulation and ordered core results.
+
+ParametricBuilder owns this shared traversal as the qualified `traverse`
+method. It computes the first problem/formulation batch, allocates a vector of
+that exact result type with the analytic Cartesian cardinality, and rejects any
+later type change. Optional detail records follow the same rule and are
+resolved through each scalar formulation's computation owner. `Combinatorial`
+constructs its result space from `values`, `axes`, and `details`. `LinearError`
+continues to use one scalar formulation and consumes `values` and `details`;
+Monte Carlo does not use this traversal.
+
+Monte Carlo selects each outer point once, derives a deterministic point seed,
+and repeatedly realises that same point:
+
+```text
+for each selected outer point
+    until the requested successful trials are collected
+        redraw uncertain leaves within that point
+        build a fresh complete core problem
+        Engine.compute
+        optionally reject DomainError realisations under a bounded retry policy
+    aggregate that point's draws
+end
+```
+
+Multiple nominal/error points therefore produce multiple aggregates, not one
+mixture. `MonteCarloResult` directly owns sample-mean core results, statistics,
+optional retained samples, optional histograms, the root seed, point seeds,
+and trial counts.
+
+The default `on_error=:fail` policy rethrows every exception. With
+`options=(retain_details=true, on_error=:retry, max_failures=n)`, only
+`DomainError` is treated as an unsupported realisation. Rejected draws do not
+enter samples or statistics, and retry stops when the requested accepted-trial
+count is reached or `n` failures have occurred. This estimates the conditional
+distribution of the output given that problem construction and computation
+succeed; the retained failure summary makes the conditioning rate explicit.
+
+For cable-constant Monte Carlo calculations, the representative stored in the
+result space remains a `CableConstants` core result. Retained samples,
+statistics, and histograms are concrete named tuples with keys `R`, `L`, `C`,
+and `G`; cable samples have assembly × trial dimensions. Line-parameter
+products retain conductor × conductor × frequency × trial dimensions. These
+are internal point-aligned storage, not result types or observation surfaces.
+`MonteCarloResult` validates their keys and dimensions and owns every public
+observation method.
+
+All completed result spaces are one-dimensional finite Julia collections.
+Iteration and indexing return one stored core result per calculation. A
+`ParametricResult` with several formulations contains the Cartesian
+problem/formulation cardinality in its documented storage order. Monte Carlo
+iteration returns the representative
+core result reconstructed from each point's sample means; individual trials
+remain available only through `samples`. Standard `first`, `last`, `only`,
+`collect`, `map`, and `zip` operations apply. `only` asserts singleton
+cardinality and performs no statistical selection or result transport.
+
+## Transporting completed result spaces
+
+A completed result space enters another scalar calculation through the target
+`Gridspace` constructor:
+
+```julia
+modal_problems = Gridspace{ModalTransformationProblem}(phase_results)
+```
+
+The dispatched method `Gridspace{Target}(source::SourceResult)` defines how the
+source result family supplies arguments to the target problem constructor. The
+transport preserves source cardinality and order unless that source-specific
+method explicitly documents another operation. It produces a target-bearing
+problem space, never a nested result envelope.
+
+`ParametricResult` transports its completed combinatorial results directly.
+`LinearErrorResult` transports its uncertainty-bearing results directly. With
+Measurements loaded, `MonteCarloResult` reconstructs one uncertainty-bearing
+core result per deterministic point from each scalar sample mean and standard
+deviation before constructing the downstream problems. This marginal
+reconstruction does not recover covariance between observables.
+
+Only result families with defined semantics are admitted. An unsupported
+source/target pair raises an error naming both types and directs the caller to
+`?Gridspace` and this page. Extension code adds a transport by defining:
+
+```julia
+import LineCableModels: Gridspace
+
+function Gridspace{Target}(source::OwnedResultSpace)
+    # Expose or reconstruct completed source values, then return Gridspace{Target}.
+end
+```
+
+This keeps every scientific calculation scalar. Finite composition recurses
+through the same typed boundary:
+
+```text
+ResultSpace{A} → Gridspace{ProblemB} → ResultSpace{B}
+```
+
+## Pairing, exact reuse, and correlation
+
+Zip pairing, exact argument reuse, and stochastic correlation have different
+semantics.
+
+`combine=:zip` is deterministic row pairing between finite sources. Zip pairing says
+nothing about covariance.
+
+Exact reuse is structural. Pass one selected uncertain argument once to a
+callable and use that argument more than once:
+
+```julia
+struct Duplicate end
+(::Duplicate)(value) = (value, value)
+
+space = Gridspace{Tuple}(
+    Duplicate(),
+    (Grid(10.0, AbsoluteError(0.5)),),
+)
+```
+
+Direct propagation constructs one Measurement and both tuple positions retain
+that variable. Monte Carlo draws once and passes the same scalar to both
+positions. By contrast, two separately declared uncertain source positions are
+independent, even when they contain the same Grid instance or numerically equal
+descriptors.
+
+General correlation between distinct variables is a UQ concern. Correlation requires a
+joint stochastic source or distribution that returns a tuple or vector sample
+consumed by one builder. Gridspace does not infer or register correlation.
+
+## Optional package extensions
+
+The core package declares uncertainty without loading Measurements or
+Distributions.
+
+- Loading Measurements adds direct materialisation of `UncertainValue` while
+  retaining exact structural reuse.
+- Loading Distributions adds standardised univariate sampling families. The
+  selected distribution must have finite mean and positive finite standard
+  deviation. Samples are transformed to the descriptor's nominal value and
+  standard uncertainty.
+
+Neither extension knows about finite-source identity, result presentation, or
+Engine internals.
+
+## Performance and conformance
+
+The implementation relies on tuple-specialised recursion and Julia's public
+product and zip iterators. The implementation guarantees:
+
+- `length` is analytic and never enumerates points.
+- Product and zip traversal are linear in yielded work.
+- Materialisation and realisation use no dictionary or identity lookup.
+- Immutable scalar targets infer through selection, materialisation, and
+  realisation.
+- After warmup, deterministic iteration and a bare 10,000-realisation scalar
+  loop add zero heap allocations.
+- Full cable and line construction may allocate only what their existing
+  vectors, domain constructors, Engine computation, and requested result
+  storage intrinsically require.
+
+The conformance suite in `test/unit/parametricbuilder/conformance.jl` checks
+these properties, exact structural reuse, explicit variation, scalar public
+construction, and the absence of a random-access Gridspace API.
+
+## Implementation map
+
+The implementation is split across:
+
+- `src/parametricbuilder/grid.jl`: finite values and uncertainty descriptors.
+- `src/parametricbuilder/gridspace.jl`: composition, point selection, recursive
+  materialisation, and realisation.
+- `src/parametricbuilder/macros.jl`: strict scalar construction and explicit
+  Gridspace lifting for `@gridspace`.
+- material, cable, position, and system files: scalar construction and lifting
+  rules and concrete callable algorithms.
+- `src/parametricbuilder/compute.jl`: combinatorial traversal.
+- `src/uq/linearerror.jl` and `src/uq/montecarlo/compute.jl`: direct and
+  repeated stochastic traversal.
+- Measurements and Distributions extensions: dependency-specific uncertainty
+  behaviour only.
