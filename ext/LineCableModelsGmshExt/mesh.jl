@@ -127,6 +127,16 @@ function _inspect_loaded_mesh(model::FEMResolvedModel, mesh_path::String)
             :physical_groups,
             "mesh $(mesh_path) has an empty physical group $(expected)"
         )
+        for entity in entities
+            _, element_tags, _ = gmsh.model.mesh.get_elements(expected[1], entity)
+            any(!isempty, element_tags) || _fem_error(
+                :mesh,
+                model.problem.system.system_id,
+                :physical_groups,
+                "mesh $(mesh_path) has no elements on entity $(entity) " *
+                "in physical group $(expected)"
+            )
+        end
     end
     terminal_groups = count(
         group -> begin

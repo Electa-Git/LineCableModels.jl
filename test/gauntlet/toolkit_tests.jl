@@ -475,6 +475,7 @@ end
         :cable_525kv_subsea_armoured_ac_flat=>(9, 9, 227),
         :cable_525kv_subsea_armoured_dc_bipole=>(6, 6, 227),
         :cable_18kv_1000mm2_trefoil=>(9, 9, 101),
+        :cable_30kv_na2xs2y_630mm2_trefoil=>(6, 6, 101),
         :cable_220kv_eaxecew_1x2500_252_trefoil=>(9, 9, 101),
         :cable_132kv_cigre_tb880_case0_630cu_trefoil=>(6, 6, 101),
         :cable_132kv_630mm2_flathor=>(9, 9, 101),
@@ -560,6 +561,9 @@ end
         ),
         :cable_18kv_1000mm2_trefoil=>(
             (61,), (49, 1), ()
+        ),
+        :cable_30kv_na2xs2y_630mm2_trefoil=>(
+            (61,), (60, 1)
         ),
         # Milliken courses belong to nested sector assemblies, not a core Ring.
         :cable_220kv_eaxecew_1x2500_252_trefoil=>((), (65,), ()),
@@ -677,6 +681,23 @@ end
             @test core.primitive.r == 0.01515
         end
     end
+
+    na2xs2y=load_case(:cable_30kv_na2xs2y_630mm2_trefoil).nominal_problem
+    na2xs2y_design=first(na2xs2y.system.designs)
+    @test outer_radius(na2xs2y_design) ≈ 0.028975
+    @test na2xs2y.temperature == 20.0
+    @test na2xs2y.system.line_length == 1000.0
+    @test na2xs2y.frequencies == collect(10.0 .^ range(-1, stop=6, length=101))
+    @test na2xs2y.system.connection_order == collect(1:6)
+    @test all(==(na2xs2y_design), na2xs2y.system.designs)
+    for i in 1:3, j in 1:(i-1)
+        a, b=na2xs2y.system.positions[i], na2xs2y.system.positions[j]
+        @test hypot(a.x-b.x, a.y-b.y) ≈ 2outer_radius(na2xs2y_design)
+    end
+    na2xs2y_core=filter(r->r.terminal===:core, na2xs2y_design.geometry.regions)
+    @test all(r->r.primitive isa Disk&&r.primitive.r==3.65e-3/2, na2xs2y_core)
+    @test sum(r->area(r.primitive), na2xs2y_core) ≈ 61pi*(3.65e-3/2)^2
+    @test na2xs2y_design.nominal_data.designation_code == "NA2XS2Y 1x630/35 18/30kV"
 
     two_wire_case=load_case(:two_bare_wires)
     copper=Material(MaterialsLibrary(add_defaults = true), :copper)

@@ -12,8 +12,8 @@ completed CableDesign
   @system / build
         ↓
 completed LineCableSystem ──────────┐
-                                   ├→ LineParametersProblem → compute → LineParameters
-@earth / build → EarthModel ───────┘
+                                    ├→ LineParametersProblem → compute → LineParameters
+@earth / build → EarthModel ────────┘
 ```
 
 The notation layer describes physical order and electrical ownership. It does
@@ -520,7 +520,7 @@ end
 
 preview(
     [sector_stranded, sector_dense];
-    panel_titles=("supplied wire — 74.23% fill", "resized wire — 93% fill"),
+    panel_titles=("supplied wire, 74.23% fill", "resized wire, 93% fill"),
     backend=:cairo,
     display_plot=false,
     controls=false,
@@ -615,10 +615,10 @@ preview(
     ];
     layout=(2, 2),
     panel_titles=(
-        "solid — three cores",
-        "solid — four cores",
-        "stranded — three cores",
-        "stranded — four cores",
+        "solid - three cores",
+        "solid - four cores",
+        "stranded - three cores",
+        "stranded - four cores",
     ),
     backend=:cairo,
     display_plot=false,
@@ -672,7 +672,7 @@ end
 
 preview(
     milliken_design;
-    title="Milliken — six 61-wire segments and a central conductor",
+    title="Milliken - six 61-wire segments and a central conductor",
     backend=:cairo,
     display_plot=false,
     controls=false,
@@ -743,7 +743,7 @@ umbilical_legend_labels = Dict(
 
 preview(
     umbilical_pair_design;
-    title="Umbilical subcable — two cores and a separate copper sheath",
+    title="Umbilical subcable - two cores and a separate copper sheath",
     legend_labels=umbilical_legend_labels,
     backend=:cairo,
     display_plot=false,
@@ -781,7 +781,7 @@ end
 
 preview(
     umbilical_design;
-    title="Umbilical — four screened pairs with steel armour",
+    title="Umbilical - four screened pairs with steel armour",
     legend_group=region -> region.source.material == umbilical_tpe ?
                            :tpe_fill : region.source.tag,
     legend_labels=umbilical_legend_labels,

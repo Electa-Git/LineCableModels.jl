@@ -1164,20 +1164,46 @@ end
             ("fem-four-sector-formations", four_model),
             ("fem-milliken-core", milliken_model)
         )
-            geometry = extension_module._build_geometry!(model, name)
-            gmsh.model.set_current(geometry.model_name)
-            @test all(!isempty, geometry.material_surfaces)
-            @test all(!isempty, geometry.terminal_surfaces)
-            name in (
-                "fem-compacted-circular-core",
-                "fem-sector-formations",
-                "fem-milliken-core"
-            ) || continue
-            extension_module._configure_mesh!(
-                model, geometry, only(model.mesh_plans)
+            @testset "$name" begin
+                geometry = extension_module._build_geometry!(model, name)
+                gmsh.model.set_current(geometry.model_name)
+                @test all(!isempty, geometry.material_surfaces)
+                @test all(!isempty, geometry.terminal_surfaces)
+                extension_module._configure_mesh!(
+                    model, geometry, only(model.mesh_plans)
+                )
+                gmsh.model.mesh.generate(2)
+                @test !isempty(first(gmsh.model.mesh.get_nodes()))
+                for surfaces in geometry.material_surfaces, surface in surfaces
+                    _, element_tags, _ = gmsh.model.mesh.get_elements(2, surface)
+                    @test any(!isempty, element_tags)
+                end
+                @test isnothing(extension_module._inspect_loaded_mesh(model, name))
+                # Physical tags alone do not prove a material was meshed. This
+                # also guards validation of reused/imported mesh files.
+                surface = first(first(geometry.material_surfaces))
+                gmsh.model.mesh.clear([(2, surface)])
+                @test_throws LineCableModelsFEMError extension_module._inspect_loaded_mesh(
+                    model, name
+                )
+            end
+        end
+        @testset "contact edges share subdivisions in either direction" begin
+            gmsh.model.add("contact-edge-subdivision")
+            registry = extension_module.FEMLoopRegistry(1e-12)
+            for point in ((0.0, 0.0), (0.5e-3, 0.0), (1e-3, 0.0))
+                extension_module._point!(registry, point; mesh_size = nothing)
+            end
+            @test isempty(registry.point_sizes)
+            forward = extension_module._line_path!(
+                registry, (0.0, 0.0), (1e-3, 0.0); mesh_size = 1e-4
             )
-            gmsh.model.mesh.generate(2)
-            @test !isempty(first(gmsh.model.mesh.get_nodes()))
+            backward = extension_module._line_path!(
+                registry, (1e-3, 0.0), (0.0, 0.0); mesh_size = 1e-4
+            )
+            @test length(forward) == 2
+            @test backward == -reverse(forward)
+            @test all(==(1e-4), values(registry.point_sizes))
         end
     finally
         Gmsh.finalize()

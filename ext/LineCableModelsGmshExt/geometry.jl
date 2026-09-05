@@ -8,9 +8,10 @@ const FEM_BOUNDARY_ANGLE_TOLERANCE = 1.0e-12
 
 mutable struct FEMLoopRegistry
     points::Dict{Tuple{Float64, Float64}, Int}
+    point_buckets::Dict{Tuple{Int, Int}, Vector{Tuple{Float64, Float64}}}
     point_sizes::Dict{Int, Float64}
     lines::Dict{Tuple{Int, Int}, Int}
-    curve_points::Dict{Int, Set{Int}}
+    curve_points::Dict{Int, Tuple{Int, Int}}
     circle_arcs::Dict{Any, Tuple{Int, Int, Int}}
     circle_breaks::Dict{Any, Set{Float64}}
     circle_break_points::Dict{Any, Dict{Float64, Tuple{Float64, Float64}}}
@@ -21,9 +22,10 @@ end
 function FEMLoopRegistry(mesh_size)
     FEMLoopRegistry(
         Dict{Tuple{Float64, Float64}, Int}(),
+        Dict{Tuple{Int, Int}, Vector{Tuple{Float64, Float64}}}(),
         Dict{Int, Float64}(),
         Dict{Tuple{Int, Int}, Int}(),
-        Dict{Int, Set{Int}}(),
+        Dict{Int, Tuple{Int, Int}}(),
         Dict{Any, Tuple{Int, Int, Int}}(),
         Dict{Any, Set{Float64}}(),
         Dict{Any, Dict{Float64, Tuple{Float64, Float64}}}(),
@@ -360,6 +362,12 @@ end
 
 _register_shape_breaks!(::FEMLoopRegistry, shape) = nothing
 
+function _register_shape_breaks!(registry::FEMLoopRegistry, shape::DataModel.Polygon)
+    # Register topology first; the consuming material supplies the mesh size.
+    foreach(point -> _point!(registry, point; mesh_size = nothing), _shape_points(shape))
+    return nothing
+end
+
 function _register_shape_breaks!(registry::FEMLoopRegistry, shape::DataModel.Disk)
     _register_full_circle_breaks!(registry, (shape.at.x, shape.at.y), shape.r)
     return nothing
@@ -429,6 +437,13 @@ end
 
 function _register_circle_contacts!(registry::FEMLoopRegistry)
     circles = collect(keys(registry.circle_breaks))
+    # A polygonal strand can end on an analytic enclosing arc. Both consumers
+    # must share that vertex before either curve loop is constructed.
+    for circle in circles, point in keys(registry.points)
+        dx, dy = point[1] - circle[1], point[2] - circle[2]
+        abs(hypot(dx, dy) - circle[3]) <= 64eps(max(circle[3], 1.0)) || continue
+        _register_circle_break!(registry, circle[1:2], circle[3], atan(dy, dx); point)
+    end
     for first_index in eachindex(circles)
         first = circles[first_index]
         first_centre = (first[1], first[2])
@@ -526,11 +541,18 @@ function _point!(registry::FEMLoopRegistry, point; mesh_size = registry.mesh_siz
     # tolerance to every coordinate in the model.
     key = _matching_point_key(registry.points, point)
     tag = get!(registry.points, key) do
-        gmsh.model.geo.add_point(key[1], key[2], 0.0, Float64(mesh_size))
+        bucket = (floor(Int, key[1] / registry.mesh_size),
+                  floor(Int, key[2] / registry.mesh_size))
+        push!(get!(Vector{Tuple{Float64, Float64}}, registry.point_buckets, bucket), key)
+        gmsh.model.geo.add_point(
+            key[1], key[2], 0.0, mesh_size === nothing ? 0.0 : Float64(mesh_size)
+        )
     end
-    registry.point_sizes[tag] = min(
-        get(registry.point_sizes, tag, Inf), Float64(mesh_size)
-    )
+    if mesh_size !== nothing
+        registry.point_sizes[tag] = min(
+            get(registry.point_sizes, tag, Inf), Float64(mesh_size)
+        )
+    end
     return tag
 end
 
@@ -539,11 +561,42 @@ function _line!(registry::FEMLoopRegistry, first_point::Int, last_point::Int)
     tag = get!(registry.lines, key) do
         gmsh.model.geo.add_line(key[1], key[2])
     end
-    points = get!(registry.curve_points, abs(tag)) do
-        Set{Int}()
-    end
-    push!(points, first_point, last_point)
+    registry.curve_points[tag] = key
     return first_point == key[1] ? tag : -tag
+end
+
+function _line_path!(registry::FEMLoopRegistry, first, last;
+        mesh_size = registry.mesh_size)
+    first_point = _point!(registry, first; mesh_size)
+    last_point = _point!(registry, last; mesh_size)
+    dx, dy = last[1] - first[1], last[2] - first[2]
+    distance = hypot(dx, dy)
+    distance > 0 || return Int[]
+    tolerance = 64eps(max(abs(first[1]), abs(first[2]), abs(last[1]), abs(last[2]), 1.0))
+    points = Tuple{Float64, Int}[(0.0, first_point), (1.0, last_point)]
+    # Visit only buckets intersecting this edge's bounding box. Scanning every
+    # vertex for every strand edge is quadratic for large bounded formations.
+    x_bins = range(floor(Int, (min(first[1], last[1]) - tolerance) / registry.mesh_size),
+                   floor(Int, (max(first[1], last[1]) + tolerance) / registry.mesh_size))
+    y_bins = range(floor(Int, (min(first[2], last[2]) - tolerance) / registry.mesh_size),
+                   floor(Int, (max(first[2], last[2]) + tolerance) / registry.mesh_size))
+    bins = length(x_bins) <= length(registry.point_buckets) ÷ length(y_bins) ?
+           Iterators.product(x_bins, y_bins) : keys(registry.point_buckets)
+    for (x, y) in bins
+        x in x_bins && y in y_bins || continue
+        for point in get(registry.point_buckets, (x, y), ())
+            tag = registry.points[point]
+            tag in (first_point, last_point) && continue
+            px, py = point[1] - first[1], point[2] - first[2]
+            position = (px * dx + py * dy) / distance^2
+            tolerance / distance < position < 1 - tolerance / distance || continue
+            abs(px * dy - py * dx) <= tolerance * distance || continue
+            push!(points, (position, tag))
+        end
+    end
+    sort!(points)
+    return [_line!(registry, points[index][2], points[index + 1][2])
+            for index in 1:(length(points) - 1)]
 end
 
 function _refine_loop_mesh_size!(
@@ -551,7 +604,7 @@ function _refine_loop_mesh_size!(
 )
     value = Float64(mesh_size)
     for curve in loop.curves
-        for point in get(registry.curve_points, abs(curve), Set{Int}())
+        for point in registry.curve_points[abs(curve)]
             registry.point_sizes[point] = min(
                 get(registry.point_sizes, point, Inf), value
             )
@@ -599,9 +652,9 @@ function _polygon_loop!(registry::FEMLoopRegistry, points; mesh_size = registry.
             (_coordinate_key(point[1]), _coordinate_key(point[2])) for point in values
         ))
     loop = get!(registry.loops, key) do
-        point_tags = [_point!(registry, point; mesh_size) for point in values]
-        curves = [_line!(registry, point_tags[index], point_tags[mod1(index + 1, end)])
-                  for index in eachindex(point_tags)]
+        curves = reduce(vcat,
+            [_line_path!(registry, values[index], values[mod1(index + 1, end)]; mesh_size)
+             for index in eachindex(values)])
         ccw = gmsh.model.geo.add_curve_loop(curves)
         cw = gmsh.model.geo.add_curve_loop(-reverse(curves))
         FEMLoop(ccw, cw, abs.(curves))
@@ -670,9 +723,9 @@ function _ellipse_loop!(
             curve = gmsh.model.geo.add_ellipse_arc(
                 point_tags[index], centre_tag, major_tag, point_tags[next_index]
             )
-            registry.curve_points[curve] = Set((
+            registry.curve_points[curve] = (
                 point_tags[index], point_tags[next_index]
-            ))
+            )
             push!(curves, curve)
         end
         ccw = gmsh.model.geo.add_curve_loop(curves)
@@ -747,10 +800,7 @@ function _circle_arc_path!(
                         last_tag
                     )
                 end
-                points_for_curve = get!(registry.curve_points, abs(tag)) do
-                    Set{Int}()
-                end
-                push!(points_for_curve, first_tag, last_tag)
+                registry.curve_points[tag] = (stored_first, stored_last)
                 first_tag == stored_first && last_tag == stored_last ? tag : -tag
             end
             for index in 1:(length(point_tags) - 1)]
@@ -814,11 +864,11 @@ function _sector_loop!(
         end
         curves = Int[]
         append!(curves, arc_curves[:base])
-        push!(curves, _line!(registry, point_tags[2], point_tags[3]))
+        append!(curves, _line_path!(registry, transformed[2], transformed[3]; mesh_size))
         append!(curves, arc_curves[:lower])
         append!(curves, arc_curves[:back])
         append!(curves, arc_curves[:upper])
-        push!(curves, _line!(registry, point_tags[6], point_tags[1]))
+        append!(curves, _line_path!(registry, transformed[6], transformed[1]; mesh_size))
         ccw = gmsh.model.geo.add_curve_loop(curves)
         cw = gmsh.model.geo.add_curve_loop(-reverse(curves))
         FEMLoop(ccw, cw, abs.(curves))

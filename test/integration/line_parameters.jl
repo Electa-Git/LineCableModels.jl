@@ -247,9 +247,10 @@ end
     @test sweep.Y.values[:, :, 2] == result.Y.values[:, :, 1]
 end
 
-@testitem "Engine / preservation / two underground wires remain bit exact" tags=[:integration] setup=[
+@testitem "Engine / preservation / two underground wires retain numerical reference" tags=[:integration] setup=[
     EngineTestSupport,
-    UseEngineSupport
+    UseEngineSupport,
+    TestNumerics
 ] begin
     conductor=Material(
         kind = :conductor,
@@ -316,8 +317,18 @@ end
                    4.511959006831256e-10-2.452790870106892e-10im 5.141397717625921e-10+3.456862375802596e-5im];
         dims = 3
     )
-    @test parameters.Z.values == expected_Z
-    @test parameters.Y.values == expected_Y
+    # Library/compiler changes can move the final rounding by a few ULPs.
+    # Compare each real and imaginary component at its own scale, so a large
+    # diagonal or susceptance cannot hide a lost mutual term or dielectric loss.
+    for (actual, expected) in ((parameters.Z.values, expected_Z),
+                               (parameters.Y.values, expected_Y))
+        @test size(actual) == size(expected)
+        for index in eachindex(expected), component in (real, imag)
+            @test TestNumerics.isapprox_scaled(
+                component(actual[index]), component(expected[index])
+            )
+        end
+    end
 end
 
 @testitem "Engine / transform / symmetric two-cable system retains two modes" tags=[:integration] setup=[

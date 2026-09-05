@@ -69,7 +69,7 @@ jobs:
           printf 'LINECABLEMODELS_GETDP=%s\n' "$solver_executable" >> "$GITHUB_ENV"
       - name: Run numerical FEM regressions
         run: |
-          julia --project=test --startup-file=no --color=yes -e '
+          julia --project=test --startup-file=no --compiled-modules=no --code-coverage=@. --color=yes -e '
             using Pkg
             Pkg.instantiate()
             executable = ENV["LINECABLEMODELS_GETDP"]
@@ -77,6 +77,22 @@ jobs:
             push!(ARGS, "tag:fem_numerical")
             include("test/runtests.jl")
           '
+      - name: Name FEM coverage traces independently of runner process IDs
+        shell: julia --startup-file=no {0}
+        run: |
+          for directory in ("src", "ext")
+            for (root, _, files) in walkdir(directory), file in files
+              endswith(file, ".cov") || continue
+              mv(joinpath(root, file), joinpath(root, replace(file, r"\.cov$" => ".fem.cov")))
+            end
+          end
+      - uses: actions/upload-artifact@v4
+        with:
+          name: fem-production-coverage
+          path: |
+            src/**/*.fem.cov
+            ext/**/*.fem.cov
+          if-no-files-found: error
 
   quality:
     name: Quality contracts
@@ -97,8 +113,28 @@ jobs:
             include("test/runtests.jl")
           '
 
+  toolkit:
+    name: Gauntlet toolkit / no external solvers
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v6
+      - uses: julia-actions/setup-julia@v3
+        with:
+          version: "1.12"
+      - uses: julia-actions/cache@v3
+      - name: Test case import, catalogue, fingerprints, and comparison utilities
+        run: |
+          julia --project=test/gauntlet --startup-file=no --color=yes -e '
+            using Pkg
+            Pkg.instantiate()
+            push!(ARGS, "tag:gauntlet_toolkit")
+            include("test/runtests.jl")
+          '
+
   coverage:
     name: Merged production coverage
+    needs: fem-numerical
     runs-on: ubuntu-latest
     timeout-minutes: 90
     env:
@@ -132,15 +168,19 @@ jobs:
             include("test/runtests.jl")
           '
       - name: Collect GLMakie boundary coverage
-        shell: julia --startup-file=no --code-coverage=@. --color=yes {0}
+        shell: bash
         run: |
-          using Pkg
-          Pkg.activate(; temp = true)
-          Pkg.develop(PackageSpec(path = pwd()))
-          Pkg.add(PackageSpec(name = "GLMakie", version = "0.13"))
-          Pkg.add(PackageSpec(name = "TestItemRunner", version = "1"))
-          push!(ARGS, "loaded extension activation")
-          include(joinpath(pwd(), "test", "runtests.jl"))
+          sudo apt-get update
+          sudo apt-get install --yes xvfb xauth libgl1-mesa-dri
+          xvfb-run -a julia --startup-file=no --code-coverage=@. --color=yes -e '
+            using Pkg
+            Pkg.activate(; temp = true)
+            Pkg.develop(PackageSpec(path = pwd()))
+            Pkg.add(PackageSpec(name = "GLMakie", version = "0.13"))
+            Pkg.add(PackageSpec(name = "TestItemRunner", version = "1"))
+            push!(ARGS, "loaded extension activation")
+            include(joinpath(pwd(), "test", "runtests.jl"))
+          '
       - name: Collect WGLMakie boundary coverage
         run: |
           julia --project=. --code-coverage=@. --color=yes -e '
@@ -152,6 +192,10 @@ jobs:
             push!(ARGS, "loaded extension activation")
             include(joinpath(pwd(), "test", "runtests.jl"))
           '
+      - uses: actions/download-artifact@v4
+        with:
+          name: fem-production-coverage
+          path: .
       - name: Enforce source-amended 95% coverage
         run: julia --project=test/coverage --color=yes test/coverage.jl check
       - uses: codecov/codecov-action@v7

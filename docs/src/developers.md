@@ -87,6 +87,12 @@ phase-to-modal result transport without another geometry lowering. The visual
 suite applies the ownership checks to the loaded Makie extensions and verifies
 that material colors consume `Material` or `EarthLayer` objects directly.
 
+InputValidation guards inspect every package-owned `validate` method in the
+dispatch table, including new input types. Checks must remain in the validator:
+delegation to private check helpers, unapproved package actions, and mutation are
+rejected. The required interfaces for materials, earth models, and problem
+definitions remain enforced independently.
+
 The separate deterministic FEM job uses a pinned GetDP executable and frozen
 reference matrices. Full gauntlet campaigns remain manual; their results require
 explicit validation before becoming CI references.

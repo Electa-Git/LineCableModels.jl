@@ -61,8 +61,8 @@
         return found
     end
 
-    function package_owned(value::Function)
-        owner=parentmodule(value)
+    function package_owned(value::Union{Function, Module})
+        owner=value isa Module ? value : parentmodule(value)
         while owner !== Main && owner !== Base && owner !== Core
             owner === LineCableModels && return true
             owner=parentmodule(owner)
@@ -79,6 +79,11 @@
     for (type, path) in expected
         method=which(validate, Tuple{type})
         @test normpath(abspath(String(method.file))) == normpath(joinpath(root, path))
+    end
+    # Inspect the dispatch table, not just the historical list above: a newly
+    # added input validator must obey the same no-delegation/no-mutation rule.
+    for method in methods(validate)
+        package_owned(method.module) || continue
         calls=referenced_functions(method)
         private_calls=filter(calls) do call
             package_owned(call) && startswith(String(nameof(call)), "_")

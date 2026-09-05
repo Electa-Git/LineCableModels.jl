@@ -98,6 +98,23 @@ There is no suite-wide absolute tolerance. Expected values must come from analyt
 identities, independent references, residuals, or other observable invariants—not from
 reimplementing the function under test.
 
+Regression tests preserve current scientific and architectural behavior, not every
+spelling used during unreleased development:
+
+- Keep exact checks for identity, units, ordering, and repeated scalar/batched
+  calculations in the same runtime.
+- Compare archived floating-point references component by component at their own
+  scale. For ill-conditioned equivalent permeability, preserve the physical GMR
+  rather than the last bits of the intermediate coefficient. Do not refresh the
+  frozen reference merely because a dependency changes final rounding.
+- Treat recovered formula inventories as required subsets. Inspect every currently
+  registered formula for route ownership and documentation without prohibiting new
+  registrations.
+- Keep absence tests for deliberately retired abstractions. Exercise orchestration
+  counts/order at runtime; private helper names and import formatting are not APIs.
+- Mesh every supported bounded formation and check elements on every material
+  surface. A nonempty overall mesh or physical-tag list is insufficient.
+
 The enforced coverage ratio includes only tracked production code under `src/` and
 `ext/`. The LCOV report also publishes reusable gauntlet helper coverage when traces
 exist, while excluding manually authored files under `test/gauntlet/cases/`. Clean stale
@@ -117,7 +134,10 @@ julia --project=test/coverage test/coverage.jl check
 ```
 
 CI additionally checks backend selection in isolated GLMakie and
-WGLMakie environments before the same single merge/check step. The checker amends
+WGLMakie environments (GLMakie runs under Xvfb). The deterministic FEM job uploads
+its production traces with a `.fem.cov` suffix to avoid cross-runner process-ID
+collisions; the coverage job merges them before the same single check. The cleaner
+removes both Julia-native and imported FEM traces. The checker amends
 coverage from source, rejects any missing `src/` or `ext/` Julia file, writes
 `lcov.info`, and fails below 95% aggregate line coverage.
 

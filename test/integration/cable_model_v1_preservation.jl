@@ -1,7 +1,8 @@
 @testitem "Cable model v1 / DataModel and normalized-input preservation" tags=[:integration] setup=[
     EngineTestSupport,
     UseEngineSupport,
-    TestFixtures
+    TestFixtures,
+    TestNumerics
 ] begin
     using JSON3
 
@@ -84,7 +85,6 @@
         :rho0_cond=>:rho0_cond,
         :T0_cond=>:T0_cond,
         :alpha_cond=>:alpha_cond,
-        :mu_cond=>:mu_cond,
         :mu_ins=>:mu_ins,
         :r_layer_in=>:r_ins_layer_in,
         :r_layer_ext=>:r_ins_layer_ext
@@ -92,6 +92,19 @@
     for (field, reference) in cable_fields
         @test getproperty(input.cable, field) ==
               collect(expected_input[string(reference)])
+    end
+    # Equivalent permeability is an ill-conditioned inversion for thin annuli.
+    # Preserve its physical GMR, not the last bits of this intermediate value.
+    for index in eachindex(input.cable.mu_cond)
+        rex = input.cable.r_ext[index]
+        rin = input.cable.r_in[index]
+        actual_gmr = LineCableModels.DataModel.BaseParams.tubular_gmr(
+            rex, rin, input.cable.mu_cond[index]
+        )
+        reference_gmr = LineCableModels.DataModel.BaseParams.tubular_gmr(
+            rex, rin, expected_input["mu_cond"][index]
+        )
+        @test TestNumerics.isapprox_scaled(actual_gmr, reference_gmr)
     end
     @test input.phase_map == Int.(expected_system["connection_order"])
     @test input.jω == complex.(
