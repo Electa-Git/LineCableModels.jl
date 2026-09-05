@@ -33,6 +33,256 @@ end
 
 LinearErrorResult(formulation, values) = LinearErrorResult(formulation, values, (;))
 
+const _POLYNOMIAL_CHAOS_KEYS = (:R, :L, :C, :G)
+const _POLYNOMIAL_CHAOS_VALIDATION_KEYS = (
+    :stochastic_dimension,
+    :polynomial_degree,
+    :basis_terms,
+    :collocation_evaluations,
+    :validation_evaluations,
+    :relative_rms_error,
+    :relative_max_error,
+    :worst,
+)
+
+_polynomial_chaos_shape(value::Engine.CableConstants) = size(value)
+_polynomial_chaos_shape(value::Engine.LineParameters) = size(observe(value, R))
+
+function _polynomial_chaos_product(product, name::AbstractString)
+    product isa NamedTuple || throw(ArgumentError(
+        "polynomial-chaos $name must be a named tuple",
+    ))
+    keys(product) == _POLYNOMIAL_CHAOS_KEYS || throw(ArgumentError(
+        "polynomial-chaos $name must contain exactly R, L, C, and G",
+    ))
+    return product
+end
+
+function _validate_polynomial_chaos_expansion(expansion, shape::Tuple, terms::Int)
+    expansion isa NamedTuple && keys(expansion) == (:basis, :coefficients) || throw(
+        ArgumentError("polynomial-chaos expansions must contain basis and coefficients"),
+    )
+    coefficients = _polynomial_chaos_product(expansion.coefficients, "coefficients")
+    expected_shape = (shape..., terms)
+    for coefficient in Base.values(coefficients)
+        coefficient isa AbstractArray && size(coefficient) == expected_shape || throw(
+            DimensionMismatch(
+                "polynomial-chaos coefficient arrays must have native dimensions followed by the basis-term dimension",
+            ),
+        )
+        all(value -> value isa Real && isfinite(value), coefficient) || throw(
+            ArgumentError("polynomial-chaos coefficients must be finite real values"),
+        )
+    end
+    return nothing
+end
+
+function _validate_polynomial_chaos_statistics(stats, shape::Tuple)
+    product = _polynomial_chaos_product(stats, "statistics")
+    for summary in Base.values(product)
+        summary isa NamedTuple && keys(summary) == (:mean, :std) || throw(
+            ArgumentError("polynomial-chaos statistics must contain exactly mean and std"),
+        )
+        for field in Base.values(summary)
+            field isa AbstractArray && size(field) == shape || throw(
+                DimensionMismatch("polynomial-chaos statistics must match native result dimensions"),
+            )
+            all(value -> value isa Real && isfinite(value), field) || throw(
+                ArgumentError("polynomial-chaos statistics must be finite real values"),
+            )
+        end
+        all(>=(0), summary.std) || throw(ArgumentError(
+            "polynomial-chaos standard deviations must be nonnegative",
+        ))
+    end
+    return nothing
+end
+
+function _validate_polynomial_chaos_error_product(product, name::AbstractString)
+    errors = _polynomial_chaos_product(product, name)
+    all(Base.values(errors)) do value
+        value isa Real && isfinite(value) && value >= 0
+    end || throw(ArgumentError(
+        "polynomial-chaos $name must contain finite nonnegative values",
+    ))
+    return nothing
+end
+
+function _validate_polynomial_chaos_record(record, formulation::PolynomialChaos)
+    record isa NamedTuple && keys(record) == _POLYNOMIAL_CHAOS_VALIDATION_KEYS || throw(
+        ArgumentError("polynomial-chaos validation records have an invalid schema"),
+    )
+    record.stochastic_dimension isa Int && record.stochastic_dimension >= 0 || throw(
+        ArgumentError("stochastic dimensions must be nonnegative integers"),
+    )
+    record.polynomial_degree == formulation.degree || throw(DimensionMismatch(
+        "validation polynomial degrees must match the formulation",
+    ))
+    record.basis_terms isa Int && record.basis_terms >= 1 || throw(ArgumentError(
+        "basis-term counts must be positive integers",
+    ))
+    record.collocation_evaluations isa Int && record.collocation_evaluations >= 1 || throw(
+        ArgumentError("collocation evaluation counts must be positive integers"),
+    )
+    record.validation_evaluations == formulation.validation_points || throw(
+        DimensionMismatch("validation evaluation counts must match the formulation"),
+    )
+    _validate_polynomial_chaos_error_product(
+        record.relative_rms_error, "relative RMS errors")
+    _validate_polynomial_chaos_error_product(
+        record.relative_max_error, "relative maximum errors")
+    worst = record.worst
+    worst isa NamedTuple && keys(worst) == (
+        :quantity, :index, :frequency, :relative_rms_error, :relative_max_error
+    ) || throw(ArgumentError(
+        "worst validation locations must contain quantity, index, frequency, relative_rms_error, and relative_max_error",
+    ))
+    worst.quantity in _POLYNOMIAL_CHAOS_KEYS || throw(ArgumentError(
+        "worst validation quantities must be R, L, C, or G",
+    ))
+    worst.index isa Tuple && all(index -> index isa Int, worst.index) || throw(
+        ArgumentError("worst validation indices must be integer tuples"),
+    )
+    worst.frequency === nothing ||
+        worst.frequency isa Real && isfinite(worst.frequency) || throw(
+        ArgumentError("worst validation frequencies must be finite or nothing"),
+    )
+    all(field -> field isa Real && isfinite(field) && field >= 0,
+        (worst.relative_rms_error, worst.relative_max_error)) || throw(
+        ArgumentError("worst validation errors must be finite and nonnegative"),
+    )
+    return nothing
+end
+
+function _validate_polynomial_chaos_details(
+        details::ComputationDetails,
+        records::AbstractVector
+)
+    isempty(details) && return nothing
+    keys(details) == (:points,) || throw(ArgumentError(
+        "PolynomialChaosResult details must be empty or contain only points",
+    ))
+    length(details.points) == length(records) || throw(DimensionMismatch(
+        "retained polynomial-chaos details must contain one entry per core result",
+    ))
+    for (point, record) in zip(details.points, records)
+        point isa NamedTuple && keys(point) == (:collocation, :validation) || throw(
+            ArgumentError(
+                "retained polynomial-chaos point details must contain collocation and validation",
+            ),
+        )
+        point.collocation isa AbstractVector && point.validation isa AbstractVector || throw(
+            ArgumentError("retained polynomial-chaos solves must be stored in vectors"),
+        )
+        length(point.collocation) == record.collocation_evaluations || throw(
+            DimensionMismatch("retained collocation solves must match validation records"),
+        )
+        length(point.validation) == record.validation_evaluations || throw(
+            DimensionMismatch("retained validation solves must match validation records"),
+        )
+    end
+    return nothing
+end
+
+"""
+$(TYPEDEF)
+
+Store core means, spectral expansions, coefficient-derived moments, and
+independent validation diagnostics from a [`PolynomialChaos`](@ref)
+calculation.
+
+$(TYPEDFIELDS)
+"""
+struct PolynomialChaosResult{
+    T,
+    F,
+    E <: AbstractVector,
+    S <: AbstractVector,
+    V <: AbstractVector,
+    D <: ComputationDetails,
+} <: AbstractUncertaintyResult{T}
+    "Higher-order formulation used for the calculation."
+    formulation::F
+    "Core results reconstructed from expansion means in Gridspace order."
+    values::Vector{T}
+    "Per-point basis and native coefficient products."
+    expansion_values::E
+    "Per-point native mean and standard-deviation products."
+    stats::S
+    "Per-point independent surrogate-validation diagnostics."
+    validation_values::V
+    "Typed collocation and validation solve details retained by the propagation."
+    details::D
+
+    function PolynomialChaosResult(
+            formulation::F,
+            values::Vector{T},
+            expansion_values::E,
+            stats::S,
+            validation_values::V,
+            details::D
+    ) where {
+            T,
+            F,
+            E <: AbstractVector,
+            S <: AbstractVector,
+            V <: AbstractVector,
+            D <: ComputationDetails
+    }
+        formulation isa PolynomialChaos || throw(ArgumentError(
+            "PolynomialChaosResult requires a PolynomialChaos formulation",
+        ))
+        check_core_result(T)
+        T <: Union{Engine.CableConstants, Engine.LineParameters} || throw(
+            ArgumentError(
+                "PolynomialChaosResult supports CableConstants and LineParameters core results",
+            ),
+        )
+        isempty(values) && throw(ArgumentError(
+            "PolynomialChaosResult requires at least one core result",
+        ))
+        for (name, product) in (
+                ("expansions", expansion_values),
+                ("statistics", stats),
+                ("validation records", validation_values))
+            length(product) == length(values) || throw(DimensionMismatch(
+                "polynomial-chaos $name must contain one entry per core result",
+            ))
+            isconcretetype(eltype(product)) || throw(ArgumentError(
+                "polynomial-chaos $name must use a concrete product type",
+            ))
+        end
+        for point in eachindex(values)
+            record = validation_values[point]
+            _validate_polynomial_chaos_record(record, formulation)
+            shape = _polynomial_chaos_shape(values[point])
+            _validate_polynomial_chaos_expansion(
+                expansion_values[point], shape, record.basis_terms)
+            _validate_polynomial_chaos_statistics(stats[point], shape)
+        end
+        _validate_polynomial_chaos_details(details, validation_values)
+        return new{T, F, E, S, V, D}(
+            formulation,
+            values,
+            expansion_values,
+            stats,
+            validation_values,
+            details
+        )
+    end
+end
+
+function PolynomialChaosResult(
+        formulation,
+        values,
+        expansion_values,
+        stats,
+        validation_values
+)
+    return PolynomialChaosResult(
+        formulation, values, expansion_values, stats, validation_values, (;))
+end
+
 _monte_carlo_keys(::Type{<:Engine.CableConstants}) = (:R, :L, :C, :G)
 _monte_carlo_keys(::Type{<:Engine.LineParameters}) = (:R, :L, :C, :G)
 
@@ -370,6 +620,7 @@ end
 
 details(value::LinearErrorResult) = value.details
 details(value::MonteCarloResult) = value.details
+details(value::PolynomialChaosResult) = value.details
 
 """
 $(TYPEDSIGNATURES)

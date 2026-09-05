@@ -76,6 +76,32 @@ Public = true
 Private = false
 ```
 
+## Uncertainty realisation extensions
+
+An uncertainty method starts from the unresolved points returned by
+`points(space)`. `uncertainties(point)` returns the positional
+`UncertainValue` tuple in depth-first, left-to-right realisation order. It does
+not descend into ordinary tuple- or array-valued deterministic leaves.
+
+Deterministic dependency extensions may add a narrow `materialize` method for
+an uncertainty descriptor. A method that already owns concrete physical values
+uses the release branch's staged realisation contract:
+
+```julia
+descriptors = LineCableModels.uncertainties(point)
+physical_values = map(nominal, descriptors)
+arguments = LineCableModels.realize_arguments(point, physical_values)
+problem = LineCableModels.realize(point, arguments)
+```
+
+Cardinality is checked before a stored builder is called. Nested builders run
+before their parents, and owned constructor validation remains authoritative.
+Extensions must not deduplicate descriptors by identity, add a registry that
+selects realisation behavior, or overload these operations with a competing
+coordinate model. The PolyChaos extension uses this contract for tensor nodes
+and independent validation points while leaving RNG-backed Monte Carlo
+realisation unchanged.
+
 ## Report definitions
 
 ```@autodocs

@@ -19,6 +19,15 @@ Units.display_unit(::_DimensionlessStatisticalQuantity) = Units.units(:base, :di
 "Return the sample-summary product for each Monte Carlo point."
 statistics(value::MonteCarloResult) = value.stats
 
+"Return coefficient-derived mean and standard-deviation products."
+statistics(value::PolynomialChaosResult) = value.stats
+
+"Return the basis and native coefficient product for each outer point."
+expansions(value::PolynomialChaosResult) = value.expansion_values
+
+"Return independent surrogate-validation diagnostics for each outer point."
+validation(value::PolynomialChaosResult) = value.validation_values
+
 "Return retained sample products, or `nothing` when retention was disabled."
 samples(value::MonteCarloResult) = value.sample_values
 
@@ -26,6 +35,7 @@ samples(value::MonteCarloResult) = value.sample_values
 histograms(value::MonteCarloResult) = value.histogram_values
 
 basis(value::MonteCarloResult) = basis(first(value.values))
+basis(value::PolynomialChaosResult) = basis(first(value.values))
 
 "Return the uncertainty-bearing core results of a linear propagation."
 uncertain(value::LinearErrorResult) = value.values
@@ -93,11 +103,77 @@ const _StatisticSelector = Union{
     typeof(maximum)
 }
 
+const _PolynomialChaosStatisticSelector = Union{
+    typeof(Statistics.mean),
+    typeof(Statistics.std)
+}
+
 function Units.quantity(
         ::_MonteCarloProductSelector,
         selector::_MonteCarloScientificSelector
 )
     return Units.quantity(selector)
+end
+
+function observe(
+        value::PolynomialChaosResult{<:Engine.CableConstants},
+        selector::_MonteCarloScientificSelector,
+        point::Integer,
+        indices...
+)
+    return _product_value(observe(value.values[point], selector), indices)
+end
+
+function observe(
+        value::PolynomialChaosResult{<:Engine.LineParameters},
+        selector::_MonteCarloScientificSelector,
+        point::Integer,
+        indices...
+)
+    return observe(value.values[point], selector, indices...)
+end
+
+function observe(
+        value::PolynomialChaosResult{<:Engine.LineParameters},
+        ::typeof(frequencies),
+        point::Integer,
+        indices...
+)
+    return observe(value.values[point], frequencies, indices...)
+end
+
+@inline _polynomial_chaos_field(product, ::typeof(R)) = product.R
+@inline _polynomial_chaos_field(product, ::typeof(L)) = product.L
+@inline _polynomial_chaos_field(product, ::typeof(C)) = product.C
+@inline _polynomial_chaos_field(product, ::typeof(Engine.G)) = product.G
+
+@inline _polynomial_chaos_statistic(summary, ::typeof(Statistics.mean)) = summary.mean
+@inline _polynomial_chaos_statistic(summary, ::typeof(Statistics.std)) = summary.std
+
+function observe(
+        value::PolynomialChaosResult,
+        ::typeof(statistics),
+        selector::_MonteCarloScientificSelector,
+        point::Integer,
+        indices...
+)
+    summary = _polynomial_chaos_field(value.stats[point], selector)
+    return (
+        mean = _product_value(summary.mean, indices),
+        std = _product_value(summary.std, indices),
+    )
+end
+
+function observe(
+        value::PolynomialChaosResult,
+        ::typeof(statistics),
+        selector::_MonteCarloScientificSelector,
+        transform::_PolynomialChaosStatisticSelector,
+        point::Integer,
+        indices...
+)
+    summary = _polynomial_chaos_field(value.stats[point], selector)
+    return _product_value(_polynomial_chaos_statistic(summary, transform), indices)
 end
 
 function _monte_carlo_product(value::MonteCarloResult, ::typeof(statistics), point::Integer)
@@ -229,6 +305,22 @@ function observables(
 end
 
 function observables(
+        ::Type{<:PolynomialChaosResult{T}}
+) where {T <: Engine.CableConstants}
+    selectors = (R, L, C, Engine.G)
+    products = Tuple((statistics, selector) for selector in selectors)
+    return (selectors..., products...)
+end
+
+function observables(
+        ::Type{<:PolynomialChaosResult{T}}
+) where {T <: Engine.LineParameters}
+    selectors = (R, L, C, Engine.G)
+    products = Tuple((statistics, selector) for selector in selectors)
+    return (frequencies, selectors..., products...)
+end
+
+function observables(
         ::Type{<:MonteCarloResult{T}}
 ) where {T <: Engine.LineParameters}
     return (frequencies, _monte_carlo_observables((R, L, C, Engine.G))...)
@@ -255,6 +347,13 @@ function detach(summary::SampleSummary, factor)
         summary.q95 * factor,
         summary.max * factor,
         summary.n
+    )
+end
+
+function detach(summary::NamedTuple{(:mean, :std)}, factor, clip::Bool)
+    return (
+        mean = detach(summary.mean, factor, clip),
+        std = detach(summary.std, abs(factor), clip),
     )
 end
 

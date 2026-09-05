@@ -19,10 +19,10 @@ println("\nResults")
 print(Main.DocumentationTrees.type_tree(AbstractProblemResult))
 ```
 
-`Combinatorial`, `LinearError`, and `MonteCarlo` occupy the same formulation
-tree. UQ is therefore not a separate calculation supertype. Its completed
-collections sit below `AbstractUncertaintyResult`, while deterministic finite
-collections sit below `AbstractParametricResult`.
+`Combinatorial`, `LinearError`, `MonteCarlo`, and `PolynomialChaos` occupy the
+same formulation tree. UQ is therefore not a separate calculation supertype.
+Its completed collections sit below `AbstractUncertaintyResult`, while
+deterministic finite collections sit below `AbstractParametricResult`.
 
 `LineParamsDomain` is independent of this calculation grammar. It tags the
 physical coordinate system of a completed line-parameter matrix:

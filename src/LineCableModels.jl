@@ -33,10 +33,10 @@ export AbstractGrid, AbstractUncertainGrid, UncertainValue
 export Gridspace
 export has_uncertainty, nominal, uncertainty
 export @gridspace
-export Combinatorial, LinearError, MonteCarlo, ParametricProblem
-export ParametricResult, LinearErrorResult, MonteCarloResult
+export Combinatorial, LinearError, MonteCarlo, PolynomialChaos, ParametricProblem
+export ParametricResult, LinearErrorResult, MonteCarloResult, PolynomialChaosResult
 export SampleSummary, HistogramDensity
-export statistics, samples, histograms, uncertain
+export statistics, samples, histograms, expansions, validation, uncertain
 export root_seed, point_seed, trial_count
 export confidence, cdf_tolerance, sampling_distribution
 export report, TableReportDefinition, XLSXReportDefinition, ReportArtifact
@@ -124,7 +124,8 @@ using .InputValidation: validate
 include("grid.jl")
 include("gridspace.jl")
 
-public parameterize, materialize, sample_uncertainty
+public parameterize, points, uncertainties
+public materialize, realize, realize_arguments, sample_uncertainty
 
 # Thin native plotting handles and optional-extension entry points.
 include("plotbuilder/PlotBuilder.jl")
@@ -202,9 +203,10 @@ using .ParametricBuilder: @cable, @system, @earth, @terminal, @assembly, @pipe,
 # Submodule `UQ`
 include("uq/UQ.jl")
 using .UQ:
-           LinearError, MonteCarlo, LinearErrorResult, MonteCarloResult,
+           LinearError, MonteCarlo, PolynomialChaos,
+           LinearErrorResult, MonteCarloResult, PolynomialChaosResult,
            SampleSummary, HistogramDensity,
-           statistics, samples, histograms, uncertain,
+           statistics, samples, histograms, expansions, validation, uncertain,
            root_seed, point_seed, trial_count,
            confidence, cdf_tolerance, sampling_distribution
 
