@@ -71,10 +71,25 @@ checks inspect the native method and interface declarations and require:
 - every package-owned definition to remain below its declared root;
 - one Grammar-owned observation publication method with positional requests;
 - wide scientific tables whose quantity and unit metadata remain attached to
-  their columns.
+  their columns;
+- no calls to another package module's private functions or types, including
+  through aliases, and no private wrappers whose methods only forward unchanged
+  arguments to the same package-owned function. Owner-local numerical kernels
+  and type-dispatch branches remain valid.
 
 These checks run as test failures. A new definition must satisfy them before it
 can enter the maintained type family.
+
+Integration tests also count actual blueprint lowering calls: one per selected
+design point, shared across its formulation alternatives and frequency sweep.
+They check local-before-earth assembly order at each frequency and explicit
+phase-to-modal result transport without another geometry lowering. The visual
+suite applies the ownership checks to the loaded Makie extensions and verifies
+that material colors consume `Material` or `EarthLayer` objects directly.
+
+The separate deterministic FEM job uses a pinned GetDP executable and frozen
+reference matrices. Full gauntlet campaigns remain manual; their results require
+explicit validation before becoming CI references.
 
 ## Developer paths
 

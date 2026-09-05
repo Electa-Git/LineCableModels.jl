@@ -395,7 +395,13 @@ end
         "longitudinal-matrix-path",
         Group(:wound_core, bundle; path = Helix(LayRatio(10.0)))
     )
-    @test_throws ArgumentError DM.flatten(lossy_design, 50.0)
+    lossy_reduced=only(DM.flatten(lossy_design, 50.0))
+    @test lossy_reduced.conductor == bare.conductor
+    @test lossy_reduced.dielectric == bare.dielectric
+    lossy_fill=only(filter(region -> region.primitive isa DM.DifferenceShape,
+        lossy_design.geometry.regions))
+    @test lossy_fill.source.material == lossy
+    @test lossy_fill.source.material.rho == 1.0e12
     @test_throws ArgumentError DM.flatten(magnetic_design, 50.0)
     @test_throws ArgumentError DM.flatten(semiconducting_design, 50.0)
     wound=only(DM.flatten(wound_matrix_design, 50.0))

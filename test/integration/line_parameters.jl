@@ -235,6 +235,16 @@ end
     @test maximum(local_y_calls) < minimum(earth_y_calls)
     @test all(isfinite, result.Z)
     @test all(isfinite, result.Y)
+    single_frequency_events=copy(events)
+    empty!(events)
+    sweep=compute(
+        TestFixtures.line_parameters_problem(frequencies=[1.0, 50.0, 1000.0]),
+        formulation
+    )
+    @test events == repeat(single_frequency_events, 3)
+    @test domain(sweep) === PhaseDomain
+    @test sweep.Z.values[:, :, 2] == result.Z.values[:, :, 1]
+    @test sweep.Y.values[:, :, 2] == result.Y.values[:, :, 1]
 end
 
 @testitem "Engine / preservation / two underground wires remain bit exact" tags=[:integration] setup=[

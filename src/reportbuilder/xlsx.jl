@@ -86,15 +86,9 @@ function _is_diagonal(table::DataFrame, quantity_columns::Tuple)
     isempty(quantity_columns) && throw(ArgumentError(
         "workbook family has no observed quantity columns",
     ))
-    selected = table
-    frequency = first(selected.frequency)
-    slice = selected[selected.frequency .== frequency, :]
-    off_diagonal = slice.row .!= slice.column
+    off_diagonal = table.row .!= table.column
     return all(quantity_columns) do quantity
-        all(
-            value -> isapprox(value, zero(value); rtol = 1.0e-8, atol = 1.0e-8),
-            slice[off_diagonal, quantity]
-        )
+        all(iszero, table[off_diagonal, quantity])
     end
 end
 
@@ -197,9 +191,9 @@ function encode(
     series_diagonal = _is_diagonal(table, series_columns)
     shunt_diagonal = _is_diagonal(table, shunt_columns)
     series_diagonal &&
-        @warn("Z is diagonal within the selected tolerance. Exporting Z[i,i] and omitting off-diagonal elements.")
+        @warn("Z is diagonal throughout the published frequency sweep. Exporting Z[i,i] and omitting zero off-diagonal elements.")
     shunt_diagonal &&
-        @warn("Y is diagonal within the selected tolerance. Exporting Y[i,i] and omitting off-diagonal elements.")
+        @warn("Y is diagonal throughout the published frequency sweep. Exporting Y[i,i] and omitting zero off-diagonal elements.")
     sheets = vcat(
         _encoded_sheets(definition, "Z", table, series_columns, series_diagonal),
         _encoded_sheets(definition, "Y", table, shunt_columns, shunt_diagonal)

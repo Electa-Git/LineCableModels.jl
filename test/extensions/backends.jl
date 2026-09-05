@@ -71,8 +71,8 @@ end
     magnetic_copper=Material(
         kind = :conductor, rho = copper.rho, eps_r = 1.0, mu_r = 300.0
     )
-    earth=(rho = 100.0, eps_r = 4.0, mu_r = 1.0)
-    different_earth_eps=(rho = 100.0, eps_r = 20.0, mu_r = 1.0)
+    earth=layer(rho = 100.0, eps_r = 4.0, mu_r = 1.0)
+    different_earth_eps=layer(rho = 100.0, eps_r = 20.0, mu_r = 1.0)
     @test extension._material_color(copper) ==
           extension._material_color(conductive_eps)
     @test extension._material_color(insulation_material) ==

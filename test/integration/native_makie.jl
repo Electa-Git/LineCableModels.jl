@@ -1,3 +1,40 @@
+@testitem "Makie addons / material colors dispatch on owned types" tags=[:visual] begin
+    using CairoMakie
+    using Measurements
+    using LineCableModels
+
+    extension=Base.get_extension(LineCableModels, :LineCableModelsMakieExt)
+    for material in (
+        Material(kind=:conductor, rho=1.7241e-8),
+        Material(kind=:insulator, rho=1e14, eps_r=3.5),
+        Material(kind=:semicon, rho=0.06, eps_r=1000.0),
+        Material(kind=:conductor, rho=1e-7, mu_r=100.0),
+        layer(rho=100.0, eps_r=10.0),
+        layer(rho=100.0, eps_r=10.0, mu_r=2.0),
+    )
+        base=if material isa EarthLayer
+            extension._earth_color(material.rho)
+        elseif material.kind === :conductor
+            extension._conductor_color(material.rho)
+        elseif material.kind === :insulator
+            extension._dielectric_color(material.eps_r)
+        else
+            extension._semicon_color(material.rho)
+        end
+        expected=extension._magnetic_overlay(base, material.mu_r)
+        actual=extension._material_color(material; alpha=0.25)
+        @test actual == extension.RGBA(expected, 0.25)
+        @test actual.alpha == 0.25
+    end
+    uncertain=Material(kind=:conductor, rho=measurement(1.7241e-8, 1e-10))
+    @test extension._material_color(uncertain) == extension._material_color(
+        Material(kind=:conductor, rho=1.7241e-8))
+    uncertain_earth=layer(rho=measurement(100.0, 1.0), eps_r=10.0)
+    @test extension._material_color(uncertain_earth) == extension._material_color(
+        layer(rho=100.0, eps_r=10.0))
+    @test_throws MethodError extension._material_color((rho=100.0, eps_r=10.0, mu_r=1.0))
+end
+
 @testitem "Makie addons / colorbar endpoint labels stay inside the figure" tags=[:visual] setup=[
     NativePlotTestSupport, UseNativePlotSupport
 ] begin

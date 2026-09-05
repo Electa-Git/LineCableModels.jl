@@ -253,6 +253,58 @@ end
     @test !isdefined(LineCableModels, :XLSXWorkbook)
 end
 
+@testitem "ReportBuilder / XLSX / mutual sheets preserve the whole sweep" tags=[:integration] begin
+    using XLSX
+
+    frequencies=[50.0, 500.0]
+    mktempdir() do directory
+        # The first sample alone cannot establish diagonality. Exercise each
+        # family separately, and retain entries smaller than the former cutoff.
+        for family in (:Z, :Y), coupling in (0.25 + 0.05im, 1e-18 + 2e-18im)
+            impedance=zeros(ComplexF64, 2, 2, 2)
+            admittance=zeros(ComplexF64, 2, 2, 2)
+            for index in 1:2, conductor in 1:2
+                impedance[conductor, conductor, index]=1.0 + 2.0im
+                admittance[conductor, conductor, index]=3e-6 + 4e-6im
+            end
+            values=family === :Z ? impedance : admittance
+            values[1, 2, 2]=values[2, 1, 2]=coupling
+            parameters=LineParameters(impedance, admittance, frequencies)
+            path=joinpath(directory, "$(family)-$(real(coupling)).xlsx")
+            report(XLSXReportDefinition(file_name=path, clip=false), parameters)
+            XLSX.openxlsx(path) do workbook
+                other=family === :Z ? :Y : :Z
+                @test "$(other)(1,2)" ∉ XLSX.sheetnames(workbook)
+                for pair in ("1,2", "2,1")
+                    sheet=workbook["$(family)($pair)"]
+                    @test parse(Float64, sheet["A6"]) == 50.0
+                    @test parse(Float64, sheet["A7"]) == 500.0
+                    @test parse(Float64, sheet["B6"]) == 0.0
+                    @test parse(Float64, sheet["C6"]) == 0.0
+                    @test parse(Float64, sheet["B7"]) ≈ 1000real(coupling)
+                    @test parse(Float64, sheet["C7"]) ≈ 1000imag(coupling)
+                end
+            end
+            @test parameters.Z.values == impedance
+            @test parameters.Y.values == admittance
+        end
+
+        # Both families must also retain mutual sheets in the same workbook.
+        impedance=zeros(ComplexF64, 2, 2, 2)
+        admittance=copy(impedance)
+        impedance[1, 2, 2]=0.25 + 0.05im
+        admittance[2, 1, 2]=3e-6 + 4e-6im
+        parameters=LineParameters(impedance, admittance, frequencies)
+        path=joinpath(directory, "both-families.xlsx")
+        report(XLSXReportDefinition(file_name=path), parameters)
+        XLSX.openxlsx(path) do workbook
+            @test length(XLSX.sheetnames(workbook)) == 8
+            @test parse(Float64, workbook["Z(1,2)"]["B7"]) == 250.0
+            @test parse(Float64, workbook["Y(2,1)"]["C7"]) ≈ 4e-3
+        end
+    end
+end
+
 @testitem "ReportBuilder / adapters / completed results delegate" tags=[:unit] setup=[
     TestFixtures
 ] begin

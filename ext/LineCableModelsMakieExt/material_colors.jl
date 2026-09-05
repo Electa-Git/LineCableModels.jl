@@ -83,10 +83,11 @@ _earth_color(resistivity::Real) = _gradient(
     _log_fraction(resistivity, _EARTH_RHO_RANGE...)
 )
 
-_material_base(::Val{:conductor}, material) = _conductor_color(material.rho)
-_material_base(::Val{:insulator}, material) = _dielectric_color(material.eps_r)
-_material_base(::Val{:semicon}, material) = _semicon_color(material.rho)
-_material_base(::Val{:earth}, material) = _earth_color(material.rho)
+_material_base(material::Material) = _material_base(Val(material.kind), material)
+_material_base(layer::EarthLayer) = _earth_color(nominal(layer.rho))
+_material_base(::Val{:conductor}, material::Material) = _conductor_color(nominal(material.rho))
+_material_base(::Val{:insulator}, material::Material) = _dielectric_color(nominal(material.eps_r))
+_material_base(::Val{:semicon}, material::Material) = _semicon_color(nominal(material.rho))
 function _material_base(::Val{Kind}, material) where {Kind}
     throw(ArgumentError(
         "preview coloring is not defined for material kind :$Kind"
@@ -102,15 +103,9 @@ function _magnetic_overlay(base, relative_permeability::Real)
     return _oklab_blend(base, tint, 0.35fraction^0.7)
 end
 
-function _material_color(material; alpha::Real = 1.0)
+function _material_color(material::Union{Material, EarthLayer}; alpha::Real = 1.0)
     relative_permeability = LineCableModels.nominal(material.mu_r)
-    kind = hasproperty(material, :kind) ? material.kind : :earth
-    values = (;
-        rho = LineCableModels.nominal(material.rho),
-        eps_r = LineCableModels.nominal(material.eps_r),
-        mu_r = relative_permeability
-    )
-    base = _material_base(Val(kind), values)
+    base = _material_base(material)
     color = _magnetic_overlay(base, relative_permeability)
     return RGBA(red(color), green(color), blue(color), alpha)
 end

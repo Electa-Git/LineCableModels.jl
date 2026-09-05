@@ -25,9 +25,25 @@ Pkg.test(test_args = ["tag:integration"])
 Pkg.test(test_args = ["Engine / solver"])
 ```
 
-The supported tags are `unit`, `integration`, `extension`, `visual`, `quality`, `gauntlet`, and `gauntlet_toolkit`. Visual, quality, `core_only`, and both gauntlet tags are excluded from the default run and execute in dedicated environments. See
+The supported tags are `unit`, `integration`, `extension`, `fem_numerical`, `visual`, `quality`, `gauntlet`, and `gauntlet_toolkit`. Visual, quality, `core_only`, and both gauntlet tags are excluded from the default run and execute in dedicated environments. See
 [`gauntlet/README.md`](gauntlet/README.md) for the explicit snapshot, live, and record
 commands.
+
+The `fem_numerical` items exercise deterministic multi-frequency FEM solves and
+the frozen Python reference matrices. Without GetDP they report explicit skips,
+not passing assertions. CI runs them in a separate job with a checksum-pinned
+GetDP 3.5.0 complex solver and fails setup if that executable is unavailable.
+To run those checks locally with an installed solver:
+
+```sh
+LINECABLEMODELS_GETDP=/absolute/path/to/getdp julia --project=test \
+  -e 'push!(ARGS, "tag:fem_numerical"); include("test/runtests.jl")'
+```
+
+The full gauntlet remains a manual workflow, separate from these deterministic
+FEM regressions. CI must not launch live PSCAD/FEM gauntlet campaigns or promote
+their output to references. A future artifact-backed gate must consume explicitly
+validated, pinned gauntlet artifacts; that binding is not configured yet.
 
 Instantiate the gauntlet environment and run every tagged case through the dedicated TestItemRunner entry point:
 

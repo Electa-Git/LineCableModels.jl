@@ -193,7 +193,6 @@ function _native_system_shapes(
             else
                 cumulative_depth -= nominal(layer.thickness)
             end
-            material = (; rho = layer.rho, eps_r = layer.eps_r, mu_r = layer.mu_r)
             geometry = Point2f[
                 (fill_horizontal[1], top),
                 (fill_horizontal[2], top),
@@ -205,7 +204,7 @@ function _native_system_shapes(
                     geometry,
                     display_legend ? "Earth layer $index" : nothing,
                     Symbol("earth_$index"),
-                    _material_color(material; alpha = 0.25),
+                    _material_color(layer; alpha = 0.25),
                     :transparent,
                     0.0
                 ))

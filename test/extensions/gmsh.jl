@@ -1186,14 +1186,15 @@ end
 
 @testitem "Gmsh FEM / optional real GetDP multi-frequency scan" tags=[
     :extension,
-    :integration
+    :integration,
+    :fem_numerical
 ] begin
     using LineCableModels
     using Gmsh
 
     executable = get(ENV, "LINECABLEMODELS_GETDP", something(Sys.which("getdp"), ""))
     if isempty(executable)
-        @test true
+        @test_skip "GetDP is unavailable; the real multi-frequency solve was not run"
     else
         copper = Material(kind = :conductor, rho = 1 / 5.8e7)
         dielectric = Material(kind = :insulator, rho = 1.0e15, eps_r = 2.3)
@@ -1349,7 +1350,8 @@ end
 
 @testitem "Gmsh FEM / optional frozen Python numerical comparisons" tags=[
     :extension,
-    :integration
+    :integration,
+    :fem_numerical
 ] begin
     using Gmsh
     using JSON3
@@ -1358,7 +1360,7 @@ end
 
     executable = get(ENV, "LINECABLEMODELS_GETDP", something(Sys.which("getdp"), ""))
     if isempty(executable)
-        @test true
+        @test_skip "GetDP is unavailable; the frozen numerical comparisons were not run"
     else
         fixture_path = joinpath(
             pkgdir(LineCableModels),

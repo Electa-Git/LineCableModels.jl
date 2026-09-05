@@ -35,6 +35,49 @@ jobs:
       - uses: julia-actions/julia-buildpkg@v1
       - uses: julia-actions/julia-runtest@v1
 
+  fem-numerical:
+    name: Deterministic FEM references / GetDP 3.5.0
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    env:
+      JULIA_NUM_THREADS: "1"
+      OPENBLAS_NUM_THREADS: "1"
+      OMP_NUM_THREADS: "1"
+      DISPLAY: ""
+    steps:
+      - uses: actions/checkout@v6
+      - uses: julia-actions/setup-julia@v3
+        with:
+          version: "1.12"
+      - uses: julia-actions/cache@v3
+      - name: Install the pinned reference solver
+        shell: bash
+        run: |
+          set -euo pipefail
+          solver_dir=$(mktemp -d "$RUNNER_TEMP/lcm-getdp.XXXXXX")
+          curl --fail --location --retry 3 \
+            https://getdp.info/bin/Linux/getdp-3.5.0-Linux64c.tgz \
+            --output "$solver_dir/getdp.tgz"
+          printf '%s  %s\n' \
+            d3c28fa18f20d6147b4c7367d4dd802e9f7ddb58c608688bbb71919dbca8041d \
+            "$solver_dir/getdp.tgz" | sha256sum --check --strict
+          tar -xzf "$solver_dir/getdp.tgz" -C "$solver_dir"
+          solver_executable="$solver_dir/getdp-3.5.0-Linux64/bin/getdp"
+          test -x "$solver_executable"
+          solver_version=$("$solver_executable" -version 2>&1)
+          test "$solver_version" = "3.5.0"
+          printf 'LINECABLEMODELS_GETDP=%s\n' "$solver_executable" >> "$GITHUB_ENV"
+      - name: Run numerical FEM regressions
+        run: |
+          julia --project=test --startup-file=no --color=yes -e '
+            using Pkg
+            Pkg.instantiate()
+            executable = ENV["LINECABLEMODELS_GETDP"]
+            isfile(executable) || error("The numerical FEM gate requires the pinned GetDP executable")
+            push!(ARGS, "tag:fem_numerical")
+            include("test/runtests.jl")
+          '
+
   quality:
     name: Quality contracts
     runs-on: ubuntu-latest
