@@ -122,9 +122,9 @@ is the physical order from the cable centre to its outside surface.
 
 The reported wire diameter and finished core boundary define the maximum
 admissible strand inventory. The compacted declaration preserves every source
-wire area while resolving that inventory into the finished 38.1 mm circular
-boundary. The reported inner-course lay ratios are retained; the outer partial
-course continues the final reported ratio.
+wire area while resolving the largest complete `6k` inventory into the finished
+38.1 mm circular boundary. The four complete outer courses retain the reported
+lay ratios; no partial fifth course is invented.
 =#
 
 # Select reusable materials from the library:
@@ -140,7 +140,7 @@ pe = Material(materials, :pe);
 stranded_core = stranded(
     aluminum;
     shape = Disk(d_w / 2),
-    lay = LayRatio(15.0, 13.5, 12.5, 11.0, 11.0),
+    lay = LayRatio(15.0, 13.5, 12.5, 11.0),
     compact = true,
     boundary = Disk(d_core / 2)
 );

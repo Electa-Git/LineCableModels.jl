@@ -71,6 +71,7 @@ TextDisplay.@showfields BentStrip "BentStrip" shape -> (
 
 TextDisplay.@showfields BoundedPlacement "BoundedPlacement" placement -> (
     boundary = string(nameof(typeof(placement.boundary))),
+    course = placement.course,
 )
 
 TextDisplay.@showfields Shell "Shell" layer -> (

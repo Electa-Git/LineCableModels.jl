@@ -44,6 +44,9 @@ struct Group{A, E <: AbstractCablePart, P, H, C, B} <: AbstractCablePart
         boundary === nothing || path === nothing || throw(ArgumentError(
             "a bounded formation cannot carry a group-level longitudinal path"
         ))
+        boundary isa Sector && compact !== nothing && throw(ArgumentError(
+            "sector bounded formations are intrinsically compacted"
+        ))
         return new{A, E, P, H, C, B}(
             name, at, item, pattern, path, compact, boundary
         )
@@ -140,28 +143,20 @@ function circular_members(boundary_shape::Disk, parts, compact::Bool)
         centre.r, "the centre wire exceeds the circular core boundary"
     ))
 
-    sites = if compact
-        available = area(boundary_shape) - area(centre)
-        outer_count = floor(Int, nominal(available / area(strand)) +
-                                 64eps(float(nominal(available / area(strand)))))
-        outer_count > 0 || throw(DomainError(
-            area(strand), "the circular core admits no strand outside its centre wire"
-        ))
-        compact_disk_sites(boundary_shape, outer_count + 1)
-    else
-        outer = disk_wire_sites(boundary_shape, centre, strand)
-        [(site = (boundary_shape.at.x, boundary_shape.at.y), course = 0); outer]
-    end
+    outer = circular_courses(boundary_shape, centre, strand, compact)
+    sites = [(
+        site = (boundary_shape.at.x, boundary_shape.at.y),
+        course = 0,
+        member = 1,
+        angle = zero(boundary_shape.r)
+    ); outer]
     maximum_course = maximum(getproperty.(sites, :course))
     members = NamedTuple[]
     for (member, candidate) in enumerate(sites)
         source = member == 1 ? centre_part.item : strand_part.item
         path = member == 1 ? nothing :
                strand_path(strand_part.path, candidate.course, maximum_course)
-        angle = atan(
-            candidate.site[2] - boundary_shape.at.y,
-            candidate.site[1] - boundary_shape.at.x
-        )
+        angle = candidate.angle
         push!(members, (;
             source,
             candidate.course,
@@ -177,38 +172,24 @@ function circular_members(boundary_shape::Disk, parts, compact::Bool)
     return members, primitives
 end
 
-function sector_members(boundary_shape::SectorShape, parts, compact::Bool)
+function sector_members(boundary_shape::SectorShape, parts)
     length(parts) == 1 || throw(ArgumentError(
-        "a sector stranded core has one wire declaration and no centre wire"
+        "a sector stranded core uses one declaration for its centre and course wires"
     ))
     part = only(parts)
     wire = part.item.primitive
     wire isa Disk || throw(ArgumentError(
         "a sector stranded core requires Disk source wires"
     ))
-    part.path isa Tuple && length(part.path) != 1 && throw(DimensionMismatch(
-        "a sector stranded core accepts one common lay law"
-    ))
-    sites = if compact
-        count = floor(Int, nominal(area(boundary_shape) / area(wire)) +
-                           64eps(float(nominal(area(boundary_shape) / area(wire)))))
-        sector_compact_sites(boundary_shape, count)
-    else
-        sector_wire_sites(boundary_shape, wire)
-    end
-    path = part.path isa Tuple ? only(part.path) : part.path
-    centre = centroid(boundary_shape)
+    courses, primitives, maximum_course = sector_courses(boundary_shape, wire)
     members = [(
                    source = part.item,
-                   course = 1,
+                   candidate.course,
                    member,
-                   path,
-                   angle = atan(site[2] - centre[2], site[1] - centre[1]),
-                   site
-               ) for (member, site) in enumerate(sites)]
-    primitives = compact ? deform_disk_members(boundary_shape, members) :
-                 [resolve(Pose2(member.site..., member.angle), wire)
-                  for member in members]
+                   path = strand_path(part.path, candidate.course, maximum_course),
+                   candidate.angle,
+                   candidate.site
+               ) for (member, candidate) in enumerate(courses)]
     return members, primitives
 end
 
@@ -262,15 +243,12 @@ function bounded_members(boundary_shape::Disk, parts, compact::Bool)
            rectangular_members(boundary_shape, parts, compact)
 end
 
-bounded_members(boundary_shape::SectorShape, parts, compact::Bool) =
-    sector_members(boundary_shape, parts, compact)
+bounded_members(boundary_shape::SectorShape, parts, ::Nothing) =
+    sector_members(boundary_shape, parts)
 
 function bounded_members(group::Group)
     boundary_shape = resolve(group.at, group.boundary)
     parts = bounded_declarations(group)
-    group.compact isa Bool || throw(ArgumentError(
-        "bounded stranded formations require a Boolean compaction selection"
-    ))
     members, primitives = bounded_members(boundary_shape, parts, group.compact)
     isempty(members) && throw(ArgumentError(
         "a bounded formation requires at least one strand"
@@ -299,9 +277,9 @@ function resolve_bounded(group::Group)
     regions = PlacedRegion[]
     for (formation_member, (member, primitive)) in enumerate(zip(members, primitives))
         absolute_centre = centroid(primitive)
-        pose = bounded_pose(absolute_centre, group.at, member.angle)
+        pose = bounded_pose(member.site, group.at, member.angle)
         patterns = ((
-            pattern = BoundedPlacement(outer),
+            pattern = BoundedPlacement(outer, member.course),
             member = formation_member,
             pose = pose
         ),)

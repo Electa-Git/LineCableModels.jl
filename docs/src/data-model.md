@@ -112,9 +112,10 @@ end
 
 ## Repeated conductors
 
-`stranded` accepts circular wire shapes. For a `Disk` boundary, `layers` counts
-outer courses and the central strand is additional. With `compact=nothing`,
-those wires remain circles on their natural touching course radii.
+`stranded` accepts circular wire shapes. For a `Disk` boundary, it infers the
+largest complete family of concentric courses: one centre wire and exactly
+`6k` wires in course `k`. With `compact=nothing`, those wires remain circles on
+their natural course radii.
 
 ```julia
 core_part = stranded(
@@ -126,13 +127,13 @@ core_part = stranded(
 ```
 
 `boundary` is the authoritative finished core. The wire radius and boundary
-infer the maximum centred triangular-lattice inventory. A lay schedule must
-match the radial courses found by that inventory. No `Ring`, layer count, or
+infer the maximum complete `6k` course inventory. A lay schedule must match the
+radial courses found by that inventory. No `Ring`, layer count, or
 wire count is stored as a second description of the same geometry.
 
 Omitting `compact` preserves the natural circular wires. `compact=true`
-selects the maximum area-admissible inventory and deforms every strand while
-preserving its source area:
+selects the maximum complete `6k` inventory admitted by area and deforms every
+strand while preserving its source area:
 
 ```julia
 compact_core = stranded(
@@ -144,13 +145,13 @@ compact_core = stranded(
 )
 ```
 
-An uncompacted `Sector` boundary has no central wire and needs no artificial
-course schedule or wire count. The circular-wire radius and exact boundary
-determine the largest feasible polar-shell inventory. Successive shells grow
-from the sector base toward its back; each shell follows the available angular
-extent, remains symmetric about the bisector, and staggers against its neighbor.
-The exact resolved filleted boundary remains authoritative for containment. A
-sector phase core has no centre wire.
+A `Sector` boundary infers one bundle-centre strand and complete `6k` courses,
+with total inventory `1 + 3L(L+1)`. The circular sites are mapped into the
+resolved sector and retained while a prescribed-area power diagram allocates
+space. Each strand is a disk grown inside its allocated cell until its clipped
+area matches the source wire area. Free portions remain round; contact faces
+follow cell boundaries. Sector deformation is intrinsic, so it has no separate
+compaction choice. All remaining area belongs to the declared fill material.
 
 Course schedules are ordinary physical tuples. Wrap a complete schedule in
 `Grid` only when the schedule itself should vary.
@@ -171,8 +172,9 @@ sector_core = stranded(
 )
 ```
 
-`shape` remains the circular geometry of every resolved strand. The boundary
-adds no homogeneous conductor and no fictitious strand at the cable origin.
+`shape` defines each source strand and its conserved area; sector reconstruction
+changes the resolved outline. The boundary adds no homogeneous conductor and
+no fictitious strand at the cable origin.
 Rectangular strands are admitted only in a circular core with an explicit
 centre wire. They are always bent area-preservingly into annular courses.
 
@@ -259,21 +261,14 @@ sector = Sector(
     fillet=1.02e-3,
 )
 
-phase = terminal(
-    :phase,
-    Region(:core, sector, copper),
-    Region(:insulation, Shell(1.0e-3), xlpe),
-)
+phase = @terminal :phase begin
+    solid(copper, sector; tag=:core)
+    insulation(xlpe; t=0.5e-3)
+end
 
-sectorized = build(
-    CableDesign,
-    "three-core-sector",
-    assembly(
-        phase;
-        pattern=Ring(3; r=0),
-        names=(:a, :b, :c),
-    ),
-)
+sectorized = @cable "three-core-sector" begin
+    cores(phase; n=3, r=0, names=(:a, :b, :c))
+end
 ```
 
 `resolve` derives exact arc contacts and composes each `Pose2`. `area`,
@@ -346,9 +341,11 @@ come from `CableConstants(design)` or observed `LineParameters` results.
 
 ## Supported conductor formations
 
-The following gallery exercises the public construction grammar directly. Each
-example adds only one insulation layer so the conductor formation remains
-visible.
+The following gallery uses the high-level block macros: `@cable` completes a
+design, `@terminal` names its conductive descendants, and `@pipe` / `@duct`
+express containment. Shapes and leaf operations such as `stranded` remain
+ordinary calls inside those blocks. Each example keeps insulation simple so
+the conductor formation remains visible.
 
 ### Solid circular and sector cores
 
@@ -366,34 +363,28 @@ gallery_jacket = Material(kind=:insulator, rho=1.0e13, eps_r=2.8)
 gallery_interstitial = Material(kind=:insulator, rho=2.0e12, eps_r=3.5)
 gallery_concrete = Material(kind=:insulator, rho=100.0, eps_r=5.0, mu_r=1.0)
 
-solid_circular = build(
-    CableDesign,
-    "solid-circular",
-    terminal(
-        :core,
-        core(gallery_copper; r=3.5e-3),
-        insulation(gallery_xlpe; t=1.0e-3),
-    ),
-)
+solid_circular = @cable "solid-circular" begin
+    @terminal :core begin
+        core(gallery_copper; r=3.5e-3)
+        insulation(gallery_xlpe; t=1.0e-3)
+    end
+end
 
-solid_sector = build(
-    CableDesign,
-    "solid-sector",
-    terminal(
-        :core,
-        Region(
-            :core,
+solid_sector = @cable "solid-sector" begin
+    @terminal :core begin
+        solid(
+            gallery_copper,
             Sector(
                 span=deg2rad(118),
                 r_base=1.5e-3,
                 r_back=7.0e-3,
                 fillet=0.6e-3,
-            ),
-            gallery_copper,
-        ),
-        insulation(gallery_xlpe; t=1.0e-3),
-    ),
-)
+            );
+            tag=:core,
+        )
+        insulation(gallery_xlpe; t=1.0e-3)
+    end
+end
 
 preview(
     [solid_circular, solid_sector];
@@ -405,35 +396,29 @@ preview(
 
 ### Circular stranded cores
 
-Omitting `compact` preserves every strand as a circle on its centred
-close-packed lattice. `compact=true` instead admits the maximum inventory by
-area and deforms it while preserving every strand area and identity.
+Omitting `compact` preserves every strand as a circle on its concentric `6k`
+courses. `compact=true` infers a complete `6k` inventory by area and deforms it
+while preserving every strand area and identity.
 
 ```@example supported_formations
 circular_strand_radius = 0.45e-3
 circular_strand_count = 1 + 6 + 12
 
-circular_stranded = build(
-    CableDesign,
-    "circular-stranded",
-    terminal(
-        :core,
+circular_stranded = @cable "circular-stranded" begin
+    @terminal :core begin
         stranded(
             gallery_copper;
             shape=Disk(circular_strand_radius),
             lay=LayRatio(14, 12),
             boundary=Disk(5circular_strand_radius),
             fill=gallery_air,
-        ),
-        insulation(gallery_xlpe; t=1.0e-3),
-    ),
-)
+        )
+        insulation(gallery_xlpe; t=1.0e-3)
+    end
+end
 
-circular_compacted = build(
-    CableDesign,
-    "circular-compacted",
-    terminal(
-        :core,
+circular_compacted = @cable "circular-compacted" begin
+    @terminal :core begin
         stranded(
             gallery_copper;
             shape=Disk(circular_strand_radius),
@@ -441,10 +426,10 @@ circular_compacted = build(
             compact=true,
             boundary=Disk(sqrt(circular_strand_count) * circular_strand_radius),
             fill=gallery_air,
-        ),
-        insulation(gallery_xlpe; t=1.0e-3),
-    ),
-)
+        )
+        insulation(gallery_xlpe; t=1.0e-3)
+    end
+end
 
 preview(
     [circular_stranded, circular_compacted];
@@ -462,11 +447,8 @@ area of every source rectangle. Any residual outer annulus retains the stated
 interstitial material.
 
 ```@example supported_formations
-rectangular_stranded = build(
-    CableDesign,
-    "rectangular-stranded",
-    terminal(
-        :core,
+rectangular_stranded = @cable "rectangular-stranded" begin
+    @terminal :core begin
         stranded(
             gallery_copper;
             center=Disk(0.55e-3),
@@ -474,10 +456,10 @@ rectangular_stranded = build(
             lay=LayRatio(13),
             boundary=Disk(3.5e-3),
             fill=gallery_air,
-        ),
-        insulation(gallery_xlpe; t=1.0e-3),
-    ),
-)
+        )
+        insulation(gallery_xlpe; t=1.0e-3)
+    end
+end
 
 preview(
     rectangular_stranded;
@@ -489,10 +471,16 @@ preview(
 
 ### Sectorized stranded cores
 
-A sectorized core has no central strand. Without `compact`, the wire diameter
-and sector boundary determine the largest close-packed inventory; the wires
-remain exact circles. With `compact=true`, the maximum area-admissible
-inventory is deformed while preserving every strand area and identity.
+A sectorized phase core contains its own bundle-centre strand and complete
+`6k` courses. The source wire area and sector area determine the inventory.
+Mapped circular sites retain these identities; prescribed-area power cells
+allocate space, and a clipped-disk area solve determines each copper shape.
+The polygons approximate circular arcs while preserving the source areas.
+
+The supplied 0.55 mm wire radius below admits 37 wires and 74.23% copper fill.
+The second design explicitly changes the wire radius to obtain 93% fill with
+the same inventory and boundary. Compaction cannot remove the remaining void
+while preserving both the source wire area and its count.
 
 ```@example supported_formations
 sector_boundary = Sector(
@@ -501,40 +489,38 @@ sector_boundary = Sector(
     r_back=8.0e-3,
     fillet=0.6e-3,
 )
-sector_stranded = build(
-    CableDesign,
-    "sector-stranded",
-    terminal(
-        :core,
+sector_stranded = @cable "sector-stranded" begin
+    @terminal :core begin
         stranded(
             gallery_copper;
             shape=Disk(0.55e-3),
             boundary=sector_boundary,
             fill=gallery_air,
-        ),
-        insulation(gallery_xlpe; t=1.0e-3),
-    ),
-)
+        )
+        insulation(gallery_xlpe; t=1.0e-3)
+    end
+end
 
-sector_compacted = build(
-    CableDesign,
-    "sector-compacted",
-    terminal(
-        :core,
+dense_sector_wire_radius = sqrt(
+    0.93 * area(LineCableModels.DataModel.resolve(
+        LineCableModels.DataModel.EmptyBoundary(), sector_boundary
+    )) / (37pi)
+)
+sector_dense = @cable "sector-stranded-93-percent" begin
+    @terminal :core begin
         stranded(
             gallery_copper;
-            shape=Disk(0.55e-3),
-            lay=LayRatio(14),
-            compact=true,
+            shape=Disk(dense_sector_wire_radius),
             boundary=sector_boundary,
             fill=gallery_air,
-        ),
-        insulation(gallery_xlpe; t=1.0e-3),
-    ),
-)
+        )
+        insulation(gallery_xlpe; t=1.0e-3)
+    end
+end
 
 preview(
-    [sector_stranded, sector_compacted];
+    [sector_stranded, sector_dense];
+    panel_titles=("supplied wire — 74.23% fill", "resized wire — 93% fill"),
     backend=:cairo,
     display_plot=false,
     controls=false,
@@ -545,11 +531,12 @@ preview(
 
 A complete sector cable preserves the electrical identity of every core. Each
 solid or stranded sector therefore owns its insulation before `cores` rotates
-the members into a three- or four-phase assembly. The outer `pipe` fills the
+the members into a three- or four-phase assembly. The outer `@pipe` fills the
 interstices and adds one common tubular insulation layer. A sector's angular
 span equals the assembly pitch, keeping every pair of facing wedge sides
-parallel. The rows below show solid, naturally stranded, and compact-stranded
-cores.
+parallel. The rows below show solid and intrinsically compacted stranded cores.
+At the supplied 0.35 mm strand radius, both stranded cores contain 37 wires;
+the three-core sector has 66.62% copper fill and the four-core sector 88.53%.
 
 ```@example supported_formations
 three_core_sector = Sector(
@@ -565,108 +552,59 @@ four_core_sector = Sector(
     fillet=0.20e-3,
 )
 
-function enclosed_sector_cable(id, member, count)
-    phases = cores(
-        member;
-        n=count,
-        r=0,
-        names=ntuple(index -> Symbol(:phase_, index), count),
-    )
-    return build(
-        CableDesign,
-        id,
-        pipe(
-            phases;
-            shape=Disk(5.5e-3),
-            fill=gallery_air,
-            wall=insulation(
-                gallery_xlpe;
-                t=0.8e-3,
-                tag=:tubular_insulation,
-            ),
-        ),
-    )
+sector_wall = insulation(gallery_xlpe; t=0.8e-3, tag=:tubular_insulation)
+
+solid_three_member = @terminal :segment begin
+    solid(gallery_copper, three_core_sector; tag=:solid_sector)
+    insulation(gallery_xlpe; t=0.25e-3)
+end
+solid_three_core_sector = @cable "solid-three-core-sector" begin
+    @pipe shape=Disk(5.5e-3) fill=gallery_air wall=sector_wall begin
+        cores(solid_three_member; n=3, r=0, names=(:phase_1, :phase_2, :phase_3))
+    end
 end
 
-solid_three_core_sector = enclosed_sector_cable(
-    "solid-three-core-sector",
-    terminal(
-        :segment,
-        solid(gallery_copper, three_core_sector; tag=:solid_sector),
-        insulation(gallery_xlpe; t=0.25e-3),
-    ),
-    3,
-)
-solid_four_core_sector = enclosed_sector_cable(
-    "solid-four-core-sector",
-    terminal(
-        :segment,
-        solid(gallery_copper, four_core_sector; tag=:solid_sector),
-        insulation(gallery_xlpe; t=0.25e-3),
-    ),
-    4,
-)
-stranded_three_core_sector = enclosed_sector_cable(
-    "stranded-three-core-sector",
-    terminal(
-        :segment,
-        stranded(
-            gallery_copper;
-            shape=Disk(0.35e-3),
-            boundary=three_core_sector,
-            fill=gallery_air,
-        ),
-        insulation(gallery_xlpe; t=0.25e-3),
-    ),
-    3,
-)
-stranded_four_core_sector = enclosed_sector_cable(
-    "stranded-four-core-sector",
-    terminal(
-        :segment,
-        stranded(
-            gallery_copper;
-            shape=Disk(0.35e-3),
-            boundary=four_core_sector,
-            fill=gallery_air,
-        ),
-        insulation(gallery_xlpe; t=0.25e-3),
-    ),
-    4,
-)
+solid_four_member = @terminal :segment begin
+    solid(gallery_copper, four_core_sector; tag=:solid_sector)
+    insulation(gallery_xlpe; t=0.25e-3)
+end
+solid_four_core_sector = @cable "solid-four-core-sector" begin
+    @pipe shape=Disk(5.5e-3) fill=gallery_air wall=sector_wall begin
+        cores(solid_four_member; n=4, r=0, names=(:phase_1, :phase_2, :phase_3, :phase_4))
+    end
+end
 
-compacted_three_core_sector = enclosed_sector_cable(
-    "compacted-three-core-sector",
-    terminal(
-        :segment,
-        stranded(
-            gallery_copper;
-            shape=Disk(0.35e-3),
-            lay=LayRatio(14),
-            compact=true,
-            boundary=three_core_sector,
-            fill=gallery_air,
-        ),
-        insulation(gallery_xlpe; t=0.25e-3),
-    ),
-    3,
-)
-compacted_four_core_sector = enclosed_sector_cable(
-    "compacted-four-core-sector",
-    terminal(
-        :segment,
-        stranded(
-            gallery_copper;
-            shape=Disk(0.35e-3),
-            lay=LayRatio(14),
-            compact=true,
-            boundary=four_core_sector,
-            fill=gallery_air,
-        ),
-        insulation(gallery_xlpe; t=0.25e-3),
-    ),
-    4,
-)
+stranded_three_member = @terminal :segment begin
+    stranded(
+        gallery_copper;
+        shape=Disk(0.35e-3),
+        lay=LayRatio(14),
+        boundary=three_core_sector,
+        fill=gallery_air,
+    )
+    insulation(gallery_xlpe; t=0.25e-3)
+end
+stranded_three_core_sector = @cable "stranded-three-core-sector" begin
+    @pipe shape=Disk(5.5e-3) fill=gallery_air wall=sector_wall begin
+        cores(stranded_three_member; n=3, r=0, names=(:phase_1, :phase_2, :phase_3))
+    end
+end
+
+stranded_four_member = @terminal :segment begin
+    stranded(
+        gallery_copper;
+        shape=Disk(0.35e-3),
+        lay=LayRatio(14),
+        boundary=four_core_sector,
+        fill=gallery_air,
+    )
+    insulation(gallery_xlpe; t=0.25e-3)
+end
+stranded_four_core_sector = @cable "stranded-four-core-sector" begin
+    @pipe shape=Disk(5.5e-3) fill=gallery_air wall=sector_wall begin
+        cores(stranded_four_member; n=4, r=0, names=(:phase_1, :phase_2, :phase_3, :phase_4))
+    end
+end
 
 preview(
     [
@@ -674,17 +612,13 @@ preview(
         solid_four_core_sector,
         stranded_three_core_sector,
         stranded_four_core_sector,
-        compacted_three_core_sector,
-        compacted_four_core_sector,
     ];
-    layout=(3, 2),
+    layout=(2, 2),
     panel_titles=(
         "solid — three cores",
         "solid — four cores",
         "stranded — three cores",
         "stranded — four cores",
-        "compacted — three cores",
-        "compacted — four cores",
     ),
     backend=:cairo,
     display_plot=false,
@@ -694,12 +628,27 @@ preview(
 
 ### Milliken core
 
-A Milliken core owns one centre wire and six separately bounded stranded
-segments. `milliken` binds every conductor to one terminal. The segment
+A Milliken core owns one cable-centre wire and six separately bounded stranded
+segments, each with its own bundle-centre strand and `6k` courses.
+`milliken` binds every conductor to one terminal. The segment
 boundaries govern packing without becoming overlapping material domains; one
 explicit fill owns every interstice around the centre and segment wires. Its
 centre-wire radius is inferred after resolving one segment so that the centre
 is tangent to the innermost strand in every rotated segment.
+
+This example deliberately uses a densely filled segment: a source-wire radius
+of approximately **0.238628 mm** gives **61 wires per segment**, with the
+inventory `1 + 6 + 12 + 18 + 24`, and **93% segment copper fill**. There are
+366 segment wires plus the shared central conductor. The latter has an inferred
+radius of approximately 0.560 mm; including the inter-segment separators, the
+complete core is approximately **84.6% copper by area**. These are illustrative
+design dimensions, not measurements recovered from a cable photograph.
+
+The radius is chosen from ``a=\sqrt{\eta A_{\mathrm{segment}}/(61\pi)}``,
+with ``\eta=0.93``. Only the radius and boundary are passed to `milliken`:
+the constructor still infers the complete-course inventory. Copper fill within
+a segment is distinct from copper fill across the complete core, which also
+includes the central conductor and the material between segments.
 
 ```@example supported_formations
 milliken_segment_boundary = Sector(
@@ -708,24 +657,134 @@ milliken_segment_boundary = Sector(
     r_back=5.0e-3,
     fillet=0.18e-3,
 )
-milliken_design = build(
-    CableDesign,
-    "six-segment-milliken",
-    terminal(
-        :phase,
+milliken_design = @cable "six-segment-milliken" begin
+    @terminal :phase begin
         milliken(
             gallery_copper;
-            shape=Disk(0.32e-3),
+            shape=Disk(0.23862789195414474e-3),
             segment=milliken_segment_boundary,
             segments=6,
             fill=gallery_interstitial,
-        ),
-        insulation(gallery_xlpe; t=1.0e-3),
-    ),
-)
+        )
+        insulation(gallery_xlpe; t=1.0e-3)
+    end
+end
 
 preview(
     milliken_design;
+    title="Milliken — six 61-wire segments and a central conductor",
+    backend=:cairo,
+    display_plot=false,
+    controls=false,
+).figure
+```
+
+### Four-pair umbilical
+
+An umbilical can contain complete subcables rather than copies of a single
+terminal. Here four screened two-core subcables surround a central polyethylene
+(PE) filler, with four more PE fillers between them. Each subcable contains two
+copper cores with high-density polyethylene (HDPE) insulation, two PE fillers,
+an explicit nonwoven (TNT) filling region, a copper sheath and a PE jacket.
+The complete assembly has thermoplastic elastomer (TPE) filling, an outer TNT
+wrap and a finite galvanized-steel armour layer.
+
+The dimensions and material constants below are **illustrative**, chosen to
+reproduce the supplied cross-section's composition without claiming a
+manufacturer specification. TNT is represented as a homogeneous insulating
+material; the galvanized steel is one effective material, without a separate
+zinc coating. This example demonstrates construction and preview, not support
+for this topology in every numerical backend.
+
+The ordinary Julia function describes one reusable subcable with the public
+macros. Its name prefix gives each copy two independent core terminals and one
+sheath terminal. Enclosing them in `@pipe` does **not** short them together.
+All dimensions in the code are in metres.
+
+```@example supported_formations
+umbilical_pe = Material(kind=:insulator, rho=1.0e15, eps_r=2.3)
+umbilical_hdpe = Material(kind=:insulator, rho=1.0e15, eps_r=2.4)
+umbilical_tnt = Material(kind=:insulator, rho=1.0e13, eps_r=3.0)
+umbilical_tpe = Material(kind=:insulator, rho=1.0e12, eps_r=3.5)
+umbilical_steel = Material(kind=:conductor, rho=1.5e-7, mu_r=100.0)
+
+function umbilical_pair(prefix)
+    first_core = @terminal Symbol(prefix, :_a) begin
+        core(gallery_copper; r=1.5e-3, tag=:copper_core)
+        insulation(umbilical_hdpe; t=0.65e-3, tag=:hdpe_insulation)
+    end
+    second_core = @terminal Symbol(prefix, :_b) begin
+        core(gallery_copper; r=1.5e-3, tag=:copper_core)
+        insulation(umbilical_hdpe; t=0.65e-3, tag=:hdpe_insulation)
+    end
+    pair_wall = @terminal Symbol(prefix, :_sheath) begin
+        sheath(gallery_copper; t=0.10e-3, tag=:copper_sheath)
+        jacket(umbilical_pe; t=0.35e-3, tag=:pe_jacket)
+    end
+    pair_filler = filler(umbilical_pe, Disk(1.45e-3); tag=:pe_filler)
+
+    return @pipe shape=Disk(4.5e-3) fill=umbilical_tnt wall=pair_wall begin
+        @at first_core (-2.25e-3, 0.0)
+        @at second_core (2.25e-3, 0.0)
+        @at pair_filler (0.0, -2.85e-3)
+        @at pair_filler (0.0, 2.85e-3)
+    end
+end
+
+umbilical_pair_design = @cable "umbilical-subcable" begin
+    umbilical_pair(:pair)
+end
+
+umbilical_legend_labels = Dict(
+    :pipe_fill => "TNT fill", :tpe_fill => "TPE fill",
+    :pe_filler => "PE filler", :pe_jacket => "PE jacket",
+    :hdpe_insulation => "HDPE insulation", :tnt_wrap => "TNT wrap",
+)
+
+preview(
+    umbilical_pair_design;
+    title="Umbilical subcable — two cores and a separate copper sheath",
+    legend_labels=umbilical_legend_labels,
+    backend=:cairo,
+    display_plot=false,
+    controls=false,
+).figure
+```
+
+The top and bottom subcables are rotated by 90° with `@at`; their complete
+geometry rotates together. The four independent subcables retain **eight core
+terminals and four sheath terminals**, plus the common armour terminal.
+Every remaining region is assigned an insulating material, including the
+interstices. No implicit air or unassigned gaps are introduced.
+
+```@example supported_formations
+umbilical_filler = filler(umbilical_pe, Disk(2.0e-3); tag=:pe_filler)
+umbilical_diagonal = 9.85e-3 / sqrt(2)
+umbilical_wall = @terminal :armour begin
+    bedding(umbilical_tnt; t=1.5e-3, tag=:tnt_wrap)
+    sheath(umbilical_steel; t=2.0e-3, tag=:galvanized_steel)
+end
+
+umbilical_design = @cable "four-pair-umbilical" begin
+    @pipe shape=Disk(12.5e-3) fill=umbilical_tpe wall=umbilical_wall begin
+        @at umbilical_pair(:east) (7.2e-3, 0.0)
+        @at umbilical_pair(:north) (0.0, 7.2e-3, pi / 2)
+        @at umbilical_pair(:west) (-7.2e-3, 0.0)
+        @at umbilical_pair(:south) (0.0, -7.2e-3, pi / 2)
+        umbilical_filler
+        @at umbilical_filler (umbilical_diagonal, umbilical_diagonal)
+        @at umbilical_filler (-umbilical_diagonal, umbilical_diagonal)
+        @at umbilical_filler (-umbilical_diagonal, -umbilical_diagonal)
+        @at umbilical_filler (umbilical_diagonal, -umbilical_diagonal)
+    end
+end
+
+preview(
+    umbilical_design;
+    title="Umbilical — four screened pairs with steel armour",
+    legend_group=region -> region.source.material == umbilical_tpe ?
+                           :tpe_fill : region.source.tag,
+    legend_labels=umbilical_legend_labels,
     backend=:cairo,
     display_plot=false,
     controls=false,
@@ -735,32 +794,36 @@ preview(
 ### Rope formation
 
 `rope` repeats a complete stranded core as one central member surrounded by six
-peers. The enclosing terminal and insulation belong to the finished rope.
+peers. Here each member's six course wires have `LayRatio(12)` about their own
+member axis. The six outer members also have `LayRatio(18)` about the rope
+axis. These are separate paths: the accepted approximation **multiplies their
+overlength factors**, rather than replacing the inner lay with the outer one.
+The enclosing terminal and insulation belong to the finished rope.
 
 ```@example supported_formations
 rope_member_radius = 0.28e-3
+strand_lay = LayRatio(12)
+rope_lay = LayRatio(18)
 rope_member = stranded(
     gallery_copper;
     shape=Disk(rope_member_radius),
+    lay=strand_lay,
     compact=true,
     boundary=Disk(sqrt(7) * rope_member_radius),
     fill=gallery_air,
 )
 
-rope_design = build(
-    CableDesign,
-    "stranded-rope",
-    terminal(
-        :core,
+rope_design = @cable "stranded-rope" begin
+    @terminal :core begin
         rope(
             rope_member;
             layers=1,
             n=6,
-            lay=LayRatio(18),
-        ),
-        insulation(gallery_xlpe; t=1.0e-3),
-    ),
-)
+            lay=rope_lay,
+        )
+        insulation(gallery_xlpe; t=1.0e-3)
+    end
+end
 
 preview(
     rope_design;
@@ -770,17 +833,51 @@ preview(
 ).figure
 ```
 
+For local helix radius ``r`` and pitch ``p``, the length factor is
+``\lambda=\sqrt{1+(2\pi r/p)^2}``. With `LayRatio(q)`, ``p=2rq``, so
+``\lambda(q)=\sqrt{1+(\pi/q)^2}``, independent of the local radius.
+For a wire following both paths,
+
+```math
+\lambda_{\mathrm{wire}}=\lambda_{\mathrm{strand}}\lambda_{\mathrm{rope}}.
+```
+
+The central wire of the central member has neither path and factor 1. Its six
+neighbors have only the strand factor; the central wire of each outer member
+has only the rope factor. The remaining 36 wires have both. The table below
+evaluates these factors using [`overlength`](@ref). Its radius argument is
+immaterial for these `LayRatio` laws; a `Pitch` law would require the actual
+local radius of each path.
+
+```@example supported_formations
+strand_factor = overlength(Helix(strand_lay), rope_member_radius)
+rope_factor = overlength(Helix(rope_lay), rope_member_radius)
+
+using DataFrames
+DataFrame(
+    wires=["central wire", "central member: course", "outer members: centres",
+           "outer members: courses"],
+    count=[1, 6, 6, 36],
+    strand=[1.0, strand_factor, 1.0, strand_factor],
+    rope=[1.0, 1.0, rope_factor, rope_factor],
+    total=[1.0, strand_factor, rope_factor, strand_factor * rope_factor],
+)
+```
+
+These factors multiply each wire's resistance before the parallel reduction;
+one blanket factor is not applied to all 49 wires. The transverse wire areas
+and preview are unchanged by the lay choices.
+
 ### Three coaxial cores in a pipe
 
 Three independently named solid-core coaxials form a trefoil inside a circular
 pipe. The pipe carries one outward insulating wall.
 
 ```@example supported_formations
-coaxial_member = terminal(
-    :phase,
-    core(gallery_copper; r=1.6e-3),
-    insulation(gallery_xlpe; t=1.2e-3),
-)
+coaxial_member = @terminal :phase begin
+    core(gallery_copper; r=1.6e-3)
+    insulation(gallery_xlpe; t=1.2e-3)
+end
 coaxial_trefoil = cores(
     coaxial_member;
     n=3,
@@ -788,13 +885,12 @@ coaxial_trefoil = cores(
     names=(:a, :b, :c),
     φ0=-pi / 2,
 )
-coaxial_pipe = pipe(
-    coaxial_trefoil;
-    shape=Disk(7.0e-3),
-    fill=gallery_air,
-    wall=jacket(gallery_jacket; t=1.0e-3, tag=:pipe_insulation),
-)
-coaxial_pipe_design = build(CableDesign, "coaxial-trefoil-pipe", coaxial_pipe)
+coaxial_wall = jacket(gallery_jacket; t=1.0e-3, tag=:pipe_insulation)
+coaxial_pipe_design = @cable "coaxial-trefoil-pipe" begin
+    @pipe shape=Disk(7.0e-3) fill=gallery_air wall=coaxial_wall begin
+        coaxial_trefoil
+    end
+end
 
 preview(
     coaxial_pipe_design;
@@ -813,17 +909,16 @@ elliptical duct. The duct interior remains air; its concrete wall is a finite
 normal offset of the ellipse rather than a zero-thickness outline.
 
 ```@example supported_formations
-duct_round_member = terminal(
-    :round,
+duct_round_member = @terminal :round begin
     stranded(
         gallery_copper;
         shape=Disk(0.30e-3),
         compact=true,
         boundary=Disk(sqrt(7) * 0.30e-3),
         fill=gallery_air,
-    ),
-    insulation(gallery_xlpe; t=0.8e-3),
-)
+    )
+    insulation(gallery_xlpe; t=0.8e-3)
+end
 duct_round_trefoil = cores(
     duct_round_member;
     n=3,
@@ -831,12 +926,10 @@ duct_round_trefoil = cores(
     names=(:r1, :r2, :r3),
     φ0=-pi / 2,
 )
-duct_round_pipe = pipe(
-    duct_round_trefoil;
-    shape=Disk(6.0e-3),
-    fill=gallery_air,
-    wall=jacket(gallery_jacket; t=0.8e-3, tag=:round_pipe_insulation),
-)
+duct_round_wall = jacket(gallery_jacket; t=0.8e-3, tag=:round_pipe_insulation)
+duct_round_pipe = @pipe shape=Disk(6.0e-3) fill=gallery_air wall=duct_round_wall begin
+    duct_round_trefoil
+end
 
 duct_sector_boundary = Sector(
     span=2pi / 3,
@@ -844,38 +937,33 @@ duct_sector_boundary = Sector(
     r_back=3.8e-3,
     fillet=0.3e-3,
 )
-duct_sector_member = terminal(
-    :sector,
+duct_sector_member = @terminal :sector begin
     stranded(
         gallery_copper;
         shape=Disk(0.30e-3),
-        compact=true,
         boundary=duct_sector_boundary,
         fill=gallery_air,
-    ),
-    insulation(gallery_xlpe; t=0.6e-3),
-)
+    )
+    insulation(gallery_xlpe; t=0.6e-3)
+end
 duct_sector_trefoil = cores(
     duct_sector_member;
     n=3,
     r=0.0,
     names=(:s1, :s2, :s3),
 )
-duct_sector_pipe = pipe(
-    duct_sector_trefoil;
-    shape=Disk(5.5e-3),
-    fill=gallery_air,
-    wall=jacket(gallery_jacket; t=0.8e-3, tag=:sector_pipe_insulation),
-)
+duct_sector_wall = jacket(gallery_jacket; t=0.8e-3, tag=:sector_pipe_insulation)
+duct_sector_pipe = @pipe shape=Disk(5.5e-3) fill=gallery_air wall=duct_sector_wall begin
+    duct_sector_trefoil
+end
 
-mixed_duct = duct(
-    at(duct_round_pipe, -8.0e-3, 0.0),
-    at(duct_sector_pipe, 8.0e-3, 0.0);
-    shape=Ellipse(24.0e-3, 10.0e-3),
-    fill=gallery_air,
-    wall=jacket(gallery_concrete; t=1.5e-3, tag=:concrete_duct_wall),
-)
-mixed_duct_design = build(CableDesign, "mixed-elliptical-duct", mixed_duct)
+duct_wall = jacket(gallery_concrete; t=1.5e-3, tag=:concrete_duct_wall)
+mixed_duct_design = @cable "mixed-elliptical-duct" begin
+    @duct shape=Ellipse(24.0e-3, 10.0e-3) fill=gallery_air wall=duct_wall begin
+        @at duct_round_pipe (-8.0e-3, 0.0)
+        @at duct_sector_pipe (8.0e-3, 0.0)
+    end
+end
 
 preview(
     mixed_duct_design;

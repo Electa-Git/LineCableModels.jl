@@ -1058,9 +1058,6 @@ function _radial_regions(regions)
         material.kind === :insulator || throw(ArgumentError(
             "a non-radial enclosure fill must use an insulator material"
         ))
-        isinf(material.rho) || throw(ArgumentError(
-            "the coaxial reduction requires a lossless non-radial enclosure fill"
-        ))
         isapprox(material.mu_r, one(material.mu_r)) || throw(ArgumentError(
             "the coaxial reduction requires a nonmagnetic non-radial enclosure fill"
         ))

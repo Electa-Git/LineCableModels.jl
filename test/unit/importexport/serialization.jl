@@ -232,12 +232,14 @@ end
         )
     )
     bounded_record=IE.serialize_value(bounded)
+    @test bounded_record["root"]["item"]["items"][1]["item"]["compact"] === nothing
     restored_bounded=IE.deserialize_value(bounded_record)
     @test restored_bounded == bounded
     @test IE.serialize_value(restored_bounded) == bounded_record
     bounded_group=only(bounded.root.item.items).item
     @test bounded_group isa Group
     @test bounded_group.boundary == sector_boundary
+    @test bounded_group.compact === nothing
 
     declarations=(
         Ring(capacity(); r = nothing, φ0 = 0.2, gap_frac = 0.03),
@@ -357,6 +359,32 @@ end
         schema,
         IE._json_document(packed_cables)
     ) === nothing
+
+    sector_cables=CablesLibrary()
+    add!(sector_cables,
+        build(
+            CableDesign,
+            "sector-bounded-schema",
+            terminal(
+                :core,
+                stranded(
+                    TestFixtures.copper_material();
+                    shape = Disk(0.5e-3),
+                    boundary = Sector(
+                        span = 2pi / 3,
+                        r_base = 0.75e-3,
+                        r_back = 4.0e-3,
+                        fillet = 0.15e-3
+                    )
+                )
+            )
+        ))
+    sector_document=IE._json_document(sector_cables)
+    @test JSONSchema.validate(schema, sector_document) === nothing
+    invalid_sector=deepcopy(sector_document)
+    sector_design=only(values(invalid_sector["root"]["cables"]))
+    sector_design["root"]["item"]["items"][1]["item"]["compact"]=true
+    @test JSONSchema.validate(schema, invalid_sector) !== nothing
 
     earth=EarthModel(100.0, 10.0, 1.0)
     design=TestFixtures.mv_cable_design()

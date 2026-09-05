@@ -946,6 +946,30 @@ end
     @test circular_model.region_plans[1].shape.at == Pose2(0.0, -0.1)
     @test circular_model.region_plans[1].terminal_index == 1
 
+    natural = terminal(
+        :core,
+        stranded(
+            copper;
+            shape = Disk(strand_radius),
+            boundary = Disk(3strand_radius),
+            fill = dielectric
+        )
+    )
+    natural_design = build(CableDesign, "fem-natural-circular-core", natural)
+    natural_model = extension_module._resolved_fem_model(
+        problem(natural_design, Dict(:core => 1), natural_design.cable_id),
+        formulation
+    )
+    @test length(natural_model.region_plans) == 8
+    @test count(
+        plan -> plan.shape isa DM.Disk && plan.terminal_index == 1,
+        natural_model.region_plans
+    ) == 7
+    @test count(
+        plan -> plan.shape isa DM.DifferenceShape && plan.terminal_index == 0,
+        natural_model.region_plans
+    ) == 1
+
     partial_boundary = Disk(sqrt(7 / 0.9) * strand_radius)
     partial = terminal(
         :core,
@@ -977,34 +1001,34 @@ end
     ) == 1
 
     sector = Sector(
-        span = deg2rad(100.0),
-        r_base = 1.0e-3,
+        span = 2pi / 3,
+        r_base = 0.6e-3,
         r_back = 4.0e-3,
         fillet = 0.2e-3
     )
     sector_shape = DM.resolve(DM.EmptyBoundary(), sector)
-    sector_strand_radius = sqrt(DM.area(sector_shape) / (6pi))
-    sector_core = terminal(
-        :sector,
-        stranded(
-            copper;
-            shape = Disk(sector_strand_radius),
-            compact = true,
-            boundary = sector
-        )
+    sector_strand_radius = sqrt(0.9DM.area(sector_shape) / (7pi))
+    sector_part = stranded(
+        copper;
+        shape = Disk(sector_strand_radius),
+        boundary = sector
     )
-    sectors = Assembly(
-        sector_core;
-        pattern = Ring(3; r = 8.0e-3),
-        names = (:a, :b, :c)
-    )
+    sector_names = (:a, :b, :c)
+    sectors = assembly((
+        at(
+            terminal(name, sector_part),
+            0.15e-3cos(2pi * (index - 1) / 3),
+            0.15e-3sin(2pi * (index - 1) / 3);
+            φ = 2pi * (index - 1) / 3
+        ) for (index, name) in enumerate(sector_names)
+    )...)
     sector_design = build(
         CableDesign,
         "fem-sector-formations",
         Enclosure(
             :sector_matrix,
             sectors;
-            primitive = Disk(15.0e-3),
+            primitive = Disk(4.5e-3),
             fill = dielectric
         )
     )
@@ -1016,15 +1040,17 @@ end
         ),
         formulation
     )
-    @test length(sector_model.region_plans) == 4
+    @test length(sector_model.region_plans) == 25
     @test count(
-        plan -> plan.shape isa DM.SectorShape,
+        plan -> plan.shape isa DM.Polygon,
         sector_model.region_plans
-    ) == 3
-    @test sort(filter(>(0), getproperty.(sector_model.region_plans, :terminal_index))) ==
-          [1, 2, 3]
+    ) == 21
+    @test [count(==(terminal), getproperty.(sector_model.region_plans, :terminal_index))
+           for terminal in 1:3] == [7, 7, 7]
     matrix_plan = only(filter(
-        plan -> plan.terminal_index == 0,
+        plan -> plan.terminal_index == 0 &&
+                plan.shape isa DM.DifferenceShape &&
+                plan.shape.outer isa DM.Disk,
         sector_model.region_plans
     ))
     @test matrix_plan.shape isa DM.DifferenceShape
@@ -1033,10 +1059,67 @@ end
         matrix_plan.shape.holes
     ) == 3
     @test all(hole -> !(hole isa DM.Polygon), matrix_plan.shape.holes)
+    @test count(
+        plan -> plan.terminal_index == 0 &&
+                plan.shape isa DM.DifferenceShape &&
+                plan.shape.outer isa DM.SectorShape,
+        sector_model.region_plans
+    ) == 3
+
+    four_sector = Sector(
+        span = pi / 2,
+        r_base = 0.6e-3,
+        r_back = 4.0e-3,
+        fillet = 0.2e-3
+    )
+    four_sector_shape = DM.resolve(DM.EmptyBoundary(), four_sector)
+    four_strand_radius = sqrt(0.9DM.area(four_sector_shape) / (7pi))
+    four_part = stranded(
+        copper;
+        shape = Disk(four_strand_radius),
+        boundary = four_sector
+    )
+    four_names = (:d, :e, :f, :g)
+    four_assembly = assembly((
+        at(
+            terminal(name, four_part),
+            0.15e-3cos(2pi * (index - 1) / 4),
+            0.15e-3sin(2pi * (index - 1) / 4);
+            φ = 2pi * (index - 1) / 4
+        ) for (index, name) in enumerate(four_names)
+    )...)
+    four_design = build(
+        CableDesign,
+        "fem-four-sector-formations",
+        Enclosure(
+            :four_sector_matrix,
+            four_assembly;
+            primitive = Disk(4.5e-3),
+            fill = dielectric
+        )
+    )
+    four_model = extension_module._resolved_fem_model(
+        problem(
+            four_design,
+            Dict(:d => 1, :e => 2, :f => 3, :g => 4),
+            four_design.cable_id
+        ),
+        formulation
+    )
+    @test length(four_model.region_plans) == 33
+    @test count(plan -> plan.shape isa DM.Polygon, four_model.region_plans) == 28
+    @test [count(==(terminal), getproperty.(four_model.region_plans, :terminal_index))
+           for terminal in 1:4] == [7, 7, 7, 7]
+    @test count(
+        plan -> plan.terminal_index == 0 &&
+                plan.shape isa DM.DifferenceShape &&
+                plan.shape.outer isa DM.SectorShape,
+        four_model.region_plans
+    ) == 4
 
     milliken_core = milliken(
         copper;
-        shape = Disk(0.4e-3),
+        shape = Disk(0.33e-3),
         segment = Sector(
             span = pi / 3,
             r_base = 0.85e-3,
@@ -1075,8 +1158,10 @@ end
         gmsh.option.set_number("General.Verbosity", 0)
         for (name, model) in (
             ("fem-compacted-circular-core", circular_model),
+            ("fem-natural-circular-core", natural_model),
             ("fem-filled-compaction", filled_model),
             ("fem-sector-formations", sector_model),
+            ("fem-four-sector-formations", four_model),
             ("fem-milliken-core", milliken_model)
         )
             geometry = extension_module._build_geometry!(model, name)

@@ -1,12 +1,36 @@
-"Record the resolved boundary shared by every member of one bounded formation."
+"""
+$(TYPEDEF)
+
+Record the bounded-formation provenance of one resolved member.
+
+The boundary identifies the complete formation while `course` records the
+inferred radial course. Course zero identifies the centre strand of a circular
+bundle or of one sector segment.
+
+$(TYPEDFIELDS)
+"""
 struct BoundedPlacement{B <: AbstractShape}
+    "Resolved boundary shared by every member of the formation."
     boundary::B
+    "Inferred radial course; zero denotes a centre member."
+    course::Int
+
+    function BoundedPlacement(boundary::B, course::Integer) where {
+            B <: AbstractShape
+    }
+        course >= 0 || throw(DomainError(
+            course, "bounded-placement course must be nonnegative"
+        ))
+        return new{B}(boundary, Int(course))
+    end
 end
 
 function resolve(at::Pose2, region::PlacedRegion)
     patterns = map(region.placement.patterns) do entry
         pattern = entry.pattern isa BoundedPlacement ?
-                  BoundedPlacement(resolve(at, entry.pattern.boundary)) : entry.pattern
+                  BoundedPlacement(
+            resolve(at, entry.pattern.boundary), entry.pattern.course
+        ) : entry.pattern
         (pattern = pattern, member = entry.member, pose = entry.pose)
     end
     return PlacedRegion(
@@ -188,10 +212,14 @@ function normalize_polygon_area(points, target_area::Real, centre)
 end
 
 function clip_halfplane(points, normal, offset)
-    isempty(points) && return points
+    return clip_halfplane!(eltype(points)[], points, normal, offset)
+end
+
+function clip_halfplane!(output, points, normal, offset)
+    empty!(output)
+    isempty(points) && return output
     scale = max(abs(offset), one(offset))
     tolerance = 128eps(float(scale)) * scale
-    output = eltype(points)[]
     previous = last(points)
     previous_value = normal[1] * previous[1] + normal[2] * previous[2] - offset
     previous_inside = previous_value <= tolerance
@@ -201,7 +229,8 @@ function clip_halfplane(points, normal, offset)
         if current_inside != previous_inside
             denominator = previous_value - current_value
             fraction = iszero(denominator) ? zero(denominator) :
-                       previous_value / denominator
+                       clamp(previous_value / denominator,
+                zero(denominator), one(denominator))
             push!(output,
                 (
                     previous[1] + fraction * (current[1] - previous[1]),
@@ -278,12 +307,20 @@ function weight_hessian(cells, sites, weights, scale)
     return matrix
 end
 
-function balance_power_cells(boundary, sites, targets; maxiter::Integer = 50)
+function balance_power_cells(boundary, sites, targets; maxiter::Integer = 50,
+        rtol::Real = 1.0e-11)
     count = length(sites)
     count == length(targets) || throw(DimensionMismatch(
         "power-cell sites and target areas must have equal lengths"
     ))
     count == 1 && return ([copy(boundary)], zeros(typeof(first(targets)), 1))
+    origin = polygon_centroid(boundary)
+    length_scale = sqrt(sum(targets))
+    boundary = [((point[1] - origin[1]) / length_scale,
+                 (point[2] - origin[2]) / length_scale) for point in boundary]
+    sites = [((point[1] - origin[1]) / length_scale,
+              (point[2] - origin[2]) / length_scale) for point in sites]
+    targets = targets ./ length_scale^2
     scale = maximum(point -> hypot(point...), boundary)
     weights = zeros(typeof(float(first(targets))), count)
     best_error = oftype(first(targets), Inf)
@@ -295,7 +332,12 @@ function balance_power_cells(boundary, sites, targets; maxiter::Integer = 50)
         areas = signed_polygon_area.(cells)
         residual = targets .- areas
         relative_error = maximum(abs.(residual) ./ targets)
-        relative_error <= 2.0e-6 && return (cells, weights)
+        if relative_error <= rtol
+            resolved = [[(origin[1] + length_scale * point[1],
+                          origin[2] + length_scale * point[2]) for point in cell]
+                        for cell in cells]
+            return (resolved, weights .* length_scale^2)
+        end
         if relative_error < best_error
             best_error = relative_error
         end
@@ -337,7 +379,7 @@ function balance_power_cells(boundary, sites, targets; maxiter::Integer = 50)
     end
     throw(ArgumentError(
         "bounded compaction did not converge; maximum relative cell-area error " *
-        "was $(best_error), target is 2e-6"
+        "was $(best_error), target is $rtol"
     ))
 end
 
@@ -352,136 +394,61 @@ function compact_power_cells(boundary, sites, targets; relaxations::Integer = 1)
     return cells
 end
 
-function axial_lattice(shells::Integer, spacing::Real)
-    shells >= 0 || throw(ArgumentError("axial lattice shell count must be nonnegative"))
-    T = typeof(float(spacing))
-    result = NamedTuple{(:site, :course), Tuple{Tuple{T, T}, Int}}[]
-    push!(result, (site = (zero(T), zero(T)), course = 0))
-    for course in 1:Int(shells)
-        coordinates = Tuple{Int, Int}[]
-        for q in (-course):course, r in (-course):course
-            max(abs(q), abs(r), abs(q + r)) == course || continue
-            push!(coordinates, (q, r))
+function course_count(available_area, strand_area)
+    ratio = nominal(available_area / strand_area)
+    capacity = ratio + 64eps(float(ratio))
+    capacity >= 6 || throw(DomainError(
+        available_area,
+        "a stranded formation requires enough area for its first six-wire course"
+    ))
+    courses = floor(Int, (sqrt(1 + 4ratio / 3) - 1) / 2)
+    # The inverse can round below an integer at exact full occupancy. Check
+    # the actual inventory in both directions, using the same area tolerance.
+    while 3(courses + 1) * (courses + 2) <= capacity
+        courses += 1
+    end
+    while 3courses * (courses + 1) > capacity
+        courses -= 1
+    end
+    return courses
+end
+
+function circular_courses(shape::Disk, centre::Disk, wire::Disk, compact::Bool)
+    courses = if compact
+        course_count(area(shape) - area(centre), area(wire))
+    else
+        ratio = nominal((shape.r - centre.r) / (2wire.r))
+        floor(Int, ratio + 64eps(float(ratio)))
+    end
+    courses >= 1 || throw(DomainError(
+        wire.r, "the disk boundary admits no complete six-wire course"
+    ))
+    source_area = area(centre) + 3courses * (courses + 1) * area(wire)
+    sites = NamedTuple[]
+    for course in 1:courses
+        count = 6course
+        radius = if compact
+            area_before = area(centre) + 3(course - 1) * course * area(wire)
+            area_middle = area_before + 3course * area(wire)
+            shape.r * sqrt(area_middle / source_area)
+        else
+            centre.r + (2course - 1) * wire.r
         end
-        sort!(coordinates; by = coordinate -> atan(
-            sqrt(T(3)) * (coordinate[2] + coordinate[1] / 2),
-            T(3) * coordinate[1] / 2
-        ))
-        for (q, r) in coordinates
-            push!(result, (
+        phase = isodd(course) ? zero(radius) : π / count
+        for member in 1:count
+            angle = phase + 2π * (member - 1) / count
+            push!(sites, (
                 site = (
-                    T(spacing) * (T(q) + T(r) / 2),
-                    T(spacing) * sqrt(T(3)) * T(r) / 2
+                    shape.at.x + radius * cos(angle),
+                    shape.at.y + radius * sin(angle)
                 ),
-                course
+                course,
+                member,
+                angle
             ))
         end
     end
-    return result
-end
-
-function disk_wire_sites(shape::Disk, centre::Disk, wire::Disk)
-    available = shape.r - wire.r
-    available >= zero(available) || throw(DomainError(
-        wire.r, "one circular wire does not fit inside the disk boundary"
-    ))
-    spacing = 2wire.r
-    shell_limit = ceil(Int, nominal(available / spacing)) + 2
-    tolerance = 256 * _geometry_tolerance(max(shape.r, centre.r, wire.r))
-    sites = NamedTuple[]
-    for candidate in Iterators.drop(axial_lattice(shell_limit, spacing), 1)
-        x = shape.at.x + candidate.site[1]
-        y = shape.at.y + candidate.site[2]
-        radius = hypot(candidate.site...)
-        radius + wire.r <= shape.r + tolerance || continue
-        radius + tolerance >= centre.r + wire.r || continue
-        push!(sites, (site = (x, y), course = candidate.course))
-    end
-    isempty(sites) && throw(DomainError(
-        wire.r, "the disk boundary admits no strand outside its centre wire"
-    ))
     return sites
-end
-
-function compact_disk_sites(shape::Disk, count::Integer)
-    count > 0 || throw(ArgumentError("compacted disk inventory must be positive"))
-    count == 1 && return [(site = (shape.at.x, shape.at.y), course = 0)]
-    shell = 1
-    lattice = axial_lattice(shell, one(shape.r))
-    while length(lattice) < count
-        shell += 1
-        lattice = axial_lattice(shell, one(shape.r))
-    end
-    selected = lattice[1:Int(count)]
-    outer = maximum(candidate -> hypot(candidate.site...), selected)
-    scale = iszero(outer) ? zero(shape.r) : 0.82shape.r / outer
-    return [(
-                site = (
-                    shape.at.x + scale * candidate.site[1],
-                    shape.at.y + scale * candidate.site[2]
-                ),
-                candidate.course
-            ) for candidate in selected]
-end
-
-function point_inside_convex(point, polygon)
-    tolerance = 256 * _geometry_tolerance(maximum(value -> hypot(value...), polygon))
-    return all(eachindex(polygon)) do index
-        next = mod1(index + 1, length(polygon))
-        edge = (
-            polygon[next][1] - polygon[index][1],
-            polygon[next][2] - polygon[index][2]
-        )
-        offset = (
-            point[1] - polygon[index][1],
-            point[2] - polygon[index][2]
-        )
-        edge[1] * offset[2] - edge[2] * offset[1] >= -tolerance
-    end
-end
-
-function sector_compact_sites(shape::SectorShape, count::Integer)
-    count > 0 || throw(ArgumentError("compacted sector inventory must be positive"))
-    polygon = boundary_polygon(shape; points = 64)
-    xs = first.(polygon)
-    ys = last.(polygon)
-    resolution = max(12, ceil(Int, sqrt(12count)))
-    candidates = Tuple{typeof(shape.at.x), typeof(shape.at.y)}[]
-    while length(candidates) < 4count
-        empty!(candidates)
-        for y in range(minimum(ys), maximum(ys); length = resolution)
-            for x in range(minimum(xs), maximum(xs); length = resolution)
-                point_inside_convex((x, y), polygon) && push!(candidates, (x, y))
-            end
-        end
-        resolution *= 2
-        resolution <= 2048 || throw(ArgumentError(
-            "could not seed the compacted sector inventory"
-        ))
-    end
-    centre = centroid(shape)
-    first_index = findmin(point -> hypot(
-        point[1] - centre[1], point[2] - centre[2]
-    ), candidates)[2]
-    selected = [candidates[first_index]]
-    deleteat!(candidates, first_index)
-    distances = [
-        (point[1] - selected[1][1])^2 + (point[2] - selected[1][2])^2
-        for point in candidates
-    ]
-    while length(selected) < count
-        index = findmax(distances)[2]
-        point = candidates[index]
-        push!(selected, point)
-        deleteat!(candidates, index)
-        deleteat!(distances, index)
-        for candidate in eachindex(candidates)
-            distance = (candidates[candidate][1] - point[1])^2 +
-                       (candidates[candidate][2] - point[2])^2
-            distances[candidate] = min(distances[candidate], distance)
-        end
-    end
-    return selected
 end
 
 function rectangular_strands(shape::Disk, centre::Disk, strand::Rectangle)
@@ -580,292 +547,223 @@ function accommodates(shape::SectorShape, centre, radius::Real)
     return _geometry_scalar(clearance(shape, centre) + tolerance - radius) >= 0
 end
 
-function sector_point(shape::SectorShape, radius, angle)
-    direction = shape.at.φ + angle
+function sector_polygon(shape::SectorShape; points::Integer = 17)
+    polygon = boundary_polygon(shape; points)
+    cosine = cos(shape.at.φ)
+    sine = sin(shape.at.φ)
+    first_index = findmin(polygon) do point
+        dx = point[1] - shape.at.x
+        dy = point[2] - shape.at.y
+        cosine * dx + sine * dy
+    end[2]
+    return [polygon[mod1(first_index + index - 1, length(polygon))]
+            for index in eachindex(polygon)]
+end
+
+function fan_measure(polygon, centre)
+    areas = map(eachindex(polygon)) do index
+        next = mod1(index + 1, length(polygon))
+        first_point = polygon[index]
+        last_point = polygon[next]
+        abs(
+            (first_point[1] - centre[1]) * (last_point[2] - centre[2]) -
+            (last_point[1] - centre[1]) * (first_point[2] - centre[2])
+        ) / 2
+    end
+    total = sum(areas)
+    total > zero(total) || throw(ArgumentError(
+        "a sector course requires a positive-area boundary"
+    ))
+    return [zero(total); cumsum(areas) ./ total]
+end
+
+function fan_point(polygon, measure, fraction)
+    wrapped = mod(fraction, one(fraction))
+    index = min(searchsortedlast(measure, wrapped), length(polygon))
+    width = measure[index + 1] - measure[index]
+    local_fraction = iszero(width) ? zero(width) :
+                     (wrapped - measure[index]) / width
+    next = mod1(index + 1, length(polygon))
     return (
-        shape.at.x + radius * cos(direction),
-        shape.at.y + radius * sin(direction)
+        polygon[index][1] + local_fraction *
+        (polygon[next][1] - polygon[index][1]),
+        polygon[index][2] + local_fraction *
+        (polygon[next][2] - polygon[index][2])
     )
 end
+"""
+$(TYPEDSIGNATURES)
 
-function sector_limit(shape::SectorShape, radius, strand_radius)
-    accommodates(shape, sector_point(shape, radius, zero(radius)), strand_radius) ||
-        return nothing
-    lower = zero(shape.primitive.span)
-    upper = shape.primitive.span / 2
-    accommodates(shape, sector_point(shape, radius, upper), strand_radius) &&
-        return upper
-    for _ in 1:64
-        middle = (lower + upper) / 2
-        if accommodates(shape, sector_point(shape, radius, middle), strand_radius)
-            lower = middle
-        else
-            upper = middle
-        end
+Map one centre strand and complete circular `6k` courses into a sector.
+The mapped sites retain their course identities while a prescribed-area power
+diagram allocates space; clipped disks supply the actual conductor shapes.
+
+For `L` courses and `N = 1 + 3L(L+1)` strands, the course sites are
+
+```math
+p_0=c,\\qquad
+p_{k,m}=c+\\sqrt{\\frac{1+3k^2}{N}}\\,[q(t_{k,m})-c],
+\\qquad t_{k,m}=\\frac{m+\\delta_k}{6k}.
+```
+
+Here `c` is the polygonal sector centroid and `q` traverses the boundary
+by normalized swept area. Sites remain fixed during power-cell balancing.
+
+# Arguments
+
+- `shape`: Resolved sector boundary, with coordinates in metres.
+- `wire`: Circular source strand; its area is preserved in every member.
+
+# Returns
+
+- Mapped members, resolved conductor polygons, and the number of outer courses.
+"""
+function sector_courses(shape::SectorShape, wire::Disk)
+    source_area = area(wire)
+    courses = course_count(area(shape) - source_area, source_area)
+    total_count = 1 + 3courses * (courses + 1)
+    points = 17
+    polygon = sector_polygon(shape; points)
+    while total_count * nominal(source_area) >
+          signed_polygon_area([nominal.(point) for point in polygon]) * (1 + 2.0e-6)
+        points = 2points - 1
+        points <= 16_385 || throw(ArgumentError(
+            "sector course tessellation could not preserve its source inventory"
+        ))
+        polygon = sector_polygon(shape; points)
     end
-    return lower
-end
-
-function shell_clear(left, right, diameter)
-    (isempty(left) || isempty(right)) && return true
-    scale = max(
-        diameter,
-        maximum(point -> hypot(point...), left),
-        maximum(point -> hypot(point...), right)
-    )
-    tolerance = 512 * _geometry_tolerance(scale)
-    threshold = _geometry_scalar(diameter - tolerance)
-    return all(left_point -> all(right_point ->
-            _geometry_scalar(hypot(
-                left_point[1] - right_point[1],
-                left_point[2] - right_point[2]
-            )) >= threshold, right), left)
-end
-
-function shell_gap(left, right)
-    return minimum(left_point -> minimum(right_point -> hypot(
-            left_point[1] - right_point[1],
-            left_point[2] - right_point[2]
-        ), right), left)
-end
-
-function shell_options(shape::SectorShape, radius, wire::Disk, shell::Int)
-    limit = sector_limit(shape, radius, wire.r)
-    limit === nothing && return NamedTuple[]
-    ratio = wire.r / radius
-    _geometry_scalar(ratio) <= 1 || return NamedTuple[]
-    minimum_step = 2asin(ratio)
-    width = 2limit
-    maximum_count = floor(Int,
-        _geometry_scalar(width / minimum_step) + 1 +
-        64eps(float(_geometry_scalar(width / minimum_step))))
-    maximum_count = max(maximum_count, 1)
-    phase_order = isodd(shell) ?
-                  (0.0, 1.0, 0.5, 0.25, 0.75, 0.125, 0.875, 0.375, 0.625) :
-                  (1.0, 0.0, 0.5, 0.75, 0.25, 0.875, 0.125, 0.625, 0.375)
-    options = NamedTuple[]
-    for count in maximum_count:-1:1
-        if count == 1
-            angles = (zero(limit),)
-            points = [sector_point(shape, radius, only(angles))]
-            push!(options, (radius, angles, points, count, arc = zero(radius)))
-            continue
-        end
-        maximum_step = width / (count - 1)
-        _geometry_scalar(maximum_step - minimum_step) >=
-            -256 * _geometry_tolerance(maximum_step) || continue
-        steps = typeof(minimum_step)[]
-        for fraction in phase_order
-            step = minimum_step + fraction * (maximum_step - minimum_step)
-            any(candidate -> isapprox(
-                    _geometry_scalar(candidate), _geometry_scalar(step);
-                    rtol = 64eps(float(_geometry_scalar(step))), atol = 0
-                ), steps) || push!(steps, step)
-        end
-        for step in steps
-            angles = ntuple(
-                index -> (index - (count + 1) / 2) * step,
-                count
+    polygon = [nominal.(point) for point in polygon]
+    centre = polygon_centroid(polygon)
+    measure = fan_measure(polygon, centre)
+    members = [(site = centre, course = 0, member = 1, angle = zero(shape.at.φ))]
+    for course in 1:courses
+        count = 6course
+        scale = sqrt((1 + 3course^2) / total_count)
+        phase = isodd(course) ? 0.0 : 0.5
+        for member in 1:count
+            point = fan_point(polygon, measure, (member - 1 + phase) / count)
+            site = (
+                centre[1] + scale * (point[1] - centre[1]),
+                centre[2] + scale * (point[2] - centre[2])
             )
-            points = [sector_point(shape, radius, angle) for angle in angles]
-            all(point -> accommodates(shape, point, wire.r), points) || continue
-            shell_clear(points, 2wire.r) || continue
-            push!(options, (
-                radius,
-                angles,
-                points,
-                count,
-                arc = radius * (last(angles) - first(angles))
+            push!(members, (
+                site,
+                course,
+                member,
+                angle = atan(site[2] - centre[2], site[1] - centre[1])
             ))
         end
     end
-    return options
-end
-
-function shell_clear(points, diameter)
-    length(points) < 2 && return true
-    scale = max(diameter, maximum(point -> hypot(point...), points))
-    tolerance = 512 * _geometry_tolerance(scale)
-    threshold = _geometry_scalar(diameter - tolerance)
-    return all(
-        _geometry_scalar(hypot(
-            points[left][1] - points[right][1],
-            points[left][2] - points[right][2]
-        )) >= threshold
-        for left in 1:(length(points) - 1)
-        for right in (left + 1):length(points)
-    )
-end
-
-function phase_layout(shape::SectorShape, wire::Disk, radii, odd_first::Bool)
-    states = NamedTuple[]
-    for (shell, radius) in enumerate(radii)
-        options = shell_options(shape, radius, wire, shell)
-        isempty(options) && return nothing
-        odd_shell = isodd(shell) == odd_first
-        candidates = filter(option -> isodd(option.count) == odd_shell, options)
-        isempty(candidates) && return nothing
-
-        if shell == 1
-            states = [(
-                layout = [candidate],
-                score = (
-                    candidate.count,
-                    zero(_geometry_scalar(candidate.arc)),
-                    _geometry_scalar(candidate.arc)
-                )
-            ) for candidate in candidates]
-            continue
-        end
-
-        next_states = NamedTuple[]
-        for candidate in candidates
-            best_state = nothing
-            best_score = nothing
-            for state in states
-                previous = last(state.layout)
-                candidate.count >= previous.count || continue
-                shell_clear(previous.points, candidate.points, 2wire.r) || continue
-                score = (
-                    state.score[1] + candidate.count,
-                    state.score[2] - abs(_geometry_scalar(
-                        shell_gap(previous.points, candidate.points) - 2wire.r
-                    )),
-                    state.score[3] + _geometry_scalar(candidate.arc)
-                )
-                if best_state === nothing || score > best_score
-                    best_state = state
-                    best_score = score
-                end
-            end
-            best_state === nothing && continue
-            push!(next_states, (
-                layout = [best_state.layout; candidate],
-                score = best_score
-            ))
-        end
-        isempty(next_states) && return nothing
-        states = next_states
-    end
-    best = first(states)
-    for state in Iterators.drop(states, 1)
-        state.score > best.score && (best = state)
-    end
-    return best.layout
-end
-
-function sector_wire_sites(shape::SectorShape, wire::Disk)
-    minimum_pitch = sqrt(oftype(wire.r, 3)) * wire.r
-    maximum_pitch = 2wire.r
-    minimum_radius = shape.primitive.r_base + wire.r
-    maximum_radius = shape.primitive.r_back - wire.r
-    _geometry_scalar(maximum_radius - minimum_radius) >= 0 || throw(DomainError(
-        wire.r,
-        "one circular wire does not fit inside the sector boundary"
-    ))
-    best = nothing
-    best_score = nothing
-    tolerance = 256 * _geometry_tolerance(maximum_radius)
-    for pitch_fraction in range(0.0, 1.0; length = 9)
-        radial_pitch = minimum_pitch +
-                       pitch_fraction * (maximum_pitch - minimum_pitch)
-        ratio = _geometry_scalar(
-            (maximum_radius - minimum_radius) / radial_pitch
-        )
-        outer_phase = ratio - floor(ratio)
-        phases = collect(range(0.0, 1.0; length = 9))[1:(end - 1)]
-        any(phase -> isapprox(
-                phase, outer_phase; atol = 64eps(Float64), rtol = 0
-            ), phases) || push!(phases, outer_phase)
-        for phase in phases, odd_first in (true, false)
-            radii = typeof(minimum_radius)[]
-            radius = minimum_radius + phase * radial_pitch
-            while _geometry_scalar(radius - maximum_radius) <= tolerance
-                sector_limit(shape, radius, wire.r) === nothing || push!(radii, radius)
-                radius += radial_pitch
-            end
-            isempty(radii) && continue
-            layout = phase_layout(shape, wire, radii, odd_first)
-            layout === nothing && continue
-            count = sum(option -> option.count, layout)
-            arc = sum(option -> option.arc, layout)
-            radial_extent = last(layout).radius - first(layout).radius
-            contact = sum(2:length(layout); init = zero(radial_pitch)) do shell
-                -abs(shell_gap(layout[shell - 1].points, layout[shell].points) - 2wire.r)
-            end
-            score = (
-                count,
-                length(layout),
-                _geometry_scalar(radial_extent),
-                _geometry_scalar(arc),
-                _geometry_scalar(contact),
-                -pitch_fraction,
-                -phase,
-                odd_first
-            )
-            if best === nothing || score > best_score
-                best = layout
-                best_score = score
-            end
-        end
-    end
-    best === nothing && throw(DomainError(
-        wire.r,
-        "one circular wire does not fit inside the sector boundary"
-    ))
-    return reduce(vcat, getproperty.(best, :points))
-end
-
-function boundary_anchor(cell, boundary, centre)
-    scale = maximum(point -> hypot(point...), boundary)
-    tolerance = 4096eps(float(scale)) * max(scale, one(scale))
-    candidates = eltype(cell)[]
-    for point in cell
-        for index in eachindex(boundary)
-            next = mod1(index + 1, length(boundary))
-            edge = (
-                boundary[next][1] - boundary[index][1],
-                boundary[next][2] - boundary[index][2]
-            )
-            length_squared = edge[1]^2 + edge[2]^2
-            iszero(length_squared) && continue
-            offset = (point[1] - boundary[index][1], point[2] - boundary[index][2])
-            fraction = clamp(
-                (offset[1] * edge[1] + offset[2] * edge[2]) / length_squared,
-                zero(length_squared), one(length_squared)
-            )
-            projection = (
-                boundary[index][1] + fraction * edge[1],
-                boundary[index][2] + fraction * edge[2]
-            )
-            hypot(point[1] - projection[1], point[2] - projection[2]) <= tolerance ||
-                continue
-            push!(candidates, point)
-            break
-        end
-    end
-    isempty(candidates) && return polygon_centroid(cell)
-    index = findmax(
-        point -> (point[1] - centre[1])^2 + (point[2] - centre[2])^2,
-        candidates
-    )[2]
-    return candidates[index]
-end
-
-function area_preserving_strand(cell, source_area, boundary, boundary_centre)
-    cell_area = signed_polygon_area(cell)
-    source_area <= cell_area * (one(cell_area) + 4.0e-6) || throw(DomainError(
-        source_area, "a source strand does not fit inside its assigned power cell"
-    ))
-    factor = min(one(cell_area), sqrt(source_area / cell_area))
-    anchor = boundary_anchor(cell, boundary, boundary_centre)
-    points = [
-        (
-            anchor[1] + factor * (point[1] - anchor[1]),
-            anchor[2] + factor * (point[2] - anchor[2])
-        ) for point in cell
+    targets = fill(signed_polygon_area(polygon) / total_count, total_count)
+    cells, _ = balance_power_cells(polygon, getproperty.(members, :site), targets)
+    primitives = [
+        resolved_polygon(
+            area_preserving_strand(cell, source_area; angle = shape.at.φ),
+            zero(shape.at.φ)
+        ) for cell in cells
     ]
-    return normalize_polygon_area(points, source_area, anchor)
+    return members, primitives, courses
+end
+
+function clipped_disk!(points, scratch, cell, radius, directions)
+    empty!(points)
+    for point in directions
+        push!(points, (radius * point[1], radius * point[2]))
+    end
+    for index in eachindex(cell)
+        next = mod1(index + 1, length(cell))
+        first_point, last_point = cell[index], cell[next]
+        normal = (last_point[2] - first_point[2], first_point[1] - last_point[1])
+        offset = normal[1] * first_point[1] + normal[2] * first_point[2]
+        clip_halfplane!(scratch, points, normal, offset)
+        points, scratch = scratch, points
+    end
+    return points
+end
+
+"""
+$(TYPEDSIGNATURES)
+
+Grow a disk about a convex cell's centroid until its intersection with the cell
+has the prescribed strand area:
+
+```math
+W_i=P_i\\cap D(c_i,\\rho_i),\\qquad |W_i|=A_i,
+\\qquad c_i=\\operatorname{centroid}(P_i).
+```
+
+The disk is approximated by a regular polygon. Bisection solves its radius
+against the area of the clipped polygon, so the area tolerance is independent
+of the arc tessellation. Cell faces bound contact regions; free boundaries
+follow the disk. Full occupancy returns the cell within the boundary's
+geometric tolerance.
+
+# Arguments
+
+- `cell`: Counter-clockwise vertices of an allocated convex cell \\[m\\].
+- `source_area`: Prescribed transverse conductor area \\[m²\\].
+
+# Keywords
+
+- `angle=0`: Orientation of the disk tessellation \\[rad\\].
+- `points=128`: Vertices in the disk approximation.
+
+# Returns
+
+- Vertices of the strand polygon, contained in its cell to numerical tolerance.
+"""
+function area_preserving_strand(cell, source_area; angle = 0, points::Integer = 128)
+    points >= 16 || throw(ArgumentError("a clipped disk requires at least 16 vertices"))
+    target = nominal(source_area)
+    cell_area = signed_polygon_area(cell)
+    target > 0 || throw(DomainError(source_area, "strand area must be positive"))
+    target <= cell_area * (1 + 4.0e-6) || throw(DomainError(
+        source_area, "a source strand does not fit inside its allocated cell"
+    ))
+    centre = polygon_centroid(cell)
+    if target >= cell_area * (1 - 64eps(float(cell_area)))
+        return normalize_polygon_area(cell, source_area, centre)
+    end
+
+    # Solve at unit area to avoid coordinate-scale tolerances and cancellation.
+    scale = sqrt(target)
+    local_cell = [((point[1] - centre[1]) / scale,
+                   (point[2] - centre[2]) / scale) for point in cell]
+    directions = [(cos(angle + 2pi * index / points),
+                   sin(angle + 2pi * index / points)) for index in 0:(points - 1)]
+    lower = inv(sqrt(pi))
+    upper = maximum(point -> hypot(point...), local_cell) / cos(pi / points)
+    radius = lower
+    buffer = similar(directions, 0)
+    scratch = similar(buffer)
+    sizehint!(buffer, points + length(cell))
+    sizehint!(scratch, points + length(cell))
+    strand = buffer
+    for _ in 1:64
+        radius = (lower + upper) / 2
+        strand = clipped_disk!(buffer, scratch, local_cell, radius, directions)
+        value = signed_polygon_area(strand)
+        abs(value - 1) <= 64eps(float(value)) && break
+        value < 1 ? (lower = radius) : (upper = radius)
+    end
+
+    # Differentiate the scalar area constraint for uncertainty-bearing inputs;
+    # the nominal cell topology is fixed, as in the existing compaction model.
+    if !iszero(source_area - target)
+        step = cbrt(eps(float(radius))) * radius
+        area_plus = signed_polygon_area(
+            clipped_disk!(buffer, scratch, local_cell, radius + step, directions)
+        )
+        area_minus = signed_polygon_area(
+            clipped_disk!(buffer, scratch, local_cell, radius - step, directions)
+        )
+        derivative = (area_plus - area_minus) / (2step)
+        radius += (source_area / target - 1) / derivative
+        point_type = typeof((radius * first(directions)[1], radius * first(directions)[2]))
+        strand = clipped_disk!(point_type[], point_type[], local_cell, radius, directions)
+    end
+    return [(centre[1] + scale * point[1], centre[2] + scale * point[2])
+            for point in strand]
 end
 
 function resolved_polygon(points, angle)
@@ -910,11 +808,10 @@ function deform_disk_members(boundary_shape, members)
               nominal_total_source_area
     sites = [nominal.(member.site) for member in members]
     cells = compact_power_cells(polygon, sites, targets)
-    centre = nominal.(centroid(boundary_shape))
     return [
         resolved_polygon(
             area_preserving_strand(
-                cells[index], source_areas[index], polygon, centre
+                cells[index], source_areas[index]; angle = boundary_shape.at.φ
             ),
             members[index].angle
         ) for index in eachindex(members)

@@ -475,6 +475,8 @@ end
         :cable_525kv_subsea_armoured_ac_flat=>(9, 9, 227),
         :cable_525kv_subsea_armoured_dc_bipole=>(6, 6, 227),
         :cable_18kv_1000mm2_trefoil=>(9, 9, 101),
+        :cable_220kv_eaxecew_1x2500_252_trefoil=>(9, 9, 101),
+        :cable_132kv_cigre_tb880_case0_630cu_trefoil=>(6, 6, 101),
         :cable_132kv_630mm2_flathor=>(9, 9, 101),
         :cable_380kv_2000mm2_flatver=>(9, 9, 101),
         :cable_525kv_1600mm2_bipole=>(6, 6, 101),
@@ -559,6 +561,9 @@ end
         :cable_18kv_1000mm2_trefoil=>(
             (61,), (49, 1), ()
         ),
+        # Milliken courses belong to nested sector assemblies, not a core Ring.
+        :cable_220kv_eaxecew_1x2500_252_trefoil=>((), (65,), ()),
+        :cable_132kv_cigre_tb880_case0_630cu_trefoil=>((), ()),
         :cable_380kv_2000mm2_flatver=>(
             (61,), (14, 1), ()
         ),
@@ -637,6 +642,40 @@ end
             )
         end
         @test basename(index[id]) == string(id, ".jl")
+    end
+
+    for (id, expected_radius) in (
+        (:cable_220kv_eaxecew_1x2500_252_trefoil, 0.0631),
+        (:cable_132kv_cigre_tb880_case0_630cu_trefoil, 0.03775)
+    )
+        model=load_case(id)
+        design=first(model.nominal_problem.system.designs)
+        @test design.terminal_order == (id === :cable_220kv_eaxecew_1x2500_252_trefoil ?
+                                       [:core, :sheath, :foil] : [:core, :sheath])
+        @test outer_radius(design) ≈ expected_radius
+        @test all(==(design), model.nominal_problem.system.designs)
+        positions=model.nominal_problem.system.positions
+        separations=[hypot(positions[i].x-positions[j].x, positions[i].y-positions[j].y)
+                     for i in 1:3 for j in 1:(i-1)]
+        @test all(distance->isapprox(distance, 2.2expected_radius), separations)
+        semicons=filter(r->r.source.material.kind===:semicon, design.geometry.regions)
+        @test length(semicons) == 2
+        @test all(r->r.source.material.rho==0.06&&r.source.material.eps_r==1000.0, semicons)
+        xlpe=only(filter(r->r.source.tag in (:xlpe, :xlpe_insulation), design.geometry.regions))
+        @test xlpe.source.material.tan_delta == 0.001
+        if id === :cable_220kv_eaxecew_1x2500_252_trefoil
+            core=filter(r->r.terminal===:core, design.geometry.regions)
+            @test length(core) == 1 + 6 * 61
+            @test count(r->r.source.tag===:copper_screen_wires, design.geometry.regions) == 65
+            @test only(filter(r->r.source.tag===:aluminium_foil, design.geometry.regions)).terminal === :foil
+            strands=filter(r->r.primitive isa LineCableModels.Polygon, core)
+            @test length(strands) == 6 * 61
+            @test all(r->isapprox(area(r.primitive), pi*0.001475^2; rtol=5e-6), strands)
+        else
+            core=only(filter(r->r.terminal===:core, design.geometry.regions))
+            @test core.primitive isa Disk
+            @test core.primitive.r == 0.01515
+        end
     end
 
     two_wire_case=load_case(:two_bare_wires)

@@ -2,7 +2,6 @@ const _ADDON_BUTTON_SIZE = 32
 const _ADDON_BUTTON_BACKGROUND = Makie.RGBf(0.94, 0.94, 0.94)
 const _ADDON_ICON_COLOR = Makie.RGBAf(0.15, 0.15, 0.15, 1.0)
 const _ADDON_COLORBAR_DOCK_LENGTH = 140
-const _ADDON_COLORBAR_DOCK_CROSS_SIZE = 220
 const _ADDON_MIN_AXIS_CELL_WIDTH = 240
 const _ADDON_MIN_AXIS_CELL_HEIGHT = 220
 const _ADDON_MIN_WINDOW_SIZE = (600, 320)
@@ -1196,7 +1195,31 @@ function _addon_colorbar!(position, scale; attributes)
             label = scale.label
         ),
         attributes)
-    return Colorbar(position; options...)
+    colorbar = Colorbar(position; options...)
+    if !haskey(attributes, :alignmode)
+        # Makie reserves space perpendicular to a colorbar, but not for labels
+        # extending beyond its endpoints. Include the rendered text extents in
+        # the native layout, independently of the bar's position or length.
+        labels = colorbar.axis.elements[:ticklabels]
+        bounds = Makie.fast_string_boundingboxes_obs(labels)
+        onany(colorbar.blockscene, bounds, colorbar.vertical,
+            colorbar.ticklabelsvisible; update = true) do boxes, vertical, visible
+            dimension = vertical ? 2 : 1
+            finite_boxes = filter(box -> isfinite(box.origin[dimension]) &&
+                                  isfinite(box.widths[dimension]), boxes)
+            before = visible ? ceil(maximum(
+                box -> -box.origin[dimension], finite_boxes; init = 0.0
+            )) : 0.0
+            after = visible ? ceil(maximum(
+                box -> box.origin[dimension] + box.widths[dimension],
+                finite_boxes; init = 0.0
+            )) : 0.0
+            colorbar.alignmode[] = vertical ?
+                                  Mixed(bottom = before, top = after) :
+                                  Mixed(left = before, right = after)
+        end
+    end
+    return colorbar
 end
 
 function LineCableModels.materialscale!(position, scheme; kwargs...)
@@ -1229,14 +1252,7 @@ function _addon_colorbars!(
         (;)
     end
     options = merge((; vertical), perpendicular_length, attributes)
-    grid_dimensions = if vertical && default_orientation === :horizontal
-        (; height = _ADDON_COLORBAR_DOCK_CROSS_SIZE)
-    elseif !vertical && default_orientation === :vertical
-        (; width = _ADDON_COLORBAR_DOCK_CROSS_SIZE)
-    else
-        (;)
-    end
-    grid = GridLayout(; grid_dimensions...)
+    grid = GridLayout()
     grid.default_rowgap = Fixed(10)
     grid.default_colgap = Fixed(8)
     slot[] = grid
@@ -1255,9 +1271,7 @@ function _addon_colorbars!(
                 options,
                 (;
                     label = "",
-                    labelvisible = false,
-                    alignmode = Mixed(left = 0, right = 0),
-                    tellwidth = false
+                    labelvisible = false
                 )
             )
             _addon_colorbar!(grid[index, 2], scale; attributes = compact_options)
@@ -1268,7 +1282,7 @@ function _addon_colorbars!(
     end
     if compact_side_dock
         colsize!(grid, 1, Auto(true))
-        colsize!(grid, 2, Fixed(_ADDON_COLORBAR_DOCK_LENGTH))
+        colsize!(grid, 2, Auto(true))
     end
     return (; colorbars = Tuple(colorbars), layout = grid)
 end
@@ -1415,12 +1429,14 @@ function _addon_finish!(
             legend_target = dock[1, 1]
             resolved_colorbar_target = dock[2, 1]
             rowsize!(dock, 1, Auto(false, 1))
-            rowsize!(dock, 2, Auto(true, 0))
+            # A length that is not intrinsic must share the available space,
+            # not collapse to zero when the legend occupies the same dock.
+            rowsize!(dock, 2, Auto(true, 1))
         else
             legend_target = dock[1, 1]
             resolved_colorbar_target = dock[1, 2]
             colsize!(dock, 1, Auto(false, 1))
-            colsize!(dock, 2, Auto(true, 0))
+            colsize!(dock, 2, Auto(true, 1))
         end
         resolved_colorbar_orientation = shared_orientation
         dock_targets[legend_position] = (;
@@ -1537,12 +1553,12 @@ function _addon_figure_legend_target!(data, position)
         legend_target = dock[1, 1]
         colorbar_target = dock[2, 1]
         rowsize!(dock, 1, Auto(false, 1))
-        rowsize!(dock, 2, Auto(true, 0))
+        rowsize!(dock, 2, Auto(true, 1))
     else
         legend_target = dock[1, 1]
         colorbar_target = dock[1, 2]
         colsize!(dock, 1, Auto(false, 1))
-        colsize!(dock, 2, Auto(true, 0))
+        colsize!(dock, 2, Auto(true, 1))
     end
     colorbar_target[] = data.colorbar_layout
     target = (; target = legend_target, orientation)

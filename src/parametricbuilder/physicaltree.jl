@@ -605,30 +605,32 @@ function _stranded(
     shape isa Union{DataModel.Disk, DataModel.Rectangle} || throw(ArgumentError(
         "stranded members must be Disk wires or Rectangle strands"
     ))
-    compaction = compact === nothing ? shape isa DataModel.Rectangle : compact
-    compaction isa Bool || throw(ArgumentError(
-        "bounded stranded compaction is selected with compact=true or compact=false; " *
-        "FillFactor remains a course-level placement law"
-    ))
-
     if prescribed_boundary isa DataModel.Sector
         shape isa DataModel.Disk || throw(ArgumentError(
             "a sector stranded core requires circular Disk wires"
         ))
         center === nothing || throw(ArgumentError(
-            "a sector stranded formation has no central member"
+            "a sector bundle infers its centre strand from shape; omit center"
         ))
+        compact === nothing || throw(ArgumentError(
+            "sector stranded cores are intrinsically compacted; omit compact"
+        ))
+        compaction = nothing
     else
         if shape isa DataModel.Disk
             center === nothing && (center = shape)
+            compaction = compact === nothing ? false : compact
+            compaction isa Bool || throw(ArgumentError(
+                "circular stranded compaction is selected with compact=true or false"
+            ))
         else
             center isa DataModel.Disk || throw(ArgumentError(
                 "a rectangular stranded core requires center=Disk(...)"
             ))
-            compaction || throw(ArgumentError(
-                "rectangular strands require area-preserving bending; omit compact " *
-                "or pass compact=true"
+            compact === nothing || throw(ArgumentError(
+                "rectangular strands are intrinsically bent; omit compact"
             ))
+            compaction = true
         end
         center isa DataModel.Disk || throw(ArgumentError(
             "a disk-bounded stranded core requires one circular centre wire"
@@ -680,6 +682,13 @@ $(TYPEDSIGNATURES)
 Fill one authoritative core boundary with the maximum admissible inventory of
 equal source strands.
 
+Circular source bundles have one centre strand and `6k` strands in course `k`.
+A sector admits the largest complete inventory satisfying
+``[1 + 3L(L+1)]\\,\\pi a^2 \\leq A_{\\mathrm{sector}}``. Its mapped sites define
+a prescribed-area power diagram; disks clipped to those cells retain each
+source area. This geometric reconstruction preserves the declared copper
+fill and does not model mechanical forming or plasticity.
+
 # Arguments
 
 - `material`: Material with `kind == :conductor`.
@@ -688,7 +697,8 @@ equal source strands.
 
 - `center=nothing`: Circular centre member for a disk-bounded core. Circular
   strands default to one centre wire equal to `shape`; rectangular strands
-  require an explicit `Disk`. Sector-bounded phase cores have no centre wire.
+  require an explicit `Disk`. A sector bundle infers its centre strand from
+  `shape` and does not admit a separate centre declaration.
 - `shape`: Circular wire or rectangular strand primitive.
 - `boundary`: Authoritative nonhollow `Disk` or `Sector` core boundary.
 - `fill=air`: Interstitial insulating or semiconducting material. The default
@@ -696,9 +706,9 @@ equal source strands.
 - `lay=nothing`: One lay law or a schedule matching the inferred radial courses.
 - `dir=1`: Helix handedness or a schedule matching `lay`.
 - `φ0=0`: Helix initial angle or a schedule matching `lay` \\[rad\\].
-- `compact=nothing`: Circular strands remain circular by default; `true`
-  requests area-preserving deformation. Rectangular strands are always bent
-  area-preservingly and therefore default to `true`.
+- `compact=nothing`: Circular disk-bounded strands remain circular by default;
+  `true` requests area-preserving deformation. Sector and rectangular
+  stranding are intrinsically deformed and do not admit this keyword.
 - `combine=:product`: Gridspace composition rule.
 
 # Returns
@@ -784,7 +794,6 @@ function _milliken(
         lay,
         dir,
         φ0,
-        compact,
         fill
 )
     material = _require_material(material, :milliken, (:conductor,))
@@ -810,7 +819,7 @@ function _milliken(
         lay,
         dir,
         φ0,
-        compact,
+        nothing,
         segment,
         fill
     )
@@ -875,8 +884,10 @@ end
 """
 $(TYPEDSIGNATURES)
 
-Declare one Milliken conductor as a centre wire surrounded by equal stranded
-sector segments. Every conductive descendant resolves to one `:core` terminal.
+Declare one Milliken conductor as a cable-centre wire surrounded by equal
+stranded sector segments. Each segment contains its own bundle-centre strand
+and complete `6k` courses. Every conductive descendant resolves to one `:core`
+terminal.
 
 # Arguments
 
@@ -891,8 +902,6 @@ sector segments. Every conductive descendant resolves to one `:core` terminal.
 - `lay=nothing`: Common strand lay law.
 - `dir=1`: Helix handedness \\[dimensionless\\].
 - `φ0=0`: Helix initial angle \\[rad\\].
-- `compact=nothing`: Preserve circular wires; `true` deforms them while
-  preserving each source area.
 - `fill=air`: Interstitial material around the centre and every segment strand.
 - `combine=:product`: Gridspace composition rule.
 
@@ -912,13 +921,11 @@ function milliken(
         lay = nothing,
         dir = 1,
         φ0 = 0,
-        compact = nothing,
         fill = Materials.Material(:insulator, Inf),
         combine::Symbol = :product
 )
     values = (
-        material, shape, segment, segments, lay, dir, φ0,
-        compact, fill
+        material, shape, segment, segments, lay, dir, φ0, fill
     )
     return parameterize(DataModel.Enclosure, _milliken, values; combine)
 end

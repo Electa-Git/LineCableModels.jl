@@ -155,21 +155,6 @@
                                                                     }
                                                                 },
                                                                 "dir": 1
-                                                            },
-                                                            {
-                                                                "kind": "helix",
-                                                                "φ0": {
-                                                                    "value": 0,
-                                                                    "__type__": "Float64"
-                                                                },
-                                                                "lay": {
-                                                                    "kind": "lay_ratio",
-                                                                    "q": {
-                                                                        "value": 11,
-                                                                        "__type__": "Float64"
-                                                                    }
-                                                                },
-                                                                "dir": 1
                                                             }
                                                         ],
                                                         "boundary": null

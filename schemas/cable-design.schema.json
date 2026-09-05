@@ -297,7 +297,10 @@
         {
           "type": "object", "required": ["kind", "name", "at", "item", "pattern", "path", "compact", "boundary"],
           "properties": {"kind": {"const": "group"}, "name": {"type": "string", "minLength": 1}, "at": {"$ref": "#/$defs/pose"}, "item": {"$ref": "#/$defs/part"}, "pattern": {"$ref": "#/$defs/pattern"}, "path": {"$ref": "#/$defs/path"}, "compact": {"$ref": "#/$defs/compaction"}, "boundary": {"oneOf": [{"type": "null"}, {"allOf": [{"$ref": "#/$defs/primitive"}, {"properties": {"kind": {"enum": ["disk", "sector"]}}, "required": ["kind"]}]}]}},
-          "allOf": [{"if": {"properties": {"boundary": {"not": {"type": "null"}}}, "required": ["boundary"]}, "then": {"properties": {"pattern": {"type": "null"}, "path": {"type": "null"}}}}],
+          "allOf": [
+            {"if": {"properties": {"boundary": {"not": {"type": "null"}}}, "required": ["boundary"]}, "then": {"properties": {"pattern": {"type": "null"}, "path": {"type": "null"}}}},
+            {"if": {"properties": {"boundary": {"properties": {"kind": {"const": "sector"}}, "required": ["kind"]}}, "required": ["boundary"]}, "then": {"properties": {"compact": {"type": "null"}}}}
+          ],
           "additionalProperties": false
         },
         {

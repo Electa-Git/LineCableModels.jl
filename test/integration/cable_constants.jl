@@ -43,6 +43,47 @@
             packed_constants.C, packed_constants.G)
         ))
 
+    shared_boundary=Disk(2.5e-3)
+    natural_design=build(
+        CableDesign,
+        "natural-six-course-core",
+        terminal(
+            :core,
+            stranded(
+                packed_material;
+                shape = Disk(0.5e-3),
+                boundary = shared_boundary
+            )
+        ),
+        insulation(packed_dielectric; t = 1e-3)
+    )
+    compacted_design=build(
+        CableDesign,
+        "compacted-six-course-core",
+        terminal(
+            :core,
+            stranded(
+                packed_material;
+                shape = Disk(0.5e-3),
+                compact = true,
+                boundary = shared_boundary
+            )
+        ),
+        insulation(packed_dielectric; t = 1e-3)
+    )
+    natural_component=only(LineCableModels.DataModel.flatten(natural_design, 50.0))
+    compacted_component=only(LineCableModels.DataModel.flatten(compacted_design, 50.0))
+    @test natural_component.conductor.cross_section ==
+          compacted_component.conductor.cross_section
+    @test natural_component.conductor.resistance ==
+          compacted_component.conductor.resistance
+    @test natural_component.conductor.r_ex == compacted_component.conductor.r_ex
+    @test natural_component.conductor.gmr != compacted_component.conductor.gmr
+    natural_constants=CableConstants(natural_design; frequency = 50.0)
+    compacted_constants=CableConstants(compacted_design; frequency = 50.0)
+    @test natural_constants.C == compacted_constants.C
+    @test natural_constants.G == compacted_constants.G
+
     sector_design=build(
         CableDesign,
         "sector-stranded-core",
@@ -66,7 +107,8 @@
         sector_design.geometry.regions
     )
     @test !isempty(sector_wires)
-    @test all(region -> region.primitive isa Disk, sector_wires)
+    @test all(region -> region.primitive isa LineCableModels.DataModel.Polygon,
+        sector_wires)
     @test length(sector_design.geometry.regions) == length(sector_wires) + 2
     @test count(
         region -> region.source.material.kind === :insulator,

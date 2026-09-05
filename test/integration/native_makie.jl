@@ -1,3 +1,58 @@
+@testitem "Makie addons / colorbar endpoint labels stay inside the figure" tags=[:visual] setup=[
+    NativePlotTestSupport, UseNativePlotSupport
+] begin
+    using CairoMakie
+
+    copper = Material(kind=:conductor, rho=1.7241e-8)
+    insulation_material = Material(kind=:insulator, rho=1e14, eps_r=3.5)
+    design = @cable "colorbar-endpoints" begin
+        @terminal :core begin
+            core(copper; r=3e-3)
+            insulation(insulation_material; t=1e-3)
+        end
+    end
+
+    function ticklabels_fit(plot)
+        Makie.colorbuffer(plot.figure)
+        viewport = plot.figure.scene.viewport[]
+        return all(plot.colorbars) do colorbar
+            bounds = Makie.boundingbox(colorbar.axis.elements[:ticklabels], :data)
+            all(>(0), colorbar.layoutobservables.computedbbox[].widths) && all(1:2) do dimension
+                bounds.origin[dimension] >= viewport.origin[dimension] - 0.5 &&
+                    bounds.origin[dimension] + bounds.widths[dimension] <=
+                    viewport.origin[dimension] + viewport.widths[dimension] + 0.5
+            end
+        end
+    end
+
+    @testset "$position / vertical=$vertical" for position in (:left, :right, :top, :bottom), vertical in (false, true)
+        plot = preview(design; backend=:cairo, display_plot=false, controls=false,
+            size=(850, 650), legend_position=position, colorbar_position=position,
+            colorbar_attributes=(; vertical))
+        @test ticklabels_fit(plot)
+        colorbar = first(plot.colorbars)
+        colorbar.ticks[] = (collect(colorbar.limits[]),
+            ["1.724100 × 10⁻⁸", "2.500000 × 10⁻⁷"])
+        colorbar.ticklabelsize[] = 20
+        colorbar.ticklabelrotation[] = pi / 8
+        @test ticklabels_fit(plot)
+        # Narrow the window while retaining height for three enlarged scales.
+        resize!(plot.figure, 700, 650)
+        @test ticklabels_fit(plot)
+    end
+
+    late = preview(design; backend=:cairo, display_plot=false, controls=false,
+        display_legend=false, colorbar_attributes=(; vertical=true))
+    @test ticklabels_fit(late)
+    figurelegend!(late; position=:right, overflow=:show_all)
+    @test ticklabels_fit(late)
+
+    figure = Figure(size=(500, 300))
+    scheme = materialcolors(:rho, (1.7241e-8, 2.5e-7))
+    scale = materialscale!(figure[1, 1], scheme; vertical=false, alignmode=Inside())
+    @test scale.alignmode[] isa Inside
+end
+
 @testitem "Makie addons / native figures, layouts, docks, widgets, and export" tags=[:visual] setup=[
     NativePlotTestSupport, UseNativePlotSupport, TestFixtures
 ] begin
@@ -25,10 +80,10 @@
     @test all(page -> length(page.axes) == 4, automatic)
     @test all(page -> page.legend === nothing, automatic)
     @test [first(page.axes).title[] for page in automatic] == [
-        "Self series resistance — conductor 1",
-        "Self series reactance — conductor 1",
-        "Self shunt conductance — conductor 1",
-        "Self shunt susceptance — conductor 1"
+        "Self- series resistance, conductor 1",
+        "Self- series reactance, conductor 1",
+        "Self- shunt conductance, conductor 1",
+        "Self- shunt susceptance, conductor 1"
     ]
     automatic_page=first(automatic)
     @test automatic_page.figure isa Makie.Figure
@@ -46,8 +101,8 @@
     )
     @test side_by_side isa UIPlot
     @test [axis.title[] for axis in side_by_side.axes] == [
-        "Self series resistance — conductor 1",
-        "Self series reactance — conductor 1"
+        "Self- series resistance, conductor 1",
+        "Self- series reactance, conductor 1"
     ]
     @test side_by_side.legend === nothing
 

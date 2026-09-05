@@ -36,9 +36,12 @@ screen_wires = wires(
 ```
 
 With a `Disk` boundary, `stranded` creates a centre wire and infers the maximum
-admissible outer inventory. Without compaction circular wires retain their
-natural shape. `compact=true` requests area-preserving deformation. With a
-`Sector` boundary the inventory is inferred without a centre wire.
+complete `6k` course inventory. Without compaction circular wires retain their
+natural shape. `compact=true` requests area-preserving deformation of those
+same complete courses. A `Sector` boundary maps a centre strand and complete
+`6k` courses into the sector, then reconstructs each strand as an
+area-preserving clipped disk. Its deformation is intrinsic; it has no
+compaction selector or separately supplied centre wire.
 
 ```julia
 compacted_core = stranded(

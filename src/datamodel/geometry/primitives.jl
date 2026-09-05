@@ -190,6 +190,14 @@ struct DifferenceShape{
     end
 end
 
+Base.:(==)(left::DifferenceShape, right::DifferenceShape) =
+    left.outer == right.outer && left.holes == right.holes && left.at == right.at
+Base.isequal(left::DifferenceShape, right::DifferenceShape) =
+    isequal(left.outer, right.outer) && isequal(left.holes, right.holes) &&
+    isequal(left.at, right.at)
+Base.hash(value::DifferenceShape, seed::UInt) =
+    hash(value.at, hash(value.holes, hash(value.outer, seed)))
+
 function Disk(r::Real, at::Pose2)
     T = promote_type(typeof(r), eltype(at))
     return Disk{T, Pose2{T}}(convert(T, r), convert(Pose2{T}, at))
@@ -421,6 +429,10 @@ support(primitive::DifferenceShape, φ::Real) = support(primitive.outer, φ)
 support(primitive::DifferenceShape) = support(primitive.outer)
 function area(primitive::DifferenceShape)
     area(primitive.outer) - sum(area, primitive.holes; init = zero(eltype(primitive)))
+end
+function perimeter(primitive::DifferenceShape)
+    perimeter(primitive.outer) +
+        sum(perimeter, primitive.holes; init = zero(eltype(primitive)))
 end
 function centroid(primitive::DifferenceShape)
     total_area = area(primitive)

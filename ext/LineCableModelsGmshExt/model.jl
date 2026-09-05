@@ -531,7 +531,7 @@ function _coalesce(shape::DataModel.DifferenceShape, formations, object_id)
             :adaptation,
             object_id,
             :material_partition,
-            "an enclosing material excludes only part of a collapsed bounded formation"
+            "an enclosing material excludes only part of a complete bounded formation"
         )
         insertion = first(matched)
         retained = Any[]
@@ -619,7 +619,7 @@ function _resolved_fem_model(
         terminals = @view system.terminal_map[first_global:last_global]
         cable_id = @sprintf("cable_%04d/%s", cable_index, design.cable_id)
         formations = _formations(regions, terminals, cable_id)
-        collapsed = Dict(
+        complete = Dict(
             first(formation.members) => formation
             for formation in formations if formation.complete
         )
@@ -658,7 +658,7 @@ function _resolved_fem_model(
             rho = convert(T, _temperature_resistivity(
                 source.material, problem, formulation
             ))
-            formation = get(collapsed, local_region, nothing)
+            formation = get(complete, local_region, nothing)
             shape = formation === nothing ?
                     _coalesce(placed.primitive, formations, object_id) :
                     formation.boundary
