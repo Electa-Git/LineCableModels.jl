@@ -34,16 +34,21 @@
 **Expression.** For resistance,
 
 ```math
-\Xi=\frac{R_{ac}}{R_{dc}}=
-\frac{r^2}{(2r\delta_i'-\delta_i'^2)(1+y)},\quad
-\delta_i'=\delta_i[1-e^{-r/\delta_i}],\quad
-\delta_i=\sqrt{\frac{\rho}{\pi f\mu}},
+\begin{aligned}
+\Xi&=\frac{R_{ac}}{R_{dc}}=
+\frac{r^2}{(2r\delta_i'-\delta_i'^2)(1+y)} \\
+\delta_i'&=\delta_i[1-e^{-r/\delta_i}] \\
+\delta_i&=\sqrt{\frac{\rho}{\pi f\mu}},
+\end{aligned}
 ```
 
 ```math
-y=\frac{0.189774}{\{1+0.272481[z^{1.82938}-z^{-0.99457}]^2\}^{1.0941}},qquad
-z=0.62006\frac r{\delta_i}.
+\begin{aligned}
+y&=\frac{0.189774}{\{1+0.272481[z^{1.82938}-z^{-0.99457}]^2\}^{1.0941}} \\
+qquad
+z&=0.62006\frac r{\delta_i}.
 \qquad\text{(Rac-TED-ML)}
+\end{aligned}
 ```
 
 For internal inductance, set ``q=d/(\delta_i\sqrt2)`` and
@@ -53,14 +58,19 @@ For internal inductance, set ``q=d/(\delta_i\sqrt2)`` and
 ```
 
 ```math
-\Theta_{da}=\Theta_\infty[1-e^{-\Theta_\infty^{-1.5819}}]^{1/1.5819},\quad
-\Theta=\Theta_{da}(1-y),
+\begin{aligned}
+\Theta_{da}&=\Theta_\infty[1-e^{-\Theta_\infty^{-1.5819}}]^{1/1.5819} \\
+\Theta&=\Theta_{da}(1-y),
+\end{aligned}
 ```
 
 ```math
-y=\frac{-0.198584}{\{1+0.25741[z^{1.2652}-z^{-0.39709}]^2\}^{2.62343}},\quad
-z=0.38691q,\qquad \frac{L_i}{\ell}=\frac{\mu}{8\pi}\Theta.
+\begin{aligned}
+y&=\frac{-0.198584}{\{1+0.25741[z^{1.2652}-z^{-0.39709}]^2\}^{2.62343}} \\
+z&=0.38691q \\
+\frac{L_i}{\ell}&=\frac{\mu}{8\pi}\Theta.
 \qquad\text{(Li-PACAML)}
+\end{aligned}
 ```
 
 **Approximation.** TED-ML and PACAML are empirical modified-Lorentzian corrections of functions constrained to both exact asymptotes. Their reported errors refer to comparison with the report's Kelvin-function calculation, not independent measurements.

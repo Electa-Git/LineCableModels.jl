@@ -40,11 +40,11 @@ Z(j\omega)=\frac{j\omega\mu_0}{2\pi}
 ```
 
 ```math
-J_{\mathrm{Pollaczek}}=\int_0^\infty
-\frac{\exp(-Hu)}{\lambda+u}\cos(\lambda x)\,d\lambda,
-\qquad
-u=\sqrt{\lambda^2+k^2},
-\qquad\text{(2)}
+\begin{aligned}
+J_{\mathrm{Pollaczek}}&=\int_0^\infty
+\frac{\exp(-Hu)}{\lambda+u}\cos(\lambda x)\,d\lambda \\
+u&=\sqrt{\lambda^2+k^2},
+\end{aligned}\qquad\text{(2)}
 ```
 
 ```math
@@ -68,13 +68,19 @@ z I_{n+3/2}(z)K_{n+1/2}(Z)
 The complete definitions are
 
 ```math
-r=\sqrt{x^2+(h_1-h_2)^2},\qquad
-R=\sqrt{x^2+H^2},\qquad H=h_1+h_2,
+\begin{aligned}
+r&=\sqrt{x^2+(h_1-h_2)^2} \\
+R&=\sqrt{x^2+H^2} \\
+H&=h_1+h_2,
+\end{aligned}
 ```
 
 ```math
-k=\sqrt{j\omega\mu_0\sigma}=\frac{1+j}{\delta},
-\qquad z=\frac{k(R-H)}{2},\qquad Z=\frac{k(R+H)}{2}.
+\begin{aligned}
+k&=\sqrt{j\omega\mu_0\sigma}=\frac{1+j}{\delta} \\
+z&=\frac{k(R-H)}{2} \\
+Z&=\frac{k(R+H)}{2}.
+\end{aligned}
 ```
 
 ``K_0,K_1`` in (1) and (3) and ``I_\nu,K_\nu`` in (4) are modified Bessel functions. ``Z`` used as the capital auxiliary argument in (4) is distinct from the impedance ``Z(j\omega)``. The source supplies the self formula by setting ``h_1=h_2`` and using the conductor radius for ``x``.

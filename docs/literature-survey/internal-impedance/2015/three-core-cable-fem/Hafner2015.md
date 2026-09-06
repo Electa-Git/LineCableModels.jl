@@ -34,10 +34,10 @@
 **Expression.** Equation (8) is the full ``7×7`` metallic-element impedance matrix. For bonded sheaths,
 
 ```math
-z_+=z_-=z_{aa}-z_{ab}-\frac{(z_{a1}-z_{a2})^2}{z_{11}-z_{12}},
-\qquad
-z_0=z_{aa}+2z_{ab}-\frac{z_{a1}+2z_{a2}}{z_{11}+2z_{a2}},
-\qquad\text{(9)}
+\begin{aligned}
+z_+&=z_-=z_{aa}-z_{ab}-\frac{(z_{a1}-z_{a2})^2}{z_{11}-z_{12}} \\
+z_0&=z_{aa}+2z_{ab}-\frac{z_{a1}+2z_{a2}}{z_{11}+2z_{a2}},
+\end{aligned}\qquad\text{(9)}
 ```
 
 and for noncirculating sheath current, ``z_+=z_-=z_{aa}-z_{ab}``, ``z_0=z_{aa}+2z_{ab}`` (10). The FEM weak form is printed in (17).

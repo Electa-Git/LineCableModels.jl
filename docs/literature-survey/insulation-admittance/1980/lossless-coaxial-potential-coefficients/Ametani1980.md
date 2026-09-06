@@ -34,16 +34,21 @@
 **Expression.** Internal potential coefficients and source-prescribed admittance conversion, equations (4), (21), and (22).
 
 ```math
-[Y]=s[P]^{-1},\qquad s=j\omega,
-\qquad\text{(4)}
+\begin{aligned}
+[Y]&=s[P]^{-1} \\
+s&=j\omega,
+\end{aligned}\qquad\text{(4)}
+```
 
-P_{cj}=\frac{1}{2\pi\varepsilon_0\varepsilon_{i1}}\ln\!\left(\frac{r_3}{r_2}\right),
-\quad
-P_{sj}=\frac{1}{2\pi\varepsilon_0\varepsilon_{i2}}\ln\!\left(\frac{r_5}{r_4}\right),
+```math
+\begin{aligned}
+P_{cj}&=\frac{1}{2\pi\varepsilon_0\varepsilon_{i1}}\ln\!\left(\frac{r_3}{r_2}\right) \\
+P_{sj}&=\frac{1}{2\pi\varepsilon_0\varepsilon_{i2}}\ln\!\left(\frac{r_5}{r_4}\right), \\
+P_{aj}&=\frac{1}{2\pi\varepsilon_0\varepsilon_{i3}}\ln\!\left(\frac{r_7}{r_6}\right),
+\end{aligned}\qquad\text{(22)}
+```
 
-P_{aj}=\frac{1}{2\pi\varepsilon_0\varepsilon_{i3}}\ln\!\left(\frac{r_7}{r_6}\right),
-\qquad\text{(22)}
-
+```math
 [P_{ij}]=
 \begin{bmatrix}
 P_{cj}+P_{sj}+P_{aj} & P_{sj}+P_{aj} & P_{aj}\\

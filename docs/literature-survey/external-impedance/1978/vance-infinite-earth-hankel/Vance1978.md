@@ -21,11 +21,15 @@
 Z_{g,m}=\frac{\omega\mu_0}{2\pi\gamma_gd}
 \frac{H_0^{(1)}(j\gamma_gd)}{H_1^{(1)}(j\gamma_gd)},
 \qquad\text{(V1)}
+```
 
+```math
 Z_{g,s}=\frac{\omega\mu_0}{2\pi\gamma_gR}
 \frac{H_0^{(1)}(j\gamma_gR)}{H_1^{(1)}(j\gamma_gR)},
 \qquad\text{(V2)}
+```
 
+```math
 \gamma_g=\sqrt{j\omega\mu(\sigma+j\omega\varepsilon)}.
 \qquad\text{(V3)}
 ```

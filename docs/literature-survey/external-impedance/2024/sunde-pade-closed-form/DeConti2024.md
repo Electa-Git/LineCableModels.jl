@@ -48,11 +48,11 @@ I_S=(I_1+I_2+I_3)e^{-\gamma D},
 ```
 
 ```math
-I_1=\left(H-\frac{8}{\gamma}\right)\frac{r}{D^2},
-\qquad
-I_2=16\frac{2-\gamma D}{\gamma^2D^2}
+\begin{aligned}
+I_1&=\left(H-\frac{8}{\gamma}\right)\frac{r}{D^2} \\
+I_2&=16\frac{2-\gamma D}{\gamma^2D^2}
 \arctan\left(\frac{r}{H+D}\right),
-\qquad\text{(8--9)}
+\end{aligned}\qquad\text{(8--9)}
 ```
 
 ```math
@@ -63,9 +63,12 @@ I_3=-4\frac{8-8\gamma D+\gamma^2D^2}
 ```
 
 ```math
-d=\sqrt{(h_m-h_n)^2+r^2},\qquad
-H=h_m+h_n,\qquad D=\sqrt{H^2+r^2},\qquad
-\gamma=\sqrt{j\omega\mu(\sigma+j\omega\varepsilon)}.
+\begin{aligned}
+d&=\sqrt{(h_m-h_n)^2+r^2} \\
+H&=h_m+h_n \\
+D&=\sqrt{H^2+r^2} \\
+\gamma&=\sqrt{j\omega\mu(\sigma+j\omega\varepsilon)}.
+\end{aligned}
 ```
 
 **Approximation.** Starting from Sunde's exact-in-model rearrangement (3)–(4), the source expands about ``t=1`` and replaces only ``e^{-t\gamma D}`` by the 1/1 Padé form ``[(2-\gamma D(t-1))/(2+\gamma D(t-1))]e^{-\gamma D}`` in (6). Integrating that rational replacement gives (7)–(10), which is inserted into (5). No additional term is discarded in the printed construction.
@@ -81,13 +84,13 @@ H=h_m+h_n,\qquad D=\sqrt{H^2+r^2},\qquad
 The parent source order is retained by recording the Sunde integral and its exact rearrangement:
 
 ```math
-Z_g=\frac{j\omega\mu_0}{2\pi}[K_0(\gamma d)-K_0(\gamma D)+2J_S],
-\qquad
-J_S=\int_0^\infty
+\begin{aligned}
+Z_g&=\frac{j\omega\mu_0}{2\pi}[K_0(\gamma d)-K_0(\gamma D)+2J_S] \\
+J_S&=\int_0^\infty
 \frac{e^{-H\sqrt{\lambda^2+\gamma^2}}}
 {\lambda+\sqrt{\lambda^2+\gamma^2}}
 \cos(r\lambda)\,d\lambda,
-\qquad\text{(1--2)}
+\end{aligned}\qquad\text{(1--2)}
 ```
 
 ```math

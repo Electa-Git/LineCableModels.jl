@@ -34,12 +34,12 @@
 **Expression.** Insulation-region series impedances, component items (2), (6), and (10) following equation (13).
 
 ```math
-z_{12}=\frac{s\mu_0\mu_{i1}}{2\pi}\ln\!\left(\frac{r_3}{r_2}\right),
-\qquad
-z_{23}=\frac{s\mu_0\mu_{i2}}{2\pi}\ln\!\left(\frac{r_5}{r_4}\right),
-
-z_{34}=\frac{s\mu_0\mu_{i3}}{2\pi}\ln\!\left(\frac{r_7}{r_6}\right),
-\qquad s=j\omega.
+\begin{aligned}
+z_{12}&=\frac{s\mu_0\mu_{i1}}{2\pi}\ln\!\left(\frac{r_3}{r_2}\right) \\
+z_{23}&=\frac{s\mu_0\mu_{i2}}{2\pi}\ln\!\left(\frac{r_5}{r_4}\right), \\
+z_{34}&=\frac{s\mu_0\mu_{i3}}{2\pi}\ln\!\left(\frac{r_7}{r_6}\right) \\
+s&=j\omega.
+\end{aligned}
 ```
 
 The source calls these the core outer, sheath outer, and armor outer *insulator impedances*. They enter ``z_{cs}=z_{11}+z_{12}+z_{2i}``, ``z_{sa}=z_{2o}+z_{23}+z_{3i}``, and ``z_{a4}=z_{3o}+z_{34}`` before cable-matrix assembly.
@@ -57,10 +57,11 @@ The source calls these the core outer, sheath outer, and armor outer *insulator 
 The expression above retains all three separately printed insulation layers. The associated assembly is
 
 ```math
-z_{cs}=z_{11}+z_{12}+z_{2i},\qquad
-z_{sa}=z_{2o}+z_{23}+z_{3i},\qquad
-z_{a4}=z_{3o}+z_{34}.
-\qquad\text{(10)}
+\begin{aligned}
+z_{cs}&=z_{11}+z_{12}+z_{2i} \\
+z_{sa}&=z_{2o}+z_{23}+z_{3i} \\
+z_{a4}&=z_{3o}+z_{34}.
+\end{aligned}\qquad\text{(10)}
 ```
 
 ## Notation map

@@ -43,18 +43,21 @@ e^{-2h'\lambda}\,d\lambda .
 ```
 
 ```math
-\mu_{12}=
+\begin{aligned}
+\mu_{12}&=
 \frac{\sqrt{\lambda^2+j}-\sqrt{\lambda^2+j\rho_1/\rho_2}}
-     {\sqrt{\lambda^2+j}+\sqrt{\lambda^2+j\rho_1/\rho_2}},
-\qquad
-\mu_{10}=\frac{\sqrt{\lambda^2+j}-\lambda}
+     {\sqrt{\lambda^2+j}+\sqrt{\lambda^2+j\rho_1/\rho_2}} \\
+\mu_{10}&=\frac{\sqrt{\lambda^2+j}-\lambda}
               {\sqrt{\lambda^2+j}+\lambda},
+\end{aligned}
 ```
 
 ```math
-D'=\sqrt{\omega\mu_0/\rho_1}\,D,\qquad
-h'=\sqrt{\omega\mu_0/\rho_1}\,h,\qquad
-\mu_0=4\pi\times10^{-7}.
+\begin{aligned}
+D'&=\sqrt{\omega\mu_0/\rho_1}\,D \\
+h'&=\sqrt{\omega\mu_0/\rho_1}\,h \\
+\mu_0&=4\pi\times10^{-7}.
+\end{aligned}
 ```
 
 The source-prescribed finite-depth specialization is ``\rho_2=\infty`` and ``\mu_{12}=\mu_{10}``. The normalized finite-depth expression and all its helpers, §7 and appendix:
@@ -69,7 +72,11 @@ r_e=4\sqrt{\omega\times10^{-7}/R_e}
 ```
 
 ```math
-R_e=\frac{\rho_e}{\pi h^2},\qquad R'_e=1000R_e,\qquad n'=nr_e,
+\begin{aligned}
+R_e&=\frac{\rho_e}{\pi h^2} \\
+R'_e&=1000R_e \\
+n'&=nr_e,
+\end{aligned}
 ```
 
 ```math
@@ -94,16 +101,20 @@ The separately printed evaluation relation is retained, with only the crossed �
 ```
 
 ```math
-\dot Z_{el}(u)=\dot Z_e(e^u),\qquad
-F_l(u)=F(e^{-u}),\qquad
-E_l(u)=1-e^{-e^u}.
+\begin{aligned}
+\dot Z_{el}(u)&=\dot Z_e(e^u) \\
+F_l(u)&=F(e^{-u}) \\
+E_l(u)&=1-e^{-e^u}.
+\end{aligned}
 ```
 
 The lower-case subscript ``l`` is preserved. The operator is not ordinary multiplication. Its separately inspected January definition (18), §4, p. 25, supplies the full domain and endpoint term:
 
 ```math
-\varphi(u)=\varphi_0(u)H(u-\infty),\qquad
-\psi(u)=\psi_0(u)H(u-\infty),
+\begin{aligned}
+\varphi(u)&=\varphi_0(u)H(u-\infty) \\
+\psi(u)&=\psi_0(u)H(u-\infty),
+\end{aligned}
 ```
 
 ```math
@@ -151,18 +162,21 @@ e^{-2h'\lambda}\,d\lambda
 ```
 
 ```math
-\mu_{12}=
+\begin{aligned}
+\mu_{12}&=
 \frac{\sqrt{\lambda^2+j}-\sqrt{\lambda^2+j\rho_1/\rho_2}}
-     {\sqrt{\lambda^2+j}+\sqrt{\lambda^2+j\rho_1/\rho_2}},
-\quad
-\mu_{10}=\frac{\sqrt{\lambda^2+j}-\lambda}
+     {\sqrt{\lambda^2+j}+\sqrt{\lambda^2+j\rho_1/\rho_2}} \\
+\mu_{10}&=\frac{\sqrt{\lambda^2+j}-\lambda}
               {\sqrt{\lambda^2+j}+\lambda},
+\end{aligned}
 ```
 
 ```math
-D'=\sqrt{\omega\mu_0/\rho_1}\,D,\quad
-h'=\sqrt{\omega\mu_0/\rho_1}\,h,\quad
-\mu_0=4\pi\times10^{-7}.
+\begin{aligned}
+D'&=\sqrt{\omega\mu_0/\rho_1}\,D \\
+h'&=\sqrt{\omega\mu_0/\rho_1}\,h \\
+\mu_0&=4\pi\times10^{-7}.
+\end{aligned}
 ```
 
 The intervening prose credits the same form to Sunde [7] and explicitly gives ``\rho_2=\infty``, ``\mu_{12}=\mu_{10}`` for finite conducting depth.
@@ -179,7 +193,10 @@ The intervening prose credits the same form to Sunde [7] and explicitly gives ``
 ```
 
 ```math
-\dot Z_{el}(u)=\dot Z_e(e^u),\qquad F_l(u)=F(e^{-u}).
+\begin{aligned}
+\dot Z_{el}(u)&=\dot Z_e(e^u) \\
+F_l(u)&=F(e^{-u}).
+\end{aligned}
 ```
 
 ### August appendix continuation, p. 1049/PDF page 12
@@ -189,10 +206,12 @@ E_l(u)=1-e^{-e^u},
 ```
 
 ```math
-F(\lambda)=\{\sqrt{\lambda^2+j}-\lambda\}
+\begin{aligned}
+F(\lambda)&=\{\sqrt{\lambda^2+j}-\lambda\}
 \frac{1+\mu_{10}e^{-n'\sqrt{\lambda^2+j}}}
-     {1-\mu_{10}^{2}e^{-n'\sqrt{\lambda^2+j}}},
-\qquad n'=nr_e.
+     {1-\mu_{10}^{2}e^{-n'\sqrt{\lambda^2+j}}} \\
+n'&=nr_e.
+\end{aligned}
 ```
 
 The numerical procedure expressly enumerates ``n'=0.1,0.15,0.2,0.3,0.5,0.8,1,2,3,5,7``, then uses ``n=n'/r_e`` to construct the charts. This is a tested/chart-construction list, not a range-of-validity theorem.
@@ -215,7 +234,10 @@ e^{-r_e\lambda}\,d\lambda,
 Fig. 付第3's unit box prints:
 
 ```math
-R'_e=1000R_e,\qquad R_e=\rho_e/(\pi h^2).
+\begin{aligned}
+R'_e&=1000R_e \\
+R_e&=\rho_e/(\pi h^2).
+\end{aligned}
 ```
 
 The inset labels ``\rho_e`` in Ωm and ``D`` in m. The chart paragraph uses a per-kilometre conductor-resistance scale; the primed scale must not silently replace the per-metre quantity in (21). ``P_e,Q_e`` are the normalized impedance's resistance/reactance parts, not potential coefficients.
@@ -225,8 +247,10 @@ The inset labels ``\rho_e`` in Ωm and ``D`` in m. The chart paragraph uses a pe
 January §4, p. 25/PDF page 4/index 3, defines the same crossed 相乗 symbol as a Duhamel operation, extended to functions with a discontinuity at ``u=-\infty``. The **literal printed** helper lines are:
 
 ```math
-\varphi(u)=\varphi_0(u)H(u-\infty),\qquad
-\psi(u)=\psi_0(u)H(u-\infty).
+\begin{aligned}
+\varphi(u)&=\varphi_0(u)H(u-\infty) \\
+\psi(u)&=\psi_0(u)H(u-\infty).
+\end{aligned}
 ```
 
 ```math

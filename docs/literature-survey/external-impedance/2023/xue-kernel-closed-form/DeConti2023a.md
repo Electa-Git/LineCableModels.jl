@@ -44,10 +44,12 @@ e^{-(h_m+h_n)\gamma_1}
 ```
 
 ```math
-d=\sqrt{(h_m-h_n)^2+r^2},\quad
-D=\sqrt{(h_m+h_n)^2+r^2},\quad
-\gamma_0=j\omega\sqrt{\mu_0\varepsilon_0},\quad
-\gamma_1=\sqrt{j\omega\mu_0(\sigma_1+j\omega\varepsilon_1)}.
+\begin{aligned}
+d&=\sqrt{(h_m-h_n)^2+r^2} \\
+D&=\sqrt{(h_m+h_n)^2+r^2} \\
+\gamma_0&=j\omega\sqrt{\mu_0\varepsilon_0} \\
+\gamma_1&=\sqrt{j\omega\mu_0(\sigma_1+j\omega\varepsilon_1)}.
+\end{aligned}
 ```
 
 **Approximation.** The source begins with ``Z_{g(m,n)}=j\omega\mu_0[\Lambda+\Theta_1]/(2\pi)`` and approximates the square-root ratio in ``d\Theta_1/dH`` by a constant plus an exponentially decaying term. It then replaces ``e^{-H\sqrt{\lambda^2+\gamma_1^2}}`` by ``e^{-H\gamma_1}`` only in that residual and integrates using the Bessel identity (12), yielding (13). No series order or remainder bound is provided.
@@ -63,17 +65,18 @@ D=\sqrt{(h_m+h_n)^2+r^2},\quad
 The compact parent is
 
 ```math
-Z_{g(m,n)}=\frac{j\omega\mu_0}{2\pi}[\Lambda+\Theta_1],
-\qquad
-\Lambda=K_0(\gamma_1d)-K_0(\gamma_1D),
-\qquad\text{(8,3)}
+\begin{aligned}
+Z_{g(m,n)}&=\frac{j\omega\mu_0}{2\pi}[\Lambda+\Theta_1] \\
+\Lambda&=K_0(\gamma_1d)-K_0(\gamma_1D),
+\end{aligned}\qquad\text{(8,3)}
 ```
 
 ```math
-\Theta_1=2\int_0^\infty
-\frac{e^{-(h_m+h_n)u_1}}{u_1+u_0}\cos(r\lambda)\,d\lambda,
-\quad u_i=\sqrt{\lambda^2+\gamma_i^2}.
-\qquad\text{(10)}
+\begin{aligned}
+\Theta_1&=2\int_0^\infty
+\frac{e^{-(h_m+h_n)u_1}}{u_1+u_0}\cos(r\lambda)\,d\lambda \\
+u_i&=\sqrt{\lambda^2+\gamma_i^2}.
+\end{aligned}\qquad\text{(10)}
 ```
 
 This retains the air term that disappears in Sunde's limiting equation.

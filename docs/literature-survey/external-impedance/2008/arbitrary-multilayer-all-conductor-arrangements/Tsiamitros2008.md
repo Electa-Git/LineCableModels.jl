@@ -70,10 +70,11 @@ e^{-\bar\alpha_m d_m}\right)
 The spectral and constitutive definitions are
 
 ```math
-\bar\alpha_i=\sqrt{u^2+\bar\gamma_i^2},
-\qquad
-\bar\gamma_i^2=j\omega\mu_i(\sigma_i+j\omega\varepsilon_i),
-\qquad i=0,1,\ldots,n.
+\begin{aligned}
+\bar\alpha_i&=\sqrt{u^2+\bar\gamma_i^2} \\
+\bar\gamma_i^2&=j\omega\mu_i(\sigma_i+j\omega\varepsilon_i) \\
+i&=0,1,\ldots,n.
+\end{aligned}
 ```
 
 The downward-to-top interface recursion, source (15)–(18), is
@@ -95,15 +96,19 @@ The downward-to-top interface recursion, source (15)–(18), is
 ```
 
 ```math
-\overline{DTN}_n=0,\qquad \overline{DTD}_n=1.
-\qquad\text{(17--18)}
+\begin{aligned}
+\overline{DTN}_n&=0 \\
+\overline{DTD}_n&=1.
+\end{aligned}\qquad\text{(17--18)}
 ```
 
 The top-to-down recursion, source (A.15)–(A.18), is
 
 ```math
-\overline{TDD}_{-1}=1,qquad \overline{TDN}_{-1}=0,
-\qquad\text{(A.15--A.16)}
+\begin{aligned}
+\overline{TDD}_{-1}&=1 \\
+qquad \overline{TDN}_{-1}&=0,
+\end{aligned}\qquad\text{(A.15--A.16)}
 ```
 
 ```math

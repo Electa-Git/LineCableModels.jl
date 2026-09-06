@@ -33,18 +33,19 @@ The one-step FEM system includes nodal vector potentials and conductor voltage g
 The conductor loss integral is
 
 ```math
-p=\int_S\rho\,|J_s+J_e|^2\,dS,
-\qquad J_e=-j\omega\sigma A.
-\qquad\text{(4)}
+\begin{aligned}
+p&=\int_S\rho\,|J_s+J_e|^2\,dS \\
+J_e&=-j\omega\sigma A.
+\end{aligned}\qquad\text{(4)}
 ```
 
 For ``h=\exp(j2\pi/3)``, the positive-sequence excitation and impedance are
 
 ```math
-\mathbf i_+=[1\;h^2\;h]^T,
-\qquad
-Z_+=\frac{1}{3}[1\;h\;h^2]\,[v_1\;v_2\;v_3]^T.
-\qquad\text{(6--7)}
+\begin{aligned}
+\mathbf i_+&=[1\;h^2\;h]^T \\
+Z_+&=\frac{1}{3}[1\;h\;h^2]\,[v_1\;v_2\;v_3]^T.
+\end{aligned}\qquad\text{(6--7)}
 ```
 
 The source groups phase, sheath, and armor conductors into ``\mathbf Z_{3\times3}``, bonds sheath and armor through
@@ -68,14 +69,12 @@ Z_0=3\left(Z_{11}^{2\times2}
 The pitch angles and effective armor-wire angles are
 
 ```math
-\alpha=\arctan\!\left(\frac{2\pi R_a}{P_c}\right),
-\qquad
-\beta=\arctan\!\left(\frac{2\pi R_a}{P_a}\right),
-\qquad
-\gamma_+=\alpha+\beta,
-\qquad
-\gamma_0=\beta.
-\qquad\text{(15,23)}
+\begin{aligned}
+\alpha&=\arctan\!\left(\frac{2\pi R_a}{P_c}\right) \\
+\beta&=\arctan\!\left(\frac{2\pi R_a}{P_a}\right) \\
+\gamma_+&=\alpha+\beta \\
+\gamma_0&=\beta.
+\end{aligned}\qquad\text{(15,23)}
 ```
 
 The sign of ``\beta`` in ``\gamma_+`` follows the relative lay directions. The fictitious nonconductive material receives a complex permeability ``\mu^*`` chosen so that a local slab stores the same complex magnetic energy as the pitched-wire field.

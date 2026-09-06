@@ -41,9 +41,11 @@
 ```
 
 ```math
-J_{ua}\approx2\sum_{n=1}^{N}c_n\frac{H_n}{H_n^2+x^2},
-\qquad H_n=h_1-s_n,qquad n=1,2,\ldots,N,
-\qquad\text{(4.15)}
+\begin{aligned}
+J_{ua}&\approx2\sum_{n=1}^{N}c_n\frac{H_n}{H_n^2+x^2} \\
+H_n&=h_1-s_n \\
+qquad n&=1,2,\ldots,N,
+\end{aligned}\qquad\text{(4.15)}
 ```
 
 and ``Z_{ua}=j\omega\mu_0J_{ua}/(2\pi)``.

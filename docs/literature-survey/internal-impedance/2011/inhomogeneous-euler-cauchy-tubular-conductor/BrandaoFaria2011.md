@@ -34,21 +34,21 @@
 **Expression.** The source defines the admissible Euler–Cauchy material class by
 
 ```math
-\mu(r)=\mu_2\left(\frac r{r_2}\right)^p,
-\qquad
-\sigma(r)=\sigma_2\left(\frac{r_2}{r}\right)^{2+p},
+\begin{aligned}
+\mu(r)&=\mu_2\left(\frac r{r_2}\right)^p \\
+\sigma(r)&=\sigma_2\left(\frac{r_2}{r}\right)^{2+p},
 \qquad r_1\le r\le r_2,
-\qquad\text{(11,12)}
+\end{aligned}\qquad\text{(11,12)}
 ```
 
 and
 
 ```math
-m_{1,2}=\frac p2\pm
-\sqrt{\left(\frac p2\right)^2-(\bar k_2r_2)^2},
-\qquad
-\bar k_2=\sqrt{-j\omega\mu_2\sigma_2},
-\qquad\text{(6,13)}
+\begin{aligned}
+m_{1,2}&=\frac p2\pm
+\sqrt{\left(\frac p2\right)^2-(\bar k_2r_2)^2} \\
+\bar k_2&=\sqrt{-j\omega\mu_2\sigma_2},
+\end{aligned}\qquad\text{(6,13)}
 ```
 
 with ``m_1`` selected in the first quadrant and ``m_2`` in the third. The resulting p.u.l. impedance is

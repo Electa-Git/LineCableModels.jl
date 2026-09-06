@@ -38,16 +38,19 @@ Y_{l,11}=\left(\frac1{y_{sem,1}}+\frac1{y_{ins,1}}+\frac1{y_{sem,2}}\right)^{-1}
 ```
 
 ```math
-Y_{l,pp}=\left(\frac1{y_{ins,p}}+\frac1{y_{sem,p+1}}\right)^{-1},
-\quad p=2,\ldots,N-1,
-\qquad Y_{l,NN}=y_{ins,N}.
-\qquad\text{(17)}
+\begin{aligned}
+Y_{l,pp}&=\left(\frac1{y_{ins,p}}+\frac1{y_{sem,p+1}}\right)^{-1} \\
+p&=2,\ldots,N-1 \\
+Y_{l,NN}&=y_{ins,N}.
+\end{aligned}\qquad\text{(17)}
 ```
 
 ```math
-y_{sem,i}=\frac{j\omega\varepsilon_0\varepsilon_{sem,i}}{\ln(r_{out}/r_{in})},
-\quad \varepsilon_{sem,i}=\varepsilon_{r,sem,i}+\frac1{j\omega\rho_{sem,i}},
-\quad y_{ins,i}=\frac{j\omega\varepsilon_0\varepsilon_{r,ins,i}}{\ln(r_{out}/r_{in})}.
+\begin{aligned}
+y_{sem,i}&=\frac{j\omega\varepsilon_0\varepsilon_{sem,i}}{\ln(r_{out}/r_{in})} \\
+\varepsilon_{sem,i}&=\varepsilon_{r,sem,i}+\frac1{j\omega\rho_{sem,i}} \\
+y_{ins,i}&=\frac{j\omega\varepsilon_0\varepsilon_{r,ins,i}}{\ln(r_{out}/r_{in})}.
+\end{aligned}
 ```
 
 **Approximation.** Exact series-network algebra within the concentric homogeneous-annulus model.

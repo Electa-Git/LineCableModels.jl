@@ -20,7 +20,7 @@
 | Field | Treatment | Evidence |
 | --- | --- | --- |
 | Impressed longitudinal propagation constant ``Γ`` | Prescribed ``I=I_0\exp(-\gamma_0x)``: the imposed longitudinal constant is the air bulk constant, not an unknown dispersion solution and not zero. | Stated — JP p. 272/PDF 2 and EN p. 28/PDF 3 immediately before (10). |
-| Air propagation constant ``γ_air`` | Source ``\gamma_0=j\omega\sqrt{\varepsilon_0\mu_0}`` after setting ``\sigma_0=0``; retained in the final ``a_i`` definitions. | Stated — JP p. 272/EN p. 28 immediately before (14); definitions after (7). |
+| Air propagation constant ``γ_air`` | Source ``\gamma_0=j\omega\sqrt{\mu_0\varepsilon_0}`` after setting ``\sigma_0=0``; retained in the final ``a_i`` definitions. | Stated — JP p. 272/EN p. 28 immediately before (14); definitions after (7). |
 | Earth propagation constant ``γ_earth`` | Source layer 2: ``\gamma_2^2=j\omega\mu_2(\sigma_2+j\omega\varepsilon_2)``. Finite snow is layer 1 with the same indexed definition. ``a_i=\sqrt{s^2-\gamma_0^2+\gamma_i^2}``, ``i=1,2``. Root branch not stated. | Stated — JP p. 272/EN p. 27 definitions after (5) and (7); Not stated — branch. |
 | Earth permittivity and displacement current | ``\varepsilon_2`` and ``j\omega\varepsilon_2`` retained alongside ``\sigma_2``. Snow has a separately printed two-relaxation complex-permittivity relation (17), including ``\sigma_1/(j\omega)``; mapping that entire complex quantity into ``\varepsilon_1`` while keeping separate ``\sigma_1`` is unresolved, not an authorized double-counting prescription. No-snow formula sets ``\varepsilon_1=\varepsilon_0,\sigma_1=0``. | Equation-implied — indexed bulk definition, JP p. 272/EN p. 27, retains both terms. Stated — (17) and conditions before (16), JP p. 273/EN p. 28. Unresolved — relative/absolute permittivity and loss bookkeeping between these contexts. |
 | Range of validity | Integral representation under the printed infinite-line and prescribed-propagation model. Authors state application to two-layer insulating surroundings beyond snow; no arbitrary stratification or quantified universal bound is supplied. Example plots span 10 Hz–1 MHz; snow depths 1–5 m and Table 1 states are tests, not proved limits. | Stated — JP p. 273 opening / EN p. 28 after (15); JP pp. 273–276/EN pp. 28–32 examples. Not stated — universal frequency/electrical-size bound. |
@@ -34,11 +34,12 @@
 **Expression.** The common main output is ``P_{ij}``, JP p. 272/PDF 2 and EN p. 28/PDF 3, (14)–(15). It includes the printed logarithmic term; ``M+jN`` alone is the snow/earth correction.
 
 ```math
-P_{ij}=\frac{1}{2\pi\varepsilon_0}
-\left\{\ln\left(\frac{D_{ij}}{d_{ij}}\right)+(M+jN)\right\},
-\qquad
-M+jN=2\int_0^\infty(A_1-sA_2)
+\begin{aligned}
+P_{ij}&=\frac{1}{2\pi\varepsilon_0}
+\left\{\ln\left(\frac{D_{ij}}{d_{ij}}\right)+(M+jN)\right\} \\
+M+jN&=2\int_0^\infty(A_1-sA_2)
 \exp\{-(h_i+h_j)s\}\cos(ys)\,ds.
+\end{aligned}
 ```
 
 JP coefficient witness, p. 272/PDF 2 below (7). **The three-line slash/product layout of ``A_2`` is retained; whether the last factor belongs to the denominator is unresolved.** The line break is evidentiary, not a selected computational grouping.
@@ -66,7 +67,7 @@ c_5=a_1\tau_1^2,\qquad c_6=\mu_2a_2\tau_2^2/\mu_1,
 b_i=a_i/\mu_i,\qquad a_i=\sqrt{s^2-\gamma_0^2+\gamma_i^2},
 \qquad i=1,2,\\
 \gamma_i^2=j\omega\mu_i(\sigma_i+j\omega\varepsilon_i),\qquad i=0,1,2,
-\qquad \sigma_0=0,\quad\gamma_0=j\omega\sqrt{\varepsilon_0\mu_0},\\
+\qquad \sigma_0=0,\quad\gamma_0=j\omega\sqrt{\mu_0\varepsilon_0},\\
 d_{ij}=\sqrt{y^2+(h_i-h_j)^2},\qquad
 D_{ij}=\sqrt{y^2+(h_i+h_j)^2}.
 \end{gathered}
@@ -104,8 +105,10 @@ Each witness retains its own printed interface-ratio definition. The authors att
 Source-provided admittance operation in the **perfect-earth, no-snow comparison context**, JP p. 273/EN p. 28, (18):
 
 ```math
-[Y]=j\omega[P]^{-1},\qquad
-P_{ij}=\frac{1}{2\pi\varepsilon_0}\ln\left(\frac{D_{ij}}{d_{ij}}\right).
+\begin{aligned}
+[Y]&=j\omega[P]^{-1} \\
+P_{ij}&=\frac{1}{2\pi\varepsilon_0}\ln\left(\frac{D_{ij}}{d_{ij}}\right).
+\end{aligned}
 ```
 
 This preserves the printed matrix inverse and the particular adjacent definition of ``P``. The paper computes snow admittances using its potential coefficient, but does not print a separate fully assembled finite-radius snow matrix here. This record does not turn ``P_{ij}^{-1}`` into a scalar reciprocal admittance or insert a new full-matrix formula attributed to (18).
@@ -155,25 +158,28 @@ JP p. 271/PDF 1, (1)–(2); EN p. 26/PDF 1, same labels. These are convention ev
 JP:
 
 ```math
-\mathbf E=-\gamma^2\boldsymbol\Pi+\mathop{\mathrm{grad}}\mathop{\mathrm{div}}\boldsymbol\Pi,
-\qquad
-\mathbf H=\frac{\gamma^2}{j\omega\mu}\mathop{\mathrm{rot}}\boldsymbol\Pi.
-\qquad\text{(2)}
+\begin{aligned}
+\mathbf E&=-\gamma^2\boldsymbol\Pi+\mathop{\mathrm{grad}}\mathop{\mathrm{div}}\boldsymbol\Pi \\
+\mathbf H&=\frac{\gamma^2}{j\omega\mu}\mathop{\mathrm{rot}}\boldsymbol\Pi.
+\end{aligned}\qquad\text{(2)}
 ```
 
 EN:
 
 ```math
-\mathbf E=\gamma^2\boldsymbol\Pi+\mathop{\mathrm{grad}}\mathop{\mathrm{div}}\boldsymbol\Pi,
-\qquad
-\mathbf H=\frac{\gamma^2}{j\omega\mu}\mathop{\mathrm{rot}}\boldsymbol\Pi.
-\qquad\text{(2)}
+\begin{aligned}
+\mathbf E&=\gamma^2\boldsymbol\Pi+\mathop{\mathrm{grad}}\mathop{\mathrm{div}}\boldsymbol\Pi \\
+\mathbf H&=\frac{\gamma^2}{j\omega\mu}\mathop{\mathrm{rot}}\boldsymbol\Pi.
+\end{aligned}\qquad\text{(2)}
 ```
 
 Both then define ``\gamma^2=j\omega\mu(\sigma+j\omega\varepsilon)``. The material-specific version below (5), JP p. 272/EN p. 27, is
 
 ```math
-\gamma_i^2=j\omega\mu_i(\sigma_i+j\omega\varepsilon_i),\qquad i=0,1,2.
+\begin{aligned}
+\gamma_i^2&=j\omega\mu_i(\sigma_i+j\omega\varepsilon_i) \\
+i&=0,1,2.
+\end{aligned}
 ```
 
 The source obtains the infinite-line result by solving the dipole interface problem (3)–(6) and integrating longitudinally from ``-\infty`` to ``+\infty``. The explanatory transformation before (7) is printed ``\lambda^2+\gamma^2=s^2`` in JP (unindexed ``\gamma``), but ``\lambda^2+r^2=s^2`` in EN, where EN earlier defined ``r=\sqrt{x^2+y^2}`` as a radial distance. These tokens are recorded as a conflicting derivation statement; no index or substitute transformation is invented. The final coefficient dependencies below are independently printed and do not require reconstructing the unspecified dipole amplitudes ``f,g,F,G``.
@@ -240,8 +246,10 @@ Both coefficient paragraphs also call ``\tau_1,\tau_2`` parameters of snow compl
 JP p. 272/PDF 2; EN p. 27/PDF 2, distances (8), then p. 28/PDF 3, (9)–(15):
 
 ```math
-d_{ij}=\sqrt{y^2+(h_i-h_j)^2},\quad
-D_{ij}=\sqrt{y^2+(h_i+h_j)^2}.\qquad\text{(8)}
+\begin{aligned}
+d_{ij}&=\sqrt{y^2+(h_i-h_j)^2} \\
+D_{ij}&=\sqrt{y^2+(h_i+h_j)^2}.
+\end{aligned}\qquad\text{(8)}
 ```
 
 ```math
@@ -262,11 +270,17 @@ V=\frac{j\omega\mu_0I}{2\pi\gamma_0}
 
 ```math
 V=Q_0P_{ij},\qquad\text{(11)}
+```
+
+```math
 \qquad I=j\omega Q_0/\gamma_0,\qquad\text{(12)}
+```
+
+```math
 \qquad P_{ij}=j\omega V/(\gamma_0 I).\qquad\text{(13)}
 ```
 
-``Q_0`` is explicitly charge per unit conductor length. With source-stated ``\sigma_0=0`` and ``\gamma_0=j\omega\sqrt{\varepsilon_0\mu_0}``:
+``Q_0`` is explicitly charge per unit conductor length. With source-stated ``\sigma_0=0`` and ``\gamma_0=j\omega\sqrt{\mu_0\varepsilon_0}``:
 
 ```math
 P_{ij}=\frac{1}{2\pi\varepsilon_0}
@@ -314,8 +328,10 @@ The complete Table 1 is transcribed at its source locator and applies to both wi
 JP p. 273/EN p. 28, (18), perfect-earth/no-snow comparison:
 
 ```math
-[Y]=j\omega[P]^{-1},\qquad
-P_{ij}=\frac{1}{2\pi\varepsilon_0}\ln(D_{ij}/d_{ij}).\qquad\text{(18)}
+\begin{aligned}
+[Y]&=j\omega[P]^{-1} \\
+P_{ij}&=\frac{1}{2\pi\varepsilon_0}\ln(D_{ij}/d_{ij}).
+\end{aligned}\qquad\text{(18)}
 ```
 
 EN alone, p. 29/PDF 4, unnumbered formula in the left column following the explanation of Fig. 5's ideal curve:
@@ -344,6 +360,9 @@ JP p. 274/PDF 4 and EN p. 30/PDF 5, §4.2, (20)–(21):
 
 ```math
 C=C_1C_2/(C_1+C_2),\qquad\text{(20)}
+```
+
+```math
 \qquad C\simeq C_1.\qquad\text{(21)}
 ```
 

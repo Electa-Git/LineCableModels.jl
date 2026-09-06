@@ -40,11 +40,12 @@
 ```
 
 ```math
-J_{uu}\approx\sum_{n=1}^{N}
+\begin{aligned}
+J_{uu}&\approx\sum_{n=1}^{N}
 \frac{2c_nkH_n}{\sqrt{H_n^2+x^2}}
-K_1\!\left(k\sqrt{H_n^2+x^2}\right),
-\qquad H_n=h_1+h_2-s_n.
-\qquad\text{(4.9)}
+K_1\!\left(k\sqrt{H_n^2+x^2}\right) \\
+H_n&=h_1+h_2-s_n.
+\end{aligned}\qquad\text{(4.9)}
 ```
 
 The source inserts this in ``Z_{uu}=j\omega\mu_0[K_0(kd)-K_0(kD)+J_{uu}]/(2\pi)``.
@@ -62,9 +63,10 @@ The source inserts this in ``Z_{uu}=j\omega\mu_0[K_0(kd)-K_0(kD)+J_{uu}]/(2\pi)`
 The identity used termwise is
 
 ```math
-\int_0^\infty e^{-\beta\sqrt{\gamma^2+x^2}}\cos(bx)\,dx
-=\frac{\beta\gamma}{\sqrt{\beta^2+b^2}}K_1\!\left(\gamma\sqrt{\beta^2+b^2}\right).
-\qquad\text{(4.8)}
+\begin{aligned}
+\int_0^\infty e^{-\beta\sqrt{\gamma^2+x^2}}\cos(bx) \\
+dx&=\frac{\beta\gamma}{\sqrt{\beta^2+b^2}}K_1\!\left(\gamma\sqrt{\beta^2+b^2}\right).
+\end{aligned}\qquad\text{(4.8)}
 ```
 
 ## Notation map

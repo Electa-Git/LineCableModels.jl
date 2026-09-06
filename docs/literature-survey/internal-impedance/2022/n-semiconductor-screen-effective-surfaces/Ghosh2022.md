@@ -39,10 +39,11 @@ Z_{con_p,in}^{sem_p}=Z_{sem_p,in}-
 ```
 
 ```math
-Z_{con_p,out}^{sem_p}=Z_{c_p,out}-
-\frac{Z_{c_p,m}^2}{Z_{sem_p,out}+Z_{c_p,in}},
-\qquad
-Z_{con_p,m}^{sem_p}=\frac{Z_{sem_p,m}Z_{c_p,m}}{Z_{sem_p,out}+Z_{c_p,in}}.
+\begin{aligned}
+Z_{con_p,out}^{sem_p}&=Z_{c_p,out}-
+\frac{Z_{c_p,m}^2}{Z_{sem_p,out}+Z_{c_p,in}} \\
+Z_{con_p,m}^{sem_p}&=\frac{Z_{sem_p,m}Z_{c_p,m}}{Z_{sem_p,out}+Z_{c_p,in}}.
+\end{aligned}
 ```
 
 Equation (12) uses these effective surfaces to assemble diagonal and off-diagonal loop impedances for ``N`` screens.

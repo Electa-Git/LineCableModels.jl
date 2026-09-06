@@ -43,7 +43,10 @@ e^{-(h_m+h_n)\gamma_1}\left(\frac{2}{4+\gamma_1^2r^2}\right)
 ```
 
 ```math
-d=\sqrt{(h_m-h_n)^2+r^2},\qquad \gamma_E=0.5772\ldots,
+\begin{aligned}
+d&=\sqrt{(h_m-h_n)^2+r^2} \\
+\gamma_E&=0.5772\ldots,
+\end{aligned}
 ```
 
 with ``\gamma_0,\gamma_1`` as above.

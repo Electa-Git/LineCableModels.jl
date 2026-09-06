@@ -46,11 +46,13 @@ Z_{G-L}=\frac{j\omega\mu_0}{2\pi}
 where
 
 ```math
-R_{12}=\sqrt{x^2+(y_1-y_2)^2},\quad
-k_e^2=-j\omega\mu_0\sigma,\quad
-\overline R_{12}=\sqrt{\overline y^2+x^2},\quad
-\gamma=jk_e,\quad
-\overline y=y_1-y_2+2/\gamma.
+\begin{aligned}
+R_{12}&=\sqrt{x^2+(y_1-y_2)^2} \\
+k_e^2&=-j\omega\mu_0\sigma \\
+\overline R_{12}&=\sqrt{\overline y^2+x^2} \\
+\gamma&=jk_e \\
+\overline y&=y_1-y_2+2/\gamma.
+\end{aligned}
 ```
 
 **Approximation.** Uribe describes Lucca's first step as image theory following Wait–Spies and the second as suppression of the integrand's oscillatory exponential factor. No remainder bound is reproduced.
@@ -66,14 +68,14 @@ k_e^2=-j\omega\mu_0\sigma,\quad
 Uribe's dimensionless form is
 
 ```math
-\underline Z_{G-L}=j\left\{
+\begin{aligned}
+\underline Z_{G-L}&=j\left\{
 \ln\!\sqrt{\frac{\lambda^2+\eta^2}{\eta^2+(\zeta-1)^2}}
 +\frac{2\lambda(\lambda^2-3\eta^2)}
 {3\sqrt j\,\xi^3(\eta^2+\lambda^2)^3}
-\right\},
-\qquad
-\lambda=\zeta-1+\frac{2\sqrt j}{\xi}.
-\qquad\text{(6b)}
+\right\} \\
+\lambda&=\zeta-1+\frac{2\sqrt j}{\xi}.
+\end{aligned}\qquad\text{(6b)}
 ```
 
 ## Notation map

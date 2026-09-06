@@ -21,39 +21,49 @@
 Y_g'=\frac{j\omega}{2\pi(\sigma_g+j\omega\varepsilon_g)}
 \int_0^\infty[F(\lambda)+G(\lambda)]\cos(\lambda r)\,d\lambda,
 \qquad\text{(11)}
+```
 
+```math
 F(\lambda)=\frac{1-e^{-2u_1h}}{u_1}
 +\frac{2e^{-2u_1h}}{u_1+u_0},
 \qquad\text{(12)}
+```
 
+```math
 G(\lambda)=
 \frac{2u_1(\gamma_1^2-\gamma_0^2)e^{-2u_1h}}
 {(u_1+u_0)(u_1\gamma_0^2+u_0\gamma_1^2)},
 \qquad\text{(13)}
+```
 
-u_0=\sqrt{\lambda^2+\gamma_0^2+k_{x,0}^2},
-\qquad
-u_1=\sqrt{\lambda^2+\gamma_1^2+k_{x,1}^2},
-\qquad\text{(14)}
+```math
+\begin{aligned}
+u_0&=\sqrt{\lambda^2+\gamma_0^2+k_{x,0}^2} \\
+u_1&=\sqrt{\lambda^2+\gamma_1^2+k_{x,1}^2},
+\end{aligned}\qquad\text{(14)}
+```
 
-\gamma_0^2=-\omega^2\mu_0\varepsilon_0,
-\qquad
-\gamma_1^2=j\omega\mu_0(\sigma_g+j\omega\varepsilon_0\varepsilon_{rg}),
-\qquad\text{(15)}
+```math
+\begin{aligned}
+\gamma_0^2&=-\omega^2\mu_0\varepsilon_0 \\
+\gamma_1^2&=j\omega\mu_0(\sigma_g+j\omega\varepsilon_0\varepsilon_{rg}),
+\end{aligned}\qquad\text{(15)}
+```
 
-k_{x,0}^2=\omega^2\varepsilon_0\mu_0,
-\qquad
-k_{x,1}^2=\omega^2\varepsilon_0\varepsilon_{rg}\mu_0.
-\qquad\text{(16)}
+```math
+\begin{aligned}
+k_{x,0}^2&=\omega^2\mu_0\varepsilon_0 \\
+k_{x,1}^2&=\omega^2\mu_0\varepsilon_0\varepsilon_{rg}.
+\end{aligned}\qquad\text{(16)}
 ```
 
 **Asymptotic extraction.** Appendix A splits
 
 ```math
-Y_g'=Y_T+Y_\infty,
-\qquad
-T=10\max_{i=0,1}\left|\sqrt{\gamma_i^2+k_{x,i}^2}\right|,
-\qquad\text{(A.1,A.4)}
+\begin{aligned}
+Y_g'&=Y_T+Y_\infty \\
+T&=10\max_{i=0,1}\left|\sqrt{\gamma_i^2+k_{x,i}^2}\right|,
+\end{aligned}\qquad\text{(A.1,A.4)}
 ```
 
 with the original integrand integrated on ``[0,T]`` and the tail replaced by
@@ -63,7 +73,9 @@ F_{asy}(\lambda)=\frac{1}{\lambda}
 -\frac{\gamma_1^2+k_{x,1}^2}{2\lambda^3}
 +\frac{(\gamma_1^2+k_{x,1}^2)e^{-2\lambda h}}{2\lambda^3},
 \qquad\text{(A.6)}
+```
 
+```math
 G_{asy}(\lambda)=\frac{\gamma_1^2-\gamma_0^2}{\gamma_1^2+\gamma_0^2}
 \left[
 \frac{e^{-2\lambda h}}{\lambda}
@@ -78,11 +90,11 @@ Equations (A.9)–(A.12) evaluate the tail through generalized exponential integ
 The paper also records the logarithmic impedance and Vance relation
 
 ```math
-Z_g'=\frac{j\omega\mu_0}{2\pi}
-\ln\!\left(\frac{1+\gamma_1r}{\gamma_1r}\right),
-\qquad
-Y_g'=\frac{\gamma_1^2}{Z_g'}.
-\qquad\text{(17--18)}
+\begin{aligned}
+Z_g'&=\frac{j\omega\mu_0}{2\pi}
+\ln\!\left(\frac{1+\gamma_1r}{\gamma_1r}\right) \\
+Y_g'&=\frac{\gamma_1^2}{Z_g'}.
+\end{aligned}\qquad\text{(17--18)}
 ```
 
 **Implementation.** Select square-root branches with nonnegative real parts. Integrate (11) directly or split at ``T``. For the split evaluator, use the original kernel on ``[0,T]`` and the extracted kernel above ``T``; the source uses piecewise cubic-spline moments for the finite interval.

@@ -47,10 +47,11 @@ and the corrected final model is
 ```
 
 ```math
-Z_{int,k}^{\mathcal R}=
-\frac{j\omega\ell\mu_k}{\kappa_k\sum_{i:\partial_{ik}\ne0}w_i\theta_{k,i}},
-\quad \theta_{\pm,i}=\tanh(\kappa_{\pm,i}d_{\pm,i}/2).
-\qquad\text{(3,8)}
+\begin{aligned}
+Z_{int,k}^{\mathcal R}&=
+\frac{j\omega\ell\mu_k}{\kappa_k\sum_{i:\partial_{ik}\ne0}w_i\theta_{k,i}} \\
+\theta_{\pm,i}&=\tanh(\kappa_{\pm,i}d_{\pm,i}/2).
+\end{aligned}\qquad\text{(3,8)}
 ```
 
 **Approximation.** Flux is confined to constructed channels; the added/subtracted internal term corrects the network's conductor penetration approximation.

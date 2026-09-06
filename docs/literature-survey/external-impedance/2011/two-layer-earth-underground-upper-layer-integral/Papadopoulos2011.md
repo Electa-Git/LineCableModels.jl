@@ -53,20 +53,27 @@ F(\lambda)=
 The author-prescribed transformation is ``u^2-k_x^2=\lambda^2``, with the following printed factor definition and the unprimed versions of appendix (19)–(20). The ``k`` on ``\gamma_k`` in the definition of ``a_m`` is intentionally retained; the appendix separately defines the consistently indexed primed factor below. Equating ``k`` and ``m`` would be an interpretation of the printed mismatch, not a source transcription.
 
 ```math
-a_m=\sqrt{\lambda^2+\gamma_k^2+k_x^2},
-\qquad
-\gamma_k^2=j\omega\mu_k(\sigma_k+j\omega\varepsilon_k),
-\quad k=0,1,2,
+\begin{aligned}
+a_m&=\sqrt{\lambda^2+\gamma_k^2+k_x^2} \\
+\gamma_k^2&=j\omega\mu_k(\sigma_k+j\omega\varepsilon_k) \\
+k&=0,1,2,
+\end{aligned}
 ```
 
 ```math
-S_{mn}=(\mu_n a_m+\mu_m a_n),\qquad
-D_{mn}=(\mu_m a_n-\mu_n a_m),\qquad m,n=0,1,2,
+\begin{aligned}
+S_{mn}&=(\mu_n a_m+\mu_m a_n) \\
+D_{mn}&=(\mu_m a_n-\mu_n a_m),\qquad m \\
+n&=0,1,2,
+\end{aligned}
 ```
 
 ```math
-\gamma_x=j\omega\sqrt{\mu_1\varepsilon_1},\qquad
-\gamma_x=jk_x,\qquad \omega=2\pi f.
+\begin{aligned}
+\gamma_x&=j\omega\sqrt{\mu_1\varepsilon_1} \\
+\gamma_x&=jk_x \\
+\omega&=2\pi f.
+\end{aligned}
 ```
 
 The equality ``\gamma_x=jk_x`` identifies the exponent of (5) with the preceding prescribed exponent; it is not an independent propagation model. ``Z'`` is in impedance per length; ``h,d,y`` are lengths, ``\lambda,a,\gamma,k_x`` inverse lengths. ``h_1,h_2`` denote the two cable depths in (6b), not the two material-layer thicknesses; the correspondence to ``h_i,h_j`` is contextual and is not a coordinate-sign change. For the self term the source explicitly replaces ``y_{ij}`` by cable ``i``'s outermost radius and ``h_j`` by ``h_i``. No additional free-space or internal term is inserted here.
@@ -101,9 +108,11 @@ The source states no separate value at ``u=k_x``. Immediately following (5), it 
 Appendix unnumbered definition below (10), then (19)–(20), printed p. 171:
 
 ```math
-a'_k=\sqrt{u^2+\gamma_k^2},\qquad
-\gamma_k^2=j\omega\mu_k(\sigma_k+j\omega\varepsilon_k),
-\qquad k=0,1,2.
+\begin{aligned}
+a'_k&=\sqrt{u^2+\gamma_k^2} \\
+\gamma_k^2&=j\omega\mu_k(\sigma_k+j\omega\varepsilon_k) \\
+k&=0,1,2.
+\end{aligned}
 ```
 
 ```math
@@ -114,7 +123,7 @@ S'_{mn}=(\mu_n a'_m+\mu_m a'_n),\qquad\text{(19)}
 D'_{mn}=(\mu_m a'_n-\mu_n a'_m).\qquad\text{(20)}
 ```
 
-Section 3, p. 163, states three reductions without printing new independent kernels: first-earth-layer properties equal to air and ``k_x=k_0=\omega\sqrt{\varepsilon_0\mu_0}`` give the overhead homogeneous-earth expressions attributed to Kikuchi [18]; equal properties of earth layers 1 and 2 give the authors' homogeneous-earth formulas [9]; a further sentence sets ``\gamma_x=0`` and identifies the earlier two-layer impedance [13]. The latter sentence's placement after the equal-layer case is retained as prose, not used to impose simultaneous incompatible layer conditions. The homogeneous-earth original has a [separate record](../../2010/homogeneous-earth-underground-cable-correction/Papadopoulos2010b.md).
+Section 3, p. 163, states three reductions without printing new independent kernels: first-earth-layer properties equal to air and ``k_x=k_0=\omega\sqrt{\mu_0\varepsilon_0}`` give the overhead homogeneous-earth expressions attributed to Kikuchi [18]; equal properties of earth layers 1 and 2 give the authors' homogeneous-earth formulas [9]; a further sentence sets ``\gamma_x=0`` and identifies the earlier two-layer impedance [13]. The latter sentence's placement after the equal-layer case is retained as prose, not used to impose simultaneous incompatible layer conditions. The homogeneous-earth original has a [separate record](../../2010/homogeneous-earth-underground-cable-correction/Papadopoulos2010b.md).
 
 The accompanying potential-coefficient/admittance expression is in the [separate admittance record](../../../external-admittance/2011/two-layer-earth-underground-upper-layer-potential-coefficient/Papadopoulos2011.md). Internal and insulation assembly is referenced to [9,15] by the paper; no new full cable matrix is printed here.
 

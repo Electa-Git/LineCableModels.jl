@@ -18,14 +18,14 @@
 **Expression.** For two cables ``i`` and ``j``, source equation (8) gives
 
 ```math
-z_{ji}=\frac{j\omega\mu}{2\pi}
+\begin{aligned}
+z_{ji}&=\frac{j\omega\mu}{2\pi}
 \left\{
 -\ln\!\left(\frac{\gamma m s_{ji}}{2}\right)
 +\frac{1}{2}-\frac{2}{3}m\ell
-\right\},
-\qquad
-\ell=h_i+h_j.
-\qquad\text{(8)}
+\right\} \\
+\ell&=h_i+h_j.
+\end{aligned}\qquad\text{(8)}
 ```
 
 The self term follows from ``s_{ji}\mapsto r_4`` and ``\ell\mapsto2h``:
@@ -42,9 +42,10 @@ z_7=\frac{j\omega\mu}{2\pi}
 Here
 
 ```math
-m=\sqrt{\frac{j\omega\mu}{\rho}},
-\qquad
-s_{ji}=\sqrt{x_{ji}^2+(h_i-h_j)^2},
+\begin{aligned}
+m&=\sqrt{\frac{j\omega\mu}{\rho}} \\
+s_{ji}&=\sqrt{x_{ji}^2+(h_i-h_j)^2},
+\end{aligned}
 ```
 
 ``\rho`` is earth resistivity. For numerical evaluation, the logarithmic constant is ``\gamma=e^{\gamma_E}=1.781072\ldots``, where ``\gamma_E=0.577215\ldots`` is the Euler–Mascheroni constant. This value follows from the small-argument expansion of ``K_0`` used in Appendix 8.3.

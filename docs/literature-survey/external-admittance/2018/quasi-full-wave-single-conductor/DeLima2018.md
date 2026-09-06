@@ -39,26 +39,30 @@ Y=\frac{\gamma}{Z_c}=2\pi(\sigma_1+j\omega\varepsilon_r\varepsilon_1)[\Lambda_1-
 ```
 
 ```math
-S_4=2\int_0^\infty\frac{u_2}{u_1}
-\frac{e^{-hu_1}-e^{-2hu_1}}{n^2u_1+u_2}\cos(r\lambda)\,d\lambda,
-\qquad n=\frac{\gamma_2}{\gamma_1},
-\qquad\text{(14)}
+\begin{aligned}
+S_4&=2\int_0^\infty\frac{u_2}{u_1}
+\frac{e^{-hu_1}-e^{-2hu_1}}{n^2u_1+u_2}\cos(r\lambda)\,d\lambda \\
+n&=\frac{\gamma_2}{\gamma_1},
+\end{aligned}\qquad\text{(14)}
 ```
 
 ```math
-\Lambda_1=\Lambda(r,h),\qquad
-\Lambda=K_0(\eta_1d)-K_0(\eta_1D),qquad
-u_i=\sqrt{\lambda^2+\gamma_i^2-\gamma^2},
-\quad \eta_1^2=\gamma_1^2-\gamma^2.
+\begin{aligned}
+\Lambda_1&=\Lambda(r,h) \\
+\Lambda&=K_0(\eta_1d)-K_0(\eta_1D) \\
+qquad
+u_i&=\sqrt{\lambda^2+\gamma_i^2-\gamma^2} \\
+\eta_1^2&=\gamma_1^2-\gamma^2.
+\end{aligned}
 ```
 
 For qFW,
 
 ```math
-u_i\approx\bar u_i=\sqrt{\lambda^2+\gamma_i^2-\bar\gamma^2},
-\qquad
-\eta_1\approx\bar\eta=\sqrt{\lambda^2-\bar\gamma^2},
-\qquad\text{(15)}
+\begin{aligned}
+u_i&\approx\bar u_i=\sqrt{\lambda^2+\gamma_i^2-\bar\gamma^2} \\
+\eta_1&\approx\bar\eta=\sqrt{\lambda^2-\bar\gamma^2},
+\end{aligned}\qquad\text{(15)}
 ```
 
 with ``\bar\gamma`` supplied by the image approximation and constrained by source equation (16), transcribed in the companion impedance record.
@@ -76,10 +80,10 @@ with ``\bar\gamma`` supplied by the image approximation and constrained by sourc
 The source defines
 
 ```math
-U=\int_0^h E_{y1}(r,\xi)\,d\xi,
-\qquad
-Z_c=\frac UI=\frac1I\left(\varphi_{1h}-\varphi_{10}+j\omega\int_0^hA_{1y}(r_j,\xi)\,d\xi\right),
-\qquad\text{(10--11)}
+\begin{aligned}
+U&=\int_0^h E_{y1}(r,\xi)\,d\xi \\
+Z_c&=\frac UI=\frac1I\left(\varphi_{1h}-\varphi_{10}+j\omega\int_0^hA_{1y}(r_j,\xi)\,d\xi\right),
+\end{aligned}\qquad\text{(10--11)}
 ```
 
 before stating ``Y=\gamma/Z_c``. Thus (13) is a source-defined admittance, not an inferred inversion of individual kernel entries.

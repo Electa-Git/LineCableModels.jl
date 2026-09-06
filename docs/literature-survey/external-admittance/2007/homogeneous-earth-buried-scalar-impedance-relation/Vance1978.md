@@ -23,7 +23,7 @@
 | Air propagation constant ``γ_air`` | Air ``\mu_0,\varepsilon_0`` are shown in Fig. 1; no air propagation constant appears in the scalar admittance relation. | Stated/equation-implied — Fig. 1 and (10). |
 | Earth propagation constant ``γ_earth`` | ``\gamma_g=\sqrt{j\omega\mu_0(\sigma_g+j\omega\varepsilon_g)}``. | Stated — definition following (5), p. 753. |
 | Earth permittivity and displacement current | Retained in ``\gamma_g``; ``\varepsilon_g=\varepsilon_{rg}\varepsilon_0``. | Stated — section 2, p. 752; definition after (5). |
-| Range of validity | Source TEM/TL scope and the restrictions of the selected ground-impedance model. The surrounding discussion gives ``d\sqrt{\varepsilon_0\mu_0\omega^2}\ll1`` for the quasi-static/TL treatment; it is not a separate exactness proof of (10). | Stated — p. 754 opening; (10), p. 755. |
+| Range of validity | Source TEM/TL scope and the restrictions of the selected ground-impedance model. The surrounding discussion gives ``d\sqrt{\omega^2\mu_0\varepsilon_0}\ll1`` for the quasi-static/TL treatment; it is not a separate exactness proof of (10). | Stated — p. 754 opening; (10), p. 755. |
 | Earth permeability ``μ_earth`` | Fixed ``\mu_0``. | Stated — section 2 and Fig. 1. |
 | Arrangement | Underground scalar bare and insulated-wire cases. No explicit mutual-admittance matrix inversion is printed with (10). | Stated — Figs. 1–2 and (10a)–(10b). |
 | Earth structure | Homogeneous conducting dielectric half-space below air. | Stated — Fig. 1, p. 752. |
@@ -36,21 +36,25 @@
 ```math
 Y_{gb}=\frac{\gamma_g^2}{Z_{gb}},
 \qquad\text{(10a)}
+```
 
-Y_{gi}=\frac{\gamma_g^2}{Z_{gi}},
-\qquad\text{(10b)}
-
-\gamma_g=\sqrt{j\omega\mu_0(\sigma_g+j\omega\varepsilon_g)}.
+```math
+\begin{aligned}
+Y_{gi}&=\frac{\gamma_g^2}{Z_{gi}}, \\
+\gamma_g&=\sqrt{j\omega\mu_0(\sigma_g+j\omega\varepsilon_g)}.
+\end{aligned}\qquad\text{(10b)}
 ```
 
 ``b`` and ``i`` in the subscripts distinguish bare and insulated cases. ``Z_{gb}`` and ``Z_{gi}`` are the corresponding earth impedance components, not the full conductor-plus-insulation series impedance. For the logarithmic-exponential option presented in the same source,
 
 ```math
-Z_g^{\mathrm{LOGEXP}}=\frac{j\omega\mu_0}{2\pi}
+\begin{aligned}
+Z_g^{\mathrm{LOGEXP}}&=\frac{j\omega\mu_0}{2\pi}
 \left\{\ln\left(\frac{1+\gamma_gR_{ab}}{\gamma_gR_{ab}}\right)
-+\left[\frac{2e^{-2d|\gamma_g|}}{4+\gamma_g^2R_{ab}^2}\right]\right\},
-\quad R_{ab}=a\ \text{(bare)},\quad R_{ab}=b\ \text{(insulated)}.
-\qquad\text{(9)}
++\left[\frac{2e^{-2d|\gamma_g|}}{4+\gamma_g^2R_{ab}^2}\right]\right\} \\
+R_{ab}&=a\ \text{(bare)} \\
+R_{ab}&=b\ \text{(insulated)}.
+\end{aligned}\qquad\text{(9)}
 ```
 
 The paper also considers other ground-impedance models; (10) is not printed as exclusive to (9). ``d`` is burial depth, ``a`` conductor radius, and ``b`` outer insulation radius. For the insulated wire the source-prescribed assembly is retained in its actual line-equation form:
@@ -59,10 +63,13 @@ The paper also considers other ground-impedance models; (10) is not printed as e
 \frac{dI(x,j\omega)}{dx}
 =j\omega\left(\frac{CY_{gi}}{j\omega C+Y_{gi}}\right)V(x,j\omega),
 \qquad\text{(2b)}
+```
 
-C=\frac{2\pi\varepsilon_{in}}{\ln(b/a)},\qquad
-\varepsilon_{in}=\varepsilon_{rin}\varepsilon_0.
-\qquad\text{(3b and section 2 definition)}
+```math
+\begin{aligned}
+C&=\frac{2\pi\varepsilon_{in}}{\ln(b/a)} \\
+\varepsilon_{in}&=\varepsilon_{rin}\varepsilon_0.
+\end{aligned}\qquad\text{(3b and section 2 definition)}
 ```
 
 **Approximation.** A source-attributed scalar relation in the selected TL description. When ``Z_g`` is approximated by (9), its empirical approximation carries into ``Y_g``. The inspected paper supplies no separate derivation or asymptotic order for the Vance-attributed relation (10); original-source verification is unresolved.

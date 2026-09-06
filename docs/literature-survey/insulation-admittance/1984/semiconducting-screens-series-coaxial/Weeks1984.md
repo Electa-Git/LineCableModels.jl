@@ -34,8 +34,10 @@
 **Expression.**
 
 ```math
-\frac1y=\frac1{y_1}+\frac1{y_2}+\frac1{y_3},
-\qquad \frac1y\simeq\frac1{y_2}\quad(y_1,y_3\gg y_2),
+\begin{aligned}
+\frac1y&=\frac1{y_1}+\frac1{y_2}+\frac1{y_3} \\
+\frac1y&\simeq\frac1{y_2}\quad(y_1,y_3\gg y_2),
+\end{aligned}
 ```
 
 ```math

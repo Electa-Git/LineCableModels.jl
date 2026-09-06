@@ -73,9 +73,12 @@ J_{\mathrm{Pollaczek}}=\int_0^\infty
 ```
 
 ```math
-r=\sqrt{x^2+(h_1-h_2)^2},\qquad
-R=\sqrt{x^2+H^2},\qquad H=h_1+h_2,
-\qquad k=\sqrt{j\omega\mu_0\sigma}=\frac{1+j}{\delta}.
+\begin{aligned}
+r&=\sqrt{x^2+(h_1-h_2)^2} \\
+R&=\sqrt{x^2+H^2} \\
+H&=h_1+h_2 \\
+k&=\sqrt{j\omega\mu_0\sigma}=\frac{1+j}{\delta}.
+\end{aligned}
 ```
 
 ``{}_1F_1`` is the confluent hypergeometric function. The source defines ``(-3)!!=-1`` and ``(-1)!!=1`` for the first two series coefficients.

@@ -36,18 +36,26 @@
 ```math
 Z_s=j\omega\frac{\mu_0}{2\pi}\ln\frac{2(h+p)}{r},
 \qquad\text{(3)}
+```
 
+```math
 Z_m=j\omega\frac{\mu_0}{2\pi}\ln
 \frac{\sqrt{(h_k+h_\ell+2p)^2+d_{k\ell}^2}}
      {\sqrt{(h_k-h_\ell)^2+d_{k\ell}^2}},
 \qquad\text{(4)}
+```
 
+```math
 p=\frac{1}{\sqrt{j\omega\mu_0\sigma}},
 \qquad\text{(18)}
+```
 
+```math
 \delta=\frac{1}{\sqrt{\pi f\mu_0\sigma}},
 \qquad\text{(18')}
+```
 
+```math
 \frac{1}{p}=(1+j)\frac{1}{\delta}.
 \qquad\text{(19)}
 ```
@@ -69,7 +77,9 @@ For the numerical error comparison the source defines
 ```math
 \beta=\frac{d_{k\ell}}{h_k+h_\ell},
 \qquad\text{(44)}
+```
 
+```math
 \alpha=\frac{h_{\mathrm{ave}}}{\delta}
 =\frac{h_k+h_\ell}{2\sqrt{2}}\sqrt{\omega\mu_0\sigma}.
 \qquad\text{(48--48')}

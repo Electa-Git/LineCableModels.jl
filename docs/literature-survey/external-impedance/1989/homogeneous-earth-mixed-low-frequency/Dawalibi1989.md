@@ -34,7 +34,7 @@
 **Expression.** The source prints the mixed mutual external impedance as equation (8):
 
 ```math
-Z_{ik}^{e}=j\frac{\omega\mu_0\mu_1}{\pi}
+Z_{ik}^{e}=\frac{j\omega\mu_0\mu_1}{\pi}
 \int_0^\infty
 \frac{e^{-\alpha_0h_i}e^{-\alpha_1h_k}}
 {\alpha_0\mu_1+\alpha_1\mu_0}
@@ -45,10 +45,11 @@ Z_{ik}^{e}=j\frac{\omega\mu_0\mu_1}{\pi}
 with
 
 ```math
-\alpha_i=\left(\lambda^2+\gamma_i^2\right)^{1/2},\qquad
-\theta_i=\sigma_i+j\omega\varepsilon_i,\qquad
-\gamma_i=j\omega\mu_i\theta_i.
-\qquad\text{(3--5)}
+\begin{aligned}
+\alpha_i&=\left(\lambda^2+\gamma_i^2\right)^{1/2} \\
+\theta_i&=\sigma_i+j\omega\varepsilon_i \\
+\gamma_i&=j\omega\mu_i\theta_i.
+\end{aligned}\qquad\text{(3--5)}
 ```
 
 **Approximation.** Not an analytical approximation after the source imposes its thin-wire, homogeneous-medium, and low-frequency zero-longitudinal-propagation model. Those model reductions precede equation (8).

@@ -36,9 +36,11 @@
 Let
 
 ```math
-\alpha_m(s)=\sqrt{s^2-k_m^2},\qquad
-d=\sqrt{(x-\xi)^2+(y-\eta)^2},\qquad
-D=\sqrt{(x-\xi)^2+(y+\eta)^2},
+\begin{aligned}
+\alpha_m(s)&=\sqrt{s^2-k_m^2} \\
+d&=\sqrt{(x-\xi)^2+(y-\eta)^2} \\
+D&=\sqrt{(x-\xi)^2+(y+\eta)^2},
+\end{aligned}
 ```
 
 and ``A=2jJ\omega/c^2`` as in (12). For an overhead source ``\eta\ge0`` and earth observation ``y\le0``,
@@ -90,17 +92,20 @@ For buried source and observation, ``y\le0,\eta\le0``,
 The physical specialization is
 
 ```math
-k_1=k,\qquad k_2=0,\qquad \xi=0.
-\qquad\text{(22)}
+\begin{aligned}
+k_1&=k \\
+k_2&=0 \\
+\xi&=0.
+\end{aligned}\qquad\text{(22)}
 ```
 
 For the applicable placement-specific field ``\mathfrak E``, the source defines
 
 ```math
-\mathfrak E=-J\frac{\partial M}{\partial t}=-j\omega J M,
-\qquad
-M=\frac{j}{\omega J}\mathfrak E,
-\qquad\text{(58)}
+\begin{aligned}
+\mathfrak E&=-J\frac{\partial M}{\partial t}=-j\omega J M \\
+M&=\frac{j}{\omega J}\mathfrak E,
+\end{aligned}\qquad\text{(58)}
 ```
 
 and for a physical conductor defines self ``L`` by circumferentially averaging ``M``. The total per-length series impedance with earth return is

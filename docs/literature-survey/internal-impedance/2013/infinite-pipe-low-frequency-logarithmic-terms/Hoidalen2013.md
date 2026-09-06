@@ -56,9 +56,10 @@
 ``\gamma`` is Euler's constant, not a propagation constant. The geometry/skin definitions from (5),(7) are:
 
 ```math
-C_n=(d_k\cdot d_m/r_{p1}^2)^n\cdot\cos(n\theta_{km}),
-\qquad
-x_1=r_{p1}\cdot\sqrt{j\omega\cdot\mu_0\cdot\mu_{rp}\cdot\sigma_p}.
+\begin{aligned}
+C_n&=(d_k\cdot d_m/r_{p1}^2)^n\cdot\cos(n\theta_{km}) \\
+x_1&=r_{p1}\cdot\sqrt{j\omega\cdot\mu_0\cdot\mu_{rp}\cdot\sigma_p}.
+\end{aligned}
 ```
 
 The source says ``C_1`` in (16) comes from (5), i.e. that definition's ``n=1`` term. It does not replace the parent's entire infinite sum by a new finite summation limit in (15).

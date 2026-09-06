@@ -41,10 +41,12 @@ z_{jk}=\frac{j\omega\mu_0}{2\pi}
 ```
 
 ```math
-J(j,k)=\int_0^\infty h_m\sqrt\alpha\,[\sqrt{u^2+j}-u]
+\begin{aligned}
+J(j,k)&=\int_0^\infty h_m\sqrt\alpha\,[\sqrt{u^2+j}-u]
 e^{-2h_m\sqrt\alpha\sqrt{u^2+j}}
-\cos(x_{jk}\sqrt\alpha\,u)\,du,
-\quad h_m=\frac{h_j+h_k}{2}.
+\cos(x_{jk}\sqrt\alpha\,u)\,du \\
+h_m&=\frac{h_j+h_k}{2}.
+\end{aligned}
 ```
 
 The direct evaluator is

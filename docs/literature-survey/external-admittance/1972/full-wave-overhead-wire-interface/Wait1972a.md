@@ -18,7 +18,7 @@
 **Expression.** The generalized admittance is
 
 ```math
-Y=j2\pi\varepsilon_1\omega\,[A+2(N-jM)]^{-1},
+Y=j2\pi\omega\varepsilon_1\,[A+2(N-jM)]^{-1},
 \qquad\text{(25)}
 ```
 
@@ -28,33 +28,35 @@ with
 A=K_0\!\left(j\sqrt{k_1^2-\beta^2}\,a\right)
 -K_0\!\left(j\sqrt{k_1^2-\beta^2}\sqrt{4h^2+a^2}\right),
 \qquad\text{(26)}
+```
 
-N-jM=\int_0^\infty
+```math
+\begin{aligned}
+N-jM&=\int_0^\infty
 \frac{\exp\!\left[-u_1\sqrt{4h^2+a^2}\right]}
-{u_1+(k_1/k_2)^2u_2}\cos(\lambda a)\,d\lambda,
-\qquad\text{(28)}
-
-u_1=\sqrt{\lambda^2+\beta^2-k_1^2},
-\qquad
-u_2=\sqrt{\lambda^2+\beta^2-k_2^2}.
+{u_1+(k_1/k_2)^2u_2}\cos(\lambda a)\,d\lambda, \\
+u_1&=\sqrt{\lambda^2+\beta^2-k_1^2} \\
+u_2&=\sqrt{\lambda^2+\beta^2-k_2^2}.
+\end{aligned}\qquad\text{(28)}
 ```
 
 It enters the implicit mode equation
 
 ```math
-Z+\frac{\beta^2}{Y}=0,
-\qquad j\beta=(ZY)^{1/2}.
-\qquad\text{(23)}
+\begin{aligned}
+Z+\frac{\beta^2}{Y}&=0 \\
+j\beta&=(ZY)^{1/2}.
+\end{aligned}\qquad\text{(23)}
 ```
 
 Under the qTEM conditions, equations (30)–(32) give
 
 ```math
-j\beta_0\simeq(Z_eY_e)^{1/2},
-\qquad
-Y_e=j2\pi\varepsilon_1\omega
+\begin{aligned}
+j\beta_0&\simeq(Z_eY_e)^{1/2} \\
+Y_e&=j2\pi\omega\varepsilon_1
 \left[\ln\!\left(\frac{2h}{a}\right)\right]^{-1}.
-\qquad\text{(30,32)}
+\end{aligned}\qquad\text{(30,32)}
 ```
 
 **Implementation.** For the generalized mode, evaluate (25), (26), and (28) at each trial ``\beta`` and solve (23) together with the companion impedance. For the qTEM limit, evaluate (32) directly.

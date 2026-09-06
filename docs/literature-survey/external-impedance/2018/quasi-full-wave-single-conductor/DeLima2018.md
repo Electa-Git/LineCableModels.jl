@@ -40,15 +40,18 @@ Z=\gamma Z_c=\frac{j\omega\mu_0}{2\pi}
 ```
 
 ```math
-\Lambda=K_0(\eta_1d)-K_0(\eta_1D),\qquad
-d=\sqrt{(h-y)^2+x^2},\quad D=\sqrt{(h+y)^2+x^2},
+\begin{aligned}
+\Lambda&=K_0(\eta_1d)-K_0(\eta_1D) \\
+d&=\sqrt{(h-y)^2+x^2} \\
+D&=\sqrt{(h+y)^2+x^2},
+\end{aligned}
 ```
 
 ```math
-S_1=2\int_0^\infty\frac{e^{-(h+y)u_1}}{u_1+u_2}\cos(x\lambda)\,d\lambda,
-\qquad
-S_2=2\int_0^\infty\frac{e^{-(h+y)u_1}}{n^2u_1+u_2}\cos(x\lambda)\,d\lambda,
-\qquad\text{(4)}
+\begin{aligned}
+S_1&=2\int_0^\infty\frac{e^{-(h+y)u_1}}{u_1+u_2}\cos(x\lambda)\,d\lambda \\
+S_2&=2\int_0^\infty\frac{e^{-(h+y)u_1}}{n^2u_1+u_2}\cos(x\lambda)\,d\lambda,
+\end{aligned}\qquad\text{(4)}
 ```
 
 ```math
@@ -58,18 +61,20 @@ S_4=2\int_0^\infty\frac{u_2}{u_1}
 ```
 
 ```math
-n=\frac{\gamma_2}{\gamma_1},\qquad
-u_i=\sqrt{\lambda^2+\gamma_i^2-\gamma^2},\qquad
-\eta_1^2=\gamma_1^2-\gamma^2.
+\begin{aligned}
+n&=\frac{\gamma_2}{\gamma_1} \\
+u_i&=\sqrt{\lambda^2+\gamma_i^2-\gamma^2} \\
+\eta_1^2&=\gamma_1^2-\gamma^2.
+\end{aligned}
 ```
 
 For qFW, every occurrence in these functions uses
 
 ```math
-u_i\approx\bar u_i=\sqrt{\lambda^2+\gamma_i^2-\bar\gamma^2},
-\qquad
-\eta_1\approx\bar\eta=\sqrt{\lambda^2-\bar\gamma^2},
-\qquad\text{(15)}
+\begin{aligned}
+u_i&\approx\bar u_i=\sqrt{\lambda^2+\gamma_i^2-\bar\gamma^2} \\
+\eta_1&\approx\bar\eta=\sqrt{\lambda^2-\bar\gamma^2},
+\end{aligned}\qquad\text{(15)}
 ```
 
 where ``\bar\gamma`` is the propagation constant calculated by the cited image approximation and satisfies the noniterative approximate modal equation

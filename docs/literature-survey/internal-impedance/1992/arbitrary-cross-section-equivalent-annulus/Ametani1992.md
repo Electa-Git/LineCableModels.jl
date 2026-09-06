@@ -18,11 +18,11 @@
 **Expression.** The approximation is
 
 ```math
-Z_i=R_{dc}
-\sqrt{1+\frac{j\omega\mu_c S}{R_{dc}\ell^2}},
-\qquad
-R_{dc}=\frac{\rho_c}{S}.
-\qquad\text{(1)}
+\begin{aligned}
+Z_i&=R_{dc}
+\sqrt{1+\frac{j\omega\mu_c S}{R_{dc}\ell^2}} \\
+R_{dc}&=\frac{\rho_c}{S}.
+\end{aligned}\qquad\text{(1)}
 ```
 
 Its high-frequency limit is
@@ -35,19 +35,19 @@ Z_i\sim\frac{\sqrt{j\omega\mu_c\rho_c}}{\ell}.
 The cross-section can instead be represented by an impedance-equivalent circular annulus with
 
 ```math
-r_o=\frac{\ell}{2\pi},
-\qquad
-r_i=\sqrt{r_o^2-\frac{S}{\pi}}.
-\qquad\text{(3)}
+\begin{aligned}
+r_o&=\frac{\ell}{2\pi} \\
+r_i&=\sqrt{r_o^2-\frac{S}{\pi}}.
+\end{aligned}\qquad\text{(3)}
 ```
 
 For a solid sector with radius ``r`` and angle ``\theta`` in radians,
 
 ```math
-S=\frac{\theta r^2}{2},
-\qquad
-\ell=r(2+\theta).
-\qquad\text{(4)}
+\begin{aligned}
+S&=\frac{\theta r^2}{2} \\
+\ell&=r(2+\theta).
+\end{aligned}\qquad\text{(4)}
 ```
 
 For an annular sector with inner radius ``r_i^{(s)}`` and outer radius ``r_o^{(s)}``, use its physical area and full wetted perimeter in (1)–(3).

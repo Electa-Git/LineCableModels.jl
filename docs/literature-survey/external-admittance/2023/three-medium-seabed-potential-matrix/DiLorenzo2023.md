@@ -58,19 +58,19 @@ G_b(\lambda)=2\mu_1\mu_2\alpha_2e^{-\alpha_2(h_i+h_j-2h_s)}
 ```
 
 ```math
-\Delta_{10}=\alpha_0\gamma_1^2\mu_0-\alpha_1\gamma_0^2\mu_1,
-\qquad
-A_{10}=\alpha_0\gamma_1^2\mu_0+\alpha_1\gamma_0^2\mu_1.
-\qquad\text{(35)}
+\begin{aligned}
+\Delta_{10}&=\alpha_0\gamma_1^2\mu_0-\alpha_1\gamma_0^2\mu_1 \\
+A_{10}&=\alpha_0\gamma_1^2\mu_0+\alpha_1\gamma_0^2\mu_1.
+\end{aligned}\qquad\text{(35)}
 ```
 
 Here ``F_3`` is equation (30), transcribed in the companion impedance record, and ``\kappa_2=\sigma_2+j\omega\varepsilon_2`` follows the paper's medium convention.
 
 ```math
-\mathbf P'=(\mathbf T^t)^{-1}\mathbf P'_L(\mathbf T)^{-1},
-\qquad
-\mathbf Y'=j\omega(\mathbf P')^{-1}.
-\qquad\text{(36,40)}
+\begin{aligned}
+\mathbf P'&=(\mathbf T^t)^{-1}\mathbf P'_L(\mathbf T)^{-1} \\
+\mathbf Y'&=j\omega(\mathbf P')^{-1}.
+\end{aligned}\qquad\text{(36,40)}
 ```
 
 ```math
@@ -90,10 +90,10 @@ P'_{cs}&0&0&0\\
 ```
 
 ```math
-P'_{cs}=\frac{1}{2\pi\varepsilon_{cs}}\ln\left(\frac{r_2}{r_1}\right),
-\qquad
-P'_{se}=\frac{1}{2\pi\varepsilon_{se}}\ln\left(\frac{r_4}{r_3}\right).
-\qquad\text{(39)}
+\begin{aligned}
+P'_{cs}&=\frac{1}{2\pi\varepsilon_{cs}}\ln\left(\frac{r_2}{r_1}\right) \\
+P'_{se}&=\frac{1}{2\pi\varepsilon_{se}}\ln\left(\frac{r_4}{r_3}\right).
+\end{aligned}\qquad\text{(39)}
 ```
 
 **Approximation.** The parent electromagnetic problem is reduced by the quasi-TEM assumption. Equations (33)–(35) remain infinite spectral integrals and require numerical quadrature; no fit or truncation order is specified. Equation (39) is the ideal coaxial lossless-insulation coefficient used by the source.

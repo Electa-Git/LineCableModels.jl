@@ -18,12 +18,14 @@
 **Expression.** The mode equation and generalized series impedance are
 
 ```math
-Z+\frac{\beta^2}{Y}=0,
-\qquad
-j\beta=(ZY)^{1/2},
-\qquad\text{(23)}
+\begin{aligned}
+Z+\frac{\beta^2}{Y}&=0 \\
+j\beta&=(ZY)^{1/2},
+\end{aligned}\qquad\text{(23)}
+```
 
-Z=\frac{j\mu_0\omega}{2\pi}\,[A+2(Q-jP)],
+```math
+Z=\frac{j\omega\mu_0}{2\pi}\,[A+2(Q-jP)],
 \qquad\text{(24)}
 ```
 
@@ -33,29 +35,32 @@ where
 A=K_0\!\left(j\sqrt{k_1^2-\beta^2}\,a\right)
 -K_0\!\left(j\sqrt{k_1^2-\beta^2}\sqrt{4h^2+a^2}\right),
 \qquad\text{(26)}
+```
 
-Q-jP=\int_0^\infty
+```math
+\begin{aligned}
+Q-jP&=\int_0^\infty
 \frac{\exp\!\left[-u_1\sqrt{4h^2+a^2}\right]}
-{u_1+u_2}\cos(\lambda a)\,d\lambda,
-\qquad\text{(27)}
-
-u_1=\sqrt{\lambda^2+\beta^2-k_1^2},
-\qquad
-u_2=\sqrt{\lambda^2+\beta^2-k_2^2}.
+{u_1+u_2}\cos(\lambda a)\,d\lambda, \\
+u_1&=\sqrt{\lambda^2+\beta^2-k_1^2} \\
+u_2&=\sqrt{\lambda^2+\beta^2-k_2^2}.
+\end{aligned}\qquad\text{(27)}
 ```
 
 The qTEM reduction is
 
 ```math
-Z_e=\frac{j\mu_0\omega}{2\pi}
+Z_e=\frac{j\omega\mu_0}{2\pi}
 \left[\ln\!\left(\frac{2h}{a}\right)-J_c\right],
 \qquad\text{(31)}
+```
 
-J_c=\frac{2}{k_2^2}\int_0^\infty
-(u-\lambda)e^{-2\lambda h}\,d\lambda,
-\qquad
-u=\sqrt{\lambda^2-k_2^2}.
-\qquad\text{(33)}
+```math
+\begin{aligned}
+J_c&=\frac{2}{k_2^2}\int_0^\infty
+(u-\lambda)e^{-2\lambda h}\,d\lambda \\
+u&=\sqrt{\lambda^2-k_2^2}.
+\end{aligned}\qquad\text{(33)}
 ```
 
 **Implementation.** For the generalized mode, solve (23) while reevaluating (24), (26), and (27) at the trial ``\beta``. Select square-root branches with nonnegative real parts. For the qTEM limit, evaluate (31)–(33).

@@ -101,25 +101,35 @@ F(\lambda)=
 The transformation following (5) prescribes unprimed versions of appendix (19)–(22):
 
 ```math
-S_{mn}=(\mu_n a_m+\mu_m a_n),\qquad
-D_{mn}=(\mu_m a_n-\mu_n a_m),
+\begin{aligned}
+S_{mn}&=(\mu_n a_m+\mu_m a_n) \\
+D_{mn}&=(\mu_m a_n-\mu_n a_m),
+\end{aligned}
 ```
 
 ```math
-A_{mn}=(a_n\gamma_m^2\mu_n+a_m\gamma_n^2\mu_m),\qquad
-\Delta_{mn}=(a_n\gamma_m^2\mu_n-a_m\gamma_n^2\mu_m),
-\qquad m,n=0,1,2.
+\begin{aligned}
+A_{mn}&=(a_n\gamma_m^2\mu_n+a_m\gamma_n^2\mu_m) \\
+\Delta_{mn}&=(a_n\gamma_m^2\mu_n-a_m\gamma_n^2\mu_m),
+\qquad m \\
+n&=0,1,2.
+\end{aligned}
 ```
 
 ```math
-a_m=\sqrt{\lambda^2+\gamma_k^2+k_x^2},\qquad
-\gamma_k^2=j\omega\mu_k(\sigma_k+j\omega\varepsilon_k),
-\qquad k=0,1,2,
+\begin{aligned}
+a_m&=\sqrt{\lambda^2+\gamma_k^2+k_x^2} \\
+\gamma_k^2&=j\omega\mu_k(\sigma_k+j\omega\varepsilon_k) \\
+k&=0,1,2,
+\end{aligned}
 ```
 
 ```math
-\gamma_x=j\omega\sqrt{\mu_1\varepsilon_1},\qquad
-\gamma_x=jk_x,\qquad \omega=2\pi f.
+\begin{aligned}
+\gamma_x&=j\omega\sqrt{\mu_1\varepsilon_1} \\
+\gamma_x&=jk_x \\
+\omega&=2\pi f.
+\end{aligned}
 ```
 
 The ``a_m/\gamma_k`` mismatch is printed in the source and deliberately not changed. ``\gamma_x=jk_x`` identifies (5)'s exponent with the imposed exponent in the immediately preceding prose. ``\Delta`` and ``D`` are distinct coefficient families and cannot be interchanged. ``h_1,h_2`` are the source's final-kernel labels for the two cable depths; prose uses ``h_i,h_j``. ``P`` has potential-coefficient meaning, with units inferred from (7a) rather than separately printed beside it; ``Y'`` is admittance per length. For self, the source prescribes ``y_{ij}`` replaced by cable ``i``'s outermost radius and ``h_j`` by ``h_i``. No insulation coefficient or full cable-admittance matrix is added to (7).
@@ -149,15 +159,20 @@ A'_{mn}=(a'_n\gamma_m^2\mu_n+a'_m\gamma_n^2\mu_m),\qquad\text{(21)}
 ```
 
 ```math
-\Delta'_{mn}=(a'_n\gamma_m^2\mu_n-a'_m\gamma_n^2\mu_m),\qquad m,n=0,1,2.
-\qquad\text{(22)}
+\begin{aligned}
+\Delta'_{mn}&=(a'_n\gamma_m^2\mu_n-a'_m\gamma_n^2\mu_m),\qquad m \\
+n&=0,1,2.
+\end{aligned}\qquad\text{(22)}
 ```
 
 Immediately below appendix (10), p. 171:
 
 ```math
-a'_k=\sqrt{u^2+\gamma_k^2},\qquad
-\gamma_k^2=j\omega\mu_k(\sigma_k+j\omega\varepsilon_k),\qquad k=0,1,2.
+\begin{aligned}
+a'_k&=\sqrt{u^2+\gamma_k^2} \\
+\gamma_k^2&=j\omega\mu_k(\sigma_k+j\omega\varepsilon_k) \\
+k&=0,1,2.
+\end{aligned}
 ```
 
 The transformed factor quoted in the formula section is the **separate printed witness** below (5), p. 162. The original transform identity is:
@@ -175,7 +190,7 @@ The transformed factor quoted in the formula section is the **separate printed w
 
 followed by ``u^2-k_x^2=\lambda^2``. No value at ``u=k_x`` is stated. ``J_0`` is the first-kind Bessel function of order zero (appendix below (10)).
 
-Source-prescribed reductions, section 3, p. 163: making the first earth layer match air and setting ``k_x=k_0=\omega\sqrt{\varepsilon_0\mu_0}`` is identified with Kikuchi's overhead homogeneous-earth case [18]; making the two earth layers identical is identified with the authors' homogeneous-earth case [9]. That original has a [separate record](../../2010/homogeneous-earth-underground-cable-correction/Papadopoulos2010b.md). The source states that ignoring ``G`` results in propagation constant ``\gamma_1``. These are source assertions, not independently reconstructed limiting formulas.
+Source-prescribed reductions, section 3, p. 163: making the first earth layer match air and setting ``k_x=k_0=\omega\sqrt{\mu_0\varepsilon_0}`` is identified with Kikuchi's overhead homogeneous-earth case [18]; making the two earth layers identical is identified with the authors' homogeneous-earth case [9]. That original has a [separate record](../../2010/homogeneous-earth-underground-cable-correction/Papadopoulos2010b.md). The source states that ignoring ``G`` results in propagation constant ``\gamma_1``. These are source assertions, not independently reconstructed limiting formulas.
 
 For full cable matrices, section 2 explicitly refers to [9,15] and their procedure for adding ground terms to the appropriate conductor/insulation contributions. It does not print a new matrix-inversion assembly here. The [associated impedance record](../../../external-impedance/2011/two-layer-earth-underground-upper-layer-integral/Papadopoulos2011.md) identifies the shared kernel's output separately.
 

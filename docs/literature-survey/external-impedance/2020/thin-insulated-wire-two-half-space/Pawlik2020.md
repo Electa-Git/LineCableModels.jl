@@ -34,10 +34,10 @@
 **Expression.**
 
 ```math
-Z_s=Z_i+Z_e,
-\qquad
-Z_e=\frac{j\omega\mu_1}{2\pi}\,[\Lambda+2(Q-jP)],
-\qquad\text{(10,14)}
+\begin{aligned}
+Z_s&=Z_i+Z_e \\
+Z_e&=\frac{j\omega\mu_1}{2\pi}\,[\Lambda+2(Q-jP)],
+\end{aligned}\qquad\text{(10,14)}
 ```
 
 where ``\Lambda,Q,P`` are the logarithmic and spectral terms defined in (16)–(18). The separately printed internal/insulation contribution is

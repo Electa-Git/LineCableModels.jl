@@ -41,10 +41,11 @@ y_{12}=\frac{2\pi(\sigma_{cs}+j\omega\varepsilon'_{cs})}{\ln(r_s/r_c)},
 and the source assembles the six-node core/sheath matrix in (12), with
 
 ```math
-y_{cc}=-y_{cs}=y_{a1},\qquad
-y_{ss}=y_{11}=y_{a1}+y_{1g}+y_{12}+y_{13},\qquad
-y'_{ss}=-y_{12}=-y_{13}.
-\qquad\text{(13–15)}
+\begin{aligned}
+y_{cc}&=-y_{cs}=y_{a1} \\
+y_{ss}&=y_{11}=y_{a1}+y_{1g}+y_{12}+y_{13} \\
+y'_{ss}&=-y_{12}=-y_{13}.
+\end{aligned}\qquad\text{(13–15)}
 ```
 
 **Approximation.** 2-D nodal FEM plus homogenized screen/insulation permittivity; analytical annulus used only where concentric.

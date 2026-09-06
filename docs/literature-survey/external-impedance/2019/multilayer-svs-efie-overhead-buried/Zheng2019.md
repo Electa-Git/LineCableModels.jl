@@ -35,7 +35,7 @@
 
 ```math
 -j\omega\mu_0\oint_{\partial S}G_\sigma(\rho,\rho')J_z(\rho')d\rho'
-+\sigma\omega^2\mu_0\oint_{\partial S}\left[\iint_SG_\varepsilon(\rho,\rho')G_\sigma(\rho',\rho'')ds'\right]
++\omega^2\mu_0\sigma\oint_{\partial S}\left[\iint_SG_\varepsilon(\rho,\rho')G_\sigma(\rho',\rho'')ds'\right]
 J_z(\rho'')d\rho''=V_{p.u.l.}.
 \qquad\text{(1)}
 ```

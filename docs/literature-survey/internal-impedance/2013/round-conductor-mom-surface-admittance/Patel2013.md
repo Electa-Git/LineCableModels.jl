@@ -54,9 +54,10 @@ with ``k=\sqrt{\omega\mu(\omega\varepsilon-j\sigma)}`` and ``k_{out}=\omega\sqrt
 ```
 
 ```math
-\mathbf R=\Re\{\cdots\},\qquad
-\mathbf L=\omega^{-1}\Im\{\cdots\}.
-\qquad\text{(32,33)}
+\begin{aligned}
+\mathbf R&=\Re\{\cdots\} \\
+\mathbf L&=\omega^{-1}\Im\{\cdots\}.
+\end{aligned}\qquad\text{(32,33)}
 ```
 
 **Approximation.** Boundary electric field and equivalent surface current are truncated Fourier series. The operator eigenvalues are analytic for a solid cylinder; conductor interactions enter through the analytically integrated logarithmic Green matrix ``G``. No symmetric-current approximation is imposed.

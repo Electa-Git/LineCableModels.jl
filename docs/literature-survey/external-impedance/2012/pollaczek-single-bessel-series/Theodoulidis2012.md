@@ -60,16 +60,20 @@ K_{n+3/2}(kR).
 Definitions retained from (2) and below (6):
 
 ```math
-r=\sqrt{x^2+(h_1-h_2)^2},\quad
-R=\sqrt{x^2+H^2},\quad H=h_1+h_2,
-\quad u=\sqrt{\lambda^2+k^2},
+\begin{aligned}
+r&=\sqrt{x^2+(h_1-h_2)^2} \\
+R&=\sqrt{x^2+H^2} \\
+H&=h_1+h_2 \\
+u&=\sqrt{\lambda^2+k^2},
+\end{aligned}
 ```
 
 ```math
-J_{\mathrm{Pollaczek}}=\int_0^\infty
-\frac{e^{-Hu}}{\lambda+u}\cos(\lambda x)\,d\lambda,
-\qquad k=\sqrt{j\omega\mu_0\sigma}=\frac{1+j}{\delta}.
-\qquad\text{(2)}
+\begin{aligned}
+J_{\mathrm{Pollaczek}}&=\int_0^\infty
+\frac{e^{-Hu}}{\lambda+u}\cos(\lambda x)\,d\lambda \\
+k&=\sqrt{j\omega\mu_0\sigma}=\frac{1+j}{\delta}.
+\end{aligned}\qquad\text{(2)}
 ```
 
 ``K_\nu`` is the modified Bessel function of the second kind. The self formula sets ``h_1=h_2`` and ``x`` to conductor radius.

@@ -46,8 +46,10 @@ B_2\exp\{-(h_1+h_2)v\}\cos(yv)\,dv.
 ```
 
 ```math
-D_1=\sqrt{y^2+(h_1-h_2)^2},\qquad
-D_2=\sqrt{y^2+(h_1+h_2)^2}.
+\begin{aligned}
+D_1&=\sqrt{y^2+(h_1-h_2)^2} \\
+D_2&=\sqrt{y^2+(h_1+h_2)^2}.
+\end{aligned}
 ```
 
 The three-layer coefficient and complete final spectral definitions, (14) and following lines, p. 1523:
@@ -69,15 +71,20 @@ c_2=\bigl[(b_1-b_2)(b_2+b_3)
 ```
 
 ```math
-a_i=\sqrt{v^2+k^2-k_i^2},\qquad b_i=a_i/\mu_i,
-\qquad i=1,2,3.
+\begin{aligned}
+a_i&=\sqrt{v^2+k^2-k_i^2} \\
+b_i&=a_i/\mu_i \\
+i&=1,2,3.
+\end{aligned}
 ```
 
 Required original propagation definitions, appendix p. 1527 and the p. 1522 prescription:
 
 ```math
-\gamma_i^2=-k_i^2=j\omega\mu_i(\sigma_i+j\omega\varepsilon_i),
-\qquad \gamma_0=jk.
+\begin{aligned}
+\gamma_i^2&=-k_i^2=j\omega\mu_i(\sigma_i+j\omega\varepsilon_i) \\
+\gamma_0&=jk.
+\end{aligned}
 ```
 
 No branch is added. In the original notation ``k`` is the unindexed air wavenumber of the imposed relation, ``k_i`` belongs to medium ``i``, and ``v`` is the final inverse-length spectral variable. ``\sigma_i`` is conductivity (S/m), ``\varepsilon_i`` permittivity (F/m), ``\mu_i`` permeability (H/m); ``\omega`` is angular frequency. ``P,Q`` are the dimensionless real/reactive correction quantities in the **printed** ``\omega\mu_0(P+jQ)/(2\pi)`` decomposition; the first prefactor must not acquire an extra ``j``. ``B_2`` has length units, so its integral is dimensionless. ``h_1,h_2,D_1,D_2,y,d_1,d_2`` are lengths. Depth ``d_2`` includes both finite earth layers.
@@ -162,7 +169,10 @@ B_1\exp\{-\alpha_0(h_1+h_2)\}
 The source defines ``r=\sqrt{x^2+y^2}``, with ``J_0`` the Bessel function of the first kind, order zero, on p. 1522. Appendix §8.2, p. 1527, makes the distances explicit:
 
 ```math
-R_1=\sqrt{x^2+D_1^2},\qquad R_2=\sqrt{x^2+D_2^2},
+\begin{aligned}
+R_1&=\sqrt{x^2+D_1^2} \\
+R_2&=\sqrt{x^2+D_2^2},
+\end{aligned}
 ```
 
 with ``D_1,D_2`` as in the formula section. The final ``\gamma_0=jk`` prescription leads to (12)–(15), transcribed above.
@@ -210,20 +220,23 @@ C_2=\bigl[(\beta_1-\beta_2)(\beta_2+\beta_3)
 ```
 
 ```math
-\alpha_i=\sqrt{\lambda^2+\gamma_i^2},\qquad
-\beta_i=\alpha_i/\mu_i,\qquad
-\gamma_i^2=-k_i^2=j\omega\mu_i(\sigma_i+j\omega\varepsilon_i).
+\begin{aligned}
+\alpha_i&=\sqrt{\lambda^2+\gamma_i^2} \\
+\beta_i&=\alpha_i/\mu_i \\
+\gamma_i^2&=-k_i^2=j\omega\mu_i(\sigma_i+j\omega\varepsilon_i).
+\end{aligned}
 ```
 
 Do not replace capital ``C`` with lower-case ``c`` or ``\alpha`` with ``a`` before the source's spectral transformation. The appendix dipole identity (20), p. 1527, is
 
 ```math
+\begin{aligned}
 \int_0^\infty
 \frac{J_0(r\lambda)\exp\{-\sqrt{\lambda^2+\gamma_0^2}(h+z)\}}
-{\sqrt{\lambda^2+\gamma_0^2}}\lambda\,d\lambda
-=\frac{\exp(-\gamma_0R_2)}{R_2},
-\qquad R_2=\sqrt{r^2+(h+z)^2}.
-\qquad\text{(20)}
+{\sqrt{\lambda^2+\gamma_0^2}}\lambda \\
+d\lambda&=\frac{\exp(-\gamma_0R_2)}{R_2} \\
+R_2&=\sqrt{r^2+(h+z)^2}.
+\end{aligned}\qquad\text{(20)}
 ```
 
 Here ``h`` and ``z`` are the original dipole source/observation heights; ``h_1,h_2`` replace them in the two-conductor problem. No additional convergence/branch convention is printed with this identity.
@@ -233,11 +246,13 @@ Here ``h`` and ``z`` are the original dipole source/observation heights; ``h_1,h
 Printed p. 1528, (21):
 
 ```math
+\begin{aligned}
 \int_{-\infty}^{\infty}
 \left\{\frac{\exp[-jk\sqrt{x^2+D_1^2}]}{\sqrt{x^2+D_1^2}}
 -\frac{\exp[-jk\sqrt{x^2+D_2^2}]}{\sqrt{x^2+D_2^2}}\right\}
-\exp(-jkx)\,dx=W.
-\qquad\text{(21)}
+\exp(-jkx) \\
+dx&=W.
+\end{aligned}\qquad\text{(21)}
 ```
 
 The intervening prose says to replace ``x+\sqrt{x^2+D^2}`` by ``t``; it does **not** include ``k`` in that verbal substitution. The subsequent equations nonetheless print:
@@ -250,8 +265,10 @@ W=\lim_{s\to\infty}\left\{
 ```
 
 ```math
-q_1=k[\sqrt{s^2+D_1^2}-s],\qquad
-q_2=k[\sqrt{s^2+D_2^2}-s],
+\begin{aligned}
+q_1&=k[\sqrt{s^2+D_1^2}-s] \\
+q_2&=k[\sqrt{s^2+D_2^2}-s],
+\end{aligned}
 ```
 
 ```math
@@ -324,14 +341,18 @@ The printed ``c_2`` line visibly starts with ``[(b_1-b_2)(b_2+b_3)+(b_1+b_2)(b_2
 The constitutive lines themselves are clear:
 
 ```math
-b_i=a_i/\mu_i,\qquad a_i=\sqrt{s^2+k_0^2-k_i^2},
-\qquad i=1,2,3,
+\begin{aligned}
+b_i&=a_i/\mu_i \\
+a_i&=\sqrt{s^2+k_0^2-k_i^2} \\
+i&=1,2,3,
+\end{aligned}
 ```
 
 ```math
-k_0^2=-j\omega\mu_0(1/\rho_0+j\omega\varepsilon_0),
-\qquad
-k_i^2=-j\omega\mu_i(1/\rho_i+j\omega\mu_i).
+\begin{aligned}
+k_0^2&=-j\omega\mu_0(1/\rho_0+j\omega\varepsilon_0) \\
+k_i^2&=-j\omega\mu_i(1/\rho_i+j\omega\mu_i).
+\end{aligned}
 ```
 
 The final term really prints **``j\omega\mu_i``**, not permittivity. The adjacent prose identifies ``\varepsilon,\mu,\rho`` as permittivity, permeability and resistivity. This is a suspected published constitutive/dimensional defect, retained rather than replaced by the 1973 bulk relation.

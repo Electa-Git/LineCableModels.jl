@@ -34,10 +34,10 @@
 **Expression.**
 
 ```math
-Z(N_p)=Z_i+\Delta Z_{prox},
-\qquad
-Z(N_p=0)=Z_i+\frac{j\omega\mu_0}{2\pi}\ln\frac{r_{p1}}r,
-\qquad\text{(19–20)}
+\begin{aligned}
+Z(N_p)&=Z_i+\Delta Z_{prox} \\
+Z(N_p=0)&=Z_i+\frac{j\omega\mu_0}{2\pi}\ln\frac{r_{p1}}r,
+\end{aligned}\qquad\text{(19–20)}
 ```
 
 ```math

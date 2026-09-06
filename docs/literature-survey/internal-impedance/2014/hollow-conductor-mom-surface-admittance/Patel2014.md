@@ -50,9 +50,10 @@
 For the approximate ground inclusion,
 
 ```math
-\mathbf Z=(\mathbf Z_c+\mathbf Z_g)+\Delta\mathbf Z_{prox},\qquad
-\Delta\mathbf Z_{prox}=\mathbf Z_{MoM-SO}(N_p>0)-\mathbf Z_{MoM-SO}(N_p=0).
-\qquad\text{(39,40)}
+\begin{aligned}
+\mathbf Z&=(\mathbf Z_c+\mathbf Z_g)+\Delta\mathbf Z_{prox} \\
+\Delta\mathbf Z_{prox}&=\mathbf Z_{MoM-SO}(N_p>0)-\mathbf Z_{MoM-SO}(N_p=0).
+\end{aligned}\qquad\text{(39,40)}
 ```
 
 **Approximation.** The boundary fields/currents are truncated Fourier series. Equations (37)–(38) are the direct conductor/exterior result; (39)–(40) adds a proximity correction to a separately computed conventional ground-return matrix and is explicitly approximate.

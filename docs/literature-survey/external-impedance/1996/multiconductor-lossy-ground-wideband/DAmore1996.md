@@ -34,19 +34,20 @@
 **Expression.**
 
 ```math
--\frac{d\mathbf V}{dx}=\mathbf Z'\mathbf I,
-\qquad \mathbf Z'=\mathbf Z_i'+\mathbf Z_e'+\mathbf Z_g'.
-\qquad\text{(24–25)}
+\begin{aligned}
+-\frac{d\mathbf V}{dx}&=\mathbf Z'\mathbf I \\
+\mathbf Z'&=\mathbf Z_i'+\mathbf Z_e'+\mathbf Z_g'.
+\end{aligned}\qquad\text{(24–25)}
 ```
 
 In the modal basis the paper gives
 
 ```math
-\widehat{\mathbf Z}_e'=\frac{j\omega\mu_0}{2\pi}\widehat{\boldsymbol\Lambda},
-\qquad
-\widehat{\mathbf Z}_g'=\frac{j\omega\mu_0}{\pi}
+\begin{aligned}
+\widehat{\mathbf Z}_e'&=\frac{j\omega\mu_0}{2\pi}\widehat{\boldsymbol\Lambda} \\
+\widehat{\mathbf Z}_g'&=\frac{j\omega\mu_0}{\pi}
 \left(\widehat{\mathbf S}_{1g}^{h}-k_0^{-2}\widehat{\mathbf S}_{2g}^{0}\widehat{\boldsymbol\Lambda}\right),
-\qquad\text{(38,40)}
+\end{aligned}\qquad\text{(38,40)}
 ```
 
 with physical entries obtained by the transformation printed in (26).

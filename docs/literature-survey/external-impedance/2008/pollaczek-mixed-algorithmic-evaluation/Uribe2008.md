@@ -34,14 +34,14 @@
 **Expression.** The exact parent and Uribe's dimensionless positive-domain evaluator are
 
 ```math
-Z_G(\omega)=\frac{j\omega\mu_0}{2\pi}
+\begin{aligned}
+Z_G(\omega)&=\frac{j\omega\mu_0}{2\pi}
 \int_{-\infty}^{+\infty}
 \frac{e^{-h_1|\beta|}e^{-h_2\sqrt{\beta^2+1/p^2}}}
 {|\beta|+\sqrt{\beta^2+1/p^2}}
-e^{j\beta x}\,d\beta,
-\qquad
-p=\frac{1}{\sqrt{j\omega\mu_0\sigma}},
-\qquad\text{(1a--1b)}
+e^{j\beta x}\,d\beta \\
+p&=\frac{1}{\sqrt{j\omega\mu_0\sigma}},
+\end{aligned}\qquad\text{(1a--1b)}
 ```
 
 ```math
@@ -58,21 +58,27 @@ e^{-j\xi G(u)}\cos(\xi\eta u)\,du,
 where
 
 ```math
-F(u)=\frac{\sqrt{u^2+\sqrt{u^4+1}}}{\sqrt2},\qquad
-G(u)=\frac{\sqrt{-u^2+\sqrt{u^4+1}}}{\sqrt2},
+\begin{aligned}
+F(u)&=\frac{\sqrt{u^2+\sqrt{u^4+1}}}{\sqrt2} \\
+G(u)&=\frac{\sqrt{-u^2+\sqrt{u^4+1}}}{\sqrt2},
+\end{aligned}
 ```
 
 ```math
-\xi=\frac{h_2}{|p|},\qquad \eta=\frac{x}{h_2},\qquad
-\zeta=\frac{h_1}{h_2}.
+\begin{aligned}
+\xi&=\frac{h_2}{|p|} \\
+\eta&=\frac{x}{h_2} \\
+\zeta&=\frac{h_1}{h_2}.
+\end{aligned}
 ```
 
 The source truncates at
 
 ```math
-u_{\max}=\frac{\lambda_e}{\xi(\zeta+1)},\qquad
-\lambda_e=-\log[\varepsilon_r\xi(\zeta+1)],
-\qquad\text{(4c--4d)}
+\begin{aligned}
+u_{\max}&=\frac{\lambda_e}{\xi(\zeta+1)} \\
+\lambda_e&=-\log[\varepsilon_r\xi(\zeta+1)],
+\end{aligned}\qquad\text{(4c--4d)}
 ```
 
 and reports the empirical choice ``\lambda_e=12`` for its applications.

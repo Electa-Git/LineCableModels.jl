@@ -34,20 +34,21 @@
 **Expression.** The ``n`` complex current-density unknowns satisfy
 
 ```math
+\begin{aligned}
 \left(\rho_i+\frac{\rho_o}{q}\right)\underline J_{ik}
-+j\omega\sum_{\ell=1}^{n}\phi_{k\ell}\underline J_{i\ell}=\underline U,
-\qquad k=1,\ldots,n.
-\qquad\text{(53)}
++j\omega\sum_{\ell=1}^{n}\phi_{k\ell}\underline J_{i\ell}&=\underline U \\
+k&=1,\ldots,n.
+\end{aligned}\qquad\text{(53)}
 ```
 
 The terminal current and impedance are
 
 ```math
-\underline I=a\sum_{k=1}^{n}\underline J_{ik}
-=-qa\sum_{k=1}^{n}\underline J_{ok},
-\qquad
-\underline Z=\frac{\underline U}{\underline I}=R_s+j\omega L.
-\qquad\text{(59–60)}
+\begin{aligned}
+\underline I&=a\sum_{k=1}^{n}\underline J_{ik}
+=-qa\sum_{k=1}^{n}\underline J_{ok} \\
+\underline Z&=\frac{\underline U}{\underline I}=R_s+j\omega L.
+\end{aligned}\qquad\text{(59–60)}
 ```
 
 **Approximation.** Current density is constant on each annular cell; convergence is obtained by increasing ``n``.

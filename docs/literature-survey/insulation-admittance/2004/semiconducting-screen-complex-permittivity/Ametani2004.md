@@ -34,15 +34,17 @@
 **Expression.** Source equations (14)–(15).
 
 ```math
-y_s=\frac{j\omega,2\pi\varepsilon_s}{\ln(c/b')},
-\qquad
-\varepsilon_s=\varepsilon_s'+\frac{1}{j\omega\rho_2},
-\qquad\text{(14)}
+\begin{aligned}
+y_s&=\frac{j\omega,2\pi\varepsilon_s}{\ln(c/b')} \\
+\varepsilon_s&=\varepsilon_s'+\frac{1}{j\omega\rho_2},
+\end{aligned}\qquad\text{(14)}
+```
 
-\frac{1}{Y}=\frac{1}{y_s}+\frac{1}{y_i},
-\qquad
-y_i=\frac{j\omega,2\pi\varepsilon_i}{\ln(r_0/c)}.
-\qquad\text{(15)}
+```math
+\begin{aligned}
+\frac{1}{Y}&=\frac{1}{y_s}+\frac{1}{y_i} \\
+y_i&=\frac{j\omega,2\pi\varepsilon_i}{\ln(r_0/c)}.
+\end{aligned}\qquad\text{(15)}
 ```
 
 ``y_s`` is the semiconductor-layer shunt admittance, ``y_i`` the main-insulation shunt admittance, and ``Y`` their radial series combination between the core outer and sheath inner surfaces. ``r_0`` is the outer insulation radius, equal to the sheath inner radius.

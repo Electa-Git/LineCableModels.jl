@@ -50,19 +50,24 @@ e^{-\alpha_2(h_i+h_j-2h_s)}
 ```
 
 ```math
-\alpha_n=\sqrt{\lambda^2+\gamma_n^2},\qquad
-\gamma_n=\sqrt{j\omega\mu_n(\sigma_n+j\omega\varepsilon_n)},
+\begin{aligned}
+\alpha_n&=\sqrt{\lambda^2+\gamma_n^2} \\
+\gamma_n&=\sqrt{j\omega\mu_n(\sigma_n+j\omega\varepsilon_n)},
+\end{aligned}
 ```
 
 ```math
-s_{10}=\mu_0\alpha_1+\mu_1\alpha_0,\quad
-d_{10}=\mu_0\alpha_1-\mu_1\alpha_0,
+\begin{aligned}
+s_{10}&=\mu_0\alpha_1+\mu_1\alpha_0 \\
+d_{10}&=\mu_0\alpha_1-\mu_1\alpha_0,
+\end{aligned}
 ```
 
 ```math
-s_{21}=\mu_2\alpha_1+\mu_1\alpha_2,\quad
-d_{21}=\mu_2\alpha_1-\mu_1\alpha_2.
-\qquad\text{(20)}
+\begin{aligned}
+s_{21}&=\mu_2\alpha_1+\mu_1\alpha_2 \\
+d_{21}&=\mu_2\alpha_1-\mu_1\alpha_2.
+\end{aligned}\qquad\text{(20)}
 ```
 
 **Approximation.** The derivation assumes quasi-TEM propagation. Within that model, (29)–(30) is presented as the final spectral integral; it is not a fitted or finite-order approximation. Numerical quadrature is still required.
@@ -78,10 +83,10 @@ d_{21}=\mu_2\alpha_1-\mu_1\alpha_2.
 The source obtains (29) after solving the eight Hertzian-potential amplitudes with four boundary conditions at each interface. Its auxiliary quantities in (35), also used by the companion admittance expression, are
 
 ```math
-\Delta_{10}=\alpha_0\gamma_1^2\mu_0-\alpha_1\gamma_0^2\mu_1,
-\qquad
-A_{10}=\alpha_0\gamma_1^2\mu_0+\alpha_1\gamma_0^2\mu_1.
-\qquad\text{(35)}
+\begin{aligned}
+\Delta_{10}&=\alpha_0\gamma_1^2\mu_0-\alpha_1\gamma_0^2\mu_1 \\
+A_{10}&=\alpha_0\gamma_1^2\mu_0+\alpha_1\gamma_0^2\mu_1.
+\end{aligned}\qquad\text{(35)}
 ```
 
 ## Notation map

@@ -20,8 +20,8 @@
 | Field | Treatment | Evidence |
 | --- | --- | --- |
 | Impressed longitudinal propagation constant ``Γ`` | ``\Gamma`` remains in the potential prefactor and ``\lambda_n^2=k_n^2+\Gamma^2``; dependence is ``e^{-\Gamma z+j\omega t}``. The author selects the propagating principal mode. An imposed zero or numerical modal closure is not supplied for this general equation set. The later prescription ``\Gamma\simeq jk_1`` belongs to (5·9), not the unreduced formulas recorded here. | Stated — §3, p. 722; (5·1)–(5·4), pp. 723–724; distinct (5·9), p. 725. |
-| Air propagation constant ``γ_air`` | Source symbol is ``k_1``, not ``\gamma``. The common definition is ``k_n=\omega\sqrt{(\varepsilon_n-j\sigma_n/\omega)\mu_0}``. The scalar air source equation uses ``\varepsilon_1`` and ``Q=\Gamma I/(j\omega)``. No nonzero air-conductivity extension or replacement of ``\varepsilon_1`` with a complex permittivity is introduced. Air is region 1; the symbol list identifies vacuum/air constants ``\varepsilon_0,\mu_0``. | Stated — symbol list, p. 721; (3·5), definition below (3·7) and Fig. 1, p. 722. Equation-implied — (3·5) and (5·1) use the lossless-air scalar-source factor; an independently nonzero ``\sigma_1`` is not resolved by that factor. |
-| Earth propagation constant ``γ_earth`` | Source symbol ``k_2=\omega\sqrt{(\varepsilon_2-j\sigma_2/\omega)\mu_0}``; ``\lambda_2=\sqrt{k_2^2+\Gamma^2}`` and ``\kappa_2^2=u^2-\lambda_2^2``. These are three different quantities. ``\mathop{\mathrm{Re}}\kappa_2>0`` is printed. | Stated — §§2–4, pp. 721–722, especially (4·4). |
+| Air propagation constant ``γ_air`` | Source symbol is ``k_1``, not ``\gamma``. The common definition is ``k_n=\omega\sqrt{\mu_0(\varepsilon_n-j\sigma_n/\omega)}``. The scalar air source equation uses ``\varepsilon_1`` and ``Q=\Gamma I/(j\omega)``. No nonzero air-conductivity extension or replacement of ``\varepsilon_1`` with a complex permittivity is introduced. Air is region 1; the symbol list identifies vacuum/air constants ``\varepsilon_0,\mu_0``. | Stated — symbol list, p. 721; (3·5), definition below (3·7) and Fig. 1, p. 722. Equation-implied — (3·5) and (5·1) use the lossless-air scalar-source factor; an independently nonzero ``\sigma_1`` is not resolved by that factor. |
+| Earth propagation constant ``γ_earth`` | Source symbol ``k_2=\omega\sqrt{\mu_0(\varepsilon_2-j\sigma_2/\omega)}``; ``\lambda_2=\sqrt{k_2^2+\Gamma^2}`` and ``\kappa_2^2=u^2-\lambda_2^2``. These are three different quantities. ``\mathop{\mathrm{Re}}\kappa_2>0`` is printed. | Stated — §§2–4, pp. 721–722, especially (4·4). |
 | Earth permittivity and displacement current | Both ``\varepsilon_2`` and ``\sigma_2`` remain in ``k_2`` and hence the material-weighted denominator. No extra dielectric loss or frequency model is added. | Stated — definition below (3·7), p. 722; Equation-implied — (5·3)–(5·4), pp. 723–724, retain ``k_2^2``. |
 | Range of validity | Conductor radius is sufficiently small compared with height that the earth's influence on internal field/current distribution is neglected and the exterior source is a line current. Only the propagating principal mode is treated. No universal numerical frequency interval or explicit error bound is provided for this general set. Later small-Hankel-argument and near-air-speed approximations are not applied here. | Stated — end of §3 opening, pp. 721–722; §11, p. 732; separate approximation conditions below (5·8), p. 724, and (5·9), p. 725. |
 | Earth permeability ``μ_earth`` | The source explicitly writes ``\mu_1=\mu_2`` and uses ``\mu_0`` in ``k_n``. This is not an arbitrary-permeability earth expression. | Stated — definition split between columns at the bottom/top of p. 722. |
@@ -63,16 +63,20 @@ Q'_2-jP'_2
 Source definitions, §§2–4, pp. 721–722:
 
 ```math
-k_n=\omega\sqrt{\left(\varepsilon_n-j\frac{\sigma_n}{\omega}\right)\mu_0}
-=k_n^{(r)}+jk_n^{(i)},\qquad \mu_1=\mu_2,
-\qquad \lambda_n=\sqrt{k_n^2+\Gamma^2},
+\begin{aligned}
+k_n&=\omega\sqrt{\mu_0\left(\varepsilon_n-j\frac{\sigma_n}{\omega}\right)}
+=k_n^{(r)}+jk_n^{(i)} \\
+\mu_1&=\mu_2 \\
+\lambda_n&=\sqrt{k_n^2+\Gamma^2},
+\end{aligned}
 ```
 
 ```math
-\kappa_1^2=u^2-\lambda_1^2,\quad \mathop{\mathrm{Re}}\kappa_1>0,
-\qquad
-\kappa_2^2=u^2-\lambda_2^2,\quad \mathop{\mathrm{Re}}\kappa_2>0,
-\qquad Q=\frac{\Gamma}{j\omega}I.
+\begin{aligned}
+\kappa_1^2&=u^2-\lambda_1^2,\quad \mathop{\mathrm{Re}}\kappa_1>0 \\
+\kappa_2^2&=u^2-\lambda_2^2,\quad \mathop{\mathrm{Re}}\kappa_2>0 \\
+Q&=\frac{\Gamma}{j\omega}I.
+\end{aligned}
 ```
 
 Here ``H_0^{(1)}`` is the first-kind order-zero Hankel function, ``\rho`` is distance to the wire centre, and ``\rho_0`` distance to its image. Fig. 1 and the explicitly printed direct-distance square root in (4·3) give the geometrical identification ``\rho=\sqrt{x^2+(y-h)^2}`` and ``\rho_0=\sqrt{x^2+(y+h)^2}``; this is a notation map of the shown distances, not a new self-radius regularization. The sign of ``y`` is retained in the earth exponential. Both scalar potentials have ``\varepsilon_1``, not ``\varepsilon_2``, in their printed prefactors.
@@ -102,12 +106,11 @@ The original symbols remain unchanged. Source labels use a centred dot; labels b
 ### Source equation and boundary coupling — p. 722, (3·5) and (3·7)
 
 ```math
-(\nabla^2+k_1^2)V_1(\mathbf r)
-=-\frac{1}{\varepsilon_1}Q\delta(\mathbf r-\mathbf r_0),
-\qquad
-(\nabla^2+k_2^2)V_2(\mathbf r)=0,
-\qquad
-Q=\frac{\Gamma}{j\omega}I.
+\begin{aligned}
+(\nabla^2+k_1^2)V_1(\mathbf r)&=-\frac{1}{\varepsilon_1}Q\delta(\mathbf r-\mathbf r_0) \\
+(\nabla^2+k_2^2)V_2(\mathbf r)&=0 \\
+Q&=\frac{\Gamma}{j\omega}I.
+\end{aligned}
 ```
 
 ```math

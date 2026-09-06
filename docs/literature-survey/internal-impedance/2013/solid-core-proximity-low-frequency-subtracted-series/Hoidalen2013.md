@@ -48,8 +48,11 @@
 Definitions immediately below (36), with the required conductor parameter from (26):
 
 ```math
-g=\left(\frac{r_{1k}}{d_{km}}\right)^2,\qquad
-k_1=g\cdot\frac{I_2(z_k)}{I_0(z_k)},\qquad \mu_{rk}=1,
+\begin{aligned}
+g&=\left(\frac{r_{1k}}{d_{km}}\right)^2 \\
+k_1&=g\cdot\frac{I_2(z_k)}{I_0(z_k)} \\
+\mu_{rk}&=1,
+\end{aligned}
 ```
 
 ```math

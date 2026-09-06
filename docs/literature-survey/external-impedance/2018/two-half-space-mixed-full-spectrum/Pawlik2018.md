@@ -51,11 +51,11 @@ Q_{12}^{jp}-jP_{12}^{jp}
 with
 
 ```math
-k_i=\omega\sqrt{\mu_i\left(\varepsilon_i-j\frac{\sigma_i}{\omega}\right)},
-\qquad
-\gamma_i^2=\Gamma^2+k_i^2,
-\qquad
-u_i=\sqrt{\lambda^2-\gamma_i^2}.
+\begin{aligned}
+k_i&=\omega\sqrt{\mu_i\left(\varepsilon_i-j\frac{\sigma_i}{\omega}\right)} \\
+\gamma_i^2&=\Gamma^2+k_i^2 \\
+u_i&=\sqrt{\lambda^2-\gamma_i^2}.
+\end{aligned}
 ```
 
 Equation (88)'s left-hand side is transcribed exactly; the surrounding paragraph and right-hand side identify the output as the cross-boundary ``j,p`` mutual term.

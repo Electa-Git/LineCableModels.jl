@@ -34,26 +34,27 @@
 **Expression.**
 
 ```math
--\frac{d\mathbf I}{dx}=\mathbf Y'\mathbf V,
-\qquad
-\mathbf Y'=\mathbf Y_g'(\mathbf Y_e'+\mathbf Y_g')^{-1}\mathbf Y_e',
-\qquad\text{(32–33)}
+\begin{aligned}
+-\frac{d\mathbf I}{dx}&=\mathbf Y'\mathbf V \\
+\mathbf Y'&=\mathbf Y_g'(\mathbf Y_e'+\mathbf Y_g')^{-1}\mathbf Y_e',
+\end{aligned}\qquad\text{(32–33)}
 ```
 
 ```math
-\mathbf Y_e'=(\boldsymbol\zeta_e')^{-1},\qquad
-\mathbf Y_g'=(\boldsymbol\zeta_g')^{-1},
-\qquad\text{(34)}
+\begin{aligned}
+\mathbf Y_e'&=(\boldsymbol\zeta_e')^{-1} \\
+\mathbf Y_g'&=(\boldsymbol\zeta_g')^{-1},
+\end{aligned}\qquad\text{(34)}
 ```
 
 with modal components
 
 ```math
-\widehat{\mathbf Y}_e'=j\omega\varepsilon_0,2\pi\widehat{\boldsymbol\Lambda}^{-1},
-\qquad
-\widehat{\mathbf Y}_g'=j\omega\varepsilon_0\pi
+\begin{aligned}
+\widehat{\mathbf Y}_e'&=j\omega\varepsilon_0,2\pi\widehat{\boldsymbol\Lambda}^{-1} \\
+\widehat{\mathbf Y}_g'&=j\omega\varepsilon_0\pi
 (\widehat{\mathbf S}_{2g}^{h}-\widehat{\mathbf S}_{2g}^{0})^{-1}.
-\qquad\text{(38,40)}
+\end{aligned}\qquad\text{(38,40)}
 ```
 
 **Approximation.** Modal/numerical evaluation is required; no entrywise scalar inversion is introduced.

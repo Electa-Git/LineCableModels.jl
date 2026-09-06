@@ -34,10 +34,10 @@
 **Expression.**
 
 ```math
-\frac1{Y_s}=\frac1{Y_i}+\frac1{Y_e},
-\qquad
-Y_e=2\pi(\sigma_1+j\omega\varepsilon_1)[\Lambda+2(N-jM)]^{-1},
-\qquad\text{(11,15)}
+\begin{aligned}
+\frac1{Y_s}&=\frac1{Y_i}+\frac1{Y_e} \\
+Y_e&=2\pi(\sigma_1+j\omega\varepsilon_1)[\Lambda+2(N-jM)]^{-1},
+\end{aligned}\qquad\text{(11,15)}
 ```
 
 where ``\Lambda,N,M`` are defined in (16)–(18).

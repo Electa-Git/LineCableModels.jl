@@ -51,10 +51,10 @@ with its zeroth term replaced by the exact annular skin-effect term
 Once the coupled coefficients have been solved, the source defines
 
 ```math
-R_{int}=\frac{1}{\sigma|I|^2}\int_{cond}|\vec J|^2\,dS,
-\qquad
-L_{int}=\frac{1}{|I|^2}\int_{cond}\mu|\vec H|^2\,dS,
-\qquad\text{(40,41)}
+\begin{aligned}
+R_{int}&=\frac{1}{\sigma|I|^2}\int_{cond}|\vec J|^2\,dS \\
+L_{int}&=\frac{1}{|I|^2}\int_{cond}\mu|\vec H|^2\,dS,
+\end{aligned}\qquad\text{(40,41)}
 ```
 
 ```math

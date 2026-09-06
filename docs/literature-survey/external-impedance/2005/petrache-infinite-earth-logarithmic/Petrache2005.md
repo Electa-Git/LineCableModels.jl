@@ -21,11 +21,15 @@
 Z_{g,m}=\frac{j\omega\mu_0}{2\pi}
 \ln\!\left(\frac{1+\gamma_gd}{\gamma_gd}\right),
 \qquad\text{(P1)}
+```
 
+```math
 Z_{g,s}=\frac{j\omega\mu_0}{2\pi}
 \ln\!\left(\frac{1+\gamma_gR}{\gamma_gR}\right),
 \qquad\text{(P2)}
+```
 
+```math
 \gamma_g=\sqrt{j\omega\mu(\sigma+j\omega\varepsilon)}.
 \qquad\text{(P3)}
 ```

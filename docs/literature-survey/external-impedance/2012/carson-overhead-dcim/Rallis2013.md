@@ -40,9 +40,11 @@
 ```
 
 ```math
-J_c\approx2\sum_{n=1}^{N}c_n\frac{H_n}{H_n^2+x^2},
-\qquad H_n=h_1+h_2-s_n,qquad n=1,2,\ldots,N,
-\qquad\text{(4.22)}
+\begin{aligned}
+J_c&\approx2\sum_{n=1}^{N}c_n\frac{H_n}{H_n^2+x^2} \\
+H_n&=h_1+h_2-s_n \\
+qquad n&=1,2,\ldots,N,
+\end{aligned}\qquad\text{(4.22)}
 ```
 
 with ``Z=j\omega\mu_0[\ln(D/d)+J_c]/(2\pi)``.

@@ -38,16 +38,17 @@ Z'_{e_{ij}}
 =\frac{j\omega\mu_1}{2\pi}
  \int_{0}^{+\infty} F(\lambda)\cos(y_{ij}\lambda)\,d\lambda,
 \qquad\text{(5a)}
+```
 
-F(\lambda)
-=\frac{e^{-\alpha_1|h_i-h_j|}-e^{-\alpha_1(h_i+h_j)}}{\alpha_1}
- +\frac{2\mu_0e^{-\alpha_1(h_i+h_j)}}{\alpha_1\mu_0+\alpha_0\mu_1},
-\qquad\text{(5b)}
-
-\alpha_k=\sqrt{\lambda^2+\gamma_k^2+k_x^2},\qquad
-\gamma_k^2=j\omega\mu_k(\sigma_k+j\omega\varepsilon_k),\qquad k=0,1,
-
-\gamma_x\simeq j k_x=j\omega\sqrt{\mu_1\varepsilon_1}.
+```math
+\begin{aligned}
+F(\lambda)&=\frac{e^{-\alpha_1|h_i-h_j|}-e^{-\alpha_1(h_i+h_j)}}{\alpha_1}
+ +\frac{2\mu_0e^{-\alpha_1(h_i+h_j)}}{\alpha_1\mu_0+\alpha_0\mu_1}, \\
+\alpha_k&=\sqrt{\lambda^2+\gamma_k^2+k_x^2} \\
+\gamma_k^2&=j\omega\mu_k(\sigma_k+j\omega\varepsilon_k) \\
+k&=0,1, \\
+\gamma_x&\simeq j k_x=j\omega\sqrt{\mu_1\varepsilon_1}.
+\end{aligned}\qquad\text{(5b)}
 ```
 
 ``Z'_{e_{ij}}`` is an earth-return correction in ``\Omega/\mathrm{m}``. Indices ``0`` and ``1`` denote air and earth. For the self term of cable ``i``, the source prescribes ``y_{ij}\mapsto r_{i,\mathrm{outer}}`` and ``h_j\mapsto h_i``. This record retains the two addends of ``F`` separately, as printed.

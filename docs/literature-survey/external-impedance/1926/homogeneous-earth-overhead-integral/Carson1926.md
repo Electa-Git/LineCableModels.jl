@@ -34,29 +34,41 @@
 **Expression.** Self and mutual finite-conductivity ground-return correction integrals, equations (27)–(31).
 
 ```math
-Z=Z^0+Z',\qquad Z_{12}=Z_{12}^{0}+Z'_{12},
-\qquad\text{(25--26)}
+\begin{aligned}
+Z&=Z^0+Z' \\
+Z_{12}&=Z_{12}^{0}+Z'_{12},
+\end{aligned}\qquad\text{(25--26)}
+```
 
+```math
 Z'=4\omega\int_0^\infty
 \left(\sqrt{\mu^2+j}-\mu\right)e^{-2h'\mu}\,d\mu,
 \qquad\text{(27)}
+```
 
+```math
 Z'_{12}=4\omega\int_0^\infty
 \left(\sqrt{\mu^2+j}-\mu\right)
 e^{-(h'_1+h'_2)\mu}\cos(x'\mu)\,d\mu,
 \qquad\text{(28)}
+```
 
+```math
 J(p,q)=\int_0^\infty
 \left(\sqrt{\mu^2+j}-\mu\right)e^{-p\mu}\cos(q\mu)\,d\mu,
 \qquad\text{(29)}
+```
 
-Z'=4\omega J(2h',0),\qquad
-Z'_{12}=4\omega J(h'_1+h'_2,x'),
-\qquad\text{(30--31)}
-
-\alpha=4\pi\lambda\omega,\qquad
-h'=h\sqrt{\alpha},\quad h'_1=h_1\sqrt{\alpha},\quad
-h'_2=h_2\sqrt{\alpha},\quad x'=x\sqrt{\alpha}.
+```math
+\begin{aligned}
+Z'&=4\omega J(2h',0) \\
+Z'_{12}&=4\omega J(h'_1+h'_2,x'), \\
+\alpha&=4\pi\lambda\omega \\
+h'&=h\sqrt{\alpha} \\
+h'_1&=h_1\sqrt{\alpha} \\
+h'_2&=h_2\sqrt{\alpha} \\
+x'&=x\sqrt{\alpha}.
+\end{aligned}\qquad\text{(30--31)}
 ```
 
 ``Z^0`` and ``Z_{12}^0`` are the corresponding self and mutual impedances for perfectly conducting ground. ``\lambda`` is ground conductivity in electromagnetic c.g.s. units; ``\mu`` is the dimensionless integration variable and is not permeability. The source's correction is reported in its c.g.s. impedance-per-length convention.
@@ -76,7 +88,9 @@ The formula section retains Carson's source notation. The immediately preceding 
 ```math
 Z=z+j2\omega\log(\rho''/a)+Z',
 \qquad\text{(23)}
+```
 
+```math
 Z_{12}=j2\omega\log(\rho''/\rho')+Z'_{12},
 \qquad\text{(24)}
 ```

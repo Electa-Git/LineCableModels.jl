@@ -41,20 +41,21 @@ z_{p_{ii}}=\frac{j\omega\mu_0}{2\pi}
 {|\xi|+\sqrt{\xi^2+\eta_s^2}}
 \exp(jr\xi)\,d\xi\right],
 \qquad\text{(3)}
+```
 
-z_{p_{ij}}=\frac{j\omega\mu_0}{2\pi}
+```math
+\begin{aligned}
+z_{p_{ij}}&=\frac{j\omega\mu_0}{2\pi}
 \left[K_0(\eta_s d)-K_1(\eta_sD)+{}
 +\int_{-\infty}^{\infty}
 \frac{\exp\left(-(h_i+h_j)\sqrt{\xi^2+\eta_s^2}\right)}
 {|\xi|+\sqrt{\xi^2+\eta_s^2}}
-\exp(jd_{ij}\xi)\,d\xi\right],
-\qquad\text{(4)}
-
-d=\sqrt{d_{ij}^2+(h_i-h_j)^2},\qquad
-D_c=\sqrt{r^2+4h_i^2},\qquad
-D=\sqrt{d_{ij}^2+(h_i+h_j)^2},
-
-\eta_s=\sqrt{j\omega\mu_0(\sigma_s+j\omega\varepsilon_s)}.
+\exp(jd_{ij}\xi)\,d\xi\right], \\
+d&=\sqrt{d_{ij}^2+(h_i-h_j)^2} \\
+D_c&=\sqrt{r^2+4h_i^2} \\
+D&=\sqrt{d_{ij}^2+(h_i+h_j)^2}, \\
+\eta_s&=\sqrt{j\omega\mu_0(\sigma_s+j\omega\varepsilon_s)}.
+\end{aligned}\qquad\text{(4)}
 ```
 
 Equation (4) actually prints a plus at the end of the first line and another before the integral; both are retained above. ``r,h_i,h_j,d_{ij},d,D,D_c`` are in meters, ``\xi,\eta_s`` inverse meters, and the outputs are Ω/m. The main text calls ``K_0,K_1`` Bessel functions without explicitly specifying their kind; this dependency remains unresolved rather than silently inferred from the notation.
@@ -65,7 +66,9 @@ The source's constitutive dependency is
 \sigma_s+j\omega\varepsilon_s\simeq\kappa'
 =\sigma_0+\delta_{\sigma_s}+j\delta_{\omega\varepsilon_s},
 \qquad\text{(7)}
+```
 
+```math
 \delta_{\sigma_s}+j\delta_{\omega\varepsilon_s}
 =\Delta_i\left(\frac{f}{10^6}\right)^\alpha
 \left(\cot(\alpha\pi/2)+j\right).
@@ -90,17 +93,22 @@ The main source equations and geometry are retained above. The appendix prints a
 E_g=-\frac{j\omega\mu_g I}{2\pi}
 \left(K_0(\eta_gD)-K_0(\eta_gD')+2\chi\right),
 \qquad\text{(30)}
+```
 
+```math
 \chi=\int_0^\infty
 \frac{\exp(y-h)\sqrt{\alpha^2+\eta^2}}
 {\dfrac{\mu_g}{\mu_a}\alpha+\sqrt{\alpha^2+\eta^2}}
 \cos(\alpha x)\,d\alpha,
 \qquad\text{(31, printed layout)}
+```
 
-D=\sqrt{x^2+(y+h)^2},\qquad
-D'=\sqrt{x^2+(y-h)^2},\qquad
-Z_g=-\frac{E_g}{I}.
-\qquad\text{(32 and adjacent definitions)}
+```math
+\begin{aligned}
+D&=\sqrt{x^2+(y+h)^2} \\
+D'&=\sqrt{x^2+(y-h)^2} \\
+Z_g&=-\frac{E_g}{I}.
+\end{aligned}\qquad\text{(32 and adjacent definitions)}
 ```
 
 Here ``h`` is positive burial depth, ``y`` is negative in the ground, and the text states ``x_p=r,y_p=-h`` for the self evaluation. The appendix's ``D`` is not the main text's reflected distance ``D``: the local definitions are retained separately. The radical in printed (31) is outside ``\exp(y-h)``; it has not been moved into its argument. The bare ``\eta`` appearing there is not defined consistently with ``\eta_g`` or main-text ``\eta_s``. This appendix witness is transcription-verified but mathematically unresolved.

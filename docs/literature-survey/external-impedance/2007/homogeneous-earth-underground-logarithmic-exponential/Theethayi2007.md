@@ -23,7 +23,7 @@
 | Air propagation constant ``γ_air`` | Air is drawn with ``\mu_0,\varepsilon_0``. No air bulk propagation constant is retained in (9); air electrical size enters the surrounding TL-validity discussion. | Stated/equation-implied — Fig. 1, p. 752; (9) and opening of p. 754. |
 | Earth propagation constant ``γ_earth`` | ``\gamma_g=\sqrt{j\omega\mu_0(\sigma_g+j\omega\varepsilon_g)}``; no separate square-root branch stated. | Stated — definition after (5), p. 753. |
 | Earth permittivity and displacement current | Retained through ``j\omega\varepsilon_g``; ``\varepsilon_g=\varepsilon_{rg}\varepsilon_0``. Conductivity and permittivity are separate scalar inputs, without a dielectric-loss model in this expression. | Stated — section 2, p. 752; definition after (5), p. 753. |
-| Range of validity | Source TL condition ``d\sqrt{\varepsilon_0\mu_0\omega^2}\ll1``, with approximately 5 MHz discussed for depths 0.5–1 m. Comparisons extend to 10 MHz for radius 2 cm, depth 0.5 m, ``\varepsilon_{rg}=10``, conductivities 0.1, 1, and 10 mS/m; these are test cases, not a universal accuracy guarantee. | Stated — opening and final paragraphs of p. 754; Figs. 3a–3b. |
+| Range of validity | Source TL condition ``d\sqrt{\omega^2\mu_0\varepsilon_0}\ll1``, with approximately 5 MHz discussed for depths 0.5–1 m. Comparisons extend to 10 MHz for radius 2 cm, depth 0.5 m, ``\varepsilon_{rg}=10``, conductivities 0.1, 1, and 10 mS/m; these are test cases, not a universal accuracy guarantee. | Stated — opening and final paragraphs of p. 754; Figs. 3a–3b. |
 | Earth permeability ``μ_earth`` | Fixed ``\mu_0``. | Stated — Fig. 1 and section 2, p. 752. |
 | Arrangement | Underground: self earth impedance of bare and insulated wires. For parallel-wire mutual impedance, the source says to replace ``R_{ab}`` by horizontal distance and ``d`` by average depth. It does not print a separate unequal-depth correction. | Stated — opening of section 3, p. 753. |
 | Earth structure | Homogeneous conducting dielectric half-space below air; empirical correction represents burial-depth/interface effects. | Stated — Fig. 1, p. 752; paragraph introducing (9), p. 754. |
@@ -34,13 +34,13 @@
 **Expression.** The author's later restatement of the logarithmic-exponential formula, equation (9).
 
 ```math
-Z_g^{\mathrm{LOGEXP}}=\frac{j\omega\mu_0}{2\pi}
+\begin{aligned}
+Z_g^{\mathrm{LOGEXP}}&=\frac{j\omega\mu_0}{2\pi}
 \left\{\ln\left(\frac{1+\gamma_gR_{ab}}{\gamma_gR_{ab}}\right)
-+\left[\frac{2e^{-2d|\gamma_g|}}{4+\gamma_g^2R_{ab}^2}\right]\right\},
-\qquad\text{(9)}
-
-\gamma_g=\sqrt{j\omega\mu_0(\sigma_g+j\omega\varepsilon_g)},\qquad
-\varepsilon_g=\varepsilon_{rg}\varepsilon_0.
++\left[\frac{2e^{-2d|\gamma_g|}}{4+\gamma_g^2R_{ab}^2}\right]\right\}, \\
+\gamma_g&=\sqrt{j\omega\mu_0(\sigma_g+j\omega\varepsilon_g)} \\
+\varepsilon_g&=\varepsilon_{rg}\varepsilon_0.
+\end{aligned}\qquad\text{(9)}
 ```
 
 ``Z_g`` has units ``\Omega/\mathrm m``; ``\gamma_g`` has units ``\mathrm m^{-1}``. ``R_{ab}=a`` for a bare conductor and ``R_{ab}=b`` for an insulated one, with ``a,b,d`` in meters. For mutual impedance, preserve the source's textual substitutions: horizontal wire separation for ``R_{ab}``, average burial depth for ``d``. This record does not supply a reconstructed direct-distance term for unequal depths.

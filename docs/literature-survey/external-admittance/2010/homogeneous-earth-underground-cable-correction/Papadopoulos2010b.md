@@ -36,26 +36,27 @@
 ```math
 Y'_{e_{ij}}=j\omega P_{e_{ij}}^{-1},
 \qquad\text{(6a)}
+```
 
+```math
 P_{e_{ij}}
 =\frac{j\omega}{2\pi(\sigma_1+j\omega\varepsilon_1)}
  \int_{0}^{+\infty}[F(\lambda)+G(\lambda)]\cos(y_{ij}\lambda)\,d\lambda,
 \qquad\text{(6b)}
+```
 
-F(\lambda)
-=\frac{e^{-\alpha_1|h_i-h_j|}-e^{-\alpha_1(h_i+h_j)}}{\alpha_1}
- +\frac{2\mu_0e^{-\alpha_1(h_i+h_j)}}{\alpha_1\mu_0+\alpha_0\mu_1},
-
-G(\lambda)
-=\frac{2\mu_0\mu_1\alpha_1(\gamma_1^2-\gamma_0^2)e^{-\alpha_1(h_i+h_j)}}
+```math
+\begin{aligned}
+F(\lambda)&=\frac{e^{-\alpha_1|h_i-h_j|}-e^{-\alpha_1(h_i+h_j)}}{\alpha_1}
+ +\frac{2\mu_0e^{-\alpha_1(h_i+h_j)}}{\alpha_1\mu_0+\alpha_0\mu_1}, \\
+G(\lambda)&=\frac{2\mu_0\mu_1\alpha_1(\gamma_1^2-\gamma_0^2)e^{-\alpha_1(h_i+h_j)}}
  {(\alpha_1\mu_0+\alpha_0\mu_1)
-  (\alpha_1\gamma_0^2\mu_1+\alpha_0\gamma_1^2\mu_0)},
-\qquad\text{(6c)}
-
-\alpha_k=\sqrt{\lambda^2+\gamma_k^2+k_x^2},\qquad
-\gamma_k^2=j\omega\mu_k(\sigma_k+j\omega\varepsilon_k),\qquad k=0,1,
-
-\gamma_x\simeq j k_x=j\omega\sqrt{\mu_1\varepsilon_1}.
+  (\alpha_1\gamma_0^2\mu_1+\alpha_0\gamma_1^2\mu_0)}, \\
+\alpha_k&=\sqrt{\lambda^2+\gamma_k^2+k_x^2} \\
+\gamma_k^2&=j\omega\mu_k(\sigma_k+j\omega\varepsilon_k) \\
+k&=0,1, \\
+\gamma_x&\simeq j k_x=j\omega\sqrt{\mu_1\varepsilon_1}.
+\end{aligned}\qquad\text{(6c)}
 ```
 
 ``P_{e_{ij}}`` is the mutual earth-return potential coefficient and ``Y'_{e_{ij}}`` is the corresponding per-unit-length admittance as printed. Indices ``0`` and ``1`` denote air and earth. The source assembles the full cable shunt-admittance matrix from the internal-insulation and earth-return potential-coefficient matrices in Appendix C. For the self term of cable ``i``, it prescribes ``y_{ij}\mapsto r_{i,\mathrm{outer}}`` and ``h_j\mapsto h_i``.

@@ -19,8 +19,8 @@
 
 | Field | Treatment | Evidence |
 | --- | --- | --- |
-| Impressed longitudinal propagation constant ``Γ`` | 2009 states quasi-TEM but gives no explicit imposed longitudinal constant or exponential; ``a_m=\sqrt{u^2+\gamma_m^2-\gamma_0^2}`` is retained without turning it into an author-stated ``Γ`` prescription. 2010 parent (4b) uses unknown ``\gamma_x`` and ``e^{-\gamma_xx}``; final (6) uses the stated ``\gamma_x=\gamma_0=jk_0=j\omega\sqrt{\varepsilon_0\mu_0}``, not lossy earth propagation. | Stated — 2009 I–II.A, appendix; 2010 p. 1162 between (4) and (5). Unresolved — explicit original prescription. |
-| Air propagation constant ``γ_air`` | 2009 air has ``\mu_0,\varepsilon_0``; indexed bulk definition gives ``\gamma_0^2=j\omega\mu_0(\sigma_0+j\omega\varepsilon_0)`` without separately specifying ``\sigma_0`` there. 2010 explicitly sets the longitudinal prescription to free-space ``\gamma_0=j\omega\sqrt{\varepsilon_0\mu_0}``. Air terms remain in ``G`` and the interface coefficients. | Stated/equation-implied — 2009 II.A, (2c), appendix; 2010 (6d) and longitudinal prescription. |
+| Impressed longitudinal propagation constant ``Γ`` | 2009 states quasi-TEM but gives no explicit imposed longitudinal constant or exponential; ``a_m=\sqrt{u^2+\gamma_m^2-\gamma_0^2}`` is retained without turning it into an author-stated ``Γ`` prescription. 2010 parent (4b) uses unknown ``\gamma_x`` and ``e^{-\gamma_xx}``; final (6) uses the stated ``\gamma_x=\gamma_0=jk_0=j\omega\sqrt{\mu_0\varepsilon_0}``, not lossy earth propagation. | Stated — 2009 I–II.A, appendix; 2010 p. 1162 between (4) and (5). Unresolved — explicit original prescription. |
+| Air propagation constant ``γ_air`` | 2009 air has ``\mu_0,\varepsilon_0``; indexed bulk definition gives ``\gamma_0^2=j\omega\mu_0(\sigma_0+j\omega\varepsilon_0)`` without separately specifying ``\sigma_0`` there. 2010 explicitly sets the longitudinal prescription to free-space ``\gamma_0=j\omega\sqrt{\mu_0\varepsilon_0}``. Air terms remain in ``G`` and the interface coefficients. | Stated/equation-implied — 2009 II.A, (2c), appendix; 2010 (6d) and longitudinal prescription. |
 | Earth propagation constant ``γ_earth`` | ``\gamma_m^2=j\omega\mu_m(\sigma_m+j\omega\varepsilon_m)``, with earth indices 1 and 2; conductivity and permittivity retained. Final 2009 ``a_m`` and 2010 ``\alpha_k`` definitions are preserved separately; no explicit root branch. | Stated — 2009 appendix p. 1067; 2010 appendix p. 1169. |
 | Earth permittivity and displacement current | ``\varepsilon_1,\varepsilon_2`` arbitrary scalar layer values; the authors attribute ``G`` to radial displacement currents and retain axial displacement effects in both media. No independent loss tangent, complex permittivity, or loss-conductivity separation is supplied. The claim about lossless propagation when omitting ``G`` is retained only as an author statement. | Stated/equation-implied — 2009 II.A,III, (2c); 2010 section 3.1 and (6d). |
 | Range of validity | Electrically thin conductors and quasi-TEM TL-mode approximation, not all full-wave modes. 2010 states ``f\ll c/h`` as the TL limit and discusses conditional use beyond it. Its 50 Hz–10 MHz study is not a universal validity or accuracy bound. No kernel-series truncation order is specified. | Stated — 2009 I–II.A; 2010 pp. 1161–1163,1168. |
@@ -85,9 +85,13 @@ D_{mn}=(\mu_m\gamma_n^2a_m-\mu_n\gamma_m^2a_n),\qquad\text{(A.4)}
 ```
 
 ```math
-a_m=\sqrt{u^2+\gamma_m^2-\gamma_0^2},\qquad
-\gamma_m^2=j\omega\mu_m(\sigma_m+j\omega\varepsilon_m),
-\qquad m,n=0,1,2,\qquad \omega=2\pi f.
+\begin{aligned}
+a_m&=\sqrt{u^2+\gamma_m^2-\gamma_0^2} \\
+\gamma_m^2&=j\omega\mu_m(\sigma_m+j\omega\varepsilon_m),
+\qquad m \\
+n&=0,1,2 \\
+\omega&=2\pi f.
+\end{aligned}
 ```
 
 The source does **not** explicitly identify Greek ``\alpha_1`` in the main kernel or primed ``a'_1`` in (A.5) with its defined Latin ``a_1``. These are specific unresolved dependencies, not omitted definitions to be reconstructed. ``F,G`` have length units inferred from the interface factors, so ``P_g`` has ``\mathrm{m/F}`` and the printed ``Y'_g`` has ``\mathrm{S/m}``. Layer indices are 0 air, 1 finite earth and 2 lower earth.
@@ -139,7 +143,7 @@ J_0\!\left(u\sqrt{x^2+y_{ij}^2}\right)e^{-\gamma_xx}\,dx\right]du.
 
 The leading ``j\omega\mu_0/(4\pi\gamma_0^2)`` and the inverse on ``Y'`` are exactly retained; neither is turned into a different output. ``J_0`` is the first-kind order-zero Bessel function. The nested integrals remain separate. Parent ``a_0`` versus appendix ``a'_0`` is a printed mismatch; no arbitrary-complex-``\gamma_x`` convergence prescription is supplied.
 
-2010 (6a)–(6d), p. 1162, after the stated ``\gamma_x=\gamma_0=jk_0=j\omega\sqrt{\varepsilon_0\mu_0}``:
+2010 (6a)–(6d), p. 1162, after the stated ``\gamma_x=\gamma_0=jk_0=j\omega\sqrt{\mu_0\varepsilon_0}``:
 
 ```math
 Y'_{e_{ij}}=j\omega P_{e_{ij}}^{-1},\qquad\text{(2010:6a)}
@@ -178,8 +182,11 @@ The indexed ``P_{e_{ij}}^{-1}`` in (6a) is not independently replaced by an entr
 2010 original spectral definitions, p. 1169 below (A.3):
 
 ```math
-a'_k=\sqrt{u^2+\gamma_k^2},\qquad
-\gamma_k^2=j\omega\mu_k(\sigma_k+j\omega\varepsilon_k),\qquad k=0,1,2.
+\begin{aligned}
+a'_k&=\sqrt{u^2+\gamma_k^2} \\
+\gamma_k^2&=j\omega\mu_k(\sigma_k+j\omega\varepsilon_k) \\
+k&=0,1,2.
+\end{aligned}
 ```
 
 The complete parent reflection dependencies (A.6a)–(A.7g), with the one unprimed exponential in (A.7c) deliberately preserved:
@@ -224,8 +231,10 @@ S'_{mn}=(\mu_m\gamma_n^2a'_m+\mu_n\gamma_m^2a'_n),\qquad\text{(2010:A.7f)}
 ```
 
 ```math
-D'_{mn}=(\mu_m\gamma_n^2a'_m-\mu_n\gamma_m^2a'_n),\qquad m,n=0,1,2.
-\qquad\text{(2010:A.7g)}
+\begin{aligned}
+D'_{mn}&=(\mu_m\gamma_n^2a'_m-\mu_n\gamma_m^2a'_n),\qquad m \\
+n&=0,1,2.
+\end{aligned}\qquad\text{(2010:A.7g)}
 ```
 
 The later (A.6b) also has mixed primed/unprimed exponent factors; their literal forms are retained above. Appendix (A.12) supplies the longitudinal-transform identity:
@@ -243,20 +252,27 @@ J_0\!\left(u\sqrt{x^2+y_{ij}^2}\right)e^{-jk_0x}\,dx
 No endpoint value at ``u=k_0`` is provided. Immediately following (A.12), the source prescribes ``u^2-k_0^2=\lambda^2`` and transforms ``a'_k`` to:
 
 ```math
-\alpha_k=\sqrt{\lambda^2+\gamma_k^2+k_0^2},\qquad k=0,1,2,
+\begin{aligned}
+\alpha_k&=\sqrt{\lambda^2+\gamma_k^2+k_0^2} \\
+k&=0,1,2,
 \qquad T'_1\longmapsto T_1,\quad T'_2\longmapsto T_2.
+\end{aligned}
 ```
 
 The corresponding final coefficient dependency rendering, applying that prescription to the primed definitions, is:
 
 ```math
-s_{mn}=(\alpha_m\mu_n+\alpha_n\mu_m),\qquad
-d_{mn}=(\alpha_m\mu_n-\alpha_n\mu_m),
+\begin{aligned}
+s_{mn}&=(\alpha_m\mu_n+\alpha_n\mu_m) \\
+d_{mn}&=(\alpha_m\mu_n-\alpha_n\mu_m),
+\end{aligned}
 ```
 
 ```math
-S_{mn}=(\mu_m\gamma_n^2\alpha_m+\mu_n\gamma_m^2\alpha_n),\qquad
-D_{mn}=(\mu_m\gamma_n^2\alpha_m-\mu_n\gamma_m^2\alpha_n),
+\begin{aligned}
+S_{mn}&=(\mu_m\gamma_n^2\alpha_m+\mu_n\gamma_m^2\alpha_n) \\
+D_{mn}&=(\mu_m\gamma_n^2\alpha_m-\mu_n\gamma_m^2\alpha_n),
+\end{aligned}
 ```
 
 ```math
@@ -268,18 +284,22 @@ For ``\Delta_2``, the source points to (A.7c) and the same transform, but its ex
 The logarithmic contribution in (6b) uses the original definitions immediately below 2010 (A.13), p. 1170:
 
 ```math
-D_{ij}=\sqrt{y_{ij}^2+(h_i+h_j)^2},\qquad
-d_{ij}=\sqrt{y_{ij}^2+(h_i-h_j)^2}.
+\begin{aligned}
+D_{ij}&=\sqrt{y_{ij}^2+(h_i+h_j)^2} \\
+d_{ij}&=\sqrt{y_{ij}^2+(h_i-h_j)^2}.
+\end{aligned}
 ```
 
 The associated identity is separately preserved because its sign and factors are suspect as printed:
 
 ```math
+\begin{aligned}
 \int_0^\infty
 \left(\frac{e^{-a'_0|h_j-h_i|}}{a'_0}
 +\frac{e^{-a'_0(h_i+h_j)}}{a'_0}\right)
-\cos(y_{ij}\lambda)\,d\lambda
-=\ln\frac{D_{ij}}{d_{ij}}.\qquad\text{(2010:A.13)}
+\cos(y_{ij}\lambda) \\
+d\lambda&=\ln\frac{D_{ij}}{d_{ij}}.
+\end{aligned}\qquad\text{(2010:A.13)}
 ```
 
 No minus is inserted, and no branch or convergence conclusion is imposed on this ambiguous post-transform notation. 2010 self substitution is applied to the complete (6): ``y_{ij}`` replaced by outer conductor radius, ``h_j`` by ``h_i``. Identical electromagnetic properties of the two earth layers give its stated homogeneous reduction ``\gamma_2=\gamma_1,a_2=a_1``; no new derived limiting kernel is substituted.

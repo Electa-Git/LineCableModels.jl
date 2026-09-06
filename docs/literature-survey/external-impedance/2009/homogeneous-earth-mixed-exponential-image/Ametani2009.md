@@ -37,15 +37,17 @@
 Z_m=j\omega\left(\frac{\mu_0}{2\pi}\right)
 \exp\left(\frac{-h_2}{h_e}\right)\ln\left(\frac{S}{D}\right),
 \qquad\text{(27)}
+```
 
-h_e=\frac{1}{m},\qquad
-S=\sqrt{H^2+y^2},\qquad
-D=\sqrt{(h_1+h_2)^2+y^2},\qquad
-H=h_1+h_2+2h_e,
-
-m=\sqrt{\frac{j\omega\mu_0}{\rho_e}}
+```math
+\begin{aligned}
+h_e&=\frac{1}{m} \\
+S&=\sqrt{H^2+y^2} \\
+D&=\sqrt{(h_1+h_2)^2+y^2} \\
+H&=h_1+h_2+2h_e, \\
+m&=\sqrt{\frac{j\omega\mu_0}{\rho_e}}
 =|m|\exp\left(\frac{j\pi}{4}\right).
-\qquad\text{(22)}
+\end{aligned}\qquad\text{(22)}
 ```
 
 ``\rho_e`` is earth resistivity in ``\Omega\,\mathrm m``; ``h_e`` is a complex length. ``h_1,h_2,y,S,D,H`` have dimensions of length. The paper does not separately prescribe branches for ``S`` and the logarithm. In the derivation before (27), ``H`` instead means ``h_1+h_2``; the two definitions are kept at their original locations below.
@@ -66,7 +68,9 @@ Source parent, attributed in this article to Pollaczek (not newly attributed to 
 Z_m=Z(1,2)=j\omega\left(\frac{\mu_0}{2\pi}\right)
 \int_{-\infty}^{\infty}F_c(s)\exp(jys)\,ds,
 \qquad\text{(5)}
+```
 
+```math
 F_c(s)=\frac{\exp\{-h_1|s|+h_2\sqrt{s^2+m^2}\}}
 {\sqrt{s^2+m^2}+|s|}.
 \qquad\text{(6)}
@@ -77,12 +81,17 @@ Here ``s`` is a real spectral integration variable, with units of inverse length
 ```math
 \sqrt{s^2+m^2}\simeq s+m,
 \qquad\text{(17)}
+```
 
-H=h_1+h_2>0,\qquad\text{definition following (18)},
+```math
+\begin{aligned}
+H&=h_1+h_2>0,\qquad\text{definition following (18)}, \\
+s&=mt \\
+ds&=m\,dt,
+\end{aligned}\qquad\text{(22, change of variable)}
+```
 
-s=mt,\qquad ds=m\,dt,
-\qquad\text{(22, change of variable)}
-
+```math
 \frac{t}{\sqrt{t^2+1}+t}\simeq\frac{1-e^{-2t}}{2}.
 \qquad\text{(24)}
 ```

@@ -56,9 +56,10 @@ After cable-hole discretization,
 and the result is
 
 ```math
-\mathbf R=\Re\{[\mathbf U^T(\mathbf1-j\omega\mathbf Y_s\mathbf\Psi)^{-1}\mathbf Y_s\mathbf U]^{-1}\},\quad
-\mathbf L=\omega^{-1}\Im\{[\mathbf U^T(\mathbf1-j\omega\mathbf Y_s\mathbf\Psi)^{-1}\mathbf Y_s\mathbf U]^{-1}\}.
-\qquad\text{(35,36)}
+\begin{aligned}
+\mathbf R&=\Re\{[\mathbf U^T(\mathbf1-j\omega\mathbf Y_s\mathbf\Psi)^{-1}\mathbf Y_s\mathbf U]^{-1}\} \\
+\mathbf L&=\omega^{-1}\Im\{[\mathbf U^T(\mathbf1-j\omega\mathbf Y_s\mathbf\Psi)^{-1}\mathbf Y_s\mathbf U]^{-1}\}.
+\end{aligned}\qquad\text{(35,36)}
 ```
 
 **Approximation.** Fourier boundary expansions and MoM quadrature are truncated. The physical air–ground Green function is a spectral integral; no complex-depth fit is substituted.

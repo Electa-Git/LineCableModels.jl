@@ -51,10 +51,10 @@ G_g(x,y)=\frac1{2\pi}\int_{-\infty}^{\infty}\widetilde G_g(\beta_x,y)e^{-j\beta_
 The final matrices are
 
 ```math
-\mathbf R(\omega)=\Re\{[\mathbf U^T(\mathbf1-j\omega\mathbf Y_s\mathbf\Psi)^{-1}\mathbf Y_s\mathbf U]^{-1}\},
-\quad
-\mathbf L(\omega)=\omega^{-1}\Im\{[\mathbf U^T(\mathbf1-j\omega\mathbf Y_s\mathbf\Psi)^{-1}\mathbf Y_s\mathbf U]^{-1}\},
-\qquad\text{(21,22)}
+\begin{aligned}
+\mathbf R(\omega)&=\Re\{[\mathbf U^T(\mathbf1-j\omega\mathbf Y_s\mathbf\Psi)^{-1}\mathbf Y_s\mathbf U]^{-1}\} \\
+\mathbf L(\omega)&=\omega^{-1}\Im\{[\mathbf U^T(\mathbf1-j\omega\mathbf Y_s\mathbf\Psi)^{-1}\mathbf Y_s\mathbf U]^{-1}\},
+\end{aligned}\qquad\text{(21,22)}
 ```
 
 where ``\mathbf\Psi`` is printed in (23).

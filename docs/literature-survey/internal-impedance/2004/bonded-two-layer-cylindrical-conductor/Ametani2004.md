@@ -39,27 +39,32 @@ Z_{out}=\frac{V}{I}
        {Z_{11}+Z_{22}-2Z_{12}}
 =z_{2o}-\frac{z_{2m}^{2}}{z_{1o}+z_{2i}},
 \qquad\text{(8--9)}
+```
 
-Z_{in}=z_{1i}-\frac{z_{1m}^{2}}{z_{1o}+z_{2i}},
-\qquad
-Z_m=\frac{z_{1m}z_{2m}}{z_{1o}+z_{2i}},
-\qquad\text{(10)}
+```math
+\begin{aligned}
+Z_{in}&=z_{1i}-\frac{z_{1m}^{2}}{z_{1o}+z_{2i}} \\
+Z_m&=\frac{z_{1m}z_{2m}}{z_{1o}+z_{2i}},
+\end{aligned}\qquad\text{(10)}
+```
 
-Z_{in}=\frac{m_1\rho_1}{2\pi aD}
-        \left(m_1\rho_1FQ+m_2\rho_2EP\right),
+```math
+\begin{aligned}
+Z_{in}&=\frac{m_1\rho_1}{2\pi aD}
+        \left(m_1\rho_1FQ+m_2\rho_2EP\right), \\
+Z_{out}&=\frac{m_2\rho_2}{2\pi cD}
+         \left(m_1\rho_1GR+m_2\rho_2HS\right), \\
+Z_m&=\frac{\rho_1\rho_2}{2\pi abcD},
+\end{aligned}\qquad\text{(A.11)}
+```
 
-Z_{out}=\frac{m_2\rho_2}{2\pi cD}
-         \left(m_1\rho_1GR+m_2\rho_2HS\right),
-
-Z_m=\frac{\rho_1\rho_2}{2\pi abcD},
-\qquad\text{(A.11)}
-
-m_n^2=j\omega\mu_n\eta_n-\Gamma^2,
-\qquad \eta_n=\sigma_n+j\omega\varepsilon_n,
-\qquad\text{(A.2--A.3)}
-
-m_n^2\simeq j\omega\mu_n\sigma_n=\frac{j\omega\mu_n}{\rho_n}
+```math
+\begin{aligned}
+m_n^2&=j\omega\mu_n\eta_n-\Gamma^2 \\
+\eta_n&=\sigma_n+j\omega\varepsilon_n, \\
+m_n^2&\simeq j\omega\mu_n\sigma_n=\frac{j\omega\mu_n}{\rho_n}
 \quad\text{under (A.12).}
+\end{aligned}\qquad\text{(A.2--A.3)}
 ```
 
 The complete source definitions of ``D,E,F,G,H,P,Q,R,S`` are retained below. In the circuit form, every ``z_{ni}``, ``z_{no}``, and ``z_{nm}`` is the corresponding single-layer inner, outer, or transfer surface impedance. The source obtains (9) after setting ``b=b'`` and therefore ``z_{12}=0``.
@@ -77,26 +82,21 @@ The complete source definitions of ``D,E,F,G,H,P,Q,R,S`` are retained below. In 
 The source's appendix auxiliaries are
 
 ```math
-D=m_1\rho_1FG+m_2\rho_2EH,
-
-E=I_0(x_3)K_1(x_4)+I_1(x_4)K_0(x_3),
-\qquad
-F=I_1(x_4)K_1(x_3)-I_1(x_3)K_1(x_4),
-
-G=I_0(x_2)K_1(x_1)+I_1(x_1)K_0(x_2),
-\qquad
-H=I_1(x_2)K_1(x_1)-I_1(x_1)K_1(x_2),
-
-P=I_0(x_1)K_1(x_2)+I_1(x_2)K_0(x_1),
-\qquad
-Q=I_0(x_2)K_0(x_1)-I_0(x_1)K_0(x_2),
-
-R=I_0(x_4)K_1(x_3)+I_1(x_3)K_0(x_4),
-\qquad
-S=I_0(x_4)K_0(x_3)-I_0(x_3)K_0(x_4),
-\qquad\text{(A.13)}
-
-x_1=m_1a,\quad x_2=m_1b,\quad x_3=m_2b',\quad x_4=m_2c.
+\begin{aligned}
+D&=m_1\rho_1FG+m_2\rho_2EH, \\
+E&=I_0(x_3)K_1(x_4)+I_1(x_4)K_0(x_3) \\
+F&=I_1(x_4)K_1(x_3)-I_1(x_3)K_1(x_4), \\
+G&=I_0(x_2)K_1(x_1)+I_1(x_1)K_0(x_2) \\
+H&=I_1(x_2)K_1(x_1)-I_1(x_1)K_1(x_2), \\
+P&=I_0(x_1)K_1(x_2)+I_1(x_2)K_0(x_1) \\
+Q&=I_0(x_2)K_0(x_1)-I_0(x_1)K_0(x_2), \\
+R&=I_0(x_4)K_1(x_3)+I_1(x_3)K_0(x_4) \\
+S&=I_0(x_4)K_0(x_3)-I_0(x_3)K_0(x_4), \\
+x_1&=m_1a \\
+x_2&=m_1b \\
+x_3&=m_2b' \\
+x_4&=m_2c.
+\end{aligned}\qquad\text{(A.13)}
 ```
 
 The boundary relations from which (A.11) is solved are continuity ``E_{z1}(x_2)=E_{z2}(x_3)`` and ``H_{\theta1}(x_2)=H_{\theta2}(x_3)`` in (A.7), with the terminal relation in (A.10).

@@ -34,31 +34,39 @@
 **Expression.** Exact modified-Bessel surface impedances within the source's reduced good-conductor field equation, equations (65) and (73)–(75).
 
 ```math
-\sigma^2=g\mu\omega j=2\pi g\mu f j,
-\qquad
-\eta=\frac{\sigma}{g}=\frac{j\omega\mu}{\sigma},
-\qquad \Re(\sigma)>0,
+\begin{aligned}
+\sigma^2&=j\omega\mu g=j2\pi f\mu g, \\
+\eta&=\frac{\sigma}{g}=\frac{j\omega\mu}{\sigma},
+\qquad \Re(\sigma)>0.
+\end{aligned}
+```
 
+```math
 Z_b=\frac{E_z(b)}{I}
 =\frac{\eta I_0(\sigma b)}{2\pi b I_1(\sigma b)},
 \qquad\text{(65)}
+```
 
+```math
 D=I_1(\sigma b)K_1(\sigma a)-I_1(\sigma a)K_1(\sigma b),
 \qquad\text{(73)}
+```
 
-E_z(a)=Z_{aa}I_a+Z_{ab}I_b,
-\qquad
-E_z(b)=Z_{ba}I_a+Z_{bb}I_b,
-\qquad\text{(74)}
+```math
+\begin{aligned}
+E_z(a)&=Z_{aa}I_a+Z_{ab}I_b \\
+E_z(b)&=Z_{ba}I_a+Z_{bb}I_b,
+\end{aligned}\qquad\text{(74)}
+```
 
-Z_{aa}=\frac{\eta}{2\pi aD}
-\left[I_0(\sigma a)K_1(\sigma b)+K_0(\sigma a)I_1(\sigma b)\right],
-
-Z_{bb}=\frac{\eta}{2\pi bD}
-\left[I_0(\sigma b)K_1(\sigma a)+K_0(\sigma b)I_1(\sigma a)\right],
-\qquad\text{(75)}
-
-Z_{ab}=Z_{ba}=-\frac{1}{2\pi g a bD}.
+```math
+\begin{aligned}
+Z_{aa}&=\frac{\eta}{2\pi aD}
+\left[I_0(\sigma a)K_1(\sigma b)+K_0(\sigma a)I_1(\sigma b)\right], \\
+Z_{bb}&=\frac{\eta}{2\pi bD}
+\left[I_0(\sigma b)K_1(\sigma a)+K_0(\sigma b)I_1(\sigma a)\right], \\
+Z_{ab}&=Z_{ba}=-\frac{1}{2\pi g a bD}.
+\end{aligned}\qquad\text{(75)}
 ```
 
 ``I_n`` and ``K_n`` are modified Bessel functions of order ``n`` of the first and second kinds. ``Z_b`` is the solid-wire surface impedance; ``Z_{aa}`` and ``Z_{bb}`` are the shell surface impedances for internal and external return, respectively; ``Z_{ab}=Z_{ba}`` is the transfer impedance between the two shell surfaces. The source reports these impedances in ``\Omega/\mathrm{cm}``.
@@ -83,10 +91,10 @@ E_z(\rho)=\frac{\eta I_0(\sigma\rho)}{2\pi b I_1(\sigma b)}I.
 For the shell the source imposes
 
 ```math
-A I_1(\sigma a)+B K_1(\sigma a)=-\frac{I_a}{2\pi a},
-\qquad
-A I_1(\sigma b)+B K_1(\sigma b)=\frac{I_b}{2\pi b},
-\qquad\text{(71)}
+\begin{aligned}
+A I_1(\sigma a)+B K_1(\sigma a)&=-\frac{I_a}{2\pi a} \\
+A I_1(\sigma b)+B K_1(\sigma b)&=\frac{I_b}{2\pi b},
+\end{aligned}\qquad\text{(71)}
 ```
 
 then derives (73)–(75). The source explicitly calls ``Z_{ab}`` the *transfer impedance* because it is not necessarily the total mutual impedance between two transmission lines.

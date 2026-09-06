@@ -34,22 +34,29 @@
 **Expression.** The appendix's **unnumbered** logarithmic-integral representation, p. 31/PDF page 10. The actual output is normalized earth impedance ``P_e+jQ_e``, not the complete external impedance:
 
 ```math
-P_e+jQ_e=
+\begin{aligned}
+P_e+jQ_e&=
 \frac{r_e}{4}\int_{-\infty}^{\infty}
 F_l(u-\zeta)e^{-\cos\theta\,e^\zeta}
-\cos(\sin\theta\cdot e^\zeta)e^\zeta\,d\zeta
-=\frac{r_e}{4}\{F_l(u)\star E_{lc\theta}(u)\}.
+\cos(\sin\theta\cdot e^\zeta)e^\zeta \\
+d\zeta&=\frac{r_e}{4}\{F_l(u)\star E_{lc\theta}(u)\}.
+\end{aligned}
 ```
 
 Its published helpers and substitution prose:
 
 ```math
-F(\lambda)=\sqrt{\lambda^2+j}-\lambda,\qquad
-F_l(u)=F(e^{-u}),
+\begin{aligned}
+F(\lambda)&=\sqrt{\lambda^2+j}-\lambda \\
+F_l(u)&=F(e^{-u}),
+\end{aligned}
 ```
 
 ```math
-r=e^u,\qquad \lambda=e^{-\zeta},
+\begin{aligned}
+r&=e^u \\
+\lambda&=e^{-\zeta},
+\end{aligned}
 ```
 
 ```math
@@ -62,23 +69,29 @@ E_{lc\theta}(u)=
 The geometry and normalized scale supplied with the Carson-attributed mutual parent (2), p. 23:
 
 ```math
-\theta=\tan^{-1}\frac{D}{h+h'},\qquad
-r_e=4\sqrt{\frac{\omega}{R'_e}\times10^{-7}},\qquad
-R'_e=\frac{4\rho_e}{\pi\{D^2+(h+h')^2\}}.
+\begin{aligned}
+\theta&=\tan^{-1}\frac{D}{h+h'} \\
+r_e&=4\sqrt{\frac{\omega}{R'_e}\times10^{-7}} \\
+R'_e&=\frac{4\rho_e}{\pi\{D^2+(h+h')^2\}}.
+\end{aligned}
 ```
 
 For the expressly stated self case ``D=0,h'=h``, (3), pp. 23–24:
 
 ```math
-r_e=4\sqrt{\frac{\omega}{R_e}\times10^{-7}},\qquad
-R_e=\frac{\rho_e}{\pi h^2}.
+\begin{aligned}
+r_e&=4\sqrt{\frac{\omega}{R_e}\times10^{-7}} \\
+R_e&=\frac{\rho_e}{\pi h^2}.
+\end{aligned}
 ```
 
 The printed impedance assembly relation, p. 24, is retained **with its unprimed right-hand scale**, including when the left lists mutual and self quantities:
 
 ```math
-\dot Z'_e,\ \dot Z_e
-=R_e\{P_e(r_e)+jQ_e(r_e)\}.\qquad\text{(4)}
+\begin{aligned}
+\dot Z'_e \\
+\ \dot Z_e&=R_e\{P_e(r_e)+jQ_e(r_e)\}.
+\end{aligned}\qquad\text{(4)}
 ```
 
 The mutual normalization's relation to ``R'_e`` above is unresolved in this compressed printed line; no prime is inserted. The distinct parent (2) and self (3) are given in Source transcription without altering them.
@@ -86,8 +99,10 @@ The mutual normalization's relation to ``R'_e`` above is unresolved in this comp
 The crossed 相乗 operator is displayed as ``\star``, a notation-only alias. Section 4 defines it on p. 25:
 
 ```math
-\varphi(u)=\varphi_0(u)H(u-\infty),\qquad
-\psi(u)=\psi_0(u)H(u-\infty),
+\begin{aligned}
+\varphi(u)&=\varphi_0(u)H(u-\infty) \\
+\psi(u)&=\psi_0(u)H(u-\infty),
+\end{aligned}
 ```
 
 ```math
@@ -122,9 +137,11 @@ e^{-r_e\cos\theta\cdot\lambda}
 ```
 
 ```math
-\theta=\tan^{-1}\frac{D}{h+h'},\qquad
-r_e=4\sqrt{\frac{\omega}{R'_e}\times10^{-7}},\qquad
-R'_e=\frac{4\rho_e}{\pi\{D^2+(h+h')^2\}}.
+\begin{aligned}
+\theta&=\tan^{-1}\frac{D}{h+h'} \\
+r_e&=4\sqrt{\frac{\omega}{R'_e}\times10^{-7}} \\
+R'_e&=\frac{4\rho_e}{\pi\{D^2+(h+h')^2\}}.
+\end{aligned}
 ```
 
 The logarithm remains outside the separate correction integral. The source's fixed MKS factor is copied, not derived by converting Carson's original c.g.s. units. ``\dot Z'`` is mutual **external** impedance; the conductor-internal term introduced in §3 is separate.
@@ -142,12 +159,17 @@ e^{-r_e\lambda}\,d\lambda
 ```
 
 ```math
-r_e=4\sqrt{\frac{\omega}{R_e}\times10^{-7}},\qquad
-R_e=\frac{\rho_e}{\pi h^2}.
+\begin{aligned}
+r_e&=4\sqrt{\frac{\omega}{R_e}\times10^{-7}} \\
+R_e&=\frac{\rho_e}{\pi h^2}.
+\end{aligned}
 ```
 
 ```math
-\dot Z'_e,\ \dot Z_e=R_e\{P_e(r_e)+jQ_e(r_e)\}.\qquad\text{(4)}
+\begin{aligned}
+\dot Z'_e \\
+\ \dot Z_e&=R_e\{P_e(r_e)+jQ_e(r_e)\}.
+\end{aligned}\qquad\text{(4)}
 ```
 
 The source describes ``R'_e,R_e`` as unit-length resistances of conceptual circular earth conductors with radii ``\sqrt{D^2+(h+h')^2}/2`` and ``h`` respectively. They are reference resistance scales, not the real parts of the complex earth correction. The printed common unprimed scale in (4) is not silently replaced for the mutual case.
@@ -155,8 +177,10 @@ The source describes ``R'_e,R_e`` as unit-length resistances of conceptual circu
 ### §4, operator, p. 25/PDF page 4
 
 ```math
-\varphi(u)=\varphi_0(u)H(u-\infty),\qquad
-\psi(u)=\psi_0(u)H(u-\infty),
+\begin{aligned}
+\varphi(u)&=\varphi_0(u)H(u-\infty) \\
+\psi(u)&=\psi_0(u)H(u-\infty),
+\end{aligned}
 ```
 
 ```math
@@ -172,10 +196,12 @@ The source calls this the Duhamel operation, extended to the stated negative-inf
 **Literal appendix witness — no ``\lambda`` appears in this exponential:**
 
 ```math
-P_e+jQ_e=\frac{r_e^2}{4}\int_0^\infty
+\begin{aligned}
+P_e+jQ_e&=\frac{r_e^2}{4}\int_0^\infty
 F(\lambda)e^{-r_e\cos\theta}
-\cos(r_e\sin\theta\cdot\lambda)\,d\lambda,\qquad
-F(\lambda)=\sqrt{\lambda^2+j}-\lambda.
+\cos(r_e\sin\theta\cdot\lambda)\,d\lambda \\
+F(\lambda)&=\sqrt{\lambda^2+j}-\lambda.
+\end{aligned}
 ```
 
 This is a demonstrated difference from main (2) and the p. 32 chart, not a conversion error. The record does not insert the missing variable or claim convergence/failure from inspecting one term alone.
@@ -185,7 +211,11 @@ This is a demonstrated difference from main (2) and the p. 32 chart, not a conve
 The prose prints unindexed ``r=e^u`` and ``\lambda=e^{-\zeta}`` and describes ``F(e^{-u})`` by ``F_l(u)``:
 
 ```math
-r=e^u,\qquad \lambda=e^{-\zeta},\qquad F_l(u)=F(e^{-u}),
+\begin{aligned}
+r&=e^u \\
+\lambda&=e^{-\zeta} \\
+F_l(u)&=F(e^{-u}),
+\end{aligned}
 ```
 
 ```math
@@ -194,10 +224,12 @@ E_{lc\theta}(u)=\cos\theta-e^{-e^u\cos\theta}
 ```
 
 ```math
-P_e+jQ_e=\frac{r_e}{4}\int_{-\infty}^{\infty}
+\begin{aligned}
+P_e+jQ_e&=\frac{r_e}{4}\int_{-\infty}^{\infty}
 F_l(u-\zeta)e^{-\cos\theta\,e^\zeta}
-\cos(\sin\theta\cdot e^\zeta)e^\zeta\,d\zeta
-=\frac{r_e}{4}\{F_l(u)\star E_{lc\theta}(u)\}.
+\cos(\sin\theta\cdot e^\zeta)e^\zeta \\
+d\zeta&=\frac{r_e}{4}\{F_l(u)\star E_{lc\theta}(u)\}.
+\end{aligned}
 ```
 
 The final measure is ``e^\zeta d\zeta`` as printed, not ``d\zeta`` alone. The shift is ``u-\zeta``. The helper's plus angle is literal and is not changed using an inferred antiderivative.

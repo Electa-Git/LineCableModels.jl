@@ -37,11 +37,15 @@
 |h_e|=\sqrt{\frac{\rho_e}{\omega\mu_0}}
 \simeq\sqrt{\frac{\rho_e}{8f}}\times10^3\gg1,
 \qquad\text{(30)}
+```
 
+```math
 Z_m\simeq f+j\left\{8.253+0.628\ln\left(\frac{\rho_e}{fd^2}\right)\right\}
 \quad\text{(in milliohms per kilometer)},
 \qquad\text{(31)}
+```
 
+```math
 Z_L\simeq Z_m+\frac{1}{12}\simeq Z_m.
 \qquad\text{(32)}
 ```
@@ -61,13 +65,15 @@ Here ``Z_L`` denotes the Lucca comparison formula in (28), ``Z_m`` the authors' 
 The formula section retains the source order and notation of (30)–(32). The parent is
 
 ```math
-Z_m=j\omega\left(\frac{\mu_0}{2\pi}\right)
-\exp\left(-\frac{h_2}{h_e}\right)\ln\left(\frac{S}{D}\right),
-\quad h_e=\frac1m,\quad m=\sqrt{j\omega\mu_0/\rho_e},
-\qquad\text{(27)}
-
-S=\sqrt{H^2+y^2},\quad D=\sqrt{(h_1+h_2)^2+y^2},\quad
-H=h_1+h_2+2h_e.
+\begin{aligned}
+Z_m&=j\omega\left(\frac{\mu_0}{2\pi}\right)
+\exp\left(-\frac{h_2}{h_e}\right)\ln\left(\frac{S}{D}\right) \\
+h_e&=\frac1m \\
+m&=\sqrt{j\omega\mu_0/\rho_e}, \\
+S&=\sqrt{H^2+y^2} \\
+D&=\sqrt{(h_1+h_2)^2+y^2} \\
+H&=h_1+h_2+2h_e.
+\end{aligned}\qquad\text{(27)}
 ```
 
 The comparison expression is explicitly attributed to Lucca [21] by the inspected source:

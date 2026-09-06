@@ -34,10 +34,10 @@
 **Expression.** The air field is obtained in (13) from the DCFT solution with the three-layer interface constant ``A`` defined by (14)–(15). The terminal formulas are
 
 ```math
-Z_s=-\frac{E_1(s-r,h)}{I},
-\qquad
-Z_m=-\frac{E_1(s_2,h_2)}{I},
-\qquad\text{(16–17)}
+\begin{aligned}
+Z_s&=-\frac{E_1(s-r,h)}{I} \\
+Z_m&=-\frac{E_1(s_2,h_2)}{I},
+\end{aligned}\qquad\text{(16–17)}
 ```
 
 where ``E_1`` contains the printed direct logarithm plus the semi-infinite three-layer spectral integral. Setting layers 3 and 4 equal gives the source's two-layer coefficient (18); making all earth layers equal gives (19) and Carson's limit.

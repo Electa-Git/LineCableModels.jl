@@ -41,9 +41,10 @@ Y_{\mathrm{ext}}=2\pi(\sigma_1+j\omega\varepsilon_1)[\Lambda-T]^{-1}.
 For a single cable,
 
 ```math
-\Lambda=K_0(r\gamma_1)-K_0(d\gamma_1),
-\qquad d=\sqrt{4h^2+r^2},
-\qquad\text{(5)}
+\begin{aligned}
+\Lambda&=K_0(r\gamma_1)-K_0(d\gamma_1) \\
+d&=\sqrt{4h^2+r^2},
+\end{aligned}\qquad\text{(5)}
 ```
 
 ```math
@@ -57,12 +58,11 @@ e^{-jr\lambda}\,d\lambda.
 For cables ``i,j``,
 
 ```math
-\Lambda_{ij}=K_0(d_{ij}\gamma_1)-K_0(D_{ij}\gamma_1),
-\quad
-d_{ij}=\sqrt{(h_i-h_j)^2+x_{ij}^2},
-\quad
-D_{ij}=\sqrt{(h_i+h_j)^2+x_{ij}^2},
-\qquad\text{(7)}
+\begin{aligned}
+\Lambda_{ij}&=K_0(d_{ij}\gamma_1)-K_0(D_{ij}\gamma_1) \\
+d_{ij}&=\sqrt{(h_i-h_j)^2+x_{ij}^2} \\
+D_{ij}&=\sqrt{(h_i+h_j)^2+x_{ij}^2},
+\end{aligned}\qquad\text{(7)}
 ```
 
 ```math
@@ -77,16 +77,19 @@ e^{-jx_{ij}\lambda}\,d\lambda.
 The complete definitions are
 
 ```math
-u_1=\sqrt{\lambda^2+\gamma_1^2},\qquad
-u_2=\sqrt{\lambda^2+\gamma_2^2},\qquad
-n=\frac{\gamma_2}{\gamma_1},
+\begin{aligned}
+u_1&=\sqrt{\lambda^2+\gamma_1^2} \\
+u_2&=\sqrt{\lambda^2+\gamma_2^2} \\
+n&=\frac{\gamma_2}{\gamma_1},
+\end{aligned}
 ```
 
 ```math
-\gamma_1=\sqrt{j\omega\mu_0(\sigma_1+j\omega\varepsilon_1)},
-\qquad
-\gamma_2=\sqrt{j\omega\mu_0(\sigma_2+j\omega\varepsilon_2)},
-\qquad \mu_0=\mu_1=\mu_2.
+\begin{aligned}
+\gamma_1&=\sqrt{j\omega\mu_0(\sigma_1+j\omega\varepsilon_1)} \\
+\gamma_2&=\sqrt{j\omega\mu_0(\sigma_2+j\omega\varepsilon_2)} \\
+\mu_0&=\mu_1=\mu_2.
+\end{aligned}
 ```
 
 Each scalar entry is expanded to the source's ``2\times2`` all-ones block for the core and sheath of a cable. After assembling every self and mutual block, the source applies the matrix inverse in (12); it does not define isolated admittance entries as ``1/(\Lambda_{ij}-T_{ij})``. Equivalently, only as a naming aid for the already printed relation, ``P_{\mathrm{ext}}=[\Lambda-T]/[2\pi(\sigma_1+j\omega\varepsilon_1)]`` gives ``Y_{\mathrm{ext}}=P_{\mathrm{ext}}^{-1}``.
@@ -124,10 +127,10 @@ Z_{\mathrm{ext}}=\frac{j\omega\mu_0}{2\pi}[\Lambda+S],
 with ``S`` from (6) or ``S_{ij}`` from (8). The paper calls this essentially identical to Pollaczek and claims novelty for the admittance expression instead; it is therefore retained here as context and not counted as a distinct 2018 external-impedance contribution.
 
 ```math
-S=\int_{-\infty}^{\infty}\frac{e^{-2hu_1}}{u_1+u_2}e^{-jr\lambda}\,d\lambda,
-\qquad
-S_{ij}=\int_{-\infty}^{\infty}\frac{e^{-(h_i+h_j)u_1}}{u_1+u_2}e^{-jx_{ij}\lambda}\,d\lambda.
-\qquad\text{(6,8)}
+\begin{aligned}
+S&=\int_{-\infty}^{\infty}\frac{e^{-2hu_1}}{u_1+u_2}e^{-jr\lambda}\,d\lambda \\
+S_{ij}&=\int_{-\infty}^{\infty}\frac{e^{-(h_i+h_j)u_1}}{u_1+u_2}e^{-jx_{ij}\lambda}\,d\lambda.
+\end{aligned}\qquad\text{(6,8)}
 ```
 
 The appendix prints a heuristic maximum-frequency expression,

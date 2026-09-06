@@ -34,9 +34,10 @@
 **Expression.** For two bonded tubular layers 1 and 2,
 
 ```math
-Z_{22}=z_{2out}-\frac{z_{2m}^2}{z_{1out}+z_{2in}},\qquad
-Z_{11}=z_{1in}-\frac{z_{1m}^2}{z_{1out}+z_{2in}},
-\qquad\text{(11,16)}
+\begin{aligned}
+Z_{22}&=z_{2out}-\frac{z_{2m}^2}{z_{1out}+z_{2in}} \\
+Z_{11}&=z_{1in}-\frac{z_{1m}^2}{z_{1out}+z_{2in}},
+\end{aligned}\qquad\text{(11,16)}
 ```
 
 ```math
@@ -47,9 +48,10 @@ Z_{12}=\frac{z_{1m}z_{2m}}{z_{1out}+z_{2in}}.
 For the sheath plus its inner semiconducting screen,
 
 ```math
-Z_{sh,out}^{sem2}=z_{sh,out}-\frac{z_{sh,m}^2}{z_{sem2,out}+z_{sh,in}},\quad
-Z_{sh,in}^{sem2}=z_{sem2,in}-\frac{z_{sem2,m}^2}{z_{sem2,out}+z_{sh,in}},
-\qquad\text{(19,20)}
+\begin{aligned}
+Z_{sh,out}^{sem2}&=z_{sh,out}-\frac{z_{sh,m}^2}{z_{sem2,out}+z_{sh,in}} \\
+Z_{sh,in}^{sem2}&=z_{sem2,in}-\frac{z_{sem2,m}^2}{z_{sem2,out}+z_{sh,in}},
+\end{aligned}\qquad\text{(19,20)}
 ```
 
 ```math

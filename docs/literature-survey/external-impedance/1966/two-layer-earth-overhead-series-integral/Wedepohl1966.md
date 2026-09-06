@@ -34,17 +34,21 @@
 **Expression.**
 
 ```math
-Z_{2rs}=\frac{m_1^2}{\pi}\int_0^\infty
+\begin{aligned}
+Z_{2rs}&=\frac{m_1^2}{\pi}\int_0^\infty
 \frac{(\mu_2/\mu_1)\cos\{\alpha(x-s_r)\}e^{-\alpha(h_r+y)}}
-{(\mu_2/\mu_1)\alpha+A}\,d\alpha,
-\qquad m_1=(j\omega\mu_1)^{1/2},
+{(\mu_2/\mu_1)\alpha+A}\,d\alpha \\
+m_1&=(j\omega\mu_1)^{1/2},
+\end{aligned}
 ```
 
 ```math
-A=\frac{q_2}{\sinh(dq_2)}
+\begin{aligned}
+A&=\frac{q_2}{\sinh(dq_2)}
 \left[\cosh(dq_2)-
-\frac{\mu_3q_2}{\mu_3q_2\cosh(dq_2)+\mu_2q_3\sinh(dq_2)}\right],
-\quad q_i=(\alpha^2+m_i^2)^{1/2},
+\frac{\mu_3q_2}{\mu_3q_2\cosh(dq_2)+\mu_2q_3\sinh(dq_2)}\right] \\
+q_i&=(\alpha^2+m_i^2)^{1/2},
+\end{aligned}
 ```
 
 where ``m_2=(j\omega\mu_2/\rho_2)^{1/2}`` and ``m_3=(j\omega\mu_3/\rho_3)^{1/2}``. Equation (9) has the same outer integral with ``A'`` obtained by replacing ``q_i`` by ``(\alpha^2+m_i^2+k_i^2)^{1/2}``, where ``k_2^2=\omega^2(\mu_1\varepsilon_1-\mu_2\varepsilon_2)`` and likewise for layer 3.

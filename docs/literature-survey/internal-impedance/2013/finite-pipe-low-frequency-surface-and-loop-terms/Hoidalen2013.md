@@ -144,9 +144,10 @@ Z_{p\Sigma,km}=\frac{j\omega\mu_0}{2\pi}\cdot
 The arguments are (7),(10); the coefficient geometry is (5):
 
 ```math
-x_1=r_{p1}\cdot\sqrt{j\omega\cdot\mu_0\cdot\mu_{rp}\cdot\sigma_p},
-\qquad
-x_2=r_{p2}\cdot\sqrt{j\omega\cdot\mu_0\cdot\mu_{rp}\cdot\sigma_p},
+\begin{aligned}
+x_1&=r_{p1}\cdot\sqrt{j\omega\cdot\mu_0\cdot\mu_{rp}\cdot\sigma_p} \\
+x_2&=r_{p2}\cdot\sqrt{j\omega\cdot\mu_0\cdot\mu_{rp}\cdot\sigma_p},
+\end{aligned}
 ```
 
 ```math
@@ -217,10 +218,10 @@ Q_{km}=\ln\sqrt{
 ```
 
 ```math
-Z_{ins1,k}=\frac{j\omega\mu_0}{2\pi}\cdot\ln(r_{2k}/r_{1k}),
-\qquad
-Z_{ins3}=\frac{j\omega\mu_0}{2\pi}\cdot\mu_{ri3}\cdot\ln(r_{p3}/r_{p2}).
-\qquad\text{(18)}
+\begin{aligned}
+Z_{ins1,k}&=\frac{j\omega\mu_0}{2\pi}\cdot\ln(r_{2k}/r_{1k}) \\
+Z_{ins3}&=\frac{j\omega\mu_0}{2\pi}\cdot\mu_{ri3}\cdot\ln(r_{p3}/r_{p2}).
+\end{aligned}\qquad\text{(18)}
 ```
 
 ``\mu_{ri3}`` is relative permeability of the outer insulation in (18). It is not restored to the first insulation term, which prints only ``\mu_0``. Full-frequency ``Z_{co}`` and ``Z_g`` are named external dependencies; only the core's low-frequency (19) is supplied here. Thus (17) does not constitute a new completely specified full-frequency cable formula in this record.

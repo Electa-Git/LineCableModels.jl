@@ -55,16 +55,17 @@ I_w\approx S_{w,\infty}=-\frac{2h|x|}{D^2}
 ```
 
 ```math
-S_{w1,n}=DP_{2n}A_{2n}+DP_{2n+1}A_{2n+1}+S_{w1,n-1},
-\qquad
-S_{w2,n}=DP_{2n}B_{2n}+DP_{2n+1}B_{2n+1}+S_{w2,n-1},
-\qquad\text{(6j,6k)}
+\begin{aligned}
+S_{w1,n}&=DP_{2n}A_{2n}+DP_{2n+1}A_{2n+1}+S_{w1,n-1} \\
+S_{w2,n}&=DP_{2n}B_{2n}+DP_{2n+1}B_{2n+1}+S_{w2,n-1},
+\end{aligned}\qquad\text{(6j,6k)}
 ```
 
 ```math
-DP_{2n}=\frac{(-D/p)DP_{2n-1}}{2n},\qquad
-DP_{2n+1}=\frac{(-D/p)DP_{2n}}{2n+1},
-\qquad\text{(6l)}
+\begin{aligned}
+DP_{2n}&=\frac{(-D/p)DP_{2n-1}}{2n} \\
+DP_{2n+1}&=\frac{(-D/p)DP_{2n}}{2n+1},
+\end{aligned}\qquad\text{(6l)}
 ```
 
 ```math
@@ -72,9 +73,10 @@ A_{2n}=\frac{(2h)^{2n-1}|x|^3/D^{2n+2}+(2n-1)A_{2n-2}}{2n+2},
 ```
 
 ```math
-A_{2n+1}=\frac{(2h)^{2n-1}|x|/D^{2n}+(2n-1)A_{2n-1}}{2n},
-\qquad n=1,2,3,\ldots,
-\qquad\text{(6m)}
+\begin{aligned}
+A_{2n+1}&=\frac{(2h)^{2n-1}|x|/D^{2n}+(2n-1)A_{2n-1}}{2n} \\
+n&=1,2,3,\ldots,
+\end{aligned}\qquad\text{(6m)}
 ```
 
 ```math
@@ -82,9 +84,10 @@ B_{2n}=\frac{(2h)^{2n}|x|^3/D^{2n+3}+(2n)B_{2n-2}}{2n+3},
 ```
 
 ```math
-B_{2n+1}=\frac{(2h)^{2n-1}|x|/D^{2n+1}+(2n)B_{2n-1}}{2n+1},
-\qquad n=1,2,3,\ldots.
-\qquad\text{(6n)}
+\begin{aligned}
+B_{2n+1}&=\frac{(2h)^{2n-1}|x|/D^{2n+1}+(2n)B_{2n-1}}{2n+1} \\
+n&=1,2,3,\ldots.
+\end{aligned}\qquad\text{(6n)}
 ```
 
 The initial sums are ``S_{w1,0}=A_0+DP_1A_1`` and ``S_{w2,0}=B_0+DP_1B_1``, with ``DP_1=-D/p``. The stopping ratios are printed in (7).

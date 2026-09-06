@@ -38,14 +38,16 @@ z_{c_{ii}}=\frac{j\omega\mu_0}{\pi}
 \int_0^\infty
 \frac{\exp(-2h_i\xi)}{\xi+\sqrt{\xi^2+\eta_s^2}}\,d\xi,
 \qquad\text{(1)}
+```
 
-z_{c_{ij}}=\frac{j\omega\mu_0}{\pi}
+```math
+\begin{aligned}
+z_{c_{ij}}&=\frac{j\omega\mu_0}{\pi}
 \int_0^\infty
 \frac{\exp(-(h_i+h_j)\xi)}{\xi+\sqrt{\xi^2+\eta_s^2}}
-\cos(d_{ij}\xi)\,d\xi,
-\qquad\text{(2)}
-
-\eta_s=\sqrt{j\omega\mu_0(\sigma_s+j\omega\varepsilon_s)}.
+\cos(d_{ij}\xi)\,d\xi, \\
+\eta_s&=\sqrt{j\omega\mu_0(\sigma_s+j\omega\varepsilon_s)}.
+\end{aligned}\qquad\text{(2)}
 ```
 
 ``h_i,h_j,d_{ij}`` are lengths in meters, ``\xi,\eta_s`` inverse lengths, ``\sigma_s`` soil conductivity in S/m, and ``\varepsilon_s`` soil permittivity in F/m. The source's joint soil model is
@@ -54,7 +56,9 @@ z_{c_{ij}}=\frac{j\omega\mu_0}{\pi}
 \sigma_s+j\omega\varepsilon_s\simeq\kappa'
 =\sigma_0+\delta_{\sigma_s}+j\delta_{\omega\varepsilon_s},
 \qquad\text{(7)}
+```
 
+```math
 \delta_{\sigma_s}+j\delta_{\omega\varepsilon_s}
 =\Delta_i\left(\frac{f}{10^6}\right)^\alpha
 \left(\cot(\alpha\pi/2)+j\right).

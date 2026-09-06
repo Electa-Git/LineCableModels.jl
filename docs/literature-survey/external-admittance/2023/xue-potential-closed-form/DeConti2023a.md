@@ -49,8 +49,10 @@ K_0(\gamma_1d)+
 ```
 
 ```math
-d=\sqrt{(h_m-h_n)^2+r^2},\qquad
-D=\sqrt{(h_m+h_n)^2+r^2},
+\begin{aligned}
+d&=\sqrt{(h_m-h_n)^2+r^2} \\
+D&=\sqrt{(h_m+h_n)^2+r^2},
+\end{aligned}
 ```
 
 with the same ``\gamma_0,\gamma_1`` definitions as in the companion impedance record. Every ``P_{g(m,n)}`` is assembled before inversion; ``(P_g^{-1})_{mn}`` is not ``1/P_{g(m,n)}``.

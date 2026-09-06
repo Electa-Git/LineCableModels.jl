@@ -34,10 +34,12 @@
 **Expression.**
 
 ```math
-\int_{-1}^{1}f(x)\,dx\simeq\sum_{k=-\infty}^{\infty}w_kf(x_k),
-\quad x_k=\tanh\!\left[\frac\pi2\sinh(kh)\right],
-\quad w_k=\frac{(\pi/2)h\cosh(kh)}{\cosh^2[(\pi/2)\sinh(kh)]}.
-\qquad\text{(12–14)}
+\begin{aligned}
+\int_{-1}^{1}f(x) \\
+dx&\simeq\sum_{k=-\infty}^{\infty}w_kf(x_k) \\
+x_k&=\tanh\!\left[\frac\pi2\sinh(kh)\right] \\
+w_k&=\frac{(\pi/2)h\cosh(kh)}{\cosh^2[(\pi/2)\sinh(kh)]}.
+\end{aligned}\qquad\text{(12–14)}
 ```
 
 **Approximation.** Finite node truncation only; no change to the selected admittance physics.

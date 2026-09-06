@@ -43,10 +43,13 @@ P_{g(m,n)}=\frac{j\omega}{2\pi(\sigma_1+j\omega\varepsilon_1)}
 ```
 
 ```math
-\alpha=\frac{\gamma_1^2-\gamma_0^2}{\gamma_1^2+\gamma_0^2},qquad
-D=\sqrt{(h_m+h_n)^2+r^2},qquad
-\mathbf Y_g=j\omega\mathbf P_g^{-1}.
-\qquad\text{(5--6)}
+\begin{aligned}
+\alpha&=\frac{\gamma_1^2-\gamma_0^2}{\gamma_1^2+\gamma_0^2} \\
+qquad
+D&=\sqrt{(h_m+h_n)^2+r^2} \\
+qquad
+\mathbf Y_g&=j\omega\mathbf P_g^{-1}.
+\end{aligned}\qquad\text{(5--6)}
 ```
 
 The entire matrix ``P_g`` must be assembled before inversion; no isolated mutual admittance equals ``1/P_{g(m,n)}``.

@@ -34,10 +34,12 @@
 **Expression.** The anisotropic layer parameters are
 
 ```math
-I_w=\Sigma_zE_z|_{r=R}+\Sigma_\varphi E_\varphi|_{r=R},\quad
-\Sigma_z=6\pi R^2\sigma_{Al}Q,\quad
-\Sigma_\varphi=\theta\Sigma_z,\quad \theta=\frac{2\pi R}{h},
-\qquad\text{(1)}
+\begin{aligned}
+I_w&=\Sigma_zE_z|_{r=R}+\Sigma_\varphi E_\varphi|_{r=R} \\
+\Sigma_z&=6\pi R^2\sigma_{Al}Q \\
+\Sigma_\varphi&=\theta\Sigma_z \\
+\theta&=\frac{2\pi R}{h},
+\end{aligned}\qquad\text{(1)}
 ```
 
 ```math
@@ -48,16 +50,20 @@ Q=\langle\cos^2\alpha\rangle
 The p.u.l. internal impedance is
 
 ```math
-Z_{jnt}=\frac{k_{St}}{\sigma_{St}h}\,
-\frac{\gamma J_0(k_{St}R)}{1+\gamma\theta J_1(k_{St}R)},
-\quad k_{St}^2=-j\omega\mu_{St}\mu_0\sigma_{St},\quad \gamma=\frac BA,
-\qquad\text{(2)}
+\begin{aligned}
+Z_{jnt}&=\frac{k_{St}}{\sigma_{St}h}\,
+\frac{\gamma J_0(k_{St}R)}{1+\gamma\theta J_1(k_{St}R)} \\
+k_{St}^2&=-j\omega\mu_{St}\mu_0\sigma_{St} \\
+\gamma&=\frac BA,
+\end{aligned}\qquad\text{(2)}
 ```
 
 ```math
-A=\frac{k_{St}RJ_0(k_{St}R)}{J_1(k_{St}R)},\qquad
-B=\frac{2\Sigma_c}{\theta\Sigma_z}-\theta\frac{k_{St}RJ_1(k_{St}R)}{J_0(k_{St}R)},\qquad
-\Sigma_c=\pi R^2\sigma_{St}.
+\begin{aligned}
+A&=\frac{k_{St}RJ_0(k_{St}R)}{J_1(k_{St}R)} \\
+B&=\frac{2\Sigma_c}{\theta\Sigma_z}-\theta\frac{k_{St}RJ_1(k_{St}R)}{J_0(k_{St}R)} \\
+\Sigma_c&=\pi R^2\sigma_{St}.
+\end{aligned}
 ```
 
 **Approximation.** Six discrete strands are homogenized into a continuous anisotropic surface layer; aluminum skin effect is ignored. The core solution retains cylindrical skin effect through Bessel functions.

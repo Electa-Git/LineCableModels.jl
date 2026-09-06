@@ -41,9 +41,11 @@
 For an applied voltage ``V``, the source extracts
 
 ```math
-C=\frac1{2\pi f}\frac{\Im S(\omega)}{V^2},
-\qquad G=\frac{\Re S(\omega)}{V^2},
-\qquad Y=G+j\omega C.
+\begin{aligned}
+C&=\frac1{2\pi f}\frac{\Im S(\omega)}{V^2} \\
+G&=\frac{\Re S(\omega)}{V^2} \\
+Y&=G+j\omega C.
+\end{aligned}
 ```
 
 **Approximation.** Finite-element mesh and outer-domain truncation; material loss mechanisms enter only through their combined complex constitutive parameters.

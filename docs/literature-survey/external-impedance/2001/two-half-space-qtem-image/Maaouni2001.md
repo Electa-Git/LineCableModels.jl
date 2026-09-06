@@ -34,11 +34,12 @@
 **Expression.** The qTEM impedance image integral reduces as
 
 ```math
-J(X,Y)\simeq\ln\frac{\rho_J^*}{\rho^*},\qquad
-\rho_J^*=\sqrt{X^2+(Y+Y_J)^2},\quad
-\rho^*=\sqrt{X^2+Y^2},\quad
-Y_J=\frac{2}{k_0\sqrt{1-n^2}}.
-\qquad\text{(12)}
+\begin{aligned}
+J(X,Y)&\simeq\ln\frac{\rho_J^*}{\rho^*} \\
+\rho_J^*&=\sqrt{X^2+(Y+Y_J)^2} \\
+\rho^*&=\sqrt{X^2+Y^2} \\
+Y_J&=\frac{2}{k_0\sqrt{1-n^2}}.
+\end{aligned}\qquad\text{(12)}
 ```
 
 The full closed evaluator for the companion kernel is

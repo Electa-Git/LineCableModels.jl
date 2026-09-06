@@ -46,11 +46,11 @@ Z_{eij}^{01}=Z_{eij}^{10}
 where
 
 ```math
-\gamma_k=\sqrt{j\omega\mu_k(\sigma_k+j\omega\varepsilon_k)},
-\qquad
-a_k=\sqrt{\lambda^2+\gamma_k^2+k_x^2},
-\qquad
-\gamma_x=jk_x,
+\begin{aligned}
+\gamma_k&=\sqrt{j\omega\mu_k(\sigma_k+j\omega\varepsilon_k)} \\
+a_k&=\sqrt{\lambda^2+\gamma_k^2+k_x^2} \\
+\gamma_x&=jk_x,
+\end{aligned}
 ```
 
 for ``k=0,1``, with ``h_i>0`` and ``h_j<0``.

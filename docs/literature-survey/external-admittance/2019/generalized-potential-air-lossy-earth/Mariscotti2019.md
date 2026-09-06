@@ -44,9 +44,11 @@ V_1=\frac{\gamma I e^{-\gamma z}}{j\omega2\pi\bar\varepsilon_1}
 and (15) gives the corresponding medium-2 expression with ``\bar\varepsilon_2``, ``k_2^2e^{u_2(x_2+h_2)}``, and the same denominator. The paper then defines
 
 ```math
-w_{ij}=\frac{V}{I_t}=\gamma g,\qquad y_{ij}=w_{ij}^{-1},
-\qquad y_{ij}=g_{ij}+j\omega c_{ij}.
-\qquad\text{(19,21)}
+\begin{aligned}
+w_{ij}&=\frac{V}{I_t}=\gamma g \\
+y_{ij}&=w_{ij}^{-1} \\
+y_{ij}&=g_{ij}+j\omega c_{ij}.
+\end{aligned}\qquad\text{(19,21)}
 ```
 
 **Approximation.** Generalized potential within the source's thin-wire/modal model; no extra closed-form approximation is applied to the displayed integral.

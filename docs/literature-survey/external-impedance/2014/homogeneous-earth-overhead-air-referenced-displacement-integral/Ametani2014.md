@@ -34,24 +34,26 @@
 **Expression.** With ``\mu_e=\mu_0`` and ``\sigma_0=0``, the homogeneous spectral factor is
 
 ```math
-A=\frac{1}{s+a_1},\qquad
-a_1=\sqrt{s^2+m_1^2-m_0^2},
-\qquad\text{(12)}
+\begin{aligned}
+A&=\frac{1}{s+a_1} \\
+a_1&=\sqrt{s^2+m_1^2-m_0^2},
+\end{aligned}\qquad\text{(12)}
 ```
 
 ```math
-m_1^2=j\omega\mu_e(\sigma_e+j\omega\varepsilon_e),
-\qquad
-m_0^2=j\omega\mu_0(j\omega\varepsilon_0).
-\qquad\text{(13)}
+\begin{aligned}
+m_1^2&=j\omega\mu_e(\sigma_e+j\omega\varepsilon_e) \\
+m_0^2&=j\omega\mu_0(j\omega\varepsilon_0).
+\end{aligned}\qquad\text{(13)}
 ```
 
 It enters
 
 ```math
-Z_{ij}=j\omega\frac{\mu_0}{2\pi}[P_0+(Q-jR)],
-\quad P_0=\ln\frac{D_{ij}}{d_{ij}},
-\qquad\text{(1,2)}
+\begin{aligned}
+Z_{ij}&=j\omega\frac{\mu_0}{2\pi}[P_0+(Q-jR)] \\
+P_0&=\ln\frac{D_{ij}}{d_{ij}},
+\end{aligned}\qquad\text{(1,2)}
 ```
 
 ```math

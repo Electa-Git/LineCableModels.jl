@@ -20,7 +20,7 @@
 | Field | Treatment | Evidence |
 | --- | --- | --- |
 | Impressed longitudinal propagation constant ``Γ`` | ``\gamma_w`` is coupled to impedance through (4); the image evaluation uses the source's quasi-TEM substitutions. | Stated — (1), (4), text before (6)/(12). |
-| Air propagation constant ``γ_air`` | ``\gamma_0=j\omega\sqrt{\varepsilon_0\mu_0}``; air may be medium 1 or 2. | Stated — Basic Theory. |
+| Air propagation constant ``γ_air`` | ``\gamma_0=j\omega\sqrt{\mu_0\varepsilon_0}``; air may be medium 1 or 2. | Stated — Basic Theory. |
 | Earth propagation constant ``γ_earth`` | ``\gamma_m=\gamma_0n_m`` with conductive complex ``n_m``. | Stated — definitions following (1). |
 | Earth permittivity and displacement current | Retained in ``n_m=[\varepsilon_{rm}+\sigma_m/(j\omega\varepsilon_0)]^{1/2}``. | Stated — below (1). |
 | Range of validity | Thin-wire image approximation; no uniform error bound is stated. | Stated — pp. 1049, 1052. |
@@ -34,20 +34,20 @@
 **Expression.** The exact shunt coupling and coupled mode equation are
 
 ```math
-Y=j\omega\varepsilon_0n_1^2\,\frac{2\pi}{\Lambda+Q},
-\qquad
-\gamma_w=\gamma_1\left(\frac{\Lambda+P}{\Lambda+Q}\right)^{1/2}.
-\qquad\text{(3,4)}
+\begin{aligned}
+Y&=j\omega\varepsilon_0n_1^2\,\frac{2\pi}{\Lambda+Q} \\
+\gamma_w&=\gamma_1\left(\frac{\Lambda+P}{\Lambda+Q}\right)^{1/2}.
+\end{aligned}\qquad\text{(3,4)}
 ```
 
 For ``h>0`` the image form printed in (10) is
 
 ```math
-\Lambda=\ln\frac{d''}{d'},\qquad
-Q\simeq\frac{2}{n^2+1}\ln\frac{d_Q}{d''},
-\qquad
-d_Q=\pm\sqrt{\left[y+h+\frac{n^2+1}{\beta}\right]^2+x^2}.
-\qquad\text{(10)}
+\begin{aligned}
+\Lambda&=\ln\frac{d''}{d'} \\
+Q&\simeq\frac{2}{n^2+1}\ln\frac{d_Q}{d''} \\
+d_Q&=\pm\sqrt{\left[y+h+\frac{n^2+1}{\beta}\right]^2+x^2}.
+\end{aligned}\qquad\text{(10)}
 ```
 
 Here ``\beta=\gamma_1(n^2-1)^{1/2}``; the sign of ``d_Q`` is selected so its imaginary part is negative for a wire in air and positive for a wire in ground.
