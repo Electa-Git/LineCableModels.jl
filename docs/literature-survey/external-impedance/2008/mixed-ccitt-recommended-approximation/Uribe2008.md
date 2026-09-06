@@ -1,6 +1,6 @@
 # Uribe's secondary transcription of the CCITT mixed approximation
 
-## Identity and source
+## Identification and source
 
 | Field | Value |
 | --- | --- |

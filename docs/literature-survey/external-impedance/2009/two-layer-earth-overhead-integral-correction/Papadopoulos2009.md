@@ -1,6 +1,6 @@
 # Papadopoulos–Papagiannis–Labridis two-layer overhead earth impedance
 
-## Identity and source
+## Identification and source
 
 | Field | Value |
 | --- | --- |

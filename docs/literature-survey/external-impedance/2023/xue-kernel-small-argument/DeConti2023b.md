@@ -1,6 +1,6 @@
 # De Conti et al. small-argument underground impedance
 
-## Identity and source
+## Identification and source
 
 | Field | Value |
 | --- | --- |
@@ -20,9 +20,9 @@
 | Field | Treatment | Evidence |
 | --- | --- | --- |
 | Impressed longitudinal propagation constant ``Γ`` | Fixed zero, inherited from the compact Xue parent. | Stated by parent source and equation-implied — (1)–(8), p. 2. |
-| Air propagation constant ``γ_air`` | ``\gamma_0=j\omega\sqrt{\mu_0\epsilon_0}``. | Stated — (2), p. 2. |
-| Earth propagation constant ``γ_earth`` | ``\gamma_1=\sqrt{j\omega\mu_1(\sigma_1+j\omega\epsilon_1)}``. | Stated — (3), p. 2. |
-| Earth permittivity and displacement current | Retained through ``\epsilon_1`` in ``\gamma_1``. | Stated — (3). |
+| Air propagation constant ``γ_air`` | ``\gamma_0=j\omega\sqrt{\mu_0\varepsilon_0}``. | Stated — (2), p. 2. |
+| Earth propagation constant ``γ_earth`` | ``\gamma_1=\sqrt{j\omega\mu_1(\sigma_1+j\omega\varepsilon_1)}``. | Stated — (3), p. 2. |
+| Earth permittivity and displacement current | Retained through ``\varepsilon_1`` in ``\gamma_1``. | Stated — (3). |
 | Range of validity | Mathematical condition ``0<\gamma_1d\ll1``. Frequency-domain comparisons find performance comparable to the parent mainly up to 1–2 MHz and state strict practical validity “up to 1 MHz or so”; higher-frequency transient agreement is configuration-specific. | Stated — (7), p. 2 and §§3–5. |
 | Earth permeability ``μ_earth`` | ``\mu_1=\mu_0``. | Stated — text below (3), p. 2. |
 | Arrangement | Underground; self and mutual multiple-cable entries. | Stated — §2.1 and Fig. 1. |

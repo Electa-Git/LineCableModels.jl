@@ -1,6 +1,6 @@
 # Theodoulidis second exact series for Pollaczek's integral
 
-## Identity and source
+## Identification and source
 
 | Field | Value |
 | --- | --- |
@@ -21,7 +21,7 @@
 | --- | --- | --- |
 | Impressed longitudinal propagation constant ``Γ`` | No independent ``\Gamma`` occurs; the selected parent is explicitly confined to the TEM/transmission-line limit. | Stated — p. 807; Equation-implied — (1)–(2). |
 | Air propagation constant ``γ_air`` | Not retained independently; air enters through the interface/image geometry. | Equation-implied — (1)–(2), p. 807. |
-| Earth propagation constant ``γ_earth`` | ``k=\sqrt{j\omega\mu_0\sigma}=(1+j)/\delta``; optional Sunde formula ``k=\sqrt{j\omega\mu_0\sigma+\omega^2\mu_0\epsilon_0\epsilon_r}``. | Stated — pp. 807–808. |
+| Earth propagation constant ``γ_earth`` | ``k=\sqrt{j\omega\mu_0\sigma}=(1+j)/\delta``; optional Sunde formula ``k=\sqrt{j\omega\mu_0\sigma+\omega^2\mu_0\varepsilon_0\varepsilon_r}``. | Stated — pp. 807–808. |
 | Earth permittivity and displacement current | Omitted in classical Pollaczek ``k`` and optionally retained through the separately stated Sunde replacement. | Stated — p. 808. |
 | Range of validity | The infinite series is mathematically convergent, works well for ``x<H``, and is comparatively slow for large conductor separation. Its exactness does not remove the parent formula's high-frequency physical limitation. | Stated — pp. 809 and 812–813. |
 | Earth permeability ``μ_earth`` | Fixed ``\mu_0``. | Stated — (1) and §II, p. 807. |
@@ -103,7 +103,7 @@ into (9a), followed by the integral identity used in (15), yielding source (16),
 | ``x,h_1,h_2,H,r,R`` | unchanged | Separation, depths, depth sum, direct/image distances | metres |
 | ``\lambda,u,k`` | unchanged | Spectral variable, root and earth constant | ``\mathrm m^{-1}`` |
 | ``K_\nu`` | unchanged | Modified Bessel function of second kind | order ``\nu`` |
-| ``\sigma,\epsilon_0\epsilon_r,\mu_0`` | unchanged | Earth constitutive quantities | SI |
+| ``\sigma,\varepsilon_0\varepsilon_r,\mu_0`` | unchanged | Earth constitutive quantities | SI |
 | ``\delta`` | unchanged | Skin depth | metres |
 
 No notation was renamed.

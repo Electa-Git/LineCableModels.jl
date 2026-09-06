@@ -1,6 +1,6 @@
 # Pettersson two-half-space shunt-admittance image approximation
 
-## Identity and source
+## Identification and source
 
 | Field | Value |
 | --- | --- |
@@ -20,9 +20,9 @@
 | Field | Treatment | Evidence |
 | --- | --- | --- |
 | Impressed longitudinal propagation constant ``Γ`` | ``\gamma_w`` is coupled to impedance through (4); the image evaluation uses the source's quasi-TEM substitutions. | Stated — (1), (4), text before (6)/(12). |
-| Air propagation constant ``γ_air`` | ``\gamma_0=j\omega\sqrt{\epsilon_0\mu_0}``; air may be medium 1 or 2. | Stated — Basic Theory. |
+| Air propagation constant ``γ_air`` | ``\gamma_0=j\omega\sqrt{\varepsilon_0\mu_0}``; air may be medium 1 or 2. | Stated — Basic Theory. |
 | Earth propagation constant ``γ_earth`` | ``\gamma_m=\gamma_0n_m`` with conductive complex ``n_m``. | Stated — definitions following (1). |
-| Earth permittivity and displacement current | Retained in ``n_m=[\epsilon_{rm}+\sigma_m/(j\omega\epsilon_0)]^{1/2}``. | Stated — below (1). |
+| Earth permittivity and displacement current | Retained in ``n_m=[\varepsilon_{rm}+\sigma_m/(j\omega\varepsilon_0)]^{1/2}``. | Stated — below (1). |
 | Range of validity | Thin-wire image approximation; no uniform error bound is stated. | Stated — pp. 1049, 1052. |
 | Earth permeability ``μ_earth`` | Nonmagnetic media, ``\mu_0``. | Stated — p. 1049. |
 | Arrangement | Parallel infinite thin wires; self/mutual coupling; either medium and interface placement. | Stated — abstract and Fig. 1. |
@@ -34,7 +34,7 @@
 **Expression.** The exact shunt coupling and coupled mode equation are
 
 ```math
-Y=j\omega\epsilon_0n_1^2\,\frac{2\pi}{\Lambda+Q},
+Y=j\omega\varepsilon_0n_1^2\,\frac{2\pi}{\Lambda+Q},
 \qquad
 \gamma_w=\gamma_1\left(\frac{\Lambda+P}{\Lambda+Q}\right)^{1/2}.
 \qquad\text{(3,4)}
@@ -62,7 +62,7 @@ Here ``\beta=\gamma_1(n^2-1)^{1/2}``; the sign of ``d_Q`` is selected so its ima
 
 ## Source transcription
 
-The scalar potential parent is ``V_m=I\gamma_w(j\omega\epsilon_0n_m^2)^{-1}(\Lambda_m+Q_m)/(2\pi)`` in (1). This record preserves the explicit coupling to ``P`` through (4) rather than treating the admittance as electrostatic.
+The scalar potential parent is ``V_m=I\gamma_w(j\omega\varepsilon_0n_m^2)^{-1}(\Lambda_m+Q_m)/(2\pi)`` in (1). This record preserves the explicit coupling to ``P`` through (4) rather than treating the admittance as electrostatic.
 
 ## Notation map
 

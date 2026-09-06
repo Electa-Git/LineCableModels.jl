@@ -1,6 +1,6 @@
 # Pagnetti et al. subconductor/Bessel internal-impedance method
 
-## Identity and source
+## Identification and source
 
 | Field | Value |
 | --- | --- |

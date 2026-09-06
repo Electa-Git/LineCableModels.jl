@@ -1,6 +1,6 @@
 # Zheng–Shafieipour multilayer SVS–EFIE line impedance
 
-## Identity and source
+## Identification and source
 
 | Field | Value |
 | --- | --- |
@@ -35,7 +35,7 @@
 
 ```math
 -j\omega\mu_0\oint_{\partial S}G_\sigma(\rho,\rho')J_z(\rho')d\rho'
-+\sigma\omega^2\mu_0\oint_{\partial S}\left[\iint_SG_\epsilon(\rho,\rho')G_\sigma(\rho',\rho'')ds'\right]
++\sigma\omega^2\mu_0\oint_{\partial S}\left[\iint_SG_\varepsilon(\rho,\rho')G_\sigma(\rho',\rho'')ds'\right]
 J_z(\rho'')d\rho''=V_{p.u.l.}.
 \qquad\text{(1)}
 ```
@@ -43,7 +43,7 @@ J_z(\rho'')d\rho''=V_{p.u.l.}.
 The spatial layered Green function is evaluated from
 
 ```math
-G_\epsilon(|x-x'|,y_n,y'_m)=
+G_\varepsilon(|x-x'|,y_n,y'_m)=
 \sum_{j=0}^{N-1}T_{nj}R_{jm}d_m\frac{e^{-\sqrt{S_j}|x-x'|}}{2\sqrt{S_j}}.
 \qquad\text{(7)}
 ```

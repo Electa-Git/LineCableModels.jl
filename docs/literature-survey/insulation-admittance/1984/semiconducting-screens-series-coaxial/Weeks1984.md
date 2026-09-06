@@ -1,6 +1,6 @@
 # Weeks–Diao semiconducting-screen coaxial admittance
 
-## Identity and source
+## Identification and source
 
 | Field | Value |
 | --- | --- |
@@ -39,7 +39,7 @@
 ```
 
 ```math
-y_2=\frac{j\omega\epsilon_2,2\pi}{\ln(a_2/a_1)}(1-jD_f)
+y_2=\frac{j\omega\varepsilon_2,2\pi}{\ln(a_2/a_1)}(1-jD_f)
 =G_2+j\omega C_2.
 \qquad\text{(10)}
 ```

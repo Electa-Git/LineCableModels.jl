@@ -1,6 +1,6 @@
 # Rallis DCIM approximation of Carson's integral
 
-## Identity and source
+## Identification and source
 
 | Field | Value |
 | --- | --- |

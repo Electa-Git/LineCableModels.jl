@@ -1,6 +1,6 @@
 # Høidalen solid-core proximity correction with low-frequency subtraction
 
-## Identity and source
+## Identification and source
 
 | Field | Value |
 | --- | --- |

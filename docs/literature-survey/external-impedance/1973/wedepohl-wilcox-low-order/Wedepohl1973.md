@@ -1,6 +1,6 @@
 # Wedepohl–Wilcox buried-cable low-order earth-return impedance
 
-## Identity and source
+## Identification and source
 
 | Field | Value |
 | --- | --- |

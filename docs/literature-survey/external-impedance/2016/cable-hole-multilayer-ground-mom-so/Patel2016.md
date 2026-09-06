@@ -1,6 +1,6 @@
 # Patel–Triverio multilayer-ground MoM–SO cable impedance
 
-## Identity and source
+## Identification and source
 
 | Field | Value |
 | --- | --- |
@@ -20,7 +20,7 @@
 | Field | Treatment | Evidence |
 | --- | --- | --- |
 | Impressed longitudinal propagation constant ``Γ`` | Longitudinally invariant cable fields; telegrapher reduction. | Stated — §II. |
-| Air propagation constant ``γ_air`` | Air may be any layer and uses ``k_l=\sqrt{\omega\mu_l(\omega\epsilon_l-j\sigma_l)}`` with ``\sigma_l=0``. | Stated — §II, (9)–(13). |
+| Air propagation constant ``γ_air`` | Air may be any layer and uses ``k_l=\sqrt{\omega\mu_l(\omega\varepsilon_l-j\sigma_l)}`` with ``\sigma_l=0``. | Stated — §II, (9)–(13). |
 | Earth propagation constant ``γ_earth`` | Each layer has its own ``k_l`` and vertical spectral root ``\gamma_l=\sqrt{\beta_x^2-k_l^2}``. | Stated — §§II, IV. |
 | Earth permittivity and displacement current | Retained independently in every layer. | Stated — Fig. 1 and (9)–(13). |
 | Range of validity | Fourier/MoM truncations; examples span 1 Hz–1 MHz and include air–sea–seabed, but no universal bound is claimed. | Stated — §VI. |
@@ -29,7 +29,7 @@
 | Earth structure | Arbitrary number of flat horizontal layers; top and bottom are semi-infinite. | Stated — §II and Fig. 1. |
 | Conductor and insulation geometry | Round conductors and circular cable hole; sheaths/armor may be hollow conductors or explicit strands. | Stated — §II. |
 | Constitutive and field assumptions | Linear isotropic layers, 2-D harmonic fields, equivalence theorem, Fourier/MoM boundary discretization. | Stated — §§III–V. |
-| Conventions | ``k_l=\sqrt{\omega\mu_l(\omega\epsilon_l-j\sigma_l)}``; Fourier kernel ``e^{-j\beta_xx}``; p.u.l. ``R+j\omega L``. | Stated — (9)–(17), (20)–(22). |
+| Conventions | ``k_l=\sqrt{\omega\mu_l(\omega\varepsilon_l-j\sigma_l)}``; Fourier kernel ``e^{-j\beta_xx}``; p.u.l. ``R+j\omega L``. | Stated — (9)–(17), (20)–(22). |
 
 **Expression.** For source and observation in layer ``s``, the spectral Green function is
 

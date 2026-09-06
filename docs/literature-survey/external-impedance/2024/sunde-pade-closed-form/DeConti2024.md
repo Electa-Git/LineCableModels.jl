@@ -1,6 +1,6 @@
 # De Conti–de Lima Padé approximation of Sunde's underground-cable impedance
 
-## Identity and source
+## Identification and source
 
 | Field | Value |
 | --- | --- |
@@ -21,8 +21,8 @@
 | --- | --- | --- |
 | Impressed longitudinal propagation constant ``Γ`` | No independent ``\Gamma`` appears; the parent is Sunde's quasi-TEM underground-cable expression. | Equation-implied — (1)–(5), p. 994; parent characterization, p. 993. |
 | Air propagation constant ``γ_air`` | Not present in Sunde's displayed parent or the Padé approximation. | Equation-implied — (1)–(10), p. 994. |
-| Earth propagation constant ``γ_earth`` | ``\gamma=\sqrt{j\omega\mu(\sigma+j\omega\epsilon)}``. | Stated — text below (1), p. 994. |
-| Earth permittivity and displacement current | Retained through ``j\omega\epsilon`` in ``\gamma``; constant-parameter and a cited frequency-dependent soil model are both tested. | Stated — pp. 994–995. |
+| Earth propagation constant ``γ_earth`` | ``\gamma=\sqrt{j\omega\mu(\sigma+j\omega\varepsilon)}``. | Stated — text below (1), p. 994. |
+| Earth permittivity and displacement current | Retained through ``j\omega\varepsilon`` in ``\gamma``; constant-parameter and a cited frequency-dependent soil model are both tested. | Stated — pp. 994–995. |
 | Range of validity | Tested from 1 Hz to 10 MHz. NRMSE is below about 2.5% for ``H/D>0.5`` (approximately ``r/H<3`` for horizontally aligned cables); ``H/D>0.6`` (``r/H<4/3``) is the stated stricter negligible-error criterion up to 10 MHz. Both may be relaxed for lower frequency limits. | Stated — (11) and Figs. 2–5, pp. 994–996. |
 | Earth permeability ``μ_earth`` | ``\mu`` is retained in ``\gamma`` while the impedance prefactor is printed as ``\mu_0``. | Stated/equation-implied — (1), (5), and definition below (1), p. 994. |
 | Arrangement | Underground; self and mutual terms for cables at arbitrary burial depths and horizontal separation. | Stated — Fig. 1 and §II, p. 994; self-error statement, p. 996. |
@@ -65,7 +65,7 @@ I_3=-4\frac{8-8\gamma D+\gamma^2D^2}
 ```math
 d=\sqrt{(h_m-h_n)^2+r^2},\qquad
 H=h_m+h_n,\qquad D=\sqrt{H^2+r^2},\qquad
-\gamma=\sqrt{j\omega\mu(\sigma+j\omega\epsilon)}.
+\gamma=\sqrt{j\omega\mu(\sigma+j\omega\varepsilon)}.
 ```
 
 **Approximation.** Starting from Sunde's exact-in-model rearrangement (3)–(4), the source expands about ``t=1`` and replaces only ``e^{-t\gamma D}`` by the 1/1 Padé form ``[(2-\gamma D(t-1))/(2+\gamma D(t-1))]e^{-\gamma D}`` in (6). Integrating that rational replacement gives (7)–(10), which is inserted into (5). No additional term is discarded in the printed construction.

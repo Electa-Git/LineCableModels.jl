@@ -1,6 +1,6 @@
 # Hafner–Ferreira da Luz three-core cable FEM impedance
 
-## Identity and source
+## Identification and source
 
 | Field | Value |
 | --- | --- |

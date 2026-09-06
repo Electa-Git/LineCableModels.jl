@@ -1,6 +1,6 @@
 # Schelkunoff cylindrical-conductor surface impedances
 
-## Identity and source
+## Identification and source
 
 | Field | Value |
 | --- | --- |
@@ -28,15 +28,15 @@
 | Arrangement | Coaxial return geometry. Solid-wire impedance is defined on the wire surface relative to total wire current. Shell currents may have internal and external return portions, producing inner, outer, and transfer terms. | Stated — printed pp. 551 and 553–554. |
 | Earth structure | Not applicable. | Earth is not part of the formulation. |
 | Conductor and insulation geometry | Homogeneous solid cylinder of radius ``b``; or homogeneous annulus with inner radius ``a`` and outer radius ``b``. No insulation region enters these terms. | Stated — section headings and text, printed pp. 551 and 552–554. |
-| Constitutive and field assumptions | Circular symmetry, axial invariance apart from ``e^{-\Gamma z}``, homogeneous metal with scalar conductivity ``g`` and permeability ``\mu``. Conductor displacement current is neglected by setting ``\epsilon=0``; proximity and eccentricity are absent. | Stated — printed p. 548 and geometry discussion on pp. 551–554. |
-| Conventions | Implied time factor ``e^{i\omega t}``; longitudinal factor ``e^{-\Gamma z}``; source uses ``i`` for the imaginary unit and a practical cgs-derived system with lengths in centimetres. Inner-surface enclosed current is ``-I_a`` and outer-surface enclosed current is ``I_b``. | Stated — printed pp. 533, 537, and 553. |
+| Constitutive and field assumptions | Circular symmetry, axial invariance apart from ``e^{-\Gamma z}``, homogeneous metal with scalar conductivity ``g`` and permeability ``\mu``. Conductor displacement current is neglected by setting ``\varepsilon=0``; proximity and eccentricity are absent. | Stated — printed p. 548 and geometry discussion on pp. 551–554. |
+| Conventions | Implied time factor ``e^{j\omega t}``; longitudinal factor ``e^{-\Gamma z}``; ``j`` is the normalized imaginary unit, with the practical cgs-derived system and lengths in centimetres retained. Inner-surface enclosed current is ``-I_a`` and outer-surface enclosed current is ``I_b``. | Stated — printed pp. 533, 537, and 553. |
 
 **Expression.** Exact modified-Bessel surface impedances within the source's reduced good-conductor field equation, equations (65) and (73)–(75).
 
 ```math
-\sigma^2=g\mu\omega i=2\pi g\mu f i,
+\sigma^2=g\mu\omega j=2\pi g\mu f j,
 \qquad
-\eta=\frac{\sigma}{g}=\frac{i\omega\mu}{\sigma},
+\eta=\frac{\sigma}{g}=\frac{j\omega\mu}{\sigma},
 \qquad \Re(\sigma)>0,
 
 Z_b=\frac{E_z(b)}{I}
@@ -73,7 +73,7 @@ Z_{ab}=Z_{ba}=-\frac{1}{2\pi g a bD}.
 
 ## Source transcription
 
-The displayed equations retain Schelkunoff's ``i``, ``g``, ``\mu``, ``\sigma``, and ``\eta`` notation. The solid-wire field preceding (65) is
+The displayed equations use the normalized ``j``, ``g``, ``\mu``, ``\sigma``, and ``\eta`` notation. The solid-wire field preceding (65) is
 
 ```math
 E_z(\rho)=\frac{\eta I_0(\sigma\rho)}{2\pi b I_1(\sigma b)}I.
@@ -105,12 +105,12 @@ then derives (73)–(75). The source explicitly calls ``Z_{ab}`` the *transfer i
 | ``\rho`` | unchanged | Radial coordinate | centimetres |
 | ``g`` | unchanged | Metal conductivity | mhos/cm |
 | ``\mu`` | unchanged | Metal permeability | henries/cm |
-| ``\epsilon`` | unchanged | Metal permittivity term | set to zero in conductor equations |
+| ``\varepsilon`` | unchanged | Metal permittivity term | set to zero in conductor equations |
 | ``\sigma`` | unchanged | Intrinsic metal propagation constant | ``\mathrm{cm}^{-1}``; root chosen with positive real part |
 | ``\eta`` | unchanged | Intrinsic impedance of the metal | source-defined by (61) |
 | ``\Gamma`` | unchanged | Longitudinal propagation constant | dependence ``e^{-\Gamma z}`` |
 | ``I_n,K_n`` | unchanged | Modified Bessel functions of first/second kind | order ``n`` |
-| ``i`` | unchanged | Imaginary unit | ``i^2=-1``; time factor ``e^{i\omega t}`` |
+| ``j`` | unchanged | Imaginary unit | ``j^2=-1``; time factor ``e^{j\omega t}`` |
 | ``\omega,f`` | unchanged | Angular frequency and frequency | ``\omega=2\pi f`` |
 
 ## Evidence and approximation sources

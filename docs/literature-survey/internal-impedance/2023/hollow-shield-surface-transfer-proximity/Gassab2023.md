@@ -1,6 +1,6 @@
 # Gassab et al. hollow-shield surface and transfer impedances with proximity
 
-## Identity and source
+## Identification and source
 
 | Field | Value |
 | --- | --- |

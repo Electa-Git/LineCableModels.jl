@@ -1,6 +1,6 @@
 # Iracheta-Cortez recursive series for the Wedepohl integral
 
-## Identity and source
+## Identification and source
 
 | Field | Value |
 | --- | --- |

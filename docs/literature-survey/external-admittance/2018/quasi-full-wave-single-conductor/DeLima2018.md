@@ -1,6 +1,6 @@
 # De Lima et al. quasi-full-wave single-conductor admittance
 
-## Identity and source
+## Identification and source
 
 | Field | Value |
 | --- | --- |
@@ -20,7 +20,7 @@
 | Field | Treatment | Evidence |
 | --- | --- | --- |
 | Impressed longitudinal propagation constant ``Γ`` | Source ``\gamma`` is solved by the full-wave modal equation or replaced in qFW by an image-derived ``\bar\gamma``; longitudinal dependence is ``e^{-\gamma z}``. | Stated — (1), (7)–(9), (15)–(16), pp. 1874–1875. |
-| Air propagation constant ``γ_air`` | Indexed ``\gamma_i=\sqrt{j\omega\mu_i(\sigma_i+j\omega\epsilon_i)}``; both media may be lossy. | Stated — p. 1874. |
+| Air propagation constant ``γ_air`` | Indexed ``\gamma_i=\sqrt{j\omega\mu_i(\sigma_i+j\omega\varepsilon_i)}``; both media may be lossy. | Stated — p. 1874. |
 | Earth propagation constant ``γ_earth`` | Same indexed definition; earth is medium 2 overhead and medium 1 in the buried application. | Stated — p. 1874 and §III-B. |
 | Earth permittivity and displacement current | Retained in every bulk constant and in the printed admittance prefactor. | Stated — (13) and definitions, pp. 1874–1875. |
 | Range of validity | Thin infinite single conductor, one interface, ``|\gamma_c|\gg|\gamma|`` when including conductor loss. Numerical tests are configuration-specific and do not state a universal frequency limit. | Stated — pp. 1874–1878. |
@@ -34,7 +34,7 @@
 **Expression.** Source equation (13) with (14), evaluated for qFW with (15)–(16), printed p. 1875.
 
 ```math
-Y=\frac{\gamma}{Z_c}=2\pi(\sigma_1+j\omega\epsilon_r\epsilon_1)[\Lambda_1-S_4],
+Y=\frac{\gamma}{Z_c}=2\pi(\sigma_1+j\omega\varepsilon_r\varepsilon_1)[\Lambda_1-S_4],
 \qquad\text{(13)}
 ```
 
@@ -65,7 +65,7 @@ with ``\bar\gamma`` supplied by the image approximation and constrained by sourc
 
 **Approximation.** qFW replaces the unknown longitudinal root by a predefined image-derived value inside the full-wave spectral quantities. It does not apply scalar reciprocals to potential coefficients, and it does not replace the remaining integral by a closed form.
 
-**Limitations.** This is a one-conductor scalar admittance, not a multiconductor Maxwell-potential matrix. The source's image expression for ``\bar\gamma`` is not reprinted, so the qFW dependency is incomplete. The factor ``\epsilon_r\epsilon_1`` in (13) is reproduced exactly as printed even though the preceding general material definition is ``\epsilon_i=\epsilon_{ri}\epsilon_0``; the apparent notation inconsistency is not repaired. Root branches are not stated beside the formula.
+**Limitations.** This is a one-conductor scalar admittance, not a multiconductor Maxwell-potential matrix. The source's image expression for ``\bar\gamma`` is not reprinted, so the qFW dependency is incomplete. The factor ``\varepsilon_r\varepsilon_1`` in (13) is reproduced exactly as printed even though the preceding general material definition is ``\varepsilon_i=\varepsilon_{ri}\varepsilon_0``; the apparent notation inconsistency is not repaired. Root branches are not stated beside the formula.
 
 **Reference.** [DeLima2018](@cite).  A. C. S. de Lima et al., “A Noniterative Approximation of a Full-Wave Model of Thin Wire Above and Buried in a Lossy Ground,” *IEEE Transactions on Electromagnetic Compatibility*, 60(6), 1873–1881 (2018), DOI `10.1109/TEMC.2017.2762241`, equations (10)–(16), p. 1875.
 
@@ -104,5 +104,5 @@ The voltage and normalization are explicit in (10)–(13). The complete full-wav
 
 ## Limitations and discrepancies
 
-- The literal ``\epsilon_r\epsilon_1`` token in (13) conflicts with the surrounding indexed-permittivity notation; source clarification or erratum is needed.
+- The literal ``\varepsilon_r\varepsilon_1`` token in (13) conflicts with the surrounding indexed-permittivity notation; source clarification or erratum is needed.
 - The equation is scalar. It supplies no mutual coefficient or matrix-assembly rule.

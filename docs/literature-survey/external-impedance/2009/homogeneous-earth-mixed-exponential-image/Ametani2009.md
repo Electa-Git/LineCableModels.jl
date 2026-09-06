@@ -1,6 +1,6 @@
 # Ametani–Yoneda–Baba–Nagaoka mixed-conductor approximation
 
-## Identity and source
+## Identification and source
 
 | Field | Value |
 | --- | --- |
@@ -22,7 +22,7 @@
 | Impressed longitudinal propagation constant ``Γ`` | The parent is described as a TEM-mode approximation; no independent imposed longitudinal constant appears in (5)–(6) or (27). Its longitudinal phase prescription is not stated. | Stated — sections II–III, pp. 860–862; equation-implied — (5)–(6), (27). |
 | Air propagation constant ``γ_air`` | ``m_1=0`` in the reduced air model: zero air conductivity and omitted displacement current. | Stated/equation-implied — (4), section II-B, and the ``|s|`` air kernel in (6), p. 861. |
 | Earth propagation constant ``γ_earth`` | ``m=\sqrt{j\omega\mu_0/\rho_e}=|m|\exp(j\pi/4)``, with ``h_e=1/m``. | Stated — (22) and definitions following (27), p. 864. |
-| Earth permittivity and displacement current | Omitted from this approximation. The more general medium definition in (3) includes ``j\omega\epsilon_i``, but is reduced to conduction-only (4); it must not be substituted back into (27). | Stated — (3)–(4) and section III, p. 861; (22), p. 864. |
+| Earth permittivity and displacement current | Omitted from this approximation. The more general medium definition in (3) includes ``j\omega\varepsilon_i``, but is reduced to conduction-only (4); it must not be substituted back into (27). | Stated — (3)–(4) and section III, p. 861; (22), p. 864. |
 | Range of validity | Restricted to the parent TEM approximation. The authors propose a burial-depth condition ``h\leq\lambda/8`` and a critical-frequency formula (15), whose printed consistency is unresolved. The reported errors below 10% overall and below 3% at low frequency refer to the Fig. 10 examples, not a universal bound. | Stated — (11), p. 862; (15), p. 863; section IV-B and Fig. 10, p. 865. |
 | Earth permeability ``μ_earth`` | Fixed ``\mu_0``. | Stated — definitions after (3), p. 861; (22), (27). |
 | Arrangement | Mixed mutual term: one overhead conductor and one buried conductor; no self formula in this new approximation. | Stated — title, Fig. 1, (5), and section IV. |

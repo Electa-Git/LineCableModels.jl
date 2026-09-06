@@ -1,6 +1,6 @@
 # Bormann–Tavakoli reluctance-network series impedance
 
-## Identity and source
+## Identification and source
 
 | Field | Value |
 | --- | --- |

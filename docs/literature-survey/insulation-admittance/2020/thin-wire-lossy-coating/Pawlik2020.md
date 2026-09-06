@@ -1,6 +1,6 @@
 # Pawlik–Woodhouse thin-wire lossy coating admittance
 
-## Identity and source
+## Identification and source
 
 | Field | Value |
 | --- | --- |
@@ -34,7 +34,7 @@
 **Expression.**
 
 ```math
-Y_i=2\pi(\sigma_i+j\omega\epsilon_i)\left[\ln\frac ba\right]^{-1},
+Y_i=2\pi(\sigma_i+j\omega\varepsilon_i)\left[\ln\frac ba\right]^{-1},
 \qquad\text{(13)}
 ```
 

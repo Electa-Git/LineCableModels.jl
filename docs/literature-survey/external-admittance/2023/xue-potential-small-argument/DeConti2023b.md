@@ -1,6 +1,6 @@
 # De Conti et al. small-argument underground potential coefficients
 
-## Identity and source
+## Identification and source
 
 | Field | Value |
 | --- | --- |
@@ -8,7 +8,7 @@
 | Geometry | Circular insulated cables; self uses total cable radius and equal depths. |
 | Calculated quantities | Self and mutual Bessel-free small-argument entries of ``P_g``; assembled conversion ``Y_g=j\omega P_g^{-1}`` |
 | Earth structure | Homogeneous earth below air. |
-| Model and approximation | Both Bessel functions in parent ``P_{g(m,n)}=j\omega[K_0(\gamma_1d)+\alpha K_0(\gamma_1D)]/[2\pi(\sigma_1+j\omega\epsilon_1)]`` receive the leading small-argument expansion (7); logarithms are then collected to give (9). |
+| Model and approximation | Both Bessel functions in parent ``P_{g(m,n)}=j\omega[K_0(\gamma_1d)+\alpha K_0(\gamma_1D)]/[2\pi(\sigma_1+j\omega\varepsilon_1)]`` receive the leading small-argument expansion (7); logarithms are then collected to give (9). |
 | Main source | A. De Conti, N. Duarte, R. Alipio, and O. E. Leal (2023) |
 | Citation key(s) | `:DeConti2023b` |
 | Evidence status | Original publication page images checked |
@@ -20,8 +20,8 @@
 | Field | Treatment | Evidence |
 | --- | --- | --- |
 | Impressed longitudinal propagation constant ``Γ`` | Fixed zero in the inherited compact Xue parent. | Equation-implied — (4)–(9), p. 2. |
-| Air propagation constant ``γ_air`` | ``\gamma_0=j\omega\sqrt{\mu_0\epsilon_0}``. | Stated — (2), p. 2. |
-| Earth propagation constant ``γ_earth`` | ``\gamma_1=\sqrt{j\omega\mu_0(\sigma_1+j\omega\epsilon_1)}``. | Stated — (3), p. 2. |
+| Air propagation constant ``γ_air`` | ``\gamma_0=j\omega\sqrt{\mu_0\varepsilon_0}``. | Stated — (2), p. 2. |
+| Earth propagation constant ``γ_earth`` | ``\gamma_1=\sqrt{j\omega\mu_0(\sigma_1+j\omega\varepsilon_1)}``. | Stated — (3), p. 2. |
 | Earth permittivity and displacement current | Retained in both ``\gamma_1`` and the potential prefactor. | Stated — (3), (9). |
 | Range of validity | Requires the relevant ``\gamma_1d`` and ``\gamma_1D`` arguments to satisfy ``0<z\ll1``. The paper reports accuracy comparable to the parent only up to about 1 MHz for the tested range. | Stated — (7) and §§3–5. |
 | Earth permeability ``μ_earth`` | ``\mu_1=\mu_0``. | Stated — below (3). |
@@ -34,7 +34,7 @@
 **Expression.** Proposed small-argument potential coefficient and assembly, equations (9) and (6), article p. 2.
 
 ```math
-P_{g(m,n)}=\frac{j\omega}{2\pi(\sigma_1+j\omega\epsilon_1)}
+P_{g(m,n)}=\frac{j\omega}{2\pi(\sigma_1+j\omega\varepsilon_1)}
 \left\{
 \ln\left(\frac Dd\right)-(\alpha+1)
 \left[\gamma_E+\ln\left(\frac{\gamma_1D}{2}\right)\right]
@@ -51,7 +51,7 @@ D=\sqrt{(h_m+h_n)^2+r^2},qquad
 
 The entire matrix ``P_g`` must be assembled before inversion; no isolated mutual admittance equals ``1/P_{g(m,n)}``.
 
-**Approximation.** Both Bessel functions in parent ``P_{g(m,n)}=j\omega[K_0(\gamma_1d)+\alpha K_0(\gamma_1D)]/[2\pi(\sigma_1+j\omega\epsilon_1)]`` receive the leading small-argument expansion (7); logarithms are then collected to give (9).
+**Approximation.** Both Bessel functions in parent ``P_{g(m,n)}=j\omega[K_0(\gamma_1d)+\alpha K_0(\gamma_1D)]/[2\pi(\sigma_1+j\omega\varepsilon_1)]`` receive the leading small-argument expansion (7); logarithms are then collected to give (9).
 
 **Limitations.** Mathematical small-argument restrictions apply to both direct and image distances. The tested admittance approximation loses accuracy above roughly 1 MHz. The formula covers only a homogeneous nonmagnetic earth and parallel infinite cables. Matrix inversion is required, and complex logarithm/root branches are not stated.
 
@@ -64,7 +64,7 @@ The entire matrix ``P_g`` must be assembled before inversion; no isolated mutual
 The parent is
 
 ```math
-P_{g(m,n)}=\frac{j\omega}{2\pi(\sigma_1+j\omega\epsilon_1)}
+P_{g(m,n)}=\frac{j\omega}{2\pi(\sigma_1+j\omega\varepsilon_1)}
 [K_0(\gamma_1d)+\alpha K_0(\gamma_1D)],
 \qquad\text{(4)}
 ```

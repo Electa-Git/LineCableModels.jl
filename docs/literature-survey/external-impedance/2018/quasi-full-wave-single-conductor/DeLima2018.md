@@ -1,6 +1,6 @@
 # De Lima et al. quasi-full-wave single-conductor impedance
 
-## Identity and source
+## Identification and source
 
 | Field | Value |
 | --- | --- |
@@ -20,9 +20,9 @@
 | Field | Treatment | Evidence |
 | --- | --- | --- |
 | Impressed longitudinal propagation constant ``Γ`` | Source ``\gamma`` is an unknown modal propagation constant with ``e^{-\gamma z}``. Full wave solves (7) iteratively. The qFW formula instead prescribes ``\bar\gamma`` from an image approximation and evaluates spectral roots with it. | Stated — (1), (7)–(9), and (15)–(16), pp. 1874–1875. |
-| Air propagation constant ``γ_air`` | Whichever region is air uses ``\gamma_i=\sqrt{j\omega\mu_i(\sigma_i+j\omega\epsilon_i)}``; the displayed model permits both media to be lossy, rather than setting air to zero. | Stated — below (1), p. 1874. |
-| Earth propagation constant ``γ_earth`` | Same indexed definition ``\gamma_i=\sqrt{j\omega\mu_i(\sigma_i+j\omega\epsilon_i)}``; earth is medium 2 for overhead and medium 1 for buried use. | Stated — p. 1874 and §III-B, p. 1876. |
-| Earth permittivity and displacement current | Retained in each medium through ``\sigma_i+j\omega\epsilon_i``. | Stated — p. 1874. |
+| Air propagation constant ``γ_air`` | Whichever region is air uses ``\gamma_i=\sqrt{j\omega\mu_i(\sigma_i+j\omega\varepsilon_i)}``; the displayed model permits both media to be lossy, rather than setting air to zero. | Stated — below (1), p. 1874. |
+| Earth propagation constant ``γ_earth`` | Same indexed definition ``\gamma_i=\sqrt{j\omega\mu_i(\sigma_i+j\omega\varepsilon_i)}``; earth is medium 2 for overhead and medium 1 for buried use. | Stated — p. 1874 and §III-B, p. 1876. |
+| Earth permittivity and displacement current | Retained in each medium through ``\sigma_i+j\omega\varepsilon_i``. | Stated — p. 1874. |
 | Range of validity | Thin infinite conductor and one planar interface; conductor loss inclusion assumes ``|\gamma_c|\gg|\gamma|``. The qFW was tested for a 100 kHz–100 MHz overhead example and a buried example, but the paper reports best agreement mainly below a few MHz and mode-dependent transitions rather than a universal bound. | Stated — pp. 1874–1878. |
 | Earth permeability ``μ_earth`` | Fixed: ``\mu_1=\mu_2=\mu_0``. | Stated — below (1), p. 1874. |
 | Arrangement | Single overhead conductor or single bare buried conductor, parallel to the interface; self only. | Stated — abstract, Fig. 1, and §III-A/B. |

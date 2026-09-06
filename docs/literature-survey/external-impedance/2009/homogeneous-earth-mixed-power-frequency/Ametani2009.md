@@ -1,6 +1,6 @@
 # Ametani–Yoneda–Baba–Nagaoka power-frequency mixed approximation
 
-## Identity and source
+## Identification and source
 
 | Field | Value |
 | --- | --- |

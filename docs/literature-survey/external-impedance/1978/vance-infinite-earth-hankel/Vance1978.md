@@ -1,6 +1,6 @@
 # Vance infinite-earth Hankel-ratio impedance approximation
 
-## Identity and source
+## Identification and source
 
 | Field | Value |
 | --- | --- |
@@ -26,7 +26,7 @@ Z_{g,s}=\frac{\omega\mu_0}{2\pi\gamma_gR}
 \frac{H_0^{(1)}(j\gamma_gR)}{H_1^{(1)}(j\gamma_gR)},
 \qquad\text{(V2)}
 
-\gamma_g=\sqrt{j\omega\mu(\sigma+j\omega\epsilon)}.
+\gamma_g=\sqrt{j\omega\mu(\sigma+j\omega\varepsilon)}.
 \qquad\text{(V3)}
 ```
 

@@ -1,6 +1,6 @@
 # Nakagawa–Ametani–Iwamoto three-layer overhead earth-return impedance
 
-## Identity and source
+## Identification and source
 
 | Field | Value |
 | --- | --- |

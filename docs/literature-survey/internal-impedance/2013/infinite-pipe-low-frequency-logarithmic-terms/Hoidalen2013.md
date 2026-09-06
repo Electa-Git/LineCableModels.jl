@@ -1,6 +1,6 @@
 # Høidalen infinite-pipe low-frequency logarithmic terms
 
-## Identity and source
+## Identification and source
 
 | Field | Value |
 | --- | --- |

@@ -1,6 +1,6 @@
 # Uribe algorithmic evaluation of the mixed Pollaczek integral
 
-## Identity and source
+## Identification and source
 
 | Field | Value |
 | --- | --- |
@@ -71,7 +71,7 @@ The source truncates at
 
 ```math
 u_{\max}=\frac{\lambda_e}{\xi(\zeta+1)},\qquad
-\lambda_e=-\log[\epsilon_r\xi(\zeta+1)],
+\lambda_e=-\log[\varepsilon_r\xi(\zeta+1)],
 \qquad\text{(4c--4d)}
 ```
 

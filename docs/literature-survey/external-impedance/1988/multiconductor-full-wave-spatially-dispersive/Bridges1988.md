@@ -1,6 +1,6 @@
 # Bridges multiconductor spatially dispersive external impedance
 
-## Identity and source
+## Identification and source
 
 | Field | Value |
 | --- | --- |

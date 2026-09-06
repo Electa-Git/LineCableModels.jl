@@ -1,6 +1,6 @@
 # Patel–Triverio cable-hole homogeneous-ground MoM–SO impedance
 
-## Identity and source
+## Identification and source
 
 | Field | Value |
 | --- | --- |
@@ -20,16 +20,16 @@
 | Field | Treatment | Evidence |
 | --- | --- | --- |
 | Impressed longitudinal propagation constant ``Γ`` | Longitudinal invariance; telegrapher-model end effects omitted. | Stated — §II. |
-| Air propagation constant ``γ_air`` | ``k_0=\omega\sqrt{\mu_0\epsilon_0}`` in the Green function. | Stated — below (28). |
-| Earth propagation constant ``γ_earth`` | ``k_g=\sqrt{\omega\mu_0(\omega\epsilon_0-j\sigma_g)}``. | Stated — §III-B and (27). |
-| Earth permittivity and displacement current | Ground permittivity is set to ``\epsilon_0`` and displacement retained through ``k_g``. | Stated — Fig. 2, (27). |
+| Air propagation constant ``γ_air`` | ``k_0=\omega\sqrt{\mu_0\varepsilon_0}`` in the Green function. | Stated — below (28). |
+| Earth propagation constant ``γ_earth`` | ``k_g=\sqrt{\omega\mu_0(\omega\varepsilon_0-j\sigma_g)}``. | Stated — §III-B and (27). |
+| Earth permittivity and displacement current | Ground permittivity is set to ``\varepsilon_0`` and displacement retained through ``k_g``. | Stated — Fig. 2, (27). |
 | Range of validity | Harmonic truncations control numerical convergence; source reports 1 Hz–1 MHz examples, not a universal analytical bound. | Stated — §§III, VII. |
 | Earth permeability ``μ_earth`` | Ground uses ``\mu_0``. | Stated — Fig. 2. |
 | Arrangement | Arbitrary parallel round solid/hollow conductors in one or multiple circular holes. | Stated — §§II, VI. |
 | Earth structure | Homogeneous ground half-space below air, with a homogeneous cable hole. | Stated — Fig. 2. |
 | Conductor and insulation geometry | Round conductors and circular holes; conductors may be solid or hollow in the stated extension. | Stated — §§II, VI. |
 | Constitutive and field assumptions | Linear isotropic media, 2-D harmonic fields, surface equivalence, Fourier/MoM discretization. | Stated — §§II–V. |
-| Conventions | ``e^{j\omega t}`` implied by ``k=\sqrt{\omega\mu(\omega\epsilon-j\sigma)}``; p.u.l. ``R+j\omega L``. | Stated — (5), (31)–(36). |
+| Conventions | ``e^{j\omega t}`` implied by ``k=\sqrt{\omega\mu(\omega\varepsilon-j\sigma)}``; p.u.l. ``R+j\omega L``. | Stated — (5), (31)–(36). |
 
 **Expression.** The air–ground magnetic Green function is
 

@@ -1,6 +1,6 @@
 # Wait generalized overhead-wire series impedance
 
-## Identity and source
+## Identification and source
 
 | Field | Value |
 | --- | --- |
@@ -20,21 +20,21 @@
 ```math
 Z+\frac{\beta^2}{Y}=0,
 \qquad
-i\beta=(ZY)^{1/2},
+j\beta=(ZY)^{1/2},
 \qquad\text{(23)}
 
-Z=\frac{i\mu_0\omega}{2\pi}\,[A+2(Q-iP)],
+Z=\frac{j\mu_0\omega}{2\pi}\,[A+2(Q-jP)],
 \qquad\text{(24)}
 ```
 
 where
 
 ```math
-A=K_0\!\left(i\sqrt{k_1^2-\beta^2}\,a\right)
--K_0\!\left(i\sqrt{k_1^2-\beta^2}\sqrt{4h^2+a^2}\right),
+A=K_0\!\left(j\sqrt{k_1^2-\beta^2}\,a\right)
+-K_0\!\left(j\sqrt{k_1^2-\beta^2}\sqrt{4h^2+a^2}\right),
 \qquad\text{(26)}
 
-Q-iP=\int_0^\infty
+Q-jP=\int_0^\infty
 \frac{\exp\!\left[-u_1\sqrt{4h^2+a^2}\right]}
 {u_1+u_2}\cos(\lambda a)\,d\lambda,
 \qquad\text{(27)}
@@ -47,7 +47,7 @@ u_2=\sqrt{\lambda^2+\beta^2-k_2^2}.
 The qTEM reduction is
 
 ```math
-Z_e=\frac{i\mu_0\omega}{2\pi}
+Z_e=\frac{j\mu_0\omega}{2\pi}
 \left[\ln\!\left(\frac{2h}{a}\right)-J_c\right],
 \qquad\text{(31)}
 

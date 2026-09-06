@@ -1,6 +1,6 @@
 # Ametani lossless coaxial-insulation potential coefficients
 
-## Identity and source
+## Identification and source
 
 | Field | Value |
 | --- | --- |
@@ -28,7 +28,7 @@
 | Arrangement | Not applicable to cable placement for ``[P_i]``; the outer-medium matrix changes with placement. | Stated — (17)–(20), p. 904. |
 | Earth structure | Not applicable. | These are cable-internal terms. |
 | Conductor and insulation geometry | Concentric annuli ``r_2<r<r_3``, ``r_4<r<r_5``, and ``r_6<r<r_7``. | Stated — Fig. 1(a), p. 903, and (22), p. 904. |
-| Constitutive and field assumptions | Scalar relative permittivities ``\epsilon_{i1}``, ``\epsilon_{i2}``, ``\epsilon_{i3}``; no conductivity/loss tangent, hence a lossless printed model. | Equation-implied — (22), p. 904. |
+| Constitutive and field assumptions | Scalar relative permittivities ``\varepsilon_{i1}``, ``\varepsilon_{i2}``, ``\varepsilon_{i3}``; no conductivity/loss tangent, hence a lossless printed model. | Equation-implied — (22), p. 904. |
 | Conventions | ``s=j\omega``; ``[Y]=s[P]^{-1}``; natural logarithm; per-unit-length matrices. | Stated — (4), p. 902. |
 
 **Expression.** Internal potential coefficients and source-prescribed admittance conversion, equations (4), (21), and (22).
@@ -37,11 +37,11 @@
 [Y]=s[P]^{-1},\qquad s=j\omega,
 \qquad\text{(4)}
 
-P_{cj}=\frac{1}{2\pi\epsilon_0\epsilon_{i1}}\ln\!\left(\frac{r_3}{r_2}\right),
+P_{cj}=\frac{1}{2\pi\varepsilon_0\varepsilon_{i1}}\ln\!\left(\frac{r_3}{r_2}\right),
 \quad
-P_{sj}=\frac{1}{2\pi\epsilon_0\epsilon_{i2}}\ln\!\left(\frac{r_5}{r_4}\right),
+P_{sj}=\frac{1}{2\pi\varepsilon_0\varepsilon_{i2}}\ln\!\left(\frac{r_5}{r_4}\right),
 
-P_{aj}=\frac{1}{2\pi\epsilon_0\epsilon_{i3}}\ln\!\left(\frac{r_7}{r_6}\right),
+P_{aj}=\frac{1}{2\pi\varepsilon_0\varepsilon_{i3}}\ln\!\left(\frac{r_7}{r_6}\right),
 \qquad\text{(22)}
 
 [P_{ij}]=
@@ -83,8 +83,8 @@ for a core-and-sheath cable and ``[P_{ij}]=P_{cj}`` in (24) for core-only. For a
 | ``[P_{ij}]`` | unchanged | Cable ``j`` internal submatrix | core/sheath/armor ordering |
 | ``P_{cj},P_{sj},P_{aj}`` | unchanged | Three insulation potential coefficients | source does not annotate units beside (22) |
 | ``r_2,r_3,r_4,r_5,r_6,r_7`` | unchanged | Successive conductor/insulation radii | length |
-| ``\epsilon_0`` | unchanged | Vacuum permittivity | source constant |
-| ``\epsilon_{i1},\epsilon_{i2},\epsilon_{i3}`` | unchanged | Insulation relative permittivities | dimensionless |
+| ``\varepsilon_0`` | unchanged | Vacuum permittivity | source constant |
+| ``\varepsilon_{i1},\varepsilon_{i2},\varepsilon_{i3}`` | unchanged | Insulation relative permittivities | dimensionless |
 | ``s`` | unchanged | Complex-frequency factor | ``s=j\omega`` |
 | ``j`` | unchanged | Imaginary unit | ``j^2=-1`` |
 
@@ -95,6 +95,6 @@ Admittance conversion: (4), p. 902. Geometry: Fig. 1(a), p. 903. Placement separ
 ## Limitations and discrepancies
 
 - The two PDFs are duplicate witnesses, not distinct formulations.
-- The opening displacement-current statement and author reply on p. 910 are internally inconsistent. The printed insulation coefficients retain ``s\epsilon`` behavior while omitting dielectric loss; no repair is made.
+- The opening displacement-current statement and author reply on p. 910 are internally inconsistent. The printed insulation coefficients retain ``s\varepsilon`` behavior while omitting dielectric loss; no repair is made.
 - No equation-preserving Markdown conversion was located.
 

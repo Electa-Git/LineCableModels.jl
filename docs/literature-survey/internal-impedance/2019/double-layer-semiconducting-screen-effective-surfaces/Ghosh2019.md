@@ -1,6 +1,6 @@
 # Ghosh–Ghosh–Das double-layer semiconducting-screen effective impedances
 
-## Identity and source
+## Identification and source
 
 | Field | Value |
 | --- | --- |

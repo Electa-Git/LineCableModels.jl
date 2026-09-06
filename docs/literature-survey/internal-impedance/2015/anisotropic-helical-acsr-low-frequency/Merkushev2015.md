@@ -1,6 +1,6 @@
 # Merkushev–Elagin anisotropic helical ACSR internal impedance
 
-## Identity and source
+## Identification and source
 
 | Field | Value |
 | --- | --- |
@@ -29,7 +29,7 @@
 | Earth structure | None. | Scope. |
 | Conductor and insulation geometry | One central steel wire and six aluminum strands, homogenized as an anisotropic layer; strand radius ``R`` and helix pitch ``h``. | Stated — pp. 401–402. |
 | Constitutive and field assumptions | Linear steel magnetics; azimuthally averaged field; strand-boundary perturbations and aluminum strand skin effect neglected. | Stated — p. 402. |
-| Conventions | Source uses ``k_{St}^2=-i\omega\mu_{St}\mu_0\sigma_{St}``; ``J_0,J_1`` are ordinary Bessel functions. | Stated — (2). |
+| Conventions | Source uses ``k_{St}^2=-j\omega\mu_{St}\mu_0\sigma_{St}``; ``J_0,J_1`` are ordinary Bessel functions. | Stated — (2). |
 
 **Expression.** The anisotropic layer parameters are
 
@@ -48,9 +48,9 @@ Q=\langle\cos^2\alpha\rangle
 The p.u.l. internal impedance is
 
 ```math
-Z_{int}=\frac{k_{St}}{\sigma_{St}h}\,
+Z_{jnt}=\frac{k_{St}}{\sigma_{St}h}\,
 \frac{\gamma J_0(k_{St}R)}{1+\gamma\theta J_1(k_{St}R)},
-\quad k_{St}^2=-i\omega\mu_{St}\mu_0\sigma_{St},\quad \gamma=\frac BA,
+\quad k_{St}^2=-j\omega\mu_{St}\mu_0\sigma_{St},\quad \gamma=\frac BA,
 \qquad\text{(2)}
 ```
 
@@ -79,7 +79,7 @@ The source states ``h=4\pi R/\tan\alpha_0`` for its director angle. It also warn
 | ``\Sigma_z,\Sigma_\varphi`` | unchanged | axial/azimuthal layer conductivities per unit length | source convention |
 | ``\sigma_{Al},\sigma_{St}`` | unchanged | aluminum/steel bulk conductivity | ``\mathrm{S/m}`` |
 | ``Q`` | unchanged | strand-packing/director form factor | dimensionless |
-| ``Z_{int}`` | unchanged | conductor p.u.l. internal impedance | ``\Omega/\mathrm m`` |
+| ``Z_{jnt}`` | unchanged | conductor p.u.l. internal impedance | ``\Omega/\mathrm m`` |
 
 No notation was renamed.
 

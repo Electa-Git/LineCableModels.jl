@@ -1,6 +1,6 @@
 # Zhang buried-conductor ground-admittance integral and evaluator
 
-## Identity and source
+## Identification and source
 
 | Field | Value |
 | --- | --- |
@@ -18,7 +18,7 @@
 **Integral.** Equations (11)–(16) give
 
 ```math
-Y_g'=\frac{j\omega}{2\pi(\sigma_g+j\omega\epsilon_g)}
+Y_g'=\frac{j\omega}{2\pi(\sigma_g+j\omega\varepsilon_g)}
 \int_0^\infty[F(\lambda)+G(\lambda)]\cos(\lambda r)\,d\lambda,
 \qquad\text{(11)}
 
@@ -36,14 +36,14 @@ u_0=\sqrt{\lambda^2+\gamma_0^2+k_{x,0}^2},
 u_1=\sqrt{\lambda^2+\gamma_1^2+k_{x,1}^2},
 \qquad\text{(14)}
 
-\gamma_0^2=-\omega^2\mu_0\epsilon_0,
+\gamma_0^2=-\omega^2\mu_0\varepsilon_0,
 \qquad
-\gamma_1^2=j\omega\mu_0(\sigma_g+j\omega\epsilon_0\epsilon_{rg}),
+\gamma_1^2=j\omega\mu_0(\sigma_g+j\omega\varepsilon_0\varepsilon_{rg}),
 \qquad\text{(15)}
 
-k_{x,0}^2=\omega^2\epsilon_0\mu_0,
+k_{x,0}^2=\omega^2\varepsilon_0\mu_0,
 \qquad
-k_{x,1}^2=\omega^2\epsilon_0\epsilon_{rg}\mu_0.
+k_{x,1}^2=\omega^2\varepsilon_0\varepsilon_{rg}\mu_0.
 \qquad\text{(16)}
 ```
 

@@ -1,6 +1,6 @@
 # de Lima–Portela buried impedance with frequency-dependent soil
 
-## Identity and source
+## Identification and source
 
 | Field | Value |
 | --- | --- |
@@ -8,7 +8,7 @@
 | Geometry | Cable external radius ``r`` for self evaluation; burial depths ``h_i,h_j``; horizontal separation ``d_{ij}``; direct and reflected distances ``d,D,D_c``. |
 | Calculated quantities | Buried-cable self and mutual ground-return impedance per length |
 | Earth structure | Homogeneous isotropic linear half-space under air. |
-| Model and approximation | Integral representation within the source's reduced field model, combined with an empirical joint soil law. No analytical approximation of these integrals is introduced; Gauss–Kronrod is their numerical evaluation method. The stated conduction-only limit sets ``\epsilon_s=0`` and ``\sigma_s=\sigma_0``, so ``\eta_s=\sqrt{j\omega\mu_0\sigma_0}``. |
+| Model and approximation | Integral representation within the source's reduced field model, combined with an empirical joint soil law. No analytical approximation of these integrals is introduced; Gauss–Kronrod is their numerical evaluation method. The stated conduction-only limit sets ``\varepsilon_s=0`` and ``\sigma_s=\sigma_0``, so ``\eta_s=\sqrt{j\omega\mu_0\sigma_0}``. |
 | Main source | Antonio Carlos Siqueira de Lima and Carlos Portela (2007), extending the Pollaczek-type earth representation to complex frequency-dependent soil |
 | Citation key(s) | `:DeLima2007` |
 | Evidence status | Original PDF equations checked against page images; main-text/appendix Bessel-order disagreement and appendix dependencies unresolved |
@@ -21,8 +21,8 @@
 | --- | --- | --- |
 | Impressed longitudinal propagation constant ``Γ`` | Appendix specifies ``\exp(-kz)`` with unknown ``k``; no ``k`` remains in (3)–(4). The source does not state a corresponding imposed ``Γ=0`` prescription. | Stated — appendix opening, p. 497; equation-implied — (3)–(4). |
 | Air propagation constant ``γ_air`` | No air bulk propagation constant in final interface kernel; appendix uses ``\nabla^2E_a=0``. Its reduction from the stated longitudinal wave dependence is unresolved. | Equation-implied — (3)–(4), p. 493; (15), p. 497. |
-| Earth propagation constant ``γ_earth`` | Main text: ``\eta_s=\sqrt{j\omega\mu_0(\sigma_s+j\omega\epsilon_s)}``. Appendix prints an inconsistent ``\eta_g`` definition without the radical. | Stated — definition after (2), p. 493; after (16), p. 497. |
-| Earth permittivity and displacement current | Retained together with frequency-dependent conductivity in ``\kappa'\simeq\sigma_s+j\omega\epsilon_s``. | Stated — (7)–(8), p. 493, and section II-B, p. 494. |
+| Earth propagation constant ``γ_earth`` | Main text: ``\eta_s=\sqrt{j\omega\mu_0(\sigma_s+j\omega\varepsilon_s)}``. Appendix prints an inconsistent ``\eta_g`` definition without the radical. | Stated — definition after (2), p. 493; after (16), p. 497. |
+| Earth permittivity and displacement current | Retained together with frequency-dependent conductivity in ``\kappa'\simeq\sigma_s+j\omega\varepsilon_s``. | Stated — (7)–(8), p. 493, and section II-B, p. 494. |
 | Range of validity | TEM/quasi-TEM treatment; approximately 1 MHz discussed as dependent on geometry, soil and line length, not a universal cutoff. Soil fitting through 2 MHz is a different evidential claim. | Stated — section II opening, p. 493; section II-B, p. 494. |
 | Earth permeability ``μ_earth`` | Fixed ``\mu_0`` in main (3)–(4). Appendix boundary conditions retain medium permeabilities, but they do not establish arbitrary permeability in the main expressions. | Equation-implied — (3)–(4); (18), p. 497. |
 | Arrangement | Underground self and mutual, parallel horizontal cables; distinct depths retained in the mutual distance. | Stated — section II-A, p. 493. |
@@ -54,7 +54,7 @@ d=\sqrt{d_{ij}^2+(h_i-h_j)^2},\qquad
 D_c=\sqrt{r^2+4h_i^2},\qquad
 D=\sqrt{d_{ij}^2+(h_i+h_j)^2},
 
-\eta_s=\sqrt{j\omega\mu_0(\sigma_s+j\omega\epsilon_s)}.
+\eta_s=\sqrt{j\omega\mu_0(\sigma_s+j\omega\varepsilon_s)}.
 ```
 
 Equation (4) actually prints a plus at the end of the first line and another before the integral; both are retained above. ``r,h_i,h_j,d_{ij},d,D,D_c`` are in meters, ``\xi,\eta_s`` inverse meters, and the outputs are Ω/m. The main text calls ``K_0,K_1`` Bessel functions without explicitly specifying their kind; this dependency remains unresolved rather than silently inferred from the notation.
@@ -62,19 +62,19 @@ Equation (4) actually prints a plus at the end of the first line and another bef
 The source's constitutive dependency is
 
 ```math
-\sigma_s+j\omega\epsilon_s\simeq\kappa'
-=\sigma_0+\delta_{\sigma_s}+j\delta_{\omega\epsilon_s},
+\sigma_s+j\omega\varepsilon_s\simeq\kappa'
+=\sigma_0+\delta_{\sigma_s}+j\delta_{\omega\varepsilon_s},
 \qquad\text{(7)}
 
-\delta_{\sigma_s}+j\delta_{\omega\epsilon_s}
+\delta_{\sigma_s}+j\delta_{\omega\varepsilon_s}
 =\Delta_i\left(\frac{f}{10^6}\right)^\alpha
 \left(\cot(\alpha\pi/2)+j\right).
 \qquad\text{(8)}
 ```
 
-``\sigma_0`` is low-frequency soil conductivity, ``\Delta_i`` a fitted amplitude in S/m, and ``\alpha`` the dimensionless fitted exponent; ``\omega=2\pi f``. ``\sigma_s`` is in S/m, ``\epsilon_s`` F/m, and ``\kappa'`` S/m. The source's conductor/insulation assembly refers to Wedepohl–Wilcox and Ametani (1980); no new insulation equation is supplied here.
+``\sigma_0`` is low-frequency soil conductivity, ``\Delta_i`` a fitted amplitude in S/m, and ``\alpha`` the dimensionless fitted exponent; ``\omega=2\pi f``. ``\sigma_s`` is in S/m, ``\varepsilon_s`` F/m, and ``\kappa'`` S/m. The source's conductor/insulation assembly refers to Wedepohl–Wilcox and Ametani (1980); no new insulation equation is supplied here.
 
-**Approximation.** Integral representation within the source's reduced field model, combined with an empirical joint soil law. No analytical approximation of these integrals is introduced; Gauss–Kronrod is their numerical evaluation method. The stated conduction-only limit sets ``\epsilon_s=0`` and ``\sigma_s=\sigma_0``, so ``\eta_s=\sqrt{j\omega\mu_0\sigma_0}``.
+**Approximation.** Integral representation within the source's reduced field model, combined with an empirical joint soil law. No analytical approximation of these integrals is introduced; Gauss–Kronrod is their numerical evaluation method. The stated conduction-only limit sets ``\varepsilon_s=0`` and ``\sigma_s=\sigma_0``, so ``\eta_s=\sqrt{j\omega\mu_0\sigma_0}``.
 
 **Limitations.** The ``K_1`` main-text image terms disagree with the appendix's ``K_0`` image term. The appendix also has unresolved definition and exponential-layout defects; its alternative witness is reproduced below without using it to correct (3)–(4). The paper does not publish a matching frequency-dependent ground-admittance correction.
 
@@ -116,8 +116,8 @@ No renaming or coordinate transformation is applied. Main and appendix symbols w
 | ``d,D,D_c`` in (3)–(4) | unchanged | Main direct, reflected and self-image distances | m |
 | ``\eta_s,\xi`` | unchanged | Main soil propagation constant and spectral variable | inverse m |
 | ``K_0,K_1`` | unchanged | Source's Bessel functions | kind not explicitly defined in main text |
-| ``\sigma_s,\epsilon_s,\mu_0`` | unchanged | Soil conductivity, permittivity, permeability | S/m, F/m, H/m |
-| ``\kappa',\sigma_0,\delta_{\sigma_s},\delta_{\omega\epsilon_s},\Delta_i,\alpha`` in (7)–(8) | unchanged | Joint soil response and fitted parameters | S/m except dimensionless exponent ``\alpha`` |
+| ``\sigma_s,\varepsilon_s,\mu_0`` | unchanged | Soil conductivity, permittivity, permeability | S/m, F/m, H/m |
+| ``\kappa',\sigma_0,\delta_{\sigma_s},\delta_{\omega\varepsilon_s},\Delta_i,\alpha`` in (7)–(8) | unchanged | Joint soil response and fitted parameters | S/m except dimensionless exponent ``\alpha`` |
 | ``E_g,I,Z_g`` | unchanged | Ground longitudinal electric field, current, converted ground impedance | V/m, A, Ω/m |
 | ``D,D',x,y,h`` in appendix | unchanged | Appendix direct/image geometry and coordinates | m; ``y<0`` below ground |
 | ``\alpha`` in (31) | unchanged | Appendix spectral variable, not soil exponent in (8) | inverse m |

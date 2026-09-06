@@ -1,6 +1,6 @@
 # Ghosh–Das N-screen radial admittance network
 
-## Identity and source
+## Identification and source
 
 | Field | Value |
 | --- | --- |
@@ -45,9 +45,9 @@ Y_{l,pp}=\left(\frac1{y_{ins,p}}+\frac1{y_{sem,p+1}}\right)^{-1},
 ```
 
 ```math
-y_{sem,i}=\frac{j\omega\epsilon_0\epsilon_{sem,i}}{\ln(r_{out}/r_{in})},
-\quad \epsilon_{sem,i}=\epsilon_{r,sem,i}+\frac1{j\omega\rho_{sem,i}},
-\quad y_{ins,i}=\frac{j\omega\epsilon_0\epsilon_{r,ins,i}}{\ln(r_{out}/r_{in})}.
+y_{sem,i}=\frac{j\omega\varepsilon_0\varepsilon_{sem,i}}{\ln(r_{out}/r_{in})},
+\quad \varepsilon_{sem,i}=\varepsilon_{r,sem,i}+\frac1{j\omega\rho_{sem,i}},
+\quad y_{ins,i}=\frac{j\omega\varepsilon_0\varepsilon_{r,ins,i}}{\ln(r_{out}/r_{in})}.
 ```
 
 **Approximation.** Exact series-network algebra within the concentric homogeneous-annulus model.

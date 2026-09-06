@@ -1,6 +1,6 @@
 # De Silva–Shafieipour finite-pipe appendix formulation
 
-## Identity and source
+## Identification and source
 
 | Field | Value |
 | --- | --- |

@@ -1,6 +1,6 @@
 # Pawlik–Woodhouse–Summers full-spectrum mixed mutual impedance
 
-## Identity and source
+## Identification and source
 
 | Field | Value |
 | --- | --- |
@@ -22,7 +22,7 @@
 | Impressed longitudinal propagation constant ``Γ`` | Retained in the source current ``I=I_Ae^{j\omega t-\Gamma z}``; free modes follow by solving the assembled system for ``\Gamma``. | Stated — p. 267 and discussion after (83), p. 272. |
 | Air propagation constant ``γ_air`` | For medium 1, ``\gamma_1^2=\Gamma^2+k_1^2`` and ``u_1=\sqrt{\lambda^2-\gamma_1^2}``; medium 1 becomes air only under the later specialization. | Stated — (9), (39), and §V.A. |
 | Earth propagation constant ``γ_earth`` | For medium 2, ``\gamma_2^2=\Gamma^2+k_2^2`` and ``u_2=\sqrt{\lambda^2-\gamma_2^2}``. | Stated — (21), (40). |
-| Earth permittivity and displacement current | Retained through ``k_i=\omega\sqrt{\mu_i(\epsilon_i-j\sigma_i/\omega)}``. | Stated — nomenclature and (5), (17). |
+| Earth permittivity and displacement current | Retained through ``k_i=\omega\sqrt{\mu_i(\varepsilon_i-j\sigma_i/\omega)}``. | Stated — nomenclature and (5), (17). |
 | Range of validity | Infinite-wire and thin-wire assumptions; the source requires decay before physical ends for an infinite-wire approximation and warns that homogeneous earth is limiting at power-system frequencies. No universal numerical frequency bound is supplied. | Stated — p. 273 after (91). |
 | Earth permeability ``μ_earth`` | Independent ``\mu_2`` retained. | Stated — abstract, definitions, and (88)–(89). |
 | Arrangement | Cross-boundary mutual term; ``j`` lies in medium 1 and ``p`` in medium 2. Reciprocal placements are stated equivalent after swapping medium and conductor subscripts. | Stated — paragraph before (88) and after (91), p. 273. |
@@ -51,7 +51,7 @@ Q_{12}^{jp}-jP_{12}^{jp}
 with
 
 ```math
-k_i=\omega\sqrt{\mu_i\left(\epsilon_i-j\frac{\sigma_i}{\omega}\right)},
+k_i=\omega\sqrt{\mu_i\left(\varepsilon_i-j\frac{\sigma_i}{\omega}\right)},
 \qquad
 \gamma_i^2=\Gamma^2+k_i^2,
 \qquad

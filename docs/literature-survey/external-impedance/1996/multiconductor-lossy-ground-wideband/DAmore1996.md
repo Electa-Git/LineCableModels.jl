@@ -1,6 +1,6 @@
 # D’Amore–Sarto multiconductor lossy-ground series matrix
 
-## Identity and source
+## Identification and source
 
 | Field | Value |
 | --- | --- |

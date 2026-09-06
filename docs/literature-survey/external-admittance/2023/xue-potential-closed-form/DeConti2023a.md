@@ -1,6 +1,6 @@
 # De Conti–Duarte–Alipio closed-form underground potential coefficients
 
-## Identity and source
+## Identification and source
 
 | Field | Value |
 | --- | --- |
@@ -20,9 +20,9 @@
 | Field | Treatment | Evidence |
 | --- | --- | --- |
 | Impressed longitudinal propagation constant ``Γ`` | Fixed zero in the compact Xue equations. | Stated — discussion below (11), p. 2892. |
-| Air propagation constant ``γ_air`` | ``\gamma_0=j\omega\sqrt{\mu_0\epsilon_0}``, air conductivity zero. | Stated — p. 2892. |
-| Earth propagation constant ``γ_earth`` | ``\gamma_1=\sqrt{j\omega\mu_0(\sigma_1+j\omega\epsilon_1)}``. | Stated — p. 2892. |
-| Earth permittivity and displacement current | Retained in ``\gamma_1`` and the potential prefactor ``j\omega/(\sigma_1+j\omega\epsilon_1)``. | Stated — (9), p. 2892. |
+| Air propagation constant ``γ_air`` | ``\gamma_0=j\omega\sqrt{\mu_0\varepsilon_0}``, air conductivity zero. | Stated — p. 2892. |
+| Earth propagation constant ``γ_earth`` | ``\gamma_1=\sqrt{j\omega\mu_0(\sigma_1+j\omega\varepsilon_1)}``. | Stated — p. 2892. |
+| Earth permittivity and displacement current | Retained in ``\gamma_1`` and the potential prefactor ``j\omega/(\sigma_1+j\omega\varepsilon_1)``. | Stated — (9), p. 2892. |
 | Range of validity | Approximation of ``u_0/(u_0+\gamma_0^2\gamma_1^{-2}u_1)`` requires ``|\gamma_1|\gg|\gamma_0|``. Tested over 100 Hz–10 MHz, resistivities 100–10,000 ``\Omega\,\mathrm m`` and typical 0.5–2 m geometries; reported errors are empirical. | Stated — below (14), p. 2893 and §IV. |
 | Earth permeability ``μ_earth`` | ``\mu_1=\mu_0``. | Stated — p. 2892. |
 | Arrangement | Underground; self and mutual entries assembled for multiple cables. | Stated — Fig. 1 and paragraph preceding (7), p. 2892. |
@@ -35,7 +35,7 @@
 
 ```math
 P^{\mathrm{app}}_{g(m,n)}=
-\frac{j\omega}{2\pi(\sigma_1+j\omega\epsilon_1)}
+\frac{j\omega}{2\pi(\sigma_1+j\omega\varepsilon_1)}
 \left[
 K_0(\gamma_1d)+
 \frac{\gamma_1^2-\gamma_0^2}{\gamma_1^2+\gamma_0^2}K_0(\gamma_1D)
@@ -68,7 +68,7 @@ with the same ``\gamma_0,\gamma_1`` definitions as in the companion impedance re
 The compact parent entry is
 
 ```math
-P_{g(m,n)}=\frac{j\omega}{2\pi(\sigma_1+j\omega\epsilon_1)}[\Lambda+\Theta_2],
+P_{g(m,n)}=\frac{j\omega}{2\pi(\sigma_1+j\omega\varepsilon_1)}[\Lambda+\Theta_2],
 \qquad\text{(9)}
 ```
 

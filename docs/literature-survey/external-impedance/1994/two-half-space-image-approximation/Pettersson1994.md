@@ -1,6 +1,6 @@
 # Pettersson two-half-space series-impedance image approximation
 
-## Identity and source
+## Identification and source
 
 | Field | Value |
 | --- | --- |
@@ -20,8 +20,8 @@
 | Field | Treatment | Evidence |
 | --- | --- | --- |
 | Impressed longitudinal propagation constant ``Γ`` | Unknown wire mode ``\gamma_w`` enters the exact transverse roots; the image approximation sets ``\gamma_w=\gamma_1`` for ``h>0`` and ``\gamma_w=\gamma_1[(n^2+1)/2]^{1/2}`` for ``h=0``. | Stated — (1), (4), text before (6) and (12). |
-| Air propagation constant ``γ_air`` | A medium may be air; ``\gamma_m=\gamma_0n_m`` and ``\gamma_0=j\omega\sqrt{\epsilon_0\mu_0}``. | Stated — definitions following (1). |
-| Earth propagation constant ``γ_earth`` | Included through ``n_m=[\epsilon_{rm}+\sigma_m/(j\omega\epsilon_0)]^{1/2}`` and ``\gamma_{tm}=(\gamma_m^2-\gamma_w^2)^{1/2}``. | Stated — definitions following (1). |
+| Air propagation constant ``γ_air`` | A medium may be air; ``\gamma_m=\gamma_0n_m`` and ``\gamma_0=j\omega\sqrt{\varepsilon_0\mu_0}``. | Stated — definitions following (1). |
+| Earth propagation constant ``γ_earth`` | Included through ``n_m=[\varepsilon_{rm}+\sigma_m/(j\omega\varepsilon_0)]^{1/2}`` and ``\gamma_{tm}=(\gamma_m^2-\gamma_w^2)^{1/2}``. | Stated — definitions following (1). |
 | Earth permittivity and displacement current | Retained through the complex refractive index of both media. | Stated — definitions following (1). |
 | Range of validity | Thin-wire approximation; examples report close agreement through at least 1 MHz overhead, while buried image and quasi-TEM values underestimate part of the exact response. | Stated — p. 1052. |
 | Earth permeability ``μ_earth`` | Both media are nonmagnetic, ``\mu=\mu_0``. | Stated — Basic Theory, p. 1049. |

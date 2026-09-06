@@ -1,6 +1,6 @@
 # Patel–Gustavsen–Triverio round-conductor MoM–SO series impedance
 
-## Identity and source
+## Identification and source
 
 | Field | Value |
 | --- | --- |
@@ -20,7 +20,7 @@
 | Field | Treatment | Evidence |
 | --- | --- | --- |
 | Impressed longitudinal propagation constant ``Γ`` | Fields are assumed longitudinally invariant; end effects are neglected. | Stated — §II-A, p. 2475. |
-| Air propagation constant ``γ_air`` | Not an earth-return model; surrounding lossless medium wavenumber is ``k_{out}=\omega\sqrt{\mu_0\epsilon_{out}}``. | Stated — (15), p. 2476. |
+| Air propagation constant ``γ_air`` | Not an earth-return model; surrounding lossless medium wavenumber is ``k_{out}=\omega\sqrt{\mu_0\varepsilon_{out}}``. | Stated — (15), p. 2476. |
 | Earth propagation constant ``γ_earth`` | Not applicable in this paper's homogeneous lossless exterior derivation. | Stated — Fig. 1 and §II-A. |
 | Earth permittivity and displacement current | Exterior displacement is retained through ``k_{out}``; no conductive earth is modeled in the published derivation. | Stated — (15). |
 | Range of validity | Accuracy is controlled by conductor-specific Fourier truncation ``N_p``; examples report ``N_p=2`` or 3 as accurate, not a universal bound. | Stated — below (11), p. 2476 and §IV. |
@@ -42,7 +42,7 @@ J_n^{(p)}=E_n^{(p)}\frac{2\pi}{j\omega}
 \qquad\text{(13)}
 ```
 
-with ``k=\sqrt{\omega\mu(\omega\epsilon-j\sigma)}`` and ``k_{out}=\omega\sqrt{\mu_0\epsilon_{out}}``. After Fourier/Galerkin assembly,
+with ``k=\sqrt{\omega\mu(\omega\varepsilon-j\sigma)}`` and ``k_{out}=\omega\sqrt{\mu_0\varepsilon_{out}}``. After Fourier/Galerkin assembly,
 
 ```math
 \mathbf R(\omega)+j\omega\mathbf L(\omega)=

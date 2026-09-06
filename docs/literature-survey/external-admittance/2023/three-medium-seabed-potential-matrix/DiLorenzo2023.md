@@ -1,6 +1,6 @@
 # Di Lorenzo et al. three-medium seabed potential matrix
 
-## Identity and source
+## Identification and source
 
 | Field | Value |
 | --- | --- |
@@ -20,15 +20,15 @@
 | Field | Treatment | Evidence |
 | --- | --- | --- |
 | Impressed longitudinal propagation constant ``Γ`` | Quasi-TEM: omitted from ``\alpha_n``. | Stated — opening of §III, p. 578. |
-| Air propagation constant ``γ_air`` | ``\gamma_0=\sqrt{j\omega\mu_0(\sigma_0+j\omega\epsilon_0)}``, with ``\sigma_0=0`` in Table I. | Stated — below (26), p. 578. |
-| Earth propagation constant ``γ_earth`` | Seabed ``\gamma_2=\sqrt{j\omega\mu_2(\sigma_2+j\omega\epsilon_2)}``; seawater uses ``\gamma_1`` analogously. | Stated — below (26), p. 578. |
-| Earth permittivity and displacement current | Retained through ``\kappa_2=\sigma_2+j\omega\epsilon_2`` and all three ``\gamma_n``. | Stated — (33) and definition below (26). |
+| Air propagation constant ``γ_air`` | ``\gamma_0=\sqrt{j\omega\mu_0(\sigma_0+j\omega\varepsilon_0)}``, with ``\sigma_0=0`` in Table I. | Stated — below (26), p. 578. |
+| Earth propagation constant ``γ_earth`` | Seabed ``\gamma_2=\sqrt{j\omega\mu_2(\sigma_2+j\omega\varepsilon_2)}``; seawater uses ``\gamma_1`` analogously. | Stated — below (26), p. 578. |
+| Earth permittivity and displacement current | Retained through ``\kappa_2=\sigma_2+j\omega\varepsilon_2`` and all three ``\gamma_n``. | Stated — (33) and definition below (26). |
 | Range of validity | Same shallow-water, seabed-buried configuration as the impedance formulation; numerical cases are demonstrations, not universal validity bounds. | Stated — §§III–IV. |
 | Earth permeability ``μ_earth`` | General layer permeabilities retained; numerical cases set them equal to ``\mu_0``. | Stated — (34)–(35), Table I. |
 | Arrangement | Underground/submarine; two coaxial single-core cables are explicitly assembled, with a cited extension to more complex layouts. | Stated — text before (36), p. 579. |
 | Earth structure | Air over finite-depth seawater over semi-infinite seabed. | Stated — §II-C and Fig. 2(d). |
 | Conductor and insulation geometry | Each cable has core radius ``r_1``, sheath radii ``r_2,r_3``, and outer insulation radius ``r_4``; inner and outer insulation coefficients are included in ``P'_L``. | Stated — Fig. 3 and (37)–(39), p. 579. |
-| Constitutive and field assumptions | Linear homogeneous isotropic layers, infinite parallel coaxial cables, quasi-TEM; insulation is lossless in the printed ``\epsilon_{cs},\epsilon_{se}`` coefficients. | Stated — §III and (39). |
+| Constitutive and field assumptions | Linear homogeneous isotropic layers, infinite parallel coaxial cables, quasi-TEM; insulation is lossless in the printed ``\varepsilon_{cs},\varepsilon_{se}`` coefficients. | Stated — §III and (39). |
 | Conventions | ``j=\sqrt{-1}``; form the full potential matrix, transform it, then invert it; ``t`` denotes transpose. | Stated — (36)–(40). |
 
 **Expression.** Proposed potential coefficient and admittance assembly, equations (33), (36), and (40), printed p. 579.
@@ -64,7 +64,7 @@ A_{10}=\alpha_0\gamma_1^2\mu_0+\alpha_1\gamma_0^2\mu_1.
 \qquad\text{(35)}
 ```
 
-Here ``F_3`` is equation (30), transcribed in the companion impedance record, and ``\kappa_2=\sigma_2+j\omega\epsilon_2`` follows the paper's medium convention.
+Here ``F_3`` is equation (30), transcribed in the companion impedance record, and ``\kappa_2=\sigma_2+j\omega\varepsilon_2`` follows the paper's medium convention.
 
 ```math
 \mathbf P'=(\mathbf T^t)^{-1}\mathbf P'_L(\mathbf T)^{-1},
@@ -90,9 +90,9 @@ P'_{cs}&0&0&0\\
 ```
 
 ```math
-P'_{cs}=\frac{1}{2\pi\epsilon_{cs}}\ln\left(\frac{r_2}{r_1}\right),
+P'_{cs}=\frac{1}{2\pi\varepsilon_{cs}}\ln\left(\frac{r_2}{r_1}\right),
 \qquad
-P'_{se}=\frac{1}{2\pi\epsilon_{se}}\ln\left(\frac{r_4}{r_3}\right).
+P'_{se}=\frac{1}{2\pi\varepsilon_{se}}\ln\left(\frac{r_4}{r_3}\right).
 \qquad\text{(39)}
 ```
 

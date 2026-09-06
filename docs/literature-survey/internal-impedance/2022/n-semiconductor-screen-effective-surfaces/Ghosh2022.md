@@ -1,6 +1,6 @@
 # Ghosh–Das N-screen effective cable impedance
 
-## Identity and source
+## Identification and source
 
 | Field | Value |
 | --- | --- |

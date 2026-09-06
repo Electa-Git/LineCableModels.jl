@@ -1,6 +1,6 @@
 # Ametani coaxial-insulation series-impedance terms
 
-## Identity and source
+## Identification and source
 
 | Field | Value |
 | --- | --- |

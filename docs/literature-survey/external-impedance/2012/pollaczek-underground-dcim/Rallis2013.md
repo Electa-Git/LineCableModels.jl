@@ -1,6 +1,6 @@
 # Rallis DCIM approximation of the underground Pollaczek integral
 
-## Identity and source
+## Identification and source
 
 | Field | Value |
 | --- | --- |

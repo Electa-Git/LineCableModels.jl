@@ -1,6 +1,6 @@
 # Gustavsen armored three-core cable 2D FEM impedance model
 
-## Identity and source
+## Identification and source
 
 | Field | Value |
 | --- | --- |

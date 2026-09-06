@@ -1,6 +1,6 @@
 # Tsiamitros–Papagiannis–Dokopoulos arbitrary-multilayer earth-return impedance
 
-## Identity and source
+## Identification and source
 
 | Field | Value |
 | --- | --- |
@@ -20,9 +20,9 @@
 | Field | Treatment | Evidence |
 | --- | --- | --- |
 | Impressed longitudinal propagation constant ``Γ`` | No independent ``\Gamma`` is retained. The paper assumes quasi-TEM propagation and infinite uniform conductors, integrates the horizontal dipole along the conductor, and omits end-gradient terms. | Stated — p. 2393 and derivation (19)–(21), pp. 2394–2395. |
-| Air propagation constant ``γ_air`` | Region 0: ``\bar\gamma_0^2=j\omega\mu_0(\sigma_0+j\omega\epsilon_0)`` with ``\sigma_0=0`` and free-space ``\mu_0,\epsilon_0``; ``\bar\alpha_0=\sqrt{u^2+\bar\gamma_0^2}``. | Stated — p. 2392 and definition below (13), p. 2394. |
-| Earth propagation constant ``γ_earth`` | Each earth layer ``i`` uses ``\bar\gamma_i^2=j\omega\mu_i(\sigma_i+j\omega\epsilon_i)`` and ``\bar\alpha_i=\sqrt{u^2+\bar\gamma_i^2}``. | Stated — definition below (13), p. 2394. |
-| Earth permittivity and displacement current | Retained independently in every layer through ``j\omega\epsilon_i``. | Stated — pp. 2392 and 2394. |
+| Air propagation constant ``γ_air`` | Region 0: ``\bar\gamma_0^2=j\omega\mu_0(\sigma_0+j\omega\varepsilon_0)`` with ``\sigma_0=0`` and free-space ``\mu_0,\varepsilon_0``; ``\bar\alpha_0=\sqrt{u^2+\bar\gamma_0^2}``. | Stated — p. 2392 and definition below (13), p. 2394. |
+| Earth propagation constant ``γ_earth`` | Each earth layer ``i`` uses ``\bar\gamma_i^2=j\omega\mu_i(\sigma_i+j\omega\varepsilon_i)`` and ``\bar\alpha_i=\sqrt{u^2+\bar\gamma_i^2}``. | Stated — definition below (13), p. 2394. |
+| Earth permittivity and displacement current | Retained independently in every layer through ``j\omega\varepsilon_i``. | Stated — pp. 2392 and 2394. |
 | Range of validity | The authors state that (21) is neither a low- nor a high-frequency approximation. Physical validity remains limited by quasi-TEM propagation, infinite uniform parallel conductors, filamentary external source, and horizontally stratified linear media. No universal numerical frequency bound is stated in Part I. | Stated — pp. 2393 and 2395. |
 | Earth permeability ``μ_earth`` | Arbitrary scalar layer values ``\mu_i`` are retained. | Stated — p. 2392 and (15)–(21), pp. 2394–2395. |
 | Arrangement | Overhead/overhead, buried/buried in the same or different layers, and mixed overhead/buried arrangements; self and mutual. The displayed general construction orders the layer indices as in Fig. 1 and uses reciprocity for the reversed excitation. | Stated — abstract, Figs. 1–2, (14), (20)–(21), and pp. 2392–2395. |
@@ -72,7 +72,7 @@ The spectral and constitutive definitions are
 ```math
 \bar\alpha_i=\sqrt{u^2+\bar\gamma_i^2},
 \qquad
-\bar\gamma_i^2=j\omega\mu_i(\sigma_i+j\omega\epsilon_i),
+\bar\gamma_i^2=j\omega\mu_i(\sigma_i+j\omega\varepsilon_i),
 \qquad i=0,1,\ldots,n.
 ```
 
@@ -154,7 +154,7 @@ These limiting witnesses support the arrangement scope of (21) and are not count
 | ``u`` | unchanged | Transverse spectral variable | ``\mathrm m^{-1}`` |
 | ``\bar\gamma_i`` | unchanged | Bulk medium constant in layer ``i`` | ``\mathrm m^{-1}`` |
 | ``\bar\alpha_i`` | unchanged | Vertical spectral root | ``\mathrm m^{-1}`` |
-| ``\mu_i,\epsilon_i,\sigma_i`` | unchanged | Permeability, permittivity and conductivity of region ``i`` | SI; region 0 is air |
+| ``\mu_i,\varepsilon_i,\sigma_i`` | unchanged | Permeability, permittivity and conductivity of region ``i`` | SI; region 0 is air |
 | ``n,m,l`` | unchanged | Final earth-layer index and conductor layer indices | source construction uses the ordering shown in Fig. 1 |
 | ``d_i`` | unchanged | Source layer depth/thickness coordinate in exponential propagation factors | metres; geometry follows Figs. 1–2 |
 | ``h_1,h_2`` | unchanged | Local vertical coordinates of conductors ``i,j`` in their layers | metres |

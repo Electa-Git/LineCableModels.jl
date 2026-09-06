@@ -1,6 +1,6 @@
 # De Arizon–Dommel conductor-subdivision impedance
 
-## Identity and source
+## Identification and source
 
 | Field | Value |
 | --- | --- |

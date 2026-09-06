@@ -1,6 +1,6 @@
 # Sunde two-layer-earth overhead mutual inductance
 
-## Identity and source
+## Identification and source
 
 | Field | Value |
 | --- | --- |
@@ -29,7 +29,7 @@
 | Earth structure | Finite upper layer of depth ``d`` over a semi-infinite lower layer. | Stated — §§4.7–4.8 and exponentials in (4.47)/(4.55). |
 | Conductor and insulation geometry | Filamentary external wire positions; heights ``h_1,h_2`` and separation ``y``; finite conductor radius and insulation do not enter. | Stated — (4.55) and surrounding text. |
 | Constitutive and field assumptions | Horizontally uniform isotropic layers in the low-frequency earth-return model. | Stated/equation-implied — chapter context and (4.47). |
-| Conventions | Source uses ``i`` for the imaginary unit elsewhere in the chapter and reports mutual inductance ``L`` per cycle with factor ``v/\pi``; ``v`` is the source electromagnetic unit-conversion constant. SI conversion is not imposed. | Stated — equations and chart units, pp. 114–119. |
+| Conventions | The imaginary-unit convention is normalized to ``j`` in this record and reports mutual inductance ``L`` per cycle with factor ``v/\pi``; ``v`` is the source electromagnetic unit-conversion constant. SI conversion is not imposed. | Stated — equations and chart units, pp. 114–119. |
 
 **Expression.** Two-layer overhead-wire mutual inductance, equation (4.55), printed p. 119.
 

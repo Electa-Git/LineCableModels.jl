@@ -1,6 +1,6 @@
 # Brandão Faria inhomogeneous Euler–Cauchy tubular-conductor impedance
 
-## Identity and source
+## Identification and source
 
 | Field | Value |
 | --- | --- |
@@ -23,7 +23,7 @@
 | Air propagation constant ``γ_air`` | Not applicable. | The model is confined to the conductor region. |
 | Earth propagation constant ``γ_earth`` | Not applicable. | No earth medium occurs. |
 | Earth permittivity and displacement current | Not applicable. | No earth medium occurs. |
-| Range of validity | Very-good-conductor approximation ``\sigma\gg\omega\epsilon``; exact closed form only for the paired power-law profiles in (11)–(12), ``r_1\le r\le r_2``. | Stated — §2, p. 90, and (8)–(13), pp. 92–93. |
+| Range of validity | Very-good-conductor approximation ``\sigma\gg\omega\varepsilon``; exact closed form only for the paired power-law profiles in (11)–(12), ``r_1\le r\le r_2``. | Stated — §2, p. 90, and (8)–(13), pp. 92–93. |
 | Earth permeability ``μ_earth`` | Not applicable. | No earth medium occurs. |
 | Arrangement | Not applicable to earth placement; a single isolated current-carrying tubular conductor is treated. | Stated — §2 and Fig. 1. |
 | Earth structure | Not applicable. | No earth medium occurs. |
@@ -114,4 +114,4 @@ Equations (4), (7), and (8) show the operation: variable-coefficient magnetic-ve
 ## Limitations and discrepancies
 
 - Equation (13) prints set-membership notation for the signs and quadrants of the roots; the record states the accompanying prose instead of trying to normalize that typography.
-- The paper's statement that conductor displacement current is negligible “up to the optical range” is an author assertion under ``\sigma\gg\omega\epsilon``, not converted here into a universal frequency bound.
+- The paper's statement that conductor displacement current is negligible “up to the optical range” is an author assertion under ``\sigma\gg\omega\varepsilon``, not converted here into a universal frequency bound.

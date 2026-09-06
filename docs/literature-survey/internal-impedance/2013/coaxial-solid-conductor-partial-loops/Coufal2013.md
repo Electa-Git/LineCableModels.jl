@@ -1,6 +1,6 @@
 # Coufal coaxial solid-conductor partial-loop impedance
 
-## Identity and source
+## Identification and source
 
 | Field | Value |
 | --- | --- |

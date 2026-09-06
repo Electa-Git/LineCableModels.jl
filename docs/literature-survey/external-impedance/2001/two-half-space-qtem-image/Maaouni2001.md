@@ -1,6 +1,6 @@
 # Maaouni–Amri two-half-space qTEM impedance approximation
 
-## Identity and source
+## Identification and source
 
 | Field | Value |
 | --- | --- |
@@ -49,7 +49,7 @@ G(X,Y)\simeq\frac{n^2}{2(n^4-1)}[Q(bz)+Q(b\bar z)]
 \qquad\text{(26)}
 ```
 
-where ``z=k_0(Y+iX)``, ``b=i/\sqrt{1+n^2}``, ``Q(z)=e^{-z}E_1(-z)``, and ``P`` is defined by (25).
+where ``z=k_0(Y+jX)``, ``b=j/\sqrt{1+n^2}``, ``Q(z)=e^{-z}E_1(-z)``, and ``P`` is defined by (25).
 
 **Approximation.** Equation (12) and the closed ``G`` form are qTEM/asymptotic reductions of the preceding exact spectral representation.
 

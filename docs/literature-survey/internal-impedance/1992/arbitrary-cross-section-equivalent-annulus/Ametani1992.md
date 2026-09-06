@@ -1,6 +1,6 @@
 # Ametani–Fuse arbitrary-cross-section internal impedance approximation
 
-## Identity and source
+## Identification and source
 
 | Field | Value |
 | --- | --- |

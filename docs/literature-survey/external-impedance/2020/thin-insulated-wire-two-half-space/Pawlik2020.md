@@ -1,6 +1,6 @@
 # Pawlik–Woodhouse thin insulated wire external impedance
 
-## Identity and source
+## Identification and source
 
 | Field | Value |
 | --- | --- |
@@ -43,7 +43,7 @@ Z_e=\frac{j\omega\mu_1}{2\pi}\,[\Lambda+2(Q-jP)],
 where ``\Lambda,Q,P`` are the logarithmic and spectral terms defined in (16)–(18). The separately printed internal/insulation contribution is
 
 ```math
-Z_i=\frac{j\gamma_c}{2\pi(\sigma_c+j\omega\epsilon_c)a}
+Z_i=\frac{j\gamma_c}{2\pi(\sigma_c+j\omega\varepsilon_c)a}
 \frac{I_0(j\gamma_ca)}{I_1(j\gamma_ca)}
 +\frac{j\omega\mu_i}{2\pi}\ln\frac ba.
 \qquad\text{(12)}

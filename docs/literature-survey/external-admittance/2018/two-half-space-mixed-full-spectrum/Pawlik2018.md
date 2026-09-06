@@ -1,6 +1,6 @@
 # Pawlik–Woodhouse–Summers full-spectrum mixed mutual admittance
 
-## Identity and source
+## Identification and source
 
 | Field | Value |
 | --- | --- |
@@ -22,7 +22,7 @@
 | Impressed longitudinal propagation constant ``Γ`` | Retained through ``I=I_Ae^{j\omega t-\Gamma z}`` and the roots ``\gamma_i^2=\Gamma^2+k_i^2``; system modes are obtained from the simultaneous equations. | Stated — p. 267, (9), (21), and discussion after (83). |
 | Air propagation constant ``γ_air`` | Medium-1 ``\gamma_1^2=\Gamma^2+k_1^2``; air is a later specialization, not imposed in (90)–(91). | Stated — (9), (39), §V.A. |
 | Earth propagation constant ``γ_earth`` | Medium-2 ``\gamma_2^2=\Gamma^2+k_2^2``. | Stated — (21), (40). |
-| Earth permittivity and displacement current | Retained in both media through ``k_i=\omega\sqrt{\mu_i(\epsilon_i-j\sigma_i/\omega)}``; the prefactor in (90) uses ``\sigma_1+j\omega\epsilon_1``. | Stated — nomenclature and (90). |
+| Earth permittivity and displacement current | Retained in both media through ``k_i=\omega\sqrt{\mu_i(\varepsilon_i-j\sigma_i/\omega)}``; the prefactor in (90) uses ``\sigma_1+j\omega\varepsilon_1``. | Stated — nomenclature and (90). |
 | Range of validity | Infinite thin wires; physical use requires current to decay before line ends. The source warns that homogeneous conductivity strongly limits power-system applications. No universal frequency bound is supplied. | Stated — prose after (91), p. 273. |
 | Earth permeability ``μ_earth`` | Independent ``\mu_2`` retained. | Stated — abstract and (91). |
 | Arrangement | Mutual cross-boundary term with ``j`` in medium 1 and ``p`` in medium 2; reciprocal placement is stated by index/material interchange. | Stated — before (88) and after (91). |
@@ -34,7 +34,7 @@
 **Expression.** The source labels the following scalar quantity as cross-boundary mutual admittance:
 
 ```math
-Y_{12}^{jp}=\pi(\sigma_1+j\omega\epsilon_1)
+Y_{12}^{jp}=\pi(\sigma_1+j\omega\varepsilon_1)
 \left[N_{12}^{jp}-jM_{12}^{jp}\right]^{-1},
 \qquad\text{(90)}
 ```
@@ -50,7 +50,7 @@ e^{-(u_1h_j+u_2h_p)}}
 \qquad\text{(91)}
 ```
 
-Here ``k_i=\omega\sqrt{\mu_i(\epsilon_i-j\sigma_i/\omega)}``, ``\gamma_i^2=\Gamma^2+k_i^2``, and ``u_i=\sqrt{\lambda^2-\gamma_i^2}``.
+Here ``k_i=\omega\sqrt{\mu_i(\varepsilon_i-j\sigma_i/\omega)}``, ``\gamma_i^2=\Gamma^2+k_i^2``, and ``u_i=\sqrt{\lambda^2-\gamma_i^2}``.
 
 **Approximation.** Not an analytical approximation within the paper's full-spectrum infinite-thin-wire and homogeneous-half-space model. The scalar inverse is part of the source's printed definition; it is documented, not generalized into entrywise inversion of a separately assembled potential matrix.
 

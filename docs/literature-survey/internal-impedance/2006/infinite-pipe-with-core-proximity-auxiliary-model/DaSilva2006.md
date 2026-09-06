@@ -1,6 +1,6 @@
 # da Silva–Fernández–Rivas infinite-pipe model with core proximity
 
-## Identity and source
+## Identification and source
 
 | Field | Value |
 | --- | --- |

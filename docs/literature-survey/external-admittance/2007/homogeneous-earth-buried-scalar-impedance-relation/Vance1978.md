@@ -1,6 +1,6 @@
 # Buried-wire ground admittance in Theethayi et al.
 
-## Identity and source
+## Identification and source
 
 | Field | Value |
 | --- | --- |
@@ -20,15 +20,15 @@
 | Field | Treatment | Evidence |
 | --- | --- | --- |
 | Impressed longitudinal propagation constant ``Γ`` | No imposed longitudinal constant in (10); the line's voltage/current propagation is governed by the source's TL equations. It must not be identified with bulk ``\gamma_g``. | Stated/equation-implied — section 2, p. 752; (1)–(2), p. 753; (10), p. 755. |
-| Air propagation constant ``γ_air`` | Air ``\mu_0,\epsilon_0`` are shown in Fig. 1; no air propagation constant appears in the scalar admittance relation. | Stated/equation-implied — Fig. 1 and (10). |
-| Earth propagation constant ``γ_earth`` | ``\gamma_g=\sqrt{j\omega\mu_0(\sigma_g+j\omega\epsilon_g)}``. | Stated — definition following (5), p. 753. |
-| Earth permittivity and displacement current | Retained in ``\gamma_g``; ``\epsilon_g=\epsilon_{rg}\epsilon_0``. | Stated — section 2, p. 752; definition after (5). |
-| Range of validity | Source TEM/TL scope and the restrictions of the selected ground-impedance model. The surrounding discussion gives ``d\sqrt{\epsilon_0\mu_0\omega^2}\ll1`` for the quasi-static/TL treatment; it is not a separate exactness proof of (10). | Stated — p. 754 opening; (10), p. 755. |
+| Air propagation constant ``γ_air`` | Air ``\mu_0,\varepsilon_0`` are shown in Fig. 1; no air propagation constant appears in the scalar admittance relation. | Stated/equation-implied — Fig. 1 and (10). |
+| Earth propagation constant ``γ_earth`` | ``\gamma_g=\sqrt{j\omega\mu_0(\sigma_g+j\omega\varepsilon_g)}``. | Stated — definition following (5), p. 753. |
+| Earth permittivity and displacement current | Retained in ``\gamma_g``; ``\varepsilon_g=\varepsilon_{rg}\varepsilon_0``. | Stated — section 2, p. 752; definition after (5). |
+| Range of validity | Source TEM/TL scope and the restrictions of the selected ground-impedance model. The surrounding discussion gives ``d\sqrt{\varepsilon_0\mu_0\omega^2}\ll1`` for the quasi-static/TL treatment; it is not a separate exactness proof of (10). | Stated — p. 754 opening; (10), p. 755. |
 | Earth permeability ``μ_earth`` | Fixed ``\mu_0``. | Stated — section 2 and Fig. 1. |
 | Arrangement | Underground scalar bare and insulated-wire cases. No explicit mutual-admittance matrix inversion is printed with (10). | Stated — Figs. 1–2 and (10a)–(10b). |
 | Earth structure | Homogeneous conducting dielectric half-space below air. | Stated — Fig. 1, p. 752. |
 | Conductor and insulation geometry | Bare circular radius ``a`` or concentric insulated wire with outer radius ``b`` at depth ``d``. Ground impedance selects ``R_{ab}=a`` or ``b`` respectively. | Stated — section 2 and section 3, pp. 752–753. |
-| Constitutive and field assumptions | Linear scalar earth properties and TEM/TL model. Insulation capacitance is lossless ``C=2\pi\epsilon_{in}/\ln(b/a)`` in the printed assembly. | Stated/equation-implied — section 2 and (3b). |
+| Constitutive and field assumptions | Linear scalar earth properties and TEM/TL model. Insulation capacitance is lossless ``C=2\pi\varepsilon_{in}/\ln(b/a)`` in the printed assembly. | Stated/equation-implied — section 2 and (3b). |
 | Conventions | Per-length ``Y_{gb},Y_{gi}`` in S/m, ``Z_{gb},Z_{gi}`` in Ω/m. Depth positive downward, longitudinal coordinate ``x``. The paper prints positive right-hand sides in (1)–(2); that sign is retained below. Separate time-factor convention not stated. | Stated/equation-implied — Figs. 1–2, (1)–(3), and (10). |
 
 **Expression.** The secondary witness's scalar ground relations, equations (10a)–(10b).
@@ -40,7 +40,7 @@ Y_{gb}=\frac{\gamma_g^2}{Z_{gb}},
 Y_{gi}=\frac{\gamma_g^2}{Z_{gi}},
 \qquad\text{(10b)}
 
-\gamma_g=\sqrt{j\omega\mu_0(\sigma_g+j\omega\epsilon_g)}.
+\gamma_g=\sqrt{j\omega\mu_0(\sigma_g+j\omega\varepsilon_g)}.
 ```
 
 ``b`` and ``i`` in the subscripts distinguish bare and insulated cases. ``Z_{gb}`` and ``Z_{gi}`` are the corresponding earth impedance components, not the full conductor-plus-insulation series impedance. For the logarithmic-exponential option presented in the same source,
@@ -60,8 +60,8 @@ The paper also considers other ground-impedance models; (10) is not printed as e
 =j\omega\left(\frac{CY_{gi}}{j\omega C+Y_{gi}}\right)V(x,j\omega),
 \qquad\text{(2b)}
 
-C=\frac{2\pi\epsilon_{in}}{\ln(b/a)},\qquad
-\epsilon_{in}=\epsilon_{rin}\epsilon_0.
+C=\frac{2\pi\varepsilon_{in}}{\ln(b/a)},\qquad
+\varepsilon_{in}=\varepsilon_{rin}\varepsilon_0.
 \qquad\text{(3b and section 2 definition)}
 ```
 
@@ -93,9 +93,9 @@ Notation is unchanged.
 | ``Y_{gb},Y_{gi}`` | unchanged | Bare/insulated ground admittance components | S/m |
 | ``Z_{gb},Z_{gi},Z_g^{\mathrm{LOGEXP}}`` | unchanged | Corresponding ground impedance components/model | Ω/m |
 | ``\gamma_g`` | unchanged | Bulk-earth propagation constant | inverse m |
-| ``\sigma_g,\epsilon_g,\mu_0`` | unchanged | Earth conductivity, permittivity, permeability | S/m, F/m, H/m |
+| ``\sigma_g,\varepsilon_g,\mu_0`` | unchanged | Earth conductivity, permittivity, permeability | S/m, F/m, H/m |
 | ``a,b,R_{ab},d`` | unchanged | Conductor/insulation radii, selected radius, burial depth | m |
-| ``C,\epsilon_{in},\epsilon_{rin},\epsilon_0`` | unchanged | Insulation capacitance per length, absolute/relative insulation permittivity, vacuum permittivity | F/m, F/m, dimensionless, F/m |
+| ``C,\varepsilon_{in},\varepsilon_{rin},\varepsilon_0`` | unchanged | Insulation capacitance per length, absolute/relative insulation permittivity, vacuum permittivity | F/m, F/m, dimensionless, F/m |
 | ``I,V,x,j,\omega`` | unchanged | Line current, voltage, longitudinal position, imaginary unit, angular frequency | A, V, m, dimensionless, rad/s |
 
 ## Evidence and approximation sources

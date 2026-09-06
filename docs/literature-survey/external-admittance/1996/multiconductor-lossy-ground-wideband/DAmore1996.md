@@ -1,6 +1,6 @@
 # D’Amore–Sarto multiconductor lossy-ground shunt matrix
 
-## Identity and source
+## Identification and source
 
 | Field | Value |
 | --- | --- |
@@ -49,9 +49,9 @@
 with modal components
 
 ```math
-\widehat{\mathbf Y}_e'=j\omega\epsilon_0,2\pi\widehat{\boldsymbol\Lambda}^{-1},
+\widehat{\mathbf Y}_e'=j\omega\varepsilon_0,2\pi\widehat{\boldsymbol\Lambda}^{-1},
 \qquad
-\widehat{\mathbf Y}_g'=j\omega\epsilon_0\pi
+\widehat{\mathbf Y}_g'=j\omega\varepsilon_0\pi
 (\widehat{\mathbf S}_{2g}^{h}-\widehat{\mathbf S}_{2g}^{0})^{-1}.
 \qquad\text{(38,40)}
 ```

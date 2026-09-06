@@ -1,6 +1,6 @@
 # Uribe's secondary transcription of the Wedepohl mixed approximation
 
-## Identity and source
+## Identification and source
 
 | Field | Value |
 | --- | --- |

@@ -1,6 +1,6 @@
 # Brito–Machado multipole sheath skin/proximity impedance
 
-## Identity and source
+## Identification and source
 
 | Field | Value |
 | --- | --- |

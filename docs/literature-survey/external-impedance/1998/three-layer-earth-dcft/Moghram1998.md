@@ -1,6 +1,6 @@
 # Moghram three-layer earth DCFT impedance
 
-## Identity and source
+## Identification and source
 
 | Field | Value |
 | --- | --- |

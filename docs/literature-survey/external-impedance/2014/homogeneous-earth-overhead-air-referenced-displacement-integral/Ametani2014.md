@@ -1,6 +1,6 @@
 # Ametani–Miyamoto–Mahseredjian air-referenced displacement-current integral
 
-## Identity and source
+## Identification and source
 
 | Field | Value |
 | --- | --- |
@@ -20,8 +20,8 @@
 | Field | Treatment | Evidence |
 | --- | --- | --- |
 | Impressed longitudinal propagation constant ``Γ`` | Imposed as the air bulk propagation constant through the subtraction ``m_1^2-m_0^2``. | Stated — (11)–(13), p. 937. |
-| Air propagation constant ``γ_air`` | ``m_0^2=j\omega\mu_0(j\omega\epsilon_0)`` for ``\sigma_0=0``. | Stated — (13), p. 937. |
-| Earth propagation constant ``γ_earth`` | ``m_1^2=j\omega\mu_e(\sigma_e+j\omega\epsilon_e)``. | Stated — (13). |
+| Air propagation constant ``γ_air`` | ``m_0^2=j\omega\mu_0(j\omega\varepsilon_0)`` for ``\sigma_0=0``. | Stated — (13), p. 937. |
+| Earth propagation constant ``γ_earth`` | ``m_1^2=j\omega\mu_e(\sigma_e+j\omega\varepsilon_e)``. | Stated — (13). |
 | Earth permittivity and displacement current | Retained explicitly in ``m_1``; the spectral root uses the air-referenced difference. | Stated — (11)–(13). |
 | Range of validity | The source calls (12) the most general form within this overhead integral reduction; numerical comparisons cover its selected 100 Hz–1 MHz cases but give no universal bound. | Stated — §§2.7–4. |
 | Earth permeability ``μ_earth`` | Equation (11) retains ``\mu_e``; the compact ``A=1/(s+a_1)`` in (12) assumes ``\mu_e=\mu_0``. | Stated — text before (12). |
@@ -40,9 +40,9 @@ a_1=\sqrt{s^2+m_1^2-m_0^2},
 ```
 
 ```math
-m_1^2=j\omega\mu_e(\sigma_e+j\omega\epsilon_e),
+m_1^2=j\omega\mu_e(\sigma_e+j\omega\varepsilon_e),
 \qquad
-m_0^2=j\omega\mu_0(j\omega\epsilon_0).
+m_0^2=j\omega\mu_0(j\omega\varepsilon_0).
 \qquad\text{(13)}
 ```
 
@@ -94,4 +94,4 @@ The source derives (11) as the homogeneous limit of the stratified expression (9
 
 ## Limitations and discrepancies
 
-- Equation (14) visibly omits the ``j\omega`` multiplying ``\epsilon_0(\epsilon_r-1)`` inside its brace, although equations (8), (12)–(13), and (18) retain it. The corpus uses the unsimplified authoritative (12)–(13) and records, but does not repair, the (14) conflict.
+- Equation (14) visibly omits the ``j\omega`` multiplying ``\varepsilon_0(\varepsilon_r-1)`` inside its brace, although equations (8), (12)–(13), and (18) retain it. The corpus uses the unsimplified authoritative (12)–(13) and records, but does not repair, the (14) conflict.

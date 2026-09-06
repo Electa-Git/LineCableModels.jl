@@ -1,6 +1,6 @@
 # Papadopoulos–Tsiamitros–Papagiannis upper-layer buried-cable earth potential coefficient
 
-## Identity and source
+## Identification and source
 
 | Field | Value |
 | --- | --- |

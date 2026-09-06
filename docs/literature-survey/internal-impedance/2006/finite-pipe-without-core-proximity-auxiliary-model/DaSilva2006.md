@@ -1,6 +1,6 @@
 # da Silva–Fernández–Rivas finite-pipe model without core-to-core proximity
 
-## Identity and source
+## Identification and source
 
 | Field | Value |
 | --- | --- |

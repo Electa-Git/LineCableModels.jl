@@ -1,6 +1,6 @@
 # Martins-Britto–Lopes–Rondineau multilayer equivalent-conductivity recursion
 
-## Identity and source
+## Identification and source
 
 | Field | Value |
 | --- | --- |
@@ -22,7 +22,7 @@
 | Impressed longitudinal propagation constant ``Γ`` | Carson quasi-TEM overhead parent; no independent longitudinal term in the equivalent-conductivity recursion. | Stated — §III-A. |
 | Air propagation constant ``γ_air`` | Homogeneous Carson parent uses free-space constants. | Stated — (2)–(7). |
 | Earth propagation constant ``γ_earth`` | Represented indirectly through skin-penetration factors ``\sqrt{\pi f\mu_n\sigma_n}``. | Stated — (14)–(22). |
-| Earth permittivity and displacement current | Recursion omits ``\epsilon_n`` although the benchmark multilayer/Carson parents retain it; validation assumes vacuum permittivity. | Stated — §§III–V. |
+| Earth permittivity and displacement current | Recursion omits ``\varepsilon_n`` although the benchmark multilayer/Carson parents retain it; validation assumes vacuum permittivity. | Stated — §§III–V. |
 | Range of validity | Tested 1 Hz–2 MHz on 2–6 layer models; reported errors grow sharply for high conductivity contrast and depend on layer depth relative to skin depth. | Stated — §§V–VI. |
 | Earth permeability ``μ_earth`` | Each recursion step retains layer ``\mu_n``; validation assumes ``\mu_n=\mu_0``. | Stated — (20)–(22), §V. |
 | Arrangement | Applied to overhead self/mutual Carson geometry; equivalent material is geometry-independent within the stated approximation. | Stated — Fig. 2 and §IV. |

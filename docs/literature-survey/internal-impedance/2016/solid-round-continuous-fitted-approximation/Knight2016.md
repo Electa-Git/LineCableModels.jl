@@ -1,6 +1,6 @@
 # Knight continuous fitted solid-round internal-impedance approximation
 
-## Identity and source
+## Identification and source
 
 | Field | Value |
 | --- | --- |

@@ -1,6 +1,6 @@
 # Maaouni–Amri two-half-space potential/admittance approximation
 
-## Identity and source
+## Identification and source
 
 | Field | Value |
 | --- | --- |
@@ -39,7 +39,7 @@ G(X,Y)\simeq\frac{n^2}{2(n^4-1)}[Q(bz)+Q(b\bar z)]
 \qquad\text{(26)}
 ```
 
-with ``z=k_0(Y+iX)``, ``b=i/\sqrt{1+n^2}``, ``Q(z)=e^{-z}E_1(-z)``, and ``P`` from (25). The assembled potential-coefficient matrix is inverted as a matrix to obtain the shunt parameters.
+with ``z=k_0(Y+jX)``, ``b=j/\sqrt{1+n^2}``, ``Q(z)=e^{-z}E_1(-z)``, and ``P`` from (25). The assembled potential-coefficient matrix is inverted as a matrix to obtain the shunt parameters.
 
 **Approximation.** qTEM/asymptotic analytical approximation; not a full-wave solved ``Γ``.
 

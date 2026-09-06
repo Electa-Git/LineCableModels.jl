@@ -1,6 +1,6 @@
 # Høidalen finite-pipe low-frequency surface and loop terms
 
-## Identity and source
+## Identification and source
 
 | Field | Value |
 | --- | --- |

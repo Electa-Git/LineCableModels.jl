@@ -1,6 +1,6 @@
 # Petrache infinite-earth logarithmic impedance approximation
 
-## Identity and source
+## Identification and source
 
 | Field | Value |
 | --- | --- |
@@ -26,7 +26,7 @@ Z_{g,s}=\frac{j\omega\mu_0}{2\pi}
 \ln\!\left(\frac{1+\gamma_gR}{\gamma_gR}\right),
 \qquad\text{(P2)}
 
-\gamma_g=\sqrt{j\omega\mu(\sigma+j\omega\epsilon)}.
+\gamma_g=\sqrt{j\omega\mu(\sigma+j\omega\varepsilon)}.
 \qquad\text{(P3)}
 ```
 

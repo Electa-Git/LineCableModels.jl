@@ -1,6 +1,6 @@
 # Wedepohl–Wasley two-layer overhead series-impedance integral
 
-## Identity and source
+## Identification and source
 
 | Field | Value |
 | --- | --- |
@@ -47,7 +47,7 @@ A=\frac{q_2}{\sinh(dq_2)}
 \quad q_i=(\alpha^2+m_i^2)^{1/2},
 ```
 
-where ``m_2=(j\omega\mu_2/\rho_2)^{1/2}`` and ``m_3=(j\omega\mu_3/\rho_3)^{1/2}``. Equation (9) has the same outer integral with ``A'`` obtained by replacing ``q_i`` by ``(\alpha^2+m_i^2+k_i^2)^{1/2}``, where ``k_2^2=\omega^2(\mu_1\epsilon_1-\mu_2\epsilon_2)`` and likewise for layer 3.
+where ``m_2=(j\omega\mu_2/\rho_2)^{1/2}`` and ``m_3=(j\omega\mu_3/\rho_3)^{1/2}``. Equation (9) has the same outer integral with ``A'`` obtained by replacing ``q_i`` by ``(\alpha^2+m_i^2+k_i^2)^{1/2}``, where ``k_2^2=\omega^2(\mu_1\varepsilon_1-\mu_2\varepsilon_2)`` and likewise for layer 3.
 
 **Approximation.** Equation (8) neglects displacement current. Equation (9) restores it after prescribing free-space longitudinal propagation; it is not a solved full-wave modal result.
 

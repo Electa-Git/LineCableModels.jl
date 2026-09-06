@@ -1,6 +1,6 @@
 # Theodoulidis first exact series for Pollaczek's integral
 
-## Identity and source
+## Identification and source
 
 | Field | Value |
 | --- | --- |
@@ -21,8 +21,8 @@
 | --- | --- | --- |
 | Impressed longitudinal propagation constant ``Γ`` | No independent ``\Gamma`` occurs. The author confines the analysis to the TEM/transmission-line limit of Pollaczek's buried-conductor formula; no full-wave modal closure is retained. | Stated — printed p. 807, paragraph preceding §II; Equation-implied — (1)–(2), pp. 807–808. |
 | Air propagation constant ``γ_air`` | Not retained as an independent quantity in the parent formula. Air enters through the planar interface and image distance ``R``. | Equation-implied — (1)–(2), printed p. 807. |
-| Earth propagation constant ``γ_earth`` | Source symbol ``k``. Classical formula: ``k=\sqrt{j\omega\mu_0\sigma}=(1+j)/\delta``. The source separately permits Sunde's higher-frequency replacement ``k=\sqrt{j\omega\mu_0\sigma+\omega^2\mu_0\epsilon_0\epsilon_r}``. | Stated — below (2), pp. 807–808. |
-| Earth permittivity and displacement current | Omitted in the classical Pollaczek ``k``; optionally retained through the separately identified Sunde replacement containing ``\epsilon_0\epsilon_r``. | Stated — printed p. 808, paragraph above (3). |
+| Earth propagation constant ``γ_earth`` | Source symbol ``k``. Classical formula: ``k=\sqrt{j\omega\mu_0\sigma}=(1+j)/\delta``. The source separately permits Sunde's higher-frequency replacement ``k=\sqrt{j\omega\mu_0\sigma+\omega^2\mu_0\varepsilon_0\varepsilon_r}``. | Stated — below (2), pp. 807–808. |
+| Earth permittivity and displacement current | Omitted in the classical Pollaczek ``k``; optionally retained through the separately identified Sunde replacement containing ``\varepsilon_0\varepsilon_r``. | Stated — printed p. 808, paragraph above (3). |
 | Range of validity | The infinite series converges for every ``x/H`` because ``|Z|>|z|``. A practical rule is about ``20x/H`` terms for ``x>H``; only a few terms are normally needed for ``x<H``. This mathematical convergence does not remove the parent impedance's high-frequency negative-resistance limitation. | Stated — printed p. 809 and validity discussion on pp. 812–813. |
 | Earth permeability ``μ_earth`` | Fixed to ``\mu_0``. | Stated — §II and (1)–(2), printed p. 807. |
 | Arrangement | Two underground parallel conductors; mutual impedance is printed. The self prescription is ``x`` equal to conductor radius with ``h_1=h_2``. A mixed overhead/underground extension is mentioned but not printed and is not claimed here. | Stated — Fig. 1 and text below (2), pp. 807–808. |
@@ -110,7 +110,7 @@ and obtains (4) by differentiating with respect to ``H``. This dependency record
 | ``x,h_1,h_2,H,r,R`` | unchanged | Horizontal separation, depths, depth sum, direct and image distances | metres; depths positive downward |
 | ``\lambda,u,k`` | unchanged | Spectral variable, vertical spectral root and earth bulk constant | ``\mathrm m^{-1}`` |
 | ``z,Z`` | unchanged | Dimensionless Bessel arguments | capital ``Z`` is not impedance here |
-| ``\sigma,\epsilon_0\epsilon_r,\mu_0`` | unchanged | Earth conductivity, optional permittivity and fixed permeability | SI |
+| ``\sigma,\varepsilon_0\varepsilon_r,\mu_0`` | unchanged | Earth conductivity, optional permittivity and fixed permeability | SI |
 | ``I_\nu,K_\nu`` | unchanged | Modified Bessel functions | order ``\nu`` |
 | ``\delta`` | unchanged | Skin depth defined through ``k=(1+j)/\delta`` | metres |
 

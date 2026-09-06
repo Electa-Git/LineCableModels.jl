@@ -1,6 +1,6 @@
 # Theethayi logarithmic-exponential buried-wire impedance
 
-## Identity and source
+## Identification and source
 
 | Field | Value |
 | --- | --- |
@@ -20,15 +20,15 @@
 | Field | Treatment | Evidence |
 | --- | --- | --- |
 | Impressed longitudinal propagation constant ``Γ`` | No independent imposed longitudinal constant appears in (9). The source adopts a TEM/transmission-line description; a prescribed longitudinal phase constant for deriving (9) is not stated. | Stated — section 2, p. 752; equation-implied — (9), p. 754. |
-| Air propagation constant ``γ_air`` | Air is drawn with ``\mu_0,\epsilon_0``. No air bulk propagation constant is retained in (9); air electrical size enters the surrounding TL-validity discussion. | Stated/equation-implied — Fig. 1, p. 752; (9) and opening of p. 754. |
-| Earth propagation constant ``γ_earth`` | ``\gamma_g=\sqrt{j\omega\mu_0(\sigma_g+j\omega\epsilon_g)}``; no separate square-root branch stated. | Stated — definition after (5), p. 753. |
-| Earth permittivity and displacement current | Retained through ``j\omega\epsilon_g``; ``\epsilon_g=\epsilon_{rg}\epsilon_0``. Conductivity and permittivity are separate scalar inputs, without a dielectric-loss model in this expression. | Stated — section 2, p. 752; definition after (5), p. 753. |
-| Range of validity | Source TL condition ``d\sqrt{\epsilon_0\mu_0\omega^2}\ll1``, with approximately 5 MHz discussed for depths 0.5–1 m. Comparisons extend to 10 MHz for radius 2 cm, depth 0.5 m, ``\epsilon_{rg}=10``, conductivities 0.1, 1, and 10 mS/m; these are test cases, not a universal accuracy guarantee. | Stated — opening and final paragraphs of p. 754; Figs. 3a–3b. |
+| Air propagation constant ``γ_air`` | Air is drawn with ``\mu_0,\varepsilon_0``. No air bulk propagation constant is retained in (9); air electrical size enters the surrounding TL-validity discussion. | Stated/equation-implied — Fig. 1, p. 752; (9) and opening of p. 754. |
+| Earth propagation constant ``γ_earth`` | ``\gamma_g=\sqrt{j\omega\mu_0(\sigma_g+j\omega\varepsilon_g)}``; no separate square-root branch stated. | Stated — definition after (5), p. 753. |
+| Earth permittivity and displacement current | Retained through ``j\omega\varepsilon_g``; ``\varepsilon_g=\varepsilon_{rg}\varepsilon_0``. Conductivity and permittivity are separate scalar inputs, without a dielectric-loss model in this expression. | Stated — section 2, p. 752; definition after (5), p. 753. |
+| Range of validity | Source TL condition ``d\sqrt{\varepsilon_0\mu_0\omega^2}\ll1``, with approximately 5 MHz discussed for depths 0.5–1 m. Comparisons extend to 10 MHz for radius 2 cm, depth 0.5 m, ``\varepsilon_{rg}=10``, conductivities 0.1, 1, and 10 mS/m; these are test cases, not a universal accuracy guarantee. | Stated — opening and final paragraphs of p. 754; Figs. 3a–3b. |
 | Earth permeability ``μ_earth`` | Fixed ``\mu_0``. | Stated — Fig. 1 and section 2, p. 752. |
 | Arrangement | Underground: self earth impedance of bare and insulated wires. For parallel-wire mutual impedance, the source says to replace ``R_{ab}`` by horizontal distance and ``d`` by average depth. It does not print a separate unequal-depth correction. | Stated — opening of section 3, p. 753. |
 | Earth structure | Homogeneous conducting dielectric half-space below air; empirical correction represents burial-depth/interface effects. | Stated — Fig. 1, p. 752; paragraph introducing (9), p. 754. |
 | Conductor and insulation geometry | Circular bare conductor radius ``a`` or concentric insulated wire with outer radius ``b``; ``R_{ab}=a`` for bare, ``R_{ab}=b`` for insulated. Burial depth is ``d``. | Stated — section 2 and Fig. 1, p. 752; section 3, p. 753. |
-| Constitutive and field assumptions | Linear scalar ``\sigma_g,\epsilon_g,\mu_0``; source TEM/transmission-line model. Conductor internal impedance is omitted from the analyzed total; insulation inductive contribution remains separate. | Stated — section 2, p. 752. |
+| Constitutive and field assumptions | Linear scalar ``\sigma_g,\varepsilon_g,\mu_0``; source TEM/transmission-line model. Conductor internal impedance is omitted from the analyzed total; insulation inductive contribution remains separate. | Stated — section 2, p. 752. |
 | Conventions | ``d`` is positive burial depth; ``x`` is longitudinal position in the line equations. Frequency-domain equations use ``j\omega`` but no separate time-factor prescription is stated. ``Z_g`` is per unit length. The absolute value in ``e^{-2d|\gamma_g|}`` is part of the published formula. | Stated/equation-implied — Figs. 1–2 and (1)–(3), pp. 752–753; (9), p. 754. |
 
 **Expression.** The author's later restatement of the logarithmic-exponential formula, equation (9).
@@ -39,8 +39,8 @@ Z_g^{\mathrm{LOGEXP}}=\frac{j\omega\mu_0}{2\pi}
 +\left[\frac{2e^{-2d|\gamma_g|}}{4+\gamma_g^2R_{ab}^2}\right]\right\},
 \qquad\text{(9)}
 
-\gamma_g=\sqrt{j\omega\mu_0(\sigma_g+j\omega\epsilon_g)},\qquad
-\epsilon_g=\epsilon_{rg}\epsilon_0.
+\gamma_g=\sqrt{j\omega\mu_0(\sigma_g+j\omega\varepsilon_g)},\qquad
+\varepsilon_g=\varepsilon_{rg}\varepsilon_0.
 ```
 
 ``Z_g`` has units ``\Omega/\mathrm m``; ``\gamma_g`` has units ``\mathrm m^{-1}``. ``R_{ab}=a`` for a bare conductor and ``R_{ab}=b`` for an insulated one, with ``a,b,d`` in meters. For mutual impedance, preserve the source's textual substitutions: horizontal wire separation for ``R_{ab}``, average burial depth for ``d``. This record does not supply a reconstructed direct-distance term for unequal depths.
@@ -81,7 +81,7 @@ The same page gives the unnumbered limit
 ```math
 \omega\to\infty:\qquad
 Z_{gbbi}^{\mathrm{Log-Exp}}\to
-\frac{1}{2\pi\cdot R_{ab}}\sqrt{\frac{\mu_0}{\epsilon_g}}.
+\frac{1}{2\pi\cdot R_{ab}}\sqrt{\frac{\mu_0}{\varepsilon_g}}.
 ```
 
 The thesis explicitly describes combining its Petrache logarithm (7.9) and Saad depth term (7.5), followed by sensitivity analyses. This resolves the empirical-parent attribution. The high-frequency limit is source-stated; it does not extend TL validity to infinite frequency. Thesis ``Z_{gbbi}`` denotes the ground impedance for the bare/insulated cases represented by ``Z_g`` in the 2007 witness.
@@ -96,8 +96,8 @@ Notation is unchanged.
 | ``Z_{gb},Z_{gi}`` | unchanged | Ground impedance for bare and insulated cases | ``\Omega/\mathrm m`` |
 | Thesis ``Z_{gbbi}^{\mathrm{Log-Exp}}`` | unchanged in original witness; corresponds to 2007 ``Z_g^{\mathrm{LOGEXP}}`` | Original thesis's bare/insulated ground impedance | ``\Omega/\mathrm m``; both printed decompositions retained |
 | ``\gamma_g`` | unchanged | Bulk-earth propagation constant | inverse m; not longitudinal line ``Γ`` |
-| ``\sigma_g,\epsilon_g,\epsilon_{rg}`` | unchanged | Earth conductivity, absolute and relative permittivity | S/m, F/m, dimensionless |
-| ``\mu_0,\epsilon_0`` | unchanged | Vacuum permeability and permittivity | H/m, F/m |
+| ``\sigma_g,\varepsilon_g,\varepsilon_{rg}`` | unchanged | Earth conductivity, absolute and relative permittivity | S/m, F/m, dimensionless |
+| ``\mu_0,\varepsilon_0`` | unchanged | Vacuum permeability and permittivity | H/m, F/m |
 | ``a,b,R_{ab}`` | unchanged | Conductor radius, insulation outer radius, selected earth-boundary radius | m |
 | ``d`` | unchanged | Burial depth; average depth for the stated mutual substitution | m, positive downward |
 | ``j,\omega`` | unchanged | Imaginary unit and angular frequency | dimensionless, rad/s |

@@ -1,6 +1,6 @@
 # De Conti–Duarte–Alipio closed-form underground impedance
 
-## Identity and source
+## Identification and source
 
 | Field | Value |
 | --- | --- |
@@ -20,10 +20,10 @@
 | Field | Treatment | Evidence |
 | --- | --- | --- |
 | Impressed longitudinal propagation constant ``Γ`` | Fixed zero in the compact Xue equations (8)–(11); the text explicitly contrasts this with another nonzero prescription. | Stated — discussion below (11), p. 2892. |
-| Air propagation constant ``γ_air`` | ``\gamma_0=j\omega\sqrt{\mu_0\epsilon_0}``, with air conductivity zero. | Stated — definitions below (6), p. 2892. |
-| Earth propagation constant ``γ_earth`` | ``\gamma_1=\sqrt{j\omega\mu_1(\sigma_1+j\omega\epsilon_1)}``. | Stated — p. 2892. |
-| Earth permittivity and displacement current | Retained through ``\epsilon_1=\epsilon_{r1}\epsilon_0``. | Stated — p. 2892. |
-| Range of validity | Numerical study uses 100 Hz–10 MHz, ``100\le\rho\le10000\ \Omega\,\mathrm m``, ``\epsilon_{r1}=10``, depths/separations 0.5–2 m; errors depend inversely on separation, frequency and resistivity. These are tested ranges, not universal bounds. | Stated — §§IV and VII, pp. 2893–2900. |
+| Air propagation constant ``γ_air`` | ``\gamma_0=j\omega\sqrt{\mu_0\varepsilon_0}``, with air conductivity zero. | Stated — definitions below (6), p. 2892. |
+| Earth propagation constant ``γ_earth`` | ``\gamma_1=\sqrt{j\omega\mu_1(\sigma_1+j\omega\varepsilon_1)}``. | Stated — p. 2892. |
+| Earth permittivity and displacement current | Retained through ``\varepsilon_1=\varepsilon_{r1}\varepsilon_0``. | Stated — p. 2892. |
+| Range of validity | Numerical study uses 100 Hz–10 MHz, ``100\le\rho\le10000\ \Omega\,\mathrm m``, ``\varepsilon_{r1}=10``, depths/separations 0.5–2 m; errors depend inversely on separation, frequency and resistivity. These are tested ranges, not universal bounds. | Stated — §§IV and VII, pp. 2893–2900. |
 | Earth permeability ``μ_earth`` | ``\mu_1=\mu_0``. | Stated — p. 2892. |
 | Arrangement | Underground; self and mutual cable terms. | Stated — Fig. 1 and matrix assembly, p. 2892. |
 | Earth structure | Homogeneous earth below homogeneous air. | Stated — Fig. 1. |
@@ -46,8 +46,8 @@ e^{-(h_m+h_n)\gamma_1}
 ```math
 d=\sqrt{(h_m-h_n)^2+r^2},\quad
 D=\sqrt{(h_m+h_n)^2+r^2},\quad
-\gamma_0=j\omega\sqrt{\mu_0\epsilon_0},\quad
-\gamma_1=\sqrt{j\omega\mu_0(\sigma_1+j\omega\epsilon_1)}.
+\gamma_0=j\omega\sqrt{\mu_0\varepsilon_0},\quad
+\gamma_1=\sqrt{j\omega\mu_0(\sigma_1+j\omega\varepsilon_1)}.
 ```
 
 **Approximation.** The source begins with ``Z_{g(m,n)}=j\omega\mu_0[\Lambda+\Theta_1]/(2\pi)`` and approximates the square-root ratio in ``d\Theta_1/dH`` by a constant plus an exponentially decaying term. It then replaces ``e^{-H\sqrt{\lambda^2+\gamma_1^2}}`` by ``e^{-H\gamma_1}`` only in that residual and integrates using the Bessel identity (12), yielding (13). No series order or remainder bound is provided.

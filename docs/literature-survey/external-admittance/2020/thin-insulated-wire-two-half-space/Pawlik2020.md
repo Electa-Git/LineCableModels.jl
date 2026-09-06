@@ -1,6 +1,6 @@
 # Pawlik–Woodhouse thin insulated wire external admittance
 
-## Identity and source
+## Identification and source
 
 | Field | Value |
 | --- | --- |
@@ -36,7 +36,7 @@
 ```math
 \frac1{Y_s}=\frac1{Y_i}+\frac1{Y_e},
 \qquad
-Y_e=2\pi(\sigma_1+j\omega\epsilon_1)[\Lambda+2(N-jM)]^{-1},
+Y_e=2\pi(\sigma_1+j\omega\varepsilon_1)[\Lambda+2(N-jM)]^{-1},
 \qquad\text{(11,15)}
 ```
 

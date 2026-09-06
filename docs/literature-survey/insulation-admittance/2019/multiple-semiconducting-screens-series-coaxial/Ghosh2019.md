@@ -1,6 +1,6 @@
 # Ghosh–Ghosh–Das multiple-semiconducting-screen coaxial admittance
 
-## Identity and source
+## Identification and source
 
 | Field | Value |
 | --- | --- |
@@ -29,7 +29,7 @@
 | Earth structure | None in the shunt expression. | Scope. |
 | Conductor and insulation geometry | Two concentric semiconducting annuli separated by the main insulation, between core and sheath. | Stated — Fig. 1, §II-E. |
 | Constitutive and field assumptions | Linear homogeneous isotropic dielectric/semiconductor layers; purely radial coaxial electric field. | Stated — (35)–(37). |
-| Conventions | ``\omega=2\pi f``; complex relative permittivity uses the printed ``+1/(j\omega\rho)`` for semiconductor and ``\epsilon_r'-j\epsilon_r''`` for insulation. | Stated — (36)–(37). |
+| Conventions | ``\omega=2\pi f``; complex relative permittivity uses the printed ``+1/(j\omega\rho)`` for semiconductor and ``\varepsilon_r'-j\varepsilon_r''`` for insulation. | Stated — (36)–(37). |
 
 **Expression.**
 
@@ -40,14 +40,14 @@ Y_{e12}=\left(\frac1{y_{sem1}}+\frac1{y_{ins12}}+\frac1{y_{sem2}}\right)^{-1}
 ```
 
 ```math
-y_{semi}=\frac{j\omega\epsilon_0\epsilon_{semi}}{\ln(r_{out}/r_{in})},qquad
-\epsilon_{semi}=\epsilon_{r,semi}+\frac1{j\omega\rho_{semi}},
+y_{semi}=\frac{j\omega\varepsilon_0\varepsilon_{semi}}{\ln(r_{out}/r_{in})},qquad
+\varepsilon_{semi}=\varepsilon_{r,semi}+\frac1{j\omega\rho_{semi}},
 \qquad\text{(36)}
 ```
 
 ```math
-y_{ins12}=\frac{j\omega\epsilon_0\epsilon_{r,ins12}}{\ln(r_{out}/r_{in})},qquad
-\epsilon_{r,ins12}=\epsilon_r'-j\epsilon_r''.
+y_{ins12}=\frac{j\omega\varepsilon_0\varepsilon_{r,ins12}}{\ln(r_{out}/r_{in})},qquad
+\varepsilon_{r,ins12}=\varepsilon_r'-j\varepsilon_r''.
 \qquad\text{(37)}
 ```
 

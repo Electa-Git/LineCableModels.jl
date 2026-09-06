@@ -1,6 +1,6 @@
 # Ametani–Miyamoto–Nagaoka semiconducting-screen admittance
 
-## Identity and source
+## Identification and source
 
 | Field | Value |
 | --- | --- |
@@ -34,14 +34,14 @@
 **Expression.** Source equations (14)–(15).
 
 ```math
-y_s=\frac{j\omega,2\pi\epsilon_s}{\ln(c/b')},
+y_s=\frac{j\omega,2\pi\varepsilon_s}{\ln(c/b')},
 \qquad
-\epsilon_s=\epsilon_s'+\frac{1}{j\omega\rho_2},
+\varepsilon_s=\varepsilon_s'+\frac{1}{j\omega\rho_2},
 \qquad\text{(14)}
 
 \frac{1}{Y}=\frac{1}{y_s}+\frac{1}{y_i},
 \qquad
-y_i=\frac{j\omega,2\pi\epsilon_i}{\ln(r_0/c)}.
+y_i=\frac{j\omega,2\pi\varepsilon_i}{\ln(r_0/c)}.
 \qquad\text{(15)}
 ```
 
@@ -49,7 +49,7 @@ y_i=\frac{j\omega,2\pi\epsilon_i}{\ln(r_0/c)}.
 
 **Approximation.** Not an analytical approximation within the scalar, concentric, radial dielectric model. The constitutive representation treats static resistivity ``\rho_2`` as a frequency-independent conduction term and adds it to displacement current through complex permittivity.
 
-**Limitations.** The formulation does not model frequency dependence of ``\rho_2`` or ``\epsilon_s'``, anisotropy, interfacial polarization, or nonconcentric geometry. It is a per-unit-length shunt admittance, not the semiconducting layer's longitudinal impedance. The paper does not discuss whether measured loss data might already include conduction, so double-counting cannot be assessed from this source.
+**Limitations.** The formulation does not model frequency dependence of ``\rho_2`` or ``\varepsilon_s'``, anisotropy, interfacial polarization, or nonconcentric geometry. It is a per-unit-length shunt admittance, not the semiconducting layer's longitudinal impedance. The paper does not discuss whether measured loss data might already include conduction, so double-counting cannot be assessed from this source.
 
 **Reference.** [Ametani2004](@cite).  A. Ametani, Y. Miyamoto, and N. Nagaoka, “Semiconducting Layer Impedance and its Effect on Cable Wave-Propagation and Transient Characteristics,” *IEEE Transactions on Power Delivery* 19(4), 1523–1531 (2004), DOI `10.1109/TPWRD.2003.822502`; equations (14)–(15), printed p. 1525.
 
@@ -66,8 +66,8 @@ The expressions above retain the source notation and order. The source text iden
 | ``y_s`` | unchanged | Per-unit-length admittance of the semiconducting annulus | ``\mathrm{S/m}`` |
 | ``y_i`` | unchanged | Per-unit-length admittance of the main insulation annulus | ``\mathrm{S/m}`` |
 | ``Y`` | unchanged | Series radial combination of ``y_s`` and ``y_i`` | ``\mathrm{S/m}`` |
-| ``\epsilon_s,\epsilon_s'`` | unchanged | Complex and real-part semiconductor permittivity | ``\mathrm{F/m}`` |
-| ``\epsilon_i`` | unchanged | Main-insulation permittivity | ``\mathrm{F/m}`` |
+| ``\varepsilon_s,\varepsilon_s'`` | unchanged | Complex and real-part semiconductor permittivity | ``\mathrm{F/m}`` |
+| ``\varepsilon_i`` | unchanged | Main-insulation permittivity | ``\mathrm{F/m}`` |
 | ``\rho_2`` | unchanged | Semiconductor resistivity | ``\Omega\,\mathrm m`` |
 | ``b',c,r_0`` | unchanged | Inner semiconductor, outer semiconductor, and outer insulation radii | m |
 | ``j,\omega`` | unchanged | Imaginary unit and angular frequency | ``e^{j\omega t}`` |
@@ -82,4 +82,4 @@ The expressions above retain the source notation and order. The source text iden
 ## Limitations and discrepancies
 
 - The Markdown conversion emits only equation-number placeholders for (14)–(15); the source transcription comes from the PDF page image.
-- The source writes ``\epsilon_s=\epsilon_s'+1/(j\omega\rho_2)``. This record preserves that convention and does not change the sign for a different phasor convention.
+- The source writes ``\varepsilon_s=\varepsilon_s'+1/(j\omega\rho_2)``. This record preserves that convention and does not change the sign for a different phasor convention.

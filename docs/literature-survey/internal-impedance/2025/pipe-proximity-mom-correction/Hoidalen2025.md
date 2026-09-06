@@ -1,6 +1,6 @@
 # Høidalen–Høyer-Hansen pipe proximity correction
 
-## Identity and source
+## Identification and source
 
 | Field | Value |
 | --- | --- |

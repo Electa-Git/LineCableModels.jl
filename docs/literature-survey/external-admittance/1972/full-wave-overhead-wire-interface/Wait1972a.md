@@ -1,6 +1,6 @@
 # Wait generalized overhead-wire shunt admittance
 
-## Identity and source
+## Identification and source
 
 | Field | Value |
 | --- | --- |
@@ -18,18 +18,18 @@
 **Expression.** The generalized admittance is
 
 ```math
-Y=i2\pi\epsilon_1\omega\,[A+2(N-iM)]^{-1},
+Y=j2\pi\varepsilon_1\omega\,[A+2(N-jM)]^{-1},
 \qquad\text{(25)}
 ```
 
 with
 
 ```math
-A=K_0\!\left(i\sqrt{k_1^2-\beta^2}\,a\right)
--K_0\!\left(i\sqrt{k_1^2-\beta^2}\sqrt{4h^2+a^2}\right),
+A=K_0\!\left(j\sqrt{k_1^2-\beta^2}\,a\right)
+-K_0\!\left(j\sqrt{k_1^2-\beta^2}\sqrt{4h^2+a^2}\right),
 \qquad\text{(26)}
 
-N-iM=\int_0^\infty
+N-jM=\int_0^\infty
 \frac{\exp\!\left[-u_1\sqrt{4h^2+a^2}\right]}
 {u_1+(k_1/k_2)^2u_2}\cos(\lambda a)\,d\lambda,
 \qquad\text{(28)}
@@ -43,16 +43,16 @@ It enters the implicit mode equation
 
 ```math
 Z+\frac{\beta^2}{Y}=0,
-\qquad i\beta=(ZY)^{1/2}.
+\qquad j\beta=(ZY)^{1/2}.
 \qquad\text{(23)}
 ```
 
 Under the qTEM conditions, equations (30)–(32) give
 
 ```math
-i\beta_0\simeq(Z_eY_e)^{1/2},
+j\beta_0\simeq(Z_eY_e)^{1/2},
 \qquad
-Y_e=i2\pi\epsilon_1\omega
+Y_e=j2\pi\varepsilon_1\omega
 \left[\ln\!\left(\frac{2h}{a}\right)\right]^{-1}.
 \qquad\text{(30,32)}
 ```

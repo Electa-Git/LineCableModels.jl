@@ -1,6 +1,6 @@
 # Mariscotti generalized potential in air and lossy earth
 
-## Identity and source
+## Identification and source
 
 | Field | Value |
 | --- | --- |
@@ -22,7 +22,7 @@
 | Impressed longitudinal propagation constant ``Γ`` | Retained as ``γ`` in generalized potentials. | (12)–(15). |
 | Air propagation constant ``γ_air`` | ``k_1``/``χ_1``. | Definitions. |
 | Earth propagation constant ``γ_earth`` | ``k_2``/``χ_2``. | Definitions. |
-| Earth permittivity and displacement current | Retained using ``\bar\epsilon=\epsilon+\sigma/(j\omega)``. | Material definitions. |
+| Earth permittivity and displacement current | Retained using ``\bar\varepsilon=\varepsilon+\sigma/(j\omega)``. | Material definitions. |
 | Range of validity | Infinite parallel thin conductors in either half-space. | Geometry. |
 | Earth permeability ``μ_earth`` | Independent medium permeability retained. | Definitions. |
 | Arrangement | Scalar two-conductor setup; self/mutual positions. | §3. |
@@ -34,14 +34,14 @@
 **Expression.** In medium 1,
 
 ```math
-V_1=\frac{\gamma I e^{-\gamma z}}{j\omega2\pi\bar\epsilon_1}
+V_1=\frac{\gamma I e^{-\gamma z}}{j\omega2\pi\bar\varepsilon_1}
 \left[K_0(\chi_1R)-K_1(\chi_1R')+
 \int_{-\infty}^{\infty}
 \frac{k_1^2e^{-u_1(x_1+h_1)}e^{-j\lambda(y_1-d_1)}}{k_1^2u_2+k_2^2u_1}\,d\lambda\right],
 \qquad\text{(14)}
 ```
 
-and (15) gives the corresponding medium-2 expression with ``\bar\epsilon_2``, ``k_2^2e^{u_2(x_2+h_2)}``, and the same denominator. The paper then defines
+and (15) gives the corresponding medium-2 expression with ``\bar\varepsilon_2``, ``k_2^2e^{u_2(x_2+h_2)}``, and the same denominator. The paper then defines
 
 ```math
 w_{ij}=\frac{V}{I_t}=\gamma g,\qquad y_{ij}=w_{ij}^{-1},
@@ -65,7 +65,7 @@ Both air-side and earth-side potentials were inspected; one compact representati
 
 | Source symbol | Display symbol | Physical meaning | Units/convention |
 | --- | --- | --- | --- |
-| ``\bar\epsilon_i`` | unchanged | complex permittivity | ``F/m`` |
+| ``\bar\varepsilon_i`` | unchanged | complex permittivity | ``F/m`` |
 | ``u_i`` | unchanged | transverse spectral root | ``m^{-1}`` |
 | ``w_{ij},y_{ij}`` | unchanged | potential coefficient and shunt quantity | source scalar normalization |
 

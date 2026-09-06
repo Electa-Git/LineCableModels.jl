@@ -1,6 +1,6 @@
 # Di Lorenzo et al. three-medium seabed-return impedance
 
-## Identity and source
+## Identification and source
 
 | Field | Value |
 | --- | --- |
@@ -20,9 +20,9 @@
 | Field | Treatment | Evidence |
 | --- | --- | --- |
 | Impressed longitudinal propagation constant ``Γ`` | Quasi-TEM: longitudinal modal propagation is neglected in the transverse roots. | Stated — opening of §III, p. 578. |
-| Air propagation constant ``γ_air`` | ``\gamma_0=\sqrt{j\omega\mu_0(\sigma_0+j\omega\epsilon_0)}``, with the paper's air data ``\sigma_0=0``. | Stated — below (26) and Table I, p. 578. |
-| Earth propagation constant ``γ_earth`` | The lowest-medium seabed constant is ``\gamma_2=\sqrt{j\omega\mu_2(\sigma_2+j\omega\epsilon_2)}``; seawater uses ``\gamma_1`` analogously. | Stated — below (26), p. 578. |
-| Earth permittivity and displacement current | Retained in every ``\gamma_n`` through ``\sigma_n+j\omega\epsilon_n``. | Stated — below (26), p. 578. |
+| Air propagation constant ``γ_air`` | ``\gamma_0=\sqrt{j\omega\mu_0(\sigma_0+j\omega\varepsilon_0)}``, with the paper's air data ``\sigma_0=0``. | Stated — below (26) and Table I, p. 578. |
+| Earth propagation constant ``γ_earth`` | The lowest-medium seabed constant is ``\gamma_2=\sqrt{j\omega\mu_2(\sigma_2+j\omega\varepsilon_2)}``; seawater uses ``\gamma_1`` analogously. | Stated — below (26), p. 578. |
+| Earth permittivity and displacement current | Retained in every ``\gamma_n`` through ``\sigma_n+j\omega\varepsilon_n``. | Stated — below (26), p. 578. |
 | Range of validity | Derived for shallow-water configurations with cables buried in the seabed; numerical studies use 1 m water depth and the material values in Table I, but do not state universal frequency or geometric bounds. | Stated — §III and §IV, pp. 578–580. |
 | Earth permeability ``μ_earth`` | General ``\mu_0,\mu_1,\mu_2`` are retained in the expression; the numerical study sets all three equal to ``\mu_0``. | Stated — (20), (30), Table I. |
 | Arrangement | Underground/submarine; self and mutual terms between infinite parallel cables in medium 2. | Stated — text before (28), p. 579. |
@@ -51,7 +51,7 @@ e^{-\alpha_2(h_i+h_j-2h_s)}
 
 ```math
 \alpha_n=\sqrt{\lambda^2+\gamma_n^2},\qquad
-\gamma_n=\sqrt{j\omega\mu_n(\sigma_n+j\omega\epsilon_n)},
+\gamma_n=\sqrt{j\omega\mu_n(\sigma_n+j\omega\varepsilon_n)},
 ```
 
 ```math

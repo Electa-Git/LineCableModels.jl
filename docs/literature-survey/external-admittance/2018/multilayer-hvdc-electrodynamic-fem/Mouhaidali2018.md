@@ -1,6 +1,6 @@
 # Mouhaidali–Chadebec multilayer HVDC cable FEM admittance
 
-## Identity and source
+## Identification and source
 
 | Field | Value |
 | --- | --- |
@@ -34,7 +34,7 @@
 **Expression.** The electric solve is the source's equation (10), with loss tangent
 
 ```math
-\tan\delta=\frac{\omega\epsilon''+\sigma}{\omega\epsilon'}.
+\tan\delta=\frac{\omega\varepsilon''+\sigma}{\omega\varepsilon'}.
 \qquad\text{(11)}
 ```
 

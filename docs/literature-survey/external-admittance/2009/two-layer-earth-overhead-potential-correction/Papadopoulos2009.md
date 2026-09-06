@@ -1,6 +1,6 @@
 # Papadopoulos–Papagiannis–Labridis two-layer overhead earth potential correction
 
-## Identity and source
+## Identification and source
 
 | Field | Value |
 | --- | --- |

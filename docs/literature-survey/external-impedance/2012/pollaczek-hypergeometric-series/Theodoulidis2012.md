@@ -1,6 +1,6 @@
 # Theodoulidis uniformly convergent hypergeometric series for Pollaczek's integral
 
-## Identity and source
+## Identification and source
 
 | Field | Value |
 | --- | --- |
@@ -21,8 +21,8 @@
 | --- | --- | --- |
 | Impressed longitudinal propagation constant ``Γ`` | No independent ``\Gamma`` is retained; the parent is explicitly restricted to the TEM/transmission-line limit. | Stated — p. 807; Equation-implied — (1)–(2). |
 | Air propagation constant ``γ_air`` | Not independently retained; the air interface appears through image geometry. | Equation-implied — (1)–(2), p. 807. |
-| Earth propagation constant ``γ_earth`` | ``k=\sqrt{j\omega\mu_0\sigma}=(1+j)/\delta``; optional Sunde replacement ``k=\sqrt{j\omega\mu_0\sigma+\omega^2\mu_0\epsilon_0\epsilon_r}``. | Stated — pp. 807–808. |
-| Earth permittivity and displacement current | Classical formula neglects it; optional Sunde formula retains ``\epsilon_0\epsilon_r``. | Stated — p. 808. |
+| Earth propagation constant ``γ_earth`` | ``k=\sqrt{j\omega\mu_0\sigma}=(1+j)/\delta``; optional Sunde replacement ``k=\sqrt{j\omega\mu_0\sigma+\omega^2\mu_0\varepsilon_0\varepsilon_r}``. | Stated — pp. 807–808. |
+| Earth permittivity and displacement current | Classical formula neglects it; optional Sunde formula retains ``\varepsilon_0\varepsilon_r``. | Stated — p. 808. |
 | Range of validity | Infinite series valid for all parameter ranges of the parent integral. Truncation at ``n\le20`` is stated to guarantee relative error below order ``10^{-7}``; 10 terms give ``10^{-4}``, and 40 terms ``10^{-11}``. These are series-error statements, not physical-model validation. | Stated — pp. 807 and 811. |
 | Earth permeability ``μ_earth`` | Fixed ``\mu_0``. | Stated — (1), p. 807. |
 | Arrangement | Two parallel buried conductors; mutual impedance and prescribed self substitution. Mixed placement is mentioned but not printed. | Stated — Fig. 1 and pp. 807–808. |
@@ -112,7 +112,7 @@ The source expands the algebraic factors about ``t=1`` in (23)–(24), evaluates
 | ``x,h_1,h_2,H,r,R`` | unchanged | Separation, depths, depth sum and distances | metres |
 | ``\lambda,k`` | unchanged | Spectral variable and earth constant | ``\mathrm m^{-1}`` |
 | ``{}_1F_1`` | unchanged | Confluent hypergeometric function | dimensionless |
-| ``\sigma,\epsilon_0\epsilon_r,\mu_0`` | unchanged | Earth constitutive quantities | SI |
+| ``\sigma,\varepsilon_0\varepsilon_r,\mu_0`` | unchanged | Earth constitutive quantities | SI |
 | ``\delta`` | unchanged | Skin depth | metres |
 
 No notation was renamed.

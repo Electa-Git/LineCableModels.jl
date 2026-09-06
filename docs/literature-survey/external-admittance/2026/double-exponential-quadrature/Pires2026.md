@@ -1,6 +1,6 @@
 # Pires–Moreira double-exponential potential/admittance evaluator
 
-## Identity and source
+## Identification and source
 
 | Field | Value |
 | --- | --- |

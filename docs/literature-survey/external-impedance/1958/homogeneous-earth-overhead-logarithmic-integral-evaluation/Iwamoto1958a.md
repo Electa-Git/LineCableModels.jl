@@ -1,6 +1,6 @@
 # Iwamoto logarithmic-integral evaluation of overhead earth impedance
 
-## Identity and source
+## Identification and source
 
 | Field | Value |
 | --- | --- |

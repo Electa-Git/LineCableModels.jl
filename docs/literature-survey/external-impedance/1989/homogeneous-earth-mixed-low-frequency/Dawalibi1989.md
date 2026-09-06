@@ -1,6 +1,6 @@
 # Dawalibi–Southey low-frequency mixed external impedance
 
-## Identity and source
+## Identification and source
 
 | Field | Value |
 | --- | --- |
@@ -20,9 +20,9 @@
 | Field | Treatment | Evidence |
 | --- | --- | --- |
 | Impressed longitudinal propagation constant ``Γ`` | Propagation effects within the observation zone are neglected. | Stated — §4.3 immediately before (7)–(9), Technical Manual 3.2 p. 53. |
-| Air propagation constant ``γ_air`` | The inspected reproduction literally prints ``\gamma_0=j\omega\mu_0\theta_0``, with ``\theta_0=\sigma_0+j\omega\epsilon_0``; its dimensional conflict with (3) remains unresolved. | Stated — (4)–(5), p. 53. |
-| Earth propagation constant ``γ_earth`` | The inspected reproduction literally prints ``\gamma_1=j\omega\mu_1\theta_1``, with ``\theta_1=\sigma_1+j\omega\epsilon_1``; no square or square root is supplied on that page. | Stated — (4)–(5), p. 53. |
-| Earth permittivity and displacement current | Retained through ``\theta_1=\sigma_1+j\omega\epsilon_1``. | Stated — (4)–(5), p. 53. |
+| Air propagation constant ``γ_air`` | The inspected reproduction literally prints ``\gamma_0=j\omega\mu_0\theta_0``, with ``\theta_0=\sigma_0+j\omega\varepsilon_0``; its dimensional conflict with (3) remains unresolved. | Stated — (4)–(5), p. 53. |
+| Earth propagation constant ``γ_earth`` | The inspected reproduction literally prints ``\gamma_1=j\omega\mu_1\theta_1``, with ``\theta_1=\sigma_1+j\omega\varepsilon_1``; no square or square root is supplied on that page. | Stated — (4)–(5), p. 53. |
+| Earth permittivity and displacement current | Retained through ``\theta_1=\sigma_1+j\omega\varepsilon_1``. | Stated — (4)–(5), p. 53. |
 | Range of validity | The source calls neglect of propagation effects legitimate at low frequencies; no numerical frequency bound is supplied. | Stated — §4.3, p. 53. |
 | Earth permeability ``μ_earth`` | Independent ``\mu_1`` is retained. | Equation-implied — prefactor, denominator, and ``\gamma_1`` in (8). |
 | Arrangement | Mixed mutual interaction: one conductor in air and one in soil. | Stated — heading before (8), p. 53. |
@@ -46,7 +46,7 @@ with
 
 ```math
 \alpha_i=\left(\lambda^2+\gamma_i^2\right)^{1/2},\qquad
-\theta_i=\sigma_i+j\omega\epsilon_i,\qquad
+\theta_i=\sigma_i+j\omega\varepsilon_i,\qquad
 \gamma_i=j\omega\mu_i\theta_i.
 \qquad\text{(3--5)}
 ```

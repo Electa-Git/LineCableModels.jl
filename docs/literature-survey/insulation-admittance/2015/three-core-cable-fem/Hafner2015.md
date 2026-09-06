@@ -1,6 +1,6 @@
 # Hafner–Ferreira da Luz three-core cable FEM admittance
 
-## Identity and source
+## Identification and source
 
 | Field | Value |
 | --- | --- |
@@ -34,7 +34,7 @@
 **Expression.** The analytical core–sheath branch is
 
 ```math
-y_{12}=\frac{2\pi(\sigma_{cs}+j\omega\epsilon'_{cs})}{\ln(r_s/r_c)},
+y_{12}=\frac{2\pi(\sigma_{cs}+j\omega\varepsilon'_{cs})}{\ln(r_s/r_c)},
 \qquad\text{(11)}
 ```
 

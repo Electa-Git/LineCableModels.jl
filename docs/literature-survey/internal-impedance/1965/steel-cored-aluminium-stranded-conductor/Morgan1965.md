@@ -1,6 +1,6 @@
 # Morgan steel-cored aluminium conductor characteristics
 
-## Identity and source
+## Identification and source
 
 | Field | Value |
 | --- | --- |

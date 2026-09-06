@@ -1,6 +1,6 @@
 # Overhead-conductor potential coefficient with a finite snow layer
 
-## Identity and source
+## Identification and source
 
 | Field | Value |
 | --- | --- |

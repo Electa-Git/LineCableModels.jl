@@ -1,6 +1,6 @@
 # Papadopoulos–Tsiamitros–Papagiannis homogeneous-earth underground-cable admittance
 
-## Identity and source
+## Identification and source
 
 | Field | Value |
 | --- | --- |
@@ -8,7 +8,7 @@
 | Geometry | Infinite parallel single-core cables represented by their axes for mutual interaction; the outermost radius enters the self substitution. Insulation admittance is separate and is combined through the potential-coefficient matrix in Appendix C. |
 | Calculated quantities | Per-unit-length mutual earth-return potential coefficient and admittance correction; self term by the source-prescribed substitution |
 | Earth structure | Homogeneous earth half-space ``z\geq0`` with air in ``z<0`` and planar interface ``z=0``. |
-| Model and approximation | The final spectral expression follows the source's lossless longitudinal-propagation approximation ``\gamma_x\simeq j\omega\sqrt{\mu_1\epsilon_1}`` and the transform identity (4). No analytical truncation of the semi-infinite integral is stated. ``G(\lambda)`` is retained; dropping it is a different approximation explicitly associated by the source with ``\gamma_x=\gamma_1``. |
+| Model and approximation | The final spectral expression follows the source's lossless longitudinal-propagation approximation ``\gamma_x\simeq j\omega\sqrt{\mu_1\varepsilon_1}`` and the transform identity (4). No analytical truncation of the semi-infinite integral is stated. ``G(\lambda)`` is retained; dropping it is a different approximation explicitly associated by the source with ``\gamma_x=\gamma_1``. |
 | Main source | Theofilos A. Papadopoulos, Dimitrios A. Tsiamitros, and Grigoris K. Papagiannis (2010) |
 | Citation key(s) | `:Papadopoulos2010b` |
 | Evidence status | Verified visually against the original PDF page image |
@@ -19,16 +19,16 @@
 
 | Field | Treatment | Evidence |
 | --- | --- | --- |
-| Impressed longitudinal propagation constant ``Γ`` | Source symbol ``\gamma_x`` with longitudinal factor ``e^{-\gamma_x x}``; for (6) the source sets ``\gamma_x\simeq j k_x=j\omega\sqrt{\mu_1\epsilon_1}``. | Stated — printed p. 962, text below (3b) and preceding (4). |
-| Air propagation constant ``γ_air`` | ``\gamma_0^2=j\omega\mu_0(\sigma_0+j\omega\epsilon_0)`` under the indexed definition; air is labelled only by ``\mu_0,\epsilon_0``, implying ``\sigma_0=0``. ``\gamma_0`` is retained explicitly in ``G`` and through ``\alpha_0``. | Equation-implied — definition below (2b), Fig. 1, and (6c), printed pp. 962–963. |
-| Earth propagation constant ``γ_earth`` | ``\gamma_1^2=j\omega\mu_1(\sigma_1+j\omega\epsilon_1)``; retained explicitly in ``G`` and through ``\alpha_1``. | Stated — definition below (2b) and (6c), printed pp. 962–963. |
-| Earth permittivity and displacement current | ``\epsilon_1`` and the radial-displacement-current term ``G(\lambda)`` are retained. The source states that ignoring ``G`` makes the propagation constant equal to ``\gamma_1``. | Stated — (6b)–(6c) and following paragraph, printed p. 963. |
+| Impressed longitudinal propagation constant ``Γ`` | Source symbol ``\gamma_x`` with longitudinal factor ``e^{-\gamma_x x}``; for (6) the source sets ``\gamma_x\simeq j k_x=j\omega\sqrt{\mu_1\varepsilon_1}``. | Stated — printed p. 962, text below (3b) and preceding (4). |
+| Air propagation constant ``γ_air`` | ``\gamma_0^2=j\omega\mu_0(\sigma_0+j\omega\varepsilon_0)`` under the indexed definition; air is labelled only by ``\mu_0,\varepsilon_0``, implying ``\sigma_0=0``. ``\gamma_0`` is retained explicitly in ``G`` and through ``\alpha_0``. | Equation-implied — definition below (2b), Fig. 1, and (6c), printed pp. 962–963. |
+| Earth propagation constant ``γ_earth`` | ``\gamma_1^2=j\omega\mu_1(\sigma_1+j\omega\varepsilon_1)``; retained explicitly in ``G`` and through ``\alpha_1``. | Stated — definition below (2b) and (6c), printed pp. 962–963. |
+| Earth permittivity and displacement current | ``\varepsilon_1`` and the radial-displacement-current term ``G(\lambda)`` are retained. The source states that ignoring ``G`` makes the propagation constant equal to ``\gamma_1``. | Stated — (6b)–(6c) and following paragraph, printed p. 963. |
 | Range of validity | Quasi-TEM propagation; no universal frequency or dimensionless bound is supplied. The selected ``\gamma_x`` prescription is described as a better high-frequency approximation than ``\gamma_x=0``. | Stated — printed p. 962, text below (3b); printed p. 968, conclusion. |
 | Earth permeability ``μ_earth`` | Arbitrary scalar ``\mu_1`` in (6c); relative permeability is unity only in the numerical examples. | Equation-implied — (6c), printed p. 963. |
 | Arrangement | Underground, parallel conductors; mutual term for cables ``i,j`` and self term by replacing ``y_{ij}`` with the outermost cable radius and ``h_j`` with ``h_i``. | Stated — Fig. 2 and text following (6c), printed pp. 962–963. |
 | Earth structure | Homogeneous earth half-space ``z\geq0`` with air in ``z<0`` and planar interface ``z=0``. | Stated — Fig. 1 and headings above (1)–(2), printed p. 962. |
 | Conductor and insulation geometry | Infinite parallel single-core cables represented by their axes for mutual interaction; the outermost radius enters the self substitution. Insulation admittance is separate and is combined through the potential-coefficient matrix in Appendix C. | Stated — Section III and Appendix C, printed pp. 962–963 and 967–968. |
-| Constitutive and field assumptions | Homogeneous scalar ``\mu_k,\epsilon_k,\sigma_k`` in each medium; quasi-TEM field propagation. | Equation-implied — definitions below (2b), printed p. 962; stated in conclusion, printed p. 968. |
+| Constitutive and field assumptions | Homogeneous scalar ``\mu_k,\varepsilon_k,\sigma_k`` in each medium; quasi-TEM field propagation. | Equation-implied — definitions below (2b), printed p. 962; stated in conclusion, printed p. 968. |
 | Conventions | ``j`` is the imaginary unit; ``z`` is positive downward; longitudinal dependence ``e^{-\gamma_x x}``; per-unit-length quantities carry a prime. The propagation definition is consistent with ``e^{j\omega t}``, but the inspected section does not explicitly state the time convention. | Stated/equation-implied — Fig. 1, definition below (2b), and (3), printed p. 962. |
 
 **Expression.** Source-defined per-unit-length mutual earth admittance and its earth-return potential coefficient, equations (6a)–(6c).
@@ -38,7 +38,7 @@ Y'_{e_{ij}}=j\omega P_{e_{ij}}^{-1},
 \qquad\text{(6a)}
 
 P_{e_{ij}}
-=\frac{j\omega}{2\pi(\sigma_1+j\omega\epsilon_1)}
+=\frac{j\omega}{2\pi(\sigma_1+j\omega\varepsilon_1)}
  \int_{0}^{+\infty}[F(\lambda)+G(\lambda)]\cos(y_{ij}\lambda)\,d\lambda,
 \qquad\text{(6b)}
 
@@ -53,14 +53,14 @@ G(\lambda)
 \qquad\text{(6c)}
 
 \alpha_k=\sqrt{\lambda^2+\gamma_k^2+k_x^2},\qquad
-\gamma_k^2=j\omega\mu_k(\sigma_k+j\omega\epsilon_k),\qquad k=0,1,
+\gamma_k^2=j\omega\mu_k(\sigma_k+j\omega\varepsilon_k),\qquad k=0,1,
 
-\gamma_x\simeq j k_x=j\omega\sqrt{\mu_1\epsilon_1}.
+\gamma_x\simeq j k_x=j\omega\sqrt{\mu_1\varepsilon_1}.
 ```
 
 ``P_{e_{ij}}`` is the mutual earth-return potential coefficient and ``Y'_{e_{ij}}`` is the corresponding per-unit-length admittance as printed. Indices ``0`` and ``1`` denote air and earth. The source assembles the full cable shunt-admittance matrix from the internal-insulation and earth-return potential-coefficient matrices in Appendix C. For the self term of cable ``i``, it prescribes ``y_{ij}\mapsto r_{i,\mathrm{outer}}`` and ``h_j\mapsto h_i``.
 
-**Approximation.** The final spectral expression follows the source's lossless longitudinal-propagation approximation ``\gamma_x\simeq j\omega\sqrt{\mu_1\epsilon_1}`` and the transform identity (4). No analytical truncation of the semi-infinite integral is stated. ``G(\lambda)`` is retained; dropping it is a different approximation explicitly associated by the source with ``\gamma_x=\gamma_1``.
+**Approximation.** The final spectral expression follows the source's lossless longitudinal-propagation approximation ``\gamma_x\simeq j\omega\sqrt{\mu_1\varepsilon_1}`` and the transform identity (4). No analytical truncation of the semi-infinite integral is stated. ``G(\lambda)`` is retained; dropping it is a different approximation explicitly associated by the source with ``\gamma_x=\gamma_1``.
 
 **Limitations.** The expression assumes infinitely long parallel cables, a homogeneous planar earth, and quasi-TEM propagation. It provides an earth correction/potential coefficient, not the insulation admittance or the already-assembled total cable admittance. Equation (6a) is preserved in the source's printed scalar notation; this record does not replace it with an inferred matrix operation. The Markdown conversion drops the equation contents.
 
@@ -88,7 +88,7 @@ The formula section expression preserves the source notation and order of (6a), 
 | ``h_i,h_j`` | unchanged | Positive burial depths | ``\mathrm{m}`` |
 | ``y_{ij}`` | unchanged | Horizontal cable-axis separation | ``\mathrm{m}`` |
 | ``\mu_0,\mu_1`` | unchanged | Air and earth permeability | ``\mathrm{H}/\mathrm{m}`` |
-| ``\epsilon_0,\epsilon_1`` | unchanged | Air and earth permittivity | ``\mathrm{F}/\mathrm{m}`` |
+| ``\varepsilon_0,\varepsilon_1`` | unchanged | Air and earth permittivity | ``\mathrm{F}/\mathrm{m}`` |
 | ``\sigma_0,\sigma_1`` | unchanged | Air and earth conductivity in the indexed propagation definition | ``\mathrm{S}/\mathrm{m}``; air conductivity equation-implied zero |
 | ``\omega`` | unchanged | Angular frequency | ``\mathrm{rad}/\mathrm{s}`` |
 | ``j`` | unchanged | Imaginary unit | ``j^2=-1`` |

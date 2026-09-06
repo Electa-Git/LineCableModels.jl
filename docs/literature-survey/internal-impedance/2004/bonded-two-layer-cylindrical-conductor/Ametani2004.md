@@ -1,6 +1,6 @@
 # Ametani–Miyamoto–Nagaoka bonded two-layer cylindrical conductor
 
-## Identity and source
+## Identification and source
 
 | Field | Value |
 | --- | --- |
@@ -8,7 +8,7 @@
 | Geometry | Medium 1 occupies ``a\le r\le b`` and medium 2 occupies ``b'\le r\le c``; for bonded media ``b=b'``. The first medium may be solid (``a=0``) or hollow. Both ends are short-circuited for the outer-terminal reduction. |
 | Calculated quantities | Inner-surface, outer-surface, and transfer impedance of two electrically bonded concentric conductive media; stable assembly from single-layer surface terms and direct Maxwell/Bessel representation |
 | Earth structure | Not applicable. |
-| Model and approximation | Appendix (A.11) is the direct Maxwell/Bessel representation with ``\Gamma`` and intrinsic admittance retained. The main-text construction (9)–(10) is algebraically equivalent under the paper's stated good-conductor and penetration-depth assumptions: ``j\omega\mu\sigma\gg\omega^2\mu\epsilon+\Gamma^2`` and no radial current between media. It is a model reduction, not merely a notation change. |
+| Model and approximation | Appendix (A.11) is the direct Maxwell/Bessel representation with ``\Gamma`` and intrinsic admittance retained. The main-text construction (9)–(10) is algebraically equivalent under the paper's stated good-conductor and penetration-depth assumptions: ``j\omega\mu\sigma\gg\omega^2\mu\varepsilon+\Gamma^2`` and no radial current between media. It is a model reduction, not merely a notation change. |
 | Main source | A. Ametani, Y. Miyamoto, and N. Nagaoka (2004); appendix says the direct Maxwell derivation summarizes N. Amekawa's 2001 thesis |
 | Citation key(s) | `:Ametani2004` |
 | Evidence status | PDF page images checked |
@@ -28,7 +28,7 @@
 | Arrangement | Not applicable. | This is a local cross-sectional conductor surface relation. |
 | Earth structure | Not applicable. | The formulation is earth-independent. |
 | Conductor and insulation geometry | Medium 1 occupies ``a\le r\le b`` and medium 2 occupies ``b'\le r\le c``; for bonded media ``b=b'``. The first medium may be solid (``a=0``) or hollow. Both ends are short-circuited for the outer-terminal reduction. | Stated — Fig. 1 and (5)–(10), printed pp. 1523–1524. |
-| Constitutive and field assumptions | Linear isotropic media with ``\eta=\sigma+j\omega\epsilon`` in the appendix; sinusoidal, axially invariant, circularly symmetric fields. The main circuit construction additionally assumes no radial current across the interface and treats each material as an isolated Schelkunoff cylindrical conductor before parallel assembly. | Stated — (1), Fig. 10, and (A.1)–(A.3), printed pp. 1524, 1530. |
+| Constitutive and field assumptions | Linear isotropic media with ``\eta=\sigma+j\omega\varepsilon`` in the appendix; sinusoidal, axially invariant, circularly symmetric fields. The main circuit construction additionally assumes no radial current across the interface and treats each material as an isolated Schelkunoff cylindrical conductor before parallel assembly. | Stated — (1), Fig. 10, and (A.1)–(A.3), printed pp. 1524, 1530. |
 | Conventions | ``d/dt=j\omega`` and fields vary as ``e^{j\omega t}``; infinitely long conductor on the ``z`` axis; inner and outer surface currents/orientations are those of (A.8)–(A.10); impedances are per unit length in ``\Omega/\mathrm m``. | Stated — appendix opening and (A.8)–(A.10), printed pp. 1530–1531. |
 
 **Expression.** Source equations (8)–(10), assembled from the component surface impedances in (3); the direct Maxwell witness is (A.11)–(A.13).
@@ -55,7 +55,7 @@ Z_m=\frac{\rho_1\rho_2}{2\pi abcD},
 \qquad\text{(A.11)}
 
 m_n^2=j\omega\mu_n\eta_n-\Gamma^2,
-\qquad \eta_n=\sigma_n+j\omega\epsilon_n,
+\qquad \eta_n=\sigma_n+j\omega\varepsilon_n,
 \qquad\text{(A.2--A.3)}
 
 m_n^2\simeq j\omega\mu_n\sigma_n=\frac{j\omega\mu_n}{\rho_n}
@@ -64,7 +64,7 @@ m_n^2\simeq j\omega\mu_n\sigma_n=\frac{j\omega\mu_n}{\rho_n}
 
 The complete source definitions of ``D,E,F,G,H,P,Q,R,S`` are retained below. In the circuit form, every ``z_{ni}``, ``z_{no}``, and ``z_{nm}`` is the corresponding single-layer inner, outer, or transfer surface impedance. The source obtains (9) after setting ``b=b'`` and therefore ``z_{12}=0``.
 
-**Approximation.** Appendix (A.11) is the direct Maxwell/Bessel representation with ``\Gamma`` and intrinsic admittance retained. The main-text construction (9)–(10) is algebraically equivalent under the paper's stated good-conductor and penetration-depth assumptions: ``j\omega\mu\sigma\gg\omega^2\mu\epsilon+\Gamma^2`` and no radial current between media. It is a model reduction, not merely a notation change.
+**Approximation.** Appendix (A.11) is the direct Maxwell/Bessel representation with ``\Gamma`` and intrinsic admittance retained. The main-text construction (9)–(10) is algebraically equivalent under the paper's stated good-conductor and penetration-depth assumptions: ``j\omega\mu\sigma\gg\omega^2\mu\varepsilon+\Gamma^2`` and no radial current between media. It is a model reduction, not merely a notation change.
 
 **Limitations.** Perfect concentric circular geometry and axial invariance exclude sector, strand, and proximity effects. The no-radial-current assumption is tied to ``d>c-b'``. The paper states a practical below-1-GHz observation for its cited semiconductor dimensions, not a universal frequency guarantee. The stable circuit expression requires independently defined single-layer surface terms.
 
@@ -108,8 +108,8 @@ The boundary relations from which (A.11) is solved are continuity ``E_{z1}(x_2)=
 | ``Z_{in},Z_{out},Z_m`` | unchanged | Inner, outer, and transfer surface impedances of the bonded composite | ``\Omega/\mathrm m`` |
 | ``z_{ni},z_{no},z_{nm}`` | unchanged | Single-layer inner, outer, and transfer surface terms for medium ``n`` | ``\Omega/\mathrm m`` |
 | ``a,b,b',c`` | unchanged | Successive cylindrical radii | m; bonded case ``b=b'`` |
-| ``\rho_n,\mu_n,\epsilon_n,\sigma_n`` | unchanged | Resistivity, permeability, permittivity, conductivity of medium ``n`` | SI |
-| ``\eta_n`` | unchanged | Intrinsic admittance ``\sigma_n+j\omega\epsilon_n`` | ``\mathrm{S/m}`` |
+| ``\rho_n,\mu_n,\varepsilon_n,\sigma_n`` | unchanged | Resistivity, permeability, permittivity, conductivity of medium ``n`` | SI |
+| ``\eta_n`` | unchanged | Intrinsic admittance ``\sigma_n+j\omega\varepsilon_n`` | ``\mathrm{S/m}`` |
 | ``m_n,x_1,\ldots,x_4`` | unchanged | Radial propagation and Bessel arguments | ``m_n`` in ``\mathrm m^{-1}``; ``x_k`` dimensionless |
 | ``I_n,K_n`` | unchanged | Modified Bessel functions of order ``n`` | dimensionless |
 | ``\Gamma`` | unchanged | Impressed longitudinal propagation constant | ``\mathrm m^{-1}`` |

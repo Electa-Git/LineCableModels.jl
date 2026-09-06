@@ -1,6 +1,6 @@
 # Martins-Britto–Papadopoulos–Chrysochos mixed potential coefficient
 
-## Identity and source
+## Identification and source
 
 | Field | Value |
 | --- | --- |
@@ -20,8 +20,8 @@
 | Field | Treatment | Evidence |
 | --- | --- | --- |
 | Impressed longitudinal propagation constant ``Γ`` | Retained as ``\gamma_x=jk_x``; numerical examples set ``k_x=0``. | Stated — p. 984 and §III, p. 985. |
-| Air propagation constant ``γ_air`` | ``\gamma_0=\sqrt{j\omega\mu_0(\sigma_0+j\omega\epsilon_0)}``; retained in ``a_0`` and (6). | Stated — p. 984. |
-| Earth propagation constant ``γ_earth`` | ``\gamma_1=\sqrt{j\omega\mu_1(\sigma_1+j\omega\epsilon_1)}``; retained in ``a_1`` and (6). | Stated — p. 984. |
+| Air propagation constant ``γ_air`` | ``\gamma_0=\sqrt{j\omega\mu_0(\sigma_0+j\omega\varepsilon_0)}``; retained in ``a_0`` and (6). | Stated — p. 984. |
+| Earth propagation constant ``γ_earth`` | ``\gamma_1=\sqrt{j\omega\mu_1(\sigma_1+j\omega\varepsilon_1)}``; retained in ``a_1`` and (6). | Stated — p. 984. |
 | Earth permittivity and displacement current | Retained in ``\gamma_1`` and hence the mixed potential kernel. | Stated/equation-implied — definition p. 984 and (6). |
 | Range of validity | Quasi-TEM derivation; Appendix A reports prior support up to 10 MHz for dominant transmission-line modes. Validation here spans 1 kHz–1 MHz. These are stated/tested ranges, not universal guarantees. | Stated — Appendix A p. 990 and §III.A p. 985. |
 | Earth permeability ``μ_earth`` | Independent ``\mu_1`` retained. | Stated — (6). |
@@ -51,7 +51,7 @@ After assembling same-medium terms (2a), (4a), the mixed terms (6), and the inte
 \qquad\text{(7)}
 ```
 
-Here ``\gamma_k=\sqrt{j\omega\mu_k(\sigma_k+j\omega\epsilon_k)}``, ``a_k=\sqrt{\lambda^2+\gamma_k^2+k_x^2}``, and ``\gamma_x=jk_x``.
+Here ``\gamma_k=\sqrt{j\omega\mu_k(\sigma_k+j\omega\varepsilon_k)}``, ``a_k=\sqrt{\lambda^2+\gamma_k^2+k_x^2}``, and ``\gamma_x=jk_x``.
 
 **Approximation.** Not an analytical approximation after the source's quasi-TEM, infinite-thin-conductor, homogeneous-medium assumptions. Setting ``k_x=0`` is a separate numerical prescription used in the examples, not applied to the displayed general coefficient.
 

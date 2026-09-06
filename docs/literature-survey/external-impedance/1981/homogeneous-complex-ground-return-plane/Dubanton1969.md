@@ -1,6 +1,6 @@
 # Déri–Tevan–Semlyen–Castanheira homogeneous complex ground-return plane
 
-## Identity and source
+## Identification and source
 
 | Field | Value |
 | --- | --- |
