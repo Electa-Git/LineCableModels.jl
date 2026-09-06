@@ -1,5 +1,7 @@
 #!/usr/bin/env node
 
+import { assertPublishedText } from "./published_text_contract.mjs";
+
 const baseUrl = process.argv[2] ?? "http://127.0.0.1:8080";
 const debuggingUrl = process.argv[3] ?? "http://127.0.0.1:9222";
 
@@ -444,6 +446,7 @@ try {
     await navigate(devtools, `${baseUrl}/`, "#quarto-sidebar");
     const baseline = await waitForPalette(devtools, theme);
     assert(baseline.theme === theme, `home did not resolve ${theme} theme`);
+    await assertPublishedText(devtools, 'h1.title');
     const shell = await inspectShell(devtools);
     assert(Math.abs(shell.sidebarTop) <= 1, `${theme} sidebar does not start at viewport top`);
     assert(
@@ -465,6 +468,9 @@ try {
     const specimens = {};
     for (const [route, selector] of routes) {
       await navigate(devtools, `${baseUrl}${route}`, selector);
+      assert(await evaluate(devtools, `![...document.styleSheets].some(
+        sheet => sheet.href?.endsWith('/published-text.css'))`),
+        `${route} incorrectly imported published-page caret policy`);
       const palette = await waitForPalette(devtools, theme);
       assert(palette.theme === theme, `${route} did not resolve ${theme} theme`);
       assert(palette.text === baseline.text, `${route} text token drifted in ${theme}`);

@@ -1,0 +1,122 @@
+.lcm-pointer {
+  position: fixed;
+  z-index: 2147483000;
+  width: 1.15rem;
+  height: 1.15rem;
+  pointer-events: none;
+  opacity: 0;
+  transform: translate(-50%, -50%);
+  transition: opacity 80ms linear;
+}
+
+.lcm-pointer::before,
+.lcm-pointer::after {
+  position: absolute;
+  content: "";
+}
+
+.lcm-pointer::before {
+  inset: 0;
+  border: 2px solid var(--lc-presentation-laser);
+  border-radius: 50%;
+}
+
+.lcm-pointer::after {
+  top: 50%;
+  left: 50%;
+  width: 0.22rem;
+  height: 0.22rem;
+  transform: translate(-50%, -50%);
+  background: var(--lc-presentation-laser);
+  border-radius: 50%;
+}
+
+html.lcm-pointer-enabled .reveal,
+html.lcm-pointer-enabled .reveal *:not(input, select, textarea, button, a) {
+  cursor: none !important;
+}
+
+html.lcm-pointer-enabled .lcm-pointer {
+  opacity: 1;
+}
+
+html.lcm-viewport-settling .lcm-live-viewport {
+  pointer-events: none;
+}
+
+.lcm-deck-status {
+  position: fixed;
+  inset: auto 0 0;
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  height: var(--lcm-deck-status-height);
+  padding: 0 12px;
+  box-sizing: border-box;
+  color: var(--lc-text);
+  background: var(--lc-panel-bg);
+  border-top: 1px solid var(--lc-border);
+  font: 12px/1.2 Lato, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+.lcm-deck-status output { margin-right: auto; color: var(--lc-muted); }
+.lcm-deck-status output::before {
+  content: ""; display: inline-block; width: 6px; height: 6px;
+  margin-right: 7px; border-radius: 50%; background: var(--lc-focus);
+}
+.lcm-deck-status[data-state="busy"] output::before { background: var(--lc-link); }
+.lcm-deck-status[data-state="error"] output::before,
+.lcm-deck-status.lcm-layout-error output::before { background: var(--lc-danger); }
+.lcm-deck-status :is(button, a, select) {
+  min-height: 24px; padding: 2px 6px; font: inherit; color: var(--lc-text);
+  background: var(--lc-panel-bg); border: 1px solid var(--lc-border-soft);
+  border-radius: var(--lc-radius); box-shadow: none; cursor: pointer;
+}
+.lcm-deck-status :is(button, a):hover, .lcm-deck-status button[aria-pressed="true"] {
+  color: var(--lc-focus); border-color: var(--lc-focus);
+}
+.lcm-deck-status :is(button, a, select):focus-visible {
+  outline: 1px solid var(--lc-focus); outline-offset: 2px;
+}
+.lcm-deck-status button:disabled { opacity: 0.45; cursor: default; }
+.lcm-deck-status label { display: flex; align-items: center; gap: 5px; }
+.lcm-deck-home {
+  display: inline-flex; align-items: center; gap: 8px; text-decoration: none;
+}
+.lcm-deck-status .lcm-deck-home { box-sizing: border-box; flex-shrink: 0; }
+.lcm-deck-home svg {
+  width: 16px; height: 16px; fill: none; stroke: currentColor;
+  stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round;
+}
+.lcm-deck-attribution {
+  min-width: 0; max-width: 35vw; overflow: hidden; white-space: nowrap;
+  text-overflow: ellipsis; color: var(--lc-muted);
+}
+@media (max-width: 1000px) { .lcm-deck-attribution { display: none; } }
+/* Vendor menu geometry is retained; appearance uses the site's owned tokens. */
+html[data-lcm-deck-mode] .slide-menu-wrapper { font-family: Lato, "Segoe UI", sans-serif; }
+html[data-lcm-deck-mode] .slide-menu-wrapper .slide-menu {
+  background: var(--lc-panel-bg); color: var(--lc-text);
+  border-right: 1px solid var(--lc-border); box-shadow: none; font-size: 14px;
+}
+html[data-lcm-deck-mode] .slide-menu-wrapper li,
+html[data-lcm-deck-mode] .slide-menu-wrapper ul,
+html[data-lcm-deck-mode] .slide-menu-wrapper kbd {
+  color: var(--lc-text); border-color: var(--lc-border-soft);
+  border-radius: var(--lc-radius); text-shadow: none;
+}
+html[data-lcm-deck-mode] .slide-menu-wrapper a { color: inherit; }
+html[data-lcm-deck-mode] .reveal .controls { color: var(--lc-link); }
+html[data-lcm-deck-mode] .slide-menu-wrapper li:hover,
+html[data-lcm-deck-mode] .slide-menu-wrapper li.selected {
+  background: var(--lc-hover-bg); color: var(--lc-heading);
+}
+html[data-lcm-deck-mode] .slide-menu-wrapper li.active,
+html[data-lcm-deck-mode] .slide-menu-wrapper li.active-toolbar-button { color: var(--lc-focus); }
+html[data-lcm-deck-mode] .slide-menu-wrapper .slide-menu-item-number { color: var(--lc-muted); }
+html[data-lcm-resolved-theme="light"] .slide-menu-toolbar .fas::before { filter: invert(1); }
+html[data-lcm-deck-mode] .reveal > .overlay {
+  background: var(--lc-panel-bg); color: var(--lc-text); backdrop-filter: none;
+}
+html[data-lcm-deck-mode] .reveal > .overlay.overlay-help .viewport { color: var(--lc-text); }
+html[data-lcm-resolved-theme="light"] .reveal > .overlay header a .icon { filter: invert(1); }

@@ -17,6 +17,7 @@ end
     @test occursin("worker", general)
     @test occursin("nats", general)
     @test occursin("container", general)
+    @test occursin("presentation", general)
     @test !occursin("linecablemodels ", general)
 
     _, playground = captured_cli(["playground", "--help"])
@@ -48,6 +49,13 @@ end
     @test occursin("--runtime RUNTIME", container)
     @test occursin("docker", container)
     @test occursin("podman", container)
+
+    _, presentation = captured_cli(["presentation", "--help"])
+    @test occursin("lcm presentation build", presentation)
+    @test occursin("lcm presentation start", presentation)
+    @test occursin("lcm presentation check", presentation)
+    @test occursin("lcm presentation export", presentation)
+    @test occursin("LCM_BROWSER", presentation)
 
     @test_throws ArgumentError LineCableModelsPlayground.run_cli(["runtime", "status"])
     @test_throws ArgumentError LineCableModelsPlayground.run_cli(["unknown", "action"])

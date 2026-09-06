@@ -37,6 +37,22 @@ body {
   gap: 1rem;
 }
 
+/* Embedded presentations own the viewport height. Only overflowing controls
+ * scroll; the header and frame border remain intact at projector resolutions. */
+html.lcm-deck-embedded, html.lcm-deck-embedded body {
+  height: 100%; min-height: 0; overflow: hidden;
+}
+html.lcm-deck-embedded .lc-widget-shell {
+  height: 100dvh; min-height: 0; padding: 16px; gap: 12px;
+}
+html.lcm-deck-embedded .lc-widget-content {
+  min-height: 0; overflow: auto; scrollbar-gutter: stable;
+}
+html.lcm-deck-embedded .lc-presentation-probe,
+html.lcm-deck-embedded .lc-presentation-probe canvas { min-height: 0; }
+html.lcm-deck-laser body,
+html.lcm-deck-laser body *:not(input, select, textarea, button, a) { cursor: none !important; }
+
 .lc-widget-kicker {
   color: var(--lc-widget-focus);
   font-family: "JuliaMono", "SFMono-Regular", Consolas, monospace;
@@ -284,253 +300,6 @@ body {
   color: var(--lc-widget-muted);
 }
 
-.lc-toolbar {
-  --lc-toolbar-control: 2.45rem;
-  --lc-toolbar-icon: 1.05rem;
-  --lc-toolbar-pad-inline: 0.65rem;
-  display: flex;
-  width: max-content;
-  max-width: 100%;
-  padding: 0.28rem;
-  align-items: stretch;
-  gap: 0.25rem;
-  color: var(--lc-widget-text);
-  background: var(--lc-console-bg);
-  border: 1px solid var(--lc-widget-border);
-  border-radius: 3px;
-  user-select: none;
-  -webkit-user-select: none;
-}
-
-.lc-toolbar * {
-  user-select: inherit;
-  -webkit-user-select: inherit;
-}
-
-.lc-toolbar-horizontal {
-  flex-flow: row wrap;
-}
-
-.lc-toolbar-vertical {
-  flex-direction: column;
-}
-
-.lc-toolbar-small {
-  --lc-toolbar-control: 2rem;
-  --lc-toolbar-icon: 0.88rem;
-  --lc-toolbar-pad-inline: 0.5rem;
-  font-size: 0.74rem;
-}
-
-.lc-toolbar-medium {
-  font-size: 0.82rem;
-}
-
-.lc-toolbar-large {
-  --lc-toolbar-control: 2.9rem;
-  --lc-toolbar-icon: 1.25rem;
-  --lc-toolbar-pad-inline: 0.82rem;
-  font-size: 0.9rem;
-}
-
-.lc-toolbar-button,
-.lc-toolbar-dropdown,
-.lc-toolbar-toggle,
-.lc-toolbar-number {
-  min-width: 0;
-  height: var(--lc-toolbar-control);
-  color: var(--lc-widget-text);
-  background: var(--lc-toolbar-bg);
-  border: 1px solid var(--lc-border-soft);
-  border-radius: 2px;
-}
-
-.lc-toolbar-button {
-  display: inline-flex;
-  width: auto;
-  margin: 0;
-  padding: 0 var(--lc-toolbar-pad-inline);
-  align-items: center;
-  justify-content: center;
-  font: inherit;
-  cursor: pointer;
-}
-
-.lc-toolbar-button-icon-only {
-  width: var(--lc-toolbar-control);
-  padding: 0;
-}
-
-.lc-toolbar-button-content,
-.lc-toolbar-dropdown,
-.lc-toolbar-toggle {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.45rem;
-}
-
-.lc-toolbar-button-label,
-.lc-toolbar-dropdown-label {
-  line-height: 1;
-  white-space: nowrap;
-}
-
-.lc-toolbar-dropdown {
-  padding-left: var(--lc-toolbar-pad-inline);
-  overflow: hidden;
-}
-
-.lc-toolbar-toggle {
-  display: inline-flex;
-  padding: 0 var(--lc-toolbar-pad-inline);
-  align-items: center;
-  gap: 0.45rem;
-  cursor: pointer;
-}
-
-.lc-toolbar-toggle input {
-  width: 0.95rem;
-  height: 0.95rem;
-  margin: 0 0 0 0.15rem;
-  accent-color: var(--lc-widget-focus);
-}
-
-.lc-toolbar-toggle-icon {
-  display: inline-flex;
-}
-
-.lc-toolbar-number {
-  display: grid;
-  height: auto;
-  min-height: var(--lc-toolbar-control);
-  padding: 0.24rem var(--lc-toolbar-pad-inline);
-  align-content: center;
-  gap: 0.18rem;
-}
-
-.lc-toolbar-number-label {
-  color: var(--lc-widget-muted);
-  font-size: 0.68em;
-  line-height: 1;
-}
-
-.lc-toolbar-number-field {
-  display: flex;
-  min-width: 0;
-  align-items: center;
-}
-
-.lc-toolbar-number-input {
-  width: 5rem;
-  min-width: 0;
-  padding: 0;
-  color: var(--lc-widget-heading);
-  background: transparent;
-  border: 0;
-  outline: none;
-  font: inherit;
-  font-family: "JuliaMono", "SFMono-Regular", Consolas, monospace;
-}
-
-.lc-toolbar-number-unit {
-  color: var(--lc-widget-muted);
-  font-family: "JuliaMono", "SFMono-Regular", Consolas, monospace;
-  font-size: 0.76em;
-}
-
-.lc-toolbar-dropdown-label {
-  color: var(--lc-widget-muted);
-}
-
-.lc-toolbar-icon {
-  width: var(--lc-toolbar-icon);
-  height: var(--lc-toolbar-icon);
-  flex: 0 0 auto;
-}
-
-.lc-toolbar-select {
-  width: auto;
-  min-width: 5.5rem;
-  height: 100%;
-  margin: 0;
-  padding: 0 1.9rem 0 0.15rem;
-  color: var(--lc-widget-heading);
-  background: transparent;
-  border: 0;
-  border-radius: 0;
-  font: inherit;
-  cursor: pointer;
-}
-
-.lc-toolbar-separator {
-  width: 1px;
-  margin: 0.3rem 0.12rem;
-  align-self: stretch;
-  background: var(--lc-border-soft);
-}
-
-.lc-toolbar-vertical .lc-toolbar-separator {
-  width: auto;
-  height: 1px;
-  margin: 0.12rem 0.3rem;
-}
-
-.lc-toolbar-button:hover,
-.lc-toolbar-dropdown:hover,
-.lc-toolbar-toggle:hover,
-.lc-toolbar-number:hover {
-  color: var(--lc-strong-text);
-  background: var(--lc-hover-bg-strong);
-  border-color: var(--lc-border);
-}
-
-.lc-toolbar-button-active,
-.lc-toolbar-button-active:hover {
-  color: var(--lc-accent-ink);
-  background: var(--lc-widget-focus);
-  border-color: var(--lc-widget-focus);
-}
-
-.lc-toolbar-button-busy {
-  position: relative;
-  padding-right: calc(var(--lc-toolbar-pad-inline) + 1rem);
-}
-
-.lc-toolbar-button-busy::after {
-  position: absolute;
-  width: 0.7rem;
-  height: 0.7rem;
-  right: 0.45rem;
-  border: 1px solid currentColor;
-  border-right-color: transparent;
-  border-radius: 50%;
-  content: "";
-  animation: lc-toolbar-spin 0.8s linear infinite;
-}
-
-.lc-toolbar-control-disabled,
-.lc-toolbar-button:disabled {
-  cursor: not-allowed;
-  opacity: 0.46;
-}
-
-@keyframes lc-toolbar-spin {
-  to { transform: rotate(360deg); }
-}
-
-.lc-toolbar-button:focus-visible {
-  outline: 2px solid rgb(78 181 222 / 55%);
-  outline-offset: 1px;
-}
-
-.lc-toolbar-select:focus-visible {
-  outline: none;
-}
-
-.lc-toolbar-dropdown:focus-within {
-  border-color: var(--lc-widget-focus);
-  box-shadow: 0 0 0 1px rgb(78 181 222 / 45%);
-}
 
 .lc-toggle-line {
   display: flex;
@@ -996,6 +765,38 @@ body {
   min-height: 19rem;
 }
 
+.lc-presentation-probe {
+  position: relative;
+  display: grid;
+  min-width: 0;
+  min-height: 18rem;
+  height: 100%;
+  overflow: hidden;
+  background: var(--lc-sunken-bg);
+  border: 1px solid var(--lc-border);
+}
+
+.lc-presentation-probe canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+  min-height: 18rem;
+  outline: 0;
+  touch-action: none;
+}
+
+.lc-presentation-probe output {
+  position: absolute;
+  right: 0.65rem;
+  bottom: 0.65rem;
+  padding: 0.3rem 0.45rem;
+  color: var(--lc-widget-muted);
+  background: var(--lc-panel-bg);
+  border: 1px solid var(--lc-border-soft);
+  font-family: "JuliaMono", "SFMono-Regular", Consolas, monospace;
+  font-size: 0.68rem;
+}
+
 @media (max-width: 480px) {
   .lc-widget-header {
     align-items: start;
@@ -1105,6 +906,64 @@ function widget_theme_script()
     """)
 end
 
+function widget_deck_lifecycle_script()
+    return DOM.script(js"""
+    (() => {
+        const accepted = new Set([
+            'lcm:slide-enter',
+            'lcm:slide-leave',
+            'lcm:viewport-settling',
+            'lcm:viewport-settled',
+            'lcm:print-mode',
+            'lcm:host-ready',
+            'lcm:theme'
+        ]);
+        const counts = Object.create(null);
+        const root = document.documentElement;
+
+        window.addEventListener('message', event => {
+            if (event.source !== window.parent || event.origin !== window.location.origin) return;
+            const message = event.data;
+            if (!message || message.namespace !== 'lcm-deck' || !accepted.has(message.type)) return;
+            root.classList.add('lcm-deck-embedded');
+            if (message.type === 'lcm:host-ready') {
+                window.parent.postMessage({
+                    namespace: 'lcm-deck', type: 'lcm:child-ready'
+                }, window.location.origin);
+                return;
+            }
+            if (message.type === 'lcm:theme') {
+                const detail = message.detail || {};
+                if (!['dark', 'light', 'system'].includes(detail.preference) ||
+                    !['dark', 'light'].includes(detail.resolved)) return;
+                root.dataset.lcmTheme = detail.preference;
+                root.dataset.lcmResolvedTheme = detail.resolved;
+                window.dispatchEvent(new CustomEvent('lcm:theme-changed', { detail }));
+                return;
+            }
+            counts[message.type] = (counts[message.type] || 0) + 1;
+            const eventName = message.type.replace(/^lcm:/, '').split('-')
+                .map(part => part.charAt(0).toUpperCase() + part.slice(1)).join('');
+            root.dataset.lcmDeckEvent = message.type;
+            root.dataset.lcmDeckEventCount = String(counts[message.type]);
+            root.dataset[`lcmDeck${eventName}Count`] = String(counts[message.type]);
+            if (message.type === 'lcm:slide-enter') root.classList.add('lcm-deck-visible');
+            if (message.type === 'lcm:slide-leave') root.classList.remove('lcm-deck-visible');
+            if (message.type === 'lcm:viewport-settling') root.classList.add('lcm-deck-settling');
+            if (message.type === 'lcm:viewport-settled') root.classList.remove('lcm-deck-settling');
+            window.dispatchEvent(new CustomEvent(message.type, { detail: message.detail || {} }));
+        });
+
+        if (window.parent !== window) {
+            window.parent.postMessage({
+                namespace: 'lcm-deck',
+                type: 'lcm:child-ready'
+            }, window.location.origin);
+        }
+    })();
+    """)
+end
+
 function widget_shell(kicker, title, content)
     return DOM.div(
         DOM.style(BRAND_THEME),
@@ -1112,6 +971,7 @@ function widget_shell(kicker, title, content)
         DOM.style(Toolkit.TOOLKIT_STYLES),
         DOM.style(WIDGET_THEME),
         widget_theme_script(),
+        widget_deck_lifecycle_script(),
         widget_header(kicker, title),
         DOM.div(content; class="lc-widget-content");
         class="lc-widget-shell"

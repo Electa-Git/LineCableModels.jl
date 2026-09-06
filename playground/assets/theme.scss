@@ -27,7 +27,6 @@ body {
   margin: 0;
   overflow: hidden;
   background: var(--lc-bg);
-  caret-color: transparent;
   cursor: default;
 }
 
@@ -763,71 +762,6 @@ body.lc-home .quarto-title-block,
   --bs-link-color: var(--lc-link);
 }
 
-div.sourceCode,
-pre.sourceCode,
-pre:not(.sourceCode),
-code:not(pre code) {
-  color: var(--lc-code-text);
-  background: var(--lc-code-bg) !important;
-  border-color: var(--lc-border-soft);
-}
-
-pre.sourceCode > code,
-code.sourceCode,
-code.sourceCode > span {
-  color: var(--lc-code-text) !important;
-}
-
-code.sourceCode span.al,
-code.sourceCode span.er {
-  color: var(--lc-code-alert) !important;
-}
-
-code.sourceCode span.co,
-code.sourceCode span.cv,
-code.sourceCode span.do,
-code.sourceCode span.in {
-  color: var(--lc-code-comment) !important;
-}
-
-code.sourceCode span.cf,
-code.sourceCode span.dt,
-code.sourceCode span.fu,
-code.sourceCode span.kw,
-code.sourceCode span.op,
-code.sourceCode span.ot {
-  color: var(--lc-code-keyword) !important;
-}
-
-code.sourceCode span.ch,
-code.sourceCode span.im,
-code.sourceCode span.sc,
-code.sourceCode span.ss,
-code.sourceCode span.st,
-code.sourceCode span.va,
-code.sourceCode span.vs {
-  color: var(--lc-code-string) !important;
-}
-
-code.sourceCode span.an,
-code.sourceCode span.bn,
-code.sourceCode span.cn,
-code.sourceCode span.dv,
-code.sourceCode span.fl {
-  color: var(--lc-code-number) !important;
-}
-
-code.sourceCode span.at,
-code.sourceCode span.bu,
-code.sourceCode span.ex {
-  color: var(--lc-code-name) !important;
-}
-
-code.sourceCode span.pp,
-code.sourceCode span.re,
-code.sourceCode span.wa {
-  color: var(--lc-code-preprocessor) !important;
-}
 
 .code-copy-button {
   color: var(--lc-muted) !important;
@@ -973,33 +907,34 @@ body.lc-widget-gallery #quarto-document-content > section.level2 > p {
   margin: 0 0 0.75rem;
 }
 
-/* The workbench index is reference documentation, so its sections flow as a
- * document. Quarto's default two-row page grid otherwise makes later code
+/* Reference documentation uses normal section flow. The shared document class
+ * also serves presentation guides and galleries with explanatory sections.
+ * Quarto's default two-row page grid otherwise makes later code
  * blocks compete with the introductory panels for the viewport height. */
-body.lc-workbench-index main#quarto-document-content {
+body:is(.lc-workbench-index, .lc-document-page) main#quarto-document-content {
   display: block;
 }
 
-body.lc-workbench-index .quarto-title-block,
-body.lc-workbench-index main#quarto-document-content > .lc-layout,
-body.lc-workbench-index main#quarto-document-content > section.level2 {
+body:is(.lc-workbench-index, .lc-document-page) .quarto-title-block,
+body:is(.lc-workbench-index, .lc-document-page) main#quarto-document-content > .lc-layout,
+body:is(.lc-workbench-index, .lc-document-page) main#quarto-document-content > section.level2 {
   width: min(100%, 92rem);
   margin-inline: auto;
 }
 
-body.lc-workbench-index .quarto-title-block {
+body:is(.lc-workbench-index, .lc-document-page) .quarto-title-block {
   margin-bottom: 1rem !important;
 }
 
-body.lc-workbench-index main#quarto-document-content > .lc-layout {
+body:is(.lc-workbench-index, .lc-document-page) main#quarto-document-content > .lc-layout {
   min-height: 0;
 }
 
-body.lc-workbench-index main#quarto-document-content > section.level2 {
+body:is(.lc-workbench-index, .lc-document-page) main#quarto-document-content > section.level2 {
   margin-top: 1rem;
 }
 
-body.lc-workbench-index .lc-template-panel {
+body:is(.lc-workbench-index, .lc-document-page) .lc-template-panel {
   overflow: visible;
 }
 

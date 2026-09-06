@@ -22,6 +22,13 @@ local function valid_height(value)
     unit == "dvh" or unit == "%"
 end
 
+local function valid_public_url(value)
+  if value:sub(1, 1) == "/" and value:sub(1, 2) ~= "//" then
+    return true
+  end
+  return value:match("^https://") ~= nil or value:match("^http://") ~= nil
+end
+
 return {
   bonito = function(args, kwargs)
     if not quarto.doc.is_format("html:js") then
@@ -53,6 +60,35 @@ return {
     local title = stringify(kwargs.title)
     if title == "" then
       title = "Live Bonito widget"
+    end
+
+    local public_url = stringify(kwargs["public-url"])
+    if public_url ~= "" and not valid_public_url(public_url) then
+      return quarto.shortcode.error_output(
+        "bonito",
+        "public-url must be an absolute same-origin path or an http(s) URL",
+        "block"
+      )
+    end
+
+    if public_url ~= "" then
+      local html = string.format(
+        '<figure class="lcm-live-viewport" data-lcm-live="true" data-lcm-title="%s">' ..
+        '<iframe class="lc-widget-frame" data-lcm-src="%s" title="%s" allowfullscreen ' ..
+        'style="--lc-widget-height: %s;"></iframe>' ..
+        '<figcaption class="lcm-live-placeholder">' ..
+        '<strong>%s</strong>' ..
+        '<span>Interactive view omitted from this static presentation surface.</span>' ..
+        '<a href="%s">Open in the LineCableModels playground</a>' ..
+        '</figcaption></figure>',
+        escape_attribute(title),
+        escape_attribute(route),
+        escape_attribute(title),
+        escape_attribute(height),
+        escape_attribute(title),
+        escape_attribute(public_url)
+      )
+      return pandoc.RawBlock("html", html)
     end
 
     local html = string.format(

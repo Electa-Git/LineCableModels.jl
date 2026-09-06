@@ -156,6 +156,7 @@ function Ribbon(
         :id => ribbon_id,
     )
     root = DOM.section(
+        DOM.style(TOOLBAR_STYLES),
         DOM.style(RIBBON_STYLES),
         DOM.header(
             quick,

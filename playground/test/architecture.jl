@@ -130,6 +130,21 @@
         String
     ))
 
+    presentation_source = joined_sources(
+        joinpath(root, "_extensions", "lcm-deck"),
+        (".lua", ".js", ".css", ".scss", ".yml")
+    )
+    @test !occursin(r"(?m)^\s*(?:using|import)\s+(?:NATS|LineCableModels|PowerImpedance)\b",
+        presentation_source)
+    @test !occursin("nats://", lowercase(presentation_source))
+    @test occursin("disable-layout: true", presentation_source)
+    @test occursin("data-lcm-src", read(
+        joinpath(root, "_extensions", "bonito", "bonito.lua"), String
+    ))
+    @test occursin("broker_enabled=false", read(
+        joinpath(root, "src", "LineCableModelsPlayground.jl"), String
+    ))
+
     job_controls = read(
         joinpath(root, "src", "widgets", "JobControls.jl"),
         String

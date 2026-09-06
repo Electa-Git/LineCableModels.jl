@@ -44,6 +44,7 @@ include("power_system_canvas.jl")
 include("console.jl")
 include("artifacts.jl")
 include("container_runtime.jl")
+include("presentation.jl")
 include("broker/Subjects.jl")
 include("broker/ConnectionState.jl")
 include("broker/JobHandle.jl")
@@ -244,6 +245,24 @@ function usage(io::IO=stdout; feature::Union{Nothing,String}=nothing)
         println(io, "  --volumes           Also remove persistent deployment volumes")
         println(io)
         println(io, "LCM_CONTAINER_RUNTIME sets the default runtime selection.")
+    elseif feature == "presentation"
+        println(io, "Usage:")
+        println(io, "  lcm presentation build [SOURCE] [--quiet]")
+        println(io, "  lcm presentation start [SOURCE] [options]")
+        println(io, "  lcm presentation check [SOURCE] [--quiet]")
+        println(io, "  lcm presentation export [SOURCE] --pdf [--output FILE] [--quiet]")
+        println(io)
+        println(io, "SOURCE defaults to presentations/specimen.qmd.")
+        println(io)
+        println(io, "Start options:")
+        println(io, "  --host HOST         Bind address (default: HOST or 127.0.0.1)")
+        println(io, "  --port PORT         Listening port (default: PORT or 8080)")
+        println(io, "  --proxy-url URL     Public Bonito URL (default: PROXY_URL or auto-detected)")
+        println(io, "  --no-render         Serve an existing presentation build")
+        println(io, "  --no-open           Do not open the default browser")
+        println(io, "  -h, --help          Show this help")
+        println(io)
+        println(io, "LCM_BROWSER selects Chrome/Chromium for PDF export.")
     else
         println(io, "LineCableModels playground")
         println(io)
@@ -251,6 +270,7 @@ function usage(io::IO=stdout; feature::Union{Nothing,String}=nothing)
         println(io)
         println(io, "Features:")
         println(io, "  playground  Build or serve the Quarto/Bonito publisher")
+        println(io, "  presentation Build, check, serve, or export reusable decks")
         println(io, "  worker      Start an isolated scientific worker")
         println(io, "  nats        Initialize or inspect the JetStream runtime")
         println(io, "  container   Run the isolated stack with Docker or Podman")
@@ -421,10 +441,13 @@ function start_server(;
         proxy_url,
         open_browser,
         render_before_start,
-        xray
+        xray,
+        render_target=nothing,
+        initial_path="/",
+        broker_enabled=true
     )
     if render_before_start
-        render_site()
+        isnothing(render_target) ? render_site() : render_presentation(render_target)
     elseif !isfile(joinpath(SITE_DIR, "index.html"))
         throw(ArgumentError(
             "No rendered site exists. Run `lcm playground build` first."
@@ -432,13 +455,14 @@ function start_server(;
     end
 
     server = Bonito.Server(host, port; proxy_url)
-    broker = BrokerClient()
+    broker = broker_enabled ? BrokerClient() : nothing
     register_workbench_routes!(server; xray)
     register_widget_routes!(server, broker)
+    register_presentation_routes!(server)
     register_artifact_route!(server, default_artifact_gateway())
     register_upload_route!(server)
     register_static_site_routes!(server)
-    url = Bonito.online_url(server, "/")
+    url = Bonito.online_url(server, initial_path)
     println("LineCableModels playground listening at $url")
     open_browser && open_default_browser(url)
 
@@ -447,7 +471,7 @@ function start_server(;
         () -> begin
             closed[] && return nothing
             closed[] = true
-            close!(broker)
+            isnothing(broker) || close!(broker)
             server_only_shutdown()
             return nothing
         end
@@ -468,6 +492,29 @@ function start_server(;
         shutdown()
     end
     return nothing
+end
+
+function parse_presentation_export_options(arguments)
+    pdf = false
+    quiet = false
+    output = nothing
+    index = 1
+    while index <= length(arguments)
+        argument = arguments[index]
+        argument in ("-h", "--help") && return nothing
+        if argument == "--pdf"
+            pdf = true
+        elseif argument == "--quiet"
+            quiet = true
+        elseif argument == "--output" || startswith(argument, "--output=")
+            output, index = option_value(arguments, index, "--output")
+        else
+            throw(ArgumentError("unknown presentation export option: $argument"))
+        end
+        index += 1
+    end
+    pdf || throw(ArgumentError("presentation export currently requires --pdf"))
+    return (; output, quiet)
 end
 
 function run_cli(arguments)
@@ -492,6 +539,45 @@ function run_cli(arguments)
             return usage(; feature="container")
         options = parse_container_options(action, arguments[3:end])
         return run_container_action(action, options)
+    elseif feature == "presentation"
+        length(arguments) == 1 && return usage(; feature="presentation")
+        arguments[2] in ("-h", "--help") && return usage(; feature="presentation")
+        action = arguments[2]
+        action in ("build", "start", "check", "export") ||
+            throw(ArgumentError("unknown presentation action: $action"))
+        source, options = split_presentation_arguments(arguments[3:end])
+        any(option -> option in ("-h", "--help"), options) &&
+            return usage(; feature="presentation")
+
+        if action == "build"
+            all(==("--quiet"), options) || throw(ArgumentError(
+                "unknown presentation build option; only --quiet is supported"
+            ))
+            render_presentation(source; quiet="--quiet" in options)
+            return nothing
+        elseif action == "check"
+            all(==("--quiet"), options) || throw(ArgumentError(
+                "unknown presentation check option; only --quiet is supported"
+            ))
+            check_presentation(source; quiet="--quiet" in options)
+            return nothing
+        elseif action == "export"
+            export_options = parse_presentation_export_options(options)
+            isnothing(export_options) && return usage(; feature="presentation")
+            export_presentation(source; export_options...)
+            return nothing
+        end
+
+        start_options = parse_start_options(options)
+        isnothing(start_options) && return usage(; feature="presentation")
+        html = presentation_output(source)
+        route = "/" * replace(relpath(html, SITE_DIR), '\\' => '/')
+        return start_server(;
+            start_options...,
+            render_target=source,
+            initial_path=route,
+            broker_enabled=false
+        )
     elseif feature != "playground"
         throw(ArgumentError("unknown feature: $feature"))
     end

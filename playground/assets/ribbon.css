@@ -204,7 +204,6 @@
 .lc-ribbon .lc-toolbar-toggle,
 .lc-ribbon .lc-toolbar-number {
   flex: 0 0 auto;
-  background: var(--lc-toolbar-bg);
 }
 
 .lc-ribbon-group-small .lc-toolbar-button,

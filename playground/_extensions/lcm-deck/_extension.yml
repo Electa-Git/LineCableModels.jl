@@ -1,0 +1,35 @@
+title: LineCableModels presentation
+author: LineCableModels contributors
+version: 0.1.0
+quarto-required: ">=1.4.0"
+contributes:
+  formats:
+    revealjs:
+      theme:
+        - default
+        - deck.scss
+      css:
+        - ../../assets/brand.css
+        - ../../assets/control-contract.css
+        - ../../assets/published-text.css
+        - ../../assets/code-theme.css
+      include-in-header: ../../assets/theme-init.html
+      filters:
+        - deck.lua
+      disable-layout: true
+      center: false
+      auto-stretch: false
+      transition: none
+      background-transition: none
+      navigation-mode: linear
+      controls: true
+      controls-layout: edges
+      progress: true
+      hash: true
+      history: true
+      preload-iframes: false
+      view-distance: 100
+      mobile-view-distance: 100
+      slide-level: 2
+      scroll-activation-width: 0
+      controls-tutorial: false

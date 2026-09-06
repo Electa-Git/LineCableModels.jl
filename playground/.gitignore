@@ -2,9 +2,15 @@
 /.quarto/
 !/bootstrap.sh
 !/test/integration/run.sh
+!/test/integration/run-presentation.sh
+!/test/integration/run-ribbon.sh
 !/deploy/remote/generate-dev-certs.sh
 /deploy/remote/certs/
 /deploy/.env
 /deploy/remote/.env
 
 **/*.quarto_ipynb
+
+# Presentation sources are authored inputs, never generated output.
+!/presentations/
+!/presentations/**

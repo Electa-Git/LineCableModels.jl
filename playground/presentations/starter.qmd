@@ -1,0 +1,38 @@
+---
+title: "Presentation title"
+subtitle: "LineCableModels playground"
+format:
+  lcm-deck-revealjs:
+    menu: true
+    notes: true
+    slide-number: c/t
+---
+
+## One clear argument
+
+::: {.lcm-layout-full-canvas}
+::: {.lcm-slot .lcm-slot-panel}
+[CONTEXT]{.lc-eyebrow}
+
+Write ordinary Quarto Markdown here. The named layout owns the geometry.
+:::
+:::
+
+## A persistent live view
+
+::: {.lcm-layout-feature-sidebar}
+::: {.lcm-slot}
+{{< bonito route="/widgets/control-panel" title="Engineering controls" height="100%" public-url="/widgets/control-panel" >}}
+:::
+
+::: {.lcm-slot .lcm-slot-panel}
+[INTERPRETATION]{.lc-eyebrow}
+
+Explain what the live view changes, record units and assumptions, and keep the
+numerical operation behind the playground boundary.
+
+::: {.notes}
+Speaker notes remain ordinary Quarto notes.
+:::
+:::
+:::

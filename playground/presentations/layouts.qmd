@@ -1,0 +1,158 @@
+---
+title: "Reusable slide layouts"
+subtitle: "Copy one slide block into your deck. Layout geometry and styling stay in the shared presentation format."
+body-classes: lc-document-page
+---
+
+## How to use these blocks
+
+Copy `presentations/starter.qmd` to a new file in `presentations/`. Keep its
+`lcm-deck-revealjs` format, then replace or append slides using the blocks below.
+Use the copy button on a code block and replace its example content.
+Each block is **one slide**, not a complete deck or an interactive widget.
+
+The starter currently demonstrates full canvas and feature + sidebar.
+The hostile specimen demonstrates all six layouts. No CSS or JavaScript needs
+to be copied into your deck.
+
+[Back to presentation templates](index.html)
+
+## Full canvas {#full-canvas}
+
+One slot for a figure, live view, or focused argument.
+[Preview this layout](specimen.html#/a-deliberately-long-title-must-wrap-without-asking-the-whole-browser-scene-to-shrink).
+
+```{.markdown shortcodes=false}
+## One clear argument
+
+::: {.lcm-layout-full-canvas}
+::: {.lcm-slot .lcm-slot-panel}
+Your text, figure, or live-view shortcode goes here.
+:::
+:::
+```
+
+## Balanced {#balanced}
+
+Two equally sized slots for side-by-side evidence.
+[Preview this layout](specimen.html#/balanced-evidence).
+
+```{.markdown shortcodes=false}
+## Compare two alternatives
+
+::: {.lcm-layout-balanced}
+::: {.lcm-slot .lcm-slot-panel}
+[Alternative A]{.lcm-panel-title}
+
+First argument or figure.
+:::
+::: {.lcm-slot .lcm-slot-panel}
+[Alternative B]{.lcm-panel-title}
+
+Second argument or figure.
+:::
+:::
+```
+
+## Feature + sidebar {#feature-sidebar}
+
+Two slots: a large working area and a narrower explanation or control panel.
+[Preview this layout](specimen.html#/persistent-live-viewport).
+
+```{.markdown shortcodes=false}
+## Explain a live result
+
+::: {.lcm-layout-feature-sidebar}
+::: {.lcm-slot}
+{{< bonito route="/widgets/control-panel" title="Engineering controls" height="100%" public-url="/widgets/control-panel" >}}
+:::
+::: {.lcm-slot .lcm-slot-panel}
+[INTERPRETATION]{.lc-eyebrow}
+
+Explain the result, assumptions, and units here.
+:::
+:::
+```
+
+This block uses the existing control-panel widget as an example. A plain
+figure or text can occupy the same slot. For distributed PDFs, set
+`public-url` to the absolute URL of your deployed playground.
+
+## Top split {#top-split}
+
+Three slots: a full-width top band, then two columns.
+[Preview this layout](specimen.html#/top-band-plus-two-supporting-regions).
+
+```{.markdown shortcodes=false}
+## One claim, two supporting results
+
+::: {.lcm-layout-top-split}
+::: {.lcm-slot .lcm-slot-panel}
+The main claim or overview figure.
+:::
+::: {.lcm-slot .lcm-slot-panel}
+[Evidence A]{.lcm-panel-title}
+
+First supporting result.
+:::
+::: {.lcm-slot .lcm-slot-panel}
+[Evidence B]{.lcm-panel-title}
+
+Second supporting result.
+:::
+:::
+```
+
+## Dashboard grid {#dashboard-grid}
+
+Four equal slots, arranged in reading order from top left.
+[Preview this layout](specimen.html#/four-panel-dashboard).
+
+```{.markdown shortcodes=false}
+## Four related quantities
+
+::: {.lcm-layout-dashboard-grid}
+::: {.lcm-slot .lcm-slot-panel}
+[R]{.lcm-panel-title}
+
+Resistance.
+:::
+::: {.lcm-slot .lcm-slot-panel}
+[L]{.lcm-panel-title}
+
+Inductance.
+:::
+::: {.lcm-slot .lcm-slot-panel}
+[C]{.lcm-panel-title}
+
+Capacitance.
+:::
+::: {.lcm-slot .lcm-slot-panel}
+[G]{.lcm-panel-title}
+
+Conductance.
+:::
+:::
+```
+
+## Media story {#media-story}
+
+Two slots: a larger media surface beside its narrative.
+[Preview this layout](specimen.html#/media-and-narrative).
+
+```{.markdown shortcodes=false}
+## A figure and its meaning
+
+::: {.lcm-layout-media-story}
+::: {.lcm-slot .lcm-slot-panel}
+![Replace with your figure](../assets/logo.svg)
+:::
+::: {.lcm-slot .lcm-slot-panel}
+[Interpretation]{.lcm-panel-title}
+
+- What the figure shows.
+- Why it matters.
+- What the audience should retain.
+:::
+:::
+```

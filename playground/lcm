@@ -20,7 +20,7 @@ if [[ "${1:-}" == "worker" ]]; then
         --project="${SCRIPT_DIR}/worker" -m LineCableModelsWorker "$@"
 fi
 
-if [[ "${1:-}" != "playground" || "${2:-}" != "start" ]]; then
+if [[ "${2:-}" != "start" || ( "${1:-}" != "playground" && "${1:-}" != "presentation" ) ]]; then
     exec "${JULIA_COMMAND}" --startup-file=no --threads=auto \
         --project="${SCRIPT_DIR}" -m LineCableModelsPlayground "$@"
 fi

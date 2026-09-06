@@ -1,0 +1,23 @@
+/*
+ * Published documents only: keep mouse selection/copying, but do not paint a
+ * browsing caret in read-only prose. Do not load this file in Bonito apps;
+ * widgets/workbenches own their selection and caret behavior.
+ *
+ * control-contract.css restores the caret in editable inputs, textareas, and
+ * contenteditable="true". These additional HTML editing modes belong here
+ * without changing the existing widget contract.
+ */
+html {
+  caret-color: transparent;
+}
+
+[contenteditable=""],
+[contenteditable="plaintext-only"] {
+  caret-color: auto;
+}
+
+[contenteditable="false"],
+input[readonly],
+textarea[readonly] {
+  caret-color: transparent;
+}

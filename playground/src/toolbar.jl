@@ -1,3 +1,7 @@
+const TOOLBAR_STYLES_PATH = normpath(joinpath(@__DIR__, "..", "assets", "toolbar.css"))
+include_dependency(TOOLBAR_STYLES_PATH)
+const TOOLBAR_STYLES = read(TOOLBAR_STYLES_PATH, String)
+
 abstract type AbstractToolbarItem end
 
 struct ToolbarButton <: AbstractToolbarItem
@@ -522,6 +526,7 @@ function toolbar(
         Symbol("data-toolbar-namespace") => string(binding.namespace),
     )
     dom = DOM.div(
+        DOM.style(TOOLBAR_STYLES),
         children...;
         attributes...,
         class="lc-toolbar lc-toolbar-$orientation lc-toolbar-$size",

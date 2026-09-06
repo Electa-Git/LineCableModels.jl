@@ -22,6 +22,7 @@
         joinpath(root, "assets", "power-system-canvas.css"),
         joinpath(root, "assets", "repeater.css"),
         joinpath(root, "assets", "ribbon.css"),
+        joinpath(root, "assets", "toolbar.css"),
         joinpath(root, "assets", "upload.css"),
         joinpath(root, "assets", "forms.css"),
         joinpath(root, "assets", "overlays.css"),
@@ -141,6 +142,10 @@
     end
 
     owned_styles = [
+        joinpath(root, "assets", "code-theme.css"),
+        joinpath(root, "assets", "toolbar.css"),
+        joinpath(root, "_extensions", "lcm-deck", "deck.scss"),
+        joinpath(root, "_extensions", "lcm-deck", "deck-controller.css"),
         joinpath(root, "assets", "theme.scss"),
         joinpath(root, "assets", "geographic-map.css"),
         joinpath(root, "assets", "power-system-canvas.css"),
@@ -188,11 +193,31 @@
     end
 
     theme = read(joinpath(root, "assets", "theme.scss"), String)
+    # Publishing policy is shared by both Quarto formats, never copied into
+    # individual page/deck schemas or imposed on standalone Bonito apps.
+    publishing = read(joinpath(root, "assets", "published-text.css"), String)
+    deck_format = read(joinpath(root, "_extensions", "lcm-deck", "_extension.yml"), String)
+    @test occursin("assets/published-text.css", quarto)
+    @test occursin("assets/published-text.css", deck_format)
+    @test occursin("caret-color: transparent", publishing)
+    @test !occursin("user-select", publishing)
+    @test !occursin("caret-color", theme)
+    @test !occursin("caret-color", read(joinpath(root, "_extensions", "lcm-deck", "deck.scss"), String))
+    for subtree in ("templates", joinpath("_extensions", "lcm-deck"))
+        for (directory, _, files) in walkdir(joinpath(root, subtree)), file in files
+            endswith(file, ".css") || endswith(file, ".scss") || continue
+            @test !occursin("caret-color", read(joinpath(directory, file), String))
+        end
+    end
+    @test !occursin("published-text.css", widget_sources)
+    @test !occursin("published-text.css", workbench_sources)
     collapsible = read(
         joinpath(root, "templates", "components", "collapsible-sidebar.css"),
         String
     )
-    @test occursin("code.sourceCode span.kw", theme)
+    code_theme = read(joinpath(root, "assets", "code-theme.css"), String)
+    @test occursin("code.sourceCode span.kw", code_theme)
+    @test occursin("assets/code-theme.css", quarto)
     @test occursin(".quarto-title-block .code-tools-button:hover", theme)
     @test occursin("background: var(--lc-cs-active)", collapsible)
     @test occursin("background: var(--lc-cs-hover)", collapsible)

@@ -1,0 +1,255 @@
+/* Shared toolbar controls and states. Ribbons compose these controls; their
+ * stylesheet owns layout and sizing, never overrides command-state colors. */
+
+:where(.lc-toolbar, .lc-ribbon) {
+  --lc-toolbar-control: 2.45rem;
+  --lc-toolbar-icon: 1.05rem;
+  --lc-toolbar-pad-inline: 0.65rem;
+}
+
+.lc-toolbar {
+  display: flex;
+  width: max-content;
+  max-width: 100%;
+  padding: 0.28rem;
+  align-items: stretch;
+  gap: 0.25rem;
+  color: var(--lc-widget-text);
+  background: var(--lc-console-bg);
+  border: 1px solid var(--lc-widget-border);
+  border-radius: var(--lc-radius);
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.lc-toolbar * {
+  user-select: inherit;
+  -webkit-user-select: inherit;
+}
+
+.lc-toolbar-horizontal {
+  flex-flow: row wrap;
+}
+
+.lc-toolbar-vertical {
+  flex-direction: column;
+}
+
+.lc-toolbar-small {
+  --lc-toolbar-control: 2rem;
+  --lc-toolbar-icon: 0.88rem;
+  --lc-toolbar-pad-inline: 0.5rem;
+  font-size: 0.74rem;
+}
+
+.lc-toolbar-medium {
+  font-size: 0.82rem;
+}
+
+.lc-toolbar-large {
+  --lc-toolbar-control: 2.9rem;
+  --lc-toolbar-icon: 1.25rem;
+  --lc-toolbar-pad-inline: 0.82rem;
+  font-size: 0.9rem;
+}
+
+.lc-toolbar-button,
+.lc-toolbar-dropdown,
+.lc-toolbar-toggle,
+.lc-toolbar-number {
+  min-width: 0;
+  height: var(--lc-toolbar-control);
+  color: var(--lc-widget-text);
+  background: var(--lc-toolbar-bg);
+  border: 1px solid var(--lc-border-soft);
+  border-radius: var(--lc-radius);
+}
+
+.lc-toolbar-button {
+  display: inline-flex;
+  width: auto;
+  margin: 0;
+  padding: 0 var(--lc-toolbar-pad-inline);
+  align-items: center;
+  justify-content: center;
+  font: inherit;
+  cursor: pointer;
+}
+
+.lc-toolbar-button-icon-only {
+  width: var(--lc-toolbar-control);
+  padding: 0;
+}
+
+.lc-toolbar-button-content,
+.lc-toolbar-dropdown,
+.lc-toolbar-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+}
+
+.lc-toolbar-button-label,
+.lc-toolbar-dropdown-label {
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.lc-toolbar-dropdown {
+  padding-left: var(--lc-toolbar-pad-inline);
+  overflow: hidden;
+}
+
+.lc-toolbar-toggle {
+  display: inline-flex;
+  padding: 0 var(--lc-toolbar-pad-inline);
+  align-items: center;
+  gap: 0.45rem;
+  cursor: pointer;
+}
+
+.lc-toolbar-toggle input {
+  width: 0.95rem;
+  height: 0.95rem;
+  margin: 0 0 0 0.15rem;
+  accent-color: var(--lc-widget-focus);
+}
+
+.lc-toolbar-toggle-icon {
+  display: inline-flex;
+}
+
+.lc-toolbar-number {
+  display: grid;
+  height: auto;
+  min-height: var(--lc-toolbar-control);
+  padding: 0.24rem var(--lc-toolbar-pad-inline);
+  align-content: center;
+  gap: 0.18rem;
+}
+
+.lc-toolbar-number-label {
+  color: var(--lc-widget-muted);
+  font-size: 0.68em;
+  line-height: 1;
+}
+
+.lc-toolbar-number-field {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+}
+
+.lc-toolbar-number-input {
+  width: 5rem;
+  min-width: 0;
+  padding: 0;
+  color: var(--lc-widget-heading);
+  background: transparent;
+  border: 0;
+  outline: none;
+  font: inherit;
+  font-family: "JuliaMono", "SFMono-Regular", Consolas, monospace;
+}
+
+.lc-toolbar-number-unit {
+  color: var(--lc-widget-muted);
+  font-family: "JuliaMono", "SFMono-Regular", Consolas, monospace;
+  font-size: 0.76em;
+}
+
+.lc-toolbar-dropdown-label {
+  color: var(--lc-widget-muted);
+}
+
+.lc-toolbar-icon {
+  width: var(--lc-toolbar-icon);
+  height: var(--lc-toolbar-icon);
+  flex: 0 0 auto;
+}
+
+.lc-toolbar-select {
+  width: auto;
+  min-width: 5.5rem;
+  height: 100%;
+  margin: 0;
+  padding: 0 1.9rem 0 0.15rem;
+  color: var(--lc-widget-heading);
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+  font: inherit;
+  cursor: pointer;
+}
+
+.lc-toolbar-separator {
+  width: 1px;
+  margin: 0.3rem 0.12rem;
+  align-self: stretch;
+  background: var(--lc-border-soft);
+}
+
+.lc-toolbar-vertical .lc-toolbar-separator {
+  width: auto;
+  height: 1px;
+  margin: 0.12rem 0.3rem;
+}
+
+.lc-toolbar-button:hover:where(:not(:disabled)),
+.lc-toolbar-dropdown:hover:where(:not(.lc-toolbar-control-disabled)),
+.lc-toolbar-toggle:hover:where(:not(.lc-toolbar-control-disabled)),
+.lc-toolbar-number:hover:where(:not(.lc-toolbar-control-disabled)) {
+  color: var(--lc-strong-text);
+  background: var(--lc-hover-bg-strong);
+  border-color: var(--lc-border);
+}
+
+.lc-toolbar-button-active,
+.lc-toolbar-button-active:hover {
+  color: var(--lc-accent-ink);
+  background: var(--lc-widget-focus);
+  border-color: var(--lc-widget-focus);
+}
+
+.lc-toolbar-button-busy {
+  position: relative;
+  padding-right: calc(var(--lc-toolbar-pad-inline) + 1rem);
+}
+
+.lc-toolbar-button-busy::after {
+  position: absolute;
+  width: 0.7rem;
+  height: 0.7rem;
+  right: 0.45rem;
+  border: 1px solid currentColor;
+  border-right-color: transparent;
+  border-radius: 50%;
+  content: "";
+  animation: lc-toolbar-spin 0.8s linear infinite;
+}
+
+.lc-toolbar-control-disabled,
+.lc-toolbar-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.46;
+}
+
+@keyframes lc-toolbar-spin {
+  to { transform: rotate(360deg); }
+}
+
+.lc-toolbar-button:focus-visible {
+  outline: 2px solid var(--lc-focus-ring);
+  outline-offset: 1px;
+}
+
+.lc-toolbar-select:focus-visible {
+  outline: none;
+}
+
+.lc-toolbar-dropdown:focus-within {
+  border-color: var(--lc-widget-focus);
+  box-shadow: 0 0 0 1px var(--lc-focus-ring);
+}
+
+

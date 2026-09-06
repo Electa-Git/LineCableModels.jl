@@ -94,4 +94,19 @@ using Observables
     @test occursin("role=\"tablist\"", source)
     @test occursin("data-collapsed", styles)
     @test occursin("lc-ribbon-overflow-menu", styles)
+
+    # Components load their own shared controls, not the gallery's page theme.
+    toolbar_source = read(joinpath(root, "src", "toolbar.jl"), String)
+    widget_source = read(joinpath(root, "src", "widgets.jl"), String)
+    toolbar_styles = read(joinpath(root, "assets", "toolbar.css"), String)
+    @test occursin("DOM.style(TOOLBAR_STYLES)", source)
+    @test occursin("DOM.style(TOOLBAR_STYLES)", toolbar_source)
+    @test !occursin(".lc-toolbar-button-active", widget_source)
+    @test occursin(".lc-toolbar-button-active", toolbar_styles)
+    @test !occursin(r"(?i)(#[0-9a-f]{3,8}\b|rgb\()", toolbar_styles)
+    for rule in eachmatch(r"([^{}]+)\{([^{}]*)\}", styles)
+        occursin(r"\.lc-toolbar-(button|dropdown|toggle|number)", rule.captures[1]) || continue
+        # Layouts cannot overwrite a control's foreground/background state pair.
+        @test !occursin(r"(?m)^\s*(color|background(?:-color)?)\s*:", rule.captures[2])
+    end
 end

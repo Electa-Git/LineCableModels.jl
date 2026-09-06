@@ -26,6 +26,18 @@ cannot be mistaken for proof of distributed behavior.
 | 16. Stateful REPL deferred safely | No eval/repl operation or general code payload exists. A future REPL requires a separate leased sandbox and identity. | Architecture source scan and documented container boundary. |
 | 17. Test plan | Protocol, resilience, job semantics, scientific parity, native lifecycle, container, remote TLS, authorization, artifacts, and graceful shutdown all have executable harnesses. | Commands below. |
 | 18. Delivery sequence | Transport and diagnostics precede engine adapters; supervised execution precedes PowerImpedance; security/deployment profiles are last. | Repository layering and the complete passing verification set. |
+| 19. Presentation ownership | Quarto compiles, Reveal orchestrates, LCM layouts own real-pixel geometry, and Bonito remains isolated in same-origin live frames. | `ARCHITECTURE.md`, `_extensions/lcm-deck/`, presentation architecture assertions. |
+| 20. Presentation lifecycle | Live frames remain mounted; resize/fullscreen changes settle before child notification; focused controls retain keyboard ownership; overview substitutes inert placeholders and restores exact geometry without replacing sessions. | `presentations/specimen.qmd`, `test/integration/presentation_browser.mjs`. |
+| 21. Presentation failure and print | Static navigation works without a broker; presenter/print surfaces use public playground links and never duplicate or print live applications. | Presentation browser checks and generated print-DOM assertions. |
+| 22. Presentation UX regression | Actual menu overview/selection/exit and PDF entry points; stage and slot overflow at five resolutions; cached theme and live theme parity; visible loading/readiness; laser keyboard ownership and iframe coordinates. | `test/integration/presentation_browser.mjs`; real Chrome direct-print and preview-print PDFs plus CLI PDF, checked for nine pages and two placeholders. |
+| 23. Ribbon/toolbar theme regression | Repeated light/dark changes from the publisher update mounted controls in the gallery, iframe, standalone and workbench; active icon/text/background pairs, hover, busy, disabled, all sizes, quick access, overflow and callbacks retain their shared contract without gallery CSS. | `test/ribbon.jl`, `test/integration/ribbon_fixture.jl`, `test/integration/ribbon_theme_browser.mjs`, `bash test/integration/run-ribbon.sh`. |
+
+The presentation gate covers the supplied hostile specimen, not arbitrary
+overfull authored content. It runs in isolated Chromium; physical multi-monitor
+window movement and the OS print dialog remain manual checks. Overview uses
+Reveal's thumbnail strip, with the current slide centered and arrow navigation.
+PDF preview is a static reload; only overview and the browser's direct print
+lifecycle retain an existing live session.
 
 ## Repeatable commands
 
@@ -45,6 +57,12 @@ LCM_TEST_POWERIMPEDANCE=1 julia --startup-file=no \
 ./playground/test/integration/run.sh --tls
 ./playground/test/integration/run-artifacts.sh --tls
 ./playground/test/integration/graceful-shutdown.sh
+
+lcm presentation check playground/presentations/specimen.qmd
+lcm presentation build playground/presentations/specimen.qmd
+lcm presentation export playground/presentations/specimen.qmd --pdf
+./playground/test/integration/run-presentation.sh
+bash playground/test/integration/run-ribbon.sh
 ```
 
 The Compose profiles add deployable-artifact coverage:

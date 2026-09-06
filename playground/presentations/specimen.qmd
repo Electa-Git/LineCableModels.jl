@@ -1,0 +1,180 @@
+---
+title: "LCM presentation hostile specimen"
+subtitle: "Controller-only Reveal · real-pixel LCM layouts · persistent live boundaries"
+format:
+  lcm-deck-revealjs:
+    menu: true
+    notes: true
+    slide-number: c/t
+    footer: "LineCableModels playground · hostile specimen"
+---
+
+## A deliberately long title must wrap without asking the whole browser scene to shrink
+
+::: {.lcm-layout-full-canvas}
+::: {.lcm-slot .lcm-slot-panel}
+[FOUNDATION GATE]{.lc-eyebrow}
+
+This specimen is intentionally unfriendly. It combines dense prose, equations,
+source code, a raster-independent image, browser controls, and a persistent
+same-origin live route at several projector resolutions.
+
+- Quarto and Pandoc own the source document.
+- Reveal owns navigation, URL state, speaker view, fullscreen, and print hooks.
+- LCM layouts own every presentation pixel.
+- Live computation remains behind the playground boundary.
+
+::: {.notes}
+This slide exists to expose overflow, scaling, and line-wrapping failures before
+any scientific deck is migrated.
+:::
+:::
+:::
+
+## Balanced evidence
+
+::: {.lcm-layout-balanced}
+::: {.lcm-slot .lcm-slot-panel}
+[Mathematical material]{.lcm-panel-title}
+
+For a one-frequency result, the final decomposition remains
+
+$$
+R=\Re(Z),\qquad L=\frac{\Im(Z)}{\omega},\qquad
+G=\Re(Y),\qquad C=\frac{\Im(Y)}{\omega}.
+$$
+
+```julia
+design = build_design(nominal_geometry)
+result = compute(design, [frequency])
+observe(result, (:R, :L, :C, :G))
+```
+:::
+
+::: {.lcm-slot .lcm-slot-panel}
+[Image and browser controls]{.lcm-panel-title}
+
+![LineCableModels mark](../assets/logo.svg){fig-alt="LineCableModels logo"}
+
+The range control must keep its arrow keys. Deck navigation must not steal
+them while the control is focused.
+
+<label for="specimen-range">Local visual value</label>
+<input id="specimen-range" type="range" min="0" max="10" value="5">
+:::
+:::
+
+## Persistent live viewport
+
+::: {.lcm-layout-feature-sidebar}
+::: {.lcm-slot}
+{{< bonito route="/widgets/control-panel" title="Engineering controls" height="100%" public-url="/widgets/control-panel" >}}
+:::
+
+::: {.lcm-slot .lcm-slot-panel}
+[LIVE BOUNDARY]{.lc-eyebrow}
+
+The frame is same-origin, mounted once, and never moved into the deck DOM.
+Changing slides sends lifecycle messages; it does not reconstruct the Bonito
+session.
+
+In speaker receivers and print mode this region becomes a link to the
+playground. No duplicate session is created.
+:::
+:::
+
+## Top band plus two supporting regions
+
+::: {.lcm-layout-top-split}
+::: {.lcm-slot .lcm-slot-panel}
+[One claim spans the complete width]{.lcm-panel-title}
+
+The author chooses a named layout. The format—not hand-written slide CSS—owns
+the geometry.
+:::
+
+::: {.lcm-slot .lcm-slot-panel}
+[Authoring]{.lcm-panel-title}
+
+Markdown, equations, code, images, citations, and speaker notes remain ordinary
+Quarto material.
+:::
+
+::: {.lcm-slot .lcm-slot-panel}
+[Execution]{.lcm-panel-title}
+
+The browser-facing deck can fail to reach NATS or a worker and still navigate,
+print, and expose its permanent playground links.
+:::
+:::
+
+## Four-panel dashboard
+
+::: {.lcm-layout-dashboard-grid}
+::: {.lcm-slot .lcm-slot-panel}
+[R]{.lcm-panel-title}
+
+Self resistance versus frequency.
+:::
+::: {.lcm-slot .lcm-slot-panel}
+[L]{.lcm-panel-title}
+
+Self inductance versus frequency.
+:::
+::: {.lcm-slot .lcm-slot-panel}
+[C]{.lcm-panel-title}
+
+Self capacitance versus frequency.
+:::
+::: {.lcm-slot .lcm-slot-panel}
+[G]{.lcm-panel-title}
+
+Self conductance versus frequency.
+:::
+:::
+
+## Media and narrative
+
+::: {.lcm-layout-media-story}
+::: {.lcm-slot .lcm-slot-panel}
+![Reusable presentation surface](../assets/logo.svg){fig-alt="LineCableModels logo"}
+:::
+
+::: {.lcm-slot .lcm-slot-panel}
+[Presentation discipline]{.lcm-panel-title}
+
+The visible artifact is intentionally quiet:
+
+- no decorative gradients;
+- no generic dashboard chrome;
+- no layout animation;
+- no hidden executable source;
+- no screenshot machinery.
+
+Press **L** to toggle the restrained presentation pointer.
+:::
+:::
+
+## Full-canvas live boundary
+
+::: {.lcm-layout-full-canvas}
+::: {.lcm-slot}
+{{< bonito route="/presentations/probe" title="Persistent canvas coordinate probe" height="100%" public-url="/presentations/probe" >}}
+:::
+:::
+
+## Foundation gate complete
+
+::: {.lcm-layout-full-canvas}
+::: {.lcm-slot .lcm-slot-panel}
+The first scientific deck may be migrated only after the automated and manual
+gates for this specimen pass.
+
+1. resize and fullscreen settle cleanly;
+2. clicks land at the visible coordinates;
+3. live frame identity survives navigation;
+4. focused controls own their keys;
+5. speaker and print modes remain static;
+6. PDF contains one linked placeholder per live view.
+:::
+:::

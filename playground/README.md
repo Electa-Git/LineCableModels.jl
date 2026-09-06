@@ -94,6 +94,26 @@ composes those primitives, and implements typed `handle!` methods. The
 template imports no broker or scientific package and performs no work merely
 because its page was opened.
 
+## Author a live presentation
+
+Open `/presentations/` for the reusable deck gallery, the hostile acceptance
+specimen, and a small starter deck. Presentation source remains ordinary
+Quarto Markdown. The `lcm-deck` format supplies the fixed 16:9 engineering
+stage, named layouts, presenter-safe live-view placeholders, pointer, and
+browser lifecycle adapter. Bonito routes are activated only when their slide
+is first entered and remain mounted afterward.
+
+Start from `presentations/starter.qmd`, then validate and serve it with:
+
+```sh
+lcm presentation check presentations/starter.qmd
+lcm presentation start presentations/starter.qmd
+```
+
+Use `lcm presentation export presentations/starter.qmd --pdf` for a static
+PDF containing linked playground placeholders in place of live applications.
+The complete authoring contract is in `presentations/README.md`.
+
 ## Start
 
 ```sh

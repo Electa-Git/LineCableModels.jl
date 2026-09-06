@@ -12,6 +12,8 @@
   --lc-border-soft: #465355;
   --lc-link: #4eb5de;
   --lc-focus: #1abc9c;
+  /* Presentation laser is red in every theme; it is not a theme accent. */
+  --lc-presentation-laser: #ff0000;
   --lc-strong-text: #ffffff;
   --lc-hover-bg: #32393a;
   --lc-hover-bg-strong: #303737;
@@ -40,7 +42,7 @@
   --lc-status-mark-border: rgb(242 242 242 / 30%);
   --lc-xray-shadow-outline: rgb(0 0 0 / 34%);
 
-  /* Quarto syntax roles are remapped to the publisher palette in theme.scss. */
+  /* Quarto syntax roles share code-theme.css in documents and presentations. */
   --lc-code-text: #f8f8f2;
   --lc-code-comment: #a8b0b0;
   --lc-code-keyword: #ffa07a;

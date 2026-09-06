@@ -40,6 +40,70 @@ Quarto documents and links to complete workbench routes. It does not wrap a
 full workbench in an iframe: the application shell must own viewport geometry,
 focus, splitters, and persistent rendering surfaces directly.
 
+## Command-surface styling
+
+`assets/toolbar.css` owns toolbar control geometry and the complete normal,
+hovered, active, busy, disabled, and focus states. Both `Toolbar` and `Ribbon`
+include this stylesheet themselves; neither depends on `widgets.jl` or the
+gallery shell for its controls. `assets/ribbon.css` only arranges/sizes those
+controls and styles ribbon-owned tabs, groups, and overflow surfaces. It must
+not override a composed control's foreground/background state pair.
+
+Colors remain semantic references to `assets/brand.css`. The host provides the
+shared palette and theme preference; changing it updates the mounted controls
+through CSS inheritance, without recreating controls or callbacks. The same
+contract applies to ordinary groups, quick access, and overflow groups.
+
+## Presentation boundary
+
+The reusable presentation surface is a Quarto format, not a scientific
+application and not a second workbench. Quarto and Pandoc own authoring and
+document compilation. Reveal owns only deck navigation, URL state, overview,
+speaker notes, fullscreen, and print hooks. The `lcm-deck` format disables
+Reveal's layout, centering, scaling, and transitions; LCM layout primitives are
+the sole owners of projection geometry.
+
+Slides are laid out at their real browser pixel dimensions inside a contained
+16:9 stage. CSS transforms must never scale an ancestor of an active live
+iframe, canvas, or WebGL surface. Reveal's overview may transform slide
+thumbnails only while live children are non-interactive and visually replaced
+by inert placeholders; leaving overview restores the untransformed persistent
+frame. Other projector ratios receive deterministic letterboxing. Overflow is
+an authoring error rather than a reason to shrink an entire slide until it
+becomes unreadable.
+
+Live presentation content is mounted through the existing same-origin Bonito
+iframe boundary. The deck page does not import Bonito, NATS, scientific
+packages, or broker credentials. Live frames remain mounted while navigating;
+slide-entry, slide-leave, viewport-settling, viewport-settled, and print-mode
+messages let a child pause activity and resize only after geometry stabilizes.
+Missing publishers, brokers, or workers do not prevent static navigation.
+
+Speaker previews and print output never instantiate a second live application.
+They display an explicit placeholder containing the live-view title and a
+clickable playground URL. Version 1 deliberately does not generate Makie
+snapshots or capture mutable browser state for PDF output.
+
+The format grammar is intentionally narrow: a flat sequence of slides, named
+LCM layouts, standard Quarto notes, and the validated `bonito` shortcode. Raw
+per-slide styles, executable page scripts, nested Reveal slides, and arbitrary
+external iframe sources are outside the contract. Presentation CSS consumes
+the same `assets/brand.css` palette as the website and workbench; a second deck
+palette is forbidden.
+
+Published text behavior is owned by `assets/published-text.css`, loaded by both
+Quarto formats. It hides the browsing caret without disabling mouse selection,
+copying, focus, or text entry. Page/template/deck schemas must not duplicate
+that policy. It is deliberately absent from Bonito widget and workbench
+documents, whose components retain their own caret and selection semantics.
+
+Reveal is retained only if the hostile presentation specimen proves exact
+pointer coordinates, persistent live-frame identity, stable fullscreen and
+multi-resolution sizing, focus-safe navigation, inert presenter previews, and
+one-page print placeholders. If it fails, the Quarto grammar, semantic markup,
+layouts, and live boundary remain unchanged and only the deck controller is
+replaced by a custom HTML adapter.
+
 ## UI toolkit boundary
 
 `src/toolkit/Toolkit.jl` is the shared presentation vocabulary below gallery
@@ -74,6 +138,10 @@ the containing form is explicitly submitted.
     ordinary calculations.
 11. Gallery and workbench compositions share toolkit implementations and
     semantic CSS contracts; gallery-only replicas are forbidden.
+12. Reveal never owns presentation layout or scales live content.
+13. Presentation and print pages never execute numerical work.
+14. Every printable live viewport declares a public playground URL.
+15. Presenter previews never mount a duplicate live iframe.
 
 These rules are checked by `playground/test/architecture.jl`.
 
