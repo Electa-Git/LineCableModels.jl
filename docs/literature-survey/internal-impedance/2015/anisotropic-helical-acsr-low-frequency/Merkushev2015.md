@@ -37,7 +37,7 @@
 I_w=\Sigma_zE_z|_{r=R}+\Sigma_\varphi E_\varphi|_{r=R},\quad
 \Sigma_z=6\pi R^2\sigma_{Al}Q,\quad
 \Sigma_\varphi=\theta\Sigma_z,\quad \theta=\frac{2\pi R}{h},
-\tag{1}
+\qquad\text{(1)}
 ```
 
 ```math
@@ -51,7 +51,7 @@ The p.u.l. internal impedance is
 Z_{int}=\frac{k_{St}}{\sigma_{St}h}\,
 \frac{\gamma J_0(k_{St}R)}{1+\gamma\theta J_1(k_{St}R)},
 \quad k_{St}^2=-i\omega\mu_{St}\mu_0\sigma_{St},\quad \gamma=\frac BA,
-\tag{2}
+\qquad\text{(2)}
 ```
 
 ```math

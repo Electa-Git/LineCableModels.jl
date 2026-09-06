@@ -37,12 +37,12 @@
 Z'_{e_{ij}}
 =\frac{j\omega\mu_1}{2\pi}
  \int_{0}^{+\infty} F(\lambda)\cos(y_{ij}\lambda)\,d\lambda,
-\tag{5a}
+\qquad\text{(5a)}
 
 F(\lambda)
 =\frac{e^{-\alpha_1|h_i-h_j|}-e^{-\alpha_1(h_i+h_j)}}{\alpha_1}
  +\frac{2\mu_0e^{-\alpha_1(h_i+h_j)}}{\alpha_1\mu_0+\alpha_0\mu_1},
-\tag{5b}
+\qquad\text{(5b)}
 
 \alpha_k=\sqrt{\lambda^2+\gamma_k^2+k_x^2},\qquad
 \gamma_k^2=j\omega\mu_k(\sigma_k+j\omega\epsilon_k),\qquad k=0,1,

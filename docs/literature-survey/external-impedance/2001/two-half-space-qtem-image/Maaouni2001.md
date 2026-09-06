@@ -38,7 +38,7 @@ J(X,Y)\simeq\ln\frac{\rho_J^*}{\rho^*},\qquad
 \rho_J^*=\sqrt{X^2+(Y+Y_J)^2},\quad
 \rho^*=\sqrt{X^2+Y^2},\quad
 Y_J=\frac{2}{k_0\sqrt{1-n^2}}.
-\tag{12}
+\qquad\text{(12)}
 ```
 
 The full closed evaluator for the companion kernel is
@@ -46,7 +46,7 @@ The full closed evaluator for the companion kernel is
 ```math
 G(X,Y)\simeq\frac{n^2}{2(n^4-1)}[Q(bz)+Q(b\bar z)]
 -\frac{P(b,z)+P(b,\bar z)-P(-b,z)-P(-b,\bar z)-n^2b[Q(-bz)+Q(-b\bar z)]}{2b(n^4-1)},
-\tag{26}
+\qquad\text{(26)}
 ```
 
 where ``z=k_0(Y+iX)``, ``b=i/\sqrt{1+n^2}``, ``Q(z)=e^{-z}E_1(-z)``, and ``P`` is defined by (25).

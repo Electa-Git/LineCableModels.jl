@@ -35,13 +35,13 @@
 
 ```math
 Z_{pjk}=Q_{jk}+J_{jk},
-\tag{A1}
+\qquad\text{(A1)}
 ```
 
 ```math
 J_{pjk}=2\mu\sum_{n=1}^{\infty}
 \frac{C_n}{n(1+\mu_p)+x_1I_{n-1}(x_1)/K_n(x_1)},
-\tag{A2}
+\qquad\text{(A2)}
 ```
 
 with pipe surface term
@@ -50,7 +50,7 @@ with pipe surface term
 Z_1=\frac{m_p\rho_p}{2\pi r_{p1}}
 \frac{K_1(m_pr_{p2})I_0(m_pr_{p1})+K_0(m_pr_{p1})I_1(m_pr_{p2})}
 {K_1(m_pr_{p1})I_1(m_pr_{p2})-K_1(m_pr_{p2})I_1(m_pr_{p1})}.
-\tag{A6}
+\qquad\text{(A6)}
 ```
 
 **Approximation.** Infinite harmonic sum and the paper's classical/numerical hybrid assembly; numerical truncation is required.

@@ -37,12 +37,12 @@
 y_s=\frac{j\omega,2\pi\epsilon_s}{\ln(c/b')},
 \qquad
 \epsilon_s=\epsilon_s'+\frac{1}{j\omega\rho_2},
-\tag{14}
+\qquad\text{(14)}
 
 \frac{1}{Y}=\frac{1}{y_s}+\frac{1}{y_i},
 \qquad
 y_i=\frac{j\omega,2\pi\epsilon_i}{\ln(r_0/c)}.
-\tag{15}
+\qquad\text{(15)}
 ```
 
 ``y_s`` is the semiconductor-layer shunt admittance, ``y_i`` the main-insulation shunt admittance, and ``Y`` their radial series combination between the core outer and sheath inner surfaces. ``r_0`` is the outer insulation radius, equal to the sheath inner radius.

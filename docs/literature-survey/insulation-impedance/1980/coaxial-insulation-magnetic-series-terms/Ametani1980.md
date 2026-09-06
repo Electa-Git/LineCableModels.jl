@@ -60,7 +60,7 @@ The expression above retains all three separately printed insulation layers. The
 z_{cs}=z_{11}+z_{12}+z_{2i},\qquad
 z_{sa}=z_{2o}+z_{23}+z_{3i},\qquad
 z_{a4}=z_{3o}+z_{34}.
-\tag{10}
+\qquad\text{(10)}
 ```
 
 ## Notation map

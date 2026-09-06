@@ -40,7 +40,7 @@ K_0(\gamma_1d)+
 e^{-(h_m+h_n)\gamma_1}
 \left(\frac{2}{4+\gamma_1^2r^2}\right)
 \right],
-\tag{13}
+\qquad\text{(13)}
 ```
 
 ```math
@@ -66,14 +66,14 @@ The compact parent is
 Z_{g(m,n)}=\frac{j\omega\mu_0}{2\pi}[\Lambda+\Theta_1],
 \qquad
 \Lambda=K_0(\gamma_1d)-K_0(\gamma_1D),
-\tag{8,3}
+\qquad\text{(8,3)}
 ```
 
 ```math
 \Theta_1=2\int_0^\infty
 \frac{e^{-(h_m+h_n)u_1}}{u_1+u_0}\cos(r\lambda)\,d\lambda,
 \quad u_i=\sqrt{\lambda^2+\gamma_i^2}.
-\tag{10}
+\qquad\text{(10)}
 ```
 
 This retains the air term that disappears in Sunde's limiting equation.

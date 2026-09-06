@@ -20,14 +20,14 @@
 ```math
 Z_{g,m}=\frac{j\omega\mu_0}{2\pi}
 \ln\!\left(\frac{1+\gamma_gd}{\gamma_gd}\right),
-\tag{P1}
+\qquad\text{(P1)}
 
 Z_{g,s}=\frac{j\omega\mu_0}{2\pi}
 \ln\!\left(\frac{1+\gamma_gR}{\gamma_gR}\right),
-\tag{P2}
+\qquad\text{(P2)}
 
 \gamma_g=\sqrt{j\omega\mu(\sigma+j\omega\epsilon)}.
-\tag{P3}
+\qquad\text{(P3)}
 ```
 
 Use conductor distance ``d`` for a mutual element and outer cable radius ``R`` for a self element.

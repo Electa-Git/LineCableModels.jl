@@ -19,7 +19,7 @@
 
 ```math
 Y=i2\pi\epsilon_1\omega\,[A+2(N-iM)]^{-1},
-\tag{25}
+\qquad\text{(25)}
 ```
 
 with
@@ -27,12 +27,12 @@ with
 ```math
 A=K_0\!\left(i\sqrt{k_1^2-\beta^2}\,a\right)
 -K_0\!\left(i\sqrt{k_1^2-\beta^2}\sqrt{4h^2+a^2}\right),
-\tag{26}
+\qquad\text{(26)}
 
 N-iM=\int_0^\infty
 \frac{\exp\!\left[-u_1\sqrt{4h^2+a^2}\right]}
 {u_1+(k_1/k_2)^2u_2}\cos(\lambda a)\,d\lambda,
-\tag{28}
+\qquad\text{(28)}
 
 u_1=\sqrt{\lambda^2+\beta^2-k_1^2},
 \qquad
@@ -44,7 +44,7 @@ It enters the implicit mode equation
 ```math
 Z+\frac{\beta^2}{Y}=0,
 \qquad i\beta=(ZY)^{1/2}.
-\tag{23}
+\qquad\text{(23)}
 ```
 
 Under the qTEM conditions, equations (30)–(32) give
@@ -54,7 +54,7 @@ i\beta_0\simeq(Z_eY_e)^{1/2},
 \qquad
 Y_e=i2\pi\epsilon_1\omega
 \left[\ln\!\left(\frac{2h}{a}\right)\right]^{-1}.
-\tag{30,32}
+\qquad\text{(30,32)}
 ```
 
 **Implementation.** For the generalized mode, evaluate (25), (26), and (28) at each trial ``\beta`` and solve (23) together with the companion impedance. For the qTEM limit, evaluate (32) directly.

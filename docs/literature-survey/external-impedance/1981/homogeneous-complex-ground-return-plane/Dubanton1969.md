@@ -35,21 +35,21 @@
 
 ```math
 Z_s=j\omega\frac{\mu_0}{2\pi}\ln\frac{2(h+p)}{r},
-\tag{3}
+\qquad\text{(3)}
 
 Z_m=j\omega\frac{\mu_0}{2\pi}\ln
 \frac{\sqrt{(h_k+h_\ell+2p)^2+d_{k\ell}^2}}
      {\sqrt{(h_k-h_\ell)^2+d_{k\ell}^2}},
-\tag{4}
+\qquad\text{(4)}
 
 p=\frac{1}{\sqrt{j\omega\mu_0\sigma}},
-\tag{18}
+\qquad\text{(18)}
 
 \delta=\frac{1}{\sqrt{\pi f\mu_0\sigma}},
-\tag{18'}
+\qquad\text{(18')}
 
 \frac{1}{p}=(1+j)\frac{1}{\delta}.
-\tag{19}
+\qquad\text{(19)}
 ```
 
 ``Z_s`` is the self loop impedance and ``Z_m`` the mutual impedance. Equation (19) fixes the complex square-root choice used by the source. The image of a conductor is displaced by ``2p`` below the real surface.
@@ -68,11 +68,11 @@ For the numerical error comparison the source defines
 
 ```math
 \beta=\frac{d_{k\ell}}{h_k+h_\ell},
-\tag{44}
+\qquad\text{(44)}
 
 \alpha=\frac{h_{\mathrm{ave}}}{\delta}
 =\frac{h_k+h_\ell}{2\sqrt{2}}\sqrt{\omega\mu_0\sigma}.
-\tag{48--48'}
+\qquad\text{(48--48')}
 ```
 
 The reported ``3%`` and ``0.5%`` figures apply only to the source's comparisons against Carson's evaluation in the tested cases.

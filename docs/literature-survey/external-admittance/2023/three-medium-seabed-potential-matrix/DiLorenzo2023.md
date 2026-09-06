@@ -36,7 +36,7 @@
 ```math
 P'_{2,ij}=\frac{j\omega}{2\pi\kappa_2}\int_0^\infty
 [F_3(\lambda)+G_b(\lambda)]\cos(q_{ij}\lambda)\,d\lambda,
-\tag{33}
+\qquad\text{(33)}
 ```
 
 ```math
@@ -54,14 +54,14 @@ G_b(\lambda)=2\mu_1\mu_2\alpha_2e^{-\alpha_2(h_i+h_j-2h_s)}
 +\alpha_1^2\gamma_0^2(\gamma_2^2+\gamma_1^2)
 -2\alpha_1^2\gamma_1^2\gamma_2^2]
 \right\},
-\tag{34}
+\qquad\text{(34)}
 ```
 
 ```math
 \Delta_{10}=\alpha_0\gamma_1^2\mu_0-\alpha_1\gamma_0^2\mu_1,
 \qquad
 A_{10}=\alpha_0\gamma_1^2\mu_0+\alpha_1\gamma_0^2\mu_1.
-\tag{35}
+\qquad\text{(35)}
 ```
 
 Here ``F_3`` is equation (30), transcribed in the companion impedance record, and ``\kappa_2=\sigma_2+j\omega\epsilon_2`` follows the paper's medium convention.
@@ -70,7 +70,7 @@ Here ``F_3`` is equation (30), transcribed in the companion impedance record, an
 \mathbf P'=(\mathbf T^t)^{-1}\mathbf P'_L(\mathbf T)^{-1},
 \qquad
 \mathbf Y'=j\omega(\mathbf P')^{-1}.
-\tag{36,40}
+\qquad\text{(36,40)}
 ```
 
 ```math
@@ -86,14 +86,14 @@ P'_{cs}&0&0&0\\
 \begin{bmatrix}
 1&0&0&0\\-1&1&0&0\\0&0&1&0\\0&0&-1&1
 \end{bmatrix}.
-\tag{37,38}
+\qquad\text{(37,38)}
 ```
 
 ```math
 P'_{cs}=\frac{1}{2\pi\epsilon_{cs}}\ln\left(\frac{r_2}{r_1}\right),
 \qquad
 P'_{se}=\frac{1}{2\pi\epsilon_{se}}\ln\left(\frac{r_4}{r_3}\right).
-\tag{39}
+\qquad\text{(39)}
 ```
 
 **Approximation.** The parent electromagnetic problem is reduced by the quasi-TEM assumption. Equations (33)–(35) remain infinite spectral integrals and require numerical quadrature; no fit or truncation order is specified. Equation (39) is the ideal coaxial lossless-insulation coefficient used by the source.
@@ -113,7 +113,7 @@ E_{2y}=\frac{\partial}{\partial y}
 \left[\frac{\partial\Pi'_{2x}}{\partial x}
 +\frac{\partial\Pi'_{2z}}{\partial z}\right]
 =\frac{\partial^2Q}{\partial x\partial y}.
-\tag{32}
+\qquad\text{(32)}
 ```
 
 The paper states that the first and second terms inside the square brackets on the left correspond respectively to ``F_3`` and ``G_b``. That source basis is retained rather than treating (33) as an algebraic conversion of (29).

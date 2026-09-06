@@ -20,14 +20,14 @@
 ```math
 Z_{g,m}=\frac{\omega\mu_0}{2\pi\gamma_gd}
 \frac{H_0^{(1)}(j\gamma_gd)}{H_1^{(1)}(j\gamma_gd)},
-\tag{V1}
+\qquad\text{(V1)}
 
 Z_{g,s}=\frac{\omega\mu_0}{2\pi\gamma_gR}
 \frac{H_0^{(1)}(j\gamma_gR)}{H_1^{(1)}(j\gamma_gR)},
-\tag{V2}
+\qquad\text{(V2)}
 
 \gamma_g=\sqrt{j\omega\mu(\sigma+j\omega\epsilon)}.
-\tag{V3}
+\qquad\text{(V3)}
 ```
 
 ``H_0^{(1)}`` and ``H_1^{(1)}`` are first-kind Hankel functions. Use ``d`` for mutual separation and ``R`` for the self radius.

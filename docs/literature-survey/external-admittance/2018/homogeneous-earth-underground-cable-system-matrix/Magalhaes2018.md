@@ -35,7 +35,7 @@
 
 ```math
 Y_{\mathrm{ext}}=2\pi(\sigma_1+j\omega\epsilon_1)[\Lambda-T]^{-1}.
-\tag{4,12}
+\qquad\text{(4,12)}
 ```
 
 For a single cable,
@@ -43,7 +43,7 @@ For a single cable,
 ```math
 \Lambda=K_0(r\gamma_1)-K_0(d\gamma_1),
 \qquad d=\sqrt{4h^2+r^2},
-\tag{5}
+\qquad\text{(5)}
 ```
 
 ```math
@@ -51,7 +51,7 @@ T=\int_{-\infty}^{\infty}
 \frac{u_2}{u_1}
 \frac{e^{-hu_1}-e^{-2hu_1}}{n^2u_1+u_2}
 e^{-jr\lambda}\,d\lambda.
-\tag{6}
+\qquad\text{(6)}
 ```
 
 For cables ``i,j``,
@@ -62,7 +62,7 @@ For cables ``i,j``,
 d_{ij}=\sqrt{(h_i-h_j)^2+x_{ij}^2},
 \quad
 D_{ij}=\sqrt{(h_i+h_j)^2+x_{ij}^2},
-\tag{7}
+\qquad\text{(7)}
 ```
 
 ```math
@@ -71,7 +71,7 @@ T_{ij}=\int_{-\infty}^{\infty}
 \frac{e^{-(h_i+h_j)u_1/2}-e^{-(h_i+h_j)u_1}}
 {n^2u_1+u_2}
 e^{-jx_{ij}\lambda}\,d\lambda.
-\tag{11}
+\qquad\text{(11)}
 ```
 
 The complete definitions are
@@ -95,14 +95,14 @@ The source then combines insulation and earth-return admittances as complete mat
 
 ```math
 Y=\left(Y_d^{-1}+Y_{\mathrm{ext}}^{-1}\right)^{-1},
-\tag{3,13}
+\qquad\text{(3,13)}
 ```
 
 where the one-cable insulation formula printed in (1) is
 
 ```math
 Y_d=2\pi j\omega\epsilon_d\left(\ln\frac{r}{r_0}\right)^{-1}.
-\tag{1}
+\qquad\text{(1)}
 ```
 
 **Approximation.** The integrals and matrix assembly are not an additional analytical approximation within the source's quasi-TEM model. Quasi-TEM itself is a physical approximation of the cited full-wave parent. The paper does not reproduce the parent derivation or the explicit longitudinal-propagation prescription, so that reduction is not reconstructed here.
@@ -127,7 +127,7 @@ with ``S`` from (6) or ``S_{ij}`` from (8). The paper calls this essentially ide
 S=\int_{-\infty}^{\infty}\frac{e^{-2hu_1}}{u_1+u_2}e^{-jr\lambda}\,d\lambda,
 \qquad
 S_{ij}=\int_{-\infty}^{\infty}\frac{e^{-(h_i+h_j)u_1}}{u_1+u_2}e^{-jx_{ij}\lambda}\,d\lambda.
-\tag{6,8}
+\qquad\text{(6,8)}
 ```
 
 The appendix prints a heuristic maximum-frequency expression,
@@ -135,7 +135,7 @@ The appendix prints a heuristic maximum-frequency expression,
 ```math
 f_{\max}=\mu_0\frac{\pi c^2}{\rho_1}
 \left[\epsilon_r\left(\epsilon_r+\mu_0\epsilon_r\epsilon_0(2\pi c)^2\right)\right]^{-1/2},
-\tag{18}
+\qquad\text{(18)}
 ```
 
 under an infinite-soil approximation and the requirements that the field wavelength exceed both penetration depth and ``x_{\max}``. This token sequence is preserved as printed; its dimensional appearance is not repaired.

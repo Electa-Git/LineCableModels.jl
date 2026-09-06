@@ -42,7 +42,7 @@
 \cdot\left|1+\frac{n\cdot k_1}{1-k_1}\right|^2
 -\ln\sqrt{\frac{1}{1-g}}
 \right).
-\tag{36}
+\qquad\text{(36)}
 ```
 
 Definitions immediately below (36), with the required conductor parameter from (26):
@@ -54,7 +54,7 @@ k_1=g\cdot\frac{I_2(z_k)}{I_0(z_k)},\qquad \mu_{rk}=1,
 
 ```math
 z_k=r_{1k}\cdot\sqrt{j\omega\cdot\mu_0\cdot\mu_{rk}\cdot\sigma_{ck}}.
-\tag{26}
+\qquad\text{(26)}
 ```
 
 ``r_{1k}`` and ``d_{km}`` are lengths; ``\sigma_{ck}`` is conductor conductivity, ``\mu_{rk}`` relative conductor permeability, and ``\mu_0`` reference permeability. ``g,k_1,z_k`` are dimensionless. The manuscript does not explicitly define the Bessel family, but its cited Kane et al. (1995) source, printed p. 1647, defines ``I_n`` as the modified Bessel function of the first kind of order ``n``. The manuscript does not state the square-root branch. The formula provides a proximity increment, not the whole core impedance, pipe surface impedance, or cable terminal impedance.
@@ -62,11 +62,11 @@ z_k=r_{1k}\cdot\sqrt{j\omega\cdot\mu_0\cdot\mu_{rk}\cdot\sigma_{ck}}.
 For the source's symmetrical three-core arrangement, its displayed differential/common-mode proximity contributions are:
 
 ```math
-\Delta Z_{prox,1}=\Delta Z_{prox,km},\tag{30}
+\Delta Z_{prox,1}=\Delta Z_{prox,km},\qquad\text{(30)}
 ```
 
 ```math
-\Delta Z_{prox,0}=4\cdot\Delta Z_{prox,km}.\tag{33}
+\Delta Z_{prox,0}=4\cdot\Delta Z_{prox,km}.\qquad\text{(33)}
 ```
 
 These are the author's mode multipliers, not a general matrix assembly for unequal cables. Equation (36) modifies the pair contribution; a new arbitrary-geometry diagonal formula is not printed.
@@ -90,7 +90,7 @@ Equation (25), manuscript p. 4, explicitly attributed to Kane, Ahmad and Auriol 
 \sum_{n=1}^{\infty}
 \frac{2\mu_{rk}\cdot(r_{1k}/d_{km})^{2n}}
 {n\cdot(\mu_{rk}-1)+z_k\cdot\dfrac{I_{n-1}(z_k)}{I_n(z_k)}}.
-\tag{25}
+\qquad\text{(25)}
 ```
 
 Equation (26) follows, as transcribed above. Equation (27), the **parent's** multi-core diagonal contribution, is:
@@ -100,7 +100,7 @@ Equation (26) follows, as transcribed above. Equation (27), the **parent's** mul
 \sum_{\substack{m=1\\m\ne k}}^{P}\sum_{n=1}^{\infty}
 \frac{2\mu_{rm}\cdot(r_{1m}/d_{km})^{2n}}
 {n\cdot(\mu_{rm}-1)+z_m\cdot\dfrac{I_{n-1}(z_m)}{I_n(z_m)}}.
-\tag{27}
+\qquad\text{(27)}
 ```
 
 Here ``P`` is the number of core conductors; the source uses the corresponding material/radius labels ``m`` in the inner summand. This is not labelled a corrected diagonal companion to (36), because the source does not print such a replacement.
@@ -112,7 +112,7 @@ The next paragraph states that ``z_m I_{n-1}(z_m)/I_n(z_m)`` approaches ``2n`` a
 \frac{j\omega\mu_0}{2\pi}\cdot
 \frac{2\mu_{rk}}{\mu_{rk}+1}\cdot
 \ln\left(\frac{d_{km}^2}{d_{km}^2-r_{1k}^2}\right).
-\tag{28}
+\qquad\text{(28)}
 ```
 
 The ``\lim`` on the left and the remaining ``\omega`` on the right are both source notation; no replacement by a reviewer-derived asymptotic symbol is made. Section VI describes removing this low-frequency inductive coefficient before dividing by two. The additional Dwight-based term leads to (36) on p. 7; the original Dwight summations are not reproduced and were not inspected.

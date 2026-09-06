@@ -37,7 +37,7 @@
 z_{jk}=\frac{j\omega\mu_0}{2\pi}
 \left[K_0(d_{jk}\sqrt{j\alpha})-K_0(d'_{jk}\sqrt{j\alpha})\right]
 +\frac{\sqrt{\omega\mu_0\rho_e}}{\pi h_m}J(j,k),
-\tag{38}
+\qquad\text{(38)}
 ```
 
 ```math
@@ -51,7 +51,7 @@ The direct evaluator is
 
 ```math
 J_N=\left[\tfrac12f(0)+\sum_{n=1}^{N-1}f(n\Delta u)+\tfrac12f(N\Delta u)\right]\Delta u.
-\tag{47}
+\qquad\text{(47)}
 ```
 
 **Approximation.** The physical integral is inherited; the trapezoidal truncation introduces ``\Delta u`` and finite ``N`` numerical error.

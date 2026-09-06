@@ -40,7 +40,7 @@ Z_{G-L}=\frac{j\omega\mu_0}{2\pi}
 -\frac{2\overline y}{3\gamma^3}
 \left[\frac{\overline y^2-3x^2}{\overline R_{12}^{6}}\right]
 \right\},
-\tag{6a}
+\qquad\text{(6a)}
 ```
 
 where
@@ -73,7 +73,7 @@ Uribe's dimensionless form is
 \right\},
 \qquad
 \lambda=\zeta-1+\frac{2\sqrt j}{\xi}.
-\tag{6b}
+\qquad\text{(6b)}
 ```
 
 ## Notation map

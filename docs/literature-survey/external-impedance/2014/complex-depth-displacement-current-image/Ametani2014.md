@@ -35,7 +35,7 @@
 
 ```math
 Z_{ij}=j\omega\frac{\mu_0}{2\pi}\ln\left(\frac{S'_{ij}}{d_{ij}}\right),
-\tag{17}
+\qquad\text{(17)}
 ```
 
 ```math
@@ -43,7 +43,7 @@ S'_{ij}=\sqrt{(h_i+h_j+2h'_e)^2+y^2},
 \qquad
 \frac1{h'_e}=\sqrt{j\omega\mu_0
 [\sigma_e+j\omega\epsilon_0(\epsilon_r-1)]}.
-\tag{18}
+\qquad\text{(18)}
 ```
 
 **Approximation.** It replaces the exact distributed return by a single complex image at depth ``2h'_e``, following Gary–Déri but changing the penetration constant to the air-referenced displacement-current form.

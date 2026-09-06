@@ -43,7 +43,7 @@
 ```math
 y=\frac{0.189774}{\{1+0.272481[z^{1.82938}-z^{-0.99457}]^2\}^{1.0941}},qquad
 z=0.62006\frac r{\delta_i}.
-\tag{Rac-TED-ML}
+\qquad\text{(Rac-TED-ML)}
 ```
 
 For internal inductance, set ``q=d/(\delta_i\sqrt2)`` and
@@ -60,7 +60,7 @@ For internal inductance, set ``q=d/(\delta_i\sqrt2)`` and
 ```math
 y=\frac{-0.198584}{\{1+0.25741[z^{1.2652}-z^{-0.39709}]^2\}^{2.62343}},\quad
 z=0.38691q,\qquad \frac{L_i}{\ell}=\frac{\mu}{8\pi}\Theta.
-\tag{Li-PACAML}
+\qquad\text{(Li-PACAML)}
 ```
 
 **Approximation.** TED-ML and PACAML are empirical modified-Lorentzian corrections of functions constrained to both exact asymptotes. Their reported errors refer to comparison with the report's Kelvin-function calculation, not independent measurements.

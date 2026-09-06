@@ -41,7 +41,7 @@
 \ln\left(\frac{r_{p2}}{r_{p1}}\right)
 -\frac{3r_{p2}^2-r_{p1}^2}{4(r_{p2}^2-r_{p1}^2)}
 \right).
-\tag{12}
+\qquad\text{(12)}
 ```
 
 ```math
@@ -51,14 +51,14 @@
 \frac{r_{p1}^2}
 {\sqrt{r_{p1}^4+(d_k\cdot d_m)^2-2r_{p1}^2\cdot d_k\cdot d_m\cdot\cos\theta_{km}}}
 \right).
-\tag{13}
+\qquad\text{(13)}
 ```
 
 ```math
 \lim_{\omega\to0} Z_p
 =\lim_{\omega\to0}(Z_{pi}+Z_{po}-2Z_{pm})
 =\frac{j\omega\mu_0\cdot\mu_{rp}}{2\pi}\cdot\ln(r_{p2}/r_{p1}).
-\tag{22}
+\qquad\text{(22)}
 ```
 
 ``R_{p,dc}`` is the pipe DC resistance per length, explicitly named after (12); the source does not supply an additional area formula for it here. ``Z_{pi},Z_{po},Z_{pm}`` are inner, outer, and mutual pipe-surface impedances; ``Z_{p\Sigma,km}`` is pipe-mediated core coupling, not the separate core-to-core proximity correction. ``d_k,d_m`` are radial offsets from the pipe axis, not burial depths, and ``\theta_{km}`` is the angle between those offsets. All radii/distances are lengths, ``\mu_{rp}`` is relative pipe permeability, and ``\mu_0`` has permeability units. No self singularity is inferred from setting equal cable indices in the complete (13).
@@ -68,7 +68,7 @@ The source's solid-round-core low-frequency dependency is (19):
 ```math
 \lim_{\omega\to0} Z_{co}
 =R_{c,dc}+\frac{j\omega\mu_0}{2\pi}\cdot\frac{\mu_r}{4}.
-\tag{19}
+\qquad\text{(19)}
 ```
 
 ``R_{c,dc}`` is the core DC resistance per length and ``\mu_r`` its relative permeability in this dependency. This is a reproduced core limit, not a new priority claim for Høidalen.
@@ -84,7 +84,7 @@ For the source's unity-permeability total cable-loop reductions:
 ```math
 \lim_{\omega\to0,\,\mu_r=1} Z_{km}
 =\frac{j\omega\mu_0}{2\pi}\cdot[\ln(r_{p3}/d_{km})]+Z_g(0).
-\tag{24}
+\qquad\text{(24)}
 ```
 
 ``Z_g(0)`` is the source's unspecified low-frequency ground-return term, not evaluated or replaced here. These two formulas are total-loop expressions; they are not relabelled pure pipe-surface impedance.
@@ -95,7 +95,7 @@ For the symmetrical three-core arrangement, the source additionally prints:
 \lim_{\omega\to0,\,\mu_r=1} Z_1
 =R_{c,dc}+\frac{j\omega\mu_0}{2\pi}\cdot
 \ln(d_{km}/0.78\cdot r_1),
-\tag{31}
+\qquad\text{(31)}
 ```
 
 ```math
@@ -103,13 +103,13 @@ For the symmetrical three-core arrangement, the source additionally prints:
 =R_{c,dc}+3R_{p,dc}+\frac{j\omega\mu_0}{2\pi}\cdot
 \ln\left(\frac{r_{p1}^3}{0.78\cdot r_1\cdot d_{km}^2}\right)
 +j\Delta X_0,
-\tag{34}
+\qquad\text{(34)}
 ```
 
 ```math
 \lim_{\omega\to0,\,\mu_r=1,\,r_{p2}\to r_{p1}}\Delta X_0
 =\frac{\omega\mu_0}{2\pi}\cdot\frac{r_{p2}-r_{p1}}{r_{p1}}.
-\tag{35}
+\qquad\text{(35)}
 ```
 
 ``r_1`` is the common solid-core radius in these mode formulas. The author states that ``\Delta X_0`` comes from (12); (35) is its further thin-wall expression. Equation (31) prints an inline slash followed by ``\cdot r_1``: no parentheses are inserted to turn it into a different radius ratio. The suspected grouping problem is documented below. No explicit conversion of the printed number ``0.78`` to an exponential is made.
@@ -130,7 +130,7 @@ The low-frequency expressions in the formula section keep their original notatio
 Z_{pi}=\frac{j\omega\mu_0}{2\pi}\cdot\frac{\mu_{rp}}{x_1}
 \frac{I_0(x_1)\cdot K_1(x_2)+I_1(x_2)\cdot K_0(x_1)}
 {I_1(x_2)\cdot K_1(x_1)-I_1(x_1)\cdot K_1(x_2)}.
-\tag{8}
+\qquad\text{(8)}
 ```
 
 ```math
@@ -138,7 +138,7 @@ Z_{p\Sigma,km}=\frac{j\omega\mu_0}{2\pi}\cdot
 \sum_{n=1}^{\infty}\frac{2\mu_{rp}\cdot C_n}{x_1}\cdot
 \frac{A_{nK2}\cdot I_n(x_1)-A_{nI2}\cdot K_n(x_1)}
 {A_{nI1}\cdot A_{nK2}-A_{nI2}\cdot A_{nK1}}.
-\tag{9}
+\qquad\text{(9)}
 ```
 
 The arguments are (7),(10); the coefficient geometry is (5):
@@ -151,7 +151,7 @@ x_2=r_{p2}\cdot\sqrt{j\omega\cdot\mu_0\cdot\mu_{rp}\cdot\sigma_p},
 
 ```math
 C_n=(d_k\cdot d_m/r_{p1}^2)^n\cdot\cos(n\theta_{km}).
-\tag{5}
+\qquad\text{(5)}
 ```
 
 ```math
@@ -168,20 +168,20 @@ A_{nK1}=n(\mu_{rp}+1)/x_1\cdot K_n(x_1)+K_{n-1}(x_1),
 
 ```math
 A_{nK2}=n(\mu_{rp}-1)/x_2\cdot K_n(x_2)-K_{n-1}(x_2).
-\tag{11}
+\qquad\text{(11)}
 ```
 
 ```math
 Z_{po}=\frac{j\omega\mu_0}{2\pi}\cdot\frac{\mu_{rp}}{x_2}
 \frac{I_0(x_2)\cdot K_1(x_1)+I_1(x_1)\cdot K_0(x_2)}
 {I_1(x_2)\cdot K_1(x_1)-I_1(x_1)\cdot K_1(x_2)},
-\tag{20}
+\qquad\text{(20)}
 ```
 
 ```math
 Z_{pm}=\frac{j\omega\mu_0}{2\pi}\cdot\frac{\mu_{rp}}{x_1\cdot x_2}
 \frac{1}{I_1(x_2)\cdot K_1(x_1)-I_1(x_1)\cdot K_1(x_2)}.
-\tag{21}
+\qquad\text{(21)}
 ```
 
 Høidalen does not define the precise Bessel family in this manuscript. His cited original Kane et al., printed p. 1647 (HAL PDF page 3), explicitly defines ``I_n,K_n`` as modified Bessel functions of first and second kind, order ``n``; that prose was image-checked. It corroborates the parent notation, not a proof that the later witness has no algebraic transcription differences. No branch is stated in Høidalen's square-root definitions. ``\sigma_p`` is pipe conductivity.
@@ -196,13 +196,13 @@ Z_{kk}=Z_{co}+Z_{ins1,k}+Z_{ins2,kk}+Z_{pi}+Z_{p\Sigma,kk}
 ```math
 Z_{km}=Z_{ins2,km}+Z_{pi}+Z_{p\Sigma,km}
 +Z_{po}-2Z_{pm}+Z_{ins3}+Z_g.
-\tag{17}
+\qquad\text{(17)}
 ```
 
 Its required insulation terms, (4),(6),(18), are kept as assembly dependencies rather than attributed as new Høidalen insulation formulas:
 
 ```math
-Z_{ins2,km}=\frac{j\omega\mu_0}{2\pi}\cdot Q_{km},\tag{4}
+Z_{ins2,km}=\frac{j\omega\mu_0}{2\pi}\cdot Q_{km},\qquad\text{(4)}
 ```
 
 ```math
@@ -213,14 +213,14 @@ Q_{kk}=\ln\left(\frac{r_{p1}}{r_{2k}}\cdot[1-(d_k/r_{p1})^2]\right),
 Q_{km}=\ln\sqrt{
 \frac{r_{p1}^4+(d_k\cdot d_m)^2-2\cdot r_{p1}^2\cdot d_k\cdot d_m\cdot\cos\theta_{km}}
 {r_{p1}^2\cdot(d_k^2+d_m^2-2\cdot d_k\cdot d_m\cdot\cos\theta_{km})}}.
-\tag{6}
+\qquad\text{(6)}
 ```
 
 ```math
 Z_{ins1,k}=\frac{j\omega\mu_0}{2\pi}\cdot\ln(r_{2k}/r_{1k}),
 \qquad
 Z_{ins3}=\frac{j\omega\mu_0}{2\pi}\cdot\mu_{ri3}\cdot\ln(r_{p3}/r_{p2}).
-\tag{18}
+\qquad\text{(18)}
 ```
 
 ``\mu_{ri3}`` is relative permeability of the outer insulation in (18). It is not restored to the first insulation term, which prints only ``\mu_0``. Full-frequency ``Z_{co}`` and ``Z_g`` are named external dependencies; only the core's low-frequency (19) is supplied here. Thus (17) does not constitute a new completely specified full-frequency cable formula in this record.
@@ -230,13 +230,13 @@ The source's symmetrical-mode assembly, p. 4, is:
 ```math
 Z_1=Z_{co}+Z_{ins1}+(Z_{p\Sigma,kk}-Z_{p\Sigma,km})
 +\frac{j\omega\mu_0}{2\pi}\cdot(Q_{kk}-Q_{km}),
-\tag{29}
+\qquad\text{(29)}
 ```
 
 ```math
 Z_0=Z_{co}+Z_{ins1}+3Z_{pi}+Z_{p\Sigma,kk}+2Z_{p\Sigma,km}
 +\frac{j\omega\mu_0}{2\pi}\cdot(Q_{kk}+2Q_{km}).
-\tag{32}
+\qquad\text{(32)}
 ```
 
 The source states that connection and ground-return terms cancel in these modes; it does not set the physical earth impedance identically zero in the whole cable model. Section V.A, across the bottom of p. 4 and top of p. 5, gives a geometry-specific series observation: in the symmetrical arrangement, all terms except ``n=3,6,9,\ldots`` contribute to ``Z_{p\Sigma,kk}-Z_{p\Sigma,km}``, whereas only those multiples of three contribute to ``Z_{p\Sigma,kk}+2Z_{p\Sigma,km}``. The complete sentence spans the page break; it does not say that only multiples of three contribute to the differential term. The full parent summations are retained above. The separate core-to-core correction and its mode factors are in the [proximity record](../solid-core-proximity-low-frequency-subtracted-series/Hoidalen2013.md).

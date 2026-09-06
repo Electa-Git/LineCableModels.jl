@@ -34,12 +34,12 @@
 **Expression.** The 2009 source prints the following **admittance correction relation and potential correction**, (2a)–(2c), p. 1065:
 
 ```math
-Y'_{g_{ij}}=j\omega P_{g_{ij}}^{-1}.\tag{2a}
+Y'_{g_{ij}}=j\omega P_{g_{ij}}^{-1}.\qquad\text{(2a)}
 ```
 
 ```math
 P_{g_{ij}}=\frac{1}{\pi\varepsilon_0}
-\int_0^\infty [F(u)+G(u)]e^{-u(h_i+h_j)}\cos(y_{ij}u)\,du.\tag{2b}
+\int_0^\infty [F(u)+G(u)]e^{-u(h_i+h_j)}\cos(y_{ij}u)\,du.\qquad\text{(2b)}
 ```
 
 ```math
@@ -48,40 +48,40 @@ G(u)=u\frac{
 (s_{12}+d_{12}e^{-2\alpha_1d})(S_{12}+D_{12}e^{-2\alpha_1d})
 -4\mu_0\mu_1^2\mu_2\alpha_1^2\gamma_0^2
 (\gamma_2^2-\gamma_1^2)e^{-2\alpha_1d}
-}{\Delta_2\cdot\Delta}.\tag{2c}
+}{\Delta_2\cdot\Delta}.\qquad\text{(2c)}
 ```
 
 The leading ``u`` multiplies the **whole** fraction. Both parenthesized interface factors multiply one another. The complete shared impedance kernel (1b) is repeated as a dependency, without folding its height exponential into it:
 
 ```math
 F(u)=\mu_1\frac{s_{12}+d_{12}e^{-2\alpha_1d}}
-{s_{01}s_{12}+d_{01}d_{12}e^{-2\alpha_1d}}.\tag{1b}
+{s_{01}s_{12}+d_{01}d_{12}e^{-2\alpha_1d}}.\qquad\text{(1b)}
 ```
 
 All six original appendix definitions, p. 1067, retain their printed Latin/prime notation:
 
 ```math
-s_{mn}=(a_m\mu_n+a_n\mu_m),\tag{A.1}
+s_{mn}=(a_m\mu_n+a_n\mu_m),\qquad\text{(A.1)}
 ```
 
 ```math
-d_{mn}=(a_m\mu_n-a_n\mu_m),\tag{A.2}
+d_{mn}=(a_m\mu_n-a_n\mu_m),\qquad\text{(A.2)}
 ```
 
 ```math
-S_{mn}=(\mu_m\gamma_n^2a_m+\mu_n\gamma_m^2a_n),\tag{A.3}
+S_{mn}=(\mu_m\gamma_n^2a_m+\mu_n\gamma_m^2a_n),\qquad\text{(A.3)}
 ```
 
 ```math
-D_{mn}=(\mu_m\gamma_n^2a_m-\mu_n\gamma_m^2a_n),\tag{A.4}
+D_{mn}=(\mu_m\gamma_n^2a_m-\mu_n\gamma_m^2a_n),\qquad\text{(A.4)}
 ```
 
 ```math
-\Delta=s_{01}s_{12}+d_{01}d_{12}e^{-2a'_1d},\tag{A.5}
+\Delta=s_{01}s_{12}+d_{01}d_{12}e^{-2a'_1d},\qquad\text{(A.5)}
 ```
 
 ```math
-\Delta_2=S_{01}S_{12}+D_{01}D_{12}e^{-2a_1d}.\tag{A.6}
+\Delta_2=S_{01}S_{12}+D_{01}D_{12}e^{-2a_1d}.\qquad\text{(A.6)}
 ```
 
 ```math
@@ -110,15 +110,15 @@ The formula section preserves the original 2009 (2a)–(2c), its (1b) dependency
 
 ```math
 \mathbf Y'(\omega)=\mathbf Y'_e(\omega)
-=j\omega\mathbf P_e^{-1}=j\omega(\mathbf P_{pg}+\mathbf P_g)^{-1},\tag{2010:3a}
+=j\omega\mathbf P_e^{-1}=j\omega(\mathbf P_{pg}+\mathbf P_g)^{-1},\qquad\text{(2010:3a)}
 ```
 
 ```math
-\mathbf Y'_{pg}=j\omega\mathbf P_{pg}^{-1},\tag{2010:3b}
+\mathbf Y'_{pg}=j\omega\mathbf P_{pg}^{-1},\qquad\text{(2010:3b)}
 ```
 
 ```math
-\mathbf Y'_g=j\omega\mathbf P_g^{-1}.\tag{2010:3c}
+\mathbf Y'_g=j\omega\mathbf P_g^{-1}.\qquad\text{(2010:3c)}
 ```
 
 ``\mathbf P`` is expressly an ``N\times N`` potential-coefficient matrix; ``pg`` is perfectly conducting ground and ``g`` the imperfect-earth correction. The paper's one-conductor equivalent circuit places the corresponding branches in series. It does **not** print ``\mathbf Y'_e=\mathbf Y'_{pg}+\mathbf Y'_g``. No such addition is supplied here.
@@ -134,7 +134,7 @@ Y_{e_{ij}}^{\prime-1}(\gamma_x)
 +2a_0u\cdot T'_2\cdot e^{-a_0(h_i+h_j)}\right]
 \times\left[\int_{-\infty}^{\infty}
 J_0\!\left(u\sqrt{x^2+y_{ij}^2}\right)e^{-\gamma_xx}\,dx\right]du.
-\tag{2010:4b}
+\qquad\text{(2010:4b)}
 ```
 
 The leading ``j\omega\mu_0/(4\pi\gamma_0^2)`` and the inverse on ``Y'`` are exactly retained; neither is turned into a different output. ``J_0`` is the first-kind order-zero Bessel function. The nested integrals remain separate. Parent ``a_0`` versus appendix ``a'_0`` is a printed mismatch; no arbitrary-complex-``\gamma_x`` convergence prescription is supplied.
@@ -142,18 +142,18 @@ The leading ``j\omega\mu_0/(4\pi\gamma_0^2)`` and the inverse on ``Y'`` are exac
 2010 (6a)–(6d), p. 1162, after the stated ``\gamma_x=\gamma_0=jk_0=j\omega\sqrt{\varepsilon_0\mu_0}``:
 
 ```math
-Y'_{e_{ij}}=j\omega P_{e_{ij}}^{-1},\tag{2010:6a}
+Y'_{e_{ij}}=j\omega P_{e_{ij}}^{-1},\qquad\text{(2010:6a)}
 ```
 
 ```math
 P_{e_{ij}}=P_{pg_{ij}}+P_{g_{ij}}
 =\frac{1}{2\pi\varepsilon_0}\ln\frac{D_{ij}}{d_{ij}}
-+\frac{1}{\pi\varepsilon_0}(M+jN),\tag{2010:6b}
++\frac{1}{\pi\varepsilon_0}(M+jN),\qquad\text{(2010:6b)}
 ```
 
 ```math
 M+jN=\int_0^\infty[F_{strat}(\lambda)+G_{strat}(\lambda)]
-e^{-\lambda(h_i+h_j)}\cos(y_{ij}\lambda)\,d\lambda,\tag{2010:6c}
+e^{-\lambda(h_i+h_j)}\cos(y_{ij}\lambda)\,d\lambda,\qquad\text{(2010:6c)}
 ```
 
 ```math
@@ -162,7 +162,7 @@ G_{strat}(\lambda)=\lambda\frac{
 (s_{12}+d_{12}e^{-2\alpha_1d})(S_{12}+D_{12}e^{-2\alpha_1d})
 -4\mu_0\mu_1^2\mu_2\alpha_1^2\gamma_0^2
 (\gamma_2^2-\gamma_1^2)e^{-2\alpha_1d}
-}{\Delta_2\cdot\Delta}.\tag{2010:6d}
+}{\Delta_2\cdot\Delta}.\qquad\text{(2010:6d)}
 ```
 
 The shared dependency, 2010 (5c), is:
@@ -170,7 +170,7 @@ The shared dependency, 2010 (5c), is:
 ```math
 F_{strat}(\lambda)=\mu_1
 \frac{s_{12}+d_{12}e^{-2\alpha_1d}}
-{s_{01}s_{12}+d_{01}d_{12}e^{-2\alpha_1d}}.\tag{2010:5c}
+{s_{01}s_{12}+d_{01}d_{12}e^{-2\alpha_1d}}.\qquad\text{(2010:5c)}
 ```
 
 The indexed ``P_{e_{ij}}^{-1}`` in (6a) is not independently replaced by an entrywise reciprocal or by new matrix notation. The explicitly stated matrix operation is (3a), above. ``M+jN`` is the dimensionless integral, whereas ``P_e`` has potential-coefficient units.
@@ -187,7 +187,7 @@ The complete parent reflection dependencies (A.6a)–(A.7g), with the one unprim
 ```math
 T'_1=\frac{\Delta'_1}{\Delta'}
 =\frac{d'_{01}s'_{12}+s'_{01}d'_{12}e^{-2a'_1d}}
-{s'_{01}s'_{12}+d'_{01}d'_{12}e^{-2a'_1d}},\tag{2010:A.6a}
+{s'_{01}s'_{12}+d'_{01}d'_{12}e^{-2a'_1d}},\qquad\text{(2010:A.6a)}
 ```
 
 ```math
@@ -196,36 +196,36 @@ T'_2=\frac{
 [s'_{12}+d'_{12}e^{-2a'_1d}][S'_{12}+D'_{12}e^{-2a_1d}]
 -4\mu_0\mu_1^2\mu_2a_1^{\prime2}\gamma_0^2e^{-2a_1d}
 (\gamma_2^2-\gamma_1^2)
-}{\Delta'_2\cdot\Delta'}.\tag{2010:A.6b}
+}{\Delta'_2\cdot\Delta'}.\qquad\text{(2010:A.6b)}
 ```
 
 ```math
-\Delta'=s'_{01}s'_{12}+d'_{01}d'_{12}e^{-2a'_1d},\tag{2010:A.7a}
+\Delta'=s'_{01}s'_{12}+d'_{01}d'_{12}e^{-2a'_1d},\qquad\text{(2010:A.7a)}
 ```
 
 ```math
-\Delta'_1=d'_{01}s'_{12}+s'_{01}d'_{12}e^{-2a'_1d},\tag{2010:A.7b}
+\Delta'_1=d'_{01}s'_{12}+s'_{01}d'_{12}e^{-2a'_1d},\qquad\text{(2010:A.7b)}
 ```
 
 ```math
-\Delta'_2=S'_{01}S'_{12}+D'_{01}D'_{12}e^{-2a_1d},\tag{2010:A.7c}
+\Delta'_2=S'_{01}S'_{12}+D'_{01}D'_{12}e^{-2a_1d},\qquad\text{(2010:A.7c)}
 ```
 
 ```math
-s'_{mn}=(a'_m\mu_n+a'_n\mu_m),\tag{2010:A.7d}
+s'_{mn}=(a'_m\mu_n+a'_n\mu_m),\qquad\text{(2010:A.7d)}
 ```
 
 ```math
-d'_{mn}=(a'_m\mu_n-a'_n\mu_m),\tag{2010:A.7e}
+d'_{mn}=(a'_m\mu_n-a'_n\mu_m),\qquad\text{(2010:A.7e)}
 ```
 
 ```math
-S'_{mn}=(\mu_m\gamma_n^2a'_m+\mu_n\gamma_m^2a'_n),\tag{2010:A.7f}
+S'_{mn}=(\mu_m\gamma_n^2a'_m+\mu_n\gamma_m^2a'_n),\qquad\text{(2010:A.7f)}
 ```
 
 ```math
 D'_{mn}=(\mu_m\gamma_n^2a'_m-\mu_n\gamma_m^2a'_n),\qquad m,n=0,1,2.
-\tag{2010:A.7g}
+\qquad\text{(2010:A.7g)}
 ```
 
 The later (A.6b) also has mixed primed/unprimed exponent factors; their literal forms are retained above. Appendix (A.12) supplies the longitudinal-transform identity:
@@ -237,7 +237,7 @@ J_0\!\left(u\sqrt{x^2+y_{ij}^2}\right)e^{-jk_0x}\,dx
 0,&u<k_0,\\
 2\dfrac{\cos\!\left(y_{ij}\sqrt{u^2-k_0^2}\right)}
 {\sqrt{u^2-k_0^2}},&u>k_0.
-\end{cases}\tag{2010:A.12}
+\end{cases}\qquad\text{(2010:A.12)}
 ```
 
 No endpoint value at ``u=k_0`` is provided. Immediately following (A.12), the source prescribes ``u^2-k_0^2=\lambda^2`` and transforms ``a'_k`` to:
@@ -279,7 +279,7 @@ The associated identity is separately preserved because its sign and factors are
 \left(\frac{e^{-a'_0|h_j-h_i|}}{a'_0}
 +\frac{e^{-a'_0(h_i+h_j)}}{a'_0}\right)
 \cos(y_{ij}\lambda)\,d\lambda
-=\ln\frac{D_{ij}}{d_{ij}}.\tag{2010:A.13}
+=\ln\frac{D_{ij}}{d_{ij}}.\qquad\text{(2010:A.13)}
 ```
 
 No minus is inserted, and no branch or convergence conclusion is imposed on this ambiguous post-transform notation. 2010 self substitution is applied to the complete (6): ``y_{ij}`` replaced by outer conductor radius, ``h_j`` by ``h_i``. Identical electromagnetic properties of the two earth layers give its stated homogeneous reduction ``\gamma_2=\gamma_1,a_2=a_1``; no new derived limiting kernel is substituted.

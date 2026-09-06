@@ -40,12 +40,12 @@ P^{\mathrm{app}}_{g(m,n)}=
 K_0(\gamma_1d)+
 \frac{\gamma_1^2-\gamma_0^2}{\gamma_1^2+\gamma_0^2}K_0(\gamma_1D)
 \right],
-\tag{15}
+\qquad\text{(15)}
 ```
 
 ```math
 \mathbf Y_g=j\omega\mathbf P_g^{-1}.
-\tag{7}
+\qquad\text{(7)}
 ```
 
 ```math
@@ -69,14 +69,14 @@ The compact parent entry is
 
 ```math
 P_{g(m,n)}=\frac{j\omega}{2\pi(\sigma_1+j\omega\epsilon_1)}[\Lambda+\Theta_2],
-\tag{9}
+\qquad\text{(9)}
 ```
 
 ```math
 \Theta_2=2\int_0^\infty\frac{u_0}{u_1}
 \frac{e^{-(h_m+h_n)u_1}}{u_0+\gamma_0^2\gamma_1^{-2}u_1}
 \cos(r\lambda)\,d\lambda,
-\tag{11}
+\qquad\text{(11)}
 ```
 
 with ``\Lambda=K_0(\gamma_1d)-K_0(\gamma_1D)``. The source explains that its voltage reference differs from Magalhães et al.; this normalization is retained rather than merged with that record.

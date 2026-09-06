@@ -39,7 +39,7 @@ Z_{G-C}=\frac{j\omega\mu_0}{2\pi}
 \ln\!\left(\frac{1.851}{jk_eR_{12}}\right)
 +\frac{2jk_e(y_1+y_2)}{3}
 \right\}.
-\tag{6c}
+\qquad\text{(6c)}
 ```
 
 Here ``R_{12}=\sqrt{x^2+(y_1-y_2)^2}`` and ``k_e^2=-j\omega\mu_0\sigma`` as defined with the adjacent comparison formulas.
@@ -63,7 +63,7 @@ Uribe's normalized form is
 \right]
 -\frac{2j\sqrt j\,\xi(1+\zeta)}{3}
 \right\}.
-\tag{6d}
+\qquad\text{(6d)}
 ```
 
 ## Notation map

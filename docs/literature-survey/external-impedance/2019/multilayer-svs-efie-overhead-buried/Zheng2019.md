@@ -37,7 +37,7 @@
 -j\omega\mu_0\oint_{\partial S}G_\sigma(\rho,\rho')J_z(\rho')d\rho'
 +\sigma\omega^2\mu_0\oint_{\partial S}\left[\iint_SG_\epsilon(\rho,\rho')G_\sigma(\rho',\rho'')ds'\right]
 J_z(\rho'')d\rho''=V_{p.u.l.}.
-\tag{1}
+\qquad\text{(1)}
 ```
 
 The spatial layered Green function is evaluated from
@@ -45,7 +45,7 @@ The spatial layered Green function is evaluated from
 ```math
 G_\epsilon(|x-x'|,y_n,y'_m)=
 \sum_{j=0}^{N-1}T_{nj}R_{jm}d_m\frac{e^{-\sqrt{S_j}|x-x'|}}{2\sqrt{S_j}}.
-\tag{7}
+\qquad\text{(7)}
 ```
 
 After MoM solution the terminal admittance is inverted and decomposed as ``\mathbf Z=\mathbf R+j\omega\mathbf L``.

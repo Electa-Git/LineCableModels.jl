@@ -37,7 +37,7 @@
 Z=\frac{j\omega\mu_0}{2\pi}(\Lambda+P),
 \qquad
 \gamma_w=\gamma_1\left(\frac{\Lambda+P}{\Lambda+Q}\right)^{1/2}.
-\tag{3,4}
+\qquad\text{(3,4)}
 ```
 
 For ``h>0`` the image approximation is
@@ -46,7 +46,7 @@ For ``h>0`` the image approximation is
 \Lambda=\ln\frac{d''}{d'},\qquad
 P\simeq\ln\frac{d_P}{d''},\qquad
 d_P=\sqrt{(y+h+2/\beta)^2+x^2},
-\tag{10}
+\qquad\text{(10)}
 ```
 
 so ``\Lambda+P\simeq\ln(d_P/d')``. The shared approximation has ``\beta=\gamma_1(n^2-1)^{1/2}`` and uses ``b=1`` for ``P``.

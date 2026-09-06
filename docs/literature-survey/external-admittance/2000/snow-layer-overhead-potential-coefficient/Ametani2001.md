@@ -29,7 +29,7 @@
 | Earth structure | Air 0 above snow 1 of thickness ``d``, above earth half-space 2; parallel flat interfaces. The source's “two-layer insulator” counts air and snow, not two finite soil layers. | Stated — JP p. 272/EN p. 27 Figs. 2–3. Equation-implied — one finite-depth exponential ``\exp(-a_1d)`` and terminal layer-2 coefficient. |
 | Conductor and insulation geometry | Infinite parallel conductors along ``x``; heights ``h_i,h_j`` measured above snow, lateral spacing ``y``. No conductor-attached insulation shell or internal surface term is derived. Single-wire example has ``h+d=25\,\mathrm m`` and ``a=2\,\mathrm{cm}``; its radius is not itself a source-prescribed substitution in (15). | Stated — JP p. 271 §2, p. 272 Fig. 3, p. 273 §4 / EN pp. 26–28. |
 | Constitutive and field assumptions | Scalar medium parameters, homogeneous within each depicted layer; Hertz-vector line construction with ``\Pi_y=0``. Isotropic scalar treatment is equation-implied, not a general anisotropic result. Snow influence on series earth impedance is neglected and Carson is used separately; this does not set every ``\sigma_1`` or dielectric-loss term to zero in the admittance model. No internal skin/proximity formula is supplied here. | Stated — JP p. 271 §§1–2 / EN p. 26 §§1–2. Equation-implied — scalar definitions and flat-layer construction, JP p. 272/EN p. 27. |
-| Conventions | ``x`` longitudinal; ``z`` upward from the air/snow surface, ``y`` horizontal. Explicit longitudinal factor ``\exp(-\gamma_0x)``. ``j\omega`` corresponds to the source's frequency-domain time derivative, but an explicit full time exponential is not printed. ``V=-\operatorname{div}\boldsymbol\Pi``, ``Q_0`` charge per unit length, ``V=Q_0P_{ij}``; ``P`` consequently has units m/F. No additional voltage-reference transformation is introduced. | Stated — JP Fig. 1 and (9)–(12) / EN Fig. 1 and (9)–(12). Equation-implied — (1)–(2) time derivative and (11) units. Not stated — explicit time exponential or root branch. |
+| Conventions | ``x`` longitudinal; ``z`` upward from the air/snow surface, ``y`` horizontal. Explicit longitudinal factor ``\exp(-\gamma_0x)``. ``j\omega`` corresponds to the source's frequency-domain time derivative, but an explicit full time exponential is not printed. ``V=-\mathop{\mathrm{div}}\boldsymbol\Pi``, ``Q_0`` charge per unit length, ``V=Q_0P_{ij}``; ``P`` consequently has units m/F. No additional voltage-reference transformation is introduced. | Stated — JP Fig. 1 and (9)–(12) / EN Fig. 1 and (9)–(12). Equation-implied — (1)–(2) time derivative and (11) units. Not stated — explicit time exponential or root branch. |
 
 **Expression.** The common main output is ``P_{ij}``, JP p. 272/PDF 2 and EN p. 28/PDF 3, (14)–(15). It includes the printed logarithmic term; ``M+jN`` alone is the snow/earth correction.
 
@@ -155,18 +155,18 @@ JP p. 271/PDF 1, (1)–(2); EN p. 26/PDF 1, same labels. These are convention ev
 JP:
 
 ```math
-\mathbf E=-\gamma^2\boldsymbol\Pi+\operatorname{grad}\operatorname{div}\boldsymbol\Pi,
+\mathbf E=-\gamma^2\boldsymbol\Pi+\mathop{\mathrm{grad}}\mathop{\mathrm{div}}\boldsymbol\Pi,
 \qquad
-\mathbf H=\frac{\gamma^2}{j\omega\mu}\operatorname{rot}\boldsymbol\Pi.
+\mathbf H=\frac{\gamma^2}{j\omega\mu}\mathop{\mathrm{rot}}\boldsymbol\Pi.
 \qquad\text{(2)}
 ```
 
 EN:
 
 ```math
-\mathbf E=\gamma^2\boldsymbol\Pi+\operatorname{grad}\operatorname{div}\boldsymbol\Pi,
+\mathbf E=\gamma^2\boldsymbol\Pi+\mathop{\mathrm{grad}}\mathop{\mathrm{div}}\boldsymbol\Pi,
 \qquad
-\mathbf H=\frac{\gamma^2}{j\omega\mu}\operatorname{rot}\boldsymbol\Pi.
+\mathbf H=\frac{\gamma^2}{j\omega\mu}\mathop{\mathrm{rot}}\boldsymbol\Pi.
 \qquad\text{(2)}
 ```
 
@@ -245,7 +245,7 @@ D_{ij}=\sqrt{y^2+(h_i+h_j)^2}.\qquad\text{(8)}
 ```
 
 ```math
-V=-\operatorname{div}\boldsymbol\Pi
+V=-\mathop{\mathrm{div}}\boldsymbol\Pi
 =-\left(\frac{\partial\Pi_x}{\partial x}
 +\frac{\partial\Pi_y}{\partial y}
 +\frac{\partial\Pi_z}{\partial z}\right).\qquad\text{(9)}

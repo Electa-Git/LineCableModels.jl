@@ -36,7 +36,7 @@
 ```math
 Z'_{e_{ij}}=\frac{j\omega\mu_1}{2\pi}
 \int_0^{+\infty}F(\lambda)\cos(y_{ij}\lambda)\,d\lambda.
-\tag{6a}
+\qquad\text{(6a)}
 ```
 
 ```math
@@ -47,7 +47,7 @@ F(\lambda)=
  -D_{10}S_{21}e^{-a_1(h_1+h_2)}
  -D_{10}D_{21}e^{-a_1(2d-|h_1-h_2|)}
 }{a_1(S_{10}S_{21}+D_{10}D_{21}e^{-2a_1d})}.
-\tag{6b}
+\qquad\text{(6b)}
 ```
 
 The author-prescribed transformation is ``u^2-k_x^2=\lambda^2``, with the following printed factor definition and the unprimed versions of appendix (19)–(20). The ``k`` on ``\gamma_k`` in the definition of ``a_m`` is intentionally retained; the appendix separately defines the consistently indexed primed factor below. Equating ``k`` and ``m`` would be an interpretation of the printed mismatch, not a source transcription.
@@ -93,7 +93,7 @@ Equation (5), printed p. 162:
 2\dfrac{\cos\!\left(y_{ij}\sqrt{u^2-k_x^2}\right)}
 {\sqrt{u^2-k_x^2}},&u>k_x.
 \end{cases}
-\tag{5}
+\qquad\text{(5)}
 ```
 
 The source states no separate value at ``u=k_x``. Immediately following (5), it makes ``u^2-k_x^2=\lambda^2``, prints the ``a_m`` definition reproduced above, and states that primed ``S,D,\Delta,A`` become their unprimed counterparts. ``J_0`` is the Bessel function of the first kind, order zero (appendix below (10)).
@@ -107,11 +107,11 @@ a'_k=\sqrt{u^2+\gamma_k^2},\qquad
 ```
 
 ```math
-S'_{mn}=(\mu_n a'_m+\mu_m a'_n),\tag{19}
+S'_{mn}=(\mu_n a'_m+\mu_m a'_n),\qquad\text{(19)}
 ```
 
 ```math
-D'_{mn}=(\mu_m a'_n-\mu_n a'_m).\tag{20}
+D'_{mn}=(\mu_m a'_n-\mu_n a'_m).\qquad\text{(20)}
 ```
 
 Section 3, p. 163, states three reductions without printing new independent kernels: first-earth-layer properties equal to air and ``k_x=k_0=\omega\sqrt{\varepsilon_0\mu_0}`` give the overhead homogeneous-earth expressions attributed to Kikuchi [18]; equal properties of earth layers 1 and 2 give the authors' homogeneous-earth formulas [9]; a further sentence sets ``\gamma_x=0`` and identifies the earlier two-layer impedance [13]. The latter sentence's placement after the equal-layer case is retained as prose, not used to impose simultaneous incompatible layer conditions. The homogeneous-earth original has a [separate record](../../2010/homogeneous-earth-underground-cable-correction/Papadopoulos2010b.md).

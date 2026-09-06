@@ -36,7 +36,7 @@
 ```math
 Z(j\omega)=\frac{j\omega\mu_0}{2\pi}
 \left[K_0(kr)-K_0(kR)+2J_{\mathrm{Pollaczek}}\right],
-\tag{1}
+\qquad\text{(1)}
 ```
 
 ```math
@@ -44,7 +44,7 @@ J_{\mathrm{Pollaczek}}
 =\left(\frac{H}{R}\right)^2K_0(kR)
 +\frac{1}{kR}\left[2\left(\frac{H}{R}\right)^2-1\right]K_1(kR)
 -\frac{1}{k^2}I_{\mathrm{Pollaczek}},
-\tag{3}
+\qquad\text{(3)}
 ```
 
 ```math
@@ -54,7 +54,7 @@ I_{\mathrm{Pollaczek}}
 \frac{1}{2^{2n}n!(2n-1)}
 \frac{(kx)^{2n}}{(kR)^{n+3/2}}
 K_{n+3/2}(kR).
-\tag{5}
+\qquad\text{(5)}
 ```
 
 Definitions retained from (2) and below (6):
@@ -69,7 +69,7 @@ R=\sqrt{x^2+H^2},\quad H=h_1+h_2,
 J_{\mathrm{Pollaczek}}=\int_0^\infty
 \frac{e^{-Hu}}{\lambda+u}\cos(\lambda x)\,d\lambda,
 \qquad k=\sqrt{j\omega\mu_0\sigma}=\frac{1+j}{\delta}.
-\tag{2}
+\qquad\text{(2)}
 ```
 
 ``K_\nu`` is the modified Bessel function of the second kind. The self formula sets ``h_1=h_2`` and ``x`` to conductor radius.
@@ -88,7 +88,7 @@ The source presents (5) as the second of three independent infinite-series evalu
 
 ```math
 \cos z=\sum_{n=0}^{\infty}\frac{(z/2)^n}{n!(2n-1)}J_n(z)
-\tag{14}
+\qquad\text{(14)}
 ```
 
 into (9a), followed by the integral identity used in (15), yielding source (16), which is identical to displayed (5). The source operation is recorded without changing the series.

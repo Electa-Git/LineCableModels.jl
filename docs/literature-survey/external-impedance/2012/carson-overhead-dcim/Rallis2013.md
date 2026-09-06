@@ -36,13 +36,13 @@
 ```math
 \frac{1}{\lambda+\sqrt{\lambda^2+k^2}}
 \approx\sum_{n=1}^{N}c_ne^{s_n\lambda},
-\tag{4.20}
+\qquad\text{(4.20)}
 ```
 
 ```math
 J_c\approx2\sum_{n=1}^{N}c_n\frac{H_n}{H_n^2+x^2},
 \qquad H_n=h_1+h_2-s_n,qquad n=1,2,\ldots,N,
-\tag{4.22}
+\qquad\text{(4.22)}
 ```
 
 with ``Z=j\omega\mu_0[\ln(D/d)+J_c]/(2\pi)``.
@@ -61,7 +61,7 @@ with ``Z=j\omega\mu_0[\ln(D/d)+J_c]/(2\pi)``.
 J_c=\int_0^\infty
 \frac{2e^{-(h_1+h_2)\lambda}}
 {\lambda+\sqrt{\lambda^2+k^2}}\cos(x\lambda)\,d\lambda.
-\tag{4.17}
+\qquad\text{(4.17)}
 ```
 
 ## Notation map

@@ -37,12 +37,12 @@
 \lim_{\omega\to0} Z_{pi}^{i}
 =\frac{j\omega\cdot\mu_0\mu_{rp}}{2\pi}\cdot
 (\ln(2/x_1)-\gamma).
-\tag{14}
+\qquad\text{(14)}
 ```
 
 ```math
 \lim_{\omega\to0} Z_{p\Sigma,km}^{i}=Z_{p\Sigma,km}+\Delta^{i}.
-\tag{15}
+\qquad\text{(15)}
 ```
 
 ```math
@@ -50,7 +50,7 @@
 \frac{2\mu_{rp}}{1+\mu_{rp}}\cdot C_1\cdot
 \frac{(\ln(2/x_1)-\gamma)\cdot x_1^2}
 {1+\mu_{rp}+(\ln(2/x_1)-\gamma)\cdot x_1^2}.
-\tag{16}
+\qquad\text{(16)}
 ```
 
 ``\gamma`` is Euler's constant, not a propagation constant. The geometry/skin definitions from (5),(7) are:
@@ -72,7 +72,7 @@ The finite-model term referenced by (15) is the low-frequency expression immedia
 \frac{r_{p1}^2}
 {\sqrt{r_{p1}^4+(d_k\cdot d_m)^2-2r_{p1}^2\cdot d_k\cdot d_m\cdot\cos\theta_{km}}}
 \right).
-\tag{13}
+\qquad\text{(13)}
 ```
 
 Equation (15) itself prints ``Z_{p\Sigma,km}`` on the right without a limit symbol; both witnesses are kept rather than rewriting the right-hand side. ``r_{p1},d_k,d_m`` are lengths, ``\theta_{km}`` an angle, ``x_1,C_n`` dimensionless, ``\sigma_p`` conductivity and ``\mu_{rp}`` relative pipe permeability. Outputs are impedance per length. Source branch prescriptions for the square root and complex logarithm are not stated.
@@ -93,7 +93,7 @@ Source parent (2)–(3), manuscript p. 2:
 Z_{pi}\approx Z_{pi}^{i}
 =\frac{j\omega\mu_0}{2\pi}\cdot\mu_{rp}
 \frac{K_0(x_1)}{x_1\cdot K_1(x_1)},
-\tag{2}
+\qquad\text{(2)}
 ```
 
 ```math
@@ -102,7 +102,7 @@ Z_{p\Sigma,km}\approx Z_{p\Sigma,km}^{i}
 \sum_{n=1}^{\infty}
 \frac{2\mu_{rp}\cdot C_n}
 {n(1+\mu_{rp})+\dfrac{x_1\cdot K_{n-1}(x_1)}{K_n(x_1)}}.
-\tag{3}
+\qquad\text{(3)}
 ```
 
 The full source definitions of ``C_n,x_1`` are repeated in the formula section. ``K_n`` is not explicitly defined by kind in this manuscript; the cited finite-pipe original Kane et al., p. 1647 (HAL PDF page 3), expressly identifies ``K_n`` as the modified Bessel function of the second kind of order ``n``. That definition has been image-checked as reference-chain corroboration, not used to erase any difference between witnesses.
@@ -115,7 +115,7 @@ For the **different mixed-model assembly**, the author prints:
 \lim_{\omega\to0} Z_p^{i}
 =\lim_{\omega\to0}(Z_{pi}^{i}+Z_{po}-2Z_{pm})
 =-R_{p,dc}+\frac{j\omega\mu_0\cdot\mu_{rp}}{2\pi}\cdot X.
-\tag{23}
+\qquad\text{(23)}
 ```
 
 Here ``Z_{po},Z_{pm}`` are the finite-wall (20),(21), while only ``Z_{pi}^{i}`` uses the infinite-wall model. ``R_{p,dc}`` is the finite pipe's DC resistance per length. The author calls ``X`` an inductance expression obtainable from (14),(22) but does **not print it**. It therefore remains an unresolved dependency of (23), not a reconstructed formula. The reported negative-resistance problem concerns inserting this whole mixed pipe combination into the self cable impedance when pipe DC resistance exceeds core DC resistance. It is not a physical claim about the ``K_0`` function alone.

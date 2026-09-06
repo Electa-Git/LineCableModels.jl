@@ -36,7 +36,7 @@
 ```math
 Z(j\omega)=\frac{j\omega\mu_0}{2\pi}
 \left[K_0(kr)-K_0(kR)+2J_{\mathrm{Pollaczek}}\right],
-\tag{1}
+\qquad\text{(1)}
 ```
 
 ```math
@@ -44,7 +44,7 @@ J_{\mathrm{Pollaczek}}
 =\left(\frac{H}{R}\right)^2K_0(kR)
 +\frac{1}{kR}\left[2\left(\frac{H}{R}\right)^2-1\right]K_1(kR)
 -\frac{1}{k^2}I_{\mathrm{Pollaczek}},
-\tag{3}
+\qquad\text{(3)}
 ```
 
 ```math
@@ -60,7 +60,7 @@ I_{\mathrm{Pollaczek}}
 \left[1-\frac{kR}{2}\frac{2n-1}{2n+1}\right]-1
 \right\}.
 \end{aligned}
-\tag{6}
+\qquad\text{(6)}
 ```
 
 Definitions:
@@ -69,7 +69,7 @@ Definitions:
 J_{\mathrm{Pollaczek}}=\int_0^\infty
 \frac{e^{-H\sqrt{\lambda^2+k^2}}}{\lambda+\sqrt{\lambda^2+k^2}}
 \cos(\lambda x)\,d\lambda,
-\tag{2}
+\qquad\text{(2)}
 ```
 
 ```math
@@ -97,7 +97,7 @@ I_{\mathrm{Pollaczek}}
 =\frac{H^2-x^2}{R^4}e^{-kH}(1+kH)
 +\frac{k^2xH}{R^2}\int_{H/R}^{1}
 \left(2\sqrt{1-t^2}-\frac{1}{\sqrt{1-t^2}}\right)e^{-tkR}\,dt.
-\tag{22}
+\qquad\text{(22)}
 ```
 
 The source expands the algebraic factors about ``t=1`` in (23)–(24), evaluates the resulting integrals through an incomplete-gamma identity (26), maps it to ``{}_1F_1`` in (27), and obtains the single series (28), which combined with (22) is (6). These operations are retained as source basis and do not alter the printed final series.

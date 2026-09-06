@@ -37,20 +37,20 @@
 G_g(x,y,x',y')=\frac1{4\pi}\int_{-\infty}^{\infty}
 \frac{e^{-j\beta_x(x-x')}}{\sqrt{\beta_x^2-k_g^2}}
 \left[e^{-|y-y'|\sqrt{\beta_x^2-k_g^2}}+R_{TM}e^{(y+y')\sqrt{\beta_x^2-k_g^2}}\right]d\beta_x,
-\tag{27}
+\qquad\text{(27)}
 ```
 
 ```math
 R_{TM}=\frac{\sqrt{\beta_x^2-k_g^2}-\sqrt{\beta_x^2-k_0^2}}
 {\sqrt{\beta_x^2-k_g^2}+\sqrt{\beta_x^2-k_0^2}}.
-\tag{28}
+\qquad\text{(28)}
 ```
 
 After cable-hole discretization,
 
 ```math
 \widehat{\mathbf A}=-\mu_0(\mathbf1+\mu_0\mathbf G_g\widehat{\mathbf Y}_s)^{-1}\mathbf G_g\mathbf T\mathbf J,
-\tag{30}
+\qquad\text{(30)}
 ```
 
 and the result is
@@ -58,7 +58,7 @@ and the result is
 ```math
 \mathbf R=\Re\{[\mathbf U^T(\mathbf1-j\omega\mathbf Y_s\mathbf\Psi)^{-1}\mathbf Y_s\mathbf U]^{-1}\},\quad
 \mathbf L=\omega^{-1}\Im\{[\mathbf U^T(\mathbf1-j\omega\mathbf Y_s\mathbf\Psi)^{-1}\mathbf Y_s\mathbf U]^{-1}\}.
-\tag{35,36}
+\qquad\text{(35,36)}
 ```
 
 **Approximation.** Fourier boundary expansions and MoM quadrature are truncated. The physical air–ground Green function is a spectral integral; no complex-depth fit is substituted.

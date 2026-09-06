@@ -41,7 +41,7 @@
 ```math
 y_2=\frac{j\omega\epsilon_2,2\pi}{\ln(a_2/a_1)}(1-jD_f)
 =G_2+j\omega C_2.
-\tag{10}
+\qquad\text{(10)}
 ```
 
 **Approximation.** The series equation is the coaxial layer model; the ``y\simeq y_2`` reduction assumes both screen admittances greatly exceed the insulation admittance.

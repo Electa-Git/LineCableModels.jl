@@ -36,7 +36,7 @@
 ```math
 G(X,Y)\simeq\frac{n^2}{2(n^4-1)}[Q(bz)+Q(b\bar z)]
 -\frac{P(b,z)+P(b,\bar z)-P(-b,z)-P(-b,\bar z)-n^2b[Q(-bz)+Q(-b\bar z)]}{2b(n^4-1)},
-\tag{26}
+\qquad\text{(26)}
 ```
 
 with ``z=k_0(Y+iX)``, ``b=i/\sqrt{1+n^2}``, ``Q(z)=e^{-z}E_1(-z)``, and ``P`` from (25). The assembled potential-coefficient matrix is inverted as a matrix to obtain the shunt parameters.

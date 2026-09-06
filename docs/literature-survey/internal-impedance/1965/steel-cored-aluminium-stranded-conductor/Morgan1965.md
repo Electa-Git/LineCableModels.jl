@@ -35,7 +35,7 @@
 
 ```math
 L_i=2\ln\frac{d}{2d_{11}}+\Delta L+\frac{\mu p^2}{2}+\delta L,
-\tag{27}
+\qquad\text{(27)}
 ```
 
 where the paper defines the strand/self geometric term, magnetic steel-core increment ``\Delta L``, current fraction ``p``, and skin/proximity correction ``\delta L`` through (6)–(26). The corresponding resistance is built from the dc sharing relations (6)–(8), magnetic/hysteretic losses (9)–(17), and skin/proximity terms (18)–(21).

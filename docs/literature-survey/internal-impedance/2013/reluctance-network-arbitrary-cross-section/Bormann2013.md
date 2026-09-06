@@ -35,7 +35,7 @@
 
 ```math
 \mathbf Z=j\omega(\partial^T\boldsymbol{\mathcal R}\partial)^{-1},
-\tag{1}
+\qquad\text{(1)}
 ```
 
 and the corrected final model is
@@ -43,14 +43,14 @@ and the corrected final model is
 ```math
 \mathbf Z=\mathbf Z_{int}-\mathbf Z_{int}^{\mathcal R}
 +j\omega(\partial^T\boldsymbol{\mathcal R}\partial)^{-1},
-\tag{7}
+\qquad\text{(7)}
 ```
 
 ```math
 Z_{int,k}^{\mathcal R}=
 \frac{j\omega\ell\mu_k}{\kappa_k\sum_{i:\partial_{ik}\ne0}w_i\theta_{k,i}},
 \quad \theta_{\pm,i}=\tanh(\kappa_{\pm,i}d_{\pm,i}/2).
-\tag{3,8}
+\qquad\text{(3,8)}
 ```
 
 **Approximation.** Flux is confined to constructed channels; the added/subtracted internal term corrects the network's conductor penetration approximation.

@@ -39,7 +39,7 @@
 \frac{1+\mu_{12}e^{-2D'\sqrt{\lambda^2+j}}}
      {1-\mu_{12}\mu_{10}e^{-2D'\sqrt{\lambda^2+j}}}
 e^{-2h'\lambda}\,d\lambda .
-\tag{付1}
+\qquad\text{(付1)}
 ```
 
 ```math
@@ -60,12 +60,12 @@ h'=\sqrt{\omega\mu_0/\rho_1}\,h,\qquad
 The source-prescribed finite-depth specialization is ``\rho_2=\infty`` and ``\mu_{12}=\mu_{10}``. The normalized finite-depth expression and all its helpers, §7 and appendix:
 
 ```math
-n=D/h,\tag{20}
+n=D/h,\qquad\text{(20)}
 ```
 
 ```math
 r_e=4\sqrt{\omega\times10^{-7}/R_e}
-    =0.10026\sqrt{f/R_e},\tag{21}
+    =0.10026\sqrt{f/R_e},\qquad\text{(21)}
 ```
 
 ```math
@@ -81,7 +81,7 @@ F(\lambda)=\{\sqrt{\lambda^2+j}-\lambda\}
 ```math
 \frac{\dot Z_e(r_e)}{R_e}
 =\frac{r_e^2}{4}\int_0^\infty F(\lambda)e^{-r_e\lambda}\,d\lambda .
-\tag{付2}
+\qquad\text{(付2)}
 ```
 
 Here ``\rho_e`` is the conducting earth's resistivity in the finite-depth chart model (the upper-layer ``\rho_1`` by geometry/context), not an independently fitted second-layer quantity. ``f`` is frequency and ``\omega`` angular frequency. The printed decimal and equality in (21) are retained. A 450-dpi crop confirms that both denominators are unprimed. **Suspected published unit-switch:** under the conventional angular/cyclic-frequency relation and the same numerical resistance scale, the two printed prefactors do not agree (their ratio is approximately the square root of 1000). The separately printed per-kilometre scale may explain the mismatch, but this is an inference, not a source-authorized correction; the exact normalization convention remains unresolved. ``n`` here is a depth/height ratio, not the conductor count denoted by the same letter in §6.
@@ -90,7 +90,7 @@ The separately printed evaluation relation is retained, with only the crossed �
 
 ```math
 \frac{\dot Z_{el}(u)}{R_e}
-=\frac{r_e}{4}F_l(u)\star E_l(u),\tag{付3}
+=\frac{r_e}{4}F_l(u)\star E_l(u),\qquad\text{(付3)}
 ```
 
 ```math
@@ -109,7 +109,7 @@ The lower-case subscript ``l`` is preserved. The operator is not ordinary multip
 ```math
 \varphi(u)\star\psi(u)=\varphi_0(-\infty)\psi_0(\infty)
 +\int_{-\infty}^{\infty}\varphi'_0(u-\zeta)\psi_0(\zeta)\,d\zeta.
-\tag{18}
+\qquad\text{(18)}
 ```
 
 Here ``\varphi,\psi`` are generic operands, subscript 0 denotes the printed helper functions, ``H`` is the unit step, and the prime is differentiation. The accompanying prose specifies a discontinuity at **negative** infinity despite the literal ``H(u-\infty)`` helpers. This inconsistency remains unresolved; the endpoint term is not dropped or altered by inference. The fuller source explanation and separate witness locator are retained below.
@@ -129,12 +129,12 @@ Notation is unchanged except for the explicitly mapped 相乗 glyph. Source labe
 ### August §7, p. 1045/PDF page 8
 
 ```math
-n=D/h.\tag{20}
+n=D/h.\qquad\text{(20)}
 ```
 
 ```math
 r_e=4\sqrt{\omega\times10^{-7}/R_e}
-    =0.10026\sqrt{f/R_e}.\tag{21}
+    =0.10026\sqrt{f/R_e}.\qquad\text{(21)}
 ```
 
 The definition ``R_e=\rho_e/(\pi h^2)`` is printed in the main paper's conductor-resistance definitions and repeated in Fig. 付第3. No reinterpretation as the real part of ``\dot Z_e`` is intended.
@@ -147,7 +147,7 @@ The definition ``R_e=\rho_e/(\pi h^2)`` is printed in the main paper's conductor
 \frac{1+\mu_{12}e^{-2D'\sqrt{\lambda^2+j}}}
      {1-\mu_{12}\mu_{10}e^{-2D'\sqrt{\lambda^2+j}}}
 e^{-2h'\lambda}\,d\lambda
-\quad\text{(MKS)}.\tag{付1}
+\quad\text{(MKS)}.\qquad\text{(付1)}
 ```
 
 ```math
@@ -170,12 +170,12 @@ The intervening prose credits the same form to Sunde [7] and explicitly gives ``
 ```math
 \frac{\dot Z_e(r_e)}{R_e}
 =\frac{r_e^2}{4}\int_0^\infty F(\lambda)e^{-r_e\lambda}\,d\lambda.
-\tag{付2}
+\qquad\text{(付2)}
 ```
 
 ```math
 \frac{\dot Z_{el}(u)}{R_e}
-=\frac{r_e}{4}F_l(u)\star E_l(u).\tag{付3}
+=\frac{r_e}{4}F_l(u)\star E_l(u).\qquad\text{(付3)}
 ```
 
 ```math
@@ -234,7 +234,7 @@ January §4, p. 25/PDF page 4/index 3, defines the same crossed 相乗 symbol as
 =\varphi_0(-\infty)\psi_0(\infty)
 +\int_{-\infty}^{\infty}
 \varphi'_0(u-\zeta)\psi_0(\zeta)\,d\zeta .
-\tag{18}
+\qquad\text{(18)}
 ```
 
 The equation number in the publication is **(18)**; this subsection's January locator distinguishes it from August's unrelated (18). ``H`` is the unit step, as described after January (12), p. 24/PDF page 3/index 2; ``\varphi,\psi`` are generic functions and the prime is the source's differentiation notation. The following prose says that the endpoint term vanishes when either or both functions have no discontinuity at negative infinity, and the subscript 0 can then be removed.

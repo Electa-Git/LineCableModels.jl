@@ -36,7 +36,7 @@
 ```math
 \vec J_s(r_s,\phi_s)=\sum_{n=0}^{\infty}
 [o_n\cos(n\phi_s)+p_n\sin(n\phi_s)]K_n(\xi_s r_s)\,\hat z,
-\tag{29}
+\qquad\text{(29)}
 ```
 
 with its zeroth term replaced by the exact annular skin-effect term
@@ -45,7 +45,7 @@ with its zeroth term replaced by the exact annular skin-effect term
 \vec J_{skin}(r,\phi)=\frac{\xi_sI}{2\pi c_1}
 \frac{I_0(\xi_s r)K_1(\xi_s c_2)+I_1(\xi_s c_2)K_0(\xi_s r)}
 {I_1(\xi_s c_2)K_1(\xi_s c_1)-I_1(\xi_s c_1)K_1(\xi_s c_2)}\,\hat z.
-\tag{30}
+\qquad\text{(30)}
 ```
 
 Once the coupled coefficients have been solved, the source defines
@@ -54,12 +54,12 @@ Once the coupled coefficients have been solved, the source defines
 R_{int}=\frac{1}{\sigma|I|^2}\int_{cond}|\vec J|^2\,dS,
 \qquad
 L_{int}=\frac{1}{|I|^2}\int_{cond}\mu|\vec H|^2\,dS,
-\tag{40,41}
+\qquad\text{(40,41)}
 ```
 
 ```math
 I=\int_{cond}\vec J\cdot\hat n\,dS.
-\tag{42}
+\qquad\text{(42)}
 ```
 
 **Approximation.** Source conductors are discretized into constant-current filaments and cylindrical harmonics are truncated. In the analytic target-screen phase the hollow screen's outer radius is taken as infinite; the exact zeroth-order annular skin term (30) is substituted to reduce that error.
@@ -78,7 +78,7 @@ For the core in the shield, the source gives
 \vec J_1(r_1,\phi_1)=
 \frac{I_1\xi_c}{2\pi a_1}\frac{I_0(\xi_c r_{1i})}{I_1(\xi_c a_1)}
 +\sum_{n=1}^{\infty}[g_{1n}\cos(n\phi_1)+h_{1n}\sin(n\phi_1)]I_n(\xi_c r_1)\,\hat z,
-\tag{43}
+\qquad\text{(43)}
 ```
 
 with coefficients obtained from the printed filament-continuity systems (37)–(38). The arguments ``r_{1i}``/``r_1`` are copied as printed rather than harmonized.

@@ -37,7 +37,7 @@
 Z_g^{\mathrm{LOGEXP}}=\frac{j\omega\mu_0}{2\pi}
 \left\{\ln\left(\frac{1+\gamma_gR_{ab}}{\gamma_gR_{ab}}\right)
 +\left[\frac{2e^{-2d|\gamma_g|}}{4+\gamma_g^2R_{ab}^2}\right]\right\},
-\tag{9}
+\qquad\text{(9)}
 
 \gamma_g=\sqrt{j\omega\mu_0(\sigma_g+j\omega\epsilon_g)},\qquad
 \epsilon_g=\epsilon_{rg}\epsilon_0.
@@ -60,7 +60,7 @@ The source first prints the Petrache-attributed parent
 ```math
 Z_g^{\mathrm{LOG}}=\frac{j\omega\mu_0}{2\pi}
 \ln\left(\frac{1+\gamma_g\cdot R_{ab}}{\gamma_g\cdot R_{ab}}\right).
-\tag{8, secondary parent witness}
+\qquad\text{(8, secondary parent witness)}
 ```
 
 The immediately following equation (9) and definitions are reproduced without renaming in the formula section. For an insulated wire the source places its ground impedance ``Z_{gi}`` in series with ``j\omega L`` in (2a), where ``L=(\mu_0/2\pi)\ln(b/a)`` from (3a). That insulation expression is attributed to earlier references [5,10], not a new 2007 contribution.
@@ -73,7 +73,7 @@ Z_{gbbi}^{\mathrm{Log-Exp}}
 \ln\left(\frac{1+\gamma_g\cdot R_{ab}}{\gamma_g\cdot R_{ab}}\right)
 +\frac{j\omega\cdot\mu_0}{2\pi}\cdot
 \frac{2e^{-2d\cdot|\gamma_g|}}{4+R_{ab}^2\cdot\gamma_g^2}.
-\tag{thesis 7.10}
+\qquad\text{(thesis 7.10)}
 ```
 
 The same page gives the unnumbered limit

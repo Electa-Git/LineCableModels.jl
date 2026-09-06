@@ -37,7 +37,7 @@
 Z_s=Z_i+Z_e,
 \qquad
 Z_e=\frac{j\omega\mu_1}{2\pi}\,[\Lambda+2(Q-jP)],
-\tag{10,14}
+\qquad\text{(10,14)}
 ```
 
 where ``\Lambda,Q,P`` are the logarithmic and spectral terms defined in (16)–(18). The separately printed internal/insulation contribution is
@@ -46,7 +46,7 @@ where ``\Lambda,Q,P`` are the logarithmic and spectral terms defined in (16)–(
 Z_i=\frac{j\gamma_c}{2\pi(\sigma_c+j\omega\epsilon_c)a}
 \frac{I_0(j\gamma_ca)}{I_1(j\gamma_ca)}
 +\frac{j\omega\mu_i}{2\pi}\ln\frac ba.
-\tag{12}
+\qquad\text{(12)}
 ```
 
 **Approximation.** This record uses the paper's analytical qTEM extraction, not its full modal equation (7), as the p.u.l. formula.

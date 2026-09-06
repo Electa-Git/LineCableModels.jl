@@ -36,7 +36,7 @@
 ```math
 Z(j\omega)=\frac{j\omega\mu_0}{2\pi}
 \left[K_0(kr)-K_0(kR)+2J_{\mathrm{Pollaczek}}\right],
-\tag{1}
+\qquad\text{(1)}
 ```
 
 ```math
@@ -44,7 +44,7 @@ J_{\mathrm{Pollaczek}}=\int_0^\infty
 \frac{\exp(-Hu)}{\lambda+u}\cos(\lambda x)\,d\lambda,
 \qquad
 u=\sqrt{\lambda^2+k^2},
-\tag{2}
+\qquad\text{(2)}
 ```
 
 ```math
@@ -52,7 +52,7 @@ J_{\mathrm{Pollaczek}}
 =\left(\frac{H}{R}\right)^2K_0(kR)
 +\frac{1}{kR}\left[2\left(\frac{H}{R}\right)^2-1\right]K_1(kR)
 -\frac{1}{k^2}I_{\mathrm{Pollaczek}},
-\tag{3}
+\qquad\text{(3)}
 ```
 
 ```math
@@ -62,7 +62,7 @@ I_{\mathrm{Pollaczek}}
 z I_{n+3/2}(z)K_{n+1/2}(Z)
 +Z I_{n+1/2}(z)K_{n+3/2}(Z)
 \right].
-\tag{4}
+\qquad\text{(4)}
 ```
 
 The complete definitions are

@@ -36,14 +36,14 @@
 ```math
 \nabla\!\left(\frac1\mu\nabla\times\mathbf A\right)
 +\sigma(j\omega\mathbf A+\nabla V)=\mathbf J,
-\tag{9}
+\qquad\text{(9)}
 ```
 
 with loop extraction ``Z_{loop,i,j}=V/I`` and reference reduction
 
 ```math
 Z_{ij}^{reduced}=Z_{ij}+Z_{k+1,k+1}-Z_{i,k+1}-Z_{j,k+1}.
-\tag{13}
+\qquad\text{(13)}
 ```
 
 **Approximation.** Finite-element mesh and finite outer domain; source requires refinement across skin depth and reports a three-to-four-element practical rule.

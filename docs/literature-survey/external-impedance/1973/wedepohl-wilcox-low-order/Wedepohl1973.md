@@ -25,7 +25,7 @@ z_{ji}=\frac{j\omega\mu}{2\pi}
 \right\},
 \qquad
 \ell=h_i+h_j.
-\tag{8}
+\qquad\text{(8)}
 ```
 
 The self term follows from ``s_{ji}\mapsto r_4`` and ``\ell\mapsto2h``:
@@ -36,7 +36,7 @@ z_7=\frac{j\omega\mu}{2\pi}
 -\ln\!\left(\frac{\gamma m r_4}{2}\right)
 +\frac{1}{2}-\frac{4}{3}mh
 \right\}.
-\tag{7}
+\qquad\text{(7)}
 ```
 
 Here

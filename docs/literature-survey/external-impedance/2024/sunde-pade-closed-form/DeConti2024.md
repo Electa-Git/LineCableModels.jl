@@ -39,12 +39,12 @@ K_0(\gamma d)+\frac{H^2-r^2}{D^2}K_2(\gamma D)
 -2\frac{H^2-r^2}{\gamma^2D^4}e^{-\gamma H}(1+\gamma H)
 -\frac{2rH}{D^2}I_S
 \right\},
-\tag{5}
+\qquad\text{(5)}
 ```
 
 ```math
 I_S=(I_1+I_2+I_3)e^{-\gamma D},
-\tag{7}
+\qquad\text{(7)}
 ```
 
 ```math
@@ -52,14 +52,14 @@ I_1=\left(H-\frac{8}{\gamma}\right)\frac{r}{D^2},
 \qquad
 I_2=16\frac{2-\gamma D}{\gamma^2D^2}
 \arctan\left(\frac{r}{H+D}\right),
-\tag{8--9}
+\qquad\text{(8--9)}
 ```
 
 ```math
 I_3=-4\frac{8-8\gamma D+\gamma^2D^2}
 {\gamma^2D^2\sqrt{1-\gamma D}}
 \arctan\left(\frac{r\sqrt{1-\gamma D}}{H+D}\right).
-\tag{10}
+\qquad\text{(10)}
 ```
 
 ```math
@@ -87,7 +87,7 @@ J_S=\int_0^\infty
 \frac{e^{-H\sqrt{\lambda^2+\gamma^2}}}
 {\lambda+\sqrt{\lambda^2+\gamma^2}}
 \cos(r\lambda)\,d\lambda,
-\tag{1--2}
+\qquad\text{(1--2)}
 ```
 
 ```math
@@ -95,12 +95,12 @@ J_S=\left(\frac HD\right)^2K_0(\gamma D)
 +\frac1{\gamma D}\left[2\left(\frac HD\right)^2-1\right]K_1(\gamma D)
 -\frac{H^2-r^2}{\gamma^2D^4}e^{-\gamma H}(1+\gamma H)
 -\frac{rH}{D^2}I_S,
-\tag{3}
+\qquad\text{(3)}
 ```
 
 ```math
 I_S=\int_{H/D}^1\left(2\sqrt{1-t^2}-\frac1{\sqrt{1-t^2}}\right)e^{-t\gamma D}\,dt.
-\tag{4}
+\qquad\text{(4)}
 ```
 
 The approximation operation is
@@ -108,7 +108,7 @@ The approximation operation is
 ```math
 e^{-t\gamma D}\approx
 \frac{2-\gamma D(t-1)}{2+\gamma D(t-1)}e^{-\gamma D}.
-\tag{6}
+\qquad\text{(6)}
 ```
 
 ## Notation map

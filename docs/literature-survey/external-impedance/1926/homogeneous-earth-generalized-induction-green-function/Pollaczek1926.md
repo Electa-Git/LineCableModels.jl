@@ -49,7 +49,7 @@ and ``A=2iJ\omega/c^2`` as in (12). For an overhead source ``\eta\ge0`` and eart
 \frac{
 e^{,is(x-\xi)+y\alpha_1(s)-\eta\alpha_2(s)}
 }{\alpha_2(s)+\alpha_1(s)}\,ds.
-\tag{19a}
+\qquad\text{(19a)}
 ```
 
 For overhead source and observation, ``y\ge0,\eta\ge0``,
@@ -61,7 +61,7 @@ For overhead source and observation, ``y\ge0,\eta\ge0``,
 \frac{e^{,is(x-\xi)-(y+\eta)\alpha_2(s)}}
 {\alpha_2(s)+\alpha_1(s)}\,ds.
 \end{aligned}
-\tag{19c}
+\qquad\text{(19c)}
 ```
 
 For a buried source ``\eta\le0`` and air observation ``y\ge0``,
@@ -72,7 +72,7 @@ For a buried source ``\eta\le0`` and air observation ``y\ge0``,
 \frac{
 e^{,is(x-\xi)-y\alpha_2(s)+\eta\alpha_1(s)}
 }{\alpha_2(s)+\alpha_1(s)}\,ds.
-\tag{20a}
+\qquad\text{(20a)}
 ```
 
 For buried source and observation, ``y\le0,\eta\le0``,
@@ -84,14 +84,14 @@ For buried source and observation, ``y\le0,\eta\le0``,
 \frac{e^{,is(x-\xi)+(y+\eta)\alpha_1(s)}}
 {\alpha_2(s)+\alpha_1(s)}\,ds.
 \end{aligned}
-\tag{20b}
+\qquad\text{(20b)}
 ```
 
 The physical specialization is
 
 ```math
 k_1=k,\qquad k_2=0,\qquad \xi=0.
-\tag{22}
+\qquad\text{(22)}
 ```
 
 For the applicable placement-specific field ``\mathfrak E``, the source defines
@@ -100,19 +100,19 @@ For the applicable placement-specific field ``\mathfrak E``, the source defines
 \mathfrak E=-J\frac{\partial M}{\partial t}=-i\omega J M,
 \qquad
 M=\frac{i}{\omega J}\mathfrak E,
-\tag{58}
+\qquad\text{(58)}
 ```
 
 and for a physical conductor defines self ``L`` by circumferentially averaging ``M``. The total per-length series impedance with earth return is
 
 ```math
 i\omega L+r,
-\tag{60}
+\qquad\text{(60)}
 ```
 
 where ``r`` is the conductor's per-length alternating-current impedance. Thus ``M`` and ``L`` are complex, frequency-dependent induction coefficients, not purely geometric inductances.
 
-The square roots follow (14a)–(14c): ``\alpha_m(s)\sim s`` as real ``s\to+\infty``, ``\alpha_m(s)\sim-s`` as ``s\to-\infty``, and ``\alpha_m(0)=ik_m`` for the source's ``\operatorname{Im}k_m<0`` branch. ``H_0^{(1)}`` is the first-kind Hankel function.
+The square roots follow (14a)–(14c): ``\alpha_m(s)\sim s`` as real ``s\to+\infty``, ``\alpha_m(s)\sim-s`` as ``s\to-\infty``, and ``\alpha_m(0)=ik_m`` for the source's ``\mathop{\mathrm{Im}}k_m<0`` branch. ``H_0^{(1)}`` is the first-kind Hankel function.
 
 **Approximation.** Not an analytical approximation within the explicitly reduced filamentary, two-dimensional physical model. The reductions ``\Gamma=0``, ``\epsilon_1=0``, ``\mu_1=\mu_2=1`` and ``k_2=0`` precede application. The finite-radius self rule is an additional small-radius approximation; separate small- and large-``|k\eta|`` asymptotic self expressions (59a)–(59b) are not substituted here.
 

@@ -36,7 +36,7 @@
 ```math
 L=\frac{v}{\pi}\int_0^\infty
 F(u)e^{-(h_1+h_2)u}\cos(uy)\,du,
-\tag{4.55}
+\qquad\text{(4.55)}
 ```
 
 ```math
@@ -55,7 +55,7 @@ F(0)\frac{\cos\theta}{r'_{12}}+F'(0)\frac{\cos2\theta}{(r'_{12})^2}
 \frac{\cos\theta}{\gamma'_1r'_{12}}-
 \frac{\cos2\theta}{(\gamma'_1r'_{12})^2}
 \right].
-\tag{4.56}
+\qquad\text{(4.56)}
 ```
 
 **Approximation.** Equation (4.55) already neglects the direct-distance logarithmic term for large separation and replaces horizontal by radial separation within the stated practical range. Equation (4.56) then expands ``F(u)`` as in the uniform-earth case and retains only its first two terms.
@@ -75,7 +75,7 @@ L=\frac{v}{\pi}\int_0^\infty
 \frac{(\alpha_1+\alpha_2)+(\alpha_1-\alpha_2)e^{-2d\alpha_1}}
 {(\alpha_1+\alpha_2)(u+\alpha_1)+(\alpha_1-\alpha_2)(u-\alpha_1)e^{-2d\alpha_1}}
 \cos(uy)\,du.
-\tag{4.47}
+\qquad\text{(4.47)}
 ```
 
 Equations (4.48)–(4.54) are restricted thin-layer and material-contrast limits; they are not merged into (4.55).

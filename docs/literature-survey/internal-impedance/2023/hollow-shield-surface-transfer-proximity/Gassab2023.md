@@ -38,20 +38,20 @@ Z_{s1}^{\mathrm{int}}=
 \frac{\gamma_cG_0(R_1,r_1)}{2\pi r_1\sigma_c}
 \left[1+\sum_{m=1}^{\infty}\frac{G_m(R_1,r_1)}{G_0(R_1,r_1)}
 \left((a_m^{\mathrm{int}})^2+(b_m^{\mathrm{int}})^2\right)\right],
-\tag{35a}
+\qquad\text{(35a)}
 ```
 
 ```math
 Z_{s1}^{\mathrm{ext}}=
 \frac{\gamma_cG_0(r_1,R_1)}{2\pi R_1\sigma_c}
 \left[1+\sum_{m=1}^{\infty}\frac{G_m(r_1,R_1)}{G_0(r_1,R_1)}(a_m^{\mathrm{ext}})^2\right],
-\tag{35b}
+\qquad\text{(35b)}
 ```
 
 ```math
 Z_{t1}=\frac{1}{2\pi R_1r_1\sigma_c\Delta_0}
 \left[1+\sum_{m=1}^{\infty}\frac{G_m(r_1,r_1)}{G_0(r_1,r_1)}a_m^{\mathrm{ext}}a_m^{\mathrm{int}}\right].
-\tag{35c}
+\qquad\text{(35c)}
 ```
 
 The compact high-frequency transfer approximation is
@@ -59,7 +59,7 @@ The compact high-frequency transfer approximation is
 ```math
 Z_{t1}=\frac{1}{4\pi^2R_1r_1\sigma_c\Delta_0}
 \int_0^{2\pi}\Upsilon_1(\phi,\beta_1,\beta_2)\Pi(\phi,\alpha_1)\,d\phi.
-\tag{36c}
+\qquad\text{(36c)}
 ```
 
 **Approximation.** Exact coefficients come from the complete Bessel boundary solution. Equations (36a)–(36c) replace the exterior magnetic distributions by the closed proximity factors ``\Pi`` and ``\Upsilon_1``; the source states this is accurate when conductor thickness/radius is large compared with skin depth.

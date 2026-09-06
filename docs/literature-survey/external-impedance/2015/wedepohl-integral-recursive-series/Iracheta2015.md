@@ -36,14 +36,14 @@
 ```math
 Z_T=\frac{j\omega\mu_0}{2\pi}
 \left[K_0(d/p)-K_0(D/p)+J\right],
-\tag{3a}
+\qquad\text{(3a)}
 ```
 
 ```math
 J=\frac{4h^2}{D^2}K_0(D/p)
 +\frac{(4h^2-2x^2)p}{D^3}
 \left[K_1(D/p)-(2h+p)\frac{e^{-2h/p}}{D}\right]-I_w,
-\tag{3c}
+\qquad\text{(3c)}
 ```
 
 with
@@ -51,20 +51,20 @@ with
 ```math
 I_w\approx S_{w,\infty}=-\frac{2h|x|}{D^2}
 \left[2S_{w1,\infty}-S_{w2,\infty}\right],
-\tag{6a}
+\qquad\text{(6a)}
 ```
 
 ```math
 S_{w1,n}=DP_{2n}A_{2n}+DP_{2n+1}A_{2n+1}+S_{w1,n-1},
 \qquad
 S_{w2,n}=DP_{2n}B_{2n}+DP_{2n+1}B_{2n+1}+S_{w2,n-1},
-\tag{6j,6k}
+\qquad\text{(6j,6k)}
 ```
 
 ```math
 DP_{2n}=\frac{(-D/p)DP_{2n-1}}{2n},\qquad
 DP_{2n+1}=\frac{(-D/p)DP_{2n}}{2n+1},
-\tag{6l}
+\qquad\text{(6l)}
 ```
 
 ```math
@@ -74,7 +74,7 @@ A_{2n}=\frac{(2h)^{2n-1}|x|^3/D^{2n+2}+(2n-1)A_{2n-2}}{2n+2},
 ```math
 A_{2n+1}=\frac{(2h)^{2n-1}|x|/D^{2n}+(2n-1)A_{2n-1}}{2n},
 \qquad n=1,2,3,\ldots,
-\tag{6m}
+\qquad\text{(6m)}
 ```
 
 ```math
@@ -84,7 +84,7 @@ B_{2n}=\frac{(2h)^{2n}|x|^3/D^{2n+3}+(2n)B_{2n-2}}{2n+3},
 ```math
 B_{2n+1}=\frac{(2h)^{2n-1}|x|/D^{2n+1}+(2n)B_{2n-1}}{2n+1},
 \qquad n=1,2,3,\ldots.
-\tag{6n}
+\qquad\text{(6n)}
 ```
 
 The initial sums are ``S_{w1,0}=A_0+DP_1A_1`` and ``S_{w2,0}=B_0+DP_1B_1``, with ``DP_1=-D/p``. The stopping ratios are printed in (7).
@@ -109,7 +109,7 @@ I_{w1}=\sum_{n=0}^{\infty}\left(-\frac Dp\right)^n\frac1{n!}
 ```math
 I_{w2}=\sum_{n=0}^{\infty}\left(-\frac Dp\right)^n\frac1{n!}
 \underbrace{\int_{2h/D}^{1}\frac{t^n}{\sqrt{1-t^2}}\,dt}_{B_n}.
-\tag{5a,5b}
+\qquad\text{(5a,5b)}
 ```
 
 The source prints ``A_0`` both for the integral of ``\sqrt{1-t^2}`` in (6f) and, again, for ``\int t\sqrt{1-t^2}dt=|x/D|^3/3`` in (6g), even though the initialization and flowchart require ``A_0,A_1``.

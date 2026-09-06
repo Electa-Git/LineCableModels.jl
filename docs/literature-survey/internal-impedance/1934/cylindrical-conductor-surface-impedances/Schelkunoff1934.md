@@ -41,22 +41,22 @@
 
 Z_b=\frac{E_z(b)}{I}
 =\frac{\eta I_0(\sigma b)}{2\pi b I_1(\sigma b)},
-\tag{65}
+\qquad\text{(65)}
 
 D=I_1(\sigma b)K_1(\sigma a)-I_1(\sigma a)K_1(\sigma b),
-\tag{73}
+\qquad\text{(73)}
 
 E_z(a)=Z_{aa}I_a+Z_{ab}I_b,
 \qquad
 E_z(b)=Z_{ba}I_a+Z_{bb}I_b,
-\tag{74}
+\qquad\text{(74)}
 
 Z_{aa}=\frac{\eta}{2\pi aD}
 \left[I_0(\sigma a)K_1(\sigma b)+K_0(\sigma a)I_1(\sigma b)\right],
 
 Z_{bb}=\frac{\eta}{2\pi bD}
 \left[I_0(\sigma b)K_1(\sigma a)+K_0(\sigma b)I_1(\sigma a)\right],
-\tag{75}
+\qquad\text{(75)}
 
 Z_{ab}=Z_{ba}=-\frac{1}{2\pi g a bD}.
 ```
@@ -77,7 +77,7 @@ The displayed equations retain Schelkunoff's ``i``, ``g``, ``\mu``, ``\sigma``, 
 
 ```math
 E_z(\rho)=\frac{\eta I_0(\sigma\rho)}{2\pi b I_1(\sigma b)}I.
-\tag{64}
+\qquad\text{(64)}
 ```
 
 For the shell the source imposes
@@ -86,7 +86,7 @@ For the shell the source imposes
 A I_1(\sigma a)+B K_1(\sigma a)=-\frac{I_a}{2\pi a},
 \qquad
 A I_1(\sigma b)+B K_1(\sigma b)=\frac{I_b}{2\pi b},
-\tag{71}
+\qquad\text{(71)}
 ```
 
 then derives (73)–(75). The source explicitly calls ``Z_{ab}`` the *transfer impedance* because it is not necessarily the total mutual impedance between two transmission lines.

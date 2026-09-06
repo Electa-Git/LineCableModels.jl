@@ -40,7 +40,7 @@ Z_{eij}^{01}=Z_{eij}^{10}
 \frac{e^{-a_0h_i+a_1h_j}}
 {a_0\mu_1+a_1\mu_0}
 \cos(\lambda y_{ij})\,d\lambda,
-\tag{5}
+\qquad\text{(5)}
 ```
 
 where

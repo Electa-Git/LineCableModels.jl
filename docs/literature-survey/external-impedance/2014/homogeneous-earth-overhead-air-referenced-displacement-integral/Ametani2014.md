@@ -36,14 +36,14 @@
 ```math
 A=\frac{1}{s+a_1},\qquad
 a_1=\sqrt{s^2+m_1^2-m_0^2},
-\tag{12}
+\qquad\text{(12)}
 ```
 
 ```math
 m_1^2=j\omega\mu_e(\sigma_e+j\omega\epsilon_e),
 \qquad
 m_0^2=j\omega\mu_0(j\omega\epsilon_0).
-\tag{13}
+\qquad\text{(13)}
 ```
 
 It enters
@@ -51,12 +51,12 @@ It enters
 ```math
 Z_{ij}=j\omega\frac{\mu_0}{2\pi}[P_0+(Q-jR)],
 \quad P_0=\ln\frac{D_{ij}}{d_{ij}},
-\tag{1,2}
+\qquad\text{(1,2)}
 ```
 
 ```math
 Q-jR=2\int_0^\infty A,e^{-(h_i+h_j)s}\cos(ys)\,ds.
-\tag{3,4}
+\qquad\text{(3,4)}
 ```
 
 **Approximation.** No finite closed-form approximation is applied in this record; it is the source's homogeneous spectral integral. It does impose the longitudinal/air-reference prescription embodied in ``m_1^2-m_0^2``.
@@ -73,7 +73,7 @@ For arbitrary permeability the preceding homogeneous form is
 
 ```math
 A=A_1=\left[s+\frac{\mu_0}{\mu_1}\sqrt{s^2+m_1^2-m_0^2}\right]^{-1}.
-\tag{11}
+\qquad\text{(11)}
 ```
 
 ## Notation map

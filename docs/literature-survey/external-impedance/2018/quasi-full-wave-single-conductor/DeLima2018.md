@@ -36,7 +36,7 @@
 ```math
 Z=\gamma Z_c=\frac{j\omega\mu_0}{2\pi}
 \left[\Lambda_1+S_1-\left(\frac{\gamma}{\gamma_1}\right)^2(S_2+S_4)\right],
-\tag{12}
+\qquad\text{(12)}
 ```
 
 ```math
@@ -48,13 +48,13 @@ d=\sqrt{(h-y)^2+x^2},\quad D=\sqrt{(h+y)^2+x^2},
 S_1=2\int_0^\infty\frac{e^{-(h+y)u_1}}{u_1+u_2}\cos(x\lambda)\,d\lambda,
 \qquad
 S_2=2\int_0^\infty\frac{e^{-(h+y)u_1}}{n^2u_1+u_2}\cos(x\lambda)\,d\lambda,
-\tag{4}
+\qquad\text{(4)}
 ```
 
 ```math
 S_4=2\int_0^\infty\frac{u_2}{u_1}
 \frac{e^{-hu_1}-e^{-2hu_1}}{n^2u_1+u_2}\cos(r\lambda)\,d\lambda,
-\tag{14}
+\qquad\text{(14)}
 ```
 
 ```math
@@ -69,7 +69,7 @@ For qFW, every occurrence in these functions uses
 u_i\approx\bar u_i=\sqrt{\lambda^2+\gamma_i^2-\bar\gamma^2},
 \qquad
 \eta_1\approx\bar\eta=\sqrt{\lambda^2-\bar\gamma^2},
-\tag{15}
+\qquad\text{(15)}
 ```
 
 where ``\bar\gamma`` is the propagation constant calculated by the cited image approximation and satisfies the noniterative approximate modal equation
@@ -78,7 +78,7 @@ where ``\bar\gamma`` is the propagation constant calculated by the cited image a
 \bar M=\frac{2\pi}{j\omega\mu}z_i+
 \left(1-\frac{\bar\gamma^2}{\gamma_1^2}\right)\bar\Lambda+
 2\left(\bar S_1-\frac{\bar\gamma^2}{\gamma_1^2}\bar S_2\right)=0.
-\tag{16}
+\qquad\text{(16)}
 ```
 
 **Approximation.** The qFW operation is the source's substitution of an image-approximation propagation constant ``\bar\gamma`` into ``u_i`` and ``\eta_1``. It avoids Newton iteration of the full-wave modal equation (7). It is distinct from qTEM, which sets ``\gamma\approx\gamma_1`` and uses a leading logarithmic term, and from closed-form image evaluation of the Sommerfeld integrals.
@@ -97,7 +97,7 @@ The full-wave parent modal equation is
 M=\frac{2\pi}{j\omega\mu}z_i+
 \left(1-\frac{\gamma^2}{\gamma_1^2}\right)\Lambda+
 \left(S_1-\frac{\gamma^2}{\gamma_1^2}S_2\right)=0,
-\tag{7}
+\qquad\text{(7)}
 ```
 
 and the source iterates it with ``\gamma^{(n+1)}=\gamma^{(n)}-M/M'`` in (8). The qFW contribution is not a new spectral kernel; it is the noniterative prescription (15)–(16) applied to the parent.

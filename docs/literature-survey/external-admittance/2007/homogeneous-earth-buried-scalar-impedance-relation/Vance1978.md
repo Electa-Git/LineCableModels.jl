@@ -35,10 +35,10 @@
 
 ```math
 Y_{gb}=\frac{\gamma_g^2}{Z_{gb}},
-\tag{10a}
+\qquad\text{(10a)}
 
 Y_{gi}=\frac{\gamma_g^2}{Z_{gi}},
-\tag{10b}
+\qquad\text{(10b)}
 
 \gamma_g=\sqrt{j\omega\mu_0(\sigma_g+j\omega\epsilon_g)}.
 ```
@@ -50,7 +50,7 @@ Z_g^{\mathrm{LOGEXP}}=\frac{j\omega\mu_0}{2\pi}
 \left\{\ln\left(\frac{1+\gamma_gR_{ab}}{\gamma_gR_{ab}}\right)
 +\left[\frac{2e^{-2d|\gamma_g|}}{4+\gamma_g^2R_{ab}^2}\right]\right\},
 \quad R_{ab}=a\ \text{(bare)},\quad R_{ab}=b\ \text{(insulated)}.
-\tag{9}
+\qquad\text{(9)}
 ```
 
 The paper also considers other ground-impedance models; (10) is not printed as exclusive to (9). ``d`` is burial depth, ``a`` conductor radius, and ``b`` outer insulation radius. For the insulated wire the source-prescribed assembly is retained in its actual line-equation form:
@@ -58,11 +58,11 @@ The paper also considers other ground-impedance models; (10) is not printed as e
 ```math
 \frac{dI(x,j\omega)}{dx}
 =j\omega\left(\frac{CY_{gi}}{j\omega C+Y_{gi}}\right)V(x,j\omega),
-\tag{2b}
+\qquad\text{(2b)}
 
 C=\frac{2\pi\epsilon_{in}}{\ln(b/a)},\qquad
 \epsilon_{in}=\epsilon_{rin}\epsilon_0.
-\tag{3b and section 2 definition}
+\qquad\text{(3b and section 2 definition)}
 ```
 
 **Approximation.** A source-attributed scalar relation in the selected TL description. When ``Z_g`` is approximated by (9), its empirical approximation carries into ``Y_g``. The inspected paper supplies no separate derivation or asymptotic order for the Vance-attributed relation (10); original-source verification is unresolved.
@@ -79,7 +79,7 @@ The formula section preserves (10a)–(10b), with (9) identified as an optional 
 
 ```math
 \frac{dI(x,j\omega)}{dx}=Y_{gb}\,V(x,j\omega).
-\tag{1b}
+\qquad\text{(1b)}
 ```
 
 No source equation declares ``\mathbf Y_g=\gamma_g^2\mathbf Z_g^{-1}`` or ``P_{ij}=j\omega Z_{ij}/\gamma_g^2`` in the inspected pages; those existing LCM expressions are therefore not transcribed as if printed by this paper.

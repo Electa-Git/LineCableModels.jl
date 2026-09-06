@@ -35,14 +35,14 @@
 
 ```math
 [Y]=s[P]^{-1},\qquad s=j\omega,
-\tag{4}
+\qquad\text{(4)}
 
 P_{cj}=\frac{1}{2\pi\epsilon_0\epsilon_{i1}}\ln\!\left(\frac{r_3}{r_2}\right),
 \quad
 P_{sj}=\frac{1}{2\pi\epsilon_0\epsilon_{i2}}\ln\!\left(\frac{r_5}{r_4}\right),
 
 P_{aj}=\frac{1}{2\pi\epsilon_0\epsilon_{i3}}\ln\!\left(\frac{r_7}{r_6}\right),
-\tag{22}
+\qquad\text{(22)}
 
 [P_{ij}]=
 \begin{bmatrix}
@@ -50,7 +50,7 @@ P_{cj}+P_{sj}+P_{aj} & P_{sj}+P_{aj} & P_{aj}\\
 P_{sj}+P_{aj} & P_{sj}+P_{aj} & P_{aj}\\
 P_{aj} & P_{aj} & P_{aj}
 \end{bmatrix}.
-\tag{21}
+\qquad\text{(21)}
 ```
 
 Rows/columns correspond to core, sheath, and armor. For core-and-sheath, (23) is the leading ``2\times2`` form; for core-only, (24) gives ``[P_{ij}]=P_{cj}``. ``[Y]`` is obtained only after assembling the applicable potential-coefficient matrices.
@@ -69,7 +69,7 @@ The source additionally prints
 
 ```math
 [P_{ij}]=\begin{bmatrix}P_{cj}+P_{sj}&P_{sj}\\P_{sj}&P_{sj}\end{bmatrix}
-\tag{23}
+\qquad\text{(23)}
 ```
 
 for a core-and-sheath cable and ``[P_{ij}]=P_{cj}`` in (24) for core-only. For an underground cable it states ``[P]=[P_i]`` in (18); that outer-medium choice is not used to redefine the insulation coefficients.

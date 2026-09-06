@@ -41,14 +41,14 @@ P_{eij}^{01}=P_{eij}^{10}
 {(a_1\mu_1\gamma_0^2+a_0\mu_0\gamma_1^2)
  (a_0\mu_1+a_1\mu_0)}
 \cos(\lambda y_{ij})\,d\lambda.
-\tag{6}
+\qquad\text{(6)}
 ```
 
 After assembling same-medium terms (2a), (4a), the mixed terms (6), and the internal potential matrix, the source requires
 
 ```math
 \mathbf Y_{tot}=j\omega\mathbf P_{tot}^{-1}.
-\tag{7}
+\qquad\text{(7)}
 ```
 
 Here ``\gamma_k=\sqrt{j\omega\mu_k(\sigma_k+j\omega\epsilon_k)}``, ``a_k=\sqrt{\lambda^2+\gamma_k^2+k_x^2}``, and ``\gamma_x=jk_x``.

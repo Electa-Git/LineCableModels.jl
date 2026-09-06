@@ -36,7 +36,7 @@
 ```math
 Z_m=j\omega\left(\frac{\mu_0}{2\pi}\right)
 \exp\left(\frac{-h_2}{h_e}\right)\ln\left(\frac{S}{D}\right),
-\tag{27}
+\qquad\text{(27)}
 
 h_e=\frac{1}{m},\qquad
 S=\sqrt{H^2+y^2},\qquad
@@ -45,7 +45,7 @@ H=h_1+h_2+2h_e,
 
 m=\sqrt{\frac{j\omega\mu_0}{\rho_e}}
 =|m|\exp\left(\frac{j\pi}{4}\right).
-\tag{22}
+\qquad\text{(22)}
 ```
 
 ``\rho_e`` is earth resistivity in ``\Omega\,\mathrm m``; ``h_e`` is a complex length. ``h_1,h_2,y,S,D,H`` have dimensions of length. The paper does not separately prescribe branches for ``S`` and the logarithm. In the derivation before (27), ``H`` instead means ``h_1+h_2``; the two definitions are kept at their original locations below.
@@ -65,26 +65,26 @@ Source parent, attributed in this article to Pollaczek (not newly attributed to 
 ```math
 Z_m=Z(1,2)=j\omega\left(\frac{\mu_0}{2\pi}\right)
 \int_{-\infty}^{\infty}F_c(s)\exp(jys)\,ds,
-\tag{5}
+\qquad\text{(5)}
 
 F_c(s)=\frac{\exp\{-h_1|s|+h_2\sqrt{s^2+m^2}\}}
 {\sqrt{s^2+m^2}+|s|}.
-\tag{6}
+\qquad\text{(6)}
 ```
 
 Here ``s`` is a real spectral integration variable, with units of inverse length; in this parent, buried ``h_2`` is negative. The authors write the following substitutions in section IV:
 
 ```math
 \sqrt{s^2+m^2}\simeq s+m,
-\tag{17}
+\qquad\text{(17)}
 
 H=h_1+h_2>0,\qquad\text{definition following (18)},
 
 s=mt,\qquad ds=m\,dt,
-\tag{22, change of variable}
+\qquad\text{(22, change of variable)}
 
 \frac{t}{\sqrt{t^2+1}+t}\simeq\frac{1-e^{-2t}}{2}.
-\tag{24}
+\qquad\text{(24)}
 ```
 
 The source then prints
@@ -92,7 +92,7 @@ The source then prints
 ```math
 Z_m'=-j\omega\left(\frac{\mu_0}{2\pi}\right)e^{-h_2m}
 \left[\frac{y}{y^2+H^2}-\frac{y}{y^2+(H+2/m)^2}\right].
-\tag{26}
+\qquad\text{(26)}
 ```
 
 ``Z_m'`` is the derivative with respect to ``y``. The final (27) and its redefined ``H`` are reproduced above without notation changes. Equation (28) is explicitly a secondary transcription of Lucca's 1994 approximation.
@@ -119,7 +119,7 @@ Notation is unchanged. No sign or positive-depth normalization has been applied.
 
 ## Evidence and approximation sources
 
-The new contribution is (27), not the earlier Pollaczek or Lucca kernels reproduced for comparison. The Fig. 10 tests vary overhead heights 5, 10, 50 m, burial depths 0.1, 1, 3 m, resistivities 10, 100, 1000 ``\Omega\,\mathrm m``, and separations 0, 10, 50 m in the captioned geometries. The graphs extend to high frequencies where their errors exceed the prose's blanket 10% statement. Error (29) is printed as ``100(Z_{\rm app}-Z_P)/Z_P``; the panels separately label resistance and inductance errors.
+The new contribution is (27), not the earlier Pollaczek or Lucca kernels reproduced for comparison. The Fig. 10 tests vary overhead heights 5, 10, 50 m, burial depths 0.1, 1, 3 m, resistivities 10, 100, 1000 ``\Omega\,\mathrm m``, and separations 0, 10, 50 m in the captioned geometries. The graphs extend to high frequencies where their errors exceed the prose's blanket 10% statement. Error (29) is printed as ``100(Z_{\mathrm{app}}-Z_P)/Z_P``; the panels separately label resistance and inductance errors.
 
 The article states ``h\leq\lambda/8`` in (11), with ``\lambda\simeq2\pi\sqrt{2\rho_e/(\omega\mu_0)}`` in (10), and prints ``f_0=1.407\times10^5(\rho_e/h)`` in (15). These are author-stated claims, with an apparent inconsistent dependence on ``h``; no corrected critical frequency is supplied here.
 

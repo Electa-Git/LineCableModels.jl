@@ -36,7 +36,7 @@
 ```math
 Z'_{2,ij}=\frac{j\omega\mu_2}{2\pi}\int_0^\infty
 F_3(\lambda)\cos(\lambda q_{ij})\,d\lambda,
-\tag{29}
+\qquad\text{(29)}
 ```
 
 ```math
@@ -46,7 +46,7 @@ e^{-\alpha_2|h_i-h_j|}
 {s_{10}s_{21}-d_{10}d_{21}e^{-2\alpha_1h_s}}
 e^{-\alpha_2(h_i+h_j-2h_s)}
 \right].
-\tag{30}
+\qquad\text{(30)}
 ```
 
 ```math
@@ -62,7 +62,7 @@ d_{10}=\mu_0\alpha_1-\mu_1\alpha_0,
 ```math
 s_{21}=\mu_2\alpha_1+\mu_1\alpha_2,\quad
 d_{21}=\mu_2\alpha_1-\mu_1\alpha_2.
-\tag{20}
+\qquad\text{(20)}
 ```
 
 **Approximation.** The derivation assumes quasi-TEM propagation. Within that model, (29)–(30) is presented as the final spectral integral; it is not a fitted or finite-order approximation. Numerical quadrature is still required.
@@ -81,7 +81,7 @@ The source obtains (29) after solving the eight Hertzian-potential amplitudes wi
 \Delta_{10}=\alpha_0\gamma_1^2\mu_0-\alpha_1\gamma_0^2\mu_1,
 \qquad
 A_{10}=\alpha_0\gamma_1^2\mu_0+\alpha_1\gamma_0^2\mu_1.
-\tag{35}
+\qquad\text{(35)}
 ```
 
 ## Notation map

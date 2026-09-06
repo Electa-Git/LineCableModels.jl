@@ -36,23 +36,23 @@
 ```math
 Z'_{g_{ij}}=\frac{j\omega\mu_0}{\pi}
 \int_0^\infty F(u)\cdot e^{-u(h_i+h_j)}\cos(y_{ij}u)\cdot du.
-\tag{1a}
+\qquad\text{(1a)}
 ```
 
 ```math
 F(u)=\mu_1\frac{s_{12}+d_{12}e^{-2\alpha_1d}}
 {s_{01}s_{12}+d_{01}d_{12}e^{-2\alpha_1d}}.
-\tag{1b}
+\qquad\text{(1b)}
 ```
 
 Required definitions, 2009 appendix p. 1067:
 
 ```math
-s_{mn}=(a_m\mu_n+a_n\mu_m),\tag{A.1}
+s_{mn}=(a_m\mu_n+a_n\mu_m),\qquad\text{(A.1)}
 ```
 
 ```math
-d_{mn}=(a_m\mu_n-a_n\mu_m),\tag{A.2}
+d_{mn}=(a_m\mu_n-a_n\mu_m),\qquad\text{(A.2)}
 ```
 
 ```math
@@ -82,7 +82,7 @@ The formula section reproduces the 2009 main equations and their original append
 ```math
 \mathbf Z'(\omega)=\mathbf Z'_w+\mathbf Z'_e
 =\mathbf Z'_w+\mathbf Z'_{pg}+\mathbf Z'_g.
-\tag{2010:2}
+\qquad\text{(2010:2)}
 ```
 
 ``\mathbf Z'_w`` is the diagonal internal conductor term, referred by the authors to Ametani's skin-effect expressions; it is not evaluated by this record. ``pg`` denotes perfectly conducting ground and ``g`` its imperfect-earth correction.
@@ -96,7 +96,7 @@ Z'_{e_{ij}}(\gamma_x)=\frac{j\omega\mu_0}{4\pi}
 \left(e^{-a_0|h_j-h_i|}+e^{-a_0(h_j+h_i)}\cdot T'_1\right)\right]
 \times\left[\int_{-\infty}^{\infty}
 J_0\!\left(u\sqrt{x^2+y_{ij}^2}\right)e^{-\gamma_xx}\,dx\right]du.
-\tag{2010:4a}
+\qquad\text{(2010:4a)}
 ```
 
 The two integrations remain nested, with their original measures and domains. The main text uses unprimed ``a_0`` whereas the appendix's original spectral factor is ``a'_0``; this notation mismatch is not erased. Here ``J_0`` is the first-kind order-zero Bessel function, defined in the appendix p. 1169. No convergence condition for arbitrary complex ``\gamma_x`` is supplied with (4a); the record does not label this a solved dispersion relation.
@@ -106,18 +106,18 @@ The two integrations remain nested, with their original measures and domains. Th
 ```math
 Z'_{e_{ij}}=Z'_{pg_{ij}}+Z'_{g_{ij}}
 =\frac{j\omega\mu_0}{2\pi}\ln\frac{D_{ij}}{d_{ij}}
-+\frac{j\omega\mu_0}{\pi}(P+jQ),\tag{2010:5a}
++\frac{j\omega\mu_0}{\pi}(P+jQ),\qquad\text{(2010:5a)}
 ```
 
 ```math
 P+jQ=\int_0^\infty F_{strat}(\lambda)\cdot
-e^{-\lambda(h_i+h_j)}\cos(y_{ij}\lambda)\cdot d\lambda,\tag{2010:5b}
+e^{-\lambda(h_i+h_j)}\cos(y_{ij}\lambda)\cdot d\lambda,\qquad\text{(2010:5b)}
 ```
 
 ```math
 F_{strat}(\lambda)=\mu_1
 \frac{s_{12}+d_{12}e^{-2\alpha_1d}}
-{s_{01}s_{12}+d_{01}d_{12}e^{-2\alpha_1d}}.\tag{2010:5c}
+{s_{01}s_{12}+d_{01}d_{12}e^{-2\alpha_1d}}.\qquad\text{(2010:5c)}
 ```
 
 ``P+jQ`` here is a dimensionless integral correction, **not** the potential-coefficient matrix of the admittance record. No logarithmic term is retroactively appended to the 2009 correction-only output.
@@ -132,21 +132,21 @@ a'_k=\sqrt{u^2+\gamma_k^2},\qquad k=0,1,2,
 ```math
 T'_1=\frac{\Delta'_1}{\Delta'}=
 \frac{d'_{01}s'_{12}+s'_{01}d'_{12}e^{-2a'_1d}}
-{s'_{01}s'_{12}+d'_{01}d'_{12}e^{-2a'_1d}},\tag{2010:A.6a}
+{s'_{01}s'_{12}+d'_{01}d'_{12}e^{-2a'_1d}},\qquad\text{(2010:A.6a)}
 ```
 
 ```math
-\Delta'=s'_{01}s'_{12}+d'_{01}d'_{12}e^{-2a'_1d},\tag{2010:A.7a}
+\Delta'=s'_{01}s'_{12}+d'_{01}d'_{12}e^{-2a'_1d},\qquad\text{(2010:A.7a)}
 ```
 
 ```math
-\Delta'_1=d'_{01}s'_{12}+s'_{01}d'_{12}e^{-2a'_1d},\tag{2010:A.7b}
+\Delta'_1=d'_{01}s'_{12}+s'_{01}d'_{12}e^{-2a'_1d},\qquad\text{(2010:A.7b)}
 ```
 
 ```math
 s'_{mn}=(a'_m\mu_n+a'_n\mu_m),\qquad
 d'_{mn}=(a'_m\mu_n-a'_n\mu_m),\qquad m,n=0,1,2.
-\tag{2010:A.7d--e}
+\qquad\text{(2010:A.7d--e)}
 ```
 
 2010 (A.12), p. 1169, is the source-provided longitudinal-transform identity, retained as printed:
@@ -158,7 +158,7 @@ J_0\!\left(u\sqrt{x^2+y_{ij}^2}\right)e^{-jk_0x}\,dx
 0,&u<k_0,\\
 2\dfrac{\cos\!\left(y_{ij}\sqrt{u^2-k_0^2}\right)}
 {\sqrt{u^2-k_0^2}},&u>k_0.
-\end{cases}\tag{2010:A.12}
+\end{cases}\qquad\text{(2010:A.12)}
 ```
 
 No value at ``u=k_0`` is printed. The immediately following text prescribes:
@@ -183,7 +183,7 @@ This is the **2010 transform prescription**, not a replacement definition for th
 \left(\frac{e^{-a'_0|h_j-h_i|}}{a'_0}
 +\frac{e^{-a'_0(h_i+h_j)}}{a'_0}\right)
 \cos(y_{ij}\lambda)\,d\lambda
-=\ln\frac{D_{ij}}{d_{ij}}.\tag{2010:A.13}
+=\ln\frac{D_{ij}}{d_{ij}}.\qquad\text{(2010:A.13)}
 ```
 
 Immediately below it:

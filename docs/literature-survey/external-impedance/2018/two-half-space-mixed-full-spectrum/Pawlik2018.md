@@ -36,7 +36,7 @@
 ```math
 Z_{11}^{jk}=\frac{j\omega\mu_1}{\pi}
 \left[Q_{12}^{jp}-jP_{12}^{jp}\right],
-\tag{88}
+\qquad\text{(88)}
 ```
 
 ```math
@@ -45,7 +45,7 @@ Q_{12}^{jp}-jP_{12}^{jp}
 \frac{e^{-(u_1h_j+u_2h_p)}}
 {u_1+(\mu_1/\mu_2)u_2}
 \cos(\lambda d_{jp})\,d\lambda,
-\tag{89}
+\qquad\text{(89)}
 ```
 
 with

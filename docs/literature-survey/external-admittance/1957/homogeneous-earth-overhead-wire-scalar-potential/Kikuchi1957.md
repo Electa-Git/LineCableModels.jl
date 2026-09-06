@@ -21,7 +21,7 @@
 | --- | --- | --- |
 | Impressed longitudinal propagation constant ``Γ`` | ``\Gamma`` remains in the potential prefactor and ``\lambda_n^2=k_n^2+\Gamma^2``; dependence is ``e^{-\Gamma z+j\omega t}``. The author selects the propagating principal mode. An imposed zero or numerical modal closure is not supplied for this general equation set. The later prescription ``\Gamma\simeq jk_1`` belongs to (5·9), not the unreduced formulas recorded here. | Stated — §3, p. 722; (5·1)–(5·4), pp. 723–724; distinct (5·9), p. 725. |
 | Air propagation constant ``γ_air`` | Source symbol is ``k_1``, not ``\gamma``. The common definition is ``k_n=\omega\sqrt{(\epsilon_n-j\sigma_n/\omega)\mu_0}``. The scalar air source equation uses ``\epsilon_1`` and ``Q=\Gamma I/(j\omega)``. No nonzero air-conductivity extension or replacement of ``\epsilon_1`` with a complex permittivity is introduced. Air is region 1; the symbol list identifies vacuum/air constants ``\epsilon_0,\mu_0``. | Stated — symbol list, p. 721; (3·5), definition below (3·7) and Fig. 1, p. 722. Equation-implied — (3·5) and (5·1) use the lossless-air scalar-source factor; an independently nonzero ``\sigma_1`` is not resolved by that factor. |
-| Earth propagation constant ``γ_earth`` | Source symbol ``k_2=\omega\sqrt{(\epsilon_2-j\sigma_2/\omega)\mu_0}``; ``\lambda_2=\sqrt{k_2^2+\Gamma^2}`` and ``\kappa_2^2=u^2-\lambda_2^2``. These are three different quantities. ``\operatorname{Re}\kappa_2>0`` is printed. | Stated — §§2–4, pp. 721–722, especially (4·4). |
+| Earth propagation constant ``γ_earth`` | Source symbol ``k_2=\omega\sqrt{(\epsilon_2-j\sigma_2/\omega)\mu_0}``; ``\lambda_2=\sqrt{k_2^2+\Gamma^2}`` and ``\kappa_2^2=u^2-\lambda_2^2``. These are three different quantities. ``\mathop{\mathrm{Re}}\kappa_2>0`` is printed. | Stated — §§2–4, pp. 721–722, especially (4·4). |
 | Earth permittivity and displacement current | Both ``\epsilon_2`` and ``\sigma_2`` remain in ``k_2`` and hence the material-weighted denominator. No extra dielectric loss or frequency model is added. | Stated — definition below (3·7), p. 722; Equation-implied — (5·3)–(5·4), pp. 723–724, retain ``k_2^2``. |
 | Range of validity | Conductor radius is sufficiently small compared with height that the earth's influence on internal field/current distribution is neglected and the exterior source is a line current. Only the propagating principal mode is treated. No universal numerical frequency interval or explicit error bound is provided for this general set. Later small-Hankel-argument and near-air-speed approximations are not applied here. | Stated — end of §3 opening, pp. 721–722; §11, p. 732; separate approximation conditions below (5·8), p. 724, and (5·9), p. 725. |
 | Earth permeability ``μ_earth`` | The source explicitly writes ``\mu_1=\mu_2`` and uses ``\mu_0`` in ``k_n``. This is not an arbitrary-permeability earth expression. | Stated — definition split between columns at the bottom/top of p. 722. |
@@ -69,15 +69,15 @@ k_n=\omega\sqrt{\left(\epsilon_n-j\frac{\sigma_n}{\omega}\right)\mu_0}
 ```
 
 ```math
-\kappa_1^2=u^2-\lambda_1^2,\quad \operatorname{Re}\kappa_1>0,
+\kappa_1^2=u^2-\lambda_1^2,\quad \mathop{\mathrm{Re}}\kappa_1>0,
 \qquad
-\kappa_2^2=u^2-\lambda_2^2,\quad \operatorname{Re}\kappa_2>0,
+\kappa_2^2=u^2-\lambda_2^2,\quad \mathop{\mathrm{Re}}\kappa_2>0,
 \qquad Q=\frac{\Gamma}{j\omega}I.
 ```
 
 Here ``H_0^{(1)}`` is the first-kind order-zero Hankel function, ``\rho`` is distance to the wire centre, and ``\rho_0`` distance to its image. Fig. 1 and the explicitly printed direct-distance square root in (4·3) give the geometrical identification ``\rho=\sqrt{x^2+(y-h)^2}`` and ``\rho_0=\sqrt{x^2+(y+h)^2}``; this is a notation map of the shown distances, not a new self-radius regularization. The sign of ``y`` is retained in the earth exponential. Both scalar potentials have ``\epsilon_1``, not ``\epsilon_2``, in their printed prefactors.
 
-The symbol list gives ``k^{(r)}>0,\ k^{(i)}<0`` for the complex material constant. It gives no separate Hankel-argument branch prescription for ``\lambda``. Retain that limitation alongside the explicit ``\operatorname{Re}\kappa_n>0`` Fourier conditions; do not replace the printed first-kind Hankel function with another kind.
+The symbol list gives ``k^{(r)}>0,\ k^{(i)}<0`` for the complex material constant. It gives no separate Hankel-argument branch prescription for ``\lambda``. Retain that limitation alongside the explicit ``\mathop{\mathrm{Re}}\kappa_n>0`` Fourier conditions; do not replace the printed first-kind Hankel function with another kind.
 
 Section 9, p. 729, explicitly defines the terminal quantity by:
 
@@ -174,7 +174,7 @@ No mathematical symbols were renamed. Units of the auxiliary parts follow their 
 
 1. **Identity and source scope.** First-page byline and English footnote, printed p. 721; running headers and final article material, pp. 722–733. The existing bibliography's key and metadata are copied faithfully. The actual print byline is 菊地, not a silently substituted OCR spelling.
 2. **Physical reduction.** Source pp. 721–722 and §11, p. 732, state the small-radius/exterior-line-current and principal-mode treatment. Arbitrary ``\Gamma`` evaluation or a dispersion root-selection algorithm is not supplied merely because ``\Gamma`` occurs symbolically.
-3. **Material and branch evidence.** Column-spanning definition on p. 722 uses ``\mu_0`` under the square root and separately writes ``\mu_1=\mu_2``. The Fourier roots have ``\operatorname{Re}\kappa_n>0`` in (4·4). These facts are stronger than guesses from later LCM formulas and are not replaced by arbitrary layer permeability.
+3. **Material and branch evidence.** Column-spanning definition on p. 722 uses ``\mu_0`` under the square root and separately writes ``\mu_1=\mu_2``. The Fourier roots have ``\mathop{\mathrm{Re}}\kappa_n>0`` in (4·4). These facts are stronger than guesses from later LCM formulas and are not replaced by arbitrary layer permeability.
 4. **General versus approximate formulas.** The unreduced (5·1)–(5·4) are distinct from (5·9), which introduces small-argument Hankel expressions, ``\lambda_1\simeq0``, ``\Gamma\simeq jk_1`` and ``\lambda_2^2\simeq k_2^2-k_1^2``. Section 6 then expands auxiliary integrals; §7 gives special observation geometry; §9 gives the further terminal-voltage simplification. Their approximations must not be assigned to the unreduced equation set.
 5. **Actual output and reference.** The scalar-potential kernel is preserved with its published ``\Gamma I/(j\omega\epsilon_1\pi)`` prefactor. The source defines ``Q`` separately and defines terminal voltage in §9. No new ``V/Q`` coefficient, ``Y`` conversion, vector-potential-to-impedance relation or multiwire matrix is inferred.
 6. **Earlier publications.** References (6)–(9), p. 732, identify Kikuchi's JIEE 75 p. 1176 (1955), E.T.J. of Japan 2 p. 73 (1956), Bulletin of the Electrotechnical Laboratory, Japan 21 p. 49 (1957), and the first subcommittee radio-interference report (1956). The introduction says earlier transmission work and a summary preceded this complete treatment. Those citations do not establish that the retained 1957 formulas first appeared in an earlier source.

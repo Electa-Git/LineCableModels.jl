@@ -38,14 +38,14 @@
 +\frac{Z_sI_s}{2}\frac{\Gamma_L e^{(2y_s-y-y')\gamma_s}+\Gamma_R e^{(-2y_{s-1}+y+y')\gamma_s}
 +\Gamma_R\Gamma_L e^{(-2y_{s-1}+2y_s+y'-y)\gamma_s}}
 {1-\Gamma_R\Gamma_L e^{-2(y_{s-1}-y_s)\gamma_s}},
-\tag{14}
+\qquad\text{(14)}
 ```
 
 with ``Z_l=(\beta_x^2-k_l^2)^{-1/2}``, ``\gamma_l=\sqrt{\beta_x^2-k_l^2}``, and the inverse transform
 
 ```math
 G_g(x,y)=\frac1{2\pi}\int_{-\infty}^{\infty}\widetilde G_g(\beta_x,y)e^{-j\beta_xx}\,d\beta_x.
-\tag{17}
+\qquad\text{(17)}
 ```
 
 The final matrices are
@@ -54,7 +54,7 @@ The final matrices are
 \mathbf R(\omega)=\Re\{[\mathbf U^T(\mathbf1-j\omega\mathbf Y_s\mathbf\Psi)^{-1}\mathbf Y_s\mathbf U]^{-1}\},
 \quad
 \mathbf L(\omega)=\omega^{-1}\Im\{[\mathbf U^T(\mathbf1-j\omega\mathbf Y_s\mathbf\Psi)^{-1}\mathbf Y_s\mathbf U]^{-1}\},
-\tag{21,22}
+\qquad\text{(21,22)}
 ```
 
 where ``\mathbf\Psi`` is printed in (23).

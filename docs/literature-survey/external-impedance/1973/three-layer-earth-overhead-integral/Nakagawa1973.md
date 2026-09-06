@@ -35,14 +35,14 @@
 
 ```math
 Z_{12}=j\omega\frac{\mu_0}{2\pi}\ln\left(\frac{D_2}{D_1}\right)+Z_e.
-\tag{12}
+\qquad\text{(12)}
 ```
 
 ```math
 Z_e=\omega\frac{\mu_0}{2\pi}(P+jQ)
 =j\omega\frac{\mu_0}{2\pi}\,2\int_0^\infty
 B_2\exp\{-(h_1+h_2)v\}\cos(yv)\,dv.
-\tag{13}
+\qquad\text{(13)}
 ```
 
 ```math
@@ -54,7 +54,7 @@ The three-layer coefficient and complete final spectral definitions, (14) and fo
 
 ```math
 B_2=\frac{c_1+c_2}{(v+\mu_0b_1)c_1+(v-\mu_0b_1)c_2},
-\tag{14}
+\qquad\text{(14)}
 ```
 
 ```math
@@ -88,7 +88,7 @@ For the two-layer formula the source takes ``d_2\to\infty`` and replaces ``B_2``
 B_3=\frac{b_1+b_2+(b_1-b_2)\exp(-2a_1d_1)}
 {(v+\mu_0b_1)(b_1+b_2)
  +(v-\mu_0b_1)(b_1-b_2)\exp(-2a_1d_1)}.
-\tag{15}
+\qquad\text{(15)}
 ```
 
 The subsequent homogeneous ``d_1\to\infty`` replacement is printed, unnumbered below (15), as
@@ -116,13 +116,13 @@ Notation is unchanged throughout; the formula section gives original (12)–(15)
 Section 2.1, p. 1521, (1)–(2):
 
 ```math
-\mathbf E=-\gamma^2\boldsymbol\Pi+\operatorname{grad}\operatorname{div}\boldsymbol\Pi,
-\tag{1}
+\mathbf E=-\gamma^2\boldsymbol\Pi+\mathop{\mathrm{grad}}\mathop{\mathrm{div}}\boldsymbol\Pi,
+\qquad\text{(1)}
 ```
 
 ```math
-\mathbf H=\frac{\gamma^2}{j\omega\mu}\operatorname{curl}\boldsymbol\Pi.
-\tag{2}
+\mathbf H=\frac{\gamma^2}{j\omega\mu}\mathop{\mathrm{curl}}\boldsymbol\Pi.
+\qquad\text{(2)}
 ```
 
 Continuation p. 1522, (3)–(4):
@@ -133,12 +133,12 @@ E_x=-\gamma^2\Pi_x+
 \frac{\partial\Pi_x}{\partial x}+\frac{\partial\Pi_y}{\partial y}
 +\frac{\partial\Pi_z}{\partial z}\right)
 =-IZ_{12}-\frac{\partial V}{\partial x},
-\tag{3}
+\qquad\text{(3)}
 ```
 
 ```math
 Z_{12}=\frac{\gamma^2\Pi_x}{I}.
-\tag{4}
+\qquad\text{(4)}
 ```
 
 ``\boldsymbol\Pi`` is the Hertz vector, ``I`` the longitudinal source current, ``V`` the potential in the printed field decomposition. These field equations do not supply a separate potential-coefficient or admittance output.
@@ -156,7 +156,7 @@ B_1\exp\{-\alpha_0(h_1+h_2)\}
 \left\{\int_{-\infty}^{\infty}J_0(r\lambda)
 \exp(-\gamma_0x)\,dx\right\}\lambda\,d\lambda.
 \end{aligned}
-\tag{11}
+\qquad\text{(11)}
 ```
 
 The source defines ``r=\sqrt{x^2+y^2}``, with ``J_0`` the Bessel function of the first kind, order zero, on p. 1522. Appendix §8.2, p. 1527, makes the distances explicit:
@@ -183,7 +183,7 @@ Appendix §8.1, p. 1527, (18) prints the following conditions. In particular, th
 &=\frac{\partial\Pi_{(i+1)x}}{\partial x}
 +\frac{\partial\Pi_{(i+1)x}}{\partial z}.
 \end{aligned}
-\tag{18}
+\qquad\text{(18)}
 ```
 
 The printed interface assignment is ``i=0`` at ``z=0``, ``i=1`` at ``z=-d_1``, ``i=2`` at ``z=-d_2``. These are preserved boundary statements, not a complete independent solution for every Hertz component.
@@ -223,7 +223,7 @@ Do not replace capital ``C`` with lower-case ``c`` or ``\alpha`` with ``a`` befo
 {\sqrt{\lambda^2+\gamma_0^2}}\lambda\,d\lambda
 =\frac{\exp(-\gamma_0R_2)}{R_2},
 \qquad R_2=\sqrt{r^2+(h+z)^2}.
-\tag{20}
+\qquad\text{(20)}
 ```
 
 Here ``h`` and ``z`` are the original dipole source/observation heights; ``h_1,h_2`` replace them in the two-conductor problem. No additional convergence/branch convention is printed with this identity.
@@ -237,7 +237,7 @@ Printed p. 1528, (21):
 \left\{\frac{\exp[-jk\sqrt{x^2+D_1^2}]}{\sqrt{x^2+D_1^2}}
 -\frac{\exp[-jk\sqrt{x^2+D_2^2}]}{\sqrt{x^2+D_2^2}}\right\}
 \exp(-jkx)\,dx=W.
-\tag{21}
+\qquad\text{(21)}
 ```
 
 The intervening prose says to replace ``x+\sqrt{x^2+D^2}`` by ``t``; it does **not** include ``k`` in that verbal substitution. The subsequent equations nonetheless print:
@@ -246,7 +246,7 @@ The intervening prose says to replace ``x+\sqrt{x^2+D^2}`` by ``t``; it does **n
 W=\lim_{s\to\infty}\left\{
 \int_{q_1}^{\infty}\frac{\exp(-jt)}{t}\,dt
 -\int_{q_2}^{\infty}\frac{\exp(-jt)}{t}\,dt\right\},
-\tag{22}
+\qquad\text{(22)}
 ```
 
 ```math
@@ -260,7 +260,7 @@ W=\lim_{s\to\infty}\left\{
 -\sum_{n=1}^{\infty}\frac{(-1)^n}{n\times n!}(q_1^n-q_2^n)
 \right\}
 =2\ln(D_2/D_1).
-\tag{23}
+\qquad\text{(23)}
 ```
 
 The coefficient is printed ``(-1)^n``, not ``(-j)^n``. Both the substitution and series issue are suspected published defects, not repaired identities. ``s`` is the limiting longitudinal coordinate here, **not** the 1975 spectral variable; ``t,q_1,q_2`` are the printed integration/end-point variables with unresolved substitution scaling.
@@ -274,7 +274,7 @@ The separate Bessel-transform identity (24) is
 \displaystyle\frac{2\cos(y\sqrt{\lambda^2-k^2})}{\sqrt{\lambda^2-k^2}},
 &\lambda>k.
 \end{cases}
-\tag{24}
+\qquad\text{(24)}
 ```
 
 The source does not give a value at ``\lambda=k``. No endpoint value is manufactured. Equation (25) then prints
@@ -285,7 +285,7 @@ Z_{12}=j\omega\frac{\mu_0}{2\pi}
 +2\int_k^{\infty}B_1\exp\{-\alpha_0(h_1+h_2)\}
 \frac{\cos[y\sqrt{\lambda^2-k^2}]}{\sqrt{\lambda^2-k^2}}
 \lambda\,d\lambda\right).
-\tag{25}
+\qquad\text{(25)}
 ```
 
 The stated replacement ``\lambda^2-k^2=v^2`` produces the final unnumbered repetition of (12)–(14). This is the published reduction; it does not remove the annotated ambiguity in ``B_1`` or correct the preceding transform steps.
@@ -296,13 +296,13 @@ Equations (1)–(2), pp. 500–501, repeat the external/earth decomposition with
 
 ```math
 Z_{12}=j\omega(\mu_0/2\pi)\ln(D_2/D_1)+Z_e,
-\tag{1975:1}
+\qquad\text{(1975:1)}
 ```
 
 ```math
 Z_e=j\omega(\mu_0/\pi)
 \int_0^{\infty}A_3\exp\{-(h_1+h_2)s\}\cos(ys)\,ds,
-\tag{1975:2}
+\qquad\text{(1975:2)}
 ```
 
 with ``D_1=\sqrt{y^2+(h_1-h_2)^2}``, ``D_2=\sqrt{y^2+(h_1+h_2)^2}``. Here and only here ``s`` is the inverse-length spectral variable. The 1975 page does not independently print the 1973 longitudinal exponential prescription.
@@ -311,7 +311,7 @@ Equation (3) and following definitions, p. 501:
 
 ```math
 A_3=(c_1+c_2)/\{(s+\mu_0b_1)c_1+(s-\mu_0b_1)c_2\},
-\tag{1975:3}
+\qquad\text{(1975:3)}
 ```
 
 ```math
@@ -348,11 +348,11 @@ and the right-column continuation displays an asterisk alongside a fraction rule
 The homogeneous limit ``d_1\to\infty`` and the correction decomposition are clear:
 
 ```math
-A_1=(s+\mu_0b_1)^{-1},\tag{1975:5}
+A_1=(s+\mu_0b_1)^{-1},\qquad\text{(1975:5)}
 ```
 
 ```math
-Z_e=(\omega\mu_0/2\pi)(P+jQ).\tag{1975:6}
+Z_e=(\omega\mu_0/2\pi)(P+jQ).\qquad\text{(1975:6)}
 ```
 
 The authors state ``\varepsilon_i=\varepsilon_0`` for Fig. 2 and subsequent calculations (p. 501). Their stated near-negligibility below 1 MHz belongs to that study's justification, not a universal validity bound. Sections 3–5, pp. 502–506, study attenuation, propagation speed, step responses and switching surges using these earlier-attributed parameters. Their conditional homogeneous-earth response comparisons do not supply a new closed-form effective-medium impedance. No potential-coefficient/admittance kernel or arbitrary-layer recurrence occurs in the inspected seven pages.

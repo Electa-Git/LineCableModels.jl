@@ -37,7 +37,7 @@
 \int_{-1}^{1}f(x)\,dx\simeq\sum_{k=-\infty}^{\infty}w_kf(x_k),
 \quad x_k=\tanh\!\left[\frac\pi2\sinh(kh)\right],
 \quad w_k=\frac{(\pi/2)h\cosh(kh)}{\cosh^2[(\pi/2)\sinh(kh)]}.
-\tag{12–14}
+\qquad\text{(12–14)}
 ```
 
 **Approximation.** Finite implementation truncates the formally infinite node sum; the physical parent kernel is unchanged.

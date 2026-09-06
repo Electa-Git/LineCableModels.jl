@@ -36,7 +36,7 @@
 ```math
 Y_{12}^{jp}=\pi(\sigma_1+j\omega\epsilon_1)
 \left[N_{12}^{jp}-jM_{12}^{jp}\right]^{-1},
-\tag{90}
+\qquad\text{(90)}
 ```
 
 ```math
@@ -47,7 +47,7 @@ e^{-(u_1h_j+u_2h_p)}}
 {\left[u_1+(\mu_1/\mu_2)u_2\right]
 \left[(k_2^2/k_1^2)u_1+(\mu_2/\mu_1)u_2\right]}
 \cos(\lambda d_{jp})\,d\lambda.
-\tag{91}
+\qquad\text{(91)}
 ```
 
 Here ``k_i=\omega\sqrt{\mu_i(\epsilon_i-j\sigma_i/\omega)}``, ``\gamma_i^2=\Gamma^2+k_i^2``, and ``u_i=\sqrt{\lambda^2-\gamma_i^2}``.

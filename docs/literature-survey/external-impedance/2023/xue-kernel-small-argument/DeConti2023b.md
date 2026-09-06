@@ -39,7 +39,7 @@ Z_{g(m,n)}=\frac{j\omega\mu_0}{2\pi}\left[
 +\frac{\gamma_1-\gamma_0}{\gamma_0+\gamma_1}
 e^{-(h_m+h_n)\gamma_1}\left(\frac{2}{4+\gamma_1^2r^2}\right)
 \right],
-\tag{8}
+\qquad\text{(8)}
 ```
 
 ```math

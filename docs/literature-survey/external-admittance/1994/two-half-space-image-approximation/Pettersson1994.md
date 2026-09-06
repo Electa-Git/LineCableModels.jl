@@ -37,7 +37,7 @@
 Y=j\omega\epsilon_0n_1^2\,\frac{2\pi}{\Lambda+Q},
 \qquad
 \gamma_w=\gamma_1\left(\frac{\Lambda+P}{\Lambda+Q}\right)^{1/2}.
-\tag{3,4}
+\qquad\text{(3,4)}
 ```
 
 For ``h>0`` the image form printed in (10) is
@@ -47,7 +47,7 @@ For ``h>0`` the image form printed in (10) is
 Q\simeq\frac{2}{n^2+1}\ln\frac{d_Q}{d''},
 \qquad
 d_Q=\pm\sqrt{\left[y+h+\frac{n^2+1}{\beta}\right]^2+x^2}.
-\tag{10}
+\qquad\text{(10)}
 ```
 
 Here ``\beta=\gamma_1(n^2-1)^{1/2}``; the sign of ``d_Q`` is selected so its imaginary part is negative for a wire in air and positive for a wire in ground.

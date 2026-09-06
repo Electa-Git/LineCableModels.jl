@@ -37,13 +37,13 @@
 z_{c_{ii}}=\frac{j\omega\mu_0}{\pi}
 \int_0^\infty
 \frac{\exp(-2h_i\xi)}{\xi+\sqrt{\xi^2+\eta_s^2}}\,d\xi,
-\tag{1}
+\qquad\text{(1)}
 
 z_{c_{ij}}=\frac{j\omega\mu_0}{\pi}
 \int_0^\infty
 \frac{\exp(-(h_i+h_j)\xi)}{\xi+\sqrt{\xi^2+\eta_s^2}}
 \cos(d_{ij}\xi)\,d\xi,
-\tag{2}
+\qquad\text{(2)}
 
 \eta_s=\sqrt{j\omega\mu_0(\sigma_s+j\omega\epsilon_s)}.
 ```
@@ -53,19 +53,19 @@ z_{c_{ij}}=\frac{j\omega\mu_0}{\pi}
 ```math
 \sigma_s+j\omega\epsilon_s\simeq\kappa'
 =\sigma_0+\delta_{\sigma_s}+j\delta_{\omega\epsilon_s},
-\tag{7}
+\qquad\text{(7)}
 
 \delta_{\sigma_s}+j\delta_{\omega\epsilon_s}
 =\Delta_i\left(\frac{f}{10^6}\right)^\alpha
 \left(\cot(\alpha\pi/2)+j\right).
-\tag{8}
+\qquad\text{(8)}
 ```
 
 ``\sigma_0`` is low-frequency conductivity, ``\Delta_i`` is in S/m, and ``\alpha`` controls frequency dependence. ``f`` is frequency and ``\omega=2\pi f``. ``\Delta_i`` is the source's soil-fit parameter, not a conductor-indexed geometric quantity. The source-prescribed line assembly is
 
 ```math
 Z=Z_i+Z_{\mathrm{ext}}+Z_g,
-\tag{11}
+\qquad\text{(11)}
 ```
 
 where the matrices are conductor internal, ideal external, and ground-return impedance per unit length. Equations (1)–(2) supply ``Z_g``; they are not the complete external impedance.
@@ -85,7 +85,7 @@ Equations (1)–(2), (7)–(8), and (11) above retain the source's notation and 
 ```math
 \kappa'=84.16\,10^{-6}
 +\omega^{0.71603}(0.057849+j0.12097)10^{-6}.
-\tag{9}
+\qquad\text{(9)}
 ```
 
 This particular sample uses ``\sigma_0=84.16\,\mu\mathrm S/\mathrm m``, ``\Delta_i=8.92028\,\mathrm{mS}/\mathrm m``, and ``\alpha=0.71603``. Equation (9) takes ``\omega`` in rad/s and returns ``\kappa'`` in S/m. It is an example of (7)–(8), not a universal earth law. The source credits earlier soil measurement/model work in references [3]–[5], [10]–[11]; no new priority is assigned to this supporting constitutive model.

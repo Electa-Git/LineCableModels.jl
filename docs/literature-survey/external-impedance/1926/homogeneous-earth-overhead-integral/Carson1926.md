@@ -35,24 +35,24 @@
 
 ```math
 Z=Z^0+Z',\qquad Z_{12}=Z_{12}^{0}+Z'_{12},
-\tag{25--26}
+\qquad\text{(25--26)}
 
 Z'=4\omega\int_0^\infty
 \left(\sqrt{\mu^2+i}-\mu\right)e^{-2h'\mu}\,d\mu,
-\tag{27}
+\qquad\text{(27)}
 
 Z'_{12}=4\omega\int_0^\infty
 \left(\sqrt{\mu^2+i}-\mu\right)
 e^{-(h'_1+h'_2)\mu}\cos(x'\mu)\,d\mu,
-\tag{28}
+\qquad\text{(28)}
 
 J(p,q)=\int_0^\infty
 \left(\sqrt{\mu^2+i}-\mu\right)e^{-p\mu}\cos(q\mu)\,d\mu,
-\tag{29}
+\qquad\text{(29)}
 
 Z'=4\omega J(2h',0),\qquad
 Z'_{12}=4\omega J(h'_1+h'_2,x'),
-\tag{30--31}
+\qquad\text{(30--31)}
 
 \alpha=4\pi\lambda\omega,\qquad
 h'=h\sqrt{\alpha},\quad h'_1=h_1\sqrt{\alpha},\quad
@@ -75,10 +75,10 @@ The formula section retains Carson's source notation. The immediately preceding 
 
 ```math
 Z=z+i2\omega\log(\rho''/a)+Z',
-\tag{23}
+\qquad\text{(23)}
 
 Z_{12}=i2\omega\log(\rho''/\rho')+Z'_{12},
-\tag{24}
+\qquad\text{(24)}
 ```
 
 with ``\rho''=\sqrt{(h_1+h_2)^2+x^2}`` and ``\rho'=\sqrt{(h_1-h_2)^2+x^2}``. They show explicitly that (27)–(28) are corrections rather than complete conductor impedances.

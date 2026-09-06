@@ -35,12 +35,12 @@
 
 ```math
 Y_i=2\pi(\sigma_i+j\omega\epsilon_i)\left[\ln\frac ba\right]^{-1},
-\tag{13}
+\qquad\text{(13)}
 ```
 
 ```math
 \frac1{Y_s}=\frac1{Y_i}+\frac1{Y_e}.
-\tag{11}
+\qquad\text{(11)}
 ```
 
 **Approximation.** Coaxial qTEM coating relation; source's one-wire scalar assembly is retained.

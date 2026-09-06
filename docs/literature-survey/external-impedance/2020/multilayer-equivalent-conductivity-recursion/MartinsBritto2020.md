@@ -38,7 +38,7 @@
 \frac{(\sqrt{\sigma_{N-1}}+\sqrt{\sigma_N})-(\sqrt{\sigma_{N-1}}-\sqrt{\sigma_N})e^{-2h_{N-1}\sqrt{\pi f\mu_{N-1}\sigma_{N-1}}}}
 {(\sqrt{\sigma_{N-1}}+\sqrt{\sigma_N})+(\sqrt{\sigma_{N-1}}-\sqrt{\sigma_N})e^{-2h_{N-1}\sqrt{\pi f\mu_{N-1}\sigma_{N-1}}}}
 \right]^2.
-\tag{20}
+\qquad\text{(20)}
 ```
 
 Then recurse upward,
@@ -48,7 +48,7 @@ Then recurse upward,
 \frac{(\sqrt{\sigma_{m-1}}+\sqrt{\sigma_{m-1,m}})-(\sqrt{\sigma_{m-1}}-\sqrt{\sigma_{m-1,m}})e^{-2h_{m-1}\sqrt{\pi f\mu_{m-1}\sigma_{m-1}}}}
 {(\sqrt{\sigma_{m-1}}+\sqrt{\sigma_{m-1,m}})+(\sqrt{\sigma_{m-1}}-\sqrt{\sigma_{m-1,m}})e^{-2h_{m-1}\sqrt{\pi f\mu_{m-1}\sigma_{m-1}}}}
 \right]^2,
-\tag{21}
+\qquad\text{(21)}
 ```
 
 and obtain ``\sigma_{eq}`` by the same top-layer replacement printed in (22).

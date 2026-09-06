@@ -36,7 +36,7 @@
 ```math
 -\frac{d\mathbf V}{dx}=\mathbf Z'\mathbf I,
 \qquad \mathbf Z'=\mathbf Z_i'+\mathbf Z_e'+\mathbf Z_g'.
-\tag{24–25}
+\qquad\text{(24–25)}
 ```
 
 In the modal basis the paper gives
@@ -46,7 +46,7 @@ In the modal basis the paper gives
 \qquad
 \widehat{\mathbf Z}_g'=\frac{j\omega\mu_0}{\pi}
 \left(\widehat{\mathbf S}_{1g}^{h}-k_0^{-2}\widehat{\mathbf S}_{2g}^{0}\widehat{\boldsymbol\Lambda}\right),
-\tag{38,40}
+\qquad\text{(38,40)}
 ```
 
 with physical entries obtained by the transformation printed in (26).

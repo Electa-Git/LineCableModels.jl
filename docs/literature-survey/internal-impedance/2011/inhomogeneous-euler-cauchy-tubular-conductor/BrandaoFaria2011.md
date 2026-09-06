@@ -38,7 +38,7 @@
 \qquad
 \sigma(r)=\sigma_2\left(\frac{r_2}{r}\right)^{2+p},
 \qquad r_1\le r\le r_2,
-\tag{11,12}
+\qquad\text{(11,12)}
 ```
 
 and
@@ -48,7 +48,7 @@ m_{1,2}=\frac p2\pm
 \sqrt{\left(\frac p2\right)^2-(\bar k_2r_2)^2},
 \qquad
 \bar k_2=\sqrt{-j\omega\mu_2\sigma_2},
-\tag{6,13}
+\qquad\text{(6,13)}
 ```
 
 with ``m_1`` selected in the first quadrant and ``m_2`` in the third. The resulting p.u.l. impedance is
@@ -57,7 +57,7 @@ with ``m_1`` selected in the first quadrant and ``m_2`` in the third. The result
 \bar Z=R+jX=\frac{\bar E(r_2)}{\bar I}
 =\frac{m_2(r_1/r_2)^{m_2}-m_1(r_1/r_2)^{m_1}}
 {2\pi\sigma_2r_2^2\left((r_1/r_2)^{m_1}-(r_1/r_2)^{m_2}\right)}.
-\tag{19}
+\qquad\text{(19)}
 ```
 
 For ``r_1\to0``, the source gives
@@ -82,14 +82,14 @@ Before (19), the source prints
 \bar H(r)=\frac{\bar I}{2\pi r}
 \frac{(r_1/r)^{m_1}-(r_1/r)^{m_2}}
 {(r_1/r_2)^{m_1}-(r_1/r_2)^{m_2}},
-\tag{17}
+\qquad\text{(17)}
 ```
 
 ```math
 \bar J(r)=\frac{\bar I}{2\pi r^2}
 \frac{m_2(r_1/r)^{m_2}-m_1(r_1/r)^{m_1}}
 {(r_1/r_2)^{m_1}-(r_1/r_2)^{m_2}},
-\tag{18}
+\qquad\text{(18)}
 ```
 
 under ``\bar H(r_1)=0`` and ``\bar H(r_2)=\bar I/(2\pi r_2)``. These dependencies make the impedance boundary ratio evaluable.

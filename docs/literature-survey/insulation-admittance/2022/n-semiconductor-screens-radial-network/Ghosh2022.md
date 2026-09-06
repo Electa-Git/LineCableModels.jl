@@ -41,7 +41,7 @@ Y_{l,11}=\left(\frac1{y_{sem,1}}+\frac1{y_{ins,1}}+\frac1{y_{sem,2}}\right)^{-1}
 Y_{l,pp}=\left(\frac1{y_{ins,p}}+\frac1{y_{sem,p+1}}\right)^{-1},
 \quad p=2,\ldots,N-1,
 \qquad Y_{l,NN}=y_{ins,N}.
-\tag{17}
+\qquad\text{(17)}
 ```
 
 ```math

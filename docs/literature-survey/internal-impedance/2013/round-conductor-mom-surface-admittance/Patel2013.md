@@ -39,7 +39,7 @@ J_n^{(p)}=E_n^{(p)}\frac{2\pi}{j\omega}
 \frac{k a_p\mathcal J'_{|n|}(ka_p)}{\mu\mathcal J_{|n|}(ka_p)}
 -\frac{k_{out}a_p\mathcal J'_{|n|}(k_{out}a_p)}{\mu_0\mathcal J_{|n|}(k_{out}a_p)}
 \right],
-\tag{13}
+\qquad\text{(13)}
 ```
 
 with ``k=\sqrt{\omega\mu(\omega\epsilon-j\sigma)}`` and ``k_{out}=\omega\sqrt{\mu_0\epsilon_{out}}``. After Fourier/Galerkin assembly,
@@ -50,13 +50,13 @@ with ``k=\sqrt{\omega\mu(\omega\epsilon-j\sigma)}`` and ``k_{out}=\omega\sqrt{\m
 \mathbf U^T(\mathbf 1-j\omega\mu_0\mathbf Y_s\mathbf G)^{-1}
 \mathbf Y_s\mathbf U
 \right]^{-1}.
-\tag{31}
+\qquad\text{(31)}
 ```
 
 ```math
 \mathbf R=\Re\{\cdots\},\qquad
 \mathbf L=\omega^{-1}\Im\{\cdots\}.
-\tag{32,33}
+\qquad\text{(32,33)}
 ```
 
 **Approximation.** Boundary electric field and equivalent surface current are truncated Fourier series. The operator eigenvalues are analytic for a solid cylinder; conductor interactions enter through the analytically integrated logarithmic Green matrix ``G``. No symmetric-current approximation is imposed.
@@ -77,7 +77,7 @@ J_s=H_t-\widetilde H_t
 \frac1\mu\frac{\partial E_z}{\partial n}
 -\frac1{\mu_0}\frac{\partial\widetilde E_z}{\partial n}
 \right].
-\tag{5}
+\qquad\text{(5)}
 ```
 
 The discretization satisfies ``\mathbf J=\mathbf Y_s\mathbf E`` and ``\mathbf I=\mathbf U^T\mathbf J``.

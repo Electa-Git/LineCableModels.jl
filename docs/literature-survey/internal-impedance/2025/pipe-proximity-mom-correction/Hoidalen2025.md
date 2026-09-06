@@ -37,19 +37,19 @@
 Z(N_p)=Z_i+\Delta Z_{prox},
 \qquad
 Z(N_p=0)=Z_i+\frac{j\omega\mu_0}{2\pi}\ln\frac{r_{p1}}r,
-\tag{19–20}
+\qquad\text{(19–20)}
 ```
 
 ```math
 Z_{p,i}=Z_{pi}+Z(N_p)-Z(N_p=0)=Z_{pi}+\Delta Z_{prox},
-\tag{21}
+\qquad\text{(21)}
 ```
 
 ```math
 Z_{pi}=\frac{j\omega\mu_0}{2\pi}\frac{\mu_{rp}}{x_1}
 \frac{I_0(x_1)K_1(x_2)+I_1(x_2)K_0(x_1)}
 {I_1(x_2)K_1(x_1)-I_1(x_1)K_1(x_2)}.
-\tag{22}
+\qquad\text{(22)}
 ```
 
 **Approximation.** Finite MoM harmonic count ``N_p``; the subtraction isolates the incremental proximity part.

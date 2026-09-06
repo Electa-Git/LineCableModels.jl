@@ -44,7 +44,7 @@ Z(i,i)={}&\frac{j\omega\mu_0}{2\pi}
 &+\frac{m_g}{2\pi c_1\sigma_g}\frac{K_0(m_gc_1)}{K_1(m_gc_1)}
 +\frac{1}{\sigma_g}\sum_{n=1}^{\infty}
 \left(\frac{b_i}{c_1}\right)^{2n}C_n.
-\end{aligned}\tag{1}
+\end{aligned}\qquad\text{(1)}
 ```
 
 Mutual impedance, equation (2):
@@ -61,27 +61,27 @@ Z(j,i)={}&\frac{j\omega\mu_0}{4\pi}
 &+\frac{m_g}{2\pi c_1\sigma_g}\frac{K_0(m_gc_1)}{K_1(m_gc_1)}\\
 &+\frac{1}{\sigma_g}\sum_{n=1}^{\infty}
 \left(\frac{b_jb_i}{c_1^2}\right)^n C_n\cos(n\phi_{j,i}).
-\end{aligned}\tag{2}
+\end{aligned}\qquad\text{(2)}
 ```
 
 Complete coefficient and penetration definitions, equations (3)–(6):
 
 ```math
 C_n=\frac{m_g^2K_n(m_gc_1)}
-{\pi[n\mu_{rg}K_n(m_gc_1)-m_gc_1K'_n(m_gc_1)]},\tag{3}
+{\pi[n\mu_{rg}K_n(m_gc_1)-m_gc_1K'_n(m_gc_1)]},\qquad\text{(3)}
 ```
 
 ```math
 D_n(k)=\frac{(a_k)^{-1}I_n(m_ka_k)}
-{\dfrac{n}{a_k}I_n(m_ka_k)+\dfrac{m_k}{\mu_{rk}}I'_n(m_ka_k)},\tag{4}
+{\dfrac{n}{a_k}I_n(m_ka_k)+\dfrac{m_k}{\mu_{rk}}I'_n(m_ka_k)},\qquad\text{(4)}
 ```
 
 ```math
-m_i=\sqrt{j\omega\mu_0\mu_{ri}\sigma_i},\tag{5}
+m_i=\sqrt{j\omega\mu_0\mu_{ri}\sigma_i},\qquad\text{(5)}
 ```
 
 ```math
-m_g=\sqrt{j\omega\mu_0\mu_{rg}\sigma_g}.\tag{6}
+m_g=\sqrt{j\omega\mu_0\mu_{rg}\sigma_g}.\qquad\text{(6)}
 ```
 
 ``m_k`` and ``m_j`` use the same core-labelled definition (5) for the corresponding core. The source's ``D_n(j)`` in (2) means the ``k=j`` instance of (4); it is not symmetrized between the two cores. ``I_n,K_n`` are the modified Bessel functions of the first and second kind, order ``n``. Nomenclature explicitly identifies ``I'_n,K'_n`` as their first derivatives; their arguments are retained as printed, without replacement by recurrence identities. ``m_i,m_g`` are called reciprocals of complex penetration depth and have inverse-length dimensions. ``C_n`` has inverse-area dimensions and ``D_n`` is dimensionless, as implied by their equations.

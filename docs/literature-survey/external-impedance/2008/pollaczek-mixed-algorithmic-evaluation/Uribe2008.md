@@ -41,7 +41,7 @@ Z_G(\omega)=\frac{j\omega\mu_0}{2\pi}
 e^{j\beta x}\,d\beta,
 \qquad
 p=\frac{1}{\sqrt{j\omega\mu_0\sigma}},
-\tag{1a--1b}
+\qquad\text{(1a--1b)}
 ```
 
 ```math
@@ -52,7 +52,7 @@ Z_G=\frac{\omega\mu_0}{\pi}J(\xi,\eta),
 J(\xi,\eta)=\int_0^{+\infty}
 [F(u)-u+jG(u)]e^{-\xi[\zeta u+F(u)]}
 e^{-j\xi G(u)}\cos(\xi\eta u)\,du,
-\tag{2e}
+\qquad\text{(2e)}
 ```
 
 where
@@ -72,7 +72,7 @@ The source truncates at
 ```math
 u_{\max}=\frac{\lambda_e}{\xi(\zeta+1)},\qquad
 \lambda_e=-\log[\epsilon_r\xi(\zeta+1)],
-\tag{4c--4d}
+\qquad\text{(4c--4d)}
 ```
 
 and reports the empirical choice ``\lambda_e=12`` for its applications.

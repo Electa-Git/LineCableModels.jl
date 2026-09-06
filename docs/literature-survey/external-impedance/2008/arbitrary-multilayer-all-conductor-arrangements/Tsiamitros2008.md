@@ -52,7 +52,7 @@ e^{-\bar\alpha_m d_m}\right)
 \frac{\bar F_1\bar F_2}{\overline{DTD}_0}
 \Bigg\}\,du,
 \end{aligned}
-\tag{21}
+\qquad\text{(21)}
 ```
 
 ```math
@@ -83,7 +83,7 @@ The downward-to-top interface recursion, source (15)–(18), is
 (\mu_{i+1}\bar\alpha_i-\mu_i\bar\alpha_{i+1})\overline{DTD}_{i+1}
 +(\mu_{i+1}\bar\alpha_i+\mu_i\bar\alpha_{i+1})
 \overline{DTN}_{i+1}e^{-2\bar\alpha_{i+1}d_{i+1}},
-\tag{15}
+\qquad\text{(15)}
 ```
 
 ```math
@@ -91,19 +91,19 @@ The downward-to-top interface recursion, source (15)–(18), is
 (\mu_{i+1}\bar\alpha_i+\mu_i\bar\alpha_{i+1})\overline{DTD}_{i+1}
 +(\mu_{i+1}\bar\alpha_i-\mu_i\bar\alpha_{i+1})
 \overline{DTN}_{i+1}e^{-2\bar\alpha_{i+1}d_{i+1}},
-\tag{16}
+\qquad\text{(16)}
 ```
 
 ```math
 \overline{DTN}_n=0,\qquad \overline{DTD}_n=1.
-\tag{17--18}
+\qquad\text{(17--18)}
 ```
 
 The top-to-down recursion, source (A.15)–(A.18), is
 
 ```math
 \overline{TDD}_{-1}=1,qquad \overline{TDN}_{-1}=0,
-\tag{A.15--A.16}
+\qquad\text{(A.15--A.16)}
 ```
 
 ```math
@@ -111,7 +111,7 @@ The top-to-down recursion, source (A.15)–(A.18), is
 (\mu_{l-1}\bar\alpha_l+\mu_l\bar\alpha_{l-1})\overline{TDD}_{l-2}
 +(\mu_{l-1}\bar\alpha_l-\mu_l\bar\alpha_{l-1})
 \overline{TDN}_{l-2}e^{-2\bar\alpha_{l-1}d_{l-1}},
-\tag{A.17}
+\qquad\text{(A.17)}
 ```
 
 ```math
@@ -119,7 +119,7 @@ The top-to-down recursion, source (A.15)–(A.18), is
 (\mu_{l-1}\bar\alpha_l-\mu_l\bar\alpha_{l-1})\overline{TDD}_{l-2}
 +(\mu_{l-1}\bar\alpha_l+\mu_l\bar\alpha_{l-1})
 \overline{TDN}_{l-2}e^{-2\bar\alpha_{l-1}d_{l-1}}.
-\tag{A.18}
+\qquad\text{(A.18)}
 ```
 
 For self impedance, the source sets ``m=l``, replaces ``y_{ij}`` by the cable outermost radius ``r_{ii}``, and replaces ``h_2`` by ``h_1``.

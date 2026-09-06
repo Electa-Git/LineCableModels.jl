@@ -35,12 +35,12 @@
 
 ```math
 Y'_{e_{ij}}=j\omega P_{e_{ij}}^{-1},
-\tag{6a}
+\qquad\text{(6a)}
 
 P_{e_{ij}}
 =\frac{j\omega}{2\pi(\sigma_1+j\omega\epsilon_1)}
  \int_{0}^{+\infty}[F(\lambda)+G(\lambda)]\cos(y_{ij}\lambda)\,d\lambda,
-\tag{6b}
+\qquad\text{(6b)}
 
 F(\lambda)
 =\frac{e^{-\alpha_1|h_i-h_j|}-e^{-\alpha_1(h_i+h_j)}}{\alpha_1}
@@ -50,7 +50,7 @@ G(\lambda)
 =\frac{2\mu_0\mu_1\alpha_1(\gamma_1^2-\gamma_0^2)e^{-\alpha_1(h_i+h_j)}}
  {(\alpha_1\mu_0+\alpha_0\mu_1)
   (\alpha_1\gamma_0^2\mu_1+\alpha_0\gamma_1^2\mu_0)},
-\tag{6c}
+\qquad\text{(6c)}
 
 \alpha_k=\sqrt{\lambda^2+\gamma_k^2+k_x^2},\qquad
 \gamma_k^2=j\omega\mu_k(\sigma_k+j\omega\epsilon_k),\qquad k=0,1,

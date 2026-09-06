@@ -35,7 +35,7 @@
 
 ```math
 \tan\delta=\frac{\omega\epsilon''+\sigma}{\omega\epsilon'}.
-\tag{11}
+\qquad\text{(11)}
 ```
 
 For an applied voltage ``V``, the source extracts

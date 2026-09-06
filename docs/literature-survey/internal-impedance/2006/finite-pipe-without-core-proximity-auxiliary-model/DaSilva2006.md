@@ -42,7 +42,7 @@ Z(i,i)={}&\frac{j\omega\mu_0}{2\pi}
 [A_0I_0(m_gc_1)+B_0K_0(m_gc_1)]\\
 &+\frac{1}{\sigma_g}\sum_{n=1}^{\infty}
 \left(\frac{b_i}{c_1}\right)^{2n}H_n.
-\end{aligned}\tag{7}
+\end{aligned}\qquad\text{(7)}
 ```
 
 ```math
@@ -56,35 +56,35 @@ Z(j,i)={}&\frac{j\omega\mu_0}{4\pi}
 [A_0I_0(m_gc_1)+B_0K_0(m_gc_1)]\\
 &+\frac{1}{\sigma_g}\sum_{n=1}^{\infty}
 \left(\frac{b_ib_j}{c_1^2}\right)^n H_n\cos(n\phi_{j,i}).
-\end{aligned}\tag{8}
+\end{aligned}\qquad\text{(8)}
 ```
 
 The distinct zeroth-order coefficients are (9),(10); ``B_0`` has the printed positive numerator:
 
 ```math
 A_0=\frac{K_1(m_gc_2)}
-{I_1(m_gc_1)K_1(m_gc_2)-I_1(m_gc_2)K_1(m_gc_1)},\tag{9}
+{I_1(m_gc_1)K_1(m_gc_2)-I_1(m_gc_2)K_1(m_gc_1)},\qquad\text{(9)}
 ```
 
 ```math
 B_0=\frac{I_1(m_gc_2)}
-{I_1(m_gc_1)K_1(m_gc_2)-I_1(m_gc_2)K_1(m_gc_1)}.\tag{10}
+{I_1(m_gc_1)K_1(m_gc_2)-I_1(m_gc_2)K_1(m_gc_1)}.\qquad\text{(10)}
 ```
 
 Positive-order pipe coefficients and the complete denominator, (11)–(14):
 
 ```math
-H_n=A_nI_n(m_gc_1)+B_nK_n(m_gc_1),\tag{11}
+H_n=A_nI_n(m_gc_1)+B_nK_n(m_gc_1),\qquad\text{(11)}
 ```
 
 ```math
 A_n=\frac{m_g}{\pi c_1\Delta_n}
-\left[\frac{n\mu_{rg}}{m_gc_2}K_n(m_gc_2)+K'_n(m_gc_2)\right],\tag{12}
+\left[\frac{n\mu_{rg}}{m_gc_2}K_n(m_gc_2)+K'_n(m_gc_2)\right],\qquad\text{(12)}
 ```
 
 ```math
 B_n=-\frac{m_g}{\pi c_1\Delta_n}
-\left[\frac{n\mu_{rg}}{m_gc_2}I_n(m_gc_2)+I'_n(m_gc_2)\right],\tag{13}
+\left[\frac{n\mu_{rg}}{m_gc_2}I_n(m_gc_2)+I'_n(m_gc_2)\right],\qquad\text{(13)}
 ```
 
 ```math
@@ -94,17 +94,17 @@ B_n=-\frac{m_g}{\pi c_1\Delta_n}
 \cdot\left[\frac{n\mu_{rg}}{m_gc_2}K_n(m_gc_2)+K'_n(m_gc_2)\right]\\
 &-\left[\frac{n\mu_{rg}}{m_gc_2}I_n(m_gc_2)+I'_n(m_gc_2)\right]
 \cdot\left[\frac{n\mu_{rg}}{m_gc_1}K_n(m_gc_1)-K'_n(m_gc_1)\right].
-\end{aligned}\tag{14}
+\end{aligned}\qquad\text{(14)}
 ```
 
 Their required penetration definitions appear immediately before Method 3 in the source:
 
 ```math
-m_i=\sqrt{j\omega\mu_0\mu_{ri}\sigma_i},\tag{5}
+m_i=\sqrt{j\omega\mu_0\mu_{ri}\sigma_i},\qquad\text{(5)}
 ```
 
 ```math
-m_g=\sqrt{j\omega\mu_0\mu_{rg}\sigma_g}.\tag{6}
+m_g=\sqrt{j\omega\mu_0\mu_{rg}\sigma_g}.\qquad\text{(6)}
 ```
 
 Nomenclature p. 1 explicitly defines ``I_n,K_n`` as modified first-/second-kind Bessel functions, and their primes as first derivatives. ``m_i,m_g`` are reciprocal complex penetration depths. ``\mu_0`` is free-space permeability, ``\mu_{ri},\mu_{rg}`` relative core/pipe permeabilities, and ``\sigma_i,\sigma_g`` their conductivities. All radii/axis offsets are lengths, ``\phi_{j,i}`` is an angle and ``\omega`` angular frequency. ``A_0,B_0,\Delta_n`` are dimensionless, while positive-order ``A_n,B_n,H_n`` have inverse-area dimensions as implied by (11)–(14). The separate zeroth-order coefficients must not be replaced by an unprinted ``n=0`` substitution of the positive-order formulas.

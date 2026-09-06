@@ -78,7 +78,7 @@ The printed impedance assembly relation, p. 24, is retained **with its unprimed 
 
 ```math
 \dot Z'_e,\ \dot Z_e
-=R_e\{P_e(r_e)+jQ_e(r_e)\}.\tag{4}
+=R_e\{P_e(r_e)+jQ_e(r_e)\}.\qquad\text{(4)}
 ```
 
 The mutual normalization's relation to ``R'_e`` above is unresolved in this compressed printed line; no prime is inserted. The distinct parent (2) and self (3) are given in Source transcription without altering them.
@@ -93,7 +93,7 @@ The crossed 相乗 operator is displayed as ``\star``, a notation-only alias. Se
 ```math
 \varphi(u)\star\psi(u)=\varphi_0(-\infty)\psi_0(\infty)
 +\int_{-\infty}^{\infty}
-\varphi'_0(u-\zeta)\psi_0(\zeta)\,d\zeta.\tag{18}
+\varphi'_0(u-\zeta)\psi_0(\zeta)\,d\zeta.\qquad\text{(18)}
 ```
 
 Here ``H`` is the unit step (description after (12), p. 24); ``\varphi,\psi`` are generic operands, the subscript-0 functions are their printed helpers, and the prime is differentiation. The prose says the discontinuity is at **negative** infinity, but both printed step arguments are ``u-\infty``. Preserve the source conflict and endpoint term. The source says that the endpoint term vanishes if one or both operands do not have the stated discontinuity, and that the subscript 0 can then be removed; this does not authorize discarding it unconditionally.
@@ -118,7 +118,7 @@ j\,2\log\sqrt{\frac{D^2+(h+h')^2}{D^2+(h-h')^2}}
 +4\int_0^\infty(\sqrt{\lambda^2+j}-\lambda)
 e^{-r_e\cos\theta\cdot\lambda}
 \cos(r_e\sin\theta\cdot\lambda)\,d\lambda
-\right\}\times10^{-7}\quad\text{(MKS)}.\tag{2}
+\right\}\times10^{-7}\quad\text{(MKS)}.\qquad\text{(2)}
 ```
 
 ```math
@@ -138,7 +138,7 @@ With ``D=0,h'=h`` and ``a\ll h`` as explicitly stated:
 j\,2\log\frac{2h}{a}
 +4\int_0^\infty(\sqrt{\lambda^2+j}-\lambda)
 e^{-r_e\lambda}\,d\lambda
-\right\}\times10^{-7}\quad\text{(MKS)}.\tag{3}
+\right\}\times10^{-7}\quad\text{(MKS)}.\qquad\text{(3)}
 ```
 
 ```math
@@ -147,7 +147,7 @@ R_e=\frac{\rho_e}{\pi h^2}.
 ```
 
 ```math
-\dot Z'_e,\ \dot Z_e=R_e\{P_e(r_e)+jQ_e(r_e)\}.\tag{4}
+\dot Z'_e,\ \dot Z_e=R_e\{P_e(r_e)+jQ_e(r_e)\}.\qquad\text{(4)}
 ```
 
 The source describes ``R'_e,R_e`` as unit-length resistances of conceptual circular earth conductors with radii ``\sqrt{D^2+(h+h')^2}/2`` and ``h`` respectively. They are reference resistance scales, not the real parts of the complex earth correction. The printed common unprimed scale in (4) is not silently replaced for the mutual case.
@@ -162,7 +162,7 @@ The source describes ``R'_e,R_e`` as unit-length resistances of conceptual circu
 ```math
 \varphi(u)\star\psi(u)=\varphi_0(-\infty)\psi_0(\infty)
 +\int_{-\infty}^{\infty}
-\varphi'_0(u-\zeta)\psi_0(\zeta)\,d\zeta.\tag{18}
+\varphi'_0(u-\zeta)\psi_0(\zeta)\,d\zeta.\qquad\text{(18)}
 ```
 
 The source calls this the Duhamel operation, extended to the stated negative-infinity discontinuity. The step-sign discrepancy and endpoint convention remain as printed.

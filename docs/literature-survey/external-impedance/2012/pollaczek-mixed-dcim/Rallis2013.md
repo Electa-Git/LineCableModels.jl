@@ -37,13 +37,13 @@
 \frac{e^{-h_2\sqrt{\lambda^2+k^2}}}
 {\lambda+\sqrt{\lambda^2+k^2}}
 \approx\sum_{n=1}^{N}c_ne^{s_n\lambda},
-\tag{4.11}
+\qquad\text{(4.11)}
 ```
 
 ```math
 J_{ua}\approx2\sum_{n=1}^{N}c_n\frac{H_n}{H_n^2+x^2},
 \qquad H_n=h_1-s_n,qquad n=1,2,\ldots,N,
-\tag{4.15}
+\qquad\text{(4.15)}
 ```
 
 and ``Z_{ua}=j\omega\mu_0J_{ua}/(2\pi)``.
@@ -62,7 +62,7 @@ and ``Z_{ua}=j\omega\mu_0J_{ua}/(2\pi)``.
 J_{ua}=2\int_0^\infty
 \frac{e^{-h_1\lambda-h_2\sqrt{\lambda^2+k^2}}}
 {\lambda+\sqrt{\lambda^2+k^2}}\cos(x\lambda)\,d\lambda.
-\tag{4.10}
+\qquad\text{(4.10)}
 ```
 
 ## Notation map

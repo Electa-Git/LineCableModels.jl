@@ -18,16 +18,16 @@
 **Field equation.** The finite-element problem is
 
 ```math
-\operatorname{div}\!\left(\frac{1}{\mu}\operatorname{grad}A\right)
+\mathop{\mathrm{div}}\!\left(\frac{1}{\mu}\mathop{\mathrm{grad}}A\right)
 -j\omega\sigma A=-J_s.
-\tag{1}
+\qquad\text{(1)}
 ```
 
 The one-step FEM system includes nodal vector potentials and conductor voltage gradients. Its terminal relation is
 
 ```math
 -\frac{d\mathbf v}{dz}=\mathbf Z\mathbf i.
-\tag{3}
+\qquad\text{(3)}
 ```
 
 The conductor loss integral is
@@ -35,7 +35,7 @@ The conductor loss integral is
 ```math
 p=\int_S\rho\,|J_s+J_e|^2\,dS,
 \qquad J_e=-j\omega\sigma A.
-\tag{4}
+\qquad\text{(4)}
 ```
 
 For ``h=\exp(j2\pi/3)``, the positive-sequence excitation and impedance are
@@ -44,7 +44,7 @@ For ``h=\exp(j2\pi/3)``, the positive-sequence excitation and impedance are
 \mathbf i_+=[1\;h^2\;h]^T,
 \qquad
 Z_+=\frac{1}{3}[1\;h\;h^2]\,[v_1\;v_2\;v_3]^T.
-\tag{6--7}
+\qquad\text{(6--7)}
 ```
 
 The source groups phase, sheath, and armor conductors into ``\mathbf Z_{3\times3}``, bonds sheath and armor through
@@ -54,7 +54,7 @@ The source groups phase, sheath, and armor conductors into ``\mathbf Z_{3\times3
 =\left(\mathbf P\mathbf Z_{3\times3}^{-1}\mathbf P^T\right)^{-1},
 \qquad
 \mathbf P=\begin{bmatrix}1&0&0\\0&1&1\end{bmatrix},
-\tag{11--12}
+\qquad\text{(11--12)}
 ```
 
 and calculates
@@ -62,7 +62,7 @@ and calculates
 ```math
 Z_0=3\left(Z_{11}^{2\times2}
 -\frac{Z_{12}^{2\times2}Z_{21}^{2\times2}}{Z_{22}^{2\times2}}\right).
-\tag{13}
+\qquad\text{(13)}
 ```
 
 The pitch angles and effective armor-wire angles are
@@ -75,7 +75,7 @@ The pitch angles and effective armor-wire angles are
 \gamma_+=\alpha+\beta,
 \qquad
 \gamma_0=\beta.
-\tag{15,23}
+\qquad\text{(15,23)}
 ```
 
 The sign of ``\beta`` in ``\gamma_+`` follows the relative lay directions. The fictitious nonconductive material receives a complex permeability ``\mu^*`` chosen so that a local slab stores the same complex magnetic energy as the pitched-wire field.

@@ -37,13 +37,13 @@
 -\frac{d\mathbf I}{dx}=\mathbf Y'\mathbf V,
 \qquad
 \mathbf Y'=\mathbf Y_g'(\mathbf Y_e'+\mathbf Y_g')^{-1}\mathbf Y_e',
-\tag{32–33}
+\qquad\text{(32–33)}
 ```
 
 ```math
 \mathbf Y_e'=(\boldsymbol\zeta_e')^{-1},\qquad
 \mathbf Y_g'=(\boldsymbol\zeta_g')^{-1},
-\tag{34}
+\qquad\text{(34)}
 ```
 
 with modal components
@@ -53,7 +53,7 @@ with modal components
 \qquad
 \widehat{\mathbf Y}_g'=j\omega\epsilon_0\pi
 (\widehat{\mathbf S}_{2g}^{h}-\widehat{\mathbf S}_{2g}^{0})^{-1}.
-\tag{38,40}
+\qquad\text{(38,40)}
 ```
 
 **Approximation.** Modal/numerical evaluation is required; no entrywise scalar inversion is introduced.

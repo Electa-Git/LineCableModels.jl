@@ -35,12 +35,12 @@
 
 ```math
 Z_{self}=j\omega[A(a,0)-A(b,0)]-E_z(a,0),
-\tag{12}
+\qquad\text{(12)}
 ```
 
 ```math
 Z_{mutual}=j\omega[A(a,0)-A(r_j,\alpha)]-E_z(a,0).
-\tag{13}
+\qquad\text{(13)}
 ```
 
 The finite-wall current density uses ``p=\sqrt{j\omega\mu\sigma}`` and the Bessel/harmonic expansion in (1)–(5).

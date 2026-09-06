@@ -35,18 +35,18 @@
 
 ```math
 Y'_{e_{ij}}=j\omega P_{e_{ij}}^{-1}.
-\tag{7a}
+\qquad\text{(7a)}
 ```
 
 ```math
 P_{e_{ij}}=\frac{j\omega}{2\pi(\sigma_1+j\omega\varepsilon_1)}
 \int_0^{+\infty}[F(\lambda)+G(\lambda)]\cos(y_{ij}\lambda)\,d\lambda.
-\tag{7b}
+\qquad\text{(7b)}
 ```
 
 ```math
 G(\lambda)=2a_1[G_1(\lambda)+G_2(\lambda)+G_3(\lambda)+G_4(\lambda)].
-\tag{7c}
+\qquad\text{(7c)}
 ```
 
 ```math
@@ -55,7 +55,7 @@ G_1(\lambda)=
  (S_{10}A_{10}e^{-a_1(2d-h_1-h_2)}-D_{10}A_{10}e^{-a_1(2d+h_1-h_2)})}
  {(A_{10}A_{12}-\Delta_{10}\Delta_{12}e^{-2a_1d})
   (S_{10}S_{21}+D_{10}D_{21}e^{-2a_1d})}.
-\tag{7d}
+\qquad\text{(7d)}
 ```
 
 ```math
@@ -64,7 +64,7 @@ G_2(\lambda)=
  (S_{10}\Delta_{10}e^{-a_1(2d+h_2-h_1)}-D_{10}\Delta_{10}e^{-a_1(2d+h_1+h_2)})}
  {(A_{10}A_{12}-\Delta_{10}\Delta_{12}e^{-2a_1d})
   (S_{10}S_{21}+D_{10}D_{21}e^{-2a_1d})}.
-\tag{7e}
+\qquad\text{(7e)}
 ```
 
 ```math
@@ -73,7 +73,7 @@ G_3(\lambda)=
  (S_{21}\Delta_{12}e^{-a_1(2d+h_1-h_2)}+D_{21}\Delta_{12}e^{-a_1(4d-h_1-h_2)})}
  {(A_{10}A_{12}-\Delta_{10}\Delta_{12}e^{-2a_1d})
   (S_{10}S_{21}+D_{10}D_{21}e^{-2a_1d})}.
-\tag{7f}
+\qquad\text{(7f)}
 ```
 
 ```math
@@ -82,7 +82,7 @@ G_4(\lambda)=
  (S_{21}A_{12}e^{-a_1(h_1+h_2)}+D_{21}A_{12}e^{-a_1(2d+h_2-h_1)})}
  {(A_{10}A_{12}-\Delta_{10}\Delta_{12}e^{-2a_1d})
   (S_{10}S_{21}+D_{10}D_{21}e^{-2a_1d})}.
-\tag{7g}
+\qquad\text{(7g)}
 ```
 
 The shared ``F`` is repeated without algebraic regrouping so the record is independently readable:
@@ -95,7 +95,7 @@ F(\lambda)=
  -D_{10}S_{21}e^{-a_1(h_1+h_2)}
  -D_{10}D_{21}e^{-a_1(2d-|h_1-h_2|)}
 }{a_1(S_{10}S_{21}+D_{10}D_{21}e^{-2a_1d})}.
-\tag{6b}
+\qquad\text{(6b)}
 ```
 
 The transformation following (5) prescribes unprimed versions of appendix (19)–(22):
@@ -137,20 +137,20 @@ The ``a_m/\gamma_k`` mismatch is printed in the source and deliberately not chan
 The formula section preserves (7a)–(7g) in their source equation order; (6b) is repeated afterward solely to provide the required shared dependency. No ``G`` terms or separate denominator factors are combined. The following original primed coefficient definitions, appendix (19)–(22), establish the symbol distinctions before the author's unpriming transformation:
 
 ```math
-S'_{mn}=(\mu_n a'_m+\mu_m a'_n),\tag{19}
+S'_{mn}=(\mu_n a'_m+\mu_m a'_n),\qquad\text{(19)}
 ```
 
 ```math
-D'_{mn}=(\mu_m a'_n-\mu_n a'_m),\tag{20}
+D'_{mn}=(\mu_m a'_n-\mu_n a'_m),\qquad\text{(20)}
 ```
 
 ```math
-A'_{mn}=(a'_n\gamma_m^2\mu_n+a'_m\gamma_n^2\mu_m),\tag{21}
+A'_{mn}=(a'_n\gamma_m^2\mu_n+a'_m\gamma_n^2\mu_m),\qquad\text{(21)}
 ```
 
 ```math
 \Delta'_{mn}=(a'_n\gamma_m^2\mu_n-a'_m\gamma_n^2\mu_m),\qquad m,n=0,1,2.
-\tag{22}
+\qquad\text{(22)}
 ```
 
 Immediately below appendix (10), p. 171:
@@ -170,7 +170,7 @@ The transformed factor quoted in the formula section is the **separate printed w
 2\dfrac{\cos\!\left(y_{ij}\sqrt{u^2-k_x^2}\right)}
 {\sqrt{u^2-k_x^2}},&u>k_x,
 \end{cases}
-\tag{5}
+\qquad\text{(5)}
 ```
 
 followed by ``u^2-k_x^2=\lambda^2``. No value at ``u=k_x`` is stated. ``J_0`` is the first-kind Bessel function of order zero (appendix below (10)).

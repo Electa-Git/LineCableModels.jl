@@ -36,14 +36,14 @@
 ```math
 |h_e|=\sqrt{\frac{\rho_e}{\omega\mu_0}}
 \simeq\sqrt{\frac{\rho_e}{8f}}\times10^3\gg1,
-\tag{30}
+\qquad\text{(30)}
 
 Z_m\simeq f+j\left\{8.253+0.628\ln\left(\frac{\rho_e}{fd^2}\right)\right\}
 \quad\text{(in milliohms per kilometer)},
-\tag{31}
+\qquad\text{(31)}
 
 Z_L\simeq Z_m+\frac{1}{12}\simeq Z_m.
-\tag{32}
+\qquad\text{(32)}
 ```
 
 Here ``Z_L`` denotes the Lucca comparison formula in (28), ``Z_m`` the authors' (27), and ``d^2=(h_1-h_2)^2+y^2`` is the geometry defined on p. 861. The lack of an ``f`` multiplier on the imaginary bracket in (31), and the bare ``1/12`` addition in (32), are retained without correction.
@@ -64,7 +64,7 @@ The formula section retains the source order and notation of (30)–(32). The pa
 Z_m=j\omega\left(\frac{\mu_0}{2\pi}\right)
 \exp\left(-\frac{h_2}{h_e}\right)\ln\left(\frac{S}{D}\right),
 \quad h_e=\frac1m,\quad m=\sqrt{j\omega\mu_0/\rho_e},
-\tag{27}
+\qquad\text{(27)}
 
 S=\sqrt{H^2+y^2},\quad D=\sqrt{(h_1+h_2)^2+y^2},\quad
 H=h_1+h_2+2h_e.
@@ -76,7 +76,7 @@ The comparison expression is explicitly attributed to Lucca [21] by the inspecte
 Z_L=j\omega\left(\frac{\mu_0}{2\pi}\right)
 \left[\ln\left(\frac SD\right)
 -\left(\frac23\right)\left(\frac{h_e}{S^2}\right)^3H(H^2-3y^2)\right].
-\tag{28, secondary witness only}
+\qquad\text{(28, secondary witness only)}
 ```
 
 This inclusion identifies the parent of (32); it does not claim that Lucca's original was verified here. Detailed parent evidence is in the [exponential-image record](../homogeneous-earth-mixed-exponential-image/Ametani2009.md).

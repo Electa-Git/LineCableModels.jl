@@ -37,7 +37,7 @@
 \left(\rho_i+\frac{\rho_o}{q}\right)\underline J_{ik}
 +j\omega\sum_{\ell=1}^{n}\phi_{k\ell}\underline J_{i\ell}=\underline U,
 \qquad k=1,\ldots,n.
-\tag{53}
+\qquad\text{(53)}
 ```
 
 The terminal current and impedance are
@@ -47,7 +47,7 @@ The terminal current and impedance are
 =-qa\sum_{k=1}^{n}\underline J_{ok},
 \qquad
 \underline Z=\frac{\underline U}{\underline I}=R_s+j\omega L.
-\tag{59–60}
+\qquad\text{(59–60)}
 ```
 
 **Approximation.** Current density is constant on each annular cell; convergence is obtained by increasing ``n``.

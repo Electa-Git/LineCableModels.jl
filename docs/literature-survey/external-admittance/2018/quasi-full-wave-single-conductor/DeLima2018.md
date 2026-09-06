@@ -35,14 +35,14 @@
 
 ```math
 Y=\frac{\gamma}{Z_c}=2\pi(\sigma_1+j\omega\epsilon_r\epsilon_1)[\Lambda_1-S_4],
-\tag{13}
+\qquad\text{(13)}
 ```
 
 ```math
 S_4=2\int_0^\infty\frac{u_2}{u_1}
 \frac{e^{-hu_1}-e^{-2hu_1}}{n^2u_1+u_2}\cos(r\lambda)\,d\lambda,
 \qquad n=\frac{\gamma_2}{\gamma_1},
-\tag{14}
+\qquad\text{(14)}
 ```
 
 ```math
@@ -58,7 +58,7 @@ For qFW,
 u_i\approx\bar u_i=\sqrt{\lambda^2+\gamma_i^2-\bar\gamma^2},
 \qquad
 \eta_1\approx\bar\eta=\sqrt{\lambda^2-\bar\gamma^2},
-\tag{15}
+\qquad\text{(15)}
 ```
 
 with ``\bar\gamma`` supplied by the image approximation and constrained by source equation (16), transcribed in the companion impedance record.
@@ -79,7 +79,7 @@ The source defines
 U=\int_0^h E_{y1}(r,\xi)\,d\xi,
 \qquad
 Z_c=\frac UI=\frac1I\left(\varphi_{1h}-\varphi_{10}+j\omega\int_0^hA_{1y}(r_j,\xi)\,d\xi\right),
-\tag{10--11}
+\qquad\text{(10--11)}
 ```
 
 before stating ``Y=\gamma/Z_c``. Thus (13) is a source-defined admittance, not an inferred inversion of individual kernel entries.

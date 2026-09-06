@@ -23,18 +23,18 @@ Z^e_{mn}(k_z)=A_n\left\{
 -k_e^2J(\tau_e,\rho^*_{mn})
 +k_z^2G(\tau_e,\rho^*_{mn})
 \right\},
-\tag{7a}
+\qquad\text{(7a)}
 
 A_n=\left(-\frac{j\omega\mu_e}{2\pi k_e^2}\right)
 \frac{1}{(\tau_ea_n)K_1(\tau_ea_n)},
-\tag{7b}
+\qquad\text{(7b)}
 
 J=\int_{-\infty}^{\infty}
 \frac{e^{j\lambda|x_m-x_n|-U_e(y_m+y_n)}}{U_e+U_g}\,d\lambda,
 \qquad
 G=\int_{-\infty}^{\infty}
 \frac{e^{j\lambda|x_m-x_n|-U_e(y_m+y_n)}}{n^2U_e+U_g}\,d\lambda,
-\tag{7c}
+\qquad\text{(7c)}
 
 U_e=\sqrt{\lambda^2+\tau_e^2},
 \quad
@@ -45,7 +45,7 @@ U_g=\sqrt{\lambda^2+\tau_g^2},
 \tau_g^2=k_z^2-k_g^2,
 ```
 
-with ``\operatorname{Re}U_e,\operatorname{Re}U_g,\operatorname{Re}\tau_e,\operatorname{Re}\tau_g\ge0`` and
+with ``\mathop{\mathrm{Re}}U_e,\mathop{\mathrm{Re}}U_g,\mathop{\mathrm{Re}}\tau_e,\mathop{\mathrm{Re}}\tau_g\ge0`` and
 
 ```math
 \rho_{mn}=\sqrt{(x_m-x_n)^2+(y_m-y_n)^2},
@@ -59,7 +59,7 @@ The spectral system uses
 \mathbf Z(k_z)=\mathbf Z^w(k_z)-\mathbf Z^e(k_z),
 \qquad
 \det\!\left[\mathbf Z^w(k_z)-\mathbf Z^e(k_z)\right]=0.
-\tag{5,10}
+\qquad\text{(5,10)}
 ```
 
 ``\mathbf Z^w`` is the conductor surface-impedance matrix. Equation (8) gives its diagonal solid-conductor form.

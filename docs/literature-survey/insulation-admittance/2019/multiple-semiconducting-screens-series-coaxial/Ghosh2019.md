@@ -36,19 +36,19 @@
 ```math
 Y_{e12}=\left(\frac1{y_{sem1}}+\frac1{y_{ins12}}+\frac1{y_{sem2}}\right)^{-1}
 =G_{e12}+j\omega C_{e12},
-\tag{35}
+\qquad\text{(35)}
 ```
 
 ```math
 y_{semi}=\frac{j\omega\epsilon_0\epsilon_{semi}}{\ln(r_{out}/r_{in})},qquad
 \epsilon_{semi}=\epsilon_{r,semi}+\frac1{j\omega\rho_{semi}},
-\tag{36}
+\qquad\text{(36)}
 ```
 
 ```math
 y_{ins12}=\frac{j\omega\epsilon_0\epsilon_{r,ins12}}{\ln(r_{out}/r_{in})},qquad
 \epsilon_{r,ins12}=\epsilon_r'-j\epsilon_r''.
-\tag{37}
+\qquad\text{(37)}
 ```
 
 **Approximation.** Exact series combination within the coaxial quasistatic layer model. Each annulus is reduced to its scalar radial p.u.l. admittance.

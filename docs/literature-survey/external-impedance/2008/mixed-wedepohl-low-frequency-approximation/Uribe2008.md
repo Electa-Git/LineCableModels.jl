@@ -39,7 +39,7 @@ Z_{G-W}=\frac{j\omega\mu_0}{2\pi}
 -\log\!\left(\frac{\gamma_E d}{2p}\right)
 +0.5-\frac{4(h_1+h_2)}{3p}
 \right],
-\tag{6e}
+\qquad\text{(6e)}
 ```
 
 where the source's ``\gamma`` is Euler's constant and ``p=1/\sqrt{j\omega\mu_0\sigma}``.
@@ -63,7 +63,7 @@ Uribe's normalized form is
 \right)
 +0.5-\frac{2}{3}\sqrt j\,\xi(\zeta+1)
 \right].
-\tag{6f}
+\qquad\text{(6f)}
 ```
 
 ## Notation map

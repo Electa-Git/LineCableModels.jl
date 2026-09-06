@@ -36,12 +36,12 @@
 ```math
 Z_{22}=z_{2out}-\frac{z_{2m}^2}{z_{1out}+z_{2in}},\qquad
 Z_{11}=z_{1in}-\frac{z_{1m}^2}{z_{1out}+z_{2in}},
-\tag{11,16}
+\qquad\text{(11,16)}
 ```
 
 ```math
 Z_{12}=\frac{z_{1m}z_{2m}}{z_{1out}+z_{2in}}.
-\tag{17}
+\qquad\text{(17)}
 ```
 
 For the sheath plus its inner semiconducting screen,
@@ -49,12 +49,12 @@ For the sheath plus its inner semiconducting screen,
 ```math
 Z_{sh,out}^{sem2}=z_{sh,out}-\frac{z_{sh,m}^2}{z_{sem2,out}+z_{sh,in}},\quad
 Z_{sh,in}^{sem2}=z_{sem2,in}-\frac{z_{sem2,m}^2}{z_{sem2,out}+z_{sh,in}},
-\tag{19,20}
+\qquad\text{(19,20)}
 ```
 
 ```math
 Z_{sh,m}^{sem2}=\frac{z_{sem2,m}z_{sh,m}}{z_{sem2,out}+z_{sh,in}}.
-\tag{21}
+\qquad\text{(21)}
 ```
 
 **Approximation.** The reduction itself is algebraic once each homogeneous tubular component is evaluated. It inherits the concentric, longitudinal and material assumptions of the tubular Bessel parent equations (3)–(5).

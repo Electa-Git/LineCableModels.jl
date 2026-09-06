@@ -34,15 +34,15 @@
 **Expression.**
 
 ```math
--\frac{d\mathbf V}{dx}=[\operatorname{diag}(R_i)+j\omega\mathbf L]\mathbf I,
-\tag{9}
+-\frac{d\mathbf V}{dx}=[\mathop{\mathrm{diag}}(R_i)+j\omega\mathbf L]\mathbf I,
+\qquad\text{(9)}
 ```
 
 followed by the paper's bundle reduction (10). With reference conductor ``k``,
 
 ```math
 Z_{ij}^{*}=Z_{ij}+Z_{kk}-Z_{ik}-Z_{kj}.
-\tag{12}
+\qquad\text{(12)}
 ```
 
 **Approximation.** Piecewise-uniform current in each cell; accuracy increases with cross-section subdivision.

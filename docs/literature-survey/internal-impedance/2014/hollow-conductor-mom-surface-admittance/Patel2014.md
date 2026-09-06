@@ -37,14 +37,14 @@
 \mathbf R(\omega)=\Re\left\{\left[\mathbf U^T
 (\mathbf 1-j\omega\mu_0\mathbf Y_s\mathbf G)^{-1}\mathbf Y_s\mathbf U
 \right]^{-1}\right\},
-\tag{37}
+\qquad\text{(37)}
 ```
 
 ```math
 \mathbf L(\omega)=\omega^{-1}\Im\left\{\left[\mathbf U^T
 (\mathbf 1-j\omega\mu_0\mathbf Y_s\mathbf G)^{-1}\mathbf Y_s\mathbf U
 \right]^{-1}\right\}.
-\tag{38}
+\qquad\text{(38)}
 ```
 
 For the approximate ground inclusion,
@@ -52,7 +52,7 @@ For the approximate ground inclusion,
 ```math
 \mathbf Z=(\mathbf Z_c+\mathbf Z_g)+\Delta\mathbf Z_{prox},\qquad
 \Delta\mathbf Z_{prox}=\mathbf Z_{MoM-SO}(N_p>0)-\mathbf Z_{MoM-SO}(N_p=0).
-\tag{39,40}
+\qquad\text{(39,40)}
 ```
 
 **Approximation.** The boundary fields/currents are truncated Fourier series. Equations (37)–(38) are the direct conductor/exterior result; (39)–(40) adds a proximity correction to a separately computed conventional ground-return matrix and is explicitly approximate.

@@ -40,7 +40,7 @@ z_{p_{ii}}=\frac{j\omega\mu_0}{2\pi}
 \frac{\exp\left(-2h_i\sqrt{\xi^2+\eta_s^2}\right)}
 {|\xi|+\sqrt{\xi^2+\eta_s^2}}
 \exp(jr\xi)\,d\xi\right],
-\tag{3}
+\qquad\text{(3)}
 
 z_{p_{ij}}=\frac{j\omega\mu_0}{2\pi}
 \left[K_0(\eta_s d)-K_1(\eta_sD)+{}
@@ -48,7 +48,7 @@ z_{p_{ij}}=\frac{j\omega\mu_0}{2\pi}
 \frac{\exp\left(-(h_i+h_j)\sqrt{\xi^2+\eta_s^2}\right)}
 {|\xi|+\sqrt{\xi^2+\eta_s^2}}
 \exp(jd_{ij}\xi)\,d\xi\right],
-\tag{4}
+\qquad\text{(4)}
 
 d=\sqrt{d_{ij}^2+(h_i-h_j)^2},\qquad
 D_c=\sqrt{r^2+4h_i^2},\qquad
@@ -64,12 +64,12 @@ The source's constitutive dependency is
 ```math
 \sigma_s+j\omega\epsilon_s\simeq\kappa'
 =\sigma_0+\delta_{\sigma_s}+j\delta_{\omega\epsilon_s},
-\tag{7}
+\qquad\text{(7)}
 
 \delta_{\sigma_s}+j\delta_{\omega\epsilon_s}
 =\Delta_i\left(\frac{f}{10^6}\right)^\alpha
 \left(\cot(\alpha\pi/2)+j\right).
-\tag{8}
+\qquad\text{(8)}
 ```
 
 ``\sigma_0`` is low-frequency soil conductivity, ``\Delta_i`` a fitted amplitude in S/m, and ``\alpha`` the dimensionless fitted exponent; ``\omega=2\pi f``. ``\sigma_s`` is in S/m, ``\epsilon_s`` F/m, and ``\kappa'`` S/m. The source's conductor/insulation assembly refers to Wedepohl–Wilcox and Ametani (1980); no new insulation equation is supplied here.
@@ -89,18 +89,18 @@ The main source equations and geometry are retained above. The appendix prints a
 ```math
 E_g=-\frac{j\omega\mu_g I}{2\pi}
 \left(K_0(\eta_gD)-K_0(\eta_gD')+2\chi\right),
-\tag{30}
+\qquad\text{(30)}
 
 \chi=\int_0^\infty
 \frac{\exp(y-h)\sqrt{\alpha^2+\eta^2}}
 {\dfrac{\mu_g}{\mu_a}\alpha+\sqrt{\alpha^2+\eta^2}}
 \cos(\alpha x)\,d\alpha,
-\tag{31, printed layout}
+\qquad\text{(31, printed layout)}
 
 D=\sqrt{x^2+(y+h)^2},\qquad
 D'=\sqrt{x^2+(y-h)^2},\qquad
 Z_g=-\frac{E_g}{I}.
-\tag{32 and adjacent definitions}
+\qquad\text{(32 and adjacent definitions)}
 ```
 
 Here ``h`` is positive burial depth, ``y`` is negative in the ground, and the text states ``x_p=r,y_p=-h`` for the self evaluation. The appendix's ``D`` is not the main text's reflected distance ``D``: the local definitions are retained separately. The radical in printed (31) is outside ``\exp(y-h)``; it has not been moved into its argument. The bare ``\eta`` appearing there is not defined consistently with ``\eta_g`` or main-text ``\eta_s``. This appendix witness is transcription-verified but mathematically unresolved.
