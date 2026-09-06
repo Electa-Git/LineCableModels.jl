@@ -18,6 +18,7 @@ include("toolkit.jl")
 include("uploads.jl")
 include("visual_contracts.jl")
 include("workbench.jl")
+include("xray_preview.jl")
 
 if haskey(ENV, "NATS_TEST_PUBLISHER_URL")
     include("broker_lifecycle.jl")

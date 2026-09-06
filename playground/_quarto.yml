@@ -9,6 +9,7 @@ project:
     - presentations/*.qmd
   resources:
     - templates/components/**
+    - XRAY.md
 
 website:
   title: "LineCableModels playground"

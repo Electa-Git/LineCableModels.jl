@@ -4,10 +4,13 @@ using Bonito
 using JSON3
 using Observables
 using UUIDs
+using ..LineCableModelsPlayground: CONTROL_CONTRACT
 
 export ActionInspection,
     BindingInspection,
     ComponentInspection,
+    CssEditor,
+    css_editors,
     PropertyInspection,
     SourceReference,
     XRayPolicy,
@@ -23,21 +26,34 @@ export ActionInspection,
 const PLAYGROUND_ROOT = normpath(joinpath(@__DIR__, "..", ".."))
 const XRAY_SCRIPT_PATH = joinpath(@__DIR__, "component_xray.js")
 const XRAY_STYLES_PATH = joinpath(@__DIR__, "component_xray.css")
+const XRAY_PREVIEW_PATH = joinpath(@__DIR__, "css_preview.js")
+include_dependency(XRAY_PREVIEW_PATH)
 include_dependency(XRAY_SCRIPT_PATH)
 include_dependency(XRAY_STYLES_PATH)
-const XRAY_SCRIPT = read(XRAY_SCRIPT_PATH, String)
-const XRAY_STYLES = read(XRAY_STYLES_PATH, String)
+const XRAY_SCRIPT = read(XRAY_PREVIEW_PATH, String) * "\n" * read(XRAY_SCRIPT_PATH, String)
+const XRAY_STYLES = CONTROL_CONTRACT * "\n" * read(XRAY_STYLES_PATH, String)
+include("CssEditors.jl")
 
-"""Control whether component diagnostics are emitted and initially active."""
+"""
+    XRayPolicy(; permitted=false, enabled=false, css_preview=true)
+
+Control whether component diagnostics are emitted (`permitted`) and initially
+active (`enabled`). Set `css_preview=false` to keep CSS inspection read-only.
+When permitted, previews are temporary browser-local rules, never source edits
+or Julia state changes. Code metadata and bindings always remain read-only.
+
+Enabling diagnostics without permission raises `ArgumentError`.
+"""
 struct XRayPolicy
     permitted::Bool
     enabled::Bool
+    css_preview::Bool
 
-    function XRayPolicy(; permitted::Bool=false, enabled::Bool=false)
+    function XRayPolicy(; permitted::Bool=false, enabled::Bool=false, css_preview::Bool=true)
         enabled && !permitted && throw(ArgumentError(
             "X-ray diagnostics cannot be enabled when they are not permitted"
         ))
-        return new(permitted, enabled)
+        return new(permitted, enabled, css_preview)
     end
 end
 
@@ -163,6 +179,7 @@ struct ComponentInspection
     bindings::Vector{BindingInspection}
     actions::Vector{ActionInspection}
     css_scopes::Vector{String}
+    css_overrides::Dict{String,CssEditor}
     notes::Vector{String}
 end
 
@@ -178,6 +195,7 @@ function ComponentInspection(
         bindings=BindingInspection[],
         actions=ActionInspection[],
         css_scopes=String[],
+        css_overrides=css_editors(component),
         notes=String[]
     )
     return ComponentInspection(
@@ -188,6 +206,7 @@ function ComponentInspection(
         collect(BindingInspection, bindings),
         collect(ActionInspection, actions),
         string.(collect(css_scopes)),
+        Dict(string(key) => value for (key, value) in css_overrides),
         string.(collect(notes))
     )
 end
@@ -258,6 +277,7 @@ function inspection_payload(
             ) for action in inspection.actions
         ],
         "css_scopes" => inspection.css_scopes,
+        "css_editors" => Dict(key => css_editor_payload(value) for (key, value) in inspection.css_overrides),
         "notes" => inspection.notes,
     )
 end
@@ -343,6 +363,8 @@ function install(session, root)
     options = javascript_literal(Dict(
         "enabled" => policy.enabled,
         "shortcut" => "Ctrl+Shift+X",
+        "css_preview" => policy.css_preview,
+        "css_editors" => Dict(key => css_editor_payload(value) for (key, value) in CSS_EDITORS),
     ))
     styles = javascript_literal(XRAY_STYLES)
     installer = """

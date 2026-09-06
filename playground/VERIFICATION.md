@@ -41,6 +41,17 @@ lifecycle retain an existing live session.
 
 ## Repeatable commands
 
+The X-ray CSS preview gate is `bash playground/test/integration/run-xray.sh`.
+It starts an isolated browser profile and mock Julia host, without NATS or
+numerical workers. It exercises click-only selection, conditional CSS and
+instance isolation (including duplicated portable stylesheets), both themes,
+live binding updates without editor replacement, validation, source-aware
+export, reset, teardown and read-only host policy, plus the real workbench.
+The nested-tree fixture covers component-only, recursive, hidden-descendant,
+and global recovery, sibling isolation, invalid-only drafts, and original-to-
+proposed comparisons that survive selection and theme changes.
+`playground/test/xray_preview.jl` covers the shared Julia editor contract.
+
 From the repository root:
 
 ```sh
@@ -63,6 +74,7 @@ lcm presentation build playground/presentations/specimen.qmd
 lcm presentation export playground/presentations/specimen.qmd --pdf
 ./playground/test/integration/run-presentation.sh
 bash playground/test/integration/run-ribbon.sh
+bash playground/test/integration/run-xray.sh
 ```
 
 The Compose profiles add deployable-artifact coverage:

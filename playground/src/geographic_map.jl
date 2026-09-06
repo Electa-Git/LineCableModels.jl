@@ -336,7 +336,7 @@ function Bonito.jsrender(session::Session, component::GeographicMap)
     )
     root = DOM.div(
         DOM.style(OPENLAYERS_STYLES),
-        DOM.style(GEOGRAPHIC_MAP_STYLES),
+        DOM.style(GEOGRAPHIC_MAP_STYLES; var"data-lcm-css-source"="assets/geographic-map.css"),
         library,
         upload,
         DOM.div(

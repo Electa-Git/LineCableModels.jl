@@ -107,7 +107,7 @@ button {
   min-height: min(11rem, calc(100vh - 1rem));
   max-width: calc(100vw - 1rem);
   max-height: calc(100vh - 3.2rem);
-  grid-template-rows: auto auto minmax(0, 1fr);
+  grid-template-rows: auto auto auto minmax(0, 1fr);
   color: var(--lc-text);
   background: var(--lc-panel-bg);
   border: 1px solid var(--lc-border);
@@ -225,6 +225,52 @@ button {
   scrollbar-color: var(--lc-scrollbar) transparent;
   scrollbar-width: thin;
 }
+
+.xray-preview-bar {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 0.35rem;
+  padding: 0.4rem 0.6rem; border-bottom: 1px solid var(--lc-border-soft);
+}
+.xray-action, .xray-value-editor input, .xray-value-editor select, .xray-export {
+  min-width: 0; min-height: 1.75rem; padding: 0.2rem 0.35rem; font: inherit;
+  color: var(--lc-text); background: var(--lc-control-bg);
+  border: 1px solid var(--lc-border-soft); border-radius: var(--lc-radius);
+  color-scheme: var(--lc-color-scheme);
+}
+.xray-action { cursor: pointer; font-size: 0.7rem; }
+.xray-action:hover:enabled { color: var(--lc-heading); background: var(--lc-hover-bg); }
+.xray-action:disabled { opacity: 0.45; cursor: not-allowed; }
+.xray-preview-switch { display: inline-flex; align-items: center; gap: 0.25rem; font-size: 0.7rem; }
+.xray-preview-bar input, .xray-css-controls > input { accent-color: var(--lc-focus); cursor: pointer; }
+.xray-preview-status { flex-basis: 100%; color: var(--lc-muted); font-size: 0.68rem; }
+.xray-css-source, .xray-css-condition, .xray-readonly, .xray-field-feedback {
+  display: block; overflow-wrap: anywhere; font-size: 0.66rem; color: var(--lc-muted);
+}
+.xray-css-condition { color: var(--lc-focus); }
+.xray-css-field { margin-top: 0.5rem; padding: 0.35rem 0.25rem 0.2rem; border-top: 1px solid var(--lc-border-soft); border-inline-start: 2px solid transparent; }
+.xray-authored { display: block; font-size: 0.68rem; overflow-wrap: anywhere; }
+.xray-css-controls { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 0.3rem; margin-top: 0.3rem; }
+.xray-value-editor { display: flex; min-width: 0; gap: 0.25rem; }
+.xray-value-editor input, .xray-value-editor select { width: 0; flex: 1 1 0; font-size: 0.7rem; }
+.xray-value-editor input { user-select: text; caret-color: auto; cursor: text; }
+.xray-value-editor select { cursor: pointer; }
+.xray-css-field.is-changed .xray-authored { color: var(--lc-link); }
+.xray-css-field.is-changed { border-inline-start-color: var(--lc-link); background: var(--lc-active-bg); }
+.xray-css-field.is-changed .xray-value-editor input,
+.xray-css-field.is-changed .xray-value-editor select { border-color: var(--lc-link); }
+.xray-css-diff { display: flex; flex-wrap: wrap; align-items: center; gap: 0.2rem 0.35rem; margin-top: 0.3rem; font-size: 0.66rem; color: var(--lc-muted); }
+.xray-css-diff[hidden] { display: none; }
+.xray-css-diff code { overflow-wrap: anywhere; min-width: 0; font-size: inherit; }
+.xray-proposed-value { color: var(--lc-heading); font-weight: 600; }
+.xray-css-field.is-preview-disabled .xray-proposed-value { color: var(--lc-muted); }
+.xray-css-field.is-invalid { border-inline-start-color: var(--lc-danger); }
+.xray-css-field.is-invalid .xray-field-feedback { color: var(--lc-danger); }
+.xray-css-field.is-invalid .xray-value-editor input,
+.xray-css-field.is-invalid .xray-value-editor select { border-color: var(--lc-danger); }
+.xray-action:focus-visible, .xray-value-editor :focus-visible, .xray-preview-switch input:focus-visible {
+  outline: 1px solid var(--lc-focus); outline-offset: 1px;
+}
+.xray-swatch { width: 1.5rem; flex-shrink: 0; border: 1px solid var(--lc-border); border-radius: var(--lc-radius); }
+.xray-export { width: 100%; min-height: 9rem; resize: vertical; user-select: text; caret-color: transparent; font-family: monospace; }
 
 .xray-resize-handle {
   position: absolute;

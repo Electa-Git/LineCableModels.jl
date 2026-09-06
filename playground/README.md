@@ -94,6 +94,11 @@ composes those primitives, and implements typed `handle!` methods. The
 template imports no broker or scientific package and performs no work merely
 because its page was opened.
 
+For component inspection and temporary, instance-local CSS editing, start with
+`lcm playground start --xray`. Hover highlights; click selects; code stays
+read-only. See [`XRAY.md`](XRAY.md) for preview controls, reset, export, and the
+small Julia dispatch extension contract.
+
 ## Author a live presentation
 
 Open `/presentations/` for the reusable deck gallery, the hostile acceptance

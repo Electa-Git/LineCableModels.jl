@@ -114,8 +114,8 @@
         String
     )
     @test occursin("assets/control-contract.css", quarto)
-    @test occursin("DOM.style(CONTROL_CONTRACT)", widget_sources)
-    @test occursin("DOM.style(CONTROL_CONTRACT)", workbench_ui)
+    @test occursin("DOM.style(CONTROL_CONTRACT;", widget_sources)
+    @test occursin("DOM.style(CONTROL_CONTRACT;", workbench_ui)
     @test occursin(".lc-control-select option", contract)
     @test occursin(".lc-control-select option:checked", contract)
     @test occursin("lc-control-select lc-publisher-theme-select", theme_selector)

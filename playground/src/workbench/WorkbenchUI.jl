@@ -1395,10 +1395,10 @@ function Bonito.jsrender(session::Session, runtime::Runtime)
     return Bonito.jsrender(
         session,
         DOM.div(
-            DOM.style(BRAND_STYLES),
-            DOM.style(CONTROL_CONTRACT),
-            DOM.style(Toolkit.TOOLKIT_STYLES),
-            DOM.style(WORKBENCH_STYLES),
+            DOM.style(BRAND_STYLES; var"data-lcm-css-source"="assets/brand.css"),
+            DOM.style(CONTROL_CONTRACT; var"data-lcm-css-source"="assets/control-contract.css"),
+            (DOM.style(css; var"data-lcm-css-source"=source) for (source, css) in Toolkit.TOOLKIT_STYLESHEETS)...,
+            DOM.style(WORKBENCH_STYLES; var"data-lcm-css-source"="src/workbench/workbench.css"),
             instrumented,
             DOM.script(intrinsic_script(root)),
             xray;

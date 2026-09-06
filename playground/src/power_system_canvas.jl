@@ -135,7 +135,7 @@ function Bonito.jsrender(session::Session, component::PowerSystemCanvas)
     )
     root = DOM.section(
         DOM.style(POWER_SYSTEM_CANVAS_LIBRARY_STYLES),
-        DOM.style(POWER_SYSTEM_CANVAS_STYLES),
+        DOM.style(POWER_SYSTEM_CANVAS_STYLES; var"data-lcm-css-source"="assets/power-system-canvas.css"),
         onboarding,
         library,
         DOM.header(

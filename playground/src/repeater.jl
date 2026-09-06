@@ -505,7 +505,7 @@ function Bonito.jsrender(session::Session, repeater::Repeater)
     end
 
     node = DOM.div(
-        DOM.style(REPEATER_STYLES),
+        DOM.style(REPEATER_STYLES; var"data-lcm-css-source"="assets/repeater.css"),
         DOM.div(
             DOM.span(repeater.label; class="lc-repeater-label"),
             DOM.output(count; class="lc-repeater-count");

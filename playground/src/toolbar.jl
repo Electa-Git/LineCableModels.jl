@@ -526,7 +526,7 @@ function toolbar(
         Symbol("data-toolbar-namespace") => string(binding.namespace),
     )
     dom = DOM.div(
-        DOM.style(TOOLBAR_STYLES),
+        DOM.style(TOOLBAR_STYLES; var"data-lcm-css-source"="assets/toolbar.css"),
         children...;
         attributes...,
         class="lc-toolbar lc-toolbar-$orientation lc-toolbar-$size",

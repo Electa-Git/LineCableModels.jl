@@ -122,6 +122,14 @@ the containing form is explicitly submitted.
 
 ## Enforced invariants
 
+X-ray's optional CSS preview is a browser-local diagnostic boundary. Selection
+is click-driven; hover never replaces the editor. One shared typed catalogue
+and optional `css_editors(component)` dispatch hints describe editable CSS,
+without duplicating stylesheet values. Instance-scoped CSSOM siblings preserve
+the original cascade and conditions; reset removes only those temporary rules.
+Metadata, bindings and callbacks remain read-only. No preview writes source,
+persists state or contacts a backend. See [`XRAY.md`](XRAY.md) for the contract.
+
 1. `playground/Project.toml` never depends on LineCableModels,
    PowerImpedance, PowerModels, or solver packages.
 2. Page construction never submits work.

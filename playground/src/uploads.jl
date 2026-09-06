@@ -645,7 +645,7 @@ function Bonito.jsrender(session::Session, field::UploadField)
     )
     error_node = DOM.div(field.error[]; class="lc-upload-error", role="alert")
     root = DOM.div(
-        DOM.style(UPLOAD_STYLES),
+        DOM.style(UPLOAD_STYLES; var"data-lcm-css-source"="assets/upload.css"),
         input,
         DOM.div(
             DOM.div(

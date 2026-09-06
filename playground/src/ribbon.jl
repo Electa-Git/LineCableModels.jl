@@ -156,8 +156,8 @@ function Ribbon(
         :id => ribbon_id,
     )
     root = DOM.section(
-        DOM.style(TOOLBAR_STYLES),
-        DOM.style(RIBBON_STYLES),
+        DOM.style(TOOLBAR_STYLES; var"data-lcm-css-source"="assets/toolbar.css"),
+        DOM.style(RIBBON_STYLES; var"data-lcm-css-source"="assets/ribbon.css"),
         DOM.header(
             quick,
             DOM.div(

@@ -1,0 +1,23 @@
+.xp-fixture {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+  padding: 1rem;
+}
+.xp-card {
+  display: grid;
+  gap: 10px;
+  padding: 12px;
+  min-height: 220px;
+  color: var(--lc-text);
+  background-color: var(--lc-panel-bg);
+  border: 1px solid var(--lc-border);
+  border-left-width: 2px !important;
+}
+.xp-card:hover { background-color: var(--lc-hover-bg); }
+.xp-card::after { content: "Owned pseudo-element"; color: var(--lc-muted); }
+.xp-cardinality { gap: 99px; }
+.xp-group { padding: 8px; margin: 0px; border: 1px solid var(--lc-border); }
+@media (min-width: 900px) { .xp-card { gap: 24px; } }
+@supports (display: grid) { .xp-card { border-right-width: 3px; } }
+:root[data-lcm-resolved-theme="light"] .xp-card { color: var(--lc-heading); }

@@ -966,10 +966,10 @@ end
 
 function widget_shell(kicker, title, content)
     return DOM.div(
-        DOM.style(BRAND_THEME),
-        DOM.style(CONTROL_CONTRACT),
-        DOM.style(Toolkit.TOOLKIT_STYLES),
-        DOM.style(WIDGET_THEME),
+        DOM.style(BRAND_THEME; var"data-lcm-css-source"="assets/brand.css"),
+        DOM.style(CONTROL_CONTRACT; var"data-lcm-css-source"="assets/control-contract.css"),
+        (DOM.style(css; var"data-lcm-css-source"=source) for (source, css) in Toolkit.TOOLKIT_STYLESHEETS)...,
+        DOM.style(WIDGET_THEME; var"data-lcm-css-source"="src/widgets.jl (WIDGET_THEME)"),
         widget_theme_script(),
         widget_deck_lifecycle_script(),
         widget_header(kicker, title),

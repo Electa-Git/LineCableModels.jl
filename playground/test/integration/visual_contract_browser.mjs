@@ -545,6 +545,7 @@ try {
     }
     await evaluate(devtools, `globalThis.lcmXRay?.enable()`);
     await hoverSelector(devtools, ".lc-wb-menubar");
+    await evaluate(devtools, `document.querySelector('.lc-wb-menubar').click()`);
     await waitUntil(devtools,
       `Boolean(document.querySelector('.lc-xray-host')?.shadowRoot?.querySelector('.xray-panel:not([hidden]) .xray-grid-4'))`,
       `X-RAY metadata grid did not render in ${theme}`);

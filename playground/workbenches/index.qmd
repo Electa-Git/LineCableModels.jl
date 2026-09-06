@@ -25,12 +25,26 @@ Start the publisher with component diagnostics enabled:
 ./lcm playground start --xray
 ```
 
-Hover an owned component to inspect its Julia type, configured parameters,
-live bindings, typed actions, source definition, rendered dimensions, and only
-the CSS rules declared for that component's registered selector scopes. Drag
-the inspector by its header or resize it from the lower-right corner. Click to
-pin the inspection, use its breadcrumb to select an owned ancestor, press
-`Escape` to release it, or toggle the mode with `Ctrl+Shift+X`.
+Hover outlines an owned component; **click selects it** and loads its inspector.
+Hovering elsewhere never replaces the selected parameters or CSS drafts.
+Julia types, parameters, live bindings and callbacks stay read-only. Eligible
+component-owned CSS declarations have typed controls for temporary live preview.
+Use **Interact with application** to operate controls while keeping the same
+inspection. The mode button shows the current mode; clicking it switches modes.
+
+Edited values show an **Original → Override** comparison. **Reset component**
+restores the selected component; check **Apply to children** to include its
+entire subtree. **Reset all** always clears every X-ray override and draft,
+including invalid inputs, without changing application data or the theme.
+Uncheck **Preview** to compare with the original while keeping drafts.
+**Copy changes** produces CSS
+with owning source files and conditions for manual review, not an automatic
+save. Drag the inspector by its header or resize its lower-right corner.
+Breadcrumbs select owned ancestors. Closing the inspector, pressing `Escape`,
+or switching X-ray off with `Ctrl+Shift+X` discards all temporary previews.
+
+The reusable editor contract and limits are documented in
+[the X-ray guide](/XRAY.md).
 
 X-ray metadata is not emitted unless the server is started with `--xray`.
 :::

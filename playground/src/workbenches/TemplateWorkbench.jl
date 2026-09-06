@@ -457,7 +457,7 @@ end
 
 function Bonito.jsrender(session::Session, view::OverviewView)
     node = DOM.div(
-            DOM.style(TEMPLATE_STYLES),
+            DOM.style(TEMPLATE_STYLES; var"data-lcm-css-source"="src/workbenches/template_workbench.css"),
             DOM.header(
                 DOM.span("WORKBENCH TEMPLATE"; class="lc-wb-demo-kicker"),
                 DOM.h1("Browser-hosted engineering workbench"),

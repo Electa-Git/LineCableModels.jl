@@ -117,7 +117,12 @@
     @test occursin("ComponentXRay.instrument", workbench_source)
     @test occursin("ComponentXRay.install", workbench_source)
     xray_source = joined_sources(joinpath(root, "src", "diagnostics"), (".jl", ".js"))
-    @test !occursin("getComputedStyle", xray_source)
+    # Owned declaration discovery must never become a computed-style dump.
+    # The editor may resolve only semantic color tokens for its color choices.
+    preview_source = read(joinpath(root, "src", "diagnostics", "css_preview.js"), String)
+    @test !occursin("getComputedStyle", preview_source)
+    @test length(collect(eachmatch(r"getComputedStyle\(", xray_source))) == 1
+    @test occursin("name.startsWith('--lc-')", xray_source)
     @test occursin("cssRules", xray_source)
     @test occursin("data-lcm-inspection-id", lowercase(xray_source))
     @test occursin("beginPanelInteraction", xray_source)

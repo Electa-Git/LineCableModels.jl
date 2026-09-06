@@ -13,7 +13,8 @@ const TOOLKIT_STYLE_PATHS = (
     joinpath(TOOLKIT_ROOT, "assets", "data-views.css"),
 )
 foreach(include_dependency, TOOLKIT_STYLE_PATHS)
-const TOOLKIT_STYLES = join((read(path, String) for path in TOOLKIT_STYLE_PATHS), '\n')
+const TOOLKIT_STYLESHEETS = [replace(relpath(path, TOOLKIT_ROOT), '\\' => '/') => read(path, String) for path in TOOLKIT_STYLE_PATHS]
+const TOOLKIT_STYLES = join(last.(TOOLKIT_STYLESHEETS), '\n')
 
 toolkit_source(file, line) = ComponentXRay.source_reference(@__MODULE__, file, line)
 
