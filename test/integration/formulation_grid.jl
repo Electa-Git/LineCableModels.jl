@@ -29,7 +29,7 @@
         frequencies = [50.0]
     )
     formulation_space=Formulation(
-        earth_impedance = Grid((:Pollaczek1926, :Papadopoulos2010)),
+        earth_impedance = Grid((:Pollaczek1926, :Papadopoulos2010b)),
     )
     problems=collect(problem_space)
     formulations=collect(formulation_space)
@@ -46,7 +46,7 @@
     @test formula_id.(getproperty.(
         getproperty.(run.axes.formulations, :methods),
         :earth_impedance
-    )) == [:Pollaczek1926, :Papadopoulos2010]
+    )) == [:Pollaczek1926, :Papadopoulos2010b]
     for index in eachindex(expected)
         @test same_parameters(run[index], expected[index])
     end
@@ -145,7 +145,7 @@ end
         connections=(core=1, sheath=0))
     problems=LineParametersProblem(system, homogeneous(rho=Grid((10.0, 100.0)));
         frequencies=[1.0, 50.0, 1000.0])
-    formulations=Formulation(earth_impedance=Grid((:Pollaczek1926, :Papadopoulos2010)))
+    formulations=Formulation(earth_impedance=Grid((:Pollaczek1926, :Papadopoulos2010b)))
     @test counter.calls[] == 0
 
     phase=compute(ParametricProblem(problems), Combinatorial(formulations))

@@ -18,8 +18,18 @@ propagation(::Val{:Petrache2005}) = Val(:zero)
 """
 $(TYPEDSIGNATURES)
 
-**Identification.** Burial-depth-independent logarithmic underground
-approximation.
+## Identification and source
+
+| Field | Value |
+| --- | --- |
+| Family | External impedance |
+| Geometry | Buried cable in an unbounded conducting medium; self uses cable radius and mutual terms use conductor distance. |
+| Calculated quantities | Logarithmic approximation for self and mutual earth-return impedance |
+| Earth structure | Infinite homogeneous earth. |
+| Model and approximation | A closed logarithm in the complex earth propagation-distance product approximates the infinite-earth return term. |
+| Main source | Marian Petrache, Florin Rachidi, Mario Paolone, Carlo Alberto Nucci, Vladimir A. Rakov, and M. A. Uman (2005) |
+| Citation key(s) | Primary attribution: `:Petrache2005`; equation witness: `:Guneri2018` |
+| Evidence status | Equation checked in the accessible comparative publication; publication identity and DOI verified |
 
 **Expression.**
 
@@ -59,9 +69,8 @@ function earth_impedance(
         ::Val{:Petrache2005}, ::Val{:mutual}, functor, pair
 )
     _require(pair, Val(:underground))
-    pair.row == pair.column || _require_horizontal_separation(pair)
     state = functor.state
-    argument = state.gamma[2] * pair.separation
+    argument = state.gamma[2] * _geometry(pair).d_ij
     return state.jω * state.mu[1] / (2π) * log((1 + argument) / argument)
 end
 

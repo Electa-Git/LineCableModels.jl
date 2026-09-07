@@ -25,40 +25,50 @@ function cable_impedance!(
         input::LocalCableData{T},
         rho_cond::AbstractVector{T},
         methods::NamedTuple,
-        s::Complex{T}
+        s::Complex{T};
+        temperature=nothing
 ) where {T <: Real}
     fill!(destination, zero(Complex{T}))
+    bonded=_physical_surface_state(input,methods.internal_impedance,
+        methods.insulation_impedance,s,temperature)
+    pipe_interactions=_pipe_interactions(input,methods,rho_cond,s)
     @inbounds for conductors in input.assemblies
         count = length(conductors)
         for position in count:-1:1
             index = conductors[position]
-            interaction = methods.internal_impedance(
-                input.r_in[index],
-                input.r_ext[index],
-                rho_cond[index],
-                input.mu_cond[index],
-                s
-            )
-            outside = interaction(Val(:outer))
+            pipe_position=findfirst(pipe->pipe.conductor==index,input.pipes)
+            outside,mutual = if pipe_position===nothing
+                if bonded===nothing
+                    interaction=methods.internal_impedance(
+                        input.r_in[index],input.r_ext[index],rho_cond[index],
+                        input.mu_cond[index],s)
+                    outer=interaction(Val(:outer))
+                    (outer,position>1 ? interaction(Val(:mutual)) : zero(outer))
+                else
+                    surface=bonded.surfaces[index]
+                    (surface.outer,position>1 ? surface.mutual : zero(surface.outer))
+                end
+            else
+                _pipe_surface_terms(pipe_interactions[pipe_position],position,T)
+            end
             inside = if position < count
                 next_index = conductors[position + 1]
-                methods.internal_impedance(
+                bonded===nothing ? methods.internal_impedance(
                     input.r_in[next_index],
                     input.r_ext[next_index],
                     rho_cond[next_index],
                     input.mu_cond[next_index],
                     s
-                )(Val(:inner))
+                )(Val(:inner)) : bonded.surfaces[next_index].inner
             else
                 zero(outside)
             end
-            mutual = interaction(Val(:mutual))
-            insulation = methods.insulation_impedance(
+            insulation = bonded===nothing ? methods.insulation_impedance(
                 input.r_ext[index],
                 input.r_ins_ext[index],
                 input.mu_ins[index],
                 s
-            )
+            ) : bonded.gap_terms[index]
             loop = outside + inside + insulation
             if position > 1
                 for row in 1:(position - 1), column in 1:(position - 1)
@@ -73,7 +83,7 @@ function cable_impedance!(
             destination[index, index] += loop
         end
     end
-    return destination
+    return _pipe_impedance!(destination,input,pipe_interactions)
 end
 
 function impedance!(
@@ -98,7 +108,8 @@ function impedance!(
         input.cable,
         rho_cond,
         formulation.methods,
-        s
+        s;
+        temperature=formulation.options.temperature_correction ? input.temperature : nothing
     )
     _stash!(_capture_target(capture, :Zin), frequency, destination)
 

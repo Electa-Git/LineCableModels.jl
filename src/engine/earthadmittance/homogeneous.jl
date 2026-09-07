@@ -50,6 +50,13 @@ function _quadrature(state, integrand)
     state.segments === nothing || empty!(state.segments)
     radial_limit = sqrt(floatmax(R)) / 2
     guarded = lambda -> lambda > radial_limit ? zero(state.jω) : integrand(lambda)
+    if hasproperty(state.formula.assumptions,:quadrature) &&
+            state.formula.assumptions.quadrature===:double_exponential
+        points=[sqrt(-real(g)) for g in state.gamma_medium_squared if
+            iszero(imag(g)) && real(g)<0]
+        return _complex_result(state.jω,double_exponential(guarded,R;
+            rtol=state.tolerance,breakpoints=points).value)
+    end
     value, _ = quadgk(
         guarded,
         zero(R),
@@ -66,6 +73,11 @@ end
 @inline function _tolerance(::Type{T}) where {T}
     R = typeof(float(nominal(one(T))))
     return max(R(1e-8), eps(R))
+end
+
+"Convert an exterior impedance to the Vance potential normalization."
+function impedance_potential_coefficient(state, impedance)
+    return _complex_result(state.jω, state.jω * impedance / state.gamma_medium_squared[2])
 end
 
 function _homogeneous_functor(
@@ -191,31 +203,27 @@ struct Integrand{F, T}
     separation::T
 end
 
+@inline function _same_medium_potential_kernel(a_source,a_other,g_source,g_other,mu_source,mu_other)
+    r=mu_other/mu_source
+    magnetic=a_source*r+a_other
+    electric=a_source*(g_other/g_source)+a_other*r
+    return r*(a_source+a_other*r)/(magnetic*electric)
+end
+
 @inline function (integrand::Integrand)(lambda::Real)
     state = integrand.functor.state
-    source_attenuation = sqrt(
-        lambda * lambda + state.gamma_source_squared + state.gamma_squared
+    source_attenuation = spectral_root(
+        lambda * lambda + state.gamma_source_squared + state.gamma_squared,state.jω
     )
-    other_attenuation = sqrt(
-        lambda * lambda + state.gamma_other_squared + state.gamma_squared
+    other_attenuation = spectral_root(
+        lambda * lambda + state.gamma_other_squared + state.gamma_squared,state.jω
     )
-    common = source_attenuation * state.other_permeability +
-             other_attenuation * state.source_permeability
     decay = exp(-source_attenuation * integrand.height_sum)
-    magnetic = state.other_permeability * decay / common
-    coupling_numerator = state.other_permeability *
-                         state.source_permeability *
-                         source_attenuation *
-                         (state.gamma_source_squared -
-                          state.gamma_other_squared) * decay
-    coupling_denominator = common * (
-        source_attenuation * state.gamma_other_squared *
-        state.source_permeability +
-        other_attenuation * state.gamma_source_squared *
-        state.other_permeability
-    )
-    coupling = coupling_numerator / coupling_denominator
-    return (magnetic + coupling) * cos(integrand.separation * lambda)
+    coefficient=_same_medium_potential_kernel(
+        source_attenuation,other_attenuation,
+        state.gamma_source_squared,state.gamma_other_squared,
+        state.source_permeability,state.other_permeability)
+    return coefficient*decay*cos(integrand.separation*lambda)
 end
 
 function _integral(functor::Functor, height_sum, separation)

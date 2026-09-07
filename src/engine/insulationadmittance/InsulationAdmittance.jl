@@ -3,7 +3,8 @@
 
 Define registered constitutive relations for cable-insulation admittance.
 `:Ametani2004` retains material conduction and displacement current;
-`:Gustavsen2013` selects the conventional lossless approximation.
+`:Ametani1980` selects the lossless approximation, and `:Weeks1984`
+uses a specified dielectric loss tangent.
 
 # Dependencies
 

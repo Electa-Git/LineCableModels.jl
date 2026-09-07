@@ -3,8 +3,18 @@ assumptions(::Val{:Ametani1980}) = (;)
 """
 $(TYPEDSIGNATURES)
 
-**Identification.** Longitudinal magnetic impedance of one concentric
-insulation region in Ametani's single-core cable formulation.
+## Identification and source
+
+| Field | Value |
+| --- | --- |
+| Family | Insulation impedance |
+| Geometry | Concentric annuli ``r_2<r<r_3``, ``r_4<r<r_5``, and ``r_6<r<r_7``. |
+| Calculated quantities | Per-unit-length magnetic series contributions of the core–sheath, sheath–armor, and armor–exterior insulation regions |
+| Earth structure | Not applicable. |
+| Model and approximation | Not an analytical approximation within the stated coaxial component model; no expansion or truncation is printed. |
+| Main source | A. Ametani (1980) |
+| Citation key(s) | `:Ametani1980` |
+| Evidence status | PDF page images checked |
 
 **Expression.**
 
@@ -59,12 +69,11 @@ Implements Ametani (1980) as reproduced in Ametani, Ohno, and Nagaoka
         s::Complex{T},
         values::NamedTuple
 ) where {T <: Real}
-    if isapprox(r_in, zero(T); atol = eps(T)) ||
-       isapprox(r_in, r_ex; atol = eps(T))
+    if iszero(r_in) || r_in==r_ex
         return zero(Complex{T})
     end
     μ0 = one(r_in) * 4 * (one(r_in) * π) * (one(r_in) * 10)^(-7)
-    return s * μ0 * mu_r / (2 * (one(r_in) * π)) * log(r_ex / r_in)
+    return s * μ0 * mu_r / (2 * (one(r_in) * π)) * log1p((r_ex-r_in)/r_in)
 end
 
 :Ametani1980

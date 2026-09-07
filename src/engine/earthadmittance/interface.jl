@@ -88,7 +88,17 @@ Formula(identifier::Symbol; kwargs...) = Formula(Val(identifier); kwargs...)
 
 Formula(::Val{:default}; kwargs...) = Formula(Val(DEFAULT); kwargs...)
 
+const ALIASES = (
+    Pollaczek1926=(:Ametani2021, (;)),
+    Papadopoulos2010=(:Papadopoulos2010b, (;)),
+    Xue2018=(:Xue2018b, (;)),
+)
+
 function Formula(::Val{ID}; kwargs...) where {ID}
+    if hasproperty(ALIASES, ID)
+        target, defaults = getproperty(ALIASES, ID)
+        return Formula(Val(target); merge(defaults, (;kwargs...))...)
+    end
     identifier = Val(ID)
     ID in FORMULAS || throw(ArgumentError(
         "unknown earth-admittance formula :$ID"
@@ -116,6 +126,16 @@ state.
 function Formula(
         ::Val{ID}, selected::R, values::A = (;)
 ) where {ID, R <: NamedTuple, A <: NamedTuple}
+    if hasproperty(ALIASES, ID)
+        target, _ = getproperty(ALIASES, ID)
+        canonical = Formula(Val(ID))
+        mapped = map(selected) do route
+            route isa FormulaMethod{ID} ?
+                FormulaMethod(Val(target), route.method, route.arguments...) : route
+        end
+        return Formula(Val(target), merge(canonical.routes, mapped),
+            isempty(values) ? canonical.assumptions : values)
+    end
     return Formula{ID, R, A}(selected, values)
 end
 

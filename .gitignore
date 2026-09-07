@@ -18,6 +18,7 @@ deps/src/
 docs/build/
 docs/site/
 docs/src/tutorials/
+docs/src/theory/
 docs/.generated/
 docs/src/cases/
 docs/src/assets/cases/

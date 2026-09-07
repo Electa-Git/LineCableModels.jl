@@ -7,10 +7,25 @@
 
     catalogues=(
         (
+            owner = EN.PipeAdmittance,
+            path = ("engine", "pipeadmittance", "formulas"),
+            template = :pipe_potential_coefficient,
+            methods = (:pipe_potential_coefficient,),
+            override = :self
+        ),
+        (
+            owner = EN.PipeImpedance,
+            path = ("engine", "pipeimpedance", "formulas"),
+            template = :pipe_impedance,
+            methods = (:pipe_impedance,),
+            override = :self
+        ),
+        (
             owner = EN.InternalImpedance,
             path = ("engine", "internalimpedance", "formulas"),
             template = :internal_impedance,
             methods = (
+                :Formula,
                 :internal_impedance,
                 :surface_impedance_state,
                 :surface_impedances
@@ -22,6 +37,7 @@
             path = ("engine", "earthimpedance", "formulas"),
             templates = (:earth_impedance, :propagation_constant),
             methods = (
+                :Formula,
                 :earth_impedance,
                 :propagation_constant,
                 :struve_h1,
@@ -32,7 +48,7 @@
                 :conductor_order,
                 :local_layer_depth
             ),
-            unregistered = (:DeriSemlyen1981,),
+            unregistered = (),
             override = :self
         ),
         (
@@ -44,6 +60,7 @@
                 :propagation_constant
             ),
             methods = (
+                :Formula,
                 :earth_potential_coefficient,
                 :earth_impedance,
                 :propagation_constant,

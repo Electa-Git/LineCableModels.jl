@@ -218,6 +218,8 @@ end
 
 function LineParametersFormulation(;
         internal_impedance::InternalImpedanceFormulation,
+        pipe_impedance::PipeImpedanceFormulation=PipeImpedance.Formula(:default),
+        pipe_admittance::PipeAdmittanceFormulation=PipeAdmittance.Formula(:default),
         insulation_impedance::InsulationImpedanceFormulation,
         earth_impedance::EarthImpedanceFormulation,
         insulation_admittance::InsulationAdmittanceFormulation,
@@ -228,11 +230,24 @@ function LineParametersFormulation(;
         options::NamedTuple
 )
     methods = (;
-        internal_impedance, insulation_impedance, earth_impedance,
+        internal_impedance, pipe_impedance, pipe_admittance, insulation_impedance, earth_impedance,
         insulation_admittance, semicon_admittance, earth_admittance, earth_properties,
         equivalent_earth
     )
     return LineParametersFormulation(methods, options)
+end
+
+_pipe_impedance_formula(value::PipeImpedanceFormulation) = value
+_pipe_admittance_formula(value::PipeAdmittanceFormulation) = value
+_pipe_admittance_formula(identifier::Symbol) = PipeAdmittance.Formula(identifier)
+function _pipe_admittance_formula(selection::FormulaSpec{ID,Order}) where {ID,Order}
+    _direct(selection,:pipe_admittance)
+    return PipeAdmittance.Formula(Val(ID);selection.overrides...)
+end
+_pipe_impedance_formula(identifier::Symbol) = PipeImpedance.Formula(identifier)
+function _pipe_impedance_formula(selection::FormulaSpec{ID,Order}) where {ID,Order}
+    _direct(selection,:pipe_impedance)
+    return PipeImpedance.Formula(Val(ID);selection.overrides...)
 end
 
 _earth_impedance_formula(formula::EarthImpedanceFormulation) = formula
@@ -347,6 +362,8 @@ end
 
 function _line_formulation(
         internal_impedance,
+        pipe_impedance,
+        pipe_admittance,
         insulation_impedance,
         earth_impedance,
         insulation_admittance,
@@ -358,6 +375,8 @@ function _line_formulation(
 )
     return LineParametersFormulation(;
         internal_impedance = _internal_impedance_formula(internal_impedance),
+        pipe_impedance = _pipe_impedance_formula(pipe_impedance),
+        pipe_admittance = _pipe_admittance_formula(pipe_admittance),
         insulation_impedance = _insulation_impedance_formula(insulation_impedance),
         earth_impedance = _earth_impedance_formula(earth_impedance),
         insulation_admittance = _insulation_admittance_formula(insulation_admittance),
@@ -390,6 +409,8 @@ problem points and formulation points performed by
 """
 function Formulation(;
         internal_impedance = formula(:default),
+        pipe_impedance = formula(:default),
+        pipe_admittance = formula(:default),
         insulation_impedance = formula(:default),
         earth_impedance = formula(:default),
         insulation_admittance = formula(:default),
@@ -402,6 +423,8 @@ function Formulation(;
 )
     values = (
         internal_impedance,
+        pipe_impedance,
+        pipe_admittance,
         insulation_impedance,
         earth_impedance,
         insulation_admittance,

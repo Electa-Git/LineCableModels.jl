@@ -18,8 +18,21 @@ propagation(::Val{:Ametani2021}) = Val(:zero)
 """
 $(TYPEDSIGNATURES)
 
-**Identification.** Classical electrostatic image coefficient for overhead
-conductors above an equipotential plane.
+## Identification and source
+
+| Field | Value |
+| --- | --- |
+| Family | External admittance |
+| Geometry | Thin overhead conductors or buried coaxial units with separately assembled radial insulation. |
+| Calculated quantities | Constant overhead space potential; zero exterior potential for buried classical TL units |
+| Earth structure | Equipotential reference plane; no finite-conductivity potential correction. |
+| Model and approximation | Classical TL reference, not a lossy-earth potential solution. |
+| Main source | A. Ametani, H. Xue, T. Ohno, and H. Khalilnezhad (2021) |
+| Citation key(s) | `:Ametani2021` |
+| Evidence status | IET book page image checked, Table 2.1 and equations (2.76)–(2.78), p. 24. |
+
+**Description.** Classical TL potential reference: constant overhead space potential and zero
+buried exterior correction, with radial insulation assembled separately.
 
 **Expression.**
 
@@ -30,7 +43,7 @@ P_{0,ij}=\\frac{1}{2\\pi\\varepsilon_0}\\ln\\frac{D_{ij}}{d_{ij}},
 
 For a self term, ``P_{0,ii}=(2\\pi\\varepsilon_0)^{-1}\\ln(2h_i/r_i)``.
 
-**Reference.** A. Ametani, H. Xue, T. Ohno, and H. Khalilnezhad,
+**Reference.** [Ametani2021](@cite). A. Ametani, H. Xue, T. Ohno, and H. Khalilnezhad,
 *Electromagnetic Transients in Large HV Cable Networks: Modeling and
 Calculations*, IET, 2021.
 """
@@ -67,10 +80,11 @@ thin-conductor approximation.
 function earth_potential_coefficient(
         ::Val{:Ametani2021}, ::Val{:mutual}, functor, pair
 )
-    _require(pair, Val(:overhead))
+    _placement(pair) === Val(:overhead) || return zero(functor.state.jω)
     state = functor.state
     geometry = _geometry(pair)
-    return log(geometry.D_ij / geometry.d_ij) / (2π * state.epsilon[1])
+    image_distance = pair.row == pair.column ? geometry.H : geometry.D_ij
+    return log(image_distance / geometry.d_ij) / (2 * (one(geometry.H)*π) * state.epsilon[1])
 end
 
 :Ametani2021

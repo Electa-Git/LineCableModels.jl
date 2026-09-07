@@ -19,8 +19,18 @@ media(::Formula{:Papadopoulos2011}) = Val(:stratified)
 """
 $(TYPEDSIGNATURES)
 
-**Identification.** Two-layer underground potential coefficient for
-conductors in the finite upper soil layer.
+## Identification and source
+
+| Field | Value |
+| --- | --- |
+| Family | External admittance |
+| Geometry | Infinite parallel single-core cable axes; outer radius enters self substitution. The earth coefficient is separate from dielectric-insulation and conductor contributions; the source references their assembly to [9,15]. |
+| Calculated quantities | Mutual earth-return potential coefficient and source-printed admittance relation; self earth term by radius/depth substitutions |
+| Earth structure | Air half-space, finite upper earth layer of thickness ``d``, infinite-depth lower earth half-space. General different-layer/mixed/arbitrary-layer arrangements are not supplied by this final kernel. |
+| Model and approximation | The source replaces the unknown longitudinal propagation constant by the dielectric value of the upper earth layer and applies transform (5). ``G`` is retained; no spectral truncation or tail approximation is specified. |
+| Main source | T. A. Papadopoulos, D. A. Tsiamitros, and G. K. Papagiannis (2011), DOI `10.1049/iet-gtd.2010.0228` |
+| Citation key(s) | `:Papadopoulos2011` |
+| Evidence status | Original PDF equations checked; the transformed-factor index, root branch, and scalar/matrix interpretation remain unresolved. |
 
 **Expression.**
 
@@ -101,16 +111,21 @@ function earth_potential_coefficient(
     hi, hj = geometry.h_i, geometry.h_j
     difference = abs(hi - hj)
     d = state.thickness[2]
-    radial = sqrt(
-        state.gamma_medium_squared[2] + state.gamma_squared
+    isfinite(d) && d>0 && max(geometry.h_i,geometry.h_j)<=d ||
+        throw(DomainError(d,":Papadopoulos2011 requires both depths within a positive finite top-layer thickness"))
+    radial = spectral_root(
+        state.gamma_medium_squared[2] + state.gamma_squared,state.jω
     )
     direct = special_besselk(0, radial * geometry.d_ij)
+    # Common permeability and bulk-square scales cancel from F and G.
+    # Removing them avoids products below Float32's normal range.
+    mu0,mu1,mu2=state.mu ./ state.mu[1]
+    gamma0,gamma1,gamma2=state.gamma_medium_squared ./
+        maximum(abs,state.gamma_medium_squared)
     integral = _quadrature(state) do lambda
-        alpha0 = sqrt(lambda^2 + state.gamma_medium_squared[1] + state.gamma_squared)
-        alpha1 = sqrt(lambda^2 + state.gamma_medium_squared[2] + state.gamma_squared)
-        alpha2 = sqrt(lambda^2 + state.gamma_medium_squared[3] + state.gamma_squared)
-        mu0, mu1, mu2 = state.mu
-        gamma0, gamma1, gamma2 = state.gamma_medium_squared
+        alpha0 = spectral_root(lambda^2 + state.gamma_medium_squared[1] + state.gamma_squared,state.jω)
+        alpha1 = spectral_root(lambda^2 + state.gamma_medium_squared[2] + state.gamma_squared,state.jω)
+        alpha2 = spectral_root(lambda^2 + state.gamma_medium_squared[3] + state.gamma_squared,state.jω)
         s10 = mu0 * alpha1 + mu1 * alpha0
         d10 = mu1 * alpha0 - mu0 * alpha1
         s21 = mu1 * alpha2 + mu2 * alpha1
@@ -136,7 +151,7 @@ function earth_potential_coefficient(
              ) / common
         G2 = mu1 * mu2 * (gamma1 - gamma2) *
              (
-                 s10 * Delta10 * exp(-alpha1 * (2d + hi - hj)) -
+                 s10 * Delta10 * exp(-alpha1 * (2d + hj - hi)) -
                  d10 * Delta10 * exp(-alpha1 * (2d + hi + hj))
              ) / common
         G3 = mu1 * mu0 * (gamma1 - gamma0) *
@@ -154,7 +169,8 @@ function earth_potential_coefficient(
         cos(geometry.y_ij * lambda)
     end
     kappa = state.sigma[2] + state.jω * state.epsilon[2]
-    return state.jω / (2π * kappa) * (direct + integral)
+    return _complex_result(state.jω,state.jω /
+        (2*(one(geometry.H)*π) * kappa) * (direct + integral))
 end
 
 :Papadopoulos2011

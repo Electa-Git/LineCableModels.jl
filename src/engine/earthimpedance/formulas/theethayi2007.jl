@@ -18,8 +18,18 @@ propagation(::Val{:Theethayi2007}) = Val(:zero)
 """
 $(TYPEDSIGNATURES)
 
-**Identification.** Logarithmic-exponential underground approximation with
-earth displacement current retained.
+## Identification and source
+
+| Field | Value |
+| --- | --- |
+| Family | External impedance |
+| Geometry | Circular bare conductor radius ``a`` or concentric insulated wire with outer radius ``b``; ``R_{ab}=a`` for bare, ``R_{ab}=b`` for insulated. Burial depth is ``d``. |
+| Calculated quantities | Buried bare/insulated-wire earth impedance; source-prescribed parallel-wire mutual substitution |
+| Earth structure | Homogeneous conducting dielectric half-space below air; empirical correction represents burial-depth/interface effects. |
+| Model and approximation | Empirical modification of the infinite-earth logarithmic approximation attributed to Petrache et al. (2005) in (8). A depth-dependent exponential term is added in (9); the inspected paper does not derive an expansion parameter, retained order, or discarded remainder for it. Its Sunde/Wait comparisons are presented as numerical evidence within the stated geometries. |
+| Main source | Nelson Theethayi's 2005 doctoral thesis, explicitly cited as reference [14] by the inspected 2007 paper; the record year identifies this later published witness |
+| Citation key(s) | Primary publication: `:Theethayi2007`; thesis source: `:Theethayi2005` |
+| Evidence status | Author's later explicit restatement and original thesis equation (7.10) checked against page images; the relevant thesis sections contain no additional distinct formula in the requested families. |
 
 **Expression.**
 
@@ -72,7 +82,7 @@ function earth_impedance(
     gamma = state.gamma[2]
     argument = gamma * geometry.y_ij
     correction = 2exp(-geometry.H * abs(gamma)) / (4 + argument^2)
-    return state.jω * state.mu[1] / (2π) *
+    return state.jω * state.mu[1] / (2*(one(geometry.H)*π)) *
            (log((1 + argument) / argument) + correction)
 end
 

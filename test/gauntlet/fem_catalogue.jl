@@ -24,8 +24,8 @@ const EARTH_ADMITTANCE = LineCableModels.Engine.EarthAdmittance
 const SEMICON_ADMITTANCE = LineCableModels.Engine.SemiconAdmittance
 
 const INTERNAL_FORMULA = :Schelkunoff1934
-const BASE_Z = :Papadopoulos2010
-const BASE_Y = :Papadopoulos2010
+const BASE_Z = :Papadopoulos2010b
+const BASE_Y = :Papadopoulos2010b
 const CORPUS_POLICY = :faithful_literature_observation
 const FORMULA_TREATMENT = :as_registered_no_regularization_no_fallback
 const DIAGNOSTIC_POLICY = :isolated_candidate_reprobe_not_measured_fallback
@@ -33,53 +33,72 @@ const ARTIFACT_SCHEMA_VERSION = 7
 const HOMOGENEOUS_UNDERGROUND_Z = Set((
     :Ametani2009,
     :Bridges1995,
+    :DeConti2023a,
+    :DeConti2023b,
+    :DeConti2024,
+    :DeLima2007,
+    :DeLima2018,
     :Lucca1994,
-    :Magalhaes2018,
-    :MartinsBritto2024,
-    :Papadopoulos2010,
+    :Pawlik2018,
+    :Papadopoulos2010b,
     :Petrache2005,
+    :Pettersson1994,
     :Pollaczek1926,
     :Saad1996,
     :Theethayi2007,
+    :Uribe2008,
     :Vance1978,
-    :WedepohlWilcox1973,
-    :Xue2018
+    :Wait1978,
+    :Wedepohl1973,
+    :Xue2018b
 ))
 const STRATIFIED_Z = Set((
-    :Ametani1974,
+    :Deri1981,
+    :Lee2014,
+    :Moghram1998,
     :Nakagawa1973,
     :Papadopoulos2009,
     :Papadopoulos2011,
-    :Sunde1968,
-    :Tsiamitros2008
+    :Sunde1949,
+    :Tsiamitros2008,
+    :Wedepohl1966,
+    :Xue2021
 ))
 const OVERHEAD_Z = Set((
-    :AlvaradoBetancourt1983,
+    :Alvarado1983,
     :Carson1926,
-    :Gary1976,
+    :Dubanton1969,
     :Noda2006,
-    :Pettersson1994,
-    :Theodoulidis2015,
+    :Lima2012,
+    :Wise1931,
     :Wise1934
 ))
 const HOMOGENEOUS_UNDERGROUND_Y = Set((
+    :Ametani2021,
+    :DeConti2023a,
+    :DeConti2023b,
+    :DeLima2018,
     :IdealGround,
     :Magalhaes2018,
+    :Mariscotti2019,
     :MartinsBritto2024,
-    :Papadopoulos2010,
-    :Pollaczek1926,
+    :Papadopoulos2010b,
+    :Pettersson1994,
     :Theethayi2007,
-    :Xue2018,
-    :Xue2021
+    :Vance1978,
+    :Xue2018b,
+    :Xue2021,
+    :Zhang2017
 ))
-const STRATIFIED_Y = Set((:Papadopoulos2009, :Papadopoulos2011))
-const OVERHEAD_Y = Set((:Ametani2021, :Pettersson1994, :Wise1948))
-const SELF_ONLY_Z = Set((:Bridges1995, :Vance1978))
+const STRATIFIED_Y = Set((:DiLorenzo2023, :Papadopoulos2009, :Papadopoulos2011))
+const OVERHEAD_Y = Set((:Kikuchi1957, :Maaouni2001, :Wait1972a, :Wise1948))
+const SELF_ONLY_Z = Set((:Bridges1995, :DeLima2018, :Vance1978, :Wait1978))
+const SELF_ONLY_Y = Set((:DeLima2018, :Kikuchi1957, :Vance1978, :Wait1972a, :Zhang2017))
 const HORIZONTAL_ONLY_Z = Set((
     :Petrache2005,
     :Saad1996,
     :Theethayi2007,
-    :WedepohlWilcox1973
+    :Wedepohl1973
 ))
 const HORIZONTAL_ONLY_Y = Set((:Theethayi2007, :Xue2021))
 
@@ -149,19 +168,15 @@ function coverage_record(kind, identifier)
     catalogue_module = kind === :earth_impedance ?
                        EARTH_IMPEDANCE : EARTH_ADMITTANCE
     formula_object = catalogue_module.Formula(identifier)
-    family = kind === :earth_impedance ? "earthimpedance" : "earthadmittance"
-    source_path = joinpath(
-        pkgdir(LineCableModels),
-        "src",
-        "engine",
-        family,
-        "formulas",
-        lowercase(string(identifier)) * ".jl"
-    )
+    source_path = abspath(String(which(
+        LineCableModels.Engine.description, Tuple{typeof(formula_object)}
+    ).file))
     isfile(source_path) || error(
         "registered $kind formula $identifier has no source file at $source_path"
     )
-    route_limitations = if kind === :earth_impedance && identifier in SELF_ONLY_Z
+    self_only = kind === :earth_impedance ?
+                identifier in SELF_ONLY_Z : identifier in SELF_ONLY_Y
+    route_limitations = if self_only
         "mutual route intentionally rejects because the source supplies only self"
     elseif kind === :earth_impedance && identifier in HORIZONTAL_ONLY_Z ||
            kind === :earth_admittance && identifier in HORIZONTAL_ONLY_Y
@@ -171,14 +186,14 @@ function coverage_record(kind, identifier)
     end
     benchmark_route = if !applicable
         "not evaluated in the homogeneous-underground gauntlet"
-    elseif kind === :earth_impedance && identifier in (:Ametani2009, :Lucca1994)
+    elseif kind === :earth_impedance && identifier in (:Ametani2009, :Lucca1994, :Uribe2008)
         "registered pair-complete recipe delegates all-underground pairs to " *
         "its Pollaczek1926 underground leaf; its distinctive mixed route is " *
         "not exercised by these cases"
-    elseif kind === :earth_admittance && identifier === :Xue2018
+    elseif kind === :earth_admittance && identifier === :Xue2018b
         "registered default self/mutual route: infinite voltage reference; " *
         "surface and penetration routes remain separate unselected leaves"
-    elseif kind === :earth_impedance && identifier in SELF_ONLY_Z
+    elseif self_only
         "registered self route only; evaluated only for single-cable cases"
     else
         "registered default self/mutual routes"
@@ -207,9 +222,12 @@ function catalogue()
     for identifier in EARTH_ADMITTANCE.formulas()
         push!(records, coverage_record(:earth_admittance, identifier))
     end
-    length(records) == 39 || error(
-        "registered earth catalogue changed from 39 to $(length(records)) formulas"
-    )
+    Set(EARTH_IMPEDANCE.formulas()) ==
+        union(HOMOGENEOUS_UNDERGROUND_Z, STRATIFIED_Z, OVERHEAD_Z) ||
+        error("earth-impedance benchmark classifications differ from the registry")
+    Set(EARTH_ADMITTANCE.formulas()) ==
+        union(HOMOGENEOUS_UNDERGROUND_Y, STRATIFIED_Y, OVERHEAD_Y) ||
+        error("earth-admittance benchmark classifications differ from the registry")
     return records
 end
 
@@ -231,7 +249,7 @@ end
 function formulation(selected)
     return Formulation(
         internal_impedance = INTERNAL_FORMULA,
-        insulation_admittance = :Gustavsen2013,
+        insulation_admittance = :Ametani1980,
         semicon_admittance = FEM_LOSSLESS_SEMICON,
         earth_impedance = selected.earth_impedance,
         earth_admittance = selected.earth_admittance,
@@ -941,9 +959,9 @@ end
 
 function case_skip_reason(model, selected)
     selected.coverage.applicable || return selected.coverage.reason
-    if selected.kind === :earth_impedance &&
-       selected.identifier in SELF_ONLY_Z &&
-       length(model.problem.system.designs) > 1
+    self_only = selected.kind === :earth_impedance ?
+                selected.identifier in SELF_ONLY_Z : selected.identifier in SELF_ONLY_Y
+    if self_only && length(model.problem.system.designs) > 1
         return "source formula supplies only a self term; a multi-cable FEM " *
                "matrix cannot be assembled without injecting a different " *
                "mutual formula"

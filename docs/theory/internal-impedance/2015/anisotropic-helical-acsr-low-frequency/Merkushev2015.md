@@ -1,0 +1,135 @@
+# Merkushev–Elagin anisotropic helical ACSR internal impedance
+
+## Identification and source
+
+| Field | Value |
+| --- | --- |
+| Family | Internal impedance |
+| Geometry | One central steel wire and six aluminum strands, homogenized as an anisotropic layer; strand radius ``R`` and helix pitch ``h``. |
+| Calculated quantities | Low-frequency p.u.l. internal impedance of a single-layer aluminum conductor helically stranded over a magnetic steel core |
+| Earth structure | None. |
+| Model and approximation | Six discrete strands are homogenized into a continuous anisotropic surface layer; aluminum skin effect is ignored. The core solution retains cylindrical skin effect through Bessel functions. |
+| Main source | A. G. Merkushev and I. A. Elagin (2015) |
+| Citation key(s) | `:Merkushev2015` |
+| Evidence status | Original publication page images checked |
+
+**Description.** First-order commercial-frequency model replacing six helical aluminum strands by an anisotropic conducting layer around a solid magnetic steel core, so axial core magnetization contributes to the conductor internal impedance.
+
+**Assumptions.**
+
+| Field | Treatment | Evidence |
+| --- | --- | --- |
+| Impressed longitudinal propagation constant ``Γ`` | Longitudinally invariant cross-sectional field problem. | Stated — model construction, p. 402. |
+| Air propagation constant ``γ_air`` | Not applicable; external return field is outside this internal model. | Scope — pp. 401–402. |
+| Earth propagation constant ``γ_earth`` | Not applicable. | Scope. |
+| Earth permittivity and displacement current | Neglected under stationary conductor-field approximation. | Stated — p. 402. |
+| Range of validity | First-order low-frequency condition ``\omega\ll1/(\mu_0\sigma_{Al}R^2)``; developed for commercial frequency and single-layer ACSR. | Stated — p. 402. |
+| Earth permeability ``μ_earth`` | Not applicable; linear core relative permeability ``\mu_{St}`` is retained. | Stated — before (2). |
+| Arrangement | One single-layer ACSR conductor. | Stated — abstract and Fig. 1. |
+| Earth structure | None. | Scope. |
+| Conductor and insulation geometry | One central steel wire and six aluminum strands, homogenized as an anisotropic layer; strand radius ``R`` and helix pitch ``h``. | Stated — pp. 401–402. |
+| Constitutive and field assumptions | Linear steel magnetics; azimuthally averaged field; strand-boundary perturbations and aluminum strand skin effect neglected. | Stated — p. 402. |
+| Conventions | Source uses ``k_{St}^2=-j\omega\mu_{St}\mu_0\sigma_{St}``; ``J_0,J_1`` are ordinary Bessel functions. | Stated — (2). |
+
+**Expression.** The anisotropic layer parameters are
+
+```math
+\begin{aligned}
+I_w&=\Sigma_zE_z|_{r=R}+\Sigma_\varphi E_\varphi|_{r=R} \\
+\Sigma_z&=6\pi R^2\sigma_{Al}Q \\
+\Sigma_\varphi&=\theta\Sigma_z \\
+\theta&=\frac{2\pi R}{h},
+\end{aligned}\qquad\text{(1)}
+```
+
+```math
+Q=\langle\cos^2\alpha\rangle
+=\frac{2}{\pi}\int_1^3\frac{\arccos[(\rho^2+3)/(4\rho)]}{1+\theta^2\rho^2}\,\rho\,d\rho.
+```
+
+The p.u.l. internal impedance is
+
+```math
+\begin{aligned}
+Z_{int}&=\frac{k_{St}}{\sigma_{St}h}\,
+\frac{\gamma}{1+\gamma\theta}\,\frac{J_0(k_{St}R)}{J_1(k_{St}R)} \\
+k_{St}^2&=-j\omega\mu_{St}\mu_0\sigma_{St} \\
+\gamma&=\frac BA,
+\end{aligned}\qquad\text{(2)}
+```
+
+```math
+\begin{aligned}
+A&=\frac{k_{St}RJ_0(k_{St}R)}{J_1(k_{St}R)} \\
+B&=\frac{2\Sigma_c}{\theta\Sigma_z}-\theta\frac{k_{St}RJ_1(k_{St}R)}{J_0(k_{St}R)} \\
+\Sigma_c&=\pi R^2\sigma_{St}.
+\end{aligned}
+```
+
+**Approximation.** Six discrete strands are homogenized into a continuous anisotropic surface layer; aluminum skin effect is ignored. The core solution retains cylindrical skin effect through Bessel functions.
+
+**Limitations.** Single reinforcement wire, six single-layer strands, linear core permeability and commercial/low frequency. Contact resistance, nonlinear saturation, individual strand fields, multilayer ACSR and external line inductance are excluded.
+
+**Reference.** [Merkushev2015](@cite).  Merkushev and Elagin, *Technical Physics Letters* 41(4), 2015, DOI `10.1134/S1063785015040288`, equations (1)–(2), printed p. 402.
+
+**Transcription source.** Original publication page image. The integration range, ``\rho`` factor, signs, Bessel-function orders, pitch factor and ``\Sigma_c`` definition were visually verified.
+
+## Source transcription
+
+The source states ``h=4\pi R/\tan\alpha_0`` for its director angle. It also warns that high core permeability can produce strong nonlinearity/saturation, outside (2).
+
+## Notation map
+
+| Source symbol | Display symbol | Physical meaning | Units/convention |
+| --- | --- | --- | --- |
+| ``\Sigma_z,\Sigma_\varphi`` | unchanged | axial/azimuthal layer conductivities per unit length | source convention |
+| ``\sigma_{Al},\sigma_{St}`` | unchanged | aluminum/steel bulk conductivity | ``\mathrm{S/m}`` |
+| ``Q`` | unchanged | strand-packing/director form factor | dimensionless |
+| ``Z_{int}`` | unchanged | conductor p.u.l. internal impedance | ``\Omega/\mathrm m`` |
+
+No notation was renamed.
+
+## Numerical interpretation and backend scope
+
+Equation (2) contains two separate fractions after the pitch prefactor:
+``\gamma/(1+\gamma\theta)`` and ``J_0/J_1``. The numerical evaluator
+uses the equivalent modified-Bessel form
+
+```math
+\begin{aligned}
+w^2&=j\omega\mu_0\mu_{St}\sigma_{St}R^2, &
+q&=\frac{I_1(w)}{wI_0(w)}, &
+C&=\frac{2\Sigma_c}{\Sigma_z}, \\
+U&=C+\theta^2w^2q, &
+Z_{int}&=\frac{U}{2\Sigma_c(1+Uq)}.
+\end{aligned}
+```
+
+This form follows from ``k_{St}R=-jw``, ``J_0(-jw)=I_0(w)``,
+and ``J_1(-jw)=-jI_1(w)``. At zero frequency, ``q=1/2`` and
+``Z_{int}=1/(\Sigma_c+\Sigma_z)``. Infinite pitch gives ``Q=1``
+and the parallel combination of the steel-core skin impedance and the
+six straight-strand conductances.
+
+The adapter retains the actual central wire, six equal-radius strands,
+their common pitch, and both materials. Each material receives its own
+temperature correction. Other strand counts, unequal radii, magnetic
+aluminum strands, and concentric terminal assemblies are not represented
+by this registration. It supplies one scalar internal term per isolated
+conductor; it does not introduce a three-dimensional helical field solver.
+
+The source requires ``|\omega|\mu_0\sigma_{Al}R^2\ll1``. The evaluator
+rejects values at or above one as a necessary restriction, not as an
+accuracy guarantee below that threshold. Tests compare (2) directly with
+the modified-Bessel expression and independently integrate ``Q`` over
+an aluminum-strand disk. They also check dc, straight-strand and geometric
+scaling limits, negative-frequency conjugacy, and complete matrix assembly.
+
+## Evidence and approximation sources
+
+The paper describes its anisotropic implementation as original and (1) as the first-order low-frequency helical-layer approximation. Equation (2) is the derived impedance formula.
+
+## Limitations and discrepancies
+
+- The translated PDF calls ``R`` both the radius of conductors and the core/conductor interface radius; that idealized equality is preserved rather than geometrically repaired.
+- The source's conclusions emphasize that a linear ``\mu_{St}`` model is not exhaustive at operating currents.

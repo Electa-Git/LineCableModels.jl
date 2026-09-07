@@ -83,7 +83,26 @@ Formula(identifier::Symbol; kwargs...) = Formula(Val(identifier); kwargs...)
 
 Formula(::Val{:default}; kwargs...) = Formula(Val(DEFAULT); kwargs...)
 
+const ALIASES = (
+    Ametani1974=(:Nakagawa1973, (;)),
+    AlvaradoBetancourt1983=(:Alvarado1983, (;)),
+    Magalhaes2018=(:Xue2018b, (;)),
+    Ametani2014=(:Pettersson1994, (;lossless_air=true)),
+    Sunde1968=(:Sunde1949, (;displacement_current=true)),
+    Gary1976=(:Dubanton1969, (;)),
+    Theodoulidis2015=(:Lima2012, (;displacement_current=false)),
+    MartinsBritto2024=(:Pawlik2018, (;)),
+    DeriSemlyen1981=(:Dubanton1969, (;)),
+    Papadopoulos2010=(:Papadopoulos2010b, (;)),
+    WedepohlWilcox1973=(:Wedepohl1973, (;)),
+    Xue2018=(:Xue2018b, (;)),
+)
+
 function Formula(::Val{ID}; kwargs...) where {ID}
+    if hasproperty(ALIASES, ID)
+        target, defaults = getproperty(ALIASES, ID)
+        return Formula(Val(target); merge(defaults, (;kwargs...))...)
+    end
     identifier = Val(ID)
     ID in REGISTERED || throw(ArgumentError(
         "unknown earth-impedance formula :$ID"
@@ -111,6 +130,16 @@ state.
 function Formula(
         ::Val{ID}, selected::R, values::A = (;)
 ) where {ID, R <: NamedTuple, A <: NamedTuple}
+    if hasproperty(ALIASES, ID)
+        target, _ = getproperty(ALIASES, ID)
+        canonical = Formula(Val(ID))
+        mapped = map(selected) do route
+            route isa FormulaMethod{ID} ?
+                FormulaMethod(Val(target), route.method, route.arguments...) : route
+        end
+        return Formula(Val(target), merge(canonical.routes, mapped),
+            isempty(values) ? canonical.assumptions : values)
+    end
     return Formula{ID, R, A}(selected, values)
 end
 

@@ -20,7 +20,7 @@ import ...LineCableModels: FormulaMethod
 using ...Materials: Material
 import ...LineCableModels: constitutive
 #! explicit-imports: off
-import ..Engine: description, conductivity
+import ..Engine: description, InsulationAdmittance
 #! explicit-imports: on
 
 "Registered semicon-admittance formula selected by `:default`."

@@ -19,8 +19,18 @@ media(::Formula{:Tsiamitros2008}) = Val(:stratified)
 """
 $(TYPEDSIGNATURES)
 
-**Identification.** General same-layer, cross-layer, and mixed conductor
-kernel for arbitrarily stratified earth.
+## Identification and source
+
+| Field | Value |
+| --- | --- |
+| Family | External impedance |
+| Geometry | Infinite straight single-core conductors parallel to the ``x`` axis, represented externally by filamentary horizontal dipoles. Insulation thickness is assumed negligible relative to conductor diameter for this earth term; insulation impedance is a separate addend (8). Self replaces ``y_{ij}`` by the outermost cable radius and sets ``m=l,h_2=h_1``. |
+| Calculated quantities | Per-unit-length self and mutual impedance for overhead, buried same-layer/cross-layer, and mixed conductor placements in an arbitrary number of horizontal earth layers |
+| Earth structure | ``n`` horizontal earth layers below air; finite layers ``1,\\ldots,n-1`` and a semi-infinite ``n``th layer. |
+| Model and approximation | Not an analytical low- or high-frequency approximation within the quasi-TEM, filamentary, horizontal-layer model. Equation (21) is the direct field-equation result. The recursions are exact algebraic interface assemblies in that model. The paper separately prescribes numerical quadrature; no quadrature rule is substituted into the equation here. |
+| Main source | D. A. Tsiamitros, G. K. Papagiannis, and P. S. Dokopoulos (2008) |
+| Citation key(s) | `:Tsiamitros2008` |
+| Evidence status | Original publication page images checked for the main kernel, both recursions, terminal cases, and self prescription. |
 
 **Expression.** For source layer ``m`` and target layer ``l``,
 
@@ -157,7 +167,7 @@ function earth_impedance(
                     (-expm1(-lambda * span)) / lambda
         (exact - reference) * cos(geometry.y_ij * lambda)
     end
-    return state.jω * state.mu[1] / (2π) *
+    return state.jω * state.mu[1] / (2*(one(geometry.H)*π)) *
            (log(geometry.D_ij / geometry.d_ij) + integral)
 end
 
@@ -202,7 +212,7 @@ function earth_impedance(
         end
         value * cos(pair.separation * lambda)
     end
-    return state.jω * state.mu[m + 1] / (2π) * (direct + integral)
+    return state.jω * state.mu[m + 1] / (2*(one(pair.separation)*π)) * (direct + integral)
 end
 
 function earth_impedance(
@@ -242,7 +252,7 @@ function earth_impedance(
         coefficient * attenuation_prior * field / denominator[1] *
         cos(pair.separation * lambda)
     end
-    return state.jω * state.mu[1] / π * integral
+    return state.jω * state.mu[1] / (one(h_air)*π) * integral
 end
 
 function downward_coefficients!(
@@ -256,8 +266,8 @@ function downward_coefficients!(
     N = length(state.rho) - 1
     T = eltype(attenuation)
     @inbounds for medium in 0:N
-        attenuation[medium + 1] = sqrt(
-            lambda^2 + state.gamma_medium_squared[medium + 1]
+        attenuation[medium + 1] = spectral_root(
+            lambda^2 + state.gamma_medium_squared[medium + 1] + state.gamma_squared,state.jω
         )
     end
     numerator[N + 1] = zero(T)

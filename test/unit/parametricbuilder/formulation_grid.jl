@@ -4,10 +4,10 @@
     selections=(
         internal_impedance = Grid((:default, :Schelkunoff1934)),
         insulation_impedance = Grid((:default, :Ametani1980)),
-        earth_impedance = Grid((:Pollaczek1926, :Papadopoulos2010)),
+        earth_impedance = Grid((:Pollaczek1926, :Papadopoulos2010b)),
         insulation_admittance = Grid((:Ametani2004, :Gustavsen2013)),
         semicon_admittance = Grid((:default, :Ametani2004)),
-        earth_admittance = Grid((:IdealGround, :Papadopoulos2010)),
+        earth_admittance = Grid((:IdealGround, :Papadopoulos2010b)),
         earth_properties = Grid((nothing, :CIGRE2019)),
         equivalent_earth = Grid((
             formula(:Layer; layer = -1),
@@ -39,8 +39,8 @@
     end
 
     product=Formulation(
-        earth_impedance = Grid((:Pollaczek1926, :Papadopoulos2010)),
-        earth_admittance = Grid((:IdealGround, :Papadopoulos2010))
+        earth_impedance = Grid((:Pollaczek1926, :Papadopoulos2010b)),
+        earth_admittance = Grid((:IdealGround, :Papadopoulos2010b))
     )
     @test length(product) == 4
     @test Set((
@@ -48,14 +48,14 @@
                   formula_id(value.methods.earth_admittance)
               ) for value in product) == Set((
         (:Pollaczek1926, :IdealGround),
-        (:Papadopoulos2010, :IdealGround),
-        (:Pollaczek1926, :Papadopoulos2010),
-        (:Papadopoulos2010, :Papadopoulos2010)
+        (:Papadopoulos2010b, :IdealGround),
+        (:Pollaczek1926, :Papadopoulos2010b),
+        (:Papadopoulos2010b, :Papadopoulos2010b)
     ))
 
     zipped=Formulation(
-        earth_impedance = Grid((:Pollaczek1926, :Papadopoulos2010)),
-        earth_admittance = Grid((:IdealGround, :Papadopoulos2010));
+        earth_impedance = Grid((:Pollaczek1926, :Papadopoulos2010b)),
+        earth_admittance = Grid((:IdealGround, :Papadopoulos2010b));
         combine = :zip
     )
     @test length(zipped) == 2
@@ -64,11 +64,11 @@
                formula_id(value.methods.earth_admittance)
            ) for value in zipped] == [
         (:Pollaczek1926, :IdealGround),
-        (:Papadopoulos2010, :Papadopoulos2010)
+        (:Papadopoulos2010b, :Papadopoulos2010b)
     ]
 
     broadcast_zip=Formulation(
-        earth_impedance = Grid((:Pollaczek1926, :Papadopoulos2010)),
+        earth_impedance = Grid((:Pollaczek1926, :Papadopoulos2010b)),
         earth_admittance = Grid(:IdealGround);
         combine = :zip
     )

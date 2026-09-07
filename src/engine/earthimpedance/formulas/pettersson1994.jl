@@ -10,17 +10,38 @@ function assumptions(::Val{:Pettersson1994})
     (
         air = _full,
         earth = _full,
-        permeability = vacuum_permeability
+        permeability = vacuum_permeability,
+        lossless_air = false
     )
 end
 
 propagation(::Val{:Pettersson1994}) = Val(:zero)
+
+function Formula(::Val{:Pettersson1994};lossless_air::Bool=false,kwargs...)
+    defaults=routes(Val(:Pettersson1994))
+    overrides=(;kwargs...)
+    isempty(setdiff(keys(overrides),keys(defaults))) ||
+        throw(ArgumentError("unknown routes for earth-impedance formula :Pettersson1994"))
+    selected=merge(defaults,overrides)
+    values=merge(assumptions(Val(:Pettersson1994)),
+        (;air=lossless_air ? _lossless : _full,lossless_air))
+    return Formula{:Pettersson1994,typeof(selected),typeof(values)}(selected,values)
+end
 """
 $(TYPEDSIGNATURES)
 
-**Identification.** Wideband complex-image approximation for overhead
-conductors above homogeneous earth. Pettersson's paper treats wires above, on,
-and under ground; the registered route implements only its overhead equation.
+## Identification and source
+
+| Field | Value |
+| --- | --- |
+| Family | External impedance |
+| Geometry | Filamentary line source representing a sufficiently thin round wire of radius ``a``; no coating layer. |
+| Calculated quantities | Generalized p.u.l. self/mutual series impedance of a thin wire above, at, or below a lossy planar interface |
+| Earth structure | Two homogeneous half-spaces separated by a plane. |
+| Model and approximation | The exact spectral integrand in (6) is replaced by the asymptotically matched expression (9), which is then integrated using identity (7). The self case ``x=0,y=h+a`` gives ``P\\simeq\\ln[1+1/(\\beta h)]`` in (11). Separate on-interface distances are printed in (14)–(15). |
+| Main source | Pär Pettersson (1994 publication; 1993 conference manuscript) |
+| Citation key(s) | `:Pettersson1994` |
+| Evidence status | Original publication page images checked |
 
 **Expression.**
 
@@ -31,12 +52,24 @@ Z_{e,ij}=\\frac{j\\omega\\mu_0}{2\\pi}\\left[
 \\qquad \\beta_\\gamma=\\sqrt{\\gamma_g^2-\\gamma_0^2}.
 ```
 
+**Equivalent overhead images.** [Maaouni2001](@cite), equation (12), and
+[Ametani2014](@cite), equations (17)–(18), give the same series image with
+lossless air. The former `Ametani2014` selector now selects this formula
+with `lossless_air=true`; no second numerical image evaluator is retained.
+The image depth uses the air-referenced difference of bulk propagation
+constants, not the conduction-only depth. Self correction uses zero
+horizontal separation and the radius only in the direct-distance denominator.
+Equations (10)–(11) also apply to buried wires after interchanging the
+source and other half-spaces. On-interface wires use (14)–(15). These closed
+images do not supply mixed or interface/off-interface mutual entries, which
+require a common modal prescription. The coupled mode equation is not solved.
+
 **Reference.** P. Pettersson, “Image Representation of Wave Propagation on
 Wires Above, On and Under Ground,” *IEEE Transactions on Power Delivery*, 9,
 1049–1055, 1994. DOI: 10.1109/61.296290.
 """
 description(::Formula{:Pettersson1994}) =
-    "Pettersson wideband overhead image approximation (1994)"
+    "Pettersson two-half-space and interface image approximation (1994)"
 
 function propagation_constant(::Val{:Pettersson1994}, jω, permeability, permittivity)
     return (Γ = zero(jω), squared = zero(jω))
@@ -45,6 +78,12 @@ end
 function (formula::Formula{:Pettersson1994})(
         rho, epsilon, mu, jω, Γ, segments = nothing
 )
+    if formula.assumptions.lossless_air
+        isinf(first(rho)) || throw(DomainError(first(rho), "this image selection requires lossless air"))
+        isfinite(rho[2]) && rho[2]>zero(rho[2]) ||
+            throw(DomainError(rho[2], "this image selection requires conducting earth"))
+        iszero(jω) && throw(DomainError(jω,"this image selection requires nonzero frequency"))
+    end
     return _homogeneous_functor(
         Val(:Pettersson1994), formula, rho, epsilon, mu, jω, Γ, segments
     )
@@ -76,15 +115,14 @@ pp. 1049-1055, 1994. DOI: 10.1109/61.296290.
 function earth_impedance(
         ::Val{:Pettersson1994}, ::Val{:mutual}, functor, pair
 )
-    _require(pair, Val(:overhead))
-    state = functor.state
-    geometry = _geometry(pair)
-    βγ = sqrt(
-        state.gamma_medium_squared[2] - state.gamma_medium_squared[1]
-    )
-    image = sqrt((geometry.H + 2 / βγ)^2 + geometry.y_ij^2)
-    πT = one(geometry.H) * π
-    return state.jω * state.mu[1] / (2πT) * log(image / geometry.d_ij)
+    state=functor.state
+    images=pettersson_images(state,pair)
+    return _complex_result(state.jω,state.jω*state.mu[1]/
+        (2*(one(pair.separation)*π))*images.magnetic)
+end
+
+function earth_impedance(::Val{:Pettersson1994},::Val{:self},functor,pair)
+    return earth_impedance(Val(:Pettersson1994),Val(:mutual),functor,pair)
 end
 
 :Pettersson1994

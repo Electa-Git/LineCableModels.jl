@@ -23,8 +23,23 @@ propagation(::Val{:Lucca1994}) = Val(:zero)
 """
 $(TYPEDSIGNATURES)
 
-**Identification.** Pair-complete homogeneous-earth recipe with a corrected
-complex-depth approximation for mixed overhead-underground coupling.
+## Identification and source
+
+| Field | Value |
+| --- | --- |
+| Family | External impedance |
+| Geometry | Parallel overhead and buried line axes. |
+| Calculated quantities | Lucca-attributed two-step image approximation and Uribe's normalized form |
+| Earth structure | Homogeneous conductive soil half-space below air. |
+| Model and approximation | Image-theory construction followed by suppression of the oscillatory exponential factor; the source gives no remainder bound. |
+| Main source | G. Lucca (1994), secondary attribution through F. A. Uribe (2008) |
+| Citation key(s) | `:Uribe2008` |
+| Evidence status | Secondary transcription checked against Uribe's page images; Lucca original not equation-verified. |
+
+The mixed term is verified against Uribe's equation (6a), with signed
+coordinates converted to positive height and burial depth. The Lucca1994
+selection retains the original attribution; its same-medium branches are
+the existing Carson and Pollaczek formulas, not additional Lucca equations.
 
 **Expression.** Its distinctive mixed term is
 

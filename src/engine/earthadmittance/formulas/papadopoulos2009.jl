@@ -19,8 +19,18 @@ media(::Formula{:Papadopoulos2009}) = Val(:stratified)
 """
 $(TYPEDSIGNATURES)
 
-**Identification.** Two-layer overhead potential coefficient with magnetic,
-dielectric, conductive, and longitudinal-propagation effects.
+## Identification and source
+
+| Field | Value |
+| --- | --- |
+| Family | External admittance |
+| Geometry | Two infinite, electrically thin overhead conductors; the self term uses the source-prescribed radius substitution. Conductor internal and insulation terms are excluded. |
+| Calculated quantities | Mutual earth-return potential correction, self correction, homogeneous reduction, and admittance-matrix assembly. |
+| Earth structure | Air above a finite earth layer of thickness ``d`` and a lower earth half-space. |
+| Model and approximation | Integral representation under the thin-conductor quasi-TEM model. The 2010 derivation replaces the unknown longitudinal constant by the air value and applies a Bessel transform; no additional matrix inversion is applied to (2b). |
+| Main source | T. A. Papadopoulos, G. K. Papagiannis, and D. A. Labridis (2009); the 2010 paper supplies the auxiliary derivation. |
+| Citation key(s) | Primary: `:Papadopoulos2009`; auxiliary derivation: `:Papadopoulos2010a` |
+| Evidence status | Both publications checked against page images. Prime/index conflicts, the root branch, and scalar-inverse interpretation remain unresolved. |
 
 **Expression.**
 
@@ -106,12 +116,15 @@ function earth_potential_coefficient(
     state = functor.state
     geometry = _geometry(pair)
     d = state.thickness[2]
+    # Common permeability and bulk-square scales cancel from F and G.
+    # Removing them avoids products below Float32's normal range.
+    mu0,mu1,mu2=state.mu ./ state.mu[1]
+    gamma0,gamma1,gamma2=state.gamma_medium_squared ./
+        maximum(abs,state.gamma_medium_squared)
     integral = _quadrature(state) do lambda
-        a0 = sqrt(lambda^2 + state.gamma_medium_squared[1] + state.gamma_squared)
-        a1 = sqrt(lambda^2 + state.gamma_medium_squared[2] + state.gamma_squared)
-        a2 = sqrt(lambda^2 + state.gamma_medium_squared[3] + state.gamma_squared)
-        mu0, mu1, mu2 = state.mu
-        gamma0, gamma1, gamma2 = state.gamma_medium_squared
+        a0 = spectral_root(lambda^2 + state.gamma_medium_squared[1] + state.gamma_squared,state.jω)
+        a1 = spectral_root(lambda^2 + state.gamma_medium_squared[2] + state.gamma_squared,state.jω)
+        a2 = spectral_root(lambda^2 + state.gamma_medium_squared[3] + state.gamma_squared,state.jω)
         s01 = a0 * mu1 + a1 * mu0
         d01 = a0 * mu1 - a1 * mu0
         s12 = a1 * mu2 + a2 * mu1
@@ -133,7 +146,7 @@ function earth_potential_coefficient(
         (F + G) * exp(-lambda * geometry.H) * cos(lambda * geometry.y_ij)
     end
     return (log(geometry.D_ij / geometry.d_ij) + 2 * integral) /
-           (2π * state.epsilon[1])
+           (2*(one(geometry.H)*π) * state.epsilon[1])
 end
 
 :Papadopoulos2009

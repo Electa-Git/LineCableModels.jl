@@ -93,7 +93,7 @@ keyword slot in which the selection appears.
 # Examples
 
 ```julia
-earth = formula(:Papadopoulos2010)
+earth = formula(:Papadopoulos2010b)
 soil = formula(:CIGRE2019; epsilon_infinity=10.0)
 equivalent = formula(:Xue2021; order=:before)
 ```

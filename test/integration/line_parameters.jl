@@ -82,10 +82,10 @@
     @test workspace.invariants.cable_indices ==
           [findall(entry -> entry.cable == cable, problem.system.terminal_order)
            for cable in 1:ncables(problem.system)]
-    LineCableModels.Engine._capture_buffers(
+    capture_disabled(workspace)=LineCableModels.Engine._capture_buffers(
         Float64, workspace.input, Val(false))
-    @test @allocated(LineCableModels.Engine._capture_buffers(
-        Float64, workspace.input, Val(false))) <= 1024
+    capture_disabled(workspace)
+    @test @allocated(capture_disabled(workspace)) <= 1024
     @test LineCableModels.Engine._capture_buffers(
         Float64, workspace.input, Val(false)) === nothing
 
@@ -179,7 +179,7 @@ end
         semicon(material, frequency, temperature, values)
     end
 
-    earth_z_routes=EZ.routes(Val(:Papadopoulos2010))
+    earth_z_routes=EZ.routes(Val(:Papadopoulos2010b))
     earth_z_self=(functor, pair)->begin
         push!(events, :earth_z)
         earth_z_routes.self(functor, pair)
@@ -188,7 +188,7 @@ end
         push!(events, :earth_z)
         earth_z_routes.mutual(functor, pair)
     end
-    earth_y_routes=EY.routes(Val(:Papadopoulos2010))
+    earth_y_routes=EY.routes(Val(:Papadopoulos2010b))
     earth_y_self=(functor, pair)->begin
         push!(events, :earth_y)
         earth_y_routes.self(functor, pair)
@@ -201,7 +201,7 @@ end
     formulation=Formulation(
         insulation_impedance = formula(:Ametani1980; route = local_z),
         earth_impedance = formula(
-            :Papadopoulos2010;
+            :Papadopoulos2010b;
             self = earth_z_self,
             mutual = earth_z_mutual
         ),
@@ -214,7 +214,7 @@ end
             route = local_semicon_y
         ),
         earth_admittance = formula(
-            :Papadopoulos2010;
+            :Papadopoulos2010b;
             self = earth_y_self,
             mutual = earth_y_mutual
         ),
@@ -292,10 +292,10 @@ end
     formulation=Formulation(
         internal_impedance = :Schelkunoff1934,
         insulation_impedance = :Ametani1980,
-        earth_impedance = :Papadopoulos2010,
+        earth_impedance = :Papadopoulos2010b,
         insulation_admittance = :Ametani2004,
         semicon_admittance = :Ametani2004,
-        earth_admittance = :Papadopoulos2010,
+        earth_admittance = :Papadopoulos2010b,
         options = (ideal_transposition = false,)
     )
     parameters=compute(problem, formulation)
@@ -672,13 +672,13 @@ end
           [(1, 1), (1, 2), (2, 2)]
     @test_throws ArgumentError compute(mixed_problem, ordinary)
 
-    impedance=EarthImpedance.Formula(:Papadopoulos2010)
+    impedance=EarthImpedance.Formula(:Papadopoulos2010b)
     impedance_default=EarthImpedance.routes(impedance).mutual
     impedance_route=(functor,
         pair)->pair.layers==(2, 2) ?
                impedance_default(functor, pair) :
                zero(complex(pair.separation))
-    admittance=EarthAdmittance.Formula(:Papadopoulos2010)
+    admittance=EarthAdmittance.Formula(:Papadopoulos2010b)
     admittance_default=EarthAdmittance.routes(admittance).mutual
     admittance_route=(functor,
         pair)->pair.layers==(2, 2) ?
@@ -686,12 +686,12 @@ end
                zero(complex(pair.separation))
     experiment=Formulation(
         earth_impedance = EarthImpedance.Formula(
-            :Papadopoulos2010;
+            :Papadopoulos2010b;
             self = impedance_route,
             mutual = impedance_route
         ),
         earth_admittance = EarthAdmittance.Formula(
-            :Papadopoulos2010;
+            :Papadopoulos2010b;
             self = admittance_route,
             mutual = admittance_route
         ),

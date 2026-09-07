@@ -136,7 +136,7 @@ function cable_potential!(
             destination[conductors[row], conductors[column]] += tails[max(row, column)]
         end
     end
-    return destination
+    return _pipe_potential!(destination,input,methods,frequency,temperature,s)
 end
 
 """
@@ -163,6 +163,9 @@ function cable_admittance!(
         s::Complex{T},
         layer_coefficients::AbstractVector{Complex{T}}
 ) where {T <: Real}
+    isempty(input.pipes) || throw(ArgumentError(
+        "common-pipe admittance requires assembly and inversion of the complete potential matrix"
+    ))
     fill!(destination, zero(Complex{T}))
     dielectric!(layer_coefficients, input, methods, frequency, temperature, s)
     @inbounds for conductors in input.assemblies

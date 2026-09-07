@@ -4,8 +4,24 @@ assumptions(::Val{:MartinsBritto2020}) = (layer = -1,)
 """
 $(TYPEDSIGNATURES)
 
-**Identification.** Equivalent real conductivity; relative permittivity and
-permeability are inherited from the selected reconstruction layer.
+## Identification and source
+
+| Field | Value |
+| --- | --- |
+| Family | External impedance |
+| Geometry | Thin overhead conductors; conductor internals/insulation are outside the recursion. |
+| Calculated quantities | Frequency-dependent real equivalent conductivity that maps an ``N``-layer earth into a homogeneous Carson earth-return model |
+| Earth structure | ``N`` flat horizontal layers; bottom layer semi-infinite. |
+| Model and approximation | Each adjacent pair is replaced by the source's two-layer real equivalent conductivity, recursively from the bottom. The resulting ``\\sigma_{eq}(f)`` is inserted into a homogeneous Carson kernel; it is not an exact multilayer reflection factor. |
+| Main source | A. G. Martins-Britto, F. V. Lopes, and S. R. M. J. Rondineau (2020) |
+| Citation key(s) | `:MartinsBritto2020` |
+| Evidence status | Publication page image verified |
+
+**Numerical scope.** The registered recursion retains each finite layer's scalar
+permeability in its penetration factor. The source validates nonmagnetic
+examples; no general magnetic-earth accuracy claim is made. It defines conductivity only; the
+homogeneous impedance formula is selected separately. Reconstructed permittivity
+and permeability are inherited from the selected earth layer.
 
 **Expression.** For layer ``k`` of thickness ``h_k``,
 
@@ -13,10 +29,10 @@ permeability are inherited from the selected reconstruction layer.
 \\sigma_{eq,k}=\\sigma_k\\left[
 \\frac{\\sqrt{\\sigma_k}+\\sqrt{\\sigma_{eq,k+1}}-
 (\\sqrt{\\sigma_k}-\\sqrt{\\sigma_{eq,k+1}})
-e^{-2h_k\\sqrt{\\pi f\\mu_0\\sigma_k}}}
+e^{-2h_k\\sqrt{\\pi f\\mu_k\\sigma_k}}}
 {\\sqrt{\\sigma_k}+\\sqrt{\\sigma_{eq,k+1}}+
 (\\sqrt{\\sigma_k}-\\sqrt{\\sigma_{eq,k+1}})
-e^{-2h_k\\sqrt{\\pi f\\mu_0\\sigma_k}}}
+e^{-2h_k\\sqrt{\\pi f\\mu_k\\sigma_k}}}
 \\right]^2.
 ```
 
@@ -35,13 +51,13 @@ description(::Formula{:MartinsBritto2020}) =
         conductivity_bottom,
         thickness,
         frequency,
-        vacuum_permeability
+        permeability
 )
     root_top = sqrt(conductivity_top)
     root_bottom = sqrt(conductivity_bottom)
     decay = exp(
         -2 * thickness * sqrt(
-            (one(frequency) * π) * frequency * vacuum_permeability * conductivity_top
+            (one(frequency) * π) * frequency * permeability * conductivity_top
         )
     )
     difference = root_top - root_bottom
@@ -53,7 +69,7 @@ end
 """
 $(TYPEDSIGNATURES)
 
-Reduce a horizontally layered, nonmagnetic earth to the real equivalent
+Reduce a horizontally layered earth to the real equivalent
 conductivity proposed by Martins–Britto et al. The recursion is evaluated from
 the bottommost soil layer to the surface:
 
@@ -62,10 +78,10 @@ the bottommost soil layer to the surface:
 \\left[
 \\frac{\\sqrt{\\sigma_k}+\\sqrt{\\sigma_{\\mathrm{eq},k+1}}-
       (\\sqrt{\\sigma_k}-\\sqrt{\\sigma_{\\mathrm{eq},k+1}})
-      e^{-2h_k\\sqrt{\\pi f\\mu_0\\sigma_k}}}
+      e^{-2h_k\\sqrt{\\pi f\\mu_k\\sigma_k}}}
      {\\sqrt{\\sigma_k}+\\sqrt{\\sigma_{\\mathrm{eq},k+1}}+
       (\\sqrt{\\sigma_k}-\\sqrt{\\sigma_{\\mathrm{eq},k+1}})
-      e^{-2h_k\\sqrt{\\pi f\\mu_0\\sigma_k}}}
+      e^{-2h_k\\sqrt{\\pi f\\mu_k\\sigma_k}}}
 \\right]^2.
 ```
 
@@ -93,7 +109,6 @@ function equivalent_material(
         values::NamedTuple
 ) where {T <: Real}
     _horizontal(model, :MartinsBritto2020)
-    _nonmagnetic(mu_r, :MartinsBritto2020)
     base = _material(rho, eps_r, mu_r, model, values.layer)
     unit = one(frequency)
     mu0 = unit * 4 * (unit * π) * (unit * 10)^(-7)
@@ -106,7 +121,7 @@ function equivalent_material(
             conductivity_equivalent,
             model.layers[layer].thickness,
             frequency,
-            mu0
+            mu0*mu_r[layer]
         )
     end
     return EarthMaterial(

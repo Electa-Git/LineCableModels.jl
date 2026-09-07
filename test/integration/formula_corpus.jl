@@ -12,38 +12,36 @@
 
     expected_internal=(
         :Ametani2004,
-        :AmetaniFuse1992,
+        :Ametani1992,
         :Schelkunoff1934,
-        :WedepohlWilcox1973,
+        :Wedepohl1973,
         :Zhao2020
     )
     expected_earth_impedance=(
-        :AlvaradoBetancourt1983,
-        :Ametani1974,
+         :Alvarado1983,
         :Ametani2009,
         :Bridges1995,
         :Carson1926,
-        :Gary1976,
+        :Dubanton1969,
         :Lucca1994,
-        :Magalhaes2018,
-        :MartinsBritto2024,
+        :Pawlik2018,
         :Nakagawa1973,
         :Noda2006,
         :Papadopoulos2009,
-        :Papadopoulos2010,
+        :Papadopoulos2010b,
         :Papadopoulos2011,
         :Petrache2005,
         :Pettersson1994,
         :Pollaczek1926,
         :Saad1996,
-        :Sunde1968,
+        :Sunde1949,
         :Theethayi2007,
-        :Theodoulidis2015,
+        :Lima2012,
         :Tsiamitros2008,
         :Vance1978,
-        :WedepohlWilcox1973,
+        :Wedepohl1973,
         :Wise1934,
-        :Xue2018
+        :Xue2018b
     )
     expected_earth_admittance=(
         :Ametani2021,
@@ -51,13 +49,12 @@
         :Magalhaes2018,
         :MartinsBritto2024,
         :Papadopoulos2009,
-        :Papadopoulos2010,
+        :Papadopoulos2010b,
         :Papadopoulos2011,
         :Pettersson1994,
-        :Pollaczek1926,
         :Theethayi2007,
         :Wise1948,
-        :Xue2018,
+        :Xue2018b,
         :Xue2021
     )
 
@@ -100,10 +97,10 @@
     mu=Float64[mu0, mu0]
     s=ComplexF64(0.0, 2π*50.0)
     pair=EarthPair(1, 2, (-1.0, -1.2), 1.0, (2, 2))
-    formula=EI.Formula(:Papadopoulos2010)
+    formula=EI.Formula(:Papadopoulos2010b)
     functor=@inferred formula(rho, epsilon, mu, s, nothing)
     @test isfinite(@inferred functor(Val(:mutual), pair))
-    admittance=EA.Formula(:Papadopoulos2010)
+    admittance=EA.Formula(:Papadopoulos2010b)
     admittance_functor=@inferred admittance(rho, epsilon, mu, s, nothing)
     @test isfinite(@inferred admittance_functor(Val(:mutual), pair))
 end
@@ -292,38 +289,47 @@ end
     underground=two_bare_wires()
     overhead=two_bare_wires(y = 1.0)
     underground_impedance=(
+        :DeLima2007,
+        :Vance1978,
+        :DeConti2023a,
+        :DeConti2023b,
         :Ametani2009,
         :Lucca1994,
         :Magalhaes2018,
-        :Papadopoulos2010,
+        :Papadopoulos2010b,
         :Petrache2005,
         :Pollaczek1926,
         :Saad1996,
         :Theethayi2007,
         :Tsiamitros2008,
-        :WedepohlWilcox1973,
-        :Xue2018
+        :Wedepohl1973,
+        :Xue2018b
     )
     overhead_impedance=(
+        :DeLima2007,
+        :Deri1981,
+        :Wise1931,
         :AlvaradoBetancourt1983,
         :Ametani2009,
         :Carson1926,
-        :Gary1976,
+        :Dubanton1969,
         :Lucca1994,
         :Noda2006,
         :Pettersson1994,
         :Pollaczek1926,
-        :Sunde1968,
-        :Theodoulidis2015,
+        :Sunde1949,
+        :Lima2012,
         :Tsiamitros2008,
         :Wise1934
     )
     underground_admittance=(
+        :DeConti2023a,
+        :DeConti2023b,
         :Magalhaes2018,
-        :Papadopoulos2010,
+        :Papadopoulos2010b,
         :Pollaczek1926,
         :Theethayi2007,
-        :Xue2018,
+        :Xue2018b,
         :Xue2021
     )
     overhead_admittance=(
@@ -363,7 +369,7 @@ end
         @test finite_reciprocal(result)
     end
 
-    for identifier in (:Schelkunoff1934, :AmetaniFuse1992)
+    for identifier in (:Schelkunoff1934, :Ametani1992)
         result=compute(underground,
             Formulation(
                 internal_impedance = identifier,
@@ -378,7 +384,7 @@ end
             earth_impedance = :Petrache2005,
             earth_admittance = :IdealGround
         )))
-    for identifier in (:Ametani2004, :Gustavsen2013)
+    for identifier in (:Ametani1980, :Ametani2004, :Weeks1984)
         result=compute(underground,
             Formulation(
                 insulation_admittance = identifier,
@@ -433,14 +439,14 @@ end
         @test value ≈ wise rtol=1.0e-10
     end
 
-    homogeneous_z=EI.Formula(:Papadopoulos2010)(
+    homogeneous_z=EI.Formula(:Papadopoulos2010b)(
         rho2, epsilon2, mu2, s, nothing
     )(Val(:mutual), underground)
     stratified_z=EI.Formula(:Papadopoulos2011)(
         rho3, epsilon3, mu3, s, nothing, nothing, thickness
     )(Val(:mutual), underground)
     @test stratified_z ≈ homogeneous_z rtol=1.0e-9
-    homogeneous_y=EA.Formula(:Papadopoulos2010)(
+    homogeneous_y=EA.Formula(:Papadopoulos2010b)(
         rho2, epsilon2, mu2, s, nothing
     )(Val(:mutual), underground)
     stratified_y=EA.Formula(:Papadopoulos2011)(
@@ -459,7 +465,7 @@ end
     epsilon_mixed=Float64[epsilon0, epsilon0]
     mu_mixed=Float64[mu0, mu0]
     radial_self=EarthPair(1, 1, (-1.0, -1.0), 0.0425, (2, 2))
-    for identifier in (:Bridges1995, :Vance1978)
+    for identifier in (:Bridges1995,)
         radial=EI.Formula(identifier)(
             rho_mixed, epsilon_mixed, mu_mixed, s, nothing
         )
@@ -467,10 +473,7 @@ end
         @test_throws ArgumentError radial(Val(:mutual), underground)
     end
     for identifier in (
-            :Petrache2005,
-            :Saad1996,
             :Theethayi2007,
-            :WedepohlWilcox1973
         )
         radial=EI.Formula(identifier)(
             rho_mixed, epsilon_mixed, mu_mixed, s, nothing
@@ -531,13 +534,13 @@ end
             (:overhead, :underground, :mixed)
         )
     end
-    xue=EA.Formula(:Xue2018)
+    xue=EA.Formula(:Xue2018b)
     xue_functor=xue(rho_mixed, epsilon_mixed, mu_mixed, s, nothing)
     for name in (:infinite, :surface, :penetration)
         @test isfinite(getproperty(EA.routes(xue), name)(xue_functor, underground))
     end
     surface=EA.Formula(
-        :Xue2018;
+        :Xue2018b;
         self = EA.routes(xue).surface,
         mutual = EA.routes(xue).surface
     )
@@ -576,7 +579,7 @@ end
 
     for identifier in (
         :Schelkunoff1934,
-        :WedepohlWilcox1973,
+        :Wedepohl1973,
         :Zhao2020
     )
         functor=LineCableModels.Engine.InternalImpedance.Formula(identifier)(

@@ -8,6 +8,7 @@ using Markdown
 using TOML
 
 include("type_trees.jl")
+include("theory_pages.jl")
 
 const ROOT_DIR = normpath(joinpath(@__DIR__, ".."))
 const DOCS_SRC_DIR = joinpath(@__DIR__, "src")
@@ -104,7 +105,9 @@ function project_metadata()
     )
 end
 
-function formulation_catalogue(module_owner::Module, path::AbstractString...)
+function formulation_catalogue(
+        module_owner::Module, path::AbstractString...; identifier = nothing
+)
     directory = normpath(joinpath(ROOT_DIR, "src", path...))
     entries = NamedTuple[]
 
@@ -126,6 +129,11 @@ function formulation_catalogue(module_owner::Module, path::AbstractString...)
 
     sort!(entries; by = entry -> basename(entry.source))
     isempty(entries) && error("no formulation docstrings found in $directory")
+    if identifier !== nothing
+        selected = filter(entry -> entry.identifier === identifier, entries)
+        length(selected) == 1 || error("expected one formulation :$identifier in $directory")
+        return Markdown.parse(only(selected).body)
+    end
     return Markdown.parse(join(
         ("### `:$(entry.identifier)`\n\n$(entry.body)" for entry in entries),
         "\n\n"
@@ -389,6 +397,7 @@ tutorials = build_tutorials!()
 tutorial_pages = last.(tutorials)
 generate_maintained_pages!()
 case_pages = build_case_catalogue!()
+theory_pages = build_theory_pages!()
 
 DocMeta.setdocmeta!(
     LineCableModels,
@@ -400,7 +409,16 @@ DocMeta.setdocmeta!(
     recursive = true
 )
 
-bibliography = CitationBibliography(joinpath(DOCS_SRC_DIR, "bibliography.bib"); style = :numeric)
+bibliography = mktemp() do bibfile, io
+    for source in (
+            joinpath(DOCS_SRC_DIR, "bibliography.bib"),
+            joinpath(THEORY_SOURCE, "references.bib")
+        )
+        write(io, read(source, String), "\n")
+    end
+    close(io)
+    CitationBibliography(bibfile; style = :numeric)
+end
 
 makedocs(;
     modules = [LineCableModels],
@@ -433,6 +451,7 @@ makedocs(;
     ),
     pages = [
         "Home" => "index.md",
+        hide("Theory" => "theory/contents.md", theory_pages),
         "Tutorials" => Any["Contents" => "tutorials.md", tutorials...],
         "User guide" => Any[
             "Cable data model" => "data-model.md",

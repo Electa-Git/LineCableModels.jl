@@ -11,6 +11,8 @@ $(IMPORTS)
 """
 module EarthAdmittance
 
+import ..Engine: double_exponential
+
 # Export public API
 export Formula, formula_id, routes, assumptions, propagation, formulas, Γ
 
@@ -22,6 +24,14 @@ using DocStringExtensions: IMPORTS, TYPEDEF, TYPEDFIELDS, TYPEDSIGNATURES
 import ...LineCableModels: nominal
 import ..Engine: EarthAdmittanceFormulation, formula_id, bessel_difference
 #! explicit-imports: off
+import ..Engine: EarthImpedance
+import ..Engine: scaled_expint_negative
+#! explicit-imports: on
+import ..Engine: spectral_root
+#! explicit-imports: off
+import ..Engine: pettersson_images
+#! explicit-imports: on
+#! explicit-imports: off
 import ...LineCableModels: FormulaMethod
 import ..Engine: description, conductivity, media, special_besselk
 #! explicit-imports: on
@@ -31,10 +41,11 @@ vacuum_permittivity(value) = one(value) * 88541878128 * (one(value) * 10)^(-22)
 vacuum_permeability(value) = one(value) * 4 * (one(value) * π) * (one(value) * 10)^(-7)
 
 "Registered earth-admittance formula selected by `:default`."
-const DEFAULT = :Papadopoulos2010
+const DEFAULT = :Papadopoulos2010b
 
 include("interface.jl")
 include("homogeneous.jl")
+include("scalarpotential.jl")
 
 #! explicit-imports: off
 const FORMULAS = let

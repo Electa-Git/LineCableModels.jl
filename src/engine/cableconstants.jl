@@ -387,6 +387,9 @@ function CableConstantsWorkspace(
         formulation::CableConstantsFormulation,
         cable::LocalCableData{T}
 ) where {T <: Real}
+    isempty(cable.pipes) || throw(ArgumentError(
+        "common-pipe coupling requires LineParametersProblem, not independent CableConstants"
+    ))
     @inbounds for assembly in cable.assemblies
         isempty(cable.dielectric_ranges[first(assembly)]) && throw(ArgumentError(
             "assembly core :$(cable.terminals[first(assembly)]) has no radial dielectric path",
@@ -438,7 +441,8 @@ function _solve!(
         workspace.cable,
         workspace.rho,
         formulation.methods,
-        s
+        s;
+        temperature=formulation.options.temperature_correction ? problem.temperature : nothing
     )
     cable_admittance!(
         buffers.Y,

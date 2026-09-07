@@ -18,8 +18,18 @@ propagation(::Val{:Noda2006}) = Val(:zero)
 """
 $(TYPEDSIGNATURES)
 
-**Identification.** Double-logarithmic approximation to Carson's overhead
-integral.
+## Identification and source
+
+| Field | Value |
+| --- | --- |
+| Family | External impedance |
+| Geometry | Straight parallel cylindrical conductors with radii ``r_i``, heights ``h_i``, and horizontal separation ``x_{ij}``; no insulation layer. |
+| Calculated quantities | Per-unit-length self and mutual ground-return impedances for parallel overhead cylindrical conductors |
+| Earth structure | Homogeneous lossy half-space below a plane interface. |
+| Model and approximation | Noda begins from Carson's integral (2), uses a two-logarithm form, enforces ``A+B=1`` and the infinite-frequency condition ``A\\alpha+B\\beta=1``, then deliberately omits the exact zero-frequency matching condition because the minimax fit is better between the limits. Piecewise-linear ``A(\\theta)`` and ``\\alpha(\\theta)`` are least-squares fits to minimax solutions; ``B=1-A`` and ``\\beta=(1-A\\alpha)/(1-A)`` follow analytically. The fitted formula is an approximation, not a full-wave exact result. |
+| Main source | Taku Noda (2006) |
+| Citation key(s) | `:Noda2006` |
+| Evidence status | Original PDF page images checked |
 
 **Expression.**
 
@@ -97,7 +107,8 @@ function earth_impedance(
     state = functor.state
     geometry = _geometry(pair)
     R = typeof(geometry.H)
-    θ = atan(geometry.y_ij, geometry.H) * R(180) / R(π)
+    lateral=pair.row==pair.column ? zero(R) : geometry.y_ij
+    θ = atan(lateral, geometry.H) * R(180) / R(π)
     threshold = R(50.45)
     if θ <= threshold
         A = R(0.07360)
@@ -108,13 +119,11 @@ function earth_impedance(
     end
     β = (1 - A * a) / (1 - A)
     p_g = inv(state.gamma[2])
-    S_a = sqrt((geometry.H + 2a * p_g)^2 + geometry.y_ij^2)
-    S_β = sqrt((geometry.H + 2β * p_g)^2 + geometry.y_ij^2)
-    correction = A * log(S_a / geometry.D_ij) +
-                 (1 - A) * log(S_β / geometry.D_ij)
+    S_a = sqrt((geometry.H + 2a * p_g)^2 + lateral^2)
+    S_β = sqrt((geometry.H + 2β * p_g)^2 + lateral^2)
     πT = one(geometry.H) * π
     return state.jω * state.mu[1] / (2πT) *
-           (log(geometry.D_ij / geometry.d_ij) + correction)
+           (A*log(S_a/geometry.d_ij)+(1-A)*log(S_β/geometry.d_ij))
 end
 
 :Noda2006

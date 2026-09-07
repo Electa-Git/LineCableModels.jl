@@ -3,9 +3,18 @@ assumptions(::Val{:Ametani2004}) = (;)
 """
 $(TYPEDSIGNATURES)
 
-**Identification.** Complex-permittivity representation of a concentric
-semiconducting screen. Its conduction and displacement currents enter the same
-radial dielectric network as the adjacent insulation layers.
+## Identification and source
+
+| Field | Value |
+| --- | --- |
+| Family | Insulation admittance |
+| Geometry | Semiconductor occupies annulus ``b'<r<c``; main insulation occupies ``c<r<r_0``; concentric cylindrical interfaces. |
+| Calculated quantities | Shunt admittance of a cylindrical semiconducting layer; series radial combination with the main insulation admittance |
+| Earth structure | Not applicable. |
+| Model and approximation | Not an analytical approximation within the scalar, concentric, radial dielectric model. The constitutive representation treats static resistivity ``\\rho_2`` as a frequency-independent conduction term and adds it to displacement current through complex permittivity. |
+| Main source | A. Ametani, Y. Miyamoto, and N. Nagaoka (2004) |
+| Citation key(s) | `:Ametani2004` |
+| Evidence status | PDF page images checked |
 
 **Expression.** For screen resistivity ``\\rho_s`` and permittivity
 ``\\varepsilon_s``,
@@ -67,10 +76,8 @@ Ohno, and Nagaoka (2015), Eqs. 2.66–2.67.
         temperature::T,
         values::NamedTuple
 ) where {T <: Real}
-    ε₀ = one(T) * 88541878128 * (one(T) * 10)^(-22)
-    ω = 2 * (one(T) * π) * frequency
-    return conductivity(material.rho) +
-           complex(zero(T), ω) * ε₀ * material.eps_r
+    return InsulationAdmittance.insulation_material(
+        Val(:Ametani2004),material,frequency,temperature,values)
 end
 
 :Ametani2004

@@ -18,7 +18,20 @@ propagation(::Val{:Bridges1995}) = Val(:zero)
 """
 $(TYPEDSIGNATURES)
 
-**Identification.** Low-frequency radial approximation for a bare conductor
+## Identification and source
+
+| Field | Value |
+| --- | --- |
+| Family | External impedance |
+| Geometry | One thin bare or concentrically insulated buried wire, sampled at its external radius r. |
+| Calculated quantities | Approximate external self impedance |
+| Earth structure | Homogeneous conducting nonmagnetic earth. |
+| Model and approximation | Leading radial logarithm, with displacement current and the explicit interface-depth correction omitted. |
+| Main source | G. E. J. Bridges (1995), as reproduced by Ametani et al. (2021) |
+| Citation key(s) | Attributed source: `:Bridges1995`; equation witness: `:Ametani2021` |
+| Evidence status | IET book page image checked, equation (2.51). |
+
+**Description.** Low-frequency radial approximation for a bare conductor
 buried in a conductive half-space.
 
 **Expression.**
@@ -68,8 +81,8 @@ function earth_impedance(
 )
     _require(pair, Val(:underground))
     state = functor.state
-    e_c = oftype(pair.separation, 1.7811)
-    return -state.jω * state.mu[1] / (2π) *
+    e_c = oftype(pair.separation, 17811) / 10000
+    return -state.jω * state.mu[1] / (2 * (one(pair.separation)*π)) *
            log(e_c * state.gamma[2] * pair.separation / 2)
 end
 

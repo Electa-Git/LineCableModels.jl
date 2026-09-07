@@ -1,4 +1,4 @@
-function routes(identifier::Val{:WedepohlWilcox1973})
+function routes(identifier::Val{:Wedepohl1973})
     (
         inner = FormulaMethod(identifier, internal_impedance, Val(:inner)),
         outer = FormulaMethod(identifier, internal_impedance, Val(:outer)),
@@ -6,12 +6,25 @@ function routes(identifier::Val{:WedepohlWilcox1973})
     )
 end
 
-assumptions(::Val{:WedepohlWilcox1973}) = (;)
+assumptions(::Val{:Wedepohl1973}) = (;)
 
 """
 $(TYPEDSIGNATURES)
 
-**Identification.** Hollow-shell approximation retaining inner, outer, and
+## Identification and source
+
+| Field | Value |
+| --- | --- |
+| Family | Internal impedance |
+| Geometry | Homogeneous circular conducting annulus with inner radius a and outer radius b. |
+| Calculated quantities | Inner, outer, and transfer surface impedances |
+| Earth structure | Not applicable. |
+| Model and approximation | Hyperbolic approximation to the cylindrical surface-impedance relations; not an exact low-frequency formula. |
+| Main source | L. M. Wedepohl and D. J. Wilcox (1973) |
+| Citation key(s) | Primary: `:Wedepohl1973`; equation witness: `:Ametani2021` |
+| Evidence status | IET book page images checked, equations (A1.56)–(A1.58). |
+
+**Description.** Hollow-shell approximation retaining inner, outer, and
 transfer surface impedances.
 
 **Expression.**
@@ -22,7 +35,7 @@ Z_{iw}&=\\frac{\\rho m}{2\\pi a}\\coth[m(b-a)]
 -\\frac{\\rho}{2\\pi b(a+b)},\\\\
 Z_{ow}&=\\frac{\\rho m}{2\\pi b}\\coth[m(b-a)]
 +\\frac{\\rho}{2\\pi b(a+b)},\\\\
-Z_{mw}&=\\frac{\\rho m}{\\pi(a+b)}\\operatorname{csch}[m(b-a)].
+Z_{mw}&=\\frac{\\rho m}{\\pi(a+b)}\\mathrm{csch}[m(b-a)].
 \\end{aligned}
 ```
 
@@ -30,7 +43,7 @@ Z_{mw}&=\\frac{\\rho m}{\\pi(a+b)}\\operatorname{csch}[m(b-a)].
 Ametani et al., *Electromagnetic Transients in Large HV Cable Networks*, IET,
 2021, Appendix A1.4.2, Eqs. A1.56–A1.58.
 """
-function description(::Formula{:WedepohlWilcox1973})
+function description(::Formula{:Wedepohl1973})
     "Wedepohl-Wilcox approximate shell impedances (1973)"
 end
 
@@ -45,7 +58,7 @@ Z_{iw}=\\frac{\\rho m}{2\\pi a}\\coth[m(b-a)]
 ```
 
 ```math
-Z_{mw}=\\frac{\\rho m}{\\pi(a+b)}\\operatorname{csch}[m(b-a)],
+Z_{mw}=\\frac{\\rho m}{\\pi(a+b)}\\mathrm{csch}[m(b-a)],
 \\qquad
 Z_{ow}=\\frac{\\rho m}{2\\pi b}\\coth[m(b-a)]
 +\\frac{\\rho}{2\\pi b(a+b)},
@@ -72,7 +85,7 @@ The approximation applies only to a hollow circular shell. It implements
 Wedepohl and Wilcox (1973) as reproduced in Ametani et al. (2021), Appendix
 A1.4.2, Eqs. A1.56–A1.58.
 =#
-function (formula::Formula{:WedepohlWilcox1973})(
+function (formula::Formula{:Wedepohl1973})(
         r_in::T,
         r_ex::T,
         rho_c::T,
@@ -81,63 +94,63 @@ function (formula::Formula{:WedepohlWilcox1973})(
 ) where {T <: Real}
     r_in > zero(T) || throw(DomainError(
         r_in,
-        ":WedepohlWilcox1973 requires a hollow conductor"
+        ":Wedepohl1973 requires a hollow conductor"
     ))
     μ = vacuum_permeability(r_in) * mur_c
     m = sqrt(jω * μ / rho_c)
     state = (; r_in, r_ex, rho_c, mur_c, jω, μ, m)
     return Functor{
-        :WedepohlWilcox1973,
+        :Wedepohl1973,
         typeof(formula.routes),
         typeof(state)
     }(formula.routes, state)
 end
 
-@inline function (functor::Functor{:WedepohlWilcox1973})(::Val{:inner})
+@inline function (functor::Functor{:Wedepohl1973})(::Val{:inner})
     return functor.routes.inner(functor.state)
 end
 
-@inline function (functor::Functor{:WedepohlWilcox1973})(::Val{:outer})
+@inline function (functor::Functor{:Wedepohl1973})(::Val{:outer})
     return functor.routes.outer(functor.state)
 end
 
-@inline function (functor::Functor{:WedepohlWilcox1973})(::Val{:mutual})
+@inline function (functor::Functor{:Wedepohl1973})(::Val{:mutual})
     return functor.routes.mutual(functor.state)
 end
 
 @inline function internal_impedance(
-        ::Val{:WedepohlWilcox1973},
+        ::Val{:Wedepohl1973},
         ::Val{:inner},
         state
 )
     a = state.r_in
     b = state.r_ex
     x = state.m * (b - a)
-    return state.rho_c * state.m / (2π * a) * coth(x) -
-           state.rho_c / (2π * b * (a + b))
+    return state.rho_c * _shell_factors(state.m,b-a).coth / (2 * (one(a)*π) * a) -
+           state.rho_c / (2 * (one(state.r_in)*π) * b * (a + b))
 end
 
 @inline function internal_impedance(
-        ::Val{:WedepohlWilcox1973},
+        ::Val{:Wedepohl1973},
         ::Val{:outer},
         state
 )
     a = state.r_in
     b = state.r_ex
     x = state.m * (b - a)
-    return state.rho_c * state.m / (2π * b) * coth(x) +
-           state.rho_c / (2π * b * (a + b))
+    return state.rho_c * _shell_factors(state.m,b-a).coth / (2 * (one(b)*π) * b) +
+           state.rho_c / (2 * (one(state.r_in)*π) * b * (a + b))
 end
 
 @inline function internal_impedance(
-        ::Val{:WedepohlWilcox1973},
+        ::Val{:Wedepohl1973},
         ::Val{:mutual},
         state
 )
     a = state.r_in
     b = state.r_ex
     x = state.m * (b - a)
-    return state.rho_c * state.m / (π * (a + b) * sinh(x))
+    return state.rho_c * _shell_factors(state.m,b-a).csch / ((one(a)*π) * (a + b))
 end
 
-:WedepohlWilcox1973
+:Wedepohl1973

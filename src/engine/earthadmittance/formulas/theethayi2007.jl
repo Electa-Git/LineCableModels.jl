@@ -19,7 +19,20 @@ propagation(::Val{:Theethayi2007}) = Val(:zero)
 """
 $(TYPEDSIGNATURES)
 
-**Identification.** Underground earth-admittance relation derived from the
+## Identification and source
+
+| Field | Value |
+| --- | --- |
+| Family | External admittance |
+| Geometry | Buried self or horizontally separated mutual conductor pair. |
+| Calculated quantities | Potential coefficients from the selected logarithmic-exponential impedance |
+| Earth structure | Homogeneous conducting nonmagnetic earth below air. |
+| Model and approximation | Vance scalar conversion with the Theethayi impedance approximation; matrix extension follows the IET book. |
+| Main source | N. Theethayi, R. Thottappillil, M. Paolone, C. A. Nucci, and F. Rachidi (2007) |
+| Citation key(s) | `:Theethayi2007`; scalar attribution: `:Vance1978`; matrix extension: `:Ametani2021` |
+| Evidence status | Scalar source equations (9)–(10) and IET book Section 2.6.3 checked. |
+
+**Description.** Underground earth-admittance relation derived from the
 matching logarithmic-exponential impedance model.
 
 **Expression.** At matrix level,
@@ -78,19 +91,14 @@ function earth_potential_coefficient(
     pair.row == pair.column || _require_horizontal_separation(pair)
     state = functor.state
     Z_e = functor.routes.impedance(state, pair)
-    return state.jω * Z_e / state.gamma_medium_squared[2]
+    return impedance_potential_coefficient(state, Z_e)
 end
 
 function earth_impedance(
         ::Val{:Theethayi2007}, ::Val{:support}, state, pair
 )
-    geometry = _geometry(pair)
-    gamma = state.gamma[2]
-    argument = gamma * geometry.y_ij
-    return state.jω * state.mu[1] / (2π) * (
-        log((1 + argument) / argument) +
-        2exp(-geometry.H * abs(gamma)) / (4 + argument^2)
-    )
+    proxy=(;state)
+    return EarthImpedance.earth_impedance(Val(:Theethayi2007),Val(:mutual),proxy,pair)
 end
 
 :Theethayi2007

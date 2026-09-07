@@ -127,7 +127,8 @@ route per formula. Insulation and semicon admittance formulas evaluate complex
 material admittivity at each frequency; the Coaxial Engine owns the common
 annular geometry and radial series aggregation.
 `InsulationImpedance.formulas()` includes `:Ametani1980`;
-`InsulationAdmittance.formulas()` includes `:Ametani2004` and `:Gustavsen2013`;
+`InsulationAdmittance.formulas()` includes `:Ametani1980`, `:Ametani2004`,
+and `:Weeks1984`; `:Gustavsen2013` remains an alias for `:Ametani1980`.
 `SemiconAdmittance.formulas()` includes `:Ametani2004`. They are selected
 uniformly through `insulation_admittance` and `semicon_admittance`. A complete
 experimental constitutive law can be supplied with `formula(:Ametani2004;
@@ -250,12 +251,13 @@ select its ordering with `AfterFD` or `BeforeFD`.
 
 There is no `ReferenceEarthImpedance` category: whether a backend implements a
 formulation does not change the formulation's place in the scientific
-vocabulary. `:DeriSemlyen1981`, `:WedepohlWilcox1973`, `:Saad1996`,
-`:Ametani2009`, and `:Lucca1994` describe formulae applicable to
-homogeneous-earth models. All except the explicit PSCAD-only
-`:DeriSemlyen1981` vocabulary are executable by the Coaxial backend; the PSCAD
-backend independently maps the identifiers it supports to its own input
-fields. Backend support is not a type-hierarchy category.
+vocabulary. `:Dubanton1969`, `:Wedepohl1973`, `:Saad1996`, `:Ametani2009`,
+and `:Lucca1994` describe formulae applicable to homogeneous-earth models.
+All are executable by the Coaxial backend. The earlier selections
+`:Gary1976` and `:DeriSemlyen1981` resolve to `:Dubanton1969`;
+`:WedepohlWilcox1973` resolves to `:Wedepohl1973`. The PSCAD backend
+independently maps the identifiers it supports to its own input fields.
+Backend support is not a type-hierarchy category.
 
 PSCAD's direct numerical integration setting is different. PSCAD exposes a
 numerical integration choice through the same input field that selects an

@@ -328,7 +328,10 @@ function conductor_zone(
     centre = (convert(T, primitive.at.x), convert(T, primitive.at.y))
     zone_r_in = convert(T, primitive.ri)
     zone_r_ex = convert(T, primitive.ro)
-    isapprox(zone_r_in, expected_inner) || throw(ArgumentError(
+    enclosure_start=iszero(expected_inner) && any(
+        entry->entry.pattern isa EnclosureBoundary,source.placement.patterns
+    )
+    (isapprox(zone_r_in, expected_inner) || enclosure_start) || throw(ArgumentError(
         "resolved conductor shell does not begin at the preceding radial boundary"
     ))
     isapprox(zone_r_ex - zone_r_in, definition.t) || throw(ArgumentError(
@@ -705,6 +708,10 @@ function conductor_zone_position(sources)
         all(position -> same_radial_position(position, reference), patterned) &&
             return reference
     end
+    # A single unpatterned region already has its exact centre. Multiplying
+    # by area and dividing again can create a spurious offset of a few ulps,
+    # incorrectly classifying a translated solid disk as a strand ring.
+    length(sources)==1 && return centroid(only(sources).primitive)
     areas = map(source -> area(source.primitive), sources)
     centres = map(source -> centroid(source.primitive), sources)
     total = sum(areas)

@@ -12,6 +12,18 @@
 
     categories = (
         (
+            module_owner = LineCableModels.Engine.PipeAdmittance,
+            registry = LineCableModels.Engine.PipeAdmittance.formulas(),
+            path = ("engine", "pipeadmittance", "formulas"),
+            default = :Kane1995
+        ),
+        (
+            module_owner = LineCableModels.Engine.PipeImpedance,
+            registry = LineCableModels.Engine.PipeImpedance.formulas(),
+            path = ("engine", "pipeimpedance", "formulas"),
+            default = :DaSilva2006
+        ),
+        (
             module_owner = LineCableModels.Engine.InternalImpedance,
             registry = LineCableModels.Engine.InternalImpedance.formulas(),
             path = ("engine", "internalimpedance", "formulas"),
@@ -39,13 +51,13 @@
             module_owner = LineCableModels.Engine.EarthImpedance,
             registry = LineCableModels.Engine.EarthImpedance.formulas(),
             path = ("engine", "earthimpedance", "formulas"),
-            default = :Papadopoulos2010
+            default = :Papadopoulos2010b
         ),
         (
             module_owner = LineCableModels.Engine.EarthAdmittance,
             registry = LineCableModels.Engine.EarthAdmittance.formulas(),
             path = ("engine", "earthadmittance", "formulas"),
-            default = :Papadopoulos2010
+            default = :Papadopoulos2010b
         ),
         (
             module_owner = LineCableModels.Transforms,
@@ -122,7 +134,8 @@
             )
             strings = filter(value -> value isa String, collect(docstring.text))
             scientific_text = join(strings)
-            @test occursin("**Identification.**", scientific_text)
+            @test occursin("**Identification.**", scientific_text) ||
+                  occursin("## Identification and source", scientific_text)
             @test occursin("**Expression.**", scientific_text)
             @test occursin("**Reference.**", scientific_text)
             @test isnothing(match(r"(?m)^\d{4}\.", scientific_text))

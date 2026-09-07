@@ -11,6 +11,8 @@ $(IMPORTS)
 """
 module EarthImpedance
 
+import ..Engine: double_exponential
+
 # Export public API
 export Formula, formula_id, routes, assumptions, propagation, formulas, Γ
 
@@ -22,19 +24,26 @@ using DocStringExtensions: IMPORTS, TYPEDEF, TYPEDFIELDS, TYPEDSIGNATURES
 import ...LineCableModels: nominal
 import ..Engine: EarthImpedanceFormulation, formula_id, bessel_difference
 #! explicit-imports: off
+import ..Engine: spectral_root
+import ..Engine: pettersson_images
+#! explicit-imports: on
+#! explicit-imports: off
 import ...LineCableModels: FormulaMethod
-import ..Engine: description, conductivity, media, special_besselk
-using SpecialFunctions: bessely, hankelh1
+import ..Engine: description, conductivity, media, special_besselk, special_besselkx
+using SpecialFunctions: bessely, gamma
 #! explicit-imports: on
 using QuadGK: quadgk
+using LinearAlgebra: svd, eigvals, Diagonal
 
 vacuum_permeability(value) = one(value) * 4 * (one(value) * π) * (one(value) * 10)^(-7)
 
 "Registered earth-impedance formula selected by `:default`."
-const DEFAULT = :Papadopoulos2010
+const DEFAULT = :Papadopoulos2010b
 
 include("interface.jl")
 include("homogeneous.jl")
+include("pollaczek_series.jl")
+include("rallis_images.jl")
 
 #! explicit-imports: off
 const REGISTERED,

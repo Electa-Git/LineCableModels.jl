@@ -167,7 +167,8 @@ function lineinput(
         "DataModel terminal order differs from the cable blueprint count"
     ))
     n_layers = length(cable.dielectric_materials)
-    n_cables = length(cable.assemblies)
+    external_groups = _external_groups(cable)
+    n_cables = length(external_groups.indices)
 
     freq = copy(problem.frequencies)
     Γ = problem.Γ === nothing ? nothing : copy(problem.Γ)
@@ -178,9 +179,12 @@ function lineinput(
     phase_map = copy(system.connection_order)
     design_map = Int[entry.cable for entry in system.terminal_order]
     cable_map = Vector{Int}(undef, n_phases)
+    conductor_designs = Vector{Int}(undef,n_phases)
     @inbounds for (assembly, indices) in pairs(cable.assemblies), index in indices
-
-        cable_map[index] = assembly
+        conductor_designs[index] = cable.assembly_designs[assembly]
+    end
+    @inbounds for (external,indices) in pairs(external_groups.indices),index in indices
+        cable_map[index] = external
     end
 
     @inbounds for index in eachindex(cable.terminals)
@@ -189,7 +193,7 @@ function lineinput(
             "DataModel terminal order is not aligned with the cable blueprint"
         ))
         design_index = design_map[index]
-        cable.assembly_designs[cable_map[index]] == design_index ||
+        conductor_designs[index] == design_index ||
             throw(DimensionMismatch(
                 "blueprint assembly ownership differs from system terminal order"
             ))
@@ -215,6 +219,7 @@ function lineinput(
         horz_sep,
         vert,
         cable,
+        external_groups,
         phase_map,
         cable_map,
         design_map,
@@ -265,8 +270,8 @@ function LineParametersWorkspace(
         end
     end
     earth = _earth_data(formulation, input)
-    cable_indices = [collect(indices) for indices in cable.assemblies]
-    cable_representatives = first.(cable_indices)
+    cable_indices = input.external_groups.indices
+    cable_representatives = input.external_groups.representatives
     earth_pairs = _earth_pairs(
         cable_representatives,
         horz,

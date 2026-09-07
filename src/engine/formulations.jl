@@ -192,8 +192,10 @@ abstract type AbstractImpedanceFormulation <: AbstractFormulation end
 abstract type InternalImpedanceFormulation <: AbstractImpedanceFormulation end
 abstract type InsulationImpedanceFormulation <: AbstractImpedanceFormulation end
 abstract type EarthImpedanceFormulation <: AbstractImpedanceFormulation end
+abstract type PipeImpedanceFormulation <: AbstractImpedanceFormulation end
 
 abstract type AbstractAdmittanceFormulation <: AbstractFormulation end
+abstract type PipeAdmittanceFormulation <: AbstractAdmittanceFormulation end
 abstract type InsulationAdmittanceFormulation <: AbstractAdmittanceFormulation end
 abstract type SemiconAdmittanceFormulation <: AbstractAdmittanceFormulation end
 abstract type EarthAdmittanceFormulation <: AbstractAdmittanceFormulation end

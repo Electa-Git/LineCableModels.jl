@@ -18,8 +18,18 @@ propagation(::Val{:Carson1926}) = Val(:zero)
 """
 $(TYPEDSIGNATURES)
 
-**Identification.** Classical homogeneous, conductive-earth overhead
-impedance. Displacement currents and longitudinal propagation are neglected.
+## Identification and source
+
+| Field | Value |
+| --- | --- |
+| Family | External impedance |
+| Geometry | Infinitely long parallel wires; self expression includes wire radius ``a`` only in the perfect-ground base term, while the finite-ground correction uses height. |
+| Calculated quantities | Per-unit-length self and mutual finite-conductivity ground-return corrections for overhead wires |
+| Earth structure | Plane homogeneous semi-infinite ground ``y\\leq0`` beneath a nonconducting dielectric ``y>0``. |
+| Model and approximation | Integral representation exact within Carson's stated reduced field model. The reductions are the very-small-``\\Gamma`` assumption and neglect of transverse ground electric-field components; earth displacement current and an independent permeability are absent. Carson's later series evaluations of ``J`` are distinct evaluator forms and are not substituted here. |
+| Main source | John R. Carson (1926) |
+| Citation key(s) | `:Carson1926` |
+| Evidence status | PDF page images checked |
 
 **Expression.**
 
@@ -74,17 +84,7 @@ function earth_impedance(
         ::Val{:Carson1926}, ::Val{:mutual}, functor, pair
 )
     _require(pair, Val(:overhead))
-    state = functor.state
-    geometry = _geometry(pair)
-    gamma_squared = state.gamma_medium_squared[2]
-    integral = _quadrature(state) do lambda
-        attenuation = sqrt(lambda^2 + gamma_squared)
-        exp(-geometry.H * lambda) * cos(geometry.y_ij * lambda) /
-        (lambda + attenuation)
-    end
-    πT = one(geometry.H) * π
-    return state.jω * state.mu[1] / (2πT) *
-           (log(geometry.D_ij / geometry.d_ij) + 2 * integral)
+    return _homogeneous_overhead_coefficient(functor.state,pair)
 end
 
 :Carson1926

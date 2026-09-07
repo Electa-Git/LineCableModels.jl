@@ -2,6 +2,13 @@
     display: none !important;
 }
 
+/* Theory is one navigation entry, including while a hidden formula is active.
+   The contents page and breadcrumbs provide the section and formula links. */
+.docs-menu > li:has(> a.tocitem[href$="contents.html"]) > ul,
+.docs-menu > li:has(> a.tocitem[href$="contents/"]) > ul {
+    display: none;
+}
+
 .display-light-only {
     display: block !important;
 }

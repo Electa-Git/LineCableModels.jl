@@ -18,6 +18,7 @@ export Formula, formula_id, routes, assumptions, formulas
 #! explicit-imports: off
 # These abbreviations are expanded in this module docstring and included files.
 using DocStringExtensions: IMPORTS, TYPEDEF, TYPEDFIELDS, TYPEDSIGNATURES
+using QuadGK: quadgk
 #! explicit-imports: on
 import ..Engine: InternalImpedanceFormulation, formula_id
 #! explicit-imports: off
@@ -32,6 +33,8 @@ vacuum_permeability(value) = one(value) * 4 * (one(value) * π) * (one(value) * 
 const DEFAULT = :Schelkunoff1934
 
 include("interface.jl")
+include("shell.jl")
+include("bonded.jl")
 
 #! explicit-imports: off
 const FORMULAS = let

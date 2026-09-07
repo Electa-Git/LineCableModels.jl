@@ -11,14 +11,27 @@ assumptions(::Val{:Zhao2020}) = (;)
 """
 $(TYPEDSIGNATURES)
 
-**Identification.** High-frequency asymptotic hollow-shell impedances.
+## Identification and source
+
+| Field | Value |
+| --- | --- |
+| Family | Internal impedance |
+| Geometry | Homogeneous circular conducting annulus with 0<a<b. |
+| Calculated quantities | Leading-asymptotic inner, outer, and transfer impedances |
+| Earth structure | Not applicable. |
+| Model and approximation | Large-argument Bessel approximation with geometric-mean radius in the transfer term. |
+| Main source | H. Zhao, A. Ametani, A. Gole, and J. De Silva (2020) |
+| Citation key(s) | Attributed source: `:Zhao2020`; equation witness: `:Ametani2021` |
+| Evidence status | IET book page images checked, equations (A1.61)–(A1.65) and reference [90]. |
+
+**Description.** High-frequency asymptotic hollow-shell impedances.
 
 **Expression.**
 
 ```math
 Z_{ia}=\\frac{\\rho m}{2\\pi a}\\coth[m(b-a)],\\qquad
 Z_{oa}=\\frac{\\rho m}{2\\pi b}\\coth[m(b-a)],\\qquad
-Z_{ma}=\\frac{\\rho m}{2\\pi\\sqrt{ab}}\\operatorname{csch}[m(b-a)].
+Z_{ma}=\\frac{\\rho m}{2\\pi\\sqrt{ab}}\\mathrm{csch}[m(b-a)].
 ```
 
 **Reference.** Zhao et al., 2020, as reproduced in Ametani et al.,
@@ -37,7 +50,7 @@ Construct the high-frequency asymptotic shell evaluator:
 ```math
 Z_{ia}=\\frac{\\rho m}{2\\pi a}\\coth[m(b-a)],
 \\qquad
-Z_{ma}=\\frac{\\rho m}{2\\pi\\sqrt{ab}}\\operatorname{csch}[m(b-a)],
+Z_{ma}=\\frac{\\rho m}{2\\pi\\sqrt{ab}}\\mathrm{csch}[m(b-a)],
 \\qquad
 Z_{oa}=\\frac{\\rho m}{2\\pi b}\\coth[m(b-a)],
 ```
@@ -101,7 +114,7 @@ end
         state
 )
     x = state.m * (state.r_ex - state.r_in)
-    return state.rho_c * state.m / (2π * state.r_in) * coth(x)
+    return state.rho_c * _shell_factors(state.m,state.r_ex-state.r_in).coth / (2 * (one(state.r_in)*π) * state.r_in)
 end
 
 @inline function internal_impedance(
@@ -110,7 +123,7 @@ end
         state
 )
     x = state.m * (state.r_ex - state.r_in)
-    return state.rho_c * state.m / (2π * state.r_ex) * coth(x)
+    return state.rho_c * _shell_factors(state.m,state.r_ex-state.r_in).coth / (2 * (one(state.r_in)*π) * state.r_ex)
 end
 
 @inline function internal_impedance(
@@ -119,8 +132,8 @@ end
         state
 )
     x = state.m * (state.r_ex - state.r_in)
-    return state.rho_c * state.m /
-           (2π * sqrt(state.r_in * state.r_ex) * sinh(x))
+    return state.rho_c * _shell_factors(state.m,state.r_ex-state.r_in).csch /
+           (2 * (one(state.r_in)*π) * sqrt(state.r_in * state.r_ex))
 end
 
 :Zhao2020

@@ -8,6 +8,8 @@ in geometry and material data.
 
 ## Documentation
 
+- [Theory](theory/contents.md) connects the matrix formulation with its
+  conductor, insulation, earth-return, modal, and earth-property formulas.
 - [Tutorials](tutorials.md) introduce cable construction and calculation.
 - [Modelling and results](usage.md) covers calculations, result access,
   uncertainty, tables, and plots.

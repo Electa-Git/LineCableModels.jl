@@ -19,8 +19,18 @@ media(::Formula{:Papadopoulos2011}) = Val(:stratified)
 """
 $(TYPEDSIGNATURES)
 
-**Identification.** Two-layer underground mutual impedance for conductors in
-the finite upper soil layer.
+## Identification and source
+
+| Field | Value |
+| --- | --- |
+| Family | External impedance |
+| Geometry | Infinite parallel single-core cable axes at positive burial depths ``h_i,h_j`` with horizontal separation ``y_{ij}``. Finite radius enters the self substitution. Internal conductor and insulation contributions are separate. |
+| Calculated quantities | Per-unit-length mutual earth-return impedance; self earth term by the published radius/depth substitutions |
+| Earth structure | Air above a horizontal finite first earth layer of thickness ``d``; second earth layer is the terminal infinite-depth half-space. This is not an arbitrary-layer or different-layer-source kernel. |
+| Model and approximation | The source replaces the unknown longitudinal propagation constant by the dielectric value of the upper earth layer and applies identity (5). Equation (6) remains a spectral integral; no analytical truncation is stated. |
+| Main source | T. A. Papadopoulos, D. A. Tsiamitros, and G. K. Papagiannis, 2011, DOI `10.1049/iet-gtd.2010.0228` |
+| Citation key(s) | `:Papadopoulos2011` |
+| Evidence status | Original PDF equations checked; the transformed-factor index and root branch remain unresolved. |
 
 **Expression.**
 
@@ -97,15 +107,17 @@ function earth_impedance(
     state = functor.state
     geometry = _geometry(pair)
     d = state.thickness[2]
+    isfinite(d) && d>0 && max(geometry.h_i,geometry.h_j)<=d ||
+        throw(DomainError(d,":Papadopoulos2011 requires both depths within a positive finite top-layer thickness"))
     difference = abs(geometry.h_i - geometry.h_j)
-    radial = sqrt(
-        state.gamma_medium_squared[2] + state.gamma_squared
+    radial = spectral_root(
+        state.gamma_medium_squared[2] + state.gamma_squared,state.jω
     )
     direct = special_besselk(0, radial * geometry.d_ij)
     integral = _quadrature(state) do lambda
-        alpha0 = sqrt(lambda^2 + state.gamma_medium_squared[1] + state.gamma_squared)
-        alpha1 = sqrt(lambda^2 + state.gamma_medium_squared[2] + state.gamma_squared)
-        alpha2 = sqrt(lambda^2 + state.gamma_medium_squared[3] + state.gamma_squared)
+        alpha0 = spectral_root(lambda^2 + state.gamma_medium_squared[1] + state.gamma_squared,state.jω)
+        alpha1 = spectral_root(lambda^2 + state.gamma_medium_squared[2] + state.gamma_squared,state.jω)
+        alpha2 = spectral_root(lambda^2 + state.gamma_medium_squared[3] + state.gamma_squared,state.jω)
         s10 = state.mu[1] * alpha1 + state.mu[2] * alpha0
         d10 = state.mu[2] * alpha0 - state.mu[1] * alpha1
         s21 = state.mu[2] * alpha2 + state.mu[3] * alpha1
@@ -121,7 +133,8 @@ function earth_impedance(
         direct_spectrum = exp(-alpha1 * difference) / alpha1
         (F - direct_spectrum) * cos(geometry.y_ij * lambda)
     end
-    return state.jω * state.mu[2] / (2π) * (direct + integral)
+    return _complex_result(state.jω,state.jω * state.mu[2] /
+        (2*(one(geometry.H)*π)) * (direct + integral))
 end
 
 :Papadopoulos2011

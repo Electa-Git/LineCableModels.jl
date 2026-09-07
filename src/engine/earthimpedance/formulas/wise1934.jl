@@ -7,17 +7,27 @@ function routes(identifier::Val{:Wise1934})
 end
 
 assumptions(::Val{:Wise1934}) = (
-    air = _full,
+    air = _lossless,
     earth = _full,
-    permeability = _material
+    permeability = vacuum_permeability
 )
 
 propagation(::Val{:Wise1934}) = Val(:zero)
 """
 $(TYPEDSIGNATURES)
 
-**Identification.** Homogeneous-earth wideband overhead integral retaining
-earth displacement current and magnetic permeability.
+## Identification and source
+
+| Field | Value |
+| --- | --- |
+| Family | External impedance |
+| Geometry | Straight infinitely long thin wires; the external formula uses direct/image distances ``\\rho'`` and ``\\rho''`` and no insulation layer. |
+| Calculated quantities | P.u.l. mutual series impedance of two parallel overhead ground-return wires, with earth polarization current retained |
+| Earth structure | Plane homogeneous earth half-space below air. |
+| Model and approximation | The earth-polarization integral is not approximated after the source fixes ``\\gamma=jk`` and unit permeability. Wise then states that Carson's asymptotic and convergent series are reused by replacing Carson's ``r`` by ``r\\sqrt{1+j(\\varepsilon-1)/(2c\\lambda\\sigma)}``; those evaluator series are not reproduced as separate physical formulations here. |
+| Main source | W. H. Wise (1934), modifying Carson's homogeneous-earth formula to retain earth dielectric polarization |
+| Citation key(s) | `:Wise1934` |
+| Evidence status | Original publication page images checked |
 
 **Expression.**
 
@@ -40,6 +50,7 @@ function propagation_constant(::Val{:Wise1934}, jω, permeability, permittivity)
 end
 
 function (formula::Formula{:Wise1934})(rho, epsilon, mu, jω, Γ, segments = nothing)
+    isinf(first(rho)) || throw(ArgumentError(":Wise1934 requires lossless air"))
     return _homogeneous_functor(Val(:Wise1934), formula, rho, epsilon, mu, jω, Γ, segments)
 end
 
@@ -64,13 +75,16 @@ function earth_impedance(
     state = functor.state
     geometry = _geometry(pair)
     contrast = state.gamma_medium_squared[2] - state.gamma_medium_squared[1]
-    integral = _quadrature(state) do lambda
-        a_1 = sqrt(lambda^2 + contrast)
-        state.mu[2] * exp(-lambda * geometry.H) * cos(lambda * geometry.y_ij) /
+    self=pair.row==pair.column
+    lateral=self ? zero(geometry.H) : geometry.y_ij
+    ideal=self ? log(geometry.H/geometry.y_ij) : log(geometry.D_ij/geometry.d_ij)
+    integral = _height_quadrature(state,geometry.H) do lambda
+        a_1 = spectral_root(lambda^2 + contrast,state.jω)
+        state.mu[2] * exp(-lambda * geometry.H) * cos(lambda * lateral) /
         (lambda * state.mu[2] + a_1 * state.mu[1])
     end
-    return state.jω * state.mu[1] / (2π) *
-           (log(geometry.D_ij / geometry.d_ij) + 2 * integral)
+    return state.jω * state.mu[1] / (2*(one(geometry.H)*π)) *
+           (ideal + 2 * integral)
 end
 
 :Wise1934

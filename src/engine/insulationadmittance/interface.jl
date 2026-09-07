@@ -57,6 +57,10 @@ function Formula(::Val{:default}; route = nothing, kwargs...)
     Formula(Val(DEFAULT); route, kwargs...)
 end
 
+function Formula(::Val{:Gustavsen2013}; route = nothing, kwargs...)
+    Formula(Val(:Ametani1980); route, kwargs...)
+end
+
 function Formula(::Val{ID}; route = nothing, kwargs...) where {ID}
     tag = Val(ID)
     ID in FORMULAS || throw(ArgumentError(
@@ -96,6 +100,11 @@ function Formula(
         route::R,
         values::A = (;)
 ) where {ID, R, A <: NamedTuple}
+    if ID === :Gustavsen2013
+        mapped = route isa FormulaMethod{ID} ?
+            FormulaMethod(Val(:Ametani1980), route.method, route.arguments...) : route
+        return Formula(Val(:Ametani1980), mapped, values)
+    end
     return Formula{ID, R, A}(route, values)
 end
 

@@ -11,8 +11,18 @@ assumptions(::Val{:Schelkunoff1934}) = (;)
 """
 $(TYPEDSIGNATURES)
 
-**Identification.** Exact cylindrical surface impedances for a solid or
-hollow round conductor.
+## Identification and source
+
+| Field | Value |
+| --- | --- |
+| Family | Internal impedance |
+| Geometry | Homogeneous solid cylinder of radius ``b``; or homogeneous annulus with inner radius ``a`` and outer radius ``b``. No insulation region enters these terms. |
+| Calculated quantities | Solid-wire surface impedance; hollow-shell inner-surface, outer-surface, and transfer (mutual-surface) impedances |
+| Earth structure | Not applicable. |
+| Model and approximation | Not an analytical Bessel-function approximation within the reduced model. The physical reduction neglects conductor displacement current and drops ``\\Gamma^2`` against ``\\sigma^2`` before solving the radial Bessel equation. The displayed relation excludes the separate large-argument approximations (66)–(67). |
+| Main source | S. A. Schelkunoff (1934) |
+| Citation key(s) | `:Schelkunoff1934` |
+| Evidence status | Verified visually against the original PDF page images |
 
 **Expression.**
 
@@ -22,12 +32,19 @@ Z_{is}&=\\frac{\\rho m}{2\\pi aD}
 [I_0(ma)K_1(mb)+K_0(ma)I_1(mb)],\\\\
 Z_{os}&=\\frac{\\rho m}{2\\pi bD}
 [I_0(mb)K_1(ma)+K_0(mb)I_1(ma)],\\\\
-Z_{ms}&=\\frac{\\rho m}{2\\pi abD},\\\\
+Z_{ms}&=\\frac{\\rho}{2\\pi abD},\\\\
 D&=I_1(mb)K_1(ma)-K_1(mb)I_1(ma).
 \\end{aligned}
 ```
 
 For ``a=0``, ``Z_{int}=\\rho mI_0(mb)/(2\\pi bI_1(mb))``.
+
+**Conventions.** Inputs and outputs use SI units. The transfer coefficient
+used by the cable assembly is ``Z_{ms}=Z_{ab}``. Both source
+surface-current portions are positive in the metal's longitudinal
+direction; the inner magnetic boundary is ``-I_a/(2\\pi a)``.
+The separate loop-to-terminal assembly supplies its own subtraction
+of twice the transfer term.
 
 Schelkunoff's surface terms were later recovered by Ametani to assemble the
 complete core/sheath/armour impedance matrix. The Engine applies that outward
@@ -53,7 +70,7 @@ hollow circular conductor:
 Z_{is}=\\frac{\\rho m}{2\\pi aD}
 \\left[I_0(ma)K_1(mb)+K_0(ma)I_1(mb)\\right],
 \\qquad
-Z_{ms}=\\frac{\\rho m}{2\\pi abD},
+Z_{ms}=\\frac{\\rho}{2\\pi abD},
 ```
 
 ```math
@@ -115,6 +132,10 @@ function surface_impedance_state(
         mur_c::T,
         jω::Complex{T}
 ) where {T <: Real}
+    all(isfinite,(r_in,r_ex,rho_c,mur_c,jω)) &&
+        0<=r_in<r_ex && rho_c>0 && mur_c>0 ||
+        throw(DomainError((r_in,r_ex,rho_c,mur_c,jω),
+            "Schelkunoff requires finite radii, frequency, and positive conductor properties"))
     mu_c = vacuum_permeability(r_in) * mur_c
     sigma_c = conductivity(rho_c)
     m = sqrt(jω * mu_c * sigma_c)
@@ -159,20 +180,22 @@ end
         state
 )
     T = typeof(state.r_in)
-    if isapprox(state.r_in, zero(T); atol = eps(T))
+    if iszero(state.jω)
+        iszero(state.r_in) && return zero(Complex{T})
+        return complex(state.rho_c/((one(T)*π)*(state.r_ex^2-state.r_in^2)))
+    end
+    if iszero(state.r_in)
         return zero(Complex{T})
     end
 
     w_in = state.m * state.r_in
-    sc_in = exp(abs(real(w_in)) - state.w_ex)
-    sc_ex = exp(abs(real(state.w_ex)) - w_in)
-    sc = sc_in / sc_ex
+    sc = exp(abs(real(w_in))-abs(real(state.w_ex))+w_in-state.w_ex)
     numerator = special_besselkx(0, w_in) * special_besselix(1, state.w_ex) +
                 sc * special_besselix(0, w_in) * special_besselkx(1, state.w_ex)
     denominator = special_besselkx(1, w_in) * special_besselix(1, state.w_ex) -
                   sc * special_besselix(1, w_in) * special_besselkx(1, state.w_ex)
     return Complex{T}(
-        (state.jω * state.mu_c / 2π) * (1 / w_in) * (numerator / denominator)
+        (state.jω * state.mu_c / (2*(one(T)*π))) * (1 / w_in) * (numerator / denominator)
     )
 end
 
@@ -182,21 +205,22 @@ end
         state
 )
     T = typeof(state.r_in)
-    if isapprox(state.r_in, zero(T); atol = eps(T))
+    if iszero(state.jω)
+        return complex(state.rho_c/((one(T)*π)*(state.r_ex^2-state.r_in^2)))
+    end
+    if iszero(state.r_in)
         numerator = special_besselix(0, state.w_ex)
         denominator = special_besselix(1, state.w_ex)
     else
         w_in = state.m * state.r_in
-        sc_in = exp(abs(real(w_in)) - state.w_ex)
-        sc_ex = exp(abs(real(state.w_ex)) - w_in)
-        sc = sc_in / sc_ex
+        sc = exp(abs(real(w_in))-abs(real(state.w_ex))+w_in-state.w_ex)
         numerator = special_besselix(0, state.w_ex) * special_besselkx(1, w_in) +
                     sc * special_besselkx(0, state.w_ex) * special_besselix(1, w_in)
         denominator = special_besselix(1, state.w_ex) * special_besselkx(1, w_in) -
                       sc * special_besselkx(1, state.w_ex) * special_besselix(1, w_in)
     end
     return Complex{T}(
-        (state.jω * state.mu_c / 2π) * (1 / state.w_ex) *
+        (state.jω * state.mu_c / (2*(one(T)*π))) * (1 / state.w_ex) *
         (numerator / denominator)
     )
 end
@@ -207,19 +231,21 @@ end
         state
 )
     T = typeof(state.r_in)
-    if isapprox(state.r_in, zero(T); atol = eps(T))
+    if iszero(state.jω)
+        iszero(state.r_in) && return zero(Complex{T})
+        return complex(state.rho_c/((one(T)*π)*(state.r_ex^2-state.r_in^2)))
+    end
+    if iszero(state.r_in)
         return zero(Complex{T})
     end
 
     w_in = state.m * state.r_in
-    sc_in = exp(abs(real(w_in)) - state.w_ex)
-    sc_ex = exp(abs(real(state.w_ex)) - w_in)
-    sc = sc_in / sc_ex
-    numerator = one(sc_ex) / sc_ex
+    sc = exp(abs(real(w_in))-abs(real(state.w_ex))+w_in-state.w_ex)
+    numerator = exp(w_in-abs(real(state.w_ex)))
     denominator = special_besselix(1, state.w_ex) * special_besselkx(1, w_in) -
                   sc * special_besselix(1, w_in) * special_besselkx(1, state.w_ex)
     return Complex{T}(
-        (1 / (2π * state.r_in * state.r_ex * state.sigma_c)) *
+        (1 / (2*(one(T)*π) * state.r_in * state.r_ex * state.sigma_c)) *
         (numerator / denominator)
     )
 end

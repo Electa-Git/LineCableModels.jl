@@ -10,6 +10,9 @@ formulation source files. Formula discovery, backend routing, and extension
 methods are documented separately in the
 [Computational engine](engine.md) developer guide.
 
+The source-based derivations and formula-family lists are collected in
+[Theory](theory/contents.md).
+
 Unless an entry states otherwise, ``\omega=2\pi f``, ``j^2=-1``, and the
 propagation constant of medium ``m`` is
 
@@ -37,6 +40,58 @@ radii, ``\rho`` is resistivity, ``\mu`` is permeability, and
 Main.formulation_catalogue(
     Main.LineCableModels.Engine.InternalImpedance,
     "engine", "internalimpedance", "formulas",
+)
+```
+
+## Pipe interior impedance
+
+These coefficients supply the shared cavity and inner-wall block for circular
+coaxial units inside a circular pipe. Individual conductor skin impedances,
+pipe outer-surface and transfer terms, and external-earth terms are separate.
+The evaluator accepts cable positions relative to the pipe axis. The coaxial
+backend assembles explicit circular common-pipe enclosures with homogeneous,
+nonmagnetic cavity insulation. It lifts the cavity coefficients into the
+primitive matrix, applies wall transfer once, and uses the enclosing pipe as
+the exterior-earth representative. Admittance requires inversion of the full
+potential matrix; the independent-assembly cable-constants output is not used.
+
+The current radial partition must keep each assembly contiguous and on a
+distinct axis. A centred inner assembly sharing the common-pipe axis is not
+accepted by this nonconcentric construction. A wholly concentric cable
+continues to use the ordinary radial assembly.
+
+`pipe_impedance=:Kane1995` adds the source's pairwise core-proximity
+terms to the finite-wall response. This reciprocal matrix selection
+requires equal solid, screenless cores with equal material values.
+`pipe_impedance=formula(:DaSilva2006; proximity=:Hoidalen2013)`
+selects the later corrected increment for three symmetrical equal
+nonmagnetic cores. Their physical metal radii and temperature-corrected
+resistivities are kept distinct from their outer insulation boundaries.
+
+The infinite-wall DaSilva2006 and Høidalen selections supply
+core-to-pipe coefficients through the pipe family interface, with
+`wall=:infinite` and an infinite outer-radius argument. They do not
+supply the finite outer-wall and transfer terms required by an
+unreduced common-pipe terminal matrix. Such mixed assembly is rejected.
+
+```@eval
+Main.formulation_catalogue(
+    Main.LineCableModels.Engine.PipeImpedance,
+    "engine", "pipeimpedance", "formulas",
+)
+```
+
+## Pipe interior potential coefficients
+
+These formulas give self and mutual potential coefficients with the pipe as
+reference. A common homogeneous dielectric is required. The engine assembles
+the complete potential matrix before obtaining its shunt admittance; scalar
+reciprocals are not inserted as nodal admittance entries.
+
+```@eval
+Main.formulation_catalogue(
+    Main.LineCableModels.Engine.PipeAdmittance,
+    "engine", "pipeadmittance", "formulas",
 )
 ```
 

@@ -60,7 +60,7 @@ end
 
 function Formulation(
         ::Val{:pscad};
-        earth_impedance = :WedepohlWilcox1973,
+        earth_impedance = :Wedepohl1973,
         earth_admittance::NativeEarthAdmittance = NativeEarthAdmittance(),
         insulation_admittance::NativeInsulationAdmittance =
         NativeInsulationAdmittance(),
@@ -106,9 +106,9 @@ function pscad_readback(formula::EarthImpedance.Formula)
     pscad_readback(Val(EarthImpedance.formula_id(formula)))
 end
 
-pscad_field(::Val{:DeriSemlyen1981}) = :EarthForm2
-pscad_value(::Val{:DeriSemlyen1981}) = 0
-pscad_readback(::Val{:DeriSemlyen1981}) = "DERISEMLYEN"
+pscad_field(::Val{:Dubanton1969}) = :EarthForm2
+pscad_value(::Val{:Dubanton1969}) = 0
+pscad_readback(::Val{:Dubanton1969}) = "DERISEMLYEN"
 
 pscad_field(::DirectNumericalIntegration{:overhead}) = :EarthForm2
 pscad_value(::DirectNumericalIntegration{:overhead}) = 2
@@ -116,9 +116,9 @@ function pscad_readback(::DirectNumericalIntegration{:overhead})
     "DIRECT_NUMERICAL_INTEGRATION"
 end
 
-pscad_field(::Val{:WedepohlWilcox1973}) = :EarthForm
-pscad_value(::Val{:WedepohlWilcox1973}) = 0
-pscad_readback(::Val{:WedepohlWilcox1973}) = "WEDEPOHL"
+pscad_field(::Val{:Wedepohl1973}) = :EarthForm
+pscad_value(::Val{:Wedepohl1973}) = 0
+pscad_readback(::Val{:Wedepohl1973}) = "WEDEPOHL"
 
 pscad_field(::DirectNumericalIntegration{:underground}) = :EarthForm
 pscad_value(::DirectNumericalIntegration{:underground}) = 2

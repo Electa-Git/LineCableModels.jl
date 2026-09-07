@@ -90,7 +90,7 @@
         )
         reference_formulation=Formulation(
             :pscad;
-            earth_impedance = :WedepohlWilcox1973
+            earth_impedance = :Wedepohl1973
         )
         tolerances=(
             reference = (
@@ -1154,8 +1154,8 @@ end
     using .GauntletSupport
 
     harness=GauntletSupport.PSCADBenchmarks
-    overhead=Formulation(:pscad; earth_impedance = :DeriSemlyen1981)
-    underground=Formulation(:pscad; earth_impedance = :WedepohlWilcox1973)
+    overhead=Formulation(:pscad; earth_impedance = :Dubanton1969)
+    underground=Formulation(:pscad; earth_impedance = :Wedepohl1973)
     @test overhead isa harness.PSCADFormulation
     @test underground isa harness.PSCADFormulation
     @test hasmethod(
@@ -1168,32 +1168,32 @@ end
     )
     @test harness.pscad_field(overhead.earth_impedance) === :EarthForm2
     @test EarthImpedance.formula_id(overhead.earth_impedance) ===
-          :DeriSemlyen1981
+          :Dubanton1969
     @test harness.pscad_value(overhead.earth_impedance) == 0
     @test harness.pscad_readback(overhead.earth_impedance) == "DERISEMLYEN"
     @test harness.pscad_field(underground.earth_impedance) === :EarthForm
     @test EarthImpedance.formula_id(underground.earth_impedance) ===
-          :WedepohlWilcox1973
+          :Wedepohl1973
     @test harness.pscad_readback(underground.earth_impedance) == "WEDEPOHL"
     @test description(overhead.earth_admittance) == "PSCAD native earth admittance"
     @test description(overhead.insulation_admittance) ==
           "PSCAD native insulation admittance"
     @test harness._formulation_label(overhead) ==
-          "Deri-Semlyen complex ground-return-plane approximation (1981)/" *
+          "Dubanton complex ground-return-plane approximation (1969)/" *
           "PSCAD native earth admittance/PSCAD native insulation admittance"
     @test overhead.options == (;)
     @test_throws ArgumentError Formulation(
         :pscad;
-        earth_impedance = :WedepohlWilcox1973,
+        earth_impedance = :Wedepohl1973,
         options = (output_stem = "525kV_bipole",)
     )
     @test !isdefined(EarthImpedance, :ReferenceEarthImpedance)
     @test !isdefined(EarthImpedance, :DirectNumericalIntegration)
 
     methods=(
-        EarthImpedance.Formula(:DeriSemlyen1981),
+        EarthImpedance.Formula(:Dubanton1969),
         harness.DirectNumericalIntegration(:overhead),
-        EarthImpedance.Formula(:WedepohlWilcox1973),
+        EarthImpedance.Formula(:Wedepohl1973),
         harness.DirectNumericalIntegration(:underground),
         EarthImpedance.Formula(:Saad1996),
         EarthImpedance.Formula(:Ametani2009),

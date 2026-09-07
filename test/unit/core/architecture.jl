@@ -184,7 +184,7 @@ end
         joinpath("src", "engine", "insulationimpedance", "interface.jl"),
         joinpath("src", "engine", "insulationadmittance", "interface.jl"),
         joinpath("src", "engine", "insulationadmittance", "formulas", "ametani2004.jl"),
-        joinpath("src", "engine", "insulationadmittance", "formulas", "gustavsen2013.jl"),
+        joinpath("src", "engine", "insulationadmittance", "formulas", "ametani1980.jl"),
         joinpath("src", "engine", "semiconadmittance", "interface.jl"),
         joinpath("src", "engine", "semiconadmittance", "formulas", "ametani2004.jl"),
         joinpath("src", "transforms", "compute.jl"),

@@ -38,6 +38,8 @@ export LineCableModelsCoaxial, LineCableModelsFEM, LineCableModelsFEMOptions,
 export constitutive, formula_id, EarthPair
 export verbosity
 export InternalImpedance, InsulationImpedance, EarthImpedance
+export PipeImpedance
+export PipeAdmittance
 export InsulationAdmittance, SemiconAdmittance, EarthAdmittance
 
 export compute
@@ -78,6 +80,8 @@ using QuadGK: alloc_segbuf, quadgk
 include("interfaces.jl")
 include("formulations.jl")
 include("earthkernels.jl")
+include("earthimages.jl")
+include("earthquadrature.jl")
 
 # Problem and coaxial formulation definitions
 include("problems.jl")
@@ -92,6 +96,12 @@ include("matrixops.jl")
 # Submodule `InternalImpedance`
 include("internalimpedance/InternalImpedance.jl")
 using .InternalImpedance: InternalImpedance
+
+include("pipeimpedance/PipeImpedance.jl")
+using .PipeImpedance: PipeImpedance
+
+include("pipeadmittance/PipeAdmittance.jl")
+using .PipeAdmittance: PipeAdmittance
 
 # Submodule `InsulationImpedance`
 include("insulationimpedance/InsulationImpedance.jl")
@@ -114,12 +124,16 @@ include("earthadmittance/EarthAdmittance.jl")
 using .EarthAdmittance: EarthAdmittance
 
 # Native workspace and numerical action
+include("commonpipetypes.jl")
 include("blueprint.jl")
+include("commonpipes.jl")
 include("input.jl")
 include("logging.jl")
 include("earthreturn.jl")
 include("impedance.jl")
+include("profileassembly.jl")
 include("admittance.jl")
+include("pipeassembly.jl")
 include("lineparameters.jl")
 include("reduction.jl")
 include("cableconstants.jl")

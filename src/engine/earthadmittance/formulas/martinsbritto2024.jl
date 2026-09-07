@@ -25,8 +25,20 @@ propagation(::Val{:MartinsBritto2024}) = Val(:explicit)
 """
 $(TYPEDSIGNATURES)
 
-**Identification.** Wideband, pair-complete potential-coefficient formulation
-with explicit longitudinal propagation.
+## Identification and source
+
+| Field | Value |
+| --- | --- |
+| Family | External admittance |
+| Geometry | Infinite parallel thin conductors, one in air and one in homogeneous soil. |
+| Calculated quantities | Reciprocal mixed mutual Maxwell potential coefficient and ``Y_{tot}=j\\omega P_{tot}^{-1}`` after full matrix assembly |
+| Earth structure | Homogeneous soil half-space below air. |
+| Model and approximation | Integral representation within the paper's quasi-TEM model; longitudinal propagation, both permeabilities, conductivity, and displacement current are retained. Numerical examples separately set ``k_x=0``. |
+| Main source | A. G. Martins-Britto, T. A. Papadopoulos, and A. I. Chrysochos (2024) |
+| Citation key(s) | `:MartinsBritto2024` |
+| Evidence status | Original publication page images checked; matrix assembly explicit and no entrywise reciprocal introduced |
+
+**Numerical scope.** The source contribution is the mixed potential coefficient. Same-medium coefficients complete the assembled potential matrix before inversion.
 
 **Expression.** For conductors in medium ``m``,
 
@@ -55,6 +67,11 @@ I_{ij}^{01,MPC}=\\gamma_0^2\\mu_1
 Chrysochos, “Transient Electromagnetic Interference Between Overhead and
 Underground Conductors,” *IEEE Transactions on Electromagnetic Compatibility*,
 66(3), 983–992, 2024.
+[Pawlik2020](@cite), equations (15)–(18), supplies the same-medium scalar
+self witness: the returned potential is ``j\\omega/Y_e``.
+The factored integral kernel avoids cancellation between its magnetic and
+electric contributions; the outgoing lossless boundary is selected
+consistently with frequency sign.
 """
 function description(::Formula{:MartinsBritto2024})
     "Martins-Britto, Papadopoulos, and Chrysochos wideband homogeneous-earth potential coefficient (2024)"
@@ -121,28 +138,21 @@ function earth_potential_coefficient(
     gamma_other_squared = state.gamma_medium_squared[other]
     source_squared = gamma_source_squared + state.gamma_squared
     other_squared = gamma_other_squared + state.gamma_squared
-    source_radial = sqrt(source_squared)
-    direct = special_besselk(0, source_radial * geometry.d_ij) -
-             special_besselk(0, source_radial * geometry.D_ij)
+    source_radial = spectral_root(source_squared,state.jω)
+    direct = iszero(source_radial) ? log(geometry.D_ij/geometry.d_ij) :
+        special_besselk(0, source_radial * geometry.d_ij) -
+        special_besselk(0, source_radial * geometry.D_ij)
     integral = _quadrature(state) do lambda
-        a_source = sqrt(lambda^2 + source_squared)
-        a_other = sqrt(lambda^2 + other_squared)
-        common = a_source * state.mu[other] + a_other * state.mu[source]
+        a_source = spectral_root(lambda^2 + source_squared,state.jω)
+        a_other = spectral_root(lambda^2 + other_squared,state.jω)
         decay = exp(-a_source * geometry.H)
-        magnetic = state.mu[other] * decay / common
-        coupling_numerator = state.mu[other] * state.mu[source] *
-                             a_source *
-                             (gamma_source_squared - gamma_other_squared) *
-                             decay
-        coupling_denominator = common * (
-            a_source * gamma_other_squared * state.mu[source] +
-            a_other * gamma_source_squared * state.mu[other]
-        )
-        (magnetic + coupling_numerator / coupling_denominator) *
-        cos(geometry.y_ij * lambda)
+        coefficient=_same_medium_potential_kernel(a_source,a_other,
+            gamma_source_squared,gamma_other_squared,state.mu[source],state.mu[other])
+        coefficient*decay*cos(geometry.y_ij*lambda)
     end
     kappa = state.sigma[source] + state.jω * state.epsilon[source]
-    return state.jω / (2π * kappa) * (direct + 2 * integral)
+    return _complex_result(state.jω,state.jω /
+        (2*(one(geometry.H)*π) * kappa) * (direct + 2 * integral))
 end
 
 raw"""
@@ -180,19 +190,16 @@ function earth_potential_coefficient(
         gamma_1_squared + state.gamma_squared
     )
     integral = _quadrature(state) do lambda
-        a_0 = sqrt(lambda^2 + radial_squared[1])
-        a_1 = sqrt(lambda^2 + radial_squared[2])
-        numerator = gamma_0_squared * state.mu[2] *
-                    (a_0 * state.mu[1] + a_1 * state.mu[2])
-        denominator = (
-            a_0 * gamma_1_squared * state.mu[1] +
-            a_1 * gamma_0_squared * state.mu[2]
-        ) * (a_0 * state.mu[2] + a_1 * state.mu[1])
-        numerator / denominator * exp(-a_0 * h_air - a_1 * h_earth) *
+        a_0 = spectral_root(lambda^2 + radial_squared[1],state.jω)
+        a_1 = spectral_root(lambda^2 + radial_squared[2],state.jω)
+        coefficient=_same_medium_potential_kernel(a_0,a_1,
+            gamma_0_squared,gamma_1_squared,state.mu[1],state.mu[2])
+        coefficient * exp(-a_0 * h_air - a_1 * h_earth) *
         cos(pair.separation * lambda)
     end
     kappa_0 = state.sigma[1] + state.jω * state.epsilon[1]
-    return state.jω / (π * kappa_0) * integral
+    return _complex_result(state.jω,state.jω /
+        ((one(h_air)*π) * kappa_0) * integral)
 end
 
 :MartinsBritto2024

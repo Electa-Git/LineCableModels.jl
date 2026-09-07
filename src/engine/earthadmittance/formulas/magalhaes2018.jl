@@ -10,7 +10,7 @@ function assumptions(::Val{:Magalhaes2018})
     (
         air = _full,
         earth = _full,
-        permeability = _material
+        permeability = vacuum_permeability
     )
 end
 
@@ -18,11 +18,18 @@ propagation(::Val{:Magalhaes2018}) = Val(:zero)
 """
 $(TYPEDSIGNATURES)
 
-**Identification.** Homogeneous-earth underground potential coefficient with
-the zero-potential reference at the earth surface. Ametani et al. report that
-it gives the same result as their earth-surface-reference equation (2.57) and
-caution that this reference is inaccurate when the vertical electric field
-has not decayed sufficiently at the surface.
+## Identification and source
+
+| Field | Value |
+| --- | --- |
+| Family | External admittance |
+| Geometry | Insulated circular cables represented by their axes; the outer insulation radius enters the self term. Each core/sheath pair receives identical earth-return entries. |
+| Calculated quantities | Single-cable and multiconductor per-unit-length earth-return admittance matrices; self and mutual entries of the intermediate matrix ``\\Lambda-T``; source-provided series combination with insulation admittance |
+| Earth structure | Homogeneous medium 1 beneath homogeneous medium 2, separated by a plane interface. |
+| Model and approximation | Integral and matrix representation under the source's quasi-TEM reduction of the cited full-wave model. The paper does not reproduce the parent longitudinal-propagation prescription. |
+| Main source | A. P. C. Magalhães et al. (2018). |
+| Citation key(s) | `:Magalhaes2018` |
+| Evidence status | Original publication and accepted-manuscript page images checked. |
 
 **Expression.**
 
@@ -91,9 +98,9 @@ function earth_potential_coefficient(
     gamma_0_squared, gamma_1_squared = state.gamma_medium_squared
     ratio = gamma_0_squared / gamma_1_squared
     integral = _quadrature(state) do lambda
-        u_0 = sqrt(lambda^2 + gamma_0_squared)
-        u_1 = sqrt(lambda^2 + gamma_1_squared)
-        attenuation = exp(-u_1 * geometry.H / 2) - exp(-u_1 * geometry.H)
+        u_0 = spectral_root(lambda^2 + gamma_0_squared,state.jω)
+        u_1 = spectral_root(lambda^2 + gamma_1_squared,state.jω)
+        attenuation = exp(-u_1 * geometry.H / 2) * (-expm1(-u_1 * geometry.H / 2))
         u_0 / u_1 * attenuation / (u_0 + ratio * u_1) *
         cos(geometry.y_ij * lambda)
     end
@@ -101,7 +108,8 @@ function earth_potential_coefficient(
     direct = special_besselk(0, gamma_1 * geometry.d_ij) -
              special_besselk(0, gamma_1 * geometry.D_ij)
     kappa = state.sigma[2] + state.jω * state.epsilon[2]
-    return state.jω / (2π * kappa) * (direct - 2 * integral)
+    return _complex_result(state.jω,state.jω /
+        (2*(one(geometry.H)*π) * kappa) * (direct - 2 * integral))
 end
 
 :Magalhaes2018

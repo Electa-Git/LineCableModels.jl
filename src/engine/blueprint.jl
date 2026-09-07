@@ -1,3 +1,25 @@
+"""One physical circular material layer retained before conductor homogenization."""
+struct BlueprintConductorLayer{T <: Real}
+    r_in::T
+    r_ex::T
+    material::Material{T}
+end
+
+"""Physical input of the linear one-plus-six-wire ACSR reduction."""
+struct BlueprintSingleLayerACSR{T <: Real}
+    radius::T
+    pitch::T
+    core::Material{T}
+    strands::Material{T}
+end
+
+"""Physical area, exposed perimeter, and material of one homogeneous section."""
+struct BlueprintHomogeneousSection{T <: Real}
+    area::T
+    perimeter::T
+    material::Material{T}
+end
+
 """
 $(TYPEDEF)
 
@@ -30,6 +52,95 @@ struct BlueprintConductor{T <: Real}
     position::Tuple{T, T}
     "Artificial homogeneous conductor material."
     material::Material{T}
+    "Physical concentric metal layers; empty for a nonradial or stranded reduction."
+    layers::Vector{BlueprintConductorLayer{T}}
+    "Physical one-plus-six-wire ACSR data, when the exact source geometry matches."
+    acsr::Union{Nothing,BlueprintSingleLayerACSR{T}}
+    "Homogeneous physical section, without strand or material homogenization."
+    section::Union{Nothing,BlueprintHomogeneousSection{T}}
+end
+
+# Preserve the manual homogeneous-blueprint constructor.
+function BlueprintConductor{T}(terminal,assembly,r_in,r_ex,cross_section,
+        num_wires,num_turns,resistance,alpha,gmr,position,material) where {T <: Real}
+    layers=BlueprintConductorLayer{T}[
+        BlueprintConductorLayer{T}(r_in,r_ex,material)]
+    return BlueprintConductor{T}(terminal,assembly,r_in,r_ex,cross_section,
+        num_wires,num_turns,resistance,alpha,gmr,position,material,layers,nothing,
+        BlueprintHomogeneousSection{T}(cross_section,2π*r_ex,material))
+end
+
+function _homogeneous_section(design,terminal,::Type{T}) where {T}
+    sources=filter(region->region.terminal===terminal,design.geometry.regions)
+    length(sources)==1 || return nothing
+    source=only(sources)
+    isempty(source.paths) && isempty(source.placement.patterns) || return nothing
+    shape=source.primitive
+    # A complete annulus carries isolated-conductor current at its outer
+    # boundary. An open sector uses its entire connected contour.
+    contour=shape isa DataModel.Annulus ? 2π*shape.ro : DataModel.perimeter(shape)
+    return BlueprintHomogeneousSection{T}(T(DataModel.area(shape)),T(contour),
+        convert(Material{T},source.source.material))
+end
+
+function _single_layer_acsr(design,terminal,conductor,::Type{T}) where {T}
+    sources=filter(region->region.terminal===terminal,design.geometry.regions)
+    length(sources)==7 && all(r->r.primitive isa DataModel.Disk,sources) ||
+        return nothing
+    points=[DataModel.centroid(r.primitive) for r in sources]
+    offsets=[(p[1]-conductor.position[1],p[2]-conductor.position[2]) for p in points]
+    distances=[hypot(p...) for p in offsets]
+    centre=argmin(distances); R=T(sources[centre].primitive.r)
+    tolerance=128eps(T)*max(R,one(T))
+    distances[centre]<=tolerance && isempty(sources[centre].paths) || return nothing
+    ring=setdiff(eachindex(sources),[centre])
+    all(k->isapprox(T(sources[k].primitive.r),R) &&
+        isapprox(distances[k],2R),ring) || return nothing
+    angles=sort!([atan(offsets[k][2],offsets[k][1]) for k in ring])
+    gaps=diff(vcat(angles,first(angles)+2*(one(T)*π)))
+    all(x->isapprox(x,(one(T)*π)/3;rtol=128eps(T)),gaps) || return nothing
+    metal=sources[first(ring)].source.material
+    isapprox(metal.mu_r,one(T)) &&
+        all(k->sources[k].source.material==metal,ring) || return nothing
+    pitches=T[]
+    directions=Int[]
+    for k in ring
+        paths=sources[k].paths
+        if isempty(paths)
+            push!(pitches,T(Inf));push!(directions,1)
+        elseif length(paths)==1 && isapprox(only(paths).radius,2R)
+            entry=only(paths)
+            push!(pitches,T(DataModel.pitch(entry.path,entry.radius)))
+            push!(directions,entry.path.dir)
+        else
+            return nothing
+        end
+    end
+    all(==(first(pitches)),pitches) && all(==(first(directions)),directions) ||
+        return nothing
+    iszero(conductor.r_in) && isapprox(conductor.r_ex,3R) || return nothing
+    return BlueprintSingleLayerACSR{T}(R,first(pitches),
+        convert(Material{T},sources[centre].source.material),convert(Material{T},metal))
+end
+
+function _physical_conductor_layers(design,terminal,conductor,::Type{T}) where {T}
+    layers=BlueprintConductorLayer{T}[]
+    iszero(conductor.num_turns) || return layers
+    for region in design.geometry.regions
+        region.terminal===terminal || continue
+        region.primitive isa Union{DataModel.Disk,DataModel.Annulus} ||
+            return BlueprintConductorLayer{T}[]
+        isempty(region.placement.patterns) && isempty(region.paths) ||
+            return BlueprintConductorLayer{T}[]
+        DataModel.same_radial_position(
+            DataModel.conductor_zone_position([region]),conductor.position) ||
+            return BlueprintConductorLayer{T}[]
+        push!(layers,BlueprintConductorLayer{T}(
+            T(DataModel.r_in(region.primitive)),T(DataModel.r_ex(region.primitive)),
+            convert(Material{T},region.source.material)))
+    end
+    sort!(layers;by=layer->layer.r_in)
+    return layers
 end
 
 """
@@ -74,20 +185,24 @@ struct CableBlueprint{T <: Real}
     dielectric_ranges::Vector{UnitRange{Int}}
     "Contiguous conductor ranges for independent concentric assemblies."
     assembly_ranges::Vector{UnitRange{Int}}
+    "Explicit nonconcentric common-pipe enclosure hierarchy."
+    pipes::Vector{PipeAssembly{T}}
 
     function CableBlueprint{T}(
             cable_id::String,
             conductors::Vector{BlueprintConductor{T}},
             dielectrics::Vector{BlueprintDielectric{T}},
             dielectric_ranges::Vector{UnitRange{Int}},
-            assembly_ranges::Vector{UnitRange{Int}}
+            assembly_ranges::Vector{UnitRange{Int}},
+            pipes::Vector{PipeAssembly{T}}=PipeAssembly{T}[]
     ) where {T <: Real}
         return validate(new{T}(
             cable_id,
             conductors,
             dielectrics,
             dielectric_ranges,
-            assembly_ranges
+            assembly_ranges,
+            pipes
         ))
     end
 end
@@ -200,6 +315,49 @@ function validate(blueprint::CableBlueprint)
             "CableBlueprint.conductors[$index].material.kind must be :conductor; " *
             "received $(repr(conductor.material.kind))",
         ))
+        if !isempty(conductor.layers)
+            first(conductor.layers).r_in==conductor.r_in &&
+                last(conductor.layers).r_ex==conductor.r_ex ||
+                throw(ArgumentError("physical conductor layers must span the conductor annulus"))
+            for (n,layer) in pairs(conductor.layers)
+                isfinite(layer.r_in) && isfinite(layer.r_ex) &&
+                    0<=layer.r_in<layer.r_ex ||
+                    throw(DomainError(layer,"invalid physical conductor-layer radii"))
+                layer.material.kind===:conductor ||
+                    throw(ArgumentError("physical metal profiles require conductor materials"))
+                validate(layer.material)
+                n==1 || conductor.layers[n-1].r_ex==layer.r_in ||
+                    throw(ArgumentError("bonded metal layers must be contiguous"))
+            end
+        end
+        if conductor.acsr !== nothing
+            profile=conductor.acsr
+            isfinite(profile.radius) && profile.radius>0 &&
+                profile.pitch>0 && !isnan(profile.pitch) ||
+                throw(DomainError(profile,"invalid physical ACSR radius or pitch"))
+            iszero(conductor.r_in) && isapprox(conductor.r_ex,3profile.radius) &&
+                isapprox(conductor.cross_section,7π*profile.radius^2) &&
+                isempty(conductor.layers) ||
+                throw(ArgumentError("ACSR data must describe the retained seven-wire conductor"))
+            for material in (profile.core,profile.strands)
+                validate(material)
+                material.kind===:conductor ||
+                    throw(ArgumentError("ACSR wire materials must be conductors"))
+            end
+            isapprox(profile.strands.mu_r,one(profile.strands.mu_r)) ||
+                throw(ArgumentError("Merkushev's aluminium strands must be nonmagnetic"))
+        end
+        if conductor.section !== nothing
+            section=conductor.section
+            all(isfinite,(section.area,section.perimeter)) &&
+                section.area>0 && section.perimeter>0 ||
+                throw(DomainError(section,"invalid physical section area or perimeter"))
+            isapprox(section.area,conductor.cross_section) ||
+                throw(ArgumentError("physical section area must match the retained conductor"))
+            validate(section.material)
+            section.material.kind===:conductor ||
+                throw(ArgumentError("a physical homogeneous section needs a conductor material"))
+        end
         for layer_index in blueprint.dielectric_ranges[index]
             layer = blueprint.dielectrics[layer_index]
             layer.conductor == index || throw(DimensionMismatch(
@@ -221,6 +379,66 @@ function validate(blueprint::CableBlueprint)
                 "CableBlueprint.dielectrics[$layer_index].material.kind must be " *
                 ":insulator or :semicon; received $(repr(layer.material.kind))",
             ))
+        end
+    end
+    if !isempty(blueprint.pipes)
+        conductors = blueprint.conductors
+        ranges = blueprint.assembly_ranges
+        all(pipe -> pipe.conductor in eachindex(conductors), blueprint.pipes) ||
+            throw(ArgumentError("common pipe conductor index is outside the blueprint"))
+        allunique(pipe.conductor for pipe in blueprint.pipes) ||
+            throw(ArgumentError("common pipe conductors must be distinct"))
+        issorted([conductors[pipe.conductor].r_in for pipe in blueprint.pipes]) ||
+            throw(ArgumentError("common pipes must be ordered from inner to outer"))
+        allunique(Iterators.flatten(pipe.children for pipe in blueprint.pipes)) ||
+            throw(ArgumentError("common pipe children must be distinct and have one direct parent"))
+        radii = [
+            isempty(blueprint.dielectric_ranges[last(range)]) ?
+            conductors[last(range)].r_ex :
+            blueprint.dielectrics[last(blueprint.dielectric_ranges[last(range)])].r_ex
+            for range in ranges
+        ]
+        centres = [conductors[first(range)].position for range in ranges]
+        for (index, range) in pairs(ranges), conductor in conductors[range]
+            left, right = conductor.position, centres[index]
+            scale = max(one(eltype(left)), maximum(abs, (left..., right...)))
+            tolerance = sqrt(eps(eltype(left))) * scale
+            hypot((left .- right)...) <= tolerance ||
+                throw(ArgumentError("a radial assembly must have one axis"))
+        end
+        for pipe in blueprint.pipes
+            wall = conductors[pipe.conductor]
+            first(ranges[wall.assembly]) == pipe.conductor && wall.r_in > 0 ||
+                throw(ArgumentError("a common pipe must begin its own hollow radial assembly"))
+            isempty(pipe.children) && throw(ArgumentError("a common pipe needs direct children"))
+            validate(pipe.material)
+            pipe.material.kind === :insulator &&
+                isapprox(pipe.material.mu_r, one(pipe.material.mu_r)) ||
+                throw(ArgumentError("common pipe cavities require nonmagnetic insulation"))
+            for child in pipe.children
+                child in eachindex(ranges) && child != wall.assembly ||
+                    throw(ArgumentError("invalid common pipe child index"))
+                distance = hypot((centres[child] .- wall.position)...)
+                distance > 0 && distance + radii[child] < wall.r_in ||
+                    throw(ArgumentError("a common pipe child must fit inside on a distinct axis"))
+            end
+            for (k, left) in pairs(pipe.children), right in pipe.children[k+1:end]
+                hypot((centres[left] .- centres[right])...) > radii[left] + radii[right] ||
+                    throw(ArgumentError("common pipe child assemblies must not overlap"))
+            end
+        end
+        for assembly in eachindex(ranges)
+            candidates = [
+                index for (index, pipe) in pairs(blueprint.pipes)
+                if assembly != conductors[pipe.conductor].assembly &&
+                   hypot((centres[assembly] .- conductors[pipe.conductor].position)...) +
+                   radii[assembly] < conductors[pipe.conductor].r_in
+            ]
+            expected = isempty(candidates) ? nothing :
+                argmin(i -> conductors[blueprint.pipes[i].conductor].r_in, candidates)
+            actual = findfirst(pipe -> assembly in pipe.children, blueprint.pipes)
+            actual == expected ||
+                throw(ArgumentError("common pipe hierarchy must retain the nearest enclosing wall"))
         end
     end
     return blueprint
@@ -275,7 +493,10 @@ function flatten(
             conductor.alpha,
             conductor.gmr,
             conductor.position,
-            conductor.material
+            conductor.material,
+            _physical_conductor_layers(design,component.name,conductor,T),
+            _single_layer_acsr(design,component.name,conductor,T),
+            _homogeneous_section(design,component.name,T)
         )
         first_layer = layer_index + 1
         for layer in component.dielectric.layers
@@ -294,7 +515,8 @@ function flatten(
         conductors,
         dielectrics,
         dielectric_ranges,
-        ranges
+        ranges,
+        _pipe_assemblies(design,conductors,dielectrics,dielectric_ranges,ranges)
     )
 end
 
@@ -353,6 +575,14 @@ struct LocalCableData{T <: Real}
     insulation_indices::Vector{Int}
     "Indices of dielectric layers classified as semiconducting material."
     semicon_indices::Vector{Int}
+    "Common pipes with global conductor and assembly indices."
+    pipes::Vector{PipeAssembly{T}}
+    "Uncombined physical conductor layers for each retained terminal."
+    conductor_layers::Vector{Vector{BlueprintConductorLayer{T}}}
+    "Physical one-plus-six-wire data for each matching terminal."
+    acsr::Vector{Union{Nothing,BlueprintSingleLayerACSR{T}}}
+    "Physical homogeneous sections for shape-dependent scalar formulas."
+    sections::Vector{Union{Nothing,BlueprintHomogeneousSection{T}}}
 end
 
 function LocalCableData(blueprints::AbstractVector{<:CableBlueprint{T}}) where {T <: Real}
@@ -382,6 +612,10 @@ function LocalCableData(blueprints::AbstractVector{<:CableBlueprint{T}}) where {
     dielectric_materials = Vector{Material{T}}(undef, layer_count)
     insulation_indices = Int[]
     semicon_indices = Int[]
+    pipes = PipeAssembly{T}[]
+    conductor_layers=Vector{Vector{BlueprintConductorLayer{T}}}(undef,conductor_count)
+    acsr=Vector{Union{Nothing,BlueprintSingleLayerACSR{T}}}(undef,conductor_count)
+    sections=Vector{Union{Nothing,BlueprintHomogeneousSection{T}}}(undef,conductor_count)
     sizehint!(insulation_indices, layer_count)
     sizehint!(semicon_indices, layer_count)
 
@@ -389,6 +623,13 @@ function LocalCableData(blueprints::AbstractVector{<:CableBlueprint{T}}) where {
     layer_offset = 0
     assembly_offset = 0
     @inbounds for (design_index, blueprint) in pairs(blueprints)
+        for pipe in blueprint.pipes
+            push!(pipes,PipeAssembly{T}(
+                pipe.conductor+conductor_offset,
+                pipe.children .+ assembly_offset,
+                pipe.material
+            ))
+        end
         for local_range in blueprint.assembly_ranges
             assembly_offset += 1
             assemblies[assembly_offset] = (
@@ -407,6 +648,9 @@ function LocalCableData(blueprints::AbstractVector{<:CableBlueprint{T}}) where {
             T0_cond[index] = conductor.material.T0
             alpha_cond[index] = conductor.material.alpha
             mu_cond[index] = conductor.material.mu_r
+            conductor_layers[index]=copy(conductor.layers)
+            acsr[index]=conductor.acsr
+            sections[index]=conductor.section
 
             local_layers = blueprint.dielectric_ranges[local_index]
             first_layer = layer_offset + 1
@@ -465,7 +709,11 @@ function LocalCableData(blueprints::AbstractVector{<:CableBlueprint{T}}) where {
         r_layer_ext,
         dielectric_materials,
         insulation_indices,
-        semicon_indices
+        semicon_indices,
+        pipes,
+        conductor_layers,
+        acsr,
+        sections
     )
 end
 

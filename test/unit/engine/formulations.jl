@@ -17,7 +17,7 @@
             :Ametani1980;
             route = insulation_impedance_route
         ),
-        earth_impedance = formula(:Papadopoulos2010),
+        earth_impedance = formula(:Papadopoulos2010b),
         insulation_admittance = formula(
             :Ametani2004;
             route = insulation_admittance_route
@@ -26,7 +26,7 @@
             :Ametani2004;
             route = semicon_admittance_route
         ),
-        earth_admittance = formula(:Papadopoulos2010),
+        earth_admittance = formula(:Papadopoulos2010b),
         earth_properties = formula(:CIGRE2019; epsilon_infinity = 10.0),
         equivalent_earth = formula(:Xue2021; order = :before, layer = 2)
     )
@@ -38,13 +38,13 @@
     @test formula_id(formulation.methods.insulation_impedance) === :Ametani1980
     @test formulation.methods.insulation_impedance.route ===
           insulation_impedance_route
-    @test formula_id(formulation.methods.earth_impedance) === :Papadopoulos2010
+    @test formula_id(formulation.methods.earth_impedance) === :Papadopoulos2010b
     @test formula_id(formulation.methods.insulation_admittance) === :Ametani2004
     @test formulation.methods.insulation_admittance.route ===
           insulation_admittance_route
     @test formula_id(formulation.methods.semicon_admittance) === :Ametani2004
     @test formulation.methods.semicon_admittance.route === semicon_admittance_route
-    @test formula_id(formulation.methods.earth_admittance) === :Papadopoulos2010
+    @test formula_id(formulation.methods.earth_admittance) === :Papadopoulos2010b
     @test formula_id(formulation.methods.earth_properties) === :CIGRE2019
     @test EP.FD.assumptions(
         formulation.methods.earth_properties
@@ -75,10 +75,10 @@
     for (owner, identifier) in (
         EN.InternalImpedance=>:Schelkunoff1934,
         EN.InsulationImpedance=>:Ametani1980,
-        EN.EarthImpedance=>:Papadopoulos2010,
+        EN.EarthImpedance=>:Papadopoulos2010b,
         EN.InsulationAdmittance=>:Ametani2004,
         EN.SemiconAdmittance=>:Ametani2004,
-        EN.EarthAdmittance=>:Papadopoulos2010
+        EN.EarthAdmittance=>:Papadopoulos2010b
     )
         @test owner.DEFAULT === identifier
         @test formula_id(owner.Formula(:default)) === identifier
@@ -86,7 +86,7 @@
     end
     @test_throws ArgumentError EN.InsulationAdmittance.Formula(:Marti2001)
     @test formula_id(bare.methods.insulation_impedance) === :Ametani1980
-    @test formula_id(bare.methods.insulation_admittance) === :Gustavsen2013
+    @test formula_id(bare.methods.insulation_admittance) === :Ametani1980
     @test formula_id(bare.methods.semicon_admittance) === :Ametani2004
 
     constants_formulation=@inferred CableConstantsFormulation()
@@ -153,7 +153,7 @@ end
     earth_impedance=LineCableModels.Engine.EarthImpedance
     formulations=(
         earth_impedance.Formula(:DeriSemlyen1981)=>
-            "Deri-Semlyen complex ground-return-plane approximation (1981)",
+            "Dubanton complex ground-return-plane approximation (1969)",
         earth_impedance.Formula(:Ametani2009)=>
             "Ametani pair-complete homogeneous-earth impedance (2009)",
         earth_impedance.Formula(:Lucca1994)=>
@@ -181,9 +181,9 @@ end
           "Ametani coaxial-insulation magnetic impedance (1980)"
     @test occursin("lossless", lowercase(description(admittance_formulation)))
     @test formula_id(impedance_formulation) === :Ametani1980
-    @test formula_id(admittance_formulation) === :Gustavsen2013
+    @test formula_id(admittance_formulation) === :Ametani1980
     @test InsulationImpedance.formulas() == (:Ametani1980,)
-    @test InsulationAdmittance.formulas() == (:Ametani2004, :Gustavsen2013)
+    @test InsulationAdmittance.formulas() == (:Ametani1980, :Ametani2004, :Weeks1984)
     @test SemiconAdmittance.formulas() == (:Ametani2004,)
     @test !isdefined(InsulationAdmittance, :Gustavsen2013)
     @test !isdefined(InsulationAdmittance, :Ametani2004)
@@ -322,7 +322,7 @@ end
     s=ComplexF64(0.0, 2π*50.0)
 
     impedance_cases=(
-        (impedance_module.Formula(:Papadopoulos2010), (-1.0, -1.2), (2, 2)),
+        (impedance_module.Formula(:Papadopoulos2010b), (-1.0, -1.2), (2, 2)),
         (impedance_module.Formula(:Pollaczek1926), (-1.0, -1.2), (2, 2)),
         (impedance_module.Formula(:Pollaczek1926), (10.0, 12.0), (1, 1))
     )
@@ -330,24 +330,24 @@ end
     @test occursin("Pollaczek", description(impedance_cases[2][1]))
     @test occursin("overhead", description(impedance_cases[3][1]))
     @test impedance_module.formula_id(first(impedance_cases)[1]) ===
-          :Papadopoulos2010
+          :Papadopoulos2010b
     @test LineCableModels.Engine.formula_id(first(impedance_cases)[1]) ===
-          :Papadopoulos2010
+          :Papadopoulos2010b
     @test keys(impedance_module.assumptions(first(impedance_cases)[1])) == (
         :air,
         :earth,
         :permeability
     )
-    @test Formulation(earth_impedance = :Papadopoulos2010).methods.earth_impedance ==
+    @test Formulation(earth_impedance = :Papadopoulos2010b).methods.earth_impedance ==
           first(impedance_cases)[1]
     @test isconcretetype(typeof(
-        Formulation(earth_impedance = :Papadopoulos2010).methods.earth_impedance
+        Formulation(earth_impedance = :Papadopoulos2010b).methods.earth_impedance
     ))
     @test all(in(impedance_module.formulas()),
         (
-            :Papadopoulos2010,
+            :Papadopoulos2010b,
             :Pollaczek1926,
-            :Theodoulidis2015,
+            :Lima2012,
             :Tsiamitros2008
         ))
     for (formulation, heights, layers) in impedance_cases
@@ -363,7 +363,7 @@ end
         @test mutual ≈ reciprocal
     end
 
-    let regression_formula=impedance_module.Formula(:Papadopoulos2010),
+    let regression_formula=impedance_module.Formula(:Papadopoulos2010b),
         regression_rho=Float64[Inf, 100.0],
         regression_epsilon=Float64[epsilon0, 10 * epsilon0],
         regression_mu=Float64[mu0, mu0], regression_frequency=ComplexF64(0.0, 2π*50.0)
@@ -376,7 +376,7 @@ end
             nothing
         )
         @test impedance_module.formula_id(regression_formula) ===
-              :Papadopoulos2010
+              :Papadopoulos2010b
         @test impedance_module.propagation(regression_formula) === Val(:explicit)
         pair=EarthPair(1, 2, (-1.0, -1.2), 0.25, (2, 2))
         reference=regression_functor(Val(:mutual), pair)
@@ -395,7 +395,7 @@ end
     end
 
     admittance_cases=(
-        (admittance_module.Formula(:Papadopoulos2010), (-1.0, -1.2), (2, 2)),
+        (admittance_module.Formula(:Papadopoulos2010b), (-1.0, -1.2), (2, 2)),
         (admittance_module.Formula(:Xue2021), (-1.0, -1.2), (2, 2)),
         (admittance_module.Formula(:Ametani2021), (10.0, 12.0), (1, 1))
     )
@@ -405,7 +405,7 @@ end
     @test all(in(admittance_module.formulas()),
         (
             :Ametani2021,
-            :Papadopoulos2010,
+            :Papadopoulos2010b,
             :Theethayi2007,
             :Xue2021
         ))
@@ -428,8 +428,8 @@ end
     @test iszero(ideal_functor(Val(:self), underground_pair))
     @test iszero(ideal_functor(Val(:mutual), underground_pair))
 
-    underground_impedance=impedance_module.Formula(:Papadopoulos2010)
-    underground_admittance=admittance_module.Formula(:Papadopoulos2010)
+    underground_impedance=impedance_module.Formula(:Papadopoulos2010b)
+    underground_admittance=admittance_module.Formula(:Papadopoulos2010b)
     for formulation in (underground_impedance, underground_admittance)
         @test_throws DimensionMismatch formulation(
             rho, epsilon[1:1], mu, s, nothing)
@@ -437,8 +437,8 @@ end
         wrong_layer=EarthPair(1, 2, (1.0, 1.2), 0.25, (1, 1))
         @test_throws ArgumentError functor(Val(:mutual), wrong_layer)
     end
-    @test_throws ArgumentError impedance_module.Formula(:Papadopoulos2010; bad = +)
-    @test_throws ArgumentError admittance_module.Formula(:Papadopoulos2010; bad = +)
+    @test_throws ArgumentError impedance_module.Formula(:Papadopoulos2010b; bad = +)
+    @test_throws ArgumentError admittance_module.Formula(:Papadopoulos2010b; bad = +)
     @test_throws ArgumentError impedance_module.Formula(:Pollaczek1926)(
         rho, epsilon, mu, s, ComplexF64(1))
     @test_throws ArgumentError admittance_module.Formula(:Xue2021)(

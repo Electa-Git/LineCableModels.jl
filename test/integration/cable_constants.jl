@@ -132,7 +132,7 @@
     @test getproperty.(blueprint.conductors, :terminal) == design.terminal_order
     @test fieldnames(typeof(blueprint)) == (
         :cable_id, :conductors, :dielectrics, :dielectric_ranges,
-        :assembly_ranges
+        :assembly_ranges, :pipes
     )
     @test :frequency ∉ fieldnames(typeof(blueprint))
     @test compute(problem, formulation) == constants

@@ -8,7 +8,7 @@ end
 
 function assumptions(::Val{:Nakagawa1973})
     (
-        air = _full,
+        air = _lossless,
         earth = _full,
         permeability = _material
     )
@@ -19,31 +19,42 @@ media(::Formula{:Nakagawa1973}) = Val(:stratified)
 """
 $(TYPEDSIGNATURES)
 
-**Identification.** Recursive ``N``-layer overhead-earth impedance.
+## Identification and source
+
+| Field | Value |
+| --- | --- |
+| Family | External impedance |
+| Geometry | Infinite parallel line currents above stratified earth; conductor skin, insulation, and a general finite-radius self term are excluded. |
+| Calculated quantities | Mutual external and earth-return impedance, own-image self correction, and two-layer and homogeneous reductions. |
+| Earth structure | Air above two finite earth layers and a lower earth half-space; ``d_2`` is cumulative depth. No arbitrary-layer recursion is supplied. |
+| Model and approximation | Integral representation with the source's longitudinal prescription ``\\gamma_0=jk`` and Bessel-transform reduction. The two- and one-layer formulae are geometric limits; no approximation error bound is supplied. |
+| Main source | M. Nakagawa, A. Ametani, and K. Iwamoto (1973). |
+| Citation key(s) | Primary: `:Nakagawa1973`; later witness: `:Ametani1975` |
+| Evidence status | All 1973 and 1975 pages checked. Appendix grouping, derivation defects, the root branch, and the finite-radius self prescription remain unresolved. |
 
 **Expression.**
 
-```math
-F_{ij}^{N}=\\frac{A_1+B_1}
-{(\\lambda+\\mu_0a_1/\\mu_1)A_1+(\\lambda-\\mu_0a_1/\\mu_1)B_1}
-e^{-\\lambda H},
-```
+The source's final coefficient (14) and reductions (15) are evaluated
+as a bounded reflection ratio ``r=c_2/c_1``:
 
 ```math
-A_{N-1}=b_{N-1}+b_N,\\qquad
-B_{N-1}=(b_{N-1}-b_N)e^{-2a_{N-1}t_{N-1}},\\qquad
-b_m=\\frac{a_m}{\\mu_m}.
+B_2=\\frac{1+r}{\\lambda(1+r)+\\mu_0b_1(1-r)}.
 ```
 
-The implementation evaluates the published upward ``A_m,B_m`` recursion and
-inserts ``F_{ij}^{N}`` in the standard overhead integral.
+The two finite thicknesses are ``d_1`` and ``d_2-d_1``.
+One to three earth layers are supported; no arbitrary-layer formula is
+attributed to this paper. The positive-real transverse root supplies
+decaying fields. The source's own-image correction uses zero lateral
+separation for self. The standard thin-wire ideal-ground logarithm
+completes the external self term for matrix assembly; it is not a
+new finite-radius result attributed to Nakagawa.
 
 **Reference.** M. Nakagawa, A. Ametani, and K. Iwamoto, “Further Studies on
 Wave Propagation in Overhead Lines with Earth Return: Impedance of Stratified
 Earth,” *Proceedings of the IEE*, 120, 1521–1528, 1973.
 """
 function description(::Formula{:Nakagawa1973})
-    "Nakagawa et al. recursive N-layer overhead impedance (1973)"
+    "Nakagawa et al. three-layer overhead impedance and reductions (1973)"
 end
 
 function propagation_constant(
@@ -55,9 +66,10 @@ end
 function (formula::Formula{:Nakagawa1973})(
         rho, epsilon, mu, jω, Γ, segments, thickness
 )
-    length(rho) >= 3 || throw(DimensionMismatch(
-        ":Nakagawa1973 requires air and at least two earth layers"
+    2<=length(rho)<=4 || throw(DimensionMismatch(
+        ":Nakagawa1973 covers one to three earth layers, not an arbitrary-layer recursion"
     ))
+    isinf(first(rho)) || throw(ArgumentError(":Nakagawa1973 requires the lossless-air longitudinal prescription"))
     return _stratified_functor(
         Val(:Nakagawa1973), formula,
         rho, epsilon, mu, jω, Γ, segments, thickness
@@ -65,25 +77,8 @@ function (formula::Formula{:Nakagawa1973})(
 end
 
 raw"""
-Evaluate the Nakagawa et al. recursive N-layer overhead impedance:
-
-```math
-F_{ij}^{N}=\frac{A_1+B_1}
-{(\lambda+\mu_0a_1/\mu_1)A_1+
-(\lambda-\mu_0a_1/\mu_1)B_1}e^{-\lambda(h_i+h_j)}.
-```
-
-With ``b_m=a_m/\mu_m`` and
-``a_m=\sqrt{\lambda^2+\gamma_m^2-\gamma_0^2}``, the bottom termination is
-
-```math
-A_{N-1}=b_{N-1}+b_N,\qquad
-B_{N-1}=(b_{N-1}-b_N)e^{-2a_{N-1}t_{N-1}},
-```
-
-and the exact upward ``A_m,B_m`` recursions from the corpus are retained.
-The three-layer record `NakagawaEtAl1973` is not duplicated because it is the
-``N=3`` specialization of this route.
+Evaluate the final Nakagawa coefficient and its homogeneous/two-layer
+reductions using finite-layer thicknesses and bounded reflection ratios.
 """
 function earth_impedance(
         ::Val{:Nakagawa1973}, ::Val{:mutual}, functor, pair
@@ -91,41 +86,31 @@ function earth_impedance(
     _require(pair, Val(:overhead))
     state = functor.state
     geometry = _geometry(pair)
-    N = length(state.rho) - 1
-    T = typeof(state.jω)
-    a = Vector{T}(undef, N)
-    b = similar(a)
-    A = similar(a)
-    B = similar(a)
-    depths = cumsum(@view state.thickness[2:(end - 1)])
-    gamma_0_squared = state.gamma_medium_squared[1]
-    integral = _quadrature(state) do lambda
-        @inbounds for m in 1:N
-            layer = m + 1
-            a[m] = sqrt(lambda^2 + state.gamma_medium_squared[layer] - gamma_0_squared)
-            b[m] = a[m] / state.mu[layer]
+    N=length(state.rho)-1
+    self=pair.row==pair.column
+    lateral=self ? zero(geometry.H) : geometry.y_ij
+    ideal=self ? log(geometry.H/geometry.y_ij) : log(geometry.D_ij/geometry.d_ij)
+    integral=_height_quadrature(state,geometry.H) do lambda
+        a=ntuple(N) do m
+            spectral_root(lambda^2+state.gamma_medium_squared[m+1]-
+                state.gamma_medium_squared[1],state.jω)
         end
-        @inbounds begin
-            A[N - 1] = b[N - 1] + b[N]
-            B[N - 1] = (b[N - 1] - b[N]) *
-                       exp(-2a[N - 1] * depths[N - 1])
-            for m in (N - 2):-1:1
-                bridge = exp(-2a[m + 1] * depths[m])
-                A[m] = (b[m] + b[m + 1]) * A[m + 1] +
-                       (b[m] - b[m + 1]) * B[m + 1] * bridge
-                B[m] = ((b[m] - b[m + 1]) * A[m + 1] +
-                        (b[m] + b[m + 1]) * B[m + 1] * bridge) *
-                       exp(-2a[m] * depths[m])
-            end
+        b=ntuple(m->a[m]/state.mu[m+1],N)
+        # Divide the printed c2/c1 by their common scale. The middle
+        # thickness is d2-d1, not cumulative d2 or d1+d2.
+        reflection=zero(state.jω)
+        for m in (N-1):-1:1
+            sumterm=b[m]+b[m+1]
+            contrast=b[m]-b[m+1]
+            reflection=(contrast+sumterm*reflection)/
+                (sumterm+contrast*reflection)*exp(-2a[m]*state.thickness[m+1])
         end
-        numerator = A[1] + B[1]
-        denominator = (lambda + state.mu[1] * b[1]) * A[1] +
-                      (lambda - state.mu[1] * b[1]) * B[1]
-        numerator / denominator * exp(-lambda * geometry.H) *
-        cos(lambda * geometry.y_ij)
+        B=(1+reflection)/
+            (lambda*(1+reflection)+state.mu[1]*b[1]*(1-reflection))
+        B*exp(-lambda*geometry.H)*cos(lambda*lateral)
     end
-    return state.jω * state.mu[1] / (2π) *
-           (log(geometry.D_ij / geometry.d_ij) + 2 * integral)
+    return _complex_result(state.jω,state.jω*state.mu[1]/
+        (2*(one(geometry.H)*π))*(ideal+2integral))
 end
 
 :Nakagawa1973

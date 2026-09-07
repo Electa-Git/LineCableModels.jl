@@ -4,8 +4,23 @@ assumptions(::Val{:Xue2021}) = (layer = -1,)
 """
 $(TYPEDSIGNATURES)
 
-**Identification.** Equivalent transverse propagation constant, from which
-both conductivity and relative permittivity are reconstructed.
+## Identification and source
+
+| Field | Value |
+| --- | --- |
+| Family | External impedance |
+| Geometry | Infinite parallel round overhead conductors. |
+| Calculated quantities | Approximate self/mutual overhead earth-return impedance for arbitrary horizontal layers via one equivalent propagation constant |
+| Earth structure | Arbitrary ``N`` horizontal layers, terminal layer semi-infinite. |
+| Model and approximation | An exact layered reflection response is replaced by the scalar ``\\gamma_{eq}``, after which a homogeneous-earth integral is evaluated. The recursion itself is explicit, but its physical homogenization is approximate. |
+| Main source | H. Xue, J. Mahseredjian, A. Ametani, J. Morales, and I. Kocar (2021) |
+| Citation key(s) | `:Xue2021` |
+| Evidence status | Accepted-publication page image verified |
+
+**Numerical scope.** This registration evaluates the equivalent-medium
+recursion and reconstructs conductivity and permittivity. Select Wise1934
+for the companion homogeneous overhead impedance. It is not the separate
+four-layer exact field expression.
 
 **Expression.** With
 ``\\gamma_{e,k}^2=\\gamma_k^2-\\gamma_0^2``, the upward recursion is

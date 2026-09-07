@@ -19,8 +19,18 @@ media(::Formula{:Papadopoulos2009}) = Val(:stratified)
 """
 $(TYPEDSIGNATURES)
 
-**Identification.** General two-layer, magnetic-earth overhead integral with
-explicit longitudinal propagation.
+## Identification and source
+
+| Field | Value |
+| --- | --- |
+| Family | External impedance |
+| Geometry | Two infinite, electrically thin overhead conductors; the self term uses the source-prescribed radius substitution. Conductor internal and insulation terms are excluded. |
+| Calculated quantities | Mutual earth-return impedance correction, self correction, homogeneous reduction, and auxiliary 2010 matrix assembly. |
+| Earth structure | Air above a finite earth layer of thickness ``d`` and a lower earth half-space. |
+| Model and approximation | Integral representation under the thin-conductor quasi-TEM model. The 2010 derivation replaces the unknown longitudinal constant by the air value and applies a Bessel transform; no quadrature is specified. |
+| Main source | T. A. Papadopoulos, G. K. Papagiannis, and D. A. Labridis (2009); the 2010 paper supplies the auxiliary derivation. |
+| Citation key(s) | Primary: `:Papadopoulos2009`; auxiliary derivation: `:Papadopoulos2010a` |
+| Evidence status | Both publications checked against page images. Prime/index conflicts, root branches, and the appendix identity remain unresolved. |
 
 **Expression.**
 
@@ -92,9 +102,9 @@ function earth_impedance(
     geometry = _geometry(pair)
     d = state.thickness[2]
     integral = _quadrature(state) do lambda
-        a0 = sqrt(lambda^2 + state.gamma_medium_squared[1] + state.gamma_squared)
-        a1 = sqrt(lambda^2 + state.gamma_medium_squared[2] + state.gamma_squared)
-        a2 = sqrt(lambda^2 + state.gamma_medium_squared[3] + state.gamma_squared)
+        a0 = spectral_root(lambda^2 + state.gamma_medium_squared[1] + state.gamma_squared,state.jω)
+        a1 = spectral_root(lambda^2 + state.gamma_medium_squared[2] + state.gamma_squared,state.jω)
+        a2 = spectral_root(lambda^2 + state.gamma_medium_squared[3] + state.gamma_squared,state.jω)
         s01 = a0 * state.mu[2] + a1 * state.mu[1]
         d01 = a0 * state.mu[2] - a1 * state.mu[1]
         s12 = a1 * state.mu[3] + a2 * state.mu[2]
@@ -104,7 +114,7 @@ function earth_impedance(
         (s01 * s12 + d01 * d12 * decay) *
         exp(-lambda * geometry.H) * cos(lambda * geometry.y_ij)
     end
-    return state.jω * state.mu[1] / (2π) *
+    return state.jω * state.mu[1] / (2*(one(geometry.H)*π)) *
            (log(geometry.D_ij / geometry.d_ij) + 2 * integral)
 end
 
