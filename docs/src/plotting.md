@@ -862,8 +862,13 @@ model_density = Makie.stairs(
 model_density.figure #hide
 ````
 
-Change the model upstream or select another retained marginal to change the
-data. Use native `stairs!` keywords for appearance.
+With `bins=n`, a different binning is derived from retained samples; the
+stored model is unchanged and no stochastic calculation is repeated. If
+samples were not retained, only the stored model's bin count is available.
+With `bins=nothing` (the default), the retained model is reused, or a model
+is derived with automatic binning if only samples were retained. Constant
+samples always produce one finite-width bin. Use native `stairs!` keywords
+for appearance.
 
 ### Empirical cumulative distribution
 
@@ -990,14 +995,21 @@ needs no LineCableModels controls or export policy, use `Figure` directly.
 
 ### Scientific axes, scale controls, and limits
 
-Each managed scientific axis receives labels from its published quantity and
-unit. On a linear axis, large or small values are divided by a power of ten and
-that exponent is rendered once in the axis label; tick labels remain readable.
-Logarithmic axes instead receive explicit decade ticks. The x/y toggles mutate
-the axes' native `scale` observables and run the same reset/format callbacks.
+Scientific recipes supply quantity and unit labels. The shared shell formats
+every linear axis, including previews, statistical plots, and `plotwindow`
+axes: the displayed limits determine one power-of-ten multiplier in the axis
+label, and ticks show plain decimal mantissas, never another exponent.
+Zooming, panning, changing limits, and resetting keep the ticks and multiplier
+synchronized. Native custom tick formatters or explicit tick labels override
+this policy; setting the formatter back to `Makie.automatic` restores it.
+Logarithmic axes have no additional multiplier. The x/y toggles select native
+linear or logarithmic scales, with explicit decade ticks for log scales.
 
 Limits are calculated from finite visible data, including measurement error
-bounds. Constant series receive nonzero padding. Legend visibility changes
+bounds. Constant series receive magnitude-relative padding; an exactly zero
+series without uncertainty uses a neutral nonzero range. Small physical values
+are not treated as zero merely because they are below machine square-root epsilon.
+Legend visibility changes
 trigger another limit pass, so hiding a dominant curve exposes the remaining
 data instead of leaving a stale range.
 

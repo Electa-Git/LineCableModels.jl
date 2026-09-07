@@ -207,14 +207,67 @@ function _compute(
         execution::NamedTuple,
         input::NamedTuple
 )
+    requested = formulation
+    formulation = Formulation(engine, problem, requested)
     workspace = LineParametersWorkspace(
         problem,
         formulation,
         execution,
         input
     )
+    validate(workspace, formulation)
     parameters = _solve!(workspace, formulation)
-    return _finish(parameters, workspace, formulation, execution)
+    result = _finish(parameters, workspace, formulation, execution)
+    fields = (:internal_impedance, :insulation_impedance, :earth_impedance,
+        :insulation_admittance, :semicon_admittance, :earth_admittance, :pipe_impedance)
+    # Placement is a runtime property. Different resolved recipe types must not
+    # make the result metadata (and therefore ParametricResult values) abstract.
+    Identifiers = NamedTuple{fields, NTuple{length(fields), Symbol}}
+    selections = (
+        requested = Identifiers(map(value -> value isa Symbol ? value : formula_id(value),
+            requested.definitions[fields])),
+        effective = Identifiers(map(formula_id, formulation.methods[fields]))
+    )
+    return LineParameters(result.domain, result.Z, result.Y, result.f,
+        merge(details(result), (; formulations = selections)))
+end
+
+"""
+$(TYPEDSIGNATURES)
+
+Resolve context-dependent formula choices for one completed coaxial problem.
+
+Overhead earth defaults select Wise; underground defaults select Xue. Existing
+explicit choices and FD/EHEM ordering are retained. Mixed placement requires
+an explicitly supported formula. Resolution takes place before workspace
+initialization and frequency evaluation.
+"""
+function Formulation(
+        ::LineCableModelsCoaxial,
+        problem::LineParametersProblem,
+        requested::LineParametersFormulation
+)
+    heights = (pose.y for pose in problem.system.positions)
+    placement = all(>(0), heights) ? Val(:overhead) :
+                all(<(0), heights) ? Val(:underground) : Val(:mixed)
+    methods = merge(requested.methods, (
+        earth_impedance = EarthImpedance.Formula(requested.methods.earth_impedance, placement),
+        earth_admittance = EarthAdmittance.Formula(requested.methods.earth_admittance, placement)
+    ))
+    EarthImpedance.propagation(methods.earth_impedance) === Val(:backend) &&
+        throw(ArgumentError("earth-impedance :$(formula_id(methods.earth_impedance)) has no coaxial implementation; select a supporting backend"))
+    for method in (methods.earth_impedance, methods.earth_admittance)
+        validate(method, problem.earth_props)
+    end
+    if problem.Γ !== nothing && any(!iszero, problem.Γ)
+        for (owner, selected) in ((EarthImpedance, methods.earth_impedance),
+                (EarthAdmittance, methods.earth_admittance))
+            owner.propagation(selected) === Val(:zero) && throw(ArgumentError(
+                "$(nameof(owner)) formula :$(formula_id(selected)) fixes Γ to zero; " *
+                "select an explicit formulation supporting the requested propagation constant"))
+        end
+    end
+    return LineParametersFormulation(methods, requested.options, requested.definitions)
 end
 
 function _compute(
@@ -242,6 +295,9 @@ function _compute(
         "line-parameter formulation collections cannot be empty",
     ))
     validate(problem)
+    for design in problem.system.designs, formulation in formulations
+        Formulation(engine, formulation.methods.pipe_impedance, design)
+    end
     maximum(problem.frequencies) > oftype(first(problem.frequencies), 1e8) &&
         @warn("Frequencies above 100 MHz exceed the quasi-TEM validity range.",
             max_frequency=maximum(problem.frequencies),)
@@ -258,6 +314,7 @@ function _compute(
     )
     values = Vector{typeof(first_result)}(undef, length(formulations))
     values[1] = first_result
+    execution.on_result === nothing || execution.on_result(problem, 1, first_result)
     for index in 2:length(formulations)
         value = _compute(
             engine,
@@ -270,6 +327,7 @@ function _compute(
             "line-parameter formulations produced inconsistent result types",
         ))
         values[index] = value
+        execution.on_result === nothing || execution.on_result(problem, index, value)
     end
     return values
 end
@@ -317,7 +375,12 @@ result type.
 
 # Keywords
 
-- `options`: Named tuple containing `verbosity`, `output_basis`, and `trace`.
+- `options`: Named tuple containing `verbosity`, `output_basis`, `trace`, and
+  `on_result`. The optional callable `on_result(problem, index, result)` runs
+  synchronously after each completed formulation, including reused results, and
+  before the next calculation. `index` is local to the formulation collection
+  (`1` for a scalar call). Its return value is ignored; exceptions propagate.
+  The callback must not mutate the problem or result. The default is `nothing`.
 
 # Returns
 

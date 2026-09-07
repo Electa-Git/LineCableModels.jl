@@ -56,9 +56,6 @@ end
 function (formula::Formula{:Tsiamitros2008})(
         rho, epsilon, mu, jω, Γ, segments, thickness
 )
-    length(rho) >= 2 || throw(DimensionMismatch(
-        ":Tsiamitros2008 requires air and at least one earth layer"
-    ))
     return _stratified_functor(
         Val(:Tsiamitros2008), formula,
         rho, epsilon, mu, jω, Γ, segments, thickness
@@ -165,6 +162,7 @@ function earth_impedance(
         identifier::Val{:Tsiamitros2008}, ::Val{:underground}, functor, pair
 )
     state = functor.state
+    validate(pair, state.thickness)
     source, target = conductor_order(identifier, pair)
     m = pair.layers[source] - 1
     l = pair.layers[target] - 1
@@ -209,6 +207,7 @@ function earth_impedance(
         identifier::Val{:Tsiamitros2008}, ::Val{:mixed}, functor, pair
 )
     state = functor.state
+    validate(pair, state.thickness)
     air_position = pair.layers[1] == 1 ? 1 : 2
     earth_position = air_position == 1 ? 2 : 1
     earth_layer = pair.layers[earth_position]
@@ -378,13 +377,20 @@ function local_layer_depth(
     depth = abs(pair.heights[position])
     top = layer == 1 ? zero(depth) : sum(@view state.thickness[2:layer])
     local_depth = depth - top
-    thickness = state.thickness[layer + 1]
-    valid = local_depth >= zero(depth) &&
-            (!isfinite(thickness) || local_depth <= thickness)
-    valid || throw(ArgumentError(
-        ":Tsiamitros2008 conductor depth is outside its resolved earth layer"
-    ))
     return local_depth
+end
+
+function validate(
+        pair::EarthPair, route::FormulaMethod{:Tsiamitros2008, typeof(earth_impedance)}, formula
+)
+    validate(pair)
+    return pair
+end
+
+function validate(formula::Formula{:Tsiamitros2008}, layer_count::Integer)
+    layer_count >= 2 || throw(DimensionMismatch(
+        ":Tsiamitros2008 requires air and at least one earth layer"))
+    return formula
 end
 
 :Tsiamitros2008

@@ -361,8 +361,16 @@ end
 function observe(value::LineParameters, ::typeof(L), ::typeof(diag), indices...)
     _observe_diagonal(observe(value, L), indices...)
 end
-function observe(value::_SeriesResult, ::typeof(L), ::typeof(diag), indices...)
-    _observe_diagonal(observe(value, L), indices...)
+"""
+$(TYPEDSIGNATURES)
+
+Return diagonal inductances from a standalone impedance tensor and its explicit
+frequency vector \\[Hz\\]. The output axes are conductor × frequency; optional
+indices select those axes. Values use \\[H/m\\] for `:pul` and \\[H\\] for `:total`.
+"""
+function observe(value::SeriesImpedance, ::typeof(L), ::typeof(diag),
+        frequencies::AbstractVector, indices...)
+    _observe_diagonal(observe(value, L, frequencies), indices...)
 end
 
 function observe(value::LineParameters, ::typeof(Y), ::typeof(diag), indices...)
@@ -380,8 +388,16 @@ end
 function observe(value::LineParameters, ::typeof(C), ::typeof(diag), indices...)
     _observe_diagonal(observe(value, C), indices...)
 end
-function observe(value::_ShuntResult, ::typeof(C), ::typeof(diag), indices...)
-    _observe_diagonal(observe(value, C), indices...)
+"""
+$(TYPEDSIGNATURES)
+
+Return diagonal capacitances from a standalone admittance tensor and its explicit
+frequency vector \\[Hz\\]. The output axes are conductor × frequency; optional
+indices select those axes. Values use \\[F/m\\] for `:pul` and \\[F\\] for `:total`.
+"""
+function observe(value::ShuntAdmittance, ::typeof(C), ::typeof(diag),
+        frequencies::AbstractVector, indices...)
+    _observe_diagonal(observe(value, C, frequencies), indices...)
 end
 
 function observables(::Type{<:SeriesImpedance})

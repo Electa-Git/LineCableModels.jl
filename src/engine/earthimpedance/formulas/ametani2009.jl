@@ -123,4 +123,17 @@ function earth_impedance(
            exp(-h_g / h_e) * log(S / D)
 end
 
+function validate(
+        pair::EarthPair, route::FormulaMethod{:Ametani2009, typeof(earth_impedance)}, formula
+)
+    validate(pair)
+    if route.arguments == (Val(:self),) || route.arguments == (Val(:mutual),)
+        leaf = pair.layers == (1, 1) ? formula.routes.overhead :
+               pair.layers[1] > 1 && pair.layers[2] > 1 ? formula.routes.underground :
+               formula.routes.mixed
+        validate(pair, leaf, formula)
+    end
+    return pair
+end
+
 :Ametani2009

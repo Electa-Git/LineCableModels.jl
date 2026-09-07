@@ -168,8 +168,7 @@ function _pscad_material(kind::Symbol, rho, eps_r, mu_r)
     return Material(kind, rho, eps_r, mu_r, 20.0, 0.0)
 end
 
-function _pscad_dielectric(values, fields, frequency)
-    eps_r = _pscad_number(values, fields.eps)
+function _pscad_dielectric(values, fields, frequency; eps_r = _pscad_number(values, fields.eps))
     mu_r = _pscad_number(values, fields.insulation_mu)
     loss = _pscad_number(values, fields.loss)
     0 <= loss <= 10 || throw(DomainError(
@@ -182,8 +181,7 @@ end
 
 function _pscad_radial_design(
         cable_name::AbstractString,
-        components,
-        frequency::Real
+        components
 )
     parts = AbstractCablePart[]
     for component in components
@@ -227,7 +225,7 @@ function _pscad_design(values, cable_number::Int, frequency)
             ),
             dielectric_material = _pscad_material(:insulator, Inf, 1.0, 1.0)
         )
-        return _pscad_radial_design(cable_name, (component,), frequency)
+        return _pscad_radial_design(cable_name, (component,))
     end
     isodd(line_layers) || throw(ArgumentError(
         "PSCAD LL must describe alternating conductor and insulation layers",
@@ -267,7 +265,7 @@ function _pscad_design(values, cable_number::Int, frequency)
     end
     cable_name = strip(get(values, "Name", ""))
     isempty(cable_name) && (cable_name = "cable$cable_number")
-    return _pscad_radial_design(cable_name, components, frequency)
+    return _pscad_radial_design(cable_name, components)
 end
 
 const _PSCAD_SIMPLIFIED_FIELDS = (
@@ -338,8 +336,6 @@ function _pscad_simplified_design(values, cable_number::Int, frequency)
         eps_r = _pscad_simplified_eps(
             values, fields, conductor_outer, insulation_outer
         )
-        loss = _pscad_number(values, fields.loss)
-        conductivity = 2π * frequency * _PSCAD_EPSILON_0 * eps_r * loss
         push!(components, (;
             name = fields.name,
             conductor_inner,
@@ -353,23 +349,18 @@ function _pscad_simplified_design(values, cable_number::Int, frequency)
                 0.0,
                 _pscad_number(values, fields.mu)
             ),
-            dielectric_material = _pscad_material(
-                :insulator,
-                iszero(conductivity) ? Inf : inv(conductivity),
-                eps_r,
-                _pscad_number(values, fields.insulation_mu)
-            )
+            dielectric_material = _pscad_dielectric(values, fields, frequency; eps_r)
         ))
     end
     cable_name = strip(get(values, "Name", ""))
     isempty(cable_name) && (cable_name = "cable$cable_number")
-    return _pscad_radial_design(cable_name, components, frequency)
+    return _pscad_radial_design(cable_name, components)
 end
 
 function _pscad_position(values, cable_number::Int, next_phase::Ref{Int})
     frequency = _pscad_number(values, "FLT")
-    frequency > 0 || throw(DomainError(
-        frequency, "PSCAD cable reference frequency must be positive"
+    isfinite(frequency) && frequency > 0 || throw(DomainError(
+        frequency, "PSCAD cable reference frequency must be positive and finite"
     ))
     design = _pscad_design(values, cable_number, frequency)
     connections = Dict{Symbol, Int}()
@@ -400,6 +391,9 @@ function _pscad_simplified_positions(values, next_phase::Ref{Int})
     horizontal = _pscad_number(values, "X")
     vertical = -abs(_pscad_number(values, "Y"))
     frequency = _pscad_number(values, "FLT")
+    isfinite(frequency) && frequency > 0 || throw(DomainError(
+        frequency, "PSCAD cable reference frequency must be positive and finite"
+    ))
     positions = NamedTuple[]
     for offset in 0:(3circuit_count - 1)
         cable_number = first_number + offset

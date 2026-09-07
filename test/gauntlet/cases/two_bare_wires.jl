@@ -4,9 +4,6 @@ case_definition(
         core_radius = case_parameter(
             :core_radius, 0.0425; tags = (:geometry, :cable_layer)
         ),
-        insulation_thickness = case_parameter(
-            :insulation_thickness, 1.0e-3; tags = (:geometry, :cable_layer)
-        ),
         first_x = case_parameter(:first_x, 0.0; tags = (:geometry, :system)),
         second_x = case_parameter(:second_x, 1.0; tags = (:geometry, :system)),
         cable_y = case_parameter(:cable_y, -1.0; tags = (:geometry, :system)),
@@ -16,7 +13,7 @@ case_definition(
         ),
         earth_rho = case_parameter(:earth_rho, 0.1; tags = (:material, :earth)),
         frequencies = case_parameter(
-            :frequencies, collect(10.0 .^ range(0, stop = 6, length = 101));
+            :frequencies, collect(10.0 .^ range(-1, stop = 6, length = 101));
             tags = (:operation, :frequency)
         )
     ),
@@ -25,10 +22,6 @@ case_definition(
 ) do p
     materials = LineCableModels.MaterialsLibrary(add_defaults = true)
     copper = LineCableModels.Material(materials, :copper)
-    artificial_insulation = LineCableModels.Material(
-        kind = :insulator,
-        rho = 1.97e14, eps_r = 2.3, mu_r = 1.0, T0 = 20.0, alpha = 0.0
-    )
     design = LineCableModels.build(
         LineCableModels.CableDesign,
         "two_bare_wires",
@@ -40,11 +33,6 @@ case_definition(
                     LineCableModels.Disk(p.core_radius),
                     copper
                 )
-            ),
-            LineCableModels.Region(
-                :core_insulation,
-                LineCableModels.Shell(p.insulation_thickness),
-                artificial_insulation
             )
         )
     )

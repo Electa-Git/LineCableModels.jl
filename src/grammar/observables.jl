@@ -371,7 +371,7 @@ end
 Tables.istable(::Type{<:ObservationPublication}) = true
 Tables.columnaccess(::Type{<:ObservationPublication}) = true
 Tables.columns(publication::ObservationPublication) = publication.columns
-Tables.schema(publication::ObservationPublication) = Tables.Schema(publication.columns)
+Tables.schema(publication::ObservationPublication) = Tables.schema(publication.columns)
 Tables.columnnames(publication::ObservationPublication) = keys(publication.columns)
 Tables.getcolumn(publication::ObservationPublication, index::Int) =
     getfield(publication.columns, index)

@@ -90,7 +90,7 @@ pp. 1049-1055, 1994. DOI: 10.1109/61.296290.
 function earth_potential_coefficient(
         ::Val{:Pettersson1994}, ::Val{:mutual}, functor, pair
 )
-    _require(pair, Val(:overhead))
+    validate(pair, FormulaMethod(Val(:Pettersson1994), earth_potential_coefficient, Val(:mutual)), functor)
     state = functor.state
     geometry = _geometry(pair)
     γ0_squared, γg_squared = state.gamma_medium_squared
@@ -106,6 +106,15 @@ function earth_potential_coefficient(
     correction = log(image / geometry.D_ij) /
                  ((n_squared + 1) * πT * state.epsilon[1])
     return perfect + correction
+end
+
+function validate(
+        pair::EarthPair, route::FormulaMethod{:Pettersson1994, typeof(earth_potential_coefficient)}, formula
+)
+    validate(pair)
+    (pair.layers == (1, 1)) || throw(ArgumentError(
+        ":Pettersson1994 earth potential coefficient requires overhead conductors; pair ($(pair.row), $(pair.column)) has layers $(pair.layers)"))
+    return pair
 end
 
 :Pettersson1994

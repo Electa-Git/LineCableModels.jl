@@ -1,4 +1,5 @@
 using PythonCall
+using TOML
 
 include(joinpath(@__DIR__, "files.jl"))
 
@@ -144,6 +145,13 @@ function main(arguments)
     app = nothing
     project = nothing
     phase = "initialization"
+    # Old, already-loaded campaign processes still use the thirteen-argument
+    # invocation without an input record. Preserve that ongoing execution;
+    # only new, attested runs are eligible for completed-run reuse.
+    input_path = joinpath(dirname(project_path), "computation.toml")
+    input = isfile(input_path) ? TOML.parsefile(input_path) : nothing
+    identify = input === nothing ? nothing :
+        pyimport("runpy").run_path(joinpath(@__DIR__, "identity.py"))["identify"]
     console = open(joinpath(output, "pscad-console.txt"), "w")
     try
         metadata = pyimport("importlib.metadata")
@@ -165,6 +173,11 @@ function main(arguments)
             )
         end
         pyconvert(Bool, app.licensed()) || error("PSCAD refused the configured license")
+        _string(app.version) == pscad_version || error("PSCAD launched an unexpected version")
+        if input !== nothing
+            pyconvert(Dict{String, String}, identify(pscad_version, app)) == input["solver"] ||
+                error("PSCAD installation changed after input preparation; start a new run")
+        end
         phase = "project load"
         _report(console, verbosity, 1, "Loading generated project $project_name")
         app.load(abspath(project_path))
@@ -250,6 +263,13 @@ function main(arguments)
             _report(console, verbosity, 2, "Validated $name with $expected_rows rows")
         end
         _report(console, verbosity, 1, "Collected detailed PSCAD Z and Y outputs")
+        if input !== nothing
+            observed = pyconvert(Dict{String, String}, identify(pscad_version, app))
+            observed == input["solver"] || error("PSCAD installation changed during calculation")
+            open(joinpath(output, "solver.toml"), "w") do io
+                TOML.print(io, observed; sorted=true)
+            end
+        end
     catch error
         project === nothing || _record_diagnostics(
             console,

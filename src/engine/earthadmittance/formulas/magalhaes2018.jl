@@ -85,7 +85,7 @@ to the Xue et al. earth-surface-reference formulation.
 function earth_potential_coefficient(
         ::Val{:Magalhaes2018}, ::Val{:mutual}, functor, pair
 )
-    _require(pair, Val(:underground))
+    validate(pair, FormulaMethod(Val(:Magalhaes2018), earth_potential_coefficient, Val(:mutual)), functor)
     state = functor.state
     geometry = _geometry(pair)
     gamma_0_squared, gamma_1_squared = state.gamma_medium_squared
@@ -102,6 +102,15 @@ function earth_potential_coefficient(
              special_besselk(0, gamma_1 * geometry.D_ij)
     kappa = state.sigma[2] + state.jω * state.epsilon[2]
     return state.jω / (2π * kappa) * (direct - 2 * integral)
+end
+
+function validate(
+        pair::EarthPair, route::FormulaMethod{:Magalhaes2018, typeof(earth_potential_coefficient)}, formula
+)
+    validate(pair)
+    (pair.layers[1] > 1 && pair.layers[2] > 1) || throw(ArgumentError(
+        ":Magalhaes2018 earth potential coefficient requires underground conductors; pair ($(pair.row), $(pair.column)) has layers $(pair.layers)"))
+    return pair
 end
 
 :Magalhaes2018

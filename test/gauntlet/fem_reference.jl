@@ -239,7 +239,7 @@ function valid_existing(path, model)
                         document["case_source_sha256"] == model.source_sha256
         implementation_matches = document["schema_version"] == 3 ||
                                  document["implementation"] == fem_implementation_record()
-        return document["schema_version"] in (3, 4) &&
+        return document["schema_version"] in (3, 4, 5) &&
                input_matches &&
                implementation_matches &&
                document["getdp_model_sha256"] == MODEL_SOURCE_SHA256 &&
@@ -258,9 +258,10 @@ function record_result(case_id, model, result, elapsed_seconds, checks)
     repository = repository_provenance()
     JLD2.jldsave(
         temporary;
-        schema_version = 4,
+        schema_version = 5,
         kind = :fem_corrected_fullband_reference,
-        status = isempty(checks.observations) ? :validated : :observed_anomalies,
+        status = :complete,
+        numerical_reference_approval = :unreviewed,
         case_id = string(case_id),
         case_source_sha256 = model.source_sha256,
         input_sha256 = numerical_input_sha256(model.nominal_problem),
@@ -270,6 +271,9 @@ function record_result(case_id, model, result, elapsed_seconds, checks)
         getdp_model_sha256 = MODEL_SOURCE_SHA256,
         frequencies = copy(result.f),
         port_order = copy(model.port_order),
+        basis = LineCableModels.basis(result),
+        domain = :PhaseDomain,
+        computation_details = LineCableModels.details(result),
         terminal_ids = copy(result.details.fem.terminal_ids),
         Z = copy(result.Z.values),
         Y = copy(result.Y.values),
@@ -435,9 +439,8 @@ function run_case(case_id)
         elapsed_seconds = time() - started
         checks = validate_result(case_id, model, result)
         path = record_result(case_id, model, result, elapsed_seconds, checks)
-        state = isempty(checks.observations) ? "PASS" : "OBSERVED"
         println(
-            state, "\t", case_id,
+            "COMPLETE\t", case_id,
             "\telapsed_s=", round(elapsed_seconds; digits = 3),
             "\tanomalies=", length(checks.observations),
             "\tmax_cond=", maximum(checks.condition_numbers),

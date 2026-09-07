@@ -1,5 +1,206 @@
 # Validation gauntlet
 
+## Manual campaigns
+
+Run indexed cases with the ordinary formulation Gridspace and backend batch
+dispatch:
+
+```bash
+./cli/lcm gauntlet run --directory /path/to/new-campaign \
+  --cases two_bare_wires,cable_18kv_1000mm2_trefoil \
+  --backends coaxial,fem,pscad --formulas catalogue
+./cli/lcm gauntlet status --directory /path/to/new-campaign
+./cli/lcm gauntlet resume --directory /path/to/new-campaign
+```
+
+Omit `--cases` for the indexed catalogue. `--formulas default` runs only the
+contextual default; `catalogue` additionally varies each registered earth-return
+formula independently, keeping other selections at their defaults. The coaxial
+backend records inapplicable selections and reasons. FEM records the same
+requested identifiers but uses its fixed field equations; identical effective
+FEM inputs reuse a solve. PSCAD selects the native methods supported for the
+case placement. `--dielectric Ametani2004` explicitly requests lossy insulation
+and semicons; the default is lossless.
+
+Catalogue applicability comes from the formula owners' `validate` methods, not
+an author allowlist. The planner prepares the resolved assembly geometry once
+per case, then checks each selection's placement, earth layers and pair
+restrictions without evaluating numerical kernels. Rejected selections retain
+the validator's reason. Exceptions during numerical execution remain failures;
+they are not retroactively labelled inapplicable. Catalogue descriptions contain
+no case-independent applicability verdict, and catalogue size is not fixed.
+
+To vary other formula slots, specify the axes explicitly. Slot names and
+identifiers are the same as for `Formulation`; Gauntlet passes them to its normal
+`Gridspace` constructor, without a separate combination algorithm:
+
+```bash
+./cli/lcm gauntlet run --directory /path/to/dielectric-comparison \
+  --cases cable_18kv_1000mm2_trefoil --backends coaxial,fem,pscad \
+  --formulas default \
+  --select insulation_admittance=default,Ametani2004 \
+  --select semicon_admittance=default,Ametani2004 --combine zip
+```
+
+This requests two paired selections. `--combine product` instead requests all
+four combinations. Singleton axes broadcast in zip mode, following the public
+API. All nine formula slots are admitted, including internal/insulation/earth
+impedance, insulation/semicon/earth admittance, FD soil (`earth_properties`), EHEM
+(`equivalent_earth`) and `pipe_impedance`. Adding an identifier to an existing
+owner does not require adding it to a CLI allowlist. Explicit selections are
+not silently skipped: an unsupported backend/topology fails with its own error.
+In particular, selecting pipe formulas does not implement the coaxial pipe
+backend. Unspecified slots keep their defaults; an explicit dielectric slot
+overrides `--dielectric` for that slot only. The CLI accepts identifiers, not
+arbitrary Julia expressions or custom route functions.
+
+Uncertainty propagation uses the same formula selections and case catalogue:
+
+```bash
+./cli/lcm gauntlet run --directory /path/to/uq-campaign \
+  --cases two_bare_wires --backends coaxial --formulas default \
+  --propagation linear_error,monte_carlo \
+  --uncertainty-percent 1 --uncertainty-tags geometry,cable_layer \
+  --select insulation_admittance=default,Ametani2004 \
+  --trials 512 --seed 1234
+```
+
+`RelativeStandardUncertainty` supplies the parameter variation: each selected
+parameter ID is one uncertain primitive, and repeated uses remain correlated.
+Both the percentage and matching tags are explicit. `LinearError` uses
+Measurements derivatives; `MonteCarlo` uses the existing normal sampler with
+an explicit seed. The same root seed is used for every formula of a case, so
+comparisons use the same random draws. The default trial count is 512, not a
+claim of convergence for every case. Sampling errors fail the calculation;
+there is no implicit rejection/resampling policy.
+
+Linear propagation is supported only by the coaxial backend here. Monte Carlo
+can request coaxial or PSCAD calculations, but is explicitly forbidden on FEM.
+These checks run before creating a campaign directory or contacting a solver.
+UQ operates on each case's existing uncertain problem Gridspace. Each complete
+propagation result is checkpointed before the next selection; an interrupted
+Monte Carlo calculation restarts that incomplete calculation from its saved
+seed. Completed moment artifacts are not rerun. Trial counts, seeds,
+uncertainty/correlation declarations and implementation fingerprints are stored.
+There are no automatic RMS or performance acceptance judgements.
+
+Add `deterministic` to `--propagation` to also retain nominal phase matrices.
+New moment artifacts are single-calculation records; paired UQ snapshots
+remain readable through `read_moments`. Neither format implies CI approval.
+The documentation summary includes only deterministic default selections.
+
+Each case keeps its frequency range, raised to 0.1 Hz when necessary, with 101
+logarithmic samples. Campaigns do not run FEM Monte Carlo. FEM uses
+`LINECABLEMODELS_GETDP` or `getdp` on PATH; PSCAD uses the existing `local.jl`
+configuration (or `LINECABLEMODELS_GAUNTLET_CONFIG`).
+
+The manifest fixes the requested selections. A completion callback writes each
+result atomically, without replacement, before the next formulation runs. If a
+later selection fails, already saved results survive and resume skips them.
+Each attempt keeps its own completion/failure record under the job's `attempts/`
+directory. Artifact timings record elapsed time at that result's completion;
+they are not independent per-formulation performance measurements. Successful
+attempt records contain the full batch duration.
+
+Resume verifies numerical input and selected
+implementation fingerprints and checks stored numerical payloads before reuse;
+changed inputs require a new directory. A Unix process lock prevents concurrent
+writers and releases automatically on process exit, including power loss.
+`status` distinguishes an interrupted ledger entry from a live locked process.
+
+FEM resumption can also read a compatible completed run for a selection that
+was not checkpointed before interruption. It verifies the resolved inputs,
+adapter/solver sources, GetDP executable/build identity and raw-result checksums,
+then reapplies reduction and output-basis selection without changing the saved
+run. Backend-owned Gmsh sessions ignore user configuration files; caller-owned
+sessions, UI operation and explicit remeshing are not completed-run reuse paths.
+Changed GetDP executable bytes also invalidate campaign checkpoint reuse.
+
+The GetDP `.pro` equations remain parametric. Frequency, excitation and domain
+dimensions are supplied through native `-setnumber`/`-setstring` arguments,
+while generated includes supply the resolved materials and physical groups.
+Preserving the solver source used by a run does not freeze these parameters;
+it prevents a working-tree edit from changing the equations halfway through a
+calculation or its resumption.
+
+PSCAD uses the same `resume_run_directory` computation option: `nothing` runs a
+fresh calculation (the direct API default), `:latest` searches the case's
+completed runs, and a path requires that particular run to match. Campaigns
+select `:latest`. Reuse compares the exported project, frequency samples, native
+solver setting, frozen remote scripts, and the station's PSCAD, `tline.exe` and
+master-library identities. Source and raw-output hashes are checked before the
+four matrix files are parsed again. Output-basis conversion is reapplied locally;
+requested author labels do not prevent reuse of identical effective inputs.
+Old runs lacking completion/solver evidence remain readable as historical data
+but are not assumed reusable.
+
+PSCAD retains the saved profile, including its license configuration, and reads
+the actual selected LCP executable. The station identity is checked before and
+after execution, and recorded in campaign
+signatures. A change prevents reuse of that campaign's checkpoints. An optional
+`solver_identity=PSCADBenchmarks.identify(remote)` pins the same identity across
+several direct calls. Reused results carry `execution.reused=true`, zero new
+solver execution time, and a separate `source_elapsed_seconds`; this is not a
+new solver performance measurement. Remote checking, parsing and conversion
+still take time.
+
+PSCAD's `elapsed_seconds` measures the native `line.compile()` call, not the
+whole remote operation. `elapsed_scope` records that boundary explicitly;
+`source_elapsed_scope` describes the original timing when a result is reused.
+Output-readiness polling and transfer are outside this timer. The automation
+manual does not promise that returning from
+[`compile()`](https://www.pscad.com/webhelp-v502-al/reference/component.html#mhi.pscad.UserCmp.compile)
+means every detailed matrix file is ready, so this duration is not advertised
+as total simulation time. Older artifacts without a recorded timing scope
+remain labelled as unrecorded.
+
+Local warmed performance comparisons require matching Julia, OS, architecture,
+CPU model, CPU-thread inventory, Julia/BLAS thread counts and BLAS configuration.
+Missing or different environment fields make a comparison diagnostic only.
+Coverage/allocation-instrumented executions cannot establish timing regressions.
+Matching metadata is necessary, not proof of an idle or frequency-stable machine;
+wall-time comparisons still require a controlled runner. The core suite uses
+inference and allocation checks independently of wall-clock timing.
+
+The required `mhi.pscad 3.1.2` settings decoder fails on this 5.1 station during
+unrelated Fortran-compiler discovery. The identity reader therefore uses that
+version's underlying read-only settings call, solely to resolve `file_lcp`.
+It neither changes application settings nor selects a license. This narrow
+workaround must be revisited when the automation dependency is updated.
+
+These commands execute scientific calculations manually, not through a test
+runner or CI. A completed artifact is explicitly **unreviewed** as a numerical
+reference. Publication and CI-reference approval remain separate actions.
+New campaign records preserve the serialized nominal problem and complete
+physical formulation declaration alongside the matrices or UQ moments. The
+separate [numerical-reference gate](../numerical/README.md) can replay reviewed
+phase records without importing the current case catalogue. Legacy records
+remain readable as stored data; missing input declarations are not fabricated.
+
+### Documentation summary
+
+Gauntlet has no standalone report command or HTML/plot generator. Its only report
+is the compact defaults comparison in the documentation:
+
+```bash
+LINECABLEMODELS_GAUNTLET_RESULTS=/path/to/campaign \
+  julia --project=docs docs/make.jl
+```
+
+Use the platform path-list separator (`:` on Unix, `;` on Windows) for multiple
+campaign directories. The page reads completed phase results with all formula
+slots explicitly recorded as `:default`, verifies checksums and coordinates, and
+compares those defaults between backends using the existing element-wise RMS API.
+Full-catalogue and UQ calculations remain persisted but do not expand the page.
+The summary does not copy numerical artifacts, generate per-case HTML pages,
+embed plots or dump input objects. It never runs missing calculations or selects
+the newest run implicitly.
+
+Use the ordinary `LineParameters`, `observe`, `compare` and plotting APIs to
+inspect retained data interactively. No Gauntlet-specific detailed reporter is
+provided. Collection archives contain snapshots and their checksums only, plus
+release metadata; packaging instructions are below.
+
 The gauntlet separates reusable physical models from the calculations used to
 validate them:
 
@@ -168,17 +369,25 @@ with every available PSCAD reference and the FEM reference. Its locked metric
 is element-wise absolute and reference-normalized RMS error across frequency
 for every entry of `Z` and `Y`.
 
-Run only one `fem_reference.jl` process at a time. The current Gmsh/GetDP
-ONELAB socket transport is not safe across concurrent gauntlet reference
-processes.
+Run only one `fem_reference.jl` process against its shared output collection at
+a time. The backend now assigns a separate ONELAB socket to each run, so
+independent processes with distinct run directories do not share that socket.
+This does not make Gmsh's process-global API safe for concurrent Julia tasks,
+or retrofit socket isolation into an already-running older process.
 
 All three runners are resumable. Their generated records live under
-`.linecablemodels/`. Numerical reuse is keyed by the materialised problem,
+`.linecablemodels/`. Numerical reuse is keyed by the materialised problem and
+its resolved geometry, terminal ownership and longitudinal paths,
 selected formulation, exact Git blob identities of the selected formulas and
-shared numerical implementation, and reference bytes. Adding an unrelated
+shared numerical implementation (including flattening equivalences), and reference bytes. Adding an unrelated
 formula, plot, extension, or library entry does not invalidate prior results.
 Every newly written artefact also records the full repository commit and dirty
 state for historical provenance; official publication requires a clean tree.
+
+FEM also fingerprints the resolved material domains, boundary shapes and mesh
+settings actually handed to Gmsh. A declaration-only fingerprint from an older
+schema is insufficient for automatic reuse. Such records remain readable for
+stored results; they are not rewritten, relabelled or automatically recomputed.
 
 ### LEP versus Monte Carlo
 
@@ -343,7 +552,7 @@ that process tree on cancellation, and preserves the shared and Windows scratch
 directories after failure. `verbosity=(default=0, PSCAD=2)` streams milestones;
 PSCAD's blocking `compile()` call cannot stream intermediate project messages.
 
-## Artifacts and reports
+## Numerical artifacts
 
 Artifact lifecycle and release versioning are intentionally separate. Julia
 owns benchmark execution, validation, snapshot schema 2, and unversioned local
@@ -357,11 +566,9 @@ This is the locked layout:
 test/gauntlet/.artifacts/
 ├── staging/
 │   ├── pscad/
-│   │   ├── benchmarks/<benchmark-id>/snapshot.{jld2,sha256}
-│   │   └── report.{jld2,tsv,sha256}
+│   │   └── benchmarks/<benchmark-id>/snapshot.{jld2,sha256}
 │   └── uq/
-│       ├── benchmarks/<benchmark-id>/snapshot.{jld2,sha256}
-│       └── report.{jld2,tsv,sha256}
+│       └── benchmarks/<benchmark-id>/snapshot.{jld2,sha256}
 └── releases/<collection>/vX.Y.Z/
     ├── benchmarks-<collection>-vX.Y.Z.tar.gz
     └── package.toml
@@ -379,22 +586,10 @@ parameter manifest, applied variation, parameter-identity correlation record,
 reference/candidate calculation records and options, tolerances, terminal and
 frequency metadata, results or plain moment products, comparison, seed/trials,
 timings, environment, and timestamp. Snapshot digests and stored comparisons
-are recomputed on load and report generation.
+are checked by `read_collection` and before packaging. Finalizing a collection
+validates its snapshots; it does not write a report or duplicate results.
 
-Display a staged collection report with:
-
-```bash
-julia --project=test/gauntlet --startup-file=no test/gauntlet/report.jl uq
-julia --project=test/gauntlet --startup-file=no test/gauntlet/report.jl pscad
-```
-
-The UQ report exposes maximum mean/std RMS absolute and display-safe relative
-errors for every `R/L/C/G` quantity, raw relative maxima, matrix locations,
-failing locations, Monte Carlo count and seed, timings, and integrity metadata.
-The PSCAD report retains the established `Z/Y` RMS and performance fields while
-reporting benchmark ID and physical case ID separately.
-
-After recording and reviewing the reports, commit the definitive source tree.
+After recording and reviewing the numerical results, commit the definitive source tree.
 Then package one collection by supplying the exact next version and a reason:
 
 ```bash

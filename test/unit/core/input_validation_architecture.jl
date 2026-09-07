@@ -74,6 +74,9 @@
         validate,
         LineCableModels.DataModel.area,
         LineCableModels.DataModel.outer_radius,
+        # Public formula metadata, like geometric area/radius, is observational;
+        # it does not delegate a validation rule to a helper.
+        Engine.media,
         nphases
     ))
     for (type, path) in expected

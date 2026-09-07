@@ -116,7 +116,7 @@ function _modal_formulation(identifier::Symbol, overrides::NamedTuple)
 end
 
 function _modal_formulation(
-        selection::FormulaSpec{ID, Order},
+        selection::FormulaDefinition{ID, Order},
         overrides::NamedTuple
 ) where {ID, Order}
     isempty(overrides) || throw(ArgumentError(
@@ -142,7 +142,7 @@ $(TYPEDSIGNATURES)
 
 Select one or more completed modal-transformation formulations.
 
-A scalar symbol, `FormulaSpec`, or completed [`Formula`](@ref) returns one
+A scalar symbol, `FormulaDefinition`, or completed [`Formula`](@ref) returns one
 [`ModalTransformationFormulation`](@ref). An explicit
 [`Grid`](@ref LineCableModels.ParametricBuilder.Grid) or
 [`Gridspace`](@ref LineCableModels.ParametricBuilder.Gridspace) returns a

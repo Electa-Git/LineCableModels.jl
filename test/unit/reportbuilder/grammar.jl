@@ -305,6 +305,50 @@ end
     end
 end
 
+@testitem "ReportBuilder / line and comparison reports preserve numeric observations" tags=[:unit] begin
+    using DataFrames
+    const RB = LineCableModels.ReportBuilder
+    const EN = LineCableModels.Engine
+    const U = LineCableModels.Units
+    frequency = [0.1, 50.0, 1e6]
+    values = reshape(collect(1.0:12.0), 2, 2, 3)
+    impedance = values .* (1e-4 + 2e-4im)
+    admittance = values .* (1e-9 + 3e-9im)
+    reference = LineParameters(impedance, admittance, frequency)
+    requests = (@observe(R[:, :, :]), @observe((Y, abs)[:, :, :]))
+    definition = RB.LineParametersTableDefinition(requests, :kilo, :base, :base, false)
+    artifact = report(definition, reference)
+    @test artifact.table == DataFrame(observables(reference, requests;
+        frequency_unit=:kilo, length_unit=:base, quantity_units=:base, clip=false))
+    @test artifact.illustration === nothing
+    @test artifact.output === nothing
+    @test artifact.table.frequency == repeat(frequency ./ 1000; inner=4)
+    @test artifact.table.R ≈ [real(impedance[i, j, k]) for k in 1:3 for i in 1:2 for j in 1:2]
+    artifact.table.R[1] = -1.0
+    @test Z(reference) == impedance
+    @test Y(reference) == admittance
+
+    candidate = LineParameters(1.2 .* impedance, 0.9 .* admittance, frequency)
+    comparison = EN.compare(reference, candidate)
+    for definition in (RB.BenchmarkTableDefinition(), RB.BenchmarkTableDefinition(false))
+        table = report(definition, comparison).table
+        @test names(table) == ["row", "column", "ΔZ", "εZ", "ΔY", "εY"]
+        @test collect(zip(table.row, table.column)) == [(1, 1), (1, 2), (2, 1), (2, 2)]
+        @test table.ΔZ ≈ [1000sqrt(sum(abs2, 0.2 .* impedance[i, j, :]) / 3)
+            for i in 1:2 for j in 1:2]
+        @test table.ΔY ≈ [1000sqrt(sum(abs2, 0.1 .* admittance[i, j, :]) / 3)
+            for i in 1:2 for j in 1:2]
+        @test table.εZ ≈ fill(0.2, 4)
+        @test table.εY ≈ fill(0.1, 4)
+        metadata = RB.observation_columns(table)
+        @test U.label(metadata.ΔZ.unit) == "Ω/km"
+        @test U.label(metadata.ΔY.unit) == "S/km"
+        @test U.label(metadata.εZ.unit) == U.label(metadata.εY.unit) == ""
+        table.εZ[1] = 99.0
+        @test observe(comparison, Z, EN.relative_error, 1, 1) ≈ 0.2
+    end
+end
+
 @testitem "ReportBuilder / adapters / completed results delegate" tags=[:unit] setup=[
     TestFixtures
 ] begin

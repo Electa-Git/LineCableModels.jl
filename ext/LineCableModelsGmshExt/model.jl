@@ -32,6 +32,7 @@ struct FEMMaterialPlan{T <: Real}
     eps_r::T
     mu_r::T
     tan_delta::T
+    admittivity::Vector{Complex{T}}
     physical_tag::Int
     physical_name::String
 end
@@ -315,7 +316,7 @@ end
 function _fem_region_mesh_size(region::DataModel.PlacedRegion)
     source = region.source.primitive
     shape = region.primitive
-    repeated = !isempty(region.placement.patterns)
+    repeated = any(entry -> entry.owner === DataModel.Group, region.placement.patterns)
     if source isa DataModel.Disk
         return repeated ? source.r : source.r / 5
     end
@@ -490,6 +491,19 @@ function _formations(regions, terminal_map, object_id)
             filled = any(regions) do candidate
                 shape = candidate.primitive
                 candidate.source.material.kind === :conductor && return false
+                if shape isa DataModel.Annulus && boundary isa DataModel.Disk
+                    concentric = isapprox(shape.at.x, boundary.at.x) &&
+                                 isapprox(shape.at.y, boundary.at.y)
+                    concentric && isapprox(shape.ro, boundary.r) || return false
+                    isapprox(occupied_area, π * shape.ri^2;
+                        rtol=5e-6, atol=0) || return false
+                    shift = DataModel.Pose2(-boundary.at.x, -boundary.at.y)
+                    tolerance = 64eps(shape.ri)
+                    return all(member_shapes) do member_shape
+                        DataModel.support(DataModel.resolve(shift, member_shape)) <=
+                            shape.ri + tolerance
+                    end
+                end
                 shape isa DataModel.DifferenceShape || return false
                 all(member_shapes) do member_shape
                     any(hole -> isequal(hole, member_shape), shape.holes)
@@ -568,6 +582,10 @@ function _resolved_fem_model(
         "problem-level propagation constants are unsupported"
     )
     earth = problem.earth_props
+    formulation.methods.earth_properties === nothing || _fem_error(
+        :unsupported, problem.system.system_id, :earth_properties,
+        "frequency-dependent soil constitutive selections are not yet implemented by FEM"
+    )
     earth.vertical_layers && _fem_error(
         :unsupported,
         problem.system.system_id,
@@ -589,6 +607,9 @@ function _resolved_fem_model(
     )
 
     system = problem.system
+    for design in system.designs
+        Engine.Formulation(formulation, formulation.methods.pipe_impedance, design)
+    end
     terminal_count = length(system.terminal_order)
     terminal_count > 0 || _fem_error(
         :adaptation, system.system_id, :terminal_order, "no terminals were resolved"
@@ -658,6 +679,23 @@ function _resolved_fem_model(
             rho = convert(T, _temperature_resistivity(
                 source.material, problem, formulation
             ))
+            material = source.material
+            admittivity = if material.kind === :conductor
+                epsilon = convert(T, material.eps_r * 8.8541878128e-12)
+                Complex{T}[complex(inv(rho) + 2π * f * epsilon * material.tan_delta,
+                    2π * f * epsilon) for f in problem.frequencies]
+            else
+                selected = material.kind === :semicon ?
+                           formulation.methods.semicon_admittance :
+                           formulation.methods.insulation_admittance
+                corrected = LineCableModels.Material(material.kind, rho, material.eps_r,
+                    material.mu_r, material.T0, material.alpha;
+                    rho_thermal = material.rho_thermal, theta_max = material.theta_max,
+                    tan_delta = material.tan_delta, sigma_solar = material.sigma_solar)
+                Complex{T}[LineCableModels.constitutive(formulation,
+                    Val(LineCableModels.formula_id(selected)), selected, corrected,
+                    frequency, problem.temperature) for frequency in problem.frequencies]
+            end
             formation = get(complete, local_region, nothing)
             shape = formation === nothing ?
                     _coalesce(placed.primitive, formations, object_id) :
@@ -680,6 +718,7 @@ function _resolved_fem_model(
                     convert(T, source.material.eps_r),
                     convert(T, source.material.mu_r),
                     convert(T, source.material.tan_delta),
+                    admittivity,
                     physical_tag,
                     physical_name
                 ))

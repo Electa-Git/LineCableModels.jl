@@ -5,7 +5,7 @@
         internal_impedance = Grid((:default, :Schelkunoff1934)),
         insulation_impedance = Grid((:default, :Ametani1980)),
         earth_impedance = Grid((:Pollaczek1926, :Papadopoulos2010)),
-        insulation_admittance = Grid((:Ametani2004, :Gustavsen2013)),
+        insulation_admittance = Grid((:Ametani2004, :default)),
         semicon_admittance = Grid((:default, :Ametani2004)),
         earth_admittance = Grid((:IdealGround, :Papadopoulos2010)),
         earth_properties = Grid((nothing, :CIGRE2019)),
@@ -13,6 +13,7 @@
             formula(:Layer; layer = -1),
             formula(:Xue2021)
         )),
+        pipe_impedance = Grid((:default, formula(:default))),
         options = Grid((
             (; ideal_transposition = false),
             (; ideal_transposition = true)
@@ -30,7 +31,7 @@
                     AbstractGrid,
                     Gridspace,
                     Symbol,
-                    LineCableModels.FormulaSpec
+                    LineCableModels.FormulaDefinition
                 }),
                 values(value.methods)
             ) &&
@@ -106,6 +107,24 @@
     @test fem isa Gridspace{LineCableModelsFEM}
     @test length(fem) == 2
 
+    for name in keys(selections)
+        keyword = NamedTuple{(name,)}((getproperty(selections, name),))
+        space = Formulation(:LineCableModelsFEM; keyword...)
+        @test space isa Gridspace{LineCableModelsFEM}
+        @test length(space) == 2
+        @test all(value -> isconcretetype(typeof(value)), space)
+        if name !== :options
+            @test all(value -> haskey(value.definitions, name), space)
+        end
+    end
+    fem_zipped = Formulation(:LineCableModelsFEM;
+        insulation_admittance = Grid((:default, :Ametani2004)),
+        semicon_admittance = Grid((:default, :Ametani2004)), combine = :zip)
+    @test length(fem_zipped) == 2
+    @test [(formula_id(value.methods.insulation_admittance),
+        formula_id(value.methods.semicon_admittance)) for value in fem_zipped] ==
+        [(:default, :default), (:Ametani2004, :Ametani2004)]
+
     struct CountedProblem<:AbstractProblemDefinition
         value::Int
     end
@@ -142,6 +161,15 @@
     @test run.axes.problems === problem_space
     @test run.axes.formulations isa Vector{<:AbstractFormulation}
     @test_throws BoundsError run[3, 1]
+
+    # A completed scalar problem is an admitted singleton, not an iterable object.
+    scalar = CountedProblem(7)
+    scalar_problem = ParametricProblem(scalar)
+    @test length(scalar_problem.space) == 1
+    @test first(scalar_problem.space) === scalar
+    scalar_run = compute(scalar_problem, Combinatorial(formulas))
+    @test collect(scalar_run) == CountedResult.(Int[7, 70])
+    @test scalar_run[1, 2] == CountedResult(70)
 
     linear=compute(
         ParametricProblem(problem_space),

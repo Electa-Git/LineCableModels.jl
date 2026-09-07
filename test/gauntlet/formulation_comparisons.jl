@@ -35,10 +35,7 @@ function comparison_provenance(model, selected)
     return (
         input_sha256 = numerical_input_sha256(model.nominal_problem),
         implementation = implementation_record(
-            selected_formulation;
-            external_sources = (
-                "test/gauntlet/formulas/fem_lossless_semicon.jl",
-            )
+            selected_formulation
         ),
         repository = repository_provenance()
     )
@@ -82,7 +79,7 @@ function references(case_id, model)
         path = joinpath(directory, "reference.jld2")
         isfile(path) || continue
         document = JLD2.load(path)
-        document["schema_version"] in (1, 2) || error(
+        document["schema_version"] in (1, 2, 3) || error(
             "unsupported PSCAD reference schema at $path",
         )
         document["status"] === :complete || error(
@@ -326,8 +323,9 @@ function comparison_main(args = ARGS)
             "\tterminals=", length(model.port_order),
             "\treferences=", length(case_references)
         )
+        workspace = prepare_case(model)
         for selected in variants
-            reason = case_skip_reason(model, selected)
+            reason = case_skip_reason(model, selected, workspace)
             if reason !== nothing
                 push!(skipped,
                     (;

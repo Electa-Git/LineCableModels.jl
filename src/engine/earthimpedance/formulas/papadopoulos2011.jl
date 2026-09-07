@@ -57,9 +57,6 @@ end
 function (formula::Formula{:Papadopoulos2011})(
         rho, epsilon, mu, jω, Γ, segments, thickness
 )
-    length(rho) == 3 || throw(DimensionMismatch(
-        ":Papadopoulos2011 requires air and exactly two earth layers"
-    ))
     return _stratified_functor(
         Val(:Papadopoulos2011), formula,
         rho, epsilon, mu, jω, Γ, segments, thickness
@@ -91,9 +88,7 @@ finite top earth layer.
 function earth_impedance(
         ::Val{:Papadopoulos2011}, ::Val{:mutual}, functor, pair
 )
-    pair.layers == (2, 2) || throw(ArgumentError(
-        ":Papadopoulos2011 requires both conductors in the top earth layer"
-    ))
+    validate(pair, FormulaMethod(Val(:Papadopoulos2011), earth_impedance, Val(:mutual)), functor)
     state = functor.state
     geometry = _geometry(pair)
     d = state.thickness[2]
@@ -122,6 +117,21 @@ function earth_impedance(
         (F - direct_spectrum) * cos(geometry.y_ij * lambda)
     end
     return state.jω * state.mu[2] / (2π) * (direct + integral)
+end
+
+function validate(
+        pair::EarthPair, route::FormulaMethod{:Papadopoulos2011, typeof(earth_impedance)}, formula
+)
+    validate(pair)
+    pair.layers == (2, 2) || throw(ArgumentError(
+        ":Papadopoulos2011 requires both conductors in the top earth layer"))
+    return pair
+end
+
+function validate(formula::Formula{:Papadopoulos2011}, layer_count::Integer)
+    layer_count == 3 || throw(DimensionMismatch(
+        ":Papadopoulos2011 requires air and exactly two earth layers"))
+    return formula
 end
 
 :Papadopoulos2011

@@ -3,6 +3,7 @@
 module TextDisplay
 
 import ..Units
+import ..LineCableModels: FormulaDefinition
 
 "Return the explicitly declared semantic display name for an owned type."
 function name end
@@ -361,5 +362,17 @@ function Base.show(io::IO, quantity::Units.Quantity)
         print(io, scientific_symbol, " · ", Units.label(quantity))
 end
 Base.show(io::IO, ::MIME"text/plain", quantity::Units.Quantity) = show(io, quantity)
+
+name(::Type{<:FormulaDefinition}) = "FormulaDefinition"
+Base.summary(io::IO, ::FormulaDefinition{ID}) where {ID} =
+    print(io, "Formula definition :", ID)
+function Base.show(io::IO, definition::FormulaDefinition{ID, Order}) where {ID, Order}
+    fields(io, "FormulaDefinition", (id = ID, order = Order, overrides = definition.overrides);
+        multiline = false)
+end
+function Base.show(io::IO, ::MIME"text/plain", definition::FormulaDefinition{ID, Order}) where {ID, Order}
+    fields(io, "FormulaDefinition", (id = ID, order = Order, overrides = definition.overrides);
+        multiline = true)
+end
 
 end

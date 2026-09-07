@@ -228,7 +228,7 @@ function conductor_zone(
         ))
         expected_inner, expected_inner + 2radius
     end
-    patterned = !isempty(source.placement.patterns)
+    patterned = any(entry -> entry.owner === Group, source.placement.patterns)
     uniform_paths = all(item -> item.paths == source.paths, zone)
     turns = uniform_paths ? turns_per_length(source.paths, T) :
             sum(item -> turns_per_length(item.paths, T), zone) / length(zone)
@@ -492,6 +492,10 @@ function radial_extent(shape::Disk, centre)
     return hypot(shape.at.x - centre[1], shape.at.y - centre[2]) + shape.r
 end
 
+function radial_extent(shape::Annulus, centre)
+    return hypot(shape.at.x - centre[1], shape.at.y - centre[2]) + shape.ro
+end
+
 function radial_extent(shape::Polygon, centre)
     cosine = cos(shape.at.φ)
     sine = sin(shape.at.φ)
@@ -533,6 +537,65 @@ function radial_extent(shape::Rectangle, centre)
     end
 end
 
+"""
+$(TYPEDSIGNATURES)
+
+Calculate the mutual GMD of two resolved strand sections \\[m\\].
+General shapes retain the centroid-distance approximation. An annulus
+surrounding the other section uses the uniform-current area average from
+Rosa [rosa1908](@cite), Eq. (57):
+
+```math
+\\log D = \\frac{r_o^2\\log r_o-r_i^2\\log r_i}{r_o^2-r_i^2}-\\frac12.
+```
+
+# Arguments
+
+- `left`, `right`: Resolved strand cross-sections, with coordinates in \\[m\\].
+
+# Returns
+
+- Mutual geometric mean distance \\[m\\].
+
+# Notes
+
+The annular expression is independent of the enclosed section's shape or
+eccentricity while that section remains entirely inside the annular hole.
+It does not replace the separate annular self-GMR or imply an exact integral
+for arbitrary deformed strands.
+
+# Errors
+
+- `ArgumentError`: Coincident centroids without an enclosing annular section.
+"""
+function geometric_mean_distance(left::AbstractShape, right::AbstractShape)
+    left_centre, right_centre = centroid(left), centroid(right)
+    distance = hypot(left_centre[1] - right_centre[1], left_centre[2] - right_centre[2])
+    distance > zero(distance) || throw(ArgumentError(
+        "nested conductor members must have distinct centroids unless one is an enclosing annulus"
+    ))
+    return distance
+end
+
+function geometric_mean_distance(left::Annulus, right::AbstractShape)
+    tolerance = 64eps(float(nominal(left.ro)))
+    if left.ri > zero(left.ri) && radial_extent(right, centroid(left)) <= left.ri + tolerance
+        # Dimensionless radius ratio avoids subtraction of nearly equal
+        # squared radii in Rosa's area average for a thin annulus.
+        ratio = (left.ro - left.ri) / left.ri
+        return left.ri * exp(log1p(ratio) * (1 + ratio)^2 / (ratio * (2 + ratio)) - one(ratio) / 2)
+    end
+    return invoke(geometric_mean_distance, Tuple{AbstractShape, AbstractShape}, left, right)
+end
+
+geometric_mean_distance(left::AbstractShape, right::Annulus) =
+    geometric_mean_distance(right, left)
+
+function geometric_mean_distance(left::Annulus, right::Annulus)
+    outer, inner = left.ro >= right.ro ? (left, right) : (right, left)
+    return invoke(geometric_mean_distance, Tuple{Annulus, AbstractShape}, outer, inner)
+end
+
 function nested_conductor_zone(
         sources,
         ::Type{T},
@@ -543,10 +606,10 @@ function nested_conductor_zone(
     ))
     all(sources) do source
         source.source.primitive isa Union{Disk, Rectangle} &&
-            source.primitive isa Union{Disk, Rectangle, Polygon, BentStrip}
+            source.primitive isa Union{Disk, Rectangle, Polygon, BentStrip, Annulus}
     end || throw(ArgumentError(
         "nested conductor flattening requires Disk or Rectangle source members " *
-        "resolved as Disk, Rectangle, Polygon, or BentStrip geometry"
+        "resolved as Disk, Rectangle, Polygon, BentStrip, or Annulus geometry"
     ))
 
     materials = Material{T}[convert(Material{T}, source.source.material)
@@ -568,8 +631,6 @@ function nested_conductor_zone(
         "resolved compacted strands must preserve every declared source area"
     ))
     equivalent_radii = sqrt.(areas ./ (one(T) * π))
-    coordinates = Tuple{T, T}[convert.(T, centroid(source.primitive))
-                              for source in sources]
     total_area = sum(areas)
     centre = convert.(T, conductor_zone_position(sources))
     resistances = T[path_corrected_resistance(
@@ -596,16 +657,13 @@ function nested_conductor_zone(
     weights = conductances ./ sum(conductances)
     log_gmr = zero(T)
     for left in eachindex(sources)
-        self_gmr = equivalent_radii[left] * exp(-materials[left].mu_r / 4)
+        primitive = sources[left].primitive
+        self_gmr = primitive isa Annulus ?
+                   tubular_gmr(primitive.ro, primitive.ri, materials[left].mu_r) :
+                   equivalent_radii[left] * exp(-materials[left].mu_r / 4)
         log_gmr += weights[left]^2 * log(self_gmr)
         for right in (left + 1):length(sources)
-            distance = hypot(
-                coordinates[left][1] - coordinates[right][1],
-                coordinates[left][2] - coordinates[right][2]
-            )
-            distance > zero(distance) || throw(ArgumentError(
-                "nested conductor members must have distinct centroids"
-            ))
+            distance = geometric_mean_distance(sources[left].primitive, sources[right].primitive)
             log_gmr += 2weights[left] * weights[right] * log(distance)
         end
     end
@@ -617,8 +675,10 @@ function nested_conductor_zone(
             entry -> entry.pattern isa BoundedPlacement,
             source.placement.patterns
         )
-        index === nothing || index != length(source.placement.patterns) ? nothing :
-        source.placement.patterns[index].pattern.boundary
+        index === nothing && return nothing
+        any(entry -> entry.owner === Group, source.placement.patterns[(index + 1):end]) &&
+            return nothing
+        return source.placement.patterns[index].pattern.boundary
     end
     outer = if all(!isnothing, bounded)
         envelope = first(bounded)
@@ -684,7 +744,7 @@ function conductor_zone_position(sources)
             return reference
     end
     patterned = map(sources) do source
-        entries = source.placement.patterns
+        entries = filter(entry -> entry.owner === Group, source.placement.patterns)
         length(entries) == 1 || return nothing
         primitive = source.primitive
         hasproperty(primitive, :at) || return nothing
@@ -705,6 +765,7 @@ function conductor_zone_position(sources)
         all(position -> same_radial_position(position, reference), patterned) &&
             return reference
     end
+    length(sources) == 1 && return centroid(only(sources).primitive)
     areas = map(source -> area(source.primitive), sources)
     centres = map(source -> centroid(source.primitive), sources)
     total = sum(areas)
@@ -890,21 +951,19 @@ end
 """
 $(TYPEDSIGNATURES)
 
-Calculate the shunt capacitance and conductance of one radial dielectric
-layer.
+Calculate the shunt capacitance \\[F/m\\] and conductance \\[S/m\\] of one radial
+dielectric layer at `angular_frequency` \\[rad/s\\]. Polarization loss tangent
+excludes the conduction already represented by material resistivity.
 """
-function dielectric_circuit(layer)
+function dielectric_circuit(layer, angular_frequency::Real)
+    capacitance = shunt_capacitance(layer.r_in, layer.r_ex, layer.material.eps_r)
     return (
-        capacitance = shunt_capacitance(
-            layer.r_in,
-            layer.r_ex,
-            layer.material.eps_r
-        ),
+        capacitance = capacitance,
         conductance = shunt_conductance(
             layer.r_in,
             layer.r_ex,
             layer.material.rho
-        )
+        ) + angular_frequency * capacitance * layer.material.tan_delta
     )
 end
 
@@ -913,9 +972,9 @@ function dielectric_circuit(layers, angular_frequency::Real, ::Type{T}) where {T
         capacitance = zero(T),
         conductance = zero(T)
     )
-    combined = dielectric_circuit(first(layers))
+    combined = dielectric_circuit(first(layers), angular_frequency)
     @inbounds for layer in Iterators.drop(layers, 1)
-        circuit = dielectric_circuit(layer)
+        circuit = dielectric_circuit(layer, angular_frequency)
         combined = series_shunt_admittance(
             combined.conductance,
             combined.capacitance,
@@ -1000,12 +1059,18 @@ end
 """
 $(TYPEDSIGNATURES)
 
-Convert a completed scalar dielectric reduction into the homogeneous material
-that reproduces its shunt capacitance and conductance. Relative permeability
-retains the radial material average and the conductor's helical-solenoid
-correction.
+Convert a completed scalar dielectric reduction into a homogeneous material
+that matches its capacitance and conductance at `angular_frequency` \\[rad/s\\].
+Resistivity retains the series DC conduction. The remaining conductance is
+represented by polarization loss tangent, including interfacial polarization
+from heterogeneous layers. The equivalent is a reference-frequency export,
+not a broadband replacement for the original physical layers.
+
+Relative permeability retains the radial material average and the conductor's
+helical-solenoid correction.
 """
-function equivalent_dielectric_material(dielectric, conductor, terminal::Symbol)
+function equivalent_dielectric_material(dielectric, conductor, terminal::Symbol,
+        angular_frequency::Real)
     isempty(dielectric.layers) && return Material(
         :insulator,
         oftype(dielectric.r_in, Inf),
@@ -1025,10 +1090,22 @@ function equivalent_dielectric_material(dielectric, conductor, terminal::Symbol)
         "for terminal :$terminal (turns=$(conductor.num_turns), " *
         "r_con=$(conductor.r_ex), r_ins=$(dielectric.r_ex))"
     ))
+    dc_conductance = inv(sum(dielectric.layers) do layer
+        inv(shunt_conductance(layer.r_in, layer.r_ex, layer.material.rho))
+    end)
+    polarization_conductance = dielectric.shunt_conductance - dc_conductance
+    tolerance = 100 * eps(typeof(float(nominal(dc_conductance)))) *
+                max(abs(dielectric.shunt_conductance), abs(dc_conductance))
+    polarization_conductance >= -tolerance || throw(DomainError(
+        polarization_conductance,
+        "equivalent dielectric conductance must not be smaller than its DC limit"))
+    polarization_conductance = max(zero(polarization_conductance), polarization_conductance)
+    loss_tangent = iszero(polarization_conductance) ? zero(polarization_conductance) :
+                   polarization_conductance / (angular_frequency * dielectric.shunt_capacitance)
     return Material(
         :insulator,
         inv(equivalent_conductivity(
-            dielectric.shunt_conductance,
+            dc_conductance,
             dielectric.r_in,
             dielectric.r_ex
         )),
@@ -1039,7 +1116,8 @@ function equivalent_dielectric_material(dielectric, conductor, terminal::Symbol)
         ),
         relative_mu,
         conductor.reference_temperature,
-        zero(dielectric.r_in)
+        zero(dielectric.r_in);
+        tan_delta = loss_tangent
     )
 end
 
@@ -1168,7 +1246,8 @@ function radial_components(design::CableDesign, ::Type{T}) where {T <: Real}
                     entry -> entry.pattern isa BoundedPlacement,
                     source.placement.patterns
                 ) ||
-                length(source.placement.patterns) > 1 || length(source.paths) > 1
+                count(entry -> entry.owner === Group, source.placement.patterns) > 1 ||
+                length(source.paths) > 1
         end
         conductor = if nested
             zone_position = conductor_zone_position(conductor_sources)
@@ -1373,7 +1452,8 @@ function flatten(
             merge(component.conductor, (
                 reference_temperature = component.conductor.material.T0,
             )),
-            component.name
+            component.name,
+            angular_frequency
         )
         push!(effective,
             (

@@ -294,30 +294,6 @@ function _owned_metadata(benchmark::OwnedBenchmark, reference_result, candidate_
     )
 end
 
-function _moment_record(value::MomentResult)
-    _validate_moment_result(value)
-    return (
-        values = value.values,
-        frequencies = copy(value.frequencies),
-        basis = value.basis,
-        domain = nameof(value.domain),
-        port_order = copy(value.port_order)
-    )
-end
-
-function _moment_from_record(record)
-    record.domain === :PhaseDomain || throw(ArgumentError(
-        "only phase-domain UQ moment snapshots are supported",
-    ))
-    return MomentResult(
-        record.values,
-        record.frequencies,
-        record.basis,
-        PhaseDomain,
-        record.port_order
-    )
-end
-
 _moment_comparison_record(value::MomentBenchmark) = value.errors
 
 function _same_moment_errors(observed::NamedTuple, stored::NamedTuple)
@@ -416,9 +392,9 @@ function _write_owned_snapshot(
             monte_carlo = run_metadata.monte_carlo,
             port_order = benchmark.model.port_order,
             frequencies = copy(reference.frequencies),
-            reference = _moment_record(reference),
-            accepted_reference = _moment_record(reference),
-            accepted_candidate = _moment_record(candidate),
+            reference = NamedTuple(reference),
+            accepted_reference = NamedTuple(reference),
+            accepted_candidate = NamedTuple(candidate),
             reference_comparison = _moment_comparison_record(comparison),
             timings,
             environment = _performance_identity(),
@@ -526,8 +502,8 @@ function _load_owned_snapshot_path(
         throw(ArgumentError("Gauntlet snapshot tolerances do not match"))
     snapshot["port_order"] == benchmark.model.port_order ||
         throw(ArgumentError("Gauntlet snapshot terminal order does not match"))
-    accepted_reference = _moment_from_record(snapshot["accepted_reference"])
-    accepted_candidate = _moment_from_record(snapshot["accepted_candidate"])
+    accepted_reference = MomentResult(snapshot["accepted_reference"])
+    accepted_candidate = MomentResult(snapshot["accepted_candidate"])
     snapshot["frequencies"] == accepted_reference.frequencies ||
         throw(ArgumentError("Gauntlet snapshot frequency record does not match"))
     observed = compare(accepted_reference, accepted_candidate)

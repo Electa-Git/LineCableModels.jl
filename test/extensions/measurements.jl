@@ -193,6 +193,56 @@ end
     @test !isdefined(extension_module, :_joint_coordinates)
 end
 
+@testitem "Measurements / Bessel sensitivities preserve complex covariance" tags=[:extension] begin
+    using Measurements
+    using SpecialFunctions
+    import Measurements: value
+
+    # Independent derivative recurrences: DLMF 10.6.1 and 10.29.1.
+    # The scaled variants also differentiate their documented exponential factor.
+    # Both Cartesian coordinates depend on q: testing independent coordinates
+    # alone would not detect a lost covariance in the complex adapter.
+    q = measurement(1.25, 1.0e-4)
+    argument = complex(q, 2q)
+    nominal_argument = complex(value(q), 2value(q))
+    direction = 1 + 2im
+    for order in (0, 1, 2), kernel in (
+            besseli, besselk, besselj, bessely, besselh,
+            besselix, besselkx, besseljx, besselyx, besselhx)
+        @testset "$kernel, order=$order" begin
+            expected = kernel(order, nominal_argument)
+            lower = kernel(order - 1, nominal_argument)
+            upper = kernel(order + 1, nominal_argument)
+            slope = if kernel === besseli
+                direction * (lower + upper) / 2
+            elseif kernel === besselk
+                -direction * (lower + upper) / 2
+            elseif kernel === besselix
+                direction * (lower + upper) / 2 - expected
+            elseif kernel === besselkx
+                direction * (expected - (lower + upper) / 2)
+            elseif kernel === besseljx || kernel === besselyx
+                direction * (lower - upper) / 2 - 2expected
+            elseif kernel === besselhx
+                direction * ((lower - upper) / 2 - im * expected)
+            else
+                direction * (lower - upper) / 2
+            end
+            propagated = kernel(order, argument)
+            @test propagated isa Complex{Measurement{Float64}}
+            for component in (real, imag)
+                @test value(component(propagated)) ≈ component(expected) rtol=1.0e-12
+                @test Measurements.derivative(component(propagated), q) ≈
+                    component(slope) rtol=5.0e-6 atol=1.0e-8
+                @test uncertainty(component(propagated)) ≈
+                    abs(component(slope)) * uncertainty(q) rtol=5.0e-6 atol=1.0e-12
+            end
+            @test Measurements.cov(real(propagated), imag(propagated)) ≈
+                real(slope) * imag(slope) * uncertainty(q)^2 rtol=1.0e-5 atol=1.0e-14
+        end
+    end
+end
+
 @testitem "Measurements / Monte Carlo / explicit Gridspace reconstruction" tags=[:extension] setup=[
     EngineTestSupport, UseEngineSupport, TestNumerics] begin
     using Measurements
@@ -277,4 +327,41 @@ end
     @test uncertainty(real(modal_problem.parameters.Z.values[1])) == 1.0
     @test value(imag(modal_problem.parameters.Z.values[1])) == 20.0angular
     @test uncertainty(imag(modal_problem.parameters.Z.values[1])) == 10.0angular
+
+    # Transport every design point, even without retaining Monte Carlo samples.
+    # Marginal reconstruction must neither merge points nor invent covariance.
+    second_parameters = LineParameters(
+        PhaseDomain, 2 .* parameters.Z.values, 2 .* parameters.Y.values, frequency
+    )
+    second_stats = map(only(line_stats)) do quantities
+        map(quantities) do summary
+            SampleSummary(2 .* [summary.min, summary.median, summary.max])
+        end
+    end
+    two_points = MonteCarloResult(
+        formulation, [parameters, second_parameters],
+        [only(line_stats), second_stats], nothing, nothing,
+        UInt64(9), UInt64[9, 10], [3, 3]
+    )
+    transported_points = Gridspace{ModalTransformationProblem}(two_points)
+    @test length(transported_points) == 2
+    @test isconcretetype(eltype(transported_points))
+    modal_problems = collect(transported_points)
+    for (index, problem) in enumerate(modal_problems)
+        point_parameters = problem.parameters
+        @test point_parameters.f == frequency
+        @test LineCableModels.basis(point_parameters) == LineCableModels.basis(parameters)
+        @test point_parameters.domain isa PhaseDomain
+        @test first(point_parameters.Z.values) isa Complex{Measurement{Float64}}
+        for quantity in (R, L, C, G)
+            selected = quantity(point_parameters)
+            summary = getproperty(two_points.stats[index], nameof(quantity))
+            @test value.(selected) ≈ getproperty.(summary, :mean)
+            @test uncertainty.(selected) ≈ getproperty.(summary, :std)
+        end
+    end
+    @test iszero(Measurements.cov(
+        real(first(modal_problems[1].parameters.Z.values)),
+        real(first(modal_problems[2].parameters.Z.values))
+    ))
 end

@@ -86,7 +86,7 @@ case_definition(
         "cable:2:core", "cable:2:sheath", "cable:2:foil",
         "cable:3:core", "cable:3:sheath", "cable:3:foil"
     ];
-    description = "220 kV EAXeCeW 2500 mm² Al / 252 mm² Cu cables in trefoil"
+    description = "220 kV Milliken 2500 mm² Al / 252 mm² Cu cables in trefoil"
 ) do p
     materials = LineCableModels.MaterialsLibrary(add_defaults = true)
     aluminum = LineCableModels.Material(materials, :aluminum)

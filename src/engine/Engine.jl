@@ -37,7 +37,7 @@ export LineCableModelsCoaxial, LineCableModelsFEM, LineCableModelsFEMOptions,
        LineCableModelsFEMError, LineParametersWorkspace
 export constitutive, formula_id, EarthPair
 export verbosity
-export InternalImpedance, InsulationImpedance, EarthImpedance
+export InternalImpedance, InsulationImpedance, EarthImpedance, PipeImpedance
 export InsulationAdmittance, SemiconAdmittance, EarthAdmittance
 
 export compute
@@ -48,7 +48,8 @@ using DocStringExtensions: IMPORTS, TYPEDEF, TYPEDFIELDS, TYPEDSIGNATURES
 import ..LineCableModels: basis, build, R, L, C,
                           resistance, inductance, capacitance
 import ..LineCableModels: nominal
-import ..LineCableModels: constitutive, formula, formula_id, FormulaSpec
+import ..LineCableModels: constitutive, formula, formula_id, FormulaDefinition
+using RequiredInterfaces: @required
 import ..LineCableModels: parameterize
 #! explicit-imports: off
 import ..LineCableModels: description
@@ -93,6 +94,8 @@ include("matrixops.jl")
 include("internalimpedance/InternalImpedance.jl")
 using .InternalImpedance: InternalImpedance
 
+include("pipeimpedance/PipeImpedance.jl")
+
 # Submodule `InsulationImpedance`
 include("insulationimpedance/InsulationImpedance.jl")
 using .InsulationImpedance: InsulationImpedance
@@ -131,6 +134,7 @@ include("textdisplay.jl")
 
 public has_uncertainty_type
 public reduce_primitive_matrices, potential_to_admittance
+public layer_admittance
 public ConsoleVerbosityLogger
 public CableBlueprint, BlueprintConductor, BlueprintDielectric, flatten
 

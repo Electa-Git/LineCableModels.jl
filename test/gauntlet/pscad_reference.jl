@@ -16,12 +16,7 @@ include(joinpath(GAUNTLET_ROOT, "reference_grid.jl"))
 end
 
 module GauntletSupport
-using LineCableModels
-const GAUNTLET_ROOT = @__DIR__
-const WORK_ROOT = joinpath(GAUNTLET_ROOT, "benchmarks", ".work")
-function benchmark_metadata end
-function formulation_record end
-include(joinpath(GAUNTLET_ROOT, "pscad", "PSCADBenchmarks.jl"))
+include("runtime.jl")
 end
 
 using .PSCADReferenceCaseLoader: case_index, reference_case,
@@ -30,7 +25,7 @@ using .PSCADReferenceCaseLoader: case_index, reference_case,
 using .GauntletSupport: benchmark_metadata, formulation_record
 using .GauntletSupport.PSCADBenchmarks
 
-const SCHEMA_VERSION = 2
+const SCHEMA_VERSION = 3
 const ROOT = joinpath(
     pkgdir(LineCableModels),
     ".linecablemodels",
@@ -39,49 +34,11 @@ const ROOT = joinpath(
     "pscad"
 )
 
-const PSCAD_CATALOGUE = (
-    (
-        id = :DeriSemlyen1981,
-        field = :overhead,
-        selector = :DeriSemlyen1981,
-        stem = "deri"
-    ),
-    (
-        id = :DirectNumericalIntegration,
-        field = :overhead,
-        selector = PSCADBenchmarks.DirectNumericalIntegration(:overhead),
-        stem = "direct_overhead"
-    ),
-    (
-        id = :WedepohlWilcox1973,
-        field = :underground,
-        selector = :WedepohlWilcox1973,
-        stem = "wedepohl"
-    ),
-    (
-        id = :DirectNumericalIntegration,
-        field = :underground,
-        selector = PSCADBenchmarks.DirectNumericalIntegration(:underground),
-        stem = "direct_ground"
-    ),
-    (
-        id = :Saad1996,
-        field = :underground,
-        selector = :Saad1996,
-        stem = "saad"
-    ),
-    (
-        id = :Ametani2009,
-        field = :mixed,
-        selector = :Ametani2009,
-        stem = "ametani"
-    ),
-    (
-        id = :Lucca1994,
-        field = :mixed,
-        selector = :Lucca1994,
-        stem = "lucca"
-    )
+const PSCAD_CATALOGUE = Tuple(
+    (id=identifier, field=placement, selector=identifier,
+        stem=lowercase(string(identifier)))
+    for placement in (:overhead, :underground, :mixed)
+    for identifier in PSCADBenchmarks.formulas(Val(placement))
 )
 
 function placement(model)
@@ -181,7 +138,7 @@ function valid_existing(path, model, selected)
                         document["case_source_sha256"] == model.source_sha256
         implementation_matches = document["schema_version"] == 1 ||
                                  document["implementation"] == pscad_implementation_record()
-        return document["schema_version"] in (1, SCHEMA_VERSION) &&
+        return document["schema_version"] in (1, 2, SCHEMA_VERSION) &&
                document["status"] === :complete &&
                input_matches &&
                implementation_matches &&
@@ -222,11 +179,13 @@ function record_result(case_id, model, selected, parameters, execution, elapsed)
         domain = :PhaseDomain,
         formula = selected.id,
         field = selected.field,
-        formulation = formulation_record(formulation_value),
+        formulation = formulation_record(Formulation(Val(:pscad), model.problem, formulation_value)),
+        computation_details = details(parameters),
         Z = copy(parameters.Z.values),
         Y = copy(parameters.Y.values),
         pscad_version = execution.pscad_version,
         pscad_elapsed_seconds = execution.elapsed_seconds,
+        pscad_elapsed_scope = execution.elapsed_scope,
         elapsed_seconds = elapsed,
         diagnostics = (
             console = diagnostic(execution.console_path),
@@ -355,7 +314,7 @@ function run_case(case_id, config)
             parameters.f == model.problem.frequencies || error(
                 "$case_id PSCAD changed the selected reference grid",
             )
-            execution = benchmark_metadata(model.problem, selected_formulation)
+            execution = benchmark_metadata(model.problem, selected_formulation, parameters)
             path = record_result(
                 case_id,
                 model,

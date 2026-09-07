@@ -2,6 +2,7 @@ using Dates
 using JLD2
 using LinearAlgebra
 using LineCableModels
+using LineCableModels.Engine: LineParametersWorkspace
 using SHA
 
 module FEMCatalogueCaseLoader
@@ -17,74 +18,20 @@ include(joinpath(GAUNTLET_ROOT, "reference_grid.jl"))
 end
 
 using .FEMCatalogueCaseLoader: ExactOverrides, case_index, load_case,
-                               reference_case, numerical_input_sha256
+                               reference_case, numerical_input_sha256,
+                               implementation_record, repository_provenance
 
 const EARTH_IMPEDANCE = LineCableModels.Engine.EarthImpedance
 const EARTH_ADMITTANCE = LineCableModels.Engine.EarthAdmittance
 const SEMICON_ADMITTANCE = LineCableModels.Engine.SemiconAdmittance
 
-const INTERNAL_FORMULA = :Schelkunoff1934
-const BASE_Z = :Papadopoulos2010
-const BASE_Y = :Papadopoulos2010
+const INTERNAL_FORMULA = :default
+const BASE_Z = :default
+const BASE_Y = :default
 const CORPUS_POLICY = :faithful_literature_observation
 const FORMULA_TREATMENT = :as_registered_no_regularization_no_fallback
 const DIAGNOSTIC_POLICY = :isolated_candidate_reprobe_not_measured_fallback
-const ARTIFACT_SCHEMA_VERSION = 7
-const HOMOGENEOUS_UNDERGROUND_Z = Set((
-    :Ametani2009,
-    :Bridges1995,
-    :Lucca1994,
-    :Magalhaes2018,
-    :MartinsBritto2024,
-    :Papadopoulos2010,
-    :Petrache2005,
-    :Pollaczek1926,
-    :Saad1996,
-    :Theethayi2007,
-    :Vance1978,
-    :WedepohlWilcox1973,
-    :Xue2018
-))
-const STRATIFIED_Z = Set((
-    :Ametani1974,
-    :Nakagawa1973,
-    :Papadopoulos2009,
-    :Papadopoulos2011,
-    :Sunde1968,
-    :Tsiamitros2008
-))
-const OVERHEAD_Z = Set((
-    :AlvaradoBetancourt1983,
-    :Carson1926,
-    :Gary1976,
-    :Noda2006,
-    :Pettersson1994,
-    :Theodoulidis2015,
-    :Wise1934
-))
-const HOMOGENEOUS_UNDERGROUND_Y = Set((
-    :IdealGround,
-    :Magalhaes2018,
-    :MartinsBritto2024,
-    :Papadopoulos2010,
-    :Pollaczek1926,
-    :Theethayi2007,
-    :Xue2018,
-    :Xue2021
-))
-const STRATIFIED_Y = Set((:Papadopoulos2009, :Papadopoulos2011))
-const OVERHEAD_Y = Set((:Ametani2021, :Pettersson1994, :Wise1948))
-const SELF_ONLY_Z = Set((:Bridges1995, :Vance1978))
-const HORIZONTAL_ONLY_Z = Set((
-    :Petrache2005,
-    :Saad1996,
-    :Theethayi2007,
-    :WedepohlWilcox1973
-))
-const HORIZONTAL_ONLY_Y = Set((:Theethayi2007, :Xue2021))
-
-include(joinpath(@__DIR__, "formulas", "fem_lossless_semicon.jl"))
-
+const ARTIFACT_SCHEMA_VERSION = 8
 const GAUNTLET_ROOT = joinpath(
     pkgdir(LineCableModels),
     ".linecablemodels",
@@ -101,51 +48,6 @@ rms_error(actual, reference) = norm(actual - reference) / sqrt(length(reference)
 symmetry_error(matrix) = norm(matrix - transpose(matrix)) / max(norm(matrix), eps(Float64))
 
 function coverage_record(kind, identifier)
-    applicable, category, reason = if kind === :earth_impedance
-        if identifier in HOMOGENEOUS_UNDERGROUND_Z
-            (true, :homogeneous_underground, "")
-        elseif identifier in STRATIFIED_Z
-            (
-                false,
-                :stratified,
-                identifier === :Papadopoulos2011 ?
-                "registered underground route requires a two-layer earth; " *
-                "multilayer excluded by benchmark scope" :
-                "registered implementation has no homogeneous-underground " *
-                "route in benchmark scope"
-            )
-        elseif identifier in OVERHEAD_Z
-            (
-                false,
-                :overhead,
-                "registered implementation exposes an overhead-only route"
-            )
-        else
-            error("unclassified registered earth-impedance formula $identifier")
-        end
-    else
-        if identifier in HOMOGENEOUS_UNDERGROUND_Y
-            (true, :homogeneous_underground, "")
-        elseif identifier in STRATIFIED_Y
-            (
-                false,
-                :stratified,
-                identifier === :Papadopoulos2011 ?
-                "registered underground route requires a two-layer earth; " *
-                "multilayer excluded by benchmark scope" :
-                "registered implementation has no homogeneous-underground " *
-                "route in benchmark scope"
-            )
-        elseif identifier in OVERHEAD_Y
-            (
-                false,
-                :overhead,
-                "registered implementation exposes an overhead-only route"
-            )
-        else
-            error("unclassified registered earth-admittance formula $identifier")
-        end
-    end
     catalogue_module = kind === :earth_impedance ?
                        EARTH_IMPEDANCE : EARTH_ADMITTANCE
     formula_object = catalogue_module.Formula(identifier)
@@ -161,41 +63,14 @@ function coverage_record(kind, identifier)
     isfile(source_path) || error(
         "registered $kind formula $identifier has no source file at $source_path"
     )
-    route_limitations = if kind === :earth_impedance && identifier in SELF_ONLY_Z
-        "mutual route intentionally rejects because the source supplies only self"
-    elseif kind === :earth_impedance && identifier in HORIZONTAL_ONLY_Z ||
-           kind === :earth_admittance && identifier in HORIZONTAL_ONLY_Y
-        "mutual route requires nonzero horizontal cable separation"
-    else
-        ""
-    end
-    benchmark_route = if !applicable
-        "not evaluated in the homogeneous-underground gauntlet"
-    elseif kind === :earth_impedance && identifier in (:Ametani2009, :Lucca1994)
-        "registered pair-complete recipe delegates all-underground pairs to " *
-        "its Pollaczek1926 underground leaf; its distinctive mixed route is " *
-        "not exercised by these cases"
-    elseif kind === :earth_admittance && identifier === :Xue2018
-        "registered default self/mutual route: infinite voltage reference; " *
-        "surface and penetration routes remain separate unselected leaves"
-    elseif kind === :earth_impedance && identifier in SELF_ONLY_Z
-        "registered self route only; evaluated only for single-cable cases"
-    else
-        "registered default self/mutual routes"
-    end
     return (;
         kind,
         identifier,
         description = LineCableModels.Engine.description(formula_object),
         propagation = string(catalogue_module.propagation(formula_object)),
         routes = join(string.(keys(catalogue_module.routes(formula_object))), ","),
-        route_limitations,
-        benchmark_route,
         source = relpath(source_path, pkgdir(LineCableModels)),
-        source_sha256 = bytes2hex(sha256(read(source_path))),
-        applicable,
-        category,
-        reason
+        source_sha256 = bytes2hex(sha256(read(source_path)))
     )
 end
 
@@ -207,9 +82,6 @@ function catalogue()
     for identifier in EARTH_ADMITTANCE.formulas()
         push!(records, coverage_record(:earth_admittance, identifier))
     end
-    length(records) == 39 || error(
-        "registered earth catalogue changed from 39 to $(length(records)) formulas"
-    )
     return records
 end
 
@@ -231,11 +103,11 @@ end
 function formulation(selected)
     return Formulation(
         internal_impedance = INTERNAL_FORMULA,
-        insulation_admittance = :Gustavsen2013,
-        semicon_admittance = FEM_LOSSLESS_SEMICON,
+        insulation_admittance = :default,
+        semicon_admittance = :default,
         earth_impedance = selected.earth_impedance,
         earth_admittance = selected.earth_admittance,
-        earth_properties = nothing,
+        earth_properties = :default,
         equivalent_earth = :default,
         options = (
             reduce_bundle = false,
@@ -251,8 +123,7 @@ function candidate_provenance(model, selected)
     return (
         input_sha256 = numerical_input_sha256(model.nominal_problem),
         implementation = FEMCatalogueCaseLoader.implementation_record(
-            selected_formulation;
-            external_sources = ("test/gauntlet/formulas/fem_lossless_semicon.jl",)
+            selected_formulation
         ),
         repository = FEMCatalogueCaseLoader.repository_provenance()
     )
@@ -262,7 +133,7 @@ function load_reference(case_id, model)
     path = joinpath(REFERENCE_ROOT, string(case_id), "reference.jld2")
     isfile(path) || error("full-band FEM reference is missing for $case_id: $path")
     document = JLD2.load(path)
-    document["schema_version"] in (3, 4) || error(
+    document["schema_version"] in (3, 4, 5) || error(
         "$case_id FEM reference has unsupported schema"
     )
     input_matches = haskey(document, "input_sha256") ?
@@ -547,11 +418,11 @@ function record_result(
         frequencies = copy(result.f),
         port_order = copy(model.port_order),
         internal_impedance = INTERNAL_FORMULA,
-        insulation_admittance = :Gustavsen2013,
-        semicon_admittance = :FEMLossless,
+        insulation_admittance = :default,
+        semicon_admittance = :default,
         earth_impedance = selected.earth_impedance,
         earth_admittance = selected.earth_admittance,
-        earth_properties = nothing,
+        earth_properties = :default,
         equivalent_earth = :bottom_homogeneous_layer,
         variant_kind = selected.kind,
         variant_id = selected.id,
@@ -939,26 +810,28 @@ function recover_existing(path, selected, reference)
     )
 end
 
-function case_skip_reason(model, selected)
-    selected.coverage.applicable || return selected.coverage.reason
-    if selected.kind === :earth_impedance &&
-       selected.identifier in SELF_ONLY_Z &&
-       length(model.problem.system.designs) > 1
-        return "source formula supplies only a self term; a multi-cable FEM " *
-               "matrix cannot be assembled without injecting a different " *
-               "mutual formula"
-    end
-    positions = model.problem.system.positions
-    has_vertical_pair = length(unique(getproperty.(positions, :x))) <
-                        length(positions)
-    if has_vertical_pair && (
-        selected.kind === :earth_impedance &&
-        selected.identifier in HORIZONTAL_ONLY_Z ||
-        selected.kind === :earth_admittance &&
-        selected.identifier in HORIZONTAL_ONLY_Y
-    )
-        return "source closed form is undefined at zero horizontal separation; " *
-               "the case contains a vertical cable pair"
+# Prepare the resolved assembly geometry once per case, not once per author.
+# No earth-return or internal-impedance kernel runs during this preparation.
+function prepare_case(model)
+    engine = LineCableModelsCoaxial()
+    problem = model.problem
+    T = eltype(problem)
+    blueprints = LineCableModels.Engine.CableBlueprint{T}[
+        LineCableModels.Engine.flatten(engine, design, T)
+        for design in problem.system.designs]
+    return LineParametersWorkspace(problem, Formulation(),
+        computation_options(LineCableModelsCoaxial, (;)), blueprints)
+end
+
+function case_skip_reason(model, selected, workspace::LineParametersWorkspace)
+    # Only preflight exceptions are classified as inapplicable. An exception
+    # from compute remains a numerical/execution failure in the calling runner.
+    try
+        resolved = Formulation(LineCableModelsCoaxial(), model.problem, formulation(selected))
+        validate(workspace, resolved)
+    catch error
+        error isa Union{ArgumentError, DomainError, DimensionMismatch} || rethrow()
+        return sprint(showerror, error)
     end
     return nothing
 end
@@ -1047,8 +920,8 @@ function write_outputs(rows, skipped, failures, coverage, reference_grids)
         diagnostic_policy = DIAGNOSTIC_POLICY,
         reference_grids,
         internal_impedance = INTERNAL_FORMULA,
-        insulation_admittance = :Gustavsen2013,
-        semicon_admittance = :FEMLossless,
+        insulation_admittance = :default,
+        semicon_admittance = :default,
         registered_earth_impedance = collect(EARTH_IMPEDANCE.formulas()),
         registered_earth_admittance = collect(EARTH_ADMITTANCE.formulas()),
         rows,
@@ -1067,7 +940,7 @@ end
 function main(args = ARGS)
     coverage = catalogue()
     variants = variant.(coverage)
-    length(unique(getproperty.(variants, :id))) == 39 || error(
+    length(unique(getproperty.(variants, :id))) == length(variants) || error(
         "catalogue variant IDs are not unique"
     )
     available = sort!(collect(keys(case_index())); by = string)
@@ -1103,6 +976,7 @@ function main(args = ARGS)
         reference_path, reference, reference_sha256 = load_reference(case_id, model)
         println("BEGIN_CASE\t", case_id, "\tterminals=", length(model.port_order))
         flush(stdout)
+        workspace = prepare_case(model)
         for selected in variants
             path = artifact_path(case_id, selected)
             if valid_existing(path, model, selected, reference_sha256)
@@ -1124,7 +998,7 @@ function main(args = ARGS)
                 )
                 flush(stdout)
             end
-            reason = case_skip_reason(model, selected)
+            reason = case_skip_reason(model, selected, workspace)
             if reason !== nothing
                 path = record_skip(
                     case_id,

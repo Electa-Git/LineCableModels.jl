@@ -21,6 +21,19 @@ it opens the project.
 - `base_freq`: Base frequency in hertz.
 - `file_name`: Destination `.pscx` file. The system identifier is prepended to
   an explicitly supplied basename.
+- `formulation=nothing`: Without a computation selection, export the supplied
+  material losses. With a line-parameter or cable-constant formulation, evaluate
+  its registered insulation and semicon relations before radial equivalencing.
+  This includes explicitly lossless `:default` selections.
+- `temperature=nothing`: Optional operating temperature \\[°C\\]. Correction is
+  applied here during export, not in geometric flattening; `nothing` retains
+  the material reference temperatures.
+
+!!! note
+    PSCAD uses a reference-frequency equivalent loss tangent, bounded at ten.
+    It does not reproduce an arbitrary broadband constitutive law. Exporting
+    the selected relation matches its radial admittance at `base_freq` before
+    that cap, not necessarily at every frequency in a later PSCAD scan.
 
 # Returns
 
@@ -31,10 +44,13 @@ function export_data(
         system::LineCableSystem,
         earth::EarthModel;
         base_freq::Real = 50.0,
+        formulation::Union{Nothing, Engine.LineParametersFormulation,
+            Engine.CableConstantsFormulation} = nothing,
+        temperature::Union{Nothing, Real} = nothing,
         file_name::Union{AbstractString, Nothing} = nothing
 )
-    base_freq > zero(base_freq) || throw(DomainError(
-        base_freq, "PSCAD base frequency must be positive"
+    isfinite(base_freq) && base_freq > zero(base_freq) || throw(DomainError(
+        base_freq, "PSCAD base frequency must be positive and finite"
     ))
     path = _pscad_output_path(system, file_name)
     #! explicit-imports: off
@@ -48,7 +64,7 @@ function export_data(
         0
     ))
     #! explicit-imports: on
-    document = _pscad_project(system, earth, base_freq)
+    document = _pscad_project(system, earth, base_freq; formulation, temperature)
     write(path, document)
     return path
 end

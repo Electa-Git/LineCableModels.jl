@@ -52,7 +52,8 @@ end
 
 function _start_gmsh(verbosity::Int)
     owned = !Bool(gmsh.is_initialized())
-    owned && Gmsh.initialize(String[]; finalize_atexit = false)
+    # Backend-owned meshes must not depend on an unrecorded user gmshrc.
+    owned && gmsh.initialize(String[], false, false)
     previous_model = try
         gmsh.model.get_current()
     catch
@@ -135,22 +136,35 @@ end
 
 _resume_value_matches(existing, expected) = isequal(existing, expected)
 
-function _resume_problem_matches(path::String, model::FEMResolvedModel)
+function _resume_inputs_match(path::String, model::FEMResolvedModel, inputs::NamedTuple)
     snapshot = joinpath(path, "input", "problem.json")
-    isfile(snapshot) || return false
-    existing = try
-        JSON3.read(read(snapshot, String))
+    computation = joinpath(path, "input", "computation.json")
+    state = joinpath(path, "run.json")
+    all(isfile, (snapshot, computation, state)) || return false
+    existing, recorded, run_state = try
+        (JSON3.read(read(snapshot, String)), JSON3.read(read(computation, String)),
+            JSON3.read(read(state, String)))
     catch
         return false
     end
+    # External Gmsh sessions can carry arbitrary caller-owned meshing settings.
+    inputs.owned_gmsh || return false
+    if String(run_state.state) == string(completed)
+        inputs.getdp_identity === nothing && return false
+        inputs.execution.ui && return false
+        inputs.execution.mesh_policy === :remesh && return false
+        isfile(joinpath(path, "raw", "checksums.json")) || return false
+    end
     expected = ImportExport.serialize_value(model.problem)
-    return _resume_value_matches(existing, expected)
+    return _resume_value_matches(existing, expected) &&
+        _resume_value_matches(recorded, JSON3.read(JSON3.write(inputs)))
 end
 
 function _resume_run(
         runtime_root::String,
         requested::Union{Nothing, Symbol, String},
-        model::FEMResolvedModel
+        model::FEMResolvedModel,
+        inputs::NamedTuple
 )
     requested === nothing && return _create_run(runtime_root)
     runs = joinpath(runtime_root, "runs")
@@ -160,7 +174,7 @@ function _resume_run(
         directories = filter(isdir, readdir(runs_path; join = true))
         sort!(directories; by = path -> stat(path).mtime, rev = true)
         index = findfirst(
-            path -> _resume_problem_matches(path, model), directories
+            path -> _resume_inputs_match(path, model, inputs), directories
         )
         index === nothing ? nothing : directories[index]
     elseif requested isa String
@@ -168,8 +182,10 @@ function _resume_run(
         isdir(path) || throw(ArgumentError(
             "resume_run_directory does not exist: $path",
         ))
-        _resume_problem_matches(path, model) || throw(ArgumentError(
-            "resume_run_directory does not match the requested FEM problem: $path",
+        _resume_inputs_match(path, model, inputs) || throw(ArgumentError(
+            "resume_run_directory needs matching problem, constitutive inputs, " *
+            "solver and adapter identities, and backend-owned meshing settings: $path; " *
+            "start a new run when these inputs changed or the run predates input snapshots",
         ))
         path
     else
@@ -196,6 +212,10 @@ function _resume_run(
                   Symbol(String(document.mesh_source))
     mesh_fingerprint = document === nothing ? "" :
                        String(document.mesh_fingerprint)
+    if document !== nothing && String(document.state) == string(completed)
+        return FEMRun(path, completed, "reading completed run", mesh_source,
+            mesh_fingerprint, Int(document.getdp_invocations))
+    end
     run = FEMRun(
         path,
         created,
@@ -226,6 +246,19 @@ function _transition!(run::FEMRun, state::FEMRunState, message::AbstractString)
 end
 
 function _prepare_run_inputs!(run::FEMRun, model::FEMResolvedModel)
+    asset_directory = joinpath(run.path, "input", "getdp")
+    mkpath(asset_directory)
+    for (name, path) in pairs(_getdp_assets(asset_directory))
+        contents = getproperty(FEM_GETDP_SOURCES, name)
+        if isfile(path)
+            read(path, String) == contents || _fem_error(
+                :getdp, "GetDP", :assets,
+                "stored solver sources differ from this implementation; start a new run";
+                run_directory = run.path)
+        else
+            write(path, contents)
+        end
+    end
     problem_path = joinpath(run.path, "input", "problem.json")
     model_data_path = joinpath(run.path, "input", "model_data.pro")
     _write_problem_snapshot(problem_path, model.problem)
@@ -248,6 +281,7 @@ function _fem_computation_options(options::NamedTuple)
         :verbosity,
         :output_basis,
         :trace,
+        :on_result,
         :log_file,
         :resume_run_directory
     )
@@ -291,7 +325,8 @@ function _headless_solve!(
         model::FEMResolvedModel,
         formulation::LineCableModelsFEM,
         execution::NamedTuple,
-        runtime_root::String
+        runtime_root::String,
+        inputs::NamedTuple
 )
     geometry = _build_geometry!(
         model, "LineCableModelsFEM-$(basename(run.path))"
@@ -311,7 +346,8 @@ function _headless_solve!(
     @info "Starting isolated GetDP frequency/source jobs"
     _run_getdp!(run, model, formulation, mesh_paths)
     scan = _parse_scan(run, model, formulation)
-    parameters = _line_parameters(run, model, formulation, execution, scan)
+    parameters = _line_parameters(run, model, formulation, execution, scan, inputs)
+    _write_scan_checksums(run, scan)
     gmsh.onelab.set_number(_onelab_name("completion_status"), [1.0])
     _transition!(run, completed, "results validated")
     @info "FEM scan completed successfully"
@@ -323,7 +359,8 @@ function _ui_solve!(
         model::FEMResolvedModel,
         formulation::LineCableModelsFEM,
         execution::NamedTuple,
-        runtime_root::String
+        runtime_root::String,
+        inputs::NamedTuple
 )
     geometry = _build_geometry!(
         model, "LineCableModelsFEM-$(basename(run.path))"
@@ -391,7 +428,8 @@ function _ui_solve!(
             _transition!(run, running, "isolated GetDP jobs running")
             _run_getdp!(run, model, formulation, mesh_paths)
             scan = _parse_scan(run, model, formulation)
-            parameters = _line_parameters(run, model, formulation, execution, scan)
+            parameters = _line_parameters(run, model, formulation, execution, scan, inputs)
+            _write_scan_checksums(run, scan)
             formulation.execution.plot_field_maps && _merge_maps!(scan.map_paths)
             gmsh.onelab.set_number(_onelab_name("completion_status"), [1.0])
             _transition!(run, completed, "results ready")
@@ -419,20 +457,33 @@ end
 function _compute_fem(
         problem::LineParametersProblem{Float64},
         formulation::LineCableModelsFEM,
-        execution::NamedTuple
+        execution::NamedTuple,
+        model::FEMResolvedModel = _resolved_fem_model(problem, formulation)
 )
-    model = _resolved_fem_model(problem, formulation)
     runtime_root = _runtime_root()
+    inputs = _fem_input_record(model, formulation)
+    formulation.execution.ui || inputs.getdp_identity !== nothing ||
+        _fem_error(:getdp, "GetDP", :getdp_executable,
+            "GetDP executable is unavailable; pass getdp_executable or add getdp to PATH")
     run = _resume_run(
-        runtime_root, execution.resume_run_directory, model
+        runtime_root, execution.resume_run_directory, model, inputs
     )
+    if run.state === completed
+        # Read-only reuse: no Gmsh session, scratch reset, log append, state
+        # transition, or successful-run cleanup may touch historical evidence.
+        scan = _parse_scan(run, model, formulation)
+        _check_scan_checksums(run, scan)
+        @info "FEM reuses completed resolved inputs" run_directory=run.path
+        return _line_parameters(run, model, formulation, execution, scan, inputs)
+    end
+    _write_json_atomic(joinpath(run.path, "input", "computation.json"), inputs)
     session = nothing
     succeeded = false
     try
         session = _start_gmsh(formulation.execution.gmsh_verbosity)
         parameters = formulation.execution.ui ?
-                     _ui_solve!(run, model, formulation, execution, runtime_root) :
-                     _headless_solve!(run, model, formulation, execution, runtime_root)
+                     _ui_solve!(run, model, formulation, execution, runtime_root, inputs) :
+                     _headless_solve!(run, model, formulation, execution, runtime_root, inputs)
         succeeded = true
         return parameters
     catch exception
@@ -462,25 +513,114 @@ function _compute_fem(
     end
 end
 
+const FEM_ADAPTER_SOURCES = let files = ("model.jl", "geometry.jl", "mesh.jl",
+        "onelab.jl", "getdp.jl", "results.jl", "compute.jl")
+    digests = map(files) do file
+        path = joinpath(@__DIR__, file)
+        Base.include_dependency(path)
+        bytes2hex(sha256(read(path)))
+    end
+    NamedTuple{Symbol.(files)}(digests)
+end
+
+function _fem_input_record(model::FEMResolvedModel, formulation::LineCableModelsFEM)
+    selected = formulation.execution.getdp_executable
+    executable = selected === nothing ? Sys.which("getdp") : abspath(selected)
+    getdp_identity = executable === nothing || !isfile(executable) ? nothing :
+        _getdp_identity(executable)
+    mesh_path = formulation.execution.mesh_path
+    return (
+        schema_version = 3,
+        mesh_fingerprint = _mesh_fingerprint(model, gmsh.GMSH_API_VERSION),
+        materials = [(kind=material.kind, tag=material.physical_tag,
+            mu_r=material.mu_r, sigma=real.(material.admittivity),
+            omega_epsilon=imag.(material.admittivity)) for material in model.material_plans],
+        mesh_plans = model.mesh_plans,
+        region_mesh_sizes = getproperty.(model.region_plans, :mesh_size),
+        cable_outer_mesh_sizes = model.cable_outer_mesh_sizes,
+        mesh_growth_factor = model.mesh_growth_factor,
+        options = formulation.options,
+        execution = formulation.execution,
+        supplied_mesh = mesh_path === nothing || !isfile(mesh_path) ? nothing :
+            bytes2hex(open(sha256, mesh_path)),
+        owned_gmsh = !Bool(gmsh.is_initialized()),
+        getdp_identity,
+        gmsh_version = gmsh.GMSH_API_VERSION,
+        gmsh_library = String(gmsh.lib),
+        julia_version = string(VERSION),
+        adapter_sources = FEM_ADAPTER_SOURCES,
+        solver_sources = map(source -> bytes2hex(sha256(source)), FEM_GETDP_SOURCES)
+    )
+end
+
 function compute(
         problem::LineParametersProblem,
-        formulation::LineCableModelsFEM;
+        formulation::Union{LineCableModelsFEM, AbstractVector{<:LineCableModelsFEM}};
         options::NamedTuple = (;)
 )
     problem = _preflight_fem_problem(problem)
     execution = _fem_computation_options(options)
+    # Scalar and collection calls share completion notification and reuse rules.
+    formulations = formulation isa LineCableModelsFEM ? [formulation] : formulation
     console = ConsoleLogger(stderr, Logging.Debug)
     logger = Engine.ConsoleVerbosityLogger(console, execution.verbosity)
-    if execution.log_file === nothing
-        return with_logger(logger) do
-            _compute_fem(problem, formulation, execution)
+    values = if execution.log_file === nothing
+        with_logger(logger) do
+            _compute_fem(problem, formulations, execution)
+        end
+    else
+        mkpath(dirname(abspath(execution.log_file)))
+        open(execution.log_file, "a") do io
+            file_logger = SimpleLogger(io, Logging.Debug)
+            with_logger(FEMTeeLogger(logger, file_logger)) do
+                _compute_fem(problem, formulations, execution)
+            end
         end
     end
-    mkpath(dirname(abspath(execution.log_file)))
-    return open(execution.log_file, "a") do io
-        file_logger = SimpleLogger(io, Logging.Debug)
-        with_logger(FEMTeeLogger(logger, file_logger)) do
-            _compute_fem(problem, formulation, execution)
+    return formulation isa LineCableModelsFEM ? first(values) : values
+end
+
+function _compute_fem(
+        problem::LineParametersProblem{Float64},
+        formulations::AbstractVector{<:LineCableModelsFEM},
+        execution::NamedTuple
+)
+    isempty(formulations) && throw(ArgumentError(
+        "FEM formulation collections cannot be empty"))
+    # Resolve and validate all requests before opening Gmsh or starting GetDP.
+    models = [_resolved_fem_model(problem, formulation) for formulation in formulations]
+    # The problem and loaded solver source are common to this batch. Only actual
+    # material/mesh inputs and execution settings distinguish its calculations.
+    keys = [JSON3.write(_fem_input_record(model, formulation))
+        for (model, formulation) in zip(models, formulations)]
+    first_result = _compute_fem(problem, first(formulations), execution, first(models))
+    values = Vector{typeof(first_result)}(undef, length(formulations))
+    values[1] = first_result
+    execution.on_result === nothing || execution.on_result(problem, 1, first_result)
+    completed = Dict(first(keys) => 1)
+    for index in 2:length(formulations)
+        formulation = formulations[index]
+        previous = get(completed, keys[index], nothing)
+        value = if previous === nothing || formulation.execution.ui ||
+                   formulation.execution.mesh_policy === :remesh
+            _compute_fem(problem, formulation, execution, models[index])
+        else
+            source = values[previous]
+            @info "FEM reuses identical resolved inputs" formulation=index source_formulation=previous
+            # Results remain independently mutable and each request keeps its own
+            # selection record. The shared run record identifies the actual solve.
+            metadata = merge(deepcopy(source.details),
+                (formulations=formulation_record(formulation),))
+            LineParameters(PhaseDomain,
+                SeriesImpedance(copy(source.Z.values); basis=Engine.basis(source)),
+                ShuntAdmittance(copy(source.Y.values); basis=Engine.basis(source)),
+                copy(source.f), metadata)
         end
+        typeof(value) === eltype(values) || throw(ArgumentError(
+            "FEM formulations produced inconsistent result types"))
+        values[index] = value
+        completed[keys[index]] = index
+        execution.on_result === nothing || execution.on_result(problem, index, value)
     end
+    return values
 end

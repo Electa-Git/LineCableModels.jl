@@ -841,14 +841,9 @@ end
                     )
                     failure_run = extension_module._create_run(runtime_root)
                     extension_module._prepare_run_inputs!(failure_run, model)
-                    material_functions = read(
-                        joinpath(
-                            failure_run.path,
-                            "input",
-                            "material_functions.pro"
-                        ), String)
-                    @test occursin("sigma_dc[MaterialRegion1]", material_functions)
-                    @test occursin("tan_delta[MaterialRegion1]", material_functions)
+                    extension_module._write_json_atomic(
+                        joinpath(failure_run.path, "input", "computation.json"),
+                        extension_module._fem_input_record(model, failing_formulation))
                     failure = try
                         extension_module._run_getdp!(
                             failure_run,
@@ -1152,6 +1147,33 @@ end
     @test length(milliken_fill.shape.holes) ==
           count(plan -> plan.terminal_index == 1, milliken_model.region_plans)
 
+    annular_design = build(CableDesign, "fem-rectangular-last-strip",
+        terminal(:core,
+            stranded(copper; shape=Rectangle(0.3e-3, 0.1e-3),
+                center=Disk(0.2e-3), boundary=Disk(0.6e-3), lay=LayRatio(12)),
+            insulation(dielectric; t=0.2e-3)))
+    annular_model = extension_module._resolved_fem_model(
+        problem(annular_design, Dict(:core => 1), annular_design.cable_id),
+        formulation)
+    @test any(region -> region.source.primitive isa Rectangle &&
+        region.primitive isa Annulus, annular_design.geometry.regions)
+    fill_index = findfirst(annular_design.geometry.regions) do region
+        region.source.material.kind !== :conductor &&
+            region.primitive isa Annulus && r_ex(region.primitive) ≈ 0.6e-3
+    end
+    @test fill_index !== nothing
+    residual = annular_design.geometry.regions[fill_index]
+    for bad_shape in (
+            Annulus(residual.primitive.ri * 1.001, residual.primitive.ro, residual.primitive.at),
+            Annulus(residual.primitive.ri, residual.primitive.ro, Pose2(1e-5, 0.0)),
+        )
+        incomplete = copy(annular_design.geometry.regions)
+        incomplete[fill_index] = DM.PlacedRegion(residual.source, bad_shape,
+            residual.terminal, residual.placement, residual.paths)
+        @test_throws LineCableModelsFEMError extension_module._formations(
+            incomplete, annular_design.terminal_map, "incomplete-annular-fill")
+    end
+
     Gmsh.initialize(String[]; finalize_atexit = false)
     try
         gmsh.option.set_number("General.Terminal", 1)
@@ -1162,7 +1184,8 @@ end
             ("fem-filled-compaction", filled_model),
             ("fem-sector-formations", sector_model),
             ("fem-four-sector-formations", four_model),
-            ("fem-milliken-core", milliken_model)
+            ("fem-milliken-core", milliken_model),
+            ("fem-rectangular-last-strip", annular_model)
         )
             @testset "$name" begin
                 geometry = extension_module._build_geometry!(model, name)
@@ -1217,13 +1240,16 @@ end
 ] begin
     using LineCableModels
     using Gmsh
+    using SHA
+    using Serialization
 
     executable = get(ENV, "LINECABLEMODELS_GETDP", something(Sys.which("getdp"), ""))
     if isempty(executable)
         @test_skip "GetDP is unavailable; the real multi-frequency solve was not run"
     else
         copper = Material(kind = :conductor, rho = 1 / 5.8e7)
-        dielectric = Material(kind = :insulator, rho = 1.0e15, eps_r = 2.3)
+        dielectric = Material(kind = :insulator, rho = 1.0e8, eps_r = 2.3,
+            tan_delta = 0.025)
         design = build(CableDesign,
             "fem-integration",
             Stack(
@@ -1255,7 +1281,43 @@ end
                 keep_run_directory = true
             )
         )
-        result = compute(problem, formulation; options = (trace = true,))
+        formulation_space = Formulation(:LineCableModelsFEM;
+            earth_impedance = Grid((:default, :Wise1934)),
+            insulation_admittance = Grid((:default, :Ametani2004)),
+            options = formulation.options,
+            fem_options = formulation.execution)
+        selected = collect(formulation_space)
+        completions = Tuple[]
+        on_result = (resolved, index, result) -> push!(completions, (index, result))
+        batch = compute(ParametricProblem(problem, (trace = true, on_result = on_result)),
+            Combinatorial(formulation_space; options = (retain_details = true,)))
+        @test length(batch) == 4
+        @test first.(completions) == collect(eachindex(selected))
+        @test all(index -> completions[index][2].Z.values == batch[index].Z.values,
+            eachindex(selected))
+        run_directories = [value.details.fem.run.run_directory for value in batch]
+        @test length(unique(run_directories)) == 2
+        for index in eachindex(selected)
+            @test batch[index].details.formulations.requested.earth_impedance ==
+                  string(formula_id(selected[index].methods.earth_impedance))
+            @test batch[index].details.formulations.effective.earth_impedance === nothing
+            @test details(batch).points[index] == details(batch[index])
+        end
+        default_indices = findall(value ->
+            formula_id(value.methods.insulation_admittance) === :default, selected)
+        lossy_indices = findall(value ->
+            formula_id(value.methods.insulation_admittance) === :Ametani2004, selected)
+        for indices in (default_indices, lossy_indices)
+            first_result, second_result = batch[indices[1]], batch[indices[2]]
+            @test first_result.Z.values == second_result.Z.values
+            @test first_result.Y.values == second_result.Y.values
+            @test first_result.Z.values !== second_result.Z.values
+            @test first_result.Y.values !== second_result.Y.values
+            @test first_result.details.fem.primitive.Z_primitive !==
+                  second_result.details.fem.primitive.Z_primitive
+            @test run_directories[indices[1]] == run_directories[indices[2]]
+        end
+        result = batch[first(default_indices)]
         run_directory = result.details.fem.run.run_directory
         @test size(result.Z) == (1, 1, 2)
         @test size(result.Y) == (1, 1, 2)
@@ -1283,6 +1345,62 @@ end
             @test !occursin("\n\n", content)
             @test length(readlines(IOBuffer(content))) == expected_rows
         end
+
+        # Same geometry and terminal conditions, now with explicitly requested
+        # conduction plus polarization loss. The shared .pro is unchanged.
+        lossy = batch[first(lossy_indices)]
+        for (index, frequency) in pairs(problem.frequencies)
+            expected_g = 2π / log(0.01 / 0.005) * (
+                inv(dielectric.rho) + 2π * frequency * 8.8541878128e-12 *
+                dielectric.eps_r * dielectric.tan_delta)
+            @test real(lossy.Y[1, 1, index]) ≈ expected_g rtol = 0.03
+            @test abs(real(result.Y[1, 1, index])) < 0.03 * expected_g
+            @test imag(lossy.Y[1, 1, index]) / (2π * frequency) ≈
+                  expected_capacitance rtol = 0.02
+        end
+        # A fresh call can reconstruct the selected result from a completed run,
+        # without starting Gmsh, touching historical files, or another solve.
+        function snapshot_files(root)
+            Dict(relpath(joinpath(directory, file), root) =>
+                (bytes2hex(open(sha256, joinpath(directory, file))), stat(joinpath(directory, file)).mtime)
+                for (directory, _, files) in walkdir(root) for file in files)
+        end
+        before_reuse = snapshot_files(run_directory)
+        @test !Bool(Gmsh.gmsh.is_initialized())
+        repeated = compute(problem, selected[last(default_indices)];
+            options=(trace=true, resume_run_directory=run_directory))
+        @test repeated.Z.values == result.Z.values
+        @test repeated.Y.values == result.Y.values
+        @test repeated.details.formulations.requested.earth_impedance ==
+            string(formula_id(selected[last(default_indices)].methods.earth_impedance))
+        @test repeated.details.fem.run.run_directory == run_directory
+        @test repeated.details.fem.inputs.getdp_identity.sha256 != ""
+        @test !Bool(Gmsh.gmsh.is_initialized())
+        @test snapshot_files(run_directory) == before_reuse
+        mktempdir() do temporary
+            expected = joinpath(temporary, "expected.bin")
+            serialize(expected, (result.Z.values, result.Y.values))
+            code = raw"""
+                using LineCableModels, Gmsh, JSON3, Serialization
+                path, executable, expected = ARGS
+                problem = LineCableModels.ImportExport.deserialize_value(
+                    JSON3.read(read(joinpath(path, "input", "problem.json"), String)))
+                formulation = Formulation(:LineCableModelsFEM; earth_impedance=:Wise1934,
+                    options=(ideal_transposition=false,),
+                    fem_options=(getdp_executable=executable, getdp_verbosity=0,
+                        gmsh_verbosity=0, keep_run_directory=true))
+                result = compute(problem, formulation; options=(trace=true, resume_run_directory=path))
+                Z, Y = deserialize(expected)
+                @assert result.Z.values == Z && result.Y.values == Y
+                @assert result.details.fem.run.run_directory == path
+                @assert !Bool(Gmsh.gmsh.is_initialized())
+                println("completed-run reuse verified in fresh Julia")
+                """
+            command = `$(Base.julia_cmd()) --startup-file=no --project=$(dirname(Base.active_project())) -e $code $run_directory $executable $expected`
+            @test occursin("completed-run reuse verified in fresh Julia", read(command, String))
+            @test snapshot_files(run_directory) == before_reuse
+        end
+        rm(lossy.details.fem.run.run_directory; recursive = true, force = true)
 
         if !isempty(get(ENV, "DISPLAY", ""))
             ui_formulation = Formulation(
@@ -1544,6 +1662,21 @@ end
                     first_map = read(first(result.details.fem.run.map_paths), String)
                     @test occursin("f=10 Hz", first_map)
                     @test occursin("basis=cable_0001", first_map)
+                    # The single parametric operation must preserve the identity
+                    # of every frequency/source job, not just the first map.
+                    for (frequency_index, frequency) in enumerate(result.f)
+                        for (basis, terminal) in enumerate(result.details.fem.terminal_ids)
+                            for quantity in ("az", "b", "bm", "e", "ez", "em", "jz", "jm", "rhoj2")
+                                filename = string(quantity, "_f", lpad(frequency_index, 4, '0'),
+                                    "_b", lpad(basis, 4, '0'), ".pos")
+                                map_text = read(joinpath(run_directory, "maps", filename), String)
+                                @test occursin("basis=$terminal", map_text)
+                                label_frequency = match(r"f=([^ ]+) Hz", map_text)
+                                @test label_frequency !== nothing
+                                @test parse(Float64, label_frequency[1]) == frequency
+                            end
+                        end
+                    end
                 else
                     @test isempty(result.details.fem.run.map_paths)
                 end

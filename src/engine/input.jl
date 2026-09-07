@@ -45,6 +45,37 @@ end
 Base.eltype(::LineParametersWorkspace{T}) where {T} = T
 Base.eltype(::Type{<:LineParametersWorkspace{T}}) where {T} = T
 
+"""
+$(TYPEDSIGNATURES)
+
+Check resolved earth-formula selections against a prepared coaxial workspace.
+This is shared by numerical execution and manual catalogue preflight. It checks
+the physical earth model and actual assembly interactions without evaluating
+formula kernels or changing any workspace buffers.
+
+# Arguments
+
+- `workspace`: Prepared geometry, layer inventory and numerical storage.
+- `formulation`: Context-resolved coaxial formulation; resolve `:default` first.
+
+# Returns
+
+- The same `workspace`.
+"""
+function validate(workspace::LineParametersWorkspace, formulation::LineParametersFormulation)
+    earth = workspace.input.earth
+    for method in (formulation.methods.earth_impedance, formulation.methods.earth_admittance)
+        validate(method, earth)
+        stratified = media(method) === Val(:stratified)
+        pairs = stratified ? workspace.invariants.earth_pairs : workspace.invariants.homogeneous_pairs
+        for pair in pairs
+            stratified && validate(pair, getproperty.(earth.layers, :thickness))
+            validate(method, pair)
+        end
+    end
+    return workspace
+end
+
 @inline _capture_buffers(::Type, ::Any, ::Val{false}) = nothing
 
 function _capture_buffers(

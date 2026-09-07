@@ -6,18 +6,24 @@ through numerical kernels, display, and data exchange.
 """
 module LineCableModelsMeasurementsExt
 
-using Calculus
-using Measurements
-using Printf
-using SpecialFunctions
+import Measurements
+import Printf
+import SpecialFunctions
+#! explicit-imports: off
+# Non-exported accessors documented in Measurements usage, and gradient in the
+# Calculus README. Measurements.result is its documented internal propagation
+# hook, required by the existing complex-Bessel adapter (Measurements appendix).
+# Keep the import exception restricted to these upstream bindings.
+using Calculus: gradient
+using Measurements: value as measured_value, uncertainty as measured_uncertainty,
+                    result as measured_result
+#! explicit-imports: on
 
 import LineCableModels
-const Grammar = LineCableModels.Grammar
-const ParametricBuilder = LineCableModels.ParametricBuilder
-const Engine = LineCableModels.Engine
-const UQ = LineCableModels.UQ
-const ReportBuilder = LineCableModels.ReportBuilder
-const ImportExport = LineCableModels.ImportExport
+import LineCableModels.ParametricBuilder
+import LineCableModels.Engine
+import LineCableModels.UQ
+import LineCableModels.ReportBuilder
 
 import LineCableModels: nominal, uncertainty
 import LineCableModels.Engine: has_uncertainty_type
@@ -28,8 +34,8 @@ import LineCableModels.Grammar: detach
 import LineCableModels.ReportBuilder: encode_cell
 
 # Numeric presentation hooks.
-nominal(value::Measurements.Measurement) = Measurements.value(value)
-uncertainty(value::Measurements.Measurement) = Measurements.uncertainty(value)
+nominal(value::Measurements.Measurement) = measured_value(value)
+uncertainty(value::Measurements.Measurement) = measured_uncertainty(value)
 
 function LineCableModels.materialize(value::ParametricBuilder.UncertainValue{<:Real})
     Measurements.measurement(value.nominal, value.sigma)
@@ -106,8 +112,8 @@ function has_uncertainty_type(
     true
 end
 function detach(value::Measurements.Measurement, factor, clip::Bool)
-    nominal = detach(Measurements.value(value), factor, clip)
-    uncertainty = detach(Measurements.uncertainty(value), abs(factor), clip)
+    nominal = detach(measured_value(value), factor, clip)
+    uncertainty = detach(measured_uncertainty(value), abs(factor), clip)
     return Measurements.measurement(nominal, uncertainty)
 end
 
@@ -122,8 +128,8 @@ end
 function serialize_value(value::Measurements.Measurement)
     return Dict(
         "__type__" => "Measurement",
-        "value" => serialize_value(Measurements.value(value)),
-        "uncertainty" => serialize_value(Measurements.uncertainty(value))
+        "value" => serialize_value(measured_value(value)),
+        "uncertainty" => serialize_value(measured_uncertainty(value))
     )
 end
 function deserialize_extension(::Val{:Measurement}, value)
@@ -136,21 +142,21 @@ function encode_cell(
         value::Measurements.Measurement
 )
     Printf.@sprintf("%.12g ± %.6g",
-        Measurements.value(value),
-        Measurements.uncertainty(value),)
+        measured_value(value),
+        measured_uncertainty(value),)
 end
 
 # Uncertainty-aware SpecialFunctions methods used by the numerical kernels.
 function _lift_complex(function_value, order, value::Complex{<:Measurements.Measurement})
-    nominal = Measurements.value(value)
-    return Measurements.result(
+    nominal = measured_value(value)
+    return measured_result(
         function_value(order, nominal),
         vcat(
-            Calculus.gradient(
+            gradient(
                 point -> real(function_value(order, complex(point...))),
                 collect(reim(nominal))
             ),
-            Calculus.gradient(
+            gradient(
                 point -> imag(function_value(order, complex(point...))),
                 collect(reim(nominal))
             )

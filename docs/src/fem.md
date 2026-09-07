@@ -47,6 +47,19 @@ GetDP is an external executable. Set `getdp_executable` explicitly or make a
 before starting a solve. No Python runtime or `GetDP.jl` problem generator is
 used.
 
+The adapter writes one run-local `input/model_data.pro` containing resolved
+region tags, terminal names, material coefficients and domain dimensions.
+Maintained GetDP files own material-domain bindings, the equations and the
+parameterized field-map operation. Material conductivity is the effective
+real part of the selected complex admittivity: dielectric losses are already
+included, so GetDP does not add another loss-tangent contribution.
+
+Each solver job selects its material coefficients by frequency index. When
+`plot_field_maps=true`, the same output operation writes the nine field
+quantities with frequency/source-specific filenames and labels; disabled maps
+do not generate or parse per-job output declarations. The maintained GetDP
+files are captured with each run so later edits cannot change an active scan.
+
 ## Execution model
 
 One call to `compute` builds one complete two-dimensional Gmsh mesh for each

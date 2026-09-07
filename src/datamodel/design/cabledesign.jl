@@ -117,7 +117,8 @@ function validate(design::CableDesign)
             "CableDesign.geometry.regions[$index] has an unsupported bounded " *
             "strand declaration $(nameof(typeof(placed.source.primitive)))"
         ))
-        placed.primitive isa Union{Disk, Rectangle, Polygon, BentStrip} ||
+        (placed.primitive isa Union{Disk, Rectangle, Polygon, BentStrip} ||
+         (placed.primitive isa Annulus && placed.source.primitive isa Rectangle)) ||
             throw(ArgumentError(
                 "CableDesign.geometry.regions[$index] has unsupported resolved " *
                 "bounded geometry $(nameof(typeof(placed.primitive)))"

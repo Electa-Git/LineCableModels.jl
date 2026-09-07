@@ -66,7 +66,7 @@ function _path_radius(pattern::Ring, pose::Pose2, primitive::Annulus)
     return iszero(pattern.r) ? (r_in(primitive) + r_ex(primitive)) / 2 : pattern.r
 end
 _path_radius(pattern::Ring, pose::Pose2, primitive::AbstractShape) = pattern.r
-function _path_radius(::Nothing, pose::Pose2, primitive::Annulus)
+function _path_radius(::Nothing, pose::Pose2, primitive::Union{Annulus, BentStrip})
     (r_in(primitive) + r_ex(primitive)) / 2
 end
 _path_radius(::Nothing, pose::Pose2, primitive::AbstractShape) = hypot(pose.x, pose.y)
@@ -279,6 +279,7 @@ function resolve_bounded(group::Group)
         absolute_centre = centroid(primitive)
         pose = bounded_pose(member.site, group.at, member.angle)
         patterns = ((
+            owner = Group,
             pattern = BoundedPlacement(outer, member.course),
             member = formation_member,
             pose = pose
@@ -286,9 +287,11 @@ function resolve_bounded(group::Group)
         paths = member.path === nothing ? () :
                 ((
                     path = member.path,
-                    radius = hypot(
-                        absolute_centre[1] - formation_centre[1],
-                        absolute_centre[2] - formation_centre[2]
+                    radius = _path_radius(
+                        nothing,
+                        Pose2(absolute_centre[1] - formation_centre[1],
+                            absolute_centre[2] - formation_centre[2]),
+                        primitive
                     )
                 ),)
         terminal = member.source.material.kind === :conductor ? group.name : nothing
@@ -394,6 +397,10 @@ function _resolve_group(
             placed = resolve(group.at, source)
             terminal = source.source.material.kind === :conductor ? group.name :
                        source.terminal
+            # This scope coalesces even terminal-preserving child assemblies.
+            patterns = map(placed.placement.patterns) do entry
+                entry.owner === Assembly ? merge(entry, (owner = Group,)) : entry
+            end
             centre = centroid(source.primitive)
             paths = group.path === nothing ? source.paths :
                     (source.paths...,
@@ -409,7 +416,7 @@ function _resolve_group(
                 source.source,
                 placed.primitive,
                 terminal,
-                placed.placement,
+                (patterns = patterns,),
                 paths
             ))
         end
@@ -442,9 +449,11 @@ function _resolve_group(
             placed = resolve(placed_at, source)
             extent = support(local_primitive)
             local_extent = local_extent === nothing ? extent : max(local_extent, extent)
-            patterns = pattern === nothing ? placed.placement.patterns :
-                       (placed.placement.patterns...,
-                (pattern = pattern, member = member, pose = pose))
+            patterns = map(placed.placement.patterns) do entry
+                entry.owner === Assembly ? merge(entry, (owner = Group,)) : entry
+            end
+            patterns = (patterns...,
+                (owner = Group, pattern = pattern, member = member, pose = pose))
             paths = group.path === nothing ? source.paths :
                     (source.paths...,
                 (

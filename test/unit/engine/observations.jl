@@ -121,3 +121,65 @@
     @test_throws DimensionMismatch observe(shunt, C, [50.0])
     @test_throws DomainError observe(shunt, C, [50.0, 0.0])
 end
+
+@testitem "Engine / publications / native Tables and collection interfaces" tags=[:unit] begin
+    using DataFrames
+    const GR = LineCableModels.Grammar
+    const Tables = GR.Tables
+    constants = CableConstants([:a, :b], [1e-4, 2e-4], [3e-7, 4e-7],
+        [5e-10, 6e-10], [7e-9, 8e-9], 50.0)
+    published = observables(constants, (R, L, C, G);
+        length_unit=:base, quantity_units=:base)
+
+    @test Tables.istable(typeof(published))
+    @test Tables.columnaccess(typeof(published))
+    @test Tables.columnnames(published) == (:core, :R, :L, :C, :G)
+    schema = @inferred Tables.schema(published)
+    @test schema.names == (:core, :R, :L, :C, :G)
+    @test schema.types == (Symbol, Float64, Float64, Float64, Float64)
+    for (index, name) in enumerate(schema.names)
+        column = Tables.getcolumn(published, name)
+        @test Tables.getcolumn(published, index) === column
+        @test column == getproperty(constants, name === :core ? :cores : name)
+    end
+    @test Tables.rowtable(published) == collect(constants)
+    @test DataFrame(published) == DataFrame(Tables.columntable(published))
+    @test length(published) == 4 # Observations, not table rows.
+    @test firstindex(published) == 1
+    @test lastindex(published) == 4
+    @test first(published) === published[begin]
+    @test last(published) === published[end]
+    @test Tuple(published) == (published[1], published[2], published[3], published[4])
+    @test Base.tail(published) == (published[2], published[3], published[4])
+    @test occursin("2 rows", sprint(summary, published))
+    @test occursin("2 rows × 5 columns", sprint(show, published))
+    @test sprint(show, MIME"text/plain"(), published) == sprint(show, published)
+    @test_throws BoundsError published[5]
+
+    # Native table consumers can mutate their detached columns, not the source.
+    Tables.getcolumn(published, :R)[1] = 99.0
+    Tables.getcolumn(published, :core)[1] = :changed
+    @test constants.R == [1e-4, 2e-4]
+    @test constants.cores == [:a, :b]
+    @test published.metadata.basis === :pul
+    @test published.metadata.row_order == (:core, :R, :L, :C, :G)
+    @test keys(published.metadata.observation_columns) == (:R, :L, :C, :G)
+
+    empty_table = GR.ObservationPublication((), (;),
+        (basis=:pul, row_order=(), observation_columns=(;)))
+    @test isempty(empty_table)
+    @test isempty(Tables.columnnames(empty_table))
+    @test occursin("0 rows", sprint(summary, empty_table))
+    @test occursin("0 rows × 0 columns", sprint(show, empty_table))
+    @test_throws DimensionMismatch GR.ObservationPublication((),
+        (x=[1.0], y=[1.0, 2.0]), empty_table.metadata)
+    @test_throws ArgumentError GR.ObservationPublication((), (;), (basis=:pul,))
+
+    # Display clipping must not discard phase or silently convert missing data.
+    complex_values = ComplexF64[eps()/2 + eps()/4 * im, 2 - 3im]
+    @test GR.detach(complex_values, 2.0, true) == 2 .* complex_values
+    nullable = Union{Missing, Float64}[missing, eps()/4, Inf, -Inf, NaN, 1.0]
+    detached = GR.detach(nullable, 2.0, true)
+    @test isequal(detached, [missing, 0.0, Inf, -Inf, NaN, 2.0])
+    @test !ismissing(nullable[2]) && nullable[2] > 0
+end

@@ -27,6 +27,41 @@
     )
 end
 
+@testitem "Units / comparison errors preserve dimensions and normalization" tags=[:unit] begin
+    const U = LineCableModels.Units
+    const EN = LineCableModels.Engine
+    for (selector, unit_symbol) in ((Z, "Ω"), (Y, "S"))
+        absolute = quantity(selector, EN.absolute_error)
+        relative = quantity(selector, EN.relative_error)
+        @test U.symbol(absolute) == "Δ" * symbol(selector)
+        @test U.symbol(relative) == "ε" * symbol(selector)
+        @test occursin("absolute error", U.label(absolute))
+        @test occursin("relative error", U.label(relative))
+        @test U.label(U.native_unit(absolute, :pul)) == "$unit_symbol/m"
+        @test U.label(U.display_unit(absolute, :pul)) == "$unit_symbol/km"
+        @test U.scale_factor(U.native_unit(absolute, :pul), U.display_unit(absolute, :pul)) == 1000
+        @test U.label(U.display_unit(absolute, :total)) == unit_symbol
+        for basis in (:pul, :total)
+            @test U.label(U.native_unit(relative, basis)) == ""
+            @test U.label(U.display_unit(relative, basis)) == ""
+            @test U.scale_factor(U.native_unit(relative, basis), U.display_unit(relative, basis)) == 1
+            @test U.label(relative, U.display_unit(relative, basis)) == U.label(relative)
+        end
+    end
+    distance = U.Quantity{:distance}()
+    dimensionless = U.Quantity{:dimensionless}()
+    phase = U.Quantity{:phase_angle}()
+    @test U.symbol(distance) == "d"
+    @test U.label(distance, U.display_unit(distance)) == "Distance [m]"
+    @test U.native_unit(distance) == U.display_unit(distance)
+    @test U.symbol(dimensionless) == ""
+    @test U.label(dimensionless, U.display_unit(dimensionless)) == "Dimensionless"
+    @test U.symbol(phase) == "∠"
+    @test U.label(phase, U.display_unit(phase)) == "Phase angle [°]"
+    @test U.scale_factor(U.native_unit(phase), U.display_unit(phase)) ≈ 180 / pi
+    @test symbol(Y, abs) == "|Y|"
+end
+
 @testitem "Units / quantity metadata and basis" tags = [:unit] begin
     const U = LineCableModels.Units
 
@@ -192,4 +227,21 @@ end
     @test !isdefined(U, :get_symbol)
     @test !isdefined(U, :line_component_quantity)
     @test !isdefined(U, :line_component_unit)
+end
+@testitem "Units / statistical report axes keep counts and probabilities dimensionless" tags=[:unit] begin
+    const U = LineCableModels.Units
+    for (name, caption, symbol) in ((:sample_count, "Count", "n"),
+            (:probability, "Probability", "p"),
+            (:cumulative_probability, "Cumulative probability", "F"))
+        quantity = U.Quantity{name}()
+        @test U.label(quantity) == caption
+        @test U.symbol(quantity) == symbol
+        @test U.native_unit(quantity) == U.display_unit(quantity) == U.units(:base, :dimensionless)
+        @test U.label(U.display_unit(quantity)) == ""
+    end
+    # Density is not a probability: it has its own caption, while the observed
+    # variable determines the reciprocal unit in the histogram publication.
+    density = U.Quantity{:probability_density}()
+    @test U.label(density) == "Probability density"
+    @test U.symbol(density) == "p"
 end

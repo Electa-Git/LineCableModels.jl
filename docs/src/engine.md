@@ -1,9 +1,9 @@
 # Computational engine
 
-The physical equations and literature sources for every built-in formulation
-are catalogued in [Transmission line parameters](transmission-line-parameters.md).
-This developer guide describes how those identities are discovered, routed,
-and extended without duplicating their scientific definitions.
+The physical equations and literature sources belong to the docstrings in
+each formulation's implementation file. This developer guide describes how
+those identities are discovered, routed, and extended without duplicating
+their scientific definitions.
 
 LineCableModels separates a physical problem, a formulation, and the backend
 that implements that formulation. A formulation identifies the equations or
@@ -36,16 +36,38 @@ arguments are forwarded as route or assumption overrides. `order=:before` or
 `:after` places an EHEM reduction relative to material frequency dependence;
 ordinary formula slots reject an `order` value.
 
-Every Engine formula family resolves the UX selector `:default` to one
-registered literature formula before computation. The current mappings are
-`:Schelkunoff1934` for internal impedance, `:Ametani1980` for insulation
-impedance, `:Papadopoulos2010` for earth impedance and admittance, and
-`:Ametani2004` for insulation and semicon admittance. `:default` is not a
-catalogue entry and never survives as the concrete formula identity.
-Modal transformation similarly resolves `:default` to `:Chrysochos2014`.
-The two non-literature cases are explicit: frequency-dependent soil resolves
-`:default` to `nothing`, while EHEM resolves it to the last-layer
-reconstruction policy.
+The selector `:default` resolves from the problem, geometry, earth model and
+backend before numerical execution; it is not a fallback after failure.
+For the coaxial backend, internal impedance resolves to `:Schelkunoff1934`
+and insulation impedance to `:Ametani1980`. Homogeneous overhead earth uses
+`:Wise1934` for impedance and `:Wise1948` for admittance; underground earth
+uses `:Xue2018` for both. Mixed placement requires an explicit supported choice.
+Insulation and semicon admittance each register an actual `:default` relation:
+lossless displacement current, with conductivity and polarization losses
+suppressed. These defaults retain their own identity, distinct from an
+explicitly requested `:Ametani2004` lossy relation.
+
+Modal transformation resolves `:default` to `:Chrysochos2014`.
+Frequency-dependent soil resolves `:default` to honest absence (`nothing`),
+while EHEM resolves it to the last-layer reconstruction policy. Pipe selections
+use the same grammar; an unsupported coaxial pipe default fails explicitly.
+
+Backend adapters use the same formula identifiers, not parallel catalogues of
+backend-only wrapper types. In the manual PSCAD tooling, for example,
+`Formulation(:pscad; earth_impedance=Grid((:default, :Saad1996)))` participates
+in the normal Gridspace grammar. Its native overhead/underground default is
+`:DirectNumericalIntegration`; the identifier declares an external numerical
+mode, not an invented author or an available coaxial kernel. Fixed native
+calculations, supported placements and dielectric export limitations are
+recorded separately from the requested analytical selections.
+
+FEM formulation grids use the existing batched `compute` dispatch. Within a
+batch, identical resolved material admittivities, mesh inputs, reduction options
+and execution settings reuse one field solve. Every requested selection retains
+its own metadata and independent result arrays; its run record identifies the
+calculation actually used. Interactive runs and explicit `mesh_policy=:remesh`
+requests are executed separately. Matching effective inputs does not establish
+mathematical equivalence between differently named analytical formulas.
 
 Every concrete `Formula{:ID}` carries its catalogue-local identity in its type.
 All built-in formula routes bind through the root-owned `FormulaMethod{ID}`.
@@ -55,6 +77,27 @@ complete route without a global author switch, dictionary, or runtime
 registry. Single-route catalogues store one bound method; internal impedance
 and the two earth-return catalogues retain inspectable tuples of bound
 interaction methods.
+
+Earth-return applicability checks use the existing `InputValidation.validate`
+interface. `validate(selected_formula, pair::EarthPair)` checks the actual
+self or mutual leaf without evaluating an integral. Native leaf validators
+live beside their equations and dispatch on the bound `FormulaMethod`.
+The two abstract earth-formulation families require pair and layer-count
+validation through `@required`; catalogue tests require an owner-defined
+validator for every native interaction route, including support routes.
+
+The coaxial solver performs these checks on its resolved assembly pairs before
+entering the frequency loop. Checks cover placement, self-only source formulas,
+top-layer restrictions and closed forms requiring nonzero horizontal separation.
+The same workspace validation is used by manual Gauntlet catalogue preflight;
+there is no separate author allowlist. Formula-owned earth-context checks cover
+layer count, stratification direction, aligned material-property arrays and
+conductor depths within their assigned horizontal layers.
+A custom mutual override is checked as that override, rather than being rejected
+using the original recipe's author name. Custom callables receive the intrinsic
+pair-geometry checks and can specialize `validate(pair, route, formula)` for
+additional restrictions. Preflight does not certify numerical convergence:
+exceptions from numerical execution remain failures, not applicability skips.
 
 The earth-return leaves dispatch through
 `earth_impedance(::Val{:ID}, ::Val{:route}, ...)` or
@@ -127,11 +170,43 @@ route per formula. Insulation and semicon admittance formulas evaluate complex
 material admittivity at each frequency; the Coaxial Engine owns the common
 annular geometry and radial series aggregation.
 `InsulationImpedance.formulas()` includes `:Ametani1980`;
-`InsulationAdmittance.formulas()` includes `:Ametani2004` and `:Gustavsen2013`;
-`SemiconAdmittance.formulas()` includes `:Ametani2004`. They are selected
+`InsulationAdmittance.formulas()` includes `:Ametani2004` and `:default`;
+`SemiconAdmittance.formulas()` includes `:Ametani2004` and `:default`. They are selected
 uniformly through `insulation_admittance` and `semicon_admittance`. A complete
 experimental constitutive law can be supplied with `formula(:Ametani2004;
 route=my_route)` without changing the Coaxial matrix-assembly loop.
+
+For both dielectric families, `:default` explicitly retains displacement current
+and suppresses conductivity and loss tangent. The explicit `:Ametani2004` route
+implements the paper's conductivity/permittivity relation and radial series
+aggregation. A nonzero material `tan_delta` adds polarization loss, excluding
+the conductivity already represented by `rho`; it is an additional material
+input, not a loss-tangent model proposed in that paper.
+
+Earth `:default` is resolved from the problem before frequency evaluation:
+Wise1934/Wise1948 for homogeneous overhead Z/Y and Xue2018 for underground Z/Y.
+An explicit formula remains explicit; an unsupported context fails instead of
+trying another formula after a numerical failure. Requested and effective
+selections are retained in the result details.
+
+FEM computation accepts `options=(resume_run_directory=:latest,)` or an explicit
+retained run directory. Matching incomplete runs resume their missing jobs.
+Matching completed runs are read without modifying their files or launching
+another numerical solve. Input agreement includes material admittivities, mesh
+settings, supplied-mesh bytes, loaded adapter and solver sources, and executable
+identity. Completed raw matrices and field maps must pass their checksums.
+Reduction, output basis and each requested formulation's metadata are assembled
+for the returned result. A changed or corrupt explicit run is rejected.
+Completed-run reuse requires backend-owned headless meshing with `:reuse`;
+caller-owned Gmsh sessions, UI operation and `mesh_policy=:remesh` still execute.
+Backend-owned sessions do not read ambient user Gmsh configuration files.
+
+`pipe_impedance=formula(:default)` participates in the same formulation grammar
+and Gridspace composition for line parameters, cable constants, and FEM. For an
+ordinary concentric assembly there is no additional pipe term. An eccentric or
+multicore conductive enclosure requires a pipe-type model; the coaxial backend
+rejects it before lowering because no implementation is available yet. FEM keeps
+its supported enclosure geometry and evaluates its field equations directly.
 
 Frequency-dependent soil laws and equivalent homogeneous-earth models belong
 to separate formula families under `EarthProps`. `EarthModel` continues to
@@ -174,7 +249,7 @@ the complete options tuple may be an explicit finite source:
 formulations = Formulation(
     insulation_admittance = Grid((
         :Ametani2004,
-        :Gustavsen2013,
+        :default,
     )),
     earth_impedance = Grid((
         :Pollaczek1926,
@@ -186,7 +261,7 @@ formulations = Formulation(
 
 The result is `Gridspace{LineParametersFormulation}`. Every point is a
 completely resolved scalar formulation: no `Grid`, symbol selector, or
-`FormulaSpec` reaches `compute`. `combine=:zip` aligns formulation fields and
+`FormulaDefinition` reaches `compute`. `combine=:zip` aligns formulation fields and
 broadcasts singleton fields. This local composition is separate from
 `Combinatorial`, which always evaluates the Cartesian product of problem and
 formulation points.
@@ -578,11 +653,21 @@ The coaxial backend accepts:
     verbosity = (default = 0,),
     output_basis = :pul,
     trace = false,
+    on_result = nothing,
 )
 ```
 
 `trace=true` preallocates diagnostic capture with the workspace and attaches
 the retained matrices to `details(result).trace` after computation.
+
+Coaxial, FEM, and PSCAD computations accept an optional callable
+`on_result(problem, index, result)`. It runs synchronously after each completed
+formulation, including a reused result, before computing the next selection.
+The index refers to the submitted formulation collection (`1` for a scalar
+call). This allows manual campaigns to save completed results without waiting
+for the whole batch. The callback must not mutate its arguments; its return
+value is ignored and any exception stops execution. It is an execution option,
+not a formula or a frequency-loop operation. Ordinary calls leave it as `nothing`.
 
 The PSCAD backend accepts:
 
@@ -592,6 +677,7 @@ The PSCAD backend accepts:
     remote = remote_config,
     verbosity = (default = 0, PSCAD = 2),
     output_basis = :pul,
+    on_result = nothing,
 )
 ```
 

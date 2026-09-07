@@ -2,18 +2,6 @@ const FEM_FIELD_QUANTITIES = (
     "az", "b", "bm", "e", "ez", "em", "jz", "jm", "rhoj2"
 )
 
-const FEM_FIELD_SPECS = (
-    (quantity = "az", label = "Az [T m]", domain = "Domain_Mag"),
-    (quantity = "b", label = "B [T]", domain = "Domain_Mag"),
-    (quantity = "bm", label = "|B| [T]", domain = "Domain_Mag"),
-    (quantity = "e", label = "E [V/m]", domain = "Domain_Mag"),
-    (quantity = "ez", label = "Ez [V/m]", domain = "Domain_Mag"),
-    (quantity = "em", label = "|E| [V/m]", domain = "Domain_Mag"),
-    (quantity = "jz", label = "Jz [A/m2]", domain = "DomainC"),
-    (quantity = "jm", label = "|J| [A/m2]", domain = "DomainC"),
-    (quantity = "rhoj2", label = "S [W/m3]", domain = "DomainC")
-)
-
 function _pro_string(value::AbstractString)
     escaped = replace(String(value), '\\' => "\\\\", '"' => "\\\"")
     return "\"$escaped\""
@@ -35,104 +23,12 @@ end
 
 function _write_model_data(path::String, model::FEMResolvedModel)
     earth = model.problem.earth_props.layers[2]
-    material_tags = getproperty.(model.material_plans, :physical_tag)
-    material_conductors = Int[material.kind === :conductor
-                              for material in model.material_plans]
-    material_sigma = [isinf(material.rho) ? 0.0 : inv(material.rho)
-                      for material in model.material_plans]
-    material_epsilon = [material.eps_r * 8.8541878128e-12
-                        for material in model.material_plans]
-    material_mu = [material.mu_r * 4π * 1e-7 for material in model.material_plans]
-    material_functions_path = joinpath(dirname(path), "material_functions.pro")
-    open(material_functions_path, "w") do io
-        println(io, "// Generated immutable material regions and functions")
-        println(io, "Group {")
-        for index in eachindex(material_tags)
-            println(io, "  MaterialRegion", index, " = Region[{",
-                material_tags[index], "}];")
-        end
-        conductor_names = ["MaterialRegion$index"
-                           for index in eachindex(material_tags)
-                           if material_conductors[index] == 1]
-        passive_names = ["MaterialRegion$index"
-                         for index in eachindex(material_tags)
-                         if material_conductors[index] == 0]
-        println(io, "  ConductorMaterialRegions = Region[{",
-            join(conductor_names, ", "), "}];")
-        println(io, "  PassiveMaterialRegions = Region[{",
-            join(passive_names, ", "), "}];")
-        println(io, "  DomainCWithI = Region[{Terminals}];")
-        println(io,
-            "  DomainC = Region[{ConductorMaterialRegions, Earth, EarthInf}];")
-        println(io,
-            "  DomainCC = Region[{Air, AirInf, PassiveMaterialRegions}];")
-        println(io, "  Domain_Mag = Region[{DomainC, DomainCC}];")
-        println(io, "}")
-        println(io, "Function {")
-        for index in eachindex(material_tags)
-            println(io, "  nu[MaterialRegion", index, "] = ",
-                _pro_number(inv(material_mu[index])), ";")
-            println(io, "  sigma_dc[MaterialRegion", index, "] = ",
-                _pro_number(material_sigma[index]), ";")
-            println(io, "  epsilon[MaterialRegion", index, "] = ",
-                _pro_number(material_epsilon[index]), ";")
-            println(io, "  mu[MaterialRegion", index, "] = ",
-                _pro_number(material_mu[index]), ";")
-            println(io, "  tan_delta[MaterialRegion", index, "] = ",
-                _pro_number(model.material_plans[index].tan_delta), ";")
-        end
-        println(io, "}")
-    end
-    field_map_dispatch_path = joinpath(dirname(path), "field_map_dispatch.pro")
-    field_map_operations_path = joinpath(dirname(path), "field_map_operations.pro")
-    maps_directory = joinpath(dirname(dirname(path)), "maps")
-    open(field_map_dispatch_path, "w") do io
-        println(io, "// Generated immutable field-map dispatch")
-        println(io, "Macro FEMWriteMaps")
-        for frequency in eachindex(model.problem.frequencies)
-            for basis in eachindex(model.terminal_ids)
-                operation = @sprintf("FEMFieldMaps_f%04d_b%04d", frequency, basis)
-                println(io, "Test[\$FEMFrequencyIndex == ", frequency,
-                    " && \$FEMBasisTerminal == ", basis, "]{")
-                println(io, "  PostOperation[", operation, "];")
-                println(io, "}{}")
-            end
-        end
-        println(io, "Return")
-    end
-    open(field_map_operations_path, "w") do io
-        println(io, "// Generated immutable field-map filenames")
-        println(io, "PostOperation {")
-        for frequency in eachindex(model.problem.frequencies)
-            for basis in eachindex(model.terminal_ids)
-                operation = @sprintf("FEMFieldMaps_f%04d_b%04d", frequency, basis)
-                println(io, "  { Name ", operation,
-                    "; NameOfPostProcessing FEMFields;")
-                println(io, "    LastTimeStepOnly 1;")
-                println(io, "    Operation {")
-                for spec in FEM_FIELD_SPECS
-                    filename = @sprintf("%s_f%04d_b%04d.pos", spec.quantity, frequency,
-                        basis)
-                    label = @sprintf("%s; f=%.17g Hz; basis=%s",
-                        spec.label,
-                        model.problem.frequencies[frequency],
-                        model.terminal_ids[basis])
-                    println(io, "      Print[", spec.quantity,
-                        ", OnElementsOf ", spec.domain, ", Name ",
-                        _pro_string(label), ", File ",
-                        _pro_string(joinpath(maps_directory, filename)), "];")
-                end
-                println(io, "    }")
-                println(io, "  }")
-            end
-        end
-        println(io, "}")
-    end
+    materials = model.material_plans
     open(path, "w") do io
-        println(io, "// Generated immutable LineCableModels FEM model data")
+        println(io, "// Resolved LineCableModels FEM inputs; solver logic lives in getdp/*.pro")
         println(io, "NumTerminals = ", length(model.terminal_ids), ";")
         println(io, "NumCables = ", length(model.problem.system.designs), ";")
-        println(io, "NumMaterialRegions = ", length(model.material_plans), ";")
+        println(io, "NumMaterialRegions = ", length(materials), ";")
         println(io, "FrequencyCount = ", length(model.problem.frequencies), ";")
         println(io, "AIR_EM = ", model.tags.air, ";")
         println(io, "EARTH_EM = ", model.tags.earth, ";")
@@ -147,35 +43,28 @@ function _write_model_data(path::String, model::FEMResolvedModel)
         println(io, "TERMINAL = ", model.tags.terminal_base + 1, ";")
         println(io, "TERMINAL_CONTOUR = ", model.tags.terminal_contour_base + 1, ";")
         println(io, "CABLE_CONTOUR = ", model.tags.cable_contour_base + 1, ";")
-        println(io, "MaterialRegionTags() = ", _pro_array(material_tags), ";")
-        println(io, "MaterialIsConductor() = ", _pro_array(material_conductors), ";")
-        println(io, "MaterialSigma() = ", _pro_array(material_sigma), ";")
-        println(io, "MaterialEpsilon() = ", _pro_array(material_epsilon), ";")
-        println(io, "MaterialMu() = ", _pro_array(material_mu), ";")
-        println(io, "MaterialTanDelta() = ",
-            _pro_array(
-                getproperty.(model.material_plans, :tan_delta)
-            ), ";")
-        println(io, "MaterialFunctionsPath = ",
-            _pro_string(material_functions_path), ";")
-        println(io, "FieldMapDispatchPath = ",
-            _pro_string(field_map_dispatch_path), ";")
-        println(io, "FieldMapOperationsPath = ",
-            _pro_string(field_map_operations_path), ";")
+        println(io, "TerminalNames() = Str[",
+            join(_pro_string.(model.terminal_ids), ", "), "];")
+        println(io, "MaterialRegionTags() = ",
+            _pro_array(getproperty.(materials, :physical_tag)), ";")
+        println(io, "MaterialIsConductor() = ",
+            _pro_array([material.kind === :conductor for material in materials]), ";")
+        println(io, "MaterialHasLoss() = ", _pro_array([
+            any(value -> !iszero(real(value)), material.admittivity)
+            for material in materials]), ";")
+        println(io, "MaterialMu() = ",
+            _pro_array([material.mu_r * 4π * 1e-7 for material in materials]), ";")
+        for (index, material) in pairs(materials)
+            println(io, "MaterialSigma_", index, "() = ",
+                _pro_array(real.(material.admittivity)), ";")
+            println(io, "MaterialEpsilon_", index, "() = ",
+                _pro_array(imag.(material.admittivity) ./ (2π .* model.problem.frequencies)), ";")
+        end
         println(io, "sigma_earth = ", _pro_number(inv(earth.rho)), ";")
         println(io, "eps_earth = ", _pro_number(earth.eps_r * 8.8541878128e-12), ";")
         println(io, "mu_earth = ", _pro_number(earth.mu_r * 4π * 1e-7), ";")
-        println(io, "eps0 = 8.8541878128e-12;")
-        println(io, "mu0 = 1.2566370614359173e-6;")
-        println(io, "UnitSource = 1.0;")
-        println(io, "GammaQuasiTEMRe = 0.0;")
-        println(io, "GammaQuasiTEMIm = 1.0e-12;")
-        println(io, "If(!Exists(Val_Rint))")
-        println(io, "  Val_Rint = ", _pro_number(model.domain_radius), ";")
-        println(io, "EndIf")
-        println(io, "If(!Exists(Val_Rext))")
-        println(io, "  Val_Rext = ", _pro_number(model.shell_outer_radius), ";")
-        println(io, "EndIf")
+        println(io, "DomainRadius = ", _pro_number(model.domain_radius), ";")
+        println(io, "ShellOuterRadius = ", _pro_number(model.shell_outer_radius), ";")
         println(io, "Xcenter = ", _pro_number(model.centre[1]), ";")
         println(io, "Ycenter = ", _pro_number(model.centre[2]), ";")
         println(io, "Zcenter = 0.0;")
@@ -183,32 +72,23 @@ function _write_model_data(path::String, model::FEMResolvedModel)
     return path
 end
 
-function _getdp_assets()
-    root = joinpath(@__DIR__, "getdp")
+function _getdp_assets(root::AbstractString = joinpath(@__DIR__, "getdp"))
     return (
         model = joinpath(root, "model.pro"),
         jacobian = joinpath(root, "jacobian_integration.pro"),
+        materials = joinpath(root, "materials.pro"),
         quasi_tem = joinpath(root, "quasi_tem.pro")
     )
 end
 
-function _resolve_getdp(formulation::LineCableModelsFEM, run::FEMRun)
-    explicit = formulation.execution.getdp_executable
-    executable = explicit === nothing ? Sys.which("getdp") : abspath(explicit)
-    executable === nothing && _fem_error(
-        :getdp,
-        "GetDP",
-        :getdp_executable,
-        "GetDP was not found; pass getdp_executable or add getdp to PATH";
-        run_directory = run.path
-    )
-    isfile(executable) || _fem_error(
-        :getdp,
-        "GetDP",
-        :getdp_executable,
-        "GetDP executable does not exist: $executable";
-        run_directory = run.path
-    )
+# Capture solver text with the loaded Julia implementation, not halfway through
+# a long mesh/solve sequence. Include dependencies invalidate the Julia cache.
+const FEM_GETDP_SOURCES = map(_getdp_assets()) do path
+    Base.include_dependency(path)
+    read(path, String)
+end
+
+function _getdp_identity(executable::String)
     output = try
         buffer = IOBuffer()
         Base.run(pipeline(
@@ -220,8 +100,7 @@ function _resolve_getdp(formulation::LineCableModelsFEM, run::FEMRun)
             :getdp,
             "GetDP",
             :getdp_executable,
-            "failed to execute $executable -info: $(sprint(showerror, exception))";
-            run_directory = run.path
+            "failed to execute $executable -info: $(sprint(showerror, exception))"
         )
     end
     occursin("getdp", lowercase(output)) &&
@@ -229,9 +108,24 @@ function _resolve_getdp(formulation::LineCableModelsFEM, run::FEMRun)
         :getdp,
         "GetDP",
         :getdp_executable,
-        "executable identity check did not report GetDP: $executable";
-        run_directory = run.path
+        "executable identity check did not report GetDP: $executable"
     )
+    return (path=realpath(executable), sha256=bytes2hex(open(sha256, executable)), info=output)
+end
+
+function _resolve_getdp(formulation::LineCableModelsFEM, run::FEMRun)
+    explicit = formulation.execution.getdp_executable
+    executable = explicit === nothing ? Sys.which("getdp") : abspath(explicit)
+    executable !== nothing && isfile(executable) || _fem_error(
+        :getdp, "GetDP", :getdp_executable,
+        "GetDP executable is unavailable; pass getdp_executable or add getdp to PATH";
+        run_directory=run.path)
+    identity = _getdp_identity(executable)
+    recorded = JSON3.read(read(joinpath(run.path, "input", "computation.json"), String))
+    _resume_value_matches(recorded.getdp_identity, JSON3.read(JSON3.write(identity))) ||
+        _fem_error(:getdp, "GetDP", :getdp_executable,
+            "GetDP executable identity changed after input preparation; start a new run";
+            run_directory=run.path)
     return executable
 end
 
@@ -497,7 +391,7 @@ function _run_getdp_unlocked!(
         DimensionMismatch("one FEM mesh path is required per frequency")
     )
     executable = _resolve_getdp(formulation, run)
-    assets = _getdp_assets()
+    assets = _getdp_assets(joinpath(run.path, "input", "getdp"))
     all(isfile, values(assets)) || _fem_error(
         :getdp,
         "LineCableModelsGmshExt",
@@ -548,10 +442,10 @@ function _run_getdp_unlocked!(
             )
             job_records = String[]
             deferred_exception = nothing
-            run.getdp_invocations += 1
             if reusable
                 @debug "Reusing complete retained GetDP job" frequency_index basis_terminal
             else
+                run.getdp_invocations += 1
                 gmsh.logger.start()
                 try
                     gmsh.onelab.run(client_name, command)

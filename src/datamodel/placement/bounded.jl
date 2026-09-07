@@ -31,7 +31,7 @@ function resolve(at::Pose2, region::PlacedRegion)
                   BoundedPlacement(
             resolve(at, entry.pattern.boundary), entry.pattern.course
         ) : entry.pattern
-        (pattern = pattern, member = entry.member, pose = entry.pose)
+        merge(entry, (pattern = pattern,))
     end
     return PlacedRegion(
         region.source,
@@ -482,12 +482,9 @@ function rectangular_strands(shape::Disk, centre::Disk, strand::Rectangle)
         span = 2pi / member_count
         for member in 1:member_count
             angle = (member - 1) * span
-            primitive = BentStrip(
-                inner,
-                outer,
-                span,
-                Pose2(shape.at.x, shape.at.y, shape.at.φ + angle)
-            )
+            pose = Pose2(shape.at.x, shape.at.y, shape.at.φ + angle)
+            primitive = member_count == 1 ? Annulus(inner, outer, pose) :
+                        BentStrip(inner, outer, span, pose)
             push!(result, (
                 primitive,
                 site = centroid(primitive),

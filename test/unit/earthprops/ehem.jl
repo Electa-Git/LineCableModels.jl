@@ -3,7 +3,9 @@
     const EH=EP.EHEM
 
     expected=(:MartinsBritto2020, :Xue2021)
-    @test EH.formulas() == expected
+    registered = EH.formulas()
+    @test issubset(expected, registered)
+    @test allunique(registered)
     @test EH.DEFAULT === :Layer
     @test EH.Formula(:default) == EH.Layer(-1)
     @test EH.AfterFD(:default) == EH.AfterFD(EH.Layer(-1))
@@ -12,9 +14,9 @@
         readdir(joinpath(
             pkgdir(LineCableModels), "src", "earthprops", "ehem", "formulas"
         ))))
-    @test files == collect(lowercase.(string.(expected)) .* ".jl")
+    @test files == sort(collect(lowercase.(string.(registered)) .* ".jl"))
 
-    for identifier in expected
+    for identifier in registered
         formula=EH.Formula(identifier)
         @test formula_id(formula) === identifier
         @test EH.assumptions(formula) == EH.assumptions(Val(identifier))

@@ -307,23 +307,80 @@ function _empty_pscad_part(index::Int)
     return parameters
 end
 
+function _pscad_components(design, frequency, ::Nothing, ::Nothing)
+    return DataModel.flatten(design, frequency)
+end
+
+function _pscad_components(design, frequency, ::Nothing, temperature::Real)
+    throw(ArgumentError("PSCAD temperature correction requires an explicit formulation"))
+end
+
+function _pscad_components(design, frequency, formulation, temperature)
+    blueprint = Engine.flatten(Engine.LineCableModelsCoaxial(), design)
+    T = eltype(blueprint)
+    omega = 2 * (one(T) * pi) * convert(T, frequency)
+    epsilon0 = one(T) * 88541878128 * (one(T) * 10)^(-22)
+    return map(eachindex(blueprint.conductors)) do index
+        conductor = blueprint.conductors[index]
+        material = conductor.material
+        operating = temperature === nothing ? material.T0 : convert(T, temperature)
+        rho = formulation.options.temperature_correction ?
+            material.rho * (one(T) + material.alpha * (operating - material.T0)) : material.rho
+        metal = Material(material.kind, rho, material.eps_r, material.mu_r,
+            material.T0, material.alpha; rho_thermal=material.rho_thermal,
+            theta_max=material.theta_max, tan_delta=material.tan_delta,
+            sigma_solar=material.sigma_solar)
+        layers = @view blueprint.dielectrics[blueprint.dielectric_ranges[index]]
+        impedance = zero(Complex{T})
+        for layer in layers
+            source = layer.material
+            operating = temperature === nothing ? source.T0 : convert(T, temperature)
+            rho = formulation.options.temperature_correction ?
+                source.rho * (one(T) + source.alpha * (operating - source.T0)) : source.rho
+            physical = Material(source.kind, rho, source.eps_r, source.mu_r,
+                source.T0, source.alpha; tan_delta=source.tan_delta)
+            relation = source.kind === :semicon ? formulation.methods.semicon_admittance :
+                       formulation.methods.insulation_admittance
+            kappa = constitutive(relation, physical, frequency, operating)
+            impedance += inv(Engine.layer_admittance(layer.r_in, layer.r_ex, kappa))
+        end
+        admittance = isempty(layers) ? zero(Complex{T}) : inv(impedance)
+        capacitance = imag(admittance) / omega
+        outer = isempty(layers) ? conductor.r_ex : last(layers).r_ex
+        epsilon = isempty(layers) ? zero(T) : capacitance * log(outer / conductor.r_ex) /
+                  (2 * (one(T) * pi) * epsilon0)
+        permeability = isempty(layers) ? one(T) : DataModel.equivalent_dielectric_permeability(
+            layers, conductor.num_turns, conductor.r_ex, outer)
+        dielectric = Material(:insulator, oftype(epsilon, Inf), epsilon, permeability)
+        return (name=conductor.terminal,
+            conductor=(r_in=conductor.r_in, r_ex=conductor.r_ex, material=metal),
+            dielectric=(r_ex=outer, material=dielectric,
+                shunt_capacitance=capacitance, shunt_conductance=real(admittance)))
+    end
+end
+
 function _pscad_cable_parameters(
         design,
         position,
         connections,
         index::Int,
-        base_frequency
+        base_frequency;
+        formulation = nothing,
+        temperature = nothing
 )
     # PSCAD owns this explicit homogenization choice. Its Cable_Coax record
     # requires concentric equivalent layers, so flattening happens here rather
     # than becoming stored CableDesign state.
-    components = DataModel.flatten(design, base_frequency)
+    components = _pscad_components(design, base_frequency, formulation, temperature)
     length(components) <= 4 || throw(ArgumentError(
         "PSCAD Cable_Coax supports at most four concentric components",
     ))
     length(connections) == length(components) || throw(DimensionMismatch(
         "PSCAD phase mapping must match the cable component count",
     ))
+    # LL=0 is PSCAD's bare-conductor configuration; LL=1 includes insulation.
+    bare = length(components) == 1 &&
+           only(components).dielectric.r_ex == only(components).conductor.r_ex
     parameters = Pair{String, String}[
         "CABNUM" => string(index),
         "Name" => design.cable_id,
@@ -334,7 +391,7 @@ function _pscad_cable_parameters(
         "ShuntA" => "1.0e-11 [mho/m]",
         "FLT" => _pscad_value(base_frequency),
         "RorT" => "0",
-        "LL" => string(2length(components) - 1),
+        "LL" => bare ? "0" : string(2length(components) - 1),
         "CROSSBOND" => "0",
         "GROUPNO" => "1",
         "CBC1" => "1",
@@ -362,7 +419,8 @@ function _pscad_cable_parameters(
     return parameters
 end
 
-function _pscad_project(system::LineCableSystem, earth::EarthModel, base_frequency)
+function _pscad_project(system::LineCableSystem, earth::EarthModel, base_frequency;
+        formulation = nothing, temperature = nothing)
     document = XMLDocument()
     project = ElementNode("project")
     setroot!(document, project)
@@ -427,7 +485,8 @@ function _pscad_project(system::LineCableSystem, earth::EarthModel, base_frequen
                 position,
                 connections,
                 index,
-                base_frequency
+                base_frequency;
+                formulation, temperature
             );
             x = 234 + (index - 1) * 400,
             y = 612

@@ -94,7 +94,7 @@ for ground return impedance calculations," *Proceedings of the IEEE*, vol.
 function earth_impedance(
         ::Val{:AlvaradoBetancourt1983}, ::Val{:mutual}, functor, pair
 )
-    _require(pair, Val(:overhead))
+    validate(pair, FormulaMethod(Val(:AlvaradoBetancourt1983), earth_impedance, Val(:mutual)), functor)
     state = functor.state
     geometry = _geometry(pair)
     p_g = inv(state.gamma[2])
@@ -110,6 +110,15 @@ function earth_impedance(
     πT = one(geometry.H) * π
     return state.jω * state.mu[1] / (2πT) *
            (log(geometry.D_ij / geometry.d_ij) + correction)
+end
+
+function validate(
+        pair::EarthPair, route::FormulaMethod{:AlvaradoBetancourt1983, typeof(earth_impedance)}, formula
+)
+    validate(pair)
+    (pair.layers == (1, 1)) || throw(ArgumentError(
+        ":AlvaradoBetancourt1983 earth impedance requires overhead conductors; pair ($(pair.row), $(pair.column)) has layers $(pair.layers)"))
+    return pair
 end
 
 :AlvaradoBetancourt1983

@@ -95,7 +95,7 @@ end
 function earth_impedance(
         identifier::Val{:Theodoulidis2015}, ::Val{:mutual}, functor, pair
 )
-    _require(pair, Val(:overhead))
+    validate(pair, FormulaMethod(Val(:Theodoulidis2015), earth_impedance, Val(:mutual)), functor)
     state = functor.state
     geometry = _geometry(pair)
     u_1 = state.gamma[2] * (geometry.H - im * geometry.y_ij)
@@ -104,6 +104,15 @@ function earth_impedance(
                  closed_form_term(identifier, u_2)
     return state.jω * state.mu[1] / (2π) *
            (log(geometry.D_ij / geometry.d_ij) + correction)
+end
+
+function validate(
+        pair::EarthPair, route::FormulaMethod{:Theodoulidis2015, typeof(earth_impedance)}, formula
+)
+    validate(pair)
+    (pair.layers == (1, 1)) || throw(ArgumentError(
+        ":Theodoulidis2015 earth impedance requires overhead conductors; pair ($(pair.row), $(pair.column)) has layers $(pair.layers)"))
+    return pair
 end
 
 :Theodoulidis2015

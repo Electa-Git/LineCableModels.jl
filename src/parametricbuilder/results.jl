@@ -73,7 +73,8 @@ end
 $(TYPEDEF)
 
 Pair a lazy parameter space with computation options for a higher-order
-calculation.
+calculation. A completed scalar problem is normalized to a singleton
+target-bearing `Gridspace`; the problem itself need not implement iteration.
 
 $(TYPEDFIELDS)
 """
@@ -86,6 +87,11 @@ struct ParametricProblem{S, O <: NamedTuple} <: AbstractProblemDefinition
     function ParametricProblem(space::S, options::O) where {S, O <: NamedTuple}
         return validate(new{S, O}(space, options))
     end
+end
+
+function ParametricProblem(problem::AbstractProblemDefinition, options::NamedTuple)
+    space = Gridspace{typeof(problem)}(identity, (Grid((problem,)),))
+    return ParametricProblem(space, options)
 end
 
 ParametricProblem(space) = ParametricProblem(space, (;))

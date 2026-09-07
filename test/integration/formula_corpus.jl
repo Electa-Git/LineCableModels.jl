@@ -378,7 +378,7 @@ end
             earth_impedance = :Petrache2005,
             earth_admittance = :IdealGround
         )))
-    for identifier in (:Ametani2004, :Gustavsen2013)
+    for identifier in (:Ametani2004, :default)
         result=compute(underground,
             Formulation(
                 insulation_admittance = identifier,

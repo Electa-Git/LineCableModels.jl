@@ -79,7 +79,7 @@
         formulation=Formulation(
             earth_impedance = :Pollaczek1926,
             earth_admittance = :IdealGround,
-            insulation_admittance = formula(:Gustavsen2013),
+            insulation_admittance = formula(:default),
             options = (kron_reduction = false, reduce_bundle = false)
         )
         reference_problem=LineParametersProblem(
@@ -154,6 +154,7 @@
                 backend = :fixture,
                 version = "1.0",
                 elapsed_seconds = 1.25,
+                elapsed_scope = "fixture execution",
                 exit_code = 0
             ),
             artifact_root
@@ -162,34 +163,15 @@
         @test isfile(joinpath(persisted.path, "snapshot.sha256"))
         @test persisted.backend === :fixture
         @test persisted.schema_version == SNAPSHOT_SCHEMA_VERSION
-        aggregate=GauntletSupport.report(:fixture; artifact_root)
-        @test size(aggregate) == (1, 40)
-        @test only(aggregate.benchmark) == "fixture"
-        @test only(aggregate.case) == "fixture"
-        @test only(aggregate.basis) == "pul"
-        @test only(aggregate.domain) == "PhaseDomain"
-        @test only(aggregate.Z_zero_atol) == 1.0e-6
-        @test only(aggregate.Z_rms_absolute) == 0.0
-        @test ismissing(only(aggregate.Z_rms_relative))
-        @test only(aggregate.Z_rms_relative_raw) == 0.0
-        @test only(aggregate.Y_rms_absolute) == 0.0
-        @test ismissing(only(aggregate.Y_rms_relative))
-        @test only(aggregate.Y_rms_relative_raw) == 0.0
-        @test only(aggregate.Y_zero_atol) == 1.0e-9
-        @test only(aggregate.reference_seconds) == 1.25
-        @test only(aggregate.snapshot_sha256) == persisted.snapshot_sha256
-        @test_throws ArgumentError GauntletSupport.report(
-            :fixture;
-            artifact_root,
-            zero_atol = (Z = -1.0, Y = 0.0)
-        )
+        records=GauntletSupport.read_collection(
+            collection_stage(:fixture; artifact_root); collection=:fixture)
+        @test only(records).digest == persisted.snapshot_sha256
+        @test only(records).snapshot["reference_execution"].elapsed_seconds == 1.25
         collections=finalize_staging(; artifact_root)
         @test only(collections).collection === :fixture
         @test only(collections).schema_version == SNAPSHOT_SCHEMA_VERSION
-        @test isfile(joinpath(only(collections).path, "report.jld2"))
-        @test isfile(joinpath(only(collections).path, "report.tsv"))
-        @test isfile(joinpath(only(collections).path, "report.sha256"))
-        @test isequal(only(collections).report, aggregate)
+        @test only(collections).benchmarks == 1
+        @test readdir(only(collections).path) == ["benchmarks"]
         @test !isfile(artifacts_toml)
 
         package=package_collection(
@@ -207,9 +189,8 @@
         @test isfile(package.archive)
         @test isfile(package.package_path)
         installed=artifact_path(Base.SHA1(package.tree_hash))
-        @test isfile(joinpath(installed, "report.jld2"))
-        @test isfile(joinpath(installed, "report.tsv"))
-        @test isfile(joinpath(installed, "report.sha256"))
+        @test readdir(installed) == ["benchmarks", "release.toml"]
+        @test isfile(joinpath(installed, "benchmarks", "fixture", "snapshot.jld2"))
         @test isfile(joinpath(installed, "release.toml"))
         @test_throws ArgumentError package_collection(
             :fixture,
@@ -254,6 +235,7 @@
             backend = :fixture,
             version = "1.0",
             elapsed_seconds = 1.25,
+            elapsed_scope = "fixture execution",
             exit_code = 0
         )
         @test load_prior_snapshot(case; artifacts_toml) !== nothing
@@ -290,7 +272,8 @@
             write(io, UInt8(0))
         end
         @test_throws ArgumentError load_snapshot(case; path = snapshot)
-        @test_throws ArgumentError GauntletSupport.report(:fixture; artifact_root)
+        @test_throws ArgumentError GauntletSupport.read_collection(
+            collection_stage(:fixture; artifact_root); collection=:fixture)
 
         @test_throws ArgumentError prepare_staging(; artifact_root)
         prepare_staging(; artifact_root, force = true)
@@ -475,6 +458,7 @@ end
         :cable_525kv_subsea_armoured_ac_flat=>(9, 9, 227),
         :cable_525kv_subsea_armoured_dc_bipole=>(6, 6, 227),
         :cable_18kv_1000mm2_trefoil=>(9, 9, 101),
+        :cable_18kv_1000mm2_trefoil_homogenized=>(9, 9, 101),
         :cable_30kv_na2xs2y_630mm2_trefoil=>(6, 6, 101),
         :cable_220kv_eaxecew_1x2500_252_trefoil=>(9, 9, 101),
         :cable_132kv_cigre_tb880_case0_630cu_trefoil=>(6, 6, 101),
@@ -483,7 +467,8 @@ end
         :cable_525kv_1600mm2_bipole=>(6, 6, 101),
         :cable_640kv_2000mm2_bipole=>(6, 6, 101),
         :solid_1000mm2_single=>(1, 1, 101),
-        :two_bare_wires=>(2, 2, 101)
+        :two_bare_wires=>(2, 2, 101),
+        :two_insulated_wires=>(2, 2, 101)
     )
     @test Set(keys(index)) == Set(keys(expected_sizes))
     case_files=Set(realpath(path)
@@ -578,7 +563,9 @@ end
             (61,), (), ()
         ),
         :solid_1000mm2_single=>((),),
-        :two_bare_wires=>((),)
+        :two_bare_wires=>((),),
+        :two_insulated_wires=>((),),
+        :cable_18kv_1000mm2_trefoil_homogenized=>((), (), ())
     )
     expected_reference_counts=Dict(
         id=>101
@@ -589,7 +576,14 @@ end
         @test model.id === id
         @test model.expected_size == expected_size
         @test model.source_file == index[id]
-        @test model.source_sha256 == bytes2hex(SHA.sha256(read(index[id])))
+        if isempty(model.definition.assets)
+            @test model.source_sha256 == bytes2hex(SHA.sha256(read(index[id])))
+        else
+            sources=(index[id], sort!(joinpath.(dirname(index[id]), model.definition.assets))...)
+            payload=join(relpath(path, GauntletSupport.CASE_ROOT) * '\0' * read(path, String) * '\0'
+                         for path in sources)
+            @test model.source_sha256 == bytes2hex(SHA.sha256(payload))
+        end
         selected_frequencies=reference_grid(model.nominal_problem.frequencies)
         @test length(selected_frequencies) == expected_reference_counts[id]
         @test first(selected_frequencies) ==
@@ -703,9 +697,42 @@ end
     copper=Material(MaterialsLibrary(add_defaults = true), :copper)
     @test length(two_wire_case.nominal_problem.system.designs) == 2
     @test all(two_wire_case.nominal_problem.system.designs) do design
+        region=only(design.geometry.regions)
+        @test region.primitive isa Disk
+        @test region.primitive.r == 0.0425
+        @test region.source.material.kind === :conductor
         component=only(LineCableModels.DataModel.flatten(design, 50.0))
         material=component.conductor.material
         material.rho == copper.rho && material.alpha == copper.alpha
+    end
+
+    insulated=load_case(:two_insulated_wires).nominal_problem
+    @test insulated.frequencies == collect(10.0 .^ range(0, stop=6, length=101))
+    @test insulated.system.positions == two_wire_case.nominal_problem.system.positions
+    for design in insulated.system.designs
+        @test length(design.geometry.regions) == 2
+        @test outer_radius(design) ≈ 0.0435
+        dielectric=only(filter(r->r.source.material.kind===:insulator, design.geometry.regions))
+        @test dielectric.source.material.eps_r == 2.3
+        @test dielectric.source.material.rho == 1.97e14
+    end
+
+    complete=load_case(:cable_18kv_1000mm2_trefoil).nominal_problem
+    equivalent=load_case(:cable_18kv_1000mm2_trefoil_homogenized).nominal_problem
+    @test equivalent.system.positions == complete.system.positions
+    @test equivalent.system.connections == complete.system.connections
+    @test equivalent.system.connection_order == complete.system.connection_order
+    @test equivalent.system.line_length == complete.system.line_length
+    @test equivalent.temperature == complete.temperature
+    @test LineCableModels.ImportExport.serialize_value(equivalent.earth_props) ==
+          LineCableModels.ImportExport.serialize_value(complete.earth_props)
+    grid=collect(10.0 .^ range(-1, stop=6, length=101))
+    @test equivalent.frequencies == complete.frequencies == two_wire_case.nominal_problem.frequencies == grid
+    for (original, homogenized) in zip(complete.system.designs, equivalent.system.designs)
+        @test original.terminal_order == homogenized.terminal_order
+        @test length(original.geometry.regions) > length(homogenized.geometry.regions)
+        @test length(homogenized.geometry.regions) == 6
+        @test outer_radius(original) ≈ outer_radius(homogenized)
     end
 
     benchmark_root=joinpath(GauntletSupport.GAUNTLET_ROOT, "benchmarks")
@@ -973,6 +1000,10 @@ end
     using LineCableModels.Engine
     using .GauntletSupport
 
+    @test parentmodule(MomentResult) === GauntletSupport.GauntletArtifacts
+    @test MomentResult === GauntletSupport.GauntletArtifacts.MomentResult
+    @test !occursin("function _moment_rms", read(joinpath(@__DIR__, "read.jl"), String))
+
     frequencies_value=[1.0, 10.0]
     ports=["a", "b"]
     values=map((R = 1.0, L = 2.0, C = 3.0, G = 4.0)) do scale
@@ -1058,7 +1089,7 @@ end
     inner=Formulation(
         earth_impedance = :Pollaczek1926,
         earth_admittance = :IdealGround,
-        insulation_admittance = formula(:Gustavsen2013),
+        insulation_admittance = formula(:default),
         options = (
             kron_reduction = false,
             reduce_bundle = false,
@@ -1095,19 +1126,19 @@ end
     try
         ENV["LINECABLEMODELS_GAUNTLET_MODE"]="live"
         model=load_case(
-            :two_bare_wires;
+            :two_insulated_wires;
             variation = ExactOverrides(frequencies = [50.0])
         )
         pollaczek=Formulation(
             earth_impedance = :Pollaczek1926,
             earth_admittance = :IdealGround,
-            insulation_admittance = formula(:Gustavsen2013),
+            insulation_admittance = formula(:default),
             options = (kron_reduction = false, reduce_bundle = false)
         )
         papadopoulos=Formulation(
             earth_impedance = :Papadopoulos2010,
             earth_admittance = :IdealGround,
-            insulation_admittance = formula(:Gustavsen2013),
+            insulation_admittance = formula(:default),
             options = (kron_reduction = false, reduce_bundle = false)
         )
         limits=(
@@ -1158,64 +1189,35 @@ end
     underground=Formulation(:pscad; earth_impedance = :WedepohlWilcox1973)
     @test overhead isa harness.PSCADFormulation
     @test underground isa harness.PSCADFormulation
-    @test hasmethod(
-        compute,
-        Tuple{LineParametersProblem, harness.PSCADFormulation}
-    )
-    @test hasmethod(
-        benchmark_metadata,
-        Tuple{LineParametersProblem, harness.PSCADFormulation}
-    )
-    @test harness.pscad_field(overhead.earth_impedance) === :EarthForm2
-    @test EarthImpedance.formula_id(overhead.earth_impedance) ===
-          :DeriSemlyen1981
-    @test harness.pscad_value(overhead.earth_impedance) == 0
-    @test harness.pscad_readback(overhead.earth_impedance) == "DERISEMLYEN"
-    @test harness.pscad_field(underground.earth_impedance) === :EarthForm
-    @test EarthImpedance.formula_id(underground.earth_impedance) ===
-          :WedepohlWilcox1973
-    @test harness.pscad_readback(underground.earth_impedance) == "WEDEPOHL"
-    @test description(overhead.earth_admittance) == "PSCAD native earth admittance"
-    @test description(overhead.insulation_admittance) ==
-          "PSCAD native insulation admittance"
-    @test harness._formulation_label(overhead) ==
-          "Deri-Semlyen complex ground-return-plane approximation (1981)/" *
-          "PSCAD native earth admittance/PSCAD native insulation admittance"
-    @test overhead.options == (;)
-    @test_throws ArgumentError Formulation(
-        :pscad;
-        earth_impedance = :WedepohlWilcox1973,
-        options = (output_stem = "525kV_bipole",)
-    )
-    @test !isdefined(EarthImpedance, :ReferenceEarthImpedance)
-    @test !isdefined(EarthImpedance, :DirectNumericalIntegration)
+    @test hasmethod(compute, Tuple{LineParametersProblem, harness.PSCADFormulation})
+    @test hasmethod(benchmark_metadata, Tuple{LineParametersProblem, harness.PSCADFormulation, LineParameters})
+    @test harness.pscad_setting(Val(:DeriSemlyen1981), Val(:overhead)) ==
+          (field=:EarthForm2, value=0, readback="DERISEMLYEN")
+    @test harness.pscad_setting(Val(:WedepohlWilcox1973), Val(:underground)) ==
+          (field=:EarthForm, value=0, readback="WEDEPOHL")
+    @test EarthImpedance.formula_id(overhead.methods.earth_impedance) === :DeriSemlyen1981
+    @test EarthImpedance.formula_id(underground.methods.earth_impedance) === :WedepohlWilcox1973
+    @test LineCableModels.formula_id(overhead.methods.earth_admittance) === :default
+    @test LineCableModels.formula_id(overhead.methods.insulation_admittance) === :default
+    @test occursin("lossless", lowercase(description(overhead.methods.insulation_admittance)))
+    @test occursin("PSCAD native earth admittance", harness._formulation_label(overhead))
+    @test overhead.options == (reduce_bundle=false, kron_reduction=false,
+        ideal_transposition=false, temperature_correction=true)
+    @test_throws ArgumentError Formulation(:pscad; options=(output_stem="invalid",))
+    @test !isdefined(harness, :NativeEarthAdmittance)
+    @test !isdefined(harness, :NativeInsulationAdmittance)
+    @test !isdefined(harness, :DirectNumericalIntegration)
 
-    methods=(
-        EarthImpedance.Formula(:DeriSemlyen1981),
-        harness.DirectNumericalIntegration(:overhead),
-        EarthImpedance.Formula(:WedepohlWilcox1973),
-        harness.DirectNumericalIntegration(:underground),
-        EarthImpedance.Formula(:Saad1996),
-        EarthImpedance.Formula(:Ametani2009),
-        EarthImpedance.Formula(:Lucca1994)
-    )
-    @test all(
-        method -> Formulation(:pscad; earth_impedance = method) isa
-                  harness.PSCADFormulation, methods)
-    @test all(
-        method -> supertype(typeof(method)) ===
-                  LineCableModels.Engine.EarthImpedanceFormulation,
-        methods
-    )
-    @test harness.pscad_field(EarthImpedance.Formula(:Saad1996)) === :EarthForm
-    @test harness.pscad_readback(EarthImpedance.Formula(:Lucca1994)) == "LUCCA"
-    unsupported=Formulation(
-        :pscad;
-        earth_impedance = :Pollaczek1926
-    )
-    @test unsupported isa harness.PSCADFormulation
-    @test_throws MethodError harness.pscad_field(unsupported.earth_impedance)
-    @test_throws ArgumentError harness.DirectNumericalIntegration(:mutual)
+    identifiers=(:DeriSemlyen1981, :DirectNumericalIntegration, :WedepohlWilcox1973,
+        :Saad1996, :Ametani2009, :Lucca1994)
+    @test all(id -> Formulation(:pscad; earth_impedance=LineCableModels.formula(id)) isa
+        harness.PSCADFormulation, identifiers)
+    @test harness.pscad_setting(Val(:Saad1996), Val(:underground)).field === :EarthForm
+    @test harness.pscad_setting(Val(:Lucca1994), Val(:mixed)).readback == "LUCCA"
+    @test harness.pscad_setting(Val(:DirectNumericalIntegration), Val(:overhead)).value == 2
+    @test harness.pscad_setting(Val(:DirectNumericalIntegration), Val(:underground)).value == 2
+    @test_throws ArgumentError harness.pscad_setting(Val(:Pollaczek1926), Val(:underground))
+    @test_throws ArgumentError harness.pscad_setting(Val(:DirectNumericalIntegration), Val(:mixed))
 
     mktempdir() do directory
         frequency=[1.0, 10.0]
@@ -1267,7 +1269,7 @@ end
         timeout_seconds = 60
     )
     owner=harness.PSCADFormulation
-    @test LineCableModels.formulation_options(owner, (;)) == (;)
+    @test LineCableModels.formulation_options(owner, (;)) == overhead.options
     @test_throws ArgumentError LineCableModels.formulation_options(
         owner,
         (output_stem = "case",)
@@ -1284,7 +1286,10 @@ end
         output_stem = "case",
         remote = config,
         verbosity = (default = 0, PSCAD = 2),
-        output_basis = Val(:total)
+        output_basis = Val(:total),
+        on_result = nothing,
+        resume_run_directory = nothing,
+        solver_identity = nothing
     )
     @test_throws ArgumentError LineCableModels.computation_options(
         owner, (
@@ -1343,6 +1348,7 @@ end
         "case",
         overhead,
         [1.0, 3.0, 10.0];
+        setting = harness.pscad_setting(Val(:DeriSemlyen1981), Val(:overhead)),
         output_stem = "gauntlet",
         verbosity = 2
     )
@@ -1364,6 +1370,7 @@ end
         "generated",
         overhead,
         frequency_probe;
+        setting = harness.pscad_setting(Val(:DeriSemlyen1981), Val(:overhead)),
         output_stem = "gauntlet",
         verbosity = 2
     )
@@ -1384,6 +1391,7 @@ end
         "generated",
         Formulation(:pscad; earth_impedance = :Saad1996),
         frequency_probe;
+        setting = harness.pscad_setting(Val(:Saad1996), Val(:underground)),
         output_stem = "saad",
         verbosity = 0
     )
@@ -1407,9 +1415,13 @@ end
             "Manifest.toml",
             "Project.toml",
             "files.jl",
+            "identity.py",
             "runner.jl",
             "supervisor.ps1"
         ]
+        for (name, source) in harness.PSCAD_REMOTE_SOURCES
+            @test read(joinpath(staged, name), String) == source
+        end
     end
 
     mktempdir() do directory
@@ -1558,28 +1570,57 @@ end
     @test timing.bytes >= 0
     @test timing.allocations >= 0
     @test timing.environment.julia_version == string(VERSION)
+    @test timing.environment.cpu == Sys.CPU_NAME
+    @test timing.environment.cpu_threads == Sys.CPU_THREADS
+    @test timing.environment.blas_threads == GauntletSupport.BLAS.get_num_threads()
 
     tolerance=(median_time_ratio = 1.2, bytes_ratio = 1.05, allocations_ratio = 1.05)
+    diagnostic = performance_comparison(timing, timing, tolerance)
+    @test diagnostic.comparable == !gauntlet_instrumented()
+    @test diagnostic.passes === (gauntlet_instrumented() ? nothing : true)
+
+    # Exercise comparison arithmetic with declared inputs, independently of
+    # this test process's timing/coverage instrumentation. The actual measured
+    # record above remains subject to the normal comparability policy.
     accepted=(;
         timing...,
-        median_seconds = timing.median_seconds/1.1,
-        bytes = max(timing.bytes, 1),
-        allocations = max(timing.allocations, 1)
+        median_seconds = 1.0,
+        bytes = 1000,
+        allocations = 100
     )
-    compared=performance_comparison(accepted, timing, tolerance)
+    current=(; accepted..., median_seconds=1.1, bytes=1010, allocations=101)
+    compared=performance_comparison(accepted, current, tolerance; instrumented=false)
     @test compared.comparable
-    @test compared.passes isa Bool
+    @test compared.passes
+    @test compared.ratios == (median_time=1.1, bytes=1.01, allocations=1.01)
+    for (field, value) in ((:median_seconds, 1.3), (:bytes, 1060), (:allocations, 106))
+        slower = merge(current, NamedTuple{(field,)}((value,)))
+        @test !performance_comparison(accepted, slower, tolerance; instrumented=false).passes
+    end
+    no_allocations = (; accepted..., bytes=0, allocations=0)
+    equal = performance_comparison(no_allocations, no_allocations, tolerance; instrumented=false)
+    @test equal.passes
+    @test equal.ratios.bytes == equal.ratios.allocations == 1.0
+    allocated = performance_comparison(no_allocations, current, tolerance; instrumented=false)
+    @test !allocated.passes
+    @test isinf(allocated.ratios.bytes) && isinf(allocated.ratios.allocations)
     other_environment=(;
         accepted...,
         environment = (; accepted.environment..., julia_version = "different")
     )
-    diagnostic=performance_comparison(other_environment, timing, tolerance)
+    diagnostic=performance_comparison(other_environment, current, tolerance; instrumented=false)
     @test !diagnostic.comparable
     @test diagnostic.passes === nothing
+    for (field, value) in ((:cpu, "different CPU"), (:blas_threads, timing.environment.blas_threads + 1))
+        mismatched = merge(accepted, (; environment=merge(accepted.environment, NamedTuple{(field,)}((value,)))))
+        comparison = performance_comparison(mismatched, current, tolerance; instrumented=false)
+        @test !comparison.comparable
+        @test comparison.passes === nothing
+    end
 
     instrumented=performance_comparison(
         accepted,
-        timing,
+        current,
         tolerance;
         instrumented = true
     )

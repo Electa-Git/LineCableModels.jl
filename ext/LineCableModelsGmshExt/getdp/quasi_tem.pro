@@ -48,26 +48,22 @@ Group {
   Sur_Dirichlet_Ele = Region[{OUTBND_ELE_REF}];
 }
 
-Include MaterialFunctionsPath;
-Include FieldMapDispatchPath;
+Include "materials.pro";
 
 Function {
   nu[#{Air, AirInf}] = 1. / mu0;
-  sigma_dc[#{Air, AirInf}] = 0.;
+  sigma[#{Air, AirInf}] = 0.;
   epsilon[#{Air, AirInf}] = eps0;
   mu[#{Air, AirInf}] = mu0;
-  tan_delta[#{Air, AirInf}] = 0.;
 
   nu[#{Earth, EarthInf}] = 1. / mu_earth;
-  sigma_dc[#{Earth, EarthInf}] = sigma_earth;
+  sigma[#{Earth, EarthInf}] = sigma_earth;
   epsilon[#{Earth, EarthInf}] = eps_earth;
   mu[#{Earth, EarthInf}] = mu_earth;
-  tan_delta[#{Earth, EarthInf}] = 0.;
 
   gamma_prop[] = Complex[GammaQuasiTEMRe, GammaQuasiTEMIm];
   inv_gamma[] = 1. / gamma_prop[];
   omega[] = 2. * Pi * $FEMFrequencyHz;
-  sigma[] = sigma_dc[] + omega[] * epsilon[] * tan_delta[];
   se[] = Complex[sigma[], omega[] * epsilon[]];
 }
 
@@ -161,43 +157,43 @@ Formulation {
       }
       Galerkin {
         DtDof [sigma[] * Dof{a}, {a}];
-        In DomainC; Jacobian Vol; Integration I1;
+        In DomainLoss; Jacobian Vol; Integration I1;
       }
       Galerkin {
         [sigma[] * Dof{ur}, {a}];
-        In DomainC; Jacobian Vol; Integration I1;
+        In DomainLoss; Jacobian Vol; Integration I1;
       }
       Galerkin {
         [-gamma_prop[] * sigma[] * (Vector[0,0,1] * Dof{phi}), {a}];
-        In DomainC; Jacobian Vol; Integration I1;
+        In DomainLoss; Jacobian Vol; Integration I1;
       }
       Galerkin {
         DtDof [sigma[] * Dof{a}, {ur}];
-        In DomainC; Jacobian Vol; Integration I1;
+        In DomainLoss; Jacobian Vol; Integration I1;
       }
       Galerkin {
         [sigma[] * Dof{ur}, {ur}];
-        In DomainC; Jacobian Vol; Integration I1;
+        In DomainLoss; Jacobian Vol; Integration I1;
       }
       Galerkin {
         [-gamma_prop[] * sigma[] * (Vector[0,0,1] * Dof{phi}), {ur}];
-        In DomainC; Jacobian Vol; Integration I1;
+        In DomainLoss; Jacobian Vol; Integration I1;
       }
       Galerkin {
         DtDof [gamma_prop[] * sigma[] * (Dof{a} * Vector[0,0,1]), {phi}];
-        In DomainC; Jacobian Vol; Integration I1;
+        In DomainLoss; Jacobian Vol; Integration I1;
       }
       Galerkin {
         [gamma_prop[] * sigma[] * (Dof{ur} * Vector[0,0,1]), {phi}];
-        In DomainC; Jacobian Vol; Integration I1;
+        In DomainLoss; Jacobian Vol; Integration I1;
       }
       Galerkin {
         [-gamma_prop[] * gamma_prop[] * sigma[] * Dof{phi}, {phi}];
-        In DomainC; Jacobian Vol; Integration I1;
+        In DomainLoss; Jacobian Vol; Integration I1;
       }
       Galerkin {
         [sigma[] * Dof{d phi}, {d phi}];
-        In DomainC; Jacobian Vol; Integration I1;
+        In DomainLoss; Jacobian Vol; Integration I1;
       }
 
       Galerkin {
@@ -286,7 +282,7 @@ Resolution {
       Call FEMSolveBasis;
       PostOperation[FEMAppendRaw];
       If(PlotFieldMaps)
-        Call FEMWriteMaps;
+        PostOperation[FEMWriteMaps];
       EndIf
     }
   }
@@ -332,7 +328,7 @@ PostProcessing {
       { Name rhoj2; Value {
         Term { [0.5 * sigma[] * SquNorm[Dt[{a}] + {ur} - gamma_prop[] *
           (Vector[0,0,1] * {phi}) + {d phi}]];
-          In DomainC; Jacobian Vol; }
+          In DomainLoss; Jacobian Vol; }
       }}
       { Name ReZ; Value {
         Term { [-Re[{U} / UnitSource]]; In DomainCWithI; }
@@ -350,7 +346,36 @@ PostProcessing {
   }
 }
 
-Include FieldMapOperationsPath;
+If(PlotFieldMaps)
+  FieldMapSuffix = Sprintf["_f%04.0f_b%04.0f.pos", FrequencyIndex, BasisTerminal];
+  FieldMapLabel = StrCat[Sprintf["; f=%.17g Hz; basis=", FrequencyHz],
+    Str[TerminalNames(BasisTerminal - 1)]];
+  PostOperation {
+    { Name FEMWriteMaps; NameOfPostProcessing FEMFields;
+      LastTimeStepOnly 1;
+      Operation {
+        Print[az, OnElementsOf Domain_Mag, Name StrCat["Az [T m]", FieldMapLabel],
+          File StrCat[MapDirectory, "/az", FieldMapSuffix]];
+        Print[b, OnElementsOf Domain_Mag, Name StrCat["B [T]", FieldMapLabel],
+          File StrCat[MapDirectory, "/b", FieldMapSuffix]];
+        Print[bm, OnElementsOf Domain_Mag, Name StrCat["|B| [T]", FieldMapLabel],
+          File StrCat[MapDirectory, "/bm", FieldMapSuffix]];
+        Print[e, OnElementsOf Domain_Mag, Name StrCat["E [V/m]", FieldMapLabel],
+          File StrCat[MapDirectory, "/e", FieldMapSuffix]];
+        Print[ez, OnElementsOf Domain_Mag, Name StrCat["Ez [V/m]", FieldMapLabel],
+          File StrCat[MapDirectory, "/ez", FieldMapSuffix]];
+        Print[em, OnElementsOf Domain_Mag, Name StrCat["|E| [V/m]", FieldMapLabel],
+          File StrCat[MapDirectory, "/em", FieldMapSuffix]];
+        Print[jz, OnElementsOf DomainLoss, Name StrCat["Jz [A/m2]", FieldMapLabel],
+          File StrCat[MapDirectory, "/jz", FieldMapSuffix]];
+        Print[jm, OnElementsOf DomainLoss, Name StrCat["|J| [A/m2]", FieldMapLabel],
+          File StrCat[MapDirectory, "/jm", FieldMapSuffix]];
+        Print[rhoj2, OnElementsOf DomainLoss, Name StrCat["S [W/m3]", FieldMapLabel],
+          File StrCat[MapDirectory, "/rhoj2", FieldMapSuffix]];
+      }
+    }
+  }
+EndIf
 
 PostOperation {
   { Name FEMAppendRaw; NameOfPostProcessing FEMFields;

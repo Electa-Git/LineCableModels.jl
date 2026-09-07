@@ -65,8 +65,26 @@ function resolve(
         material::Material,
         tag::Symbol
 )
-    length(holes) == 1 || return _difference_fill(container, holes, material, tag)
-    return _disk_fill(container, only(holes), material, tag)
+    length(holes) == 1 && return _disk_fill(container, only(holes), material, tag)
+    # A coaxial terminal may supply a disk plus several annuli as its occupied
+    # shapes. Their union is one disk only when the radial intervals are complete.
+    # Preserve that exact annular fill instead of manufacturing a Boolean region
+    # that computational flattening would classify as non-radial interstitial fill.
+    if all(holes) do shape
+            shape isa Union{Disk, Annulus} &&
+                iszero(shape.at.x) && iszero(shape.at.y) &&
+                iszero(container.at.x) && iszero(container.at.y)
+        end
+        intervals = sort!([(r_in(shape), r_ex(shape)) for shape in holes]; by = first)
+        outer = zero(container.r)
+        tolerance = 100 * eps(typeof(float(_geometry_scalar(container.r)))) * container.r
+        for (inner, radius) in intervals
+            inner <= outer + tolerance || return _difference_fill(container, holes, material, tag)
+            outer = max(outer, radius)
+        end
+        return _disk_fill(container, Disk(outer), material, tag)
+    end
+    return _difference_fill(container, holes, material, tag)
 end
 
 function _disk_fill(
@@ -197,6 +215,16 @@ end
 fill_holes(::Enclosure, contents::CableGeometry) = (boundary(contents),)
 
 function fill_holes(group::Group, contents::CableGeometry)
+    if group.boundary isa Disk && last(contents.regions).source.primitive isa Rectangle
+        outer = boundary(contents)
+        centre = first(contents.regions).primitive
+        if centre isa Disk && centre.at.x == outer.at.x && centre.at.y == outer.at.y
+            # Bounded rectangular courses tile complete annuli around the
+            # centre disk. Their occupied union is one disk; only the outside
+            # clearance is fill, not a collection of touching strand cutouts.
+            return (Disk(r_ex(last(contents.regions).primitive), outer.at),)
+        end
+    end
     group.item isa Assembly || return Tuple(source.primitive for source in contents.regions)
     outer = boundary(contents)
     outer isa AssemblyShape || throw(ArgumentError(
@@ -264,6 +292,7 @@ function resolve(context::EmptyBoundary, enclosure::Enclosure)
                         patterns = (
                             placed.placement.patterns...,
                             (
+                                owner = Enclosure,
                                 pattern = EnclosureBoundary(),
                                 member = 1,
                                 pose = enclosure.at
@@ -289,6 +318,7 @@ function resolve(context::EmptyBoundary, enclosure::Enclosure)
                         patterns = (
                             placed.placement.patterns...,
                             (
+                                owner = Enclosure,
                                 pattern = EnclosureBoundary(),
                                 member = 1,
                                 pose = enclosure.at

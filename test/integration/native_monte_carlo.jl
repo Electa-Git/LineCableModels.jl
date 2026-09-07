@@ -39,3 +39,24 @@
         result, R; qqline = :invalid, backend = :cairo, display_plot = false
     )
 end
+
+@testitem "Makie addons / histogram bin requests reach the retained marginal" tags=[:visual] setup=[TestFixtures] begin
+    using CairoMakie
+    result = TestFixtures.cable_monte_carlo_result()
+    retained = observe(result, histograms, R, 1, 1)
+    expected = HistogramDensity(observe(result, samples, R, 1, 1, :); bins=3)
+    plot = Makie.stairs(result, R; bins=3, backend=:cairo, display_plot=false,
+        controls=false, length_unit=:base, quantity_units=:base, clip=false)
+    native = only(filter(item -> item isa Makie.Stairs, only(plot.axes).scene.plots))
+    @test first.(native[1][]) ≈ expected.edges
+    @test last.(native[1][]) ≈ [expected.density; last(expected.density)]
+    @test length(retained.density) == 2
+    @test retained.edges == [1.0, 3.0, 5.0]
+    @test_throws ArgumentError Makie.stairs(result, R; bins=0, backend=:cairo,
+        display_plot=false)
+    without_samples = MonteCarloResult(result.formulation, result.values, result.stats,
+        nothing, result.histogram_values, result.root_seed, result.point_seeds,
+        result.trial_counts)
+    @test_throws r"return_samples=true" Makie.stairs(without_samples, R; bins=3,
+        backend=:cairo, display_plot=false)
+end

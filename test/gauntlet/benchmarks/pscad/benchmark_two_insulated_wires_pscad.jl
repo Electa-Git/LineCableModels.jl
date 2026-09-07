@@ -1,4 +1,4 @@
-@testitem "PSCAD benchmark / 2 bare wires" tags=[:gauntlet, :pscad] setup=[GauntletSupport] begin
+@testitem "PSCAD benchmark / 2 insulated wires" tags=[:gauntlet, :pscad] setup=[GauntletSupport] begin
     using Test
     using DataFrames
     using LineCableModels
@@ -6,14 +6,14 @@
     using .GauntletSupport
     using .GauntletSupport.PSCADBenchmarks
 
-    model=load_case(:two_bare_wires)
+    model=load_case(:two_insulated_wires)
     reference_formulation=Formulation(
-        :pscad; earth_impedance = :Wedepohl
+        :pscad; earth_impedance = :WedepohlWilcox1973
     )
     candidate_formulation=Formulation(
-        earth_impedance = :Pollaczek,
+        earth_impedance = :Pollaczek1926,
         earth_admittance = :IdealGround,
-        insulation_admittance = formula(:Lossless),
+        insulation_admittance = formula(:default),
         options = (
             kron_reduction = false,
             reduce_bundle = false,
@@ -36,7 +36,7 @@
         )
     )
     benchmark=GauntletCase(
-        :benchmark_two_bare_wires_pscad,
+        :benchmark_two_insulated_wires_pscad,
         :pscad,
         @__FILE__,
         model,
@@ -49,7 +49,7 @@
     outcome=run_case(
         benchmark;
         options = (reference = (
-            output_stem = "two_bare_wires",
+            output_stem = "two_insulated_wires",
             verbosity = (default = 0, PSCAD = 2)
         ),)
     )

@@ -38,13 +38,13 @@ function computation_options(
         ::Type{LineCableModelsCoaxial},
         options::NamedTuple
 )::ComputationOptions
-    allowed = (:verbosity, :output_basis, :trace)
+    allowed = (:verbosity, :output_basis, :trace, :on_result)
     unknown = filter(key -> key ∉ allowed, keys(options))
     isempty(unknown) || throw(ArgumentError(
         "unknown LineCableModelsCoaxial computation options: $(sort!(collect(unknown)))",
     ))
     normalized = merge(
-        (verbosity = (default = 0,), output_basis = :pul, trace = false),
+        (verbosity = (default = 0,), output_basis = :pul, trace = false, on_result = nothing),
         options
     )
     verbosity_values = normalized.verbosity
@@ -65,7 +65,8 @@ function computation_options(
     return (
         verbosity = levels,
         output_basis = Val(basis_value),
-        trace = Val(normalized.trace)
+        trace = Val(normalized.trace),
+        on_result = normalized.on_result
     )
 end
 

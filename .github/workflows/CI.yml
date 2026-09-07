@@ -125,16 +125,33 @@ jobs:
       - uses: julia-actions/cache@v3
       - name: Test case import, catalogue, fingerprints, and comparison utilities
         run: |
-          julia --project=test/gauntlet --startup-file=no --color=yes -e '
+          julia --project=test/gauntlet --startup-file=no --code-coverage=@. --color=yes -e '
             using Pkg
             Pkg.instantiate()
             push!(ARGS, "tag:gauntlet_toolkit")
             include("test/runtests.jl")
           '
+      - name: Name toolkit coverage traces independently of runner process IDs
+        shell: julia --startup-file=no {0}
+        run: |
+          for directory in ("src", "ext", "test/gauntlet")
+            for (root, _, files) in walkdir(directory), file in files
+              endswith(file, ".cov") || continue
+              mv(joinpath(root, file), joinpath(root, replace(file, r"\.cov$" => ".toolkit.cov")))
+            end
+          end
+      - uses: actions/upload-artifact@v4
+        with:
+          name: toolkit-coverage
+          path: |
+            src/**/*.toolkit.cov
+            ext/**/*.toolkit.cov
+            test/gauntlet/**/*.toolkit.cov
+          if-no-files-found: error
 
   coverage:
     name: Merged production coverage
-    needs: fem-numerical
+    needs: [fem-numerical, toolkit]
     runs-on: ubuntu-latest
     timeout-minutes: 90
     env:
@@ -195,6 +212,10 @@ jobs:
       - uses: actions/download-artifact@v4
         with:
           name: fem-production-coverage
+          path: .
+      - uses: actions/download-artifact@v4
+        with:
+          name: toolkit-coverage
           path: .
       - name: Enforce source-amended 95% coverage
         run: julia --project=test/coverage --color=yes test/coverage.jl check

@@ -3,7 +3,7 @@
     using TOML
 
     formulation=InsulationAdmittance.Formula(:Ametani2004)
-    lossless=InsulationAdmittance.Formula(:Gustavsen2013)
+    lossless=InsulationAdmittance.Formula(:default)
     semicon=SemiconAdmittance.Formula(:Ametani2004)
 
     reference=TOML.parsefile(joinpath(
@@ -97,6 +97,42 @@
     )
 end
 
+@testitem "Engine / dielectric routes retain assumptions and promote physical inputs" tags=[:unit] begin
+    const EN = LineCableModels.Engine
+    # A user-supplied constitutive route receives the same promoted material,
+    # frequency, temperature and assumptions through either owner interface.
+    route = (material, frequency, temperature, values) ->
+        complex(values.scale / material.rho, frequency * material.eps_r + temperature)
+    values = (scale=2.0,)
+    for (owner, kind) in ((EN.InsulationAdmittance, :insulator),
+            (EN.SemiconAdmittance, :semicon))
+        selected = owner.Formula(:Ametani2004, route, values)
+        explicit = owner.Formula(Val(:Ametani2004), route, values)
+        @test selected == explicit
+        @test formula_id(selected) === :Ametani2004
+        @test owner.assumptions(selected) === values
+        @test_throws ArgumentError owner.Formula(:Ametani2004; unrecognized=true)
+        material = Material(kind, 100.0f0, 2.3f0, 1.0f0, 20.0f0, 0.0f0)
+        for (frequency, temperature) in ((50.0f0, 20.0f0), (50.0, 20),
+                (50, 20.0f0), (BigFloat(50), 20.0))
+            T = promote_type(eltype(material), typeof(float(frequency)), typeof(float(temperature)))
+            promoted = convert(Material{T}, material)
+            actual = @inferred constitutive(selected, material, frequency, temperature)
+            @test actual == route(promoted, T(frequency), T(temperature), values)
+            @test actual == selected(material, frequency, temperature)
+            @test typeof(actual) === typeof(route(promoted, T(frequency), T(temperature), values))
+        end
+        for frequency in (0.0, -1.0, Inf, NaN)
+            @test_throws DomainError constitutive(selected, material, frequency, 20.0)
+        end
+        for temperature in (Inf, NaN)
+            @test_throws DomainError constitutive(selected, material, 50.0, temperature)
+        end
+        @test material.rho === 100.0f0
+        @test material.eps_r === 2.3f0
+    end
+end
+
 @testitem "Engine / dielectric admittance / strict layers reach direct computation" tags=[:unit] setup=[
     EngineTestSupport, UseEngineSupport, TestNumerics] begin
     using LinearAlgebra
@@ -160,7 +196,7 @@ end
     end
 
     formulation=Formulation(;
-        insulation_admittance = formula(:Gustavsen2013),
+        insulation_admittance = formula(:default),
         semicon_admittance = formula(:Ametani2004),
         earth_admittance = :IdealGround,
         options = (

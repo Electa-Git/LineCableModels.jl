@@ -161,7 +161,8 @@
         @test reduced.dielectric.material.mu_r ≈ source.dielectric.material.mu_r
     end
     flattening_formulation=CableConstantsFormulation(
-        insulation_admittance = formula(:Ametani2004)
+        insulation_admittance = formula(:Ametani2004),
+        semicon_admittance = formula(:Ametani2004)
     )
     source_at_flattening_frequency=CableConstants(
         design;
@@ -201,10 +202,12 @@
         design;
         frequency = 50.0,
         formulation = CableConstantsFormulation(
-            insulation_admittance = formula(:Gustavsen2013)
+            insulation_admittance = formula(:default)
         )
     )
-    lossy_dielectric=CableConstants(design; frequency = 50.0)
+    lossy_dielectric=CableConstants(design; frequency = 50.0,
+        formulation = CableConstantsFormulation(
+            insulation_admittance = formula(:Ametani2004)))
     @test lossless_dielectric.G[1] < lossy_dielectric.G[1]
     @test lossless_dielectric.C[1] ≈ lossy_dielectric.C[1]
 

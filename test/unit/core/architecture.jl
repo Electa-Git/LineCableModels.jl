@@ -184,9 +184,11 @@ end
         joinpath("src", "engine", "insulationimpedance", "interface.jl"),
         joinpath("src", "engine", "insulationadmittance", "interface.jl"),
         joinpath("src", "engine", "insulationadmittance", "formulas", "ametani2004.jl"),
-        joinpath("src", "engine", "insulationadmittance", "formulas", "gustavsen2013.jl"),
+        joinpath("src", "engine", "insulationadmittance", "formulas", "default.jl"),
         joinpath("src", "engine", "semiconadmittance", "interface.jl"),
         joinpath("src", "engine", "semiconadmittance", "formulas", "ametani2004.jl"),
+        joinpath("src", "engine", "semiconadmittance", "formulas", "default.jl"),
+        joinpath("src", "engine", "pipeimpedance", "interface.jl"),
         joinpath("src", "transforms", "compute.jl"),
         joinpath("src", "transforms", "eigensystems.jl"),
         joinpath("src", "transforms", "quantities.jl"),
@@ -512,6 +514,14 @@ end
     @test occursin("function _addon_controls!", native_addons)
     @test occursin("function LineCableModels.plotwindow", native_addons)
     @test occursin("function _addon_responsive_legend!", native_addons)
+    @test occursin("foreach(_addon_axis_format!, axes)", native_addons)
+    # Axis formatting belongs to the common shell, not to individual recipes.
+    for (directory, _, files) in walkdir(joinpath(
+            extension_root, "LineCableModelsMakieExt", "recipes")), file in files
+        endswith(file, ".jl") || continue
+        recipe = read(joinpath(directory, file), String)
+        @test !occursin(r"_addon_(?:linear_tickformat|scientific_exponent|axis_format!)", recipe)
+    end
 
     monte_carlo_renderer=read(
         joinpath(extension_root, "LineCableModelsMakieExt", "montecarlo.jl"),

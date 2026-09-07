@@ -66,27 +66,26 @@
     @test EH.rule(explicit_default.methods.equivalent_earth) == EH.Layer(-1)
     bare=Formulation(
         insulation_impedance = :Ametani1980,
-        insulation_admittance = :Gustavsen2013,
+        insulation_admittance = :default,
         semicon_admittance = :Ametani2004
     )
     @test formula_id(defaults.methods.insulation_impedance) === :Ametani1980
-    @test formula_id(defaults.methods.insulation_admittance) === :Ametani2004
-    @test formula_id(defaults.methods.semicon_admittance) === :Ametani2004
+    @test formula_id(defaults.methods.insulation_admittance) === :default
+    @test formula_id(defaults.methods.semicon_admittance) === :default
     for (owner, identifier) in (
         EN.InternalImpedance=>:Schelkunoff1934,
         EN.InsulationImpedance=>:Ametani1980,
-        EN.EarthImpedance=>:Papadopoulos2010,
-        EN.InsulationAdmittance=>:Ametani2004,
-        EN.SemiconAdmittance=>:Ametani2004,
-        EN.EarthAdmittance=>:Papadopoulos2010
+        EN.EarthImpedance=>:default,
+        EN.InsulationAdmittance=>:default,
+        EN.SemiconAdmittance=>:default,
+        EN.EarthAdmittance=>:default
     )
-        @test owner.DEFAULT === identifier
         @test formula_id(owner.Formula(:default)) === identifier
-        @test :default ∉ owner.formulas()
+        @test isconcretetype(typeof(owner.Formula(:default)))
     end
     @test_throws ArgumentError EN.InsulationAdmittance.Formula(:Marti2001)
     @test formula_id(bare.methods.insulation_impedance) === :Ametani1980
-    @test formula_id(bare.methods.insulation_admittance) === :Gustavsen2013
+    @test formula_id(bare.methods.insulation_admittance) === :default
     @test formula_id(bare.methods.semicon_admittance) === :Ametani2004
 
     constants_formulation=@inferred CableConstantsFormulation()
@@ -94,16 +93,17 @@
         :internal_impedance,
         :insulation_impedance,
         :insulation_admittance,
-        :semicon_admittance
+        :semicon_admittance,
+        :pipe_impedance
     )
     @test formula_id(constants_formulation.methods.internal_impedance) ===
           :Schelkunoff1934
     @test formula_id(constants_formulation.methods.insulation_impedance) ===
           :Ametani1980
     @test formula_id(constants_formulation.methods.insulation_admittance) ===
-          :Ametani2004
+          :default
     @test formula_id(constants_formulation.methods.semicon_admittance) ===
-          :Ametani2004
+          :default
     @test constants_formulation.options == (temperature_correction = true,)
     @test CableConstantsFormulation(
         options = (temperature_correction = false,)
@@ -176,16 +176,16 @@ end
     using TOML
 
     impedance_formulation=InsulationImpedance.Formula(:Ametani1980)
-    admittance_formulation=InsulationAdmittance.Formula(:Gustavsen2013)
+    admittance_formulation=InsulationAdmittance.Formula(:default)
     @test description(impedance_formulation) ==
           "Ametani coaxial-insulation magnetic impedance (1980)"
     @test occursin("lossless", lowercase(description(admittance_formulation)))
     @test formula_id(impedance_formulation) === :Ametani1980
-    @test formula_id(admittance_formulation) === :Gustavsen2013
-    @test InsulationImpedance.formulas() == (:Ametani1980,)
-    @test InsulationAdmittance.formulas() == (:Ametani2004, :Gustavsen2013)
-    @test SemiconAdmittance.formulas() == (:Ametani2004,)
-    @test !isdefined(InsulationAdmittance, :Gustavsen2013)
+    @test formula_id(admittance_formulation) === :default
+    @test :Ametani1980 in InsulationImpedance.formulas()
+    @test all(in(InsulationAdmittance.formulas()), (:Ametani2004, :default))
+    @test all(in(SemiconAdmittance.formulas()), (:Ametani2004, :default))
+    @test !isdefined(InsulationAdmittance, :default)
     @test !isdefined(InsulationAdmittance, :Ametani2004)
     @test !isdefined(SemiconAdmittance, :Ametani2004)
     reference=TOML.parsefile(joinpath(

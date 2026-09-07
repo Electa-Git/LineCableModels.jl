@@ -122,7 +122,7 @@ end
 function earth_potential_coefficient(
         identifier::Val{:Xue2018}, ::Val{:infinite_depth}, functor, pair
 )
-    _require(pair, Val(:underground))
+    validate(pair, FormulaMethod(Val(:Xue2018), earth_potential_coefficient, Val(:infinite_depth)), functor)
     state = functor.state
     geometry = _geometry(pair)
     S12, S13 = integral_terms(identifier, state, geometry)
@@ -149,7 +149,7 @@ the attenuation ``e^{-\frac12(h_i+h_j)u_1}``.
 function earth_potential_coefficient(
         identifier::Val{:Xue2018}, ::Val{:surface_reference}, functor, pair
 )
-    _require(pair, Val(:underground))
+    validate(pair, FormulaMethod(Val(:Xue2018), earth_potential_coefficient, Val(:surface_reference)), functor)
     state = functor.state
     geometry = _geometry(pair)
     S12, S13 = integral_terms(identifier, state, geometry)
@@ -183,7 +183,7 @@ The correction retains the corpus distances ``d_{\delta,ij}``,
 function earth_potential_coefficient(
         identifier::Val{:Xue2018}, ::Val{:penetration_depth}, functor, pair
 )
-    _require(pair, Val(:underground))
+    validate(pair, FormulaMethod(Val(:Xue2018), earth_potential_coefficient, Val(:penetration_depth)), functor)
     state = functor.state
     geometry = _geometry(pair)
     S12, S13 = integral_terms(identifier, state, geometry)
@@ -216,6 +216,15 @@ function earth_potential_coefficient(
     kappa = state.sigma[2] + state.jω * state.epsilon[2]
     infinite = direct + 2 * S12 + 2 * gamma_1_squared * S13
     return state.jω / (2π * kappa) * (infinite - reference)
+end
+
+function validate(
+        pair::EarthPair, route::FormulaMethod{:Xue2018, typeof(earth_potential_coefficient)}, formula
+)
+    validate(pair)
+    (pair.layers[1] > 1 && pair.layers[2] > 1) || throw(ArgumentError(
+        ":Xue2018 earth potential coefficient requires underground conductors; pair ($(pair.row), $(pair.column)) has layers $(pair.layers)"))
+    return pair
 end
 
 :Xue2018

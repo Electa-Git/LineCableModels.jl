@@ -265,8 +265,7 @@ function _addon_semantic_line_page(
             yticklabelsvisible = mode !== :matrix || column == 1,
             yticksvisible = mode !== :matrix || column == 1
         )
-        axis,
-        axis_labels = _addon_axis!(
+        axis = _addon_axis!(
             panel.content,
             xobservation,
             yobservation;
@@ -274,8 +273,6 @@ function _addon_semantic_line_page(
                 panel_titles, object, facet, panel_index, length(page.facets)),
             xscale,
             yscale,
-            xscales,
-            yscales,
             attributes
         )
         series = NamedTuple[]
@@ -310,23 +307,15 @@ function _addon_semantic_line_page(
                 plots
             ))
         end
-        reset! = () -> _addon_reset!(axis, series, axis_labels)
-        xsetter = scale -> _addon_set_axis!(
-            axis, :x, axis_labels.x, xscales,
-            something(_addon_scientific_exponent(xvalues), 0), scale)
-        ysetter = scale -> _addon_set_axis!(
-            axis, :y, axis_labels.y, yscales,
-            something(_addon_scientific_exponent(yvalues), 0), scale)
+        reset! = () -> _addon_reset!(axis, series)
+        xsetter = scale -> _addon_set_axis!(axis, :x, xscales, scale)
+        ysetter = scale -> _addon_set_axis!(axis, :y, yscales, scale)
         push!(axes, axis)
         push!(panels, panel)
         push!(panel_group_labels, scoped_labels)
         push!(resets, reset!)
         :log10 in xscales && push!(xsetters, xsetter)
         :log10 in yscales && push!(ysetters, ysetter)
-        on(shell.figure.scene, axis.finallimits) do _
-            _addon_refresh_format!(axis, series, axis_labels)
-            return nothing
-        end
         reset!()
     end
     length(xsetters) == length(axes) || empty!(xsetters)

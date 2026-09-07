@@ -1,4 +1,4 @@
-@testitem "UQ benchmark / two bare wires / LEP versus Monte Carlo" tags=[:gauntlet, :uq] setup=[GauntletSupport] begin
+@testitem "UQ benchmark / two insulated wires / LEP versus Monte Carlo" tags=[:gauntlet, :uq] setup=[GauntletSupport] begin
     using Test
     using Measurements
     using LineCableModels
@@ -6,7 +6,7 @@
     using .GauntletSupport
 
     model=load_case(
-        :two_bare_wires;
+        :two_insulated_wires;
         variation = RelativeStandardUncertainty(
             10.0; tags = (:geometry, :cable_layer)
         )
@@ -33,8 +33,8 @@
     )
     tolerances=uq_moment_tolerances()
     benchmark=benchmark_definition(
-        :benchmark_two_bare_wires_lep_montecarlo,
-        :two_bare_wires,
+        :benchmark_two_insulated_wires_lep_montecarlo,
+        :two_insulated_wires,
         :uq,
         @__FILE__,
         model,

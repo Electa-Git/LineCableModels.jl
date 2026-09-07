@@ -54,6 +54,7 @@ Modules = [
     LineCableModels.Engine.SemiconAdmittance,
     LineCableModels.Engine.InsulationImpedance,
     LineCableModels.Engine.InternalImpedance,
+    LineCableModels.Engine.PipeImpedance,
     LineCableModels.Transforms,
 ]
 Order = [:module, :constant, :type, :function, :macro]

@@ -6,13 +6,12 @@ through the Distributions API.
 """
 module LineCableModelsDistributionsExt
 
-using Distributions
-using Random
-using Statistics
+import Distributions
+import Random
+import Statistics
 
-import LineCableModels
-const PB = LineCableModels.ParametricBuilder
-const UQ = LineCableModels.UQ
+import LineCableModels.ParametricBuilder as PB
+import LineCableModels.UQ
 import LineCableModels: sample_uncertainty
 
 function sample_uncertainty(
@@ -46,10 +45,10 @@ end
 function (distribution::UQ.HistogramDensity)(value::Real)
     Distributions.pdf(distribution, value)
 end
-function Distributions.minimum(distribution::UQ.HistogramDensity)
+function Base.minimum(distribution::UQ.HistogramDensity)
     first(distribution.edges)
 end
-Distributions.maximum(distribution::UQ.HistogramDensity) = last(distribution.edges)
+Base.maximum(distribution::UQ.HistogramDensity) = last(distribution.edges)
 function Distributions.insupport(
         distribution::UQ.HistogramDensity,
         value::Real

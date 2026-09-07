@@ -23,9 +23,6 @@ import ...LineCableModels: constitutive
 import ..Engine: description, conductivity
 #! explicit-imports: on
 
-"Registered semicon-admittance formula selected by `:default`."
-const DEFAULT = :Ametani2004
-
 include("interface.jl")
 
 #! explicit-imports: off

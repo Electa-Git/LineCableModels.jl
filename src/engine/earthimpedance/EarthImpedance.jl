@@ -20,7 +20,9 @@ export Formula, formula_id, routes, assumptions, propagation, formulas, Γ
 using DocStringExtensions: IMPORTS, TYPEDEF, TYPEDFIELDS, TYPEDSIGNATURES
 #! explicit-imports: on
 import ...LineCableModels: nominal
-import ..Engine: EarthImpedanceFormulation, formula_id, bessel_difference
+import ...LineCableModels: validate
+import ..Engine: EarthPair
+import ..Engine: EarthImpedanceFormulation, formula_id
 #! explicit-imports: off
 import ...LineCableModels: FormulaMethod
 import ..Engine: description, conductivity, media, special_besselk
@@ -29,9 +31,6 @@ using SpecialFunctions: bessely, hankelh1
 using QuadGK: quadgk
 
 vacuum_permeability(value) = one(value) * 4 * (one(value) * π) * (one(value) * 10)^(-7)
-
-"Registered earth-impedance formula selected by `:default`."
-const DEFAULT = :Papadopoulos2010
 
 include("interface.jl")
 include("homogeneous.jl")
@@ -56,14 +55,14 @@ FORMULAS = let
             "duplicate earth-impedance formula identifier :$identifier"
         )
         push!(discovered, identifier)
-        propagation(Val(identifier)) === Val(:backend) ||
+        (identifier === :default || propagation(Val(identifier)) === Val(:backend)) ||
             push!(identifiers, identifier)
     end
     Tuple(discovered), Tuple(identifiers)
 end
 #! explicit-imports: on
 
-"Return the built-in earth-impedance formula identifiers."
+"Return numerical earth-impedance identifiers; `:default` is a context selector."
 formulas() = FORMULAS
 
 end # module EarthImpedance

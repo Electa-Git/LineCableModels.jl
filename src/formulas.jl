@@ -7,12 +7,12 @@ $(TYPEDEF)
 Store one declarative formula selection until its owning formulation resolves
 the identifier and overrides into a concrete formula type.
 
-`FormulaSpec` is produced by [`formula`](@ref). It does not participate in a
+`FormulaDefinition` is produced by [`formula`](@ref). It does not participate in a
 numerical loop.
 
 $(TYPEDFIELDS)
 """
-struct FormulaSpec{ID, Order, O <: NamedTuple}
+struct FormulaDefinition{ID, Order, O <: NamedTuple}
     "Formula-specific route or assumption overrides."
     overrides::O
 end
@@ -77,6 +77,10 @@ keyword slot in which the selection appears.
 # Arguments
 
 - `identifier`: Stable formula identifier.
+  `:default` requests the applicable choice from the resolved problem, geometry,
+  earth characteristics and backend. It is not a fallback after a failed formula.
+  Cable-insulation and semicon-admittance defaults explicitly select lossless
+  dielectric relations. Unsupported contexts fail before frequency evaluation.
 
 # Keywords
 
@@ -103,10 +107,10 @@ function formula(identifier::Symbol; order::Symbol = :default, kwargs...)
         "formula order must be :default, :before, or :after"
     ))
     overrides = (; kwargs...)
-    return FormulaSpec{identifier, order, typeof(overrides)}(overrides)
+    return FormulaDefinition{identifier, order, typeof(overrides)}(overrides)
 end
 
 "Return the stable literature identifier of a formula value."
 function formula_id end
 
-formula_id(::FormulaSpec{ID}) where {ID} = ID
+formula_id(::FormulaDefinition{ID}) where {ID} = ID

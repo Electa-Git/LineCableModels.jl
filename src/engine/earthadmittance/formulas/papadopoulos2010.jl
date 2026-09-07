@@ -87,7 +87,7 @@ stated ``k_x`` and therefore cannot represent the cited author formula.
 function earth_potential_coefficient(
         ::Val{:Papadopoulos2010}, ::Val{:mutual}, functor, pair
 )
-    _require(pair, Val(:underground))
+    validate(pair, FormulaMethod(Val(:Papadopoulos2010), earth_potential_coefficient, Val(:mutual)), functor)
     state = functor.state
     geometry = _geometry(pair)
     radial_squared = (
@@ -108,6 +108,15 @@ function earth_potential_coefficient(
     end
     kappa = state.sigma[2] + state.jω * state.epsilon[2]
     return state.jω / (2π * kappa) * (delta_1 + 2 * S_P)
+end
+
+function validate(
+        pair::EarthPair, route::FormulaMethod{:Papadopoulos2010, typeof(earth_potential_coefficient)}, formula
+)
+    validate(pair)
+    (pair.layers[1] > 1 && pair.layers[2] > 1) || throw(ArgumentError(
+        ":Papadopoulos2010 earth potential coefficient requires underground conductors; pair ($(pair.row), $(pair.column)) has layers $(pair.layers)"))
+    return pair
 end
 
 :Papadopoulos2010

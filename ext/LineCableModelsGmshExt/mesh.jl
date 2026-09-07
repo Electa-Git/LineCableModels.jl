@@ -26,6 +26,12 @@ function _mesh_fingerprint(
         system = ImportExport.serialize_value(model.problem.system),
         temperature = ImportExport.serialize_value(model.problem.temperature),
         earth_props = ImportExport.serialize_value(model.problem.earth_props),
+        # Declarations alone cannot identify geometry produced by a changed
+        # resolver. Fingerprint the exact domains and ownership sent to Gmsh.
+        regions = model.region_plans,
+        cable_boundaries = model.cable_boundaries,
+        cable_hosts = model.cable_hosts,
+        centre = model.centre,
         terminal_ids = model.terminal_ids,
         material_tags = getproperty.(model.material_plans, :physical_tag),
         material_names = getproperty.(model.material_plans, :physical_name),

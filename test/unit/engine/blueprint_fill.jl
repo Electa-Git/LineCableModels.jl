@@ -25,11 +25,13 @@
     @test only(blueprint.dielectrics).r_in ≈ 2.5e-3
     @test only(blueprint.dielectrics).r_ex ≈ 3.5e-3
 
-    constants = CableConstants(design; frequency=50.0)
+    constants = CableConstants(design; frequency=50.0,
+        formulation=CableConstantsFormulation(insulation_admittance=:Ametani2004))
     row = only(constants)
     @test all(isfinite, (row.R, row.L, row.C, row.G))
     @test row.G > 0
     @test row.G ≈ 2pi / (pe.rho * log(3.5 / 2.5))
+    @test only(CableConstants(design; frequency=50.0)).G == 0
 
     system = @system "finite-pe-fill" begin
         @at design (0.0, -1.0) core=1 sheath=2

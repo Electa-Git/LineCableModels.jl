@@ -67,10 +67,19 @@ thin-conductor approximation.
 function earth_potential_coefficient(
         ::Val{:Ametani2021}, ::Val{:mutual}, functor, pair
 )
-    _require(pair, Val(:overhead))
+    validate(pair, FormulaMethod(Val(:Ametani2021), earth_potential_coefficient, Val(:mutual)), functor)
     state = functor.state
     geometry = _geometry(pair)
     return log(geometry.D_ij / geometry.d_ij) / (2π * state.epsilon[1])
+end
+
+function validate(
+        pair::EarthPair, route::FormulaMethod{:Ametani2021, typeof(earth_potential_coefficient)}, formula
+)
+    validate(pair)
+    (pair.layers == (1, 1)) || throw(ArgumentError(
+        ":Ametani2021 earth potential coefficient requires overhead conductors; pair ($(pair.row), $(pair.column)) has layers $(pair.layers)"))
+    return pair
 end
 
 :Ametani2021

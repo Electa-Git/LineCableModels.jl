@@ -65,8 +65,7 @@ Delivery*, vol. 11, no. 3, pp. 1536-1545, 1996.
 function earth_impedance(
         ::Val{:Saad1996}, ::Val{:mutual}, functor, pair
 )
-    _require(pair, Val(:underground))
-    pair.row == pair.column || _require_horizontal_separation(pair)
+    validate(pair, FormulaMethod(Val(:Saad1996), earth_impedance, Val(:mutual)), functor)
     state = functor.state
     geometry = _geometry(pair)
     gamma = state.gamma[2]
@@ -77,6 +76,17 @@ function earth_impedance(
     )
     πT = one(radius) * π
     return state.jω * state.mu[1] / (2πT) * (direct + correction)
+end
+
+function validate(
+        pair::EarthPair, route::FormulaMethod{:Saad1996, typeof(earth_impedance)}, formula
+)
+    validate(pair)
+    (pair.layers[1] > 1 && pair.layers[2] > 1) || throw(ArgumentError(
+        ":Saad1996 earth impedance requires underground conductors; pair ($(pair.row), $(pair.column)) has layers $(pair.layers)"))
+    pair.row != pair.column && iszero(pair.separation) && throw(DomainError(
+        pair.separation, ":Saad1996 mutual closed form requires nonzero horizontal cable separation"))
+    return pair
 end
 
 :Saad1996

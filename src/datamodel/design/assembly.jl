@@ -144,7 +144,7 @@ function _append_assembly_member!(
         extent = max(extent, support(local_primitive))
         patterns = pattern === nothing ? placed.placement.patterns :
                    (placed.placement.patterns...,
-            (pattern = pattern, member = member, pose = member_at))
+            (owner = Assembly, pattern = pattern, member = member, pose = member_at))
         paths = path === nothing ? source.paths :
                 (source.paths..., (path = path, radius = radius))
         push!(regions,

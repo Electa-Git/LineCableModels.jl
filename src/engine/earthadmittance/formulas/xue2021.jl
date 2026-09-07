@@ -63,8 +63,7 @@ P_{e,ij}=\frac{j\omega}{2\pi(\sigma_1+j\omega\varepsilon_1)}
 function earth_potential_coefficient(
         ::Val{:Xue2021}, ::Val{:mutual}, functor, pair
 )
-    _require(pair, Val(:underground))
-    pair.row == pair.column || _require_horizontal_separation(pair)
+    validate(pair, FormulaMethod(Val(:Xue2021), earth_potential_coefficient, Val(:mutual)), functor)
     state = functor.state
     geometry = _geometry(pair)
     gamma = state.gamma[2]
@@ -73,6 +72,17 @@ function earth_potential_coefficient(
               2exp(-geometry.H * gamma) / (4 + argument^2)
     kappa = state.sigma[2] + state.jω * state.epsilon[2]
     return state.jω / (2π * kappa) * bracket
+end
+
+function validate(
+        pair::EarthPair, route::FormulaMethod{:Xue2021, typeof(earth_potential_coefficient)}, formula
+)
+    validate(pair)
+    (pair.layers[1] > 1 && pair.layers[2] > 1) || throw(ArgumentError(
+        ":Xue2021 earth potential coefficient requires underground conductors; pair ($(pair.row), $(pair.column)) has layers $(pair.layers)"))
+    pair.row != pair.column && iszero(pair.separation) && throw(DomainError(
+        pair.separation, ":Xue2021 mutual closed form requires nonzero horizontal cable separation"))
+    return pair
 end
 
 :Xue2021

@@ -142,17 +142,16 @@ $(TYPEDSIGNATURES)
 
 Preserve explicit physical members and their independent terminal identities.
 
-The pattern-oriented method retains one prototype and one placement pattern.
-The variadic method retains heterogeneous members and their local poses.
+With `pattern`, retain one prototype and one placement pattern. Without a
+pattern, retain one or more heterogeneous members and their local poses.
 
 # Arguments
 
 - `members`: Physical members, optionally placed with [`at`](@ref).
-- `item`: Repeated physical prototype.
 
 # Keywords
 
-- `pattern`: Placement pattern for a repeated prototype.
+- `pattern=nothing`: Placement pattern for one repeated prototype, or explicit members.
 - `names=nothing`: Exact terminal names for repeated terminal-bearing members.
 - `path=nothing`: Shared longitudinal path declaration.
 - `compact=nothing`: Explicit compaction law.
@@ -162,21 +161,26 @@ The variadic method retains heterogeneous members and their local poses.
 
 - An `Assembly`, or a `Gridspace{Assembly}` when a direct argument varies.
 """
-function assembly(members...; combine::Symbol = :product)
-    isempty(members) && throw(ArgumentError("assembly requires at least one member"))
-    return parameterize(DataModel.Assembly, _explicit_assembly, members; combine)
-end
-
 function assembly(
-        item;
-        pattern,
+        members...;
+        pattern = nothing,
         names = nothing,
         path = nothing,
         compact = nothing,
         combine::Symbol = :product
 )
+    isempty(members) && throw(ArgumentError("assembly requires at least one member"))
+    if pattern === nothing
+        names === nothing && path === nothing && compact === nothing ||
+            throw(ArgumentError(
+                "explicit assembly members own their names, paths and compaction; " *
+                "provide pattern to repeat one prototype"))
+        return parameterize(DataModel.Assembly, _explicit_assembly, members; combine)
+    end
+    length(members) == 1 || throw(ArgumentError(
+        "a repeated assembly requires exactly one prototype with pattern"))
     return Assembly(
-        item;
+        first(members);
         pattern,
         names,
         path,
@@ -1156,14 +1160,13 @@ heterogeneous members and their local poses.
 
 # Arguments
 
-- `item`: Repeated core prototype.
 - `members`: Explicit core members.
 
 # Keywords
 
-- `n`: Repeated cardinality.
-- `r`: Member-centre ring radius \\[m\\].
-- `names`: Exact terminal names for repeated members.
+- `n=nothing`: Repeated cardinality; omit for explicit members.
+- `r=nothing`: Member-centre ring radius \\[m\\], required when `n` is supplied.
+- `names=nothing`: Exact terminal names required for repeated terminal-bearing members.
 - `φ0=0`: Starting angle \\[rad\\].
 - `span=2π`: Angular span \\[rad\\].
 - `path=nothing`: Shared longitudinal path.
@@ -1181,39 +1184,26 @@ pitch. Their resolved sides must not overlap. An outer insulating layer may
 close the clearance to zero; bare sectors require positive side clearance.
 """
 function cores(
-        item;
-        n,
-        r,
-        names,
+        members...;
+        n = nothing,
+        r = nothing,
+        names = nothing,
         φ0 = 0,
         span = 2π,
         path = nothing,
         compact = nothing,
         combine::Symbol = :product
 )
-    caller = function (
-            resolved_item, resolved_n, resolved_r, resolved_names,
-            resolved_φ0, resolved_span, resolved_path, resolved_compact
-    )
-        return DataModel.Assembly(
-            DataModel.Pose2(0, 0, 0),
-            resolved_item,
-            DataModel.Ring(
-                resolved_n;
-                r = resolved_r,
-                φ0 = resolved_φ0,
-                span = resolved_span
-            ),
-            resolved_path,
-            resolved_compact,
-            resolved_names
-        )
+    if n === nothing
+        r === nothing && φ0 == 0 && span == 2π || throw(ArgumentError(
+            "cores requires n when specifying a repeated radius or angular placement"))
+        return assembly(members...; names, path, compact, combine)
     end
-    values = (item, n, r, names, φ0, span, path, compact)
-    return parameterize(DataModel.Assembly, caller, values; combine)
+    r === nothing && throw(ArgumentError("repeated cores require an explicit ring radius r"))
+    return assembly(members...;
+        pattern = DataModel.Ring(n; r, φ0, span, combine),
+        names, path, compact, combine)
 end
-
-cores(members...; combine::Symbol = :product) = assembly(members...; combine)
 
 function _enclosure_item(items::Tuple, formation)
     if formation === nothing

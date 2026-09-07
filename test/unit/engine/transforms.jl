@@ -44,12 +44,13 @@
     @test formula_id(formulation) === :Fortescue
     @test formula_id(selected) === :Chrysochos2014
     @test LineCableModels.Transforms.assumptions(selected).tolerance == 1e-7
-    @test Transforms.formulas() == (
+    @test issubset((
         :Chrysochos2014,
         :Fan2009,
         :Fortescue,
         :Wedepohl1996
-    )
+    ), Transforms.formulas())
+    @test allunique(Transforms.formulas())
     modal=@inferred compute(ModalTransformationProblem(parameters), formulation)
     explicit=compute(
         LineCableModelsModal(),

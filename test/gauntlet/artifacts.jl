@@ -1,10 +1,10 @@
 module GauntletArtifacts
 
 import TOML
-using DataFrames
 using JLD2
+import LineCableModels
 using LineCableModels: basis, domain, observe, observables
-using LineCableModels.Engine: LineParameters, LineParametersBenchmark,
+using LineCableModels.Engine: LineParameters, LineParametersBenchmark, RMSError,
                               absolute_error, compare, frequencies,
                               relative_error, Z, Y
 using Pkg.Artifacts
@@ -15,7 +15,9 @@ export ARTIFACT_ROOT, ARTIFACTS_TOML, SNAPSHOT_SCHEMA_VERSION,
        cleanup_work, collection_archive_name, collection_release,
        collection_stage, finalize_staging, gauntlet_cleanup,
        gauntlet_instrumented, gauntlet_mode, gauntlet_stage_force,
-       package_collection, prepare_staging, release_tag, report
+       package_collection, prepare_staging, release_tag, read_collection,
+       MomentResult, MomentBenchmark, extract_moments,
+       moment_comparison_passes, moment_error_summary, read_moments
 
 const GAUNTLET_ROOT = @__DIR__
 const ARTIFACT_ROOT = joinpath(GAUNTLET_ROOT, ".artifacts")
@@ -115,7 +117,8 @@ end
 gauntlet_cleanup() = _boolean_setting("LINECABLEMODELS_GAUNTLET_CLEANUP")
 gauntlet_stage_force() = _boolean_setting("LINECABLEMODELS_GAUNTLET_STAGE_FORCE")
 
-include("reporting.jl")
+include("comparisons/uq_moments.jl")
+include("read.jl")
 
 function gauntlet_instrumented()
     options = Base.JLOptions()
@@ -162,13 +165,12 @@ function finalize_staging(; artifact_root::AbstractString = ARTIFACT_ROOT)
     ))
     return map(collections) do collection
         stage = collection_stage(collection; artifact_root)
-        report_files = _write_report(collection, stage)
+        snapshots = read_collection(stage; collection)
         (
             collection,
             path = stage,
             schema_version = SNAPSHOT_SCHEMA_VERSION,
-            report = report_files.frame,
-            report_files
+            benchmarks = length(snapshots)
         )
     end
 end
@@ -178,34 +180,6 @@ function _package_collision(path::AbstractString)
         "Gauntlet release package already exists: $path\n" *
         "Pass --force to the external packaging command to replace this local package.",
     )
-end
-
-function _validate_staged_report(collection::Symbol, stage::AbstractString)
-    report_files = (
-        jld2_path = joinpath(stage, "report.jld2"),
-        tsv_path = joinpath(stage, "report.tsv"),
-        digest_path = joinpath(stage, "report.sha256")
-    )
-    all(isfile, report_files) || throw(ArgumentError(
-        "the staged $collection collection has not been finalized: $stage",
-    ))
-    expected = Dict{String, String}()
-    for line in eachline(report_files.digest_path)
-        fields = split(strip(line); limit = 2)
-        length(fields) == 2 || throw(ArgumentError(
-            "invalid staged report digest: $(report_files.digest_path)",
-        ))
-        expected[strip(fields[2])] = fields[1]
-    end
-    for path in (report_files.jld2_path, report_files.tsv_path)
-        haskey(expected, basename(path)) || throw(ArgumentError(
-            "staged report digest does not cover $(basename(path))",
-        ))
-        expected[basename(path)] == bytes2hex(sha256(read(path))) ||
-            throw(ArgumentError("staged report digest does not match $path"))
-    end
-    report(stage; backend = collection)
-    return report_files
 end
 
 function _write_toml(path::AbstractString, document::AbstractDict)
@@ -218,6 +192,34 @@ function _write_toml(path::AbstractString, document::AbstractDict)
     return path
 end
 
+"""
+    package_collection(collection::Symbol, version::VersionNumber; reason, git_commit, kwargs...)
+
+Archive validated numerical snapshots. No reports, plots or solver workspaces
+are included. Packaging does not run calculations, publish files, create Git
+tags or approve numerical references.
+
+# Arguments
+
+- `collection`: Lowercase collection identifier.
+- `version`: Release version, starting at `v"1.0.0"`.
+
+# Keywords
+
+- `reason`: Nonempty release description.
+- `git_commit`: Full Git object ID of the packaging checkout.
+- `artifact_root`: Local staging and release root.
+- `force`: Replace an existing local package; defaults to `false`.
+
+# Returns
+
+- Archive path, SHA-256, artifact tree hash and package metadata path.
+
+# Errors
+
+Invalid release identifiers, missing or corrupted snapshots, and existing
+packages without `force=true` raise `ArgumentError`.
+"""
 function package_collection(
         collection::Symbol,
         version::VersionNumber;
@@ -235,15 +237,9 @@ function package_collection(
         "git_commit must be a full hexadecimal Git object ID",
     ))
     stage = collection_stage(collection; artifact_root)
-    benchmarks = joinpath(stage, "benchmarks")
-    isdir(benchmarks) && !isempty(readdir(benchmarks)) || throw(ArgumentError(
-        "no staged $collection benchmarks exist: $benchmarks",
-    ))
-    report_files = _validate_staged_report(collection, stage)
+    read_collection(stage; collection)
     destination = collection_release(collection, release_version; artifact_root)
     ispath(destination) && !force && throw(_package_collision(destination))
-    ispath(destination) && rm(destination; recursive = true, force = true)
-    mkpath(destination)
     tag = release_tag(collection, release_version)
     release_document = Dict(
         "collection" => name,
@@ -254,43 +250,52 @@ function package_collection(
         "version" => string(release_version)
     )
     hash = create_artifact() do directory
-        cp(benchmarks, joinpath(directory, "benchmarks"))
-        for path in values(report_files)
-            cp(path, joinpath(directory, basename(path)))
+        # Copy only the primary snapshot and its completion checksum.
+        for entry in sort!(filter(isdir, readdir(joinpath(stage, "benchmarks"); join=true)))
+            target = joinpath(directory, "benchmarks", basename(entry))
+            mkpath(target)
+            for filename in ("snapshot.jld2", "snapshot.sha256")
+                cp(joinpath(entry, filename), joinpath(target, filename))
+            end
         end
+        read_collection(directory; collection)
         _write_toml(joinpath(directory, "release.toml"), release_document)
     end
-    archive = joinpath(
-        destination,
-        collection_archive_name(collection, release_version)
-    )
-    archive_sha256 = archive_artifact(hash, archive)
-    package_document = Dict(
-        "artifact" => Dict(
-            "archive" => basename(archive),
-            "archive_sha256" => archive_sha256,
-            "name" => artifact_name(collection),
-            "tree_hash" => string(hash)
-        ),
-        "release" => release_document
-    )
-    package_path = _write_toml(
-        joinpath(destination, "package.toml"),
-        package_document
-    )
-    return (
-        collection,
-        version = release_version,
-        tag,
-        reason = release_reason,
-        git_commit = commit,
-        path = destination,
-        archive,
-        archive_sha256,
-        tree_hash = string(hash),
-        artifact = artifact_name(collection),
-        package_path
-    )
+    mkpath(dirname(destination))
+    staging = mktempdir(dirname(destination))
+    try
+        archive_name = collection_archive_name(collection, release_version)
+        archive_sha256 = archive_artifact(hash, joinpath(staging, archive_name))
+        package_document = Dict(
+            "artifact" => Dict(
+                "archive" => archive_name,
+                "archive_sha256" => archive_sha256,
+                "name" => artifact_name(collection),
+                "tree_hash" => string(hash)
+            ),
+            "release" => release_document
+        )
+        _write_toml(joinpath(staging, "package.toml"), package_document)
+        # Only an explicitly forced local package may be replaced. A failed
+        # archive operation never leaves a release that appears complete.
+        force && ispath(destination) && rm(destination; recursive=true)
+        mv(staging, destination; force=false)
+        return (
+            collection,
+            version = release_version,
+            tag,
+            reason = release_reason,
+            git_commit = commit,
+            path = destination,
+            archive = joinpath(destination, archive_name),
+            archive_sha256,
+            tree_hash = string(hash),
+            artifact = artifact_name(collection),
+            package_path = joinpath(destination, "package.toml")
+        )
+    finally
+        isdir(staging) && rm(staging; recursive=true)
+    end
 end
 
 function bind_published_artifact(

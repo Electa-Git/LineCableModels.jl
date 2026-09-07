@@ -1,5 +1,6 @@
 [deps]
 PythonCall = "6099a3de-0909-46bc-b1f4-468b9a2dfc0d"
+TOML = "fa267f1f-6049-4f14-aa54-33bafae1ed76"
 
 [compat]
 PythonCall = "0.9"

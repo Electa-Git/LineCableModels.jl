@@ -84,7 +84,7 @@ case_definition(
             :earth_eps_r, 10.0; tags = (:material, :earth)
         ),
         frequencies = case_parameter(
-            :frequencies, collect(10.0 .^ range(0, stop = 6, length = 101));
+            :frequencies, collect(10.0 .^ range(-1, stop = 6, length = 101));
             tags = (:operation, :frequency)
         )
     ),

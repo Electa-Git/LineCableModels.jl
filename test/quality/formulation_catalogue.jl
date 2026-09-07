@@ -1,16 +1,17 @@
-@testitem "Quality / documentation / formulation catalogue ownership" tags = [:quality] begin
+@testitem "Quality / documentation / formula source ownership" tags = [:quality] begin
     using Base.Docs: DocStr, meta
     using DocStringExtensions: TypedMethodSignatures
     using LineCableModels
 
     root = pkgdir(LineCableModels)
-    page = read(
-        joinpath(root, "docs", "src", "transmission-line-parameters.md"),
-        String
-    )
-    navigation = read(joinpath(root, "docs", "make.jl"), String)
 
     categories = (
+        (
+            module_owner = LineCableModels.Engine.PipeImpedance,
+            registry = LineCableModels.Engine.PipeImpedance.formulas(),
+            path = ("engine", "pipeimpedance", "formulas"),
+            default = :default
+        ),
         (
             module_owner = LineCableModels.Engine.InternalImpedance,
             registry = LineCableModels.Engine.InternalImpedance.formulas(),
@@ -27,25 +28,25 @@
             module_owner = LineCableModels.Engine.InsulationAdmittance,
             registry = LineCableModels.Engine.InsulationAdmittance.formulas(),
             path = ("engine", "insulationadmittance", "formulas"),
-            default = :Ametani2004
+            default = :default
         ),
         (
             module_owner = LineCableModels.Engine.SemiconAdmittance,
             registry = LineCableModels.Engine.SemiconAdmittance.formulas(),
             path = ("engine", "semiconadmittance", "formulas"),
-            default = :Ametani2004
+            default = :default
         ),
         (
             module_owner = LineCableModels.Engine.EarthImpedance,
             registry = LineCableModels.Engine.EarthImpedance.formulas(),
             path = ("engine", "earthimpedance", "formulas"),
-            default = :Papadopoulos2010
+            default = :default
         ),
         (
             module_owner = LineCableModels.Engine.EarthAdmittance,
             registry = LineCableModels.Engine.EarthAdmittance.formulas(),
             path = ("engine", "earthadmittance", "formulas"),
-            default = :Papadopoulos2010
+            default = :default
         ),
         (
             module_owner = LineCableModels.Transforms,
@@ -74,8 +75,6 @@
             readdir(directory)
         ))
 
-        @test category.module_owner.DEFAULT === category.default
-        @test :default ∉ category.registry
         selected_default = category.module_owner.Formula(:default)
         if category.default === nothing
             @test selected_default === nothing
@@ -128,18 +127,6 @@
             @test isnothing(match(r"(?m)^\d{4}\.", scientific_text))
         end
 
-        module_name = string(category.module_owner)
-        @test occursin("Main.$module_name", page)
     end
 
-    @test count("```@eval", page) == length(categories)
-    @test !occursin("```@autodocs", page)
-    @test !occursin(r"(?m)^### `:", page)
-    @test !occursin("**Identification.**", page)
-    @test !occursin("**Expression.**", page)
-    @test !occursin("**Reference.**", page)
-    @test occursin(
-        "\"Transmission line parameters\" => \"transmission-line-parameters.md\"",
-        navigation
-    )
 end

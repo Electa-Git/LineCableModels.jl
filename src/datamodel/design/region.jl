@@ -32,6 +32,11 @@ $(TYPEDEF)
 Pair one physical region with its resolved primitive, retained terminal, and
 backend-neutral placement and path declarations.
 
+Each placement retains its physical scope through the existing owner type.
+`Assembly` placements preserve independent terminals and are not strand courses.
+An enclosing `Group` coalesces those placements into its own terminal scope.
+Member indices, placement poses and longitudinal paths remain unchanged.
+
 $(TYPEDFIELDS)
 """
 struct PlacedRegion{
@@ -46,7 +51,7 @@ struct PlacedRegion{
     primitive::S
     "Retained electrical terminal, or `nothing` for a nonconductive region."
     terminal::Union{Nothing, Symbol}
-    "Ordered placement declarations that produced the resolved primitive pose."
+    "Ordered `(owner, pattern, member, pose)` placements; `Group` coalesces terminals, `Assembly` preserves them."
     placement::P
     "Ordered `(path, radius)` declarations traversed by the region."
     paths::H
@@ -73,11 +78,12 @@ struct PlacedRegion{
             "placed-region patterns must be a tuple"
         ))
         all(placement.patterns) do entry
-            entry isa NamedTuple && keys(entry) == (:pattern, :member, :pose) &&
+            entry isa NamedTuple && keys(entry) == (:owner, :pattern, :member, :pose) &&
+                entry.owner isa Type && entry.owner <: AbstractCablePart &&
                 entry.member isa Integer && entry.member > 0 &&
                 entry.pose isa Pose2
         end || throw(ArgumentError(
-            "placed-region patterns must contain positive member indices and poses"
+            "placed-region patterns must contain a physical owner type, positive member indices and poses"
         ))
         all(paths) do entry
             entry isa NamedTuple && keys(entry) == (:path, :radius) &&

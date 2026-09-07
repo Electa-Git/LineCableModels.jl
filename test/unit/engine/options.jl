@@ -55,6 +55,7 @@
     default_execution=@inferred Grammar.computation_options(computation_type, (;))
     @test default_execution.output_basis == Val(:pul)
     @test default_execution.trace == Val(false)
+    @test default_execution.on_result === nothing
     execution=Grammar.computation_options(
         computation_type, (
             verbosity = (default = 1, NLsolve = 0),
@@ -64,7 +65,8 @@
     @test execution == (
         verbosity = (default = 1, NLsolve = 0),
         output_basis = Val(:total),
-        trace = Val(true)
+        trace = Val(true),
+        on_result = nothing
     )
     @test Engine.verbosity(execution, :NLsolve) == 0
     @test Engine.verbosity(execution, :unlisted) == 1

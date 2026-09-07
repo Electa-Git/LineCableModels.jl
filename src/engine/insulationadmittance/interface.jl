@@ -53,10 +53,6 @@ function Formula(identifier::Symbol; route = nothing, kwargs...)
     Formula(Val(identifier); route, kwargs...)
 end
 
-function Formula(::Val{:default}; route = nothing, kwargs...)
-    Formula(Val(DEFAULT); route, kwargs...)
-end
-
 function Formula(::Val{ID}; route = nothing, kwargs...) where {ID}
     tag = Val(ID)
     ID in FORMULAS || throw(ArgumentError(
@@ -97,14 +93,6 @@ function Formula(
         values::A = (;)
 ) where {ID, R, A <: NamedTuple}
     return Formula{ID, R, A}(route, values)
-end
-
-function Formula(
-        ::Val{:default},
-        route::R,
-        values::A = (;)
-) where {R, A <: NamedTuple}
-    return Formula(Val(DEFAULT), route, values)
 end
 
 @inline function (formula::Formula)(

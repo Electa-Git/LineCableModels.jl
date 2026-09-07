@@ -126,6 +126,7 @@ function _execution_record(execution::NamedTuple)
         backend = execution.backend,
         version = String(version),
         elapsed_seconds = execution.elapsed_seconds,
+        elapsed_scope = get(execution, :elapsed_scope, "unrecorded"),
         exit_code = execution.exit_code
     )
 end

@@ -157,9 +157,15 @@ function _histogram_observation(
         indices::Tuple,
         bins::Union{Nothing, Integer}
 )
+    bins === nothing || bins > 0 || throw(ArgumentError("histogram bins must be positive"))
     if value.histogram_values !== nothing
         stored = _monte_carlo_field(value.histogram_values[point], selector)
-        return _product_value(stored, indices)
+        histogram = _product_value(stored, indices)
+        (bins === nothing || length(histogram.density) == bins) && return histogram
+        value.sample_values === nothing && throw(ArgumentError(
+            "Changing histogram bins requires retained samples; use " *
+            "MonteCarlo(...; return_samples=true), or keep the retained bin count",
+        ))
     end
     retained = value.sample_values
     retained === nothing && throw(ArgumentError(
@@ -170,6 +176,34 @@ function _histogram_observation(
     return HistogramDensity(collect(sample); bins)
 end
 
+"""
+$(TYPEDSIGNATURES)
+
+Observe a cable-constant marginal as a [`HistogramDensity`](@ref), using
+retained samples when a new binning is requested. No simulation is performed
+and retained products are not modified.
+
+# Arguments
+
+- `value`: Monte Carlo result.
+- `histograms`: Histogram product selector.
+- `selector`: `R`, `L`, `C`, or `G`.
+- `point`: Gridspace point index.
+- `assembly`: Cable assembly index.
+- `bins`: Positive bin count, or `nothing` to reuse the retained model. Without
+  a retained model, `nothing` selects the sample-based automatic bin count.
+
+# Returns
+
+- A normalized histogram in the observed quantity's native units. Constant
+  samples produce one finite-width bin, irrespective of the requested count.
+
+# Errors
+
+An `ArgumentError` is raised for nonpositive counts or when deriving a new
+histogram requires samples that were not retained. A retained model can be
+reused without samples when its bin count matches the request.
+"""
 function observe(
         value::MonteCarloResult{<:Engine.CableConstants},
         ::typeof(histograms),
@@ -181,6 +215,14 @@ function observe(
     return _histogram_observation(value, selector, point, (assembly,), bins)
 end
 
+"""
+$(TYPEDSIGNATURES)
+
+Observe a line-parameter histogram at one matrix element and frequency index.
+The `bins` argument follows the same retention and derivation rules as the
+cable-constant histogram observation; `row`, `column`, and `frequency` select
+the marginal in place of `assembly`.
+"""
 function observe(
         value::MonteCarloResult{<:Engine.LineParameters},
         ::typeof(histograms),

@@ -74,8 +74,7 @@ horizontal separation set to the conductor radius.
 function earth_potential_coefficient(
         ::Val{:Theethayi2007}, ::Val{:mutual}, functor, pair
 )
-    _require(pair, Val(:underground))
-    pair.row == pair.column || _require_horizontal_separation(pair)
+    validate(pair, FormulaMethod(Val(:Theethayi2007), earth_potential_coefficient, Val(:mutual)), functor)
     state = functor.state
     Z_e = functor.routes.impedance(state, pair)
     return state.jω * Z_e / state.gamma_medium_squared[2]
@@ -91,6 +90,29 @@ function earth_impedance(
         log((1 + argument) / argument) +
         2exp(-geometry.H * abs(gamma)) / (4 + argument^2)
     )
+end
+
+function validate(
+        pair::EarthPair, route::FormulaMethod{:Theethayi2007, typeof(earth_potential_coefficient)}, formula
+)
+    validate(pair)
+    (pair.layers[1] > 1 && pair.layers[2] > 1) || throw(ArgumentError(
+        ":Theethayi2007 earth potential coefficient requires underground conductors; pair ($(pair.row), $(pair.column)) has layers $(pair.layers)"))
+    pair.row != pair.column && iszero(pair.separation) && throw(DomainError(
+        pair.separation, ":Theethayi2007 mutual closed form requires nonzero horizontal cable separation"))
+    validate(pair, formula.routes.impedance, formula)
+    return pair
+end
+
+function validate(
+        pair::EarthPair, route::FormulaMethod{:Theethayi2007, typeof(earth_impedance)}, formula
+)
+    validate(pair)
+    (pair.layers[1] > 1 && pair.layers[2] > 1) || throw(ArgumentError(
+        ":Theethayi2007 impedance support requires underground conductors"))
+    pair.row != pair.column && iszero(pair.separation) && throw(DomainError(
+        pair.separation, ":Theethayi2007 mutual closed form requires nonzero horizontal cable separation"))
+    return pair
 end
 
 :Theethayi2007

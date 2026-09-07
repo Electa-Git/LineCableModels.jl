@@ -60,7 +60,7 @@ a_1=\sqrt{\lambda^2+\gamma_1^2-\gamma_0^2}.
 function earth_impedance(
         ::Val{:Wise1934}, ::Val{:mutual}, functor, pair
 )
-    _require(pair, Val(:overhead))
+    validate(pair, FormulaMethod(Val(:Wise1934), earth_impedance, Val(:mutual)), functor)
     state = functor.state
     geometry = _geometry(pair)
     contrast = state.gamma_medium_squared[2] - state.gamma_medium_squared[1]
@@ -71,6 +71,15 @@ function earth_impedance(
     end
     return state.jω * state.mu[1] / (2π) *
            (log(geometry.D_ij / geometry.d_ij) + 2 * integral)
+end
+
+function validate(
+        pair::EarthPair, route::FormulaMethod{:Wise1934, typeof(earth_impedance)}, formula
+)
+    validate(pair)
+    (pair.layers == (1, 1)) || throw(ArgumentError(
+        ":Wise1934 earth impedance requires overhead conductors; pair ($(pair.row), $(pair.column)) has layers $(pair.layers)"))
+    return pair
 end
 
 :Wise1934

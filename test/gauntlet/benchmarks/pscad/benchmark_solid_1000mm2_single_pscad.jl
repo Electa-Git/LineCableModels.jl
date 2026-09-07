@@ -8,12 +8,12 @@
 
     model=load_case(:solid_1000mm2_single)
     reference_formulation=Formulation(
-        :pscad; earth_impedance = :Wedepohl
+        :pscad; earth_impedance = :WedepohlWilcox1973
     )
     candidate_formulation=Formulation(
-        earth_impedance = :Pollaczek,
+        earth_impedance = :Pollaczek1926,
         earth_admittance = :IdealGround,
-        insulation_admittance = formula(:Lossless),
+        insulation_admittance = formula(:default),
         options = (
             kron_reduction = false,
             reduce_bundle = false,

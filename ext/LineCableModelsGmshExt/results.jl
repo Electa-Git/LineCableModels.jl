@@ -281,12 +281,41 @@ function _parse_scan(
     return FEMScan(Z, P, maps)
 end
 
+function _write_scan_checksums(run::FEMRun, scan::FEMScan)
+    paths = [joinpath(run.path, "raw", name)
+        for name in ("Z.tsv", "P.tsv", "scan_complete.tsv")]
+    append!(paths, scan.map_paths)
+    checksums = Dict(relpath(path, run.path) => bytes2hex(open(sha256, path)) for path in paths)
+    _write_json_atomic(joinpath(run.path, "raw", "checksums.json"), checksums)
+    return nothing
+end
+
+function _check_scan_checksums(run::FEMRun, scan::FEMScan)
+    path = joinpath(run.path, "raw", "checksums.json")
+    checksums = try
+        JSON3.read(read(path, String))
+    catch
+        nothing
+    end
+    paths = [joinpath(run.path, "raw", name)
+        for name in ("Z.tsv", "P.tsv", "scan_complete.tsv")]
+    append!(paths, scan.map_paths)
+    checksums isa AbstractDict && length(checksums) == length(paths) && all(paths) do file
+        key = relpath(file, run.path)
+        haskey(checksums, key) && checksums[key] == bytes2hex(open(sha256, file))
+    end || _fem_error(:results, "completed scan", :checksum,
+        "completed FEM raw results failed their checksum check; preserved run: $(run.path)";
+        run_directory=run.path)
+    return nothing
+end
+
 function _line_parameters(
         run::FEMRun,
         model::FEMResolvedModel{T},
         formulation::LineCableModelsFEM,
         execution::NamedTuple,
-        scan::FEMScan{T}
+        scan::FEMScan{T},
+        inputs::NamedTuple
 ) where {T <: Real}
     reduced = Engine.reduce_primitive_matrices(
         scan.Z,
@@ -319,8 +348,10 @@ function _line_parameters(
         phase_map = copy(model.problem.system.connection_order)
     ) : nothing
     details = (
+        formulations = formulation_record(formulation),
         fem = (
         run = record,
+        inputs,
         terminal_ids = copy(model.terminal_ids),
         reduced_phase_map = reduced.phase_map,
         inversion_residuals = inversion.residuals,

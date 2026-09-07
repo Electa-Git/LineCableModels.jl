@@ -3,7 +3,10 @@ function _performance_identity()
         julia_version = string(VERSION),
         kernel = string(Sys.KERNEL),
         architecture = string(Sys.ARCH),
+        cpu = Sys.CPU_NAME,
+        cpu_threads = Sys.CPU_THREADS,
         threads = Threads.nthreads(),
+        blas_threads = BLAS.get_num_threads(),
         blas = sprint(show, BLAS.get_config())
     )
 end

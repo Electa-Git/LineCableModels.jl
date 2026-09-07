@@ -60,9 +60,6 @@ end
 function (formula::Formula{:Papadopoulos2011})(
         rho, epsilon, mu, jω, Γ, segments, thickness
 )
-    length(rho) == 3 || throw(DimensionMismatch(
-        ":Papadopoulos2011 requires air and exactly two earth layers"
-    ))
     return _stratified_functor(
         Val(:Papadopoulos2011), formula,
         rho, epsilon, mu, jω, Γ, segments, thickness
@@ -93,9 +90,7 @@ traceable in code. Conductors must lie in the finite top earth layer.
 function earth_potential_coefficient(
         ::Val{:Papadopoulos2011}, ::Val{:mutual}, functor, pair
 )
-    pair.layers == (2, 2) || throw(ArgumentError(
-        ":Papadopoulos2011 requires both conductors in the top earth layer"
-    ))
+    validate(pair, FormulaMethod(Val(:Papadopoulos2011), earth_potential_coefficient, Val(:mutual)), functor)
     state = functor.state
     geometry = _geometry(pair)
     hi, hj = geometry.h_i, geometry.h_j
@@ -155,6 +150,21 @@ function earth_potential_coefficient(
     end
     kappa = state.sigma[2] + state.jω * state.epsilon[2]
     return state.jω / (2π * kappa) * (direct + integral)
+end
+
+function validate(
+        pair::EarthPair, route::FormulaMethod{:Papadopoulos2011, typeof(earth_potential_coefficient)}, formula
+)
+    validate(pair)
+    pair.layers == (2, 2) || throw(ArgumentError(
+        ":Papadopoulos2011 requires both conductors in the top earth layer"))
+    return pair
+end
+
+function validate(formula::Formula{:Papadopoulos2011}, layer_count::Integer)
+    layer_count == 3 || throw(DimensionMismatch(
+        ":Papadopoulos2011 requires air and exactly two earth layers"))
+    return formula
 end
 
 :Papadopoulos2011

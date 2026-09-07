@@ -160,8 +160,13 @@ function publication_table(
             for column in eachindex(columns)
             for statistic in _SAMPLE_STATISTICS]
     values = map(observations) do payload
+        # Scalar indices drop dimensions in the observed Julia array. Restore
+        # the selected coordinate shape once before traversing table rows.
+        summaries = reshape(
+            payload.values isa AbstractArray ? payload.values : [payload.values],
+            length(rows), length(columns), length(samples))
         [_summary_value(
-             payload.values[entry[2], entry[3], entry[1]],
+             summaries[entry[2], entry[3], entry[1]],
              entry[4]
          ) for entry in keys]
     end

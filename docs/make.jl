@@ -4,10 +4,10 @@ using CairoMakie
 using JLD2
 using LineCableModels
 using Literate
-using Markdown
 using TOML
 
 include("type_trees.jl")
+include("gauntlet_report.jl")
 
 const ROOT_DIR = normpath(joinpath(@__DIR__, ".."))
 const DOCS_SRC_DIR = joinpath(@__DIR__, "src")
@@ -104,34 +104,6 @@ function project_metadata()
     )
 end
 
-function formulation_catalogue(module_owner::Module, path::AbstractString...)
-    directory = normpath(joinpath(ROOT_DIR, "src", path...))
-    entries = NamedTuple[]
-
-    for (binding, multidoc) in Base.Docs.meta(module_owner)
-        binding.var === :description || continue
-        for (typesig, docstring) in multidoc.docs
-            source = normpath(String(docstring.data[:path]))
-            dirname(source) == directory || continue
-
-            formula_type = only(typesig.parameters)
-            identifier = first(Base.unwrap_unionall(formula_type).parameters)
-            body = join(filter(
-                value -> value isa AbstractString,
-                collect(docstring.text)
-            ))
-            push!(entries, (; source, identifier, body = strip(body)))
-        end
-    end
-
-    sort!(entries; by = entry -> basename(entry.source))
-    isempty(entries) && error("no formulation docstrings found in $directory")
-    return Markdown.parse(join(
-        ("### `:$(entry.identifier)`\n\n$(entry.body)" for entry in entries),
-        "\n\n"
-    ))
-end
-
 function strip_literate_footer(content::AbstractString)
     return replace(
         content,
@@ -171,7 +143,6 @@ function build_tutorials!()
 end
 
 function generate_maintained_pages!()
-    cp(joinpath(ROOT_DIR, "TODO.md"), joinpath(DOCS_SRC_DIR, "TODO.md"); force = true)
     Literate.markdown(
         PLOTTING_SOURCE,
         DOCS_SRC_DIR;
@@ -184,7 +155,9 @@ function generate_maintained_pages!()
         DOCS_SRC_DIR;
         documenter = true,
         credit = false,
-        postprocess = normalize_literate_page
+        postprocess = content -> replace(normalize_literate_page(content),
+            "<!-- GAUNTLET_REPORT -->" => render_gauntlet_report(
+                get(ENV, "LINECABLEMODELS_GAUNTLET_RESULTS", nothing)))
     )
     return nothing
 end
@@ -437,7 +410,6 @@ makedocs(;
         "User guide" => Any[
             "Cable data model" => "data-model.md",
             "Modelling and results" => "usage.md",
-            "Transmission line parameters" => "transmission-line-parameters.md",
             "Gmsh/GetDP FEM backend" => "fem.md",
             "Gridspace and uncertainty" => "gridspace.md"
         ],
@@ -456,8 +428,7 @@ makedocs(;
             "Conventions" => "conventions.md",
             "Computational engine" => "engine.md",
             "Makie plotting" => "plotting.md",
-            "Contributing" => "contributing.md",
-            "TODO" => "TODO.md"
+            "Contributing" => "contributing.md"
         ],
         "Bibliography" => "bibliography.md"
     ],

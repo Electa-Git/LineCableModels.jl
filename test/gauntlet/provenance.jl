@@ -1,7 +1,23 @@
 const REPOSITORY_ROOT = pkgdir(LineCableModels)
 
-const COAXIAL_IMPLEMENTATION_PATHS = (
+const FLATTEN_IMPLEMENTATION_PATHS = (
     "src/datamodel/flatten.jl",
+    "src/datamodel/baseparams/geometry.jl",
+    "src/datamodel/baseparams/resistance.jl",
+    "src/datamodel/baseparams/inductance.jl",
+    "src/datamodel/baseparams/dielectrics.jl",
+    "src/datamodel/placement/paths.jl",
+    "src/datamodel/geometry/primitives.jl",
+    "src/datamodel/geometry/sector.jl",
+    "src/datamodel/geometry/ellipse.jl",
+    "src/datamodel/design/assembly.jl",
+    "src/datamodel/placement/bounded.jl",
+    "src/materials/material.jl"
+)
+
+const COAXIAL_IMPLEMENTATION_PATHS = (
+    FLATTEN_IMPLEMENTATION_PATHS...,
+    "src/engine/formulations.jl",
     "src/engine/blueprint.jl",
     "src/engine/input.jl",
     "src/engine/impedance.jl",
@@ -15,67 +31,33 @@ const COAXIAL_IMPLEMENTATION_PATHS = (
     "src/engine/problems.jl"
 )
 
-function _canonical_write(io::IO, value)
-    if value === nothing
-        print(io, "null;")
-    elseif value isa Bool
-        print(io, value ? "true;" : "false;")
-    elseif value isa Integer
-        print(io, "i", typeof(value), ':', value, ';')
-    elseif value isa AbstractFloat
-        print(io, "f", typeof(value), ':', repr(value), ';')
-    elseif value isa Complex
-        print(io, "c", typeof(value), '(')
-        _canonical_write(io, real(value))
-        _canonical_write(io, imag(value))
-        print(io, ");")
-    elseif value isa AbstractString
-        print(io, "s", ncodeunits(value), ':', value, ';')
-    elseif value isa Symbol
-        _canonical_write(io, String(value))
-    elseif value isa AbstractVector || value isa Tuple
-        print(io, "a", length(value), '[')
-        foreach(item -> _canonical_write(io, item), value)
-        print(io, "];")
-    elseif value isa NamedTuple
-        print(io, "n", length(value), '{')
-        for (name, item) in pairs(value)
-            _canonical_write(io, String(name))
-            _canonical_write(io, item)
-        end
-        print(io, "};")
-    elseif value isa AbstractDict
-        ordered = sort!(collect(keys(value)); by = string)
-        print(io, "d", length(ordered), '{')
-        for key in ordered
-            _canonical_write(io, string(key))
-            _canonical_write(io, value[key])
-        end
-        print(io, "};")
-    else
-        throw(ArgumentError(
-            "semantic provenance cannot encode $(typeof(value)); lower it to scalar records first",
-        ))
-    end
-    return io
-end
+include("fingerprints.jl")
 
 _selection_value(value::Union{Nothing, Bool, Number, AbstractString, Symbol}) = value
-_selection_value(value::Function) = string(typeof(value))
+_selection_value(value::Type) = string(value)
 _selection_value(value::NamedTuple) = map(_selection_value, value)
 _selection_value(value::Tuple) = map(_selection_value, value)
 _selection_value(value::AbstractVector) = _selection_value.(value)
-_selection_value(value) = string(typeof(value))
-
-function semantic_sha256(value)
-    io = IOBuffer()
-    _canonical_write(io, value)
-    return bytes2hex(sha256(take!(io)))
+function _selection_value(value)
+    ismutabletype(typeof(value)) && throw(ArgumentError(
+        "formula provenance cannot fingerprint mutable $(typeof(value)); provide immutable numerical route inputs"))
+    names = fieldnames(typeof(value))
+    return (type=string(typeof(value)), fields=NamedTuple{names}(
+        map(name -> _selection_value(getfield(value, name)), names)))
 end
+
 
 "Return a digest of the materialised numerical declarations in one problem."
 function numerical_input_sha256(problem::LineCableModels.Engine.LineParametersProblem)
-    return semantic_sha256(LineCableModels.ImportExport.serialize_value(problem))
+    # JSON transport retains the declaration, not the resolved physical tree.
+    # Both are inputs to reuse: a placement change must not resurrect results
+    # computed from the same declaration by an older resolver.
+    resolved = map(problem.system.designs) do design
+        _selection_value((geometry=design.geometry,
+            terminal_order=design.terminal_order, terminal_map=design.terminal_map))
+    end
+    return semantic_sha256((schema_version=2,
+        declaration=LineCableModels.ImportExport.serialize_value(problem), resolved))
 end
 
 function repository_provenance()
@@ -144,9 +126,9 @@ function _selection_record(value)
     assumptions = hasproperty(value, :assumptions) ?
                   _selection_value(value.assumptions) : (;)
     routes = if hasproperty(value, :routes)
-        map(route -> string(typeof(route)), value.routes)
+        map(_selection_value, value.routes)
     elseif hasproperty(value, :route)
-        string(typeof(value.route))
+        _selection_value(value.route)
     else
         nothing
     end
@@ -165,6 +147,8 @@ function formulation_record(formulation::LineCableModels.Engine.LineParametersFo
         (order = nameof(typeof(equivalent)), rule = _selection_record(rule))
     end
     return (
+        schema_version = 1,
+        backend = :coaxial,
         internal_impedance = _selection_record(methods.internal_impedance),
         insulation_impedance = _selection_record(methods.insulation_impedance),
         earth_impedance = _selection_record(methods.earth_impedance),
@@ -173,6 +157,7 @@ function formulation_record(formulation::LineCableModels.Engine.LineParametersFo
         earth_admittance = _selection_record(methods.earth_admittance),
         earth_properties = _selection_record(methods.earth_properties),
         equivalent_earth = equivalent_record,
+        pipe_impedance = _selection_record(methods.pipe_impedance),
         options = formulation.options
     )
 end
@@ -193,6 +178,7 @@ function implementation_record(
         "src/engine/earthimpedance/homogeneous.jl",
         "src/engine/earthadmittance/interface.jl",
         "src/engine/earthadmittance/homogeneous.jl",
+        "src/engine/pipeimpedance/interface.jl",
         "src/earthprops/ehem/interface.jl",
         "src/earthprops/fd/interface.jl"
     ))
@@ -202,7 +188,8 @@ function implementation_record(
         ("insulationadmittance", methods.insulation_admittance),
         ("semiconadmittance", methods.semicon_admittance),
         ("earthimpedance", methods.earth_impedance),
-        ("earthadmittance", methods.earth_admittance)
+        ("earthadmittance", methods.earth_admittance),
+        ("pipeimpedance", methods.pipe_impedance)
     )
         append!(paths, _formula_paths(family, formula))
     end

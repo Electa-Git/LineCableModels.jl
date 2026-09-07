@@ -70,7 +70,7 @@ M_{ij}+jN_{ij}=2\int_0^\infty
 function earth_potential_coefficient(
         ::Val{:Wise1948}, ::Val{:mutual}, functor, pair
 )
-    _require(pair, Val(:overhead))
+    validate(pair, FormulaMethod(Val(:Wise1948), earth_potential_coefficient, Val(:mutual)), functor)
     state = functor.state
     geometry = _geometry(pair)
     gamma_0_squared, gamma_1_squared = state.gamma_medium_squared
@@ -82,6 +82,15 @@ function earth_potential_coefficient(
     end
     return (log(geometry.D_ij / geometry.d_ij) + 2 * integral) /
            (2π * state.epsilon[1])
+end
+
+function validate(
+        pair::EarthPair, route::FormulaMethod{:Wise1948, typeof(earth_potential_coefficient)}, formula
+)
+    validate(pair)
+    (pair.layers == (1, 1)) || throw(ArgumentError(
+        ":Wise1948 earth potential coefficient requires overhead conductors; pair ($(pair.row), $(pair.column)) has layers $(pair.layers)"))
+    return pair
 end
 
 :Wise1948

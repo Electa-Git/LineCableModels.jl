@@ -58,7 +58,7 @@ The cable outer radius is supplied by the self-pair separation field.
 function earth_impedance(
         ::Val{:Vance1978}, ::Val{:self}, functor, pair
 )
-    _require(pair, Val(:underground))
+    validate(pair, FormulaMethod(Val(:Vance1978), earth_impedance, Val(:self)), functor)
     state = functor.state
     radius = pair.separation
     argument = im * state.gamma[2] * radius
@@ -70,11 +70,18 @@ end
 function earth_impedance(
         ::Val{:Vance1978}, ::Val{:mutual}, functor, pair
 )
-    _require(pair, Val(:underground))
-    throw(ArgumentError(
-        "Vance1978 supplies only a single-cable self impedance; " *
-        "the cited formula has no mutual route"
-    ))
+    validate(pair, FormulaMethod(Val(:Vance1978), earth_impedance, Val(:mutual)), functor)
+end
+
+function validate(
+        pair::EarthPair, route::FormulaMethod{:Vance1978, typeof(earth_impedance)}, formula
+)
+    validate(pair)
+    (pair.layers[1] > 1 && pair.layers[2] > 1) || throw(ArgumentError(
+        ":Vance1978 earth impedance requires underground conductors; pair ($(pair.row), $(pair.column)) has layers $(pair.layers)"))
+    route.arguments == (Val(:self),) || throw(ArgumentError(
+        "Vance1978 supplies only a single-cable self impedance; the cited formula has no mutual route"))
+    return pair
 end
 
 :Vance1978

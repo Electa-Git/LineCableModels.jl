@@ -73,7 +73,7 @@ J. R. Carson, "Wave propagation in overhead wires with ground return,"
 function earth_impedance(
         ::Val{:Carson1926}, ::Val{:mutual}, functor, pair
 )
-    _require(pair, Val(:overhead))
+    validate(pair, FormulaMethod(Val(:Carson1926), earth_impedance, Val(:mutual)), functor)
     state = functor.state
     geometry = _geometry(pair)
     gamma_squared = state.gamma_medium_squared[2]
@@ -85,6 +85,15 @@ function earth_impedance(
     πT = one(geometry.H) * π
     return state.jω * state.mu[1] / (2πT) *
            (log(geometry.D_ij / geometry.d_ij) + 2 * integral)
+end
+
+function validate(
+        pair::EarthPair, route::FormulaMethod{:Carson1926, typeof(earth_impedance)}, formula
+)
+    validate(pair)
+    (pair.layers == (1, 1)) || throw(ArgumentError(
+        ":Carson1926 earth impedance requires overhead conductors; pair ($(pair.row), $(pair.column)) has layers $(pair.layers)"))
+    return pair
 end
 
 :Carson1926

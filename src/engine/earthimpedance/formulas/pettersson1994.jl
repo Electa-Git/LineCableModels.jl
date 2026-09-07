@@ -76,7 +76,7 @@ pp. 1049-1055, 1994. DOI: 10.1109/61.296290.
 function earth_impedance(
         ::Val{:Pettersson1994}, ::Val{:mutual}, functor, pair
 )
-    _require(pair, Val(:overhead))
+    validate(pair, FormulaMethod(Val(:Pettersson1994), earth_impedance, Val(:mutual)), functor)
     state = functor.state
     geometry = _geometry(pair)
     βγ = sqrt(
@@ -85,6 +85,15 @@ function earth_impedance(
     image = sqrt((geometry.H + 2 / βγ)^2 + geometry.y_ij^2)
     πT = one(geometry.H) * π
     return state.jω * state.mu[1] / (2πT) * log(image / geometry.d_ij)
+end
+
+function validate(
+        pair::EarthPair, route::FormulaMethod{:Pettersson1994, typeof(earth_impedance)}, formula
+)
+    validate(pair)
+    (pair.layers == (1, 1)) || throw(ArgumentError(
+        ":Pettersson1994 earth impedance requires overhead conductors; pair ($(pair.row), $(pair.column)) has layers $(pair.layers)"))
+    return pair
 end
 
 :Pettersson1994

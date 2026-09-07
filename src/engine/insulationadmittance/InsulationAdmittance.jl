@@ -3,7 +3,7 @@
 
 Define registered constitutive relations for cable-insulation admittance.
 `:Ametani2004` retains material conduction and displacement current;
-`:Gustavsen2013` selects the conventional lossless approximation.
+`:default` explicitly selects the lossless approximation.
 
 # Dependencies
 
@@ -27,9 +27,6 @@ import ...LineCableModels: constitutive
 #! explicit-imports: off
 import ..Engine: description, conductivity
 #! explicit-imports: on
-
-"Registered insulation-admittance formula selected by `:default`."
-const DEFAULT = :Ametani2004
 
 include("interface.jl")
 

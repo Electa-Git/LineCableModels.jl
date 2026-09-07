@@ -56,9 +56,6 @@ end
 function (formula::Formula{:Ametani1974})(
         rho, epsilon, mu, jω, Γ, segments, thickness
 )
-    length(rho) == 3 || throw(DimensionMismatch(
-        ":Ametani1974 requires air and exactly two earth layers"
-    ))
     return _stratified_functor(
         Val(:Ametani1974), formula,
         rho, epsilon, mu, jω, Γ, segments, thickness
@@ -82,7 +79,7 @@ where ``b_m=a_m/\mu_m`` and
 function earth_impedance(
         ::Val{:Ametani1974}, ::Val{:mutual}, functor, pair
 )
-    _require(pair, Val(:overhead))
+    validate(pair, FormulaMethod(Val(:Ametani1974), earth_impedance, Val(:mutual)), functor)
     state = functor.state
     geometry = _geometry(pair)
     d = state.thickness[2]
@@ -101,6 +98,21 @@ function earth_impedance(
     end
     return state.jω * state.mu[1] / (2π) *
            (log(geometry.D_ij / geometry.d_ij) + 2 * integral)
+end
+
+function validate(
+        pair::EarthPair, route::FormulaMethod{:Ametani1974, typeof(earth_impedance)}, formula
+)
+    validate(pair)
+    (pair.layers == (1, 1)) || throw(ArgumentError(
+        ":Ametani1974 earth impedance requires overhead conductors; pair ($(pair.row), $(pair.column)) has layers $(pair.layers)"))
+    return pair
+end
+
+function validate(formula::Formula{:Ametani1974}, layer_count::Integer)
+    layer_count == 3 || throw(DimensionMismatch(
+        ":Ametani1974 requires air and exactly two earth layers"))
+    return formula
 end
 
 :Ametani1974

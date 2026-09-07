@@ -32,7 +32,10 @@
                 :conductor_order,
                 :local_layer_depth
             ),
-            unregistered = (:DeriSemlyen1981,),
+            unregistered = filter(identifier -> identifier !== :default &&
+                EN.EarthImpedance.propagation(Val(identifier)) === Val(:backend),
+                EN.EarthImpedance.REGISTERED),
+            selectors = (:default,),
             override = :self
         ),
         (
@@ -50,6 +53,7 @@
                 :integral_terms
             ),
             description_exceptions = (:IdealGround,),
+            selectors = (:default,),
             override = :self
         ),
         (
@@ -127,6 +131,7 @@
         files=sort(filter(endswith(".jl"), readdir(directory)))
         unregistered=haskey(catalogue, :unregistered) ?
                      catalogue.unregistered : ()
+        selectors = get(catalogue, :selectors, ())
         description_exceptions=haskey(catalogue, :description_exceptions) ?
                                catalogue.description_exceptions : ()
         templates=haskey(catalogue, :templates) ?
@@ -143,13 +148,25 @@
             discovered=Symbol(only(matches).captures[1])
             sources[discovered]=(file, source)
         end
-        @test Set(keys(sources)) == union(Set(identifiers), Set(unregistered))
+        @test Set(keys(sources)) == union(Set(identifiers), Set(unregistered), Set(selectors))
+        for identifier in selectors
+            selected = owner.Formula(identifier)
+            @test formula_id(selected) === identifier
+            @test isconcretetype(typeof(selected))
+            @test !isempty(description(selected))
+            for placement in (:overhead, :underground)
+                resolved = owner.Formula(selected, Val(placement))
+                @test formula_id(resolved) in identifiers
+                @test all(route -> route isa FM, values(owner.routes(resolved)))
+            end
+            @test_throws ArgumentError owner.Formula(selected, Val(:mixed))
+        end
 
         for identifier in identifiers
             formula=owner.Formula(identifier)
             @test formula_id(formula) === identifier
             @test !isempty(description(formula))
-            if !(identifier in description_exceptions)
+            if identifier !== :default && !(identifier in description_exceptions)
                 @test occursin(
                     r"\(\d{4}(?:/\d{4})?\)$",
                     description(formula)
@@ -171,6 +188,18 @@
             for matched in eachmatch(named_method, source)
                 method_name=Symbol(matched.captures[1])
                 method_name in common_methods && continue
+                if method_name === :validate
+                    @test owner in (EN.EarthImpedance, EN.EarthAdmittance)
+                    arguments = matched.captures[2]
+                    if occursin("pair::EarthPair", arguments)
+                        @test occursin("FormulaMethod{:$identifier,", arguments)
+                    else
+                        @test occursin("formula::Formula{:$identifier}", arguments)
+                        @test occursin("layers::Union{Tuple, AbstractVector}", arguments) ||
+                              occursin("layer_count::Integer", arguments)
+                    end
+                    continue
+                end
                 @test method_name in catalogue.methods
                 arguments=strip(matched.captures[2])
                 identity=Regex(
@@ -185,10 +214,9 @@
             formula=owner.Formula(identifier)
             @test formula_id(formula) === identifier
             @test !isempty(description(formula))
-            @test occursin(
-                r"\(\d{4}(?:/\d{4})?\)$",
-                description(formula)
-            )
+            if occursin(r"\d{4}$", string(identifier))
+                @test occursin(r"\(\d{4}(?:/\d{4})?\)$", description(formula))
+            end
             @test isempty(owner.routes(formula))
         end
 

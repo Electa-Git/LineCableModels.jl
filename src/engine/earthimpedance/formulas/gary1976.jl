@@ -60,12 +60,21 @@ supplies the outer radius as ``y_{ii}=r_i``.
 function earth_impedance(
         ::Val{:Gary1976}, ::Val{:mutual}, functor, pair
 )
-    _require(pair, Val(:overhead))
+    validate(pair, FormulaMethod(Val(:Gary1976), earth_impedance, Val(:mutual)), functor)
     state = functor.state
     geometry = _geometry(pair)
     h_e = inv(state.gamma[2])
     S_ij = sqrt((geometry.H + 2h_e)^2 + geometry.y_ij^2)
     return state.jω * state.mu[1] / (2π) * log(S_ij / geometry.d_ij)
+end
+
+function validate(
+        pair::EarthPair, route::FormulaMethod{:Gary1976, typeof(earth_impedance)}, formula
+)
+    validate(pair)
+    (pair.layers == (1, 1)) || throw(ArgumentError(
+        ":Gary1976 earth impedance requires overhead conductors; pair ($(pair.row), $(pair.column)) has layers $(pair.layers)"))
+    return pair
 end
 
 :Gary1976

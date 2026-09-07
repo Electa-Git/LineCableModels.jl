@@ -74,7 +74,7 @@ where ``u_m=\sqrt{\lambda^2+\gamma_m^2}``.
 function earth_impedance(
         ::Val{:Xue2018}, ::Val{:mutual}, functor, pair
 )
-    _require(pair, Val(:underground))
+    validate(pair, FormulaMethod(Val(:Xue2018), earth_impedance, Val(:mutual)), functor)
     state = functor.state
     geometry = _geometry(pair)
     gamma_0_squared, gamma_1_squared = state.gamma_medium_squared
@@ -95,6 +95,15 @@ function earth_impedance(
              special_besselk(0, gamma_1 * geometry.D_ij)
     return state.jω * state.mu[1] / (2π) *
            (direct + 2 * S11 + 2 * gamma_1_squared * S13)
+end
+
+function validate(
+        pair::EarthPair, route::FormulaMethod{:Xue2018, typeof(earth_impedance)}, formula
+)
+    validate(pair)
+    (pair.layers[1] > 1 && pair.layers[2] > 1) || throw(ArgumentError(
+        ":Xue2018 earth impedance requires underground conductors; pair ($(pair.row), $(pair.column)) has layers $(pair.layers)"))
+    return pair
 end
 
 :Xue2018

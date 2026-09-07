@@ -25,7 +25,7 @@ struct Material{T <: Real} <: AbstractMaterial
     rho_thermal::T
     "Maximum continuous operating temperature \\[°C\\]."
     theta_max::T
-    "Dielectric loss tangent \\[dimensionless\\]."
+    "Polarization loss tangent, excluding conduction represented by rho \\[dimensionless\\]."
     tan_delta::T
     "Solar-absorption coefficient \\[dimensionless\\]."
     sigma_solar::T
@@ -67,7 +67,10 @@ Construct a material after floating and promoting its real-valued properties.
 
 - `rho_thermal=0`: Thermal resistivity \\[K·m/W\\].
 - `theta_max=90`: Maximum continuous operating temperature \\[°C\\].
-- `tan_delta=0`: Dielectric loss tangent.
+- `tan_delta=0`: Polarization loss tangent \\[dimensionless\\], excluding the
+  conduction contribution already represented by `rho`. A measured total loss
+  tangent must be separated into those contributions before supplying both.
+  Lossless constitutive selections explicitly suppress this input and conductivity.
 - `sigma_solar=0`: Solar-absorption coefficient.
 
 # Returns

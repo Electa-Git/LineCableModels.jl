@@ -13,14 +13,16 @@
         :VisacroAlipio2012,
         :VisacroPortela1987
     )
-    @test FD.formulas() == expected
+    registered = FD.formulas()
+    @test issubset(expected, registered)
+    @test allunique(registered)
     files=sort(filter(endswith(".jl"),
         readdir(joinpath(
             pkgdir(LineCableModels), "src", "earthprops", "fd", "formulas"
         ))))
-    @test files == collect(lowercase.(string.(expected)) .* ".jl")
+    @test files == sort(collect(lowercase.(string.(registered)) .* ".jl"))
 
-    for identifier in expected
+    for identifier in registered
         formula=FD.Formula(identifier)
         @test formula_id(formula) === identifier
         @test FD.assumptions(formula) == FD.assumptions(Val(identifier))
@@ -65,9 +67,11 @@ end
     )
     sample_frequencies=reference["frequencies_hz"]
 
-    for identifier in FD.formulas()
-        formula=FD.Formula(identifier)
-        expected=reference["formula"][String(identifier)]
+    # This immutable fixture certifies its recorded laws. New registrations
+    # are checked by discovery/precision tests and their own numerical tests;
+    # they must not require extending a historical fixture merely to load it.
+    for (identifier, expected) in reference["formula"]
+        formula=FD.Formula(Symbol(identifier))
         for (frequency, rho, eps_r) in zip(
             sample_frequencies,
             expected["rho_ohm_m"],

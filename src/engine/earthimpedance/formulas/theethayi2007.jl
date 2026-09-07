@@ -65,8 +65,7 @@ where ``\gamma_1^2=j\omega\mu_0(\sigma_1+j\omega\varepsilon_1)``.
 function earth_impedance(
         ::Val{:Theethayi2007}, ::Val{:mutual}, functor, pair
 )
-    _require(pair, Val(:underground))
-    pair.row == pair.column || _require_horizontal_separation(pair)
+    validate(pair, FormulaMethod(Val(:Theethayi2007), earth_impedance, Val(:mutual)), functor)
     state = functor.state
     geometry = _geometry(pair)
     gamma = state.gamma[2]
@@ -74,6 +73,17 @@ function earth_impedance(
     correction = 2exp(-geometry.H * abs(gamma)) / (4 + argument^2)
     return state.jω * state.mu[1] / (2π) *
            (log((1 + argument) / argument) + correction)
+end
+
+function validate(
+        pair::EarthPair, route::FormulaMethod{:Theethayi2007, typeof(earth_impedance)}, formula
+)
+    validate(pair)
+    (pair.layers[1] > 1 && pair.layers[2] > 1) || throw(ArgumentError(
+        ":Theethayi2007 earth impedance requires underground conductors; pair ($(pair.row), $(pair.column)) has layers $(pair.layers)"))
+    pair.row != pair.column && iszero(pair.separation) && throw(DomainError(
+        pair.separation, ":Theethayi2007 mutual closed form requires nonzero horizontal cable separation"))
+    return pair
 end
 
 :Theethayi2007

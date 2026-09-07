@@ -632,7 +632,9 @@ end
         Γ = ComplexF64[1.0e-5im, 2.0e-5im]
     )
     @test explicit.Γ == ComplexF64[1.0e-5im, 2.0e-5im]
-    @test all(isfinite, compute(explicit, Formulation()).Z)
+    @test_throws ArgumentError compute(explicit, Formulation())
+    @test all(isfinite, compute(explicit, Formulation(
+        earth_impedance=:Papadopoulos2010, earth_admittance=:Papadopoulos2010)).Z)
     @test_throws ArgumentError compute(
         explicit,
         Formulation(earth_impedance = :Pollaczek1926)

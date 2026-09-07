@@ -93,7 +93,7 @@ include("docstrings.jl")
 include("interfaces.jl")
 include("formulas.jl")
 
-public FormulaMethod
+public FormulaDefinition, FormulaMethod
 
 # Submodule `Units`
 include("units/Units.jl")

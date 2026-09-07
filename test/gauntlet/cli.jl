@@ -7,10 +7,28 @@ const GAUNTLET_ROOT = @__DIR__
 include(joinpath(GAUNTLET_ROOT, "case_loader.jl"))
 include(joinpath(GAUNTLET_ROOT, "provenance.jl"))
 
+if !isempty(ARGS) && first(ARGS) in ("run", "resume", "status")
+    include(joinpath(GAUNTLET_ROOT, "runner.jl"))
+end
+
 function usage(io::IO = stdout)
     print(io, """
 Usage: lcm gauntlet case <command> [options]
+       lcm gauntlet run --directory DIR [--cases ID,ID] [--backends coaxial,fem,pscad]
+                       [--formulas catalogue|default] [--dielectric default|Ametani2004]
+                       [--select SLOT=ID,ID ...] [--combine product|zip]
+                       [--propagation deterministic,linear_error,monte_carlo]
+                       [--uncertainty-percent P --uncertainty-tags geometry,cable_layer]
+                       [--trials N --seed INTEGER]
+       lcm gauntlet resume --directory DIR
+       lcm gauntlet status --directory DIR
 
+run uses the case frequency grid, normalised to at least 0.1 Hz, and never runs FEM Monte Carlo.
+--select maps any Formulation keyword slot to a Grid; use --formulas default with explicit axes.
+UQ needs explicit uncertainty settings; Monte Carlo also needs an explicit seed.
+Linear propagation requires coaxial; Monte Carlo on FEM is disabled.
+resume preserves completed calculations; changed inputs require a new campaign directory.
+status checks the live execution lock and distinguishes running from interrupted jobs.
 Commands:
   import       Import a trusted Julia file that returns LineParametersProblem
   list         List indexed cases
@@ -290,8 +308,49 @@ end
 function main(args = ARGS)
     isempty(args) && return usage()
     args[1] in ("--help", "-h", "help") && return usage()
+    if args[1] in ("run", "resume", "status")
+        directory = required_option(args, "--directory")
+        if args[1] == "status"
+            println("job\tstate\tcompleted\trequested\tskipped\tmessage")
+            for row in GauntletSupport.campaign_status(directory)
+                println(join((row.id, row.state, row.completed, row.requested,
+                    row.skipped, replace(row.message, '\n'=>' ', '\t'=>' ')), '\t'))
+            end
+            return
+        end
+        if args[1] == "resume"
+            GauntletSupport.resume_campaign(directory) || error("campaign contains failed calculations; inspect status")
+            return
+        end
+        selected = option(args, "--cases")
+        ids = selected === nothing ? sort!(collect(keys(case_index())); by=string) :
+            checked_id.(split(selected, ','))
+        backends = Symbol.(split(option(args, "--backends"; default="coaxial,fem,pscad"), ','))
+        formulas = option(args, "--formulas"; default="catalogue")
+        formulas in ("catalogue", "default") || throw(ArgumentError("--formulas must be catalogue or default"))
+        dielectric = Symbol(option(args, "--dielectric"; default="default"))
+        choices = GauntletSupport.parse_selections(args)
+        combine = Symbol(option(args, "--combine"; default="product"))
+        propagation = Symbol.(split(option(args, "--propagation"; default="deterministic"), ','))
+        "--trials" in args && :monte_carlo ∉ propagation && throw(ArgumentError(
+            "--trials only applies to Monte Carlo propagation"))
+        percent = option(args, "--uncertainty-percent")
+        tags = option(args, "--uncertainty-tags")
+        (percent === nothing) == (tags === nothing) || throw(ArgumentError(
+            "supply --uncertainty-percent and --uncertainty-tags together"))
+        uncertainty = percent === nothing ? nothing : GauntletSupport.RelativeStandardUncertainty(
+            parse(Float64, percent); tags=Symbol.(split(tags, ',')))
+        trials = parse(Int, option(args, "--trials"; default=string(GauntletSupport.UQ_MONTE_CARLO_TRIALS)))
+        raw_seed = option(args, "--seed")
+        seed = raw_seed === nothing ? nothing : parse(UInt64, raw_seed)
+        GauntletSupport.run_campaign(directory, ids;
+            backends, catalogue=formulas == "catalogue", dielectric, choices, combine,
+            propagation, uncertainty, trials, seed) ||
+            error("campaign contains failed calculations; inspect status")
+        return
+    end
     args[1] == "case" || throw(ArgumentError(
-        "unknown gauntlet command $(repr(args[1])); expected `case`",
+        "unknown gauntlet command $(repr(args[1])); expected case, run, resume or status",
     ))
     length(args) >= 2 || return usage()
     command = args[2]

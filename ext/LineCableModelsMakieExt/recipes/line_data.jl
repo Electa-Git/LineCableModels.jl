@@ -179,23 +179,3 @@ function _supports_log_values(samples)
 end
 
 _axis_scales(values) = _supports_log_values(values) ? (:linear, :log10) : (:linear,)
-
-_line_families(::SeriesImpedance) = (Val(:series),)
-_line_families(::ShuntAdmittance) = (Val(:shunt),)
-_line_families(::LineParameters) = (Val(:series), Val(:shunt))
-
-function _line_axis_groups(requests, selected_indices = eachindex(requests))
-    keys = Any[]
-    groups = Vector{Vector{Int}}()
-    for index in selected_indices
-        key = request_quantity(requests[index])
-        group_index = findfirst(candidate -> candidate == key, keys)
-        if group_index === nothing
-            push!(keys, key)
-            push!(groups, Int[index])
-        else
-            push!(groups[group_index], index)
-        end
-    end
-    return Tuple(Tuple(group) for group in groups)
-end

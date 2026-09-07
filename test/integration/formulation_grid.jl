@@ -63,6 +63,25 @@
 
     direct=compute(first(problems), formulations)
     @test length(direct) == length(formulations)
+    completions = Tuple[]
+    on_result = (problem, index, result) -> push!(completions, (problem, index, result))
+    observed = compute(first(problems), formulations; options=(; on_result))
+    @test getindex.(completions, 2) == collect(eachindex(formulations))
+    @test all(item -> item[1] === first(problems), completions)
+    @test all(index -> same_parameters(completions[index][3], observed[index]), eachindex(observed))
+    empty!(completions)
+    compute(first(problems), first(formulations); options=(; on_result))
+    @test length(completions) == 1
+    @test completions[1][2] == 1
+    empty!(completions)
+    failure = ErrorException("checkpoint write failed")
+    stop_after_first = (problem, index, result) -> begin
+        on_result(problem, index, result)
+        throw(failure)
+    end
+    @test_throws failure compute(first(problems), formulations; options=(on_result=stop_after_first,))
+    @test length(completions) == 1
+    @test same_parameters(completions[1][3], direct[1])
     for formulation_index in eachindex(formulations)
         @test same_parameters(
             direct[formulation_index],
@@ -73,7 +92,7 @@
     design=TestFixtures.mv_cable_design()
     constants_problem=CableConstantsProblem(design; frequency = 50.0)
     constants_space=CableConstantsFormulation(
-        insulation_admittance = Grid((:Ametani2004, :Gustavsen2013)),
+        insulation_admittance = Grid((:Ametani2004, :default)),
     )
     constants_formulations=collect(constants_space)
     constants_batch=compute(constants_problem, constants_formulations)
@@ -163,7 +182,7 @@ end
     counter.calls[]=0
     constants_problem=CableConstantsProblem(design; frequency=50.0)
     constants_formulations=collect(CableConstantsFormulation(
-        insulation_admittance=Grid((:Ametani2004, :Gustavsen2013))))
+        insulation_admittance=Grid((:Ametani2004, :default))))
     constants=compute(constants_problem, constants_formulations)
     @test length(constants) == 2
     @test counter.calls[] == 1

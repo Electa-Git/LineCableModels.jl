@@ -7,12 +7,12 @@ $(TYPEDSIGNATURES)
 semiconducting screen. Its conduction and displacement currents enter the same
 radial dielectric network as the adjacent insulation layers.
 
-**Expression.** For screen resistivity ``\\rho_s`` and permittivity
-``\\varepsilon_s``,
+**Expression.** For screen resistivity ``\\rho_s``, real permittivity
+``\\varepsilon'_s`` and polarization loss tangent ``\\tan\\delta_p``,
 
 ```math
-\\varepsilon_s^\\star=\\varepsilon_s+\\frac{1}{j\\omega\\rho_s},\\qquad
-\\kappa_s=\\frac{1}{\\rho_s}+j\\omega\\varepsilon_s,
+\\varepsilon_s^\\star=\\varepsilon'_s(1-j\\tan\\delta_p)+\\frac{1}{j\\omega\\rho_s},\\qquad
+\\kappa_s=\\frac{1}{\\rho_s}+\\omega\\varepsilon'_s\\tan\\delta_p+j\\omega\\varepsilon'_s,
 ```
 
 and an annular screen from ``a`` to ``b`` has
@@ -21,9 +21,15 @@ and an annular screen from ``a`` to ``b`` has
 Y_s=\\frac{2\\pi\\kappa_s}{\\ln(b/a)}.
 ```
 
-**Reference.** A. Ametani, Y. Miyamoto, and N. Nagaoka, 2004, as reproduced
-in A. Ametani, T. Ohno, and N. Nagaoka, *Cable System Transients: Theory,
-Modeling and Simulation*, Wiley-IEEE Press, 2015, Eqs. 2.66–2.67.
+With zero `tan_delta`, this is Ametani et al. (2004), Eq. (14); the total
+radial admittance follows Eq. (15). Nonzero `tan_delta` supplies an additional
+material polarization loss, excluding conduction already represented by `rho`.
+The paper does not prescribe that input or a dielectric relaxation spectrum.
+
+**Reference.** A. Ametani, Y. Miyamoto, and N. Nagaoka, “Semiconducting Layer
+Impedance and its Effect on Cable Wave-Propagation and Transient Characteristics,”
+IEEE Transactions on Power Delivery, 19(4), 1523–1531, 2004,
+doi:10.1109/TPWRD.2003.822502, Eqs. (14)–(15).
 """
 function description(::Formula{:Ametani2004})
     "Ametani semiconducting-screen admittance model (2004)"
@@ -36,9 +42,9 @@ Retain semiconducting-screen conductivity and permittivity in Ametani's
 complex-permittivity representation:
 
 ```math
-\\varepsilon_s^\\star=\\varepsilon_s+\\frac{1}{j\\omega\\rho_s},
+\\varepsilon_s^\\star=\\varepsilon'_s(1-j\\tan\\delta_p)+\\frac{1}{j\\omega\\rho_s},
 \\qquad
-\\kappa_s=\\frac{1}{\\rho_s}+j\\omega\\varepsilon_s.
+\\kappa_s=\\frac{1}{\\rho_s}+\\omega\\varepsilon'_s\\tan\\delta_p+j\\omega\\varepsilon'_s.
 ```
 
 The common Coaxial Engine operator applies the annular geometry and combines
@@ -46,19 +52,21 @@ the semiconducting screen with adjacent dielectric layers radially in series.
 
 # Arguments
 
-- `material`: Static semiconducting-screen properties.
+- `material`: Static semiconducting-screen properties; `tan_delta` contains
+  polarization loss only and excludes conduction specified by `rho`.
 - `frequency`: Evaluation frequency \\[Hz\\].
 - `temperature`: Operating temperature \\[°C\\].
 - `values`: Formula assumptions.
 
 # Returns
 
-- Complex screen admittivity ``1/\\rho_s+j\\omega\\varepsilon_s`` \\[S/m\\].
+- Complex screen admittivity \\[S/m\\].
 
 # References
 
-A. Ametani, Y. Miyamoto, and N. Nagaoka, 2004, as reproduced in Ametani,
-Ohno, and Nagaoka (2015), Eqs. 2.66–2.67.
+A. Ametani, Y. Miyamoto, and N. Nagaoka (2004),
+doi:10.1109/TPWRD.2003.822502, Eqs. (14)–(15). The optional polarization-loss
+parameter is a material input, not an additional empirical law from that paper.
 """
 @inline function semicon_material(
         ::Val{:Ametani2004},
@@ -69,8 +77,9 @@ Ohno, and Nagaoka (2015), Eqs. 2.66–2.67.
 ) where {T <: Real}
     ε₀ = one(T) * 88541878128 * (one(T) * 10)^(-22)
     ω = 2 * (one(T) * π) * frequency
-    return conductivity(material.rho) +
-           complex(zero(T), ω) * ε₀ * material.eps_r
+    displacement = complex(zero(T), ω) * ε₀ * material.eps_r
+    return conductivity(material.rho) + imag(displacement) * material.tan_delta +
+           displacement
 end
 
 :Ametani2004

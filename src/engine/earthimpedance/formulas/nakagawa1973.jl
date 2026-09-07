@@ -55,9 +55,6 @@ end
 function (formula::Formula{:Nakagawa1973})(
         rho, epsilon, mu, jω, Γ, segments, thickness
 )
-    length(rho) >= 3 || throw(DimensionMismatch(
-        ":Nakagawa1973 requires air and at least two earth layers"
-    ))
     return _stratified_functor(
         Val(:Nakagawa1973), formula,
         rho, epsilon, mu, jω, Γ, segments, thickness
@@ -88,7 +85,7 @@ The three-layer record `NakagawaEtAl1973` is not duplicated because it is the
 function earth_impedance(
         ::Val{:Nakagawa1973}, ::Val{:mutual}, functor, pair
 )
-    _require(pair, Val(:overhead))
+    validate(pair, FormulaMethod(Val(:Nakagawa1973), earth_impedance, Val(:mutual)), functor)
     state = functor.state
     geometry = _geometry(pair)
     N = length(state.rho) - 1
@@ -126,6 +123,21 @@ function earth_impedance(
     end
     return state.jω * state.mu[1] / (2π) *
            (log(geometry.D_ij / geometry.d_ij) + 2 * integral)
+end
+
+function validate(
+        pair::EarthPair, route::FormulaMethod{:Nakagawa1973, typeof(earth_impedance)}, formula
+)
+    validate(pair)
+    (pair.layers == (1, 1)) || throw(ArgumentError(
+        ":Nakagawa1973 earth impedance requires overhead conductors; pair ($(pair.row), $(pair.column)) has layers $(pair.layers)"))
+    return pair
+end
+
+function validate(formula::Formula{:Nakagawa1973}, layer_count::Integer)
+    layer_count >= 3 || throw(DimensionMismatch(
+        ":Nakagawa1973 requires air and at least two earth layers"))
+    return formula
 end
 
 :Nakagawa1973

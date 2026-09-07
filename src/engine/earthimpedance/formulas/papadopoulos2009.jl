@@ -56,9 +56,6 @@ end
 function (formula::Formula{:Papadopoulos2009})(
         rho, epsilon, mu, jω, Γ, segments, thickness
 )
-    length(rho) == 3 || throw(DimensionMismatch(
-        ":Papadopoulos2009 requires air and exactly two earth layers"
-    ))
     k_0 = Γ === nothing ? sqrt(oftype(jω, (-jω^2) * mu[1] * epsilon[1])) : Γ
     return _stratified_functor(
         Val(:Papadopoulos2009), formula,
@@ -87,7 +84,7 @@ The contribution is
 function earth_impedance(
         ::Val{:Papadopoulos2009}, ::Val{:mutual}, functor, pair
 )
-    _require(pair, Val(:overhead))
+    validate(pair, FormulaMethod(Val(:Papadopoulos2009), earth_impedance, Val(:mutual)), functor)
     state = functor.state
     geometry = _geometry(pair)
     d = state.thickness[2]
@@ -106,6 +103,21 @@ function earth_impedance(
     end
     return state.jω * state.mu[1] / (2π) *
            (log(geometry.D_ij / geometry.d_ij) + 2 * integral)
+end
+
+function validate(
+        pair::EarthPair, route::FormulaMethod{:Papadopoulos2009, typeof(earth_impedance)}, formula
+)
+    validate(pair)
+    (pair.layers == (1, 1)) || throw(ArgumentError(
+        ":Papadopoulos2009 earth impedance requires overhead conductors; pair ($(pair.row), $(pair.column)) has layers $(pair.layers)"))
+    return pair
+end
+
+function validate(formula::Formula{:Papadopoulos2009}, layer_count::Integer)
+    layer_count == 3 || throw(DimensionMismatch(
+        ":Papadopoulos2009 requires air and exactly two earth layers"))
+    return formula
 end
 
 :Papadopoulos2009

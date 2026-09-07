@@ -211,10 +211,17 @@ Store the physical methods selected for a line-parameter calculation.
 
 $(TYPEDFIELDS)
 """
-struct LineParametersFormulation{M <: NamedTuple, O <: NamedTuple} <: AbstractFormulation
+struct LineParametersFormulation{M <: NamedTuple, O <: NamedTuple, D <: NamedTuple} <: AbstractFormulation
+    "Owner-resolved physical methods; context-dependent defaults remain deferred."
     methods::M
+    "Shared physical computation options."
     options::O
+    "Requested selections retained before owner and problem-context resolution."
+    definitions::D
 end
+
+LineParametersFormulation(methods::NamedTuple, options::NamedTuple) =
+    LineParametersFormulation(methods, options, methods)
 
 function LineParametersFormulation(;
         internal_impedance::InternalImpedanceFormulation,
@@ -225,20 +232,28 @@ function LineParametersFormulation(;
         earth_admittance::EarthAdmittanceFormulation,
         earth_properties,
         equivalent_earth,
+        pipe_impedance::PipeImpedanceFormulation,
         options::NamedTuple
 )
     methods = (;
         internal_impedance, insulation_impedance, earth_impedance,
         insulation_admittance, semicon_admittance, earth_admittance, earth_properties,
-        equivalent_earth
+        equivalent_earth, pipe_impedance
     )
     return LineParametersFormulation(methods, options)
+end
+
+_pipe_impedance_formula(selected::PipeImpedanceFormulation) = selected
+_pipe_impedance_formula(identifier::Symbol) = PipeImpedance.Formula(identifier)
+function _pipe_impedance_formula(selection::FormulaDefinition{ID, Order}) where {ID, Order}
+    _direct(selection, :pipe_impedance)
+    return PipeImpedance.Formula(Val(ID); selection.overrides...)
 end
 
 _earth_impedance_formula(formula::EarthImpedanceFormulation) = formula
 _earth_impedance_formula(identifier::Symbol) = EarthImpedance.Formula(identifier)
 function _earth_impedance_formula(
-        selection::FormulaSpec{ID, Order}
+        selection::FormulaDefinition{ID, Order}
 ) where {ID, Order}
     _direct(selection, :earth_impedance)
     return EarthImpedance.Formula(Val(ID); selection.overrides...)
@@ -247,7 +262,7 @@ end
 _earth_admittance_formula(formula::EarthAdmittanceFormulation) = formula
 _earth_admittance_formula(identifier::Symbol) = EarthAdmittance.Formula(identifier)
 function _earth_admittance_formula(
-        selection::FormulaSpec{ID, Order}
+        selection::FormulaDefinition{ID, Order}
 ) where {ID, Order}
     _direct(selection, :earth_admittance)
     return EarthAdmittance.Formula(Val(ID); selection.overrides...)
@@ -256,7 +271,7 @@ end
 _internal_impedance_formula(formula::InternalImpedanceFormulation) = formula
 _internal_impedance_formula(identifier::Symbol) = InternalImpedance.Formula(identifier)
 function _internal_impedance_formula(
-        selection::FormulaSpec{ID, Order}
+        selection::FormulaDefinition{ID, Order}
 ) where {ID, Order}
     _direct(selection, :internal_impedance)
     return InternalImpedance.Formula(Val(ID); selection.overrides...)
@@ -265,7 +280,7 @@ end
 _insulation_impedance_formula(formula::InsulationImpedanceFormulation) = formula
 _insulation_impedance_formula(identifier::Symbol) = InsulationImpedance.Formula(identifier)
 function _insulation_impedance_formula(
-        selection::FormulaSpec{ID, Order}
+        selection::FormulaDefinition{ID, Order}
 ) where {ID, Order}
     _direct(selection, :insulation_impedance)
     return InsulationImpedance.Formula(Val(ID); selection.overrides...)
@@ -276,7 +291,7 @@ function _insulation_admittance_formula(identifier::Symbol)
     InsulationAdmittance.Formula(identifier)
 end
 function _insulation_admittance_formula(
-        selection::FormulaSpec{ID, Order}
+        selection::FormulaDefinition{ID, Order}
 ) where {ID, Order}
     _direct(selection, :insulation_admittance)
     return InsulationAdmittance.Formula(Val(ID); selection.overrides...)
@@ -287,7 +302,7 @@ function _semicon_admittance_formula(identifier::Symbol)
     SemiconAdmittance.Formula(identifier)
 end
 function _semicon_admittance_formula(
-        selection::FormulaSpec{ID, Order}
+        selection::FormulaDefinition{ID, Order}
 ) where {ID, Order}
     _direct(selection, :semicon_admittance)
     return SemiconAdmittance.Formula(Val(ID); selection.overrides...)
@@ -296,7 +311,7 @@ end
 _earth_properties_formula(::Nothing) = nothing
 _earth_properties_formula(identifier::Symbol) = EarthProps.FD.Formula(identifier)
 function _earth_properties_formula(
-        selection::FormulaSpec{ID, Order}
+        selection::FormulaDefinition{ID, Order}
 ) where {ID, Order}
     _direct(selection, :earth_properties)
     return EarthProps.FD.Formula(Val(ID); selection.overrides...)
@@ -308,14 +323,14 @@ _equivalent_earth(identifier::Symbol) = EHEM.AfterFD(identifier)
 _equivalent_earth(sequence::EHEM.AbstractSequence) = sequence
 _equivalent_earth(rule::EHEM.AbstractRule) = EHEM.AfterFD(rule)
 
-function _direct(::FormulaSpec{ID, Order}, owner::Symbol) where {ID, Order}
+function _direct(::FormulaDefinition{ID, Order}, owner::Symbol) where {ID, Order}
     Order === :default || throw(ArgumentError(
         "formula order is only valid for equivalent_earth; got :$Order for $owner"
     ))
     return nothing
 end
 
-function _ehem_rule(selection::FormulaSpec{:Layer})
+function _ehem_rule(selection::FormulaDefinition{:Layer})
     required = (:layer,)
     unknown = setdiff(keys(selection.overrides), required)
     isempty(unknown) || throw(ArgumentError(
@@ -331,7 +346,7 @@ function _ehem_rule(selection::FormulaSpec{:Layer})
     return EHEM.Layer(layer)
 end
 
-function _ehem_rule(selection::FormulaSpec{ID}) where {ID}
+function _ehem_rule(selection::FormulaDefinition{ID}) where {ID}
     return EHEM.Formula(Val(ID); selection.overrides...)
 end
 
@@ -340,7 +355,7 @@ _ehem_order(::Val{:after}, rule) = EHEM.AfterFD(rule)
 _ehem_order(::Val{:before}, rule) = EHEM.BeforeFD(rule)
 
 function _equivalent_earth(
-        selection::FormulaSpec{ID, Order}
+        selection::FormulaDefinition{ID, Order}
 ) where {ID, Order}
     return _ehem_order(Val(Order), _ehem_rule(selection))
 end
@@ -354,9 +369,10 @@ function _line_formulation(
         earth_admittance,
         earth_properties,
         equivalent_earth,
+        pipe_impedance,
         options::NamedTuple
 )
-    return LineParametersFormulation(;
+    selected = LineParametersFormulation(;
         internal_impedance = _internal_impedance_formula(internal_impedance),
         insulation_impedance = _insulation_impedance_formula(insulation_impedance),
         earth_impedance = _earth_impedance_formula(earth_impedance),
@@ -365,8 +381,13 @@ function _line_formulation(
         earth_admittance = _earth_admittance_formula(earth_admittance),
         earth_properties = _earth_properties_formula(earth_properties),
         equivalent_earth = _equivalent_earth(equivalent_earth),
+        pipe_impedance = _pipe_impedance_formula(pipe_impedance),
         options = formulation_options(LineParametersFormulation, options)
     )
+    definitions = (; internal_impedance, insulation_impedance, earth_impedance,
+        insulation_admittance, semicon_admittance, earth_admittance,
+        earth_properties, equivalent_earth, pipe_impedance)
+    return LineParametersFormulation(selected.methods, selected.options, definitions)
 end
 
 """
@@ -380,7 +401,8 @@ selection or an explicit
 [`Gridspace`](@ref LineCableModels.ParametricBuilder.Gridspace) source. Scalar
 inputs return one [`LineParametersFormulation`](@ref). Varying inputs return a
 `Gridspace{LineParametersFormulation}` whose points contain only completed,
-owner-resolved formula values.
+owner-resolved formula values. Context-dependent `:default` selections remain
+deferred until a scalar problem supplies its geometry and earth context.
 
 `combine=:product` forms the Cartesian product among varying fields in this
 formulation. `combine=:zip` aligns equally sized fields and broadcasts
@@ -397,6 +419,7 @@ function Formulation(;
         earth_admittance = formula(:default),
         earth_properties = formula(:default),
         equivalent_earth = formula(:default),
+        pipe_impedance = formula(:default),
         options = (;),
         combine::Symbol = :product
 )
@@ -409,6 +432,7 @@ function Formulation(;
         earth_admittance,
         earth_properties,
         equivalent_earth,
+        pipe_impedance,
         options
     )
     return parameterize(

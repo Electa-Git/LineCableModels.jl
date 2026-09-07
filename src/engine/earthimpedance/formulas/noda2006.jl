@@ -93,7 +93,7 @@ pp. 472-479, 2006. DOI: 10.1109/TPWRD.2005.852307.
 function earth_impedance(
         ::Val{:Noda2006}, ::Val{:mutual}, functor, pair
 )
-    _require(pair, Val(:overhead))
+    validate(pair, FormulaMethod(Val(:Noda2006), earth_impedance, Val(:mutual)), functor)
     state = functor.state
     geometry = _geometry(pair)
     R = typeof(geometry.H)
@@ -115,6 +115,15 @@ function earth_impedance(
     πT = one(geometry.H) * π
     return state.jω * state.mu[1] / (2πT) *
            (log(geometry.D_ij / geometry.d_ij) + correction)
+end
+
+function validate(
+        pair::EarthPair, route::FormulaMethod{:Noda2006, typeof(earth_impedance)}, formula
+)
+    validate(pair)
+    (pair.layers == (1, 1)) || throw(ArgumentError(
+        ":Noda2006 earth impedance requires overhead conductors; pair ($(pair.row), $(pair.column)) has layers $(pair.layers)"))
+    return pair
 end
 
 :Noda2006

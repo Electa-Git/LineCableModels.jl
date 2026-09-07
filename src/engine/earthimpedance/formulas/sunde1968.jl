@@ -69,9 +69,6 @@ end
 function (formula::Formula{:Sunde1968})(
         rho, epsilon, mu, jω, Γ, segments = nothing
 )
-    length(rho) == 2 || throw(DimensionMismatch(
-        ":Sunde1968 requires layer thicknesses for a stratified earth"
-    ))
     return _homogeneous_functor(
         Val(:Sunde1968), formula, rho, epsilon, mu, jω, Γ, segments
     )
@@ -80,9 +77,6 @@ end
 function (formula::Formula{:Sunde1968})(
         rho, epsilon, mu, jω, Γ, segments, thickness
 )
-    length(rho) >= 2 || throw(DimensionMismatch(
-        ":Sunde1968 requires air and at least one earth layer"
-    ))
     return _stratified_functor(
         Val(:Sunde1968), formula,
         rho, epsilon, mu, jω, Γ, segments, thickness
@@ -101,7 +95,7 @@ three leaves are one literature recipe and remain individually replaceable.
 function earth_impedance(
         ::Val{:Sunde1968}, ::Val{:mutual}, functor, pair
 )
-    _require(pair, Val(:overhead))
+    validate(pair, FormulaMethod(Val(:Sunde1968), earth_impedance, Val(:mutual)), functor)
     count = length(functor.state.rho) - 1
     count == 1 && return functor.routes.homogeneous(functor, pair)
     count == 2 && return functor.routes.two_layer(functor, pair)
@@ -215,6 +209,29 @@ function earth_impedance(
     end
     return state.jω * state.mu[1] / (2π) *
            (log(geometry.D_ij / geometry.d_ij) + 2 * integral)
+end
+
+function validate(
+        pair::EarthPair, route::FormulaMethod{:Sunde1968, typeof(earth_impedance)}, formula
+)
+    validate(pair)
+    (pair.layers == (1, 1)) || throw(ArgumentError(
+        ":Sunde1968 earth impedance requires overhead conductors; pair ($(pair.row), $(pair.column)) has layers $(pair.layers)"))
+    return pair
+end
+
+function validate(formula::Formula{:Sunde1968}, layer_count::Integer)
+    layer_count >= 2 || throw(DimensionMismatch(
+        ":Sunde1968 requires air and at least one earth layer"))
+    return formula
+end
+
+function validate(
+        formula::Formula{:Sunde1968}, layers::Union{Tuple, AbstractVector}, ::Nothing
+)
+    length(layers) == 2 || throw(DimensionMismatch(
+        ":Sunde1968 requires layer thicknesses for a stratified earth"))
+    return formula
 end
 
 :Sunde1968

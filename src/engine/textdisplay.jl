@@ -2,7 +2,7 @@ _engine_type_name(value) = String(nameof(typeof(value)))
 _engine_unit(unit) = replace(Units.label(unit), "." => "·")
 
 _domain_name(::Type{PhaseDomain}) = "phase domain"
-_domain_name(::Type{ModalDomain}) = "sequence domain"
+_domain_name(::Type{ModalDomain}) = "modal domain"
 _domain_name(::Type{D}) where {D <: LineParamsDomain} = lowercase(String(nameof(D)))
 
 TextDisplay.@showfields EarthPair "EarthPair" pair -> (
@@ -108,8 +108,8 @@ Base.summary(io::IO, ::PhaseDomain) = print(io, "Phase domain")
 Base.show(io::IO, ::PhaseDomain) = print(io, "PhaseDomain()")
 Base.show(io::IO, ::MIME"text/plain", value::PhaseDomain) = show(io, value)
 
-TextDisplay.name(::Type{ModalDomain}) = "Sequence domain"
-Base.summary(io::IO, ::ModalDomain) = print(io, "Sequence domain")
+TextDisplay.name(::Type{<:ModalDomain}) = "Modal domain"
+Base.summary(io::IO, ::ModalDomain) = print(io, "Modal domain")
 Base.show(io::IO, ::ModalDomain) = print(io, "ModalDomain()")
 Base.show(io::IO, ::MIME"text/plain", value::ModalDomain) = show(io, value)
 
@@ -121,6 +121,12 @@ function Base.show(io::IO, formulation::AbstractFormulation)
 end
 Base.show(io::IO, ::MIME"text/plain", formulation::AbstractFormulation) =
     show(io, formulation)
+
+TextDisplay.@showfields Union{
+    InternalImpedance.Formula, InsulationImpedance.Formula,
+    EarthImpedance.Formula, InsulationAdmittance.Formula,
+    SemiconAdmittance.Formula, EarthAdmittance.Formula, PipeImpedance.Formula,
+} "Formula" method -> (id = formula_id(method),)
 
 TextDisplay.name(::Type{<:LineParametersFormulation}) = "LineParametersFormulation"
 Base.summary(io::IO, ::LineParametersFormulation) = print(io, "Line-parameters formulation")

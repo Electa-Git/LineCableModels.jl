@@ -82,7 +82,7 @@ replaces ``k_x`` without changing the leaf routes.
 function earth_impedance(
         ::Val{:Papadopoulos2010}, ::Val{:mutual}, functor, pair
 )
-    _require(pair, Val(:underground))
+    validate(pair, FormulaMethod(Val(:Papadopoulos2010), earth_impedance, Val(:mutual)), functor)
     state = functor.state
     geometry = _geometry(pair)
     alpha_squared = (
@@ -99,6 +99,15 @@ function earth_impedance(
         (alpha_0 + alpha_1) * cos(geometry.y_ij * lambda)
     end
     return state.jω * state.mu[1] / (2π) * (delta_1 + 2 * S)
+end
+
+function validate(
+        pair::EarthPair, route::FormulaMethod{:Papadopoulos2010, typeof(earth_impedance)}, formula
+)
+    validate(pair)
+    (pair.layers[1] > 1 && pair.layers[2] > 1) || throw(ArgumentError(
+        ":Papadopoulos2010 earth impedance requires underground conductors; pair ($(pair.row), $(pair.column)) has layers $(pair.layers)"))
+    return pair
 end
 
 :Papadopoulos2010

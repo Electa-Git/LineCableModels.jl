@@ -10,6 +10,36 @@ struct MomentBenchmark{E <: NamedTuple}
     errors::E
 end
 
+"""
+    MomentResult(record::NamedTuple)
+
+Reconstruct stored phase-domain R, L, C, and G means and standard deviations.
+Frequencies are in Hz; products retain their recorded `:pul` (per metre) or
+`:total` basis. No uncertainty propagation or sampling is performed.
+
+# Returns
+
+- A checked `MomentResult` with the recorded terminal and frequency order.
+
+# Errors
+
+Unsupported domains, invalid axes, nonfinite means, negative standard deviations,
+and inconsistent matrix dimensions are rejected.
+"""
+function MomentResult(record::NamedTuple)
+    record.domain === :PhaseDomain || throw(ArgumentError(
+        "only phase-domain UQ moment snapshots are supported"))
+    return _validate_moment_result(MomentResult(record.values, record.frequencies,
+        record.basis, LineCableModels.PhaseDomain, String.(record.port_order)))
+end
+
+"Convert checked moments to a plain record without changing the numerical arrays."
+function Base.NamedTuple(value::MomentResult)
+    _validate_moment_result(value)
+    return (values=value.values, frequencies=copy(value.frequencies), basis=value.basis,
+        domain=nameof(value.domain), port_order=copy(value.port_order))
+end
+
 const _MOMENT_QUANTITIES = (
     R = LineCableModels.R,
     L = LineCableModels.L,
@@ -88,6 +118,13 @@ function _validate_moment_result(value::MomentResult)
     isempty(value.frequencies) && throw(ArgumentError(
         "UQ moment frequency axis cannot be empty",
     ))
+    all(frequency -> isfinite(frequency) && frequency > 0, value.frequencies) &&
+        issorted(value.frequencies) && allunique(value.frequencies) || throw(ArgumentError(
+            "UQ moment frequencies must be finite, positive, and strictly increasing"))
+    value.basis in (:pul, :total) || throw(ArgumentError(
+        "UQ moment basis must be :pul or :total"))
+    allunique(value.port_order) || throw(ArgumentError(
+        "UQ moment terminal order must not contain duplicates"))
     terminal_count = length(value.port_order)
     terminal_count > 0 || throw(ArgumentError(
         "UQ moment terminal order cannot be empty",

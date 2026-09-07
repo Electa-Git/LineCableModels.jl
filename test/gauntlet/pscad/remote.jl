@@ -1,3 +1,5 @@
+const PSCAD_TIMING_SCOPE = "PSCAD compile call; excludes output-readiness wait and transfer"
+
 struct RemoteConfig
     host::String
     shared_root::String
@@ -57,7 +59,8 @@ function computation_options(
         ::Type{PSCADFormulation},
         options::NamedTuple
 )::ComputationOptions
-    allowed = (:output_stem, :remote, :verbosity, :output_basis)
+    allowed = (:output_stem, :remote, :verbosity, :output_basis, :on_result,
+        :resume_run_directory, :solver_identity)
     unknown = filter(key -> key ∉ allowed, keys(options))
     isempty(unknown) || throw(ArgumentError(
         "unknown PSCAD computation options: $(sort!(collect(unknown)))",
@@ -72,7 +75,10 @@ function computation_options(
         (
             output_stem = "gauntlet",
             verbosity = (default = 0,),
-            output_basis = :pul
+            output_basis = :pul,
+            on_result = nothing,
+            resume_run_directory = nothing,
+            solver_identity = nothing
         ),
         options
     )
@@ -98,11 +104,22 @@ function computation_options(
         "output_basis must be :pul or :total; got $(repr(basis_value))",
     ))
     levels = NamedTuple{keys(verbosity_values)}(Int.(values(verbosity_values)))
+    resume = normalized.resume_run_directory
+    (resume === nothing || resume === :latest || resume isa AbstractString) ||
+        throw(ArgumentError("PSCAD resume_run_directory must be nothing, :latest, or a completed run path"))
+    resume isa AbstractString && isempty(resume) && throw(ArgumentError(
+        "PSCAD resume_run_directory cannot be empty"))
+    identity = normalized.solver_identity
+    (identity === nothing || identity isa AbstractDict{String, String}) ||
+        throw(ArgumentError("PSCAD solver_identity must be the record returned by identify(remote)"))
     return (
         output_stem,
         remote = options.remote,
         verbosity = levels,
-        output_basis = Val(basis_value)
+        output_basis = Val(basis_value),
+        on_result = normalized.on_result,
+        resume_run_directory = resume isa AbstractString ? abspath(resume) : resume,
+        solver_identity = identity
     )
 end
 
@@ -119,9 +136,9 @@ end
 function _formulation_label(formulation::PSCADFormulation)
     return join(
         (
-            description(formulation.earth_impedance),
-            description(formulation.earth_admittance),
-            description(formulation.insulation_admittance)
+            description(formulation.methods.earth_impedance),
+            "PSCAD native earth admittance",
+            description(formulation.methods.insulation_admittance)
         ),
         '/')
 end
@@ -285,11 +302,11 @@ function _supervisor_command(
         project_name::AbstractString,
         formulation::PSCADFormulation,
         frequencies_value::AbstractVector;
+        setting::NamedTuple,
         output_stem::AbstractString,
         verbosity::Integer = 0
 )
     _validate_frequencies(frequencies_value)
-    earth = formulation.earth_impedance
     label = _formulation_label(formulation)
     increments = length(frequencies_value) - 1
     shared_supervisor = _remote_path(shared_case, "toolkit", "supervisor.ps1")
@@ -303,9 +320,9 @@ function _supervisor_command(
             "-ProjectName $(_ps_quote(project_name))",
             "-OutputStem $(_ps_quote(output_stem))",
             "-Formulation $(_ps_quote(label))",
-            "-EarthField $(_ps_quote(string(pscad_field(earth))))",
-            "-EarthValue $(_ps_quote(string(pscad_value(earth))))",
-            "-EarthReadback $(_ps_quote(pscad_readback(earth)))",
+            "-EarthField $(_ps_quote(string(setting.field)))",
+            "-EarthValue $(_ps_quote(string(setting.value)))",
+            "-EarthReadback $(_ps_quote(setting.readback))",
             "-FrequencyStart $(_ps_quote(string(first(frequencies_value))))",
             "-FrequencyEnd $(_ps_quote(string(last(frequencies_value))))",
             "-FrequencyIncrements $(_ps_quote(string(increments)))",
@@ -347,6 +364,61 @@ function _cancel_remote(
     return nothing
 end
 
+# Keep remotely executed code paired with the loaded Julia adapter. Later
+# invocations in a long campaign must not pick up working-tree edits mid-run.
+const PSCAD_REMOTE_SOURCES = Dict(name => let
+    path = joinpath(@__DIR__, "remote", name)
+    Base.include_dependency(path)
+    read(path, String)
+end for name in ("Project.toml", "Manifest.toml", "files.jl", "runner.jl", "supervisor.ps1", "identity.py"))
+
+"""
+    identify(config::RemoteConfig)
+
+Read the remote PSCAD installation identity without launching a simulation.
+
+# Arguments
+
+- `config`: Station connection and selected PSCAD installation.
+
+# Returns
+
+- A string dictionary containing application, line-constants executable and
+  master-library paths and SHA-256 digests, automation versions, and the
+  selected line-constants implementation. A temporary application instance
+  reads the station settings and closes without loading a project.
+
+# Notes
+
+Passing this record as the `solver_identity` computation option pins a campaign
+to that installation. Each computation verifies the station again; supplying a
+record does not bypass the check.
+"""
+function identify(config::RemoteConfig)
+    code = PSCAD_REMOTE_SOURCES["identity.py"] * "\nimport json\n" *
+        "for key, value in identify(" * repr(config.pscad_version) * ").items():\n" *
+        "    print(json.dumps(key) + ' = ' + json.dumps(value))\n"
+    # Use the existing shared work directory; embedding a whole script inside
+    # an encoded PowerShell command exceeds Windows' command-line limit.
+    directory = mktempdir(mkpath(WORK_ROOT); prefix="pscad-identity-")
+    result = try
+        write(joinpath(directory, "identify.py"), code)
+        remote = _remote_path(config.shared_root, basename(directory), "identify.py")
+        command = "& " * _ps_quote(config.python_executable) * " " * _ps_quote(remote) *
+            "; if (\$LASTEXITCODE -ne 0) { exit \$LASTEXITCODE }"
+        TOML.parse(_run_remote(config, command))
+    finally
+        rm(directory; recursive=true)
+    end
+    get(result, "version", nothing) == config.pscad_version || throw(ArgumentError(
+        "PSCAD station did not return the requested solver identity"))
+    get(result, "schema", nothing) == "1" &&
+        all(name -> occursin(r"^[0-9a-f]{64}$", get(result, name * "_sha256", "")),
+            ("pscad", "line_constants", "master_library")) || throw(ArgumentError(
+        "PSCAD station returned an incomplete solver identity"))
+    return Dict{String, String}(result)
+end
+
 function _stage_toolkit(local_project::AbstractString, local_output::AbstractString)
     isfile(local_project) || throw(ArgumentError(
         "local PSCAD input is missing: $local_project",
@@ -356,16 +428,11 @@ function _stage_toolkit(local_project::AbstractString, local_output::AbstractStr
     abspath(local_project) == abspath(expected_project) || throw(ArgumentError(
         "PSCAD project must be staged as $expected_project",
     ))
-    toolkit_source = joinpath(@__DIR__, "remote")
     toolkit_stage = joinpath(variant_root, "toolkit")
     isdir(toolkit_stage) && rm(toolkit_stage; recursive = true)
     mkpath(toolkit_stage)
-    for name in (
-        "Project.toml", "Manifest.toml", "files.jl", "runner.jl", "supervisor.ps1"
-    )
-        source = joinpath(toolkit_source, name)
-        isfile(source) || throw(ArgumentError("PSCAD toolkit file is missing: $source"))
-        cp(source, joinpath(toolkit_stage, name); force = true)
+    for (name, source) in PSCAD_REMOTE_SOURCES
+        write(joinpath(toolkit_stage, name), source)
     end
     return toolkit_stage
 end
@@ -397,12 +464,14 @@ function run_remote_pscad(
         local_output::AbstractString,
         formulation::PSCADFormulation,
         frequencies_value::AbstractVector;
+        setting::NamedTuple,
         output_stem::AbstractString,
         verbosity::Integer = 0
 )
     verbosity in 0:2 || throw(ArgumentError("PSCAD verbosity must be 0, 1, or 2"))
     _validate_frequencies(frequencies_value)
-    isdir(local_output) && rm(local_output; recursive = true)
+    isdir(local_output) && !isempty(readdir(local_output)) && throw(ArgumentError(
+        "PSCAD output directory is not empty; select a new run directory: $local_output"))
     mkpath(local_output)
     work_parts = _work_parts(local_output)
     variant = last(work_parts)
@@ -420,6 +489,7 @@ function run_remote_pscad(
         _remote_project_name(local_project),
         formulation,
         frequencies_value;
+        setting,
         output_stem,
         verbosity
     )
@@ -477,6 +547,7 @@ function run_remote_pscad(
     @info "PSCAD frequency scan completed" host=config.host variant elapsed_seconds=elapsed
     return (
         elapsed_seconds = elapsed,
+        elapsed_scope = PSCAD_TIMING_SCOPE,
         exit_code = 0,
         stdout_path,
         stderr_path,
@@ -505,10 +576,6 @@ function _pscad_size(problem::LineParametersProblem)
     return (length(assignments), length(assignments), length(problem.frequencies))
 end
 
-function _pscad_root(problem::LineParametersProblem)
-    return joinpath(WORK_ROOT, "pscad", problem.system.system_id, "reference")
-end
-
 function _pscad_basis(parameters, ::LineParametersProblem, ::Val{:pul})
     parameters
 end
@@ -527,21 +594,21 @@ function _pscad_basis(
     )
 end
 
-function compute(
-        problem::LineParametersProblem,
-        formulation::PSCADFormulation;
-        options::NamedTuple = (;)
-)
-    execution_options = computation_options(PSCADFormulation, options)
-    config = execution_options.remote
-    root = _pscad_root(problem)
-    isdir(root) && rm(root; recursive = true)
-    mkpath(root)
+function _stage_pscad_project(problem::LineParametersProblem, formulation::PSCADFormulation)
+    case_id = problem.system.system_id
+    (isempty(case_id) || case_id in (".", "..") || occursin(r"[/\\]", case_id)) &&
+        throw(ArgumentError("PSCAD system_id must be one nonempty directory name"))
+    parent = joinpath(WORK_ROOT, "pscad", case_id)
+    mkpath(parent)
+    root = mktempdir(parent; prefix="run-", cleanup=false)
     @info "Exporting PSCAD benchmark project" system = problem.system.system_id
     project = export_data(
         :pscad,
         problem.system,
         problem.earth_props;
+        formulation = LineParametersFormulation(formulation.methods, formulation.options,
+            formulation.definitions),
+        temperature = problem.temperature,
         file_name = joinpath(root, "generated.pscx")
     )
     project isa AbstractString && isfile(project) || throw(ArgumentError(
@@ -549,17 +616,79 @@ function compute(
     ))
     staged = joinpath(root, "generated.pscx")
     project == staged || cp(project, staged; force = true)
-    @info "Computing PSCAD line parameters" system = problem.system.system_id
-    execution = run_remote_pscad(
-        config,
-        staged,
-        joinpath(root, "outputs"),
-        formulation,
-        problem.frequencies;
-        output_stem = execution_options.output_stem,
-        verbosity = verbosity(execution_options, :PSCAD)
-    )
-    write(joinpath(root, "pscad-version.txt"), config.pscad_version)
+    return (; root, staged)
+end
+
+function _compute_pscad(problem::LineParametersProblem, formulation::PSCADFormulation,
+        execution_options, prepared, setting)
+    config = execution_options.remote
+    root, staged = prepared.root, prepared.staged
+    started = time_ns()
+    input = Dict{String, Any}(
+        "schema_version"=>1,
+        "project_sha256"=>bytes2hex(open(sha256, staged)),
+        "frequencies"=>Float64.(problem.frequencies),
+        "matrix_size"=>collect(_pscad_size(problem)),
+        "native_setting"=>Dict(string(key)=>value isa Symbol ? string(value) : value
+            for (key, value) in pairs(setting)),
+        "solver"=>execution_options.solver_identity,
+        "toolkit"=>Dict(name=>bytes2hex(sha256(source)) for (name, source) in PSCAD_REMOTE_SOURCES))
+    signature = semantic_sha256(input)
+    resume = execution_options.resume_run_directory
+    candidates = resume === nothing ? String[] : resume === :latest ?
+        sort!(filter(path -> isdir(path) && isfile(joinpath(path, "complete.toml")),
+            readdir(dirname(root); join=true));
+            by=path -> mtime(joinpath(path, "complete.toml")), rev=true) : [resume]
+    source_root = nothing
+    completion = nothing
+    for candidate in candidates
+        record_path = joinpath(candidate, "complete.toml")
+        isfile(record_path) || throw(ArgumentError("PSCAD run has no completion record: $candidate"))
+        record = TOML.parsefile(record_path)
+        if get(record, "input_sha256", nothing) != signature
+            resume === :latest && continue
+            throw(ArgumentError("PSCAD completed run has different numerical inputs or solver implementation: $candidate"))
+        end
+        get(record, "schema_version", nothing) == 1 || throw(ArgumentError(
+            "unsupported PSCAD completion record: $record_path"))
+        stored = TOML.parsefile(joinpath(candidate, "computation.toml"))
+        semantic_sha256(stored) == signature || throw(ArgumentError(
+            "PSCAD completed-run input integrity check failed: $candidate"))
+        bytes2hex(open(sha256, joinpath(candidate, "generated.pscx"))) == stored["project_sha256"] ||
+            throw(ArgumentError("PSCAD completed-run exported project changed: $candidate"))
+        for (name, digest) in stored["toolkit"]
+            bytes2hex(open(sha256, joinpath(candidate, "toolkit", name))) == digest ||
+                throw(ArgumentError("PSCAD completed-run solver source changed: $candidate/toolkit/$name"))
+        end
+        for name in ("result_zm.out", "result_zp.out", "result_ym.out", "result_yp.out", "solver.toml", "timing.txt")
+            path = joinpath(candidate, "outputs", name)
+            isfile(path) && bytes2hex(open(sha256, path)) == get(record["outputs"], name, nothing) ||
+                throw(ArgumentError("PSCAD completed-run output integrity check failed: $path"))
+        end
+        TOML.parsefile(joinpath(candidate, "outputs", "solver.toml")) == input["solver"] ||
+            throw(ArgumentError("PSCAD completed run has no matching solver attestation: $candidate"))
+        source_root, completion = candidate, record
+        break
+    end
+    reused = source_root !== nothing
+    if reused
+        @info "PSCAD reuses a verified completed run" source_run=source_root
+        output = joinpath(source_root, "outputs")
+        execution = (elapsed_seconds=0.0, elapsed_scope="completed-run reuse; no solver execution", exit_code=0,
+            stdout_path=joinpath(output, "stdout.txt"), stderr_path=joinpath(output, "stderr.txt"),
+            console_path=joinpath(output, "pscad-console.txt"), output_dir=output)
+    else
+        open(joinpath(root, "computation.toml"), "w") do io
+            TOML.print(io, input; sorted=true)
+        end
+        @info "Computing PSCAD line parameters" system = problem.system.system_id
+        execution = run_remote_pscad(config, staged, joinpath(root, "outputs"),
+            formulation, problem.frequencies; setting,
+            output_stem=execution_options.output_stem,
+            verbosity=verbosity(execution_options, :PSCAD))
+        TOML.parsefile(joinpath(execution.output_dir, "solver.toml")) == input["solver"] ||
+            throw(ArgumentError("PSCAD result has no matching solver attestation: $root"))
+    end
     parameters = try
         read_pscad_result(
             execution.output_dir,
@@ -574,27 +703,89 @@ function compute(
             "\nFull PSCAD diagnostics: $console_path",
         ))
     end
-    return _pscad_basis(parameters, problem, execution_options.output_basis)
+    source_elapsed = parse(Float64, strip(read(joinpath(execution.output_dir, "timing.txt"), String)))
+    isfinite(source_elapsed) && source_elapsed >= 0 || throw(ArgumentError("invalid PSCAD execution timing"))
+    if !reused
+        # Publish completion only after all four matrices have parsed and the
+        # remote implementation has been checked. Interrupted runs stay intact.
+        completion = Dict("schema_version"=>1, "input_sha256"=>signature,
+            "outputs"=>Dict(name=>bytes2hex(open(sha256, joinpath(execution.output_dir, name)))
+                for name in ("result_zm.out", "result_zp.out", "result_ym.out", "result_yp.out", "solver.toml", "timing.txt")))
+        temporary = tempname(root)
+        try
+            open(temporary, "w") do io
+                TOML.print(io, completion; sorted=true)
+            end
+            mv(temporary, joinpath(root, "complete.toml"); force=false)
+        finally
+            isfile(temporary) && rm(temporary)
+        end
+    end
+    parameters = _pscad_basis(parameters, problem, execution_options.output_basis)
+    retained = (formulations=formulation_record(formulation), native_setting=setting,
+        reference_frequency=50.0, loss_tangent_limit=10.0,
+        exported_project=read(staged, String),
+        execution=merge(execution, (backend=:pscad, pscad_version=config.pscad_version,
+            reused, source_run=reused ? source_root : root,
+            source_elapsed_seconds=source_elapsed,
+            source_elapsed_scope=PSCAD_TIMING_SCOPE,
+            wall_seconds=(time_ns() - started) * 1.0e-9,
+            input_sha256=signature, solver_identity=execution_options.solver_identity)))
+    return LineParameters(parameters.domain, parameters.Z, parameters.Y, parameters.f, retained)
+end
+
+function compute(problem::LineParametersProblem, formulation::PSCADFormulation;
+        options::NamedTuple=(;))
+    return first(compute(problem, [formulation]; options))
+end
+
+function compute(problem::LineParametersProblem, formulations::AbstractVector{<:PSCADFormulation};
+        options::NamedTuple=(;))
+    isempty(formulations) && throw(ArgumentError("PSCAD formulation collections cannot be empty"))
+    selected = [Formulation(Val(:pscad), problem, value) for value in formulations]
+    settings = [pscad_setting(value, problem) for value in selected]
+    _validate_frequencies(problem.frequencies)
+    _pscad_size(problem)
+    execution = computation_options(PSCADFormulation, options)
+    observed = identify(execution.remote)
+    execution.solver_identity === nothing || execution.solver_identity == observed ||
+        throw(ArgumentError("PSCAD solver installation changed during the campaign; start a new campaign"))
+    execution = merge(execution, (solver_identity=observed,))
+    projects = [_stage_pscad_project(problem, value) for value in selected]
+    # Same problem, frequency vector and execution settings throughout this
+    # batch; reuse only byte-identical exported inputs and native solver choices.
+    keys = [(project=read(project.staged, String), setting)
+        for (project, setting) in zip(projects, settings)]
+    first_result = _compute_pscad(problem, first(selected), execution, first(projects), first(settings))
+    values = Vector{typeof(first_result)}(undef, length(selected))
+    values[1] = first_result
+    execution.on_result === nothing || execution.on_result(problem, 1, first_result)
+    completed = Dict(first(keys)=>1)
+    for index in 2:length(selected)
+        previous = get(completed, keys[index], nothing)
+        if previous === nothing
+            values[index] = _compute_pscad(problem, selected[index], execution, projects[index], settings[index])
+        else
+            source = values[previous]
+            @info "PSCAD reuses identical exported inputs" formulation=index source_formulation=previous
+            retained = merge(deepcopy(source.details),
+                (formulations=formulation_record(selected[index]),
+                    execution=merge(source.details.execution, (reused=true, elapsed_seconds=0.0,
+                        elapsed_scope="identical-input reuse; no solver execution", wall_seconds=0.0))))
+            values[index] = LineParameters(source.domain,
+                SeriesImpedance(copy(source.Z.values); basis=basis(source)),
+                ShuntAdmittance(copy(source.Y.values); basis=basis(source)), copy(source.f), retained)
+        end
+        completed[keys[index]] = index
+        execution.on_result === nothing || execution.on_result(problem, index, values[index])
+    end
+    return values
 end
 
 function benchmark_metadata(
-        problem::LineParametersProblem,
-        ::PSCADFormulation
+        ::LineParametersProblem,
+        ::PSCADFormulation,
+        result::LineParameters
 )
-    root = _pscad_root(problem)
-    output = joinpath(root, "outputs")
-    timing_path = joinpath(output, "timing.txt")
-    version_path = joinpath(root, "pscad-version.txt")
-    isfile(timing_path) || throw(ArgumentError("PSCAD timing is missing: $timing_path"))
-    isfile(version_path) || throw(ArgumentError("PSCAD version is missing: $version_path"))
-    return (
-        backend = :pscad,
-        elapsed_seconds = parse(Float64, strip(read(timing_path, String))),
-        exit_code = 0,
-        stdout_path = joinpath(output, "stdout.txt"),
-        stderr_path = joinpath(output, "stderr.txt"),
-        console_path = joinpath(output, "pscad-console.txt"),
-        output_dir = output,
-        pscad_version = strip(read(version_path, String))
-    )
+    return result.details.execution
 end

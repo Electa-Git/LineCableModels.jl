@@ -71,4 +71,11 @@ end
     return functor.routes.mutual(functor, pair)
 end
 
+function validate(
+        pair::EarthPair, route::FormulaMethod{:IdealGround, typeof(earth_potential_coefficient)}, formula
+)
+    validate(pair)
+    return pair
+end
+
 :IdealGround

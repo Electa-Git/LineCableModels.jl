@@ -81,7 +81,8 @@ the selected formula's defaults.
 """
 Formula(identifier::Symbol; kwargs...) = Formula(Val(identifier); kwargs...)
 
-Formula(::Val{:default}; kwargs...) = Formula(Val(DEFAULT); kwargs...)
+"Retain an explicitly selected formula when the placement is resolved."
+Formula(selected::EarthImpedanceFormulation, ::Val) = selected
 
 function Formula(::Val{ID}; kwargs...) where {ID}
     identifier = Val(ID)
@@ -117,7 +118,7 @@ end
 function Formula(
         ::Val{:default}, selected::R, values::A = (;)
 ) where {R <: NamedTuple, A <: NamedTuple}
-    return Formula(Val(DEFAULT), selected, values)
+    return Formula{:default, R, A}(selected, values)
 end
 
 function Formula(identifier::Symbol, selected::NamedTuple, values::NamedTuple = (;))
@@ -153,4 +154,94 @@ function _longitudinal(
         ))
     end
     return (Γ = value, squared = value^2)
+end
+
+"""
+$(TYPEDSIGNATURES)
+
+Check the selected earth-impedance route against resolved pair geometry without
+evaluating its numerical kernel. Custom route overrides are checked as the
+selected callables, not as the original author's default leaves.
+
+# Arguments
+
+- `formula`: Resolved formula; resolve `:default` before this check.
+- `pair`: Resolved earth-return interaction with lengths in \\[m\\].
+
+# Returns
+
+- The same `formula`.
+
+# Errors
+
+- Throws an actionable native exception when the selected route cannot
+  represent the pair. Numerical integration is not performed by validation.
+"""
+function validate(formula::Formula, pair::EarthPair)
+    selected = pair.row == pair.column ? formula.routes.self : formula.routes.mutual
+    validate(pair, selected, formula)
+    return formula
+end
+
+function validate(formula::Formula{:default}, pair::EarthPair)
+    throw(ArgumentError(
+        "resolve earth-impedance :default from the problem before validating pair geometry"))
+end
+
+function validate(
+        pair::EarthPair, route::FormulaMethod{ID, typeof(earth_impedance)}, formula
+) where {ID}
+    throw(ArgumentError(
+        "earth-impedance route :$ID needs an owner-defined validate(pair, route, formula) method"))
+end
+
+"""
+$(TYPEDSIGNATURES)
+
+Check the layer inventory consumed by a resolved earth-impedance formula.
+Both static layer tuples and frequency-resolved property vectors contain air
+first, followed by the earth layers. Formula-specific counts are checked beside
+the corresponding equations.
+
+# Arguments
+
+- `formula`: Resolved formula.
+- `layer_count`: Number of media, including air.
+
+# Returns
+
+- The same `formula`.
+
+# Errors
+
+- Throws `DimensionMismatch` when the layer count is incompatible.
+"""
+function validate(formula::Formula, layer_count::Integer)
+    layer_count >= 2 || throw(DimensionMismatch(
+        "an earth-impedance formula requires air and at least one earth layer"))
+    return formula
+end
+
+validate(formula::Formula, layers::Union{Tuple, AbstractVector}) =
+    validate(formula, length(layers))
+
+function validate(
+        formula::Formula, layers::Union{Tuple, AbstractVector},
+        thickness::Union{Nothing, AbstractVector}
+)
+    validate(formula, layers)
+    thickness === nothing || length(thickness) == length(layers) ||
+        throw(DimensionMismatch("earth-layer thickness and material vectors must align"))
+    return formula
+end
+
+function validate(
+        formula::Formula, resistivity::AbstractVector,
+        permittivity::AbstractVector, permeability::AbstractVector,
+        thickness::Union{Nothing, AbstractVector}
+)
+    length(resistivity) == length(permittivity) == length(permeability) ||
+        throw(DimensionMismatch("earth-property vectors must have equal lengths"))
+    validate(formula, resistivity, thickness)
+    return formula
 end

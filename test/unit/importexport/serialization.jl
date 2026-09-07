@@ -47,6 +47,90 @@
     ))
 end
 
+@testitem "ImportExport / physical declarations survive JSON transport" tags=[:unit] begin
+    using JSON3
+    import LineCableModels.ImportExport as IE
+
+    copper = Material(kind=:conductor, rho=1.7241e-8)
+    dielectric = Material(kind=:insulator, rho=1e14, eps_r=2.3)
+    wire = Region(:wire, Disk(0.5e-3), copper)
+    path = Helix(LayAngle(0.2); dir=-1, φ0=0.3)
+    group = Group(:core, wire; pattern=Ring(6; r=2e-3), path)
+    parts = Stack(wire, insulation(dielectric; t=0.2e-3))
+    member = terminal(:core, parts)
+    enclosure = duct(member; shape=Ellipse(4e-3, 3e-3), fill=dielectric,
+        wall=insulation(dielectric; t=0.5e-3))
+    declarations = (
+        Ellipse(4e-3, 3e-3),
+        Polygon(((-1e-3, -1e-3), (1e-3, -1e-3), (0.0, 1e-3))),
+        LayAngle(0.2), path, wire, group, parts, enclosure,
+    )
+    for original in declarations
+        encoded = IE.serialize_value(original)
+        parsed = JSON3.read(JSON3.write(encoded), Dict{String, Any})
+        restored = IE.deserialize_value(parsed)
+        @test restored == original
+        @test typeof(restored) === typeof(original)
+        @test IE.serialize_value(restored) == encoded
+    end
+    metadata = (voltage=220.0, description="elliptical duct", positions=(1.0, 2.0))
+    @test IE.deserialize_value(IE.serialize_value(metadata)) == Dict(
+        "voltage"=>220.0, "description"=>"elliptical duct", "positions"=>[1.0, 2.0])
+    @test_throws ArgumentError IE.deserialize_value(Dict("__type__"=>"FutureScalar"))
+    @test_throws ArgumentError IE.deserialize_value(Dict("kind"=>"future_declaration"))
+    invalid = IE.serialize_value(parts)
+    invalid["items"][1]["kind"] = "future_physical_node"
+    @test_throws ArgumentError IE.deserialize_value(invalid)
+    missing_material = IE.serialize_value(wire)
+    missing_material["material"] = "not_in_the_library"
+    @test_throws KeyError IE.deserialize_value(missing_material)
+end
+
+@testitem "ImportExport / enclosed assemblies retain geometry and material ownership" tags=[:unit] begin
+    using JSON3
+    import LineCableModels.ImportExport as IE
+
+    copper = Material(kind=:conductor, rho=1.7241e-8)
+    dielectric = Material(kind=:insulator, rho=1e14, eps_r=2.3)
+    air = Material(kind=:insulator, rho=Inf, eps_r=1.0)
+    member = terminal(:core, core(copper; r=0.5e-3),
+        insulation(dielectric; t=0.2e-3))
+    repeated = cores(member; n=3, r=2e-3, names=(:a, :b, :c))
+    explicit = assembly(
+        at(terminal(:a, core(copper; r=0.5e-3)), -2e-3, 0.0),
+        at(terminal(:b, core(copper; r=0.5e-3)), 2e-3, 0.0),
+    )
+    library = CablesLibrary()
+    for (id, contents) in (("repeated", repeated), ("explicit", explicit))
+        design = build(CableDesign, id,
+            duct(contents; shape=Ellipse(6e-3, 4e-3), fill=air,
+                wall=insulation(dielectric; t=0.5e-3)))
+        add!(library, design)
+    end
+    mktempdir() do directory
+        path = joinpath(directory, "assemblies.json")
+        save(library; file_name=path)
+        document = JSON3.read(read(path, String), Dict{String, Any})
+        @test length(document["materials"]) == 3
+        restored = CablesLibrary()
+        load!(restored; file_name=path)
+        @test Set(keys(restored)) == Set(keys(library))
+        for id in keys(library)
+            expected, actual = library[id], restored[id]
+            # JSON arrays intentionally normalize tuple/vector declarations.
+            @test JSON3.read(JSON3.write(IE.serialize_value(actual)), Dict{String, Any}) ==
+                JSON3.read(JSON3.write(IE.serialize_value(expected)), Dict{String, Any})
+            @test actual.terminal_order == expected.terminal_order
+            @test actual.terminal_map == expected.terminal_map
+            @test [region.source.material for region in actual.geometry.regions] ==
+                [region.source.material for region in expected.geometry.regions]
+            @test [area(region.primitive) for region in actual.geometry.regions] ≈
+                [area(region.primitive) for region in expected.geometry.regions]
+            @test area(boundary(actual.geometry)) ≈ area(boundary(expected.geometry))
+        end
+    end
+end
+
 @testitem "ImportExport / v1 declaration round trip excludes derived state" tags=[:unit] setup=[
     ImportExportTestSupport,
     UseImportExportSupport,

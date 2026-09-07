@@ -76,7 +76,7 @@ Z_{e,ij}=\frac{j\omega\mu_0}{2\pi}
 function earth_impedance(
         ::Val{:WedepohlWilcox1973}, ::Val{:self}, functor, pair
 )
-    _require(pair, Val(:underground))
+    validate(pair, FormulaMethod(Val(:WedepohlWilcox1973), earth_impedance, Val(:self)), functor)
     state = functor.state
     geometry = _geometry(pair)
     e_c = oftype(geometry.h_i, 1.7811)
@@ -89,8 +89,7 @@ end
 function earth_impedance(
         ::Val{:WedepohlWilcox1973}, ::Val{:mutual}, functor, pair
 )
-    _require(pair, Val(:underground))
-    _require_horizontal_separation(pair)
+    validate(pair, FormulaMethod(Val(:WedepohlWilcox1973), earth_impedance, Val(:mutual)), functor)
     state = functor.state
     geometry = _geometry(pair)
     e_c = oftype(geometry.H, 1.7811)
@@ -98,6 +97,17 @@ function earth_impedance(
               one(geometry.H) / 2 -
               (2 * one(geometry.H) / 3) * state.gamma[2] * geometry.H
     return state.jω * state.mu[1] / (2π) * bracket
+end
+
+function validate(
+        pair::EarthPair, route::FormulaMethod{:WedepohlWilcox1973, typeof(earth_impedance)}, formula
+)
+    validate(pair)
+    (pair.layers[1] > 1 && pair.layers[2] > 1) || throw(ArgumentError(
+        ":WedepohlWilcox1973 earth impedance requires underground conductors; pair ($(pair.row), $(pair.column)) has layers $(pair.layers)"))
+    route.arguments != (Val(:self),) && iszero(pair.separation) && throw(DomainError(
+        pair.separation, ":WedepohlWilcox1973 mutual closed form requires nonzero horizontal cable separation"))
+    return pair
 end
 
 :WedepohlWilcox1973

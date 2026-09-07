@@ -14,7 +14,6 @@ const _ADDON_ICON_FONT = joinpath(
     "material-icons",
     "MaterialIcons-Regular.ttf"
 )
-const _ADDON_ZERO_TOLERANCE = sqrt(eps(Float64))
 
 function _addon_theme(; export_mode::Bool = false, export_theme::Symbol = :default)
     export_theme in (:default, :publication) || throw(ArgumentError(
@@ -174,8 +173,27 @@ function _addon_scientific_exponent(values)
 end
 
 function _addon_linear_tickformat(exponent::Int)
-    scale = 10.0^exponent
-    return values -> [@sprintf("%.4g", value / scale) for value in values]
+    # Normalize subnormal magnitudes without underflowing the power of ten.
+    shift = exponent < -307 ? 308 : 0
+    scale = 10.0^(exponent + shift)
+    return function (values)
+        mantissas = [(Float64(value) * 10.0^shift) / scale for value in values]
+        finite = sort!(unique(filter(isfinite, mantissas)))
+        isempty(finite) && return string.(mantissas)
+        magnitude = maximum(abs, finite)
+        digits = iszero(magnitude) ? 0 : max(0, 3 - floor(Int, log10(magnitude)))
+        if length(finite) > 1
+            # Retain distinct ticks when zooming into a narrow, offset interval.
+            spacing = minimum(diff(finite))
+            digits = max(digits, 1 - floor(Int, log10(spacing)))
+        end
+        digits = clamp(digits, 0, 17)
+        return map(mantissas) do value
+            label = @sprintf("%.*f", digits, value)
+            digits > 0 && (label = rstrip(rstrip(label, '0'), '.'))
+            label == "-0" ? "0" : label
+        end
+    end
 end
 
 function _addon_decade_ticks(vmin, vmax)
@@ -206,20 +224,14 @@ function _addon_axis_label(label, exponent::Int, scale::Symbol)
     )
 end
 
-function _addon_set_axis!(axis, dim::Symbol, label, allowed, exponent::Int, scale::Symbol)
+function _addon_set_axis!(axis, dim::Symbol, allowed, scale::Symbol)
     scale in allowed || throw(ArgumentError("axis :$dim does not allow scale :$scale"))
     ticks = scale === :log10 ? _addon_decade_ticks : Makie.automatic
-    tickformat = scale === :log10 ? Makie.automatic : _addon_linear_tickformat(exponent)
-    axis_label = _addon_axis_label(label, exponent, scale)
     if dim === :x
         axis.xticks[] = ticks
-        axis.xtickformat[] = tickformat
-        axis.xlabel[] = axis_label
         axis.xscale[] = _addon_scale(scale)
     elseif dim === :y
         axis.yticks[] = ticks
-        axis.ytickformat[] = tickformat
-        axis.ylabel[] = axis_label
         axis.yscale[] = _addon_scale(scale)
     else
         throw(ArgumentError("axis dimension must be :x or :y"))
@@ -374,30 +386,23 @@ function _addon_statistical_plot(
     return with_theme(_addon_theme(export_theme = export_theme)) do
         shell = _addon_shell(; size = fig_size, controls)
         panel = _addon_panel!(shell, (1, 1))
-        axis,
-        automatic_labels = _addon_axis!(
+        axis = _addon_axis!(
             panel.content,
             xobservation,
             yobservation;
             title = panel_title,
             xscale = :linear,
             yscale = :linear,
-            xscales = (:linear,),
-            yscales = (:linear,)
+            xlabel,
+            ylabel
         )
-        axis_labels = (;
-            x = xlabel === nothing ? automatic_labels.x : String(xlabel),
-            y = ylabel === nothing ? automatic_labels.y : String(ylabel)
-        )
-        xlabel === nothing || (axis.xlabel[] = axis_labels.x)
-        ylabel === nothing || (axis.ylabel[] = axis_labels.y)
         groups = Dict{Symbol, Vector{Any}}()
         order = Symbol[]
         labels = Dict{Symbol, String}()
         series = NamedTuple[]
         draw(axis, groups, order, labels, series)
         _addon_relabel_legend!(labels, groups, order, legend_labels)
-        reset! = () -> _addon_reset!(axis, series, axis_labels)
+        reset! = () -> _addon_reset!(axis, series)
         reset!()
         _addon_finish!(
             shell,
@@ -430,8 +435,9 @@ end
 function _addon_nearly_constant(values)
     isempty(values) && return false
     lower, upper = extrema(values)
-    scale = max(abs(lower), abs(upper), floatmin(Float64))
-    return upper - lower <= max(_ADDON_ZERO_TOLERANCE, 64eps(Float64) * scale)
+    scale = max(abs(lower), abs(upper))
+    iszero(scale) && return true
+    return upper / scale - lower / scale <= 64eps(Float64)
 end
 
 function _addon_constant_limits(values, interval_values, logarithmic::Bool)
@@ -446,42 +452,72 @@ function _addon_constant_limits(values, interval_values, logarithmic::Bool)
         first_exponent == last_exponent && (first_exponent -= 1; last_exponent += 1)
         return 10.0^first_exponent, 10.0^last_exponent
     end
-    all(value -> abs(value) <= _ADDON_ZERO_TOLERANCE, interval_values) &&
-        return (-_ADDON_ZERO_TOLERANCE, _ADDON_ZERO_TOLERANCE)
-    center = sum(extrema(values)) / 2
-    base_halfspan = iszero(center) ? 1.0 : 0.05abs(center)
+    all(iszero, interval_values) && return (-1.0, 1.0)
+    lower, upper = extrema(values)
+    center = lower / 2 + upper / 2
+    base_halfspan = max(0.05abs(center), eps(center))
     interval_halfspan = maximum(abs(value - center) for value in interval_values)
     halfspan = max(base_halfspan, 2interval_halfspan)
     return center - halfspan, center + halfspan
 end
 
-function _addon_refresh_format!(axis, series, labels)
-    for dim in (:x, :y)
-        values = _addon_visible_values(series, dim)
-        limits = axis.finallimits[]
-        index = dim === :x ? 1 : 2
-        lower = limits.origin[index]
-        limit_values = (lower, lower + limits.widths[index])
-        exponent = something(
-            _addon_scientific_exponent(values),
-            _addon_scientific_exponent(limit_values),
-            0
-        )
-        scale = dim === :x ? axis.xscale[] : axis.yscale[]
-        scale === Makie.log10 && continue
-        label = dim === :x ? labels.x : labels.y
-        if dim === :x
-            axis.xtickformat[] = _addon_linear_tickformat(exponent)
-            axis.xlabel[] = _addon_axis_label(label, exponent, :linear)
-        else
-            axis.ytickformat[] = _addon_linear_tickformat(exponent)
-            axis.ylabel[] = _addon_axis_label(label, exponent, :linear)
+function _addon_axis_format!(axis)
+    for (index, dim) in enumerate((:x, :y))
+        scale = getproperty(axis, Symbol(dim, :scale))
+        ticks = getproperty(axis, Symbol(dim, :ticks))
+        tickformat = getproperty(axis, Symbol(dim, :tickformat))
+        label = getproperty(axis, Symbol(dim, :label))
+        raw_label = Ref{Any}(label[])
+        rendered_label = Ref{Any}(label[])
+        installed_format = Ref{Any}(Makie.automatic)
+        installed_exponent = Ref{Union{Nothing, Int}}(nothing)
+        updating = Ref(false)
+        # One owner for all PlotBuilder applications. Native custom formatters and
+        # explicit tick labels opt out; reverting to automatic opts back in.
+        onany(axis.scene, axis.finallimits, scale, ticks, tickformat, label;
+                update = true) do limits, current_scale, current_ticks, current_format, current_label
+            updating[] && return nothing
+            updating[] = true
+            try
+                label_changed = current_label !== rendered_label[]
+                label_changed && (raw_label[] = current_label)
+                owned = current_format === installed_format[] || current_format === Makie.automatic
+                labelled_ticks = current_ticks isa Tuple && length(current_ticks) == 2 &&
+                                 last(current_ticks) isa AbstractVector
+                if owned && !labelled_ticks && current_scale === Makie.identity
+                    lower = limits.origin[index]
+                    exponent = something(_addon_scientific_exponent(
+                        (lower, lower + limits.widths[index])), 0)
+                    exponent == installed_exponent[] &&
+                        current_format !== Makie.automatic && !label_changed && return nothing
+                    if exponent != installed_exponent[] || current_format === Makie.automatic
+                        installed_format[] = _addon_linear_tickformat(exponent)
+                        installed_exponent[] = exponent
+                        tickformat[] = installed_format[]
+                    end
+                    formatted = _addon_axis_label(raw_label[], exponent, :linear)
+                else
+                    if current_format === installed_format[]
+                        installed_format[] = Makie.automatic
+                        installed_exponent[] = nothing
+                        tickformat[] = Makie.automatic
+                    end
+                    formatted = raw_label[]
+                end
+                if formatted !== current_label
+                    rendered_label[] = formatted
+                    label[] = formatted
+                end
+            finally
+                updating[] = false
+            end
+            return nothing
         end
     end
     return axis
 end
 
-function _addon_reset!(axis, series, labels)
+function _addon_reset!(axis, series)
     autolimits!(axis)
     for dim in (:x, :y)
         values = _addon_visible_values(series, dim)
@@ -492,7 +528,6 @@ function _addon_reset!(axis, series, labels)
         limits = _addon_constant_limits(values, interval_values, logarithmic)
         dim === :x ? xlims!(axis, limits...) : ylims!(axis, limits...)
     end
-    _addon_refresh_format!(axis, series, labels)
     return axis
 end
 
@@ -503,8 +538,6 @@ function _addon_axis!(
         title,
         xscale,
         yscale,
-        xscales,
-        yscales,
         xlabel = nothing,
         ylabel = nothing,
         attributes = (;)
@@ -515,8 +548,6 @@ function _addon_axis!(
     yaxis_label = ylabel === nothing ?
                   LineCableModels.Units.label(yobservation.quantity, yobservation.unit) :
                   String(ylabel)
-    xexponent = something(_addon_scientific_exponent(xobservation.values), 0)
-    yexponent = something(_addon_scientific_exponent(yobservation.values), 0)
     options = merge(
         (;
             title,
@@ -526,16 +557,12 @@ function _addon_axis!(
             yscale = _addon_scale(yscale),
             xticks = xscale === :log10 ? _addon_decade_ticks : Makie.automatic,
             yticks = yscale === :log10 ? _addon_decade_ticks : Makie.automatic,
-            xtickformat = xscale === :log10 ? Makie.automatic :
-                          _addon_linear_tickformat(xexponent),
-            ytickformat = yscale === :log10 ? Makie.automatic :
-                          _addon_linear_tickformat(yexponent),
-            xlabel = _addon_axis_label(xaxis_label, xexponent, xscale),
-            ylabel = _addon_axis_label(yaxis_label, yexponent, yscale)
+            xlabel = xaxis_label,
+            ylabel = yaxis_label
         ),
         attributes)
     axis = Axis(position; options...)
-    return axis, (; x = xaxis_label, y = yaxis_label)
+    return axis
 end
 
 function _addon_positions(count::Int, layout)
@@ -1406,6 +1433,7 @@ function _addon_finish!(
         export_theme,
         open_export
 )
+    foreach(_addon_axis_format!, axes)
     title_block = _addon_figure_title!(shell, figure_title, title_attributes)
     inside_bbox = _addon_axes_viewport(
         axes,

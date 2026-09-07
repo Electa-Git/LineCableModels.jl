@@ -42,8 +42,10 @@ LINECABLEMODELS_GETDP=/absolute/path/to/getdp julia --project=test \
 
 The full gauntlet remains a manual workflow, separate from these deterministic
 FEM regressions. CI must not launch live PSCAD/FEM gauntlet campaigns or promote
-their output to references. A future artifact-backed gate must consume explicitly
-validated, pinned gauntlet artifacts; that binding is not configured yet.
+their output to references. The read-only [numerical-reference gate](numerical/README.md)
+replays stored problem and formulation declarations against explicitly reviewed,
+pinned gauntlet arrays, with element-wise RMS tolerances and scalar inference
+checks. Its approval manifest and bindings remain empty; it is not enabled in CI.
 
 Instantiate the gauntlet environment and run every tagged case through the dedicated TestItemRunner entry point:
 
@@ -115,7 +117,7 @@ spelling used during unreleased development:
 - Mesh every supported bounded formation and check elements on every material
   surface. A nonempty overall mesh or physical-tag list is insufficient.
 
-The enforced coverage ratio includes only tracked production code under `src/` and
+The enforced coverage ratio includes all production code under `src/` and
 `ext/`. The LCOV report also publishes reusable gauntlet helper coverage when traces
 exist, while excluding manually authored files under `test/gauntlet/cases/`. Clean stale
 traces before a coverage run, merge traces from the ordinary, core-only, and visual
@@ -136,8 +138,11 @@ julia --project=test/coverage test/coverage.jl check
 CI additionally checks backend selection in isolated GLMakie and
 WGLMakie environments (GLMakie runs under Xvfb). The deterministic FEM job uploads
 its production traces with a `.fem.cov` suffix to avoid cross-runner process-ID
-collisions; the coverage job merges them before the same single check. The cleaner
-removes both Julia-native and imported FEM traces. The checker amends
+collisions. The solver-free toolkit job uploads `.toolkit.cov` traces as well;
+its reusable helper coverage is published, but only `src/` and `ext/` contribute
+to the production threshold. Neither job runs the manual Gauntlet campaign.
+The coverage job merges both artifacts before the same single check. The cleaner
+removes Julia-native, imported FEM, and imported toolkit traces. The checker amends
 coverage from source, rejects any missing `src/` or `ext/` Julia file, writes
 `lcov.info`, and fails below 95% aggregate line coverage.
 

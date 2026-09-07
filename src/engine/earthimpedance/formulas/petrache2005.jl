@@ -58,11 +58,21 @@ Z_{e,ij}=\frac{j\omega\mu_0}{2\pi}
 function earth_impedance(
         ::Val{:Petrache2005}, ::Val{:mutual}, functor, pair
 )
-    _require(pair, Val(:underground))
-    pair.row == pair.column || _require_horizontal_separation(pair)
+    validate(pair, FormulaMethod(Val(:Petrache2005), earth_impedance, Val(:mutual)), functor)
     state = functor.state
     argument = state.gamma[2] * pair.separation
     return state.jω * state.mu[1] / (2π) * log((1 + argument) / argument)
+end
+
+function validate(
+        pair::EarthPair, route::FormulaMethod{:Petrache2005, typeof(earth_impedance)}, formula
+)
+    validate(pair)
+    (pair.layers[1] > 1 && pair.layers[2] > 1) || throw(ArgumentError(
+        ":Petrache2005 earth impedance requires underground conductors; pair ($(pair.row), $(pair.column)) has layers $(pair.layers)"))
+    pair.row != pair.column && iszero(pair.separation) && throw(DomainError(
+        pair.separation, ":Petrache2005 mutual closed form requires nonzero horizontal cable separation"))
+    return pair
 end
 
 :Petrache2005

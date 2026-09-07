@@ -1,176 +1,182 @@
 """
-    NativeEarthAdmittance
-
-Select PSCAD's native earth-admittance calculation for the exported line-data
-model.
-"""
-struct NativeEarthAdmittance <: EarthAdmittanceFormulation end
-
-"""
-    NativeInsulationAdmittance
-
-Select PSCAD's native insulation-admittance calculation for the exported
-line-data model.
-"""
-struct NativeInsulationAdmittance <: InsulationAdmittanceFormulation end
-
-"""
-    DirectNumericalIntegration(placement)
-
-Select PSCAD's direct numerical integration mode for an `:overhead` or
-`:underground` line model.
-
-This selector is local to the PSCAD backend because PSCAD represents the
-numerical solver choice as an earth-formulation setting.
-"""
-struct DirectNumericalIntegration{Placement} <: EarthImpedanceFormulation
-    function DirectNumericalIntegration(placement::Symbol)
-        placement in (:overhead, :underground) || throw(ArgumentError(
-            "PSCAD direct numerical integration placement must be :overhead or :underground",
-        ))
-        return new{placement}()
-    end
-end
-
-"""
     PSCADFormulation
 
-Store the physical methods selected for a PSCAD line-constants calculation.
+Store shared formula selections, requested definitions, and physical options
+for PSCAD. Backend execution settings remain computation options.
 """
-struct PSCADFormulation{B, M <: NamedTuple, O <: NamedTuple} <: AbstractFormulation
-    backend::B
+struct PSCADFormulation{M <: NamedTuple, O <: NamedTuple, D <: NamedTuple} <: AbstractFormulation
     methods::M
     options::O
+    definitions::D
 end
 
-function Base.getproperty(formulation::PSCADFormulation, name::Symbol)
-    name in fieldnames(typeof(formulation)) && return getfield(formulation, name)
-    methods = getfield(formulation, :methods)
-    haskey(methods, name) && return getproperty(methods, name)
-    return getfield(formulation, name)
+function formulation_options(::Type{PSCADFormulation}, options::NamedTuple)::FormulationOptions
+    normalized = formulation_options(LineParametersFormulation,
+        merge((reduce_bundle=false, kron_reduction=false, ideal_transposition=false), options))
+    any((normalized.reduce_bundle, normalized.kron_reduction, normalized.ideal_transposition)) &&
+        throw(ArgumentError("PSCAD Gauntlet currently requires unreduced, untransposed terminal matrices"))
+    return normalized
 end
 
-function formulation_options(
-        ::Type{PSCADFormulation},
-        options::NamedTuple
-)::FormulationOptions
-    isempty(options) || throw(ArgumentError("PSCAD has no formulation options"))
-    return (;)
+function _pscad_formulation(internal_impedance, insulation_impedance, earth_impedance,
+        insulation_admittance, semicon_admittance, earth_admittance, earth_properties,
+        equivalent_earth, pipe_impedance, options::NamedTuple)
+    selections = (; internal_impedance, insulation_impedance, earth_impedance,
+        insulation_admittance, semicon_admittance, earth_admittance, earth_properties,
+        equivalent_earth, pipe_impedance)
+    physical = Formulation(; selections..., options=formulation_options(PSCADFormulation, options))
+    return PSCADFormulation(physical.methods, physical.options, physical.definitions)
 end
 
-function Formulation(
-        ::Val{:pscad};
-        earth_impedance = :WedepohlWilcox1973,
-        earth_admittance::NativeEarthAdmittance = NativeEarthAdmittance(),
-        insulation_admittance::NativeInsulationAdmittance =
-        NativeInsulationAdmittance(),
-        options::NamedTuple = (;)
-)
-    selected_earth_impedance = earth_impedance isa Symbol ?
-                               EarthImpedance.Formula(earth_impedance) :
-                               earth_impedance
-    selected_earth_impedance isa EarthImpedanceFormulation || throw(
-        ArgumentError(
-        "PSCAD earth_impedance must be a literature symbol or " *
-        "EarthImpedanceFormulation"
-    )
-    )
-    methods = (
-        earth_impedance = selected_earth_impedance,
-        earth_admittance,
-        insulation_admittance
-    )
-    return PSCADFormulation(
-        Val(:pscad),
-        methods,
-        formulation_options(PSCADFormulation, options)
-    )
+"""
+    Formulation(:pscad; kwargs...)
+
+Select PSCAD through the shared formula grammar. All formula slots and options
+accept Grid inputs with product or zip composition. Earth-impedance
+`:default` resolves from placement to direct numerical integration (overhead
+or underground), or PSCAD's Lucca option for mixed placement. Dielectric
+`:default` is explicitly lossless. An explicit Ametani selection is represented
+by the equivalent capacitance and loss tangent at the export reference
+frequency; PSCAD's native frequency law and loss-tangent cap of ten still apply.
+Other fixed PSCAD calculations are recorded as backend assumptions, not as
+implementations of the requested analytical kernels.
+"""
+function Formulation(::Val{:pscad};
+        internal_impedance=formula(:default),
+        insulation_impedance=formula(:default),
+        earth_impedance=formula(:default),
+        insulation_admittance=formula(:default),
+        semicon_admittance=formula(:default),
+        earth_admittance=formula(:default),
+        earth_properties=formula(:default),
+        equivalent_earth=formula(:default),
+        pipe_impedance=formula(:default),
+        options=(;), combine::Symbol=:product)
+    selections = (internal_impedance, insulation_impedance, earth_impedance,
+        insulation_admittance, semicon_admittance, earth_admittance, earth_properties,
+        equivalent_earth, pipe_impedance)
+    return parameterize(PSCADFormulation, _pscad_formulation, (selections..., options); combine)
 end
 
-description(::NativeEarthAdmittance) = "PSCAD native earth admittance"
-description(::NativeInsulationAdmittance) = "PSCAD native insulation admittance"
-function description(::DirectNumericalIntegration{:overhead})
-    "PSCAD direct numerical integration (overhead)"
-end
-function description(::DirectNumericalIntegration{:underground})
-    "PSCAD direct numerical integration (underground)"
-end
-
-function pscad_field(formula::EarthImpedance.Formula)
-    pscad_field(Val(EarthImpedance.formula_id(formula)))
-end
-function pscad_value(formula::EarthImpedance.Formula)
-    pscad_value(Val(EarthImpedance.formula_id(formula)))
-end
-function pscad_readback(formula::EarthImpedance.Formula)
-    pscad_readback(Val(EarthImpedance.formula_id(formula)))
-end
-
-pscad_field(::Val{:DeriSemlyen1981}) = :EarthForm2
-pscad_value(::Val{:DeriSemlyen1981}) = 0
-pscad_readback(::Val{:DeriSemlyen1981}) = "DERISEMLYEN"
-
-pscad_field(::DirectNumericalIntegration{:overhead}) = :EarthForm2
-pscad_value(::DirectNumericalIntegration{:overhead}) = 2
-function pscad_readback(::DirectNumericalIntegration{:overhead})
-    "DIRECT_NUMERICAL_INTEGRATION"
-end
-
-pscad_field(::Val{:WedepohlWilcox1973}) = :EarthForm
-pscad_value(::Val{:WedepohlWilcox1973}) = 0
-pscad_readback(::Val{:WedepohlWilcox1973}) = "WEDEPOHL"
-
-pscad_field(::DirectNumericalIntegration{:underground}) = :EarthForm
-pscad_value(::DirectNumericalIntegration{:underground}) = 2
-function pscad_readback(::DirectNumericalIntegration{:underground})
-    "DIRECT_NUMERICAL_INTEGRATION"
+function Formulation(::Val{:pscad}, problem::LineParametersProblem, requested::PSCADFormulation)
+    heights = getproperty.(problem.system.positions, :y)
+    placement = all(>(0), heights) ? Val(:overhead) :
+                all(<(0), heights) ? Val(:underground) : Val(:mixed)
+    !problem.earth_props.vertical_layers && length(problem.earth_props.layers) == 2 ||
+        throw(ArgumentError("PSCAD Cable_Coax Gauntlet supports air and one homogeneous horizontal earth half-space"))
+    problem.Γ === nothing || all(iszero, problem.Γ) || throw(ArgumentError(
+        "PSCAD does not accept an explicit nonzero longitudinal propagation constant"))
+    requested.methods.earth_properties === nothing || throw(ArgumentError(
+        "PSCAD does not implement the selected frequency-dependent soil relation"))
+    for name in (:insulation_admittance, :semicon_admittance)
+        selected = getproperty(requested.methods, name)
+        formula_id(selected) in (:default, :Ametani2004) || throw(ArgumentError(
+            "PSCAD does not implement $name :$(formula_id(selected))"))
+    end
+    for design in problem.system.designs
+        Formulation(Val(:pscad), requested.methods.pipe_impedance, design)
+    end
+    earth = requested.methods.earth_impedance
+    identifier = formula_id(earth)
+    effective = identifier === :default ?
+        (placement === Val(:mixed) ? :Lucca1994 : :DirectNumericalIntegration) : identifier
+    pscad_setting(Val(effective), placement)
+    isempty(EarthImpedance.routes(earth)) ||
+        EarthImpedance.routes(earth) == EarthImpedance.routes(EarthImpedance.Formula(identifier)) ||
+        throw(ArgumentError("PSCAD cannot apply custom analytical earth-impedance routes"))
+    methods = merge(requested.methods, (earth_impedance=EarthImpedance.Formula(effective),))
+    return PSCADFormulation(methods, requested.options, requested.definitions)
 end
 
-pscad_field(::Val{:Saad1996}) = :EarthForm
-pscad_value(::Val{:Saad1996}) = 3
-pscad_readback(::Val{:Saad1996}) = "SAAD"
+# Shared identifiers map to one native setting; placement comes from the problem.
+Formulation(::Val{:pscad}, ::Val{:default}, ::PipeImpedance.Formula{:default}, ::Val{:coaxial}) = nothing
+function Formulation(::Val{:pscad}, ::Val{:default}, ::PipeImpedance.Formula{:default}, ::Val{:pipe})
+    throw(ArgumentError("PSCAD Cable_Coax does not support an eccentric or multicore metallic pipe enclosure"))
+end
 
-pscad_field(::Val{:Ametani2009}) = :EarthForm3
-pscad_value(::Val{:Ametani2009}) = 0
-pscad_readback(::Val{:Ametani2009}) = "AMETANIL"
+pscad_setting(::Val{:DeriSemlyen1981}, ::Val{:overhead}) =
+    (field=:EarthForm2, value=0, readback="DERISEMLYEN")
+pscad_setting(::Val{:DirectNumericalIntegration}, ::Val{:overhead}) =
+    (field=:EarthForm2, value=2, readback="DIRECT_NUMERICAL_INTEGRATION")
+pscad_setting(::Val{:WedepohlWilcox1973}, ::Val{:underground}) =
+    (field=:EarthForm, value=0, readback="WEDEPOHL")
+pscad_setting(::Val{:DirectNumericalIntegration}, ::Val{:underground}) =
+    (field=:EarthForm, value=2, readback="DIRECT_NUMERICAL_INTEGRATION")
+pscad_setting(::Val{:Saad1996}, ::Val{:underground}) =
+    (field=:EarthForm, value=3, readback="SAAD")
+pscad_setting(::Val{:Ametani2009}, ::Val{:mixed}) =
+    (field=:EarthForm3, value=0, readback="AMETANIL")
+pscad_setting(::Val{:Lucca1994}, ::Val{:mixed}) =
+    (field=:EarthForm3, value=2, readback="LUCCA")
+function pscad_setting(::Val{ID}, ::Val{Placement}) where {ID, Placement}
+    throw(ArgumentError("PSCAD earth-impedance :$ID is not supported for $Placement placement"))
+end
 
-pscad_field(::Val{:Lucca1994}) = :EarthForm3
-pscad_value(::Val{:Lucca1994}) = 2
-pscad_readback(::Val{:Lucca1994}) = "LUCCA"
+"""
+    formulas(placement::Val)
+
+Return shared earth-impedance identifiers with a native PSCAD setting for
+`Val(:overhead)`, `Val(:underground)` or `Val(:mixed)`. Availability comes from
+the backend's setting dispatch over the Engine registry, not a second author
+list. No project is generated and no remote solver is invoked.
+"""
+function formulas(placement::Val)
+    placement in (Val(:overhead), Val(:underground), Val(:mixed)) ||
+        throw(ArgumentError("PSCAD formula placement must be overhead, underground or mixed"))
+    identifiers = Symbol[]
+    for identifier in EarthImpedance.REGISTERED
+        identifier === :default && continue
+        try
+            pscad_setting(Val(identifier), placement)
+        catch error
+            error isa ArgumentError || rethrow()
+            continue
+        end
+        push!(identifiers, identifier)
+    end
+    return Tuple(identifiers)
+end
+
+function pscad_setting(formulation::PSCADFormulation, problem::LineParametersProblem)
+    heights = getproperty.(problem.system.positions, :y)
+    placement = all(>(0), heights) ? Val(:overhead) :
+                all(<(0), heights) ? Val(:underground) : Val(:mixed)
+    selected = Formulation(Val(:pscad), problem, formulation)
+    return pscad_setting(Val(formula_id(selected.methods.earth_impedance)), placement)
+end
 
 function formulation_record(formulation::PSCADFormulation)
-    earth_impedance = formulation.earth_impedance
-    earth_admittance = formulation.earth_admittance
-    insulation_admittance = formulation.insulation_admittance
+    requested = map(formulation.definitions) do definition
+        definition isa Symbol ? string(definition) :
+        applicable(formula_id, definition) ? string(formula_id(definition)) : repr(definition)
+    end
+    methods = formulation.methods
     return (
-        type = string(parentmodule(typeof(formulation)), ".", nameof(typeof(formulation))),
-        earth_impedance = (
-            type = string(
-                parentmodule(typeof(earth_impedance)),
-                ".",
-                nameof(typeof(earth_impedance))
-            ),
-            description = description(earth_impedance),
-            pscad_field = pscad_field(earth_impedance),
-            pscad_value = pscad_value(earth_impedance),
-            pscad_readback = pscad_readback(earth_impedance)
-        ),
-        earth_admittance = (
-            type = string(
-                parentmodule(typeof(earth_admittance)),
-                ".",
-                nameof(typeof(earth_admittance))
-            ),
-            description = description(earth_admittance)
-        ),
-        insulation_admittance = (
-            type = string(
-                parentmodule(typeof(insulation_admittance)),
-                ".",
-                nameof(typeof(insulation_admittance))
-            ),
-            description = description(insulation_admittance)
-        ),
-        options = formulation.options
-    )
+        schema_version=1,
+        backend=:pscad,
+        type=string(parentmodule(typeof(formulation)), ".", nameof(typeof(formulation))),
+        requested,
+        raw=Dict{Symbol, Any}(:selections => formulation_record(LineParametersFormulation(
+            methods, formulation.options, formulation.definitions))),
+        effective=(
+            internal_impedance=nothing, insulation_impedance=nothing,
+            earth_impedance=formula_id(methods.earth_impedance),
+            earth_admittance=nothing,
+            insulation_admittance=formula_id(methods.insulation_admittance),
+            semicon_admittance=formula_id(methods.semicon_admittance),
+            earth_properties=nothing, equivalent_earth=nothing, pipe_impedance=nothing),
+        assumptions=(
+            internal_impedance="PSCAD native Cable_Coax conductor calculation",
+            insulation_impedance="PSCAD native Cable_Coax magnetic calculation",
+            earth_admittance="PSCAD native earth-admittance calculation",
+            insulation_admittance=description(methods.insulation_admittance),
+            semicon_admittance=description(methods.semicon_admittance),
+            dielectric_equivalence="Reference-frequency equivalent capacitance and loss tangent; native PSCAD frequency law; loss tangent capped at 10",
+            earth="One homogeneous earth layer; no FD relation",
+            pipe_impedance="Cable_Coax only; shared eccentric metallic enclosure unsupported"),
+        options=formulation.options)
+end
+
+function computation_details(::Type{<:PSCADFormulation}, result::LineParameters)::ComputationDetails
+    return details(result)
 end

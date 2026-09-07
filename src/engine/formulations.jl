@@ -126,9 +126,13 @@ Select the Julia-native Gmsh/GetDP quasi-TEM finite-element backend.
 
 $(TYPEDFIELDS)
 """
-struct LineCableModelsFEM{O <: NamedTuple} <: AbstractFormulationBackend
+struct LineCableModelsFEM{M <: NamedTuple, O <: NamedTuple, D <: NamedTuple} <: AbstractFormulationBackend
+    "Shared scientific formula selections, independent of FEM execution controls."
+    methods::M
     "Shared line-parameter formulation options."
     options::O
+    "Requested formula definitions retained for provenance."
+    definitions::D
     "Finite-element execution options."
     execution::LineCableModelsFEMOptions
 end
@@ -190,6 +194,7 @@ Supertype for Engine impedance formulations.
 """
 abstract type AbstractImpedanceFormulation <: AbstractFormulation end
 abstract type InternalImpedanceFormulation <: AbstractImpedanceFormulation end
+abstract type PipeImpedanceFormulation <: AbstractImpedanceFormulation end
 abstract type InsulationImpedanceFormulation <: AbstractImpedanceFormulation end
 abstract type EarthImpedanceFormulation <: AbstractImpedanceFormulation end
 
@@ -198,8 +203,52 @@ abstract type InsulationAdmittanceFormulation <: AbstractAdmittanceFormulation e
 abstract type SemiconAdmittanceFormulation <: AbstractAdmittanceFormulation end
 abstract type EarthAdmittanceFormulation <: AbstractAdmittanceFormulation end
 
+@required EarthImpedanceFormulation begin
+    validate(::EarthImpedanceFormulation, ::EarthPair)
+    validate(::EarthImpedanceFormulation, ::Integer)
+end
+
+@required EarthAdmittanceFormulation begin
+    validate(::EarthAdmittanceFormulation, ::EarthPair)
+    validate(::EarthAdmittanceFormulation, ::Integer)
+end
+
 "Return whether an earth formulation consumes homogeneous or stratified media."
 media(::Union{EarthImpedanceFormulation, EarthAdmittanceFormulation}) = Val(:homogeneous)
+
+"""
+$(TYPEDSIGNATURES)
+
+Check an earth formula against the physical earth model before numerical
+evaluation. Homogeneous formulas may consume an EHEM reduction downstream;
+stratified formulas consume the physical horizontal layers directly.
+
+# Arguments
+
+- `formula`: Resolved earth-impedance or earth-admittance formula.
+- `earth`: Validated static earth model, including the air layer.
+
+# Returns
+
+- The same `formula`.
+
+# Errors
+
+- Throws `ArgumentError` for vertical interfaces with a horizontal stratified
+  formula, or a native exception for a formula-incompatible layer inventory.
+"""
+function validate(
+        formula::Union{EarthImpedanceFormulation, EarthAdmittanceFormulation},
+        earth::EarthModel
+)
+    validate(earth)
+    earth.vertical_layers && media(formula) === Val(:stratified) &&
+        throw(ArgumentError(
+            "stratified earth-return formulas require horizontal earth interfaces; " *
+            "the selected EarthModel has vertical interfaces"))
+    validate(formula, length(earth.layers))
+    return formula
+end
 
 "Route an explicit external formulation tag to its `Val` dispatch method."
 Formulation(backend::Symbol; kwargs...) = Formulation(Val(backend); kwargs...)
@@ -213,24 +262,34 @@ function _fem_execution_options(options::NamedTuple)
 end
 
 function _fem_formulation(
+        internal_impedance, insulation_impedance, earth_impedance,
+        insulation_admittance, semicon_admittance, earth_admittance,
+        earth_properties, equivalent_earth, pipe_impedance,
         options::NamedTuple,
         fem_options::Union{NamedTuple, LineCableModelsFEMOptions}
 )
-    shared = formulation_options(LineParametersFormulation, options)
-    return LineCableModelsFEM(shared, _fem_execution_options(fem_options))
+    physical = _line_formulation(internal_impedance, insulation_impedance,
+        earth_impedance, insulation_admittance, semicon_admittance, earth_admittance,
+        earth_properties, equivalent_earth, pipe_impedance, options)
+    return LineCableModelsFEM(physical.methods, physical.options, physical.definitions,
+        _fem_execution_options(fem_options))
 end
 
 """
 $(TYPEDSIGNATURES)
 
 Construct the Gmsh/GetDP finite-element formulation through the code-first
-`Formulation` grammar. `options` and `fem_options` accept scalar values or
+`Formulation` grammar. Shared formula slots, `options`, and `fem_options` accept scalar values or
 explicit [`Grid`](@ref LineCableModels.ParametricBuilder.Grid)/
 [`Gridspace`](@ref LineCableModels.ParametricBuilder.Gridspace) sources; a
 varying call returns a `Gridspace{LineCableModelsFEM}`.
 
 # Keywords
 
+- Formula slots have the same names and identifiers as [`Formulation`](@ref).
+  Dielectric `:default` explicitly selects lossless admittivity. FEM retains its
+  field equations instead of evaluating analytical impedance kernels; those
+  selections are recorded with their backend treatment.
 - `options=(;)`: Shared bundle, Kron, ideal-transposition, and temperature
   options accepted by the line-parameter engine.
 - `fem_options=(;)`: A [`LineCableModelsFEMOptions`](@ref) value or the
@@ -240,6 +299,15 @@ varying call returns a `Gridspace{LineCableModelsFEM}`.
 """
 function Formulation(
         ::Val{:LineCableModelsFEM};
+        internal_impedance = formula(:default),
+        insulation_impedance = formula(:default),
+        earth_impedance = formula(:default),
+        insulation_admittance = formula(:default),
+        semicon_admittance = formula(:default),
+        earth_admittance = formula(:default),
+        earth_properties = formula(:default),
+        equivalent_earth = formula(:default),
+        pipe_impedance = formula(:default),
         options = (;),
         fem_options = (;),
         combine::Symbol = :product
@@ -247,15 +315,13 @@ function Formulation(
     return parameterize(
         LineCableModelsFEM,
         _fem_formulation,
-        (options, fem_options);
+        (internal_impedance, insulation_impedance, earth_impedance,
+            insulation_admittance, semicon_admittance, earth_admittance,
+            earth_properties, equivalent_earth, pipe_impedance, options, fem_options);
         combine
     )
 end
 
-function LineCableModelsFEM(;
-        options = (;),
-        fem_options = (;),
-        combine::Symbol = :product
-)
-    return Formulation(Val(:LineCableModelsFEM); options, fem_options, combine)
+function LineCableModelsFEM(; kwargs...)
+    return Formulation(Val(:LineCableModelsFEM); kwargs...)
 end

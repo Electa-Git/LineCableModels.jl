@@ -27,7 +27,7 @@ function clean_traces!()
         for (root, _, names) in walkdir(directory)
             for name in names
                 if CoverageTools.iscovfile(name) ||
-                   occursin(r"\.jl(?:\.[0-9]+)?\.fem\.cov$", name)
+                   occursin(r"\.jl(?:\.[0-9]+)?\.(?:fem|toolkit)\.cov$", name)
                     candidate = joinpath(root, name)
                     rm(candidate; force = true)
                     push!(removed, candidate)

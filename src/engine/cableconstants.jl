@@ -256,12 +256,15 @@ $(TYPEDFIELDS)
 """
 struct CableConstantsFormulation{
     M <: NamedTuple,
-    O <: NamedTuple
+    O <: NamedTuple,
+    D <: NamedTuple
 } <: AbstractFormulation
     "Registered physical formula selections."
     methods::M
     "Cable-constant formulation options."
     options::O
+    "Requested declarations retained before formula-owner resolution."
+    definitions::D
 end
 
 function formulation_options(
@@ -285,17 +288,21 @@ function _constants_formulation(
         insulation_impedance,
         insulation_admittance,
         semicon_admittance,
+        pipe_impedance,
         options::NamedTuple
 )
     methods = (
         internal_impedance = _internal_impedance_formula(internal_impedance),
         insulation_impedance = _insulation_impedance_formula(insulation_impedance),
         insulation_admittance = _insulation_admittance_formula(insulation_admittance),
-        semicon_admittance = _semicon_admittance_formula(semicon_admittance)
+        semicon_admittance = _semicon_admittance_formula(semicon_admittance),
+        pipe_impedance = _pipe_impedance_formula(pipe_impedance)
     )
     return CableConstantsFormulation(
         methods,
-        formulation_options(CableConstantsFormulation, options)
+        formulation_options(CableConstantsFormulation, options),
+        (; internal_impedance, insulation_impedance, insulation_admittance,
+            semicon_admittance, pipe_impedance)
     )
 end
 
@@ -316,6 +323,8 @@ inputs return one [`CableConstantsFormulation`](@ref); varying inputs return a
 - `insulation_impedance`: Longitudinal insulation-impedance recipe.
 - `insulation_admittance`: Insulation constitutive relation.
 - `semicon_admittance`: Semiconducting-layer constitutive relation.
+- `pipe_impedance`: Pipe-type selection; the coaxial pipe implementation is not
+  yet available. Ordinary concentric assemblies have no additional pipe term.
 - `options`: Complete cable-constant formulation options.
 - `combine`: `:product` or `:zip` composition among varying fields.
 """
@@ -324,6 +333,7 @@ function CableConstantsFormulation(;
         insulation_impedance = formula(:default),
         insulation_admittance = formula(:default),
         semicon_admittance = formula(:default),
+        pipe_impedance = formula(:default),
         options = (;),
         combine::Symbol = :product
 )
@@ -332,6 +342,7 @@ function CableConstantsFormulation(;
         insulation_impedance,
         insulation_admittance,
         semicon_admittance,
+        pipe_impedance,
         options
     )
     return parameterize(
@@ -557,6 +568,9 @@ function compute(
         "cable-constant formulation collections cannot be empty",
     ))
     validate(problem)
+    for formulation in formulations
+        Formulation(engine, formulation.methods.pipe_impedance, problem.design)
+    end
     blueprint = flatten(engine, problem.design, eltype(problem))
     cable = LocalCableData(blueprint)
     first_formulation = first(formulations)
