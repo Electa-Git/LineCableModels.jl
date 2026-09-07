@@ -28,6 +28,9 @@ trap cleanup EXIT HUP INT TERM
 cd -- "${PLAYGROUND_DIR}"
 ./lcm playground build --quiet
 ./lcm presentation check presentations/specimen.qmd --quiet
+quarto_bin="$(julia --startup-file=no --project=. -e \
+    'using LineCableModelsPlayground; print(LineCableModelsPlayground.require_quarto())')"
+node test/integration/math_notes_filter.mjs "$quarto_bin"
 
 ./lcm presentation start presentations/specimen.qmd \
     --no-render --no-open --port "${SERVER_PORT}" >"${TEST_DIR}/server.log" 2>&1 &

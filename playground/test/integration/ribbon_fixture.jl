@@ -45,6 +45,7 @@ WB.handle!(::RibbonWorkbench, state, action) = nothing
 server = Bonito.Server("127.0.0.1", parse(Int, ARGS[1]))
 LCM.register_static_site_routes!(server)
 LCM.register_widget_routes!(server)
+Bonito.route!(server, "/workbenches/template" => LCM.TemplateWorkbench.app(; xray=true))
 Bonito.route!(server, "/fixture/standalone" => App() do session
     DOM.div(DOM.style(LCM.BRAND_THEME), DOM.style(LCM.CONTROL_CONTRACT),
         LCM.widget_theme_script(), specimen())

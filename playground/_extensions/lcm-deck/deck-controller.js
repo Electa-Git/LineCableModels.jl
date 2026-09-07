@@ -58,7 +58,7 @@
   }
 
   const editable = target => target?.closest?.(
-    'input, select, textarea, button, a[href], [contenteditable="true"], [role="textbox"], [role="slider"]');
+    'input, select, textarea, button, a[href], [contenteditable="true"], [role="textbox"], [role="slider"], .lcm-math-term, .lcm-math-callout');
   function onKey(event) {
     if (event.ctrlKey || event.metaKey || event.altKey || event.isComposing) return;
     if (editable(event.target)) return;
@@ -215,7 +215,7 @@
     location.assign(url);
   }
 
-  function playgroundHomeLink(withLabel = false) {
+  function playgroundHomeLink() {
     const link = document.createElement('a');
     link.href = '/';
     link.className = 'lcm-deck-home';
@@ -224,7 +224,6 @@
     link.setAttribute('aria-label', link.title);
     link.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">' +
       '<path d="m3 10 9-7 9 7M5 9v12h14V9M9 21v-8h6v8"/></svg>';
-    if (withLabel) link.append('Playground home');
     return link;
   }
 
@@ -291,6 +290,7 @@
     const initialize = () => {
       if (!window.Reveal?.isReady()) { setTimeout(initialize, 25); return; }
       deck = window.Reveal;
+      deck.registerPlugin('lcm-math-notes', window.LCMMathNotes);
       // Controls receive their own keys; filter only at Reveal's dispatch boundary.
       deck.configure({
         keyboardCondition: event => !editable(event.target),
@@ -303,9 +303,9 @@
       if (pdf) pdf.togglePdfExport = togglePdf;
       deck.addKeyBinding({ keyCode: 76, key: 'L', description: 'Toggle laser pointer' }, toggleLaser);
       deck.addKeyBinding({ keyCode: 69, key: 'E', description: 'PDF preview' }, togglePdf);
-      // Reuse the unsupported scroll-mode menu slot, retaining keyboard order.
-      const homeItem = document.querySelector('[onclick*="toggleScrollView"]')?.closest('li');
-      homeItem?.replaceChildren(playgroundHomeLink(true));
+      // Keep Tools presentation-specific; playground navigation lives in the footer.
+      // Scroll mode is unsupported, so remove its slot rather than repurposing it.
+      document.querySelector('[onclick*="toggleScrollView"]')?.closest('li')?.remove();
       deck.removeKeyBinding(82);
       deck.on('slidechanged', event => {
         slideFrames(event.previousSlide).forEach(frame => send(frame, 'lcm:slide-leave'));

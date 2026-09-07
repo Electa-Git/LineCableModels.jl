@@ -31,6 +31,22 @@ cannot be mistaken for proof of distributed behavior.
 | 21. Presentation failure and print | Static navigation works without a broker; presenter/print surfaces use public playground links and never duplicate or print live applications. | Presentation browser checks and generated print-DOM assertions. |
 | 22. Presentation UX regression | Actual menu overview/selection/exit and PDF entry points; stage and slot overflow at five resolutions; cached theme and live theme parity; visible loading/readiness; laser keyboard ownership and iframe coordinates. | `test/integration/presentation_browser.mjs`; real Chrome direct-print and preview-print PDFs plus CLI PDF, checked for nine pages and two placeholders. |
 | 23. Ribbon/toolbar theme regression | Repeated light/dark changes from the publisher update mounted controls in the gallery, iframe, standalone and workbench; active icon/text/background pairs, hover, busy, disabled, all sizes, quick access, overflow and callbacks retain their shared contract without gallery CSS. | `test/ribbon.jl`, `test/integration/ribbon_fixture.jl`, `test/integration/ribbon_theme_browser.mjs`, `bash test/integration/run-ribbon.sh`. |
+| 24. Interaction-state regression | Template and workbench navigation share semantic selection styles. Real pointer and keyboard round trips cover both themes, expanded/collapsed navigation, rail tooltips, disabled items, ribbon and persistent tabs, dock tabs, segmented choices, selectable data rows and toolbar actions. No simulated hover classes are allowed in owned component sources. | `test/visual_contracts.jl`, `test/integration/interaction_state_contract.mjs`, `bash test/integration/run-ribbon.sh`. |
+
+The equation explanation gate is included in `run-presentation.sh`:
+`math_notes_filter.mjs` checks real Pandoc AST output and invalid authoring;
+`math_notes_browser.mjs` checks both palettes, exact equation geometry, term
+switching, keyboard and selection ownership, resizing and all four stage edges,
+overview, printing, MathJax rerendering, teardown and dependency failure/recovery.
+Static receiver/print modes are also checked by the presentation browser suite.
+
+The same gate runs `published_shell_browser.mjs` against every published sidebar
+destination and the presentation authoring guides, in both themes. It checks
+natural document scrolling, complete navigation/footer contours, absence of
+nested page scroll areas and horizontal overflow, and compact-menu open/close
+at five widths. `incremental_lists_browser.mjs` checks the starter's nested list
+and specimen's two-list sequence using native Reveal controls, forward/backward
+steps, stable reserved geometry, both themes and all-visible print output.
 
 The presentation gate covers the supplied hostile specimen, not arbitrary
 overfull authored content. It runs in isolated Chromium; physical multi-monitor

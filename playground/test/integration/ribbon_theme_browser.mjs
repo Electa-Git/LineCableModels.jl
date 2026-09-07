@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 import assert from 'node:assert/strict';
+import { checkInteractionStates } from './interaction_state_contract.mjs';
 
 const base = process.argv[2] ?? 'http://127.0.0.1:18102';
 const debug = process.argv[3] ?? 'http://127.0.0.1:19342';
@@ -152,7 +153,9 @@ try {
       width: 1600, height: 1000, deviceScaleFactor: 1, mobile: false,
     });
   }
-  console.log(JSON.stringify({ribbonThemeTransitions: report}, null, 2));
+  const interactionStates = await checkInteractionStates({base, command, evaluate, wait,
+    selectTheme: theme => evaluate(`LineCableModelsTheme.select(${JSON.stringify(theme)})`, themeSession)});
+  console.log(JSON.stringify({ribbonThemeTransitions: report, interactionStates}, null, 2));
 } finally {
   if (themeTarget) await command('Target.closeTarget', {targetId: themeTarget});
   socket.close();

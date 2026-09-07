@@ -2,6 +2,9 @@
 
 import { writeFile } from "node:fs/promises";
 import { assertPublishedText } from "./published_text_contract.mjs";
+import { assertMathNotes } from "./math_notes_browser.mjs";
+import { assertPublishedShell } from "./published_shell_browser.mjs";
+import { assertIncrementalLists } from "./incremental_lists_browser.mjs";
 
 const baseUrl = process.argv[2] ?? "http://127.0.0.1:8080";
 const debuggingUrl = process.argv[3] ?? "http://127.0.0.1:9222";
@@ -201,6 +204,8 @@ await devtools.command("Network.setCacheDisabled", { cacheDisabled: true });
 await devtools.command("Emulation.setEmulatedMedia", { media: "" });
 
 try {
+  await assertPublishedShell({devtools, baseUrl, evaluate, navigate, waitUntil, setViewport, assert});
+  await assertIncrementalLists({devtools, baseUrl, evaluate, navigate, waitUntil, assert});
   await setViewport(devtools, 1920, 1080);
   await navigate(devtools, `${baseUrl}/presentations/`);
   const layoutCards = await evaluate(devtools, `[...document.querySelectorAll('.lc-gallery-card')]
@@ -215,6 +220,14 @@ try {
     document.querySelector('#reusable-slide-layouts') &&
     getComputedStyle(document.querySelector('main')).display === 'block'`),
     "gallery does not distinguish complete decks from reusable slide layouts");
+  const mathGuide = await evaluate(devtools,
+    `document.querySelector('a[href$="math-notes.html"]')?.href`);
+  assert(mathGuide, 'presentation gallery does not expose the equation authoring guide');
+  await navigate(devtools, mathGuide);
+  assert(await evaluate(devtools, `document.querySelector('code.sourceCode')?.textContent
+    .includes('cssId{impedance-imag}') && document.querySelector('.code-copy-button') &&
+    !document.querySelector('iframe, .lcm-math-callout') && !window.LCMMathNotes`),
+    'equation guide is not a copyable, inert published page');
   for (const card of layoutCards) {
     await navigate(devtools, card.source);
     assert(await evaluate(devtools, `(() => {
@@ -241,6 +254,8 @@ try {
     "cached-theme deck did not initialize");
   assert(await evaluate(devtools, `document.documentElement.dataset.lcmResolvedTheme === 'light'`),
     "deck ignored the playground's cached light theme");
+  await evaluate(devtools, `document.fonts.ready.then(() => new Promise(resolve =>
+    requestAnimationFrame(() => requestAnimationFrame(resolve))))`);
   for (const theme of ["dark", "light"]) {
     await evaluate(devtools, `LineCableModelsTheme.select(${JSON.stringify(theme)})`);
     await assertPublishedText(devtools, '#title-slide h1');
@@ -258,23 +273,31 @@ try {
         getComputedStyle(home.querySelector('svg')).stroke === getComputedStyle(home).color &&
         getComputedStyle(home).backgroundColor === getComputedStyle(menu).backgroundColor;
     })()`), `playground home icon lost its accessible label or ${theme} styling`);
+    await click(devtools, '.lcm-deck-status button[data-action="menu"]');
+    await waitUntil(devtools, `Reveal.getPlugin('menu').isOpen() &&
+      Math.abs(document.querySelector('.slide-menu.active').getBoundingClientRect().left) < 1`,
+      'presentation tools menu did not settle');
+    await click(devtools, '.slide-menu-toolbar [data-panel="Custom0"]');
+    assert(await evaluate(devtools, `(() => {
+      const tools = document.querySelector('.slide-menu-wrapper');
+      return !tools.querySelector('a[data-action="home"], .lcm-deck-home, [onclick*="toggleScrollView"]') &&
+        !tools.textContent.includes('Playground home');
+    })()`), `Tools contains playground navigation or unsupported scroll mode in ${theme}`);
+    await evaluate(devtools, "Reveal.getPlugin('menu').closeMenu()");
+    await waitUntil(devtools, "!Reveal.getPlugin('menu').isOpen()", 'presentation menu did not close');
+    // The vendor reports closed before its overlay finishes fading. Wait until
+    // that overlay stops intercepting the next real text-selection gesture.
+    await waitUntil(devtools, `[...document.querySelectorAll('.slide-menu, .slide-menu-overlay')]
+      .every(node => node.getAnimations().every(a => a.playState !== 'running'))`,
+      'presentation menu closing animation did not finish');
   }
-  for (const placement of ['.lcm-deck-status', '.slide-menu-wrapper']) {
-    if (placement === '.slide-menu-wrapper') {
-      await click(devtools, '.lcm-deck-status button[data-action="menu"]');
-      await waitUntil(devtools, `Reveal.getPlugin('menu').isOpen() &&
-        Math.abs(document.querySelector('.slide-menu.active').getBoundingClientRect().left) < 1`,
-        'menu did not settle for playground navigation');
-      await click(devtools, '.slide-menu-toolbar [data-panel="Custom0"]');
-    }
-    await click(devtools, placement + ' a[data-action="home"]');
-    await waitUntil(devtools, `location.pathname === '/' &&
-      document.querySelector('#quarto-document-content h1')?.textContent.includes('LineCableModels playground')`,
-      `${placement} home icon did not navigate to the playground landing page`);
-    await navigate(devtools, deckUrl);
-    await waitUntil(devtools, `document.documentElement.dataset.lcmDeckReady === 'true'`,
-      'deck did not initialize after verifying playground navigation');
-  }
+  await click(devtools, '.lcm-deck-status a[data-action="home"]');
+  await waitUntil(devtools, `location.pathname === '/' &&
+    document.querySelector('#quarto-document-content h1')?.textContent.includes('LineCableModels playground')`,
+    'footer home icon did not navigate to the playground landing page');
+  await navigate(devtools, deckUrl);
+  await waitUntil(devtools, `document.documentElement.dataset.lcmDeckReady === 'true'`,
+    'deck did not initialize after verifying playground navigation');
   assert(await evaluate(devtools,
     `Array.from(document.querySelectorAll('iframe[data-lcm-src]')).every(frame => !frame.hasAttribute('src'))`),
     "off-screen live frames were activated eagerly");
@@ -286,6 +309,8 @@ try {
       geometry.push(await assertGeometry(devtools, width, height));
     }
   }
+
+  await assertMathNotes({ devtools, evaluate, waitUntil, click, setViewport, assert });
 
   const focusResult = await evaluate(devtools, `(() => {
     const range = document.querySelector('#specimen-range');
@@ -584,7 +609,7 @@ try {
   };
 
   await menuAction(devtools, 'togglePdfExport');
-  await waitUntil(devtools, `document.documentElement.dataset.lcmDeckMode === 'static'`,
+  await waitUntil(devtools, `document.documentElement?.dataset.lcmDeckMode === 'static'`,
     'the actual PDF menu action did not open static preview');
   assert(await evaluate(devtools, `location.search.includes('lcm-print') &&
     !document.querySelector('.pdf-page')`), 'PDF menu invoked competing Reveal pagination');
@@ -592,7 +617,7 @@ try {
   for (const mode of ["view=print", "print-pdf", "lcm-print", "receiver"]) {
     await navigate(devtools, `${deckUrl}?${mode}`);
     await waitUntil(devtools,
-      `document.documentElement.dataset.lcmDeckMode === 'static'`,
+      `document.documentElement?.dataset.lcmDeckMode === 'static'`,
       `${mode} did not select static live mode`);
     const staticResult = await evaluate(devtools, `(() => {
       const frames = Array.from(document.querySelectorAll('.lcm-live-viewport iframe'));
@@ -609,6 +634,10 @@ try {
     assert(staticResult.loaded === 0, `${mode} loaded a live application`);
     assert(staticResult.visible === staticResult.frames, `${mode} did not show every placeholder`);
     assert(staticResult.linked === staticResult.frames, `${mode} placeholder is missing a link`);
+    assert(await evaluate(devtools, `document.documentElement.dataset.lcmMathNotes === 'static' &&
+      !document.querySelector('.lcm-math-callout, .lcm-math-term') &&
+      [...document.querySelectorAll('.lcm-math-note')].every(note => note.hidden)`),
+      `${mode} installed interactive equation explanations`);
     if (mode !== 'receiver') {
       assert(await evaluate(devtools, `(() => {
         const slides = [...document.querySelectorAll('.slides > section')];

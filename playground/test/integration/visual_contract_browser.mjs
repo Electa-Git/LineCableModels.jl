@@ -144,7 +144,7 @@ async function hoverSelector(devtools, selector) {
   const point = await evaluate(devtools, `(() => {
     const element = document.querySelector(${JSON.stringify(selector)});
     if (!element) return null;
-    element.scrollIntoView({block: "center", inline: "center"});
+    element.scrollIntoView({block: "center", inline: "center", behavior: "instant"});
     const box = element.getBoundingClientRect();
     return {x: box.left + box.width / 2, y: box.top + box.height / 2};
   })()`);
@@ -241,6 +241,8 @@ async function inspectShell(devtools) {
       sidebarBottom: sidebarBox.bottom,
       sidebarRight: sidebarBox.right,
       footerBottom: footerBox.bottom,
+      footerTop: footerBox.top,
+      footerPosition: footerStyle.position,
       footerRight: footerBox.right,
       sidebarBorderRight: sidebarStyle.borderRightWidth,
       footerBorderRight: footerStyle.borderRightWidth,
@@ -305,8 +307,8 @@ async function inspectSidebarSpecimen(devtools) {
       probe.remove();
       return value;
     };
-    const hovered = getComputedStyle(document.querySelector('.lc-cs-nav-item.is-hover-preview'));
-    const active = getComputedStyle(document.querySelector('.lc-cs-nav-item.is-active'));
+    const hovered = getComputedStyle(document.querySelector('.lc-cs-nav-item:hover'));
+    const active = getComputedStyle(document.querySelector('.lc-cs-nav-item[aria-current="page"]'));
     const scene = getComputedStyle(document.querySelector('.lc-cs-figure > svg'));
     return {
       hovered: {color: hovered.color, background: hovered.backgroundColor},
@@ -450,12 +452,12 @@ try {
     const shell = await inspectShell(devtools);
     assert(Math.abs(shell.sidebarTop) <= 1, `${theme} sidebar does not start at viewport top`);
     assert(
-      Math.abs(shell.sidebarBottom - shell.viewportHeight) <= 1,
-      `${theme} sidebar does not reach viewport bottom`,
+      shell.sidebarPosition === 'static' && shell.sidebarBottom >= shell.viewportHeight - 32,
+      `${theme} sidebar does not grow with the document`,
     );
     assert(
-      Math.abs(shell.footerBottom - shell.viewportHeight) <= 1,
-      `${theme} footer does not meet viewport bottom`,
+      shell.footerPosition === 'static' && Math.abs(shell.footerTop - shell.sidebarBottom) <= 1,
+      `${theme} footer does not follow the sidebar in document flow`,
     );
     assert(
       Math.abs(shell.sidebarRight - shell.footerRight) <= 1,
@@ -543,7 +545,8 @@ try {
       assert(workbenchBefore.xray.right <= workbenchBefore.inspectorLeft,
         `X-RAY launcher overlaps the inspector in ${theme}`);
     }
-    await evaluate(devtools, `globalThis.lcmXRay?.enable()`);
+    await waitUntil(devtools, `Boolean(globalThis.lcmXRay)`, 'diagnostics-enabled workbench did not initialize');
+    await evaluate(devtools, `globalThis.lcmXRay.enable()`);
     await hoverSelector(devtools, ".lc-wb-menubar");
     await evaluate(devtools, `document.querySelector('.lc-wb-menubar').click()`);
     await waitUntil(devtools,
@@ -601,6 +604,7 @@ try {
 
     await navigate(devtools, `${baseUrl}/templates/collapsible-sidebar.html`,
       ".lc-cs-shell");
+    await hoverSelector(devtools, '.lc-cs-nav-item[data-demo-title="Cable geometry"]');
     const sidebarSpecimen = await inspectSidebarSpecimen(devtools);
     assert(sidebarSpecimen.hovered.color === sidebarSpecimen.tokens.strong,
       `sidebar hover foreground escaped the ${theme} palette`);
@@ -712,7 +716,7 @@ try {
     for (const [title, selector] of galleryFrames) {
       await evaluate(devtools, `document.querySelector(
         'iframe[title=${JSON.stringify(title)}]'
-      ).scrollIntoView({block: 'center'})`);
+      ).scrollIntoView({block: 'center', behavior: 'instant'})`);
       await waitUntil(devtools, `(() => {
         const frame = document.querySelector('iframe[title=${JSON.stringify(title)}]');
         return Boolean(frame?.contentDocument?.querySelector(${JSON.stringify(selector)}));

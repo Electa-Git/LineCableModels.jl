@@ -40,9 +40,24 @@ any scientific deck is migrated.
 For a one-frequency result, the final decomposition remains
 
 $$
-R=\Re(Z),\qquad L=\frac{\Im(Z)}{\omega},\qquad
-G=\Re(Y),\qquad C=\frac{\Im(Y)}{\omega}.
+R=\Re(Z),\qquad L=\frac{\cssId{impedance-imag}{\Im(Z)}}{\omega},\qquad
+G=\Re(Y),\qquad C=\frac{\cssId{admittance-imag}{\Im(Y)}}{\omega}.
 $$
+
+::: {.lcm-math-note target="impedance-imag"}
+**Imaginary part of impedance**
+
+Dividing by angular frequency $\omega$ gives the inductance.
+:::
+
+::: {.lcm-math-note target="admittance-imag"}
+**Imaginary part of admittance**
+
+Dividing by angular frequency gives the capacitance. Click the term again,
+click elsewhere, or press Escape to close this explanation.
+:::
+
+Click an outlined equation term to show its explanation.
 
 ```julia
 design = build_design(nominal_geometry)
@@ -90,21 +105,27 @@ playground. No duplicate session is created.
 [One claim spans the complete width]{.lcm-panel-title}
 
 The author chooses a named layout. The format—not hand-written slide CSS—owns
-the geometry.
+the geometry. Advance to reveal the left list, then the right list, in source order.
 :::
 
 ::: {.lcm-slot .lcm-slot-panel}
 [Authoring]{.lcm-panel-title}
 
-Markdown, equations, code, images, citations, and speaker notes remain ordinary
-Quarto material.
+::: {.incremental}
+- Write ordinary Markdown.
+  - Keep equations and notes in the source.
+- Choose a reusable layout.
+:::
 :::
 
 ::: {.lcm-slot .lcm-slot-panel}
 [Execution]{.lcm-panel-title}
 
-The browser-facing deck can fail to reach NATS or a worker and still navigate,
-print, and expose its permanent playground links.
+::: {.incremental}
+1. Open the presentation.
+2. Navigate without a worker.
+3. Follow the playground link for live work.
+:::
 :::
 :::
 

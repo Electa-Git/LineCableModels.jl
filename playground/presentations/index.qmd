@@ -9,6 +9,13 @@ body-classes: lc-gallery-page lc-document-page
 The starter is the file to copy when beginning a presentation. The hostile
 specimen is a worked example and acceptance test, not another layout system.
 
+[Equation explanations: copy the Markdown](math-notes.html) or
+[try the annotated equation](specimen.html#/balanced-evidence).
+
+Incremental lists: [try nested bullets](starter.html#/one-clear-argument) or
+[two lists in sequence](specimen.html#/top-band-plus-two-supporting-regions).
+Both use native Quarto `.incremental` Markdown; no extra ordering parameter.
+
 ::: {.lc-gallery-grid}
 
 ::: {.lc-gallery-card}

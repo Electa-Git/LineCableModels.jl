@@ -20,17 +20,21 @@ $grid-sidebar-width: 18rem;
 
 html,
 body {
-  width: 100vw;
-  width: 100dvw;
-  height: 100vh;
-  height: 100dvh;
+  width: 100%;
+  min-height: 100%;
   margin: 0;
-  overflow: hidden;
+  overflow: visible;
   background: var(--lc-bg);
   cursor: default;
 }
 
 body {
+  // Published documents own one scroll surface. The fixed utility header has
+  // its reserved space in the content column, not Quarto's body-wide offset.
+  // Workbenches, widget documents and Reveal do not load this stylesheet.
+  padding: 0 !important;
+  min-height: 100vh;
+  min-height: 100dvh;
   color: var(--lc-text);
   color-scheme: var(--lc-color-scheme);
   font-family: $font-family-sans-serif;
@@ -55,22 +59,29 @@ body *::after {
 }
 
 #quarto-sidebar {
-  position: fixed !important;
-  inset: 0 auto 0 0 !important;
+  position: static !important;
+  inset: auto !important;
+  grid-area: sidebar;
   display: grid !important;
   width: var(--lc-sidebar-width) !important;
   max-width: var(--lc-sidebar-width) !important;
-  height: 100vh !important;
-  height: 100dvh !important;
+  height: auto !important;
   max-height: none !important;
   min-width: 0;
   min-height: 0;
   padding: 0 !important;
-  grid-template-rows: auto minmax(0, 1fr);
-  overflow: hidden !important;
+  grid-template-rows: auto 1fr;
+  align-content: start;
+  overflow: visible !important;
   background: var(--lc-sidebar-bg);
   border-right: 1px solid var(--lc-border);
   transform: none !important;
+}
+
+// Quarto's modal backdrop is for an overlaid sidebar. Our compact navigation
+// expands the document instead, so it must not intercept clicks on the page.
+#quarto-sidebar-glass {
+  display: none !important;
 }
 
 .sidebar-header.sidebar-header-stacked {
@@ -133,9 +144,9 @@ body *::after {
 }
 
 .sidebar-menu-container {
-  min-height: 0;
-  padding-bottom: 2rem;
-  overflow: auto;
+  min-height: auto;
+  padding-bottom: 0.75rem;
+  overflow: visible;
 }
 
 .sidebar-menu-container > ul {
@@ -201,6 +212,9 @@ body *::after {
   background: var(--lc-sidebar-bg);
   border-bottom: 1px solid var(--lc-border);
   box-shadow: none;
+  // Headroom may toggle classes while the document scrolls. This utility bar
+  // stays put; it must not move the document or clip the navigation column.
+  transform: none !important;
 }
 
 .quarto-secondary-nav,
@@ -317,24 +331,36 @@ body.lc-workbench-index .quarto-secondary-nav-title::before {
 }
 
 #quarto-content {
-  min-height: 100vh;
-  min-height: 100dvh;
+  display: grid;
+  grid-template-columns: var(--lc-sidebar-width) minmax(0, 1fr);
+  grid-template-rows: auto;
+  grid-template-areas: "sidebar main";
+  align-items: stretch;
+  width: 100%;
+  margin: 0 !important;
+  padding: 0 !important;
+  min-height: calc(100vh - 2rem) !important;
+  min-height: calc(100dvh - 2rem) !important;
   background: var(--lc-bg);
 }
 
 main#quarto-document-content {
-  position: fixed;
-  inset: 3rem 0 0 var(--lc-sidebar-width);
+  position: static;
+  grid-area: main;
+  align-self: start;
   display: grid;
   width: auto !important;
   max-width: none !important;
   min-width: 0;
   min-height: 0;
   margin: 0 !important;
-  padding: 1.25rem 2rem 1.75rem !important;
-  grid-template-rows: auto minmax(0, 1fr);
+  padding: 4.25rem 2rem 1.75rem !important;
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: auto;
+  grid-auto-rows: auto;
+  align-content: start;
   gap: 1rem;
-  overflow: auto;
+  overflow: visible;
   background: var(--lc-bg);
 }
 
@@ -647,6 +673,16 @@ body.lc-home .quarto-title-block,
 
 .lc-template-stage {
   display: grid;
+  min-width: 0;
+  // The stage owns its one content track. Quarto may decorate raw component
+  // markup with page-columns/page-full; their named document tracks do not
+  // belong inside this template boundary.
+  grid-template-columns: minmax(0, 1fr) !important;
+}
+
+.lc-template-stage > * {
+  min-width: 0;
+  grid-column: 1 / -1 !important;
 }
 
 .lc-layout {
@@ -939,15 +975,13 @@ body:is(.lc-workbench-index, .lc-document-page) .lc-template-panel {
 }
 
 footer.footer {
-  position: fixed;
-  inset: auto auto 0 0;
-  z-index: 1040;
+  position: static;
   width: var(--lc-sidebar-width);
-  height: 2rem;
+  min-height: 2rem;
+  margin: 0 !important;
   background: var(--lc-sidebar-bg);
   border-top: 1px solid var(--lc-border);
-  /* The footer overlays the full-height sidebar. Repeat the same one-pixel
-   * edge here so its background cannot mask the shell's continuous contour. */
+  // The footer follows the document, continuing the sidebar's contour.
   border-right: 1px solid var(--lc-border);
 }
 
@@ -984,9 +1018,32 @@ footer.footer {
 }
 
 @media (max-width: 900px) {
-  #quarto-sidebar,
-  footer.footer {
+  #quarto-content {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas: "sidebar" "main";
+    grid-template-rows: auto auto;
+    align-content: start;
+    padding-top: 3rem !important;
+  }
+
+  #quarto-sidebar {
     display: none !important;
+    width: 100% !important;
+    max-width: none !important;
+    border-right: 0;
+    border-bottom: 1px solid var(--lc-border);
+  }
+
+  // Use Quarto's existing Bootstrap toggle, but keep the expanded navigation
+  // in document flow. A hidden fixed sidebar would strand its lower links.
+  #quarto-sidebar:is(.show, .collapsing) {
+    display: grid !important;
+    transition: none !important;
+  }
+
+  footer.footer {
+    width: 100%;
+    border-right: 0;
   }
 
   #quarto-header {
@@ -1008,7 +1065,7 @@ footer.footer {
   }
 
   main#quarto-document-content {
-    left: 0;
+    padding: 1.25rem 1rem 1.75rem !important;
   }
 
   .lc-home-canvas {

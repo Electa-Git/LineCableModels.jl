@@ -17,6 +17,7 @@ website:
   bread-crumbs: false
   page-navigation: false
   sidebar:
+    id: playground
     style: docked
     background: dark
     logo: assets/logo.svg
@@ -65,6 +66,7 @@ website:
 
 format:
   html:
+    sidebar: playground
     theme:
       - darkly
       - assets/theme.scss

@@ -1,6 +1,17 @@
 @testset "visual contract coverage" begin
     root = normpath(joinpath(@__DIR__, ".."))
 
+    # One published-document shell; viewport app layouts are separate assets.
+    shell = read(joinpath(root, "assets", "theme.scss"), String)
+    for selector in ("#quarto-sidebar", "main#quarto-document-content", "footer.footer")
+        block = match(Regex("(?m)^" * selector * " \\{([^}]+)\\}"), shell)
+        @test !isnothing(block)
+        @test occursin("position: static", block.captures[1])
+        @test !occursin(r"overflow:\s*(auto|hidden|scroll)", block.captures[1])
+    end
+    @test occursin("#quarto-sidebar:is(.show, .collapsing)", shell)
+    @test !occursin("assets/theme.scss", read(joinpath(root, "_extensions", "lcm-deck", "_extension.yml"), String))
+
     function read_joined(paths)
         return join((read(path, String) for path in paths), '\n')
     end
@@ -219,9 +230,28 @@
     @test occursin("code.sourceCode span.kw", code_theme)
     @test occursin("assets/code-theme.css", quarto)
     @test occursin(".quarto-title-block .code-tools-button:hover", theme)
-    @test occursin("background: var(--lc-cs-active)", collapsible)
+    @test occursin("background: var(--lc-active-bg)", contract)
     @test occursin("background: var(--lc-cs-hover)", collapsible)
     @test occursin("background: var(--lc-scene-bg)", collapsible)
+
+    # Live navigation must never carry a simulated hover or duplicate active
+    # class. Both shells consume the same semantic state/keyboard-focus rules.
+    sidebar_markup = read(joinpath(root, "templates", "collapsible-sidebar.qmd"), String)
+    sidebar_behavior = read(joinpath(root, "templates", "components", "collapsible-sidebar.js"), String)
+    @test occursin(":is(.lc-cs-nav-item, .lc-wb-nav-item)[aria-current=\"page\"]", contract)
+    @test occursin(":is(.lc-cs-nav-item, .lc-wb-nav-item):focus-visible", contract)
+    @test occursin(":hover:not(:disabled):not([aria-disabled=\"true\"])", contract)
+    @test occursin("Symbol(\"aria-current\") => current[]", workbench_ui)
+    @test occursin(".setAttribute('aria-current', value)", workbench_ui)
+    @test !occursin("is-active", sidebar_markup * sidebar_behavior * collapsible)
+    for subtree in ("templates", "assets", "src")
+        for (directory, _, files) in walkdir(joinpath(root, subtree)), file in files
+            "vendor" in splitpath(directory) && continue
+            any(suffix -> endswith(file, suffix), (".css", ".scss", ".js", ".jl", ".qmd")) || continue
+            source = read(joinpath(directory, file), String)
+            @test !occursin(r"is-hover-preview|is-hovered|force-hover|data-hover", source)
+        end
+    end
 
     # Every first-party native select has to opt into the semantic contract.
     # Looking forward from each constructor is deliberately simple and strict:

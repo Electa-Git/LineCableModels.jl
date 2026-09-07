@@ -15,6 +15,13 @@ format:
 [CONTEXT]{.lc-eyebrow}
 
 Write ordinary Quarto Markdown here. The named layout owns the geometry.
+
+::: {.incremental}
+- State the question.
+- Show the evidence.
+  - Reveal supporting detail on the next advance.
+- Explain the conclusion.
+:::
 :::
 :::
 

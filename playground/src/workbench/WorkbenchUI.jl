@@ -908,22 +908,27 @@ function render_nav_item(session, item::NavItem, active, dispatch)
         item.disabled || isnothing(item.action) || dispatch(item.action)
         return nothing
     end
-    class = active_class(session, active, item.id, "lc-wb-nav-item")
+    current = map(session, active) do id
+        id == item.id && !item.disabled ? "page" : "false"
+    end
     attributes = Dict{Symbol,Any}(
         Symbol("aria-label") => item.tooltip,
+        Symbol("aria-current") => current[],
         Symbol("aria-disabled") => string(item.disabled),
         Symbol("data-tooltip") => item.tooltip,
     )
     node = DOM.button(
         icon(item.icon; class="lc-wb-nav-icon"),
-        DOM.span(item.label; class="lc-wb-nav-label"),
-        DOM.span(; class="lc-wb-active-mark");
+        DOM.span(item.label; class="lc-wb-nav-label");
         attributes...,
         type="button",
-        class,
+        class="lc-wb-nav-item",
         disabled=item.disabled,
         onclick=js"event => $(trigger).notify(true)"
     )
+    # Bonito's generic observable binding assigns DOM properties. Hyphenated
+    # ARIA names must update the attribute consumed by CSS and accessibility.
+    onjs(session, current, js"value => $(node).setAttribute('aria-current', value)")
     return ComponentXRay.instrument(session, node, item)
 end
 

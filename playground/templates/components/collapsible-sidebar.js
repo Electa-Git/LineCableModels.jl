@@ -7,7 +7,7 @@
     const stateLabel = shell.querySelector("[data-sidebar-state-label]");
     const pageTitle = shell.querySelector("[data-demo-page-title]");
     const navigationItems = shell.querySelectorAll(
-      ".lc-cs-nav-item:not(:disabled)"
+      ".lc-cs-nav-item:not(:disabled):not([aria-disabled='true'])"
     );
 
     const synchronize = () => {
@@ -20,7 +20,7 @@
       toggle.dataset.tooltip = collapsed
         ? "Expand navigation"
         : "Collapse navigation";
-      stateLabel.textContent = collapsed
+      if (stateLabel) stateLabel.textContent = collapsed
         ? "Collapsed rail · 4.25rem reserved"
         : "Expanded navigation · 18rem reserved";
     };
@@ -34,12 +34,10 @@
     navigationItems.forEach((item) => {
       item.addEventListener("click", () => {
         navigationItems.forEach((candidate) => {
-          candidate.classList.remove("is-active");
           candidate.removeAttribute("aria-current");
         });
-        item.classList.add("is-active");
         item.setAttribute("aria-current", "page");
-        pageTitle.textContent = item.dataset.demoTitle;
+        if (pageTitle) pageTitle.textContent = item.dataset.demoTitle;
       });
     });
 

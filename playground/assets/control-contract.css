@@ -13,6 +13,40 @@ textarea {
   font-family: Lato, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
 }
 
+/* Navigation has one persistent state: aria-current. Hover is transient and
+ * keyboard focus is an independent outline, never a stored hover class.
+ * Both the portable sidebar and application shell use this contract; their
+ * own stylesheets own layout only. Tokens resolve in the current theme. */
+:is(.lc-cs-nav-item, .lc-wb-nav-item) {
+  color: var(--lc-text);
+  background: transparent;
+  border-left-color: transparent;
+  font-weight: 400;
+}
+
+:is(.lc-cs-nav-item, .lc-wb-nav-item):hover:not(:disabled):not([aria-disabled="true"]) {
+  color: var(--lc-strong-text);
+  background: var(--lc-hover-bg);
+}
+
+:is(.lc-cs-nav-item, .lc-wb-nav-item)[aria-current="page"]:not(:disabled):not([aria-disabled="true"]) {
+  color: var(--lc-strong-text);
+  background: var(--lc-active-bg);
+  border-left-color: var(--lc-link);
+  font-weight: 700;
+}
+
+:is(.lc-cs-nav-item, .lc-wb-nav-item):focus-visible {
+  outline: 2px solid var(--lc-focus-ring);
+  outline-offset: -2px;
+}
+
+:is(.lc-cs-nav-item, .lc-wb-nav-item):is(:disabled, [aria-disabled="true"]) {
+  color: var(--lc-disabled);
+  cursor: not-allowed;
+  opacity: 0.58;
+}
+
 .lc-control-input,
 .lc-control-select,
 .lc-control-textarea {

@@ -1,6 +1,6 @@
 ---
 title: "Collapsible sidebar"
-subtitle: "An application identity and navigation surface that contracts to a meaningful icon rail. Use View Source and copy this template with its component CSS and JavaScript."
+subtitle: "An application identity and navigation surface that contracts to a meaningful icon rail. Copy this template with its component CSS and JavaScript, plus the shared brand.css and control-contract.css."
 body-classes: lc-template-page lc-collapsible-sidebar-page
 format:
   html:
@@ -45,7 +45,7 @@ format:
           <span class="lc-cs-nav-label">System overview</span>
         </button>
 
-        <button class="lc-cs-nav-item is-hover-preview" type="button" data-demo-title="Cable geometry" data-tooltip="Cable geometry · hovered state" aria-label="Cable geometry">
+        <button class="lc-cs-nav-item" type="button" data-demo-title="Cable geometry" data-tooltip="Cable geometry" aria-label="Cable geometry">
           <svg class="lc-cs-nav-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
             <circle cx="12" cy="12" r="8.5"></circle>
             <circle cx="12" cy="8.5" r="2.15"></circle>
@@ -55,7 +55,7 @@ format:
           <span class="lc-cs-nav-label">Cable geometry</span>
         </button>
 
-        <button class="lc-cs-nav-item is-active" type="button" data-demo-title="Line parameters" data-tooltip="Line parameters · active" aria-label="Line parameters" aria-current="page">
+        <button class="lc-cs-nav-item" type="button" data-demo-title="Line parameters" data-tooltip="Line parameters" aria-label="Line parameters" aria-current="page">
           <svg class="lc-cs-nav-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
             <path d="M4 7h10"></path>
             <path d="M18 7h2"></path>
@@ -68,7 +68,6 @@ format:
             <circle cx="14" cy="17" r="2"></circle>
           </svg>
           <span class="lc-cs-nav-label">Line parameters</span>
-          <span class="lc-cs-active-indicator" aria-hidden="true"></span>
         </button>
       </section>
 
@@ -158,9 +157,10 @@ format:
           <span class="lc-cs-kicker">STATE COVERAGE</span>
           <h3>Interaction specimen</h3>
           <dl>
-            <div><dt>Normal</dt><dd>System overview</dd></div>
-            <div><dt>Hovered</dt><dd>Cable geometry</dd></div>
-            <div><dt>Active</dt><dd>Line parameters</dd></div>
+            <div><dt>Normal</dt><dd>Unselected item, pointer away</dd></div>
+            <div><dt>Hovered</dt><dd>Move the pointer over an enabled item</dd></div>
+            <div><dt>Active</dt><dd>Click an item to select it</dd></div>
+            <div><dt>Focused</dt><dd>Tab to an item for its keyboard outline</dd></div>
             <div><dt>Disabled</dt><dd>Remote execution</dd></div>
           </dl>
           <p>In rail mode, hover or focus any retained icon to inspect its tooltip.</p>

@@ -1,0 +1,71 @@
+---
+title: "Equation explanations"
+subtitle: "Bind a Markdown explanation to an exact mathematical term. The shared presentation format owns appearance and interaction."
+body-classes: lc-document-page
+---
+
+[Try the working example](specimen.html#/balanced-evidence) ·
+[Back to presentation templates](index.html)
+
+## Copy one annotated slide
+
+Paste this into a deck using `format: lcm-deck-revealjs`. No CSS or JavaScript
+needs to be copied. `\cssId` is an existing MathJax command; `.lcm-math-note`
+is the presentation extension's explanation block.
+
+```{.markdown shortcodes=false}
+## From impedance to inductance
+
+::: {.lcm-layout-full-canvas}
+::: {.lcm-slot .lcm-slot-panel}
+
+$$
+L = \frac{\cssId{impedance-imag}{\Im(Z)}}{\omega}
+$$
+
+::: {.lcm-math-note target="impedance-imag"}
+**Imaginary part of impedance**
+
+Dividing by angular frequency $\omega$ gives the inductance.
+:::
+
+Click the outlined term for its explanation.
+
+:::
+:::
+```
+
+## Authoring rules
+
+- Give every marked term a deck-wide unique ID: a letter followed by letters,
+  digits, hyphens or underscores.
+- Match that ID in the note's `target`. Keep the term and note on the same slide.
+- Mark the exact expression you mean, whether a symbol, numerator or complete term.
+- Notes support Markdown text, emphasis, links, lists, code and math. Use bold
+  text for a title; do not put headings, raw HTML, images or nested notes inside.
+- Missing targets and duplicate IDs fail the build with a diagnostic.
+
+## Presenting
+
+The footer reports when equation notes are ready. Click an outlined term to
+show its explanation; click it again to close. Another term switches the note.
+An outside click, Escape or the close button dismisses it. Tab and Enter/Space
+provide keyboard access. Hovering with the mouse or laser does not open notes.
+Text remains selectable for copying, without an editing caret.
+
+The callout stays within the slide, follows resizing and uses the current
+light/dark theme. It does not move the equation or advance the slide. Overview
+and slide changes dismiss it.
+
+PDF output and speaker receivers show the equation without interactive
+markers or explanation boxes. Put essential explanatory prose on the slide
+if it must be included in the PDF.
+
+The first version uses this format's existing MathJax 2 renderer and Quarto's
+bundled Popper. It does not require a Julia session or a live widget.
+
+## Incremental lists need no extension
+
+Use Quarto's native `.incremental` wrapper around ordinary bullet or numbered
+lists. Nested items and multiple lists reveal in source order. There is no
+LCM-specific `order` parameter.

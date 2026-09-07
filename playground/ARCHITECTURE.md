@@ -91,11 +91,31 @@ external iframe sources are outside the contract. Presentation CSS consumes
 the same `assets/brand.css` palette as the website and workbench; a second deck
 palette is forbidden.
 
+Equation explanations extend that authoring boundary through literal MathJax
+`\cssId` anchors and same-slide `.lcm-math-note` Markdown blocks. `deck.lua`
+validates their IDs and content; `math-notes.js` owns only annotation interaction
+and listens to MathJax 2's completed-typesetting lifecycle. Quarto's existing
+Popper handles placement; `math-notes.css` consumes the shared palette and
+inherits the published-text caret policy. Only marked terms become controls.
+The non-modal overlay never changes slide geometry, handles no slide advancement,
+and never inspects or relocates live-widget content. Overview and print dismiss
+it; receivers/PDF preview never initialize it. Native incremental lists remain
+entirely Quarto/Reveal-owned, with no additional ordering grammar.
+
 Published text behavior is owned by `assets/published-text.css`, loaded by both
 Quarto formats. It hides the browsing caret without disabling mouse selection,
 copying, focus, or text entry. Page/template/deck schemas must not duplicate
 that policy. It is deliberately absent from Bonito widget and workbench
 documents, whose components retain their own caret and selection semantics.
+
+Published website geometry is owned once by `assets/theme.scss`: home,
+templates, widget galleries, workbench reference pages and presentation guides
+share document scrolling. The navigation column grows to contain every entry;
+its footer follows the document and never covers links. The compact navigation
+uses Quarto's existing collapse control in normal flow. Only the utility header
+is fixed. Quarto's viewport sidebar offsets are explicitly superseded at this
+boundary. Actual workbenches, widget documents and Reveal decks do not load
+this stylesheet and retain their independent viewport/scroll contracts.
 
 Reveal is retained only if the hostile presentation specimen proves exact
 pointer coordinates, persistent live-frame identity, stable fullscreen and
@@ -119,6 +139,15 @@ metadata is implemented beside each owned component. `SecretInput` is the
 deliberate exception to ordinary reactive controls: its value does not exist in
 Julia state or diagnostic metadata and crosses the browser boundary only when
 the containing form is explicitly submitted.
+
+Interaction states are not gallery decorations: hover comes from `:hover`,
+keyboard focus from `:focus-visible`, and persistent selection from the
+component's actual state. Both sidebar implementations use `aria-current="page"`
+as the sole navigation-selection source and share their state styles in
+`control-contract.css`; borders, text and active marks cannot follow separate
+hardcoded flags. Never seed a live control with a simulated hover class. State
+examples explain how to trigger the real interaction. Tabs, choices and rows
+retain their own selection semantics rather than treating focus as selection.
 
 ## Enforced invariants
 

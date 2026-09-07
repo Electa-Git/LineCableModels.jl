@@ -19,6 +19,12 @@ cleanup() {
     for pid in "$browser_pid" "$server_pid"; do
         if [[ -n "$pid" ]]; then
             kill "$pid" 2>/dev/null || true
+            for _ in {1..50}; do
+                kill -0 "$pid" 2>/dev/null || break
+                sleep 0.1
+            done
+            # Only processes started by this test runner are owned here.
+            kill -0 "$pid" 2>/dev/null && kill -KILL "$pid" 2>/dev/null || true
             wait "$pid" 2>/dev/null || true
         fi
     done
@@ -28,6 +34,12 @@ trap cleanup EXIT
 trap 'exit 130' INT TERM
 
 cd -- "$PLAYGROUND_DIR"
+for port in "$SERVER_PORT" "$DEBUG_PORT"; do
+    if curl -s --max-time 1 "http://127.0.0.1:$port/" >/dev/null; then
+        echo "Test port $port is in use; choose different LCM_RIBBON_* ports." >&2
+        exit 1
+    fi
+done
 ./lcm playground build --quiet
 julia --startup-file=no --project=. test/integration/ribbon_fixture.jl "$SERVER_PORT" \
     >"$TEST_DIR/server.log" 2>&1 &
@@ -35,7 +47,7 @@ server_pid=$!
 
 wait_for() {
     for _ in {1..300}; do
-        if curl -fsS "$1" >/dev/null 2>&1; then return; fi
+        if curl -fsS --max-time 1 "$1" >/dev/null 2>&1; then return; fi
         sleep 0.1
     done
     echo "Timed out waiting for $1" >&2

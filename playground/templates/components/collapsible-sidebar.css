@@ -1,7 +1,7 @@
 /*
  * CollapsibleSidebar template primitive.
  * All selectors are component-scoped; the shell can be copied independently
- * of the surrounding Quarto gallery page.
+ * of the surrounding Quarto gallery page with brand.css and control-contract.css.
  */
 .lc-cs-template-stage {
   overflow: visible;
@@ -15,11 +15,8 @@
   --lc-cs-text: var(--lc-text);
   --lc-cs-muted: var(--lc-muted);
   --lc-cs-border: var(--lc-border);
-  --lc-cs-link: var(--lc-link);
   --lc-cs-focus: var(--lc-focus);
-  --lc-cs-strong: var(--lc-strong-text);
   --lc-cs-hover: var(--lc-hover-bg);
-  --lc-cs-active: var(--lc-active-bg);
   --lc-cs-sidebar-width: 18rem;
   --lc-cs-rail-width: 4.25rem;
   display: flex !important;
@@ -160,8 +157,7 @@
   border-color: var(--lc-cs-border);
 }
 
-.lc-cs-toggle:focus-visible,
-.lc-cs-nav-item:focus-visible {
+.lc-cs-toggle:focus-visible {
   outline: 1px solid var(--lc-cs-focus);
   outline-offset: -2px;
 }
@@ -221,31 +217,10 @@
   grid-template-columns: 1.25rem minmax(0, 1fr) auto;
   align-items: center;
   gap: 0.65rem;
-  color: var(--lc-cs-text);
   text-align: left;
-  background: transparent;
   border: 0;
   border-left: 3px solid transparent;
   border-radius: 0;
-}
-
-.lc-cs-nav-item:hover:not(:disabled),
-.lc-cs-nav-item.is-hover-preview:not(.is-active) {
-  color: var(--lc-cs-strong);
-  background: var(--lc-cs-hover);
-}
-
-.lc-cs-nav-item.is-active {
-  color: var(--lc-cs-strong);
-  background: var(--lc-cs-active);
-  border-left-color: var(--lc-cs-link);
-  font-weight: 700;
-}
-
-.lc-cs-nav-item:disabled {
-  color: var(--lc-cs-muted);
-  opacity: 0.42;
-  cursor: not-allowed;
 }
 
 .lc-cs-nav-icon {
@@ -270,7 +245,8 @@
   text-transform: uppercase;
 }
 
-.lc-cs-active-indicator {
+.lc-cs-shell[data-sidebar-state="expanded"] .lc-cs-nav-item[aria-current="page"]:not(:disabled):not([aria-disabled="true"])::after {
+  content: "";
   width: 0.35rem;
   height: 0.35rem;
   background: var(--lc-cs-focus);
@@ -592,7 +568,6 @@
 .lc-cs-shell[data-sidebar-state="collapsed"] .lc-cs-section-heading,
 .lc-cs-shell[data-sidebar-state="collapsed"] .lc-cs-nav-label,
 .lc-cs-shell[data-sidebar-state="collapsed"] .lc-cs-disabled-label,
-.lc-cs-shell[data-sidebar-state="collapsed"] .lc-cs-active-indicator,
 .lc-cs-shell[data-sidebar-state="collapsed"] .lc-cs-footer-copy {
   display: none;
 }
