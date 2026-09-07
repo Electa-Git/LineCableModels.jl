@@ -36,6 +36,7 @@
         for path in files
             @test read(joinpath(source, path), String) == before[path]
             endswith(path, ".md") || continue
+            @test !occursin(r"(?m)^\s*\$\$\s*$", before[path])
             published = read(joinpath(output, path), String)
             edit_path = relpath(joinpath(source, path), dirname(joinpath(output, path)))
             metadata = "```@meta\nEditURL = $(repr(edit_path))\n```\n\n"
@@ -56,15 +57,19 @@
 
     matrix = read(joinpath(source, "matrix_formulation.md"), String)
     rendered_matrix = documenter_matrix_math(matrix)
-    original_equations = [m[1] for m in eachmatch(r"(?ms)^\$\$\n(.*?)^\$\$$", matrix)]
+    original_equations = [m[1] for m in eachmatch(r"(?ms)^```math\n(.*?)^```$", matrix)]
     rendered_equations = [m[1] for m in eachmatch(r"(?ms)^```math\n(.*?)^```$", rendered_matrix)]
     @test length(original_equations) == 25
     @test rendered_equations == original_equations
     @test !occursin('$', rendered_matrix)
-    prose = replace(matrix, r"(?ms)^\$\$\n.*?^\$\$$" => "")
+    prose = replace(matrix, r"(?ms)^```math\n.*?^```$" => "")
     for expression in eachmatch(r"(?<!\\)\$([^$\n]+)(?<!\\)\$", prose)
         @test occursin("``" * expression[1] * "``", rendered_matrix)
     end
+    @test occursin(raw"\begin{bmatrix}1\\1\end{bmatrix}", rendered_matrix)
+    @test occursin(raw"\begin{bmatrix}1\\1\\1\end{bmatrix}", rendered_matrix)
+    @test occursin(raw"\begin{bmatrix}\mathbf I\\I_p\end{bmatrix}", rendered_matrix)
+    @test occursin(raw"\begin{bmatrix}\mathbf V\\V_p\end{bmatrix}", rendered_matrix)
 
     navigation = read(joinpath(root, "docs", "make.jl"), String)
     @test occursin("\"Home\" => \"index.md\",\n        hide(\"Theory\" => \"theory/contents.md\", theory_pages)", navigation)

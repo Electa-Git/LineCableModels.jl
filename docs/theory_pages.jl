@@ -16,11 +16,12 @@ function documenter_matrix_math(content)
     lines = String[]
     display_math = false
     for line in split(content, '\n')
-        if strip(line) == raw"$$"
-            push!(lines, display_math ? "```" : "```math")
-            display_math = !display_math
+        if strip(line) == "```math"
+            push!(lines, line)
+            display_math = true
         elseif display_math
             push!(lines, line)
+            strip(line) == "```" && (display_math = false)
         else
             push!(lines, replace(line, r"(?<!\\)\$([^$\n]+)(?<!\\)\$" =>
                 matched -> "``" * matched[2:prevind(matched,lastindex(matched))] * "``"))
