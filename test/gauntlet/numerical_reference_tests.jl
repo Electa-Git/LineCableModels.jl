@@ -112,4 +112,16 @@
         @test_throws "replay requires stored problem" owner.read_reference(path, bytes2hex(open(sha256, path)))
     end
     @test [(read(path), stat(path).mtime) for path in protected] == original
+    # A quiet trace still detects drift when the reviewed CI tolerance is zero.
+    quiet_problem = TestFixtures.line_parameters_problem(; frequencies=[1e-8])
+    quiet_formulation = Formulation(options=(reduce_bundle=false,
+        kron_reduction=false, ideal_transposition=false))
+    actual = compute(quiet_problem, quiet_formulation)
+    changed = LineParameters(PhaseDomain, copy(actual.Z.values),
+        actual.Y.values .+ 1e-15, actual.f)
+    scientific = LineCableModels.Engine.compare(changed, actual)
+    @test all(iszero, scientific.Y.absolute)
+    strict = owner.compare_reference((problem=quiet_problem,
+        formulation=quiet_formulation, parameters=changed))
+    @test all(>(0), strict.Y.absolute)
 end

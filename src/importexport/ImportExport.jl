@@ -31,8 +31,8 @@ using DocStringExtensions: TYPEDSIGNATURES, METHODLIST
 import ..LineCableModels: build, validate, nominal, constitutive
 import ..Grammar: observe
 import ..ReportBuilder
-using ..Materials: Material, MaterialsLibrary
-using ..EarthProps: EarthLayer, EarthModel
+using ..Materials: AbstractMaterial, Material, RadialDielectric, MaterialsLibrary
+using ..Earth: EarthLayer, EarthModel
 import ..DataModel
 using ..DataModel: CablesLibrary, DatasheetInfo, CableDesign, LineCableSystem,
                    AbstractCablePart, Region, Stack, Group, Assembly, Enclosure,

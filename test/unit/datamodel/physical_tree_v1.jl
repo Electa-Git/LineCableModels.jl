@@ -503,7 +503,7 @@ end
     system=make_system()
     problem=LineCableModels.Engine.LineParametersProblem(
         system;
-        earth_props = LineCableModels.EarthProps.EarthModel(100.0),
+        earth_props = LineCableModels.Earth.EarthModel(100.0),
         frequencies = [50.0]
     )
 
@@ -515,7 +515,8 @@ end
                                                                           LineCableModelsCoaxial(),
                                                                           source,
                                                                           eltype(problem))
-                                                                      for source in problem.system.designs]
+                                                                      for source in
+                                                                          problem.system.designs]
     @test (@inferred LineCableModels.Engine.LineParametersWorkspace(
         problem,
         Formulation(),

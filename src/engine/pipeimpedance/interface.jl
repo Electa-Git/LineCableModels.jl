@@ -4,33 +4,28 @@ $(TYPEDEF)
 Store a pipe-type impedance selection until the backend checks the topology.
 This value provides no substitute numerical formula for an unsupported pipe.
 
-$(TYPEDFIELDS)
 """
-struct Formula{ID, A <: NamedTuple} <: PipeImpedanceFormulation
-    "Declared assumptions owned by the selected pipe formula."
-    assumptions::A
-end
+struct Formula{ID} <: PipeImpedanceFormulation end
 
 formula_id(::Formula{ID}) where {ID} = ID
-assumptions(selected::Formula) = selected.assumptions
 
 """
 $(TYPEDSIGNATURES)
 
-Construct a registered pipe-type selection. Unknown identifiers or assumptions
+Construct a registered pipe-type selection. Unknown identifiers or customizations
 raise `ArgumentError`; backend applicability is checked against the design.
 """
 Formula(identifier::Symbol; kwargs...) = Formula(Val(identifier); kwargs...)
 
-function Formula(::Val{ID}; kwargs...) where {ID}
+function Formula(::Val{ID}; parameters::NamedTuple = (;), hooks::NamedTuple = (;)) where {ID}
     ID in FORMULAS || throw(ArgumentError("unknown pipe-impedance formula :$ID"))
-    defaults = assumptions(Val(ID))
-    overrides = (; kwargs...)
-    isempty(setdiff(keys(overrides), keys(defaults))) || throw(ArgumentError(
-        "unknown assumptions for pipe-impedance formula :$ID"))
-    values = merge(defaults, overrides)
-    return Formula{ID, typeof(values)}(values)
+    isempty(hooks) || throw(ArgumentError("pipe impedance has no configurable hooks"))
+    isempty(parameters) ||
+        throw(ArgumentError("pipe impedance has no configurable parameters"))
+    return Formula{ID}()
 end
+
+Formula(selected::Formula) = selected
 
 function Formulation(backend, selected::Formula, design::CableDesign)
     # Compare conductor axes, not wire positions. A concentric sheath remains
@@ -62,7 +57,17 @@ function Formulation(backend, selected::Formula, design::CableDesign)
     return Formulation(backend, Val(formula_id(selected)), selected, topology)
 end
 
-function Formulation(backend, ::Val{ID}, ::Formula{ID}, ::Val{Topology}) where {ID, Topology}
+function Formulation(backend, ::Val{ID}, ::Formula{ID}, ::Val{Topology}) where {
+        ID, Topology}
     throw(ArgumentError(
         "pipe-impedance :$ID is not yet implemented for $Topology topology on $(nameof(typeof(backend)))"))
+end
+
+function Formula(selection::FormulaDefinition{ID, Order}) where {ID, Order}
+    Order === :default || throw(ArgumentError("order applies only to equivalent_earth"))
+    isempty(selection.options) ||
+        throw(ArgumentError("deferred pipe contribution has no numerical options"))
+    selection.equivalent_earth === nothing ||
+        throw(ArgumentError("pipe contribution cannot consume equivalent_earth"))
+    return Formula(Val(ID); parameters = selection.parameters, hooks = selection.hooks)
 end

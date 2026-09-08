@@ -114,6 +114,23 @@
       }
     },
     "material": {
+      "oneOf": [
+        {"$ref": "#/$defs/scalarMaterial"},
+        {"$ref": "#/$defs/radialDielectric"}
+      ]
+    },
+    "radialDielectric": {
+      "type": "object",
+      "required": ["kind", "materials", "weights", "mu_r"],
+      "properties": {
+        "kind": {"const": "radial_dielectric"},
+        "materials": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/scalarMaterial"}},
+        "weights": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/scalar"}},
+        "mu_r": {"$ref": "#/$defs/scalar"}
+      },
+      "additionalProperties": false
+    },
+    "scalarMaterial": {
       "type": "object",
       "required": [
         "kind", "rho", "eps_r", "mu_r", "T0", "alpha",

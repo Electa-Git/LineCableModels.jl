@@ -1,4 +1,3 @@
-assumptions(::Val{:default}) = (;)
 
 """
 $(TYPEDSIGNATURES)
@@ -31,7 +30,9 @@ current is retained. This choice does not suppress conductor or earth losses.
 - `frequency`: Evaluation frequency \\[Hz\\].
 - `temperature`: Orchestration-supplied temperature \\[°C\\]; this relation
   applies no temperature correction.
-- `values`: Empty assumption tuple.
+- `values`: Empty physical-parameter tuple.
+- `options`: Empty numerical sections for this equation.
+- `workspace`: Optional execution resources.
 
 # Returns
 
@@ -39,11 +40,13 @@ current is retained. This choice does not suppress conductor or earth losses.
 """
 @inline function insulation_material(
         ::Val{:default}, material::Material{T}, frequency::T,
-        temperature::T, values::NamedTuple
+        temperature::T, values::NamedTuple, options::NamedTuple, workspace
 ) where {T <: Real}
     ε₀ = one(T) * 88541878128 * (one(T) * 10)^(-22)
     ω = 2 * (one(T) * π) * frequency
     return complex(zero(T), ω) * ε₀ * material.eps_r
 end
+
+computation_options(::FormulaMethod{:default, typeof(insulation_material)}) = (;)
 
 :default

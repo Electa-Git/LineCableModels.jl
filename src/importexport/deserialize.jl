@@ -49,6 +49,12 @@ function _decode_float(type_name::AbstractString, value::AbstractDict)
 end
 
 function _decode_material_record(value)
+    if get(value, "kind", nothing) == "radial_dielectric"
+        materials = [_decode_material_record(m) for m in
+            _required(value, "materials", "radial_dielectric")]
+        return RadialDielectric(materials, _field(value, "weights");
+            mu_r = _field(value, "mu_r"))
+    end
     raw_kind = deserialize_value(_required(value, "kind", "material"))
     kind = raw_kind isa AbstractString ? Symbol(raw_kind) : raw_kind
     fields = (
@@ -253,8 +259,8 @@ function _material_reference(value, materials)
         throw(KeyError(String(value)))
     end
     decoded = deserialize_value(value)
-    decoded isa Union{Material, Gridspace{Material}} || throw(ArgumentError(
-        "region material must decode as Material"
+    decoded isa Union{AbstractMaterial, Gridspace{<:AbstractMaterial}} || throw(ArgumentError(
+        "region material must decode as AbstractMaterial"
     ))
     return decoded
 end

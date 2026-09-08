@@ -1,20 +1,7 @@
-function routes(identifier::Val{:Saad1996})
-    (
-        self = FormulaMethod(identifier, earth_impedance, Val(:self)),
-        mutual = FormulaMethod(identifier, earth_impedance, Val(:mutual)),
-        Γ = FormulaMethod(identifier, propagation_constant)
-    )
-end
-
 function assumptions(::Val{:Saad1996})
-    (
-        air = _lossless,
-        earth = _conductive,
-        permeability = vacuum_permeability
-    )
+    (media = :homogeneous, layers = 2:2, longitudinal = :zero, permittivity = :positive)
 end
 
-propagation(::Val{:Saad1996}) = Val(:zero)
 """
 $(TYPEDSIGNATURES)
 
@@ -35,13 +22,8 @@ Power Delivery*, 11(3), 1536–1545, 1996.
 """
 description(::Formula{:Saad1996}) = "Saad underground closed form (1996)"
 
-function propagation_constant(::Val{:Saad1996}, jω, permeability, permittivity)
-    return (Γ = zero(jω), squared = zero(jω))
-end
-
-function (formula::Formula{:Saad1996})(rho, epsilon, mu, jω, Γ, segments = nothing)
-    return _homogeneous_functor(
-        Val(:Saad1996), formula, rho, epsilon, mu, jω, Γ, segments)
+function Γ(::Val{:Saad1996}, jω, materials, layers)
+    return zero(jω)
 end
 
 raw"""
@@ -63,30 +45,49 @@ return impedance of underground cables," *IEEE Transactions on Power
 Delivery*, vol. 11, no. 3, pp. 1536-1545, 1996.
 """
 function earth_impedance(
-        ::Val{:Saad1996}, ::Val{:mutual}, functor, pair
+        ::Val{:Saad1996}, ::Union{Val{:self}, Val{:mutual}}, ::Val{2}, ::Val{2},
+        functor, pair, workspace
 )
-    validate(pair, FormulaMethod(Val(:Saad1996), earth_impedance, Val(:mutual)), functor)
     state = functor.state
     geometry = _geometry(pair)
     gamma = state.gamma[2]
     radius = geometry.y_ij
     correction = 2exp(-geometry.H * gamma) / (4 + gamma^2 * radius^2)
-    direct = _complex_result(
+    direct = oftype(
         state.jω, special_besselk(0, gamma * radius)
     )
     πT = one(radius) * π
     return state.jω * state.mu[1] / (2πT) * (direct + correction)
 end
 
-function validate(
-        pair::EarthPair, route::FormulaMethod{:Saad1996, typeof(earth_impedance)}, formula
-)
-    validate(pair)
-    (pair.layers[1] > 1 && pair.layers[2] > 1) || throw(ArgumentError(
-        ":Saad1996 earth impedance requires underground conductors; pair ($(pair.row), $(pair.column)) has layers $(pair.layers)"))
-    pair.row != pair.column && iszero(pair.separation) && throw(DomainError(
-        pair.separation, ":Saad1996 mutual closed form requires nonzero horizontal cable separation"))
+function validate(pair::EarthPair, ::FormulaMethod{:Saad1996, typeof(earth_impedance)})
+    pair.row != pair.column && iszero(pair.separation) &&
+        throw(DomainError(
+            pair.separation, ":Saad1996 mutual closed form requires nonzero horizontal cable separation"))
     return pair
+end
+
+Formulation(::LineCableModelsCoaxial, selected::Formula{:Saad1996}) = selected
+
+function hooks(::FormulaMethod{:Saad1996, typeof(earth_impedance),
+        A}) where {A <: Tuple{Union{Val{:self}, Val{:mutual}}, Val{2}, Val{2}}}
+    return (configurable = (:Γ, :earth, :permeability, :contribution),
+        defaults = (
+            Γ = FormulaMethod(Val(:Saad1996), Γ),
+            air = FormulaMethod(Val(:lossless), propagation),
+            earth = FormulaMethod(Val(:conductive), propagation),
+            permeability = vacuum_permeability,
+            contribution = nothing))
+end
+
+function computation_options(::FormulaMethod{:Saad1996, typeof(earth_impedance),
+        A}) where {A <: Tuple{Union{Val{:self}, Val{:mutual}}, Val{2}, Val{2}}}
+    (;)
+end
+
+function validate(binding::FormulaMethod{:Saad1996, typeof(earth_impedance)},
+        ::EquivalentHomogeneous.Formula{:default})
+    binding
 end
 
 :Saad1996

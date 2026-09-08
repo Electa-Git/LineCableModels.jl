@@ -12,9 +12,15 @@ numerical loop.
 
 $(TYPEDFIELDS)
 """
-struct FormulaDefinition{ID, Order, O <: NamedTuple}
-    "Formula-specific route or assumption overrides."
-    overrides::O
+struct FormulaDefinition{ID, Order, P <: NamedTuple, H <: NamedTuple, O <: NamedTuple, E}
+    "Explicit formula parameters, without evaluated physical state."
+    parameters::P
+    "Explicit callable overrides, without numerical workspaces."
+    hooks::H
+    "Explicit numerical sections owned by the consuming equation."
+    options::O
+    "Optional equivalent homogeneous-earth selection owned by this formula."
+    equivalent_earth::E
 end
 
 """
@@ -24,7 +30,7 @@ Bind one formula identity and optional semantic selectors to a domain method.
 
 Calling the bound method inserts `Val(ID)` before the stored selectors and
 runtime arguments. Formula catalogues use this invariant to retain owner-local
-dispatch while carrying the selected literature identity as concrete type
+dispatch while carrying the selected formula identity as concrete type
 information.
 
 $(TYPEDFIELDS)
@@ -85,10 +91,13 @@ keyword slot in which the selection appears.
 # Keywords
 
 - `order`: Position of an equivalent homogeneous-earth reduction relative to
-  material frequency dependence. `:before` applies EHEM before FD, `:after`
-  applies EHEM after FD, and `:default` selects the receiving formulation's
-  default. Non-EHEM formula slots accept only `:default`.
-- `kwargs`: Formula-specific route or assumption overrides.
+  material frequency dependence. `:before` applies EquivalentHomogeneous before FrequencyDependent, `:after`
+  applies EquivalentHomogeneous after FrequencyDependent, and `:default` selects the receiving formulation's
+  default. Non-EquivalentHomogeneous formula slots accept only `:default`.
+- `parameters=(;)`: Explicit model parameters accepted by the owning formula.
+- `hooks=(;)`: Callable overrides at the owning formula's documented variation points.
+- `options=(;)`: Numerical operation sections, such as `integration=(method=:quad, options=(;))`.
+- `equivalent_earth=nothing`: Explicit reduction for a compatible external formula.
 
 # Returns
 
@@ -97,20 +106,23 @@ keyword slot in which the selection appears.
 # Examples
 
 ```julia
-earth = formula(:Papadopoulos2010)
-soil = formula(:CIGRE2019; epsilon_infinity=10.0)
-equivalent = formula(:Xue2021; order=:before)
+earth = formula(:Carson1926)
+soil = formula(:default)
+equivalent = formula(:default; order=:before)
 ```
 """
-function formula(identifier::Symbol; order::Symbol = :default, kwargs...)
+function formula(identifier::Symbol; order::Symbol = :default,
+        parameters::NamedTuple = (;), hooks::NamedTuple = (;),
+        options::NamedTuple = (;), equivalent_earth = nothing)
     order in (:default, :before, :after) || throw(ArgumentError(
         "formula order must be :default, :before, or :after"
     ))
-    overrides = (; kwargs...)
-    return FormulaDefinition{identifier, order, typeof(overrides)}(overrides)
+    return FormulaDefinition{identifier, order, typeof(parameters), typeof(hooks),
+        typeof(options), typeof(equivalent_earth)}(
+        parameters, hooks, options, equivalent_earth)
 end
 
-"Return the stable literature identifier of a formula value."
+"Return the stable formula identifier of a formula value."
 function formula_id end
 
 formula_id(::FormulaDefinition{ID}) where {ID} = ID

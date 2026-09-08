@@ -38,6 +38,7 @@ temp/
 local/
 .linecablemodels/fem/
 .linecablemodels/gauntlet/
+.linecablemodels/qa/
 
 # examples artifacts
 !examples/*.jl

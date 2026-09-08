@@ -2,30 +2,37 @@
     using Gmsh
     using LineCableModels
     extension = Base.get_extension(LineCableModels, :LineCableModelsGmshExt)
-    copper = Material(kind=:conductor, rho=1.72e-8)
-    dielectric = Material(kind=:insulator, rho=1.0e8, eps_r=2.3, tan_delta=0.025)
-    design = build(CableDesign, "fem-resume-inputs", Stack(
-        Group(:core, Region(:metal, Disk(0.005), copper)),
-        Region(:insulation, Shell(0.005), dielectric)))
+    copper = Material(kind = :conductor, rho = 1.72e-8)
+    dielectric = Material(kind = :insulator, rho = 1.0e8, eps_r = 2.3, tan_delta = 0.025)
+    design = build(CableDesign,
+        "fem-resume-inputs",
+        Stack(
+            Group(:core, Region(:metal, Disk(0.005), copper)),
+            Region(:insulation, Shell(0.005), dielectric)))
     system = build(LineCableSystem, design, (0.0, -0.1);
-        connections=Dict(:core=>1), system_id="fem-resume-inputs")
-    problem = LineParametersProblem(system; frequencies=[50.0, 1000.0],
-        earth_props=LineCableModels.EarthProps.EarthModel(100.0, 10.0, 1.0))
+        connections = Dict(:core=>1), system_id = "fem-resume-inputs")
+    problem = LineParametersProblem(system; frequencies = [50.0, 1000.0],
+        earth_props = LineCableModels.Earth.EarthModel(100.0, 10.0, 1.0))
     formulation = Formulation(:LineCableModelsFEM;
-        options=(ideal_transposition=false,), fem_options=(gmsh_verbosity=0,))
+        options = (ideal_transposition = false,), fem_options = (gmsh_verbosity = 0,))
     model = extension._resolved_fem_model(problem, formulation)
     inputs = extension._fem_input_record(model, formulation)
     @test inputs.schema_version == 4
-    @test inputs.mesh_fingerprint == extension._mesh_fingerprint(model, Gmsh.gmsh.GMSH_API_VERSION)
+    @test inputs.mesh_fingerprint ==
+          extension._mesh_fingerprint(model, Gmsh.gmsh.GMSH_API_VERSION)
+    # Recorded before replacing SHA's quadratic String/CodeUnits input path.
+    # Buffering identical JSON bytes must preserve existing mesh cache keys.
+    @test extension._mesh_fingerprint(model, "recorded-gmsh-version") ==
+          "ff3f3f9fe0d3bb22b829dfe7c753c1f6607d7d0c3176d10b2cca2eb056d42bcb"
     @test inputs.adapter_sources isa NamedTuple
     @test haskey(inputs.adapter_sources, Symbol("geometry.jl"))
     @test !haskey(inputs.adapter_sources, Symbol("formulations.jl"))
-    other = Formulation(:LineCableModelsFEM; earth_impedance=:Wise1934,
-        options=formulation.options, fem_options=formulation.execution)
+    other = Formulation(:LineCableModelsFEM; earth_impedance = :Carson1926,
+        options = formulation.options, fem_options = formulation.execution)
     other_model = extension._resolved_fem_model(problem, other)
     other_inputs = extension._fem_input_record(other_model, other)
-    lossy = Formulation(:LineCableModelsFEM; insulation_admittance=:Ametani2004,
-        options=formulation.options, fem_options=formulation.execution)
+    lossy = Formulation(:LineCableModelsFEM; insulation_admittance = :Ametani2004,
+        options = formulation.options, fem_options = formulation.execution)
     lossy_model = extension._resolved_fem_model(problem, lossy)
     lossy_inputs = extension._fem_input_record(lossy_model, lossy)
     @test extension.JSON3.write(inputs) == extension.JSON3.write(other_inputs)
@@ -42,15 +49,22 @@
     @test changed_inputs.materials == inputs.materials
     @test changed_inputs.region_mesh_sizes == inputs.region_mesh_sizes
     @test LineCableModels.ImportExport.serialize_value(changed_model.problem) ==
-        LineCableModels.ImportExport.serialize_value(model.problem)
+          LineCableModels.ImportExport.serialize_value(model.problem)
     ownership = deepcopy(model)
     ownership.region_plans[1] = extension.FEMRegionPlan(region.object_id,
         region.cable_index, region.region_index, 0, region.material_index,
         region.shape, region.mesh_size)
-    @test extension._fem_input_record(ownership, formulation).mesh_fingerprint != inputs.mesh_fingerprint
+    @test extension._fem_input_record(ownership, formulation).mesh_fingerprint !=
+          inputs.mesh_fingerprint
     @test_throws ArgumentError compute(problem, LineCableModelsFEM[])
-    unsupported = Formulation(:LineCableModelsFEM; earth_properties=:CIGRE2019,
-        options=formulation.options, fem_options=formulation.execution)
+    law = (m, f, p, o, w) -> m
+    @eval LineCableModels.computation_options(
+        ::LineCableModels.FormulaMethod{
+            :default, typeof(LineCableModels.Earth.FrequencyDependent.earth_material)},
+        ::$(typeof(law))) = (;)
+    unsupported = Formulation(:LineCableModelsFEM;
+        earth_properties = formula(:default; hooks = (contribution = law,)),
+        options = formulation.options, fem_options = formulation.execution)
     before = Bool(Gmsh.gmsh.is_initialized())
     @test_throws LineCableModelsFEMError compute(problem, [formulation, unsupported])
     @test Bool(Gmsh.gmsh.is_initialized()) == before
@@ -89,10 +103,13 @@
         end
         scan = extension.FEMScan(zeros(ComplexF64, 1, 1, 2), zeros(ComplexF64, 1, 1, 2), String[])
         extension._write_scan_checksums(run, scan)
-        retained_inputs = merge(inputs, (; getdp_identity=(path="fixture", sha256="fixture", info="fixture")))
+        retained_inputs = merge(
+            inputs, (;
+                getdp_identity = (path = "fixture", sha256 = "fixture", info = "fixture")))
         extension._write_json_atomic(joinpath(run.path, "input", "computation.json"), retained_inputs)
         @test extension._resume_inputs_match(run.path, model, retained_inputs)
-        @test !extension._resume_inputs_match(run.path, model, merge(retained_inputs, (; getdp_identity=nothing)))
+        @test !extension._resume_inputs_match(
+            run.path, model, merge(retained_inputs, (; getdp_identity = nothing)))
         retained = extension._resume_run(root, run.path, model, retained_inputs)
         @test retained.state === extension.completed
         @test retained.path == run.path
@@ -102,11 +119,14 @@
         @test_throws LineCableModelsFEMError extension._check_scan_checksums(retained, scan)
         write(joinpath(run.path, "raw", "checksums.json"), "broken JSON")
         @test_throws LineCableModelsFEMError extension._check_scan_checksums(retained, scan)
-        changed = merge(retained_inputs, (; adapter_sources=Dict("geometry.jl"=>"different implementation")))
+        changed = merge(retained_inputs, (;
+            adapter_sources = Dict("geometry.jl"=>"different implementation")))
         @test !extension._resume_inputs_match(run.path, model, changed)
-        @test !extension._resume_inputs_match(run.path, model, merge(retained_inputs, (; owned_gmsh=false)))
-        for execution in (Formulation(:LineCableModelsFEM; fem_options=(ui=true,)).execution,
-                Formulation(:LineCableModelsFEM; fem_options=(mesh_policy=:remesh,)).execution)
+        @test !extension._resume_inputs_match(run.path, model, merge(retained_inputs, (;
+            owned_gmsh = false)))
+        for execution in
+            (Formulation(:LineCableModelsFEM; fem_options = (ui = true,)).execution,
+            Formulation(:LineCableModelsFEM; fem_options = (mesh_policy = :remesh,)).execution)
             excluded = merge(retained_inputs, (; execution))
             extension._write_json_atomic(joinpath(run.path, "input", "computation.json"), excluded)
             @test !extension._resume_inputs_match(run.path, model, excluded)
@@ -115,8 +135,8 @@
             executable = joinpath(root, "getdp-identity")
             write(executable, "#!/bin/sh\necho 'GetDP Version 3.6.0 fixture A'\n")
             chmod(executable, 0o700)
-            configured = Formulation(:LineCableModelsFEM; options=formulation.options,
-                fem_options=(getdp_executable=executable, gmsh_verbosity=0,))
+            configured = Formulation(:LineCableModelsFEM; options = formulation.options,
+                fem_options = (getdp_executable = executable, gmsh_verbosity = 0))
             first_identity = extension._fem_input_record(model, configured).getdp_identity
             write(executable, "#!/bin/sh\necho 'GetDP Version 3.6.0 fixture B'\n")
             second_identity = extension._fem_input_record(model, configured).getdp_identity

@@ -421,7 +421,7 @@ function dielectric_layer(
         "flatten does not support helical dielectric layers"
     ))
     centre = (convert(T, primitive.at.x), convert(T, primitive.at.y))
-    material = convert(Material{T}, source.source.material)
+    material = source.source.material
     material.kind === :conductor && throw(ArgumentError(
         "a dielectric interval cannot contain a conductor material"
     ))
@@ -445,7 +445,7 @@ function dielectric_layer(
     isempty(source.paths) || throw(ArgumentError(
         "flatten does not support a helical sector dielectric"
     ))
-    material = convert(Material{T}, source.source.material)
+    material = source.source.material
     material.kind === :conductor && throw(ArgumentError(
         "a dielectric interval cannot contain a conductor material"
     ))
@@ -1009,7 +1009,7 @@ function initialize_dielectric(layer, conductor)
                         (layer.r_ex^2 - layer.r_in^2),
         position = layer.position,
         reference_temperature = layer.material.T0,
-        layers = [(r_in = layer.r_in, r_ex = layer.r_ex, material = layer.material)]
+        layers = dielectric_layer(layer.material, layer.r_in, layer.r_ex)
     )
 end
 
@@ -1029,7 +1029,7 @@ function add_dielectric_layer(dielectric, layer)
         ArgumentError("all cable materials must share one reference temperature")
     )
     layers = copy(dielectric.layers)
-    push!(layers, (r_in = layer.r_in, r_ex = layer.r_ex, material = layer.material))
+    append!(layers, dielectric_layer(layer.material, layer.r_in, layer.r_ex))
     return (
         r_in = dielectric.r_in,
         r_ex = layer.r_ex,
@@ -1039,6 +1039,35 @@ function add_dielectric_layer(dielectric, layer)
         reference_temperature = dielectric.reference_temperature,
         layers
     )
+end
+
+function dielectric_layer(material::Material, inner::T, outer::T) where {T <: Real}
+    return [(r_in = inner, r_ex = outer, material = convert(Material{T}, material))]
+end
+
+function dielectric_layer(material::RadialDielectric, inner::T, outer::T) where {T <: Real}
+    # Reconstruct virtual radial intervals only for computation. The homogeneous
+    # design still contains one physical shell, not these constituent surfaces.
+    total = convert(T, sum(material.weights))
+    width = log(outer / inner)
+    radial_mu = sum(w * m.mu_r for (w, m) in zip(material.weights, material.materials)) / total
+    mu_scale = material.mu_r / radial_mu
+    accumulated = zero(T)
+    previous = inner
+    layers = NamedTuple{(:r_in, :r_ex, :material), Tuple{T, T, Material{T}}}[]
+    for index in eachindex(material.materials)
+        accumulated += convert(T, material.weights[index])
+        next = index == lastindex(material.materials) ? outer :
+               inner * exp(width * accumulated / total)
+        source = material.materials[index]
+        physical = Material(source.kind, source.rho, source.eps_r, source.mu_r * mu_scale,
+            source.T0, source.alpha; rho_thermal=source.rho_thermal,
+            theta_max=source.theta_max, tan_delta=source.tan_delta, sigma_solar=source.sigma_solar)
+        push!(layers, (r_in = previous, r_ex = next,
+            material = convert(Material{T}, physical)))
+        previous = next
+    end
+    return layers
 end
 
 function empty_dielectric(conductor, ::Type{T}) where {T <: Real}
@@ -1378,10 +1407,13 @@ $(TYPEDSIGNATURES)
 Reduce a completed cable design to equivalent radial conductor and dielectric
 components at one dielectric reference frequency.
 
-This DataModel operation supports [`homogenize`](@ref). It combines the
-physical radial dielectric layers in series and produces an artificial
-homogeneous material that reproduces their capacitance and conductance at the
-requested frequency. It does not calculate mutual coupling or earth return.
+This reference-frequency operation serves the scalar ATP and TRALIN export
+adapters. It includes the supplied physical material losses at their reference
+temperature and combines radial layers in series. The resulting scalar
+material reproduces capacitance and conductance at the requested frequency;
+it is not a broadband replacement. It does not calculate mutual coupling or
+earth return. Reusable [`homogenize`](@ref) designs instead retain their
+constituents without calling this frequency-dependent operation.
 
 # Arguments
 
@@ -1482,9 +1514,9 @@ Build a homogeneous cable design from locally reduced radial components.
 Each retained terminal becomes one solid or annular conductor followed by one
 homogeneous dielectric interval. The conductor material reproduces the
 terminal's parallel resistance and geometric-mean radius. The dielectric
-material reproduces the series combination of the physical dielectric layers
-at `dielectric_frequency` \\[Hz\\]. The source design and its resolved geometry
-are not modified.
+material retains the physical constituents and radial weights in a
+[`RadialDielectric`](@ref). Constitutive laws are selected only during computation
+or explicit reference-frequency export. The source design is not modified.
 
 # Arguments
 
@@ -1494,8 +1526,6 @@ are not modified.
 
 - `new_id`: Identifier for the returned design. An empty value appends
   `"_equivalent"` to the source identifier.
-- `dielectric_frequency`: Frequency used to match a lossy homogeneous
-  dielectric \\[Hz\\]. Default: `50`.
 
 # Returns
 
@@ -1503,14 +1533,10 @@ are not modified.
 """
 function homogenize(
         original::CableDesign;
-        new_id::AbstractString = "",
-        dielectric_frequency::Real = 50
+        new_id::AbstractString = ""
 )
     target_id = isempty(new_id) ? original.cable_id * "_equivalent" : String(new_id)
-    components = flatten(
-        original,
-        dielectric_frequency
-    )
+    components = radial_components(original)
     chains = Vector{typeof(components)}()
     for component in components
         if isempty(chains) ||
@@ -1562,7 +1588,11 @@ function homogenize(
                     Region(
                         Symbol(terminal, :_equivalent_dielectric),
                         Annulus(dielectric.r_in, dielectric.r_ex),
-                        dielectric.material
+                        RadialDielectric(
+                            [layer.material for layer in dielectric.layers],
+                            [log(layer.r_ex / layer.r_in) for layer in dielectric.layers];
+                            mu_r = equivalent_dielectric_permeability(dielectric.layers,
+                                conductor.num_turns, conductor.r_ex, dielectric.r_ex))
                     ))
             end
         end

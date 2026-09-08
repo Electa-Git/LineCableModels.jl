@@ -61,8 +61,8 @@ vary as complete selections:
 
 ```julia
 modal_formulations = ModalTransformationFormulation(Grid((
-    formula(:Fortescue; tolerance=1e-4),
-    formula(:Fortescue; tolerance=1e-8),
+    formula(:default; parameters=(tolerance=1e-4,)),
+    formula(:default; parameters=(tolerance=1e-8,)),
 )))
 ```
 

@@ -40,7 +40,8 @@ export statistics, samples, histograms, uncertain
 export root_seed, point_seed, trial_count
 export confidence, cdf_tolerance, sampling_distribution
 export report, TableReportDefinition, XLSXReportDefinition, ReportArtifact
-export AbstractMaterial, Material, MaterialsLibrary, Conductor, Insulator, Semiconductor
+export AbstractMaterial, Material, RadialDielectric, MaterialsLibrary, Conductor, Insulator,
+       Semiconductor
 export AbstractShape, AbstractPrimitive
 export Disk, Rectangle, Ellipse, Sector, Annulus, Polygon, Shell
 export Pose2
@@ -53,7 +54,8 @@ export Ring, Polar, Fill, Lattice, placements
 export capacity, FillFactor
 export LayRatio, Pitch, LayAngle, Helix, pitch, angle, overlength
 export at, trefoil, hflat, vflat, layer, homogeneous
-export AbstractEarthModel, EarthLayer, EarthModel
+export AbstractEarthModel, AbstractEarthLayer, AbstractEarthMaterial, EarthMaterial,
+       EarthLayer, EarthModel
 export terminal, core, stranded, milliken, rope, cores, tape, insulation, screen, sheath
 export armor, bedding, jacket, filler, pipe, duct
 export solid, shell, wires, layers, assembly
@@ -139,12 +141,14 @@ public PlotBuilder, plot, plotwindow
 # Submodule `Materials`
 include("materials/Materials.jl")
 import .Materials
-using .Materials: AbstractMaterial, Material, MaterialsLibrary
+using .Materials: AbstractMaterial, Material, RadialDielectric, MaterialsLibrary
 
-# Submodule `EarthProps`
-include("earthprops/EarthProps.jl")
-import .EarthProps
-using .EarthProps: AbstractEarthModel, EarthLayer, EarthModel, layer, homogeneous
+# Submodule `Earth`
+include("earth/Earth.jl")
+import .Earth
+public Earth
+using .Earth: AbstractEarthModel, AbstractEarthLayer, AbstractEarthMaterial,
+              EarthMaterial, EarthLayer, EarthModel, layer, homogeneous
 
 # Submodule `DataModel`
 include("datamodel/DataModel.jl")

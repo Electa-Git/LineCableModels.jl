@@ -1,50 +1,34 @@
-@inline function earth!(
-        destination::AbstractMatrix{Complex{T}},
-        pairs::AbstractVector{<:EarthPair{T}},
-        input::NamedTuple,
-        earth,
-        frequency::Int,
-        formula,
-        Γ,
-        segments,
-        thickness = nothing
-) where {T <: Real}
-    s = input.jω[frequency]
-    @inbounds for index in eachindex(pairs)
-        pair = pairs[index]
-        rho = @view earth.rho[:, index]
-        epsilon = @view earth.epsilon[:, index]
-        mu = @view earth.mu[:, index]
-        functor = formula(rho, epsilon, mu, s, Γ, segments, thickness)
-        kind = pair.row == pair.column ? Val(:self) : Val(:mutual)
-        value = functor(kind, pair)
-        destination[pair.row, pair.column] = value
-        destination[pair.column, pair.row] = value
+function earth!(
+        destination::AbstractMatrix, bindings::NamedTuple{(
+            :selection, :cases, :reductions)},
+        earth, jω, formula, Γ, workspace,
+        thickness
+)
+    bindings.selection === formula ||
+        throw(ArgumentError("workspace is bound to a different earth formula selection"))
+    foreach(bindings.cases) do binding
+        earth!(destination, binding, earth, jω,
+            formula, Γ, workspace, thickness)
     end
     return destination
 end
 
-@inline function earth!(
-        destination::AbstractMatrix{Complex{T}},
-        pairs::AbstractVector{<:EarthPair{T}},
-        input::NamedTuple,
-        earth,
-        frequency::Int,
-        formula,
-        Γ,
-        segments,
-        thickness::AbstractVector
+function earth!(
+        destination::AbstractMatrix{Complex{T}}, binding::NamedTuple{(
+            :declaration, :interactions)},
+        earth, jω, formula, Γ, workspace,
+        thickness
 ) where {T <: Real}
-    s = input.jω[frequency]
-    rho = @view earth.rho[:, firstindex(pairs)]
-    epsilon = @view earth.epsilon[:, firstindex(pairs)]
-    mu = @view earth.mu[:, firstindex(pairs)]
-    functor = formula(rho, epsilon, mu, s, Γ, segments, thickness)
-    @inbounds for pair in pairs
-        kind = pair.row == pair.column ? Val(:self) : Val(:mutual)
-        value = functor(kind, pair)
-        destination[pair.row, pair.column] = value
-        destination[pair.column, pair.row] = value
+    for interaction in binding.interactions
+        index, pair=interaction.index, interaction.pair
+        rho=@view earth.rho[:, index]
+        epsilon=@view earth.epsilon[:, index]
+        mu=@view earth.mu[:, index]
+        functor=formula(
+            rho, epsilon, mu, jω, pair, binding.declaration; Γ,
+            thickness, physical_pair = interaction.physical_pair)
+        resources = haskey(binding.declaration.options, :integration) ? workspace : nothing
+        destination[pair.row, pair.column]=functor(resources)
     end
     return destination
 end

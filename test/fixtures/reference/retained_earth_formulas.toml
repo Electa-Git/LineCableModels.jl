@@ -1,0 +1,498 @@
+provenance = "Initial dirty worktree snapshot before architecture cutover; numerical regression only, not independent source validation."
+
+[[cases]]
+real = 4.923125373704345e-5
+kind = "self"
+family = "EarthImpedance"
+placement = "overhead"
+id = "default"
+frequency = 50.0
+imag = 0.0007190567865309298
+[[cases]]
+real = 0.09001481711009716
+kind = "self"
+family = "EarthImpedance"
+placement = "overhead"
+id = "default"
+frequency = 100000.0
+imag = 0.9704368758515347
+[[cases]]
+real = 4.917327166289383e-5
+kind = "mutual"
+family = "EarthImpedance"
+placement = "overhead"
+id = "default"
+frequency = 50.0
+imag = 0.0004157436302317874
+[[cases]]
+real = 0.08616056045665253
+kind = "mutual"
+family = "EarthImpedance"
+placement = "overhead"
+id = "default"
+frequency = 100000.0
+imag = 0.36855099074469866
+[[cases]]
+real = 4.946490196233288e-5
+kind = "self"
+family = "EarthImpedance"
+placement = "underground"
+id = "default"
+frequency = 50.0
+imag = 0.0007188215638205288
+[[cases]]
+real = 0.10757437146108494
+kind = "self"
+family = "EarthImpedance"
+placement = "underground"
+id = "default"
+frequency = 100000.0
+imag = 0.9501270515362444
+[[cases]]
+real = 4.9521954073381505e-5
+kind = "mutual"
+family = "EarthImpedance"
+placement = "underground"
+id = "default"
+frequency = 50.0
+imag = 0.0004153909981267233
+[[cases]]
+real = 0.10928488902923819
+kind = "mutual"
+family = "EarthImpedance"
+placement = "underground"
+id = "default"
+frequency = 100000.0
+imag = 0.33891442031800534
+[[cases]]
+real = 4.923117523553343e-5
+kind = "self"
+family = "EarthImpedance"
+placement = "overhead"
+id = "Carson1926"
+frequency = 50.0
+imag = 0.0007190567866763735
+[[cases]]
+real = 0.08972480481507457
+kind = "self"
+family = "EarthImpedance"
+placement = "overhead"
+id = "Carson1926"
+frequency = 100000.0
+imag = 0.9704573823203534
+[[cases]]
+real = 4.9173193234779704e-5
+kind = "mutual"
+family = "EarthImpedance"
+placement = "overhead"
+id = "Carson1926"
+frequency = 50.0
+imag = 0.0004157436304488932
+[[cases]]
+real = 0.08588181936347065
+kind = "mutual"
+family = "EarthImpedance"
+placement = "overhead"
+id = "Carson1926"
+frequency = 100000.0
+imag = 0.36857883127407376
+[[cases]]
+real = 4.946468297167936e-5
+kind = "self"
+family = "EarthImpedance"
+placement = "underground"
+id = "Pollaczek1926"
+frequency = 50.0
+imag = 0.00071882157775467
+[[cases]]
+real = 0.10697678809604903
+kind = "self"
+family = "EarthImpedance"
+placement = "underground"
+id = "Pollaczek1926"
+frequency = 100000.0
+imag = 0.9501889349743333
+[[cases]]
+real = 4.95217352111979e-5
+kind = "mutual"
+family = "EarthImpedance"
+placement = "underground"
+id = "Pollaczek1926"
+frequency = 50.0
+imag = 0.0004153910121534779
+[[cases]]
+real = 0.10869655861739268
+kind = "mutual"
+family = "EarthImpedance"
+placement = "underground"
+id = "Pollaczek1926"
+frequency = 100000.0
+imag = 0.3389870569860326
+[[cases]]
+real = 4.940374511931083e-5
+kind = "mutual"
+family = "EarthImpedance"
+placement = "mixed"
+id = "Pollaczek1926"
+frequency = 50.0
+imag = 0.0003585969088771103
+[[cases]]
+real = 0.09875541049436837
+kind = "mutual"
+family = "EarthImpedance"
+placement = "mixed"
+id = "Pollaczek1926"
+frequency = 100000.0
+imag = 0.2359467171050084
+[[cases]]
+real = 4.9259869485887305e-5
+kind = "self"
+family = "EarthImpedance"
+placement = "overhead"
+id = "Gary1976"
+frequency = 50.0
+imag = 0.0007238790616806115
+[[cases]]
+real = 0.09127575813497481
+kind = "self"
+family = "EarthImpedance"
+placement = "overhead"
+id = "Gary1976"
+frequency = 100000.0
+imag = 0.9778795489724321
+[[cases]]
+real = 4.921586866424389e-5
+kind = "mutual"
+family = "EarthImpedance"
+placement = "overhead"
+id = "Gary1976"
+frequency = 50.0
+imag = 0.00042055130036474406
+[[cases]]
+real = 0.08784227539767005
+kind = "mutual"
+family = "EarthImpedance"
+placement = "overhead"
+id = "Gary1976"
+frequency = 100000.0
+imag = 0.3750514661604591
+[[cases]]
+real = 4.946572390599009e-5
+kind = "self"
+family = "EarthImpedance"
+placement = "underground"
+id = "WedepohlWilcox1973"
+frequency = 50.0
+imag = 0.0007188205071407269
+[[cases]]
+real = 0.10922362203872223
+kind = "self"
+family = "EarthImpedance"
+placement = "underground"
+id = "WedepohlWilcox1973"
+frequency = 100000.0
+imag = 0.9497700535037114
+[[cases]]
+real = 4.9524574856261736e-5
+kind = "mutual"
+family = "EarthImpedance"
+placement = "underground"
+id = "WedepohlWilcox1973"
+frequency = 50.0
+imag = 0.0004474858774015166
+[[cases]]
+real = 0.11448741105263656
+kind = "mutual"
+family = "EarthImpedance"
+placement = "underground"
+id = "WedepohlWilcox1973"
+frequency = 100000.0
+imag = 0.40195470691192
+[[cases]]
+real = 4.943605054200971e-5
+kind = "self"
+family = "EarthImpedance"
+placement = "underground"
+id = "Saad1996"
+frequency = 50.0
+imag = 0.0007188509058706461
+[[cases]]
+real = 0.105640833852757
+kind = "self"
+family = "EarthImpedance"
+placement = "underground"
+id = "Saad1996"
+frequency = 100000.0
+imag = 0.9524429275846269
+[[cases]]
+real = 4.94796307140249e-5
+kind = "mutual"
+family = "EarthImpedance"
+placement = "underground"
+id = "Saad1996"
+frequency = 50.0
+imag = 0.0004475310167376663
+[[cases]]
+real = 0.10797002908799853
+kind = "mutual"
+family = "EarthImpedance"
+placement = "underground"
+id = "Saad1996"
+frequency = 100000.0
+imag = 0.40613056937098707
+[[cases]]
+real = 5.009650735338704e-5
+kind = "mutual"
+family = "EarthImpedance"
+placement = "mixed"
+id = "Ametani2009"
+frequency = 50.0
+imag = 0.00036247969683418863
+[[cases]]
+real = 0.10573246139616808
+kind = "mutual"
+family = "EarthImpedance"
+placement = "mixed"
+id = "Ametani2009"
+frequency = 100000.0
+imag = 0.21885358263276167
+[[cases]]
+real = 4.9183025823802725e-5
+kind = "mutual"
+family = "EarthImpedance"
+placement = "mixed"
+id = "Lucca1994"
+frequency = 50.0
+imag = 0.0003584365137361763
+[[cases]]
+real = 0.08578774492767771
+kind = "mutual"
+family = "EarthImpedance"
+placement = "mixed"
+id = "Lucca1994"
+frequency = 100000.0
+imag = 0.2536026883532242
+[[cases]]
+real = 9.523805173586084e10
+kind = "self"
+family = "EarthAdmittance"
+placement = "overhead"
+id = "default"
+frequency = 50.0
+imag = 200458.48942586398
+[[cases]]
+real = 9.52860482498799e10
+kind = "self"
+family = "EarthAdmittance"
+placement = "overhead"
+id = "default"
+frequency = 100000.0
+imag = 1.726067249488295e8
+[[cases]]
+real = 1.6281531729895386e10
+kind = "mutual"
+family = "EarthAdmittance"
+placement = "overhead"
+id = "default"
+frequency = 50.0
+imag = 196100.84018261073
+[[cases]]
+real = 1.6329468835556543e10
+kind = "mutual"
+family = "EarthAdmittance"
+placement = "overhead"
+id = "default"
+frequency = 100000.0
+imag = 1.6388819703988802e8
+[[cases]]
+real = 7854.131753723612
+kind = "self"
+family = "EarthAdmittance"
+placement = "underground"
+id = "default"
+frequency = 50.0
+imag = 82931.0646740117
+[[cases]]
+real = 1.6093410429762473e7
+kind = "self"
+family = "EarthAdmittance"
+placement = "underground"
+id = "default"
+frequency = 100000.0
+imag = 8.980232015067658e7
+[[cases]]
+real = 7853.84063843562
+kind = "mutual"
+family = "EarthAdmittance"
+placement = "underground"
+id = "default"
+frequency = 50.0
+imag = 56610.69897757377
+[[cases]]
+real = 1.5459946882936105e7
+kind = "mutual"
+family = "EarthAdmittance"
+placement = "underground"
+id = "default"
+frequency = 100000.0
+imag = 3.7270839114480026e7
+[[cases]]
+real = 9.523802817336084e10
+kind = "self"
+family = "EarthAdmittance"
+placement = "overhead"
+id = "Pollaczek1926"
+frequency = 50.0
+imag = 0.0
+[[cases]]
+real = 9.523802817336084e10
+kind = "self"
+family = "EarthAdmittance"
+placement = "overhead"
+id = "Pollaczek1926"
+frequency = 100000.0
+imag = 0.0
+[[cases]]
+real = 1.6281508167408789e10
+kind = "mutual"
+family = "EarthAdmittance"
+placement = "overhead"
+id = "Pollaczek1926"
+frequency = 50.0
+imag = 0.0
+[[cases]]
+real = 1.6281508167408789e10
+kind = "mutual"
+family = "EarthAdmittance"
+placement = "overhead"
+id = "Pollaczek1926"
+frequency = 100000.0
+imag = 0.0
+[[cases]]
+real = 0.0736898463702434
+kind = "self"
+family = "EarthAdmittance"
+placement = "underground"
+id = "Pollaczek1926"
+frequency = 50.0
+imag = 26491.64933183189
+[[cases]]
+real = 294820.83504387614
+kind = "self"
+family = "EarthAdmittance"
+placement = "underground"
+id = "Pollaczek1926"
+frequency = 100000.0
+imag = 5.298194799083831e7
+[[cases]]
+real = 0.012597733919508353
+kind = "mutual"
+family = "EarthAdmittance"
+placement = "underground"
+id = "Pollaczek1926"
+frequency = 50.0
+imag = 4528.905241424651
+[[cases]]
+real = 50530.22052120144
+kind = "mutual"
+family = "EarthAdmittance"
+placement = "underground"
+id = "Pollaczek1926"
+frequency = 100000.0
+imag = 9.058054534588687e6
+[[cases]]
+real = 0.0
+kind = "mutual"
+family = "EarthAdmittance"
+placement = "mixed"
+id = "Pollaczek1926"
+frequency = 50.0
+imag = 0.0
+[[cases]]
+real = 0.0
+kind = "mutual"
+family = "EarthAdmittance"
+placement = "mixed"
+id = "Pollaczek1926"
+frequency = 100000.0
+imag = 0.0
+[[cases]]
+real = 0.0
+kind = "self"
+family = "EarthAdmittance"
+placement = "overhead"
+id = "IdealGround"
+frequency = 50.0
+imag = 0.0
+[[cases]]
+real = 0.0
+kind = "self"
+family = "EarthAdmittance"
+placement = "overhead"
+id = "IdealGround"
+frequency = 100000.0
+imag = 0.0
+[[cases]]
+real = 0.0
+kind = "mutual"
+family = "EarthAdmittance"
+placement = "overhead"
+id = "IdealGround"
+frequency = 50.0
+imag = 0.0
+[[cases]]
+real = 0.0
+kind = "mutual"
+family = "EarthAdmittance"
+placement = "overhead"
+id = "IdealGround"
+frequency = 100000.0
+imag = 0.0
+[[cases]]
+real = 0.0
+kind = "self"
+family = "EarthAdmittance"
+placement = "underground"
+id = "IdealGround"
+frequency = 50.0
+imag = 0.0
+[[cases]]
+real = 0.0
+kind = "self"
+family = "EarthAdmittance"
+placement = "underground"
+id = "IdealGround"
+frequency = 100000.0
+imag = 0.0
+[[cases]]
+real = 0.0
+kind = "mutual"
+family = "EarthAdmittance"
+placement = "underground"
+id = "IdealGround"
+frequency = 50.0
+imag = 0.0
+[[cases]]
+real = 0.0
+kind = "mutual"
+family = "EarthAdmittance"
+placement = "underground"
+id = "IdealGround"
+frequency = 100000.0
+imag = 0.0
+[[cases]]
+real = 0.0
+kind = "mutual"
+family = "EarthAdmittance"
+placement = "mixed"
+id = "IdealGround"
+frequency = 50.0
+imag = 0.0
+[[cases]]
+real = 0.0
+kind = "mutual"
+family = "EarthAdmittance"
+placement = "mixed"
+id = "IdealGround"
+frequency = 100000.0
+imag = 0.0

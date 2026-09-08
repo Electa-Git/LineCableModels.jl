@@ -11,9 +11,10 @@ $(IMPORTS)
 
 """
 module InsulationAdmittance
+import ...Grammar: computation_options
 
 # Export public API
-export Formula, formula_id, assumptions, formulas
+export Formula, formula_id, formulas
 
 # Module-specific dependencies
 #! explicit-imports: off
@@ -21,9 +22,8 @@ export Formula, formula_id, assumptions, formulas
 using DocStringExtensions: IMPORTS, TYPEDEF, TYPEDFIELDS, TYPEDSIGNATURES
 #! explicit-imports: on
 import ..Engine: InsulationAdmittanceFormulation, formula_id
-import ...LineCableModels: FormulaMethod
+import ...LineCableModels: FormulaDefinition, FormulaMethod
 using ...Materials: Material
-import ...LineCableModels: constitutive
 #! explicit-imports: off
 import ..Engine: description, conductivity
 #! explicit-imports: on

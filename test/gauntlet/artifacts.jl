@@ -9,6 +9,7 @@ using LineCableModels.Engine: LineParameters, LineParametersBenchmark, RMSError,
                               relative_error, Z, Y
 using Pkg.Artifacts
 using SHA
+using Dates
 
 export ARTIFACT_ROOT, ARTIFACTS_TOML, SNAPSHOT_SCHEMA_VERSION,
        artifact_name, benchmark_stage, bind_published_artifact, case_stage,
@@ -18,6 +19,10 @@ export ARTIFACT_ROOT, ARTIFACTS_TOML, SNAPSHOT_SCHEMA_VERSION,
        package_collection, prepare_staging, release_tag, read_collection,
        MomentResult, MomentBenchmark, extract_moments,
        moment_comparison_passes, moment_error_summary, read_moments
+
+export BenchmarkCalculation, OwnedBenchmark, LineParametersPolicy, UQMomentPolicy,
+       benchmark_calculation, benchmark_definition, compare_saved, read_benchmark,
+       read_calculation, benchmark_comparisons
 
 const GAUNTLET_ROOT = @__DIR__
 const ARTIFACT_ROOT = joinpath(GAUNTLET_ROOT, ".artifacts")
@@ -118,6 +123,9 @@ gauntlet_cleanup() = _boolean_setting("LINECABLEMODELS_GAUNTLET_CLEANUP")
 gauntlet_stage_force() = _boolean_setting("LINECABLEMODELS_GAUNTLET_STAGE_FORCE")
 
 include("comparisons/uq_moments.jl")
+include("definitions.jl")
+include("fingerprints.jl")
+include("comparisons/saved.jl")
 include("read.jl")
 
 function gauntlet_instrumented()
@@ -251,7 +259,8 @@ function package_collection(
     )
     hash = create_artifact() do directory
         # Copy only the primary snapshot and its completion checksum.
-        for entry in sort!(filter(isdir, readdir(joinpath(stage, "benchmarks"); join=true)))
+        for entry in
+            sort!(filter(isdir, readdir(joinpath(stage, "benchmarks"); join = true)))
             target = joinpath(directory, "benchmarks", basename(entry))
             mkpath(target)
             for filename in ("snapshot.jld2", "snapshot.sha256")
@@ -278,8 +287,8 @@ function package_collection(
         _write_toml(joinpath(staging, "package.toml"), package_document)
         # Only an explicitly forced local package may be replaced. A failed
         # archive operation never leaves a release that appears complete.
-        force && ispath(destination) && rm(destination; recursive=true)
-        mv(staging, destination; force=false)
+        force && ispath(destination) && rm(destination; recursive = true)
+        mv(staging, destination; force = false)
         return (
             collection,
             version = release_version,
@@ -294,7 +303,7 @@ function package_collection(
             package_path = joinpath(destination, "package.toml")
         )
     finally
-        isdir(staging) && rm(staging; recursive=true)
+        isdir(staging) && rm(staging; recursive = true)
     end
 end
 

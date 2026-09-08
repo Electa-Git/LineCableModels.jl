@@ -101,26 +101,35 @@ end
     const EN = LineCableModels.Engine
     # A user-supplied constitutive route receives the same promoted material,
     # frequency, temperature and assumptions through either owner interface.
-    route = (material, frequency, temperature, values) ->
-        complex(values.scale / material.rho, frequency * material.eps_r + temperature)
-    values = (scale=2.0,)
+    route = (material, frequency, temperature,
+        values, options,
+        workspace) -> complex(2.0 / material.rho, frequency * material.eps_r + temperature)
+    values = (;)
     for (owner, kind) in ((EN.InsulationAdmittance, :insulator),
-            (EN.SemiconAdmittance, :semicon))
-        selected = owner.Formula(:Ametani2004, route, values)
-        explicit = owner.Formula(Val(:Ametani2004), route, values)
+        (EN.SemiconAdmittance, :semicon))
+        operation = owner === EN.InsulationAdmittance ?
+                    EN.InsulationAdmittance.insulation_material :
+                    EN.SemiconAdmittance.semicon_material
+        @eval LineCableModels.computation_options(
+            ::LineCableModels.FormulaMethod{:Ametani2004, typeof($operation)}, ::$(typeof(route))) = (;)
+        selected = owner.Formula(:Ametani2004; hooks = (contribution = route,))
+        explicit = owner.Formula(Val(:Ametani2004); hooks = (contribution = route,))
         @test selected == explicit
         @test formula_id(selected) === :Ametani2004
-        @test owner.assumptions(selected) === values
-        @test_throws ArgumentError owner.Formula(:Ametani2004; unrecognized=true)
+        @test selected.parameters === values
+        @test_throws ArgumentError owner.Formula(:Ametani2004; parameters = (unrecognized = true,))
         material = Material(kind, 100.0f0, 2.3f0, 1.0f0, 20.0f0, 0.0f0)
         for (frequency, temperature) in ((50.0f0, 20.0f0), (50.0, 20),
-                (50, 20.0f0), (BigFloat(50), 20.0))
+            (50, 20.0f0), (BigFloat(50), 20.0))
             T = promote_type(eltype(material), typeof(float(frequency)), typeof(float(temperature)))
             promoted = convert(Material{T}, material)
             actual = @inferred constitutive(selected, material, frequency, temperature)
-            @test actual == route(promoted, T(frequency), T(temperature), values)
+            @test actual ==
+                  route(promoted, T(frequency), T(temperature), values, (;), nothing)
             @test actual == selected(material, frequency, temperature)
-            @test typeof(actual) === typeof(route(promoted, T(frequency), T(temperature), values))
+            @test typeof(actual) ===
+                  typeof(route(
+                promoted, T(frequency), T(temperature), values, (;), nothing))
         end
         for frequency in (0.0, -1.0, Inf, NaN)
             @test_throws DomainError constitutive(selected, material, frequency, 20.0)

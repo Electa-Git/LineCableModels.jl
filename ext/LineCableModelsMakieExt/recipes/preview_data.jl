@@ -8,10 +8,22 @@ function _native_cable_colorbars(display::Bool, design)
     _material_schemes(LineCableModels.DataModel.material_property_ranges(design)) : ()
 end
 
-function _preview_legend_group(region, legend_group)
+function _default_preview_legend_group(region, milliken::Bool)
+    tag = region.source.tag
+    tag === :wire || return tag
+    patterns = region.placement.patterns
+    bounded = any(patterns) do entry
+        entry.pattern isa LineCableModels.DataModel.BoundedPlacement
+    end
+    milliken && (bounded || isempty(patterns)) && return :stranded_sector
+    bounded && return :stranded_core
+    return tag
+end
+
+function _preview_legend_group(region, legend_group, milliken::Bool)
     tag = region.source.tag
     resolved = if legend_group === nothing
-        tag
+        _default_preview_legend_group(region, milliken)
     elseif legend_group isa Function
         legend_group(region)
     elseif legend_group isa AbstractDict
@@ -58,6 +70,8 @@ function _native_design_shapes(
         legend_labels = nothing
 )
     offset = LineCableModels.Pose2(xcenter, ycenter, 0)
+    milliken = any(region -> region.source.tag === :milliken_fill,
+        design.geometry.regions)
     identities = Dict{Symbol, NamedTuple}()
     labelled_groups = Set{Symbol}()
     polygons = PreviewPolygon[]
@@ -71,7 +85,7 @@ function _native_design_shapes(
         stroke = enclosure_boundary ? :black :
                  RGB(102 / 255, 109 / 255, 118 / 255)
         width = enclosure_boundary ? 0.8 : (bounded ? 0.5 : 0.45)
-        presentation_group = _preview_legend_group(region, legend_group)
+        presentation_group = _preview_legend_group(region, legend_group, milliken)
         identity = get!(identities, presentation_group) do
             (;
                 label = _preview_legend_label(presentation_group, legend_labels),

@@ -12,22 +12,26 @@ $(IMPORTS)
 module EarthAdmittance
 
 # Export public API
-export Formula, formula_id, routes, assumptions, propagation, formulas, Γ
+export Formula, formula_id, earth_potential_coefficient, assumptions, propagation, formulas,
+       Γ
 
 # Module-specific dependencies
 #! explicit-imports: off
 # These abbreviations are expanded in this module docstring and included files.
 using DocStringExtensions: IMPORTS, TYPEDEF, TYPEDFIELDS, TYPEDSIGNATURES
 #! explicit-imports: on
-import ...LineCableModels: nominal
 import ...LineCableModels: validate
-import ..Engine: EarthPair
+import ..Engine: EarthPair, hooks
+import ...Earth: EquivalentHomogeneous
 import ..Engine: EarthAdmittanceFormulation, formula_id
 #! explicit-imports: off
-import ...LineCableModels: FormulaMethod
+# Formula files are discovered dynamically; their imports are verified by the
+# equation-ownership tests because the static import scanner cannot follow them.
+import ...LineCableModels: FormulaDefinition, FormulaMethod, nominal
+import ..Engine: Formulation, SpectralIntegral, integrate
 import ..Engine: description, conductivity, media, special_besselk
+import ..Engine: computation_options, LineCableModelsCoaxial
 #! explicit-imports: on
-using QuadGK: quadgk
 
 vacuum_permittivity(value) = one(value) * 88541878128 * (one(value) * 10)^(-22)
 vacuum_permeability(value) = one(value) * 4 * (one(value) * π) * (one(value) * 10)^(-7)
@@ -36,7 +40,7 @@ include("interface.jl")
 include("homogeneous.jl")
 
 #! explicit-imports: off
-const REGISTERED, FORMULAS = let
+const FORMULAS = let
     directory = joinpath(@__DIR__, "formulas")
     Base.include_dependency(directory)
     files = sort!(filter(
@@ -54,11 +58,11 @@ const REGISTERED, FORMULAS = let
         )
         push!(identifiers, identifier)
     end
-    Tuple(identifiers), Tuple(filter(!=(:default), identifiers))
+    Tuple(identifiers)
 end
 #! explicit-imports: on
 
-"Return numerical earth-admittance identifiers; `:default` is a context selector."
+"Return numerical earth-admittance identifiers."
 formulas() = FORMULAS
 
 end # module EarthAdmittance

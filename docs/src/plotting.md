@@ -534,7 +534,7 @@ keyword.
 ````@example plotting
 modal_parameters = compute(
     ModalTransformationProblem(parameters),
-    ModalTransformationFormulation(:Fortescue; tolerance = 1.0)
+    ModalTransformationFormulation(:default; parameters=(tolerance=1.0,))
 );
 modal_inductance = Makie.plot(
     modal_parameters,

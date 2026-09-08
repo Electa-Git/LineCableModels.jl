@@ -4,11 +4,14 @@
     root=pkgdir(LineCableModels)
     source_root=joinpath(root, "src")
     display_paths=String[
-        joinpath(source_root, "textdisplay", "TextDisplay.jl"),
-        joinpath(source_root, "materials", "base.jl"),
-        joinpath(source_root, "earthprops", "base.jl"),
-        joinpath(source_root, "plotbuilder", "handle.jl")
-    ]
+    joinpath(source_root, "textdisplay", "TextDisplay.jl"),
+    joinpath(
+        source_root, "materials", "base.jl"),
+    joinpath(
+        source_root, "earth", "base.jl"),
+    joinpath(
+        source_root, "plotbuilder", "handle.jl")
+]
     append!(display_paths,
         [joinpath(source_root, owner, "textdisplay.jl")
          for owner in (
@@ -41,7 +44,7 @@
         LineCableModels.Units,
         LineCableModels.InputValidation,
         LineCableModels.Materials,
-        LineCableModels.EarthProps,
+        LineCableModels.Earth,
         LineCableModels.DataModel,
         LineCableModels.Engine,
         LineCableModels.ParametricBuilder,

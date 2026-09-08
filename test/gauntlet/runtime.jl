@@ -332,8 +332,8 @@
         record, key, get(record, String(key), default))
 
     function _semantic_formulation_record(record)
-        _record_value(record, :schema_version) == 1 || throw(ArgumentError(
-            "Gauntlet formulation metadata lacks complete formula identities, routes and assumptions. " *
+        _record_value(record, :schema_version) == 2 || throw(ArgumentError(
+            "Gauntlet formulation metadata does not use the current formula binding and numerical-option schema. " *
             "The historical artifact remains usable for reports, but numerical reuse requires explicit reconciliation or a new calculation."))
         # Human-facing names and assumption explanations do not identify equations.
         # Actual route inputs and physical assumptions remain in the selection records.

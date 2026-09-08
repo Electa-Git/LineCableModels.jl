@@ -143,7 +143,8 @@ Select the Julia-native Gmsh/GetDP quasi-TEM finite-element backend.
 
 $(TYPEDFIELDS)
 """
-struct LineCableModelsFEM{M <: NamedTuple, O <: NamedTuple, D <: NamedTuple} <: AbstractFormulationBackend
+struct LineCableModelsFEM{M <: NamedTuple, O <: NamedTuple, D <: NamedTuple} <:
+       AbstractFormulationBackend
     "Shared scientific formula selections, independent of FEM execution controls."
     methods::M
     "Shared line-parameter formulation options."
@@ -220,50 +221,96 @@ abstract type InsulationAdmittanceFormulation <: AbstractAdmittanceFormulation e
 abstract type SemiconAdmittanceFormulation <: AbstractAdmittanceFormulation end
 abstract type EarthAdmittanceFormulation <: AbstractAdmittanceFormulation end
 
-@required EarthImpedanceFormulation begin
-    validate(::EarthImpedanceFormulation, ::EarthPair)
-    validate(::EarthImpedanceFormulation, ::Integer)
-end
-
-@required EarthAdmittanceFormulation begin
-    validate(::EarthAdmittanceFormulation, ::EarthPair)
-    validate(::EarthAdmittanceFormulation, ::Integer)
-end
-
 "Return whether an earth formulation consumes homogeneous or stratified media."
-media(::Union{EarthImpedanceFormulation, EarthAdmittanceFormulation}) = Val(:homogeneous)
+function media end
 
-"""
-$(TYPEDSIGNATURES)
+"Declare source-owned physical hook defaults and admitted overrides for an equation binding."
+function hooks end
 
-Check an earth formula against the physical earth model before numerical
-evaluation. Homogeneous formulas may consume an EHEM reduction downstream;
-stratified formulas consume the physical horizontal layers directly.
+function validate(formula::Union{EarthImpedanceFormulation, EarthAdmittanceFormulation},
+        pair::EarthPair)
+    return only(validate(formula, (pair,)))
+end
 
-# Arguments
+function validate(formula::Union{EarthImpedanceFormulation, EarthAdmittanceFormulation},
+        pairs::Union{Tuple, AbstractVector{<:EarthPair}})
+    equations = map(pairs) do pair
+        validate(pair)
+        equation = validate(FormulaMethod(formula, pair))
+        validate(pair, equation)
+        equation
+    end
+    identities = unique(equations)
+    bindings = map(identities) do equation
+        declared = hooks(equation)
+        all(in(declared.configurable), keys(formula.hooks)) || throw(ArgumentError(
+            "an explicit physical hook is unused by $equation"))
+        selected_hooks = merge(declared.defaults, formula.hooks)
+        defaults = selected_hooks.contribution === nothing ? computation_options(equation) :
+                   computation_options(equation, selected_hooks.contribution)
+        (equation = equation, kind = typeof(first(equation.arguments)).parameters[1],
+            hooks = selected_hooks, defaults = defaults)
+    end
+    admitted = union((keys(binding.defaults) for binding in bindings)...)
+    unknown = setdiff(keys(formula.options), admitted)
+    isempty(unknown) || throw(ArgumentError(
+        "unused numerical sections $(Tuple(unknown)) for required cases of :$(formula_id(formula))"))
+    resolved = map(bindings) do binding
+        names = Tuple(intersect(keys(formula.options), keys(binding.defaults)))
+        options = computation_options(binding.equation, binding.defaults, formula.options[names])
+        (equation = binding.equation, kind = binding.kind,
+            hooks = binding.hooks, options = options)
+    end
+    return map(equation -> resolved[findfirst(==(equation), identities)], equations)
+end
 
-- `formula`: Resolved earth-impedance or earth-admittance formula.
-- `earth`: Validated static earth model, including the air layer.
+# Equation-specific geometric restrictions extend the existing validation protocol.
+validate(pair::EarthPair, ::FormulaMethod) = pair
 
-# Returns
+function validate(formula::Union{EarthImpedanceFormulation, EarthAdmittanceFormulation}, count::Integer)
+    count in formula.assumptions.layers || throw(DimensionMismatch(
+        "formula :$(formula_id(formula)) requires $(formula.assumptions.layers) media including air; received $count"))
+    return formula
+end
 
-- The same `formula`.
-
-# Errors
-
-- Throws `ArgumentError` for vertical interfaces with a horizontal stratified
-  formula, or a native exception for a formula-incompatible layer inventory.
-"""
-function validate(
-        formula::Union{EarthImpedanceFormulation, EarthAdmittanceFormulation},
-        earth::EarthModel
-)
+function validate(formula::Union{EarthImpedanceFormulation, EarthAdmittanceFormulation}, earth::EarthModel)
     validate(earth)
-    earth.vertical_layers && media(formula) === Val(:stratified) &&
-        throw(ArgumentError(
-            "stratified earth-return formulas require horizontal earth interfaces; " *
-            "the selected EarthModel has vertical interfaces"))
+    earth.vertical_layers &&
+        throw(ArgumentError("earth-return equations require horizontal interfaces or an explicit EquivalentHomogeneous reduction"))
     validate(formula, length(earth.layers))
+    return formula
+end
+
+function validate(formula::Union{EarthImpedanceFormulation, EarthAdmittanceFormulation},
+        rho::AbstractVector, epsilon::AbstractVector, mu::AbstractVector, thickness)
+    length(rho) == length(epsilon) == length(mu) ||
+        throw(DimensionMismatch("material vectors must align"))
+    validate(formula, length(rho))
+    all(x -> x > 0 && !isnan(x), rho) ||
+        throw(DomainError(rho, "resistivities must be positive, including infinite air resistivity"))
+    all(x -> isfinite(x) && !iszero(x), epsilon) && all(x -> isfinite(x) && x > 0, mu) ||
+        throw(DomainError((epsilon, mu),
+            "permittivities must be nonzero and finite; permeabilities positive and finite"))
+    epsilon[1] > 0 || throw(DomainError(epsilon[1], "air permittivity must be positive"))
+    restriction = formula.assumptions.permittivity
+    restriction in (:positive, :nonzero) ||
+        throw(ArgumentError("unknown source permittivity restriction"))
+    restriction === :positive && !all(>(0), epsilon) &&
+        throw(DomainError(epsilon,
+            "formula :$(formula_id(formula)) requires positive permittivity; the earth-material data type permits artificial negative values"))
+    if thickness === nothing
+        media(formula) === Val(:stratified) && length(rho) > 2 &&
+            throw(DimensionMismatch("stratified equations require aligned physical layer thicknesses"))
+    else
+        length(thickness) == length(rho) ||
+            throw(DimensionMismatch("layer thicknesses must align with materials"))
+        isinf(first(thickness)) && isinf(last(thickness)) &&
+        all(x -> isfinite(x) && x > 0, @view(thickness[2:(end - 1)])) ||
+            throw(DomainError(thickness,
+                "air and bottom half-spaces must be infinite; internal layers positive and finite"))
+        media(formula) === Val(:homogeneous) && length(thickness) != 2 &&
+            throw(DimensionMismatch("homogeneous equations have no internal soil interfaces"))
+    end
     return formula
 end
 
@@ -281,13 +328,13 @@ end
 function _fem_formulation(
         internal_impedance, insulation_impedance, earth_impedance,
         insulation_admittance, semicon_admittance, earth_admittance,
-        earth_properties, equivalent_earth, pipe_impedance,
+        earth_properties, pipe_impedance,
         options::NamedTuple,
         fem_options::Union{NamedTuple, LineCableModelsFEMOptions}
 )
     physical = _line_formulation(internal_impedance, insulation_impedance,
         earth_impedance, insulation_admittance, semicon_admittance, earth_admittance,
-        earth_properties, equivalent_earth, pipe_impedance, options)
+        earth_properties, pipe_impedance, options)
     return LineCableModelsFEM(physical.methods, physical.options, physical.definitions,
         _fem_execution_options(fem_options))
 end
@@ -323,7 +370,6 @@ function Formulation(
         semicon_admittance = formula(:default),
         earth_admittance = formula(:default),
         earth_properties = formula(:default),
-        equivalent_earth = formula(:default),
         pipe_impedance = formula(:default),
         options = (;),
         fem_options = (;),
@@ -334,11 +380,15 @@ function Formulation(
         _fem_formulation,
         (internal_impedance, insulation_impedance, earth_impedance,
             insulation_admittance, semicon_admittance, earth_admittance,
-            earth_properties, equivalent_earth, pipe_impedance, options, fem_options);
+            earth_properties, pipe_impedance, options, fem_options);
         combine
     )
 end
 
 function LineCableModelsFEM(; kwargs...)
     return Formulation(Val(:LineCableModelsFEM); kwargs...)
+end
+
+function validate(binding::FormulaMethod, reduction::EquivalentHomogeneous.AbstractRule)
+    throw(ArgumentError("$binding does not admit equivalent-earth reduction :$(formula_id(reduction))"))
 end

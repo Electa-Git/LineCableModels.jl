@@ -1,128 +1,3 @@
-struct BenchmarkCalculation{P, F, O <: NamedTuple}
-    id::Symbol
-    owner::Symbol
-    problem::P
-    formulation::F
-    options::O
-
-    function BenchmarkCalculation(
-            id::Symbol,
-            owner::Symbol,
-            problem::P,
-            formulation::F,
-            options::O
-    ) where {P, F, O <: NamedTuple}
-        occursin(_CASE_IDENTIFIER, string(id)) || throw(ArgumentError(
-            "calculation identifiers must be lowercase; got $(repr(id))",
-        ))
-        owner in (:engine, :uq, :external) || throw(ArgumentError(
-            "calculation owner must be :engine, :uq, or :external",
-        ))
-        return new{P, F, O}(id, owner, problem, formulation, options)
-    end
-end
-
-function benchmark_calculation(
-        id::Symbol,
-        owner::Symbol,
-        problem,
-        formulation;
-        options::NamedTuple = (;)
-)
-    return BenchmarkCalculation(id, owner, problem, formulation, options)
-end
-
-struct LineParametersPolicy end
-struct UQMomentPolicy end
-
-struct OwnedBenchmark{M <: LoadedCase, R <: BenchmarkCalculation,
-    C <: BenchmarkCalculation, P, T}
-    id::Symbol
-    case_id::Symbol
-    collection::Symbol
-    source_file::String
-    source_sha256::String
-    model::M
-    reference::R
-    candidate::C
-    comparison_policy::P
-    tolerances::T
-
-    function OwnedBenchmark(
-            id::Symbol,
-            case_id::Symbol,
-            collection::Symbol,
-            source_file::String,
-            source_sha256::String,
-            model::M,
-            reference::R,
-            candidate::C,
-            comparison_policy::P,
-            tolerances::T
-    ) where {M <: LoadedCase, R <: BenchmarkCalculation,
-            C <: BenchmarkCalculation, P, T}
-        occursin(_CASE_IDENTIFIER, string(id)) || throw(ArgumentError(
-            "benchmark identifiers must be lowercase; got $(repr(id))",
-        ))
-        occursin(_CASE_IDENTIFIER, string(collection)) || throw(ArgumentError(
-            "benchmark collections must be lowercase identifiers",
-        ))
-        case_id === model.id || throw(ArgumentError(
-            "benchmark :$id names case :$case_id but loaded :$(model.id)",
-        ))
-        reference.id == candidate.id && throw(ArgumentError(
-            "benchmark calculations must have distinct identifiers",
-        ))
-        reference.owner === :external && throw(ArgumentError(
-            "OwnedBenchmark cannot execute an external reference",
-        ))
-        candidate.owner === :external && throw(ArgumentError(
-            "OwnedBenchmark cannot execute an external candidate",
-        ))
-        isfile(source_file) || throw(ArgumentError(
-            "benchmark source file is missing: $source_file",
-        ))
-        return new{M, R, C, P, T}(
-            id,
-            case_id,
-            collection,
-            source_file,
-            source_sha256,
-            model,
-            reference,
-            candidate,
-            comparison_policy,
-            tolerances
-        )
-    end
-end
-
-function benchmark_definition(
-        id::Symbol,
-        case_id::Symbol,
-        collection::Symbol,
-        source_file::AbstractString,
-        model::LoadedCase,
-        reference::BenchmarkCalculation,
-        candidate::BenchmarkCalculation,
-        comparison_policy,
-        tolerances
-)
-    path = realpath(source_file)
-    return OwnedBenchmark(
-        id,
-        case_id,
-        collection,
-        path,
-        bytes2hex(sha256(read(path))),
-        model,
-        reference,
-        candidate,
-        comparison_policy,
-        tolerances
-    )
-end
-
 function _compute_owned(calculation::BenchmarkCalculation)
     return isempty(calculation.options) ?
            compute(calculation.problem, calculation.formulation) :
@@ -199,6 +74,11 @@ _comparison_policy_record(::UQMomentPolicy) = :uq_moments
 
 function _owned_formulation_record(formulation::LineParametersFormulation)
     formulation_record(formulation)
+end
+function _owned_formulation_record(formulation::LineCableModels.Engine.LineCableModelsFEM)
+    return (backend = :fem, definitions = formulation.definitions,
+        options = formulation.options,
+        execution = _selection_value(formulation.execution))
 end
 function _owned_formulation_record(formulation::LineCableModels.LinearError)
     return (
@@ -290,6 +170,7 @@ function _owned_metadata(benchmark::OwnedBenchmark, reference_result, candidate_
             candidate = calculation_record(benchmark.candidate)
         ),
         comparison_policy = _comparison_policy_record(benchmark.comparison_policy),
+        comparison_settings = GauntletArtifacts.comparison_policy_record(benchmark.comparison_policy),
         monte_carlo
     )
 end
@@ -388,6 +269,7 @@ function _write_owned_snapshot(
             correlation = run_metadata.correlation,
             calculations = run_metadata.calculations,
             comparison_policy = run_metadata.comparison_policy,
+            comparison_settings = run_metadata.comparison_settings,
             tolerances = benchmark.tolerances,
             monte_carlo = run_metadata.monte_carlo,
             port_order = benchmark.model.port_order,
@@ -569,6 +451,7 @@ function run_benchmark(benchmark::OwnedBenchmark)
         benchmark.model
     )
     comparison = compare(reference, candidate)
+    configured_comparisons = benchmark_comparisons(benchmark.comparison_policy, reference, candidate)
     passes = _owned_comparison_passes(
         benchmark.comparison_policy,
         comparison,
@@ -644,6 +527,7 @@ function run_benchmark(benchmark::OwnedBenchmark)
         reference,
         candidate,
         comparison,
+        configured_comparisons,
         passes,
         regression,
         artifact,

@@ -44,7 +44,8 @@ function computation_options(
         "unknown LineCableModelsCoaxial computation options: $(sort!(collect(unknown)))",
     ))
     normalized = merge(
-        (verbosity = (default = 0,), output_basis = :pul, trace = false, on_result = nothing),
+        (verbosity = (default = 0,), output_basis = :pul,
+            trace = false, on_result = nothing),
         options
     )
     verbosity_values = normalized.verbosity

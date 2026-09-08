@@ -1,136 +1,3 @@
-@testitem "Transforms / Fortescue / unitary modal invariants" tags=[:unit] setup=[
-    EngineTestSupport,
-    UseEngineSupport,
-    TestNumerics
-] begin
-    using LinearAlgebra
-    const Transforms=LineCableModels.Transforms
-
-    frequency_values=[50.0, 500.0]
-    impedance_slice=ComplexF64[3+9im 1+2im 1+2im
-                               1+2im 3+9im 1+2im
-                               1+2im 1+2im 3+9im]
-    admittance_slice=ComplexF64[6+12im -2-3im -2-3im
-                                -2-3im 6+12im -2-3im
-                                -2-3im -2-3im 6+12im] .* 1e-9
-    impedance=cat(impedance_slice, 2 .* impedance_slice; dims = 3)
-    admittance=cat(admittance_slice, 2 .* admittance_slice; dims = 3)
-    parameters=LineParameters(
-        PhaseDomain,
-        impedance,
-        admittance,
-        frequency_values;
-        details = (source = :test,)
-    )
-
-    transform=Transforms.modal_basis(Val(:Fortescue), 3)
-    @test TestNumerics.isapprox_scaled(
-        transform * transform',
-        Matrix{ComplexF64}(I, 3, 3)
-    )
-    @test_throws ArgumentError Transforms.modal_basis(Val(:Fortescue), 0)
-
-    formulation=ModalTransformationFormulation(:Fortescue)
-    selected=@inferred ModalTransformationFormulation(
-        formula(:Chrysochos2014; tolerance = 1e-7)
-    )
-    default_formulation=@inferred ModalTransformationFormulation()
-    @test Transforms.DEFAULT === :Chrysochos2014
-    @test formula_id(default_formulation) === :Chrysochos2014
-    @test formula_id(Transforms.Formula(:default)) === :Chrysochos2014
-    @test :default ∉ Transforms.formulas()
-    @test description(formulation) ==
-          "Fortescue symmetrical-component transformation (1918)"
-    @test formula_id(formulation) === :Fortescue
-    @test formula_id(selected) === :Chrysochos2014
-    @test LineCableModels.Transforms.assumptions(selected).tolerance == 1e-7
-    @test issubset((
-        :Chrysochos2014,
-        :Fan2009,
-        :Fortescue,
-        :Wedepohl1996
-    ), Transforms.formulas())
-    @test allunique(Transforms.formulas())
-    modal=@inferred compute(ModalTransformationProblem(parameters), formulation)
-    explicit=compute(
-        LineCableModelsModal(),
-        ModalTransformationProblem(parameters),
-        formulation
-    )
-    @test Z(explicit) == Z(modal)
-    @test Y(explicit) == Y(modal)
-    maps=operators(modal)
-    @test maps.voltage === maps.current
-    @test maps.voltage[:, :, 1] == transform
-    @test maps.voltage[:, :, 2] == transform
-    @test domain(modal) === ModalDomain
-    @test basis(modal) === :pul
-    @test frequencies(modal) == frequency_values
-    @test details(modal) == (source = :test,)
-    for frequency_index in eachindex(frequency_values)
-        for matrix in (modal.Z.values, modal.Y.values)
-            slice=@view matrix[:, :, frequency_index]
-            @test norm(slice-Diagonal(diag(slice))) <=
-                  1e-12*max(norm(slice), eps(Float64))
-        end
-        @test tr(modal.Z.values[:, :, frequency_index]) ≈
-              tr(impedance[:, :, frequency_index])
-        @test tr(modal.Y.values[:, :, frequency_index]) ≈
-              tr(admittance[:, :, frequency_index])
-    end
-    rebuilt=@inferred compute(ModalTransformationProblem(modal))
-    @test domain(rebuilt) === PhaseDomain
-    @test TestNumerics.isapprox_scaled(Z(rebuilt), impedance)
-    @test TestNumerics.isapprox_scaled(Y(rebuilt), admittance)
-    @test @allocated(compute(ModalTransformationProblem(parameters), formulation)) <=
-          8_192
-    @test @allocated(compute(ModalTransformationProblem(modal))) <= 8_192
-    sliced=modal[1]
-    @test size(operators(sliced).voltage) == (3, 3, 1)
-    @test details(sliced) == details(modal)
-    @test_throws MethodError LineParameters(
-        ModalDomain,
-        impedance,
-        admittance,
-        frequency_values
-    )
-    @test_throws ArgumentError ModalTransformationFormulation(
-        :Fortescue;
-        unsupported = true
-    )
-    @test_throws ArgumentError ModalTransformationFormulation(
-        formula(:Fortescue; order = :before)
-    )
-    @test_throws DomainError ModalTransformationFormulation(
-        :Fortescue;
-        tolerance = -1.0
-    )
-
-    custom_route=(
-        source, _)->begin
-        source_maps=operators(modal)
-        ModalOperators(copy(source_maps.voltage), copy(source_maps.current))
-    end
-    experiment=ModalTransformationFormulation(Transforms.Formula(
-        :Experiment,
-        custom_route,
-        (tolerance = 1e-4,)
-    ))
-    experimental=compute(ModalTransformationProblem(parameters), experiment)
-    @test formula_id(experimental.domain.formula) === :Experiment
-    @test TestNumerics.isapprox_scaled(Z(experimental), Z(modal))
-    @test TestNumerics.isapprox_scaled(Y(experimental), Y(modal))
-
-    override=ModalTransformationFormulation(
-        :Fortescue;
-        route = custom_route
-    )
-    overridden=compute(ModalTransformationProblem(parameters), override)
-    @test formula_id(overridden.domain.formula) === :Fortescue
-    @test Z(overridden) == Z(experimental)
-    @test Y(overridden) == Y(experimental)
-end
-
 @testitem "Transforms / uncertain matrices / inferred round trip" tags=[:unit] setup=[
     EngineTestSupport,
     UseEngineSupport,
@@ -156,8 +23,10 @@ end
     parameters=LineParameters(PhaseDomain, impedance, admittance, [50.0])
     modal=@inferred compute(
         ModalTransformationProblem(parameters),
-        ModalTransformationFormulation(:Fortescue)
+        ModalTransformationFormulation(:default)
     )
+    @test_throws ArgumentError compute(ModalTransformationProblem(modal);
+        options = (offdiagonal_tolerance = 1e-6,))
     rebuilt=@inferred compute(ModalTransformationProblem(modal))
 
     @test eltype(modal) === Complex{Measurement{Float64}}
@@ -177,12 +46,7 @@ end
     using LinearAlgebra
     const Transforms=LineCableModels.Transforms
 
-    descriptions=(
-        Chrysochos2014 =
-            "Chrysochos et al. Levenberg–Marquardt modal transformation (2014)",
-        Fan2009 = "Fan et al. eigenvector-tracking transformation (2009)",
-        Wedepohl1996 = "Wedepohl et al. Newton–Raphson modal transformation (1996)"
-    )
+    descriptions=(default = "Chrysochos et al. Levenberg–Marquardt modal transformation (2014)",)
 
     frequencies=[50.0, 100.0]
     impedance=zeros(ComplexF64, 2, 2, 2)
@@ -225,7 +89,7 @@ end
 
     modal=compute(
         ModalTransformationProblem(parameters),
-        ModalTransformationFormulation(:Chrysochos2014)
+        ModalTransformationFormulation(:default)
     )
     gamma=Transforms.gamma(modal)
     @test size(gamma) == size(impedance)
@@ -244,9 +108,9 @@ end
         angle=(frequency_index-1)/(length(smooth_frequencies)-1)*(pi/3)
         basis_matrix=[cos(angle) -sin(angle); sin(angle) cos(angle)]
         modal_impedance=Diagonal(ComplexF64[
-            2 + 0.01frequency_index + 3im,
-            4 + 0.02frequency_index + 5im
-        ])
+        2 + 0.01frequency_index + 3im,
+        4 + 0.02frequency_index + 5im
+])
         modal_admittance=Diagonal(ComplexF64[
             (4 + 0.01frequency_index) + 8im,
             (8 + 0.02frequency_index) + 12im
@@ -275,30 +139,10 @@ end
         end
     end
 
-    @test_throws DomainError compute(
-        ModalTransformationProblem(parameters),
-        ModalTransformationFormulation(:Chrysochos2014; max_iterations = 0)
-    )
-    @test_throws DomainError compute(
-        ModalTransformationProblem(parameters),
-        ModalTransformationFormulation(:Chrysochos2014; convergence = -1)
-    )
-    @test_throws DomainError compute(
-        ModalTransformationProblem(parameters),
-        ModalTransformationFormulation(:Fan2009; history_weight = -1)
-    )
-    @test_throws DomainError compute(
-        ModalTransformationProblem(parameters),
-        ModalTransformationFormulation(:Fan2009; coalescence_tolerance = -1)
-    )
-    @test_throws DomainError compute(
-        ModalTransformationProblem(parameters),
-        ModalTransformationFormulation(:Wedepohl1996; max_iterations = 0)
-    )
-    @test_throws DomainError compute(
-        ModalTransformationProblem(parameters),
-        ModalTransformationFormulation(:Wedepohl1996; convergence = -1)
-    )
+    for controls in ((max_iterations = 0,), (convergence = -1,))
+        @test_throws ArgumentError ModalTransformationFormulation(
+            formula(:default; options = (iteration = controls,)))
+    end
 end
 
 @testitem "Engine / reduction / reorder, Kron, and bundle invariants" tags=[:unit] setup=[
@@ -344,4 +188,31 @@ end
     @test mixed_result == transpose(mixed_basis)*mixed*mixed_basis
     @test mixed_map == [2, 0, 0, 0]
     @test_throws ArgumentError Engine.merge_bundles!(ones(2, 3), [1, 1])
+end
+
+@testitem "Transforms / independent maps preserve ordered nonreciprocal entries" tags=[:unit] begin
+    const TR = LineCableModels.Transforms
+    const FM = LineCableModels.FormulaMethod
+    Z = reshape(ComplexF64[2+3im 0.2+0.1im; 0.7+0.3im 4+5im], 2, 2, 1)
+    Y = reshape(ComplexF64[2+6im -0.4-0.5im; -0.2-0.1im 3+8im] .* 1e-9, 2, 2, 1)
+    A = ComplexF64[1 0.3; 0.1im 2]
+    B = ComplexF64[2 0.2im; 0.4 1]
+    replacement = (parameters,
+        physical,
+        options,
+        workspace) -> TR.ModalOperators(reshape(copy(A), 2, 2, 1), reshape(copy(B), 2, 2, 1))
+    @eval LineCableModels.computation_options(
+        ::FM{:default, typeof(TR.modal_operators)}, ::$(typeof(replacement))) = (;)
+    phase = LineParameters(PhaseDomain, Z, Y, [50.0])
+    modal = compute(ModalTransformationProblem(phase),
+        ModalTransformationFormulation(formula(:default; hooks = (contribution = replacement,)));
+        options = (offdiagonal_tolerance = 2.0,))
+    @test modal.Z.values[:, :, 1] ≈ A * Z[:, :, 1] / B
+    @test modal.Y.values[:, :, 1] ≈ B * Y[:, :, 1] / A
+    @test details(modal).modal.modified
+    @test isempty(details(modal).modal.options)
+    rebuilt = compute(ModalTransformationProblem(modal))
+    @test rebuilt.Z.values ≈ Z
+    @test rebuilt.Y.values ≈ Y
+    @test phase.Z.values == Z && phase.Y.values == Y
 end

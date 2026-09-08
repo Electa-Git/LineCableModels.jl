@@ -1,20 +1,7 @@
-function routes(identifier::Val{:WedepohlWilcox1973})
-    (
-        self = FormulaMethod(identifier, earth_impedance, Val(:self)),
-        mutual = FormulaMethod(identifier, earth_impedance, Val(:mutual)),
-        Γ = FormulaMethod(identifier, propagation_constant)
-    )
-end
-
 function assumptions(::Val{:WedepohlWilcox1973})
-    (
-        air = _lossless,
-        earth = _conductive,
-        permeability = vacuum_permeability
-    )
+    (media = :homogeneous, layers = 2:2, longitudinal = :zero, permittivity = :positive)
 end
 
-propagation(::Val{:WedepohlWilcox1973}) = Val(:zero)
 """
 $(TYPEDSIGNATURES)
 
@@ -43,19 +30,10 @@ function description(::Formula{:WedepohlWilcox1973})
     "Wedepohl-Wilcox low-frequency underground approximation (1973)"
 end
 
-function propagation_constant(
-        ::Val{:WedepohlWilcox1973}, jω, permeability, permittivity
+function Γ(
+        ::Val{:WedepohlWilcox1973}, jω, materials, layers
 )
-    (Γ = zero(jω), squared = zero(jω))
-end
-
-function (formula::Formula{:WedepohlWilcox1973})(
-        rho, epsilon, mu, jω, Γ, segments = nothing
-)
-    return _homogeneous_functor(
-        Val(:WedepohlWilcox1973), formula,
-        rho, epsilon, mu, jω, Γ, segments
-    )
+    zero(jω)
 end
 
 raw"""
@@ -74,9 +52,9 @@ Z_{e,ij}=\frac{j\omega\mu_0}{2\pi}
 ```
 """
 function earth_impedance(
-        ::Val{:WedepohlWilcox1973}, ::Val{:self}, functor, pair
+        ::Val{:WedepohlWilcox1973}, ::Val{:self}, ::Val{2}, ::Val{2},
+        functor, pair, workspace
 )
-    validate(pair, FormulaMethod(Val(:WedepohlWilcox1973), earth_impedance, Val(:self)), functor)
     state = functor.state
     geometry = _geometry(pair)
     e_c = oftype(geometry.h_i, 1.7811)
@@ -87,9 +65,9 @@ function earth_impedance(
 end
 
 function earth_impedance(
-        ::Val{:WedepohlWilcox1973}, ::Val{:mutual}, functor, pair
+        ::Val{:WedepohlWilcox1973}, ::Val{:mutual}, ::Val{2}, ::Val{2},
+        functor, pair, workspace
 )
-    validate(pair, FormulaMethod(Val(:WedepohlWilcox1973), earth_impedance, Val(:mutual)), functor)
     state = functor.state
     geometry = _geometry(pair)
     e_c = oftype(geometry.H, 1.7811)
@@ -99,15 +77,51 @@ function earth_impedance(
     return state.jω * state.mu[1] / (2π) * bracket
 end
 
-function validate(
-        pair::EarthPair, route::FormulaMethod{:WedepohlWilcox1973, typeof(earth_impedance)}, formula
-)
-    validate(pair)
-    (pair.layers[1] > 1 && pair.layers[2] > 1) || throw(ArgumentError(
-        ":WedepohlWilcox1973 earth impedance requires underground conductors; pair ($(pair.row), $(pair.column)) has layers $(pair.layers)"))
-    route.arguments != (Val(:self),) && iszero(pair.separation) && throw(DomainError(
-        pair.separation, ":WedepohlWilcox1973 mutual closed form requires nonzero horizontal cable separation"))
+function validate(pair::EarthPair, ::FormulaMethod{
+        :WedepohlWilcox1973, typeof(earth_impedance)})
+    pair.row != pair.column && iszero(pair.separation) &&
+        throw(DomainError(
+            pair.separation, ":WedepohlWilcox1973 mutual closed form requires nonzero horizontal cable separation"))
     return pair
+end
+
+Formulation(::LineCableModelsCoaxial, selected::Formula{:WedepohlWilcox1973}) = selected
+
+function hooks(::FormulaMethod{:WedepohlWilcox1973, typeof(earth_impedance),
+        A}) where {A <: Tuple{Val{:self}, Val{2}, Val{2}}}
+    return (configurable = (:Γ, :earth, :permeability, :contribution),
+        defaults = (
+            Γ = FormulaMethod(Val(:WedepohlWilcox1973), Γ),
+            air = FormulaMethod(Val(:lossless), propagation),
+            earth = FormulaMethod(Val(:conductive), propagation),
+            permeability = vacuum_permeability,
+            contribution = nothing))
+end
+
+function computation_options(::FormulaMethod{:WedepohlWilcox1973, typeof(earth_impedance),
+        A}) where {A <: Tuple{Val{:self}, Val{2}, Val{2}}}
+    (;)
+end
+
+function hooks(::FormulaMethod{:WedepohlWilcox1973, typeof(earth_impedance),
+        A}) where {A <: Tuple{Val{:mutual}, Val{2}, Val{2}}}
+    return (configurable = (:Γ, :earth, :permeability, :contribution),
+        defaults = (
+            Γ = FormulaMethod(Val(:WedepohlWilcox1973), Γ),
+            air = FormulaMethod(Val(:lossless), propagation),
+            earth = FormulaMethod(Val(:conductive), propagation),
+            permeability = vacuum_permeability,
+            contribution = nothing))
+end
+
+function computation_options(::FormulaMethod{:WedepohlWilcox1973, typeof(earth_impedance),
+        A}) where {A <: Tuple{Val{:mutual}, Val{2}, Val{2}}}
+    (;)
+end
+
+function validate(binding::FormulaMethod{:WedepohlWilcox1973, typeof(earth_impedance)},
+        ::EquivalentHomogeneous.Formula{:default})
+    binding
 end
 
 :WedepohlWilcox1973

@@ -48,7 +48,11 @@ function _mesh_fingerprint(
         cable_interface_mesh_sizes = mesh_plan.cable_interface_mesh_sizes,
         gmsh_version
     )
-    return bytes2hex(sha256(JSON3.write(evidence)))
+    # Hash owned bytes: SHA's string/CodeUnits path can repeatedly hash the
+    # entire immutable string during copyto! alias checks on Julia 1.12.
+    io = IOBuffer()
+    JSON3.write(io, evidence)
+    return bytes2hex(sha256(take!(io)))
 end
 
 function _expected_physical_groups(model::FEMResolvedModel)

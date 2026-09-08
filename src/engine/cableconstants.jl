@@ -292,11 +292,11 @@ function _constants_formulation(
         options::NamedTuple
 )
     methods = (
-        internal_impedance = _internal_impedance_formula(internal_impedance),
-        insulation_impedance = _insulation_impedance_formula(insulation_impedance),
-        insulation_admittance = _insulation_admittance_formula(insulation_admittance),
-        semicon_admittance = _semicon_admittance_formula(semicon_admittance),
-        pipe_impedance = _pipe_impedance_formula(pipe_impedance)
+        internal_impedance = InternalImpedance.Formula(internal_impedance),
+        insulation_impedance = InsulationImpedance.Formula(insulation_impedance),
+        insulation_admittance = InsulationAdmittance.Formula(insulation_admittance),
+        semicon_admittance = SemiconAdmittance.Formula(semicon_admittance),
+        pipe_impedance = PipeImpedance.Formula(pipe_impedance)
     )
     return CableConstantsFormulation(
         methods,
@@ -414,6 +414,8 @@ function CableConstantsWorkspace(
     end
 
     maximum_size = maximum(length, cable.assemblies)
+    validate(formulation.methods.internal_impedance,
+        maximum_size > 1 ? (:inner, :outer, :mutual) : (:outer,))
     removed = maximum_size - 1
     buffers = (
         Z = Matrix{Complex{T}}(undef, count, count),
@@ -458,7 +460,7 @@ function _solve!(
         problem.frequency,
         problem.temperature,
         s,
-        buffers.layer_coefficients
+        buffers.layer_coefficients; temperature_correction = formulation.options.temperature_correction
     )
     keep = @view buffers.indices[1:1]
     @inbounds for (assembly, chain) in pairs(workspace.cable.assemblies)

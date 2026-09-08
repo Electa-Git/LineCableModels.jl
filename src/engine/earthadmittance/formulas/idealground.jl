@@ -1,13 +1,7 @@
-function routes(identifier::Val{:IdealGround})
-    return (
-        self = FormulaMethod(identifier, earth_potential_coefficient, Val(:self)),
-        mutual = FormulaMethod(identifier, earth_potential_coefficient, Val(:mutual)),
-        Γ = FormulaMethod(identifier, propagation_constant)
-    )
+function assumptions(::Val{:IdealGround})
+    (media = :homogeneous, layers = 2:2, longitudinal = :zero, permittivity = :positive)
 end
 
-assumptions(::Val{:IdealGround}) = (;)
-propagation(::Val{:IdealGround}) = Val(:zero)
 """
 $(TYPEDSIGNATURES)
 
@@ -28,54 +22,53 @@ fit is introduced by this reference case.
 """
 description(::Formula{:IdealGround}) = "Ideal ground reference"
 
-function propagation_constant(
-        ::Val{:IdealGround}, jω, permeability, permittivity
-)
-    value = zero(jω)
-    return (Γ = value, squared = value)
-end
-
-function (formula::Formula{:IdealGround})(
-        resistivity::AbstractVector{T},
-        permittivity::AbstractVector{T},
-        permeability::AbstractVector{T},
-        jω::Complex{T},
-        Γ,
-        segments = nothing
-) where {T <: Real}
-    longitudinal = _longitudinal(
-        formula,
-        Γ,
-        jω,
-        first(permeability),
-        first(permittivity)
-    )
-    state = (; formula, jω, Γ = longitudinal.Γ)
-    return Functor{:IdealGround, typeof(formula.routes), typeof(state)}(
-        formula.routes,
-        state
-    )
-end
+Γ(::Val{:IdealGround}, jω, materials, layers) = zero(jω)
 
 function earth_potential_coefficient(
-        ::Val{:IdealGround}, ::Val{:mutual}, functor, pair
-)
+        ::Val{:IdealGround}, ::Union{Val{:self}, Val{:mutual}}, ::Val{1}, ::Val{1},
+        functor, pair, workspace)
     return zero(functor.state.jω)
 end
 
-@inline function (functor::Functor{:IdealGround})(::Val{:self}, pair)
-    return functor.routes.self(functor, pair)
+function earth_potential_coefficient(
+        ::Val{:IdealGround}, ::Union{Val{:self}, Val{:mutual}}, ::Val{2}, ::Val{2},
+        functor, pair, workspace)
+    return zero(functor.state.jω)
 end
 
-@inline function (functor::Functor{:IdealGround})(::Val{:mutual}, pair)
-    return functor.routes.mutual(functor, pair)
+function earth_potential_coefficient(
+        ::Val{:IdealGround}, ::Val{:mutual}, ::Val{1}, ::Val{2},
+        functor, pair, workspace)
+    return zero(functor.state.jω)
+end
+
+function earth_potential_coefficient(
+        ::Val{:IdealGround}, ::Val{:mutual}, ::Val{2}, ::Val{1},
+        functor, pair, workspace)
+    return zero(functor.state.jω)
+end
+
+Formulation(::LineCableModelsCoaxial, selected::Formula{:IdealGround}) = selected
+
+function hooks(::FormulaMethod{:IdealGround, typeof(earth_potential_coefficient)})
+    return (configurable = (:Γ, :contribution),
+        defaults = (
+            Γ = FormulaMethod(Val(:IdealGround), Γ),
+            air = FormulaMethod(Val(:full), propagation),
+            earth = FormulaMethod(Val(:full), propagation),
+            permeability = identity,
+            contribution = nothing))
+end
+
+function computation_options(::FormulaMethod{
+        :IdealGround, typeof(earth_potential_coefficient)})
+    (;)
 end
 
 function validate(
-        pair::EarthPair, route::FormulaMethod{:IdealGround, typeof(earth_potential_coefficient)}, formula
-)
-    validate(pair)
-    return pair
+        binding::FormulaMethod{:IdealGround, typeof(earth_potential_coefficient)},
+        ::EquivalentHomogeneous.Formula{:default})
+    binding
 end
 
 :IdealGround

@@ -76,7 +76,7 @@ layer_diameters = d_core .+ 2 .* cumsum(radial_increments) #hide
 cable_dimensions = DataFrame(
     "layer" => collect(layer_names),
     "thickness [mm]" => [ismissing(t) ? missing : round(1000t, sigdigits = 2)
-     for t in layer_thicknesses],
+                         for t in layer_thicknesses],
     "diameter [mm]" => collect(round.(1000 .* layer_diameters, digits = 2))
 )
 
@@ -400,20 +400,20 @@ output_file = fullfile("ZY_export.xml")
 export_file = export_data(
     :atp, line_parameters; file_name = output_file, cable_system);
 
-# Obtain the symmetrical components via Fortescue transformation
-sequence_parameters = compute(
+# Obtain the package default frequency-dependent modal transformation
+modal_parameters = compute(
     ModalTransformationProblem(line_parameters),
-    ModalTransformationFormulation(:Fortescue; tolerance = 1e-5)
+    ModalTransformationFormulation(:default; parameters = (tolerance = 1e-5,))
 );
-Tv = operators(sequence_parameters).voltage;
+Tv = operators(modal_parameters).voltage;
 
 # Read one transformed Z/Y term through the same observation boundary:
-sequence_impedance = @observe sequence_parameters Z[1, 1, :]
-sequence_admittance = @observe sequence_parameters Y[1, 1, :]
+modal_impedance = @observe modal_parameters Z[1, 1, :]
+modal_admittance = @observe modal_parameters Y[1, 1, :]
 
 # Publish and tabulate the complete transformed quantities:
-sequence_table = DataFrame(observables(
-    sequence_parameters,
+modal_table = DataFrame(observables(
+    modal_parameters,
     (
         @observe(R[:, :, :]),
         @observe(L[:, :, :]),
@@ -424,17 +424,17 @@ sequence_table = DataFrame(observables(
 ));
 
 # Display a compact slice with ordinary DataFrames transformations:
-first_sequence_term = subset(
-    sequence_table,
+first_modal_term = subset(
+    modal_table,
     :row => ByRow(==(1)),
     :column => ByRow(==(1))
 )
-first(first_sequence_term, 12)
+first(first_modal_term, 12)
 
 # Plot the modal R/L and G/C responses. Diagonal observation is explicit and
 # each physical quantity receives its own dashboard page:
 sequence_plots = CairoMakie.plot(
-    sequence_parameters,
+    modal_parameters,
     (
         @observe((R, diag)[:, :]),
         @observe((L, diag)[:, :]),

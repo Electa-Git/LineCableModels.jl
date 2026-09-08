@@ -67,8 +67,14 @@ function coverage_record(kind, identifier)
         kind,
         identifier,
         description = LineCableModels.Engine.description(formula_object),
-        propagation = string(catalogue_module.propagation(formula_object)),
-        routes = join(string.(keys(catalogue_module.routes(formula_object))), ","),
+        propagation = string(formula_object.assumptions.longitudinal),
+        equations = join(
+            (string(method.sig)
+            for method in methods(
+                    kind === :earth_impedance ? EARTH_IMPEDANCE.earth_impedance :
+                    EARTH_ADMITTANCE.earth_potential_coefficient)
+            if Base.unwrap_unionall(method.sig).parameters[2] === Val{identifier}),
+            "; "),
         source = relpath(source_path, pkgdir(LineCableModels)),
         source_sha256 = bytes2hex(sha256(read(source_path)))
     )
@@ -108,7 +114,6 @@ function formulation(selected)
         earth_impedance = selected.earth_impedance,
         earth_admittance = selected.earth_admittance,
         earth_properties = :default,
-        equivalent_earth = :default,
         options = (
             reduce_bundle = false,
             kron_reduction = false,
@@ -137,7 +142,8 @@ function load_reference(case_id, model)
         "$case_id FEM reference has unsupported schema"
     )
     input_matches = haskey(document, "input_sha256") ?
-                    document["input_sha256"] == numerical_input_sha256(model.nominal_problem) :
+                    document["input_sha256"] ==
+                    numerical_input_sha256(model.nominal_problem) :
                     document["case_source_sha256"] == model.source_sha256
     input_matches || error(
         "$case_id FEM reference case digest does not match the current case"
@@ -423,7 +429,7 @@ function record_result(
         earth_impedance = selected.earth_impedance,
         earth_admittance = selected.earth_admittance,
         earth_properties = :default,
-        equivalent_earth = :bottom_homogeneous_layer,
+        equivalent_earth = (earth_impedance = :default, earth_admittance = :default),
         variant_kind = selected.kind,
         variant_id = selected.id,
         formula = selected.identifier,
@@ -569,7 +575,8 @@ function diagnose_execution_failure(case_id, selected, frequencies, reference)
             "Y" => reference["Y"][:, :, successful_indices]
         )
         partial_metrics = result_metrics(partial_result, partial_reference)
-        candidate_violations, context_violations = partition_violations(
+        candidate_violations,
+        context_violations = partition_violations(
             selected,
             partial_metrics
         )
@@ -816,18 +823,19 @@ function prepare_case(model)
     engine = LineCableModelsCoaxial()
     problem = model.problem
     T = eltype(problem)
-    blueprints = LineCableModels.Engine.CableBlueprint{T}[
-        LineCableModels.Engine.flatten(engine, design, T)
-        for design in problem.system.designs]
-    return LineParametersWorkspace(problem, Formulation(),
-        computation_options(LineCableModelsCoaxial, (;)), blueprints)
+    blueprints = LineCableModels.Engine.CableBlueprint{T}[LineCableModels.Engine.flatten(engine, design, T)
+                                                          for design in
+                                                              problem.system.designs]
+    return LineCableModels.Engine.lineinput(problem, blueprints)
 end
 
-function case_skip_reason(model, selected, workspace::LineParametersWorkspace)
+function case_skip_reason(model, selected, input::NamedTuple)
     # Only preflight exceptions are classified as inapplicable. An exception
     # from compute remains a numerical/execution failure in the calling runner.
     try
         resolved = Formulation(LineCableModelsCoaxial(), model.problem, formulation(selected))
+        workspace = LineParametersWorkspace(model.problem, resolved,
+            computation_options(LineCableModelsCoaxial, (;)), input)
         validate(workspace, resolved)
     catch error
         error isa Union{ArgumentError, DomainError, DimensionMismatch} || rethrow()
@@ -1058,7 +1066,8 @@ function main(args = ARGS)
                         path,
                         reference
                     ))
-                candidate_violations, context_violations = partition_violations(
+                candidate_violations,
+                context_violations = partition_violations(
                     selected,
                     metrics
                 )
@@ -1122,7 +1131,10 @@ function main(args = ARGS)
         end
     end
 
-    summary_path, skipped_path, failure_path, coverage_path, jld_path = write_outputs(
+    summary_path, skipped_path,
+    failure_path,
+    coverage_path,
+    jld_path = write_outputs(
         rows,
         skipped,
         failures,

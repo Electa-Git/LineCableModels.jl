@@ -4,15 +4,17 @@
     copper = Material(:conductor, 1.72e-8)
     dielectric = Material(:insulator, 1e14, 2.3)
     air = Material(:insulator, Inf, 1.0)
-    first_core = terminal(:a, solid(copper, Disk(0.005)), insulation(dielectric; t=0.002))
-    second_core = terminal(:b, solid(copper, Disk(0.005)), insulation(dielectric; t=0.002))
-    wall = terminal(:pipe, sheath(copper; t=0.001), insulation(dielectric; t=0.002))
-    design = build(CableDesign, "pipe-preflight", pipe(
-        at(first_core, -0.01, 0), at(second_core, 0.01, 0);
-        shape=Disk(0.025), fill=air, wall))
+    first_core = terminal(:a, solid(copper, Disk(0.005)), insulation(dielectric; t = 0.002))
+    second_core = terminal(:b, solid(copper, Disk(0.005)), insulation(dielectric; t = 0.002))
+    wall = terminal(:pipe, sheath(copper; t = 0.001), insulation(dielectric; t = 0.002))
+    design = build(CableDesign,
+        "pipe-preflight",
+        pipe(
+            at(first_core, -0.01, 0), at(second_core, 0.01, 0);
+            shape = Disk(0.025), fill = air, wall))
     system = build(LineCableSystem, design, Pose2(0.0, -1.0);
-        connections=Dict(:a=>1, :b=>2, :pipe=>0))
-    problem = LineParametersProblem(system; earth_props=homogeneous(rho=100.0), frequencies=[50.0])
+        connections = Dict(:a=>1, :b=>2, :pipe=>0))
+    problem = LineParametersProblem(system; earth_props = homogeneous(rho = 100.0), frequencies = [50.0])
     selected = @inferred E.PipeImpedance.Formula(Val(:default))
     expected = "Pipe-type cable formulation is not yet implemented for the coaxial backend. No default formulation is available."
     for execute in (() -> compute(problem), () -> compute(CableConstantsProblem(design)))
@@ -29,22 +31,25 @@
     # analytical pipe correction exists or disable enclosure construction.
     @test E.Formulation(Formulation(:LineCableModelsFEM), selected, design) === nothing
     @test_throws ArgumentError E.PipeImpedance.Formula(:UnimplementedPipe2026)
-    @test_throws ArgumentError E.PipeImpedance.Formula(:default; invented=true)
-    @test_throws ArgumentError Formulation(pipe_impedance=formula(:default; order=:before))
+    @test_throws ArgumentError E.PipeImpedance.Formula(:default; parameters = (invented = true,))
+    @test_throws ArgumentError Formulation(pipe_impedance = formula(:default; order = :before))
 
-    concentric = build(CableDesign, "concentric-enclosure", pipe(first_core;
-        shape=Disk(0.01), fill=air, wall))
+    concentric = build(
+        CableDesign, "concentric-enclosure", pipe(first_core;
+            shape = Disk(0.01), fill = air, wall))
     @test E.Formulation(LineCableModelsCoaxial(), selected, concentric) === nothing
     @test all(isfinite, compute(CableConstantsProblem(concentric)).R)
 
     # A dielectric duct is not a conducting pipe-return formulation.
-    ducted = build(CableDesign, "dielectric-duct", pipe(
-        at(first_core, -0.01, 0), at(second_core, 0.01, 0);
-        shape=Disk(0.025), fill=air, wall=insulation(dielectric; t=0.002)))
+    ducted = build(CableDesign,
+        "dielectric-duct",
+        pipe(
+            at(first_core, -0.01, 0), at(second_core, 0.01, 0);
+            shape = Disk(0.025), fill = air, wall = insulation(dielectric; t = 0.002)))
     @test E.Formulation(LineCableModelsCoaxial(), selected, ducted) === nothing
     for constructor in (Formulation, CableConstantsFormulation,
-            (; kwargs...) -> Formulation(:LineCableModelsFEM; kwargs...))
-        selections = constructor(pipe_impedance=Grid((:default, formula(:default))))
+        (; kwargs...) -> Formulation(:LineCableModelsFEM; kwargs...))
+        selections = constructor(pipe_impedance = Grid((:default, formula(:default))))
         @test length(selections) == 2
         @test all(value -> value.methods.pipe_impedance isa E.PipeImpedanceFormulation, selections)
     end

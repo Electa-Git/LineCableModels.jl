@@ -37,10 +37,17 @@ struct EarthPair{T <: Real}
     column::Int
     "Conductor heights relative to the air-earth interface \\[m\\]."
     heights::Tuple{T, T}
-    "Horizontal separation, or cable outer radius for a self interaction \\[m\\]."
+    "Horizontal distance between conductor centres \\[m\\]."
     separation::T
     "Physical layer indices of the source and target conductors."
     layers::Tuple{Int, Int}
+    "Conductor outer radius for a self interaction [m]; nothing for a mutual. "
+    radius::Union{Nothing, T}
+end
+
+function EarthPair(row::Integer, column::Integer, heights::Tuple{T, T}, separation::T,
+        layers::Tuple{Int, Int}; radius = nothing) where {T <: Real}
+    return EarthPair{T}(row, column, heights, separation, layers, radius)
 end
 
 """
@@ -50,7 +57,7 @@ Check the resolved geometry of an earth-return interaction.
 
 # Arguments
 
-- `pair`: Matrix indices, signed heights, horizontal separation (self radius),
+- `pair`: Matrix indices, signed heights, horizontal separation, explicit self radius,
   and physical layer indices. Lengths are in \\[m\\]; layer 1 is air.
 
 # Returns
@@ -82,35 +89,19 @@ function validate(pair::EarthPair)
     if pair.row == pair.column
         pair.heights[1] == pair.heights[2] && pair.layers[1] == pair.layers[2] ||
             throw(ArgumentError("an earth self interaction must repeat the same conductor"))
-        pair.separation > zero(pair.separation) || throw(DomainError(
-            pair.separation, "an earth self interaction requires a positive cable outer radius"))
+        iszero(pair.separation) ||
+            throw(ArgumentError("a self interaction has zero horizontal separation"))
+        pair.radius !== nothing && isfinite(pair.radius) && pair.radius > 0 ||
+            throw(DomainError(pair.radius, "a self interaction requires an explicit positive conductor radius"))
     else
+        pair.radius === nothing ||
+            throw(ArgumentError("a mutual interaction has no self radius"))
         iszero(pair.separation) && pair.heights[1] == pair.heights[2] &&
             throw(DomainError((pair.heights, pair.separation),
                 "distinct earth-return conductors cannot have coincident centres"))
     end
     return pair
 end
-
-"""
-$(TYPEDSIGNATURES)
-
-Check an earth pair before invoking a user-supplied route. The generic method
-checks geometry only: a custom callable owns its additional restrictions and
-may specialize this method without executing its numerical calculation.
-Registered native routes provide their own methods beside their equations.
-
-# Arguments
-
-- `pair`: Resolved earth-return geometry.
-- `route`: Selected callable, including any bound `FormulaMethod` selectors.
-- `formula`: Recipe or frequency functor carrying the selected leaf routes.
-
-# Returns
-
-- The same validated `pair`.
-"""
-validate(pair::EarthPair, route, formula) = validate(pair)
 
 """
 $(TYPEDSIGNATURES)
@@ -139,10 +130,10 @@ function validate(pair::EarthPair, thickness::Union{Tuple, AbstractVector})
             "earth-pair conductor $position refers to absent physical layer $layer"))
         layer == 1 && continue
         depth = -pair.heights[position]
-        top = sum((thickness[index] for index in 2:(layer - 1)); init=zero(depth))
+        top = sum((thickness[index] for index in 2:(layer - 1)); init = zero(depth))
         local_depth = depth - top
         local_depth >= zero(depth) &&
-            (!isfinite(thickness[layer]) || local_depth <= thickness[layer]) ||
+        (!isfinite(thickness[layer]) || local_depth <= thickness[layer]) ||
             throw(ArgumentError(
                 "earth-pair conductor $position depth $depth m is outside its resolved earth layer $layer"))
     end

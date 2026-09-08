@@ -1,29 +1,11 @@
-function routes(identifier::Val{:Lucca1994})
-    (
-        self = FormulaMethod(identifier, earth_impedance, Val(:self)),
-        mutual = FormulaMethod(identifier, earth_impedance, Val(:mutual)),
-        overhead = FormulaMethod(identifier, earth_impedance, Val(:overhead)),
-        underground = FormulaMethod(
-            identifier, earth_impedance, Val(:underground)
-        ),
-        mixed = FormulaMethod(identifier, earth_impedance, Val(:mixed)),
-        Γ = FormulaMethod(identifier, propagation_constant)
-    )
-end
-
 function assumptions(::Val{:Lucca1994})
-    (
-        air = _lossless,
-        earth = _conductive,
-        permeability = vacuum_permeability
-    )
+    (media = :homogeneous, layers = 2:2, longitudinal = :zero, permittivity = :positive)
 end
 
-propagation(::Val{:Lucca1994}) = Val(:zero)
 """
 $(TYPEDSIGNATURES)
 
-**Identification.** Pair-complete homogeneous-earth recipe with a corrected
+**Identification.** Homogeneous-earth mixed-pair model with a corrected
 complex-depth approximation for mixed overhead-underground coupling.
 
 **Expression.** Its distinctive mixed term is
@@ -44,40 +26,10 @@ D=\\sqrt{(h_a+h_g)^2+y_{ij}^2}.
 Line with Earth Return,” *9th International Conference on Electromagnetic
 Compatibility*, 1994. DOI: 10.1049/cp:19940679.
 """
-description(::Formula{:Lucca1994}) =
-    "Lucca pair-complete homogeneous-earth impedance (1994)"
+description(::Formula{:Lucca1994}) = "Lucca mixed-pair homogeneous-earth impedance (1994)"
 
-function propagation_constant(::Val{:Lucca1994}, jω, permeability, permittivity)
-    return (Γ = zero(jω), squared = zero(jω))
-end
-
-function (formula::Formula{:Lucca1994})(rho, epsilon, mu, jω, Γ, segments = nothing)
-    return _homogeneous_functor(
-        Val(:Lucca1994), formula, rho, epsilon, mu, jω, Γ, segments
-    )
-end
-
-function earth_impedance(
-        ::Val{:Lucca1994}, ::Val{:mutual}, functor, pair
-)
-    placement = _placement(pair)
-    typeof(placement) === Val{:overhead} &&
-        return functor.routes.overhead(functor, pair)
-    typeof(placement) === Val{:underground} &&
-        return functor.routes.underground(functor, pair)
-    return functor.routes.mixed(functor, pair)
-end
-
-function earth_impedance(
-        ::Val{:Lucca1994}, ::Val{:overhead}, functor, pair
-)
-    return earth_impedance(Val(:Carson1926), Val(:mutual), functor, pair)
-end
-
-function earth_impedance(
-        ::Val{:Lucca1994}, ::Val{:underground}, functor, pair
-)
-    return earth_impedance(Val(:Pollaczek1926), Val(:underground), functor, pair)
+function Γ(::Val{:Lucca1994}, jω, materials, layers)
+    return zero(jω)
 end
 
 raw"""
@@ -97,8 +49,7 @@ S=\sqrt{H^2+y_{ij}^2},\qquad
 D=\sqrt{(h_a+h_g)^2+y_{ij}^2}.
 ```
 
-The complete recipe retains Pollaczek's exact homogeneous same-medium leaves
-and replaces only the mixed interaction.
+Only the published mixed interaction is registered.
 
 # Reference
 
@@ -107,7 +58,8 @@ return," *9th International Conference on Electromagnetic Compatibility*, 1994.
 DOI: 10.1049/cp:19940679.
 """
 function earth_impedance(
-        ::Val{:Lucca1994}, ::Val{:mixed}, functor, pair
+        ::Val{:Lucca1994}, ::Val{:mutual}, ::Val{1}, ::Val{2},
+        functor, pair, workspace
 )
     state = functor.state
     air = pair.layers[1] == 1 ? 1 : 2
@@ -125,17 +77,63 @@ function earth_impedance(
     return state.jω * state.mu[1] / (2πT) * (log(S / D) - correction)
 end
 
-function validate(
-        pair::EarthPair, route::FormulaMethod{:Lucca1994, typeof(earth_impedance)}, formula
+function earth_impedance(
+        ::Val{:Lucca1994}, ::Val{:mutual}, ::Val{2}, ::Val{1},
+        functor, pair, workspace
 )
-    validate(pair)
-    if route.arguments == (Val(:self),) || route.arguments == (Val(:mutual),)
-        leaf = pair.layers == (1, 1) ? formula.routes.overhead :
-               pair.layers[1] > 1 && pair.layers[2] > 1 ? formula.routes.underground :
-               formula.routes.mixed
-        validate(pair, leaf, formula)
-    end
-    return pair
+    state = functor.state
+    air = pair.layers[1] == 1 ? 1 : 2
+    earth = air == 1 ? 2 : 1
+    h_a = abs(pair.heights[air])
+    h_g = abs(pair.heights[earth])
+    h_e = inv(state.gamma[2])
+    H = h_a + h_g + 2h_e
+    S_squared = H^2 + pair.separation^2
+    S = sqrt(S_squared)
+    D = hypot(pair.separation, h_a + h_g)
+    correction = (2 * one(h_a) / 3) * (h_e / S_squared)^3 *
+                 H * (H^2 - 3 * pair.separation^2)
+    πT = one(h_a) * π
+    return state.jω * state.mu[1] / (2πT) * (log(S / D) - correction)
+end
+
+Formulation(::LineCableModelsCoaxial, selected::Formula{:Lucca1994}) = selected
+
+function hooks(::FormulaMethod{:Lucca1994, typeof(earth_impedance),
+        A}) where {A <: Tuple{Val{:mutual}, Val{1}, Val{2}}}
+    return (configurable = (:Γ, :earth, :permeability, :contribution),
+        defaults = (
+            Γ = FormulaMethod(Val(:Lucca1994), Γ),
+            air = FormulaMethod(Val(:lossless), propagation),
+            earth = FormulaMethod(Val(:conductive), propagation),
+            permeability = vacuum_permeability,
+            contribution = nothing))
+end
+
+function computation_options(::FormulaMethod{:Lucca1994, typeof(earth_impedance),
+        A}) where {A <: Tuple{Val{:mutual}, Val{1}, Val{2}}}
+    (;)
+end
+
+function hooks(::FormulaMethod{:Lucca1994, typeof(earth_impedance),
+        A}) where {A <: Tuple{Val{:mutual}, Val{2}, Val{1}}}
+    return (configurable = (:Γ, :earth, :permeability, :contribution),
+        defaults = (
+            Γ = FormulaMethod(Val(:Lucca1994), Γ),
+            air = FormulaMethod(Val(:lossless), propagation),
+            earth = FormulaMethod(Val(:conductive), propagation),
+            permeability = vacuum_permeability,
+            contribution = nothing))
+end
+
+function computation_options(::FormulaMethod{:Lucca1994, typeof(earth_impedance),
+        A}) where {A <: Tuple{Val{:mutual}, Val{2}, Val{1}}}
+    (;)
+end
+
+function validate(binding::FormulaMethod{:Lucca1994, typeof(earth_impedance)},
+        ::EquivalentHomogeneous.Formula{:default})
+    binding
 end
 
 :Lucca1994

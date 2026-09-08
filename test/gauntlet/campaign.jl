@@ -56,10 +56,11 @@ function campaign_selections(model, backend::Symbol, catalogue::Bool;
                     all(<(0), heights) ? Val(:underground) : Val(:mixed)
         identifiers = PSCADBenchmarks.formulas(placement)
         append!(selections, [(id=lowercase(string(id)), earth_impedance=id,
-            earth_admittance=:default) for id in identifiers])
+            earth_admittance=:default) for id in identifiers if id !== :default])
     else
         workspace = backend === :coaxial ? CampaignCatalogue.prepare_case(model) : nothing
         for record in CampaignCatalogue.catalogue()
+            record.identifier === :default && continue # The baseline already selects both defaults.
             selected = CampaignCatalogue.variant(record)
             reason = backend === :coaxial ? CampaignCatalogue.case_skip_reason(model, selected, workspace) : nothing
             if reason !== nothing
@@ -102,9 +103,10 @@ function campaign_implementation(formulation::LineCableModelsFEM)
     paths = [joinpath("ext", "LineCableModelsGmshExt", file) for file in (
         "LineCableModelsGmshExt.jl", "model.jl", "formulations.jl", "geometry.jl",
         "mesh.jl", "onelab.jl", "getdp.jl", "results.jl", "compute.jl",
-        "getdp/model.pro", "getdp/quasi_tem.pro", "getdp/jacobian_integration.pro")]
+        "getdp/model.pro", "getdp/materials.pro", "getdp/quasi_tem.pro", "getdp/jacobian_integration.pro")]
     append!(paths, ["src/engine/formulations.jl", "src/engine/matrixops.jl",
-        "src/engine/reduction.jl", "src/materials/material.jl"])
+        "src/engine/reduction.jl", "src/engine/admittance.jl",
+        "src/materials/material.jl", "src/materials/radialdielectric.jl"])
     for (family, selected) in (("insulationadmittance", formulation.methods.insulation_admittance),
             ("semiconadmittance", formulation.methods.semicon_admittance))
         push!(paths, "src/engine/$family/interface.jl")
@@ -175,13 +177,21 @@ function campaign_propagation(kind::Symbol, backend::Symbol, inner, settings)
     throw(ArgumentError("propagation must be deterministic, linear_error or monte_carlo"))
 end
 
-function campaign_models(ids, uncertainty)
+function campaign_models(ids, uncertainty; frequency_range=nothing)
+    if frequency_range !== nothing
+        frequency_range isa Union{Tuple, AbstractVector} && length(frequency_range) == 2 &&
+            all(value -> value isa Real && isfinite(value), frequency_range) &&
+            REFERENCE_MIN_FREQUENCY <= first(frequency_range) < last(frequency_range) ||
+            throw(ArgumentError("campaign frequency_range must contain finite (lower, upper) Hz bounds with 0.1 ≤ lower < upper"))
+    end
     models = Dict{Tuple{Symbol, Bool}, LoadedCase}()
     for id in ids
-        model = reference_case(id)
+        model = frequency_range === nothing ? reference_case(id) :
+            load_case(id; variation=ExactOverrides(
+                frequencies=_loggrid(first(frequency_range), last(frequency_range), 101)))
         models[(id, false)] = model
         uncertainty === nothing && continue
-        selected = reference_grid(model.nominal_problem.frequencies)
+        selected = model.problem.frequencies
         models[(id, true)] = load_case(id; variation=compose_variations(
             ExactOverrides(frequencies=selected), uncertainty))
         length(models[(id, true)].problem) == 1 || throw(ArgumentError(
@@ -191,8 +201,8 @@ function campaign_models(ids, uncertainty)
 end
 
 function campaign_input(model, propagation::Symbol)
+    propagation === :deterministic && return numerical_input_sha256(model.problem)
     nominal = numerical_input_sha256(model.nominal_problem)
-    propagation === :deterministic && return nominal
     return semantic_sha256((nominal, parameters=parameter_manifest(model),
         variation=variation_record(model.variation), correlation=correlation_record(model)))
 end
@@ -202,6 +212,7 @@ function record_calculation(result::LineParameters, model)
         port_order=model.port_order, basis=LineCableModels.basis(result))
     return (kind=:gauntlet_calculation, frequencies=copy(result.f), basis=data.basis,
         domain=:PhaseDomain, Z=copy(result.Z.values), Y=copy(result.Y.values),
+        comparison_unsupported=get(LineCableModels.details(result), :comparison_unsupported, (;)),
         data_sha256=semantic_sha256(data), computation_details=LineCableModels.details(result))
 end
 
@@ -235,7 +246,8 @@ end
 function run_campaign(directory::AbstractString, ids;
         backends=(:coaxial, :fem, :pscad), catalogue=true, dielectric=:default,
         choices::NamedTuple=(;), combine::Symbol=:product,
-        propagation=(:deterministic,), uncertainty=nothing, trials=UQ_MONTE_CARLO_TRIALS, seed=nothing)
+        propagation=(:deterministic,), uncertainty=nothing, trials=UQ_MONTE_CARLO_TRIALS,
+        seed=nothing, frequency_range=nothing)
     haskey(ENV, "CI") && throw(ArgumentError("Gauntlet campaigns are manual, not CI simulations"))
     isempty(ids) && throw(ArgumentError("a campaign needs at least one case"))
     isempty(backends) && throw(ArgumentError("a campaign needs at least one backend"))
@@ -269,26 +281,39 @@ function run_campaign(directory::AbstractString, ids;
     end
     root = abspath(directory)
     ispath(root) && throw(ArgumentError("campaign directory already exists; use resume: $root"))
-    models = campaign_models(ids, uncertainty)
+    models = campaign_models(ids, uncertainty; frequency_range)
     jobs = Dict{String, Any}[]
     for id in ids, backend in backends, method in propagation
         model = models[(id, method !== :deterministic)]
         selected = explicit === nothing ? campaign_selections(models[(id, false)], backend, catalogue) : explicit
         selections = [Dict(string(name)=>string(item) for (name, item) in pairs(value))
             for value in selected.selections]
+        skipped = [Dict("id"=>value.id, "reason"=>value.reason) for value in selected.skipped]
+        # Native Cable_Coax cannot compile an all-bare system. This is an
+        # explicit input capability, not a failed solve or a numerical mismatch.
+        if backend === :pscad && all(model.nominal_problem.system.designs) do design
+                length(design.terminal_order) == 1 &&
+                    all(region -> region.source.material.kind === :conductor, design.geometry.regions)
+            end
+            append!(skipped, [Dict("id"=>selection["id"],
+                "reason"=>"PSCAD Cable_Coax requires at least one insulated cable; all cables are bare")
+                for selection in selections])
+            empty!(selections)
+        end
         job_id = "$(id)_$backend" * (method === :deterministic ? "" : "_$method")
         push!(jobs, Dict("id"=>job_id, "case"=>string(id), "backend"=>string(backend),
             "propagation"=>string(method),
             "description"=>model.definition.description,
             "input_sha256"=>campaign_input(model, method),
             "selections"=>selections,
-            "skipped"=>[Dict("id"=>value.id, "reason"=>value.reason) for value in selected.skipped]))
+            "skipped"=>skipped))
     end
     repository = repository_provenance()
     plan = Dict("schema_version"=>1, "created_at_utc"=>string(now(UTC)),
         "repository_commit"=>repository.commit, "repository_dirty"=>repository.dirty,
         "dielectric"=>string(dielectric), "combine"=>string(combine),
         "monte_carlo"=>sampling, "jobs"=>jobs)
+    frequency_range === nothing || (plan["frequency_range"] = Float64[frequency_range...])
     if uncertainty !== nothing
         plan["uncertainty"] = Dict("percent"=>uncertainty.percent, "tags"=>string.(collect(uncertainty.tags)))
     end
@@ -322,7 +347,7 @@ function resume_campaign(directory)
     ids = unique(Symbol(job["case"]) for job in plan["jobs"])
     uncertainty = haskey(plan, "uncertainty") ? RelativeStandardUncertainty(
         plan["uncertainty"]["percent"]; tags=Symbol.(plan["uncertainty"]["tags"])) : nothing
-    models = campaign_models(ids, uncertainty)
+    models = campaign_models(ids, uncertainty; frequency_range=get(plan, "frequency_range", nothing))
     return execute_campaign(root, plan, models)
 end
 
@@ -360,6 +385,12 @@ function execute_campaign(root, plan, models)
             model = models[(Symbol(job["case"]), propagation !== :deterministic)]
             directory = joinpath(root, job["id"])
             state_path = joinpath(directory, "state.toml")
+            if isempty(job["selections"])
+                write_campaign_state(state_path, Dict("state"=>"inapplicable", "completed"=>0,
+                    "message"=>join(unique(value["reason"] for value in job["skipped"]), "; ")))
+                println("INAPPLICABLE\t", job["id"], "\t", length(job["skipped"]))
+                continue
+            end
             completed = 0
             started = time_ns()
             attempt_path = joinpath(directory, "attempts", basename(tempname()) * ".toml")
@@ -427,7 +458,8 @@ function execute_campaign(root, plan, models)
                 chosen = formulations[pending]
                 # One immutable input declaration per design point, shared by
                 # its formulation callbacks. Replay must not need today's case file.
-                problem_definition = LineCableModels.ImportExport.serialize_value(model.nominal_problem)
+                problem_definition = LineCableModels.ImportExport.serialize_value(
+                    propagation === :deterministic ? model.problem : model.nominal_problem)
                 # Gridspace owns the formulation axis; scalar problem normalization
                 # and backend batch dispatch own lowering and numerical reuse.
                 target = backend === :coaxial ? LineParametersFormulation :

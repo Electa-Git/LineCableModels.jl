@@ -1,7 +1,7 @@
 @testmodule TestFixtures begin
     using LineCableModels
     using LineCableModels.DataModel: CableDesign, LineCableSystem, trefoil_formation
-    using LineCableModels.EarthProps: EarthModel
+    using LineCableModels.Earth: EarthModel
 
     const FIXTURE_ROOT = normpath(joinpath(@__DIR__, "..", "fixtures"))
     const MV_CABLE_DESIGN_PATH = joinpath(FIXTURE_ROOT, "data", "mv_cable_design.json")
@@ -69,7 +69,7 @@
             (:core_insulation, 0.02205, 0.03005, xlpe),
             (:core_semicon_3, 0.03005, 0.030350000000000002, semicon_screen),
             (:core_semicon_4, 0.030350000000000002,
-            0.030650000000000004, semicon_outer)
+                0.030650000000000004, semicon_outer)
         )
             push!(parts, LineCableModels.Region(
                 tag,

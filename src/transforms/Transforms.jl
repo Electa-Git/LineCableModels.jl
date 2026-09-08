@@ -12,7 +12,7 @@ module Transforms
 
 export ModalTransformationProblem, ModalTransformationFormulation
 export LineCableModelsModal, ModalOperators, Formula
-export operators, formula_id, assumptions, formulas, gamma, modal_quantities
+export operators, formula_id, formulas, gamma, modal_quantities
 
 #! explicit-imports: off
 using DocStringExtensions: IMPORTS, TYPEDEF, TYPEDFIELDS, TYPEDSIGNATURES
@@ -23,16 +23,13 @@ import ..Grammar: AbstractProblemDefinition, AbstractFormulation,
 import ..Engine: LineParameters, PhaseDomain, ModalDomain,
                  SeriesImpedance, ShuntAdmittance,
                  description, formula_id, selectdomain,
-                 offdiagonal_ratio, reciprocity!
+                 offdiagonal_ratio
 using LinearAlgebra: Diagonal, I, checksquare, cond, diag, dot, eigen,
                      issuccess, ldiv!, lu!, mul!, norm, rdiv!, svd
 #! explicit-imports: on
 
 include("interfaces.jl")
 include("problems.jl")
-
-"Registered modal-transformation formula selected by `:default`."
-const DEFAULT = :Chrysochos2014
 
 include("formulations.jl")
 include("eigensystems.jl")

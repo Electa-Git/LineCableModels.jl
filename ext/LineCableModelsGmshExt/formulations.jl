@@ -1,17 +1,19 @@
 "Evaluate the shared explicit lossless choice for a passive FEM material region."
 function LineCableModels.constitutive(
-        ::LineCableModelsFEM, ::Val{:default}, selected,
+        formulation::LineCableModelsFEM, ::Val{:default}, selected,
         material, frequency, temperature
 )
-    return LineCableModels.constitutive(selected, material, frequency, temperature)
+    return LineCableModels.constitutive(selected, material, frequency, temperature;
+        temperature_correction = formulation.options.temperature_correction)
 end
 
 "Evaluate the shared Ametani material relation for a passive FEM material region."
 function LineCableModels.constitutive(
-        ::LineCableModelsFEM, ::Val{:Ametani2004}, selected,
+        formulation::LineCableModelsFEM, ::Val{:Ametani2004}, selected,
         material, frequency, temperature
 )
-    return LineCableModels.constitutive(selected, material, frequency, temperature)
+    return LineCableModels.constitutive(selected, material, frequency, temperature;
+        temperature_correction = formulation.options.temperature_correction)
 end
 
 function LineCableModels.constitutive(
@@ -40,7 +42,6 @@ function formulation_record(formulation::LineCableModelsFEM)
                 formulation.methods.semicon_admittance),
             earth_admittance = nothing,
             earth_properties = nothing,
-            equivalent_earth = nothing,
             pipe_impedance = nothing
         ),
         assumptions = (

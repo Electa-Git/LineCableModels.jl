@@ -12,24 +12,21 @@ $(IMPORTS)
 module InternalImpedance
 
 # Export public API
-export Formula, formula_id, routes, assumptions, formulas
+export Formula, formula_id, formulas, internal_impedance, surface_impedances
 
 # Module-specific dependencies
 #! explicit-imports: off
 # These abbreviations are expanded in this module docstring and included files.
 using DocStringExtensions: IMPORTS, TYPEDEF, TYPEDFIELDS, TYPEDSIGNATURES
 #! explicit-imports: on
-import ..Engine: InternalImpedanceFormulation, formula_id
+import ..Engine: InternalImpedanceFormulation, formula_id, computation_options, validate
 #! explicit-imports: off
-import ...LineCableModels: FormulaMethod
+import ...LineCableModels: FormulaDefinition, FormulaMethod
 import ..Engine: description, conductivity
 import ..Engine: special_besselix, special_besselkx
 #! explicit-imports: on
 
 vacuum_permeability(value) = one(value) * 4 * (one(value) * π) * (one(value) * 10)^(-7)
-
-"Registered internal-impedance formula selected by `:default`."
-const DEFAULT = :Schelkunoff1934
 
 include("interface.jl")
 

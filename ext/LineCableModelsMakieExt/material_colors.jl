@@ -84,6 +84,7 @@ _earth_color(resistivity::Real) = _gradient(
 )
 
 _material_base(material::Material) = _material_base(Val(material.kind), material)
+_material_base(material::RadialDielectric) = _dielectric_color(nominal(material.eps_r))
 _material_base(layer::EarthLayer) = _earth_color(nominal(layer.rho))
 _material_base(::Val{:conductor}, material::Material) = _conductor_color(nominal(material.rho))
 _material_base(::Val{:insulator}, material::Material) = _dielectric_color(nominal(material.eps_r))
@@ -103,7 +104,7 @@ function _magnetic_overlay(base, relative_permeability::Real)
     return _oklab_blend(base, tint, 0.35fraction^0.7)
 end
 
-function _material_color(material::Union{Material, EarthLayer}; alpha::Real = 1.0)
+function _material_color(material::Union{Material, RadialDielectric, EarthLayer}; alpha::Real = 1.0)
     relative_permeability = LineCableModels.nominal(material.mu_r)
     base = _material_base(material)
     color = _magnetic_overlay(base, relative_permeability)

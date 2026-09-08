@@ -12,7 +12,7 @@ using SHA: sha256
 import LineCableModels
 import LineCableModels: compute
 import LineCableModels.DataModel
-import LineCableModels.EarthProps
+import LineCableModels.Earth
 import LineCableModels.Engine
 import LineCableModels.ImportExport
 using LineCableModels.Grammar: computation_options

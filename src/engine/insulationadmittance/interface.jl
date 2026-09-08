@@ -4,27 +4,26 @@ $(TYPEDEF)
 Select one insulation constitutive relation by its stable literature identifier.
 
 Each registered formula has one scalar route with the contract
-`route(material, frequency, temperature, assumptions) -> Complex`. The route
+`route(material, frequency, temperature, parameters, options, workspace) -> Complex`. The route
 returns the material's frequency-evaluated complex admittivity. Geometry and
 radial series aggregation remain common Engine operations.
 
 $(TYPEDFIELDS)
 """
-struct Formula{ID, R, A <: NamedTuple} <: InsulationAdmittanceFormulation
-    "Constitutive route for one insulation material and one frequency."
-    route::R
-    "Physical and numerical assumptions of the selected formula."
-    assumptions::A
+struct Formula{ID, R, A <: NamedTuple, H <: NamedTuple, O <: NamedTuple} <:
+       InsulationAdmittanceFormulation
+    "Declared constitutive equation binding for one insulation material."
+    binding::R
+    "Explicit model parameters."
+    parameters::A
+    "Explicit callable overrides retained for provenance."
+    hooks::H
+    "Normalized numerical sections for the selected contribution."
+    options::O
 end
 
 "Return the stable identifier of an insulation-admittance formula."
 formula_id(::Formula{ID}) where {ID} = ID
-
-"Return the assumptions of an insulation-admittance formula."
-assumptions(formula::Formula) = formula.assumptions
-
-"Return the default assumptions of a registered insulation-admittance formula."
-function assumptions end
 
 "Evaluate one formula-owned insulation-material constitutive relation."
 function insulation_material end
@@ -32,73 +31,36 @@ function insulation_material end
 """
 $(TYPEDSIGNATURES)
 
-Construct an insulation constitutive relation from its stable identifier.
-
-# Arguments
-
-- `identifier`: Registered literature identifier.
-
-# Keywords
-
-- `route`: Optional complete constitutive route. The route receives a
-  [`Material`](@ref), frequency \\[Hz\\], operating temperature \\[°C\\], and the
-  formula assumption tuple, and returns complex admittivity \\[S/m\\].
-- `kwargs`: Formula-specific assumption overrides.
-
-# Returns
-
-- A concrete insulation-admittance formula.
+Construct a registered formula with separate model parameters and callable
+hooks. `hooks=(contribution=f,)` replaces the complete scalar equation using
+the signature `f(material, frequency, temperature, parameters, options, workspace) → complex admittivity [S/m]`. A complete replacement declares its numerical defaults with
+`computation_options(binding, replacement)`. Unknown fields fail immediately.
 """
-function Formula(identifier::Symbol; route = nothing, kwargs...)
-    Formula(Val(identifier); route, kwargs...)
-end
+Formula(identifier::Symbol; kwargs...) = Formula(Val(identifier); kwargs...)
+Formula(selected::Formula) = selected
 
-function Formula(::Val{ID}; route = nothing, kwargs...) where {ID}
-    tag = Val(ID)
-    ID in FORMULAS || throw(ArgumentError(
-        "unknown insulation-admittance formula :$ID"
-    ))
-    defaults = assumptions(tag)
-    overrides = (; kwargs...)
-    unknown = setdiff(keys(overrides), keys(defaults))
-    isempty(unknown) || throw(ArgumentError(
-        "unknown assumptions for insulation-admittance formula :$ID: $(collect(unknown))"
-    ))
-    selected = merge(defaults, overrides)
-    selected_route = route === nothing ?
-                     FormulaMethod(tag, insulation_material) : route
-    return Formula{ID, typeof(selected_route), typeof(selected)}(
-        selected_route,
-        selected
-    )
-end
-
-"""
-$(TYPEDSIGNATURES)
-
-Construct a fully specified insulation constitutive relation for an external
-route.
-"""
-function Formula(
-        identifier::Symbol,
-        route,
-        values::NamedTuple = (;)
-)
-    return Formula(Val(identifier), route, values)
-end
-
-function Formula(
-        ::Val{ID},
-        route::R,
-        values::A = (;)
-) where {ID, R, A <: NamedTuple}
-    return Formula{ID, R, A}(route, values)
+function Formula(::Val{ID}; parameters::NamedTuple = (;), hooks::NamedTuple = (;),
+        options::NamedTuple = (;)) where {ID}
+    ID in FORMULAS || throw(ArgumentError("unknown formula :$ID"))
+    isempty(parameters) ||
+        throw(ArgumentError("formula :$ID has no configurable model parameters"))
+    isempty(setdiff(keys(hooks), (:contribution,))) ||
+        throw(ArgumentError("unknown hooks for :$ID"))
+    binding = FormulaMethod(Val(ID), insulation_material)
+    selected = get(hooks, :contribution, binding)
+    selected === nothing && throw(ArgumentError("a contribution hook must be callable"))
+    defaults = haskey(hooks, :contribution) ? computation_options(binding, selected) :
+               computation_options(binding)
+    normalized = computation_options(binding, defaults, options)
+    return Formula{
+        ID, typeof(binding), typeof(parameters), typeof(hooks), typeof(normalized)}(
+        binding, parameters, hooks, normalized)
 end
 
 @inline function (formula::Formula)(
         material::Material{T},
         frequency::T,
-        temperature::T
+        temperature::T; workspace = nothing
 ) where {T <: Real}
     isfinite(frequency) && frequency > zero(frequency) || throw(DomainError(
         frequency,
@@ -108,13 +70,17 @@ end
         temperature,
         "insulation constitutive temperature must be finite"
     ))
-    return formula.route(material, frequency, temperature, formula.assumptions)
+    value = get(formula.hooks, :contribution, formula.binding)(
+        material, frequency, temperature, formula.parameters, formula.options, workspace)
+    value isa Number && isfinite(value) || throw(DomainError(value,
+        "insulation_material must return a finite scalar"))
+    return value
 end
 
 function (formula::Formula)(
         material::Material{T},
         frequency::Real,
-        temperature::Real
+        temperature::Real; workspace = nothing
 ) where {T <: Real}
     U = promote_type(
         T,
@@ -124,16 +90,14 @@ function (formula::Formula)(
     return formula(
         convert(Material{U}, material),
         convert(U, float(frequency)),
-        convert(U, float(temperature))
+        convert(U, float(temperature)); workspace
     )
 end
 
-"Evaluate one registered insulation constitutive relation as complex admittivity."
-function constitutive(
-        formula::Formula,
-        material::Material,
-        frequency::Real,
-        temperature::Real
-)
-    formula(material, frequency, temperature)
+function Formula(selection::FormulaDefinition{ID, Order}) where {ID, Order}
+    Order === :default || throw(ArgumentError("order applies only to equivalent_earth"))
+    selection.equivalent_earth === nothing || throw(ArgumentError(
+        "equivalent_earth applies only to external earth formulas"))
+    return Formula(Val(ID); parameters = selection.parameters, hooks = selection.hooks,
+        options = selection.options)
 end

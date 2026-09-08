@@ -1,32 +1,13 @@
-function routes(identifier::Val{:Pollaczek1926})
-    (
-        self = FormulaMethod(identifier, earth_impedance, Val(:self)),
-        mutual = FormulaMethod(identifier, earth_impedance, Val(:mutual)),
-        overhead = FormulaMethod(identifier, earth_impedance, Val(:overhead)),
-        underground = FormulaMethod(
-            identifier, earth_impedance, Val(:underground)
-        ),
-        mixed = FormulaMethod(identifier, earth_impedance, Val(:mixed)),
-        Γ = FormulaMethod(identifier, propagation_constant)
-    )
-end
-
 function assumptions(::Val{:Pollaczek1926})
-    (
-        air = _lossless,
-        earth = _conductive,
-        permeability = vacuum_permeability
-    )
+    (media = :homogeneous, layers = 2:2, longitudinal = :zero, permittivity = :positive)
 end
 
-propagation(::Val{:Pollaczek1926}) = Val(:zero)
 """
 $(TYPEDSIGNATURES)
 
-**Identification.** Pair-complete classical homogeneous-earth recipe:
-Carson overhead, Pollaczek underground, and the exact mixed integral.
+**Identification.** Classical homogeneous-earth underground integral.
 
-**Expression.** The underground and mixed terms are
+**Expression.** The underground term is
 
 ```math
 Z_{e,ij}^{11}=\\frac{j\\omega\\mu_0}{2\\pi}\\left[
@@ -36,60 +17,18 @@ K_0(\\gamma_1d_{ij})-K_0(\\gamma_1D_{ij})+2\\int_0^\\infty
 \\cos(y_{ij}\\lambda)d\\lambda\\right],
 ```
 
-```math
-Z_{e,ij}^{01}=\\frac{j\\omega\\mu_0}{\\pi}\\int_0^\\infty
-\\frac{\\mu_1e^{-\\lambda|h_i|-a_1|h_j|}}
-{\\lambda\\mu_1+a_1\\mu_0}\\cos(y_{ij}\\lambda)d\\lambda,
-\\qquad a_1=\\sqrt{\\lambda^2+\\gamma_1^2}.
-```
-
 **Reference.** F. Pollaczek, “Über das Feld einer unendlich langen
 wechselstromdurchflossenen Einfachleitung,” *Elektrische Nachrichtentechnik*,
 3, 339–360, 1926.
 """
 function description(::Formula{:Pollaczek1926})
-    "Pollaczek homogeneous-earth overhead, underground, and mixed impedance (1926)"
+    "Pollaczek homogeneous-earth underground impedance (1926)"
 end
 
-function propagation_constant(
-        ::Val{:Pollaczek1926}, jω, permeability, permittivity
+function Γ(
+        ::Val{:Pollaczek1926}, jω, materials, layers
 )
-    (Γ = zero(jω), squared = zero(jω))
-end
-
-function (formula::Formula{:Pollaczek1926})(
-        rho, epsilon, mu, jω, Γ, segments = nothing
-)
-    return _homogeneous_functor(
-        Val(:Pollaczek1926), formula, rho, epsilon, mu, jω, Γ, segments
-    )
-end
-
-"""
-$(TYPEDSIGNATURES)
-
-Select Pollaczek's leaf impedance from the physical conductor placement.
-
-The registered recipe contains the homogeneous-earth overhead, underground,
-and overhead-underground interactions. Its public identity therefore does not
-encode which leaf the pair requires. The `overhead`, `underground`, and
-`mixed` routes remain individually replaceable when composing an experiment.
-"""
-function earth_impedance(
-        ::Val{:Pollaczek1926}, ::Val{:mutual}, functor, pair
-)
-    placement = _placement(pair)
-    typeof(placement) === Val{:overhead} &&
-        return functor.routes.overhead(functor, pair)
-    typeof(placement) === Val{:underground} &&
-        return functor.routes.underground(functor, pair)
-    return functor.routes.mixed(functor, pair)
-end
-
-function earth_impedance(
-        ::Val{:Pollaczek1926}, ::Val{:overhead}, functor, pair
-)
-    return earth_impedance(Val(:Carson1926), Val(:mutual), functor, pair)
+    zero(jω)
 end
 
 raw"""
@@ -104,17 +43,23 @@ K_0(\gamma_1D_{ij})+2\int_0^\infty
 ```
 """
 function earth_impedance(
-        ::Val{:Pollaczek1926}, ::Val{:underground}, functor, pair
+        ::Val{:Pollaczek1926}, ::Union{Val{:self}, Val{:mutual}}, ::Val{2}, ::Val{2},
+        functor, pair, workspace
 )
     state = functor.state
     geometry = _geometry(pair)
     gamma = state.gamma[2]
-    integral = _quadrature(state) do lambda
-        u_1 = sqrt(lambda^2 + gamma^2)
-        exp(-geometry.H * u_1) * cos(geometry.y_ij * lambda) /
-        (lambda + u_1)
-    end
-    direct = _complex_result(
+    integral = integrate(functor.options.integration.method,
+        SpectralIntegral(Val(:cosine),
+            lambda -> begin
+                u_1 = sqrt(lambda^2 + gamma^2)
+                exp(-geometry.H * gamma^2 / (u_1 + lambda)) /
+                (lambda + u_1)
+            end,
+            (height = geometry.H, separation = geometry.y_ij),
+            float(nominal(abs(state.gamma[2])))),
+        functor.options.integration.options, workspace)
+    direct = oftype(
         state.jω,
         special_besselk(0, gamma * geometry.d_ij) -
         special_besselk(0, gamma * geometry.D_ij)
@@ -123,45 +68,27 @@ function earth_impedance(
     return state.jω * state.mu[1] / (2πT) * (direct + 2 * integral)
 end
 
-raw"""
-Evaluate Pollaczek's overhead-underground mutual impedance:
+Formulation(::LineCableModelsCoaxial, selected::Formula{:Pollaczek1926}) = selected
 
-```math
-Z_{e,ij}^{01}=\frac{j\omega\mu_0}{\pi}\int_0^\infty
-\frac{\mu_1e^{-\lambda|h_i|-a_1|h_j|}}
-{\lambda\mu_1+a_1\mu_0}\cos(y_{ij}\lambda)d\lambda,
-\qquad a_1=\sqrt{\lambda^2+\gamma_1^2}.
-```
-"""
-function earth_impedance(
-        ::Val{:Pollaczek1926}, ::Val{:mixed}, functor, pair
-)
-    state = functor.state
-    air = pair.layers[1] == 1 ? 1 : 2
-    earth = air == 1 ? 2 : 1
-    h_air = abs(pair.heights[air])
-    h_earth = abs(pair.heights[earth])
-    integral = _quadrature(state) do lambda
-        a_1 = sqrt(lambda^2 + state.gamma_medium_squared[2])
-        state.mu[2] * exp(-lambda * h_air - a_1 * h_earth) /
-        (lambda * state.mu[2] + a_1 * state.mu[1]) *
-        cos(pair.separation * lambda)
-    end
-    πT = one(h_air) * π
-    return state.jω * state.mu[1] / πT * integral
+function hooks(::FormulaMethod{:Pollaczek1926, typeof(earth_impedance),
+        A}) where {A <: Tuple{Union{Val{:self}, Val{:mutual}}, Val{2}, Val{2}}}
+    return (configurable = (:Γ, :earth, :permeability, :contribution),
+        defaults = (
+            Γ = FormulaMethod(Val(:Pollaczek1926), Γ),
+            air = FormulaMethod(Val(:lossless), propagation),
+            earth = FormulaMethod(Val(:conductive), propagation),
+            permeability = vacuum_permeability,
+            contribution = nothing))
 end
 
-function validate(
-        pair::EarthPair, route::FormulaMethod{:Pollaczek1926, typeof(earth_impedance)}, formula
-)
-    validate(pair)
-    if route.arguments == (Val(:self),) || route.arguments == (Val(:mutual),)
-        leaf = pair.layers == (1, 1) ? formula.routes.overhead :
-               pair.layers[1] > 1 && pair.layers[2] > 1 ? formula.routes.underground :
-               formula.routes.mixed
-        validate(pair, leaf, formula)
-    end
-    return pair
+function computation_options(::FormulaMethod{:Pollaczek1926, typeof(earth_impedance),
+        A}) where {A <: Tuple{Union{Val{:self}, Val{:mutual}}, Val{2}, Val{2}}}
+    (integration = (method = :quad, options = (;)),)
+end
+
+function validate(binding::FormulaMethod{:Pollaczek1926, typeof(earth_impedance)},
+        ::EquivalentHomogeneous.Formula{:default})
+    binding
 end
 
 :Pollaczek1926

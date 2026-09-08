@@ -43,13 +43,14 @@ export InsulationAdmittance, SemiconAdmittance, EarthAdmittance
 export compute
 
 # Module-specific dependencies
-using LinearAlgebra: I, checksquare, cond, diag, ldiv!, lu, lu!, mul!, norm
+using LinearAlgebra: svd, eigvals, Diagonal, I, checksquare, cond, diag, ldiv!, lu, lu!,
+                     mul!, norm
 using DocStringExtensions: IMPORTS, TYPEDEF, TYPEDFIELDS, TYPEDSIGNATURES
 import ..LineCableModels: basis, build, R, L, C,
                           resistance, inductance, capacitance
 import ..LineCableModels: nominal
-import ..LineCableModels: constitutive, formula, formula_id, FormulaDefinition
-using RequiredInterfaces: @required
+import ..LineCableModels: constitutive, formula, formula_id,
+                          FormulaMethod
 import ..LineCableModels: parameterize
 #! explicit-imports: off
 import ..LineCableModels: description
@@ -65,8 +66,8 @@ import ..Grammar: AbstractProblemDefinition, AbstractFormulation,
 
 using ..Units
 using ..Materials
-import ..EarthProps
-using ..EarthProps: EarthMaterial, EarthModel, EHEM
+import ..Earth
+using ..Earth: EarthMaterial, EarthModel, EquivalentHomogeneous
 using ..DataModel: CableDesign, LineCableSystem, ncables, nphases
 import ..DataModel
 import ..TextDisplay
@@ -83,6 +84,7 @@ include("earthkernels.jl")
 # Problem and coaxial formulation definitions
 include("problems.jl")
 include("options.jl")
+include("integration.jl")
 
 # Line-parameter results and their protocols
 include("lineparameters/lineparameters.jl")
@@ -132,6 +134,7 @@ include("lineparameters/base.jl")
 include("lineparameters/publication.jl")
 include("textdisplay.jl")
 
+public hooks, SpectralIntegral, integrate
 public has_uncertainty_type
 public reduce_primitive_matrices, potential_to_admittance
 public layer_admittance

@@ -1,7 +1,7 @@
 @testitem "Engine / internal impedance / solid and hollow working precision" tags=[:unit] begin
     const II = LineCableModels.Engine.InternalImpedance
     formula = II.Formula(:default)
-    @test II.formula_id(formula) === :Schelkunoff1934
+    @test II.formula_id(formula) === :default
 
     # Float64 uses SpecialFunctions; Complex{BigFloat} uses the package's
     # precision-preserving Bessel implementation. Compare the complete surface

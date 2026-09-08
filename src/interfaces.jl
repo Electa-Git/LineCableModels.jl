@@ -44,7 +44,7 @@ function Gridpoint{Target}(build, args::A) where {Target, A <: Tuple}
 end
 
 """
-    homogenize(design; new_id="", dielectric_frequency=50)
+homogenize(design; new_id="")
 
 Build a homogeneous cable design that preserves each radial assembly member
 and matches the effective conductor and dielectric properties of `design`.
@@ -61,8 +61,6 @@ matrices, mutual coupling, or earth return.
 
 - `new_id`: Identifier for the returned design. An empty value appends
   `"_equivalent"` to the source identifier.
-- `dielectric_frequency`: Reference frequency used to match lossy dielectric
-  admittance \\[Hz\\]. Default: `50`.
 
 # Returns
 

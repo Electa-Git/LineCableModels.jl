@@ -192,10 +192,7 @@ end
         joinpath("src", "transforms", "compute.jl"),
         joinpath("src", "transforms", "eigensystems.jl"),
         joinpath("src", "transforms", "quantities.jl"),
-        joinpath("src", "transforms", "formulas", "chrysochos2014.jl"),
-        joinpath("src", "transforms", "formulas", "fan2009.jl"),
-        joinpath("src", "transforms", "formulas", "fortescue.jl"),
-        joinpath("src", "transforms", "formulas", "wedepohl1996.jl"),
+        joinpath("src", "transforms", "formulas", "default.jl"),
         joinpath("src", "uq", "montecarlo", "compute.jl"),
         joinpath("src", "reportbuilder", "grammar.jl"),
         joinpath("src", "reportbuilder", "tables.jl"),
@@ -517,7 +514,9 @@ end
     @test occursin("foreach(_addon_axis_format!, axes)", native_addons)
     # Axis formatting belongs to the common shell, not to individual recipes.
     for (directory, _, files) in walkdir(joinpath(
-            extension_root, "LineCableModelsMakieExt", "recipes")), file in files
+            extension_root, "LineCableModelsMakieExt", "recipes")),
+        file in files
+
         endswith(file, ".jl") || continue
         recipe = read(joinpath(directory, file), String)
         @test !occursin(r"_addon_(?:linear_tickformat|scientific_exponent|axis_format!)", recipe)
@@ -551,7 +550,7 @@ end
     formula_interfaces=filter(keys(source)) do path
         endswith(path, "interface.jl") && (
             occursin(joinpath("src", "engine"), path) ||
-            occursin(joinpath("src", "earthprops"), path)
+            occursin(joinpath("src", "earth"), path)
         ) || path == joinpath("src", "transforms", "formulations.jl")
     end
     @test all(!occursin("applicable(", source[path]) for path in formula_interfaces)
@@ -566,7 +565,8 @@ end
 
     gmsh_source=join(
         (read(path, String)
-        for (directory, _, files) in walkdir(joinpath(extension_root, "LineCableModelsGmshExt"))
+        for (directory, _, files) in
+            walkdir(joinpath(extension_root, "LineCableModelsGmshExt"))
         for file in files if endswith(file, ".jl")
         for path in (joinpath(directory, file),)),
         "\n")

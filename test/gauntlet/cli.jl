@@ -9,26 +9,34 @@ include(joinpath(GAUNTLET_ROOT, "provenance.jl"))
 
 if !isempty(ARGS) && first(ARGS) in ("run", "resume", "status")
     include(joinpath(GAUNTLET_ROOT, "runner.jl"))
+elseif !isempty(ARGS) && first(ARGS) == "compare"
+    include(joinpath(GAUNTLET_ROOT, "artifacts.jl"))
 end
 
 function usage(io::IO = stdout)
-    print(io, """
+    print(
+        io, """
 Usage: lcm gauntlet case <command> [options]
        lcm gauntlet run --directory DIR [--cases ID,ID] [--backends coaxial,fem,pscad]
                        [--formulas catalogue|default] [--dielectric default|Ametani2004]
                        [--select SLOT=ID,ID ...] [--combine product|zip]
+                       [--frequency-range LOWER,UPPER]
                        [--propagation deterministic,linear_error,monte_carlo]
                        [--uncertainty-percent P --uncertainty-tags geometry,cable_layer]
                        [--trials N --seed INTEGER]
        lcm gauntlet resume --directory DIR
        lcm gauntlet status --directory DIR
+       lcm gauntlet compare --definition FILE.toml --output DIR
 
 run uses the case frequency grid, normalised to at least 0.1 Hz, and never runs FEM Monte Carlo.
+--frequency-range overrides every case with 101 logarithmic samples between the given Hz bounds.
 --select maps any Formulation keyword slot to a Grid; use --formulas default with explicit axes.
 UQ needs explicit uncertainty settings; Monte Carlo also needs an explicit seed.
 Linear propagation requires coaxial; Monte Carlo on FEM is disabled.
 resume preserves completed calculations; changed inputs require a new campaign directory.
 status checks the live execution lock and distinguishes running from interrupted jobs.
+compare reads explicit reference/candidate file bindings and stores comparison objects only.
+It never starts solvers, guesses reference direction, or approves numerical references.
 Commands:
   import       Import a trusted Julia file that returns LineParametersProblem
   list         List indexed cases
@@ -50,7 +58,6 @@ function option(args, name; default = nothing)
     index == length(args) && throw(ArgumentError("$name requires a value"))
     return args[index + 1]
 end
-
 
 function required_option(args, name)
     value = option(args, name)
@@ -157,9 +164,10 @@ function import_case(args)
     data = joinpath(root, "data", "$(id).json")
     exists = isfile(wrapper) || isfile(data) ||
              (isfile(index_path) && haskey(_case_index_document(index_path), string(id)))
-    exists && !flag(args, "--force") && throw(ArgumentError(
-        "case :$id already exists; pass --force to replace it",
-    ))
+    exists && !flag(args, "--force") &&
+        throw(ArgumentError(
+            "case :$id already exists; pass --force to replace it",
+        ))
 
     mktempdir() do staging
         staged_data = joinpath(staging, "$(id).json")
@@ -182,14 +190,15 @@ function import_case(args)
         mkpath(joinpath(root, "data"))
         staged_wrapper = joinpath(staging, "$(id).jl")
         write(staged_wrapper, wrapper_contents)
-        entries = isfile(index_path) ? Dict(
+        entries = isfile(index_path) ?
+                  Dict(
             Symbol(key) => String(value)
-            for (key, value) in _case_index_document(index_path)
+        for (key, value) in _case_index_document(index_path)
         ) : Dict{Symbol, String}()
         entries[id] = "$(id).jl"
         prior = Dict(
             path => (isfile(path) ? read(path) : nothing)
-            for path in (data, wrapper, index_path)
+        for path in (data, wrapper, index_path)
         )
         try
             cp(staged_data, data; force = true)
@@ -222,7 +231,8 @@ function summary_rows(model)
         (property = "Line length [m]", value = string(system.line_length)),
         (property = "Temperature [°C]", value = string(problem.temperature)),
         (property = "Frequencies", value = string(length(frequencies))),
-        (property = "Frequency range [Hz]", value = "$(first(frequencies)) – $(last(frequencies))"),
+        (property = "Frequency range [Hz]",
+            value = "$(first(frequencies)) – $(last(frequencies))"),
         (property = "Earth layers including air", value = string(length(earth.layers))),
         (property = "Vertical earth layers", value = string(earth.vertical_layers))
     ]
@@ -235,14 +245,15 @@ function design_rows(model)
     for (index, design) in pairs(designs)
         any(other -> designs[other] == design, retained) && continue
         push!(retained, index)
-        push!(rows, (
-            cable = index,
-            cable_id = design.cable_id,
-            instances = count(==(design), designs),
-            terminals = length(design.terminal_order),
-            regions = length(design.geometry.regions),
-            outer_diameter_m = 2 * LineCableModels.outer_radius(design)
-        ))
+        push!(rows,
+            (
+                cable = index,
+                cable_id = design.cable_id,
+                instances = count(==(design), designs),
+                terminals = length(design.terminal_order),
+                regions = length(design.geometry.regions),
+                outer_diameter_m = 2 * LineCableModels.outer_radius(design)
+            ))
     end
     return rows
 end
@@ -251,26 +262,26 @@ function catalogue_records()
     records = NamedTuple[]
     for id in sort!(collect(keys(case_index())); by = string)
         model = load_case(id)
-        push!(records, (
-            id = string(id),
-            description = model.definition.description,
-            problem = LineCableModels.ImportExport.serialize_value(model.nominal_problem),
-            port_order = model.port_order,
-            parameters = parameter_manifest(model),
-            summary = summary_rows(model),
-            designs = design_rows(model),
-            source_sha256 = model.source_sha256,
-            input_sha256 = numerical_input_sha256(model.nominal_problem)
-        ))
+        push!(records,
+            (
+                id = string(id),
+                description = model.definition.description,
+                problem = LineCableModels.ImportExport.serialize_value(model.nominal_problem),
+                port_order = model.port_order,
+                parameters = parameter_manifest(model),
+                summary = summary_rows(model),
+                designs = design_rows(model),
+                source_sha256 = model.source_sha256,
+                input_sha256 = numerical_input_sha256(model.nominal_problem)
+            ))
     end
     return records
 end
 
 function catalogue_digest(records)
-    semantic_sha256([
-        (id = record.id, source = record.source_sha256, input = record.input_sha256)
-        for record in records
-    ])
+    semantic_sha256([(id = record.id, source = record.source_sha256,
+                         input = record.input_sha256)
+                     for record in records])
 end
 
 function catalogue(args)
@@ -308,44 +319,59 @@ end
 function main(args = ARGS)
     isempty(args) && return usage()
     args[1] in ("--help", "-h", "help") && return usage()
+    if args[1] == "compare"
+        paths = GauntletArtifacts.compare_saved(required_option(args, "--definition");
+            directory = required_option(args, "--output"))
+        foreach(println, paths)
+        return
+    end
     if args[1] in ("run", "resume", "status")
         directory = required_option(args, "--directory")
         if args[1] == "status"
             println("job\tstate\tcompleted\trequested\tskipped\tmessage")
             for row in GauntletSupport.campaign_status(directory)
-                println(join((row.id, row.state, row.completed, row.requested,
-                    row.skipped, replace(row.message, '\n'=>' ', '\t'=>' ')), '\t'))
+                println(join(
+                    (row.id, row.state, row.completed, row.requested,
+                        row.skipped, replace(row.message, '\n'=>' ', '\t'=>' ')),
+                    '\t'))
             end
             return
         end
         if args[1] == "resume"
-            GauntletSupport.resume_campaign(directory) || error("campaign contains failed calculations; inspect status")
+            GauntletSupport.resume_campaign(directory) ||
+                error("campaign contains failed calculations; inspect status")
             return
         end
         selected = option(args, "--cases")
-        ids = selected === nothing ? sort!(collect(keys(case_index())); by=string) :
-            checked_id.(split(selected, ','))
-        backends = Symbol.(split(option(args, "--backends"; default="coaxial,fem,pscad"), ','))
-        formulas = option(args, "--formulas"; default="catalogue")
-        formulas in ("catalogue", "default") || throw(ArgumentError("--formulas must be catalogue or default"))
-        dielectric = Symbol(option(args, "--dielectric"; default="default"))
+        ids = selected === nothing ? sort!(collect(keys(case_index())); by = string) :
+              checked_id.(split(selected, ','))
+        backends = Symbol.(split(option(args, "--backends"; default = "coaxial,fem,pscad"), ','))
+        formulas = option(args, "--formulas"; default = "catalogue")
+        formulas in ("catalogue", "default") ||
+            throw(ArgumentError("--formulas must be catalogue or default"))
+        dielectric = Symbol(option(args, "--dielectric"; default = "default"))
         choices = GauntletSupport.parse_selections(args)
-        combine = Symbol(option(args, "--combine"; default="product"))
-        propagation = Symbol.(split(option(args, "--propagation"; default="deterministic"), ','))
-        "--trials" in args && :monte_carlo ∉ propagation && throw(ArgumentError(
-            "--trials only applies to Monte Carlo propagation"))
+        combine = Symbol(option(args, "--combine"; default = "product"))
+        raw_range = option(args, "--frequency-range")
+        frequency_range = raw_range === nothing ? nothing :
+                          tryparse.(Float64, split(raw_range, ','))
+        propagation = Symbol.(split(option(args, "--propagation"; default = "deterministic"), ','))
+        "--trials" in args && :monte_carlo ∉ propagation &&
+            throw(ArgumentError(
+                "--trials only applies to Monte Carlo propagation"))
         percent = option(args, "--uncertainty-percent")
         tags = option(args, "--uncertainty-tags")
         (percent === nothing) == (tags === nothing) || throw(ArgumentError(
             "supply --uncertainty-percent and --uncertainty-tags together"))
-        uncertainty = percent === nothing ? nothing : GauntletSupport.RelativeStandardUncertainty(
-            parse(Float64, percent); tags=Symbol.(split(tags, ',')))
-        trials = parse(Int, option(args, "--trials"; default=string(GauntletSupport.UQ_MONTE_CARLO_TRIALS)))
+        uncertainty = percent === nothing ? nothing :
+                      GauntletSupport.RelativeStandardUncertainty(
+            parse(Float64, percent); tags = Symbol.(split(tags, ',')))
+        trials = parse(Int, option(args, "--trials"; default = string(GauntletSupport.UQ_MONTE_CARLO_TRIALS)))
         raw_seed = option(args, "--seed")
         seed = raw_seed === nothing ? nothing : parse(UInt64, raw_seed)
         GauntletSupport.run_campaign(directory, ids;
-            backends, catalogue=formulas == "catalogue", dielectric, choices, combine,
-            propagation, uncertainty, trials, seed) ||
+            backends, catalogue = formulas == "catalogue", dielectric, choices, combine,
+            propagation, uncertainty, trials, seed, frequency_range) ||
             error("campaign contains failed calculations; inspect status")
         return
     end

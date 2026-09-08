@@ -1,31 +1,11 @@
-function routes(identifier::Val{:Ametani2009})
-    (
-        self = FormulaMethod(identifier, earth_impedance, Val(:self)),
-        mutual = FormulaMethod(identifier, earth_impedance, Val(:mutual)),
-        overhead = FormulaMethod(identifier, earth_impedance, Val(:overhead)),
-        underground = FormulaMethod(
-            identifier, earth_impedance, Val(:underground)
-        ),
-        mixed = FormulaMethod(identifier, earth_impedance, Val(:mixed)),
-        Γ = FormulaMethod(identifier, propagation_constant)
-    )
-end
-
 function assumptions(::Val{:Ametani2009})
-    (
-        air = _lossless,
-        earth = _conductive,
-        permeability = vacuum_permeability
-    )
+    (media = :homogeneous, layers = 2:2, longitudinal = :zero, permittivity = :positive)
 end
 
-propagation(::Val{:Ametani2009}) = Val(:zero)
 """
 $(TYPEDSIGNATURES)
 
-**Identification.** Pair-complete homogeneous-earth recipe using Carson for
-overhead pairs, Pollaczek for underground pairs, and Ametani's approximation
-for mixed overhead-underground pairs.
+**Identification.** Homogeneous-earth approximation for mixed overhead-underground pairs.
 
 **Expression.** Its distinctive mixed term is
 
@@ -45,40 +25,12 @@ Conductors and Its Approximation,” *IEEE Transactions on Electromagnetic
 Compatibility*, 51, 860–867, 2009.
 DOI: 10.1109/TEMC.2009.2019953.
 """
-description(::Formula{:Ametani2009}) =
-    "Ametani pair-complete homogeneous-earth impedance (2009)"
-
-function propagation_constant(::Val{:Ametani2009}, jω, permeability, permittivity)
-    return (Γ = zero(jω), squared = zero(jω))
+function description(::Formula{:Ametani2009})
+    "Ametani mixed-pair homogeneous-earth impedance (2009)"
 end
 
-function (formula::Formula{:Ametani2009})(rho, epsilon, mu, jω, Γ, segments = nothing)
-    return _homogeneous_functor(
-        Val(:Ametani2009), formula, rho, epsilon, mu, jω, Γ, segments
-    )
-end
-
-function earth_impedance(
-        ::Val{:Ametani2009}, ::Val{:mutual}, functor, pair
-)
-    placement = _placement(pair)
-    typeof(placement) === Val{:overhead} &&
-        return functor.routes.overhead(functor, pair)
-    typeof(placement) === Val{:underground} &&
-        return functor.routes.underground(functor, pair)
-    return functor.routes.mixed(functor, pair)
-end
-
-function earth_impedance(
-        ::Val{:Ametani2009}, ::Val{:overhead}, functor, pair
-)
-    return earth_impedance(Val(:Carson1926), Val(:mutual), functor, pair)
-end
-
-function earth_impedance(
-        ::Val{:Ametani2009}, ::Val{:underground}, functor, pair
-)
-    return earth_impedance(Val(:Pollaczek1926), Val(:underground), functor, pair)
+function Γ(::Val{:Ametani2009}, jω, materials, layers)
+    return zero(jω)
 end
 
 raw"""
@@ -97,8 +49,7 @@ D=\sqrt{(h_a+h_g)^2+y_{ij}^2}.
 ```
 
 Here ``h_a`` and ``h_g`` are positive height and burial-depth magnitudes.
-The complete recipe retains Pollaczek's exact homogeneous same-medium leaves
-and replaces only the mixed interaction.
+Only the published mixed interaction is registered.
 
 # Reference
 
@@ -108,7 +59,8 @@ Electromagnetic Compatibility*, vol. 51, pp. 860-867, 2009.
 DOI: 10.1109/TEMC.2009.2019953.
 """
 function earth_impedance(
-        ::Val{:Ametani2009}, ::Val{:mixed}, functor, pair
+        ::Val{:Ametani2009}, ::Val{:mutual}, ::Val{1}, ::Val{2},
+        functor, pair, workspace
 )
     state = functor.state
     air = pair.layers[1] == 1 ? 1 : 2
@@ -123,17 +75,60 @@ function earth_impedance(
            exp(-h_g / h_e) * log(S / D)
 end
 
-function validate(
-        pair::EarthPair, route::FormulaMethod{:Ametani2009, typeof(earth_impedance)}, formula
+function earth_impedance(
+        ::Val{:Ametani2009}, ::Val{:mutual}, ::Val{2}, ::Val{1},
+        functor, pair, workspace
 )
-    validate(pair)
-    if route.arguments == (Val(:self),) || route.arguments == (Val(:mutual),)
-        leaf = pair.layers == (1, 1) ? formula.routes.overhead :
-               pair.layers[1] > 1 && pair.layers[2] > 1 ? formula.routes.underground :
-               formula.routes.mixed
-        validate(pair, leaf, formula)
-    end
-    return pair
+    state = functor.state
+    air = pair.layers[1] == 1 ? 1 : 2
+    earth = air == 1 ? 2 : 1
+    h_a = abs(pair.heights[air])
+    h_g = abs(pair.heights[earth])
+    h_e = inv(state.gamma[2])
+    D = hypot(pair.separation, h_a + h_g)
+    S = sqrt((h_a + h_g + 2h_e)^2 + pair.separation^2)
+    πT = one(h_a) * π
+    return state.jω * state.mu[1] / (2πT) *
+           exp(-h_g / h_e) * log(S / D)
+end
+
+Formulation(::LineCableModelsCoaxial, selected::Formula{:Ametani2009}) = selected
+
+function hooks(::FormulaMethod{:Ametani2009, typeof(earth_impedance),
+        A}) where {A <: Tuple{Val{:mutual}, Val{1}, Val{2}}}
+    return (configurable = (:Γ, :earth, :permeability, :contribution),
+        defaults = (
+            Γ = FormulaMethod(Val(:Ametani2009), Γ),
+            air = FormulaMethod(Val(:lossless), propagation),
+            earth = FormulaMethod(Val(:conductive), propagation),
+            permeability = vacuum_permeability,
+            contribution = nothing))
+end
+
+function computation_options(::FormulaMethod{:Ametani2009, typeof(earth_impedance),
+        A}) where {A <: Tuple{Val{:mutual}, Val{1}, Val{2}}}
+    (;)
+end
+
+function hooks(::FormulaMethod{:Ametani2009, typeof(earth_impedance),
+        A}) where {A <: Tuple{Val{:mutual}, Val{2}, Val{1}}}
+    return (configurable = (:Γ, :earth, :permeability, :contribution),
+        defaults = (
+            Γ = FormulaMethod(Val(:Ametani2009), Γ),
+            air = FormulaMethod(Val(:lossless), propagation),
+            earth = FormulaMethod(Val(:conductive), propagation),
+            permeability = vacuum_permeability,
+            contribution = nothing))
+end
+
+function computation_options(::FormulaMethod{:Ametani2009, typeof(earth_impedance),
+        A}) where {A <: Tuple{Val{:mutual}, Val{2}, Val{1}}}
+    (;)
+end
+
+function validate(binding::FormulaMethod{:Ametani2009, typeof(earth_impedance)},
+        ::EquivalentHomogeneous.Formula{:default})
+    binding
 end
 
 :Ametani2009

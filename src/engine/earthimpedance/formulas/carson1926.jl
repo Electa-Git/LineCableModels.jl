@@ -1,20 +1,7 @@
-function routes(identifier::Val{:Carson1926})
-    return (
-        self = FormulaMethod(identifier, earth_impedance, Val(:self)),
-        mutual = FormulaMethod(identifier, earth_impedance, Val(:mutual)),
-        Γ = FormulaMethod(identifier, propagation_constant)
-    )
-end
-
 function assumptions(::Val{:Carson1926})
-    (
-        air = _lossless,
-        earth = _conductive,
-        permeability = vacuum_permeability
-    )
+    (media = :homogeneous, layers = 2:2, longitudinal = :zero, permittivity = :positive)
 end
 
-propagation(::Val{:Carson1926}) = Val(:zero)
 """
 $(TYPEDSIGNATURES)
 
@@ -36,14 +23,8 @@ Return,” *Bell System Technical Journal*, 5, 539–554, 1926.
 """
 description(::Formula{:Carson1926}) = "Carson homogeneous-earth overhead impedance (1926)"
 
-function propagation_constant(::Val{:Carson1926}, jω, permeability, permittivity)
-    return (Γ = zero(jω), squared = zero(jω))
-end
-
-function (formula::Formula{:Carson1926})(rho, epsilon, mu, jω, Γ, segments = nothing)
-    return _homogeneous_functor(
-        Val(:Carson1926), formula, rho, epsilon, mu, jω, Γ, segments
-    )
+function Γ(::Val{:Carson1926}, jω, materials, layers)
+    return zero(jω)
 end
 
 raw"""
@@ -61,9 +42,6 @@ where ``\gamma_g^2=j\omega\mu_0\sigma_g``. The original Carson
 assumptions neglect earth displacement current, air displacement current in
 the correction, and longitudinal propagation.
 
-This same overhead leaf is reused by pair-complete recipes such as
-`:Pollaczek1926`, `:Ametani2009`, and `:Lucca1994`; the numerical kernel is
-defined only here.
 
 # Reference
 
@@ -71,29 +49,48 @@ J. R. Carson, "Wave propagation in overhead wires with ground return,"
 *Bell System Technical Journal*, vol. 5, pp. 539-554, 1926.
 """
 function earth_impedance(
-        ::Val{:Carson1926}, ::Val{:mutual}, functor, pair
+        ::Val{:Carson1926}, ::Union{Val{:self}, Val{:mutual}}, ::Val{1}, ::Val{1},
+        functor, pair, workspace
 )
-    validate(pair, FormulaMethod(Val(:Carson1926), earth_impedance, Val(:mutual)), functor)
     state = functor.state
     geometry = _geometry(pair)
     gamma_squared = state.gamma_medium_squared[2]
-    integral = _quadrature(state) do lambda
-        attenuation = sqrt(lambda^2 + gamma_squared)
-        exp(-geometry.H * lambda) * cos(geometry.y_ij * lambda) /
-        (lambda + attenuation)
-    end
+    integral = integrate(functor.options.integration.method,
+        SpectralIntegral(
+            Val(:cosine), lambda -> begin
+                attenuation = sqrt(lambda^2 + gamma_squared)
+                one(lambda) /
+                (lambda + attenuation)
+            end,
+            (height = geometry.H, separation = geometry.y_ij),
+            float(nominal(abs(state.gamma[2])))),
+        functor.options.integration.options, workspace)
     πT = one(geometry.H) * π
     return state.jω * state.mu[1] / (2πT) *
            (log(geometry.D_ij / geometry.d_ij) + 2 * integral)
 end
 
-function validate(
-        pair::EarthPair, route::FormulaMethod{:Carson1926, typeof(earth_impedance)}, formula
-)
-    validate(pair)
-    (pair.layers == (1, 1)) || throw(ArgumentError(
-        ":Carson1926 earth impedance requires overhead conductors; pair ($(pair.row), $(pair.column)) has layers $(pair.layers)"))
-    return pair
+Formulation(::LineCableModelsCoaxial, selected::Formula{:Carson1926}) = selected
+
+function hooks(::FormulaMethod{:Carson1926, typeof(earth_impedance),
+        A}) where {A <: Tuple{Union{Val{:self}, Val{:mutual}}, Val{1}, Val{1}}}
+    return (configurable = (:Γ, :earth, :permeability, :contribution),
+        defaults = (
+            Γ = FormulaMethod(Val(:Carson1926), Γ),
+            air = FormulaMethod(Val(:lossless), propagation),
+            earth = FormulaMethod(Val(:conductive), propagation),
+            permeability = vacuum_permeability,
+            contribution = nothing))
+end
+
+function computation_options(::FormulaMethod{:Carson1926, typeof(earth_impedance),
+        A}) where {A <: Tuple{Union{Val{:self}, Val{:mutual}}, Val{1}, Val{1}}}
+    (integration = (method = :quad, options = (;)),)
+end
+
+function validate(binding::FormulaMethod{:Carson1926, typeof(earth_impedance)},
+        ::EquivalentHomogeneous.Formula{:default})
+    binding
 end
 
 :Carson1926

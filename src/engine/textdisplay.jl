@@ -13,6 +13,13 @@ TextDisplay.@showfields EarthPair "EarthPair" pair -> (
     layers = pair.layers
 )
 
+TextDisplay.@showfields SpectralIntegral "SpectralIntegral" integral -> (
+    weight = integral.weight,
+    scale = integral.scale,
+    angle = integral.angle,
+    pole = integral.pole
+)
+
 TextDisplay.@showfields BlueprintConductor "BlueprintConductor" row -> (
     terminal = row.terminal,
     assembly = row.assembly,

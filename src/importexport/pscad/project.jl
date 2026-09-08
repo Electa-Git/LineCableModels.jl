@@ -307,14 +307,6 @@ function _empty_pscad_part(index::Int)
     return parameters
 end
 
-function _pscad_components(design, frequency, ::Nothing, ::Nothing)
-    return DataModel.flatten(design, frequency)
-end
-
-function _pscad_components(design, frequency, ::Nothing, temperature::Real)
-    throw(ArgumentError("PSCAD temperature correction requires an explicit formulation"))
-end
-
 function _pscad_components(design, frequency, formulation, temperature)
     blueprint = Engine.flatten(Engine.LineCableModelsCoaxial(), design)
     T = eltype(blueprint)
@@ -335,13 +327,10 @@ function _pscad_components(design, frequency, formulation, temperature)
         for layer in layers
             source = layer.material
             operating = temperature === nothing ? source.T0 : convert(T, temperature)
-            rho = formulation.options.temperature_correction ?
-                source.rho * (one(T) + source.alpha * (operating - source.T0)) : source.rho
-            physical = Material(source.kind, rho, source.eps_r, source.mu_r,
-                source.T0, source.alpha; tan_delta=source.tan_delta)
             relation = source.kind === :semicon ? formulation.methods.semicon_admittance :
                        formulation.methods.insulation_admittance
-            kappa = constitutive(relation, physical, frequency, operating)
+            kappa = constitutive(relation, source, frequency, operating;
+                temperature_correction=formulation.options.temperature_correction)
             impedance += inv(Engine.layer_admittance(layer.r_in, layer.r_ex, kappa))
         end
         admittance = isempty(layers) ? zero(Complex{T}) : inv(impedance)
@@ -365,7 +354,7 @@ function _pscad_cable_parameters(
         connections,
         index::Int,
         base_frequency;
-        formulation = nothing,
+        formulation = Engine.Formulation(),
         temperature = nothing
 )
     # PSCAD owns this explicit homogenization choice. Its Cable_Coax record
@@ -420,7 +409,7 @@ function _pscad_cable_parameters(
 end
 
 function _pscad_project(system::LineCableSystem, earth::EarthModel, base_frequency;
-        formulation = nothing, temperature = nothing)
+        formulation = Engine.Formulation(), temperature = nothing)
     document = XMLDocument()
     project = ElementNode("project")
     setroot!(document, project)

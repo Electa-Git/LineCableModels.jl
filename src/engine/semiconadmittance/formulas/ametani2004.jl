@@ -1,4 +1,3 @@
-assumptions(::Val{:Ametani2004}) = (;)
 
 """
 $(TYPEDSIGNATURES)
@@ -56,7 +55,9 @@ the semiconducting screen with adjacent dielectric layers radially in series.
   polarization loss only and excludes conduction specified by `rho`.
 - `frequency`: Evaluation frequency \\[Hz\\].
 - `temperature`: Operating temperature \\[°C\\].
-- `values`: Formula assumptions.
+- `values`: Explicit physical/model parameters.
+- `options`: Normalized numerical sections for this contribution.
+- `workspace`: Optional execution resources.
 
 # Returns
 
@@ -73,7 +74,7 @@ parameter is a material input, not an additional empirical law from that paper.
         material::Material{T},
         frequency::T,
         temperature::T,
-        values::NamedTuple
+        values::NamedTuple, options::NamedTuple, workspace
 ) where {T <: Real}
     ε₀ = one(T) * 88541878128 * (one(T) * 10)^(-22)
     ω = 2 * (one(T) * π) * frequency
@@ -81,5 +82,7 @@ parameter is a material input, not an additional empirical law from that paper.
     return conductivity(material.rho) + imag(displacement) * material.tan_delta +
            displacement
 end
+
+computation_options(::FormulaMethod{:Ametani2004, typeof(semicon_material)}) = (;)
 
 :Ametani2004

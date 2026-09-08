@@ -3,7 +3,7 @@ if lowercase(get(ENV, "LINECABLEMODELS_UPDATE_PLOT_REFERENCES", "false")) == "tr
     using CairoMakie
     using Measurements: measurement
     using LineCableModels.DataModel: LineCableSystem, Pose2
-    using LineCableModels.EarthProps: EarthModel
+    using LineCableModels.Earth: EarthModel
 
     include(joinpath(@__DIR__, "..", "support", "golden_fixtures.jl"))
     using .GoldenFixtures: custom_layout_plot

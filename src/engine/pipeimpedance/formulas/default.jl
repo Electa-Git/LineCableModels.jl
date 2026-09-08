@@ -1,5 +1,3 @@
-assumptions(::Val{:default}) = (;)
-
 """
 $(TYPEDSIGNATURES)
 
@@ -15,7 +13,9 @@ or numerical approximation is introduced by this selector.
 """
 description(::Formula{:default}) = "Default backend pipe-type treatment"
 
-Formulation(::LineCableModelsCoaxial, ::Val{:default}, ::Formula{:default}, ::Val{:coaxial}) = nothing
+function Formulation(::LineCableModelsCoaxial, ::Val{:default}, ::Formula{:default}, ::Val{:coaxial})
+    nothing
+end
 
 function Formulation(::LineCableModelsCoaxial, ::Val{:default}, ::Formula{:default}, ::Val{:pipe})
     throw(ArgumentError(

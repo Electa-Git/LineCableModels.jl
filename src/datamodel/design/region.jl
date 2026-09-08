@@ -20,8 +20,8 @@ struct Region{P, M} <: AbstractCablePart
         primitive isa Union{AbstractPrimitive, Shell} || throw(ArgumentError(
             "region geometry must be an intrinsic primitive or contextual Shell"
         ))
-        material isa Material ||
-            throw(ArgumentError("region material must resolve to Material"))
+        material isa AbstractMaterial ||
+            throw(ArgumentError("region material must resolve to AbstractMaterial"))
         return new{P, M}(tag, primitive, material)
     end
 end

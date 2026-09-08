@@ -30,6 +30,7 @@ function cable_impedance!(
     fill!(destination, zero(Complex{T}))
     @inbounds for conductors in input.assemblies
         count = length(conductors)
+        inside = zero(eltype(destination))
         for position in count:-1:1
             index = conductors[position]
             interaction = methods.internal_impedance(
@@ -40,19 +41,7 @@ function cable_impedance!(
                 s
             )
             outside = interaction(Val(:outer))
-            inside = if position < count
-                next_index = conductors[position + 1]
-                methods.internal_impedance(
-                    input.r_in[next_index],
-                    input.r_ext[next_index],
-                    rho_cond[next_index],
-                    input.mu_cond[next_index],
-                    s
-                )(Val(:inner))
-            else
-                zero(outside)
-            end
-            mutual = interaction(Val(:mutual))
+            mutual = position > 1 ? interaction(Val(:mutual)) : zero(outside)
             insulation = methods.insulation_impedance(
                 input.r_ext[index],
                 input.r_ins_ext[index],
@@ -62,8 +51,8 @@ function cable_impedance!(
             loop = outside + inside + insulation
             if position > 1
                 for row in 1:(position - 1), column in 1:(position - 1)
-                    destination[conductors[row], conductors[column]] +=
-                        loop - 2 * mutual
+
+                    destination[conductors[row], conductors[column]] += loop - 2 * mutual
                 end
                 for row in 1:(position - 1)
                     destination[index, conductors[row]] += loop - mutual
@@ -71,6 +60,9 @@ function cable_impedance!(
                 end
             end
             destination[index, index] += loop
+            # Reuse this wall's prepared state when its inner surface is needed
+            # by the next contained conductor.
+            position > 1 && (inside = interaction(Val(:inner)))
         end
     end
     return destination
@@ -89,8 +81,7 @@ function impedance!(
     pairs = stratified ?
             workspace.invariants.earth_pairs : workspace.invariants.homogeneous_pairs
     earth_matrix = workspace.buffers.earth_matrix
-    earth_media = stratified ? workspace.buffers.earth_layers :
-                  workspace.buffers.earth_media
+    earth_media = workspace.buffers.earth_materials.earth_impedance
     capture = workspace.capture
     s = input.jω[frequency]
     cable_impedance!(
@@ -103,10 +94,10 @@ function impedance!(
     _stash!(_capture_target(capture, :Zin), frequency, destination)
 
     earth!(
-        earth_matrix, pairs, input, earth_media, frequency,
+        earth_matrix, workspace.invariants.earth_bindings.earth_impedance, earth_media, s,
         formulation.methods.earth_impedance,
         _gamma(input.Γ, frequency),
-        workspace.buffers.earth_impedance_segments,
+        workspace.buffers.earth_numerical.earth_impedance,
         stratified ? earth_media.thickness : nothing
     )
     _stash!(_capture_target(capture, :Zg), frequency, earth_matrix)
@@ -125,7 +116,7 @@ function impedance!(
             for row in indices[left], column in indices[right]
 
                 destination[row, column] += mutual
-                destination[column, row] += mutual
+                destination[column, row] += earth_matrix[right, left]
             end
         end
     end

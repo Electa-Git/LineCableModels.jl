@@ -9,16 +9,16 @@ $(IMPORTS)
 
 """
 module SemiconAdmittance
+import ...Grammar: computation_options
 
-export Formula, formula_id, assumptions, formulas
+export Formula, formula_id, formulas
 
 #! explicit-imports: off
 using DocStringExtensions: IMPORTS, TYPEDEF, TYPEDFIELDS, TYPEDSIGNATURES
 #! explicit-imports: on
 import ..Engine: SemiconAdmittanceFormulation, formula_id
-import ...LineCableModels: FormulaMethod
+import ...LineCableModels: FormulaDefinition, FormulaMethod
 using ...Materials: Material
-import ...LineCableModels: constitutive
 #! explicit-imports: off
 import ..Engine: description, conductivity
 #! explicit-imports: on

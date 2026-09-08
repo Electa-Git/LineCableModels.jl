@@ -55,7 +55,9 @@ end
 
 function compare_reference(reference)
     actual = @inferred compute(reference.problem, reference.formulation)
-    return compare(reference.parameters, actual)
+    # Scientific comparison's negligible-signal policy is not CI acceptance.
+    # Only the explicitly reviewed manifest tolerances may accept a difference.
+    return compare(reference.parameters, actual; atol=0.0)
 end
 
 function check(manifest::AbstractString=joinpath(@__DIR__, "approved.toml");

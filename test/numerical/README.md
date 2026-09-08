@@ -5,7 +5,8 @@ It does not run Gauntlet, PSCAD, GetDP, a case importer or a sampler. It checks
 the current coaxial engine against explicitly reviewed, pinned Gauntlet outputs.
 The existing independent physics fixtures remain in `test/fixtures/reference`.
 
-New campaign artifacts carry a serialized scalar nominal problem and the full
+New deterministic campaign artifacts carry the serialized scalar problem actually
+computed, including the normalized frequency samples, and the full
 physical formulation declaration. Replay uses those stored inputs through the
 package's existing deserializer and `Formulation` constructor, not today's case
 catalogue. Frequency samples, matrix ordering, basis and reduction options are
@@ -27,6 +28,9 @@ assumptions and numerical results:
    entry must satisfy its absolute **or** relative tolerance. `Z_atol` is in
    Ω/m, `Y_atol` in S/m, and `rtol` is a fraction, not percent. No tolerance is
    inferred from the candidate result or from another backend's RMS difference.
+   Replay passes `atol=0` to `compare`: the scientific numerical-zero policy
+   must not hide drift from a reviewed CI reference. Only these explicit
+   manifest tolerances govern acceptance.
    The command reports the absolute and relative errors for every matrix entry,
    identifying a failing row and column rather than only a matrix-wide maximum.
 4. Run `julia --project=test/gauntlet --startup-file=no test/numerical/runtests.jl`.

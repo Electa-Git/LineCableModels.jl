@@ -29,7 +29,7 @@
         frequencies = [50.0]
     )
     formulation_space=Formulation(
-        earth_impedance = Grid((:Pollaczek1926, :Papadopoulos2010)),
+        earth_impedance = Grid((:Pollaczek1926, :Saad1996)),
     )
     problems=collect(problem_space)
     formulations=collect(formulation_space)
@@ -46,7 +46,7 @@
     @test formula_id.(getproperty.(
         getproperty.(run.axes.formulations, :methods),
         :earth_impedance
-    )) == [:Pollaczek1926, :Papadopoulos2010]
+    )) == [:Pollaczek1926, :Saad1996]
     for index in eachindex(expected)
         @test same_parameters(run[index], expected[index])
     end
@@ -63,23 +63,23 @@
 
     direct=compute(first(problems), formulations)
     @test length(direct) == length(formulations)
-    completions = Tuple[]
-    on_result = (problem, index, result) -> push!(completions, (problem, index, result))
-    observed = compute(first(problems), formulations; options=(; on_result))
+    completions=Tuple[]
+    on_result=(problem, index, result)->push!(completions, (problem, index, result))
+    observed=compute(first(problems), formulations; options = (; on_result))
     @test getindex.(completions, 2) == collect(eachindex(formulations))
     @test all(item -> item[1] === first(problems), completions)
     @test all(index -> same_parameters(completions[index][3], observed[index]), eachindex(observed))
     empty!(completions)
-    compute(first(problems), first(formulations); options=(; on_result))
+    compute(first(problems), first(formulations); options = (; on_result))
     @test length(completions) == 1
     @test completions[1][2] == 1
     empty!(completions)
-    failure = ErrorException("checkpoint write failed")
-    stop_after_first = (problem, index, result) -> begin
+    failure=ErrorException("checkpoint write failed")
+    stop_after_first=(problem, index, result)->begin
         on_result(problem, index, result)
         throw(failure)
     end
-    @test_throws failure compute(first(problems), formulations; options=(on_result=stop_after_first,))
+    @test_throws failure compute(first(problems), formulations; options = (on_result = stop_after_first,))
     @test length(completions) == 1
     @test same_parameters(completions[1][3], direct[1])
     for formulation_index in eachindex(formulations)
@@ -102,7 +102,7 @@
     phase=first(expected)
     modal_problem=ModalTransformationProblem(phase)
     modal_space=ModalTransformationFormulation(
-        Grid((:Fortescue, :Chrysochos2014)),
+        Grid((:default, :default)),
     )
     modal_formulations=collect(modal_space)
     modal_batch=compute(modal_problem, modal_formulations)
@@ -145,8 +145,8 @@ end
     function EN.flatten(engine::LineCableModelsCoaxial,
             design::CableDesign{T, R, G, NamedTuple{(:counter,), Tuple{LoweringCounter}}},
             ::Type{S}) where {
-            T<:Real, R<:AbstractCablePart,
-            G<:LineCableModels.DataModel.CableGeometry, S<:Real
+            T <: Real, R <: AbstractCablePart,
+            G <: LineCableModels.DataModel.CableGeometry, S <: Real
     }
         design.nominal_data.counter.calls[]+=1
         return invoke(EN.flatten,
@@ -154,17 +154,17 @@ end
     end
 
     counter=LoweringCounter(Ref(0))
-    copper=Material(kind=:conductor, rho=1.7241e-8)
-    dielectric=Material(kind=:insulator, rho=1e14, eps_r=2.3)
+    copper=Material(kind = :conductor, rho = 1.7241e-8)
+    dielectric=Material(kind = :insulator, rho = 1e14, eps_r = 2.3)
     design=build(CableDesign, "counted-lowering",
-        terminal(:core, core(copper; r=5e-3), insulation(dielectric; t=2e-3)),
-        terminal(:sheath, sheath(copper; t=0.5e-3));
-        nominal_data=(; counter))
+        terminal(:core, core(copper; r = 5e-3), insulation(dielectric; t = 2e-3)),
+        terminal(:sheath, sheath(copper; t = 0.5e-3));
+        nominal_data = (; counter))
     system=build(LineCableSystem, design, Pose2(0.0, -1.0);
-        connections=(core=1, sheath=0))
-    problems=LineParametersProblem(system, homogeneous(rho=Grid((10.0, 100.0)));
-        frequencies=[1.0, 50.0, 1000.0])
-    formulations=Formulation(earth_impedance=Grid((:Pollaczek1926, :Papadopoulos2010)))
+        connections = (core = 1, sheath = 0))
+    problems=LineParametersProblem(system, homogeneous(rho = Grid((10.0, 100.0)));
+        frequencies = [1.0, 50.0, 1000.0])
+    formulations=Formulation(earth_impedance = Grid((:Pollaczek1926, :Saad1996)))
     @test counter.calls[] == 0
 
     phase=compute(ParametricProblem(problems), Combinatorial(formulations))
@@ -180,9 +180,9 @@ end
     @test scalar.Y.values == first(phase).Y.values
 
     counter.calls[]=0
-    constants_problem=CableConstantsProblem(design; frequency=50.0)
+    constants_problem=CableConstantsProblem(design; frequency = 50.0)
     constants_formulations=collect(CableConstantsFormulation(
-        insulation_admittance=Grid((:Ametani2004, :default))))
+        insulation_admittance = Grid((:Ametani2004, :default))))
     constants=compute(constants_problem, constants_formulations)
     @test length(constants) == 2
     @test counter.calls[] == 1
@@ -190,7 +190,7 @@ end
     counter.calls[]=0
     modal_problems=Gridspace{ModalTransformationProblem}(phase)
     modal_formulations=ModalTransformationFormulation(
-        Grid((:Fortescue, :Chrysochos2014)))
+        Grid((:default, :default)))
     modal=compute(ParametricProblem(modal_problems), Combinatorial(modal_formulations))
     @test length(modal) == 8
     @test all(parameters -> domain(parameters) === ModalDomain, modal)

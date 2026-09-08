@@ -45,8 +45,9 @@ identifiers are the same as for `Formulation`; Gauntlet passes them to its norma
 This requests two paired selections. `--combine product` instead requests all
 four combinations. Singleton axes broadcast in zip mode, following the public
 API. All nine formula slots are admitted, including internal/insulation/earth
-impedance, insulation/semicon/earth admittance, FD soil (`earth_properties`), EHEM
-(`equivalent_earth`) and `pipe_impedance`. Adding an identifier to an existing
+impedance, insulation/semicon/earth admittance, FrequencyDependent soil (`earth_properties`), EquivalentHomogeneous
+and `pipe_impedance`. Equivalent-earth reductions are nested in their consuming
+external formula definitions. Adding an identifier to an existing
 owner does not require adding it to a CLI allowlist. Explicit selections are
 not silently skipped: an unsupported backend/topology fails with its own error.
 In particular, selecting pipe formulas does not implement the coaxial pipe
@@ -89,7 +90,10 @@ New moment artifacts are single-calculation records; paired UQ snapshots
 remain readable through `read_moments`. Neither format implies CI approval.
 The documentation summary includes only deterministic default selections.
 
-Each case keeps its frequency range, raised to 0.1 Hz when necessary, with 101
+Use `--frequency-range 0.1,1e6` to run every case on the same 101-point
+logarithmic frequency grid. The bounds are recorded in the campaign manifest
+and retained by `resume`; original case declarations remain unchanged.
+Without this option, each case keeps its frequency range, raised to 0.1 Hz when necessary, with 101
 logarithmic samples. Campaigns do not run FEM Monte Carlo. FEM uses
 `LINECABLEMODELS_GETDP` or `getdp` on PATH; PSCAD uses the existing `local.jl`
 configuration (or `LINECABLEMODELS_GAUNTLET_CONFIG`).
@@ -183,15 +187,22 @@ Gauntlet has no standalone report command or HTML/plot generator. Its only repor
 is the compact defaults comparison in the documentation:
 
 ```bash
-LINECABLEMODELS_GAUNTLET_RESULTS=/path/to/campaign \
+lcm gauntlet compare --definition /path/to/benchmarks.toml --output /path/to/comparisons
+LINECABLEMODELS_GAUNTLET_RESULTS=/path/to/comparisons \
   julia --project=docs docs/make.jl
 ```
 
 Use the platform path-list separator (`:` on Unix, `;` on Windows) for multiple
-campaign directories. The page reads completed phase results with all formula
-slots explicitly recorded as `:default`, verifies checksums and coordinates, and
-compares those defaults between backends using the existing element-wise RMS API.
-Full-catalogue and UQ calculations remain persisted but do not expand the page.
+comparison directories. The page reads already calculated benchmark errors,
+verifies record/operand checksums, and displays the explicit reference and
+candidate. It never infers pairings from backend names. Select only the benchmark
+records intended for publication; collecting a broad campaign does not publish it.
+The deterministic summary has one row per benchmark, with full-band Z/Y errors
+in adjacent columns and both RMS normalizations side by side. Frequency slices
+are separate sections with the same layout. Conductance G is opt-in for loss
+analysis through `compare(reference, candidate, G; ...)`, not a default summary
+column. Existing extra comparisons remain stored. UQ means and standard
+deviations have their own sections, separate from deterministic comparisons.
 The summary does not copy numerical artifacts, generate per-case HTML pages,
 embed plots or dump input objects. It never runs missing calculations or selects
 the newest run implicitly.
@@ -329,6 +340,63 @@ reference and candidate `BenchmarkCalculation`s, comparison policy, tolerances,
 and execution options. `run_benchmark` dispatches through the calculations and
 comparison policy, so the same runner can compare UQ techniques today and two
 Engine formulas or option sets later.
+
+### Compare completed calculations without rerunning them
+
+`benchmark_definition`, `BenchmarkCalculation`, `LineParametersPolicy` and
+`UQMomentPolicy` are shared by live and saved calculations. An external owner is
+valid on either side. The saved-file CLI accepts explicit scalar bindings; each
+Gridspace selection retains its own saved identity. No catalogue or solver is
+loaded by `compare`.
+
+```toml
+schema_version = 1
+collection = "manual"
+
+[comparison]
+kind = "line_parameters"
+quantities = ["Z", "Y"]
+bands = ["all", "dc", "harmonic", "narrow", "wide"]
+normalizations = ["reference_rms", "pointwise"]
+fundamental = 50.0
+harmonics = 50
+# Optional quantity-specific zero tolerances, in the stored result basis:
+# [comparison.atol]
+# G = 1e-12
+# C = 1e-16
+
+[[benchmarks]]
+id = "trefoil_default_fem_reference"
+case = "cable_18kv_1000mm2_trefoil"
+description = "18 kV trefoil"
+reference = {path = "fem/0001.jld2", sha256 = "<64 hex digits>", owner = "external"}
+candidate = {path = "coaxial/0001.jld2", sha256 = "<64 hex digits>", owner = "engine"}
+```
+
+Paths are relative to the definition file (absolute paths are also accepted).
+Each benchmark may override the complete `comparison` table. For saved UQ
+moments, use `kind = "uq_moments"`: R/L/C/G means and standard deviations remain
+separate and retain the existing moment comparison semantics. No moments are
+mistaken for deterministic Z/Y. Use `owner = "uq"` for those calculations.
+
+`compare_saved` uses the existing `compare`/`RMSError` API. For deterministic
+quantities, `:reference_rms` means RMS difference divided by reference RMS;
+`:pointwise` means RMS of sample-wise relative differences. Both are stored as
+fractions, displayed as percentages. Exact 0/0 contributes zero; nonzero/0 is
+infinite. The configured numerical-zero policy applies before either metric,
+without modifying arrays or dropping samples. Every maximum identifies its
+matrix entry. Full-band errors remain primary; sub-bands use stored samples.
+
+Records retain the ordered checksummed operands, formula selections and
+implementation records, input/terminal/basis/frequency identities, comparison
+settings, element-wise errors, and timing scope. Missing inputs never trigger a
+fallback reference. A source mismatch is an error, not permission to interpolate
+or relabel. Existing output records are not overwritten: choose a new directory
+when changing comparison settings. Publication and CI approval remain separate.
+
+Campaign `elapsed_at_completion_seconds` measures time since the pending batch
+started. It is not an independent cold call or warmed median. These historical
+records cannot support a per-selection speedup claim; the documentation says so.
 
 The seven migrated PSCAD benchmarks retain their external formulations,
 mappings, and numerical gates. They use the legacy external-reference runner

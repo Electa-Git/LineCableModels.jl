@@ -21,10 +21,9 @@ it opens the project.
 - `base_freq`: Base frequency in hertz.
 - `file_name`: Destination `.pscx` file. The system identifier is prepended to
   an explicitly supplied basename.
-- `formulation=nothing`: Without a computation selection, export the supplied
-  material losses. With a line-parameter or cable-constant formulation, evaluate
-  its registered insulation and semicon relations before radial equivalencing.
-  This includes explicitly lossless `:default` selections.
+- `formulation`: Selected line-parameter or cable-constant formulation.
+  The default selects lossless dielectric relations. Request `:Ametani2004`
+  explicitly to include the supplied material losses.
 - `temperature=nothing`: Optional operating temperature \\[°C\\]. Correction is
   applied here during export, not in geometric flattening; `nothing` retains
   the material reference temperatures.
@@ -44,8 +43,8 @@ function export_data(
         system::LineCableSystem,
         earth::EarthModel;
         base_freq::Real = 50.0,
-        formulation::Union{Nothing, Engine.LineParametersFormulation,
-            Engine.CableConstantsFormulation} = nothing,
+        formulation::Union{Engine.LineParametersFormulation,
+            Engine.CableConstantsFormulation} = Engine.Formulation(),
         temperature::Union{Nothing, Real} = nothing,
         file_name::Union{AbstractString, Nothing} = nothing
 )

@@ -52,7 +52,7 @@ import ..Units
 import ..TextDisplay
 import ..LineCableModels: add!, build, homogenize, validate, nominal
 import ..LineCableModels: parameterize
-using ..Materials: Material
+using ..Materials: AbstractMaterial, Material, RadialDielectric
 import GeometryBasics
 using GeometryBasics: Point2f
 import Base: angle

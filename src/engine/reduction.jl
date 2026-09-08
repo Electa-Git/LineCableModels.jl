@@ -279,7 +279,6 @@ function _structural_reduction(
             )
         end
     end
-    reciprocity!(transformed)
     options.ideal_transposition && ideal_transposition!(transformed)
     return transformed
 end

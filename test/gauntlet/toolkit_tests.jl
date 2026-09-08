@@ -164,7 +164,7 @@
         @test persisted.backend === :fixture
         @test persisted.schema_version == SNAPSHOT_SCHEMA_VERSION
         records=GauntletSupport.read_collection(
-            collection_stage(:fixture; artifact_root); collection=:fixture)
+            collection_stage(:fixture; artifact_root); collection = :fixture)
         @test only(records).digest == persisted.snapshot_sha256
         @test only(records).snapshot["reference_execution"].elapsed_seconds == 1.25
         collections=finalize_staging(; artifact_root)
@@ -273,7 +273,7 @@
         end
         @test_throws ArgumentError load_snapshot(case; path = snapshot)
         @test_throws ArgumentError GauntletSupport.read_collection(
-            collection_stage(:fixture; artifact_root); collection=:fixture)
+            collection_stage(:fixture; artifact_root); collection = :fixture)
 
         @test_throws ArgumentError prepare_staging(; artifact_root)
         prepare_staging(; artifact_root, force = true)
@@ -411,7 +411,7 @@ end
     )
     modal=LineCableModels.compute(
         ModalTransformationProblem(phase),
-        ModalTransformationFormulation(:Fortescue)
+        ModalTransformationFormulation(:default)
     )
     error=try
         validate_structure(valid, modal)
@@ -579,9 +579,10 @@ end
         if isempty(model.definition.assets)
             @test model.source_sha256 == bytes2hex(SHA.sha256(read(index[id])))
         else
-            sources=(index[id], sort!(joinpath.(dirname(index[id]), model.definition.assets))...)
-            payload=join(relpath(path, GauntletSupport.CASE_ROOT) * '\0' * read(path, String) * '\0'
-                         for path in sources)
+            sources=(
+                index[id], sort!(joinpath.(dirname(index[id]), model.definition.assets))...)
+            payload=join(relpath(path, GauntletSupport.CASE_ROOT)*'\0'*read(path, String)*'\0'
+            for path in sources)
             @test model.source_sha256 == bytes2hex(SHA.sha256(payload))
         end
         selected_frequencies=reference_grid(model.nominal_problem.frequencies)
@@ -606,9 +607,9 @@ end
         groups=nested_groups(design.root)
         component_wire_counts=Tuple(
             begin
-                bounded=findfirst(group->
-                    group.name===terminal&&group.boundary!==nothing, groups)
-                if bounded === nothing
+                bounded=findfirst(
+                    group->group.name===terminal&&group.boundary!==nothing, groups)
+                if bounded===nothing
                     Tuple(group.pattern.n
                     for group in groups
                     if group.name===terminal&&group.pattern isa Ring)
@@ -642,33 +643,36 @@ end
         @test basename(index[id]) == string(id, ".jl")
     end
 
-    for (id, expected_radius) in (
+    for (id,
+        expected_radius) in (
         (:cable_220kv_eaxecew_1x2500_252_trefoil, 0.0631),
         (:cable_132kv_cigre_tb880_case0_630cu_trefoil, 0.03775)
     )
         model=load_case(id)
         design=first(model.nominal_problem.system.designs)
         @test design.terminal_order == (id === :cable_220kv_eaxecew_1x2500_252_trefoil ?
-                                       [:core, :sheath, :foil] : [:core, :sheath])
+               [:core, :sheath, :foil] : [:core, :sheath])
         @test outer_radius(design) ≈ expected_radius
         @test all(==(design), model.nominal_problem.system.designs)
         positions=model.nominal_problem.system.positions
         separations=[hypot(positions[i].x-positions[j].x, positions[i].y-positions[j].y)
-                     for i in 1:3 for j in 1:(i-1)]
+                     for i in 1:3 for j in 1:(i - 1)]
         @test all(distance->isapprox(distance, 2.2expected_radius), separations)
         semicons=filter(r->r.source.material.kind===:semicon, design.geometry.regions)
         @test length(semicons) == 2
         @test all(r->r.source.material.rho==0.06&&r.source.material.eps_r==1000.0, semicons)
         xlpe=only(filter(r->r.source.tag in (:xlpe, :xlpe_insulation), design.geometry.regions))
         @test xlpe.source.material.tan_delta == 0.001
-        if id === :cable_220kv_eaxecew_1x2500_252_trefoil
+        if id===:cable_220kv_eaxecew_1x2500_252_trefoil
             core=filter(r->r.terminal===:core, design.geometry.regions)
             @test length(core) == 1 + 6 * 61
-            @test count(r->r.source.tag===:copper_screen_wires, design.geometry.regions) == 65
-            @test only(filter(r->r.source.tag===:aluminium_foil, design.geometry.regions)).terminal === :foil
+            @test count(r->r.source.tag===:copper_screen_wires, design.geometry.regions) ==
+                  65
+            @test only(filter(r->r.source.tag===:aluminium_foil, design.geometry.regions)).terminal ===
+                  :foil
             strands=filter(r->r.primitive isa LineCableModels.Polygon, core)
             @test length(strands) == 6 * 61
-            @test all(r->isapprox(area(r.primitive), pi*0.001475^2; rtol=5e-6), strands)
+            @test all(r->isapprox(area(r.primitive), pi*0.001475^2; rtol = 5e-6), strands)
         else
             core=only(filter(r->r.terminal===:core, design.geometry.regions))
             @test core.primitive isa Disk
@@ -681,10 +685,11 @@ end
     @test outer_radius(na2xs2y_design) ≈ 0.028975
     @test na2xs2y.temperature == 20.0
     @test na2xs2y.system.line_length == 1000.0
-    @test na2xs2y.frequencies == collect(10.0 .^ range(-1, stop=6, length=101))
+    @test na2xs2y.frequencies == collect(10.0 .^ range(-1, stop = 6, length = 101))
     @test na2xs2y.system.connection_order == collect(1:6)
     @test all(==(na2xs2y_design), na2xs2y.system.designs)
-    for i in 1:3, j in 1:(i-1)
+    for i in 1:3, j in 1:(i - 1)
+
         a, b=na2xs2y.system.positions[i], na2xs2y.system.positions[j]
         @test hypot(a.x-b.x, a.y-b.y) ≈ 2outer_radius(na2xs2y_design)
     end
@@ -707,7 +712,7 @@ end
     end
 
     insulated=load_case(:two_insulated_wires).nominal_problem
-    @test insulated.frequencies == collect(10.0 .^ range(0, stop=6, length=101))
+    @test insulated.frequencies == collect(10.0 .^ range(0, stop = 6, length = 101))
     @test insulated.system.positions == two_wire_case.nominal_problem.system.positions
     for design in insulated.system.designs
         @test length(design.geometry.regions) == 2
@@ -726,8 +731,9 @@ end
     @test equivalent.temperature == complete.temperature
     @test LineCableModels.ImportExport.serialize_value(equivalent.earth_props) ==
           LineCableModels.ImportExport.serialize_value(complete.earth_props)
-    grid=collect(10.0 .^ range(-1, stop=6, length=101))
-    @test equivalent.frequencies == complete.frequencies == two_wire_case.nominal_problem.frequencies == grid
+    grid=collect(10.0 .^ range(-1, stop = 6, length = 101))
+    @test equivalent.frequencies == complete.frequencies ==
+          two_wire_case.nominal_problem.frequencies == grid
     for (original, homogenized) in zip(complete.system.designs, equivalent.system.designs)
         @test original.terminal_order == homogenized.terminal_order
         @test length(original.geometry.regions) > length(homogenized.geometry.regions)
@@ -745,7 +751,7 @@ end
         for (root, _, files) in walkdir(benchmark_root)
         ))
     ))
-    contains_for(value) = value isa Expr&&
+    contains_for(value)=value isa Expr&&
     (value.head===:for||any(contains_for, value.args))
     benchmark_ids=Symbol[]
     benchmark_cases=Dict(:pscad=>Symbol[], :uq=>Symbol[])
@@ -1136,7 +1142,7 @@ end
             options = (kron_reduction = false, reduce_bundle = false)
         )
         papadopoulos=Formulation(
-            earth_impedance = :Papadopoulos2010,
+            earth_impedance = :Saad1996,
             earth_admittance = :IdealGround,
             insulation_admittance = formula(:default),
             options = (kron_reduction = false, reduce_bundle = false)
@@ -1185,39 +1191,43 @@ end
     using .GauntletSupport
 
     harness=GauntletSupport.PSCADBenchmarks
-    overhead=Formulation(:pscad; earth_impedance = :DeriSemlyen1981)
+    overhead=Formulation(:pscad; earth_impedance = :Gary1976)
     underground=Formulation(:pscad; earth_impedance = :WedepohlWilcox1973)
     @test overhead isa harness.PSCADFormulation
     @test underground isa harness.PSCADFormulation
     @test hasmethod(compute, Tuple{LineParametersProblem, harness.PSCADFormulation})
-    @test hasmethod(benchmark_metadata, Tuple{LineParametersProblem, harness.PSCADFormulation, LineParameters})
-    @test harness.pscad_setting(Val(:DeriSemlyen1981), Val(:overhead)) ==
-          (field=:EarthForm2, value=0, readback="DERISEMLYEN")
+    @test hasmethod(benchmark_metadata, Tuple{
+        LineParametersProblem, harness.PSCADFormulation, LineParameters})
+    @test harness.pscad_setting(Val(:Gary1976), Val(:overhead)) ==
+          (field = :EarthForm2, value = 0, readback = "DERISEMLYEN")
     @test harness.pscad_setting(Val(:WedepohlWilcox1973), Val(:underground)) ==
-          (field=:EarthForm, value=0, readback="WEDEPOHL")
-    @test EarthImpedance.formula_id(overhead.methods.earth_impedance) === :DeriSemlyen1981
-    @test EarthImpedance.formula_id(underground.methods.earth_impedance) === :WedepohlWilcox1973
+          (field = :EarthForm, value = 0, readback = "WEDEPOHL")
+    @test EarthImpedance.formula_id(overhead.methods.earth_impedance) === :Gary1976
+    @test EarthImpedance.formula_id(underground.methods.earth_impedance) ===
+          :WedepohlWilcox1973
     @test LineCableModels.formula_id(overhead.methods.earth_admittance) === :default
     @test LineCableModels.formula_id(overhead.methods.insulation_admittance) === :default
     @test occursin("lossless", lowercase(description(overhead.methods.insulation_admittance)))
     @test occursin("PSCAD native earth admittance", harness._formulation_label(overhead))
-    @test overhead.options == (reduce_bundle=false, kron_reduction=false,
-        ideal_transposition=false, temperature_correction=true)
-    @test_throws ArgumentError Formulation(:pscad; options=(output_stem="invalid",))
+    @test overhead.options == (reduce_bundle = false, kron_reduction = false,
+        ideal_transposition = false, temperature_correction = true)
+    @test_throws ArgumentError Formulation(:pscad; options = (output_stem = "invalid",))
     @test !isdefined(harness, :NativeEarthAdmittance)
     @test !isdefined(harness, :NativeInsulationAdmittance)
     @test !isdefined(harness, :DirectNumericalIntegration)
 
-    identifiers=(:DeriSemlyen1981, :DirectNumericalIntegration, :WedepohlWilcox1973,
+    identifiers=(:Gary1976, :Carson1926, :Pollaczek1926, :WedepohlWilcox1973,
         :Saad1996, :Ametani2009, :Lucca1994)
-    @test all(id -> Formulation(:pscad; earth_impedance=LineCableModels.formula(id)) isa
-        harness.PSCADFormulation, identifiers)
+    @test all(
+        id -> Formulation(:pscad; earth_impedance = LineCableModels.formula(id)) isa
+              harness.PSCADFormulation,
+        identifiers)
     @test harness.pscad_setting(Val(:Saad1996), Val(:underground)).field === :EarthForm
     @test harness.pscad_setting(Val(:Lucca1994), Val(:mixed)).readback == "LUCCA"
-    @test harness.pscad_setting(Val(:DirectNumericalIntegration), Val(:overhead)).value == 2
-    @test harness.pscad_setting(Val(:DirectNumericalIntegration), Val(:underground)).value == 2
-    @test_throws ArgumentError harness.pscad_setting(Val(:Pollaczek1926), Val(:underground))
-    @test_throws ArgumentError harness.pscad_setting(Val(:DirectNumericalIntegration), Val(:mixed))
+    @test harness.pscad_setting(Val(:Carson1926), Val(:overhead)).value == 2
+    @test harness.pscad_setting(Val(:Pollaczek1926), Val(:underground)).value == 2
+    @test_throws MethodError harness.pscad_setting(Val(:Pollaczek1926), Val(:overhead))
+    @test_throws MethodError harness.pscad_setting(Val(:DirectNumericalIntegration), Val(:mixed))
 
     mktempdir() do directory
         frequency=[1.0, 10.0]
@@ -1348,7 +1358,7 @@ end
         "case",
         overhead,
         [1.0, 3.0, 10.0];
-        setting = harness.pscad_setting(Val(:DeriSemlyen1981), Val(:overhead)),
+        setting = harness.pscad_setting(Val(:Gary1976), Val(:overhead)),
         output_stem = "gauntlet",
         verbosity = 2
     )
@@ -1370,7 +1380,7 @@ end
         "generated",
         overhead,
         frequency_probe;
-        setting = harness.pscad_setting(Val(:DeriSemlyen1981), Val(:overhead)),
+        setting = harness.pscad_setting(Val(:Gary1976), Val(:overhead)),
         output_stem = "gauntlet",
         verbosity = 2
     )
@@ -1575,7 +1585,7 @@ end
     @test timing.environment.blas_threads == GauntletSupport.BLAS.get_num_threads()
 
     tolerance=(median_time_ratio = 1.2, bytes_ratio = 1.05, allocations_ratio = 1.05)
-    diagnostic = performance_comparison(timing, timing, tolerance)
+    diagnostic=performance_comparison(timing, timing, tolerance)
     @test diagnostic.comparable == !gauntlet_instrumented()
     @test diagnostic.passes === (gauntlet_instrumented() ? nothing : true)
 
@@ -1588,32 +1598,36 @@ end
         bytes = 1000,
         allocations = 100
     )
-    current=(; accepted..., median_seconds=1.1, bytes=1010, allocations=101)
-    compared=performance_comparison(accepted, current, tolerance; instrumented=false)
+    current=(; accepted..., median_seconds = 1.1, bytes = 1010, allocations = 101)
+    compared=performance_comparison(accepted, current, tolerance; instrumented = false)
     @test compared.comparable
     @test compared.passes
-    @test compared.ratios == (median_time=1.1, bytes=1.01, allocations=1.01)
+    @test compared.ratios == (median_time = 1.1, bytes = 1.01, allocations = 1.01)
     for (field, value) in ((:median_seconds, 1.3), (:bytes, 1060), (:allocations, 106))
-        slower = merge(current, NamedTuple{(field,)}((value,)))
-        @test !performance_comparison(accepted, slower, tolerance; instrumented=false).passes
+        slower=merge(current, NamedTuple{(field,)}((value,)))
+        @test !performance_comparison(accepted, slower, tolerance; instrumented = false).passes
     end
-    no_allocations = (; accepted..., bytes=0, allocations=0)
-    equal = performance_comparison(no_allocations, no_allocations, tolerance; instrumented=false)
+    no_allocations=(; accepted..., bytes = 0, allocations = 0)
+    equal=performance_comparison(no_allocations, no_allocations, tolerance; instrumented = false)
     @test equal.passes
     @test equal.ratios.bytes == equal.ratios.allocations == 1.0
-    allocated = performance_comparison(no_allocations, current, tolerance; instrumented=false)
+    allocated=performance_comparison(no_allocations, current, tolerance; instrumented = false)
     @test !allocated.passes
     @test isinf(allocated.ratios.bytes) && isinf(allocated.ratios.allocations)
     other_environment=(;
         accepted...,
         environment = (; accepted.environment..., julia_version = "different")
     )
-    diagnostic=performance_comparison(other_environment, current, tolerance; instrumented=false)
+    diagnostic=performance_comparison(other_environment, current, tolerance; instrumented = false)
     @test !diagnostic.comparable
     @test diagnostic.passes === nothing
-    for (field, value) in ((:cpu, "different CPU"), (:blas_threads, timing.environment.blas_threads + 1))
-        mismatched = merge(accepted, (; environment=merge(accepted.environment, NamedTuple{(field,)}((value,)))))
-        comparison = performance_comparison(mismatched, current, tolerance; instrumented=false)
+    for (field,
+        value) in (
+        (:cpu, "different CPU"), (:blas_threads, timing.environment.blas_threads+1))
+        mismatched=merge(
+            accepted, (;
+                environment = merge(accepted.environment, NamedTuple{(field,)}((value,)))))
+        comparison=performance_comparison(mismatched, current, tolerance; instrumented = false)
         @test !comparison.comparable
         @test comparison.passes === nothing
     end

@@ -63,7 +63,15 @@ function _material_record(value::Material)
     )
 end
 
-function _serialize_object(value::Material)
+function _material_record(value::RadialDielectric)
+    return Dict{String, Any}(
+        "kind" => "radial_dielectric",
+        "materials" => [_material_record(m) for m in value.materials],
+        "weights" => serialize_value(value.weights),
+        "mu_r" => serialize_value(value.mu_r))
+end
+
+function _serialize_object(value::AbstractMaterial)
     Dict(
         "type" => "material",
         "value" => _material_record(value)
@@ -251,31 +259,31 @@ function _serialize_object(grid::AbsoluteGrid)
     )
 end
 
-function _collect_materials!(materials::Vector{Material}, part::Region)
+function _collect_materials!(materials::Vector{AbstractMaterial}, part::Region)
     any(item -> isequal(item, part.material), materials) || push!(materials, part.material)
     return materials
 end
-function _collect_materials!(materials::Vector{Material}, part::Stack)
+function _collect_materials!(materials::Vector{AbstractMaterial}, part::Stack)
     foreach(item -> _collect_materials!(materials, item), part.items)
     return materials
 end
-function _collect_materials!(materials::Vector{Material}, part::Group)
+function _collect_materials!(materials::Vector{AbstractMaterial}, part::Group)
     return _collect_materials!(materials, part.item)
 end
 function _collect_materials!(
-        materials::Vector{Material},
+        materials::Vector{AbstractMaterial},
         part::Assembly{<:Any, <:AbstractCablePart}
 )
     return _collect_materials!(materials, part.item)
 end
 function _collect_materials!(
-        materials::Vector{Material},
+        materials::Vector{AbstractMaterial},
         part::Assembly{<:Any, <:Tuple}
 )
     foreach(member -> _collect_materials!(materials, member.item), part.item)
     return materials
 end
-function _collect_materials!(materials::Vector{Material}, part::Enclosure)
+function _collect_materials!(materials::Vector{AbstractMaterial}, part::Enclosure)
     _collect_materials!(materials, part.item)
     part.fill isa Material ?
     (any(item -> isequal(item, part.fill), materials) || push!(materials, part.fill)) :
@@ -297,7 +305,7 @@ function _json_document(library::MaterialsLibrary)
 end
 
 function _json_document(library::CablesLibrary)
-    materials = Material[]
+    materials = AbstractMaterial[]
     cable_ids = sort!(collect(keys(library.data)))
     for cable_id in cable_ids
         _collect_materials!(materials, library.data[cable_id].root)

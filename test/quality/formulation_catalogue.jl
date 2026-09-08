@@ -16,13 +16,13 @@
             module_owner = LineCableModels.Engine.InternalImpedance,
             registry = LineCableModels.Engine.InternalImpedance.formulas(),
             path = ("engine", "internalimpedance", "formulas"),
-            default = :Schelkunoff1934
+            default = :default
         ),
         (
             module_owner = LineCableModels.Engine.InsulationImpedance,
             registry = LineCableModels.Engine.InsulationImpedance.formulas(),
             path = ("engine", "insulationimpedance", "formulas"),
-            default = :Ametani1980
+            default = :default
         ),
         (
             module_owner = LineCableModels.Engine.InsulationAdmittance,
@@ -52,19 +52,19 @@
             module_owner = LineCableModels.Transforms,
             registry = LineCableModels.Transforms.formulas(),
             path = ("transforms", "formulas"),
-            default = :Chrysochos2014
+            default = :default
         ),
         (
-            module_owner = LineCableModels.EarthProps.FD,
-            registry = LineCableModels.EarthProps.FD.formulas(),
-            path = ("earthprops", "fd", "formulas"),
-            default = nothing
+            module_owner = LineCableModels.Earth.FrequencyDependent,
+            registry = LineCableModels.Earth.FrequencyDependent.formulas(),
+            path = ("earth", "frequencydependent", "formulas"),
+            default = :default
         ),
         (
-            module_owner = LineCableModels.EarthProps.EHEM,
-            registry = LineCableModels.EarthProps.EHEM.formulas(),
-            path = ("earthprops", "ehem", "formulas"),
-            default = :Layer
+            module_owner = LineCableModels.Earth.EquivalentHomogeneous,
+            registry = LineCableModels.Earth.EquivalentHomogeneous.formulas(),
+            path = ("earth", "equivalenthomogeneous", "formulas"),
+            default = :default
         )
     )
 
@@ -76,16 +76,13 @@
         ))
 
         selected_default = category.module_owner.Formula(:default)
-        if category.default === nothing
-            @test selected_default === nothing
-        elseif applicable(formula_id, selected_default)
-            @test formula_id(selected_default) === category.default
-        else
-            @test category.module_owner === LineCableModels.EarthProps.EHEM
-            @test selected_default == LineCableModels.EarthProps.EHEM.Layer(-1)
-        end
+        @test formula_id(selected_default) === :default
+        @test :default in category.registry
 
         for file in formula_files
+            # Static FrequencyDependent is an intentional identity relation, exercised numerically.
+            category.module_owner === LineCableModels.Earth.FrequencyDependent &&
+                file == "default.jl" && continue
             source = read(joinpath(directory, file), String)
             @test isnothing(match(
                 r"(?m)^\s*return\s+(material|model|parameters|input|source)\s*$",
@@ -126,7 +123,5 @@
             @test occursin("**Reference.**", scientific_text)
             @test isnothing(match(r"(?m)^\d{4}\.", scientific_text))
         end
-
     end
-
 end

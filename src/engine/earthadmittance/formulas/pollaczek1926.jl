@@ -1,44 +1,17 @@
-function routes(identifier::Val{:Pollaczek1926})
-    (
-        self = FormulaMethod(identifier, earth_potential_coefficient, Val(:self)),
-        mutual = FormulaMethod(identifier, earth_potential_coefficient, Val(:mutual)),
-        overhead = FormulaMethod(
-            identifier, earth_potential_coefficient, Val(:overhead)
-        ),
-        underground = FormulaMethod(
-            identifier, earth_potential_coefficient, Val(:underground)
-        ),
-        mixed = FormulaMethod(identifier, earth_potential_coefficient, Val(:mixed)),
-        Γ = FormulaMethod(identifier, propagation_constant)
-    )
-end
-
 function assumptions(::Val{:Pollaczek1926})
-    (
-        air = _vacuum,
-        earth = _vacuum,
-        permeability = vacuum_permeability
-    )
+    (media = :homogeneous, layers = 2:2, longitudinal = :zero, permittivity = :positive)
 end
 
-propagation(::Val{:Pollaczek1926}) = Val(:zero)
 """
 $(TYPEDSIGNATURES)
 
-**Identification.** Classical pair-complete potential-coefficient recipe:
-electrostatic image coefficient overhead, the classical underground
-coefficient, and zero mixed-media coefficient.
+**Identification.** Classical homogeneous-earth underground potential coefficient.
 
 **Expression.**
 
 ```math
-P_{e,ij}^{00}=\\frac{1}{2\\pi\\varepsilon_0}\\ln\\frac{D_{ij}}{d_{ij}},
-```
-
-```math
 P_{e,ij}^{11}=\\frac{j\\omega}{2\\pi(\\sigma_1+j\\omega\\varepsilon_1)}
-[K_0(\\gamma_0d_{ij})-K_0(\\gamma_0D_{ij})],\\qquad
-P_{e,ij}^{01}=0.
+[K_0(\\gamma_0d_{ij})-K_0(\\gamma_0D_{ij})].
 ```
 
 **Reference.** F. Pollaczek, “Über das Feld einer unendlich langen
@@ -47,60 +20,13 @@ wechselstromdurchflossenen Einfachleitung,” *Elektrische Nachrichtentechnik*,
 IET, 2021.
 """
 function description(::Formula{:Pollaczek1926})
-    "Pollaczek classical overhead, underground, and mixed potential coefficients (1926)"
+    "Pollaczek underground potential coefficients (1926)"
 end
 
-function propagation_constant(
-        ::Val{:Pollaczek1926}, jω, permeability, permittivity
+function Γ(
+        ::Val{:Pollaczek1926}, jω, materials, layers
 )
-    (Γ = zero(jω), squared = zero(jω))
-end
-
-function (formula::Formula{:Pollaczek1926})(
-        rho, epsilon, mu, jω, Γ, segments = nothing
-)
-    return _homogeneous_functor(
-        Val(:Pollaczek1926), formula, rho, epsilon, mu, jω, Γ, segments
-    )
-end
-
-"""
-$(TYPEDSIGNATURES)
-
-Select Pollaczek's leaf potential coefficient from conductor placement.
-
-The same registered recipe supplies same-medium self and mutual terms together
-with the classical zero mixed-media coefficient. The `overhead`,
-`underground`, and `mixed` leaves remain individually replaceable.
-"""
-function earth_potential_coefficient(
-        ::Val{:Pollaczek1926}, ::Val{:mutual}, functor, pair
-)
-    placement = _placement(pair)
-    typeof(placement) === Val{:overhead} &&
-        return functor.routes.overhead(functor, pair)
-    typeof(placement) === Val{:underground} &&
-        return functor.routes.underground(functor, pair)
-    return functor.routes.mixed(functor, pair)
-end
-
-raw"""
-Evaluate the classical overhead electrostatic-image coefficient:
-
-```math
-P_{e,ij}^{00}=\frac{1}{2\pi\varepsilon_0}
-\ln\frac{D_{ij}}{d_{ij}}.
-```
-
-For a self term, ``d_{ii}`` is the conductor outer radius carried by the
-canonical earth pair.
-"""
-function earth_potential_coefficient(
-        ::Val{:Pollaczek1926}, ::Val{:overhead}, functor, pair
-)
-    state = functor.state
-    geometry = _geometry(pair)
-    return log(geometry.D_ij / geometry.d_ij) / (2π * state.epsilon[1])
+    zero(jω)
 end
 
 raw"""
@@ -113,11 +39,11 @@ P_{e,ij}^{11}=\frac{j\omega}{2\pi(\sigma_1+j\omega\varepsilon_1)}
 \qquad \gamma_0=j\omega\sqrt{\mu_0\varepsilon_0}.
 ```
 
-This is the classical reference used with the zero mixed-media coupling; the
-earth conductivity remains in the potential-coefficient prefactor.
+Earth conductivity remains in the potential-coefficient prefactor.
 """
 function earth_potential_coefficient(
-        ::Val{:Pollaczek1926}, ::Val{:underground}, functor, pair
+        ::Val{:Pollaczek1926}, ::Union{Val{:self}, Val{:mutual}}, ::Val{2}, ::Val{2},
+        functor, pair, workspace
 )
     state = functor.state
     geometry = _geometry(pair)
@@ -128,30 +54,29 @@ function earth_potential_coefficient(
     return state.jω / (2π * kappa_1) * direct
 end
 
-raw"""
-Evaluate Pollaczek's classical overhead-underground potential coefficient:
+Formulation(::LineCableModelsCoaxial, selected::Formula{:Pollaczek1926}) = selected
 
-```math
-P_{e,ij}^{01}=0,\qquad I_{ij}^{01}(\lambda)=0,\qquad A_{ij}^{01}=0.
-```
-"""
-function earth_potential_coefficient(
-        ::Val{:Pollaczek1926}, ::Val{:mixed}, functor, pair
-)
-    return zero(functor.state.jω)
+function hooks(::FormulaMethod{:Pollaczek1926, typeof(earth_potential_coefficient),
+        A}) where {A <: Tuple{Union{Val{:self}, Val{:mutual}}, Val{2}, Val{2}}}
+    return (configurable = (:Γ, :earth, :contribution),
+        defaults = (
+            Γ = FormulaMethod(Val(:Pollaczek1926), Γ),
+            air = FormulaMethod(Val(:vacuum), propagation),
+            earth = FormulaMethod(Val(:vacuum), propagation),
+            permeability = vacuum_permeability,
+            contribution = nothing))
+end
+
+function computation_options(::FormulaMethod{
+        :Pollaczek1926, typeof(earth_potential_coefficient),
+        A}) where {A <: Tuple{Union{Val{:self}, Val{:mutual}}, Val{2}, Val{2}}}
+    (;)
 end
 
 function validate(
-        pair::EarthPair, route::FormulaMethod{:Pollaczek1926, typeof(earth_potential_coefficient)}, formula
-)
-    validate(pair)
-    if route.arguments == (Val(:self),) || route.arguments == (Val(:mutual),)
-        leaf = pair.layers == (1, 1) ? formula.routes.overhead :
-               pair.layers[1] > 1 && pair.layers[2] > 1 ? formula.routes.underground :
-               formula.routes.mixed
-        validate(pair, leaf, formula)
-    end
-    return pair
+        binding::FormulaMethod{:Pollaczek1926, typeof(earth_potential_coefficient)},
+        ::EquivalentHomogeneous.Formula{:default})
+    binding
 end
 
 :Pollaczek1926

@@ -6,7 +6,7 @@ function _macro_block(value, name::Symbol)
     for item in value.args
         item isa LineNumberNode && continue
         if item isa Expr && item.head === :macrocall &&
-                first(item.args) in (GlobalRef(Core, Symbol("@doc")), Symbol("@doc"))
+           first(item.args) in (GlobalRef(Core, Symbol("@doc")), Symbol("@doc"))
             item = last(item.args)
         end
         item isa AbstractString || item === nothing || item === :nothing ||
@@ -179,7 +179,7 @@ macro earth(arguments...)
     declarations = Expr(:tuple, layers...)
     return esc(_call_with_keywords(
         :build,
-        (GlobalRef(EarthProps, :EarthModel), declarations),
+        (GlobalRef(Earth, :EarthModel), declarations),
         keywords
     ))
 end
@@ -351,9 +351,10 @@ macro at(subject, coordinates, assignments...)
     reserved = (:φ, :connections, :combine)
     explicit_connections = findall(pair -> first(pair) === :connections, keywords)
     shorthand = filter(pair -> !(first(pair) in reserved), keywords)
-    isempty(explicit_connections) || isempty(shorthand) || throw(ArgumentError(
-        "@at cannot mix connections with connection shorthand"
-    ))
+    isempty(explicit_connections) || isempty(shorthand) ||
+        throw(ArgumentError(
+            "@at cannot mix connections with connection shorthand"
+        ))
     if isempty(explicit_connections) && !isempty(shorthand)
         named = Expr(:tuple, Expr(
             :parameters,
@@ -364,9 +365,10 @@ macro at(subject, coordinates, assignments...)
     end
     keys = first.(keywords)
     tuple_has_angle = length(values) == 3
-    tuple_has_angle && :φ in keys && throw(ArgumentError(
-        "@at cannot receive φ both in the coordinate tuple and as a keyword"
-    ))
+    tuple_has_angle && :φ in keys &&
+        throw(ArgumentError(
+            "@at cannot receive φ both in the coordinate tuple and as a keyword"
+        ))
     angle = tuple_has_angle ? pop!(values) : nothing
     angle === nothing || pushfirst!(keywords, :φ => angle)
     return esc(_call_with_keywords(:at, (subject, values...), keywords))
@@ -382,9 +384,10 @@ function _formation_macro(name::Symbol, design, assignments)
         "@$name accepts one connections assignment"
     ))
     shorthand = filter(pair -> !(first(pair) in reserved), keywords)
-    isempty(explicit_connections) || isempty(shorthand) || throw(ArgumentError(
-        "@$name cannot mix connections with connection shorthand"
-    ))
+    isempty(explicit_connections) || isempty(shorthand) ||
+        throw(ArgumentError(
+            "@$name cannot mix connections with connection shorthand"
+        ))
     if isempty(explicit_connections) && !isempty(shorthand)
         named = Expr(:tuple, Expr(
             :parameters,
@@ -467,7 +470,8 @@ macro distribute(call)
         rewritten.args[parameters] = copy(original_parameters)
         kwargs = copy(original_parameters.args)
         rewritten.args[parameters].args = kwargs
-        any(keyword -> keyword isa Expr && keyword.head === :kw &&
+        any(
+            keyword -> keyword isa Expr && keyword.head === :kw &&
                        keyword.args[1] === :n, kwargs) && throw(ArgumentError(
             "@distribute cannot overwrite an explicit n"
         ))

@@ -7,7 +7,7 @@
     @test !isdefined(LineCableModels, Symbol("Formula", "Spec"))
     ε0 = 8.8541878128e-12
     for (owner, kind) in ((E.InsulationAdmittance, :insulator),
-            (E.SemiconAdmittance, :semicon))
+        (E.SemiconAdmittance, :semicon))
         material = Material(kind, 1.0, 100.0; tan_delta = 0.02)
         lossless = owner.Formula(:default)
         lossy = owner.Formula(:Ametani2004)
@@ -28,10 +28,12 @@
     b, c, r0 = 30.45e-3, 35.45e-3, 71.15e-3
     screen = Material(:semicon, 1.0, 1000.0)
     insulation_material = Material(:insulator, Inf, 3.1)
-    design = build(CableDesign, "ametani-radial", terminal(:core,
-        solid(Material(:conductor, 1.82e-8), Disk(b)),
-        LineCableModels.screen(screen; t = c - b),
-        insulation(insulation_material; t = r0 - c)))
+    design = build(CableDesign,
+        "ametani-radial",
+        terminal(:core,
+            solid(Material(:conductor, 1.82e-8), Disk(b)),
+            LineCableModels.screen(screen; t = c - b),
+            insulation(insulation_material; t = r0 - c)))
     selected = E.CableConstantsFormulation(
         insulation_admittance = :Ametani2004, semicon_admittance = :Ametani2004)
     for frequency in (50.0, 60.0)
@@ -47,27 +49,18 @@
         @test only(lossless.G) == 0
     end
 
-    for (owner, overhead) in ((E.EarthImpedance, :Wise1934),
-            (E.EarthAdmittance, :Wise1948))
-        requested = owner.Formula(:default)
-        @test formula_id(requested) === :default
-        @test formula_id(@inferred owner.Formula(requested, Val(:overhead))) === overhead
-        @test formula_id(@inferred owner.Formula(requested, Val(:underground))) === :Xue2018
-        @test_throws ArgumentError owner.Formula(requested, Val(:mixed))
-        explicit = owner.Formula(:Xue2018)
-        @test owner.Formula(explicit, Val(:overhead)) === explicit
-    end
-
     # Export equivalencing keeps DC conduction distinct from polarization loss.
     # Match the original layers at the requested export frequency, not all f.
     polar = Material(:insulator, 2.0e9, 3.1; tan_delta = 0.04)
     screen = Material(:semicon, 1.0e5, 1000.0; tan_delta = 0.02)
-    source = build(CableDesign, "polarization-equivalence", terminal(:core,
-        solid(Material(:conductor, 1.82e-8), Disk(b)),
-        LineCableModels.screen(screen; t = c - b),
-        insulation(polar; t = r0 - c)))
+    source = build(CableDesign,
+        "polarization-equivalence",
+        terminal(:core,
+            solid(Material(:conductor, 1.82e-8), Disk(b)),
+            LineCableModels.screen(screen; t = c - b),
+            insulation(polar; t = r0 - c)))
     for frequency in (50.0, 60.0)
-        equivalent = homogenize(source; dielectric_frequency = frequency)
+        equivalent = homogenize(source)
         actual = compute(E.CableConstantsProblem(source; frequency), selected)
         reconstructed = compute(E.CableConstantsProblem(equivalent; frequency), selected)
         @test reconstructed.C ≈ actual.C

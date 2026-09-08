@@ -5,110 +5,75 @@ Select one modal-decomposition route by its stable identifier.
 
 $(TYPEDFIELDS)
 """
-struct Formula{ID, R, A <: NamedTuple}
-    "Single decomposition route returning [`ModalOperators`](@ref)."
-    route::R
-    "Numerical and physical assumptions of the route."
-    assumptions::A
+struct Formula{ID, R, A <: NamedTuple, H <: NamedTuple, O <: NamedTuple}
+    "Declared equation binding returning [`ModalOperators`](@ref)."
+    binding::R
+    "Explicit physical/model parameters."
+    parameters::A
+    "Explicit callable overrides retained for provenance."
+    hooks::H
+    "Normalized numerical sections for the selected modal algorithm."
+    options::O
 end
 
 "Return the stable identifier of a modal-transformation formula."
 formula_id(::Formula{ID}) where {ID} = ID
 
-"Return the assumptions of a modal-transformation formula."
-assumptions(formula::Formula) = formula.assumptions
-
-"Return the default assumptions of a registered modal formula."
-function assumptions end
-
 "Construct phase-to-modal operators for one registered transformation."
 function modal_operators end
 
-function Formula(identifier::Symbol; route = nothing, kwargs...)
-    return Formula(Val(identifier); route, kwargs...)
+"""
+$(TYPEDSIGNATURES)
+
+Construct a registered formula with separate model parameters and callable
+hooks. `hooks=(contribution=f,)` replaces the modal decomposition using
+its documented argument and result contract. Unknown fields fail immediately.
+"""
+Formula(identifier::Symbol; kwargs...) = Formula(Val(identifier); kwargs...)
+Formula(selected::Formula) = selected
+
+function Formula(::Val{ID}; parameters::NamedTuple = (;),
+        hooks::NamedTuple = (;), options::NamedTuple = (;)) where {ID}
+    ID in FORMULAS || throw(ArgumentError("unknown formula :$ID"))
+    isempty(parameters) || throw(ArgumentError("modal :$ID has no physical parameters"))
+    isempty(setdiff(keys(hooks), (:contribution,))) ||
+        throw(ArgumentError("unknown hooks for :$ID"))
+    binding = FormulaMethod(Val(ID), modal_operators)
+    selected = get(hooks, :contribution, binding)
+    selected === nothing && throw(ArgumentError("a contribution hook must be callable"))
+    defaults = haskey(hooks, :contribution) ? computation_options(binding, selected) :
+               computation_options(binding)
+    normalized = computation_options(binding, defaults, options)
+    return Formula{
+        ID, typeof(binding), typeof(parameters), typeof(hooks), typeof(normalized)}(
+        binding, parameters, hooks, normalized)
 end
 
-function Formula(::Val{:default}; route = nothing, kwargs...)
-    Formula(Val(DEFAULT); route, kwargs...)
+function (formula::Formula)(parameters; workspace = (fallback_frequencies = Int[],))
+    maps = get(formula.hooks, :contribution, formula.binding)(
+        parameters, formula.parameters, formula.options, workspace)
+    maps isa ModalOperators ||
+        throw(ArgumentError("modal contribution must return ModalOperators"))
+    return _check_operators(maps, parameters)
 end
-
-function Formula(::Val{ID}; route = nothing, kwargs...) where {ID}
-    tag = Val(ID)
-    ID in FORMULAS || throw(
-        ArgumentError("unknown modal-transformation formula :$ID")
-    )
-    defaults = assumptions(tag)
-    overrides = (; kwargs...)
-    unknown = setdiff(keys(overrides), keys(defaults))
-    isempty(unknown) || throw(ArgumentError(
-        "unknown assumptions for modal-transformation formula :$ID: $(collect(unknown))"
-    ))
-    selected = merge(defaults, overrides)
-    selected_route = route === nothing ? FormulaMethod(tag, modal_operators) : route
-    return Formula{ID, typeof(selected_route), typeof(selected)}(
-        selected_route,
-        selected
-    )
-end
-
-function Formula(
-        identifier::Symbol,
-        route,
-        values::NamedTuple = (;)
-)
-    return Formula(Val(identifier), route, values)
-end
-
-function Formula(
-        ::Val{ID},
-        route::R,
-        values::A = (;)
-) where {ID, R, A <: NamedTuple}
-    return Formula{ID, R, A}(route, values)
-end
-
-function Formula(
-        ::Val{:default},
-        route::R,
-        values::A = (;)
-) where {R, A <: NamedTuple}
-    return Formula(Val(DEFAULT), route, values)
-end
-
-(formula::Formula)(parameters) = formula.route(parameters, formula.assumptions)
 
 """
 $(TYPEDEF)
 
 Select the one registered route used by a modal-transformation computation.
 
-The zero-argument constructor selects the module's `:default` route,
-`:Chrysochos2014`.
+The zero-argument constructor selects the package's `:default`
+Levenberg–Marquardt modal-tracking route.
 
 $(TYPEDFIELDS)
 """
 struct ModalTransformationFormulation{F <: Formula} <: AbstractFormulation
     "Selected modal-decomposition formula."
     formula::F
-
-    function ModalTransformationFormulation(formula::F) where {F <: Formula}
-        haskey(formula.assumptions, :tolerance) || throw(ArgumentError(
-            "modal-transformation formulas must define a :tolerance assumption"
-        ))
-        tolerance = formula.assumptions.tolerance
-        tolerance isa Real || throw(ArgumentError(
-            "modal-transformation tolerance must be real"
-        ))
-        isfinite(tolerance) && tolerance >= zero(tolerance) || throw(DomainError(
-            tolerance,
-            "modal-transformation tolerance must be finite and nonnegative"
-        ))
-        return new{F}(formula)
-    end
 end
 
 function ModalTransformationFormulation()
-    return ModalTransformationFormulation(Formula(Val(DEFAULT)))
+    return ModalTransformationFormulation(Formula(:default))
 end
 
 function _modal_formulation(identifier::Symbol, overrides::NamedTuple)
@@ -120,19 +85,19 @@ function _modal_formulation(
         overrides::NamedTuple
 ) where {ID, Order}
     isempty(overrides) || throw(ArgumentError(
-        "formula(...) selections already contain their modal assumptions"
+        "formula(...) selections already contain their modal parameters and hooks"
     ))
     Order === :default || throw(ArgumentError(
         "formula order is only valid for equivalent_earth; got :$Order for modal transformation"
     ))
     return ModalTransformationFormulation(
-        Formula(Val(ID); selection.overrides...)
+        Formula(selection)
     )
 end
 
 function _modal_formulation(formula::Formula, overrides::NamedTuple)
     isempty(overrides) || throw(ArgumentError(
-        "completed modal formulas cannot receive additional assumptions"
+        "completed modal formulas cannot receive additional parameters or hooks"
     ))
     return ModalTransformationFormulation(formula)
 end
@@ -147,7 +112,7 @@ A scalar symbol, `FormulaDefinition`, or completed [`Formula`](@ref) returns one
 [`Grid`](@ref LineCableModels.ParametricBuilder.Grid) or
 [`Gridspace`](@ref LineCableModels.ParametricBuilder.Gridspace) returns a
 `Gridspace{ModalTransformationFormulation}`.
-Formula-specific assumptions vary by placing complete `formula(...)`
+Formula-specific parameters and hooks vary by placing complete `formula(...)`
 selections in the finite source.
 """
 function ModalTransformationFormulation(
@@ -164,5 +129,12 @@ function ModalTransformationFormulation(
 end
 
 formula_id(formulation::ModalTransformationFormulation) = formula_id(formulation.formula)
-assumptions(formulation::ModalTransformationFormulation) = assumptions(formulation.formula)
 description(formulation::ModalTransformationFormulation) = description(formulation.formula)
+
+function Formula(selection::FormulaDefinition{ID, Order}) where {ID, Order}
+    Order === :default || throw(ArgumentError("order applies only to equivalent_earth"))
+    selection.equivalent_earth === nothing ||
+        throw(ArgumentError("modal formulas cannot consume equivalent_earth"))
+    return Formula(Val(ID); parameters = selection.parameters, hooks = selection.hooks,
+        options = selection.options)
+end

@@ -36,8 +36,8 @@
     @test options.getdp_verbosity == 5
     @test options.frequency_workers == 2
     @test options.solver_threads == 1
-    @test_throws ArgumentError LineCableModels.LineCableModelsFEMOptions(frequency_workers=0)
-    @test_throws ArgumentError LineCableModels.LineCableModelsFEMOptions(solver_threads=-1)
+    @test_throws ArgumentError LineCableModels.LineCableModelsFEMOptions(frequency_workers = 0)
+    @test_throws ArgumentError LineCableModels.LineCableModelsFEMOptions(solver_threads = -1)
     @test_throws ArgumentError LineCableModels.LineCableModelsFEMOptions(
         mesh_policy = :invalid
     )
@@ -191,7 +191,7 @@ end
     problem = LineParametersProblem(
         system;
         temperature = measurement(35.0, 0.5),
-        earth_props = LineCableModels.EarthProps.EarthModel(100.0, 10.0, 1.0),
+        earth_props = LineCableModels.Earth.EarthModel(100.0, 10.0, 1.0),
         frequencies = [measurement(50.0, 0.25)]
     )
 
@@ -238,7 +238,7 @@ end
     float32_problem = LineParametersProblem(
         float32_system;
         temperature = 20.0f0,
-        earth_props = LineCableModels.EarthProps.EarthModel(
+        earth_props = LineCableModels.Earth.EarthModel(
             100.0f0, 10.0f0, 1.0f0
         ),
         frequencies = Float32[50.0]
@@ -252,7 +252,7 @@ end
     unsupported_problem = LineParametersProblem(
         system;
         temperature = measurement(35.0, 0.5),
-        earth_props = LineCableModels.EarthProps.EarthModel(100.0, 10.0, 1.0),
+        earth_props = LineCableModels.Earth.EarthModel(100.0, 10.0, 1.0),
         frequencies = [measurement(50.0, 0.25)],
         Γ = [complex(measurement(0.0, 0.0), measurement(1.0e-12, 1.0e-14))]
     )
@@ -299,7 +299,7 @@ end
     )
     problem = LineParametersProblem(
         system;
-        earth_props = LineCableModels.EarthProps.EarthModel(100.0, 10.0, 1.0),
+        earth_props = LineCableModels.Earth.EarthModel(100.0, 10.0, 1.0),
         frequencies = [50.0]
     )
     formulation = Formulation(
@@ -337,7 +337,7 @@ end
 
     multifrequency_problem = LineParametersProblem(
         system;
-        earth_props = LineCableModels.EarthProps.EarthModel(100.0, 10.0, 1.0),
+        earth_props = LineCableModels.Earth.EarthModel(100.0, 10.0, 1.0),
         frequencies = [50.0, 1000.0]
     )
     multifrequency_model = extension_module._resolved_fem_model(
@@ -385,7 +385,7 @@ end
     )
     filled_problem = LineParametersProblem(
         filled_system;
-        earth_props = LineCableModels.EarthProps.EarthModel(100.0, 10.0, 1.0),
+        earth_props = LineCableModels.Earth.EarthModel(100.0, 10.0, 1.0),
         frequencies = [50.0]
     )
     filled_model = extension_module._resolved_fem_model(
@@ -430,7 +430,7 @@ end
     )
     tangent_fill_problem = LineParametersProblem(
         tangent_fill_system;
-        earth_props = LineCableModels.EarthProps.EarthModel(100.0, 10.0, 1.0),
+        earth_props = LineCableModels.Earth.EarthModel(100.0, 10.0, 1.0),
         frequencies = [50.0]
     )
     tangent_fill_model = extension_module._resolved_fem_model(
@@ -493,7 +493,7 @@ end
     )
     mixed_fill_problem = LineParametersProblem(
         mixed_fill_system;
-        earth_props = LineCableModels.EarthProps.EarthModel(100.0, 10.0, 1.0),
+        earth_props = LineCableModels.Earth.EarthModel(100.0, 10.0, 1.0),
         frequencies = [50.0]
     )
     mixed_fill_model = extension_module._resolved_fem_model(
@@ -521,7 +521,7 @@ end
     )
     incomplete_problem = LineParametersProblem(
         incomplete_system;
-        earth_props = LineCableModels.EarthProps.EarthModel(100.0, 10.0, 1.0),
+        earth_props = LineCableModels.Earth.EarthModel(100.0, 10.0, 1.0),
         frequencies = [50.0]
     )
     partition_error = try
@@ -536,7 +536,7 @@ end
 
     gamma_problem = LineParametersProblem(
         system;
-        earth_props = LineCableModels.EarthProps.EarthModel(100.0, 10.0, 1.0),
+        earth_props = LineCableModels.Earth.EarthModel(100.0, 10.0, 1.0),
         frequencies = [50.0],
         Γ = [1.0e-12im]
     )
@@ -552,7 +552,7 @@ end
 
     vertical_problem = LineParametersProblem(
         system;
-        earth_props = LineCableModels.EarthProps.EarthModel(
+        earth_props = LineCableModels.Earth.EarthModel(
             100.0, 10.0, 1.0; vertical_layers = true
         ),
         frequencies = [50.0]
@@ -732,8 +732,8 @@ end
                     tangent_fill_model, "fem-tangent-fill-geometry"
                 )
                 tangent_fill_surfaces = tangent_fill_geometry.material_surfaces[
-                    tangent_fill_index
-                ]
+                tangent_fill_index
+]
                 @test length(tangent_fill_surfaces) == 8
                 tangent_fill_curves = extension_module._entity_boundary(
                     tangent_fill_surfaces
@@ -760,8 +760,8 @@ end
                     mixed_fill_model, "fem-tangent-fill-with-tape-geometry"
                 )
                 mixed_fill_surfaces = mixed_fill_geometry.material_surfaces[
-                    mixed_fill_index
-                ]
+                mixed_fill_index
+]
                 @test length(mixed_fill_surfaces) == 9
                 gmsh.model.set_current(mixed_fill_geometry.model_name)
                 extension_module._configure_mesh!(
@@ -1146,14 +1146,16 @@ end
 
     annular_design = build(CableDesign, "fem-rectangular-last-strip",
         terminal(:core,
-            stranded(copper; shape=Rectangle(0.3e-3, 0.1e-3),
-                center=Disk(0.2e-3), boundary=Disk(0.6e-3), lay=LayRatio(12)),
-            insulation(dielectric; t=0.2e-3)))
+            stranded(copper; shape = Rectangle(0.3e-3, 0.1e-3),
+                center = Disk(0.2e-3), boundary = Disk(0.6e-3), lay = LayRatio(12)),
+            insulation(dielectric; t = 0.2e-3)))
     annular_model = extension_module._resolved_fem_model(
         problem(annular_design, Dict(:core => 1), annular_design.cable_id),
         formulation)
-    @test any(region -> region.source.primitive isa Rectangle &&
-        region.primitive isa Annulus, annular_design.geometry.regions)
+    @test any(
+        region -> region.source.primitive isa Rectangle &&
+                  region.primitive isa Annulus,
+        annular_design.geometry.regions)
     fill_index = findfirst(annular_design.geometry.regions) do region
         region.source.material.kind !== :conductor &&
             region.primitive isa Annulus && r_ex(region.primitive) ≈ 0.6e-3
@@ -1161,9 +1163,9 @@ end
     @test fill_index !== nothing
     residual = annular_design.geometry.regions[fill_index]
     for bad_shape in (
-            Annulus(residual.primitive.ri * 1.001, residual.primitive.ro, residual.primitive.at),
-            Annulus(residual.primitive.ri, residual.primitive.ro, Pose2(1e-5, 0.0)),
-        )
+        Annulus(residual.primitive.ri * 1.001, residual.primitive.ro, residual.primitive.at),
+        Annulus(residual.primitive.ri, residual.primitive.ro, Pose2(1e-5, 0.0))
+    )
         incomplete = copy(annular_design.geometry.regions)
         incomplete[fill_index] = DM.PlacedRegion(residual.source, bad_shape,
             residual.terminal, residual.placement, residual.paths)
@@ -1195,6 +1197,7 @@ end
                 gmsh.model.mesh.generate(2)
                 @test !isempty(first(gmsh.model.mesh.get_nodes()))
                 for surfaces in geometry.material_surfaces, surface in surfaces
+
                     _, element_tags, _ = gmsh.model.mesh.get_elements(2, surface)
                     @test any(!isempty, element_tags)
                 end
@@ -1265,7 +1268,7 @@ end
         )
         problem = LineParametersProblem(
             system;
-            earth_props = LineCableModels.EarthProps.EarthModel(100.0, 10.0, 1.0),
+            earth_props = LineCableModels.Earth.EarthModel(100.0, 10.0, 1.0),
             frequencies = [50.0, 1000.0]
         )
         formulation = Formulation(
@@ -1279,7 +1282,7 @@ end
             )
         )
         formulation_space = Formulation(:LineCableModelsFEM;
-            earth_impedance = Grid((:default, :Wise1934)),
+            earth_impedance = Grid((:default, :Carson1926)),
             insulation_admittance = Grid((:default, :Ametani2004)),
             options = formulation.options,
             fem_options = formulation.execution)
@@ -1300,10 +1303,10 @@ end
             @test batch[index].details.formulations.effective.earth_impedance === nothing
             @test details(batch).points[index] == details(batch[index])
         end
-        default_indices = findall(value ->
-            formula_id(value.methods.insulation_admittance) === :default, selected)
-        lossy_indices = findall(value ->
-            formula_id(value.methods.insulation_admittance) === :Ametani2004, selected)
+        default_indices = findall(
+            value -> formula_id(value.methods.insulation_admittance) === :default, selected)
+        lossy_indices = findall(
+            value -> formula_id(value.methods.insulation_admittance) === :Ametani2004, selected)
         for indices in (default_indices, lossy_indices)
             first_result, second_result = batch[indices[1]], batch[indices[2]]
             @test first_result.Z.values == second_result.Z.values
@@ -1350,7 +1353,8 @@ end
         lossy = batch[first(lossy_indices)]
         for (index, frequency) in pairs(problem.frequencies)
             expected_g = 2π / log(0.01 / 0.005) * (
-                inv(dielectric.rho) + 2π * frequency * 8.8541878128e-12 *
+                inv(dielectric.rho) +
+                2π * frequency * 8.8541878128e-12 *
                 dielectric.eps_r * dielectric.tan_delta)
             @test real(lossy.Y[1, 1, index]) ≈ expected_g rtol = 0.03
             @test abs(real(result.Y[1, 1, index])) < 0.03 * expected_g
@@ -1360,18 +1364,19 @@ end
         # A fresh call can reconstruct the selected result from a completed run,
         # without starting Gmsh, touching historical files, or another solve.
         function snapshot_files(root)
-            Dict(relpath(joinpath(directory, file), root) =>
-                (bytes2hex(open(sha256, joinpath(directory, file))), stat(joinpath(directory, file)).mtime)
-                for (directory, _, files) in walkdir(root) for file in files)
+            Dict(relpath(joinpath(directory, file),
+                     root) => (bytes2hex(open(sha256, joinpath(directory, file))),
+                     stat(joinpath(directory, file)).mtime)
+            for (directory, _, files) in walkdir(root) for file in files)
         end
         before_reuse = snapshot_files(run_directory)
         @test !Bool(Gmsh.gmsh.is_initialized())
         repeated = compute(problem, selected[last(default_indices)];
-            options=(trace=true, resume_run_directory=run_directory))
+            options = (trace = true, resume_run_directory = run_directory))
         @test repeated.Z.values == result.Z.values
         @test repeated.Y.values == result.Y.values
         @test repeated.details.formulations.requested.earth_impedance ==
-            string(formula_id(selected[last(default_indices)].methods.earth_impedance))
+              string(formula_id(selected[last(default_indices)].methods.earth_impedance))
         @test repeated.details.fem.run.run_directory == run_directory
         @test repeated.details.fem.inputs.getdp_identity.sha256 != ""
         @test !Bool(Gmsh.gmsh.is_initialized())
@@ -1384,7 +1389,7 @@ end
                 path, executable, expected = ARGS
                 problem = LineCableModels.ImportExport.deserialize_value(
                     JSON3.read(read(joinpath(path, "input", "problem.json"), String)))
-                formulation = Formulation(:LineCableModelsFEM; earth_impedance=:Wise1934,
+                formulation = Formulation(:LineCableModelsFEM; earth_impedance=:Carson1926,
                     options=(ideal_transposition=false,),
                     fem_options=(getdp_executable=executable, getdp_verbosity=0,
                         gmsh_verbosity=0, keep_run_directory=true))
@@ -1556,7 +1561,7 @@ end
                 ),
                 Region(:jacket, Annulus(0.017, 0.02), jacket)
             ))
-        earth = LineCableModels.EarthProps.EarthModel(100.0, 10.0, 1.0)
+        earth = LineCableModels.Earth.EarthModel(100.0, 10.0, 1.0)
         limits = fixture.provenance.comparison_metrics
 
         cases = (
@@ -1664,8 +1669,10 @@ end
                     # of every frequency/source job, not just the first map.
                     for (frequency_index, frequency) in enumerate(result.f)
                         for (basis, terminal) in enumerate(result.details.fem.terminal_ids)
-                            for quantity in ("az", "b", "bm", "e", "ez", "em", "jz", "jm", "rhoj2")
-                                filename = string(quantity, "_f", lpad(frequency_index, 4, '0'),
+                            for quantity in
+                                ("az", "b", "bm", "e", "ez", "em", "jz", "jm", "rhoj2")
+                                filename = string(
+                                    quantity, "_f", lpad(frequency_index, 4, '0'),
                                     "_b", lpad(basis, 4, '0'), ".pos")
                                 map_text = read(joinpath(run_directory, "maps", filename), String)
                                 @test occursin("basis=$terminal", map_text)

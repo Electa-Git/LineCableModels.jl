@@ -321,6 +321,19 @@ operation calculates no mutual coupling, earth return, or line-parameter
 matrix. The selected engine separately validates whether its formulation
 supports the resulting cable topology.
 
+Homogeneous dielectric geometry retains a `RadialDielectric`: the original
+insulation and semicon materials with their logarithmic radius weights.
+It does not fit their losses at 50 Hz. In computation, the selected law is
+evaluated for each constituent and the radial responses combine in series.
+Thus `:default` remains lossless before and after homogenization; explicitly
+selected lossy formulations retain their frequency dependence. The displayed
+resistivity is the DC series value and the displayed permittivity is the
+lossless series value, not a broadband complex-permittivity fit.
+
+Scalar exports such as PSCAD select a formulation and a reference frequency
+explicitly. Their native frequency laws remain approximations to the original
+multi-material response away from that reference point.
+
 `CableConstants(design)` consumes this canonical reduction through the
 Engine-owned `CableConstantsProblem → CableConstantsFormulation → compute`
 workflow. It evaluates one concentric assembly at a time at the requested

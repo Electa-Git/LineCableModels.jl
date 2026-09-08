@@ -1,18 +1,27 @@
 @testitem "ParametricBuilder / formulation grids / construction and traversal" tags=[:unit] setup=[
     UseEngineSupport,
 ] begin
+    inner=(f, w)->zero(f.state.jω)
+    insulation=(r_in, r_ex, mu_r, s, values, options, workspace)->zero(s)
+    @eval LineCableModels.computation_options(
+        ::LineCableModels.FormulaMethod{
+            :default, typeof(LineCableModels.Engine.InternalImpedance.internal_impedance),
+            Tuple{Val{:inner}}},
+        ::$(typeof(inner))) = (;)
+    @eval LineCableModels.computation_options(
+        ::LineCableModels.FormulaMethod{:default,
+            typeof(LineCableModels.Engine.InsulationImpedance.insulation_impedance)},
+        ::$(typeof(insulation))) = (;)
     selections=(
-        internal_impedance = Grid((:default, :Schelkunoff1934)),
-        insulation_impedance = Grid((:default, :Ametani1980)),
-        earth_impedance = Grid((:Pollaczek1926, :Papadopoulos2010)),
+        internal_impedance = Grid((
+            :default, formula(:default; hooks = (inner = inner,)))),
+        insulation_impedance = Grid((:default,
+            formula(:default; hooks = (contribution = insulation,)))),
+        earth_impedance = Grid((:Pollaczek1926, :default)),
         insulation_admittance = Grid((:Ametani2004, :default)),
         semicon_admittance = Grid((:default, :Ametani2004)),
-        earth_admittance = Grid((:IdealGround, :Papadopoulos2010)),
-        earth_properties = Grid((nothing, :CIGRE2019)),
-        equivalent_earth = Grid((
-            formula(:Layer; layer = -1),
-            formula(:Xue2021)
-        )),
+        earth_admittance = Grid((:IdealGround, :default)),
+        earth_properties = Grid((nothing, :default)),
         pipe_impedance = Grid((:default, formula(:default))),
         options = Grid((
             (; ideal_transposition = false),
@@ -40,8 +49,8 @@
     end
 
     product=Formulation(
-        earth_impedance = Grid((:Pollaczek1926, :Papadopoulos2010)),
-        earth_admittance = Grid((:IdealGround, :Papadopoulos2010))
+        earth_impedance = Grid((:Pollaczek1926, :default)),
+        earth_admittance = Grid((:IdealGround, :default))
     )
     @test length(product) == 4
     @test Set((
@@ -49,14 +58,14 @@
                   formula_id(value.methods.earth_admittance)
               ) for value in product) == Set((
         (:Pollaczek1926, :IdealGround),
-        (:Papadopoulos2010, :IdealGround),
-        (:Pollaczek1926, :Papadopoulos2010),
-        (:Papadopoulos2010, :Papadopoulos2010)
+        (:default, :IdealGround),
+        (:Pollaczek1926, :default),
+        (:default, :default)
     ))
 
     zipped=Formulation(
-        earth_impedance = Grid((:Pollaczek1926, :Papadopoulos2010)),
-        earth_admittance = Grid((:IdealGround, :Papadopoulos2010));
+        earth_impedance = Grid((:Pollaczek1926, :default)),
+        earth_admittance = Grid((:IdealGround, :default));
         combine = :zip
     )
     @test length(zipped) == 2
@@ -65,11 +74,11 @@
                formula_id(value.methods.earth_admittance)
            ) for value in zipped] == [
         (:Pollaczek1926, :IdealGround),
-        (:Papadopoulos2010, :Papadopoulos2010)
+        (:default, :default)
     ]
 
     broadcast_zip=Formulation(
-        earth_impedance = Grid((:Pollaczek1926, :Papadopoulos2010)),
+        earth_impedance = Grid((:Pollaczek1926, :default)),
         earth_admittance = Grid(:IdealGround);
         combine = :zip
     )
@@ -77,26 +86,34 @@
     @test [formula_id(value.methods.earth_admittance)
            for value in broadcast_zip] == fill(:IdealGround, 2)
 
+    reductions=Formulation(earth_impedance = Grid((
+        formula(:default; equivalent_earth = formula(:default; order = :before)),
+        formula(:default; equivalent_earth = formula(:default; order = :after)))))
+    @test length(reductions) == 2
+    @test first(reductions).methods.earth_impedance.equivalent_earth isa
+          LineCableModels.Earth.EquivalentHomogeneous.BeforeFD
+    @test last(collect(reductions)).methods.earth_impedance.equivalent_earth isa
+          LineCableModels.Earth.EquivalentHomogeneous.AfterFD
+    @test all(value -> value.methods.earth_admittance.equivalent_earth === nothing, reductions)
+
     constants=CableConstantsFormulation(
-        internal_impedance = Grid((:Schelkunoff1934, :Ametani2004)),
+        insulation_admittance = Grid((:default, :Ametani2004)),
     )
     @test constants isa Gridspace{CableConstantsFormulation}
     @test length(constants) == 2
 
     modal=ModalTransformationFormulation(
-        Grid((:Fortescue, :Chrysochos2014)),
+        Grid((:default, :default)),
     )
     @test modal isa Gridspace{ModalTransformationFormulation}
-    @test formula_id.(collect(modal)) == [:Fortescue, :Chrysochos2014]
+    @test formula_id.(collect(modal)) == [:default, :default]
 
     modal_assumptions=ModalTransformationFormulation(Grid((
-        formula(:Fortescue; tolerance = 1e-4),
-        formula(:Fortescue; tolerance = 1e-8)
+        formula(:default; options = (iteration = (convergence = 1e-4,),)),
+        formula(:default; options = (iteration = (convergence = 1e-8,),))
     )))
-    @test LineCableModels.Transforms.assumptions.(collect(modal_assumptions)) == [
-        (tolerance = 1e-4,),
-        (tolerance = 1e-8,)
-    ]
+    @test [value.formula.options.iteration.convergence for value in modal_assumptions] ==
+          [1e-4, 1e-8]
 
     fem=LineCableModelsFEM(
         fem_options = Grid((
@@ -108,22 +125,22 @@
     @test length(fem) == 2
 
     for name in keys(selections)
-        keyword = NamedTuple{(name,)}((getproperty(selections, name),))
-        space = Formulation(:LineCableModelsFEM; keyword...)
+        keyword=NamedTuple{(name,)}((getproperty(selections, name),))
+        space=Formulation(:LineCableModelsFEM; keyword...)
         @test space isa Gridspace{LineCableModelsFEM}
         @test length(space) == 2
         @test all(value -> isconcretetype(typeof(value)), space)
-        if name !== :options
+        if name!==:options
             @test all(value -> haskey(value.definitions, name), space)
         end
     end
-    fem_zipped = Formulation(:LineCableModelsFEM;
+    fem_zipped=Formulation(:LineCableModelsFEM;
         insulation_admittance = Grid((:default, :Ametani2004)),
         semicon_admittance = Grid((:default, :Ametani2004)), combine = :zip)
     @test length(fem_zipped) == 2
     @test [(formula_id(value.methods.insulation_admittance),
-        formula_id(value.methods.semicon_admittance)) for value in fem_zipped] ==
-        [(:default, :default), (:Ametani2004, :Ametani2004)]
+               formula_id(value.methods.semicon_admittance)) for value in fem_zipped] ==
+          [(:default, :default), (:Ametani2004, :Ametani2004)]
 
     struct CountedProblem<:AbstractProblemDefinition
         value::Int
@@ -163,11 +180,11 @@
     @test_throws BoundsError run[3, 1]
 
     # A completed scalar problem is an admitted singleton, not an iterable object.
-    scalar = CountedProblem(7)
-    scalar_problem = ParametricProblem(scalar)
+    scalar=CountedProblem(7)
+    scalar_problem=ParametricProblem(scalar)
     @test length(scalar_problem.space) == 1
     @test first(scalar_problem.space) === scalar
-    scalar_run = compute(scalar_problem, Combinatorial(formulas))
+    scalar_run=compute(scalar_problem, Combinatorial(formulas))
     @test collect(scalar_run) == CountedResult.(Int[7, 70])
     @test scalar_run[1, 2] == CountedResult(70)
 

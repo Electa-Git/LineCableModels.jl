@@ -24,7 +24,7 @@ function value(number::Real; sigdigits::Integer = 6)
         return _fallback(number)
     end
     if rounded isa AbstractFloat && isinteger(rounded) &&
-            abs(rounded) <= typemax(Int)
+       abs(rounded) <= typemax(Int)
         return string(round(Int, rounded))
     end
     return replace(string(rounded), "e+" => "e")
@@ -71,8 +71,10 @@ function _engineering_exponent(number::Real)
     return clamp(exponent, first(first(_ENGINEERING_PREFIX)), first(last(_ENGINEERING_PREFIX)))
 end
 
-_prefix(exponent::Integer) = only(last(pair) for pair in _ENGINEERING_PREFIX
+function _prefix(exponent::Integer)
+    only(last(pair) for pair in _ENGINEERING_PREFIX
     if first(pair) == exponent)
+end
 
 function _physical_unit(::Val{:meter}, prefix::Symbol)
     return Units.label(Units.Unit(:meter, prefix))
@@ -167,9 +169,8 @@ function fields(
         displayed::NamedTuple;
         multiline::Bool = false
 )
-    retained = Pair{Symbol, Any}[
-        key => item for (key, item) in pairs(displayed) if item !== nothing
-    ]
+    retained = Pair{Symbol, Any}[key => item
+                                 for (key, item) in pairs(displayed) if item !== nothing]
     if !multiline || get(io, :compact, false)
         print(io, semantic_name, "(")
         for (index, pair) in enumerate(retained)
@@ -188,7 +189,8 @@ function fields(
     visible_count = limited ? min(length(retained), max(rows - 2, 0)) : length(retained)
     for pair in Iterators.take(retained, visible_count)
         key = String(first(pair))
-        print(io, '\n', "  ", rpad(key, key_width), "  ", _fit(string(last(pair)), available))
+        print(
+            io, '\n', "  ", rpad(key, key_width), "  ", _fit(string(last(pair)), available))
     end
     omitted = length(retained) - visible_count
     omitted > 0 && print(io, '\n', "  ⋮ $omitted more fields")
@@ -205,7 +207,7 @@ function _tree_state(io::IO)
         remaining = Ref(limited ? max(rows - 2, 0) : typemax(Int)),
         depth = limited ? clamp(rows ÷ 4, 1, 4) : typemax(Int),
         children = limited ? 8 : typemax(Int),
-        truncation = Ref(""),
+        truncation = Ref("")
     )
 end
 
@@ -231,8 +233,7 @@ function _write_tree_children!(io::IO, nodes, prefix, level, state)
     for index in 1:visible_count
         if state.remaining[] <= 0
             isempty(state.truncation[]) &&
-                (state.truncation[] =
-                    "$(length(entries) - index + 1) more $(_tree_noun(first(entries)))")
+                (state.truncation[] = "$(length(entries) - index + 1) more $(_tree_noun(first(entries)))")
             return nothing
         end
         node = entries[index]
@@ -348,8 +349,9 @@ Base.summary(io::IO, unit::Units.Unit) = print(io, "Physical unit ", Units.label
 Base.show(io::IO, unit::Units.Unit) = print(io, Units.label(unit))
 Base.show(io::IO, ::MIME"text/plain", unit::Units.Unit) = show(io, unit)
 
-Base.summary(io::IO, unit::Units.UnitExpr) =
+function Base.summary(io::IO, unit::Units.UnitExpr)
     print(io, "Unit expression ", Units.label(unit))
+end
 Base.show(io::IO, unit::Units.UnitExpr) = print(io, Units.label(unit))
 Base.show(io::IO, ::MIME"text/plain", unit::Units.UnitExpr) = show(io, unit)
 
@@ -359,19 +361,29 @@ end
 function Base.show(io::IO, quantity::Units.Quantity)
     scientific_symbol = Units.symbol(quantity)
     isempty(scientific_symbol) ? print(io, Units.label(quantity)) :
-        print(io, scientific_symbol, " · ", Units.label(quantity))
+    print(io, scientific_symbol, " · ", Units.label(quantity))
 end
 Base.show(io::IO, ::MIME"text/plain", quantity::Units.Quantity) = show(io, quantity)
 
 name(::Type{<:FormulaDefinition}) = "FormulaDefinition"
-Base.summary(io::IO, ::FormulaDefinition{ID}) where {ID} =
+function Base.summary(io::IO, ::FormulaDefinition{ID}) where {ID}
     print(io, "Formula definition :", ID)
+end
 function Base.show(io::IO, definition::FormulaDefinition{ID, Order}) where {ID, Order}
-    fields(io, "FormulaDefinition", (id = ID, order = Order, overrides = definition.overrides);
+    fields(io,
+        "FormulaDefinition",
+        (id = ID, order = Order, parameters = definition.parameters,
+            hooks = definition.hooks, options = definition.options,
+            equivalent_earth = definition.equivalent_earth);
         multiline = false)
 end
-function Base.show(io::IO, ::MIME"text/plain", definition::FormulaDefinition{ID, Order}) where {ID, Order}
-    fields(io, "FormulaDefinition", (id = ID, order = Order, overrides = definition.overrides);
+function Base.show(io::IO, ::MIME"text/plain", definition::FormulaDefinition{
+        ID, Order}) where {ID, Order}
+    fields(io,
+        "FormulaDefinition",
+        (id = ID, order = Order, parameters = definition.parameters,
+            hooks = definition.hooks, options = definition.options,
+            equivalent_earth = definition.equivalent_earth);
         multiline = true)
 end
 

@@ -64,13 +64,27 @@ formula kernels or changing any workspace buffers.
 """
 function validate(workspace::LineParametersWorkspace, formulation::LineParametersFormulation)
     earth = workspace.input.earth
-    for method in (formulation.methods.earth_impedance, formulation.methods.earth_admittance)
-        validate(method, earth)
+    for method in
+        (formulation.methods.earth_impedance, formulation.methods.earth_admittance)
         stratified = media(method) === Val(:stratified)
-        pairs = stratified ? workspace.invariants.earth_pairs : workspace.invariants.homogeneous_pairs
+        if stratified || method.equivalent_earth === nothing
+            validate(method, earth)
+        else
+            validate(method, 2)
+        end
+        pairs = method.equivalent_earth === nothing ? workspace.invariants.earth_pairs :
+                workspace.invariants.homogeneous_pairs
         for pair in pairs
             stratified && validate(pair, getproperty.(earth.layers, :thickness))
-            validate(method, pair)
+        end
+        name = method === formulation.methods.earth_impedance ? :earth_impedance :
+               :earth_admittance
+        bound = getproperty(workspace.invariants.earth_bindings, name)
+        bound.selection === method ||
+            throw(ArgumentError("workspace is bound to another formula"))
+        for case in bound.cases, interaction in case.interactions
+
+            validate(interaction.pair, case.declaration.equation)
         end
     end
     return workspace
@@ -143,8 +157,8 @@ function validate(workspace::LineParametersWorkspace)
         DimensionMismatch("cable indices must align with the cable count")
     )
     length(workspace.invariants.earth_pairs) ==
-    input.n_cables * (input.n_cables + 1) ÷ 2 || throw(DimensionMismatch(
-        "earth pairs must contain the upper triangular cable interactions"
+    input.n_cables^2 || throw(DimensionMismatch(
+        "earth pairs must contain every ordered cable interaction"
     ))
     length(workspace.invariants.homogeneous_pairs) ==
     length(workspace.invariants.earth_pairs) || throw(DimensionMismatch(
@@ -171,7 +185,7 @@ line-parameter problem.
 The selected designs have already been flattened into frequency-independent
 blueprints. This step constructs local cable arrays, physical geometry,
 canonical indices, and frequency coordinates once. It does not apply
-temperature correction, earth-property/EHEM formulas, reduction policy, or
+temperature correction, earth-property/EquivalentHomogeneous formulas, reduction policy, or
 allocate formula-owned mutable workspaces.
 
 # Arguments
@@ -295,7 +309,6 @@ function LineParametersWorkspace(
                                (problem.temperature - cable.T0_cond[index])
         end
     end
-    earth = _earth_data(formulation, input)
     cable_indices = [collect(indices) for indices in cable.assemblies]
     cable_representatives = first.(cable_indices)
     earth_pairs = _earth_pairs(
@@ -306,6 +319,37 @@ function LineParametersWorkspace(
         problem.earth_props
     )
     homogeneous_pairs = _homogeneous_pairs(earth_pairs)
+    earth_bindings = map(formulation.methods[(:earth_impedance, :earth_admittance)]) do selected
+        pairs = selected.equivalent_earth === nothing ? earth_pairs : homogeneous_pairs
+        declarations = validate(selected, pairs)
+        reductions = if selected.equivalent_earth === nothing
+            nothing
+        else
+            rule = EquivalentHomogeneous.rule(selected.equivalent_earth)
+            foreach(declarations) do declaration
+                validate(declaration.equation, rule)
+            end
+            validate(rule, earth_pairs)
+        end
+        cases = map(Tuple(unique(declarations))) do declaration
+            interactions = [(index = index, pair = pair,
+                                physical_pair = earth_pairs[index])
+                            for (index, (pair, bound)) in
+                                enumerate(zip(pairs, declarations))
+                            if bound == declaration]
+            (declaration = declaration, interactions = interactions)
+        end
+        # Geometry changes the set of cases, not the public workspace type.
+        # Each stored case retains its concrete equation/hooks for earth! dispatch.
+        Bound = NamedTuple{(:selection, :cases, :reductions),
+            Tuple{typeof(selected), Tuple, Union{Nothing, Vector{NamedTuple}}}}
+        Bound((
+            selected, cases, reductions === nothing ? nothing : NamedTuple[reductions...]))
+    end
+    validate(formulation.methods.internal_impedance,
+        any(indices -> length(indices) > 1, cable_indices) ? (:inner, :outer, :mutual) :
+        (:outer,))
+    earth = _earth_data(formulation, input)
     permutation, reordered_map, kron_map = _reduction_map(phase_map, formulation)
     bundle_pairs = bundle_operations(reordered_map)
     keep_indices = kron_map === nothing ? Int[] : findall(!=(0), kron_map)
@@ -339,6 +383,8 @@ function LineParametersWorkspace(
         nkeep
     ))
 
+    invariants = merge(invariants, (; earth_bindings))
+
     Zbuffer = Matrix{Complex{T}}(undef, n_phases, n_phases)
     Pbuffer = similar(Zbuffer)
     Zprimitive = similar(Zbuffer)
@@ -356,31 +402,25 @@ function LineParametersWorkspace(
     Yout = similar(Zout)
     earth_matrix = Matrix{Complex{T}}(undef, n_cables, n_cables)
     pair_count = length(earth_pairs)
-    earth_media = (
-        rho = Matrix{T}(undef, 2, pair_count),
-        epsilon = Matrix{T}(undef, 2, pair_count),
-        mu = Matrix{T}(undef, 2, pair_count)
-    )
-    n_earth_layers = length(problem.earth_props.layers)
-    earth_layers = (
-        rho = Matrix{T}(undef, n_earth_layers, pair_count),
-        epsilon = Matrix{T}(undef, n_earth_layers, pair_count),
-        mu = Matrix{T}(undef, n_earth_layers, pair_count),
-        thickness = Vector{T}(undef, n_earth_layers)
-    )
+    earth_materials = map(formulation.methods[(:earth_impedance, :earth_admittance)]) do selected
+        count = media(selected) === Val(:stratified) ? length(problem.earth_props.layers) :
+                2
+        material = (rho = Matrix{T}(undef, count, pair_count),
+            epsilon = Matrix{T}(undef, count, pair_count),
+            mu = Matrix{T}(undef, count, pair_count))
+        media(selected) === Val(:stratified) ?
+        merge(material, (thickness = Vector{T}(undef, count),)) : material
+    end
     integration_type = typeof(float(nominal(one(T))))
-    earth_impedance_segments = alloc_segbuf(
-        integration_type,
-        Complex{T},
-        integration_type;
-        size = 128
-    )
-    earth_admittance_segments = alloc_segbuf(
-        integration_type,
-        Complex{T},
-        integration_type;
-        size = 128
-    )
+    NumericalStorage = NamedTuple{(:earth_impedance, :earth_admittance),
+        Tuple{Union{Nothing, NamedTuple}, Union{Nothing, NamedTuple}}}
+    earth_numerical::NumericalStorage = NumericalStorage(map(earth_bindings) do binding
+        any(case -> haskey(case.declaration.options, :integration), binding.cases) ||
+            return nothing
+        (
+            segments = alloc_segbuf(integration_type, Complex{T}, integration_type; size = 128),
+            images = Complex{T}[], exponents = Complex{T}[])
+    end)
     largest_cable = maximum(length, cable_indices)
     coefficients = Vector{Complex{T}}(undef, largest_cable)
     tails = similar(coefficients)
@@ -401,10 +441,9 @@ function LineParametersWorkspace(
         Zout,
         Yout,
         earth_matrix,
-        earth_media,
-        earth_layers,
-        earth_impedance_segments,
-        earth_admittance_segments,
+        earth_materials,
+        earth_numerical,
+        execution,
         layer_coefficients,
         coefficients,
         tails
@@ -425,7 +464,9 @@ function _earth_layer(model::EarthModel, horizontal, vertical)
     iszero(vertical) && throw(ArgumentError(
         "a conductor on the air-earth interface has no physical layer"
     ))
-    model.vertical_layers && return 2
+    model.vertical_layers && length(model.layers) > 2 &&
+        throw(ArgumentError(
+            "physical source/target indexing for vertical earth interfaces is not implemented"))
     depth = -vertical
     boundary = zero(depth)
     @inbounds for layer in 2:length(model.layers)
@@ -448,35 +489,26 @@ function _earth_pairs(
 )
     T = eltype(vertical)
     pairs = EarthPair{T}[]
-    sizehint!(pairs, length(cables) * (length(cables) + 1) ÷ 2)
-    @inbounds for column in eachindex(cables), row in firstindex(cables):column
+    sizehint!(pairs, length(cables)^2)
+    @inbounds for column in eachindex(cables), row in eachindex(cables)
 
-        left = cables[row]
-        right = cables[column]
+        source = cables[column]
+        target = cables[row]
         layers = (
-            _earth_layer(earth, horizontal[left], vertical[left]),
-            _earth_layer(earth, horizontal[right], vertical[right])
+            _earth_layer(earth, horizontal[source], vertical[source]),
+            _earth_layer(earth, horizontal[target], vertical[target])
         )
-        push!(pairs, EarthPair(
-            row,
-            column,
-            (vertical[left], vertical[right]),
-            separation[left, right],
-            layers
-        ))
+        push!(pairs,
+            EarthPair(
+                row,
+                column,
+                (vertical[source], vertical[target]),
+                row == column ? zero(T) : separation[target, source],
+                layers; radius = row == column ? separation[target, source] : nothing
+            ))
     end
     return pairs
 end
-
-@inline function _layout(pair::EarthPair)
-    source_air = pair.layers[1] == 1
-    target_air = pair.layers[2] == 1
-    source_air && target_air && return Val(:overhead)
-    !source_air && !target_air && return Val(:underground)
-    return Val(:mixed)
-end
-
-@inline _homogeneous_layer(layer::Int) = layer == 1 ? 1 : 2
 
 function _homogeneous_pairs(pairs::AbstractVector{<:EarthPair{T}}) where {T <: Real}
     mapped = Vector{EarthPair{T}}(undef, length(pairs))
@@ -488,9 +520,9 @@ function _homogeneous_pairs(pairs::AbstractVector{<:EarthPair{T}}) where {T <: R
             pair.heights,
             pair.separation,
             (
-                _homogeneous_layer(pair.layers[1]),
-                _homogeneous_layer(pair.layers[2])
-            )
+                pair.layers[1] == 1 ? 1 : 2,
+                pair.layers[2] == 1 ? 1 : 2
+            ); radius = pair.radius
         )
     end
     return mapped

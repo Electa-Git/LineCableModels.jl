@@ -140,7 +140,7 @@ end
     @test all(name -> name in public_names, required)
 
     forbidden = (
-        :DuctBank, :Pipe, :Duct, :Core, :Cable, :Trefoil, :Earth,
+        :DuctBank, :Pipe, :Duct, :Core, :Cable, :Trefoil,
         :RoundedSector, :Hexa, :DiameterFactor, :TabulatedCompaction,
         :AffineCompaction, :distribute, :strand,
         Symbol("@design"), Symbol("@core"),
@@ -149,6 +149,8 @@ end
         Symbol("@wire"), Symbol("@fill")
     )
     @test all(name -> !(name in public_names), forbidden)
+    @test LineCableModels.Earth isa Module
+    @test parentmodule(EarthModel) === LineCableModels.Earth
     @test Base.ispublic(DM, :BentStrip)
     @test Base.ispublic(DM, :BoundedPlacement)
     @test Base.ispublic(DM, :EnclosureBoundary)
@@ -183,8 +185,8 @@ end
             right
         end) => :duct,
         :(@at subject (1, 2) φ=3) => :at,
-        :(@trefoil design spacing=spacing center=(0, 0) combine=:zip phase=(1, 2, 3)) =>
-            :trefoil,
+        :(@trefoil design spacing=spacing center=(0, 0) combine=:zip phase=(
+            1, 2, 3)) => :trefoil,
         :(@hflat design spacing=spacing combine=:zip phase=(1, 2, 3)) => :hflat,
         :(@vflat design spacing=spacing combine=:zip phase=(1, 2, 3)) => :vflat
     )
@@ -643,7 +645,8 @@ end
     @test bounded_component.conductor.resistance ≈
           inv(sum(inv, member_resistances))
 
-    course_members, course_shapes = DM.sector_members(
+    course_members,
+    course_shapes = DM.sector_members(
         resolved_sector, DM.bounded_declarations(bounded_group)
     )
     @test [count(member -> member.course == course, course_members)
@@ -651,13 +654,15 @@ end
     @test all(shape -> shape isa DM.Polygon, course_shapes)
     @test all(isapprox.(DM.area.(course_shapes), DM.area(Disk(0.5e-3))))
     resolved_courses = [only(
-        entry.pattern.course for entry in region.placement.patterns
-        if entry.pattern isa DM.BoundedPlacement
-    ) for region in bounded_conductors]
+                            entry.pattern.course
+                        for entry in region.placement.patterns
+                        if entry.pattern isa DM.BoundedPlacement
+                        ) for region in bounded_conductors]
     @test [count(==(course), resolved_courses)
            for course in 1:expected_courses] == 6 .* (1:expected_courses)
-    @test [only(entry.member for entry in region.placement.patterns
-                if entry.pattern isa DM.BoundedPlacement)
+    @test [only(entry.member
+           for entry in region.placement.patterns
+           if entry.pattern isa DM.BoundedPlacement)
            for region in bounded_conductors] == eachindex(bounded_conductors)
     @test_throws ArgumentError stranded(
         copper;
@@ -766,7 +771,7 @@ end
                       for (index, value) in enumerate(zipped_space)]
     @test length(zipped_designs) == 2
     @test [count(region -> region.source.material.kind === :conductor,
-                 design.geometry.regions) for design in zipped_designs] == [7, 7]
+               design.geometry.regions) for design in zipped_designs] == [7, 7]
 
     uncertain_space = stranded(
         copper;

@@ -28,15 +28,12 @@
 
     expected=Dict(
         Material=>joinpath("src", "materials", "material.jl"),
-        LineCableModels.EarthProps.EarthMaterial =>
-            joinpath("src", "earthprops", "earthmaterial.jl"),
-        EarthLayer=>joinpath("src", "earthprops", "earthlayer.jl"),
-        EarthModel=>joinpath("src", "earthprops", "earthmodel.jl"),
-        LineCableModels.DataModel.PreviewShape =>
-            joinpath("src", "datamodel", "preview", "geometry.jl"),
+        LineCableModels.Earth.EarthMaterial => joinpath("src", "earth", "earthmaterial.jl"),
+        EarthLayer=>joinpath("src", "earth", "earthlayer.jl"),
+        EarthModel=>joinpath("src", "earth", "earthmodel.jl"),
+        LineCableModels.DataModel.PreviewShape => joinpath("src", "datamodel", "preview", "geometry.jl"),
         CableDesign=>joinpath("src", "datamodel", "design", "cabledesign.jl"),
-        LineCableSystem =>
-            joinpath("src", "datamodel", "linecablesystem", "linecablesystem.jl"),
+        LineCableSystem => joinpath("src", "datamodel", "linecablesystem", "linecablesystem.jl"),
         LineParametersProblem=>joinpath("src", "engine", "problems.jl"),
         CableConstantsProblem=>joinpath("src", "engine", "cableconstants.jl"),
         LineParameters => joinpath("src", "engine", "lineparameters", "lineparameters.jl"),
@@ -49,11 +46,20 @@
     function referenced_functions(method::Method)
         found=Set{Function}()
         function visit(value)
-            if value isa GlobalRef && isdefined(value.mod, value.name)
-                resolved=getproperty(value.mod, value.name)
-                resolved isa Function && push!(found, resolved)
-            elseif value isa Expr
-                foreach(visit, value.args)
+            value isa Expr || return nothing
+            # A function passed as data to which() is not a kernel invocation.
+            # Inspect direct calls, retaining the mutation/delegation checks.
+            if value.head === :call && !isempty(value.args)
+                callee = first(value.args)
+                if callee isa GlobalRef && isdefined(callee.mod, callee.name)
+                    resolved = getproperty(callee.mod, callee.name)
+                    resolved isa Function && push!(found, resolved)
+                end
+            end
+            foreach(visit, value.args)
+            return nothing
+        end
+        foreach(visit, value.args)
             end
             return nothing
         end
@@ -77,6 +83,7 @@
         # Public formula metadata, like geometric area/radius, is observational;
         # it does not delegate a validation rule to a helper.
         Engine.media,
+        LineCableModels.formula_id,
         nphases
     ))
     for (type, path) in expected
@@ -135,9 +142,9 @@
 
     constructor_files=(
         joinpath("src", "materials", "material.jl"),
-        joinpath("src", "earthprops", "earthmaterial.jl"),
-        joinpath("src", "earthprops", "earthlayer.jl"),
-        joinpath("src", "earthprops", "earthmodel.jl"),
+        joinpath("src", "earth", "earthmaterial.jl"),
+        joinpath("src", "earth", "earthlayer.jl"),
+        joinpath("src", "earth", "earthmodel.jl"),
         joinpath("src", "datamodel", "preview", "geometry.jl"),
         joinpath("src", "datamodel", "design", "cabledesign.jl"),
         joinpath("src", "datamodel", "linecablesystem", "linecablesystem.jl"),

@@ -1,20 +1,7 @@
-function routes(identifier::Val{:Gary1976})
-    return (
-        self = FormulaMethod(identifier, earth_impedance, Val(:self)),
-        mutual = FormulaMethod(identifier, earth_impedance, Val(:mutual)),
-        Γ = FormulaMethod(identifier, propagation_constant)
-    )
-end
-
 function assumptions(::Val{:Gary1976})
-    (
-        air = _lossless,
-        earth = _conductive,
-        permeability = vacuum_permeability
-    )
+    (media = :homogeneous, layers = 2:2, longitudinal = :zero, permittivity = :positive)
 end
 
-propagation(::Val{:Gary1976}) = Val(:zero)
 """
 $(TYPEDSIGNATURES)
 
@@ -36,12 +23,8 @@ Ametani et al., IET, 2021.
 """
 description(::Formula{:Gary1976}) = "Gary complex-depth approximation (1976)"
 
-function propagation_constant(::Val{:Gary1976}, jω, permeability, permittivity)
-    return (Γ = zero(jω), squared = zero(jω))
-end
-
-function (formula::Formula{:Gary1976})(rho, epsilon, mu, jω, Γ, segments = nothing)
-    return _homogeneous_functor(Val(:Gary1976), formula, rho, epsilon, mu, jω, Γ, segments)
+function Γ(::Val{:Gary1976}, jω, materials, layers)
+    return zero(jω)
 end
 
 raw"""
@@ -58,9 +41,9 @@ The direct distance is
 supplies the outer radius as ``y_{ii}=r_i``.
 """
 function earth_impedance(
-        ::Val{:Gary1976}, ::Val{:mutual}, functor, pair
+        ::Val{:Gary1976}, ::Union{Val{:self}, Val{:mutual}}, ::Val{1}, ::Val{1},
+        functor, pair, workspace
 )
-    validate(pair, FormulaMethod(Val(:Gary1976), earth_impedance, Val(:mutual)), functor)
     state = functor.state
     geometry = _geometry(pair)
     h_e = inv(state.gamma[2])
@@ -68,13 +51,27 @@ function earth_impedance(
     return state.jω * state.mu[1] / (2π) * log(S_ij / geometry.d_ij)
 end
 
-function validate(
-        pair::EarthPair, route::FormulaMethod{:Gary1976, typeof(earth_impedance)}, formula
-)
-    validate(pair)
-    (pair.layers == (1, 1)) || throw(ArgumentError(
-        ":Gary1976 earth impedance requires overhead conductors; pair ($(pair.row), $(pair.column)) has layers $(pair.layers)"))
-    return pair
+Formulation(::LineCableModelsCoaxial, selected::Formula{:Gary1976}) = selected
+
+function hooks(::FormulaMethod{:Gary1976, typeof(earth_impedance),
+        A}) where {A <: Tuple{Union{Val{:self}, Val{:mutual}}, Val{1}, Val{1}}}
+    return (configurable = (:Γ, :earth, :permeability, :contribution),
+        defaults = (
+            Γ = FormulaMethod(Val(:Gary1976), Γ),
+            air = FormulaMethod(Val(:lossless), propagation),
+            earth = FormulaMethod(Val(:conductive), propagation),
+            permeability = vacuum_permeability,
+            contribution = nothing))
+end
+
+function computation_options(::FormulaMethod{:Gary1976, typeof(earth_impedance),
+        A}) where {A <: Tuple{Union{Val{:self}, Val{:mutual}}, Val{1}, Val{1}}}
+    (;)
+end
+
+function validate(binding::FormulaMethod{:Gary1976, typeof(earth_impedance)},
+        ::EquivalentHomogeneous.Formula{:default})
+    binding
 end
 
 :Gary1976

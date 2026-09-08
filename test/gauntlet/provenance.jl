@@ -12,7 +12,8 @@ const FLATTEN_IMPLEMENTATION_PATHS = (
     "src/datamodel/geometry/ellipse.jl",
     "src/datamodel/design/assembly.jl",
     "src/datamodel/placement/bounded.jl",
-    "src/materials/material.jl"
+    "src/materials/material.jl",
+    "src/materials/radialdielectric.jl"
 )
 
 const COAXIAL_IMPLEMENTATION_PATHS = (
@@ -24,6 +25,9 @@ const COAXIAL_IMPLEMENTATION_PATHS = (
     "src/engine/admittance.jl",
     "src/engine/earthreturn.jl",
     "src/engine/earthkernels.jl",
+    "src/engine/integration.jl",
+    "src/formulas.jl",
+    "src/grammar/formulas.jl",
     "src/engine/matrixops.jl",
     "src/engine/reduction.jl",
     "src/engine/lineparameters.jl",
@@ -34,7 +38,9 @@ const COAXIAL_IMPLEMENTATION_PATHS = (
 include("fingerprints.jl")
 
 _selection_value(value::Union{Nothing, Bool, Number, AbstractString, Symbol}) = value
-_selection_value(value::Type) = string(value)
+function _selection_value(value::Type)
+    sprint(show, value; context = (:module=>nothing, :compact=>false))
+end
 _selection_value(value::NamedTuple) = map(_selection_value, value)
 _selection_value(value::Tuple) = map(_selection_value, value)
 _selection_value(value::AbstractVector) = _selection_value.(value)
@@ -42,10 +48,10 @@ function _selection_value(value)
     ismutabletype(typeof(value)) && throw(ArgumentError(
         "formula provenance cannot fingerprint mutable $(typeof(value)); provide immutable numerical route inputs"))
     names = fieldnames(typeof(value))
-    return (type=string(typeof(value)), fields=NamedTuple{names}(
-        map(name -> _selection_value(getfield(value, name)), names)))
+    return (type = _selection_value(typeof(value)),
+        fields = NamedTuple{names}(
+            map(name -> _selection_value(getfield(value, name)), names)))
 end
-
 
 "Return a digest of the materialised numerical declarations in one problem."
 function numerical_input_sha256(problem::LineCableModels.Engine.LineParametersProblem)
@@ -53,11 +59,11 @@ function numerical_input_sha256(problem::LineCableModels.Engine.LineParametersPr
     # Both are inputs to reuse: a placement change must not resurrect results
     # computed from the same declaration by an older resolver.
     resolved = map(problem.system.designs) do design
-        _selection_value((geometry=design.geometry,
-            terminal_order=design.terminal_order, terminal_map=design.terminal_map))
+        _selection_value((geometry = design.geometry,
+            terminal_order = design.terminal_order, terminal_map = design.terminal_map))
     end
-    return semantic_sha256((schema_version=2,
-        declaration=LineCableModels.ImportExport.serialize_value(problem), resolved))
+    return semantic_sha256((schema_version = 2,
+        declaration = LineCableModels.ImportExport.serialize_value(problem), resolved))
 end
 
 function repository_provenance()
@@ -80,32 +86,15 @@ function _formula_paths(family::AbstractString, formula)
         lowercase(string(identifier)) * ".jl"
     )
     isfile(joinpath(REPOSITORY_ROOT, relative)) || return String[]
-    directory = dirname(joinpath(REPOSITORY_ROOT, relative))
-    candidates = sort!(filter(endswith(".jl"), readdir(directory)))
-    selected = Set((basename(relative),))
-    pending = [basename(relative)]
-    while !isempty(pending)
-        source = lowercase(read(joinpath(directory, popfirst!(pending)), String))
-        for candidate in candidates
-            candidate in selected && continue
-            stem = lowercase(splitext(candidate)[1])
-            occursin(stem, source) || continue
-            push!(selected, candidate)
-            push!(pending, candidate)
-        end
-    end
-    return [joinpath("src", "engine", family, "formulas", file)
-            for file in sort!(collect(selected))]
+    return [relative]
 end
 
 function _ehem_path(sequence)
     sequence === nothing && return nothing
-    rule = LineCableModels.EarthProps.EHEM.rule(sequence)
-    rule isa LineCableModels.EarthProps.EHEM.Layer &&
-        return "src/earthprops/ehem/layer.jl"
+    rule = LineCableModels.Earth.EquivalentHomogeneous.rule(sequence)
     identifier = LineCableModels.formula_id(rule)
     return joinpath(
-        "src", "earthprops", "ehem", "formulas",
+        "src", "earth", "equivalenthomogeneous", "formulas",
         lowercase(string(identifier)) * ".jl"
     )
 end
@@ -114,7 +103,7 @@ function _fd_path(formula)
     formula === nothing && return nothing
     identifier = LineCableModels.formula_id(formula)
     return joinpath(
-        "src", "earthprops", "fd", "formulas",
+        "src", "earth", "frequencydependent", "formulas",
         lowercase(string(identifier)) * ".jl"
     )
 end
@@ -125,29 +114,25 @@ function _selection_record(value)
                  LineCableModels.formula_id(value) : string(typeof(value))
     assumptions = hasproperty(value, :assumptions) ?
                   _selection_value(value.assumptions) : (;)
-    routes = if hasproperty(value, :routes)
-        map(_selection_value, value.routes)
-    elseif hasproperty(value, :route)
-        _selection_value(value.route)
+    binding = hasproperty(value, :binding) ? _selection_value(value.binding) : nothing
+    parameters = hasproperty(value, :parameters) ? _selection_value(value.parameters) : (;)
+    hooks = hasproperty(value, :hooks) ? _selection_value(value.hooks) : (;)
+    options = hasproperty(value, :options) ? _selection_value(value.options) : (;)
+    equivalent_earth = if hasproperty(value, :equivalent_earth) &&
+                          value.equivalent_earth !== nothing
+        sequence = value.equivalent_earth
+        (order = nameof(typeof(sequence)), rule = _selection_record(sequence.rule))
     else
         nothing
     end
-    return (; identifier, assumptions, routes)
+    return (;
+        identifier, assumptions, parameters, hooks, binding, options, equivalent_earth)
 end
 
 function formulation_record(formulation::LineCableModels.Engine.LineParametersFormulation)
     methods = formulation.methods
-    equivalent = methods.equivalent_earth
-    equivalent_record = if equivalent === nothing
-        nothing
-    else
-        rule = LineCableModels.EarthProps.EHEM.rule(equivalent)
-        rule isa LineCableModels.EarthProps.EHEM.Layer ?
-        (order = nameof(typeof(equivalent)), rule = :Layer, layer = rule.layer) :
-        (order = nameof(typeof(equivalent)), rule = _selection_record(rule))
-    end
     return (
-        schema_version = 1,
+        schema_version = 2,
         backend = :coaxial,
         internal_impedance = _selection_record(methods.internal_impedance),
         insulation_impedance = _selection_record(methods.insulation_impedance),
@@ -156,7 +141,6 @@ function formulation_record(formulation::LineCableModels.Engine.LineParametersFo
         semicon_admittance = _selection_record(methods.semicon_admittance),
         earth_admittance = _selection_record(methods.earth_admittance),
         earth_properties = _selection_record(methods.earth_properties),
-        equivalent_earth = equivalent_record,
         pipe_impedance = _selection_record(methods.pipe_impedance),
         options = formulation.options
     )
@@ -169,19 +153,20 @@ function implementation_record(
 )
     methods = formulation.methods
     paths = String[COAXIAL_IMPLEMENTATION_PATHS...]
-    append!(paths, (
-        "src/engine/internalimpedance/interface.jl",
-        "src/engine/insulationimpedance/interface.jl",
-        "src/engine/insulationadmittance/interface.jl",
-        "src/engine/semiconadmittance/interface.jl",
-        "src/engine/earthimpedance/interface.jl",
-        "src/engine/earthimpedance/homogeneous.jl",
-        "src/engine/earthadmittance/interface.jl",
-        "src/engine/earthadmittance/homogeneous.jl",
-        "src/engine/pipeimpedance/interface.jl",
-        "src/earthprops/ehem/interface.jl",
-        "src/earthprops/fd/interface.jl"
-    ))
+    append!(paths,
+        (
+            "src/engine/internalimpedance/interface.jl",
+            "src/engine/insulationimpedance/interface.jl",
+            "src/engine/insulationadmittance/interface.jl",
+            "src/engine/semiconadmittance/interface.jl",
+            "src/engine/earthimpedance/interface.jl",
+            "src/engine/earthimpedance/homogeneous.jl",
+            "src/engine/earthadmittance/interface.jl",
+            "src/engine/earthadmittance/homogeneous.jl",
+            "src/engine/pipeimpedance/interface.jl",
+            "src/earth/equivalenthomogeneous/interface.jl",
+            "src/earth/frequencydependent/interface.jl"
+        ))
     for (family, formula) in (
         ("internalimpedance", methods.internal_impedance),
         ("insulationimpedance", methods.insulation_impedance),
@@ -195,7 +180,8 @@ function implementation_record(
     end
     for path in (
         _fd_path(methods.earth_properties),
-        _ehem_path(methods.equivalent_earth)
+        _ehem_path(methods.earth_impedance.equivalent_earth),
+        _ehem_path(methods.earth_admittance.equivalent_earth)
     )
         path === nothing || push!(paths, path)
     end

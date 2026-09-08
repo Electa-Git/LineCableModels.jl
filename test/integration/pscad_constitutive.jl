@@ -52,9 +52,14 @@
             @test component.dielectric.shunt_conductance ≈ real(reference_shunt)
             @test component.dielectric.shunt_capacitance ≈ imag(reference_shunt) / omega
         end
-        @test_throws ArgumentError export_data(:pscad, system, earth;
+        default_path = export_data(:pscad, system, earth;
             temperature=60.0, file_name=joinpath(directory, "unspecified.pscx"))
-        @test !isfile(joinpath(directory, "$(system.system_id)_unspecified.pscx"))
+        @test isfile(default_path)
+        default_document = readxml(default_path)
+        default_cable = only(findall("//User[@defn='master:Cable_Coax']", default_document))
+        default_values = Dict(node["name"]=>node["value"] for node in findall("./paramlist/param", default_cable))
+        @test parse(Float64,default_values["LT1"]) == 0
+        @test parse(Float64,default_values["RHOC"]) ≈ copper.rho * 1.16 rtol=1e-5
         frequency_error = try
             export_data(:pscad, system, earth;
                 base_freq=Inf, file_name=joinpath(directory, "infinite.pscx"))
@@ -80,8 +85,8 @@
         bare = build(CableDesign, "bare-wire", terminal(:core, solid(copper, Disk(0.0425))))
         bare_system = build(LineCableSystem, [bare], [Pose2(0, -1)];
             connections=[Dict(:core=>1)])
-        for formulation in (nothing, Formulation())
-            path = export_data(:pscad, bare_system, earth; formulation,
+        for keywords in ((;), (formulation=Formulation(),))
+            path = export_data(:pscad, bare_system, earth; keywords...,
                 file_name=joinpath(directory, "bare.pscx"))
             document = EzXML.readxml(path)
             cable = only(EzXML.findall("//User[@defn='master:Cable_Coax']", document))

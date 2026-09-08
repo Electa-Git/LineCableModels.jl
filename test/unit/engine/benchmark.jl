@@ -92,7 +92,7 @@
     )
     modal=compute(
         ModalTransformationProblem(modal_source),
-        ModalTransformationFormulation(:Fortescue)
+        ModalTransformationFormulation(:default)
     )
     @test_throws ArgumentError compare(reference, modal)
 

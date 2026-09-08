@@ -40,12 +40,72 @@ zero inner radius or zero-thickness annulus contributes zero.
     return s / y
 end
 
+"""
+$(TYPEDSIGNATURES)
+
+Evaluate the selected dielectric law at frequency in Hz and temperature in °C.
+When `temperature_correction=true`, the material resistivity is evaluated as
+`rho * (1 + alpha * (temperature - T0))` exactly once before the registered
+route is called. The temporary material records the new reference temperature;
+the source material is unchanged. The lossless law still ignores resistivity
+and loss tangent. Returns complex admittivity in S/m.
+"""
+function constitutive(
+        formula::Union{InsulationAdmittance.Formula, SemiconAdmittance.Formula},
+        material::Material, frequency::Real, temperature::Real;
+        temperature_correction::Bool = true)
+    if temperature_correction && isfinite(material.rho) && !iszero(material.alpha) &&
+       temperature != material.T0
+        rho = material.rho * (1 + material.alpha * (temperature - material.T0))
+        material = Material(material.kind, rho, material.eps_r, material.mu_r,
+            temperature, material.alpha; rho_thermal = material.rho_thermal,
+            theta_max = material.theta_max, tan_delta = material.tan_delta, sigma_solar = material.sigma_solar)
+    end
+    return formula(material, frequency, temperature)
+end
+
 @inline function radial_coefficient(coefficients, layers::UnitRange{Int})
     coefficient = zero(eltype(coefficients))
     @inbounds for layer in layers
         coefficient += coefficients[layer]
     end
     return coefficient
+end
+
+"""
+$(TYPEDSIGNATURES)
+
+Evaluate a homogeneous radial dielectric from its original constituents.
+`relations` contains the selected insulation and semicon material callables,
+in that order. Each callable returns complex admittivity in S/m at the supplied
+frequency in Hz and temperature in °C. No constituent loss is added a second time.
+
+The effective admittivity is the logarithmically weighted harmonic mean of
+the selected constituent responses. This is radial circuit equivalence, not
+an assertion of full-field equivalence for an arbitrary heterogeneous domain.
+"""
+function constitutive(relations::Tuple{I, S}, material::RadialDielectric,
+        frequency::Real, temperature::Real) where {I, S}
+    T = promote_type(eltype(material), typeof(float(frequency)), typeof(float(temperature)))
+    impedance = zero(Complex{T})
+    for (source, weight) in zip(material.materials, material.weights)
+        response = source.kind === :semicon ?
+                   relations[2](source, frequency, temperature) :
+                   relations[1](source, frequency, temperature)
+        iszero(response) && return zero(Complex{T})
+        impedance += weight / response
+    end
+    return sum(material.weights) / impedance
+end
+
+function constitutive(relations::Tuple{I, S}, material::RadialDielectric,
+        frequency::Real, temperature::Real;
+        temperature_correction::Bool = true
+) where {I <: InsulationAdmittance.Formula, S <: SemiconAdmittance.Formula}
+    evaluated = map(relations) do selected
+        (source, f, t) -> constitutive(selected, source, f, t; temperature_correction)
+    end
+    return constitutive(evaluated, material, frequency, temperature)
 end
 
 """
@@ -64,14 +124,14 @@ function dielectric!(
         methods::NamedTuple,
         frequency::T,
         temperature::T,
-        s::Complex{T}
+        s::Complex{T}; temperature_correction::Bool = true
 ) where {T <: Real}
     @inbounds for layer in input.insulation_indices
         κ = constitutive(
             methods.insulation_admittance,
             input.dielectric_materials[layer],
             frequency,
-            temperature
+            temperature; temperature_correction
         )
         coefficients[layer] = potential_coefficient(
             input.r_layer_in[layer],
@@ -85,7 +145,7 @@ function dielectric!(
             methods.semicon_admittance,
             input.dielectric_materials[layer],
             frequency,
-            temperature
+            temperature; temperature_correction
         )
         coefficients[layer] = potential_coefficient(
             input.r_layer_in[layer],
@@ -116,10 +176,11 @@ function cable_potential!(
         s::Complex{T},
         layer_coefficients::AbstractVector{Complex{T}},
         coefficients::AbstractVector{Complex{T}},
-        tails::AbstractVector{Complex{T}}
+        tails::AbstractVector{Complex{T}}; temperature_correction::Bool = true
 ) where {T <: Real}
     fill!(destination, zero(Complex{T}))
-    dielectric!(layer_coefficients, input, methods, frequency, temperature, s)
+    dielectric!(layer_coefficients, input, methods, frequency,
+        temperature, s; temperature_correction)
     @inbounds for conductors in input.assemblies
         count = length(conductors)
         for component in 1:count
@@ -133,6 +194,7 @@ function cable_potential!(
             tails[gap] = coefficients[gap] + tails[gap + 1]
         end
         for row in 1:count, column in 1:count
+
             destination[conductors[row], conductors[column]] += tails[max(row, column)]
         end
     end
@@ -161,10 +223,11 @@ function cable_admittance!(
         frequency::T,
         temperature::T,
         s::Complex{T},
-        layer_coefficients::AbstractVector{Complex{T}}
+        layer_coefficients::AbstractVector{Complex{T}}; temperature_correction::Bool = true
 ) where {T <: Real}
     fill!(destination, zero(Complex{T}))
-    dielectric!(layer_coefficients, input, methods, frequency, temperature, s)
+    dielectric!(layer_coefficients, input, methods, frequency,
+        temperature, s; temperature_correction)
     @inbounds for conductors in input.assemblies
         count = length(conductors)
         for position in 1:count
@@ -199,8 +262,7 @@ function admittance!(
     pairs = stratified ?
             workspace.invariants.earth_pairs : workspace.invariants.homogeneous_pairs
     earth_matrix = workspace.buffers.earth_matrix
-    earth_media = stratified ? workspace.buffers.earth_layers :
-                  workspace.buffers.earth_media
+    earth_media = workspace.buffers.earth_materials.earth_admittance
     coefficients = workspace.buffers.coefficients
     tails = workspace.buffers.tails
     layer_coefficients = workspace.buffers.layer_coefficients
@@ -215,15 +277,16 @@ function admittance!(
         s,
         layer_coefficients,
         coefficients,
-        tails
+        tails; temperature_correction = formulation.options.temperature_correction
     )
     _stash!(_capture_target(capture, :Pin), frequency, destination)
 
     earth!(
-        earth_matrix, pairs, input, earth_media, frequency,
+        earth_matrix, workspace.invariants.earth_bindings.earth_admittance,
+        earth_media, s,
         formulation.methods.earth_admittance,
         _gamma(input.Γ, frequency),
-        workspace.buffers.earth_admittance_segments,
+        workspace.buffers.earth_numerical.earth_admittance,
         stratified ? earth_media.thickness : nothing
     )
     _stash!(_capture_target(capture, :Pg), frequency, earth_matrix)
@@ -241,7 +304,7 @@ function admittance!(
             for row in indices[left], column in indices[right]
 
                 destination[row, column] += mutual
-                destination[column, row] += mutual
+                destination[column, row] += earth_matrix[right, left]
             end
         end
     end

@@ -5,7 +5,7 @@
     impedance = zeros(ComplexF64, 3, 3, length(frequencies))
     admittance = similar(impedance)
     principal_axes = Matrix{Float64}[]
-    for (index, angle) in enumerate(range(0.0, 0.3; length=length(frequencies)))
+    for (index, angle) in enumerate(range(0.0, 0.3; length = length(frequencies)))
         rotation = [cos(angle) 0 sin(angle); 0 1 0; -sin(angle) 0 cos(angle)]
         push!(principal_axes, rotation)
         impedance[:, :, index] = (1 + 2im) .* (
@@ -14,14 +14,14 @@
     end
     phase = LineParameters(impedance, admittance, frequencies)
     modal = @inferred compute(ModalTransformationProblem(phase),
-        ModalTransformationFormulation(:Fan2009))
+        ModalTransformationFormulation(:default))
     maps = operators(modal)
     for index in eachindex(frequencies)
         vectors = transpose(maps.voltage[:, :, index])
         product = admittance[:, :, index] * impedance[:, :, index]
         eigenvalues = diag(maps.current[:, :, index] * product * vectors)
         @test norm(product * vectors - vectors * Diagonal(eigenvalues)) <=
-            1e-8 * norm(product) * norm(vectors)
+              1e-8 * norm(product) * norm(vectors)
         @test maps.current[:, :, index] * vectors ≈ Matrix(I, 3, 3) rtol=1e-12
         # Only the two-dimensional repeated eigenspace is unique, not its basis.
         target = (1e-8 + 4e-7im) * (1 + 2im)
@@ -47,24 +47,34 @@ end
     admittance = similar(impedance)
     for (index, angle) in enumerate((0.0, 0.4, 0.8, 1.2))
         rotation = [cos(angle) -sin(angle); sin(angle) cos(angle)]
-        impedance[:, :, index] = rotation * Diagonal(ComplexF64[
-            1 + index * im, 3 + 2index * im]) * transpose(rotation)
-        admittance[:, :, index] = rotation * Diagonal(ComplexF64[
-            1e-8 + index * 1e-7im, 2e-8 + index * 3e-7im]) * transpose(rotation)
+        impedance[:, :, index] = rotation *
+                                 Diagonal(ComplexF64[
+                                 1 + index * im, 3 + 2index * im]) * transpose(rotation)
+        admittance[:, :, index] = rotation *
+                                  Diagonal(ComplexF64[
+                                  1e-8 + index * 1e-7im, 2e-8 + index * 3e-7im]) *
+                                  transpose(rotation)
     end
     phase = LineParameters(impedance, admittance, frequencies)
-    for identifier in (:Wedepohl1996, :Chrysochos2014)
+    for identifier in (:default,)
         @testset "$identifier" begin
-            formulation = ModalTransformationFormulation(identifier; max_iterations=1)
+            formulation = ModalTransformationFormulation(
+                identifier; options = (iteration = (max_iterations = 1,),))
             modal = @test_logs (:warn, r"retained matched eigensolutions") match_mode=:any compute(
                 ModalTransformationProblem(phase), formulation)
+            @test !isempty(details(modal).modal.fallback_frequencies)
+            @test details(modal).modal.options.iteration.fallback === :matched
+            @test_throws ErrorException compute(ModalTransformationProblem(phase),
+                ModalTransformationFormulation(identifier;
+                    options =
+                    (iteration = (max_iterations = 1, fallback = :error),)))
             maps = operators(modal)
             for index in eachindex(frequencies)
                 vectors = transpose(maps.voltage[:, :, index])
                 product = admittance[:, :, index] * impedance[:, :, index]
                 eigenvalues = diag(maps.current[:, :, index] * product * vectors)
                 @test norm(product * vectors - vectors * Diagonal(eigenvalues)) <=
-                    1e-10 * norm(product) * norm(vectors)
+                      1e-10 * norm(product) * norm(vectors)
                 @test maps.current[:, :, index] * vectors ≈ Matrix(I, 2, 2) rtol=1e-12
                 @test all(isfinite, modal.Z.values[:, :, index])
                 @test all(isfinite, modal.Y.values[:, :, index])

@@ -5,7 +5,7 @@ using SHA: sha256
 import TOML
 using LineCableModels
 using LineCableModels.DataModel: LineCableSystem
-using LineCableModels.EarthProps: EarthModel
+using LineCableModels.Earth: EarthModel
 using LineCableModels.Engine
 using LineCableModels.ImportExport
 import LineCableModels: description, parameterize, computation_details

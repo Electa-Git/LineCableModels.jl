@@ -33,9 +33,9 @@ Private = false
 ```@autodocs
 Modules = [
     LineCableModels.DataModel,
-    LineCableModels.EarthProps,
-    LineCableModels.EarthProps.FD,
-    LineCableModels.EarthProps.EHEM,
+    LineCableModels.Earth,
+    LineCableModels.Earth.FrequencyDependent,
+    LineCableModels.Earth.EquivalentHomogeneous,
 ]
 Order = [:module, :constant, :type, :function, :macro]
 Filter = api_reference_entry

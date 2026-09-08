@@ -261,8 +261,8 @@ function terminal(name, parts...; combine::Symbol = :product)
 end
 
 function _require_material(material, role::Symbol, allowed::Tuple)
-    material isa Material || throw(ArgumentError(
-        "$role material must resolve to Material"
+    material isa Materials.AbstractMaterial || throw(ArgumentError(
+        "$role material must resolve to AbstractMaterial"
     ))
     material.kind in allowed || throw(ArgumentError(
         "$role material must have kind $(join(string.(allowed), " or ")); " *

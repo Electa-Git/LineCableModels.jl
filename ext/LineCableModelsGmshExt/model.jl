@@ -33,7 +33,7 @@ struct FEMMaterialPlan{T <: Real}
     rho::T
     eps_r::T
     mu_r::T
-    tan_delta::T
+    tan_delta::Union{Nothing, T}
     admittivity::Vector{Complex{T}}
     physical_tag::Int
     physical_name::String
@@ -237,9 +237,13 @@ function _validate_material(material, object_id::String)
     isfinite(material.mu_r) || _fem_error(
         :adaptation, object_id, :mu_r, "relative permeability must be finite"
     )
-    isfinite(material.tan_delta) || _fem_error(
-        :adaptation, object_id, :tan_delta, "loss tangent must be finite"
-    )
+    if material isa LineCableModels.RadialDielectric
+        foreach(m -> _validate_material(m, object_id), material.materials)
+    else
+        isfinite(material.tan_delta) || _fem_error(
+            :adaptation, object_id, :tan_delta, "loss tangent must be finite"
+        )
+    end
     return nothing
 end
 
@@ -290,6 +294,11 @@ function _temperature_resistivity(material, problem, formulation)
     return material.rho * (
         one(material.rho) + material.alpha * (problem.temperature - material.T0)
     )
+end
+
+function _temperature_resistivity(material::LineCableModels.RadialDielectric, problem, formulation)
+    return sum(w * _temperature_resistivity(m, problem, formulation)
+    for (w, m) in zip(material.weights, material.materials)) / sum(material.weights)
 end
 
 function _validate_material_partition(design)
@@ -500,12 +509,12 @@ function _formations(regions, terminal_map, object_id)
                                  isapprox(shape.at.y, boundary.at.y)
                     concentric && isapprox(shape.ro, boundary.r) || return false
                     isapprox(occupied_area, π * shape.ri^2;
-                        rtol=5e-6, atol=0) || return false
+                        rtol = 5e-6, atol = 0) || return false
                     shift = DataModel.Pose2(-boundary.at.x, -boundary.at.y)
                     tolerance = 64eps(shape.ri)
                     return all(member_shapes) do member_shape
                         DataModel.support(DataModel.resolve(shift, member_shape)) <=
-                            shape.ri + tolerance
+                        shape.ri + tolerance
                     end
                 end
                 shape isa DataModel.DifferenceShape || return false
@@ -521,15 +530,16 @@ function _formations(regions, terminal_map, object_id)
                 "area; contain it in Enclosure with an explicit fill material"
             )
         end
-        push!(formations, (;
-            members,
-            member_shapes,
-            boundary,
-            complete,
-            mesh_size = minimum(
-                index -> _fem_region_mesh_size(regions[index]), members
-            )
-        ))
+        push!(formations,
+            (;
+                members,
+                member_shapes,
+                boundary,
+                complete,
+                mesh_size = minimum(
+                    index -> _fem_region_mesh_size(regions[index]), members
+                )
+            ))
     end
     return formations
 end
@@ -585,11 +595,26 @@ function _resolved_fem_model(
         "LineCableModelsFEM uses its fixed quasi-TEM propagation constant; " *
         "problem-level propagation constants are unsupported"
     )
+    for name in
+        (:internal_impedance, :insulation_impedance, :earth_impedance, :earth_admittance)
+        selected=getproperty(formulation.methods, name)
+        isempty(selected.hooks) && isempty(selected.parameters) &&
+        all(isempty, values(selected.options)) || _fem_error(
+            :unsupported, problem.system.system_id, name,
+            "FEM cannot evaluate a custom analytical $name contribution")
+    end
+    for name in (:earth_impedance, :earth_admittance)
+        getproperty(formulation.methods, name).equivalent_earth === nothing || _fem_error(
+            :unsupported, problem.system.system_id, name,
+            "FEM does not execute the formula's equivalent-earth reduction")
+    end
     earth = problem.earth_props
-    formulation.methods.earth_properties === nothing || _fem_error(
-        :unsupported, problem.system.system_id, :earth_properties,
-        "frequency-dependent soil constitutive selections are not yet implemented by FEM"
-    )
+    (formulation.methods.earth_properties === nothing ||
+     formulation.methods.earth_properties === Earth.FrequencyDependent.Formula(:default)) ||
+        _fem_error(
+            :unsupported, problem.system.system_id, :earth_properties,
+            "frequency-dependent soil constitutive selections are not yet implemented by FEM"
+        )
     earth.vertical_layers && _fem_error(
         :unsupported,
         problem.system.system_id,
@@ -603,7 +628,7 @@ function _resolved_fem_model(
         "the FEM backend currently supports one homogeneous earth half-space"
     )
     environment = problem.system.environment
-    environment isa Union{Nothing, EarthProps.EarthModel} || _fem_error(
+    environment isa Union{Nothing, Earth.EarthModel} || _fem_error(
         :unsupported,
         problem.system.system_id,
         :environment,
@@ -646,12 +671,12 @@ function _resolved_fem_model(
         formations = _formations(regions, terminals, cable_id)
         complete = Dict(
             first(formation.members) => formation
-            for formation in formations if formation.complete
+        for formation in formations if formation.complete
         )
         skipped = Set(
             member
-            for formation in formations if formation.complete
-            for member in formation.members[2:end]
+        for formation in formations if formation.complete
+        for member in formation.members[2:end]
         )
         for local_region in eachindex(design.geometry.regions)
             global_region += 1
@@ -687,18 +712,29 @@ function _resolved_fem_model(
             admittivity = if material.kind === :conductor
                 epsilon = convert(T, material.eps_r * 8.8541878128e-12)
                 Complex{T}[complex(inv(rho) + 2π * f * epsilon * material.tan_delta,
-                    2π * f * epsilon) for f in problem.frequencies]
+                               2π * f * epsilon) for f in problem.frequencies]
             else
-                selected = material.kind === :semicon ?
-                           formulation.methods.semicon_admittance :
-                           formulation.methods.insulation_admittance
-                corrected = LineCableModels.Material(material.kind, rho, material.eps_r,
-                    material.mu_r, material.T0, material.alpha;
-                    rho_thermal = material.rho_thermal, theta_max = material.theta_max,
-                    tan_delta = material.tan_delta, sigma_solar = material.sigma_solar)
-                Complex{T}[LineCableModels.constitutive(formulation,
-                    Val(LineCableModels.formula_id(selected)), selected, corrected,
-                    frequency, problem.temperature) for frequency in problem.frequencies]
+                # Backend compatibility remains an explicit author-tag route for
+                # every original constituent, including a homogeneous shell.
+                relations = map((formulation.methods.insulation_admittance,
+                    formulation.methods.semicon_admittance)) do selected
+                    (source,
+                        frequency,
+                        temperature) -> begin
+                        LineCableModels.constitutive(formulation,
+                            Val(LineCableModels.formula_id(selected)), selected, source,
+                            frequency, temperature)
+                    end
+                end
+                if material isa LineCableModels.RadialDielectric
+                    Complex{T}[LineCableModels.constitutive(relations, material,
+                                   frequency, problem.temperature)
+                               for frequency in problem.frequencies]
+                else
+                    relation = material.kind === :semicon ? relations[2] : relations[1]
+                    Complex{T}[relation(material, frequency, problem.temperature)
+                               for frequency in problem.frequencies]
+                end
             end
             formation = get(complete, local_region, nothing)
             shape = formation === nothing ?
@@ -721,7 +757,8 @@ function _resolved_fem_model(
                     rho,
                     convert(T, source.material.eps_r),
                     convert(T, source.material.mu_r),
-                    convert(T, source.material.tan_delta),
+                    material isa LineCableModels.RadialDielectric ? nothing :
+                    convert(T, material.tan_delta),
                     admittivity,
                     physical_tag,
                     physical_name

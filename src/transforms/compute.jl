@@ -22,18 +22,22 @@ function computation_options(
         ::Type{LineCableModelsModal},
         options::NamedTuple
 )::ComputationOptions
-    isempty(options) || throw(ArgumentError(
-        "the modal backend has no computation options; got $(collect(keys(options)))"
-    ))
-    return (;)
+    isempty(setdiff(keys(options), (:offdiagonal_tolerance,))) || throw(ArgumentError(
+        "unknown modal action options: $(Tuple(keys(options)))"))
+    tolerance = get(options, :offdiagonal_tolerance, 1e-6)
+    tolerance isa Real && isfinite(tolerance) && tolerance >= 0 || throw(ArgumentError(
+        "offdiagonal_tolerance must be finite and nonnegative"))
+    return (offdiagonal_tolerance = tolerance,)
 end
 
 function _forward(
         parameters::LineParameters{T, U, PhaseDomain, Basis},
-        formulation::ModalTransformationFormulation
+        formulation::ModalTransformationFormulation,
+        execution::NamedTuple
 ) where {T <: Complex, U <: Real, Basis}
     formula = formulation.formula
-    maps = _check_operators(formula(parameters), parameters)
+    workspace = (fallback_frequencies = Int[],)
+    maps = formula(parameters; workspace)
     voltage = maps.voltage
     current = maps.current
     S = promote_type(T, eltype(voltage), eltype(current))
@@ -44,21 +48,19 @@ function _forward(
     source = Matrix{S}(undef, n, n)
     product = similar(source)
     factor = similar(source)
-    tolerance = formula.assumptions.tolerance
+    tolerance = execution.offdiagonal_tolerance
     identifier = formula_id(formula)
 
     @inbounds for frequency in axes(impedance, 3)
         A = @view voltage[:, :, frequency]
         B = @view current[:, :, frequency]
         copyto!(source, @view(parameters.Z.values[:, :, frequency]))
-        reciprocity!(source)
         mul!(product, A, source)
         copyto!(factor, B)
         rdiv!(product, lu!(factor))
         copyto!(@view(impedance[:, :, frequency]), product)
 
         copyto!(source, @view(parameters.Y.values[:, :, frequency]))
-        reciprocity!(source)
         mul!(product, B, source)
         copyto!(factor, A)
         rdiv!(product, lu!(factor))
@@ -82,7 +84,11 @@ function _forward(
         SeriesImpedance{eltype(impedance), Basis}(impedance),
         ShuntAdmittance{eltype(admittance), Basis}(admittance),
         parameters.f,
-        parameters.details
+        merge(parameters.details,
+            (modal = (identifier = identifier,
+                modified = !isempty(formula.hooks) || !isempty(formula.parameters),
+                options = formula.options, acceptance = execution,
+                fallback_frequencies = copy(workspace.fallback_frequencies)),))
     )
 end
 
@@ -110,13 +116,11 @@ function _inverse(
         mul!(product, Zm, B)
         copyto!(factor, A)
         ldiv!(solution, lu!(factor), product)
-        reciprocity!(solution)
         copyto!(@view(impedance[:, :, frequency]), solution)
 
         mul!(product, Ym, A)
         copyto!(factor, B)
         ldiv!(solution, lu!(factor), product)
-        reciprocity!(solution)
         copyto!(@view(admittance[:, :, frequency]), solution)
     end
 
@@ -143,9 +147,9 @@ function compute(
         formulation::ModalTransformationFormulation;
         options::NamedTuple = (;)
 ) where {T, U, P <: LineParameters{T, U, PhaseDomain}}
-    computation_options(LineCableModelsModal, options)
+    execution = computation_options(LineCableModelsModal, options)
     validate(problem)
-    return _forward(problem.parameters, formulation)
+    return _forward(problem.parameters, formulation, execution)
 end
 
 function compute(
@@ -160,7 +164,8 @@ function compute(
         problem::ModalTransformationProblem{P};
         options::NamedTuple = (;)
 ) where {T, U, D <: ModalDomain, P <: LineParameters{T, U, D}}
-    computation_options(LineCableModelsModal, options)
+    isempty(options) || throw(ArgumentError(
+        "inverse modal transformation uses the stored operators and accepts no action options"))
     validate(problem)
     return _inverse(problem.parameters)
 end

@@ -1,6 +1,6 @@
 @testitem "TextDisplay / engineering values and target summaries" tags=[:unit] begin
     const TD=LineCableModels.TextDisplay
-    const EP=LineCableModels.EarthProps
+    const EP=LineCableModels.Earth
 
     copper=Material(:conductor, 1.7241e-8, 1.0, 0.999994, 20.0, 0.00393)
     constants=CableConstants(1.33803e-5, 4.04835e-6, 1.83687e-10)
@@ -52,29 +52,29 @@ end
     @test TD.value(0.0) == "0"
     @test TD.value(-0.0) == "0"
     @test TD.value(NaN) == "NaN"
-    @test TD.value(1.23456789; sigdigits=4) == "1.235"
+    @test TD.value(1.23456789; sigdigits = 4) == "1.235"
     @test TD.value(1.25 + 2.5im) == "1.25 + 2.5im"
     @test TD.value(1.25 - 2.5im) == "1.25 − 2.5im"
     @test TD.value(complex(1.0, -0.0)) == "1 − 0im"
     @test TD.value(complex(Inf, -Inf)) == "∞ − ∞im"
     @test TD.value(:unrecorded) == ":unrecorded"
-    @test_throws ArgumentError TD.value(1.0; sigdigits=0)
-    @test_throws ArgumentError TD.value(1.0 + im; sigdigits=0)
+    @test_throws ArgumentError TD.value(1.0; sigdigits = 0)
+    @test_throws ArgumentError TD.value(1.0 + im; sigdigits = 0)
 
     for (number, unit, expected) in (
-            (0.0, :meter, "0 m"),
-            (-2e-3, :meter, "-2 mm"),
-            (0.1, :hertz, "100 mHz"),
-            (1e6, :hertz, "1 MHz"),
-            (20.0, :celsius, "20 °C"),
-            (0.00393, :kelvin_inverse, "0.00393 K⁻¹"),
-            (30.0, :degree, "30°"),
-            (0.001, :dimensionless, "0.001"),
-            (Inf, :ohm_meter, "∞ Ω·m"),
-            (-Inf, :celsius, "−∞ °C"),
-            (NaN, :dimensionless, "NaN"),
-            (Inf, :degree, "∞°"),
-        )
+        (0.0, :meter, "0 m"),
+        (-2e-3, :meter, "-2 mm"),
+        (0.1, :hertz, "100 mHz"),
+        (1e6, :hertz, "1 MHz"),
+        (20.0, :celsius, "20 °C"),
+        (0.00393, :kelvin_inverse, "0.00393 K⁻¹"),
+        (30.0, :degree, "30°"),
+        (0.001, :dimensionless, "0.001"),
+        (Inf, :ohm_meter, "∞ Ω·m"),
+        (-Inf, :celsius, "−∞ °C"),
+        (NaN, :dimensionless, "NaN"),
+        (Inf, :degree, "∞°")
+    )
         @test TD.engineering(number, unit) == expected
     end
     @test TD.angle(0.0) == "0°"
@@ -86,16 +86,16 @@ end
     # These independent unit expectations prevent a report from changing only
     # its caption while retaining values on the wrong per-length scale.
     for (observed, selector, basis, expected) in (
-            (1e-4, R, :pul, "0.1 Ω/km"),
-            (0.1, R, :total, "0.1 Ω"),
-            (2e-7, L, :pul, "0.2 mH/km"),
-            (2e-4, L, :total, "0.2 mH"),
-            (3e-10, C, :pul, "0.3 μF/km"),
-            (3e-7, C, :total, "0.3 μF"),
-            (4e-9, G, :pul, "4.0e-6 S/km"),
-            (0.001 + 0.002im, Z, :pul, "1 + 2im Ω/km"),
-            (0.003 - 0.004im, Y, :total, "0.003 − 0.004im S"),
-        )
+        (1e-4, R, :pul, "0.1 Ω/km"),
+        (0.1, R, :total, "0.1 Ω"),
+        (2e-7, L, :pul, "0.2 mH/km"),
+        (2e-4, L, :total, "0.2 mH"),
+        (3e-10, C, :pul, "0.3 μF/km"),
+        (3e-7, C, :total, "0.3 μF"),
+        (4e-9, G, :pul, "4.0e-6 S/km"),
+        (0.001 + 0.002im, Z, :pul, "1 + 2im Ω/km"),
+        (0.003 - 0.004im, Y, :total, "0.003 − 0.004im S")
+    )
         @test TD.quantity(observed, U.quantity(selector), basis) == expected
     end
     @test TD.quantity(pi / 2, U.quantity(Z, angle)) == "90°"
@@ -103,12 +103,12 @@ end
     @test_throws ArgumentError TD.quantity(1.0, U.quantity(R), :unknown)
 
     for (object, compact, summary_text) in (
-            (U.Unit(:ohm, :milli), "mΩ", "Physical unit mΩ"),
-            (U.units(:micro, :farad; per=(:kilo, :meter)), "μF/km", "Unit expression μF/km"),
-            (U.UnitExpr(), "", "Unit expression "),
-            (U.quantity(R), "R · Series resistance", "Series resistance"),
-            (U.Quantity{:dimensionless}(), "Dimensionless", "Dimensionless"),
-        )
+        (U.Unit(:ohm, :milli), "mΩ", "Physical unit mΩ"),
+        (U.units(:micro, :farad; per = (:kilo, :meter)), "μF/km", "Unit expression μF/km"),
+        (U.UnitExpr(), "", "Unit expression "),
+        (U.quantity(R), "R · Series resistance", "Series resistance"),
+        (U.Quantity{:dimensionless}(), "Dimensionless", "Dimensionless")
+    )
         @test sprint(show, object) == compact
         @test sprint(show, MIME"text/plain"(), object) == compact
         @test sprint(summary, object) == summary_text
@@ -119,7 +119,7 @@ end
 @testitem "TextDisplay / bounded structural families" tags=[:unit] setup=[
     TestFixtures
 ] begin
-    const EP=LineCableModels.EarthProps
+    const EP=LineCableModels.Earth
 
     conductor=Material(:conductor, 1.7241e-8)
     insulator=Material(:insulator, Inf, 2.3)
@@ -147,11 +147,12 @@ end
     )
     design=TestFixtures.mv_cable_design()
     system=TestFixtures.three_phase_system()
-    earth=build(EP.EarthModel, (
-        EP.EarthLayer(100.0, 10.0, 1.0, 2.0),
-        EP.EarthLayer(30.0, 15.0, 1.0, 5.0),
-        EP.EarthLayer(500.0, 8.0, 1.0)
-    ))
+    earth=build(EP.EarthModel,
+        (
+            EP.EarthLayer(100.0, 10.0, 1.0, 2.0),
+            EP.EarthLayer(30.0, 15.0, 1.0, 5.0),
+            EP.EarthLayer(500.0, 8.0, 1.0)
+        ))
     grid=Grid((1.0, 2.0, 3.0, 4.0, 5.0))
     build_calls=Ref(0)
     space=Gridspace{CableConstants}(
