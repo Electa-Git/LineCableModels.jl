@@ -46,6 +46,7 @@ showcase/bonito/build/
 
 # Internal files
 dev/*
+!dev/verify_getdp_artifact.jl
 !dev/plotting/
 !dev/plotting/Project.toml
 !dev/plotting/*.jl

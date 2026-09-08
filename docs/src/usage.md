@@ -36,13 +36,13 @@ direct linear uncertainty propagation. `MonteCarlo` samples independent
 realisations within each selected point.
 
 Any final formulation slot can be an explicit finite source. The constructor
-then returns a target-bearing formulation space:
+then returns a target-bearing formulation space. For homogeneous buried cases:
 
 ```julia
 formulations = Formulation(
     earth_impedance = Grid((
         :Pollaczek1926,
-        :Papadopoulos2010,
+        :Saad1996,
     )),
 )
 
@@ -56,13 +56,13 @@ The calculation contains `length(problem_space) * length(formulations)`
 results. Each problem point is materialised once and is evaluated against all
 resolved formulations. Use `combine=:product` or `combine=:zip` on the
 formulation constructor only to compose fields inside that formulation; the
-outer problem/formulation relation is always Cartesian. Formula assumptions
-vary as complete selections:
+outer problem/formulation relation is always Cartesian. Formula-owned numerical
+controls also vary as complete selections; for example, modal iteration convergence:
 
 ```julia
 modal_formulations = ModalTransformationFormulation(Grid((
-    formula(:default; parameters=(tolerance=1e-4,)),
-    formula(:default; parameters=(tolerance=1e-8,)),
+    formula(:default; options=(iteration=(convergence=1e-4,),)),
+    formula(:default; options=(iteration=(convergence=1e-8,),)),
 )))
 ```
 

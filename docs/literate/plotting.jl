@@ -486,7 +486,8 @@ stacked_self_impedance.figure #hide
 
 modal_parameters = compute(
     ModalTransformationProblem(parameters),
-    ModalTransformationFormulation(:default; parameters = (tolerance = 1.0,))
+    ModalTransformationFormulation(:default);
+    options = (offdiagonal_tolerance = 1.0,)
 );
 modal_inductance = Makie.plot(
     modal_parameters,

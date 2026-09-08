@@ -30,8 +30,8 @@ function validate_campaign(name,method)
     recorded=JSON3.read(read(joinpath(source,"input/computation.json"),String))
     options=(; (Symbol(k)=>v for (k,v) in pairs(recorded.options))...)
     form=Formulation(:LineCableModelsFEM; insulation_admittance=method,semicon_admittance=method,options,
-        fem_options=(getdp_executable=get(ENV,"LINECABLEMODELS_GETDP",String(recorded.getdp_identity.path)),getdp_verbosity=4,
-            gmsh_verbosity=0,frequency_workers=4,solver_threads=1,keep_run_directory=true))
+        fem_options=(getdp_verbosity=4,gmsh_verbosity=0,frequency_workers=4,
+            solver_threads=1,keep_run_directory=true))
     model=E._resolved_fem_model(problem,form)
     run=E._create_run(ROOT)
     inputs=E._fem_input_record(model,form)

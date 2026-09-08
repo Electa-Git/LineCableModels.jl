@@ -189,13 +189,25 @@ function _resume_inputs_match(path::String, model::FEMResolvedModel, inputs::Nam
     expected = ImportExport.serialize_value(model.problem)
     comparable = Dict(String(key)=>value for (key,value) in pairs(recorded))
     requested = Dict(String(key)=>value for (key,value) in pairs(JSON3.read(JSON3.write(inputs))))
-    # Worker count changes scheduling only; solver threads and all numerical
-    # inputs retain the same strict compatibility checks.
-    if get(comparable, "schema_version", 0) == 4 && inputs.schema_version == 4
+    # Scheduling and executable location do not change the numerical problem.
+    # The executable digest and reported build remain strict compatibility
+    # inputs; schema 4 records additionally carried the location inside that
+    # identity.
+    schemas = (get(comparable, "schema_version", 0), inputs.schema_version)
+    if all(in((4, 5)), schemas)
         for record in (comparable, requested)
             execution = Dict(String(key)=>value for (key,value) in pairs(record["execution"]))
             pop!(execution, "frequency_workers", nothing)
+            pop!(execution, "getdp_executable", nothing)
             record["execution"] = execution
+            identity = get(record, "getdp_identity", nothing)
+            if identity !== nothing
+                stable = Dict(String(key)=>value for (key,value) in pairs(identity))
+                pop!(stable, "path", nothing)
+                record["getdp_identity"] = stable
+            end
+            pop!(record, "getdp_provenance", nothing)
+            record["schema_version"] = 5
         end
     end
     return _resume_value_matches(existing, expected) &&
@@ -525,9 +537,6 @@ function _compute_fem(
 )
     runtime_root = _runtime_root()
     inputs = _fem_input_record(model, formulation)
-    formulation.execution.ui || inputs.getdp_identity !== nothing ||
-        _fem_error(:getdp, "GetDP", :getdp_executable,
-            "GetDP executable is unavailable; pass getdp_executable or add getdp to PATH")
     run = _resume_run(
         runtime_root, execution.resume_run_directory, model, inputs
     )
@@ -606,13 +615,12 @@ const FEM_ADAPTER_SOURCES = let files = ("model.jl", "geometry.jl", "mesh.jl",
 end
 
 function _fem_input_record(model::FEMResolvedModel, formulation::LineCableModelsFEM)
-    selected = formulation.execution.getdp_executable
-    executable = selected === nothing ? Sys.which("getdp") : abspath(selected)
-    getdp_identity = executable === nothing || !isfile(executable) ? nothing :
-        _getdp_identity(executable)
+    selection = _getdp_selection(formulation)
+    getdp_identity = _getdp_identity(selection.path)
+    getdp_provenance = selection
     mesh_path = formulation.execution.mesh_path
     return (
-        schema_version = 4,
+        schema_version = 5,
         solver_protocol = 2,
         mesh_fingerprint = _mesh_fingerprint(model, gmsh.GMSH_API_VERSION),
         materials = [(kind=material.kind, tag=material.physical_tag,
@@ -628,6 +636,7 @@ function _fem_input_record(model::FEMResolvedModel, formulation::LineCableModels
             bytes2hex(open(sha256, mesh_path)),
         owned_gmsh = !Bool(gmsh.is_initialized()),
         getdp_identity,
+        getdp_provenance,
         gmsh_version = gmsh.GMSH_API_VERSION,
         gmsh_library = String(gmsh.lib),
         julia_version = string(VERSION),

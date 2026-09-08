@@ -67,8 +67,8 @@ Reproduce the full comparison from the repository root:
 JULIA_LOAD_PATH=@:.:@stdlib julia --project=test/gauntlet test/gauntlet/fem_performance_validation.jl
 ```
 
-Set `LINECABLEMODELS_GETDP` to override the executable recorded in the retained
-campaigns. The driver creates a fresh `.linecablemodels/fem/validation-*` root;
+Set `LINECABLEMODELS_GETDP` only to override the package-owned GetDP artifact.
+The driver creates a fresh `.linecablemodels/fem/validation-*` root;
 it never resumes or overwrites a historical campaign. The companion
 `test/gauntlet/fem_worker_scaling.jl` checks one, two, four and eight workers on
 eight retained detailed-cable meshes, requiring exact serial agreement and

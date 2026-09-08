@@ -14,8 +14,8 @@ const reports=Any[]
 reference=nothing
 for workers in (1,2,4,8)
     form=Formulation(:LineCableModelsFEM;options,
-        fem_options=(getdp_executable=get(ENV,"LINECABLEMODELS_GETDP",String(recorded.getdp_identity.path)),
-            getdp_verbosity=4,gmsh_verbosity=0,frequency_workers=workers,solver_threads=1,keep_run_directory=true))
+        fem_options=(getdp_verbosity=4,gmsh_verbosity=0,frequency_workers=workers,
+            solver_threads=1,keep_run_directory=true))
     model=E._resolved_fem_model(problem,form)
     for (current,old) in zip(model.material_plans,recorded.materials)
         @assert real.(current.admittivity)==Float64.(old.sigma[indices])

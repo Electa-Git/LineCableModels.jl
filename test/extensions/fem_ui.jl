@@ -1,8 +1,7 @@
 @testitem "Gmsh FEM / UI maps and cancellation preserve session ownership" tags=[:extension,:fem_numerical] begin
     using Gmsh, JSON3
-    executable=get(ENV,"LINECABLEMODELS_GETDP",something(Sys.which("getdp"),""))
-    if isempty(executable) || isempty(get(ENV,"DISPLAY",""))
-        @test_skip "GetDP and an accessible display are required for UI execution"
+    if isempty(get(ENV,"DISPLAY",""))
+        @test_skip "An accessible display is required for UI execution"
     elseif !haskey(ENV,"LINECABLEMODELS_FEM_UI_CASE")
         # FLTK/Gmsh retain native GUI state after finalize. Exercise each closure
         # scenario in a fresh process, including when other tests used the GUI.
@@ -25,7 +24,7 @@
             earth_props=homogeneous(rho=100.0,eps_r=10.0))
         form=Formulation(:LineCableModelsFEM;options=(ideal_transposition=false,),
             fem_options=(ui=true,plot_field_maps=true,keep_run_directory=true,
-                getdp_executable=executable,gmsh_verbosity=0,getdp_verbosity=0))
+                gmsh_verbosity=0,getdp_verbosity=0))
         function await_condition(predicate)
             deadline=time()+90
             while !predicate()

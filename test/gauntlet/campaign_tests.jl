@@ -167,19 +167,16 @@ end
     # This iterates the public contract, not a frozen count of slots or formulas.
     # Every backend must receive each requested slot even when its implementation
     # subsequently reports a fixed equation, an absence, or unsupported physics.
-    withenv("LINECABLEMODELS_GETDP"=>"/unused/planning-only/getdp") do
-        for name in keys(Formulation().definitions)
-            axis=NamedTuple{(name,)}((Grid((:default, :default)),))
-            plan=owner.campaign_selections(nothing, :coaxial, false; choices = axis)
-            @test length(plan.selections) == 2
-            @test all(value -> getproperty(value, name) === :default, plan.selections)
-            record=Dict(string(key)=>string(value)
-            for (key, value) in pairs(first(plan.selections)))
-            for backend in (:coaxial, :fem, :pscad)
-                requested=owner.campaign_formulation(backend, record, :Ametani2004)
-                @test getproperty(requested.definitions, name) === :default
-                @test requested.definitions.insulation_admittance === :default
-            end
+    for name in keys(Formulation().definitions)
+        axis = NamedTuple{(name,)}((Grid((:default, :default)),))
+        plan = owner.campaign_selections(nothing, :coaxial, false; choices=axis)
+        @test length(plan.selections) == 2
+        @test all(value -> getproperty(value, name) === :default, plan.selections)
+        record = Dict(string(key)=>string(value) for (key, value) in pairs(first(plan.selections)))
+        for backend in (:coaxial, :fem, :pscad)
+            requested = owner.campaign_formulation(backend, record, :Ametani2004)
+            @test getproperty(requested.definitions, name) === :default
+            @test requested.definitions.insulation_admittance === :default
         end
     end
     alternatives=owner.parse_selections(["--select", "earth_impedance=default,Saad1996",
@@ -295,17 +292,23 @@ end
     using LineCableModels
     using .GauntletSupport
     mktempdir() do root
-        path=joinpath(root, "getdp")
-        write(path, "first executable fixture")
-        formulation=Formulation(:LineCableModelsFEM; fem_options = (getdp_executable = path,))
-        first_record=GauntletSupport.campaign_implementation(formulation)
-        write(path, "changed executable fixture")
-        second_record=GauntletSupport.campaign_implementation(formulation)
-        @test first_record.selection.executable.path ==
-              second_record.selection.executable.path
-        @test first_record.selection.executable.sha256 !=
-              second_record.selection.executable.sha256
+        path = joinpath(root, "getdp")
+        write(path, "#!/bin/sh\necho 'GetDP Version 3.5.0 fixture A'\n")
+        chmod(path, 0o700)
+        formulation = Formulation(:LineCableModelsFEM; fem_options=(getdp_executable=path,))
+        first_record = GauntletSupport.campaign_implementation(formulation)
+        write(path, "#!/bin/sh\necho 'GetDP Version 3.5.0 fixture B'\n")
+        second_record = GauntletSupport.campaign_implementation(formulation)
+        @test first_record.selection.executable.sha256 != second_record.selection.executable.sha256
+        @test first_record.selection.executable.info != second_record.selection.executable.info
         @test first_record.selection_sha256 != second_record.selection_sha256
         @test !isempty(first_record.selection.gmsh_version)
+        relocated = joinpath(root, "relocated-getdp")
+        cp(path, relocated)
+        chmod(relocated, 0o700)
+        relocated_formulation = Formulation(:LineCableModelsFEM;
+            fem_options=(getdp_executable=relocated,))
+        relocated_record = GauntletSupport.campaign_implementation(relocated_formulation)
+        @test relocated_record.selection_sha256 == second_record.selection_sha256
     end
 end

@@ -93,9 +93,10 @@ The documentation summary includes only deterministic default selections.
 Use `--frequency-range 0.1,1e6` to run every case on the same 101-point
 logarithmic frequency grid. The bounds are recorded in the campaign manifest
 and retained by `resume`; original case declarations remain unchanged.
-Without this option, each case keeps its frequency range, raised to 0.1 Hz when necessary, with 101
-logarithmic samples. Campaigns do not run FEM Monte Carlo. FEM uses
-`LINECABLEMODELS_GETDP` or `getdp` on PATH; PSCAD uses the existing `local.jl`
+Without this option, each case keeps its frequency range, raised to 0.1 Hz when
+necessary, with 101 logarithmic samples. Campaigns do not run FEM Monte Carlo.
+FEM uses the package-owned GetDP artifact by default; `LINECABLEMODELS_GETDP`
+is the external solver override. PSCAD uses the existing `local.jl`
 configuration (or `LINECABLEMODELS_GAUNTLET_CONFIG`).
 
 The manifest fixes the requested selections. A completion callback writes each
@@ -422,7 +423,6 @@ Run the stages in order:
 ```bash
 julia --project=test/gauntlet --startup-file=no test/gauntlet/pscad_reference.jl
 
-LINECABLEMODELS_GETDP=/path/to/getdp \
 julia --project=test/gauntlet --startup-file=no test/gauntlet/fem_reference.jl
 
 julia --project=test/gauntlet --startup-file=no \

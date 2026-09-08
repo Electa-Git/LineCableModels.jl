@@ -321,7 +321,7 @@ export_file = export_data(:atp, cable_system, earth_params, file_name = output_f
 
 [`Formulation`](@ref) selects the physical and numerical methods. The default
 native formulation uses the scaled-Bessel internal-impedance method, lossless
-insulation impedance/admittance, and the Papadopoulos earth-return methods. The
+insulation impedance/admittance, and the package's default earth-return equations. The
 same formulation value can be reused for ordinary, parametric, or Monte Carlo
 execution.
 =#
@@ -403,7 +403,8 @@ export_file = export_data(
 # Obtain the package default frequency-dependent modal transformation
 modal_parameters = compute(
     ModalTransformationProblem(line_parameters),
-    ModalTransformationFormulation(:default; parameters = (tolerance = 1e-5,))
+    ModalTransformationFormulation(:default);
+    options = (offdiagonal_tolerance = 1e-5,)
 );
 Tv = operators(modal_parameters).voltage;
 

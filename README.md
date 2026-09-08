@@ -179,7 +179,9 @@ See the [documentation](https://electa-git.github.io/LineCableModels.jl/) and
 ## License and citation
 
 LineCableModels.jl is distributed under the [BSD 3-Clause License](LICENSE).
-Citation metadata is provided in [CITATION.cff](CITATION.cff).
+The optional FEM backend invokes third-party GetDP under its own license; see
+[Third-party notices](THIRD_PARTY_NOTICES.md). Citation metadata is provided in
+[CITATION.cff](CITATION.cff).
 
 ## Acknowledgements
 

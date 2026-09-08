@@ -1,5 +1,5 @@
 ```@meta
-EditURL = "../../../../../docs/literate/gauntlet.jl"
+EditURL = "../literate/gauntlet.jl"
 ```
 
 # Gauntlet

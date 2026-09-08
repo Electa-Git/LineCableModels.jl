@@ -88,6 +88,49 @@ const FEM_GETDP_SOURCES = map(_getdp_assets()) do path
     read(path, String)
 end
 
+const GETDP_ARTIFACT_VERSION = v"3.5.0"
+const GETDP_ENVIRONMENT_VARIABLE = "LINECABLEMODELS_GETDP"
+const GETDP_ARTIFACTS_TOML = normpath(joinpath(@__DIR__, "..", "..", "Artifacts.toml"))
+
+function _artifact_getdp()
+    hash = artifact_hash("getdp", GETDP_ARTIFACTS_TOML)
+    hash === nothing && return nothing
+    root = artifact"getdp"
+    version = string(GETDP_ARTIFACT_VERSION)
+    relative = if Sys.isapple()
+        joinpath("getdp-$version-MacOSX", "bin", "getdp")
+    else
+        joinpath("getdp-$version-Linux64", "bin", "getdp")
+    end
+    return (path=joinpath(root, relative), source=:artifact, artifact_hash=string(hash))
+end
+
+function _getdp_selection(formulation::LineCableModelsFEM; run_directory=nothing)
+    explicit = formulation.execution.getdp_executable
+    environment = get(ENV, GETDP_ENVIRONMENT_VARIABLE, nothing)
+    selection = if explicit !== nothing
+        (path=abspath(explicit), source=:explicit, artifact_hash=nothing)
+    elseif environment !== nothing
+        (path=abspath(environment), source=:environment, artifact_hash=nothing)
+    else
+        artifact = _artifact_getdp()
+        if artifact !== nothing
+            artifact
+        else
+            executable = Sys.which("getdp")
+            executable === nothing ? nothing :
+            (path=executable, source=:path, artifact_hash=nothing)
+        end
+    end
+    selection !== nothing && isfile(selection.path) || _fem_error(
+        :getdp, "GetDP", :getdp_executable,
+        "GetDP executable is unavailable for $(triplet(HostPlatform())); " *
+        "pass getdp_executable, set " * GETDP_ENVIRONMENT_VARIABLE *
+        ", or install getdp on PATH when no package artifact supports this platform";
+        run_directory)
+    return merge(selection, (; path=realpath(selection.path)))
+end
+
 function _getdp_identity(executable::String)
     output = try
         buffer = IOBuffer()
@@ -110,23 +153,22 @@ function _getdp_identity(executable::String)
         :getdp_executable,
         "executable identity check did not report GetDP: $executable"
     )
-    return (path=realpath(executable), sha256=bytes2hex(open(sha256, executable)), info=output)
+    return (sha256=bytes2hex(open(sha256, executable)), info=output)
 end
 
 function _resolve_getdp(formulation::LineCableModelsFEM, run::FEMRun)
-    explicit = formulation.execution.getdp_executable
-    executable = explicit === nothing ? Sys.which("getdp") : abspath(explicit)
-    executable !== nothing && isfile(executable) || _fem_error(
-        :getdp, "GetDP", :getdp_executable,
-        "GetDP executable is unavailable; pass getdp_executable or add getdp to PATH";
-        run_directory=run.path)
-    identity = _getdp_identity(executable)
+    selection = _getdp_selection(formulation; run_directory=run.path)
+    identity = _getdp_identity(selection.path)
     recorded = JSON3.read(read(joinpath(run.path, "input", "computation.json"), String))
-    _resume_value_matches(recorded.getdp_identity, JSON3.read(JSON3.write(identity))) ||
+    recorded_identity = Dict(String(key)=>value for (key,value) in pairs(recorded.getdp_identity))
+    pop!(recorded_identity, "path", nothing) # schema 4 compatibility
+    expected_identity = Dict(String(key)=>value for (key,value) in
+        pairs(JSON3.read(JSON3.write(identity))))
+    _resume_value_matches(recorded_identity, expected_identity) ||
         _fem_error(:getdp, "GetDP", :getdp_executable,
             "GetDP executable identity changed after input preparation; start a new run";
             run_directory=run.path)
-    return executable
+    return selection.path
 end
 
 function _job_raw_paths(root::AbstractString, job_name::String)

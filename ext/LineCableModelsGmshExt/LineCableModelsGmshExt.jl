@@ -4,6 +4,8 @@ using Gmsh: gmsh
 import Gmsh
 import JSON3
 import Logging
+using Base.BinaryPlatforms: HostPlatform, triplet
+using LazyArtifacts: @artifact_str, artifact_hash
 using Logging: AbstractLogger, ConsoleLogger, SimpleLogger, @debug, @info,
                @warn, with_logger
 using Printf: @sprintf

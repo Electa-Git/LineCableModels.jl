@@ -1243,10 +1243,6 @@ end
     using SHA
     using Serialization
 
-    executable = get(ENV, "LINECABLEMODELS_GETDP", something(Sys.which("getdp"), ""))
-    if isempty(executable)
-        @test_skip "GetDP is unavailable; the real multi-frequency solve was not run"
-    else
         copper = Material(kind = :conductor, rho = 1 / 5.8e7)
         dielectric = Material(kind = :insulator, rho = 1.0e8, eps_r = 2.3,
             tan_delta = 0.025)
@@ -1275,7 +1271,6 @@ end
             :LineCableModelsFEM;
             options = (ideal_transposition = false,),
             fem_options = (
-                getdp_executable = executable,
                 getdp_verbosity = 0,
                 gmsh_verbosity = 0,
                 keep_run_directory = true
@@ -1386,13 +1381,13 @@ end
             serialize(expected, (result.Z.values, result.Y.values))
             code = raw"""
                 using LineCableModels, Gmsh, JSON3, Serialization
-                path, executable, expected = ARGS
+                path, expected = ARGS
                 problem = LineCableModels.ImportExport.deserialize_value(
                     JSON3.read(read(joinpath(path, "input", "problem.json"), String)))
                 formulation = Formulation(:LineCableModelsFEM; earth_impedance=:Carson1926,
                     options=(ideal_transposition=false,),
-                    fem_options=(getdp_executable=executable, getdp_verbosity=0,
-                        gmsh_verbosity=0, keep_run_directory=true))
+                    fem_options=(getdp_verbosity=0, gmsh_verbosity=0,
+                        keep_run_directory=true))
                 result = compute(problem, formulation; options=(trace=true, resume_run_directory=path))
                 Z, Y = deserialize(expected)
                 @assert result.Z.values == Z && result.Y.values == Y
@@ -1400,7 +1395,7 @@ end
                 @assert !Bool(Gmsh.gmsh.is_initialized())
                 println("completed-run reuse verified in fresh Julia")
                 """
-            command = `$(Base.julia_cmd()) --startup-file=no --project=$(dirname(Base.active_project())) -e $code $run_directory $executable $expected`
+            command = `$(Base.julia_cmd()) --startup-file=no --project=$(dirname(Base.active_project())) -e $code $run_directory $expected`
             @test occursin("completed-run reuse verified in fresh Julia", read(command, String))
             @test snapshot_files(run_directory) == before_reuse
         end
@@ -1412,7 +1407,6 @@ end
                 options = (ideal_transposition = false,),
                 fem_options = (
                     ui = true,
-                    getdp_executable = executable,
                     getdp_verbosity = 0,
                     gmsh_verbosity = 0
                 )
@@ -1450,7 +1444,6 @@ end
             @test ui_result.details.fem.run.run_directory === nothing
         end
         rm(run_directory; recursive = true, force = true)
-    end
 end
 
 @testitem "Gmsh FEM / frozen Python reference fixture contract" tags=[
@@ -1505,10 +1498,6 @@ end
     using LineCableModels
     using LinearAlgebra
 
-    executable = get(ENV, "LINECABLEMODELS_GETDP", something(Sys.which("getdp"), ""))
-    if isempty(executable)
-        @test_skip "GetDP is unavailable; the frozen numerical comparisons were not run"
-    else
         fixture_path = joinpath(
             pkgdir(LineCableModels),
             "test",
@@ -1603,7 +1592,6 @@ end
                 :LineCableModelsFEM;
                 options = (ideal_transposition = false,),
                 fem_options = (
-                    getdp_executable = executable,
                     getdp_verbosity = 0,
                     gmsh_verbosity = 0,
                     keep_run_directory = true,
@@ -1691,5 +1679,4 @@ end
                 )
             end
         end
-    end
 end
