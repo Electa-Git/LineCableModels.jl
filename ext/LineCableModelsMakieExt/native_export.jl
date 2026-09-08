@@ -213,7 +213,7 @@ function LineCableModels.export_svg(
             export_mode = true,
             export_theme = export_theme
         )) do
-            Makie.update_state_before_display!(plot.figure)
+            # Preserve the live zoom/pan: Makie's display update resets axes.
             # A click callback may predate the newly loaded renderer's methods.
             Base.invokelatest(Makie.save, output, plot.figure; backend = cairo, update = false)
         end

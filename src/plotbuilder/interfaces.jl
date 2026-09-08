@@ -74,6 +74,7 @@ end
 
 Save the current live Makie figure in `plot` as SVG through CairoMakie and
 return the absolute output path. `theme` may be `:default` or `:publication`.
+The SVG retains the current zoom and pan without resetting the interactive view.
 
 The SVG renderer loads automatically on first export, including from GLMakie
 and WGLMakie windows. No separate backend import is required. Export preserves

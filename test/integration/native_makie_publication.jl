@@ -78,6 +78,72 @@
     @test frequencies(parameters) == frequency
 end
 
+@testitem "Makie addons / SVG retains interactive preview zoom and pan" tags=[:visual] begin
+    using CairoMakie
+
+    copper = Material(kind=:conductor, rho=1.72e-8)
+    design = build(CableDesign, "interactive-export",
+        terminal(:core, core(copper; r=0.01)))
+    system = build(LineCableSystem, design, (0.0, -0.1); connections=Dict(:core=>1))
+    earth = build(EarthModel, (layer(rho=10.0, thickness=0.05), layer(rho=100.0)))
+
+    for (name, source, options) in (("design", design, (;)),
+        ("system", system, (; earth_model=earth, zoom_factor=15)))
+        plot = preview(source; options..., backend=:cairo, display_plot=false,
+            controls=true, open_export=false)
+        axis = only(plot.axes)
+        Makie.colorbuffer(plot.figure)
+        configured = axis.limits[]
+        initial = axis.targetlimits[]
+        area = axis.scene.viewport[]
+        mouse = Tuple(area.origin + area.widths / 2)
+        Makie.events(axis.scene).mouseposition[] = mouse
+
+        # Invoke the native wheel and drag handlers, which change targetlimits
+        # without replacing the configured limits used by the Reset control.
+        Makie.process_interaction(last(axis.interactions[:scrollzoom]),
+            Makie.ScrollEvent(0, 3), axis)
+        zoomed = axis.targetlimits[]
+        @test all(zoomed.widths .< initial.widths)
+        Makie.process_interaction(last(axis.interactions[:dragpan]),
+            Makie.MouseEvent(Makie.MouseEventTypes.rightdrag,
+                1.0, Point2d(0), Point2f(mouse .+ (20, 10)),
+                0.0, Point2d(0), Point2f(mouse)), axis)
+        @test axis.targetlimits[].origin != zoomed.origin
+        @test axis.limits[] == configured
+        target = axis.targetlimits[]
+        view = axis.finallimits[]
+        rendered_views = Rect2d[]
+        on(plot.figure.scene, Makie.events(plot.figure).tick) do tick
+            tick.state === Makie.OneTimeRenderTick && push!(rendered_views, axis.finallimits[])
+            return nothing
+        end
+
+        mktempdir() do directory
+            for theme in (:default, :publication)
+                path = joinpath(directory, "$name-$theme.svg")
+                @test export_svg(plot; path, theme, open_file=false) == path
+                @test filesize(path) > 1000
+                @test !isempty(rendered_views)
+                @test all(==(view), rendered_views)
+                @test axis.targetlimits[] == target
+                @test axis.finallimits[] == view
+                @test axis.limits[] == configured
+            end
+            cd(directory) do
+                files_before = Set(readdir())
+                plot.controls[:export_svg].clicks[] += 1
+                saved = joinpath(directory, only(setdiff(Set(readdir()), files_before)))
+                @test plot.addon_state.shell.status[] == "Saved SVG to $saved"
+                @test all(==(view), rendered_views)
+                @test axis.targetlimits[] == target
+                @test axis.finallimits[] == view
+                @test axis.limits[] == configured
+            end
+        end
+    end
+end
+
 @testitem "Makie addons / SVG exports preserve live state and existing files" tags=[:visual] begin
     using CairoMakie
 

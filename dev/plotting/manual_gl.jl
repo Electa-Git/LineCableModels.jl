@@ -36,7 +36,19 @@ handle = first(plots)
     @test Base.get_extension(
         LineCableModels, :LineCableModelsMakieExt
     ).current_backend_symbol() === :gl
+    axis = first(handle.axes)
+    area = axis.scene.viewport[]
+    mouse = Tuple(area.origin + area.widths / 2)
+    Makie.events(axis.scene).mouseposition[] = mouse
+    Makie.process_interaction(last(axis.interactions[:scrollzoom]),
+        Makie.ScrollEvent(0, 3), axis)
+    Makie.process_interaction(last(axis.interactions[:dragpan]),
+        Makie.MouseEvent(Makie.MouseEventTypes.rightdrag,
+            1.0, Point2d(0), Point2f(mouse .+ (20, 10)),
+            0.0, Point2d(0), Point2f(mouse)), axis)
     limits_before = [axis.limits[] for axis in handle.axes]
+    targets_before = [axis.targetlimits[] for axis in handle.axes]
+    views_before = [axis.finallimits[] for axis in handle.axes]
     background_before = handle.figure.scene.backgroundcolor[]
     rows_before = copy(handle.figure.layout.rowsizes)
     mktempdir() do directory
@@ -52,6 +64,8 @@ handle = first(plots)
     @test Base.get_extension(LineCableModels, :LineCableModelsCairoMakieExt) !== nothing
     @test Makie.current_backend() === GLMakie
     @test [axis.limits[] for axis in handle.axes] == limits_before
+    @test [axis.targetlimits[] for axis in handle.axes] == targets_before
+    @test [axis.finallimits[] for axis in handle.axes] == views_before
     @test handle.figure.scene.backgroundcolor[] == background_before
     @test handle.figure.layout.rowsizes == rows_before
 end

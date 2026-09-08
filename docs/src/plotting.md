@@ -1111,6 +1111,7 @@ the figure's font roles to Makie's LaTeX font theme, uses a white background,
 and then restores every changed observable and the previously active backend.
 Caller-added plots, visibility, scales, limits, and annotations are saved
 because export does not reconstruct an earlier specification.
+Interactive zoom and pan are retained in both the SVG and the live window.
 
 ````@example plotting
 export_directory = mktempdir();
