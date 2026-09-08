@@ -84,12 +84,9 @@ function campaign_formulation(backend::Symbol, selection, dielectric::Symbol)
     backend === :coaxial && return Formulation(; keywords...)
     backend === :pscad && return Formulation(:pscad; keywords...)
     if backend === :fem
-        executable = get(ENV, "LINECABLEMODELS_GETDP", something(Sys.which("getdp"), ""))
-        isempty(executable) && throw(ArgumentError(
-            "FEM needs LINECABLEMODELS_GETDP or getdp on PATH; completed campaign artifacts remain preserved"))
         return Formulation(:LineCableModelsFEM; keywords...,
-            fem_options=(getdp_executable=executable, gmsh_verbosity=0,
-                getdp_verbosity=0, keep_run_directory=true))
+            fem_options=(gmsh_verbosity=0, getdp_verbosity=0,
+                keep_run_directory=true))
     end
     throw(ArgumentError("unsupported campaign backend :$backend"))
 end
@@ -111,12 +108,14 @@ function campaign_implementation(formulation::LineCableModelsFEM)
         append!(paths, _formula_paths(family, selected))
     end
     physical = Formulation(; formulation.definitions..., options=formulation.options)
-    configured = formulation.execution.getdp_executable
-    executable = configured === nothing ? Sys.which("getdp") : abspath(configured)
-    executable_identity = executable === nothing || !isfile(executable) ? nothing :
-        (path=realpath(executable), sha256=bytes2hex(open(sha256, executable)))
+    extension = Base.get_extension(LineCableModels, :LineCableModelsGmshExt)
+    extension === nothing && error("load Gmsh before recording a FEM implementation")
+    resolved = extension._getdp_selection(formulation)
+    executable_identity = extension._getdp_identity(resolved.path)
+    execution = merge(_selection_value(formulation.execution),
+        (getdp_executable=nothing,))
     selection = merge(formulation_record(physical),
-        (backend=:fem, execution=_selection_value(formulation.execution),
+        (backend=:fem, execution,
             executable=executable_identity, gmsh_version=Gmsh.gmsh.GMSH_API_VERSION,
             gmsh_library=String(Gmsh.gmsh.lib), julia_version=string(VERSION)))
     return (selection, selection_sha256=semantic_sha256(selection),

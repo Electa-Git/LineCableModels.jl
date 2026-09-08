@@ -30,15 +30,17 @@ The supported tags are `unit`, `integration`, `extension`, `fem_numerical`, `vis
 commands.
 
 The `fem_numerical` items exercise deterministic multi-frequency FEM solves and
-the frozen Python reference matrices. Without GetDP they report explicit skips,
-not passing assertions. CI runs them in a separate job with a checksum-pinned
-GetDP 3.5.0 complex solver and fails setup if that executable is unavailable.
-To run those checks locally with an installed solver:
+the frozen Python reference matrices. They are excluded from the ordinary test
+run and execute explicitly with the package's hash-pinned GetDP 3.5.0 complex
+artifact. To run them locally:
 
 ```sh
-LINECABLEMODELS_GETDP=/absolute/path/to/getdp julia --project=test \
+julia --project=test \
   -e 'push!(ARGS, "tag:fem_numerical"); include("test/runtests.jl")'
 ```
+
+Set `LINECABLEMODELS_GETDP=/absolute/path/to/getdp` only to exercise an external
+solver override.
 
 The full gauntlet remains a manual workflow, separate from these deterministic
 FEM regressions. CI must not launch live PSCAD/FEM gauntlet campaigns or promote

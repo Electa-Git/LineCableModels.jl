@@ -2,6 +2,14 @@
     using Gmsh
     using LineCableModels
     extension = Base.get_extension(LineCableModels, :LineCableModelsGmshExt)
+    artifact = withenv("LINECABLEMODELS_GETDP"=>nothing) do
+        extension._getdp_selection(Formulation(:LineCableModelsFEM))
+    end
+    @test artifact.source === :artifact
+    @test artifact.artifact_hash == string(extension.artifact_hash(
+        "getdp", extension.GETDP_ARTIFACTS_TOML,
+    ))
+    @test isfile(artifact.path)
     copper = Material(kind=:conductor, rho=1.72e-8)
     dielectric = Material(kind=:insulator, rho=1.0e8, eps_r=2.3, tan_delta=0.025)
     design = build(CableDesign, "fem-resume-inputs", Stack(
@@ -12,10 +20,27 @@
     problem = LineParametersProblem(system; frequencies=[50.0, 1000.0],
         earth_props=LineCableModels.EarthProps.EarthModel(100.0, 10.0, 1.0))
     formulation = Formulation(:LineCableModelsFEM;
-        options=(ideal_transposition=false,), fem_options=(gmsh_verbosity=0,))
+        options=(ideal_transposition=false,),
+        fem_options=(getdp_executable=artifact.path, gmsh_verbosity=0,))
     model = extension._resolved_fem_model(problem, formulation)
     inputs = extension._fem_input_record(model, formulation)
-    @test inputs.schema_version == 4
+    @test inputs.schema_version == 5
+    @test inputs.getdp_provenance.source === :explicit
+    @test inputs.getdp_provenance.artifact_hash === nothing
+    @test isfile(inputs.getdp_provenance.path)
+    @test !hasproperty(inputs.getdp_identity, :path)
+    @test occursin(r"Version\s*:\s*3\.5\.0", inputs.getdp_identity.info)
+    @test occursin("PETSc", inputs.getdp_identity.info)
+    @test occursin("complex arithmetic", inputs.getdp_identity.info)
+    @test_throws LineCableModelsFEMError extension._getdp_selection(
+        Formulation(:LineCableModelsFEM;
+            fem_options=(getdp_executable=joinpath(tempdir(), "missing-getdp"),)),
+    )
+    withenv("LINECABLEMODELS_GETDP"=>joinpath(tempdir(), "missing-getdp")) do
+        @test_throws LineCableModelsFEMError extension._getdp_selection(
+            Formulation(:LineCableModelsFEM),
+        )
+    end
     @test inputs.mesh_fingerprint == extension._mesh_fingerprint(model, Gmsh.gmsh.GMSH_API_VERSION)
     @test inputs.adapter_sources isa NamedTuple
     @test haskey(inputs.adapter_sources, Symbol("geometry.jl"))
@@ -69,6 +94,19 @@
         @test !extension._resume_inputs_match(run.path, model, inputs)
         extension._write_json_atomic(joinpath(run.path, "input", "computation.json"), inputs)
         @test extension._resume_inputs_match(run.path, model, other_inputs)
+        legacy = Dict(String(key)=>value for (key, value) in
+            pairs(extension.JSON3.read(extension.JSON3.write(inputs))))
+        legacy["schema_version"] = 4
+        legacy_identity = Dict(String(key)=>value for (key, value) in
+            pairs(legacy["getdp_identity"]))
+        legacy_identity["path"] = inputs.getdp_provenance.path
+        legacy["getdp_identity"] = legacy_identity
+        pop!(legacy, "getdp_provenance")
+        extension._write_json_atomic(
+            joinpath(run.path, "input", "computation.json"), legacy,
+        )
+        @test extension._resume_inputs_match(run.path, model, inputs)
+        extension._write_json_atomic(joinpath(run.path, "input", "computation.json"), inputs)
         @test !extension._resume_inputs_match(run.path, changed_model, changed_inputs)
         @test !extension._resume_inputs_match(run.path, lossy_model, lossy_inputs)
         @test_throws ArgumentError extension._resume_run(root, run.path, lossy_model, lossy_inputs)
@@ -89,7 +127,7 @@
         end
         scan = extension.FEMScan(zeros(ComplexF64, 1, 1, 2), zeros(ComplexF64, 1, 1, 2), String[])
         extension._write_scan_checksums(run, scan)
-        retained_inputs = merge(inputs, (; getdp_identity=(path="fixture", sha256="fixture", info="fixture")))
+        retained_inputs = merge(inputs, (; getdp_identity=(sha256="fixture", info="fixture")))
         extension._write_json_atomic(joinpath(run.path, "input", "computation.json"), retained_inputs)
         @test extension._resume_inputs_match(run.path, model, retained_inputs)
         @test !extension._resume_inputs_match(run.path, model, merge(retained_inputs, (; getdp_identity=nothing)))
@@ -117,12 +155,25 @@
             chmod(executable, 0o700)
             configured = Formulation(:LineCableModelsFEM; options=formulation.options,
                 fem_options=(getdp_executable=executable, gmsh_verbosity=0,))
-            first_identity = extension._fem_input_record(model, configured).getdp_identity
+            first_record = extension._fem_input_record(model, configured)
             write(executable, "#!/bin/sh\necho 'GetDP Version 3.6.0 fixture B'\n")
-            second_identity = extension._fem_input_record(model, configured).getdp_identity
-            @test first_identity.path == second_identity.path
-            @test first_identity.sha256 != second_identity.sha256
-            @test first_identity.info != second_identity.info
+            second_record = extension._fem_input_record(model, configured)
+            @test first_record.getdp_provenance.path == second_record.getdp_provenance.path
+            @test first_record.getdp_provenance.source === :explicit
+            @test first_record.getdp_identity.sha256 != second_record.getdp_identity.sha256
+            @test first_record.getdp_identity.info != second_record.getdp_identity.info
+
+            environment = joinpath(root, "getdp-environment")
+            cp(executable, environment)
+            chmod(environment, 0o700)
+            withenv("LINECABLEMODELS_GETDP"=>environment) do
+                selected = extension._getdp_selection(Formulation(:LineCableModelsFEM))
+                @test selected.source === :environment
+                @test selected.path == realpath(environment)
+                explicit = extension._getdp_selection(configured)
+                @test explicit.source === :explicit
+                @test explicit.path == realpath(executable)
+            end
         end
     end
 end

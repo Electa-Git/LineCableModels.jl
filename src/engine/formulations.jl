@@ -45,7 +45,7 @@ struct LineCableModelsFEMOptions <: AbstractFormulationOptions
     mesh_path::Union{Nothing, String}
     "Retain a successful run directory."
     keep_run_directory::Bool
-    "Optional GetDP executable path."
+    "Optional GetDP executable override."
     getdp_executable::Union{Nothing, String}
     "Gmsh message verbosity from 0 through 5."
     gmsh_verbosity::Int
@@ -70,7 +70,9 @@ Construct validated finite-element execution options.
   `:remesh` to regenerate it unconditionally.
 - `mesh_path=nothing`: Optional existing `.msh` file.
 - `keep_run_directory=false`: Retain successful run artifacts.
-- `getdp_executable=nothing`: Explicit GetDP executable path.
+- `getdp_executable=nothing`: Let the Gmsh extension resolve GetDP from its
+  environment override, package-owned artifact, or unsupported-platform
+  `PATH` fallback. A supplied path overrides all three.
 - `gmsh_verbosity=2`: Gmsh message verbosity from 0 through 5.
 - `getdp_verbosity=2`: GetDP message verbosity from 0 through 5.
 - `frequency_workers=2`: Maximum concurrent GetDP frequency processes. Use

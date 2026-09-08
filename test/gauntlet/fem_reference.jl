@@ -21,15 +21,6 @@ using .FEMReferenceCaseLoader: case_index, reference_case,
                                numerical_input_sha256, repository_provenance,
                                git_blob_record
 
-const GETDP = get(
-    ENV,
-    "LINECABLEMODELS_GETDP",
-    something(Sys.which("getdp"), "")
-)
-isempty(GETDP) && error(
-    "LINECABLEMODELS_GETDP is unset and getdp is not on PATH"
-)
-
 const ROOT = joinpath(
     pkgdir(LineCableModels),
     ".linecablemodels",
@@ -420,7 +411,6 @@ function run_case(case_id)
             temperature_correction = true
         ),
         fem_options = (
-            getdp_executable = GETDP,
             getdp_verbosity = 0,
             gmsh_verbosity = 0,
             keep_run_directory = true,

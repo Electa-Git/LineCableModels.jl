@@ -19,7 +19,6 @@ fem = Formulation(
     ),
     fem_options = (
         mesh_policy = :reuse,
-        getdp_executable = "/path/to/getdp",
         gmsh_verbosity = 2,
         getdp_verbosity = 2,
         frequency_workers = 2,
@@ -44,10 +43,11 @@ parameters = compute(
 )
 ```
 
-GetDP is an external executable. Set `getdp_executable` explicitly or make a
-`getdp` executable available on `PATH`. The backend verifies its identity
-before starting a solve. No Python runtime or `GetDP.jl` problem generator is
-used.
+GetDP remains an external process, but no separate installation is required on
+the supported artifact platforms. The first FEM calculation there downloads
+the package's lazy, hash-verified GetDP 3.5.0 complex-PETSc artifact. Loading
+LineCableModels or Gmsh alone does not download it. No Python runtime or
+`GetDP.jl` problem generator is used.
 
 The adapter writes one run-local `input/model_data.pro` containing resolved
 region tags, terminal names, material coefficients and domain dimensions.
@@ -81,7 +81,8 @@ Set `frequency_workers=1` for serial frequency execution. Increase the worker
 count only within available memory: every active frequency owns its sparse
 factorization. `solver_threads` sets each child's BLAS/OpenMP environment without
 changing Julia's environment. GetDP must support `GenerateRHSGroup` and
-`SolveAgain`; the bundled workflow has been validated with GetDP 3.6.
+`SolveAgain`; the package-owned artifact is GetDP 3.5.0 with PETSc complex
+arithmetic.
 
 Every attempt has a separate working directory, solver prefix, raw columns,
 maps and log. Inputs are explicit command arguments and data files; the solvers
@@ -188,9 +189,27 @@ Headless execution does not merge them; UI execution merges them only after the
 complete numerical scan validates. Map paths are retained in result details
 only when the run directory is retained.
 
-The executable resolution order is an explicit `getdp_executable`, followed
-by the executable named `getdp` on `PATH`; this repository has no additional
-sanctioned GetDP preference. A nonzero client failure is reported as a typed
+The executable resolution order is:
+
+1. `fem_options=(getdp_executable="/absolute/path/to/getdp",)`;
+2. the `LINECABLEMODELS_GETDP` environment variable;
+3. the package's GetDP 3.5.0 lazy artifact; and
+4. `getdp` on `PATH` only when the current platform has no artifact binding.
+
+The artifact currently supports glibc Linux and macOS on x86-64. GetDP 3.5.0
+publishes its Windows build only as a ZIP, which Julia's artifact installer
+cannot consume directly; Windows therefore uses an installed GetDP selected
+explicitly, through the environment variable, or on `PATH`. The same external
+selection applies on every other unsupported platform. An explicitly selected
+or environment-selected invalid path is an error; it is never silently
+replaced by another solver. The backend records the resolved source and path
+for provenance, while
+resume compatibility uses the executable SHA-256 and reported build identity
+instead of its filesystem location. See
+[`THIRD_PARTY_NOTICES.md`](https://github.com/Electa-Git/LineCableModels.jl/blob/main/THIRD_PARTY_NOTICES.md)
+for GetDP's GPL notice and upstream source location.
+
+A nonzero client failure is reported as a typed
 error with its frequency, missing basis indices, retained attempt directory
 and GetDP log tail. A failure stops scheduling and terminates/reaps the other
 active workers. Completed columns remain available for recovery. A zero exit
@@ -220,7 +239,6 @@ interactive_fem = Formulation(
     fem_options = (
         ui = true,
         plot_field_maps = true,
-        getdp_executable = "/path/to/getdp",
     ),
 )
 
