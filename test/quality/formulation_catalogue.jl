@@ -7,6 +7,12 @@
 
     categories = (
         (
+            module_owner = LineCableModels.Materials.TemperatureDependent,
+            registry = LineCableModels.Materials.TemperatureDependent.formulas(),
+            path = ("materials", "temperaturedependent", "formulas"),
+            default = :default
+        ),
+        (
             module_owner = LineCableModels.Engine.PipeImpedance,
             registry = LineCableModels.Engine.PipeImpedance.formulas(),
             path = ("engine", "pipeimpedance", "formulas"),

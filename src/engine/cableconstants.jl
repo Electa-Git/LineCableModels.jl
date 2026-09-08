@@ -271,16 +271,9 @@ function formulation_options(
         ::Type{CableConstantsFormulation},
         options::NamedTuple
 )::FormulationOptions
-    allowed = (:temperature_correction,)
-    unknown = filter(key -> key ∉ allowed, keys(options))
-    isempty(unknown) || throw(ArgumentError(
-        "unknown cable-constant formulation options: $(sort!(collect(unknown)))",
-    ))
-    normalized = merge((temperature_correction = true,), options)
-    normalized.temperature_correction isa Bool || throw(ArgumentError(
-        "temperature_correction must be Bool",
-    ))
-    return (temperature_correction = normalized.temperature_correction,)
+    isempty(options) || throw(ArgumentError(
+        "unknown cable-constant formulation options: $(keys(options))"))
+    return (;)
 end
 
 function _constants_formulation(
@@ -289,6 +282,7 @@ function _constants_formulation(
         insulation_admittance,
         semicon_admittance,
         pipe_impedance,
+        temperature_dependence,
         options::NamedTuple
 )
     methods = (
@@ -296,13 +290,15 @@ function _constants_formulation(
         insulation_impedance = InsulationImpedance.Formula(insulation_impedance),
         insulation_admittance = InsulationAdmittance.Formula(insulation_admittance),
         semicon_admittance = SemiconAdmittance.Formula(semicon_admittance),
-        pipe_impedance = PipeImpedance.Formula(pipe_impedance)
+        pipe_impedance = PipeImpedance.Formula(pipe_impedance),
+        temperature_dependence = temperature_dependence === nothing ? nothing :
+                                 TemperatureDependent.Formula(temperature_dependence)
     )
     return CableConstantsFormulation(
         methods,
         formulation_options(CableConstantsFormulation, options),
         (; internal_impedance, insulation_impedance, insulation_admittance,
-            semicon_admittance, pipe_impedance)
+            semicon_admittance, pipe_impedance, temperature_dependence)
     )
 end
 
@@ -325,7 +321,9 @@ inputs return one [`CableConstantsFormulation`](@ref); varying inputs return a
 - `semicon_admittance`: Semiconducting-layer constitutive relation.
 - `pipe_impedance`: Pipe-type selection; the coaxial pipe implementation is not
   yet available. Ordinary concentric assemblies have no additional pipe term.
-- `options`: Complete cable-constant formulation options.
+- `temperature_dependence`: Resistivity law; `:default` is linear and `nothing`
+  retains reference resistivity.
+- `options`: Formulation controls; currently empty.
 - `combine`: `:product` or `:zip` composition among varying fields.
 """
 function CableConstantsFormulation(;
@@ -334,6 +332,7 @@ function CableConstantsFormulation(;
         insulation_admittance = formula(:default),
         semicon_admittance = formula(:default),
         pipe_impedance = formula(:default),
+        temperature_dependence = formula(:default),
         options = (;),
         combine::Symbol = :product
 )
@@ -343,6 +342,7 @@ function CableConstantsFormulation(;
         insulation_admittance,
         semicon_admittance,
         pipe_impedance,
+        temperature_dependence,
         options
     )
     return parameterize(
@@ -404,14 +404,8 @@ function CableConstantsWorkspace(
         ))
     end
     count = length(cable.terminals)
-    rho = copy(cable.rho0_cond)
-    @inbounds for index in eachindex(rho)
-        if formulation.options.temperature_correction
-            rho[index] *= one(T) +
-                          cable.alpha_cond[index] *
-                          (problem.temperature - cable.T0_cond[index])
-        end
-    end
+    rho = T[constitutive(formulation.methods.temperature_dependence, material,
+        problem.temperature) for material in cable.conductor_materials]
 
     maximum_size = maximum(length, cable.assemblies)
     validate(formulation.methods.internal_impedance,
@@ -460,7 +454,7 @@ function _solve!(
         problem.frequency,
         problem.temperature,
         s,
-        buffers.layer_coefficients; temperature_correction = formulation.options.temperature_correction
+        buffers.layer_coefficients
     )
     keep = @view buffers.indices[1:1]
     @inbounds for (assembly, chain) in pairs(workspace.cable.assemblies)

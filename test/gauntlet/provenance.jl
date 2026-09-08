@@ -18,6 +18,9 @@ const FLATTEN_IMPLEMENTATION_PATHS = (
 
 const COAXIAL_IMPLEMENTATION_PATHS = (
     FLATTEN_IMPLEMENTATION_PATHS...,
+    "src/materials/temperaturedependent/TemperatureDependent.jl",
+    "src/materials/temperaturedependent/interface.jl",
+    "src/materials/temperaturedependent/formulas/default.jl",
     "src/engine/formulations.jl",
     "src/engine/blueprint.jl",
     "src/engine/input.jl",
@@ -142,6 +145,7 @@ function formulation_record(formulation::LineCableModels.Engine.LineParametersFo
         earth_admittance = _selection_record(methods.earth_admittance),
         earth_properties = _selection_record(methods.earth_properties),
         pipe_impedance = _selection_record(methods.pipe_impedance),
+        temperature_dependence = _selection_record(methods.temperature_dependence),
         options = formulation.options
     )
 end

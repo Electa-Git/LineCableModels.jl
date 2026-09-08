@@ -11,11 +11,14 @@ using Gmsh
 
 fem = Formulation(
     :LineCableModelsFEM;
+    insulation_admittance = formula(:default),
+    semicon_admittance = formula(:default),
+    earth_properties = formula(:default),
+    temperature_dependence = formula(:default),
     options = (
         reduce_bundle = true,
         kron_reduction = true,
         ideal_transposition = false,
-        temperature_correction = true,
     ),
     fem_options = (
         mesh_policy = :reuse,
@@ -61,6 +64,44 @@ Each solver job selects its material coefficients by frequency index. When
 quantities with frequency/source-specific filenames and labels. The maintained GetDP
 files are captured with each run so later edits cannot change an active scan.
 
+## Material laws
+
+FEM selects insulation and semicon admittivity, soil frequency dependence, and
+cable-material temperature dependence. Analytical `internal_impedance`,
+`insulation_impedance`, `earth_impedance`, `earth_admittance`, and
+`pipe_impedance` keywords are rejected, including explicit `:default` values.
+Supported enclosing geometry is represented directly in the field domain.
+
+`temperature_dependence=formula(:default)` evaluates each cable material's
+resistivity as ``\rho(T)=\rho_0[1+\alpha(T-T_0)]``. `T` comes from
+`problem.temperature`; reference resistivity, `T0`, and `alpha` come from the
+material. Select `nothing` to retain reference resistivity. This law is shared
+with analytical calculations, cable constants, and PSCAD export. The retired
+`options.temperature_correction` Boolean is rejected: replace `true` with the
+`:default` temperature selection and `false` with `nothing`.
+
+The default law requires a positive finite correction factor and
+``|T-T_0|<150`` K. These are limits of this approximation, independent of thermal
+rating. Custom laws own their applicability and use the usual contribution-hook
+contract; no FEM author registration is required. Passive materials can retain
+infinite resistivity. Dielectric constituents are evaluated before radial
+aggregation, and polarization loss is not corrected a second time.
+
+`earth_properties` calls the same soil constitutive law as the analytical engine
+at each frequency. Evaluated resistivity, permittivity, and permeability feed
+both GetDP's soil/infinite-soil coefficients and the skin-depth mesh rule.
+`:default` and `nothing` retain static soil. Air uses its explicitly declared
+static permittivity and permeability, independently of the soil law. The current
+FEM geometry requires one horizontal semi-infinite soil; a non-finite conductive
+skin depth is unsupported. Equivalent homogeneous-earth reductions are rejected.
+An ordinary `EarthModel` supplied after an external reduction carries no history
+from which FEM could detect that prior approximation.
+
+Saved FEM formulation details contain only the four consumed `selections`, their
+parameters, numerical options, and hook descriptions. Custom hooks are identified
+but marked nonreplayable; saved records do not reconstruct executable closures.
+The fixed quasi-TEM propagation approximation remains recorded separately.
+
 ## Execution model
 
 One call to `compute` builds one complete two-dimensional Gmsh mesh for each
@@ -73,7 +114,7 @@ up to `frequency_workers` standalone GetDP processes concurrently. Each process
 handles one frequency: it assembles and factors the system for its first
 requested terminal, then updates the right-hand side and reuses those factors
 for the remaining terminals. Frequencies with different meshes have separate
-systems and factorizations. The equations and mesh sizing are unchanged.
+systems and factorizations. The mesh-sizing equation is unchanged; it consumes the evaluated soil law.
 
 The default is two frequency workers with one BLAS/OpenMP thread per solver.
 These are independent OS processes; they do not require multiple Julia threads.
@@ -120,18 +161,20 @@ runtime-directory creation, Gmsh initialisation, or meshing. The preflight
 rebuilds continuous problem data as `Float64`; when a
 `Measurements.Measurement` scalar is present, only its nominal value is
 retained. Discrete topology such as terminal assignments, material tags, and
-pattern counts remains integral. The caller-owned problem is not mutated.
+pattern counts remains integral. The caller-owned problem is not mutated. Evaluated material-law outputs pass the
+same checked nominal `Float64` boundary before transport; finite overflow is
+rejected. Analytical scalar and uncertainty propagation remain unchanged.
 
 | FEM datum | Authoritative LineCableModels property | Handling |
 |---|---|---|
-| Material class and electrical properties | each resolved `PlacedRegion.source.material`: `kind`, `rho`, `eps_r`, `mu_r`, `tan_delta`, `T0`, `alpha` | Reused; resistivity follows the shared temperature-correction option and constant intrinsic loss tangent contributes ``\omega\epsilon\tan\delta`` to conductivity |
+| Material class and electrical properties | each resolved `PlacedRegion.source.material`: `kind`, `rho`, `eps_r`, `mu_r`, `tan_delta`, `T0`, `alpha` | Reused; resistivity follows the selected shared temperature law and constant intrinsic loss tangent contributes ``\omega\epsilon\tan\delta`` to conductivity |
 | Material geometry and topology | `CableDesign.geometry.regions`, each resolved `PlacedRegion.primitive`, and `CableDesign.geometry.outer` | Requires an area-complete material partition, then adapts it to built-in `gmsh.model.geo` loops and cut-hole surfaces |
 | Cable identity and placement | `LineCableSystem.designs`, `CableDesign.cable_id`, `LineCableSystem.positions`, and resolved `LineCableSystem.geometry` | Reused in declared order; stable IDs form physical names |
 | Terminal ownership and order | `LineCableSystem.terminal_order`, `terminal_map`, and `connection_order` | Reused exactly; disconnected surfaces of one electrical Group share one terminal physical group |
 | Phase, bundle, and grounded-conductor reduction | `LineCableSystem.connection_order` plus shared formulation options | Delegated to the Engine reduction implementation for both ``Z`` and ``P`` |
 | Frequencies | `LineParametersProblem.frequencies` | Published as indexed, hidden, read-only ONELAB numbers; each isolated GetDP job also receives its exact physical frequency and matching transformation radii directly |
-| Temperature | `LineParametersProblem.temperature` | Reused through material `T0` and `alpha` when temperature correction is enabled |
-| Earth material | `LineParametersProblem.earth_props` | One homogeneous horizontal earth half-space is adapted to the FEM domain |
+| Temperature | `LineParametersProblem.temperature` | Prescribed input to the selected temperature law; the default uses material `T0` and `alpha` |
+| Earth material | `LineParametersProblem.earth_props` | Declared air plus one horizontal soil half-space; the soil law is evaluated per frequency |
 | Optional environment declaration | `LineCableSystem.environment` | `nothing` and `EarthModel` are accepted; other declarations produce a typed unsupported-feature error |
 | Line length and output basis | `LineCableSystem.line_length` and shared `compute` options | Per-unit-length is canonical; total basis uses the existing package scaling |
 | Propagation constant | backend-owned fixed quasi-TEM constant | A non-`nothing` problem-level `Γ` is rejected rather than silently reinterpreted |
@@ -227,7 +270,11 @@ count may change during recovery; solver thread settings, physical inputs and
 source/executable identities must match. A surviving solver from an interrupted
 coordinator prevents retry until it exits. Completed runs are reused read-only
 after their aggregate checksums pass. Runs from older solver protocols remain
-preserved comparison artifacts and require a fresh computation.
+preserved comparison artifacts and require a fresh computation. Indexed soil and
+declared-air coefficients use run-input schema 6 and solver protocol 3; older
+schemas cannot resume. Evaluated cable, soil, and air coefficients participate
+in solve reuse identity. Numerically identical laws can share a solve while
+retaining separate selection provenance and independent result arrays.
 
 ## Optional Gmsh UI
 

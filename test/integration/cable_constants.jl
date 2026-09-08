@@ -192,7 +192,7 @@
         design;
         temperature = 80.0,
         formulation = CableConstantsFormulation(
-            options = (temperature_correction = false,)
+            temperature_dependence=nothing
         )
     )
     @test hot.R[1] > constants.R[1]

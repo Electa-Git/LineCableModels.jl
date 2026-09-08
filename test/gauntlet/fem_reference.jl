@@ -37,7 +37,8 @@ const GETDP_ASSET_ROOT = joinpath(
 const GETDP_ASSETS = (
     joinpath(GETDP_ASSET_ROOT, "model.pro"),
     joinpath(GETDP_ASSET_ROOT, "jacobian_integration.pro"),
-    joinpath(GETDP_ASSET_ROOT, "quasi_tem.pro")
+    joinpath(GETDP_ASSET_ROOT, "quasi_tem.pro"),
+    joinpath(GETDP_ASSET_ROOT, "materials.pro")
 )
 const MODEL_SOURCE_SHA256 = bytes2hex(sha256(join(read.(GETDP_ASSETS, String), '\0')))
 const FEM_IMPLEMENTATION_PATHS = (
@@ -49,6 +50,22 @@ const FEM_IMPLEMENTATION_PATHS = (
     "ext/LineCableModelsGmshExt/model.jl",
     "ext/LineCableModelsGmshExt/onelab.jl",
     "ext/LineCableModelsGmshExt/results.jl",
+    "ext/LineCableModelsGmshExt/formulations.jl",
+    "ext/LineCableModelsGmshExt/workers.jl",
+    "src/engine/formulations.jl",
+    "src/engine/options.jl",
+    "src/engine/admittance.jl",
+    "src/engine/insulationadmittance/interface.jl",
+    "src/engine/insulationadmittance/formulas/default.jl",
+    "src/engine/semiconadmittance/interface.jl",
+    "src/engine/semiconadmittance/formulas/default.jl",
+    "src/materials/material.jl",
+    "src/materials/radialdielectric.jl",
+    "src/materials/temperaturedependent/TemperatureDependent.jl",
+    "src/materials/temperaturedependent/interface.jl",
+    "src/materials/temperaturedependent/formulas/default.jl",
+    "src/earth/frequencydependent/interface.jl",
+    "src/earth/frequencydependent/formulas/default.jl",
     "src/engine/matrixops.jl",
     "src/engine/reduction.jl"
 )
@@ -196,7 +213,7 @@ function validate_result(case_id, model, result)
             ))
     end
 
-    expected_invocations = length(frequencies) * length(result.details.fem.terminal_ids)
+    expected_invocations = length(frequencies)
     actual_invocations = result.details.fem.run.getdp_invocations
     actual_invocations == expected_invocations || push!(observations,
         (;
@@ -407,8 +424,7 @@ function run_case(case_id)
         options = (
             reduce_bundle = false,
             kron_reduction = false,
-            ideal_transposition = false,
-            temperature_correction = true
+            ideal_transposition = false
         ),
         fem_options = (
             getdp_verbosity = 0,

@@ -11,7 +11,7 @@ $(TYPEDFIELDS)
 struct Material{T <: Real} <: AbstractMaterial
     "Broad physical class used by formulation dispatch."
     kind::Symbol
-    "Electrical resistivity of the material \\[Ω·m\\]."
+    "Electrical resistivity at reference temperature T0 \\[Ω·m\\]."
     rho::T
     "Relative permittivity \\[dimensionless\\]."
     eps_r::T

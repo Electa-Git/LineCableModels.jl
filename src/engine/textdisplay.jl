@@ -74,14 +74,19 @@ Base.show(io::IO, ::MIME"text/plain", backend::LineCableModelsCoaxial) =
 TextDisplay.name(::Type{<:LineCableModelsFEM}) = "LineCableModelsFEM"
 Base.summary(io::IO, ::LineCableModelsFEM) = print(io, "LineCableModels FEM backend")
 function Base.show(io::IO, backend::LineCableModelsFEM)
-    print(io, "LineCableModelsFEM(options=", length(backend.options), ")")
+    print(io, "LineCableModelsFEM(", length(backend.methods), " material laws)")
 end
 function Base.show(io::IO, ::MIME"text/plain", backend::LineCableModelsFEM)
     get(io, :compact, false) && return show(io, backend)
+    selections = map(backend.methods) do selected
+        selected === nothing && return nothing
+        modified = !isempty(selected.hooks) || !isempty(selected.parameters)
+        string(formula_id(selected), modified ? " (modified)" : "")
+    end
     return TextDisplay.fields(
         io,
         "LineCableModels FEM backend",
-        (options = length(backend.options), execution = backend.execution);
+        (; selections..., options = backend.options, execution = backend.execution);
         multiline = true
     )
 end

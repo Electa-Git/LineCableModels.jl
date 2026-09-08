@@ -189,26 +189,16 @@ function _resume_inputs_match(path::String, model::FEMResolvedModel, inputs::Nam
     expected = ImportExport.serialize_value(model.problem)
     comparable = Dict(String(key)=>value for (key,value) in pairs(recorded))
     requested = Dict(String(key)=>value for (key,value) in pairs(JSON3.read(JSON3.write(inputs))))
+    # A solver-input schema change is an intentional restart boundary.
+    get(comparable, "schema_version", 0) == inputs.schema_version == 6 || return false
+    get(comparable, "solver_protocol", 0) == inputs.solver_protocol == 3 || return false
     # Scheduling and executable location do not change the numerical problem.
-    # The executable digest and reported build remain strict compatibility
-    # inputs; schema 4 records additionally carried the location inside that
-    # identity.
-    schemas = (get(comparable, "schema_version", 0), inputs.schema_version)
-    if all(in((4, 5)), schemas)
-        for record in (comparable, requested)
-            execution = Dict(String(key)=>value for (key,value) in pairs(record["execution"]))
-            pop!(execution, "frequency_workers", nothing)
-            pop!(execution, "getdp_executable", nothing)
-            record["execution"] = execution
-            identity = get(record, "getdp_identity", nothing)
-            if identity !== nothing
-                stable = Dict(String(key)=>value for (key,value) in pairs(identity))
-                pop!(stable, "path", nothing)
-                record["getdp_identity"] = stable
-            end
-            pop!(record, "getdp_provenance", nothing)
-            record["schema_version"] = 5
-        end
+    for record in (comparable, requested)
+        execution = Dict(String(key)=>value for (key,value) in pairs(record["execution"]))
+        pop!(execution, "frequency_workers", nothing)
+        pop!(execution, "getdp_executable", nothing)
+        record["execution"] = execution
+        pop!(record, "getdp_provenance", nothing)
     end
     return _resume_value_matches(existing, expected) &&
         _resume_value_matches(comparable, requested)
@@ -620,12 +610,16 @@ function _fem_input_record(model::FEMResolvedModel, formulation::LineCableModels
     getdp_provenance = selection
     mesh_path = formulation.execution.mesh_path
     return (
-        schema_version = 5,
-        solver_protocol = 2,
+        schema_version = 6,
+        solver_protocol = 3,
         mesh_fingerprint = _mesh_fingerprint(model, gmsh.GMSH_API_VERSION),
         materials = [(kind=material.kind, tag=material.physical_tag,
             mu_r=material.mu_r, sigma=real.(material.admittivity),
             omega_epsilon=imag.(material.admittivity)) for material in model.material_plans],
+        earth_materials = [(rho=state.rho, eps_r=state.eps_r, mu_r=state.mu_r)
+            for state in model.earth_materials],
+        air = (eps_r=model.problem.earth_props.layers[1].eps_r,
+            mu_r=model.problem.earth_props.layers[1].mu_r),
         mesh_plans = model.mesh_plans,
         region_mesh_sizes = getproperty.(model.region_plans, :mesh_size),
         cable_outer_mesh_sizes = model.cable_outer_mesh_sizes,

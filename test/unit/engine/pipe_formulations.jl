@@ -27,9 +27,9 @@
         @test failure isa ArgumentError
         @test sprint(showerror, failure) == "ArgumentError: $expected"
     end
-    # This selects existing FEM geometry handling; it does not claim an
-    # analytical pipe correction exists or disable enclosure construction.
-    @test E.Formulation(Formulation(:LineCableModelsFEM), selected, design) === nothing
+    # FEM enclosure support is exercised by its geometry and numerical suites.
+    @test !haskey(LineCableModelsFEM().methods, :pipe_impedance)
+    @test_throws MethodError LineCableModelsFEM(pipe_impedance=formula(:default))
     @test_throws ArgumentError E.PipeImpedance.Formula(:UnimplementedPipe2026)
     @test_throws ArgumentError E.PipeImpedance.Formula(:default; parameters = (invented = true,))
     @test_throws ArgumentError Formulation(pipe_impedance = formula(:default; order = :before))
@@ -47,8 +47,7 @@
             at(first_core, -0.01, 0), at(second_core, 0.01, 0);
             shape = Disk(0.025), fill = air, wall = insulation(dielectric; t = 0.002)))
     @test E.Formulation(LineCableModelsCoaxial(), selected, ducted) === nothing
-    for constructor in (Formulation, CableConstantsFormulation,
-        (; kwargs...) -> Formulation(:LineCableModelsFEM; kwargs...))
+    for constructor in (Formulation, CableConstantsFormulation)
         selections = constructor(pipe_impedance = Grid((:default, formula(:default))))
         @test length(selections) == 2
         @test all(value -> value.methods.pipe_impedance isa E.PipeImpedanceFormulation, selections)

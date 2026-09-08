@@ -16,7 +16,7 @@ function parse_selections(args)
         identifiers = strip.(split(last(parts), ','))
         all(value -> occursin(r"^[A-Za-z][A-Za-z0-9_]*$", value), identifiers) ||
             throw(ArgumentError("--select $name needs nonempty formula identifiers"))
-        push!(choices, name => Grid(Symbol.(identifiers)))
+        push!(choices, name => Grid([id == "nothing" ? nothing : Symbol(id) for id in identifiers]))
     end
     return (; choices...)
 end
@@ -27,7 +27,9 @@ function campaign_selections(model, backend::Symbol, catalogue::Bool;
     if !isempty(choices)
         catalogue && throw(ArgumentError(
             "explicit --select axes require --formulas default; the catalogue is an independent earth-formula sweep"))
-        slots = keys(Formulation().definitions)
+        constructor = backend === :fem ? (; kwargs...) -> Formulation(:LineCableModelsFEM; kwargs...) :
+                      backend === :pscad ? (; kwargs...) -> Formulation(:pscad; kwargs...) : Formulation
+        slots = keys(constructor().definitions)
         unknown = setdiff(keys(choices), slots)
         isempty(unknown) || throw(ArgumentError(
             "unknown formulation slots $(join(unknown, ", ")); choose from $(join(slots, ", "))"))
@@ -35,10 +37,10 @@ function campaign_selections(model, backend::Symbol, catalogue::Bool;
             (insulation_admittance=dielectric, semicon_admittance=dielectric))
         # The public constructor owns product/zip, singleton broadcasting and
         # formula resolution. Campaign persistence only records its selections.
-        space = Formulation(; merge(defaults, choices)..., combine)
+        space = constructor(; merge(defaults, choices)..., combine)
         values = space isa Gridspace ? collect(space) : [space]
         selections = map(values) do value
-            all(selection -> selection isa Symbol, value.definitions) || throw(ArgumentError(
+            all(selection -> selection === nothing || selection isa Symbol, value.definitions) || throw(ArgumentError(
                 "manual campaign selections accept formula identifiers; route overrides belong to the Julia formulation API"))
             id = join((string(name, "_", lowercase(string(getproperty(value.definitions, name))))
                 for name in keys(choices)), "__")
@@ -46,10 +48,11 @@ function campaign_selections(model, backend::Symbol, catalogue::Bool;
         end
         return (; selections, skipped=NamedTuple[])
     end
-    baseline = (id="default", earth_impedance=:default, earth_admittance=:default)
+    baseline = backend === :fem ? (id="default",) :
+        (id="default", earth_impedance=:default, earth_admittance=:default)
     selections = [baseline]
     skipped = NamedTuple[]
-    catalogue || return (; selections, skipped)
+    (catalogue && backend !== :fem) || return (; selections, skipped)
     if backend === :pscad
         heights = getproperty.(model.problem.system.positions, :y)
         placement = all(>(0), heights) ? Val(:overhead) :
@@ -77,9 +80,9 @@ end
 
 function campaign_formulation(backend::Symbol, selection, dielectric::Symbol)
     options = (reduce_bundle=false, kron_reduction=false,
-        ideal_transposition=false, temperature_correction=true)
-    requested = (; (Symbol(name) => Symbol(value) for (name, value) in pairs(selection)
-        if name != "id")...)
+        ideal_transposition=false)
+    requested = (; (Symbol(name) => (value === nothing || value == "nothing" ? nothing : Symbol(value)) for (name, value) in pairs(selection)
+        if Symbol(name) !== :id)...)
     keywords = merge((insulation_admittance=dielectric, semicon_admittance=dielectric),
         requested, (; options))
     backend === :coaxial && return Formulation(; keywords...)
@@ -99,17 +102,22 @@ end
 function campaign_implementation(formulation::LineCableModelsFEM)
     paths = [joinpath("ext", "LineCableModelsGmshExt", file) for file in (
         "LineCableModelsGmshExt.jl", "model.jl", "formulations.jl", "geometry.jl",
-        "mesh.jl", "onelab.jl", "getdp.jl", "results.jl", "compute.jl",
+        "mesh.jl", "onelab.jl", "getdp.jl", "workers.jl", "results.jl", "compute.jl",
         "getdp/model.pro", "getdp/materials.pro", "getdp/quasi_tem.pro", "getdp/jacobian_integration.pro")]
     append!(paths, ["src/engine/formulations.jl", "src/engine/matrixops.jl",
         "src/engine/reduction.jl", "src/engine/admittance.jl",
-        "src/materials/material.jl", "src/materials/radialdielectric.jl"])
+        "src/materials/material.jl", "src/materials/radialdielectric.jl",
+        "src/materials/temperaturedependent/TemperatureDependent.jl",
+        "src/materials/temperaturedependent/interface.jl",
+        "src/materials/temperaturedependent/formulas/default.jl",
+        "src/earth/frequencydependent/interface.jl"])
+    fd_path = _fd_path(formulation.methods.earth_properties)
+    fd_path === nothing || push!(paths, fd_path)
     for (family, selected) in (("insulationadmittance", formulation.methods.insulation_admittance),
             ("semiconadmittance", formulation.methods.semicon_admittance))
         push!(paths, "src/engine/$family/interface.jl")
         append!(paths, _formula_paths(family, selected))
     end
-    physical = Formulation(; formulation.definitions..., options=formulation.options)
     extension = Base.get_extension(LineCableModels, :LineCableModelsGmshExt)
     extension === nothing && error("load Gmsh before recording a FEM implementation")
     resolved = extension._getdp_selection(formulation)
@@ -117,10 +125,10 @@ function campaign_implementation(formulation::LineCableModelsFEM)
     execution = _selection_value(formulation.execution)
     execution = merge(execution,
         (fields=merge(execution.fields, (getdp_executable=nothing,)),))
-    selection = merge(formulation_record(physical),
-        (backend=:fem, execution,
+    selection = (schema_version=3, backend=:fem,
+            methods=map(_selection_record, formulation.methods), options=formulation.options, execution,
             executable=executable_identity, gmsh_version=Gmsh.gmsh.GMSH_API_VERSION,
-            gmsh_library=String(Gmsh.gmsh.lib), julia_version=string(VERSION)))
+            gmsh_library=String(Gmsh.gmsh.lib), julia_version=string(VERSION))
     return (selection, selection_sha256=semantic_sha256(selection),
         blobs=git_blob_record.(sort!(unique(paths))))
 end
@@ -133,7 +141,10 @@ function campaign_implementation(formulation::PSCADBenchmarks.PSCADFormulation)
     append!(paths, ["src/importexport/pscad/$file" for file in ("pscad.jl", "project.jl")])
     append!(paths, FLATTEN_IMPLEMENTATION_PATHS)
     append!(paths, ["src/engine/blueprint.jl",
-        "src/engine/admittance.jl", "src/materials/material.jl"])
+        "src/engine/admittance.jl", "src/materials/material.jl",
+        "src/materials/temperaturedependent/TemperatureDependent.jl",
+        "src/materials/temperaturedependent/interface.jl",
+        "src/materials/temperaturedependent/formulas/default.jl"])
     for (family, selected) in (("insulationadmittance", formulation.methods.insulation_admittance),
             ("semiconadmittance", formulation.methods.semicon_admittance))
         push!(paths, "src/engine/$family/interface.jl")
@@ -258,8 +269,9 @@ function run_campaign(directory::AbstractString, ids;
     dielectric in (:default, :Ametani2004) || throw(ArgumentError(
         "campaign dielectric selection must be :default or :Ametani2004"))
     combine in (:product, :zip) || throw(ArgumentError("campaign combine must be product or zip"))
-    explicit = isempty(choices) ? nothing : campaign_selections(nothing, :coaxial,
-        catalogue; choices, combine, dielectric)
+    explicit = isempty(choices) ? nothing : Dict(backend =>
+        campaign_selections(nothing, backend, catalogue; choices, combine, dielectric)
+        for backend in backends)
     isempty(propagation) && throw(ArgumentError("a campaign needs at least one propagation method"))
     allunique(propagation) || throw(ArgumentError("duplicate propagation methods"))
     all(in((:deterministic, :linear_error, :monte_carlo)), propagation) || throw(ArgumentError(
@@ -285,7 +297,7 @@ function run_campaign(directory::AbstractString, ids;
     jobs = Dict{String, Any}[]
     for id in ids, backend in backends, method in propagation
         model = models[(id, method !== :deterministic)]
-        selected = explicit === nothing ? campaign_selections(models[(id, false)], backend, catalogue) : explicit
+        selected = explicit === nothing ? campaign_selections(models[(id, false)], backend, catalogue) : explicit[backend]
         selections = [Dict(string(name)=>string(item) for (name, item) in pairs(value))
             for value in selected.selections]
         skipped = [Dict("id"=>value.id, "reason"=>value.reason) for value in selected.skipped]

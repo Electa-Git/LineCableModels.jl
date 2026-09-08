@@ -1,12 +1,11 @@
 function formulation_options(
-        ::Type{LineParametersFormulation},
+        ::Union{Type{LineParametersFormulation}, Type{LineCableModelsFEM}},
         options::NamedTuple
 )::FormulationOptions
     allowed = (
         :reduce_bundle,
         :kron_reduction,
-        :ideal_transposition,
-        :temperature_correction
+        :ideal_transposition
     )
     unknown = filter(key -> key ∉ allowed, keys(options))
     isempty(unknown) || throw(ArgumentError(
@@ -16,21 +15,18 @@ function formulation_options(
         (
             reduce_bundle = true,
             kron_reduction = true,
-            ideal_transposition = true,
-            temperature_correction = true
+            ideal_transposition = true
         ),
         options
     )
     all(name -> getproperty(normalized, name) isa Bool,
-        (:reduce_bundle, :kron_reduction, :ideal_transposition,
-            :temperature_correction)) || throw(ArgumentError(
-        "reduction, transposition, and temperature-correction options must be Bool",
+        (:reduce_bundle, :kron_reduction, :ideal_transposition)) || throw(ArgumentError(
+        "reduction and transposition options must be Bool",
     ))
     return (
         reduce_bundle = normalized.reduce_bundle,
         kron_reduction = normalized.kron_reduction,
-        ideal_transposition = normalized.ideal_transposition,
-        temperature_correction = normalized.temperature_correction
+        ideal_transposition = normalized.ideal_transposition
     )
 end
 

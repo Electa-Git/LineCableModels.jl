@@ -4,13 +4,14 @@
     const FM=LineCableModels.FormulaMethod
     owners=(E.InternalImpedance, E.InsulationImpedance, E.EarthImpedance,
         E.InsulationAdmittance, E.SemiconAdmittance, E.EarthAdmittance,
-        EP.FrequencyDependent, EP.EquivalentHomogeneous, LineCableModels.Transforms)
+        EP.FrequencyDependent, EP.EquivalentHomogeneous, LineCableModels.Transforms,
+        LineCableModels.Materials.TemperatureDependent)
     function inspect(node, identifier, violations)
         node isa Expr || return
         if node.head === :call &&
            first(node.args) in (:earth_impedance, :earth_potential_coefficient,
             :internal_impedance, :insulation_impedance, :insulation_material, :semicon_material,
-            :earth_material, :equivalent_material, :modal_operators)
+            :earth_material, :equivalent_material, :modal_operators, :temperature_resistivity)
             arg=length(node.args)>1 ? node.args[2] : nothing
             if arg isa Expr && arg.head === :call && first(arg.args) === :Val &&
                last(arg.args) isa QuoteNode
@@ -55,7 +56,7 @@
         family=owner===LineCableModels.Transforms ? "transforms" :
                lowercase(String(nameof(owner)))
         location=owner in (EP.FrequencyDependent, EP.EquivalentHomogeneous) ? "earth" :
-                 "engine"
+                 owner === LineCableModels.Materials.TemperatureDependent ? "materials" : "engine"
         directory=owner===LineCableModels.Transforms ?
                   joinpath(pkgdir(LineCableModels), "src", "transforms", "formulas") :
                   joinpath(pkgdir(LineCableModels), "src", location, family, "formulas")

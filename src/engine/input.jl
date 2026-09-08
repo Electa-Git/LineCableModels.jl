@@ -127,8 +127,8 @@ function validate(workspace::LineParametersWorkspace)
     for values in (
         input.horz, input.vert, input.phase_map, input.cable_map,
         input.design_map, cable.terminals, cable.positions, cable.r_in,
-        cable.r_ext, cable.r_ins_in, cable.r_ins_ext, cable.rho0_cond,
-        cable.T0_cond, cable.alpha_cond, cable.mu_cond, cable.mu_ins,
+        cable.r_ext, cable.r_ins_in, cable.r_ins_ext, cable.conductor_materials,
+        cable.mu_cond, cable.mu_ins,
         cable.dielectric_ranges
     )
         length(values) == n || throw(DimensionMismatch(
@@ -301,14 +301,8 @@ function LineParametersWorkspace(
     horz_sep = input.horz_sep
     vert = input.vert
     phase_map = input.phase_map
-    rho_cond = copy(cable.rho0_cond)
-    if formulation.options.temperature_correction
-        @inbounds for index in eachindex(rho_cond)
-            rho_cond[index] *= one(T) +
-                               cable.alpha_cond[index] *
-                               (problem.temperature - cable.T0_cond[index])
-        end
-    end
+    rho_cond = T[constitutive(formulation.methods.temperature_dependence, material,
+        problem.temperature) for material in cable.conductor_materials]
     cable_indices = [collect(indices) for indices in cable.assemblies]
     cable_representatives = first.(cable_indices)
     earth_pairs = _earth_pairs(

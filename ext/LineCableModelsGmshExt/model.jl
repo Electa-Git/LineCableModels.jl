@@ -30,10 +30,7 @@ struct FEMMaterialPlan{T <: Real}
     object_id::String
     field::Symbol
     kind::Symbol
-    rho::T
-    eps_r::T
     mu_r::T
-    tan_delta::Union{Nothing, T}
     admittivity::Vector{Complex{T}}
     physical_tag::Int
     physical_name::String
@@ -66,6 +63,7 @@ struct FEMResolvedModel{T <: Real, P <: LineParametersProblem}
     terminal_names::Vector{String}
     region_plans::Vector{FEMRegionPlan}
     material_plans::Vector{FEMMaterialPlan{T}}
+    earth_materials::Vector{Earth.EarthMaterial{T}}
     cable_boundaries::Vector{Any}
     cable_hosts::Vector{Symbol}
     tags::NamedTuple
@@ -131,14 +129,21 @@ end
 
 const FEM_FLOAT_TAGS = ("Float16", "Float32", "Float64", "BigFloat")
 
-function _fem_float64_scalar(value::AbstractDict)
-    scalar = ImportExport.deserialize_value(value)
+function _fem_float64_scalar(value::Real)
+    scalar = LineCableModels.nominal(value)
     converted = Float64(scalar)
-    isfinite(scalar) && !isfinite(converted) &&
-        throw(OverflowError(
-            "finite value $scalar is outside the Float64 range"
-        ))
-    return ImportExport.serialize_value(converted)
+    isfinite(scalar) && !isfinite(converted) && throw(OverflowError(
+        "finite value $scalar is outside the Float64 range"))
+    return converted
+end
+
+function _fem_float64_scalar(value::Complex)
+    return complex(_fem_float64_scalar(real(value)), _fem_float64_scalar(imag(value)))
+end
+
+function _fem_float64_scalar(value::AbstractDict)
+    return ImportExport.serialize_value(
+        _fem_float64_scalar(ImportExport.deserialize_value(value)))
 end
 
 function _fem_float64_document(value::AbstractVector)
@@ -288,19 +293,6 @@ function _validate_fem_shape(shape, object_id::String)
     )
 end
 
-function _temperature_resistivity(material, problem, formulation)
-    formulation.options.temperature_correction || return material.rho
-    isfinite(material.rho) || return material.rho
-    return material.rho * (
-        one(material.rho) + material.alpha * (problem.temperature - material.T0)
-    )
-end
-
-function _temperature_resistivity(material::LineCableModels.RadialDielectric, problem, formulation)
-    return sum(w * _temperature_resistivity(m, problem, formulation)
-    for (w, m) in zip(material.weights, material.materials)) / sum(material.weights)
-end
-
 function _validate_material_partition(design)
     envelope_area = LineCableModels.area(design.geometry.outer)
     declared_area = sum(
@@ -381,18 +373,22 @@ end
 
 function _fem_mesh_plans(
         problem::LineParametersProblem{T},
+        earth_materials::Vector{Earth.EarthMaterial{T}},
         centre_x::T,
         layout_radius::T,
         cable_outer_mesh_sizes::Vector{T},
         growth_factor::T
 ) where {T <: Real}
-    earth = problem.earth_props.layers[2]
     plans = FEMMeshPlan{T}[]
     for (frequency_index, frequency) in enumerate(problem.frequencies)
+        earth = earth_materials[frequency_index]
         earth_skin_depth = sqrt(
             earth.rho /
             (convert(T, π) * frequency * earth.mu_r * convert(T, 4π * 1e-7))
         )
+        isfinite(earth_skin_depth) && earth_skin_depth > zero(T) || _fem_error(
+            :unsupported, problem.system.system_id, :earth_properties,
+            "evaluated soil at $frequency Hz requires a finite positive conductive skin depth")
         domain_radius = max(layout_radius, convert(T, earth_skin_depth))
         shell_outer_radius = convert(T, 1.25) * domain_radius
         domain_mesh_size = domain_radius / 20
@@ -595,26 +591,7 @@ function _resolved_fem_model(
         "LineCableModelsFEM uses its fixed quasi-TEM propagation constant; " *
         "problem-level propagation constants are unsupported"
     )
-    for name in
-        (:internal_impedance, :insulation_impedance, :earth_impedance, :earth_admittance)
-        selected=getproperty(formulation.methods, name)
-        isempty(selected.hooks) && isempty(selected.parameters) &&
-        all(isempty, values(selected.options)) || _fem_error(
-            :unsupported, problem.system.system_id, name,
-            "FEM cannot evaluate a custom analytical $name contribution")
-    end
-    for name in (:earth_impedance, :earth_admittance)
-        getproperty(formulation.methods, name).equivalent_earth === nothing || _fem_error(
-            :unsupported, problem.system.system_id, name,
-            "FEM does not execute the formula's equivalent-earth reduction")
-    end
     earth = problem.earth_props
-    (formulation.methods.earth_properties === nothing ||
-     formulation.methods.earth_properties === Earth.FrequencyDependent.Formula(:default)) ||
-        _fem_error(
-            :unsupported, problem.system.system_id, :earth_properties,
-            "frequency-dependent soil constitutive selections are not yet implemented by FEM"
-        )
     earth.vertical_layers && _fem_error(
         :unsupported,
         problem.system.system_id,
@@ -635,10 +612,27 @@ function _resolved_fem_model(
         "the declared environment type $(typeof(environment)) has no FEM adaptation"
     )
 
-    system = problem.system
-    for design in system.designs
-        Engine.Formulation(formulation, formulation.methods.pipe_impedance, design)
+    soil = earth.layers[2]
+    isinf(soil.thickness) || _fem_error(:unsupported, problem.system.system_id,
+        :earth_props, "the FEM soil region must be a semi-infinite half-space")
+    earth_materials = Earth.EarthMaterial{T}[]
+    for frequency in problem.frequencies
+        evaluated = try
+            state = LineCableModels.constitutive(formulation.methods.earth_properties,
+                Earth.EarthMaterial(soil), frequency)
+            material = Earth.EarthMaterial(_fem_float64_scalar(state.rho),
+                _fem_float64_scalar(state.eps_r), _fem_float64_scalar(state.mu_r))
+            isfinite(inv(material.rho)) && inv(material.rho) > 0 || throw(DomainError(
+                material.rho, "soil conductivity must be positive and finite"))
+            material
+        catch exception
+            _fem_error(:adaptation, problem.system.system_id, :earth_properties,
+                "soil constitutive evaluation at $frequency Hz: $(sprint(showerror, exception))")
+        end
+        push!(earth_materials, evaluated)
     end
+
+    system = problem.system
     terminal_count = length(system.terminal_order)
     terminal_count > 0 || _fem_error(
         :adaptation, system.system_id, :terminal_order, "no terminals were resolved"
@@ -705,37 +699,33 @@ function _resolved_fem_model(
                     "a passive material surface cannot own an electrical terminal"
                 )
             end
-            rho = convert(T, _temperature_resistivity(
-                source.material, problem, formulation
-            ))
             material = source.material
-            admittivity = if material.kind === :conductor
-                epsilon = convert(T, material.eps_r * 8.8541878128e-12)
-                Complex{T}[complex(inv(rho) + 2π * f * epsilon * material.tan_delta,
-                               2π * f * epsilon) for f in problem.frequencies]
-            else
-                # Backend compatibility remains an explicit author-tag route for
-                # every original constituent, including a homogeneous shell.
-                relations = map((formulation.methods.insulation_admittance,
-                    formulation.methods.semicon_admittance)) do selected
-                    (source,
-                        frequency,
-                        temperature) -> begin
-                        LineCableModels.constitutive(formulation,
-                            Val(LineCableModels.formula_id(selected)), selected, source,
-                            frequency, temperature)
-                    end
-                end
-                if material isa LineCableModels.RadialDielectric
-                    Complex{T}[LineCableModels.constitutive(relations, material,
-                                   frequency, problem.temperature)
-                               for frequency in problem.frequencies]
+            admittivity = try
+                if material.kind === :conductor
+                    rho = _fem_float64_scalar(LineCableModels.constitutive(
+                        formulation.methods.temperature_dependence, material, problem.temperature))
+                    isfinite(inv(rho)) && inv(rho) > 0 || throw(DomainError(rho,
+                        "conductor conductivity must be positive and finite"))
+                    epsilon = convert(T, material.eps_r * 8.8541878128e-12)
+                    Complex{T}[complex(inv(rho) + 2π * f * epsilon * material.tan_delta,
+                        2π * f * epsilon) for f in problem.frequencies]
                 else
-                    relation = material.kind === :semicon ? relations[2] : relations[1]
-                    Complex{T}[relation(material, frequency, problem.temperature)
-                               for frequency in problem.frequencies]
+                    selected = material isa LineCableModels.RadialDielectric ?
+                        (formulation.methods.insulation_admittance,
+                         formulation.methods.semicon_admittance) :
+                        material.kind === :semicon ? formulation.methods.semicon_admittance :
+                        formulation.methods.insulation_admittance
+                    Complex{T}[_fem_float64_scalar(LineCableModels.constitutive(
+                        selected, material, frequency, problem.temperature;
+                        temperature_dependence=formulation.methods.temperature_dependence))
+                        for frequency in problem.frequencies]
                 end
+            catch exception
+                _fem_error(:adaptation, object_id, :constitutive,
+                    "material evaluation at $(problem.temperature) °C: $(sprint(showerror, exception))")
             end
+            all(isfinite, admittivity) || _fem_error(:adaptation, object_id,
+                :constitutive, "evaluated material admittivity must be finite")
             formation = get(complete, local_region, nothing)
             shape = formation === nothing ?
                     _coalesce(placed.primitive, formations, object_id) :
@@ -754,11 +744,7 @@ function _resolved_fem_model(
                     object_id,
                     source.tag,
                     source.material.kind,
-                    rho,
-                    convert(T, source.material.eps_r),
                     convert(T, source.material.mu_r),
-                    material isa LineCableModels.RadialDielectric ? nothing :
-                    convert(T, material.tan_delta),
                     admittivity,
                     physical_tag,
                     physical_name
@@ -836,6 +822,7 @@ function _resolved_fem_model(
     mesh_growth_factor = convert(T, 1.2)
     mesh_plans = _fem_mesh_plans(
         problem,
+        earth_materials,
         centre_x,
         layout_radius,
         cable_outer_mesh_sizes,
@@ -868,6 +855,7 @@ function _resolved_fem_model(
         terminal_names,
         region_plans,
         material_plans,
+        earth_materials,
         cable_boundaries,
         cable_hosts,
         tags,

@@ -117,8 +117,7 @@ function formulation(selected)
         options = (
             reduce_bundle = false,
             kron_reduction = false,
-            ideal_transposition = false,
-            temperature_correction = true
+            ideal_transposition = false
         )
     )
 end

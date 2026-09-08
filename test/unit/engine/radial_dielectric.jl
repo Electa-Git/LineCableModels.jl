@@ -91,7 +91,7 @@
     end
     for correction in (false, true), f in (50.0, 60.0)
         formulation = CableConstantsFormulation(insulation_admittance=:Ametani2004,
-            semicon_admittance=:Ametani2004, options=(temperature_correction=correction,))
+            semicon_admittance=:Ametani2004, temperature_dependence=correction ? formula(:default) : nothing)
         original = compute(CableConstantsProblem(source; frequency=f, temperature=60.0), formulation)
         reduced = compute(CableConstantsProblem(homogeneous; frequency=f, temperature=60.0), formulation)
         @test original.C ≈ reduced.C rtol=2e-13
@@ -101,7 +101,7 @@
         @test only(original.G) ≈ real(expected) rtol=2e-13
         @test only(original.C) ≈ imag(expected)/(2π*f) rtol=2e-13
         @test 2π * constitutive(lossy, material, f, 60.0;
-            temperature_correction=correction) / sum(weights) ≈ expected rtol=2e-13
+            temperature_dependence=correction ? formulation.methods.temperature_dependence : nothing) / sum(weights) ≈ expected rtol=2e-13
         exported = only(IE._pscad_components(homogeneous, f, formulation, 60.0)).dielectric
         @test exported.shunt_conductance ≈ real(expected) rtol=2e-13
         @test exported.shunt_capacitance ≈ imag(expected)/(2π*f) rtol=2e-13
@@ -199,14 +199,13 @@ end
         earth_props=homogeneous(rho=100.0, eps_r=10.0))
     for ins in (:default, :Ametani2004), semi in (:default, :Ametani2004), correction in (false, true)
         formulation = Formulation(:LineCableModelsFEM; insulation_admittance=ins, semicon_admittance=semi,
-            options=(ideal_transposition=false, temperature_correction=correction), fem_options=(gmsh_verbosity=0,))
+            temperature_dependence=correction ? formula(:default) : nothing, options=(ideal_transposition=false,), fem_options=(gmsh_verbosity=0,))
         model = FEM._resolved_fem_model(problem, formulation)
         passive = only(filter(m -> m.kind === :insulator, model.material_plans))
-        @test passive.tan_delta === nothing
         @test length(model.material_plans) == 2
         relations = (formulation.methods.insulation_admittance, formulation.methods.semicon_admittance)
         @test passive.admittivity ≈ [constitutive(relations, material, f, 60.0;
-            temperature_correction=correction) for f in problem.frequencies]
+            temperature_dependence=correction ? formulation.methods.temperature_dependence : nothing) for f in problem.frequencies]
         if ins === semi === :default
             @test all(iszero, real.(passive.admittivity))
         end

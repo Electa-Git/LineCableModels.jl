@@ -22,6 +22,7 @@
         semicon_admittance = Grid((:default, :Ametani2004)),
         earth_admittance = Grid((:IdealGround, :default)),
         earth_properties = Grid((nothing, :default)),
+        temperature_dependence = Grid((nothing, :default)),
         pipe_impedance = Grid((:default, formula(:default))),
         options = Grid((
             (; ideal_transposition = false),
@@ -126,6 +127,11 @@
 
     for name in keys(selections)
         keyword=NamedTuple{(name,)}((getproperty(selections, name),))
+        if name in (:internal_impedance, :insulation_impedance, :earth_impedance,
+                :earth_admittance, :pipe_impedance)
+            @test_throws MethodError Formulation(:LineCableModelsFEM; keyword...)
+            continue
+        end
         space=Formulation(:LineCableModelsFEM; keyword...)
         @test space isa Gridspace{LineCableModelsFEM}
         @test length(space) == 2

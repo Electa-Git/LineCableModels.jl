@@ -1277,7 +1277,7 @@ end
             )
         )
         formulation_space = Formulation(:LineCableModelsFEM;
-            earth_impedance = Grid((:default, :Carson1926)),
+            earth_properties = Grid((formula(:default), nothing)),
             insulation_admittance = Grid((:default, :Ametani2004)),
             options = formulation.options,
             fem_options = formulation.execution)
@@ -1293,9 +1293,10 @@ end
         run_directories = [value.details.fem.run.run_directory for value in batch]
         @test length(unique(run_directories)) == 2
         for index in eachindex(selected)
-            @test batch[index].details.formulations.requested.earth_impedance ==
-                  string(formula_id(selected[index].methods.earth_impedance))
-            @test batch[index].details.formulations.effective.earth_impedance === nothing
+            soil = batch[index].details.formulations.selections.earth_properties
+            @test soil === nothing ? selected[index].methods.earth_properties === nothing :
+                  soil.identifier === formula_id(selected[index].methods.earth_properties)
+            @test keys(batch[index].details.formulations.selections) == keys(selected[index].methods)
             @test details(batch).points[index] == details(batch[index])
         end
         default_indices = findall(
@@ -1370,8 +1371,7 @@ end
             options = (trace = true, resume_run_directory = run_directory))
         @test repeated.Z.values == result.Z.values
         @test repeated.Y.values == result.Y.values
-        @test repeated.details.formulations.requested.earth_impedance ==
-              string(formula_id(selected[last(default_indices)].methods.earth_impedance))
+        @test repeated.details.formulations.selections.earth_properties === nothing
         @test repeated.details.fem.run.run_directory == run_directory
         @test repeated.details.fem.inputs.getdp_identity.sha256 != ""
         @test !Bool(Gmsh.gmsh.is_initialized())
@@ -1384,7 +1384,7 @@ end
                 path, expected = ARGS
                 problem = LineCableModels.ImportExport.deserialize_value(
                     JSON3.read(read(joinpath(path, "input", "problem.json"), String)))
-                formulation = Formulation(:LineCableModelsFEM; earth_impedance=:Carson1926,
+                formulation = Formulation(:LineCableModelsFEM; earth_properties=nothing,
                     options=(ideal_transposition=false,),
                     fem_options=(getdp_verbosity=0, gmsh_verbosity=0,
                         keep_run_directory=true))

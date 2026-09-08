@@ -22,10 +22,10 @@ end
 
 function _pscad_formulation(internal_impedance, insulation_impedance, earth_impedance,
         insulation_admittance, semicon_admittance, earth_admittance, earth_properties,
-        pipe_impedance, options::NamedTuple)
+        pipe_impedance, temperature_dependence, options::NamedTuple)
     selections = (; internal_impedance, insulation_impedance, earth_impedance,
         insulation_admittance, semicon_admittance, earth_admittance, earth_properties,
-        pipe_impedance)
+        pipe_impedance, temperature_dependence)
     physical = Formulation(; selections..., options = formulation_options(PSCADFormulation, options))
     return PSCADFormulation(physical.methods, physical.options, physical.definitions)
 end
@@ -53,10 +53,11 @@ function Formulation(::Val{:pscad};
         earth_admittance = formula(:default),
         earth_properties = formula(:default),
         pipe_impedance = formula(:default),
+        temperature_dependence = formula(:default),
         options = (;), combine::Symbol = :product)
     selections = (internal_impedance, insulation_impedance, earth_impedance,
         insulation_admittance, semicon_admittance, earth_admittance, earth_properties,
-        pipe_impedance)
+        pipe_impedance, temperature_dependence)
     return parameterize(PSCADFormulation, _pscad_formulation, (selections..., options); combine)
 end
 
@@ -187,7 +188,9 @@ function formulation_record(formulation::PSCADFormulation)
             earth_admittance = nothing,
             insulation_admittance = formula_id(methods.insulation_admittance),
             semicon_admittance = formula_id(methods.semicon_admittance),
-            earth_properties = nothing, pipe_impedance = nothing),
+            earth_properties = nothing, pipe_impedance = nothing,
+            temperature_dependence = methods.temperature_dependence === nothing ? nothing :
+                formula_id(methods.temperature_dependence)),
         assumptions = (
             internal_impedance = "PSCAD native Cable_Coax conductor calculation",
             insulation_impedance = "PSCAD native Cable_Coax magnetic calculation",

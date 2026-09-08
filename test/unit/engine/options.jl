@@ -46,8 +46,7 @@
     @test formulation == (
         reduce_bundle = true,
         kron_reduction = true,
-        ideal_transposition = true,
-        temperature_correction = true
+        ideal_transposition = true
     )
     @test_throws ArgumentError Grammar.formulation_options(
         formulation_owner, (unknown = true,))

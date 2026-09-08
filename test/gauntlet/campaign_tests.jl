@@ -164,16 +164,15 @@ end
     for value in product.selections) ==
           Set(Iterators.product((:default, :Ametani2004), (:default, :Ametani2004)))
 
-    # This iterates the public contract, not a frozen count of slots or formulas.
-    # Every backend must receive each requested slot even when its implementation
-    # subsequently reports a fixed equation, an absence, or unsupported physics.
-    for name in keys(Formulation().definitions)
-        axis = NamedTuple{(name,)}((Grid((:default, :default)),))
-        plan = owner.campaign_selections(nothing, :coaxial, false; choices=axis)
-        @test length(plan.selections) == 2
-        @test all(value -> getproperty(value, name) === :default, plan.selections)
-        record = Dict(string(key)=>string(value) for (key, value) in pairs(first(plan.selections)))
-        for backend in (:coaxial, :fem, :pscad)
+    # Campaigns preserve every selection in the owning backend's public contract.
+    for backend in (:coaxial, :fem, :pscad)
+        baseline = owner.campaign_formulation(backend, Dict(), :default)
+        for name in keys(baseline.definitions)
+            axis = NamedTuple{(name,)}((Grid((:default, :default)),))
+            plan = owner.campaign_selections(nothing, backend, false; choices=axis)
+            @test length(plan.selections) == 2
+            @test all(value -> getproperty(value, name) === :default, plan.selections)
+            record = Dict(string(key)=>string(value) for (key, value) in pairs(first(plan.selections)))
             requested = owner.campaign_formulation(backend, record, :Ametani2004)
             @test getproperty(requested.definitions, name) === :default
             @test requested.definitions.insulation_admittance === :default
@@ -265,7 +264,7 @@ end
                 earth_impedance = :Saad1996,
                 insulation_admittance = :Ametani2004, semicon_admittance = :Ametani2004,
                 options = (reduce_bundle = false, kron_reduction = false,
-                    ideal_transposition = false, temperature_correction = true)))
+                    ideal_transposition = false)))
         @test records[2]["Z"] == expected.Z.values
         @test records[2]["Y"] == expected.Y.values
         before=[(sha256(read(path)), stat(path).mtime) for path in files]
@@ -311,4 +310,28 @@ end
         relocated_record = GauntletSupport.campaign_implementation(relocated_formulation)
         @test relocated_record.selection_sha256 == second_record.selection_sha256
     end
+end
+
+@testitem "Gauntlet / FEM campaigns select only consumed constitutive laws" tags=[:gauntlet_toolkit] setup=[GauntletSupport] begin
+    using .GauntletSupport
+    owner = GauntletSupport
+    baseline = owner.campaign_selections(nothing, :fem, true)
+    @test baseline.selections == [(id="default",)]
+    @test isempty(baseline.skipped)
+    choices = owner.parse_selections(["--select", "temperature_dependence=default,nothing",
+        "--select", "insulation_admittance=default,Ametani2004"])
+    planned = owner.campaign_selections(nothing, :fem, false; choices)
+    @test length(planned.selections) == 4
+    for selection in planned.selections
+        saved = Dict(string(name)=>string(value) for (name,value) in pairs(selection))
+        fem = owner.campaign_formulation(:fem, saved, :default)
+        @test keys(fem.methods) ==
+            (:insulation_admittance,:semicon_admittance,:earth_properties,:temperature_dependence)
+        @test (fem.methods.temperature_dependence === nothing) ==
+            (selection.temperature_dependence === nothing)
+    end
+    @test_throws ArgumentError owner.campaign_selections(nothing, :fem, false;
+        choices=(earth_impedance=Grid((:default,:Carson1926)),))
+    @test_throws MethodError owner.campaign_formulation(:fem,
+        Dict("id"=>"old","earth_impedance"=>"default"), :default)
 end

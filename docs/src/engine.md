@@ -193,7 +193,7 @@ identifier. `FormulaMethod` binds that identifier to the family-owned equation g
 The hot loop has no lookup registry. Later unchanged reproductions of an equation
 receive no entry; distinct contributions require their own verified equations.
 
-Result details retain requested and effective identities for every formulation
+Analytical result details retain requested and effective identities for every formulation
 slot, explicit modification flags, independent equivalent-earth selections and
 orders, and normalized numerical options for internal surfaces, scalar material laws,
 external cases and each required reduction case. Absence of a selected reduction remains `nothing` in this provenance.
@@ -202,9 +202,11 @@ PSCAD dispatch maps retained equations to native settings. Gary1976 maps to PSCA
 `DERISEMLYEN` spelling; this creates no second mathematical registration. Carson1926
 (overhead) and Pollaczek1926 (underground) map to native direct numerical integration.
 PSCAD's `:default` selects that native setting, or native Lucca for a mixed arrangement.
-Fixed backend calculations are recorded as such. FEM and PSCAD reject analytical
-hook overrides they cannot execute. Constitutive overrides passed to supported
-material calculations remain subject to their documented export/backend limits.
+Fixed backend calculations are recorded as such. PSCAD rejects analytical
+hook overrides it cannot execute. FEM accepts only its four constitutive
+selections and rejects analytical kernel keywords at construction. It executes
+resolved material contributions without a second author registration. Constitutive
+overrides passed to PSCAD remain subject to its documented export limits.
 
 FEM batches reuse a field solve only when effective material, mesh and execution
 inputs agree. Every request retains its metadata and independent result arrays.
@@ -216,6 +218,51 @@ remeshing requests execute separately. See [FEM](fem.md) for execution details.
 assemblies require no additional pipe term. Eccentric or multicore conducting
 enclosures fail explicitly on the coaxial backend; FEM retains its supported
 physical enclosure geometry.
+
+## Cable-material temperature dependence
+
+Select the constitutive law in the formulation and prescribe the operating
+condition in the problem:
+
+```julia
+selected = Formulation(temperature_dependence=formula(:default))
+problem = LineParametersProblem(system; temperature=80.0, frequencies=[50.0,1000.0],
+    earth_props=homogeneous(rho=100.0))
+result = compute(problem, selected)
+```
+
+The Materials-owned `TemperatureDependent` family evaluates electrical
+resistivity. Its own `:default` implements
+``\rho(T)=\rho_0[1+\alpha(T-T_0)]`` using each material's reference calibration.
+`temperature_dependence=nothing` retains reference resistivity. The same slot
+is available in `CableConstantsFormulation` and `LineCableModelsFEM`.
+Temperature is prescribed in this electromagnetic calculation; no thermal
+rating or temperature-field equation is implied.
+
+Conductors consume the evaluated resistivity. Insulation/semicon constitutive
+relations receive an ephemeral material with evaluated resistivity before their
+electromagnetic equation; the stored reference material remains unchanged.
+Original radial dielectric constituents are evaluated before aggregation.
+
+A custom temperature contribution has the signature
+`f(material, temperature, parameters, options, workspace) -> rho` in Ω·m.
+Register its numerical defaults using the existing `FormulaMethod` grammar:
+
+```julia
+const TD = LineCableModels.Materials.TemperatureDependent
+my_rho(m, t, parameters, options, workspace) = m.rho * exp((t-m.T0)/1000)
+LineCableModels.computation_options(
+    ::LineCableModels.FormulaMethod{:default,typeof(TD.temperature_resistivity)},
+    ::typeof(my_rho)) = (;)
+selected = Formulation(temperature_dependence=formula(:default;
+    hooks=(contribution=my_rho,)))
+```
+
+A replacement owns its validity domain; all responses require positive real
+resistivity, finite for conductors. The default approximation also enforces
+``|T-T_0|<150`` K and a positive finite linear factor. The problem itself validates
+finite temperature without imposing an unselected law. Numerical options remain
+owned by the actual equation; the built-in linear law needs no integration.
 
 ## Finite formulation selection
 
@@ -548,7 +595,6 @@ The default line-parameter formulation owns:
 
 - bundle and Kron reduction.
 - ideal transposition.
-- temperature correction.
 
 The normalised named tuple is stored in `LineParametersFormulation.options`.
 `PSCADFormulation` uses the shared physical options and currently requires

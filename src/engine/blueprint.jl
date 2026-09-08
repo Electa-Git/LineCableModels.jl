@@ -331,12 +331,8 @@ struct LocalCableData{T <: Real}
     r_ins_in::Vector{T}
     "Outer radii of conductor-owned dielectric intervals [m]."
     r_ins_ext::Vector{T}
-    "Conductor resistivities at their material reference temperatures [Ω·m]."
-    rho0_cond::Vector{T}
-    "Conductor material reference temperatures [°C]."
-    T0_cond::Vector{T}
-    "Conductor temperature coefficients [1/°C]."
-    alpha_cond::Vector{T}
+    "Reference conductor materials, including their resistivity calibration."
+    conductor_materials::Vector{Material{T}}
     "Conductor relative permeabilities."
     mu_cond::Vector{T}
     "Equivalent relative permeabilities of conductor-owned dielectric intervals."
@@ -371,9 +367,7 @@ function LocalCableData(blueprints::AbstractVector{<:CableBlueprint{T}}) where {
     r_ext_values = Vector{T}(undef, conductor_count)
     r_ins_in = Vector{T}(undef, conductor_count)
     r_ins_ext = Vector{T}(undef, conductor_count)
-    rho0_cond = Vector{T}(undef, conductor_count)
-    T0_cond = Vector{T}(undef, conductor_count)
-    alpha_cond = Vector{T}(undef, conductor_count)
+    conductor_materials = Vector{Material{T}}(undef, conductor_count)
     mu_cond = Vector{T}(undef, conductor_count)
     mu_ins = Vector{T}(undef, conductor_count)
     dielectric_ranges = Vector{UnitRange{Int}}(undef, conductor_count)
@@ -403,9 +397,7 @@ function LocalCableData(blueprints::AbstractVector{<:CableBlueprint{T}}) where {
             positions[index] = conductor.position
             r_in_values[index] = conductor.r_in
             r_ext_values[index] = conductor.r_ex
-            rho0_cond[index] = conductor.material.rho
-            T0_cond[index] = conductor.material.T0
-            alpha_cond[index] = conductor.material.alpha
+            conductor_materials[index] = conductor.material
             mu_cond[index] = conductor.material.mu_r
 
             local_layers = blueprint.dielectric_ranges[local_index]
@@ -455,9 +447,7 @@ function LocalCableData(blueprints::AbstractVector{<:CableBlueprint{T}}) where {
         r_ext_values,
         r_ins_in,
         r_ins_ext,
-        rho0_cond,
-        T0_cond,
-        alpha_cond,
+        conductor_materials,
         mu_cond,
         mu_ins,
         dielectric_ranges,

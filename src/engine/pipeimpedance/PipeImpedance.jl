@@ -14,7 +14,7 @@ import ..Engine: PipeImpedanceFormulation, Formulation
 import ...LineCableModels: formula_id
 #! explicit-imports: off
 # These bindings are consumed by the dynamically included formula definitions.
-import ..Engine: LineCableModelsCoaxial, LineCableModelsFEM
+import ..Engine: LineCableModelsCoaxial
 import ...LineCableModels: description
 #! explicit-imports: on
 import ...DataModel

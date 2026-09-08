@@ -22,7 +22,8 @@ function _write_problem_snapshot(path::String, problem::LineParametersProblem)
 end
 
 function _write_model_data(path::String, model::FEMResolvedModel)
-    earth = model.problem.earth_props.layers[2]
+    air = model.problem.earth_props.layers[1]
+    earth = model.earth_materials
     materials = model.material_plans
     open(path, "w") do io
         println(io, "// Resolved LineCableModels FEM inputs; solver logic lives in getdp/*.pro")
@@ -60,9 +61,11 @@ function _write_model_data(path::String, model::FEMResolvedModel)
             println(io, "MaterialEpsilon_", index, "() = ",
                 _pro_array(imag.(material.admittivity) ./ (2π .* model.problem.frequencies)), ";")
         end
-        println(io, "sigma_earth = ", _pro_number(inv(earth.rho)), ";")
-        println(io, "eps_earth = ", _pro_number(earth.eps_r * 8.8541878128e-12), ";")
-        println(io, "mu_earth = ", _pro_number(earth.mu_r * 4π * 1e-7), ";")
+        println(io, "EarthSigma() = ", _pro_array([inv(state.rho) for state in earth]), ";")
+        println(io, "EarthEpsilon() = ", _pro_array([state.eps_r * 8.8541878128e-12 for state in earth]), ";")
+        println(io, "EarthMu() = ", _pro_array([state.mu_r * 4π * 1e-7 for state in earth]), ";")
+        println(io, "AirEpsilon = ", _pro_number(air.eps_r * 8.8541878128e-12), ";")
+        println(io, "AirMu = ", _pro_number(air.mu_r * 4π * 1e-7), ";")
         println(io, "DomainRadius = ", _pro_number(model.domain_radius), ";")
         println(io, "ShellOuterRadius = ", _pro_number(model.shell_outer_radius), ";")
         println(io, "Xcenter = ", _pro_number(model.centre[1]), ";")

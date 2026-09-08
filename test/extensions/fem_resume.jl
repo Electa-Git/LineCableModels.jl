@@ -24,7 +24,7 @@
         fem_options=(getdp_executable=artifact.path, gmsh_verbosity=0,))
     model = extension._resolved_fem_model(problem, formulation)
     inputs = extension._fem_input_record(model, formulation)
-    @test inputs.schema_version == 5
+    @test inputs.schema_version == 6
     @test inputs.getdp_provenance.source === :explicit
     @test inputs.getdp_provenance.artifact_hash === nothing
     @test isfile(inputs.getdp_provenance.path)
@@ -48,7 +48,7 @@
     @test inputs.adapter_sources isa NamedTuple
     @test haskey(inputs.adapter_sources, Symbol("geometry.jl"))
     @test !haskey(inputs.adapter_sources, Symbol("formulations.jl"))
-    other = Formulation(:LineCableModelsFEM; earth_impedance = :Carson1926,
+    other = Formulation(:LineCableModelsFEM; earth_properties = nothing,
         options = formulation.options, fem_options = formulation.execution)
     other_model = extension._resolved_fem_model(problem, other)
     other_inputs = extension._fem_input_record(other_model, other)
@@ -58,6 +58,30 @@
     lossy_inputs = extension._fem_input_record(lossy_model, lossy)
     @test extension.JSON3.write(inputs) == extension.JSON3.write(other_inputs)
     @test extension.JSON3.write(inputs) != extension.JSON3.write(lossy_inputs)
+    temperature_law = (m,t,p,o,w) -> m.rho * (1+(t-20)/1000)
+    soil_law = (m,f,p,o,w) -> EarthMaterial(m.rho,2m.eps_r,m.mu_r)
+    for (equation,law) in (
+        (LineCableModels.Materials.TemperatureDependent.temperature_resistivity,temperature_law),
+        (LineCableModels.Earth.FrequencyDependent.earth_material,soil_law))
+        @eval LineCableModels.computation_options(
+            ::LineCableModels.FormulaMethod{:default,typeof($equation)},::$(typeof(law))) = (;)
+    end
+    thermal = LineCableModelsFEM(
+        temperature_dependence=formula(:default;hooks=(contribution=temperature_law,)),
+        options=formulation.options,fem_options=formulation.execution)
+    hot_problem = LineParametersProblem(system;temperature=80.0,
+        frequencies=problem.frequencies,earth_props=problem.earth_props)
+    hot_model = extension._resolved_fem_model(hot_problem,thermal)
+    hot_inputs = extension._fem_input_record(hot_model,thermal)
+    @test first(hot_inputs.materials).sigma ≈ first(inputs.materials).sigma ./ 1.06
+    dispersive = LineCableModelsFEM(
+        earth_properties=formula(:default;hooks=(contribution=soil_law,)),
+        options=formulation.options,fem_options=formulation.execution)
+    dispersive_model = extension._resolved_fem_model(problem,dispersive)
+    dispersive_inputs = extension._fem_input_record(dispersive_model,dispersive)
+    @test dispersive_inputs.mesh_fingerprint == inputs.mesh_fingerprint
+    @test getproperty.(dispersive_inputs.earth_materials,:eps_r) ==
+        2 .* getproperty.(inputs.earth_materials,:eps_r)
     # Simulate a changed resolver with the declaration and mesh-size policy
     # held fixed. The domains handed to Gmsh are authoritative for reuse.
     changed_model = deepcopy(model)
@@ -78,7 +102,7 @@
     @test extension._fem_input_record(ownership, formulation).mesh_fingerprint !=
           inputs.mesh_fingerprint
     @test_throws ArgumentError compute(problem, LineCableModelsFEM[])
-    law = (m, f, p, o, w) -> m
+    law = (m, f, p, o, w) -> EarthMaterial(Inf, m.eps_r, m.mu_r)
     @eval LineCableModels.computation_options(
         ::LineCableModels.FormulaMethod{
             :default, typeof(LineCableModels.Earth.FrequencyDependent.earth_material)},
@@ -104,6 +128,8 @@
         @test !extension._resume_inputs_match(run.path, model, inputs)
         extension._write_json_atomic(joinpath(run.path, "input", "computation.json"), inputs)
         @test extension._resume_inputs_match(run.path, model, other_inputs)
+        @test !extension._resume_inputs_match(run.path,hot_model,hot_inputs)
+        @test !extension._resume_inputs_match(run.path,dispersive_model,dispersive_inputs)
         legacy = Dict(String(key)=>value for (key, value) in
             pairs(extension.JSON3.read(extension.JSON3.write(inputs))))
         legacy["schema_version"] = 4
@@ -115,7 +141,10 @@
         extension._write_json_atomic(
             joinpath(run.path, "input", "computation.json"), legacy,
         )
-        @test extension._resume_inputs_match(run.path, model, inputs)
+        @test !extension._resume_inputs_match(run.path, model, inputs)
+        legacy["schema_version"] = 5
+        extension._write_json_atomic(joinpath(run.path, "input", "computation.json"), legacy)
+        @test !extension._resume_inputs_match(run.path, model, inputs)
         extension._write_json_atomic(joinpath(run.path, "input", "computation.json"), inputs)
         @test !extension._resume_inputs_match(run.path, changed_model, changed_inputs)
         @test !extension._resume_inputs_match(run.path, lossy_model, lossy_inputs)

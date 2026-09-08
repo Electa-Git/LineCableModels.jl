@@ -12,8 +12,7 @@
         options = (
         reduce_bundle = true,
         kron_reduction = true,
-        ideal_transposition = false,
-        temperature_correction = true
+        ideal_transposition = false
     )
     )
     phase_parameters=compute(problem, formulation; options = (trace = true,))
@@ -95,8 +94,7 @@
         options = (
             reduce_bundle = true,
             kron_reduction = true,
-            ideal_transposition = false,
-            temperature_correction = true
+            ideal_transposition = false
         )
     )
     allocation_workspace=LineParametersWorkspace(
@@ -491,11 +489,11 @@ end
         frequencies
     )
     bundle_only=Formulation(;
+        temperature_dependence=nothing,
         options = (
         reduce_bundle = true,
         kron_reduction = false,
-        ideal_transposition = true,
-        temperature_correction = false
+        ideal_transposition = true
     )
     )
     duplicate_result=@inferred compute(duplicate_problem, bundle_only)
@@ -522,11 +520,11 @@ end
         frequencies
     )
     unreduced=Formulation(;
+        temperature_dependence=nothing,
         options = (
         reduce_bundle = false,
         kron_reduction = false,
-        ideal_transposition = true,
-        temperature_correction = false
+        ideal_transposition = true
     )
     )
     singleton_result=compute(singleton_problem, unreduced)

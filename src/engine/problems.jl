@@ -71,14 +71,8 @@ function validate(problem::LineParametersProblem)
         positive,
         "a phase assignment exceeds the number of distinct positive phases"
     ))
-    for design in problem.system.designs
-        reference = first(design.geometry.regions).source.material.T0
-        abs(problem.temperature - reference) < oftype(problem.temperature, 150) ||
-            throw(DomainError(
-                problem.temperature,
-                "operating temperature is outside the linear resistivity model range"
-            ))
-    end
+    isfinite(problem.temperature) || throw(DomainError(problem.temperature,
+        "operating temperature must be finite"))
     isempty(problem.frequencies) && throw(ArgumentError("frequencies cannot be empty"))
     all(value -> isfinite(value) && value > zero(value), problem.frequencies) ||
         throw(DomainError(
@@ -235,12 +229,13 @@ function LineParametersFormulation(;
         earth_admittance::EarthAdmittanceFormulation,
         earth_properties,
         pipe_impedance::PipeImpedanceFormulation,
+        temperature_dependence::Union{Nothing, TemperatureDependent.Formula} = TemperatureDependent.Formula(:default),
         options::NamedTuple
 )
     methods = (;
         internal_impedance, insulation_impedance, earth_impedance,
         insulation_admittance, semicon_admittance, earth_admittance, earth_properties,
-        pipe_impedance
+        pipe_impedance, temperature_dependence
     )
     return LineParametersFormulation(methods, options)
 end
@@ -254,6 +249,7 @@ function _line_formulation(
         earth_admittance,
         earth_properties,
         pipe_impedance,
+        temperature_dependence,
         options::NamedTuple
 )
     selected = LineParametersFormulation(;
@@ -266,11 +262,13 @@ function _line_formulation(
         earth_properties = earth_properties === nothing ? nothing :
                            Earth.FrequencyDependent.Formula(earth_properties),
         pipe_impedance = PipeImpedance.Formula(pipe_impedance),
+        temperature_dependence = temperature_dependence === nothing ? nothing :
+                                 TemperatureDependent.Formula(temperature_dependence),
         options = formulation_options(LineParametersFormulation, options)
     )
     definitions = (; internal_impedance, insulation_impedance, earth_impedance,
         insulation_admittance, semicon_admittance, earth_admittance,
-        earth_properties, pipe_impedance)
+        earth_properties, pipe_impedance, temperature_dependence)
     return LineParametersFormulation(selected.methods, selected.options, definitions)
 end
 
@@ -278,6 +276,11 @@ end
 $(TYPEDSIGNATURES)
 
 Select the complete physical-method bundle for a line-parameter calculation.
+
+`temperature_dependence=formula(:default)` selects the Materials-owned linear
+resistivity law. `nothing` retains reference resistivity. Operating temperature
+belongs to the problem; reference temperature and coefficients belong to each
+material.
 
 Each formula slot and the complete `options` tuple accepts either one scalar
 selection or an explicit
@@ -303,6 +306,7 @@ function Formulation(;
         earth_admittance = formula(:default),
         earth_properties = formula(:default),
         pipe_impedance = formula(:default),
+        temperature_dependence = formula(:default),
         options = (;),
         combine::Symbol = :product
 )
@@ -315,6 +319,7 @@ function Formulation(;
         earth_admittance,
         earth_properties,
         pipe_impedance,
+        temperature_dependence,
         options
     )
     return parameterize(

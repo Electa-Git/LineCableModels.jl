@@ -21,7 +21,7 @@ Private = false
 ## Materials
 
 ```@autodocs
-Modules = [LineCableModels.Materials]
+Modules = [LineCableModels.Materials, LineCableModels.Materials.TemperatureDependent]
 Order = [:module, :constant, :type, :function, :macro]
 Filter = api_reference_entry
 Public = true

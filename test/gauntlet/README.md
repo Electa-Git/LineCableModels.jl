@@ -16,8 +16,8 @@ dispatch:
 Omit `--cases` for the indexed catalogue. `--formulas default` runs only the
 contextual default; `catalogue` additionally varies each registered earth-return
 formula independently, keeping other selections at their defaults. The coaxial
-backend records inapplicable selections and reasons. FEM records the same
-requested identifiers but uses its fixed field equations; identical effective
+backend records inapplicable selections and reasons. FEM has one field-equation
+baseline and varies only its consumed constitutive laws; identical evaluated
 FEM inputs reuse a solve. PSCAD selects the native methods supported for the
 case placement. `--dielectric Ametani2004` explicitly requests lossy insulation
 and semicons; the default is lossless.
@@ -44,10 +44,14 @@ identifiers are the same as for `Formulation`; Gauntlet passes them to its norma
 
 This requests two paired selections. `--combine product` instead requests all
 four combinations. Singleton axes broadcast in zip mode, following the public
-API. All nine formula slots are admitted, including internal/insulation/earth
-impedance, insulation/semicon/earth admittance, FrequencyDependent soil (`earth_properties`), EquivalentHomogeneous
-and `pipe_impedance`. Equivalent-earth reductions are nested in their consuming
-external formula definitions. Adding an identifier to an existing
+API. Each backend admits its own constructor slots. Analytical calculations
+select internal/insulation/earth impedance, insulation/semicon/earth admittance,
+`earth_properties`, `pipe_impedance`, and `temperature_dependence`. Equivalent-earth
+reductions remain nested in their consuming external formula definitions.
+FEM admits exactly `insulation_admittance`, `semicon_admittance`,
+`earth_properties`, and `temperature_dependence`; analytical kernel axes are
+rejected. For example, `--select temperature_dependence=default,nothing` compares
+the linear resistivity law with reference resistivity. Adding an identifier to an existing
 owner does not require adding it to a CLI allowlist. Explicit selections are
 not silently skipped: an unsupported backend/topology fails with its own error.
 In particular, selecting pipe formulas does not implement the coaxial pipe

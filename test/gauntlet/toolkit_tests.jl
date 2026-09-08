@@ -1210,7 +1210,7 @@ end
     @test occursin("lossless", lowercase(description(overhead.methods.insulation_admittance)))
     @test occursin("PSCAD native earth admittance", harness._formulation_label(overhead))
     @test overhead.options == (reduce_bundle = false, kron_reduction = false,
-        ideal_transposition = false, temperature_correction = true)
+        ideal_transposition = false)
     @test_throws ArgumentError Formulation(:pscad; options = (output_stem = "invalid",))
     @test !isdefined(harness, :NativeEarthAdmittance)
     @test !isdefined(harness, :NativeInsulationAdmittance)

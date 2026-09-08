@@ -1,56 +1,29 @@
-"Evaluate the shared explicit lossless choice for a passive FEM material region."
-function LineCableModels.constitutive(
-        formulation::LineCableModelsFEM, ::Val{:default}, selected,
-        material, frequency, temperature
-)
-    return LineCableModels.constitutive(selected, material, frequency, temperature;
-        temperature_correction = formulation.options.temperature_correction)
-end
-
-"Evaluate the shared Ametani material relation for a passive FEM material region."
-function LineCableModels.constitutive(
-        formulation::LineCableModelsFEM, ::Val{:Ametani2004}, selected,
-        material, frequency, temperature
-)
-    return LineCableModels.constitutive(selected, material, frequency, temperature;
-        temperature_correction = formulation.options.temperature_correction)
-end
-
-function LineCableModels.constitutive(
-        ::LineCableModelsFEM, ::Val{ID}, selected, material, frequency, temperature
-) where {ID}
-    throw(ArgumentError(
-        "FEM constitutive adaptation for :$ID is not yet implemented; " *
-        "select :default for lossless dielectrics or an explicitly supported lossy formula"))
-end
-
+"Record the consumed FEM material laws and fixed field assumptions."
 function formulation_record(formulation::LineCableModelsFEM)
+    # Hook descriptions identify the supplied callable, without claiming that
+    # arbitrary Julia closures can be reconstructed from a saved record.
+    Selection = NamedTuple{(:identifier, :parameters, :options, :hooks, :replayable),
+        Tuple{Symbol, NamedTuple, NamedTuple, NamedTuple, Bool}}
+    Selections = NamedTuple{keys(formulation.methods),
+        NTuple{length(formulation.methods), Union{Nothing, Selection}}}
+    selections = Selections(map(formulation.methods) do selected
+        selected === nothing && return nothing
+        hooks = map(selected.hooks) do hook
+            (type=string(typeof(hook)), representation=repr(hook), replayable=false)
+        end
+        Selection((identifier=LineCableModels.formula_id(selected),
+            parameters=selected.parameters, options=selected.options, hooks,
+            replayable=isempty(selected.hooks)))
+    end)
     return (
-        requested = map(formulation.definitions) do value
-            value === nothing ? "nothing" :
-            value isa Symbol ? string(value) :
-            applicable(LineCableModels.formula_id, value) ?
-            string(LineCableModels.formula_id(value)) : repr(value)
-        end,
-        effective = (
-            internal_impedance = nothing,
-            insulation_impedance = nothing,
-            earth_impedance = nothing,
-            insulation_admittance = LineCableModels.formula_id(
-                formulation.methods.insulation_admittance),
-            semicon_admittance = LineCableModels.formula_id(
-                formulation.methods.semicon_admittance),
-            earth_admittance = nothing,
-            earth_properties = nothing,
-            pipe_impedance = nothing
-        ),
+        schema_version = 3,
+        selections,
         assumptions = (
-            impedance = "Fixed quasi-TEM finite-element field equations; analytical impedance kernels are not evaluated",
-            earth = "One homogeneous earth half-space; analytical earth kernels and equivalent-earth reductions are not evaluated",
-            insulation_admittance = LineCableModels.description(formulation.methods.insulation_admittance),
-            semicon_admittance = LineCableModels.description(formulation.methods.semicon_admittance),
+            impedance = "Fixed quasi-TEM finite-element field equations",
+            earth = "Horizontal air and one semi-infinite soil; soil constitutive properties evaluated at each frequency",
+            propagation = "Fixed package quasi-TEM propagation approximation",
             semicon_domain = "Passive material region, without electrical terminal ownership",
-            pipe_impedance = "Supported enclosures are included in the FEM domain; no analytical pipe correction is applied"
+            enclosure = "Supported enclosures are represented by their material and terminal domains"
         )
     )
 end

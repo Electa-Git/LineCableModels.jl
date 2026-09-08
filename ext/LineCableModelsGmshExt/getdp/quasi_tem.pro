@@ -57,15 +57,15 @@ Group {
 Include "materials.pro";
 
 Function {
-  nu[#{Air, AirInf}] = 1. / mu0;
+  nu[#{Air, AirInf}] = 1. / AirMu;
   sigma[#{Air, AirInf}] = 0.;
-  epsilon[#{Air, AirInf}] = eps0;
-  mu[#{Air, AirInf}] = mu0;
+  epsilon[#{Air, AirInf}] = AirEpsilon;
+  mu[#{Air, AirInf}] = AirMu;
 
-  nu[#{Earth, EarthInf}] = 1. / mu_earth;
-  sigma[#{Earth, EarthInf}] = sigma_earth;
-  epsilon[#{Earth, EarthInf}] = eps_earth;
-  mu[#{Earth, EarthInf}] = mu_earth;
+  nu[#{Earth, EarthInf}] = 1. / EarthMu(FrequencyIndex - 1);
+  sigma[#{Earth, EarthInf}] = EarthSigma(FrequencyIndex - 1);
+  epsilon[#{Earth, EarthInf}] = EarthEpsilon(FrequencyIndex - 1);
+  mu[#{Earth, EarthInf}] = EarthMu(FrequencyIndex - 1);
 
   gamma_prop[] = Complex[GammaQuasiTEMRe, GammaQuasiTEMIm];
   inv_gamma[] = 1. / gamma_prop[];

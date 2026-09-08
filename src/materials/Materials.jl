@@ -30,6 +30,8 @@ import ..TextDisplay
 
 include("material.jl")
 include("radialdielectric.jl")
+include("temperaturedependent/TemperatureDependent.jl")
+public TemperatureDependent
 include("materialslibrary.jl")
 include("base.jl")
 

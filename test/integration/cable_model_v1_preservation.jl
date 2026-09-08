@@ -82,9 +82,6 @@
         :r_ext=>:r_ext,
         :r_ins_in=>:r_ins_in,
         :r_ins_ext=>:r_ins_ext,
-        :rho0_cond=>:rho0_cond,
-        :T0_cond=>:T0_cond,
-        :alpha_cond=>:alpha_cond,
         :mu_ins=>:mu_ins,
         :r_layer_in=>:r_ins_layer_in,
         :r_layer_ext=>:r_ins_layer_ext
@@ -92,6 +89,9 @@
     for (field, reference) in cable_fields
         @test getproperty(input.cable, field) ==
               collect(expected_input[string(reference)])
+    end
+    for (field, reference_name) in ((:rho, "rho0_cond"), (:T0, "T0_cond"), (:alpha, "alpha_cond"))
+        @test getproperty.(input.cable.conductor_materials, field) == collect(expected_input[reference_name])
     end
     # Equivalent permeability is an ill-conditioned inversion for thin annuli.
     # Preserve its physical GMR, not the last bits of this intermediate value.

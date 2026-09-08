@@ -66,6 +66,7 @@ import ..Grammar: AbstractProblemDefinition, AbstractFormulation,
 
 using ..Units
 using ..Materials
+using ..Materials: TemperatureDependent
 import ..Earth
 using ..Earth: EarthMaterial, EarthModel, EquivalentHomogeneous
 using ..DataModel: CableDesign, LineCableSystem, ncables, nphases

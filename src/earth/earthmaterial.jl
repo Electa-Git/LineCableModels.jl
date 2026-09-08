@@ -3,8 +3,8 @@ $(TYPEDEF)
 
 Store the electromagnetic properties of one earth material at one frequency.
 
-`EarthMaterial` is an ephemeral constitutive value created while the Coaxial
-backend evaluates an [`EarthLayer`](@ref). It is not stored in an
+`EarthMaterial` is evaluated constitutive state produced from an
+[`EarthLayer`](@ref) for analytical or finite-element calculations. It is not stored in an
 [`EarthModel`](@ref) or in a materials library.
 
 $(TYPEDFIELDS)

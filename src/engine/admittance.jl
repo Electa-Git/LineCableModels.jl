@@ -44,22 +44,23 @@ end
 $(TYPEDSIGNATURES)
 
 Evaluate the selected dielectric law at frequency in Hz and temperature in °C.
-When `temperature_correction=true`, the material resistivity is evaluated as
-`rho * (1 + alpha * (temperature - T0))` exactly once before the registered
-route is called. The temporary material records the new reference temperature;
-the source material is unchanged. The lossless law still ignores resistivity
-and loss tangent. Returns complex admittivity in S/m.
+The selected `temperature_dependence` law evaluates resistivity exactly once
+before the dielectric equation. Its default is the linear resistivity law;
+`nothing` retains reference resistivity. The temporary material records the
+operating temperature when resistivity changes; the source material is unchanged.
+The lossless dielectric law ignores resistivity and loss tangent.
+Returns complex admittivity in S/m.
 """
 function constitutive(
         formula::Union{InsulationAdmittance.Formula, SemiconAdmittance.Formula},
         material::Material, frequency::Real, temperature::Real;
-        temperature_correction::Bool = true)
-    if temperature_correction && isfinite(material.rho) && !iszero(material.alpha) &&
-       temperature != material.T0
-        rho = material.rho * (1 + material.alpha * (temperature - material.T0))
+        temperature_dependence=TemperatureDependent.Formula(:default))
+    rho = constitutive(temperature_dependence, material, temperature)
+    if rho != material.rho
         material = Material(material.kind, rho, material.eps_r, material.mu_r,
-            temperature, material.alpha; rho_thermal = material.rho_thermal,
-            theta_max = material.theta_max, tan_delta = material.tan_delta, sigma_solar = material.sigma_solar)
+            temperature, material.alpha; rho_thermal=material.rho_thermal,
+            theta_max=material.theta_max, tan_delta=material.tan_delta,
+            sigma_solar=material.sigma_solar)
     end
     return formula(material, frequency, temperature)
 end
@@ -100,10 +101,10 @@ end
 
 function constitutive(relations::Tuple{I, S}, material::RadialDielectric,
         frequency::Real, temperature::Real;
-        temperature_correction::Bool = true
+        temperature_dependence=TemperatureDependent.Formula(:default)
 ) where {I <: InsulationAdmittance.Formula, S <: SemiconAdmittance.Formula}
     evaluated = map(relations) do selected
-        (source, f, t) -> constitutive(selected, source, f, t; temperature_correction)
+        (source, f, t) -> constitutive(selected, source, f, t; temperature_dependence)
     end
     return constitutive(evaluated, material, frequency, temperature)
 end
@@ -124,14 +125,14 @@ function dielectric!(
         methods::NamedTuple,
         frequency::T,
         temperature::T,
-        s::Complex{T}; temperature_correction::Bool = true
+        s::Complex{T}
 ) where {T <: Real}
     @inbounds for layer in input.insulation_indices
         κ = constitutive(
             methods.insulation_admittance,
             input.dielectric_materials[layer],
             frequency,
-            temperature; temperature_correction
+            temperature; temperature_dependence=methods.temperature_dependence
         )
         coefficients[layer] = potential_coefficient(
             input.r_layer_in[layer],
@@ -145,7 +146,7 @@ function dielectric!(
             methods.semicon_admittance,
             input.dielectric_materials[layer],
             frequency,
-            temperature; temperature_correction
+            temperature; temperature_dependence=methods.temperature_dependence
         )
         coefficients[layer] = potential_coefficient(
             input.r_layer_in[layer],
@@ -176,11 +177,11 @@ function cable_potential!(
         s::Complex{T},
         layer_coefficients::AbstractVector{Complex{T}},
         coefficients::AbstractVector{Complex{T}},
-        tails::AbstractVector{Complex{T}}; temperature_correction::Bool = true
+        tails::AbstractVector{Complex{T}}
 ) where {T <: Real}
     fill!(destination, zero(Complex{T}))
     dielectric!(layer_coefficients, input, methods, frequency,
-        temperature, s; temperature_correction)
+        temperature, s)
     @inbounds for conductors in input.assemblies
         count = length(conductors)
         for component in 1:count
@@ -223,11 +224,11 @@ function cable_admittance!(
         frequency::T,
         temperature::T,
         s::Complex{T},
-        layer_coefficients::AbstractVector{Complex{T}}; temperature_correction::Bool = true
+        layer_coefficients::AbstractVector{Complex{T}}
 ) where {T <: Real}
     fill!(destination, zero(Complex{T}))
     dielectric!(layer_coefficients, input, methods, frequency,
-        temperature, s; temperature_correction)
+        temperature, s)
     @inbounds for conductors in input.assemblies
         count = length(conductors)
         for position in 1:count
@@ -277,7 +278,7 @@ function admittance!(
         s,
         layer_coefficients,
         coefficients,
-        tails; temperature_correction = formulation.options.temperature_correction
+        tails
     )
     _stash!(_capture_target(capture, :Pin), frequency, destination)
 

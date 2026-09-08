@@ -249,7 +249,7 @@ function _compute(
                    case.declaration.options) for case in bound.cases]
     end)
     local_fields = (:internal_impedance, :insulation_impedance,
-        :insulation_admittance, :semicon_admittance, :earth_properties)
+        :insulation_admittance, :semicon_admittance, :earth_properties, :temperature_dependence)
     LocalNumerical = NamedTuple{local_fields, NTuple{length(local_fields), NamedTuple}}
     local_numerical::LocalNumerical = LocalNumerical(map(local_fields) do name
         selected = getproperty(formulation.methods, name)
@@ -262,7 +262,7 @@ function _compute(
         selected.options
     end)
     FormulaNumerical = NamedTuple{(local_fields..., :earth_impedance, :earth_admittance),
-        Tuple{NamedTuple, NamedTuple, NamedTuple, NamedTuple, NamedTuple,
+        Tuple{NamedTuple, NamedTuple, NamedTuple, NamedTuple, NamedTuple, NamedTuple,
             Vector{Record}, Vector{Record}}}
     numerical::FormulaNumerical = FormulaNumerical((values(local_numerical)...,
         values(external_numerical)...))

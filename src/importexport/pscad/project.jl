@@ -316,8 +316,7 @@ function _pscad_components(design, frequency, formulation, temperature)
         conductor = blueprint.conductors[index]
         material = conductor.material
         operating = temperature === nothing ? material.T0 : convert(T, temperature)
-        rho = formulation.options.temperature_correction ?
-            material.rho * (one(T) + material.alpha * (operating - material.T0)) : material.rho
+        rho = constitutive(formulation.methods.temperature_dependence, material, operating)
         metal = Material(material.kind, rho, material.eps_r, material.mu_r,
             material.T0, material.alpha; rho_thermal=material.rho_thermal,
             theta_max=material.theta_max, tan_delta=material.tan_delta,
@@ -330,7 +329,7 @@ function _pscad_components(design, frequency, formulation, temperature)
             relation = source.kind === :semicon ? formulation.methods.semicon_admittance :
                        formulation.methods.insulation_admittance
             kappa = constitutive(relation, source, frequency, operating;
-                temperature_correction=formulation.options.temperature_correction)
+                temperature_dependence=formulation.methods.temperature_dependence)
             impedance += inv(Engine.layer_admittance(layer.r_in, layer.r_ex, kappa))
         end
         admittance = isempty(layers) ? zero(Complex{T}) : inv(impedance)

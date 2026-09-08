@@ -41,13 +41,13 @@
         end
         selected = Formulation()
         @test only(IE._pscad_components(design, frequency, selected, nothing)).conductor.material.rho == copper.rho
-        uncorrected = Formulation(options=(temperature_correction=false,))
+        uncorrected = Formulation(temperature_dependence=nothing)
         @test only(IE._pscad_components(design, frequency, uncorrected, 60.0)).conductor.material.rho == copper.rho
         reference_shunt = inv(log(0.0045 / 0.004) / (2pi * admittivity(semicon, :Ametani2004, 20.0)) +
             log(0.0065 / 0.0045) / (2pi * admittivity(dielectric, :Ametani2004, 20.0)))
         for (temperature, correction) in ((nothing, true), (60.0, false))
             selected = Formulation(insulation_admittance=:Ametani2004,
-                semicon_admittance=:Ametani2004, options=(temperature_correction=correction,))
+                semicon_admittance=:Ametani2004, temperature_dependence=correction ? formula(:default) : nothing)
             component = only(IE._pscad_components(design, frequency, selected, temperature))
             @test component.dielectric.shunt_conductance ≈ real(reference_shunt)
             @test component.dielectric.shunt_capacitance ≈ imag(reference_shunt) / omega

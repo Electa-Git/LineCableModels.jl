@@ -54,7 +54,10 @@ rebuild the authoritative declaration when it changes.
 
 Operating temperature is not a cable-part constructor input. Cable designs represent
 the common material reference state and reject mixed material reference temperatures.
-The line problem owns the operating temperature, and [`compute`](@ref) applies its
+The line problem owns the finite operating temperature. The formulation selects
+`temperature_dependence`; its default linear law validates the material-specific
+range and positive correction factor. Identity and custom laws retain their own
+applicability. [`compute`](@ref) applies the selected
 correction without mutating the design.
 
 ## Reference

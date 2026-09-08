@@ -28,9 +28,9 @@ $(TYPEDEF)
 
 Configure execution owned by the Gmsh/GetDP finite-element backend.
 
-Physical geometry, materials, earth properties, frequencies, reductions, and
-temperature remain properties of `LineParametersProblem` or the shared
-line-parameter formulation options.
+The problem supplies geometry, reference materials, frequencies, and prescribed
+temperature. The formulation selects constitutive laws and matrix reductions;
+this record contains FEM execution controls.
 
 $(TYPEDFIELDS)
 """
@@ -328,51 +328,55 @@ function _fem_execution_options(options::NamedTuple)
 end
 
 function _fem_formulation(
-        internal_impedance, insulation_impedance, earth_impedance,
-        insulation_admittance, semicon_admittance, earth_admittance,
-        earth_properties, pipe_impedance,
+        insulation_admittance, semicon_admittance, earth_properties, temperature_dependence,
         options::NamedTuple,
         fem_options::Union{NamedTuple, LineCableModelsFEMOptions}
 )
-    physical = _line_formulation(internal_impedance, insulation_impedance,
-        earth_impedance, insulation_admittance, semicon_admittance, earth_admittance,
-        earth_properties, pipe_impedance, options)
-    return LineCableModelsFEM(physical.methods, physical.options, physical.definitions,
-        _fem_execution_options(fem_options))
+    methods = (
+        insulation_admittance = InsulationAdmittance.Formula(insulation_admittance),
+        semicon_admittance = SemiconAdmittance.Formula(semicon_admittance),
+        earth_properties = earth_properties === nothing ? nothing :
+                           Earth.FrequencyDependent.Formula(earth_properties),
+        temperature_dependence = temperature_dependence === nothing ? nothing :
+                                 TemperatureDependent.Formula(temperature_dependence),
+    )
+    definitions = (; insulation_admittance, semicon_admittance, earth_properties,
+        temperature_dependence)
+    return LineCableModelsFEM(methods, formulation_options(LineCableModelsFEM, options),
+        definitions, _fem_execution_options(fem_options))
 end
 
 """
 $(TYPEDSIGNATURES)
 
-Construct the Gmsh/GetDP finite-element formulation through the code-first
-`Formulation` grammar. Shared formula slots, `options`, and `fem_options` accept scalar values or
-explicit [`Grid`](@ref LineCableModels.ParametricBuilder.Grid)/
-[`Gridspace`](@ref LineCableModels.ParametricBuilder.Gridspace) sources; a
-varying call returns a `Gridspace{LineCableModelsFEM}`.
+Construct the Gmsh/GetDP finite-element formulation. FEM owns its field equations
+and selects four material laws. Each law, `options`, and `fem_options` accepts a
+scalar or an explicit `Grid`/`Gridspace`; varying inputs return a
+`Gridspace{LineCableModelsFEM}`.
 
 # Keywords
 
-- Formula slots have the same names and identifiers as [`Formulation`](@ref).
-  Dielectric `:default` explicitly selects lossless admittivity. FEM retains its
-  field equations instead of evaluating analytical impedance kernels; those
-  selections are recorded with their backend treatment.
-- `options=(;)`: Shared bundle, Kron, ideal-transposition, and temperature
-  options accepted by the line-parameter engine.
-- `fem_options=(;)`: A [`LineCableModelsFEMOptions`](@ref) value or the
-  equivalent named tuple.
-- `combine=:product`: `:product` or `:zip` composition between varying option
-  bundles.
+- `insulation_admittance`: Insulation admittivity law; `:default` is lossless.
+- `semicon_admittance`: Semicon admittivity law; `:default` is lossless.
+- `earth_properties`: Soil frequency-dependent constitutive law; `:default` and
+  `nothing` preserve the declared static soil. Equivalent-earth reductions are
+  unsupported. Air uses its declared static properties.
+- `temperature_dependence`: Cable-material resistivity law; `:default` selects
+  the linear law and `nothing` retains reference resistivity. Operating
+  temperature belongs to `LineParametersProblem`.
+- `options=(;)`: Shared bundle, Kron, and ideal-transposition reductions.
+- `fem_options=(;)`: A `LineCableModelsFEMOptions` value or equivalent named tuple.
+- `combine=:product`: Product or zip composition among varying inputs.
+
+Analytical impedance/admittance kernel keywords are rejected. Supported enclosure
+geometry is represented directly in the FEM domain.
 """
 function Formulation(
         ::Val{:LineCableModelsFEM};
-        internal_impedance = formula(:default),
-        insulation_impedance = formula(:default),
-        earth_impedance = formula(:default),
         insulation_admittance = formula(:default),
         semicon_admittance = formula(:default),
-        earth_admittance = formula(:default),
         earth_properties = formula(:default),
-        pipe_impedance = formula(:default),
+        temperature_dependence = formula(:default),
         options = (;),
         fem_options = (;),
         combine::Symbol = :product
@@ -380,9 +384,8 @@ function Formulation(
     return parameterize(
         LineCableModelsFEM,
         _fem_formulation,
-        (internal_impedance, insulation_impedance, earth_impedance,
-            insulation_admittance, semicon_admittance, earth_admittance,
-            earth_properties, pipe_impedance, options, fem_options);
+        (insulation_admittance, semicon_admittance, earth_properties,
+            temperature_dependence, options, fem_options);
         combine
     )
 end
