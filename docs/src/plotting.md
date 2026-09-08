@@ -762,7 +762,7 @@ system_preview.figure #hide
 Modify physical contents before previewing; modify visual annotations after
 previewing. `zoom_factor` changes only the initial view, and the reset control
 returns to those computed limits.
-The light blue sky fades from `z=0` to transparency at the upper axis limit,
+The light blue sky fades from the upper axis limit to transparency at `z=0`,
 stretching with the view and disappearing in entirely underground views.
 It is a surface cue with no material-property meaning; use
 `display_surface_gradient=false` to disable it independently of earth colors.

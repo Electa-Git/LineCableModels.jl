@@ -28,9 +28,9 @@ a loaded Makie backend.
   strata retain their physical depths while their visible coverage follows the
   axis view. Vertical strata are not rendered.
 - `display_surface_gradient=true`: For a system with horizontal earth, add a
-  light blue sky above the surface at `z=0` \\[m\\], fading toward the white
-  or transparent background at the upper axis limit. The fade stretches with
-  the view and is hidden when the view lies entirely underground. This
+  light blue sky strongest at the upper axis limit, fading toward the white
+  or transparent background at the surface `z=0` \\[m\\]. The fade stretches
+  with the view and is hidden when the view lies entirely underground. This
   decoration does not encode a material property.
 - `zoom_factor=nothing`: Initial system-view span multiplier. The reset
   control restores that initial view.

@@ -185,7 +185,7 @@ end
     flat = preview(system; earth_model = earth, display_surface_gradient = false, options...)
     @test length(only(flat.axes).scene.plots) == length(axis.scene.plots) - 1
 
-    # The sky tint must be visible near z=0, fade upward, and leave soil unchanged.
+    # The sky tint grows from transparency near z=0 to blue at the top.
     flat_axis = only(flat.axes)
     for candidate in (axis, flat_axis)
         limits!(candidate, -1, 1, -1, 1)
@@ -200,10 +200,10 @@ end
                             size(with_sky, 1)), 1, size(with_sky, 1))
             for z in (0.01, 0.50, 0.99, -0.05)]
     near, middle, top, soil = with_sky[rows, column]
-    @test Makie.blue(near) > Makie.red(near) + 0.10
-    @test Makie.red(middle) > Makie.red(near)
+    @test near == without_sky[rows[1], column]
+    @test Makie.red(near) > Makie.red(middle) > Makie.red(top)
     @test Makie.blue(middle) > Makie.red(middle) + 0.03
-    @test top == without_sky[rows[3], column]
+    @test Makie.blue(top) > Makie.red(top) + 0.10
     @test soil == without_sky[rows[4], column]
     for candidate in (axis, flat_axis)
         limits!(candidate, -1, 1, -0.5, -0.02)

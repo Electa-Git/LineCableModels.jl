@@ -49,9 +49,9 @@ function _addon_preview_axis!(
         end
         if display_surface_gradient
             # One sky decoration, anchored at the surface and independent of
-            # the soil layers. Transparency reveals the axis background above it.
+            # the soil layers. Transparency reveals the background near z=0.
             surface_gradient = hspan!(axis, zeros(64), zeros(64);
-                color = [RGBA(0.55, 0.76, 0.90, 0.45 * (1 - (i - 1) / 63)^1.3)
+                color = [RGBA(0.55, 0.76, 0.90, 0.45 * ((i - 1) / 63)^1.3)
                          for i in 1:64],
                 strokewidth = 0, xautolimits = false, yautolimits = false)
             translate!(surface_gradient, 0, 0, -90)
@@ -109,8 +109,8 @@ function _addon_preview_axis!(
                 Makie.update!(entry.span, bottom, top)
             end
             if surface_gradient !== nothing
-                # Fade from the physical surface to the current top of the
-                # view. Underground-only views contain no sky decoration.
+                # Increase the blue from the transparent physical surface to
+                # the top of the view. Underground-only views contain no sky.
                 sky_height = max(upper, 0)
                 bands = length(surface_gradient[1][])
                 lows = [clamp((i - 1) * sky_height / bands, lower, upper) for i in 1:bands]
