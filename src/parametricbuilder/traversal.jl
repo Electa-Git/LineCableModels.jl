@@ -205,3 +205,42 @@ function compute(problem::ParametricProblem, formulation::Combinatorial)
         traversed.details
     )
 end
+
+"""
+$(TYPEDSIGNATURES)
+
+Evaluate a deterministic formulation `Gridspace` with default
+[`Combinatorial`](@ref) settings. A scalar problem forms a singleton problem
+axis; a problem `Gridspace` forms a Cartesian product with the formulations.
+
+# Keywords
+
+- `options=(;)`: Options supplied to each core computation.
+
+# Returns
+
+- A [`ParametricResult`](@ref) indexed by problem and formulation, with no
+  retained traversal details. Select `Combinatorial` explicitly to customize
+  its settings.
+"""
+function compute(
+        problem::Union{AbstractProblemDefinition, Gridspace{<:AbstractProblemDefinition}},
+        formulations::Gridspace{<:AbstractFormulation};
+        options::NamedTuple = (;)
+)
+    return compute(ParametricProblem(problem, options), Combinatorial(formulations))
+end
+
+"""
+$(TYPEDSIGNATURES)
+
+Evaluate a deterministic formulation `Gridspace` with default
+[`Combinatorial`](@ref) settings, retaining the existing `ParametricProblem`
+and its core computation options. Return a [`ParametricResult`](@ref).
+"""
+function compute(
+        problem::ParametricProblem,
+        formulations::Gridspace{<:AbstractFormulation}
+)
+    return compute(problem, Combinatorial(formulations))
+end

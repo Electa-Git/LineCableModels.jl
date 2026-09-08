@@ -89,6 +89,17 @@
         )
     end
 
+    for source in (problem_space, ParametricProblem(problem_space, (; on_result)))
+        empty!(completions)
+        automatic=source isa ParametricProblem ? compute(source, formulation_space) :
+            compute(source, formulation_space; options = (; on_result))
+        @test all(same_parameters.(collect(automatic), expected))
+        @test length(completions) == length(expected)
+        @test getindex.(completions, 2) == [1, 2, 1, 2]
+    end
+    automatic_scalar=compute(first(problems), formulation_space)
+    @test all(same_parameters.(collect(automatic_scalar), direct))
+
     design=TestFixtures.mv_cable_design()
     constants_problem=CableConstantsProblem(design; frequency = 50.0)
     constants_space=CableConstantsFormulation(
@@ -98,6 +109,7 @@
     constants_batch=compute(constants_problem, constants_formulations)
     @test constants_batch == [compute(constants_problem, formulation)
            for formulation in constants_formulations]
+    @test collect(compute(constants_problem, constants_space)) == constants_batch
 
     phase=first(expected)
     modal_problem=ModalTransformationProblem(phase)
@@ -109,6 +121,7 @@
     modal_scalar=[compute(modal_problem, formulation)
                   for formulation in modal_formulations]
     @test length(modal_batch) == 2
+    @test all(same_parameters.(collect(compute(modal_problem, modal_space)), modal_batch))
     @test isconcretetype(eltype(modal_batch))
     @test typeof(modal_batch[1]) === typeof(modal_batch[2])
     @test fieldtype(typeof(modal_batch[1].domain), :formula) ===

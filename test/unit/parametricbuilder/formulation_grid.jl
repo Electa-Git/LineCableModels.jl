@@ -212,4 +212,24 @@
         CountedProblem(1),
         UnsupportedFormulation[UnsupportedFormulation()]
     )
+
+    formulation_builds=Ref(0)
+    formulation_space=Gridspace{CountedFormulation}(
+        value -> (formulation_builds[]+=1; value), (formulas,))
+    builds[]=0
+    automatic=compute(problem_space, formulation_space)
+    @test builds[] == 2
+    @test formulation_builds[] == 2
+    @test collect(automatic) == CountedResult.(Int[1, 2, 10, 20])
+    @test automatic.axes.problems === problem_space
+    @test automatic.formulation isa Combinatorial
+    @test isempty(details(automatic))
+    @test collect(compute(scalar, formulation_space)) == CountedResult.(Int[7, 70])
+    @test collect(compute(scalar_problem, formulation_space)) == CountedResult.(Int[7, 70])
+    @test_throws MethodError compute(scalar, Gridspace{Int}(identity, (Grid((1, 2)),)))
+    @test_throws ArgumentError compute(scalar,
+        Gridspace{CountedFormulation}(identity, (Grid(()),)))
+    uncertain=Gridspace{CountedFormulation}(
+        _ -> CountedFormulation{:first}(), (Grid(1.0, AbsoluteError(0.1)),))
+    @test_throws ArgumentError compute(scalar, uncertain)
 end

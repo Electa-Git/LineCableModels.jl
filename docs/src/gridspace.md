@@ -245,6 +245,25 @@ by exposing unresolved points as application data.
 
 ## Higher-order computation
 
+Passing a formulation `Gridspace` directly to `compute` selects default
+`Combinatorial` traversal:
+
+```julia
+run = compute(problem, formulation_space; options=(;))
+run = compute(problem_space, formulation_space; options=(;))
+run = compute(ParametricProblem(problem_space, options), formulation_space)
+```
+
+The result is a `ParametricResult` in all three cases. A scalar problem forms
+a singleton problem axis. `options` belong to the core computations; an
+existing `ParametricProblem` retains its stored options. For traversal settings
+such as retaining supplemental details, select `Combinatorial` explicitly:
+
+```julia
+run = compute(ParametricProblem(problem_space, options),
+    Combinatorial(formulation_space; options=(retain_details=true,)))
+```
+
 `Combinatorial` accepts one completed formulation, a deterministic
 target-bearing formulation `Gridspace`, or a deterministic `Grid` containing
 completed formulations. Formulation points are resolved once. Traversal then
