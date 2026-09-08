@@ -20,6 +20,47 @@ function _statistics_request(request)
     return identity isa Tuple && first(identity) === statistics
 end
 
+function _polynomial_chaos_publication_name(request, payload)
+    identity = request_identity(request)
+    if identity isa Tuple && first(identity) === statistics
+        selector_count = length(identity)
+        remainder = request isa Tuple ? request[(selector_count + 1):end] : ()
+        prefix = !isempty(remainder) && first(remainder) isa _PolynomialChaosStatisticSelector ?
+                 nameof(first(remainder)) : :statistics
+        return Symbol(prefix, :_, Units.symbol(payload.quantity))
+    end
+    return Symbol(Units.symbol(payload.quantity))
+end
+
+_polynomial_chaos_publication_column(value::Number) = [value]
+_polynomial_chaos_publication_column(value::AbstractArray) = collect(vec(value))
+_polynomial_chaos_publication_column(value) = [value]
+
+function publication_table(
+        source::PolynomialChaosResult,
+        requests::Tuple,
+        observations::Tuple,
+        options::NamedTuple
+)
+    names = map(_polynomial_chaos_publication_name, requests, observations)
+    length(unique(names)) == length(names) || throw(ArgumentError(
+        "polynomial-chaos publication columns must be distinct",
+    ))
+    columns = map(
+        payload -> _polynomial_chaos_publication_column(payload.values),
+        observations
+    )
+    isempty(columns) || all(length(column) == length(first(columns)) for column in columns) ||
+        throw(DimensionMismatch(
+            "polynomial-chaos publication columns must have equal lengths",
+        ))
+    return (
+        columns = NamedTuple{names}(columns),
+        row_order = names,
+        observation_columns = _uq_publication_contract(names, observations),
+    )
+end
+
 function _uq_product_publication(requests::Tuple, observations::Tuple)
     names = map(requests, observations) do request, payload
         identity = request_identity(request)

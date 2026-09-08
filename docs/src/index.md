@@ -13,6 +13,8 @@ in geometry and material data.
   uncertainty, tables, and plots.
 - [Gridspace and uncertainty](gridspace.md) specifies finite variation and
   uncertainty realisation.
+- [Polynomial chaos](polynomial-chaos.md) covers validated non-intrusive
+  spectral uncertainty propagation with PolyChaos.jl.
 - [API reference](reference.md) lists the line and cable calculation API.
 - [Conveniences](conveniences.md) covers estimates, scalar formulas, and VDE
   designation parsing.

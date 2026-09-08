@@ -57,6 +57,9 @@ const EXTENSION_API_OBJECTS = (
     LineCableModels.materialscale!,
     LineCableModels.Engine.has_uncertainty_type,
     LineCableModels.materialize,
+    LineCableModels.uncertainties,
+    LineCableModels.realize_arguments,
+    LineCableModels.realize,
     LineCableModels.ParametricBuilder.traverse,
     LineCableModels.sample_uncertainty,
     LineCableModels.UIPlot,
@@ -411,7 +414,8 @@ makedocs(;
             "Cable data model" => "data-model.md",
             "Modelling and results" => "usage.md",
             "Gmsh/GetDP FEM backend" => "fem.md",
-            "Gridspace and uncertainty" => "gridspace.md"
+            "Gridspace and uncertainty" => "gridspace.md",
+            "Polynomial chaos" => "polynomial-chaos.md"
         ],
         "API reference" => "reference.md",
         "Conveniences" => Any[

@@ -135,11 +135,11 @@ label(display_unit(R, :pul))         # "Ω/km"
 
 ## Parameter spaces and uncertainty
 
-`ParametricResult`, `LinearErrorResult`, and `MonteCarloResult` are finite
-one-dimensional collections. Indexing and iteration return stored core
-results. `first`, `only`, `collect`, `map`, and `zip` retain their ordinary
-Julia meanings. A `ParametricResult` also retains its resolved axes and permits
-two-axis lookup:
+`ParametricResult`, `LinearErrorResult`, `MonteCarloResult`, and
+`PolynomialChaosResult` are finite one-dimensional collections. Indexing and
+iteration return stored core results. `first`, `only`, `collect`, `map`, and
+`zip` retain their ordinary Julia meanings. A `ParametricResult` also retains
+its resolved axes and permits two-axis lookup:
 
 ```julia
 run.axes.problems
@@ -251,10 +251,12 @@ Each non-mutating managed plotting call returns [`UIPlot`](@ref). Use
 
 ## Optional uncertainty packages
 
-The core `Grid`/`Gridspace` grammar does not load Measurements.jl or
-Distributions.jl. Loading Measurements enables `LinearError`. Loading
-Distributions enables supported univariate distributions as Monte Carlo
-samplers and `pdf`/`cdf` evaluation for [`HistogramDensity`](@ref).
+The core `Grid`/`Gridspace` grammar does not load Measurements.jl,
+Distributions.jl, or PolyChaos.jl. Loading Measurements enables `LinearError`.
+Loading Distributions enables supported univariate distributions as Monte
+Carlo samplers and `pdf`/`cdf` evaluation for [`HistogramDensity`](@ref).
+Loading PolyChaos enables validated non-intrusive [`PolynomialChaos`](@ref)
+propagation; see [Polynomial chaos](polynomial-chaos.md).
 
 Repeated use of the same uncertain argument during direct propagation retains
 its covariance. Distinct uncertain arguments remain independent.

@@ -38,6 +38,100 @@ end
 """
 $(TYPEDEF)
 
+Select non-intrusive polynomial-chaos propagation with `inner`. The optional
+PolyChaos extension owns basis construction, coefficient fitting, and
+independent surrogate validation.
+
+$(TYPEDFIELDS)
+"""
+struct PolynomialChaos{F, O <: ComputationOptions} <: AbstractFormulation
+    "Formulation used for each collocation and validation problem."
+    inner::F
+    "Maximum total polynomial degree."
+    degree::Int
+    "Univariate Gaussian quadrature order."
+    quadrature_order::Int
+    "Independent standard-measure family."
+    distribution::Symbol
+    "Independent core solves used to validate each fitted expansion."
+    validation_points::Int
+    "Maximum relative RMS and maximum validation error."
+    validation_rtol::Float64
+    "Maximum collocation-plus-validation evaluations per outer point."
+    max_evaluations::Int
+    "Root seed used only for independent surrogate validation."
+    validation_seed::UInt64
+    "Supplemental-output retention options owned by this propagation."
+    options::O
+end
+
+function computation_options(
+        ::Type{PolynomialChaos},
+        options::NamedTuple
+)::ComputationOptions
+    unknown = filter(key -> key !== :retain_details, keys(options))
+    isempty(unknown) || throw(ArgumentError(
+        "unknown PolynomialChaos computation options: $(sort!(collect(unknown)))",
+    ))
+    normalized = merge((retain_details = false,), options)
+    normalized.retain_details isa Bool || throw(ArgumentError(
+        "PolynomialChaos retain_details must be Bool",
+    ))
+    return (retain_details = normalized.retain_details,)
+end
+
+function PolynomialChaos(
+        inner;
+        degree = 3,
+        quadrature_order = nothing,
+        distribution = :normal,
+        validation_points = 16,
+        validation_rtol = 1.0e-3,
+        max_evaluations = 10_000,
+        validation_seed = 0,
+        options::NamedTuple = (;)
+)
+    degree isa Integer && !(degree isa Bool) && degree >= 1 || throw(
+        ArgumentError("degree must be an integer greater than or equal to one"),
+    )
+    normalized_degree = Int(degree)
+    order = quadrature_order === nothing ? normalized_degree + 1 : quadrature_order
+    order isa Integer && !(order isa Bool) && order >= normalized_degree + 1 || throw(
+        ArgumentError("quadrature_order must be at least degree + 1"),
+    )
+    distribution isa Symbol && distribution in (:normal, :uniform) || throw(
+        ArgumentError("distribution must be :normal or :uniform"),
+    )
+    validation_points isa Integer && !(validation_points isa Bool) &&
+        validation_points >= 1 || throw(ArgumentError(
+        "validation_points must be a positive integer",
+    ))
+    validation_tolerance = Float64(validation_rtol)
+    isfinite(validation_tolerance) && validation_tolerance > 0 || throw(
+        ArgumentError("validation_rtol must be positive and finite"),
+    )
+    max_evaluations isa Integer && !(max_evaluations isa Bool) &&
+        max_evaluations >= 1 || throw(ArgumentError(
+        "max_evaluations must be a positive integer",
+    ))
+    seed = UInt64(validation_seed)
+    normalized_options = computation_options(PolynomialChaos, options)
+    return PolynomialChaos{typeof(inner), typeof(normalized_options)}(
+        inner,
+        normalized_degree,
+        Int(order),
+        distribution,
+        Int(validation_points),
+        validation_tolerance,
+        Int(max_evaluations),
+        seed,
+        normalized_options
+    )
+end
+
+"""
+$(TYPEDEF)
+
 Select conditional Monte Carlo propagation over a
 [`ParametricProblem`](@ref). Randomness is local and reproducible when `seed`
 is supplied. Computation option `on_error=:fail` propagates every exception.

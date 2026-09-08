@@ -21,6 +21,24 @@ function Base.show(io::IO, formulation::MonteCarlo)
         "; samples=", formulation.return_samples,
         ", histograms=", formulation.return_histograms, ")")
 end
+
+TextDisplay.name(::Type{<:PolynomialChaos}) = "PolynomialChaos"
+Base.summary(io::IO, ::PolynomialChaos) = print(io, "Polynomial chaos propagation")
+function Base.show(io::IO, formulation::PolynomialChaos)
+    print(io, "PolynomialChaos(degree=", formulation.degree,
+        "; distribution=:", formulation.distribution, ")")
+end
+function Base.show(io::IO, ::MIME"text/plain", formulation::PolynomialChaos)
+    get(io, :compact, false) && return show(io, formulation)
+    return TextDisplay.tree(io, "Polynomial chaos propagation", (
+        (label = "inner         $(_uq_compact(formulation.inner))", noun = "fields"),
+        (label = "degree        $(formulation.degree)", noun = "fields"),
+        (label = "quadrature    $(formulation.quadrature_order)", noun = "fields"),
+        (label = "distribution  :$(formulation.distribution)", noun = "fields"),
+        (label = "validation    $(formulation.validation_points) points", noun = "fields"),
+        (label = "tolerance     $(TextDisplay.value(formulation.validation_rtol))", noun = "fields"),
+    ))
+end
 function Base.show(io::IO, ::MIME"text/plain", formulation::MonteCarlo)
     get(io, :compact, false) && return show(io, formulation)
     trials = formulation.trials === nothing ? "DKW-sized" : string(formulation.trials)
@@ -88,6 +106,31 @@ end
 TextDisplay.name(::Type{<:MonteCarloResult}) = "MonteCarloResult"
 function Base.summary(io::IO, result::MonteCarloResult)
     print(io, "Monte Carlo result with $(length(result)) points")
+end
+
+TextDisplay.name(::Type{<:PolynomialChaosResult}) = "PolynomialChaosResult"
+function Base.summary(io::IO, result::PolynomialChaosResult)
+    print(io, "Polynomial chaos result with $(length(result)) points")
+end
+function Base.show(io::IO, result::PolynomialChaosResult)
+    print(io, "PolynomialChaosResult($(length(result)) points; degree=",
+        result.formulation.degree, ")")
+end
+function Base.show(io::IO, ::MIME"text/plain", result::PolynomialChaosResult)
+    get(io, :compact, false) && return show(io, result)
+    result_type = String(nameof(eltype(result.values)))
+    children = Any[
+        (label = "result type  $result_type", noun = "fields"),
+        (label = "degree       $(result.formulation.degree)", noun = "fields"),
+        (label = "distribution :$(result.formulation.distribution)", noun = "fields"),
+        (label = "expansions   retained", noun = "fields"),
+        (label = "statistics   retained", noun = "fields"),
+        (label = "validation   passed", noun = "fields"),
+    ]
+    isempty(result.details) || push!(children,
+        (label = "details      $(length(result.details.points)) points", noun = "fields"))
+    return TextDisplay.tree(
+        io, "Polynomial chaos result · $(length(result)) points", Tuple(children))
 end
 function Base.show(io::IO, result::MonteCarloResult)
     trials = all(==(first(result.trial_counts)), result.trial_counts) ?
