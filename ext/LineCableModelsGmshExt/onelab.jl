@@ -201,6 +201,10 @@ function _publish_ui!(run::FEMRun, model::FEMResolvedModel, state::Symbol)
             visible = true,
             label = "Solve state"
         ),
+        _number_parameter(_onelab_name("ui/completed_frequencies"), 0;
+            visible=true, label="Completed frequencies"),
+        _number_parameter(_onelab_name("ui/completed_columns"), 0;
+            visible=true, label="Completed terminal columns"),
         _string_parameter(
             _onelab_name("ui/action"), ""),
         _button_parameter(

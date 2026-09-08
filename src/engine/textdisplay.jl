@@ -98,6 +98,8 @@ function Base.show(io::IO, ::MIME"text/plain", options::LineCableModelsFEMOption
             getdp_executable = options.getdp_executable,
             gmsh_verbosity = options.gmsh_verbosity,
             getdp_verbosity = options.getdp_verbosity,
+            frequency_workers = options.frequency_workers,
+            solver_threads = options.solver_threads,
         );
         multiline = true
     )

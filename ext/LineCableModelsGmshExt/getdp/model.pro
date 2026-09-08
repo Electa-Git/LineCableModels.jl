@@ -1,7 +1,7 @@
-// LineCableModelsFEM immutable one-frequency/one-basis GetDP entry point.
-// Julia publishes the immutable run-local data path in the shared ONELAB
-// database before launching this client.
-ModelDataPath = GetString["LineCableModels/FEM/model_data_path"];
+// Immutable inputs for one frequency and its requested terminal excitations.
+If(!Exists(ModelDataPath))
+  Error("Pass the immutable input path with -setstring ModelDataPath");
+EndIf
 Include ModelDataPath;
 eps0 = 8.8541878128e-12;
 mu0 = 1.2566370614359173e-6;

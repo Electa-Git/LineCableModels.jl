@@ -15,7 +15,7 @@
         options=(ideal_transposition=false,), fem_options=(gmsh_verbosity=0,))
     model = extension._resolved_fem_model(problem, formulation)
     inputs = extension._fem_input_record(model, formulation)
-    @test inputs.schema_version == 3
+    @test inputs.schema_version == 4
     @test inputs.mesh_fingerprint == extension._mesh_fingerprint(model, Gmsh.gmsh.GMSH_API_VERSION)
     @test inputs.adapter_sources isa NamedTuple
     @test haskey(inputs.adapter_sources, Symbol("geometry.jl"))

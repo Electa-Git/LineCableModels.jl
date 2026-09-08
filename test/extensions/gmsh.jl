@@ -15,13 +15,6 @@
         run = extension_module.FEMRun(
             directory, extension_module.created, "fixture", :none, ""
         )
-        socket_name = extension_module._getdp_socket_name(run)
-        if Sys.iswindows()
-            @test socket_name == "127.0.0.1:0"
-        else
-            @test occursin("linecablemodels-gmsh-", basename(socket_name))
-            @test !contains(socket_name, Base.Filesystem.path_separator)
-        end
         mesh_source = joinpath(directory, "source.msh")
         mesh_snapshot = joinpath(directory, "snapshot.msh")
         write(mesh_source, "mesh snapshot fixture")
@@ -41,6 +34,10 @@
     @test options.mesh_policy === :remesh
     @test options.keep_run_directory
     @test options.getdp_verbosity == 5
+    @test options.frequency_workers == 2
+    @test options.solver_threads == 1
+    @test_throws ArgumentError LineCableModels.LineCableModelsFEMOptions(frequency_workers=0)
+    @test_throws ArgumentError LineCableModels.LineCableModelsFEMOptions(solver_threads=-1)
     @test_throws ArgumentError LineCableModels.LineCableModelsFEMOptions(
         mesh_policy = :invalid
     )
@@ -858,7 +855,7 @@ end
                     @test failure isa LineCableModelsFEMError
                     @test failure.category === :getdp
                     @test failure.field === :client
-                    @test occursin("Gmsh log tail", failure.message)
+                    @test occursin("GetDP log tail", failure.message)
                     @test failure.run_directory == failure_run.path
                     @test failure_run.getdp_invocations == 1
                     @test isdir(failure_run.path)
@@ -1335,6 +1332,8 @@ end
             LineCableModels, :LineCableModelsGmshExt
         ).completed
         @test result.details.fem.run.getdp_invocations ==
+              length(problem.frequencies)
+        @test result.details.fem.run.completed_columns ==
               length(problem.frequencies) * length(result.details.fem.terminal_ids)
         @test run_directory !== nothing
         expected_rows = 1 +
@@ -1442,8 +1441,7 @@ end
             wait(driver)
             @test ui_result.f == [50.0, 1000.0]
             @test ui_result.details.fem.run.getdp_invocations ==
-                  length(problem.frequencies) *
-                  length(ui_result.details.fem.terminal_ids)
+                  length(problem.frequencies)
             @test ui_result.details.fem.run.run_directory === nothing
         end
         rm(run_directory; recursive = true, force = true)
@@ -1636,7 +1634,7 @@ end
                 @test result.f == Float64[expected.frequencies_hz...]
                 terminal_count = length(expected.terminal_order)
                 @test result.details.fem.run.getdp_invocations ==
-                      length(expected.frequencies_hz) * terminal_count
+                      length(expected.frequencies_hz)
                 @test actual.phase_map == Int[expected.phase_map...]
 
                 expected_rows = length(expected.frequencies_hz) * terminal_count^2

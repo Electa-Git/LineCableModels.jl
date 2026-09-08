@@ -1,6 +1,6 @@
 // Coupled quasi-TEM A_z / u_r / phi formulation.
-// Each LineCableModelsFEMScan invocation solves exactly one frequency and
-// basis-terminal job. Julia owns the outer scan and process isolation.
+// Each invocation owns one mesh/frequency and reuses its operator across
+// terminal excitations. Julia owns frequency scheduling and checkpoints.
 
 If(!Exists(RunDirectory))
   RunDirectory = "";
@@ -17,6 +17,14 @@ EndIf
 If(!Exists(BasisTerminal))
   BasisTerminal = 1;
 EndIf
+If(Exists(BasisListPath))
+  Include BasisListPath;
+Else
+  RequestedBases() = {BasisTerminal};
+EndIf
+If(!Exists(ReuseFactorization))
+  ReuseFactorization = 1;
+EndIf
 If(!Exists(PlotFieldMaps))
   PlotFieldMaps = 0;
 EndIf
@@ -25,8 +33,6 @@ If(!Exists(RawOutputStem))
 EndIf
 RawDirectory = StrCat[RunDirectory, "/raw"];
 RawJobDirectory = StrCat[RawDirectory, "/jobs"];
-RawZPath = StrCat[RawJobDirectory, "/", RawOutputStem, "-Z.tsv"];
-RawPPath = StrCat[RawJobDirectory, "/", RawOutputStem, "-P.tsv"];
 MapDirectory = StrCat[RunDirectory, "/maps"];
 
 Group {
@@ -255,10 +261,20 @@ EndFor
 Return
 
 Macro FEMSolveBasis
+Evaluate[$FEMConstraintStart = GetWallClockTime[]];
 Call FEMSetBasisCurrent;
 UpdateConstraint[Sys_FEM];
-Generate[Sys_FEM];
-Solve[Sys_FEM];
+Evaluate[$FEMAssemblyStart = GetWallClockTime[]];
+Test[$FEMFirstSolve || !ReuseFactorization]{
+  Generate[Sys_FEM];
+  Evaluate[$FEMSolveStart = GetWallClockTime[]];
+  Solve[Sys_FEM];
+}{
+  GenerateRHSGroup[Sys_FEM, Terminals];
+  Evaluate[$FEMSolveStart = GetWallClockTime[]];
+  SolveAgain[Sys_FEM];
+}
+Evaluate[$FEMOutputStart = GetWallClockTime[]];
 Return
 
 Resolution {
@@ -269,6 +285,7 @@ Resolution {
     }
     Operation {
       CreateDir[RawDirectory];
+      CreateDir[RawJobDirectory];
       CreateDir[MapDirectory];
       InitSolution[Sys_FEM];
       Evaluate[$FEMFrequencyIndex = FrequencyIndex];
@@ -278,12 +295,19 @@ Resolution {
       // GetDP time is an output-step identity, not the physical frequency.
       // The scan index avoids time-range failures; SetFrequency owns physics.
       SetTime[FrequencyIndex];
-      Evaluate[$FEMBasisTerminal = BasisTerminal];
-      Call FEMSolveBasis;
-      PostOperation[FEMAppendRaw];
-      If(PlotFieldMaps)
-        PostOperation[FEMWriteMaps];
-      EndIf
+      Evaluate[$FEMFirstSolve = 1];
+      For basis_slot In {0:#RequestedBases()-1}
+        basis = RequestedBases(basis_slot);
+        Evaluate[$FEMBasisTerminal = basis];
+        Call FEMSolveBasis;
+        PostOperation[FEMAppendRaw~{basis}];
+        If(PlotFieldMaps)
+          PostOperation[FEMWriteMaps~{basis}];
+        EndIf
+        Evaluate[$FEMOutputEnd = GetWallClockTime[]];
+        PostOperation[FEMCompleteColumn~{basis}];
+        Evaluate[$FEMFirstSolve = 0];
+      EndFor
     }
   }
 }
@@ -346,12 +370,20 @@ PostProcessing {
   }
 }
 
+// Expand output declarations only for the requested terminal columns.
+For basis_slot In {0:#RequestedBases()-1}
+  basis = RequestedBases(basis_slot);
+  ColumnStem = Sprintf["getdp-f%04.0f-b%04.0f", FrequencyIndex, basis];
+  RawZPath = StrCat[RawJobDirectory, "/", ColumnStem, "-Z.tsv"];
+  RawPPath = StrCat[RawJobDirectory, "/", ColumnStem, "-P.tsv"];
+  TimingPath = StrCat[RawJobDirectory, "/", ColumnStem, "-timing.tsv"];
+  CompletePath = StrCat[RawJobDirectory, "/", ColumnStem, ".done"];
 If(PlotFieldMaps)
-  FieldMapSuffix = Sprintf["_f%04.0f_b%04.0f.pos", FrequencyIndex, BasisTerminal];
+  FieldMapSuffix = Sprintf["_f%04.0f_b%04.0f.pos", FrequencyIndex, basis];
   FieldMapLabel = StrCat[Sprintf["; f=%.17g Hz; basis=", FrequencyHz],
-    Str[TerminalNames(BasisTerminal - 1)]];
+    Str[TerminalNames(basis - 1)]];
   PostOperation {
-    { Name FEMWriteMaps; NameOfPostProcessing FEMFields;
+    { Name FEMWriteMaps~{basis}; NameOfPostProcessing FEMFields;
       LastTimeStepOnly 1;
       Operation {
         Print[az, OnElementsOf Domain_Mag, Name StrCat["Az [T m]", FieldMapLabel],
@@ -378,7 +410,7 @@ If(PlotFieldMaps)
 EndIf
 
 PostOperation {
-  { Name FEMAppendRaw; NameOfPostProcessing FEMFields;
+  { Name FEMAppendRaw~{basis}; NameOfPostProcessing FEMFields;
     LastTimeStepOnly 1;
     Format Table;
     NoMesh 1;
@@ -406,3 +438,23 @@ PostOperation {
   }
 
 }
+
+PostOperation {
+  { Name FEMCompleteColumn~{basis}; NameOfPostProcessing FEMFields;
+    LastTimeStepOnly 1;
+    Operation {
+      Print[{$FEMFrequencyIndex, $FEMBasisTerminal,
+          $FEMAssemblyStart - $FEMConstraintStart,
+          $FEMSolveStart - $FEMAssemblyStart,
+          $FEMOutputStart - $FEMSolveStart,
+          $FEMOutputEnd - $FEMOutputStart, $FEMFirstSolve || !ReuseFactorization},
+        Format "%g	%g	%.17g	%.17g	%.17g	%.17g	%g",
+        File TimingPath];
+      // Written last, after raw output and optional maps have closed.
+      Print[{2, $FEMFrequencyIndex, $FEMFrequencyHz, $FEMBasisTerminal,
+          NumTerminals, PlotFieldMaps},
+        Format "%g	%g	%.17g	%g	%g	%g", File CompletePath];
+    }
+  }
+}
+EndFor

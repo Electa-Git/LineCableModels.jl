@@ -26,6 +26,7 @@ include("geometry.jl")
 include("mesh.jl")
 include("onelab.jl")
 include("getdp.jl")
+include("workers.jl")
 include("results.jl")
 include("compute.jl")
 

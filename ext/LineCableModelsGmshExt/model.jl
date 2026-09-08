@@ -16,11 +16,13 @@ mutable struct FEMRun
     mesh_source::Symbol
     mesh_fingerprint::String
     getdp_invocations::Int
+    completed_columns::Int
+    completed_frequencies::Int
 end
 
-function FEMRun(path, state, message, mesh_source, mesh_fingerprint)
+function FEMRun(path, state, message, mesh_source, mesh_fingerprint, invocations = 0)
     FEMRun(
-        path, state, message, mesh_source, mesh_fingerprint, 0
+        path, state, message, mesh_source, mesh_fingerprint, invocations, 0, 0
     )
 end
 
@@ -107,6 +109,8 @@ struct FEMRunRecord
     mesh_fingerprint::String
     getdp_invocations::Int
     map_paths::Vector{String}
+    completed_columns::Int
+    completed_frequencies::Int
 end
 
 function _fem_error(

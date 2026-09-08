@@ -50,6 +50,37 @@ struct FEMGmshSession
     onelab::FEMOnelabSnapshot
 end
 
+const FEM_SESSION_LOCK = ReentrantLock()
+
+# Keep this file in place: unlinking a locked inode permits another coordinator
+# to lock a replacement file. OS ownership is released when the stream closes
+# or its Julia process exits, including after a hard crash.
+function _claim_run(run::FEMRun)
+    io = open(joinpath(run.path, "coordinator.lock"), "a+")
+    seekstart(io)
+    status = if Sys.iswindows()
+        ccall(:_locking, Cint, (Cint, Cint, Clong), fd(io), 2, 1)
+    else
+        ccall(:flock, Cint, (Cint, Cint), fd(io), 6)
+    end
+    if status != 0
+        close(io)
+        _fem_error(:execution, "FEM run", :ownership,
+            "another coordinator owns this run, or the filesystem cannot lock it";
+            run_directory=run.path)
+    end
+    return io
+end
+
+function _release_run(io::IOStream)
+    if Sys.iswindows()
+        seekstart(io)
+        ccall(:_locking, Cint, (Cint, Cint, Clong), fd(io), 0, 1)
+    end
+    close(io)
+    return nothing
+end
+
 function _start_gmsh(verbosity::Int)
     owned = !Bool(gmsh.is_initialized())
     # Backend-owned meshes must not depend on an unrecorded user gmshrc.
@@ -156,8 +187,19 @@ function _resume_inputs_match(path::String, model::FEMResolvedModel, inputs::Nam
         isfile(joinpath(path, "raw", "checksums.json")) || return false
     end
     expected = ImportExport.serialize_value(model.problem)
+    comparable = Dict(String(key)=>value for (key,value) in pairs(recorded))
+    requested = Dict(String(key)=>value for (key,value) in pairs(JSON3.read(JSON3.write(inputs))))
+    # Worker count changes scheduling only; solver threads and all numerical
+    # inputs retain the same strict compatibility checks.
+    if get(comparable, "schema_version", 0) == 4 && inputs.schema_version == 4
+        for record in (comparable, requested)
+            execution = Dict(String(key)=>value for (key,value) in pairs(record["execution"]))
+            pop!(execution, "frequency_workers", nothing)
+            record["execution"] = execution
+        end
+    end
     return _resume_value_matches(existing, expected) &&
-        _resume_value_matches(recorded, JSON3.read(JSON3.write(inputs)))
+        _resume_value_matches(comparable, requested)
 end
 
 function _resume_run(
@@ -212,18 +254,23 @@ function _resume_run(
                   Symbol(String(document.mesh_source))
     mesh_fingerprint = document === nothing ? "" :
                        String(document.mesh_fingerprint)
-    if document !== nothing && String(document.state) == string(completed)
-        return FEMRun(path, completed, "reading completed run", mesh_source,
-            mesh_fingerprint, Int(document.getdp_invocations))
-    end
     run = FEMRun(
         path,
         created,
         "resuming interrupted run",
         mesh_source,
-        mesh_fingerprint
+        mesh_fingerprint,
+        document === nothing ? 0 : Int(document.getdp_invocations)
     )
-    _transition!(run, created, "resuming interrupted run")
+    if document !== nothing
+        run.completed_columns = Int(get(document, :completed_columns, 0))
+        run.completed_frequencies = Int(get(document, :completed_frequencies, 0))
+        if String(document.state) == string(completed)
+            run.state = completed
+            run.message = "reading completed run"
+            return run
+        end
+    end
     @info "Resuming compatible FEM run" run_directory=path
     return run
 end
@@ -234,12 +281,14 @@ function _transition!(run::FEMRun, state::FEMRunState, message::AbstractString)
     _write_json_atomic(joinpath(run.path, "run.json"),
         (
             schema = "LineCableModels.FEMRun",
-            version = 1,
+            version = 2,
             state = string(state),
             message = run.message,
             mesh_source = String(run.mesh_source),
             mesh_fingerprint = run.mesh_fingerprint,
             getdp_invocations = run.getdp_invocations,
+            completed_columns = run.completed_columns,
+            completed_frequencies = run.completed_frequencies,
             updated_unix_seconds = time()
         ))
     return state
@@ -342,8 +391,8 @@ function _headless_solve!(
     _publish_transport!(
         run, model, model_data_path, last(mesh_paths), formulation
     )
-    _transition!(run, running, "isolated GetDP jobs running")
-    @info "Starting isolated GetDP frequency/source jobs"
+    _transition!(run, running, "GetDP frequency batches running")
+    @info "Starting isolated GetDP frequency batches" workers=formulation.execution.frequency_workers
     _run_getdp!(run, model, formulation, mesh_paths)
     scan = _parse_scan(run, model, formulation)
     parameters = _line_parameters(run, model, formulation, execution, scan, inputs)
@@ -425,13 +474,27 @@ function _ui_solve!(
                 continue
             end
             state = _set_ui_status(:running)
-            _transition!(run, running, "isolated GetDP jobs running")
-            _run_getdp!(run, model, formulation, mesh_paths)
+            _transition!(run, running, "GetDP frequency batches running")
+            progress = (-1, -1)
+            _run_getdp!(run, model, formulation, mesh_paths; pump=() -> begin
+                # fltk.wait can initialize a GUI again after it was closed.
+                Bool(gmsh.fltk.is_available()) || return false
+                current = (run.completed_frequencies, run.completed_columns)
+                if current != progress
+                    gmsh.onelab.set_number(_onelab_name("ui/completed_frequencies"), [current[1]])
+                    gmsh.onelab.set_number(_onelab_name("ui/completed_columns"), [current[2]])
+                    progress = current
+                end
+                gmsh.fltk.wait(0.01)
+                Bool(gmsh.fltk.is_available())
+            end)
             scan = _parse_scan(run, model, formulation)
             parameters = _line_parameters(run, model, formulation, execution, scan, inputs)
             _write_scan_checksums(run, scan)
             formulation.execution.plot_field_maps && _merge_maps!(scan.map_paths)
             gmsh.onelab.set_number(_onelab_name("completion_status"), [1.0])
+            gmsh.onelab.set_number(_onelab_name("ui/completed_frequencies"), [run.completed_frequencies])
+            gmsh.onelab.set_number(_onelab_name("ui/completed_columns"), [run.completed_columns])
             _transition!(run, completed, "results ready")
             state = _set_ui_status(:results_ready)
         end
@@ -476,15 +539,42 @@ function _compute_fem(
         @info "FEM reuses completed resolved inputs" run_directory=run.path
         return _line_parameters(run, model, formulation, execution, scan, inputs)
     end
+    ownership = _claim_run(run)
+    parameters = try
+        # Another coordinator can finish between candidate selection and our
+        # lock acquisition. Refresh counters/state while holding ownership,
+        # and preserve a now-completed run as a read-only result.
+        if isfile(joinpath(run.path, "input", "computation.json")) &&
+                isfile(joinpath(run.path, "input", "problem.json"))
+            run = _resume_run(runtime_root, run.path, model, inputs)
+            if run.state === completed
+                scan = _parse_scan(run, model, formulation)
+                _check_scan_checksums(run, scan)
+                return _line_parameters(run, model, formulation, execution, scan, inputs)
+            end
+        end
+        _assert_no_live_attempts(run)
+        _compute_owned_fem(problem, formulation, execution, model, run, runtime_root, inputs)
+    finally
+        _release_run(ownership)
+    end
+    if !formulation.execution.keep_run_directory
+        expected_parent = realpath(joinpath(runtime_root, "runs"))
+        realpath(dirname(run.path)) == expected_parent || error(
+            "refusing to remove FEM run outside the runtime root")
+        rm(run.path; recursive=true, force=true)
+    end
+    return parameters
+end
+
+function _compute_owned_fem(problem, formulation, execution, model, run, runtime_root, inputs)
     _write_json_atomic(joinpath(run.path, "input", "computation.json"), inputs)
     session = nothing
-    succeeded = false
     try
         session = _start_gmsh(formulation.execution.gmsh_verbosity)
         parameters = formulation.execution.ui ?
                      _ui_solve!(run, model, formulation, execution, runtime_root, inputs) :
                      _headless_solve!(run, model, formulation, execution, runtime_root, inputs)
-        succeeded = true
         return parameters
     catch exception
         if run.state ∉ (not_executed, cancelled)
@@ -502,19 +592,11 @@ function _compute_fem(
         )
     finally
         session === nothing || _finish_gmsh(session)
-        if succeeded && !formulation.execution.keep_run_directory
-            expected_parent = realpath(joinpath(runtime_root, "runs"))
-            run_parent = realpath(dirname(run.path))
-            run_parent == expected_parent || error(
-                "refusing to remove FEM run outside the runtime root"
-            )
-            rm(run.path; recursive = true, force = true)
-        end
     end
 end
 
 const FEM_ADAPTER_SOURCES = let files = ("model.jl", "geometry.jl", "mesh.jl",
-        "onelab.jl", "getdp.jl", "results.jl", "compute.jl")
+        "onelab.jl", "getdp.jl", "workers.jl", "results.jl", "compute.jl")
     digests = map(files) do file
         path = joinpath(@__DIR__, file)
         Base.include_dependency(path)
@@ -530,7 +612,8 @@ function _fem_input_record(model::FEMResolvedModel, formulation::LineCableModels
         _getdp_identity(executable)
     mesh_path = formulation.execution.mesh_path
     return (
-        schema_version = 3,
+        schema_version = 4,
+        solver_protocol = 2,
         mesh_fingerprint = _mesh_fingerprint(model, gmsh.GMSH_API_VERSION),
         materials = [(kind=material.kind, tag=material.physical_tag,
             mu_r=material.mu_r, sigma=real.(material.admittivity),
@@ -558,6 +641,12 @@ function compute(
         formulation::Union{LineCableModelsFEM, AbstractVector{<:LineCableModelsFEM}};
         options::NamedTuple = (;)
 )
+    return lock(FEM_SESSION_LOCK) do
+        _compute_request(problem, formulation; options)
+    end
+end
+
+function _compute_request(problem, formulation; options)
     problem = _preflight_fem_problem(problem)
     execution = _fem_computation_options(options)
     # Scalar and collection calls share completion notification and reuse rules.

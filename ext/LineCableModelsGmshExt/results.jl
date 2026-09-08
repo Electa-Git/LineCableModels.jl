@@ -339,7 +339,9 @@ function _line_parameters(
         run.mesh_source,
         run.mesh_fingerprint,
         run.getdp_invocations,
-        keep_run ? scan.map_paths : String[]
+        keep_run ? scan.map_paths : String[],
+        run.completed_columns,
+        run.completed_frequencies
     )
     trace = execution.trace === Val(true) ?
             (

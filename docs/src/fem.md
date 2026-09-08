@@ -22,6 +22,8 @@ fem = Formulation(
         getdp_executable = "/path/to/getdp",
         gmsh_verbosity = 2,
         getdp_verbosity = 2,
+        frequency_workers = 2,
+        solver_threads = 1,
     ),
 )
 
@@ -55,9 +57,8 @@ real part of the selected complex admittivity: dielectric losses are already
 included, so GetDP does not add another loss-tangent contribution.
 
 Each solver job selects its material coefficients by frequency index. When
-`plot_field_maps=true`, the same output operation writes the nine field
-quantities with frequency/source-specific filenames and labels; disabled maps
-do not generate or parse per-job output declarations. The maintained GetDP
+`plot_field_maps=true`, basis-specific output operations write the nine field
+quantities with frequency/source-specific filenames and labels. The maintained GetDP
 files are captured with each run so later edits cannot change an active scan.
 
 ## Execution model
@@ -67,18 +68,31 @@ distinct physical frequency. Each mesh uses that frequency's earth skin depth
 for its finite air/earth radius and has its own conformal annular
 transformation-to-infinity shell. The final, highest-frequency mesh is the
 displayed mesh; every frequency-specific mesh is reused by all of that
-frequency's basis-terminal jobs. Julia launches one isolated GetDP process for
-each ordered frequency/basis-terminal pair. Every process appends exactly one
-response column to `raw/Z.tsv` and `raw/P.tsv`. Julia publishes the completion
-marker only after every job has returned a complete column, then validates the
-marker, headers, row count, indices, frequencies, and finite values.
+frequency's terminal excitations. After preparing all meshes, Julia launches
+up to `frequency_workers` standalone GetDP processes concurrently. Each process
+handles one frequency: it assembles and factors the system for its first
+requested terminal, then updates the right-hand side and reuses those factors
+for the remaining terminals. Frequencies with different meshes have separate
+systems and factorizations. The equations and mesh sizing are unchanged.
 
-Gmsh otherwise gives external ONELAB clients a shared user socket such as
-`.gmshsock2`. The extension assigns every FEM run a unique socket basename in
-the user directory (or an ephemeral loopback port on Windows) through
-`Solver.SocketName`, then restores the caller's option. Independent Julia
-processes can therefore mesh and solve concurrently without racing on the
-default socket.
+The default is two frequency workers with one BLAS/OpenMP thread per solver.
+These are independent OS processes; they do not require multiple Julia threads.
+Set `frequency_workers=1` for serial frequency execution. Increase the worker
+count only within available memory: every active frequency owns its sparse
+factorization. `solver_threads` sets each child's BLAS/OpenMP environment without
+changing Julia's environment. GetDP must support `GenerateRHSGroup` and
+`SolveAgain`; the bundled workflow has been validated with GetDP 3.6.
+
+Every attempt has a separate working directory, solver prefix, raw columns,
+maps and log. Inputs are explicit command arguments and data files; the solvers
+do not connect to ONELAB. One Julia coordinator owns Gmsh, publishes UI progress,
+validates columns and writes checksummed checkpoints. Backend calls in the same
+Julia process serialize access to the shared Gmsh session. A filesystem lock
+prevents two coordinators from writing the same run.
+
+Once every column is validated, Julia assembles `raw/Z.tsv` and `raw/P.tsv` in
+frequency/terminal order and publishes the scan completion marker. Validation
+checks headers, row counts, identities, frequencies and finite values.
 
 The primitive matrices have dimensions
 `(nterminal, nterminal, nfrequency)`. The shared LineCableModels reduction path
@@ -162,7 +176,10 @@ Runs live under `.linecablemodels/fem/runs/`; cached meshes live under
 result is constructed unless `keep_run_directory=true`. Failed or incomplete
 runs are retained, and their typed error reports the path. Retained runs contain
 the problem snapshot, immutable GetDP data, mesh snapshot and metadata, raw
-tables, maps, logger output, and atomic `run.json` state transitions.
+tables, maps, logger output, and atomic `run.json` state transitions. Numerical
+process logs and attempt metadata live in `attempts/fNNNN-*/`; per-column timing
+records separate constraint updates, assembly, solve and output. At
+`getdp_verbosity>=4`, each attempt also retains PETSc profiling output.
 
 Field maps are off by default. With `plot_field_maps=true`, nine supplied
 quantities are written for every frequency/source pair, with names such as
@@ -174,12 +191,24 @@ only when the run directory is retained.
 The executable resolution order is an explicit `getdp_executable`, followed
 by the executable named `getdp` on `PATH`; this repository has no additional
 sanctioned GetDP preference. A nonzero client failure is reported as a typed
-error with its frequency and basis indices, the retained run directory, and
-the captured Gmsh log tail. If Gmsh reports an error only after a complete
-response column was written, the error is deferred to strict table validation.
-A normal client return is still not success until the completion marker and
-every raw row have passed strict validation. Result details report one GetDP
-invocation per frequency/source pair.
+error with its frequency, missing basis indices, retained attempt directory
+and GetDP log tail. A failure stops scheduling and terminates/reaps the other
+active workers. Completed columns remain available for recovery. A zero exit
+code is insufficient without valid completion records and numerical output.
+Result details distinguish actual process launches (`getdp_invocations`),
+`completed_columns`, and `completed_frequencies`. A fresh complete scan normally
+launches one process per frequency; retries add invocations.
+
+Resume an interrupted compatible run with
+`options=(resume_run_directory="/path/to/run",)` (or `:latest`). Recovery checks
+mesh identities and column checksums, adopts complete attempt outputs, and
+requests only missing or invalid terminal columns. The first requested column
+always builds fresh factors, even when its terminal index is not one. Worker
+count may change during recovery; solver thread settings, physical inputs and
+source/executable identities must match. A surviving solver from an interrupted
+coordinator prevents retry until it exits. Completed runs are reused read-only
+after their aggregate checksums pass. Runs from older solver protocols remain
+preserved comparison artifacts and require a fresh computation.
 
 ## Optional Gmsh UI
 
@@ -199,10 +228,13 @@ parameters = compute(problem, interactive_fem)
 ```
 
 It publishes read-only problem summaries, separate mesh and solve states, and
-status text plus `Generate mesh` and `Run model` buttons. `Run model` refuses
+status text, completed frequency/column counts, and `Generate mesh` and
+`Run model` buttons. `Run model` refuses
 to proceed before a valid mesh exists.
 Closing the window before solving raises a typed `:not_executed` error that
-distinguishes closure before mesh generation from closure after meshing. After
+distinguishes closure before mesh generation from closure after meshing.
+The event loop remains active while solver processes run. Closing the window
+during solving cancels those processes and retains completed checkpoints. After
 a successful scan, validated maps remain visible until the user closes the UI.
 
 The extension finalizes only Gmsh sessions it owns. A caller-owned initialized
@@ -212,8 +244,9 @@ options, and pre-existing `LineCableModels/FEM/` ONELAB parameters.
 ## Numerical reference validation
 
 The committed `fem_python_quasi_tem.json` fixture freezes development-only
-outputs from the supplied Python quasi-TEM prototype; Python is not imported
-or executed by the package or its tests. The two cases use the same copper,
+outputs from the supplied Python quasi-TEM prototype. These numerical comparisons
+do not execute the prototype, and the backend has no Python dependency.
+The two cases use the same copper,
 dielectric, earth, geometry, frequency ordering, and reductions as their
 Julia runs:
 

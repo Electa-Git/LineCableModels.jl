@@ -51,6 +51,10 @@ struct LineCableModelsFEMOptions <: AbstractFormulationOptions
     gmsh_verbosity::Int
     "GetDP message verbosity from 0 through 5."
     getdp_verbosity::Int
+    "Maximum number of independent frequency solver processes."
+    frequency_workers::Int
+    "BLAS and OpenMP thread limit for each GetDP process."
+    solver_threads::Int
 end
 
 """
@@ -69,6 +73,10 @@ Construct validated finite-element execution options.
 - `getdp_executable=nothing`: Explicit GetDP executable path.
 - `gmsh_verbosity=2`: Gmsh message verbosity from 0 through 5.
 - `getdp_verbosity=2`: GetDP message verbosity from 0 through 5.
+- `frequency_workers=2`: Maximum concurrent GetDP frequency processes. Use
+  `1` for sequential frequency execution; terminal factors are still reused.
+- `solver_threads=1`: BLAS and OpenMP threads per GetDP process. Set the
+  worker and thread counts together to fit available memory and CPU resources.
 
 # Returns
 
@@ -86,7 +94,9 @@ function LineCableModelsFEMOptions(;
         keep_run_directory::Bool = false,
         getdp_executable::Union{Nothing, AbstractString} = nothing,
         gmsh_verbosity::Integer = 2,
-        getdp_verbosity::Integer = 2
+        getdp_verbosity::Integer = 2,
+        frequency_workers::Integer = 2,
+        solver_threads::Integer = 1
 )
     mesh_policy in (:reuse, :remesh) || throw(ArgumentError(
         "mesh_policy must be :reuse or :remesh; got $(repr(mesh_policy))",
@@ -104,6 +114,11 @@ function LineCableModelsFEMOptions(;
     getdp_verbosity in 0:5 || throw(ArgumentError(
         "getdp_verbosity must be an integer from 0 through 5",
     ))
+    for (name, value) in ((:frequency_workers, frequency_workers),
+        (:solver_threads, solver_threads))
+        !(value isa Bool) && 1 <= value <= typemax(Int) ||
+            throw(ArgumentError("$name must be a positive integer"))
+    end
     return LineCableModelsFEMOptions(
         ui,
         plot_field_maps,
@@ -112,7 +127,9 @@ function LineCableModelsFEMOptions(;
         keep_run_directory,
         normalized_getdp,
         Int(gmsh_verbosity),
-        Int(getdp_verbosity)
+        Int(getdp_verbosity),
+        Int(frequency_workers),
+        Int(solver_threads)
     )
 end
 
