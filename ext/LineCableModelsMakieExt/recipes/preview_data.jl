@@ -66,6 +66,7 @@ function _native_design_shapes(
         xcenter,
         ycenter;
         display_legend::Bool,
+        display_dielectric_pattern::Bool = true,
         legend_group = nothing,
         legend_labels = nothing
 )
@@ -107,7 +108,7 @@ function _native_design_shapes(
                 shape.geometry,
                 label,
                 identity.group,
-                _material_color(shape.material),
+                _material_color(shape.material; pattern = display_dielectric_pattern),
                 stroke,
                 width,
             ))
@@ -188,42 +189,13 @@ end
 
 function _native_system_shapes(
         system,
-        earth_model,
-        limits,
         display_legend;
+        display_dielectric_pattern::Bool = true,
         legend_group = nothing,
         legend_labels = nothing
 )
     polygons = PreviewPolygon[]
     references = (PreviewReference([0.0], :air_earth, :black, 1.5),)
-    if earth_model !== nothing && !earth_model.vertical_layers
-        cumulative_depth = 0.0
-        fill_minimum = limits[2][1] - 5.0
-        fill_horizontal = (limits[1][1] - 5.0, limits[1][2] + 5.0)
-        for (index, layer) in enumerate(earth_model.layers[2:end])
-            top = cumulative_depth
-            bottom = if isinf(layer.thickness)
-                fill_minimum
-            else
-                cumulative_depth -= nominal(layer.thickness)
-            end
-            geometry = Point2f[
-                (fill_horizontal[1], top),
-                (fill_horizontal[2], top),
-                (fill_horizontal[2], bottom),
-                (fill_horizontal[1], bottom)
-            ]
-            push!(polygons,
-                PreviewPolygon(
-                    geometry,
-                    display_legend ? "Earth layer $index" : nothing,
-                    Symbol("earth_$index"),
-                    _material_color(layer; alpha = 0.25),
-                    :transparent,
-                    0.0
-                ))
-        end
-    end
     for (design, position) in zip(system.designs, system.positions)
         append!(polygons,
             _native_design_shapes(
@@ -232,6 +204,7 @@ function _native_system_shapes(
                 nominal(position.y);
                 display_legend = display_legend &&
                                  (legend_group !== nothing || legend_labels !== nothing),
+                display_dielectric_pattern,
                 legend_group,
                 legend_labels
             ))

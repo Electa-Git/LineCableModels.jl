@@ -24,9 +24,21 @@ const _MAGNETIC_COLORS = [
     RGB(214 / 255, 79 / 255, 216 / 255)
 ]
 const _EARTH_COLORS = [
-    RGB(0.760, 0.704, 0.590),
-    RGB(0.357, 0.286, 0.220)
+    RGB(94 / 255, 114 / 255, 131 / 255),
+    RGB(139 / 255, 120 / 255, 96 / 255),
+    RGB(184 / 255, 154 / 255, 99 / 255)
 ]
+
+# Two staggered, disconnected slashes per tile. The signed distance gives a
+# one-pixel antialiased edge; Makie's polygon fill owns clipping and placement.
+const _DIELECTRIC_PATTERN_MASK = map(Iterators.product(1:32, 1:56)) do (i, j)
+    distance = minimum(((8, 14), (24, 42))) do (cx, cy)
+        x, y = i - 0.5 - cx, j - 0.5 - cy
+        along = clamp((x + y) / 2, -2.5, 2.5)
+        hypot(x - along, y - along)
+    end
+    clamp(1.0 - distance, 0.0, 1.0)
+end
 
 function _oklab_blend(first_color, second_color, value::Real)
     t = clamp(Float64(value), 0.0, 1.0)
@@ -78,10 +90,12 @@ _semicon_color(resistivity::Real) = _gradient(
     _log_fraction(resistivity, _SEMICON_RHO_RANGE...)
 )
 
-_earth_color(resistivity::Real) = _gradient(
-    _EARTH_COLORS,
-    _log_fraction(resistivity, _EARTH_RHO_RANGE...)
-)
+function _earth_color(resistivity::Real)
+    # The taupe anchor is 100 Ω·m, not the geometric midpoint of the range.
+    fraction = _log_fraction(resistivity, _EARTH_RHO_RANGE...)
+    position = fraction <= 0.6 ? fraction / 0.6 : 1 + (fraction - 0.6) / 0.4
+    return _gradient(_EARTH_COLORS, position / 2)
+end
 
 _material_base(material::Material) = _material_base(Val(material.kind), material)
 _material_base(material::RadialDielectric) = _dielectric_color(nominal(material.eps_r))
@@ -100,15 +114,25 @@ function _magnetic_overlay(base, relative_permeability::Real)
         max(relative_permeability, 1.0), _MAGNETIC_MU_RANGE...
     )
     iszero(fraction) && return RGB(base)
-    tint = _gradient(_MAGNETIC_COLORS, fraction)
+    # Keep the visible lower/middle range indigo; introduce magenta only in
+    # the upper third of the logarithmic permeability range.
+    tint = _gradient(_MAGNETIC_COLORS, max(0.0, (fraction - 0.65) / 0.35))
     return _oklab_blend(base, tint, 0.35fraction^0.7)
 end
 
-function _material_color(material::Union{Material, RadialDielectric, EarthLayer}; alpha::Real = 1.0)
+function _material_color(material::Union{Material, RadialDielectric, EarthLayer};
+        alpha::Real = 1.0, pattern::Bool = false)
     relative_permeability = LineCableModels.nominal(material.mu_r)
     base = _material_base(material)
     color = _magnetic_overlay(base, relative_permeability)
-    return RGBA(red(color), green(color), blue(color), alpha)
+    fill = RGBA(red(color), green(color), blue(color), alpha)
+    if pattern && material isa Union{Material, RadialDielectric} &&
+       material.kind === :insulator
+        ink = _oklab_blend(color, RGB(0.25, 0.27, 0.30), 0.15)
+        return Makie.Pattern(_DIELECTRIC_PATTERN_MASK;
+            color1 = RGBA(red(ink), green(ink), blue(ink), alpha), color2 = fill)
+    end
+    return fill
 end
 
 function _compact_number(value::Real)

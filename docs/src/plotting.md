@@ -706,6 +706,10 @@ object in `cable_preview.colorbars` is a native `Colorbar`.
 A collection preview repeats the same detached geometry path for every design
 and assigns the caller-requested layout. The material ranges are aggregated
 once, so every panel uses comparable colors and one shared set of scales.
+Insulating regions carry sparse diagonal marks over their existing material
+colors. Pass `display_dielectric_pattern=false` to omit these marks in a
+design, collection, or system preview. Semicon and conductor fills retain
+their own material colors.
 
 ````@example plotting
 design_collection = preview(
@@ -732,7 +736,11 @@ grid-position contract as line dashboards.
 A system preview resolves every placed region into the system frame, adds
 reference geometry such as the earth interface, and derives limits from the
 physical placement or `zoom_factor`. Earth properties use the same atomic
-color-scheme contract as cable materials.
+color-scheme contract as cable materials, with a separate logarithmic
+resistivity palette: slate at 0.1 Ω·m, taupe at 100 Ω·m, and ochre at 10⁴ Ω·m.
+Horizontal earth fills follow pan, zoom and figure resizing while interfaces
+stay at their physical depths. A semi-infinite basement covers the remainder
+of the view; a finite final layer retains its declared bottom.
 
 ````@example plotting
 system_preview = preview(
@@ -754,6 +762,11 @@ system_preview.figure #hide
 Modify physical contents before previewing; modify visual annotations after
 previewing. `zoom_factor` changes only the initial view, and the reset control
 returns to those computed limits.
+The light blue sky fades from `z=0` to transparency at the upper axis limit,
+stretching with the view and disappearing in entirely underground views.
+It is a surface cue with no material-property meaning; use
+`display_surface_gradient=false` to disable it independently of earth colors.
+Vertical strata are currently not rendered in the system preview.
 
 ## Material colors and native colorbars
 
@@ -785,6 +798,12 @@ The scheme contains no placement. Put that `Colorbar` in any `GridPosition`,
 combine it with a heatmap, or reuse the same scheme in another figure. Define a
 new property by defining another palette producer next to `materialcolors`;
 physical range collection remains a DataModel concern.
+Relative permeability uses the existing logarithmic range from 1 to 300.
+Unity leaves the base color unchanged; indigo tint becomes visible before
+the progression toward magenta at high permeability. The permeability scale
+shows that same tint over a neutral reference color.
+Dielectric marks are native Makie pattern tiles. Cairo embeds the small
+bitmap tiles in SVG/PDF output while preserving the surrounding geometry.
 
 ### High-level material-scale reference
 
@@ -1080,6 +1099,11 @@ size. Data-aspect previews size the square canvas first, place
 legend/colorbar docks next to it, and center the resulting group.
 
 ### Current-state SVG export
+
+Click Save in any supported preview or plot window to export SVG. The renderer
+loads automatically on the first export; a GLMakie or WGLMakie session needs
+no separate CairoMakie import or backend reactivation. The toolbar reports
+file errors in the status row; direct `export_svg` calls throw them to the caller.
 
 [`export_svg`](@ref) saves the current live figure through CairoMakie. For a
 publication export it temporarily hides the toolbar and status row, switches

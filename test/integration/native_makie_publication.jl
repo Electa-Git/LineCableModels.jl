@@ -180,6 +180,22 @@ end
             second_path = export_svg(plot)
             @test second_path != first_path
             @test read(first_path, String) == first_contents
+
+            # The native button reports an expected export failure in the UI,
+            # then recovers on a later click after the caller fixes its cause.
+            files_before = Set(readdir(directory))
+            plot.export_theme = :invalid
+            @test_nowarn plot.controls[:export_svg].clicks[] += 1
+            @test occursin("theme must be", plot.addon_state.shell.status[])
+            @test Set(readdir(directory)) == files_before
+            @test map(observable -> observable[], observables) == before
+            plot.export_theme = :default
+            plot.controls[:export_svg].clicks[] += 1
+            saved = joinpath(directory, only(setdiff(Set(readdir(directory)), files_before)))
+            @test occursin("<svg", read(saved, String))
+            @test plot.addon_state.shell.status[] == "Saved SVG to $saved"
+            @test Makie.current_backend() === backend
+            @test axis.limits[] == limits
             if Sys.islinux()
                 withenv("PATH" => "") do
                     path = joinpath(directory, "no-desktop.svg")

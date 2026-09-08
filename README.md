@@ -78,9 +78,9 @@ self_impedance = plot(line_parameters, @observe Z[1, 1, :])
 # `self_impedance` is one UIPlot with separate R and X axes.
 ```
 
-`GLMakie` and `WGLMakie` are supported in the same way. LineCableModels
-never imports a backend dynamically. The optional `backend=:cairo`, `:gl`, or
-`:wgl` keyword is explicit call-local sugar. Observation requests determine
+`GLMakie` and `WGLMakie` are supported in the same way. Load the backend you want
+for display; SVG export loads its own renderer on demand. The optional
+`backend=:cairo`, `:gl`, or `:wgl` keyword is explicit call-local sugar. Observation requests determine
 physical quantity/coordinate axes; `layout` only groups those facets into
 figures. Singular recipes return a `UIPlot`; calls that produce several figures
 return a vector. Each handle exposes native Makie objects that remain
@@ -90,8 +90,9 @@ Matrix coordinates belong in semantic axis titles, never legend entries.
 Legends accept outer docks or
 `legend_position=:inside` with an anchor such as `:rt`; `figurelegend!`,
 `panellegend!`, `figuretitle!`, and `paneltitle!` can change those native blocks
-after construction. The Export SVG control saves their current live state and
-requires CairoMakie to have been loaded explicitly.
+after construction. The Export SVG control saves their current live state,
+loads CairoMakie automatically when first needed, and preserves the active
+display backend.
 
 ## Result access
 

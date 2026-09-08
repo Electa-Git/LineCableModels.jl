@@ -1353,7 +1353,14 @@ function _addon_controls!(
     column += 1
     widgets[:export_svg] = save
     on(shell.figure.scene, save.clicks) do _
-        plot_reference[] === nothing || LineCableModels.export_svg(plot_reference[])
+        plot_reference[] === nothing && return nothing
+        try
+            output = LineCableModels.export_svg(plot_reference[])
+            shell.status[] = "Saved SVG to $output"
+        catch exception
+            exception isa Union{ArgumentError, SystemError, Base.IOError} || rethrow()
+            shell.status[] = sprint(showerror, exception)
+        end
         return nothing
     end
     if !isempty(xsetters)

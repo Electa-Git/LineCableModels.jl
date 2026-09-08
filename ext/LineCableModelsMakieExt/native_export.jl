@@ -172,6 +172,7 @@ function _native_restore_snapshot!(snapshot)
 end
 
 function _native_restore_backend!(backend)
+    Makie.current_backend() === backend && return nothing
     backend isa Module || return nothing
     isdefined(backend, :activate!) || return nothing
     Base.invokelatest(getproperty(backend, :activate!))
@@ -184,10 +185,6 @@ function LineCableModels.export_svg(
         theme::Union{Nothing, Symbol} = nothing,
         open_file::Union{Nothing, Bool} = nothing
 )
-    Base.get_extension(LineCableModels, :LineCableModelsCairoMakieExt) === nothing &&
-        throw(ArgumentError(
-            "SVG export requires CairoMakie; load CairoMakie first with `using CairoMakie`",
-        ))
     output = path === nothing ? _native_available_path(plot) : abspath(String(path))
     export_theme = theme === nothing ? plot.export_theme : theme
     should_open = open_file === nothing ? plot.open_export : open_file
@@ -202,18 +199,23 @@ function LineCableModels.export_svg(
     snapshot = Pair{Any, Any}[]
     layout_snapshot = nothing
     try
+        # Cairo is an installed dependency, loaded only when SVG is requested.
+        # Its initialization activates it globally; restore the live backend
+        # immediately and select the renderer on the save call itself.
+        cairo = Base.require(LineCableModels, :CairoMakie)
+        _native_restore_backend!(previous_backend)
         layout_snapshot = _native_publication_snapshot!(
             snapshot,
             plot,
             export_theme
         )
-        _addon_activate_backend(:cairo)
         with_theme(_addon_theme(
             export_mode = true,
             export_theme = export_theme
         )) do
             Makie.update_state_before_display!(plot.figure)
-            Makie.save(output, plot.figure)
+            # A click callback may predate the newly loaded renderer's methods.
+            Base.invokelatest(Makie.save, output, plot.figure; backend = cairo, update = false)
         end
     finally
         _native_restore_interactive_chrome!(layout_snapshot)

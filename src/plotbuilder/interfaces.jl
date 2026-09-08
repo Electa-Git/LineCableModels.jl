@@ -19,6 +19,32 @@ end
 
 Preview a cable design, a collection of cable designs, or a cable system with
 a loaded Makie backend.
+
+# Keywords
+
+- `display_dielectric_pattern=true`: Fill insulating regions with sparse
+  diagonal marks over their material color. Applies to all three preview routes.
+- `earth_model=nothing`: Static earth model for a system preview. Horizontal
+  strata retain their physical depths while their visible coverage follows the
+  axis view. Vertical strata are not rendered.
+- `display_surface_gradient=true`: For a system with horizontal earth, add a
+  light blue sky above the surface at `z=0` \\[m\\], fading toward the white
+  or transparent background at the upper axis limit. The fade stretches with
+  the view and is hidden when the view lies entirely underground. This
+  decoration does not encode a material property.
+- `zoom_factor=nothing`: Initial system-view span multiplier. The reset
+  control restores that initial view.
+
+# Returns
+
+- A [`UIPlot`](@ref) containing the caller-owned Makie figure and axes.
+
+# Notes
+
+Material colors retain nominal physical properties. Magnetic tint progresses
+from indigo to magenta on a logarithmic relative-permeability range; earth uses
+its own logarithmic resistivity palette. Dielectric marks use native Makie
+pattern tiles, including in SVG/PDF exports.
 """
 function preview end
 
@@ -48,6 +74,12 @@ end
 
 Save the current live Makie figure in `plot` as SVG through CairoMakie and
 return the absolute output path. `theme` may be `:default` or `:publication`.
+
+The SVG renderer loads automatically on first export, including from GLMakie
+and WGLMakie windows. No separate backend import is required. Export preserves
+the active display backend and restores the live figure state. The toolbar
+reports file errors in the window's status row; direct calls throw the
+corresponding exception.
 """
 function export_svg end
 

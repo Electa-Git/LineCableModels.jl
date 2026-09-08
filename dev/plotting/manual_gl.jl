@@ -31,15 +31,30 @@ plots = Makie.plot(
 )
 handle = first(plots)
 
-@testset "manual GL plotting gate without CairoMakie" begin
+@testset "manual GL plotting gate / first SVG loads its renderer" begin
     @test Base.get_extension(LineCableModels, :LineCableModelsCairoMakieExt) === nothing
     @test Base.get_extension(
         LineCableModels, :LineCableModelsMakieExt
     ).current_backend_symbol() === :gl
+    limits_before = [axis.limits[] for axis in handle.axes]
+    background_before = handle.figure.scene.backgroundcolor[]
+    rows_before = copy(handle.figure.layout.rowsizes)
+    mktempdir() do directory
+        cd(directory) do
+            handle.controls[:export_svg].clicks[] += 1
+            path = joinpath(directory, only(readdir(directory)))
+            @test filesize(path) > 100
+            @test occursin("<svg", read(path, String))
+            @test handle.addon_state.shell.status[] == "Saved SVG to $path"
+            cp(path, joinpath(ARTIFACT_DIRECTORY, "first-gl-export.svg"); force = true)
+        end
+    end
+    @test Base.get_extension(LineCableModels, :LineCableModelsCairoMakieExt) !== nothing
+    @test Makie.current_backend() === GLMakie
+    @test [axis.limits[] for axis in handle.axes] == limits_before
+    @test handle.figure.scene.backgroundcolor[] == background_before
+    @test handle.figure.layout.rowsizes == rows_before
 end
-
-using CairoMakie
-Base.get_extension(LineCableModels, :LineCableModelsGLMakieExt).activate!()
 
 @testset "manual GL plotting gate" begin
     @test plots isa Vector{UIPlot}
@@ -59,15 +74,15 @@ Base.get_extension(LineCableModels, :LineCableModelsGLMakieExt).activate!()
     handle.controls[:reset].clicks[] += 1
 
     GLMakie.save(joinpath(ARTIFACT_DIRECTORY, "gl-ui.png"), handle.figure)
-    cd(ARTIFACT_DIRECTORY) do
-        before = Set(readdir())
-        handle.controls[:export_svg].clicks[] += 1
-        after = Set(readdir())
-        created = filter(name -> endswith(name, ".svg"), collect(setdiff(after, before)))
-        @test length(created) == 1
-        svg_path = joinpath(ARTIFACT_DIRECTORY, only(created))
-        @test filesize(svg_path) > 100
-        @test occursin("<svg", read(svg_path, String))
+    mktempdir() do directory
+        cd(directory) do
+            handle.controls[:export_svg].clicks[] += 1
+            svg_path = joinpath(directory, only(readdir(directory)))
+            @test filesize(svg_path) > 100
+            @test occursin("<svg", read(svg_path, String))
+            @test handle.addon_state.shell.status[] == "Saved SVG to $svg_path"
+            cp(svg_path, joinpath(ARTIFACT_DIRECTORY, "repeated-gl-export.svg"); force = true)
+        end
     end
     @test Base.get_extension(
         LineCableModels, :LineCableModelsMakieExt

@@ -7,7 +7,9 @@ function _addon_preview_axis!(
         limits,
         groups,
         group_order,
-        group_labels
+        group_labels;
+        earth_model = nothing,
+        display_surface_gradient::Bool = true
 )
     unit = LineCableModels.Units.units(:base, :meter)
     unit_label = LineCableModels.Units.label(unit)
@@ -21,6 +23,40 @@ function _addon_preview_axis!(
         tellwidth = false,
         tellheight = false
     )
+    earth_spans = NamedTuple[]
+    surface_gradient = nothing
+    if earth_model !== nothing && !earth_model.vertical_layers
+        top = 0.0
+        for (index, layer) in enumerate(earth_model.layers[2:end])
+            bottom = top - nominal(layer.thickness)
+            span = hspan!(axis, 0.0, 0.0;
+                color = _material_color(layer; alpha = 0.25),
+                strokewidth = 0, xautolimits = false, yautolimits = false)
+            translate!(span, 0, 0, -100)
+            group = Symbol("earth_$index")
+            groups[group] = Any[span]
+            push!(group_order, group)
+            group_labels[group] = "Earth layer $index"
+
+            if isfinite(bottom)
+                boundary = hlines!(axis, [bottom];
+                    color = RGBA(0.25, 0.27, 0.30, 0.25), linewidth = 0.6,
+                    visible = span.visible, xautolimits = false, yautolimits = false)
+                translate!(boundary, 0, 0, -80)
+            end
+            push!(earth_spans, (; top, bottom, span))
+            top = bottom
+        end
+        if display_surface_gradient
+            # One sky decoration, anchored at the surface and independent of
+            # the soil layers. Transparency reveals the axis background above it.
+            surface_gradient = hspan!(axis, zeros(64), zeros(64);
+                color = [RGBA(0.55, 0.76, 0.90, 0.45 * (1 - (i - 1) / 63)^1.3)
+                         for i in 1:64],
+                strokewidth = 0, xautolimits = false, yautolimits = false)
+            translate!(surface_gradient, 0, 0, -90)
+        end
+    end
     for reference in references
         plot = hlines!(
             axis,
@@ -60,6 +96,30 @@ function _addon_preview_axis!(
         end
     end
     reset!()
+    if !isempty(earth_spans)
+        # HSpan owns full-width coverage. This scene-owned callback clips only
+        # the physical vertical extents, keeping infinite coordinates out of
+        # rendering and all background geometry out of automatic limits.
+        on(axis.scene, axis.finallimits; update = true) do view
+            lower = view.origin[2]
+            upper = lower + view.widths[2]
+            for entry in earth_spans
+                bottom = clamp(entry.bottom, lower, upper)
+                top = clamp(entry.top, lower, upper)
+                Makie.update!(entry.span, bottom, top)
+            end
+            if surface_gradient !== nothing
+                # Fade from the physical surface to the current top of the
+                # view. Underground-only views contain no sky decoration.
+                sky_height = max(upper, 0)
+                bands = length(surface_gradient[1][])
+                lows = [clamp((i - 1) * sky_height / bands, lower, upper) for i in 1:bands]
+                highs = [clamp(i * sky_height / bands, lower, upper) for i in 1:bands]
+                Makie.update!(surface_gradient, lows, highs)
+                surface_gradient.visible[] = upper > 0
+            end
+        end
+    end
     return axis, reset!, panel
 end
 
@@ -126,6 +186,7 @@ function _addon_preview(
         design::LineCableModels.DataModel.CableDesign;
         x_offset::Real = 0.0,
         y_offset::Real = 0.0,
+        display_dielectric_pattern::Bool = true,
         display_legend::Bool = true,
         display_id::Bool = false,
         title = nothing,
@@ -167,6 +228,7 @@ function _addon_preview(
         # Retain presentation metadata even when the initial legend is hidden;
         # `figurelegend!` may place it later without rebuilding geometry.
         display_legend = true,
+        display_dielectric_pattern,
         legend_group,
         legend_labels
     )
@@ -225,6 +287,7 @@ end
 function _addon_preview(
         designs::AbstractVector{<:LineCableModels.DataModel.CableDesign};
         layout = nothing,
+        display_dielectric_pattern::Bool = true,
         title = nothing,
         figure_title = nothing,
         title_attributes::NamedTuple = (;),
@@ -265,6 +328,7 @@ function _addon_preview(
                 0.0,
                 0.0;
                 display_legend = true,
+                display_dielectric_pattern,
                 legend_group,
                 legend_labels
             )
@@ -326,6 +390,8 @@ function _addon_preview(
         system::LineCableModels.DataModel.LineCableSystem;
         earth_model = nothing,
         zoom_factor = nothing,
+        display_dielectric_pattern::Bool = true,
+        display_surface_gradient::Bool = true,
         display_legend::Bool = true,
         display_id::Bool = false,
         title = nothing,
@@ -355,9 +421,8 @@ function _addon_preview(
     polygons,
     references = _native_system_shapes(
         system,
-        earth_model,
-        limits,
         display_legend || !isempty(_addon_panel_legend_pairs(panel_legends));
+        display_dielectric_pattern,
         legend_group,
         legend_labels
     )
@@ -384,7 +449,9 @@ function _addon_preview(
             limits,
             groups,
             order,
-            labels
+            labels;
+            earth_model,
+            display_surface_gradient
         )
         _addon_center_aspect_canvas!(shell)
         _addon_preview_finish!(
