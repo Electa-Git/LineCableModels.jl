@@ -74,6 +74,9 @@ jobs:
             src/**/*.fem.cov
             ext/**/*.fem.cov
           if-no-files-found: error
+      - name: Remove coverage traces after workers and uploads finish
+        if: always()
+        run: julia --startup-file=no test/coverage.jl traces
 
   quality:
     name: Quality contracts
@@ -106,16 +109,15 @@ jobs:
       - uses: julia-actions/cache@v3
       - name: Test case import, catalogue, fingerprints, and comparison utilities
         run: |
-          julia --project=test/gauntlet --startup-file=no --code-coverage=@. --color=yes -e '
+          julia --project=gauntlet --startup-file=no --code-coverage=@. --color=yes -e '
             using Pkg
             Pkg.instantiate()
-            push!(ARGS, "tag:gauntlet_toolkit")
-            include("test/runtests.jl")
+            include("test/gauntlet/runtests.jl")
           '
       - name: Name toolkit coverage traces independently of runner process IDs
         shell: julia --startup-file=no {0}
         run: |
-          for directory in ("src", "ext", "test/gauntlet")
+          for directory in ("src", "ext", "gauntlet")
             for (root, _, files) in walkdir(directory), file in files
               endswith(file, ".cov") || continue
               mv(joinpath(root, file), joinpath(root, replace(file, r"\.cov$" => ".toolkit.cov")))
@@ -127,8 +129,11 @@ jobs:
           path: |
             src/**/*.toolkit.cov
             ext/**/*.toolkit.cov
-            test/gauntlet/**/*.toolkit.cov
+            gauntlet/**/*.toolkit.cov
           if-no-files-found: error
+      - name: Remove coverage traces after workers and uploads finish
+        if: always()
+        run: julia --startup-file=no test/coverage.jl traces
 
   coverage:
     name: Merged production coverage
@@ -149,6 +154,13 @@ jobs:
         run: julia --project=test/coverage --color=yes test/coverage.jl clean
       - name: Collect core and non-graphical extension coverage
         run: julia --project=. --color=yes -e 'using Pkg; Pkg.test(coverage = true)'
+      - name: Collect PSCAD worker protocol coverage without a native installation
+        env:
+          JULIA_CONDAPKG_BACKEND: "Null"
+          JULIA_PYTHONCALL_EXE: "python3"
+        run: |
+          julia --project=ext/LineCableModelsPSCADExt/remote --startup-file=no -e 'using Pkg; Pkg.instantiate()'
+          julia --project=ext/LineCableModelsPSCADExt/remote --startup-file=no --code-coverage=@. test/integration/pscad/worker.jl
       - name: Collect core-only boundary coverage
         run: |
           julia --project=test/core --code-coverage=@. --color=yes -e '
@@ -205,6 +217,10 @@ jobs:
           files: lcov.info
           token: ${{ secrets.CODECOV_TOKEN }}
           fail_ci_if_error: true
+
+      - name: Remove coverage traces after workers and uploads finish
+        if: always()
+        run: julia --startup-file=no test/coverage.jl traces
 
   aqua:
     name: Aqua

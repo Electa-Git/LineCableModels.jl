@@ -45,3 +45,34 @@
     @test !documented_fem_access(LineCableModels.Engine, :compute)
     @test !documented_fem_access(JSON3, :StructTypes)
 end
+
+
+@testitem "Quality / explicit imports / Gauntlet ownership" tags=[:quality] setup=[GauntletSupport] begin
+    using ExplicitImports: test_explicit_imports, improper_qualified_accesses
+    using .GauntletSupport: Gauntlet
+    import Pkg
+    using LinearAlgebra: BLAS
+
+    file = joinpath(pkgdir(LineCableModels), "gauntlet", "Gauntlet.jl")
+    test_explicit_imports(Gauntlet, file; all_qualified_accesses_are_public=false)
+    # Native facilities with no public annotation: detect instrumented runs,
+    # identify artifact hashes, restore recorded packages, and record BLAS settings.
+    # These are external interfaces; package-owned private access has no exception.
+    native = (
+        Base => (:JLOptions, :PkgId, :SHA1, :include, :loaded_modules, :require, :structdiff),
+        Base.Filesystem => (:path_separator,),
+        Pkg => (:dependencies,),
+        BLAS => (:get_config, :get_num_threads),
+    )
+    unexpected = String[]
+    for (consumer, accesses) in improper_qualified_accesses(Gauntlet, file; skip=())
+        for row in accesses
+            row.public_access && continue
+            row.self_qualified && continue
+            row.accessing_from === Base && Base.ispublic(Core, row.name) && continue
+            any(owner === row.accessing_from && row.name in names for (owner, names) in native) && continue
+            push!(unexpected, "$(row.accessing_from).$(row.name) at $(row.location)")
+        end
+    end
+    @test unexpected == String[]
+end

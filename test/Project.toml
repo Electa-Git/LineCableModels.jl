@@ -1,4 +1,6 @@
 [deps]
+BenchmarkTools = "6e4b80f9-dd63-53aa-95a3-0cdb28fa8baf"
+JLD2 = "033835bb-8acc-5ee8-8aae-3f567f8a3819"
 Aqua = "4c88cf16-eb10-579e-8560-4a9242c79595"
 Calculus = "49dc2e85-a5d0-5ad3-a950-438e2897f1b9"
 DataFrames = "a93c6f00-e57d-5684-b7b6-d8193f3e46c0"
@@ -30,6 +32,8 @@ XLSX = "fdbf4ff8-1666-58a4-91e7-1b58723a45e0"
 LineCableModels = {path = ".."}
 
 [compat]
+BenchmarkTools = "1"
+JLD2 = "0.6"
 Aqua = "0.8"
 Calculus = "0.5.2"
 DataFrames = "1.7.0"

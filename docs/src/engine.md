@@ -154,7 +154,7 @@ of the external equation. The consuming source explicitly admits compatible
 reductions. A full multilayer consumer rejects reductions.
 
 The current reduction default explicitly selects the bottommost soil; it is a
-layer-selection policy, not a derived general recursion. `:after` applies the one
+layer-selection settings, not a derived general recursion. `:after` applies the one
 backend-selected frequency law to physical layers first. `:before` reduces static
 properties and applies that same law to the resulting material. Physical and
 effective pairs remain distinct in the binding, and reductions run for each
@@ -219,7 +219,7 @@ receive no entry; distinct contributions require their own verified equations.
 Analytical result details retain requested and effective identities for every formulation
 slot, explicit modification flags, independent equivalent-earth selections and
 orders, and normalized numerical options for internal surfaces, scalar material laws,
-external cases and each required reduction case. Absence of a selected reduction remains `nothing` in this provenance.
+external cases and each required reduction case. Absence of a selected reduction remains `nothing` in this calculation records.
 
 PSCAD extends the same equation generics with a `Val(:pscad)` execution payload:
 
@@ -597,7 +597,7 @@ The formula value is retained through one formula-family storage parameter; its
 specific author identity does not parameterize the domain. Modal results from
 different registered routes therefore remain one concrete result-space element
 type. Numerical inverse dispatch uses the concrete operator tensor and does not
-inspect formula provenance.
+inspect formula calculation records.
 
 The retained modal formula is selected by `ModalTransformationFormulation()`.
 Explicit controls use `formula(:default; options=(iteration=(convergence=1e-8,),))`.
@@ -659,7 +659,7 @@ remain available for external backends, but there is no
 `:line_cable_models` or legacy `:analytical` selector.
 
 Modal formulas carry an `iteration` section containing convergence, iteration
-count, damping and the `:matched` or `:error` fallback policy. The computation action
+count, damping and the `:matched` or `:error` fallback settings. The computation action
 accepts `offdiagonal_tolerance` separately. Frequency continuation belongs to one
 run; result details record the frequency indices where matched eigensolutions were
 used. The stored voltage/current operators are retained for inverse transformation.
@@ -705,7 +705,7 @@ The PSCAD backend accepts:
 )
 ```
 
-`remote` must be a `PSCADBenchmarks.RemoteConfig`. `output_stem` names files
+`remote` must be a `PSCAD.RemoteConfig`. `output_stem` names files
 created by that execution. Neither value belongs to `PSCADFormulation`.
 
 Both option sets are ordinary `NamedTuple`s, aliased as
@@ -723,7 +723,7 @@ Other exception types always propagate immediately.
 
 ## Gauntlet routing
 
-`GauntletCase` coordinates two computations but does not own either backend's
+`BenchmarkDefinition` coordinates two computations but does not own either backend's
 keys. Its computation options form an outer tuple:
 
 ```julia

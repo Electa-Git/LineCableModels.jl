@@ -30,7 +30,7 @@ docs/src/assets/gauntlet/
 Manifest.toml
 */Manifest.toml
 !showcase/bonito/Manifest.toml
-!test/gauntlet/pscad/remote/Manifest.toml
+!ext/LineCableModelsPSCADExt/remote/Manifest.toml
 
 # the hidden folder of shame
 temp/
@@ -88,3 +88,12 @@ test/gauntlet/.artifacts/*
 # Python junk
 __pycache__/
 *.py[cod]
+
+# Gauntlet application definitions and local execution state
+!gauntlet/benchmarks/
+!gauntlet/benchmarks/**/*.jl
+gauntlet/local.jl
+gauntlet/.work/
+gauntlet/.artifacts/*
+!gauntlet/.artifacts/.gitkeep
+.linecablemodels/

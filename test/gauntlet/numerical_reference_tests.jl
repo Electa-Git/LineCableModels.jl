@@ -20,7 +20,7 @@
     )
     protected = [joinpath(pkgdir(LineCableModels), "test", "numerical", name)
         for name in ("approved.toml", "Artifacts.toml")]
-    push!(protected, joinpath(pkgdir(LineCableModels), "test", "gauntlet", "Artifacts.toml"))
+    push!(protected, joinpath(pkgdir(LineCableModels), "gauntlet", "Artifacts.toml"))
     original = [(read(path), stat(path).mtime) for path in protected]
     mktempdir() do root
         path = joinpath(root, "reference.jld2")
@@ -37,7 +37,7 @@
         @test all(iszero, comparison.Y.absolute)
         @test !isdefined(owner, :GauntletSupport)
         @test !isdefined(owner, :Gmsh)
-        @test !isdefined(owner, :PSCADBenchmarks)
+        @test owner.PSCAD === LineCableModels.PSCAD
 
         hash = create_artifact() do directory
             cp(path, joinpath(directory, "reference.jld2"))

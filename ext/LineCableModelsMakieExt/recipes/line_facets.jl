@@ -261,9 +261,10 @@ function _addon_semantic_line_page(
             xlabelvisible = row == page.dimensions[1],
             xticklabelsvisible = row == page.dimensions[1],
             xticksvisible = row == page.dimensions[1],
-            ylabelvisible = mode !== :matrix || column == 1,
-            yticklabelsvisible = mode !== :matrix || column == 1,
-            yticksvisible = mode !== :matrix || column == 1
+            # Matrix cells have independent y limits; each must expose its scale.
+            ylabelvisible = true,
+            yticklabelsvisible = true,
+            yticksvisible = true
         )
         axis = _addon_axis!(
             panel.content,

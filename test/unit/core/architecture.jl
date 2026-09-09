@@ -197,7 +197,7 @@ end
         joinpath("src", "reportbuilder", "grammar.jl"),
         joinpath("src", "reportbuilder", "tables.jl"),
         joinpath("src", "reportbuilder", "xlsx.jl"),
-        joinpath("src", "importexport", "pscad", "pscad.jl"),
+        joinpath("ext", "LineCableModelsPSCADExt", "importexport", "pscad.jl"),
         joinpath("ext", "LineCableModelsMakieExt", "shell.jl"),
         joinpath("ext", "LineCableModelsMakieExt", "material_colors.jl"),
         joinpath("ext", "LineCableModelsMakieExt", "recipes", "line_data.jl"),

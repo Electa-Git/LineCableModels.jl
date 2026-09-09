@@ -1,21 +1,17 @@
 # Explicit station check; this script is never discovered as a package test.
-# Run from the repository root with --project=test/gauntlet.
+# Run from the repository root with --project=gauntlet.
 using LineCableModels, JLD2, Test, EzXML
 
-module GauntletSupport
-using LineCableModels
-include(joinpath(pkgdir(LineCableModels), "test", "gauntlet", "runtime.jl"))
-end
-
-const P = GauntletSupport.PSCADBenchmarks
+const P = LineCableModels.PSCAD
 const E = LineCableModels.Engine
 const OUTPUT_PARENT = joinpath(pkgdir(LineCableModels), ".linecablemodels",
     "gauntlet", "verification", "pscad-normalization")
 mkpath(OUTPUT_PARENT)
 const OUTPUT = mktempdir(OUTPUT_PARENT; prefix = "run-", cleanup = false)
 cp(@__FILE__, joinpath(OUTPUT, basename(@__FILE__)))
-const OPTIONS = (remote = P._load_config(), verbosity = (default = 0, PSCAD = 1),
-    resume_run_directory = :latest)
+length(ARGS) == 1 || error("supply an explicit station configuration file (see gauntlet/local.example)")
+const OPTIONS = Base.include(Main,abspath(only(ARGS))).reference_options
+
 
 function problem(; temperature = 60, rho = 1.72e-8, semicon = false)
     copper = Material(:conductor, rho, 1, 1, 20, 0.004)
@@ -46,7 +42,7 @@ function retain(name, input, result)
     settings = details(result).native_setting
     expected = Dict(string(component) => Dict(string(field) => control.readback
         for (field, control) in pairs(getproperty(settings, component)))
-        for component in (:ground, :frequency))
+        for component in (:ground, :frequency, :configuration))
     @test details(result).native_readback == expected
     return result
 end
@@ -80,7 +76,7 @@ flush(stdout)
         @test results[index].Z.values !== hot.Z.values
         @test results[index].Y.values == hot.Y.values
         @test details(results[index]).formulations.requested.earth_impedance ==
-            P.formulation_record(selections[index]).requested.earth_impedance
+            NamedTuple(selections[index]).requested.earth_impedance
     end
 
     lossy_selection = Formulation(:pscad; insulation_admittance = :Ametani2004)

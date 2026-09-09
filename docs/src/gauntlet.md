@@ -5,13 +5,13 @@ EditURL = "../literate/gauntlet.jl"
 # Gauntlet
 
 Gauntlet runs cases manually and retains numerical results. This page is its
-only report: a compact comparison of the **applicable baseline formulations**
-for each case, read from explicitly configured, persisted benchmarks.
+documentation overview. Full tables and matrix-cell overlays are available at
+the REPL from explicitly configured, persisted benchmarks.
 Documentation generation never starts PSCAD, FEM, analytical calculations or
 uncertainty propagation. Full-catalogue and UQ results remain stored for
 analysis through the ordinary result, observation and plotting APIs.
 
-## Recorded baseline comparisons
+## Recorded comparisons
 
 Both errors are calculated element-wise by
 [`compare`](@ref LineCableModels.Engine.compare), with **A = the benchmark's
@@ -24,8 +24,8 @@ reference** and **B = its candidate**. Neither role is inferred from a backend.
 ```
 
 **One row is one benchmark.** Reference and candidate columns identify the
-backend and requested formulation selection. Z and Y stay side by side;
-each cell contains **maximum error in percent (response, excitation)**.
+backend and retained formulation record. Every recorded quantity is included;
+each overview cell contains **maximum error in percent (response, excitation)**.
 The maximum is across matrix entries, not a whole-matrix error. The two
 normalizations can attain their maxima at different entries. Expand the
 benchmark identities below each full-band table to see the terminal order.
@@ -34,578 +34,10 @@ benchmark identities below each full-band table to see the terminal order.
 sections, with the same column layout and their actual stored ranges.
 No interpolation or additional simulations are performed.
 
-46 explicitly configured benchmarks across 19 cases. Only completed, checksum-verified operands are included; no backend is selected as a reference by this page.
-
-Bracketed numbers identify the requested formulation selections:
-
-```@raw html
-<div class = "data-frame" style = "overflow-x: scroll;"><table class = "data-frame" style = "margin-bottom: 6px;"><thead><tr class = "columnLabelRow"><th class = "stubheadLabel" style = "font-weight: bold; text-align: right;">Row</th><th style = "text-align: left;">selection</th><th style = "text-align: left;">formulation</th></tr></thead><tbody><tr class = "dataRow"><td class = "rowLabel" style = "font-weight: bold; text-align: right;">1</td><td style = "text-align: right;">1</td><td style = "text-align: left;">all slots :default</td></tr><tr class = "dataRow"><td class = "rowLabel" style = "font-weight: bold; text-align: right;">2</td><td style = "text-align: right;">2</td><td style = "text-align: left;">insulation_admittance=Ametani2004, semicon_admittance=Ametani2004; remaining slots :default</td></tr></tbody></table></div>
-```
-
-### Full-band Z/Y summary
-
-Stored range: **0.1–1.0e6 Hz**, **101 samples**.
-
-```@raw html
-<h4>132 kV 630 mm² cables in flat horizontal formation</h4>
-<div class = "data-frame" style = "overflow-x: scroll;"><table class = "data-frame" style = "margin-bottom: 6px;"><thead><tr class = "columnLabelRow"><th class = "stubheadLabel" style = "font-weight: bold; text-align: right;">Row</th><th style = "text-align: left;">reference</th><th style = "text-align: left;">candidate</th><th style = "text-align: left;">Z NRMSE</th><th style = "text-align: left;">Z pointwise</th><th style = "text-align: left;">Y NRMSE</th><th style = "text-align: left;">Y pointwise</th></tr></thead><tbody><tr class = "dataRow"><td class = "rowLabel" style = "font-weight: bold; text-align: right;">1</td><td style = "text-align: left;">fem [1]</td><td style = "text-align: left;">coaxial [1]</td><td style = "text-align: left;">4.482 (4, 4)</td><td style = "text-align: left;">4.797 (4, 4)</td><td style = "text-align: left;">1107.0 (9, 8)</td><td style = "text-align: left;">1107.0 (8, 9)</td></tr><tr class = "dataRow"><td class = "rowLabel" style = "font-weight: bold; text-align: right;">2</td><td style = "text-align: left;">pscad [1]</td><td style = "text-align: left;">coaxial [1]</td><td style = "text-align: left;">1.501 (7, 1)</td><td style = "text-align: left;">0.3885 (7, 1)</td><td style = "text-align: left;">Inf (6, 3)</td><td style = "text-align: left;">Inf (6, 3)</td></tr><tr class = "dataRow"><td class = "rowLabel" style = "font-weight: bold; text-align: right;">3</td><td style = "text-align: left;">fem [2]</td><td style = "text-align: left;">coaxial [2]</td><td style = "text-align: left;">4.482 (4, 4)</td><td style = "text-align: left;">4.797 (4, 4)</td><td style = "text-align: left;">1213.0 (9, 8)</td><td style = "text-align: left;">3093.0 (5, 9)</td></tr><tr class = "dataRow"><td class = "rowLabel" style = "font-weight: bold; text-align: right;">4</td><td style = "text-align: left;">pscad [2]</td><td style = "text-align: left;">coaxial [2]</td><td style = "text-align: left;">1.501 (7, 1)</td><td style = "text-align: left;">0.3885 (7, 1)</td><td style = "text-align: left;">Inf (6, 3)</td><td style = "text-align: left;">Inf (6, 3)</td></tr></tbody></table></div>
-<details><summary>Benchmark identities and terminal order</summary>
-<p>Case: <code>cable_132kv_630mm2_flathor</code>.</p><ol>
-<li><code>dielectric_baseline/cable_132kv_630mm2_flathor__default__fem_reference</code></li>
-<li><code>dielectric_baseline/cable_132kv_630mm2_flathor__default__pscad_reference</code></li>
-<li><code>dielectric_baseline/cable_132kv_630mm2_flathor__ametani2004__fem_reference</code></li>
-<li><code>dielectric_baseline/cable_132kv_630mm2_flathor__ametani2004__pscad_reference</code></li>
-</ol>
-<p>Terminal order (benchmark rows 1, 2, 3, 4): <code>1=cable:1:core</code>, <code>2=cable:1:sheath</code>, <code>3=cable:1:jacket</code>, <code>4=cable:2:core</code>, <code>5=cable:2:sheath</code>, <code>6=cable:2:jacket</code>, <code>7=cable:3:core</code>, <code>8=cable:3:sheath</code>, <code>9=cable:3:jacket</code>.</p>
-</details>
-
-```
-
-```@raw html
-<h4>CIGRE TB 880 Case 0 — 132 kV 630 mm² Cu cables in trefoil</h4>
-<div class = "data-frame" style = "overflow-x: scroll;"><table class = "data-frame" style = "margin-bottom: 6px;"><thead><tr class = "columnLabelRow"><th class = "stubheadLabel" style = "font-weight: bold; text-align: right;">Row</th><th style = "text-align: left;">reference</th><th style = "text-align: left;">candidate</th><th style = "text-align: left;">Z NRMSE</th><th style = "text-align: left;">Z pointwise</th><th style = "text-align: left;">Y NRMSE</th><th style = "text-align: left;">Y pointwise</th></tr></thead><tbody><tr class = "dataRow"><td class = "rowLabel" style = "font-weight: bold; text-align: right;">1</td><td style = "text-align: left;">fem [1]</td><td style = "text-align: left;">coaxial [1]</td><td style = "text-align: left;">6.757 (2, 1)</td><td style = "text-align: left;">3.753 (2, 1)</td><td style = "text-align: left;">100.0 (3, 6)</td><td style = "text-align: left;">100.0 (4, 1)</td></tr><tr class = "dataRow"><td class = "rowLabel" style = "font-weight: bold; text-align: right;">2</td><td style = "text-align: left;">pscad [1]</td><td style = "text-align: left;">coaxial [1]</td><td style = "text-align: left;">0.7179 (3, 1)</td><td style = "text-align: left;">0.1831 (3, 1)</td><td style = "text-align: left;">Inf (4, 2)</td><td style = "text-align: left;">Inf (4, 2)</td></tr><tr class = "dataRow"><td class = "rowLabel" style = "font-weight: bold; text-align: right;">3</td><td style = "text-align: left;">fem [2]</td><td style = "text-align: left;">coaxial [2]</td><td style = "text-align: left;">12.9 (2, 1)</td><td style = "text-align: left;">4.827 (2, 1)</td><td style = "text-align: left;">100.0 (5, 3)</td><td style = "text-align: left;">100.0 (1, 3)</td></tr><tr class = "dataRow"><td class = "rowLabel" style = "font-weight: bold; text-align: right;">4</td><td style = "text-align: left;">pscad [2]</td><td style = "text-align: left;">coaxial [2]</td><td style = "text-align: left;">0.7179 (3, 1)</td><td style = "text-align: left;">0.1831 (3, 1)</td><td style = "text-align: left;">Inf (4, 2)</td><td style = "text-align: left;">Inf (4, 2)</td></tr></tbody></table></div>
-<details><summary>Benchmark identities and terminal order</summary>
-<p>Case: <code>cable_132kv_cigre_tb880_case0_630cu_trefoil</code>.</p><ol>
-<li><code>dielectric_baseline/cable_132kv_cigre_tb880_case0_630cu_trefoil__default__fem_reference</code></li>
-<li><code>dielectric_baseline/cable_132kv_cigre_tb880_case0_630cu_trefoil__default__pscad_reference</code></li>
-<li><code>dielectric_baseline/cable_132kv_cigre_tb880_case0_630cu_trefoil__ametani2004__fem_reference</code></li>
-<li><code>dielectric_baseline/cable_132kv_cigre_tb880_case0_630cu_trefoil__ametani2004__pscad_reference</code></li>
-</ol>
-<p>Terminal order (benchmark rows 1, 2, 3, 4): <code>1=cable:1:core</code>, <code>2=cable:1:sheath</code>, <code>3=cable:2:core</code>, <code>4=cable:2:sheath</code>, <code>5=cable:3:core</code>, <code>6=cable:3:sheath</code>.</p>
-</details>
-
-```
-
-```@raw html
-<h4>18 kV 1000 mm² cables in trefoil formation</h4>
-<div class = "data-frame" style = "overflow-x: scroll;"><table class = "data-frame" style = "margin-bottom: 6px;"><thead><tr class = "columnLabelRow"><th class = "stubheadLabel" style = "font-weight: bold; text-align: right;">Row</th><th style = "text-align: left;">reference</th><th style = "text-align: left;">candidate</th><th style = "text-align: left;">Z NRMSE</th><th style = "text-align: left;">Z pointwise</th><th style = "text-align: left;">Y NRMSE</th><th style = "text-align: left;">Y pointwise</th></tr></thead><tbody><tr class = "dataRow"><td class = "rowLabel" style = "font-weight: bold; text-align: right;">1</td><td style = "text-align: left;">fem [1]</td><td style = "text-align: left;">coaxial [1]</td><td style = "text-align: left;">7.837 (1, 1)</td><td style = "text-align: left;">5.419 (1, 1)</td><td style = "text-align: left;">711.0 (6, 5)</td><td style = "text-align: left;">711.0 (5, 6)</td></tr><tr class = "dataRow"><td class = "rowLabel" style = "font-weight: bold; text-align: right;">2</td><td style = "text-align: left;">pscad [1]</td><td style = "text-align: left;">coaxial [1]</td><td style = "text-align: left;">0.7017 (4, 1)</td><td style = "text-align: left;">0.1789 (4, 1)</td><td style = "text-align: left;">Inf (6, 3)</td><td style = "text-align: left;">Inf (6, 3)</td></tr><tr class = "dataRow"><td class = "rowLabel" style = "font-weight: bold; text-align: right;">3</td><td style = "text-align: left;">fem [2]</td><td style = "text-align: left;">coaxial [2]</td><td style = "text-align: left;">7.838 (1, 1)</td><td style = "text-align: left;">5.419 (1, 1)</td><td style = "text-align: left;">797.2 (6, 5)</td><td style = "text-align: left;">1908.0 (5, 9)</td></tr><tr class = "dataRow"><td class = "rowLabel" style = "font-weight: bold; text-align: right;">4</td><td style = "text-align: left;">pscad [2]</td><td style = "text-align: left;">coaxial [2]</td><td style = "text-align: left;">0.7017 (4, 1)</td><td style = "text-align: left;">0.1789 (4, 1)</td><td style = "text-align: left;">Inf (6, 3)</td><td style = "text-align: left;">Inf (6, 3)</td></tr></tbody></table></div>
-<details><summary>Benchmark identities and terminal order</summary>
-<p>Case: <code>cable_18kv_1000mm2_trefoil</code>.</p><ol>
-<li><code>dielectric_baseline/cable_18kv_1000mm2_trefoil__default__fem_reference</code></li>
-<li><code>dielectric_baseline/cable_18kv_1000mm2_trefoil__default__pscad_reference</code></li>
-<li><code>dielectric_baseline/cable_18kv_1000mm2_trefoil__ametani2004__fem_reference</code></li>
-<li><code>dielectric_baseline/cable_18kv_1000mm2_trefoil__ametani2004__pscad_reference</code></li>
-</ol>
-<p>Terminal order (benchmark rows 1, 2, 3, 4): <code>1=cable:1:core</code>, <code>2=cable:1:sheath</code>, <code>3=cable:1:jacket</code>, <code>4=cable:2:core</code>, <code>5=cable:2:sheath</code>, <code>6=cable:2:jacket</code>, <code>7=cable:3:core</code>, <code>8=cable:3:sheath</code>, <code>9=cable:3:jacket</code>.</p>
-</details>
-
-```
-
-```@raw html
-<h4>18 kV 1000 mm² cables in trefoil — homogenized assembly</h4>
-<div class = "data-frame" style = "overflow-x: scroll;"><table class = "data-frame" style = "margin-bottom: 6px;"><thead><tr class = "columnLabelRow"><th class = "stubheadLabel" style = "font-weight: bold; text-align: right;">Row</th><th style = "text-align: left;">reference</th><th style = "text-align: left;">candidate</th><th style = "text-align: left;">Z NRMSE</th><th style = "text-align: left;">Z pointwise</th><th style = "text-align: left;">Y NRMSE</th><th style = "text-align: left;">Y pointwise</th></tr></thead><tbody><tr class = "dataRow"><td class = "rowLabel" style = "font-weight: bold; text-align: right;">1</td><td style = "text-align: left;">fem [1]</td><td style = "text-align: left;">coaxial [1]</td><td style = "text-align: left;">6.54 (2, 1)</td><td style = "text-align: left;">3.482 (3, 1)</td><td style = "text-align: left;">100.0 (1, 3)</td><td style = "text-align: left;">109.6 (9, 7)</td></tr><tr class = "dataRow"><td class = "rowLabel" style = "font-weight: bold; text-align: right;">2</td><td style = "text-align: left;">pscad [1]</td><td style = "text-align: left;">coaxial [1]</td><td style = "text-align: left;">0.7017 (4, 1)</td><td style = "text-align: left;">0.1789 (4, 1)</td><td style = "text-align: left;">Inf (6, 3)</td><td style = "text-align: left;">Inf (6, 3)</td></tr><tr class = "dataRow"><td class = "rowLabel" style = "font-weight: bold; text-align: right;">3</td><td style = "text-align: left;">fem [2]</td><td style = "text-align: left;">coaxial [2]</td><td style = "text-align: left;">6.54 (2, 1)</td><td style = "text-align: left;">3.482 (3, 1)</td><td style = "text-align: left;">100.0 (9, 7)</td><td style = "text-align: left;">435.3 (1, 3)</td></tr><tr class = "dataRow"><td class = "rowLabel" style = "font-weight: bold; text-align: right;">4</td><td style = "text-align: left;">pscad [2]</td><td style = "text-align: left;">coaxial [2]</td><td style = "text-align: left;">0.7017 (4, 1)</td><td style = "text-align: left;">0.1789 (4, 1)</td><td style = "text-align: left;">Inf (6, 3)</td><td style = "text-align: left;">Inf (6, 3)</td></tr></tbody></table></div>
-<details><summary>Benchmark identities and terminal order</summary>
-<p>Case: <code>cable_18kv_1000mm2_trefoil_homogenized</code>.</p><ol>
-<li><code>dielectric_baseline/cable_18kv_1000mm2_trefoil_homogenized__default__fem_reference</code></li>
-<li><code>dielectric_baseline/cable_18kv_1000mm2_trefoil_homogenized__default__pscad_reference</code></li>
-<li><code>dielectric_baseline/cable_18kv_1000mm2_trefoil_homogenized__ametani2004__fem_reference</code></li>
-<li><code>dielectric_baseline/cable_18kv_1000mm2_trefoil_homogenized__ametani2004__pscad_reference</code></li>
-</ol>
-<p>Terminal order (benchmark rows 1, 2, 3, 4): <code>1=cable:1:core</code>, <code>2=cable:1:sheath</code>, <code>3=cable:1:jacket</code>, <code>4=cable:2:core</code>, <code>5=cable:2:sheath</code>, <code>6=cable:2:jacket</code>, <code>7=cable:3:core</code>, <code>8=cable:3:sheath</code>, <code>9=cable:3:jacket</code>.</p>
-</details>
-
-```
-
-```@raw html
-<h4>220 kV Milliken 2500 mm² Al / 252 mm² Cu cables in trefoil</h4>
-<div class = "data-frame" style = "overflow-x: scroll;"><table class = "data-frame" style = "margin-bottom: 6px;"><thead><tr class = "columnLabelRow"><th class = "stubheadLabel" style = "font-weight: bold; text-align: right;">Row</th><th style = "text-align: left;">reference</th><th style = "text-align: left;">candidate</th><th style = "text-align: left;">Z NRMSE</th><th style = "text-align: left;">Z pointwise</th><th style = "text-align: left;">Y NRMSE</th><th style = "text-align: left;">Y pointwise</th></tr></thead><tbody><tr class = "dataRow"><td class = "rowLabel" style = "font-weight: bold; text-align: right;">1</td><td style = "text-align: left;">pscad [1]</td><td style = "text-align: left;">coaxial [1]</td><td style = "text-align: left;">0.8387 (4, 1)</td><td style = "text-align: left;">0.2139 (4, 1)</td><td style = "text-align: left;">Inf (6, 3)</td><td style = "text-align: left;">Inf (6, 3)</td></tr><tr class = "dataRow"><td class = "rowLabel" style = "font-weight: bold; text-align: right;">2</td><td style = "text-align: left;">pscad [2]</td><td style = "text-align: left;">coaxial [2]</td><td style = "text-align: left;">0.8387 (4, 1)</td><td style = "text-align: left;">0.2139 (4, 1)</td><td style = "text-align: left;">Inf (6, 3)</td><td style = "text-align: left;">Inf (6, 3)</td></tr></tbody></table></div>
-<details><summary>Benchmark identities and terminal order</summary>
-<p>Case: <code>cable_220kv_eaxecew_1x2500_252_trefoil</code>.</p><ol>
-<li><code>dielectric_baseline/cable_220kv_eaxecew_1x2500_252_trefoil__default__pscad_reference</code></li>
-<li><code>dielectric_baseline/cable_220kv_eaxecew_1x2500_252_trefoil__ametani2004__pscad_reference</code></li>
-</ol>
-<p>Terminal order (benchmark rows 1, 2): <code>1=cable:1:core</code>, <code>2=cable:1:sheath</code>, <code>3=cable:1:foil</code>, <code>4=cable:2:core</code>, <code>5=cable:2:sheath</code>, <code>6=cable:2:foil</code>, <code>7=cable:3:core</code>, <code>8=cable:3:sheath</code>, <code>9=cable:3:foil</code>.</p>
-</details>
-
-```
-
-```@raw html
-<h4>18/30 kV NA2XS2Y 630 mm² Al cables in touching trefoil</h4>
-<div class = "data-frame" style = "overflow-x: scroll;"><table class = "data-frame" style = "margin-bottom: 6px;"><thead><tr class = "columnLabelRow"><th class = "stubheadLabel" style = "font-weight: bold; text-align: right;">Row</th><th style = "text-align: left;">reference</th><th style = "text-align: left;">candidate</th><th style = "text-align: left;">Z NRMSE</th><th style = "text-align: left;">Z pointwise</th><th style = "text-align: left;">Y NRMSE</th><th style = "text-align: left;">Y pointwise</th></tr></thead><tbody><tr class = "dataRow"><td class = "rowLabel" style = "font-weight: bold; text-align: right;">1</td><td style = "text-align: left;">pscad [1]</td><td style = "text-align: left;">coaxial [1]</td><td style = "text-align: left;">0.6601 (3, 1)</td><td style = "text-align: left;">0.1684 (3, 1)</td><td style = "text-align: left;">Inf (4, 2)</td><td style = "text-align: left;">Inf (4, 2)</td></tr><tr class = "dataRow"><td class = "rowLabel" style = "font-weight: bold; text-align: right;">2</td><td style = "text-align: left;">pscad [2]</td><td style = "text-align: left;">coaxial [2]</td><td style = "text-align: left;">0.6601 (3, 1)</td><td style = "text-align: left;">0.1684 (3, 1)</td><td style = "text-align: left;">Inf (4, 2)</td><td style = "text-align: left;">Inf (4, 2)</td></tr></tbody></table></div>
-<details><summary>Benchmark identities and terminal order</summary>
-<p>Case: <code>cable_30kv_na2xs2y_630mm2_trefoil</code>.</p><ol>
-<li><code>dielectric_baseline/cable_30kv_na2xs2y_630mm2_trefoil__default__pscad_reference</code></li>
-<li><code>dielectric_baseline/cable_30kv_na2xs2y_630mm2_trefoil__ametani2004__pscad_reference</code></li>
-</ol>
-<p>Terminal order (benchmark rows 1, 2): <code>1=cable:1:core</code>, <code>2=cable:1:sheath</code>, <code>3=cable:2:core</code>, <code>4=cable:2:sheath</code>, <code>5=cable:3:core</code>, <code>6=cable:3:sheath</code>.</p>
-</details>
-
-```
-
-```@raw html
-<h4>320 kV armoured cable DC bipole</h4>
-<div class = "data-frame" style = "overflow-x: scroll;"><table class = "data-frame" style = "margin-bottom: 6px;"><thead><tr class = "columnLabelRow"><th class = "stubheadLabel" style = "font-weight: bold; text-align: right;">Row</th><th style = "text-align: left;">reference</th><th style = "text-align: left;">candidate</th><th style = "text-align: left;">Z NRMSE</th><th style = "text-align: left;">Z pointwise</th><th style = "text-align: left;">Y NRMSE</th><th style = "text-align: left;">Y pointwise</th></tr></thead><tbody><tr class = "dataRow"><td class = "rowLabel" style = "font-weight: bold; text-align: right;">1</td><td style = "text-align: left;">pscad [1]</td><td style = "text-align: left;">coaxial [1]</td><td style = "text-align: left;">8.022 (4, 1)</td><td style = "text-align: left;">2.065 (4, 1)</td><td style = "text-align: left;">Inf (6, 3)</td><td style = "text-align: left;">Inf (6, 3)</td></tr><tr class = "dataRow"><td class = "rowLabel" style = "font-weight: bold; text-align: right;">2</td><td style = "text-align: left;">pscad [2]</td><td style = "text-align: left;">coaxial [2]</td><td style = "text-align: left;">8.022 (4, 1)</td><td style = "text-align: left;">2.065 (4, 1)</td><td style = "text-align: left;">Inf (6, 3)</td><td style = "text-align: left;">Inf (6, 3)</td></tr></tbody></table></div>
-<details><summary>Benchmark identities and terminal order</summary>
-<p>Case: <code>cable_320kv_armoured_dc_bipole</code>.</p><ol>
-<li><code>dielectric_baseline/cable_320kv_armoured_dc_bipole__default__pscad_reference</code></li>
-<li><code>dielectric_baseline/cable_320kv_armoured_dc_bipole__ametani2004__pscad_reference</code></li>
-</ol>
-<p>Terminal order (benchmark rows 1, 2): <code>1=cable:1:core</code>, <code>2=cable:1:sheath</code>, <code>3=cable:1:armor</code>, <code>4=cable:2:core</code>, <code>5=cable:2:sheath</code>, <code>6=cable:2:armor</code>.</p>
-</details>
-
-```
-
-```@raw html
-<h4>320 kV unarmoured cable DC bipole</h4>
-<div class = "data-frame" style = "overflow-x: scroll;"><table class = "data-frame" style = "margin-bottom: 6px;"><thead><tr class = "columnLabelRow"><th class = "stubheadLabel" style = "font-weight: bold; text-align: right;">Row</th><th style = "text-align: left;">reference</th><th style = "text-align: left;">candidate</th><th style = "text-align: left;">Z NRMSE</th><th style = "text-align: left;">Z pointwise</th><th style = "text-align: left;">Y NRMSE</th><th style = "text-align: left;">Y pointwise</th></tr></thead><tbody><tr class = "dataRow"><td class = "rowLabel" style = "font-weight: bold; text-align: right;">1</td><td style = "text-align: left;">pscad [1]</td><td style = "text-align: left;">coaxial [1]</td><td style = "text-align: left;">8.019 (3, 1)</td><td style = "text-align: left;">2.064 (3, 1)</td><td style = "text-align: left;">Inf (4, 2)</td><td style = "text-align: left;">Inf (4, 2)</td></tr><tr class = "dataRow"><td class = "rowLabel" style = "font-weight: bold; text-align: right;">2</td><td style = "text-align: left;">pscad [2]</td><td style = "text-align: left;">coaxial [2]</td><td style = "text-align: left;">8.019 (3, 1)</td><td style = "text-align: left;">2.064 (3, 1)</td><td style = "text-align: left;">Inf (4, 2)</td><td style = "text-align: left;">Inf (4, 2)</td></tr></tbody></table></div>
-<details><summary>Benchmark identities and terminal order</summary>
-<p>Case: <code>cable_320kv_no_armour_dc_bipole</code>.</p><ol>
-<li><code>dielectric_baseline/cable_320kv_no_armour_dc_bipole__default__pscad_reference</code></li>
-<li><code>dielectric_baseline/cable_320kv_no_armour_dc_bipole__ametani2004__pscad_reference</code></li>
-</ol>
-<p>Terminal order (benchmark rows 1, 2): <code>1=cable:1:core</code>, <code>2=cable:1:sheath</code>, <code>3=cable:2:core</code>, <code>4=cable:2:sheath</code>.</p>
-</details>
-
-```
-
-```@raw html
-<h4>380 kV 2000 mm² cables in flat vertical formation</h4>
-<div class = "data-frame" style = "overflow-x: scroll;"><table class = "data-frame" style = "margin-bottom: 6px;"><thead><tr class = "columnLabelRow"><th class = "stubheadLabel" style = "font-weight: bold; text-align: right;">Row</th><th style = "text-align: left;">reference</th><th style = "text-align: left;">candidate</th><th style = "text-align: left;">Z NRMSE</th><th style = "text-align: left;">Z pointwise</th><th style = "text-align: left;">Y NRMSE</th><th style = "text-align: left;">Y pointwise</th></tr></thead><tbody><tr class = "dataRow"><td class = "rowLabel" style = "font-weight: bold; text-align: right;">1</td><td style = "text-align: left;">pscad [1]</td><td style = "text-align: left;">coaxial [1]</td><td style = "text-align: left;">1.529 (7, 1)</td><td style = "text-align: left;">0.3983 (7, 1)</td><td style = "text-align: left;">Inf (6, 3)</td><td style = "text-align: left;">Inf (6, 3)</td></tr><tr class = "dataRow"><td class = "rowLabel" style = "font-weight: bold; text-align: right;">2</td><td style = "text-align: left;">pscad [2]</td><td style = "text-align: left;">coaxial [2]</td><td style = "text-align: left;">1.529 (7, 1)</td><td style = "text-align: left;">0.3983 (7, 1)</td><td style = "text-align: left;">Inf (6, 3)</td><td style = "text-align: left;">Inf (6, 3)</td></tr></tbody></table></div>
-<details><summary>Benchmark identities and terminal order</summary>
-<p>Case: <code>cable_380kv_2000mm2_flatver</code>.</p><ol>
-<li><code>dielectric_baseline/cable_380kv_2000mm2_flatver__default__pscad_reference</code></li>
-<li><code>dielectric_baseline/cable_380kv_2000mm2_flatver__ametani2004__pscad_reference</code></li>
-</ol>
-<p>Terminal order (benchmark rows 1, 2): <code>1=cable:1:core</code>, <code>2=cable:1:sheath</code>, <code>3=cable:1:jacket</code>, <code>4=cable:2:core</code>, <code>5=cable:2:sheath</code>, <code>6=cable:2:jacket</code>, <code>7=cable:3:core</code>, <code>8=cable:3:sheath</code>, <code>9=cable:3:jacket</code>.</p>
-</details>
-
-```
-
-```@raw html
-<h4>380 kV armoured cables in AC flat formation</h4>
-<div class = "data-frame" style = "overflow-x: scroll;"><table class = "data-frame" style = "margin-bottom: 6px;"><thead><tr class = "columnLabelRow"><th class = "stubheadLabel" style = "font-weight: bold; text-align: right;">Row</th><th style = "text-align: left;">reference</th><th style = "text-align: left;">candidate</th><th style = "text-align: left;">Z NRMSE</th><th style = "text-align: left;">Z pointwise</th><th style = "text-align: left;">Y NRMSE</th><th style = "text-align: left;">Y pointwise</th></tr></thead><tbody><tr class = "dataRow"><td class = "rowLabel" style = "font-weight: bold; text-align: right;">1</td><td style = "text-align: left;">pscad [1]</td><td style = "text-align: left;">coaxial [1]</td><td style = "text-align: left;">10.04 (7, 1)</td><td style = "text-align: left;">2.594 (7, 1)</td><td style = "text-align: left;">Inf (6, 3)</td><td style = "text-align: left;">Inf (6, 3)</td></tr><tr class = "dataRow"><td class = "rowLabel" style = "font-weight: bold; text-align: right;">2</td><td style = "text-align: left;">pscad [2]</td><td style = "text-align: left;">coaxial [2]</td><td style = "text-align: left;">10.04 (7, 1)</td><td style = "text-align: left;">2.594 (7, 1)</td><td style = "text-align: left;">Inf (6, 3)</td><td style = "text-align: left;">Inf (6, 3)</td></tr></tbody></table></div>
-<details><summary>Benchmark identities and terminal order</summary>
-<p>Case: <code>cable_380kv_armoured_ac_flat</code>.</p><ol>
-<li><code>dielectric_baseline/cable_380kv_armoured_ac_flat__default__pscad_reference</code></li>
-<li><code>dielectric_baseline/cable_380kv_armoured_ac_flat__ametani2004__pscad_reference</code></li>
-</ol>
-<p>Terminal order (benchmark rows 1, 2): <code>1=cable:1:core</code>, <code>2=cable:1:sheath</code>, <code>3=cable:1:armor</code>, <code>4=cable:2:core</code>, <code>5=cable:2:sheath</code>, <code>6=cable:2:armor</code>, <code>7=cable:3:core</code>, <code>8=cable:3:sheath</code>, <code>9=cable:3:armor</code>.</p>
-</details>
-
-```
-
-```@raw html
-<h4>380 kV unarmoured cables in AC flat formation</h4>
-<div class = "data-frame" style = "overflow-x: scroll;"><table class = "data-frame" style = "margin-bottom: 6px;"><thead><tr class = "columnLabelRow"><th class = "stubheadLabel" style = "font-weight: bold; text-align: right;">Row</th><th style = "text-align: left;">reference</th><th style = "text-align: left;">candidate</th><th style = "text-align: left;">Z NRMSE</th><th style = "text-align: left;">Z pointwise</th><th style = "text-align: left;">Y NRMSE</th><th style = "text-align: left;">Y pointwise</th></tr></thead><tbody><tr class = "dataRow"><td class = "rowLabel" style = "font-weight: bold; text-align: right;">1</td><td style = "text-align: left;">pscad [1]</td><td style = "text-align: left;">coaxial [1]</td><td style = "text-align: left;">10.04 (5, 1)</td><td style = "text-align: left;">2.593 (5, 1)</td><td style = "text-align: left;">Inf (4, 2)</td><td style = "text-align: left;">Inf (4, 2)</td></tr><tr class = "dataRow"><td class = "rowLabel" style = "font-weight: bold; text-align: right;">2</td><td style = "text-align: left;">pscad [2]</td><td style = "text-align: left;">coaxial [2]</td><td style = "text-align: left;">10.04 (5, 1)</td><td style = "text-align: left;">2.593 (5, 1)</td><td style = "text-align: left;">Inf (4, 2)</td><td style = "text-align: left;">Inf (4, 2)</td></tr></tbody></table></div>
-<details><summary>Benchmark identities and terminal order</summary>
-<p>Case: <code>cable_380kv_no_armour_ac_flat</code>.</p><ol>
-<li><code>dielectric_baseline/cable_380kv_no_armour_ac_flat__default__pscad_reference</code></li>
-<li><code>dielectric_baseline/cable_380kv_no_armour_ac_flat__ametani2004__pscad_reference</code></li>
-</ol>
-<p>Terminal order (benchmark rows 1, 2): <code>1=cable:1:core</code>, <code>2=cable:1:sheath</code>, <code>3=cable:2:core</code>, <code>4=cable:2:sheath</code>, <code>5=cable:3:core</code>, <code>6=cable:3:sheath</code>.</p>
-</details>
-
-```
-
-```@raw html
-<h4>525 kV 1600 mm² armoured cable DC bipole</h4>
-<div class = "data-frame" style = "overflow-x: scroll;"><table class = "data-frame" style = "margin-bottom: 6px;"><thead><tr class = "columnLabelRow"><th class = "stubheadLabel" style = "font-weight: bold; text-align: right;">Row</th><th style = "text-align: left;">reference</th><th style = "text-align: left;">candidate</th><th style = "text-align: left;">Z NRMSE</th><th style = "text-align: left;">Z pointwise</th><th style = "text-align: left;">Y NRMSE</th><th style = "text-align: left;">Y pointwise</th></tr></thead><tbody><tr class = "dataRow"><td class = "rowLabel" style = "font-weight: bold; text-align: right;">1</td><td style = "text-align: left;">pscad [1]</td><td style = "text-align: left;">coaxial [1]</td><td style = "text-align: left;">1.577 (4, 1)</td><td style = "text-align: left;">0.4093 (4, 1)</td><td style = "text-align: left;">Inf (6, 3)</td><td style = "text-align: left;">Inf (6, 3)</td></tr><tr class = "dataRow"><td class = "rowLabel" style = "font-weight: bold; text-align: right;">2</td><td style = "text-align: left;">pscad [2]</td><td style = "text-align: left;">coaxial [2]</td><td style = "text-align: left;">1.577 (4, 1)</td><td style = "text-align: left;">0.4093 (4, 1)</td><td style = "text-align: left;">Inf (6, 3)</td><td style = "text-align: left;">Inf (6, 3)</td></tr></tbody></table></div>
-<details><summary>Benchmark identities and terminal order</summary>
-<p>Case: <code>cable_525kv_1600mm2_bipole</code>.</p><ol>
-<li><code>dielectric_baseline/cable_525kv_1600mm2_bipole__default__pscad_reference</code></li>
-<li><code>dielectric_baseline/cable_525kv_1600mm2_bipole__ametani2004__pscad_reference</code></li>
-</ol>
-<p>Terminal order (benchmark rows 1, 2): <code>1=cable:1:core</code>, <code>2=cable:1:sheath</code>, <code>3=cable:1:armor</code>, <code>4=cable:2:core</code>, <code>5=cable:2:sheath</code>, <code>6=cable:2:armor</code>.</p>
-</details>
-
-```
-
-```@raw html
-<h4>525 kV unarmoured land cables in AC flat formation</h4>
-<div class = "data-frame" style = "overflow-x: scroll;"><table class = "data-frame" style = "margin-bottom: 6px;"><thead><tr class = "columnLabelRow"><th class = "stubheadLabel" style = "font-weight: bold; text-align: right;">Row</th><th style = "text-align: left;">reference</th><th style = "text-align: left;">candidate</th><th style = "text-align: left;">Z NRMSE</th><th style = "text-align: left;">Z pointwise</th><th style = "text-align: left;">Y NRMSE</th><th style = "text-align: left;">Y pointwise</th></tr></thead><tbody><tr class = "dataRow"><td class = "rowLabel" style = "font-weight: bold; text-align: right;">1</td><td style = "text-align: left;">pscad [1]</td><td style = "text-align: left;">coaxial [1]</td><td style = "text-align: left;">10.04 (5, 1)</td><td style = "text-align: left;">2.594 (5, 1)</td><td style = "text-align: left;">Inf (4, 2)</td><td style = "text-align: left;">Inf (4, 2)</td></tr><tr class = "dataRow"><td class = "rowLabel" style = "font-weight: bold; text-align: right;">2</td><td style = "text-align: left;">pscad [2]</td><td style = "text-align: left;">coaxial [2]</td><td style = "text-align: left;">10.04 (5, 1)</td><td style = "text-align: left;">2.594 (5, 1)</td><td style = "text-align: left;">Inf (4, 2)</td><td style = "text-align: left;">Inf (4, 2)</td></tr></tbody></table></div>
-<details><summary>Benchmark identities and terminal order</summary>
-<p>Case: <code>cable_525kv_land_no_armour_ac_flat</code>.</p><ol>
-<li><code>dielectric_baseline/cable_525kv_land_no_armour_ac_flat__default__pscad_reference</code></li>
-<li><code>dielectric_baseline/cable_525kv_land_no_armour_ac_flat__ametani2004__pscad_reference</code></li>
-</ol>
-<p>Terminal order (benchmark rows 1, 2): <code>1=cable:1:core</code>, <code>2=cable:1:sheath</code>, <code>3=cable:2:core</code>, <code>4=cable:2:sheath</code>, <code>5=cable:3:core</code>, <code>6=cable:3:sheath</code>.</p>
-</details>
-
-```
-
-```@raw html
-<h4>525 kV unarmoured land cable DC bipole</h4>
-<div class = "data-frame" style = "overflow-x: scroll;"><table class = "data-frame" style = "margin-bottom: 6px;"><thead><tr class = "columnLabelRow"><th class = "stubheadLabel" style = "font-weight: bold; text-align: right;">Row</th><th style = "text-align: left;">reference</th><th style = "text-align: left;">candidate</th><th style = "text-align: left;">Z NRMSE</th><th style = "text-align: left;">Z pointwise</th><th style = "text-align: left;">Y NRMSE</th><th style = "text-align: left;">Y pointwise</th></tr></thead><tbody><tr class = "dataRow"><td class = "rowLabel" style = "font-weight: bold; text-align: right;">1</td><td style = "text-align: left;">pscad [1]</td><td style = "text-align: left;">coaxial [1]</td><td style = "text-align: left;">8.022 (3, 1)</td><td style = "text-align: left;">2.065 (3, 1)</td><td style = "text-align: left;">Inf (4, 2)</td><td style = "text-align: left;">Inf (4, 2)</td></tr><tr class = "dataRow"><td class = "rowLabel" style = "font-weight: bold; text-align: right;">2</td><td style = "text-align: left;">pscad [2]</td><td style = "text-align: left;">coaxial [2]</td><td style = "text-align: left;">8.022 (3, 1)</td><td style = "text-align: left;">2.065 (3, 1)</td><td style = "text-align: left;">Inf (4, 2)</td><td style = "text-align: left;">Inf (4, 2)</td></tr></tbody></table></div>
-<details><summary>Benchmark identities and terminal order</summary>
-<p>Case: <code>cable_525kv_land_no_armour_dc_bipole</code>.</p><ol>
-<li><code>dielectric_baseline/cable_525kv_land_no_armour_dc_bipole__default__pscad_reference</code></li>
-<li><code>dielectric_baseline/cable_525kv_land_no_armour_dc_bipole__ametani2004__pscad_reference</code></li>
-</ol>
-<p>Terminal order (benchmark rows 1, 2): <code>1=cable:1:core</code>, <code>2=cable:1:sheath</code>, <code>3=cable:2:core</code>, <code>4=cable:2:sheath</code>.</p>
-</details>
-
-```
-
-```@raw html
-<h4>525 kV armoured subsea cables in AC flat formation</h4>
-<div class = "data-frame" style = "overflow-x: scroll;"><table class = "data-frame" style = "margin-bottom: 6px;"><thead><tr class = "columnLabelRow"><th class = "stubheadLabel" style = "font-weight: bold; text-align: right;">Row</th><th style = "text-align: left;">reference</th><th style = "text-align: left;">candidate</th><th style = "text-align: left;">Z NRMSE</th><th style = "text-align: left;">Z pointwise</th><th style = "text-align: left;">Y NRMSE</th><th style = "text-align: left;">Y pointwise</th></tr></thead><tbody><tr class = "dataRow"><td class = "rowLabel" style = "font-weight: bold; text-align: right;">1</td><td style = "text-align: left;">pscad [1]</td><td style = "text-align: left;">coaxial [1]</td><td style = "text-align: left;">10.04 (7, 1)</td><td style = "text-align: left;">2.594 (7, 1)</td><td style = "text-align: left;">Inf (6, 3)</td><td style = "text-align: left;">Inf (6, 3)</td></tr><tr class = "dataRow"><td class = "rowLabel" style = "font-weight: bold; text-align: right;">2</td><td style = "text-align: left;">pscad [2]</td><td style = "text-align: left;">coaxial [2]</td><td style = "text-align: left;">10.04 (7, 1)</td><td style = "text-align: left;">2.594 (7, 1)</td><td style = "text-align: left;">Inf (6, 3)</td><td style = "text-align: left;">Inf (6, 3)</td></tr></tbody></table></div>
-<details><summary>Benchmark identities and terminal order</summary>
-<p>Case: <code>cable_525kv_subsea_armoured_ac_flat</code>.</p><ol>
-<li><code>dielectric_baseline/cable_525kv_subsea_armoured_ac_flat__default__pscad_reference</code></li>
-<li><code>dielectric_baseline/cable_525kv_subsea_armoured_ac_flat__ametani2004__pscad_reference</code></li>
-</ol>
-<p>Terminal order (benchmark rows 1, 2): <code>1=cable:1:core</code>, <code>2=cable:1:sheath</code>, <code>3=cable:1:armor</code>, <code>4=cable:2:core</code>, <code>5=cable:2:sheath</code>, <code>6=cable:2:armor</code>, <code>7=cable:3:core</code>, <code>8=cable:3:sheath</code>, <code>9=cable:3:armor</code>.</p>
-</details>
-
-```
-
-```@raw html
-<h4>525 kV armoured subsea cable DC bipole</h4>
-<div class = "data-frame" style = "overflow-x: scroll;"><table class = "data-frame" style = "margin-bottom: 6px;"><thead><tr class = "columnLabelRow"><th class = "stubheadLabel" style = "font-weight: bold; text-align: right;">Row</th><th style = "text-align: left;">reference</th><th style = "text-align: left;">candidate</th><th style = "text-align: left;">Z NRMSE</th><th style = "text-align: left;">Z pointwise</th><th style = "text-align: left;">Y NRMSE</th><th style = "text-align: left;">Y pointwise</th></tr></thead><tbody><tr class = "dataRow"><td class = "rowLabel" style = "font-weight: bold; text-align: right;">1</td><td style = "text-align: left;">pscad [1]</td><td style = "text-align: left;">coaxial [1]</td><td style = "text-align: left;">8.023 (4, 1)</td><td style = "text-align: left;">2.065 (4, 1)</td><td style = "text-align: left;">Inf (6, 3)</td><td style = "text-align: left;">Inf (6, 3)</td></tr><tr class = "dataRow"><td class = "rowLabel" style = "font-weight: bold; text-align: right;">2</td><td style = "text-align: left;">pscad [2]</td><td style = "text-align: left;">coaxial [2]</td><td style = "text-align: left;">8.023 (4, 1)</td><td style = "text-align: left;">2.065 (4, 1)</td><td style = "text-align: left;">Inf (6, 3)</td><td style = "text-align: left;">Inf (6, 3)</td></tr></tbody></table></div>
-<details><summary>Benchmark identities and terminal order</summary>
-<p>Case: <code>cable_525kv_subsea_armoured_dc_bipole</code>.</p><ol>
-<li><code>dielectric_baseline/cable_525kv_subsea_armoured_dc_bipole__default__pscad_reference</code></li>
-<li><code>dielectric_baseline/cable_525kv_subsea_armoured_dc_bipole__ametani2004__pscad_reference</code></li>
-</ol>
-<p>Terminal order (benchmark rows 1, 2): <code>1=cable:1:core</code>, <code>2=cable:1:sheath</code>, <code>3=cable:1:armor</code>, <code>4=cable:2:core</code>, <code>5=cable:2:sheath</code>, <code>6=cable:2:armor</code>.</p>
-</details>
-
-```
-
-```@raw html
-<h4>640 kV 2000 mm² cable DC bipole</h4>
-<div class = "data-frame" style = "overflow-x: scroll;"><table class = "data-frame" style = "margin-bottom: 6px;"><thead><tr class = "columnLabelRow"><th class = "stubheadLabel" style = "font-weight: bold; text-align: right;">Row</th><th style = "text-align: left;">reference</th><th style = "text-align: left;">candidate</th><th style = "text-align: left;">Z NRMSE</th><th style = "text-align: left;">Z pointwise</th><th style = "text-align: left;">Y NRMSE</th><th style = "text-align: left;">Y pointwise</th></tr></thead><tbody><tr class = "dataRow"><td class = "rowLabel" style = "font-weight: bold; text-align: right;">1</td><td style = "text-align: left;">pscad [1]</td><td style = "text-align: left;">coaxial [1]</td><td style = "text-align: left;">1.538 (4, 1)</td><td style = "text-align: left;">0.3985 (4, 1)</td><td style = "text-align: left;">Inf (6, 3)</td><td style = "text-align: left;">Inf (6, 3)</td></tr><tr class = "dataRow"><td class = "rowLabel" style = "font-weight: bold; text-align: right;">2</td><td style = "text-align: left;">pscad [2]</td><td style = "text-align: left;">coaxial [2]</td><td style = "text-align: left;">1.538 (4, 1)</td><td style = "text-align: left;">0.3985 (4, 1)</td><td style = "text-align: left;">Inf (6, 3)</td><td style = "text-align: left;">Inf (6, 3)</td></tr></tbody></table></div>
-<details><summary>Benchmark identities and terminal order</summary>
-<p>Case: <code>cable_640kv_2000mm2_bipole</code>.</p><ol>
-<li><code>dielectric_baseline/cable_640kv_2000mm2_bipole__default__pscad_reference</code></li>
-<li><code>dielectric_baseline/cable_640kv_2000mm2_bipole__ametani2004__pscad_reference</code></li>
-</ol>
-<p>Terminal order (benchmark rows 1, 2): <code>1=cable:1:core</code>, <code>2=cable:1:sheath</code>, <code>3=cable:1:jacket</code>, <code>4=cable:2:core</code>, <code>5=cable:2:sheath</code>, <code>6=cable:2:jacket</code>.</p>
-</details>
-
-```
-
-```@raw html
-<h4>Single 1000 mm² solid conductor</h4>
-<div class = "data-frame" style = "overflow-x: scroll;"><table class = "data-frame" style = "margin-bottom: 6px;"><thead><tr class = "columnLabelRow"><th class = "stubheadLabel" style = "font-weight: bold; text-align: right;">Row</th><th style = "text-align: left;">reference</th><th style = "text-align: left;">candidate</th><th style = "text-align: left;">Z NRMSE</th><th style = "text-align: left;">Z pointwise</th><th style = "text-align: left;">Y NRMSE</th><th style = "text-align: left;">Y pointwise</th></tr></thead><tbody><tr class = "dataRow"><td class = "rowLabel" style = "font-weight: bold; text-align: right;">1</td><td style = "text-align: left;">pscad [1]</td><td style = "text-align: left;">coaxial [1]</td><td style = "text-align: left;">0.5348 (1, 1)</td><td style = "text-align: left;">0.1398 (1, 1)</td><td style = "text-align: left;">15.84 (1, 1)</td><td style = "text-align: left;">4.166 (1, 1)</td></tr><tr class = "dataRow"><td class = "rowLabel" style = "font-weight: bold; text-align: right;">2</td><td style = "text-align: left;">pscad [2]</td><td style = "text-align: left;">coaxial [2]</td><td style = "text-align: left;">0.5348 (1, 1)</td><td style = "text-align: left;">0.1398 (1, 1)</td><td style = "text-align: left;">15.84 (1, 1)</td><td style = "text-align: left;">4.166 (1, 1)</td></tr></tbody></table></div>
-<details><summary>Benchmark identities and terminal order</summary>
-<p>Case: <code>solid_1000mm2_single</code>.</p><ol>
-<li><code>dielectric_baseline/solid_1000mm2_single__default__pscad_reference</code></li>
-<li><code>dielectric_baseline/solid_1000mm2_single__ametani2004__pscad_reference</code></li>
-</ol>
-<p>Terminal order (benchmark rows 1, 2): <code>1=cable:1:core</code>.</p>
-</details>
-
-```
-
-```@raw html
-<h4>Two buried wires with 1 mm insulation</h4>
-<div class = "data-frame" style = "overflow-x: scroll;"><table class = "data-frame" style = "margin-bottom: 6px;"><thead><tr class = "columnLabelRow"><th class = "stubheadLabel" style = "font-weight: bold; text-align: right;">Row</th><th style = "text-align: left;">reference</th><th style = "text-align: left;">candidate</th><th style = "text-align: left;">Z NRMSE</th><th style = "text-align: left;">Z pointwise</th><th style = "text-align: left;">Y NRMSE</th><th style = "text-align: left;">Y pointwise</th></tr></thead><tbody><tr class = "dataRow"><td class = "rowLabel" style = "font-weight: bold; text-align: right;">1</td><td style = "text-align: left;">pscad [1]</td><td style = "text-align: left;">coaxial [1]</td><td style = "text-align: left;">9.618 (1, 1)</td><td style = "text-align: left;">2.77 (2, 1)</td><td style = "text-align: left;">Inf (2, 1)</td><td style = "text-align: left;">Inf (2, 1)</td></tr><tr class = "dataRow"><td class = "rowLabel" style = "font-weight: bold; text-align: right;">2</td><td style = "text-align: left;">pscad [2]</td><td style = "text-align: left;">coaxial [2]</td><td style = "text-align: left;">9.618 (1, 1)</td><td style = "text-align: left;">2.77 (2, 1)</td><td style = "text-align: left;">Inf (2, 1)</td><td style = "text-align: left;">Inf (2, 1)</td></tr></tbody></table></div>
-<details><summary>Benchmark identities and terminal order</summary>
-<p>Case: <code>two_insulated_wires</code>.</p><ol>
-<li><code>dielectric_baseline/two_insulated_wires__default__pscad_reference</code></li>
-<li><code>dielectric_baseline/two_insulated_wires__ametani2004__pscad_reference</code></li>
-</ol>
-<p>Terminal order (benchmark rows 1, 2): <code>1=cable:1:core</code>, <code>2=cable:2:core</code>.</p>
-</details>
-
-```
-
-### Frequency slices — Z/Y
-
-#### Band `dc`
-
-Stored range: **0.1–102.33 Hz**, **44 samples**.
-
-```@raw html
-<h4>132 kV 630 mm² cables in flat horizontal formation</h4>
-<div class = "data-frame" style = "overflow-x: scroll;"><table class = "data-frame" style = "margin-bottom: 6px;"><thead><tr class = "columnLabelRow"><th class = "stubheadLabel" style = "font-weight: bold; text-align: right;">Row</th><th style = "text-align: left;">reference</th><th style = "text-align: left;">candidate</th><th style = "text-align: left;">Z NRMSE</th><th style = "text-align: left;">Z pointwise</th><th style = "text-align: left;">Y NRMSE</th><th style = "text-align: left;">Y pointwise</th></tr></thead><tbody><tr class = "dataRow"><td class = "rowLabel" style = "font-weight: bold; text-align: right;">1</td><td style = "text-align: left;">fem [1]</td><td style = "text-align: left;">coaxial [1]</td><td style = "text-align: left;">4.493 (7, 7)</td><td style = "text-align: left;">5.046 (7, 7)</td><td style = "text-align: left;">1107.0 (9, 8)</td><td style = "text-align: left;">1107.0 (9, 8)</td></tr><tr class = "dataRow"><td class = "rowLabel" style = "font-weight: bold; text-align: right;">2</td><td style = "text-align: left;">pscad [1]</td><td style = "text-align: left;">coaxial [1]</td><td style = "text-align: left;">0.06422 (1, 1)</td><td style = "text-align: left;">0.03417 (1, 1)</td><td style = "text-align: left;">Inf (6, 3)</td><td style = "text-align: left;">Inf (6, 3)</td></tr><tr class = "dataRow"><td class = "rowLabel" style = "font-weight: bold; text-align: right;">3</td><td style = "text-align: left;">fem [2]</td><td style = "text-align: left;">coaxial [2]</td><td style = "text-align: left;">4.493 (7, 7)</td><td style = "text-align: left;">5.046 (7, 7)</td><td style = "text-align: left;">2003.0 (6, 5)</td><td style = "text-align: left;">2003.0 (6, 5)</td></tr><tr class = "dataRow"><td class = "rowLabel" style = "font-weight: bold; text-align: right;">4</td><td style = "text-align: left;">pscad [2]</td><td style = "text-align: left;">coaxial [2]</td><td style = "text-align: left;">0.06422 (1, 1)</td><td style = "text-align: left;">0.03417 (1, 1)</td><td style = "text-align: left;">Inf (6, 3)</td><td style = "text-align: left;">Inf (6, 3)</td></tr></tbody></table></div>
-```
-
-```@raw html
-<h4>CIGRE TB 880 Case 0 — 132 kV 630 mm² Cu cables in trefoil</h4>
-<div class = "data-frame" style = "overflow-x: scroll;"><table class = "data-frame" style = "margin-bottom: 6px;"><thead><tr class = "columnLabelRow"><th class = "stubheadLabel" style = "font-weight: bold; text-align: right;">Row</th><th style = "text-align: left;">reference</th><th style = "text-align: left;">candidate</th><th style = "text-align: left;">Z NRMSE</th><th style = "text-align: left;">Z pointwise</th><th style = "text-align: left;">Y NRMSE</th><th style = "text-align: left;">Y pointwise</th></tr></thead><tbody><tr class = "dataRow"><td class = "rowLabel" style = "font-weight: bold; text-align: right;">1</td><td style = "text-align: left;">fem [1]</td><td style = "text-align: left;">coaxial [1]</td><td style = "text-align: left;">1.233 (2, 1)</td><td style = "text-align: left;">0.6276 (4, 3)</td><td style = "text-align: left;">8.864 (6, 2)</td><td style = "text-align: left;">7.421 (2, 6)</td></tr><tr class = "dataRow"><td class = "rowLabel" style = "font-weight: bold; text-align: right;">2</td><td style = "text-align: left;">pscad [1]</td><td style = "text-align: left;">coaxial [1]</td><td style = "text-align: left;">0.06621 (3, 3)</td><td style = "text-align: left;">0.03533 (3, 3)</td><td style = "text-align: left;">Inf (4, 2)</td><td style = "text-align: left;">Inf (4, 2)</td></tr><tr class = "dataRow"><td class = "rowLabel" style = "font-weight: bold; text-align: right;">3</td><td style = "text-align: left;">fem [2]</td><td style = "text-align: left;">coaxial [2]</td><td style = "text-align: left;">1.234 (2, 1)</td><td style = "text-align: left;">0.628 (4, 3)</td><td style = "text-align: left;">100.0 (6, 1)</td><td style = "text-align: left;">100.0 (4, 1)</td></tr><tr class = "dataRow"><td class = "rowLabel" style = "font-weight: bold; text-align: right;">4</td><td style = "text-align: left;">pscad [2]</td><td style = "text-align: left;">coaxial [2]</td><td style = "text-align: left;">0.06621 (3, 3)</td><td style = "text-align: left;">0.03533 (3, 3)</td><td style = "text-align: left;">Inf (4, 2)</td><td style = "text-align: left;">Inf (4, 2)</td></tr></tbody></table></div>
-```
-
-```@raw html
-<h4>18 kV 1000 mm² cables in trefoil formation</h4>
-<div class = "data-frame" style = "overflow-x: scroll;"><table class = "data-frame" style = "margin-bottom: 6px;"><thead><tr class = "columnLabelRow"><th class = "stubheadLabel" style = "font-weight: bold; text-align: right;">Row</th><th style = "text-align: left;">reference</th><th style = "text-align: left;">candidate</th><th style = "text-align: left;">Z NRMSE</th><th style = "text-align: left;">Z pointwise</th><th style = "text-align: left;">Y NRMSE</th><th style = "text-align: left;">Y pointwise</th></tr></thead><tbody><tr class = "dataRow"><td class = "rowLabel" style = "font-weight: bold; text-align: right;">1</td><td style = "text-align: left;">fem [1]</td><td style = "text-align: left;">coaxial [1]</td><td style = "text-align: left;">2.753 (7, 7)</td><td style = "text-align: left;">4.181 (7, 7)</td><td style = "text-align: left;">711.0 (6, 5)</td><td style = "text-align: left;">711.0 (6, 5)</td></tr><tr class = "dataRow"><td class = "rowLabel" style = "font-weight: bold; text-align: right;">2</td><td style = "text-align: left;">pscad [1]</td><td style = "text-align: left;">coaxial [1]</td><td style = "text-align: left;">0.06135 (4, 4)</td><td style = "text-align: left;">0.03337 (4, 4)</td><td style = "text-align: left;">Inf (6, 3)</td><td style = "text-align: left;">Inf (6, 3)</td></tr><tr class = "dataRow"><td class = "rowLabel" style = "font-weight: bold; text-align: right;">3</td><td style = "text-align: left;">fem [2]</td><td style = "text-align: left;">coaxial [2]</td><td style = "text-align: left;">2.753 (7, 7)</td><td style = "text-align: left;">4.181 (7, 7)</td><td style = "text-align: left;">1608.0 (2, 3)</td><td style = "text-align: left;">1608.0 (3, 2)</td></tr><tr class = "dataRow"><td class = "rowLabel" style = "font-weight: bold; text-align: right;">4</td><td style = "text-align: left;">pscad [2]</td><td style = "text-align: left;">coaxial [2]</td><td style = "text-align: left;">0.06135 (4, 4)</td><td style = "text-align: left;">0.03337 (4, 4)</td><td style = "text-align: left;">Inf (6, 3)</td><td style = "text-align: left;">Inf (6, 3)</td></tr></tbody></table></div>
-```
-
-```@raw html
-<h4>18 kV 1000 mm² cables in trefoil — homogenized assembly</h4>
-<div class = "data-frame" style = "overflow-x: scroll;"><table class = "data-frame" style = "margin-bottom: 6px;"><thead><tr class = "columnLabelRow"><th class = "stubheadLabel" style = "font-weight: bold; text-align: right;">Row</th><th style = "text-align: left;">reference</th><th style = "text-align: left;">candidate</th><th style = "text-align: left;">Z NRMSE</th><th style = "text-align: left;">Z pointwise</th><th style = "text-align: left;">Y NRMSE</th><th style = "text-align: left;">Y pointwise</th></tr></thead><tbody><tr class = "dataRow"><td class = "rowLabel" style = "font-weight: bold; text-align: right;">1</td><td style = "text-align: left;">fem [1]</td><td style = "text-align: left;">coaxial [1]</td><td style = "text-align: left;">0.812 (6, 5)</td><td style = "text-align: left;">0.5 (1, 1)</td><td style = "text-align: left;">8.868 (3, 9)</td><td style = "text-align: left;">7.435 (3, 9)</td></tr><tr class = "dataRow"><td class = "rowLabel" style = "font-weight: bold; text-align: right;">2</td><td style = "text-align: left;">pscad [1]</td><td style = "text-align: left;">coaxial [1]</td><td style = "text-align: left;">0.06135 (4, 4)</td><td style = "text-align: left;">0.03337 (4, 4)</td><td style = "text-align: left;">Inf (6, 3)</td><td style = "text-align: left;">Inf (6, 3)</td></tr><tr class = "dataRow"><td class = "rowLabel" style = "font-weight: bold; text-align: right;">3</td><td style = "text-align: left;">fem [2]</td><td style = "text-align: left;">coaxial [2]</td><td style = "text-align: left;">0.812 (6, 5)</td><td style = "text-align: left;">0.5 (1, 1)</td><td style = "text-align: left;">8.868 (3, 9)</td><td style = "text-align: left;">23.3 (6, 9)</td></tr><tr class = "dataRow"><td class = "rowLabel" style = "font-weight: bold; text-align: right;">4</td><td style = "text-align: left;">pscad [2]</td><td style = "text-align: left;">coaxial [2]</td><td style = "text-align: left;">0.06135 (4, 4)</td><td style = "text-align: left;">0.03337 (4, 4)</td><td style = "text-align: left;">Inf (6, 3)</td><td style = "text-align: left;">Inf (6, 3)</td></tr></tbody></table></div>
-```
-
-```@raw html
-<h4>220 kV Milliken 2500 mm² Al / 252 mm² Cu cables in trefoil</h4>
-<div class = "data-frame" style = "overflow-x: scroll;"><table class = "data-frame" style = "margin-bottom: 6px;"><thead><tr class = "columnLabelRow"><th class = "stubheadLabel" style = "font-weight: bold; text-align: right;">Row</th><th style = "text-align: left;">reference</th><th style = "text-align: left;">candidate</th><th style = "text-align: left;">Z NRMSE</th><th style = "text-align: left;">Z pointwise</th><th style = "text-align: left;">Y NRMSE</th><th style = "text-align: left;">Y pointwise</th></tr></thead><tbody><tr class = "dataRow"><td class = "rowLabel" style = "font-weight: bold; text-align: right;">1</td><td style = "text-align: left;">pscad [1]</td><td style = "text-align: left;">coaxial [1]</td><td style = "text-align: left;">0.07385 (4, 4)</td><td style = "text-align: left;">0.04461 (4, 4)</td><td style = "text-align: left;">Inf (6, 3)</td><td style = "text-align: left;">Inf (6, 3)</td></tr><tr class = "dataRow"><td class = "rowLabel" style = "font-weight: bold; text-align: right;">2</td><td style = "text-align: left;">pscad [2]</td><td style = "text-align: left;">coaxial [2]</td><td style = "text-align: left;">0.07385 (4, 4)</td><td style = "text-align: left;">0.04461 (4, 4)</td><td style = "text-align: left;">Inf (6, 3)</td><td style = "text-align: left;">Inf (6, 3)</td></tr></tbody></table></div>
-```
-
-```@raw html
-<h4>18/30 kV NA2XS2Y 630 mm² Al cables in touching trefoil</h4>
-<div class = "data-frame" style = "overflow-x: scroll;"><table class = "data-frame" style = "margin-bottom: 6px;"><thead><tr class = "columnLabelRow"><th class = "stubheadLabel" style = "font-weight: bold; text-align: right;">Row</th><th style = "text-align: left;">reference</th><th style = "text-align: left;">candidate</th><th style = "text-align: left;">Z NRMSE</th><th style = "text-align: left;">Z pointwise</th><th style = "text-align: left;">Y NRMSE</th><th style = "text-align: left;">Y pointwise</th></tr></thead><tbody><tr class = "dataRow"><td class = "rowLabel" style = "font-weight: bold; text-align: right;">1</td><td style = "text-align: left;">pscad [1]</td><td style = "text-align: left;">coaxial [1]</td><td style = "text-align: left;">0.05424 (3, 3)</td><td style = "text-align: left;">0.03026 (3, 3)</td><td style = "text-align: left;">Inf (4, 2)</td><td style = "text-align: left;">Inf (4, 2)</td></tr><tr class = "dataRow"><td class = "rowLabel" style = "font-weight: bold; text-align: right;">2</td><td style = "text-align: left;">pscad [2]</td><td style = "text-align: left;">coaxial [2]</td><td style = "text-align: left;">0.05424 (3, 3)</td><td style = "text-align: left;">0.03026 (3, 3)</td><td style = "text-align: left;">Inf (4, 2)</td><td style = "text-align: left;">Inf (4, 2)</td></tr></tbody></table></div>
-```
-
-```@raw html
-<h4>320 kV armoured cable DC bipole</h4>
-<div class = "data-frame" style = "overflow-x: scroll;"><table class = "data-frame" style = "margin-bottom: 6px;"><thead><tr class = "columnLabelRow"><th class = "stubheadLabel" style = "font-weight: bold; text-align: right;">Row</th><th style = "text-align: left;">reference</th><th style = "text-align: left;">candidate</th><th style = "text-align: left;">Z NRMSE</th><th style = "text-align: left;">Z pointwise</th><th style = "text-align: left;">Y NRMSE</th><th style = "text-align: left;">Y pointwise</th></tr></thead><tbody><tr class = "dataRow"><td class = "rowLabel" style = "font-weight: bold; text-align: right;">1</td><td style = "text-align: left;">pscad [1]</td><td style = "text-align: left;">coaxial [1]</td><td style = "text-align: left;">0.05889 (1, 1)</td><td style = "text-align: left;">0.03046 (1, 1)</td><td style = "text-align: left;">Inf (6, 3)</td><td style = "text-align: left;">Inf (6, 3)</td></tr><tr class = "dataRow"><td class = "rowLabel" style = "font-weight: bold; text-align: right;">2</td><td style = "text-align: left;">pscad [2]</td><td style = "text-align: left;">coaxial [2]</td><td style = "text-align: left;">0.05889 (1, 1)</td><td style = "text-align: left;">0.03046 (1, 1)</td><td style = "text-align: left;">Inf (6, 3)</td><td style = "text-align: left;">Inf (6, 3)</td></tr></tbody></table></div>
-```
-
-```@raw html
-<h4>320 kV unarmoured cable DC bipole</h4>
-<div class = "data-frame" style = "overflow-x: scroll;"><table class = "data-frame" style = "margin-bottom: 6px;"><thead><tr class = "columnLabelRow"><th class = "stubheadLabel" style = "font-weight: bold; text-align: right;">Row</th><th style = "text-align: left;">reference</th><th style = "text-align: left;">candidate</th><th style = "text-align: left;">Z NRMSE</th><th style = "text-align: left;">Z pointwise</th><th style = "text-align: left;">Y NRMSE</th><th style = "text-align: left;">Y pointwise</th></tr></thead><tbody><tr class = "dataRow"><td class = "rowLabel" style = "font-weight: bold; text-align: right;">1</td><td style = "text-align: left;">pscad [1]</td><td style = "text-align: left;">coaxial [1]</td><td style = "text-align: left;">0.05951 (1, 1)</td><td style = "text-align: left;">0.03208 (1, 1)</td><td style = "text-align: left;">Inf (4, 2)</td><td style = "text-align: left;">Inf (4, 2)</td></tr><tr class = "dataRow"><td class = "rowLabel" style = "font-weight: bold; text-align: right;">2</td><td style = "text-align: left;">pscad [2]</td><td style = "text-align: left;">coaxial [2]</td><td style = "text-align: left;">0.05951 (1, 1)</td><td style = "text-align: left;">0.03208 (1, 1)</td><td style = "text-align: left;">Inf (4, 2)</td><td style = "text-align: left;">Inf (4, 2)</td></tr></tbody></table></div>
-```
-
-```@raw html
-<h4>380 kV 2000 mm² cables in flat vertical formation</h4>
-<div class = "data-frame" style = "overflow-x: scroll;"><table class = "data-frame" style = "margin-bottom: 6px;"><thead><tr class = "columnLabelRow"><th class = "stubheadLabel" style = "font-weight: bold; text-align: right;">Row</th><th style = "text-align: left;">reference</th><th style = "text-align: left;">candidate</th><th style = "text-align: left;">Z NRMSE</th><th style = "text-align: left;">Z pointwise</th><th style = "text-align: left;">Y NRMSE</th><th style = "text-align: left;">Y pointwise</th></tr></thead><tbody><tr class = "dataRow"><td class = "rowLabel" style = "font-weight: bold; text-align: right;">1</td><td style = "text-align: left;">pscad [1]</td><td style = "text-align: left;">coaxial [1]</td><td style = "text-align: left;">0.06675 (7, 7)</td><td style = "text-align: left;">0.04463 (7, 7)</td><td style = "text-align: left;">Inf (6, 3)</td><td style = "text-align: left;">Inf (6, 3)</td></tr><tr class = "dataRow"><td class = "rowLabel" style = "font-weight: bold; text-align: right;">2</td><td style = "text-align: left;">pscad [2]</td><td style = "text-align: left;">coaxial [2]</td><td style = "text-align: left;">0.06675 (7, 7)</td><td style = "text-align: left;">0.04463 (7, 7)</td><td style = "text-align: left;">Inf (6, 3)</td><td style = "text-align: left;">Inf (6, 3)</td></tr></tbody></table></div>
-```
-
-```@raw html
-<h4>380 kV armoured cables in AC flat formation</h4>
-<div class = "data-frame" style = "overflow-x: scroll;"><table class = "data-frame" style = "margin-bottom: 6px;"><thead><tr class = "columnLabelRow"><th class = "stubheadLabel" style = "font-weight: bold; text-align: right;">Row</th><th style = "text-align: left;">reference</th><th style = "text-align: left;">candidate</th><th style = "text-align: left;">Z NRMSE</th><th style = "text-align: left;">Z pointwise</th><th style = "text-align: left;">Y NRMSE</th><th style = "text-align: left;">Y pointwise</th></tr></thead><tbody><tr class = "dataRow"><td class = "rowLabel" style = "font-weight: bold; text-align: right;">1</td><td style = "text-align: left;">pscad [1]</td><td style = "text-align: left;">coaxial [1]</td><td style = "text-align: left;">0.05889 (1, 1)</td><td style = "text-align: left;">0.03046 (1, 1)</td><td style = "text-align: left;">Inf (6, 3)</td><td style = "text-align: left;">Inf (6, 3)</td></tr><tr class = "dataRow"><td class = "rowLabel" style = "font-weight: bold; text-align: right;">2</td><td style = "text-align: left;">pscad [2]</td><td style = "text-align: left;">coaxial [2]</td><td style = "text-align: left;">0.05889 (1, 1)</td><td style = "text-align: left;">0.03046 (1, 1)</td><td style = "text-align: left;">Inf (6, 3)</td><td style = "text-align: left;">Inf (6, 3)</td></tr></tbody></table></div>
-```
-
-```@raw html
-<h4>380 kV unarmoured cables in AC flat formation</h4>
-<div class = "data-frame" style = "overflow-x: scroll;"><table class = "data-frame" style = "margin-bottom: 6px;"><thead><tr class = "columnLabelRow"><th class = "stubheadLabel" style = "font-weight: bold; text-align: right;">Row</th><th style = "text-align: left;">reference</th><th style = "text-align: left;">candidate</th><th style = "text-align: left;">Z NRMSE</th><th style = "text-align: left;">Z pointwise</th><th style = "text-align: left;">Y NRMSE</th><th style = "text-align: left;">Y pointwise</th></tr></thead><tbody><tr class = "dataRow"><td class = "rowLabel" style = "font-weight: bold; text-align: right;">1</td><td style = "text-align: left;">pscad [1]</td><td style = "text-align: left;">coaxial [1]</td><td style = "text-align: left;">0.05951 (1, 1)</td><td style = "text-align: left;">0.03208 (1, 1)</td><td style = "text-align: left;">Inf (4, 2)</td><td style = "text-align: left;">Inf (4, 2)</td></tr><tr class = "dataRow"><td class = "rowLabel" style = "font-weight: bold; text-align: right;">2</td><td style = "text-align: left;">pscad [2]</td><td style = "text-align: left;">coaxial [2]</td><td style = "text-align: left;">0.05951 (1, 1)</td><td style = "text-align: left;">0.03208 (1, 1)</td><td style = "text-align: left;">Inf (4, 2)</td><td style = "text-align: left;">Inf (4, 2)</td></tr></tbody></table></div>
-```
-
-```@raw html
-<h4>525 kV 1600 mm² armoured cable DC bipole</h4>
-<div class = "data-frame" style = "overflow-x: scroll;"><table class = "data-frame" style = "margin-bottom: 6px;"><thead><tr class = "columnLabelRow"><th class = "stubheadLabel" style = "font-weight: bold; text-align: right;">Row</th><th style = "text-align: left;">reference</th><th style = "text-align: left;">candidate</th><th style = "text-align: left;">Z NRMSE</th><th style = "text-align: left;">Z pointwise</th><th style = "text-align: left;">Y NRMSE</th><th style = "text-align: left;">Y pointwise</th></tr></thead><tbody><tr class = "dataRow"><td class = "rowLabel" style = "font-weight: bold; text-align: right;">1</td><td style = "text-align: left;">pscad [1]</td><td style = "text-align: left;">coaxial [1]</td><td style = "text-align: left;">0.06045 (1, 1)</td><td style = "text-align: left;">0.03078 (1, 1)</td><td style = "text-align: left;">Inf (6, 3)</td><td style = "text-align: left;">Inf (6, 3)</td></tr><tr class = "dataRow"><td class = "rowLabel" style = "font-weight: bold; text-align: right;">2</td><td style = "text-align: left;">pscad [2]</td><td style = "text-align: left;">coaxial [2]</td><td style = "text-align: left;">0.06045 (1, 1)</td><td style = "text-align: left;">0.03078 (1, 1)</td><td style = "text-align: left;">Inf (6, 3)</td><td style = "text-align: left;">Inf (6, 3)</td></tr></tbody></table></div>
-```
-
-```@raw html
-<h4>525 kV unarmoured land cables in AC flat formation</h4>
-<div class = "data-frame" style = "overflow-x: scroll;"><table class = "data-frame" style = "margin-bottom: 6px;"><thead><tr class = "columnLabelRow"><th class = "stubheadLabel" style = "font-weight: bold; text-align: right;">Row</th><th style = "text-align: left;">reference</th><th style = "text-align: left;">candidate</th><th style = "text-align: left;">Z NRMSE</th><th style = "text-align: left;">Z pointwise</th><th style = "text-align: left;">Y NRMSE</th><th style = "text-align: left;">Y pointwise</th></tr></thead><tbody><tr class = "dataRow"><td class = "rowLabel" style = "font-weight: bold; text-align: right;">1</td><td style = "text-align: left;">pscad [1]</td><td style = "text-align: left;">coaxial [1]</td><td style = "text-align: left;">0.05536 (1, 1)</td><td style = "text-align: left;">0.04136 (1, 1)</td><td style = "text-align: left;">Inf (4, 2)</td><td style = "text-align: left;">Inf (4, 2)</td></tr><tr class = "dataRow"><td class = "rowLabel" style = "font-weight: bold; text-align: right;">2</td><td style = "text-align: left;">pscad [2]</td><td style = "text-align: left;">coaxial [2]</td><td style = "text-align: left;">0.05536 (1, 1)</td><td style = "text-align: left;">0.04136 (1, 1)</td><td style = "text-align: left;">Inf (4, 2)</td><td style = "text-align: left;">Inf (4, 2)</td></tr></tbody></table></div>
-```
-
-```@raw html
-<h4>525 kV unarmoured land cable DC bipole</h4>
-<div class = "data-frame" style = "overflow-x: scroll;"><table class = "data-frame" style = "margin-bottom: 6px;"><thead><tr class = "columnLabelRow"><th class = "stubheadLabel" style = "font-weight: bold; text-align: right;">Row</th><th style = "text-align: left;">reference</th><th style = "text-align: left;">candidate</th><th style = "text-align: left;">Z NRMSE</th><th style = "text-align: left;">Z pointwise</th><th style = "text-align: left;">Y NRMSE</th><th style = "text-align: left;">Y pointwise</th></tr></thead><tbody><tr class = "dataRow"><td class = "rowLabel" style = "font-weight: bold; text-align: right;">1</td><td style = "text-align: left;">pscad [1]</td><td style = "text-align: left;">coaxial [1]</td><td style = "text-align: left;">0.05536 (1, 1)</td><td style = "text-align: left;">0.04136 (1, 1)</td><td style = "text-align: left;">Inf (4, 2)</td><td style = "text-align: left;">Inf (4, 2)</td></tr><tr class = "dataRow"><td class = "rowLabel" style = "font-weight: bold; text-align: right;">2</td><td style = "text-align: left;">pscad [2]</td><td style = "text-align: left;">coaxial [2]</td><td style = "text-align: left;">0.05536 (1, 1)</td><td style = "text-align: left;">0.04136 (1, 1)</td><td style = "text-align: left;">Inf (4, 2)</td><td style = "text-align: left;">Inf (4, 2)</td></tr></tbody></table></div>
-```
-
-```@raw html
-<h4>525 kV armoured subsea cables in AC flat formation</h4>
-<div class = "data-frame" style = "overflow-x: scroll;"><table class = "data-frame" style = "margin-bottom: 6px;"><thead><tr class = "columnLabelRow"><th class = "stubheadLabel" style = "font-weight: bold; text-align: right;">Row</th><th style = "text-align: left;">reference</th><th style = "text-align: left;">candidate</th><th style = "text-align: left;">Z NRMSE</th><th style = "text-align: left;">Z pointwise</th><th style = "text-align: left;">Y NRMSE</th><th style = "text-align: left;">Y pointwise</th></tr></thead><tbody><tr class = "dataRow"><td class = "rowLabel" style = "font-weight: bold; text-align: right;">1</td><td style = "text-align: left;">pscad [1]</td><td style = "text-align: left;">coaxial [1]</td><td style = "text-align: left;">0.0604 (1, 1)</td><td style = "text-align: left;">0.04037 (1, 1)</td><td style = "text-align: left;">Inf (6, 3)</td><td style = "text-align: left;">Inf (6, 3)</td></tr><tr class = "dataRow"><td class = "rowLabel" style = "font-weight: bold; text-align: right;">2</td><td style = "text-align: left;">pscad [2]</td><td style = "text-align: left;">coaxial [2]</td><td style = "text-align: left;">0.0604 (1, 1)</td><td style = "text-align: left;">0.04037 (1, 1)</td><td style = "text-align: left;">Inf (6, 3)</td><td style = "text-align: left;">Inf (6, 3)</td></tr></tbody></table></div>
-```
-
-```@raw html
-<h4>525 kV armoured subsea cable DC bipole</h4>
-<div class = "data-frame" style = "overflow-x: scroll;"><table class = "data-frame" style = "margin-bottom: 6px;"><thead><tr class = "columnLabelRow"><th class = "stubheadLabel" style = "font-weight: bold; text-align: right;">Row</th><th style = "text-align: left;">reference</th><th style = "text-align: left;">candidate</th><th style = "text-align: left;">Z NRMSE</th><th style = "text-align: left;">Z pointwise</th><th style = "text-align: left;">Y NRMSE</th><th style = "text-align: left;">Y pointwise</th></tr></thead><tbody><tr class = "dataRow"><td class = "rowLabel" style = "font-weight: bold; text-align: right;">1</td><td style = "text-align: left;">pscad [1]</td><td style = "text-align: left;">coaxial [1]</td><td style = "text-align: left;">0.0604 (1, 1)</td><td style = "text-align: left;">0.04037 (1, 1)</td><td style = "text-align: left;">Inf (6, 3)</td><td style = "text-align: left;">Inf (6, 3)</td></tr><tr class = "dataRow"><td class = "rowLabel" style = "font-weight: bold; text-align: right;">2</td><td style = "text-align: left;">pscad [2]</td><td style = "text-align: left;">coaxial [2]</td><td style = "text-align: left;">0.0604 (1, 1)</td><td style = "text-align: left;">0.04037 (1, 1)</td><td style = "text-align: left;">Inf (6, 3)</td><td style = "text-align: left;">Inf (6, 3)</td></tr></tbody></table></div>
-```
-
-```@raw html
-<h4>640 kV 2000 mm² cable DC bipole</h4>
-<div class = "data-frame" style = "overflow-x: scroll;"><table class = "data-frame" style = "margin-bottom: 6px;"><thead><tr class = "columnLabelRow"><th class = "stubheadLabel" style = "font-weight: bold; text-align: right;">Row</th><th style = "text-align: left;">reference</th><th style = "text-align: left;">candidate</th><th style = "text-align: left;">Z NRMSE</th><th style = "text-align: left;">Z pointwise</th><th style = "text-align: left;">Y NRMSE</th><th style = "text-align: left;">Y pointwise</th></tr></thead><tbody><tr class = "dataRow"><td class = "rowLabel" style = "font-weight: bold; text-align: right;">1</td><td style = "text-align: left;">pscad [1]</td><td style = "text-align: left;">coaxial [1]</td><td style = "text-align: left;">0.06355 (1, 1)</td><td style = "text-align: left;">0.04288 (1, 1)</td><td style = "text-align: left;">Inf (6, 3)</td><td style = "text-align: left;">Inf (6, 3)</td></tr><tr class = "dataRow"><td class = "rowLabel" style = "font-weight: bold; text-align: right;">2</td><td style = "text-align: left;">pscad [2]</td><td style = "text-align: left;">coaxial [2]</td><td style = "text-align: left;">0.06355 (1, 1)</td><td style = "text-align: left;">0.04288 (1, 1)</td><td style = "text-align: left;">Inf (6, 3)</td><td style = "text-align: left;">Inf (6, 3)</td></tr></tbody></table></div>
-```
-
-```@raw html
-<h4>Single 1000 mm² solid conductor</h4>
-<div class = "data-frame" style = "overflow-x: scroll;"><table class = "data-frame" style = "margin-bottom: 6px;"><thead><tr class = "columnLabelRow"><th class = "stubheadLabel" style = "font-weight: bold; text-align: right;">Row</th><th style = "text-align: left;">reference</th><th style = "text-align: left;">candidate</th><th style = "text-align: left;">Z NRMSE</th><th style = "text-align: left;">Z pointwise</th><th style = "text-align: left;">Y NRMSE</th><th style = "text-align: left;">Y pointwise</th></tr></thead><tbody><tr class = "dataRow"><td class = "rowLabel" style = "font-weight: bold; text-align: right;">1</td><td style = "text-align: left;">pscad [1]</td><td style = "text-align: left;">coaxial [1]</td><td style = "text-align: left;">0.06355 (1, 1)</td><td style = "text-align: left;">0.03402 (1, 1)</td><td style = "text-align: left;">0.00429 (1, 1)</td><td style = "text-align: left;">0.001651 (1, 1)</td></tr><tr class = "dataRow"><td class = "rowLabel" style = "font-weight: bold; text-align: right;">2</td><td style = "text-align: left;">pscad [2]</td><td style = "text-align: left;">coaxial [2]</td><td style = "text-align: left;">0.06355 (1, 1)</td><td style = "text-align: left;">0.03402 (1, 1)</td><td style = "text-align: left;">0.00429 (1, 1)</td><td style = "text-align: left;">0.001651 (1, 1)</td></tr></tbody></table></div>
-```
-
-```@raw html
-<h4>Two buried wires with 1 mm insulation</h4>
-<div class = "data-frame" style = "overflow-x: scroll;"><table class = "data-frame" style = "margin-bottom: 6px;"><thead><tr class = "columnLabelRow"><th class = "stubheadLabel" style = "font-weight: bold; text-align: right;">Row</th><th style = "text-align: left;">reference</th><th style = "text-align: left;">candidate</th><th style = "text-align: left;">Z NRMSE</th><th style = "text-align: left;">Z pointwise</th><th style = "text-align: left;">Y NRMSE</th><th style = "text-align: left;">Y pointwise</th></tr></thead><tbody><tr class = "dataRow"><td class = "rowLabel" style = "font-weight: bold; text-align: right;">1</td><td style = "text-align: left;">pscad [1]</td><td style = "text-align: left;">coaxial [1]</td><td style = "text-align: left;">0.05052 (1, 1)</td><td style = "text-align: left;">0.06414 (1, 1)</td><td style = "text-align: left;">3.341e-5 (2, 2)</td><td style = "text-align: left;">1.305e-5 (2, 2)</td></tr><tr class = "dataRow"><td class = "rowLabel" style = "font-weight: bold; text-align: right;">2</td><td style = "text-align: left;">pscad [2]</td><td style = "text-align: left;">coaxial [2]</td><td style = "text-align: left;">0.05052 (1, 1)</td><td style = "text-align: left;">0.06414 (1, 1)</td><td style = "text-align: left;">3.351e-5 (2, 2)</td><td style = "text-align: left;">1.305e-5 (2, 2)</td></tr></tbody></table></div>
-```
-
-#### Band `harmonic`
-
-Stored range: **53.703–2570.4 Hz**, **25 samples**.
-
-```@raw html
-<h4>132 kV 630 mm² cables in flat horizontal formation</h4>
-<div class = "data-frame" style = "overflow-x: scroll;"><table class = "data-frame" style = "margin-bottom: 6px;"><thead><tr class = "columnLabelRow"><th class = "stubheadLabel" style = "font-weight: bold; text-align: right;">Row</th><th style = "text-align: left;">reference</th><th style = "text-align: left;">candidate</th><th style = "text-align: left;">Z NRMSE</th><th style = "text-align: left;">Z pointwise</th><th style = "text-align: left;">Y NRMSE</th><th style = "text-align: left;">Y pointwise</th></tr></thead><tbody><tr class = "dataRow"><td class = "rowLabel" style = "font-weight: bold; text-align: right;">1</td><td style = "text-align: left;">fem [1]</td><td style = "text-align: left;">coaxial [1]</td><td style = "text-align: left;">5.142 (4, 4)</td><td style = "text-align: left;">4.862 (4, 4)</td><td style = "text-align: left;">1107.0 (9, 8)</td><td style = "text-align: left;">1107.0 (8, 9)</td></tr><tr class = "dataRow"><td class = "rowLabel" style = "font-weight: bold; text-align: right;">2</td><td style = "text-align: left;">pscad [1]</td><td style = "text-align: left;">coaxial [1]</td><td style = "text-align: left;">0.02161 (1, 1)</td><td style = "text-align: left;">0.0516 (1, 1)</td><td style = "text-align: left;">Inf (6, 3)</td><td style = "text-align: left;">Inf (6, 3)</td></tr><tr class = "dataRow"><td class = "rowLabel" style = "font-weight: bold; text-align: right;">3</td><td style = "text-align: left;">fem [2]</td><td style = "text-align: left;">coaxial [2]</td><td style = "text-align: left;">5.142 (4, 4)</td><td style = "text-align: left;">4.862 (4, 4)</td><td style = "text-align: left;">2003.0 (6, 5)</td><td style = "text-align: left;">2003.0 (6, 5)</td></tr><tr class = "dataRow"><td class = "rowLabel" style = "font-weight: bold; text-align: right;">4</td><td style = "text-align: left;">pscad [2]</td><td style = "text-align: left;">coaxial [2]</td><td style = "text-align: left;">0.02161 (1, 1)</td><td style = "text-align: left;">0.0516 (1, 1)</td><td style = "text-align: left;">Inf (6, 3)</td><td style = "text-align: left;">Inf (6, 3)</td></tr></tbody></table></div>
-```
-
-```@raw html
-<h4>CIGRE TB 880 Case 0 — 132 kV 630 mm² Cu cables in trefoil</h4>
-<div class = "data-frame" style = "overflow-x: scroll;"><table class = "data-frame" style = "margin-bottom: 6px;"><thead><tr class = "columnLabelRow"><th class = "stubheadLabel" style = "font-weight: bold; text-align: right;">Row</th><th style = "text-align: left;">reference</th><th style = "text-align: left;">candidate</th><th style = "text-align: left;">Z NRMSE</th><th style = "text-align: left;">Z pointwise</th><th style = "text-align: left;">Y NRMSE</th><th style = "text-align: left;">Y pointwise</th></tr></thead><tbody><tr class = "dataRow"><td class = "rowLabel" style = "font-weight: bold; text-align: right;">1</td><td style = "text-align: left;">fem [1]</td><td style = "text-align: left;">coaxial [1]</td><td style = "text-align: left;">4.203 (2, 2)</td><td style = "text-align: left;">3.088 (2, 1)</td><td style = "text-align: left;">11.16 (2, 6)</td><td style = "text-align: left;">9.884 (6, 2)</td></tr><tr class = "dataRow"><td class = "rowLabel" style = "font-weight: bold; text-align: right;">2</td><td style = "text-align: left;">pscad [1]</td><td style = "text-align: left;">coaxial [1]</td><td style = "text-align: left;">0.02055 (3, 3)</td><td style = "text-align: left;">0.0503 (3, 3)</td><td style = "text-align: left;">Inf (4, 2)</td><td style = "text-align: left;">Inf (4, 2)</td></tr><tr class = "dataRow"><td class = "rowLabel" style = "font-weight: bold; text-align: right;">3</td><td style = "text-align: left;">fem [2]</td><td style = "text-align: left;">coaxial [2]</td><td style = "text-align: left;">4.213 (2, 2)</td><td style = "text-align: left;">3.094 (2, 1)</td><td style = "text-align: left;">100.0 (4, 1)</td><td style = "text-align: left;">100.0 (5, 2)</td></tr><tr class = "dataRow"><td class = "rowLabel" style = "font-weight: bold; text-align: right;">4</td><td style = "text-align: left;">pscad [2]</td><td style = "text-align: left;">coaxial [2]</td><td style = "text-align: left;">0.02055 (3, 3)</td><td style = "text-align: left;">0.0503 (3, 3)</td><td style = "text-align: left;">Inf (4, 2)</td><td style = "text-align: left;">Inf (4, 2)</td></tr></tbody></table></div>
-```
-
-```@raw html
-<h4>18 kV 1000 mm² cables in trefoil formation</h4>
-<div class = "data-frame" style = "overflow-x: scroll;"><table class = "data-frame" style = "margin-bottom: 6px;"><thead><tr class = "columnLabelRow"><th class = "stubheadLabel" style = "font-weight: bold; text-align: right;">Row</th><th style = "text-align: left;">reference</th><th style = "text-align: left;">candidate</th><th style = "text-align: left;">Z NRMSE</th><th style = "text-align: left;">Z pointwise</th><th style = "text-align: left;">Y NRMSE</th><th style = "text-align: left;">Y pointwise</th></tr></thead><tbody><tr class = "dataRow"><td class = "rowLabel" style = "font-weight: bold; text-align: right;">1</td><td style = "text-align: left;">fem [1]</td><td style = "text-align: left;">coaxial [1]</td><td style = "text-align: left;">5.426 (7, 7)</td><td style = "text-align: left;">4.164 (7, 7)</td><td style = "text-align: left;">711.0 (6, 5)</td><td style = "text-align: left;">711.0 (6, 5)</td></tr><tr class = "dataRow"><td class = "rowLabel" style = "font-weight: bold; text-align: right;">2</td><td style = "text-align: left;">pscad [1]</td><td style = "text-align: left;">coaxial [1]</td><td style = "text-align: left;">0.02414 (4, 4)</td><td style = "text-align: left;">0.05514 (4, 4)</td><td style = "text-align: left;">Inf (6, 3)</td><td style = "text-align: left;">Inf (6, 3)</td></tr><tr class = "dataRow"><td class = "rowLabel" style = "font-weight: bold; text-align: right;">3</td><td style = "text-align: left;">fem [2]</td><td style = "text-align: left;">coaxial [2]</td><td style = "text-align: left;">5.426 (7, 7)</td><td style = "text-align: left;">4.164 (7, 7)</td><td style = "text-align: left;">1608.0 (3, 2)</td><td style = "text-align: left;">1608.0 (3, 2)</td></tr><tr class = "dataRow"><td class = "rowLabel" style = "font-weight: bold; text-align: right;">4</td><td style = "text-align: left;">pscad [2]</td><td style = "text-align: left;">coaxial [2]</td><td style = "text-align: left;">0.02414 (4, 4)</td><td style = "text-align: left;">0.05514 (4, 4)</td><td style = "text-align: left;">Inf (6, 3)</td><td style = "text-align: left;">Inf (6, 3)</td></tr></tbody></table></div>
-```
-
-```@raw html
-<h4>18 kV 1000 mm² cables in trefoil — homogenized assembly</h4>
-<div class = "data-frame" style = "overflow-x: scroll;"><table class = "data-frame" style = "margin-bottom: 6px;"><thead><tr class = "columnLabelRow"><th class = "stubheadLabel" style = "font-weight: bold; text-align: right;">Row</th><th style = "text-align: left;">reference</th><th style = "text-align: left;">candidate</th><th style = "text-align: left;">Z NRMSE</th><th style = "text-align: left;">Z pointwise</th><th style = "text-align: left;">Y NRMSE</th><th style = "text-align: left;">Y pointwise</th></tr></thead><tbody><tr class = "dataRow"><td class = "rowLabel" style = "font-weight: bold; text-align: right;">1</td><td style = "text-align: left;">fem [1]</td><td style = "text-align: left;">coaxial [1]</td><td style = "text-align: left;">3.619 (3, 1)</td><td style = "text-align: left;">2.426 (3, 1)</td><td style = "text-align: left;">11.12 (3, 9)</td><td style = "text-align: left;">9.868 (9, 3)</td></tr><tr class = "dataRow"><td class = "rowLabel" style = "font-weight: bold; text-align: right;">2</td><td style = "text-align: left;">pscad [1]</td><td style = "text-align: left;">coaxial [1]</td><td style = "text-align: left;">0.02414 (4, 4)</td><td style = "text-align: left;">0.05514 (4, 4)</td><td style = "text-align: left;">Inf (6, 3)</td><td style = "text-align: left;">Inf (6, 3)</td></tr><tr class = "dataRow"><td class = "rowLabel" style = "font-weight: bold; text-align: right;">3</td><td style = "text-align: left;">fem [2]</td><td style = "text-align: left;">coaxial [2]</td><td style = "text-align: left;">3.619 (3, 1)</td><td style = "text-align: left;">2.426 (3, 1)</td><td style = "text-align: left;">11.12 (3, 9)</td><td style = "text-align: left;">9.868 (9, 3)</td></tr><tr class = "dataRow"><td class = "rowLabel" style = "font-weight: bold; text-align: right;">4</td><td style = "text-align: left;">pscad [2]</td><td style = "text-align: left;">coaxial [2]</td><td style = "text-align: left;">0.02414 (4, 4)</td><td style = "text-align: left;">0.05514 (4, 4)</td><td style = "text-align: left;">Inf (6, 3)</td><td style = "text-align: left;">Inf (6, 3)</td></tr></tbody></table></div>
-```
-
-```@raw html
-<h4>220 kV Milliken 2500 mm² Al / 252 mm² Cu cables in trefoil</h4>
-<div class = "data-frame" style = "overflow-x: scroll;"><table class = "data-frame" style = "margin-bottom: 6px;"><thead><tr class = "columnLabelRow"><th class = "stubheadLabel" style = "font-weight: bold; text-align: right;">Row</th><th style = "text-align: left;">reference</th><th style = "text-align: left;">candidate</th><th style = "text-align: left;">Z NRMSE</th><th style = "text-align: left;">Z pointwise</th><th style = "text-align: left;">Y NRMSE</th><th style = "text-align: left;">Y pointwise</th></tr></thead><tbody><tr class = "dataRow"><td class = "rowLabel" style = "font-weight: bold; text-align: right;">1</td><td style = "text-align: left;">pscad [1]</td><td style = "text-align: left;">coaxial [1]</td><td style = "text-align: left;">0.01881 (4, 1)</td><td style = "text-align: left;">0.04299 (4, 4)</td><td style = "text-align: left;">Inf (6, 3)</td><td style = "text-align: left;">Inf (6, 3)</td></tr><tr class = "dataRow"><td class = "rowLabel" style = "font-weight: bold; text-align: right;">2</td><td style = "text-align: left;">pscad [2]</td><td style = "text-align: left;">coaxial [2]</td><td style = "text-align: left;">0.01881 (4, 1)</td><td style = "text-align: left;">0.04299 (4, 4)</td><td style = "text-align: left;">Inf (6, 3)</td><td style = "text-align: left;">Inf (6, 3)</td></tr></tbody></table></div>
-```
-
-```@raw html
-<h4>18/30 kV NA2XS2Y 630 mm² Al cables in touching trefoil</h4>
-<div class = "data-frame" style = "overflow-x: scroll;"><table class = "data-frame" style = "margin-bottom: 6px;"><thead><tr class = "columnLabelRow"><th class = "stubheadLabel" style = "font-weight: bold; text-align: right;">Row</th><th style = "text-align: left;">reference</th><th style = "text-align: left;">candidate</th><th style = "text-align: left;">Z NRMSE</th><th style = "text-align: left;">Z pointwise</th><th style = "text-align: left;">Y NRMSE</th><th style = "text-align: left;">Y pointwise</th></tr></thead><tbody><tr class = "dataRow"><td class = "rowLabel" style = "font-weight: bold; text-align: right;">1</td><td style = "text-align: left;">pscad [1]</td><td style = "text-align: left;">coaxial [1]</td><td style = "text-align: left;">0.02744 (3, 3)</td><td style = "text-align: left;">0.05632 (3, 3)</td><td style = "text-align: left;">Inf (4, 2)</td><td style = "text-align: left;">Inf (4, 2)</td></tr><tr class = "dataRow"><td class = "rowLabel" style = "font-weight: bold; text-align: right;">2</td><td style = "text-align: left;">pscad [2]</td><td style = "text-align: left;">coaxial [2]</td><td style = "text-align: left;">0.02744 (3, 3)</td><td style = "text-align: left;">0.05632 (3, 3)</td><td style = "text-align: left;">Inf (4, 2)</td><td style = "text-align: left;">Inf (4, 2)</td></tr></tbody></table></div>
-```
-
-```@raw html
-<h4>320 kV armoured cable DC bipole</h4>
-<div class = "data-frame" style = "overflow-x: scroll;"><table class = "data-frame" style = "margin-bottom: 6px;"><thead><tr class = "columnLabelRow"><th class = "stubheadLabel" style = "font-weight: bold; text-align: right;">Row</th><th style = "text-align: left;">reference</th><th style = "text-align: left;">candidate</th><th style = "text-align: left;">Z NRMSE</th><th style = "text-align: left;">Z pointwise</th><th style = "text-align: left;">Y NRMSE</th><th style = "text-align: left;">Y pointwise</th></tr></thead><tbody><tr class = "dataRow"><td class = "rowLabel" style = "font-weight: bold; text-align: right;">1</td><td style = "text-align: left;">pscad [1]</td><td style = "text-align: left;">coaxial [1]</td><td style = "text-align: left;">0.02389 (4, 1)</td><td style = "text-align: left;">0.04327 (1, 1)</td><td style = "text-align: left;">Inf (6, 3)</td><td style = "text-align: left;">Inf (6, 3)</td></tr><tr class = "dataRow"><td class = "rowLabel" style = "font-weight: bold; text-align: right;">2</td><td style = "text-align: left;">pscad [2]</td><td style = "text-align: left;">coaxial [2]</td><td style = "text-align: left;">0.02389 (4, 1)</td><td style = "text-align: left;">0.04327 (1, 1)</td><td style = "text-align: left;">Inf (6, 3)</td><td style = "text-align: left;">Inf (6, 3)</td></tr></tbody></table></div>
-```
-
-```@raw html
-<h4>320 kV unarmoured cable DC bipole</h4>
-<div class = "data-frame" style = "overflow-x: scroll;"><table class = "data-frame" style = "margin-bottom: 6px;"><thead><tr class = "columnLabelRow"><th class = "stubheadLabel" style = "font-weight: bold; text-align: right;">Row</th><th style = "text-align: left;">reference</th><th style = "text-align: left;">candidate</th><th style = "text-align: left;">Z NRMSE</th><th style = "text-align: left;">Z pointwise</th><th style = "text-align: left;">Y NRMSE</th><th style = "text-align: left;">Y pointwise</th></tr></thead><tbody><tr class = "dataRow"><td class = "rowLabel" style = "font-weight: bold; text-align: right;">1</td><td style = "text-align: left;">pscad [1]</td><td style = "text-align: left;">coaxial [1]</td><td style = "text-align: left;">0.02386 (3, 1)</td><td style = "text-align: left;">0.04291 (1, 1)</td><td style = "text-align: left;">Inf (4, 2)</td><td style = "text-align: left;">Inf (4, 2)</td></tr><tr class = "dataRow"><td class = "rowLabel" style = "font-weight: bold; text-align: right;">2</td><td style = "text-align: left;">pscad [2]</td><td style = "text-align: left;">coaxial [2]</td><td style = "text-align: left;">0.02386 (3, 1)</td><td style = "text-align: left;">0.04291 (1, 1)</td><td style = "text-align: left;">Inf (4, 2)</td><td style = "text-align: left;">Inf (4, 2)</td></tr></tbody></table></div>
-```
-
-```@raw html
-<h4>380 kV 2000 mm² cables in flat vertical formation</h4>
-<div class = "data-frame" style = "overflow-x: scroll;"><table class = "data-frame" style = "margin-bottom: 6px;"><thead><tr class = "columnLabelRow"><th class = "stubheadLabel" style = "font-weight: bold; text-align: right;">Row</th><th style = "text-align: left;">reference</th><th style = "text-align: left;">candidate</th><th style = "text-align: left;">Z NRMSE</th><th style = "text-align: left;">Z pointwise</th><th style = "text-align: left;">Y NRMSE</th><th style = "text-align: left;">Y pointwise</th></tr></thead><tbody><tr class = "dataRow"><td class = "rowLabel" style = "font-weight: bold; text-align: right;">1</td><td style = "text-align: left;">pscad [1]</td><td style = "text-align: left;">coaxial [1]</td><td style = "text-align: left;">0.01866 (5, 5)</td><td style = "text-align: left;">0.03765 (7, 7)</td><td style = "text-align: left;">Inf (6, 3)</td><td style = "text-align: left;">Inf (6, 3)</td></tr><tr class = "dataRow"><td class = "rowLabel" style = "font-weight: bold; text-align: right;">2</td><td style = "text-align: left;">pscad [2]</td><td style = "text-align: left;">coaxial [2]</td><td style = "text-align: left;">0.01866 (5, 5)</td><td style = "text-align: left;">0.03765 (7, 7)</td><td style = "text-align: left;">Inf (6, 3)</td><td style = "text-align: left;">Inf (6, 3)</td></tr></tbody></table></div>
-```
-
-```@raw html
-<h4>380 kV armoured cables in AC flat formation</h4>
-<div class = "data-frame" style = "overflow-x: scroll;"><table class = "data-frame" style = "margin-bottom: 6px;"><thead><tr class = "columnLabelRow"><th class = "stubheadLabel" style = "font-weight: bold; text-align: right;">Row</th><th style = "text-align: left;">reference</th><th style = "text-align: left;">candidate</th><th style = "text-align: left;">Z NRMSE</th><th style = "text-align: left;">Z pointwise</th><th style = "text-align: left;">Y NRMSE</th><th style = "text-align: left;">Y pointwise</th></tr></thead><tbody><tr class = "dataRow"><td class = "rowLabel" style = "font-weight: bold; text-align: right;">1</td><td style = "text-align: left;">pscad [1]</td><td style = "text-align: left;">coaxial [1]</td><td style = "text-align: left;">0.02426 (7, 1)</td><td style = "text-align: left;">0.04327 (1, 1)</td><td style = "text-align: left;">Inf (6, 3)</td><td style = "text-align: left;">Inf (6, 3)</td></tr><tr class = "dataRow"><td class = "rowLabel" style = "font-weight: bold; text-align: right;">2</td><td style = "text-align: left;">pscad [2]</td><td style = "text-align: left;">coaxial [2]</td><td style = "text-align: left;">0.02426 (7, 1)</td><td style = "text-align: left;">0.04327 (1, 1)</td><td style = "text-align: left;">Inf (6, 3)</td><td style = "text-align: left;">Inf (6, 3)</td></tr></tbody></table></div>
-```
-
-```@raw html
-<h4>380 kV unarmoured cables in AC flat formation</h4>
-<div class = "data-frame" style = "overflow-x: scroll;"><table class = "data-frame" style = "margin-bottom: 6px;"><thead><tr class = "columnLabelRow"><th class = "stubheadLabel" style = "font-weight: bold; text-align: right;">Row</th><th style = "text-align: left;">reference</th><th style = "text-align: left;">candidate</th><th style = "text-align: left;">Z NRMSE</th><th style = "text-align: left;">Z pointwise</th><th style = "text-align: left;">Y NRMSE</th><th style = "text-align: left;">Y pointwise</th></tr></thead><tbody><tr class = "dataRow"><td class = "rowLabel" style = "font-weight: bold; text-align: right;">1</td><td style = "text-align: left;">pscad [1]</td><td style = "text-align: left;">coaxial [1]</td><td style = "text-align: left;">0.02423 (5, 1)</td><td style = "text-align: left;">0.04291 (1, 1)</td><td style = "text-align: left;">Inf (4, 2)</td><td style = "text-align: left;">Inf (4, 2)</td></tr><tr class = "dataRow"><td class = "rowLabel" style = "font-weight: bold; text-align: right;">2</td><td style = "text-align: left;">pscad [2]</td><td style = "text-align: left;">coaxial [2]</td><td style = "text-align: left;">0.02423 (5, 1)</td><td style = "text-align: left;">0.04291 (1, 1)</td><td style = "text-align: left;">Inf (4, 2)</td><td style = "text-align: left;">Inf (4, 2)</td></tr></tbody></table></div>
-```
-
-```@raw html
-<h4>525 kV 1600 mm² armoured cable DC bipole</h4>
-<div class = "data-frame" style = "overflow-x: scroll;"><table class = "data-frame" style = "margin-bottom: 6px;"><thead><tr class = "columnLabelRow"><th class = "stubheadLabel" style = "font-weight: bold; text-align: right;">Row</th><th style = "text-align: left;">reference</th><th style = "text-align: left;">candidate</th><th style = "text-align: left;">Z NRMSE</th><th style = "text-align: left;">Z pointwise</th><th style = "text-align: left;">Y NRMSE</th><th style = "text-align: left;">Y pointwise</th></tr></thead><tbody><tr class = "dataRow"><td class = "rowLabel" style = "font-weight: bold; text-align: right;">1</td><td style = "text-align: left;">pscad [1]</td><td style = "text-align: left;">coaxial [1]</td><td style = "text-align: left;">0.01785 (3, 3)</td><td style = "text-align: left;">0.03809 (1, 1)</td><td style = "text-align: left;">Inf (6, 3)</td><td style = "text-align: left;">Inf (6, 3)</td></tr><tr class = "dataRow"><td class = "rowLabel" style = "font-weight: bold; text-align: right;">2</td><td style = "text-align: left;">pscad [2]</td><td style = "text-align: left;">coaxial [2]</td><td style = "text-align: left;">0.01785 (3, 3)</td><td style = "text-align: left;">0.03809 (1, 1)</td><td style = "text-align: left;">Inf (6, 3)</td><td style = "text-align: left;">Inf (6, 3)</td></tr></tbody></table></div>
-```
-
-```@raw html
-<h4>525 kV unarmoured land cables in AC flat formation</h4>
-<div class = "data-frame" style = "overflow-x: scroll;"><table class = "data-frame" style = "margin-bottom: 6px;"><thead><tr class = "columnLabelRow"><th class = "stubheadLabel" style = "font-weight: bold; text-align: right;">Row</th><th style = "text-align: left;">reference</th><th style = "text-align: left;">candidate</th><th style = "text-align: left;">Z NRMSE</th><th style = "text-align: left;">Z pointwise</th><th style = "text-align: left;">Y NRMSE</th><th style = "text-align: left;">Y pointwise</th></tr></thead><tbody><tr class = "dataRow"><td class = "rowLabel" style = "font-weight: bold; text-align: right;">1</td><td style = "text-align: left;">pscad [1]</td><td style = "text-align: left;">coaxial [1]</td><td style = "text-align: left;">0.02426 (5, 1)</td><td style = "text-align: left;">0.0305 (1, 1)</td><td style = "text-align: left;">Inf (4, 2)</td><td style = "text-align: left;">Inf (4, 2)</td></tr><tr class = "dataRow"><td class = "rowLabel" style = "font-weight: bold; text-align: right;">2</td><td style = "text-align: left;">pscad [2]</td><td style = "text-align: left;">coaxial [2]</td><td style = "text-align: left;">0.02426 (5, 1)</td><td style = "text-align: left;">0.0305 (1, 1)</td><td style = "text-align: left;">Inf (4, 2)</td><td style = "text-align: left;">Inf (4, 2)</td></tr></tbody></table></div>
-```
-
-```@raw html
-<h4>525 kV unarmoured land cable DC bipole</h4>
-<div class = "data-frame" style = "overflow-x: scroll;"><table class = "data-frame" style = "margin-bottom: 6px;"><thead><tr class = "columnLabelRow"><th class = "stubheadLabel" style = "font-weight: bold; text-align: right;">Row</th><th style = "text-align: left;">reference</th><th style = "text-align: left;">candidate</th><th style = "text-align: left;">Z NRMSE</th><th style = "text-align: left;">Z pointwise</th><th style = "text-align: left;">Y NRMSE</th><th style = "text-align: left;">Y pointwise</th></tr></thead><tbody><tr class = "dataRow"><td class = "rowLabel" style = "font-weight: bold; text-align: right;">1</td><td style = "text-align: left;">pscad [1]</td><td style = "text-align: left;">coaxial [1]</td><td style = "text-align: left;">0.02389 (3, 1)</td><td style = "text-align: left;">0.0305 (1, 1)</td><td style = "text-align: left;">Inf (4, 2)</td><td style = "text-align: left;">Inf (4, 2)</td></tr><tr class = "dataRow"><td class = "rowLabel" style = "font-weight: bold; text-align: right;">2</td><td style = "text-align: left;">pscad [2]</td><td style = "text-align: left;">coaxial [2]</td><td style = "text-align: left;">0.02389 (3, 1)</td><td style = "text-align: left;">0.0305 (1, 1)</td><td style = "text-align: left;">Inf (4, 2)</td><td style = "text-align: left;">Inf (4, 2)</td></tr></tbody></table></div>
-```
-
-```@raw html
-<h4>525 kV armoured subsea cables in AC flat formation</h4>
-<div class = "data-frame" style = "overflow-x: scroll;"><table class = "data-frame" style = "margin-bottom: 6px;"><thead><tr class = "columnLabelRow"><th class = "stubheadLabel" style = "font-weight: bold; text-align: right;">Row</th><th style = "text-align: left;">reference</th><th style = "text-align: left;">candidate</th><th style = "text-align: left;">Z NRMSE</th><th style = "text-align: left;">Z pointwise</th><th style = "text-align: left;">Y NRMSE</th><th style = "text-align: left;">Y pointwise</th></tr></thead><tbody><tr class = "dataRow"><td class = "rowLabel" style = "font-weight: bold; text-align: right;">1</td><td style = "text-align: left;">pscad [1]</td><td style = "text-align: left;">coaxial [1]</td><td style = "text-align: left;">0.02427 (7, 1)</td><td style = "text-align: left;">0.03416 (1, 1)</td><td style = "text-align: left;">Inf (6, 3)</td><td style = "text-align: left;">Inf (6, 3)</td></tr><tr class = "dataRow"><td class = "rowLabel" style = "font-weight: bold; text-align: right;">2</td><td style = "text-align: left;">pscad [2]</td><td style = "text-align: left;">coaxial [2]</td><td style = "text-align: left;">0.02427 (7, 1)</td><td style = "text-align: left;">0.03416 (1, 1)</td><td style = "text-align: left;">Inf (6, 3)</td><td style = "text-align: left;">Inf (6, 3)</td></tr></tbody></table></div>
-```
-
-```@raw html
-<h4>525 kV armoured subsea cable DC bipole</h4>
-<div class = "data-frame" style = "overflow-x: scroll;"><table class = "data-frame" style = "margin-bottom: 6px;"><thead><tr class = "columnLabelRow"><th class = "stubheadLabel" style = "font-weight: bold; text-align: right;">Row</th><th style = "text-align: left;">reference</th><th style = "text-align: left;">candidate</th><th style = "text-align: left;">Z NRMSE</th><th style = "text-align: left;">Z pointwise</th><th style = "text-align: left;">Y NRMSE</th><th style = "text-align: left;">Y pointwise</th></tr></thead><tbody><tr class = "dataRow"><td class = "rowLabel" style = "font-weight: bold; text-align: right;">1</td><td style = "text-align: left;">pscad [1]</td><td style = "text-align: left;">coaxial [1]</td><td style = "text-align: left;">0.0239 (4, 1)</td><td style = "text-align: left;">0.03416 (1, 1)</td><td style = "text-align: left;">Inf (6, 3)</td><td style = "text-align: left;">Inf (6, 3)</td></tr><tr class = "dataRow"><td class = "rowLabel" style = "font-weight: bold; text-align: right;">2</td><td style = "text-align: left;">pscad [2]</td><td style = "text-align: left;">coaxial [2]</td><td style = "text-align: left;">0.0239 (4, 1)</td><td style = "text-align: left;">0.03416 (1, 1)</td><td style = "text-align: left;">Inf (6, 3)</td><td style = "text-align: left;">Inf (6, 3)</td></tr></tbody></table></div>
-```
-
-```@raw html
-<h4>640 kV 2000 mm² cable DC bipole</h4>
-<div class = "data-frame" style = "overflow-x: scroll;"><table class = "data-frame" style = "margin-bottom: 6px;"><thead><tr class = "columnLabelRow"><th class = "stubheadLabel" style = "font-weight: bold; text-align: right;">Row</th><th style = "text-align: left;">reference</th><th style = "text-align: left;">candidate</th><th style = "text-align: left;">Z NRMSE</th><th style = "text-align: left;">Z pointwise</th><th style = "text-align: left;">Y NRMSE</th><th style = "text-align: left;">Y pointwise</th></tr></thead><tbody><tr class = "dataRow"><td class = "rowLabel" style = "font-weight: bold; text-align: right;">1</td><td style = "text-align: left;">pscad [1]</td><td style = "text-align: left;">coaxial [1]</td><td style = "text-align: left;">0.01834 (3, 1)</td><td style = "text-align: left;">0.03546 (1, 1)</td><td style = "text-align: left;">Inf (6, 3)</td><td style = "text-align: left;">Inf (6, 3)</td></tr><tr class = "dataRow"><td class = "rowLabel" style = "font-weight: bold; text-align: right;">2</td><td style = "text-align: left;">pscad [2]</td><td style = "text-align: left;">coaxial [2]</td><td style = "text-align: left;">0.01834 (3, 1)</td><td style = "text-align: left;">0.03546 (1, 1)</td><td style = "text-align: left;">Inf (6, 3)</td><td style = "text-align: left;">Inf (6, 3)</td></tr></tbody></table></div>
-```
-
-```@raw html
-<h4>Single 1000 mm² solid conductor</h4>
-<div class = "data-frame" style = "overflow-x: scroll;"><table class = "data-frame" style = "margin-bottom: 6px;"><thead><tr class = "columnLabelRow"><th class = "stubheadLabel" style = "font-weight: bold; text-align: right;">Row</th><th style = "text-align: left;">reference</th><th style = "text-align: left;">candidate</th><th style = "text-align: left;">Z NRMSE</th><th style = "text-align: left;">Z pointwise</th><th style = "text-align: left;">Y NRMSE</th><th style = "text-align: left;">Y pointwise</th></tr></thead><tbody><tr class = "dataRow"><td class = "rowLabel" style = "font-weight: bold; text-align: right;">1</td><td style = "text-align: left;">pscad [1]</td><td style = "text-align: left;">coaxial [1]</td><td style = "text-align: left;">0.02245 (1, 1)</td><td style = "text-align: left;">0.05267 (1, 1)</td><td style = "text-align: left;">0.08528 (1, 1)</td><td style = "text-align: left;">0.04354 (1, 1)</td></tr><tr class = "dataRow"><td class = "rowLabel" style = "font-weight: bold; text-align: right;">2</td><td style = "text-align: left;">pscad [2]</td><td style = "text-align: left;">coaxial [2]</td><td style = "text-align: left;">0.02245 (1, 1)</td><td style = "text-align: left;">0.05267 (1, 1)</td><td style = "text-align: left;">0.08528 (1, 1)</td><td style = "text-align: left;">0.04354 (1, 1)</td></tr></tbody></table></div>
-```
-
-```@raw html
-<h4>Two buried wires with 1 mm insulation</h4>
-<div class = "data-frame" style = "overflow-x: scroll;"><table class = "data-frame" style = "margin-bottom: 6px;"><thead><tr class = "columnLabelRow"><th class = "stubheadLabel" style = "font-weight: bold; text-align: right;">Row</th><th style = "text-align: left;">reference</th><th style = "text-align: left;">candidate</th><th style = "text-align: left;">Z NRMSE</th><th style = "text-align: left;">Z pointwise</th><th style = "text-align: left;">Y NRMSE</th><th style = "text-align: left;">Y pointwise</th></tr></thead><tbody><tr class = "dataRow"><td class = "rowLabel" style = "font-weight: bold; text-align: right;">1</td><td style = "text-align: left;">pscad [1]</td><td style = "text-align: left;">coaxial [1]</td><td style = "text-align: left;">0.06242 (2, 1)</td><td style = "text-align: left;">0.03808 (1, 1)</td><td style = "text-align: left;">Inf (2, 1)</td><td style = "text-align: left;">Inf (2, 1)</td></tr><tr class = "dataRow"><td class = "rowLabel" style = "font-weight: bold; text-align: right;">2</td><td style = "text-align: left;">pscad [2]</td><td style = "text-align: left;">coaxial [2]</td><td style = "text-align: left;">0.06242 (2, 1)</td><td style = "text-align: left;">0.03808 (1, 1)</td><td style = "text-align: left;">Inf (2, 1)</td><td style = "text-align: left;">Inf (2, 1)</td></tr></tbody></table></div>
-```
-
-#### Band `narrow`
-
-Stored range: **977.24–1.0e6 Hz**, **44 samples**.
-
-```@raw html
-<h4>132 kV 630 mm² cables in flat horizontal formation</h4>
-<div class = "data-frame" style = "overflow-x: scroll;"><table class = "data-frame" style = "margin-bottom: 6px;"><thead><tr class = "columnLabelRow"><th class = "stubheadLabel" style = "font-weight: bold; text-align: right;">Row</th><th style = "text-align: left;">reference</th><th style = "text-align: left;">candidate</th><th style = "text-align: left;">Z NRMSE</th><th style = "text-align: left;">Z pointwise</th><th style = "text-align: left;">Y NRMSE</th><th style = "text-align: left;">Y pointwise</th></tr></thead><tbody><tr class = "dataRow"><td class = "rowLabel" style = "font-weight: bold; text-align: right;">1</td><td style = "text-align: left;">fem [1]</td><td style = "text-align: left;">coaxial [1]</td><td style = "text-align: left;">4.482 (4, 4)</td><td style = "text-align: left;">4.532 (4, 4)</td><td style = "text-align: left;">1107.0 (9, 8)</td><td style = "text-align: left;">1107.0 (9, 8)</td></tr><tr class = "dataRow"><td class = "rowLabel" style = "font-weight: bold; text-align: right;">2</td><td style = "text-align: left;">pscad [1]</td><td style = "text-align: left;">coaxial [1]</td><td style = "text-align: left;">1.501 (7, 1)</td><td style = "text-align: left;">0.5883 (7, 1)</td><td style = "text-align: left;">Inf (6, 3)</td><td style = "text-align: left;">Inf (6, 3)</td></tr><tr class = "dataRow"><td class = "rowLabel" style = "font-weight: bold; text-align: right;">3</td><td style = "text-align: left;">fem [2]</td><td style = "text-align: left;">coaxial [2]</td><td style = "text-align: left;">4.482 (4, 4)</td><td style = "text-align: left;">4.532 (4, 4)</td><td style = "text-align: left;">1155.0 (9, 8)</td><td style = "text-align: left;">1682.0 (9, 8)</td></tr><tr class = "dataRow"><td class = "rowLabel" style = "font-weight: bold; text-align: right;">4</td><td style = "text-align: left;">pscad [2]</td><td style = "text-align: left;">coaxial [2]</td><td style = "text-align: left;">1.501 (7, 1)</td><td style = "text-align: left;">0.5883 (7, 1)</td><td style = "text-align: left;">Inf (6, 3)</td><td style = "text-align: left;">Inf (6, 3)</td></tr></tbody></table></div>
-```
-
-```@raw html
-<h4>CIGRE TB 880 Case 0 — 132 kV 630 mm² Cu cables in trefoil</h4>
-<div class = "data-frame" style = "overflow-x: scroll;"><table class = "data-frame" style = "margin-bottom: 6px;"><thead><tr class = "columnLabelRow"><th class = "stubheadLabel" style = "font-weight: bold; text-align: right;">Row</th><th style = "text-align: left;">reference</th><th style = "text-align: left;">candidate</th><th style = "text-align: left;">Z NRMSE</th><th style = "text-align: left;">Z pointwise</th><th style = "text-align: left;">Y NRMSE</th><th style = "text-align: left;">Y pointwise</th></tr></thead><tbody><tr class = "dataRow"><td class = "rowLabel" style = "font-weight: bold; text-align: right;">1</td><td style = "text-align: left;">fem [1]</td><td style = "text-align: left;">coaxial [1]</td><td style = "text-align: left;">6.757 (2, 1)</td><td style = "text-align: left;">5.436 (2, 2)</td><td style = "text-align: left;">100.0 (3, 6)</td><td style = "text-align: left;">100.0 (5, 2)</td></tr><tr class = "dataRow"><td class = "rowLabel" style = "font-weight: bold; text-align: right;">2</td><td style = "text-align: left;">pscad [1]</td><td style = "text-align: left;">coaxial [1]</td><td style = "text-align: left;">0.7179 (3, 1)</td><td style = "text-align: left;">0.2769 (3, 1)</td><td style = "text-align: left;">Inf (4, 2)</td><td style = "text-align: left;">Inf (4, 2)</td></tr><tr class = "dataRow"><td class = "rowLabel" style = "font-weight: bold; text-align: right;">3</td><td style = "text-align: left;">fem [2]</td><td style = "text-align: left;">coaxial [2]</td><td style = "text-align: left;">12.9 (2, 1)</td><td style = "text-align: left;">7.119 (2, 1)</td><td style = "text-align: left;">100.0 (5, 3)</td><td style = "text-align: left;">100.0 (1, 3)</td></tr><tr class = "dataRow"><td class = "rowLabel" style = "font-weight: bold; text-align: right;">4</td><td style = "text-align: left;">pscad [2]</td><td style = "text-align: left;">coaxial [2]</td><td style = "text-align: left;">0.7179 (3, 1)</td><td style = "text-align: left;">0.2769 (3, 1)</td><td style = "text-align: left;">Inf (4, 2)</td><td style = "text-align: left;">Inf (4, 2)</td></tr></tbody></table></div>
-```
-
-```@raw html
-<h4>18 kV 1000 mm² cables in trefoil formation</h4>
-<div class = "data-frame" style = "overflow-x: scroll;"><table class = "data-frame" style = "margin-bottom: 6px;"><thead><tr class = "columnLabelRow"><th class = "stubheadLabel" style = "font-weight: bold; text-align: right;">Row</th><th style = "text-align: left;">reference</th><th style = "text-align: left;">candidate</th><th style = "text-align: left;">Z NRMSE</th><th style = "text-align: left;">Z pointwise</th><th style = "text-align: left;">Y NRMSE</th><th style = "text-align: left;">Y pointwise</th></tr></thead><tbody><tr class = "dataRow"><td class = "rowLabel" style = "font-weight: bold; text-align: right;">1</td><td style = "text-align: left;">fem [1]</td><td style = "text-align: left;">coaxial [1]</td><td style = "text-align: left;">7.837 (1, 1)</td><td style = "text-align: left;">6.756 (1, 1)</td><td style = "text-align: left;">711.0 (6, 5)</td><td style = "text-align: left;">711.0 (6, 5)</td></tr><tr class = "dataRow"><td class = "rowLabel" style = "font-weight: bold; text-align: right;">2</td><td style = "text-align: left;">pscad [1]</td><td style = "text-align: left;">coaxial [1]</td><td style = "text-align: left;">0.7017 (4, 1)</td><td style = "text-align: left;">0.2706 (4, 1)</td><td style = "text-align: left;">Inf (6, 3)</td><td style = "text-align: left;">Inf (6, 3)</td></tr><tr class = "dataRow"><td class = "rowLabel" style = "font-weight: bold; text-align: right;">3</td><td style = "text-align: left;">fem [2]</td><td style = "text-align: left;">coaxial [2]</td><td style = "text-align: left;">7.838 (1, 1)</td><td style = "text-align: left;">6.757 (1, 1)</td><td style = "text-align: left;">749.7 (6, 5)</td><td style = "text-align: left;">1285.0 (6, 5)</td></tr><tr class = "dataRow"><td class = "rowLabel" style = "font-weight: bold; text-align: right;">4</td><td style = "text-align: left;">pscad [2]</td><td style = "text-align: left;">coaxial [2]</td><td style = "text-align: left;">0.7017 (4, 1)</td><td style = "text-align: left;">0.2706 (4, 1)</td><td style = "text-align: left;">Inf (6, 3)</td><td style = "text-align: left;">Inf (6, 3)</td></tr></tbody></table></div>
-```
-
-```@raw html
-<h4>18 kV 1000 mm² cables in trefoil — homogenized assembly</h4>
-<div class = "data-frame" style = "overflow-x: scroll;"><table class = "data-frame" style = "margin-bottom: 6px;"><thead><tr class = "columnLabelRow"><th class = "stubheadLabel" style = "font-weight: bold; text-align: right;">Row</th><th style = "text-align: left;">reference</th><th style = "text-align: left;">candidate</th><th style = "text-align: left;">Z NRMSE</th><th style = "text-align: left;">Z pointwise</th><th style = "text-align: left;">Y NRMSE</th><th style = "text-align: left;">Y pointwise</th></tr></thead><tbody><tr class = "dataRow"><td class = "rowLabel" style = "font-weight: bold; text-align: right;">1</td><td style = "text-align: left;">fem [1]</td><td style = "text-align: left;">coaxial [1]</td><td style = "text-align: left;">6.54 (2, 1)</td><td style = "text-align: left;">5.15 (2, 2)</td><td style = "text-align: left;">100.0 (1, 3)</td><td style = "text-align: left;">100.0 (9, 7)</td></tr><tr class = "dataRow"><td class = "rowLabel" style = "font-weight: bold; text-align: right;">2</td><td style = "text-align: left;">pscad [1]</td><td style = "text-align: left;">coaxial [1]</td><td style = "text-align: left;">0.7017 (4, 1)</td><td style = "text-align: left;">0.2706 (4, 1)</td><td style = "text-align: left;">Inf (6, 3)</td><td style = "text-align: left;">Inf (6, 3)</td></tr><tr class = "dataRow"><td class = "rowLabel" style = "font-weight: bold; text-align: right;">3</td><td style = "text-align: left;">fem [2]</td><td style = "text-align: left;">coaxial [2]</td><td style = "text-align: left;">6.54 (2, 1)</td><td style = "text-align: left;">5.15 (2, 2)</td><td style = "text-align: left;">100.0 (9, 7)</td><td style = "text-align: left;">100.0 (5, 9)</td></tr><tr class = "dataRow"><td class = "rowLabel" style = "font-weight: bold; text-align: right;">4</td><td style = "text-align: left;">pscad [2]</td><td style = "text-align: left;">coaxial [2]</td><td style = "text-align: left;">0.7017 (4, 1)</td><td style = "text-align: left;">0.2706 (4, 1)</td><td style = "text-align: left;">Inf (6, 3)</td><td style = "text-align: left;">Inf (6, 3)</td></tr></tbody></table></div>
-```
-
-```@raw html
-<h4>220 kV Milliken 2500 mm² Al / 252 mm² Cu cables in trefoil</h4>
-<div class = "data-frame" style = "overflow-x: scroll;"><table class = "data-frame" style = "margin-bottom: 6px;"><thead><tr class = "columnLabelRow"><th class = "stubheadLabel" style = "font-weight: bold; text-align: right;">Row</th><th style = "text-align: left;">reference</th><th style = "text-align: left;">candidate</th><th style = "text-align: left;">Z NRMSE</th><th style = "text-align: left;">Z pointwise</th><th style = "text-align: left;">Y NRMSE</th><th style = "text-align: left;">Y pointwise</th></tr></thead><tbody><tr class = "dataRow"><td class = "rowLabel" style = "font-weight: bold; text-align: right;">1</td><td style = "text-align: left;">pscad [1]</td><td style = "text-align: left;">coaxial [1]</td><td style = "text-align: left;">0.8387 (4, 1)</td><td style = "text-align: left;">0.3237 (4, 1)</td><td style = "text-align: left;">Inf (6, 3)</td><td style = "text-align: left;">Inf (6, 3)</td></tr><tr class = "dataRow"><td class = "rowLabel" style = "font-weight: bold; text-align: right;">2</td><td style = "text-align: left;">pscad [2]</td><td style = "text-align: left;">coaxial [2]</td><td style = "text-align: left;">0.8387 (4, 1)</td><td style = "text-align: left;">0.3237 (4, 1)</td><td style = "text-align: left;">Inf (6, 3)</td><td style = "text-align: left;">Inf (6, 3)</td></tr></tbody></table></div>
-```
-
-```@raw html
-<h4>18/30 kV NA2XS2Y 630 mm² Al cables in touching trefoil</h4>
-<div class = "data-frame" style = "overflow-x: scroll;"><table class = "data-frame" style = "margin-bottom: 6px;"><thead><tr class = "columnLabelRow"><th class = "stubheadLabel" style = "font-weight: bold; text-align: right;">Row</th><th style = "text-align: left;">reference</th><th style = "text-align: left;">candidate</th><th style = "text-align: left;">Z NRMSE</th><th style = "text-align: left;">Z pointwise</th><th style = "text-align: left;">Y NRMSE</th><th style = "text-align: left;">Y pointwise</th></tr></thead><tbody><tr class = "dataRow"><td class = "rowLabel" style = "font-weight: bold; text-align: right;">1</td><td style = "text-align: left;">pscad [1]</td><td style = "text-align: left;">coaxial [1]</td><td style = "text-align: left;">0.6601 (3, 1)</td><td style = "text-align: left;">0.2547 (3, 1)</td><td style = "text-align: left;">Inf (4, 2)</td><td style = "text-align: left;">Inf (4, 2)</td></tr><tr class = "dataRow"><td class = "rowLabel" style = "font-weight: bold; text-align: right;">2</td><td style = "text-align: left;">pscad [2]</td><td style = "text-align: left;">coaxial [2]</td><td style = "text-align: left;">0.6601 (3, 1)</td><td style = "text-align: left;">0.2547 (3, 1)</td><td style = "text-align: left;">Inf (4, 2)</td><td style = "text-align: left;">Inf (4, 2)</td></tr></tbody></table></div>
-```
-
-```@raw html
-<h4>320 kV armoured cable DC bipole</h4>
-<div class = "data-frame" style = "overflow-x: scroll;"><table class = "data-frame" style = "margin-bottom: 6px;"><thead><tr class = "columnLabelRow"><th class = "stubheadLabel" style = "font-weight: bold; text-align: right;">Row</th><th style = "text-align: left;">reference</th><th style = "text-align: left;">candidate</th><th style = "text-align: left;">Z NRMSE</th><th style = "text-align: left;">Z pointwise</th><th style = "text-align: left;">Y NRMSE</th><th style = "text-align: left;">Y pointwise</th></tr></thead><tbody><tr class = "dataRow"><td class = "rowLabel" style = "font-weight: bold; text-align: right;">1</td><td style = "text-align: left;">pscad [1]</td><td style = "text-align: left;">coaxial [1]</td><td style = "text-align: left;">8.022 (4, 1)</td><td style = "text-align: left;">3.129 (4, 1)</td><td style = "text-align: left;">Inf (6, 3)</td><td style = "text-align: left;">Inf (6, 3)</td></tr><tr class = "dataRow"><td class = "rowLabel" style = "font-weight: bold; text-align: right;">2</td><td style = "text-align: left;">pscad [2]</td><td style = "text-align: left;">coaxial [2]</td><td style = "text-align: left;">8.022 (4, 1)</td><td style = "text-align: left;">3.129 (4, 1)</td><td style = "text-align: left;">Inf (6, 3)</td><td style = "text-align: left;">Inf (6, 3)</td></tr></tbody></table></div>
-```
-
-```@raw html
-<h4>320 kV unarmoured cable DC bipole</h4>
-<div class = "data-frame" style = "overflow-x: scroll;"><table class = "data-frame" style = "margin-bottom: 6px;"><thead><tr class = "columnLabelRow"><th class = "stubheadLabel" style = "font-weight: bold; text-align: right;">Row</th><th style = "text-align: left;">reference</th><th style = "text-align: left;">candidate</th><th style = "text-align: left;">Z NRMSE</th><th style = "text-align: left;">Z pointwise</th><th style = "text-align: left;">Y NRMSE</th><th style = "text-align: left;">Y pointwise</th></tr></thead><tbody><tr class = "dataRow"><td class = "rowLabel" style = "font-weight: bold; text-align: right;">1</td><td style = "text-align: left;">pscad [1]</td><td style = "text-align: left;">coaxial [1]</td><td style = "text-align: left;">8.019 (3, 1)</td><td style = "text-align: left;">3.127 (3, 1)</td><td style = "text-align: left;">Inf (4, 2)</td><td style = "text-align: left;">Inf (4, 2)</td></tr><tr class = "dataRow"><td class = "rowLabel" style = "font-weight: bold; text-align: right;">2</td><td style = "text-align: left;">pscad [2]</td><td style = "text-align: left;">coaxial [2]</td><td style = "text-align: left;">8.019 (3, 1)</td><td style = "text-align: left;">3.127 (3, 1)</td><td style = "text-align: left;">Inf (4, 2)</td><td style = "text-align: left;">Inf (4, 2)</td></tr></tbody></table></div>
-```
-
-```@raw html
-<h4>380 kV 2000 mm² cables in flat vertical formation</h4>
-<div class = "data-frame" style = "overflow-x: scroll;"><table class = "data-frame" style = "margin-bottom: 6px;"><thead><tr class = "columnLabelRow"><th class = "stubheadLabel" style = "font-weight: bold; text-align: right;">Row</th><th style = "text-align: left;">reference</th><th style = "text-align: left;">candidate</th><th style = "text-align: left;">Z NRMSE</th><th style = "text-align: left;">Z pointwise</th><th style = "text-align: left;">Y NRMSE</th><th style = "text-align: left;">Y pointwise</th></tr></thead><tbody><tr class = "dataRow"><td class = "rowLabel" style = "font-weight: bold; text-align: right;">1</td><td style = "text-align: left;">pscad [1]</td><td style = "text-align: left;">coaxial [1]</td><td style = "text-align: left;">1.529 (7, 1)</td><td style = "text-align: left;">0.6032 (7, 1)</td><td style = "text-align: left;">Inf (6, 3)</td><td style = "text-align: left;">Inf (6, 3)</td></tr><tr class = "dataRow"><td class = "rowLabel" style = "font-weight: bold; text-align: right;">2</td><td style = "text-align: left;">pscad [2]</td><td style = "text-align: left;">coaxial [2]</td><td style = "text-align: left;">1.529 (7, 1)</td><td style = "text-align: left;">0.6032 (7, 1)</td><td style = "text-align: left;">Inf (6, 3)</td><td style = "text-align: left;">Inf (6, 3)</td></tr></tbody></table></div>
-```
-
-```@raw html
-<h4>380 kV armoured cables in AC flat formation</h4>
-<div class = "data-frame" style = "overflow-x: scroll;"><table class = "data-frame" style = "margin-bottom: 6px;"><thead><tr class = "columnLabelRow"><th class = "stubheadLabel" style = "font-weight: bold; text-align: right;">Row</th><th style = "text-align: left;">reference</th><th style = "text-align: left;">candidate</th><th style = "text-align: left;">Z NRMSE</th><th style = "text-align: left;">Z pointwise</th><th style = "text-align: left;">Y NRMSE</th><th style = "text-align: left;">Y pointwise</th></tr></thead><tbody><tr class = "dataRow"><td class = "rowLabel" style = "font-weight: bold; text-align: right;">1</td><td style = "text-align: left;">pscad [1]</td><td style = "text-align: left;">coaxial [1]</td><td style = "text-align: left;">10.04 (7, 1)</td><td style = "text-align: left;">3.93 (7, 1)</td><td style = "text-align: left;">Inf (6, 3)</td><td style = "text-align: left;">Inf (6, 3)</td></tr><tr class = "dataRow"><td class = "rowLabel" style = "font-weight: bold; text-align: right;">2</td><td style = "text-align: left;">pscad [2]</td><td style = "text-align: left;">coaxial [2]</td><td style = "text-align: left;">10.04 (7, 1)</td><td style = "text-align: left;">3.93 (7, 1)</td><td style = "text-align: left;">Inf (6, 3)</td><td style = "text-align: left;">Inf (6, 3)</td></tr></tbody></table></div>
-```
-
-```@raw html
-<h4>380 kV unarmoured cables in AC flat formation</h4>
-<div class = "data-frame" style = "overflow-x: scroll;"><table class = "data-frame" style = "margin-bottom: 6px;"><thead><tr class = "columnLabelRow"><th class = "stubheadLabel" style = "font-weight: bold; text-align: right;">Row</th><th style = "text-align: left;">reference</th><th style = "text-align: left;">candidate</th><th style = "text-align: left;">Z NRMSE</th><th style = "text-align: left;">Z pointwise</th><th style = "text-align: left;">Y NRMSE</th><th style = "text-align: left;">Y pointwise</th></tr></thead><tbody><tr class = "dataRow"><td class = "rowLabel" style = "font-weight: bold; text-align: right;">1</td><td style = "text-align: left;">pscad [1]</td><td style = "text-align: left;">coaxial [1]</td><td style = "text-align: left;">10.04 (5, 1)</td><td style = "text-align: left;">3.929 (5, 1)</td><td style = "text-align: left;">Inf (4, 2)</td><td style = "text-align: left;">Inf (4, 2)</td></tr><tr class = "dataRow"><td class = "rowLabel" style = "font-weight: bold; text-align: right;">2</td><td style = "text-align: left;">pscad [2]</td><td style = "text-align: left;">coaxial [2]</td><td style = "text-align: left;">10.04 (5, 1)</td><td style = "text-align: left;">3.929 (5, 1)</td><td style = "text-align: left;">Inf (4, 2)</td><td style = "text-align: left;">Inf (4, 2)</td></tr></tbody></table></div>
-```
-
-```@raw html
-<h4>525 kV 1600 mm² armoured cable DC bipole</h4>
-<div class = "data-frame" style = "overflow-x: scroll;"><table class = "data-frame" style = "margin-bottom: 6px;"><thead><tr class = "columnLabelRow"><th class = "stubheadLabel" style = "font-weight: bold; text-align: right;">Row</th><th style = "text-align: left;">reference</th><th style = "text-align: left;">candidate</th><th style = "text-align: left;">Z NRMSE</th><th style = "text-align: left;">Z pointwise</th><th style = "text-align: left;">Y NRMSE</th><th style = "text-align: left;">Y pointwise</th></tr></thead><tbody><tr class = "dataRow"><td class = "rowLabel" style = "font-weight: bold; text-align: right;">1</td><td style = "text-align: left;">pscad [1]</td><td style = "text-align: left;">coaxial [1]</td><td style = "text-align: left;">1.577 (4, 1)</td><td style = "text-align: left;">0.6199 (4, 1)</td><td style = "text-align: left;">Inf (6, 3)</td><td style = "text-align: left;">Inf (6, 3)</td></tr><tr class = "dataRow"><td class = "rowLabel" style = "font-weight: bold; text-align: right;">2</td><td style = "text-align: left;">pscad [2]</td><td style = "text-align: left;">coaxial [2]</td><td style = "text-align: left;">1.577 (4, 1)</td><td style = "text-align: left;">0.6199 (4, 1)</td><td style = "text-align: left;">Inf (6, 3)</td><td style = "text-align: left;">Inf (6, 3)</td></tr></tbody></table></div>
-```
-
-```@raw html
-<h4>525 kV unarmoured land cables in AC flat formation</h4>
-<div class = "data-frame" style = "overflow-x: scroll;"><table class = "data-frame" style = "margin-bottom: 6px;"><thead><tr class = "columnLabelRow"><th class = "stubheadLabel" style = "font-weight: bold; text-align: right;">Row</th><th style = "text-align: left;">reference</th><th style = "text-align: left;">candidate</th><th style = "text-align: left;">Z NRMSE</th><th style = "text-align: left;">Z pointwise</th><th style = "text-align: left;">Y NRMSE</th><th style = "text-align: left;">Y pointwise</th></tr></thead><tbody><tr class = "dataRow"><td class = "rowLabel" style = "font-weight: bold; text-align: right;">1</td><td style = "text-align: left;">pscad [1]</td><td style = "text-align: left;">coaxial [1]</td><td style = "text-align: left;">10.04 (5, 1)</td><td style = "text-align: left;">3.93 (5, 1)</td><td style = "text-align: left;">Inf (4, 2)</td><td style = "text-align: left;">Inf (4, 2)</td></tr><tr class = "dataRow"><td class = "rowLabel" style = "font-weight: bold; text-align: right;">2</td><td style = "text-align: left;">pscad [2]</td><td style = "text-align: left;">coaxial [2]</td><td style = "text-align: left;">10.04 (5, 1)</td><td style = "text-align: left;">3.93 (5, 1)</td><td style = "text-align: left;">Inf (4, 2)</td><td style = "text-align: left;">Inf (4, 2)</td></tr></tbody></table></div>
-```
-
-```@raw html
-<h4>525 kV unarmoured land cable DC bipole</h4>
-<div class = "data-frame" style = "overflow-x: scroll;"><table class = "data-frame" style = "margin-bottom: 6px;"><thead><tr class = "columnLabelRow"><th class = "stubheadLabel" style = "font-weight: bold; text-align: right;">Row</th><th style = "text-align: left;">reference</th><th style = "text-align: left;">candidate</th><th style = "text-align: left;">Z NRMSE</th><th style = "text-align: left;">Z pointwise</th><th style = "text-align: left;">Y NRMSE</th><th style = "text-align: left;">Y pointwise</th></tr></thead><tbody><tr class = "dataRow"><td class = "rowLabel" style = "font-weight: bold; text-align: right;">1</td><td style = "text-align: left;">pscad [1]</td><td style = "text-align: left;">coaxial [1]</td><td style = "text-align: left;">8.022 (3, 1)</td><td style = "text-align: left;">3.129 (3, 1)</td><td style = "text-align: left;">Inf (4, 2)</td><td style = "text-align: left;">Inf (4, 2)</td></tr><tr class = "dataRow"><td class = "rowLabel" style = "font-weight: bold; text-align: right;">2</td><td style = "text-align: left;">pscad [2]</td><td style = "text-align: left;">coaxial [2]</td><td style = "text-align: left;">8.022 (3, 1)</td><td style = "text-align: left;">3.129 (3, 1)</td><td style = "text-align: left;">Inf (4, 2)</td><td style = "text-align: left;">Inf (4, 2)</td></tr></tbody></table></div>
-```
-
-```@raw html
-<h4>525 kV armoured subsea cables in AC flat formation</h4>
-<div class = "data-frame" style = "overflow-x: scroll;"><table class = "data-frame" style = "margin-bottom: 6px;"><thead><tr class = "columnLabelRow"><th class = "stubheadLabel" style = "font-weight: bold; text-align: right;">Row</th><th style = "text-align: left;">reference</th><th style = "text-align: left;">candidate</th><th style = "text-align: left;">Z NRMSE</th><th style = "text-align: left;">Z pointwise</th><th style = "text-align: left;">Y NRMSE</th><th style = "text-align: left;">Y pointwise</th></tr></thead><tbody><tr class = "dataRow"><td class = "rowLabel" style = "font-weight: bold; text-align: right;">1</td><td style = "text-align: left;">pscad [1]</td><td style = "text-align: left;">coaxial [1]</td><td style = "text-align: left;">10.04 (7, 1)</td><td style = "text-align: left;">3.93 (7, 1)</td><td style = "text-align: left;">Inf (6, 3)</td><td style = "text-align: left;">Inf (6, 3)</td></tr><tr class = "dataRow"><td class = "rowLabel" style = "font-weight: bold; text-align: right;">2</td><td style = "text-align: left;">pscad [2]</td><td style = "text-align: left;">coaxial [2]</td><td style = "text-align: left;">10.04 (7, 1)</td><td style = "text-align: left;">3.93 (7, 1)</td><td style = "text-align: left;">Inf (6, 3)</td><td style = "text-align: left;">Inf (6, 3)</td></tr></tbody></table></div>
-```
-
-```@raw html
-<h4>525 kV armoured subsea cable DC bipole</h4>
-<div class = "data-frame" style = "overflow-x: scroll;"><table class = "data-frame" style = "margin-bottom: 6px;"><thead><tr class = "columnLabelRow"><th class = "stubheadLabel" style = "font-weight: bold; text-align: right;">Row</th><th style = "text-align: left;">reference</th><th style = "text-align: left;">candidate</th><th style = "text-align: left;">Z NRMSE</th><th style = "text-align: left;">Z pointwise</th><th style = "text-align: left;">Y NRMSE</th><th style = "text-align: left;">Y pointwise</th></tr></thead><tbody><tr class = "dataRow"><td class = "rowLabel" style = "font-weight: bold; text-align: right;">1</td><td style = "text-align: left;">pscad [1]</td><td style = "text-align: left;">coaxial [1]</td><td style = "text-align: left;">8.023 (4, 1)</td><td style = "text-align: left;">3.129 (4, 1)</td><td style = "text-align: left;">Inf (6, 3)</td><td style = "text-align: left;">Inf (6, 3)</td></tr><tr class = "dataRow"><td class = "rowLabel" style = "font-weight: bold; text-align: right;">2</td><td style = "text-align: left;">pscad [2]</td><td style = "text-align: left;">coaxial [2]</td><td style = "text-align: left;">8.023 (4, 1)</td><td style = "text-align: left;">3.129 (4, 1)</td><td style = "text-align: left;">Inf (6, 3)</td><td style = "text-align: left;">Inf (6, 3)</td></tr></tbody></table></div>
-```
-
-```@raw html
-<h4>640 kV 2000 mm² cable DC bipole</h4>
-<div class = "data-frame" style = "overflow-x: scroll;"><table class = "data-frame" style = "margin-bottom: 6px;"><thead><tr class = "columnLabelRow"><th class = "stubheadLabel" style = "font-weight: bold; text-align: right;">Row</th><th style = "text-align: left;">reference</th><th style = "text-align: left;">candidate</th><th style = "text-align: left;">Z NRMSE</th><th style = "text-align: left;">Z pointwise</th><th style = "text-align: left;">Y NRMSE</th><th style = "text-align: left;">Y pointwise</th></tr></thead><tbody><tr class = "dataRow"><td class = "rowLabel" style = "font-weight: bold; text-align: right;">1</td><td style = "text-align: left;">pscad [1]</td><td style = "text-align: left;">coaxial [1]</td><td style = "text-align: left;">1.538 (4, 1)</td><td style = "text-align: left;">0.6036 (4, 1)</td><td style = "text-align: left;">Inf (6, 3)</td><td style = "text-align: left;">Inf (6, 3)</td></tr><tr class = "dataRow"><td class = "rowLabel" style = "font-weight: bold; text-align: right;">2</td><td style = "text-align: left;">pscad [2]</td><td style = "text-align: left;">coaxial [2]</td><td style = "text-align: left;">1.538 (4, 1)</td><td style = "text-align: left;">0.6036 (4, 1)</td><td style = "text-align: left;">Inf (6, 3)</td><td style = "text-align: left;">Inf (6, 3)</td></tr></tbody></table></div>
-```
-
-```@raw html
-<h4>Single 1000 mm² solid conductor</h4>
-<div class = "data-frame" style = "overflow-x: scroll;"><table class = "data-frame" style = "margin-bottom: 6px;"><thead><tr class = "columnLabelRow"><th class = "stubheadLabel" style = "font-weight: bold; text-align: right;">Row</th><th style = "text-align: left;">reference</th><th style = "text-align: left;">candidate</th><th style = "text-align: left;">Z NRMSE</th><th style = "text-align: left;">Z pointwise</th><th style = "text-align: left;">Y NRMSE</th><th style = "text-align: left;">Y pointwise</th></tr></thead><tbody><tr class = "dataRow"><td class = "rowLabel" style = "font-weight: bold; text-align: right;">1</td><td style = "text-align: left;">pscad [1]</td><td style = "text-align: left;">coaxial [1]</td><td style = "text-align: left;">0.5348 (1, 1)</td><td style = "text-align: left;">0.2065 (1, 1)</td><td style = "text-align: left;">15.84 (1, 1)</td><td style = "text-align: left;">6.312 (1, 1)</td></tr><tr class = "dataRow"><td class = "rowLabel" style = "font-weight: bold; text-align: right;">2</td><td style = "text-align: left;">pscad [2]</td><td style = "text-align: left;">coaxial [2]</td><td style = "text-align: left;">0.5348 (1, 1)</td><td style = "text-align: left;">0.2065 (1, 1)</td><td style = "text-align: left;">15.84 (1, 1)</td><td style = "text-align: left;">6.312 (1, 1)</td></tr></tbody></table></div>
-```
-
-```@raw html
-<h4>Two buried wires with 1 mm insulation</h4>
-<div class = "data-frame" style = "overflow-x: scroll;"><table class = "data-frame" style = "margin-bottom: 6px;"><thead><tr class = "columnLabelRow"><th class = "stubheadLabel" style = "font-weight: bold; text-align: right;">Row</th><th style = "text-align: left;">reference</th><th style = "text-align: left;">candidate</th><th style = "text-align: left;">Z NRMSE</th><th style = "text-align: left;">Z pointwise</th><th style = "text-align: left;">Y NRMSE</th><th style = "text-align: left;">Y pointwise</th></tr></thead><tbody><tr class = "dataRow"><td class = "rowLabel" style = "font-weight: bold; text-align: right;">1</td><td style = "text-align: left;">pscad [1]</td><td style = "text-align: left;">coaxial [1]</td><td style = "text-align: left;">9.618 (1, 1)</td><td style = "text-align: left;">4.197 (2, 1)</td><td style = "text-align: left;">Inf (2, 1)</td><td style = "text-align: left;">Inf (2, 1)</td></tr><tr class = "dataRow"><td class = "rowLabel" style = "font-weight: bold; text-align: right;">2</td><td style = "text-align: left;">pscad [2]</td><td style = "text-align: left;">coaxial [2]</td><td style = "text-align: left;">9.618 (1, 1)</td><td style = "text-align: left;">4.197 (2, 1)</td><td style = "text-align: left;">Inf (2, 1)</td><td style = "text-align: left;">Inf (2, 1)</td></tr></tbody></table></div>
-```
-
-#### Band `wide`
-
-No stored samples or comparisons for this band; errors are missing.
-
-Independent cold/warmed timings: not recorded. Stored elapsed-at-completion values describe calculation batches, not per-selection execution.
-
+!!! note "No recorded benchmarks selected"
+    Set `LINECABLEMODELS_GAUNTLET_RESULTS` to a saved benchmark directory.
+    Use `lcm gauntlet compare` to bind completed calculations explicitly.
+    No calculations run during documentation generation.
 
 
 ## Comparison conventions
@@ -619,44 +51,89 @@ is numerically zero; no samples are omitted. Defaults are 1e-10 Ω/m for R,
 R + 2πfL and G + 2πfC. Override them with `compare(...; atol=(G=..., C=...))`.
 Unsupported observables and empty bands retain their separate reasons.
 
-Saved comparisons retain the policy used when they were calculated. Historical
-tables can therefore contain zero or infinite ratios under the previous policy;
+Saved comparisons retain the settings used when they were calculated. Historical
+tables can therefore contain zero or infinite ratios under the previous settings;
 recompute comparisons from their retained raw operands to apply the current
-policy. The report renderer does not change stored metrics.
+settings. The report renderer does not change stored metrics.
 
-The deterministic summary displays **Z and Y only**. Shunt conductance
-`G = real(Y)` remains available for an explicitly requested loss study through
-`compare(reference, candidate, G; ...)`; it is not an additional default KPI.
-Saved G comparisons are retained, but do not expand the Z/Y summary.
-UQ moment benchmarks, when selected, have separate mean and standard-deviation
-sections; their R/L/C/G observables are not mixed into deterministic Z/Y tables.
+Deterministic values and UQ mean/std comparisons have separate sections. The
+benchmark's recorded settings supply quantities, bands and normalizations.
+There is no backend truth ranking or requirement for different models to agree.
+Inputs, terminal order, basis and frequencies must be comparable before errors
+are calculated. Report generation does not reinterpret the saved settings.
 
-Two profiles are included: all-`:default`, and `:Ametani2004` for both
-insulation and semicon with all other slots at `:default`. Defaults
-are contextual and may implement different approximations in each backend.
-PSCAD's scalar export matches the selected radial dielectric admittance at
-its base frequency (50 Hz in this campaign), before the native loss-tangent
-cap of 10. That fit is not an arbitrary broadband constitutive law. The owned
-engine and FEM evaluate the retained dielectric constituents at each frequency;
-homogeneous radial equivalence does not assert full-geometry field equivalence.
-In this campaign, each benchmark explicitly selects PSCAD or FEM as reference
-and coaxial as candidate. This is a choice in its definition, not a Gauntlet
-rule: same-backend and other cross-backend pairs are equally valid.
-No backend is ground truth or
-an approved CI reference. Inputs, terminal order, basis and frequencies must
-match; there is no implicit interpolation or conversion. No detailed HTML
-pages, plots, input-object dumps or numerical-file copies are published here.
+## Inspect results at the REPL
+
+Read a completed benchmark directory, or pass a particular `snapshot.jld2` with
+`load_results=true`. Both forms load the explicit reference/candidate pair and
+saved analyses. Relative operand paths resolve from the snapshot directory.
+
+```julia
+using LineCableModels, DataFrames
+using LineCableModels.ReportBuilder: BenchmarkTableDefinition
+include(joinpath(pkgdir(LineCableModels), "gauntlet", "Gauntlet.jl"))
+using .Gauntlet
+
+benchmark = read_benchmark("/path/to/campaign/benchmark_id")
+# Alternatively: read_benchmark("/path/to/snapshot.jld2"; load_results=true)
+tables = report(BenchmarkTableDefinition(false), benchmark).table
+
+tables.calculations  # IDs, actual formulation records, controls, axes and hashes
+tables.comparisons   # One row per quantity/statistic/band/normalization/point pair
+tables.terms         # Every matrix entry, with terminal names, units and reasons
+
+z = filter(row -> row.quantity === :Z && row.statistic === :value &&
+    row.band === :all && row.normalization === :reference_rms &&
+    row.reference_point == 1 && row.candidate_point == 1, tables.comparisons)
+only(z.absolute_rms)          # Complete matrix, in the units shown in absolute_unit
+only(z.relative_rms_percent)  # Complete matrix; missing stays missing
+only(z.reason)               # Per-entry unavailable reasons
+
+g = filter(row -> row.quantity === :G && row.band === :all, tables.terms)
+show(g; allrows=true, allcols=true)
+
+using GLMakie
+plots = LineCableModels.plot(benchmark, (Z, Y); pair=(1, 1))
+```
+
+`Z` produces the existing R/X views, and `Y` produces G/B. Each quantity has its
+own matrix layout, with reference and candidate overlaid in every corresponding
+cell, including both off-diagonal entries. `(R, L, G, C)` selects those quantities
+directly. The existing plot controls, unit keywords and SVG export remain available.
+Use `length_unit=:base` to show the native per-metre units used by the RMS tables;
+the ordinary plotting default displays per-kilometre quantities.
+
+For a single compared point pair, `pair` can be omitted. With multiple points,
+choose a pair retained in the analysis; zipped and product result spaces keep
+their declared pairing. `tables.calculations.axes` retains the axis descriptions
+needed to identify the formulations and problems behind each point. Plotting does
+not choose a replacement reference or assemble a different comparison.
+
+`BenchmarkTableDefinition(false)` disables display clipping, and the benchmark
+plot overload also defaults to `clip=false`. Absolute RMS remains available when
+relative RMS cannot be normalized, such as a numerical-zero G reference. Tables
+include all recorded quantities, statuses, tolerances, actual sample indices and
+requested/actual frequency bounds. Stored UQ mean and standard-deviation RMS
+matrices appear as separate `statistic` values; the line-parameter overlay method
+does not reinterpret moment products as line-parameter results.
+
+The engine currently selects ordinary band endpoints by the nearest stored
+frequencies. Inspect `requested_bounds_Hz`, `actual_bounds_Hz` and `sample_indices`
+when using a coarse grid: a band name or a 50 Hz endpoint does not establish that
+a 50 Hz sample exists. Reporting displays the saved settings and values; it does not
+silently recompute comparisons under another band-selection rule.
+
+Tables load without Makie and no solver runs during inspection. The documentation
+page provides a maximum-relative-error overview across every recorded quantity;
+the REPL tables expose the full matrices and absolute errors.
 
 ## Run and select stored results
 
 ```bash
-lcm gauntlet run --directory /path/to/campaign \
-  --backends coaxial,fem,pscad --formulas default --frequency-range 0.1,1e6
+lcm gauntlet run --definition gauntlet/benchmarks/examples/compare_soil.jl \
+  --directory /path/to/campaign
 lcm gauntlet status --directory /path/to/campaign
 lcm gauntlet resume --directory /path/to/campaign
-lcm gauntlet run --directory /path/to/lossy-campaign \
-  --backends coaxial,fem,pscad --formulas default --dielectric Ametani2004 \
-  --frequency-range 0.1,1e6
 
 lcm gauntlet compare --definition /path/to/benchmarks.toml \
   --output /path/to/comparisons
@@ -664,14 +141,22 @@ LINECABLEMODELS_GAUNTLET_RESULTS=/path/to/comparisons \
   julia --project=docs docs/make.jl
 ```
 
-Omit `--cases` to run the indexed catalogue, or pass comma-separated case IDs.
-`--frequency-range` sets the same 101 logarithmic samples for every case;
-without it, each case retains its own extent, with a 0.1 Hz minimum.
-`--formulas catalogue` retains the broader formula sweep without expanding
-this summary. Formula grids, explicit lossy selections and uncertainty runs
-are documented in the
-[Gauntlet CLI guide](https://github.com/Electa-Git/LineCableModels.jl/blob/main/test/gauntlet/README.md).
-FEM Monte Carlo remains disabled.
+Catalogue cases and benchmark examples default to 101 logarithmically spaced
+frequencies from 0.1 Hz to 10 MHz: `10.0 .^ range(-1, 7; length=101)`.
+These are 100 increments including both endpoints, accepted by the PSCAD scan.
+Explicit frequency overrides remain authoritative. Pass `--frequencies FILE.toml` with a
+`frequencies = [...]` vector, or declare a grid using
+`--grid log --count 101 --bounds 0.1,1e7`. The runner passes those values to
+the benchmark constructor before materialization; it does not replace them
+with a backend-specific grid.
+
+A native base frequency such as 50 Hz controls physical conversion; it does
+not insert a comparison sample. Reports retain the actual selected band bounds;
+the engine's current endpoint selection uses the nearest stored frequencies.
+Retained archives keep the frequency vectors on which they were computed.
+
+Formula grids, material selections and uncertainty runs are documented in the
+[Gauntlet CLI guide](https://github.com/Electa-Git/LineCableModels.jl/blob/main/gauntlet/README.md).
 
 A benchmark definition names exactly one reference and one candidate artifact
 (paths and SHA-256 checksums), plus quantities, bands and normalizations. See the
@@ -679,10 +164,9 @@ CLI guide for the TOML format. Comparing saved files never reruns their solvers.
 Missing operands are errors; they never trigger a replacement reference.
 Multiple comparison directories can be selected with the platform path-list
 separator (`:` on Unix, `;` on Windows); identical benchmark records appear once.
-This completed-only campaign retains 86 calculations and 46 benchmark pairs:
-38 PSCAD-reference and 8 FEM-reference. The 32 unfinished FEM selections remain
-excluded. No simulations are resumed by this page. Batch elapsed-at-completion
-values are not advertised as per-selection cold or warmed execution timings.
+Counts, frequency ranges and timing scopes come from the selected records.
+No simulations are resumed by this page. Batch elapsed-at-completion values
+are not per-selection cold or warmed execution timings.
 
 ## Numerical references for CI
 

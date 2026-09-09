@@ -1,0 +1,76 @@
+include("schema.jl")
+include("project.jl")
+include("import.jl")
+
+"""
+$(TYPEDSIGNATURES)
+
+Export a [`LineCableSystem`](@ref) as a minimal PSCAD project.
+
+The generated project preserves PSCAD's `master:Line_FrePhase_Options`,
+`master:Cable_Coax`, and `master:Line_Ground` component bindings. Cable
+geometry, material properties, dielectric losses, phase eliminations, line
+length, base frequency, and static earth properties are emitted as component
+parameters. PSCAD may normalise the deterministic placeholder identifiers when
+it opens the project.
+
+# Arguments
+
+- `system`: Materialised line and cable geometry.
+- `earth`: Physical air and one infinite homogeneous soil half-space.
+- `base_freq`: Base frequency in hertz.
+- `file_name`: Destination `.pscx` file. The system identifier is prepended to
+  an explicitly supplied basename.
+- `formulation`: Selected line-parameter or cable-constant formulation.
+  The default selects lossless dielectric relations. Request `:Ametani2004`
+  explicitly to include the supplied material losses.
+- `native_settings=(;)`: Optional validated native `ground` and `frequency`
+  field records supplied by the PSCAD formula adapter. Each field carries its
+  `value` and expected `readback`. The same record accompanies native execution.
+- `temperature=nothing`: Optional operating temperature \\[°C\\]. Correction is
+  applied here during export, not in geometric flattening; `nothing` retains
+  the material reference temperatures.
+
+!!! note
+    PSCAD uses a reference-frequency equivalent loss tangent, bounded at ten.
+    It does not reproduce an arbitrary broadband constitutive law. Exporting
+    the selected relation matches its radial admittance at `base_freq` before
+    that cap, not necessarily at every frequency in a later PSCAD scan.
+
+# Returns
+
+The written path. Filesystem errors are propagated to the caller.
+"""
+function export_data(
+        ::Val{:pscad},
+        system::LineCableSystem,
+        earth::EarthModel;
+        formulation::Union{Engine.LineParametersFormulation,
+            Engine.CableConstantsFormulation, PSCADFormulation} = Engine.Formulation(),
+        base_freq::Real = formulation isa PSCADFormulation ?
+                          formulation.options.base_frequency : 50.0,
+        temperature::Union{Nothing, Real} = nothing,
+        file_name::Union{AbstractString, Nothing} = nothing,
+        native_settings::NamedTuple = (;)
+)
+    isfinite(base_freq) && base_freq > zero(base_freq) || throw(DomainError(
+        base_freq, "PSCAD base frequency must be positive and finite"
+    ))
+    validate(earth, Val(:pscad))
+    path = _pscad_output_path(system, file_name)
+    #! explicit-imports: off
+    # EzXML does not mark XMLError public, but this exporter preserves the
+    # established exception contract for invalid XML output destinations.
+    isdir(path) && throw(EzXML.XMLError(
+        8,
+        0,
+        "PSCAD output path is a directory: $path",
+        2,
+        0
+    ))
+    #! explicit-imports: on
+    document = _pscad_project(
+        system, earth, base_freq; formulation, temperature, native_settings)
+    write(path, document)
+    return path
+end

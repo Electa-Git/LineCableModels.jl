@@ -64,13 +64,13 @@ The earlier [controlled probes](gmsh-performance-evidence.json) measured about
 Reproduce the full comparison from the repository root:
 
 ```sh
-JULIA_LOAD_PATH=@:.:@stdlib julia --project=test/gauntlet test/gauntlet/fem_performance_validation.jl
+JULIA_LOAD_PATH=@:.:@stdlib julia --project=gauntlet gauntlet/fem_performance_validation.jl
 ```
 
 Set `LINECABLEMODELS_GETDP` only to override the package-owned GetDP artifact.
 The driver creates a fresh `.linecablemodels/fem/validation-*` root;
 it never resumes or overwrites a historical campaign. The companion
-`test/gauntlet/fem_worker_scaling.jl` checks one, two, four and eight workers on
+`gauntlet/fem_worker_scaling.jl` checks one, two, four and eight workers on
 eight retained detailed-cable meshes, requiring exact serial agreement and
 one factorization per frequency.
 

@@ -236,3 +236,13 @@ construct the requested target-bearing `Gridspace`.
 function Gridspace{Target}(source::AbstractResultSpace) where {Target}
     return _transport_error(Target, source)
 end
+
+"""
+$(TYPEDSIGNATURES)
+
+Expose the formulation, ordered values, resolved axes and calculation details as
+a native record. Arrays and axes retain their identity; no calculation or copy is made.
+"""
+function Base.NamedTuple(value::ParametricResult)
+    return (formulation=value.formulation, values=value.values, axes=value.axes, details=value.details)
+end

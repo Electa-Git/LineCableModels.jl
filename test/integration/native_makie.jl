@@ -282,6 +282,7 @@ end
     )
     @test combined isa UIPlot
     @test length(combined.axes) == 4
+    @test all(axis -> axis.yticklabelsvisible[] && axis.yticksvisible[] && axis.ylabelvisible[], combined.axes)
     @test combined.legend.orientation[] == :horizontal
     @test legend_labels(combined.legend) == ["reference", "candidate"]
 

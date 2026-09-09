@@ -1,13 +1,13 @@
 # # Gauntlet
 #
 # Gauntlet runs cases manually and retains numerical results. This page is its
-# only report: a compact comparison of the **applicable baseline formulations**
-# for each case, read from explicitly configured, persisted benchmarks.
+# documentation overview. Full tables and matrix-cell overlays are available at
+# the REPL from explicitly configured, persisted benchmarks.
 # Documentation generation never starts PSCAD, FEM, analytical calculations or
 # uncertainty propagation. Full-catalogue and UQ results remain stored for
 # analysis through the ordinary result, observation and plotting APIs.
 #
-# ## Recorded baseline comparisons
+# ## Recorded comparisons
 #
 # Both errors are calculated element-wise by
 # [`compare`](@ref LineCableModels.Engine.compare), with **A = the benchmark's
@@ -20,8 +20,8 @@
 # ```
 #
 # **One row is one benchmark.** Reference and candidate columns identify the
-# backend and requested formulation selection. Z and Y stay side by side;
-# each cell contains **maximum error in percent (response, excitation)**.
+# backend and retained formulation record. Every recorded quantity is included;
+# each overview cell contains **maximum error in percent (response, excitation)**.
 # The maximum is across matrix entries, not a whole-matrix error. The two
 # normalizations can attain their maxima at different entries. Expand the
 # benchmark identities below each full-band table to see the terminal order.
@@ -43,44 +43,89 @@
 # R + 2πfL and G + 2πfC. Override them with `compare(...; atol=(G=..., C=...))`.
 # Unsupported observables and empty bands retain their separate reasons.
 #
-# Saved comparisons retain the policy used when they were calculated. Historical
-# tables can therefore contain zero or infinite ratios under the previous policy;
+# Saved comparisons retain the settings used when they were calculated. Historical
+# tables can therefore contain zero or infinite ratios under the previous settings;
 # recompute comparisons from their retained raw operands to apply the current
-# policy. The report renderer does not change stored metrics.
+# settings. The report renderer does not change stored metrics.
 #
-# The deterministic summary displays **Z and Y only**. Shunt conductance
-# `G = real(Y)` remains available for an explicitly requested loss study through
-# `compare(reference, candidate, G; ...)`; it is not an additional default KPI.
-# Saved G comparisons are retained, but do not expand the Z/Y summary.
-# UQ moment benchmarks, when selected, have separate mean and standard-deviation
-# sections; their R/L/C/G observables are not mixed into deterministic Z/Y tables.
+# Deterministic values and UQ mean/std comparisons have separate sections. The
+# benchmark's recorded settings supply quantities, bands and normalizations.
+# There is no backend truth ranking or requirement for different models to agree.
+# Inputs, terminal order, basis and frequencies must be comparable before errors
+# are calculated. Report generation does not reinterpret the saved settings.
 #
-# Two profiles are included: all-`:default`, and `:Ametani2004` for both
-# insulation and semicon with all other slots at `:default`. Defaults
-# are contextual and may implement different approximations in each backend.
-# PSCAD's scalar export matches the selected radial dielectric admittance at
-# its base frequency (50 Hz in this campaign), before the native loss-tangent
-# cap of 10. That fit is not an arbitrary broadband constitutive law. The owned
-# engine and FEM evaluate the retained dielectric constituents at each frequency;
-# homogeneous radial equivalence does not assert full-geometry field equivalence.
-# In this campaign, each benchmark explicitly selects PSCAD or FEM as reference
-# and coaxial as candidate. This is a choice in its definition, not a Gauntlet
-# rule: same-backend and other cross-backend pairs are equally valid.
-# No backend is ground truth or
-# an approved CI reference. Inputs, terminal order, basis and frequencies must
-# match; there is no implicit interpolation or conversion. No detailed HTML
-# pages, plots, input-object dumps or numerical-file copies are published here.
+# ## Inspect results at the REPL
+#
+# Read a completed benchmark directory, or pass a particular `snapshot.jld2` with
+# `load_results=true`. Both forms load the explicit reference/candidate pair and
+# saved analyses. Relative operand paths resolve from the snapshot directory.
+#
+# ```julia
+# using LineCableModels, DataFrames
+# using LineCableModels.ReportBuilder: BenchmarkTableDefinition
+# include(joinpath(pkgdir(LineCableModels), "gauntlet", "Gauntlet.jl"))
+# using .Gauntlet
+#
+# benchmark = read_benchmark("/path/to/campaign/benchmark_id")
+# # Alternatively: read_benchmark("/path/to/snapshot.jld2"; load_results=true)
+# tables = report(BenchmarkTableDefinition(false), benchmark).table
+#
+# tables.calculations  # IDs, actual formulation records, controls, axes and hashes
+# tables.comparisons   # One row per quantity/statistic/band/normalization/point pair
+# tables.terms         # Every matrix entry, with terminal names, units and reasons
+#
+# z = filter(row -> row.quantity === :Z && row.statistic === :value &&
+#     row.band === :all && row.normalization === :reference_rms &&
+#     row.reference_point == 1 && row.candidate_point == 1, tables.comparisons)
+# only(z.absolute_rms)          # Complete matrix, in the units shown in absolute_unit
+# only(z.relative_rms_percent)  # Complete matrix; missing stays missing
+# only(z.reason)               # Per-entry unavailable reasons
+#
+# g = filter(row -> row.quantity === :G && row.band === :all, tables.terms)
+# show(g; allrows=true, allcols=true)
+#
+# using GLMakie
+# plots = LineCableModels.plot(benchmark, (Z, Y); pair=(1, 1))
+# ```
+#
+# `Z` produces the existing R/X views, and `Y` produces G/B. Each quantity has its
+# own matrix layout, with reference and candidate overlaid in every corresponding
+# cell, including both off-diagonal entries. `(R, L, G, C)` selects those quantities
+# directly. The existing plot controls, unit keywords and SVG export remain available.
+# Use `length_unit=:base` to show the native per-metre units used by the RMS tables;
+# the ordinary plotting default displays per-kilometre quantities.
+#
+# For a single compared point pair, `pair` can be omitted. With multiple points,
+# choose a pair retained in the analysis; zipped and product result spaces keep
+# their declared pairing. `tables.calculations.axes` retains the axis descriptions
+# needed to identify the formulations and problems behind each point. Plotting does
+# not choose a replacement reference or assemble a different comparison.
+#
+# `BenchmarkTableDefinition(false)` disables display clipping, and the benchmark
+# plot overload also defaults to `clip=false`. Absolute RMS remains available when
+# relative RMS cannot be normalized, such as a numerical-zero G reference. Tables
+# include all recorded quantities, statuses, tolerances, actual sample indices and
+# requested/actual frequency bounds. Stored UQ mean and standard-deviation RMS
+# matrices appear as separate `statistic` values; the line-parameter overlay method
+# does not reinterpret moment products as line-parameter results.
+#
+# The engine currently selects ordinary band endpoints by the nearest stored
+# frequencies. Inspect `requested_bounds_Hz`, `actual_bounds_Hz` and `sample_indices`
+# when using a coarse grid: a band name or a 50 Hz endpoint does not establish that
+# a 50 Hz sample exists. Reporting displays the saved settings and values; it does not
+# silently recompute comparisons under another band-selection rule.
+#
+# Tables load without Makie and no solver runs during inspection. The documentation
+# page provides a maximum-relative-error overview across every recorded quantity;
+# the REPL tables expose the full matrices and absolute errors.
 #
 # ## Run and select stored results
 #
 # ```bash
-# lcm gauntlet run --directory /path/to/campaign \
-#   --backends coaxial,fem,pscad --formulas default --frequency-range 0.1,1e6
+# lcm gauntlet run --definition gauntlet/benchmarks/examples/compare_soil.jl \
+#   --directory /path/to/campaign
 # lcm gauntlet status --directory /path/to/campaign
 # lcm gauntlet resume --directory /path/to/campaign
-# lcm gauntlet run --directory /path/to/lossy-campaign \
-#   --backends coaxial,fem,pscad --formulas default --dielectric Ametani2004 \
-#   --frequency-range 0.1,1e6
 #
 # lcm gauntlet compare --definition /path/to/benchmarks.toml \
 #   --output /path/to/comparisons
@@ -88,14 +133,22 @@
 #   julia --project=docs docs/make.jl
 # ```
 #
-# Omit `--cases` to run the indexed catalogue, or pass comma-separated case IDs.
-# `--frequency-range` sets the same 101 logarithmic samples for every case;
-# without it, each case retains its own extent, with a 0.1 Hz minimum.
-# `--formulas catalogue` retains the broader formula sweep without expanding
-# this summary. Formula grids, explicit lossy selections and uncertainty runs
-# are documented in the
-# [Gauntlet CLI guide](https://github.com/Electa-Git/LineCableModels.jl/blob/main/test/gauntlet/README.md).
-# FEM Monte Carlo remains disabled.
+# Catalogue cases and benchmark examples default to 101 logarithmically spaced
+# frequencies from 0.1 Hz to 10 MHz: `10.0 .^ range(-1, 7; length=101)`.
+# These are 100 increments including both endpoints, accepted by the PSCAD scan.
+# Explicit frequency overrides remain authoritative. Pass `--frequencies FILE.toml` with a
+# `frequencies = [...]` vector, or declare a grid using
+# `--grid log --count 101 --bounds 0.1,1e7`. The runner passes those values to
+# the benchmark constructor before materialization; it does not replace them
+# with a backend-specific grid.
+#
+# A native base frequency such as 50 Hz controls physical conversion; it does
+# not insert a comparison sample. Reports retain the actual selected band bounds;
+# the engine's current endpoint selection uses the nearest stored frequencies.
+# Retained archives keep the frequency vectors on which they were computed.
+#
+# Formula grids, material selections and uncertainty runs are documented in the
+# [Gauntlet CLI guide](https://github.com/Electa-Git/LineCableModels.jl/blob/main/gauntlet/README.md).
 #
 # A benchmark definition names exactly one reference and one candidate artifact
 # (paths and SHA-256 checksums), plus quantities, bands and normalizations. See the
@@ -103,10 +156,9 @@
 # Missing operands are errors; they never trigger a replacement reference.
 # Multiple comparison directories can be selected with the platform path-list
 # separator (`:` on Unix, `;` on Windows); identical benchmark records appear once.
-# This completed-only campaign retains 86 calculations and 46 benchmark pairs:
-# 38 PSCAD-reference and 8 FEM-reference. The 32 unfinished FEM selections remain
-# excluded. No simulations are resumed by this page. Batch elapsed-at-completion
-# values are not advertised as per-selection cold or warmed execution timings.
+# Counts, frequency ranges and timing scopes come from the selected records.
+# No simulations are resumed by this page. Batch elapsed-at-completion values
+# are not per-selection cold or warmed execution timings.
 #
 # ## Numerical references for CI
 #

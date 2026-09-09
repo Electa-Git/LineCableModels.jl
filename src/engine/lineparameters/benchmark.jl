@@ -107,9 +107,42 @@ function _rms_series(reference::AbstractVector, candidate::AbstractVector,
             reason = "Pointwise normalization has a numerically zero reference sample; no samples were omitted")
     end
     relative = normalization === :pointwise ?
-        sqrt(sum(abs2, (candidate .- reference) ./ reference) / length(reference)) :
-        sqrt(difference_norm / sum(abs2, reference))
+               sqrt(sum(abs2, (candidate .- reference) ./ reference) / length(reference)) :
+               sqrt(difference_norm / sum(abs2, reference))
     return (; absolute, relative, status = :compared, reason = nothing)
+end
+
+"""
+    compare(reference::AbstractArray{<:Number,3}, candidate; normalization=:reference_rms, atol=0)
+
+Measure per-entry absolute and relative RMS differences across the third axis.
+The caller must establish equal physical coordinates, units and terminal order.
+`atol` is a nonnegative scalar or one tolerance per sample, in the input units.
+Numerically zero reference traces retain their absolute difference and have
+`missing` relative error with an explanation in `details`.
+"""
+function compare(
+        reference::AbstractArray{<:Number, 3}, candidate::AbstractArray{<:Number, 3};
+        normalization::Symbol = :reference_rms, atol = 0)
+    axes(reference) == axes(candidate) ||
+        throw(DimensionMismatch("RMS tensor axes must match"))
+    isempty(reference) && throw(ArgumentError("RMS tensors cannot be empty"))
+    normalization in (:reference_rms, :pointwise) ||
+        throw(ArgumentError("unknown RMS normalization"))
+    tolerance=atol isa Real ? fill(atol, size(reference, 3)) : collect(atol)
+    length(tolerance) == size(reference, 3) ||
+        throw(DimensionMismatch("one tolerance per sample is required"))
+    all(value -> value isa Real && isfinite(value) && value >= 0, tolerance) ||
+        throw(ArgumentError("RMS tolerances must be finite and nonnegative"))
+    all(isfinite, reference) && all(isfinite, candidate) ||
+        throw(ArgumentError("RMS tensors must be finite"))
+    T=promote_type(typeof(float(real(zero(eltype(reference))))), typeof(float(real(zero(eltype(candidate))))))
+    errors=[_rms_series(view(reference, row, column, :),
+                view(candidate, row, column, :), normalization, tolerance)
+            for row in axes(reference, 1), column in axes(reference, 2)]
+    return RMSError{T}(getproperty.(errors, :absolute), getproperty.(errors, :relative);
+        details = (normalization, atol = tolerance, sample_count = size(reference, 3),
+            status = getproperty.(errors, :status), normalization_reason = getproperty.(errors, :reason)))
 end
 
 """
@@ -230,40 +263,25 @@ explanation in `details.normalization_reason`.
 - [`RMSError`](@ref), including actual bounds, sample indices/count, tolerance,
   reason, and a per-term status matrix in `details`.
 """
-function compare(reference::LineParameters, candidate::LineParameters,
+function compare(reference::AbstractCoreResult, candidate::AbstractCoreResult,
         quantity::Union{typeof(Z), typeof(Y), typeof(R), typeof(L), typeof(G), typeof(C)};
         normalization::Symbol = :reference_rms,
         band = :all, fundamental::Real = 50.0, harmonics::Integer = 50,
         atol = nothing, unsupported::NamedTuple = (;))
-    normalization in (:reference_rms, :pointwise) || throw(ArgumentError(
-        "normalization must be :reference_rms or :pointwise"))
-    isempty(reference.f) && throw(ArgumentError("reference frequencies cannot be empty"))
-    isempty(reference.Z.values) &&
-        throw(ArgumentError("reference Z tensor cannot be empty"))
-    isempty(reference.Y.values) &&
-        throw(ArgumentError("reference Y tensor cannot be empty"))
-    size(reference.Z) == size(candidate.Z) || throw(DimensionMismatch(
-        "reference and candidate Z dimensions must match",
-    ))
-    size(reference.Y) == size(candidate.Y) || throw(DimensionMismatch(
-        "reference and candidate Y dimensions must match",
-    ))
-    reference.f == candidate.f || throw(ArgumentError(
-        "reference and candidate frequencies must match exactly and in order",
-    ))
-    basis(reference) === basis(candidate) || throw(ArgumentError(
-        "reference and candidate basis must match",
-    ))
-    domain(reference) === domain(candidate) || throw(ArgumentError(
-        "reference and candidate domains must match",
-    ))
-    isfinite(fundamental) && fundamental > 0 ||
-        throw(ArgumentError("fundamental must be finite and positive Hz"))
-    harmonics > 0 || throw(ArgumentError("harmonics must be a positive integer"))
-    issorted(reference.f) ||
-        throw(ArgumentError("frequency-band comparison requires ascending stored frequencies"))
+    validate(compare; normalization, band, fundamental, harmonics, atol, unsupported)
+    f = frequencies(reference)
+    isempty(f) && throw(ArgumentError("reference frequencies cannot be empty"))
+    f == frequencies(candidate) || throw(ArgumentError(
+        "reference and candidate frequencies must match exactly and in order"))
+    basis(reference) === basis(candidate) || throw(ArgumentError("reference and candidate basis must match"))
+    domain(reference) === domain(candidate) || throw(ArgumentError("reference and candidate domains must match"))
+    issorted(f) || throw(ArgumentError("frequency-band comparison requires ascending stored frequencies"))
+    left, right = observe(reference, quantity), observe(candidate, quantity)
+    size(left) == size(right) || throw(DimensionMismatch("reference and candidate quantity dimensions must match"))
+    !isempty(left) && size(left, 3) == length(f) ||
+        throw(DimensionMismatch("quantity dimensions must match the stored frequencies"))
     requested = if band === :all
-        (first(reference.f), last(reference.f))
+        (first(f), last(f))
     elseif band === :dc
         (0.1, 100.0)
     elseif band === :harmonic
@@ -281,41 +299,35 @@ function compare(reference::LineParameters, candidate::LineParameters,
     isfinite(lower) && lower >= 0 && !isnan(upper) && upper >= lower ||
         throw(ArgumentError("frequency bounds must satisfy 0 ≤ lower ≤ upper with finite lower"))
     indices = if band === :wide
-        (searchsortedlast(reference.f, 1e6) + 1):length(reference.f)
-    elseif upper < first(reference.f) || lower > last(reference.f)
+        (searchsortedlast(f, 1e6) + 1):length(f)
+    elseif upper < first(f) || lower > last(f)
         1:0
     elseif band === :all
-        1:length(reference.f)
+        1:length(f)
     else
-        first_index = argmin(abs.(reference.f .- lower))
-        last_index = isinf(upper) ? length(reference.f) : argmin(abs.(reference.f .- upper))
+        first_index = argmin(abs.(f .- lower))
+        last_index = isinf(upper) ? length(f) : argmin(abs.(f .- upper))
         first_index:last_index
     end
-    left = observe(reference, quantity)
-    right = observe(candidate, quantity)
     T = promote_type(typeof(float(real(zero(eltype(left))))),
         typeof(float(real(zero(eltype(right))))))
     name = Symbol(nameof(quantity))
     defaults = (R = 1e-10, L = 1e-15, G = 1e-12, C = 1e-16)
     overrides = atol === nothing ? (;) :
                 atol isa NamedTuple ? atol : NamedTuple{(name,)}((atol,))
-    isempty(setdiff(keys(overrides), (:Z, :Y, :R, :L, :G, :C))) ||
-        throw(ArgumentError("atol keys must be Z, Y, R, L, G, or C"))
-    all(v -> v isa Real && isfinite(v) && v >= 0, values(overrides)) ||
-        throw(ArgumentError("atol must be finite and nonnegative in $(basis(reference)) units"))
     limits = merge(defaults, overrides)
     tolerance = if haskey(overrides, name)
         fill(convert(T, getproperty(overrides, name)), length(indices))
     elseif name === :Z
-        T[limits.R + 2π*f*limits.L for f in reference.f[indices]]
+        T[limits.R + 2π*frequency*limits.L for frequency in f[indices]]
     elseif name === :Y
-        T[limits.G + 2π*f*limits.C for f in reference.f[indices]]
+        T[limits.G + 2π*frequency*limits.C for frequency in f[indices]]
     else
         fill(convert(T, getproperty(limits, name)), length(indices))
     end
     reason = get(unsupported, name, nothing)
     for result in (reference, candidate)
-        declared = get(result.details, :comparison_unsupported, (;))
+        declared = get(details(result), :comparison_unsupported, (;))
         reason === nothing && (reason = get(declared, name, nothing))
     end
     reason === nothing || reason isa AbstractString && !isempty(reason) ||
@@ -329,22 +341,58 @@ function compare(reference::LineParameters, candidate::LineParameters,
     classifications = fill(status, size(absolute))
     normalization_reasons = Matrix{Union{Nothing, String}}(nothing, size(absolute))
     if status === :compared
-        for row in axes(left, 1), column in axes(left, 2)
-
-            a = @view left[row, column, indices]
-            b = @view right[row, column, indices]
-            error = _rms_series(a, b, normalization, tolerance)
-            absolute[row, column] = error.absolute
-            relative[row, column] = error.relative
-            classifications[row, column] = error.status
-            normalization_reasons[row, column] = error.reason
-        end
+        error=compare(left[:, :, indices], right[:, :, indices]; normalization, atol = tolerance)
+        absolute .= error.absolute
+        relative .= error.relative
+        classifications .= error.details.status
+        normalization_reasons .= error.details.normalization_reason
     end
     bounds = isempty(indices) ? (missing, missing) :
-             (reference.f[first(indices)], reference.f[last(indices)])
-    details = (; quantity = name, normalization, band,
+             (f[first(indices)], f[last(indices)])
+    comparison_details = (; quantity = name, normalization, band,
         requested_bounds = requested, actual_bounds = bounds,
         indices, sample_count = length(indices), fundamental, harmonics, atol = tolerance,
         status = classifications, reason, normalization_reason = normalization_reasons)
-    return RMSError{T}(absolute, relative; details)
+    return RMSError{T}(absolute, relative; details=comparison_details)
+end
+
+"""
+$(TYPEDSIGNATURES)
+
+Validate RMS comparison controls before accessing results or starting a calculation.
+Frequency bounds and `fundamental` use Hz. Absolute tolerances use the units of
+the selected quantities. This method performs no numerical calculation.
+"""
+function validate(::typeof(compare); normalization = :reference_rms, band = :all,
+        fundamental = 50.0, harmonics = 50, atol = nothing, unsupported = (;))
+    normalization in (:reference_rms, :pointwise) || throw(ArgumentError(
+        "normalization must be :reference_rms or :pointwise"))
+    fundamental isa Real && isfinite(fundamental) && fundamental > 0 ||
+        throw(ArgumentError("fundamental must be finite and positive Hz"))
+    harmonics isa Integer && !(harmonics isa Bool) && harmonics > 0 ||
+        throw(ArgumentError("harmonics must be a positive integer"))
+    if band isa Tuple{Real, Real}
+        lower, upper = band
+        isfinite(lower) && lower >= 0 && !isnan(upper) && upper >= lower ||
+            throw(ArgumentError("frequency bounds must satisfy 0 ≤ lower ≤ upper with finite lower"))
+    else
+        band in (:all, :dc, :harmonic, :narrow, :wide) || throw(ArgumentError(
+            "band must be :all, :dc, :harmonic, :narrow, :wide, or (lower, upper) in Hz"))
+    end
+    if atol !== nothing
+        if atol isa NamedTuple
+            isempty(setdiff(keys(atol), (:Z, :Y, :R, :L, :G, :C))) ||
+                throw(ArgumentError("atol keys must be Z, Y, R, L, G, or C"))
+            all(v -> v isa Real && isfinite(v) && v >= 0, atol) ||
+                throw(ArgumentError("atol must be finite and nonnegative"))
+        else
+            atol isa Real && isfinite(atol) && atol >= 0 ||
+                throw(ArgumentError("atol must be finite and nonnegative"))
+        end
+    end
+    unsupported isa NamedTuple && isempty(setdiff(keys(unsupported), (:Z, :Y, :R, :L, :G, :C))) ||
+        throw(ArgumentError("unsupported must name Z, Y, R, L, G, or C"))
+    all(reason -> reason isa AbstractString && !isempty(reason), unsupported) ||
+        throw(ArgumentError("unsupported comparisons require nonempty explanatory strings"))
+    return nothing
 end

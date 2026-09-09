@@ -7,7 +7,7 @@ COMMAND=${1:-}
 case "$COMMAND" in
     gauntlet)
         shift
-        exec "$ROOT/test/gauntlet/cli/lcm-gauntlet" "$@"
+        exec "$ROOT/gauntlet/cli/lcm-gauntlet" "$@"
         ;;
     --help|-h|help|'')
         cat <<'EOF'
