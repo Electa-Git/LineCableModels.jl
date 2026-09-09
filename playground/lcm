@@ -20,7 +20,12 @@ if [[ "${1:-}" == "worker" ]]; then
         --project="${SCRIPT_DIR}/worker" -m LineCableModelsWorker "$@"
 fi
 
-if [[ "${2:-}" != "start" || ( "${1:-}" != "playground" && "${1:-}" != "presentation" ) ]]; then
+if [[ "${1:-}" == "runtime" && "${2:-}" != "start" ]]; then
+    exec "${JULIA_COMMAND}" --startup-file=no --threads=2 \
+        --project="${SCRIPT_DIR}/runtime" -m LineCableModelsRuntime "$@"
+fi
+
+if [[ "${2:-}" != "start" || ( "${1:-}" != "playground" && "${1:-}" != "presentation" && "${1:-}" != "runtime" ) ]]; then
     exec "${JULIA_COMMAND}" --startup-file=no --threads=auto \
         --project="${SCRIPT_DIR}" -m LineCableModelsPlayground "$@"
 fi
@@ -56,8 +61,16 @@ trap request_shutdown HUP INT TERM
 mkfifo -- "${control_fifo}"
 exec 3<>"${control_fifo}"
 
-LCM_SUPERVISED=1 setsid "${JULIA_COMMAND}" --startup-file=no --threads=auto \
-    --project="${SCRIPT_DIR}" -m LineCableModelsPlayground "$@" \
+lcm_project="${SCRIPT_DIR}"
+lcm_module="LineCableModelsPlayground"
+lcm_threads="auto"
+if [[ "${1:-}" == "runtime" ]]; then
+    lcm_project="${SCRIPT_DIR}/runtime"
+    lcm_module="LineCableModelsRuntime"
+    lcm_threads="2"
+fi
+LCM_SUPERVISED=1 setsid "${JULIA_COMMAND}" --startup-file=no --threads="$lcm_threads" \
+    --project="$lcm_project" -m "$lcm_module" "$@" \
     <"${control_fifo}" 3>&- &
 child_pid=$!
 

@@ -17,6 +17,15 @@ import Base: ==
 include("Jobs.jl")
 include("Events.jl")
 include("Encoding.jl")
+include("Runtime.jl")
+include("Terminals.jl")
+
+export RUNTIME_PROTOCOL_VERSION, RuntimeRecord, WorkerProbe, ProfileAdvertisement,
+    WorkerAnnouncement, AssignmentFence, LeaseControl, LeaseAcknowledgement,
+    AssignedJob, AssignedResult, PreparedExecution, ScientificCommand, ScientificReport,
+    decode_runtime_message, assigned_job_subject, assigned_result_subject
+export TerminalCommand, TerminalReport, decode_terminal_message, terminal_subject,
+    MAX_TERMINAL_CHUNK_BYTES, MAX_TERMINAL_FRAME_BYTES
 
 export ArtifactReference,
     FailureInfo,
@@ -39,5 +48,7 @@ export ArtifactReference,
     parse_utc_timestamp,
     utc_timestamp,
     validate
+
+include("Precompile.jl")
 
 end

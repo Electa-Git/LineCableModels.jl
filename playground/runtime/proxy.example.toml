@@ -1,0 +1,33 @@
+# Replace the example origin and copy into private operator configuration.
+# All relative paths resolve beside this file. No secret value belongs here.
+schema_version = 1
+enabled = true
+
+[gateway]
+listen_host = "127.0.0.1"
+port = 8080
+public_origin = "https://lcm.example.edu"
+
+[identity]
+mode = "proxy"
+proxy_peers = ["127.0.0.1"]
+proxy_key_file = "secrets/proxy-key"
+administrators = ["operator"]
+
+[publisher]
+site_directory = "../_site"
+
+[storage]
+database = "state/runtime.sqlite"
+scratch_root = "state/runs"
+
+[limits]
+max_runs = 8
+max_runs_per_owner = 2
+startup_seconds = 120
+shutdown_seconds = 5
+disconnect_grace_seconds = 60
+
+# Enable only after preparing the approved broker/profile/trust configuration:
+# [control]
+# config_file = "control.toml"

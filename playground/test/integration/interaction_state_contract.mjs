@@ -27,6 +27,9 @@ export async function checkInteractionStates({base, command, evaluate, wait, sel
       return {x: r.x + r.width / 2, y: r.y + r.height / 2};
     })()`);
     await command('Input.dispatchMouseEvent', {type: 'mouseMoved', ...point});
+    // CDP acknowledges input before the next rendered hover frame. Do not
+    // compare a genuine hover against the preceding unhovered frame.
+    await settle();
     return point;
   };
   const click = async selector => {
@@ -93,7 +96,14 @@ export async function checkInteractionStates({base, command, evaluate, wait, sel
         const normal = await style(first);
         assert.equal(normal.bg, 'rgba(0, 0, 0, 0)', `${route}: unselected navigation is painted`);
         await pointAt(first);
-        assert.notEqual((await style(first)).bg, normal.bg, `${route}: genuine hover is missing`);
+        const hoverState = await evaluate(`(() => {
+          const el = document.querySelector(${q(first)}), r = el.getBoundingClientRect();
+          return {hovered: el.matches(':hover'), rect: r.toJSON(),
+            hit: document.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2)?.outerHTML.slice(0, 220),
+            background: getComputedStyle(el).backgroundColor};
+        })()`);
+        assert.notEqual(hoverState.background, normal.bg,
+          `${route}: genuine hover is missing: ${JSON.stringify(hoverState)}`);
         if (collapsed) {
           await wait(`getComputedStyle(document.querySelector(${q(first)}), '::after').opacity === '1'`, 'rail tooltip did not appear');
           assert.notEqual(await evaluate(`getComputedStyle(document.querySelector(${q(first)}), '::after').display`), 'none');

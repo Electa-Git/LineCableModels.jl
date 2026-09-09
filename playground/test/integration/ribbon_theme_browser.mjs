@@ -33,7 +33,10 @@ const wait = async (expression, message, sessionId) => {
     if (await evaluate(expression, sessionId)) return;
     await new Promise(resolve => setTimeout(resolve, 75));
   }
-  throw Error(message);
+  const state=await evaluate(`({url:location.href,ready:document.readyState,
+    title:document.title,theme:typeof window.LineCableModelsTheme,
+    scripts:document.scripts.length,body:document.body?.textContent.slice(0,240)})`,sessionId).catch(error=>String(error));
+  throw Error(message+'\n'+JSON.stringify(state));
 };
 
 let themeTarget;

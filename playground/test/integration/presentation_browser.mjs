@@ -85,6 +85,12 @@ async function navigate(devtools, url) {
         () => reject(new Error(`page load timed out: ${url}`)), 15_000,
       ); }),
     ]);
+  } catch(error) {
+    const state=await evaluate(devtools, `({url:location.href,ready:document.readyState,
+      title:document.title,theme:typeof window.LineCableModelsTheme,
+      frames:[...document.querySelectorAll('iframe')].map(f=>({src:f.getAttribute('src'),ready:f.contentDocument?.readyState}))})`)
+      .catch(reason=>String(reason));
+    throw new Error(error.message+'\n'+JSON.stringify(state));
   } finally { clearTimeout(timer); }
 }
 
@@ -207,7 +213,7 @@ try {
   await assertPublishedShell({devtools, baseUrl, evaluate, navigate, waitUntil, setViewport, assert});
   await assertIncrementalLists({devtools, baseUrl, evaluate, navigate, waitUntil, assert});
   await setViewport(devtools, 1920, 1080);
-  await navigate(devtools, `${baseUrl}/presentations/`);
+  await navigate(devtools, `${baseUrl}/dev/presentations.html`);
   const layoutCards = await evaluate(devtools, `[...document.querySelectorAll('.lc-gallery-card')]
     .filter(card => card.querySelector('a[href*="layouts.html#"]')).map(card => ({
       preview: card.querySelector('a[href*="specimen.html#/"]')?.href,

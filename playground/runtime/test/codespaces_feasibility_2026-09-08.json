@@ -1,0 +1,144 @@
+{
+  "scope": "docker-feasibility-only",
+  "full_integration": "deferred",
+  "source_sha256": "bfd87b9f0516412ed6c1581b519d6a33f3408fe0d1f891f77fe4dde565f272aa",
+  "image": "docker.io/library/julia:1.12-bookworm@sha256:709daad7eccdb0363b080df203601988cff8c6a9581162668b76804cca407888",
+  "checks": {
+    "plain_policy": {
+      "ReadonlyRootfs": true,
+      "NetworkMode": "none",
+      "CgroupnsMode": "private",
+      "Memory": 536870912,
+      "MemorySwap": 536870912,
+      "PidsLimit": 64,
+      "CpuQuota": 50000,
+      "CpuPeriod": 100000,
+      "CapDrop": [
+        "ALL"
+      ],
+      "SecurityOpt": [
+        "no-new-privileges"
+      ]
+    },
+    "plain": {
+      "status": "pass",
+      "exit_code": 0,
+      "output": "ISOLATION_OK (schema_version = 1, cpus = 0.5, memory_bytes = 536870912, pids = 64, scratch_bytes = 8388608, uid = 1000)\nJULIA_VERSION 1.12.7\nJULIA_RESULT 5050\nCPU_THROTTLING_OBSERVED\nSCRATCH_OK ROOT_WRITE_DENIED NO_ENGINE_SOCKET\n",
+      "stderr": "",
+      "container_state": {
+        "Status": "exited",
+        "Running": false,
+        "Paused": false,
+        "Restarting": false,
+        "OOMKilled": false,
+        "Dead": false,
+        "Pid": 0,
+        "ExitCode": 0,
+        "Error": "",
+        "StartedAt": "2026-09-08T19:03:08.526207531Z",
+        "FinishedAt": "2026-09-08T19:03:14.845777726Z"
+      }
+    },
+    "tty_policy": {
+      "ReadonlyRootfs": true,
+      "NetworkMode": "none",
+      "CgroupnsMode": "private",
+      "Memory": 536870912,
+      "MemorySwap": 536870912,
+      "PidsLimit": 64,
+      "CpuQuota": 50000,
+      "CpuPeriod": 100000,
+      "CapDrop": [
+        "ALL"
+      ],
+      "SecurityOpt": [
+        "no-new-privileges"
+      ]
+    },
+    "tty": {
+      "status": "pass",
+      "exit_code": 0,
+      "output": "ISOLATION_OK (schema_version = 1, cpus = 0.5, memory_bytes = 536870912, pids = 64, scratch_bytes = 8388608, uid = 1000)\nJULIA_VERSION 1.12.7\nJULIA_RESULT 5050\nCPU_THROTTLING_OBSERVED\nSCRATCH_OK ROOT_WRITE_DENIED NO_ENGINE_SOCKET\n",
+      "stderr": "",
+      "container_state": {
+        "Status": "exited",
+        "Running": false,
+        "Paused": false,
+        "Restarting": false,
+        "OOMKilled": false,
+        "Dead": false,
+        "Pid": 0,
+        "ExitCode": 0,
+        "Error": "",
+        "StartedAt": "2026-09-08T19:03:14.997334479Z",
+        "FinishedAt": "2026-09-08T19:03:21.157262423Z"
+      }
+    },
+    "missing-cpu_policy": {
+      "ReadonlyRootfs": true,
+      "NetworkMode": "none",
+      "CgroupnsMode": "private",
+      "Memory": 536870912,
+      "MemorySwap": 536870912,
+      "PidsLimit": 64,
+      "CpuQuota": 0,
+      "CpuPeriod": 0,
+      "CapDrop": [
+        "ALL"
+      ],
+      "SecurityOpt": [
+        "no-new-privileges"
+      ]
+    },
+    "missing_cpu": {
+      "status": "pass",
+      "exit_code": 78,
+      "output": "EXPECTED_REJECTION cpu_limit_unverified"
+    },
+    "cancel_policy": {
+      "ReadonlyRootfs": true,
+      "NetworkMode": "none",
+      "CgroupnsMode": "private",
+      "Memory": 536870912,
+      "MemorySwap": 536870912,
+      "PidsLimit": 64,
+      "CpuQuota": 50000,
+      "CpuPeriod": 100000,
+      "CapDrop": [
+        "ALL"
+      ],
+      "SecurityOpt": [
+        "no-new-privileges"
+      ]
+    },
+    "cancel": {
+      "status": "pass"
+    }
+  },
+  "engine": {
+    "ServerVersion": "29.7.2-2",
+    "OSType": "linux",
+    "CgroupVersion": "2",
+    "CgroupDriver": "cgroupfs",
+    "MemoryLimit": true,
+    "SwapLimit": true,
+    "CpuCfsPeriod": true,
+    "CpuCfsQuota": true,
+    "PidsLimit": true,
+    "SecurityOptions": [
+      "name=apparmor",
+      "name=seccomp,profile=builtin",
+      "name=cgroupns"
+    ]
+  },
+  "pid1": "docker-init",
+  "user_systemd_manager": false,
+  "managed_agent_acceptance": "unavailable",
+  "image_id": "sha256:709daad7eccdb0363b080df203601988cff8c6a9581162668b76804cca407888",
+  "repository_digests": [
+    "julia@sha256:709daad7eccdb0363b080df203601988cff8c6a9581162668b76804cca407888"
+  ],
+  "result": "docker-feasibility-pass",
+  "cleanup_errors": [],
+  "baseline_restored": true
+}

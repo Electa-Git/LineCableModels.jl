@@ -202,7 +202,7 @@ struct JobResult
     "SHA-256 digest of normalized inputs."
     input_hash::String
 
-    "LineCableModels version or source commit."
+    "Scientific engine version, source commit, or explicitly labelled approved environment digest."
     engine_version::String
 
     "Digest identifying the locked worker environment."

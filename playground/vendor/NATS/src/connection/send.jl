@@ -33,7 +33,7 @@ function can_send(nc::Connection, ::Union{Pub, Vector{Pub}})
     if conn_status == CONNECTED
         true
     elseif conn_status == CONNECTING
-        true # TODO: or nc.send_enqueue_when_disconnected?
+        nc.send_enqueue_when_disconnected
     elseif conn_status == DISCONNECTED
         nc.send_enqueue_when_disconnected
     elseif conn_status == DRAINING
@@ -110,7 +110,10 @@ end
 function reopen_send_buffer(nc::Connection)
     @lock nc.send_buffer_cond begin
         new_send_buffer = IOBuffer()
-        data = take!(nc.send_buffer)
+        buffered = take!(nc.send_buffer)
+        # Recreate subscription state below, but never replay uncertain bytes
+        # when the caller opted out of disconnected enqueue/replay.
+        data = nc.send_enqueue_when_disconnected ? buffered : UInt8[]
         for (sid, sub_data) in pairs(nc.sub_data)
             show(new_send_buffer, MIME_PROTOCOL(), sub_data.sub)
             unsub_max_msgs = get(nc.unsubs, sid, nothing) # TODO: lock on connection may be needed

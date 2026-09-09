@@ -6,6 +6,12 @@ using Test
 
 const Worker = LineCableModelsWorker
 
+@testset "worker import remains inert" begin
+    @test isempty(Worker.NATS.state.connections)
+    @test !isdefined(Worker,:LineCableModels)
+    @test !isdefined(Worker,:PowerImpedance)
+end
+
 function test_context()
     events = Any[]
     context = Worker.ExecutionContext(
@@ -95,6 +101,9 @@ end
 end
 
 @testset "supervised cancellation and recovery" begin
+    for invalid in (0, -1, Inf, NaN, true, 121)
+        @test_throws ArgumentError Worker.ExecutorSupervisor(; startup_timeout_seconds=invalid)
+    end
     registry = Worker.default_registry()
     spec = Worker.registered_operation(registry, "system.executor_delay")
     supervisor = Worker.ExecutorSupervisor()
@@ -121,6 +130,14 @@ end
         )
         @test result["elapsed_seconds"] == 0.05
         @test supervisor.generation == canceled_generation + 1
+        @test process_running(supervisor.process)
+
+        # A fresh process must bootstrap before this short calculation budget
+        # starts; raising the operation timeout would hide the regression.
+        Worker.stop_executor!(supervisor)
+        boot_context, _ = test_context()
+        Worker.start_executor!(supervisor, boot_context)
+        @test process_running(supervisor.process)
 
         warning_context, warning_events = test_context()
         warning = Worker.execute_supervised!(
@@ -135,6 +152,13 @@ end
             event -> event == "Warning: expected scientific warning",
             warning_events
         )
+
+        failed_observer, _ = test_context()
+        failed_observer.emit_log = _ -> error("test observer failed")
+        @test_throws ErrorException Worker.execute_supervised!(supervisor,
+            Worker.registered_operation(registry,"system.executor_warning"), failed_observer,
+            Dict{String,Any}("message"=>"observer failure fixture"))
+        @test supervisor.process === nothing
 
         deadline_context, _ = test_context()
         deadline_context.deadline = Dates.now(Dates.UTC) + Millisecond(100)
@@ -206,7 +230,9 @@ end
         "failed-key"
     )
     @test Worker.prepared_status(cache, "failed-key") == :failed
-    @test_throws TaskFailedException Worker.prepare_resource!(
+    # The completed failure keeps its original cause, not a retained builder
+    # task/backtrace. Fresh builders still surface Julia's TaskFailedException.
+    @test_throws ErrorException Worker.prepare_resource!(
         failing_builder,
         cache,
         "failed-key"

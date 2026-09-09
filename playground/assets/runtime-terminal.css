@@ -1,0 +1,15 @@
+/* Owned layout only: palette and button states come from the shared contract. */
+.lc-runtime-terminal { min-width:0; padding:.8rem; background:var(--lc-panel-bg); border:1px solid var(--lc-border-soft); border-radius:var(--lc-radius); }
+.lc-terminal-heading { display:flex; align-items:baseline; justify-content:space-between; gap:.6rem; min-width:0; }
+.lc-terminal-heading h3 { margin:0; }
+.lc-terminal-phase { color:var(--lc-muted); font:.72rem/1.4 "JuliaMono",Consolas,monospace; text-transform:uppercase; }
+.lc-runtime-terminal[data-terminal-phase="ready"] .lc-terminal-phase { color:var(--lc-focus); }
+.lc-runtime-terminal:is([data-terminal-phase="uncertain"],[data-terminal-phase="failed"]) .lc-terminal-phase { color:var(--lc-warning); }
+.lc-terminal-status { min-height:1.4em; }
+.lc-terminal-viewport { min-width:0; overflow:hidden; padding:4px; height:calc(var(--lcm-terminal-rows,18) * 1.35em + 8px); background:var(--lc-console-bg); border:1px solid var(--lc-border-soft); font-size:13px; }
+.lc-terminal-viewport:focus-within { border-color:var(--lc-focus); }
+.lc-terminal-screen { height:100%; min-width:0; }
+.lc-terminal-viewport .xterm { height:100%; }
+.lc-terminal-viewport .xterm-viewport { scrollbar-color:var(--lc-scrollbar) var(--lc-console-bg); }
+.lc-terminal-confirm { display:flex; flex-wrap:wrap; align-items:center; gap:.4rem; padding:.5rem; color:var(--lc-warning); border:1px solid var(--lc-border); }
+.lc-terminal-confirm span { flex:1 1 16rem; }

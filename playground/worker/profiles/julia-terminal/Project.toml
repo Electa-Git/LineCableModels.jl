@@ -1,0 +1,9 @@
+[deps]
+LineCableModelsExecutionCore = "750e2b20-7d9d-4a48-bc26-58effa5bbf41"
+
+[sources]
+LineCableModelsExecutionCore = {path = "../../core"}
+
+[compat]
+LineCableModelsExecutionCore = "0.1"
+julia = "1.12"

@@ -1,3 +1,5 @@
+include(joinpath(@__DIR__, "..", "..", "common", "artifact_contract.jl"))
+
 abstract type AbstractArtifactStore end
 
 "Local content-addressed storage used by the native single-machine profile."
@@ -12,27 +14,6 @@ struct S3ArtifactStore <: AbstractArtifactStore
     bucket::String
     prefix::String
     max_inline_bytes::Int
-end
-
-"Minimal AWS.jl configuration adapter for a user-supplied S3-compatible endpoint."
-struct S3EndpointConfig <: AWS.AbstractAWSConfig
-    endpoint::URIs.URI
-    region::String
-    credentials::AWS.AWSCredentials
-end
-
-AWS.region(config::S3EndpointConfig) = config.region
-AWS.credentials(config::S3EndpointConfig) = config.credentials
-
-function AWS.generate_service_url(
-        config::S3EndpointConfig,
-        service::String,
-        resource::String
-    )
-    service == "s3" || throw(ArgumentError(
-        "S3 endpoint configuration cannot serve $service"
-    ))
-    return string(config.endpoint, resource)
 end
 
 const ARTIFACT_ROUTE_PREFIX = "/artifacts/sha256"
@@ -55,38 +36,6 @@ function ArtifactStore(directory::AbstractString; max_inline_bytes::Integer=64 *
     max_inline_bytes > 0 || throw(ArgumentError("inline result limit must be positive"))
     mkpath(directory)
     return ArtifactStore(abspath(directory), Int(max_inline_bytes))
-end
-
-function normalize_s3_prefix(prefix::AbstractString)
-    normalized = strip(string(prefix), '/')
-    any(==(".."), split(normalized, '/')) && throw(ArgumentError(
-        "S3 artifact prefix cannot contain `..` path segments"
-    ))
-    return normalized
-end
-
-function S3EndpointConfig(
-        endpoint::AbstractString,
-        access_key::AbstractString,
-        secret_key::AbstractString;
-        region::AbstractString="us-east-1",
-        allow_insecure::Bool=false
-    )
-    isempty(access_key) && throw(ArgumentError("S3 access key cannot be empty"))
-    isempty(secret_key) && throw(ArgumentError("S3 secret key cannot be empty"))
-    uri = URIs.URI(rstrip(string(endpoint), '/'))
-    uri.scheme in ("http", "https") || throw(ArgumentError(
-        "S3 endpoint must use http or https"
-    ))
-    uri.scheme == "https" || allow_insecure || throw(ArgumentError(
-        "Plain HTTP S3 endpoints require LCM_S3_ALLOW_INSECURE=1"
-    ))
-    isempty(uri.host) && throw(ArgumentError("S3 endpoint must include a host"))
-    return S3EndpointConfig(
-        uri,
-        string(region),
-        AWS.AWSCredentials(string(access_key), string(secret_key))
-    )
 end
 
 function S3ArtifactStore(
@@ -154,8 +103,7 @@ function artifact_object_key(
         kind::AbstractString,
         digest::AbstractString
     )
-    suffix = "$kind/$digest"
-    return isempty(store.prefix) ? suffix : "$(store.prefix)/$suffix"
+    return artifact_storage_key(store.prefix, kind, digest)
 end
 
 function store_artifact!(
@@ -184,11 +132,7 @@ function store_artifact!(
     if !isfile(metadata_path)
         temporary, io = mktemp(store.directory)
         try
-            write(io, JSON3.write(Dict(
-                "media_type" => string(media_type),
-                "size" => length(bytes),
-                "sha256" => digest,
-            )))
+            write(io, JSON3.write(artifact_metadata_document(digest, media_type, length(bytes))))
             flush(io)
             close(io)
             mv(temporary, metadata_path)
@@ -232,11 +176,7 @@ function store_artifact!(
     )
     media_type = validate_artifact_media_type(media_type)
     digest = bytes2hex(SHA.sha256(bytes))
-    metadata = collect(codeunits(JSON3.write(Dict(
-        "media_type" => string(media_type),
-        "size" => length(bytes),
-        "sha256" => digest,
-    ))))
+    metadata = collect(codeunits(JSON3.write(artifact_metadata_document(digest, media_type, length(bytes)))))
     with_s3_transport_retry() do
         AWSS3.s3_put(
             store.config,

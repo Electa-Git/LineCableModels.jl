@@ -82,5 +82,7 @@ include("jetstream/JetStream.jl")
 
 precompile(Tuple{typeof(NATS.init_protocol), NATS.Connection, String, typeof(default_connect_options())})
 precompile(Tuple{typeof(NATS.connect)})
+precompile(copy_tls_input!, (Base.BufferStream, MbedTLS.SSLContext))
+precompile(receiver, (Connection, BufferedInputStream{Base.BufferStream}))
 
 end

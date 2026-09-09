@@ -1,62 +1,63 @@
 ---
 title: "LineCableModels playground"
-subtitle: "A clean publishing surface for live engineering material, with authoring, presentation and numerical execution kept deliberately separate."
-body-classes: lc-home
+subtitle: "Explore cable models, frequency-dependent line parameters, and their role in power-system studies."
+body-classes: lc-home lc-document-page
 ---
 
 ::: {.lc-home-canvas}
 
 ::: {.lc-introduction-panel}
-[NEW FOUNDATION]{.lc-eyebrow}
+[ENGINEERING SHOWCASE]{.lc-eyebrow}
 
-## The web application publishes. The engine computes.
+## Choose what you want to present, teach, or explore.
 
-This home is intentionally static. It establishes the visual shell without
-loading presentation content, starting numerical workers, or hiding execution
-inside the browser-facing process.
+Independent presentations and workbenches share the same scientific tools.
+Read the slides without starting a calculation; launch an isolated application
+when you want live views, then explicitly select and prepare its workers.
 
-Future collections are authored independently and dispatched through an
-explicit broker boundary.
+The public pages remain usable when a numerical process or the broker is
+unavailable.
 :::
 
 ::: {.lc-foundation-grid}
 
-::: {.lc-foundation-card .lc-foundation-authoring}
-::: {.lc-card-heading}
-[AUTHORING]{.lc-card-role}
-[declared]{.lc-card-state}
+::: {.lc-foundation-card}
+[PRESENTATIONS]{.lc-eyebrow}
+
+## Research and live explanation
+
+Choose a registered deck. Markdown owns the argument; interactive views support
+it without making slide navigation depend on a solver.
+
+[Browse presentations →](/presentations/)
 :::
 
-## Quarto
+::: {.lc-foundation-card}
+[WORKBENCHES]{.lc-eyebrow}
 
-Owns structured source material, layouts, navigation, and reproducible document
-generation.
+## Persistent engineering views
+
+Keep inputs, results, diagnostics, and runtime selection together in one
+application, with explicit ownership of every calculation.
+
+[Browse workbenches →](/workbenches/)
 :::
 
-::: {.lc-foundation-card .lc-foundation-publisher}
-::: {.lc-card-heading}
-[PUBLISHER]{.lc-card-role}
-[declared]{.lc-card-state}
-:::
+::: {.lc-foundation-card}
+[DEVELOPER REFERENCE]{.lc-eyebrow}
 
-## Bonito
+## Reusable foundations
 
-Serves the generated site now and provides a narrow route for future live
-interactive views.
-:::
+Templates, controls, X-ray, and implementation recipes live in the developer
+gallery. It is public, but separate from the scientific entrance.
 
-::: {.lc-foundation-card .lc-foundation-broker}
-::: {.lc-card-heading}
-[BROKER]{.lc-card-role}
-[declared]{.lc-card-state}
-:::
-
-## NATS
-
-Will dispatch work to external execution services without turning the web
-publisher into the numerical engine.
+[Open developer gallery →](/dev/)
 :::
 
 :::
+:::
 
+## Choose a presentation
+
+::: {.lc-application-catalogue data-lcm-application-catalogue="" data-kind="presentation"}
 :::

@@ -13,6 +13,7 @@ server_pid=""
 browser_pid=""
 
 cleanup() {
+    result=$?
     if [[ -n "${browser_pid}" ]]; then
         kill "${browser_pid}" 2>/dev/null || true
         wait "${browser_pid}" 2>/dev/null || true
@@ -20,6 +21,11 @@ cleanup() {
     if [[ -n "${server_pid}" ]]; then
         kill "${server_pid}" 2>/dev/null || true
         wait "${server_pid}" 2>/dev/null || true
+    fi
+    if [[ "$result" != 0 ]]; then
+        for log in "${TEST_DIR}/server.log" "${TEST_DIR}/chrome.log"; do
+            [[ ! -f "$log" ]] || tail -100 "$log" >&2
+        done
     fi
     rm -rf -- "${TEST_DIR}"
 }

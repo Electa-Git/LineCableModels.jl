@@ -1,0 +1,16 @@
+name = "LineCableModelsLineParameters"
+uuid = "e3bb3799-2d51-498c-9898-ba29e97fe054"
+version = "0.1.0"
+
+[deps]
+LineCableModels = "dffb7669-8cd4-4628-99dd-7694e356ba37"
+LineCableModelsExecutionCore = "750e2b20-7d9d-4a48-bc26-58effa5bbf41"
+
+[sources]
+LineCableModels = {path = "../../../.."}
+LineCableModelsExecutionCore = {path = "../../core"}
+
+[compat]
+LineCableModels = "0.2"
+LineCableModelsExecutionCore = "0.1"
+julia = "1.12"

@@ -42,19 +42,20 @@ WB.compose(::RibbonWorkbench, active) = WB.Workbench(
 )
 WB.handle!(::RibbonWorkbench, state, action) = nothing
 
-server = Bonito.Server("127.0.0.1", parse(Int, ARGS[1]))
-LCM.register_static_site_routes!(server)
-LCM.register_widget_routes!(server)
-Bonito.route!(server, "/workbenches/template" => LCM.TemplateWorkbench.app(; xray=true))
-Bonito.route!(server, "/fixture/standalone" => App() do session
+routes = Bonito.HTTPServer.Routes()
+LCM.register_static_site_routes!(routes)
+LCM.register_widget_routes!(routes)
+Bonito.route!(routes, "/workbenches/template" => LCM.TemplateWorkbench.app(; xray=true))
+Bonito.route!(routes, "/fixture/standalone" => App() do session
     DOM.div(DOM.style(LCM.BRAND_THEME), DOM.style(LCM.CONTROL_CONTRACT),
         LCM.widget_theme_script(), specimen())
 end)
-Bonito.route!(server, "/fixture/workbench" => WB.workbench_app(RibbonWorkbench()))
-Bonito.route!(server, "/fixture/embedded" => App() do session
+Bonito.route!(routes, "/fixture/workbench" => WB.workbench_app(RibbonWorkbench()))
+Bonito.route!(routes, "/fixture/embedded" => App() do session
     DOM.div(DOM.style(LCM.BRAND_THEME), LCM.widget_theme_script(),
         DOM.iframe(; src="/widgets/ribbon", width="1200", height="850", id="ribbon-frame"))
 end)
+server = Bonito.Server("127.0.0.1", parse(Int, ARGS[1]); routes)
 try
     wait(Condition())
 finally

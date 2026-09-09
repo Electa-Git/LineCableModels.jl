@@ -95,6 +95,7 @@ function environment_fingerprint()
         joinpath(worker_root, "Project.toml"),
         joinpath(worker_root, "Manifest.toml"),
         joinpath(protocol_root, "Project.toml"),
+        joinpath(worker_root, "..", "common", "artifact_contract.jl"),
     ]
     for source_root in (joinpath(worker_root, "src"), joinpath(protocol_root, "src"))
         isdir(source_root) || continue

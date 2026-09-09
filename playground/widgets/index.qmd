@@ -14,6 +14,41 @@ format:
 
 ::: {.lc-widget-demo}
 ::: {.lc-widget-demo-heading}
+[RUNTIME CONTROL]{.lc-gallery-label}
+
+## Shared worker controls
+
+Live worker inventory, registration, and bounded diagnostics. The same `RuntimeClient`,
+`WorkerSelector`, `PreparationStatus`, `ScientificJob`, and `WorkerDiagnostics` compose
+into workbenches and presentation views. The calculation specimen shows explicit
+Run/Cancel controls and retained-result provenance; it cannot run without an owned,
+prepared assignment. This gallery declares no scientific roles and allocates no workers.
+
+[Open the runtime control panel](/runtime/control) to inspect owned runs and manage
+operator-provisioned worker registrations (administrator permission required).
+:::
+
+{{< bonito route="/widgets/runtime-controls" title="Shared worker controls" height="30rem" >}}
+:::
+
+::: {.lc-widget-demo}
+::: {.lc-widget-demo-heading}
+[PRIVATE RUNTIME]{.lc-gallery-label}
+
+## Private Julia terminal
+
+`JuliaTerminal(client, :terminal)` composes with the same worker selector in a
+workbench or presentation. Connect, interrupt, stop and restart are explicit.
+Terminal bytes do not pass through Bonito state or X-ray. This public specimen
+has no owned run and cannot allocate or execute a terminal. A private application
+must declare the terminal role and obtain an eligible container-backed assignment.
+:::
+
+{{< bonito route="/widgets/julia-terminal" title="Private Julia terminal" height="36rem" >}}
+:::
+
+::: {.lc-widget-demo}
+::: {.lc-widget-demo-heading}
 [SELECTOR]{.lc-gallery-label}
 
 ## Native range slider

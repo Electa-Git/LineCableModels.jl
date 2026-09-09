@@ -29,18 +29,27 @@ broker_started=false
 broker_paused=false
 
 cleanup() {
+    local result=$?
+    trap - EXIT HUP INT TERM
     if [[ "${broker_started}" == true ]]; then
         if "${CONTAINER_RUNTIME}" inspect "${CONTAINER_NAME}" \
             --format '{{.State.Paused}}' 2>/dev/null | grep -qx true; then
             "${CONTAINER_RUNTIME}" unpause "${CONTAINER_NAME}" >/dev/null 2>&1 || true
         fi
-        "${CONTAINER_RUNTIME}" rm -f "${CONTAINER_NAME}" >/dev/null 2>&1 || true
+        "${CONTAINER_RUNTIME}" rm -f "${CONTAINER_NAME}" >/dev/null 2>&1 || {
+            printf 'integration: owned broker cleanup failed: %s\n' "${CONTAINER_NAME}" >&2
+            result=1
+        }
     fi
-    rm -rf -- "${worker_data}"
-    [[ -z "${certificate_parent}" ]] || rm -rf -- "${certificate_parent}"
+    rm -rf -- "${worker_data}" || result=1
+    if [[ -n "${certificate_parent}" ]]; then
+        rm -rf -- "${certificate_parent}" || result=1
+    fi
+    exit "${result}"
 }
 
-trap cleanup EXIT HUP INT TERM
+trap cleanup EXIT
+trap 'exit 130' HUP INT TERM
 
 command -v "${CONTAINER_RUNTIME}" >/dev/null 2>&1 || {
     printf 'integration: container runtime not found: %s\n' "${CONTAINER_RUNTIME}" >&2

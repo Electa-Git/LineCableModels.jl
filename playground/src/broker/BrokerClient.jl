@@ -361,7 +361,7 @@ function submit!(
     revision = isnothing(selector_revision) ? lock(handle.lock) do
         handle.input_revision
     end : Int(selector_revision)
-    validate(request)
+    LineCableModelsPlaygroundProtocol.validate(request)
     connection = active_connection(client)
     lock(handle.lock) do
         handle.request = request

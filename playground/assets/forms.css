@@ -142,8 +142,8 @@ textarea.lc-form-control {
   height: 1rem;
 }
 
-.lc-secret-reveal:hover,
-.lc-button-secondary:hover {
+.lc-secret-reveal:hover:not(:disabled),
+.lc-button-secondary:hover:not(:disabled) {
   background: var(--lc-hover-bg);
 }
 
@@ -265,8 +265,13 @@ textarea.lc-form-control {
   border-color: var(--lc-focus);
 }
 
-.lc-button-primary:hover {
+.lc-button-primary:hover:not(:disabled) {
   filter: brightness(1.08);
+}
+
+.lc-button:disabled {
+  color: var(--lc-disabled);
+  opacity: 0.65;
 }
 
 .lc-button:focus-visible,

@@ -1,3 +1,5 @@
+import Bonito
+
 @testset "architectural invariants" begin
     root = normpath(joinpath(@__DIR__, ".."))
 
@@ -98,6 +100,30 @@
     end
     @test !isnothing(LineCableModelsPlayground.runtime_job_widget(client))
     @test isempty(client.handles)
+
+    # Build the ordinary route table without constructing/listening on a server.
+    # The publisher must install every live/static route before advertising `/`.
+    routes = Bonito.HTTPServer.Routes()
+    LineCableModelsPlayground.register_widget_routes!(routes, client)
+    LineCableModelsPlayground.register_workbench_routes!(routes)
+    LineCableModelsPlayground.register_presentation_routes!(routes)
+    for (route, _) in LineCableModelsPlayground.WIDGET_ROUTES
+        @test Bonito.HTTPServer.has_route(routes, route)
+    end
+    @test Bonito.HTTPServer.has_route(routes, "/widgets/job-panel")
+    @test Bonito.HTTPServer.has_route(routes, "/workbenches/template")
+    @test Bonito.HTTPServer.has_route(routes, "/presentations/probe")
+    @test isempty(client.handles)
+    mktempdir() do directory
+        mkpath(joinpath(directory, "nested"))
+        write(joinpath(directory, "index.html"), "root")
+        write(joinpath(directory, "nested", "index.html"), "nested")
+        write(joinpath(directory, "nested", "theme.js"), "/* fixture */")
+        LineCableModelsPlayground.register_static_site_routes!(routes, directory)
+        for route in ("/", "/index.html", "/nested", "/nested/", "/nested/index.html", "/nested/theme.js")
+            @test Bonito.HTTPServer.has_route(routes, route)
+        end
+    end
 
     workbench_source = joined_sources(joinpath(root, "src", "workbench"))
     template_workbench_source = joined_sources(

@@ -43,6 +43,8 @@ function default_connect_options()
         ping_interval = parse(Float64, get(ENV, "NATS_PING_INTERVAL", string(DEFAULT_PING_INTERVAL_SECONDS))),
         max_pings_out = parse(Int64, get(ENV, "NATS_MAX_PINGS_OUT", string(DEFAULT_MAX_PINGS_OUT))),
         retry_on_init_fail = parse(Bool, get(ENV, "NATS_RETRY_ON_INIT_FAIL", string(DEFAULT_RETRY_ON_INIT_FAIL))),
+        connect_timeout = 10.0,
+        inbox_prefix = "inbox.",
         ignore_advertised_servers = parse(Bool, get(ENV, "NATS_IGNORE_ADVERTISED_SERVERS", string(DEFAULT_IGNORE_ADVERTISED_SERVERS))),
         retain_servers_order = parse(Bool, get(ENV, "NATS_RETAIN_SERVERS_ORDER", string(DEFAULT_RETAIN_SERVERS_ORDER))),
         send_enqueue_when_disconnected = parse(Bool, get(ENV, "NATS_ENQUEUE_WHEN_DISCONNECTED", string(DEFAULT_ENQUEUE_WHEN_DISCONNECTED))),
@@ -85,7 +87,7 @@ function host_port(url::AbstractString)
     uri = URI(url)
     host, port, scheme, userinfo = uri.host, uri.port, uri.scheme, uri.userinfo
     if isempty(host)
-        error("Host not specified in url `$url`.")
+        error("Host not specified in connection URL.")
     end
     if isempty(port)
         port = DEFAULT_PORT
@@ -125,13 +127,18 @@ function init_protocol(nc, url, options)
             options = merge(options, (pass = pass,))
         end
     end
-    sock = Sockets.connect(host, port)
+    sock = Sockets.TCPSocket()
+    deadline = Timer(options.connect_timeout) do _
+        close(sock)
+    end
     try
+        Sockets.connect(sock, host, port)
         info_msg = next_protocol_message(sock)
         info_msg isa Info || error("Expected INFO, received $info_msg")
         validate_connect_options(info_msg, options)
         read_stream, write_stream = sock, sock
-        if !isnothing(info_msg.tls_required) && info_msg.tls_required
+        if something(info_msg.tls_required, false) ||
+                (options.tls_required && something(info_msg.tls_available, false))
             tls_options = options[(:tls_ca_path, :tls_cert_path, :tls_key_path)]
             tls_server_name = something(options.tls_server_name, host)
             (read_stream, write_stream) = upgrade_to_tls(
@@ -185,6 +192,8 @@ function init_protocol(nc, url, options)
     catch err
         close(sock)
         rethrow()
+    finally
+        close(deadline)
     end
 end
 
@@ -248,6 +257,8 @@ Options are:
 - `ping_interval`: interval in seconds how often server should be pinged to check connection health. Default is $DEFAULT_PING_INTERVAL_SECONDS seconds
 - `max_pings_out`: how many pings in a row might fail before connection will be restarted. Default is `$DEFAULT_MAX_PINGS_OUT`
 - `retry_on_init_fail`: if set connection handle will be returned even if initial connect fails. Otherwise error causing failure will be trown. Default is `$DEFAULT_RETRY_ON_INIT_FAIL`
+- `connect_timeout`: Positive finite deadline in seconds for each TCP/INFO/TLS/authentication handshake; default is 10 seconds. Expiry closes only that attempt's socket.
+- `inbox_prefix`: Literal subject prefix ending in a dot for request replies; default is `inbox.`. Distinct identity prefixes permit broker-enforced private reply subscriptions.
 - `ignore_advertised_servers`: ignores other cluster servers returned by server. Default is `$DEFAULT_IGNORE_ADVERTISED_SERVERS`
 - `retain_servers_order`: try to connect server in order specified in `url` or list returned by the server. Defaylt is `$DEFAULT_RETAIN_SERVERS_ORDER`
 - `send_enqueue_when_disconnected`: allows buffering outgoing messages during disconnection. Default is `$DEFAULT_ENQUEUE_WHEN_DISCONNECTED`
@@ -261,6 +272,13 @@ function connect(
     options...
 )
     options = merge(default_connect_options(), options)
+    options.connect_timeout isa Real && !(options.connect_timeout isa Bool) &&
+        isfinite(options.connect_timeout) && 0 < options.connect_timeout <= 60 ||
+        throw(ArgumentError("connect_timeout must be finite and in (0, 60] seconds"))
+    prefix = options.inbox_prefix
+    prefix isa String && 2 <= ncodeunits(prefix) <= 192 && endswith(prefix, ".") &&
+        all(token -> occursin(r"^[A-Za-z0-9_-]+$", token), split(chop(prefix), '.')) ||
+        throw(ArgumentError("inbox_prefix must be a literal subject prefix ending in a dot"))
     nc = Connection(;
         url,
         info = nothing,
@@ -273,7 +291,8 @@ function connect(
         options.send_retry_delays,
         options.send_enqueue_when_disconnected,
         options.drain_timeout,
-        options.drain_poll)
+        options.drain_poll,
+        options.inbox_prefix)
     sock = nothing
     read_stream = nothing
     write_stream = nothing
@@ -293,7 +312,7 @@ function connect(
     end
     # This works as controller for connection state. It spawns other task and listens for their completion to do
     # reconnect logic.
-    reconnect_task = Threads.@spawn :interactive disable_sigint() do
+    reconnect_loop = function ()
         # @show Threads.threadid()
         while true
             if status(nc) == CONNECTING
@@ -326,7 +345,7 @@ function connect(
                 if status(nc) == CONNECTED
                     @atomic nc.reconnect_count += 1
                     info(nc, info_msg)
-                    @info "Reconnected to $(clustername(nc)) cluster on `$(nc.url)` after $(time() - start_time) seconds."
+                    @info "Reconnected to $(clustername(nc)) cluster after $(time() - start_time) seconds."
                 elseif status(nc) == DISCONNECTED
                     wait(nc.reconnect_event)
                     @debug "Reconnect requested"
@@ -393,12 +412,25 @@ function connect(
             @assert istaskdone(sender_task)
             @assert istaskdone(reconnect_await_task)
 
-            @warn "Connection to $(clustername(nc)) cluster on `$(nc.url)` lost, trynig to reconnect."
+            @warn "Connection to $(clustername(nc)) cluster lost, trying to reconnect."
             status(nc, CONNECTING)
             @atomic nc.connect_init_count = 0
             @debug "Cleanup time: $(time() - cleanup_start) seconds"
         end
     end
+    # The controller must be compiled before connect returns: otherwise its
+    # first specialization can consume a caller's PONG deadline before the
+    # sender/receiver tasks even start. This compiles code only; it does not
+    # send a synthetic message or extend the socket/authentication deadline.
+    try
+        precompile(reconnect_loop, ())
+    catch
+        sock === nothing || close(sock)
+        notify(nc.drain_event)
+        wait(drain_await_task)
+        rethrow()
+    end
+    reconnect_task = Threads.@spawn :interactive disable_sigint(reconnect_loop)
     errormonitor(reconnect_task)
 
     @lock state.lock push!(state.connections, nc)

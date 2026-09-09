@@ -333,6 +333,9 @@ function binding_script(node, binding::BindingInspection)
 end
 
 function instrument(session, node, component)
+    # A disabled diagnostic policy must not invoke application inspection hooks.
+    # Metadata construction belongs to an explicitly permitted diagnostic view.
+    xray_policy(session).permitted || return node
     descriptor = inspection(component)
     isnothing(descriptor) && return node
     return instrument(session, node, descriptor)

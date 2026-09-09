@@ -52,6 +52,7 @@ end
     @atomic send_buffer_flushed::Bool
     drain_timeout::Float64
     drain_poll::Float64
+    inbox_prefix::String = "inbox."
     allow_direct::Dict{String, Bool} = Dict{String, Bool}() # Cache for jetstream for fast lookup of streams that have direct access.
     allow_direct_lock = ReentrantLock()
     "Handles messages for which handler was not found."
@@ -77,9 +78,9 @@ function clustername(c::Connection)
     end
 end
 
-function new_inbox(connection::Connection, prefix::String = "inbox.")
+function new_inbox(connection::Connection, prefix::String = connection.inbox_prefix)
     random_suffix = @lock connection.lock randstring(connection.rng, 10)
-    "inbox.$random_suffix"
+    "$prefix$random_suffix"
 end
 
 function new_sid(connection::Connection)

@@ -5,6 +5,8 @@
   const printView = query.has('lcm-print');
   const receiver = query.has('receiver');
   const staticMode = printView || receiver;
+  const runParameter = query.get('lcm-run');
+  const runId = runParameter && /^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/.test(runParameter) ? runParameter : null;
   const frames = [];
   const readyFrames = new WeakSet();
   const connections = new WeakMap();
@@ -114,8 +116,23 @@
     if (staticMode || overview) return;
     slideFrames(slide).forEach(frame => {
       if (frame.hasAttribute('src')) return;
-      const route = frame.dataset.lcmSrc;
-      if (!route?.startsWith('/') || new URL(route, location.origin).origin !== location.origin) return;
+      if (frame.dataset.lcmRequiresRun === 'true' && !runId) {
+        frame.dataset.lcmState = 'unavailable';
+        frame.parentElement.classList.add('lcm-live-unavailable');
+        const message = frame.parentElement.querySelector('.lcm-live-placeholder span');
+        if (message) message.textContent = 'Launch this deck from the playground catalogue to use its owned live views.';
+        return;
+      }
+      const authored = frame.dataset.lcmSrc;
+      if (!authored?.startsWith('/') || authored.startsWith('//') || /\\|(?:%2f|%5c|%2e)|\/\.\.?(?:\/|$)/i.test(authored) ||
+          new URL(authored, location.origin).origin !== location.origin || (query.has('lcm-run') && !runId)) {
+        frame.dataset.lcmState = 'unavailable';
+        frame.parentElement.classList.add('lcm-live-unavailable');
+        return;
+      }
+      // Every live frame keeps the same immutable run context. No discovery,
+      // allocation or numerical preparation happens on slide entry.
+      const route = runId ? '/applications/runs/' + runId + authored : authored;
       frame.dataset.lcmState = 'loading';
       frame.parentElement.classList.add('lcm-live-loading');
       const waiting = document.createElement('div');

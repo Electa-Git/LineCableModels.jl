@@ -1,3 +1,5 @@
+include(joinpath(@__DIR__, "..", "common", "artifact_contract.jl"))
+
 const ARTIFACT_ROUTE_PATTERN = r"^/artifacts/sha256/[0-9a-f]{64}$"
 
 abstract type AbstractArtifactBackend end
@@ -12,27 +14,6 @@ struct S3ArtifactBackend <: AbstractArtifactBackend
     prefix::String
 end
 
-"Minimal AWS.jl configuration adapter for a user-supplied S3-compatible endpoint."
-struct S3EndpointConfig <: AWS.AbstractAWSConfig
-    endpoint::URIs.URI
-    region::String
-    credentials::AWS.AWSCredentials
-end
-
-AWS.region(config::S3EndpointConfig) = config.region
-AWS.credentials(config::S3EndpointConfig) = config.credentials
-
-function AWS.generate_service_url(
-        config::S3EndpointConfig,
-        service::String,
-        resource::String
-    )
-    service == "s3" || throw(ArgumentError(
-        "S3 endpoint configuration cannot serve $service"
-    ))
-    return string(config.endpoint, resource)
-end
-
 "Expose local or S3-backed artifacts through an opaque same-origin route."
 struct ArtifactGateway{Backend<:AbstractArtifactBackend}
     backend::Backend
@@ -41,38 +22,6 @@ end
 ArtifactGateway(directory::AbstractString) = ArtifactGateway(
     FilesystemArtifactBackend(abspath(directory))
 )
-
-function normalize_s3_prefix(prefix::AbstractString)
-    normalized = strip(string(prefix), '/')
-    any(==(".."), split(normalized, '/')) && throw(ArgumentError(
-        "S3 artifact prefix cannot contain `..` path segments"
-    ))
-    return normalized
-end
-
-function S3EndpointConfig(
-        endpoint::AbstractString,
-        access_key::AbstractString,
-        secret_key::AbstractString;
-        region::AbstractString="us-east-1",
-        allow_insecure::Bool=false
-    )
-    isempty(access_key) && throw(ArgumentError("S3 access key cannot be empty"))
-    isempty(secret_key) && throw(ArgumentError("S3 secret key cannot be empty"))
-    uri = URIs.URI(rstrip(string(endpoint), '/'))
-    uri.scheme in ("http", "https") || throw(ArgumentError(
-        "S3 endpoint must use http or https"
-    ))
-    uri.scheme == "https" || allow_insecure || throw(ArgumentError(
-        "Plain HTTP S3 endpoints require LCM_S3_ALLOW_INSECURE=1"
-    ))
-    isempty(uri.host) && throw(ArgumentError("S3 endpoint must include a host"))
-    return S3EndpointConfig(
-        uri,
-        string(region),
-        AWS.AWSCredentials(string(access_key), string(secret_key))
-    )
-end
 
 function S3ArtifactGateway(
         endpoint::AbstractString,
@@ -148,8 +97,7 @@ function artifact_object_key(
         kind::AbstractString,
         digest::AbstractString
     )
-    suffix = "$kind/$digest"
-    return isempty(backend.prefix) ? suffix : "$(backend.prefix)/$suffix"
+    return artifact_storage_key(backend.prefix, kind, digest)
 end
 
 function validate_artifact_metadata(document, digest::AbstractString)

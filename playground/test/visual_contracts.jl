@@ -29,6 +29,10 @@
         joinpath(root, "src", "toolkit", "Overlays.jl"),
         joinpath(root, "src", "toolkit", "DataViews.jl"),
         joinpath(root, "src", "widgets", "JobControls.jl"),
+        joinpath(root, "src", "widgets", "RuntimeControls.jl"),
+        joinpath(root, "src", "widgets", "JuliaTerminal.jl"),
+        joinpath(root, "assets", "runtime-terminal.css"),
+        joinpath(root, "assets", "runtime-controls.css"),
         joinpath(root, "assets", "geographic-map.css"),
         joinpath(root, "assets", "power-system-canvas.css"),
         joinpath(root, "assets", "repeater.css"),
@@ -90,6 +94,10 @@
         (route="/widgets/geographic-map", gallery=".lc-map-component",
             parity=:portable, workbench=nothing),
         (route="/widgets/power-system-canvas", gallery=".lc-power-system-canvas",
+            parity=:portable, workbench=nothing),
+        (route="/widgets/runtime-controls", gallery=".lc-runtime-controls",
+            parity=:portable, workbench=nothing),
+        (route="/widgets/julia-terminal", gallery=".lc-runtime-terminal",
             parity=:portable, workbench=nothing),
     ]
 

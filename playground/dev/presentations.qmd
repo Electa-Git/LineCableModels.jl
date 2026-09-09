@@ -1,0 +1,151 @@
+---
+title: "Presentation templates"
+subtitle: "Start with a complete deck, then choose reusable layouts for its individual slides."
+body-classes: lc-gallery-page lc-document-page
+---
+
+## Complete decks
+
+The starter is the file to copy when beginning a presentation. The hostile
+specimen is a worked example and acceptance test, not another layout system.
+
+[Equation explanations: copy the Markdown](/presentations/math-notes.html) or
+[try the annotated equation](/presentations/specimen.html#/balanced-evidence).
+
+Incremental lists: [try nested bullets](/presentations/starter.html#/one-clear-argument) or
+[two lists in sequence](/presentations/specimen.html#/top-band-plus-two-supporting-regions).
+Both use native Quarto `.incremental` Markdown; no extra ordering parameter.
+
+::: {.lc-gallery-grid}
+
+::: {.lc-gallery-card}
+[FOUNDATION GATE]{.lc-gallery-label}
+
+## Hostile specimen
+
+Long titles, equations, code, images, native controls, speaker notes, live
+Bonito routes, resize, pointer, and print placeholders in one acceptance deck.
+
+[Open presentation →](/presentations/specimen.html){.lc-gallery-link}
+:::
+
+::: {.lc-gallery-card}
+[COPY THIS]{.lc-gallery-label}
+
+## Starter deck
+
+The smallest complete source: one static layout and one persistent live-view
+boundary, with no scientific or broker dependency in the deck itself.
+
+[Open starter →](/presentations/starter.html){.lc-gallery-link}
+:::
+
+:::
+
+## Reusable slide layouts
+
+These six layouts arrange the content **inside one slide**. They are not
+standalone decks or Bonito widgets. Use any of them in the starter, and mix
+layouts freely between slides. **Preview layout** opens its example in the
+specimen; **Copy slide Markdown** opens a ready-to-copy slide block.
+
+::: {.lc-gallery-grid}
+
+::: {.lc-gallery-card}
+[ONE REGION]{.lc-gallery-label}
+
+## Full canvas
+
+One `.lcm-slot` for a dominant figure, live route, or focused argument.
+
+[Preview layout →](/presentations/specimen.html#/a-deliberately-long-title-must-wrap-without-asking-the-whole-browser-scene-to-shrink){.lc-gallery-link}
+
+[Copy slide Markdown](/presentations/layouts.html#full-canvas){.lc-gallery-link}
+:::
+
+::: {.lc-gallery-card}
+[1 + 1]{.lc-gallery-label}
+
+## Balanced
+
+Two equal `.lcm-slot` regions for comparisons and paired evidence.
+
+[Preview layout →](/presentations/specimen.html#/balanced-evidence){.lc-gallery-link}
+
+[Copy slide Markdown](/presentations/layouts.html#balanced){.lc-gallery-link}
+:::
+
+::: {.lc-gallery-card}
+[2 + 1]{.lc-gallery-label}
+
+## Feature + sidebar
+
+A dominant surface beside restrained controls, quantities, or commentary.
+
+[Preview layout →](/presentations/specimen.html#/persistent-live-viewport){.lc-gallery-link}
+
+[Copy slide Markdown](/presentations/layouts.html#feature-sidebar){.lc-gallery-link}
+:::
+
+::: {.lc-gallery-card}
+[1 / 2 + 2]{.lc-gallery-label}
+
+## Top split
+
+One full-width slot over two supporting regions.
+
+[Preview layout →](/presentations/specimen.html#/top-band-plus-two-supporting-regions){.lc-gallery-link}
+
+[Copy slide Markdown](/presentations/layouts.html#top-split){.lc-gallery-link}
+:::
+
+::: {.lc-gallery-card}
+[2 × 2]{.lc-gallery-label}
+
+## Dashboard grid
+
+Four equal regions for related plots or engineering quantities.
+
+[Preview layout →](/presentations/specimen.html#/four-panel-dashboard){.lc-gallery-link}
+
+[Copy slide Markdown](/presentations/layouts.html#dashboard-grid){.lc-gallery-link}
+:::
+
+::: {.lc-gallery-card}
+[MEDIA + PROSE]{.lc-gallery-label}
+
+## Media story
+
+A stable media surface beside explanatory text, equations, or findings.
+
+[Preview layout →](/presentations/specimen.html#/media-and-narrative){.lc-gallery-link}
+
+[Copy slide Markdown](/presentations/layouts.html#media-story){.lc-gallery-link}
+:::
+
+:::
+
+## Narrow authoring grammar
+
+Copy `presentations/starter.qmd` to begin a deck. Each slide consists of a
+level-two heading, one named layout, and its required number of slots.
+
+```{.markdown shortcodes=false}
+## Slide title
+
+::: {.lcm-layout-feature-sidebar}
+::: {.lcm-slot}
+{{< bonito route="/widgets/control-panel"
+    title="Cable controls"
+    height="100%"
+    public-url="/widgets/control-panel" >}}
+:::
+::: {.lcm-slot .lcm-slot-panel}
+Ordinary Quarto content.
+:::
+:::
+```
+
+The layout filter validates names and slot counts. Raw slide scripts, styles,
+and nested sections are rejected. Live viewports require an explicit public
+playground URL so print and presenter surfaces always have a useful fallback.

@@ -12,5 +12,5 @@ function consumer_ack(connection::NATS.Connection, msg::NATS.Msg, ack::String = 
     ack in CONSUMER_ACK_OPTIONS || error("Unknown ack type \"$ack\", allowed values: $(join(CONSUMER_ACK_OPTIONS, ", "))")
     isnothing(msg.reply_to) && error("No reply subject for msg $msg.")
     !startswith(msg.reply_to, "\$JS.ACK") && @warn "`ack` sent for message that doesn't need acknowledgement." 
-    jetstream_api_call(NATS.Msg, connection, msg.reply_to; delays)
+    jetstream_api_call(NATS.Msg, connection, msg.reply_to, ack; delays)
 end

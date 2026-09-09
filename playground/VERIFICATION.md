@@ -1,10 +1,17 @@
 # End-to-end verification
 
-This matrix audits the implementation against the complete execution plan.
-It distinguishes source inspection from runtime evidence so a narrow unit test
-cannot be mistaken for proof of distributed behavior.
+This document lists repeatable checks for the retained publisher/worker stack
+and Runtime Platform v1. The current v1 release status and retained evidence are
+in [RUNTIME_PLATFORM_PROGRESS.md](RUNTIME_PLATFORM_PROGRESS.md); the existence
+of a harness is not a passing release gate. Source inspection, finite test
+drivers and effective deployment isolation are distinct evidence.
 
-## Requirement matrix
+## Publisher, legacy worker and presentation compatibility
+
+The table below preserves the original stack's compatibility checks. Its
+unassigned job path is not exposed by the authenticated v1 gateway. The new
+runtime has separate ownership, profile, terminal and acceptance contracts
+described below and in [ARCHITECTURE.md](ARCHITECTURE.md).
 
 | Plan section | Implemented boundary | Authoritative evidence |
 |---|---|---|
@@ -23,9 +30,9 @@ cannot be mistaken for proof of distributed behavior.
 | 13. Results and artifacts | Small results remain inline; larger results use local or S3 content-addressed storage behind a same-origin GET/HEAD/range gateway. | `worker/src/Artifacts.jl`, `src/artifacts.jl`, artifact tests, TLS MinIO role-isolation harness, both stack smokes. |
 | 14. Local, remote, and container commands | The same `lcm worker start` command runs natively or in a locked image; `lcm container` resolves real Docker versus Podman and drives either local or remote Compose profile; publisher, NATS administration, and worker remain separate processes behind one CLI. | `lcm`, `src/container_runtime.jl`, both OCI-compatible Dockerfiles, local/remote Compose profiles, CLI resolver tests, local and mTLS/S3 stack smokes. |
 | 15. Authentication and authorization | Publisher, worker, administrator, artifact writer, and artifact reader use distinct identities and least-privilege subjects/policies. Remote traffic requires verified mTLS/TLS. | `deploy/nats.conf`, `deploy/remote/nats-tls.conf`, MinIO policies, authorization, mTLS, and TLS artifact tests. |
-| 16. Stateful REPL deferred safely | No eval/repl operation or general code payload exists. A future REPL requires a separate leased sandbox and identity. | Architecture source scan and documented container boundary. |
+| 16. Scientific subjects exclude REPL evaluation | No eval/repl operation or general code payload exists on scientific subjects. The v1 private terminal uses a separate leased process and authorized byte stream; admission requires current verified host/image isolation. | Architecture source scan, `runtime/CONFIGURATION.md`, terminal process/relay/browser tests, both physical engine matrices and the v1 implementation ledger. |
 | 17. Test plan | Protocol, resilience, job semantics, scientific parity, native lifecycle, container, remote TLS, authorization, artifacts, and graceful shutdown all have executable harnesses. | Commands below. |
-| 18. Delivery sequence | Transport and diagnostics precede engine adapters; supervised execution precedes PowerImpedance; security/deployment profiles are last. | Repository layering and the complete passing verification set. |
+| 18. Delivery sequence | Transport and diagnostics precede engine adapters; supervised execution precedes PowerImpedance; security/deployment profiles are separate checks. | Repository layering and retained per-gate evidence; see the v1 ledger for incomplete release gates. |
 | 19. Presentation ownership | Quarto compiles, Reveal orchestrates, LCM layouts own real-pixel geometry, and Bonito remains isolated in same-origin live frames. | `ARCHITECTURE.md`, `_extensions/lcm-deck/`, presentation architecture assertions. |
 | 20. Presentation lifecycle | Live frames remain mounted; resize/fullscreen changes settle before child notification; focused controls retain keyboard ownership; overview substitutes inert placeholders and restores exact geometry without replacing sessions. | `presentations/specimen.qmd`, `test/integration/presentation_browser.mjs`. |
 | 21. Presentation failure and print | Static navigation works without a broker; presenter/print surfaces use public playground links and never duplicate or print live applications. | Presentation browser checks and generated print-DOM assertions. |
@@ -57,6 +64,38 @@ lifecycle retain an existing live session.
 
 ## Repeatable commands
 
+Runtime Platform v1 has one aggregate entry point, using the existing isolated
+harnesses and retaining a private per-gate log and TSV report:
+
+```sh
+bash playground/test/integration/run-runtime-platform.sh all
+# Focused groups: unit, browser, transport, scientific, host. `list` is read-only.
+# `physical` is a separate opt-in group requiring approved installed images.
+CONTAINER_RUNTIME=docker bash playground/test/integration/run-runtime-platform.sh transport
+```
+
+The default test engine is Podman. `host` checks native, genuine Podman and
+genuine Docker independently through the existing CLI; a Docker-named Podman
+shim is not Docker evidence. Transport/scientific fixtures reuse the inspected
+local command prefix and filtered environment for every engine action, including
+cleanup; inherited remote contexts cannot redirect a later fixture command.
+Exit 1 means a failed automated gate; exit 2 means
+unavailable host prerequisites. A selected-group pass does not certify effective
+executor isolation or a physical second-computer deployment. Follow
+[physical acceptance](runtime/PHYSICAL_ACCEPTANCE.md) for both engine matrices
+and the separate-computer consumer gate. Consult
+[the implementation ledger](RUNTIME_PLATFORM_PROGRESS.md) for recorded evidence;
+neither this command nor a private rehearsal is a public deployment.
+
+`test/runtime_conformance.jl` derives the new runtime/scientific component inventory
+from actual `Bonito.jsrender` and X-ray inspection dispatch, expands abstract
+families and requires normal-constructor fixtures. It checks owned CSS, metadata
+redaction and repeated session rendering with diagnostics enabled/disabled.
+Missing render/inspection/fixture coverage fails. Existing pre-v1 broker widgets
+retain their separate legacy tests. Browser theme/interaction coverage remains
+in the real Bonito, scientific UI, ribbon and X-ray harnesses; serialization tests
+are not represented as visual browser passes.
+
 The X-ray CSS preview gate is `bash playground/test/integration/run-xray.sh`.
 It starts an isolated browser profile and mock Julia host, without NATS or
 numerical workers. It exercises click-only selection, conditional CSS and
@@ -67,6 +106,22 @@ The nested-tree fixture covers component-only, recursive, hidden-descendant,
 and global recovery, sibling isolation, invalid-only drafts, and original-to-
 proposed comparisons that survive selection and theme changes.
 `playground/test/xray_preview.jl` covers the shared Julia editor contract.
+
+The publisher unit suite also checks that disabled X-ray does not call inspection
+hooks and that the build-time UI workload leaves listener/cleanup/upload state
+unchanged without importing numerical engines. The offline publisher gate uses
+actual GETs, checks every published index alias and the existing widget probes,
+then verifies graceful SIGINT shutdown. Cold-render measurements and the latest
+whole-suite results are recorded separately in the runtime implementation ledger.
+
+For startup failures, `LCM_RUNTIME_TRACE_COMPILE=1` enables retained compiler
+timings in `runtime/test/run-broker.sh` (full/terminal/scientific) and the legacy
+`test/integration/run.sh` worker fixture. The latter uses the same Julia module
+and arguments directly for tracing; run without this flag for actual CLI
+acceptance. Failed legacy workers retain private diagnostic logs before normal
+resource cleanup. Browser terminal failures retain screenshots, owner-filtered
+assignment/inventory state and exceptions; no transport deadline or automatic
+input replay is enabled by diagnostics.
 
 From the repository root:
 
@@ -107,10 +162,11 @@ lcm container status --remote
 ./playground/test/integration/run-remote-stack-smoke.sh playground/deploy/remote/.env
 ```
 
-Run the same commands with `--runtime docker` and `--runtime podman` to pin a
-host explicitly. `--cpu-limits` composes the optional quota overlay; it remains
-off by default because some rootless Podman services lack delegated CPU
-cgroups.
+Run the same legacy Compose commands with `--runtime docker` and
+`--runtime podman` to pin a host explicitly. Their `--cpu-limits` option composes
+the optional legacy quota overlay. This is **not** the Runtime Platform v1
+executor policy: v1 requires its declared effective limits and refuses an
+unsupported host; private terminals never use an unconfined native fallback.
 
 The remote smoke uses separate publisher and worker containers/network
 identities and the same outbound-only worker connection used on another

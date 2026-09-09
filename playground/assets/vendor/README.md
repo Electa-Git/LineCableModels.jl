@@ -1,5 +1,34 @@
 # Vendored browser assets
 
+## Private Julia terminal
+
+`runtime-terminal.bundle.js` and `runtime-terminal.bundle.css` are generated from
+`runtime-terminal.entry.js` using xterm.js **6.0.0**, its fit addon **0.11.0** and
+esbuild **0.25.9**. They contain the renderer and fitting utility only, not the
+upstream demo/attach server or addon. The owned runtime component supplies the
+authorized socket, bounded I/O, theme projection and cleanup. The shared browser
+component is `JuliaTerminal`; these assets alone do not enable terminal execution.
+
+The generated assets are served locally, without runtime npm or CDN access.
+Upstream MIT notices are retained in `licenses/xterm-LICENSE.txt` and
+`licenses/xterm-addon-fit-LICENSE.txt`. On dependency upgrades review the owned
+clipboard, link, escape-sequence, keyboard and backpressure policy against the
+[upstream security guidance](https://xtermjs.org/docs/guides/security/) and rerun
+the complete terminal browser/relay gates.
+
+To rebuild from `playground/` in a fresh temporary npm prefix:
+
+```sh
+LCM_TERMINAL_BUILD=$(mktemp -d /tmp/lcm-terminal-build.XXXXXXXX)
+npm install --prefix "$LCM_TERMINAL_BUILD" --no-save --ignore-scripts --no-audit --no-fund \
+  @xterm/xterm@6.0.0 @xterm/addon-fit@0.11.0 esbuild@0.25.9
+"$LCM_TERMINAL_BUILD/node_modules/.bin/esbuild" assets/vendor/runtime-terminal.entry.js \
+  --bundle --format=iife --target=es2022 --minify \
+  --alias:@xterm/xterm="$LCM_TERMINAL_BUILD/node_modules/@xterm/xterm" \
+  --alias:@xterm/addon-fit="$LCM_TERMINAL_BUILD/node_modules/@xterm/addon-fit" \
+  --outfile=assets/vendor/runtime-terminal.bundle.js
+```
+
 ## Geographic map
 
 `geographic-map.bundle.js` is a browser-ready bundle generated from

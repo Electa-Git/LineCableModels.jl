@@ -37,7 +37,12 @@ function unsubscribe(
     max_msgs::Union{Int, Nothing} = nothing
 )
     usnub = Unsub(sid, max_msgs)
-    send(connection, usnub)
+    try
+        send(connection, usnub)
+    catch
+        cleanup_sub_resources(connection, sid)
+        rethrow()
+    end
     if isnothing(max_msgs) || max_msgs == 0
         cleanup_sub_resources(connection, sid)
     else

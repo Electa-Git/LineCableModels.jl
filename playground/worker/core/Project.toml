@@ -1,0 +1,21 @@
+name = "LineCableModelsExecutionCore"
+uuid = "750e2b20-7d9d-4a48-bc26-58effa5bbf41"
+version = "0.1.0"
+
+[deps]
+Dates = "ade2ca70-3891-5945-98fb-dc099432e06a"
+JSON3 = "0f8b85d8-7281-11e9-16c2-39a750bddbf1"
+LineCableModelsPlaygroundProtocol = "f53a55e4-c04f-4c03-acec-f4c4d198278d"
+Logging = "56ddb016-857b-54e1-b83d-db4d58db5568"
+RequiredInterfaces = "97f35ef4-7bc5-4ec1-a41a-dcc69c7308c6"
+SHA = "ea8e919c-243c-51af-8825-aaa63cd721ce"
+UUIDs = "cf7118a7-6976-5b1a-9a39-7adc72f591a4"
+
+[sources]
+LineCableModelsPlaygroundProtocol = {path = "../../protocol"}
+
+[compat]
+JSON3 = "1.14"
+LineCableModelsPlaygroundProtocol = "0.1"
+RequiredInterfaces = "0.1.7"
+julia = "1.12"

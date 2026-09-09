@@ -123,4 +123,10 @@ function (@main)(arguments)
     end
 end
 
+# Cache the CLI call graph during package compilation, before any operator
+# starts a worker. A cold main specialization alone cost 7.7 s in the TLS
+# startup trace. This compiles code only: no connection, consumer, executor or
+# scientific package is initialized, and no heartbeat deadline is relaxed.
+precompile(main,(Vector{String},))
+
 end

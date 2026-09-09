@@ -65,7 +65,7 @@ function OperationSpec(
     ncodeunits(schema_version) <= 32 || throw(ArgumentError(
         "operation schema version cannot exceed 32 bytes"
     ))
-    0 < timeout_seconds <= 24 * 60 * 60 || throw(ArgumentError(
+    !(timeout_seconds isa Bool) && 0 < timeout_seconds <= 24 * 60 * 60 || throw(ArgumentError(
         "operation timeout must be between zero and 24 hours"
     ))
     cache_policy in (:content, :prepared, :none) || throw(ArgumentError(

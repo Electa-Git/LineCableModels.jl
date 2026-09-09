@@ -5,6 +5,8 @@
 !/test/integration/run-presentation.sh
 !/test/integration/run-ribbon.sh
 !/test/integration/run-xray.sh
+!/test/integration/run-runtime-platform.sh
+!/test/integration/run-artifacts.sh
 !/deploy/remote/generate-dev-certs.sh
 /deploy/remote/certs/
 /deploy/.env
@@ -15,3 +17,14 @@
 # Presentation sources are authored inputs, never generated output.
 !/presentations/
 !/presentations/**
+
+# Runtime is a separately pinned application environment. Its state is private.
+!/runtime/Manifest.toml
+!/runtime/test/run-bonito.sh
+!/runtime/test/run-catalogue.sh
+!/runtime/test/run-broker.sh
+/runtime/state/
+!/worker/core/Manifest.toml
+!/worker/profiles/line-parameters/Manifest.toml
+!/worker/profiles/power-flow/Manifest.toml
+!/worker/profiles/julia-terminal/Manifest.toml

@@ -1,3 +1,5 @@
+include(joinpath(@__DIR__, "..", "common", "container_engine.jl"))
+
 struct ContainerRuntime
     name::Symbol
     compose_command::Vector{String}
@@ -27,19 +29,9 @@ function _compose_command(executable, runtime::Symbol; which, probe)
 end
 
 function _docker_runtime(; which, probe)
-    executable = which("docker")
-    isnothing(executable) && return nothing, "the docker command was not found", false
-
-    version_ok, version_output = probe([executable, "version"])
-    version_ok || return nothing, "docker version failed", false
-    podman_shim = occursin("podman", lowercase(version_output))
-    podman_shim && return nothing,
-        "the docker command is a Podman compatibility shim, not Docker Engine",
-        true
-
-    info_ok, _ = probe([executable, "info"])
-    info_ok || return nothing, "Docker Engine is not reachable", false
-    compose = _compose_command(executable, :docker; which, probe)
+    engine, reason, shim = _docker_engine(; which, probe)
+    isnothing(engine) && return nothing, reason, shim
+    compose = _compose_command(engine.executable, :docker; which, probe)
     isnothing(compose) && return nothing,
         "neither docker compose nor docker-compose is usable",
         false
@@ -47,23 +39,13 @@ function _docker_runtime(; which, probe)
 end
 
 function _podman_runtime(; which, probe)
-    executable = which("podman")
-    isnothing(executable) && return nothing, "the podman command was not found"
-
-    info_ok, _ = probe([executable, "info"])
-    info_ok || return nothing, "the Podman service is not usable"
-    compose = _compose_command(executable, :podman; which, probe)
+    engine, reason = _podman_engine(; which, probe)
+    isnothing(engine) && return nothing, reason
+    compose = _compose_command(engine.executable, :podman; which, probe)
     isnothing(compose) && return nothing,
         "neither podman compose nor podman-compose is usable"
 
-    rootless_ok, rootless_output = probe([
-        executable,
-        "info",
-        "--format",
-        "{{.Host.Security.Rootless}}",
-    ])
-    rootless = rootless_ok && lowercase(strip(rootless_output)) == "true"
-    return ContainerRuntime(:podman, compose, rootless), ""
+    return ContainerRuntime(:podman, compose, engine.rootless), ""
 end
 
 """

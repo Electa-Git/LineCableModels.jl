@@ -63,6 +63,13 @@ return {
     end
 
     local public_url = stringify(kwargs["public-url"])
+    local requires_run = stringify(kwargs["requires-run"])
+    if requires_run ~= "" and requires_run ~= "true" and requires_run ~= "false" then
+      return quarto.shortcode.error_output("bonito", "requires-run must be true or false", "block")
+    end
+    if requires_run == "true" and public_url == "" then
+      return quarto.shortcode.error_output("bonito", "requires-run needs a public-url fallback", "block")
+    end
     if public_url ~= "" and not valid_public_url(public_url) then
       return quarto.shortcode.error_output(
         "bonito",
@@ -74,7 +81,7 @@ return {
     if public_url ~= "" then
       local html = string.format(
         '<figure class="lcm-live-viewport" data-lcm-live="true" data-lcm-title="%s">' ..
-        '<iframe class="lc-widget-frame" data-lcm-src="%s" title="%s" allowfullscreen ' ..
+        '<iframe class="lc-widget-frame" data-lcm-src="%s" data-lcm-requires-run="%s" title="%s" allowfullscreen ' ..
         'style="--lc-widget-height: %s;"></iframe>' ..
         '<figcaption class="lcm-live-placeholder">' ..
         '<strong>%s</strong>' ..
@@ -83,6 +90,7 @@ return {
         '</figcaption></figure>',
         escape_attribute(title),
         escape_attribute(route),
+        requires_run == "true" and "true" or "false",
         escape_attribute(title),
         escape_attribute(height),
         escape_attribute(title),
@@ -92,7 +100,7 @@ return {
     end
 
     local html = string.format(
-      '<iframe class="lc-widget-frame" src="%s" title="%s" loading="lazy" allowfullscreen style="--lc-widget-height: %s;"></iframe>',
+      '<iframe class="lc-widget-frame" data-lc-published-src="%s" title="%s" loading="lazy" allowfullscreen style="--lc-widget-height: %s;"></iframe>',
       escape_attribute(route),
       escape_attribute(title),
       escape_attribute(height)

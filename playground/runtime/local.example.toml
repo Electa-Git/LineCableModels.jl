@@ -1,0 +1,26 @@
+schema_version = 1
+enabled = true
+
+[gateway]
+listen_host = "127.0.0.1"
+port = 8080
+public_origin = "http://127.0.0.1:8080"
+
+[identity]
+mode = "local-development"
+principal = "developer"
+administrator = true
+
+[publisher]
+site_directory = "../_site"
+
+[storage]
+database = "state/runtime.sqlite"
+scratch_root = "state/runs"
+
+[limits]
+max_runs = 8
+max_runs_per_owner = 2
+startup_seconds = 120
+shutdown_seconds = 5
+disconnect_grace_seconds = 60

@@ -3,6 +3,9 @@ using JSON3
 using LineCableModelsPlaygroundProtocol
 using Test
 
+include("runtime.jl")
+include("terminals.jl")
+
 @testset "wire contract" begin
     request = new_job_request(
         "system.echo",

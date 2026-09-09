@@ -2,7 +2,7 @@
 
 julia_version = "1.12.7"
 manifest_format = "2.0"
-project_hash = "44855347f1cea54013eda4e844d2f3b52c82a30d"
+project_hash = "9a9ec4e0584dd22d3cc65efe99db4f94a9052bf6"
 
 [[deps.ANSIColoredPrinters]]
 git-tree-sha1 = "574baf8110975760d391c710b6341da1afa48d8c"
@@ -284,7 +284,7 @@ uuid = "94ce4f54-9a6c-5748-9c1c-f9c7231a4531"
 version = "1.18.0+0"
 
 [[deps.LineCableModelsPlayground]]
-deps = ["AWS", "AWSS3", "Bonito", "BonitoWidgets", "Dates", "EzXML", "JSON3", "LineCableModelsPlaygroundProtocol", "NATS", "Observables", "Quarto", "SHA", "URIs", "UUIDs", "ZipFile"]
+deps = ["AWS", "AWSS3", "Bonito", "BonitoWidgets", "Dates", "EzXML", "JSON3", "LineCableModelsPlaygroundProtocol", "NATS", "Observables", "PrecompileTools", "Quarto", "SHA", "URIs", "UUIDs", "ZipFile"]
 path = "."
 uuid = "4d248b51-e7d3-4fea-b76c-670b0acc53ed"
 version = "0.1.0"

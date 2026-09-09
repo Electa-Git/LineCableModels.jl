@@ -8,21 +8,28 @@ function available_port()
     return port
 end
 
-function responds(url)
+function responds(url; timeout_seconds=3, diagnostics=false)
+    started = time_ns()
     try
-        response = Downloads.request(url; timeout=3)
+        # Downloads.request without an output defaults to HEAD, not the browser's
+        # GET. Consume one actual response; repeated abandoned cold renders can
+        # compete with each other and are not a meaningful readiness probe.
+        response = Downloads.request(url; method="GET", output=devnull, timeout=timeout_seconds)
+        diagnostics && println("Offline GET ", url, ": ", response.status,
+            " in ", round((time_ns() - started) / 1e9; digits=3), " s")
         return response.status == 200
-    catch
+    catch error
+        if diagnostics
+            println(stderr, "Offline GET failed after ", round((time_ns() - started) / 1e9; digits=3), " s: ", url)
+            showerror(stderr, error)
+            println(stderr)
+        end
         return false
     end
 end
 
 function await_response(url; timeout_seconds=15)
-    return timedwait(
-        () -> responds(url),
-        timeout_seconds;
-        pollint=0.1
-    ) == :ok
+    return responds(url; timeout_seconds, diagnostics=true)
 end
 
 function authored_page_routes(site_directory)
@@ -69,6 +76,7 @@ mktempdir(prefix="lcm-shutdown-") do directory
         "NATS_CONNECT_URL" => "nats://127.0.0.1:$broker_port"
     )
     process = run(pipeline(command; stdout=log, stderr=log); wait=false)
+    verified = false
     try
         readiness = timedwait(
             () -> !process_running(process) ||
@@ -99,6 +107,7 @@ mktempdir(prefix="lcm-shutdown-") do directory
         catch
         end
         success(process) || error("publisher exited with status $(process.exitcode)")
+        verified = true
     finally
         if process_running(process)
             kill(process, Base.SIGTERM)
@@ -106,6 +115,10 @@ mktempdir(prefix="lcm-shutdown-") do directory
         end
         process_running(process) && kill(process, Base.SIGKILL)
         close(log)
+        if !verified
+            println(stderr, "Offline publisher failure diagnostics:")
+            print(stderr, read(log_path, String))
+        end
     end
 
     output = read(log_path, String)

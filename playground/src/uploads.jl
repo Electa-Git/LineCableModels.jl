@@ -586,6 +586,10 @@ end
 function Bonito.jsrender(session::Session, field::UploadField)
     token = register_upload!(field.registry, field.target, field)
     endpoint = "/uploads/$token"
+    connection = Bonito.root_session(session).connection
+    if connection isa Bonito.WebSocketConnection
+        endpoint = Bonito.HTTPServer.relative_url(connection.server, endpoint)
+    end
     lifecycle = Observable("")
     on(session, lifecycle) do message
         lifecycle_message!(field, message)
@@ -745,6 +749,7 @@ function Bonito.jsrender(session::Session, field::UploadField)
                 xhr.setRequestHeader("X-LCM-Original-Name", encodeURIComponent(file.name));
                 xhr.setRequestHeader("X-LCM-Upload-Generation", String(operation));
                 xhr.setRequestHeader("X-LCM-Upload", "1");
+                xhr.setRequestHeader("X-LCM-Request", "1");
                 xhr.upload.addEventListener("progress", (event) => {
                     if (operation !== generation || !event.lengthComputable) return;
                     const ratio = event.total === 0 ? 0 : event.loaded / event.total;
@@ -804,6 +809,7 @@ function Bonito.jsrender(session::Session, field::UploadField)
                 const xhr = new XMLHttpRequest();
                 request = xhr;
                 xhr.open("DELETE", endpoint, true);
+                xhr.setRequestHeader("X-LCM-Request", "1");
                 xhr.setRequestHeader("X-LCM-Upload-Generation", String(operation));
                 xhr.addEventListener("load", () => {
                     if (operation !== generation) return;
@@ -840,6 +846,7 @@ function Bonito.jsrender(session::Session, field::UploadField)
             window.addEventListener("pagehide", () => {
                 if (request) request.abort();
             }, {once: true});
+            element.dataset.uploadReady = "true";
         }
     """)
     return Bonito.jsrender(session, root)

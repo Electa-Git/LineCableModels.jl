@@ -52,10 +52,18 @@ include("broker/BrokerClient.jl")
 include("broker/RuntimeAdmin.jl")
 include("widgets/WorkerStatus.jl")
 include("widgets/JobControls.jl")
+include("widgets/RuntimeControls.jl")
+include("widgets/JuliaTerminal.jl")
+include("scientific/ScientificViews.jl")
 include("widgets.jl")
 include("workbenches/TemplateWorkbench.jl")
+include("workbenches/CableStudy.jl")
+include("applications/Showcase.jl")
+include("applications/UIHost.jl")
+include("applications/Catalogue.jl")
 
 export ConsoleEntry,
+    serve_owned_ui,
     ConsoleView,
     ComponentXRay,
     ComboBox,
@@ -115,6 +123,14 @@ export ConsoleEntry,
     ToolbarSeparator,
     ToolbarToggle,
     WorkerStatus,
+    RuntimeClient,
+    JuliaTerminal,
+    WorkerSelector,
+    PreparationStatus,
+    ScientificJob,
+    ScientificResult,
+    WorkerDiagnostics,
+    WorkerControlPanel,
     WorkbenchUI,
     append_console!,
     add!,
@@ -274,6 +290,7 @@ function usage(io::IO=stdout; feature::Union{Nothing,String}=nothing)
         println(io, "  worker      Start an isolated scientific worker")
         println(io, "  nats        Initialize or inspect the JetStream runtime")
         println(io, "  container   Run the isolated stack with Docker or Podman")
+        println(io, "  runtime     Check or start the owned application gateway")
         println(io)
         println(io, "Run `lcm <feature> --help` for feature-specific usage.")
     end
@@ -373,6 +390,8 @@ function render_site(; quiet = false)
     end
     index = joinpath(SITE_DIR, "index.html")
     isfile(index) || error("Quarto did not produce $index")
+    write(joinpath(SITE_DIR, "assets", "application-catalogue.json"),
+        JSON3.write(ApplicationCatalogue.public_entries()))
     println("Rendered $index")
     return index
 end
@@ -454,14 +473,23 @@ function start_server(;
         ))
     end
 
-    server = Bonito.Server(host, port; proxy_url)
     broker = broker_enabled ? BrokerClient() : nothing
-    register_workbench_routes!(server; xray)
-    register_widget_routes!(server, broker)
-    register_presentation_routes!(server)
-    register_artifact_route!(server, default_artifact_gateway())
-    register_upload_route!(server)
-    register_static_site_routes!(server)
+    server = try
+        # Bonito.Server opens its listener immediately. Build the complete route
+        # table first: an early successful home request must not expose a site
+        # whose deeper pages or parser-blocking script assets are still missing.
+        routes = Bonito.HTTPServer.Routes()
+        register_workbench_routes!(routes; xray)
+        register_widget_routes!(routes, broker)
+        register_presentation_routes!(routes)
+        register_artifact_route!(routes, default_artifact_gateway())
+        register_upload_route!(routes)
+        register_static_site_routes!(routes)
+        Bonito.Server(host, port; proxy_url, routes)
+    catch
+        isnothing(broker) || close!(broker)
+        rethrow()
+    end
     url = Bonito.online_url(server, initial_path)
     println("LineCableModels playground listening at $url")
     open_browser && open_default_browser(url)
@@ -614,5 +642,7 @@ function (@main)(arguments)
         return 2
     end
 end
+
+include("Precompile.jl")
 
 end

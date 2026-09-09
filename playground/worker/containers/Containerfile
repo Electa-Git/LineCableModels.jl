@@ -1,0 +1,56 @@
+# Build from the repository root. Choose exactly one named final target.
+# Image build/provisioning is an operator action, never a lease/browser action.
+FROM docker.io/library/julia:1.12-bookworm@sha256:709daad7eccdb0363b080df203601988cff8c6a9581162668b76804cca407888 AS shared
+ARG JULIA_NUM_PRECOMPILE_TASKS=2
+WORKDIR /opt/lcm
+ENV JULIA_DEPOT_PATH=/opt/lcm/depot JULIA_PKG_PRECOMPILE_AUTO=0
+COPY playground/protocol/Project.toml /opt/lcm/source/playground/protocol/
+COPY playground/protocol/src /opt/lcm/source/playground/protocol/src
+COPY playground/worker/core/Project.toml playground/worker/core/Manifest.toml /opt/lcm/source/playground/worker/core/
+COPY playground/worker/core/src /opt/lcm/source/playground/worker/core/src
+COPY playground/worker/src/OperationRegistry.jl playground/worker/src/Cache.jl playground/worker/src/Executor.jl /opt/lcm/source/playground/worker/src/
+COPY playground/worker/containers/container-guard.jl /opt/lcm/container-guard.jl
+COPY playground/worker/containers/terminal-ready.jl /opt/lcm/terminal-ready.jl
+RUN julia --startup-file=no --project=/opt/lcm/source/playground/worker/core -e \
+    'VERSION == v"1.12.7" || error("Julia version mismatch"); using Pkg; Pkg.instantiate(;allow_autoprecomp=false); Pkg.precompile()'
+LABEL org.linecablemodels.runtime-image="1"
+ENTRYPOINT ["/usr/local/julia/bin/julia"]
+
+FROM shared AS line-parameters
+ARG JULIA_NUM_PRECOMPILE_TASKS=2
+COPY Project.toml /opt/lcm/source/
+COPY src /opt/lcm/source/src
+COPY ext /opt/lcm/source/ext
+COPY playground/worker/profiles/line-parameters/Project.toml playground/worker/profiles/line-parameters/Manifest.toml /opt/lcm/source/playground/worker/profiles/active/
+COPY playground/worker/profiles/line-parameters/src /opt/lcm/source/playground/worker/profiles/active/src
+COPY playground/worker/src/operations/linecablemodels.jl /opt/lcm/source/playground/worker/src/operations/
+COPY playground/worker/containers/line-parameters.jl /opt/lcm/scientific.jl
+RUN julia --startup-file=no --project=/opt/lcm/source/playground/worker/profiles/active -e \
+    'using Pkg; Pkg.instantiate(;allow_autoprecomp=false); Pkg.precompile(); using LineCableModelsLineParameters'
+LABEL org.linecablemodels.profile="line-parameters" org.linecablemodels.profile-kind="scientific"
+USER 1000:1000
+WORKDIR /tmp
+CMD ["--startup-file=no","--history-file=no","--compiled-modules=existing","--project=/opt/lcm/source/playground/worker/profiles/active","--load=/opt/lcm/container-guard.jl","/opt/lcm/scientific.jl"]
+
+FROM shared AS power-flow
+ARG JULIA_NUM_PRECOMPILE_TASKS=2
+COPY playground/worker/profiles/power-flow/Project.toml playground/worker/profiles/power-flow/Manifest.toml /opt/lcm/source/playground/worker/profiles/active/
+COPY playground/worker/profiles/power-flow/src /opt/lcm/source/playground/worker/profiles/active/src
+COPY playground/worker/src/operations/powerimpedance.jl /opt/lcm/source/playground/worker/src/operations/
+COPY playground/worker/containers/power-flow.jl /opt/lcm/scientific.jl
+RUN julia --startup-file=no --project=/opt/lcm/source/playground/worker/profiles/active -e \
+    'using Pkg; Pkg.instantiate(;allow_autoprecomp=false); Pkg.precompile(); using LineCableModelsPowerFlow'
+LABEL org.linecablemodels.profile="power-flow" org.linecablemodels.profile-kind="scientific"
+USER 1000:1000
+WORKDIR /tmp
+CMD ["--startup-file=no","--history-file=no","--compiled-modules=existing","--project=/opt/lcm/source/playground/worker/profiles/active","--load=/opt/lcm/container-guard.jl","/opt/lcm/scientific.jl"]
+
+FROM shared AS julia-terminal
+ARG JULIA_NUM_PRECOMPILE_TASKS=2
+COPY playground/worker/profiles/julia-terminal/Project.toml playground/worker/profiles/julia-terminal/Manifest.toml /opt/lcm/source/playground/worker/profiles/active/
+RUN julia --startup-file=no --project=/opt/lcm/source/playground/worker/profiles/active -e \
+    'using Pkg; Pkg.instantiate(;allow_autoprecomp=false); Pkg.precompile(); using LineCableModelsExecutionCore'
+LABEL org.linecablemodels.profile="julia-terminal" org.linecablemodels.profile-kind="terminal"
+USER 1000:1000
+WORKDIR /tmp
+CMD ["--startup-file=no","--history-file=no","--compiled-modules=existing","--project=/opt/lcm/source/playground/worker/profiles/active","--load=/opt/lcm/container-guard.jl","--interactive","--color=yes"]

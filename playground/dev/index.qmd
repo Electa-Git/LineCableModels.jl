@@ -1,0 +1,82 @@
+---
+title: "Developer gallery"
+subtitle: "A clean publishing surface for live engineering material, with authoring, presentation and numerical execution kept deliberately separate."
+body-classes: lc-home
+---
+
+::: {.lc-home-canvas}
+
+::: {.lc-introduction-panel}
+[NEW FOUNDATION]{.lc-eyebrow}
+
+## The web application publishes. The engine computes.
+
+This developer reference is intentionally static. It establishes the visual shell without
+loading presentation content, starting numerical workers, or hiding execution
+inside the browser-facing process.
+
+Application definitions, isolated runs, and worker roles use explicit contracts.
+These references document the reusable shell; they do not prepare scientific work.
+:::
+
+::: {.lc-foundation-grid}
+
+::: {.lc-foundation-card .lc-foundation-authoring}
+::: {.lc-card-heading}
+[AUTHORING]{.lc-card-role}
+[declared]{.lc-card-state}
+:::
+
+## Quarto
+
+Owns structured source material, layouts, navigation, and reproducible document
+generation.
+:::
+
+::: {.lc-foundation-card .lc-foundation-publisher}
+::: {.lc-card-heading}
+[PUBLISHER]{.lc-card-role}
+[declared]{.lc-card-state}
+:::
+
+## Bonito
+
+Serves the generated site now and provides a narrow route for future live
+interactive views.
+:::
+
+::: {.lc-foundation-card .lc-foundation-broker}
+::: {.lc-card-heading}
+[BROKER]{.lc-card-role}
+[declared]{.lc-card-state}
+:::
+
+## NATS
+
+Will dispatch work to external execution services without turning the web
+publisher into the numerical engine.
+:::
+
+:::
+
+:::
+
+## Toolkit and application recipes
+
+- [Layout templates](/templates/)
+- [Reusable widgets](/widgets/)
+- [Worker control and diagnostics](/runtime/control)
+- [Workbench foundation and extension contract](workbench.html)
+- [Presentation templates and slide layouts](presentations.html)
+- [Owned-component X-ray guide](/XRAY.md)
+
+## Developer application runs
+
+Static source references work without a runtime. Starting a demonstration is
+an explicit action and creates an isolated UI host, not a scientific worker.
+
+::: {.lc-application-catalogue data-lcm-application-catalogue="" data-kind="workbench" data-visibility="developer"}
+:::
+
+::: {.lc-application-catalogue data-lcm-application-catalogue="" data-kind="presentation" data-visibility="developer"}
+:::

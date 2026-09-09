@@ -1,7 +1,7 @@
 # LineCableModels playground
 
-This directory contains three independently runnable programs and one shared
-wire contract. Quarto owns static authoring, Bonito owns live browser controls,
+This directory contains independently runnable publishing, runtime and worker
+programs with a shared wire contract. Quarto owns static authoring, Bonito owns live browser controls,
 NATS/JetStream carries typed jobs, and a separate worker owns LineCableModels,
 PowerImpedance, and solver dependencies. The publisher starts no numerical
 workers and remains usable when NATS or all workers are offline.
@@ -9,6 +9,28 @@ workers and remains usable when NATS or all workers are offline.
 The enforced process and cache boundaries are recorded in
 [`ARCHITECTURE.md`](ARCHITECTURE.md). The end-to-end requirement and test
 matrix is in [`VERIFICATION.md`](VERIFICATION.md).
+
+For the owned application platform, use `lcm runtime start`: the public home is
+the scientific showcase, `/dev/` is the developer gallery, and the presentation/
+workbench catalogues launch separate UI hosts only on request. `lcm playground
+start` remains the standalone developer publisher, not an authenticated
+deployment entry point.
+
+After bootstrap, from the repository root:
+
+```sh
+./playground/lcm playground build
+./playground/lcm runtime check --config playground/runtime/local.example.toml
+./playground/lcm runtime start --config playground/runtime/local.example.toml --xray
+```
+
+This explicit local example needs no broker for static navigation or UI launches;
+scientific execution needs separately configured, approved workers. See
+[`runtime/CONFIGURATION.md`](runtime/CONFIGURATION.md) for worker/identity setup,
+[`SCIENTIFIC_CONSUMERS.md`](SCIENTIFIC_CONSUMERS.md) for the real deck/workbench,
+and [the acceptance ledger](RUNTIME_PLATFORM_PROGRESS.md) for verified and pending
+gates. The private terminal remains gated on effective container-isolation
+acceptance; the local example is not a public sandbox.
 
 ## Bootstrap
 
@@ -37,8 +59,9 @@ package does not require reinstalling the command.
 
 ## Author and build
 
-The home is authored in `index.qmd`; `_quarto.yml` owns site configuration and
-`assets/theme.scss` owns the visual treatment. Render it with:
+The home is authored in `index.qmd`; `_quarto.yml` owns site configuration.
+`assets/brand.css` and `assets/control-contract.css` own shared theme/control
+tokens; `assets/theme.scss` adapts the publisher to them. Render it with:
 
 ```sh
 lcm playground build

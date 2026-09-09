@@ -43,6 +43,13 @@ function start_test_worker(sequence)
     launcher = normpath(joinpath(@__DIR__, "..", "lcm"))
     julia = joinpath(Sys.BINDIR, Base.julia_exename())
     command = `$launcher worker start --id integration-worker-$sequence`
+    if get(ENV,"LCM_RUNTIME_TRACE_COMPILE","0") == "1"
+        # Optional compiler diagnostics use the same module/arguments as the CLI;
+        # ordinary acceptance still exercises the actual lcm launcher above.
+        project = normpath(joinpath(@__DIR__,"..","worker"))
+        trace = joinpath(ENV["NATS_TEST_WORKER_DATA"],"worker-$sequence.compile.jl")
+        command = `$julia --startup-file=no --threads=auto --trace-compile=$trace --trace-compile-timing --project=$project -m LineCableModelsWorker worker start --id integration-worker-$sequence`
+    end
     worker_environment = Pair{String,String}[
         "LCM_JULIA" => julia,
         "NATS_CONNECT_URL" => ENV["NATS_TEST_WORKER_URL"],
@@ -318,6 +325,9 @@ end
             "replacement worker heartbeat"
         )
         await_terminal(crash_handle; timeout_seconds=45)
+        if crash_handle.state[] != :ready
+            @info "Crash-recovery result" state=crash_handle.state[] stage=crash_handle.stage[] failure=crash_handle.failure[]
+        end
         @test crash_handle.state[] == :ready
 
         recovery_handle, _ = submit_test_job(
@@ -461,6 +471,19 @@ end
             "executor exit after graceful daemon shutdown"
         )
         replacement_worker = nothing
+    catch
+        diagnostics = mktempdir(;prefix="lcm-legacy-worker-failure-",cleanup=false)
+        for owned in (worker,replacement_worker)
+            owned === nothing && continue
+            isopen(owned.log) && flush(owned.log)
+            cp(owned.log_path,joinpath(diagnostics,basename(owned.log_path)))
+            trace = replace(owned.log_path,r"\.log$"=>".compile.jl")
+            isfile(trace) && cp(trace,joinpath(diagnostics,basename(trace)))
+            println(stderr,"Owned legacy worker state: running=",process_running(owned.process),
+                " exited=",process_exited(owned.process)," exitcode=",owned.process.exitcode)
+        end
+        println(stderr,"Legacy worker failure diagnostics: ",diagnostics)
+        rethrow()
     finally
         client.closed[] || close!(client)
         !isnothing(worker) && stop_test_worker(worker)

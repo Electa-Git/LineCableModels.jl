@@ -1,0 +1,33 @@
+# Operator template; copying this file does not install or start a service.
+# Set an approved hostname, a private proxy key and two bcrypt password hashes
+# in the Caddy service environment. See PROXY.md before use.
+{$LCM_PUBLIC_HOST} {
+    @private {
+        path /runtime/* /applications/*
+        not path /runtime/assets/* /runtime/api/capabilities /runtime/api/applications
+    }
+    handle @private {
+        basic_auth {
+            operator {$LCM_OPERATOR_PASSWORD_HASH}
+            researcher {$LCM_RESEARCHER_PASSWORD_HASH}
+        }
+        reverse_proxy 127.0.0.1:8080 {
+            # Replace, never append to, browser-supplied identity headers.
+            header_up X-LCM-Principal {http.auth.user.id}
+            header_up X-LCM-Proxy-Key {$LCM_PROXY_KEY}
+            header_up -Authorization
+            header_up -X-LCM-Host-Key
+        }
+    }
+    handle {
+        # Static pages/capability discovery stay anonymous. A missed private
+        # path still fails the gateway's identity checks instead of inheriting
+        # browser assertions or a Basic credential.
+        reverse_proxy 127.0.0.1:8080 {
+            header_up -X-LCM-Principal
+            header_up -X-LCM-Proxy-Key
+            header_up -X-LCM-Host-Key
+            header_up -Authorization
+        }
+    }
+}

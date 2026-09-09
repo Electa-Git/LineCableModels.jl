@@ -48,6 +48,11 @@ html.lcm-deck-embedded .lc-widget-shell {
 html.lcm-deck-embedded .lc-widget-content {
   min-height: 0; overflow: auto; scrollbar-gutter: stable;
 }
+/* Components with their own heading need no second frame title or padding. */
+html .lc-widget-shell.is-content-only {
+  padding: 0;
+  grid-template-rows: minmax(0, 1fr);
+}
 html.lcm-deck-embedded .lc-presentation-probe,
 html.lcm-deck-embedded .lc-presentation-probe canvas { min-height: 0; }
 html.lcm-deck-laser body,
@@ -964,7 +969,7 @@ function widget_deck_lifecycle_script()
     """)
 end
 
-function widget_shell(kicker, title, content)
+function widget_shell(kicker, title, content; header::Bool=true)
     return DOM.div(
         DOM.style(BRAND_THEME; var"data-lcm-css-source"="assets/brand.css"),
         DOM.style(CONTROL_CONTRACT; var"data-lcm-css-source"="assets/control-contract.css"),
@@ -972,9 +977,9 @@ function widget_shell(kicker, title, content)
         DOM.style(WIDGET_THEME; var"data-lcm-css-source"="src/widgets.jl (WIDGET_THEME)"),
         widget_theme_script(),
         widget_deck_lifecycle_script(),
-        widget_header(kicker, title),
+        header ? widget_header(kicker, title) : nothing,
         DOM.div(content; class="lc-widget-content");
-        class="lc-widget-shell"
+        class=header ? "lc-widget-shell" : "lc-widget-shell is-content-only"
     )
 end
 
@@ -2109,6 +2114,29 @@ function data_view_toolkit_widget()
     end
 end
 
+function runtime_controls_widget()
+    return App(; title="Worker controls · LineCableModels playground") do session
+        owned = get(ENV, "LCM_RUN_ID", nothing)
+        client = RuntimeClient(owned === nothing ? nothing : UUID(owned))
+        content = DOM.div(
+            DOM.p("Live inventory and structured diagnostics. Scientific roles are declared by the consuming application, not allocated by this gallery."),
+            WorkerSelector(RuntimeClient(), :parameters; profiles=("line-parameters",)),
+            PreparationStatus(RuntimeClient(), :parameters),
+            ScientificJob(RuntimeClient(), :parameters, "system.echo"; parameters=Dict("value"=>3)),
+            WorkerControlPanel(client))
+        return widget_shell("RUNTIME BOUNDARY", "Shared worker controls", content)
+    end
+end
+
+function runtime_terminal_widget(client::RuntimeClient=RuntimeClient())
+    return App(; title="Private Julia terminal · LineCableModels playground") do session
+        content = DOM.div(
+            WorkerSelector(client, :terminal; profiles=("julia-terminal",)),
+            JuliaTerminal(client, :terminal))
+        return widget_shell("PRIVATE RUNTIME", "Julia terminal", content)
+    end
+end
+
 const WIDGET_ROUTES = (
     "/widgets/slider" => slider_widget,
     "/widgets/toggle" => toggle_widget,
@@ -2129,6 +2157,8 @@ const WIDGET_ROUTES = (
     "/widgets/file-upload" => file_upload_widget,
     "/widgets/geographic-map" => geographic_map_widget,
     "/widgets/power-system-canvas" => power_system_canvas_widget,
+    "/widgets/runtime-controls" => runtime_controls_widget,
+    "/widgets/julia-terminal" => runtime_terminal_widget,
 )
 
 function runtime_job_widget(client)

@@ -3,6 +3,7 @@ project:
   output-dir: _site
   render:
     - index.qmd
+    - dev/*.qmd
     - templates/*.qmd
     - widgets/*.qmd
     - workbenches/*.qmd
@@ -10,6 +11,8 @@ project:
   resources:
     - templates/components/**
     - XRAY.md
+    - assets/application-catalogue.js
+    - assets/published-frames.js
 
 website:
   title: "LineCableModels playground"
@@ -17,7 +20,7 @@ website:
   bread-crumbs: false
   page-navigation: false
   sidebar:
-    id: playground
+  - id: playground
     style: docked
     background: dark
     logo: assets/logo.svg
@@ -28,6 +31,23 @@ website:
         contents:
           - text: "Home"
             href: index.qmd
+      - text: "Presentations"
+        href: presentations/index.qmd
+      - text: "Workbenches"
+        href: workbenches/index.qmd
+      - text: "Developer gallery"
+        href: dev/index.qmd
+  - id: developer
+    style: docked
+    background: dark
+    logo: assets/logo.svg
+    title: "LineCableModels.jl"
+    search: false
+    contents:
+      - text: "Playground home"
+        href: index.qmd
+      - text: "Developer gallery"
+        href: dev/index.qmd
       - section: "Templates"
         contents:
           - text: "Gallery"
@@ -55,11 +75,11 @@ website:
       - section: "Workbench"
         contents:
           - text: "Foundation"
-            href: workbenches/index.qmd
+            href: dev/workbench.qmd
       - section: "Presentations"
         contents:
           - text: "Template gallery"
-            href: presentations/index.qmd
+            href: dev/presentations.qmd
   page-footer:
     left: "LineCableModels playground"
     right: "Bonito · NATS · Quarto"
@@ -75,10 +95,14 @@ format:
       - assets/control-contract.css
       - assets/published-text.css
       - assets/code-theme.css
+      - assets/forms.css
+      - assets/application-catalogue.css
     include-in-header: assets/theme-init.html
     include-after-body:
       - assets/theme-selector.html
       - assets/viewport-settle.html
+      - assets/application-catalogue.html
+      - assets/published-frames.html
     toc: false
     page-layout: full
     smooth-scroll: true

@@ -21,6 +21,11 @@ function test_result(job_id; value=1, cache_status="miss")
 end
 
 @testset "job lifecycle" begin
+    offline = BrokerClient(; autostart=false)
+    request = new_job_request("system.echo", Dict("value" => 1); session_id="offline-validation")
+    # Submission must reach the expected offline boundary, not fail because
+    # EzXML and the job protocol both export a function named validate.
+    @test_throws LineCableModelsPlayground.BrokerUnavailable submit!(offline, JobHandle(), request)
     @test LineCableModelsPlayground.missing_durable_result_error(
         LineCableModelsPlayground.NATS.NATSError(404, "Message Not Found")
     )

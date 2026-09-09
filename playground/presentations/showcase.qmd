@@ -1,0 +1,184 @@
+---
+title: "Uncertainty quantification of frequency-dependent cable parameters"
+subtitle: "ICHQP2026 · LineCableModels"
+author: "Amauri Martins · KU Leuven – Etch / EnergyVille"
+format:
+  lcm-deck-revealjs:
+    menu: true
+    notes: true
+    slide-number: c/t
+---
+
+## Research context
+
+::: {.lcm-layout-full-canvas}
+::: {.lcm-slot .lcm-slot-panel}
+[ICHQP2026 · OPENING]{.lc-eyebrow}
+
+Understanding the stochasticity of harmonic impedances and injections for
+hosting-capacity calculation.
+
+::: {.incremental}
+- Future-proof networks combine overhead lines, underground cables and converters.
+- A nominal model is necessary, but its inputs are not known exactly.
+- Connect cable-parameter variation to the network response, keeping assumptions visible.
+:::
+
+::: {.lcm-deck-marks}
+![KU Leuven](assets/ichqp2026/kul_logo.svg)
+![EnergyVille](assets/ichqp2026/ENERGYVILLE-LOGO.svg)
+:::
+:::
+:::
+
+## Before the live explanation
+
+::: {.lcm-layout-full-canvas}
+::: {.lcm-slot}
+{{< bonito route="/science/runtime" title="Workers and explicit preparation" height="100%" public-url="/presentations/" requires-run="true" >}}
+:::
+:::
+
+::: {.notes}
+Launch the registered deck from the playground catalogue. Assign the parameters
+and power-flow roles, then prepare each here before showing numerical cases.
+The terminal is optional and separately isolated. Entering a slide starts no job.
+:::
+
+## Fundamentals
+
+::: {.lcm-layout-balanced}
+::: {.lcm-slot .lcm-slot-panel}
+[PHYSICAL INPUTS]{.lc-eyebrow}
+
+::: {.incremental}
+- Construction: conductor, insulation, screens and sheath.
+- Material properties and temperature.
+- Installation geometry, soil properties and neighbouring circuits.
+:::
+:::
+::: {.lcm-slot .lcm-slot-panel}
+[MODELLING BOUNDARY]{.lc-eyebrow}
+
+Skin effect and earth return make the electrical response frequency-dependent.
+Field data, modelling assumptions and numerical approximations contribute
+different kinds of uncertainty; they should not be conflated.
+
+A parameter sweep is a sensitivity study, not automatically a probability model.
+:::
+:::
+
+## Cable constants · construction first
+
+::: {.lcm-layout-full-canvas}
+::: {.lcm-slot}
+{{< bonito route="/science/geometry" title="Interactive cable construction" height="100%" public-url="/presentations/" requires-run="true" >}}
+:::
+:::
+
+::: {.notes}
+This small illustration varies radial proportions locally. It neither computes
+electrical constants nor changes the separate line-parameter specimen's inputs.
+It demonstrates that lightweight presentation interaction needs no solver.
+:::
+
+## Cable constants · electrical meaning
+
+::: {.lcm-layout-full-canvas}
+::: {.lcm-slot .lcm-slot-panel}
+[FREQUENCY-DOMAIN QUANTITIES]{.lc-eyebrow}
+
+For a chosen frequency, the conventional decomposition is
+
+$$
+R=\operatorname{Re}(Z),\qquad L=\frac{\operatorname{Im}(Z)}{\omega},\qquad
+G=\operatorname{Re}(Y),\qquad C=\frac{\operatorname{Im}(Y)}{\omega},
+\quad \omega=2\pi f.
+$$
+
+For distributed line quantities, $Z$ and $Y$ are per-unit-length matrices.
+Self and mutual entries belong to the declared conductor/terminal arrangement;
+their units and connections are part of the model, not plot decoration.
+
+The live line view shows real and imaginary matrix entries directly in Ω/m or S/m.
+:::
+:::
+
+## Line parameters
+
+::: {.lcm-layout-full-canvas}
+::: {.lcm-slot}
+{{< bonito route="/science/line-parameters" title="Frequency-dependent line parameters" height="100%" public-url="/presentations/" requires-run="true" >}}
+:::
+:::
+
+::: {.notes}
+Use the existing line.frequency_scan operation: two identical coaxial cables,
+grounded sheaths and homogeneous earth. Start with the nominal inputs, then
+change separation, burial depth or earth resistivity and explicitly Run again.
+The previous result remains visibly outdated until a matching result arrives.
+Preparation warms representative endpoint calculations; it is not a result cache.
+:::
+
+## OHL / UGC application case
+
+::: {.lcm-layout-full-canvas}
+::: {.lcm-slot .lcm-slot-panel}
+[FROM CABLE TO NETWORK]{.lc-eyebrow}
+
+Use the existing mixed overhead-line / underground-cable reference case.
+Power-flow preparation solves the reference operating point and linearizes its
+active devices. The following evaluation changes passive corridor elements.
+
+::: {.incremental}
+- Vary the underground share of a fixed corridor.
+- Compare nominal length with a declared ±length variation.
+- Inspect driving-point impedance at B5 with c2 eliminated, as defined by the existing operation.
+:::
+
+The three curves are deterministic sensitivity cases, not confidence bounds or
+a new hosting-capacity solver. Active-device setpoints and earth specification
+remain fixed in this curated demonstration.
+:::
+:::
+
+## OHL / UGC · live sensitivity
+
+::: {.lcm-layout-full-canvas}
+::: {.lcm-slot}
+{{< bonito route="/science/corridor" title="OHL / UGC impedance sensitivity" height="100%" public-url="/presentations/" requires-run="true" >}}
+:::
+:::
+
+## Private Julia exploration
+
+::: {.lcm-layout-full-canvas}
+::: {.lcm-slot}
+{{< bonito route="/science/terminal" title="Private Julia REPL" height="100%" public-url="/presentations/" requires-run="true" >}}
+:::
+:::
+
+::: {.notes}
+The optional terminal requires an approved isolated terminal assignment and an
+explicit Connect. Its namespace is not the solver's model cache or the UI process.
+It is disposable: Restart creates a clean namespace. Deployment acceptance gates
+may keep this feature unavailable; the static deck and scientific views still work.
+:::
+
+## Conclusions
+
+::: {.lcm-layout-full-canvas}
+::: {.lcm-slot .lcm-slot-panel}
+[PLANNING IMPLICATIONS]{.lc-eyebrow}
+
+::: {.incremental}
+- Frequency-dependent models expose movement in harmonic impedance and resonance.
+- Sensitivity identifies where better material, geometry and field data matter.
+- Statistical uncertainty models are needed before turning variations into risk-aware planning margins.
+- Carry assumptions, units and execution provenance from cable construction into the system study.
+:::
+
+Continue with the identical views in [CableStudy](/workbenches/), or
+[return to the playground](/). PDF and overview show links in place of live views.
+:::
+:::

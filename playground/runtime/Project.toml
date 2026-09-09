@@ -1,0 +1,48 @@
+name = "LineCableModelsRuntime"
+uuid = "b80c4895-7231-4b35-9bc8-a00fdf21d845"
+version = "0.1.0"
+authors = ["LineCableModels contributors"]
+
+[deps]
+AWS = "fbe9abb3-538b-5e4e-ba9e-bc94f4f92ebc"
+DBInterface = "a10d1c49-ce27-4219-8d33-6db1a4562965"
+Dates = "ade2ca70-3891-5945-98fb-dc099432e06a"
+FileWatching = "7b1f6079-737a-58dc-b8bc-7a2ca5c1b5ee"
+HTTP = "cd3eb016-35fb-5094-929b-558a96fad6f3"
+JSON3 = "0f8b85d8-7281-11e9-16c2-39a750bddbf1"
+LineCableModelsExecutionCore = "750e2b20-7d9d-4a48-bc26-58effa5bbf41"
+LineCableModelsPlaygroundProtocol = "f53a55e4-c04f-4c03-acec-f4c4d198278d"
+NATS = "55e73f9c-eeeb-467f-b4cc-a633fde63d2a"
+Logging = "56ddb016-857b-54e1-b83d-db4d58db5568"
+Random = "9a3f8284-a2c9-5f02-9a11-845980a1fd5c"
+RequiredInterfaces = "97f35ef4-7bc5-4ec1-a41a-dcc69c7308c6"
+SHA = "ea8e919c-243c-51af-8825-aaa63cd721ce"
+SQLite = "0aa819cd-b072-5ff4-a722-6bc24af294d9"
+Sockets = "6462fe0b-24de-5631-8697-dd941f90decc"
+TOML = "fa267f1f-6049-4f14-aa54-33bafae1ed76"
+URIs = "5c2747f8-b7ea-4ff2-ba2e-563bfd36b1d4"
+UUIDs = "cf7118a7-6976-5b1a-9a39-7adc72f591a4"
+
+[sources]
+LineCableModelsExecutionCore = {path = "../worker/core"}
+LineCableModelsPlaygroundProtocol = {path = "../protocol"}
+NATS = {path = "../vendor/NATS"}
+
+[compat]
+AWS = "=1.99.0"
+DBInterface = "2"
+HTTP = "=2.6.6"
+JSON3 = "1.14"
+LineCableModelsExecutionCore = "0.1"
+LineCableModelsPlaygroundProtocol = "0.1"
+NATS = "0.1"
+RequiredInterfaces = "0.1.7"
+SQLite = "1"
+URIs = "1"
+julia = "1.12"
+
+[extras]
+Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
+
+[targets]
+test = ["Test"]

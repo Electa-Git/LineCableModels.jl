@@ -22,6 +22,65 @@ The publisher, broker, worker daemon, and executor are independently runnable.
 The publisher starts and remains usable when the broker, workers, or optional
 scientific packages are absent.
 
+The developer publisher assembles its complete Bonito route table before opening
+the listener. A successful home request cannot precede registration of deeper
+pages or their assets. This is route readiness, not eager rendering of every
+widget or preparation of a scientific worker.
+
+Representative form, control-panel and template-workbench rendering is compiled
+into the Julia package image using PrecompileTools. The workload uses explicit
+NoConnection/NoServer sessions and closes them; it never opens a listener,
+allocates an application run, creates an upload or loads a numerical engine.
+This pays common UI compilation cost at package build, not on the first browser
+request. Runtime readiness checks remain in place for each actual application.
+The disconnected-workload regression verifies the server/upload/engine boundary.
+
+## Owned application runtime
+
+The diagram above remains the legacy developer publisher's execution path.
+Registered application runs use the versioned runtime boundary:
+
+```text
+Browser → same-origin gateway (static pages, identity checks, private proxy)
+            ├─ separate Bonito UI host per application run
+            └─ coordinator (SQLite ownership and admission)
+                 └─ authenticated NATS/JetStream
+                      └─ host agent (one lease ledger and resource journal)
+                           ├─ profile-specific scientific executors
+                           └─ separately owned private terminal processes
+```
+
+The gateway/coordinator never import Bonito or numerical packages. UI hosts
+compose shared controls and passive scientific inputs, never solvers. The agent
+supervises approved profiles; arbitrary expressions are confined to the separate
+terminal contract, not scientific job subjects. Public pages allocate no workers.
+Assignment, explicit preparation, execution and last-good display state are
+independent. Construction and navigation do not imply preparation or submission.
+Scientific profile modules keep registration/validation lightweight. Their fixed
+numerical imports run through `load_profile!` after an explicit preparation or
+execution command, never before command-reader bootstrap. Loading announces a
+preparation stage but cannot itself establish readiness.
+
+Permission checks, generation fences, bounded control deadlines and cleanup
+belong to the runtime, not application callbacks. Cold control-path compilation
+is requested before service announcement without invoking profile hooks. Internal
+gateway HTTP entry compilation also precedes listener readiness and, in the CLI,
+broker scheduling. Neither compilation step sends a synthetic request. Internal
+SQL snapshots have one concrete row/container type across query shapes and empty
+or populated results; store APIs still return typed domain records. This prevents
+first-row specialization from repeatedly interrupting live control locks. Browser
+input edits fence Run until the latest ordered Bonito field acknowledgement;
+result receipt polling remains independent of artifact delivery.
+
+The same control constructors, render methods, authored CSS and X-ray metadata
+serve gallery, deck and workbench consumers. The release conformance inventory
+is derived from those render/inspection methods; it introduces no production
+component registry or alternate gallery implementation. See
+[VERIFICATION.md](VERIFICATION.md) for the aggregate acceptance entry point and
+[runtime/CONFIGURATION.md](runtime/CONFIGURATION.md) for ownership and deployment.
+Successful finite native test fixtures do not certify effective container limits;
+unavailable mandatory isolation remains unavailable, including private terminals.
+
 ## Workbench boundary
 
 The browser-hosted engineering workbench is a publisher mode, not an execution
@@ -83,6 +142,27 @@ Speaker previews and print output never instantiate a second live application.
 They display an explicit placeholder containing the live-view title and a
 clickable playground URL. Version 1 deliberately does not generate Makie
 snapshots or capture mutable browser state for PDF output.
+
+Registered scientific consumers live in `src/applications/Showcase.jl` and
+`src/workbenches/CableStudy.jl`. They compose the exact same `ScientificViews`
+components, typed fields, `ScientificJob`, role controls, diagnostics and
+`JuliaTerminal`. Passive case inputs and result projections use ordinary dispatch
+in `src/scientific/StudyCases.jl`; numerical implementations stay in their existing
+worker profiles. Both registrations consume one passive runtime-requirement
+declaration. See [SCIENTIFIC_CONSUMERS.md](SCIENTIFIC_CONSUMERS.md) for units,
+assumptions, ownership and verification boundaries.
+
+Owned-only slide frames declare `requires-run="true"` on the Bonito shortcode.
+Without an owned run context, they display the public fallback link immediately
+and perform no live-route request. Component-headed frames can omit the generic
+widget-shell heading with `header=false`; this is shared shell structure, not a
+second presentation stylesheet.
+
+Persistent scientific SVG nodes update text through `textContent` and geometry
+through `setAttribute`. The installed Bonito generic Observable path creates HTML
+wrappers for children and assigns HTML DOM properties for attributes; neither is
+appropriate for native SVG text/animated geometry. Browser checks enforce the SVG
+namespace and actual radius updates, in addition to checking Julia values.
 
 The format grammar is intentionally narrow: a flat sequence of slides, named
 LCM layouts, standard Quarto notes, and the validated `bonito` shortcode. Raw

@@ -1,3 +1,32 @@
+import Bonito
+
+struct XRayPolicyProbe
+    calls::Base.RefValue{Int}
+end
+function ComponentXRay.inspection(component::XRayPolicyProbe)
+    component.calls[] += 1
+    return ComponentXRay.ComponentInspection(:policy_probe)
+end
+
+@testset "X-ray policy gates inspection hooks" begin
+    session = Bonito.Session(Bonito.NoConnection(); asset_server=Bonito.NoServer())
+    calls = Ref(0)
+    component = XRayPolicyProbe(calls)
+    node = Bonito.DOM.div("Uninstrumented content")
+    try
+        @test ComponentXRay.instrument(session, node, component) === node
+        @test calls[] == 0
+        ComponentXRay.set_policy!(session, ComponentXRay.XRayPolicy(true))
+        @test ComponentXRay.instrument(session, node, component) !== node
+        @test calls[] == 1
+        ComponentXRay.set_policy!(session, ComponentXRay.XRayPolicy())
+        @test ComponentXRay.instrument(session, node, component) === node
+        @test calls[] == 1
+    finally
+        close(session)
+    end
+end
+
 @testset "X-ray CSS preview contract" begin
     X = LineCableModelsPlayground.ComponentXRay
     @test X.XRayPolicy(true).css_preview

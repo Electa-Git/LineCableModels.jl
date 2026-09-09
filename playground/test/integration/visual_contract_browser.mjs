@@ -26,6 +26,7 @@ const routes = [
   ["/widgets/file-upload", ".lc-upload-field"],
   ["/widgets/geographic-map", ".lc-map-component"],
   ["/widgets/power-system-canvas", ".lc-power-system-canvas"],
+  ["/widgets/runtime-controls", ".lc-runtime-controls"],
 ];
 
 class DevTools {

@@ -80,23 +80,41 @@ function request(
     end
     nreplies < 1 && error("`nreplies` have to be greater than 0.")
     reply_to = new_inbox(connection)
-    sub = subscribe(connection, reply_to)
-    unsubscribe(connection, sub; max_msgs = nreplies)
-    publish(connection, subject, data; reply_to)
-    if timeout isa Period # TODO: get rid of if in 1.11
-        timeout = Nanosecond(timeout) / Nanosecond(Second(1))
+    sub = subscribe(connection, reply_to; channel_size=Int64(nreplies))
+    timer = nothing
+    try
+        unsubscribe(connection, sub; max_msgs = nreplies)
+        publish(connection, subject, data; reply_to)
+        if timeout isa Period
+            timeout = Nanosecond(timeout) / Nanosecond(Second(1))
+        end
+        timer = Timer(timeout) do _
+            try
+                unsubscribe(connection, sub)
+            catch
+                cleanup_sub_resources(connection, sub.sid)
+            end
+        end
+        result = Msg[]
+        for _ in 1:nreplies
+            msg = next(connection, sub; no_throw = true)
+            isnothing(msg) && break
+            push!(result, msg)
+            has_error_status(msg) && break
+        end
+        return result
+    finally
+        isnothing(timer) || close(timer)
+        try
+            unsubscribe(connection, sub)
+        catch
+            cleanup_sub_resources(connection, sub.sid)
+        end
+        # This request has no remaining reader, including publication failures
+        # and early error responses. Consume its closed, bounded reply queue.
+        while next(connection, sub; no_wait=true, no_throw=true) !== nothing
+        end
     end
-    timer = Timer(timeout) do _; drain(connection, sub) end
-    result = Msg[]
-    for _ in 1:nreplies
-        msg = next(connection, sub; no_throw = true)
-        isnothing(msg) && break # Do not throw when unsubscribed.
-        push!(result, msg)
-        has_error_status(msg) && break
-    end
-    close(timer)
-    drain(connection, sub)
-    result
 end
 
 """

@@ -1,0 +1,69 @@
+.lc-study-view, .lc-study-runtime, .lc-study-geometry {
+  display: grid;
+  min-width: 0;
+  align-content: start;
+  gap: 12px;
+  padding: 16px;
+  color: var(--lc-text);
+  background: var(--lc-panel-bg);
+}
+.lc-study-view h2, .lc-study-runtime h2, .lc-study-geometry h2 {
+  margin: 0 0 8px;
+  color: var(--lc-heading);
+  font-size: 1.2rem;
+  line-height: 1.25;
+}
+.lc-study-note, .lc-study-result-status {
+  margin: 0;
+  color: var(--lc-muted);
+  font-size: .8rem;
+  line-height: 1.45;
+}
+.lc-study-layout {
+  display: grid;
+  min-width: 0;
+  grid-template-columns: minmax(14rem, 1fr) minmax(0, 2fr);
+  align-items: start;
+  gap: 16px;
+}
+.lc-study-fields {
+  display: grid;
+  min-width: 0;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-items: start;
+  gap: 10px;
+}
+.lc-study-inputs, .lc-study-result {
+  display: grid;
+  min-width: 0;
+  align-content: start;
+  gap: 12px;
+}
+.lc-study-plot {
+  display: block;
+  width: 100%;
+  height: auto;
+  color: var(--lc-text);
+  background: var(--lc-bg);
+  font-family: "JuliaMono", monospace;
+  font-size: 12px;
+}
+.lc-study-plot text { fill: currentColor; }
+.lc-study-axis { fill: none; stroke: var(--lc-border); vector-effect: non-scaling-stroke; }
+.lc-study-curve { fill: none; stroke: currentColor; stroke-width: 1.5; vector-effect: non-scaling-stroke; }
+.lc-study-series-1 { color: var(--lc-focus); }
+.lc-study-series-2 { color: var(--lc-link); stroke-dasharray: 6 3; }
+.lc-study-series-3 { color: var(--lc-warning); stroke-dasharray: 2 3; }
+.lc-study-legend { display: flex; flex-wrap: wrap; gap: 6px 16px; font-size: .75rem; }
+.lc-study-legend span::before { content: "━ "; }
+.lc-study-legend .lc-study-series-2::before { content: "┄ "; }
+.lc-study-legend .lc-study-series-3::before { content: "┈ "; }
+.lc-study-sheath { fill: var(--lc-panel-soft); stroke: var(--lc-heading); }
+.lc-study-insulation { fill: var(--lc-bg); stroke: var(--lc-focus); }
+.lc-study-core { fill: var(--lc-focus); stroke: var(--lc-heading); }
+@media (max-width: 760px) {
+  .lc-study-layout { grid-template-columns: minmax(0, 1fr); }
+}
+@media (max-width: 400px) {
+  .lc-study-fields { grid-template-columns: minmax(0, 1fr); }
+}

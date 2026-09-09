@@ -1139,3 +1139,6 @@ footer.footer {
     justify-content: flex-start;
   }
 }
+.lc-widget-frame[hidden] {
+  display: none;
+}

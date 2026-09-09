@@ -57,13 +57,14 @@ WB.compose(app::PreviewWorkbench, state) = WB.Workbench(
         class="xp-fixture")); active=state.active),
     output=WB.Dock(WB.DockTab(:output, "Output", DOM.p("CSS preview fixture · no execution")); active=state.dock))
 
-server = Bonito.Server("127.0.0.1", parse(Int, ARGS[1]))
-LCM.register_static_site_routes!(server)
-Bonito.route!(server, "/fixture/xray" => WB.workbench_app(PreviewWorkbench(); xray=X.XRayPolicy(true)))
-Bonito.route!(server, "/fixture/tree" => WB.workbench_app(PreviewWorkbench(true); xray=X.XRayPolicy(true)))
-Bonito.route!(server, "/fixture/readonly" => WB.workbench_app(PreviewWorkbench();
+routes = Bonito.HTTPServer.Routes()
+LCM.register_static_site_routes!(routes)
+Bonito.route!(routes, "/fixture/xray" => WB.workbench_app(PreviewWorkbench(); xray=X.XRayPolicy(true)))
+Bonito.route!(routes, "/fixture/tree" => WB.workbench_app(PreviewWorkbench(true); xray=X.XRayPolicy(true)))
+Bonito.route!(routes, "/fixture/readonly" => WB.workbench_app(PreviewWorkbench();
     xray=X.XRayPolicy(; permitted=true, enabled=true, css_preview=false)))
-Bonito.route!(server, "/workbenches/template" => LCM.TemplateWorkbench.app(; xray=true))
+Bonito.route!(routes, "/workbenches/template" => LCM.TemplateWorkbench.app(; xray=true))
+server = Bonito.Server("127.0.0.1", parse(Int, ARGS[1]); routes)
 try
     wait(Condition())
 finally

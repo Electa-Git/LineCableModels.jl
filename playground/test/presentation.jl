@@ -81,7 +81,7 @@
     @test occursin("data-lcm-src", shortcode)
     @test occursin("lcm-live-placeholder", shortcode)
 
-    gallery = read(joinpath(root, "presentations", "index.qmd"), String)
+    gallery = read(joinpath(root, "dev", "presentations.qmd"), String)
     recipes = read(joinpath(root, "presentations", "layouts.qmd"), String)
     snippets = collect(eachmatch(r"```\{\.markdown shortcodes=false\}\n(.*?)```"s, recipes))
     @test length(snippets) == length(LineCableModelsPlayground.PRESENTATION_LAYOUTS)

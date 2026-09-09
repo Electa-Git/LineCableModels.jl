@@ -58,17 +58,28 @@ function upgrade_to_tls(
     get_tls_input_buffered(ctx), ctx
 end
 
+function copy_tls_input!(io, ssl)
+    try
+        while !eof(ssl)
+            write(io, readavailable(ssl))
+        end
+    catch error
+        # MbedTLS.eof may resume after another task closed its read side.
+        # Match only that dependency's closed-reader guard, not TLS alerts,
+        # verification failures or arbitrary errors on a closed connection.
+        error isa Base.IOError && error.code == 0 &&
+            error.msg == "`ssl_unsafe_read` requires `isreadable(::SSLContext)`" &&
+            !isreadable(ssl) || rethrow()
+    finally
+        close(io)
+    end
+    return nothing
+end
+
 function get_tls_input_buffered(ssl)
     io = Base.BufferStream()
     t = Threads.@spawn :interactive disable_sigint() do
-        try
-            while !eof(ssl)
-                av = readavailable(ssl)
-                write(io, av)
-            end
-        finally
-            close(io)
-        end
+        copy_tls_input!(io, ssl)
     end
     errormonitor(t)
     BufferedInputStream(io, 1)

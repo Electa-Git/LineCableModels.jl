@@ -13,6 +13,14 @@ export async function assertPublishedShell({devtools, baseUrl, evaluate, navigat
     .filter(url => url.origin === location.origin && !url.hash)
     .map(url => url.pathname))]`);
   paths.push('/presentations/layouts.html', '/presentations/math-notes.html');
+  // Public navigation is intentionally short. The complete developer sidebar
+  // remains part of the same contour/scroll contract and must stay in coverage.
+  await open('/dev/');
+  const developerPaths = await read(`[...new Set([...document.querySelectorAll(
+    '#quarto-sidebar a.sidebar-item-text[href]')].map(a => new URL(a.href))
+    .filter(url => url.origin === location.origin && !url.hash)
+    .map(url => url.pathname))]`);
+  paths.push(...developerPaths.filter(path => !paths.includes(path)));
 
   async function toggleNavigation() {
     const point = await read(`(() => {
