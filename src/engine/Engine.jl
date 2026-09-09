@@ -140,6 +140,6 @@ public has_uncertainty_type
 public reduce_primitive_matrices, potential_to_admittance
 public layer_admittance
 public ConsoleVerbosityLogger
-public CableBlueprint, BlueprintConductor, BlueprintDielectric, flatten
+public CableBlueprint, BlueprintConductor, BlueprintDielectric, flatten, lineinput, earth_pairs
 
 end # module Engine

@@ -63,8 +63,8 @@
         zeros(ComplexF64, 2, 2, 2),
         frequencies_value
     )
-    @test compare(zero_reference, zero_reference).Z.relative == zeros(2, 2)
-    @test all(isinf, compare(zero_reference, candidate).Z.relative)
+    @test all(ismissing, compare(zero_reference, zero_reference).Z.relative)
+    @test all(ismissing, compare(zero_reference, candidate).Z.relative)
 
     different_frequency=LineParameters(
         PhaseDomain, impedance, admittance, [1.0, 11.0]

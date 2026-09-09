@@ -5,7 +5,9 @@ Store element-wise absolute and reference-normalised root-mean-square benchmark 
 
 Each matrix entry contains the error for the corresponding line-parameter
 term over the selected frequency samples. Missing values represent explicit
-non-applicability or an empty band, with the explanation retained in `details`.
+non-applicability, an empty band, or unavailable reference normalization, with
+the explanation retained in `details`. Absolute differences remain measured
+when only normalization is unavailable.
 
 $(TYPEDFIELDS)
 """
@@ -93,23 +95,21 @@ function observables(::Type{<:LineParametersBenchmark})
 end
 
 function _rms_series(reference::AbstractVector, candidate::AbstractVector,
-        normalization::Symbol = :reference_rms)
+        normalization::Symbol, tolerance::AbstractVector)
     difference_norm = sum(abs2, reference .- candidate)
-    reference_norm = sum(abs2, reference)
     absolute = sqrt(difference_norm / length(reference))
-    relative = if normalization === :pointwise
-        sqrt(sum(eachindex(reference, candidate)) do k
-            difference = candidate[k] - reference[k]
-            iszero(reference[k]) ?
-            (iszero(difference) ? zero(absolute) : oftype(absolute, Inf)) :
-            abs2(difference / reference[k])
-        end / length(reference))
-    elseif iszero(reference_norm)
-        iszero(difference_norm) ? zero(absolute) : oftype(absolute, Inf)
-    else
-        sqrt(difference_norm / reference_norm)
+    negligible = abs.(reference) .<= tolerance
+    if all(negligible)
+        return (; absolute, relative = missing, status = :reference_below_tolerance,
+            reason = "Reference trace is numerically zero under the declared observable tolerance")
+    elseif normalization === :pointwise && any(negligible)
+        return (; absolute, relative = missing, status = :reference_sample_below_tolerance,
+            reason = "Pointwise normalization has a numerically zero reference sample; no samples were omitted")
     end
-    return (; absolute, relative)
+    relative = normalization === :pointwise ?
+        sqrt(sum(abs2, (candidate .- reference) ./ reference) / length(reference)) :
+        sqrt(difference_norm / sum(abs2, reference))
+    return (; absolute, relative, status = :compared, reason = nothing)
 end
 
 """
@@ -136,8 +136,9 @@ The operands must have identical frequency samples, tensor dimensions, basis,
 and domain. Comparison does not reorder conductors, interpolate frequency
 samples, convert basis, or apply a reduction.
 
-When one reference term has zero norm, its relative error is zero for an
-identical candidate term and `Inf` otherwise.
+When a reference trace is numerically zero under the declared tolerance, its
+relative error is `missing`, including for an identical candidate trace. Its
+absolute RMS difference remains available.
 
 Keyword arguments are shared with the single-observable `compare` method:
 `normalization`, `band`, `fundamental`, `harmonics`, `atol`, and `unsupported`. Full-band error
@@ -206,9 +207,10 @@ Disjoint bands and an empty `:wide` band return `missing` errors with
 `:no_samples`. No interpolation, extrapolation, weighting, or computation runs
 are introduced. A one-sample band is valid.
 
-If both complete traces lie within `atol`, their deviation is reported as zero
-and classified `:below_tolerance`. Otherwise the ordinary RMS expression is
-used without a denominator floor. Source arrays are never modified.
+Absolute RMS always retains the measured difference. When the reference trace
+lies within `atol`, relative RMS is `missing` with status
+`:reference_below_tolerance`, regardless of the candidate. No denominator floor
+is introduced. Source arrays are never modified.
 
 For `normalization=:pointwise`, the relative error is
 
@@ -217,10 +219,11 @@ For `normalization=:pointwise`, the relative error is
 \\left|\\frac{B_{ij,k}-A_{ij,k}}{A_{ij,k}}\\right|^2}.
 ```
 
-An exact zero-over-zero sample contributes zero; a nonzero difference over an
-exact zero reference contributes `Inf`. Every selected sample remains in the
-average. A finite reference-RMS error can therefore coexist with an infinite
-pointwise error. The absolute RMS error is independent of normalization.
+A reference sample within `atol` makes pointwise normalization unavailable with
+`:reference_sample_below_tolerance`; samples are never omitted. A finite
+reference-RMS error can therefore coexist with unavailable pointwise RMS. The
+absolute RMS error is independent of normalization. Each cell retains its
+explanation in `details.normalization_reason`.
 
 # Returns
 
@@ -324,19 +327,17 @@ function compare(reference::LineParameters, candidate::LineParameters,
     relative = similar(absolute)
     fill!(relative, missing)
     classifications = fill(status, size(absolute))
+    normalization_reasons = Matrix{Union{Nothing, String}}(nothing, size(absolute))
     if status === :compared
         for row in axes(left, 1), column in axes(left, 2)
 
             a = @view left[row, column, indices]
             b = @view right[row, column, indices]
-            if all(abs.(a) .<= tolerance) && all(abs.(b) .<= tolerance)
-                absolute[row, column] = relative[row, column] = zero(T)
-                classifications[row, column] = :below_tolerance
-            else
-                error = _rms_series(a, b, normalization)
-                absolute[row, column],
-                relative[row, column] = error.absolute, error.relative
-            end
+            error = _rms_series(a, b, normalization, tolerance)
+            absolute[row, column] = error.absolute
+            relative[row, column] = error.relative
+            classifications[row, column] = error.status
+            normalization_reasons[row, column] = error.reason
         end
     end
     bounds = isempty(indices) ? (missing, missing) :
@@ -344,6 +345,6 @@ function compare(reference::LineParameters, candidate::LineParameters,
     details = (; quantity = name, normalization, band,
         requested_bounds = requested, actual_bounds = bounds,
         indices, sample_count = length(indices), fundamental, harmonics, atol = tolerance,
-        status = classifications, reason)
+        status = classifications, reason, normalization_reason = normalization_reasons)
     return RMSError{T}(absolute, relative; details)
 end

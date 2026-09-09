@@ -452,7 +452,7 @@ function run_benchmark(benchmark::OwnedBenchmark)
     )
     comparison = compare(reference, candidate)
     configured_comparisons = benchmark_comparisons(benchmark.comparison_policy, reference, candidate)
-    passes = _owned_comparison_passes(
+    passes = benchmark.comparison_policy isa LineParametersPolicy ? nothing : _owned_comparison_passes(
         benchmark.comparison_policy,
         comparison,
         benchmark.tolerances.reference
@@ -466,7 +466,7 @@ function run_benchmark(benchmark::OwnedBenchmark)
     else
         ""
     end
-    passes || throw(ArgumentError(
+    passes === nothing || passes || throw(ArgumentError(
         "owned benchmark $(benchmark.id) exceeds its reference tolerance" *
         failure_detail,
     ))

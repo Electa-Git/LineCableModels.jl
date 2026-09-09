@@ -125,33 +125,28 @@ function _record_diagnostics(
 end
 
 function main(arguments)
-    length(arguments) == 13 || throw(ArgumentError(
+    length(arguments) == 10 || throw(ArgumentError(
         "runner expects project, output, project name, output stem, formulation, " *
-        "earth field, earth value, earth readback, FS, FE, Numf, PSCAD version, " *
+        "FS, FE, Numf, PSCAD version, " *
         "and verbosity",
     ))
-    project_path, output, project_name, output_stem, formulation, earth_field,
-    earth_value, earth_readback, fs, fe, numf, pscad_version,
+    project_path, output, project_name, output_stem, formulation,
+    fs, fe, numf, pscad_version,
     verbosity_text = arguments
     verbosity = parse(Int, verbosity_text)
     verbosity in 0:2 || throw(ArgumentError("verbosity must be 0, 1, or 2"))
     pscad_version == "5.1.0" || throw(ArgumentError("PSCAD 5.1.0 is required"))
-    earth_field in ("EarthForm", "EarthForm2", "EarthForm3") || throw(ArgumentError(
-        "unsupported PSCAD earth formulation field $earth_field",
-    ))
     occursin(r"^[A-Za-z0-9][A-Za-z0-9_]{0,19}$", output_stem) ||
         throw(ArgumentError("invalid PSCAD output stem $output_stem"))
     mkpath(output)
     app = nothing
     project = nothing
     phase = "initialization"
-    # Old, already-loaded campaign processes still use the thirteen-argument
-    # invocation without an input record. Preserve that ongoing execution;
-    # only new, attested runs are eligible for completed-run reuse.
     input_path = joinpath(dirname(project_path), "computation.toml")
-    input = isfile(input_path) ? TOML.parsefile(input_path) : nothing
-    identify = input === nothing ? nothing :
-        pyimport("runpy").run_path(joinpath(@__DIR__, "identity.py"))["identify"]
+    input = TOML.parsefile(input_path)
+    get(input, "schema_version", nothing) == 2 || throw(ArgumentError(
+        "PSCAD runner requires the complete version-2 numerical input record"))
+    identify = pyimport("runpy").run_path(joinpath(@__DIR__, "identity.py"))["identify"]
     console = open(joinpath(output, "pscad-console.txt"), "w")
     try
         metadata = pyimport("importlib.metadata")
@@ -174,10 +169,8 @@ function main(arguments)
         end
         pyconvert(Bool, app.licensed()) || error("PSCAD refused the configured license")
         _string(app.version) == pscad_version || error("PSCAD launched an unexpected version")
-        if input !== nothing
-            pyconvert(Dict{String, String}, identify(pscad_version, app)) == input["solver"] ||
-                error("PSCAD installation changed after input preparation; start a new run")
-        end
+        pyconvert(Dict{String, String}, identify(pscad_version, app)) == input["solver"] ||
+            error("PSCAD installation changed after input preparation; start a new run")
         phase = "project load"
         _report(console, verbosity, 1, "Loading generated project $project_name")
         app.load(abspath(project_path))
@@ -211,12 +204,19 @@ function main(arguments)
         _set!(frequency, "Numf", parse(Int, numf))
         _set!(frequency, "FDIS", 3; readback = "LOG_LINEAR")
         _set!(frequency, "Output", 1; readback = "YES")
-        _set!(
-            ground,
-            earth_field,
-            parse(Int, earth_value);
-            readback = earth_readback
-        )
+        readbacks = Dict{String, Any}()
+        for (name, component) in (("ground", ground), ("frequency", frequency))
+            controls = input["native_settings"][name]
+            observed = Dict{String, Any}()
+            for (field, setting) in controls
+                _set!(component, field, setting["value"]; readback = setting["readback"])
+                observed[field] = _parameters(component)[field]
+            end
+            readbacks[name] = observed
+        end
+        open(joinpath(output, "native-settings.toml"), "w") do io
+            TOML.print(io, readbacks; sorted = true)
+        end
         _report(
             console,
             verbosity,
@@ -263,12 +263,10 @@ function main(arguments)
             _report(console, verbosity, 2, "Validated $name with $expected_rows rows")
         end
         _report(console, verbosity, 1, "Collected detailed PSCAD Z and Y outputs")
-        if input !== nothing
-            observed = pyconvert(Dict{String, String}, identify(pscad_version, app))
-            observed == input["solver"] || error("PSCAD installation changed during calculation")
-            open(joinpath(output, "solver.toml"), "w") do io
-                TOML.print(io, observed; sorted=true)
-            end
+        observed = pyconvert(Dict{String, String}, identify(pscad_version, app))
+        observed == input["solver"] || error("PSCAD installation changed during calculation")
+        open(joinpath(output, "solver.toml"), "w") do io
+            TOML.print(io, observed; sorted=true)
         end
     catch error
         project === nothing || _record_diagnostics(

@@ -1,4 +1,4 @@
-provenance = "Initial dirty worktree snapshot before architecture cutover; numerical regression only, not independent source validation."
+provenance = "Initial dirty worktree snapshot before architecture cutover; numerical regression only, not independent source validation. Source corrections are identified on individual cases."
 
 [[cases]]
 real = 4.923125373704345e-5
@@ -199,7 +199,8 @@ family = "EarthImpedance"
 placement = "underground"
 id = "WedepohlWilcox1973"
 frequency = 50.0
-imag = 0.0004474858774015166
+imag = 0.00041538975686374335
+source_correction = "Eq. (8), DOI 10.1049/piee.1973.0056: axis distance hypot(0.75, 1)=1.25 m, not horizontal separation 0.75 m. Independently evaluated with mpmath at 80 decimal digits; existing e_c=1.7811 retained."
 [[cases]]
 real = 0.11448741105263656
 kind = "mutual"
@@ -207,7 +208,8 @@ family = "EarthImpedance"
 placement = "underground"
 id = "WedepohlWilcox1973"
 frequency = 100000.0
-imag = 0.40195470691192
+imag = 0.33776246583637367
+source_correction = "Eq. (8), DOI 10.1049/piee.1973.0056: axis distance hypot(0.75, 1)=1.25 m, not horizontal separation 0.75 m. Independently evaluated with mpmath at 80 decimal digits; existing e_c=1.7811 retained."
 [[cases]]
 real = 4.943605054200971e-5
 kind = "self"
@@ -414,85 +416,5 @@ kind = "mutual"
 family = "EarthAdmittance"
 placement = "mixed"
 id = "Pollaczek1926"
-frequency = 100000.0
-imag = 0.0
-[[cases]]
-real = 0.0
-kind = "self"
-family = "EarthAdmittance"
-placement = "overhead"
-id = "IdealGround"
-frequency = 50.0
-imag = 0.0
-[[cases]]
-real = 0.0
-kind = "self"
-family = "EarthAdmittance"
-placement = "overhead"
-id = "IdealGround"
-frequency = 100000.0
-imag = 0.0
-[[cases]]
-real = 0.0
-kind = "mutual"
-family = "EarthAdmittance"
-placement = "overhead"
-id = "IdealGround"
-frequency = 50.0
-imag = 0.0
-[[cases]]
-real = 0.0
-kind = "mutual"
-family = "EarthAdmittance"
-placement = "overhead"
-id = "IdealGround"
-frequency = 100000.0
-imag = 0.0
-[[cases]]
-real = 0.0
-kind = "self"
-family = "EarthAdmittance"
-placement = "underground"
-id = "IdealGround"
-frequency = 50.0
-imag = 0.0
-[[cases]]
-real = 0.0
-kind = "self"
-family = "EarthAdmittance"
-placement = "underground"
-id = "IdealGround"
-frequency = 100000.0
-imag = 0.0
-[[cases]]
-real = 0.0
-kind = "mutual"
-family = "EarthAdmittance"
-placement = "underground"
-id = "IdealGround"
-frequency = 50.0
-imag = 0.0
-[[cases]]
-real = 0.0
-kind = "mutual"
-family = "EarthAdmittance"
-placement = "underground"
-id = "IdealGround"
-frequency = 100000.0
-imag = 0.0
-[[cases]]
-real = 0.0
-kind = "mutual"
-family = "EarthAdmittance"
-placement = "mixed"
-id = "IdealGround"
-frequency = 50.0
-imag = 0.0
-[[cases]]
-real = 0.0
-kind = "mutual"
-family = "EarthAdmittance"
-placement = "mixed"
-id = "IdealGround"
 frequency = 100000.0
 imag = 0.0

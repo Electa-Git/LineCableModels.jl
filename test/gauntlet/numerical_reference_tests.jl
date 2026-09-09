@@ -120,7 +120,8 @@
     changed = LineParameters(PhaseDomain, copy(actual.Z.values),
         actual.Y.values .+ 1e-15, actual.f)
     scientific = LineCableModels.Engine.compare(changed, actual)
-    @test all(iszero, scientific.Y.absolute)
+    @test all(>(0), scientific.Y.absolute)
+    @test all(ismissing, scientific.Y.relative)
     strict = owner.compare_reference((problem=quiet_problem,
         formulation=quiet_formulation, parameters=changed))
     @test all(>(0), strict.Y.absolute)

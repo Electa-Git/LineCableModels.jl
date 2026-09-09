@@ -34,7 +34,11 @@ function gauntlet_comparisons(record)
                 percent = maximum_index === nothing ? missing :
                           100result.relative[maximum_index], entry,
                 zeros = count(==(:below_tolerance), result.details.status),
-                unavailable = count(==(:unsupported), result.details.status), reason = result.details.reason))
+                unavailable = count(ismissing, result.relative),
+                reason = result.details.reason === nothing ?
+                    join(unique(filter(!isnothing, vec(get(result.details,
+                        :normalization_reason, fill(nothing, size(result.relative)))))), "; ") :
+                    result.details.reason))
     end
     return rows
 end
@@ -60,7 +64,7 @@ function gauntlet_table(records, band, selections; quantities=(:Z, :Y), statisti
                 if metric.samples == 0
                     "missing (no samples)"
                 elseif ismissing(metric.percent)
-                    "missing (unsupported)"
+                    "missing ($(metric.reason))"
                 else
                     value = string(round(metric.percent; sigdigits=4), " ", metric.entry)
                     metric.unavailable == 0 ? value :

@@ -77,9 +77,6 @@ function impedance!(
     input = workspace.input
     rho_cond = workspace.invariants.rho_cond
     indices = workspace.invariants.cable_indices
-    stratified = media(formulation.methods.earth_impedance) === Val(:stratified)
-    pairs = stratified ?
-            workspace.invariants.earth_pairs : workspace.invariants.homogeneous_pairs
     earth_matrix = workspace.buffers.earth_matrix
     earth_media = workspace.buffers.earth_materials.earth_impedance
     capture = workspace.capture
@@ -98,7 +95,7 @@ function impedance!(
         formulation.methods.earth_impedance,
         _gamma(input.Γ, frequency),
         workspace.buffers.earth_numerical.earth_impedance,
-        stratified ? earth_media.thickness : nothing
+        get(earth_media, :thickness, nothing)
     )
     _stash!(_capture_target(capture, :Zg), frequency, earth_matrix)
 

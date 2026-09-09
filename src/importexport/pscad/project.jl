@@ -376,7 +376,7 @@ function _pscad_cable_parameters(
         "OHC" => position.y < 0 ? "0" : "1",
         "Y" => position.y < 0 ? _pscad_value(abs(position.y)) : "0.0",
         "Y2" => position.y > 0 ? _pscad_value(position.y) : "0.0",
-        "ShuntA" => "1.0e-11 [mho/m]",
+        "ShuntA" => "1.0e-38 [mho/m]",
         "FLT" => _pscad_value(base_frequency),
         "RorT" => "0",
         "LL" => bare ? "0" : string(2length(components) - 1),
@@ -408,7 +408,9 @@ function _pscad_cable_parameters(
 end
 
 function _pscad_project(system::LineCableSystem, earth::EarthModel, base_frequency;
-        formulation = Engine.Formulation(), temperature = nothing)
+        formulation = Engine.Formulation(), temperature = nothing, native_settings::NamedTuple = (;))
+    isempty(setdiff(keys(native_settings), (:ground, :frequency))) || throw(ArgumentError(
+        "PSCAD native settings require ground and frequency fields"))
     document = XMLDocument()
     project = ElementNode("project")
     setroot!(document, project)
@@ -451,12 +453,16 @@ function _pscad_project(system::LineCableSystem, earth::EarthModel, base_frequen
     ])
 
     identifier = _PSCAD_IDS.first_physical_component
+    frequency_parameters = [
+        "FS" => "0.5", "FE" => "1.0E6", "Numf" => "100",
+        "DCCOR" => "1", "CPASS" => "0", "enablf" => "1", "shntcab" => "0.0"]
+    for (field, setting) in pairs(get(native_settings, :frequency, (;)))
+        index = findfirst(pair -> first(pair) == string(field), frequency_parameters)
+        index === nothing && throw(ArgumentError("unsupported PSCAD frequency field $field"))
+        frequency_parameters[index] = string(field) => _pscad_value(setting.value)
+    end
     _pscad_user!(schematic, identifier, _PSCAD_FREQUENCY_BINDING,
-        [
-            "FS" => "0.5", "FE" => "1.0E6", "Numf" => "100",
-            "DCCOR" => "1", "CPASS" => "0"
-        ];
-        x = 576, y = 180)
+        frequency_parameters; x = 576, y = 180)
     addelement!(schematic, "grouping")
     identifier += 1
     for (index, (design, position, connections)) in enumerate(zip(
@@ -482,23 +488,18 @@ function _pscad_project(system::LineCableSystem, earth::EarthModel, base_frequen
         identifier += 1
     end
     ground = last(earth.layers)
-    _pscad_user!(schematic,
-        identifier,
-        _PSCAD_GROUND_BINDING,
-        [
-            "EarthForm2" => "0",
-            "EarthForm" => "3",
-            "EarthForm3" => "2",
-            "GrRho" => "0",
-            "GRRES" => _pscad_value(ground.rho),
-            "GPERM" => _pscad_value(ground.mu_r),
-            "K0" => "0.001",
-            "K1" => "0.01",
-            "alpha" => "0.7",
-            "GRP" => _pscad_value(ground.eps_r)
-        ];
-        x = 504,
-        y = 288)
+    ground_parameters = [
+        "EarthForm2" => "0", "EarthForm" => "3", "EarthForm3" => "2",
+        "GrRho" => "0", "GRRES" => _pscad_value(ground.rho),
+        "GPERM" => _pscad_value(ground.mu_r), "K0" => "0.001",
+        "K1" => "0.01", "alpha" => "0.7", "GRP" => _pscad_value(ground.eps_r)]
+    for (field, setting) in pairs(get(native_settings, :ground, (;)))
+        index = findfirst(pair -> first(pair) == string(field), ground_parameters)
+        index === nothing && throw(ArgumentError("unsupported PSCAD ground field $field"))
+        ground_parameters[index] = string(field) => _pscad_value(setting.value)
+    end
+    _pscad_user!(schematic, identifier, _PSCAD_GROUND_BINDING,
+        ground_parameters; x = 504, y = 288)
     _pscad_hierarchy!(project, system.system_id)
     return document
 end

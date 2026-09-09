@@ -35,25 +35,21 @@ const ROOT = joinpath(
 )
 
 const PSCAD_CATALOGUE = Tuple(
-    (id=identifier, field=placement, selector=identifier,
+    (id=identifier, field=field, source=source, target=target, selector=identifier,
         stem=lowercase(string(identifier)))
-    for placement in (:overhead, :underground, :mixed)
-    for identifier in PSCADBenchmarks.formulas(Val(placement))
+    for (field, source, target) in ((:air, 1, 1), (:earth, 2, 2), (:mixed, 1, 2))
+    for identifier in PSCADBenchmarks.formulas(LineCableModels.Engine.EarthImpedance,
+        Val(:mutual), Val(source), Val(target))
 )
-
-function placement(model)
-    heights = getproperty.(model.problem.system.positions, :y)
-    all(<(0), heights) && return :underground
-    all(>(0), heights) && return :overhead
-    return :mixed
-end
 
 function variant_id(selected)
     Symbol(lowercase(string(selected.field)), "_", lowercase(string(selected.id)))
 end
 
 function formulation(selected)
-    Formulation(:pscad; earth_impedance = selected.selector)
+    choice = merge((air = :default, earth = :default, mixed = :default),
+        NamedTuple{(selected.field,)}((selected.selector,)))
+    Formulation(:pscad; earth_impedance = choice)
 end
 
 function artifact_path(case_id, selected)
@@ -71,7 +67,7 @@ function source_digest()
         joinpath(@__DIR__, "pscad")
     )
     paths = reduce(vcat,
-        [filter(path -> endswith(path, ".jl") || endswith(path, ".ps1"),
+        [filter(path -> endswith(path, ".jl") || endswith(path, ".ps1") || endswith(path, ".py"),
              [joinpath(directory, file)
               for (directory, _, files) in walkdir(root)
               for file in files])
@@ -102,7 +98,7 @@ function pscad_implementation_record()
         for root in roots
         for (directory, _, files) in walkdir(root)
         for file in files
-        if endswith(file, ".jl") || endswith(file, ".ps1")
+        if endswith(file, ".jl") || endswith(file, ".ps1") || endswith(file, ".py")
     ]
     push!(paths, "test/gauntlet/reference_grid.jl")
     return git_blob_record.(sort!(unique!(paths)))
@@ -249,11 +245,13 @@ end
 
 function run_case(case_id, config)
     model = reference_case(case_id)
-    case_placement = placement(model)
+    interactions = PSCADBenchmarks.pscad_setting(Formulation(:pscad), model.problem).interactions.earth_impedance
+    layer_pairs = Set((case.source, case.target) for case in interactions)
+    case_placement = join(sort!(string.(collect(layer_pairs))), ", ")
     rows = NamedTuple[]
     failures = NamedTuple[]
     for selected in PSCAD_CATALOGUE
-        if selected.field !== case_placement
+        if (selected.source, selected.target) ∉ layer_pairs
             push!(rows,
                 (;
                     case = string(case_id),
@@ -266,7 +264,7 @@ function run_case(case_id, config)
                 ))
             println(
                 "SKIP\t", case_id, "\t", variant_id(selected),
-                "\tcase placement is ", case_placement
+                "\tcase uses layer pairs ", case_placement
             )
             continue
         end

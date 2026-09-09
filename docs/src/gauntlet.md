@@ -610,18 +610,19 @@ Independent cold/warmed timings: not recorded. Stored elapsed-at-completion valu
 
 ## Comparison conventions
 
-No denominator floor or solver-data modification is applied. When **both**
-traces are below the recorded quantity-specific numerical-zero tolerance,
-their error is zero. Defaults are 1e-10 Ω/m
-for R, 1e-15 H/m for L, 1e-12 S/m for G and 1e-16 F/m for C. The Z and Y
-thresholds follow R + 2πfL and G + 2πfC, respectively. Callers may override
-them in `compare(...; atol=(G=..., C=...))`. Unsupported comparisons and
-empty bands return `missing` with a reason. An infinite error otherwise
-means a nonzero difference against an exact zero normalization. In the
-pointwise metric, exact 0/0 contributes zero and nonzero/0 contributes infinity;
-no samples are omitted. This differs from normalizing by the complete reference
-trace's RMS. Absolute RMS arrays and all individual relative errors remain in
-the stored comparison objects.
+No denominator floor or solver-data modification is applied. Absolute RMS
+retains the measured difference. If the reference trace lies within the recorded
+observable tolerance, relative RMS is unavailable with a per-cell reason.
+Pointwise normalization is also unavailable when any selected reference sample
+is numerically zero; no samples are omitted. Defaults are 1e-10 Ω/m for R,
+1e-15 H/m for L, 1e-12 S/m for G and 1e-16 F/m for C. Z and Y thresholds follow
+R + 2πfL and G + 2πfC. Override them with `compare(...; atol=(G=..., C=...))`.
+Unsupported observables and empty bands retain their separate reasons.
+
+Saved comparisons retain the policy used when they were calculated. Historical
+tables can therefore contain zero or infinite ratios under the previous policy;
+recompute comparisons from their retained raw operands to apply the current
+policy. The report renderer does not change stored metrics.
 
 The deterministic summary displays **Z and Y only**. Shunt conductance
 `G = real(Y)` remains available for an explicitly requested loss study through

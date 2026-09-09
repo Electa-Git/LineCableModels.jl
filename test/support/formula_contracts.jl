@@ -51,8 +51,8 @@
         Tuple{Union{Val{:self}, Val{:mutual}}, Val{1},
         Val{1}}} = (integration = (method = :quad, options = (;)),)
 
-    function selection(owner; options = (;), hooks = (;))
-        physical = (media = Val(:stratified), layers = 3:3,
+    function selection(owner; options = (;), hooks = (;), layers = 3:3)
+        physical = (media = Val(:stratified), layers = layers,
             longitudinal = :zero, permittivity = :nonzero)
         return owner.Formula{:ContractLayers, typeof(physical), typeof((;)),
             typeof(hooks), typeof(options), Nothing}(physical, (;), hooks, options, nothing)

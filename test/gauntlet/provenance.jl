@@ -82,6 +82,10 @@ function git_blob_record(relative::AbstractString)
     return (path = String(relative), blob)
 end
 
+function _formula_paths(family::AbstractString, selections::NamedTuple)
+    unique(vcat((_formula_paths(family, leaf) for leaf in selections)...))
+end
+
 function _formula_paths(family::AbstractString, formula)
     identifier = LineCableModels.formula_id(formula)
     relative = joinpath(
@@ -110,6 +114,8 @@ function _fd_path(formula)
         lowercase(string(identifier)) * ".jl"
     )
 end
+
+_selection_record(value::NamedTuple) = map(_selection_record, value)
 
 function _selection_record(value)
     value === nothing && return nothing
@@ -182,12 +188,14 @@ function implementation_record(
     )
         append!(paths, _formula_paths(family, formula))
     end
-    for path in (
-        _fd_path(methods.earth_properties),
-        _ehem_path(methods.earth_impedance.equivalent_earth),
-        _ehem_path(methods.earth_admittance.equivalent_earth)
-    )
-        path === nothing || push!(paths, path)
+    fd_path = _fd_path(methods.earth_properties)
+    fd_path === nothing || push!(paths, fd_path)
+    for selected in (methods.earth_impedance, methods.earth_admittance)
+        leaves = selected isa NamedTuple ? values(selected) : (selected,)
+        for leaf in leaves
+            path = _ehem_path(leaf.equivalent_earth)
+            path === nothing || push!(paths, path)
+        end
     end
     append!(paths, String.(external_sources))
     unique!(sort!(paths))

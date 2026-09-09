@@ -24,6 +24,9 @@ it opens the project.
 - `formulation`: Selected line-parameter or cable-constant formulation.
   The default selects lossless dielectric relations. Request `:Ametani2004`
   explicitly to include the supplied material losses.
+- `native_settings=(;)`: Optional validated native `ground` and `frequency`
+  field records supplied by the PSCAD formula adapter. Each field carries its
+  `value` and expected `readback`. The same record accompanies native execution.
 - `temperature=nothing`: Optional operating temperature \\[°C\\]. Correction is
   applied here during export, not in geometric flattening; `nothing` retains
   the material reference temperatures.
@@ -46,7 +49,8 @@ function export_data(
         formulation::Union{Engine.LineParametersFormulation,
             Engine.CableConstantsFormulation} = Engine.Formulation(),
         temperature::Union{Nothing, Real} = nothing,
-        file_name::Union{AbstractString, Nothing} = nothing
+        file_name::Union{AbstractString, Nothing} = nothing,
+        native_settings::NamedTuple = (;)
 )
     isfinite(base_freq) && base_freq > zero(base_freq) || throw(DomainError(
         base_freq, "PSCAD base frequency must be positive and finite"
@@ -63,7 +67,7 @@ function export_data(
         0
     ))
     #! explicit-imports: on
-    document = _pscad_project(system, earth, base_freq; formulation, temperature)
+    document = _pscad_project(system, earth, base_freq; formulation, temperature, native_settings)
     write(path, document)
     return path
 end

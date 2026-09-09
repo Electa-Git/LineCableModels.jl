@@ -61,7 +61,9 @@
             "FE" => "1.0E6",
             "Numf" => "100",
             "DCCOR" => "1",
-            "CPASS" => "0"
+            "CPASS" => "0",
+            "enablf" => "1",
+            "shntcab" => "0.0"
         )
 
         expected_components=[LineCableModels.DataModel.flatten(design, 50.0)

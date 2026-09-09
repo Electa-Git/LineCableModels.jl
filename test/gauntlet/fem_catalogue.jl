@@ -533,23 +533,7 @@ function diagnose_execution_failure(case_id, selected, frequencies, reference)
             successful_y[:, :, index] .= result.Y.values[:, :, 1]
             push!(successful_indices, index)
         catch exception
-            isolated = selected.kind === :earth_impedance ?
-                       merge(selected, (earth_admittance = :IdealGround,)) :
-                       merge(selected, (earth_impedance = :Pollaczek1926,))
-            attribution = try
-                isolated_result = compute(
-                    probe.problem,
-                    formulation(isolated)
-                )
-                owned = selected.kind === :earth_impedance ?
-                        isolated_result.Z.values : isolated_result.Y.values
-                all(isfinite, owned) || error(
-                    "isolated candidate returned non-finite values"
-                )
-                :context_baseline
-            catch
-                :candidate_or_shared
-            end
+            attribution = :candidate_or_shared
             push!(failures,
                 (
                     frequency_index = index,

@@ -259,9 +259,6 @@ function admittance!(
 ) where {T <: Real}
     input = workspace.input
     indices = workspace.invariants.cable_indices
-    stratified = media(formulation.methods.earth_admittance) === Val(:stratified)
-    pairs = stratified ?
-            workspace.invariants.earth_pairs : workspace.invariants.homogeneous_pairs
     earth_matrix = workspace.buffers.earth_matrix
     earth_media = workspace.buffers.earth_materials.earth_admittance
     coefficients = workspace.buffers.coefficients
@@ -288,7 +285,7 @@ function admittance!(
         formulation.methods.earth_admittance,
         _gamma(input.Γ, frequency),
         workspace.buffers.earth_numerical.earth_admittance,
-        stratified ? earth_media.thickness : nothing
+        get(earth_media, :thickness, nothing)
     )
     _stash!(_capture_target(capture, :Pg), frequency, earth_matrix)
 

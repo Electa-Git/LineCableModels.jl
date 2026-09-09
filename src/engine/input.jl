@@ -64,27 +64,26 @@ formula kernels or changing any workspace buffers.
 """
 function validate(workspace::LineParametersWorkspace, formulation::LineParametersFormulation)
     earth = workspace.input.earth
-    for method in
-        (formulation.methods.earth_impedance, formulation.methods.earth_admittance)
-        stratified = media(method) === Val(:stratified)
-        if stratified || method.equivalent_earth === nothing
-            validate(method, earth)
-        else
-            validate(method, 2)
-        end
-        pairs = method.equivalent_earth === nothing ? workspace.invariants.earth_pairs :
-                workspace.invariants.homogeneous_pairs
-        for pair in pairs
-            stratified && validate(pair, getproperty.(earth.layers, :thickness))
-        end
-        name = method === formulation.methods.earth_impedance ? :earth_impedance :
-               :earth_admittance
+    for name in (:earth_impedance, :earth_admittance)
+        selected = getproperty(formulation.methods, name)
+        selected isa NamedTuple && validate(selected, earth)
         bound = getproperty(workspace.invariants.earth_bindings, name)
-        bound.selection === method ||
-            throw(ArgumentError("workspace is bound to another formula"))
-        for case in bound.cases, interaction in case.interactions
-
-            validate(interaction.pair, case.declaration.equation)
+        bound.selection === selected ||
+            throw(ArgumentError("workspace is bound to another formula selection"))
+        for case in bound.cases
+            method = case.selection
+            stratified = media(method) === Val(:stratified)
+            if stratified || method.equivalent_earth === nothing
+                validate(method, earth)
+            else
+                validate(method, 2)
+            end
+            for interaction in case.interactions
+                Formulation(selected, Val.(interaction.physical_pair.layers)...) === method ||
+                    throw(ArgumentError("workspace interaction is bound to another formula"))
+                stratified && validate(interaction.pair, getproperty.(earth.layers, :thickness))
+                validate(interaction.pair, case.declaration.equation)
+            end
         end
     end
     return workspace
@@ -305,45 +304,48 @@ function LineParametersWorkspace(
         problem.temperature) for material in cable.conductor_materials]
     cable_indices = [collect(indices) for indices in cable.assemblies]
     cable_representatives = first.(cable_indices)
-    earth_pairs = _earth_pairs(
+    physical_pairs = earth_pairs(
         cable_representatives,
         horz,
         vert,
         horz_sep,
         problem.earth_props
     )
-    homogeneous_pairs = _homogeneous_pairs(earth_pairs)
+    homogeneous_pairs = _homogeneous_pairs(physical_pairs)
     earth_bindings = map(formulation.methods[(:earth_impedance, :earth_admittance)]) do selected
-        pairs = selected.equivalent_earth === nothing ? earth_pairs : homogeneous_pairs
-        declarations = validate(selected, pairs)
-        reductions = if selected.equivalent_earth === nothing
-            nothing
-        else
-            rule = EquivalentHomogeneous.rule(selected.equivalent_earth)
-            foreach(declarations) do declaration
-                validate(declaration.equation, rule)
+        leaves = [Formulation(selected, Val.(pair.layers)...) for pair in physical_pairs]
+        cases = NamedTuple[]
+        for leaf in unique(leaves)
+            indices = findall(value -> value === leaf, leaves)
+            pairs = leaf.equivalent_earth === nothing ? physical_pairs[indices] :
+                    homogeneous_pairs[indices]
+            declarations = validate(leaf, pairs)
+            reductions = if leaf.equivalent_earth === nothing
+                nothing
+            else
+                rule = EquivalentHomogeneous.rule(leaf.equivalent_earth)
+                foreach(declaration -> validate(declaration.equation, rule), declarations)
+                validate(rule, physical_pairs[indices])
             end
-            validate(rule, earth_pairs)
-        end
-        cases = map(Tuple(unique(declarations))) do declaration
-            interactions = [(index = index, pair = pair,
-                                physical_pair = earth_pairs[index])
-                            for (index, (pair, bound)) in
-                                enumerate(zip(pairs, declarations))
-                            if bound == declaration]
-            (declaration = declaration, interactions = interactions)
+            for declaration in unique(declarations)
+                positions = findall(==(declaration), declarations)
+                interactions = [(index = indices[position], pair = pairs[position],
+                                    physical_pair = physical_pairs[indices[position]])
+                                for position in positions]
+                push!(cases, (selection = leaf, declaration = declaration,
+                    interactions = interactions,
+                    reductions = reductions === nothing ? nothing : reductions[positions]))
+            end
         end
         # Geometry changes the set of cases, not the public workspace type.
-        # Each stored case retains its concrete equation/hooks for earth! dispatch.
-        Bound = NamedTuple{(:selection, :cases, :reductions),
-            Tuple{typeof(selected), Tuple, Union{Nothing, Vector{NamedTuple}}}}
-        Bound((
-            selected, cases, reductions === nothing ? nothing : NamedTuple[reductions...]))
+        # Each case retains its concrete formula, equation and hooks for dispatch.
+        Bound = NamedTuple{(:selection, :cases), Tuple{typeof(selected), Tuple}}
+        Bound((selected, Tuple(cases)))
     end
     validate(formulation.methods.internal_impedance,
         any(indices -> length(indices) > 1, cable_indices) ? (:inner, :outer, :mutual) :
         (:outer,))
-    earth = _earth_data(formulation, input)
+    earth = _earth_data(formulation, input, earth_bindings)
     permutation, reordered_map, kron_map = _reduction_map(phase_map, formulation)
     bundle_pairs = bundle_operations(reordered_map)
     keep_indices = kron_map === nothing ? Int[] : findall(!=(0), kron_map)
@@ -366,7 +368,7 @@ function LineParametersWorkspace(
         earth,
         cable_indices,
         cable_representatives,
-        earth_pairs,
+        physical_pairs,
         homogeneous_pairs,
         permutation,
         reordered_map,
@@ -395,15 +397,15 @@ function LineParametersWorkspace(
     Zout = Array{Complex{T}, 3}(undef, nkeep, nkeep, n_frequencies)
     Yout = similar(Zout)
     earth_matrix = Matrix{Complex{T}}(undef, n_cables, n_cables)
-    pair_count = length(earth_pairs)
-    earth_materials = map(formulation.methods[(:earth_impedance, :earth_admittance)]) do selected
-        count = media(selected) === Val(:stratified) ? length(problem.earth_props.layers) :
-                2
-        material = (rho = Matrix{T}(undef, count, pair_count),
-            epsilon = Matrix{T}(undef, count, pair_count),
-            mu = Matrix{T}(undef, count, pair_count))
-        media(selected) === Val(:stratified) ?
-        merge(material, (thickness = Vector{T}(undef, count),)) : material
+    pair_count = length(physical_pairs)
+    MaterialStorage = NamedTuple{(:rho, :epsilon, :mu, :thickness),
+        Tuple{Matrix{T}, Matrix{T}, Matrix{T}, Union{Nothing, Vector{T}}}}
+    earth_materials = map(earth_bindings) do bound
+        stratified = any(case -> media(case.selection) === Val(:stratified), bound.cases)
+        count = stratified ? length(problem.earth_props.layers) : 2
+        MaterialStorage((Matrix{T}(undef, count, pair_count),
+            Matrix{T}(undef, count, pair_count), Matrix{T}(undef, count, pair_count),
+            stratified ? Vector{T}(undef, count) : nothing))
     end
     integration_type = typeof(float(nominal(one(T))))
     NumericalStorage = NamedTuple{(:earth_impedance, :earth_admittance),
@@ -474,7 +476,21 @@ function _earth_layer(model::EarthModel, horizontal, vertical)
     ))
 end
 
-function _earth_pairs(
+"""
+$(TYPEDSIGNATURES)
+
+Construct every ordered external interaction from resolved conductor geometry.
+Source columns and target rows retain physical earth-layer indices; air is 1.
+
+`cables` contains representative conductor indices. `horizontal`, `vertical`,
+and `separation` are aligned coordinates/distances in metres. Diagonal
+separations supply the external self radius. Layer assignment uses `earth`'s
+physical interfaces and rejects conductors on the air/earth interface.
+
+Return a vector of validated-geometry payloads for formula preflight. No formula
+selection or equivalent-earth reduction is performed here.
+"""
+function earth_pairs(
         cables::AbstractVector{Int},
         horizontal,
         vertical,

@@ -40,7 +40,9 @@ function campaign_selections(model, backend::Symbol, catalogue::Bool;
         space = constructor(; merge(defaults, choices)..., combine)
         values = space isa Gridspace ? collect(space) : [space]
         selections = map(values) do value
-            all(selection -> selection === nothing || selection isa Symbol, value.definitions) || throw(ArgumentError(
+            identifiers = selection -> selection === nothing || selection isa Symbol ||
+                selection isa NamedTuple && all(leaf -> leaf isa Symbol, selection)
+            all(identifiers, value.definitions) || throw(ArgumentError(
                 "manual campaign selections accept formula identifiers; route overrides belong to the Julia formulation API"))
             id = join((string(name, "_", lowercase(string(getproperty(value.definitions, name))))
                 for name in keys(choices)), "__")
@@ -50,16 +52,24 @@ function campaign_selections(model, backend::Symbol, catalogue::Bool;
     end
     baseline = backend === :fem ? (id="default",) :
         (id="default", earth_impedance=:default, earth_admittance=:default)
-    selections = [baseline]
+    selections = NamedTuple[baseline]
     skipped = NamedTuple[]
     (catalogue && backend !== :fem) || return (; selections, skipped)
     if backend === :pscad
-        heights = getproperty.(model.problem.system.positions, :y)
-        placement = all(>(0), heights) ? Val(:overhead) :
-                    all(<(0), heights) ? Val(:underground) : Val(:mixed)
-        identifiers = PSCADBenchmarks.formulas(placement)
-        append!(selections, [(id=lowercase(string(id)), earth_impedance=id,
-            earth_admittance=:default) for id in identifiers if id !== :default])
+        cases = PSCADBenchmarks.pscad_setting(Formulation(:pscad), model.problem).interactions.earth_impedance
+        mixed = any(case -> case.source != case.target, cases)
+        for (field, source, target) in ((:air, 1, 1), (:earth, 2, 2), (:mixed, 1, 2))
+            any(case -> (case.source, case.target) == (source, target), cases) || continue
+            identifiers = PSCADBenchmarks.formulas(LineCableModels.Engine.EarthImpedance,
+                Val(source == target ? :self : :mutual), Val(source), Val(target))
+            for id in identifiers
+                id === :default && continue
+                choice = mixed ? merge((air = :default, earth = :default, mixed = :default),
+                    NamedTuple{(field,)}((id,))) : id
+                push!(selections, (id=string(field, "_", lowercase(string(id))),
+                    earth_impedance=choice, earth_admittance=:default))
+            end
+        end
     else
         workspace = backend === :coaxial ? CampaignCatalogue.prepare_case(model) : nothing
         for record in CampaignCatalogue.catalogue()
@@ -81,7 +91,12 @@ end
 function campaign_formulation(backend::Symbol, selection, dielectric::Symbol)
     options = (reduce_bundle=false, kron_reduction=false,
         ideal_transposition=false)
-    requested = (; (Symbol(name) => (value === nothing || value == "nothing" ? nothing : Symbol(value)) for (name, value) in pairs(selection)
+    resolve = function (value)
+        value === nothing || value == "nothing" ? nothing :
+        value isa Union{NamedTuple, AbstractDict} ?
+        (; (Symbol(key) => resolve(leaf) for (key, leaf) in pairs(value))...) : Symbol(value)
+    end
+    requested = (; (Symbol(name) => resolve(value) for (name, value) in pairs(selection)
         if Symbol(name) !== :id)...)
     keywords = merge((insulation_admittance=dielectric, semicon_admittance=dielectric),
         requested, (; options))
@@ -295,11 +310,14 @@ function run_campaign(directory::AbstractString, ids;
     ispath(root) && throw(ArgumentError("campaign directory already exists; use resume: $root"))
     models = campaign_models(ids, uncertainty; frequency_range)
     jobs = Dict{String, Any}[]
+    portable = function (value)
+        value isa NamedTuple ? Dict(string(key) => portable(leaf)
+            for (key, leaf) in pairs(value)) : string(value)
+    end
     for id in ids, backend in backends, method in propagation
         model = models[(id, method !== :deterministic)]
         selected = explicit === nothing ? campaign_selections(models[(id, false)], backend, catalogue) : explicit[backend]
-        selections = [Dict(string(name)=>string(item) for (name, item) in pairs(value))
-            for value in selected.selections]
+        selections = portable.(selected.selections)
         skipped = [Dict("id"=>value.id, "reason"=>value.reason) for value in selected.skipped]
         # Native Cable_Coax cannot compile an all-bare system. This is an
         # explicit input capability, not a failed solve or a numerical mismatch.

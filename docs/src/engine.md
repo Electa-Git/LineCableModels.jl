@@ -12,7 +12,7 @@ forwarding map. The retained alternatives are limited to PSCAD comparisons:
 | Internal impedance, insulation impedance, pipe impedance | `:default` |
 | Insulation admittance, semicon admittance | `:default`, `:Ametani2004` |
 | Earth impedance | `:default`, `:Carson1926`, `:Pollaczek1926`, `:Gary1976`, `:WedepohlWilcox1973`, `:Saad1996`, `:Ametani2009`, `:Lucca1994` |
-| Earth admittance | `:default`, `:Pollaczek1926`, `:IdealGround` |
+| Earth admittance | `:default`, `:Pollaczek1926` |
 | Frequency-dependent soil properties, equivalent earth, modal transformation | `:default` |
 
 The internal default retains Schelkunoff's tubular conductor expressions;
@@ -90,6 +90,29 @@ uses native method selection on this canonical signature and excludes the throwi
 fallback. Domain-defining methods accept the three runtime payloads without extra
 subtype constraints. Numerical specializations can optimize an admitted case.
 Adding a canonical equation changes admission without a second capability table.
+
+Each earth slot also accepts a NamedTuple for a physical air/soil two-half-space model:
+
+```julia
+selected = Formulation(earth_impedance = (
+    air = formula(:Carson1926),
+    earth = formula(:Pollaczek1926),
+    mixed = formula(:Lucca1994),
+))
+```
+
+The same syntax applies independently to `earth_admittance`. The labels resolve
+`(1,1)`, `(2,2)` and the two cross-layer directions before the existing indexed
+method dispatch. Each case retains its own formula, hooks, numerical options and
+material preparation. There is no combined formula identity. An unused leaf does
+not supply missing cases or execute a kernel. True layered inputs require a scalar
+selection; scalar multilayer and explicit EHEM behavior are unchanged.
+
+This example supplies impedance choices. A mixed calculation also requires an
+implemented potential-coefficient equation for its mixed pairs. The current
+built-in LCM admittance formulas do not provide that case and preflight rejects it.
+The engine can bind independently implemented indexed equations through the same
+contract without adding them to the built-in registry.
 
 The workspace binds every required ordered pair before frequency evaluation.
 Geometry and layer indices follow the same order. Both directions are evaluated;
@@ -198,15 +221,44 @@ slot, explicit modification flags, independent equivalent-earth selections and
 orders, and normalized numerical options for internal surfaces, scalar material laws,
 external cases and each required reduction case. Absence of a selected reduction remains `nothing` in this provenance.
 
+PSCAD extends the same equation generics with a `Val(:pscad)` execution payload:
+
+```julia
+earth_impedance(::Val{ID}, ::Val{Kind}, ::Val{S}, ::Val{T}, ::Val{:pscad})
+earth_potential_coefficient(::Val{ID}, ::Val{Kind}, ::Val{S}, ::Val{T}, ::Val{:pscad})
+internal_impedance(::Val{ID}, ::Val{Kind}, ::Val{:pscad})
+```
+
+These methods compile native settings. Every actual ordered pair is validated
+using the Engine's physical geometry. A complete native settings record is used
+for project export, execution, readback and numerical-input fingerprinting.
+Unsupported potential selections fail before export; native `:default` potential
+behavior belongs to PSCAD. Native conductor approximations likewise retain their
+backend-owned `:default` rather than an alias to LCM's exact default.
+
 PSCAD dispatch maps retained equations to native settings. Gary1976 maps to PSCAD's
 `DERISEMLYEN` spelling; this creates no second mathematical registration. Carson1926
 (overhead) and Pollaczek1926 (underground) map to native direct numerical integration.
+These names follow PSCAD's [documented earth-return selections](https://www.pscad.com/webhelp-pscad-v5.1.0-ol/EMTDC/Transmission_Lines/Mutual_Impedance_with_Earth_Return.htm).
+They identify the requested native controls, not a guarantee that native equations,
+material assumptions or results equal LCM's implementations. The exported ground
+permittivity remains the supplied material value.
 PSCAD's `:default` selects that native setting, or native Lucca for a mixed arrangement.
 Fixed backend calculations are recorded as such. PSCAD rejects analytical
 hook overrides it cannot execute. FEM accepts only its four constitutive
 selections and rejects analytical kernel keywords at construction. It executes
 resolved material contributions without a second author registration. Constitutive
 overrides passed to PSCAD remain subject to its documented export limits.
+
+PSCAD export applies the selected temperature law to the same resolved conductor
+materials used by the analytical engine. It evaluates each physical dielectric
+layer before radial homogenization, explicitly enables native loss-tangent
+handling, and retains the equivalent dielectric at its 50 Hz reference frequency.
+The native loss-tangent cap is 10;
+the aerial shunt setting uses the component's minimum, `1e-38 S/m`. These native
+limits and the complete exported project accompany the results. Frequency-dependent
+soil laws are rejected until their native parameter convention is verified; a
+Julia constitutive callback is never converted into guessed Portela coefficients.
 
 FEM batches reuse a field solve only when effective material, mesh and execution
 inputs agree. Every request retains its metadata and independent result arrays.

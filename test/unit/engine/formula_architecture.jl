@@ -39,14 +39,42 @@
         @test_throws ArgumentError validate(selected, self)
     end
     vertical=E.EarthPair(1, 2, (-1.0, -2.0), 0.0, (2, 2))
-    for id in (:Saad1996, :WedepohlWilcox1973)
-        @test_throws DomainError validate(EI.Formula(id), vertical)
-        @test_throws DomainError validate(
-            EI.Formula(id; hooks = (contribution = (f, p, w)->zero(f.state.jω),)), vertical)
-        @test validate(EI.Formula(id), self).kind === :self
-    end
+    @test_throws DomainError validate(EI.Formula(:Saad1996), vertical)
+    @test_throws DomainError validate(
+        EI.Formula(:Saad1996; hooks = (contribution = (f, p, w)->zero(f.state.jω),)), vertical)
+    @test validate(EI.Formula(:Saad1996), self).kind === :self
+    @test validate(EI.Formula(:WedepohlWilcox1973), vertical).kind === :mutual
+    @test validate(EI.Formula(:WedepohlWilcox1973), self).kind === :self
     @test_throws ArgumentError validate(EI.Formula(:Pollaczek1926), air)
     @test_throws ArgumentError validate(EI.Formula(:Carson1926), soil)
+end
+
+@testitem "Engine / Wedepohl mutual distance includes the vertical displacement" tags=[:unit] begin
+    const E = LineCableModels.Engine
+    selected = E.EarthImpedance.Formula(:WedepohlWilcox1973)
+    # Eq. (8) depends on axis distance and the sum of depths. Rotating the
+    # displacement at fixed midpoint preserves both, including vertical axes.
+    for T in (Float32, Float64, BigFloat), frequency in (50, 1000)
+        rho = T[Inf, 100]
+        epsilon = T(8.8541878128e-12) .* T[1, 10]
+        mu = fill(4T(pi)*T(1e-7), 2)
+        jω = complex(zero(T), 2T(pi)*frequency)
+        horizontal = E.EarthPair(1, 2, (T(-2), T(-2)), one(T), (2, 2))
+        reference = selected(rho, epsilon, mu, jω, horizontal)()
+        for (h1, h2, separation) in ((-8//5, -12//5, 3//5), (-3//2, -5//2, 0//1))
+            pair = E.EarthPair(1, 2, (T(h1), T(h2)), T(separation), (2, 2))
+            actual = selected(rho, epsilon, mu, jω, pair)()
+            @test isfinite(actual)
+            @test actual ≈ reference rtol = 32eps(T)
+            reversed = E.EarthPair(2, 1, reverse(pair.heights), pair.separation, (2, 2))
+            @test selected(rho, epsilon, mu, jω, reversed)() == actual
+        end
+    end
+    coincident = E.EarthPair(1, 2, (-2.0, -2.0), 0.0, (2, 2))
+    @test_throws DomainError validate(selected, coincident)
+    overridden = E.EarthImpedance.Formula(:WedepohlWilcox1973;
+        hooks = (contribution = (f, p, w) -> zero(f.state.jω),))
+    @test_throws DomainError validate(overridden, coincident)
 end
 
 @testitem "Engine / hooks reach physical state with one scalar Γ contract" tags=[:unit] begin
@@ -241,8 +269,8 @@ end
             hooks = (air = (s, m, c, e)->zero(s),)),
         E.EarthPair(1, 2, (1.0, 2.0), 1.0, (1, 1)))
     @test_throws ArgumentError validate(
-        E.EarthAdmittance.Formula(:IdealGround;
-            hooks = (earth = (s, m, c, e)->zero(s),)),
+        E.EarthAdmittance.Formula(:default;
+            hooks = (unknown = (s, m, c, e)->zero(s),)),
         E.EarthPair(1, 2, (-1.0, -2.0), 1.0, (2, 2)))
 end
 

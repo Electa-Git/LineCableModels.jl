@@ -332,7 +332,8 @@
         record, key, get(record, String(key), default))
 
     function _semantic_formulation_record(record)
-        _record_value(record, :schema_version) == 2 || throw(ArgumentError(
+        expected_schema = _record_value(record, :backend) in (:pscad, "pscad") ? 3 : 2
+        _record_value(record, :schema_version) == expected_schema || throw(ArgumentError(
             "Gauntlet formulation metadata does not use the current formula binding and numerical-option schema. " *
             "The historical artifact remains usable for reports, but numerical reuse requires explicit reconciliation or a new calculation."))
         # Human-facing names and assumption explanations do not identify equations.
@@ -379,8 +380,8 @@
         root, string(case.backend), string(case.name))
 
     function comparison_passes(error::RMSError, tolerance)
-        return all((error.absolute .<= tolerance.absolute) .|
-                   (error.relative .<= tolerance.relative))
+        return all(coalesce.((error.absolute .<= tolerance.absolute) .|
+                   (error.relative .<= tolerance.relative), false))
     end
 
     function validate_structure(
@@ -414,8 +415,8 @@
             error = getproperty(comparison, quantity)
             limit = getproperty(tolerance, quantity)
             comparison_passes(error, limit) && continue
-            failures = findall(.!((error.absolute .<= limit.absolute) .|
-            (error.relative .<= limit.relative)))
+            failures = findall(.!coalesce.((error.absolute .<= limit.absolute) .|
+            (error.relative .<= limit.relative), false))
             throw(ArgumentError(
                 "$label $quantity comparison exceeds tolerance at matrix terms " *
                 join(string.(Tuple.(failures)), ", "),

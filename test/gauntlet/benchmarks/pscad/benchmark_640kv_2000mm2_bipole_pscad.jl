@@ -1,7 +1,7 @@
 @testitem "PSCAD benchmark / 640 kV 2000 mm² compact-stranded bipole" tags=[
     :gauntlet, :pscad] setup=[GauntletSupport] begin
     using Test
-    using DataFrames
+    using LineCableModels.ReportBuilder: BenchmarkTableDefinition
     using LineCableModels
     using LineCableModels.Engine
     using .GauntletSupport
@@ -13,7 +13,7 @@
     )
     candidate_formulation=Formulation(
         earth_impedance = :Pollaczek1926,
-        earth_admittance = :IdealGround,
+        earth_admittance = :default,
         insulation_admittance = formula(:default),
         options = (
             kron_reduction = false,
@@ -59,8 +59,10 @@
     @test size(Z(outcome.reference)) == model.expected_size
     @test size(Y(outcome.reference)) == model.expected_size
     @test frequencies(outcome.reference) == model.nominal_problem.frequencies
+    comparison_table = report(BenchmarkTableDefinition(false), outcome.comparison).table
+    @test size(comparison_table, 1) == prod(model.expected_size[1:2])
     if !ISHEADLESS
-        display(DataFrame(outcome.comparison))
+        display(comparison_table)
     end
     if outcome.mode===:snapshot
         @test comparison_passes(outcome.regression.Z, tolerances.regression.Z)

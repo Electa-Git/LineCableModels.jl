@@ -8,7 +8,11 @@ using LineCableModels.DataModel: LineCableSystem
 using LineCableModels.Earth: EarthModel
 using LineCableModels.Engine
 using LineCableModels.ImportExport
-import LineCableModels: description, parameterize, computation_details
+import LineCableModels: description, parameterize, computation_details, validate, FormulaMethod
+import LineCableModels.Engine.EarthImpedance: earth_impedance
+import LineCableModels.Engine.EarthAdmittance: earth_potential_coefficient
+import LineCableModels.Engine.InternalImpedance: internal_impedance
+import LineCableModels.Engine.InsulationImpedance: insulation_impedance
 import LineCableModels.Engine: AbstractAdmittanceFormulation,
                                AbstractImpedanceFormulation,
                                EarthAdmittanceFormulation,

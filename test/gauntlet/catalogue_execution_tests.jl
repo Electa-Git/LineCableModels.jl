@@ -23,13 +23,13 @@ end
     const P = GauntletSupport.PSCADBenchmarks
     @testset "PSCAD reference catalogue" begin
         expected = Set((placement, identifier)
-            for placement in (:overhead, :underground, :mixed)
-            for identifier in P.formulas(Val(placement)))
+            for (placement, source, target) in ((:air, 1, 1), (:earth, 2, 2), (:mixed, 1, 2))
+            for identifier in P.formulas(LineCableModels.Engine.EarthImpedance, Val(:mutual), Val(source), Val(target)))
         @test Set((record.field, record.id) for record in PSCAD_CATALOGUE) == expected
         @test allunique(variant_id.(PSCAD_CATALOGUE))
         for record in PSCAD_CATALOGUE
             @test record.selector === record.id
-            @test P.pscad_setting(Val(record.selector), Val(record.field)).value >= 0
+            @test formulation(record) isa P.PSCADFormulation
         end
     end
     """

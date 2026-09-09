@@ -596,6 +596,25 @@ retain diagnostics.
 
 ## PSCAD live setup
 
+The explicit normalization check exercises all supported native earth-impedance
+selectors across self and mutual air, soil and mixed interactions, lossless and
+lossy insulation/screens, conductor temperature correction, and verified run
+recovery:
+
+```bash
+julia --project=test/gauntlet --startup-file=no test/gauntlet/pscad_normalization_live.jl
+```
+
+It requires the station configuration below and contacts PSCAD. It is not part
+of automatic test discovery. Each invocation retains its script, input problems,
+results and per-term RMS comparisons under
+`.linecablemodels/gauntlet/verification/pscad-normalization/`; results point to
+the native matrices, exported projects, settings readbacks and solver hashes.
+Different native formula/loss choices have no numerical agreement threshold.
+Assertions check the execution contracts and equivalence of identical native
+physical inputs, including a separate solve with explicitly temperature-corrected
+resistivity.
+
 Copy `local.example` to the ignored `local.jl` and configure a `RemoteConfig`.
 Its shared Windows root must point to
 `test/gauntlet/benchmarks/.work`. The host requires PSCAD 5.1.0, a working

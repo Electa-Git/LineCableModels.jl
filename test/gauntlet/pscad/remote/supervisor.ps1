@@ -14,12 +14,6 @@ param(
     [Parameter(Mandatory = $true)]
     [string] $Formulation,
     [Parameter(Mandatory = $true)]
-    [string] $EarthField,
-    [Parameter(Mandatory = $true)]
-    [int] $EarthValue,
-    [Parameter(Mandatory = $true)]
-    [string] $EarthReadback,
-    [Parameter(Mandatory = $true)]
     [double] $FrequencyStart,
     [Parameter(Mandatory = $true)]
     [double] $FrequencyEnd,
@@ -200,9 +194,6 @@ $commandValues = @(
     $ProjectName,
     $OutputStem,
     $Formulation,
-    $EarthField,
-    "$EarthValue",
-    $EarthReadback,
     $stdoutPath,
     $stderrPath,
     $exitPath
@@ -221,9 +212,6 @@ $runnerArguments = @(
     "`"$ProjectName`"",
     "`"$OutputStem`"",
     "`"$Formulation`"",
-    "`"$EarthField`"",
-    "`"$EarthValue`"",
-    "`"$EarthReadback`"",
     "`"$FrequencyStart`"",
     "`"$FrequencyEnd`"",
     "`"$FrequencyIncrements`"",

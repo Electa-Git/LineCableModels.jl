@@ -223,10 +223,10 @@ end
 function LineParametersFormulation(;
         internal_impedance::InternalImpedanceFormulation,
         insulation_impedance::InsulationImpedanceFormulation,
-        earth_impedance::EarthImpedanceFormulation,
+        earth_impedance::Union{EarthImpedanceFormulation, NamedTuple},
         insulation_admittance::InsulationAdmittanceFormulation,
         semicon_admittance::SemiconAdmittanceFormulation,
-        earth_admittance::EarthAdmittanceFormulation,
+        earth_admittance::Union{EarthAdmittanceFormulation, NamedTuple},
         earth_properties,
         pipe_impedance::PipeImpedanceFormulation,
         temperature_dependence::Union{Nothing, TemperatureDependent.Formula} = TemperatureDependent.Formula(:default),
@@ -255,10 +255,10 @@ function _line_formulation(
     selected = LineParametersFormulation(;
         internal_impedance = InternalImpedance.Formula(internal_impedance),
         insulation_impedance = InsulationImpedance.Formula(insulation_impedance),
-        earth_impedance = EarthImpedance.Formula(earth_impedance),
+        earth_impedance = Formulation(EarthImpedance.Formula, earth_impedance),
         insulation_admittance = InsulationAdmittance.Formula(insulation_admittance),
         semicon_admittance = SemiconAdmittance.Formula(semicon_admittance),
-        earth_admittance = EarthAdmittance.Formula(earth_admittance),
+        earth_admittance = Formulation(EarthAdmittance.Formula, earth_admittance),
         earth_properties = earth_properties === nothing ? nothing :
                            Earth.FrequencyDependent.Formula(earth_properties),
         pipe_impedance = PipeImpedance.Formula(pipe_impedance),
@@ -266,8 +266,12 @@ function _line_formulation(
                                  TemperatureDependent.Formula(temperature_dependence),
         options = formulation_options(LineParametersFormulation, options)
     )
-    definitions = (; internal_impedance, insulation_impedance, earth_impedance,
-        insulation_admittance, semicon_admittance, earth_admittance,
+    definitions = (; internal_impedance, insulation_impedance,
+        earth_impedance = earth_impedance isa NamedTuple ?
+            NamedTuple{keys(selected.methods.earth_impedance)}(earth_impedance) : earth_impedance,
+        insulation_admittance, semicon_admittance,
+        earth_admittance = earth_admittance isa NamedTuple ?
+            NamedTuple{keys(selected.methods.earth_admittance)}(earth_admittance) : earth_admittance,
         earth_properties, pipe_impedance, temperature_dependence)
     return LineParametersFormulation(selected.methods, selected.options, definitions)
 end
@@ -276,6 +280,15 @@ end
 $(TYPEDSIGNATURES)
 
 Select the complete physical-method bundle for a line-parameter calculation.
+
+`earth_impedance` and `earth_admittance` each accept one formula or a NamedTuple
+with exactly `air`, `earth`, and `mixed` selections. For a physical horizontal
+air/soil two-half-space model, these select `(s,t)=(1,1)`, `(2,2)`, and the two
+cross-layer mutual directions. Each required kind/layer case is validated against
+the selected equation. Missing cases have no implicit fallback. The shorthand is
+rejected for layered soil; scalar multilayer and explicit equivalent-earth
+selections retain their own contracts. Formula hooks and numerical options remain
+local to each selected entry.
 
 `temperature_dependence=formula(:default)` selects the Materials-owned linear
 resistivity law. `nothing` retains reference resistivity. Operating temperature

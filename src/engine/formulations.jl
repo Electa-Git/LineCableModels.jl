@@ -229,6 +229,42 @@ function media end
 "Declare source-owned physical hook defaults and admitted overrides for an equation binding."
 function hooks end
 
+"Resolve scalar or homogeneous three-field selections through their formula owner."
+function Formulation(::Type{F}, selected) where {F <: Union{
+        EarthImpedanceFormulation, EarthAdmittanceFormulation}}
+    return F(selected)
+end
+
+function Formulation(::Type{F}, selected::NamedTuple) where {F <: Union{
+        EarthImpedanceFormulation, EarthAdmittanceFormulation}}
+    names = (:air, :earth, :mixed)
+    length(selected) == 3 && all(in(keys(selected)), names) || throw(ArgumentError(
+        "homogeneous earth selections require exactly air, earth and mixed"))
+    return map(F, NamedTuple{names}(selected))
+end
+
+"Resolve the selected formula for exact source and target layer indices."
+Formulation(selected::Union{EarthImpedanceFormulation, EarthAdmittanceFormulation},
+    ::Val{S}, ::Val{T}) where {S, T} = selected
+
+Formulation(selected::NamedTuple{(:air, :earth, :mixed)}, ::Val{1}, ::Val{1}) = selected.air
+Formulation(selected::NamedTuple{(:air, :earth, :mixed)}, ::Val{2}, ::Val{2}) = selected.earth
+Formulation(selected::NamedTuple{(:air, :earth, :mixed)}, ::Val{1}, ::Val{2}) = selected.mixed
+Formulation(selected::NamedTuple{(:air, :earth, :mixed)}, ::Val{2}, ::Val{1}) = selected.mixed
+
+function Formulation(::NamedTuple{(:air, :earth, :mixed)}, ::Val{S}, ::Val{T}) where {S, T}
+    throw(ArgumentError(
+        "homogeneous selection is not defined for source in layer $S and target in layer $T"))
+end
+
+function validate(selected::NamedTuple{(:air, :earth, :mixed)}, earth::EarthModel)
+    validate(earth)
+    !earth.vertical_layers && length(earth.layers) == 2 &&
+        all(layer -> isinf(layer.thickness), earth.layers) || throw(ArgumentError(
+        "air/earth/mixed selections require physical air and one homogeneous soil half-space; use a scalar formulation for a layered model"))
+    return selected
+end
+
 function validate(formula::Union{EarthImpedanceFormulation, EarthAdmittanceFormulation},
         pair::EarthPair)
     return only(validate(formula, (pair,)))

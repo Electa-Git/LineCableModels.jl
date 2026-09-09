@@ -207,7 +207,7 @@ end
     formulation=Formulation(;
         insulation_admittance = formula(:default),
         semicon_admittance = formula(:Ametani2004),
-        earth_admittance = :IdealGround,
+        earth_admittance = :default,
         options = (
             reduce_bundle = false,
             kron_reduction = false,

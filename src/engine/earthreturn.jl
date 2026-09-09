@@ -1,6 +1,6 @@
 function earth!(
         destination::AbstractMatrix, bindings::NamedTuple{(
-            :selection, :cases, :reductions)},
+            :selection, :cases)},
         earth, jω, formula, Γ, workspace,
         thickness
 )
@@ -8,17 +8,18 @@ function earth!(
         throw(ArgumentError("workspace is bound to a different earth formula selection"))
     foreach(bindings.cases) do binding
         earth!(destination, binding, earth, jω,
-            formula, Γ, workspace, thickness)
+            binding.selection, Γ, workspace, thickness)
     end
     return destination
 end
 
 function earth!(
         destination::AbstractMatrix{Complex{T}}, binding::NamedTuple{(
-            :declaration, :interactions)},
+            :selection, :declaration, :interactions, :reductions)},
         earth, jω, formula, Γ, workspace,
         thickness
 ) where {T <: Real}
+    thickness = media(formula) === Val(:stratified) ? thickness : nothing
     for interaction in binding.interactions
         index, pair=interaction.index, interaction.pair
         rho=@view earth.rho[:, index]

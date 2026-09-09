@@ -4,6 +4,7 @@
     using TOML, SHA
     const P=GauntletSupport.PSCADBenchmarks
     const launches=Ref(0)
+    const mismatched_readback=Ref(false)
     const station_identity=Dict("schema"=>"1", "version"=>"5.1.0",
         "pscad_sha256"=>repeat("1", 64), "line_constants_sha256"=>repeat("2", 64),
         "master_library_sha256"=>repeat("3", 64))
@@ -25,6 +26,12 @@
                           println(io, log10(frequency), " ", frequency, " ", value)
                       end
                   end
+              end
+              open(joinpath(output, "native-settings.toml"), "w") do io
+                  observed = Dict(component => Dict(field => control["readback"]
+                      for (field, control) in controls) for (component, controls) in input["native_settings"])
+                  $(mismatched_readback[]) && (observed["ground"]["EarthForm"] = "UNEXPECTED")
+                  TOML.print(io, observed)
               end
               write(joinpath(output, "timing.txt"), "3.25")
               write(joinpath(output, "pscad-console.txt"), "protocol fixture")
@@ -78,7 +85,7 @@
         @test details(reused).execution.source_elapsed_seconds == 3.25
         @test details(reused).execution.source_elapsed_scope == P.PSCAD_TIMING_SCOPE
         @test occursin("no solver execution", details(reused).execution.elapsed_scope)
-        @test details(reused).formulations.requested.earth_impedance == "Pollaczek1926"
+        @test details(reused).formulations.requested.earth_impedance === :Pollaczek1926
         total=compute(problem, Formulation(:pscad); options = (;
             options..., output_basis = :total))
         @test launches[] == 1
@@ -93,11 +100,21 @@
                 options..., on_result = (problem, index, result)->push!(callbacks, index)))
         @test launches[] == 1
         @test callbacks == [1, 2]
-        @test details(batch[1]).formulations.requested.earth_impedance == "default"
-        @test details(batch[2]).formulations.requested.earth_impedance == "Pollaczek1926"
+        @test details(batch[1]).formulations.requested.earth_impedance === :default
+        @test details(batch[2]).formulations.requested.earth_impedance === :Pollaczek1926
+        @test all(record -> record.formula === :Pollaczek1926,
+            details(batch[2]).native_setting.interactions.earth_impedance)
         @test Z(batch[1]) == Z(batch[2])
         @test Z(batch[1]) !== Z(batch[2])
         @test occursin("no solver execution", details(batch[2]).execution.elapsed_scope)
+        homogeneous_choices = (air = :default, earth = :default, mixed = :default)
+        represented = compute(problem,
+            [Formulation(:pscad), Formulation(:pscad; earth_impedance = homogeneous_choices)]; options)
+        @test launches[] == 1
+        @test details(represented[1]).formulations.requested.earth_impedance === :default
+        @test details(represented[2]).formulations.requested.earth_impedance == homogeneous_choices
+        @test Z(represented[1]) == Z(represented[2])
+        @test Z(represented[1]) !== Z(represented[2])
         changed_earth=LineParametersProblem(
             system; earth_props = homogeneous(rho = 200.0), frequencies = frequency)
         @test_throws ArgumentError compute(changed_earth, Formulation(:pscad);
@@ -131,6 +148,9 @@
         @test_throws ArgumentError compute(problem, Formulation(:pscad); options)
         @test launches[] == 3
         @test endswith(read(joinpath(source, "outputs", "result_zm.out"), String), "damaged\n")
+        mismatched_readback[] = true
+        @test_throws ArgumentError compute(problem, Formulation(:pscad); options = (; remote))
+        @test launches[] == 4
     finally
         rm(directory; recursive = true)
     end

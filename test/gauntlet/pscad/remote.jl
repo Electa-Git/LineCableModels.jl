@@ -136,7 +136,7 @@ end
 function _formulation_label(formulation::PSCADFormulation)
     return join(
         (
-            description(formulation.methods.earth_impedance),
+            string(formulation_record(formulation).requested.earth_impedance),
             "PSCAD native earth admittance",
             description(formulation.methods.insulation_admittance)
         ),
@@ -302,7 +302,6 @@ function _supervisor_command(
         project_name::AbstractString,
         formulation::PSCADFormulation,
         frequencies_value::AbstractVector;
-        setting::NamedTuple,
         output_stem::AbstractString,
         verbosity::Integer = 0
 )
@@ -320,9 +319,6 @@ function _supervisor_command(
             "-ProjectName $(_ps_quote(project_name))",
             "-OutputStem $(_ps_quote(output_stem))",
             "-Formulation $(_ps_quote(label))",
-            "-EarthField $(_ps_quote(string(setting.field)))",
-            "-EarthValue $(_ps_quote(string(setting.value)))",
-            "-EarthReadback $(_ps_quote(setting.readback))",
             "-FrequencyStart $(_ps_quote(string(first(frequencies_value))))",
             "-FrequencyEnd $(_ps_quote(string(last(frequencies_value))))",
             "-FrequencyIncrements $(_ps_quote(string(increments)))",
@@ -464,7 +460,6 @@ function run_remote_pscad(
         local_output::AbstractString,
         formulation::PSCADFormulation,
         frequencies_value::AbstractVector;
-        setting::NamedTuple,
         output_stem::AbstractString,
         verbosity::Integer = 0
 )
@@ -489,7 +484,6 @@ function run_remote_pscad(
         _remote_project_name(local_project),
         formulation,
         frequencies_value;
-        setting,
         output_stem,
         verbosity
     )
@@ -594,7 +588,8 @@ function _pscad_basis(
     )
 end
 
-function _stage_pscad_project(problem::LineParametersProblem, formulation::PSCADFormulation)
+function _stage_pscad_project(problem::LineParametersProblem, formulation::PSCADFormulation,
+        setting = pscad_setting(formulation, problem))
     case_id = problem.system.system_id
     (isempty(case_id) || case_id in (".", "..") || occursin(r"[/\\]", case_id)) &&
         throw(ArgumentError("PSCAD system_id must be one nonempty directory name"))
@@ -609,6 +604,7 @@ function _stage_pscad_project(problem::LineParametersProblem, formulation::PSCAD
         formulation = LineParametersFormulation(formulation.methods, formulation.options,
             formulation.definitions),
         temperature = problem.temperature,
+        native_settings = setting[(:ground, :frequency)],
         file_name = joinpath(root, "generated.pscx")
     )
     project isa AbstractString && isfile(project) || throw(ArgumentError(
@@ -625,12 +621,14 @@ function _compute_pscad(problem::LineParametersProblem, formulation::PSCADFormul
     root, staged = prepared.root, prepared.staged
     started = time_ns()
     input = Dict{String, Any}(
-        "schema_version"=>1,
+        "schema_version"=>2,
         "project_sha256"=>bytes2hex(open(sha256, staged)),
         "frequencies"=>Float64.(problem.frequencies),
         "matrix_size"=>collect(_pscad_size(problem)),
-        "native_setting"=>Dict(string(key)=>value isa Symbol ? string(value) : value
-            for (key, value) in pairs(setting)),
+        "native_settings"=>Dict(string(component)=>Dict(string(field)=>Dict(
+                "value"=>control.value, "readback"=>control.readback)
+                for (field, control) in pairs(getproperty(setting, component)))
+                for component in (:ground, :frequency)),
         "solver"=>execution_options.solver_identity,
         "toolkit"=>Dict(name=>bytes2hex(sha256(source)) for (name, source) in PSCAD_REMOTE_SOURCES))
     signature = semantic_sha256(input)
@@ -649,7 +647,7 @@ function _compute_pscad(problem::LineParametersProblem, formulation::PSCADFormul
             resume === :latest && continue
             throw(ArgumentError("PSCAD completed run has different numerical inputs or solver implementation: $candidate"))
         end
-        get(record, "schema_version", nothing) == 1 || throw(ArgumentError(
+        get(record, "schema_version", nothing) == 2 || throw(ArgumentError(
             "unsupported PSCAD completion record: $record_path"))
         stored = TOML.parsefile(joinpath(candidate, "computation.toml"))
         semantic_sha256(stored) == signature || throw(ArgumentError(
@@ -660,7 +658,7 @@ function _compute_pscad(problem::LineParametersProblem, formulation::PSCADFormul
             bytes2hex(open(sha256, joinpath(candidate, "toolkit", name))) == digest ||
                 throw(ArgumentError("PSCAD completed-run solver source changed: $candidate/toolkit/$name"))
         end
-        for name in ("result_zm.out", "result_zp.out", "result_ym.out", "result_yp.out", "solver.toml", "timing.txt")
+        for name in ("result_zm.out", "result_zp.out", "result_ym.out", "result_yp.out", "solver.toml", "native-settings.toml", "timing.txt")
             path = joinpath(candidate, "outputs", name)
             isfile(path) && bytes2hex(open(sha256, path)) == get(record["outputs"], name, nothing) ||
                 throw(ArgumentError("PSCAD completed-run output integrity check failed: $path"))
@@ -683,12 +681,17 @@ function _compute_pscad(problem::LineParametersProblem, formulation::PSCADFormul
         end
         @info "Computing PSCAD line parameters" system = problem.system.system_id
         execution = run_remote_pscad(config, staged, joinpath(root, "outputs"),
-            formulation, problem.frequencies; setting,
+            formulation, problem.frequencies;
             output_stem=execution_options.output_stem,
             verbosity=verbosity(execution_options, :PSCAD))
         TOML.parsefile(joinpath(execution.output_dir, "solver.toml")) == input["solver"] ||
             throw(ArgumentError("PSCAD result has no matching solver attestation: $root"))
     end
+    native_readback = TOML.parsefile(joinpath(execution.output_dir, "native-settings.toml"))
+    expected_readback = Dict(component => Dict(field => control["readback"]
+        for (field, control) in controls) for (component, controls) in input["native_settings"])
+    native_readback == expected_readback || throw(ArgumentError(
+        "PSCAD result has no matching native-settings readback: $(execution.output_dir)"))
     parameters = try
         read_pscad_result(
             execution.output_dir,
@@ -708,9 +711,9 @@ function _compute_pscad(problem::LineParametersProblem, formulation::PSCADFormul
     if !reused
         # Publish completion only after all four matrices have parsed and the
         # remote implementation has been checked. Interrupted runs stay intact.
-        completion = Dict("schema_version"=>1, "input_sha256"=>signature,
+        completion = Dict("schema_version"=>2, "input_sha256"=>signature,
             "outputs"=>Dict(name=>bytes2hex(open(sha256, joinpath(execution.output_dir, name)))
-                for name in ("result_zm.out", "result_zp.out", "result_ym.out", "result_yp.out", "solver.toml", "timing.txt")))
+                for name in ("result_zm.out", "result_zp.out", "result_ym.out", "result_yp.out", "solver.toml", "native-settings.toml", "timing.txt")))
         temporary = tempname(root)
         try
             open(temporary, "w") do io
@@ -723,7 +726,8 @@ function _compute_pscad(problem::LineParametersProblem, formulation::PSCADFormul
     end
     parameters = _pscad_basis(parameters, problem, execution_options.output_basis)
     retained = (formulations=formulation_record(formulation), native_setting=setting,
-        reference_frequency=50.0, loss_tangent_limit=10.0,
+        reference_frequency=50.0, loss_tangent_limit=10.0, aerial_shunt_conductance=1e-38,
+        native_readback,
         exported_project=read(staged, String),
         execution=merge(execution, (backend=:pscad, pscad_version=config.pscad_version,
             reused, source_run=reused ? source_root : root,
@@ -742,8 +746,7 @@ end
 function compute(problem::LineParametersProblem, formulations::AbstractVector{<:PSCADFormulation};
         options::NamedTuple=(;))
     isempty(formulations) && throw(ArgumentError("PSCAD formulation collections cannot be empty"))
-    selected = [Formulation(Val(:pscad), problem, value) for value in formulations]
-    settings = [pscad_setting(value, problem) for value in selected]
+    settings = [pscad_setting(value, problem) for value in formulations]
     _validate_frequencies(problem.frequencies)
     _pscad_size(problem)
     execution = computation_options(PSCADFormulation, options)
@@ -751,25 +754,26 @@ function compute(problem::LineParametersProblem, formulations::AbstractVector{<:
     execution.solver_identity === nothing || execution.solver_identity == observed ||
         throw(ArgumentError("PSCAD solver installation changed during the campaign; start a new campaign"))
     execution = merge(execution, (solver_identity=observed,))
-    projects = [_stage_pscad_project(problem, value) for value in selected]
+    projects = [_stage_pscad_project(problem, value, setting)
+        for (value, setting) in zip(formulations, settings)]
     # Same problem, frequency vector and execution settings throughout this
     # batch; reuse only byte-identical exported inputs and native solver choices.
-    keys = [(project=read(project.staged, String), setting)
+    keys = [(project=read(project.staged, String), setting=setting[(:ground, :frequency)])
         for (project, setting) in zip(projects, settings)]
-    first_result = _compute_pscad(problem, first(selected), execution, first(projects), first(settings))
-    values = Vector{typeof(first_result)}(undef, length(selected))
+    first_result = _compute_pscad(problem, first(formulations), execution, first(projects), first(settings))
+    values = Vector{typeof(first_result)}(undef, length(formulations))
     values[1] = first_result
     execution.on_result === nothing || execution.on_result(problem, 1, first_result)
     completed = Dict(first(keys)=>1)
-    for index in 2:length(selected)
+    for index in 2:length(formulations)
         previous = get(completed, keys[index], nothing)
         if previous === nothing
-            values[index] = _compute_pscad(problem, selected[index], execution, projects[index], settings[index])
+            values[index] = _compute_pscad(problem, formulations[index], execution, projects[index], settings[index])
         else
             source = values[previous]
             @info "PSCAD reuses identical exported inputs" formulation=index source_formulation=previous
             retained = merge(deepcopy(source.details),
-                (formulations=formulation_record(selected[index]),
+                (formulations=formulation_record(formulations[index]), native_setting=settings[index],
                     execution=merge(source.details.execution, (reused=true, elapsed_seconds=0.0,
                         elapsed_scope="identical-input reuse; no solver execution", wall_seconds=0.0))))
             values[index] = LineParameters(source.domain,

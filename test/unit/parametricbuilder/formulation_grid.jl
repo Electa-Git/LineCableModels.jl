@@ -20,7 +20,7 @@
         earth_impedance = Grid((:Pollaczek1926, :default)),
         insulation_admittance = Grid((:Ametani2004, :default)),
         semicon_admittance = Grid((:default, :Ametani2004)),
-        earth_admittance = Grid((:IdealGround, :default)),
+        earth_admittance = Grid((:Pollaczek1926, :default)),
         earth_properties = Grid((nothing, :default)),
         temperature_dependence = Grid((nothing, :default)),
         pipe_impedance = Grid((:default, formula(:default))),
@@ -51,22 +51,22 @@
 
     product=Formulation(
         earth_impedance = Grid((:Pollaczek1926, :default)),
-        earth_admittance = Grid((:IdealGround, :default))
+        earth_admittance = Grid((:Pollaczek1926, :default))
     )
     @test length(product) == 4
     @test Set((
                   formula_id(value.methods.earth_impedance),
                   formula_id(value.methods.earth_admittance)
               ) for value in product) == Set((
-        (:Pollaczek1926, :IdealGround),
-        (:default, :IdealGround),
+        (:Pollaczek1926, :Pollaczek1926),
+        (:default, :Pollaczek1926),
         (:Pollaczek1926, :default),
         (:default, :default)
     ))
 
     zipped=Formulation(
         earth_impedance = Grid((:Pollaczek1926, :default)),
-        earth_admittance = Grid((:IdealGround, :default));
+        earth_admittance = Grid((:Pollaczek1926, :default));
         combine = :zip
     )
     @test length(zipped) == 2
@@ -74,18 +74,18 @@
                formula_id(value.methods.earth_impedance),
                formula_id(value.methods.earth_admittance)
            ) for value in zipped] == [
-        (:Pollaczek1926, :IdealGround),
+        (:Pollaczek1926, :Pollaczek1926),
         (:default, :default)
     ]
 
     broadcast_zip=Formulation(
         earth_impedance = Grid((:Pollaczek1926, :default)),
-        earth_admittance = Grid(:IdealGround);
+        earth_admittance = Grid(:Pollaczek1926);
         combine = :zip
     )
     @test length(broadcast_zip) == 2
     @test [formula_id(value.methods.earth_admittance)
-           for value in broadcast_zip] == fill(:IdealGround, 2)
+           for value in broadcast_zip] == fill(:Pollaczek1926, 2)
 
     reductions=Formulation(earth_impedance = Grid((
         formula(:default; equivalent_earth = formula(:default; order = :before)),

@@ -84,6 +84,60 @@
     end
 end
 
+@testitem "Gauntlet / homogeneous choices survive campaign persistence and replay" tags=[:gauntlet_toolkit] setup=[GauntletSupport] begin
+    using JLD2
+    using .GauntletSupport
+    owner = GauntletSupport
+    defaults = (air = :default, earth = :default, mixed = :default)
+    selected = (air = :Carson1926, earth = :Pollaczek1926, mixed = :Lucca1994)
+    choices = (earth_impedance = Grid((defaults, selected)), earth_admittance = defaults)
+    mktempdir() do temporary
+        root = joinpath(temporary, "homogeneous")
+        @test owner.run_campaign(root, [:two_bare_wires]; backends = (:coaxial,),
+            catalogue = false, choices, frequency_range = (50.0, 500.0))
+        _, plan = owner.campaign_plan(root)
+        recorded = plan["jobs"][1]["selections"][2]["earth_impedance"]
+        @test recorded == Dict("air" => "Carson1926", "earth" => "Pollaczek1926", "mixed" => "Lucca1994")
+        reconstructed = owner.campaign_formulation(:coaxial,
+            plan["jobs"][1]["selections"][2], :default)
+        @test reconstructed.definitions.earth_impedance == selected
+        path = joinpath(root, "two_bare_wires_coaxial", "0002.jld2")
+        bytes = read(path)
+        document = JLD2.load(path)
+        problem = LineCableModels.ImportExport.deserialize_value(document["problem"])
+        replay = compute(problem, reconstructed)
+        @test replay.Z.values == document["Z"]
+        @test replay.Y.values == document["Y"]
+        @test details(replay).formulations.requested.earth_impedance == selected
+        @test all(record -> record.formula === :Pollaczek1926,
+            details(replay).formulations.numerical.earth_impedance)
+        @test owner.resume_campaign(root)
+        @test read(path) == bytes
+    end
+end
+
+@testitem "Gauntlet / recoverable normalization reasons retain absolute RMS" tags=[:gauntlet_toolkit] setup=[GauntletSupport] begin
+    using JLD2
+    using LineCableModels.Engine: compare
+    frequencies = [50.0, 500.0]
+    z = ones(ComplexF64, 1, 1, 2)
+    y = fill(1e-4im, 1, 1, 2)
+    reference = LineParameters(PhaseDomain, z, y, frequencies)
+    candidate = LineParameters(PhaseDomain, z, y .+ 1e-14, frequencies)
+    result = compare(reference, candidate, G)
+    mktempdir() do directory
+        path = joinpath(directory, "comparison.jld2")
+        JLD2.jldsave(path; reference, candidate, result)
+        restored = JLD2.load(path)
+        @test isequal(restored["result"].details, result.details)
+        @test restored["result"].absolute == result.absolute
+        @test ismissing(only(restored["result"].relative))
+        repeated = compare(restored["reference"], restored["candidate"], G)
+        @test repeated.absolute == result.absolute
+        @test isequal(repeated.details, result.details)
+    end
+end
+
 @testitem "Gauntlet / explicit campaign frequency range survives checkpoint and resume" tags=[:gauntlet_toolkit] setup=[GauntletSupport] begin
     using JLD2
     using LineCableModels

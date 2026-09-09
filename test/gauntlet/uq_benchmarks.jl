@@ -3,7 +3,7 @@ const UQ_MONTE_CARLO_TRIALS = 512
 function uq_inner_formulation()
     return Formulation(
         earth_impedance = :Pollaczek1926,
-        earth_admittance = :IdealGround,
+        earth_admittance = :default,
         insulation_admittance = formula(:default),
         options = (
             kron_reduction = false,

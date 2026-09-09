@@ -90,7 +90,7 @@
 
     allocation_formulation=Formulation(
         earth_impedance = :Pollaczek1926,
-        earth_admittance = :IdealGround,
+        earth_admittance = :default,
         options = (
             reduce_bundle = true,
             kron_reduction = true,

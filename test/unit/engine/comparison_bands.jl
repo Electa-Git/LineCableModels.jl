@@ -62,19 +62,21 @@
     signal[1, 1, end] = 1.0
     quiet = LineParameters(PhaseDomain, tiny, tiny, f)
     noisy = LineParameters(PhaseDomain, signal, signal, f)
-    @test only(compare(quiet, noisy; band = :dc).Y.relative) == 0
-    @test only(compare(quiet, noisy; band = :dc).Y.details.status) === :below_tolerance
-    @test only(compare(quiet, noisy).Y.relative) > 1e12
+    @test ismissing(only(compare(quiet, noisy; band = :dc).Y.relative))
+    @test only(compare(quiet, noisy; band = :dc).Y.details.status) === :reference_below_tolerance
+    @test ismissing(only(compare(quiet, noisy).Y.relative))
+    @test only(compare(quiet, noisy).Y.absolute) > 0.1
     @test only(compare(quiet, noisy; band = :dc, atol = 0.0).Y.details.status) === :compared
     zero = LineParameters(
         PhaseDomain, zeros(ComplexF64, 1, 1, length(f)), zeros(ComplexF64, 1, 1, length(f)), f)
-    @test isinf(only(compare(zero, noisy).Y.relative))
+    @test ismissing(only(compare(zero, noisy).Y.relative))
     tiny_capacitance = reshape(complex.(zeros(length(f)), 2π .* f .* 1e-17), 1, 1, :)
     negligible = LineParameters(PhaseDomain, z, tiny_capacitance, f)
-    @test only(compare(zero, negligible).Y.relative) == 0
-    @test only(compare(zero, negligible, C).relative) == 0
+    @test ismissing(only(compare(zero, negligible).Y.relative))
+    @test only(compare(zero, negligible).Y.absolute) > 0
+    @test ismissing(only(compare(zero, negligible, C).relative))
     @test only(compare(zero, negligible; atol = (C = 1e-18, G = 0.0)).Y.details.status) ===
-          :compared
+          :reference_below_tolerance
     @test only(compare(quiet, noisy; band = :dc, atol = (Y = 1e-16,)).Y.details.status) ===
           :compared
     for quantity in (R, L, C, G)
@@ -103,16 +105,33 @@ end
     for normalization in (:reference_rms, :pointwise)
         @test only(compare(parameters([im, 2im]), parameters([-im, -2im]); normalization).Y.relative) ≈
               2
-        @test only(compare(parameters([0, 0]), parameters([0, 0]); normalization, atol = 0).Y.relative) ==
-              0
-        @test isinf(only(compare(parameters([0, 0]), parameters([0, 1]); normalization).Y.relative))
+        @test ismissing(only(compare(parameters([0, 0]), parameters([0, 0]); normalization, atol = 0).Y.relative))
+        @test ismissing(only(compare(parameters([0, 0]), parameters([0, 1]); normalization).Y.relative))
         @test ismissing(only(compare(a, b; normalization, band = :wide).Y.relative))
         @test ismissing(only(compare(a, b; normalization, unsupported = (Y = "unavailable",)).Y.relative))
     end
-    # Exact 0/0 contributes zero rather than deleting a sample from the mean.
-    @test only(compare(parameters([0, 1]), parameters([0, 2]); normalization = :pointwise).Y.relative) ≈
-          sqrt(1/2)
-    @test isinf(only(compare(parameters([0, 1]), parameters([1, 1]); normalization = :pointwise).Y.relative))
+    # An unusable denominator does not change the selected sample population.
+    @test ismissing(only(compare(parameters([0, 1]), parameters([0, 2]); normalization = :pointwise).Y.relative))
+    @test ismissing(only(compare(parameters([0, 1]), parameters([1, 1]); normalization = :pointwise).Y.relative))
     @test only(compare(parameters([0, 1]), parameters([1, 1])).Y.relative) == 1
     @test_throws ArgumentError compare(a, b; normalization = :unknown)
+end
+
+@testitem "Engine / lossless conductance normalization preserves measured differences" tags=[:unit] begin
+    using LineCableModels.Engine: compare
+    frequencies = [50.0, 500.0]
+    z = ones(ComplexF64, 2, 2, 2)
+    y = fill(1e-4im, 2, 2, 2)
+    y[2, 2, :] .+= 1e-6
+    reference = LineParameters(PhaseDomain, z, y, frequencies)
+    candidate = LineParameters(PhaseDomain, z, y .+ 1e-14, frequencies)
+    conductance = compare(reference, candidate, G)
+    @test ismissing(conductance.relative[1, 1])
+    @test conductance.absolute[1, 1] ≈ 1e-14
+    @test conductance.details.status[1, 1] === :reference_below_tolerance
+    @test conductance.details.normalization_reason[1, 1] isa String
+    @test conductance.relative[2, 2] ≈ 1e-8
+    @test conductance.details.normalization_reason[2, 2] === nothing
+    @test all(!ismissing, compare(reference, candidate).Y.relative)
+    @test reference.Y.values == y
 end

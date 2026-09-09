@@ -18,13 +18,17 @@ Z_{e,ii}=\\frac{j\\omega\\mu_0}{2\\pi}\\left[-\\ln
 
 ```math
 Z_{e,ij}=\\frac{j\\omega\\mu_0}{2\\pi}\\left[-\\ln
-\\left(\\frac{e_c\\gamma_1y_{ij}}{2}\\right)+\\frac12-
+\\left(\\frac{e_c\\gamma_1d_{ij}}{2}\\right)+\\frac12-
 \\frac23\\gamma_1H\\right],\\qquad e_c=1.7811.
 ```
 
+Here ``d_{ij}=\\sqrt{x_{ij}^2+(h_i-h_j)^2}`` is the distance between
+cable axes and ``H=h_i+h_j`` is the sum of burial depths, all in metres.
+
 **Reference.** L. M. Wedepohl and D. J. Wilcox, “Transient Analysis of
 Underground Power-Transmission Systems: System-Model and Wave-Propagation
-Characteristics,” *Proceedings of the IEE*, 120, 253–260, 1973.
+Characteristics,” *Proceedings of the IEE*, 120, 253–260, 1973, Eqs. (7)–(8).
+DOI: 10.1049/piee.1973.0056.
 """
 function description(::Formula{:WedepohlWilcox1973})
     "Wedepohl-Wilcox low-frequency underground approximation (1973)"
@@ -47,9 +51,13 @@ Z_{e,ii}=\frac{j\omega\mu_0}{2\pi}
 
 ```math
 Z_{e,ij}=\frac{j\omega\mu_0}{2\pi}
-\left[-\ln\left(\frac{e_c\gamma_1y_{ij}}{2}\right)+\frac12
+\left[-\ln\left(\frac{e_c\gamma_1d_{ij}}{2}\right)+\frac12
 -\frac23\gamma_1(h_i+h_j)\right],\qquad e_c=1.7811.
 ```
+
+The mutual distance is ``d_{ij}=\sqrt{x_{ij}^2+(h_i-h_j)^2}``, not
+the horizontal projection ``x_{ij}``. Distinct cable axes can therefore
+be vertically aligned. The shared pair validator rejects coincident axes.
 """
 function earth_impedance(
         ::Val{:WedepohlWilcox1973}, ::Val{:self}, ::Val{2}, ::Val{2},
@@ -71,18 +79,10 @@ function earth_impedance(
     state = functor.state
     geometry = _geometry(pair)
     e_c = oftype(geometry.H, 1.7811)
-    bracket = -log(e_c * state.gamma[2] * geometry.y_ij / 2) +
+    bracket = -log(e_c * state.gamma[2] * geometry.d_ij / 2) +
               one(geometry.H) / 2 -
               (2 * one(geometry.H) / 3) * state.gamma[2] * geometry.H
     return state.jω * state.mu[1] / (2π) * bracket
-end
-
-function validate(pair::EarthPair, ::FormulaMethod{
-        :WedepohlWilcox1973, typeof(earth_impedance)})
-    pair.row != pair.column && iszero(pair.separation) &&
-        throw(DomainError(
-            pair.separation, ":WedepohlWilcox1973 mutual closed form requires nonzero horizontal cable separation"))
-    return pair
 end
 
 Formulation(::LineCableModelsCoaxial, selected::Formula{:WedepohlWilcox1973}) = selected

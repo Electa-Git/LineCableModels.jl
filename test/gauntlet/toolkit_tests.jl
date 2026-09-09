@@ -78,7 +78,7 @@
         )
         formulation=Formulation(
             earth_impedance = :Pollaczek1926,
-            earth_admittance = :IdealGround,
+            earth_admittance = :default,
             insulation_admittance = formula(:default),
             options = (kron_reduction = false, reduce_bundle = false)
         )
@@ -257,8 +257,8 @@
         @test outcome.mode === :snapshot
         @test outcome.comparison.Z.absolute ==
               zeros(size(Z(parameters), 1), size(Z(parameters), 2))
-        @test outcome.regression.Y.relative ==
-              zeros(size(Y(parameters), 1), size(Y(parameters), 2))
+        @test all(value -> ismissing(value) || iszero(value), outcome.regression.Y.relative)
+        @test all(iszero, outcome.regression.Y.absolute)
         @test all(package.name != "PythonCall" for package in keys(Base.loaded_modules))
 
         write(source, "# changed source\n")
@@ -1094,7 +1094,7 @@ end
     )
     inner=Formulation(
         earth_impedance = :Pollaczek1926,
-        earth_admittance = :IdealGround,
+        earth_admittance = :default,
         insulation_admittance = formula(:default),
         options = (
             kron_reduction = false,
@@ -1137,13 +1137,13 @@ end
         )
         pollaczek=Formulation(
             earth_impedance = :Pollaczek1926,
-            earth_admittance = :IdealGround,
+            earth_admittance = :default,
             insulation_admittance = formula(:default),
             options = (kron_reduction = false, reduce_bundle = false)
         )
         papadopoulos=Formulation(
             earth_impedance = :Saad1996,
-            earth_admittance = :IdealGround,
+            earth_admittance = :default,
             insulation_admittance = formula(:default),
             options = (kron_reduction = false, reduce_bundle = false)
         )
@@ -1169,7 +1169,7 @@ end
         outcome=run_benchmark(benchmark)
         @test outcome.reference isa LineParameters
         @test outcome.candidate isa LineParameters
-        @test outcome.passes
+        @test outcome.passes === nothing
         @test outcome.metadata.calculations.reference.id === :pollaczek
         @test outcome.metadata.calculations.candidate.id === :papadopoulos
         @test size(Z(outcome.reference)) == (2, 2, 1)
@@ -1198,10 +1198,10 @@ end
     @test hasmethod(compute, Tuple{LineParametersProblem, harness.PSCADFormulation})
     @test hasmethod(benchmark_metadata, Tuple{
         LineParametersProblem, harness.PSCADFormulation, LineParameters})
-    @test harness.pscad_setting(Val(:Gary1976), Val(:overhead)) ==
-          (field = :EarthForm2, value = 0, readback = "DERISEMLYEN")
-    @test harness.pscad_setting(Val(:WedepohlWilcox1973), Val(:underground)) ==
-          (field = :EarthForm, value = 0, readback = "WEDEPOHL")
+    @test harness.earth_impedance(Val(:Gary1976), Val(:mutual), Val(1), Val(1), Val(:pscad)) ==
+          (EarthForm2 = (value = 0, readback = "DERISEMLYEN"),)
+    @test harness.earth_impedance(Val(:WedepohlWilcox1973), Val(:mutual), Val(2), Val(2), Val(:pscad)) ==
+          (EarthForm = (value = 0, readback = "WEDEPOHL"),)
     @test EarthImpedance.formula_id(overhead.methods.earth_impedance) === :Gary1976
     @test EarthImpedance.formula_id(underground.methods.earth_impedance) ===
           :WedepohlWilcox1973
@@ -1222,12 +1222,12 @@ end
         id -> Formulation(:pscad; earth_impedance = LineCableModels.formula(id)) isa
               harness.PSCADFormulation,
         identifiers)
-    @test harness.pscad_setting(Val(:Saad1996), Val(:underground)).field === :EarthForm
-    @test harness.pscad_setting(Val(:Lucca1994), Val(:mixed)).readback == "LUCCA"
-    @test harness.pscad_setting(Val(:Carson1926), Val(:overhead)).value == 2
-    @test harness.pscad_setting(Val(:Pollaczek1926), Val(:underground)).value == 2
-    @test_throws MethodError harness.pscad_setting(Val(:Pollaczek1926), Val(:overhead))
-    @test_throws MethodError harness.pscad_setting(Val(:DirectNumericalIntegration), Val(:mixed))
+    @test haskey(harness.earth_impedance(Val(:Saad1996), Val(:mutual), Val(2), Val(2), Val(:pscad)), :EarthForm)
+    @test harness.earth_impedance(Val(:Lucca1994), Val(:mutual), Val(1), Val(2), Val(:pscad)).EarthForm3.readback == "LUCCA"
+    @test harness.earth_impedance(Val(:Carson1926), Val(:mutual), Val(1), Val(1), Val(:pscad)).EarthForm2.value == 2
+    @test harness.earth_impedance(Val(:Pollaczek1926), Val(:mutual), Val(2), Val(2), Val(:pscad)).EarthForm.value == 2
+    @test_throws ArgumentError harness.earth_impedance(Val(:Pollaczek1926), Val(:mutual), Val(1), Val(1), Val(:pscad))
+    @test_throws ArgumentError harness.earth_impedance(Val(:DirectNumericalIntegration), Val(:mutual), Val(1), Val(2), Val(:pscad))
 
     mktempdir() do directory
         frequency=[1.0, 10.0]
@@ -1358,7 +1358,6 @@ end
         "case",
         overhead,
         [1.0, 3.0, 10.0];
-        setting = harness.pscad_setting(Val(:Gary1976), Val(:overhead)),
         output_stem = "gauntlet",
         verbosity = 2
     )
@@ -1380,7 +1379,6 @@ end
         "generated",
         overhead,
         frequency_probe;
-        setting = harness.pscad_setting(Val(:Gary1976), Val(:overhead)),
         output_stem = "gauntlet",
         verbosity = 2
     )
@@ -1390,9 +1388,7 @@ end
     @test occursin("-OutputStem 'gauntlet'", supervisor_command)
     @test occursin("-Verbosity '2'", supervisor_command)
     @test occursin("-TimeoutSeconds '60'", supervisor_command)
-    @test occursin("-EarthField 'EarthForm2'", supervisor_command)
-    @test occursin("-EarthValue '0'", supervisor_command)
-    @test occursin("-EarthReadback 'DERISEMLYEN'", supervisor_command)
+    @test !occursin("-EarthField", supervisor_command)
     @test !occursin("OpenStandardInput", supervisor_command)
     saad_command=harness._supervisor_command(
         config,
@@ -1401,13 +1397,9 @@ end
         "generated",
         Formulation(:pscad; earth_impedance = :Saad1996),
         frequency_probe;
-        setting = harness.pscad_setting(Val(:Saad1996), Val(:underground)),
         output_stem = "saad",
         verbosity = 0
     )
-    @test occursin("-EarthField 'EarthForm'", saad_command)
-    @test occursin("-EarthValue '3'", saad_command)
-    @test occursin("-EarthReadback 'SAAD'", saad_command)
     cancel_command=harness._cancel_command(raw"C:\gauntlet\case\current")
     @test occursin("owner.txt", cancel_command)
     @test occursin("taskkill.exe /PID", cancel_command)
