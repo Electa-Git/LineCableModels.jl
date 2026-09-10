@@ -20,7 +20,7 @@
             value=run_benchmark(declaration; directory)
             expected=combine===:product ? 4 : 2
             @test length(value.candidate_result)==expected
-            @test length(value.comparison)==3expected
+            @test length(value.comparison)==15expected
             @test observed==collect(1:expected)
             @test length(value.candidate_result.axes.formulations)==expected
             for (index, formulation) in enumerate(space)
@@ -33,14 +33,14 @@
             @test saved.result.axes.problems[1].terminal_order==model.problem.system.terminal_order
             @test all(saved.result[index].Z == value.candidate_result[index].Z
             for index in 1:expected)
-            @test length(only(read_benchmark(directory).analyses)["reference_comparison"])==3expected
+            @test length(only(read_benchmark(directory).analyses)["reference_comparison"])==15expected
             retained=read_benchmark(directory)
             tables=report(BenchmarkTableDefinition(false),retained).table
-            @test length(tables.comparisons.quantity)==3expected
+            @test length(tables.comparisons.quantity)==15expected
             @test Set(tables.comparisons.candidate_point)==Set(1:expected)
             @test tables.calculations.axes[2]==saved.result.axes
-            @test_throws r"choose pair" LineCableModels.plot(retained,(R,))
-            @test_throws r"explicitly saved" LineCableModels.plot(retained,(R,);pair=(2,1))
+            @test report(BenchmarkTableDefinition(),retained).illustration === nothing
+            @test_throws r"Plotting is optional" LineCableModels.plot(retained, (R,))
             previous=length(observed)
             @test run_benchmark(declaration; directory).timings.execution.candidate.reused
             @test length(observed)==previous

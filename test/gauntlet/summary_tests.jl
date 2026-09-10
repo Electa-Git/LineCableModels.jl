@@ -5,7 +5,7 @@
     using .GauntletSupport: Gauntlet
     include(joinpath(pkgdir(LineCableModels), "docs", "gauntlet_report.jl"))
     using .GauntletSupport.Gauntlet
-    @test occursin("No recorded benchmarks selected", render_gauntlet_report(nothing))
+    @test occursin("No published benchmark artifacts", render_gauntlet_report(nothing))
     mktempdir() do root
         frequency = [1.0, 100.0]
         z = reshape(ComplexF64[1, 100], 1, 1, :)
@@ -63,44 +63,20 @@
         @test !haskey(records[1],"numerical_reference_approval")
         before = [(directory, copy(names)) for (directory, _, names) in walkdir(root)]
         summary = render_gauntlet_report(output)
-        @test occursin("3 explicitly configured benchmarks", summary)
-        @test occursin("Z NRMSE", summary) && occursin("Y NRMSE", summary)
-        @test occursin("Z pointwise", summary) && occursin("Y pointwise", summary)
-        @test occursin("(1, 1)", summary) && occursin("1=core", summary)
-        @test occursin("Case_with_underscores &lt;example&gt;", summary)
-        @test occursin("batch_elapsed_at_completion", summary)
-        @test occursin("No stored samples", summary)
-        @test length(findall("No stored samples", summary)) == 1
-        full_band, slices = split(summary, "### Frequency slices — value")
-        @test occursin("Full-band comparisons", full_band)
-        @test !occursin("Band `dc`", full_band)
-        @test occursin("Band `dc`", slices) && occursin("Band `wide`", slices)
-        @test !occursin("<th>quantity</th>", summary)
-        @test !occursin("<th>band</th>", summary)
-        @test occursin("G NRMSE", summary) && occursin("G pointwise", summary)
-        @test any(row -> row.quantity === :G, errors) # Every requested quantity is visible.
-        selections = Dict(record["calculations"].reference.selection=>index
-            for (index, record) in enumerate(records))
-        for record in records, operand in record["calculations"]
-            get!(selections, operand.selection, length(selections) + 1)
-        end
-        table = gauntlet_table(records, "all", selections)
-        @test nrow(table) == length(records)
-        @test names(table) == ["reference", "candidate", "reference_point", "candidate_point", "Z NRMSE", "Z pointwise", "Y NRMSE", "Y pointwise", "G NRMSE", "G pointwise"]
-        @test startswith(table.reference[1], "fem [")
-        @test startswith(table.candidate[1], "coaxial [")
-        @test startswith(table.reference[2], "coaxial [")
-        @test startswith(table.candidate[2], "fem [")
-        @test startswith(table.reference[3], "coaxial [") && startswith(table.candidate[3], "coaxial [")
-        @test table[1, "Z NRMSE"] == string(round(100sqrt(1/10001); sigdigits=4), " (1, 1)")
-        @test table[1, "Z pointwise"] == string(round(100sqrt(1/2); sigdigits=4), " (1, 1)")
-        @test gauntlet_table(records, "wide", selections)[1, "Y NRMSE"] == "missing (no samples)"
-        incomplete = deepcopy(first(records))
-        filter!(row -> row.quantity === :Z && row.details.normalization === :reference_rms,
-            incomplete["reference_comparison"])
-        partial = gauntlet_table([incomplete], "all", selections)
-        @test !("Z pointwise" in names(partial))
-        @test !("Y NRMSE" in names(partial))
+        @test occursin("3 complete benchmarks",summary)
+        @test occursin("Entire range",summary) && occursin("Near DC",summary) && occursin("Wideband",summary)
+        @test !occursin("<svg",summary) && !occursin("data:image",summary)
+        @test !isdefined(@__MODULE__,:gauntlet_table)
+        tables=[report(LineCableModels.ReportBuilder.BenchmarkTableDefinition(),read_benchmark(path;load_results=true)).table for path in paths]
+        row=only(filter(row -> row.quantity===:Z && row.band===:all && row.normalization===:reference_rms,tables[1].maxima))
+        @test row.maximum_relative_rms_percent ≈ 100sqrt(1/10001)
+        reverse_row=only(filter(row -> row.quantity===:Z && row.band===:all && row.normalization===:reference_rms,tables[2].maxima))
+        @test reverse_row.maximum_relative_rms_percent ≈ 100sqrt(1/10004)
+        empty_rows=filter(row -> row.band===:wide,tables[1].maxima)
+        @test all(ismissing,empty_rows.maximum_relative_rms_percent)
+        @test all(iszero,empty_rows.samples)
+        @test all(row -> row.unavailable == row.term_count,eachrow(empty_rows))
+        @test all(table -> Set(table.terms.quantity)==Set((:Z,:Y,:G)),tables)
         for token in
             ("private_input_dump", "not for publication", "all slots :default", "remaining slots :default")
             @test !occursin(token, summary)
@@ -168,8 +144,8 @@ end
         @test all(only(matrix)≈100 for matrix in tables.comparisons.relative_rms_percent)
         summary=render_gauntlet_report(joinpath(root, "output"))
         @test occursin("mean", summary) && occursin("std", summary)
-        @test occursin("### UQ means", summary)
-        @test occursin("### UQ standard deviations", summary)
+        @test occursin("Entire range", summary)
+        @test !occursin("<svg",summary)
         @test !occursin("Full-band comparisons", summary)
         @test !occursin("pointwise", summary)
     end

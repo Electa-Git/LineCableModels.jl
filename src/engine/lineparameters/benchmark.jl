@@ -269,6 +269,11 @@ function compare(reference::AbstractCoreResult, candidate::AbstractCoreResult,
         band = :all, fundamental::Real = 50.0, harmonics::Integer = 50,
         atol = nothing, unsupported::NamedTuple = (;))
     validate(compare; normalization, band, fundamental, harmonics, atol, unsupported)
+    left_coordinates=get(details(reference), :coordinates, nothing)
+    right_coordinates=get(details(candidate), :coordinates, nothing)
+    if left_coordinates !== nothing && right_coordinates !== nothing
+        left_coordinates == right_coordinates || throw(ArgumentError("reference and candidate output terminal identities differ"))
+    end
     f = frequencies(reference)
     isempty(f) && throw(ArgumentError("reference frequencies cannot be empty"))
     f == frequencies(candidate) || throw(ArgumentError(
@@ -353,7 +358,14 @@ function compare(reference::AbstractCoreResult, candidate::AbstractCoreResult,
         requested_bounds = requested, actual_bounds = bounds,
         indices, sample_count = length(indices), fundamental, harmonics, atol = tolerance,
         status = classifications, reason, normalization_reason = normalization_reasons)
-    return RMSError{T}(absolute, relative; details=comparison_details)
+    # Empty bands and supported bands have the same result type on a Gridspace.
+    # Preserve the frequency scalar type while admitting an absent bound/reason.
+    detail_types=map(keys(comparison_details)) do key
+        key === :actual_bounds ? NTuple{2,Union{Missing,eltype(f)}} :
+        key === :reason ? Union{Nothing,String} : typeof(getproperty(comparison_details,key))
+    end
+    stable_details=NamedTuple{keys(comparison_details),Tuple{detail_types...}}(values(comparison_details))
+    return RMSError{T}(absolute, relative; details=stable_details)
 end
 
 """

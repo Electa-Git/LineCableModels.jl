@@ -285,8 +285,10 @@ function _compute_pscad(problem::LineParametersProblem, formulation::PSCADFormul
     files=[(path = relpath(joinpath(directory, name), evidence_root),
                source = joinpath(directory, name), sha256 = bytes2hex(open(sha256, joinpath(directory, name))))
            for (directory, _, names) in walkdir(evidence_root) for name in sort(names)]
-    retained = (files, requested_frequencies = copy(problem.frequencies),
-        formulations = NamedTuple(formulation), native_setting = setting,
+    names=["cable:$(terminal.cable):$(terminal.terminal)" for terminal in problem.system.terminal_order]
+    coordinates=names[sortperm(problem.system.connection_order)]
+    retained = (files, coordinates, requested_frequencies = copy(problem.frequencies),
+        formulations = computation_details(formulation), native_setting = setting,
         base_frequency = formulation.options.base_frequency, loss_tangent_limit = 10.0, aerial_shunt_conductance = 1e-38,
         native_readback, native_frequencies = parameters.details.native_frequencies,
         dielectric_losses = prepared.dielectric_losses,
@@ -342,7 +344,7 @@ function compute(
             source = values[previous]
             @info "PSCAD reuses identical exported inputs" formulation=index source_formulation=previous
             retained = merge(deepcopy(source.details),
-                (formulations = NamedTuple(formulations[index]),
+                (formulations = computation_details(formulations[index]),
                     native_setting = settings[index],
                     execution = merge(source.details.execution,
                         (reused = true, elapsed_seconds = 0.0,

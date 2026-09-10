@@ -3,11 +3,11 @@
     using .GauntletSupport.Gauntlet
     ordinary=Formulation(insulation_admittance = :Ametani2004)
     record=formulation_record(ordinary)
-    @test record.schema_version == 2
-    @test record.insulation_admittance.identifier === :Ametani2004
-    @test record.insulation_admittance.binding !== nothing
-    @test record.earth_impedance.equivalent_earth === nothing
-    @test record.earth_admittance.equivalent_earth === nothing
+    @test record.backend === :coaxial
+    @test record.methods.insulation_admittance.identifier === :Ametani2004
+    @test record.methods.insulation_admittance.binding !== nothing
+    @test record.methods.earth_impedance.equivalent_earth === nothing
+    @test record.methods.earth_admittance.equivalent_earth === nothing
     @test basename(String(which(formulation_record, (typeof(ordinary),)).file)) ==
           "records.jl"
     make_route(scale)=(material,

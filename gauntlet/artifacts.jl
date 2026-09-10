@@ -9,6 +9,7 @@ using LineCableModels.Engine: LineParameters, LineParametersBenchmark, RMSError,
 using Pkg.Artifacts: Artifacts, archive_artifact, bind_artifact!, create_artifact
 using SHA: SHA, sha256
 using Dates: Dates, UTC, now
+import Downloads
 
 export ARTIFACT_ROOT, ARTIFACTS_TOML, SNAPSHOT_SCHEMA_VERSION,
        artifact_name, benchmark_stage, bind_published_artifact,
@@ -20,7 +21,7 @@ export ARTIFACT_ROOT, ARTIFACTS_TOML, SNAPSHOT_SCHEMA_VERSION,
 
 export BenchmarkCalculation, BenchmarkDefinition,
        benchmark_definition, compare_saved, read_benchmark,
-       read_calculation, benchmark_comparisons
+       read_calculation
 
 const GAUNTLET_ROOT = @__DIR__
 const ARTIFACT_ROOT = joinpath(GAUNTLET_ROOT, ".artifacts")
@@ -104,6 +105,7 @@ function gauntlet_instrumented()
 end
 
 function cleanup_work(; work_root::AbstractString = WORK_ROOT)
+    validate(Base.write,work_root;recursive=true)
     ispath(work_root) && rm(work_root; recursive = true, force = true)
     return work_root
 end
@@ -113,6 +115,7 @@ function prepare_staging(
         force::Bool = false
 )
     staging_root = joinpath(artifact_root, "staging")
+    validate(Base.write,staging_root;recursive=true)
     occupied = isdir(staging_root) && !isempty(readdir(staging_root))
     occupied && !force &&
         throw(ArgumentError(
@@ -153,14 +156,8 @@ function finalize_staging(; artifact_root::AbstractString = ARTIFACT_ROOT)
     end
 end
 
-function _package_collision(path::AbstractString)
-    return ArgumentError(
-        "Gauntlet release package already exists: $path\n" *
-        "Pass --force to the external packaging command to replace this local package.",
-    )
-end
-
 function _write_toml(path::AbstractString, document::AbstractDict)
+    validate(Base.write,path)
     mkpath(dirname(path))
     temporary=tempname(dirname(path))
     try
@@ -175,251 +172,348 @@ function _write_toml(path::AbstractString, document::AbstractDict)
 end
 
 """
-    package_collection(collection::Symbol, version::VersionNumber; reason, git_commit, kwargs...)
+    package_collection(collection, version; bundles, reason, output)
 
-Archive completed numerical records, their comparisons and retained evidence. Packaging does not run calculations, publish files, create Git
-tags or approve numerical references.
-
-# Arguments
-
-- `collection`: Lowercase collection identifier.
-- `version`: Release version, starting at `v"1.0.0"`.
-
-# Keywords
-
-- `reason`: Nonempty release description.
-- `git_commit`: Full Git object ID of the packaging checkout.
-- `artifact_root`: Local staging and release root.
-- `force`: Replace an existing local package; defaults to `false`.
-
-# Returns
-
-- Archive path, SHA-256, artifact tree hash and package metadata path.
-
-# Errors
-
-Invalid release identifiers, missing or corrupted snapshots, and existing
-packages without `force=true` raise `ArgumentError`.
+Package explicitly accepted bundles as a versioned Julia artifact. Inputs are
+verified before archival. Existing identical packages are verified and reused;
+a different release definition requires another version. No computation,
+illustration, upload or Git operation is performed.
 """
-function package_collection(
-        collection::Symbol,
-        version::VersionNumber;
-        reason::AbstractString,
-        git_commit::AbstractString,
-        artifact_root::AbstractString = ARTIFACT_ROOT,
-        force::Bool = false
-)
-    name = _collection_name(collection)
-    release_version = _release_version(version)
-    release_reason = strip(reason)
-    isempty(release_reason) && throw(ArgumentError("release reason cannot be empty"))
-    commit = lowercase(strip(git_commit))
-    occursin(r"^[0-9a-f]{40}([0-9a-f]{24})?$", commit) || throw(ArgumentError(
-        "git_commit must be a full hexadecimal Git object ID",
-    ))
-    stage = collection_stage(collection; artifact_root)
-    read_collection(stage; collection)
-    destination = collection_release(collection, release_version; artifact_root)
-    ispath(destination) && !force && throw(_package_collision(destination))
-    tag = release_tag(collection, release_version)
-    release_document = Dict(
-        "collection" => name,
-        "git_commit" => commit,
-        "reason" => release_reason,
-        "schema_version" => SNAPSHOT_SCHEMA_VERSION,
-        "tag" => tag,
-        "version" => string(release_version)
-    )
-    hash = create_artifact() do directory
-        # Retain whole modern bundles; old snapshots remain byte-for-byte intact.
-        for entry in
-            sort!(filter(isdir, readdir(joinpath(stage, "benchmarks"); join = true)))
-            target=joinpath(directory, "benchmarks", basename(entry))
-            mkpath(dirname(target))
-            cp(entry, target; follow_symlinks = true)
+function package_collection(collection::Symbol,version::VersionNumber;
+        bundles,reason::AbstractString,output::AbstractString)
+    name=_collection_name(collection)
+    release_version=_release_version(version)
+    isempty(strip(reason)) && throw(ArgumentError("release description cannot be empty"))
+    isempty(bundles) && throw(ArgumentError("package needs explicit accepted bundles"))
+    inputs=Dict{String,Any}[]
+    seen=Set{Tuple{String,String}}()
+    for path in bundles
+        root=abspath(path)
+        isfile(joinpath(root,"bundle.toml")) || throw(ArgumentError("packaging requires locked bundles; drafts cannot be packaged"))
+        records=read_campaign(root)
+        document=TOML.parsefile(joinpath(root,"bundle.toml"))
+        for record in records
+            key=(first(record.analyses)["case_id"],string(record.id))
+            key in seen && throw(ArgumentError("duplicate or conflicting benchmark in release: $key"))
+            push!(seen,key)
         end
-        read_collection(directory; collection)
-        _write_toml(joinpath(directory, "release.toml"), release_document)
+        push!(inputs,Dict("identity"=>document["identity"],"path"=>root))
+    end
+    allunique(entry["identity"] for entry in inputs) || throw(ArgumentError("duplicate accepted bundle"))
+    identities=sort!([entry["identity"] for entry in inputs])
+    release=Dict("schema"=>3,"collection"=>name,"version"=>string(release_version),
+        "description"=>String(reason),"bundles"=>identities,"tag"=>release_tag(collection,release_version))
+    signature=semantic_sha256(release)
+    destination=abspath(output)
+    validate(Base.write,destination)
+    if ispath(destination)
+        path=joinpath(destination,"package.toml")
+        isfile(path) || throw(ArgumentError("release destination already exists"))
+        existing=TOML.parsefile(path)
+        existing["signature"] == signature || throw(ArgumentError("release contents changed; choose a new version"))
+        archive=joinpath(destination,existing["artifact"]["archive"])
+        bytes2hex(open(sha256,archive)) == existing["artifact"]["archive_sha256"] || throw(ArgumentError("existing release archive changed"))
+        return (collection,version=release_version,path=destination,archive,
+            archive_sha256=existing["artifact"]["archive_sha256"],tree_hash=existing["artifact"]["tree_hash"],package_path=path)
+    end
+    hash=create_artifact() do directory
+        for entry in inputs
+            target=joinpath(directory,"bundles",entry["identity"])
+            mkpath(dirname(target))
+            cp(entry["path"],target)
+            read_campaign(target)
+        end
+        _write_toml(joinpath(directory,"release.toml"),release)
+        read_collection(directory;collection)
     end
     mkpath(dirname(destination))
-    staging = mktempdir(dirname(destination))
+    staging=mktempdir(dirname(destination))
     try
-        archive_name = collection_archive_name(collection, release_version)
-        archive_sha256 = archive_artifact(hash, joinpath(staging, archive_name))
-        package_document = Dict(
-            "artifact" => Dict(
-                "archive" => archive_name,
-                "archive_sha256" => archive_sha256,
-                "name" => artifact_name(collection),
-                "tree_hash" => string(hash)
-            ),
-            "release" => release_document
-        )
-        _write_toml(joinpath(staging, "package.toml"), package_document)
-        # Only an explicitly forced local package may be replaced. A failed
-        # archive operation never leaves a release that appears complete.
-        force && ispath(destination) && rm(destination; recursive = true)
-        mv(staging, destination; force = false)
-        return (
-            collection,
-            version = release_version,
-            tag,
-            reason = release_reason,
-            git_commit = commit,
-            path = destination,
-            archive = joinpath(destination, archive_name),
-            archive_sha256,
-            tree_hash = string(hash),
-            artifact = artifact_name(collection),
-            package_path = joinpath(destination, "package.toml")
-        )
+        archive_name=collection_archive_name(collection,release_version)
+        archive_sha256=archive_artifact(hash,joinpath(staging,archive_name))
+        # Read the actual archived files rather than relying only on the source tree.
+        mktempdir() do extracted
+            unpack(joinpath(staging,archive_name),extracted)
+            read_collection(extracted;collection)
+        end
+        artifact=Dict("archive"=>archive_name,"archive_sha256"=>archive_sha256,
+            "tree_hash"=>string(hash),"name"=>artifact_name(collection)*"_v"*replace(string(release_version),'.'=>'_'))
+        _write_toml(joinpath(staging,"package.toml"),Dict("signature"=>signature,"release"=>release,"artifact"=>artifact))
+        mv(staging,destination)
+        return (collection,version=release_version,path=destination,
+            archive=joinpath(destination,archive_name),archive_sha256,tree_hash=string(hash),
+            package_path=joinpath(destination,"package.toml"))
     finally
-        isdir(staging) && rm(staging; recursive = true)
+        isdir(staging) && rm(staging;recursive=true)
     end
 end
 
-function bind_published_artifact(
-        collection::Symbol,
-        version::VersionNumber,
-        url::AbstractString;
-        artifact_root::AbstractString = ARTIFACT_ROOT,
-        artifacts_toml::AbstractString = ARTIFACTS_TOML
-)
-    download_url = strip(url)
-    isempty(download_url) && throw(ArgumentError("artifact download URL cannot be empty"))
-    destination = collection_release(collection, version; artifact_root)
-    package_path = joinpath(destination, "package.toml")
-    isfile(package_path) || throw(ArgumentError(
-        "Gauntlet package metadata is missing: $package_path",
-    ))
-    package = TOML.parsefile(package_path)
-    release = package["release"]
-    artifact = package["artifact"]
-    release["collection"] == _collection_name(collection) || throw(ArgumentError(
-        "Gauntlet package collection does not match $collection",
-    ))
-    release["version"] == string(_release_version(version)) || throw(ArgumentError(
-        "Gauntlet package version does not match $version",
-    ))
-    archive = joinpath(destination, artifact["archive"])
-    isfile(archive) || throw(ArgumentError("Gauntlet archive is missing: $archive"))
-    archive_sha256 = bytes2hex(sha256(read(archive)))
-    archive_sha256 == artifact["archive_sha256"] || throw(ArgumentError(
-        "Gauntlet archive digest does not match $package_path",
-    ))
-    name = artifact_name(collection)
-    artifact["name"] == name || throw(ArgumentError(
-        "Gauntlet package artifact name does not match $name",
-    ))
-    mkpath(dirname(artifacts_toml))
-    bind_artifact!(
-        artifacts_toml,
-        name,
-        Base.SHA1(artifact["tree_hash"]);
-        download_info = [(String(download_url), archive_sha256)],
-        lazy = true,
-        force = true
-    )
-    return (
-        collection,
-        version = _release_version(version),
-        tag = release["tag"],
-        artifact = name,
-        tree_hash = artifact["tree_hash"],
-        archive_sha256,
-        url = String(download_url)
-    )
+"""Read an explicit TOML release definition and package only its selected accepted bundles."""
+function package_collection(definition::AbstractString;output::AbstractString)
+    source=abspath(definition)
+    document=TOML.parsefile(source)
+    Set(keys(document)) == Set(("collection","version","description","bundles")) ||
+        throw(ArgumentError("release definition requires collection, version, description and bundles"))
+    bundles=[normpath(joinpath(dirname(source),path)) for path in document["bundles"]]
+    return package_collection(Symbol(document["collection"]),VersionNumber(document["version"]);
+        bundles,reason=document["description"],output)
 end
 
 """
-    lock_campaign(directory, destination)
+    bind_published_artifact(package, url; artifacts_toml=ARTIFACTS_TOML, current=false)
 
-Copy a completed campaign, its numerical operands, analyses, runtime source bytes
-and backend-declared raw files into an immutable checksummed bundle. All internal
-file bindings remain relative to the bundle. Publication is a separate action.
+Verify an uploaded archive and bind its immutable version-specific download.
+The served archive checksum and unpacked artifact tree must match the package.
+Updating the convenience current-version binding is explicit. This does not upload.
 """
-function lock_campaign(directory::AbstractString, destination::AbstractString)
-    source=abspath(directory);
-    target=abspath(destination)
-    ispath(target) && throw(ArgumentError("bundle destination already exists: $target"))
-    (target == source || startswith(target, source*Base.Filesystem.path_separator)) &&
-        throw(ArgumentError("bundle destination must be outside its campaign"))
-    lease=open(joinpath(source, "execution.lock"), "a+")
-    acquired=Sys.iswindows() ?
-             ccall(:_locking, Cint, (Cint, Cint, Clong), fd(lease), 2, 1) == 0 :
-             ccall(:flock, Cint, (Cint, Cint), fd(lease), 6) == 0
-    acquired ||
-        (close(lease); throw(ArgumentError("another process owns campaign $source")))
-    staging=nothing
+function bind_published_artifact(package::AbstractString,url::AbstractString;
+        artifacts_toml::AbstractString=ARTIFACTS_TOML,current::Bool=false)
+    validate(Base.write,artifacts_toml)
+    path=isdir(package) ? joinpath(package,"package.toml") : abspath(package)
+    document=TOML.parsefile(path)
+    artifact=document["artifact"]
+    release=document["release"]
+    semantic_sha256(release)==document["signature"] || throw(ArgumentError("release definition changed"))
+    expected_name=artifact_name(Symbol(release["collection"]))*"_v"*replace(release["version"],'.'=>'_')
+    artifact["name"]==expected_name || throw(ArgumentError("artifact name differs from the release definition"))
+    archive=joinpath(dirname(path),artifact["archive"])
+    bytes2hex(open(sha256,archive)) == artifact["archive_sha256"] || throw(ArgumentError("local archive changed"))
+    isempty(strip(url)) && throw(ArgumentError("published URL cannot be empty"))
+    name=artifact["name"]
+    mkpath(dirname(abspath(artifacts_toml)))
+    lease=open(artifacts_toml*".lock","a+")
+    acquired=Sys.iswindows() ? ccall(:_locking,Cint,(Cint,Cint,Clong),fd(lease),2,1)==0 :
+        ccall(:flock,Cint,(Cint,Cint),fd(lease),6)==0
+    acquired || (close(lease);throw(ArgumentError("another process is updating artifact bindings")))
     try
-        states=campaign_status(source)
-        !isempty(states) && all(row -> row.state === :complete, states) ||
-            throw(ArgumentError("only completed campaigns can be locked"))
-        read_campaign(source)
-        mkpath(dirname(target))
-        staging=mktempdir(dirname(target))
-        files=Dict{String, String}()
-        for (directory, children, names) in walkdir(source)
-            any(child -> islink(joinpath(directory, child)), children) &&
-                throw(ArgumentError("bundle directories must not be symlinks"))
-            for name in sort(names)
-                name in ("execution.lock", "bundle.toml") && continue
-                path=joinpath(directory, name)
-                islink(path) &&
-                    throw(ArgumentError("bundle evidence must be files, not symlinks: $path"))
-                relative=relpath(path, source)
-                output=joinpath(staging, relative)
-                mkpath(dirname(output));
-                cp(path, output)
-                digest=bytes2hex(open(sha256, path))
-                bytes2hex(open(sha256, output)) == digest ||
-                    throw(ArgumentError("campaign changed during locking"))
-                files[relative]=digest
+        prior=isfile(artifacts_toml) ? TOML.parsefile(artifacts_toml) : Dict()
+        if haskey(prior,name)
+            prior[name]["git-tree-sha1"] == artifact["tree_hash"] &&
+                all(item -> item["sha256"] == artifact["archive_sha256"],get(prior[name],"download",[])) ||
+                throw(ArgumentError("published collection/version cannot be rebound to different contents"))
+        end
+        mktempdir() do directory
+            downloaded=joinpath(directory,"download.tar.gz")
+            Downloads.download(String(url),downloaded)
+            bytes2hex(open(sha256,downloaded)) == artifact["archive_sha256"] || throw(ArgumentError("published archive checksum mismatch"))
+            hash=create_artifact() do extracted
+                unpack(downloaded,extracted)
+                TOML.parsefile(joinpath(extracted,"release.toml"))==release ||
+                    throw(ArgumentError("served release definition differs from the package"))
+                read_collection(extracted;collection=Symbol(release["collection"]))
+            end
+            string(hash) == artifact["tree_hash"] || throw(ArgumentError("published artifact tree mismatch"))
+            mkpath(dirname(abspath(artifacts_toml)))
+            temporary=tempname(dirname(abspath(artifacts_toml)))
+            try
+                isfile(artifacts_toml) && cp(artifacts_toml,temporary)
+                bind_artifact!(temporary,name,hash;download_info=[(String(url),artifact["archive_sha256"])],lazy=true,force=true)
+                if current
+                    bind_artifact!(temporary,artifact_name(Symbol(release["collection"])),hash;
+                        download_info=[(String(url),artifact["archive_sha256"])],lazy=true,force=true)
+                end
+                mv(temporary,artifacts_toml;force=true)
+            finally
+                isfile(temporary) && rm(temporary)
             end
         end
-        identity=semantic_sha256(files)
-        _write_toml(joinpath(staging, "bundle.toml"),
-            Dict("schema"=>1, "identity"=>identity, "files"=>files))
-        read_campaign(staging)
-        mv(staging, target)
-        return (; path = target, identity)
     finally
-        staging === nothing || (isdir(staging) && rm(staging; recursive = true))
         close(lease)
     end
+    return (artifact=name,version=release["version"],tree_hash=artifact["tree_hash"],
+        archive_sha256=artifact["archive_sha256"],url=String(url))
 end
 
 """
-    read_campaign(directory)
+    lock_campaign(directory, destination; benchmarks=nothing, expected=nothing, note="", illustrations=())
 
-Read completed numerical operands and their comparisons without loading a
-declaration constructor or starting a solver. Verify a locked bundle's full
-inventory before reading individual checksummed calculation payloads.
+Accept selected complete benchmarks into a new checksummed bundle. Omitting
+`benchmarks` requires every declared campaign member. `expected` can name the
+inspected snapshot identity for a single benchmark. No calculation or plot runs.
 """
+function lock_campaign(directory::AbstractString,destination::AbstractString;
+        benchmarks=nothing,expected=nothing,note::AbstractString="",illustrations=())
+    source=abspath(directory)
+    isfile(joinpath(source,"bundle.toml")) && throw(ArgumentError("source is already a locked bundle; package that bundle directly"))
+    target=abspath(destination)
+    validate(Base.write,target)
+    ispath(target) && throw(ArgumentError("bundle destination already exists: $target"))
+    (target == source || startswith(target,source*Base.Filesystem.path_separator)) &&
+        throw(ArgumentError("bundle destination must be outside its campaign"))
+    manifest=TOML.parsefile(joinpath(source,"campaign.toml"))
+    declared=String.(manifest["benchmarks"])
+    selected=benchmarks === nothing ? declared : benchmarks isa Union{Symbol,AbstractString} ? [string(benchmarks)] : string.(benchmarks)
+    !isempty(selected) && allunique(selected) && all(id -> id in declared,selected) ||
+        throw(ArgumentError("select distinct declared benchmark IDs"))
+    expected === nothing || length(selected)==1 || throw(ArgumentError("expected snapshot identity requires one selected benchmark"))
+    leases=IO[]
+    staging=nothing
+    try
+        for id in sort(selected)
+            isfile(joinpath(source,id,"state.toml")) || throw(ArgumentError("benchmark $id has no completed attempt"))
+            path=manifest["schema"] == 3 ? joinpath(source,id,"execution.lock") : joinpath(source,"execution.lock")
+            manifest["schema"] == 3 || isempty(leases) || continue
+            lease=open(path,"a+")
+            acquired=Sys.iswindows() ? ccall(:_locking,Cint,(Cint,Cint,Clong),fd(lease),2,1)==0 :
+                ccall(:flock,Cint,(Cint,Cint),fd(lease),6)==0
+            acquired || (close(lease);throw(ArgumentError("another process owns benchmark $id")))
+            push!(leases,lease)
+        end
+        roots=Dict{String,String}()
+        identities=Dict{String,String}()
+        inventories=Dict{String,Vector{String}}()
+        for id in selected
+            state_path=joinpath(source,id,"state.toml")
+            isfile(state_path) || throw(ArgumentError("benchmark $id has no completed attempt"))
+            state=TOML.parsefile(state_path)
+            state["state"] == "complete" || throw(ArgumentError("only completed benchmarks can be locked: $id"))
+            root=manifest["schema"] == 3 ? joinpath(source,id,state["current"]) : joinpath(source,id)
+            loaded=read_benchmark(root)
+            files=String[]
+            declaration=joinpath(root,"declarations.jld2")
+            if isfile(declaration)
+                bytes2hex(open(sha256,declaration)) == strip(read(declaration*".sha256",String)) ||
+                    throw(ArgumentError("campaign declaration integrity check failed"))
+                append!(files,[declaration,declaration*".sha256"])
+            end
+            for role in ("reference","candidate")
+                operand=joinpath(root,role,"calculation.jld2")
+                append!(files,[operand,operand*".sha256"])
+                marker=joinpath(dirname(operand),"complete.toml")
+                isfile(marker) && push!(files,marker)
+                evidence=jldopen(operand,"r") do file
+                    haskey(file,"retained_files") ? file["retained_files"] : ()
+                end
+                append!(files,[joinpath(dirname(operand),entry.path) for entry in evidence])
+            end
+            for (folder,_,names) in walkdir(joinpath(root,"analyses"))
+                "snapshot.jld2" in names || continue
+                snapshot=joinpath(folder,"snapshot.jld2")
+                read_benchmark(snapshot)
+                append!(files,[snapshot,snapshot*".sha256"])
+            end
+            identity=semantic_sha256(read_benchmark,root)
+            expected === nothing || identity == expected || throw(ArgumentError("draft differs from the inspected snapshot identity"))
+            roots[id]=root
+            identities[id]=identity
+            inventories[id]=sort!(unique(files))
+        end
+        mkpath(dirname(target))
+        staging=mktempdir(dirname(target))
+        files=Dict{String,String}()
+        for id in selected
+            for path in inventories[id]
+                relative=relpath(path,roots[id])
+                first(splitpath(relative)) == ".." && throw(ArgumentError("bundle dependency escapes benchmark"))
+                islink(path) && throw(ArgumentError("bundle evidence must be regular files"))
+                target_path=joinpath(staging,id,relative)
+                mkpath(dirname(target_path))
+                cp(path,target_path)
+                digest=bytes2hex(open(sha256,path))
+                bytes2hex(open(sha256,target_path)) == digest || throw(ArgumentError("benchmark changed during locking"))
+                files[relpath(target_path,staging)]=digest
+            end
+            state_path=joinpath(staging,id,"state.toml")
+            _write_toml(state_path,Dict("state"=>"complete","identity"=>identities[id]))
+            files[relpath(state_path,staging)]=bytes2hex(open(sha256,state_path))
+        end
+        if manifest["schema"] == 2
+            for name in ("declarations.jld2","declarations.jld2.sha256")
+                path=joinpath(source,name)
+                isfile(path) || continue
+                cp(path,joinpath(staging,name))
+                files[name]=bytes2hex(open(sha256,path))
+            end
+        end
+        figures=Dict{String,Any}[]
+        for (index,entry) in enumerate(illustrations)
+            string(entry.benchmark) in selected || throw(ArgumentError("illustration names an unselected benchmark"))
+            haskey(entry,:selection) && entry.selection isa Union{NamedTuple,AbstractDict} && !isempty(entry.selection) ||
+                throw(ArgumentError("illustration requires its explicit problem, quantities and display selections"))
+            selection=Dict(string(key)=>value for (key,value) in pairs(entry.selection))
+            all(key -> haskey(selection,key),("problem","quantities")) ||
+                throw(ArgumentError("illustration selection requires problem and quantities"))
+            isfile(entry.path) || throw(ArgumentError("illustration is missing: $(entry.path)"))
+            relative=joinpath("illustrations",string(index)*splitext(entry.path)[2])
+            mkpath(dirname(joinpath(staging,relative)))
+            cp(entry.path,joinpath(staging,relative))
+            files[relative]=bytes2hex(open(sha256,joinpath(staging,relative)))
+            push!(figures,Dict("path"=>relative,"benchmark"=>string(entry.benchmark),"caption"=>entry.caption,"selection"=>selection))
+        end
+        campaign=joinpath(staging,"campaign.toml")
+        _write_toml(campaign,Dict("schema"=>2,"benchmarks"=>selected))
+        files["campaign.toml"]=bytes2hex(open(sha256,campaign))
+        bundle=Dict("schema"=>2,"files"=>files,"snapshots"=>identities,
+            "accepted"=>string(now(UTC)),"note"=>String(note),"illustrations"=>figures)
+        identity=semantic_sha256(bundle)
+        bundle["identity"]=identity
+        _write_toml(joinpath(staging,"bundle.toml"),bundle)
+        read_campaign(staging)
+        mv(staging,target)
+        return (;path=target,identity)
+    finally
+        staging === nothing || (isdir(staging) && rm(staging;recursive=true))
+        foreach(close,leases)
+    end
+end
+
+"""Read and verify complete campaign results without loading declarations or solvers."""
 function read_campaign(directory::AbstractString)
     root=abspath(directory)
-    bundle=joinpath(root, "bundle.toml")
+    bundle=joinpath(root,"bundle.toml")
     if isfile(bundle)
         document=TOML.parsefile(bundle)
-        document["schema"] == 1 || throw(ArgumentError("unsupported bundle schema"))
-        semantic_sha256(document["files"]) == document["identity"] ||
+        document["schema"] in (1,2) || throw(ArgumentError("unsupported bundle schema"))
+        recorded_identity=document["identity"]
+        inventory=copy(document)
+        delete!(inventory,"identity")
+        semantic_sha256(document["schema"] == 1 ? document["files"] : inventory) == recorded_identity ||
             throw(ArgumentError("bundle inventory changed"))
-        for (relative, digest) in document["files"]
-            isabspath(relative) || first(splitpath(normpath(relative))) == ".." ?
-            throw(ArgumentError("invalid bundle path: $relative")) : nothing
-            path=joinpath(root, relative)
-            isfile(path) && !islink(path) && bytes2hex(open(sha256, path)) == digest ||
-                throw(ArgumentError("bundle file is missing or changed: $relative"))
+        actual=String[]
+        for (folder,children,names) in walkdir(root)
+            any(child -> islink(joinpath(folder,child)),children) && throw(ArgumentError("bundle directories must not be symlinks"))
+            for name in names
+                relative=relpath(joinpath(folder,name),root)
+                relative == "bundle.toml" || push!(actual,relative)
+            end
+        end
+        Set(actual) == Set(keys(document["files"])) || throw(ArgumentError("bundle inventory contains missing or unexpected files"))
+        for (relative,digest) in document["files"]
+            (isabspath(relative) || first(splitpath(normpath(relative))) == "..") && throw(ArgumentError("invalid bundle path"))
+            path=joinpath(root,relative)
+            isfile(path) && !islink(path) && bytes2hex(open(sha256,path)) == digest || throw(ArgumentError("bundle file is missing or changed: $relative"))
         end
     end
-    manifest=TOML.parsefile(joinpath(root, "campaign.toml"))
-    manifest["schema"] == 2 || throw(ArgumentError("unsupported campaign schema"))
+    manifest=TOML.parsefile(joinpath(root,"campaign.toml"))
+    manifest["schema"] in (2,3) || throw(ArgumentError("unsupported campaign schema"))
     return map(manifest["benchmarks"]) do id
-        path=joinpath(root, id)
-        state=TOML.parsefile(joinpath(path, "state.toml"))
+        path=joinpath(root,id)
+        state=TOML.parsefile(joinpath(path,"state.toml"))
         state["state"] == "complete" || throw(ArgumentError("benchmark is incomplete: $id"))
         read_benchmark(path)
     end
 end
 
-export lock_campaign, read_campaign
+export lock_campaign,read_campaign
+
+"""Reject writes into accepted bundles; recursive deletion also checks contained bundles."""
+function validate(::typeof(Base.write),path::AbstractString;recursive::Bool=false)
+    if recursive && isdir(path)
+        for (directory,_,files) in walkdir(path)
+            "bundle.toml" in files && throw(ArgumentError(
+                "locked bundles are immutable; recursive deletion would remove an accepted bundle"))
+        end
+    end
+    directory=abspath(path)
+    while true
+        if isdir(directory)
+            directory=realpath(directory)
+            isfile(joinpath(directory,"bundle.toml")) && throw(ArgumentError(
+                "locked bundles are immutable; write a new draft outside the vault"))
+        end
+        parent=dirname(directory)
+        parent == directory && break
+        directory=parent
+    end
+    return nothing
+end

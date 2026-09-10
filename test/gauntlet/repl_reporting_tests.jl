@@ -34,7 +34,7 @@
         loaded = read_benchmark(snapshot; load_results=true)
         files_before = [(dir, copy(names)) for (dir, _, names) in walkdir(root)]
         tables = report(BenchmarkTableDefinition(false), loaded).table
-        @test propertynames(tables) == (:calculations, :comparisons, :terms)
+        @test propertynames(tables) == (:calculations, :formulations, :comparisons, :terms, :maxima, :summary)
         @test nrow(tables.calculations) == 2
         @test tables.calculations.formulation[1].equation === :reference
         @test tables.calculations.formulation[2].equation === :candidate
@@ -65,7 +65,15 @@
         @test tables.comparisons.absolute_rms[1] !== only(loaded.analyses)["reference_comparison"][1].absolute
         @test [(dir, copy(names)) for (dir, _, names) in walkdir(root)] == files_before
         @test all(read(path) == bytes for (path, bytes) in original)
-        @test_throws r"explicitly saved" LineCableModels.plot(loaded, (R,); pair=(2, 1))
+        default_source=joinpath(root,"default_request.toml")
+        default_request=TOML.parsefile(source)
+        delete!(default_request,"comparison")
+        open(io -> TOML.print(io,default_request),default_source,"w")
+        default_snapshot=only(compare_saved(default_source;directory=joinpath(root,"default_analysis")))
+        selected=read_benchmark(default_snapshot)
+        @test selected["comparison_settings"] == BenchmarkTableDefinition().settings
+        @test length(selected["reference_comparison"]) == 30
+        @test_throws r"Plotting is optional" LineCableModels.plot(loaded, (R,))
         modified = deepcopy(loaded)
         modified.reference.result.Z.values[1, 2, 1] += 1
         @test_throws r"modified after loading" report(BenchmarkTableDefinition(false), modified)

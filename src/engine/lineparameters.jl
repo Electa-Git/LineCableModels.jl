@@ -295,14 +295,23 @@ function _compute(
         bound.selection isa NamedTuple ? HomogeneousEquivalents(map(record, bound.selection)) :
         record(bound.selection)
     end)
-    Provenance = NamedTuple{
+    SelectionRecord = NamedTuple{
         (:requested, :effective, :modified, :numerical, :equivalent_earth),
         Tuple{Identifiers, Identifiers, Modifications, FormulaNumerical, Equivalents}}
-    provenance::Provenance = Provenance((
+    selection_record::SelectionRecord = SelectionRecord((
         Identifiers(requested_ids), Identifiers(effective_ids),
         modifications, numerical, equivalents))
+    names=["cable:$(terminal.cable):$(terminal.terminal)" for terminal in problem.system.terminal_order]
+    permutation=workspace.invariants.permutation
+    indices=workspace.invariants.kron_map === nothing ? permutation : permutation[workspace.invariants.keep_indices]
+    coordinates=map(indices) do index
+        phase=problem.system.connection_order[index]
+        members=findall(==(phase),problem.system.connection_order)
+        formulation.options.reduce_bundle && phase > 0 && length(members) > 1 ?
+            "bundle:[" * join(names[members],",") * "]" : names[index]
+    end
     return LineParameters(result.domain, result.Z, result.Y, result.f,
-        merge(details(result), (; formulations = provenance)))
+        merge(details(result), (; formulations=selection_record, coordinates)))
 end
 
 """

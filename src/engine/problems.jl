@@ -342,3 +342,20 @@ function Formulation(;
         combine
     )
 end
+
+"""
+$(TYPEDSIGNATURES)
+
+Expose complete requested and resolved formula selections and reduction options.
+Formula hooks retain their concrete callables; serialization belongs to the writer.
+"""
+function Base.NamedTuple(value::LineParametersFormulation)
+    record = function (selected)
+        selected === nothing && return nothing
+        selected isa Symbol && return NamedTuple(formula(selected))
+        selected isa NamedTuple && return map(record,selected)
+        return NamedTuple(selected)
+    end
+    return (backend=:coaxial, requested=map(record,value.definitions),
+        methods=map(record,value.methods),options=value.options)
+end

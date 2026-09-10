@@ -97,3 +97,6 @@ gauntlet/.work/
 gauntlet/.artifacts/*
 !gauntlet/.artifacts/.gitkeep
 .linecablemodels/
+
+# Persistent advisory lock for atomic artifact-binding updates.
+/gauntlet/Artifacts.toml.lock

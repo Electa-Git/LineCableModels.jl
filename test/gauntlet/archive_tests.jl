@@ -1,6 +1,6 @@
 @testitem "Gauntlet / execution sources remain intact and complete collections archive" tags=[:gauntlet_toolkit] setup=[GauntletSupport] begin
     using .GauntletSupport.Gauntlet
-    using LineCableModels, JLD2, SHA
+    using LineCableModels, JLD2, SHA, TOML
 model=load_case(:two_insulated_wires;variation=ExactOverrides(frequencies=[1.,37.]))
 options=(reduce_bundle=false,kron_reduction=false,ideal_transposition=false)
 reference=BenchmarkCalculation(:first,model.problem,Formulation(;options))
@@ -15,8 +15,10 @@ mktempdir() do parent
         execution_sources=[(path=source,module_name=:Main)]))
     @test outcome.state===:complete
     @test read(source)==original_source
-    @test isfile(joinpath(campaign,"portable","reference","calculation.jld2"))
-    @test isfile(joinpath(campaign,"portable","candidate","calculation.jld2"))
+    state=TOML.parsefile(joinpath(campaign,"portable","state.toml"))
+    attempt=joinpath(campaign,"portable",state["current"])
+    @test isfile(joinpath(attempt,"reference","calculation.jld2"))
+    @test isfile(joinpath(attempt,"candidate","calculation.jld2"))
     @test only(resume_campaign(campaign)).result.timings.execution.reference.reused
     @test read(source)==original_source
     bundle=lock_campaign(campaign,joinpath(parent,"bundle"))
@@ -29,10 +31,8 @@ mktempdir() do parent
     rejection=try resume_campaign(campaign);nothing catch error;error end
     @test rejection isa ArgumentError
     @test occursin("execution source changed",sprint(showerror,rejection))
-    directory=benchmark_stage(:fixture,:portable;artifact_root=joinpath(parent,"artifacts"))
-    run_benchmark(definition;directory)
     package=package_collection(:fixture,v"1.0.0";reason="Offline transport verification",
-        git_commit=readchomp(`git rev-parse HEAD`),artifact_root=joinpath(parent,"artifacts"))
+        bundles=[moved],output=joinpath(parent,"release"))
     @test bytes2hex(open(sha256,package.archive))==package.archive_sha256
     @test isfile(package.archive)
 end

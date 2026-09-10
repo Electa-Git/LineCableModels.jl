@@ -126,3 +126,83 @@ end
 function formula_id end
 
 formula_id(::FormulaDefinition{ID}) where {ID} = ID
+
+"""Expose a requested formula identifier and its explicit parameters and overrides."""
+function Base.NamedTuple(value::FormulaDefinition{ID,Order}) where {ID,Order}
+    return (identifier=ID, order=Order, parameters=value.parameters, hooks=value.hooks,
+        options=value.options, equivalent_earth=value.equivalent_earth === nothing ? nothing : NamedTuple(value.equivalent_earth))
+end
+
+"""
+$(TYPEDSIGNATURES)
+
+Describe complete formulation records with stable indices. Common fields are
+omitted from curve labels and retained in the supplied records. Every differing
+nested field, including air/earth/mixed choices and numerical controls, remains
+identifiable. This operation never selects an equation or merges equal curves.
+"""
+function description(records::AbstractVector; indices=collect(eachindex(records)), prefix="F")
+    length(indices) == length(records) || throw(DimensionMismatch("one index is required per formulation"))
+    flatten = function (record)
+        fields=Pair{String,String}[]
+        function visit(value,path)
+            if value isa NamedTuple
+                for (key,item) in pairs(value)
+                    visit(item,isempty(path) ? string(key) : path*"."*string(key))
+                end
+            elseif value isa AbstractDict
+                for key in sort!(collect(keys(value));by=string)
+                    visit(value[key],isempty(path) ? string(key) : path*"."*string(key))
+                end
+            elseif value isa Union{Nothing,Missing,Number,AbstractString,Symbol,Bool}
+                push!(fields,path=>sprint(show,value;context=:compact=>true))
+            elseif value isa Type
+                visit(sprint(show,value;context=(:module=>nothing,:compact=>false)),path)
+            elseif value isa Union{Tuple,AbstractArray}
+                for (index,item) in enumerate(value)
+                    visit(item,path*"[$index]")
+                end
+            else
+                visit(sprint(show,typeof(value);context=(:module=>nothing,:compact=>false)),path*".type")
+                for key in fieldnames(typeof(value))
+                    visit(getfield(value,key),path*".fields."*string(key))
+                end
+            end
+        end
+        if record isa NamedTuple && haskey(record,:requested)
+            visible=NamedTuple{Tuple(key for key in keys(record) if key in (:backend,:requested,:options,:execution))}(
+                Tuple(value for (key,value) in pairs(record) if key in (:backend,:requested,:options,:execution)))
+            visit(visible,"")
+        else
+            visit(record,"")
+        end
+        return Dict(fields)
+    end
+    fields=map(flatten,records)
+    paths=sort!(unique([key for record in fields for key in keys(record)]))
+    differences=filter(paths) do path
+        if length(records)==1
+            value=get(first(fields),path,nothing)
+            return path == "backend" ||
+                ((startswith(path,"requested.") || endswith(path,".identifier")) && value ∉ (":default","nothing"))
+        end
+        !all(record -> get(record,path,nothing) == get(first(fields),path,nothing),fields)
+    end
+    names=map(differences) do path
+        replace(path,r"^requested\."=>"",r"\.identifier$"=>"",
+            "internal_impedance"=>"internal Z","insulation_impedance"=>"insulation Z",
+            "insulation_admittance"=>"insulation Y","semicon_admittance"=>"semicon Y",
+            "earth_impedance"=>"earth Z","earth_admittance"=>"earth Y",
+            "pipe_impedance"=>"pipe Z","earth_properties"=>"soil law",
+            "temperature_dependence"=>"temperature law","equivalent_earth"=>"equivalent earth",
+            ".options."=>".",".integration.method"=>".integration")
+    end
+    return map(enumerate(fields)) do (index,record)
+        selected=map(zip(differences,names)) do (path,name)
+            value=get(record,path,"unspecified")
+            startswith(value,":") && (value=chop(value;head=1,tail=0))
+            "$name=$value"
+        end
+        "$prefix$(indices[index])" * (isempty(selected) ? "" : " · " * join(selected,"; "))
+    end
+end

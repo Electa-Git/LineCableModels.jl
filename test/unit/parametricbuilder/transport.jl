@@ -123,7 +123,11 @@ end
         catch
             continue
         end
-        any(consumes_result_space, methods_for_binding) && push!(consumers, name)
+        # Keyword implementations of Engine.compare consume results to produce
+        # errors on the same axes; they do not transport results into problems.
+        result_methods=filter(consumes_result_space, collect(methods_for_binding))
+        filter!(method -> !(typeof(Engine.compare) in Base.unwrap_unionall(method.sig).parameters), result_methods)
+        !isempty(result_methods) && push!(consumers, name)
     end
     @test consumers == Set((:_transport_error,))
 

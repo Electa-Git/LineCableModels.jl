@@ -14,8 +14,10 @@ using LineCableModels: PSCAD, AbstractCoreResult, AbstractFormulation, AbstractG
 using LineCableModels.Engine: Engine
 import LineCableModels.Grammar
 import LineCableModels.ImportExport
+import LineCableModels.ReportBuilder: BenchmarkTableDefinition, ReportArtifact, select, report
 import LineCableModels.Units
 import Pkg
+import Pkg.PlatformEngines: unpack
 using BenchmarkTools: BenchmarkTools
 using LinearAlgebra: BLAS
 using Statistics: Statistics, median

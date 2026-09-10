@@ -345,7 +345,8 @@ function reduce_primitive_matrices(
             options
         )
     end
-    return (; Z, P, phase_map = retained_map)
+    return (; Z, P, phase_map = retained_map,
+        indices = kron_map === nothing ? permutation : permutation[findall(!=(0), kron_map)])
 end
 
 """

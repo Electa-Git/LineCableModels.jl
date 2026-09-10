@@ -290,7 +290,8 @@ function pscad_setting(formulation::PSCADFormulation, problem::LineParametersPro
             readback = Float64(formulation.options.base_frequency)),), interactions = interactions)
 end
 
-function Base.NamedTuple(formulation::PSCADFormulation)
+"""Record consumed PSCAD identifiers and fixed native assumptions with bounded field types."""
+function computation_details(formulation::PSCADFormulation)
     identifier = function (definition)
         definition === nothing && return nothing
         definition isa NamedTuple && return map(identifier, definition)
@@ -323,4 +324,16 @@ end
 
 function computation_details(::Type{<:PSCADFormulation}, result::LineParameters)::ComputationDetails
     return details(result)
+end
+
+"""Expose complete requested PSCAD formula choices and native configuration options."""
+function Base.NamedTuple(value::PSCADFormulation)
+    record = function (selected)
+        selected === nothing && return nothing
+        selected isa Symbol && return NamedTuple(formula(selected))
+        selected isa NamedTuple && return map(record,selected)
+        return NamedTuple(selected)
+    end
+    return (backend=:pscad,requested=map(record,value.definitions),
+        methods=map(record,value.methods),options=value.options)
 end

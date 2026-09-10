@@ -76,7 +76,7 @@ flush(stdout)
         @test results[index].Z.values !== hot.Z.values
         @test results[index].Y.values == hot.Y.values
         @test details(results[index]).formulations.requested.earth_impedance ==
-            NamedTuple(selections[index]).requested.earth_impedance
+            LineCableModels.computation_details(selections[index]).requested.earth_impedance
     end
 
     lossy_selection = Formulation(:pscad; insulation_admittance = :Ametani2004)

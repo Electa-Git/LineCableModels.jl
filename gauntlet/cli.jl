@@ -14,7 +14,10 @@ Usage: lcm gauntlet case import|list|show|validate|catalogue [options]
        lcm gauntlet resume --directory DIR
        lcm gauntlet status --directory DIR
        lcm gauntlet compare --definition FILE.toml --output DIR
-       lcm gauntlet lock --directory DIR --output DIR
+       lcm gauntlet lock --directory DIR --output DIR [--benchmark ID[,ID]]
+                        [--expected SNAPSHOT] [--note TEXT] [--illustrations FILE.toml]
+       lcm gauntlet package --definition RELEASE.toml --output DIR
+       lcm gauntlet bind --package DIR --url URL [--artifacts FILE.toml] [--current]
 
 A definition file returns a BenchmarkDefinition, a vector of definitions, or a
 constructor accepting declared keyword arguments. Configuration returns a named
@@ -289,17 +292,43 @@ end
 function main(args = ARGS)
     isempty(args) && return usage()
     args[1] in ("--help", "-h", "help") && return usage()
+    if args[1] in ("lock","package","bind")
+        allowed=args[1] == "lock" ? ("--directory","--output","--benchmark","--expected","--note","--illustrations") :
+            args[1] == "package" ? ("--definition","--output") : ("--package","--url","--artifacts","--current")
+        seen=Set{String}()
+        index=2
+        while index <= length(args)
+            name=args[index]
+            name in allowed && !(name in seen) || throw(ArgumentError("unknown or repeated option: $name"))
+            push!(seen,name)
+            index+=name == "--current" ? 1 : 2
+            index <= length(args)+1 || throw(ArgumentError("$name requires a value"))
+        end
+    end
     if args[1] == "compare"
         foreach(println,
             compare_saved(required_option(args, "--definition");
                 directory = required_option(args, "--output")))
         return
+    elseif args[1] == "package"
+        println(package_collection(required_option(args,"--definition");output=required_option(args,"--output")))
+        return
+    elseif args[1] == "bind"
+        println(bind_published_artifact(required_option(args,"--package"),required_option(args,"--url");
+            artifacts_toml=option(args,"--artifacts";default=Gauntlet.ARTIFACTS_TOML),current=flag(args,"--current")))
+        return
     elseif args[1] == "lock"
-        println(lock_campaign(required_option(args, "--directory"), required_option(args, "--output")))
+        ids=option(args,"--benchmark")
+        figure_file=option(args,"--illustrations")
+        illustrations=figure_file === nothing ? () : [(path=normpath(joinpath(dirname(abspath(figure_file)),entry["path"])),
+            benchmark=entry["benchmark"],caption=entry["caption"],selection=entry["selection"]) for entry in TOML.parsefile(figure_file)["illustrations"]]
+        println(lock_campaign(required_option(args,"--directory"),required_option(args,"--output");
+            benchmarks=ids === nothing ? nothing : split(ids,','),expected=option(args,"--expected"),
+            note=option(args,"--note";default=""),illustrations))
         return
     elseif args[1] == "status"
         for row in campaign_status(required_option(args, "--directory"))
-            println(row.id, '\t', row.state, '\t', row.message)
+            println(row.id, '\t', row.state, '\t', row.identity, '\t', row.previous ? "previous result retained" : "", '\t', row.message)
         end
         return
     elseif args[1] == "resume"

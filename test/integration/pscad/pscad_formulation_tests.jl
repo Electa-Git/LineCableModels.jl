@@ -71,9 +71,9 @@
         foreach(value->rm(value.root; recursive = true), prepared)
     end
 
-    @test NamedTuple(Formulation(:pscad)).effective.internal_impedance === :default
-    baseline=NamedTuple(Formulation(:pscad))
-    alternative=NamedTuple(Formulation(:pscad;
+    @test NamedTuple(Formulation(:pscad)).methods.internal_impedance.identifier === :default
+    baseline=LineCableModels.computation_details(Formulation(:pscad))
+    alternative=LineCableModels.computation_details(Formulation(:pscad;
         earth_impedance = formula(:default; equivalent_earth = formula(:default)), insulation_admittance = :Ametani2004))
     @test typeof(baseline) === typeof(alternative)
     result=LineParameters(PhaseDomain, zeros(ComplexF64, 1, 1, 1),
@@ -155,9 +155,9 @@ end
         rm(staged.root; recursive = true)
     end
     record = NamedTuple(selected)
-    @test record.requested.earth_impedance == choices
-    @test record.effective.earth_admittance === :default
-    @test record.raw[:selections].earth_impedance.air === :Gary1976
+    @test map(value -> value.identifier,record.requested.earth_impedance) == choices
+    @test record.methods.earth_admittance.identifier === :default
+    @test record.requested.earth_impedance.air.identifier === :Gary1976
     vertical = LineParametersProblem(build(LineCableSystem, [design, design],
         [Pose2(0, -1), Pose2(0, -2)]; connections = [Dict(:core => 1), Dict(:core => 2)]);
         earth_props = homogeneous(rho = 100.0), frequencies = [50.0])

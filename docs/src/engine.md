@@ -850,6 +850,29 @@ the fields.
 required. Optional stages inherit the abstract-root no-op and in-memory reports
 return `ReportArtifact.output === nothing`.
 
+For formulation comparisons, ReportBuilder retains unformatted data in
+`artifact.published` and exposes `summary`, `maxima`, `formulations`, `calculations`,
+`comparisons` and `terms` through `artifact.table`:
+
+```julia
+using LineCableModels.ReportBuilder: BenchmarkTableDefinition
+
+candidates = compute(problem, Formulation(earth_impedance=Grid((:default, :Pollaczek1926))))
+reference = compute(problem, Formulation())
+artifact = report(BenchmarkTableDefinition(), (; reference, candidate=candidates))
+artifact.table.summary
+artifact.table.terms
+# After loading a Makie backend:
+plot(artifact, (Z, Y))
+```
+
+The default request compares all Z/Y/R/L/G/C matrix terms in five bands. It creates
+no figure. A retained publication is selected without recalculating RMS; new
+numerical settings require explicit reanalysis. Native output terminal identities
+must agree. Multiple problems require an explicit plot selection; a single
+reference is overlaid once alongside all selected formulations. The
+[Gauntlet guide](gauntlet.md) explains saved results, summaries and publication.
+
 [`XLSXReportDefinition`](@ref) owns the human-facing line-parameter workbook:
 
 ```julia

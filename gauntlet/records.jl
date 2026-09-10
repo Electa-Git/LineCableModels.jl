@@ -42,29 +42,12 @@ function repository_revision()
     return (; commit, dirty)
 end
 
-_selection_record(value::NamedTuple) = map(_selection_record, value)
-
-_selection_record(::Nothing) = nothing
-function _selection_record(value::AbstractFormulation)
-    _selection_value(NamedTuple(value))
+function formulation_record(formulation::Engine.LineParametersFormulation)
+    return _selection_value(NamedTuple(formulation))
 end
 
-function formulation_record(formulation::Engine.LineParametersFormulation)
-    methods = formulation.methods
-    return (
-        schema_version = 2,
-        backend = :coaxial,
-        internal_impedance = _selection_record(methods.internal_impedance),
-        insulation_impedance = _selection_record(methods.insulation_impedance),
-        earth_impedance = _selection_record(methods.earth_impedance),
-        insulation_admittance = _selection_record(methods.insulation_admittance),
-        semicon_admittance = _selection_record(methods.semicon_admittance),
-        earth_admittance = _selection_record(methods.earth_admittance),
-        earth_properties = _selection_record(methods.earth_properties),
-        pipe_impedance = _selection_record(methods.pipe_impedance),
-        temperature_dependence = _selection_record(methods.temperature_dependence),
-        options = formulation.options
-    )
+function _selection_value(value::Union{Engine.LineParametersFormulation,Engine.LineCableModelsFEM,PSCAD.PSCADFormulation})
+    return _selection_value(NamedTuple(value))
 end
 
 "Capture the runtime sources and environment used by a campaign."
@@ -90,6 +73,13 @@ function implementation_record()
     for name in ("Project.toml", "Manifest.toml")
         path = joinpath(REPOSITORY_ROOT, name)
         isfile(path) && push!(paths, path)
+    end
+    project=Base.active_project()
+    if project !== nothing
+        for path in (project,joinpath(dirname(project),"Manifest.toml"),
+                joinpath(dirname(project),"Manifest-v$(VERSION.major).$(VERSION.minor).toml"))
+            isfile(path) && push!(paths,path)
+        end
     end
     return [(path = relpath(path, REPOSITORY_ROOT),
                 sha256 = bytes2hex(open(sha256, path)),

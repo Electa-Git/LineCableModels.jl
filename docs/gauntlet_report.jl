@@ -1,241 +1,130 @@
 using DataFrames
 using JLD2
-using SHA
+import TOML
+import Pkg.Artifacts
 import LineCableModels as LCM
 using .Gauntlet
 
-# Rendering consumes persisted comparisons, not independent calculations. It
-# does not select operands, recalculate errors, or load backend implementations.
+# Gauntlet chooses retained files; ReportBuilder owns grouping and tabulation.
 function gauntlet_results(directory::AbstractString)
-    root = abspath(directory)
-    isdir(root) || throw(ArgumentError("benchmark directory is missing: $root"))
-    paths = sort!([joinpath(folder, "snapshot.jld2")
-                   for (folder, _, files) in walkdir(root)
-                   if "snapshot.jld2" in files])
-    isempty(paths) && throw(ArgumentError("no explicit benchmark records in $root; " *
-                        "use lcm gauntlet compare --definition FILE.toml --output DIR; references cannot be inferred from calculations"))
-    return read_benchmark.(paths)
-end
-
-function gauntlet_comparisons(record)
-    rows = NamedTuple[]
-    for result in record["reference_comparison"]
-        indices = findall(!ismissing, result.relative)
-        maximum_index = isempty(indices) ? nothing :
-                        indices[argmax(result.relative[indices])]
-        entry = maximum_index === nothing ? "—" : string(Tuple(maximum_index))
-        bounds = result.details.actual_bounds
-        push!(rows,
-            (quantity = string(result.quantity), statistic = string(result.statistic),
-                reference_index = get(result, :reference_index, 1), candidate_index = get(
-                    result, :candidate_index, 1),
-                band = string(result.details.band), samples = result.details.sample_count,
-                Hz = ismissing(first(bounds)) ? "—" :
-                     join(round.(bounds; sigdigits = 5), "–"),
-                normalization = result.details.normalization,
-                percent = maximum_index === nothing ? missing :
-                          100result.relative[maximum_index], entry,
-                zeros = count(==(:below_tolerance), result.details.status),
-                unavailable = count(ismissing, result.relative),
-                reason = result.details.reason === nothing ?
-                         join(
-                    unique(filter(!isnothing,
-                        vec(get(result.details,
-                            :normalization_reason, fill(nothing, size(result.relative)))))),
-                    "; ") :
-                         result.details.reason))
+    root=abspath(directory)
+    isfile(joinpath(root,"bundle.toml")) && return read_campaign(root)
+    if isfile(joinpath(root,"release.toml"))
+        declaration=TOML.parsefile(joinpath(root,"release.toml"))
+        return read_collection(root;collection=Symbol(declaration["collection"]))
     end
-    return rows
-end
-
-function gauntlet_table(
-        records, band, selections; quantities = nothing, statistic = :value)
-    available = [row for record in records for row in gauntlet_comparisons(record)
-                 if row.statistic == string(statistic)]
-    quantities === nothing && (quantities = unique(Symbol(row.quantity) for row in available))
-    normalizations = unique(row.normalization for row in available)
-    frame = DataFrame()
-    for record in records,
-        point in unique((row.reference_index, row.candidate_index)
-        for row in gauntlet_comparisons(record))
-
-        operands = record["calculations"]
-        row = Dict{Symbol, Any}(
-            :reference => "$(operands.reference.backend) [$(selections[operands.reference.selection])]",
-            :candidate => "$(operands.candidate.backend) [$(selections[operands.candidate.selection])]",
-            :reference_point=>point[1], :candidate_point=>point[2])
-        comparisons = gauntlet_comparisons(record)
-        for quantity in quantities, normalization in normalizations
-            label = normalization === :reference_rms ? "NRMSE" : "pointwise"
-            metrics = filter(
-                r -> r.quantity == string(quantity) &&
-                     r.statistic == string(statistic) && r.band == band &&
-                     r.normalization === normalization &&
-                     (r.reference_index, r.candidate_index)==point,
-                comparisons)
-            # Missing metrics stay missing; rendering never manufactures a new comparison.
-            cell = if isempty(metrics)
-                "missing (not recorded)"
-            else
-                metric = only(metrics)
-                if metric.samples == 0
-                    "missing (no samples)"
-                elseif ismissing(metric.percent)
-                    "missing ($(metric.reason))"
-                else
-                    value = string(round(metric.percent; sigdigits = 4), " ", metric.entry)
-                    metric.unavailable == 0 ? value :
-                    "$value; $(metric.unavailable) unavailable"
-                end
-            end
-            row[Symbol("$quantity $label")] = cell
-        end
-        push!(frame, row; cols = :union)
+    if isfile(joinpath(root,"campaign.toml"))
+        return [read_benchmark(joinpath(root,row.id)) for row in campaign_status(root) if row.state === :complete]
     end
-    columns = [Symbol("$quantity $(normalization === :reference_rms ? "NRMSE" : "pointwise")")
-               for quantity in quantities for normalization in normalizations]
-    return select!(
-        frame, :reference, :candidate, :reference_point, :candidate_point, columns...)
+    if isfile(root)
+        return [read_benchmark(root;load_results=true)]
+    end
+    paths=sort!([joinpath(folder,"snapshot.jld2") for (folder,_,files) in walkdir(root) if "snapshot.jld2" in files])
+    isempty(paths) && throw(ArgumentError("no saved benchmarks; references cannot be inferred from calculations"))
+    return [read_benchmark(path;load_results=true) for path in paths]
 end
 
+"""Render only saved summaries and explicitly retained illustrations; never calculate or plot."""
 function render_gauntlet_report(source)
-    source === nothing && return """
-    !!! note "No recorded benchmarks selected"
-        Set `LINECABLEMODELS_GAUNTLET_RESULTS` to a saved benchmark directory.
-        Use `lcm gauntlet compare` to bind completed calculations explicitly.
-        No calculations run during documentation generation.
-    """
-    directories = unique(abspath.(split(source, Sys.iswindows() ? ';' : ':')))
-    records = reduce(vcat, gauntlet_results.(directories))
-    unique_records = Dict{Tuple, Any}()
-    for record in records
-        key = (
-            record["collection"], record["benchmark_id"], repr(record["comparison_settings"]),
-            record["calculations"].reference.sha256, record["calculations"].candidate.sha256)
-        haskey(unique_records, key) && !isequal(unique_records[key], record) &&
-            throw(ArgumentError("conflicting saved benchmark: $key"))
-        unique_records[key] = record
+    io=IOBuffer()
+    roots=String[]
+    if source === nothing
+        document=TOML.parsefile(joinpath(@__DIR__,"gauntlet.toml"))
+        selected=document["artifacts"]
+        isempty(selected) && return """
+        No published benchmark artifacts are selected. Add immutable version bindings
+        to `docs/gauntlet.toml` after `lcm gauntlet package`, upload and `lcm gauntlet bind`.
+        An explicit `LINECABLEMODELS_GAUNTLET_RESULTS` directory enables a local draft preview.
+        """
+        for name in selected
+            bindings=TOML.parsefile(Gauntlet.ARTIFACTS_TOML)
+            haskey(bindings,name) || throw(ArgumentError("published artifact binding is missing: $name"))
+            occursin(r"_v[0-9]+_[0-9]+_[0-9]+$",name) || throw(ArgumentError("documentation requires version-specific artifact bindings"))
+            Artifacts.ensure_artifact_installed(name,Gauntlet.ARTIFACTS_TOML)
+            hash=Artifacts.artifact_hash(name,Gauntlet.ARTIFACTS_TOML)
+            push!(roots,Artifacts.artifact_path(hash))
+            println(io,"Published artifact `",name,"` · tree `",hash,"`.\n")
+            release=TOML.parsefile(joinpath(Artifacts.artifact_path(hash),"release.toml"))
+            println(io,"Accepted snapshots: ",join(["`$id`" for id in release["bundles"]],", "),".\n")
+        end
+    else
+        append!(roots,unique(abspath.(split(source,Sys.iswindows() ? ';' : ':'))))
+        println(io,"**Local preview of explicitly selected results.**\n")
     end
-    records = sort!(collect(values(unique_records));
-        by = r->(
-            r["case_id"], r["benchmark_id"], repr(r["comparison_settings"])))
-    io = IOBuffer()
-    println(io, length(records), " explicitly configured benchmarks across ",
-        length(unique(r["case_id"] for r in records)), " cases. ",
-        "Only completed, checksum-verified operands are included; no backend is selected as a reference by this page.\n")
-    selections = Dict{Any, Int}()
-    captions = String[]
-    for record in records, operand in record["calculations"]
-
-        haskey(selections, operand.selection) && continue
-        caption = repr(operand.formulation)
-        caption in captions || push!(captions, caption)
-        selections[operand.selection] = findfirst(==(caption), captions)
+    records=reduce(vcat,gauntlet_results.(roots);init=Any[])
+    statuses=NamedTuple[]
+    for root in roots
+        isfile(joinpath(root,"campaign.toml")) || continue
+        append!(statuses,campaign_status(root))
+        if isfile(joinpath(root,"bundle.toml"))
+            println(io,"Accepted snapshot `",TOML.parsefile(joinpath(root,"bundle.toml"))["identity"],"`.\n")
+        end
     end
-    println(io,
-        "Bracketed numbers identify calculation declarations; their complete formulations and controls are retained in the artifacts:\n")
-    println(io, "```@raw html")
-    show(IOContext(io, :limit=>false), MIME"text/html"(),
-        DataFrame(:selection=>eachindex(captions), :formulation=>captions);
-        summary = false, eltypes = false)
-    println(io, "\n```\n")
-
-    # Escape text in the few structural HTML elements. DataFrames owns cell escaping.
-    escape = value -> replace(string(value), '&'=>"&amp;", '<'=>"&lt;", '>'=>"&gt;",
-        '"'=>"&quot;", '\''=>"&#39;")
-    for (kind, statistic, title) in
-        ((:line_parameters, :value, "Full-band comparisons"),
-        (:uq_moments, :mean, "UQ means"),
-        (:uq_moments, :std, "UQ standard deviations (std)"))
-        group = filter(r -> statistic in r["comparison_settings"].statistics, records)
-        isempty(group) && continue
-        visible = [row for record in group
-                   for row in gauntlet_comparisons(record)
-                   if row.statistic == string(statistic)]
-        quantities = unique(Symbol(row.quantity) for row in visible)
-        bands = unique(row.band for row in visible)
-        for (band_index, band) in enumerate(bands)
-            if band == "all"
-                println(io, "### ", title, "\n")
-            else
-                band_index == 2 && println(io, "### Frequency slices — ",
-                    string(statistic), "\n")
-                println(io, "#### Band `", band, "`\n")
-            end
-            samples = unique((row.Hz, row.samples)
-            for row in visible
-            if row.band == band && row.samples > 0)
-            if isempty(samples)
-                println(io, "No stored samples or comparisons for this band; errors are missing.\n")
-                continue
-            end
-            if length(samples) == 1
-                bounds, count = only(samples)
-                println(io, "Stored range: **", bounds, " Hz**, **", count, " samples**.\n")
-            end
-            for case in unique(r["case_id"] for r in group)
-                selected = filter(r -> r["case_id"] == case, group)
-                println(io, "```@raw html\n<h4>",
-                    escape(first(selected)["description"]), "</h4>")
-                frame = gauntlet_table(selected, band, selections; quantities, statistic)
-                show(IOContext(io, :limit=>false), MIME"text/html"(), frame;
-                    summary = false, eltypes = false)
-                if band == "all" && statistic !== :std
-                    println(io, "\n<details><summary>Benchmark identities and terminal order</summary>")
-                    println(io, "<p>Case: <code>", escape(case), "</code>.</p><ol>")
-                    for record in selected
-                        println(io, "<li><code>", escape(record["collection"]), "/",
-                            escape(record["benchmark_id"]), "</code></li>")
-                    end
-                    println(io, "</ol>")
-                    for ports in unique(r["port_order"] for r in selected)
-                        indices = findall(r -> r["port_order"] == ports, selected)
-                        println(io, "<p>Terminal order (benchmark rows ",
-                            join(indices, ", "), "): ",
-                            join(
-                                ("<code>$(index)=$(escape(port))</code>"
-                                for (index, port) in enumerate(ports)),
-                                ", "), ".</p>")
-                    end
-                    println(io, "</details>")
-                end
-                unavailable = [(index, row.quantity, row.reason)
-                               for (index, record) in enumerate(selected)
-                               for row in gauntlet_comparisons(record)
-                               if row.band == band && Symbol(row.quantity) in quantities &&
-                                  row.statistic == string(statistic) && row.unavailable > 0]
-                for (index, quantity, reason) in unique(unavailable)
-                    println(io, "<p>Benchmark row ", index, ", ", quantity,
-                        " unavailable: ", escape(reason), ".</p>")
-                end
-                if length(samples) > 1
-                    println(io, "\n<p>Stored ranges by benchmark row: ",
-                        join(
-                            (string(index,
-                                 ": ",
-                                 join(
-                                     unique(
-                                         "$(row.Hz) Hz ($(row.samples) samples)"
-                                     for row in gauntlet_comparisons(record)
-                                     if row.band == band &&
-                                        Symbol(row.quantity) in quantities &&
-                                        row.statistic == string(statistic)),
-                                     ", "))
-                            for (index, record) in enumerate(selected)),
-                            "; "), ".</p>")
-                end
-                println(io, "\n```\n")
+    println(io,length(records)," complete benchmarks across ",length(unique(first(record.analyses)["case_id"] for record in records))," cases.\n")
+    if any(row -> row.state !== :complete,statuses)
+        println(io,"Incomplete drafts: ",join(["$(row.id): $(row.state)" for row in statuses if row.state !== :complete],", "),".\n")
+    end
+    maxima=NamedTuple[]
+    labels=NamedTuple[]
+    for record in records,analysis in record.analyses
+        # Schema 1 is a finite historical reader; it uses saved RMS arrays only.
+        if haskey(analysis,"summary")
+            append!(maxima,analysis["summary"])
+            append!(labels,[(benchmark=analysis["benchmark_id"],role=row.role,index=row.formulation_index,label=row.label)
+                for row in analysis["formulations"]])
+        else
+            loaded=(id=record.id,reference=record.reference,candidate=record.candidate,analyses=[analysis])
+            table=LCM.ReportBuilder.report(LCM.ReportBuilder.BenchmarkTableDefinition(),loaded).table
+            append!(maxima,NamedTuple.(eachrow(table.maxima)))
+            append!(labels,[(benchmark=analysis["benchmark_id"],role=row.role,index=row.formulation_index,label=row.label)
+                for row in eachrow(table.formulations)])
+        end
+    end
+    definition=LCM.ReportBuilder.BenchmarkTableDefinition()
+    summary=LCM.ReportBuilder.tabulate(definition,nothing,maxima)
+    println(io,"Entries show **maxima of per-term RMS discrepancies**, with the terminal pair and unavailable-term count.\n")
+    for band in unique(vcat(collect(definition.settings.bands),[row.band for row in maxima]))
+        selected=isempty(summary) ? summary : filter(row -> row.band == band,summary)
+        isempty(selected) && continue
+        println(io,"### ",LCM.description(definition,band),"\n")
+        bounds=unique(selected[:,[:samples,:requested_bounds_Hz,:actual_bounds_Hz]])
+        bounds[!,:selection]=collect(1:nrow(bounds))
+        selected[!,:sample_selection]=[findfirst(other -> isequal(
+            (other.samples,other.requested_bounds_Hz,other.actual_bounds_Hz),
+            (row.samples,row.requested_bounds_Hz,row.actual_bounds_Hz)),eachrow(bounds)) for row in eachrow(selected)]
+        columns=[:snapshot,:case_id,:benchmark,:problem_index,:formulation_index,:reference_point,
+            :statistic,:normalization,:sample_selection]
+        append!(columns,[q for q in (:Z,:Y,:R,:L,:G,:C) if q in propertynames(selected)])
+        compact=selected[:,columns]
+        compact.snapshot=[length(string(id))==64 ? first(string(id),12) : string(id) for id in compact.snapshot]
+        println(io,"Stored samples (Hz):\n\n```@raw html")
+        show(IOContext(io,:limit=>false),MIME"text/html"(),bounds;summary=false,eltypes=false)
+        println(io,"\n```\n\n```@raw html")
+        show(IOContext(io,:limit=>false),MIME"text/html"(),compact;summary=false,eltypes=false)
+        println(io,"\n```\n")
+    end
+    if !isempty(labels)
+        println(io,"<details><summary>Formulation keys</summary>\n\n```@raw html")
+        show(IOContext(io,:limit=>false),MIME"text/html"(),DataFrame(unique(labels));summary=false,eltypes=false)
+        println(io,"\n```\n</details>\n")
+    end
+    println(io,"Reopen an accepted bundle with `read_campaign(path)`, select a benchmark, then use `report(BenchmarkTableDefinition(), benchmark)` or explicitly `plot(benchmark, (Z, Y))`. Detailed plots are generated only by that request.\n")
+    # Explicit illustrations are already files; rebuilding the page never renders them.
+    for root in roots
+        bundles=isfile(joinpath(root,"release.toml")) ?
+            [joinpath(root,"bundles",id) for id in TOML.parsefile(joinpath(root,"release.toml"))["bundles"]] : [root]
+        for bundle in bundles
+            isfile(joinpath(bundle,"bundle.toml")) || continue
+            document=TOML.parsefile(joinpath(bundle,"bundle.toml"))
+            for figure in get(document,"illustrations",[])
+                source_path=joinpath(bundle,figure["path"])
+                destination=joinpath(@__DIR__,"src","assets","gauntlet",document["identity"],basename(source_path))
+                mkpath(dirname(destination))
+                cp(source_path,destination;force=true)
+                caption=replace(figure["caption"],"["=>"\\[","]"=>"\\]")
+                println(io,"![",caption,"](assets/gauntlet/",document["identity"],"/",basename(source_path),")\n")
             end
         end
     end
-    timings=[(benchmark = record["benchmark_id"], operand = string(role),
-                 scope = value.scope, seconds = value.seconds)
-             for record in records for (role, value) in pairs(record["timings"])]
-    println(io,
-        "### Recorded computation timings\n\nEach timing retains its declared scope. Legacy batch timings are not per-formula measurements.\n")
-    println(io, "```@raw html")
-    show(IOContext(io, :limit=>false), MIME"text/html"(),
-        DataFrame(timings); summary = false, eltypes = false)
-    println(io, "\n```\n")
     return String(take!(io))
 end

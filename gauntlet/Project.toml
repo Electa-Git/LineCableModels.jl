@@ -1,4 +1,5 @@
 [deps]
+Downloads = "f43a241f-c20a-4ad4-852c-f6b1247861c6"
 Base64 = "2a0f44e3-6c83-55bd-87e4-b1978d98bd5f"
 BenchmarkTools = "6e4b80f9-dd63-53aa-95a3-0cdb28fa8baf"
 Calculus = "49dc2e85-a5d0-5ad3-a950-438e2897f1b9"

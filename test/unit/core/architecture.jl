@@ -490,7 +490,9 @@ end
     )
         @test !occursin(token, maintained_implementation)
     end
-    @test !occursin(r"\bquantities\s*=", maintained_implementation)
+    # Plotting keeps the observation-request grammar. ReportBuilder separately
+    # owns the requested quantities and bands of a benchmark analysis.
+    @test !occursin(r"\bquantities\s*=", makie_source)
     @test !occursin(r"\bcon\s*=", maintained_implementation)
     @test !occursin("alpha_value", maintained_implementation)
     @test !occursin("legend_labels", line_facets)

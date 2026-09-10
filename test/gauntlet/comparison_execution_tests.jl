@@ -69,18 +69,16 @@
             (atol=-1.,),(atol=(G=-1.,),),(unsupported=(G="",),),
             (statistics=(:unknown,),))
         empty!(executions);empty!(comparisons)
-        declaration=benchmark_definition(:invalid,model.id,:fixture,@__FILE__,model,
-            reference,candidate,invalid,(;))
         mktempdir() do parent
             directory=joinpath(parent,"invalid")
-            @test_throws ArgumentError run_benchmark(declaration;directory)
+            @test_throws ArgumentError benchmark_definition(:invalid,model.id,:fixture,@__FILE__,model,
+                reference,candidate,invalid,(;))
             @test !ispath(directory)
             @test isempty(executions)
             @test isempty(comparisons)
-            @test_throws ArgumentError run_campaign(directory,[declaration])
-            @test !ispath(directory)
         end
     end
+
     empty!(executions)
     limits=(Z=(absolute=1.,relative=1.),Y=(absolute=1.,relative=1.))
     unsupported_limits=benchmark_definition(:unsupported_limits,model.id,:fixture,

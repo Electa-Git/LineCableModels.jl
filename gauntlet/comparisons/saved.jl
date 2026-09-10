@@ -12,7 +12,7 @@ function read_calculation(path::AbstractString; sha256_expected = nothing)
     # deserialize backend-specific computation_details from older implementations.
     document = jldopen(path, "r") do file
         names = ("schema_version", "kind", "status", "case_id", "backend", "problem",
-            "formulation", "selection", "frequencies", "basis", "domain", "port_order",
+            "formulation", "calculation", "repository", "active_project", "selection", "frequencies", "basis", "domain", "port_order",
             "Z", "Y", "moments", "comparison_unsupported", "data_sha256",
             "implementation", "computation_signature", "elapsed_at_completion_seconds",
             "batch_selection_count", "propagation", "sampling", "parameter_manifest",
@@ -77,11 +77,16 @@ function read_calculation(path::AbstractString; sha256_expected = nothing)
         selection=(id=Symbol(selection),)
     end
     selection isa NamedTuple || throw(ArgumentError("saved selection must be a named record"))
+    formulation=document["formulation"]
+    if formulation isa NamedTuple && all(key -> haskey(formulation,key),(:id,:input_sha256,:formulation,:options))
+        formulation=formulation.formulation
+    end
     metadata = (path, sha256 = digest, data_sha256 = data_digest,
         case_id = string(document["case_id"]),
         backend = string(document["backend"]), selection = selection,
         axes=coordinates.axes,
-        formulation = document["formulation"], implementation = get(document, "implementation", nothing),
+        formulation, calculation=get(document,"calculation",nothing),
+        repository=get(document,"repository",nothing),active_project=get(document,"active_project",nothing), implementation = get(document, "implementation", nothing),
         computation_signature = get(document, "computation_signature", nothing),
         input_sha256 = semantic_sha256(document["problem"]), port_order = ports,
         frequencies = document["frequencies"], basis = document["basis"], domain = document["domain"],
@@ -110,57 +115,14 @@ function validate(::typeof(read_calculation), result::AbstractParametricResult, 
     return nothing
 end
 
-function benchmark_comparisons(
-        settings::NamedTuple, reference::AbstractCoreResult, candidate::AbstractCoreResult)
-    settings.statistics == (:value,) || throw(ArgumentError("line parameters require value comparisons"))
-    return [(quantity,
-                statistic = :value, reference_index = 1, candidate_index = 1,
-                error = compare(reference, candidate,
-                    getproperty(LineCableModels, quantity); band, normalization,
-                    atol = settings.atol, fundamental = settings.fundamental, harmonics = settings.harmonics,
-                    unsupported = settings.unsupported)) for band in settings.bands
-            for quantity in settings.quantities for normalization in settings.normalizations]
-end
-
-function benchmark_comparisons(settings::NamedTuple,
-        reference::AbstractCoreResult, candidate::AbstractParametricResult)
-    return [merge(row, (reference_index = 1, candidate_index = index))
-            for (index, value) in enumerate(candidate)
-            for row in benchmark_comparisons(settings, reference, value)]
-end
-
-function benchmark_comparisons(settings::NamedTuple,
-        reference::AbstractParametricResult, candidate::AbstractCoreResult)
-    return [merge(row, (reference_index = index, candidate_index = 1))
-            for (index, value) in enumerate(reference)
-            for row in benchmark_comparisons(settings, value, candidate)]
-end
-
-function benchmark_comparisons(settings::NamedTuple,
-        reference::AbstractParametricResult, candidate::AbstractParametricResult)
-    length(reference) == length(candidate) ||
-        throw(DimensionMismatch("paired result spaces must have equal cardinality"))
-    length(NamedTuple(reference).axes.problems) == length(NamedTuple(candidate).axes.problems) ||
-        throw(DimensionMismatch("paired result spaces must have equal problem-axis lengths"))
-    return [merge(row, (reference_index = index, candidate_index = index))
-            for (index, (left, right)) in enumerate(zip(reference, candidate))
-            for row in benchmark_comparisons(settings, left, right)]
-end
-
-function benchmark_comparisons(settings::NamedTuple, reference::MomentResult, candidate::MomentResult)
-    settings.statistics == (:mean, :std) || throw(ArgumentError("moments require mean/std comparisons"))
-    comparison = compare(reference, candidate)
-    return [(quantity, statistic, reference_index = 1, candidate_index = 1,
-                error = getproperty(getproperty(comparison.errors, quantity), statistic))
-            for quantity in keys(comparison.errors) for statistic in (:mean, :std)]
-end
-
 "Persist comparisons of saved operands; no numerical execution or CI-reference approval is performed."
 function compare_saved(benchmark::BenchmarkDefinition; directory::AbstractString)
+    validate(Base.write,directory)
     validate(benchmark)
-    comparison=benchmark_comparisons(benchmark.comparison_settings,
-        benchmark.reference.problem.result, benchmark.candidate.problem.result)
-    return record_benchmark(benchmark, comparison; directory)
+    publication=report(BenchmarkTableDefinition(;benchmark.comparison_settings...),
+        (reference=benchmark.reference.problem, candidate=benchmark.candidate.problem,
+            context=(id=benchmark.id,case_id=benchmark.case_id,collection=benchmark.collection)))
+    return record_benchmark(benchmark, publication; directory)
 end
 
 """
@@ -169,7 +131,9 @@ end
 Write completed comparisons with their exact settings and checksummed operands.
 No comparison or solver is executed. Existing identical records are verified and reused.
 """
-function record_benchmark(benchmark::BenchmarkDefinition, errors; directory::AbstractString)
+function record_benchmark(benchmark::BenchmarkDefinition, publication::ReportArtifact; directory::AbstractString)
+    validate(Base.write,directory)
+    errors=publication.published.comparisons
     bytes2hex(open(sha256, benchmark.source_file)) == benchmark.source_sha256 ||
         throw(ArgumentError("benchmark definition changed after loading"))
     reference = benchmark.reference.problem
@@ -204,7 +168,10 @@ function record_benchmark(benchmark::BenchmarkDefinition, errors; directory::Abs
     mkpath(dirname(path))
     temporary = tempname(dirname(path))
     try
-        JLD2.jldsave(temporary; schema_version = 1, kind = :gauntlet_benchmark,
+        JLD2.jldsave(temporary; schema_version = 2, kind = :gauntlet_benchmark,
+            analysis_id,
+            summary=[merge(NamedTuple(row),(snapshot=analysis_id,)) for row in eachrow(publication.table.maxima)],
+            formulations=[_selection_value(NamedTuple(row)) for row in eachrow(publication.table.formulations)],
             benchmark_id = string(benchmark.id),
             case_id = string(benchmark.case_id), description = benchmark.model isa
                                                                LoadedCase ?
@@ -240,8 +207,21 @@ resolving operand paths relative to the snapshot. Loading performs no solve.
 The loaded bundle supports `report(BenchmarkTableDefinition(false), benchmark)`
 and `plot(benchmark, requests; ...)` for REPL tables and matrix-cell overlays.
 """
-function read_benchmark(path::AbstractString; load_results::Bool = false)
+function read_benchmark(path::AbstractString; load_results::Bool = false, previous::Bool=false)
     if isdir(path)
+        state_path=joinpath(path,"state.toml")
+        if isfile(state_path)
+            state=TOML.parsefile(state_path)
+            if haskey(state,"current") || haskey(state,"attempt")
+                (state["state"] == "complete" || previous) || throw(ArgumentError(
+                    "latest draft is $(state["state"]); use previous=true to inspect the previous complete result"))
+                haskey(state,"current") || throw(ArgumentError("no previous completed result"))
+                current=state["current"]
+                isabspath(current) || first(splitpath(normpath(current))) == ".." ?
+                    throw(ArgumentError("invalid draft path")) : nothing
+                return read_benchmark(joinpath(path,current);load_results)
+            end
+        end
         reference=read_calculation(joinpath(path, "reference", "calculation.jld2"))
         candidate=read_calculation(joinpath(path, "candidate", "calculation.jld2"))
         analyses=[read_benchmark(joinpath(folder, name))
@@ -250,7 +230,7 @@ function read_benchmark(path::AbstractString; load_results::Bool = false)
                   for name in sort(names) if name == "snapshot.jld2"]
         isempty(analyses) &&
             throw(ArgumentError("benchmark has no retained analysis: $path"))
-        return (id = Symbol(basename(path)), reference, candidate, analyses)
+        return (id = Symbol(first(analyses)["benchmark_id"]), reference, candidate, analyses)
     end
     isfile(path) && isfile(path * ".sha256") ||
         throw(ArgumentError("benchmark record and checksum required: $path"))
@@ -267,7 +247,7 @@ function read_benchmark(path::AbstractString; load_results::Bool = false)
         statistics=settings.kind === :uq_moments ? (:mean, :std) : (:value,)
         record["comparison_settings"]=merge(Base.structdiff(settings, (;kind=settings.kind)), (;statistics))
     end
-    record["schema_version"] == 1 && record["kind"] === :gauntlet_benchmark ||
+    record["schema_version"] in (1,2) && record["kind"] === :gauntlet_benchmark ||
         throw(ArgumentError("explicit benchmark record required; calculation artifacts do not declare references: $path"))
     record["reference_comparison"] = [merge((reference_index=1, candidate_index=1), row)
         for row in record["reference_comparison"]]
@@ -315,18 +295,21 @@ function compare_saved(definition::AbstractString; directory::AbstractString)
         settings = get(entry, "comparison", get(plan, "comparison", Dict{String, Any}()))
         kind=get(settings, "kind", "line_parameters")
         kind in ("line_parameters", "uq_moments") || throw(ArgumentError("unknown comparison kind"))
-        isempty(setdiff(keys(settings), ("kind", "quantities", "bands", "normalizations",
-            "atol", "fundamental", "harmonics", "unsupported"))) ||
+        isempty(setdiff(keys(settings), ("kind","quantities","statistics","bands","normalizations",
+            "atol","fundamental","harmonics","unsupported","pairing"))) ||
             throw(ArgumentError("unknown comparison settings"))
-        atol=get(settings, "atol", nothing)
-        comparison=(
-            quantities=Tuple(Symbol.(get(settings, "quantities", kind == "uq_moments" ? ["R", "L", "C", "G"] : ["Z", "Y"]))),
-            statistics=kind == "uq_moments" ? (:mean, :std) : (:value,),
-            bands=Tuple(b isa String ? Symbol(b) : Tuple(b) for b in get(settings, "bands", ["all"])),
-            normalizations=Tuple(Symbol.(get(settings, "normalizations", ["reference_rms"]))),
-            atol=atol isa AbstractDict ? (; (Symbol(k)=>v for (k,v) in atol)...) : atol,
-            fundamental=get(settings, "fundamental", 50.0), harmonics=get(settings, "harmonics", 50),
-            unsupported=(; (Symbol(k)=>v for (k,v) in get(settings, "unsupported", Dict()))...))
+        # Convert only declared file values. ReportBuilder owns all omitted defaults.
+        comparison=(; (Symbol(key)=>
+            (key in ("quantities","statistics","normalizations") ? Tuple(Symbol.(value)) :
+             key == "bands" ? Tuple(band isa String ? Symbol(band) : Tuple(band) for band in value) :
+             key == "pairing" ? Tuple(Tuple(pair) for pair in value) :
+             key in ("atol","unsupported") && value isa AbstractDict ? (;(Symbol(k)=>v for (k,v) in value)...) : value)
+            for (key,value) in settings if key != "kind")...)
+        if kind == "uq_moments"
+            get(comparison,:statistics,(:mean,:std)) == (:mean,:std) ||
+                throw(ArgumentError("moment kind requires mean/std statistics"))
+            comparison=merge(comparison,(statistics=(:mean,:std),))
+        end
         model = (id = Symbol(entry["case"]),
             description = get(entry, "description", entry["case"]))
         benchmark_definition(
@@ -335,4 +318,22 @@ function compare_saved(definition::AbstractString; directory::AbstractString)
     end
     foreach(validate, benchmarks)
     return [compare_saved(benchmark; directory) for benchmark in benchmarks]
+end
+
+"""Hash the complete retained operands, comparisons and declaration of one benchmark."""
+function semantic_sha256(::typeof(read_benchmark),directory::AbstractString)
+    root=abspath(directory)
+    read_benchmark(root)
+    state_path=joinpath(root,"state.toml")
+    if isfile(state_path)
+        state=TOML.parsefile(state_path)
+        haskey(state,"current") && (root=joinpath(root,state["current"]))
+    end
+    files=[joinpath(root,role,"calculation.jld2") for role in ("reference","candidate")]
+    declaration=joinpath(root,"declarations.jld2")
+    isfile(declaration) && push!(files,declaration)
+    for (folder,_,names) in walkdir(joinpath(root,"analyses"))
+        "snapshot.jld2" in names && push!(files,joinpath(folder,"snapshot.jld2"))
+    end
+    return semantic_sha256(Dict(relpath(path,root)=>bytes2hex(open(sha256,path)) for path in files))
 end

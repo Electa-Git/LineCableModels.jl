@@ -1,19 +1,21 @@
 """
 $(TYPEDEF)
 
-Supertype for policies consumed by [`report`](@ref).
+Supertype for definitions consumed by [`report`](@ref).
 """
 abstract type AbstractReportDefinition end
 
 """
 $(TYPEDEF)
 
-Hold the table, optional plot, and written output produced by
+Hold unformatted scientific products, tables, an optional plot and written output produced by
 [`report`](@ref).
 
 $(TYPEDFIELDS)
 """
-struct ReportArtifact{T, I, O}
+struct ReportArtifact{P, T, I, O}
+    "Unformatted scientific data selected by the report."
+    published::P
     "Human-facing table or structured collection of tables."
     table::T
     "Optional backend-neutral plot artifact."
@@ -156,7 +158,7 @@ Build a report through `select`, `tabulate`, optional `illustrate`, optional
 
 # Arguments
 
-- `definition`: Report policy and requested output.
+- `definition`: Report selection and requested output.
 - `source`: Completed scientific result or published-product owner.
 
 # Returns
@@ -184,5 +186,5 @@ function report(
         illustration,
         encoded
     )
-    return ReportArtifact(table, illustration, written)
+    return ReportArtifact(published, table, illustration, written)
 end

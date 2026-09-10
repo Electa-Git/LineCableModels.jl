@@ -32,8 +32,10 @@
         fail_candidate[]=true
         failed=run_campaign(directory,[definition])
         @test only(failed).state === :failed
-        @test isfile(joinpath(directory,"authority","reference","complete.toml"))
-        @test !isfile(joinpath(directory,"authority","candidate","complete.toml"))
+        state=TOML.parsefile(joinpath(directory,"authority","state.toml"))
+        attempt=joinpath(directory,"authority",state["attempt"])
+        @test isfile(joinpath(attempt,"reference","complete.toml"))
+        @test !isfile(joinpath(attempt,"candidate","complete.toml"))
         @test only(campaign_status(directory)).state === :failed
         @test all(row -> row.problem === problem && row.options === options,calls)
         @test all(row -> row.problem.temperature == 73. && row.problem.frequencies == [.01,3.,17.,400.],calls)
@@ -45,19 +47,37 @@
         @test value.timings.execution.reference.reused
         @test !value.timings.execution.candidate.reused
         @test value.passes === nothing # Large cross-model differences are observations.
-        @test all(==(9),only(row.error.relative for row in value.comparison if row.quantity === :Z))
+        @test all(==(9),only(row.error.relative for row in value.comparison if row.quantity === :Z && row.error.details.band === :all))
         @test only(campaign_status(directory)).state === :complete
+        old_attempt=attempt
+        fail_candidate[]=true
+        replacement=only(run_campaign(directory,[definition]))
+        @test replacement.state === :failed
+        @test only(campaign_status(directory)).previous
+        @test_throws r"latest draft" read_benchmark(joinpath(directory,"authority"))
+        @test read_benchmark(joinpath(directory,"authority");previous=true).reference.result.Z == direct.Z
+        @test isdir(old_attempt)
+        fail_candidate[]=false
+        recovered=only(resume_campaign(directory))
+        @test recovered.state === :complete
+        @test recovered.result.timings.execution.reference.reused
+        @test !isdir(old_attempt)
+        state=TOML.parsefile(joinpath(directory,"authority","state.toml"))
+        attempt=joinpath(directory,"authority",state["current"])
         count=length(calls)
-        before=read(joinpath(directory,"authority","reference","calculation.jld2"))
+        before=read(joinpath(attempt,"reference","calculation.jld2"))
         @test only(resume_campaign(directory)).state === :complete
         @test length(calls) == count
-        @test read(joinpath(directory,"authority","reference","calculation.jld2")) == before
+        @test read(joinpath(attempt,"reference","calculation.jld2")) == before
         # New RMS bands retain the completed numerical operands.
         changed=benchmark_definition(:authority,model.id,:fixture,@__FILE__,model,reference,candidate,
             (; quantities=(:Z,:G),bands=((3.,17.),)),(;))
-        run_benchmark(changed;directory=joinpath(directory,"authority"))
+        run_benchmark(changed;directory=attempt)
         @test length(calls) == count
-        @test read(joinpath(directory,"authority","reference","calculation.jld2")) == before
+        @test read(joinpath(attempt,"reference","calculation.jld2")) == before
+        reported=report(LineCableModels.ReportBuilder.BenchmarkTableDefinition(),read_benchmark(joinpath(directory,"authority")))
+        @test length(unique(reported.table.maxima.snapshot))==2
+        @test length(only(campaign_status(directory)).identity)==64
         bundle=lock_campaign(directory,joinpath(parent,"bundle"))
         moved=joinpath(parent,"elsewhere");mv(bundle.path,moved)
         rm(directory;recursive=true)
@@ -84,7 +104,7 @@ end
     definition=benchmark_definition(:changing,model.id,:fixture,@__FILE__,model,first,second,(;),(;))
     mktempdir() do directory
         outcome=run_benchmark(definition;directory)
-        @test all(iszero,only(row.error.absolute for row in outcome.comparison if row.quantity === :Z))
+        @test all(iszero,only(row.error.absolute for row in outcome.comparison if row.quantity === :Z && row.error.details.band === :all))
         changed=deepcopy(problem); changed.frequencies[2]=4.
         altered=benchmark_definition(:changing,model.id,:fixture,@__FILE__,model,
             BenchmarkCalculation(:a,changed,formulation),second,(;),(;))
@@ -99,6 +119,6 @@ end
         end
         @test_throws ArgumentError run_benchmark(definition;directory)
         write(joinpath(directory,"candidate","calculation.jld2"),original)
-        @test all(iszero,only(row.error.absolute for row in run_benchmark(definition;directory).comparison if row.quantity === :Z))
+        @test all(iszero,only(row.error.absolute for row in run_benchmark(definition;directory).comparison if row.quantity === :Z && row.error.details.band === :all))
     end
 end

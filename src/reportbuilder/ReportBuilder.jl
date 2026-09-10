@@ -22,6 +22,10 @@ using ..Grammar: @observe
 import ..Units
 import ..DataModel
 import ..Engine
+import ..Engine: domain
+import ..ParametricBuilder: ParametricResult
+import ..Grammar: AbstractCoreResult, details, observe, detach
+import ..LineCableModels: validate, description
 import ..PlotBuilder
 import ..UQ
 import ..TextDisplay
@@ -29,6 +33,7 @@ import ..LineCableModels: basis, Z, Y, R, X, L, G, B, C
 
 include("grammar.jl")
 include("tables.jl")
+include("comparisons.jl")
 include("montecarlo.jl")
 include("xlsx.jl")
 include("textdisplay.jl")

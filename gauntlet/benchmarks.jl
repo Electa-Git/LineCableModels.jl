@@ -65,26 +65,7 @@ either calculation starts. Checks requiring calculated values remain in `compare
 """
 function validate(benchmark::BenchmarkDefinition)
     settings = benchmark.comparison_settings
-    !isempty(settings.quantities) && allunique(settings.quantities) &&
-        all(q -> q in (:Z, :Y, :R, :L, :G, :C), settings.quantities) ||
-        throw(ArgumentError("benchmark quantities must select distinct Z, Y, R, L, G, or C"))
-    settings.statistics in ((:value,), (:mean, :std)) ||
-        throw(ArgumentError("benchmark statistics must be (:value,) or (:mean, :std)"))
-    !isempty(settings.bands) && allunique(settings.bands) ||
-        throw(ArgumentError("benchmark needs distinct frequency bands"))
-    !isempty(settings.normalizations) && allunique(settings.normalizations) ||
-        throw(ArgumentError("benchmark needs distinct RMS normalizations"))
-    for band in settings.bands, normalization in settings.normalizations
-        validate(compare; band, normalization, atol=settings.atol,
-            fundamental=settings.fundamental, harmonics=settings.harmonics,
-            unsupported=settings.unsupported)
-    end
-    if settings.statistics === (:mean, :std)
-        settings.quantities == (:R, :L, :C, :G) && settings.bands == (:all,) &&
-            settings.normalizations == (:reference_rms,) && settings.atol === nothing &&
-            isempty(settings.unsupported) || throw(ArgumentError(
-                "moment comparisons support full-band R/L/C/G means and standard deviations with reference-RMS normalization"))
-    end
+    validate(BenchmarkTableDefinition(; settings...))
     _benchmark_performance_settings(benchmark.tolerances)
     if haskey(benchmark.tolerances, :reference)
         settings.statistics == (:mean, :std) || throw(ArgumentError(
@@ -98,6 +79,9 @@ function validate(benchmark::BenchmarkDefinition)
                     throw(ArgumentError("moment limits must be finite nonnegative absolute and relative tolerances"))
             end
         end
+    end
+    if benchmark.reference.formulation isa Union{Gridspace,LineCableModels.Combinatorial}
+        settings.pairing === nothing && throw(ArgumentError("a reference result space requires explicit pairing before execution"))
     end
     a, b = benchmark.reference.problem, benchmark.candidate.problem
     if a isa LineParametersProblem && b isa LineParametersProblem
@@ -118,9 +102,7 @@ function formulation_record(formulation::AbstractFormulation)
     _selection_value(formulation)
 end
 function formulation_record(formulation::Engine.LineCableModelsFEM)
-    return (backend = :fem, definitions = formulation.definitions,
-        options = formulation.options,
-        execution = _selection_value(formulation.execution))
+    return _selection_value(NamedTuple(formulation))
 end
 function formulation_record(formulation::LineCableModels.LinearError)
     return (
@@ -160,6 +142,7 @@ When `directory` is supplied, completed calculations and analysis are recoverabl
 function run_benchmark(benchmark::BenchmarkDefinition; directory = nothing,
         implementation = nothing, mode::Symbol = :live)
     validate(benchmark)
+    directory === nothing || validate(Base.write,directory)
     calculations=(reference=calculation_record(benchmark.reference),
         candidate=calculation_record(benchmark.candidate))
     mode in (:live, :record) || throw(ArgumentError(
@@ -192,7 +175,16 @@ function run_benchmark(benchmark::BenchmarkDefinition; directory = nothing,
     end
     reference=_normalize(reference_execution.result, benchmark.model)
     candidate=_normalize(candidate_execution.result, benchmark.model)
-    comparison=benchmark_comparisons(benchmark.comparison_settings, reference, candidate)
+    definition=BenchmarkTableDefinition(;benchmark.comparison_settings...)
+    reference_metadata=(port_order=get(details(reference_execution.result isa ParametricResult ? first(reference_execution.result) : reference_execution.result),:coordinates,benchmark.model.port_order),
+        formulation=calculation_record(benchmark.reference).formulation, axes=reference isa ParametricResult ? reference.axes : nothing)
+    candidate_metadata=(port_order=get(details(candidate_execution.result isa ParametricResult ? first(candidate_execution.result) : candidate_execution.result),:coordinates,benchmark.model.port_order),
+        formulation=calculation_record(benchmark.candidate).formulation, axes=candidate isa ParametricResult ? candidate.axes : nothing)
+    publication=report(definition,(
+        reference=(result=reference,metadata=reference_metadata),
+        candidate=(result=candidate,metadata=candidate_metadata),
+        context=(id=benchmark.id,case_id=benchmark.case_id,collection=benchmark.collection)))
+    comparison=publication.published.comparisons
     passes=haskey(benchmark.tolerances, :reference) ?
            moment_comparison_passes(comparison, benchmark.tolerances.reference) : nothing
     performance=_benchmark_performance(benchmark)
@@ -225,10 +217,27 @@ function run_benchmark(benchmark::BenchmarkDefinition; directory = nothing,
             benchmark.id, benchmark.case_id, benchmark.collection,
             benchmark.source_file, benchmark.model, operands...,
             benchmark.comparison_settings, benchmark.tolerances)
-        artifact=record_benchmark(retained, comparison; directory = joinpath(directory, "analyses"))
+        artifact=record_benchmark(retained, publication; directory = joinpath(directory, "analyses"))
     end
     return (; mode, reference_result = reference_execution.result,
         candidate_result = candidate_execution.result,
         reference, candidate, comparison,
-        passes, performance, timings, metadata, artifact)
+        passes, performance, timings, metadata, artifact, report=publication)
+end
+
+"""
+    benchmark_definition(model; id, source_file, reference, formulations, kwargs...)
+
+Declare one case, one explicit reference and a scalar or Gridspace of candidate
+formulations. The candidate follows the ordinary compute overload. ReportBuilder
+owns quantities, bands and comparison controls.
+"""
+function benchmark_definition(model::LoadedCase; id::Symbol, source_file::AbstractString,
+        reference, formulations, collection::Symbol=:manual,
+        options::NamedTuple=(;), report=BenchmarkTableDefinition(), tolerances=(;))
+    baseline=reference isa BenchmarkCalculation ? reference :
+        BenchmarkCalculation(:reference,model.problem,reference)
+    candidate=BenchmarkCalculation(:candidate,model.problem,formulations;options)
+    return benchmark_definition(id,model.id,collection,source_file,model,baseline,candidate,
+        report.settings,tolerances)
 end

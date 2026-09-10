@@ -188,6 +188,14 @@ calculations. Checksums, result coordinates and stored comparisons are checked.
 - Validated snapshot records, in benchmark-directory order.
 """
 function read_collection(path::AbstractString; collection::Symbol)
+    release_path=joinpath(path,"release.toml")
+    if isfile(release_path)
+        release=TOML.parsefile(release_path)
+        if get(release,"schema",nothing) == 3
+            release["collection"] == string(collection) || throw(ArgumentError("release collection differs"))
+            return reduce(vcat,[read_campaign(joinpath(path,"bundles",identity)) for identity in release["bundles"]])
+        end
+    end
     benchmarks = joinpath(path, "benchmarks")
     isdir(benchmarks) ||
         throw(ArgumentError("collection has no benchmarks directory: $path"))

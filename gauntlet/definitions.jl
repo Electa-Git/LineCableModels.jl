@@ -58,12 +58,7 @@ struct BenchmarkDefinition{M, R <: BenchmarkCalculation,
         isfile(source_file) || throw(ArgumentError(
             "benchmark source file is missing: $source_file",
         ))
-        defaults = (quantities = (:Z, :Y), statistics = (:value,), bands = (:all,),
-            normalizations = (:reference_rms,), atol = nothing,
-            fundamental = 50.0, harmonics = 50, unsupported = (;))
-        isempty(setdiff(keys(comparison_settings), keys(defaults))) ||
-            throw(ArgumentError("unknown benchmark comparison settings"))
-        comparison_settings = merge(defaults, comparison_settings)
+        comparison_settings = BenchmarkTableDefinition(; comparison_settings...).settings
         return new{M, R, C, typeof(comparison_settings), T}(
             id,
             case_id,
