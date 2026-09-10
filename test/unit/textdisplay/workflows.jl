@@ -221,8 +221,8 @@ end
     mc = RB.MonteCarloTableDefinition(:kilo, nothing, false)
     table = DataFrame(R = [1.0, 2.0], L = [3.0, 4.0])
     original = copy(table)
-    artifact = ReportArtifact(table, nothing, nothing)
-    illustrated_artifact = ReportArtifact(table, :illustration, :destination)
+    artifact = ReportArtifact(:published, table, nothing, nothing)
+    illustrated_artifact = ReportArtifact(:published, table, :illustration, :destination)
 
     mktempdir() do directory
         destination = joinpath(directory, "not-written.xlsx")

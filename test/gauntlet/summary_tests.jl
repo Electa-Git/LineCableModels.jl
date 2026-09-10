@@ -1,9 +1,11 @@
-@testitem "Gauntlet / explicit saved benchmarks own comparison direction" tags=[:gauntlet_toolkit] begin
+
+@testitem "Gauntlet / explicit saved benchmarks own comparison direction" tags=[:gauntlet_toolkit] setup=[GauntletSupport] begin
     using JLD2, SHA, TOML
     using LineCableModels.Engine
+    using .GauntletSupport: Gauntlet
     include(joinpath(pkgdir(LineCableModels), "docs", "gauntlet_report.jl"))
-    using .GauntletArtifacts
-    @test occursin("No recorded benchmarks selected", render_gauntlet_report(nothing))
+    using .GauntletSupport.Gauntlet
+    @test occursin("No published benchmark artifacts", render_gauntlet_report(nothing))
     mktempdir() do root
         frequency = [1.0, 100.0]
         z = reshape(ComplexF64[1, 100], 1, 1, :)
@@ -58,57 +60,32 @@
         @test only(errors[2].relative) ≈ sqrt(1/2)
         @test only(records[2]["reference_comparison"][1].relative) ≈ sqrt(1/10004)
         @test records[1]["timings"].reference.scope===:batch_elapsed_at_completion
-        @test records[1]["numerical_reference_approval"]===:unreviewed
+        @test !haskey(records[1],"numerical_reference_approval")
         before = [(directory, copy(names)) for (directory, _, names) in walkdir(root)]
         summary = render_gauntlet_report(output)
-        @test occursin("3 explicitly configured benchmarks", summary)
-        @test occursin("Z NRMSE", summary) && occursin("Y NRMSE", summary)
-        @test occursin("Z pointwise", summary) && occursin("Y pointwise", summary)
-        @test occursin("(1, 1)", summary) && occursin("1=core", summary)
-        @test occursin("Case_with_underscores &lt;example&gt;", summary)
-        @test occursin("not recorded", summary)
-        @test occursin("No stored samples", summary)
-        @test length(findall("No stored samples", summary)) == 1
-        full_band, slices = split(summary, "### Frequency slices — Z/Y")
-        @test occursin("Full-band Z/Y summary", full_band)
-        @test !occursin("Band `dc`", full_band)
-        @test occursin("Band `dc`", slices) && occursin("Band `wide`", slices)
-        @test !occursin("<th>quantity</th>", summary)
-        @test !occursin("<th>band</th>", summary)
-        @test !occursin("G NRMSE", summary) && !occursin("G pointwise", summary)
-        @test any(row -> row.quantity === :G, errors) # Retained, not promoted into the summary.
-        selections = Dict(record["calculations"].reference.selection=>index
-            for (index, record) in enumerate(records))
-        for record in records, operand in record["calculations"]
-            get!(selections, operand.selection, length(selections) + 1)
-        end
-        table = gauntlet_table(records, "all", selections)
-        @test nrow(table) == length(records)
-        @test names(table) == ["reference", "candidate", "Z NRMSE", "Z pointwise", "Y NRMSE", "Y pointwise"]
-        @test startswith(table.reference[1], "fem [")
-        @test startswith(table.candidate[1], "coaxial [")
-        @test startswith(table.reference[2], "coaxial [")
-        @test startswith(table.candidate[2], "fem [")
-        @test startswith(table.reference[3], "coaxial [") && startswith(table.candidate[3], "coaxial [")
-        @test table[1, "Z NRMSE"] == string(round(100sqrt(1/10001); sigdigits=4), " (1, 1)")
-        @test table[1, "Z pointwise"] == string(round(100sqrt(1/2); sigdigits=4), " (1, 1)")
-        @test gauntlet_table(records, "wide", selections)[1, "Y NRMSE"] == "missing (no samples)"
-        incomplete = deepcopy(first(records))
-        filter!(row -> row.quantity === :Z && row.details.normalization === :reference_rms,
-            incomplete["reference_comparison"])
-        partial = gauntlet_table([incomplete], "all", selections)
-        @test partial[1, "Z pointwise"] == "missing (not recorded)"
-        @test partial[1, "Y NRMSE"] == "missing (not recorded)"
-        @test ncodeunits(summary)<30_000
+        @test occursin("3 complete benchmarks",summary)
+        @test occursin("Entire range",summary) && occursin("Near DC",summary) && occursin("Wideband",summary)
+        @test !occursin("<svg",summary) && !occursin("data:image",summary)
+        @test !isdefined(@__MODULE__,:gauntlet_table)
+        tables=[report(LineCableModels.ReportBuilder.BenchmarkTableDefinition(),read_benchmark(path;load_results=true)).table for path in paths]
+        row=only(filter(row -> row.quantity===:Z && row.band===:all && row.normalization===:reference_rms,tables[1].maxima))
+        @test row.maximum_relative_rms_percent ≈ 100sqrt(1/10001)
+        reverse_row=only(filter(row -> row.quantity===:Z && row.band===:all && row.normalization===:reference_rms,tables[2].maxima))
+        @test reverse_row.maximum_relative_rms_percent ≈ 100sqrt(1/10004)
+        empty_rows=filter(row -> row.band===:wide,tables[1].maxima)
+        @test all(ismissing,empty_rows.maximum_relative_rms_percent)
+        @test all(iszero,empty_rows.samples)
+        @test all(row -> row.unavailable == row.term_count,eachrow(empty_rows))
+        @test all(table -> Set(table.terms.quantity)==Set((:Z,:Y,:G)),tables)
         for token in
-            ("private_input_dump", "not for publication", "<svg", "<img", "case_1.html")
+            ("private_input_dump", "not for publication", "all slots :default", "remaining slots :default")
             @test !occursin(token, summary)
         end
         @test read.(files)==original
         @test [(directory, copy(names)) for (directory, _, names) in walkdir(root)]==before
         @test render_gauntlet_report(join((output, output), Sys.iswindows() ? ';' :
                                                             ':'))==summary
-        @test_throws r"already exists" compare_saved(source; directory = output)
+        @test compare_saved(source; directory = output) == paths
         delete!(entries[1], "reference")
         open(io->TOML.print(io, plan), source, "w")
         @test_throws r"explicit reference" compare_saved(source; directory = joinpath(root, "invalid"))
@@ -122,10 +99,12 @@
     end
 end
 
-@testitem "Gauntlet / saved UQ comparisons retain distinct means and deviations" tags=[:gauntlet_toolkit] begin
+
+@testitem "Gauntlet / saved UQ comparisons retain distinct means and deviations" tags=[:gauntlet_toolkit] setup=[GauntletSupport] begin
     using JLD2, SHA, TOML
+    using .GauntletSupport: Gauntlet
     include(joinpath(pkgdir(LineCableModels), "docs", "gauntlet_report.jl"))
-    using .GauntletArtifacts
+    using .GauntletSupport.Gauntlet
     mktempdir() do root
         f=[1.0, 100.0]
         paths=String[]
@@ -150,96 +129,40 @@ end
         write(source, "# fixture")
         benchmark=benchmark_definition(:uq_fixture, :uq_case, :uq, source,
             (id = :uq_case, description = "Mean and standard deviation"),
-            benchmark_calculation(:lep, :uq, reference, reference.metadata.formulation),
-            benchmark_calculation(:mc, :uq, candidate, candidate.metadata.formulation), UQMomentPolicy(), (;))
+            BenchmarkCalculation(:lep, reference, reference.metadata.formulation),
+            BenchmarkCalculation(:mc, candidate, candidate.metadata.formulation), (quantities=(:R, :L, :C, :G), statistics=(:mean, :std)), (;))
         result=compare_saved(benchmark; directory = joinpath(root, "output"))
         record=read_benchmark(result)
-        @test record["comparison_policy"].kind===:uq_moments
+        @test record["comparison_settings"].statistics == (:mean, :std)
         @test length(record["reference_comparison"])==8
         @test Set(r.statistic for r in record["reference_comparison"])==Set((:mean, :std))
         @test all(r->only(r.relative)≈1.0, record["reference_comparison"])
+        loaded=read_benchmark(result;load_results=true)
+        tables=report(LineCableModels.ReportBuilder.BenchmarkTableDefinition(false),loaded).table
+        @test Set(tables.comparisons.statistic)==Set((:mean,:std))
+        @test length(tables.comparisons.quantity)==8
+        @test all(only(matrix)≈100 for matrix in tables.comparisons.relative_rms_percent)
         summary=render_gauntlet_report(joinpath(root, "output"))
         @test occursin("mean", summary) && occursin("std", summary)
-        @test occursin("### UQ means", summary)
-        @test occursin("### UQ standard deviations", summary)
-        @test !occursin("Full-band Z/Y summary", summary)
+        @test occursin("Entire range", summary)
+        @test !occursin("<svg",summary)
+        @test !occursin("Full-band comparisons", summary)
         @test !occursin("pointwise", summary)
     end
 end
 
-@testitem "Gauntlet / benchmark Gridspace preserves explicit roles" tags=[:gauntlet_toolkit] begin
-    include(joinpath(pkgdir(LineCableModels), "test", "gauntlet", "artifacts.jl"))
-    using .GauntletArtifacts
-    reference=benchmark_calculation(:fixed_reference, :external, nothing, nothing)
+
+@testitem "Gauntlet / benchmark Gridspace preserves explicit roles" tags=[:gauntlet_toolkit] setup=[GauntletSupport] begin
+    using .GauntletSupport.Gauntlet
+    reference=BenchmarkCalculation(:fixed_reference, nothing, nothing)
     candidates=Gridspace{BenchmarkCalculation}(
-        id->benchmark_calculation(id, :engine, nothing, nothing), (Grid((:one, :two)),))
-    benchmarks=Gridspace{OwnedBenchmark}(
+        id->BenchmarkCalculation(id, nothing, nothing), (Grid((:one, :two)),))
+    benchmarks=Gridspace{BenchmarkDefinition}(
         candidate->benchmark_definition(candidate.id, :fixture, :manual, @__FILE__,
-            (id = :fixture,), reference, candidate, LineParametersPolicy(), (;)), (Grid(collect(candidates)),))
+            (id = :fixture,), reference, candidate, (;), (;)), (Grid(collect(candidates)),))
     materialized=collect(benchmarks)
     @test length(materialized)==2
     @test all(b->b.reference===reference, materialized)
     @test getproperty.(getproperty.(materialized, :candidate), :id)==[:one, :two]
-    @test all(b->b.reference.owner===:external, materialized)
-end
-
-@testitem "Gauntlet / reporting stays documentation-only" tags=[:gauntlet_toolkit] begin
-    using TOML
-    root = pkgdir(LineCableModels)
-    gauntlet = joinpath(root, "test", "gauntlet")
-    include(joinpath(gauntlet, "artifacts.jl"))
-    @test !isdefined(GauntletArtifacts, :report)
-    @test !isdefined(GauntletArtifacts, :load_report)
-    @test isdefined(LineCableModels.Engine, :RMSError)
-    @test isdefined(LineCableModels.Engine, :LineParametersBenchmark)
-    @test isdefined(LineCableModels.Engine, :compare)
-    for file in ("detailed_reports.jl", "reporting.jl", "report.jl", "fem_report.jl",
-        "fem_catalogue_report.jl", "plot_fem_matrix_comparison.jl", "plot_fem_admittance_comparison.jl")
-        @test !isfile(joinpath(gauntlet, file))
-    end
-    project = TOML.parsefile(joinpath(gauntlet, "Project.toml"))
-    @test !haskey(project["deps"], "CairoMakie")
-    source = read(joinpath(root, "docs", "gauntlet_report.jl"), String)
-    for token in ("CairoMakie", "GauntletSupport", "load_case",
-        "compute(", "cp(", "mkpath(", "write(")
-        @test !occursin(token, source)
-    end
-    @test !occursin("Engine.compare(", source)
-    @test !occursin("backend == \"coaxial\"", source)
-    @test !occursin("baseline=", source)
-    definitions=read(joinpath(gauntlet, "definitions.jl"), String)
-    @test !occursin("cannot execute an external", definitions)
-    cli = read(joinpath(gauntlet, "cli.jl"), String)
-    @test !occursin("gauntlet report", cli)
-    @test !occursin("--report", cli)
-    @test !occursin("detailed_reports", cli)
-end
-
-@testitem "Gauntlet / common benchmark runner accepts either external operand" tags=[:gauntlet_toolkit] setup=[GauntletSupport] begin
-    using .GauntletSupport
-    using LineCableModels.Engine
-    struct StoredFixture
-        factor::Float64
-    end
-    function LineCableModels.Engine.compute(::Nothing, selection::StoredFixture)
-        values=fill(complex(selection.factor), 1, 1, 2)
-        LineParameters(PhaseDomain, values, im .* values, [1.0, 100.0])
-    end
-    GauntletSupport._owned_formulation_record(selection::StoredFixture)=(factor = selection.factor,)
-    model=load_case(:two_insulated_wires; variation = ExactOverrides(frequencies = [50.0]))
-    limits=(Z = (absolute = 10.0, relative = 10.0), Y = (absolute = 10.0, relative = 10.0))
-    withenv("LINECABLEMODELS_GAUNTLET_MODE"=>"live") do
-        for owners in ((:external, :engine), (:engine, :external))
-            benchmark=benchmark_definition(:fixture, model.id, :manual, @__FILE__, model,
-                benchmark_calculation(:reference, owners[1], nothing, StoredFixture(1.0)),
-                benchmark_calculation(:candidate, owners[2], nothing, StoredFixture(2.0)),
-                LineParametersPolicy(normalizations = (:reference_rms, :pointwise)),
-                (reference = limits, regression = limits))
-            result=run_benchmark(benchmark)
-            @test result.metadata.calculations.reference.owner===owners[1]
-            @test result.metadata.calculations.candidate.owner===owners[2]
-            @test length(result.configured_comparisons)==4
-            @test all(row->only(row.error.relative)==1.0, result.configured_comparisons)
-        end
-    end
+    @test all(b->!hasproperty(b.reference,:owner), materialized)
 end

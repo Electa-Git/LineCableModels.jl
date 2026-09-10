@@ -26,8 +26,7 @@ Pkg.test(test_args = ["Engine / solver"])
 ```
 
 The supported tags are `unit`, `integration`, `extension`, `fem_numerical`, `visual`, `quality`, `gauntlet`, and `gauntlet_toolkit`. Visual, quality, `core_only`, and both gauntlet tags are excluded from the default run and execute in dedicated environments. See
-[`gauntlet/README.md`](gauntlet/README.md) for the explicit snapshot, live, and record
-commands.
+[`gauntlet/README.md`](../gauntlet/README.md) for explicit campaign, comparison and recovery commands.
 
 The `fem_numerical` items exercise deterministic multi-frequency FEM solves and
 the frozen Python reference matrices. They are excluded from the ordinary test
@@ -52,27 +51,41 @@ checks. Its approval manifest and bindings remain empty; it is not enabled in CI
 Instantiate the gauntlet environment and run every tagged case through the dedicated TestItemRunner entry point:
 
 ```sh
-julia --project=test/gauntlet -e 'using Pkg; Pkg.instantiate()'
-LINECABLEMODELS_GAUNTLET_MODE=snapshot julia --project=test/gauntlet \
+julia --project=gauntlet -e 'using Pkg; Pkg.instantiate()'
+julia --project=gauntlet \
   test/gauntlet/runtests.jl
 ```
 
-`test/gauntlet/runtests.jl` uses `@run_package_tests(filter=ti -> :gauntlet in ti.tags, verbose=true)`. TestItemRunner discovers every benchmark file below `gauntlet/benchmarks/`; the indexed, backend-neutral physical models live separately below `gauntlet/cases/`. The command does not maintain a second benchmark list. Each benchmark file contains exactly one benchmark, an invariant enforced by the toolkit suite.
+`test/gauntlet/runtests.jl` selects both `gauntlet` and `gauntlet_toolkit` tests.
+These check declarations, execution, persistence and comparison without native
+PSCAD. Reusable declarations live in `gauntlet/benchmarks/`; indexed physical
+models live in `gauntlet/cases/`. Live campaigns are explicit CLI actions.
 
 During development, select the owned UQ or external PSCAD family directly:
 
 ```sh
-julia --project=test/gauntlet --startup-file=no -e \
+julia --project=gauntlet --startup-file=no -e \
   'using TestItemRunner; TestItemRunner.run_tests(joinpath(pwd(), "test"); filter=ti -> :uq in ti.tags, verbose=true)'
-julia --project=test/gauntlet --startup-file=no -e \
+julia --project=gauntlet --startup-file=no -e \
   'using TestItemRunner; TestItemRunner.run_tests(joinpath(pwd(), "test"); filter=ti -> :pscad in ti.tags, verbose=true)'
 ```
 
 Run the reusable gauntlet toolkit checks separately with:
 
 ```sh
-julia --project=test/gauntlet --startup-file=no \
+julia --project=gauntlet --startup-file=no \
   -e 'push!(ARGS, "tag:gauntlet_toolkit"); include("test/runtests.jl")'
+```
+
+The PSCAD worker uses its existing PythonCall environment for local protocol tests.
+The automation double checks settings, file collection and cleanup; it does not
+simulate electromagnetic results or require a PSCAD installation:
+
+```sh
+JULIA_CONDAPKG_BACKEND=Null JULIA_PYTHONCALL_EXE=python3 \
+  julia --project=ext/LineCableModelsPSCADExt/remote -e 'using Pkg; Pkg.instantiate()'
+JULIA_CONDAPKG_BACKEND=Null JULIA_PYTHONCALL_EXE=python3 \
+  julia --project=ext/LineCableModelsPSCADExt/remote test/integration/pscad/worker.jl
 ```
 
 The deterministic Cairo suite has its own environment and may be run headlessly with:
@@ -94,8 +107,8 @@ julia --project=test/core \
 Fixture factories live in `support/fixtures.jl` and must return fresh mutable objects.
 Static input data belongs in `fixtures/data`, independently sourced numerical values in
 `fixtures/reference`, and current rendering baselines in `fixtures/golden`. Ordinary
-tests write only to system temporary directories. Explicit live gauntlet runs preserve
-their disposable projects and diagnostics below `test/gauntlet/benchmarks/.work/`.
+tests write only to system temporary directories. Explicit live Gauntlet runs preserve
+projects and diagnostics in the declared campaign and backend work directories.
 
 Numerical tests use scale- and precision-aware helpers from `support/numerical.jl`.
 There is no suite-wide absolute tolerance. Expected values must come from analytical
@@ -121,7 +134,7 @@ spelling used during unreleased development:
 
 The enforced coverage ratio includes all production code under `src/` and
 `ext/`. The LCOV report also publishes reusable gauntlet helper coverage when traces
-exist, while excluding manually authored files under `test/gauntlet/cases/`. Clean stale
+exist, while excluding manually authored files under `gauntlet/cases/`. Clean stale
 traces before a coverage run, merge traces from the ordinary, core-only, and visual
 environments, and enforce the source-amended 95% gate afterward:
 
@@ -137,14 +150,15 @@ LINECABLEMODELS_TEST_PLOTTING=true julia --project=test/visual \
 julia --project=test/coverage test/coverage.jl check
 ```
 
-CI additionally checks backend selection in isolated GLMakie and
+CI additionally collects the local PSCAD worker protocol traces and checks backend selection in isolated GLMakie and
 WGLMakie environments (GLMakie runs under Xvfb). The deterministic FEM job uploads
 its production traces with a `.fem.cov` suffix to avoid cross-runner process-ID
 collisions. The solver-free toolkit job uploads `.toolkit.cov` traces as well;
 its reusable helper coverage is published, but only `src/` and `ext/` contribute
 to the production threshold. Neither job runs the manual Gauntlet campaign.
 The coverage job merges both artifacts before the same single check. The cleaner
-removes Julia-native, imported FEM, and imported toolkit traces. The checker amends
+removes Julia-native, imported FEM, imported toolkit and documentation traces after
+all instrumented workers exit, even when the coverage check fails. The checker amends
 coverage from source, rejects any missing `src/` or `ext/` Julia file, writes
 `lcov.info`, and fails below 95% aggregate line coverage.
 

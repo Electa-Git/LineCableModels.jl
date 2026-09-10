@@ -10,7 +10,7 @@ function matches_selector(testitem, selector::AbstractString)
         return tag in testitem.tags
     end
     query=lowercase(selector)
-    return occursin(query, lowercase(testitem.filename)) ||
+    return occursin(query, lowercase(relpath(testitem.filename, @__DIR__))) ||
            occursin(query, lowercase(String(testitem.name)))
 end
 

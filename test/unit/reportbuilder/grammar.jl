@@ -107,7 +107,7 @@
     RB.select(::MinimalReport, source) = :published
     RB.tabulate(::MinimalReport, source, published) = :table
     minimal = report(MinimalReport(), :source)
-    @test minimal == ReportArtifact(:table, nothing, nothing)
+    @test minimal == ReportArtifact(:published, :table, nothing, nothing)
 end
 
 @testitem "ReportBuilder / XLSX / workbook pipeline and delegation" tags=[:integration] setup=[
@@ -138,7 +138,7 @@ end
         path=joinpath(directory, "full.xlsx")
         artifact=report(XLSXReportDefinition(; file_name = path), parameters)
         @test artifact isa ReportArtifact
-        @test fieldnames(typeof(artifact)) == (:table, :illustration, :output)
+        @test fieldnames(typeof(artifact)) == (:published, :table, :illustration, :output)
         @test artifact.illustration === nothing
         @test artifact.output == path
         @test isfile(artifact.output)

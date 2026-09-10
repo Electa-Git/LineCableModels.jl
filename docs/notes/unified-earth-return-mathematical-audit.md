@@ -401,23 +401,22 @@ agreed acceptance criterion or silently enlarged to pass.
    applicability, Γ approximation, common reference, and source-versus-terminal
    matrix roles. Keep every retained author's explicit selection available.
 
-The audit runner is `test/gauntlet/unified_earth_audit.jl`. Its optional `--fem` execution
-uses the existing backend unchanged. It saves exploratory results under
-`.linecablemodels/qa/unified-earth-audit/`; these are development evidence, not
-published gauntlet reference fixtures. Numerical observations from this run are
-recorded below.
+The exploratory runner was retired after the earth formulation entered production.
+The observations below describe its historical runs and retained development
+results under `.linecablemodels/qa/unified-earth-audit/`. They are not current
+Gauntlet acceptance criteria. The maintained regression entrypoint is
+`test/unit/engine/unified_earth_return.jl`, which reads the accepted frozen fixture
+and checks quadrature, trapz and CIM:
+
+```sh
+julia --startup-file=no --project=test test/runtests.jl unified_earth_return spectral_uncertainty
+```
 
 ## Observations from the initial run
 
 Julia 1.12.7, current checkout, actual `two_bare_wires` case with the eight
 frequency overrides. Case source SHA-256:
 `ee15401269881036f6851eaaa505d871ca63ecaf9a84d62e6e1cbbd526f1622c`.
-Command:
-
-```sh
-julia --startup-file=no --compiled-modules=existing --project=test/gauntlet test/gauntlet/unified_earth_audit.jl --fem
-```
-
 `--compiled-modules=existing` permits loading with the existing read-only Julia
 depot without creating precompile files there. No package dependencies or
 production files were changed.
@@ -492,11 +491,8 @@ by at most `1.26e-16` relatively and Y is unchanged. Thus the original candidate
 external results did not come from the retained author formulas. This also leaves
 the reported FEM discrepancies unchanged at the displayed precision.
 
-The additional command used an explicit dimensionless integral absolute tolerance:
-
-```sh
-julia --startup-file=no --compiled-modules=existing --project=test/gauntlet test/gauntlet/unified_earth_audit.jl --cim-atol=1e-6
-```
+That historical run used the explicit dimensionless integral absolute tolerance
+`cim-atol=1e-6`.
 
 For this restricted benchmark, CIM now completes all eight frequencies, with
 maximum external-Z/Y matrix differences from quad of `1.78e-7`, and maximum
@@ -518,9 +514,10 @@ Helmholtz/diffusion branch has now been run directly and reproduces the archived
 The earlier numbers and plots remain diagnostic results of the different
 operator described below, not evidence against the supplied framework.
 
-The earth-only comparison sets analytical `Zc=0`. The two-wire case now exposes
-`core_material` as an exact selection parameter, with copper retained as its
-catalogue default and `:pec` available for this audit. No insulation is added.
+The historical earth-only comparison set analytical `Zc=0` and selected the
+library PEC material through an exploratory case parameter. That parameter was
+removed with the runner; the two-wire catalogue case retains copper and no
+insulation.
 
 The library's `:pec` material is a finite-conductivity approximation
 (`rho=eps(Float64) Ω·m`). Running it through the existing conductor-volume FEM
@@ -554,13 +551,9 @@ model; it is not a claim that this model solves all the manuscript's full-field
 degrees of freedom or uses an identical voltage functional. The reference is
 audit-local and does not change the production FEM backend.
 
-Reproduce the mesh preparation, explicit PEC solve, and plots with:
-
-```sh
-julia --startup-file=no --compiled-modules=existing --project=test/gauntlet test/gauntlet/unified_earth_audit.jl --pec --fem --cim-atol=1e-6
-python3 test/gauntlet/pec_boundary_reference.py .linecablemodels/qa/unified-earth-audit/pec
-julia --startup-file=no --compiled-modules=existing --project=. test/gauntlet/plot_unified_earth_audit.jl
-```
+The original mesh-preparation runner is retired. The PEC postprocessor and
+plotting script can still inspect the saved historical audit files; they do not
+supply the production earth regression fixtures.
 
 The Python reference runner requires NumPy. It preserves its generated GetDP
 sources, commands, logs, operator hash, and reference matrices in the audit

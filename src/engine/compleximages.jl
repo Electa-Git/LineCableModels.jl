@@ -93,9 +93,9 @@ struct CIMWorkspace
     "Reusable Hankel matrix storage."
     hankel::Vector{ComplexF64}
     "Common admissible angle cap for same-earth weights \\[rad\\]."
-    angle_limit::Base.RefValue{Float64}
+    angle_limit::typeof(Ref(0.0))
     "Construction, reuse and certification counters."
-    statistics::NamedTuple{(:fits, :pencils, :hits, :certifications), NTuple{4, Base.RefValue{Int}}}
+    statistics::NamedTuple{(:fits, :pencils, :hits, :certifications), NTuple{4, typeof(Ref(0))}}
 end
 CIMWorkspace() = CIMWorkspace(CIMImageFit[], ComplexF64[], ComplexF64[], Ref(pi/2),
     (fits = Ref(0), pencils = Ref(0), hits = Ref(0), certifications = Ref(0)))

@@ -207,3 +207,16 @@ function validate(binding::FormulaMethod{ID, typeof(earth_impedance), A}) where 
     end
     return binding
 end
+
+"""
+$(TYPEDSIGNATURES)
+
+Expose the selected equations, scientific restrictions, parameters, hooks,
+numerical options and explicit equivalent-earth reduction as a native record.
+Callables are retained unchanged.
+"""
+function Base.NamedTuple(value::Formula)
+    return (identifier=formula_id(value), assumptions=value.assumptions,
+        parameters=value.parameters, hooks=value.hooks, options=value.options,
+        equivalent_earth=value.equivalent_earth === nothing ? nothing : NamedTuple(value.equivalent_earth))
+end

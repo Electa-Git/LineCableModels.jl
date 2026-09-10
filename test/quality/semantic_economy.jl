@@ -4,6 +4,7 @@
     module ForwardingProbe
         _kernel(x)=2x
         _duplicate(x)=_kernel(x)
+        duplicate(x)=_kernel(x)
         _dispatch(x::Number)=_kernel(x)
         _dispatch(x::Tuple)=map(_kernel, x)
     end
@@ -74,7 +75,7 @@
         end
         signature isa Expr && signature.head === :call || return nothing
         name=first(signature.args)
-        name isa Symbol && startswith(String(name), "_") || return nothing
+        name isa Union{Symbol, Expr} || return nothing
         if body isa Expr && body.head === :block
             statements=filter(value -> !(value isa LineNumberNode), body.args)
             length(statements) == 1 || return nothing
@@ -148,7 +149,7 @@
                     if signature isa Expr && signature.head === :call
                         name=first(signature.args)
                         value=binding(owner, name)
-                        if name isa Symbol && startswith(String(name), "_") && value isa Function
+                        if value isa Function && parentmodule(value) in owners
                             found=exact_forwarder(expression)
                             target=found === nothing ? nothing : binding(owner, last(found))
                             push!(get!(Vector{Tuple{String, Any}}, declarations, value), (path, target))
@@ -179,14 +180,14 @@
     end
 end
 
-@testitem "Quality / semantic economy / owned calls and forwarding" tags=[:quality] setup=[SemanticEconomyChecks] begin
+@testitem "Quality / semantic economy / owned calls and forwarding" tags=[:quality] setup=[SemanticEconomyChecks, GauntletSupport] begin
     using Gmsh
     using Measurements
     using Calculus
     using Distributions
     using XLSX
 
-    roots=Module[LineCableModels]
+    roots=Module[LineCableModels, GauntletSupport.Gauntlet]
     for name in (:LineCableModelsGmshExt, :LineCableModelsMeasurementsExt,
             :LineCableModelsDistributionsExt, :LineCableModelsXLSXExt)
         extension=Base.get_extension(LineCableModels, name)
@@ -194,19 +195,19 @@ end
         extension === nothing || push!(roots, extension)
     end
     found=SemanticEconomyChecks.inspect(roots)
-    @test isempty(found.private)
-    @test isempty(found.forwarders)
+    @test found.private == String[]
+    @test found.forwarders == String[]
 
     # Prove the detector catches fresh names, keywords and splats, without
     # banning local kernels, argument adaptation, or arithmetic.
-    for source in ("_alias(x) = target(x)",
+    for source in ("public_action(x) = target(x)", "_alias(x) = target(x)",
             "_alias(x; y=1) = target(x; y=y)",
             "_alias(args...; kwargs...) = target(args...; kwargs...)",
             "function _alias(x::T) where T; return target(x); end")
         @test SemanticEconomyChecks.exact_forwarder(Meta.parse(source)) !== nothing
     end
     for source in ("_kernel(x) = target(2x)", "_adapt(x) = target(x, 1)",
-            "_kernel(x) = x * x", "public_action(x) = target(x)")
+            "_kernel(x) = x * x")
         @test SemanticEconomyChecks.exact_forwarder(Meta.parse(source)) === nothing
     end
     owner=LineCableModels.Engine
@@ -218,8 +219,9 @@ end
 
     probe_results=SemanticEconomyChecks.inspect([SemanticEconomyChecks.ForwardingProbe])
     @test isempty(probe_results.private)
-    @test length(probe_results.forwarders) == 1
-    @test occursin("_duplicate", only(probe_results.forwarders))
+    @test length(probe_results.forwarders) == 2
+    @test any(contains("_duplicate"), probe_results.forwarders)
+    @test any(contains("duplicate"), probe_results.forwarders)
 end
 
 @testitem "Makie addons / semantic economy / owned calls and forwarding" tags=[:visual] setup=[SemanticEconomyChecks] begin
@@ -230,6 +232,6 @@ end
         Base.get_extension(LineCableModels, :LineCableModelsMakieExt),
         Base.get_extension(LineCableModels, :LineCableModelsCairoMakieExt)]
     found=SemanticEconomyChecks.inspect(roots)
-    @test isempty(found.private)
-    @test isempty(found.forwarders)
+    @test found.private == String[]
+    @test found.forwarders == String[]
 end

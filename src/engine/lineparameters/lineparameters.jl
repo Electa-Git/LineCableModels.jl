@@ -265,8 +265,8 @@ function observables(::Type{<:LineParameters})
     )
 end
 
-series_impedance(value::Union{LineParameters, SeriesImpedance}) = Z(value)
-shunt_admittance(value::Union{LineParameters, ShuntAdmittance}) = Y(value)
+series_impedance(value::Union{LineParameters, SeriesImpedance}) = observe(value, Z)
+shunt_admittance(value::Union{LineParameters, ShuntAdmittance}) = observe(value, Y)
 """
     Z(parameters[, i, j[, k]])
     Y(parameters[, i, j[, k]])
@@ -414,10 +414,10 @@ X(value::Union{LineParameters, SeriesImpedance}, indices...) = observe(value, X,
 G(value::Union{LineParameters, ShuntAdmittance}, indices...) = observe(value, G, indices...)
 B(value::Union{LineParameters, ShuntAdmittance}, indices...) = observe(value, B, indices...)
 
-resistance(value::Union{LineParameters, SeriesImpedance}, args...) = R(value, args...)
-reactance(value::Union{LineParameters, SeriesImpedance}, args...) = X(value, args...)
-conductance(value::Union{LineParameters, ShuntAdmittance}, args...) = G(value, args...)
-susceptance(value::Union{LineParameters, ShuntAdmittance}, args...) = B(value, args...)
+resistance(value::Union{LineParameters, SeriesImpedance}, args...) = observe(value, R, args...)
+reactance(value::Union{LineParameters, SeriesImpedance}, args...) = observe(value, X, args...)
+conductance(value::Union{LineParameters, ShuntAdmittance}, args...) = observe(value, G, args...)
+susceptance(value::Union{LineParameters, ShuntAdmittance}, args...) = observe(value, B, args...)
 
 @inline function _angular_frequencies(lp::LineParameters, k)
     selected = lp.f[k]
@@ -540,5 +540,5 @@ end
 
 L(lp::LineParameters, args...) = observe(lp, L, args...)
 C(lp::LineParameters, args...) = observe(lp, C, args...)
-inductance(lp::LineParameters, args...) = L(lp, args...)
-capacitance(lp::LineParameters, args...) = C(lp, args...)
+inductance(lp::LineParameters, args...) = observe(lp, L, args...)
+capacitance(lp::LineParameters, args...) = observe(lp, C, args...)

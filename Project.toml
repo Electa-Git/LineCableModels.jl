@@ -8,6 +8,8 @@ git_url = "https://github.com/Electa-Git/LineCableModels.jl"
 projects = ["test"]
 
 [deps]
+Base64 = "2a0f44e3-6c83-55bd-87e4-b1978d98bd5f"
+TOML = "fa267f1f-6049-4f14-aa54-33bafae1ed76"
 CairoMakie = "13f3f980-e62b-5c42-98c6-ff1f3baf88f0"
 DataFrames = "a93c6f00-e57d-5684-b7b6-d8193f3e46c0"
 Dates = "ade2ca70-3891-5945-98fb-dc099432e06a"
@@ -51,6 +53,8 @@ LineCableModelsWGLMakieExt = ["Makie", "WGLMakie"]
 LineCableModelsXLSXExt = "XLSX"
 
 [compat]
+Base64 = "1.11"
+TOML = "1.0"
 CairoMakie = "0.15"
 Calculus = "0.5.2"
 Colors = "0.13.0"

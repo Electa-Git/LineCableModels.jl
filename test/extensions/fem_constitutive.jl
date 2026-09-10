@@ -47,6 +47,10 @@
         @test model.mesh_plans[index].domain_radius ≈ sqrt(earth.rho/(pi*f*earth.mu_r*4pi*1e-7))
     end
     record = FEM.formulation_record(formulation)
+    @test record.requested == NamedTuple(formulation).requested
+    @test record.methods.temperature_dependence.hooks.contribution === temperature_law
+    @test typeof(record) === typeof(FEM.formulation_record(LineCableModelsFEM()))
+
     @test record.selections.temperature_dependence.identifier === :default
     @test !record.selections.temperature_dependence.replayable
     @test record.selections.temperature_dependence.hooks.contribution.type == string(typeof(temperature_law))

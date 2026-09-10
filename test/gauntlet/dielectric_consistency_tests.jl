@@ -1,9 +1,9 @@
 @testitem "Gauntlet / 18 kV radial equivalence does not select dielectric losses" tags=[:gauntlet_toolkit] setup=[GauntletSupport] begin
     using LinearAlgebra
     using LineCableModels.Engine
-    using .GauntletSupport
+    using .GauntletSupport.Gauntlet
     const E = LineCableModels.Engine
-    model = GauntletSupport.reference_case(:cable_18kv_1000mm2_trefoil)
+    model = GauntletSupport.load_case(:cable_18kv_1000mm2_trefoil)
     source = first(model.nominal_problem.system.designs)
     reduced = homogenize(source)
     inputs = map(design -> E.LocalCableData(E.flatten(LineCableModelsCoaxial(), design)),

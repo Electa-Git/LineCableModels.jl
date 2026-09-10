@@ -246,7 +246,7 @@ explicitly, through the environment variable, or on `PATH`. The same external
 selection applies on every other unsupported platform. An explicitly selected
 or environment-selected invalid path is an error; it is never silently
 replaced by another solver. The backend records the resolved source and path
-for provenance, while
+for calculation records, while
 resume compatibility uses the executable SHA-256 and reported build identity
 instead of its filesystem location. See
 [`THIRD_PARTY_NOTICES.md`](https://github.com/Electa-Git/LineCableModels.jl/blob/main/THIRD_PARTY_NOTICES.md)
@@ -274,7 +274,7 @@ preserved comparison artifacts and require a fresh computation. Indexed soil and
 declared-air coefficients use run-input schema 6 and solver protocol 3; older
 schemas cannot resume. Evaluated cable, soil, and air coefficients participate
 in solve reuse identity. Numerically identical laws can share a solve while
-retaining separate selection provenance and independent result arrays.
+retaining separate selection calculation records and independent result arrays.
 
 ## Optional Gmsh UI
 

@@ -197,7 +197,7 @@ end
         joinpath("src", "reportbuilder", "grammar.jl"),
         joinpath("src", "reportbuilder", "tables.jl"),
         joinpath("src", "reportbuilder", "xlsx.jl"),
-        joinpath("src", "importexport", "pscad", "pscad.jl"),
+        joinpath("ext", "LineCableModelsPSCADExt", "importexport", "pscad.jl"),
         joinpath("ext", "LineCableModelsMakieExt", "shell.jl"),
         joinpath("ext", "LineCableModelsMakieExt", "material_colors.jl"),
         joinpath("ext", "LineCableModelsMakieExt", "recipes", "line_data.jl"),
@@ -490,7 +490,9 @@ end
     )
         @test !occursin(token, maintained_implementation)
     end
-    @test !occursin(r"\bquantities\s*=", maintained_implementation)
+    # Plotting keeps the observation-request grammar. ReportBuilder separately
+    # owns the requested quantities and bands of a benchmark analysis.
+    @test !occursin(r"\bquantities\s*=", makie_source)
     @test !occursin(r"\bcon\s*=", maintained_implementation)
     @test !occursin("alpha_value", maintained_implementation)
     @test !occursin("legend_labels", line_facets)

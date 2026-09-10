@@ -95,3 +95,14 @@ function Formula(selection::FormulaDefinition{ID, Order}) where {ID, Order}
     return Formula(Val(ID); parameters = selection.parameters, hooks = selection.hooks,
         options = selection.options)
 end
+
+"""
+$(TYPEDSIGNATURES)
+
+Expose the selected equation, physical parameters, callable overrides and numerical
+options as a native record. Callables are retained unchanged.
+"""
+function Base.NamedTuple(value::Formula)
+    return (identifier=formula_id(value), binding=value.binding,
+        parameters=value.parameters, hooks=value.hooks, options=value.options)
+end

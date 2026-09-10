@@ -349,7 +349,18 @@ function _line_parameters(
         P_primitive = scan.P,
         phase_map = copy(model.problem.system.connection_order)
     ) : nothing
+    files=keep_run ? [(path=relpath(joinpath(directory,name),run.path),
+        source=joinpath(directory,name),sha256=bytes2hex(open(sha256,joinpath(directory,name))))
+        for (directory,_,names) in walkdir(run.path) for name in sort(names)] : NamedTuple[]
+    names=["cable:$(terminal.cable):$(terminal.terminal)" for terminal in model.problem.system.terminal_order]
+    coordinates=map(reduced.indices) do index
+        phase=model.problem.system.connection_order[index]
+        members=findall(==(phase),model.problem.system.connection_order)
+        formulation.options.reduce_bundle && phase > 0 && length(members) > 1 ?
+            "bundle:[" * join(names[members],",") * "]" : names[index]
+    end
     details = (
+        files, coordinates,
         formulations = formulation_record(formulation),
         fem = (
         run = record,
