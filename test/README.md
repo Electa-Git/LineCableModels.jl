@@ -25,6 +25,17 @@ Pkg.test(test_args = ["tag:integration"])
 Pkg.test(test_args = ["Engine / solver"])
 ```
 
+The package CLI has independent process-boundary tests requiring only Python's
+standard library:
+
+```sh
+python3 -m unittest discover -s test/cli -v
+```
+
+They cover symlink installation and invocation, application selection, arguments,
+working directories, exit codes and termination. The quality CI job runs them
+without Julia packages or application services.
+
 The supported tags are `unit`, `integration`, `extension`, `fem_numerical`, `visual`, `quality`, `gauntlet`, and `gauntlet_toolkit`. Visual, quality, `core_only`, and both gauntlet tags are excluded from the default run and execute in dedicated environments. See
 [`gauntlet/README.md`](../gauntlet/README.md) for explicit campaign, comparison and recovery commands.
 

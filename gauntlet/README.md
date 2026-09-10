@@ -6,6 +6,11 @@ definitions, schedules calculations, compares saved operands and locks artifacts
 in `ext/LineCableModelsPSCADExt/`; it loads with LineCableModels and launches the
 external tool only through explicit computation or station identification.
 
+Use `lcm gauntlet ...` through the [package CLI](../cli/README.md), or
+`./cli/lcm gauntlet ...` from the repository root before global installation.
+`lcm --paths` identifies the checkout supplying each application. Gauntlet owns
+its Julia environment and command arguments; global routing starts no solver.
+
 ## Declare the calculations
 
 All catalogue cases and benchmark examples default to 101 logarithmically spaced
