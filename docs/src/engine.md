@@ -236,10 +236,13 @@ depths, separations and scalar source normalizations. Geometry-dependent kernels
 retain those parameters in their identity. Arbitrary callbacks are not cached.
 Uniform local pencil regions generate a global exponential representation;
 construction starts with a compact region set and expands it when verification
-requires more work. Sample and Hankel buffers are reused.
+requires more work. Candidate image orders reuse each window's projected Hankel
+factorization before requesting more samples. Sample and Hankel buffers are reused.
 Amplitude fitting uses the integration contour and analytic tail penalties;
 an independent integral of the absolute weighted residual checks its complete
-continuation. Quadrature verifies the image sum and never supplies a value
+continuation. With an analytic tail bound, this integral uses a finite interval
+and adds bounds on both the true-kernel and image-expansion remainders. Quadrature
+verifies the image sum and never supplies a value
 labelled `:cim`. Geometry certificates integrate an absolute residual envelope
 over the complete contour, including the tail. They apply to greater weight
 heights and smaller separation-plus-radius on that contour. New geometries
@@ -260,16 +263,42 @@ explicitly. Trapz retains correlated physical uncertainty while its numerical
 norm and sampling coordinates are nominal. A zero nominal value with nonzero
 uncertainty remains visible to refinement.
 
-For trapz, `samples` controls the initial transformed-rule spacing
-(`h0=min(1,128/samples)`), `max_refinements` limits DE levels, and
-`max_tail_refinements` limits independently verified subdomain refinements over
-the mapped semi-infinite interval. Local phase and envelope variation guide
-initial subdivision. Their finite seeding horizon does not truncate the
-integral: the final interval still extends to infinity. Independent panel
+The generalized half-space kernels provide typed absolute remainder envelopes
+for overhead, underground and ordered mixed interactions, including voltage
+reference paths and radial transformations. The shared planner finds a cutoff
+from the requested `rtol`/`atol` budget and rechecks it against the computed value.
+Only features inside this justified range seed finite panels and image fits.
+There is no universal maximum wavenumber. Kernels without a usable analytic
+envelope retain verification over the infinite interval; uncertain physical
+inputs also retain that path because nominal envelopes do not bound derivatives.
+
+For both trapz and CIM, `samples=nothing` (the default) selects adaptive
+construction. An integer `samples=N`, with `N≥16`, caps **construction kernel
+evaluations per scalar integral**. Trapz counts evaluations performed by the DE
+rule; CIM counts coverage probes, pencil samples and amplitude-fitting samples.
+Repeated evaluations count again. Prototype, pilot and independent verification
+evaluations are outside this budget. An accepted cached image fit requires no
+construction samples. The budget never grows silently: insufficient samples
+raise an explicit error. This intentionally replaces the former starting-density
+meaning of `samples`; an old explicit value such as `128` may need increasing.
+Numerical tolerance remains a separate requirement:
+
+```julia
+integration = (method = :trapz, options = (rtol = 1e-6, atol = 0.0, samples = nothing))
+integration = (method = :cim, options = (rtol = 1e-6, samples = 8192))
+```
+
+`SpectralEstimate.samples` reports construction evaluations and
+`evaluations-samples` reports verification and pilot evaluations. Earth workspace
+diagnostics aggregate both counters across integral solves and matrix refinements.
+
+For trapz, `max_refinements` limits DE levels and `max_tail_refinements` limits
+cutoff searches and independently verified subdomain refinements. Local phase
+and envelope variation guide initial subdivision. Independent panel
 quadrature references supply normalization and verification in one pass; their
 absolute errors cannot cancel across panels. Successful panels are retained;
 the DE package reuses nested samples within each panel. Rule tables are reused for identical
-spacing, level limits and precision. Mathematical feature metadata is required to guard
+level limits and precision. Mathematical feature metadata is required to guard
 against known narrow structures; finite black-box samples cannot certify the
 absence of an undeclared feature. Reported errors remain estimates unless the
 contributing regularity and tail information supplies bounds.

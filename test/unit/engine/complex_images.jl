@@ -19,12 +19,17 @@
     quad=E.computation_options(E.SpectralIntegral, (method = :quad, options = (rtol = 1e-10,))).options
     distant=integral(state, 2.0, 2.0)
     first=E.spectral_estimate(Val(:cim), distant, controls, workspace)
+    @test E.spectral_bounded(distant)
+    @test first.samples>0
     @test first.value≈E.integrate(Val(:quad), distant, quad, nothing) rtol=1e-6
     fit_count=workspace.cim.statistics.fits[]
     certificates=workspace.cim.statistics.certifications[]
     repeated=@inferred E.spectral_estimate(Val(:cim), distant, controls, workspace)
     @test repeated.value==first.value
     @test repeated.evaluations==1
+    @test repeated.samples==0
+    manual=merge(controls,(samples=16,))
+    @test E.spectral_estimate(Val(:cim),distant,manual,workspace).samples==0
     @test workspace.cim.statistics.fits[]==fit_count
     @test workspace.cim.statistics.certifications[]==certificates
     near=integral(state, 2.0, 0.0)
@@ -48,6 +53,9 @@
         merge(near.weight, (q = 1.1near.weight.q,)), near.scale;
         angle = near.angle, features = near.features)
     @test E.cim_reuse_estimate(shifted, controls, workspace, Ref(0), ComplexF64)===nothing
+    custom=E.SpectralIntegral(Val(:radial),near.kernel,near.weight,near.scale;
+        angle=near.angle,features=E.SpectralFeatures(near.features.points;tail=x->exp(-x)))
+    @test E.cim_reuse_estimate(custom,controls,workspace,Ref(0),ComplexF64)===nothing
 
     # Arbitrary closures have no declared immutable identity and are never
     # reused merely because the same callable object was passed again.

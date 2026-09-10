@@ -1,3 +1,6 @@
+"""An analytic bound on an absolute weighted spectral remainder."""
+abstract type AbstractSpectralTailBound end
+
 """
 $(TYPEDEF)
 
@@ -40,8 +43,83 @@ struct SpectralEstimate{V, T}
     tail::T
     "Number of kernel evaluations."
     evaluations::Int
-    "Largest quad/trapz evaluation, or CIM physical validation cutoff \\[1/m\\]."
+    "Finite verification endpoint, largest quadrature evaluation, or Inf for full-range CIM verification \\[1/m\\]."
     cutoff::T
+    "Kernel evaluations used to construct trapezoids or image fits."
+    samples::Int
+end
+SpectralEstimate(value, error, tail, evaluations, cutoff) =
+    SpectralEstimate(value, error, tail, evaluations, cutoff, 0)
+
+"""
+$(TYPEDEF)
+
+Track construction evaluations independently of numerical verification.
+
+$(TYPEDFIELDS)
+"""
+struct SpectralSampleBudget{L}
+    "Maximum construction evaluations, or nothing for adaptive sampling."
+    limit::L
+    "Construction evaluations already used."
+    used::Base.RefValue{Int}
+end
+SpectralSampleBudget(limit) = SpectralSampleBudget(limit, Ref(0))
+function spectral_sample!(budget, f::F, x) where {F}
+    budget.limit===nothing || budget.used[]<budget.limit || throw(ErrorException(
+        "spectral construction sample budget exhausted (samples=$(budget.limit)); increase samples or use nothing"))
+    budget.used[]+=1
+    return f(x)
+end
+
+spectral_tail(integral) = integral.features===nothing ? nothing : integral.features.tail
+spectral_bounded(integral) = spectral_tail(integral) isa AbstractSpectralTailBound
+spectral_initial_samples(controls) = 128
+
+"""
+$(TYPEDSIGNATURES)
+
+Select a physical cutoff \\[1/m\\] whose analytic remainder fits `target`, in
+the integral's units. Only scalar envelope evaluations are used. Kernels
+without an analytic bound retain the infinite-range numerical path.
+"""
+function spectral_cutoff(integral, target, controls)
+    R=typeof(integral.scale)
+    spectral_bounded(integral) || return R(Inf)
+    bound=spectral_tail(integral)
+    right=integral.scale
+    left=zero(R)
+    target=max(R(target), nextfloat(zero(R)))
+    for _ in 1:controls.max_tail_refinements
+        value=bound(right)
+        value>=0 && !isnan(value) || throw(DomainError(value,"invalid spectral tail bound"))
+        if value<=target
+            # A conservative finite endpoint does not need a high-precision
+            # root solve. Eight bisections resolve a doubling interval to 0.4%.
+            for _ in 1:8
+                mid=(left+right)/2
+                if bound(mid)<=target
+                    right=mid
+                else
+                    left=mid
+                end
+            end
+            return right
+        end
+        left=right
+        right*=2
+        isfinite(right) || break
+    end
+    # Exceptional material/contour regimes may have no usable envelope. Keep
+    # the original infinite-range verifier instead of assuming a cutoff.
+    return R(Inf)
+end
+
+function spectral_seed_cutoff(integral, controls)
+    spectral_bounded(integral) || return typeof(integral.scale)(Inf)
+    amplitude=spectral_magnitude(integral(spectral_rotation(integral)*integral.scale))*integral.scale
+    target=max(controls.atol, controls.rtol*amplitude)/64
+    return spectral_cutoff(integral, target, controls)
 end
 
 # Supply the backend's error norm without changing physical values. In
@@ -88,7 +166,7 @@ function spectral_sort_unique!(points)
     return resize!(points, count)
 end
 
-function spectral_breakpoints(integral, workspace = nothing)
+function spectral_breakpoints(integral, workspace = nothing; limit = Inf)
     R=typeof(integral.scale)
     points=spectral_buffer(workspace, R, :points)
     push!(points, zero(R), integral.scale)
@@ -98,22 +176,29 @@ function spectral_breakpoints(integral, workspace = nothing)
     if integral.features !== nothing
         append!(points, integral.features.points)
     end
+    if isfinite(limit)
+        filter!(x->x<limit, points)
+        push!(points, R(limit))
+    end
     spectral_sort_unique!(points)
     return points
 end
 
-function spectral_estimate(::Val{:quad}, integral::SpectralIntegral, controls, workspace)
+spectral_estimate(::Val{:quad}, integral::SpectralIntegral, controls, workspace) =
+    spectral_quad_estimate(integral, controls, workspace, typeof(integral.scale)(Inf))
+
+function spectral_quad_estimate(integral, controls, workspace, limit)
     R=typeof(integral.scale)
     scale=integral.scale
     rotation=spectral_rotation(integral)
-    physical_points=spectral_breakpoints(integral, workspace)
+    physical_points=spectral_breakpoints(integral, workspace; limit)
     # Map explicitly: QuadGK's vector-domain API reuses segment coordinates,
     # so physical finite breakpoints must not accompany an implicit Inf map.
     points=spectral_buffer(workspace, R, :mapped)
     for x in physical_points
         push!(points, x/(scale+x))
     end
-    push!(points, one(R))
+    isfinite(limit) || push!(points, one(R))
     spectral_sort_unique!(points)
     segments=workspace===nothing ? nothing : workspace.segments
     statistics=workspace!==nothing&&haskey(workspace, :statistics) ? workspace.statistics :
@@ -141,7 +226,7 @@ function spectral_estimate(::Val{:quad}, integral::SpectralIntegral, controls, w
                 segbuf = workspace.seed, norm = spectral_magnitude)
             append!(seeds, workspace.seed)
         end
-        quadgk(f, zero(R), one(R); rtol = controls.rtol, atol = controls.atol,
+        quadgk(f, zero(R), last(points); rtol = controls.rtol, atol = controls.atol,
             maxevals = controls.maxevals, segbuf = segments, eval_segbuf = seeds, norm = spectral_magnitude)
     else
         quadgk(f, points; rtol = controls.rtol, atol = controls.atol,
@@ -151,6 +236,31 @@ function spectral_estimate(::Val{:quad}, integral::SpectralIntegral, controls, w
     error<=max(controls.atol, controls.rtol*spectral_magnitude(value)) ||
         throw(ErrorException("spectral :quad did not converge (estimated error=$error)"))
     return SpectralEstimate(value, R(error), zero(R), evaluations[], cutoff[])
+end
+
+function spectral_reference(integral, controls, workspace = nothing)
+    spectral_bounded(integral) || return spectral_estimate(Val(:quad), integral,
+        (rtol=controls.rtol/10,atol=controls.atol/10,maxevals=get(controls,:maxevals,10^7)), workspace)
+    R=typeof(integral.scale)
+    limit=spectral_seed_cutoff(integral, controls)
+    evaluations=1
+    for _ in 1:4
+        if !isfinite(limit)
+            estimate=spectral_estimate(Val(:quad),integral,
+                (rtol=controls.rtol/10,atol=controls.atol/10,maxevals=get(controls,:maxevals,10^7)),workspace)
+            return SpectralEstimate(estimate.value,estimate.error,zero(R),
+                evaluations+estimate.evaluations,R(Inf))
+        end
+        estimate=spectral_quad_estimate(integral,
+            (rtol=controls.rtol/10,atol=controls.atol/10,maxevals=get(controls,:maxevals,10^7)), workspace, limit)
+        evaluations+=estimate.evaluations
+        target=max(controls.atol,controls.rtol*spectral_magnitude(estimate.value))
+        tail=R(spectral_tail(integral)(limit))
+        tail<=target/32 && return SpectralEstimate(estimate.value,estimate.error+tail,
+            tail,evaluations,R(limit))
+        limit=spectral_cutoff(integral,target/64,controls)
+    end
+    throw(ErrorException("spectral cutoff did not meet the final absolute error budget"))
 end
 
 # Reusable tables for the standard scalar types and default work limits.
@@ -165,11 +275,11 @@ function spectral_de_rule(::Type{R}, controls, workspace) where {R}
                 table.precision==precision(R) && return table.rule
         end
     end
-    controls.max_refinements==12&&controls.samples==128&&R===Float64 &&
+    controls.max_refinements==12&&R===Float64 &&
         return EARTH_DE_FLOAT64
-    controls.max_refinements==12&&controls.samples==128&&R===Float32 &&
+    controls.max_refinements==12&&R===Float32 &&
         return EARTH_DE_FLOAT32
-    return QuadDE(R; maxlevel = controls.max_refinements, h0 = min(one(R), R(128)/controls.samples))
+    return QuadDE(R; maxlevel = controls.max_refinements)
 end
 
 function spectral_rule_bindings(bindings, ::Type{R}) where {R}
@@ -202,18 +312,19 @@ function spectral_resolution(integral::SpectralIntegral{Kind}, left, right) wher
         envelope = abs(height*real(root_delta))+extent*abs(imag(delta)))
 end
 
-function spectral_trapz_points(integral, controls, workspace)
+function spectral_trapz_points(integral, controls, workspace; limit = Inf)
     R=typeof(integral.scale)
-    points=spectral_breakpoints(integral, workspace)
+    points=spectral_breakpoints(integral, workspace; limit)
     rotation=spectral_rotation(integral)
     w=integral.weight
     decay=nominal(w.height)*real(rotation)-nominal(w.separation+get(w, :radius, 0))*abs(imag(rotation))
-    # This is a finite seeding horizon only: the remaining interval to infinity
-    # is always integrated and verified, never dropped on this heuristic.
+    # This heuristic only seeds panels. A finite endpoint requires an analytic
+    # remainder bound; otherwise the final panel still extends to infinity.
     horizon=decay>0 ? R(max(20, -log(max(controls.rtol, eps(R))))/decay) : integral.scale
     isfinite(horizon)&&horizon>0 || (horizon=integral.scale)
     # Existing material features often already extend beyond this horizon;
     # do not introduce a redundant tail panel in that case.
+    horizon=min(horizon,limit)
     last(points)<horizon && push!(points, horizon)
     spectral_sort_unique!(points)
     seeds=spectral_buffer(workspace, R, :seeds)
@@ -223,8 +334,9 @@ function spectral_trapz_points(integral, controls, workspace)
         left, right=seeds[i], min(seeds[i+1], horizon)
         left<right || continue
         demand=spectral_resolution(integral, left, right)
-        demand_ratio=max(demand.phase/max(R(pi), controls.samples*R(pi)/40),
-            demand.envelope/max(one(R), R(controls.samples)/32))
+        samples=spectral_initial_samples(controls)
+        demand_ratio=max(demand.phase/max(R(pi), samples*R(pi)/40),
+            demand.envelope/max(one(R), R(samples)/32))
         count=ceil(Int, clamp(demand_ratio, one(R), R(controls.max_tail_refinements)))
         for j in 1:(count-1)
             push!(points, left+(right-left)*j/count)
@@ -243,16 +355,17 @@ function spectral_trapz_points(integral, controls, workspace)
     for x in points
         push!(mapped, x/(integral.scale+x))
     end
-    push!(mapped, one(R))
+    isfinite(limit) || push!(mapped, one(R))
     spectral_sort_unique!(mapped)
     return mapped
 end
 
 function spectral_estimate(::Val{:trapz}, integral::SpectralIntegral, controls, workspace)
     R=typeof(integral.scale)
-    points=spectral_trapz_points(integral, controls, workspace)
+    limit=spectral_seed_cutoff(integral, controls)
+    points=spectral_trapz_points(integral, controls, workspace; limit)
     rotation=spectral_rotation(integral)
-    evaluations=Ref(0)
+    evaluations=Ref(spectral_bounded(integral) ? 1 : 0)
     cutoff=Ref(zero(R))
     f=t->begin
         evaluations[]+=1
@@ -264,7 +377,19 @@ function spectral_estimate(::Val{:trapz}, integral::SpectralIntegral, controls, 
     end
     rule=spectral_de_rule(R, controls, workspace)
     segments=workspace===nothing ? nothing : get(workspace, :segments, nothing)
-    return spectral_de_estimate(rule, f, points, controls, evaluations, cutoff, segments)
+    budget=SpectralSampleBudget(controls.samples)
+    for _ in 1:4
+        tail=isfinite(limit) ? R(spectral_tail(integral)(limit)) : zero(R)
+        estimate=spectral_de_estimate(rule, f, points, controls, evaluations, cutoff, segments, budget)
+        target=max(controls.atol,controls.rtol*spectral_magnitude(estimate.value))
+        if tail<=target/16
+            return SpectralEstimate(estimate.value, estimate.error+tail, tail,
+                evaluations[], isfinite(limit) ? R(limit) : cutoff[], budget.used[])
+        end
+        limit=spectral_cutoff(integral,target/64,controls)
+        points=spectral_trapz_points(integral,controls,workspace;limit)
+    end
+    throw(ErrorException("spectral :trapz cutoff did not meet the final error budget"))
 end
 
 function de_reference_panel(f::F, a, b, controls, count, segments; target = nothing) where {F}
@@ -278,7 +403,7 @@ end
 
 # Independent panel references serve both normalization and verification. They
 # replace the redundant full-domain reference plus a second set of panel solves.
-function spectral_de_estimate(rule, f::F, points, controls, evaluations, cutoff, segments) where {F}
+function spectral_de_estimate(rule, f::F, points, controls, evaluations, cutoff, segments, budget) where {F}
     R=eltype(points)
     n=length(points)-1
     references=[de_reference_panel(f, points[i], points[i+1], controls, n, segments) for i in 1:n]
@@ -296,14 +421,14 @@ function spectral_de_estimate(rule, f::F, points, controls, evaluations, cutoff,
         R(controls.atol), floatmin(R))
     panels=references
     for i in eachindex(panels)
-        panels[i]=verified_de_panel(rule, f, panels[i], amplitude, target, controls, n, 0)
+        panels[i]=verified_de_panel(rule, f, panels[i], amplitude, target, controls, n, 0, budget)
     end
     for refinement in 0:(controls.max_tail_refinements-1)
         value=sum(panel->panel.value, panels)
         rounding=8eps(R)*sum(panel->R(spectral_magnitude(panel.value)), panels)
         error=sum(panel->panel.error, panels)+rounding
         target=max(R(controls.atol), R(controls.rtol)*R(spectral_magnitude(value)))
-        if isfinite(value)&&isfinite(error)&&error<=target
+        if isfinite(value)&&isfinite(error)&&error<=target*15/16
             return SpectralEstimate(value, error, zero(R), evaluations[], cutoff[])
         end
         index=argmax(map(panel->panel.error, panels))
@@ -314,17 +439,17 @@ function spectral_de_estimate(rule, f::F, points, controls, evaluations, cutoff,
         left=de_reference_panel(f, panel.left, mid, controls, count, segments; target)
         right=de_reference_panel(f, mid, panel.right, controls, count, segments; target)
         panels[index]=verified_de_panel(rule, f, left, amplitude, target,
-            controls, count, refinement+1)
+            controls, count, refinement+1, budget)
         push!(panels, verified_de_panel(rule, f, right, amplitude, target,
-            controls, count, refinement+1))
+            controls, count, refinement+1, budget))
     end
     throw(ErrorException("spectral :trapz failed local error verification; no quadrature value was substituted"))
 end
 
-function verified_de_panel(rule, f, reference, amplitude, target, controls, count, refinement)
+function verified_de_panel(rule, f::F, reference, amplitude, target, controls, count, refinement, budget) where {F}
     R=typeof(reference.left)
     tolerance=target/amplitude/(32count)
-    value, estimate=rule(t->SpectralSample(f(t)/amplitude), reference.left, reference.right;
+    value, estimate=rule(t->SpectralSample(spectral_sample!(budget,f,t)/amplitude), reference.left, reference.right;
         rtol = zero(R), atol = max(eps(R), 2tolerance/4^refinement))
     physical=value.value*amplitude
     error=max(R(nominal(estimate))*amplitude,
@@ -334,10 +459,11 @@ end
 
 function cim_windows(integral::SpectralIntegral{Kind}, limit) where {Kind}
     R=typeof(integral.scale)
-    points=spectral_breakpoints(integral)
+    points=spectral_breakpoints(integral;limit)
     if Kind===:radial
         q=integral.weight.q
         points=R[abs(x^2/(sqrt(x^2+q^2)+q)) for x in points]
+        limit=last(points)
     end
     filter!(x->zero(R)<x<=limit, points)
     isempty(points)&&push!(points, min(integral.scale, limit))
@@ -367,9 +493,10 @@ function cim_sample_weights(integral, nodes, rotation, shift)
     return weights
 end
 
-function cim_fit_samples(integral::SpectralIntegral{Kind}, nodes, rotation, shift) where {Kind}
+function cim_fit_samples(integral::SpectralIntegral{Kind}, nodes, rotation, shift, budget = nothing) where {Kind}
     if Kind !== :radial
-        return nodes, integral.kernel.(rotation .* nodes .+ shift),
+        evaluate=x->budget===nothing ? integral.kernel(x) : spectral_sample!(budget,integral.kernel,x)
+        return nodes, evaluate.(rotation .* nodes .+ shift),
         cim_sample_weights(integral, nodes, rotation, shift)
     end
     # The radial fitting variable follows a curved path on the physical
@@ -379,7 +506,8 @@ function cim_fit_samples(integral::SpectralIntegral{Kind}, nodes, rotation, shif
     λ=spectral_rotation(integral) .* nodes
     u=sqrt.(λ .^ 2 .+ w.q^2)
     coordinates=λ .^ 2 ./ (u .+ w.q)
-    values=[radial_kernel_value(integral.kernel, u[i], λ[i]) for i in eachindex(u)]
+    evaluate=x->radial_kernel_value(integral.kernel,x[1],x[2])
+    values=[budget===nothing ? evaluate((u[i],λ[i])) : spectral_sample!(budget,evaluate,(u[i],λ[i])) for i in eachindex(u)]
     weights=similar(nodes)
     for i in eachindex(nodes)
         left=i==1 ? nodes[i] : nodes[i - 1]
@@ -405,8 +533,10 @@ function cim_residual_error(integral::SpectralIntegral{Kind}, amplitudes, poles,
         Val(Kind), integral.kernel, integral.weight, integral.scale;
         angle = integral.angle, features = integral.features)
     scale=integral.scale
-    physical=sort!(unique!(vcat(spectral_breakpoints(integral), limit)))
-    points=sort!(unique!(vcat(physical ./ (scale .+ physical), one(R))))
+    limit, remainder=cim_residual_limit(integral,amplitudes,poles,rotation,1.0,limit,target,controls)
+    physical=spectral_breakpoints(integral;limit)
+    points=physical ./ (scale .+ physical)
+    isfinite(limit) || push!(points,one(R))
     f=t->begin
         den=inv(one(R)-t)
         λ=(Kind===:radial ? spectral_rotation(integral) : rotation)*scale*t*den
@@ -415,7 +545,7 @@ function cim_residual_error(integral::SpectralIntegral{Kind}, amplitudes, poles,
     end
     value,
     error=quadgk(f, points; rtol = 1e-3, atol = target/32, maxevals = controls.maxevals)
-    return value+error
+    return (error=value+error+remainder, tail=remainder, cutoff=R(limit))
 end
 
 function cim_weighted_image(
@@ -446,6 +576,7 @@ function cim_true_tail(integral, limit, rotation, target, controls)
     error=quadgk(f, points; rtol = 1e-3, atol = target/64, maxevals = controls.maxevals)
     if integral.features!==nothing&&integral.features.tail!==nothing
         bound=integral.features.tail(limit)
+        spectral_bounded(integral)&&bound==Inf && return value+error
         bound isa Real&&isfinite(bound)&&bound>=0 ||
             throw(DomainError(bound, "the spectral tail envelope must be finite and nonnegative"))
         value-error<=bound+target/64 ||
