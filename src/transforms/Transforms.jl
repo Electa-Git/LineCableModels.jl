@@ -25,7 +25,7 @@ import ..Engine: LineParameters, PhaseDomain, ModalDomain,
                  description, formula_id, selectdomain,
                  offdiagonal_ratio
 using LinearAlgebra: Diagonal, I, checksquare, cond, diag, dot, eigen,
-                     issuccess, ldiv!, lu!, mul!, norm, rdiv!, svd
+                     issuccess, ldiv!, lu!, mul!, norm, rdiv!
 #! explicit-imports: on
 
 include("interfaces.jl")

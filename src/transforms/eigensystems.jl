@@ -188,9 +188,7 @@ function _match!(
         values::AbstractVector{T},
         vectors::AbstractMatrix{T},
         previous_values::AbstractVector{T},
-        previous_vectors::AbstractMatrix{T};
-        older_values::Union{Nothing, AbstractVector{T}} = nothing,
-        history_weight::Real = 0
+        previous_vectors::AbstractMatrix{T}
 ) where {T <: Complex}
     n = length(values)
     length(previous_values) == n || throw(DimensionMismatch(
@@ -200,11 +198,6 @@ function _match!(
         DimensionMismatch("eigenvector matrices must be n×n")
     )
     R = typeof(real(zero(T)))
-    weight = convert(R, history_weight)
-    isfinite(weight) && weight >= zero(R) || throw(DomainError(
-        history_weight,
-        "history_weight must be finite and nonnegative"
-    ))
     cost = Matrix{R}(undef, n, n)
     @inbounds for previous in 1:n, current in 1:n
         denominator = norm(@view(previous_vectors[:, previous])) *
@@ -214,19 +207,7 @@ function _match!(
             @view(previous_vectors[:, previous]),
             @view(vectors[:, current])
         )) / denominator
-        penalty = zero(R)
-        if older_values !== nothing
-            scale = max(
-                abs(previous_values[previous]),
-                abs(older_values[previous]),
-                abs(values[current]),
-                eps(R)
-            )
-            old_step = abs(previous_values[previous] - older_values[previous])
-            new_step = abs(values[current] - previous_values[previous])
-            penalty = abs(old_step - new_step) / scale
-        end
-        cost[previous, current] = one(R) - overlap + weight * penalty
+        cost[previous, current] = one(R) - overlap
     end
     assignment = _hungarian(cost)
     ordered_values = copy(values)
@@ -237,54 +218,6 @@ function _match!(
         copyto!(@view(vectors[:, mode]), @view(ordered_vectors[:, source]))
     end
     return assignment
-end
-
-function _groups(values::AbstractVector{T}, tolerance::Real) where {T <: Complex}
-    n = length(values)
-    R = typeof(real(zero(T)))
-    threshold = convert(R, tolerance)
-    isfinite(threshold) && threshold >= zero(R) || throw(DomainError(
-        tolerance,
-        "coalescence_tolerance must be finite and nonnegative"
-    ))
-    scale = max(maximum(abs, values), eps(R))
-    visited = falses(n)
-    groups = Vector{Vector{Int}}()
-    @inbounds for seed in 1:n
-        visited[seed] && continue
-        group = Int[seed]
-        visited[seed] = true
-        cursor = 1
-        while cursor <= length(group)
-            source = group[cursor]
-            for candidate in 1:n
-                visited[candidate] && continue
-                if abs(values[source] - values[candidate]) <= threshold * scale
-                    visited[candidate] = true
-                    push!(group, candidate)
-                end
-            end
-            cursor += 1
-        end
-        length(group) > 1 && push!(groups, group)
-    end
-    return groups
-end
-
-function _procrustes!(
-        vectors::AbstractMatrix{T},
-        previous::AbstractMatrix{T},
-        values::AbstractVector{T},
-        tolerance::Real
-) where {T <: Complex}
-    for group in _groups(values, tolerance)
-        current_group = Matrix(@view vectors[:, group])
-        previous_group = Matrix(@view previous[:, group])
-        factorization = svd(adjoint(current_group) * previous_group)
-        rotation = factorization.U * factorization.Vt
-        vectors[:, group] .= current_group * rotation
-    end
-    return vectors
 end
 
 function _valid(
