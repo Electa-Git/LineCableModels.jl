@@ -7,10 +7,16 @@ coverage:
       default:
         target: 95%
         threshold: 0%
+        paths:
+          - "src/"
+          - "ext/"
     patch:
       default:
         target: 95%
         threshold: 0%
+        paths:
+          - "src/"
+          - "ext/"
 
 comment:
   layout: "reach,diff,flags,files"

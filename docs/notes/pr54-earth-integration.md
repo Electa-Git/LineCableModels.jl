@@ -125,3 +125,17 @@ production lines (95.04%).
 CI now retains `lcov.info` as an artifact after a failed threshold check, so
 uncovered code can be inspected without repeating a run solely to recover its
 report. Coverage exclusions and the minimum are unchanged.
+
+All nine CI jobs passed at `32125c9b`. The final production measurement is
+16,460 of 17,318 lines (95.05%); both core versions pass 15,907 checks. The
+additional Codecov changed-line check then reported 89.05% because it combined
+the production and Gauntlet inventories. This differs from the established
+requirement in `test/README.md` and `test/coverage.jl`, which enforces 95% on
+`src/` and `ext/` and publishes Gauntlet coverage separately.
+
+Recalculating changed-line coverage from the retained CI LCOV report and the
+GitHub base reproduces Codecov's 3,107 of 3,489 lines (89.05%) exactly. Production
+changes cover 2,151 of 2,220 lines (96.89%); Gauntlet changes cover 956 of 1,269
+lines (75.33%). Codecov's existing project and changed-line checks now select
+the same production paths as the local checker. Both 95% targets remain;
+the complete report, including uncovered Gauntlet code, remains published.

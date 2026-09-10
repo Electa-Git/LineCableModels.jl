@@ -155,7 +155,9 @@ WGLMakie environments (GLMakie runs under Xvfb). The deterministic FEM job uploa
 its production traces with a `.fem.cov` suffix to avoid cross-runner process-ID
 collisions. The solver-free toolkit job uploads `.toolkit.cov` traces as well;
 its reusable helper coverage is published, but only `src/` and `ext/` contribute
-to the production threshold. Neither job runs the manual Gauntlet campaign.
+to the production threshold. Codecov's project and changed-line checks use these
+same production paths and retain their 95% targets. Gauntlet files remain visible
+in the published report. Neither job runs the manual Gauntlet campaign.
 The coverage job merges both artifacts before the same single check. The cleaner
 removes Julia-native, imported FEM, imported toolkit and documentation traces after
 all instrumented workers exit, even when the coverage check fails. The checker amends
