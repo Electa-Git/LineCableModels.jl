@@ -62,7 +62,7 @@ struct SpectralSampleBudget{L}
     "Maximum construction evaluations, or nothing for adaptive sampling."
     limit::L
     "Construction evaluations already used."
-    used::Base.RefValue{Int}
+    used::typeof(Ref(0))
 end
 SpectralSampleBudget(limit) = SpectralSampleBudget(limit, Ref(0))
 function spectral_sample!(budget, f::F, x) where {F}
@@ -382,7 +382,10 @@ function spectral_estimate(::Val{:trapz}, integral::SpectralIntegral, controls, 
         tail=isfinite(limit) ? R(spectral_tail(integral)(limit)) : zero(R)
         estimate=spectral_de_estimate(rule, f, points, controls, evaluations, cutoff, segments, budget)
         target=max(controls.atol,controls.rtol*spectral_magnitude(estimate.value))
-        if tail<=target/16
+        # An underflowed correction can still be insignificant to a matrix
+        # consumer. Retain its smallest representable positive error instead
+        # of repeatedly asking a zero relative budget to absorb it.
+        if tail<=target/16 || (iszero(estimate.value)&&tail==nextfloat(zero(R)))
             return SpectralEstimate(estimate.value, estimate.error+tail, tail,
                 evaluations[], isfinite(limit) ? R(limit) : cutoff[], budget.used[])
         end

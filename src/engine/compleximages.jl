@@ -93,9 +93,9 @@ struct CIMWorkspace
     "Reusable Hankel matrix storage."
     hankel::Vector{ComplexF64}
     "Common admissible angle cap for same-earth weights \\[rad\\]."
-    angle_limit::Base.RefValue{Float64}
+    angle_limit::typeof(Ref(0.0))
     "Construction, reuse and certification counters."
-    statistics::NamedTuple{(:fits, :pencils, :hits, :certifications), NTuple{4, Base.RefValue{Int}}}
+    statistics::NamedTuple{(:fits, :pencils, :hits, :certifications), NTuple{4, typeof(Ref(0))}}
 end
 CIMWorkspace() = CIMWorkspace(CIMImageFit[], ComplexF64[], ComplexF64[], Ref(pi/2),
     (fits = Ref(0), pencils = Ref(0), hits = Ref(0), certifications = Ref(0)))
@@ -123,7 +123,9 @@ end
 
 function cim_pencil(data, step, width, tolerance, maxrank, cache)
     samples=length(data)
-    rows=samples÷2
+    # A rectangular pencil uses every sample while keeping factorization cost
+    # tied to the candidate image order, rather than cubically to sample count.
+    rows=min(samples÷2,2maxrank)
     columns=samples-rows
     storage=cache===nothing ? Vector{ComplexF64}(undef,2rows*columns) :
             resize!(cache.hankel,2rows*columns)
@@ -232,28 +234,33 @@ end
 
 function cim_store_fit!(integral::SpectralIntegral{Kind}, controls, workspace,
         images, poles, rotation, error, tail, cutoff, ::Type{Result}) where {Kind, Result}
-    cache=cim_workspace(workspace)
-    cache===nothing && return
-    key=cim_identity(integral.kernel)
-    key===nothing && return
-    integral.pole===nothing || return
-    spectral_cacheable_tail(spectral_tail(integral)) || return
-    length(cache.fits)>=64 && popfirst!(cache.fits)
     certificate=cim_certificate(integral, error, tail, cutoff)
+    cache=cim_workspace(workspace)
+    cache===nothing && return certificate
+    key=cim_identity(integral.kernel)
+    key===nothing && return certificate
+    integral.pole===nothing || return certificate
+    spectral_cacheable_tail(spectral_tail(integral)) || return certificate
+    length(cache.fits)>=64 && popfirst!(cache.fits)
     certificates=[certificate]
-    target=max(controls.atol, controls.rtol*abs(first(cim_image_value(
-        Val(Kind), integral.weight, images, poles, rotation))))
+    magnitude=abs(first(cim_image_value(Val(Kind), integral.weight, images, poles, rotation)))
+    target=max(controls.atol, controls.rtol*magnitude)
+    # A loose separate-tail bound can dominate an otherwise accurate fit and
+    # cause matrix sensitivity checks to refit it repeatedly. Certify the
+    # continuation at the measured finite-error scale before caching it.
+    certification_target=min(target,max(error-tail,32eps(Float64)*magnitude,floatmin(Float64)))
     cache.statistics.certifications[]+=1
-    envelope=cim_envelope_error(integral, images, poles, rotation, 1.0, cutoff, target, controls)
+    envelope=cim_envelope_error(integral, images, poles, rotation, 1.0, cutoff, certification_target, controls)
     if isfinite(envelope.error)
         push!(certificates, cim_certificate(integral, envelope.error, envelope.tail,
             envelope.cutoff; envelope = true))
     end
+    sort!(certificates;by=c->c.error)
     push!(cache.fits, CIMImageFit(key, Kind, precision(real(Result)), cim_logscale(integral.kernel),
         ComplexF64.(images), ComplexF64.(poles), ComplexF64(rotation),
         ComplexF64(Kind===:radial ? integral.weight.q : 0), certificates))
     cache.statistics.fits[]+=1
-    return
+    return first(certificates)
 end
 
 function cim_reuse_estimate(integral::SpectralIntegral{Kind}, controls, workspace,
@@ -296,6 +303,7 @@ function cim_reuse_estimate(integral::SpectralIntegral{Kind}, controls, workspac
             length(fit.certificates)>=32 && popfirst!(fit.certificates)
             push!(fit.certificates, cim_certificate(integral, envelope.error/factor,
                 envelope.tail/factor, envelope.cutoff; envelope = true))
+            sort!(fit.certificates;by=c->c.error)
             cache.statistics.hits[]+=1
             return SpectralEstimate(rounded, envelope.error+rounding, envelope.tail,
                 evaluations[], envelope.cutoff)

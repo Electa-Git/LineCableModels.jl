@@ -128,7 +128,11 @@ function integrate(::Val{:quad}, integral::SpectralIntegral, controls, workspace
 end
 
 function integrate(::Val{:trapz}, integral::SpectralIntegral, controls, workspace)
-    return spectral_estimate(Val(:trapz), integral, controls, workspace).value
+    estimate=spectral_estimate(Val(:trapz), integral, controls, workspace)
+    target=max(controls.atol,controls.rtol*spectral_magnitude(estimate.value))
+    estimate.error<=target || throw(ErrorException(
+        "spectral :trapz did not converge (estimated error=$(estimate.error), target=$target)"))
+    return estimate.value
 end
 
 """
@@ -143,11 +147,16 @@ an image contributes `a*(h+b)/((h+b)^2+y^2)`; the radial Sommerfeld weight gives
 Built-in earth kernels reuse workspace-owned fits when their complete material
 identity matches and a geometry certificate meets the requested error budget.
 New fits require independent quadrature and full weighted-residual verification;
-new geometry envelopes require full residual certification. Cache hits evaluate
+analytic remainder bounds allow finite verification of both the kernel and
+image continuation. New geometry envelopes require residual certification. Cache hits evaluate
 only the images. Arbitrary callables without a declared identity are not cached.
 Matrix-pencil factorization admits Float32/Float64 kernels; uncertainty and
 higher precision inputs fail explicitly. Quadrature never supplies a value
 returned as `:cim`.
+
+`samples=nothing` selects adaptive construction. An integer caps construction
+kernel evaluations per scalar integral; verification and prototype evaluations
+are counted separately. Increasing image order reuses a window's factorization.
 
 The matrix-pencil/GPOF construction follows the spectral exponential approach
 used in discrete complex images; see Rallis, doctoral thesis (National Archive record 10442/34633), and
@@ -264,8 +273,12 @@ function cim_estimate(integral::SpectralIntegral{Kind}, controls, workspace, eva
     end
     best_value=zero(reference)
     best_error=R(Inf)
+    best_certificate_error=R(Inf)
     best_cutoff=R(Inf)
     best_tail=zero(R)
+    best_rounding=zero(R)
+    best_images=ComplexF64[]
+    best_poles=ComplexF64[]
     diagnostic = nothing
     pencils=CIMPencil[]
     pencil_plan=(false,0)
@@ -276,8 +289,6 @@ function cim_estimate(integral::SpectralIntegral{Kind}, controls, workspace, eva
         # Start with a compact collection of regions. Expand coverage before
         # increasing the uniform pencil resolution on difficult kernels.
         compact=refinement<=1
-        samples = controls.samples===nothing ? 128*2^max(0,refinement-2)+1 :
-                  min(129,max(16,controls.samples÷32))
         widths = cim_windows(integral, limit)
         if compact && length(widths)>8
             widths=widths[unique(round.(Int, range(1, length(widths); length = 8)))]
@@ -288,6 +299,17 @@ function cim_estimate(integral::SpectralIntegral{Kind}, controls, workspace, eva
         origins = vcat(zero(R), widths[1:(end - 1)])
         windows=compact ? collect(zip(origins, widths)) :
                 vcat(collect(zip(origins, widths)), [(zero(R), width) for width in widths[2:end]])
+        samples=if controls.samples===nothing
+            128*2^max(0,refinement-2)+1
+        elseif compact && pencil_plan[1]
+            pencil_plan[2] # Trying another rank consumes no new samples.
+        else
+            # Reserve the fixed amplitude nodes, then distribute the remaining
+            # budget over actual windows and the logarithmic amplitude grid.
+            fixed=length(amplitude_nodes)+17length(widths)
+            available=controls.samples-budget.used[]-fixed
+            min(129,max(16,available÷(length(windows)+4)))
+        end
         cache=cim_workspace(workspace)
         if pencil_plan!=(compact,samples)
             empty!(pencils)
@@ -412,12 +434,12 @@ function cim_estimate(integral::SpectralIntegral{Kind}, controls, workspace, eva
                 copyto!(workspace.exponents, poles)
             end
             rounded=Result(value)
-            cim_store_fit!(integral, controls, workspace, images, poles, rotation,
+            certificate=cim_store_fit!(integral, controls, workspace, images, poles, rotation,
                 integrated_residual+verification.error, residual_estimate.tail,
                 residual_estimate.cutoff, Result)
             return SpectralEstimate(
-                rounded, R(abs(rounded-value)+integrated_residual+verification.error+image_rounding),
-                R(residual_estimate.tail), evaluations[], residual_estimate.cutoff, budget.used[])
+                rounded, R(abs(rounded-value)+certificate.error+image_rounding),
+                R(certificate.tail), evaluations[], R(certificate.cutoff), budget.used[])
         end
         diagnostic = (residual = residual/amplitude, integrated_residual,
             integral_error = abs(value-reference),
@@ -425,16 +447,29 @@ function cim_estimate(integral::SpectralIntegral{Kind}, controls, workspace, eva
         if integrated_residual+verification.error+image_rounding<best_error
             best_value=value
             best_error=integrated_residual+verification.error+image_rounding
+            best_certificate_error=integrated_residual+verification.error
             best_cutoff=residual_estimate.cutoff
             best_tail=residual_estimate.tail
+            best_rounding=image_rounding
+            best_images=copy(images)
+            best_poles=copy(poles)
         end
         if refinement==controls.max_refinements+1 && isfinite(integrated_residual)
             # A system consumer may allocate a larger absolute budget to an
             # insignificant correction. The value-only wrapper still enforces
             # its requested integral tolerance.
+            isfinite(best_error) || throw(ErrorException("CIM image sum has no finite rounding-error estimate"))
             rounded=Result(best_value)
-            return SpectralEstimate(rounded, R(abs(rounded-best_value)+best_error),
-                R(best_tail), evaluations[], R(best_cutoff), budget.used[])
+            if workspace!==nothing
+                resize!(workspace.images,length(best_images))
+                copyto!(workspace.images,best_images)
+                resize!(workspace.exponents,length(best_poles))
+                copyto!(workspace.exponents,best_poles)
+            end
+            certificate=cim_store_fit!(integral,controls,workspace,best_images,best_poles,rotation,
+                best_certificate_error,best_tail,best_cutoff,Result)
+            return SpectralEstimate(rounded,R(abs(rounded-best_value)+certificate.error+best_rounding),
+                R(certificate.tail),evaluations[],R(certificate.cutoff),budget.used[])
         end
     end
     throw(ErrorException("spectral :cim did not converge: $diagnostic; no quadrature fallback was used"))

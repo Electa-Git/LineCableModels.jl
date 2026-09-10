@@ -46,10 +46,16 @@ function earth_tail(::Val{Kind}, ::Val{P}, ::Val{Q}, u, hp, hq, height,
     # A nominal bound cannot bound an uncertain derivative. Do not discard a
     # physical correlation merely to make the tail metadata concrete.
     all(x->typeof(real(x))<:Union{AbstractFloat,Integer}, values) || return nothing
+    all(x->typeof(nominal(real(x)))===typeof(real(x)),values) || return nothing
     T=promote_type(map(x->typeof(float(real(x))), values)...)
-    return EarthSpectralTail{Kind,P,Q,T}(Tuple(T.(abs.(u.k2))), Tuple(T.(abs.(u.mu))), T(abs(sum(u.mu))),
-        Tuple(T.(abs.(u.sh))), T(abs(sum(u.sh))), (T(hp),T(hq)), T(height),
-        (T(separation),T(radius)), T(angle), T(real(logscale)), T(abs(i0)))
+    # Form magnitudes and denominator sums in the envelope's arithmetic too;
+    # promoting only their already-rounded Float32 results loses this margin.
+    roots=map(x->Complex{T}(x),u.k2)
+    mu=map(x->Complex{T}(x),u.mu)
+    sh=map(x->Complex{T}(x),u.sh)
+    return EarthSpectralTail{Kind,P,Q,T}(abs.(roots), abs.(mu), abs(sum(mu)),
+        abs.(sh), abs(sum(sh)), (T(hp),T(hq)), T(height),
+        (T(separation),T(radius)), T(angle), T(real(logscale)), abs(Complex{T}(i0)))
 end
 
 function spectral_kernel_tail(kernel::EarthSpectrum{Kind,P,Q}, w, angle) where {Kind,P,Q}

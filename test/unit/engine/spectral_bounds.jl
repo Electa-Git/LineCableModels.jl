@@ -143,4 +143,27 @@ end
         @test length(poles)==1
         @test only(poles)≈-log(z)/0.1 rtol=1e-12
     end
+    # More samples than rows still recover several independent complex modes.
+    expected=ComplexF64[0.1+0.03n+im*n for n in -2:2]
+    data=[sum(exp(-b*0.1n) for b in expected) for n in 0:512]
+    pencil=E.cim_pencil(data,0.1,51.2,1e-10,8,nothing)
+    actual=E.cim_poles!(ComplexF64[],[pencil],8,integral,1.0+0im)
+    @test length(actual)==length(expected)
+    @test sort(actual;by=imag)≈expected rtol=1e-9
+end
+
+@testitem "Engine / unavailable analytic envelopes retain full-range verification" tags=[:unit] begin
+    const E=LineCableModels.Engine
+    struct UnavailableTail <: E.AbstractSpectralTailBound end
+    (::UnavailableTail)(x)=Inf
+    integral=E.SpectralIntegral(Val(:cosine),x->complex(exp(-x)),
+        (height=1.0,separation=1.0),1.0;
+        features=E.SpectralFeatures([1.0];tail=UnavailableTail()))
+    for method in (:trapz,:cim)
+        controls=E.computation_options(E.SpectralIntegral,(;method)).options
+        @test isinf(E.spectral_seed_cutoff(integral,controls))
+        estimate=E.spectral_estimate(Val(method),integral,controls,nothing)
+        @test estimate.value≈0.4 rtol=1e-6
+        @test estimate.error<=controls.rtol*abs(estimate.value)
+    end
 end

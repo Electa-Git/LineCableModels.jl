@@ -69,6 +69,51 @@
     @test workspace.cim.statistics.fits[]==fit_count
 end
 
+@testitem "Engine / matrix sensitivity retains reusable low-frequency images" tags=[:unit] begin
+    const E=LineCableModels.Engine
+    geometry=E.EarthReturnGeometry([0.0,1.0],[-1.0,-1.0],[0.0425,0.0425])
+    s=2pi*im
+    sigma=[0.0,10.0];epsilon=fill(8.8541878128e-12,2);mu=fill(4pi*1e-7,2)
+    state=(jω=s,Γ=zero(s),sigma,epsilon,mu,
+        gamma_medium_squared=s.*mu.*(sigma.+s.*epsilon))
+    controls=E.computation_options(E.SpectralIntegral,(method=:cim,))
+    workspace=E.EarthReturnWorkspace(geometry)
+    E.unified_earth!(workspace,state,controls)
+    expected=(copy(workspace.Ze),copy(workspace.Pe),copy(workspace.Ye))
+    E.unified_earth!(workspace,state,controls)
+    @test workspace.scratch.numerical.cim.statistics.pencils[]==0
+    @test workspace.scratch.report.samples[]==0
+    for (actual,wanted) in zip((workspace.Ze,workspace.Pe,workspace.Ye),expected)
+        @test actual≈wanted rtol=1e-12
+    end
+end
+
+@testitem "Engine / mixed interface matrices retain certified correction images" tags=[:unit] begin
+    const E=LineCableModels.Engine
+    geometry=E.EarthReturnGeometry([0.0,1.0],[1.2,-0.9],[0.01,0.025])
+    s=2pi*1e4im
+    sigma=[0.0,0.1];epsilon=8.8541878128e-12.*[1.0,8.0];mu=4pi*1e-7.*[1.0,3.0]
+    state=(jω=s,Γ=1e-4+2e-4im,sigma,epsilon,mu,
+        gamma_medium_squared=s.*mu.*(sigma.+s.*epsilon))
+    controls=E.computation_options(E.SpectralIntegral,(method=:cim,))
+    workspace=E.EarthReturnWorkspace(geometry)
+    reference=E.unified_earth!(E.EarthReturnWorkspace(geometry),state,
+        E.computation_options(E.SpectralIntegral,(method=:quad,options=(rtol=1e-10,)));
+        reference=:interface)
+    for repetition in 1:2
+        E.unified_earth!(workspace,state,controls;reference=:interface)
+        if repetition==2
+            @test workspace.scratch.numerical.cim.statistics.pencils[]==0
+            @test workspace.scratch.report.samples[]==0
+        end
+        for key in (:Ze,:Pe,:Ye), (actual,wanted) in
+            zip(getproperty(workspace,key),getproperty(reference,key)), component in (real,imag)
+            @test isapprox(component(actual),component(wanted);
+                rtol=1e-5,atol=key===:Ye ? 1e-10 : 1e-14)
+        end
+    end
+end
+
 @testitem "Engine / local trapezoid resolution retains oscillations and cancellation" tags=[:unit] begin
     const E=LineCableModels.Engine
     controls=E.computation_options(E.SpectralIntegral,

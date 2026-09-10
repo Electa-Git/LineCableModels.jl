@@ -35,7 +35,7 @@ function benchmark()
             measurements=map(1:3) do _
               mode==:construction && empty!(workspace.scratch.numerical.cim.fits)
               timed=@timed E.unified_earth!(workspace,state,controls;reference=c.reference)
-              (;seconds=timed.time,bytes=timed.bytes,evaluations=workspace.scratch.report.evaluations[],construction_samples=haskey(workspace.scratch.report,:samples) ? workspace.scratch.report.samples[] : nothing,cutoff=workspace.scratch.report.cutoff[],pencils=workspace.scratch.numerical.cim.statistics.pencils[],images=sum(fit->length(fit.images),workspace.scratch.numerical.cim.fits;init=0))
+              (;seconds=timed.time,bytes=timed.bytes,evaluations=workspace.scratch.report.evaluations[],construction_samples=haskey(workspace.scratch.report,:samples) ? workspace.scratch.report.samples[] : nothing,cutoff=isfinite(workspace.scratch.report.cutoff[]) ? workspace.scratch.report.cutoff[] : nothing,pencils=workspace.scratch.numerical.cim.statistics.pencils[],images=sum(fit->length(fit.images),workspace.scratch.numerical.cim.fits;init=0))
             end
             fastest=measurements[argmin(getproperty.(measurements,:seconds))]
             measurement=merge(fastest,(median_seconds=median(getproperty.(measurements,:seconds)),
@@ -48,6 +48,7 @@ function benchmark()
               norm(a-b)/max(norm(b),floatmin(Float64))
             end
             push!(rows,(;case=c.name,f=c.f,reference=c.reference,method,mode,measurement...,errors))
+            println((;mode,seconds=measurement.seconds,evaluations=measurement.evaluations,pencils=measurement.pencils)); flush(stdout)
           end
           println(" passed");flush(stdout)
         catch err

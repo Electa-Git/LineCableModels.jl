@@ -237,7 +237,9 @@ retain those parameters in their identity. Arbitrary callbacks are not cached.
 Uniform local pencil regions generate a global exponential representation;
 construction starts with a compact region set and expands it when verification
 requires more work. Candidate image orders reuse each window's projected Hankel
-factorization before requesting more samples. Sample and Hankel buffers are reused.
+factorization before requesting more samples. Rectangular pencils use all samples
+while limiting their row count by the candidate image order. Sample and Hankel
+buffers are reused.
 Amplitude fitting uses the integration contour and analytic tail penalties;
 an independent integral of the absolute weighted residual checks its complete
 continuation. With an analytic tail bound, this integral uses a finite interval
@@ -250,6 +252,12 @@ outside the certified range require another certificate or fit; valid cache hits
 evaluate the images without quadrature or refitting. One kernel prototype
 evaluation still checks the physical scalar contract. Reported certificates
 remain numerical estimates.
+Before caching a fit, continuation bounds are tightened to the measured finite
+fit-error scale. Reuse selects the strongest applicable certificate, so a loose
+tail estimate does not repeatedly force matrix-level refinements of the same fit.
+The assembler can retain a certified expansion of an insignificant correction
+even when that correction misses its local relative tolerance. Subsequent reuse
+still requires its certificate to meet the newly requested absolute error budget.
 An unresolved value-only integral raises an error. The complete
 earth assembler instead consumes the numerical estimate, propagates prefactors
 and right-solve sensitivity, and tightens the influential interactions until

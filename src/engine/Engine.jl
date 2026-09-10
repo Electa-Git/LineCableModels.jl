@@ -43,7 +43,7 @@ export InsulationAdmittance, SemiconAdmittance, EarthAdmittance
 export compute
 
 # Module-specific dependencies
-using LinearAlgebra: svd, svd!, eigvals, eigvals!, Diagonal, I, checksquare, cond, diag, ldiv!, lu, lu!,
+using LinearAlgebra: svd, svd!, eigvals!, Diagonal, I, checksquare, cond, diag, ldiv!, lu, lu!,
                      mul!, qr, ColumnNorm
 import LinearAlgebra: norm
 using DocStringExtensions: IMPORTS, TYPEDEF, TYPEDFIELDS, TYPEDSIGNATURES
