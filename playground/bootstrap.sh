@@ -6,7 +6,6 @@ IFS=$'\n\t'
 readonly QUARTO_VERSION="1.9.38"
 readonly SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 readonly DATA_HOME="${XDG_DATA_HOME:-${HOME}/.local/share}"
-readonly BIN_HOME="${XDG_BIN_HOME:-${HOME}/.local/bin}"
 readonly QUARTO_ROOT="${DATA_HOME}/linecablemodels-playground/quarto"
 readonly QUARTO_DIRECTORY="${QUARTO_ROOT}/${QUARTO_VERSION}"
 readonly QUARTO_CURRENT="${QUARTO_ROOT}/current"
@@ -117,62 +116,15 @@ if [[ "${dependencies_only}" == true ]]; then
     exit 0
 fi
 
-mkdir -p -- "${BIN_HOME}"
-public_command="${BIN_HOME}/lcm"
-if [[ -e "${public_command}" || -L "${public_command}" ]]; then
-    if [[ ! -L "${public_command}" ]]; then
-        die "refusing to replace existing command: ${public_command}"
-    fi
-    current_target="$(readlink -- "${public_command}")"
-    if [[ "${current_target}" != "${SCRIPT_DIR}/lcm" ]]; then
-        die "refusing to replace existing command: ${public_command}"
-    fi
-else
-    ln -s -- "${SCRIPT_DIR}/lcm" "${public_command}"
-fi
-
-# Remove only the legacy launchers created by earlier revisions of this
-# bootstrap. Unrelated commands or regular files are never replaced.
-legacy_public_command="${BIN_HOME}/linecablemodels"
-if [[ -L "${legacy_public_command}" ]]; then
-    legacy_target="$(readlink -- "${legacy_public_command}")"
-    if [[ "${legacy_target}" == "${SCRIPT_DIR}/linecablemodels" \
-        || "${legacy_target}" == "${SCRIPT_DIR}/launcher.sh" ]]; then
-        rm -- "${legacy_public_command}"
-    fi
-fi
-
-julia_bin_directory="$(julia --startup-file=no -e 'print(joinpath(first(DEPOT_PATH), "bin"))')"
-legacy_julia_command="${julia_bin_directory}/linecablemodels"
-if [[ -f "${legacy_julia_command}" ]] \
-    && grep -Fq "export JULIA_LOAD_PATH=${SCRIPT_DIR}" "${legacy_julia_command}"; then
-    printf 'Removing the legacy linecablemodels Julia application...\n'
-    julia --startup-file=no -e 'using Pkg; Pkg.Apps.rm("linecablemodels")'
-fi
-
-legacy_private_directory="${DATA_HOME}/linecablemodels-playground/bin"
-legacy_private_command="${legacy_private_directory}/linecablemodels-julia"
-if [[ -L "${legacy_private_command}" ]]; then
-    rm -- "${legacy_private_command}"
-    rmdir --ignore-fail-on-non-empty "${legacy_private_directory}"
-fi
-
 printf 'Rendering the initial Quarto site...\n'
 env QUARTO_PATH="${QUARTO_EXECUTABLE}" \
-    "${public_command}" playground build --quiet
+    "${SCRIPT_DIR}/lcm" playground build --quiet
 
 printf '\nBootstrap complete.\n'
 printf '  Quarto: %s\n' "${QUARTO_EXECUTABLE}"
-printf '  Command: %s\n' "${public_command}"
+printf '  Application launcher: %s/lcm\n' "${SCRIPT_DIR}"
+printf '  Global command: install cli/lcm from the package CLI checkout using cli/install.sh.\n'
 printf '  Start: lcm playground start\n'
 printf '  Worker: lcm worker start\n'
 printf '  NATS: lcm nats status\n'
 printf '  Containers: lcm container resolve\n'
-
-case ":${PATH}:" in
-    *":${BIN_HOME}:"*) ;;
-    *)
-        printf '\n%s is not on PATH. Add this line to your shell profile:\n' "${BIN_HOME}"
-        printf '  export PATH="%s:$PATH"\n' "${BIN_HOME}"
-        ;;
-esac

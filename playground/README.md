@@ -50,17 +50,25 @@ The idempotent bootstrap:
 - requires Julia 1.12 or newer;
 - downloads the pinned Quarto CLI into the user's XDG data directory;
 - verifies the official archive SHA-256 before extracting it;
-- instantiates the Julia environment;
-- installs the single `lcm` command;
-- exposes it through `~/.local/bin`; and
-- renders the initial static site.
+- instantiates the Julia environment; and
+- renders the initial static site through this application's local launcher.
 
 It uses no `sudo` and does not modify shell startup files. Linux x86-64 and
 ARM64 are supported. Rerunning it reuses a valid installation.
 
-If `~/.local/bin` is not already on `PATH`, the bootstrap prints the exact
-export line to add. The working-tree source remains live, so editing the Julia
-package does not require reinstalling the command.
+The package owns the global `lcm` command through `cli/lcm`; this application's
+bootstrap does not install or replace that command. Install it with `cli/install.sh`
+from the package CLI checkout. While playground lives in a separate worktree, use:
+
+```sh
+./cli/install.sh --application playground /path/to/LineCableModels-playground/playground
+lcm --paths
+```
+
+Keep `~/.local/bin` on `PATH`. The working-tree source remains live, so editing
+the application does not require reinstalling the command. Direct
+`./playground/lcm playground ...` invocation remains available for local bootstrap
+and application development.
 
 ## Author and build
 
