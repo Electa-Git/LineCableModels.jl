@@ -94,3 +94,34 @@ The stable core job also reached its previous 60-minute limit late in the expand
 suite. CI retains the complete test selection, uses the same single-thread BLAS
 settings as local validation, and allows 90 minutes for core and 120 minutes for
 the combined coverage job.
+
+The complete CI run at `f5028326` passed every test step: 15,877 core checks
+on each Julia version, 15,877 under coverage, 115 PSCAD worker checks, 42 unloaded
+extension checks, 890 Cairo/visual checks, and five activation checks for each
+of GLMakie and WGLMakie. The combined coverage check reported 16,458 of 17,361
+production lines (94.80%), below the unchanged 95% requirement.
+
+A complete local reproduction reported 16,459 of the same 17,361 production
+lines. Adding separately measured quality-contract traces covered no additional
+lines, so the quality job's arrangement remains unchanged.
+
+Inspection identified unused modal coalescence helpers and history-weight
+controls. No registered formula, public option, or production call uses them;
+the sole active matching call uses eigenvector overlap. The cleanup removes those
+paths and their unused SVD import. The registered Levenberg–Marquardt formula
+and the earth equations remain unchanged. Repeated-mode, matched-fallback and
+phase/modal round-trip tests exercise the retained modal route.
+
+All 163 selected transformation checks pass after cleanup. Four public modal
+calculations, including repeated eigenvalues and forced fallback, produce
+exactly unchanged matrices, operators and fallback selections. A further
+regression verifies scalar, range, reordered and full-frequency selections:
+stored operators follow the same indices, inverse transformation reconstructs
+the selected phase matrices, and edits to selected operators preserve the
+original data. The expanded modal-tracking file passes 76 checks; all 1,194
+quality checks pass. The unchanged coverage check passes at 16,459 of 17,318
+production lines (95.04%).
+
+CI now retains `lcov.info` as an artifact after a failed threshold check, so
+uncovered code can be inspected without repeating a run solely to recover its
+report. Coverage exclusions and the minimum are unchanged.

@@ -214,6 +214,13 @@ jobs:
           path: .
       - name: Enforce source-amended 95% coverage
         run: julia --project=test/coverage --color=yes test/coverage.jl check
+      - name: Retain the coverage report, including failed checks
+        if: always() && hashFiles('lcov.info') != ''
+        uses: actions/upload-artifact@v4
+        with:
+          name: production-coverage-report
+          path: lcov.info
+          if-no-files-found: error
       - uses: codecov/codecov-action@v7
         with:
           files: lcov.info
