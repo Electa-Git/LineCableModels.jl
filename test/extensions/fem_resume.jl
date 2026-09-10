@@ -42,9 +42,11 @@
         )
     end
     @test inputs.mesh_fingerprint == extension._mesh_fingerprint(model, Gmsh.gmsh.GMSH_API_VERSION)
-    # Buffering identical JSON bytes preserves the existing mesh cache key.
-    @test extension._mesh_fingerprint(model, "recorded-gmsh-version") ==
-          "ff3f3f9fe0d3bb22b829dfe7c753c1f6607d7d0c3176d10b2cca2eb056d42bcb"
+    # Dictionary iteration order can change between Julia versions. Resume
+    # records the Julia version; the key must be repeatable within that runtime.
+    recorded_key=extension._mesh_fingerprint(model, "recorded-gmsh-version")
+    @test extension._mesh_fingerprint(deepcopy(model), "recorded-gmsh-version") == recorded_key
+    @test extension._mesh_fingerprint(model, "different-gmsh-version") != recorded_key
     @test inputs.adapter_sources isa NamedTuple
     @test haskey(inputs.adapter_sources, Symbol("geometry.jl"))
     @test !haskey(inputs.adapter_sources, Symbol("formulations.jl"))

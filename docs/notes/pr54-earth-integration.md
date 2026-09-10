@@ -70,3 +70,27 @@ cold-cache regression forced compiled loading and missed this case. The direct
 public installer replaces that macro path; the regression now covers both modes.
 The full FEM suite then passed with CI's `--compiled-modules=no
 --code-coverage=@.` settings, and all 1,194 quality checks passed again.
+
+The full prerelease core run subsequently exposed three additional boundaries:
+
+- Both full core runs inferred a missing-valued alternative for the workspace's
+  `uses_earth_systems` flag. Its Boolean contract is now explicit; the existing
+  workspace inference assertion remains unchanged.
+- Packed sectors retain their member-local equivalent-area flattening checks.
+  Their overlapping equivalent circles are explicitly rejected by the complete
+  earth solver; separated sectors exercise successful default computation.
+- The fixed FEM mesh digest depended on Julia's dictionary iteration order.
+  Comparing the serialized records under Julia 1.12.7 and 1.13.0-rc4 confirmed
+  identical parsed values with different JSON key order. The test now checks
+  repeatability and version-sensitive mesh reuse alongside the existing geometry
+  and ownership invalidation checks. Production hashing is unchanged; FEM resume
+  already records the Julia version.
+
+Both workspace/sector boundary tests pass on Julia 1.12.7 and 1.13.0-rc4
+(42 checks on each), as do the revised FEM resume checks (76 on each).
+All 1,194 quality checks pass after these repairs.
+
+The stable core job also reached its previous 60-minute limit late in the expanded
+suite. CI retains the complete test selection, uses the same single-thread BLAS
+settings as local validation, and allows 90 minutes for core and 120 minutes for
+the combined coverage job.
