@@ -7,6 +7,7 @@ using Literate
 using TOML
 
 include("type_trees.jl")
+include(joinpath(@__DIR__, "..", "gauntlet", "Gauntlet.jl"))
 include("gauntlet_report.jl")
 
 const ROOT_DIR = normpath(joinpath(@__DIR__, ".."))

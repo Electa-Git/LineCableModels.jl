@@ -70,6 +70,7 @@ import ..DataModel: CableDesign, LineCableSystem
 import ..Earth
 using ..Earth: EarthLayer, EarthModel, layer, homogeneous
 import ..Engine
+import ..Engine: compare
 import ..TextDisplay
 
 include("macros.jl")
@@ -87,6 +88,7 @@ include("system.jl")
 
 include("engine/cableconstants.jl")
 include("traversal.jl")
+include("comparisons.jl")
 
 include("wirepatterns/WirePatterns.jl")
 using .WirePatterns: WireEstimate, make_stranded, make_screened

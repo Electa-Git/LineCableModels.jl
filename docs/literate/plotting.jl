@@ -860,7 +860,7 @@ model_cdf = Makie.lines(
 )
 model_cdf.figure #hide
 
-# Increase visual resolution by extending the owner-side model grid policy; add
+# Increase visual resolution by extending the owner-side model grid settings; add
 # purely visual reference curves directly to `model_cdf.axes[1]`.
 
 # ### Sample/model Q-Q plot
@@ -932,7 +932,7 @@ custom_dashboard.figure #hide
 
 # Nothing prevents nested layouts, `Axis3`, `Colorbar`, `Slider`, custom Makie
 # recipes, or arbitrary plot primitives in the callback. If a native composition
-# needs no LineCableModels controls or export policy, use `Figure` directly.
+# needs no LineCableModels controls or export settings, use `Figure` directly.
 
 # ## What the addons do
 
@@ -944,7 +944,7 @@ custom_dashboard.figure #hide
 # label, and ticks show plain decimal mantissas, never another exponent.
 # Zooming, panning, changing limits, and resetting keep the ticks and multiplier
 # synchronized. Native custom tick formatters or explicit tick labels override
-# this policy; setting the formatter back to `Makie.automatic` restores it.
+# this settings; setting the formatter back to `Makie.automatic` restores it.
 # Logarithmic axes have no additional multiplier. The x/y toggles select native
 # linear or logarithmic scales, with explicit decade ticks for log scales.
 #
@@ -964,7 +964,7 @@ custom_dashboard.figure #hide
 # remain outside the plot area. `legend_attributes` is merged into the native
 # `Legend` constructor, so orientation, bank count, padding, background,
 # alignment, and other Makie options remain available. `legend_overflow` is the
-# one addon policy: `:ellipsis` fits entries to the current bounding box and
+# one addon settings: `:ellipsis` fits entries to the current bounding box and
 # restores them when space returns; `:show_all` always retains all entries.
 # `figurelegend!` and `panellegend!` rebuild native legends from the retained
 # semantic handle registry, so placement, title, and semantic labels can also be

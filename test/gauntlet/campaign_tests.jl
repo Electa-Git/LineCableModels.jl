@@ -1,391 +1,124 @@
-@testitem "Gauntlet / manual campaign checkpoints and resume" tags=[:gauntlet] setup=[GauntletSupport] begin
-    using SHA
-    using JLD2
-    using LineCableModels
-    using .GauntletSupport
-    owner=GauntletSupport
-    mktempdir() do temporary
-        root=joinpath(temporary, "campaign")
-        @test owner.run_campaign(root, [:two_bare_wires]; backends = (:coaxial,), catalogue = false)
-        rows=owner.campaign_status(root)
-        @test length(rows) == 1
-        @test rows[1].state == "complete"
-        @test rows[1].completed == rows[1].requested == 1
-        artifact=joinpath(root, "two_bare_wires_coaxial", "0001.jld2")
-        bytes=read(artifact)
-        modified=stat(artifact).mtime
-        document=JLD2.load(artifact)
-        @test document["status"] === :complete
-        @test document["numerical_reference_approval"] === :unreviewed
-        @test document["basis"] === :pul
-        @test document["domain"] === :PhaseDomain
-        @test length(document["frequencies"]) == 101
-        @test first(document["frequencies"]) >= 0.1
-        @test last(document["frequencies"]) ≈ 1.0e6
-        @test document["selection"]["earth_impedance"] == "default"
-        restored=LineCableModels.ImportExport.deserialize_value(document["problem"])
-        @test restored isa LineParametersProblem
-        @test owner.numerical_input_sha256(restored) == document["input_sha256"]
-        declared=document["formulation"]
-        replay=compute(restored, Formulation(; declared.definitions..., options = declared.options))
-        @test replay.Z.values == document["Z"]
-        @test replay.Y.values == document["Y"]
-        @test restored.frequencies == document["frequencies"]
-        @test document["elapsed_at_completion_seconds"] > 0
-        @test !haskey(document, "batch_execution_seconds")
-        @test isfile(artifact * ".sha256")
-        @test owner.resume_campaign(root)
-        @test read(artifact) == bytes
-        @test length(readdir(joinpath(dirname(artifact), "attempts"))) == 1
-
-        # A registered formula with an incompatible indexed domain can fail
-        # after an earlier result from the same Gridspace batch. Repeated
-        # failure must not overwrite it.
-        partial=joinpath(temporary, "partial")
-        mkpath(partial)
-        _, plan=owner.campaign_plan(root)
-        push!(plan["jobs"][1]["selections"],
-            Dict("id"=>"unsupported_coaxial",
-                "earth_impedance"=>"Carson1926", "earth_admittance"=>"default"))
-        owner.write_campaign_state(joinpath(partial, "campaign.toml"), plan)
-        @test !owner.resume_campaign(partial)
-        row=only(owner.campaign_status(partial))
-        @test row.state == "failed"
-        @test row.completed == 1
-        @test row.requested == 2
-        saved=joinpath(partial, "two_bare_wires_coaxial", "0001.jld2")
-        saved_bytes=read(saved)
-        saved_mtime=stat(saved).mtime
-        @test !isfile(joinpath(dirname(saved), "0002.jld2"))
-        @test !owner.resume_campaign(partial)
-        @test read(saved) == saved_bytes
-        @test stat(saved).mtime == saved_mtime
-        @test length(readdir(joinpath(dirname(saved), "attempts"))) == 2
-        @test stat(artifact).mtime == modified
-        state_path=joinpath(dirname(artifact), "state.toml")
-        owner.write_campaign_state(state_path, Dict("state"=>"running", "completed"=>0))
-        # A leftover lock file after a dead process does not block resumption.
-        @test owner.campaign_status(root)[1].state == "interrupted"
-        open(joinpath(root, "execution.lock"), "a+") do lock
-            @test ccall(:flock, Cint, (Cint, Cint), Base.fd(lock), 6) == 0
-            @test owner.campaign_status(root)[1].state == "running"
-            @test_throws ArgumentError owner.resume_campaign(root)
+@testitem "Gauntlet / declarations remain authoritative through compute and recovery" tags=[:gauntlet_toolkit] setup=[GauntletSupport] begin
+    using .GauntletSupport.Gauntlet
+    using LineCableModels, JLD2, SHA, TOML
+    const calls=NamedTuple[]
+    const fail_candidate=Ref(false)
+    struct SpyBackend <: LineCableModels.Grammar.AbstractFormulation
+        factor::Float64
+    end
+    function LineCableModels.compute(problem::LineParametersProblem, formulation::SpyBackend;options=(;))
+        push!(calls,(;problem,formulation,options))
+        fail_candidate[] && formulation.factor == 10 && error("deliberate interrupted operand")
+        z=fill(complex(formulation.factor),2,2,length(problem.frequencies))
+        y=fill(complex(0,formulation.factor),2,2,length(problem.frequencies))
+        result=LineParameters(PhaseDomain,z,y,copy(problem.frequencies))
+        haskey(options,:on_result) && options.on_result(problem,1,result)
+        return result
+    end
+    model=load_case(:two_insulated_wires;variation=ExactOverrides(frequencies=[.01,3.,17.,400.],temperature=73.))
+    problem=model.problem
+    @test problem.frequencies == [.01,3.,17.,400.]
+    events=Int[]
+    callback=(problem,index,result)->push!(events,index)
+    options=(tolerance=1e-9,custom_control=:unchanged,on_result=callback)
+    reference=BenchmarkCalculation(:reference,problem,SpyBackend(1.);options)
+    candidate=BenchmarkCalculation(:candidate,problem,SpyBackend(10.);options)
+    definition=benchmark_definition(:authority,model.id,:fixture,@__FILE__,model,reference,candidate,
+        (; quantities=(:Z,:Y,:G)),(;))
+    direct=compute(problem,reference.formulation;options)
+    empty!(calls);empty!(events)
+    mktempdir() do parent
+        directory=joinpath(parent,"campaign")
+        fail_candidate[]=true
+        failed=run_campaign(directory,[definition])
+        @test only(failed).state === :failed
+        state=TOML.parsefile(joinpath(directory,"authority","state.toml"))
+        attempt=joinpath(directory,"authority",state["attempt"])
+        @test isfile(joinpath(attempt,"reference","complete.toml"))
+        @test !isfile(joinpath(attempt,"candidate","complete.toml"))
+        @test only(campaign_status(directory)).state === :failed
+        @test all(row -> row.problem === problem && row.options === options,calls)
+        @test all(row -> row.problem.temperature == 73. && row.problem.frequencies == [.01,3.,17.,400.],calls)
+        fail_candidate[]=false
+        completed=resume_campaign(directory)
+        @test only(completed).state === :complete
+        value=only(completed).result
+        @test value.reference.Z == direct.Z
+        @test value.timings.execution.reference.reused
+        @test !value.timings.execution.candidate.reused
+        @test value.passes === nothing # Large cross-model differences are observations.
+        @test all(==(9),only(row.error.relative for row in value.comparison if row.quantity === :Z && row.error.details.band === :all))
+        @test only(campaign_status(directory)).state === :complete
+        old_attempt=attempt
+        fail_candidate[]=true
+        replacement=only(run_campaign(directory,[definition]))
+        @test replacement.state === :failed
+        @test only(campaign_status(directory)).previous
+        @test_throws r"latest draft" read_benchmark(joinpath(directory,"authority"))
+        @test read_benchmark(joinpath(directory,"authority");previous=true).reference.result.Z == direct.Z
+        @test isdir(old_attempt)
+        fail_candidate[]=false
+        recovered=only(resume_campaign(directory))
+        @test recovered.state === :complete
+        @test recovered.result.timings.execution.reference.reused
+        @test !isdir(old_attempt)
+        state=TOML.parsefile(joinpath(directory,"authority","state.toml"))
+        attempt=joinpath(directory,"authority",state["current"])
+        count=length(calls)
+        before=read(joinpath(attempt,"reference","calculation.jld2"))
+        @test only(resume_campaign(directory)).state === :complete
+        @test length(calls) == count
+        @test read(joinpath(attempt,"reference","calculation.jld2")) == before
+        # New RMS bands retain the completed numerical operands.
+        changed=benchmark_definition(:authority,model.id,:fixture,@__FILE__,model,reference,candidate,
+            (; quantities=(:Z,:G),bands=((3.,17.),)),(;))
+        run_benchmark(changed;directory=attempt)
+        @test length(calls) == count
+        @test read(joinpath(attempt,"reference","calculation.jld2")) == before
+        reported=report(LineCableModels.ReportBuilder.BenchmarkTableDefinition(),read_benchmark(joinpath(directory,"authority")))
+        @test length(unique(reported.table.maxima.snapshot))==2
+        @test length(only(campaign_status(directory)).identity)==64
+        bundle=lock_campaign(directory,joinpath(parent,"bundle"))
+        moved=joinpath(parent,"elsewhere");mv(bundle.path,moved)
+        rm(directory;recursive=true)
+        retained=only(read_campaign(moved))
+        @test retained.reference.result.Z == direct.Z
+        @test length(retained.analyses) == 2
+        @test_throws ArgumentError resume_campaign(moved)
+        @test_throws ArgumentError lock_campaign(moved,moved)
+        open(joinpath(moved,"authority","reference","calculation.jld2"),"a") do io
+            write(io,"corruption")
         end
-        @test owner.resume_campaign(root)
-        @test read(artifact) == bytes
-        # Changed declarations cannot replace completed numerical evidence.
-        _, plan=owner.campaign_plan(root)
-        plan["jobs"][1]["input_sha256"]="changed"
-        owner.write_campaign_state(joinpath(root, "campaign.toml"), plan)
-        @test !owner.resume_campaign(root)
-        @test owner.campaign_status(root)[1].state == "failed"
-        @test read(artifact) == bytes
-        @test length(readdir(joinpath(dirname(artifact), "attempts"))) == 2
+        @test_throws ArgumentError read_campaign(moved)
     end
 end
 
-@testitem "Gauntlet / homogeneous choices survive campaign persistence and replay" tags=[:gauntlet_toolkit] setup=[GauntletSupport] begin
-    using JLD2
-    using .GauntletSupport
-    owner = GauntletSupport
-    defaults = (air = :default, earth = :default, mixed = :default)
-    selected = (air = :Carson1926, earth = :Pollaczek1926, mixed = :Lucca1994)
-    choices = (earth_impedance = Grid((defaults, selected)), earth_admittance = defaults)
-    mktempdir() do temporary
-        root = joinpath(temporary, "homogeneous")
-        @test owner.run_campaign(root, [:two_bare_wires]; backends = (:coaxial,),
-            catalogue = false, choices, frequency_range = (50.0, 500.0))
-        _, plan = owner.campaign_plan(root)
-        recorded = plan["jobs"][1]["selections"][2]["earth_impedance"]
-        @test recorded == Dict("air" => "Carson1926", "earth" => "Pollaczek1926", "mixed" => "Lucca1994")
-        reconstructed = owner.campaign_formulation(:coaxial,
-            plan["jobs"][1]["selections"][2], :default)
-        @test reconstructed.definitions.earth_impedance == selected
-        path = joinpath(root, "two_bare_wires_coaxial", "0002.jld2")
-        bytes = read(path)
-        document = JLD2.load(path)
-        problem = LineCableModels.ImportExport.deserialize_value(document["problem"])
-        replay = compute(problem, reconstructed)
-        @test replay.Z.values == document["Z"]
-        @test replay.Y.values == document["Y"]
-        @test details(replay).formulations.requested.earth_impedance == selected
-        @test all(record -> record.formula === :Pollaczek1926,
-            details(replay).formulations.numerical.earth_impedance)
-        @test owner.resume_campaign(root)
-        @test read(path) == bytes
-    end
-end
-
-@testitem "Gauntlet / recoverable normalization reasons retain absolute RMS" tags=[:gauntlet_toolkit] setup=[GauntletSupport] begin
-    using JLD2
-    using LineCableModels.Engine: compare
-    frequencies = [50.0, 500.0]
-    z = ones(ComplexF64, 1, 1, 2)
-    y = fill(1e-4im, 1, 1, 2)
-    reference = LineParameters(PhaseDomain, z, y, frequencies)
-    candidate = LineParameters(PhaseDomain, z, y .+ 1e-14, frequencies)
-    result = compare(reference, candidate, G)
+@testitem "Gauntlet / numerical changes reject stale reuse and terminal changes reject comparison" tags=[:gauntlet_toolkit] setup=[GauntletSupport] begin
+    using .GauntletSupport.Gauntlet
+    using LineCableModels
+    model=load_case(:two_insulated_wires;variation=ExactOverrides(frequencies=[1.,3.]))
+    problem=model.problem
+    formulation=Formulation(options=(reduce_bundle=false,kron_reduction=false,ideal_transposition=false))
+    first=BenchmarkCalculation(:a,problem,formulation)
+    second=BenchmarkCalculation(:b,problem,formulation)
+    definition=benchmark_definition(:changing,model.id,:fixture,@__FILE__,model,first,second,(;),(;))
     mktempdir() do directory
-        path = joinpath(directory, "comparison.jld2")
-        JLD2.jldsave(path; reference, candidate, result)
-        restored = JLD2.load(path)
-        @test isequal(restored["result"].details, result.details)
-        @test restored["result"].absolute == result.absolute
-        @test ismissing(only(restored["result"].relative))
-        repeated = compare(restored["reference"], restored["candidate"], G)
-        @test repeated.absolute == result.absolute
-        @test isequal(repeated.details, result.details)
-    end
-end
-
-@testitem "Gauntlet / explicit campaign frequency range survives checkpoint and resume" tags=[:gauntlet_toolkit] setup=[GauntletSupport] begin
-    using JLD2
-    using LineCableModels
-    using .GauntletSupport
-    owner=GauntletSupport
-    id=:cable_132kv_630mm2_flathor
-    for invalid in ((0.01, 1e6), (50.0, 50.0), (1e6, 0.1), (0.1, Inf),
-        (0.1,), [nothing, 1e6], :all)
-        @test_throws ArgumentError owner.campaign_models([id], nothing; frequency_range = invalid)
-    end
-    selected=owner.campaign_models([id], nothing; frequency_range = (0.1, 1e6))[(
-        id, false)]
-    @test first(selected.nominal_problem.frequencies) == 1.0
-    @test selected.problem.frequencies == owner._loggrid(0.1, 1e6, 101)
-    uncertain=owner.campaign_models([:two_bare_wires],
-        owner.RelativeStandardUncertainty(1.0; tags = (:geometry, :cable_layer));
-        frequency_range = (0.1, 1e5))
-    @test first(uncertain[(:two_bare_wires, true)].problem).frequencies ==
-          owner._loggrid(0.1, 1e5, 101)
-    mktempdir() do temporary
-        root=joinpath(temporary, "common-band")
-        @test owner.run_campaign(root, [id]; backends = (:coaxial,), catalogue = false,
-            frequency_range = (0.1, 1e6))
-        _, plan=owner.campaign_plan(root)
-        @test plan["frequency_range"] == [0.1, 1e6]
-        path=joinpath(root, "$(id)_coaxial", "0001.jld2")
-        bytes=read(path)
-        document=JLD2.load(path)
-        @test document["frequencies"] == selected.problem.frequencies
-        restored=LineCableModels.ImportExport.deserialize_value(document["problem"])
-        @test restored.frequencies == document["frequencies"]
-        @test owner.resume_campaign(root)
-        @test read(path) == bytes
-        @test first(selected.nominal_problem.frequencies) == 1.0
-    end
-end
-
-@testitem "Gauntlet / unsupported all-bare PSCAD campaign never invokes a solver" tags=[:gauntlet_toolkit] setup=[GauntletSupport] begin
-    using LineCableModels
-    using .GauntletSupport
-    owner=GauntletSupport
-    mktempdir() do temporary
-        root=joinpath(temporary, "all-bare")
-        @test owner.run_campaign(root, [:two_bare_wires]; backends = (:pscad,), catalogue = false)
-        state=only(owner.campaign_status(root))
-        @test state.state == "inapplicable"
-        @test state.requested == state.completed == 0
-        @test state.skipped == 1
-        @test occursin("at least one insulated cable", state.message)
-        @test owner.resume_campaign(root)
-        @test !isfile(joinpath(root, "two_bare_wires_pscad", "0001.jld2"))
-    end
-end
-
-@testitem "Gauntlet / manual selections use the complete formulation grammar" tags=[:gauntlet_toolkit] setup=[GauntletSupport] begin
-    using LineCableModels
-    using .GauntletSupport
-    owner=GauntletSupport
-    choices=owner.parse_selections([
-        "--select", "insulation_admittance=default,Ametani2004",
-        "--select", "semicon_admittance=default,Ametani2004"])
-    @test choices.insulation_admittance isa AbstractGrid
-    paired=owner.campaign_selections(nothing, :coaxial, false; choices, combine = :zip)
-    product=owner.campaign_selections(nothing, :coaxial, false; choices)
-    @test length(paired.selections) == 2
-    @test length(product.selections) == 4
-    @test isempty(product.skipped)
-    normalized=owner.reference_case(:cable_320kv_armoured_dc_bipole)
-    @test normalized.problem.frequencies != normalized.nominal_problem.frequencies
-    @test owner.campaign_input(normalized, :deterministic) ==
-          owner.numerical_input_sha256(normalized.problem)
-    @test owner.campaign_input(normalized, :deterministic) !=
-          owner.numerical_input_sha256(normalized.nominal_problem)
-    @test [(value.insulation_admittance, value.semicon_admittance)
-           for value in paired.selections] ==
-          [(:default, :default), (:Ametani2004, :Ametani2004)]
-    @test Set((value.insulation_admittance, value.semicon_admittance)
-    for value in product.selections) ==
-          Set(Iterators.product((:default, :Ametani2004), (:default, :Ametani2004)))
-
-    # Campaigns preserve every selection in the owning backend's public contract.
-    for backend in (:coaxial, :fem, :pscad)
-        baseline = owner.campaign_formulation(backend, Dict(), :default)
-        for name in keys(baseline.definitions)
-            axis = NamedTuple{(name,)}((Grid((:default, :default)),))
-            plan = owner.campaign_selections(nothing, backend, false; choices=axis)
-            @test length(plan.selections) == 2
-            @test all(value -> getproperty(value, name) === :default, plan.selections)
-            record = Dict(string(key)=>string(value) for (key, value) in pairs(first(plan.selections)))
-            requested = owner.campaign_formulation(backend, record, :Ametani2004)
-            @test getproperty(requested.definitions, name) === :default
-            @test requested.definitions.insulation_admittance === :default
+        outcome=run_benchmark(definition;directory)
+        @test all(iszero,only(row.error.absolute for row in outcome.comparison if row.quantity === :Z && row.error.details.band === :all))
+        changed=deepcopy(problem); changed.frequencies[2]=4.
+        altered=benchmark_definition(:changing,model.id,:fixture,@__FILE__,model,
+            BenchmarkCalculation(:a,changed,formulation),second,(;),(;))
+        @test_throws ArgumentError run_benchmark(altered;directory)
+        reordered=deepcopy(problem);reverse!(reordered.system.connection_order)
+        mismatch=benchmark_definition(:different_ports,model.id,:fixture,@__FILE__,model,first,
+            BenchmarkCalculation(:b,reordered,formulation),(;),(;))
+        @test_throws ArgumentError run_benchmark(mismatch)
+        original=read(joinpath(directory,"candidate","calculation.jld2"))
+        open(joinpath(directory,"candidate","calculation.jld2"),"a") do io
+            write(io,"damage")
         end
+        @test_throws ArgumentError run_benchmark(definition;directory)
+        write(joinpath(directory,"candidate","calculation.jld2"),original)
+        @test all(iszero,only(row.error.absolute for row in run_benchmark(definition;directory).comparison if row.quantity === :Z && row.error.details.band === :all))
     end
-    alternatives=owner.parse_selections(["--select", "earth_impedance=default,Saad1996",
-        "--select", "earth_properties=default,default",
-        "--select", "pipe_impedance=default"])
-    selected=owner.campaign_selections(
-        nothing, :coaxial, false; choices = alternatives, combine = :zip)
-    @test length(selected.selections) == 2
-    @test selected.selections[2].earth_properties === :default
-    @test all(value -> value.pipe_impedance === :default, selected.selections)
-    override=owner.campaign_selections(nothing, :coaxial, false;
-        choices = (insulation_admittance = :default,), dielectric = :Ametani2004)
-    @test only(override.selections).insulation_admittance === :default
-    @test only(override.selections).semicon_admittance === :Ametani2004
-
-    @test_throws ArgumentError owner.campaign_selections(nothing, :coaxial, true; choices)
-    @test_throws ArgumentError owner.campaign_selections(nothing, :coaxial, false;
-        choices = (not_a_formula = Grid(:default),))
-    @test_throws ArgumentError owner.campaign_selections(nothing, :coaxial, false;
-        choices = (pipe_impedance = Grid(:InventedPipeAuthor2099),))
-    @test_throws ArgumentError owner.campaign_selections(nothing, :coaxial, false;
-        choices, combine = :invented)
-    for arguments in (["--select"], ["--select", "earth_impedance"],
-        ["--select", "earth_impedance=default,"],
-        ["--select", "earth_impedance=default",
-            "--select", "earth_impedance=Pollaczek1926"])
-        @test_throws ArgumentError owner.parse_selections(arguments)
-    end
-end
-
-@testitem "Gauntlet / normalized frequency snapshots replay the computed problem" tags=[:gauntlet] setup=[GauntletSupport] begin
-    using LineCableModels, JLD2, SHA
-    using .GauntletSupport
-    owner=GauntletSupport
-    mktempdir() do root
-        directory=joinpath(root, "normalized")
-        id=:cable_320kv_armoured_dc_bipole
-        @test owner.run_campaign(directory, [id]; backends = (:coaxial,), catalogue = false)
-        path=joinpath(directory, "$(id)_coaxial", "0001.jld2")
-        bytes=read(path)
-        record=JLD2.load(path)
-        restored=LineCableModels.ImportExport.deserialize_value(record["problem"])
-        @test restored.frequencies == record["frequencies"]
-        @test first(restored.frequencies) == 0.1
-        @test length(restored.frequencies) == 101
-        @test owner.numerical_input_sha256(restored) == record["input_sha256"]
-        selected=record["formulation"]
-        replay=compute(restored, Formulation(; selected.definitions..., options = selected.options))
-        @test replay.Z.values == record["Z"]
-        @test replay.Y.values == record["Y"]
-        @test owner.resume_campaign(directory)
-        @test read(path) == bytes
-    end
-end
-
-@testitem "Gauntlet / explicit formulation axes checkpoint without replacement" tags=[:gauntlet] setup=[GauntletSupport] begin
-    using SHA
-    using JLD2
-    using LineCableModels
-    using .GauntletSupport
-    owner=GauntletSupport
-    mktempdir() do temporary
-        root=joinpath(temporary, "paired")
-        choices=(earth_impedance = Grid((:default, :Saad1996)),
-            insulation_admittance = Grid((:default, :Ametani2004)),
-            semicon_admittance = Grid((:default, :Ametani2004)))
-        @test owner.run_campaign(root, [:two_bare_wires]; backends = (:coaxial,),
-            catalogue = false, choices, combine = :zip)
-        @test only(owner.campaign_status(root)).completed == 2
-        _, plan=owner.campaign_plan(root)
-        @test plan["combine"] == "zip"
-        @test all(value -> haskey(value, "pipe_impedance"), plan["jobs"][1]["selections"])
-        files=[joinpath(root, "two_bare_wires_coaxial", lpad(index, 4, '0')*".jld2")
-               for index in 1:2]
-        records=JLD2.load.(files)
-        @test records[1]["selection"]["insulation_admittance"] == "default"
-        @test records[2]["selection"]["insulation_admittance"] == "Ametani2004"
-        @test records[1]["problem"] == records[2]["problem"]
-        @test records[1]["formulation"].definitions.insulation_admittance === :default
-        @test records[2]["formulation"].definitions.insulation_admittance === :Ametani2004
-        @test records[1]["computation_signature"] != records[2]["computation_signature"]
-        @test records[1]["Z"] != records[2]["Z"]
-        model=owner.reference_case(:two_bare_wires)
-        expected=compute(model.nominal_problem,
-            Formulation(
-                earth_impedance = :Saad1996,
-                insulation_admittance = :Ametani2004, semicon_admittance = :Ametani2004,
-                options = (reduce_bundle = false, kron_reduction = false,
-                    ideal_transposition = false)))
-        @test records[2]["Z"] == expected.Z.values
-        @test records[2]["Y"] == expected.Y.values
-        before=[(sha256(read(path)), stat(path).mtime) for path in files]
-        @test owner.resume_campaign(root)
-        @test [(sha256(read(path)), stat(path).mtime) for path in files] == before
-    end
-end
-
-@testitem "Gauntlet / CI cannot start or resume a manual campaign" tags=[:gauntlet_toolkit] setup=[GauntletSupport] begin
-    using LineCableModels
-    using .GauntletSupport
-    mktempdir() do root
-        destination=joinpath(root, "must_not_be_created")
-        withenv("CI"=>"true") do
-            @test_throws ArgumentError GauntletSupport.run_campaign(destination,
-                [:two_bare_wires]; backends = (:coaxial,), catalogue = false)
-            @test_throws ArgumentError GauntletSupport.resume_campaign(destination)
-        end
-        @test !ispath(destination)
-    end
-end
-
-@testitem "Gauntlet / FEM checkpoints fingerprint executable bytes" tags=[:gauntlet_toolkit] setup=[GauntletSupport] begin
-    using LineCableModels
-    using .GauntletSupport
-    mktempdir() do root
-        path = joinpath(root, "getdp")
-        write(path, "#!/bin/sh\necho 'GetDP Version 3.5.0 fixture A'\n")
-        chmod(path, 0o700)
-        formulation = Formulation(:LineCableModelsFEM; fem_options=(getdp_executable=path,))
-        first_record = GauntletSupport.campaign_implementation(formulation)
-        write(path, "#!/bin/sh\necho 'GetDP Version 3.5.0 fixture B'\n")
-        second_record = GauntletSupport.campaign_implementation(formulation)
-        @test first_record.selection.executable.sha256 != second_record.selection.executable.sha256
-        @test first_record.selection.executable.info != second_record.selection.executable.info
-        @test first_record.selection_sha256 != second_record.selection_sha256
-        @test !isempty(first_record.selection.gmsh_version)
-        relocated = joinpath(root, "relocated-getdp")
-        cp(path, relocated)
-        chmod(relocated, 0o700)
-        relocated_formulation = Formulation(:LineCableModelsFEM;
-            fem_options=(getdp_executable=relocated,))
-        relocated_record = GauntletSupport.campaign_implementation(relocated_formulation)
-        @test relocated_record.selection_sha256 == second_record.selection_sha256
-    end
-end
-
-@testitem "Gauntlet / FEM campaigns select only consumed constitutive laws" tags=[:gauntlet_toolkit] setup=[GauntletSupport] begin
-    using .GauntletSupport
-    owner = GauntletSupport
-    baseline = owner.campaign_selections(nothing, :fem, true)
-    @test baseline.selections == [(id="default",)]
-    @test isempty(baseline.skipped)
-    choices = owner.parse_selections(["--select", "temperature_dependence=default,nothing",
-        "--select", "insulation_admittance=default,Ametani2004"])
-    planned = owner.campaign_selections(nothing, :fem, false; choices)
-    @test length(planned.selections) == 4
-    for selection in planned.selections
-        saved = Dict(string(name)=>string(value) for (name,value) in pairs(selection))
-        fem = owner.campaign_formulation(:fem, saved, :default)
-        @test keys(fem.methods) ==
-            (:insulation_admittance,:semicon_admittance,:earth_properties,:temperature_dependence)
-        @test (fem.methods.temperature_dependence === nothing) ==
-            (selection.temperature_dependence === nothing)
-    end
-    @test_throws ArgumentError owner.campaign_selections(nothing, :fem, false;
-        choices=(earth_impedance=Grid((:default,:Carson1926)),))
-    @test_throws MethodError owner.campaign_formulation(:fem,
-        Dict("id"=>"old","earth_impedance"=>"default"), :default)
 end

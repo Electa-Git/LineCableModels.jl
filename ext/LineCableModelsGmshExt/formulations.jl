@@ -15,7 +15,7 @@ function formulation_record(formulation::LineCableModelsFEM)
             parameters=selected.parameters, options=selected.options, hooks,
             replayable=isempty(selected.hooks)))
     end)
-    return (
+    return merge((
         schema_version = 3,
         selections,
         assumptions = (
@@ -25,5 +25,5 @@ function formulation_record(formulation::LineCableModelsFEM)
             semicon_domain = "Passive material region, without electrical terminal ownership",
             enclosure = "Supported enclosures are represented by their material and terminal domains"
         )
-    )
+    ),NamedTuple(formulation))
 end

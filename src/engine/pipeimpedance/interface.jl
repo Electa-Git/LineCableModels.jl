@@ -71,3 +71,6 @@ function Formula(selection::FormulaDefinition{ID, Order}) where {ID, Order}
         throw(ArgumentError("pipe contribution cannot consume equivalent_earth"))
     return Formula(Val(ID); parameters = selection.parameters, hooks = selection.hooks)
 end
+
+"""Expose the selected pipe equation as a native record."""
+Base.NamedTuple(value::Formula) = (identifier=formula_id(value),)

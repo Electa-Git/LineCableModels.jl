@@ -227,7 +227,6 @@ function _compute(
             return formula_id(EquivalentHomogeneous.rule(value))
         formula_id(value)
     end
-    requested_ids = map(identifier, requested.definitions[fields])
     effective_ids = map(identifier, formulation.methods)
     modified_fields = filter(!=(:pipe_impedance), fields)
     HomogeneousFlags = NamedTuple{(:air, :earth, :mixed), NTuple{3, Bool}}
@@ -299,14 +298,22 @@ function _compute(
         HomogeneousEquivalents(map(record, bound.selection)) :
         record(bound.selection)
     end)
-    Provenance = NamedTuple{
-        (:requested, :effective, :modified, :numerical, :equivalent_earth),
-        Tuple{Identifiers, Identifiers, Modifications, FormulaNumerical, Equivalents}}
-    provenance::Provenance = Provenance((
-        Identifiers(requested_ids), Identifiers(effective_ids),
-        modifications, numerical, equivalents))
+    SelectionRecord = NamedTuple{
+        (:effective, :modified, :numerical, :equivalent_earth),
+        Tuple{Identifiers, Modifications, FormulaNumerical, Equivalents}}
+    selection_record::SelectionRecord = SelectionRecord((
+        Identifiers(effective_ids), modifications, numerical, equivalents))
+    names=["cable:$(terminal.cable):$(terminal.terminal)" for terminal in problem.system.terminal_order]
+    permutation=workspace.invariants.permutation
+    indices=workspace.invariants.kron_map === nothing ? permutation : permutation[workspace.invariants.keep_indices]
+    coordinates=map(indices) do index
+        phase=problem.system.connection_order[index]
+        members=findall(==(phase),problem.system.connection_order)
+        formulation.options.reduce_bundle && phase > 0 && length(members) > 1 ?
+            "bundle:[" * join(names[members],",") * "]" : names[index]
+    end
     return LineParameters(result.domain, result.Z, result.Y, result.f,
-        merge(details(result), (; formulations = provenance)))
+        merge(details(result), (; formulations=merge(selection_record,NamedTuple(formulation)), coordinates)))
 end
 
 """

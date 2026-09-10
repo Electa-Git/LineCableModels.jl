@@ -189,3 +189,15 @@ function validate(formula::Formula{ID}, kinds::Tuple) where {ID}
         "an explicitly configured numerical section is unused by the required internal surfaces"))
     return formula
 end
+
+"""
+$(TYPEDSIGNATURES)
+
+Expose the selected equation, physical parameters, callable overrides and numerical
+options as a native record. Callables are retained unchanged.
+"""
+function Base.NamedTuple(value::Formula)
+    return (identifier=formula_id(value), binding=value.binding,
+        parameters=value.parameters, hooks=value.hooks, options=value.options,
+        configured_options=value.configured_options)
+end

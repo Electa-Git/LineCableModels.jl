@@ -63,6 +63,22 @@ Scalar `build` calls return completed domain objects. An explicit `Grid` at a
 construction boundary returns a `Gridspace` whose points invoke the same
 scalar `build` method.
 
+## Command line
+
+The package entrypoint routes to independently runnable applications:
+
+```sh
+./cli/install.sh
+lcm --help
+lcm --paths
+lcm gauntlet --help
+lcm playground --help
+```
+
+Available applications depend on the selected checkout. Global help and path
+inspection start no Julia process. See [the CLI guide](cli/README.md) for
+installation and explicit application locations across worktrees.
+
 ## Optional plotting
 
 Load one Makie backend explicitly before calling `preview` or `plot`:

@@ -311,7 +311,15 @@ end
     )) do (actual, expected)
         isapprox(actual[1], expected[1]) && isapprox(actual[2], expected[2])
     end
-    parameters=compute(problem; options = (trace = true,))
+    # Packed sectors flatten correctly, but their equivalent circles overlap.
+    # The complete earth model requires disjoint exterior circumferences.
+    @test_throws r"exterior circumferences must not overlap" compute(problem)
+    separated=build(CableDesign, "separated-sector-input", assembly(
+        phase; pattern = Ring(3; r = 0.02), names = (:a, :b, :c)))
+    separated_problem=LineParametersProblem(separated, Pose2(0, -1);
+        connections = (a = 1, b = 2, c = 3), earth_props = problem.earth_props,
+        frequencies = problem.frequencies)
+    parameters=compute(separated_problem; options = (trace = true,))
     @test size(parameters.Z) == (3, 3, 1)
     @test size(parameters.Y) == (3, 3, 1)
     @test all(isfinite, parameters.Z)

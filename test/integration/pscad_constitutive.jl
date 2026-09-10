@@ -22,7 +22,7 @@
             insulation_id in (:default, :Ametani2004), semicon_id in (:default, :Ametani2004)
             selected = constructor(insulation_admittance=insulation_id,
                 semicon_admittance=semicon_id)
-            component = only(IE._pscad_components(design, frequency, selected, 60.0))
+            component = only(LineCableModels.PSCAD._pscad_components(design, frequency, selected, 60.0))
             @test component.conductor.material.rho ≈ copper.rho * 1.16
             expected = inv(log(0.0045 / 0.004) / (2pi * admittivity(semicon, semicon_id)) +
                 log(0.0065 / 0.0045) / (2pi * admittivity(dielectric, insulation_id)))
@@ -40,15 +40,15 @@
                 imag(expected) / omega * log(0.0065 / 0.004) / (2pi * epsilon0) rtol=1e-5
         end
         selected = Formulation()
-        @test only(IE._pscad_components(design, frequency, selected, nothing)).conductor.material.rho == copper.rho
+        @test only(LineCableModels.PSCAD._pscad_components(design, frequency, selected, nothing)).conductor.material.rho == copper.rho
         uncorrected = Formulation(temperature_dependence=nothing)
-        @test only(IE._pscad_components(design, frequency, uncorrected, 60.0)).conductor.material.rho == copper.rho
+        @test only(LineCableModels.PSCAD._pscad_components(design, frequency, uncorrected, 60.0)).conductor.material.rho == copper.rho
         reference_shunt = inv(log(0.0045 / 0.004) / (2pi * admittivity(semicon, :Ametani2004, 20.0)) +
             log(0.0065 / 0.0045) / (2pi * admittivity(dielectric, :Ametani2004, 20.0)))
         for (temperature, correction) in ((nothing, true), (60.0, false))
             selected = Formulation(insulation_admittance=:Ametani2004,
                 semicon_admittance=:Ametani2004, temperature_dependence=correction ? formula(:default) : nothing)
-            component = only(IE._pscad_components(design, frequency, selected, temperature))
+            component = only(LineCableModels.PSCAD._pscad_components(design, frequency, selected, temperature))
             @test component.dielectric.shunt_conductance ≈ real(reference_shunt)
             @test component.dielectric.shunt_capacitance ≈ imag(reference_shunt) / omega
         end
@@ -72,12 +72,12 @@
 
         lossy = build(CableDesign, "loss-cap", terminal(:core, solid(copper, Disk(0.004)),
             insulation(Material(:insulator, 1.0, 2.3); t=0.002)))
-        component = only(IE._pscad_components(lossy, 50.0,
+        component = only(LineCableModels.PSCAD._pscad_components(lossy, 50.0,
             Formulation(insulation_admittance=:Ametani2004), 20.0))
         requested = component.dielectric.shunt_conductance /
             (2pi * 50 * component.dielectric.shunt_capacitance)
         @test requested > 10
-        emitted = Dict(IE._pscad_part_parameters(component, 1, 2pi * 50))
+        emitted = Dict(LineCableModels.PSCAD._pscad_part_parameters(component, 1, 2pi * 50))
         @test parse(Float64, emitted["LT1"]) == 10
         @test component.dielectric.shunt_conductance /
             (2pi * 50 * component.dielectric.shunt_capacitance) == requested
@@ -96,7 +96,7 @@
             _, imported = import_data(:pscad, path)
             @test length(only(imported.designs).geometry.regions) == 1
         end
-        insulated_values = Dict(IE._pscad_cable_parameters(design, Pose2(0, -1), [1], 1, frequency))
+        insulated_values = Dict(LineCableModels.PSCAD._pscad_cable_parameters(design, Pose2(0, -1), [1], 1, frequency))
         @test insulated_values["LL"] == "1"
     end
 end

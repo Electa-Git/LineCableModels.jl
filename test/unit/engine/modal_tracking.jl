@@ -37,6 +37,29 @@
     @test rebuilt.Y.values ≈ admittance rtol=1e-12
     @test phase.Z.values == impedance
     @test phase.Y.values == admittance
+
+    # Frequency selections retain the original modal basis at each selected sample.
+    for selector in (2, 2:4, [5, 2], :)
+        indices = selector isa Integer ? (selector:selector) : selector
+        selected = @inferred modal[selector]
+        selected_maps = operators(selected)
+        @test selected.f == frequencies[indices]
+        @test selected.Z.values == modal.Z.values[:, :, indices]
+        @test selected.Y.values == modal.Y.values[:, :, indices]
+        @test selected_maps.voltage == maps.voltage[:, :, indices]
+        @test selected_maps.current == maps.current[:, :, indices]
+        selected_phase = @inferred compute(ModalTransformationProblem(selected))
+        @test selected_phase.Z.values ≈ impedance[:, :, indices] rtol=1e-12
+        @test selected_phase.Y.values ≈ admittance[:, :, indices] rtol=1e-12
+    end
+
+    selected = modal[2:4]
+    voltage_before = copy(maps.voltage)
+    current_before = copy(maps.current)
+    operators(selected).voltage[1, 1, 1] += 1
+    operators(selected).current[1, 1, 1] += 1
+    @test maps.voltage == voltage_before
+    @test maps.current == current_before
 end
 
 @testitem "Transforms / limited iteration retains an explicit matched eigensolution" tags=[:unit] begin

@@ -1,11 +1,15 @@
 module CoverageGate
 
-using CoverageTools
 using Printf
+
+# Cleanup is a stdlib-only operation, available even after environment/test failure.
+if !(abspath(PROGRAM_FILE) == (@__FILE__) && ARGS == ["traces"])
+    using CoverageTools
+end
 
 const REPOSITORY_ROOT = normpath(joinpath(@__DIR__, ".."))
 const SOURCE_DIRECTORIES = ("src", "ext")
-const GAUNTLET_DIRECTORY = joinpath(REPOSITORY_ROOT, "test", "gauntlet")
+const GAUNTLET_DIRECTORY = joinpath(REPOSITORY_ROOT, "gauntlet")
 const GAUNTLET_CASE_DIRECTORY = joinpath(GAUNTLET_DIRECTORY, "cases")
 const DEFAULT_MINIMUM = 0.95
 
@@ -20,14 +24,13 @@ function source_files()
     return sort!(normpath.(files))
 end
 
-function clean_traces!()
+function clean_traces!(; report::Bool=true)
     removed = String[]
-    for relative_directory in (SOURCE_DIRECTORIES..., "test")
+    for relative_directory in (SOURCE_DIRECTORIES..., "gauntlet", "test", "docs")
         directory = joinpath(REPOSITORY_ROOT, relative_directory)
         for (root, _, names) in walkdir(directory)
             for name in names
-                if CoverageTools.iscovfile(name) ||
-                   occursin(r"\.jl(?:\.[0-9]+)?\.(?:fem|toolkit)\.cov$", name)
+                if endswith(name,".cov")
                     candidate = joinpath(root, name)
                     rm(candidate; force = true)
                     push!(removed, candidate)
@@ -35,10 +38,10 @@ function clean_traces!()
             end
         end
     end
-    report = joinpath(REPOSITORY_ROOT, "lcov.info")
-    if isfile(report)
-        rm(report)
-        push!(removed, report)
+    path = joinpath(REPOSITORY_ROOT, "lcov.info")
+    if report && isfile(path)
+        rm(path)
+        push!(removed, path)
     end
     return removed
 end
@@ -89,14 +92,18 @@ end
 
 function main(arguments)
     command = isempty(arguments) ? "check" : only(arguments)
-    if command == "clean"
-        removed = clean_traces!()
+    if command in ("clean","traces")
+        removed = clean_traces!(;report=command=="clean")
         println("Removed $(length(removed)) coverage trace files.")
     elseif command == "check"
         minimum = parse(Float64, get(ENV, "LINECABLEMODELS_MIN_COVERAGE", "0.95"))
-        check_coverage(; minimum)
+        try
+            check_coverage(;minimum)
+        finally
+            clean_traces!(;report=false)
+        end
     else
-        error("Unknown coverage command '$command'; expected 'clean' or 'check'.")
+        error("Unknown coverage command '$command'; expected 'clean', 'traces', or 'check'.")
     end
     return nothing
 end

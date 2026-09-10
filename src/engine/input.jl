@@ -457,7 +457,7 @@ function LineParametersWorkspace(
         earth_materials,
         earth_numerical,
         uses_earth_systems = any(
-            numerical->numerical!==nothing&&!isempty(numerical.systems), values(earth_numerical)),
+            numerical->numerical!==nothing&&!isempty(numerical.systems), values(earth_numerical))::Bool,
         execution,
         layer_coefficients,
         coefficients,

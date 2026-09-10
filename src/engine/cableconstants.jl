@@ -137,10 +137,10 @@ L(constants::CableConstants) = observe(constants, L)
 C(constants::CableConstants) = observe(constants, C)
 G(constants::CableConstants) = observe(constants, G)
 basis(::CableConstants) = :pul
-resistance(constants::CableConstants) = R(constants)
-inductance(constants::CableConstants) = L(constants)
-capacitance(constants::CableConstants) = C(constants)
-conductance(constants::CableConstants) = G(constants)
+resistance(constants::CableConstants) = observe(constants, R)
+inductance(constants::CableConstants) = observe(constants, L)
+capacitance(constants::CableConstants) = observe(constants, C)
+conductance(constants::CableConstants) = observe(constants, G)
 observables(::Type{<:CableConstants}) = (R, L, C, G)
 
 function publication_table(

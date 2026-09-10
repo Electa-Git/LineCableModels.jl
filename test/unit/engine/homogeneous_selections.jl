@@ -37,9 +37,9 @@
         @test details(result).trace.Pg[indices, indices, :] ≈ details(subresult).trace.Pg
     end
     provenance=details(result).formulations
-    @test provenance.requested.earth_impedance ==
-          (air = :Carson1926, earth = :Pollaczek1926, mixed = :Lucca1994)
-    @test provenance.effective.earth_impedance == provenance.requested.earth_impedance
+    @test provenance.requested.earth_impedance == NamedTuple(selected).requested.earth_impedance
+    @test provenance.effective.earth_impedance ==
+          map(record -> record.identifier,provenance.requested.earth_impedance)
     records=provenance.numerical.earth_impedance
     @test Set((record.formula, record.source, record.target) for record in records) ==
           Set(((:Carson1926, 1, 1), (:Pollaczek1926, 2, 2),

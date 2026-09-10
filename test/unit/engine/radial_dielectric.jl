@@ -62,7 +62,7 @@
             reduced = compute(CableConstantsProblem(homogeneous; frequency=f), formulation)
             @test reduced.C ≈ original.C rtol=2e-13
             @test reduced.G ≈ original.G rtol=2e-13
-            exported = only(IE._pscad_components(homogeneous, f, formulation, 20.0)).dielectric
+            exported = only(LineCableModels.PSCAD._pscad_components(homogeneous, f, formulation, 20.0)).dielectric
             @test exported.shunt_capacitance ≈ only(original.C) rtol=2e-13
             @test exported.shunt_conductance ≈ only(original.G) rtol=2e-13
         end
@@ -102,7 +102,7 @@
         @test only(original.C) ≈ imag(expected)/(2π*f) rtol=2e-13
         @test 2π * constitutive(lossy, material, f, 60.0;
             temperature_dependence=correction ? formulation.methods.temperature_dependence : nothing) / sum(weights) ≈ expected rtol=2e-13
-        exported = only(IE._pscad_components(homogeneous, f, formulation, 60.0)).dielectric
+        exported = only(LineCableModels.PSCAD._pscad_components(homogeneous, f, formulation, 60.0)).dielectric
         @test exported.shunt_conductance ≈ real(expected) rtol=2e-13
         @test exported.shunt_capacitance ≈ imag(expected)/(2π*f) rtol=2e-13
     end

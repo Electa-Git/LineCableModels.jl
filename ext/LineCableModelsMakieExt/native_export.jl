@@ -92,7 +92,7 @@ function _native_hide_layout_content!(snapshot, content)
 end
 
 function _native_hide_interactive_chrome!(snapshot, plot)
-    isempty(plot.controls) && return nothing
+    haskey(plot.controls,:export_svg) || return nothing
     root = plot.figure.layout
     row_sizes = copy(root.rowsizes)
     row_gap = root.default_rowgap

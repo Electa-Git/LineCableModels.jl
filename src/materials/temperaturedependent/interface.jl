@@ -100,3 +100,14 @@ constitutive(formula::Formula, material::Material, temperature::Real) = formula(
 """Retain reference resistivity in Ω·m when no temperature law is selected."""
 constitutive(::Nothing, material::Material, temperature::Real) =
     validate(nothing, material, temperature, material.rho)
+
+"""
+$(TYPEDSIGNATURES)
+
+Expose the selected equation, physical parameters, callable overrides and numerical
+options as a native record. Callables are retained unchanged.
+"""
+function Base.NamedTuple(value::Formula)
+    return (identifier=formula_id(value), binding=value.binding,
+        parameters=value.parameters, hooks=value.hooks, options=value.options)
+end

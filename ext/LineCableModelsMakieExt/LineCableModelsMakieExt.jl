@@ -42,6 +42,7 @@ include("montecarlo.jl")
 include("native_export.jl")
 
 import LineCableModels.PlotBuilder: plot, preview, show_material_scale
+include("recipes/formulation_comparisons.jl")
 
 function _scale_symbol(value)
     value isa Symbol && return value

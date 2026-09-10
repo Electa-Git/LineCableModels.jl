@@ -14,11 +14,16 @@ concurrency:
 permissions:
   contents: read
 
+env:
+  JULIA_NUM_THREADS: "1"
+  OPENBLAS_NUM_THREADS: "1"
+  OMP_NUM_THREADS: "1"
+
 jobs:
   core:
     name: Core / Julia ${{ matrix.julia }}
     runs-on: ubuntu-latest
-    timeout-minutes: 60
+    timeout-minutes: 90
     strategy:
       fail-fast: false
       matrix:
@@ -40,9 +45,6 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 45
     env:
-      JULIA_NUM_THREADS: "1"
-      OPENBLAS_NUM_THREADS: "1"
-      OMP_NUM_THREADS: "1"
       DISPLAY: ""
     steps:
       - uses: actions/checkout@v6
@@ -74,6 +76,9 @@ jobs:
             src/**/*.fem.cov
             ext/**/*.fem.cov
           if-no-files-found: error
+      - name: Remove coverage traces after workers and uploads finish
+        if: always()
+        run: julia --startup-file=no test/coverage.jl traces
 
   quality:
     name: Quality contracts
@@ -81,6 +86,8 @@ jobs:
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v6
+      - name: Check package CLI routing and installation
+        run: python3 -m unittest discover -s test/cli -v
       - uses: julia-actions/setup-julia@v3
         with:
           version: "1.12"
@@ -106,16 +113,15 @@ jobs:
       - uses: julia-actions/cache@v3
       - name: Test case import, catalogue, fingerprints, and comparison utilities
         run: |
-          julia --project=test/gauntlet --startup-file=no --code-coverage=@. --color=yes -e '
+          julia --project=gauntlet --startup-file=no --code-coverage=@. --color=yes -e '
             using Pkg
             Pkg.instantiate()
-            push!(ARGS, "tag:gauntlet_toolkit")
-            include("test/runtests.jl")
+            include("test/gauntlet/runtests.jl")
           '
       - name: Name toolkit coverage traces independently of runner process IDs
         shell: julia --startup-file=no {0}
         run: |
-          for directory in ("src", "ext", "test/gauntlet")
+          for directory in ("src", "ext", "gauntlet")
             for (root, _, files) in walkdir(directory), file in files
               endswith(file, ".cov") || continue
               mv(joinpath(root, file), joinpath(root, replace(file, r"\.cov$" => ".toolkit.cov")))
@@ -127,14 +133,17 @@ jobs:
           path: |
             src/**/*.toolkit.cov
             ext/**/*.toolkit.cov
-            test/gauntlet/**/*.toolkit.cov
+            gauntlet/**/*.toolkit.cov
           if-no-files-found: error
+      - name: Remove coverage traces after workers and uploads finish
+        if: always()
+        run: julia --startup-file=no test/coverage.jl traces
 
   coverage:
     name: Merged production coverage
     needs: [fem-numerical, toolkit]
     runs-on: ubuntu-latest
-    timeout-minutes: 90
+    timeout-minutes: 120
     env:
       LINECABLEMODELS_TEST_PLOTTING: "true"
     steps:
@@ -149,6 +158,13 @@ jobs:
         run: julia --project=test/coverage --color=yes test/coverage.jl clean
       - name: Collect core and non-graphical extension coverage
         run: julia --project=. --color=yes -e 'using Pkg; Pkg.test(coverage = true)'
+      - name: Collect PSCAD worker protocol coverage without a native installation
+        env:
+          JULIA_CONDAPKG_BACKEND: "Null"
+          JULIA_PYTHONCALL_EXE: "python3"
+        run: |
+          julia --project=ext/LineCableModelsPSCADExt/remote --startup-file=no -e 'using Pkg; Pkg.instantiate()'
+          julia --project=ext/LineCableModelsPSCADExt/remote --startup-file=no --code-coverage=@. test/integration/pscad/worker.jl
       - name: Collect core-only boundary coverage
         run: |
           julia --project=test/core --code-coverage=@. --color=yes -e '
@@ -200,11 +216,22 @@ jobs:
           path: .
       - name: Enforce source-amended 95% coverage
         run: julia --project=test/coverage --color=yes test/coverage.jl check
+      - name: Retain the coverage report, including failed checks
+        if: always() && hashFiles('lcov.info') != ''
+        uses: actions/upload-artifact@v4
+        with:
+          name: production-coverage-report
+          path: lcov.info
+          if-no-files-found: error
       - uses: codecov/codecov-action@v7
         with:
           files: lcov.info
           token: ${{ secrets.CODECOV_TOKEN }}
           fail_ci_if_error: true
+
+      - name: Remove coverage traces after workers and uploads finish
+        if: always()
+        run: julia --startup-file=no test/coverage.jl traces
 
   aqua:
     name: Aqua
@@ -222,9 +249,10 @@ jobs:
           using Pkg
           Pkg.activate(; temp = true)
           Pkg.develop(PackageSpec(path = pwd()))
-          Pkg.add("Aqua")
-          using Aqua, LineCableModels
-          Aqua.test_all(LineCableModels)
+          Pkg.add(["Aqua", "TestItemRunner"])
+          using TestItemRunner
+          TestItemRunner.run_tests(pwd(); filter=item ->
+              endswith(item.filename, joinpath("test", "quality", "aqua.jl")))
 
   clean-install:
     name: Clean installation

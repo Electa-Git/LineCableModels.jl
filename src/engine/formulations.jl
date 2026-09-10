@@ -433,3 +433,18 @@ end
 function validate(binding::FormulaMethod, reduction::EquivalentHomogeneous.AbstractRule)
     throw(ArgumentError("$binding does not admit equivalent-earth reduction :$(formula_id(reduction))"))
 end
+
+"""Expose FEM constitutive/admittance selections, reductions and numerical execution controls."""
+function Base.NamedTuple(value::LineCableModelsFEM)
+    record = function (selected)
+        selected === nothing && return nothing
+        selected isa Symbol && return NamedTuple(formula(selected))
+        selected isa NamedTuple && return map(record,selected)
+        return NamedTuple(selected)
+    end
+    execution=NamedTuple{fieldnames(typeof(value.execution))}(Tuple(getfield(value.execution,key)
+        for key in fieldnames(typeof(value.execution))))
+    Record=NamedTuple{(:backend,:requested,:methods,:options,:execution),
+        Tuple{Symbol,NamedTuple,NamedTuple,NamedTuple,NamedTuple}}
+    return Record((:fem,map(record,value.definitions),map(record,value.methods),value.options,execution))
+end

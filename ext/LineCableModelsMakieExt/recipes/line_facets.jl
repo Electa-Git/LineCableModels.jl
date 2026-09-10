@@ -201,6 +201,7 @@ function _addon_semantic_line_page(
         source_labels,
         page,
         mode;
+        series_indices,
         title,
         figure_title,
         title_attributes,
@@ -233,7 +234,7 @@ function _addon_semantic_line_page(
     group_order = Symbol[]
     group_labels = Dict{Symbol, String}()
     panel_group_labels = Any[]
-    colors = Tuple(_addon_comparison_color(index) for index in eachindex(published))
+    colors = Tuple(_addon_comparison_color(index) for index in series_indices)
 
     for (panel_index, (facet, position)) in enumerate(zip(page.facets, page.positions))
         observation = first(published).observations[facet.request_index]
@@ -261,9 +262,10 @@ function _addon_semantic_line_page(
             xlabelvisible = row == page.dimensions[1],
             xticklabelsvisible = row == page.dimensions[1],
             xticksvisible = row == page.dimensions[1],
-            ylabelvisible = mode !== :matrix || column == 1,
-            yticklabelsvisible = mode !== :matrix || column == 1,
-            yticksvisible = mode !== :matrix || column == 1
+            # Matrix cells have independent y limits; each must expose its scale.
+            ylabelvisible = true,
+            yticklabelsvisible = true,
+            yticksvisible = true
         )
         axis = _addon_axis!(
             panel.content,
@@ -349,6 +351,7 @@ function _addon_line_pages(
         frequencies = nothing,
         requests,
         series_labels = nothing,
+        series_indices = collect(eachindex(sources)),
         title = nothing,
         figure_title = nothing,
         title_attributes::NamedTuple = (;),
@@ -424,6 +427,7 @@ function _addon_line_pages(
             with_theme(_addon_theme(export_theme = export_theme)) do
                 _addon_semantic_line_page(
                     first(sources), published, source_labels, page, mode;
+                    series_indices,
                     title = page_title,
                     figure_title = visible_title,
                     title_attributes,

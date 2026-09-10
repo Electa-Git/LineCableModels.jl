@@ -176,3 +176,14 @@ function validate(formula::Formula{ID}, pairs::Union{Tuple, AbstractVector}) whe
     end
     return map(equation -> resolved[findfirst(==(equation), identities)], equations)
 end
+
+"""Expose the reduction rule, parameters, hooks and numerical options as a native record."""
+function Base.NamedTuple(value::Formula)
+    return (identifier=formula_id(value), parameters=value.parameters,
+        hooks=value.hooks, options=value.options)
+end
+
+"""Expose the order of material evaluation and the selected equivalent-earth rule."""
+function Base.NamedTuple(value::AbstractSequence)
+    return (order=nameof(typeof(value)), rule=NamedTuple(value.rule))
+end

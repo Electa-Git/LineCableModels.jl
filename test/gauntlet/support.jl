@@ -1,6 +1,7 @@
 @testmodule GauntletSupport begin
+    using LineCableModels
     using Gmsh
     using Measurements
-    include(joinpath(@__DIR__, "runtime.jl"))
-    include(joinpath(@__DIR__, "campaign.jl"))
+    include(joinpath(pkgdir(LineCableModels), "gauntlet", "Gauntlet.jl"))
+    using .Gauntlet
 end

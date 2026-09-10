@@ -331,7 +331,7 @@ for each selected outer point
         redraw uncertain leaves within that point
         build a fresh complete core problem
         Engine.compute
-        optionally reject DomainError realisations under a bounded retry policy
+        optionally reject DomainError realisations under a bounded retry settings
     aggregate that point's draws
 end
 ```
@@ -341,7 +341,7 @@ mixture. `MonteCarloResult` directly owns sample-mean core results, statistics,
 optional retained samples, optional histograms, the root seed, point seeds,
 and trial counts.
 
-The default `on_error=:fail` policy rethrows every exception. With
+The default `on_error=:fail` settings rethrows every exception. With
 `options=(retain_details=true, on_error=:retry, max_failures=n)`, only
 `DomainError` is treated as an unsupported realisation. Rejected draws do not
 enter samples or statistics, and retry stops when the requested accepted-trial

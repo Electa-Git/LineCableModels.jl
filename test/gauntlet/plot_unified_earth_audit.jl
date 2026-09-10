@@ -1,4 +1,5 @@
-# Run from the repository root with --project=. after the --pec --fem audit.
+# Replot retained audit data from the repository root with --project=.
+# The exploratory audit runner is retired.
 # Produces scientific PNG/PDF/SVG figures and the exact plotted comparison data.
 using CairoMakie
 using JSON3

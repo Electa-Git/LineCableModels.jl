@@ -28,7 +28,7 @@ export load!
 using DocStringExtensions: IMPORTS
 #! explicit-imports: on
 using DocStringExtensions: TYPEDSIGNATURES, METHODLIST
-import ..LineCableModels: build, validate, nominal, constitutive
+import ..LineCableModels: build, validate, nominal
 import ..Grammar: observe
 import ..ReportBuilder
 using ..Materials: AbstractMaterial, Material, RadialDielectric, MaterialsLibrary
@@ -48,8 +48,7 @@ import ..Engine
 import ..Engine: LineParameters, SeriesImpedance, ShuntAdmittance,
                  frequencies, Z, Y, C
 import EzXML
-using EzXML: ElementNode, XMLDocument, addelement!, nodename, prettyprint,
-             readxml, root, setroot!
+using EzXML: ElementNode, XMLDocument, addelement!, prettyprint, setroot!
 using Printf: @printf, @sprintf
 import JSON3
 import Serialization
@@ -62,7 +61,6 @@ include("deserialize.jl")
 include("problem.jl")
 include("cableslibrary.jl")
 include("materialslibrary.jl")
-include("pscad/pscad.jl")
 include("atp.jl")
 include("tralin.jl")
 
