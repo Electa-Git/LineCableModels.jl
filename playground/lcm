@@ -7,6 +7,12 @@ readonly LAUNCHER_PATH="$(readlink -f -- "${BASH_SOURCE[0]}")"
 readonly SCRIPT_DIR="$(cd -- "$(dirname -- "${LAUNCHER_PATH}")" && pwd)"
 readonly JULIA_COMMAND="${LCM_JULIA:-julia}"
 
+# Private two-computer demo lifecycle is an operator action, not a runtime API.
+if [[ "${1:-}" == "demo" ]]; then
+    shift
+    exec bash "${SCRIPT_DIR}/deploy/demo/demo" "$@"
+fi
+
 die() {
     printf 'lcm: %s\n' "$*" >&2
     exit 1

@@ -1,0 +1,7 @@
+# Paths on the browser/gateway computer, not on Kubuntu.
+root = "/home/amartins/.local/state/lcm-demo"
+source = "/home/amartins/Documents/KUL/LineCableModels-playground"
+julia = "/home/amartins/.juliaup/bin/julia"
+depot = "/home/amartins/.julia"
+ssh_adapter = "/home/amartins/.local/bin/ts"
+host = "kubuntu"

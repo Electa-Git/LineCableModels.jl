@@ -1,0 +1,30 @@
+#!/usr/bin/env bash
+# Recover only stopped infrastructure containers belonging to this demo directory.
+# Persistent bind-mounted data is never removed. No --force, --volumes or prune.
+set -Eeuo pipefail
+[[ $# == 3 ]] || exit 64
+engine=$1
+root=$2
+name=$3
+case "$name" in
+    lcm-demo-nats) owned_mount="$root/broker-data" ;;
+    lcm-demo-artifacts) owned_mount="$root/artifact-data" ;;
+    lcm-demo-artifact-init) owned_mount="$root/policies" ;;
+    *) exit 64 ;;
+esac
+[[ -f "$root/instance" && ! -L "$root/instance" && "$(<"$root/instance")" == lcm-demo-v1 ]] || exit 65
+# A failed engine query is an error, not evidence that no container exists.
+inventory=$("$engine" container ls --all --no-trunc --format '{{.ID}} {{.Names}}')
+id=''
+while read -r candidate candidate_name; do
+    [[ "$candidate_name" != "$name" ]] || id=$candidate
+done <<< "$inventory"
+[[ -n "$id" ]] || exit 0
+label=$("$engine" inspect --format '{{index .Config.Labels "lcm.demo"}}' "$id")
+running=$("$engine" inspect --format '{{.State.Running}}' "$id")
+mounts=$("$engine" inspect --format '{{range .Mounts}}{{println .Source}}{{end}}' "$id")
+[[ "$label" == lcm-demo-v1 && "$running" == false ]] || exit 65
+found=false
+while IFS= read -r mount; do [[ "$mount" != "$owned_mount" ]] || found=true; done <<< "$mounts"
+[[ "$found" == true ]] || exit 65
+"$engine" container rm "$id" >/dev/null

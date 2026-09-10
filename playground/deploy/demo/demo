@@ -1,0 +1,64 @@
+#!/usr/bin/env bash
+# Operator-only adapter. SSH never enters the runtime HTTP API or the UI host.
+set -Eeuo pipefail
+readonly source_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/../.." && pwd)"
+readonly state="${LCM_DEMO_STATE:-${XDG_STATE_HOME:-$HOME/.local/state}/lcm-demo}"
+die() { printf 'lcm demo: %s\n' "$*" >&2; exit 1; }
+if [[ $# == 0 || "${1:-}" == --help || "${1:-}" == help ]]; then
+    printf 'Usage: lcm demo start|stop|status|provision\nSetup: playground/deploy/demo/README.md\nFirst calculation: playground/TRY_IT.md\n'
+    exit 0
+fi
+case "${1:-}" in start|stop|status|provision) ;; *) die 'usage: lcm demo start|stop|status|provision' ;; esac
+[[ $# == 1 ]] || die 'unexpected arguments'
+[[ -f "$state/operator.env" && ! -L "$state/operator.env" ]] || die 'Run the one-time setup in deploy/demo/README.md first.'
+[[ "$(stat -c '%u:%a' "$state/operator.env")" == "$(id -u):600" ]] || die 'operator.env must be owned by you and mode 600'
+source "$state/operator.env"
+remote() { "$LCM_DEMO_SSH" ssh -o BatchMode=yes "$LCM_DEMO_HOST" "$1"; }
+runtime() { JULIA_DEPOT_PATH="$LCM_DEMO_DEPOT" LCM_JULIA="$LCM_DEMO_JULIA" "$source_dir/lcm" runtime "$@" --config "$state/gateway.toml"; }
+wait_storage() {
+    for ((attempt=0; attempt<90; attempt++)); do
+        curl --fail --silent --max-time 2 --cacert "$state/coordinator/ca.pem" \
+            https://127.0.0.1:24443/minio/health/ready --output /dev/null && return
+        sleep 1
+    done
+    die 'Private connection is not ready; inspect lcm-demo-tunnel on this computer and lcm-demo-storage-tls on Kubuntu.'
+}
+case "$1" in
+    provision)
+        remote 'systemctl --user start lcm-demo-infrastructure.target'
+        systemctl --user start lcm-demo-tunnel.service
+        wait_storage
+        runtime provision
+        printf 'Streams provisioned. Run lcm demo start, then enroll and approve the two workers in Runtime control.\n'
+        ;;
+    start)
+        remote 'systemctl --user start lcm-demo-infrastructure.target'
+        systemctl --user start lcm-demo-tunnel.service
+        wait_storage
+        systemctl --user start lcm-demo-local.target
+        for ((attempt=0; attempt<180; attempt++)); do
+            curl --fail --silent --max-time 2 http://127.0.0.1:8081/health --output /dev/null && break
+            systemctl --user is-failed --quiet lcm-demo-gateway.service && die 'Gateway failed; inspect journalctl --user -u lcm-demo-gateway -n 40.'
+            sleep 1
+        done
+        curl --fail --silent --max-time 2 http://127.0.0.1:8081/health --output /dev/null || die 'Gateway did not become ready.'
+        remote 'systemctl --user start lcm-demo-workers.target'
+        printf 'Open http://127.0.0.1:8081/workbenches/ and choose Cable study → Start isolated run.\n'
+        ;;
+    stop)
+        # Stop the coordinator first so it can release its owned assignments.
+        systemctl --user stop lcm-demo-local.target lcm-demo-gateway.service
+        remote 'systemctl --user stop lcm-demo-workers.target lcm-agent-demo-line.service lcm-agent-demo-power.service && systemctl --user stop lcm-demo-infrastructure.target'
+        systemctl --user stop lcm-demo-tunnel.service
+        printf 'Demo stopped. Configuration, registration database and private artifacts retained.\n'
+        ;;
+    status)
+        systemctl --user --no-pager --plain list-units --all 'lcm-demo-*'
+        remote "systemctl --user --no-pager --plain list-units --all 'lcm-demo-*' 'lcm-agent-demo-*'"
+        workers=$(curl --fail --silent --max-time 5 http://127.0.0.1:8081/runtime/api/workers) || die 'Gateway is not responding.'
+        printf '%s' "$workers" | JULIA_DEPOT_PATH="$LCM_DEMO_DEPOT" "$LCM_DEMO_JULIA" \
+            --startup-file=no --compiled-modules=existing --project="$source_dir/runtime" -e \
+            'using JSON3; for w in JSON3.read(read(stdin,String)); println(w.registration.worker_id, ": ", w.registration.state, " / ", w.liveness, " · occupied ", w.occupied, "/", w.registration.capacity); end'
+        printf 'Workbench: http://127.0.0.1:8081/workbenches/\n'
+        ;;
+esac

@@ -1,0 +1,13 @@
+# Paths on the worker computer. Julia is the executable running configure.jl.
+root = "/home/amauri/lcm-demo/state"
+source = "/home/amauri/lcm-demo/source"
+depot = "/home/amauri/lcm-demo/depot"
+caddy = "/home/amauri/lcm-demo/tools/caddy/caddy"
+engine = "podman"
+
+# Replace each with the RepoDigest installed in your selected engine.
+# Docker and Podman may have different digests even for the same source.
+[images]
+line-parameters = "localhost/lcm-line-parameters@sha256:REPLACE_WITH_64_HEX_DIGEST"
+power-flow = "localhost/lcm-power-flow@sha256:REPLACE_WITH_64_HEX_DIGEST"
+julia-terminal = "localhost/lcm-julia-terminal@sha256:REPLACE_WITH_64_HEX_DIGEST"

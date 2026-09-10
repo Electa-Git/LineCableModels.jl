@@ -1,0 +1,24 @@
+#!/bin/sh
+# Private one-shot initialization. Never enables anonymous access or deletes data.
+set -eu
+umask 077
+attempt=0
+until mc alias set local http://127.0.0.1:9000 "$MINIO_ROOT_USER" "$MINIO_ROOT_PASSWORD" >/dev/null 2>&1; do
+    attempt=$((attempt + 1))
+    [ "$attempt" -lt 60 ] || { printf 'Private artifact server did not become ready.\n' >&2; exit 1; }
+    sleep 1
+done
+mc ready local >/dev/null
+mc mb --ignore-existing local/lcm-demo-private >/dev/null
+mc anonymous set none local/lcm-demo-private >/dev/null
+for identity in coordinator demo-line demo-power; do
+    case "$identity" in
+        coordinator) secret=$LCM_COORDINATOR_ARTIFACT ;;
+        demo-line) secret=$LCM_LINE_ARTIFACT ;;
+        demo-power) secret=$LCM_POWER_ARTIFACT ;;
+    esac
+    mc admin user add local "artifact-$identity" "$secret" >/dev/null
+    mc admin policy create local "artifact-$identity" "/policies/$identity.json" >/dev/null
+    mc admin policy attach local "artifact-$identity" --user "artifact-$identity" >/dev/null
+done
+printf 'Private artifact accounts and per-worker policies are ready.\n'

@@ -1,5 +1,10 @@
 # LineCableModels playground
 
+**Want to see a real calculation first?** Use [Run something now](TRY_IT.md).
+To recreate the private remote workers, follow the ordered
+[Kubuntu setup](deploy/demo/README.md). Start, stop and inspect that configured
+demo with `lcm demo start`, `lcm demo stop`, and `lcm demo status`.
+
 This directory contains independently runnable publishing, runtime and worker
 programs with a shared wire contract. Quarto owns static authoring, Bonito owns live browser controls,
 NATS/JetStream carries typed jobs, and a separate worker owns LineCableModels,
