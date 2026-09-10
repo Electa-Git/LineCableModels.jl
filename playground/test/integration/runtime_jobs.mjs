@@ -25,6 +25,7 @@ function fixture() {
   const fetcher = async (url, options) => {
     requests.push([url,options.method]);
     if (knobs.offline) throw new Error("fixture offline");
+    if (url === "/runtime/api/runs/" + run) return json({id:run, application:"cable-study", state:"running", reason:""});
     if (url.endsWith("/control")) return json(inventory);
     if (url.endsWith("/assignments")) return json([lease]);
     if (url.endsWith("/science")) return json(report);

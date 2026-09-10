@@ -44,7 +44,7 @@ function run_surface(stream, supervisor::UIHostSupervisor, run::RunRecord; statu
       data-application="$(html_text(run.application))" data-entrypoint="$(html_text(entrypoint))"
       data-kind="$kind" data-entry-surface="$entry_surface" data-automatic="$automatic" data-deadline="$(supervisor.limits.startup_seconds + 15)">
       <p class="lc-runtime-eyebrow">APPLICATION RUN</p><h1>$(html_text(title))</h1>
-      <p id="runtime-status" class="lc-activity-status" data-busy="$busy" role="status" aria-live="polite">$(html_text(run.state))</p>
+      <p id="runtime-status" class="lc-status-indicator lc-activity-status" data-busy="$busy" role="status" aria-live="polite">$(html_text(run.state))</p>
       <p id="runtime-reason">$(html_text(reason))</p>
       <p id="runtime-elapsed" class="lc-runtime-hint" aria-live="off" $(busy ? "" : "hidden")>Waiting for application readiness. First startup may take longer while Julia loads and compiles.</p>
       <p class="lc-runtime-hint">The public site remains available. Restart creates a clean run;

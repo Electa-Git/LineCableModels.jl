@@ -1991,6 +1991,25 @@ function overlay_toolkit_widget()
         notice = InlineNotice(:warning, "Unsaved browser state",
             DOM.span("This specimen has not been attached to a persistent project.");
             dismissible=true)
+        status_preview = StatusIndicator("Ready for feedback preview"; tone=:neutral)
+        begin_preview = ActionButton("Start feedback preview"; busy_label="Preview active…")
+        end_preview = ActionButton("End feedback preview"; disabled=true)
+        on(session, begin_preview.clicks) do _
+            begin_preview.busy[] = true
+            end_preview.disabled[] = false
+            status_preview.label[] = "Preview active · no worker contacted"
+            status_preview.tone[] = :info
+            status_preview.busy[] = true
+            return nothing
+        end
+        on(session, end_preview.clicks) do _
+            begin_preview.busy[] = false
+            end_preview.disabled[] = true
+            status_preview.label[] = "Feedback preview complete"
+            status_preview.tone[] = :success
+            status_preview.busy[] = false
+            return nothing
+        end
         toasts = ToastCenter(; capacity=3)
         open_message = Button("Message dialog")
         open_confirm = Button("Confirmation dialog")
@@ -2009,6 +2028,11 @@ function overlay_toolkit_widget()
         end
         content = DOM.div(
             notice,
+            DOM.div(StatusIndicator("Online"; tone=:success),
+                StatusIndicator("Offline"; tone=:danger),
+                StatusIndicator("Status unknown"; tone=:warning),
+                status_preview, begin_preview, end_preview;
+                class="lc-widget-actions"),
             DOM.div(open_message, open_confirm, open_form, restore_notice, add_toast;
                 class="lc-widget-actions"),
             widget_output("Latest event", activity),

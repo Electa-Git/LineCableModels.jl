@@ -24,6 +24,11 @@ into workbenches and presentation views. The calculation specimen shows explicit
 Run/Cancel controls and retained-result provenance; it cannot run without an owned,
 prepared assignment. This gallery declares no scientific roles and allocates no workers.
 
+Status labels use the shared `StatusIndicator` colours and bold type. Refresh shows
+activity and records its outcome under **Actions and connection changes · this page**;
+**Control events · server** is a separate retained history. Worker health and the
+application run's lifetime are checked independently.
+
 [Open the runtime control panel](/runtime/control) to inspect owned runs and manage
 operator-provisioned worker registrations (administrator permission required).
 :::

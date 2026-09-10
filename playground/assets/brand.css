@@ -34,6 +34,7 @@
   --lc-code-bg: #1b2020;
   --lc-console-bg: #141919;
   --lc-success-text: #c9fff4;
+  --lc-success: #71d99b;
   --lc-success-bg: rgb(26 188 156 / 14%);
   --lc-success-border: rgb(26 188 156 / 55%);
   --lc-warning: #f3bf61;
@@ -143,6 +144,7 @@
   --lc-code-bg: #e5eae9;
   --lc-console-bg: #e8edec;
   --lc-success-text: #075d4e;
+  --lc-success: #176b38;
   --lc-success-bg: rgb(7 151 127 / 12%);
   --lc-success-border: rgb(7 140 119 / 55%);
   --lc-warning: #855600;

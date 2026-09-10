@@ -57,7 +57,8 @@
       const lease = state.assignments.filter(item => item.run_id === this.client.runId && item.role === this.role)
         .sort((a,b) => b.generation - a.generation)[0];
       const profile = state.control?.profiles.find(item => item.id === lease?.profile);
-      return !state.stale && state.control?.enabled && state.control.broker === "online" && lease?.usable === true &&
+      return globalThis.LineCableModelsRuntimeClient.runAvailability(state, this.client.runId).accepting &&
+        !state.stale && state.control?.enabled && state.control.broker === "online" && lease?.usable === true &&
         UUID.test(lease.id) && UUID.test(lease.worker_boot) && integer(lease.generation) && lease.generation > 0 &&
         profile?.kind === "terminal" && profile.isolation === "container" ?
         [lease.id, lease.worker_boot, lease.generation].join(":") : null;

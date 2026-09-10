@@ -17,13 +17,62 @@ async function until(check, ms = 2000) {
   while (!check() && Date.now() < deadline) await delay(5);
   assert.ok(check(), "condition did not complete within its bound");
 }
-function environment(fetcher) {
+function environment(fetcher, {runReply = id => json({id, application:"cable-study", state:"running", reason:""})} = {}) {
   const document = new EventTarget();
   document.visibilityState = "visible";
-  const context = vm.createContext({fetch: fetcher, document, crypto: webcrypto,
+  // These transport specimens own a live run unless a lifecycle case supplies
+  // a different reply. Count its requests separately from assignment fixtures.
+  let runRequests = 0;
+  const fetchWithRun = (url, options) => {
+    const match = url.match(/^\/runtime\/api\/runs\/([a-f0-9-]{36})$/);
+    if (match) { runRequests++; return Promise.resolve(runReply(match[1])); }
+    return fetcher(url, options);
+  };
+  const context = vm.createContext({fetch: fetchWithRun, document, crypto: webcrypto,
     AbortController, Response, TextDecoder, TextEncoder, Uint8Array, setTimeout, clearTimeout});
   vm.runInContext(script, context);
-  return {api: context.LineCableModelsRuntimeClient, document, context};
+  return {api: context.LineCableModelsRuntimeClient, document, context, get runRequests() { return runRequests; }};
+}
+
+// Worker health does not keep an ended application run alive. A failed run
+// lookup leaves inventory useful, but cannot grant assignment authority.
+{
+  let status = "stopped", denied = false, mutations = 0;
+  const fixture = environment(async (url, options) => {
+    if (options.method !== "GET") mutations++;
+    if (url.endsWith("/control")) return json(initialControl());
+    if (url.includes("/control/events")) return json({epoch:webcrypto.randomUUID(),cursor:0,gap:false,records:[]});
+    return json([]);
+  }, {runReply:id => denied ? json({error:"Not available"},404) : json({id,application:"cable-study",state:status,reason:"UI host stopped"})});
+  const client = new fixture.api.RuntimeClient(run);
+  await client.refresh();
+  assert.equal(client.state.control.broker,"online");
+  assert.equal(client.state.run.state,"stopped");
+  assert.equal(fixture.api.runAvailability(client.state,run).accepting,false);
+  assert.equal(fixture.api.runAvailability(client.state,run).href,"/runtime/runs/"+run);
+  await assert.rejects(() => client.assign("main","line-parameters",{mode:"automatic"}), /start a new run/);
+  assert.equal(mutations,0);
+  status = "running"; await client.refresh();
+  assert.equal(fixture.api.runAvailability(client.state,run).accepting,true);
+  denied = true; await client.refresh();
+  assert.equal(client.state.stale,false);
+  assert.equal(client.state.runStale,true);
+  assert.equal(fixture.api.runAvailability(client.state,run).accepting,false);
+  denied = false;
+  const one = client.refreshStatus(), two = client.refreshStatus();
+  assert.equal(one,two);
+  assert.equal(client.state.refreshing,true);
+  await one;
+  assert.equal(client.state.refreshing,false);
+  assert.equal(client.state.activity.filter(e=>e.code==="refresh_started").length,1);
+  assert.equal(client.state.activity.at(-1).code,"refresh_completed");
+  for (let i=0;i<300;i++) client.recordActivity("fixture","Bounded entry");
+  assert.equal(client.state.activity.length,256);
+  assert.ok(client.state.activityDropped>0);
+  client.recordActivity("fixture","x".repeat(1000));
+  assert.equal(client.state.activity.at(-1).message.length,480);
+  client.close();
+  for (const [value,tone] of [["online","success"],["offline","danger"],["unknown","warning"],["preparing","info"]]) assert.equal(fixture.api.statusTone(value),tone);
 }
 
 // An owned UI run can exist on a publisher whose worker control is disabled.
@@ -57,6 +106,7 @@ function environment(fetcher) {
   assert.equal(calls, 0);
   await Promise.all([client.refresh(), client.refresh(), client.refresh()]);
   assert.equal(calls, 2);
+  assert.equal(fixture.runRequests, 1);
   assert.equal(client.state.stale, false);
   assert.ok(Object.isFrozen(client.state));
   const good = client.state.control;

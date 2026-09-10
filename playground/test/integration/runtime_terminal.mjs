@@ -5,6 +5,7 @@ import {readFile} from "node:fs/promises";
 import {randomUUID,webcrypto} from "node:crypto";
 import {setTimeout as delay} from "node:timers/promises";
 globalThis.crypto ??= webcrypto;
+await import(new URL("../../assets/runtime-client.js",import.meta.url));
 await import(new URL("../../assets/runtime-terminal-client.js",import.meta.url));
 const {RuntimeTerminal} = globalThis.LineCableModelsTerminalClient;
 const until = async predicate => {
@@ -17,7 +18,7 @@ function fixture(options = {}) {
   const listeners = new Set(), sent = [], sockets = [], rendered = [];
   let session = null, inputSequence = 0, tail = [], writer = null, resets = 0;
   let hook = null, connected = false;
-  const client = {runId:run,state:{stale:false,control:{enabled:true,broker:"online",profiles:[{id:"repl",kind:"terminal",isolation:"container"}]},
+  const client = {runId:run,state:{stale:false,run:{id:run,state:"running"},runStale:false,control:{enabled:true,broker:"online",profiles:[{id:"repl",kind:"terminal",isolation:"container"}]},
     assignments:[{id:lease,run_id:run,role:"terminal",profile:"repl",worker_boot:randomUUID(),generation:1,usable:true}]},
     subscribe(fn) { listeners.add(fn); fn(this.state); return () => listeners.delete(fn); }};
   class Socket extends EventTarget {

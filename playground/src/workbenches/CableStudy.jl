@@ -24,7 +24,7 @@ end
 function WorkbenchUI.initialize(application::Application, session)
     client = application.client
     return (active=Observable(:runtime), dock=Observable(:diagnostics), views=(
-        runtime=StudyRuntime(client), geometry=CableGeometry(),
+        runtime=StudyRuntime(client; diagnostics=false), geometry=CableGeometry(),
         parameters=ScientificView(session, LineParameters(), client),
         corridor=ScientificView(session, CorridorImpedance(), client),
         terminal=JuliaTerminal(client, :terminal; rows=24)))

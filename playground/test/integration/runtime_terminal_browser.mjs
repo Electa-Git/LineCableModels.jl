@@ -32,6 +32,9 @@ const html=`<!doctype html><html><head><meta charset="utf-8"><meta name="viewpor
   </head><body><main><div id="terminal" data-lcm-runtime-terminal='${config}'></div></main>
   ${names.filter(n=>n.endsWith("js")).map(n=>`<script src="/${n}"></script>`).join("")}<script src="/fixture.js"></script></body></html>`;
 const server=createServer((req,res)=>{
+  if(req.url===`/runtime/api/runs/${run}`) {
+    res.setHeader("Content-Type","application/json");res.end(JSON.stringify({id:run,application:"cable-study",state:"running",reason:""}));return;
+  }
   if(req.url==="/runtime/api/control" || req.url===`/runtime/api/runs/${run}/assignments`) {
     res.setHeader("Content-Type","application/json");res.end(JSON.stringify(req.url.endsWith("control")?inventory:[lease]));return;
   }
@@ -180,7 +183,7 @@ try {
   await evaluate("f.append('\\x1b]2;BAD TITLE\\x07\\x1b]11;#ffffff\\x07\\x1b]52;c;c2VjcmV0\\x07\\x1b]8;;https://invalid.example/\\x07link\\x1b]8;;\\x07')");
   await wait("text().includes('link')");
   assert.equal(await evaluate("document.title"),"Terminal browser fixture");
-  assert.equal(await evaluate("document.querySelector('#terminal a') === null"),true);checks+=2;
+  assert.equal(await evaluate("document.querySelector('.lc-terminal-viewport a') === null && [...document.querySelectorAll('#terminal a')].every(a=>a.classList.contains('lc-terminal-recovery') && a.pathname.startsWith('/runtime/runs/'))"),true);checks+=2;
   const palettes=[];
   for(const selected of ["light","dark","light"]) {
     await evaluate(`LineCableModelsTheme.select(${JSON.stringify(selected)})`);await delay(150);

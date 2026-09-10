@@ -9,6 +9,32 @@
   const clients = new Map();
   const MAX_RESPONSE = 4 * 1024 * 1024;
   const clock = () => globalThis.performance?.now() ?? Date.now();
+  const runStates = new Set(["reserved", "starting", "running", "stopping", "failed", "stopped"]);
+  function runRecord(value, id) {
+    if (value?.id !== id || !runStates.has(value.state) || !token.test(value.application || "") ||
+        typeof value.reason !== "string" || value.reason.length > 1024) throw Error("Incompatible application run status");
+    return value;
+  }
+  // Domain meaning is shared by every consumer; colours belong to the shared
+  // StatusIndicator CSS, not to this transport or individual workbenches.
+  function statusTone(value) {
+    if (["online", "ready", "approved", "active", "running", "succeeded"].includes(value)) return "success";
+    if (["offline", "unavailable", "failed", "rejected", "error"].includes(value)) return "danger";
+    if (["unknown", "cold", "stale", "uncertain", "disabled", "draining", "expired", "revoked", "reconciling", "stopped", "pending"].includes(value)) return "warning";
+    if (["reserved", "reserving", "starting", "preparing", "executing", "submitting", "queued", "submitted", "connecting", "releasing", "closing", "stopping"].includes(value)) return "info";
+    return "neutral";
+  }
+  function runAvailability(state, runId) {
+    if (!runId) return {accepting:false, tone:"warning", message:"Open an application run before assigning a worker.", href:"/workbenches/", label:"Choose an application"};
+    const href = "/runtime/runs/" + runId;
+    if (state.runStale || !state.run) return {accepting:false, tone:"warning",
+      message:"Application run status is unavailable. Refresh status before assigning or connecting.", href, label:"Open run status"};
+    const run = state.run;
+    if (["reserved", "starting", "running"].includes(run.state)) return {accepting:true, tone:statusTone(run.state), message:"Application run · " + run.state, href, label:"Open run status"};
+    return {accepting:false, tone:run.state === "failed" ? "danger" : "warning",
+      message:"Application run · " + run.state + ". " + (run.reason ? run.reason + ". " : "") +
+        "An online worker cannot accept assignments from this run. Open run status and start a new run; previous volatile state cannot be resumed.", href, label:"Open run status / start a new run"};
+  }
 
   class RuntimeRequestError extends Error {
     constructor(message, {status = 0, uncertain = false, requestId = null} = {}) {
@@ -167,7 +193,10 @@
       this.pollMs = pollMs;
       this.timeoutMs = timeoutMs;
       this.state = Object.freeze({control: null, assignments: [], events: null, science: {},
+        run:null, runStale:Boolean(runId), activity:[], activityDropped:0, refreshing:false,
         eventsStale: false, stale: true, error: null, pending: false, updatedAt: null});
+      this.activitySequence = 0;
+      this.manualRefresh = null;
       this.listeners = new Map();
       this.controllers = new Set();
       this.refreshing = null;
@@ -188,6 +217,34 @@
       for (const listener of this.listeners.keys()) {
         try { listener(this.state); } catch { /* One consumer cannot block the others. */ }
       }
+    }
+    recordActivity(code, message, {tone="info", requestId=null} = {}) {
+      if (this.closed) return;
+      const rows = [...this.state.activity, Object.freeze({sequence:++this.activitySequence,
+        at:new Date().toISOString(), code:String(code).slice(0,64), message:String(message).slice(0,480),
+        tone:["neutral","info","success","warning","danger"].includes(tone) ? tone : "neutral",
+        requestId:uuid.test(requestId || "") ? requestId : null, runId:this.runId})];
+      this.notify({activity:rows.slice(-256), activityDropped:this.state.activityDropped + Math.max(0, rows.length - 256)});
+    }
+    refreshStatus() {
+      if (this.closed) return Promise.resolve();
+      if (this.manualRefresh) return this.manualRefresh;
+      this.notify({refreshing:true});
+      this.recordActivity("refresh_started", "Refresh status requested · checking broker, workers and application run.");
+      const promise = (async () => {
+        await this.refresh();
+        if (!this.state.stale && this.state.control?.enabled) {
+          await Promise.all([this.refreshEvents(), this.refreshScience()]);
+        }
+        const failed = this.state.stale || this.state.runStale || this.state.eventsStale;
+        this.recordActivity(failed ? "refresh_incomplete" : "refresh_completed",
+          failed ? "Refresh incomplete · some status or event evidence is unavailable. Retained values are not current." :
+            "Refresh completed · broker " + this.state.control?.broker + (this.state.run ? "; run " + this.state.run.state : "") + ".",
+          {tone:failed ? "warning" : "success"});
+      })();
+      this.manualRefresh = promise;
+      void promise.finally(() => { this.manualRefresh = null; if (!this.closed) this.notify({refreshing:false}); });
+      return promise;
     }
     subscribe(listener, {withEvents = false, withScience = false} = {}) {
       if (this.closed) throw new Error("Runtime client is closed");
@@ -240,22 +297,32 @@
       clearTimeout(this.timer);
       const promise = (async () => {
         try {
-          const [control, ownedResult] = await Promise.all([
+          const [control, ownedResult, runResult] = await Promise.all([
             this.request("GET", "control").then(inventory),
             this.runId ? this.request("GET", "runs/" + this.runId + "/assignments").then(assignments)
-              .then(value => ({value}), error => ({error})) : {value:[]}
+              .then(value => ({value}), error => ({error})) : {value:[]},
+            this.runId ? this.request("GET", "runs/" + this.runId).then(value => runRecord(value, this.runId))
+              .then(value => ({value}), error => ({error})) : {value:null}
           ]);
           if (this.closed) return this.state;
           // A publisher without worker control still owns valid UI runs. Its
           // disabled capability must not be obscured by the absent assignment API.
           if (control.enabled && ownedResult.error) throw ownedResult.error;
           const owned = control.enabled ? ownedResult.value : [];
-          this.notify({control, assignments: owned, stale: false, error: null, updatedAt: Date.now()});
+          const previous = this.state;
+          this.notify({control, assignments: owned, run:runResult.value ?? previous.run,
+            runStale:Boolean(runResult.error), stale: false, error: null, updatedAt: Date.now()});
+          if (previous.control?.broker !== control.broker) this.recordActivity("broker_changed", "Broker · " + control.broker, {tone:statusTone(control.broker)});
+          if (runResult.value && previous.run?.state !== runResult.value.state) this.recordActivity("run_changed", "Application run · " + runResult.value.state, {tone:statusTone(runResult.value.state)});
+          if (previous.stale && previous.updatedAt) this.recordActivity("status_recovered", "Runtime status connection restored.", {tone:"success"});
           this.publishScience(); // Drop revoked/expired evidence before further I/O.
           if (control.enabled && [...this.listeners.values()].some(item => item.withEvents)) void this.refreshEvents();
           if (control.preparation_control && [...this.listeners.values()].some(item => item.withScience)) void this.refreshScience();
         } catch (error) {
-          if (!this.closed) { this.notify({stale: true, error: error.message}); this.clearScience(); }
+          if (!this.closed) {
+            if (!this.state.stale) this.recordActivity("status_unavailable", "Runtime status connection lost; showing last-known values.", {tone:"danger"});
+            this.notify({stale: true, runStale:Boolean(this.runId), error: error.message}); this.clearScience();
+          }
         }
         return this.state;
       })();
@@ -276,7 +343,7 @@
       this.notify({science: {}});
     }
     scientificAssignment(item) {
-      return item.usable && this.state.control?.profiles.find(profile => profile.id === item.profile)?.kind !== "terminal";
+      return runAvailability(this.state, this.runId).accepting && item.usable && this.state.control?.profiles.find(profile => profile.id === item.profile)?.kind !== "terminal";
     }
     publishScience(values = this.state.science) {
       clearTimeout(this.scienceTimer);
@@ -351,12 +418,25 @@
       if (this.state.pending) throw new RuntimeRequestError("Another control action is pending.");
       if (this.state.stale || !this.state.control?.enabled) throw new RuntimeRequestError("Refresh available runtime status first.");
       const id = identity(requestId ?? globalThis.crypto.randomUUID(), uuid, "request identity");
+      // Retain operation identities, not input payloads, secrets, code or raw
+      // server/transport errors. Background polls do not flood this journal.
+      const operationLabel = path.endsWith("/assignments") ? "Assign worker · " + data.role :
+        method === "DELETE" ? "Release assignment" : path.endsWith("/science") ? "Scientific preparation action" :
+        path.includes("/jobs") ? "Calculation action" : "Worker registration action";
+      this.recordActivity("action_started", operationLabel + " requested.", {requestId:id});
       this.clearScience(); // An older in-flight query cannot survive a mutation.
       this.notify({pending: true});
       try {
         // Intentionally no automatic retry: callers retain this exact request ID
         // if an explicit retry is appropriate after checking current owned state.
-        return await this.request(method, path, {...data, request_id: id});
+        const result = await this.request(method, path, {...data, request_id: id});
+        this.recordActivity("action_acknowledged", operationLabel + " acknowledged; completion is reported separately.", {tone:"success",requestId:id});
+        return result;
+      } catch (error) {
+        this.recordActivity(error.uncertain ? "action_uncertain" : "action_rejected",
+          operationLabel + (error.uncertain ? " outcome unconfirmed; inspect status before retrying." : " rejected (HTTP " + error.status + ")."),
+          {tone:error.uncertain ? "warning" : "danger",requestId:id});
+        throw error;
       } finally {
         // Join any pre-mutation poll, then fetch after the confirmed/uncertain
         // action. Do not mistake an older in-flight snapshot for reconciliation.
@@ -368,6 +448,8 @@
     }
     assign(role, profile, placement, {requestId = null} = {}) {
       if (!this.runId) throw new RuntimeRequestError("Open an owned application run before assigning a worker.");
+      const availability = runAvailability(this.state, this.runId);
+      if (!availability.accepting) return Promise.reject(new RuntimeRequestError(availability.message));
       if (this.state.control?.broker !== "online") throw new RuntimeRequestError("Worker control is unavailable.");
       identity(role, token, "role"); identity(profile, token, "profile");
       if (!placement || !["automatic", "pinned", "dedicated"].includes(placement.mode)) {
@@ -499,7 +581,7 @@
     }
     context() {
       const state = this.client.state, lease = this.assignment(), report = state.science[lease?.id];
-      if (state.stale || state.control?.broker !== "online" || !lease?.usable || !uuid.test(lease.worker_boot || "") ||
+      if (!runAvailability(state, this.client.runId).accepting || state.stale || state.control?.broker !== "online" || !lease?.usable || !uuid.test(lease.worker_boot || "") ||
           !report || report.preparation !== "ready" || report.channel !== "online" ||
           !(report.readyUntil > clock()) || !uuid.test(report.executor_id || "") ||
           !Number.isSafeInteger(report.executor_generation) || report.executor_generation < 1) return null;
@@ -705,5 +787,5 @@
     if (!clients.has(runId) || clients.get(runId).closed) clients.set(runId, new RuntimeClient(runId));
     return clients.get(runId);
   }
-  globalThis.LineCableModelsRuntimeClient = Object.freeze({RuntimeClient, RuntimeJob, RuntimeRequestError, acquire});
+  globalThis.LineCableModelsRuntimeClient = Object.freeze({RuntimeClient, RuntimeJob, RuntimeRequestError, acquire, statusTone, runAvailability});
 })();

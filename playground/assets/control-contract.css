@@ -129,13 +129,31 @@ textarea:disabled,
 
 .lc-activity-status[data-busy="true"] {
   color: var(--lc-heading);
-  font-weight: 600;
+  font-weight: 700;
 }
 
-.lc-activity-status[data-tone="warning"] { color: var(--lc-warning); }
-.lc-activity-status[data-tone="danger"] { color: var(--lc-danger); }
+/* Explicit semantic state; never infer meaning from text or a page selector.
+ * Labels remain readable without colour. Consumers own the evidence and tone. */
+.lc-status-indicator {
+  color: var(--lc-muted);
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+:is(.lc-status-indicator, .lc-activity-status)[data-tone="success"] { color: var(--lc-success); }
+:is(.lc-status-indicator, .lc-activity-status)[data-tone="info"] { color: var(--lc-link); }
+:is(.lc-status-indicator, .lc-activity-status)[data-tone="warning"] { color: var(--lc-warning); }
+:is(.lc-status-indicator, .lc-activity-status)[data-tone="danger"] { color: var(--lc-danger); }
+.lc-button[data-busy="true"] {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  cursor: progress;
+  opacity: 1;
+}
 
 .lc-activity-status[data-busy="true"]::before,
+.lc-button[data-busy="true"]::before,
 .lc-viewport-spinner,
 .lc-toolbar-button-busy::after {
   content: "";
@@ -155,6 +173,7 @@ textarea:disabled,
 
 @media (prefers-reduced-motion: reduce) {
   .lc-activity-status[data-busy="true"]::before,
+  .lc-button[data-busy="true"]::before,
   .lc-viewport-spinner,
   .lc-toolbar-button-busy::after { animation: none; }
 }

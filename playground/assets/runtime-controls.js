@@ -21,9 +21,19 @@
     return element;
   };
   const hint = text => node("p", text, "lc-runtime-note");
+  const setText = (element, value) => { if (element.textContent !== value) element.textContent = value; };
+  const tone = value => globalThis.LineCableModelsRuntimeClient.statusTone(value);
+  const runStatus = (state, client) => globalThis.LineCableModelsRuntimeClient.runAvailability(state, client.runId);
+  const indicator = (text, meaning=text) => {
+    const element = node("span", text, "lc-status-indicator"); element.dataset.tone = tone(meaning); return element;
+  };
+  function buttonActivity(element, busy, label, activeLabel) {
+    element.dataset.busy = String(busy); element.setAttribute("aria-busy", String(busy));
+    setText(element, busy ? activeLabel : label);
+  }
   const activity = text => {
     const element = hint(text);
-    element.classList.add("lc-activity-status");
+    element.classList.add("lc-activity-status", "lc-status-indicator");
     element.setAttribute("role", "status");
     element.dataset.busy = "false";
     return element;
@@ -76,7 +86,9 @@
   }
   function record(values) {
     const row = node("tr");
-    for (const value of values) row.append(node("td", value == null ? "—" : String(value)));
+    for (const value of values) {
+      const cell = node("td"); cell.append(value instanceof Node ? value : value == null ? "—" : String(value)); row.append(cell);
+    }
     return row;
   }
   function selector(root, client, config, action) {
@@ -110,7 +122,8 @@
         placement.value === "pinned" ? "Choose worker (required)" : "Any eligible worker");
       const current = assignment(state, config.role);
       const holdsSlot = current && occupied.has(current.state);
-      const locked = state.stale || !control?.enabled || state.pending || uncertain;
+      const availability = runStatus(state, client);
+      const locked = state.stale || !control?.enabled || state.pending || uncertain || !availability.accepting;
       summary.dataset.busy = String(!state.stale && ["reserving", "releasing"].includes(current?.state));
       const selectedProfile = control?.profiles.find(p => p.id === profile.value);
       const selectedWorker = control?.workers.find(w => w.registration.worker_id === worker.value);
@@ -125,11 +138,14 @@
         control?.broker !== "online" || !placement.value || (placement.value === "pinned" && !worker.value) ||
         (explicitWorker && !workerAvailable);
       release.disabled = locked || !holdsSlot || ["releasing", "reconciling"].includes(current?.state);
-      summary.textContent = !client.runId ? "Open an owned application run to assign this role." :
+      summary.dataset.tone = !availability.accepting ? availability.tone : current ? tone(current.state) : "warning";
+      setText(summary, !availability.accepting ? "Assignment unavailable · see application run status above." :
         current ? current.worker_id + " · " + current.state + " · generation " + current.generation +
           (current.usable ? " · lease acknowledged" : " · not available for new work") :
           explicitWorker && !workerAvailable ? "Selected worker is unavailable for this profile. The pinned choice is retained; no fallback will be used." :
-          "No assignment for this role.";
+          !selectedProfile ? "Not assigned · choose a profile, then Assign worker." :
+          control?.broker !== "online" ? "Not assigned · restore the broker connection, then refresh status." :
+          "Not assigned · select Assign worker. An online worker is not yet assigned to this run.");
     }
     for (const input of [profile, placement, worker]) input.addEventListener("change", () => update(...last));
     return update;
@@ -160,16 +176,17 @@
         prepare.disabled = cancel.disabled = true; root.dataset.preparation = "not-applicable"; return;
       }
       const report = state.science[current?.id];
-      const usable = current?.usable && !state.stale;
+      const usable = current?.usable && !state.stale && runStatus(state, client).accepting;
       const value = usable ? report?.preparation ?? "unknown" : "unknown";
       const active = ["starting", "preparing", "executing", "closing"].includes(report?.phase);
       status.dataset.busy = String(Boolean(usable && report?.channel === "online" && active));
+      status.dataset.tone = tone(!usable ? "unknown" : report?.channel !== "online" ? "offline" : active ? report.phase : value);
       const locked = !usable || !state.control?.preparation_control || state.pending || uncertain;
       // A background status query is not user work and must not permanently
       // disable preparation. The agent still rejects conflicting admission.
       prepare.disabled = locked || active || report?.channel !== "online";
       cancel.disabled = locked || !["starting", "preparing"].includes(report?.phase) || !report?.current_request_id;
-      status.textContent = !current ? "Not assigned" : !usable ? "Assignment is not available for preparation." :
+      setText(status, !current ? "Not assigned" : !usable ? "Assignment is not available for preparation." :
         !report ? "Preparation unknown · waiting for executor evidence" :
         report.channel !== "online" ? "Preparation unknown · scientific channel unavailable" :
         active ? report.phase + " · " + (Number.isFinite(report.progress) ? Math.round(report.progress * 100) + "% · " : "") +
@@ -177,37 +194,61 @@
         value === "ready" ? "Ready · executor generation " + report.executor_generation + " · freshly inspected" :
         report.failure ? "Preparation " + value + " · " + report.failure :
         report.accepted === false ? "Preparation " + value + " · " + report.reason :
-        value === "cold" ? "Cold · explicit preparation required" : "Preparation " + value + " · waiting for fresh evidence";
+        value === "cold" ? "Cold · explicit preparation required" : "Preparation " + value + " · waiting for fresh evidence");
       root.dataset.preparation = !current ? "unassigned" : value;
     };
   }
-  function diagnostics(root) {
-    root.append(node("h3", "Worker diagnostics"));
-    const workers = table(root, ["Worker", "Registration", "Connection", "Occupied / capacity", "Preparation"], "Worker inventory");
+  function diagnostics(root, client) {
+    root.append(node("h3", "Worker inventory"));
+    root.append(hint("Broker-wide worker availability. Online does not mean assigned or prepared for this run."));
+    const workers = table(root, ["Worker", "Registration", "Connection", "Occupied / capacity"], "Worker inventory");
+    const activityLog = node("details", "", "lc-runtime-events"); activityLog.open = true;
+    activityLog.append(node("summary", "Actions and connection changes · this page"));
+    const activityStatus = hint(""), activityOutput = node("div", "", "lc-runtime-event-log");
+    activityOutput.tabIndex = 0; activityOutput.setAttribute("aria-label", "Client action history");
+    activityLog.append(activityStatus, activityOutput); root.append(activityLog);
     const logs = node("details", "", "lc-runtime-events");
-    logs.append(node("summary", "Control events"));
+    logs.append(node("summary", "Control events · server"));
+    logs.append(hint((client.runId ? "This run's events and shared worker/connection events. " : "Server events visible to this account, across runs. ") +
+      "Separate from browser refreshes; not raw worker output or a terminal transcript."));
     const status = hint(""), output = node("pre", "", "lc-runtime-event-log");
     output.tabIndex = 0; output.setAttribute("aria-label", "Structured control event history");
     logs.append(status, output); root.append(logs);
-    let inventoryKey, eventKey;
+    let inventoryKey, eventKey, activityKey;
     return state => {
       const rows = state.control?.workers ?? [];
-      const key = JSON.stringify(rows);
+      const key = JSON.stringify([state.stale, rows]);
       if (key !== inventoryKey) {
         inventoryKey = key;
         workers.replaceChildren(...(rows.length ? rows.map(w => record([w.registration.worker_id,
-          w.registration.state, w.liveness, w.occupied + " / " + (w.report?.capacity ?? w.registration.capacity),
-          "unknown"])) : [record(["No registered workers", "—", "—", "—", "—"])]));
+          indicator(w.registration.state), indicator(state.stale ? "Unknown · last seen " + w.liveness : w.liveness, state.stale ? "unknown" : w.liveness),
+          w.occupied + " / " + (w.report?.capacity ?? w.registration.capacity)])) : [record(["No registered workers", "—", "—", "—"])]));
+      }
+      const latest = state.activity.at(-1)?.sequence;
+      activityStatus.textContent = "This page's run context only · " + state.activity.length + " retained entries (maximum 256)." +
+        (state.activityDropped ? " " + state.activityDropped + " older entries evicted." : "") + " Inputs, credentials and terminal text are not recorded.";
+      if (latest !== activityKey) {
+        activityKey = latest;
+        const atEnd = activityOutput.scrollTop + activityOutput.clientHeight >= activityOutput.scrollHeight - 4;
+        activityOutput.replaceChildren(...state.activity.map(e => {
+          const row = node("div");
+          row.append(node("span", e.at + " · "), indicator(e.message));
+          row.lastChild.dataset.tone = e.tone;
+          if (e.requestId) row.append(node("span", " · request=" + e.requestId));
+          return row;
+        }));
+        if (atEnd) activityOutput.scrollTop = activityOutput.scrollHeight;
       }
       const events = state.events;
+      const visibleEvents = (events?.records ?? []).filter(e => !client.runId || !e.run_id || e.run_id === client.runId);
       status.textContent = (state.eventsStale ? "Event connection unavailable. " : "") +
-        (events?.gap || events?.localDropped ? "Incomplete history · older events were lost or evicted. " : "") +
-        (events ? events.records.length + " retained events (maximum 512)." : "No event history received.");
+        (events?.gap || events?.localDropped ? "Partial retained history · earlier events are outside this buffer or predate reconnection. " : "") +
+        (events ? visibleEvents.length + " shown / " + events.records.length + " retained events (maximum 512)." : "No event history received.");
       const currentKey = JSON.stringify([events?.epoch, events?.cursor, events?.records]);
       if (currentKey !== eventKey) {
         eventKey = currentKey;
         const atEnd = output.scrollTop + output.clientHeight >= output.scrollHeight - 4;
-        output.textContent = (events?.records ?? []).map(e => [e.at, e.code, e.worker_id,
+        output.textContent = visibleEvents.map(e => [e.at, e.code, e.worker_id,
           e.run_id && "run=" + e.run_id, e.lease_id && "lease=" + e.lease_id,
           e.generation != null && "generation=" + e.generation,
           e.job_id && "job=" + e.job_id, e.executor_id && "executor=" + e.executor_id,
@@ -256,7 +297,16 @@
     const error = hint(""); error.setAttribute("role","status");
     const provenance = hint(""); provenance.setAttribute("aria-label","Result provenance");
     const actions = node("div", "", "lc-runtime-actions");
-    const invoke = method => { void job[method]().catch(() => {}); };
+    let refreshingJob = false;
+    const invoke = async method => {
+      client.recordActivity("job_action_started", "Calculation · " + method + " requested.");
+      if (method === "refresh") { refreshingJob = true; buttonActivity(refresh, true, "Refresh job", "Refreshing…"); refresh.disabled = true; }
+      try {
+        await job[method]();
+        client.recordActivity("job_action_finished", "Calculation · " + method + " · " + (job.state.error ? "requires attention" : job.state.phase), {tone:job.state.error ? "warning" : tone(job.state.phase)});
+      } catch { client.recordActivity("job_action_failed", "Calculation action could not be confirmed.", {tone:"danger"}); }
+      finally { if (method === "refresh") { refreshingJob = false; buttonActivity(refresh, false, "Refresh job", "Refreshing…"); refresh.disabled = !job.state?.receipt; } }
+    };
     const run = button("Run calculation", () => invoke("run"));
     const cancel = button("Cancel job", () => invoke("cancel"));
     const retry = button("Retry acknowledgement", () => invoke("retry"));
@@ -269,15 +319,16 @@
     job.subscribe(state => {
       status.dataset.busy = String(!client.state.stale && !state.error &&
         ["submitting", "queued", "submitted"].includes(state.phase));
+      status.dataset.tone = tone(state.error ? "failed" : state.phase);
       run.disabled = !state.canRun; cancel.disabled = !state.canCancel;
       retry.hidden = !state.canRetry && !job.pending; retry.disabled = !state.canRetry;
-      refresh.disabled = !state.receipt;
-      status.textContent = !client.runId ? "Open an owned application run to calculate." :
+      refresh.disabled = refreshingJob || !state.receipt;
+      setText(status, !client.runId ? "Open an owned application run to calculate." :
         state.phase + (state.receipt?.cancel_requested ? " · cancellation requested" : "") +
         (state.inputsPending ? " · applying input edits" : "") +
         (state.receipt?.cancel_acknowledged ? " · worker acknowledged cancellation" : "") +
         (state.superseded ? " · inputs or executor changed; this completion cannot replace the view" : "") +
-        (state.awaitingEvidence ? " · waiting for matching executor evidence before updating the view" : "");
+        (state.awaitingEvidence ? " · waiting for matching executor evidence before updating the view" : ""));
       error.textContent = state.error || ""; error.hidden = !state.error;
       root.dataset.jobPhase = state.phase; root.dataset.resultCurrent = String(state.current);
       const good = state.lastGood;
@@ -316,9 +367,12 @@
       if (!client.listeners.size) client.close();
       throw error;
     }
-    const status = hint("Connecting to runtime control…"); status.setAttribute("role", "status");
+    const status = activity("Connecting to runtime control…");
     const message = activity("");
-    const refresh = button("Refresh status", () => void client.refresh());
+    const refresh = button("Refresh status", () => void client.refreshStatus());
+    const runNotice = node("div", "", "lc-runtime-run-status"), runLabel = activity("");
+    const recovery = node("a"); recovery.target = "_top";
+    runNotice.append(runLabel, recovery);
     let retryAction = null, retryId = null, destroyed = false, unsubscribe;
     const retry = button("Retry same action", () => void action(retryAction, retryId)); retry.hidden = true;
     const dismiss = button("Keep current state", () => {
@@ -326,7 +380,7 @@
     }); dismiss.hidden = true;
     const commands = node("div", "", "lc-runtime-actions"); commands.append(refresh, retry, dismiss);
     const connection = node("div", "", "lc-runtime-connection"); connection.append(status, commands);
-    root.replaceChildren(connection, message);
+    root.replaceChildren(connection, runNotice, message);
     root.classList.add("lc-runtime-controls");
     root.dataset.runtimeKind = config.kind;
     const updates = [];
@@ -334,13 +388,15 @@
     async function action(callback, requestId = crypto.randomUUID()) {
       if (!callback || destroyed) return;
       retryAction = null; retryId = null; message.textContent = "Waiting for control acknowledgement…";
+      message.dataset.tone = "info";
       message.dataset.busy = "true"; message.hidden = false;
       try {
         await callback(requestId);
-        if (!destroyed) message.textContent = "Control action acknowledged. Status reflects the latest coordinator snapshot.";
+        if (!destroyed) { message.textContent = "Control action acknowledged. Completion and readiness are shown separately below."; message.dataset.tone = "success"; }
       } catch (error) {
         if (destroyed) return;
         message.textContent = error instanceof globalThis.LineCableModelsRuntimeClient.RuntimeRequestError ? error.message : "Control action could not be completed.";
+        message.dataset.tone = error.uncertain ? "warning" : "danger";
         if (error.uncertain) {
           retryAction = callback; retryId = requestId;
           message.textContent += " Request " + requestId + ". Check current state; retry reuses this exact action identity.";
@@ -359,14 +415,21 @@
       }
       updates.push(administration(part(), client, action));
     }
-    if (["panel", "diagnostics"].includes(config.kind)) updates.push(diagnostics(part()));
+    if (["panel", "diagnostics"].includes(config.kind)) updates.push(diagnostics(part(), client));
     function render(state) {
       if (destroyed) return;
       const control = state.control;
-      status.textContent = state.stale ? (state.error || "Waiting for runtime status.") + (control ? " Showing last-known values." : "") :
-        !control?.enabled ? "Worker control is not configured on this publisher." : "Broker · " + control.broker;
+      setText(status, state.stale ? (state.error || "Waiting for runtime status.") + (control ? " Showing last-known values." : "") :
+        !control?.enabled ? "Worker control is not configured on this publisher." : "Broker · " + control.broker);
+      status.dataset.tone = tone(state.stale ? "unknown" : !control?.enabled ? "disabled" : control.broker);
+      status.dataset.busy = String(!control && !state.error || state.refreshing);
+      const availability = runStatus(state, client);
+      runNotice.hidden = !client.runId;
+      setText(runLabel, availability.message); runLabel.dataset.tone = availability.tone;
+      recovery.hidden = availability.accepting; recovery.href = availability.href; recovery.textContent = availability.label;
       root.dataset.runtimeStale = String(state.stale);
-      refresh.disabled = state.pending;
+      refresh.disabled = state.pending || state.refreshing;
+      buttonActivity(refresh, state.refreshing, "Refresh status", "Refreshing…");
       retry.hidden = dismiss.hidden = !retryAction;
       message.hidden = !message.textContent;
       retry.disabled = dismiss.disabled = state.pending || state.stale;

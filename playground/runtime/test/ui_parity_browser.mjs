@@ -4,7 +4,10 @@ import {assertRuntimeActivity} from './runtime_activity_browser.mjs';
 const [base, debug, directory] = process.argv.slice(2);
 const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
 let runs;
-for (const end = Date.now() + 240000; Date.now() < end;) {
+// The fixture starts four hosts sequentially, each with a bounded 180 s cold
+// startup. Its aggregate wait must cover those windows; a failed host still
+// fails immediately below rather than consuming the full allowance.
+for (const end = Date.now() + (4 * 180 + 30) * 1000; Date.now() < end;) {
   runs = await (await fetch(base + '/runtime/api/runs')).json();
   assert(runs.every(run => ['reserved', 'starting', 'running'].includes(run.state)), JSON.stringify(runs));
   if (runs.length === 4 && runs.every(run => run.state === 'running')) break;
@@ -100,6 +103,16 @@ try {
     const choice = await styles('select[name=earth_model]');
     const button = await styles('.lc-button-secondary');
     const fieldLabel = await styles('.lc-field-label');
+    await open(route('toolkit-gallery', '/widgets/overlay-toolkit'), '.lc-feedback-specimen'); await theme(mode);
+    await check(`document.querySelector('[data-lcm-component="StatusIndicator"]') !== null || document.querySelectorAll('.lc-status-indicator').length >= 4`, mode+' shared status specimen');
+    const statusSuccess = await read(`getComputedStyle(document.querySelector('.lc-status-indicator[data-tone="success"]')).color`);
+    await wait(`typeof [...document.querySelectorAll('button')].find(b=>b.textContent==='Start feedback preview')?.onclick === 'function'`, 'Feedback example did not bind');
+    await read(`[...document.querySelectorAll('button')].find(b=>b.textContent==='Start feedback preview').click()`);
+    await wait(`[...document.querySelectorAll('button')].some(b=>b.textContent==='Preview active…' && b.disabled && b.getAttribute('aria-busy')==='true')`, 'ActionButton did not display owner-supplied activity');
+    await check(`[...document.querySelectorAll('.lc-status-indicator')].some(n=>n.textContent==='Preview active · no worker contacted' && n.dataset.tone==='info' && n.dataset.busy==='true')`, mode+' StatusIndicator attributes follow activity');
+    await read(`[...document.querySelectorAll('button')].find(b=>b.textContent==='End feedback preview').click()`);
+    await wait(`[...document.querySelectorAll('button')].some(b=>b.textContent==='Start feedback preview' && !b.disabled)`, 'ActionButton did not reset');
+    await check(`[...document.querySelectorAll('.lc-status-indicator')].some(n=>n.textContent==='Feedback preview complete' && n.dataset.tone==='success' && n.dataset.busy==='false')`, mode+' StatusIndicator attributes follow completion');
     await open(route('template-workbench', '/workbenches/template'), '.lc-wb-shell'); await theme(mode);
     await selectView('Cable geometry');
     equal(await styles(visible + '.lc-unit-number input'), number, mode + ' gallery/template numeric field');
@@ -110,6 +123,9 @@ try {
     const navigation = await styles('.lc-wb-nav-item[aria-current="page"]');
     await dockInsets(mode);
     await open(route('cable-study', '/workbenches/cable-study'), '.lc-wb-shell'); await theme(mode);
+    await wait(`document.querySelectorAll('[data-runtime-kind="diagnostics"]').length === 1`, 'CableStudy must own exactly one diagnostics view');
+    await wait(`document.querySelector('.lc-runtime-run-status .lc-status-indicator[data-tone="success"]') !== null`, 'Owned run status did not load');
+    equal(await read(`getComputedStyle(document.querySelector('.lc-runtime-run-status .lc-status-indicator[data-tone="success"]')).color`), statusSuccess, mode+' gallery/live status colour');
     await selectView('Cable construction');
     await dockInsets(mode);
     equal(await styles(visible + '.lc-workspace-header h1'), heading, mode + ' template/live heading');

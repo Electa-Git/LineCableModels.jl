@@ -21,12 +21,45 @@ retain their own viewport contracts rather than inheriting document geometry.
 | Resizable regions | `WorkbenchUI.SplitPane`, `assets/split-pane.css` | Compose existing views; do not copy its CSS or drag handlers. |
 | Dock and inspector insets | `workbench.css`, `--lc-content-inset` in `brand.css` | Dock tab contents supply content, not outer padding; all tabs share the shell inset. |
 | Indeterminate activity | `assets/control-contract.css` | Status lines use `lc-activity-status` and explicit `data-busy="true"`; viewport and toolbar indicators share its glyph, theme tokens and reduced-motion policy. Clear busy when evidence becomes stale or work ends. |
+| Semantic status | `Toolkit.StatusIndicator`, `control-contract.css`, `brand.css` | Use a visible label plus bold text and `data-tone="neutral\|info\|success\|warning\|danger"`. Success uses the green `--lc-success` token, not an application accent. Unknown/stale is not online. Colours alone never encode the state. |
+| Action feedback | `Toolkit.ActionButton`, `control-contract.css` | The action owner supplies busy and disabled state. Browser controls use the same `.lc-button[data-busy]` and `aria-busy` contract with an explicit busy label. Do not invent progress percentages or automatically replay uncertain actions. |
 | Fields, buttons, tables, disclosures, frames | `Toolkit`, `forms.css`, `data-views.css` | Reuse the components. Browser-only runtime controls use the same structural classes and styles. |
 | Scientific drawings | `ScientificViews`, `scientific-views.css` | Own scientific geometry/series only, not field/button/page styling. |
 
 `ViewportFrame(...; sizing=:content)` fits ordinary forms; the default
 `:viewport` reserves canvas height. Component X-ray metadata belongs to the
 component defining each style, rather than duplicating descendants' metadata.
+Reactive Bonito `data-*` and `aria-*` state must synchronize HTML attributes
+explicitly (`onjs` / `setAttribute`); a DOM-property update alone does not update
+CSS selectors or accessibility state. The real-host feedback test covers both
+entering and leaving the busy state.
+
+## Runtime status and diagnostic ownership
+
+Broker connection, worker health, application-run lifetime, assignment, and
+executor preparation are independent facts. The shared browser client reads the
+owned run as well as inventory: an online worker cannot make a stopped/failed
+run accept assignments. Unknown run evidence disables admission. An ended run
+offers its existing status page, where a new run can be explicitly started; no
+widget silently replaces a run or bypasses the server's authority checks.
+
+All runtime controls in one document and run share one client and a bounded
+256-entry action history. Explicit refresh records start and completion/failure;
+assignment, preparation and terminal controls record action/phase outcomes.
+Background polls record connection/run transitions, not one log per poll.
+Entries contain bounded status labels and request identities, never scientific
+inputs, credentials, terminal keystrokes or output. This page-local history is
+not durable and is not a replacement for operator logs.
+
+The separate **Control events · server** disclosure retains the coordinator's
+bounded event stream and labels gaps honestly. In an owned run it displays that
+run's events plus shared worker/connection events; inventory-only controls show
+all events authorized for the account. Worker inventory does not claim
+per-worker preparation: readiness belongs to a particular assigned executor.
+CableStudy owns one `WorkerDiagnostics` in its dock. Its `StudyRuntime` content
+uses `diagnostics=false`; standalone/presentation consumers retain their own
+diagnostic disclosure. New applications must choose one owner per diagnostic
+scope rather than mounting the same inventory/log twice.
 
 ## Acceptance checks
 

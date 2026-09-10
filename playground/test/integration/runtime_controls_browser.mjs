@@ -17,7 +17,7 @@ const assets = new Map(await Promise.all(["brand.css", "control-contract.css", "
 assets.set("control.js", await readFile(new URL("runtime/ui/control.js", root)));
 const themeInit = await readFile(new URL("assets/theme-init.html", root), "utf8");
 const run = randomUUID(), lease = randomUUID(), epoch = randomUUID();
-let down = false, uncertain = false, eventFailure = false;
+let down = false, uncertain = false, eventFailure = false, runState = "running", slowRefresh = false;
 const actions = [], requests = [];
 const control = {schema_version:1, enabled:true, preparation_control:true, broker:"online", administrator:true,
   profiles:[{id:"line-parameters", version:"1.0.0"}], provisioned:[{worker_id:"worker-a"}, {worker_id:"worker-b"}],
@@ -28,7 +28,11 @@ let assignments = [];
 let scientific = {channel:"online",phase:"idle",preparation:"cold",valid_for_ms:0,pending:true,accepted:true,
   progress:0,elapsed_seconds:0,output_lines:0,current_request_id:null,executor_id:null,executor_generation:0,
   preparation_key:null,failure:null,reason:"accepted"};
-const eventBatch = {epoch, cursor:1, gap:false, records:[{sequence:1, at:"2026-09-07T12:00:00", code:"worker_reported", worker_id:"worker-a"}]};
+const eventBatch = {epoch, cursor:3, gap:false, records:[
+  {sequence:1, at:"2026-09-07T12:00:00", code:"worker_reported", worker_id:"worker-a"},
+  {sequence:2, at:"2026-09-07T12:00:01", code:"fixture_owned_run", run_id:run},
+  {sequence:3, at:"2026-09-07T12:00:02", code:"fixture_other_run", run_id:randomUUID()}
+]};
 const config = {kind:"panel", run_id:run, roles:[{role:"parameters", profiles:["line-parameters"]}]};
 const html = `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
   ${themeInit}${["brand.css", "control-contract.css", "forms.css", "data-views.css", "runtime-controls.css"].map(name => `<link rel="stylesheet" href="/${name}">`).join("")}
@@ -44,6 +48,8 @@ const server = createServer(async (req, res) => {
     const reply = (value, status=200) => {res.statusCode=status; res.end(JSON.stringify(value));};
     if (down) return reply({error:"Runtime status is unavailable."}, 503);
     if (req.method === "GET") {
+      if (slowRefresh) await delay(300);
+      if (url.pathname === "/runtime/api/runs/" + run) return reply({id:run,application:"cable-study",state:runState,reason:runState === "stopped" ? "UI host stopped" : ""});
       if (url.pathname.endsWith("/control")) return reply(control);
       if (url.pathname.endsWith("/assignments")) return reply(assignments);
       if (url.pathname.endsWith("/science")) return reply(scientific);
@@ -129,6 +135,26 @@ try {
   assert.equal(await evaluate("button('Assign worker').disabled"),true);
   await evaluate("choose('Profile','line-parameters');choose('Placement','pinned');choose('Worker','worker-a')");
   assert.equal(await evaluate("button('Assign worker').disabled"),false);
+  slowRefresh = true;
+  await evaluate("button('Refresh status').click()");
+  assert.equal(await evaluate("button('Refreshing…').disabled && button('Refreshing…').getAttribute('aria-busy') === 'true'"),true);
+  assert.equal(await evaluate("client.state.activity.some(e=>e.code==='refresh_started') && document.querySelector('[aria-label=\"Client action history\"]').textContent.includes('Refresh status requested')"),true);
+  await wait("!client.state.refreshing"); slowRefresh = false;
+  assert.equal(await evaluate("client.state.activity.at(-1).code === 'refresh_completed' && button('Refresh status').dataset.busy === 'false'"),true);
+  assert.equal(await evaluate(`(() => {
+    const log=document.querySelector('[aria-label="Structured control event history"]').textContent;
+    return log.includes('worker_reported') && log.includes('fixture_owned_run') && !log.includes('fixture_other_run');
+  })()`),true,"run diagnostics contain shared worker events and owned-run events, not another run's events");
+  await evaluate(`window.statusChanges=0;window.statusObserver=new MutationObserver(r=>statusChanges+=r.length);
+    statusObserver.observe(document.querySelector('.lc-runtime-connection [role="status"]'),{childList:true,subtree:true});`);
+  await evaluate("client.refresh()");
+  assert.equal(await evaluate("statusChanges"),0,'unchanged status must not repeat live announcements');
+  await evaluate("statusObserver.disconnect()");
+  runState = "stopped"; await evaluate("client.refresh()");
+  assert.equal(await evaluate("button('Assign worker').disabled && document.querySelector('.lc-runtime-run-status').textContent.includes('start a new run')"),true);
+  assert.equal(await evaluate(`document.querySelector('.lc-runtime-run-status a').getAttribute('href')`), '/runtime/runs/' + run);
+  assert.equal(await evaluate("client.state.control.broker"),'online');
+  runState = "running"; await evaluate("client.refresh()");
   await evaluate("field('Worker').focus(); client.refresh()");
   assert.equal(await evaluate("document.activeElement === field('Worker') && field('Worker').value === 'worker-a'"),true);
   control.workers[0].liveness="offline";
@@ -142,6 +168,15 @@ try {
     const styles=await evaluate(`(() => {const s=getComputedStyle(field('Profile')),o=getComputedStyle(field('Profile').options[1]);
       return {color:s.color,bg:s.backgroundColor,option:o.color,optionBg:o.backgroundColor,theme:document.documentElement.dataset.lcmResolvedTheme};})()`);
     assert.equal(styles.theme,theme);assert.notEqual(styles.color,styles.bg);assert.notEqual(styles.option,styles.optionBg);colors.push(styles);
+    assert.equal(await evaluate(`(() => {
+      const broker=document.querySelector('.lc-runtime-connection .lc-status-indicator');
+      const offline=[...document.querySelectorAll('[aria-label="Worker inventory"] .lc-status-indicator')].find(n=>n.textContent==='offline');
+      const sample=(n,key)=>{const swatch=document.createElement('span');swatch.style.color='var(--lc-'+key+')';n.append(swatch);const c=getComputedStyle(swatch).color;swatch.remove();return c;};
+      return broker.dataset.tone==='success' && offline.dataset.tone==='danger' &&
+        getComputedStyle(broker).color===sample(broker,'success') && getComputedStyle(offline).color===sample(offline,'danger') &&
+        Number(getComputedStyle(broker).fontWeight)>=700 && Number(getComputedStyle(offline).fontWeight)>=700;
+    })()`),true,theme+' semantic status styling');
+    await writeFile(join(scratch,'status-' + theme + '.png'),Buffer.from((await command('Page.captureScreenshot',{format:'png'})).data,'base64'));
   }
   assert.deepEqual(colors[0],colors[2]);assert.notDeepEqual(colors[0],colors[1]);
   for (const width of [1280,390]) {

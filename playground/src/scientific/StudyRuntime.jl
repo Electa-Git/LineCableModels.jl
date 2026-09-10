@@ -2,7 +2,11 @@
 struct StudyRuntime
     "Owned run context; no worker is allocated by construction or rendering."
     client::RuntimeClient
+    "Whether this standalone view owns diagnostics rather than an enclosing dock."
+    diagnostics::Bool
 end
+
+StudyRuntime(client::RuntimeClient; diagnostics::Bool=true) = StudyRuntime(client, diagnostics)
 
 function Bonito.jsrender(session::Session, panel::StudyRuntime)
     cases = (LineParameters(), CorridorImpedance())
@@ -15,7 +19,7 @@ function Bonito.jsrender(session::Session, panel::StudyRuntime)
         ViewportFrame("Private Julia terminal · optional", DOM.div(
             WorkerSelector(panel.client, :terminal; profiles=("julia-terminal",));
             class="lc-panel-content"); sizing=:content),
-        Disclosure("Worker diagnostics", WorkerDiagnostics(panel.client));
+        panel.diagnostics ? Disclosure("Runtime diagnostics", WorkerDiagnostics(panel.client)) : nothing;
         class="lc-content-stack"); eyebrow="RUNTIME",
         description="Assign each role, then prepare its executor. Connection, preparation and execution are separate states.")
     root = DOM.section(node; class="lc-study-runtime")

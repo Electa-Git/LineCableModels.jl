@@ -108,9 +108,17 @@ const Toolkit = LineCableModelsPlayground.Toolkit
     disclosure = Disclosure("Metadata", properties; open=true)
 
     session = Bonito.Session(Bonito.NoConnection(); asset_server=Bonito.NoServer())
+    status = StatusIndicator("Online"; tone=:success)
+    action = ActionButton("Refresh status"; busy_label="Refreshing…")
+    @test status.tone[] == :success
+    @test !status.busy[]
+    @test_throws ArgumentError StatusIndicator("Unknown"; tone=:invalid)
+    @test !action.busy[] && action.clicks[] == 0
+    @test ComponentXRay.inspection(status).name == "StatusIndicator"
+    @test ComponentXRay.inspection(action).name == "ActionButton"
     for component in (name, secret, notes, radio, segmented, combo, multiple,
             number, range, form, dialog, notice, center, properties, table,
-            viewport, disclosure)
+            viewport, disclosure, status, action)
         @test !isnothing(Bonito.jsrender(session, component))
     end
     split = WorkbenchUI.SplitPane(viewport, form; ratio=0.62)

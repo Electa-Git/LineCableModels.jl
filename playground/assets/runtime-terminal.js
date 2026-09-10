@@ -38,10 +38,11 @@
     const disposables = [], writes = new Set(); let destroyed = false, fitTimer, themeTimer;
     root.classList.add("lc-runtime-controls", "lc-runtime-terminal");
     const head = node("div", "", "lc-terminal-heading"), heading = node("h3", config.title);
-    const badge = node("span", "Disconnected", "lc-terminal-phase");
+    const badge = node("span", "Disconnected", "lc-terminal-phase lc-status-indicator lc-activity-status");
     head.append(heading, badge);
     const actions = node("div", "", "lc-runtime-actions");
-    const status = node("p", "", "lc-runtime-note lc-terminal-status"); status.setAttribute("role", "status");
+    const status = node("p", "", "lc-runtime-note lc-terminal-status lc-status-indicator"); status.setAttribute("role", "status");
+    const recovery = node("a", "", "lc-terminal-recovery"); recovery.target = "_top"; recovery.hidden = true;
     const viewport = node("div", "", "lc-terminal-viewport");
     viewport.style.setProperty("--lcm-terminal-rows", String(config.rows));
     viewport.setAttribute("aria-label", config.title); viewport.setAttribute("role", "group");
@@ -51,7 +52,7 @@
     const confirmation = node("div", "", "lc-terminal-confirm"); confirmation.hidden = true;
     const warning = node("span", ""), explanation = node("p",
       "Private, disposable Julia session. Stop or restart discards its memory. This page persists no input history.", "lc-runtime-note");
-    root.replaceChildren(head,actions,status,confirmation,viewport,explanation);
+    root.replaceChildren(head,actions,status,recovery,confirmation,viewport,explanation);
     const terminal = new Terminal({cols:80,rows:config.rows,fontSize:13,lineHeight:1.35,
       fontFamily:'"JuliaMono", "SFMono-Regular", Consolas, monospace',scrollback:1000,
       cursorBlink:true,cursorInactiveStyle:"none",disableStdin:true,logLevel:"off",
@@ -78,7 +79,11 @@
       {output:write,reset:() => terminal.reset()});
     const button = (label, action) => {
       const element = node("button",label,"lc-button lc-button-secondary"); element.type = "button";
-      element.addEventListener("click",action); return element;
+      element.addEventListener("click", () => {
+        // Deliberately exclude keystrokes, submitted Julia and terminal output.
+        client.recordActivity("terminal_action", "Terminal · " + label + " requested.");
+        action();
+      }); return element;
     };
     const connect = button("Connect", () => { void transport.connect().then(ok => {
       if (ok && !destroyed && document.activeElement === connect) terminal.focus();
@@ -102,18 +107,41 @@
     const stop = button("Stop", () => ask("stop")), restart = button("Restart", () => ask("restart"));
     const clear = button("Clear view", () => terminal.clear());
     const resume = button("Resume input", () => { if (transport.resumeInput()) terminal.focus(); });
+    const refresh = button("Refresh status", () => void client.refreshStatus());
     clear.title = "Clear visible scrollback; does not reset Julia or its variables";
-    actions.append(connect,disconnect,interrupt,stop,restart,clear,resume);
+    actions.append(connect,disconnect,interrupt,stop,restart,clear,resume,refresh);
+    let lastPhase;
     const unsubscribe = transport.subscribe(state => {
       if (root.dataset.terminalPhase !== state.phase) root.dataset.terminalPhase = state.phase;
       setText(badge,state.phase);
+      const tone = globalThis.LineCableModelsRuntimeClient.statusTone;
+      badge.dataset.tone = tone(state.uncertain ? "uncertain" : state.phase);
+      badge.dataset.busy = String(state.busy);
+      if (lastPhase !== state.phase) {
+        lastPhase = state.phase;
+        // The shared journal notifies all views. Store the phase before doing
+        // so, avoiding recursive recording through the inventory subscription.
+        client.recordActivity("terminal_phase", "Terminal · " + state.phase, {tone:tone(state.phase)});
+      }
+      const availability = globalThis.LineCableModelsRuntimeClient.runAvailability(client.state, client.runId);
+      const setup = !availability.accepting ? availability.message : client.state.stale ? "Runtime status is unknown. Refresh status before connecting." :
+        client.state.control?.broker !== "online" ? "Broker unavailable. Restore the connection, then refresh status; worker readiness cannot be checked." :
+        "Terminal not assigned to this run. Open Workers and preparation, assign the julia-terminal profile, then return here and select Connect.";
       // The initial setup hint must not hide why an attempted connection lost
       // authority. Retain the transport's explicit reason until user recovery.
       setText(status, !transport.writer && !state.available && !state.connected && !state.uncertain ?
-        "Select an available container-backed terminal worker in an owned application run." :
+        setup :
         state.reviewRequired && state.connected ? "A previous action was unconfirmed. Inspect output before choosing Resume input, or restart Julia for a clean session." :
         state.connected && state.notice ? state.notice : state.message);
+      status.dataset.tone = !availability.accepting ? availability.tone : state.uncertain ? "warning" : !state.available ? "warning" : tone(state.phase);
+      recovery.hidden = availability.accepting; recovery.href = availability.href; setText(recovery, availability.label);
       connect.disabled = !state.canConnect; setText(connect,transport.session ? "Reconnect" : "Connect");
+      connect.dataset.busy = String(state.busy && !state.connected);
+      connect.setAttribute("aria-busy", connect.dataset.busy);
+      if (state.busy && !state.connected) setText(connect, "Connecting…");
+      refresh.disabled = client.state.refreshing || client.state.pending;
+      refresh.dataset.busy = String(client.state.refreshing); refresh.setAttribute("aria-busy", refresh.dataset.busy);
+      setText(refresh, client.state.refreshing ? "Refreshing…" : "Refresh status");
       disconnect.disabled = !state.canDisconnect; interrupt.disabled = !state.canInput;
       stop.disabled = !state.canControl || ["closing","exited","failed"].includes(state.phase);
       restart.disabled = !state.canControl || state.cleanupPending;

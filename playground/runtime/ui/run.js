@@ -13,7 +13,7 @@ if (!elapsed.isConnected) {
   elapsed.setAttribute('aria-live', 'off');
   reason.after(elapsed);
 }
-status.classList.add('lc-activity-status');
+status.classList.add('lc-activity-status', 'lc-status-indicator');
 const id = root.dataset.run;
 const endpoint = '/runtime/api/runs/' + id;
 let done = false;
@@ -50,7 +50,7 @@ const mutate = (url, method, body) => request(url, {method,
   ...(body === undefined ? {} : {body:JSON.stringify(body)})});
 function render(run) {
   const busy = ['reserved', 'starting'].includes(run.state);
-  activity(run.state, busy, run.state === 'failed' ? 'danger' : '');
+  activity(run.state, busy, run.state === 'failed' ? 'danger' : run.state === 'running' ? 'success' : busy ? 'info' : 'warning');
   reason.textContent = run.reason || (busy ? 'Preparing the isolated UI host…' : '');
   const terminal = ['stopped','failed'].includes(run.state);
   restart.hidden = !terminal;
