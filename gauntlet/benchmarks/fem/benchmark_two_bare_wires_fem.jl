@@ -1,7 +1,10 @@
 using Gmsh
 
 # Fresh native FEM against the two registered analytical earth formulations.
-(; frequencies = 10.0 .^ (-1:6)) -> begin
+(; frequencies = nothing,
+    reference_options = (;),
+    candidate_options = (;),
+    variation = NoVariation()) -> begin
     model = load_case(:two_bare_wires; variation = ExactOverrides(; frequencies))
     for design in model.problem.system.designs
         regions = design.geometry.regions
@@ -18,11 +21,12 @@ using Gmsh
         earth_impedance = Grid((:default, :Xue2018)),
         earth_admittance = Grid((:default, :Xue2018));
         combine = :zip, options = physical)
-    @info "Two bare copper wires: fresh FEM / default / Xue2018" frequencies
+    @info "Two bare copper wires: FEM / proposed / Xue2018" frequencies
     benchmark_definition(model; id = :benchmark_two_bare_wires_fem,
         source_file = @__FILE__, collection = :fem,
         reference = BenchmarkCalculation(:fem, model.problem, reference;
             options = (trace = true, verbosity = (default = 1,))),
         formulations = candidates,
-        report = BenchmarkTableDefinition(quantities = (:Z, :Y), bands = (:all,)))
+        report = BenchmarkTableDefinition(
+            quantities = (:Z, :Y), bands = (:all, :dc, :harmonic, :narrow, :wide)))
 end

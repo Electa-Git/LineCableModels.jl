@@ -158,7 +158,12 @@ function _addon_button!(toolbar, column::Int, icon)
     )
 end
 
-_addon_scale(symbol::Symbol) = symbol === :log10 ? Makie.log10 : Makie.identity
+function _addon_scale(symbol::Symbol)
+    symbol === :linear && return Makie.identity
+    symbol === :log10 && return Makie.log10
+    symbol === :pseudolog10 && return Makie.pseudolog10
+    throw(ArgumentError("unsupported axis scale :$symbol"))
+end
 
 function _addon_scientific_exponent(values)
     magnitudes = Float64[]

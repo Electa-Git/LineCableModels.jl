@@ -113,9 +113,9 @@ artifact.table.maxima
 artifact.table.terms
 
 using GLMakie
-plots = LineCableModels.plot(artifact, (Z, Y))
+plots = LineCableModels.plot(artifact; ydata=(Z, Y))
 # Directly from completed results:
-plots = LineCableModels.plot(candidates, (Z, Y); reference)
+plots = LineCableModels.plot(candidates; ydata=(Z, Y), reference)
 ```
 
 A scalar reference is compared once with each candidate. Problem and formulation
@@ -164,8 +164,8 @@ only(z.reason)
 report(BenchmarkTableDefinition(quantities=(G,), bands=(:all,)), benchmark)
 
 using GLMakie
-plots = LineCableModels.plot(benchmark, (Z, Y))
-selected_plots = LineCableModels.plot(artifact, (R, L); formulations=[2])
+plots = LineCableModels.plot(benchmark; ydata=(Z, Y))
+selected_plots = LineCableModels.plot(artifact; ydata=(R, L), formulations=[2])
 export_svg(first(plots); path="impedance.svg", open_file=false)
 ```
 
@@ -178,7 +178,9 @@ selections. Scalar and air/earth/mixed choices, parameters, hooks and numerical
 options remain in the full records. Legends show differing fields; common choices
 remain in `tables.formulations.record`.
 
-The existing unit controls, legends, zoom and SVG export remain available. Use
+The existing unit controls, legends, zoom and SVG export remain available.
+Benchmark plots also retain the log-y toggle for signed matrix entries, using a
+sign-preserving pseudo-log scale on those panels. Use
 `length_unit=:base` to display native per-metre quantities. `band=:dc` uses saved
 sample indices. A band or numerical setting that was not retained requires explicit
 reanalysis of the raw operands, through `report` or `compare_saved`. Loading,

@@ -46,9 +46,13 @@ function select(definition::BenchmarkTableDefinition,
 end
 
 """Plot explicitly requested saved comparisons through the shared report recipe."""
-function plot(benchmark::NamedTuple{(:id, :reference, :candidate, :analyses)}, requests=(Z,Y); kwargs...)
+function plot(benchmark::NamedTuple{(:id, :reference, :candidate, :analyses)},
+        selection=nothing; ydata=nothing, kwargs...)
     artifact=report(BenchmarkTableDefinition(),benchmark)
-    return plot(artifact,requests;kwargs...)
+    selection === nothing || ydata === nothing || throw(ArgumentError(
+        "use either positional ydata or the ydata keyword, not both"))
+    selected_ydata=ydata === nothing ? something(selection,(Z,Y)) : ydata
+    return plot(artifact,selected_ydata;kwargs...)
 end
 
 function select(result::MomentResult,index::Integer)

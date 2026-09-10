@@ -205,7 +205,7 @@ dictionary; `load_results=true` returns the same loaded bundle as a directory,
 resolving operand paths relative to the snapshot. Loading performs no solve.
 
 The loaded bundle supports `report(BenchmarkTableDefinition(false), benchmark)`
-and `plot(benchmark, requests; ...)` for REPL tables and matrix-cell overlays.
+and `plot(benchmark, ydata; ...)` for REPL tables and matrix-cell overlays.
 """
 function read_benchmark(path::AbstractString; load_results::Bool = false, previous::Bool=false)
     if isdir(path)

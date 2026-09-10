@@ -1,4 +1,7 @@
-// Coupled quasi-TEM A_z / u_r / phi formulation.
+// Quasi-TEM series impedance and scalar electrodynamic potential coefficients.
+// The independent A_z/u_r and v blocks share one assembled system and one
+// factorization per frequency. Z uses unit axial current [A]; P uses unit
+// outward transverse terminal current [A/m]. No small Gamma is required.
 // Each invocation owns one mesh/frequency and reuses its operator across
 // terminal excitations. Julia owns frequency scheduling and checkpoints.
 
@@ -55,6 +58,10 @@ Group {
 }
 
 Include "materials.pro";
+Group {
+  // Conductors are equipotential electrodes, not electric field media.
+  DomainMedia_Ele = Region[{Air, AirInf, Earth, EarthInf, PassiveMaterialRegions}];
+}
 
 Function {
   nu[#{Air, AirInf}] = 1. / AirMu;
@@ -67,8 +74,6 @@ Function {
   epsilon[#{Earth, EarthInf}] = EarthEpsilon(FrequencyIndex - 1);
   mu[#{Earth, EarthInf}] = EarthMu(FrequencyIndex - 1);
 
-  gamma_prop[] = Complex[GammaQuasiTEMRe, GammaQuasiTEMIm];
-  inv_gamma[] = 1. / gamma_prop[];
   omega[] = 2. * Pi * $FEMFrequencyHz;
   se[] = Complex[sigma[], omega[] * epsilon[]];
 }
@@ -79,15 +84,17 @@ Constraint {
       { Region Sur_Dirichlet_Mag; Value 0.; }
     }
   }
-  { Name FEMVoltageReference;
-    Case {
-      { Region Earth; Value 0.; }
-    }
-  }
   { Name FEMTerminalCurrent;
     Case {
       For t In {1:NumTerminals}
         { Region Terminal~{t}; Value $FEM_I~{t}; }
+      EndFor
+    }
+  }
+  { Name FEMTransverseCurrent;
+    Case {
+      For t In {1:NumTerminals}
+        { Region Terminal~{t}; Value $FEM_Q~{t}; }
       EndFor
     }
   }
@@ -124,37 +131,39 @@ FunctionSpace {
       { Name I; Type AssociatedWith; NameOfCoef ur; }
     }
     Constraint {
-      { NameOfCoef U; EntityType Auto; NameOfConstraint FEMVoltageReference; }
       { NameOfCoef I; EntityType Auto; NameOfConstraint FEMTerminalCurrent; }
     }
   }
 
-  { Name Hgrad_phi_FEM_2D; Type Form0;
+  { Name Hgrad_v_FEM_2D; Type Form0;
     BasisFunction {
-      { Name sn; NameOfCoef phin; Function BF_Node;
+      { Name sn; NameOfCoef vn; Function BF_Node;
         Support Domain_Mag; Entity NodesOf[All, Not Terminals]; }
-      { Name sf; NameOfCoef phif; Function BF_GroupOfNodes;
+      { Name sf; NameOfCoef vf; Function BF_GroupOfNodes;
         Support Domain_Mag; Entity GroupsOfNodesOf[Terminals]; }
     }
     GlobalQuantity {
-      { Name Phi; Type AliasOf; NameOfCoef phif; }
+      { Name V; Type AliasOf; NameOfCoef vf; }
+      { Name Q; Type AssociatedWith; NameOfCoef vf; }
     }
     Constraint {
-      { NameOfCoef phin; EntityType NodesOf;
+      { NameOfCoef Q; EntityType Auto; NameOfConstraint FEMTransverseCurrent; }
+      { NameOfCoef vn; EntityType NodesOf;
         NameOfConstraint FEMScalarPotential; }
     }
   }
 }
 
 Formulation {
-  { Name FEM_a_phi_2D; Type FemEquation;
+  { Name FEM_Z_P_2D; Type FemEquation;
     Quantity {
       { Name a; Type Local; NameOfSpace Hcurl_a_FEM_2D; }
       { Name ur; Type Local; NameOfSpace Hregion_u_FEM_2D; }
       { Name U; Type Global; NameOfSpace Hregion_u_FEM_2D [U]; }
       { Name I; Type Global; NameOfSpace Hregion_u_FEM_2D [I]; }
-      { Name phi; Type Local; NameOfSpace Hgrad_phi_FEM_2D; }
-      { Name Phi; Type Global; NameOfSpace Hgrad_phi_FEM_2D [Phi]; }
+      { Name v; Type Local; NameOfSpace Hgrad_v_FEM_2D; }
+      { Name V; Type Global; NameOfSpace Hgrad_v_FEM_2D [V]; }
+      { Name Q; Type Global; NameOfSpace Hgrad_v_FEM_2D [Q]; }
     }
     Equation {
       Galerkin {
@@ -169,36 +178,13 @@ Formulation {
         [sigma[] * Dof{ur}, {a}];
         In DomainLoss; Jacobian Vol; Integration I1;
       }
-      Galerkin {
-        [-gamma_prop[] * sigma[] * (Vector[0,0,1] * Dof{phi}), {a}];
-        In DomainLoss; Jacobian Vol; Integration I1;
-      }
+
       Galerkin {
         DtDof [sigma[] * Dof{a}, {ur}];
         In DomainLoss; Jacobian Vol; Integration I1;
       }
       Galerkin {
         [sigma[] * Dof{ur}, {ur}];
-        In DomainLoss; Jacobian Vol; Integration I1;
-      }
-      Galerkin {
-        [-gamma_prop[] * sigma[] * (Vector[0,0,1] * Dof{phi}), {ur}];
-        In DomainLoss; Jacobian Vol; Integration I1;
-      }
-      Galerkin {
-        DtDof [gamma_prop[] * sigma[] * (Dof{a} * Vector[0,0,1]), {phi}];
-        In DomainLoss; Jacobian Vol; Integration I1;
-      }
-      Galerkin {
-        [gamma_prop[] * sigma[] * (Dof{ur} * Vector[0,0,1]), {phi}];
-        In DomainLoss; Jacobian Vol; Integration I1;
-      }
-      Galerkin {
-        [-gamma_prop[] * gamma_prop[] * sigma[] * Dof{phi}, {phi}];
-        In DomainLoss; Jacobian Vol; Integration I1;
-      }
-      Galerkin {
-        [sigma[] * Dof{d phi}, {d phi}];
         In DomainLoss; Jacobian Vol; Integration I1;
       }
 
@@ -210,11 +196,7 @@ Formulation {
         DtDof [epsilon[] * Dof{ur}, {a}];
         In Domain_Mag; Jacobian Vol; Integration I1;
       }
-      Galerkin {
-        DtDof [-gamma_prop[] * epsilon[] *
-          (Vector[0,0,1] * Dof{phi}), {a}];
-        In Domain_Mag; Jacobian Vol; Integration I1;
-      }
+
       Galerkin {
         DtDtDof [epsilon[] * Dof{a}, {ur}];
         In Domain_Mag; Jacobian Vol; Integration I1;
@@ -223,28 +205,19 @@ Formulation {
         DtDof [epsilon[] * Dof{ur}, {ur}];
         In Domain_Mag; Jacobian Vol; Integration I1;
       }
+
+      // div(se grad(v)) + se k^2 v = 0, k^2 = -j omega mu se.
+      // The electric block retains diffusion/displacement at Gamma = 0.
       Galerkin {
-        DtDof [-gamma_prop[] * epsilon[] *
-          (Vector[0,0,1] * Dof{phi}), {ur}];
-        In Domain_Mag; Jacobian Vol; Integration I1;
+        [se[] * Dof{d v}, {d v}];
+        In DomainMedia_Ele; Jacobian Vol; Integration I1;
       }
       Galerkin {
-        DtDtDof [gamma_prop[] * epsilon[] *
-          (Dof{a} * Vector[0,0,1]), {phi}];
-        In Domain_Mag; Jacobian Vol; Integration I1;
+        [Complex[0, omega[]] * mu[] * se[]^2 * Dof{v}, {v}];
+        In DomainMedia_Ele; Jacobian Vol; Integration I1;
       }
-      Galerkin {
-        DtDof [gamma_prop[] * epsilon[] *
-          (Dof{ur} * Vector[0,0,1]), {phi}];
-        In Domain_Mag; Jacobian Vol; Integration I1;
-      }
-      Galerkin {
-        DtDof [-gamma_prop[] * gamma_prop[] * epsilon[] * Dof{phi}, {phi}];
-        In Domain_Mag; Jacobian Vol; Integration I1;
-      }
-      Galerkin {
-        DtDof [epsilon[] * Dof{d phi}, {d phi}];
-        In Domain_Mag; Jacobian Vol; Integration I1;
+      GlobalTerm {
+        [Dof{Q}, {V}]; In Terminals;
       }
       GlobalTerm {
         [Dof{I}, {U}]; In DomainCWithI;
@@ -257,6 +230,8 @@ Macro FEMSetBasisCurrent
 For t In {1:NumTerminals}
   Evaluate[$FEM_I~{t} = Complex[
     UnitSource * ($FEMBasisTerminal == t), 0.]];
+  Evaluate[$FEM_Q~{t} = Complex[
+    -UnitTransverseSource * ($FEMBasisTerminal == t), 0.]];
 EndFor
 Return
 
@@ -280,7 +255,7 @@ Return
 Resolution {
   { Name LineCableModelsFEMScan;
     System {
-      { Name Sys_FEM; NameOfFormulation FEM_a_phi_2D;
+      { Name Sys_FEM; NameOfFormulation FEM_Z_P_2D;
         Type Complex; Frequency 1.; }
     }
     Operation {
@@ -313,7 +288,7 @@ Resolution {
 }
 
 PostProcessing {
-  { Name FEMFields; NameOfFormulation FEM_a_phi_2D; NameOfSystem Sys_FEM;
+  { Name FEMFields; NameOfFormulation FEM_Z_P_2D; NameOfSystem Sys_FEM;
     PostQuantity {
       { Name az; Value {
         Term { [CompZ[{a}]]; In Domain_Mag; Jacobian Vol; }
@@ -324,34 +299,26 @@ PostProcessing {
       { Name bm; Value {
         Term { [Norm[{d a}]]; In Domain_Mag; Jacobian Vol; }
       }}
+      // These are two independent terminal excitations. Do not combine their
+      // axial and transverse electric fields into a fictitious full-wave field.
       { Name e; Value {
-        Term { [-(Dt[{a}] + {ur} - gamma_prop[] *
-          (Vector[0,0,1] * {phi}) + {d phi})];
-          In Domain_Mag; Jacobian Vol; }
+        Term { [-{d v}]; In DomainMedia_Ele; Jacobian Vol; }
       }}
       { Name ez; Value {
-        Term { [-CompZ[Dt[{a}] + {ur} - gamma_prop[] *
-          (Vector[0,0,1] * {phi})]];
-          In Domain_Mag; Jacobian Vol; }
+        Term { [-CompZ[Dt[{a}] + {ur}]]; In Domain_Mag; Jacobian Vol; }
       }}
       { Name em; Value {
-        Term { [Norm[-(Dt[{a}] + {ur} - gamma_prop[] *
-          (Vector[0,0,1] * {phi}) + {d phi})]];
-          In Domain_Mag; Jacobian Vol; }
+        Term { [Norm[-{d v}]]; In DomainMedia_Ele; Jacobian Vol; }
       }}
       { Name jz; Value {
-        Term { [CompZ[-se[] * (Dt[{a}] + {ur} - gamma_prop[] *
-          (Vector[0,0,1] * {phi}) + {d phi})]];
+        Term { [-CompZ[se[] * (Dt[{a}] + {ur})]];
           In Domain_Mag; Jacobian Vol; }
       }}
       { Name jm; Value {
-        Term { [Norm[-se[] * (Dt[{a}] + {ur} - gamma_prop[] *
-          (Vector[0,0,1] * {phi}) + {d phi})]];
-          In Domain_Mag; Jacobian Vol; }
+        Term { [Norm[-se[] * {d v}]]; In DomainMedia_Ele; Jacobian Vol; }
       }}
       { Name rhoj2; Value {
-        Term { [0.5 * sigma[] * SquNorm[Dt[{a}] + {ur} - gamma_prop[] *
-          (Vector[0,0,1] * {phi}) + {d phi}]];
+        Term { [0.5 * sigma[] * SquNorm[Dt[{a}] + {ur}]];
           In DomainLoss; Jacobian Vol; }
       }}
       { Name ReZ; Value {
@@ -361,10 +328,10 @@ PostProcessing {
         Term { [-Im[{U} / UnitSource]]; In DomainCWithI; }
       }}
       { Name ReP; Value {
-        Term { [Re[{Phi} * inv_gamma[] / UnitSource]]; In Terminals; }
+        Term { [Re[{V} / UnitTransverseSource]]; In Terminals; }
       }}
       { Name ImP; Value {
-        Term { [Im[{Phi} * inv_gamma[] / UnitSource]]; In Terminals; }
+        Term { [Im[{V} / UnitTransverseSource]]; In Terminals; }
       }}
     }
   }
@@ -392,15 +359,15 @@ If(PlotFieldMaps)
           File StrCat[MapDirectory, "/b", FieldMapSuffix]];
         Print[bm, OnElementsOf Domain_Mag, Name StrCat["|B| [T]", FieldMapLabel],
           File StrCat[MapDirectory, "/bm", FieldMapSuffix]];
-        Print[e, OnElementsOf Domain_Mag, Name StrCat["E [V/m]", FieldMapLabel],
+        Print[e, OnElementsOf DomainMedia_Ele, Name StrCat["E_t [V/m]; transverse drive 1 A/m", FieldMapLabel],
           File StrCat[MapDirectory, "/e", FieldMapSuffix]];
-        Print[ez, OnElementsOf Domain_Mag, Name StrCat["Ez [V/m]", FieldMapLabel],
+        Print[ez, OnElementsOf Domain_Mag, Name StrCat["Ez [V/m]; axial drive 1 A", FieldMapLabel],
           File StrCat[MapDirectory, "/ez", FieldMapSuffix]];
-        Print[em, OnElementsOf Domain_Mag, Name StrCat["|E| [V/m]", FieldMapLabel],
+        Print[em, OnElementsOf DomainMedia_Ele, Name StrCat["|E_t| [V/m]; transverse drive 1 A/m", FieldMapLabel],
           File StrCat[MapDirectory, "/em", FieldMapSuffix]];
         Print[jz, OnElementsOf DomainLoss, Name StrCat["Jz [A/m2]", FieldMapLabel],
           File StrCat[MapDirectory, "/jz", FieldMapSuffix]];
-        Print[jm, OnElementsOf DomainLoss, Name StrCat["|J| [A/m2]", FieldMapLabel],
+        Print[jm, OnElementsOf DomainMedia_Ele, Name StrCat["|J_t| [A/m2]; transverse drive 1 A/m", FieldMapLabel],
           File StrCat[MapDirectory, "/jm", FieldMapSuffix]];
         Print[rhoj2, OnElementsOf DomainLoss, Name StrCat["S [W/m3]", FieldMapLabel],
           File StrCat[MapDirectory, "/rhoj2", FieldMapSuffix]];

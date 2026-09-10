@@ -42,6 +42,13 @@
         @test selected[2].color[] == all_curves[3].color[]
     end
     @test Set(values(filtered.addon_state.labels))==Set(expected_labels[[1,3]])
+    signed=LineCableModels.plot(publication;ydata=(G,),options...,controls=true)
+    @test haskey(signed.controls,:ylog)
+    signed.controls[:ylog].active[]=true
+    @test all(axis -> axis.yscale[] === Makie.pseudolog10,signed.axes)
+    keyword_ydata=LineCableModels.plot(reference,points[1];
+        ydata=(R,),series_labels=("reference","candidate"),options...)
+    @test length(keyword_ydata.axes)==4
     foreign=LineParameters(PhaseDomain,z,y,f;details=(coordinates=["a","b"],
         formulations=(schema_version=3,selections=(constitutive=(identifier=:default,),),
             assumptions=(equations=repeat("field equations ",100),))))

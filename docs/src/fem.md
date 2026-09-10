@@ -1,6 +1,6 @@
 # Gmsh/GetDP finite-element backend
 
-[`LineCableModelsFEM`](@ref) is the Julia-native, coupled quasi-TEM finite-element
+[`LineCableModelsFEM`](@ref) is the Julia-native quasi-TEM finite-element
 backend for `LineParametersProblem`. Gmsh is a weak dependency: the public
 formulation and option types are always available, while the `compute` method
 is activated by loading Gmsh.
@@ -102,6 +102,63 @@ parameters, numerical options, and hook descriptions. Custom hooks are identifie
 but marked nonreplayable; saved records do not reconstruct executable closures.
 The fixed quasi-TEM propagation approximation remains recorded separately.
 
+## Field equations and matrix extraction
+
+The backend evaluates the series and shunt problems at ``\Gamma=0``. It retains
+diffusion and displacement in the surrounding media, with phasors proportional
+to ``e^{j\omega t}`` and complex admittivity ``\kappa=\sigma+j\omega\epsilon``.
+Two independent blocks share one assembled GetDP system and factorization.
+
+The magnetic block solves for the axial vector potential ``A_z`` and one axial
+electric unknown ``u_i`` per terminal. In each material it solves
+
+```math
+-\nabla\cdot(\mu^{-1}\nabla A_z)+\kappa(j\omega A_z+u_i)=0,
+\qquad
+I_i=-\int_{\Omega_i}\kappa(j\omega A_z+u_i)\,dS.
+```
+
+Here ``u_i`` is supported on its conductor region. Exciting terminal ``s`` with
+1 A and imposing zero axial current on the others gives ``Z_{is}=-u_i/I_s``.
+Metal conductivity and its internal field remain part of this series problem.
+
+The electric block solves the scalar electrodynamic problem in air, soil and
+passive cable materials, excluding conductor interiors:
+
+```math
+\nabla\cdot(\kappa\nabla v)+\kappa k^2 v=0,
+\qquad k^2=-j\omega\mu\kappa.
+```
+
+Each terminal has one equipotential degree of freedom ``V_i``. Prescribing
+1 A/m of outward transverse terminal current at terminal ``s``, and zero at the
+others, gives the column ``P_{is}=V_i/(1\ \mathrm{A/m})``. GetDP's associated
+quantity has the opposite sign, so this drive is imposed as ``Q_s=-1``.
+Here ``Q`` is a current per unit length, not an electrostatic charge;
+``P`` has units Ω m and ``Y=P^{-1}`` has units S/m.
+
+This is equivalent to prescribing a unit voltage on each source terminal in
+turn, grounding the others, and extracting ``Y_{is}=-Q_i/(1\ \mathrm{V})``.
+The native regression checks both excitations independently. For any other
+set of voltage excitations, terminal currents satisfy ``J=YV``; extracting
+``Y`` requires the complete voltage matrix, not just a source-voltage rescaling.
+
+The magnetic and electric blocks are separate unit excitations. Electric
+potentials are obtained directly from the scalar operator, without dividing a
+magnetically driven potential by a small ``\Gamma``. This also keeps the shunt
+calculation independent of metal-interior discretization. Bare conductors have
+no passive coating in their electric domain; finite-conductivity metal remains
+in their magnetic domain.
+
+The earlier coupled `A_z/u/phi` model retained only the axial vector potential
+and used continuity to recover `Phi/Gamma`. At material interfaces that
+reduction omits a transverse Ampère balance at the same order in Γ as the
+electric response being extracted. With
+``\mathbf r=\kappa\nabla_t(\phi/\Gamma)-\mu^{-1}\nabla_t A_z``, continuity
+enforces ``\nabla_t\cdot\mathbf r=0``, whereas transverse Ampère requires
+``\mathbf r=0``. A material interface makes those conditions inequivalent;
+reducing Γ does not remove the error after normalization by Γ.
+
 ## Execution model
 
 One call to `compute` builds one complete two-dimensional Gmsh mesh for each
@@ -114,7 +171,8 @@ up to `frequency_workers` standalone GetDP processes concurrently. Each process
 handles one frequency: it assembles and factors the system for its first
 requested terminal, then updates the right-hand side and reuses those factors
 for the remaining terminals. Frequencies with different meshes have separate
-systems and factorizations. The mesh-sizing equation is unchanged; it consumes the evaluated soil law.
+systems and factorizations. Local mesh sizes also resolve the attenuation and
+phase scales of the evaluated air and soil properties.
 
 The default is two frequency workers with one BLAS/OpenMP thread per solver.
 These are independent OS processes; they do not require multiple Julia threads.
@@ -177,8 +235,8 @@ rejected. Analytical scalar and uncertainty propagation remain unchanged.
 | Earth material | `LineParametersProblem.earth_props` | Declared air plus one horizontal soil half-space; the soil law is evaluated per frequency |
 | Optional environment declaration | `LineCableSystem.environment` | `nothing` and `EarthModel` are accepted; other declarations produce a typed unsupported-feature error |
 | Line length and output basis | `LineCableSystem.line_length` and shared `compute` options | Per-unit-length is canonical; total basis uses the existing package scaling |
-| Propagation constant | backend-owned fixed quasi-TEM constant | A non-`nothing` problem-level `Γ` is rejected rather than silently reinterpreted |
-| Mesh resolution | local characteristic lengths derived from each resolved solid, tube, strand, foil, and passive region; per-frequency earth skin depth controls only the exterior domain | Thin internal features remain local and cannot refine unrelated layers or the earth domain |
+| Propagation constant | backend-owned quasi-TEM limit ``\Gamma=0`` | A non-`nothing` problem-level `Γ` is rejected rather than silently reinterpreted |
+| Mesh resolution | local characteristic lengths derived from each resolved solid, tube, strand, foil, and passive region; per-frequency earth skin depth controls the exterior domain, and air/soil propagation scales constrain surrounding-medium resolution | Thin internal features remain local and cannot refine unrelated layers or the earth domain |
 
 Disks, ellipses, and cable sectors retain exact Gmsh circle/ellipse arcs;
 rectangles and schema polygons retain exact line segments. Annuli, conformal
@@ -190,8 +248,14 @@ material interface takes the smaller of its two local characteristic lengths.
 Thin internal foils and strands do not export their size to the cable/earth
 boundary. One `Distance`/`Threshold` field per actual cable exterior grows
 from that exterior layer's size to `domain_radius/20` using an adjacent-element
-growth factor of 1.2; overlapping fields are combined with `Min`. No artificial
-refinement rings are introduced. The adapter
+growth factor of 1.2. Additional fields restrict the surrounding-medium size to
+``h\leq 1/(8|q|)``, where ``q=\sqrt{j\omega\mu\kappa}``, within six attenuation
+lengths of cable exteriors and the air/soil interface. The bound resolves both
+decay and phase; it transitions back to the existing domain size beyond that
+distance. A lossless medium keeps its phase-resolution bound across the domain.
+Gmsh `Restrict` fields apply each bound to its own air or soil surfaces, and
+`Min` combines overlapping fields. No artificial refinement rings are
+introduced. The adapter
 rejects an incomplete area partition before starting Gmsh and rejects any
 material curve lacking a neighbouring field surface after synchronization,
 before meshing or invoking GetDP.
@@ -231,6 +295,12 @@ quantities are written for every frequency/source pair, with names such as
 Headless execution does not merge them; UI execution merges them only after the
 complete numerical scan validates. Map paths are retained in result details
 only when the run directory is retained.
+
+Maps `az`, `b`, `bm`, `ez`, `jz`, and `rhoj2` describe the axial 1 A drive.
+Maps `e`, `em`, and `jm` describe the transverse 1 A/m drive: respectively
+``-\nabla v``, its magnitude, and ``|\kappa\nabla v|`` in the surrounding media.
+Their view labels identify the drive. These axial and transverse fields belong
+to different excitations and do not form a single full-wave field vector.
 
 The executable resolution order is:
 
@@ -308,18 +378,22 @@ options, and pre-existing `LineCableModels/FEM/` ONELAB parameters.
 
 ## Numerical reference validation
 
-The committed `fem_python_quasi_tem.json` fixture freezes development-only
-outputs from the supplied Python quasi-TEM prototype. These numerical comparisons
-do not execute the prototype, and the backend has no Python dependency.
-The two cases use the same copper,
-dielectric, earth, geometry, frequency ordering, and reductions as their
-Julia runs:
+The two-bare-wire Gauntlet benchmark runs fresh native FEM against the default
+and Xue analytical formulations at eight frequencies from 0.1 Hz to 1 MHz.
+Its geometry contains only two metal disks: radius 4.25 cm, depth 1 m, separation
+1 m, in soil with resistivity 0.1 Ω m. There is no insulation or fitted FEM
+table. Run it through `dev/run_two_bare_wires.jl` for the shared report and
+PlotBuilder comparison plots.
 
-| Case | Frequencies [Hz] | Primitive ``Z`` | Primitive ``P`` | Reduced ``Z`` | Final ``Y`` |
-|---|---:|---:|---:|---:|---:|
-| One coaxial cable, sheath Kron-reduced | 10, 1,000, 100,000 | 1.2340% | 0.1366% | 0.5746% | 0.2228% |
-| Two coaxial cables, bundled cores and Kron-reduced sheaths | 10, 1,000, 100,000 | 1.2017% | 0.1322% | 0.5589% | 0.2155% |
+Native regressions compare every complex self and mutual entry at 100 kHz and
+1 MHz, where a matrix norm alone can hide a mutual-admittance error. They also
+check reciprocity, independent unit-current and unit-voltage extraction,
+invariance of shunt admittance to metal conductivity, factorization reuse,
+and overhead and mixed conductor layouts. Existing coaxial-capacitance,
+constitutive-law, enclosure, reduction and recovery tests cover the surrounding
+backend behavior.
 
-Entries are relative Frobenius norms over the complete frequency scan. The
-test limit is 10% at both primitive and reduced levels; the recorded values
-are the unmodified comparison results from Gmsh 4.15 and GetDP 3.5.
+The committed `fem_python_quasi_tem.json` retains historical outputs from the
+earlier coupled Python prototype for two insulated coaxial cases. Its optional
+comparisons are legacy checks with a 10% matrix-norm tolerance, not the reference
+for the bare-wire electric formulation. The backend has no Python dependency.

@@ -6,8 +6,7 @@ Include ModelDataPath;
 eps0 = 8.8541878128e-12;
 mu0 = 1.2566370614359173e-6;
 UnitSource = 1.0;
-GammaQuasiTEMRe = 0.0;
-GammaQuasiTEMIm = 1.0e-12;
+UnitTransverseSource = 1.0;
 If(!Exists(Val_Rint))
   Val_Rint = DomainRadius;
 EndIf

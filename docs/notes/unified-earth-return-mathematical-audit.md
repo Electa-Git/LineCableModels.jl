@@ -330,6 +330,12 @@ performance preservation. Preserve explicit failures when convergence is absent.
 
 ## FEM comparison: establish identical observables first
 
+The FEM description in this section records the original coupled operator.
+On 2026-09-11, the backend changed to independent magnetic and scalar
+electrodynamic blocks at Γ = 0, sharing one system and factorization. See the
+[current field equations and extraction](../src/fem.md#field-equations-and-matrix-extraction).
+The normalization and observable checks below remain relevant to comparisons.
+
 The supplied case has copper radius 0.0425 m, horizontal separation 1 m, depth
 1 m, earth resistivity 0.1 Ω·m, relative permeability/permittivity 1, and
 temperature 20 °C. The corrected requested frequencies are exactly

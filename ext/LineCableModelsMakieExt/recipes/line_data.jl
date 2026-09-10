@@ -12,23 +12,23 @@ end
 _family_parent(::Val{:series}) = Z
 _family_parent(::Val{:shunt}) = Y
 
-function _validate_plot_requests(object, requests)
-    requests isa Tuple || throw(ArgumentError("requests must be a tuple"))
-    isempty(requests) && throw(ArgumentError(
+function _validate_plot_ydata(object, ydata)
+    ydata isa Tuple || throw(ArgumentError("ydata must be a tuple"))
+    isempty(ydata) && throw(ArgumentError(
         "at least one explicit observable request is required",
     ))
-    all(request -> request isa Tuple, requests) || throw(ArgumentError(
+    all(request -> request isa Tuple, ydata) || throw(ArgumentError(
         "line plots accept explicit observable request tuples",
     ))
-    validate_observables(object, requests)
-    all(requests) do scientific_request
+    validate_observables(object, ydata)
+    all(ydata) do scientific_request
         expected = _diagonal_request(scientific_request) ? 2 : 3
         length(request_indices(scientific_request)) == expected
     end || throw(ArgumentError(
         "line plots require mode/frequency indices for diagonal requests and " *
         "row/column/frequency indices otherwise",
     ))
-    return requests
+    return ydata
 end
 
 function _frequency_observation(values, target)
@@ -94,20 +94,20 @@ function _materialized_line_request(object, input, request)
     return (prefix..., rows, columns, samples)
 end
 
-function _publish_line_source(object, input, requests)
-    coordinates = map(request -> _request_coordinates(object, request), requests)
+function _publish_line_source(object, input, ydata)
+    coordinates = map(request -> _request_coordinates(object, request), ydata)
     sample_indices = last.(coordinates)
     all(==(first(sample_indices)), sample_indices) || throw(DimensionMismatch(
         "all requests on one line dashboard must select the same frequency indices",
     ))
     frequency = _published_frequency(object, input, first(sample_indices))
     targets = unit_targets(
-        requests,
+        ydata,
         basis(object);
         length_prefix = input.length_unit,
         overrides = input.quantity_units
     )
-    observations = map(requests, targets, coordinates) do request, target, indices
+    observations = map(ydata, targets, coordinates) do request, target, indices
         observation = _publish_request(
             object,
             _materialized_line_request(object, input, request),
@@ -127,13 +127,13 @@ end
 function _prepare_line_observations(
         object::Union{LineParameters, SeriesImpedance, ShuntAdmittance};
         frequencies = nothing,
-        requests,
+        ydata,
         freq_unit = :base,
         length_unit = :kilo,
         quantity_units = nothing,
         clip::Bool = true
 )
-    _validate_plot_requests(object, requests)
+    _validate_plot_ydata(object, ydata)
     supplied = frequencies === nothing ? nothing : collect(frequencies)
     if object isa Union{SeriesImpedance, ShuntAdmittance}
         supplied === nothing && throw(ArgumentError(
@@ -145,7 +145,7 @@ function _prepare_line_observations(
     end
     if supplied !== nothing
         all(isfinite, supplied) || throw(ArgumentError("frequencies must be finite"))
-        any(request -> request_identity(request) in (L, C), requests) &&
+        any(request -> request_identity(request) in (L, C), ydata) &&
             any(iszero, supplied) &&
             throw(DomainError(
                 supplied,
@@ -159,7 +159,7 @@ function _prepare_line_observations(
         quantity_units,
         clip
     )
-    published = _publish_line_source(object, input, requests)
+    published = _publish_line_source(object, input, ydata)
     length(published.frequency.values) <= 1 &&
         @warn "Frequency vector has $(length(published.frequency.values)) sample(s); nothing to plot."
     return published
@@ -178,4 +178,13 @@ function _supports_log_values(samples)
     return found
 end
 
-_axis_scales(values) = _supports_log_values(values) ? (:linear, :log10) : (:linear,)
+function _axis_scales(values; signed_log::Bool=false)
+    _supports_log_values(values) && return (:linear, :log10)
+    # Benchmark matrices commonly contain negative mutual terms. Preserve their
+    # signs and zeros instead of suppressing the page-level log-y control.
+    signed_log && !isempty(values) && all(value -> begin
+        sample=nominal(value)
+        sample isa Real && isfinite(sample) && isfinite(abs(uncertainty(value)))
+    end,values) && return (:linear, :pseudolog10)
+    return (:linear,)
+end

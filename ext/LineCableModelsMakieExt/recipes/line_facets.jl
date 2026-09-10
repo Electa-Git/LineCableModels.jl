@@ -4,12 +4,12 @@
 # helpers deliberately normalize only the data needed to construct native Makie
 # blocks; they are not a second plot-specification model.
 
-function _semantic_line_facets(published, requests)
+function _semantic_line_facets(published, ydata)
     facets = NamedTuple[]
-    for request_index in eachindex(requests)
+    for request_index in eachindex(ydata)
         observation = published.observations[request_index]
         rows, columns, _ = published.coordinates[request_index]
-        diagonal = _diagonal_request(requests[request_index])
+        diagonal = _diagonal_request(ydata[request_index])
         for (local_row, source_row) in enumerate(rows),
             (local_column, source_column) in enumerate(columns)
 
@@ -21,9 +21,9 @@ function _semantic_line_facets(published, requests)
                     row = source_row,
                     column = diagonal ? source_row : source_column,
                     diagonal,
-                    family = _line_request_family(requests[request_index]),
+                    family = _line_request_family(ydata[request_index]),
                     quantity = observation.quantity,
-                    identity = request_identity(requests[request_index])
+                    identity = request_identity(ydata[request_index])
                 ))
         end
     end
@@ -216,6 +216,7 @@ function _addon_semantic_line_page(
         legend_attributes,
         legend_overflow,
         panel_legends,
+        signed_ylog,
         controls,
         display_plot,
         export_theme,
@@ -248,7 +249,7 @@ function _addon_semantic_line_page(
         xobservation = merge(first(published).frequency, (; values = xvalues))
         yobservation = merge(observation, (; values = yvalues))
         xscales = _axis_scales(xvalues)
-        yscales = _axis_scales(yvalues)
+        yscales = _axis_scales(yvalues; signed_log=signed_ylog)
         xscale in xscales || throw(DomainError(
             xvalues,
             "logarithmic frequency axes require positive finite data and uncertainty bounds"
@@ -312,13 +313,15 @@ function _addon_semantic_line_page(
         end
         reset! = () -> _addon_reset!(axis, series)
         xsetter = scale -> _addon_set_axis!(axis, :x, xscales, scale)
-        ysetter = scale -> _addon_set_axis!(axis, :y, yscales, scale)
+        ysetter = scale -> _addon_set_axis!(axis, :y, yscales,
+            scale === :log10 && :pseudolog10 in yscales ? :pseudolog10 : scale)
         push!(axes, axis)
         push!(panels, panel)
         push!(panel_group_labels, scoped_labels)
         push!(resets, reset!)
         :log10 in xscales && push!(xsetters, xsetter)
-        :log10 in yscales && push!(ysetters, ysetter)
+        any(scale -> scale in yscales, (:log10, :pseudolog10)) &&
+            push!(ysetters, ysetter)
         reset!()
     end
     length(xsetters) == length(axes) || empty!(xsetters)
@@ -351,7 +354,7 @@ end
 function _addon_line_pages(
         sources::Tuple;
         frequencies = nothing,
-        requests,
+        ydata,
         series_labels = nothing,
         series_indices = collect(eachindex(sources)),
         series_attributes = nothing,
@@ -373,6 +376,7 @@ function _addon_line_pages(
         legend_attributes::NamedTuple = (;),
         legend_overflow::Symbol = :ellipsis,
         panel_legends = (),
+        signed_ylog::Bool = false,
         backend = nothing,
         display_plot::Bool = true,
         controls::Bool = true,
@@ -394,7 +398,7 @@ function _addon_line_pages(
         (_prepare_line_observations(
             only(sources);
             frequencies,
-            requests,
+            ydata,
             freq_unit,
             length_unit,
             quantity_units,
@@ -403,7 +407,7 @@ function _addon_line_pages(
     else
         _prepare_line_comparison(
             sources;
-            requests,
+            ydata,
             series_labels = source_labels,
             freq_unit,
             length_unit,
@@ -414,7 +418,7 @@ function _addon_line_pages(
     any(source -> length(source.frequency.values) <= 1, published) &&
         return LineCableModels.UIPlot[]
 
-    facets = _semantic_line_facets(first(published), requests)
+    facets = _semantic_line_facets(first(published), ydata)
     mode, pages = _semantic_line_pages(first(sources), facets, layout)
     effective_legend_position = length(sources) > 1 || explicit_source_labels ?
                                 legend_position : nothing
@@ -445,6 +449,7 @@ function _addon_line_pages(
                     legend_attributes,
                     legend_overflow,
                     panel_legends,
+                    signed_ylog,
                     controls,
                     display_plot,
                     export_theme,
@@ -458,14 +463,14 @@ end
 function _addon_semantic_line_plots(
         object;
         frequencies = nothing,
-        requests,
+        ydata,
         series_labels = nothing,
         kwargs...
 )
     return _addon_line_pages(
         (object,);
         frequencies,
-        requests,
+        ydata,
         series_labels,
         kwargs...
     )

@@ -160,9 +160,9 @@ function _default_line_selection(::LineCableModels.ShuntAdmittance)
     (LineCableModels.G, LineCableModels.B)
 end
 
-function _line_plot_requests(source::_LineSource, selection)
-    selected = selection === nothing || selection == () ?
-               _default_line_selection(source) : selection
+function _line_plot_ydata(source::_LineSource, ydata)
+    selected = ydata === nothing || ydata == () ?
+               _default_line_selection(source) : ydata
     _is_line_observation_request(source, selected) &&
         return _expand_line_observation_request(source, selected)
     selected isa Function && return _line_selector_requests(source, selected)
@@ -177,10 +177,19 @@ function _line_plot_requests(source::_LineSource, selection)
          throw(ArgumentError("unsupported line selection $(repr(item))"))))
 end
 
+function _plot_ydata(positional, keyword, default)
+    keyword === nothing && return positional === nothing ? default : positional
+    positional === nothing || throw(ArgumentError(
+        "use either positional ydata or the ydata keyword, not both",
+    ))
+    return keyword
+end
+
 function plot(
         object::LineCableModels.SeriesImpedance,
         frequencies,
-        selection = ();
+        selection = nothing;
+        ydata = nothing,
         backend = nothing,
         display_plot::Bool = true,
         controls::Bool = true,
@@ -191,7 +200,7 @@ function plot(
     return _addon_semantic_line_plots(
         object;
         frequencies,
-        requests = _line_plot_requests(object, selection),
+        ydata = _line_plot_ydata(object, _plot_ydata(selection,ydata,())),
         xscale = _scale_symbol(xscale),
         yscale = _scale_symbol(yscale),
         backend,
@@ -204,7 +213,7 @@ end
 function Makie.plot(
         object::LineCableModels.SeriesImpedance,
         frequencies,
-        selection = ();
+        selection = nothing;
         kwargs...
 )
     plot(object, frequencies, selection; kwargs...)
@@ -213,7 +222,8 @@ end
 function plot(
         object::LineCableModels.ShuntAdmittance,
         frequencies,
-        selection = ();
+        selection = nothing;
+        ydata = nothing,
         backend = nothing,
         display_plot::Bool = true,
         controls::Bool = true,
@@ -224,7 +234,7 @@ function plot(
     return _addon_semantic_line_plots(
         object;
         frequencies,
-        requests = _line_plot_requests(object, selection),
+        ydata = _line_plot_ydata(object, _plot_ydata(selection,ydata,())),
         xscale = _scale_symbol(xscale),
         yscale = _scale_symbol(yscale),
         backend,
@@ -237,7 +247,7 @@ end
 function Makie.plot(
         object::LineCableModels.ShuntAdmittance,
         frequencies,
-        selection = ();
+        selection = nothing;
         kwargs...
 )
     plot(object, frequencies, selection; kwargs...)
@@ -245,7 +255,8 @@ end
 
 function plot(
         parameters::LineCableModels.LineParameters,
-        selection = ();
+        selection = nothing;
+        ydata = nothing,
         backend = nothing,
         display_plot::Bool = true,
         controls::Bool = true,
@@ -255,7 +266,7 @@ function plot(
 )
     return _addon_semantic_line_plots(
         parameters;
-        requests = _line_plot_requests(parameters, selection),
+        ydata = _line_plot_ydata(parameters, _plot_ydata(selection,ydata,())),
         xscale = _scale_symbol(xscale),
         yscale = _scale_symbol(yscale),
         backend,
@@ -267,7 +278,7 @@ end
 
 function Makie.plot(
         parameters::LineCableModels.LineParameters,
-        selection = ();
+        selection = nothing;
         kwargs...
 )
     plot(parameters, selection; kwargs...)
@@ -278,7 +289,7 @@ function plot(
         second::LineCableModels.LineParameters,
         rest...;
         series_labels = nothing,
-        requests = (),
+        ydata = (),
         backend = nothing,
         display_plot::Bool = true,
         controls::Bool = true,
@@ -299,18 +310,18 @@ function plot(
             ))
         end
     end
-    requests == () || trailing_selection === nothing ||
+    ydata == () || trailing_selection === nothing ||
         throw(ArgumentError(
-            "use either a trailing observation selection or the requests keyword, not both",
+            "use either a trailing observation selection or the ydata keyword, not both",
         ))
     labels = series_labels
     labels === nothing && (labels = Tuple("Result $index" for index in eachindex(sources)))
-    selection = trailing_selection === nothing ? requests : trailing_selection
-    normalized = _line_plot_requests(first, selection)
+    selection = trailing_selection === nothing ? ydata : trailing_selection
+    normalized = _line_plot_ydata(first, selection)
     return _addon_line_pages(
         Tuple(sources);
         series_labels = labels,
-        requests = normalized,
+        ydata = normalized,
         xscale = _scale_symbol(xscale),
         yscale = _scale_symbol(yscale),
         backend,
@@ -322,7 +333,8 @@ end
 
 function plot(
         sources::NamedTuple,
-        selection = ();
+        selection = nothing;
+        ydata = nothing,
         series_labels = nothing,
         backend = nothing,
         display_plot::Bool = true,
@@ -345,7 +357,8 @@ function plot(
     return _addon_line_pages(
         parameters;
         series_labels = labels,
-        requests = _line_plot_requests(first(parameters), selection),
+        ydata = _line_plot_ydata(first(parameters),
+            _plot_ydata(selection,ydata,())),
         xscale = _scale_symbol(xscale),
         yscale = _scale_symbol(yscale),
         backend,
@@ -355,7 +368,7 @@ function plot(
     )
 end
 
-function Makie.plot(sources::NamedTuple, selection = (); kwargs...)
+function Makie.plot(sources::NamedTuple, selection = nothing; kwargs...)
     plot(sources, selection; kwargs...)
 end
 

@@ -46,7 +46,7 @@ end
 
 function _prepare_line_comparison(
         parameters::_LineParametersComparison;
-        requests,
+        ydata,
         series_labels,
         freq_unit = :base,
         length_unit = :kilo,
@@ -58,7 +58,7 @@ function _prepare_line_comparison(
     published = map(parameters) do parameter
         _prepare_line_observations(
             parameter;
-            requests,
+            ydata,
             freq_unit,
             length_unit,
             quantity_units,

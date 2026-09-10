@@ -1,9 +1,9 @@
 """
-    plot(source[, selection]; kwargs...)
+    plot(source[, ydata]; kwargs...)
 
 Create a compact native Makie plot for a supported result or observation
 publication. The optional Makie extension infers distinct physical quantities
-from the requested observables; `layout` controls only where those inferred
+from the selected ordinate data; `layout` controls only where those inferred
 axes are placed.
 """
 function plot end

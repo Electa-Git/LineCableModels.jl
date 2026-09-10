@@ -5,10 +5,13 @@ Plot completed formulation results for an explicitly selected problem. All
 formulations are overlaid by default; filtering retains original labels/colors.
 A scalar reference is drawn once. No solve or comparison is performed.
 """
-function plot(results::LineCableModels.ParametricResult, requests=(LineCableModels.Z,LineCableModels.Y);
+function plot(results::LineCableModels.ParametricResult, selection=nothing;
+        ydata=nothing,
         problem=nothing, formulations=nothing, reference=nothing,
         series_labels=nothing, xscale=:log10, yscale=:linear, clip=false,
         legend_position=:bottom, legend_overflow=:show_all, legend_attributes=(;), kwargs...)
+    selected_ydata=_plot_ydata(selection,ydata,
+        (LineCableModels.Z,LineCableModels.Y))
     isempty(results.axes) && throw(ArgumentError("plotting requires retained problem/formulation axes"))
     count=length(results.axes.problems)
     problem === nothing && count != 1 && throw(ArgumentError("select problem explicitly before plotting multiple problems"))
@@ -34,10 +37,11 @@ function plot(results::LineCableModels.ParametricResult, requests=(LineCableMode
             styles=(1,styles...)
         end
         all(value -> value isa LineCableModels.LineParameters,sources) || throw(ArgumentError("matrix-curve overlays require line-parameter results"))
-        normalized=_line_plot_requests(first(sources),requests)
-        pages=_addon_line_pages(sources; requests=normalized, series_labels=series_labels === nothing ? names : series_labels,
+        normalized=_line_plot_ydata(first(sources),selected_ydata)
+        pages=_addon_line_pages(sources; ydata=normalized, series_labels=series_labels === nothing ? names : series_labels,
             series_indices=styles,xscale=_scale_symbol(xscale),yscale=_scale_symbol(yscale),clip,
-            legend_position,legend_overflow,legend_attributes=attributes,kwargs...)
+            legend_position,legend_overflow,legend_attributes=attributes,
+            signed_ylog=true,kwargs...)
         for page in (pages isa LineCableModels.UIPlot ? (pages,) : pages)
             page.addon_state=merge(page.addon_state,(formulations=(problem=p,indices=copy(indices),records=records[indices],reference=reference === nothing ? nothing : LineCableModels.details(reference)),))
             push!(built,page)
@@ -47,15 +51,19 @@ function plot(results::LineCableModels.ParametricResult, requests=(LineCableMode
 end
 
 """Plot selected completed benchmark data; report construction is never repeated."""
-function plot(artifact::ReportArtifact, requests=(LineCableModels.Z,LineCableModels.Y); kwargs...)
-    return plot(artifact.published,requests;kwargs...)
+function plot(artifact::ReportArtifact, selection=nothing; ydata=nothing, kwargs...)
+    selected_ydata=_plot_ydata(selection,ydata,
+        (LineCableModels.Z,LineCableModels.Y))
+    return plot(artifact.published,selected_ydata;kwargs...)
 end
 
 """Overlay retained reference/candidate comparisons for explicitly selected problems."""
 function plot(published::NamedTuple{(:reference,:candidate,:context,:settings,:comparisons)},
-        requests=(LineCableModels.Z,LineCableModels.Y); problem=nothing, formulations=nothing,
+        selection=nothing; ydata=nothing, problem=nothing, formulations=nothing,
         pair=nothing, band=nothing, series_labels=nothing, xscale=:log10, yscale=:linear,
         clip=false,legend_position=:bottom,legend_overflow=:show_all,legend_attributes=(;),kwargs...)
+    selected_ydata=_plot_ydata(selection,ydata,
+        (LineCableModels.Z,LineCableModels.Y))
     candidate=published.candidate.result
     reference=published.reference.result
     isspace=candidate isa LineCableModels.ParametricResult
@@ -102,10 +110,11 @@ function plot(published::NamedTuple{(:reference,:candidate,:context,:settings,:c
                 value[samples]
             end |> Tuple
         end
-        normalized=_line_plot_requests(first(sources),requests)
-        pages=_addon_line_pages(sources;requests=normalized,series_labels=series_labels === nothing ? names : series_labels,
+        normalized=_line_plot_ydata(first(sources),selected_ydata)
+        pages=_addon_line_pages(sources;ydata=normalized,series_labels=series_labels === nothing ? names : series_labels,
             series_indices=styles,xscale=_scale_symbol(xscale),yscale=_scale_symbol(yscale),clip,
-            legend_position,legend_overflow,legend_attributes=attributes,kwargs...)
+            legend_position,legend_overflow,legend_attributes=attributes,
+            signed_ylog=true,kwargs...)
         for page in (pages isa LineCableModels.UIPlot ? (pages,) : pages)
             page.addon_state=merge(page.addon_state,(formulations=(problem=p,indices=copy(indices),records=records[indices],references=reference_records),))
             push!(built,page)

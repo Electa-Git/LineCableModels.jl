@@ -19,9 +19,10 @@ function formulation_record(formulation::LineCableModelsFEM)
         schema_version = 3,
         selections,
         assumptions = (
-            impedance = "Fixed quasi-TEM finite-element field equations",
+            impedance = "Axial current-driven A_z/u_r finite-element equations",
+            admittance = "Scalar electrodynamic Helmholtz equation in surrounding media; equipotential terminals with unit transverse-current excitation; Y = inv(P)",
             earth = "Horizontal air and one semi-infinite soil; soil constitutive properties evaluated at each frequency",
-            propagation = "Fixed package quasi-TEM propagation approximation",
+            propagation = "Gamma = 0; medium diffusion and displacement retained; independent Z/P blocks in one factorization",
             semicon_domain = "Passive material region, without electrical terminal ownership",
             enclosure = "Supported enclosures are represented by their material and terminal domains"
         )

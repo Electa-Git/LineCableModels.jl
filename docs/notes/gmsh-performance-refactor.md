@@ -12,6 +12,11 @@ The [implementation plan](gmsh-performance-implementation-plan.md) orders the
 production changes and defines the acceptance gate for each stage through a
 complete campaign benchmark.
 
+The coupled equations discussed below are the operator used for this historical
+performance study. The 2026-09-11 [electric formulation correction](../src/fem.md#field-equations-and-matrix-extraction)
+retains one process and factorization per frequency, with independent magnetic
+and scalar electrodynamic blocks and direct current-driven potential coefficients.
+
 ## Recommendation and measured result
 
 Make **one GetDP process own one frequency, its mesh, and all requested terminal

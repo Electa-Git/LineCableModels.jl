@@ -68,7 +68,7 @@
 # artifact.table.terms
 #
 # using GLMakie
-# plots = LineCableModels.plot(artifact, (Z, Y))
+# plots = LineCableModels.plot(artifact; ydata=(Z, Y))
 # # Optional: plot(artifact, (R, L); problem=1, formulations=[2], band=:dc)
 # export_svg(first(plots); path="impedance.svg", open_file=false)
 # ```

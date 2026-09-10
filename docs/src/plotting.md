@@ -28,7 +28,7 @@ model:
 1. Scientific owners expose public observations, geometry, material values,
    and units. They contain no plot preparation, colors, legends, or Makie
    blocks.
-2. `LineCableModelsMakieExt` normalizes plotting requests into physical
+2. `LineCableModelsMakieExt` normalizes plotting `ydata` into physical
    quantity/coordinate facets and constructs ordinary Makie blocks and plot
    primitives. Matrix coordinates identify subplots; result containers
    identify overlaid series.
@@ -101,6 +101,8 @@ expands to ``R`` then ``X``; ``Y`` expands to ``G`` then ``B``. An exact
 request such as `@observe Z[1,1,:]` keeps its conductor coordinates while
 selecting the complete frequency range. Plotting consumes that resolved
 request; it does not ask the caller to repeat `(R, X)`.
+The plot-facing name for this ordinate selection is `ydata`; it may be passed
+positionally or as a keyword, for example `plot(result; ydata=(R, L))`.
 
 Every `(quantity, row, column)` is one facet and therefore one axis. Its
 default title comes from the unit registry plus the coordinate relation, for
@@ -1035,6 +1037,8 @@ synchronized. Native custom tick formatters or explicit tick labels override
 this settings; setting the formatter back to `Makie.automatic` restores it.
 Logarithmic axes have no additional multiplier. The x/y toggles select native
 linear or logarithmic scales, with explicit decade ticks for log scales.
+Benchmark overlays retain the y toggle when matrix entries include zero or
+negative values; those panels use a sign-preserving pseudo-log transform.
 
 Limits are calculated from finite visible data, including measurement error
 bounds. Constant series receive magnitude-relative padding; an exactly zero

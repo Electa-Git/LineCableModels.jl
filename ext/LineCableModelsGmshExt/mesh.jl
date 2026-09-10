@@ -46,6 +46,8 @@ function _mesh_fingerprint(
         infinite_mesh_size = mesh_plan.infinite_mesh_size,
         interface_mesh_size = mesh_plan.interface_mesh_size,
         cable_interface_mesh_sizes = mesh_plan.cable_interface_mesh_sizes,
+        wave_mesh_sizes = mesh_plan.wave_mesh_sizes,
+        wave_decay_radii = mesh_plan.wave_decay_radii,
         gmsh_version
     )
     # Hash owned bytes: SHA's string/CodeUnits path can repeatedly hash the
@@ -210,7 +212,8 @@ function _configure_mesh!(
         mesh_plan::FEMMeshPlan = last(model.mesh_plans)
 )
     gmsh.option.set_number("Mesh.MshFileVersion", 4.1)
-    gmsh.option.set_number("Mesh.MeshSizeMin", Float64(model.fine_mesh_size))
+    gmsh.option.set_number("Mesh.MeshSizeMin",
+        Float64(min(model.fine_mesh_size, minimum(mesh_plan.wave_mesh_sizes))))
     gmsh.option.set_number(
         "Mesh.MeshSizeMax", Float64(mesh_plan.infinite_mesh_size)
     )
@@ -242,6 +245,29 @@ function _configure_mesh!(
             threshold, "DistMax", Float64(transition_distance)
         )
         push!(transition_fields, threshold)
+    end
+    # Gmsh owns interpolation and restriction of the size field. Include the
+    # air/soil interface as a source of transmitted fields, also for overhead
+    # conductors whose distance from the soil exceeds its attenuation length.
+    for (surfaces, wave_size, decay_radius) in zip(
+        (geometry.air_surfaces, geometry.earth_surfaces),
+        mesh_plan.wave_mesh_sizes, mesh_plan.wave_decay_radii)
+        wave_size < mesh_plan.domain_mesh_size || continue
+        curves = unique([geometry.interface_curves; reduce(vcat, geometry.cable_curves; init=Int[])])
+        distance = gmsh.model.mesh.field.add("Distance")
+        gmsh.model.mesh.field.set_numbers(distance, "CurvesList", curves)
+        gmsh.model.mesh.field.set_number(distance, "Sampling", 200)
+        threshold = gmsh.model.mesh.field.add("Threshold")
+        gmsh.model.mesh.field.set_number(threshold, "InField", distance)
+        gmsh.model.mesh.field.set_number(threshold, "SizeMin", Float64(wave_size))
+        gmsh.model.mesh.field.set_number(threshold, "SizeMax", Float64(mesh_plan.domain_mesh_size))
+        gmsh.model.mesh.field.set_number(threshold, "DistMin", Float64(decay_radius))
+        gmsh.model.mesh.field.set_number(threshold, "DistMax", Float64(2decay_radius))
+        restricted = gmsh.model.mesh.field.add("Restrict")
+        gmsh.model.mesh.field.set_number(restricted, "InField", threshold)
+        gmsh.model.mesh.field.set_numbers(restricted, "SurfacesList", surfaces)
+        gmsh.model.mesh.field.set_number(restricted, "IncludeBoundary", 1)
+        push!(transition_fields, restricted)
     end
     isempty(transition_fields) && return nothing
     background = if length(transition_fields) == 1
@@ -279,13 +305,15 @@ function _mesh_metadata(
         frequency_hz = mesh_plan.frequency,
         inner_shell_radius_m = mesh_plan.domain_radius,
         outer_shell_radius_m = mesh_plan.shell_outer_radius,
-        minimum_mesh_size_m = model.fine_mesh_size,
+        minimum_mesh_size_m = min(model.fine_mesh_size, minimum(mesh_plan.wave_mesh_sizes)),
         region_mesh_sizes_m = getproperty.(model.region_plans, :mesh_size),
         cable_outer_mesh_sizes_m = model.cable_outer_mesh_sizes,
         interface_mesh_size_m = mesh_plan.interface_mesh_size,
         cable_interface_mesh_sizes_m = mesh_plan.cable_interface_mesh_sizes,
         domain_mesh_size_m = mesh_plan.domain_mesh_size,
         infinite_mesh_size_m = mesh_plan.infinite_mesh_size,
+        wave_mesh_sizes_m = mesh_plan.wave_mesh_sizes,
+        wave_decay_radii_m = mesh_plan.wave_decay_radii,
         adjacent_growth_factor = model.mesh_growth_factor
     )
 end

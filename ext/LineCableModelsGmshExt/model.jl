@@ -55,6 +55,8 @@ struct FEMMeshPlan{T <: Real}
     infinite_mesh_size::T
     interface_mesh_size::T
     cable_interface_mesh_sizes::Vector{T}
+    wave_mesh_sizes::NTuple{2, T}
+    wave_decay_radii::NTuple{2, T}
 end
 
 struct FEMResolvedModel{T <: Real, P <: LineParametersProblem}
@@ -393,6 +395,19 @@ function _fem_mesh_plans(
         shell_outer_radius = convert(T, 1.25) * domain_radius
         domain_mesh_size = domain_radius / 20
         infinite_mesh_size = 2domain_mesh_size
+        # Resolve both attenuation and phase in each surrounding medium.
+        # A skin-depth-sized outer domain alone does not resolve mutual fields
+        # when the layout sets a much larger domain at high frequency.
+        air = problem.earth_props.layers[1]
+        omega = convert(T, 2π) * frequency
+        wave_numbers = map(((zero(T), air.eps_r, air.mu_r),
+            (inv(earth.rho), earth.eps_r, earth.mu_r))) do (sigma, eps_r, mu_r)
+            sqrt(complex(-omega^2 * (mu_r * convert(T, 4π * 1e-7)) *
+                (eps_r * convert(T, 8.8541878128e-12)),
+                omega * (mu_r * convert(T, 4π * 1e-7)) * sigma))
+        end
+        wave_mesh_sizes = map(q -> min(domain_mesh_size, inv(8abs(q))), wave_numbers)
+        wave_decay_radii = map(q -> min(2domain_radius, 6 / real(q)), wave_numbers)
         cable_interface_mesh_sizes = T[]
         for (cable_index, (design, position)) in enumerate(zip(
             problem.system.designs, problem.system.positions
@@ -417,7 +432,9 @@ function _fem_mesh_plans(
                 domain_mesh_size,
                 infinite_mesh_size,
                 interface_mesh_size,
-                cable_interface_mesh_sizes
+                cable_interface_mesh_sizes,
+                wave_mesh_sizes,
+                wave_decay_radii
             ))
     end
     return plans
