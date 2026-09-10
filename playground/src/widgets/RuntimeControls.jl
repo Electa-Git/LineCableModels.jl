@@ -240,7 +240,7 @@ function ComponentXRay.inspection(component::AbstractRuntimeControl)
         actions=[ComponentXRay.ActionInspection(action, "Same-origin RuntimeClient.$action", nothing)
             for action in runtime_control_actions(component)],
         css_scopes=[".lc-runtime-controls", ".lc-runtime-section", ".lc-runtime-fields",
-            ".lc-runtime-records", ".lc-runtime-events", ".lc-runtime-event-log", ".lc-runtime-note"],
+            ".lc-runtime-connection", ".lc-runtime-events", ".lc-runtime-event-log", ".lc-runtime-note"],
         notes=["Shared browser renderer; gateway authorization is authoritative.",
             "Credentials, event payloads, and other owners' state are excluded from X-ray."])
 end

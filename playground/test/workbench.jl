@@ -75,6 +75,18 @@ const ComponentXRay = LineCableModelsPlayground.ComponentXRay
     @test TemplateWorkbench.app() isa LineCableModelsPlayground.Bonito.App
     @test TemplateWorkbench.app(; xray=true) isa LineCableModelsPlayground.Bonito.App
 
+    # Full page serialization catches invalid JS targets that a jsrender-only
+    # check misses. Neither an HTTP server nor a broker is needed here.
+    bonito = LineCableModelsPlayground.Bonito
+    diagnostic_session = bonito.Session(bonito.NoConnection(); asset_server=bonito.NoServer())
+    try
+        html = sprint(io -> bonito.page_html(io, diagnostic_session, TemplateWorkbench.app(; xray=true)))
+        @test occursin("lc-workspace-page", html)
+        @test diagnostic_session.init_error[] === nothing
+    finally
+        close(diagnostic_session)
+    end
+
     toolbar_inspection = ComponentXRay.inspection(workbench.toolbar)
     @test toolbar_inspection isa ComponentXRay.ComponentInspection
     @test toolbar_inspection.name == "Toolbar"

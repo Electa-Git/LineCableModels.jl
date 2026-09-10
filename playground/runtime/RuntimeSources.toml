@@ -1,2 +1,2 @@
 schema_version = 1
-files = ["../common/container_engine.jl", "../common/artifact_contract.jl"]
+files = ["../common/container_engine.jl", "../common/artifact_contract.jl", "../common/PublishedAssets.jl"]

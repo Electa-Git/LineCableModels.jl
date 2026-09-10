@@ -121,6 +121,7 @@ function render_presentation(source=DEFAULT_PRESENTATION; quiet=false)
     end
     output = presentation_output(source)
     isfile(output) || error("Quarto did not produce $output")
+    PublishedAssets.publish!(SITE_DIR)
     println("Rendered $output")
     return output
 end

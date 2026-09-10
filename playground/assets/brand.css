@@ -1,16 +1,19 @@
 :root {
   color-scheme: dark;
+  --lc-content-inset: 0.75rem;
   --lc-bg: #1f2424;
   --lc-sidebar-bg: #282f2f;
   --lc-panel-bg: #252b2b;
   --lc-panel-soft: #2b3232;
   --lc-sunken-bg: #1d2222;
   --lc-text: #dbdee0;
-  --lc-heading: #f2f2f2;
+  --lc-heading: rgb(var(--lc-heading-rgb));
+  --lc-heading-rgb: 242, 242, 242;
   --lc-muted: #a8b0b0;
   --lc-border: #5e6d6f;
   --lc-border-soft: #465355;
-  --lc-link: #4eb5de;
+  --lc-link: rgb(var(--lc-link-rgb));
+  --lc-link-rgb: 78, 181, 222;
   --lc-focus: #1abc9c;
   /* Presentation laser is red in every theme; it is not a theme accent. */
   --lc-presentation-laser: #ff0000;
@@ -115,11 +118,13 @@
   --lc-panel-soft: #edf1f0;
   --lc-sunken-bg: #e4e9e8;
   --lc-text: #293334;
-  --lc-heading: #151c1d;
+  --lc-heading: rgb(var(--lc-heading-rgb));
+  --lc-heading-rgb: 21, 28, 29;
   --lc-muted: #657071;
   --lc-border: #a9b4b4;
   --lc-border-soft: #c8d0d0;
-  --lc-link: #087da7;
+  --lc-link: rgb(var(--lc-link-rgb));
+  --lc-link-rgb: 8, 125, 167;
   --lc-focus: #07977f;
   --lc-strong-text: #111718;
   --lc-hover-bg: #d9e2e0;

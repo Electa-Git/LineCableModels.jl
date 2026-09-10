@@ -1,0 +1,51 @@
+/* Content composition shared by reference templates and real applications.
+ * Controls keep their own styles; consumers supply content, not density overrides. */
+.lc-workspace-page {
+  display: grid;
+  min-width: 0;
+  min-height: 0;
+  padding: clamp(1rem, 2vw, 1.6rem);
+  gap: .75rem;
+  align-content: start;
+  color: var(--lc-text);
+  background: var(--lc-bg);
+}
+.lc-workspace-page.is-fill {
+  height: 100%;
+  grid-template-rows: auto minmax(0, 1fr);
+}
+.lc-workspace-header {
+  display: flex;
+  min-width: 0;
+  align-items: end;
+  justify-content: space-between;
+  gap: 1rem;
+}
+.lc-workspace-header > div { min-width: 0; }
+.lc-workspace-title {
+  margin: .42rem 0 .55rem;
+  color: var(--lc-heading);
+  font-size: clamp(1.55rem, 2.4vw, 2.25rem);
+  font-weight: 700;
+  line-height: 1.15;
+}
+.lc-workspace-header p {
+  max-width: 85ch;
+  margin: 0;
+  color: var(--lc-muted);
+  font-size: .82rem;
+  line-height: 1.45;
+}
+.lc-workspace-eyebrow {
+  color: var(--lc-focus);
+  font: 700 .66rem/1 "JuliaMono", "SFMono-Regular", Consolas, monospace;
+  letter-spacing: .08em;
+}
+.lc-workspace-body { min-width: 0; min-height: 0; }
+.lc-content-stack { display: grid; min-width: 0; min-height: 0; gap: .75rem; align-content: start; }
+.lc-content-stack.is-fill { height: 100%; grid-template-rows: auto minmax(0, 1fr); }
+.lc-content-stack.is-results { height: 100%; grid-template-rows: minmax(12rem, 1fr) auto auto; }
+.lc-panel-content { padding: .75rem; }
+@media (max-width: 600px) {
+  .lc-workspace-header { align-items: start; flex-direction: column; gap: .35rem; }
+}

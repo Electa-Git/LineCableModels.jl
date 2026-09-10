@@ -18,6 +18,7 @@ end
     @test occursin("nats", general)
     @test occursin("container", general)
     @test occursin("presentation", general)
+    @test occursin("demo", general)
     @test !occursin("linecablemodels ", general)
 
     _, playground = captured_cli(["playground", "--help"])

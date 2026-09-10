@@ -3,6 +3,8 @@ module TemplateWorkbench
 using Bonito
 using ..ComponentXRay
 using ..WorkbenchUI
+using ..Toolkit: WorkspacePage, Field, TextInput, UnitNumberInput, ComboBox
+using UUIDs
 
 export Application, app
 
@@ -105,14 +107,14 @@ end
 ComponentXRay.inspection(view::OverviewView) = view_inspection(
     view,
     "OverviewView",
-    [".lc-wb-demo-overview", ".lc-wb-demo-principles"];
+    [".lc-wb-demo-principles"];
     line=@__LINE__
 )
 
 ComponentXRay.inspection(view::GeometryViewport) = view_inspection(
     view,
     "GeometryViewport",
-    [".lc-wb-demo-viewport"];
+    [".lc-wb-demo-machine"];
     bindings=[ComponentXRay.BindingInspection(
         :depth,
         view.state.depth;
@@ -146,10 +148,7 @@ ComponentXRay.inspection(view::GeometryInputs) = view_inspection(
     "GeometryInputs",
     [
         ".lc-wb-demo-input-panel",
-        ".lc-wb-demo-fields",
         ".lc-wb-demo-readout",
-        ".lc-control-input",
-        ".lc-control-select",
     ];
     bindings=[
         ComponentXRay.BindingInspection(:scenario, view.state.scenario),
@@ -167,7 +166,7 @@ ComponentXRay.inspection(view::GeometryInputs) = view_inspection(
 ComponentXRay.inspection(view::SweepViewport) = view_inspection(
     view,
     "SweepViewport",
-    [".lc-wb-demo-generic-view", ".lc-wb-demo-sweep"];
+    [".lc-wb-demo-sweep"];
     bindings=[ComponentXRay.BindingInspection(:loading, view.state.loading)],
     line=@__LINE__
 )
@@ -232,6 +231,12 @@ function render_inspected(session, component, node)
         ComponentXRay.instrument(session, node, component)
     )
 end
+
+# A composed primitive must render to a DOM target before the owning view's
+# diagnostic bindings reference it from JavaScript. Never serialize Julia UI
+# structs into a browser binding.
+render_inspected(session, component, page::WorkspacePage) =
+    render_inspected(session, component, Bonito.jsrender(session, page))
 
 function append_message!(state::State, channel::Symbol, text::AbstractString)
     state.messages[] = [state.messages[]; (; channel, text=string(text))]
@@ -457,15 +462,8 @@ end
 
 function Bonito.jsrender(session::Session, view::OverviewView)
     node = DOM.div(
-            DOM.style(TEMPLATE_STYLES; var"data-lcm-css-source"="src/workbenches/template_workbench.css"),
-            DOM.header(
-                DOM.span("WORKBENCH TEMPLATE"; class="lc-wb-demo-kicker"),
-                DOM.h1("Browser-hosted engineering workbench"),
-                DOM.p(
-                    "One persistent shell coordinates views, properties, commands, " *
-                    "operational output, and status without executing scientific code."
-                )
-            ),
+        DOM.style(TEMPLATE_STYLES; var"data-lcm-css-source"="src/workbenches/template_workbench.css"),
+        WorkspacePage("Browser-hosted engineering workbench",
             DOM.div(
                 DOM.article(
                     DOM.span("01"),
@@ -484,8 +482,8 @@ function Bonito.jsrender(session::Session, view::OverviewView)
                 );
                 class="lc-wb-demo-principles"
             );
-            class="lc-wb-demo-overview"
-        )
+            eyebrow="WORKBENCH TEMPLATE",
+            description="One persistent shell coordinates views, properties, commands, operational output, and status without executing scientific code."))
     return render_inspected(session, view, node)
 end
 
@@ -501,17 +499,8 @@ function Bonito.jsrender(session::Session, view::GeometryViewport)
         min_first="24rem",
         min_second="15rem"
     )
-    node = DOM.div(
-            DOM.header(
-                DOM.div(
-                    DOM.span("SCENE VIEWPORT"; class="lc-wb-demo-kicker"),
-                    DOM.h1("Cable geometry")
-                ),
-                DOM.span(depth_label; class="lc-wb-demo-machine")
-            ),
-            layout;
-            class="lc-wb-demo-viewport"
-        )
+    node = WorkspacePage("Cable geometry", layout; eyebrow="SCENE VIEWPORT", fill=true,
+        tools=DOM.span(depth_label; class="lc-wb-demo-machine"))
     return render_inspected(session, view, node)
 end
 
@@ -578,70 +567,23 @@ function Bonito.jsrender(session::Session, view::GeometryScene)
 end
 
 function Bonito.jsrender(session::Session, view::GeometryInputs)
-    scenario_changed = Observable(view.state.scenario[])
-    spacing_changed = Observable(string(view.state.spacing[]))
-    earth_changed = Observable(string(view.state.earth_model[]))
-
-    on(session, scenario_changed) do value
-        view.state.scenario[] = string(value)
-        return nothing
+    id = string(uuid4())
+    scenario = TextInput(:scenario; id="scenario-$id", value=view.state.scenario[])
+    spacing = UnitNumberInput(:spacing; id="spacing-$id", value=view.state.spacing[],
+        minimum=1, maximum=10, step=.25, unit="m")
+    earth = ComboBox(:earth_model, [:default=>"Default earth", :carson=>"Carson", :wedepohl=>"Wedepohl"];
+        id="earth-$id", selected=view.state.earth_model[])
+    for (control, bound, decode, encode) in ((scenario, view.state.scenario, identity, identity),
+            (spacing, view.state.spacing, identity, identity), (earth, view.state.earth_model, Symbol, string))
+        on(session, control.value) do value
+            converted = decode(value)
+            isequal(bound[], converted) || (bound[] = converted)
+        end
+        on(session, bound) do value
+            converted = encode(value)
+            isequal(control.value[], converted) || (control.value[] = converted)
+        end
     end
-    on(session, spacing_changed) do value
-        parsed = tryparse(Float64, value)
-        isnothing(parsed) || (view.state.spacing[] = clamp(parsed, 1.0, 10.0))
-        return nothing
-    end
-    on(session, earth_changed) do value
-        view.state.earth_model[] = Symbol(value)
-        return nothing
-    end
-
-    scenario_attributes = Dict{Symbol,Any}(
-        Symbol("aria-label") => "Scenario name",
-    )
-    spacing_attributes = Dict{Symbol,Any}(
-        Symbol("aria-label") => "Lateral spacing in metres",
-    )
-    earth_attributes = Dict{Symbol,Any}(
-        Symbol("aria-label") => "Earth-return model",
-    )
-    scenario = DOM.input(
-        ;
-        scenario_attributes...,
-        class="lc-control-input",
-        type="text",
-        value=view.state.scenario[],
-        oninput=js"event => $(scenario_changed).notify(event.currentTarget.value)"
-    )
-    spacing = DOM.input(
-        ;
-        spacing_attributes...,
-        class="lc-control-input",
-        type="number",
-        min="1",
-        max="10",
-        step="0.25",
-        value=string(view.state.spacing[]),
-        oninput=js"event => $(spacing_changed).notify(event.currentTarget.value)"
-    )
-    earth = DOM.select(
-        DOM.option("Default earth"; value="default", selected=true),
-        DOM.option("Carson"; value="carson"),
-        DOM.option("Wedepohl"; value="wedepohl");
-        earth_attributes...,
-        class="lc-control-select",
-        onchange=js"event => $(earth_changed).notify(event.currentTarget.value)"
-    )
-    synchronize = js"""
-    (() => {
-        const scenario = $(scenario);
-        const spacing = $(spacing);
-        const earth = $(earth);
-        $(view.state.scenario).on(value => { scenario.value = String(value); });
-        $(view.state.spacing).on(value => { spacing.value = String(value); });
-        $(view.state.earth_model).on(value => { earth.value = String(value); });
-    })();
-    """
     spacing_readout = map(session, view.state.spacing) do value
         "$(round(value; digits=2)) m"
     end
@@ -651,13 +593,10 @@ function Bonito.jsrender(session::Session, view::GeometryInputs)
                 DOM.h2("Arrangement")
             ),
             DOM.div(
-                DOM.label("Scenario", scenario),
-                DOM.label(
-                    DOM.span("Lateral spacing"),
-                    DOM.div(spacing, DOM.span("m"); class="lc-wb-demo-input-with-unit")
-                ),
-                DOM.label("Earth model", earth);
-                class="lc-wb-demo-fields"
+                Field("Scenario", scenario),
+                Field("Lateral spacing", spacing),
+                Field("Earth model", earth);
+                class="lc-content-stack lc-wb-demo-fields"
             ),
             DOM.dl(
                 DOM.div(DOM.dt("Spacing"), DOM.dd(spacing_readout)),
@@ -667,8 +606,7 @@ function Bonito.jsrender(session::Session, view::GeometryInputs)
             DOM.p(
                 "This local block owns presentation state only. SplitPane can be " *
                 "nested to arrange additional views or input regions."
-            ),
-            DOM.script(synchronize);
+            );
             class="lc-wb-demo-input-panel"
         )
     return render_inspected(session, view, node)
@@ -681,12 +619,7 @@ function Bonito.jsrender(session::Session, view::SweepViewport)
     state_copy = map(session, view.state.loading) do loading
         loading ? "Mock job running" : "No job dispatched"
     end
-    node = DOM.div(
-            DOM.header(
-                DOM.span("PERSISTENT VIEW"; class="lc-wb-demo-kicker"),
-                DOM.h1("Frequency sweep"),
-                DOM.p("This inert scene demonstrates loading and idle presentation states.")
-            ),
+    node = WorkspacePage("Frequency sweep",
             DOM.div(
                 DOM.div(; class="lc-wb-demo-spinner"),
                 DOM.span(state_copy),
@@ -696,7 +629,8 @@ function Bonito.jsrender(session::Session, view::SweepViewport)
                 );
                 class=state_class
             );
-            class="lc-wb-demo-generic-view"
+            eyebrow="PERSISTENT VIEW",
+            description="This inert scene demonstrates loading and idle presentation states."
         )
     return render_inspected(session, view, node)
 end
@@ -704,7 +638,7 @@ end
 function Bonito.jsrender(session::Session, view::EmptyResultsView)
     node = DOM.div(
             icon(:archive; class="lc-wb-demo-empty-icon"),
-            DOM.h1("No archived results"),
+            DOM.h1("No archived results"; class="lc-workspace-title"),
             DOM.p("Empty states are finite and explicit. Nothing is silently loading.");
             class="lc-wb-demo-empty"
         )

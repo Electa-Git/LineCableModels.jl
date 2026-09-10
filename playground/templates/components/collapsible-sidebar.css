@@ -19,12 +19,16 @@
   --lc-cs-hover: var(--lc-hover-bg);
   --lc-cs-sidebar-width: 18rem;
   --lc-cs-rail-width: 4.25rem;
+  position: relative;
+  container-type: inline-size;
   display: flex !important;
   width: 100%;
   height: clamp(34rem, calc(100dvh - 11.5rem), 46rem);
   min-width: 0;
   min-height: 34rem;
-  overflow: hidden;
+  /* This owned viewport contains rail tooltips and transitional geometry;
+   * Quarto's page-full overflow rule belongs to documents, not this shell. */
+  overflow: hidden !important;
   color: var(--lc-cs-text);
   background: var(--lc-cs-bg);
   border: 1px solid var(--lc-cs-border);
@@ -46,7 +50,7 @@
 .lc-cs-shell.page-columns .lc-cs-canvas.page-columns {
   display: grid !important;
   grid-template-columns: minmax(0, 1fr) !important;
-  grid-template-rows: auto minmax(0, 1fr) !important;
+  grid-template-rows: auto minmax(min-content, 1fr) !important;
 }
 
 .lc-cs-shell.page-columns .lc-cs-analysis-layout.page-columns {
@@ -327,13 +331,13 @@
   font-family: "JuliaMono", "SFMono-Regular", Consolas, monospace;
 }
 
-.lc-cs-canvas {
+.lc-cs-shell .lc-cs-canvas {
   display: grid;
   min-width: 0;
   min-height: 0;
   padding: clamp(1rem, 2vw, 1.6rem);
   grid-template-columns: minmax(0, 1fr);
-  grid-template-rows: auto minmax(0, 1fr);
+  grid-template-rows: auto minmax(min-content, 1fr);
   gap: 1rem;
   overflow: auto;
 }
@@ -375,6 +379,7 @@
   min-height: 0;
   grid-template-columns: minmax(0, 2.5fr) minmax(13rem, 0.8fr);
   gap: 0.8rem;
+  align-content: start;
 }
 
 .lc-cs-figure,
@@ -387,9 +392,10 @@
   border-radius: 2px;
 }
 
-.lc-cs-figure {
+.lc-cs-shell .lc-cs-figure {
   display: grid;
-  grid-template-rows: auto minmax(0, 1fr);
+  min-height: 18rem;
+  grid-template-rows: auto minmax(14rem, 1fr);
   overflow: hidden;
 }
 
@@ -610,11 +616,7 @@
   }
 }
 
-@media (max-width: 1100px) {
-  .lc-cs-shell {
-    --lc-cs-sidebar-width: 15rem;
-  }
-
+@container (max-width: 60rem) {
   .lc-cs-mode {
     display: none;
   }
@@ -622,10 +624,41 @@
   .lc-cs-analysis-layout,
   .lc-cs-shell.page-columns .lc-cs-analysis-layout.page-columns {
     grid-template-columns: minmax(0, 1fr) !important;
+    grid-auto-rows: minmax(min-content, auto);
   }
 
-  .lc-cs-state-panel {
+  .lc-cs-shell .lc-cs-state-panel {
     min-height: 12rem;
+    overflow: visible;
+  }
+}
+
+/* A narrow host uses an overlaid expanded menu and an unobscured rail,
+ * instead of compressing the canvas into a few characters per line. This
+ * responds to the component's container, not the gallery's window width. */
+@container (max-width: 34rem) {
+  .lc-cs-sidebar {
+    position: absolute;
+    inset: 0 auto 0 0;
+  }
+
+  .lc-cs-workspace {
+    margin-left: var(--lc-cs-rail-width);
+  }
+
+  .lc-cs-context,
+  .lc-cs-mode {
+    display: none;
+  }
+
+  .lc-cs-canvas {
+    padding: 0.8rem;
+    grid-template-rows: auto auto;
+    align-content: start;
+  }
+
+  .lc-cs-workspace-bar {
+    padding-inline: 0.8rem;
   }
 }
 

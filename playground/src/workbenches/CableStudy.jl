@@ -7,6 +7,7 @@ using ..ScientificViews
 using ..ScientificViews.StudyCases
 using ..ComponentXRay
 using ..LineCableModelsPlayground: RuntimeClient, JuliaTerminal, WorkerDiagnostics
+using ..LineCableModelsPlayground: PLAYGROUND_ROOT
 
 export Application, app
 
@@ -39,7 +40,8 @@ function WorkbenchUI.compose(application::Application, state)
     workspace = ViewStack((View(id, label, getproperty(state.views, id)) for (id,label) in zip(ids,labels))...;
         active=state.active)
     return Workbench(; namespace=:cable_study,
-        identity=Identity("LineCableModels", "CableStudy · scientific application"),
+        identity=Identity("LineCableModels.jl", "Cable study";
+            mark=DOM.img(src=Bonito.Asset(joinpath(PLAYGROUND_ROOT, "assets", "logo.svg")), alt="")),
         navigation, workspace,
         toolbar=Toolbar(Command(SelectView(:runtime); icon=:cloud, label="Workers"),
             Command(SelectView(:parameters); icon=:chart, label="Line parameters"),

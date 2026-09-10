@@ -10,6 +10,51 @@
         @test !occursin(r"overflow:\s*(auto|hidden|scroll)", block.captures[1])
     end
     @test occursin("#quarto-sidebar:is(.show, .collapsing)", shell)
+    # Public and developer navigation both mix grouped and top-level leaves.
+    # Link appearance must not depend on having a sidebar-section ancestor.
+    @test occursin(".sidebar-item:not(.sidebar-item-section) > .sidebar-item-container > .sidebar-link", shell)
+    @test !occursin(".sidebar-section .sidebar-link", shell)
+    @test occursin("--bs-heading-color: var(--lc-heading)", shell)
+    @test occursin("--bs-link-color-rgb: var(--lc-link-rgb)", shell)
+    # A document has one reading-column owner, regardless of its contents.
+    # Per-child centring used to pass at 1440px and diverge on wide screens.
+    @test occursin("--lc-document-width: 92rem", shell)
+    @test !occursin("scrollbar-gutter: stable", shell)
+    @test occursin("height: var(--lc-document-header-height)", shell)
+    embed_css = read(joinpath(root, "assets", "published-frames.css"), String)
+    @test occursin("padding: var(--lc-content-inset)", embed_css)
+    @test occursin(".lc-published-viewport > .lc-widget-frame { padding: 0; border: 0; }", embed_css)
+    @test !occursin(r"(?i)(#[0-9a-f]{3,8}\b|rgb\()", embed_css)
+    @test occursin("assets/published-frames.css", read(joinpath(root, "_quarto.yml"), String))
+    @test occursin("lc-published-placeholder", read(joinpath(root, "_extensions", "bonito", "bonito.lua"), String))
+    embed_script = read(joinpath(root, "assets", "published-frames.js"), String)
+    @test first(findfirst("frame.getBoundingClientRect()", embed_script)) < first(findfirst("frame.src=", embed_script))
+    @test occursin("runtime===null", embed_script)
+    @test !occursin(r"width:\s*min\(100%,\s*\d+rem\)", shell)
+    @test !occursin(r"body[^\{]*main#quarto-document-content\s*\{", shell)
+    @test !occursin("body.lc-home .quarto-secondary-nav-title", shell)
+    @test occursin("padding-top: calc(var(--lc-document-header-height) + 1rem)", shell)
+    runtime_css = read(joinpath(root, "assets", "runtime-controls.css"), String)
+    contract = read(joinpath(root, "assets", "control-contract.css"), String)
+    @test occursin(".lc-activity-status[data-busy=\"true\"]::before", contract)
+    @test occursin("prefers-reduced-motion: reduce", contract)
+    @test occursin("@keyframes lc-activity-spin", contract)
+    for file in ("data-views.css", "toolbar.css", "runtime-controls.css")
+        @test !occursin(r"@keyframes\s+\S*spin", read(joinpath(root, "assets", file), String))
+    end
+    dock_css = read(joinpath(root, "src", "workbench", "workbench.css"), String)
+    dock_panel = match(r"\.lc-wb-dock-panel \{([^}]+)\}", dock_css)
+    @test occursin("padding: var(--lc-content-inset)", dock_panel.captures[1])
+    @test !occursin(r"\.lc-runtime-controls\s+\.lc-button\s*\{", runtime_css)
+    science_css = read(joinpath(root, "assets", "scientific-views.css"), String)
+    @test !occursin("grid-template-columns", science_css)
+    @test !occursin(r"\.lc-study-fields\s*\{", science_css)
+    @test isfile(joinpath(root, "assets", "split-pane.css"))
+    widget_theme = read(joinpath(root, "src", "widgets.jl"), String)
+    workbench_theme = read(joinpath(root, "src", "workbench", "WorkbenchUI.jl"), String)
+    @test occursin("widget_theme_script() = theme_script()", widget_theme)
+    @test occursin("theme_script()", workbench_theme)
+    @test !occursin("const applyTheme", widget_theme * workbench_theme)
     @test !occursin("assets/theme.scss", read(joinpath(root, "_extensions", "lcm-deck", "_extension.yml"), String))
 
     function read_joined(paths)
@@ -62,9 +107,9 @@
         (route="/widgets/dropdown", gallery=".lc-native-select",
             parity=:analogue, workbench=".lc-wb-choice-select"),
         (route="/widgets/text-input", gallery=".lc-native-field",
-            parity=:analogue, workbench=".lc-wb-demo-fields input"),
+            parity=:analogue, workbench="TextInput("),
         (route="/widgets/number-spinner", gallery=".lc-native-number",
-            parity=:analogue, workbench=".lc-wb-demo-fields input"),
+            parity=:analogue, workbench="UnitNumberInput("),
         (route="/widgets/actions", gallery=".lc-widget-actions",
             parity=:analogue, workbench=".lc-wb-command"),
         (route="/widgets/progress", gallery=".lc-progress",

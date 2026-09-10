@@ -4,7 +4,7 @@ using Bonito
 using UUIDs
 using ..ComponentXRay
 using ..Toolkit
-using ..LineCableModelsPlayground: CONTROL_CONTRACT
+using ..LineCableModelsPlayground: CONTROL_CONTRACT, theme_script
 
 export AbstractWorkbench,
     AbstractWorkbenchAction,
@@ -1045,10 +1045,12 @@ function split_script(root, orientation)
             const minimum = Math.min(140, total * 0.35);
             const nextFirst = Math.max(minimum, Math.min(total - minimum, firstSize + delta));
             const nextSecond = total - nextFirst;
+            // Retain a proportion, not a pixel-sized canvas that overflows when
+            // its host subsequently shrinks or the sidebar expands.
             if ($(orientation == :horizontal)) {
-                root.style.gridTemplateColumns = `${nextFirst}px 5px ${nextSecond}px`;
+                root.style.gridTemplateColumns = `minmax(0, ${nextFirst}fr) 5px minmax(0, ${nextSecond}fr)`;
             } else {
-                root.style.gridTemplateRows = `${nextFirst}px 5px ${nextSecond}px`;
+                root.style.gridTemplateRows = `minmax(0, ${nextFirst}fr) 5px minmax(0, ${nextSecond}fr)`;
             }
         });
 
@@ -1203,56 +1205,9 @@ function intrinsic_script(root)
         const splitter = root.querySelector('[data-lc-wb-dock-splitter]');
         const page = root.closest('.lc-wb-page');
         const themeSelector = root.querySelector('[data-lc-wb-theme-selector]');
-        const systemTheme = window.matchMedia('(prefers-color-scheme: light)');
-        const themeStorageKey = 'lcm.playground.theme';
-        const legacyThemeStorageKey = 'lcm.workbench.theme';
         const menus = Array.from(root.querySelectorAll('.lc-wb-menu'));
-
-        const validTheme = value => ['system', 'dark', 'light'].includes(value);
-        const applyTheme = preference => {
-            const selected = validTheme(preference) ? preference : 'dark';
-            const resolved = selected === 'system'
-                ? (systemTheme.matches ? 'light' : 'dark')
-                : selected;
-            page.dataset.theme = selected;
-            page.dataset.resolvedTheme = resolved;
-            document.documentElement.dataset.lcmTheme = selected;
-            document.documentElement.dataset.lcmResolvedTheme = resolved;
-            themeSelector.value = selected;
-        };
-
-        let initialTheme = 'dark';
-        try {
-            const storedTheme = window.localStorage.getItem(themeStorageKey)
-                || window.localStorage.getItem(legacyThemeStorageKey);
-            if (validTheme(storedTheme)) initialTheme = storedTheme;
-        } catch (_) {
-            // Storage may be disabled; the selector remains session-local.
-        }
-        applyTheme(initialTheme);
         themeSelector.addEventListener('change', event => {
-            const preference = event.currentTarget.value;
-            applyTheme(preference);
-            try {
-                window.localStorage.setItem(themeStorageKey, preference);
-                window.localStorage.removeItem(legacyThemeStorageKey);
-            } catch (_) {
-                // Applying the selected theme does not depend on persistence.
-            }
-        });
-        systemTheme.addEventListener('change', () => {
-            if (page.dataset.theme === 'system') applyTheme('system');
-        });
-        window.addEventListener('storage', event => {
-            if (![themeStorageKey, legacyThemeStorageKey].includes(event.key)) return;
-            let storedTheme = null;
-            try {
-                storedTheme = window.localStorage.getItem(themeStorageKey)
-                    || window.localStorage.getItem(legacyThemeStorageKey);
-            } catch (_) {
-                // Fall through to the deterministic dark default.
-            }
-            applyTheme(storedTheme);
+            window.LineCableModelsTheme.select(event.currentTarget.value);
         });
 
         menus.forEach(menu => {
@@ -1405,6 +1360,7 @@ function Bonito.jsrender(session::Session, runtime::Runtime)
             (DOM.style(css; var"data-lcm-css-source"=source) for (source, css) in Toolkit.TOOLKIT_STYLESHEETS)...,
             DOM.style(WORKBENCH_STYLES; var"data-lcm-css-source"="src/workbench/workbench.css"),
             instrumented,
+            theme_script(),
             DOM.script(intrinsic_script(root)),
             xray;
             page_attributes...,

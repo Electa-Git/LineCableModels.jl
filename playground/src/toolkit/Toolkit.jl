@@ -8,6 +8,8 @@ using ..ComponentXRay
 
 const TOOLKIT_ROOT = normpath(joinpath(@__DIR__, "..", ".."))
 const TOOLKIT_STYLE_PATHS = (
+    joinpath(TOOLKIT_ROOT, "assets", "workspace.css"),
+    joinpath(TOOLKIT_ROOT, "assets", "split-pane.css"),
     joinpath(TOOLKIT_ROOT, "assets", "forms.css"),
     joinpath(TOOLKIT_ROOT, "assets", "overlays.css"),
     joinpath(TOOLKIT_ROOT, "assets", "data-views.css"),
@@ -21,6 +23,7 @@ toolkit_source(file, line) = ComponentXRay.source_reference(@__MODULE__, file, l
 include("Forms.jl")
 include("Overlays.jl")
 include("DataViews.jl")
+include("Layouts.jl")
 
 export ComboBox,
     ConfirmDialog,
@@ -48,6 +51,7 @@ export ComboBox,
     ToastEntry,
     UnitNumberInput,
     ViewportFrame,
+    WorkspacePage,
     clear_toasts!,
     close_dialog!,
     dismiss_notice!,

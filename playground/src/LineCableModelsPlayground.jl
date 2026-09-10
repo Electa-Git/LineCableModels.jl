@@ -20,6 +20,7 @@ const PLAYGROUND_ROOT = normpath(joinpath(@__DIR__, ".."))
 const SITE_DIR = joinpath(PLAYGROUND_ROOT, "_site")
 const DEFAULT_HOST = "127.0.0.1"
 const DEFAULT_PORT = 8080
+include(joinpath(PLAYGROUND_ROOT, "common", "PublishedAssets.jl"))
 const BRAND_THEME_PATH = joinpath(PLAYGROUND_ROOT, "assets", "brand.css")
 include_dependency(BRAND_THEME_PATH)
 const BRAND_THEME = read(BRAND_THEME_PATH, String)
@@ -30,6 +31,12 @@ const CONTROL_CONTRACT_PATH = joinpath(
 )
 include_dependency(CONTROL_CONTRACT_PATH)
 const CONTROL_CONTRACT = read(CONTROL_CONTRACT_PATH, String)
+const THEME_INIT_PATH = joinpath(PLAYGROUND_ROOT, "assets", "theme-init.html")
+include_dependency(THEME_INIT_PATH)
+const THEME_INITIALIZER = String(only(match(r"(?s)^<script>\s*(.*?)\s*</script>\s*$", read(THEME_INIT_PATH, String)).captures))
+# Pure browser initialization must not wait for a Bonito session/WebSocket.
+# This is trusted repository source, with no interpolation of application data.
+theme_script() = DOM.script(THEME_INITIALIZER)
 
 include("diagnostics/ComponentXRay.jl")
 include("toolkit/Toolkit.jl")
@@ -93,6 +100,7 @@ export ConsoleEntry,
     Toolkit,
     UnitNumberInput,
     ViewportFrame,
+    WorkspacePage,
     ArtifactGateway,
     AbstractUploadStore,
     BrokerClient,
@@ -181,38 +189,43 @@ function register_workbench_routes!(server; xray::Bool=false)
 end
 
 struct StaticFileHandler
-    path::String
+    site::PublishedAssets.PublishedSite
+end
+
+# A publication fallback must remain behind routes installed lazily by Bonito
+# (notably its content-addressed asset server). A catch-all Regex steals those
+# requests when the first interactive page installs its assets after startup.
+struct PublishedRoute
+    site::PublishedAssets.PublishedSite
+end
+Bonito.HTTPServer.pattern_priority(::PublishedRoute) = 4
+function Bonito.HTTPServer.match_request(route::PublishedRoute, request)
+    path = String(URIs.URI(request.target).path)
+    return PublishedAssets.published_asset(route.site, path) === nothing ? nothing : path
 end
 
 function Bonito.HTTPServer.apply_handler(file::StaticFileHandler, context)
+    path = String(URIs.URI(context.request.target).path)
+    body = PublishedAssets.published_asset(file.site, path)
+    body === nothing && return Bonito.HTTP.Response(404, "Published page not found")
     headers = [
-        "Access-Control-Allow-Origin" => "*",
-        "Content-Type" => Bonito.file_mimetype(file.path),
+        "Content-Type" => Bonito.file_mimetype(endswith(path, "/") || !occursin('.', basename(path)) ? "index.html" : path),
+        "Cache-Control" => "no-store",
+        "X-Content-Type-Options" => "nosniff",
     ]
-    return Bonito.HTTP.Response(200, headers; body=read(file.path))
+    return Bonito.HTTP.Response(200, headers; body)
 end
 
 function register_static_site_routes!(server, directory=SITE_DIR)
     isdir(directory) || throw(ArgumentError("static site directory not found: $directory"))
 
-    for (root, _, files) in walkdir(directory)
-        for name in files
-            path = joinpath(root, name)
-            relative = replace(relpath(path, directory), '\\' => '/')
-            route = "/$relative"
-            handler = StaticFileHandler(path)
-            Bonito.route!(server, route => handler)
-
-            if name == "index.html"
-                directory_route = dirname(route)
-                directory_route == "/" || Bonito.route!(server, directory_route => handler)
-                Bonito.route!(
-                    server,
-                    (directory_route == "/" ? "/" : "$directory_route/") => handler
-                )
-            end
-        end
+    handler = StaticFileHandler(PublishedAssets.PublishedSite(directory))
+    for route in keys(handler.site.files)
+        Bonito.route!(server, route => handler)
     end
+    # Exact live routes retain precedence; newly committed static routes and
+    # content-hashed assets are resolved by the same validated snapshot.
+    Bonito.route!(server, PublishedRoute(handler.site) => handler)
     return server
 end
 
@@ -291,6 +304,7 @@ function usage(io::IO=stdout; feature::Union{Nothing,String}=nothing)
         println(io, "  nats        Initialize or inspect the JetStream runtime")
         println(io, "  container   Run the isolated stack with Docker or Podman")
         println(io, "  runtime     Check or start the owned application gateway")
+        println(io, "  demo        Start, stop, or inspect the private Kubuntu demo")
         println(io)
         println(io, "Run `lcm <feature> --help` for feature-specific usage.")
     end
@@ -392,6 +406,7 @@ function render_site(; quiet = false)
     isfile(index) || error("Quarto did not produce $index")
     write(joinpath(SITE_DIR, "assets", "application-catalogue.json"),
         JSON3.write(ApplicationCatalogue.public_entries()))
+    PublishedAssets.publish!(SITE_DIR)
     println("Rendered $index")
     return index
 end

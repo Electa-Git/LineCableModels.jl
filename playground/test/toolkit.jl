@@ -98,6 +98,9 @@ const Toolkit = LineCableModelsPlayground.Toolkit
     @test first(Toolkit.table_rows(table))[2].id == "l"
 
     viewport = ViewportFrame("Results", table)
+    @test viewport.sizing == :viewport
+    @test ViewportFrame("Inputs", form; sizing=:content).sizing == :content
+    @test_throws ArgumentError ViewportFrame("Inputs", form; sizing=:unknown)
     set_viewport_state!(viewport, :loading; message="Preparing")
     @test viewport.state[] == :loading
     @test viewport.message[] == "Preparing"
@@ -112,5 +115,9 @@ const Toolkit = LineCableModelsPlayground.Toolkit
     end
     split = WorkbenchUI.SplitPane(viewport, form; ratio=0.62)
     @test !isnothing(Bonito.jsrender(session, split))
+    page = Toolkit.WorkspacePage("Engineering view", split; eyebrow="WORKSPACE", fill=true)
+    @test page.fill
+    @test !isnothing(Bonito.jsrender(session, page))
+    @test ComponentXRay.inspection(page).name == "WorkspacePage"
     close(session)
 end

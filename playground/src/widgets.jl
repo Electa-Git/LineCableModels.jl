@@ -216,6 +216,7 @@ html.lcm-deck-laser body *:not(input, select, textarea, button, a) { cursor: non
 .lc-toolbar-example {
   display: grid;
   min-width: 0;
+  grid-template-columns: minmax(0, 1fr);
   padding: 0.75rem;
   align-content: start;
   justify-items: start;
@@ -866,50 +867,7 @@ function widget_header(kicker, title)
     )
 end
 
-function widget_theme_script()
-    return DOM.script(js"""
-    (() => {
-        const storageKey = 'lcm.playground.theme';
-        const legacyStorageKey = 'lcm.workbench.theme';
-        const validTheme = value => ['system', 'dark', 'light'].includes(value);
-        const systemTheme = window.matchMedia('(prefers-color-scheme: light)');
-        let preference = 'dark';
-
-        const applyTheme = selected => {
-            preference = validTheme(selected) ? selected : 'dark';
-            const resolved = preference === 'system'
-                ? (systemTheme.matches ? 'light' : 'dark')
-                : preference;
-            document.documentElement.dataset.lcmTheme = preference;
-            document.documentElement.dataset.lcmResolvedTheme = resolved;
-        };
-
-        try {
-            const stored = window.localStorage.getItem(storageKey)
-                || window.localStorage.getItem(legacyStorageKey);
-            if (validTheme(stored)) preference = stored;
-        } catch (_) {
-            // Storage is optional for a standalone widget route.
-        }
-        applyTheme(preference);
-
-        systemTheme.addEventListener('change', () => {
-            if (preference === 'system') applyTheme('system');
-        });
-        window.addEventListener('storage', event => {
-            if (![storageKey, legacyStorageKey].includes(event.key)) return;
-            let stored = null;
-            try {
-                stored = window.localStorage.getItem(storageKey)
-                    || window.localStorage.getItem(legacyStorageKey);
-            } catch (_) {
-                // Fall through to the deterministic dark default.
-            }
-            applyTheme(stored);
-        });
-    })();
-    """)
-end
+widget_theme_script() = theme_script()
 
 function widget_deck_lifecycle_script()
     return DOM.script(js"""
@@ -941,9 +899,7 @@ function widget_deck_lifecycle_script()
                 const detail = message.detail || {};
                 if (!['dark', 'light', 'system'].includes(detail.preference) ||
                     !['dark', 'light'].includes(detail.resolved)) return;
-                root.dataset.lcmTheme = detail.preference;
-                root.dataset.lcmResolvedTheme = detail.resolved;
-                window.dispatchEvent(new CustomEvent('lcm:theme-changed', { detail }));
+                window.LineCableModelsTheme.apply(detail.preference, detail.resolved);
                 return;
             }
             counts[message.type] = (counts[message.type] || 0) + 1;

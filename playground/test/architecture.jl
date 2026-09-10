@@ -49,8 +49,10 @@ import Bonito
     @test occursin("- assets/theme-selector.html", quarto_config)
     @test occursin("data-lcm-theme-selector", theme_selector)
     @test occursin("lcm.playground.theme", theme_init)
-    @test occursin("lcm.playground.theme", workbench_source_file)
-    @test occursin("lcm.playground.theme", widgets_source_file)
+    @test occursin("theme_script()", workbench_source_file)
+    @test occursin("widget_theme_script() = theme_script()", widgets_source_file)
+    @test !occursin("lcm.playground.theme", workbench_source_file)
+    @test !occursin("lcm.playground.theme", widgets_source_file)
 
     protocol_project = TOML.parsefile(joinpath(root, "protocol", "Project.toml"))
     @test Set(keys(protocol_project["deps"])) == Set((

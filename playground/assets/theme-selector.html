@@ -19,6 +19,11 @@
     if (control && header && control.parentElement !== header) {
       header.append(control);
     }
+    // Navigation labels describe identity, never a layout/body class. The
+    // active leaf already contains the publisher's declared short page name.
+    const pageTitle = header?.querySelector(".quarto-secondary-nav-title");
+    const activeLabel = document.querySelector("#quarto-sidebar a.sidebar-link.active .menu-text");
+    if (pageTitle && activeLabel) pageTitle.textContent = activeLabel.textContent.trim();
     const selector = control?.querySelector("[data-lcm-theme-selector]");
     const theme = window.LineCableModelsTheme;
     if (!selector || !theme) return;

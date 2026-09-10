@@ -12,7 +12,7 @@ import {setTimeout as delay} from "node:timers/promises";
 
 const scratch = await mkdtemp(join(tmpdir(), "lcm-runtime-controls."));
 const root = new URL("../../", import.meta.url);
-const assets = new Map(await Promise.all(["brand.css", "control-contract.css", "forms.css", "runtime-controls.css",
+const assets = new Map(await Promise.all(["brand.css", "control-contract.css", "forms.css", "data-views.css", "runtime-controls.css",
   "runtime-client.js", "runtime-controls.js"].map(async name => [name, await readFile(new URL("assets/" + name, root))])));
 assets.set("control.js", await readFile(new URL("runtime/ui/control.js", root)));
 const themeInit = await readFile(new URL("assets/theme-init.html", root), "utf8");
@@ -31,7 +31,7 @@ let scientific = {channel:"online",phase:"idle",preparation:"cold",valid_for_ms:
 const eventBatch = {epoch, cursor:1, gap:false, records:[{sequence:1, at:"2026-09-07T12:00:00", code:"worker_reported", worker_id:"worker-a"}]};
 const config = {kind:"panel", run_id:run, roles:[{role:"parameters", profiles:["line-parameters"]}]};
 const html = `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-  ${themeInit}${["brand.css", "control-contract.css", "forms.css", "runtime-controls.css"].map(name => `<link rel="stylesheet" href="/${name}">`).join("")}
+  ${themeInit}${["brand.css", "control-contract.css", "forms.css", "data-views.css", "runtime-controls.css"].map(name => `<link rel="stylesheet" href="/${name}">`).join("")}
   <style>body{margin:12px;background:var(--lc-bg);color:var(--lc-text)}main{max-width:1000px;margin:auto;min-width:0}</style></head>
   <body><main><label>Theme<select data-lcm-theme-selector class="lc-control-select lc-form-control"><option value="dark">Dark</option><option value="light">Light</option></select></label>
   <div id="control" data-lcm-runtime-controls='${JSON.stringify(config)}'></div></main>
@@ -171,15 +171,32 @@ try {
   assert.deepEqual(actions.at(-1).body.parameters,{});
   assert.equal(await evaluate("button('Prepare executor').disabled && !button('Cancel preparation').disabled"),true);
   assert.equal(await evaluate("document.querySelector('[data-preparation]').textContent.includes('25%')"),true);
+  for (const theme of ['dark', 'light']) {
+    await evaluate(`LineCableModelsTheme.select('${theme}')`);
+    assert.equal(await evaluate(`(() => {const s=document.querySelector('[data-preparation] .lc-activity-status');
+      const css=getComputedStyle(s,'::before'); return s.dataset.busy==='true' && css.animationName==='lc-activity-spin' &&
+        css.borderTopColor!==css.borderBottomColor && getComputedStyle(s).color!==getComputedStyle(s.closest('section')).backgroundColor;})()`),true);
+    const shot=await command('Page.captureScreenshot',{format:'png'});
+    await writeFile(join(scratch,'preparing-'+theme+'.png'),Buffer.from(shot.data,'base64'));
+  }
+  await command('Emulation.setEmulatedMedia',{features:[{name:'prefers-reduced-motion',value:'reduce'}]});
+  assert.equal(await evaluate("getComputedStyle(document.querySelector('[data-preparation] .lc-activity-status'),'::before').animationName"),'none');
+  await command('Emulation.setEmulatedMedia',{features:[]});
+  scientific.channel='offline';await evaluate('client.refreshScience()');
+  assert.equal(await evaluate("document.querySelector('[data-preparation] .lc-activity-status').dataset.busy"),'false');
+  scientific.channel='online';await evaluate('client.refreshScience()');
+  await wait("document.querySelector('[data-preparation] .lc-activity-status').dataset.busy === 'true'");
   const target=actions.at(-1).body.request_id;
   await evaluate("button('Cancel preparation').click()");
   await wait("document.querySelector('[data-preparation]').dataset.preparation === 'failed' && !client.state.pending");
+  assert.equal(await evaluate("document.querySelector('[data-preparation] .lc-activity-status').dataset.busy"),'false');
   assert.equal(actions.at(-1).body.target_id,target);
   assert.equal(actions.at(-1).body.action,"cancel");
   scientific={...scientific,phase:"idle",preparation:"ready",executor_id:lease,executor_generation:1,
     current_request_id:null,preparation_key:"b".repeat(64),valid_for_ms:5000,failure:null};
   await evaluate("client.refreshScience()");
   assert.equal(await evaluate("document.querySelector('[data-preparation]').dataset.preparation"),"ready");
+  assert.equal(await evaluate("document.querySelector('[data-preparation] .lc-activity-status').dataset.busy"),'false');
   control.profiles[0].kind="terminal";
   const boundary=requests.length;
   await evaluate("client.refresh();");await delay(100);await evaluate("client.refreshScience()");

@@ -115,3 +115,46 @@ textarea:disabled,
 [role="button"][aria-disabled="true"] {
   cursor: not-allowed;
 }
+
+/* One indeterminate activity glyph across status lines, viewport loading and
+ * toolbar actions. Owners declare busy state; neither CSS nor a timer implies
+ * completion. Keep status text outside aria-busy regions so it is announced. */
+.lc-activity-status {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  min-height: 1.5em;
+  overflow-wrap: anywhere;
+}
+
+.lc-activity-status[data-busy="true"] {
+  color: var(--lc-heading);
+  font-weight: 600;
+}
+
+.lc-activity-status[data-tone="warning"] { color: var(--lc-warning); }
+.lc-activity-status[data-tone="danger"] { color: var(--lc-danger); }
+
+.lc-activity-status[data-busy="true"]::before,
+.lc-viewport-spinner,
+.lc-toolbar-button-busy::after {
+  content: "";
+  box-sizing: border-box;
+  flex: 0 0 auto;
+  width: 1rem;
+  height: 1rem;
+  border: 2px solid var(--lc-border);
+  border-top-color: var(--lc-focus);
+  border-radius: 50%;
+  animation: lc-activity-spin 800ms linear infinite;
+}
+
+@keyframes lc-activity-spin {
+  to { transform: rotate(360deg); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .lc-activity-status[data-busy="true"]::before,
+  .lc-viewport-spinner,
+  .lc-toolbar-button-busy::after { animation: none; }
+}

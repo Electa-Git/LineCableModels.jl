@@ -7,7 +7,8 @@ readonly DEBUG_PORT="${LCM_RUNTIME_DEBUG_PORT:-19356}"
 case "${LCM_RUNTIME_BROWSER_SUITE:-bonito}" in
     bonito) fixture=bonito_fixture.jl; browser_test=bonito_browser.mjs ;;
     scientific) fixture=scientific_ui_fixture.jl; browser_test=scientific_ui_browser.mjs ;;
-    *) echo "Expected LCM_RUNTIME_BROWSER_SUITE=bonito or scientific" >&2; exit 2 ;;
+    parity) fixture=ui_parity_fixture.jl; browser_test=ui_parity_browser.mjs ;;
+    *) echo "Expected LCM_RUNTIME_BROWSER_SUITE=bonito, scientific or parity" >&2; exit 2 ;;
 esac
 readonly TEST_DIR="$(mktemp -d "${TMPDIR:-/tmp}/lcm-runtime-bonito.XXXXXXXX")"
 server_pid=""
@@ -52,7 +53,9 @@ for port in "$SERVER_PORT" "$DEBUG_PORT"; do
     fi
 done
 wait_for() {
-    for _ in {1..600}; do
+    # A changed shared asset invalidates the Julia host's precompiled module.
+    # Allow the same bounded cold-start window as the isolated UI fixture.
+    for _ in {1..1800}; do
         if curl -fsS --max-time 1 "$1" >/dev/null 2>&1; then return; fi
         sleep 0.1
     done

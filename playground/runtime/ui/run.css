@@ -5,7 +5,9 @@
 .lc-runtime-surface p { margin:0 0 .75rem; overflow-wrap:anywhere; }
 .lc-runtime-eyebrow { color:var(--lc-focus); font:11px/1.4 monospace; letter-spacing:.08em; }
 .lc-runtime-hint { color:var(--lc-muted); font-size:.85rem; }
+.lc-runtime-surface > .lc-activity-status { text-transform:capitalize; }
 .lc-runtime-actions { display:flex; flex-wrap:wrap; gap:.5rem; align-items:center; margin:.75rem 0; }
-.lc-runtime-actions a { color:var(--lc-link); }
-.lc-runtime-actions a:hover { color:var(--lc-heading); }
+.lc-runtime-surface a { color:var(--lc-link); }
+.lc-runtime-surface a:hover { color:var(--lc-heading); }
+.lc-runtime-surface a:focus-visible { outline:1px solid var(--lc-focus); outline-offset:2px; }
 .lc-runtime-surface [hidden] { display:none; }

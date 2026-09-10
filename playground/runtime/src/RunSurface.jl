@@ -3,6 +3,8 @@ const RUNTIME_ASSETS = Dict(
     "control-contract.css" => (joinpath(@__DIR__, "..", "..", "assets", "control-contract.css"), "text/css"),
     "published-text.css" => (joinpath(@__DIR__, "..", "..", "assets", "published-text.css"), "text/css"),
     "forms.css" => (joinpath(@__DIR__, "..", "..", "assets", "forms.css"), "text/css"),
+    "data-views.css" => (joinpath(@__DIR__, "..", "..", "assets", "data-views.css"), "text/css"),
+    "workspace.css" => (joinpath(@__DIR__, "..", "..", "assets", "workspace.css"), "text/css"),
     "run.css" => (joinpath(@__DIR__, "..", "ui", "run.css"), "text/css"),
     "run.js" => (joinpath(@__DIR__, "..", "ui", "run.js"), "text/javascript"),
     "control.js" => (joinpath(@__DIR__, "..", "ui", "control.js"), "text/javascript"),
@@ -25,6 +27,8 @@ function run_surface(stream, supervisor::UIHostSupervisor, run::RunRecord; statu
     entrypoint = isnothing(app) ? "/" : app.entrypoint
     kind = isnothing(app) ? "workbench" : String(app.kind)
     entry_surface = isnothing(app) ? "published" : String(app.entry_surface)
+    busy = run.state in (:reserved, :starting)
+    reason = isempty(run.reason) && busy ? "Preparing the isolated UI host…" : run.reason
     body = """<!doctype html>
     <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
     <title>$(html_text(title)) · Runtime</title>
@@ -33,13 +37,16 @@ function run_surface(stream, supervisor::UIHostSupervisor, run::RunRecord; statu
     <link rel="stylesheet" href="/runtime/assets/control-contract.css">
     <link rel="stylesheet" href="/runtime/assets/published-text.css">
     <link rel="stylesheet" href="/runtime/assets/forms.css">
+    <link rel="stylesheet" href="/runtime/assets/data-views.css">
+    <link rel="stylesheet" href="/runtime/assets/workspace.css">
     <link rel="stylesheet" href="/runtime/assets/run.css"></head>
     <body class="lc-runtime-page"><main class="lc-runtime-surface" data-run="$(run.id)"
       data-application="$(html_text(run.application))" data-entrypoint="$(html_text(entrypoint))"
       data-kind="$kind" data-entry-surface="$entry_surface" data-automatic="$automatic" data-deadline="$(supervisor.limits.startup_seconds + 15)">
       <p class="lc-runtime-eyebrow">APPLICATION RUN</p><h1>$(html_text(title))</h1>
-      <p id="runtime-status" role="status" aria-live="polite">$(html_text(run.state))</p>
-      <p id="runtime-reason">$(html_text(run.reason))</p>
+      <p id="runtime-status" class="lc-activity-status" data-busy="$busy" role="status" aria-live="polite">$(html_text(run.state))</p>
+      <p id="runtime-reason">$(html_text(reason))</p>
+      <p id="runtime-elapsed" class="lc-runtime-hint" aria-live="off" $(busy ? "" : "hidden")>Waiting for application readiness. First startup may take longer while Julia loads and compiles.</p>
       <p class="lc-runtime-hint">The public site remains available. Restart creates a clean run;
         unsaved UI state and terminal memory cannot be recovered after process loss.</p>
       <div class="lc-runtime-actions"><a id="runtime-open" hidden>Open application</a>
@@ -81,6 +88,8 @@ function control_surface(stream, supervisor::UIHostSupervisor, principal::Princi
     <link rel="stylesheet" href="/runtime/assets/control-contract.css">
     <link rel="stylesheet" href="/runtime/assets/published-text.css">
     <link rel="stylesheet" href="/runtime/assets/forms.css">
+    <link rel="stylesheet" href="/runtime/assets/data-views.css">
+    <link rel="stylesheet" href="/runtime/assets/workspace.css">
     <link rel="stylesheet" href="/runtime/assets/run.css">
     <link rel="stylesheet" href="/runtime/assets/runtime-controls.css"></head>
     <body class="lc-runtime-page"><main class="lc-runtime-surface">

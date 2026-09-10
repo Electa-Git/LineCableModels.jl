@@ -23,7 +23,15 @@ website:
   - id: playground
     style: docked
     background: dark
-    logo: assets/logo.svg
+    # Explicit variants also work for secondary sidebars: Quarto 1.9 only
+    # normalizes shorthand logos for the first sidebar in the array.
+    logo:
+      light:
+        path: /assets/logo.svg
+        alt: LineCableModels
+      dark:
+        path: /assets/logo.svg
+        alt: LineCableModels
     title: "LineCableModels.jl"
     search: false
     contents:
@@ -40,7 +48,13 @@ website:
   - id: developer
     style: docked
     background: dark
-    logo: assets/logo.svg
+    logo:
+      light:
+        path: /assets/logo.svg
+        alt: LineCableModels
+      dark:
+        path: /assets/logo.svg
+        alt: LineCableModels
     title: "LineCableModels.jl"
     search: false
     contents:
@@ -94,6 +108,7 @@ format:
       - assets/brand.css
       - assets/control-contract.css
       - assets/published-text.css
+      - assets/published-frames.css
       - assets/code-theme.css
       - assets/forms.css
       - assets/application-catalogue.css

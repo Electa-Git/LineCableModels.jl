@@ -1,0 +1,51 @@
+/* The published embed owns its reserved rectangle and inactive content inset.
+ * A live Bonito document owns its own inner layout: never pad the iframe. */
+.lc-widget-frame {
+  display: block;
+  width: 100%;
+  height: var(--lc-widget-height, 20rem);
+  min-width: 0;
+  background: var(--lc-panel-bg);
+  border: 0;
+}
+
+.lc-published-viewport {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: minmax(0, 1fr);
+  width: 100%;
+  height: var(--lc-widget-height, 20rem);
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+  background: var(--lc-panel-bg);
+}
+
+.lc-published-viewport > .lc-widget-frame,
+.lc-published-viewport > .lc-published-placeholder {
+  box-sizing: border-box;
+  grid-area: 1 / 1;
+  width: 100%;
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
+  margin: 0;
+}
+
+.lc-published-viewport > .lc-widget-frame { padding: 0; border: 0; }
+.lc-published-viewport[data-lc-preview-state="pending"] > .lc-widget-frame { visibility: hidden; }
+.lc-published-viewport > [hidden] { display: none !important; }
+
+.lc-published-viewport > .lc-published-placeholder {
+  display: grid;
+  align-content: start;
+  gap: 0.5rem;
+  padding: var(--lc-content-inset);
+  overflow: auto;
+  color: var(--lc-muted);
+  font: 0.85rem/1.5 Lato, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  overflow-wrap: anywhere;
+}
+
+.lc-published-placeholder > strong { color: var(--lc-heading); }
+.lc-published-placeholder > p { margin: 0; color: inherit; font: inherit; }

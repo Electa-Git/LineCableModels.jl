@@ -43,17 +43,22 @@ function Bonito.jsrender(session::Session, view::CableGeometry)
     properties = PropertyGrid(PropertyItem("Conductor", "Core and sheath"),
         PropertyItem("Dielectric", "Insulation annulus"),
         PropertyItem("Electrical evaluation", "Separate worker operation"))
-    node = DOM.section(DOM.h2("Cable construction"),
-        DOM.p("Local geometry interaction only. Radii remain proportional while the outer circle fits the view. Scientific inputs are configured separately in the line-parameter view."; class="lc-study-note"),
-        DOM.div(DOM.div(DOM.div(view.fields...; class="lc-study-fields"), properties; class="lc-study-inputs"),
-            ViewportFrame("Core · insulation · sheath", diagram); class="lc-study-layout"); class="lc-study-geometry")
+    inputs = ViewportFrame("Construction inputs", DOM.div(
+        DOM.div(view.fields...; class="lc-form-fields lc-study-fields"), properties;
+        class="lc-content-stack lc-panel-content"); sizing=:content)
+    node = DOM.section(WorkspacePage("Cable construction",
+        SplitPane(ViewportFrame("Core · insulation · sheath", diagram), inputs;
+            ratio=.68, min_first="20rem", min_second="17rem");
+        eyebrow="SCENE VIEWPORT", fill=true,
+        description="Local geometry interaction only. Radii remain proportional. Scientific inputs are configured separately in the line-parameter view.");
+        class="lc-study-geometry")
     return Bonito.jsrender(session, DOM.div(styles(), ComponentXRay.instrument(session, node, view); style="display: contents;"))
 end
 
 function ComponentXRay.inspection(view::CableGeometry)
     return ComponentXRay.ComponentInspection(view; name="CableGeometry",
         source=ComponentXRay.source_reference(@__MODULE__, @__FILE__, @__LINE__),
-        css_scopes=[".lc-study-geometry", ".lc-study-layout", ".lc-study-fields", ".lc-study-inputs",
+        css_scopes=[".lc-study-geometry",
             ".lc-study-plot", ".lc-study-sheath", ".lc-study-insulation", ".lc-study-core", ".lc-study-note"],
         notes=["Pure radial display. Typed fields own their bindings; no scientific execution."])
 end

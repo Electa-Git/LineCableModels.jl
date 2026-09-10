@@ -257,6 +257,7 @@ textarea.lc-form-control {
 
 .lc-button {
   padding: 0.45rem 0.8rem;
+  line-height: 1.3;
 }
 
 .lc-button-primary {

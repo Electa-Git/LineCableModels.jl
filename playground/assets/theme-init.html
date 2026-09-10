@@ -1,6 +1,10 @@
 <script>
 (() => {
   "use strict";
+  if (window.LineCableModelsTheme) {
+    window.LineCableModelsTheme.apply(window.LineCableModelsTheme.preference());
+    return;
+  }
 
   const storageKey = "lcm.playground.theme";
   const legacyStorageKey = "lcm.workbench.theme";
@@ -14,16 +18,20 @@
     : selected;
 
   const synchronizeSelectors = () => {
-    document.querySelectorAll("[data-lcm-theme-selector]").forEach(selector => {
+    document.querySelectorAll("[data-lcm-theme-selector], [data-lc-wb-theme-selector]").forEach(selector => {
       selector.value = preference;
     });
   };
 
-  const applyTheme = selected => {
+  const applyTheme = (selected, inheritedResolution) => {
     preference = validTheme(selected) ? selected : "dark";
-    const resolved = resolveTheme(preference);
+    const resolved = ['dark', 'light'].includes(inheritedResolution) ? inheritedResolution : resolveTheme(preference);
     document.documentElement.dataset.lcmTheme = preference;
     document.documentElement.dataset.lcmResolvedTheme = resolved;
+    document.querySelectorAll('.lc-wb-page').forEach(page => {
+      page.dataset.theme = preference;
+      page.dataset.resolvedTheme = resolved;
+    });
     synchronizeSelectors();
     window.dispatchEvent(new CustomEvent("lcm:theme-changed", {
       detail: { preference, resolved }
@@ -67,7 +75,7 @@
     apply: applyTheme,
     select: selectTheme,
     preference: () => preference,
-    resolved: () => resolveTheme(preference)
+    resolved: () => document.documentElement.dataset.lcmResolvedTheme
   });
   applyTheme(preference);
 })();

@@ -21,6 +21,13 @@
     return element;
   };
   const hint = text => node("p", text, "lc-runtime-note");
+  const activity = text => {
+    const element = hint(text);
+    element.classList.add("lc-activity-status");
+    element.setAttribute("role", "status");
+    element.dataset.busy = "false";
+    return element;
+  };
   const button = (text, action) => {
     const element = node("button", text, "lc-button lc-button-secondary");
     element.type = "button";
@@ -58,12 +65,13 @@
       .sort((a, b) => b.generation - a.generation)[0] ?? null;
   }
   function table(parent, headings, label) {
-    const wrap = node("div", "", "lc-runtime-records");
+    const wrap = node("div", "", "lc-data-table lc-runtime-records");
+    const scroll = node("div", "", "lc-data-table-scroll");
     const grid = node("table");
     grid.setAttribute("aria-label", label);
     const head = node("thead"), row = node("tr"), body = node("tbody");
     for (const title of headings) { const cell = node("th", title); cell.scope = "col"; row.append(cell); }
-    head.append(row); grid.append(head, body); wrap.append(grid); parent.append(wrap);
+    head.append(row); grid.append(head, body); scroll.append(grid); wrap.append(scroll); parent.append(wrap);
     return body;
   }
   function record(values) {
@@ -77,7 +85,7 @@
     const profile = field(fields, "Profile"), placement = field(fields, "Placement"), worker = field(fields, "Worker");
     options(placement, ["automatic", "pinned", "dedicated"].map(value => ({value, label:value})), "Choose placement");
     placement.value = "automatic";
-    const summary = hint(""); summary.setAttribute("role", "status");
+    const summary = activity("");
     const actions = node("div", "", "lc-runtime-actions");
     const assign = button("Assign worker", () => {
       const request = {mode:placement.value};
@@ -103,6 +111,7 @@
       const current = assignment(state, config.role);
       const holdsSlot = current && occupied.has(current.state);
       const locked = state.stale || !control?.enabled || state.pending || uncertain;
+      summary.dataset.busy = String(!state.stale && ["reserving", "releasing"].includes(current?.state));
       const selectedProfile = control?.profiles.find(p => p.id === profile.value);
       const selectedWorker = control?.workers.find(w => w.registration.worker_id === worker.value);
       const explicitWorker = placement.value !== "automatic" && Boolean(worker.value);
@@ -127,7 +136,7 @@
   }
   function preparation(root, client, config, action) {
     root.append(node("h3", "Preparation · " + config.role));
-    const status = hint(""); status.setAttribute("role", "status"); root.append(status);
+    const status = activity(""); root.append(status);
     root.append(hint("An installed profile and an acknowledged lease are not evidence of a prepared executor."));
     const actions = node("div", "", "lc-runtime-actions");
     const prepare = button("Prepare executor", () => {
@@ -147,12 +156,14 @@
       const terminalProfile = id => state.control?.profiles.find(profile => profile.id === id)?.kind === "terminal";
       root.hidden = current ? terminalProfile(current.profile) : Boolean(config.profiles?.length && config.profiles.every(terminalProfile));
       if (root.hidden) {
+        status.dataset.busy = "false";
         prepare.disabled = cancel.disabled = true; root.dataset.preparation = "not-applicable"; return;
       }
       const report = state.science[current?.id];
       const usable = current?.usable && !state.stale;
       const value = usable ? report?.preparation ?? "unknown" : "unknown";
       const active = ["starting", "preparing", "executing", "closing"].includes(report?.phase);
+      status.dataset.busy = String(Boolean(usable && report?.channel === "online" && active));
       const locked = !usable || !state.control?.preparation_control || state.pending || uncertain;
       // A background status query is not user work and must not permanently
       // disable preparation. The agent still rejects conflicting admission.
@@ -161,9 +172,9 @@
       status.textContent = !current ? "Not assigned" : !usable ? "Assignment is not available for preparation." :
         !report ? "Preparation unknown · waiting for executor evidence" :
         report.channel !== "online" ? "Preparation unknown · scientific channel unavailable" :
-        value === "ready" ? "Ready · executor generation " + report.executor_generation + " · freshly inspected" :
-        active ? report.phase + " · " + Math.round((report.progress ?? 0) * 100) + "% · " +
+        active ? report.phase + " · " + (Number.isFinite(report.progress) ? Math.round(report.progress * 100) + "% · " : "") +
           (report.elapsed_seconds ?? 0).toFixed(1) + " s · " + (report.output_lines ?? 0) + " output lines" :
+        value === "ready" ? "Ready · executor generation " + report.executor_generation + " · freshly inspected" :
         report.failure ? "Preparation " + value + " · " + report.failure :
         report.accepted === false ? "Preparation " + value + " · " + report.reason :
         value === "cold" ? "Cold · explicit preparation required" : "Preparation " + value + " · waiting for fresh evidence";
@@ -241,7 +252,7 @@
   }
   function execution(root, client, config, job) {
     root.append(node("h3", "Calculation · " + config.operation));
-    const status = hint(""); status.setAttribute("role","status");
+    const status = activity("");
     const error = hint(""); error.setAttribute("role","status");
     const provenance = hint(""); provenance.setAttribute("aria-label","Result provenance");
     const actions = node("div", "", "lc-runtime-actions");
@@ -256,6 +267,8 @@
     data.append(preview); root.append(status,actions,error,provenance,data);
     let rendered;
     job.subscribe(state => {
+      status.dataset.busy = String(!client.state.stale && !state.error &&
+        ["submitting", "queued", "submitted"].includes(state.phase));
       run.disabled = !state.canRun; cancel.disabled = !state.canCancel;
       retry.hidden = !state.canRetry && !job.pending; retry.disabled = !state.canRetry;
       refresh.disabled = !state.receipt;
@@ -304,7 +317,7 @@
       throw error;
     }
     const status = hint("Connecting to runtime control…"); status.setAttribute("role", "status");
-    const message = hint(""); message.setAttribute("role", "status");
+    const message = activity("");
     const refresh = button("Refresh status", () => void client.refresh());
     let retryAction = null, retryId = null, destroyed = false, unsubscribe;
     const retry = button("Retry same action", () => void action(retryAction, retryId)); retry.hidden = true;
@@ -312,7 +325,8 @@
       retryAction = null; retryId = null; message.textContent = "Unconfirmed action dismissed. Inspect the current assignment before making another change."; render(client.state);
     }); dismiss.hidden = true;
     const commands = node("div", "", "lc-runtime-actions"); commands.append(refresh, retry, dismiss);
-    root.replaceChildren(status, commands, message);
+    const connection = node("div", "", "lc-runtime-connection"); connection.append(status, commands);
+    root.replaceChildren(connection, message);
     root.classList.add("lc-runtime-controls");
     root.dataset.runtimeKind = config.kind;
     const updates = [];
@@ -320,6 +334,7 @@
     async function action(callback, requestId = crypto.randomUUID()) {
       if (!callback || destroyed) return;
       retryAction = null; retryId = null; message.textContent = "Waiting for control acknowledgement…";
+      message.dataset.busy = "true"; message.hidden = false;
       try {
         await callback(requestId);
         if (!destroyed) message.textContent = "Control action acknowledged. Status reflects the latest coordinator snapshot.";
@@ -331,6 +346,7 @@
           message.textContent += " Request " + requestId + ". Check current state; retry reuses this exact action identity.";
         }
       }
+      message.dataset.busy = "false";
       if (!destroyed) render(client.state);
     }
     if (config.kind === "selector") updates.push(selector(part(), client, config, action));

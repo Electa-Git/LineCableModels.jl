@@ -2,6 +2,7 @@ using Dates
 using LineCableModelsPlayground
 using LineCableModelsPlaygroundProtocol
 using Test
+include("published_assets.jl")
 using TOML
 
 include("architecture.jl")

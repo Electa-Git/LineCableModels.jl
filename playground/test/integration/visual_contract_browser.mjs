@@ -1,9 +1,12 @@
 #!/usr/bin/env node
 
 import { assertPublishedText } from "./published_text_contract.mjs";
+import { mkdir, writeFile } from "node:fs/promises";
 
 const baseUrl = process.argv[2] ?? "http://127.0.0.1:8080";
 const debuggingUrl = process.argv[3] ?? "http://127.0.0.1:9222";
+const artifacts = process.env.LCM_VISUAL_ARTIFACTS;
+if (artifacts) await mkdir(artifacts, {recursive: true});
 
 const routes = [
   ["/widgets/slider", ".lc-widget-shell"],
@@ -27,6 +30,7 @@ const routes = [
   ["/widgets/geographic-map", ".lc-map-component"],
   ["/widgets/power-system-canvas", ".lc-power-system-canvas"],
   ["/widgets/runtime-controls", ".lc-runtime-controls"],
+  ["/widgets/julia-terminal", ".lc-runtime-terminal"],
 ];
 
 class DevTools {
@@ -98,20 +102,23 @@ async function evaluate(devtools, expression) {
 async function navigate(devtools, url, selector) {
   const loaded = devtools.once("Page.loadEventFired");
   await devtools.command("Page.navigate", { url });
-  await Promise.race([
-    loaded,
-    new Promise((_, reject) => setTimeout(
-      () => reject(new Error(`page load timed out: ${url}`)),
-      15_000,
-    )),
-  ]);
-  const deadline = Date.now() + 15_000;
+  let timer;
+  try {
+    await Promise.race([
+      loaded,
+      new Promise((_, reject) => { timer = setTimeout(
+        () => reject(new Error(`page load timed out: ${url}`)), 60_000,
+      ); }),
+    ]);
+  } finally { clearTimeout(timer); }
+  const deadline = Date.now() + 60_000;
   while (Date.now() < deadline) {
     const ready = await evaluate(
       devtools,
       `location.href === ${JSON.stringify(url)} &&
         document.readyState === "complete" &&
-        Boolean(document.querySelector(${JSON.stringify(selector)}))`,
+        Boolean(document.querySelector(${JSON.stringify(selector)})) &&
+        (!document.querySelector('.lc-widget-shell, .lc-wb-shell') || window.WEBSOCKET?.isopen() === true)`,
     );
     if (ready) return;
     await new Promise(resolve => setTimeout(resolve, 100));
@@ -444,6 +451,7 @@ await devtools.command("Emulation.setDeviceMetricsOverride", {
 
 try {
   const report = {};
+  const overflowFailures = [];
   for (const theme of ["dark", "light"]) {
     await setTheme(devtools, theme);
     await navigate(devtools, `${baseUrl}/`, "#quarto-sidebar");
@@ -480,6 +488,25 @@ try {
       assert(palette.heading === baseline.heading, `${route} heading token drifted in ${theme}`);
       assert(palette.option === baseline.option, `${route} option token drifted in ${theme}`);
       assert(!palette.horizontalOverflow, `${route} overflows horizontally in ${theme}`);
+      for (const width of [1600, 1024, 768, 390]) {
+        await devtools.command('Emulation.setDeviceMetricsOverride', {
+          width, height: 1000, deviceScaleFactor: 1, mobile: false,
+        });
+        await evaluate(devtools, `document.fonts.ready.then(() => new Promise(resolve =>
+          requestAnimationFrame(() => requestAnimationFrame(resolve))))`);
+        const geometry = await evaluate(devtools, `({scroll:document.documentElement.scrollWidth,
+          client:document.documentElement.clientWidth})`);
+        if (geometry.scroll > geometry.client + 1) overflowFailures.push(
+          `${route} ${theme}: document overflow at ${width}px: ${JSON.stringify(geometry)}`);
+        if (artifacts && [1600,390].includes(width)) {
+          const shot = await devtools.command('Page.captureScreenshot', {format:'png'});
+          await writeFile(artifacts + '/' + route.split('/').at(-1) + '-' + theme + '-' + width + '.png',
+            Buffer.from(shot.data, 'base64'));
+        }
+      }
+      await devtools.command('Emulation.setDeviceMetricsOverride', {
+        width:1600, height:1000, deviceScaleFactor:1, mobile:false,
+      });
       specimens[route] = palette;
     }
 
@@ -590,7 +617,7 @@ try {
     assert(workbenchAfter.firstWidth - workbenchBefore.firstWidth >= 30,
       `split handle did not resize its pane in ${theme}`);
 
-    await navigate(devtools, `${baseUrl}/workbenches/`,
+    await navigate(devtools, `${baseUrl}/dev/workbench.html`,
       "pre.sourceCode code.sourceCode span.kw");
     const codeContract = await inspectCodeContract(devtools);
     assert(codeContract, `code contract did not mount in ${theme}`);
@@ -753,6 +780,7 @@ try {
       gallerySizing,
     };
   }
+  assert(!overflowFailures.length, overflowFailures.join('\n'));
   console.log(JSON.stringify(report, null, 2));
 } finally {
   devtools.close();

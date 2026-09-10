@@ -3,6 +3,7 @@ module ScientificViews
 
 using Bonito, Observables, UUIDs
 using ..Toolkit
+using ..WorkbenchUI: SplitPane
 using ..ComponentXRay
 using ..LineCableModelsPlayground: RuntimeClient, WorkerSelector, PreparationStatus,
     ScientificJob, ScientificResult, WorkerDiagnostics, JuliaTerminal
@@ -182,7 +183,7 @@ function result_plot(session, view, state)
     end
     return DOM.div(ViewportFrame("Scientific response", svg; footer=legend),
         DOM.p(map(s -> s.status, session, state); class="lc-study-result-status", role="status"),
-        Disclosure("Samples · values in the plotted unit", table); class="lc-study-result")
+        Disclosure("Samples · values in the plotted unit", table); class="lc-content-stack is-results lc-study-result")
 end
 
 function Bonito.jsrender(session::Session, view::ScientificView)
@@ -190,16 +191,21 @@ function Bonito.jsrender(session::Session, view::ScientificView)
     validation = map(session, view.job.parameters) do parameters
         parameters === nothing ? "Complete all fields within their limits. From must be less than To; Samples must be an integer." : "Input edits do not run a calculation."
     end
-    fields = DOM.div(values(view.fields)...; class="lc-study-fields", var"data-runtime-input-fields"="",
+    fields = DOM.div(values(view.fields)...; class="lc-form-fields lc-study-fields", var"data-runtime-input-fields"="",
         oninput=js"event => $(view.valid).notify([...event.currentTarget.querySelectorAll('input')].every(input => input.checkValidity()))")
     setup = Disclosure("Worker selection and preparation", DOM.div(
         DOM.p(preparation_note(view.case); class="lc-study-note"),
         WorkerSelector(view.client, role(view.case); profiles=(profile(view.case),)),
         PreparationStatus(view.client, role(view.case); parameters=preparation_inputs(view.case))))
-    node = DOM.section(DOM.header(DOM.h2(case_title(view.case)), DOM.p(assumptions(view.case); class="lc-study-note")),
-        setup, DOM.div(DOM.div(view.job, fields, DOM.p(validation; class="lc-study-note", role="status"),
-            Field("Display quantity", view.quantity); class="lc-study-inputs"), result_plot(session, view, state);
-            class="lc-study-layout"); class="lc-study-view", var"data-runtime-input-scope"="")
+    inputs = ViewportFrame("Study inputs", DOM.div(view.job, fields,
+        DOM.p(validation; class="lc-study-note", role="status"), Field("Display quantity", view.quantity);
+        class="lc-content-stack lc-panel-content"); sizing=:content)
+    layout = SplitPane(result_plot(session, view, state), inputs; ratio=.68,
+        min_first="20rem", min_second="17rem")
+    node = DOM.section(WorkspacePage(case_title(view.case),
+        DOM.div(setup, layout; class="lc-content-stack is-fill");
+        eyebrow="SCIENTIFIC VIEW", description=assumptions(view.case), fill=true);
+        class="lc-study-view", var"data-runtime-input-scope"="")
     return Bonito.jsrender(session, DOM.div(styles(), ComponentXRay.instrument(session, node, view); style="display: contents;"))
 end
 
@@ -209,7 +215,7 @@ function ComponentXRay.inspection(view::ScientificView)
         parameters=[ComponentXRay.PropertyInspection(:case, nameof(typeof(view.case))),
             ComponentXRay.PropertyInspection(:role, role(view.case)),
             ComponentXRay.PropertyInspection(:operation, operation(view.case))],
-        css_scopes=[".lc-study-view", ".lc-study-layout", ".lc-study-fields", ".lc-study-inputs",
+        css_scopes=[".lc-study-view",
             ".lc-study-note", ".lc-study-result", ".lc-study-result-status", ".lc-study-plot", ".lc-study-axis",
             ".lc-study-curve", ".lc-study-legend", ".lc-study-series-1", ".lc-study-series-2", ".lc-study-series-3"],
         notes=["Parameters, result payloads and run identities are not diagnostic metadata.",

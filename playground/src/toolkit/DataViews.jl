@@ -298,10 +298,12 @@ function Bonito.jsrender(session::Session, table::DataTable)
 end
 
 """
-    ViewportFrame(title, content; state=:ready, message="", tools=nothing, footer=nothing)
+    ViewportFrame(title, content; state=:ready, message="", tools=nothing, footer=nothing, sizing=:viewport)
 
 Wrap persistent content with a compact title bar and non-destructive loading,
 empty, and error overlays. State changes never replace or remount `content`.
+`sizing=:viewport` reserves a minimum canvas height; `:content` fits a form or
+other ordinary content without reserving empty canvas space.
 """
 struct ViewportFrame{C,T,F}
     "Visible viewport title."
@@ -316,14 +318,17 @@ struct ViewportFrame{C,T,F}
     state::Observable{Symbol}
     "Current overlay message."
     message::Observable{String}
+    "Whether to reserve canvas height or fit ordinary content."
+    sizing::Symbol
 end
 
 function ViewportFrame(title::AbstractString, content; state::Symbol=:ready,
-        message::AbstractString="", tools=nothing, footer=nothing)
+        message::AbstractString="", tools=nothing, footer=nothing, sizing::Symbol=:viewport)
     state in (:ready, :loading, :empty, :error) || throw(ArgumentError(
         "viewport state must be :ready, :loading, :empty, or :error"))
+    sizing in (:viewport, :content) || throw(ArgumentError("sizing must be :viewport or :content"))
     return ViewportFrame(string(title), content, tools, footer,
-        Observable(state), Observable(string(message)))
+        Observable(state), Observable(string(message)), sizing)
 end
 
 """Change a viewport overlay state without replacing its mounted content."""
@@ -337,7 +342,7 @@ end
 
 function Bonito.jsrender(session::Session, viewport::ViewportFrame)
     class = map(session, viewport.state) do state
-        "lc-viewport-frame is-$state"
+        "lc-viewport-frame is-$state sizing-$(viewport.sizing)"
     end
     label = map(session, viewport.state, viewport.message) do state, message
         !isempty(message) && return message
@@ -401,6 +406,7 @@ function ComponentXRay.inspection(viewport::ViewportFrame)
     return ComponentXRay.ComponentInspection(viewport; name="ViewportFrame",
         source=toolkit_source(@__FILE__, @__LINE__), parameters=[
             ComponentXRay.PropertyInspection(:title, viewport.title),
+            ComponentXRay.PropertyInspection(:sizing, viewport.sizing),
             ComponentXRay.PropertyInspection(:tools, !isnothing(viewport.tools)),
             ComponentXRay.PropertyInspection(:footer, !isnothing(viewport.footer))],
         bindings=[ComponentXRay.BindingInspection(:state, viewport.state),

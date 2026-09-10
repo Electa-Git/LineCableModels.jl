@@ -10,8 +10,16 @@
       ".lc-cs-nav-item:not(:disabled):not([aria-disabled='true'])"
     );
 
+    // Start with a usable canvas in compact hosts. Subsequent expansion is a
+    // local user choice; resizing must not repeatedly overwrite that choice.
+    const compact = () => shell.getBoundingClientRect().width <=
+      34 * parseFloat(getComputedStyle(document.documentElement).fontSize);
+    if (compact()) shell.dataset.sidebarState = "collapsed";
+
     const synchronize = () => {
       const collapsed = shell.dataset.sidebarState === "collapsed";
+      const railWidth = getComputedStyle(shell).getPropertyValue("--lc-cs-rail-width").trim();
+      const sidebarWidth = getComputedStyle(shell).getPropertyValue("--lc-cs-sidebar-width").trim();
       toggle.setAttribute("aria-expanded", String(!collapsed));
       toggle.setAttribute(
         "aria-label",
@@ -21,8 +29,8 @@
         ? "Expand navigation"
         : "Collapse navigation";
       if (stateLabel) stateLabel.textContent = collapsed
-        ? "Collapsed rail · 4.25rem reserved"
-        : "Expanded navigation · 18rem reserved";
+        ? `Collapsed rail · ${railWidth} reserved`
+        : compact() ? "Expanded navigation · overlay" : `Expanded navigation · ${sidebarWidth} reserved`;
     };
 
     toggle.addEventListener("click", () => {

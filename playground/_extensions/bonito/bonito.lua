@@ -100,10 +100,15 @@ return {
     end
 
     local html = string.format(
-      '<iframe class="lc-widget-frame" data-lc-published-src="%s" title="%s" loading="lazy" allowfullscreen style="--lc-widget-height: %s;"></iframe>',
+      '<div class="lc-published-viewport" data-lc-preview-state="pending" style="--lc-widget-height: %s;">' ..
+      '<iframe class="lc-widget-frame" data-lc-published-src="%s" title="%s" loading="lazy" allowfullscreen></iframe>' ..
+      '<div class="lc-published-placeholder" role="status">' ..
+      '<strong>%s</strong><p>Interactive preview is not connected.</p>' ..
+      '</div></div>',
+      escape_attribute(height),
       escape_attribute(route),
       escape_attribute(title),
-      escape_attribute(height)
+      escape_attribute(title)
     )
     return pandoc.RawBlock("html", html)
   end
