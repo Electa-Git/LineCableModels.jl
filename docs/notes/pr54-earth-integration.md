@@ -1,5 +1,34 @@
 # PR 54 integration with the accepted earth checkpoints
 
+## Final integration into `release/v0.2.0`
+
+The target branch fast-forwards to the reconciled checkpoint `90e37b68` without
+conflicts. Its earth kernels, spectral integration, uncertainty handling, CIM
+fitting and retained numerical regressions match `779a7650` exactly.
+
+At `90e37b68`, both core Julia jobs, deterministic FEM references, quality, Aqua,
+clean installation and documentation passed in CI. Gauntlet passed 885 checks
+but errored in the new spectral-reporting regression: `(samples,)` supplied a
+tuple where integration requires a named tuple. Commit `ece24791` corrects that
+argument to `(;samples)`.
+
+Executing the corrected regression exposed a serialization issue: recursively
+mapping selection records narrowed their declared named-tuple fields to each
+point's options. Reloading a grid containing both `samples=nothing` and integer
+budgets then produced incompatible result types. The shared record writer now
+preserves declared field types whenever their portable values still fit. It
+continues to lower callables and other runtime objects to plain records; hashes
+still encode the same values. Numerical result types and the result-space
+concreteness check remain unchanged.
+
+The regression checks the concrete reloaded result-space type, live numerical
+controls, portable records of the resolved method tags, matrix agreement with
+quadrature, report labels and reuse. The focused record and result-space suites
+pass 60 checks; the package CLI passes 10. The spectral run passes its numerical,
+reload and reuse assertions; its method-tag assertion was corrected to expect
+the portable `Base.Val` qualification and is rerun separately. Final spectral
+and CI results are reported on PR #54.
+
 ## Reconciliation with the CIM checkpoint
 
 Upstream base: `779a7650a79335a8ec6ceccc967c4f832d1c6ca1`, including
@@ -34,7 +63,7 @@ equations, verifies saved-result reuse and requires insufficient budgets to fail
 The earlier exploratory earth audit and its `core_material` selector stay retired;
 the accepted production earth fixtures remain intact.
 
-### Local validation status
+### Local validation at checkpoint `90e37b68`
 
 The local run was narrowed on 2026-09-10 at the user's request to conserve
 battery. Broad engine, Gauntlet, FEM and documentation runs were stopped before
@@ -65,8 +94,8 @@ OPENBLAS_NUM_THREADS=1 JULIA_NUM_THREADS=1 julia --project=gauntlet \
   test/gauntlet/runtests.jl spectral_reporting_tests
 ```
 
-The reconciliation is committed as a checkpoint at the user's request, with
-validation still pending. Existing CI selects this new regression as part of the
+The reconciliation was committed as a checkpoint at the user's request, with
+validation pending at that point. Existing CI selects this new regression as part of the
 Gauntlet suite; wider numerical and documentation checks can run there. No native
 PSCAD solve, publication or push was performed.
 

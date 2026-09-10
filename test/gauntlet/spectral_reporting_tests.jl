@@ -13,6 +13,7 @@
         value=run_benchmark(definition;directory)
         @test length(value.candidate_result)==length(controls)
         saved=read_benchmark(directory)
+        @test isconcretetype(eltype(saved.candidate.result))
         artifact=report(BenchmarkTableDefinition(),saved)
         rows=filter(row->row.role===:candidate,artifact.table.formulations)
         @test allunique(rows.label)
@@ -25,8 +26,13 @@
             for slot in (:earth_impedance,:earth_admittance)
                 @test getproperty(rows.record[index].requested,slot).options.integration==choice
                 @test getproperty(details(retained).formulations.requested,slot).options.integration==choice
-                for interaction in getproperty(details(retained).formulations.numerical,slot)
+                for interaction in getproperty(details(current).formulations.numerical,slot)
                     @test interaction.options.integration.method===Val(choice.method)
+                    @test interaction.options.integration.options.samples===choice.options.samples
+                end
+                for interaction in getproperty(details(retained).formulations.numerical,slot)
+                    @test interaction.options.integration.method==(
+                        type="Base.Val{$(repr(choice.method))}",fields=(;))
                     @test interaction.options.integration.options.samples===choice.options.samples
                 end
             end

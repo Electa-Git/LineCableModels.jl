@@ -4,7 +4,15 @@ _selection_value(value::Union{Nothing, Bool, Number, AbstractString, Symbol}) = 
 function _selection_value(value::Type)
     sprint(show, value; context = (:module=>nothing, :compact=>false))
 end
-_selection_value(value::NamedTuple) = map(_selection_value, value)
+function _selection_value(value::NamedTuple{Names}) where {Names}
+    record = map(_selection_value, value)
+    # Keep declared record fields when their portable values still fit. Narrowing
+    # a NamedTuple field to each point's options breaks homogeneous result spaces.
+    types = map(fieldtypes(typeof(value)), values(record)) do declared, item
+        item isa declared ? declared : typeof(item)
+    end
+    return NamedTuple{Names, Tuple{types...}}(record)
+end
 _selection_value(value::Tuple) = map(_selection_value, value)
 _selection_value(value::AbstractArray) = map(_selection_value, value)
 function _selection_value(value::AbstractDict)
