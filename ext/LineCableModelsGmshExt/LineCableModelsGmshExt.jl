@@ -5,7 +5,7 @@ import Gmsh
 import JSON3
 import Logging
 using Base.BinaryPlatforms: HostPlatform, triplet
-using LazyArtifacts: LazyArtifacts, @artifact_str, artifact_hash
+using Pkg.Artifacts: artifact_hash, ensure_artifact_installed
 using Logging: AbstractLogger, ConsoleLogger, SimpleLogger, @debug, @info,
                @warn, with_logger
 using Printf: @sprintf

@@ -24,8 +24,9 @@ failures without changing the earth kernels or their numerical algorithms.
   wrapper, registry or reporting conversion is introduced.
 - Require mixed default admittance to compute in both conductor orderings.
   Retain rejection checks with the explicitly restricted Pollaczek selection.
-- Import the LazyArtifacts module in the Gmsh extension. A separate-process
-  regression installs and executes GetDP with an initially empty artifact depot.
+- Install GetDP through the documented `Pkg.Artifacts.ensure_artifact_installed`
+  API. Separate-process regressions install and execute GetDP with initially empty
+  artifact depots under both compiled and source-only loading.
 - Run the existing Aqua test from the independent CI job. Its documented
   dependency exceptions have one owner. Declare Base64 in the test environment,
   as required by the parser fixture's direct import.
@@ -48,7 +49,7 @@ worktree. The following checks have completed:
 | Scalar/Gridspace records, homogeneous selections and PSCAD boundary/resume tests | 326 passed |
 | Frozen earth matrices, spectral integration and uncertainty | 4,234 passed |
 | Gauntlet execution, reporting, recovery, archives and vault packages | 829 passed |
-| FEM numerical references, constitutive laws and cold GetDP installation | 275 passed; one headless GUI check skipped |
+| FEM numerical references, constitutive laws and cold GetDP installation | 277 passed under source loading and coverage; one headless GUI check skipped |
 | Independent Aqua job in a fresh environment | 11 passed |
 | Isolated `Pkg.test` for PSCAD parser and FEM resume | 166 passed |
 | CIM fit identities and trapezoid resolution after the type-annotation repair | 22 passed |
@@ -61,3 +62,11 @@ The production earth kernels, integral algorithms, uncertainty regression,
 unified-earth regression and frozen fixture are unchanged from `fe092292`.
 PSCAD checks use retained fixtures and transport processes; no native PSCAD
 calculation or benchmark publication was performed during this integration.
+
+The first integrated CI run exposed an additional Julia 1.12.7 artifact-macro
+failure with `--compiled-modules=no`: the LazyArtifacts module was present, but
+the macro's earlier-world binding check could not see its installer. The initial
+cold-cache regression forced compiled loading and missed this case. The direct
+public installer replaces that macro path; the regression now covers both modes.
+The full FEM suite then passed with CI's `--compiled-modules=no
+--code-coverage=@.` settings, and all 1,194 quality checks passed again.

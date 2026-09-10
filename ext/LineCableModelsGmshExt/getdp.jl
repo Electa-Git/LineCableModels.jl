@@ -98,7 +98,7 @@ const GETDP_ARTIFACTS_TOML = normpath(joinpath(@__DIR__, "..", "..", "Artifacts.
 function _artifact_getdp()
     hash = artifact_hash("getdp", GETDP_ARTIFACTS_TOML)
     hash === nothing && return nothing
-    root = artifact"getdp"
+    root = ensure_artifact_installed("getdp", GETDP_ARTIFACTS_TOML)
     version = string(GETDP_ARTIFACT_VERSION)
     relative = if Sys.isapple()
         joinpath("getdp-$version-MacOSX", "bin", "getdp")
