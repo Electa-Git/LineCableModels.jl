@@ -14,7 +14,8 @@
     candidates=ParametricResult(nothing,points,(problems=[:one],formulations=selections),(;))
     baseline=(result=reference,metadata=(port_order=["a","b"],formulation=selections[1],axes=nothing))
     publication=report(BenchmarkTableDefinition(),(reference=baseline,candidate=candidates))
-    plots=LineCableModels.plot(publication,(Z,);options...)
+    series_attributes=((marker=:circle, markersize=8), (;), (linestyle=:dash,))
+    plots=LineCableModels.plot(publication,(Z,);options...,series_attributes)
     @test length(plots)==2
     @test sum(length(page.axes) for page in plots)==8
     expected_labels=publication.table.formulations.label
@@ -23,6 +24,9 @@
         for ((i,j),panel) in page.addon_state.panel_data
             curves=filter(item -> item isa Makie.Lines,panel.axis.scene.plots)
             @test length(curves)==3
+            markers=only(filter(item -> item isa Makie.Scatter,panel.axis.scene.plots))
+            @test markers[1][] == first(curves)[1][]
+            @test last(curves).linestyle[] == Makie.to_linestyle(:dash)
             for (factor,curve) in zip((1,2,3),curves)
                 @test first.(curve[1][]) ≈ f
                 @test last.(curve[1][]) ≈ factor .* q.(z[i,j,:])
@@ -65,7 +69,7 @@
     @test first(first(a.axes).scene.plots).color[] == first(first(b.axes).scene.plots).color[]
     mktempdir() do root
         for controls in (false,true)
-            page=LineCableModels.plot(publication,(R,);options...,controls)
+            page=LineCableModels.plot(publication,(R,);options...,controls,series_attributes)
             xlims!(first(page.axes),2,70)
             ylims!(first(page.axes),0,25)
             limits=[axis.finallimits[] for axis in page.axes]

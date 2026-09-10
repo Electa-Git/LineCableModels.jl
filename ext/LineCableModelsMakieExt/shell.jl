@@ -116,7 +116,7 @@ function _addon_shell(; size, controls::Bool)
     toolbar = GridLayout(; halign = :left, valign = :bottom)
     toolbar.default_colgap = Fixed(4)
     colgap!(toolbar, 4)
-    status = Observable("Ready.")
+    status = Observable("Ready")
     if controls
         root[2, 1] = body
         root[1, 1] = toolbar
@@ -305,6 +305,7 @@ function LineCableModels.plotwindow(
         title::AbstractString,
         figure_title = nothing,
         title_attributes::NamedTuple = (;),
+        series_attributes = nothing,
         size::Tuple{Int, Int} = (800, 400),
         layout = nothing,
         backend = nothing,
@@ -332,15 +333,20 @@ function LineCableModels.plotwindow(
         axes = Any[content for content in shell.figure.content if content isa Axis]
         resets = Function[(() -> autolimits!(axis)) for axis in axes]
         foreach(callback -> callback(), resets)
+        native = series_attributes === nothing ? Any[] :
+            Any[handle for axis in axes for handle in axis.scene.plots]
+        order = [Symbol("series_$index") for index in eachindex(native)]
+        groups = Dict(group => Any[handle] for (group, handle) in zip(order, native))
         _addon_finish!(
             shell,
             axes,
             resets,
             Function[],
             Function[],
-            Dict{Symbol, Vector{Any}}(),
-            Symbol[],
-            Dict{Symbol, String}();
+            groups,
+            order,
+            Dict(group => string(group) for group in order);
+            series_attributes,
             title = String(title),
             figure_title,
             title_attributes,
@@ -362,6 +368,7 @@ function _addon_statistical_plot(
         title,
         figure_title = nothing,
         title_attributes = (;),
+        series_attributes = nothing,
         panel_titles = nothing,
         fig_size,
         backend,
@@ -413,6 +420,7 @@ function _addon_statistical_plot(
             groups,
             order,
             labels;
+            series_attributes,
             title,
             figure_title,
             title_attributes,
@@ -475,22 +483,27 @@ function _addon_axis_format!(axis)
         # One owner for all PlotBuilder applications. Native custom formatters and
         # explicit tick labels opt out; reverting to automatic opts back in.
         onany(axis.scene, axis.finallimits, scale, ticks, tickformat, label;
-                update = true) do limits, current_scale, current_ticks, current_format, current_label
+            update = true) do limits, current_scale, current_ticks, current_format,
+        current_label
             updating[] && return nothing
             updating[] = true
             try
                 label_changed = current_label !== rendered_label[]
                 label_changed && (raw_label[] = current_label)
-                owned = current_format === installed_format[] || current_format === Makie.automatic
+                owned = current_format === installed_format[] ||
+                        current_format === Makie.automatic
                 labelled_ticks = current_ticks isa Tuple && length(current_ticks) == 2 &&
                                  last(current_ticks) isa AbstractVector
                 if owned && !labelled_ticks && current_scale === Makie.identity
                     lower = limits.origin[index]
-                    exponent = something(_addon_scientific_exponent(
-                        (lower, lower + limits.widths[index])), 0)
+                    exponent = something(
+                        _addon_scientific_exponent(
+                            (lower, lower + limits.widths[index])), 0)
                     exponent == installed_exponent[] &&
-                        current_format !== Makie.automatic && !label_changed && return nothing
-                    if exponent != installed_exponent[] || current_format === Makie.automatic
+                        current_format !== Makie.automatic && !label_changed &&
+                        return nothing
+                    if exponent != installed_exponent[] ||
+                       current_format === Makie.automatic
                         installed_format[] = _addon_linear_tickformat(exponent)
                         installed_exponent[] = exponent
                         tickformat[] = installed_format[]
@@ -1232,18 +1245,22 @@ function _addon_colorbar!(position, scale; attributes)
         onany(colorbar.blockscene, bounds, colorbar.vertical,
             colorbar.ticklabelsvisible; update = true) do boxes, vertical, visible
             dimension = vertical ? 2 : 1
-            finite_boxes = filter(box -> isfinite(box.origin[dimension]) &&
-                                  isfinite(box.widths[dimension]), boxes)
-            before = visible ? ceil(maximum(
+            finite_boxes = filter(
+                box -> isfinite(box.origin[dimension]) &&
+                       isfinite(box.widths[dimension]),
+                boxes)
+            before = visible ?
+                     ceil(maximum(
                 box -> -box.origin[dimension], finite_boxes; init = 0.0
             )) : 0.0
-            after = visible ? ceil(maximum(
+            after = visible ?
+                    ceil(maximum(
                 box -> box.origin[dimension] + box.widths[dimension],
                 finite_boxes; init = 0.0
             )) : 0.0
             colorbar.alignmode[] = vertical ?
-                                  Mixed(bottom = before, top = after) :
-                                  Mixed(left = before, right = after)
+                                   Mixed(bottom = before, top = after) :
+                                   Mixed(left = before, right = after)
         end
     end
     return colorbar
@@ -1420,6 +1437,7 @@ function _addon_finish!(
         title,
         figure_title = nothing,
         title_attributes = (;),
+        series_attributes = nothing,
         legend_position,
         legend_attributes,
         legend_overflow = :ellipsis,
@@ -1440,6 +1458,7 @@ function _addon_finish!(
         export_theme,
         open_export
 )
+    _addon_series_styles!(groups, order, series_attributes)
     foreach(_addon_axis_format!, axes)
     title_block = _addon_figure_title!(shell, figure_title, title_attributes)
     inside_bbox = _addon_axes_viewport(

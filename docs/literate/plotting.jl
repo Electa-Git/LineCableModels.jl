@@ -64,12 +64,23 @@ using Measurements: measurement
 # | `panel_titles` | Axis-title overrides, positionally or by semantic key |
 # | `legend_title` | Heading of the controlled figure legend |
 # | `series_labels` | Names of overlaid result containers; these are the legend entries |
+# | `series_attributes` | Native Makie attributes for all legend groups, or one named tuple per group in legend order |
 # | `legend_position` | `:inside`, a named outer dock, or a positive dock grid position |
 # | `legend_anchor` | Inside alignment such as `:lt`, `:cc`, or `:rb` |
 #
 # Some established recipes also accept `title` as their window/export or
 # single-recipe heading. Use the explicit scoped names above when composing a
 # dashboard.
+#
+# `series_attributes` uses the shared PlotBuilder shell for matrix and benchmark
+# plots, observation publications, statistical plots, and geometry previews.
+# A named tuple applies to every group; a tuple or vector of named tuples styles
+# each group separately. For example,
+# `series_attributes=((marker=:circle, markersize=8), (;), (linestyle=:dash,))`
+# adds markers to the first series, keeps the second's defaults, and dashes the
+# third. Styles apply across facets and pages, including their legends and
+# visibility controls. Attributes must be supported by the group's native plots.
+# In `plotwindow`, groups follow native plot insertion order across its axes.
 #
 # The same scopes are mutable after construction. `figuretitle!` and
 # `paneltitle!` replace titles. `figurelegend!` and `panellegend!` rebuild a

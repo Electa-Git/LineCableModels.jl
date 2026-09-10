@@ -202,6 +202,7 @@ function _addon_semantic_line_page(
         page,
         mode;
         series_indices,
+        series_attributes,
         title,
         figure_title,
         title_attributes,
@@ -327,6 +328,7 @@ function _addon_semantic_line_page(
             shell.figure, shell.canvas, panels, axes, page.dimensions)
     return _addon_finish!(
         shell, axes, resets, xsetters, ysetters, groups, group_order, group_labels;
+        series_attributes,
         title,
         figure_title,
         title_attributes,
@@ -352,6 +354,7 @@ function _addon_line_pages(
         requests,
         series_labels = nothing,
         series_indices = collect(eachindex(sources)),
+        series_attributes = nothing,
         title = nothing,
         figure_title = nothing,
         title_attributes::NamedTuple = (;),
@@ -428,6 +431,7 @@ function _addon_line_pages(
                 _addon_semantic_line_page(
                     first(sources), published, source_labels, page, mode;
                     series_indices,
+                    series_attributes,
                     title = page_title,
                     figure_title = visible_title,
                     title_attributes,

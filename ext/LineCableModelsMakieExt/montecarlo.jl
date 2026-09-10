@@ -127,6 +127,7 @@ function Makie.hist(
         legend_attributes::NamedTuple = (;),
         legend_overflow::Symbol = :ellipsis,
         panel_legends = (),
+        series_attributes = nothing,
         kwargs...
 )
     publication = _monte_carlo_publication(result, request;
@@ -175,7 +176,8 @@ function Makie.hist(
         legend_labels,
         legend_attributes,
         legend_overflow,
-        panel_legends
+        panel_legends,
+        series_attributes
     ) do axis, groups, order, labels, series
         plot = bins === nothing ?
                hist!(axis, sample.values; normalization, label = "samples", kwargs...) :
@@ -211,6 +213,7 @@ function Makie.stairs(
         legend_attributes::NamedTuple = (;),
         legend_overflow::Symbol = :ellipsis,
         panel_legends = (),
+        series_attributes = nothing,
         kwargs...
 )
     publication = _monte_carlo_publication(result, request;
@@ -252,7 +255,8 @@ function Makie.stairs(
         legend_labels,
         legend_attributes,
         legend_overflow,
-        panel_legends
+        panel_legends,
+        series_attributes
     ) do axis, groups, order, labels, series
         y = [model.values.density; last(model.values.density)]
         plot = stairs!(axis, model.values.edges, y;
@@ -287,6 +291,7 @@ function Makie.ecdfplot(
         legend_attributes::NamedTuple = (;),
         legend_overflow::Symbol = :ellipsis,
         panel_legends = (),
+        series_attributes = nothing,
         kwargs...
 )
     publication = _monte_carlo_publication(result, request;
@@ -324,7 +329,8 @@ function Makie.ecdfplot(
         legend_labels,
         legend_attributes,
         legend_overflow,
-        panel_legends
+        panel_legends,
+        series_attributes
     ) do axis, groups, order, labels, series
         plot = ecdfplot!(axis, sample.values; label = "empirical CDF", kwargs...)
         groups[:empirical] = Any[plot]
@@ -365,6 +371,7 @@ function Makie.lines(
         legend_attributes::NamedTuple = (;),
         legend_overflow::Symbol = :ellipsis,
         panel_legends = (),
+        series_attributes = nothing,
         kwargs...
 )
     publication = _monte_carlo_publication(result, request;
@@ -405,7 +412,8 @@ function Makie.lines(
         legend_labels,
         legend_attributes,
         legend_overflow,
-        panel_legends
+        panel_legends,
+        series_attributes
     ) do axis, groups, order, labels, series
         plot = lines!(axis, grid, probability; label = "model CDF", kwargs...)
         groups[:model] = Any[plot]
@@ -440,6 +448,7 @@ function Makie.qqplot(
         legend_attributes::NamedTuple = (;),
         legend_overflow::Symbol = :ellipsis,
         panel_legends = (),
+        series_attributes = nothing,
         kwargs...
 )
     qqline in (:identity, :none) || throw(ArgumentError(
@@ -489,6 +498,7 @@ function Makie.qqplot(
         legend_attributes,
         legend_overflow,
         panel_legends,
+        series_attributes,
         xlabel = "Sample quantiles [$displayed_unit]",
         ylabel = "Model quantiles [$displayed_unit]"
     ) do axis, groups, order, labels, series

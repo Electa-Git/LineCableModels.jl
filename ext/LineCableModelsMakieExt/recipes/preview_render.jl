@@ -133,6 +133,7 @@ function _addon_preview_finish!(
         title,
         figure_title = nothing,
         title_attributes = (;),
+        series_attributes = nothing,
         panels,
         panel_legends,
         panel_legend_titles = nothing,
@@ -160,6 +161,7 @@ function _addon_preview_finish!(
         groups,
         group_order,
         group_labels;
+        series_attributes,
         title,
         figure_title,
         title_attributes,
@@ -192,6 +194,7 @@ function _addon_preview(
         title = nothing,
         figure_title = nothing,
         title_attributes::NamedTuple = (;),
+        series_attributes = nothing,
         panel_titles = nothing,
         display_colorbars::Bool = true,
         size::Tuple{Int, Int} = (900, 700),
@@ -278,6 +281,7 @@ function _addon_preview(
             controls,
             display_plot,
             export_name = design.cable_id,
+            series_attributes,
             export_theme,
             open_export
         )
@@ -291,6 +295,7 @@ function _addon_preview(
         title = nothing,
         figure_title = nothing,
         title_attributes::NamedTuple = (;),
+        series_attributes = nothing,
         panel_titles = nothing,
         display_colorbars::Bool = true,
         size::Tuple{Int, Int} = (1200, 900),
@@ -380,6 +385,7 @@ function _addon_preview(
             controls,
             display_plot,
             export_name = "cable_design_previews",
+            series_attributes,
             export_theme,
             open_export
         )
@@ -397,6 +403,7 @@ function _addon_preview(
         title = nothing,
         figure_title = nothing,
         title_attributes::NamedTuple = (;),
+        series_attributes = nothing,
         panel_titles = nothing,
         display_colorbars::Bool = true,
         size::Tuple{Int, Int} = (900, 700),
@@ -478,6 +485,7 @@ function _addon_preview(
             controls,
             display_plot,
             export_name = system.system_id,
+            series_attributes,
             export_theme,
             open_export
         )

@@ -1293,6 +1293,9 @@ end
         run_directories = [value.details.fem.run.run_directory for value in batch]
         @test length(unique(run_directories)) == 2
         for index in eachindex(selected)
+            files = details(batch[index]).files
+            @test any(file -> file.path == "run.json", files)
+            @test all(file -> bytes2hex(open(sha256, file.source)) == file.sha256, files)
             soil = batch[index].details.formulations.selections.earth_properties
             @test soil === nothing ? selected[index].methods.earth_properties === nothing :
                   soil.identifier === formula_id(selected[index].methods.earth_properties)

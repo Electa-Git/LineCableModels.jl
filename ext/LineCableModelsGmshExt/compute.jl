@@ -397,10 +397,10 @@ function _headless_solve!(
     @info "Starting isolated GetDP frequency batches" workers=formulation.execution.frequency_workers
     _run_getdp!(run, model, formulation, mesh_paths)
     scan = _parse_scan(run, model, formulation)
-    parameters = _line_parameters(run, model, formulation, execution, scan, inputs)
     _write_scan_checksums(run, scan)
     gmsh.onelab.set_number(_onelab_name("completion_status"), [1.0])
     _transition!(run, completed, "results validated")
+    parameters = _line_parameters(run, model, formulation, execution, scan, inputs)
     @info "FEM scan completed successfully"
     return parameters
 end
@@ -491,13 +491,13 @@ function _ui_solve!(
                 Bool(gmsh.fltk.is_available())
             end)
             scan = _parse_scan(run, model, formulation)
-            parameters = _line_parameters(run, model, formulation, execution, scan, inputs)
             _write_scan_checksums(run, scan)
             formulation.execution.plot_field_maps && _merge_maps!(scan.map_paths)
             gmsh.onelab.set_number(_onelab_name("completion_status"), [1.0])
             gmsh.onelab.set_number(_onelab_name("ui/completed_frequencies"), [run.completed_frequencies])
             gmsh.onelab.set_number(_onelab_name("ui/completed_columns"), [run.completed_columns])
             _transition!(run, completed, "results ready")
+            parameters = _line_parameters(run, model, formulation, execution, scan, inputs)
             state = _set_ui_status(:results_ready)
         end
         gmsh.fltk.wait(0.05)

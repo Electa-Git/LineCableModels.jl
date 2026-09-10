@@ -88,6 +88,7 @@ function _addon_publication_plot(
         title = nothing,
         figure_title = nothing,
         title_attributes::NamedTuple = (;),
+        series_attributes = nothing,
         panel_titles = nothing,
         fig_size::Tuple{Int, Int} = (800, 400),
         layout = nothing,
@@ -230,6 +231,7 @@ function _addon_publication_plot(
             groups,
             order,
             group_labels;
+            series_attributes,
             title = display_title,
             figure_title,
             title_attributes,
