@@ -72,8 +72,7 @@ function Formula(::Val{ID}; parameters::NamedTuple = (;), hooks::NamedTuple = (;
         options::NamedTuple = (;), equivalent_earth = nothing) where {ID}
     ID in FORMULAS ||
         throw(ArgumentError("unknown earth-potential coefficient formula :$ID"))
-    isempty(parameters) ||
-        throw(ArgumentError("earth-potential coefficient :$ID has no configurable physical parameters"))
+    parameters = earth_parameters(Val(ID), parameters)
     # Indexed declarations own admitted hook names. Resolve them with the actual
     # required cases, alongside case-local numerical sections, during preflight.
     any(isnothing, values(hooks)) &&

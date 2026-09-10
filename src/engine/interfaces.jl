@@ -20,6 +20,27 @@ function absolute_error end
 "Return reference-normalised numerical errors from an owned comparison result."
 function relative_error end
 
+"Identify formulas whose physical current constraint requires the complete exterior system."
+system_earth(::Any) = false
+function unified_entry end
+
+function earth_parameters(::Val{ID}, parameters::NamedTuple) where {ID}
+    isempty(parameters) ||
+        throw(ArgumentError("earth formula :$ID has no configurable physical parameters"))
+    return parameters
+end
+
+function earth_parameters(::Val{:default}, parameters::NamedTuple)
+    isempty(setdiff(keys(parameters), (:reference,))) || throw(ArgumentError(
+        "the unified earth default accepts only the physical reference parameter"))
+    reference=get(parameters, :reference, :deep)
+    valid=reference in (:deep, :interface, :scalar) ||
+          (reference isa Real&&!(reference isa Bool)&&isfinite(reference)&&reference>0)
+    valid ||
+        throw(ArgumentError("earth reference must be :deep, :interface, :scalar, or a positive finite depth [m]"))
+    return parameters
+end
+
 "Abstract tag for the physical domain represented by line-parameter matrices."
 abstract type LineParamsDomain end
 

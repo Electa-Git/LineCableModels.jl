@@ -71,8 +71,7 @@ never use another formula's overrides to supply a missing case.
 function Formula(::Val{ID}; parameters::NamedTuple = (;), hooks::NamedTuple = (;),
         options::NamedTuple = (;), equivalent_earth = nothing) where {ID}
     ID in FORMULAS || throw(ArgumentError("unknown earth-impedance formula :$ID"))
-    isempty(parameters) ||
-        throw(ArgumentError("earth-impedance :$ID has no configurable physical parameters"))
+    parameters = earth_parameters(Val(ID), parameters)
     # Indexed declarations own admitted hook names. Resolve them with the actual
     # required cases, alongside case-local numerical sections, during preflight.
     any(isnothing, values(hooks)) &&

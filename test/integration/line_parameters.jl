@@ -55,10 +55,9 @@
             trace.Zg[:, :, frequency_index],
             transpose(trace.Zg[:, :, frequency_index])
         )
-        @test TestNumerics.isapprox_scaled(
-            trace.Pg[:, :, frequency_index],
-            transpose(trace.Pg[:, :, frequency_index])
-        )
+        # Unequal heights retain the directional path-voltage entries.
+        Pg=trace.Pg[:, :, frequency_index]
+        @test norm(Pg-transpose(Pg))>64eps(Float64)*norm(Pg)
         @test any(!iszero,
             trace.Zg[:, :, frequency_index] .-
             Diagonal(diag(trace.Zg[:, :, frequency_index])))
@@ -81,7 +80,7 @@
     @test workspace.invariants.cable_indices ==
           [findall(entry -> entry.cable == cable, problem.system.terminal_order)
            for cable in 1:ncables(problem.system)]
-    capture_allocations(input)=@allocated LineCableModels.Engine._capture_buffers(
+    capture_allocations(input) = @allocated LineCableModels.Engine._capture_buffers(
         Float64, input, Val(false))
     capture_allocations(workspace.input)
     @test capture_allocations(workspace.input) <= 1024
@@ -90,7 +89,7 @@
 
     allocation_formulation=Formulation(
         earth_impedance = :Pollaczek1926,
-        earth_admittance = :default,
+        earth_admittance = :Xue2018,
         options = (
             reduce_bundle = true,
             kron_reduction = true,
@@ -118,6 +117,19 @@
         allocation_formulation
     )
     @test allocations <= 4_096
+
+    # The complete current closure has a separate, bounded workspace cost.
+    # Keep the original author-path ceiling above unchanged.
+    complete_formulation=Formulation(options = (reduce_bundle = true,
+        kron_reduction = true, ideal_transposition = false))
+    complete_workspace=LineParametersWorkspace(problem, complete_formulation,
+        execution, blueprints)
+    solve_without_logging(complete_workspace, complete_formulation)
+    solve_without_logging(complete_workspace, complete_formulation)
+    @test (@allocated solve_without_logging(complete_workspace, complete_formulation))<=32_768
+    numerical=complete_workspace.buffers.earth_numerical
+    @test only(numerical.earth_impedance.systems).response ===
+          only(numerical.earth_admittance.systems).response
 end
 
 @testitem "Engine / Gridpoint / selected line problem reaches scalar compute" tags=[:integration] setup=[
@@ -332,8 +344,7 @@ end
                                                                    LineCableModelsCoaxial(), source,
                                                                    eltype(problem)
                                                                )
-                                                               for source in
-                                                                   problem.system.designs]
+                                                               for source in problem.system.designs]
     )
     @test_throws ArgumentError compute(problem, Formulation())
     @test_throws ArgumentError CableConstants(design)
@@ -379,7 +390,7 @@ end
     ))
     execution=computation_options(LineCableModelsCoaxial, (;))
     workspace(problem,
-        formulation = Formulation())=LineParametersWorkspace(
+        formulation = Formulation()) = LineParametersWorkspace(
         problem,
         formulation,
         execution,
@@ -489,12 +500,12 @@ end
         frequencies
     )
     bundle_only=Formulation(;
-        temperature_dependence=nothing,
+        temperature_dependence = nothing,
         options = (
-        reduce_bundle = true,
-        kron_reduction = false,
-        ideal_transposition = true
-    )
+            reduce_bundle = true,
+            kron_reduction = false,
+            ideal_transposition = true
+        )
     )
     duplicate_result=@inferred compute(duplicate_problem, bundle_only)
     @test size(duplicate_result.Z) == (2, 2, 1)
@@ -520,12 +531,12 @@ end
         frequencies
     )
     unreduced=Formulation(;
-        temperature_dependence=nothing,
+        temperature_dependence = nothing,
         options = (
-        reduce_bundle = false,
-        kron_reduction = false,
-        ideal_transposition = true
-    )
+            reduce_bundle = false,
+            kron_reduction = false,
+            ideal_transposition = true
+        )
     )
     singleton_result=compute(singleton_problem, unreduced)
     @test size(singleton_result.Z) == (1, 1, 1)
@@ -539,7 +550,9 @@ end
     base=TestFixtures.line_parameters_problem(frequencies = [50.0, 500.0])
     explicit=LineParametersProblem(base.system; earth_props = base.earth_props,
         frequencies = base.frequencies, Γ = [1e-5im, 2e-5im])
-    @test_throws ArgumentError compute(explicit, Formulation())
+    prescribed=compute(explicit, Formulation())
+    @test all(isfinite, prescribed.Z)&&all(isfinite, prescribed.Y)
+    @test_throws ArgumentError compute(explicit, Formulation(earth_impedance = :Xue2018))
     calls=Tuple{Int, Int}[]
     prescription=(s, m, l)->(push!(calls, l); zero(s))
     selected=Formulation(earth_impedance = formula(:default; hooks = (Γ = prescription,)))
@@ -555,15 +568,13 @@ end
     @test_throws DimensionMismatch LineParametersProblem(base.system;
         earth_props = base.earth_props, frequencies = base.frequencies, Γ = [0.0])
     design=TestFixtures.mv_cable_design()
-    connections(phase)=Dict("core"=>phase, "sheath"=>0, "jacket"=>0)
+    connections(phase) = Dict("core"=>phase, "sheath"=>0, "jacket"=>0)
     mixed=build(LineCableSystem, [design, design], [Pose2(0.0, 1.0), Pose2(1.0, -1.0)];
         connections = [connections(1), connections(2)])
     problem=LineParametersProblem(mixed; earth_props = EarthModel(100.0), frequencies = [50.0])
-    @test_throws ArgumentError compute(problem)
-    @test_throws ArgumentError compute(problem,
-        Formulation(
-            earth_impedance = formula(:default; hooks = (contribution = (
-            f, p, w)->zero(f.state.jω),))))
+    mixed_result=compute(problem)
+    @test all(isfinite, mixed_result.Z)&&all(isfinite, mixed_result.Y)
+    @test_throws ArgumentError compute(problem, Formulation(earth_impedance = :Xue2018))
 end
 
 @testitem "Engine / frequency-dependent earth relation reaches coaxial solve" tags=[:integration] setup=[

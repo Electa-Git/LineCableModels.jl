@@ -24,8 +24,8 @@
             hooks = (contribution = replacement,),
             options = (integration = (method = :quad,),)),
         pair)
-    @test_throws ArgumentError validate(missing,
-        E.EarthPair(1, 2, (1.0, -1.0), 1.0, (1, 2)))
+    @test validate(missing,
+        E.EarthPair(1, 2, (1.0, -1.0), 1.0, (1, 2))).kind === :mutual
     rho = [Inf, 100.0]
     epsilon = 8.8541878128e-12 .* [1, 10]
     mu = fill(4pi*1e-7, 2)
@@ -177,7 +177,7 @@ end
         return kind===Val(:mutual) ? 0.5+0.1im : 2.0+1.0im
     end
     LineCableModels.computation_options(::FM{
-        :ManufacturedSurfaces, typeof(II.internal_impedance)})=(;)
+        :ManufacturedSurfaces, typeof(II.internal_impedance)}) = (;)
     function (formula::II.Formula{:ManufacturedSurfaces})(r_in, r_ex, rho, mu_r, jω)
         push!(preparations, (r_in, r_ex, rho, mu_r, jω))
         state=(serial = length(preparations),)

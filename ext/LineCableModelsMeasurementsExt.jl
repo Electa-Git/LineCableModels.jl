@@ -37,6 +37,17 @@ import LineCableModels.ReportBuilder: encode_cell
 nominal(value::Measurements.Measurement) = measured_value(value)
 uncertainty(value::Measurements.Measurement) = measured_uncertainty(value)
 
+# Refinement must still see an uncertain contribution whose nominal value is
+# zero. Physical evaluations retain their correlated derivative information;
+# only the scalar numerical error metric and sampling coordinates are nominal.
+function Engine.spectral_magnitude(z::Complex{<:Measurements.Measurement})
+    return max(abs(measured_value(z)),
+        hypot(measured_uncertainty(real(z)), measured_uncertainty(imag(z))))
+end
+function Engine.spectral_magnitude(z::Measurements.Measurement)
+    return max(abs(measured_value(z)), measured_uncertainty(z))
+end
+
 function LineCableModels.materialize(value::ParametricBuilder.UncertainValue{<:Real})
     Measurements.measurement(value.nominal, value.sigma)
 end

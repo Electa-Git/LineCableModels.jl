@@ -5,7 +5,8 @@ real = 4.923125373704345e-5
 kind = "self"
 family = "EarthImpedance"
 placement = "overhead"
-id = "default"
+id = "Wise1934"
+previous_id = "default"
 frequency = 50.0
 imag = 0.0007190567865309298
 [[cases]]
@@ -13,7 +14,8 @@ real = 0.09001481711009716
 kind = "self"
 family = "EarthImpedance"
 placement = "overhead"
-id = "default"
+id = "Wise1934"
+previous_id = "default"
 frequency = 100000.0
 imag = 0.9704368758515347
 [[cases]]
@@ -21,7 +23,8 @@ real = 4.917327166289383e-5
 kind = "mutual"
 family = "EarthImpedance"
 placement = "overhead"
-id = "default"
+id = "Wise1934"
+previous_id = "default"
 frequency = 50.0
 imag = 0.0004157436302317874
 [[cases]]
@@ -29,7 +32,8 @@ real = 0.08616056045665253
 kind = "mutual"
 family = "EarthImpedance"
 placement = "overhead"
-id = "default"
+id = "Wise1934"
+previous_id = "default"
 frequency = 100000.0
 imag = 0.36855099074469866
 [[cases]]
@@ -37,7 +41,8 @@ real = 4.946490196233288e-5
 kind = "self"
 family = "EarthImpedance"
 placement = "underground"
-id = "default"
+id = "Xue2018"
+previous_id = "default"
 frequency = 50.0
 imag = 0.0007188215638205288
 [[cases]]
@@ -45,7 +50,8 @@ real = 0.10757437146108494
 kind = "self"
 family = "EarthImpedance"
 placement = "underground"
-id = "default"
+id = "Xue2018"
+previous_id = "default"
 frequency = 100000.0
 imag = 0.9501270515362444
 [[cases]]
@@ -53,7 +59,8 @@ real = 4.9521954073381505e-5
 kind = "mutual"
 family = "EarthImpedance"
 placement = "underground"
-id = "default"
+id = "Xue2018"
+previous_id = "default"
 frequency = 50.0
 imag = 0.0004153909981267233
 [[cases]]
@@ -61,7 +68,8 @@ real = 0.10928488902923819
 kind = "mutual"
 family = "EarthImpedance"
 placement = "underground"
-id = "default"
+id = "Xue2018"
+previous_id = "default"
 frequency = 100000.0
 imag = 0.33891442031800534
 [[cases]]
@@ -279,7 +287,8 @@ real = 9.523805173586084e10
 kind = "self"
 family = "EarthAdmittance"
 placement = "overhead"
-id = "default"
+id = "Wise1948"
+previous_id = "default"
 frequency = 50.0
 imag = 200458.48942586398
 [[cases]]
@@ -287,7 +296,8 @@ real = 9.52860482498799e10
 kind = "self"
 family = "EarthAdmittance"
 placement = "overhead"
-id = "default"
+id = "Wise1948"
+previous_id = "default"
 frequency = 100000.0
 imag = 1.726067249488295e8
 [[cases]]
@@ -295,7 +305,8 @@ real = 1.6281531729895386e10
 kind = "mutual"
 family = "EarthAdmittance"
 placement = "overhead"
-id = "default"
+id = "Wise1948"
+previous_id = "default"
 frequency = 50.0
 imag = 196100.84018261073
 [[cases]]
@@ -303,7 +314,8 @@ real = 1.6329468835556543e10
 kind = "mutual"
 family = "EarthAdmittance"
 placement = "overhead"
-id = "default"
+id = "Wise1948"
+previous_id = "default"
 frequency = 100000.0
 imag = 1.6388819703988802e8
 [[cases]]
@@ -311,7 +323,8 @@ real = 7854.131753723612
 kind = "self"
 family = "EarthAdmittance"
 placement = "underground"
-id = "default"
+id = "Xue2018"
+previous_id = "default"
 frequency = 50.0
 imag = 82931.0646740117
 [[cases]]
@@ -319,7 +332,8 @@ real = 1.6093410429762473e7
 kind = "self"
 family = "EarthAdmittance"
 placement = "underground"
-id = "default"
+id = "Xue2018"
+previous_id = "default"
 frequency = 100000.0
 imag = 8.980232015067658e7
 [[cases]]
@@ -327,7 +341,8 @@ real = 7853.84063843562
 kind = "mutual"
 family = "EarthAdmittance"
 placement = "underground"
-id = "default"
+id = "Xue2018"
+previous_id = "default"
 frequency = 50.0
 imag = 56610.69897757377
 [[cases]]
@@ -335,7 +350,8 @@ real = 1.5459946882936105e7
 kind = "mutual"
 family = "EarthAdmittance"
 placement = "underground"
-id = "default"
+id = "Xue2018"
+previous_id = "default"
 frequency = 100000.0
 imag = 3.7270839114480026e7
 [[cases]]

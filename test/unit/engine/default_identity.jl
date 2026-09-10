@@ -7,10 +7,10 @@
         (E.InsulationImpedance, (:default,)),
         (E.EarthImpedance,
             (:default, :Carson1926, :Pollaczek1926, :Gary1976,
-                :WedepohlWilcox1973, :Saad1996, :Ametani2009, :Lucca1994)),
+                :WedepohlWilcox1973, :Saad1996, :Ametani2009, :Lucca1994, :Wise1934, :Xue2018)),
         (E.InsulationAdmittance, (:default, :Ametani2004)),
         (E.SemiconAdmittance, (:default, :Ametani2004)),
-        (E.EarthAdmittance, (:default, :Pollaczek1926)),
+        (E.EarthAdmittance, (:default, :Pollaczek1926, :Wise1948, :Xue2018)),
         (E.PipeImpedance, (:default,)), (EP.FrequencyDependent, (:default,)), (
             EP.EquivalentHomogeneous, (:default,)),
         (LineCableModels.Transforms, (:default,)))

@@ -1,6 +1,9 @@
 case_definition(
     :two_bare_wires,
     (
+        core_material = case_parameter(
+            :core_material, :copper; tags = (:selection,)
+        ),
         core_radius = case_parameter(
             :core_radius, 0.0425; tags = (:geometry, :cable_layer)
         ),
@@ -21,7 +24,7 @@ case_definition(
     description = "Two buried bare wires"
 ) do p
     materials = LineCableModels.MaterialsLibrary(add_defaults = true)
-    copper = LineCableModels.Material(materials, :copper)
+    conductor = LineCableModels.Material(materials, p.core_material)
     design = LineCableModels.build(
         LineCableModels.CableDesign,
         "two_bare_wires",
@@ -31,7 +34,7 @@ case_definition(
                 LineCableModels.Region(
                     :core_metal,
                     LineCableModels.Disk(p.core_radius),
-                    copper
+                    conductor
                 )
             )
         )

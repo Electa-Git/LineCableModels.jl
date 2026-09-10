@@ -43,8 +43,9 @@ export InsulationAdmittance, SemiconAdmittance, EarthAdmittance
 export compute
 
 # Module-specific dependencies
-using LinearAlgebra: svd, eigvals, Diagonal, I, checksquare, cond, diag, ldiv!, lu, lu!,
-                     mul!, norm
+using LinearAlgebra: svd, svd!, eigvals, Diagonal, I, checksquare, cond, diag, ldiv!, lu, lu!,
+                     mul!, qr, ColumnNorm
+import LinearAlgebra: norm
 using DocStringExtensions: IMPORTS, TYPEDEF, TYPEDFIELDS, TYPEDSIGNATURES
 import ..LineCableModels: basis, build, R, L, C,
                           resistance, inductance, capacitance
@@ -77,6 +78,7 @@ import Logging
 using Logging: AbstractLogger, ConsoleLogger, with_logger
 import SpecialFunctions
 using QuadGK: alloc_segbuf, quadgk
+using DoubleExponentialFormulas: QuadDE
 
 include("interfaces.jl")
 include("formulations.jl")
@@ -86,6 +88,8 @@ include("earthkernels.jl")
 include("problems.jl")
 include("options.jl")
 include("integration.jl")
+include("spectralsampling.jl")
+include("compleximages.jl")
 
 # Line-parameter results and their protocols
 include("lineparameters/lineparameters.jl")
@@ -136,10 +140,11 @@ include("lineparameters/publication.jl")
 include("textdisplay.jl")
 
 public hooks, SpectralIntegral, integrate
-public has_uncertainty_type
+public has_uncertainty_type, spectral_magnitude
 public reduce_primitive_matrices, potential_to_admittance
 public layer_admittance
 public ConsoleVerbosityLogger
-public CableBlueprint, BlueprintConductor, BlueprintDielectric, flatten, lineinput, earth_pairs
+public CableBlueprint, BlueprintConductor, BlueprintDielectric, flatten, lineinput,
+       earth_pairs
 
 end # module Engine

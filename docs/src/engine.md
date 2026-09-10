@@ -5,20 +5,22 @@ execution. Source equations and bibliography belong in the implementing formula
 file. Backend/formula methods select an implementation through Julia dispatch.
 
 Every family owns a concrete `:default` identifier. There is no author alias or
-forwarding map. The retained alternatives are limited to PSCAD comparisons:
+forwarding map. Author registrations preserve comparison formulas and the former earth defaults:
 
 | Family | Registered choices |
 |---|---|
 | Internal impedance, insulation impedance, pipe impedance | `:default` |
 | Insulation admittance, semicon admittance | `:default`, `:Ametani2004` |
-| Earth impedance | `:default`, `:Carson1926`, `:Pollaczek1926`, `:Gary1976`, `:WedepohlWilcox1973`, `:Saad1996`, `:Ametani2009`, `:Lucca1994` |
-| Earth admittance | `:default`, `:Pollaczek1926` |
+| Earth impedance | `:default`, `:Carson1926`, `:Pollaczek1926`, `:Gary1976`, `:WedepohlWilcox1973`, `:Saad1996`, `:Ametani2009`, `:Lucca1994`, `:Wise1934`, `:Xue2018` |
+| Earth admittance | `:default`, `:Pollaczek1926`, `:Wise1948`, `:Xue2018` |
 | Frequency-dependent soil properties, equivalent earth, modal transformation | `:default` |
 
 The internal default retains Schelkunoff's tubular conductor expressions;
 insulation impedance retains the annular magnetic term documented by Ametani.
-Earth defaults retain the overhead expressions from Wise and the underground
-expressions from Xue. Dielectric defaults are lossless; explicit `:Ametani2004`
+Both earth defaults implement the supplied circumferentially averaged framework
+with complete enclosed-current normalization. The former air defaults remain
+available as `:Wise1934` for impedance and `:Wise1948` for potential coefficients;
+both former buried defaults are `:Xue2018`. Dielectric defaults are lossless; explicit `:Ametani2004`
 retains conductivity and the material's supplied polarization losses. The FrequencyDependent
 default preserves static properties, EquivalentHomogeneous selects the basement when explicitly
 requested, and the modal default performs Levenberg–Marquardt tracking.
@@ -59,8 +61,8 @@ result = compute(problem, selected)
 
 `Γ(jω, materials, (s,t))` returns one finite scalar [1/m]. Its square is derived
 from that scalar. An explicit problem `Γ` and explicit Γ hook conflict, including
-when both return zero. Every retained earth equation fixes longitudinal Γ to zero;
-a nonzero value from either origin fails. Medium propagation laws have signature
+when both return zero. The new earth defaults accept a common prescribed Γ; all retained author earth
+equations require Γ=0. No propagation-constant root solver is implied. Medium propagation laws have signature
 `air/earth(jω, μ, σ, ε)`, the permeability hook has signature `permeability(μ)`, and
 a complete earth contribution has signature `contribution(functor, pair, workspace)`.
 A hook unused by the selected indexed equation is rejected. Hook arities are not
@@ -108,11 +110,10 @@ material preparation. There is no combined formula identity. An unused leaf does
 not supply missing cases or execute a kernel. True layered inputs require a scalar
 selection; scalar multilayer and explicit EHEM behavior are unchanged.
 
-This example supplies impedance choices. A mixed calculation also requires an
-implemented potential-coefficient equation for its mixed pairs. The current
-built-in LCM admittance formulas do not provide that case and preflight rejects it.
-The engine can bind independently implemented indexed equations through the same
-contract without adding them to the built-in registry.
+The default potential formulation supplies both mixed directions. Selecting a
+default leaf for only part of a matrix still assembles its complete auxiliary
+system and then selects the requested final entries. Retained author entries
+never become inputs to its K/H kernels.
 
 The workspace binds every required ordered pair before frequency evaluation.
 Geometry and layer indices follow the same order. Both directions are evaluated;
@@ -129,10 +130,35 @@ indexing has no defined origin in the present geometry contract.
 Carson admits only `(1,1)`. Both Pollaczek families admit only `(2,2)` and reject
 air or mixed pairs. Ametani2009 and Lucca1994 remain mixed-only equations and cannot
 assemble a complete native matrix by themselves. Their missing self terms are
-never filled by another source. The package defaults supply their own overhead
-and buried cases, with the documented Wise/Xue equations. Their permeability
-prescriptions differ by case, and neither default declares a mixed-medium case;
-they do not constitute a complete general Green-function model.
+never filled by another source. The defaults supply air/air, earth/earth and both mixed directions with
+independent medium permeabilities. Every circumference must lie wholly in its
+half-space and exterior circles must not overlap. The default requires homogeneous
+earth or an explicitly globally consistent equivalent earth. Pair-dependent
+reductions remain available through author selections.
+
+The complete earth source kernels satisfy
+
+```math
+K=\mathcal Z-\Gamma^2\mathcal P_\phi/s,\qquad
+L=A_r^{-1}-F_rK,\qquad
+P_eL=H,\quad Z_eL=K+\Gamma^2H/s,\quad Y_eH=sL.
+```
+
+Here `s=jω`, Ze is in Ω/m, Pe in m/F and Ye in S/m. Matrices are solved on the
+right, with source columns and receiver rows. Pe and Ye retain the direction of
+the voltage path; they are not symmetrized. The default reference is common deep
+earth. Select `parameters=(reference=:interface,)`, a positive finite reference
+depth below every circumference, or `reference=:scalar` for the distinct scalar
+potential diagnostic. Use the same physical reference for both owners when a
+consistent Ze/Pe pair is required.
+
+Public `compute` prepares the complete system. Calling a default pair callback
+without that context is an error; explicit author formulas retain their pairwise
+contract. Contribution overrides that declare integration resources receive the
+prepared context at the final-entry stage. Internal conductor and insulation
+contributions retain the existing cable composition and terminal reductions.
+With `options=(trace=true,)`, `trace.Zg` and `trace.Pg` expose the exterior
+matrices; the returned total line admittance also includes insulation effects.
 
 Select an equivalent homogeneous earth on each consuming formula:
 
@@ -191,8 +217,8 @@ assembly and pipe equations are outside this implementation.
 
 | `integration.method` | Numerical operation |
 |---|---|
-| `:quad` | Real spectral-axis adaptive `QuadGK.quadgk`, with error checks. |
-| `:trapz` | Logarithmic spectral-variable transformation with its Jacobian; independent grid and tail refinement. |
+| `:quad` | Adaptive QuadGK on an admissible contour with explicit physical feature breakpoints and error estimates. |
+| `:trapz` | Double-exponential transformed trapezoids from DoubleExponentialFormulas, with independently verified local subdomains. |
 | `:cim` | Matrix-pencil/GPOF exponential fit along the spectral coordinate at fixed physical frequency; analytic image integration. |
 
 `SpectralIntegral` exposes the kernel, analytic weight, spectral scale and admissible
@@ -202,14 +228,51 @@ CIM fits only its rationalized remainder. Cases without a declared integral rece
 no integration section or integration scratch.
 
 CIM fits spectral λ (or the explicitly declared radial spectral coordinate), never
-physical frequency. Fits are currently local to one integral evaluation: there is no
-persistent cache across frequencies, materials, geometry, layer pairs or controls.
-Both a held-out kernel residual and an independent quadrature comparison must pass.
-Quadrature validates the image sum and never supplies the result labelled `:cim`;
-this initial implementation therefore incurs validation cost on every CIM evaluation.
-Nonconvergence raises an error without changing algorithms. Matrix-pencil fitting
-currently supports Float32/Float64; higher precision and uncertainty inputs are
-supported by quadrature and trapezoidal integration and rejected explicitly by CIM.
+physical frequency. Built-in earth kernels retain up to 64 image representations
+in the computation workspace. Reuse requires an exact copied material/frequency/Γ
+identity, the same kernel and transformation, and an error certificate meeting
+the requested tolerance. Material-only radial responses can share fits across
+depths, separations and scalar source normalizations. Geometry-dependent kernels
+retain those parameters in their identity. Arbitrary callbacks are not cached.
+Uniform local pencil regions generate a global exponential representation;
+construction starts with a compact region set and expands it when verification
+requires more work. Sample and Hankel buffers are reused.
+Amplitude fitting uses the integration contour and analytic tail penalties;
+an independent integral of the absolute weighted residual checks its complete
+continuation. Quadrature verifies the image sum and never supplies a value
+labelled `:cim`. Geometry certificates integrate an absolute residual envelope
+over the complete contour, including the tail. They apply to greater weight
+heights and smaller separation-plus-radius on that contour. New geometries
+outside the certified range require another certificate or fit; valid cache hits
+evaluate the images without quadrature or refitting. One kernel prototype
+evaluation still checks the physical scalar contract. Reported certificates
+remain numerical estimates.
+An unresolved value-only integral raises an error. The complete
+earth assembler instead consumes the numerical estimate, propagates prefactors
+and right-solve sensitivity, and tightens the influential interactions until
+individual Ze/Pe/Ye entries meet their budgets. A small correction can therefore
+receive a larger integral tolerance without relaxing final-matrix accuracy.
+
+CIM accepts Float32/Float64 physical inputs. Its fits and residual verification
+use Float64 arithmetic, with output rounding included in the error estimate.
+BigFloat and Measurements inputs use quadrature or trapz; CIM rejects them
+explicitly. Trapz retains correlated physical uncertainty while its numerical
+norm and sampling coordinates are nominal. A zero nominal value with nonzero
+uncertainty remains visible to refinement.
+
+For trapz, `samples` controls the initial transformed-rule spacing
+(`h0=min(1,128/samples)`), `max_refinements` limits DE levels, and
+`max_tail_refinements` limits independently verified subdomain refinements over
+the mapped semi-infinite interval. Local phase and envelope variation guide
+initial subdivision. Their finite seeding horizon does not truncate the
+integral: the final interval still extends to infinity. Independent panel
+quadrature references supply normalization and verification in one pass; their
+absolute errors cannot cancel across panels. Successful panels are retained;
+the DE package reuses nested samples within each panel. Rule tables are reused for identical
+spacing, level limits and precision. Mathematical feature metadata is required to guard
+against known narrow structures; finite black-box samples cannot certify the
+absence of an undeclared feature. Reported errors remain estimates unless the
+contributing regularity and tail information supplies bounds.
 
 Formula discovery includes sorted `formulas/*.jl` files, each returning one unique
 identifier. `FormulaMethod` binds that identifier to the family-owned equation generic.

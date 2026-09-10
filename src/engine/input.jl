@@ -79,9 +79,11 @@ function validate(workspace::LineParametersWorkspace, formulation::LineParameter
                 validate(method, 2)
             end
             for interaction in case.interactions
-                Formulation(selected, Val.(interaction.physical_pair.layers)...) === method ||
+                Formulation(selected, Val.(interaction.physical_pair.layers)...) ===
+                method ||
                     throw(ArgumentError("workspace interaction is bound to another formula"))
-                stratified && validate(interaction.pair, getproperty.(earth.layers, :thickness))
+                stratified &&
+                    validate(interaction.pair, getproperty.(earth.layers, :thickness))
                 validate(interaction.pair, case.declaration.equation)
             end
         end
@@ -301,7 +303,7 @@ function LineParametersWorkspace(
     vert = input.vert
     phase_map = input.phase_map
     rho_cond = T[constitutive(formulation.methods.temperature_dependence, material,
-        problem.temperature) for material in cable.conductor_materials]
+                     problem.temperature) for material in cable.conductor_materials]
     cable_indices = [collect(indices) for indices in cable.assemblies]
     cable_representatives = first.(cable_indices)
     physical_pairs = earth_pairs(
@@ -312,7 +314,8 @@ function LineParametersWorkspace(
         problem.earth_props
     )
     homogeneous_pairs = _homogeneous_pairs(physical_pairs)
-    earth_bindings = map(formulation.methods[(:earth_impedance, :earth_admittance)]) do selected
+    earth_bindings = map(formulation.methods[(
+        :earth_impedance, :earth_admittance)]) do selected
         leaves = [Formulation(selected, Val.(pair.layers)...) for pair in physical_pairs]
         cases = NamedTuple[]
         for leaf in unique(leaves)
@@ -332,9 +335,11 @@ function LineParametersWorkspace(
                 interactions = [(index = indices[position], pair = pairs[position],
                                     physical_pair = physical_pairs[indices[position]])
                                 for position in positions]
-                push!(cases, (selection = leaf, declaration = declaration,
-                    interactions = interactions,
-                    reductions = reductions === nothing ? nothing : reductions[positions]))
+                push!(cases,
+                    (selection = leaf, declaration = declaration,
+                        interactions = interactions,
+                        reductions = reductions === nothing ? nothing :
+                                     reductions[positions]))
             end
         end
         # Geometry changes the set of cases, not the public workspace type.
@@ -410,13 +415,25 @@ function LineParametersWorkspace(
     integration_type = typeof(float(nominal(one(T))))
     NumericalStorage = NamedTuple{(:earth_impedance, :earth_admittance),
         Tuple{Union{Nothing, NamedTuple}, Union{Nothing, NamedTuple}}}
-    earth_numerical::NumericalStorage = NumericalStorage(map(earth_bindings) do binding
+    earth_numerical::NumericalStorage = NumericalStorage(map(
+        earth_bindings, earth_materials) do binding, materials
         any(case -> haskey(case.declaration.options, :integration), binding.cases) ||
             return nothing
         (
             segments = alloc_segbuf(integration_type, Complex{T}, integration_type; size = 128),
-            images = Complex{T}[], exponents = Complex{T}[])
+            seeds = alloc_segbuf(integration_type, Complex{T}, integration_type; size = 128),
+            seed = alloc_segbuf(integration_type, Complex{T}, integration_type; size = 1),
+            images = Complex{T}[], exponents = Complex{T}[],
+            rules = spectral_rule_bindings(binding, integration_type),
+            spectral = spectral_scratch(integration_type),
+            cim = CIMWorkspace(),
+            resolution = (phase = Ref(zero(integration_type)),
+                envelope = Ref(zero(integration_type)), panels = Ref(0)),
+            statistics = (evaluations = Ref(0), cutoff = Ref(zero(integration_type))),
+            systems = earth_system_bindings(
+                binding, input, physical_pairs, homogeneous_pairs, materials))
     end)
+    earth_numerical=share_earth_responses(earth_numerical)
     largest_cable = maximum(length, cable_indices)
     coefficients = Vector{Complex{T}}(undef, largest_cable)
     tails = similar(coefficients)
@@ -439,6 +456,8 @@ function LineParametersWorkspace(
         earth_matrix,
         earth_materials,
         earth_numerical,
+        uses_earth_systems = any(
+            numerical->numerical!==nothing&&!isempty(numerical.systems), values(earth_numerical)),
         execution,
         layer_coefficients,
         coefficients,
@@ -453,6 +472,89 @@ function LineParametersWorkspace(
         typeof(capture)
     }(input, invariants, buffers, capture)
     return workspace
+end
+
+function same_earth_hook(a, b)
+    return a===b
+end
+function same_earth_hook(a::FormulaMethod{ID}, b::FormulaMethod{ID}) where {ID}
+    a===b && return true
+    a.arguments===b.arguments || return false
+    return (ID===:default&&a.method===EarthImpedance.Γ&&b.method===EarthAdmittance.Γ) ||
+           (ID===:full&&a.method===EarthImpedance.propagation&&b.method===EarthAdmittance.propagation)
+end
+
+function same_earth_configuration(z, p)
+    earth_state_equal(z.selection.parameters, p.selection.parameters) &&
+    isequal(z.selection.equivalent_earth, p.selection.equivalent_earth) || return false
+    zh=first(z.declarations).hooks
+    ph=first(p.declarations).hooks
+    keys(zh)==keys(ph)&&all(pair->same_earth_hook(pair...), zip(values(zh), values(ph))) ||
+        return false
+    return isequal(first(z.declarations).options, first(p.declarations).options)
+end
+
+function share_earth_responses(numerical)
+    z=numerical.earth_impedance
+    p=numerical.earth_admittance
+    (z===nothing||p===nothing) && return numerical
+    systems=map(p.systems) do system
+        index=findfirst(candidate->same_earth_configuration(candidate, system), z.systems)
+        index===nothing ? system : merge(system, (response = z.systems[index].response,))
+    end
+    return merge(numerical, (earth_admittance = merge(p, (; systems)),))
+end
+
+function earth_system_bindings(
+        bindings, input, physical_pairs, homogeneous_pairs, owner_materials)
+    any(case->system_earth(case.selection), bindings.cases) || return ()
+    T=eltype(input.vert)
+    representatives=first.(input.cable.assemblies)
+    radii=_outer_radii(input.cable_map, input.cable.r_ext, input.cable.r_ins_ext)
+    geometry=EarthReturnGeometry(input.horz[representatives], input.vert[representatives], radii)
+    selected=unique([case.selection
+                     for case in bindings.cases
+                     if system_earth(case.selection) &&
+        haskey(case.declaration.options, :integration)])
+    isempty(selected) && return ()
+    systems=map(selected) do leaf
+        pairs=leaf.equivalent_earth===nothing ? physical_pairs : homogeneous_pairs
+        declarations=validate(leaf, pairs)
+        first_declaration=first(declarations)
+        for declaration in declarations
+            isequal(declaration.options, first_declaration.options) &&
+            all(
+                name->isequal(getproperty(declaration.hooks, name),
+                    getproperty(first_declaration.hooks, name)),
+                (:Γ, :air, :earth, :permeability)) ||
+                throw(ArgumentError("the full-current default requires common integration controls and medium hooks across its complete auxiliary system"))
+        end
+        reductions=if leaf.equivalent_earth===nothing
+            nothing
+        else
+            rule=EquivalentHomogeneous.rule(leaf.equivalent_earth)
+            foreach(declaration->validate(declaration.equation, rule), declarations)
+            validate(rule, physical_pairs)
+        end
+        interactions=[(index = i, pair = pairs[i], physical_pair = physical_pairs[i])
+                      for i in eachindex(pairs)]
+        binding=(selection = leaf, declaration = nothing, interactions, reductions)
+        n=length(pairs)
+        shared_materials=all(case->case.selection===leaf, bindings.cases)
+        materials=shared_materials ? owner_materials :
+                  (rho = zeros(T, 2, n), epsilon = zeros(T, 2, n),
+            mu = zeros(T, 2, n), thickness = nothing)
+        reference=get(leaf.parameters, :reference, :deep)
+        if reference isa Real
+            reference>maximum(-geometry.height .+ geometry.radius) ||
+                throw(DomainError(reference,
+                    "finite earth reference must lie below every exterior circumference"))
+        end
+        (selection = leaf, binding, declarations = Tuple(declarations),
+            materials, shared_materials,
+            response = EarthReturnWorkspace(geometry))
+    end
+    return Tuple(systems)
 end
 
 function _earth_layer(model::EarthModel, horizontal, vertical)

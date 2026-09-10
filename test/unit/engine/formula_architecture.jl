@@ -21,13 +21,15 @@
         @test validate(selected, soil).equation.arguments[2:3] == (Val(2), Val(2))
         @test validate(selected, self).kind === :self
         @test validate(selected, soil).kind === :mutual
-        @test_throws ArgumentError validate(selected, mixed)
+        @test validate(selected, mixed).kind === :mutual
         @test_throws ArgumentError validate(selected, E.EarthPair(
             1, 2, (-1.0, -2.0), 1.0, (2, 3)))
         @test_throws DimensionMismatch validate(selected, 3)
         @test validate(selected, 2) === selected
         override = owner.Formula(:default; hooks = (contribution = (f, p, w)->1.0im,))
-        @test_throws ArgumentError validate(override, mixed)
+        # An override does not widen an author's source domain.
+        author=owner.Formula(:Xue2018; hooks = (contribution = (f, p, w)->1.0im,))
+        @test_throws ArgumentError validate(author, mixed)
         @test validate(selected, air).equation isa FM
         @test typeof(validate(selected, air).equation).parameters[1] === :default
     end
@@ -55,6 +57,7 @@ end
     # Eq. (8) depends on axis distance and the sum of depths. Rotating the
     # displacement at fixed midpoint preserves both, including vertical axes.
     for T in (Float32, Float64, BigFloat), frequency in (50, 1000)
+
         rho = T[Inf, 100]
         epsilon = T(8.8541878128e-12) .* T[1, 10]
         mu = fill(4T(pi)*T(1e-7), 2)
@@ -114,7 +117,7 @@ end
         @test seen == [(2, 2)]
         @test owner.Γ(functor) == 0
         @test_throws ArgumentError selected(rho, epsilon, mu, jω, pair; Γ = zero(jω))
-        for wrong in ((s, m, l)->1.0, (s, m, l)->(Γ = 0, squared = 9), (s, m, l)->NaN)
+        for wrong in ((s, m, l)->[1.0], (s, m, l)->(Γ = 0, squared = 9), (s, m, l)->NaN)
             @test_throws ArgumentError owner.Formula(:default; hooks = (Γ = wrong,))(
                 rho, epsilon, mu, jω, pair)
         end
@@ -152,7 +155,7 @@ end
     @test_throws ArgumentError validate(selected, absent)
     # A numerical specialization alone cannot admit a missing canonical case.
     EI.earth_impedance(::Val{:ContractLayers}, ::Val{:mutual}, ::Val{3}, ::Val{4},
-        f::Float64, pair, workspace)=0
+        f::Float64, pair, workspace) = 0
     @test_throws ArgumentError validate(selected, absent)
     @test isempty(M.calls)
 
@@ -206,7 +209,7 @@ end
         empty!(M.calls)
         empty!(fd_calls)
         hybrid=Formulation(earth_impedance = M.selection(EI),
-            earth_admittance = formula(:default; equivalent_earth = formula(:default; order)),
+            earth_admittance = formula(:Xue2018; equivalent_earth = formula(:default; order)),
             earth_properties = formula(:default; hooks = (contribution = fd,)),
             options = (ideal_transposition = false,))
         value=compute(buried_problem, hybrid)
@@ -278,8 +281,8 @@ end
     using Measurements
     const E=LineCableModels.Engine
     for T in (Float32, Float64, BigFloat)
-        rho=T[Inf, 100];
-        epsilon=T(8.8541878128e-12) .* T[1, 10];
+        rho=T[Inf, 100]
+        epsilon=T(8.8541878128e-12) .* T[1, 10]
         mu=fill(T(4pi*1e-7), 2)
         pair=E.EarthPair(1, 2, (-one(T), -T(2)), T(0.75), (2, 2))
         s=complex(zero(T), T(2)*T(pi)*T(50))
@@ -287,7 +290,7 @@ end
 
             options=(integration = (method = method,
                 options = (rtol = T===Float32 ? 1e-4 : 1e-6,)),)
-            functor=owner.Formula(:default; options)(rho, epsilon, mu, s, pair)
+            functor=owner.Formula(:Xue2018; options)(rho, epsilon, mu, s, pair)
             @test functor.state.Γ isa Complex{T}
             result=functor()
             @test result isa Complex{T}
@@ -300,7 +303,7 @@ end
     s=complex(measurement(0.0, 0.0), measurement(2pi*50, 0.0))
     pair=E.EarthPair(1, 2, (-1.0, -2.0), 0.75, (2, 2))
     for owner in (E.EarthImpedance, E.EarthAdmittance)
-        value=owner.Formula(:default)(rho, epsilon, mu, s, pair)()
+        value=owner.Formula(:Xue2018)(rho, epsilon, mu, s, pair)()
         @test value isa Complex{Measurement{Float64}}
         @test isfinite(value)
         @test uncertainty(real(value)) > 0

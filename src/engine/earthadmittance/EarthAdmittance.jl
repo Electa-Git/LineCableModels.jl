@@ -21,12 +21,13 @@ export Formula, formula_id, earth_potential_coefficient, assumptions, propagatio
 using DocStringExtensions: IMPORTS, TYPEDEF, TYPEDFIELDS, TYPEDSIGNATURES
 #! explicit-imports: on
 import ...LineCableModels: validate
-import ..Engine: EarthPair, hooks
+import ..Engine: EarthPair, hooks, earth_parameters
 import ...Earth: EquivalentHomogeneous
 import ..Engine: EarthAdmittanceFormulation, formula_id
 #! explicit-imports: off
 # Formula files are discovered dynamically; their imports are verified by the
 # equation-ownership tests because the static import scanner cannot follow them.
+import ..Engine: system_earth, unified_entry, retained_earth_features
 import ...LineCableModels: FormulaDefinition, FormulaMethod, nominal
 import ..Engine: Formulation, SpectralIntegral, integrate
 import ..Engine: description, conductivity, media, special_besselk

@@ -1,0 +1,183 @@
+# Three-wire earth-matrix comparison
+
+The third wire is at horizontal coordinate 2 m, continuing the original line
+of centres at 0 and 1 m. All three centres are 1 m below the interface, and all
+radii are 0.0425 m. Earth resistivity is 0.1 Ω·m; relative permittivity and
+permeability are 1. Air is nonconducting. Gamma is zero and voltage is referenced
+to infinite earth depth. No internal impedance, insulation, or FEM is included.
+
+The main proposal is the complete manuscript current closure:
+
+$$L=A^{-1}I-FK,\qquad Z_e=KL^{-1},\quad P_e=HL^{-1},\quad Y_e=j\omega P_e^{-1}.$$
+
+Xue's pairwise Ze and Pe coefficients are assembled at distances 0 (self), 1,
+and 2 m, followed by a complete 3×3 Pe inversion for Ye. Self uses the retained
+horizontal-radius sampling convention. Raw source kernels K and H for the
+proposal are assembled before any global solve. Finalized two-wire matrices
+are not stitched together to construct the three-wire response.
+
+The isolated primary-current normalization from the user's earlier numerical
+tables is retained separately as `field_average_cf`: Ze = K/D, Pe = H/D,
+Ye = jω Pe⁻¹, where D = κg r K1(κg r). It is not identified with the full L
+closure. The shared spectral kernel implementation is the same one used in
+[the independent two-wire comparison](earth-matrices-manual-comparison.md).
+
+## Reproduce and inspect
+
+```sh
+julia --startup-file=no --compiled-modules=existing --project=. test/gauntlet/three_wire_earth_matrices.jl
+julia --startup-file=no --compiled-modules=existing --project=. test/gauntlet/plot_three_wire_earth_matrices.jl
+```
+
+Outputs are under `.linecablemodels/qa/three-wire-earth-matrices/`:
+
+- `matrices.csv`: all 648 entries of Ze, Pe, Ye across three conventions and eight frequencies.
+- `matrices.json`: matrices, raw K/H/L, numerical checks, method comparisons, and 281-point curves.
+- `complete-matrices.txt`: explicit 3×3 complex matrices at every requested frequency.
+- `three-wire-Ze` and `three-wire-Ye`: PNG, PDF, and SVG plots.
+
+## What changes when the third wire is added
+
+All results preserve reflection about the middle wire. The full Ze matrix is
+symmetric, but its middle self entry need not equal its outer self entries.
+Xue's Ze is pairwise Toeplitz, with equal self entries. Inverting either full Pe
+matrix changes Ye, including its middle self entry. The three-wire upper-left
+Ye block differs from the two-wire Ye by 23.72% in Frobenius norm at 0.1 Hz,
+even though the corresponding Ze change is only 3.32e-8 relative.
+
+The proposal's path-voltage Pe and Ye can be nonsymmetric for three wires.
+The raw K and H are symmetric but need not commute. For these equal radii,
+
+$$Y_e-Y_e^{\mathsf T}=j\omega F H^{-1}(KH-HK)H^{-1}.$$
+
+This identity is checked numerically. No transpose averaging is applied.
+At 10 kHz the proposal gives
+
+- Ye12 = −3.389244263 + j2.089196723 S/m;
+- Ye21 = −3.389283429 + j2.089170464 S/m.
+
+The relative directional difference is about 0.001184%. Xue and the Cf-only
+variant have symmetric Ye. The two-wire benchmark could not expose this effect:
+equal-wire 2×2 matrices of this structure commute automatically. This is a
+property of the manuscript's chosen path-voltage coordinates, not evidence
+that the physical medium is nonreciprocal. A reciprocal circuit-port extraction
+requires its own compatible voltage/current definitions.
+
+## Complete Z and Y values
+
+Each table below defines the entire matrix using five entries:
+
+$$M=\begin{bmatrix}a&b&c\\d&e&d\\c&b&a\end{bmatrix},\qquad
+(a,b,c,d,e)=(M_{11},M_{12},M_{13},M_{21},M_{22}).$$
+
+The reflected entries agree to numerical precision; no such symmetry is
+imposed after the solves. For symmetric cases, b and d coincide. Units are
+Ω/m for Ze and S/m for Ye. Pe is also included in the machine-readable and
+explicit-matrix output files.
+
+### Proposal: complete L closure
+
+Ze:
+
+| Hz | a = M11 | b = M12 | c = M13 | d = M21 | e = M22 |
+|---:|---|---|---|---|---|
+| 0.1 | 9.90248053916e-08 + j1.21216895153e-06 | 9.90236420566e-08 + j8.15291498846e-07 | 9.90207972535e-08 + j7.28188348538e-07 | 9.90236420566e-08 + j8.15291498846e-07 | 9.90247977627e-08 + j1.21216895251e-06 |
+| 1 | 9.97134666532e-07 + j1.06677719265e-05 | 9.9703279746e-07 + j6.69900637031e-06 | 9.96791422575e-07 + j5.82800159725e-06 | 9.9703279746e-07 + j6.69900637031e-06 | 9.97134047409e-07 + j1.06677720253e-05 |
+| 10 | 1.01733241159e-05 + j9.19863131503e-05 | 1.01646082768e-05 + j5.22995881832e-05 | 1.01448545183e-05 + j4.35923104708e-05 | 1.01646082768e-05 + j5.22995881832e-05 | 1.01732767591e-05 + j9.19863232928e-05 |
+| 100 | 0.00010692701794 + j0.000768381675815 | 0.000106210276092 + j0.000371617203161 | 0.000104695971017 + j0.000284847921 | 0.000106210276092 + j0.000371617203161 | 0.000106923803878 + j0.000768382770808 |
+| 1000 | 0.00115582723381 + j0.00605145036593 | 0.00110196710336 + j0.0020963802241 | 0.00100310650552 + j0.00126406186111 | 0.00110196710336 + j0.0020963802241 | 0.00115568038191 + j0.00605156868523 |
+| 10000 | 0.0111200153702 + j0.0429498275862 | 0.00803609228461 + j0.00486775864115 | 0.00438646698302 − j0.000215450069626 | 0.00803609228461 + j0.00486775864115 | 0.0111212572066 + j0.0429543682042 |
+| 100000 | 0.0915605772587 + j0.284949528869 | 0.00872733971781 − j0.00870825471072 | -0.00143128102628 − j0.000368174987168 | 0.00872733971781 − j0.00870825471072 | 0.0915603338259 + j0.28494089308 |
+| 1e+06 | 0.753096655932 + j1.57307095354 | 0.00015357089839 + j0.00106298095396 | 1.81109036138e-07 + j1.43064746148e-06 | 0.00015357089839 + j0.00106298095396 | 0.753096598165 + j1.57307097724 |
+
+Ye:
+
+| Hz | a = M11 | b = M12 | c = M13 | d = M21 | e = M22 |
+|---:|---|---|---|---|---|
+| 0.1 | 11.7165396559 + j0.0909200151805 | -6.57644291343 + j0.0649988532905 | -3.25069668018 + j0.0905855036648 | -6.57644291288 + j0.064998860591 | 14.5059742659 + j0.0465718690101 |
+| 1 | 11.873714513 + j0.13877147446 | -6.46402379299 + j0.0984790182095 | -3.0939192123 + j0.136074399767 | -6.46402378508 + j0.0984790818423 | 14.5864836971 + j0.070755812766 |
+| 10 | 12.1200292983 + j0.240516571745 | -6.28901990151 + j0.165523225359 | -2.85154865546 + j0.220015742507 | -6.28901978354 + j0.16552372234 | 14.7118266968 + j0.12082715803 |
+| 100 | 12.5630257037 + j0.517219274696 | -5.98500069548 + j0.325730715567 | -2.44651427818 + j0.376186403898 | -5.98499906455 + j0.325733570741 | 14.9298902986 + j0.255875755993 |
+| 1000 | 13.5959987393 + j1.44653250505 | -5.3532086996 + j0.797050382307 | -1.73993188375 + j0.636815402693 | -5.35319553398 + j0.797051831884 | 15.3941994761 + j0.790087678425 |
+| 10000 | 17.0465345529 + j4.21205416356 | -3.38924426301 + j2.08919672251 | -0.438254709991 + j0.85392294858 | -3.38928342901 + j2.08917046415 | 17.2847524271 + j3.36553050492 |
+| 100000 | 25.1140096041 + j8.06163291213 | 0.174239388637 + j1.0511044113 | 0.0491692807975 − j0.0457066553026 | 0.174240887293 + j1.05109221879 | 25.0801246156 + j8.08788985686 |
+| 1e+06 | 40.8337746262 + j19.5491734068 | -0.0204038241148 − j0.0189910439727 | -1.79430278498e-05 − j1.17726457273e-05 | -0.0204038241617 − j0.0189910439909 | 40.8337839092 + j19.5491868968 |
+
+### Xue
+
+Ze:
+
+| Hz | a = M11 | b = M12 | c = M13 | d = M21 | e = M22 |
+|---:|---|---|---|---|---|
+| 0.1 | 9.90249604731e-08 + j1.21216892003e-06 | 9.90237920486e-08 + j8.15291466681e-07 | 9.90209386714e-08 + j7.28188316864e-07 | 9.90237920486e-08 + j8.15291466681e-07 | 9.90249604731e-08 + j1.21216892003e-06 |
+| 1 | 9.97145907638e-07 + j1.06677692488e-05 | 9.97043431743e-07 + j6.69900362537e-06 | 9.96801271349e-07 + j5.82799890182e-06 | 9.97043431743e-07 + j6.69900362537e-06 | 9.97145907638e-07 + j1.06677692488e-05 |
+| 10 | 1.01740897703e-05 + j9.19860910146e-05 | 1.01653033334e-05 + j5.22993591794e-05 | 1.01454783185e-05 + j4.35920866599e-05 | 1.01653033334e-05 + j5.22993591794e-05 | 1.01740897703e-05 + j9.19860910146e-05 |
+| 100 | 0.000106974250849 + j0.000768363925644 | 0.000106249416951 + j0.000371598746592 | 0.0001047287656 + j0.000284830105694 | 0.000106249416951 + j0.000371598746592 | 0.000106974250849 + j0.000768363925644 |
+| 1000 | 0.00115827841705 + j0.00605019230925 | 0.00110349836351 + j0.0020950707315 | 0.00100411267699 + j0.0012628729227 | 0.00110349836351 + j0.0020950707315 | 0.00115827841705 + j0.00605019230925 |
+| 10000 | 0.0112293424876 + j0.0428863908291 | 0.00805086370794 + j0.00481560329801 | 0.00437728627227 − j0.000244046903819 | 0.00805086370794 + j0.00481560329801 | 0.0112293424876 + j0.0428863908291 |
+| 100000 | 0.0966204143304 + j0.281599002407 | 0.00829041366028 − j0.00894869591373 | -0.00142881366878 − j0.000299894568632 | 0.00829041366028 − j0.00894869591373 | 0.0966204143304 + j0.281599002407 |
+| 1e+06 | 0.893026473375 + j1.40355176677 | 0.000365898832667 + j0.000906088901382 | 5.15769118715e-07 + j1.19157796666e-06 | 0.000365898832667 + j0.000906088901382 | 0.893026473375 + j1.40355176677 |
+
+Ye:
+
+| Hz | a = M11 | b = M12 | c = M13 | d = M21 | e = M22 |
+|---:|---|---|---|---|---|
+| 0.1 | 11.717226131 + j0.0909227724815 | -6.57698574279 + j0.0649988580246 | -3.25081503812 + j0.0905878971665 | -6.57698574279 + j0.0649988580246 | 14.5070410067 + j0.0465708221405 |
+| 1 | 11.8744051838 + j0.138778909797 | -6.46456648253 + j0.0984793912877 | -3.09403323743 + j0.136077974111 | -6.46456648253 + j0.0984793912877 | 14.5875480017 + j0.0707569259929 |
+| 10 | 12.1207255854 + j0.240560650089 | -6.28956125326 + j0.165524254171 | -2.85165568018 + j0.220018980193 | -6.28956125326 + j0.165524254171 | 14.7128851645 + j0.120857856305 |
+| 100 | 12.563713241 + j0.517632816111 | -5.98553582752 + j0.325723668672 | -2.44661511389 + j0.37616897421 | -5.98553582752 + j0.325723668672 | 14.9309131826 + j0.256251464025 |
+| 1000 | 13.5963958058 + j1.45097074802 | -5.35376980636 + j0.796926793879 | -1.74011531447 + j0.636685615239 | -5.35376980636 + j0.796926793879 | 15.3948489215 + j0.794413273167 |
+| 10000 | 17.0435646592 + j4.26238933089 | -3.39051331435 + j2.08933829313 | -0.438765113788 + j0.854215228926 | -3.39051331435 + j2.08933829313 | 17.281653061 + j3.41555448914 |
+| 100000 | 25.084953465 + j8.59943444393 | 0.174581032724 + j1.0508745219 | 0.0489901216175 − j0.0457724844159 | 0.174581032724 + j1.0508745219 | 25.0511775097 + j8.62581936156 |
+| 1e+06 | 40.0438886142 + j25.4787209246 | -0.0204038882321 − j0.0189905369286 | -1.73865983634e-05 − j1.21028774673e-05 | -0.0204038882321 − j0.0189905369286 | 40.043898369 + j25.4787340707 |
+
+### Field average: isolated primary-current factor Cf
+
+Ze:
+
+| Hz | a = M11 | b = M12 | c = M13 | d = M21 | e = M22 |
+|---:|---|---|---|---|---|
+| 0.1 | 9.90248763839e-08 + j1.21216893381e-06 | 9.90237336015e-08 + j8.15291478414e-07 | 9.90208865278e-08 + j7.28188328108e-07 | 9.90237336015e-08 + j8.15291478414e-07 | 9.90248763839e-08 + j1.21216893381e-06 |
+| 1 | 9.97139401069e-07 + j1.06677704681e-05 | 9.97039189555e-07 + j6.69900464024e-06 | 9.96797587977e-07 + j5.82799986776e-06 | 9.97039189555e-07 + j6.69900464024e-06 | 9.97139401069e-07 + j1.06677704681e-05 |
+| 10 | 1.01736063594e-05 + j9.19861976001e-05 | 1.01650164133e-05 + j5.22994453426e-05 | 1.01452401041e-05 + j4.3592167836e-05 | 1.01650164133e-05 + j5.22994453426e-05 | 1.01736063594e-05 + j9.19861976001e-05 |
+| 100 | 0.000106940444326 + j0.000768373130341 | 0.000106232271476 + j0.000371605899324 | 0.000104715753987 + j0.00028483670007 | 0.000106232271476 + j0.000371605899324 | 0.000106940444326 + j0.000768373130341 |
+| 1000 | 0.00115614676161 + j0.00605096302851 | 0.00110273172454 + j0.00209562402273 | 0.00100366949286 + j0.00126334043697 | 0.00110273172454 + j0.00209562402273 | 0.00115614676161 + j0.00605096302851 |
+| 10000 | 0.011116357366 + j0.0429419845247 | 0.00804020091534 + j0.00484349995878 | 0.00438046350424 − j0.000230456610036 | 0.00804020091534 + j0.00484349995878 | 0.011116357366 + j0.0429419845247 |
+| 100000 | 0.0915576276723 + j0.284970041703 | 0.00854186089967 − j0.008800966623 | -0.00142913317388 − j0.000334795655252 | 0.00854186089967 − j0.008800966623 | 0.0915576276723 + j0.284970041703 |
+| 1e+06 | 0.753096795349 + j1.57307087634 | 0.000231620017139 + j0.0009982613939 | 3.40427252709e-07 + j1.31842003845e-06 | 0.000231620017139 + j0.0009982613939 | 0.753096795349 + j1.57307087634 |
+
+Ye:
+
+| Hz | a = M11 | b = M12 | c = M13 | d = M21 | e = M22 |
+|---:|---|---|---|---|---|
+| 0.1 | 11.7165395939 + j0.0909196190365 | -6.57644287406 + j0.06499922995 | -3.25069665844 + j0.090585672903 | -6.57644287406 + j0.06499922995 | 14.505974186 + j0.0465713126857 |
+| 1 | 11.8737138919 + j0.138768423695 | -6.46402340001 + j0.0984822083367 | -3.09391899628 + j0.136075774351 | -6.46402340001 + j0.0984822083367 | 14.5864828968 + j0.0707514209302 |
+| 10 | 12.1200231217 + j0.240495175302 | -6.28901596865 + j0.165549372295 | -2.85154651546 + j0.220026333217 | -6.28901596865 + j0.165549372295 | 14.7118186723 + j0.120794993622 |
+| 100 | 12.5629664881 + j0.517095556567 | -5.98496070517 + j0.325934527719 | -2.44649321163 + j0.376261151299 | -5.98496070517 + j0.325934527719 | 14.9298106445 + j0.25567206425 |
+| 1000 | 13.5955283727 + j1.44613434672 | -5.35276888963 + j0.798496356782 | -1.73972037845 + j0.637258411899 | -5.35276888963 + j0.798496356782 | 15.3934741529 + j0.789219740347 |
+| 10000 | 17.0455902086 + j4.21287872612 | -3.38339267785 + j2.09616099572 | -0.43612887889 + j0.854833819643 | -3.38339267785 + j2.09616099572 | 17.2818164148 + j3.36610086276 |
+| 100000 | 25.1139119825 + j8.06121644142 | 0.190440105203 + j1.04234141517 | 0.0478946813887 − j0.0464245226784 | 0.190440105203 + j1.04234141517 | 25.0806470945 + j8.0878793387 |
+| 1e+06 | 40.8337744755 + j19.5491744055 | -0.0209285065006 − j0.016411944509 | -1.79259703159e-05 − j9.74182571539e-06 | -0.0209285065006 − j0.016411944509 | 40.8337843878 + j19.5491864831 |
+
+## Numerical validation and limits
+
+The published matrices and curves use quadrature with rtol = 1e-10. The retained
+Xue S11/S12/S13 implementation independently agrees with the reduced kernels
+to 7.24e-11 relative matrix error. The maximum normalized residual across
+YP = jω I, the three right-solve identities, centrosymmetry, Z reciprocity,
+and the Y commutator identity is 6.01e-16.
+
+Trapz agrees with quadrature to 5.02e-8 relative matrix error and 2.10e-7 on
+individual entries, across all eight frequencies and all three conventions.
+The original CIM settings (rtol = 1e-6, integral atol = 1e-6) return results at
+all frequencies, but do **not** resolve the very small outer-pair coupling at
+1 MHz. Their maximum matrix error is only 3.67e-7 while an individual Ye13
+error reaches 73.47%. A matrix-norm-only check would hide this failure.
+
+Targeted 1 MHz CIM runs with integral atol values 1e-8, 1e-10, and 1e-12 fail
+the integrator's convergence check. Their log is preserved as
+`cim-refinement.log` beside the output. No quadrature value is substituted as
+a CIM result. The reported matrices use the quadrature values independently
+confirmed by trapz. Extending reliable CIM accuracy to this small distant
+coupling remains numerical follow-up work; it does not prevent this manual
+quad/trapz comparison.
