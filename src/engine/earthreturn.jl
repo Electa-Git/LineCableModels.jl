@@ -66,6 +66,7 @@ function earth_kernel_estimate(estimate::SpectralEstimate, numerical)
         report=numerical.report
         report.integrals[]+=1
         report.evaluations[]+=estimate.evaluations
+        report.samples[]+=estimate.samples
         report.cutoff[]=max(report.cutoff[], estimate.cutoff)
     end
     return EarthKernelEstimate(estimate)
@@ -147,7 +148,7 @@ function EarthReturnWorkspace(geometry::EarthReturnGeometry{T}) where {T}
         complex = ntuple(_->zeros(Complex{R}, n, n), 5), real = ntuple(_->zeros(R, n, n), 14),
         F = zeros(R, n), dirty = falses(n, n),
         cim_order = collect(CartesianIndices((n, n)))[:],
-        report = (integrals = Ref(0), evaluations = Ref(0),
+        report = (integrals = Ref(0), evaluations = Ref(0), samples = Ref(0),
             cutoff = Ref(zero(R)), refinements = Ref(0)),
         numerical = (
             segments = alloc_segbuf(R, Complex{T}, R; size = 128), images = Complex{T}[],

@@ -1,4 +1,76 @@
-# PR 54 integration with the accepted earth checkpoint
+# PR 54 integration with the accepted earth checkpoints
+
+## Reconciliation with the CIM checkpoint
+
+Upstream base: `779a7650a79335a8ec6ceccc967c4f832d1c6ca1`, including
+`2ae18afc5ed7f81d230db217265193b99cff0cdc` and
+`fe09229281b65660418e9937952220ac26c56407`.
+The package CLI work was checkpointed first at `2a188bc1`.
+
+The merge into `release/v0.2.0-pscad-ext` requires no textual conflict resolution.
+The upstream earth-return implementation, spectral integration, sampling,
+analytic bounds, CIM workspace and their production regressions remain unchanged
+from `779a7650`. This preserves:
+
+- Adaptive construction by default, with explicit integer `samples` limiting
+  construction kernel evaluations per scalar integral. Prototype, pilot and
+  verification evaluations retain their separate accounting.
+- Rectangular pencils using all samples, reusable factorization across rank
+  trials, analytic tail bounds and fit reuse subject to the required certificate.
+- Uncertainty-aware verification when a nominal envelope cannot bound derivative
+  contributions, promoted envelope arithmetic and explicit numerical failures.
+
+The PR's complete requested/resolved formulation records, shared comparison
+reports, Gauntlet lifecycle and package CLI remain in place. Numerical controls
+pass through the existing formula options and serialization; no adapter rewrites
+or extra control objects are needed. The Gauntlet documentation now explains the
+construction budget independently of frequency points and timing repetitions.
+
+`test/gauntlet/spectral_reporting_tests.jl` exercises a zipped Gridspace of trapz
+and CIM with adaptive and explicit construction budgets. It computes the same
+physical model, saves and reloads the results, checks requested and resolved
+controls in comparison reports, compares the matrices with quadrature of the same
+equations, verifies saved-result reuse and requires insufficient budgets to fail.
+The earlier exploratory earth audit and its `core_material` selector stay retired;
+the accepted production earth fixtures remain intact.
+
+### Local validation status
+
+The local run was narrowed on 2026-09-10 at the user's request to conserve
+battery. Broad engine, Gauntlet, FEM and documentation runs were stopped before
+their final summaries. Their partial logs do not establish suite success.
+
+- Package CLI: 10 checks passed.
+- Cairo visual suite: 885 checks passed, including formulation overlays and SVG
+  viewport retention.
+- Quality suite: 1,193 checks passed; Aqua's persistent-task check failed at its
+  precompilation shutdown timeout in both attempts. This remains unresolved; no
+  quality check or timeout was relaxed.
+- Cold GetDP installation reached the successful continuation after both compiled
+  and source-only child processes. The enclosing FEM suite was interrupted later.
+- The first engine run also hit the sandbox's read-only FEM run directory. Its
+  rerun with write access was interrupted with the broader FEM suite; no numerical
+  source change was made for that filesystem failure.
+- The focused spectral-reporting regression reached its 60-second limit during
+  execution, before a test summary. It remains pending.
+- Julia syntax checks for the focused regression and test runner, Git whitespace
+  checks and upstream spectral-source/fixture identity checks passed.
+
+The Gauntlet runner now accepts file or test-name fragments. A focused follow-up
+uses one process and one BLAS thread:
+
+```sh
+OPENBLAS_NUM_THREADS=1 JULIA_NUM_THREADS=1 julia --project=gauntlet \
+  --startup-file=no --compiled-modules=existing \
+  test/gauntlet/runtests.jl spectral_reporting_tests
+```
+
+The reconciliation is committed as a checkpoint at the user's request, with
+validation still pending. Existing CI selects this new regression as part of the
+Gauntlet suite; wider numerical and documentation checks can run there. No native
+PSCAD solve, publication or push was performed.
+
+## Earlier integration with the earth checkpoint
 
 Integration base: `fe09229281b65660418e9937952220ac26c56407`.
 PR checkpoint: `6bbd22b4c33c641fc6254a7edf89529b0d8d85f3`.

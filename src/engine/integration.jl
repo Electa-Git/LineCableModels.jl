@@ -24,6 +24,10 @@ struct SpectralIntegral{Kind, K, W, T, P, F}
     features::F
 end
 
+# Kernel owners may supply a bound for the complete analytic weight. Arbitrary
+# callbacks keep the independently verified, infinite-range numerical path.
+spectral_kernel_tail(kernel, weight, angle) = nothing
+
 function SpectralIntegral(::Val{Kind}, kernel::K, weight::NamedTuple, scale::Real;
         angle = zero(scale), pole = nothing, features = nothing) where {Kind, K}
     isfinite(scale) && scale > 0 ||
@@ -41,6 +45,10 @@ function SpectralIntegral(::Val{Kind}, kernel::K, weight::NamedTuple, scale::Rea
     pole === nothing ||
         (isfinite(pole.residue) && isfinite(pole.location) && !iszero(pole.location)) ||
         throw(ArgumentError("the extracted pole must have finite residue and nonzero finite location"))
+    if features !== nothing && features.tail === nothing && pole === nothing
+        tail = spectral_kernel_tail(kernel, weight, angle)
+        features = SpectralFeatures{eltype(features.points), typeof(tail)}(features.points, tail)
+    end
     return SpectralIntegral{
         Kind, typeof(kernel), typeof(weight), typeof(scale), typeof(pole), typeof(features)}(
         kernel, weight, scale, typeof(scale)(angle), pole, features)
@@ -120,7 +128,11 @@ function integrate(::Val{:quad}, integral::SpectralIntegral, controls, workspace
 end
 
 function integrate(::Val{:trapz}, integral::SpectralIntegral, controls, workspace)
-    return spectral_estimate(Val(:trapz), integral, controls, workspace).value
+    estimate=spectral_estimate(Val(:trapz), integral, controls, workspace)
+    target=max(controls.atol,controls.rtol*spectral_magnitude(estimate.value))
+    estimate.error<=target || throw(ErrorException(
+        "spectral :trapz did not converge (estimated error=$(estimate.error), target=$target)"))
+    return estimate.value
 end
 
 """
@@ -135,11 +147,16 @@ an image contributes `a*(h+b)/((h+b)^2+y^2)`; the radial Sommerfeld weight gives
 Built-in earth kernels reuse workspace-owned fits when their complete material
 identity matches and a geometry certificate meets the requested error budget.
 New fits require independent quadrature and full weighted-residual verification;
-new geometry envelopes require full residual certification. Cache hits evaluate
+analytic remainder bounds allow finite verification of both the kernel and
+image continuation. New geometry envelopes require residual certification. Cache hits evaluate
 only the images. Arbitrary callables without a declared identity are not cached.
 Matrix-pencil factorization admits Float32/Float64 kernels; uncertainty and
 higher precision inputs fail explicitly. Quadrature never supplies a value
 returned as `:cim`.
+
+`samples=nothing` selects adaptive construction. An integer caps construction
+kernel evaluations per scalar integral; verification and prototype evaluations
+are counted separately. Increasing image order reuses a window's factorization.
 
 The matrix-pencil/GPOF construction follows the spectral exponential approach
 used in discrete complex images; see Rallis, doctoral thesis (National Archive record 10442/34633), and
@@ -186,8 +203,7 @@ function cim_estimate(integral::SpectralIntegral{Kind}, controls, workspace, eva
         empty!(workspace.images)
         empty!(workspace.exponents)
     end
-    first_value = integral.kernel(Kind === :radial ? integral.weight.q :
-                                  zero(integral.scale))
+    first_value = zero(Result)
     T = Float64
     fit_tolerance = max(controls.rtol, 100eps(T))
     R = typeof(integral.scale)
@@ -196,20 +212,29 @@ function cim_estimate(integral::SpectralIntegral{Kind}, controls, workspace, eva
     shift = Kind === :radial ? w.q : zero(first_value)
     rotation = Kind === :radial ? one(shift) : cis(integral.angle)
     kernel(x) = integral.kernel(rotation*x + shift)
-    amplitude_nodes=spectral_breakpoints(integral)
+    budget=SpectralSampleBudget(controls.samples)
+    construct(x)=spectral_sample!(budget,kernel,x)
+    verification=spectral_reference(integral,controls)
+    reference=verification.value
+    target=max(controls.atol,controls.rtol*abs(reference))
+    bounded=spectral_bounded(integral)&&isfinite(verification.cutoff)
+    limit=bounded ? verification.cutoff : integral.scale
+    amplitude_nodes=spectral_breakpoints(integral;limit=bounded ? limit : Inf)
     if Kind===:radial
         amplitude_nodes=R[abs(x^2/(sqrt(x^2+w.q^2)+w.q)) for x in amplitude_nodes]
     end
-    append!(amplitude_nodes, (zero(R), integral.scale/16, integral.scale, 16integral.scale))
+    append!(amplitude_nodes, (zero(R), integral.scale/16, integral.scale))
+    bounded && filter!(x->x<=limit, amplitude_nodes)
+    bounded || push!(amplitude_nodes,16integral.scale)
     amplitude = max(
-        maximum(x -> abs(kernel(x)), amplitude_nodes),
+        maximum(x -> abs(construct(x)), amplitude_nodes),
         floatmin(T))
-    limit = integral.scale
     # Establish a finite fitting interval where the weighted kernel has decayed.
-    decayed = false
+    decayed = bounded
     for step in 1:controls.max_tail_refinements
+        decayed && break
         limit *= 4
-        if exp(log(abs(kernel(limit))) - real(w.height * (rotation*limit + shift)) +
+        if exp(log(abs(construct(limit))) - real(w.height * (rotation*limit + shift)) +
                abs(imag(w.separation * rotation)) * limit) <=
            fit_tolerance * amplitude / 100
             decayed = true
@@ -220,13 +245,9 @@ function cim_estimate(integral::SpectralIntegral{Kind}, controls, workspace, eva
         throw(ErrorException("CIM spectral fitting interval did not reach a decaying tail"))
     # Independent integral validation also detects errors between sampled points
     # and use of a transformed spectral fit outside its verified domain.
-    verification = spectral_estimate(Val(:quad), integral,
-        (rtol = controls.rtol / 10, atol = controls.atol / 10,
-            maxevals = controls.maxevals), nothing)
-    reference=verification.value
-    target = max(controls.atol, controls.rtol * abs(reference))
-    tail_error=R(Inf)
+    tail_error=bounded ? verification.tail : R(Inf)
     for tail in 1:controls.max_tail_refinements
+        bounded && break
         tail_error=cim_true_tail(integral, limit,
             Kind===:radial ? spectral_rotation(integral) : rotation, target, controls)
         tail_error<=target/8 && break
@@ -250,72 +271,71 @@ function cim_estimate(integral::SpectralIntegral{Kind}, controls, workspace, eva
             pole_value += p.residue * term / 2
         end
     end
-    previous = nothing
     best_value=zero(reference)
     best_error=R(Inf)
+    best_certificate_error=R(Inf)
+    best_cutoff=R(Inf)
+    best_tail=zero(R)
+    best_rounding=zero(R)
+    best_images=ComplexF64[]
+    best_poles=ComplexF64[]
     diagnostic = nothing
-    for refinement in 0:controls.max_refinements
+    pencils=CIMPencil[]
+    pencil_plan=(false,0)
+    constant_pole=false
+    sampled_nonzero=false
+    fit_data=nothing
+    for refinement in 0:(controls.max_refinements+1)
         # Start with a compact collection of regions. Expand coverage before
         # increasing the uniform pencil resolution on difficult kernels.
-        compact=refinement==0
-        samples = controls.samples * 2^max(0, refinement-1) + 1
+        compact=refinement<=1
         widths = cim_windows(integral, limit)
         if compact && length(widths)>8
             widths=widths[unique(round.(Int, range(1, length(widths); length = 8)))]
         end
         poles = Complex{T}[]
-        sampled_nonzero = false
-        term_limit=compact ? min(96, controls.max_terms) : controls.max_terms
+        term_limit=refinement==0 ? min(96, controls.max_terms) : controls.max_terms
         terms = max(4, term_limit ÷ length(widths))
         origins = vcat(zero(R), widths[1:(end - 1)])
         windows=compact ? collect(zip(origins, widths)) :
                 vcat(collect(zip(origins, widths)), [(zero(R), width) for width in widths[2:end]])
-        cache=cim_workspace(workspace)
-        for (origin, width) in windows
-            step = (width-origin) / (samples - 1)
-            data=cache===nothing ? Vector{Complex{T}}(undef, samples) : resize!(cache.samples, samples)
-            for i in 1:samples
-                data[i]=kernel(origin+step*(i-1))
-            end
-            sampled_nonzero |= any(!iszero, data)
-            variation=maximum(z->abs(z-first(data)), data)
-            if variation<=max(8eps(T), fit_tolerance/100)*amplitude
-                any(iszero, poles) || push!(poles, zero(Complex{T}))
-                continue
-            end
-            rows = samples ÷ 2
-            columns = samples - rows
-            storage=cache===nothing ? Vector{Complex{T}}(undef, 2rows*columns) :
-                    resize!(cache.hankel, 2rows*columns)
-            H0=reshape(view(storage, 1:(rows*columns)), rows, columns)
-            H1=reshape(view(storage, (rows*columns+1):(2rows*columns)), rows, columns)
-            for j in 1:columns, i in 1:rows
-                H0[i, j]=data[i+j-1]
-                H1[i, j]=data[i+j]
-            end
-            cache===nothing || (cache.statistics.pencils[]+=1)
-            pencil = svd!(H0)
-            rank = min(terms, count(
-                >(max(eps(T) * samples, fit_tolerance * 1e-3) *
-                  first(pencil.S)), pencil.S))
-            rank == 0 && continue
-            U = @view pencil.U[:, 1:rank]
-            V = @view pencil.V[:, 1:rank]
-            reduced = U' * H1 * V * Diagonal(inv.(pencil.S[1:rank]))
-            for z in eigvals(reduced)
-                iszero(z) && continue
-                b = -log(z) / step
-                abs(b)*width < 100eps(T) && (b=zero(b))
-                rate=real(w.height*rotation)-abs(imag((w.separation+get(w, :radius, zero(R)))*rotation))
-                physical_rate=Kind===:radial ?
-                              real((w.height+b)*spectral_rotation(integral)) -
-                              abs(imag(w.separation*spectral_rotation(integral))) :
-                              real(b)+rate
-                isfinite(b) && real(b)+rate > sqrt(eps(T))*rate && physical_rate>0 &&
-                    push!(poles, b)
-            end
+        samples=if controls.samples===nothing
+            128*2^max(0,refinement-2)+1
+        elseif compact && pencil_plan[1]
+            pencil_plan[2] # Trying another rank consumes no new samples.
+        else
+            # Reserve the fixed amplitude nodes, then distribute the remaining
+            # budget over actual windows and the logarithmic amplitude grid.
+            fixed=length(amplitude_nodes)+17length(widths)
+            available=controls.samples-budget.used[]-fixed
+            min(129,max(16,available÷(length(windows)+4)))
         end
-        if refinement>0
+        cache=cim_workspace(workspace)
+        if pencil_plan!=(compact,samples)
+            empty!(pencils)
+            fit_data=nothing
+            constant_pole=false
+            sampled_nonzero=false
+            for (origin,width) in windows
+                step=(width-origin)/(samples-1)
+                data=cache===nothing ? Vector{Complex{T}}(undef,samples) : resize!(cache.samples,samples)
+                for i in 1:samples
+                    data[i]=construct(origin+step*(i-1))
+                end
+                sampled_nonzero |= any(!iszero,data)
+                variation=maximum(z->abs(z-first(data)),data)
+                if variation<=max(8eps(T),fit_tolerance/100)*amplitude
+                    constant_pole=true
+                else
+                    push!(pencils,cim_pencil(data,step,width,fit_tolerance,
+                        min(controls.max_terms,max(32,terms)),cache))
+                end
+            end
+            pencil_plan=(compact,samples)
+        end
+        constant_pole && push!(poles,zero(Complex{T}))
+        cim_poles!(poles,pencils,terms,integral,rotation)
+        if !compact
             # Supplement an unresolved pencil basis with real decays covering
             # every declared scale. These independent candidates can resolve a
             # smooth residual when near-duplicate complex pencil poles make
@@ -330,17 +350,20 @@ function cim_estimate(integral::SpectralIntegral{Kind}, controls, workspace, eva
                 rounded=Result(pole_value)
                 return SpectralEstimate(rounded,
                     R(abs(rounded-pole_value)+abs(pole_value-reference)+verification.error),
-                    R(tail_error), evaluations[], R(limit))
+                    R(tail_error), evaluations[], R(limit), budget.used[])
             end
             throw(ErrorException("CIM matrix pencils produced no decaying images"))
         end
         # Logarithmic samples resolve material and geometric scales separately.
-        nodes = sort!(unique!(vcat(zero(R), spectral_breakpoints(integral),
+        if fit_data===nothing
+            nodes = sort!(unique!(vcat(zero(R), spectral_breakpoints(integral;limit),
             exp.(range(
                 log(first(widths) / samples), log(limit); length = 4samples)),
             [origin+(width-origin)*i/16 for (origin, width) in zip(origins, widths)
              for i in 0:16])))
-        coordinates, values, weights = cim_fit_samples(integral, nodes, rotation, shift)
+            fit_data=cim_fit_samples(integral,nodes,rotation,shift,budget)
+        end
+        coordinates,values,weights=fit_data
         basis = [exp(-b * coordinates[i]+log(weights[i]))
                  for i in eachindex(coordinates), b in poles]
         column_scales=[maximum(abs, column) for column in eachcol(basis)]
@@ -393,14 +416,17 @@ function cim_estimate(integral::SpectralIntegral{Kind}, controls, workspace, eva
         images = Kind===:radial ? amplitudes : amplitudes .* exp.(poles .* shift)
         value, image_rounding=cim_image_value(Val(Kind), w, images, poles, rotation)
         value += pole_value
-        integrated_residual = isfinite(value) &&
+        residual_estimate = isfinite(value) &&
                               (abs(value-reference)<=target ||
-                               refinement==controls.max_refinements) ?
+                               refinement==controls.max_refinements+1) ?
                               cim_residual_error(
-            integral, amplitudes, poles, rotation, shift, limit, target, controls) : R(Inf)
+            integral, amplitudes, poles, rotation, shift, limit, target, controls) :
+            (error=R(Inf), tail=zero(R), cutoff=R(Inf))
+        integrated_residual=residual_estimate.error
+        # The complete residual certificate already bounds the accepted fit.
+        # Its distance from an earlier rejected fit adds no accuracy evidence.
         if isfinite(value) && integrated_residual+verification.error+image_rounding <= target &&
-           abs(value - reference) <= target &&
-           (previous === nothing || abs(value - previous) <= 2target)
+           abs(value - reference) <= target
             if workspace !== nothing
                 resize!(workspace.images, length(images))
                 copyto!(workspace.images, images)
@@ -408,27 +434,42 @@ function cim_estimate(integral::SpectralIntegral{Kind}, controls, workspace, eva
                 copyto!(workspace.exponents, poles)
             end
             rounded=Result(value)
-            cim_store_fit!(integral, controls, workspace, images, poles, rotation,
-                integrated_residual+verification.error, tail_error, limit, Result)
+            certificate=cim_store_fit!(integral, controls, workspace, images, poles, rotation,
+                integrated_residual+verification.error, residual_estimate.tail,
+                residual_estimate.cutoff, Result)
             return SpectralEstimate(
-                rounded, R(abs(rounded-value)+integrated_residual+verification.error+image_rounding),
-                R(tail_error), evaluations[], R(limit))
+                rounded, R(abs(rounded-value)+certificate.error+image_rounding),
+                R(certificate.tail), evaluations[], R(certificate.cutoff), budget.used[])
         end
         diagnostic = (residual = residual/amplitude, integrated_residual,
             integral_error = abs(value-reference),
             target = target, images = length(poles))
-        previous = value
         if integrated_residual+verification.error+image_rounding<best_error
             best_value=value
             best_error=integrated_residual+verification.error+image_rounding
+            best_certificate_error=integrated_residual+verification.error
+            best_cutoff=residual_estimate.cutoff
+            best_tail=residual_estimate.tail
+            best_rounding=image_rounding
+            best_images=copy(images)
+            best_poles=copy(poles)
         end
-        if refinement==controls.max_refinements && isfinite(integrated_residual)
+        if refinement==controls.max_refinements+1 && isfinite(integrated_residual)
             # A system consumer may allocate a larger absolute budget to an
             # insignificant correction. The value-only wrapper still enforces
             # its requested integral tolerance.
+            isfinite(best_error) || throw(ErrorException("CIM image sum has no finite rounding-error estimate"))
             rounded=Result(best_value)
-            return SpectralEstimate(rounded, R(abs(rounded-best_value)+best_error),
-                R(tail_error), evaluations[], R(limit))
+            if workspace!==nothing
+                resize!(workspace.images,length(best_images))
+                copyto!(workspace.images,best_images)
+                resize!(workspace.exponents,length(best_poles))
+                copyto!(workspace.exponents,best_poles)
+            end
+            certificate=cim_store_fit!(integral,controls,workspace,best_images,best_poles,rotation,
+                best_certificate_error,best_tail,best_cutoff,Result)
+            return SpectralEstimate(rounded,R(abs(rounded-best_value)+certificate.error+best_rounding),
+                R(certificate.tail),evaluations[],R(certificate.cutoff),budget.used[])
         end
     end
     throw(ErrorException("spectral :cim did not converge: $diagnostic; no quadrature fallback was used"))
@@ -454,10 +495,10 @@ function computation_options(::Type{SpectralIntegral}, values::NamedTuple)
     defaults = if method === :quad
         (rtol = 1e-8, atol = 0.0, maxevals = 10^7)
     elseif method === :trapz
-        (rtol = 1e-6, atol = 0.0, samples = 128,
+        (rtol = 1e-6, atol = 0.0, samples = nothing,
             max_refinements = 12, max_tail_refinements = 32)
     else
-        (rtol = 1e-6, atol = 0.0, samples = 128, max_terms = 192, max_refinements = 3,
+        (rtol = 1e-6, atol = 0.0, samples = nothing, max_terms = 192, max_refinements = 3,
             max_tail_refinements = 20, maxevals = 10^7)
     end
     unknown_controls = setdiff(keys(supplied), keys(defaults))
@@ -473,10 +514,11 @@ function computation_options(::Type{SpectralIntegral}, values::NamedTuple)
         throw(ArgumentError("at least one integration tolerance must be positive"))
     for key in setdiff(keys(controls), (:rtol, :atol))
         value = getproperty(controls, key)
+        key===:samples && value===nothing && continue
         value isa Integer && !(value isa Bool) && value > 0 ||
             throw(ArgumentError("$key must be a positive integer"))
     end
-    haskey(controls, :samples) && controls.samples < 16 &&
+    haskey(controls, :samples) && controls.samples!==nothing && controls.samples < 16 &&
         throw(ArgumentError("integration samples must be at least 16"))
     return (method = Val(method), options = controls)
 end

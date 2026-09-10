@@ -179,8 +179,8 @@ its result is one `EarthMaterial`. It owns its numerical sections independently
 of the external equation. The consuming source explicitly admits compatible
 reductions. A full multilayer consumer rejects reductions.
 
-The current reduction default explicitly selects the bottommost soil; it is a
-layer-selection settings, not a derived general recursion. `:after` applies the one
+The current reduction default explicitly selects the bottommost soil; this is
+explicit layer selection, not a derived general recursion. `:after` applies the one
 backend-selected frequency law to physical layers first. `:before` reduces static
 properties and applies that same law to the resulting material. Physical and
 effective pairs remain distinct in the binding, and reductions run for each
@@ -236,10 +236,15 @@ depths, separations and scalar source normalizations. Geometry-dependent kernels
 retain those parameters in their identity. Arbitrary callbacks are not cached.
 Uniform local pencil regions generate a global exponential representation;
 construction starts with a compact region set and expands it when verification
-requires more work. Sample and Hankel buffers are reused.
+requires more work. Candidate image orders reuse each window's projected Hankel
+factorization before requesting more samples. Rectangular pencils use all samples
+while limiting their row count by the candidate image order. Sample and Hankel
+buffers are reused.
 Amplitude fitting uses the integration contour and analytic tail penalties;
 an independent integral of the absolute weighted residual checks its complete
-continuation. Quadrature verifies the image sum and never supplies a value
+continuation. With an analytic tail bound, this integral uses a finite interval
+and adds bounds on both the true-kernel and image-expansion remainders. Quadrature
+verifies the image sum and never supplies a value
 labelled `:cim`. Geometry certificates integrate an absolute residual envelope
 over the complete contour, including the tail. They apply to greater weight
 heights and smaller separation-plus-radius on that contour. New geometries
@@ -247,6 +252,12 @@ outside the certified range require another certificate or fit; valid cache hits
 evaluate the images without quadrature or refitting. One kernel prototype
 evaluation still checks the physical scalar contract. Reported certificates
 remain numerical estimates.
+Before caching a fit, continuation bounds are tightened to the measured finite
+fit-error scale. Reuse selects the strongest applicable certificate, so a loose
+tail estimate does not repeatedly force matrix-level refinements of the same fit.
+The assembler can retain a certified expansion of an insignificant correction
+even when that correction misses its local relative tolerance. Subsequent reuse
+still requires its certificate to meet the newly requested absolute error budget.
 An unresolved value-only integral raises an error. The complete
 earth assembler instead consumes the numerical estimate, propagates prefactors
 and right-solve sensitivity, and tightens the influential interactions until
@@ -260,16 +271,42 @@ explicitly. Trapz retains correlated physical uncertainty while its numerical
 norm and sampling coordinates are nominal. A zero nominal value with nonzero
 uncertainty remains visible to refinement.
 
-For trapz, `samples` controls the initial transformed-rule spacing
-(`h0=min(1,128/samples)`), `max_refinements` limits DE levels, and
-`max_tail_refinements` limits independently verified subdomain refinements over
-the mapped semi-infinite interval. Local phase and envelope variation guide
-initial subdivision. Their finite seeding horizon does not truncate the
-integral: the final interval still extends to infinity. Independent panel
+The generalized half-space kernels provide typed absolute remainder envelopes
+for overhead, underground and ordered mixed interactions, including voltage
+reference paths and radial transformations. The shared planner finds a cutoff
+from the requested `rtol`/`atol` budget and rechecks it against the computed value.
+Only features inside this justified range seed finite panels and image fits.
+There is no universal maximum wavenumber. Kernels without a usable analytic
+envelope retain verification over the infinite interval; uncertain physical
+inputs also retain that path because nominal envelopes do not bound derivatives.
+
+For both trapz and CIM, `samples=nothing` (the default) selects adaptive
+construction. An integer `samples=N`, with `N≥16`, caps **construction kernel
+evaluations per scalar integral**. Trapz counts evaluations performed by the DE
+rule; CIM counts coverage probes, pencil samples and amplitude-fitting samples.
+Repeated evaluations count again. Prototype, pilot and independent verification
+evaluations are outside this budget. An accepted cached image fit requires no
+construction samples. The budget never grows silently: insufficient samples
+raise an explicit error. This intentionally replaces the former starting-density
+meaning of `samples`; an old explicit value such as `128` may need increasing.
+Numerical tolerance remains a separate requirement:
+
+```julia
+integration = (method = :trapz, options = (rtol = 1e-6, atol = 0.0, samples = nothing))
+integration = (method = :cim, options = (rtol = 1e-6, samples = 8192))
+```
+
+`SpectralEstimate.samples` reports construction evaluations and
+`evaluations-samples` reports verification and pilot evaluations. Earth workspace
+diagnostics aggregate both counters across integral solves and matrix refinements.
+
+For trapz, `max_refinements` limits DE levels and `max_tail_refinements` limits
+cutoff searches and independently verified subdomain refinements. Local phase
+and envelope variation guide initial subdivision. Independent panel
 quadrature references supply normalization and verification in one pass; their
 absolute errors cannot cancel across panels. Successful panels are retained;
 the DE package reuses nested samples within each panel. Rule tables are reused for identical
-spacing, level limits and precision. Mathematical feature metadata is required to guard
+level limits and precision. Mathematical feature metadata is required to guard
 against known narrow structures; finite black-box samples cannot certify the
 absence of an undeclared feature. Reported errors remain estimates unless the
 contributing regularity and tail information supplies bounds.
@@ -282,7 +319,7 @@ receive no entry; distinct contributions require their own verified equations.
 Analytical result details retain requested and effective identities for every formulation
 slot, explicit modification flags, independent equivalent-earth selections and
 orders, and normalized numerical options for internal surfaces, scalar material laws,
-external cases and each required reduction case. Absence of a selected reduction remains `nothing` in this calculation records.
+external cases and each required reduction case. Absence of a selected reduction remains `nothing` in these calculation records.
 
 PSCAD extends the same equation generics with a `Val(:pscad)` execution payload:
 

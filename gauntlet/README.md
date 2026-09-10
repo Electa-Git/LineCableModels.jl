@@ -42,6 +42,13 @@ definition = benchmark_definition(model; id=:soil_comparison,
 result = run_benchmark(definition; directory="/path/to/calculation")
 ```
 
+Spectral controls remain on each formula selection, including when it is an
+entry in a formulation Gridspace. For trapz and CIM, `samples=nothing` selects
+adaptive construction; an integer caps construction kernel evaluations per scalar
+integral. These are separate from the problem's frequency samples and timing
+repetitions. Saving and reporting retain the requested budget and the normalized
+per-interaction controls. An exhausted budget fails explicitly.
+
 Use a real declaration file for `source_file` (the `@__FILE__` argument above).
 For a REPL, pass the path of the file that declares the benchmark. An explicit
 `BenchmarkCalculation` carries its own problem, formulation and execution options;
@@ -362,6 +369,20 @@ julia --project=gauntlet -e 'using Pkg; Pkg.instantiate()'
 julia --project=gauntlet test/gauntlet/runtests.jl
 julia --project=test test/runtests.jl pscad
 ```
+
+Pass file or test-name fragments to select only the affected Gauntlet tests:
+
+```sh
+OPENBLAS_NUM_THREADS=1 JULIA_NUM_THREADS=1 julia --project=gauntlet \
+  --startup-file=no --compiled-modules=existing \
+  test/gauntlet/runtests.jl spectral_reporting_tests
+```
+
+Multiple selectors are alternatives. Omitting selectors retains the full suite.
+For upstream spectral-control reconciliation, the selected regression covers
+formula Gridspace computation, saved results, reporting and budget exhaustion.
+The wider numerical, FEM and documentation suites can run in CI when local power
+or time is limited.
 
 Ordinary tests run without coverage instrumentation. Coverage collection retains
 the LCOV report and removes source-adjacent `.cov` traces after workers have exited.

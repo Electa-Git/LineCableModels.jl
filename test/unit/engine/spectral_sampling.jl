@@ -48,7 +48,8 @@
         @test actual≈sqrt(pi)*1e-4*exp(-9+1e-8/4) rtol=1e-5
     catch error
         @test error isa ErrorException
-        @test occursin("CIM", sprint(showerror, error))||occursin(":cim", sprint(showerror, error))
+        @test occursin("CIM", sprint(showerror, error))||occursin(":cim", sprint(showerror, error))||
+              occursin("sample budget",sprint(showerror,error))
     end
 end
 

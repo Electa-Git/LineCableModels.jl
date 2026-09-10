@@ -101,6 +101,70 @@ CIMWorkspace() = CIMWorkspace(CIMImageFit[], ComplexF64[], ComplexF64[], Ref(pi/
     (fits = Ref(0), pencils = Ref(0), hits = Ref(0), certifications = Ref(0)))
 cim_workspace(workspace) = workspace===nothing ? nothing : get(workspace, :cim, nothing)
 
+"""
+$(TYPEDEF)
+
+Retain one sampled window's projected matrix pencil. Candidate image orders
+reuse leading blocks of this projection and its singular values; changing
+order requires no new kernel samples or Hankel factorization.
+
+$(TYPEDFIELDS)
+"""
+struct CIMPencil
+    "Projected shifted Hankel matrix, in the sampled kernel's units."
+    shifted::Matrix{ComplexF64}
+    "Retained Hankel singular values, in the sampled kernel's units."
+    singular::Vector{Float64}
+    "Uniform fitting-coordinate increment \\[1/m\\]."
+    step::Float64
+    "Right fitting-window endpoint \\[1/m\\]."
+    width::Float64
+end
+
+function cim_pencil(data, step, width, tolerance, maxrank, cache)
+    samples=length(data)
+    # A rectangular pencil uses every sample while keeping factorization cost
+    # tied to the candidate image order, rather than cubically to sample count.
+    rows=min(samples÷2,2maxrank)
+    columns=samples-rows
+    storage=cache===nothing ? Vector{ComplexF64}(undef,2rows*columns) :
+            resize!(cache.hankel,2rows*columns)
+    H0=reshape(view(storage,1:(rows*columns)),rows,columns)
+    H1=reshape(view(storage,(rows*columns+1):(2rows*columns)),rows,columns)
+    for j in 1:columns, i in 1:rows
+        H0[i,j]=data[i+j-1]
+        H1[i,j]=data[i+j]
+    end
+    cache===nothing || (cache.statistics.pencils[]+=1)
+    factor=svd!(H0)
+    rank=min(maxrank,count(>(max(eps(Float64)*samples,tolerance*1e-3)*first(factor.S)),factor.S))
+    U=@view factor.U[:,1:rank]
+    V=@view factor.V[:,1:rank]
+    return CIMPencil(U'*H1*V, factor.S[1:rank],step,width)
+end
+
+function cim_poles!(poles, pencils, terms, integral::SpectralIntegral{Kind}, rotation) where {Kind}
+    w=integral.weight
+    rate=real(w.height*rotation)-abs(imag((w.separation+get(w,:radius,0))*rotation))
+    for pencil in pencils
+        rank=min(terms,length(pencil.singular))
+        rank==0 && continue
+        reduced=pencil.shifted[1:rank,1:rank]
+        for j in 1:rank, i in 1:rank
+            reduced[i,j]/=pencil.singular[j]
+        end
+        for z in eigvals!(reduced)
+            iszero(z) && continue
+            b=-log(z)/pencil.step
+            abs(b)*pencil.width<100eps(Float64) && (b=zero(b))
+            physical_rate=Kind===:radial ? real((w.height+b)*spectral_rotation(integral))-
+                abs(imag(w.separation*spectral_rotation(integral))) : real(b)+rate
+            isfinite(b) && real(b)+rate>sqrt(eps(Float64))*rate && physical_rate>0 && push!(poles,b)
+        end
+    end
+    return poles
+end
+
 cim_identity(kernel) = nothing
 cim_identity(kernel::SpectralKernelCounter) = cim_identity(kernel.kernel)
 cim_logscale(kernel) = 0.0
@@ -170,27 +234,33 @@ end
 
 function cim_store_fit!(integral::SpectralIntegral{Kind}, controls, workspace,
         images, poles, rotation, error, tail, cutoff, ::Type{Result}) where {Kind, Result}
-    cache=cim_workspace(workspace)
-    cache===nothing && return
-    key=cim_identity(integral.kernel)
-    key===nothing && return
-    integral.pole===nothing || return
-    integral.features===nothing || integral.features.tail===nothing || return
-    length(cache.fits)>=64 && popfirst!(cache.fits)
     certificate=cim_certificate(integral, error, tail, cutoff)
+    cache=cim_workspace(workspace)
+    cache===nothing && return certificate
+    key=cim_identity(integral.kernel)
+    key===nothing && return certificate
+    integral.pole===nothing || return certificate
+    spectral_cacheable_tail(spectral_tail(integral)) || return certificate
+    length(cache.fits)>=64 && popfirst!(cache.fits)
     certificates=[certificate]
-    target=max(controls.atol, controls.rtol*abs(first(cim_image_value(
-        Val(Kind), integral.weight, images, poles, rotation))))
+    magnitude=abs(first(cim_image_value(Val(Kind), integral.weight, images, poles, rotation)))
+    target=max(controls.atol, controls.rtol*magnitude)
+    # A loose separate-tail bound can dominate an otherwise accurate fit and
+    # cause matrix sensitivity checks to refit it repeatedly. Certify the
+    # continuation at the measured finite-error scale before caching it.
+    certification_target=min(target,max(error-tail,32eps(Float64)*magnitude,floatmin(Float64)))
     cache.statistics.certifications[]+=1
-    envelope_error=cim_envelope_error(integral, images, poles, rotation, 1.0, cutoff, target, controls)
-    if isfinite(envelope_error)
-        push!(certificates, cim_certificate(integral, envelope_error, 0.0, cutoff; envelope = true))
+    envelope=cim_envelope_error(integral, images, poles, rotation, 1.0, cutoff, certification_target, controls)
+    if isfinite(envelope.error)
+        push!(certificates, cim_certificate(integral, envelope.error, envelope.tail,
+            envelope.cutoff; envelope = true))
     end
+    sort!(certificates;by=c->c.error)
     push!(cache.fits, CIMImageFit(key, Kind, precision(real(Result)), cim_logscale(integral.kernel),
         ComplexF64.(images), ComplexF64.(poles), ComplexF64(rotation),
         ComplexF64(Kind===:radial ? integral.weight.q : 0), certificates))
     cache.statistics.fits[]+=1
-    return
+    return first(certificates)
 end
 
 function cim_reuse_estimate(integral::SpectralIntegral{Kind}, controls, workspace,
@@ -198,7 +268,7 @@ function cim_reuse_estimate(integral::SpectralIntegral{Kind}, controls, workspac
     cache=cim_workspace(workspace)
     cache===nothing && return nothing
     integral.pole===nothing || return nothing
-    integral.features===nothing || integral.features.tail===nothing || return nothing
+    spectral_cacheable_tail(spectral_tail(integral)) || return nothing
     key=cim_identity(integral.kernel)
     key===nothing && return nothing
     for fit in Iterators.reverse(cache.fits)
@@ -227,14 +297,16 @@ function cim_reuse_estimate(integral::SpectralIntegral{Kind}, controls, workspac
         # not a finite collection of representative geometry samples.
         cutoff=maximum(c->c.cutoff, fit.certificates)
         cache.statistics.certifications[]+=1
-        error=cim_envelope_error(integral, fit.images, fit.exponents,
+        envelope=cim_envelope_error(integral, fit.images, fit.exponents,
             fit.rotation, factor, cutoff, target, controls)
-        if isfinite(error)&&error+rounding<=target
+        if isfinite(envelope.error)&&envelope.error+rounding<=target
             length(fit.certificates)>=32 && popfirst!(fit.certificates)
-            push!(fit.certificates, cim_certificate(integral, error/factor, 0.0,
-                cutoff; envelope = true))
+            push!(fit.certificates, cim_certificate(integral, envelope.error/factor,
+                envelope.tail/factor, envelope.cutoff; envelope = true))
+            sort!(fit.certificates;by=c->c.error)
             cache.statistics.hits[]+=1
-            return SpectralEstimate(rounded, error+rounding, 0.0, evaluations[], cutoff)
+            return SpectralEstimate(rounded, envelope.error+rounding, envelope.tail,
+                evaluations[], envelope.cutoff)
         end
     end
     return nothing
@@ -249,10 +321,12 @@ function cim_envelope_error(integral::SpectralIntegral{Kind}, images, poles,
     for b in poles
         rate=Kind===:radial ? real((w.height+b)*contour)-w.separation*abs(imag(contour)) :
              real((w.height+b/rotation)*contour)-(w.separation+get(w, :radius, 0))*abs(imag(contour))
-        rate>0 || return Inf
+        rate>0 || return (error=Inf, tail=0.0, cutoff=Inf)
     end
-    physical=sort!(unique!(vcat(spectral_breakpoints(integral), limit)))
-    points=sort!(unique!(vcat(physical ./ (integral.scale .+ physical), 1.0)))
+    limit,remainder=cim_residual_limit(integral,images,poles,rotation,factor,limit,target,controls)
+    physical=spectral_breakpoints(integral;limit)
+    points=physical ./ (integral.scale .+ physical)
+    isfinite(limit) || push!(points,1.0)
     f=t->begin
         den=inv(1-t)
         λ=contour*integral.scale*t*den
@@ -277,7 +351,59 @@ function cim_envelope_error(integral::SpectralIntegral{Kind}, images, poles,
         # An expansion can overflow outside its original geometry. Reject that
         # proposed reuse and let the normal construction resolve the new case.
         error isa DomainError || rethrow()
-        return Inf
+        return (error=Inf, tail=0.0, cutoff=Inf)
     end
-    return value+error
+    return (error=value+error+remainder, tail=remainder, cutoff=Float64(limit))
+end
+
+"""
+$(TYPEDSIGNATURES)
+
+Bound the absolute tail of the complete image expansion after `limit` \\[1/m\\].
+Cosine and Bessel weights use the exponential envelope on the physical contour.
+Radial images also bound the outgoing root and its reciprocal; an inadmissible
+or insufficiently decaying image returns an infinite bound.
+"""
+function cim_image_tail(integral::SpectralIntegral{Kind}, images, poles, rotation, factor, limit) where {Kind}
+    w=integral.weight
+    contour=spectral_rotation(integral)
+    result=0.0
+    beta=0.0
+    lower=1.0
+    if Kind===:radial
+        eta=abs(w.q^2)/limit^2
+        eta<=1/4 || return Inf
+        beta=abs(w.q^2)/(1+sqrt(1-eta))
+        delta=beta/limit^2
+        delta<real(contour)/2 || return Inf
+        lower=1-delta
+    end
+    for (a,b) in zip(images,poles)
+        iszero(a) && continue
+        if Kind===:radial
+            rate=real((w.height+b)*contour)-w.separation*abs(imag(contour))
+            rate>0 || return Inf
+            logvalue=log(abs(factor*a))+real(b*w.q)+abs(w.height+b)*beta/limit-
+                     rate*limit-log(lower*rate*limit)
+        else
+            rate=real((w.height+b/rotation)*contour)-
+                 (w.separation+get(w,:radius,0))*abs(imag(contour))
+            rate>0 || return Inf
+            logvalue=log(abs(factor*a))-rate*limit-log(rate)
+        end
+        result+=max(nextfloat(0.0),exp(logvalue))
+    end
+    return result*(1+32eps(Float64)*length(images))
+end
+
+function cim_residual_limit(integral,images,poles,rotation,factor,limit,target,controls)
+    spectral_bounded(integral)&&isfinite(limit) || return (Inf,0.0)
+    for _ in 1:controls.max_tail_refinements
+        remainder=spectral_tail(integral)(limit)+cim_image_tail(integral,images,poles,rotation,factor,limit)
+        remainder<=target/32 && return (limit,remainder)
+        limit*=2
+    end
+    # A poor image continuation is rejected by the existing full-range
+    # residual verifier; no truncated or quadrature value is substituted.
+    return (Inf,0.0)
 end
