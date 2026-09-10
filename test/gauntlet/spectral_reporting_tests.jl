@@ -3,7 +3,7 @@
     using LineCableModels.ReportBuilder: BenchmarkTableDefinition
     model=load_case(:two_insulated_wires;variation=ExactOverrides(frequencies=[1e3]))
     physical=(reduce_bundle=false,kron_reduction=false,ideal_transposition=false)
-    controls=[(method,options=(samples,)) for method in (:trapz,:cim) for samples in (nothing,100_000)]
+    controls=[(method,options=(;samples)) for method in (:trapz,:cim) for samples in (nothing,100_000)]
     selections=[formula(:default;options=(integration=choice,)) for choice in controls]
     formulations=Formulation(earth_impedance=Grid(selections),earth_admittance=Grid(selections);
         combine=:zip,options=physical)
