@@ -1,5 +1,6 @@
 /* Published catalogue layout only. Color and interaction tokens stay shared. */
-.lc-application-catalogue { margin-block:1rem; }
+.lc-application-catalogue { margin-block:1rem 0; }
+.lc-application-catalogue > :last-child { margin-bottom:0; }
 .lc-catalogue-chooser { display:flex; align-items:end; flex-wrap:wrap; gap:.65rem; margin-block:1rem; }
 .lc-catalogue-chooser label { display:grid; gap:.3rem; min-width:min(100%,22rem); flex:1 1 22rem; }
 .lc-catalogue-actions { display:flex; align-items:center; flex-wrap:wrap; gap:.65rem; }

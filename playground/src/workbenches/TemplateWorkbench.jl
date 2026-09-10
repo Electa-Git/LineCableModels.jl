@@ -497,7 +497,8 @@ function Bonito.jsrender(session::Session, view::GeometryViewport)
         orientation=:horizontal,
         ratio=0.72,
         min_first="24rem",
-        min_second="15rem"
+        min_second="15rem",
+        scroll=:parent
     )
     node = WorkspacePage("Cable geometry", layout; eyebrow="SCENE VIEWPORT", fill=true,
         tools=DOM.span(depth_label; class="lc-wb-demo-machine"))

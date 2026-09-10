@@ -47,8 +47,8 @@ function Bonito.jsrender(session::Session, view::CableGeometry)
         DOM.div(view.fields...; class="lc-form-fields lc-study-fields"), properties;
         class="lc-content-stack lc-panel-content"); sizing=:content)
     node = DOM.section(WorkspacePage("Cable construction",
-        SplitPane(ViewportFrame("Core · insulation · sheath", diagram), inputs;
-            ratio=.68, min_first="20rem", min_second="17rem");
+        SplitPane(ViewportFrame("Core · insulation · sheath", diagram; sizing=:fill), inputs;
+            ratio=.68, min_first="20rem", min_second="17rem", scroll=:parent);
         eyebrow="SCENE VIEWPORT", fill=true,
         description="Local geometry interaction only. Radii remain proportional. Scientific inputs are configured separately in the line-parameter view.");
         class="lc-study-geometry")

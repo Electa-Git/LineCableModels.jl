@@ -164,6 +164,26 @@ try {
   assert.equal(await evaluate("term.options.disableStdin"),true);checks++;
   await evaluate("f.phase='ready';f.append('julia> ')");await wait("f.transport.state.canInput && text().includes('julia>')");
   assert.equal(await evaluate("term.options.disableStdin"),false);checks++;
+  // Ordinary input/output polls are not a loading state. Sample every transport
+  // publication (including its busy moment), not only settled screenshots.
+  for (const selected of ["dark", "light"]) {
+    await evaluate(`LineCableModelsTheme.select(${JSON.stringify(selected)})`);
+    for (const width of [1280,520]) {
+      await command("Emulation.setDeviceMetricsOverride",{width,height:800,deviceScaleFactor:1,mobile:false});
+      await delay(350);
+      await evaluate(`window.layoutSamples=[]; window.captureLayout=()=>{
+        const box=n=>{const r=n.getBoundingClientRect();return [r.x,r.y,r.width,r.height];};
+        return {busy:document.querySelector('.lc-terminal-phase').dataset.busy,
+          boxes:[...document.querySelectorAll('.lc-terminal-heading, .lc-runtime-actions, .lc-terminal-viewport, .lc-runtime-actions button')].map(box)};
+      }; window.stableLayout=captureLayout(); window.unwatchLayout=f.transport.subscribe(()=>layoutSamples.push(captureLayout())); term.focus();`);
+      await command("Input.insertText",{text:"steady"});
+      await wait("text().includes('steady')");await delay(400);
+      assert.equal(await evaluate("layoutSamples.length>2 && layoutSamples.every(s=>s.busy==='false' && JSON.stringify(s.boxes)===JSON.stringify(stableLayout.boxes))"),true,
+        `${selected}/${width}: typing or output polling shifted terminal controls or showed loading`);checks++;
+      await evaluate("unwatchLayout()");
+    }
+  }
+  await command("Emulation.setDeviceMetricsOverride",{width:1280,height:800,deviceScaleFactor:1,mobile:false});await delay(350);
   await evaluate("window.opensBeforeLoss=f.sent.filter(p=>p.action==='open').length;f.transport.client.notify({stale:true})");
   assert.equal(await evaluate("document.querySelector('.lc-terminal-status').textContent.includes('Assignment or live inventory changed')"),true);checks++;
   assert.equal(await evaluate("term.options.disableStdin && !term.options.cursorBlink"),true);checks++;
@@ -171,6 +191,26 @@ try {
   assert.equal(await evaluate("f.sent.filter(p=>p.action==='open').length===opensBeforeLoss && !f.transport.state.connected"),true);checks++;
   await evaluate("f.button('Reconnect').click()");await wait("f.transport.state.canInput");
   await delay(200);
+  // Nonzero round-trip time exposes busy states that an immediate mock reply
+  // hides. Read/input acknowledgements must not animate or move the REPL shell.
+  for (const selected of ['dark','light']) {
+    await evaluate(`LineCableModelsTheme.select(${JSON.stringify(selected)});f.replyDelay=65`);
+    await delay(250);
+    await evaluate(`window.terminalSamples=[];window.watchTerminal=true;
+      window.sampleTerminal=()=>{if(!watchTerminal)return;const r=document.querySelector('.lc-terminal-viewport').getBoundingClientRect();
+        terminalSamples.push({top:r.top,height:r.height,width:r.width,busy:document.querySelector('.lc-terminal-phase').dataset.busy,
+          cols:term.cols,rows:term.rows});requestAnimationFrame(sampleTerminal);};requestAnimationFrame(sampleTerminal);term.focus()`);
+    for (const letter of 'stable_repl') { await command('Input.insertText',{text:letter}); await delay(25); }
+    await delay(350);
+    const samples=await evaluate('watchTerminal=false;terminalSamples');
+    assert.ok(samples.length>10);
+    assert.ok(samples.every(s=>s.busy==='false'),selected+' input/read transport requests must not toggle lifecycle activity');
+    for (const key of ['top','height','width','cols','rows']) assert.ok(
+      Math.max(...samples.map(s=>s[key]))-Math.min(...samples.map(s=>s[key]))<0.5,
+      selected+' terminal '+key+' changed while typing: '+JSON.stringify(samples));
+    checks+=6;
+  }
+  await evaluate('f.replyDelay=0');
   await evaluate("window.statusMutations=0;window.statusObserver=new MutationObserver(records=>statusMutations+=records.length);statusObserver.observe(document.querySelector('.lc-terminal-status'),{childList:true,characterData:true,subtree:true})");
   await delay(300);assert.equal(await evaluate("statusMutations"),0,"Unchanged readiness must not flood screen-reader live regions");checks++;
   await evaluate("statusObserver.disconnect();f.transport.enqueue('x'.repeat(32769))");await delay(250);

@@ -3,6 +3,7 @@ module CableStudy
 
 using Bonito
 using ..WorkbenchUI
+using ..Toolkit: NavigationButton
 using ..ScientificViews
 using ..ScientificViews.StudyCases
 using ..ComponentXRay
@@ -11,11 +12,22 @@ using ..LineCableModelsPlayground: PLAYGROUND_ROOT
 
 export Application, app
 
-"""Bind the scientific workbench to an explicitly provided owned application run."""
+"""
+    Application(client; return_button=NavigationButton("Home"; href="/", icon=icon(:home)))
+
+Bind the scientific workbench to an owned run. `return_button` configures the
+sidebar's destination independently of scientific state or worker assignment.
+"""
 struct Application <: AbstractWorkbench
     "Same-origin runtime context; does not allocate resources."
     client::RuntimeClient
+    "Reusable navigation control supplied by the workbench owner."
+    return_button::NavigationButton
 end
+
+default_return_button() = NavigationButton("Home"; href="/", icon=icon(:home))
+Application(client::RuntimeClient; return_button::NavigationButton=default_return_button()) =
+    Application(client, return_button)
 
 struct SelectView <: AbstractWorkbenchAction
     id::Symbol
@@ -36,7 +48,7 @@ function WorkbenchUI.compose(application::Application, state)
     icons = (:cloud, :geometry, :chart, :chart, :terminal)
     navigation = Sidebar(NavGroup("Cable study",
         (NavItem(id, label, SelectView(id); icon) for (id,label,icon) in zip(ids,labels,icons))...);
-        active=state.active, footer=DOM.a("Playground home"; href="/", target="_top"))
+        active=state.active, footer=application.return_button)
     workspace = ViewStack((View(id, label, getproperty(state.views, id)) for (id,label) in zip(ids,labels))...;
         active=state.active)
     return Workbench(; namespace=:cable_study,
@@ -57,8 +69,14 @@ function WorkbenchUI.handle!(::Application, state, action::SelectView)
     return nothing
 end
 
-"""Create an isolated-session workbench using the supplied run; no implicit worker allocation."""
-app(client::RuntimeClient; xray::Bool=false) = workbench_app(Application(client);
+"""
+    app(client; xray=false, return_button=NavigationButton("Home"; href="/", icon=icon(:home)))
+
+Create an isolated-session workbench without implicit worker allocation. Supply
+a `NavigationButton` to change the sidebar return label, destination and icon.
+"""
+app(client::RuntimeClient; xray::Bool=false,
+    return_button::NavigationButton=default_return_button()) = workbench_app(Application(client; return_button);
     title="CableStudy · LineCableModels", xray=ComponentXRay.XRayPolicy(xray))
 
 end

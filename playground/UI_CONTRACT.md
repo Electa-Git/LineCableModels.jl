@@ -27,14 +27,58 @@ retain their own viewport contracts rather than inheriting document geometry.
 | Scientific drawings | `ScientificViews`, `scientific-views.css` | Own scientific geometry/series only, not field/button/page styling. |
 
 `ViewportFrame(...; sizing=:content)` fits ordinary forms; the default
-`:viewport` reserves canvas height. Component X-ray metadata belongs to the
+`:viewport` reserves canvas height. `sizing=:fill` fits a drawing to its host's
+available height; widening a split must not make the drawing taller. An optional
+`max_height="32rem"` caps the whole frame (header and footer included). Canvas
+frames retain their 12rem usable minimum, so smaller hosts scroll rather than
+clip content. For example:
+
+```julia
+WorkspacePage("Construction",
+    SplitPane(ViewportFrame("Cross-section", drawing; sizing=:fill),
+        ViewportFrame("Inputs", fields; sizing=:content); scroll=:parent);
+    fill=true)
+```
+
+Use `SplitPane(...; scroll=:parent)` for canvas/form compositions: the workbench
+view (or standalone document) owns overflow at its right edge, including long
+forms, expanded disclosures and the narrow stacked layout. Its wrappers must
+not introduce inner pane scrollbars or hide overflow. The default `scroll=:panes`
+remains available for deliberately independent editors/logs. The diagnostics
+dock is a separate region and keeps its own scrolling. None of these policies
+depends on colour theme. Component X-ray metadata belongs to the
 component defining each style, rather than duplicating descendants' metadata.
 Reactive Bonito `data-*` and `aria-*` state must synchronize HTML attributes
 explicitly (`onjs` / `setAttribute`); a DOM-property update alone does not update
 CSS selectors or accessibility state. The real-host feedback test covers both
 entering and leaving the busy state.
 
+## Document and return-navigation ownership
+
+Published pages allocate the footer's natural height through the shared flex
+shell, never a fixed subtraction from the screen height. Components must not
+append trailing margins to the document's own bottom inset. A fitting document
+has no scroll range; longer content and expanded navigation remain scrollable.
+
+Workbench return navigation uses `Toolkit.NavigationButton`, with button styles
+owned by `forms.css`. The sidebar only controls placement and label visibility
+in an icon rail; the accessible name and icon remain available. For example:
+
+```julia
+CableStudy.app(client; return_button=NavigationButton("Dashboard";
+    href="/workbenches/", icon=WorkbenchUI.icon(:workbench)))
+```
+
+The default is Home at `/`. Root-relative destinations keep navigation in the
+owned site; native links work without a Julia callback or worker connection.
+
 ## Runtime status and diagnostic ownership
+
+Terminal loading describes connection/start/restart/stop, not individual input,
+output or keepalive requests. The terminal badge reserves its activity glyph's
+space and only changes input/cursor options when their values change. Ordinary
+typing must not resize the terminal or shift its controls; delayed-acknowledgement
+browser tests sample geometry throughout typing in both themes.
 
 Broker connection, worker health, application-run lifetime, assignment, and
 executor preparation are independent facts. The shared browser client reads the
@@ -76,6 +120,9 @@ The parity test compares computed typography, padding, borders and colours
 between the gallery, reference workbench, CableStudy and scientific frames. It
 also checks resizing, narrow hosts and preservation of mounted plots. Keep
 functional input, failure/recovery, presentation and X-ray tests alongside it.
+The construction regression samples every drag step, frame-height caps, dock
+expansion, short windows and narrow stacking in both themes. It rejects inner
+pane scrolling, clipped or distorted drawings, and unreachable form content.
 It also checks dock insets for every reference tab and the actual CableStudy
 diagnostics, plus runtime startup/stop/recovery/deadline states using intercepted
 HTTP evidence (no worker allocation). Startup elapsed time explicitly measures

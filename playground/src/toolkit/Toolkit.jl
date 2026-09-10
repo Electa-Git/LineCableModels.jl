@@ -25,9 +25,11 @@ include("Overlays.jl")
 include("DataViews.jl")
 include("Layouts.jl")
 include("Feedback.jl")
+include("Navigation.jl")
 
 export ComboBox,
     ActionButton,
+    NavigationButton,
     StatusIndicator,
     ConfirmDialog,
     DataTable,

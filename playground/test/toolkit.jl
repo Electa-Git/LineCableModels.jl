@@ -100,6 +100,15 @@ const Toolkit = LineCableModelsPlayground.Toolkit
     viewport = ViewportFrame("Results", table)
     @test viewport.sizing == :viewport
     @test ViewportFrame("Inputs", form; sizing=:content).sizing == :content
+    fitted = ViewportFrame("Fitted drawing", table; sizing=:fill, max_height="32rem")
+    @test fitted.sizing == :fill && fitted.max_height == "32rem"
+    @test viewport.max_height === nothing
+    for length in ("100%", "480px", ".5em", "50vh", "50svh", "50dvh", "50vw")
+        @test ViewportFrame("Capped", table; max_height=length).max_height == length
+    end
+    for length in ("", "none", "-1px", "0px", "NaNpx", "12", "20px; overflow:hidden", "calc(100% - 2rem)")
+        @test_throws ArgumentError ViewportFrame("Invalid cap", table; max_height=length)
+    end
     @test_throws ArgumentError ViewportFrame("Inputs", form; sizing=:unknown)
     set_viewport_state!(viewport, :loading; message="Preparing")
     @test viewport.state[] == :loading
@@ -110,6 +119,15 @@ const Toolkit = LineCableModelsPlayground.Toolkit
     session = Bonito.Session(Bonito.NoConnection(); asset_server=Bonito.NoServer())
     status = StatusIndicator("Online"; tone=:success)
     action = ActionButton("Refresh status"; busy_label="Refreshing…")
+    navigation = NavigationButton("Home"; href="/")
+    @test navigation.href == "/" && navigation.target == "_top"
+    @test NavigationButton("Dashboard"; href="/dashboard/?view=jobs#recent", target="_self").label == "Dashboard"
+    for href in ("//other.example", "https://other.example", "javascript:alert(1)", "/\\other.example", "/\n/other.example")
+        @test_throws ArgumentError NavigationButton("Unsafe"; href)
+    end
+    @test_throws ArgumentError NavigationButton(" "; href="/")
+    @test_throws ArgumentError NavigationButton("Home"; href="/", target="popup")
+    @test ComponentXRay.inspection(navigation).name == "NavigationButton"
     @test status.tone[] == :success
     @test !status.busy[]
     @test_throws ArgumentError StatusIndicator("Unknown"; tone=:invalid)
@@ -118,10 +136,15 @@ const Toolkit = LineCableModelsPlayground.Toolkit
     @test ComponentXRay.inspection(action).name == "ActionButton"
     for component in (name, secret, notes, radio, segmented, combo, multiple,
             number, range, form, dialog, notice, center, properties, table,
-            viewport, disclosure, status, action)
+            viewport, fitted, disclosure, status, action, navigation)
         @test !isnothing(Bonito.jsrender(session, component))
     end
     split = WorkbenchUI.SplitPane(viewport, form; ratio=0.62)
+    @test split.scroll == :panes
+    canvas_split = WorkbenchUI.SplitPane(fitted, form; scroll=:parent)
+    @test canvas_split.scroll == :parent
+    @test !isnothing(Bonito.jsrender(session, canvas_split))
+    @test_throws ArgumentError WorkbenchUI.SplitPane(viewport, form; scroll=:hidden)
     @test !isnothing(Bonito.jsrender(session, split))
     page = Toolkit.WorkspacePage("Engineering view", split; eyebrow="WORKSPACE", fill=true)
     @test page.fill

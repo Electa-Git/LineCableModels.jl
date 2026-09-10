@@ -181,7 +181,7 @@ function result_plot(session, view, state)
             (Symbol("series$j")=>curve.values[i] for (j,curve) in enumerate(s.curves))...)
             for i in eachindex(s.frequency)]
     end
-    return DOM.div(ViewportFrame("Scientific response", svg; footer=legend),
+    return DOM.div(ViewportFrame("Scientific response", svg; footer=legend, sizing=:fill),
         DOM.p(map(s -> s.status, session, state); class="lc-study-result-status", role="status"),
         Disclosure("Samples · values in the plotted unit", table); class="lc-content-stack is-results lc-study-result")
 end
@@ -201,7 +201,7 @@ function Bonito.jsrender(session::Session, view::ScientificView)
         DOM.p(validation; class="lc-study-note", role="status"), Field("Display quantity", view.quantity);
         class="lc-content-stack lc-panel-content"); sizing=:content)
     layout = SplitPane(result_plot(session, view, state), inputs; ratio=.68,
-        min_first="20rem", min_second="17rem")
+        min_first="20rem", min_second="17rem", scroll=:parent)
     node = DOM.section(WorkspacePage(case_title(view.case),
         DOM.div(setup, layout; class="lc-content-stack is-fill");
         eyebrow="SCIENTIFIC VIEW", description=assumptions(view.case), fill=true);

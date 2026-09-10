@@ -1,8 +1,8 @@
 /* Owned layout only: palette and button states come from the shared contract. */
 .lc-runtime-terminal { min-width:0; padding:.8rem; background:var(--lc-panel-bg); border:1px solid var(--lc-border-soft); border-radius:var(--lc-radius); }
-.lc-terminal-heading { display:flex; align-items:baseline; justify-content:space-between; gap:.6rem; min-width:0; }
+.lc-terminal-heading { display:flex; align-items:center; justify-content:space-between; gap:.6rem; min-width:0; }
 .lc-terminal-heading h3 { margin:0; }
-.lc-terminal-phase { font-size:.72rem; line-height:1.4; text-transform:uppercase; }
+.lc-terminal-phase { font-size:.72rem; line-height:1.4; text-transform:uppercase; min-inline-size:18ch; justify-content:flex-end; }
 .lc-terminal-status { min-height:1.4em; }
 .lc-terminal-viewport { min-width:0; overflow:hidden; padding:4px; height:calc(var(--lcm-terminal-rows,18) * 1.35em + 8px); background:var(--lc-console-bg); border:1px solid var(--lc-border-soft); font-size:13px; }
 .lc-terminal-viewport:focus-within { border-color:var(--lc-focus); }

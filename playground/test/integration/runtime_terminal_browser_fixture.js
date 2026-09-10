@@ -11,7 +11,7 @@
     close() { this.readyState = 3; this.dispatchEvent(new Event("close")); }
     send(raw) {
       const packet = JSON.parse(raw); fixture.sent.push(packet);
-      queueMicrotask(() => {
+      setTimeout(() => {
         if (this.readyState !== 1) return;
         if (packet.action === "attach") return this.emit({kind:"attached",connection_id:crypto.randomUUID()});
         if (packet.action === "input" && fixture.uncertain) {
@@ -32,7 +32,7 @@
           phase:fixture.phase,writer_connected:packet.action!=="disconnect",input_sequence:fixture.inputSequence,
           cursor:packet.action === "read" ? packet.after+bytes.length : 0,output_sequence:fixture.output.length,
           gap:false,bytes,failure:null,cleanup_pending:false});
-      });
+      }, fixture.replyDelay || 0);
     }
   }
   const Vendor = LineCableModelsTerminalVendor.Terminal;

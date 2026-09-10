@@ -68,6 +68,9 @@
       const connected = this.socket?.readyState === 1 && !this.handshake;
       this.state = Object.freeze({phase:this.phase, message:this.message, notice:this.notice, available, connected,
         uncertain:this.uncertain, reviewRequired:this.reviewRequired, queuedBytes:this.input.length, cleanupPending:this.cleanup,
+        // Transport serialization is busy for every input/read/keepalive. Only
+        // lifecycle operations are user-visible loading, not normal REPL I/O.
+        activity:this.action || (["connecting","starting","closing","disconnecting"].includes(this.phase) ? this.phase : null),
         canConnect:available && !this.socket && !this.busy,
         canInput:available && connected && this.phase === "ready" && !this.uncertain && !this.reviewRequired && !this.action,
         canControl:available && connected && Boolean(this.session) && !this.uncertain && !this.action,

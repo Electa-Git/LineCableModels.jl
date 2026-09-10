@@ -71,6 +71,8 @@ export async function assertPublishedShell({devtools, baseUrl, evaluate, navigat
         context:document.querySelector('.quarto-secondary-nav-title').textContent.trim(),
         active:document.querySelector('#quarto-sidebar a.sidebar-link.active .menu-text')?.textContent.trim(),
         sidebar:box(document.querySelector('#quarto-sidebar')),
+        main:box(main), footer:box(document.querySelector('footer.footer')),
+        lastNavigation:box([...document.querySelectorAll('#quarto-sidebar .sidebar-item')].at(-1)),
         gutter:parseFloat(css.paddingLeft), maxWidth,
         availableWidth:document.querySelector('#quarto-content').getBoundingClientRect().width,
         logo:[...document.querySelectorAll('#quarto-sidebar img.sidebar-logo')].some(img => img.complete && img.naturalWidth > 0),
@@ -103,6 +105,15 @@ export async function assertPublishedShell({devtools, baseUrl, evaluate, navigat
       `${where}: document/header reserves an extra empty scrollbar strip`);
     if (sample.scrollHeight <= sample.clientHeight) assert(Math.abs(sample.header.right-sample.width)<=1,
       `${where}: a page without vertical overflow still leaves a scrollbar gap`);
+    const footerHeight=sample.footer.bottom-sample.footer.top;
+    if (sample.width>900 && Math.max(sample.main.bottom,sample.lastNavigation.bottom+16)+footerHeight<=sample.height) {
+      assert(sample.scrollHeight<=sample.clientHeight,
+        `${where}: fitting contents still overflow because the shell guessed the footer height`);
+    }
+    if (sample.path==='/' && sample.width>=1920 && sample.height>=1047) {
+      assert(sample.scrollHeight<=sample.clientHeight,
+        `${where}: desktop landing page scrolls only to expose trailing spacing/footer`);
+    }
     assert(sample.scrollWidth <= sample.clientWidth + 1, `${where}: content expands the document horizontally: ${JSON.stringify({scroll:sample.scrollWidth,client:sample.clientWidth,escaped:sample.escaped})}`);
     assert(Math.abs(sample.title.left - sample.left) <= 1, `${where}: h1 escaped the document column`);
     assert(sample.title.top >= sample.header.bottom + 8,
@@ -340,7 +351,7 @@ export async function assertPublishedShell({devtools, baseUrl, evaluate, navigat
     // Include wide desktops (where conflicting max-widths first diverge),
     // short projection screens and small phones. Compare actual document
     // edges, not only colours or the outer shell's lack of overflow.
-    for (const [width, height] of [[2560,1440], [1920,1080], [1440,800], [1024,600], [901,640], [900,640], [768,640], [390,844]]) {
+    for (const [width, height] of [[2560,1440], [1920,1080], [1920,1047], [1440,800], [1024,600], [901,640], [900,640], [768,640], [390,844]]) {
       await setViewport(devtools, width, height);
       for (const path of paths) { await open(path); await inspectDocumentGeometry(); }
     }
@@ -387,5 +398,5 @@ export async function assertPublishedShell({devtools, baseUrl, evaluate, navigat
   }
   await setViewport(devtools, 1920, 1080);
   if (geometryFixture) await devtools.command('Page.removeScriptToEvaluateOnNewDocument',geometryFixture);
-  console.log(`Published document shell: ${paths.length} routes, both themes, 8 viewport sizes; alignment, painted header contour, scrollbar edge, live/inactive embed insets and desktop/compact flow passed`);
+  console.log(`Published document shell: ${paths.length} routes, both themes, 9 viewport sizes; fitting-page height, alignment, painted header contour, scrollbar edge, live/inactive embed insets and desktop/compact flow passed`);
 }

@@ -298,12 +298,20 @@ function Bonito.jsrender(session::Session, table::DataTable)
 end
 
 """
-    ViewportFrame(title, content; state=:ready, message="", tools=nothing, footer=nothing, sizing=:viewport)
+    ViewportFrame(title, content; state=:ready, message="", tools=nothing, footer=nothing,
+        sizing=:viewport, max_height=nothing)
 
 Wrap persistent content with a compact title bar and non-destructive loading,
 empty, and error overlays. State changes never replace or remount `content`.
 `sizing=:viewport` reserves a minimum canvas height; `:content` fits a form or
-other ordinary content without reserving empty canvas space.
+other ordinary content without reserving empty canvas space. `:fill` sizes the
+frame to its host's available height, independently of the drawing's aspect ratio.
+The host must supply a bounded height. Canvas modes retain a 12rem minimum;
+smaller hosts must allow outer scrolling rather than clipping the frame.
+`max_height` optionally caps the whole frame, including its header and footer,
+with a positive CSS length (`px`, `rem`, `em`, `vh`, `svh`, `dvh`, `vw`, or `%`).
+The minimum height takes precedence over a smaller cap. Invalid sizing modes or
+lengths throw `ArgumentError`. Construction returns a persistent `ViewportFrame`.
 """
 struct ViewportFrame{C,T,F}
     "Visible viewport title."
@@ -320,15 +328,24 @@ struct ViewportFrame{C,T,F}
     message::Observable{String}
     "Whether to reserve canvas height or fit ordinary content."
     sizing::Symbol
+    "Optional CSS maximum height of the complete frame."
+    max_height::Union{Nothing,String}
 end
 
 function ViewportFrame(title::AbstractString, content; state::Symbol=:ready,
-        message::AbstractString="", tools=nothing, footer=nothing, sizing::Symbol=:viewport)
+        message::AbstractString="", tools=nothing, footer=nothing, sizing::Symbol=:viewport,
+        max_height::Union{Nothing,AbstractString}=nothing)
     state in (:ready, :loading, :empty, :error) || throw(ArgumentError(
         "viewport state must be :ready, :loading, :empty, or :error"))
-    sizing in (:viewport, :content) || throw(ArgumentError("sizing must be :viewport or :content"))
+    sizing in (:viewport, :content, :fill) || throw(ArgumentError("sizing must be :viewport, :content, or :fill"))
+    cap = isnothing(max_height) ? nothing : String(strip(max_height))
+    if !isnothing(cap)
+        length_match = match(r"^((?:\d+(?:\.\d+)?|\.\d+))(px|rem|em|vh|svh|dvh|vw|%)$", cap)
+        !isnothing(length_match) && 0 < parse(Float64, length_match[1]) < Inf ||
+            throw(ArgumentError("max_height must be a positive CSS length"))
+    end
     return ViewportFrame(string(title), content, tools, footer,
-        Observable(state), Observable(string(message)), sizing)
+        Observable(state), Observable(string(message)), sizing, cap)
 end
 
 """Change a viewport overlay state without replacing its mounted content."""
@@ -360,7 +377,7 @@ function Bonito.jsrender(session::Session, viewport::ViewportFrame)
             class="lc-viewport-body"),
         isnothing(viewport.footer) ? nothing :
             DOM.footer(viewport.footer; class="lc-viewport-footer");
-        class)
+        class, style=isnothing(viewport.max_height) ? "" : "max-height: $(viewport.max_height);")
     return Bonito.jsrender(session, ComponentXRay.instrument(session, node, viewport))
 end
 
@@ -407,6 +424,7 @@ function ComponentXRay.inspection(viewport::ViewportFrame)
         source=toolkit_source(@__FILE__, @__LINE__), parameters=[
             ComponentXRay.PropertyInspection(:title, viewport.title),
             ComponentXRay.PropertyInspection(:sizing, viewport.sizing),
+            ComponentXRay.PropertyInspection(:max_height, something(viewport.max_height, "none")),
             ComponentXRay.PropertyInspection(:tools, !isnothing(viewport.tools)),
             ComponentXRay.PropertyInspection(:footer, !isnothing(viewport.footer))],
         bindings=[ComponentXRay.BindingInspection(:state, viewport.state),

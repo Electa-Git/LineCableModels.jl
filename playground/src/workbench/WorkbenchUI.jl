@@ -224,15 +224,37 @@ struct ViewStack{V<:Tuple,A}
     active::A
 end
 
+"""
+    SplitPane(first, second; orientation=:horizontal, ratio=0.68,
+        min_first="12rem", min_second="12rem", resizable=true, responsive=true,
+        scroll=:panes)
+
+Compose two persistent regions with an optional draggable divider. `scroll=:panes`
+gives each region an independent scrollbar. `scroll=:parent` keeps both regions
+in the owning canvas's scroll area; the host must permit overflow scrolling.
+Use the latter for a fitted drawing beside ordinary form content. Responsive
+horizontal splits stack below 42rem host width. Invalid orientations, ratios or
+scroll policies throw `ArgumentError`. Return a `SplitPane` without mounting it.
+"""
 struct SplitPane{A,B}
+    "Persistent content in the first region."
     first::A
+    "Persistent content in the second region."
     second::B
+    "Horizontal or vertical arrangement of the two regions."
     orientation::Symbol
+    "Initial share of available space assigned to the first region."
     ratio::Float64
+    "Initial minimum size of the first grid track as a CSS length."
     min_first::String
+    "Initial minimum size of the second grid track as a CSS length."
     min_second::String
+    "Whether the divider accepts pointer dragging."
     resizable::Bool
+    "Whether a horizontal split stacks in narrow hosts."
     responsive::Bool
+    "Owner of overflow scrolling: individual panes or the surrounding canvas."
+    scroll::Symbol
 end
 
 function SplitPane(
@@ -243,7 +265,8 @@ function SplitPane(
         min_first::AbstractString="12rem",
         min_second::AbstractString="12rem",
         resizable::Bool=true,
-        responsive::Bool=true
+        responsive::Bool=true,
+        scroll::Symbol=:panes
     )
     orientation in (:horizontal, :vertical) || throw(ArgumentError(
         "split orientation must be :horizontal or :vertical"
@@ -251,6 +274,7 @@ function SplitPane(
     0.15 <= ratio <= 0.85 || throw(ArgumentError(
         "split ratio must be between 0.15 and 0.85"
     ))
+    scroll in (:panes, :parent) || throw(ArgumentError("scroll must be :panes or :parent"))
     return SplitPane(
         first,
         second,
@@ -259,7 +283,8 @@ function SplitPane(
         string(min_first),
         string(min_second),
         resizable,
-        responsive
+        responsive,
+        scroll
     )
 end
 
@@ -596,9 +621,10 @@ function ComponentXRay.inspection(split::SplitPane)
             ComponentXRay.PropertyInspection(:min_second, split.min_second),
             ComponentXRay.PropertyInspection(:resizable, split.resizable),
             ComponentXRay.PropertyInspection(:responsive, split.responsive),
+            ComponentXRay.PropertyInspection(:scroll, split.scroll),
         ],
         actions=[ComponentXRay.ActionInspection(:pointerdrag, "resize split", nothing)],
-        css_scopes=[".lc-wb-split", ".lc-wb-splitter", ".lc-wb-split-region"]
+        css_scopes=[".lc-wb-split-mount", ".lc-wb-split", ".lc-wb-splitter", ".lc-wb-split-region"]
     )
 end
 
@@ -676,7 +702,9 @@ function ComponentXRay.inspection(workbench::Workbench)
 end
 
 function icon(name::Symbol; class::AbstractString="lc-wb-icon")
-    children = if name == :workbench
+    children = if name == :home
+        (SVG.path(; d="m3 10 9-7 9 7M5 9v12h5v-7h4v7h5V9"),)
+    elseif name == :workbench
         (
             SVG.rect(; x="3", y="3", width="7", height="7"),
             SVG.rect(; x="14", y="3", width="7", height="7"),
@@ -1083,6 +1111,7 @@ function Bonito.jsrender(session::Session, split::SplitPane)
     attributes = Dict{Symbol,Any}(
         Symbol("data-orientation") => string(split.orientation),
         Symbol("data-responsive") => string(split.responsive),
+        Symbol("data-scroll") => string(split.scroll),
     )
     splitter_attributes = Dict{Symbol,Any}(
         Symbol("data-lc-wb-splitter") => "",
@@ -1113,7 +1142,7 @@ function Bonito.jsrender(session::Session, split::SplitPane)
     instrumented = ComponentXRay.instrument(session, root, split)
     return Bonito.jsrender(
         session,
-        DOM.div(instrumented, script; class="lc-wb-split-mount")
+        DOM.div(instrumented, script; class="lc-wb-split-mount", var"data-scroll"=string(split.scroll))
     )
 end
 

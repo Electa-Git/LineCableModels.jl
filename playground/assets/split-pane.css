@@ -24,6 +24,19 @@
   overflow: auto;
 }
 
+/* Canvas compositions have one scroll owner outside the split. Keep overflow
+ * visible through every wrapper so long forms remain reachable there. A
+ * definite cross-axis track lets fitted viewports shrink as the host shrinks. */
+.lc-wb-split-mount[data-scroll="parent"],
+.lc-wb-split[data-scroll="parent"],
+.lc-wb-split[data-scroll="parent"] > .lc-wb-split-region {
+  overflow: visible;
+}
+
+.lc-wb-split-horizontal[data-scroll="parent"] {
+  grid-template-rows: minmax(0, 1fr);
+}
+
 .lc-wb-split-horizontal > .lc-wb-split-first {
   grid-column: 1;
   grid-row: 1;
@@ -132,5 +145,11 @@
   .lc-wb-split-horizontal[data-responsive="true"] > .lc-wb-split-second {
     grid-column: 1;
     grid-row: 2;
+  }
+
+  .lc-wb-split-horizontal[data-responsive="true"][data-scroll="parent"] {
+    height: auto;
+    min-height: 100%;
+    overflow: visible;
   }
 }

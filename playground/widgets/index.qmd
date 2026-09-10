@@ -215,6 +215,10 @@ Exact reusable controls for text, secrets, multiline input, radio and segmented 
 ## Dialogs, notices, and toasts
 
 Native modal messages, confirmations, modal forms, inline semantic notices, and a bounded notification stack with explicit lifecycle events.
+
+`NavigationButton` shares the toolkit button appearance and provides a configurable
+label, owned destination and icon. The Home and Workbenches examples are the same
+component used by the workbench sidebar; navigation does not require a live session.
 :::
 
 {{< bonito route="/widgets/overlay-toolkit" title="Overlay and feedback toolkit" height="28rem" >}}

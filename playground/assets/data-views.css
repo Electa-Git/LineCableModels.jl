@@ -216,6 +216,12 @@
   background: var(--lc-panel-bg);
 }
 
+/* A fitted canvas receives a definite height from its host, not from the
+ * intrinsic width/aspect ratio of an SVG, image or plotting surface. */
+.lc-viewport-frame.sizing-fill {
+  height: 100%;
+}
+
 .lc-viewport-header {
   border-bottom: 1px solid var(--lc-border-soft);
 }

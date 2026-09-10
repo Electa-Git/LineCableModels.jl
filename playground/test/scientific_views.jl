@@ -109,6 +109,11 @@
         state = LCM.WorkbenchUI.initialize(application,session)
         shell = LCM.WorkbenchUI.compose(application,state)
         @test shell.namespace == :cable_study
+        @test shell.navigation.footer isa LCM.NavigationButton
+        @test shell.navigation.footer.label == "Home" && shell.navigation.footer.href == "/"
+        dashboard = LCM.NavigationButton("Dashboard"; href="/workbenches/", icon=LCM.WorkbenchUI.icon(:workbench))
+        custom = LCM.CableStudy.Application(client; return_button=dashboard)
+        @test LCM.WorkbenchUI.compose(custom,state).navigation.footer === dashboard
         @test state.views.parameters isa S.ScientificView{C.LineParameters}
         @test state.views.corridor isa S.ScientificView{C.CorridorImpedance}
         @test state.views.terminal isa LCM.JuliaTerminal

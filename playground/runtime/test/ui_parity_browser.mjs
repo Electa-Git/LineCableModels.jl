@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import {writeFile} from 'node:fs/promises';
 import {assertRuntimeActivity} from './runtime_activity_browser.mjs';
+import {assertCanvasScrolling} from './canvas_scrolling_browser.mjs';
 const [base, debug, directory] = process.argv.slice(2);
 const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
 let runs;
@@ -106,6 +107,8 @@ try {
     await open(route('toolkit-gallery', '/widgets/overlay-toolkit'), '.lc-feedback-specimen'); await theme(mode);
     await check(`document.querySelector('[data-lcm-component="StatusIndicator"]') !== null || document.querySelectorAll('.lc-status-indicator').length >= 4`, mode+' shared status specimen');
     const statusSuccess = await read(`getComputedStyle(document.querySelector('.lc-status-indicator[data-tone="success"]')).color`);
+    const homeButton = await styles('.lc-navigation-button[aria-label="Home"]');
+    await check(`document.querySelector('.lc-navigation-button[aria-label="Workbenches"]').getAttribute('href') === '/workbenches/'`, mode+' configurable gallery navigation destination');
     await wait(`typeof [...document.querySelectorAll('button')].find(b=>b.textContent==='Start feedback preview')?.onclick === 'function'`, 'Feedback example did not bind');
     await read(`[...document.querySelectorAll('button')].find(b=>b.textContent==='Start feedback preview').click()`);
     await wait(`[...document.querySelectorAll('button')].some(b=>b.textContent==='Preview active…' && b.disabled && b.getAttribute('aria-busy')==='true')`, 'ActionButton did not display owner-supplied activity');
@@ -123,6 +126,16 @@ try {
     const navigation = await styles('.lc-wb-nav-item[aria-current="page"]');
     await dockInsets(mode);
     await open(route('cable-study', '/workbenches/cable-study'), '.lc-wb-shell'); await theme(mode);
+    equal(await styles('.lc-wb-sidebar-footer .lc-navigation-button'), homeButton, mode+' gallery/workbench navigation button');
+    await check(`(() => {const n=document.querySelector('.lc-wb-sidebar-footer .lc-navigation-button');return n.getAttribute('href')==='/' && n.target==='_top' && n.getAttribute('aria-label')==='Home' && !!n.querySelector('svg');})()`, mode+' native accessible Home navigation');
+    await wait(`document.querySelector('.lc-wb-sidebar-toggle svg').style.transform === 'none'`, 'Sidebar toggle not initialized');
+    await read(`document.querySelector('.lc-wb-sidebar-toggle').click()`);
+    await wait(`document.querySelector('.lc-wb-shell').dataset.sidebarState === 'collapsed'`, 'Sidebar did not collapse');
+    await check(`(() => {const n=document.querySelector('.lc-wb-sidebar-footer .lc-navigation-button');return n.getBoundingClientRect().height>24 && getComputedStyle(n.querySelector('.lc-navigation-label')).display==='none';})()`, mode+' Home remains usable in icon rail');
+    await read(`document.querySelector('.lc-wb-sidebar-toggle').click()`);
+    await wait(`document.querySelector('.lc-wb-shell').dataset.sidebarState === 'expanded'`, 'Sidebar did not expand');
+    equal(await styles('.lc-wb-sidebar-footer .lc-navigation-button'), homeButton, mode+' gallery/workbench navigation button');
+    await check(`(() => {const home=document.querySelector('.lc-wb-sidebar-footer .lc-navigation-button');return home.getAttribute('href')==='/' && home.target==='_top' && home.getAttribute('aria-label')==='Home' && !!home.querySelector('svg');})()`, mode+' configured Home destination, icon and accessible label');
     await wait(`document.querySelectorAll('[data-runtime-kind="diagnostics"]').length === 1`, 'CableStudy must own exactly one diagnostics view');
     await wait(`document.querySelector('.lc-runtime-run-status .lc-status-indicator[data-tone="success"]') !== null`, 'Owned run status did not load');
     equal(await read(`getComputedStyle(document.querySelector('.lc-runtime-run-status .lc-status-indicator[data-tone="success"]')).color`), statusSuccess, mode+' gallery/live status colour');
@@ -131,6 +144,7 @@ try {
     equal(await styles(visible + '.lc-workspace-header h1'), heading, mode + ' template/live heading');
     equal(await styles(visible + '.lc-workspace-page'), page, mode + ' template/live page spacing');
     equal(await styles('.lc-wb-nav-item[aria-current="page"]'), navigation, mode + ' template/live navigation');
+    await assertCanvasScrolling({read,check,viewport,command,shot,mode});
     await selectView('Line parameters');
     equal(await styles(visible + '.lc-unit-number input'), number, mode + ' gallery/live numeric field');
     equal(await styles(visible + 'select[name=quantity]'), choice, mode + ' gallery/live choice');
@@ -157,9 +171,13 @@ try {
     await check(`keptPlot === document.querySelector('${visible}.lc-study-plot')`, 'Resizing remounted the plot');
     for (const width of [1024,768,390]) {
       await viewport(width, 800); await delay(150);
+      await check(`(() => {const n=document.querySelector('.lc-wb-sidebar-footer .lc-navigation-button'),r=n.getBoundingClientRect();return r.height>24 && r.width>24 && n.getAttribute('aria-label')==='Home';})()`, mode+' compact Home control remains available at '+width);
+      await check(`(() => {const home=document.querySelector('.lc-wb-sidebar-footer .lc-navigation-button');const r=home.getBoundingClientRect();return r.width>=30 && r.height>=30 && r.bottom<=innerHeight && home.querySelector('svg').getBoundingClientRect().width>0;})()`, mode+' Home remains usable in compact rail at '+width);
       await check('document.documentElement.scrollWidth <= innerWidth + 1', mode + ' workbench page overflows at ' + width);
       await check(`(() => {const pane=document.querySelector('${visible}.lc-wb-split'); return pane.clientWidth >= pane.scrollWidth-1;})()`, mode + ' split overflows at ' + width);
     }
+    await read(`document.querySelector('.lc-wb-sidebar-footer .lc-navigation-button').click()`);
+    await wait(`location.pathname === '/' && !!document.querySelector('#quarto-sidebar')`, 'Home button did not navigate out of the workbench');
     await viewport(1440,900);
     await open(route('ichqp-showcase', '/science/line-parameters'), '.lc-study-view'); await theme(mode);
     equal(await styles('.lc-unit-number input'), number, mode + ' gallery/presentation numeric field');
@@ -172,6 +190,12 @@ try {
     equal(await styles('.lc-field-label'), fieldLabel, mode + ' runtime gallery/label');
   }
   await assertRuntimeActivity({command,read,wait,base,run:runs[0],shot});
+  await viewport(1440,900);
+  await open(route('cable-study', '/workbenches/cable-study'), '.lc-wb-shell');
+  await read(`document.querySelector('.lc-wb-sidebar-footer .lc-navigation-button').focus()`);
+  await command('Input.dispatchKeyEvent',{type:'keyDown',key:'Enter',code:'Enter',windowsVirtualKeyCode:13});
+  await command('Input.dispatchKeyEvent',{type:'keyUp',key:'Enter',code:'Enter',windowsVirtualKeyCode:13});
+  await wait(`location.pathname==='/' && !!document.querySelector('#quarto-sidebar')`, 'Home button did not navigate through keyboard activation');
   console.log('Application parity: ' + checks + ' checks across actual gallery, template, workbench and scientific frame; both themes');
   assert.equal(errors.length, 0, JSON.stringify(errors));
 } finally { socket.close(); }

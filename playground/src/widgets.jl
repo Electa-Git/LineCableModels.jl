@@ -2031,7 +2031,9 @@ function overlay_toolkit_widget()
             DOM.div(StatusIndicator("Online"; tone=:success),
                 StatusIndicator("Offline"; tone=:danger),
                 StatusIndicator("Status unknown"; tone=:warning),
-                status_preview, begin_preview, end_preview;
+                status_preview, begin_preview, end_preview,
+                NavigationButton("Home"; href="/", icon=WorkbenchUI.icon(:home)),
+                NavigationButton("Workbenches"; href="/workbenches/", icon=WorkbenchUI.icon(:workbench));
                 class="lc-widget-actions"),
             DOM.div(open_message, open_confirm, open_form, restore_notice, add_toast;
                 class="lc-widget-actions"),

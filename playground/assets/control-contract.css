@@ -153,6 +153,7 @@ textarea:disabled,
 }
 
 .lc-activity-status[data-busy="true"]::before,
+.lc-activity-status.lc-activity-stable::before,
 .lc-button[data-busy="true"]::before,
 .lc-viewport-spinner,
 .lc-toolbar-button-busy::after {
@@ -169,6 +170,13 @@ textarea:disabled,
 
 @keyframes lc-activity-spin {
   to { transform: rotate(360deg); }
+}
+
+/* Status badges in dense toolbars reserve the glyph even while idle. Changing
+ * activity must not change their baseline or the surrounding viewport size. */
+.lc-activity-status.lc-activity-stable:not([data-busy="true"])::before {
+  visibility: hidden;
+  animation: none;
 }
 
 @media (prefers-reduced-motion: reduce) {

@@ -38,7 +38,7 @@
     const disposables = [], writes = new Set(); let destroyed = false, fitTimer, themeTimer;
     root.classList.add("lc-runtime-controls", "lc-runtime-terminal");
     const head = node("div", "", "lc-terminal-heading"), heading = node("h3", config.title);
-    const badge = node("span", "Disconnected", "lc-terminal-phase lc-status-indicator lc-activity-status");
+    const badge = node("span", "Disconnected", "lc-terminal-phase lc-status-indicator lc-activity-status lc-activity-stable");
     head.append(heading, badge);
     const actions = node("div", "", "lc-runtime-actions");
     const status = node("p", "", "lc-runtime-note lc-terminal-status lc-status-indicator"); status.setAttribute("role", "status");
@@ -116,7 +116,7 @@
       setText(badge,state.phase);
       const tone = globalThis.LineCableModelsRuntimeClient.statusTone;
       badge.dataset.tone = tone(state.uncertain ? "uncertain" : state.phase);
-      badge.dataset.busy = String(state.busy);
+      badge.dataset.busy = String(Boolean(state.activity));
       if (lastPhase !== state.phase) {
         lastPhase = state.phase;
         // The shared journal notifies all views. Store the phase before doing
@@ -148,8 +148,8 @@
       resume.hidden = !state.reviewRequired || !state.connected;
       resume.disabled = !state.canControl || state.phase !== "ready";
       confirm.disabled = !state.canControl;
-      terminal.options.disableStdin = !state.canInput;
-      terminal.options.cursorBlink = state.canInput;
+      if (terminal.options.disableStdin !== !state.canInput) terminal.options.disableStdin = !state.canInput;
+      if (terminal.options.cursorBlink !== state.canInput) terminal.options.cursorBlink = state.canInput;
       if (!state.canControl) { confirmation.hidden = true; confirmedAction = null; }
     });
     disposables.push(terminal.onData(data => transport.enqueue(data)));
