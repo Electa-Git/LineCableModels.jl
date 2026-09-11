@@ -15,7 +15,7 @@
   "maintained_solver_sources_sha256": {
     "model.pro": "f2923fed643e40be4aa74a09d44343c539cbc64dcfaeadc12483affbb9165711",
     "materials.pro": "581f089113810a379d8a49c03d79f55045b723c8f4c761d0a493a019ff1f5d9e",
-    "quasi_tem.pro": "a4b0d8b70b849834f8d0d00475c4076767e8f7fab8071cb43259ce007af8562d",
+    "quasi-tem.pro": "a4b0d8b70b849834f8d0d00475c4076767e8f7fab8071cb43259ce007af8562d",
     "jacobian_integration.pro": "397dcef46d34fd8b0b9d5900b0b676d430008a511c67625f2517cebf7d912a65"
   },
   "campaign_seconds": {

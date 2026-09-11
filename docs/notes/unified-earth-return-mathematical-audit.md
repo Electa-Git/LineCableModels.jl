@@ -343,7 +343,7 @@ temperature 20 °C. The corrected requested frequencies are exactly
 variation; retain the catalogue's original 101-point frequency declaration.
 
 The current FEM is the coupled `A_z/u_r/phi` quasi-TEM system in
-`ext/LineCableModelsGmshExt/getdp/quasi_tem.pro`; it is not simply a standalone
+`ext/LineCableModelsGmshExt/getdp/quasi-tem.pro`; it is not simply a standalone
 scalar Helmholtz electrode solve. Nevertheless it does not implement all the
 degrees of freedom and voltage definitions of the manuscript:
 

@@ -1,5 +1,5 @@
---- a/getdp/quasi_tem.pro
-+++ b/getdp/quasi_tem.pro
+--- a/getdp/quasi-tem.pro
++++ b/getdp/quasi-tem.pro
 @@ -255,10 +255,21 @@
  Return
 

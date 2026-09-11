@@ -64,7 +64,7 @@ observations, and PETSc event counts are in
 In [getdp.jl](../../ext/LineCableModelsGmshExt/getdp.jl),
 `_run_getdp_unlocked!` nests a terminal loop inside the frequency loop and calls
 `gmsh.onelab.run` for every pair. `FEMSolveBasis` in
-[quasi_tem.pro](../../ext/LineCableModelsGmshExt/getdp/quasi_tem.pro) performs
+[quasi-tem.pro](../../ext/LineCableModelsGmshExt/getdp/quasi-tem.pro) performs
 `UpdateConstraint`, `Generate`, and `Solve` on every invocation. Precomputing
 the meshes already avoids meshing each excitation, but each GetDP process
 still rereads its mesh, constructs its DOFs, assembles the same matrix, and
@@ -296,11 +296,11 @@ impedance conditions is a separate modeling decision.
 
 | Change | Main locations | Reviewable outcome |
 |---|---|---|
-| Frequency batch protocol | `getdp.jl`, maintained `quasi_tem.pro` | One process per mesh; list of requested bases; first full solve then RHS/reused solves; existing equations unchanged |
+| Frequency batch protocol | `getdp.jl`, maintained `quasi-tem.pro` | One process per mesh; list of requested bases; first full solve then RHS/reused solves; existing equations unchanged |
 | Completion/resume | `getdp.jl`, `results.jl`, run state | Independently validated column artifacts; ordered aggregation; failed attempts cannot declare a complete scan |
 | Solver diagnostics | `getdp.jl`, run metadata | Per-frequency stdout/stderr, exit status, elapsed stages, mesh/DOF counts, invocation and completed-column counts persisted separately |
 | Headless transport | `getdp.jl`, `model.pro`, `compute.jl` | Julia launches a `Cmd` with immutable paths and explicit parameters; ONELAB remains available for the UI |
-| Maps and public documentation | `quasi_tem.pro`, `docs/src/fem.md`, extension tests | Correct frequency/basis names and labels; documented invocation semantics |
+| Maps and public documentation | `quasi-tem.pro`, `docs/src/fem.md`, extension tests | Correct frequency/basis names and labels; documented invocation semantics |
 
 First integrate batching and checkpoint handling using the current transport;
 this isolates the measured optimization. Then separate headless execution from

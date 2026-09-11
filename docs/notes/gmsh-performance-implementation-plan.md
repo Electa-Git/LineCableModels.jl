@@ -66,7 +66,7 @@ Changing scheduling order does not change frequency/terminal identities.
 
 ### 2. Integrate terminal batching with one worker
 
-Main locations: maintained `quasi_tem.pro`, `getdp.jl`, and output validation.
+Main locations: maintained `quasi-tem.pro`, `getdp.jl`, and output validation.
 
 - Set runtime source currents for every terminal on every excitation, clearing
   the previous source. Update constraints before RHS generation.

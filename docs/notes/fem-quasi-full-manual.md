@@ -2,7 +2,7 @@
 
 `ext/LineCableModelsGmshExt/getdp/quasi-full.pro` is a standalone GetDP entry
 point. It is not registered as a package formulation and does not replace
-`model.pro` or `quasi_tem.pro`.
+`model.pro` or `quasi-tem.pro`.
 
 From the repository root, run in the Julia REPL:
 

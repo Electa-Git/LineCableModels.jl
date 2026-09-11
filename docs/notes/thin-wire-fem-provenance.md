@@ -80,7 +80,7 @@ Here the electric equation is driven by the magnetic solution `a`; it does
 not contain the Electric branch's `sμσ̂²ψ` term. It also imposes the electric
 reference only on the earth-side far boundary. Its output `inv(ψ/I)` is not
 the same boundary map as the direct Electric electrode-reaction experiment.
-The production `quasi_tem.pro` likewise uses coupled `a/ur/phi` equations.
+The production `quasi-tem.pro` likewise uses coupled `a/ur/phi` equations.
 Consequently neither earlier curve reproduces this historical Electric test.
 Mesh refinement or multiplication by `jω` cannot make these operators identical.
 

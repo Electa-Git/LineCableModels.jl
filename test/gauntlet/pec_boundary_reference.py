@@ -36,7 +36,7 @@ def main(directory):
     source = original / "input/getdp"
     owned = run / "getdp"
     shutil.copytree(source, owned)
-    text = (source / "quasi_tem.pro").read_text()
+    text = (source / "quasi-tem.pro").read_text()
     operator = Path(__file__).parent / "getdp/pec_boundary.pro"
     header = text[:text.index("FunctionSpace {")]
     driver = text[text.index("Macro FEMSetBasisCurrent"):text.index("PostProcessing {")]
@@ -52,7 +52,7 @@ def main(directory):
 }
 '''
     footer = text[text.index("// Expand output declarations"):]
-    (owned / "quasi_tem.pro").write_text(header + operator.read_text() + driver + post + footer)
+    (owned / "quasi-tem.pro").write_text(header + operator.read_text() + driver + post + footer)
     materials = (owned / "materials.pro").read_text()
     expected = "DomainC = Region[{ConductorMaterialRegions, Earth, EarthInf}];"
     assert expected in materials
@@ -63,8 +63,8 @@ def main(directory):
     (owned / "model.pro").write_text(model.replace("GammaQuasiTEMIm = 1.0e-12;",
         "GammaQuasiTEMIm = 0.0;"))
     # inv_gamma is not used by this formulation or its output operation.
-    qt = (owned / "quasi_tem.pro").read_text()
-    (owned / "quasi_tem.pro").write_text(qt.replace("inv_gamma[] = 1. / gamma_prop[];", ""))
+    qt = (owned / "quasi-tem.pro").read_text()
+    (owned / "quasi-tem.pro").write_text(qt.replace("inv_gamma[] = 1. / gamma_prop[];", ""))
     executable = settings["getdp_provenance"]["path"]
     env = dict(os.environ, OPENBLAS_NUM_THREADS="1", OPENBLAS_DEFAULT_NUM_THREADS="1",
                OMP_NUM_THREADS="1", MKL_NUM_THREADS="1")

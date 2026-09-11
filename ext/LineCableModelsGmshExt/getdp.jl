@@ -50,19 +50,24 @@ function _write_model_data(path::String, model::FEMResolvedModel)
             _pro_array(getproperty.(materials, :physical_tag)), ";")
         println(io, "MaterialIsConductor() = ",
             _pro_array([material.kind === :conductor for material in materials]), ";")
-        println(io, "MaterialHasLoss() = ", _pro_array([
-            any(value -> !iszero(real(value)), material.admittivity)
-            for material in materials]), ";")
+        println(io,
+            "MaterialHasLoss() = ",
+            _pro_array([any(value -> !iszero(real(value)), material.admittivity)
+                        for material in materials]),
+            ";")
         println(io, "MaterialMu() = ",
             _pro_array([material.mu_r * 4π * 1e-7 for material in materials]), ";")
         for (index, material) in pairs(materials)
             println(io, "MaterialSigma_", index, "() = ",
                 _pro_array(real.(material.admittivity)), ";")
             println(io, "MaterialEpsilon_", index, "() = ",
-                _pro_array(imag.(material.admittivity) ./ (2π .* model.problem.frequencies)), ";")
+                _pro_array(imag.(material.admittivity) ./
+                           (2π .* model.problem.frequencies)), ";")
         end
         println(io, "EarthSigma() = ", _pro_array([inv(state.rho) for state in earth]), ";")
-        println(io, "EarthEpsilon() = ", _pro_array([state.eps_r * 8.8541878128e-12 for state in earth]), ";")
+        println(
+            io, "EarthEpsilon() = ", _pro_array([state.eps_r * 8.8541878128e-12
+                                                 for state in earth]), ";")
         println(io, "EarthMu() = ", _pro_array([state.mu_r * 4π * 1e-7 for state in earth]), ";")
         println(io, "AirEpsilon = ", _pro_number(air.eps_r * 8.8541878128e-12), ";")
         println(io, "AirMu = ", _pro_number(air.mu_r * 4π * 1e-7), ";")
@@ -80,7 +85,7 @@ function _getdp_assets(root::AbstractString = joinpath(@__DIR__, "getdp"))
         model = joinpath(root, "model.pro"),
         jacobian = joinpath(root, "jacobian_integration.pro"),
         materials = joinpath(root, "materials.pro"),
-        quasi_tem = joinpath(root, "quasi_tem.pro")
+        quasi_tem = joinpath(root, "quasi-tem.pro")
     )
 end
 
@@ -105,16 +110,17 @@ function _artifact_getdp()
     else
         joinpath("getdp-$version-Linux64", "bin", "getdp")
     end
-    return (path=joinpath(root, relative), source=:artifact, artifact_hash=string(hash))
+    return (
+        path = joinpath(root, relative), source = :artifact, artifact_hash = string(hash))
 end
 
-function _getdp_selection(formulation::LineCableModelsFEM; run_directory=nothing)
+function _getdp_selection(formulation::LineCableModelsFEM; run_directory = nothing)
     explicit = formulation.execution.getdp_executable
     environment = get(ENV, GETDP_ENVIRONMENT_VARIABLE, nothing)
     selection = if explicit !== nothing
-        (path=abspath(explicit), source=:explicit, artifact_hash=nothing)
+        (path = abspath(explicit), source = :explicit, artifact_hash = nothing)
     elseif environment !== nothing
-        (path=abspath(environment), source=:environment, artifact_hash=nothing)
+        (path = abspath(environment), source = :environment, artifact_hash = nothing)
     else
         artifact = _artifact_getdp()
         if artifact !== nothing
@@ -122,7 +128,7 @@ function _getdp_selection(formulation::LineCableModelsFEM; run_directory=nothing
         else
             executable = Sys.which("getdp")
             executable === nothing ? nothing :
-            (path=executable, source=:path, artifact_hash=nothing)
+            (path = executable, source = :path, artifact_hash = nothing)
         end
     end
     selection !== nothing && isfile(selection.path) || _fem_error(
@@ -131,7 +137,7 @@ function _getdp_selection(formulation::LineCableModelsFEM; run_directory=nothing
         "pass getdp_executable, set " * GETDP_ENVIRONMENT_VARIABLE *
         ", or install getdp on PATH when no package artifact supports this platform";
         run_directory)
-    return merge(selection, (; path=realpath(selection.path)))
+    return merge(selection, (; path = realpath(selection.path)))
 end
 
 function _getdp_identity(executable::String)
@@ -156,27 +162,28 @@ function _getdp_identity(executable::String)
         :getdp_executable,
         "executable identity check did not report GetDP: $executable"
     )
-    return (sha256=bytes2hex(open(sha256, executable)), info=output)
+    return (sha256 = bytes2hex(open(sha256, executable)), info = output)
 end
 
 function _resolve_getdp(formulation::LineCableModelsFEM, run::FEMRun)
-    selection = _getdp_selection(formulation; run_directory=run.path)
+    selection = _getdp_selection(formulation; run_directory = run.path)
     identity = _getdp_identity(selection.path)
     recorded = JSON3.read(read(joinpath(run.path, "input", "computation.json"), String))
-    recorded_identity = Dict(String(key)=>value for (key,value) in pairs(recorded.getdp_identity))
+    recorded_identity = Dict(String(key)=>value
+    for (key, value) in pairs(recorded.getdp_identity))
     pop!(recorded_identity, "path", nothing) # schema 4 compatibility
-    expected_identity = Dict(String(key)=>value for (key,value) in
-        pairs(JSON3.read(JSON3.write(identity))))
+    expected_identity = Dict(String(key)=>value
+    for (key, value) in pairs(JSON3.read(JSON3.write(identity))))
     _resume_value_matches(recorded_identity, expected_identity) ||
         _fem_error(:getdp, "GetDP", :getdp_executable,
             "GetDP executable identity changed after input preparation; start a new run";
-            run_directory=run.path)
+            run_directory = run.path)
     return selection.path
 end
 
 function _job_raw_paths(root::AbstractString, job_name::String)
-    return (Z=joinpath(root, "raw", "jobs", "$job_name-Z.tsv"),
-        P=joinpath(root, "raw", "jobs", "$job_name-P.tsv"))
+    return (Z = joinpath(root, "raw", "jobs", "$job_name-Z.tsv"),
+        P = joinpath(root, "raw", "jobs", "$job_name-P.tsv"))
 end
 
 _job_raw_paths(run::FEMRun, job_name::String) = _job_raw_paths(run.path, job_name)
@@ -228,14 +235,16 @@ function _write_scan_completion!(run::FEMRun, model::FEMResolvedModel)
     temporary = tempname(dirname(path))
     open(temporary, "w") do io
         println(io, join(FEM_COMPLETE_HEADER, '\t'))
-        println(io, join((
-            frequency_count,
-            terminal_count,
-            expected_rows,
-            expected_rows,
-            expected_rows,
-            1
-        ), '\t'))
+        println(io,
+            join(
+                (
+                    frequency_count,
+                    terminal_count,
+                    expected_rows,
+                    expected_rows,
+                    expected_rows,
+                    1
+                ), '\t'))
     end
     mv(temporary, path; force = true)
     return path
