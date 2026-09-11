@@ -17,9 +17,9 @@
     end
     problem = bare_problem(1/5.8e7)
     options = (reduce_bundle = false, kron_reduction = false, ideal_transposition = false)
-    fem = Formulation(:LineCableModelsFEM; options,
-        fem_options = (gmsh_verbosity = 0, getdp_verbosity = 0, keep_run_directory = true))
-    actual = compute(problem, fem; options = (trace = true,))
+    fem = Formulation(:LineCableModelsFEM; options)
+    fem_controls = (gmsh_verbosity = 0, getdp_verbosity = 0, keep_run_directory = true)
+    actual = compute(problem, fem; options=merge(fem_controls, (trace = true,)))
     proposed = compute(problem, Formulation(; options))
     xue = compute(problem, Formulation(; earth_impedance = :Xue2018,
         earth_admittance = :Xue2018, options))
@@ -41,7 +41,7 @@
 
     # The electric domain excludes both metal interiors. Making the metal
     # nearly perfect must not change its equipotential terminal admittance.
-    pec = compute(bare_problem(1e-12), fem)
+    pec = compute(bare_problem(1e-12), fem; options=fem_controls)
     @test Y(pec) ≈ Y(actual) rtol=1e-10
 
     run_directory = actual.details.fem.run.run_directory
@@ -68,7 +68,7 @@
         write(path, source)
         command = FEM._getdp_command(actual.details.fem.inputs.getdp_provenance.path,
             joinpath(directory, "model.pro"), joinpath(run_directory, "mesh/model.msh"),
-            (path = run_directory,), fem, last(actual.details.fem.inputs.mesh_plans),
+            (path = run_directory,), fem, computation_options(LineCableModelsFEM, fem_controls), last(actual.details.fem.inputs.mesh_plans),
             [1, 2], directory; reuse_factorization = false)
         open(joinpath(directory, "getdp.log"), "w") do log
             run(pipeline(command; stdout = log, stderr = log))
@@ -98,15 +98,15 @@ end
     design = build(CableDesign, "electric-media", terminal(:core, core(copper; r = 0.01)))
     formulation = Formulation(:LineCableModelsFEM;
         options = (
-            reduce_bundle = false, kron_reduction = false, ideal_transposition = false),
-        fem_options = (gmsh_verbosity = 0, getdp_verbosity = 0,
-            plot_field_maps = true, keep_run_directory = true))
+            reduce_bundle = false, kron_reduction = false, ideal_transposition = false))
+    formulation_controls = (gmsh_verbosity = 0, getdp_verbosity = 0,
+            plot_field_maps = true, keep_run_directory = true)
     for positions in ([(0.0, 1.0), (1.0, 1.0)], [(0.0, 1.0), (1.0, -1.0)])
         system = build(LineCableSystem, [design, design], positions;
             connections = [Dict(:core=>1), Dict(:core=>2)])
         problem = LineParametersProblem(system; frequencies = [50.0, 1e5],
             earth_props = homogeneous(rho = 10.0, eps_r = 10.0))
-        result = compute(problem, formulation)
+        result = compute(problem, formulation; options=formulation_controls)
         for index in eachindex(problem.frequencies)
             @test all(isfinite, Y(result)[:, :, index])
             @test Y(result)[:, :, index] ≈ transpose(Y(result)[:, :, index]) rtol=1e-10

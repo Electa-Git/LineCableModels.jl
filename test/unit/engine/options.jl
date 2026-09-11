@@ -82,3 +82,41 @@
         )
     end
 end
+
+@testitem "Engine / FEM computation option ownership" tags=[:unit] begin
+    using LineCableModels
+
+    formulation = LineCableModelsFEM(options=(physics=:quasi_fw,))
+    @test formulation.options isa FormulationOptions
+    @test formulation.options.physics === Symbol("quasi-fw")
+    @test fieldnames(typeof(formulation)) == (:methods, :options, :definitions)
+    @test !haskey(NamedTuple(formulation), :execution)
+    # Execution settings cannot enter through the formulation, or vice versa.
+    @test_throws ArgumentError LineCableModelsFEM(options=(frequency_workers=4,))
+    @test_throws MethodError LineCableModelsFEM(fem_options=(ui=true,))
+    @test_throws ArgumentError computation_options(LineCableModelsFEM, (physics=:quasi_fw,))
+    @test_throws ArgumentError computation_options(LineCableModelsFEM, (unknown=true,))
+    defaults = @inferred computation_options(LineCableModelsFEM, (;))
+    @test defaults isa ComputationOptions
+    callback = (problem, index, result) -> nothing
+    raw = (frequency_workers=Int32(4), solver_threads=Int16(2),
+        on_result=callback, trace=true, mesh_policy=:remesh,
+        getdp_executable=SubString("/tmp/getdp", 1), verbosity=(default=1,))
+    configured = computation_options(LineCableModelsFEM, raw)
+    @test keys(configured) == keys(defaults)
+    @test isconcretetype(typeof(configured))
+    @test configured.frequency_workers isa Int
+    @test configured.solver_threads isa Int
+    @test configured.getdp_executable isa String
+    @test configured.on_result === callback
+    @test configured.trace === Val(true)
+    resources(options) = options.frequency_workers * options.solver_threads
+    @test (@inferred resources(configured)) == 8
+    @test formulation.options.physics === Symbol("quasi-fw")
+    for invalid in ((ui=1,), (plot_field_maps=:yes,), (keep_run_directory=1,),
+        (mesh_path="",), (getdp_executable=1,), (log_file="",),
+        (frequency_workers=true,), (solver_threads=1.5,), (gmsh_verbosity=true,),
+        (getdp_verbosity=6,), (resume_run_directory="",), (resume_run_directory=:bad,))
+        @test_throws ArgumentError computation_options(LineCableModelsFEM, invalid)
+    end
+end

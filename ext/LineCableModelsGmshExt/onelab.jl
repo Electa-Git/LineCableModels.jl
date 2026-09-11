@@ -78,9 +78,13 @@ function _publish_transport!(
         model::FEMResolvedModel,
         model_data_path::String,
         mesh_path::String,
-        formulation::LineCableModelsFEM
+        formulation::LineCableModelsFEM,
+        execution::ComputationOptions
 )
     parameters = Any[
+        merge(_number_parameter(_onelab_name("physics"), _fem_physics_code(formulation);
+            visible=true, label="Physics"),
+            Dict("choices" => [0, 1], "valueLabels" => Dict("quasi-tem" => 0, "quasi-fw" => 1))),
         _string_parameter(_onelab_name("run_directory"), run.path),
         _string_parameter(
             _onelab_name("model_data_path"), model_data_path),
@@ -93,7 +97,7 @@ function _publish_transport!(
             _onelab_name("frequency_count"), length(model.problem.frequencies)
         ),
         _number_parameter(
-            _onelab_name("field_maps"), formulation.execution.plot_field_maps
+            _onelab_name("field_maps"), execution.plot_field_maps
         ),
         _number_parameter(
             _onelab_name("completion_status"), 0),
@@ -108,6 +112,9 @@ function _publish_transport!(
         ))
     end
     _publish_parameters(parameters)
+    # JSON parameter definitions preserve an existing ONELAB value. A managed
+    # run must explicitly refresh it when another formulation ran in this REPL.
+    gmsh.onelab.set_number(_onelab_name("physics"), [_fem_physics_code(formulation)])
     return nothing
 end
 

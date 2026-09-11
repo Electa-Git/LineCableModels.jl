@@ -8,9 +8,8 @@
     )
     @test extension_module !== nothing
     @test LineCableModels.LineCableModelsFEM <:
-          LineCableModels.Engine.AbstractFormulationBackend
-    @test LineCableModels.LineCableModelsFEMOptions <:
-          LineCableModels.Engine.AbstractFormulationOptions
+          LineCableModels.AbstractFormulation
+    @test supertype(LineCableModels.LineCableModelsFEM) === LineCableModels.AbstractFormulation
     mktempdir() do directory
         run = extension_module.FEMRun(
             directory, extension_module.created, "fixture", :none, ""
@@ -25,31 +24,25 @@
         )
     end
 
-    options = LineCableModels.LineCableModelsFEMOptions(
-        mesh_policy = :remesh,
+    options = computation_options(LineCableModelsFEM, (;mesh_policy = :remesh,
         keep_run_directory = true,
         gmsh_verbosity = 0,
-        getdp_verbosity = 5
-    )
+        getdp_verbosity = 5))
     @test options.mesh_policy === :remesh
     @test options.keep_run_directory
     @test options.getdp_verbosity == 5
     @test options.frequency_workers == 2
     @test options.solver_threads == 1
-    @test_throws ArgumentError LineCableModels.LineCableModelsFEMOptions(frequency_workers = 0)
-    @test_throws ArgumentError LineCableModels.LineCableModelsFEMOptions(solver_threads = -1)
-    @test_throws ArgumentError LineCableModels.LineCableModelsFEMOptions(
-        mesh_policy = :invalid
-    )
-    @test_throws ArgumentError LineCableModels.LineCableModelsFEMOptions(
-        getdp_verbosity = 6
-    )
-    resume_options = extension_module._fem_computation_options(
+    @test_throws ArgumentError computation_options(LineCableModelsFEM, (;frequency_workers = 0))
+    @test_throws ArgumentError computation_options(LineCableModelsFEM, (;solver_threads = -1))
+    @test_throws ArgumentError computation_options(LineCableModelsFEM, (;mesh_policy = :invalid))
+    @test_throws ArgumentError computation_options(LineCableModelsFEM, (;getdp_verbosity = 6))
+    resume_options = computation_options(LineCableModelsFEM,
         (trace = true, resume_run_directory = :latest)
     )
     @test resume_options.trace === Val(true)
     @test resume_options.resume_run_directory === :latest
-    @test_throws ArgumentError extension_module._fem_computation_options(
+    @test_throws ArgumentError computation_options(LineCableModelsFEM,
         (resume_run_directory = :invalid,)
     )
     @test extension_module._resume_value_matches(
@@ -59,12 +52,10 @@
 
     formulation = LineCableModels.Formulation(
         :LineCableModelsFEM;
-        options = (ideal_transposition = false,),
-        fem_options = options
-    )
+        options = (ideal_transposition = false,))
     @test formulation isa LineCableModels.LineCableModelsFEM
     @test !formulation.options.ideal_transposition
-    @test formulation.execution === options
+    @test !hasproperty(formulation, :execution)
 
     transition = extension_module._ui_transition
     @test transition(:geometry_ready, :run_model) === :mesh_required
@@ -258,11 +249,10 @@ end
     )
     formulation = Formulation(
         :LineCableModelsFEM;
-        options = (ideal_transposition = false,),
-        fem_options = (gmsh_verbosity = 0,)
-    )
+        options = (ideal_transposition = false,))
+    formulation_controls = (gmsh_verbosity = 0,)
     exception = try
-        compute(unsupported_problem, formulation)
+        compute(unsupported_problem, formulation; options=formulation_controls)
         nothing
     catch caught
         caught
@@ -304,16 +294,16 @@ end
     )
     formulation = Formulation(
         :LineCableModelsFEM;
-        options = (ideal_transposition = false,),
-        fem_options = (gmsh_verbosity = 0,)
-    )
+        options = (ideal_transposition = false,))
+    formulation_controls = (gmsh_verbosity = 0,)
     extension_module = Base.get_extension(LineCableModels, :LineCableModelsGmshExt)
     model = extension_module._resolved_fem_model(problem, formulation)
     @test model.terminal_ids == [
         "cable_0001/fem-mesh/core",
         "cable_0001/fem-mesh/sheath"
     ]
-    @test getproperty.(model.material_plans, :physical_tag) == 10_001:10_004
+    @test getproperty.(model.material_plans, :physical_tag) == 10_001:10_002
+    @test getproperty.(model.region_plans, :material_index) == [1, 2, 1, 2]
     @test model.tags.terminal_base == 3_000
     @test model.tags.infinite_domain == 1_005
     @test model.tags.outer_air_boundary == 2_004
@@ -723,8 +713,8 @@ end
                     plan -> plan.field === :matrix_fill,
                     filled_model.material_plans
                 )
-                fill_surface = only(filled_geometry.material_surfaces[fill_index])
-                fill_curves = Set(extension_module._entity_boundary([fill_surface]))
+                fill_surfaces = filled_geometry.material_surfaces[fill_index]
+                fill_curves = Set(extension_module._entity_boundary(fill_surfaces))
                 terminal_curves = Set(only(filled_geometry.terminal_curves))
                 @test !isempty(intersect(terminal_curves, fill_curves))
                 @test all(terminal_curves) do curve
@@ -779,7 +769,7 @@ end
                 first_run = extension_module._create_run(runtime_root)
                 first_geometry = extension_module._build_geometry!(model, "fem-mesh-first")
                 first_mesh = extension_module._select_mesh!(
-                    first_run, model, first_geometry, formulation, runtime_root
+                    first_run, model, first_geometry, computation_options(LineCableModelsFEM, formulation_controls), runtime_root
                 )
                 @test isfile(first_mesh)
                 @test first_run.mesh_source === :generated
@@ -800,7 +790,7 @@ end
                 second_run = extension_module._create_run(runtime_root)
                 second_geometry = extension_module._build_geometry!(model, "fem-mesh-second")
                 second_mesh = extension_module._select_mesh!(
-                    second_run, model, second_geometry, formulation, runtime_root
+                    second_run, model, second_geometry, computation_options(LineCableModelsFEM, formulation_controls), runtime_root
                 )
                 @test isfile(second_mesh)
                 @test second_run.mesh_source === :cache
@@ -808,13 +798,12 @@ end
 
                 remesh = Formulation(
                     :LineCableModelsFEM;
-                    options = (ideal_transposition = false,),
-                    fem_options = (mesh_policy = :remesh, gmsh_verbosity = 0)
-                )
+                    options = (ideal_transposition = false,))
+                remesh_controls = (mesh_policy = :remesh, gmsh_verbosity = 0)
                 third_run = extension_module._create_run(runtime_root)
                 third_geometry = extension_module._build_geometry!(model, "fem-mesh-third")
                 third_mesh = extension_module._select_mesh!(
-                    third_run, model, third_geometry, remesh, runtime_root
+                    third_run, model, third_geometry, computation_options(LineCableModelsFEM, remesh_controls), runtime_root
                 )
                 @test isfile(third_mesh)
                 @test third_run.mesh_source === :generated
@@ -833,23 +822,22 @@ end
                     chmod(failing_getdp, 0o700)
                     failing_formulation = Formulation(
                         :LineCableModelsFEM;
-                        options = (ideal_transposition = false,),
-                        fem_options = (
+                        options = (ideal_transposition = false,))
+                    failing_formulation_controls = (
                             getdp_executable = failing_getdp,
                             gmsh_verbosity = 0,
                             getdp_verbosity = 0
                         )
-                    )
                     failure_run = extension_module._create_run(runtime_root)
                     extension_module._prepare_run_inputs!(failure_run, model)
                     extension_module._write_json_atomic(
                         joinpath(failure_run.path, "input", "computation.json"),
-                        extension_module._fem_input_record(model, failing_formulation))
+                        extension_module._fem_input_record(model, failing_formulation, computation_options(LineCableModelsFEM, failing_formulation_controls)))
                     failure = try
                         extension_module._run_getdp!(
                             failure_run,
                             model,
-                            failing_formulation,
+                            failing_formulation, computation_options(LineCableModelsFEM, failing_formulation_controls),
                             first_mesh
                         )
                         nothing
@@ -1162,22 +1150,12 @@ end
         region -> region.source.primitive isa Rectangle &&
                   region.primitive isa Annulus,
         annular_design.geometry.regions)
-    fill_index = findfirst(annular_design.geometry.regions) do region
-        region.source.material.kind !== :conductor &&
-            region.primitive isa Annulus && r_ex(region.primitive) ≈ 0.6e-3
-    end
-    @test fill_index !== nothing
-    residual = annular_design.geometry.regions[fill_index]
-    for bad_shape in (
-        Annulus(residual.primitive.ri * 1.001, residual.primitive.ro, residual.primitive.at),
-        Annulus(residual.primitive.ri, residual.primitive.ro, Pose2(1e-5, 0.0))
-    )
-        incomplete = copy(annular_design.geometry.regions)
-        incomplete[fill_index] = DM.PlacedRegion(residual.source, bad_shape,
-            residual.terminal, residual.placement, residual.paths)
-        @test_throws LineCableModelsFEMError extension_module._formations(
-            incomplete, annular_design.terminal_map, "incomplete-annular-fill")
-    end
+    @test all(region -> region.source.tag !== :stranded_fill,
+        annular_design.geometry.regions)
+    @test length(annular_model.region_plans) == 2
+    @test first(annular_model.region_plans).shape isa Disk
+    @test first(annular_model.region_plans).shape.r ==
+          last(annular_design.geometry.regions).primitive.ri
 
     Gmsh.initialize(String[]; finalize_atexit = false)
     try
@@ -1275,22 +1253,20 @@ end
         )
         formulation = Formulation(
             :LineCableModelsFEM;
-            options = (ideal_transposition = false,),
-            fem_options = (
+            options = (ideal_transposition = false,))
+        formulation_controls = (
                 getdp_verbosity = 0,
                 gmsh_verbosity = 0,
                 keep_run_directory = true
             )
-        )
         formulation_space = Formulation(:LineCableModelsFEM;
             earth_properties = Grid((formula(:default), nothing)),
             insulation_admittance = Grid((:default, :Ametani2004)),
-            options = formulation.options,
-            fem_options = formulation.execution)
+            options = formulation.options)
         selected = collect(formulation_space)
         completions = Tuple[]
         on_result = (resolved, index, result) -> push!(completions, (index, result))
-        batch = compute(ParametricProblem(problem, (trace = true, on_result = on_result)),
+        batch = compute(ParametricProblem(problem, (;formulation_controls..., trace = true, on_result = on_result)),
             Combinatorial(formulation_space; options = (retain_details = true,)))
         @test length(batch) == 4
         @test first.(completions) == collect(eachindex(selected))
@@ -1391,7 +1367,7 @@ end
         before_reuse = snapshot_files(run_directory)
         @test !Bool(Gmsh.gmsh.is_initialized())
         repeated = compute(problem, selected[last(default_indices)];
-            options = (trace = true, resume_run_directory = run_directory))
+            options = (;formulation_controls..., trace = true, resume_run_directory = run_directory))
         @test repeated.Z.values == result.Z.values
         @test repeated.Y.values == result.Y.values
         @test repeated.details.formulations.selections.earth_properties === nothing
@@ -1410,10 +1386,10 @@ end
                 problem = LineCableModels.ImportExport.deserialize_value(
                     JSON3.read(read(joinpath(path, "input", "problem.json"), String)))
                 formulation = Formulation(:LineCableModelsFEM; earth_properties=nothing,
-                    options=(ideal_transposition=false,),
-                    fem_options=(getdp_verbosity=0, gmsh_verbosity=0,
-                        keep_run_directory=true))
-                result = compute(problem, formulation; options=(trace=true, resume_run_directory=path))
+                    options=(ideal_transposition=false,))
+                formulation_controls = (getdp_verbosity=0, gmsh_verbosity=0,
+                        keep_run_directory=true)
+                result = compute(problem, formulation; options=merge(formulation_controls, (trace=true, resume_run_directory=path)))
                 Z, Y = deserialize(expected)
                 @assert result.Z.values == Z && result.Y.values == Y
                 @assert result.details.fem.run.run_directory == path
@@ -1429,13 +1405,12 @@ end
         if !isempty(get(ENV, "DISPLAY", ""))
             ui_formulation = Formulation(
                 :LineCableModelsFEM;
-                options = (ideal_transposition = false,),
-                fem_options = (
+                options = (ideal_transposition = false,))
+            ui_formulation_controls = (
                     ui = true,
                     getdp_verbosity = 0,
                     gmsh_verbosity = 0
                 )
-            )
             action_name = "LineCableModels/FEM/ui/action"
             mesh_state_name = "LineCableModels/FEM/ui/mesh_state"
             solve_state_name = "LineCableModels/FEM/ui/solve_state"
@@ -1461,7 +1436,7 @@ end
                 end
                 gmsh.fltk.finalize()
             end
-            ui_result = compute(problem, ui_formulation; options = (trace = true,))
+            ui_result = compute(problem, ui_formulation; options=merge(ui_formulation_controls, (trace = true,)))
             wait(driver)
             @test ui_result.f == [50.0, 1000.0]
             @test ui_result.details.fem.run.getdp_invocations ==
@@ -1615,15 +1590,14 @@ end
             )
             formulation = Formulation(
                 :LineCableModelsFEM;
-                options = (ideal_transposition = false,),
-                fem_options = (
+                options = (ideal_transposition = false,))
+            formulation_controls = (
                     getdp_verbosity = 0,
                     gmsh_verbosity = 0,
                     keep_run_directory = true,
                     plot_field_maps = reference_case.maps
                 )
-            )
-            result = compute(problem, formulation; options = (trace = true,))
+            result = compute(problem, formulation; options=merge(formulation_controls, (trace = true,)))
             run_directory = result.details.fem.run.run_directory
             try
                 actual = result.details.fem.primitive

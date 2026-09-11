@@ -292,15 +292,24 @@ end
         # Propagation families and worker settings must not borrow one another's timings.
         problem = definitions[1].model.nominal_problem
         core = Formulation()
-        descriptor(form) = Gauntlet._progress_workload(
-            Gauntlet.BenchmarkCalculation(:probe, problem, form), problem)
+        descriptor(form; options=(;)) = Gauntlet._progress_workload(
+            Gauntlet.BenchmarkCalculation(:probe, problem, form; options), problem)
         mc = descriptor(MonteCarlo(core; trials=100))
         @test descriptor(MonteCarlo(core; trials=200)).work == 2mc.work
         @test descriptor(MonteCarlo(core; trials=200)).group == mc.group
         @test descriptor(LinearError(core)).group != mc.group
         @test descriptor(core).group != mc.group
-        @test descriptor(Formulation(:LineCableModelsFEM; fem_options=(frequency_workers=1,))).group !=
-            descriptor(Formulation(:LineCableModelsFEM; fem_options=(frequency_workers=2,))).group
+        @test descriptor(Formulation(:LineCableModelsFEM); options=(frequency_workers=1,)).group !=
+            descriptor(Formulation(:LineCableModelsFEM); options=(frequency_workers=2,)).group
+        function nested(options; overrides=(;))
+            calculation = Gauntlet.BenchmarkCalculation(:probe,
+                ParametricProblem(problem, options), Combinatorial(LineCableModelsFEM());
+                options=overrides)
+            Gauntlet._progress_workload(calculation, problem)
+        end
+        @test nested((frequency_workers=1,)).group != nested((frequency_workers=2,)).group
+        @test nested((frequency_workers=1,); overrides=(frequency_workers=2,)).group ==
+            nested((frequency_workers=2,)).group
     end
 end
 

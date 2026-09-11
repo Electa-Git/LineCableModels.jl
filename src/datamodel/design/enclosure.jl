@@ -219,10 +219,8 @@ function fill_holes(group::Group, contents::CableGeometry)
         outer = boundary(contents)
         centre = first(contents.regions).primitive
         if centre isa Disk && centre.at.x == outer.at.x && centre.at.y == outer.at.y
-            # Bounded rectangular courses tile complete annuli around the
-            # centre disk. Their occupied union is one disk; only the outside
-            # clearance is fill, not a collection of touching strand cutouts.
-            return (Disk(r_ex(last(contents.regions).primitive), outer.at),)
+            # The formation already resolved its exact occupied disk.
+            return (outer,)
         end
     end
     group.item isa Assembly || return Tuple(source.primitive for source in contents.regions)
@@ -244,12 +242,25 @@ end
 function resolve(context::EmptyBoundary, enclosure::Enclosure)
     container = resolve(EmptyBoundary(), enclosure.primitive)
     contents = resolve(EmptyBoundary(), enclosure.item)
+    return _resolve_enclosure(enclosure, container, contents)
+end
+
+function _resolve_enclosure(enclosure::Enclosure, container, contents::CableGeometry)
     holes = enclosure.fill isa Material ?
             fill_holes(enclosure.item, contents) : (boundary(contents),)
     all(hole -> _contained(container, hole), holes) || throw(DomainError(
         holes,
         "enclosed geometry must fit inside the enclosure boundary"
     ))
+    # A complete circular partition is one occupied disk even through terminal
+    # and stack wrappers. Incomplete formations retain their individual holes.
+    occupied = boundary(contents)
+    if container isa Disk && occupied isa Disk &&
+       occupied.at.x == container.at.x && occupied.at.y == container.at.y &&
+       isapprox(sum(area, holes), area(occupied);
+            rtol=0, atol=_geometry_tolerance(area(occupied)))
+        holes = (occupied,)
+    end
 
     regions = PlacedRegion[]
     for source in contents.regions
@@ -265,7 +276,7 @@ function resolve(context::EmptyBoundary, enclosure::Enclosure)
     end
 
     remaining_area = area(container) - sum(area, holes; init = zero(area(container)))
-    tolerance = 2.0e-6 * abs(area(container))
+    tolerance = _geometry_tolerance(area(container))
     remaining_area >= -tolerance || throw(DomainError(
         remaining_area, "enclosure contents exceed the containing boundary area"
     ))
@@ -340,11 +351,20 @@ function resolve(context::AbstractShape, enclosure::Enclosure)
     ))
     placed = resolve(enclosure.at, container)
     context isa Disk &&
-    isapprox(context.r, placed.ri) &&
     isapprox(context.at.x, placed.at.x) &&
-    isapprox(context.at.y, placed.at.y) || throw(DomainError(
+    isapprox(context.at.y, placed.at.y) &&
+    context.r <= placed.ri + _geometry_tolerance(placed.ri) || throw(DomainError(
         context,
-        "an annular Enclosure must continue the preceding circular boundary"
+        "an annular Enclosure must be concentric with and outside the preceding circular boundary"
     ))
-    return resolve(EmptyBoundary(), enclosure)
+    # A filled course owns its complement down to the preceding physical
+    # boundary. Explicit wire radii stay fixed; contextual rings use this disk.
+    # An explicit fill Region has its own geometry and is not extended.
+    enclosure.fill isa Material || isapprox(context.r, placed.ri;
+        rtol=0, atol=_geometry_tolerance(placed.ri)) || throw(DomainError(
+        context, "an explicit fill Region must continue the preceding boundary"))
+    inner = Disk(context.r, container.at)
+    contents = resolve(inner, enclosure.item)
+    effective = Annulus(context.r, container.ro, container.at)
+    return _resolve_enclosure(enclosure, effective, contents)
 end

@@ -15,7 +15,7 @@
                 empty!(DEPOT_PATH)
                 push!(DEPOT_PATH,cache)
                 selected=withenv("LINECABLEMODELS_GETDP"=>nothing) do
-                    extension._getdp_selection(Formulation(:LineCableModelsFEM))
+                    extension._getdp_selection(computation_options(LineCableModelsFEM, (;)))
                 end
                 @assert selected.source === :artifact
                 @assert startswith(selected.path,joinpath(cache,"artifacts"))

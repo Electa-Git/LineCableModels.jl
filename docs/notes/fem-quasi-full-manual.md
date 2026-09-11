@@ -1,8 +1,9 @@
 # Manual coupled quasi-full experiment
 
-`ext/LineCableModelsGmshExt/getdp/quasi-full.pro` is a standalone GetDP entry
-point. It is not registered as a package formulation and does not replace
-`model.pro` or `quasi-tem.pro`.
+`ext/LineCableModelsGmshExt/getdp/model.pro` selects `quasi-full.pro` through
+the ONELAB constant `Physics=1`. The public backend now also exposes this model
+as `options=(physics=:quasi_fw,)`; its default remains `:quasi_tem`.
+The manual experiment below keeps the explicit PEC conductor branch.
 
 From the repository root, run in the Julia REPL:
 
@@ -18,7 +19,7 @@ and the axial problem uses exact PEC contour current constraints. There are no
 insulation regions or internal impedance contributions in this manual run.
 
 The script constructs `system`, `problem` and `formulation`, uses the existing
-material adapter and Gmsh mesher, then invokes the new file explicitly through
+material adapter and Gmsh mesher, then invokes `model.pro -setnumber Physics 1` through
 the GetDP CLI. It performs no production `compute` call. It prints each command,
 native solver progress and the complete Z, Pe and Y matrices. A new run directory
 under `.linecablemodels/quasi-full/runs/` retains the meshes, material data,
@@ -36,10 +37,11 @@ source and frequency:
 
 Edit the inputs at the top of the script to change frequency or material.
 Set `plot_field_maps=true` for native Gmsh field maps. The path helper currently
-constructs vertical reference paths for circular electrodes of equal radius,
-one terminal per position. It rejects a path that crosses another conductor or
-leaves the field mesh. The `.pro` accepts general mesh-coordinate integration
-points and oriented line weights, independently of that helper's geometry.
+delegates to the backend's mesh integration, using the specified circular
+electrode endpoints. The public backend derives endpoints from terminal contours
+for general geometry. Paths may cross equipotential metal, where the transverse
+field is zero; leaving the field mesh is rejected. The `.pro` accepts general
+mesh-coordinate integration points and oriented line weights.
 
 The `.pro` defaults to `PerfectConductors=0`, retaining the existing finite-metal
 `a/u` branch. The script's explicit PEC setting is deliberate: at 0.1 Hz and

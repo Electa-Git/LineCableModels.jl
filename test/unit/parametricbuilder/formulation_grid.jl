@@ -117,9 +117,9 @@
           [1e-4, 1e-8]
 
     fem=LineCableModelsFEM(
-        fem_options = Grid((
-        (; mesh_policy = :reuse),
-        (; mesh_policy = :remesh)
+        options = Grid((
+        (; physics = :quasi_tem),
+        (; physics = :quasi_fw)
     )),
     )
     @test fem isa Gridspace{LineCableModelsFEM}

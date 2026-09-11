@@ -65,8 +65,12 @@ $(SIGNATURES)
 
 Calculate a completed result from an explicit problem and formulation.
 
-Concrete methods validate and normalise their supported `options`. Unsupported
-problem/formulation pairs fail through ordinary Julia dispatch.
+Concrete solver methods validate and normalise execution `options` through
+[`computation_options`](@ref) for their owner. Composite computations may
+forward caller options to that solver; they do not reinterpret another owner's
+keys. Scientific choices use [`formulation_options`](@ref), and supplemental
+results use [`computation_details`](@ref). Unsupported problem/formulation
+pairs fail through ordinary Julia dispatch.
 """
 function compute end
 

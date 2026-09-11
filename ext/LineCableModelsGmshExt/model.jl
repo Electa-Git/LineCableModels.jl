@@ -94,23 +94,14 @@ struct FEMGeometry
     outer_earth_curves::Vector{Int}
     inner_shell_curves::Vector{Int}
     interface_curves::Vector{Int}
+    cable_loops::Vector{Vector{Int}}
+    exterior_points::Vector{Int}
 end
 
 struct FEMScan{T <: Real}
     Z::Array{Complex{T}, 3}
     P::Array{Complex{T}, 3}
     map_paths::Vector{String}
-end
-
-struct FEMRunRecord
-    state::FEMRunState
-    run_directory::Union{Nothing, String}
-    mesh_source::Symbol
-    mesh_fingerprint::String
-    getdp_invocations::Int
-    map_paths::Vector{String}
-    completed_columns::Int
-    completed_frequencies::Int
 end
 
 function _fem_error(
@@ -482,15 +473,15 @@ function _formations(regions, terminal_map, object_id)
 
         boundary = entry.pattern.boundary
         occupied_area = sum(
-            index -> LineCableModels.area(regions[index].source.primitive),
+            index -> LineCableModels.area(regions[index].primitive),
             members
         )
         boundary_area = LineCableModels.area(boundary)
         complete = isapprox(
             occupied_area,
             boundary_area;
-            rtol = 5.0e-6,
-            atol = zero(boundary_area)
+            rtol = 0,
+            atol = DataModel._geometry_tolerance(boundary_area)
         )
         member_shapes = [regions[index].primitive for index in members]
         if complete
@@ -605,7 +596,7 @@ function _resolved_fem_model(
         :unsupported,
         problem.system.system_id,
         :Γ,
-        "LineCableModelsFEM uses its fixed quasi-TEM propagation constant; " *
+        "LineCableModelsFEM uses a backend-owned Gamma -> 0 reduction; " *
         "problem-level propagation constants are unsupported"
     )
     earth = problem.earth_props
@@ -750,22 +741,23 @@ function _resolved_fem_model(
             mesh_size = formation === nothing ?
                         _fem_region_mesh_size(placed) : formation.mesh_size
             _validate_fem_shape(shape, object_id)
-            material_index = length(material_plans) + 1
-            physical_tag = 10_000 + material_index
-            physical_name = @sprintf("LCM/material/%04d/%s/%s",
-                material_index,
-                source.material.kind,
-                object_id)
-            push!(material_plans,
-                FEMMaterialPlan{T}(
-                    object_id,
-                    source.tag,
-                    source.material.kind,
-                    convert(T, source.material.mu_r),
-                    admittivity,
-                    physical_tag,
-                    physical_name
-                ))
+            # Geometric regions and terminal ownership remain independent of
+            # constitutive identity. Equal evaluated laws share one physical
+            # material group, even across disconnected strand surfaces.
+            mu_r = convert(T, material.mu_r)
+            material_index = something(findfirst(material_plans) do plan
+                plan.kind === material.kind && plan.mu_r == mu_r &&
+                    plan.admittivity == admittivity
+            end, 0)
+            if iszero(material_index)
+                material_index = length(material_plans) + 1
+                push!(material_plans,
+                    FEMMaterialPlan{T}(
+                        object_id, source.tag, material.kind, mu_r, admittivity,
+                        10_000 + material_index,
+                        @sprintf("LCM/material/%04d/%s", material_index, material.kind)
+                    ))
+            end
             push!(region_plans,
                 FEMRegionPlan(
                     object_id,

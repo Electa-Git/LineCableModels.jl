@@ -129,20 +129,20 @@ function formulation_record(formulation::LineCableModels.LinearError)
     )
 end
 function formulation_record(formulation::LineCableModels.MonteCarlo)
-    distribution = formulation.distribution isa Symbol ?
-                   formulation.distribution : string(typeof(formulation.distribution))
+    distribution = formulation.options.distribution isa Symbol ?
+                   formulation.options.distribution : string(typeof(formulation.options.distribution))
     return (
         kind = :monte_carlo,
         inner = formulation_record(formulation.inner),
-        trials = formulation.trials,
-        confidence = formulation.confidence,
-        cdf_tolerance = formulation.cdf_tol,
+        trials = formulation.options.trials,
+        confidence = formulation.options.confidence,
+        cdf_tolerance = formulation.options.cdf_tol,
         distribution,
-        seed = formulation.seed,
-        return_samples = formulation.return_samples,
-        return_histograms = formulation.return_histograms,
-        bins = formulation.bins,
-        options = formulation.options
+        seed = formulation.options.seed,
+        return_samples = formulation.options.return_samples,
+        return_histograms = formulation.options.return_histograms,
+        bins = formulation.options.bins,
+        options = _selection_value(formulation.options)
     )
 end
 

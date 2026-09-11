@@ -1,31 +1,9 @@
-// Immutable inputs for one frequency and its requested terminal excitations.
-If(!Exists(ModelDataPath))
-  Error("Pass the immutable input path with -setstring ModelDataPath");
-EndIf
-Include ModelDataPath;
-eps0 = 8.8541878128e-12;
-mu0 = 1.2566370614359173e-6;
-UnitSource = 1.0;
-If(!Exists(Val_Rint))
-  Val_Rint = DomainRadius;
-EndIf
-If(!Exists(Val_Rext))
-  Val_Rext = ShellOuterRadius;
-EndIf
-Group {
-  // Keep the two primary physical regions explicit here. DOMAIN_INF is an
-  // overlapping Gmsh inventory group; selecting it directly does not preserve
-  // GetDP's region dispatch for the VolSphShell Jacobian.
-  AirInfJacobian = Region[{AIR_INF}];
-  EarthInfJacobian = Region[{EARTH_INF}];
-  DomainInf = Region[{AirInfJacobian, EarthInfJacobian}];
-}
-Include "jacobian_integration.pro";
+// Included by model.pro when the ONELAB Physics selector is 1 (quasi-fw).
 Jacobian { { Name Plain; Case { { Region All; Jacobian Vol; } } } }
 
 
 
-// Manual first-order Maxwell formulation for exp(j omega t - Gamma z).
+// First-order Maxwell formulation for exp(j omega t - Gamma z).
 // A_z=a, A_t=Gamma*bt, phi=Gamma*v. The equations are the normalized
 // Gamma -> 0 limit; all O(Gamma) transverse fields are retained. This is
 // not a finite-Gamma modal solver. The finite-metal A_z/u branch is retained;
@@ -41,9 +19,18 @@ Jacobian { { Name Plain; Case { { Region All; Jacobian Vol; } } } }
 // mesh-coordinate integration points and oriented line weights from the
 // reference at earth infinity to each electrode. Jacobian Plain evaluates
 // the pulled-back 1-form: its circulation equals the physical circulation,
-// including in the infinite-element shell. The script dev/run_quasi_full.jl
-// generates these paths and invokes this file directly with the GetDP CLI.
+// including in the infinite-element shell. The backend generates these paths
+// from the mesh; dev/run_quasi_full.jl also exposes a manual PEC CLI experiment.
 // Raw P has units ohm m (inverse admittance); analytical Pe = j omega P.
+//
+// Reference: G. Ciuprina and R. V. Sabriego, "Electric circuit element boundary
+// conditions for electromagneto-quasistatic and full wave models in A, phi
+// potentials and their finite element implementation", J. Math. Ind. 14, 27
+// (2024), https://doi.org/10.1186/s13362-024-00165-6, Sec. 4 and Appendix B.
+// The paper gives the full-vector A/phi equations, terminal conditions and
+// gauge framework. This 2D longitudinal expansion and the vertical voltage
+// paths are our reduction, not the paper's 3D ECE model or its Darwin model.
+// See the LineCableModelsFEM Julia docstring for equations, units and limits.
 
 // PerfectConductors=1 excludes metal interiors and imposes exact PEC
 // current-carrying contours. Default 0 retains the working finite-metal a/u block.

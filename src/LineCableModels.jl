@@ -76,7 +76,7 @@ export preview, show_material_scale
 # Engine:
 export Formulation, LineParametersFormulation, CableConstantsFormulation,
        LineCableModelsCoaxial,
-       LineCableModelsFEM, LineCableModelsFEMOptions, LineCableModelsFEMError,
+       LineCableModelsFEM, LineCableModelsFEMError,
        SeriesImpedance, ShuntAdmittance, kronify,
        LineParameters, PhaseDomain, ModalDomain
 export ModalTransformationProblem, ModalTransformationFormulation,
@@ -175,7 +175,7 @@ using .Engine: LineParameters, LineParametersProblem, CableConstants,
                CableConstantsProblem, CableConstantsFormulation, SeriesImpedance,
                ShuntAdmittance, kronify, Formulation,
                LineParametersFormulation, LineCableModelsCoaxial,
-               LineCableModelsFEM, LineCableModelsFEMOptions,
+               LineCableModelsFEM,
                LineCableModelsFEMError,
                domain, frequencies, nconductors, nfrequencies,
                Z, Y, X, G, B, series_impedance, shunt_admittance,

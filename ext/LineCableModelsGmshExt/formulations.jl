@@ -1,4 +1,4 @@
-"Record the consumed FEM material laws and fixed field assumptions."
+"Record the consumed FEM material laws and selected field assumptions."
 function formulation_record(formulation::LineCableModelsFEM)
     # Hook descriptions identify the supplied callable, without claiming that
     # arbitrary Julia closures can be reconstructed from a saved record.
@@ -16,13 +16,17 @@ function formulation_record(formulation::LineCableModelsFEM)
             replayable=isempty(selected.hooks)))
     end)
     return merge((
-        schema_version = 3,
+        schema_version = 4,
         selections,
         assumptions = (
             impedance = "Axial current-driven A_z/u_r finite-element equations",
-            admittance = "Scalar electrodynamic Helmholtz equation in surrounding media; equipotential terminals with unit transverse-current excitation; Y = inv(P)",
+            admittance = _quasi_full(formulation.options.physics) ?
+                "Coupled first-order Maxwell A_z/A_t/phi equations; axial current supplies normalized leakage; vertical path voltage includes A_t/Gamma; Y = inv(P)" :
+                "Scalar electrodynamic Helmholtz equation in surrounding media; equipotential terminals with unit transverse-current excitation; Y = inv(P)",
             earth = "Horizontal air and one semi-infinite soil; soil constitutive properties evaluated at each frequency",
-            propagation = "Gamma = 0; medium diffusion and displacement retained; independent Z/P blocks in one factorization",
+            propagation = _quasi_full(formulation.options.physics) ?
+                "Gamma -> 0 with A_t/Gamma and phi/Gamma retained; conduction and displacement; one coupled factorization" :
+                "Gamma = 0; medium diffusion and displacement retained; independent Z/P blocks in one factorization",
             semicon_domain = "Passive material region, without electrical terminal ownership",
             enclosure = "Supported enclosures are represented by their material and terminal domains"
         )

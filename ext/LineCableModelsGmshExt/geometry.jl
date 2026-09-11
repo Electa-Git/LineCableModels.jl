@@ -2,6 +2,7 @@ struct FEMLoop
     ccw::Int
     cw::Int
     curves::Vector{Int}
+    oriented::Vector{Int}
 end
 
 const FEM_BOUNDARY_ANGLE_TOLERANCE = 1.0e-12
@@ -12,6 +13,7 @@ mutable struct FEMLoopRegistry
     point_sizes::Dict{Int, Float64}
     lines::Dict{Tuple{Int, Int}, Int}
     curve_points::Dict{Int, Tuple{Int, Int}}
+    curve_samples::Dict{Int, Vector{Tuple{Float64, Float64}}}
     circle_arcs::Dict{Any, Tuple{Int, Int, Int}}
     circle_breaks::Dict{Any, Set{Float64}}
     circle_break_points::Dict{Any, Dict{Float64, Tuple{Float64, Float64}}}
@@ -26,6 +28,7 @@ function FEMLoopRegistry(mesh_size)
         Dict{Int, Float64}(),
         Dict{Tuple{Int, Int}, Int}(),
         Dict{Int, Tuple{Int, Int}}(),
+        Dict{Int, Vector{Tuple{Float64, Float64}}}(),
         Dict{Any, Tuple{Int, Int, Int}}(),
         Dict{Any, Set{Float64}}(),
         Dict{Any, Dict{Float64, Tuple{Float64, Float64}}}(),
@@ -36,14 +39,18 @@ end
 
 _coordinate_key(value) = round(Float64(value); sigdigits = 15)
 
-function _matching_point_key(points, point)
+function _matching_point_key(registry::FEMLoopRegistry, point)
+    points = registry.points
     key = (_coordinate_key(point[1]), _coordinate_key(point[2]))
     haskey(points, key) && return key
     scale = max(abs(Float64(point[1])), abs(Float64(point[2])), 1.0)
     tolerance = 64eps(scale)
-    for candidate in keys(points)
-        abs(candidate[1] - key[1]) <= tolerance &&
-            abs(candidate[2] - key[2]) <= tolerance && return candidate
+    for x in floor(Int, (key[1] - tolerance) / registry.mesh_size):floor(Int, (key[1] + tolerance) / registry.mesh_size),
+        y in floor(Int, (key[2] - tolerance) / registry.mesh_size):floor(Int, (key[2] + tolerance) / registry.mesh_size)
+        for candidate in get(registry.point_buckets, (x, y), ())
+            abs(candidate[1] - key[1]) <= tolerance &&
+                abs(candidate[2] - key[2]) <= tolerance && return candidate
+        end
     end
     return key
 end
@@ -436,7 +443,7 @@ function _register_shape_breaks!(
 end
 
 function _register_circle_contacts!(registry::FEMLoopRegistry)
-    circles = collect(keys(registry.circle_breaks))
+    circles = Tuple{Float64, Float64, Float64}[key for key in keys(registry.circle_breaks)]
     # A polygonal strand can end on an analytic enclosing arc. Both consumers
     # must share that vertex before either curve loop is constructed.
     for circle in circles, point in keys(registry.points)
@@ -539,7 +546,7 @@ function _point!(registry::FEMLoopRegistry, point; mesh_size = registry.mesh_siz
     # Equivalent boundary constructions can differ by one or two Float64 ULPs.
     # Reuse the existing topological point without applying a physical-scale
     # tolerance to every coordinate in the model.
-    key = _matching_point_key(registry.points, point)
+    key = _matching_point_key(registry, point)
     tag = get!(registry.points, key) do
         bucket = (floor(Int, key[1] / registry.mesh_size),
                   floor(Int, key[2] / registry.mesh_size))
@@ -621,10 +628,11 @@ function _apply_point_mesh_sizes!(registry::FEMLoopRegistry)
 end
 
 function _signed_area(points)
+    origin = first(points)
     return sum(eachindex(points)) do index
         next = mod1(index + 1, length(points))
-        points[index][1] * points[next][2] -
-        points[next][1] * points[index][2]
+        (points[index][1] - origin[1]) * (points[next][2] - origin[2]) -
+        (points[next][1] - origin[1]) * (points[index][2] - origin[2])
     end / 2
 end
 
@@ -657,7 +665,7 @@ function _polygon_loop!(registry::FEMLoopRegistry, points; mesh_size = registry.
              for index in eachindex(values)])
         ccw = gmsh.model.geo.add_curve_loop(curves)
         cw = gmsh.model.geo.add_curve_loop(-reverse(curves))
-        FEMLoop(ccw, cw, abs.(curves))
+        FEMLoop(ccw, cw, abs.(curves), curves)
     end
     return _refine_loop_mesh_size!(registry, loop, mesh_size)
 end
@@ -684,7 +692,7 @@ function _circle_loop!(
         )
         ccw = gmsh.model.geo.add_curve_loop(curves)
         cw = gmsh.model.geo.add_curve_loop(-reverse(curves))
-        FEMLoop(ccw, cw, abs.(curves))
+        FEMLoop(ccw, cw, abs.(curves), curves)
     end
     return _refine_loop_mesh_size!(registry, loop, mesh_size)
 end
@@ -730,7 +738,13 @@ function _ellipse_loop!(
         end
         ccw = gmsh.model.geo.add_curve_loop(curves)
         cw = gmsh.model.geo.add_curve_loop(-reverse(curves))
-        FEMLoop(ccw, cw, curves)
+        for (index, curve) in enumerate(curves)
+            registry.curve_samples[curve] = [
+                _transform_point((shape.a * cos(angle), shape.b * sin(angle)), shape.at)
+                for angle in range((index - 1) * π / 2, index * π / 2; length = 17)
+            ]
+        end
+        FEMLoop(ccw, cw, curves, curves)
     end
     return _refine_loop_mesh_size!(registry, loop, mesh_size)
 end
@@ -801,6 +815,12 @@ function _circle_arc_path!(
                     )
                 end
                 registry.curve_points[tag] = (stored_first, stored_last)
+                get!(registry.curve_samples, tag) do
+                    a = first_tag == stored_first ? angles[index] : angles[index + 1]
+                    b = first_tag == stored_first ? angles[index + 1] : angles[index]
+                    [_circle_point(centre, radius, a + fraction * (b - a))
+                     for fraction in (0.0, 1e-6, ((1:15) ./ 16)..., 1 - 1e-6, 1.0)]
+                end
                 first_tag == stored_first && last_tag == stored_last ? tag : -tag
             end
             for index in 1:(length(point_tags) - 1)]
@@ -871,7 +891,7 @@ function _sector_loop!(
         append!(curves, _line_path!(registry, transformed[6], transformed[1]; mesh_size))
         ccw = gmsh.model.geo.add_curve_loop(curves)
         cw = gmsh.model.geo.add_curve_loop(-reverse(curves))
-        FEMLoop(ccw, cw, abs.(curves))
+        FEMLoop(ccw, cw, abs.(curves), curves)
     end
     return _refine_loop_mesh_size!(registry, loop, mesh_size)
 end
@@ -938,7 +958,7 @@ function _bent_strip_loop!(
         end
         ccw = gmsh.model.geo.add_curve_loop(curves)
         cw = gmsh.model.geo.add_curve_loop(-reverse(curves))
-        FEMLoop(ccw, cw, abs.(curves))
+        FEMLoop(ccw, cw, abs.(curves), curves)
     end
     return _refine_loop_mesh_size!(registry, loop, mesh_size)
 end
@@ -1020,12 +1040,134 @@ end
 
 _surface_boundaries(shape) = (shape, Any[])
 
-function _surface!(registry::FEMLoopRegistry, shape, mesh_size)
+function _surface_faces!(registry::FEMLoopRegistry, shape, mesh_size)
     outer, holes = _surface_boundaries(shape)
     outer_loop = _boundary_loop!(registry, outer; mesh_size)
-    hole_loops = [_boundary_loop!(registry, hole; mesh_size).cw
+    hole_loops = [_boundary_loop!(registry, hole; mesh_size)
                   for hole in holes]
-    return gmsh.model.geo.add_plane_surface([outer_loop.ccw; hole_loops])
+    isempty(holes) && return Int[gmsh.model.geo.add_plane_surface([outer_loop.ccw])]
+    seen = Set{Int}()
+    touching = false
+    for loop in Iterators.flatten(((outer_loop,), hole_loops))
+        points = Set(point for curve in loop.curves for point in registry.curve_points[curve])
+        touching |= any(point -> point in seen, points)
+        union!(seen, points)
+    end
+    if !touching
+        return Int[gmsh.model.geo.add_plane_surface([outer_loop.ccw; getproperty.(hole_loops, :cw)])]
+    end
+
+    # Every oriented edge has material on its left. Cancel shared hole edges:
+    # a metal-metal seam cannot also bound a third (filler) material.
+    counts = Dict{Int, Int}()
+    for curves in (outer_loop.oriented, (-loop.oriented for loop in hole_loops)...)
+        for curve in curves
+            counts[abs(curve)] = get(counts, abs(curve), 0) + sign(curve)
+        end
+    end
+    all(value -> abs(value) <= 1, Base.values(counts)) || throw(ArgumentError(
+        "overlapping boundaries in a FEM material face"))
+    edges = sort!([tag * count for (tag, count) in counts if !iszero(count)]; by=abs)
+    positions = Dict(tag => point for (point, tag) in registry.points)
+    samples = Dict{Int, Vector{Tuple{Float64, Float64}}}()
+    outgoing = Dict{Int, Vector{Int}}()
+    endpoints = Dict{Int, Tuple{Int, Int}}()
+    for edge in edges
+        first_point, last_point = registry.curve_points[abs(edge)]
+        values = copy(get(registry.curve_samples, abs(edge),
+            [positions[first_point], positions[last_point]]))
+        values[1], values[end] = positions[first_point], positions[last_point]
+        if edge < 0
+            first_point, last_point = last_point, first_point
+            reverse!(values)
+        end
+        endpoints[edge] = (first_point, last_point)
+        samples[edge] = values
+        push!(get!(Vector{Int}, outgoing, first_point), edge)
+    end
+    # Compare incident curves at a common physical distance from the contact.
+    # Equal parameter fractions on tangent circles of different radii can give
+    # identical directions and the wrong face pairing.
+    steps = Dict{Int, Float64}()
+    for (first_point, last_point) in values(endpoints)
+        a, b = positions[first_point], positions[last_point]
+        step = hypot(b[1]-a[1], b[2]-a[2]) / 64
+        for point in (first_point, last_point)
+            steps[point] = min(get(steps, point, Inf), step)
+        end
+    end
+    circles = Dict{Int, Tuple{Float64, Float64, Float64, Int}}()
+    for (key, (tag, first_point, last_point)) in registry.circle_arcs
+        cx, cy, radius = key[2]
+        a, b = positions[first_point], positions[last_point]
+        orientation = sign((a[1]-cx)*(b[2]-cy)-(a[2]-cy)*(b[1]-cx))
+        circles[tag] = (cx, cy, radius, Int(orientation))
+    end
+    function direction(edge, step)
+        if haskey(circles, abs(edge))
+            cx, cy, radius, orientation = circles[abs(edge)]
+            first_point, last_point = registry.curve_points[abs(edge)]
+            point = positions[edge > 0 ? first_point : last_point]
+            turn = sign(edge) * orientation
+            return atan(turn*(point[1]-cx), -turn*(point[2]-cy)) + turn*step/(2radius)
+        end
+        points = haskey(samples, edge) ? samples[edge] : reverse(samples[-edge])
+        return atan(points[2][2]-points[1][2], points[2][1]-points[1][1])
+    end
+    successors = Dict{Int, Int}()
+    for edge in edges
+        step = steps[endpoints[edge][2]]
+        backwards = direction(-edge, step)
+        candidates = get(outgoing, endpoints[edge][2], Int[])
+        isempty(candidates) && throw(ArgumentError("open FEM material boundary"))
+        successors[edge] = candidates[argmin(map(candidates) do candidate
+            mod(backwards - direction(candidate, step), 2π)
+        end)]
+    end
+    length(unique(Base.values(successors))) == length(edges) || throw(ArgumentError(
+        "ambiguous FEM material boundary at a contact"))
+
+    cycles = Vector{Int}[]
+    polygons = Vector{Tuple{Float64, Float64}}[]
+    remaining = Set(edges)
+    for first_edge in edges
+        first_edge in remaining || continue
+        cycle = Int[]
+        polygon = Tuple{Float64, Float64}[]
+        edge = first_edge
+        while edge in remaining
+            delete!(remaining, edge)
+            push!(cycle, edge)
+            append!(polygon, samples[edge][1:end-1])
+            edge = successors[edge]
+        end
+        edge == first_edge || throw(ArgumentError("nonclosing FEM material face"))
+        push!(cycles, cycle)
+        push!(polygons, polygon)
+    end
+    areas = _signed_area.(polygons)
+    outers = findall(>(0), areas)
+    isempty(outers) && throw(ArgumentError("FEM material has no positive-area face"))
+    interiors = Dict(index => Int[] for index in outers)
+    function contains(polygon, point)
+        inside = false
+        for index in eachindex(polygon)
+            a, b = polygon[index], polygon[mod1(index + 1, end)]
+            (a[2] > point[2]) == (b[2] > point[2]) && continue
+            point[1] < a[1] + (point[2] - a[2]) * (b[1] - a[1]) / (b[2] - a[2]) &&
+                (inside = !inside)
+        end
+        return inside
+    end
+    for index in findall(<(0), areas)
+        parents = filter(parent -> contains(polygons[parent], first(polygons[index])), outers)
+        isempty(parents) && throw(ArgumentError("uncontained FEM material hole"))
+        parent = parents[argmin(areas[parents])]
+        push!(interiors[parent], index)
+    end
+    loops = [gmsh.model.geo.add_curve_loop(cycle) for cycle in cycles]
+    return [gmsh.model.geo.add_plane_surface([loops[index]; loops[interiors[index]]])
+            for index in outers]
 end
 
 function _tangent_fill_surfaces!(registry::FEMLoopRegistry, shape, mesh_size)
@@ -1119,7 +1261,7 @@ end
 function _surfaces!(registry::FEMLoopRegistry, shape, mesh_size)
     compartments = _tangent_fill_surfaces!(registry, shape, mesh_size)
     compartments === nothing || return compartments
-    return Int[_surface!(registry, shape, mesh_size)]
+    return _surface_faces!(registry, shape, mesh_size)
 end
 
 _boundary_components(shape::DataModel.AssemblyShape) = collect(shape.members)
@@ -1155,59 +1297,83 @@ function _validate_material_interfaces!(model::FEMResolvedModel, material_surfac
     offending = Int[]
     for curve in sort!(unique(curves))
         adjacent, _ = gmsh.model.get_adjacencies(1, curve)
-        length(unique(adjacent)) >= 2 || push!(offending, curve)
+        length(unique(adjacent)) == 2 || push!(offending, curve)
     end
     isempty(offending) || _fem_error(
         :geometry,
         model.problem.system.system_id,
         :material_partition,
-        "material interfaces are not conformal; curves with no adjacent " *
-        "field surface: $(join(offending, ", "))"
+        "material interfaces must have exactly two adjacent surfaces; " *
+        "invalid curves: $(join(offending, ", "))"
     )
     return nothing
+end
+
+function _interface_mesh_sizes(model::FEMResolvedModel, mesh_plan::FEMMeshPlan)
+    centre_x = model.centre[1]
+    sizes = Dict{Float64, Float64}()
+    function register(x, size)
+        key = _coordinate_key(x)
+        sizes[key] = min(get(sizes, key, Inf), Float64(size))
+    end
+    register(centre_x, mesh_plan.interface_mesh_size)
+    for offset in (-2.0, 2.0)
+        register(centre_x + offset, mesh_plan.domain_mesh_size)
+    end
+    for (index, position) in enumerate(model.problem.system.positions)
+        register(position.x, mesh_plan.cable_interface_mesh_sizes[index])
+    end
+    return sizes
 end
 
 function _build_geometry!(
         model::FEMResolvedModel,
         model_name::String,
-        mesh_plan::FEMMeshPlan = last(model.mesh_plans)
+        mesh_plan::FEMMeshPlan = last(model.mesh_plans);
+        reuse::Union{Nothing, FEMGeometry} = nothing
 )
-    gmsh.model.add(model_name)
-    registry = FEMLoopRegistry(model.fine_mesh_size)
-
-    for region in model.region_plans
-        _register_shape_breaks!(registry, region.shape)
-    end
-    foreach(
-        boundary -> _register_shape_breaks!(registry, boundary),
-        model.cable_boundaries
-    )
-    _register_circle_contacts!(registry)
-
-    material_surfaces = [Int[] for _ in model.material_plans]
-    terminal_surfaces = [Int[] for _ in model.terminal_ids]
-    for region in model.region_plans
-        surfaces = _surfaces!(registry, region.shape, region.mesh_size)
-        append!(material_surfaces[region.material_index], surfaces)
-        region.terminal_index > 0 && append!(
-            terminal_surfaces[region.terminal_index], surfaces
-        )
-    end
-
-    cable_curves = [Int[] for _ in model.cable_boundaries]
-    cable_loops = [FEMLoop[] for _ in model.cable_boundaries]
-    for cable_index in eachindex(model.cable_boundaries)
-        for component in _boundary_components(model.cable_boundaries[cable_index])
-            loop = _boundary_loop!(
-                registry,
-                component;
-                mesh_size = model.cable_outer_mesh_sizes[cable_index]
-            )
-            push!(cable_loops[cable_index], loop)
-            append!(cable_curves[cable_index], loop.curves)
+    if reuse === nothing
+        gmsh.model.add(model_name)
+        registry = FEMLoopRegistry(model.fine_mesh_size)
+        for region in model.region_plans
+            _register_shape_breaks!(registry, region.shape)
         end
+        foreach(
+            boundary -> _register_shape_breaks!(registry, boundary),
+            model.cable_boundaries
+        )
+        _register_circle_contacts!(registry)
+        material_surfaces = [Int[] for _ in model.material_plans]
+        terminal_surfaces = [Int[] for _ in model.terminal_ids]
+        for region in model.region_plans
+            surfaces = _surfaces!(registry, region.shape, region.mesh_size)
+            append!(material_surfaces[region.material_index], surfaces)
+            region.terminal_index > 0 && append!(
+                terminal_surfaces[region.terminal_index], surfaces
+            )
+        end
+        cable_curves = [Int[] for _ in model.cable_boundaries]
+        cable_loops = [Int[] for _ in model.cable_boundaries]
+        for cable_index in eachindex(model.cable_boundaries)
+            for component in _boundary_components(model.cable_boundaries[cable_index])
+                loop = _boundary_loop!(registry, component;
+                    mesh_size = model.cable_outer_mesh_sizes[cable_index])
+                push!(cable_loops[cable_index], loop.cw)
+                append!(cable_curves[cable_index], loop.curves)
+            end
+        end
+        _apply_point_mesh_sizes!(registry)
+    else
+        gmsh.model.set_current(model_name)
+        material_surfaces = reuse.material_surfaces
+        terminal_surfaces = reuse.terminal_surfaces
+        cable_curves = reuse.cable_curves
+        cable_loops = reuse.cable_loops
     end
 
+    # Keep exterior bookkeeping separate so frequency changes never recreate
+    # or transform the authoritative cable geometry.
+    registry = FEMLoopRegistry(model.fine_mesh_size)
     centre_x, _ = model.centre
     radius = mesh_plan.domain_radius
     shell_radius = mesh_plan.shell_outer_radius
@@ -1243,27 +1409,7 @@ function _build_geometry!(
         (centre_x + shell_radius, 0.0);
         mesh_size = mesh_plan.infinite_mesh_size
     )
-    interface_sizes = Dict{Float64, Float64}()
-    function register_interface_size(x, mesh_size)
-        key = _coordinate_key(x)
-        interface_sizes[key] = min(
-            get(interface_sizes, key, Inf), Float64(mesh_size)
-        )
-        return nothing
-    end
-    register_interface_size(centre_x, mesh_plan.interface_mesh_size)
-    for offset in (-2.0, 2.0)
-        x = centre_x + offset
-        centre_x - radius < x < centre_x + radius &&
-            register_interface_size(x, mesh_plan.domain_mesh_size)
-    end
-    for (cable_index, position) in enumerate(model.problem.system.positions)
-        centre_x - radius < position.x < centre_x + radius &&
-            register_interface_size(
-                position.x,
-                mesh_plan.cable_interface_mesh_sizes[cable_index]
-            )
-    end
+    interface_sizes = _interface_mesh_sizes(model, mesh_plan)
     interface_points = Int[inner_left]
     for (x, mesh_size) in sort!(collect(interface_sizes); by = first)
         centre_x - radius < x < centre_x + radius || continue
@@ -1278,7 +1424,7 @@ function _build_geometry!(
     earth_holes = Int[]
     for cable_index in eachindex(cable_loops)
         target = model.cable_hosts[cable_index] === :air ? air_holes : earth_holes
-        append!(target, getproperty.(cable_loops[cable_index], :cw))
+        append!(target, cable_loops[cable_index])
     end
     air_loop = gmsh.model.geo.add_curve_loop([finite_interfaces; inner.curves[1];
                                               inner.curves[2]])
@@ -1453,6 +1599,8 @@ function _build_geometry!(
         outer_air_curves,
         outer_earth_curves,
         inner_shell_curves,
-        interface_curves
+        interface_curves,
+        cable_loops,
+        sort!(collect(values(registry.points)))
     )
 end

@@ -40,11 +40,12 @@ for b in bases:
     pathlib.Path(str(stem)+'.done').write_text(f'2\t{f}\t{hz:.17g}\t{b}\t2\t0\n')
 """)
             chmod(executable,0o700)
-            form = Formulation(:LineCableModelsFEM; options=(ideal_transposition=false,),
-                fem_options=(getdp_executable=executable,frequency_workers=2,solver_threads=1,gmsh_verbosity=0))
+            form = Formulation(:LineCableModelsFEM; options=(ideal_transposition=false,))
+            form_controls = (getdp_executable=executable,frequency_workers=2,solver_threads=1,gmsh_verbosity=0)
+            execution_options = computation_options(LineCableModelsFEM, form_controls)
             model=E._resolved_fem_model(problem,form)
-            inputs=E._fem_input_record(model,form)
-            execution=(; (name=>getproperty(form.execution,name) for name in propertynames(form.execution))...)
+            inputs=E._fem_input_record(model,form, execution_options)
+            execution=inputs.execution
             meshes=map(1:2) do i
                 path=joinpath(root,"mesh $i.msh")
                 write(path,"mesh $i")
@@ -71,9 +72,9 @@ with open(sys.argv[1],'a+') as f:
             E._release_run(owner)
             @test strip(read(lock_command,String))=="acquired"
             E._release_run(E._claim_run(run))
-            E._run_getdp!(run,model,form,meshes)
+            E._run_getdp!(run,model,form, execution_options,meshes)
             @test (run.getdp_invocations,run.completed_columns,run.completed_frequencies)==(2,4,2)
-            scan=E._parse_scan(run,model,form)
+            scan=E._parse_scan(run,model,form, execution_options)
             @test real.(scan.Z[:,:,1])==[111 112;121 122]
             @test real.(scan.Z[:,:,2])==[211 212;221 222]
             digest=bytes2hex(open(sha256,meshes[1]))
@@ -85,7 +86,7 @@ with open(sys.argv[1],'a+') as f:
             write(paths.Z,"broken\n")
             @test !E._valid_column_checkpoint(run.path,1,50.0,2,2,false,digest)
             # The intact attempt is adopted, without starting another solver.
-            E._run_getdp!(run,model,form,meshes)
+            E._run_getdp!(run,model,form, execution_options,meshes)
             @test run.getdp_invocations==2
             @test read(paths.Z)==before
             # A corrupt manifest cannot prevent adopting other attempts.
@@ -100,33 +101,33 @@ with open(sys.argv[1],'a+') as f:
             for attempt in filter(isdir,readdir(joinpath(run.path,"attempts");join=true))
                 rm(E._column_paths(attempt,1,2,false).marker;force=true)
             end
-            E._run_getdp!(run,model,form,meshes)
+            E._run_getdp!(run,model,form, execution_options,meshes)
             @test run.getdp_invocations==3
             attempts=filter(isfile,[joinpath(d,"observed.json") for d in readdir(joinpath(run.path,"attempts");join=true)])
             @test any(p->JSON3.read(read(p,String)).bases==[2],attempts)
-            @test E._parse_scan(run,model,form).Z==scan.Z
+            @test E._parse_scan(run,model,form, execution_options).Z==scan.Z
             # Concurrency is scheduling metadata; thread count is numerical provenance.
             one=merge(inputs,(execution=merge(execution,(frequency_workers=1,)),))
             threads=merge(inputs,(execution=merge(execution,(solver_threads=2,)),))
             @test E._resume_inputs_match(run.path,model,one)
             @test !E._resume_inputs_match(run.path,model,threads)
             serial=fresh()
-            serial_form=Formulation(:LineCableModelsFEM;options=form.options,
-                fem_options=merge(execution,(frequency_workers=1,)))
-            E._run_getdp!(serial,model,serial_form,meshes)
-            @test E._parse_scan(serial,model,serial_form).Z==scan.Z
+            serial_form=Formulation(:LineCableModelsFEM;options=form.options)
+            serial_form_controls = merge(execution,(frequency_workers=1,))
+            E._run_getdp!(serial,model,serial_form, computation_options(LineCableModelsFEM, serial_form_controls),meshes)
+            @test E._parse_scan(serial,model,serial_form, computation_options(LineCableModelsFEM, serial_form_controls)).Z==scan.Z
             # A failed basis does not get a checkpoint and must be retried.
             broken=fresh();write(config,JSON3.write((delay=0.01,fail=true)))
-            @test_throws LineCableModelsFEMError E._run_getdp!(broken,model,form,meshes)
+            @test_throws LineCableModelsFEMError E._run_getdp!(broken,model,form, execution_options,meshes)
             @test isfile(E._column_paths(broken.path,1,1,false).checkpoint)
             @test !isfile(E._column_paths(broken.path,1,2,false).checkpoint)
             @test E._assert_no_live_attempts(broken)===nothing
             write(config,JSON3.write((delay=0.0,fail=false)))
-            E._run_getdp!(broken,model,form,meshes)
-            @test E._parse_scan(broken,model,form).Z==scan.Z
+            E._run_getdp!(broken,model,form, execution_options,meshes)
+            @test E._parse_scan(broken,model,form, execution_options).Z==scan.Z
             unsupported=fresh();write(config,JSON3.write((unsupported=true,)))
             failure=try
-                E._run_getdp!(unsupported,model,form,meshes)
+                E._run_getdp!(unsupported,model,form, execution_options,meshes)
                 nothing
             catch exception
                 exception
@@ -136,11 +137,11 @@ with open(sys.argv[1],'a+') as f:
             @test E._assert_no_live_attempts(unsupported)===nothing
             # Cancellation kills and reaps workers and leaves no completion claim.
             stopped=fresh();write(config,JSON3.write((delay=2.0,fail=false)))
-            @test_throws LineCableModelsFEMError E._run_getdp!(stopped,model,form,meshes;
+            @test_throws LineCableModelsFEMError E._run_getdp!(stopped,model,form, execution_options,meshes;
                 pump=()->stopped.getdp_invocations==0)
             @test stopped.state===E.cancelled
             @test E._assert_no_live_attempts(stopped)===nothing
-            @test_throws LineCableModelsFEMError E._parse_scan(stopped,model,form)
+            @test_throws LineCableModelsFEMError E._parse_scan(stopped,model,form, execution_options)
             # A surviving child from a crashed coordinator blocks retry.
             orphan=joinpath(stopped.path,"attempts","orphan");mkpath(orphan)
             E._write_json_atomic(joinpath(orphan,"attempt.json"),

@@ -16,6 +16,12 @@ struct Combinatorial{F, O <: ComputationOptions} <: AbstractFormulation
     inner::F
     "Supplemental-output retention options owned by this traversal."
     options::O
+
+    function Combinatorial(inner, options::NamedTuple)
+        source = _combinatorial_source(inner)
+        normalized = computation_options(Combinatorial, options)
+        return new{typeof(source), typeof(normalized)}(source, normalized)
+    end
 end
 
 function computation_options(
@@ -63,10 +69,8 @@ function _combinatorial_source(inner)
     ))
 end
 
-function Combinatorial(inner::F; options::NamedTuple = (;)) where {F}
-    source = _combinatorial_source(inner)
-    normalized = computation_options(Combinatorial, options)
-    return Combinatorial{typeof(source), typeof(normalized)}(source, normalized)
+function Combinatorial(inner; options::NamedTuple = (;))
+    return Combinatorial(inner, options)
 end
 
 """
@@ -78,13 +82,13 @@ target-bearing `Gridspace`; the problem itself need not implement iteration.
 
 $(TYPEDFIELDS)
 """
-struct ParametricProblem{S, O <: NamedTuple} <: AbstractProblemDefinition
+struct ParametricProblem{S, O <: ComputationOptions} <: AbstractProblemDefinition
     "Lazy space of complete core problems."
     space::S
-    "Options supplied to each core computation."
+    "Options forwarded to each core computation for owner-specific normalization."
     options::O
 
-    function ParametricProblem(space::S, options::O) where {S, O <: NamedTuple}
+    function ParametricProblem(space::S, options::O) where {S, O <: ComputationOptions}
         return validate(new{S, O}(space, options))
     end
 end

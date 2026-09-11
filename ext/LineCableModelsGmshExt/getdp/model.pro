@@ -1,3 +1,8 @@
+// One selector serves ONELAB and the headless CLI (-setnumber Physics 0|1).
+DefineConstant[
+  Physics = {0, Choices{0="quasi-tem", 1="quasi-fw"},
+    Name "LineCableModels/FEM/physics", Label "Physics"}
+];
 // Immutable inputs for one frequency and its requested terminal excitations.
 If(!Exists(ModelDataPath))
   Error("Pass the immutable input path with -setstring ModelDataPath");
@@ -22,4 +27,10 @@ Group {
   DomainInf = Region[{AirInfJacobian, EarthInfJacobian}];
 }
 Include "jacobian_integration.pro";
-Include "quasi-tem.pro";
+If(Physics == 0)
+  Include "quasi-tem.pro";
+ElseIf(Physics == 1)
+  Include "quasi-full.pro";
+Else
+  Error("Physics must be 0 (quasi-tem) or 1 (quasi-fw)");
+EndIf

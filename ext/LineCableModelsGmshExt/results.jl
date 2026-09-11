@@ -200,7 +200,8 @@ function _validate_completion(
     return nothing
 end
 
-function _expected_map_paths(run::FEMRun, frequency_count::Int, terminal_count::Int)
+function _expected_map_paths(run::FEMRun, frequency_count::Int, terminal_count::Int;
+        physics::Symbol=Symbol("quasi-tem"))
     return [joinpath(
                 run.path,
                 "maps",
@@ -208,16 +209,17 @@ function _expected_map_paths(run::FEMRun, frequency_count::Int, terminal_count::
             )
             for frequency in 1:frequency_count
             for basis in 1:terminal_count
-            for quantity in FEM_FIELD_QUANTITIES]
+            for quantity in _field_quantities(physics)]
 end
 
 function _validate_maps(
         run::FEMRun,
         frequency_count::Int,
         terminal_count::Int,
-        enabled::Bool
+        enabled::Bool;
+        physics::Symbol=Symbol("quasi-tem")
 )
-    expected = enabled ? _expected_map_paths(run, frequency_count, terminal_count) :
+    expected = enabled ? _expected_map_paths(run, frequency_count, terminal_count; physics) :
                String[]
     missing = filter(!isfile, expected)
     isempty(missing) || _fem_error(
@@ -247,7 +249,8 @@ end
 function _parse_scan(
         run::FEMRun,
         model::FEMResolvedModel{T},
-        formulation::LineCableModelsFEM
+        formulation::LineCableModelsFEM,
+        execution::ComputationOptions
 ) where {T <: Real}
     raw = joinpath(run.path, "raw")
     terminal_count = length(model.terminal_ids)
@@ -276,7 +279,8 @@ function _parse_scan(
         run,
         frequency_count,
         terminal_count,
-        formulation.execution.plot_field_maps
+        execution.plot_field_maps;
+        physics=formulation.options.physics
     )
     return FEMScan(Z, P, maps)
 end
@@ -313,7 +317,7 @@ function _line_parameters(
         run::FEMRun,
         model::FEMResolvedModel{T},
         formulation::LineCableModelsFEM,
-        execution::NamedTuple,
+        execution::ComputationOptions,
         scan::FEMScan{T},
         inputs::NamedTuple;
         reused::Bool=false
@@ -333,16 +337,16 @@ function _line_parameters(
         Y = Y .* model.problem.system.line_length
         basis = :total
     end
-    keep_run = formulation.execution.keep_run_directory
-    record = FEMRunRecord(
-        completed,
-        keep_run ? run.path : nothing,
-        run.mesh_source,
-        run.mesh_fingerprint,
-        run.getdp_invocations,
-        keep_run ? scan.map_paths : String[],
-        run.completed_columns,
-        run.completed_frequencies
+    keep_run = execution.keep_run_directory
+    record = (
+        state=completed,
+        run_directory=keep_run ? run.path : nothing,
+        mesh_source=run.mesh_source,
+        mesh_fingerprint=run.mesh_fingerprint,
+        getdp_invocations=run.getdp_invocations,
+        map_paths=keep_run ? scan.map_paths : String[],
+        completed_columns=run.completed_columns,
+        completed_frequencies=run.completed_frequencies
     )
     trace = execution.trace === Val(true) ?
             (

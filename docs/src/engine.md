@@ -770,6 +770,33 @@ used. The stored voltage/current operators are retained for inverse transformati
 Formula numerical options select how the owning equation is evaluated. Backend
 execution options govern output, tracing, logging and callbacks.
 
+Callers supply ordinary named tuples; `ComputationOptions` is an alias for
+`NamedTuple`, not a separate type to construct or cast to. The owning
+`computation_options(Owner, options)` method checks supported keys, fills
+defaults and validates values. Its concrete returned tuple retains the types
+of callbacks and other supplied values.
+
+`Combinatorial`, `LinearError` and `MonteCarlo` normalize their own execution
+options inside their constructors, including positional construction.
+All Monte Carlo controls live in `MonteCarlo.options` and pass through
+`computation_options(MonteCarlo, options)`. Keyword shorthand remains available:
+
+```julia
+MonteCarlo(formulation; options=(trials=100, seed=42, retain_details=true))
+MonteCarlo(formulation; trials=100, seed=42, options=(retain_details=true,))
+```
+
+These two calls are equivalent. Supplying the same key both as a keyword and
+inside `options` raises `ArgumentError`. Unknown keys and invalid values also
+raise `ArgumentError`.
+
+`ParametricProblem(space, options)` stores options for the **inner computation**.
+Grid, batch, combinatorial and uncertainty traversal forward that tuple to the
+selected core solver, whose `computation_options` method validates it. The
+problem cannot normalize it at construction because the solver has not yet
+been selected. Traversal retention and Monte Carlo sampling controls belong to
+the higher-order formulation's own `options` tuple.
+
 The coaxial backend accepts:
 
 ```julia

@@ -1,8 +1,8 @@
 # Gmsh/GetDP finite-element backend
 
-[`LineCableModelsFEM`](@ref) is the Julia-native quasi-TEM finite-element
+[`LineCableModelsFEM`](@ref) is the Julia-native finite-element
 backend for `LineParametersProblem`. Gmsh is a weak dependency: the public
-formulation and option types are always available, while the `compute` method
+formulation and option normalizers are always available, while the `compute` method
 is activated by loading Gmsh.
 
 ```julia
@@ -16,11 +16,15 @@ fem = Formulation(
     earth_properties = formula(:default),
     temperature_dependence = formula(:default),
     options = (
+        physics = :quasi_tem,
         reduce_bundle = true,
         kron_reduction = true,
         ideal_transposition = false,
     ),
-    fem_options = (
+)
+
+parameters = compute(problem, fem;
+    options = (
         mesh_policy = :reuse,
         gmsh_verbosity = 2,
         getdp_verbosity = 2,
@@ -28,12 +32,11 @@ fem = Formulation(
         solver_threads = 1,
     ),
 )
-
-parameters = compute(problem, fem)
 ```
 
-Julia-side milestones and an optional Julia log file remain computation
-options, independent of the two external verbosity controls:
+All execution controls pass through `compute(...; options=(...))` and are
+validated by `computation_options(LineCableModelsFEM, ...)`. This includes
+meshing, workers, native verbosity, Julia milestones, logs, and resume:
 
 ```julia
 parameters = compute(
@@ -60,9 +63,61 @@ real part of the selected complex admittivity: dielectric losses are already
 included, so GetDP does not add another loss-tangent contribution.
 
 Each solver job selects its material coefficients by frequency index. When
-`plot_field_maps=true`, basis-specific output operations write the nine field
+`plot_field_maps=true`, basis-specific output operations write the nine common field
 quantities with frequency/source-specific filenames and labels. The maintained GetDP
 files are captured with each run so later edits cannot change an active scan.
+
+The former `fem_options` keyword and `LineCableModelsFEMOptions` struct have been
+removed. Move their execution keys into `compute` options and `physics` into
+formulation options. Benchmark calls use `reference_options` for FEM execution
+controls. Supplemental run metadata is a named tuple under `details(result).fem.run`.
+
+## Physics selection
+
+Set formulation `options=(physics=:quasi_tem,)` for the default independent magnetic and
+electric blocks, or `(physics=:quasi_fw,)` for the coupled first-order Maxwell
+model. Strings `"quasi-tem"` and `"quasi-fw"` and their `Symbol` values are also
+accepted. Julia requires `Symbol("quasi-fw")` for a hyphenated symbol;
+`:quasi-fw` is parsed as subtraction.
+
+```julia
+fem = Formulation(:LineCableModelsFEM; options=(physics=:quasi_fw,))
+parameters = compute(problem, fem)
+```
+
+`model.pro` exposes the ONELAB number `LineCableModels/FEM/physics`, with
+choices `0 = quasi-tem` and `1 = quasi-fw`. It includes `quasi-tem.pro` or
+`quasi-full.pro` accordingly. Headless jobs set the same constant with
+`-setnumber Physics 0` or `-setnumber Physics 1`; both use the resolution
+`LineCableModelsFEMScan`. The Julia-managed GUI displays this choice read-only,
+since the numerical inputs of a run are fixed before meshing. Choose physics
+in formulation `options` for a new calculation. Physics is saved with the formulation
+inputs and column checkpoints; a run cannot resume under different physics.
+
+The quasi-full option retains ``A_t/\Gamma`` and ``\phi/\Gamma`` in a first-order
+``\Gamma\to0`` reduction of the vector-potential and continuity equations.
+One axial-current excitation supplies both responses. Its voltage extraction
+includes ``j\omega\int(A_t/\Gamma)\cdot d\ell`` along a physical vertical path
+from earth infinity to each terminal. The backend constructs these paths from
+the first-order triangular mesh, choosing the lowest node of each terminal
+contour (lowest x breaks ties). Transverse fields are zero inside equipotential
+metal, so paths can cross shields or other terminals. The infinite-shell part
+uses the pulled-back edge field and 128 straight segments; integration within
+each crossed triangle is exact for its lowest-order edge element. This is a
+voltage-path convention, not a claim of path independence in an inductive field.
+
+The full equations, units, boundary conditions, gauge and extraction are
+documented in [`LineCableModelsFEM`](@ref), with the potential-equation reference
+of [Ciuprina2024](@cite). This backend's 2D longitudinal reduction is distinct
+from that paper's 3D ECE implementation. It retains displacement and does not
+solve a finite-``\Gamma`` eigenproblem. Both public physics options retain the
+specified finite metal conductivity in the axial problem.
+
+Quasi-full additionally retains the scalar-only `Pscalar.tsv` per column,
+which is gauge dependent and must not be inverted for Y. With field maps
+enabled it also writes `bt_mesh`, `v_local` and `hz_scaled`, for twelve maps
+per excitation. Its `e`, `em` and `jm` maps represent ``E_t/\Gamma`` [V], its
+magnitude [V], and ``|J_t/\Gamma|`` [A/m], respectively.
 
 ## Material laws
 
@@ -100,11 +155,11 @@ from which FEM could detect that prior approximation.
 Saved FEM formulation details contain only the four consumed `selections`, their
 parameters, numerical options, and hook descriptions. Custom hooks are identified
 but marked nonreplayable; saved records do not reconstruct executable closures.
-The fixed quasi-TEM propagation approximation remains recorded separately.
+The selected propagation approximation remains recorded separately.
 
 ## Field equations and matrix extraction
 
-The backend evaluates the series and shunt problems at ``\Gamma=0``. It retains
+The default `:quasi_tem` physics evaluates the series and shunt problems at ``\Gamma=0``. It retains
 diffusion and displacement in the surrounding media, with phasors proportional
 to ``e^{j\omega t}`` and complex admittivity ``\kappa=\sigma+j\omega\epsilon``.
 Two independent blocks share one assembled GetDP system and factorization.
@@ -166,7 +221,10 @@ distinct physical frequency. Each mesh uses that frequency's earth skin depth
 for its finite air/earth radius and has its own conformal annular
 transformation-to-infinity shell. The final, highest-frequency mesh is the
 displayed mesh; every frequency-specific mesh is reused by all of that
-frequency's terminal excitations. After preparing all meshes, Julia launches
+frequency's terminal excitations. Cable topology is constructed once: successive
+meshes retain its vertices and surfaces while updating the exterior circles and
+mesh-size fields. Only one native geometry/mesh is retained in memory. After
+preparing all meshes, Julia launches
 up to `frequency_workers` standalone GetDP processes concurrently. Each process
 handles one frequency: it assembles and factors the system for its first
 requested terminal, then updates the right-hand side and reuses those factors
@@ -235,7 +293,7 @@ rejected. Analytical scalar and uncertainty propagation remain unchanged.
 | Earth material | `LineParametersProblem.earth_props` | Declared air plus one horizontal soil half-space; the soil law is evaluated per frequency |
 | Optional environment declaration | `LineCableSystem.environment` | `nothing` and `EarthModel` are accepted; other declarations produce a typed unsupported-feature error |
 | Line length and output basis | `LineCableSystem.line_length` and shared `compute` options | Per-unit-length is canonical; total basis uses the existing package scaling |
-| Propagation constant | backend-owned quasi-TEM limit ``\Gamma=0`` | A non-`nothing` problem-level `Γ` is rejected rather than silently reinterpreted |
+| Propagation constant | backend-owned ``\Gamma\to0`` limit, with independent or first-order coupled fields selected by formulation `options.physics` | A non-`nothing` problem-level `Γ` is rejected rather than silently reinterpreted |
 | Mesh resolution | local characteristic lengths derived from each resolved solid, tube, strand, foil, and passive region; per-frequency earth skin depth controls the exterior domain, and air/soil propagation scales constrain surrounding-medium resolution | Thin internal features remain local and cannot refine unrelated layers or the earth domain |
 
 Disks, ellipses, and cable sectors retain exact Gmsh circle/ellipse arcs;
@@ -243,7 +301,12 @@ rectangles and schema polygons retain exact line segments. Annuli, conformal
 sector shells, enclosure differences, and
 assembly boundaries use shared oriented loops. Circular boundaries are
 pre-segmented at sector endpoints and circle contacts, so adjacent materials
-reuse the same curve and tangent strands reuse the same point. A shared
+reuse the same curve and tangent strands reuse the same point. Compacted strand
+polygons are used unchanged. Touching hole boundaries are partitioned into
+connected filler faces; metal-metal seams are excluded from filler boundaries.
+All filler faces retain their declared material. Equal evaluated material laws
+share a physical material group, independently of geometric strand identity and
+electrical terminal groups. A shared
 material interface takes the smaller of its two local characteristic lengths.
 Thin internal foils and strands do not export their size to the cable/earth
 boundary. One `Distance`/`Threshold` field per actual cable exterior grows
@@ -257,8 +320,17 @@ Gmsh `Restrict` fields apply each bound to its own air or soil surfaces, and
 `Min` combines overlapping fields. No artificial refinement rings are
 introduced. The adapter
 rejects an incomplete area partition before starting Gmsh and rejects any
-material curve lacking a neighbouring field surface after synchronization,
-before meshing or invoking GetDP.
+internal material curve without exactly two adjacent surfaces after
+synchronization. After meshing, boundary-edge incidence and material coverage
+are checked before a mesh can be cached or passed to GetDP. Nonempty but partial
+material meshes are rejected.
+
+Rectangular stranded cores supply their occupied disk boundary directly from
+physical resolution. FEM uses the same boundary as preview, analytical
+flattening and subsequent layers. Complete bounded formations are recognised
+using the same floating-point area tolerance as enclosure resolution, not an
+independent engineering fill-fraction cutoff; retained filler is not replaced
+by an expanded conductor.
 
 The current FEM domain explicitly rejects vertical earth layers, more than one
 earth half-space layer, a problem-supplied propagation constant, unsupported
@@ -273,7 +345,10 @@ before Gmsh is touched where possible.
 then checks the fingerprinted repository-local cache for each frequency, and
 otherwise generates the missing frequency-specific mesh.
 Compatibility checks cover mesh dimension, terminal count, material and
-terminal physical groups, and physical names. `mesh_policy=:remesh` always
+terminal physical groups, physical names, complete boundary incidence, material
+areas (with curved-boundary discretization allowances), and conductor ownership.
+Owned MSH 4.1 files retain all boundary elements, including same-material seams;
+explicit mesh files must retain these elements too. `mesh_policy=:remesh` always
 regenerates and atomically refreshes the matching cache. The fingerprint
 includes the serialized problem, stable physical metadata, every local and
 exterior mesh size, the physical mesh frequency, transformation radii, growth
@@ -304,7 +379,7 @@ to different excitations and do not form a single full-wave field vector.
 
 The executable resolution order is:
 
-1. `fem_options=(getdp_executable="/absolute/path/to/getdp",)`;
+1. `compute(...; options=(getdp_executable="/absolute/path/to/getdp",))`;
 2. the `LINECABLEMODELS_GETDP` environment variable;
 3. the package's GetDP 3.5.0 lazy artifact; and
 4. `getdp` on `PATH` only when the current platform has no artifact binding.
@@ -341,7 +416,7 @@ source/executable identities must match. A surviving solver from an interrupted
 coordinator prevents retry until it exits. Completed runs are reused read-only
 after their aggregate checksums pass. Runs from older solver protocols remain
 preserved comparison artifacts and require a fresh computation. Indexed soil and
-declared-air coefficients use run-input schema 6 and solver protocol 3; older
+declared-air coefficients use run-input schema 7 and solver protocol 3; older
 schemas cannot resume. Evaluated cable, soil, and air coefficients participate
 in solve reuse identity. Numerically identical laws can share a solve while
 retaining separate selection calculation records and independent result arrays.
@@ -351,15 +426,13 @@ retaining separate selection calculation records and independent result arrays.
 The UI is a visualization and debugging surface, not an input editor:
 
 ```julia
-interactive_fem = Formulation(
-    :LineCableModelsFEM;
-    fem_options = (
+interactive_fem = Formulation(:LineCableModelsFEM)
+parameters = compute(problem, interactive_fem;
+    options = (
         ui = true,
         plot_field_maps = true,
     ),
 )
-
-parameters = compute(problem, interactive_fem)
 ```
 
 It publishes read-only problem summaries, separate mesh and solve states, and

@@ -113,7 +113,6 @@ function _catalogue_fem_benchmark(
         frequencies = nothing,
         reference_options::NamedTuple = (;),
         candidate_options::NamedTuple = (;),
-        fem_options::NamedTuple = (;),
         variation::AbstractCaseVariation = NoVariation(),
 )
     model = load_case(case_id;
@@ -125,17 +124,16 @@ function _catalogue_fem_benchmark(
         getdp_verbosity = 4,
         frequency_workers = 2,
         solver_threads = 1,
-    ), fem_options)
+    ), reference_options)
     reference = BenchmarkCalculation(
         :fem,
         model.problem,
         Formulation(
             :LineCableModelsFEM;
             options = _CATALOGUE_PHYSICAL_OPTIONS,
-            fem_options = execution,
         );
         options = merge((trace = true, verbosity = (default = 0,)),
-            reference_options),
+            execution),
     )
     return benchmark_definition(
         _catalogue_benchmark_id(case_id, :fem),

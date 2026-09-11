@@ -15,8 +15,8 @@ const root=joinpath(pwd(), ".linecablemodels/fem/scaling-"*Dates.format(now(), "
 const reports=Any[]
 reference=nothing
 for workers in (1, 2, 4, 8)
-    form=Formulation(:LineCableModelsFEM; options,
-        fem_options = (
+    form=Formulation(:LineCableModelsFEM; options)
+    execution = computation_options(LineCableModelsFEM, (
             getdp_verbosity = 4, gmsh_verbosity = 0, frequency_workers = workers,
             solver_threads = 1, keep_run_directory = true))
     model=E._resolved_fem_model(problem, form)
@@ -29,7 +29,7 @@ for workers in (1, 2, 4, 8)
         @assert plan.shell_outer_radius==recorded.mesh_plans[index].shell_outer_radius
     end
     run=E._create_run(root)
-    E._write_json_atomic(joinpath(run.path, "input/computation.json"), E._fem_input_record(model, form))
+    E._write_json_atomic(joinpath(run.path, "input/computation.json"), E._fem_input_record(model, form, execution))
     E._prepare_run_inputs!(run, model)
     meshes=[joinpath(source, "mesh", i==101 ? "model.msh" :
                                      @sprintf("frequency_%04d.msh", i)) for i in indices]
@@ -60,9 +60,9 @@ for workers in (1, 2, 4, 8)
         return true
     end
     started=time()
-    E._run_getdp!(run, model, form, meshes; pump = sample_memory)
+    E._run_getdp!(run, model, form, execution, meshes; pump = sample_memory)
     elapsed=time()-started
-    scan=E._parse_scan(run, model, form)
+    scan=E._parse_scan(run, model, form, execution)
     global reference=reference===nothing ? scan : reference
     @assert scan.Z==reference.Z && scan.P==reference.P
     E._write_scan_checksums(run, scan);

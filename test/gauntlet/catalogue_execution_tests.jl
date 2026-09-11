@@ -22,4 +22,14 @@
             @test first(problem.space).frequencies == [.1,1.,7.,100.]
         end
     end
+    fem = benchmark_definition(:benchmark_two_bare_wires_fem;
+        frequencies=[50.0], reference_options=(frequency_workers=1, mesh_policy=:reuse,))
+    @test !hasproperty(fem.reference.formulation, :execution)
+    @test fem.reference.options isa ComputationOptions
+    execution = computation_options(LineCableModelsFEM, fem.reference.options)
+    @test execution.frequency_workers == 1
+    @test execution.mesh_policy === :reuse
+    @test execution.trace === Val(true)
+    @test execution.keep_run_directory
+
 end

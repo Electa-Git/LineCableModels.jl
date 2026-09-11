@@ -11,7 +11,7 @@ function record_calculation(result::LineCableModels.AbstractUncertaintyResult, m
     propagation = formulation_record(result.formulation)
     sampling = result isa LineCableModels.MonteCarloResult ?
                (root_seed = result.root_seed, point_seeds = copy(result.point_seeds),
-        trial_counts = copy(result.trial_counts), distribution = result.formulation.distribution) :
+        trial_counts = copy(result.trial_counts), distribution = result.formulation.options.distribution) :
                nothing
     return (kind = :gauntlet_moments, moments, frequencies = copy(moments.frequencies),
         basis = moments.basis, domain = moments.domain, data_sha256 = semantic_sha256(MomentResult(moments), (; port_order=get(details(result),:coordinates,model.port_order))),

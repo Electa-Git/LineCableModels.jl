@@ -86,33 +86,7 @@ function Base.show(io::IO, ::MIME"text/plain", backend::LineCableModelsFEM)
     return TextDisplay.fields(
         io,
         "LineCableModels FEM backend",
-        (; selections..., options = backend.options, execution = backend.execution);
-        multiline = true
-    )
-end
-
-TextDisplay.name(::Type{LineCableModelsFEMOptions}) = "LineCableModelsFEMOptions"
-Base.summary(io::IO, ::LineCableModelsFEMOptions) = print(io, "FEM execution options")
-function Base.show(io::IO, options::LineCableModelsFEMOptions)
-    print(io, "LineCableModelsFEMOptions(mesh_policy=:", options.mesh_policy, ")")
-end
-function Base.show(io::IO, ::MIME"text/plain", options::LineCableModelsFEMOptions)
-    get(io, :compact, false) && return show(io, options)
-    return TextDisplay.fields(
-        io,
-        "FEM execution options",
-        (
-            ui = options.ui,
-            plot_field_maps = options.plot_field_maps,
-            mesh_policy = options.mesh_policy,
-            mesh_path = options.mesh_path,
-            keep_run_directory = options.keep_run_directory,
-            getdp_executable = options.getdp_executable,
-            gmsh_verbosity = options.gmsh_verbosity,
-            getdp_verbosity = options.getdp_verbosity,
-            frequency_workers = options.frequency_workers,
-            solver_threads = options.solver_threads,
-        );
+        (; selections..., options = backend.options);
         multiline = true
     )
 end

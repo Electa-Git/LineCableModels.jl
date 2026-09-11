@@ -141,7 +141,7 @@ function _progress_workload(calculation, problem)
     if formulation isa Union{MonteCarlo, LinearError, LineCableModels.Combinatorial}
         propagation = nameof(typeof(formulation))
         if formulation isa MonteCarlo
-            trials = formulation.trials
+            trials = formulation.options.trials
             trials === nothing && return nothing
         end
         formulation = formulation.inner
@@ -153,14 +153,18 @@ function _progress_workload(calculation, problem)
         isempty(formulation) && return nothing
         formulation = first(formulation)
     end
-    execution = formulation isa Engine.LineCableModelsFEM ?
-        (workers=formulation.execution.frequency_workers,
-         threads=formulation.execution.solver_threads,
-         maps=formulation.execution.plot_field_maps,
-         mesh_policy=formulation.execution.mesh_policy) : nothing
-    options = Base.structdiff(calculation.options,
-        (; on_result=get(calculation.options, :on_result, nothing),
-           log_file=get(calculation.options, :log_file, nothing)))
+    core_options = calculation.problem isa ParametricProblem ?
+        merge(calculation.problem.options, calculation.options) : calculation.options
+    fem_controls = formulation isa Engine.LineCableModelsFEM ?
+        LineCableModels.computation_options(Engine.LineCableModelsFEM, core_options) : nothing
+    execution = fem_controls !== nothing ?
+        (workers=fem_controls.frequency_workers,
+         threads=fem_controls.solver_threads,
+         maps=fem_controls.plot_field_maps,
+         mesh_policy=fem_controls.mesh_policy) : nothing
+    options = Base.structdiff(core_options,
+        (; on_result=get(core_options, :on_result, nothing),
+           log_file=get(core_options, :log_file, nothing)))
     frequencies = problem.frequencies
     isempty(frequencies) && return nothing
     group = repr((backend=nameof(typeof(formulation)), propagation, execution,

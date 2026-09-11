@@ -12,149 +12,86 @@ struct LineCableModelsCoaxial end
 """
 $(TYPEDEF)
 
-Supertype for formulation values that select a complete numerical backend.
-"""
-abstract type AbstractFormulationBackend <: AbstractFormulation end
+Select the Julia-native Gmsh/GetDP finite-element backend.
 
-"""
-$(TYPEDEF)
+`options` stores the field-model choice and matrix reductions. Set
+`options=(physics=:quasi_tem,)` (default) or `(physics=:quasi_fw,)`.
+Execution controls belong to `compute(...; options=(...))` and are validated
+by [`computation_options`](@ref) for `LineCableModelsFEM`.
 
-Supertype for backend-owned formulation option records.
-"""
-abstract type AbstractFormulationOptions end
+The quasi-TEM model solves independent axial ``A_z/u`` and scalar electric
+Helmholtz blocks in one factorization. The magnetic excitation is one ampere;
+the electric excitation is one ampere per metre. Both models retain conduction
+and displacement through ``κ=σ+jωε`` \\[S/m\\], where ``ω`` is angular
+frequency \\[rad/s\\], ``σ`` conductivity \\[S/m\\], and ``ε`` permittivity \\[F/m\\].
 
-"""
-$(TYPEDEF)
+The quasi-full-wave model uses phasors ``e^{jωt-Γz}`` and expands
+``A_z=a``, ``A_t=Γb``, ``φ=Γv`` before taking ``Γ→0``. Here ``Γ`` is
+the longitudinal propagation constant \\[1/m\\], ``a`` has units \\[T m\\],
+``b`` \\[T m²\\], and ``v`` \\[V m\\]. In the media outside the equipotential
+metal terminals, the retained equations are
 
-Configure execution owned by the Gmsh/GetDP finite-element backend.
+```math
+-\\nabla_t\\!\\cdot(\\nu\\nabla_t a)+j\\omega\\kappa a=0,
+\\qquad
+C^*(\\nu Cb)+j\\omega\\kappa b+\\kappa\\nabla_t v-\\nu\\nabla_t a=0,
+\\qquad
+-\\nabla_t\\!\\cdot[\\kappa(j\\omega b+\\nabla_t v)]+j\\omega\\kappa a=0.
+```
 
-The problem supplies geometry, reference materials, frequencies, and prescribed
-temperature. The formulation selects constitutive laws and matrix reductions;
-this record contains FEM execution controls.
+Here ``\\nu=1/\\mu`` \\[m/H\\], ``μ`` is permeability \\[H/m\\],
+``Cb=∂_x b_y-∂_y b_x`` and ``C^*h=(∂_y h,-∂_x h)``.
+The finite-conductivity axial ``a/u`` block supplies both the series voltage
+drop and the normalized transverse-current source; there is no independent
+electric excitation. A tree gauge removes the gradient freedom of ``b``.
+Its tangential trace vanishes on every terminal contour and the entire outer
+boundary; ``v=0`` on the earth-side outer reference, with natural electric
+conditions on the air side.
 
-$(TYPEDFIELDS)
-"""
-struct LineCableModelsFEMOptions <: AbstractFormulationOptions
-    "Open the optional Gmsh graphical interface."
-    ui::Bool
-    "Generate field-map files for every frequency and basis terminal."
-    plot_field_maps::Bool
-    "Mesh selection policy, either `:reuse` or `:remesh`."
-    mesh_policy::Symbol
-    "Optional existing Gmsh mesh path."
-    mesh_path::Union{Nothing, String}
-    "Retain a successful run directory."
-    keep_run_directory::Bool
-    "Optional GetDP executable override."
-    getdp_executable::Union{Nothing, String}
-    "Gmsh message verbosity from 0 through 5."
-    gmsh_verbosity::Int
-    "GetDP message verbosity from 0 through 5."
-    getdp_verbosity::Int
-    "Maximum number of independent frequency solver processes."
-    frequency_workers::Int
-    "BLAS and OpenMP thread limit for each GetDP process."
-    solver_threads::Int
-end
+Terms of order ``Γ^2`` in the axial equation are omitted. The transverse
+Ampère equation remains at the order used to extract shunt response: continuity
+alone constrains a divergence and cannot supply that vector balance across a
+material interface. Choosing a smaller numerical ``Γ`` cannot restore it.
 
-"""
-$(TYPEDSIGNATURES)
+Terminal voltage includes the vector potential. For a path ``ℓ_i`` oriented
+from the earth reference to terminal ``i``, the inverse-admittance matrix is
 
-Construct validated finite-element execution options.
+```math
+P_{ij}=\\frac{v_i-v_{\\rm ref}+j\\omega\\int_{\\ell_i}b\\cdot d\\ell}{I_j},
+\\qquad Y=P^{-1},\\qquad P_e=j\\omega P.
+```
 
-# Keywords
+``I_j`` is the imposed axial current \\[A\\], ``P`` has units \\[Ω m\\],
+``Y`` \\[S/m\\], and the analytical potential coefficient ``P_e`` \\[m/F\\].
+The backend uses physical vertical paths to the lowest mesh node of each
+terminal contour, with zero transverse field inside equipotential metal.
+It integrates the pulled-back edge field through the infinite shell.
+The scalar trace ``v_i/I_j`` alone is gauge dependent and is saved separately
+as `Pscalar.tsv` diagnostics. Series impedance is ``Z_{ij}=-U_i/I_j`` \\[Ω/m\\],
+where ``U_i`` is the axial electric unknown \\[V/m\\].
 
-- `ui=false`: Open the Gmsh graphical interface.
-- `plot_field_maps=false`: Emit spatial field maps for every solve.
-- `mesh_policy=:reuse`: Reuse a compatible mesh or generate one. Use
-  `:remesh` to regenerate it unconditionally.
-- `mesh_path=nothing`: Optional existing `.msh` file.
-- `keep_run_directory=false`: Retain successful run artifacts.
-- `getdp_executable=nothing`: Let the Gmsh extension resolve GetDP from its
-  environment override, package-owned artifact, or unsupported-platform
-  `PATH` fallback. A supplied path overrides all three.
-- `gmsh_verbosity=2`: Gmsh message verbosity from 0 through 5.
-- `getdp_verbosity=2`: GetDP message verbosity from 0 through 5.
-- `frequency_workers=2`: Maximum concurrent GetDP frequency processes. Use
-  `1` for sequential frequency execution; terminal factors are still reused.
-- `solver_threads=1`: BLAS and OpenMP threads per GetDP process. Set the
-  worker and thread counts together to fit available memory and CPU resources.
-
-# Returns
-
-- A validated [`LineCableModelsFEMOptions`](@ref) value.
-
-# Errors
-
-- `ArgumentError`: An option has an unsupported value or an empty path.
-"""
-function LineCableModelsFEMOptions(;
-        ui::Bool = false,
-        plot_field_maps::Bool = false,
-        mesh_policy::Symbol = :reuse,
-        mesh_path::Union{Nothing, AbstractString} = nothing,
-        keep_run_directory::Bool = false,
-        getdp_executable::Union{Nothing, AbstractString} = nothing,
-        gmsh_verbosity::Integer = 2,
-        getdp_verbosity::Integer = 2,
-        frequency_workers::Integer = 2,
-        solver_threads::Integer = 1
-)
-    mesh_policy in (:reuse, :remesh) || throw(ArgumentError(
-        "mesh_policy must be :reuse or :remesh; got $(repr(mesh_policy))",
-    ))
-    normalized_mesh_path = mesh_path === nothing ? nothing : String(mesh_path)
-    normalized_getdp = getdp_executable === nothing ? nothing :
-                       String(getdp_executable)
-    normalized_mesh_path === "" && throw(ArgumentError("mesh_path cannot be empty"))
-    normalized_getdp === "" && throw(ArgumentError(
-        "getdp_executable cannot be empty",
-    ))
-    gmsh_verbosity in 0:5 || throw(ArgumentError(
-        "gmsh_verbosity must be an integer from 0 through 5",
-    ))
-    getdp_verbosity in 0:5 || throw(ArgumentError(
-        "getdp_verbosity must be an integer from 0 through 5",
-    ))
-    for (name, value) in ((:frequency_workers, frequency_workers),
-        (:solver_threads, solver_threads))
-        !(value isa Bool) && 1 <= value <= typemax(Int) ||
-            throw(ArgumentError("$name must be a positive integer"))
-    end
-    return LineCableModelsFEMOptions(
-        ui,
-        plot_field_maps,
-        mesh_policy,
-        normalized_mesh_path,
-        keep_run_directory,
-        normalized_getdp,
-        Int(gmsh_verbosity),
-        Int(getdp_verbosity),
-        Int(frequency_workers),
-        Int(solver_threads)
-    )
-end
-
-"""
-$(TYPEDEF)
-
-Select the Julia-native Gmsh/GetDP quasi-TEM finite-element backend.
-
-`options` stores the shared LineCableModels reduction and temperature policy.
-`execution` stores only Gmsh/GetDP execution controls.
+This is a two-dimensional first-order reduction of Maxwell's potential
+equations, retaining transverse induction and displacement. It does not solve
+for a finite propagation constant or constitute the Darwin approximation.
+The full-vector potential equations and the role of terminal conditions and
+gauging are described by G. Ciuprina and R. V. Sabriego, *Electric circuit
+element boundary conditions for electromagneto-quasistatic and full wave
+models in A, φ potentials and their finite element implementation*, Journal
+of Mathematics in Industry **14**, 27 (2024),
+[doi:10.1186/s13362-024-00165-6](https://doi.org/10.1186/s13362-024-00165-6),
+Sect. 4 and Appendix B. The longitudinal reduction and vertical voltage-path
+convention above are specific to this backend; the paper validates 3D models.
 
 $(TYPEDFIELDS)
 """
-struct LineCableModelsFEM{M <: NamedTuple, O <: NamedTuple, D <: NamedTuple} <:
-       AbstractFormulationBackend
+struct LineCableModelsFEM{M <: NamedTuple, O <: FormulationOptions, D <: NamedTuple} <:
+       AbstractFormulation
     "Shared scientific formula selections, independent of FEM execution controls."
     methods::M
-    "Shared line-parameter formulation options."
+    "Field model and line-parameter matrix reductions."
     options::O
     "Requested formula definitions retained for provenance."
     definitions::D
-    "Finite-element execution options."
-    execution::LineCableModelsFEMOptions
 end
 
 """
@@ -355,18 +292,9 @@ end
 "Route an explicit external formulation tag to its `Val` dispatch method."
 Formulation(backend::Symbol; kwargs...) = Formulation(Val(backend); kwargs...)
 
-function _fem_execution_options(options::LineCableModelsFEMOptions)
-    return options
-end
-
-function _fem_execution_options(options::NamedTuple)
-    return LineCableModelsFEMOptions(; options...)
-end
-
 function _fem_formulation(
         insulation_admittance, semicon_admittance, earth_properties, temperature_dependence,
-        options::NamedTuple,
-        fem_options::Union{NamedTuple, LineCableModelsFEMOptions}
+        options::NamedTuple
 )
     methods = (
         insulation_admittance = InsulationAdmittance.Formula(insulation_admittance),
@@ -379,14 +307,14 @@ function _fem_formulation(
     definitions = (; insulation_admittance, semicon_admittance, earth_properties,
         temperature_dependence)
     return LineCableModelsFEM(methods, formulation_options(LineCableModelsFEM, options),
-        definitions, _fem_execution_options(fem_options))
+        definitions)
 end
 
 """
 $(TYPEDSIGNATURES)
 
 Construct the Gmsh/GetDP finite-element formulation. FEM owns its field equations
-and selects four material laws. Each law, `options`, and `fem_options` accepts a
+and selects four material laws. Each law and `options` accepts a
 scalar or an explicit `Grid`/`Gridspace`; varying inputs return a
 `Gridspace{LineCableModelsFEM}`.
 
@@ -400,8 +328,11 @@ scalar or an explicit `Grid`/`Gridspace`; varying inputs return a
 - `temperature_dependence`: Cable-material resistivity law; `:default` selects
   the linear law and `nothing` retains reference resistivity. Operating
   temperature belongs to `LineParametersProblem`.
-- `options=(;)`: Shared bundle, Kron, and ideal-transposition reductions.
-- `fem_options=(;)`: A `LineCableModelsFEMOptions` value or equivalent named tuple.
+- `options=(;)`: Field model (`physics=:quasi_tem` or `:quasi_fw`) and bundle,
+  Kron, and ideal-transposition reductions. Hyphenated strings and symbols
+  are also accepted for `physics`. Julia parses `:quasi-fw` as subtraction;
+  use `:quasi_fw` or `Symbol("quasi-fw")`.
+  Pass execution controls to `compute(...; options=(...))`.
 - `combine=:product`: Product or zip composition among varying inputs.
 
 Analytical impedance/admittance kernel keywords are rejected. Supported enclosure
@@ -414,14 +345,13 @@ function Formulation(
         earth_properties = formula(:default),
         temperature_dependence = formula(:default),
         options = (;),
-        fem_options = (;),
         combine::Symbol = :product
 )
     return parameterize(
         LineCableModelsFEM,
         _fem_formulation,
         (insulation_admittance, semicon_admittance, earth_properties,
-            temperature_dependence, options, fem_options);
+            temperature_dependence, options);
         combine
     )
 end
@@ -434,7 +364,7 @@ function validate(binding::FormulaMethod, reduction::EquivalentHomogeneous.Abstr
     throw(ArgumentError("$binding does not admit equivalent-earth reduction :$(formula_id(reduction))"))
 end
 
-"""Expose FEM constitutive/admittance selections, reductions and numerical execution controls."""
+"""Expose FEM constitutive/admittance selections, field model, and reductions."""
 function Base.NamedTuple(value::LineCableModelsFEM)
     record = function (selected)
         selected === nothing && return nothing
@@ -442,9 +372,7 @@ function Base.NamedTuple(value::LineCableModelsFEM)
         selected isa NamedTuple && return map(record,selected)
         return NamedTuple(selected)
     end
-    execution=NamedTuple{fieldnames(typeof(value.execution))}(Tuple(getfield(value.execution,key)
-        for key in fieldnames(typeof(value.execution))))
-    Record=NamedTuple{(:backend,:requested,:methods,:options,:execution),
-        Tuple{Symbol,NamedTuple,NamedTuple,NamedTuple,NamedTuple}}
-    return Record((:fem,map(record,value.definitions),map(record,value.methods),value.options,execution))
+    Record=NamedTuple{(:backend,:requested,:methods,:options),
+        Tuple{Symbol,NamedTuple,NamedTuple,NamedTuple}}
+    return Record((:fem,map(record,value.definitions),map(record,value.methods),value.options))
 end

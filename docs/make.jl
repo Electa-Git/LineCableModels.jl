@@ -7,6 +7,7 @@ using Literate
 using TOML
 
 include("type_trees.jl")
+include("owned_doc_links.jl")
 include(joinpath(@__DIR__, "..", "gauntlet", "Gauntlet.jl"))
 include("gauntlet_report.jl")
 
@@ -375,6 +376,7 @@ DocMeta.setdocmeta!(
 )
 
 bibliography = CitationBibliography(joinpath(DOCS_SRC_DIR, "bibliography.bib"); style = :numeric)
+owned_doc_links = OwnedDocLinks.OwnedDocLinker(LineCableModels)
 
 makedocs(;
     modules = [LineCableModels],
@@ -434,9 +436,11 @@ makedocs(;
         "Bibliography" => "bibliography.md"
     ],
     clean = true,
-    plugins = [bibliography],
+    plugins = [bibliography, owned_doc_links],
     checkdocs = :exports,
     pagesonly = true
 )
+
+owned_doc_links.linked > 0 || error("owned documentation linker did not process any names")
 
 @info "Finished documentation build."

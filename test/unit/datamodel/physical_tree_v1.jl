@@ -169,7 +169,7 @@ end
         center = disk,
         shape = Rectangle(0.35e-3, 0.8e-3),
         boundary = Disk(2e-3)
-    ) isa Enclosure
+    ) isa Group
 end
 
 @testitem "DataModel / v1 physical tree / Enclosure and class conveniences" tags=[:unit] begin
@@ -301,12 +301,14 @@ end
         primitive = Annulus(1.01, 1.21),
         fill = matrix
     )
-    @test_throws DomainError build(
+    continued = build(
         CableDesign,
         "discontinuous-annular-stage",
         Group(:core, Region(:inner_core, Disk(1.0), copper)),
         discontinuous_stage
     )
+    @test last(continued.geometry.regions).primitive.outer.ri == 1.0
+    @test sum(DM.area, continued.geometry.regions) ≈ DM.area(continued.geometry.outer)
 
     bare_design=build(
         CableDesign,

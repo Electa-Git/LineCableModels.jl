@@ -1,4 +1,4 @@
-struct BenchmarkCalculation{P, F, O <: NamedTuple}
+struct BenchmarkCalculation{P, F, O <: Grammar.ComputationOptions}
     id::Symbol
     problem::P
     formulation::F
@@ -9,7 +9,7 @@ struct BenchmarkCalculation{P, F, O <: NamedTuple}
             problem::P,
             formulation::F,
             options::O
-    ) where {P, F, O <: NamedTuple}
+    ) where {P, F, O <: Grammar.ComputationOptions}
         occursin(r"^[a-z][a-z0-9_]*$", string(id)) || throw(ArgumentError(
             "calculation identifiers must be lowercase; got $(repr(id))",
         ))

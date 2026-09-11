@@ -3,7 +3,6 @@
     fem_reference_options = (;),
     monte_carlo_reference_options = (;),
     candidate_options = (;),
-    fem_options = (;),
     variation = NoVariation()) -> begin
     definitions = BenchmarkDefinition[]
     for case_id in PSCAD_CATALOGUE_CASE_IDS
@@ -21,7 +20,6 @@
             frequencies,
             reference_options = fem_reference_options,
             candidate_options,
-            fem_options,
             variation,
         ))
     end

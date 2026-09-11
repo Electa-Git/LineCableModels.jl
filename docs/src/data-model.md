@@ -456,8 +456,18 @@ preview(
 
 Rectangular source strands require a circular centre wire. They are always
 bent into contiguous annular courses; the radial deformation preserves the
-area of every source rectangle. Any residual outer annulus retains the stated
-interstitial material.
+area of every source rectangle. A one-strand course remains a complete annulus.
+The specified `boundary` determines the strand inventory, but the resolved
+physical boundary is the actual occupied metal disk. No outer `stranded_fill`
+film is generated; insulation starts at that occupied boundary. Rectangular
+`stranded` declarations therefore return a bounded `Group`, while circular and
+sector stranding retain their material-complete `Enclosure` declarations.
+
+When a filled circular-wire course follows the core, its declared filler owns
+the space from the occupied core boundary to the course enclosure, including
+the interstices between wires. Explicit wire-centre radii remain fixed;
+contextual `Ring(...; r=nothing)` radii follow the occupied core boundary.
+Explicit enclosing layers and coatings are retained, including thin layers.
 
 ```@example supported_formations
 rectangular_stranded = @cable "rectangular-stranded" begin

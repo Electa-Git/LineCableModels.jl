@@ -26,12 +26,11 @@
             chmod(executable, 0o700)
             log_file = joinpath(directory, "logs", "computation.log")
             formulation = Formulation(:LineCableModelsFEM;
-                options = (ideal_transposition = false,),
-                fem_options = (getdp_executable = executable, gmsh_verbosity = 0,
-                    getdp_verbosity = 0, keep_run_directory = true))
+                options = (ideal_transposition = false,))
+            formulation_controls = (getdp_executable = executable, gmsh_verbosity = 0,
+                    getdp_verbosity = 0, keep_run_directory = true)
             failure = try
-                compute(problem, formulation;
-                    options = (log_file = log_file, verbosity = (default = 0,)))
+                compute(problem, formulation; options=merge(formulation_controls, (log_file = log_file, verbosity = (default = 0,))))
                 nothing
             catch exception
                 exception

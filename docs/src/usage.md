@@ -166,6 +166,12 @@ Monte Carlo settings and resolved point data are available through
 `root_seed`, `point_seed`, `trial_count`, `confidence`, `cdf_tolerance`, and
 `sampling_distribution`.
 
+Every Monte Carlo execution control may be supplied in an ordinary named
+tuple, for example `MonteCarlo(formulation; options=(trials=1000, seed=42))`.
+Existing keyword shorthand such as `MonteCarlo(formulation; trials=1000, seed=42)`
+uses the same validation. Normalized settings are stored in
+`formulation.options`; no options type or cast is required.
+
 The default error mode propagates every exception. Conditional rejection of
 unsupported realisations is explicit:
 

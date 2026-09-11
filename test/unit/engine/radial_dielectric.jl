@@ -199,7 +199,7 @@ end
         earth_props=homogeneous(rho=100.0, eps_r=10.0))
     for ins in (:default, :Ametani2004), semi in (:default, :Ametani2004), correction in (false, true)
         formulation = Formulation(:LineCableModelsFEM; insulation_admittance=ins, semicon_admittance=semi,
-            temperature_dependence=correction ? formula(:default) : nothing, options=(ideal_transposition=false,), fem_options=(gmsh_verbosity=0,))
+            temperature_dependence=correction ? formula(:default) : nothing, options=(ideal_transposition=false,))
         model = FEM._resolved_fem_model(problem, formulation)
         passive = only(filter(m -> m.kind === :insulator, model.material_plans))
         @test length(model.material_plans) == 2

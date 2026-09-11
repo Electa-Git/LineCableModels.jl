@@ -30,6 +30,14 @@ function computation_options(
     return (offdiagonal_tolerance = tolerance,)
 end
 
+function computation_options(
+        ::Type{<:ModalTransformationProblem{P}}, options::NamedTuple
+)::ComputationOptions where {T, U, D <: ModalDomain, P <: LineParameters{T, U, D}}
+    isempty(options) || throw(ArgumentError(
+        "inverse modal transformation uses the stored operators and accepts no action options"))
+    return (;)
+end
+
 function _forward(
         parameters::LineParameters{T, U, PhaseDomain, Basis},
         formulation::ModalTransformationFormulation,
@@ -164,8 +172,7 @@ function compute(
         problem::ModalTransformationProblem{P};
         options::NamedTuple = (;)
 ) where {T, U, D <: ModalDomain, P <: LineParameters{T, U, D}}
-    isempty(options) || throw(ArgumentError(
-        "inverse modal transformation uses the stored operators and accepts no action options"))
+    computation_options(typeof(problem), options)
     validate(problem)
     return _inverse(problem.parameters)
 end

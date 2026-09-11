@@ -32,8 +32,7 @@ export LineParametersProblem, CableConstantsProblem,
        kronify
 export AbstractFormulation, LineParametersFormulation, CableConstantsFormulation,
        Formulation
-export AbstractFormulationBackend, AbstractFormulationOptions
-export LineCableModelsCoaxial, LineCableModelsFEM, LineCableModelsFEMOptions,
+export LineCableModelsCoaxial, LineCableModelsFEM,
        LineCableModelsFEMError, LineParametersWorkspace
 export constitutive, formula_id, EarthPair
 export verbosity

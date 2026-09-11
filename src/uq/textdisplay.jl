@@ -16,28 +16,28 @@ end
 TextDisplay.name(::Type{<:MonteCarlo}) = "MonteCarlo"
 Base.summary(io::IO, formulation::MonteCarlo) = print(io, "Monte Carlo propagation")
 function Base.show(io::IO, formulation::MonteCarlo)
-    trials = formulation.trials === nothing ? "DKW-sized" : string(formulation.trials)
+    trials = formulation.options.trials === nothing ? "DKW-sized" : string(formulation.options.trials)
     print(io, "MonteCarlo(trials=", trials,
-        "; samples=", formulation.return_samples,
-        ", histograms=", formulation.return_histograms, ")")
+        "; samples=", formulation.options.return_samples,
+        ", histograms=", formulation.options.return_histograms, ")")
 end
 function Base.show(io::IO, ::MIME"text/plain", formulation::MonteCarlo)
     get(io, :compact, false) && return show(io, formulation)
-    trials = formulation.trials === nothing ? "DKW-sized" : string(formulation.trials)
-    distribution = formulation.distribution isa Symbol ?
-                   ":$(formulation.distribution)" : _uq_compact(formulation.distribution)
+    trials = formulation.options.trials === nothing ? "DKW-sized" : string(formulation.options.trials)
+    distribution = formulation.options.distribution isa Symbol ?
+                   ":$(formulation.options.distribution)" : _uq_compact(formulation.options.distribution)
     children = Any[
         (label = "inner        $(_uq_compact(formulation.inner))", noun = "fields"),
         (label = "trials       $trials", noun = "fields"),
-        (label = "confidence   $(TextDisplay.value(formulation.confidence))", noun = "fields"),
-        (label = "CDF tol      $(TextDisplay.value(formulation.cdf_tol))", noun = "fields"),
+        (label = "confidence   $(TextDisplay.value(formulation.options.confidence))", noun = "fields"),
+        (label = "CDF tol      $(TextDisplay.value(formulation.options.cdf_tol))", noun = "fields"),
         (label = "distribution $distribution", noun = "fields"),
     ]
-    formulation.seed === nothing || push!(children,
-        (label = "seed         $(formulation.seed)", noun = "fields"))
-    formulation.return_samples && push!(children,
+    formulation.options.seed === nothing || push!(children,
+        (label = "seed         $(formulation.options.seed)", noun = "fields"))
+    formulation.options.return_samples && push!(children,
         (label = "samples      retained", noun = "fields"))
-    formulation.return_histograms && push!(children,
+    formulation.options.return_histograms && push!(children,
         (label = "histograms   retained", noun = "fields"))
     return TextDisplay.tree(io, "Monte Carlo propagation", Tuple(children))
 end

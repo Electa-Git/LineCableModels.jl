@@ -2,6 +2,11 @@ const FEM_FIELD_QUANTITIES = (
     "az", "b", "bm", "e", "ez", "em", "jz", "jm", "rhoj2"
 )
 
+_quasi_full(physics::Symbol) = physics === Symbol("quasi-fw")
+_fem_physics_code(formulation::LineCableModelsFEM) = Int(_quasi_full(formulation.options.physics))
+_field_quantities(physics::Symbol) = _quasi_full(physics) ?
+    (FEM_FIELD_QUANTITIES..., "bt_mesh", "v_local", "hz_scaled") : FEM_FIELD_QUANTITIES
+
 function _pro_string(value::AbstractString)
     escaped = replace(String(value), '\\' => "\\\\", '"' => "\\\"")
     return "\"$escaped\""
@@ -85,7 +90,8 @@ function _getdp_assets(root::AbstractString = joinpath(@__DIR__, "getdp"))
         model = joinpath(root, "model.pro"),
         jacobian = joinpath(root, "jacobian_integration.pro"),
         materials = joinpath(root, "materials.pro"),
-        quasi_tem = joinpath(root, "quasi-tem.pro")
+        quasi_tem = joinpath(root, "quasi-tem.pro"),
+        quasi_full = joinpath(root, "quasi-full.pro")
     )
 end
 
@@ -114,8 +120,8 @@ function _artifact_getdp()
         path = joinpath(root, relative), source = :artifact, artifact_hash = string(hash))
 end
 
-function _getdp_selection(formulation::LineCableModelsFEM; run_directory = nothing)
-    explicit = formulation.execution.getdp_executable
+function _getdp_selection(execution::ComputationOptions; run_directory = nothing)
+    explicit = execution.getdp_executable
     environment = get(ENV, GETDP_ENVIRONMENT_VARIABLE, nothing)
     selection = if explicit !== nothing
         (path = abspath(explicit), source = :explicit, artifact_hash = nothing)
@@ -165,8 +171,8 @@ function _getdp_identity(executable::String)
     return (sha256 = bytes2hex(open(sha256, executable)), info = output)
 end
 
-function _resolve_getdp(formulation::LineCableModelsFEM, run::FEMRun)
-    selection = _getdp_selection(formulation; run_directory = run.path)
+function _resolve_getdp(execution::ComputationOptions, run::FEMRun)
+    selection = _getdp_selection(execution; run_directory = run.path)
     identity = _getdp_identity(selection.path)
     recorded = JSON3.read(read(joinpath(run.path, "input", "computation.json"), String))
     recorded_identity = Dict(String(key)=>value

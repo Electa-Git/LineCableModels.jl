@@ -17,8 +17,8 @@ system = build(LineCableSystem, [wire, wire], positions;
 problem = LineParametersProblem(system; frequencies,
     earth_props=homogeneous(rho=0.1, eps_r=1.0, mu_r=1.0))
 formulation = Formulation(:LineCableModelsFEM;
-    options=(reduce_bundle=false, kron_reduction=false, ideal_transposition=false),
-    fem_options=(mesh_policy=:remesh, gmsh_verbosity=2, getdp_verbosity=3,
+    options=(physics=:quasi_fw, reduce_bundle=false, kron_reduction=false, ideal_transposition=false))
+execution = computation_options(LineCableModelsFEM, (mesh_policy=:remesh, gmsh_verbosity=2, getdp_verbosity=3,
         plot_field_maps=false, solver_threads=1, keep_run_directory=true))
 
 # Reuse the package's material resolver and mesher. No production FEM solve is
@@ -29,11 +29,11 @@ manual_run = FEM._create_run(runtime_root)
 run_directory = manual_run.path
 path_files = String[]
 lock(FEM.FEM_SESSION_LOCK) do
-    session = FEM._start_gmsh(formulation.execution.gmsh_verbosity)
+    session = FEM._start_gmsh(execution.gmsh_verbosity)
     try
         geometry = FEM._build_geometry!(model, "quasi-full-$(basename(run_directory))")
         global mesh_paths = FEM._select_meshes!(manual_run, model, geometry,
-            formulation, runtime_root)
+            execution, runtime_root)
         FEM._prepare_run_inputs!(manual_run, model)
         for (mesh, plan) in zip(mesh_paths, model.mesh_plans)
             path = joinpath(run_directory, "input", @sprintf("paths-f%04d.pro", plan.frequency_index))
@@ -45,14 +45,12 @@ lock(FEM.FEM_SESSION_LOCK) do
     end
 end
 
-# Snapshot the experimental file alongside its unchanged include dependencies.
-pro_file = joinpath(run_directory, "input", "getdp", "quasi-full.pro")
-cp(joinpath(pkgdir(LineCableModels), "ext", "LineCableModelsGmshExt", "getdp",
-    "quasi-full.pro"), pro_file)
+# model.pro selects the coupled file through its ONELAB Physics constant.
+pro_file = joinpath(run_directory, "input", "getdp", "model.pro")
 model_data = joinpath(run_directory, "input", "model_data.pro")
 basis_file = joinpath(run_directory, "input", "bases.pro")
 write(basis_file, "RequestedBases() = {1,2};\n")
-getdp = FEM._getdp_selection(formulation).path
+getdp = FEM._getdp_selection(execution).path
 Zqf = zeros(ComplexF64, 2, 2, length(frequencies))  # ohm/m
 Mqf = similar(Zqf)                               # ohm m; raw inverse admittance
 Peqf = similar(Zqf)                              # m/F
@@ -63,15 +61,15 @@ for (index, plan) in enumerate(model.mesh_plans)
     mkpath(job)
     mesh, paths = mesh_paths[index], path_files[index]
     prefix = joinpath(job, "solver")
-    maps = Int(formulation.execution.plot_field_maps)
+    maps = Int(execution.plot_field_maps)
     command = `$getdp $pro_file -solve LineCableModelsFEMScan
-        -msh $mesh -name $prefix -v $(formulation.execution.getdp_verbosity)
+        -msh $mesh -name $prefix -v $(execution.getdp_verbosity)
         -setstring ModelDataPath $model_data -setstring RunDirectory $job
         -setstring BasisListPath $basis_file -setstring PathDataPath $paths
         -setnumber FrequencyIndex $index -setnumber FrequencyHz $(plan.frequency)
         -setnumber Val_Rint $(plan.domain_radius) -setnumber Val_Rext $(plan.shell_outer_radius)
         -setnumber PlotFieldMaps $maps -setnumber ReuseFactorization 1
-        -setnumber PerfectConductors 1`
+        -setnumber Physics 1 -setnumber PerfectConductors 1`
     println("\n", command)
     # Native progress is visible in the REPL; raw columns/maps stay in job.
     run(addenv(Cmd(command; dir=job), "OMP_NUM_THREADS"=>"1", "OPENBLAS_NUM_THREADS"=>"1"))

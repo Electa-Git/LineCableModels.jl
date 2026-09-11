@@ -16,7 +16,8 @@
     modal=compute(ModalTransformationProblem(parameters), ModalTransformationFormulation())
     benchmark=EN.compare(parameters, parameters)
     constants=CableConstants(1e-4, 2e-7, 3e-10, 4e-12)
-    backend=LineCableModelsFEM(fem_options = (mesh_policy = :remesh,))
+    backend=LineCableModelsFEM(options = (physics = :quasi_fw,))
+    backend_options=computation_options(LineCableModelsFEM, (mesh_policy=:remesh,))
     blueprints=EN.CableBlueprint{eltype(line_problem)}[EN.flatten(LineCableModelsCoaxial(),
                                                            design, eltype(line_problem))
                                                        for design in line_problem.system.designs]
@@ -33,7 +34,7 @@
     end
     objects=(
         problem, line_problem, formulation, cable_formulation, constants,
-        LineCableModelsCoaxial(), backend, backend.execution,
+        LineCableModelsCoaxial(), backend,
         EN.PhaseDomain(), modal.domain, parameters.Z, parameters.Y,
         parameters, modal, benchmark, benchmark.Z, workspaces...
     )
@@ -83,7 +84,7 @@
     @test occursin("RMS errors", sprint(show, MIME"text/plain"(), benchmark))
     @test occursin("relative", sprint(show, MIME"text/plain"(), benchmark.Z))
     @test occursin("G=", sprint(show, MIME"text/plain"(), constants))
-    @test occursin("remesh", sprint(show, backend.execution))
+    @test occursin("remesh", sprint(show, backend_options))
     @test occursin("modal domain", sprint(show, modal))
     @test occursin("Modal domain", sprint(summary, modal.domain))
 end

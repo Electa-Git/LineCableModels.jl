@@ -21,7 +21,7 @@ struct Group{A, E <: AbstractCablePart, P, H, C, B} <: AbstractCablePart
     path::H
     "Compaction definition or `nothing`."
     compact::C
-    "Authoritative finished boundary for a bounded formation, or `nothing`."
+    "Formation boundary, or rectangular-course packing limit; `nothing` for unbounded groups."
     boundary::B
 
     function Group(
@@ -253,6 +253,11 @@ function bounded_members(group::Group)
     isempty(members) && throw(ArgumentError(
         "a bounded formation requires at least one strand"
     ))
+    if boundary_shape isa Disk && last(parts).item.primitive isa Rectangle
+        # Complete bent courses occupy exactly this disk. The requested
+        # packing limit is not an additional physical layer.
+        boundary_shape = Disk(r_ex(last(primitives)), boundary_shape.at)
+    end
     return boundary_shape, members, primitives
 end
 

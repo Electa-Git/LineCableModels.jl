@@ -39,14 +39,14 @@
         @test overlength(only(member.paths).path, only(member.paths).radius) ≈ sqrt(1 + (pi / 12)^2)
     end
     @test IE.deserialize_value(IE.serialize_value(design)) == design
-    matrix = only(filter(region -> region.source.material.kind !== :conductor,
-        design.geometry.regions))
-    @test matrix.primitive isa Annulus
-    @test r_in(matrix.primitive) ≈ final_strip.primitive.ro
-    @test r_ex(matrix.primitive) ≈ 0.6e-3
-    @test area(matrix.primitive) ≈ pi * (0.6e-3^2 - final_strip.primitive.ro^2)
+    @test length(design.geometry.regions) == length(metal)
+    @test outer_radius(design) == final_strip.primitive.ro
+    @test outer_radius(design) < 0.6e-3
+    @test all(region -> only(region.placement.patterns).pattern.boundary ==
+        design.geometry.outer, metal)
     blueprint = @inferred EN.flatten(LineCableModelsCoaxial(), design, Float64)
     row = only(blueprint.conductors)
+    @test row.r_ex == outer_radius(design)
     @test row.num_wires == length(metal)
     @test row.cross_section ≈ area(centre) + 33area(strand)
     expected_resistance = copper.rho / (area(centre) + 33area(strand) / sqrt(1 + (pi / 12)^2))

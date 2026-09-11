@@ -17,7 +17,7 @@ import LineCableModels.DataModel
 import LineCableModels.Earth
 import LineCableModels.Engine
 import LineCableModels.ImportExport
-using LineCableModels.Grammar: computation_options
+using LineCableModels.Grammar: computation_options, ComputationOptions
 using LineCableModels: LineCableModelsFEM, LineCableModelsFEMError,
                        LineParametersProblem, LineParameters,
                        SeriesImpedance, ShuntAdmittance, PhaseDomain
@@ -28,6 +28,7 @@ include("geometry.jl")
 include("mesh.jl")
 include("onelab.jl")
 include("getdp.jl")
+include("voltage_paths.jl")
 include("workers.jl")
 include("results.jl")
 include("compute.jl")

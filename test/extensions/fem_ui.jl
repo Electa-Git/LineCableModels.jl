@@ -22,9 +22,9 @@
         system=build(LineCableSystem,design,(0.0,-0.1);connections=Dict(:core=>1,:sheath=>0))
         problem=LineParametersProblem(system;frequencies=[50.0,1000.0],
             earth_props=homogeneous(rho=100.0,eps_r=10.0))
-        form=Formulation(:LineCableModelsFEM;options=(ideal_transposition=false,),
-            fem_options=(ui=true,plot_field_maps=true,keep_run_directory=true,
-                gmsh_verbosity=0,getdp_verbosity=0))
+        form=Formulation(:LineCableModelsFEM;options=(ideal_transposition=false,))
+        form_controls = (ui=true,plot_field_maps=true,keep_run_directory=true,
+                gmsh_verbosity=0,getdp_verbosity=0)
         function await_condition(predicate)
             deadline=time()+90
             while !predicate()
@@ -62,7 +62,7 @@
                 rethrow()
             end
             result=try
-                compute(problem,form;options=(trace=true,))
+                compute(problem,form; options=merge(form_controls, (trace=true,)))
             catch exception
                 exception
             end

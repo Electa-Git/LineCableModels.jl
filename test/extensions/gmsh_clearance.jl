@@ -5,8 +5,8 @@
     ext = Base.get_extension(LineCableModels, :LineCableModelsGmshExt)
     copper = Material(kind = :conductor, rho = 1.7e-8)
     formulation = Formulation(:LineCableModelsFEM;
-        options = (ideal_transposition = false,),
-        fem_options = (mesh_policy = :remesh, gmsh_verbosity = 0,))
+        options = (ideal_transposition = false,))
+    execution = computation_options(LineCableModelsFEM, (mesh_policy=:remesh, gmsh_verbosity=0,))
     for radius in (0.01, measurement(0.01, 1e-4))
         design = build(CableDesign, "touching-mesh",
             Group(:core, Region(:metal, Disk(radius), copper)))
@@ -24,7 +24,7 @@
             mktempdir() do directory
                 run = ext._create_run(directory)
                 geometry = ext._build_geometry!(model, "touching-trefoil")
-                mesh = ext._select_mesh!(run, model, geometry, formulation, directory)
+                mesh = ext._select_mesh!(run, model, geometry, execution, directory)
                 @test isfile(mesh)
                 @test run.mesh_source === :generated
                 @test !isempty(first(Gmsh.gmsh.model.mesh.get_nodes()))

@@ -10,6 +10,11 @@ struct LinearError{F <: AbstractFormulation, O <: ComputationOptions} <: Abstrac
     inner::F
     "Supplemental-output retention options owned by this propagation."
     options::O
+
+    function LinearError(inner::AbstractFormulation, options::NamedTuple)
+        normalized = computation_options(LinearError, options)
+        return new{typeof(inner), typeof(normalized)}(inner, normalized)
+    end
 end
 
 function computation_options(
@@ -31,8 +36,7 @@ function LinearError(
         inner::F;
         options::NamedTuple = (;)
 ) where {F <: AbstractFormulation}
-    normalized = computation_options(LinearError, options)
-    return LinearError{F, typeof(normalized)}(inner, normalized)
+    return LinearError(inner, options)
 end
 
 """
@@ -57,63 +61,16 @@ internal cable constructions remain errors subject to `on_error`.
 
 $(TYPEDFIELDS)
 """
-struct MonteCarlo{F <: AbstractFormulation, D, S, O <: ComputationOptions} <:
+struct MonteCarlo{F <: AbstractFormulation, O <: ComputationOptions} <:
        AbstractFormulation
     "Formulation used for each sampled problem."
     inner::F
-    "Requested trials, or `nothing` for DKW sizing."
-    trials::Union{Nothing, Int}
-    "Simultaneous empirical-CDF confidence [dimensionless]."
-    confidence::Float64
-    "Maximum empirical-CDF deviation used for DKW sizing [dimensionless]."
-    cdf_tol::Float64
-    "Sampling family or extension-provided univariate distribution."
-    distribution::D
-    "Optional root random seed."
-    seed::S
-    "Whether joint samples are retained."
-    return_samples::Bool
-    "Whether marginal histogram densities are retained."
-    return_histograms::Bool
-    "Optional histogram bin count."
-    bins::Union{Nothing, Int}
-    "Supplemental-output retention options owned by this propagation."
+    "Normalized sampling, error-handling and supplemental-output computation options."
     options::O
-    function MonteCarlo(
-            inner::F;
-            trials::Union{Nothing, Integer} = nothing,
-            confidence::Real = 0.95,
-            cdf_tol::Real = 0.02,
-            distribution = :normal,
-            seed::Union{Nothing, Integer} = nothing,
-            return_samples::Bool = false,
-            return_histograms::Bool = false,
-            bins::Union{Nothing, Integer} = nothing,
-            options::NamedTuple = (;)
-    ) where {F <: AbstractFormulation}
-        trials === nothing || trials > 0 || throw(ArgumentError("trials must be positive"))
-        0 < confidence < 1 ||
-            throw(ArgumentError("confidence must lie between zero and one"))
-        0 < cdf_tol < 1 || throw(ArgumentError("cdf_tol must lie between zero and one"))
-        bins === nothing || bins > 0 || throw(ArgumentError("bins must be positive"))
-        distribution isa Symbol && distribution ∉ (:normal, :uniform) &&
-            throw(ArgumentError(
-                "unsupported distribution $(repr(distribution)); expected :normal, :uniform, a sampler function, or an extension-supported distribution",
-            ))
-        actual_seed = seed === nothing ? nothing : UInt64(seed)
-        normalized_options = computation_options(MonteCarlo, options)
-        return new{F, typeof(distribution), typeof(actual_seed), typeof(normalized_options)}(
-            inner,
-            trials === nothing ? nothing : Int(trials),
-            Float64(confidence),
-            Float64(cdf_tol),
-            distribution,
-            actual_seed,
-            return_samples,
-            return_histograms,
-            bins === nothing ? nothing : Int(bins),
-            normalized_options
-        )
+
+    function MonteCarlo(inner::AbstractFormulation, options::NamedTuple)
+        normalized = computation_options(MonteCarlo, options)
+        return new{typeof(inner), typeof(normalized)}(inner, normalized)
     end
 end
 
@@ -121,24 +78,46 @@ function computation_options(
         ::Type{MonteCarlo},
         options::NamedTuple
 )::ComputationOptions
-    supported = (:retain_details, :on_error, :max_failures)
-    unknown = filter(key -> key ∉ supported, keys(options))
+    defaults = (
+        trials = nothing, confidence = 0.95, cdf_tol = 0.02,
+        distribution = :normal, seed = nothing,
+        return_samples = false, return_histograms = false, bins = nothing,
+        retain_details = false, on_error = :fail, max_failures = 100
+    )
+    unknown = filter(key -> key ∉ keys(defaults), keys(options))
     isempty(unknown) || throw(ArgumentError(
         "unknown MonteCarlo computation options: $(sort!(collect(unknown)))",
     ))
-    normalized = merge(
-        (retain_details = false, on_error = :fail, max_failures = 100),
-        options
-    )
-    normalized.retain_details isa Bool || throw(ArgumentError(
-        "MonteCarlo retain_details must be Bool",
-    ))
-    normalized.on_error in (:fail, :retry) || throw(ArgumentError(
+    normalized = merge(defaults, options)
+    for key in (:trials, :bins, :max_failures)
+        value = getproperty(normalized, key)
+        key !== :max_failures && value === nothing && continue
+        value isa Integer && !(value isa Bool) && 0 < value <= typemax(Int) ||
+            throw(ArgumentError("MonteCarlo $key must be a positive integer representable as Int"))
+    end
+    for key in (:confidence, :cdf_tol)
+        value = getproperty(normalized, key)
+        value isa Real && !(value isa Bool) && 0 < value < 1 &&
+        0 < Float64(value) < 1 || throw(ArgumentError(
+            "MonteCarlo $key must lie strictly between zero and one as Float64",
+        ))
+    end
+    for key in (:return_samples, :return_histograms, :retain_details)
+        getproperty(normalized, key) isa Bool || throw(ArgumentError(
+            "MonteCarlo $key must be Bool",
+        ))
+    end
+    seed = normalized.seed
+    seed === nothing ||
+        (seed isa Integer && !(seed isa Bool) && 0 <= seed <= typemax(UInt64)) ||
+        throw(ArgumentError("MonteCarlo seed must be a nonnegative integer representable as UInt64"))
+    distribution = normalized.distribution
+    distribution isa Symbol && distribution ∉ (:normal, :uniform) &&
+        throw(ArgumentError(
+            "unsupported distribution $(repr(distribution)); expected :normal, :uniform, a sampler function, or an extension-supported distribution",
+        ))
+    normalized.on_error === :fail || normalized.on_error === :retry || throw(ArgumentError(
         "MonteCarlo on_error must be :fail or :retry",
-    ))
-    normalized.max_failures isa Integer && !(normalized.max_failures isa Bool) &&
-    normalized.max_failures > 0 || throw(ArgumentError(
-        "MonteCarlo max_failures must be a positive integer",
     ))
     normalized.on_error === :retry && !normalized.retain_details &&
         throw(
@@ -147,8 +126,59 @@ function computation_options(
         ),
         )
     return (
+        trials = normalized.trials === nothing ? nothing : Int(normalized.trials),
+        confidence = Float64(normalized.confidence),
+        cdf_tol = Float64(normalized.cdf_tol),
+        distribution = distribution,
+        seed = seed === nothing ? nothing : UInt64(seed),
+        return_samples = normalized.return_samples,
+        return_histograms = normalized.return_histograms,
+        bins = normalized.bins === nothing ? nothing : Int(normalized.bins),
         retain_details = normalized.retain_details,
         on_error = normalized.on_error,
         max_failures = Int(normalized.max_failures)
     )
+end
+
+"""
+$(TYPEDSIGNATURES)
+
+Construct a Monte Carlo calculation with execution controls supplied as an
+ordinary `options` named tuple or as keyword shorthand. Both forms are
+normalized by `computation_options(MonteCarlo, options)`. A key supplied in
+both places is an error.
+
+# Arguments
+
+- `inner`: Formulation used for each sampled problem.
+
+# Keywords
+
+`options=(;)` holds any of the following controls. Additional keywords use
+the same names and are merged into `options` before normalization.
+
+- `trials=nothing`: Positive accepted-trial count, or DKW sizing when omitted.
+- `confidence=0.95`: Simultaneous empirical-CDF confidence [dimensionless], in `(0, 1)`.
+- `cdf_tol=0.02`: Maximum empirical-CDF deviation for DKW sizing [dimensionless], in `(0, 1)`.
+- `distribution=:normal`: `:normal`, `:uniform`, a sampler function, or an extension-supported distribution.
+- `seed=nothing`: Nonnegative root seed representable as `UInt64`, or fresh randomness.
+- `return_samples=false`: Retain joint samples.
+- `return_histograms=false`: Retain marginal histogram densities.
+- `bins=nothing`: Positive histogram bin count, or automatic binning.
+- `retain_details=false`: Retain accepted-trial details and failure diagnostics.
+- `on_error=:fail`: Propagate exceptions; `:retry` rejects `DomainError` realisations and requires `retain_details=true`.
+- `max_failures=100`: Positive maximum rejected-trial count per parameter point.
+
+# Returns
+
+- A `MonteCarlo` calculation storing its normalized tuple in `options`.
+  The concrete tuple type retains the sampler type.
+"""
+function MonteCarlo(inner::AbstractFormulation; options::NamedTuple = (;), kwargs...)
+    supplied = (; kwargs...)
+    duplicates = filter(key -> haskey(options, key), keys(supplied))
+    isempty(duplicates) || throw(ArgumentError(
+        "MonteCarlo computation options supplied both as keywords and in options: $(collect(duplicates))",
+    ))
+    return MonteCarlo(inner, merge(options, supplied))
 end

@@ -6,15 +6,15 @@
 
     @test Base.get_extension(LineCableModels, :LineCableModelsGmshExt) === nothing
     @test LineCableModels.LineCableModelsFEM <:
-          LineCableModels.Engine.AbstractFormulationBackend
-    @test LineCableModels.LineCableModelsFEMOptions <:
-          LineCableModels.Engine.AbstractFormulationOptions
+          LineCableModels.AbstractFormulation
+    @test supertype(LineCableModels.LineCableModelsFEM) === LineCableModels.AbstractFormulation
 
     formulation = LineCableModels.Formulation(
         :LineCableModelsFEM;
-        options = (ideal_transposition = false,),
-        fem_options = (ui = false,)
-    )
+        options = (ideal_transposition = false,))
+    execution = computation_options(LineCableModelsFEM, (ui=false,))
+    @test execution isa ComputationOptions
+    @test !execution.ui
     @test formulation isa LineCableModels.LineCableModelsFEM
     @test Base.get_extension(LineCableModels, :LineCableModelsGmshExt) === nothing
 end

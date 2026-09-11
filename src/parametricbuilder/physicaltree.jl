@@ -670,6 +670,7 @@ function _stranded(
         compaction,
         prescribed_boundary
     )
+    shape isa DataModel.Rectangle && return bounded
     return DataModel.Enclosure(
         :stranded,
         DataModel.Pose2(0, 0, 0),
@@ -693,6 +694,11 @@ a prescribed-area power diagram; disks clipped to those cells retain each
 source area. This geometric reconstruction preserves the declared copper
 fill and does not model mechanical forming or plasticity.
 
+Rectangular strands occupy complete, area-preserving annular courses, including
+a full annulus when a course contains one strand. Their requested boundary is
+a packing limit; the resolved boundary is the occupied metal disk. Subsequent
+layers start there, without an automatically generated outer filler film.
+
 # Arguments
 
 - `material`: Material with `kind == :conductor`.
@@ -704,8 +710,10 @@ fill and does not model mechanical forming or plasticity.
   require an explicit `Disk`. A sector bundle infers its centre strand from
   `shape` and does not admit a separate centre declaration.
 - `shape`: Circular wire or rectangular strand primitive.
-- `boundary`: Authoritative nonhollow `Disk` or `Sector` core boundary.
-- `fill=air`: Interstitial insulating or semiconducting material. The default
+- `boundary`: Nonhollow `Disk` or `Sector` core boundary; for rectangular
+  strands, a `Disk` packing limit rather than an imposed finished radius.
+- `fill=air`: Interstitial insulating or semiconducting material, unused by
+  contiguous rectangular courses. The default
   is lossless air (``\\rho=\\infty``, ``\\epsilon_r=\\mu_r=1``).
 - `lay=nothing`: One lay law or a schedule matching the inferred radial courses.
 - `dir=1`: Helix handedness or a schedule matching `lay`.
@@ -717,8 +725,9 @@ fill and does not model mechanical forming or plasticity.
 
 # Returns
 
-- A material-complete `Enclosure`, or a `Gridspace{Enclosure}` when a direct
-  argument varies.
+- A bounded `Group` for rectangular strands, or a material-complete
+  `Enclosure` for circular strands. Gridded arguments return a `Gridspace`
+  of the corresponding part type, or `AbstractCablePart` for mixed shapes.
 """
 function stranded(
         material;
@@ -752,7 +761,15 @@ function stranded(
     values = (
         material, center, shape, lay, dir, φ0, compact, boundary, fill
     )
-    return parameterize(DataModel.Enclosure, caller, values; combine)
+    shape_type = shape isa AbstractGrid ? eltype(shape) : typeof(shape)
+    target = if shape_type <: DataModel.Rectangle || shape isa Gridspace{<:DataModel.Rectangle}
+        DataModel.Group
+    elseif shape_type <: DataModel.Disk || shape isa Gridspace{<:DataModel.Disk}
+        DataModel.Enclosure
+    else
+        DataModel.AbstractCablePart
+    end
+    return parameterize(target, caller, values; combine)
 end
 
 function _inner_radius(primitive::DataModel.Disk)

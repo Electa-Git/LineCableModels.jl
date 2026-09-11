@@ -56,21 +56,21 @@ $(TYPEDSIGNATURES)
 
 Return the simultaneous empirical-CDF confidence of a Monte Carlo calculation.
 """
-confidence(value::MonteCarloResult) = value.formulation.confidence
+confidence(value::MonteCarloResult) = value.formulation.options.confidence
 
 """
 $(TYPEDSIGNATURES)
 
 Return the empirical-CDF tolerance used to size a Monte Carlo calculation.
 """
-cdf_tolerance(value::MonteCarloResult) = value.formulation.cdf_tol
+cdf_tolerance(value::MonteCarloResult) = value.formulation.options.cdf_tol
 
 """
 $(TYPEDSIGNATURES)
 
 Return the sampling distribution of a Monte Carlo calculation.
 """
-sampling_distribution(value::MonteCarloResult) = value.formulation.distribution
+sampling_distribution(value::MonteCarloResult) = value.formulation.options.distribution
 
 const _MonteCarloProductSelector = Union{
     typeof(statistics),

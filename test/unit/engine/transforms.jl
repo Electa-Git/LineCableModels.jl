@@ -27,7 +27,10 @@
     )
     @test_throws ArgumentError compute(ModalTransformationProblem(modal);
         options = (offdiagonal_tolerance = 1e-6,))
-    rebuilt=@inferred compute(ModalTransformationProblem(modal))
+    inverse_problem = ModalTransformationProblem(modal)
+    @test (@inferred computation_options(typeof(inverse_problem), (;))) == (;)
+    @test_throws ArgumentError computation_options(typeof(inverse_problem), (unknown=true,))
+    rebuilt=@inferred compute(inverse_problem)
 
     @test eltype(modal) === Complex{Measurement{Float64}}
     @test TestNumerics.isapprox_scaled(

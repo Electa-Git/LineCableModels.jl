@@ -31,19 +31,23 @@ end
 
 _column_stem(frequency::Int, basis::Int) = @sprintf("getdp-f%04d-b%04d", frequency, basis)
 
-function _column_paths(root::String, frequency::Int, basis::Int, maps::Bool)
+function _column_paths(root::String, frequency::Int, basis::Int, maps::Bool;
+        physics::Symbol=Symbol("quasi-tem"))
     stem = _column_stem(frequency, basis)
     raw = _job_raw_paths(root, stem)
-    return (; raw..., timing = joinpath(root, "raw", "jobs", "$stem-timing.tsv"),
+    return (; raw...,
+        diagnostics = _quasi_full(physics) ?
+            [joinpath(root, "raw", "jobs", "$stem-Pscalar.tsv")] : String[],
+        timing = joinpath(root, "raw", "jobs", "$stem-timing.tsv"),
         marker = joinpath(root, "raw", "jobs", "$stem.done"),
         checkpoint = joinpath(root, "raw", "jobs", "$stem.json"),
         maps = maps ?
                [joinpath(root, "maps",
                     @sprintf("%s_f%04d_b%04d.pos", quantity, frequency, basis))
-                for quantity in FEM_FIELD_QUANTITIES] : String[])
+                for quantity in _field_quantities(physics)] : String[])
 end
 
-_column_files(paths) = [paths.Z, paths.P, paths.timing, paths.maps...]
+_column_files(paths) = [paths.Z, paths.P, paths.timing, paths.maps..., paths.diagnostics...]
 
 function _valid_column_marker(path, frequency_index, frequency, basis, terminals, maps)
     isfile(path) || return false
@@ -80,13 +84,15 @@ function _complete_map(path)
 end
 
 function _valid_column_checkpoint(
-        root, frequency_index, frequency, basis, terminals, maps, mesh_digest)
-    paths = _column_paths(root, frequency_index, basis, maps)
+        root, frequency_index, frequency, basis, terminals, maps, mesh_digest;
+        physics::Symbol=Symbol("quasi-tem"))
+    paths = _column_paths(root, frequency_index, basis, maps; physics)
     isfile(paths.checkpoint) || return false
     return try
         record = JSON3.read(read(paths.checkpoint, String))
         record.protocol == 2 && record.frequency_index == frequency_index &&
         record.basis == basis && record.terminals == terminals &&
+        get(record, :physics, "quasi-tem") == String(physics) &&
         record.plot_field_maps == maps && record.mesh_digest == mesh_digest &&
         isapprox(record.frequency_hz, frequency; rtol = 16eps(Float64), atol = 0) ||
             return false
@@ -118,16 +124,19 @@ function _copy_column_file(source, destination)
 end
 
 function _adopt_column!(
-        run, source, frequency_index, frequency, basis, terminals, maps, mesh_digest)
-    paths = _column_paths(source, frequency_index, basis, maps)
+        run, source, frequency_index, frequency, basis, terminals, maps, mesh_digest;
+        physics::Symbol=Symbol("quasi-tem"))
+    paths = _column_paths(source, frequency_index, basis, maps; physics)
     _valid_column_marker(
         paths.marker, frequency_index, frequency, basis, terminals, maps) || return false
     _valid_job_raw(paths.Z, terminals, frequency_index, frequency, basis) &&
     _valid_job_raw(paths.P, terminals, frequency_index, frequency, basis) || return false
+    all(path -> _valid_job_raw(path, terminals, frequency_index, frequency, basis),
+        paths.diagnostics) || return false
     timing = _column_timing(paths.timing, frequency_index, basis)
     timing === nothing && return false
     all(_complete_map, paths.maps) || return false
-    destination = _column_paths(run.path, frequency_index, basis, maps)
+    destination = _column_paths(run.path, frequency_index, basis, maps; physics)
     for (input, output) in zip(_column_files(paths), _column_files(destination))
         _copy_column_file(input, output)
     end
@@ -135,17 +144,18 @@ function _adopt_column!(
     for file in _column_files(destination))
     _write_json_atomic(destination.checkpoint,
         (; protocol = 2, frequency_index, frequency_hz = frequency, basis, terminals,
-            plot_field_maps = maps, mesh_digest, timing, checksums,
+            plot_field_maps = maps, physics, mesh_digest, timing, checksums,
             attempt = relpath(source, run.path)))
     return true
 end
 
-function _getdp_command(executable, model_path, mesh_path, run, formulation, mesh_plan,
+function _getdp_command(executable, model_path, mesh_path, run, formulation, execution, mesh_plan,
         bases, directory; reuse_factorization = true)
     basis_path = joinpath(directory, "bases.pro")
     write(basis_path, "RequestedBases() = $(_pro_array(bases));\n")
-    verbosity = LineCableModels.performance_sample_active() ? 0 : formulation.execution.getdp_verbosity
+    verbosity = LineCableModels.performance_sample_active() ? 0 : execution.getdp_verbosity
     arguments = [executable, model_path, "-solve", "LineCableModelsFEMScan",
+        "-setnumber", "Physics", string(_fem_physics_code(formulation)),
         "-msh", abspath(mesh_path), "-name", joinpath(directory, "solver"),
         "-v", string(verbosity),
         "-setstring", "ModelDataPath", joinpath(run.path, "input", "model_data.pro"),
@@ -155,20 +165,24 @@ function _getdp_command(executable, model_path, mesh_path, run, formulation, mes
         "-setnumber", "FrequencyHz", _pro_number(mesh_plan.frequency),
         "-setnumber", "Val_Rint", _pro_number(mesh_plan.domain_radius),
         "-setnumber", "Val_Rext", _pro_number(mesh_plan.shell_outer_radius),
-        "-setnumber", "PlotFieldMaps", string(Int(formulation.execution.plot_field_maps)),
+        "-setnumber", "PlotFieldMaps", string(Int(execution.plot_field_maps)),
         "-setnumber", "ReuseFactorization", string(Int(reuse_factorization))]
+    if _quasi_full(formulation.options.physics)
+        append!(arguments, ["-setstring", "PathDataPath",
+            _voltage_path_file(run, mesh_plan.frequency_index)])
+    end
     if verbosity >= 4
         append!(arguments, [
             "-cpu", "-ksp_view", "-log_view", ":" * joinpath(directory, "petsc.log")])
     end
-    threads = string(formulation.execution.solver_threads)
+    threads = string(execution.solver_threads)
     return addenv(Cmd(Cmd(arguments); dir = directory), "OPENBLAS_NUM_THREADS" => threads,
         "OPENBLAS_DEFAULT_NUM_THREADS" => threads,
         "OMP_NUM_THREADS" => threads, "MKL_NUM_THREADS" => threads)
 end
 
 function _frequency_job(
-        run, model, formulation, executable, mesh, mesh_digest, frequency_index,
+        run, model, formulation, execution, executable, mesh, mesh_digest, frequency_index,
         bases; reuse_factorization = true)
     isempty(bases) && throw(ArgumentError("a frequency job requires at least one terminal"))
     all(b -> b in eachindex(model.terminal_ids), bases) && allunique(bases) ||
@@ -182,7 +196,7 @@ function _frequency_job(
     plan = model.mesh_plans[frequency_index]
     command = _getdp_command(
         executable, _getdp_assets(joinpath(run.path, "input", "getdp")).model,
-        mesh, run, formulation, plan, bases, directory; reuse_factorization)
+        mesh, run, formulation, execution, plan, bases, directory; reuse_factorization)
     return FEMFrequencyJob(frequency_index, Float64(plan.frequency), collect(bases),
         directory, mesh_digest, command)
 end
@@ -193,7 +207,7 @@ function _attempt_record(job; kwargs...)
         requested_bases = job.bases, mesh_digest = job.mesh_digest, command = collect(job.command), kwargs...)
 end
 
-function _start_worker!(run, job, formulation)
+function _start_worker!(run, job, execution)
     log = open(joinpath(job.directory, "getdp.log"), "w")
     started, started_ns = time(), time_ns()
     process = try
@@ -214,7 +228,7 @@ function _start_worker!(run, job, formulation)
         _write_json_atomic(joinpath(job.directory, "attempt.json"),
             _attempt_record(
                 job; state = "running", pid, process_token, started_unix_seconds = started,
-                solver_threads = formulation.execution.solver_threads))
+                solver_threads = execution.solver_threads))
         run.getdp_invocations += 1
         _transition!(run, running, "frequency $(job.frequency_index) launched")
     catch
@@ -233,11 +247,11 @@ function _record_progress!(run, valid)
         "$(run.completed_columns)/$(length(valid)) terminal columns validated")
 end
 
-function _collect_worker_columns!(run, worker, valid, maps)
+function _collect_worker_columns!(run, worker, valid, maps; physics::Symbol=Symbol("quasi-tem"))
     job = worker.job
     for basis in sort!(collect(worker.pending))
         if _adopt_column!(run, job.directory, job.frequency_index, job.frequency,
-            basis, size(valid, 1), maps, job.mesh_digest)
+            basis, size(valid, 1), maps, job.mesh_digest; physics)
             valid[basis, job.frequency_index] = true
             delete!(worker.pending, basis)
             _record_progress!(run, valid)
@@ -245,7 +259,7 @@ function _collect_worker_columns!(run, worker, valid, maps)
     end
 end
 
-function _finish_worker!(run, worker, formulation; stopped = false)
+function _finish_worker!(run, worker, execution; stopped = false)
     wait(worker.process)
     isopen(worker.log) && close(worker.log)
     elapsed = (time_ns() - worker.started_ns) / 1e9
@@ -255,7 +269,7 @@ function _finish_worker!(run, worker, formulation; stopped = false)
         _attempt_record(worker.job; state = status, pid = worker.pid,
             process_token = worker.process_token,
             started_unix_seconds = worker.started, elapsed_seconds = elapsed,
-            solver_threads = formulation.execution.solver_threads,
+            solver_threads = execution.solver_threads,
             exit_code = worker.process.exitcode, signal = worker.process.termsignal,
             completed_bases = setdiff(worker.job.bases, collect(worker.pending))))
     open(joinpath(run.path, "logs", "getdp.log"), "a") do io
@@ -269,7 +283,7 @@ function _finish_worker!(run, worker, formulation; stopped = false)
     return elapsed
 end
 
-function _stop_workers!(run, active, valid, formulation)
+function _stop_workers!(run, active, valid, formulation, execution)
     errors = Any[]
     for worker in active
         try
@@ -285,8 +299,9 @@ function _stop_workers!(run, active, valid, formulation)
                 kill(worker.process, 9)
             end
             wait(worker.process)
-            _collect_worker_columns!(run, worker, valid, formulation.execution.plot_field_maps)
-            _finish_worker!(run, worker, formulation; stopped = true)
+            _collect_worker_columns!(run, worker, valid, execution.plot_field_maps;
+                physics=formulation.options.physics)
+            _finish_worker!(run, worker, execution; stopped = true)
         catch exception
             push!(errors, exception)
         finally
@@ -338,12 +353,12 @@ function _assert_no_live_attempts(run)
     return nothing
 end
 
-function _recover_columns!(run, model, maps, mesh_digests)
+function _recover_columns!(run, model, maps, mesh_digests; physics::Symbol=Symbol("quasi-tem"))
     valid = falses(length(model.terminal_ids), length(model.problem.frequencies))
     for frequency in axes(valid, 2), basis in axes(valid, 1)
 
         valid[basis, frequency] = _valid_column_checkpoint(run.path, frequency,
-            model.problem.frequencies[frequency], basis, size(valid, 1), maps, mesh_digests[frequency])
+            model.problem.frequencies[frequency], basis, size(valid, 1), maps, mesh_digests[frequency]; physics)
     end
     root = joinpath(run.path, "attempts")
     if isdir(root)
@@ -362,7 +377,7 @@ function _recover_columns!(run, model, maps, mesh_digests)
             for basis in axes(valid, 1)
                 valid[basis, frequency] && continue
                 valid[basis, frequency] = _adopt_column!(run, directory, frequency,
-                    model.problem.frequencies[frequency], basis, size(valid, 1), maps, mesh_digests[frequency])
+                    model.problem.frequencies[frequency], basis, size(valid, 1), maps, mesh_digests[frequency]; physics)
             end
         end
     end
@@ -439,16 +454,17 @@ function _fem_remaining_seconds(work, rates, active, next_job, workers, now_ns)
 end
 
 function _run_getdp!(run::FEMRun, model::FEMResolvedModel, formulation::LineCableModelsFEM,
-        mesh_paths::AbstractVector{<:AbstractString}; pump = () -> true,
+        execution::ComputationOptions, mesh_paths::AbstractVector{<:AbstractString}; pump = () -> true,
         reuse_factorization::Bool = true, batch_terminals::Bool = true)
     length(mesh_paths) == length(model.problem.frequencies) ||
         throw(DimensionMismatch("one FEM mesh path is required per frequency"))
-    executable = _resolve_getdp(formulation, run)
+    executable = _resolve_getdp(execution, run)
     assets = _getdp_assets(joinpath(run.path, "input", "getdp"))
     all(isfile, assets) || _fem_error(:getdp, "GetDP", :assets,
         "one or more retained solver sources are missing"; run_directory = run.path)
     mesh_digests = [bytes2hex(open(sha256, path)) for path in mesh_paths]
-    valid = _recover_columns!(run, model, formulation.execution.plot_field_maps, mesh_digests)
+    valid = _recover_columns!(run, model, execution.plot_field_maps, mesh_digests;
+        physics=formulation.options.physics)
     recovered_columns=count(valid)
     recovered_jobs=batch_terminals ? count(all,eachcol(valid)) : recovered_columns
     receiver=LineCableModels.progress_receiver()
@@ -491,22 +507,24 @@ function _run_getdp!(run::FEMRun, model::FEMResolvedModel, formulation::LineCabl
             pump() || _fem_error(:cancelled, "GetDP", :ui,
                 "FEM solve cancelled; completed terminal columns are retained"; run_directory = run.path)
             while next_job <= length(pending) &&
-                length(active) < formulation.execution.frequency_workers
+                length(active) < execution.frequency_workers
                 frequency, bases = pending[next_job]
                 job = _frequency_job(
-                    run, model, formulation, executable, mesh_paths[frequency],
+                    run, model, formulation, execution, executable, mesh_paths[frequency],
                     mesh_digests[frequency], frequency, bases; reuse_factorization)
-                push!(active, _start_worker!(run, job, formulation))
+                push!(active, _start_worker!(run, job, execution))
                 isempty(work) || (work_index[active[end].pid] = next_job)
                 next_job += 1
             end
             for index in reverse(eachindex(active))
                 worker = active[index]
-                _collect_worker_columns!(run, worker, valid, formulation.execution.plot_field_maps)
+                _collect_worker_columns!(run, worker, valid, execution.plot_field_maps;
+                    physics=formulation.options.physics)
                 process_exited(worker.process) || continue
                 # The last marker can arrive between the poll above and exit.
-                _collect_worker_columns!(run, worker, valid, formulation.execution.plot_field_maps)
-                duration = _finish_worker!(run, worker, formulation)
+                _collect_worker_columns!(run, worker, valid, execution.plot_field_maps;
+                    physics=formulation.options.physics)
+                duration = _finish_worker!(run, worker, execution)
                 worker_wall_seconds += duration
                 if !isempty(work) && success(worker.process) && isempty(worker.pending)
                     push!(rates, duration/work[pop!(work_index, worker.pid)])
@@ -530,7 +548,7 @@ function _run_getdp!(run::FEMRun, model::FEMResolvedModel, formulation::LineCabl
             if receiver !== nothing && current != previous_progress
                 remaining_seconds = isempty(work) ? -1.0 : _fem_remaining_seconds(
                     work, rates, [(work_index[w.pid], w.started_ns) for w in active],
-                    next_job, formulation.execution.frequency_workers, time_ns())
+                    next_job, execution.frequency_workers, time_ns())
                 LineCableModels.report_progress(receiver,
                     (stage=:solving,unit=:jobs,
                         completed=recovered_jobs+next_job-1-length(active),
@@ -542,20 +560,20 @@ function _run_getdp!(run::FEMRun, model::FEMResolvedModel, formulation::LineCabl
             isempty(active) || sleep(0.02)
         end
     catch exception
-        _stop_workers!(run, active, valid, formulation)
+        _stop_workers!(run, active, valid, formulation, execution)
         if exception isa InterruptException ||
            exception isa LineCableModelsFEMError && exception.category === :cancelled
             _transition!(run, cancelled, "solver processes stopped; completed columns retained")
         end
         rethrow()
     finally
-        isempty(active) || _stop_workers!(run, active, valid, formulation)
+        isempty(active) || _stop_workers!(run, active, valid, formulation, execution)
     end
     all(valid) || _fem_error(:getdp, "GetDP", :raw_output,
         "frequency scan returned without all terminal columns"; run_directory = run.path)
     _assemble_columns!(run, model)
     timings=[_column_timing(_column_paths(run.path,frequency,basis,
-            formulation.execution.plot_field_maps).timing,frequency,basis)
+            execution.plot_field_maps).timing,frequency,basis)
         for frequency in axes(valid,2) for basis in axes(valid,1)]
     totals=map((:constraint_seconds,:assembly_seconds,:solve_seconds,:output_seconds)) do key
         sum(getproperty(timing,key) for timing in timings)
@@ -571,8 +589,8 @@ function _run_getdp!(run::FEMRun, model::FEMResolvedModel, formulation::LineCabl
 end
 
 function _run_getdp!(run::FEMRun, model::FEMResolvedModel, formulation::LineCableModelsFEM,
-        mesh_path::String; kwargs...)
+        execution::ComputationOptions, mesh_path::String; kwargs...)
     length(model.problem.frequencies) == 1 || throw(DimensionMismatch(
         "a single FEM mesh path is valid only for a one-frequency problem"))
-    return _run_getdp!(run, model, formulation, [mesh_path]; kwargs...)
+    return _run_getdp!(run, model, formulation, execution, [mesh_path]; kwargs...)
 end

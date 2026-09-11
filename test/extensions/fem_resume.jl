@@ -3,7 +3,7 @@
     using LineCableModels
     extension = Base.get_extension(LineCableModels, :LineCableModelsGmshExt)
     artifact = withenv("LINECABLEMODELS_GETDP"=>nothing) do
-        extension._getdp_selection(Formulation(:LineCableModelsFEM))
+        extension._getdp_selection(computation_options(LineCableModelsFEM, (;)))
     end
     @test artifact.source === :artifact
     @test artifact.artifact_hash == string(extension.artifact_hash(
@@ -20,11 +20,11 @@
     problem = LineParametersProblem(system; frequencies = [50.0, 1000.0],
         earth_props = LineCableModels.Earth.EarthModel(100.0, 10.0, 1.0))
     formulation = Formulation(:LineCableModelsFEM;
-        options=(ideal_transposition=false,),
-        fem_options=(getdp_executable=artifact.path, gmsh_verbosity=0,))
+        options=(ideal_transposition=false,))
+    formulation_controls = (getdp_executable=artifact.path, gmsh_verbosity=0,)
     model = extension._resolved_fem_model(problem, formulation)
-    inputs = extension._fem_input_record(model, formulation)
-    @test inputs.schema_version == 6
+    inputs = extension._fem_input_record(model, formulation, computation_options(LineCableModelsFEM, formulation_controls))
+    @test inputs.schema_version == 7
     @test inputs.getdp_provenance.source === :explicit
     @test inputs.getdp_provenance.artifact_hash === nothing
     @test isfile(inputs.getdp_provenance.path)
@@ -33,12 +33,12 @@
     @test occursin("PETSc", inputs.getdp_identity.info)
     @test occursin("complex arithmetic", inputs.getdp_identity.info)
     @test_throws LineCableModelsFEMError extension._getdp_selection(
-        Formulation(:LineCableModelsFEM;
-            fem_options=(getdp_executable=joinpath(tempdir(), "missing-getdp"),)),
+        computation_options(LineCableModelsFEM,
+            (getdp_executable=joinpath(tempdir(), "missing-getdp"),)),
     )
     withenv("LINECABLEMODELS_GETDP"=>joinpath(tempdir(), "missing-getdp")) do
         @test_throws LineCableModelsFEMError extension._getdp_selection(
-            Formulation(:LineCableModelsFEM),
+            computation_options(LineCableModelsFEM, (;)),
         )
     end
     @test inputs.mesh_fingerprint == extension._mesh_fingerprint(model, Gmsh.gmsh.GMSH_API_VERSION)
@@ -51,13 +51,15 @@
     @test haskey(inputs.adapter_sources, Symbol("geometry.jl"))
     @test !haskey(inputs.adapter_sources, Symbol("formulations.jl"))
     other = Formulation(:LineCableModelsFEM; earth_properties = nothing,
-        options = formulation.options, fem_options = formulation.execution)
+        options = formulation.options)
+    other_controls = formulation_controls
     other_model = extension._resolved_fem_model(problem, other)
-    other_inputs = extension._fem_input_record(other_model, other)
+    other_inputs = extension._fem_input_record(other_model, other, computation_options(LineCableModelsFEM, other_controls))
     lossy = Formulation(:LineCableModelsFEM; insulation_admittance = :Ametani2004,
-        options = formulation.options, fem_options = formulation.execution)
+        options = formulation.options)
+    lossy_controls = formulation_controls
     lossy_model = extension._resolved_fem_model(problem, lossy)
-    lossy_inputs = extension._fem_input_record(lossy_model, lossy)
+    lossy_inputs = extension._fem_input_record(lossy_model, lossy, computation_options(LineCableModelsFEM, lossy_controls))
     @test extension.JSON3.write(inputs) == extension.JSON3.write(other_inputs)
     @test extension.JSON3.write(inputs) != extension.JSON3.write(lossy_inputs)
     temperature_law = (m,t,p,o,w) -> m.rho * (1+(t-20)/1000)
@@ -70,17 +72,19 @@
     end
     thermal = LineCableModelsFEM(
         temperature_dependence=formula(:default;hooks=(contribution=temperature_law,)),
-        options=formulation.options,fem_options=formulation.execution)
+        options=formulation.options)
+    thermal_controls = formulation_controls
     hot_problem = LineParametersProblem(system;temperature=80.0,
         frequencies=problem.frequencies,earth_props=problem.earth_props)
     hot_model = extension._resolved_fem_model(hot_problem,thermal)
-    hot_inputs = extension._fem_input_record(hot_model,thermal)
+    hot_inputs = extension._fem_input_record(hot_model,thermal, computation_options(LineCableModelsFEM, thermal_controls))
     @test first(hot_inputs.materials).sigma ≈ first(inputs.materials).sigma ./ 1.06
     dispersive = LineCableModelsFEM(
         earth_properties=formula(:default;hooks=(contribution=soil_law,)),
-        options=formulation.options,fem_options=formulation.execution)
+        options=formulation.options)
+    dispersive_controls = formulation_controls
     dispersive_model = extension._resolved_fem_model(problem,dispersive)
-    dispersive_inputs = extension._fem_input_record(dispersive_model,dispersive)
+    dispersive_inputs = extension._fem_input_record(dispersive_model,dispersive, computation_options(LineCableModelsFEM, dispersive_controls))
     @test dispersive_inputs.mesh_fingerprint == inputs.mesh_fingerprint
     @test getproperty.(dispersive_inputs.earth_materials,:eps_r) ==
         2 .* getproperty.(inputs.earth_materials,:eps_r)
@@ -91,7 +95,7 @@
     changed_model.region_plans[1] = extension.FEMRegionPlan(region.object_id,
         region.cable_index, region.region_index, region.terminal_index,
         region.material_index, Disk(region.shape.r * 0.9, region.shape.at), region.mesh_size)
-    changed_inputs = extension._fem_input_record(changed_model, formulation)
+    changed_inputs = extension._fem_input_record(changed_model, formulation, computation_options(LineCableModelsFEM, formulation_controls))
     @test changed_inputs.mesh_fingerprint != inputs.mesh_fingerprint
     @test changed_inputs.materials == inputs.materials
     @test changed_inputs.region_mesh_sizes == inputs.region_mesh_sizes
@@ -101,7 +105,7 @@
     ownership.region_plans[1] = extension.FEMRegionPlan(region.object_id,
         region.cable_index, region.region_index, 0, region.material_index,
         region.shape, region.mesh_size)
-    @test extension._fem_input_record(ownership, formulation).mesh_fingerprint !=
+    @test extension._fem_input_record(ownership, formulation, computation_options(LineCableModelsFEM, formulation_controls)).mesh_fingerprint !=
           inputs.mesh_fingerprint
     @test_throws ArgumentError compute(problem, LineCableModelsFEM[])
     law = (m, f, p, o, w) -> EarthMaterial(Inf, m.eps_r, m.mu_r)
@@ -111,7 +115,8 @@
         ::$(typeof(law))) = (;)
     unsupported = Formulation(:LineCableModelsFEM;
         earth_properties = formula(:default; hooks = (contribution = law,)),
-        options = formulation.options, fem_options = formulation.execution)
+        options = formulation.options)
+    unsupported_controls = formulation_controls
     before = Bool(Gmsh.gmsh.is_initialized())
     @test_throws LineCableModelsFEMError compute(problem, [formulation, unsupported])
     @test Bool(Gmsh.gmsh.is_initialized()) == before
@@ -188,8 +193,8 @@
         @test !extension._resume_inputs_match(run.path, model, merge(retained_inputs, (;
             owned_gmsh = false)))
         for execution in
-            (Formulation(:LineCableModelsFEM; fem_options = (ui = true,)).execution,
-            Formulation(:LineCableModelsFEM; fem_options = (mesh_policy = :remesh,)).execution)
+            (merge(inputs.execution, (ui=true,)),
+            merge(inputs.execution, (mesh_policy=:remesh,)))
             excluded = merge(retained_inputs, (; execution))
             extension._write_json_atomic(joinpath(run.path, "input", "computation.json"), excluded)
             @test !extension._resume_inputs_match(run.path, model, excluded)
@@ -198,11 +203,11 @@
             executable = joinpath(root, "getdp-identity")
             write(executable, "#!/bin/sh\necho 'GetDP Version 3.6.0 fixture A'\n")
             chmod(executable, 0o700)
-            configured = Formulation(:LineCableModelsFEM; options=formulation.options,
-                fem_options=(getdp_executable=executable, gmsh_verbosity=0,))
-            first_record = extension._fem_input_record(model, configured)
+            configured = Formulation(:LineCableModelsFEM; options=formulation.options)
+            configured_controls = (getdp_executable=executable, gmsh_verbosity=0,)
+            first_record = extension._fem_input_record(model, configured, computation_options(LineCableModelsFEM, configured_controls))
             write(executable, "#!/bin/sh\necho 'GetDP Version 3.6.0 fixture B'\n")
-            second_record = extension._fem_input_record(model, configured)
+            second_record = extension._fem_input_record(model, configured, computation_options(LineCableModelsFEM, configured_controls))
             @test first_record.getdp_provenance.path == second_record.getdp_provenance.path
             @test first_record.getdp_provenance.source === :explicit
             @test first_record.getdp_identity.sha256 != second_record.getdp_identity.sha256
@@ -211,9 +216,9 @@
             environment = joinpath(root, "getdp-environment")
             cp(executable, environment)
             chmod(environment, 0o700)
-            relocated = Formulation(:LineCableModelsFEM; options=formulation.options,
-                fem_options=(getdp_executable=environment, gmsh_verbosity=0,))
-            relocated_inputs = extension._fem_input_record(model, relocated)
+            relocated = Formulation(:LineCableModelsFEM; options=formulation.options)
+            relocated_controls = (getdp_executable=environment, gmsh_verbosity=0,)
+            relocated_inputs = extension._fem_input_record(model, relocated, computation_options(LineCableModelsFEM, relocated_controls))
             @test relocated_inputs.getdp_identity == second_record.getdp_identity
             @test relocated_inputs.getdp_provenance.path != second_record.getdp_provenance.path
             relocation_run = extension._create_run(root)
@@ -221,19 +226,19 @@
             extension._write_json_atomic(
                 joinpath(relocation_run.path, "input", "computation.json"), second_record)
             @test extension._resume_inputs_match(relocation_run.path, model, relocated_inputs)
-            @test extension._resolve_getdp(relocated, relocation_run) == realpath(environment)
+            @test extension._resolve_getdp(computation_options(LineCableModelsFEM, relocated_controls), relocation_run) == realpath(environment)
             withenv("LINECABLEMODELS_GETDP"=>environment) do
-                selected = extension._getdp_selection(Formulation(:LineCableModelsFEM))
+                selected = extension._getdp_selection(computation_options(LineCableModelsFEM, (;)))
                 @test selected.source === :environment
                 @test selected.path == realpath(environment)
-                explicit = extension._getdp_selection(configured)
+                explicit = extension._getdp_selection(computation_options(LineCableModelsFEM, configured_controls))
                 @test explicit.source === :explicit
                 @test explicit.path == realpath(executable)
             end
             write(environment, "#!/bin/sh\necho 'GetDP Version 3.6.0 changed binary'\n")
-            @test_throws LineCableModelsFEMError extension._resolve_getdp(relocated, relocation_run)
+            @test_throws LineCableModelsFEMError extension._resolve_getdp(computation_options(LineCableModelsFEM, relocated_controls), relocation_run)
             @test !extension._resume_inputs_match(relocation_run.path, model,
-                extension._fem_input_record(model, relocated))
+                extension._fem_input_record(model, relocated, computation_options(LineCableModelsFEM, relocated_controls)))
         end
     end
 end

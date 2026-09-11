@@ -3,7 +3,6 @@ using Gmsh
 (; frequencies = nothing,
     reference_options = (;),
     candidate_options = (;),
-    fem_options = (;),
     variation = NoVariation()) ->
     _catalogue_fem_benchmark(
         :cable_132kv_cigre_tb880_case0_630cu_trefoil,
@@ -11,6 +10,5 @@ using Gmsh
         frequencies,
         reference_options,
         candidate_options,
-        fem_options,
         variation,
     )

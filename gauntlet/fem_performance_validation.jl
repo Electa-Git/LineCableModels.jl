@@ -34,12 +34,12 @@ function validate_campaign(name, method)
     recorded=JSON3.read(read(joinpath(source, "input/computation.json"), String))
     options=(; (Symbol(k)=>v for (k, v) in pairs(recorded.options))...)
     form=Formulation(:LineCableModelsFEM; insulation_admittance = method,
-        semicon_admittance = method, options,
-        fem_options = (getdp_verbosity = 4, gmsh_verbosity = 0, frequency_workers = 4,
+        semicon_admittance = method, options)
+    execution = computation_options(LineCableModelsFEM, (trace = true, getdp_verbosity = 4, gmsh_verbosity = 0, frequency_workers = 4,
             solver_threads = 1, keep_run_directory = true))
     model=E._resolved_fem_model(problem, form)
     run=E._create_run(ROOT)
-    inputs=E._fem_input_record(model, form)
+    inputs=E._fem_input_record(model, form, execution)
     E._write_json_atomic(joinpath(run.path, "input/computation.json"), inputs)
     E._prepare_run_inputs!(run, model)
     @assert read(joinpath(run.path, "input/model_data.pro"))==read(joinpath(source, "input/model_data.pro"))
@@ -109,11 +109,11 @@ function validate_campaign(name, method)
         return true
     end
     E._transition!(run, E.running, "full retained-mesh numerical validation")
-    E._run_getdp!(run, model, form, meshes; pump = check_progress)
+    E._run_getdp!(run, model, form, execution, meshes; pump = check_progress)
     check_progress()
-    scan=E._parse_scan(run, model, form)
+    scan=E._parse_scan(run, model, form, execution)
     parameters=E._line_parameters(
-        run, model, form, E._fem_computation_options((trace = true,)), scan, inputs)
+        run, model, form, execution, scan, inputs)
     E._write_scan_checksums(run, scan);
     E._transition!(run, E.completed, "full numerical validation completed")
     @assert all(checked)

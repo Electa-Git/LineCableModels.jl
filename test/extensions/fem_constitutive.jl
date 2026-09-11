@@ -91,9 +91,9 @@ end
     end
     problem = LineParametersProblem(enclosed_system(copper);temperature=80.0,
         frequencies=[50.0],earth_props=homogeneous(rho=100.0))
-    selected = LineCableModelsFEM(options=(ideal_transposition=false,),
-        fem_options=(gmsh_verbosity=0,getdp_verbosity=0))
-    result = compute(problem,selected;options=(trace=true,))
+    selected = LineCableModelsFEM(options=(ideal_transposition=false,))
+    selected_controls = (gmsh_verbosity=0,getdp_verbosity=0)
+    result = compute(problem,selected; options=merge(selected_controls, (trace=true,)))
     primitive = result.details.fem.primitive
     @test primitive.phase_map == [1,2,0]
     @test size(primitive.Z_primitive) == (3,3,1)
@@ -112,7 +112,7 @@ end
     reference_problem = LineParametersProblem(enclosed_system(corrected);
         temperature=80.0,frequencies=[50.0],earth_props=problem.earth_props)
     reference = compute(reference_problem,LineCableModelsFEM(temperature_dependence=nothing,
-        options=selected.options,fem_options=selected.execution);options=(trace=true,))
+        options=selected.options);options=(trace=true,))
     @test z ≈ reference.details.fem.primitive.Z_primitive[:,:,1] rtol=2e-9
     @test result.Y.values ≈ reference.Y.values rtol=2e-9
 end
@@ -135,8 +135,9 @@ end
     for law in (:default,:Ametani2004), temperature in (20.0,80.0)
         problem = LineParametersProblem(system; temperature, frequencies=[50.0],
             earth_props=homogeneous(rho=100.0,eps_r=10.0))
-        selected = LineCableModelsFEM(insulation_admittance=law; options, fem_options=execution)
-        actual = compute(problem,selected)
+        selected = LineCableModelsFEM(insulation_admittance=law; options)
+        selected_controls = execution
+        actual = compute(problem,selected; options=selected_controls)
         corrected = map((copper,dielectric)) do material
             rho = material.rho*(1+material.alpha*(temperature-material.T0))
             Material(material.kind,rho,material.eps_r,material.mu_r,material.T0,0;
@@ -145,7 +146,7 @@ end
         reference_problem = LineParametersProblem(system_for(corrected...);
             temperature, frequencies=[50.0],earth_props=problem.earth_props)
         reference = compute(reference_problem,LineCableModelsFEM(insulation_admittance=law,
-            temperature_dependence=nothing; options,fem_options=execution))
+            temperature_dependence=nothing; options);options=execution)
         @test actual.Z.values ≈ reference.Z.values rtol=2e-9
         @test actual.Y.values ≈ reference.Y.values rtol=2e-9
     end
@@ -157,14 +158,15 @@ end
     earth = EarthModel(100.0,10.0,1.0; air_layer=air)
     problem = LineParametersProblem(system; frequencies=[50.0,1000.0],earth_props=earth)
     selected = LineCableModelsFEM(earth_properties=formula(:default;hooks=(contribution=soil_law,));
-        options,fem_options=execution)
-    actual = compute(problem,selected;options=(trace=true,))
+        options)
+    selected_controls = execution
+    actual = compute(problem,selected; options=merge(selected_controls, (trace=true,)))
     for (index,f) in pairs(problem.frequencies)
         # Explicit published inputs form the reference; no call to the fitted/selected law.
         static = EarthModel(100/(1+f/1000),10*(1+f/2000),1+f/10000; air_layer=air)
         reference_problem = LineParametersProblem(system;frequencies=[f],earth_props=static)
         reference = compute(reference_problem,LineCableModelsFEM(earth_properties=nothing;
-            options,fem_options=execution);options=(trace=true,))
+            options);options=(;execution...,trace=true))
         @test actual.Z.values[:,:,index] ≈ reference.Z.values[:,:,1] rtol=2e-9
         @test actual.Y.values[:,:,index] ≈ reference.Y.values[:,:,1] rtol=2e-9
         @test actual.details.fem.inputs.mesh_plans[index].domain_radius ==
@@ -172,13 +174,13 @@ end
     end
     vacuum = LineParametersProblem(system;frequencies=problem.frequencies,
         earth_props=homogeneous(rho=100.0,eps_r=10.0))
-    other = compute(vacuum,selected)
+    other = compute(vacuum,selected; options=selected_controls)
     @test !isapprox(actual.Z.values,other.Z.values;rtol=1e-5)
     # Buried cable capacitance is dominated by insulation. Exercise the air
     # permittivity response with the same cables placed above the interface.
     overhead = build(LineCableSystem,system.designs,[(0.0,1.0),(0.1,1.0)];
         connections=[Dict(:core=>1),Dict(:core=>2)])
-    declared_air = compute(LineParametersProblem(overhead;frequencies=[50.0],earth_props=earth),selected)
-    vacuum_air = compute(LineParametersProblem(overhead;frequencies=[50.0],earth_props=vacuum.earth_props),selected)
+    declared_air = compute(LineParametersProblem(overhead;frequencies=[50.0],earth_props=earth),selected; options=selected_controls)
+    vacuum_air = compute(LineParametersProblem(overhead;frequencies=[50.0],earth_props=vacuum.earth_props),selected; options=selected_controls)
     @test !isapprox(declared_air.Y.values,vacuum_air.Y.values;rtol=1e-5)
 end
