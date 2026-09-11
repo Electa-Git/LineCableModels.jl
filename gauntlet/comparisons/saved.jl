@@ -14,7 +14,7 @@ function read_calculation(path::AbstractString; sha256_expected = nothing)
         names = ("schema_version", "kind", "status", "case_id", "backend", "problem",
             "formulation", "calculation", "repository", "active_project", "selection", "frequencies", "basis", "domain", "port_order",
             "Z", "Y", "moments", "comparison_unsupported", "data_sha256",
-            "implementation", "computation_signature", "elapsed_at_completion_seconds",
+            "implementation", "session", "point_sessions", "computation_signature", "elapsed_at_completion_seconds",
             "batch_selection_count", "propagation", "sampling", "parameter_manifest",
             "applied_variation", "correlation", "computation_details", "retained_files", "points", "axes")
         Dict(name => file[name] for name in names if haskey(file, name))
@@ -87,6 +87,7 @@ function read_calculation(path::AbstractString; sha256_expected = nothing)
         axes=coordinates.axes,
         formulation, calculation=get(document,"calculation",nothing),
         repository=get(document,"repository",nothing),active_project=get(document,"active_project",nothing), implementation = get(document, "implementation", nothing),
+        session=get(document,"session",nothing), point_sessions=get(document,"point_sessions",()),
         computation_signature = get(document, "computation_signature", nothing),
         input_sha256 = semantic_sha256(document["problem"]), port_order = ports,
         frequencies = document["frequencies"], basis = document["basis"], domain = document["domain"],
@@ -134,8 +135,6 @@ No comparison or solver is executed. Existing identical records are verified and
 function record_benchmark(benchmark::BenchmarkDefinition, publication::ReportArtifact; directory::AbstractString)
     validate(Base.write,directory)
     errors=publication.published.comparisons
-    bytes2hex(open(sha256, benchmark.source_file)) == benchmark.source_sha256 ||
-        throw(ArgumentError("benchmark definition changed after loading"))
     reference = benchmark.reference.problem
     candidate = benchmark.candidate.problem
     a, b = reference.metadata, candidate.metadata

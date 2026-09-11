@@ -223,12 +223,13 @@ end
 
 function _validate_monte_carlo_details(details, values, trial_counts)
     isempty(details) && return nothing
-    keys(details) == (:trials, :failures, :failure_summary) || throw(ArgumentError(
-        "MonteCarloResult details must contain trials, failures, and failure_summary",
+    keys(details) in ((:trials, :failures, :failure_summary),
+        (:trials, :failures, :failure_summary, :clearance)) || throw(ArgumentError(
+        "MonteCarloResult details must contain trials, failures, failure_summary, and optional clearance diagnostics",
     ))
     point_count = length(values)
     all(length(product) == point_count
-    for product in (details.trials, details.failures, details.failure_summary)) ||
+    for product in Base.values(details)) ||
         throw(DimensionMismatch(
         "retained Monte Carlo details must contain one entry per Gridspace point",
     ))
@@ -244,6 +245,15 @@ function _validate_monte_carlo_details(details, values, trial_counts)
         ))
         foreach(_validate_failure_record, failures)
         _validate_failure_summary(summary, failures, trial_counts[point])
+        if haskey(details, :clearance)
+            clearance = details.clearance[point]
+            keys(clearance) == (:adjustments, :max_displacement_m) &&
+                clearance.adjustments isa Int &&
+                clearance.adjustments >= 0 &&
+                isfinite(clearance.max_displacement_m) &&
+                clearance.max_displacement_m >= 0 || throw(ArgumentError(
+                "Monte Carlo clearance diagnostics must contain a nonnegative count and displacement"))
+        end
     end
     return nothing
 end

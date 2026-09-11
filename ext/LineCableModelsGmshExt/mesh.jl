@@ -1,3 +1,6 @@
+const _GMSH_GEOMETRY_TOLERANCE = 1.0e-8
+const _GMSH_BOOLEAN_TOLERANCE = 0.0
+
 function _write_json_atomic(path::String, value)
     mkpath(dirname(path))
     temporary = tempname(dirname(path))
@@ -48,7 +51,9 @@ function _mesh_fingerprint(
         cable_interface_mesh_sizes = mesh_plan.cable_interface_mesh_sizes,
         wave_mesh_sizes = mesh_plan.wave_mesh_sizes,
         wave_decay_radii = mesh_plan.wave_decay_radii,
-        gmsh_version
+        gmsh_version,
+        geometry_tolerance = _GMSH_GEOMETRY_TOLERANCE,
+        boolean_tolerance = _GMSH_BOOLEAN_TOLERANCE
     )
     # Hash owned bytes: SHA's string/CodeUnits path can repeatedly hash the
     # entire immutable string during copyto! alias checks on Julia 1.12.

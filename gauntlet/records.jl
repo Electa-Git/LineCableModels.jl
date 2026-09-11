@@ -50,6 +50,17 @@ function repository_revision()
     return (; commit, dirty)
 end
 
+"Record the environment once per execution session; this is provenance, not a reuse condition."
+function execution_record()
+    packages = sort!([(name=id.name, uuid=string(id.uuid),
+        version=Base.pkgversion(owner) === nothing ? nothing : string(Base.pkgversion(owner)),
+        extension_of=Base.extension_parent_name(owner))
+        for (id, owner) in Base.loaded_modules if id.uuid !== nothing]; by=entry -> entry.name)
+    return (id=string(getpid(), "-", time_ns()), started=string(now(UTC)),
+        julia_version=string(VERSION), repository=repository_revision(),
+        active_project=Base.active_project(), packages)
+end
+
 function formulation_record(formulation::Engine.LineParametersFormulation)
     return _selection_value(NamedTuple(formulation))
 end
@@ -58,7 +69,7 @@ function _selection_value(value::Union{Engine.LineParametersFormulation,Engine.L
     return _selection_value(NamedTuple(value))
 end
 
-"Capture the runtime sources and environment used by a campaign."
+"Explicitly capture source files for inspection; ordinary execution does not scan the source tree."
 function implementation_record()
     paths = String[]
     for folder in ("src", "ext", "gauntlet")

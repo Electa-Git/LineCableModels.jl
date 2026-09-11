@@ -34,48 +34,105 @@ function record_calculation(result::ParametricResult, model)
         domain = getproperty.(points, :domain), data_sha256 = semantic_sha256(result, (; port_order=get(details(first(result)),:coordinates,model.port_order), axes)))
 end
 
+_numerical_record(record) = Base.structdiff(record, (; id=record.id))
+
+# Native execution objects can contain deeply nested geometry and closures.
+# Julia owns their serialization; JLD2 retains the portable numerical fields and
+# evidence separately. Older typed JLD2 checkpoints remain readable.
+function _execution_bytes(value)
+    io=IOBuffer()
+    Serialization.serialize(io,value)
+    return take!(io)
+end
+
+function _read_execution(file,key)
+    bytes_key=key*"_bytes"
+    haskey(file,bytes_key) || return file[key]
+    try
+        return Serialization.deserialize(IOBuffer(file[bytes_key]))
+    catch exception
+        if key == "definitions" && exception isa TypeError
+            throw(ArgumentError(
+                "saved executable declarations do not match the current model layout; " *
+                "rebuild them with `lcm gauntlet run --definition FILE --directory DIR` " *
+                "without --resume. Previous attempts and results are preserved. " *
+                "Deserialization error: " * sprint(showerror, exception)))
+        end
+        rethrow()
+    end
+end
+
+_read_execution(path::AbstractString,key)=jldopen(file->_read_execution(file,key),path,"r")
+
 function _execute(calculation::BenchmarkCalculation; directory = nothing, model = nothing,
-        implementation = nothing)
+        implementation = (), session = nothing, recover_solvers::Bool = false)
     started = time_ns()
     keywords=isempty(calculation.options) ? (;) : (; options = calculation.options)
     directory === nothing && return (
         result = compute(calculation.problem,
             calculation.formulation; keywords...),
-        elapsed_seconds = (time_ns()-started)*1e-9, reused = false)
+        elapsed_seconds = (time_ns()-started)*1e-9, reused = false, session)
     validate(Base.write,directory)
     mkpath(directory)
-    implementation === nothing && (implementation = implementation_record())
+    session === nothing && (session=execution_record())
+    implementation === nothing && (implementation=())
     source_identity = [(; value.path, value.sha256) for value in implementation]
     declaration=calculation_record(calculation)
-    signature=semantic_sha256((
-        numerical = Base.structdiff(declaration, (; id = declaration.id)),
-        implementation = source_identity))
+    signature=semantic_sha256(_numerical_record(declaration))
     path = joinpath(directory, "calculation.jld2")
     marker = joinpath(directory, "complete.toml")
     if isfile(marker)
         record = TOML.parsefile(marker)
-        record["signature"] == signature || throw(ArgumentError(
-            "calculation inputs or implementation changed: $directory"))
         bytes2hex(open(sha256, path)) == record["sha256"] || throw(ArgumentError(
             "calculation payload integrity check failed: $path"))
-        read_calculation(path)
-        result = JLD2.load(path, "result")
-        return (; result, elapsed_seconds = 0.0, reused = true)
+        saved=read_calculation(path)
+        # Older files included the source tree in their signature. Compare their
+        # retained numerical declaration directly, without rewriting provenance.
+        saved.metadata.calculation !== nothing &&
+            _numerical_record(saved.metadata.calculation) == _numerical_record(declaration) ||
+            throw(ArgumentError("calculation inputs changed: $directory"))
+        result = _read_execution(path, "result")
+        original=saved.metadata.session === nothing ?
+            (id="legacy", repository=saved.metadata.repository,
+                active_project=saved.metadata.active_project) : saved.metadata.session
+        return (; result, elapsed_seconds = 0.0, reused = true, session=original)
+    end
+    inputs=joinpath(directory,"inputs.toml")
+    if isfile(inputs)
+        TOML.parsefile(inputs)["signature"] == signature ||
+            throw(ArgumentError("calculation inputs changed: $directory"))
+    else
+        _write_toml(inputs,Dict("signature"=>signature))
     end
     temporary = tempname(directory)
     try
-        result = compute(calculation.problem, calculation.formulation; keywords...)
-        elapsed_seconds = (time_ns()-started)*1e-9
-        current = Dict(value.path=>value.sha256 for value in implementation_record())
-        for value in implementation
-            if !haskey(current, value.path)
-                dependency_path=joinpath(REPOSITORY_ROOT, value.path)
-                isfile(dependency_path) || throw(ArgumentError("execution source disappeared: $dependency_path"))
-                current[value.path]=bytes2hex(open(sha256, dependency_path))
+        point_sessions=NamedTuple[]
+        result = if calculation.problem isa LineParametersProblem && calculation.formulation isa Gridspace
+            # A formulation sweep is a sequence of independently recoverable
+            # scalar calculations. Preserve the public problem/formulation axes.
+            formulations=collect(calculation.formulation)
+            values=map(eachindex(formulations)) do index
+                options=calculation.options
+                if haskey(options,:on_result) && options.on_result !== nothing
+                    callback=options.on_result
+                    options=merge(options,(on_result=(problem,_,result)->callback(problem,index,result),))
+                end
+                point=BenchmarkCalculation(calculation.id,calculation.problem,formulations[index];
+                    options)
+                value=_execute(point;directory=joinpath(directory,"points",string(index)),
+                    model,implementation,session,recover_solvers)
+                push!(point_sessions,value.session)
+                value.result
             end
+            ParametricResult(LineCableModels.Combinatorial(calculation.formulation),values,
+                (problems=[calculation.problem],formulations), (;))
+        else
+            if recover_solvers && calculation.formulation isa Union{Engine.LineCableModelsFEM,PSCAD.PSCADFormulation}
+                keywords=(options=merge((resume_run_directory=:latest,),calculation.options),)
+            end
+            compute(calculation.problem, calculation.formulation; keywords...)
         end
-        current == Dict(value.path=>value.sha256 for value in source_identity) ||
-            throw(ArgumentError("runtime sources changed during calculation"))
+        elapsed_seconds = (time_ns()-started)*1e-9
         calculation_record(calculation) == declaration ||
             throw(ArgumentError("calculation inputs changed during execution"))
         retained_files=NamedTuple[]
@@ -101,21 +158,22 @@ function _execute(calculation::BenchmarkCalculation; directory = nothing, model 
         end
         payload = record_calculation(result, model)
         output_coordinates=get(details(result isa ParametricResult ? first(result) : result),:coordinates,model.port_order)
-        JLD2.jldsave(temporary; schema_version = 2, status = :complete, result, payload...,
-            declaration = calculation, retained_files, computation_signature = signature,
+        JLD2.jldsave(temporary; schema_version = 2, status = :complete,
+            result_bytes=_execution_bytes(result),payload...,
+            retained_files, computation_signature = signature,
             problem = ImportExport.serialize_value(
                 calculation.problem isa LineParametersProblem ? calculation.problem :
                 model.nominal_problem),
             case_id = string(model.id), backend = string(nameof(typeof(calculation.formulation))),
             selection = string(calculation.id), formulation = declaration.formulation, calculation=declaration,
-            repository=repository_revision(), active_project=Base.active_project(),
+            repository=session.repository, active_project=session.active_project, session, point_sessions,
             port_order = copy(output_coordinates), implementation = source_identity, source_evidence = implementation,
             elapsed_at_completion_seconds = elapsed_seconds)
         mv(temporary, path; force = true)
         digest = bytes2hex(open(sha256, path))
         write(path * ".sha256", digest * "  calculation.jld2\n")
         _write_toml(marker, Dict("schema"=>2, "signature"=>signature, "sha256"=>digest))
-        return (; result, elapsed_seconds, reused = false)
+        return (; result, elapsed_seconds, reused = false, session)
     catch error
         _write_toml(joinpath(directory, "failure.toml"),
             Dict("message"=>sprint(showerror, error), "signature"=>signature, "time"=>string(now(UTC))))
@@ -128,12 +186,18 @@ end
 """
     run_campaign(directory, definitions; on_error=:continue, resume=false)
 
-Execute the selected benchmark drafts. A fresh run replaces only those drafts
-once complete; resume continues their recorded attempts with unchanged inputs.
-Previous completed results remain identifiable while a replacement is incomplete.
+Save every selected declaration before executing the first benchmark. A fresh run
+replaces only those drafts once complete; resume continues recorded attempts with
+unchanged numerical inputs. Source edits do not invalidate completed calculations.
+Each invocation records a new execution session; reused operands keep their original
+provenance. Previous results remain readable while a replacement is incomplete.
+
+Set `recover_solvers=true` to ask FEM and PSCAD to recover compatible native run
+directories using their own input and output validation.
 """
 function run_campaign(directory::AbstractString, definitions::AbstractVector{<:BenchmarkDefinition};
-        on_error::Symbol=:continue,resume::Bool=false,execution_sources=())
+        on_error::Symbol=:continue,resume::Bool=false,execution_sources=(),
+        session=execution_record(),recover_solvers::Bool=false)
     on_error in (:continue,:fail) || throw(ArgumentError("on_error must be :continue or :fail"))
     isempty(definitions) && throw(ArgumentError("campaign needs benchmark definitions"))
     allunique(getproperty.(definitions,:id)) || throw(ArgumentError("campaign benchmark IDs must be unique"))
@@ -155,14 +219,13 @@ function run_campaign(directory::AbstractString, definitions::AbstractVector{<:B
     finally
         close(manifest_lock)
     end
-    source=implementation_record()
-    for entry in execution_sources
-        path=abspath(entry.path)
-        relative=relpath(path,REPOSITORY_ROOT)
-        any(value -> value.path==relative,source) || push!(source,
-            (path=relative,sha256=bytes2hex(open(sha256,path)),source=read(path)))
-    end
-    outcomes=NamedTuple[]
+    sessions=joinpath(root,"sessions")
+    mkpath(sessions)
+    session_path=joinpath(sessions,session.id*".jld2")
+    isfile(session_path) || JLD2.jldsave(session_path;session)
+    prepared=NamedTuple[]
+    # Prepare the entire queue before entering any solver. In particular, an
+    # interruption in the first benchmark must not erase later declarations.
     for definition in definitions
         benchmark_root=joinpath(root,string(definition.id))
         mkpath(benchmark_root)
@@ -175,15 +238,17 @@ function run_campaign(directory::AbstractString, definitions::AbstractVector{<:B
         previous=get(state,"current",nothing)
         attempt=nothing
         try
-            if resume
-                haskey(state,"attempt") || throw(ArgumentError("no attempt to resume: $(definition.id)"))
+            if resume && haskey(state,"attempt")
                 attempt=joinpath(benchmark_root,state["attempt"])
                 declaration=joinpath(attempt,"declarations.jld2")
                 bytes2hex(open(sha256,declaration)) == strip(read(declaration*".sha256",String)) ||
                     throw(ArgumentError("campaign declaration integrity check failed"))
-                saved=JLD2.load(declaration)
-                [(;x.path,x.sha256) for x in saved["implementation"]] ==
-                    [(;x.path,x.sha256) for x in source] || throw(ArgumentError("campaign runtime sources changed"))
+                saved=only(_read_execution(declaration,"definitions"))
+                for role in (:reference,:candidate)
+                    _numerical_record(calculation_record(getproperty(saved,role))) ==
+                        _numerical_record(calculation_record(getproperty(definition,role))) ||
+                        throw(ArgumentError("campaign calculation inputs changed: $(definition.id)/$role"))
+                end
             else
                 attempts=joinpath(benchmark_root,"attempts")
                 mkpath(attempts)
@@ -194,20 +259,45 @@ function run_campaign(directory::AbstractString, definitions::AbstractVector{<:B
                 declaration_sources=[(path,sha256=bytes2hex(open(sha256,path)),source=read(path)) for path in declaration_paths]
                 execution_evidence=[(path=abspath(entry.path),module_name=entry.module_name,
                     source=read(entry.path),sha256=bytes2hex(open(sha256,entry.path))) for entry in execution_sources]
+                dependencies=Set(entry.uuid for entry in session.packages if entry.extension_of === nothing)
                 packages=[(name=id.name,uuid=string(id.uuid)) for id in keys(Base.loaded_modules)
-                    if id.uuid !== nothing && haskey(Pkg.dependencies(),id.uuid)]
-                JLD2.jldsave(declaration;definitions=[definition],implementation=source,
+                    if id.uuid !== nothing && string(id.uuid) in dependencies]
+                JLD2.jldsave(declaration;definitions_bytes=_execution_bytes([definition]),implementation=(),session,
                     declaration_sources,execution_evidence,packages,on_error,case_sources=[definition.model.source_file],
-                    repository=repository_revision(),active_project=Base.active_project())
+                    repository=session.repository,active_project=session.active_project)
                 write(declaration*".sha256",bytes2hex(open(sha256,declaration)))
                 state=Dict{String,Any}("schema"=>3,"attempt"=>relpath(attempt,benchmark_root))
                 previous === nothing || (state["current"]=previous)
+                state["state"]="pending"
+                _write_toml(state_path,state)
             end
+            push!(prepared,(;definition,attempt,previous))
+        finally
+            close(lease)
+        end
+    end
+    outcomes=NamedTuple[]
+    for (;definition,attempt,previous) in prepared
+        benchmark_root=joinpath(root,string(definition.id))
+        lease=open(joinpath(benchmark_root,"execution.lock"),"a+")
+        acquired=Sys.iswindows() ? ccall(:_locking,Cint,(Cint,Cint,Clong),fd(lease),2,1)==0 :
+            ccall(:flock,Cint,(Cint,Cint),fd(lease),6)==0
+        acquired || (close(lease);throw(ArgumentError("another process owns benchmark $(definition.id)")))
+        state_path=joinpath(benchmark_root,"state.toml")
+        state=TOML.parsefile(state_path)
+        if joinpath(benchmark_root,state["attempt"]) != attempt
+            close(lease)
+            throw(ArgumentError("benchmark attempt was replaced by another process: $(definition.id)"))
+        end
+        try
+            completed=resume && get(state,"state","")=="complete"
             state["state"]="running"
             state["pid"]=getpid()
+            state["session"]=session.id
             delete!(state,"message")
             _write_toml(state_path,state)
-            value=run_benchmark(definition;directory=attempt,implementation=source,mode=:live)
+            value=run_benchmark(definition;directory=attempt,session,mode=:live,
+                measure_performance=!completed,recover_solvers)
             read_benchmark(attempt)
             identity=semantic_sha256(read_benchmark,attempt)
             state["state"]="complete"
@@ -232,15 +322,27 @@ function run_campaign(directory::AbstractString, definitions::AbstractVector{<:B
     return outcomes
 end
 
-"""Resume recorded attempts after verifying their execution and case sources."""
-function resume_campaign(directory::AbstractString)
+"""
+    resume_campaign(directory; recover_solvers=false)
+
+Continue the saved work order using checksummed declarations. Restore captured
+declaration code for constructors without consulting the original source files.
+Completed numerical operands keep their original execution provenance; unfinished
+work uses the current Julia environment. A legacy queue without saved declarations
+must first be supplied to `run_campaign` with `resume=true`.
+"""
+function resume_campaign(directory::AbstractString;recover_solvers::Bool=false)
     root=abspath(directory)
     validate(Base.write,root)
     manifest=TOML.parsefile(joinpath(root,"campaign.toml"))
     manifest["schema"] == 3 || throw(ArgumentError("historical campaigns remain readable; new execution requires a new staging directory"))
     outcomes=NamedTuple[]
+    session=execution_record()
     for id in manifest["benchmarks"]
-        state=TOML.parsefile(joinpath(root,id,"state.toml"))
+        state_path=joinpath(root,id,"state.toml")
+        isfile(state_path) || throw(ArgumentError(
+            "legacy campaign has no saved declaration for $id; supply the original definitions to run_campaign(...; resume=true)"))
+        state=TOML.parsefile(state_path)
         declaration=joinpath(root,id,state["attempt"],"declarations.jld2")
         bytes2hex(open(sha256,declaration)) == strip(read(declaration*".sha256",String)) ||
             throw(ArgumentError("campaign declaration integrity check failed"))
@@ -250,21 +352,26 @@ function resume_campaign(directory::AbstractString)
         for package in evidence.packages
             Base.require(Base.PkgId(Base.UUID(package.uuid),package.name))
         end
+        snapshot=joinpath(dirname(declaration),"sources")
+        captured_path(path)=joinpath(snapshot,splitpath(abspath(path))[2:end]...)
         for entry in vcat(evidence.execution,evidence.sources)
-            isfile(entry.path) && bytes2hex(open(sha256,entry.path)) == entry.sha256 ||
-                throw(ArgumentError("execution source changed or is unavailable: $(entry.path)"))
+            bytes2hex(sha256(entry.source)) == entry.sha256 ||
+                throw(ArgumentError("captured declaration integrity check failed: $(entry.path)"))
+            target=captured_path(entry.path)
+            mkpath(dirname(target))
+            write(target,entry.source)
         end
         for entry in evidence.execution
             owner=entry.module_name === :Main ? Main : @__MODULE__
-            Base.include(owner,entry.path)
+            Base.include(owner,captured_path(entry.path))
         end
         for path in evidence.case_sources
-            Base.include(@__MODULE__,path)
+            Base.include(@__MODULE__,captured_path(path))
         end
-        saved=JLD2.load(declaration)
-        append!(outcomes,Base.invokelatest(run_campaign,root,saved["definitions"];
-            on_error=saved["on_error"],resume=true,
-            execution_sources=[(path=entry.path,module_name=entry.module_name) for entry in evidence.execution]))
+        definitions=_read_execution(declaration,"definitions")
+        on_error=JLD2.load(declaration,"on_error")
+        append!(outcomes,Base.invokelatest(run_campaign,root,definitions;
+            on_error,resume=true,session,recover_solvers))
     end
     return outcomes
 end

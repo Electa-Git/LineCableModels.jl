@@ -24,7 +24,9 @@
         @test restored_labels==rerun.result.report.table.formulations.label
         @test retained_draft.reference.metadata.repository.commit == repository_revision().commit
         @test retained_draft.reference.metadata.active_project == Base.active_project()
-        @test any(entry -> endswith(entry.path,"Project.toml"),retained_draft.reference.metadata.implementation)
+        @test isempty(retained_draft.reference.metadata.implementation)
+        @test retained_draft.reference.metadata.session.julia_version == string(VERSION)
+        @test any(entry -> entry.name=="LineCableModels",retained_draft.reference.metadata.session.packages)
         @test_throws r"inspected" lock_campaign(campaign,joinpath(root,"wrong");benchmarks=:accepted,expected="wrong")
         @test !ispath(joinpath(root,"wrong"))
         manifest=TOML.parsefile(joinpath(campaign,"campaign.toml"))

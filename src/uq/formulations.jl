@@ -47,6 +47,14 @@ number of successful trials is obtained or `max_failures` is reached. Retry
 mode requires `retain_details=true` and estimates the output distribution
 conditional on successful problem construction and computation.
 
+Line-system construction enforces exterior clearance on every realization.
+When Measurements is loaded, the propagated clearance reserve is prepared
+before sampling and retained for every draw. Adjusted placements therefore
+describe a clearance-constrained system. Adjustments emit one summary per
+parameter point, not one warning per trial; retained details include their
+count and maximum displacement \\[m\\]. Invalid dimensions and infeasible
+internal cable constructions remain errors subject to `on_error`.
+
 $(TYPEDFIELDS)
 """
 struct MonteCarlo{F <: AbstractFormulation, D, S, O <: ComputationOptions} <:

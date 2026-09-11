@@ -28,7 +28,7 @@ export load!
 using DocStringExtensions: IMPORTS
 #! explicit-imports: on
 using DocStringExtensions: TYPEDSIGNATURES, METHODLIST
-import ..LineCableModels: build, validate, nominal
+import ..LineCableModels: build, validate, nominal, parameterize
 import ..Grammar: observe
 import ..ReportBuilder
 using ..Materials: AbstractMaterial, Material, RadialDielectric, MaterialsLibrary

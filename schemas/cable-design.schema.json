@@ -393,6 +393,16 @@
           "minItems": 1,
           "items": {"$ref": "#/$defs/pose"}
         },
+        "declared_positions": {
+          "type": "array",
+          "minItems": 1,
+          "items": {"$ref": "#/$defs/pose"}
+        },
+        "clearances": {
+          "type": "array",
+          "minItems": 1,
+          "items": {"type": "array", "items": {"$ref": "#/$defs/scalar"}}
+        },
         "connections": {
           "type": "array",
           "minItems": 1,

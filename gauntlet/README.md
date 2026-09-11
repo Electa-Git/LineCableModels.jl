@@ -282,10 +282,30 @@ that benchmark's previous draft. Unselected drafts and vault bundles remain inta
 If the replacement fails, the previous complete result remains accessible with
 `read_benchmark(path; previous=true)`; ordinary reads report the failed latest
 attempt. `status` reports this distinction and the current inspected identity.
-`resume` checks recorded inputs, execution sources and environments, and reuses
-only matching completed calculations. The low-level `run_benchmark` retains and
+Every selected declaration is saved before the first solver starts. `resume`
+checks numerical inputs and saved-file integrity, and reuses matching completed
+calculations. It does not compare the live source tree. A scalar problem with a
+formulation `Gridspace` checkpoints each completed point, so an interruption need
+not repeat earlier points.
+The low-level `run_benchmark` retains and
 reuses calculations in an explicitly supplied attempt directory; use `run_campaign`
 or the CLI for replaceable drafts.
+
+Each invocation records its Julia version, loaded package versions, Git revision
+and dirty flag once. Reused operands retain their original session metadata; a
+resumed campaign can therefore contain results from different execution sessions.
+This records provenance, not a guarantee of a frozen or reproducible environment.
+Use a pinned checkout/environment when that guarantee is required.
+
+Numerical operands are saved before reporting; reports are saved before optional
+timing repetitions. A reporting or timing failure leaves completed work available.
+Changing report bands requires reanalysis, not another solver run.
+
+`resume --recover-solvers` also asks FEM and PSCAD to recover compatible native
+run directories, after the backend checks its actual inputs and saved outputs.
+For older campaigns with unsaved queued declarations, supply the original factory
+and options with `run ... --resume --recover-solvers`. Existing attempts must have
+matching numerical declarations; missing queue entries are saved before execution.
 
 PSCAD independently owns native reuse and installation/readback verification.
 A campaign retry is not a new cold timing sample. Explicit performance definitions
@@ -298,7 +318,7 @@ whole campaign; incomplete members then reject the operation. `--expected` check
 that a single selected benchmark is still the snapshot inspected by the user.
 Locking neither applies an error threshold nor claims agreement with another model.
 
-A vault retains calculations, all saved analyses, exact source/environment evidence,
+A vault retains calculations, all saved analyses, captured declarations and session metadata,
 backend files and relative operand bindings. It remains readable after staging is
 moved or deleted. Missing, changed and unexpected files reject reads. Writers reject
 vault destinations; corrections require a new bundle. Locking does not upload,
@@ -413,11 +433,15 @@ copies the original payload, records its hash and the old source bytes, and
 exports plain numerical fields. It runs no solver and modifies no original file.
 The new reader needs neither the old module namespace nor its checkout.
 
-Fresh-process campaign resume loads the recorded Julia dependencies and verifies
-the case builder sources before reading typed execution declarations. The CLI
-also records and reloads the explicit declaration/configuration source files.
-Changed numerical source bytes reject execution reuse; reading a completed bundle
-and making new comparisons remain independent of those execution dependencies.
+Fresh-process resume loads the recorded Julia dependencies from the current
+environment and restores captured case/declaration/configuration code before
+reading typed execution declarations. Original declaration files may be edited or
+deleted. Relative case assets declared in `assets` are restored beside the case;
+configuration files should be self-contained or explicitly capture their dependencies.
+Opaque execution objects use Julia's native serialization inside the checkpoint;
+portable numerical fields and source evidence remain independently readable JLD2 data.
+Resume does not reinstall old package versions. Reading completed numerical bundles
+and making new comparisons remain independent of the original execution sources.
 
 All built-in cases can be checked without a solver using
 `cli/lcm gauntlet case validate`. A benchmark factory may accept explicit

@@ -129,8 +129,10 @@ recording an immutable version-specific download.
 
 Catalogue defaults remain 101 logarithmic samples from 0.1 Hz to 10 MHz (100
 increments). Frequency overrides are authoritative and backend limitations are
-validated separately. Source bytes, active dependency environments, actual grids,
-backend evidence and timing scopes are retained with calculations.
+validated separately. Declarations are saved before execution. Resume checks
+numerical inputs and stored-file integrity, not the live source tree. Each
+execution session records its environment; reused operands keep their original
+provenance. Actual grids, backend evidence and timing scopes are retained.
 
 The [Gauntlet CLI guide](https://github.com/Electa-Git/LineCableModels.jl/blob/main/gauntlet/README.md)
 contains declaration, release and illustration-file examples. Standard publication

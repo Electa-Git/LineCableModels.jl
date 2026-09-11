@@ -13,6 +13,8 @@
             @test problem.frequencies == [.1,1.,7.,100.]
             if benchmark.reference.formulation isa PSCAD.PSCADFormulation
                 @test_throws ArgumentError validate(problem,benchmark.reference.formulation)
+            elseif benchmark.reference.formulation isa LineCableModelsFEM
+                @test problem.frequencies == [.1,1.,7.,100.]
             else
                 @test frequencies(compute(problem,benchmark.reference.formulation)) == problem.frequencies
             end

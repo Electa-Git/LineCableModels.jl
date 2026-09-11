@@ -55,9 +55,6 @@ struct BenchmarkDefinition{M, R <: BenchmarkCalculation,
         reference.id == candidate.id && throw(ArgumentError(
             "benchmark calculations must have distinct identifiers",
         ))
-        isfile(source_file) || throw(ArgumentError(
-            "benchmark source file is missing: $source_file",
-        ))
         comparison_settings = BenchmarkTableDefinition(; comparison_settings...).settings
         return new{M, R, C, typeof(comparison_settings), T}(
             id,

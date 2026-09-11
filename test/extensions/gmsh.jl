@@ -572,6 +572,8 @@ end
     caller_view = gmsh.view.add("caller-view")
     gmsh.option.set_number("General.Terminal", 1)
     gmsh.option.set_number("General.Verbosity", 4)
+    gmsh.option.set_number("Geometry.Tolerance", 2.0e-7)
+    gmsh.option.set_number("Geometry.ToleranceBoolean", 3.0e-7)
     gmsh.option.set_string("Solver.SocketName", "caller-owned-socket")
     caller_parameter = extension_module._onelab_name("caller_parameter")
     gmsh.onelab.set_string(caller_parameter, ["preserve-me"])
@@ -581,6 +583,8 @@ end
             session = extension_module._start_gmsh(0)
             try
                 @test !session.owned
+                @test gmsh.option.get_number("Geometry.Tolerance") == 1.0e-8
+                @test gmsh.option.get_number("Geometry.ToleranceBoolean") == 0.0
                 gmsh.view.add("temporary-view")
                 gmsh.model.add("fem-exact-curves")
                 registry = extension_module.FEMLoopRegistry(1.0e-3)
@@ -871,6 +875,8 @@ end
         @test gmsh.view.get_tags() == [caller_view]
         @test gmsh.option.get_number("General.Terminal") == 1
         @test gmsh.option.get_number("General.Verbosity") == 4
+        @test gmsh.option.get_number("Geometry.Tolerance") == 2.0e-7
+        @test gmsh.option.get_number("Geometry.ToleranceBoolean") == 3.0e-7
         @test gmsh.option.get_string("Solver.SocketName") ==
               "caller-owned-socket"
         @test gmsh.onelab.get_string(caller_parameter) == ["preserve-me"]

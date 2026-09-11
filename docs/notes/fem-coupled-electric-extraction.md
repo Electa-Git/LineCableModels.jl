@@ -245,3 +245,9 @@ identifies the missing equations in its predecessor; it does not implement a
 complete full-vector finite-Gamma FEM model. Such a model would also need
 consistent gauge, terminal-voltage definitions, interface conditions and
 outer-boundary treatment.
+
+A separate, normalized first-order implementation is now available for manual
+use as `quasi-full.pro`; see
+[the manual experiment and native validation](fem-quasi-full-manual.md).
+It restores the transverse vector equations and path-voltage extraction while
+leaving the registered backend unchanged.

@@ -248,7 +248,21 @@ function _retry_limit_error(failures, accepted::Int, attempts::Int, maximum::Int
     ))
 end
 
+function realize(rng::Random.AbstractRNG, point::Gridpoint{Engine.LineParametersProblem}, distribution)
+    return DataModel.realize_clearance(rng, point, distribution)
+end
+
 function _monte_carlo(point, formulation::MonteCarlo, options, seed, details_owner)
+    clearance = point isa Gridpoint{Engine.LineParametersProblem} ?
+                DataModel.prepare_clearance(point) : nothing
+    try
+        return _monte_carlo(point, formulation, options, seed, details_owner, clearance)
+    finally
+        DataModel.warn_clearance_summary(clearance)
+    end
+end
+
+function _monte_carlo(point, formulation::MonteCarlo, options, seed, details_owner, clearance)
     rng = Random.Xoshiro(seed)
     failures = NamedTuple[]
     attempts = 0
@@ -267,13 +281,11 @@ function _monte_carlo(point, formulation::MonteCarlo, options, seed, details_own
         value = nothing
         succeeded = false
         try
-            sample = realize_arguments(
-                rng,
-                point,
-                formulation.distribution
-            )
-            stage = :build
-            realization = realize(point, sample)
+            realization = DataModel.with_clearance(clearance) do
+                sample = realize_arguments(rng, point, formulation.distribution)
+                stage = :build
+                realize(point, sample)
+            end
             stage = :compute
             value = compute(realization, formulation.inner; options)
             succeeded = true
@@ -337,7 +349,8 @@ function _monte_carlo(point, formulation::MonteCarlo, options, seed, details_own
                        (
         trials = retained,
         failures,
-        failure_summary
+        failure_summary,
+        clearance = DataModel.clearance_summary(clearance)
     )
     return merge(
         _aggregate(sample_values, first_result, formulation),
@@ -443,7 +456,8 @@ function compute(problem::ParametricProblem, formulation::MonteCarlo)
                        (
         trials = getproperty.(retained, :trials),
         failures = getproperty.(retained, :failures),
-        failure_summary = getproperty.(retained, :failure_summary)
+        failure_summary = getproperty.(retained, :failure_summary),
+        clearance = getproperty.(retained, :clearance)
     )
     return MonteCarloResult(
         formulation,

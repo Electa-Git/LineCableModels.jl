@@ -10,8 +10,8 @@ function usage(io::IO = stdout)
 Usage: lcm gauntlet case import|list|show|validate|catalogue [options]
        lcm gauntlet run --definition FILE.jl --directory DIR [--configuration FILE.jl]
                        [--frequencies FILE.toml | --grid log|linear --count N --bounds LOW,HIGH]
-                       [--on-error continue|fail]
-       lcm gauntlet resume --directory DIR
+                       [--on-error continue|fail] [--resume] [--recover-solvers]
+       lcm gauntlet resume --directory DIR [--recover-solvers]
        lcm gauntlet status --directory DIR
        lcm gauntlet compare --definition FILE.toml --output DIR
        lcm gauntlet lock --directory DIR --output DIR [--benchmark ID[,ID]]
@@ -332,7 +332,8 @@ function main(args = ARGS)
         end
         return
     elseif args[1] == "resume"
-        outcomes=resume_campaign(required_option(args, "--directory"))
+        outcomes=resume_campaign(required_option(args, "--directory");
+            recover_solvers=flag(args,"--recover-solvers"))
         all(row -> row.state === :complete, outcomes) ||
             error("campaign contains failed calculations; inspect status")
         return
@@ -376,6 +377,7 @@ function main(args = ARGS)
         outcomes=Base.invokelatest(
             run_campaign, required_option(args, "--directory"), definitions;
             on_error = Symbol(option(args, "--on-error"; default = "continue")),
+            resume=flag(args,"--resume"),recover_solvers=flag(args,"--recover-solvers"),
             execution_sources = configuration === nothing ?
                                 [(path = source, module_name = :Gauntlet)] :
                                 [(path = abspath(configuration), module_name = :Main),

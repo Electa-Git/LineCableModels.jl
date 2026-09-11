@@ -51,17 +51,8 @@ Base.eltype(::Type{LineParametersProblem{T}}) where {T} = T
 function validate(problem::LineParametersProblem)
     validate(problem.system)
     validate(problem.earth_props)
-    for (design, pose) in zip(problem.system.designs, problem.system.positions)
-        iszero(pose.y) && throw(DomainError(
-            pose.y,
-            "a cable centre cannot lie on the air-earth interface"
-        ))
-        radius = DataModel.outer_radius(design)
-        abs(pose.y) >= radius || throw(DomainError(
-            pose.y,
-            "the cable cross-section crosses the air-earth interface"
-        ))
-    end
+    DataModel.clearance_geometry(problem.system.designs, problem.system.positions;
+        required = problem.system.clearances, interface = true, adjust = false)
     phases = unique(problem.system.connection_order)
     positive = filter(>(0), phases)
     isempty(positive) && throw(ArgumentError(
@@ -126,7 +117,7 @@ function LineParametersProblem(
         eltype(system), typeof(float(temperature)), eltype(earth_props),
         typeof(float(first(frequencies))), propagation_type
     )
-    converted_system = convert(LineCableSystem{T}, system)
+    converted_system = DataModel.interface_clearance(convert(LineCableSystem{T}, system))
     converted_earth = convert(EarthModel{T}, earth_props)
     propagation = Γ === nothing ? nothing :
                   Complex{T}[convert(Complex{T}, value) for value in Γ]

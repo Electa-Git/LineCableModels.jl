@@ -17,7 +17,7 @@ import Random
 import Statistics
 using DocStringExtensions: TYPEDEF, TYPEDFIELDS, TYPEDSIGNATURES
 import ..LineCableModels: basis, frequencies, R, L, C
-import ..LineCableModels: points, realize, realize_arguments
+import ..LineCableModels: points, realize, realize_arguments, Gridpoint
 import ..DataModel
 import ..Engine
 import ..Grammar: compute, computation_options, computation_details, details,

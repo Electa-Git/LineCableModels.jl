@@ -352,36 +352,17 @@ end
 Base.length(space::Gridspace{<:Any, <:Any, <:Any, Val{:zip}, <:Any}) = _zip_length(space)
 Base.size(space::Gridspace) = (length(space),)
 
-"Draw and realise one product point by sampling each source once."
+"Draw one unresolved point, then realize its arguments through the owned construction path."
 function Base.rand(
         rng::Random.AbstractRNG,
-        space::Gridspace{<:Any, <:Any, <:Any, Val{:product}, Result};
+        space::Gridspace{<:Any, <:Any, <:Any, <:Any, Result};
         distribution = :normal
 ) where {Result}
-    isempty(space) && throw(ArgumentError("cannot sample an empty Gridspace"))
-    arguments = map(
-        source -> rand(rng, source; distribution),
-        space.grids
-    )
-    value = space.build(arguments...)
-    Result === _UnknownGridspaceEltype && return value
-    return value::Result
-end
-
-"Draw one zipped point and realise its aligned sources without collecting."
-function Base.rand(
-        rng::Random.AbstractRNG,
-        space::Gridspace{<:Any, <:Any, <:Any, Val{:zip}, Result};
-        distribution = :normal
-) where {Result}
-    isempty(space) && throw(ArgumentError("cannot sample an empty Gridspace"))
+    iszero(length(space)) && throw(ArgumentError("cannot sample an empty Gridspace"))
     offset = rand(rng, 0:(length(space) - 1))
-    arguments = map(space.grids) do source
-        source_offset = length(source) == 1 ? 0 : offset
-        selected = first(Iterators.drop(points(source), source_offset))
-        realize(rng, selected, distribution)
-    end
-    value = space.build(arguments...)
+    point = _indexed_sources(space.grids) === Val(true) ?
+            _source_point(space, offset + 1) : first(Iterators.drop(points(space), offset))
+    value = realize(rng, point, distribution)
     Result === _UnknownGridspaceEltype && return value
     return value::Result
 end

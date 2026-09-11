@@ -50,8 +50,10 @@ using DocStringExtensions: IMPORTS
 using DocStringExtensions: TYPEDEF, TYPEDFIELDS, TYPEDSIGNATURES, FUNCTIONNAME
 import ..Units
 import ..TextDisplay
-import ..LineCableModels: add!, build, homogenize, validate, nominal
+import ..LineCableModels: add!, build, homogenize, validate, nominal, uncertainty
 import ..LineCableModels: parameterize
+import ..LineCableModels: Gridpoint, materialize, realize, realize_arguments
+import Random
 using ..Materials: AbstractMaterial, Material, RadialDielectric
 import GeometryBasics
 using GeometryBasics: Point2f
@@ -88,6 +90,7 @@ include("flatten.jl")
 # Library
 include("cableslibrary/datasheetinfo.jl")
 include("cableslibrary/cableslibrary.jl")
+include("linecablesystem/clearance.jl")
 include("linecablesystem/linecablesystem.jl")
 
 # Geometry and language protocols
@@ -101,5 +104,9 @@ include("textdisplay.jl")
 public preview_shapes, preview_materials
 public PreviewShape, material_property_ranges
 public flatten
+
+# Construction interfaces shared with Engine and UQ; not modelling options.
+public clearance_geometry, interface_clearance, prepare_clearance, with_clearance
+public clearance_summary, warn_clearance_summary, realize_clearance
 
 end # module DataModel

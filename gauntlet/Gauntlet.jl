@@ -17,6 +17,7 @@ import LineCableModels.ImportExport
 import LineCableModels.ReportBuilder: BenchmarkTableDefinition, ReportArtifact, select, report
 import LineCableModels.Units
 import Pkg
+import Serialization
 import Pkg.PlatformEngines: unpack
 using BenchmarkTools: BenchmarkTools
 using LinearAlgebra: BLAS
@@ -51,6 +52,7 @@ include("artifacts.jl")
 include("cases.jl")
 include("records.jl")
 include("uq_benchmarks.jl")
+include("catalogue_benchmarks.jl")
 include("performance.jl")
 include("benchmarks.jl")
 include("campaigns.jl")

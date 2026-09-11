@@ -47,6 +47,8 @@ struct FEMGmshSession
     initial_views::Set{Int}
     terminal_option::Float64
     verbosity_option::Float64
+    geometry_tolerance::Float64
+    boolean_tolerance::Float64
     onelab::FEMOnelabSnapshot
 end
 
@@ -94,9 +96,13 @@ function _start_gmsh(verbosity::Int)
     initial_views = Set(Int.(gmsh.view.get_tags()))
     terminal_option = gmsh.option.get_number("General.Terminal")
     verbosity_option = gmsh.option.get_number("General.Verbosity")
+    geometry_tolerance = gmsh.option.get_number("Geometry.Tolerance")
+    boolean_tolerance = gmsh.option.get_number("Geometry.ToleranceBoolean")
     onelab = _snapshot_onelab()
     gmsh.option.set_number("General.Terminal", verbosity > 0 ? 1 : 0)
     gmsh.option.set_number("General.Verbosity", verbosity)
+    gmsh.option.set_number("Geometry.Tolerance", _GMSH_GEOMETRY_TOLERANCE)
+    gmsh.option.set_number("Geometry.ToleranceBoolean", _GMSH_BOOLEAN_TOLERANCE)
     return FEMGmshSession(
         owned,
         previous_model,
@@ -104,6 +110,8 @@ function _start_gmsh(verbosity::Int)
         initial_views,
         terminal_option,
         verbosity_option,
+        geometry_tolerance,
+        boolean_tolerance,
         onelab
     )
 end
@@ -132,6 +140,8 @@ function _finish_gmsh(session::FEMGmshSession)
     end
     gmsh.option.set_number("General.Terminal", session.terminal_option)
     gmsh.option.set_number("General.Verbosity", session.verbosity_option)
+    gmsh.option.set_number("Geometry.Tolerance", session.geometry_tolerance)
+    gmsh.option.set_number("Geometry.ToleranceBoolean", session.boolean_tolerance)
     _restore_onelab(session.onelab)
     return nothing
 end
