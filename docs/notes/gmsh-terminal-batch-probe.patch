@@ -1,0 +1,71 @@
+--- a/getdp/quasi-tem.pro
++++ b/getdp/quasi-tem.pro
+@@ -255,10 +255,21 @@
+ Return
+
+ Macro FEMSolveBasis
++Evaluate[$ProbeT0 = GetWallClockTime[]];
+ Call FEMSetBasisCurrent;
+ UpdateConstraint[Sys_FEM];
++Test[$ProbeFirst]{
+ Generate[Sys_FEM];
+ Solve[Sys_FEM];
++Evaluate[$ProbeFirst = 0];
++}{
++GenerateRHSGroup[Sys_FEM, Terminals];
++SolveAgain[Sys_FEM];
++}
++Evaluate[$ProbeT1 = GetWallClockTime[]];
++GetResidual[Sys_FEM, $ProbeResidual];
++GetNormRightHandSide[Sys_FEM, $ProbeRHSNorm];
++Print[{$FEMBasisTerminal, $ProbeT1-$ProbeT0, $ProbeResidual, $ProbeRHSNorm}, Format "PROBE basis=%g solve_wall=%.9g residual=%.9g rhs_norm=%.9g"];
+ Return
+
+ Resolution {
+@@ -278,9 +289,12 @@
+       // GetDP time is an output-step identity, not the physical frequency.
+       // The scan index avoids time-range failures; SetFrequency owns physics.
+       SetTime[FrequencyIndex];
+-      Evaluate[$FEMBasisTerminal = BasisTerminal];
+-      Call FEMSolveBasis;
+-      PostOperation[FEMAppendRaw];
++      Evaluate[$ProbeFirst = 1];
++For probeBasis In {1:NumTerminals}
++Evaluate[$FEMBasisTerminal = probeBasis];
++Call FEMSolveBasis;
++PostOperation[FEMAppendRaw];
++EndFor
+       If(PlotFieldMaps)
+         PostOperation[FEMWriteMaps];
+       EndIf
+@@ -391,7 +405,7 @@
+         Print[{$FEMFrequencyIndex, $FEMFrequencyHz, response_terminal,
+             $FEMBasisTerminal, $FEMRawRe, $FEMRawIm},
+           Format "%g	%.17g	%g	%g	%.17g	%.17g",
+-          File RawZPath, AppendToExistingFile 1];
++          File RawZPath, AppendToExistingFile 2];
+
+         Print[ReP, OnRegion Terminal~{response_terminal}, Format Table,
+           File "", StoreInVariable $FEMRawRe];
+@@ -400,7 +414,7 @@
+         Print[{$FEMFrequencyIndex, $FEMFrequencyHz, response_terminal,
+             $FEMBasisTerminal, $FEMRawRe, $FEMRawIm},
+           Format "%g	%.17g	%g	%g	%.17g	%.17g",
+-          File RawPPath, AppendToExistingFile 1];
++          File RawPPath, AppendToExistingFile 2];
+       EndFor
+     }
+   }
+--- a/getdp/model.pro
++++ b/getdp/model.pro
+@@ -1,7 +1,9 @@
+ // LineCableModelsFEM immutable one-frequency/one-basis GetDP entry point.
+ // Julia publishes the immutable run-local data path in the shared ONELAB
+ // database before launching this client.
+-ModelDataPath = GetString["LineCableModels/FEM/model_data_path"];
++If(!Exists(ModelDataPath))
++  ModelDataPath = GetString["LineCableModels/FEM/model_data_path"];
++EndIf
+ Include ModelDataPath;
+ eps0 = 8.8541878128e-12;
+ mu0 = 1.2566370614359173e-6;

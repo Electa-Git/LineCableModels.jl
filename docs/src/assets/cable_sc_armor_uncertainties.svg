@@ -1,0 +1,1329 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!-- Gerado pelo Microsoft Visio, SVG Export cable_sc_armor_uncertainties.svg Page-2 -->
+
+<svg
+   width="7.0036249in"
+   height="4.1925268in"
+   viewBox="0 0 504.26111 301.86236"
+   xml:space="preserve"
+   color-interpolation-filters="sRGB"
+   class="st19"
+   version="1.1"
+   id="svg498"
+   sodipodi:docname="cable_sc_armor_uncertainties.svg"
+   inkscape:version="1.1.1 (3bf5ae0d25, 2021-09-20)"
+   xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
+   xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
+   xmlns:xlink="http://www.w3.org/1999/xlink"
+   xmlns="http://www.w3.org/2000/svg"
+   xmlns:svg="http://www.w3.org/2000/svg"
+   xmlns:v="http://schemas.microsoft.com/visio/2003/SVGExtensions/"><sodipodi:namedview
+   id="namedview500"
+   pagecolor="#ffffff"
+   bordercolor="#000000"
+   borderopacity="0.25"
+   inkscape:showpageshadow="2"
+   inkscape:pageopacity="0.0"
+   inkscape:pagecheckerboard="0"
+   inkscape:deskcolor="#d1d1d1"
+   inkscape:document-units="in"
+   showgrid="false"
+   inkscape:zoom="1.8721487"
+   inkscape:cx="140.21322"
+   inkscape:cy="75.848675"
+   inkscape:window-width="1920"
+   inkscape:window-height="1147"
+   inkscape:window-x="0"
+   inkscape:window-y="32"
+   inkscape:window-maximized="1"
+   inkscape:current-layer="svg498"
+   inkscape:pageshadow="2" />
+	<v:documentProperties
+   v:langID="1046"
+   v:metric="true"
+   v:viewMarkup="false">
+		<v:userDefs>
+			<v:ud
+   v:nameU="msvNoAutoConnect"
+   v:val="VT0(1):26" />
+		</v:userDefs>
+	</v:documentProperties>
+
+	<style
+   type="text/css"
+   id="style2">
+	<![CDATA[
+		.st1 {fill:#d8d8d8;stroke:#000000;stroke-linecap:round;stroke-linejoin:round;stroke-width:1.5}
+		.st2 {fill:#bfbfbf;stroke:#000000;stroke-linecap:round;stroke-linejoin:round;stroke-width:1.5}
+		.st3 {fill:#7f7f7f;stroke:#000000;stroke-linecap:round;stroke-linejoin:round;stroke-width:1.5}
+		.st4 {fill:none;stroke:#000000;stroke-linecap:round;stroke-linejoin:round;stroke-width:1.5}
+		.st5 {stroke:#000000;stroke-linecap:round;stroke-linejoin:round;stroke-width:1}
+		.st6 {stroke:#ff0000;stroke-linecap:round;stroke-linejoin:round;stroke-width:1}
+		.st7 {marker-end:url(#mrkr9-41);marker-start:url(#mrkr9-39);stroke:#ff0000;stroke-linecap:round;stroke-linejoin:round;stroke-width:1}
+		.st8 {fill:#ff0000;fill-opacity:1;stroke:#ff0000;stroke-opacity:1;stroke-width:0.28409090909091}
+		.st9 {fill:none;stroke:none;stroke-linecap:round;stroke-linejoin:round;stroke-width:0.75}
+		.st10 {fill:#000000;font-family:Latin Modern Math;font-size:1.00001em}
+		.st11 {baseline-shift:-33.349%;font-size:0.666979em}
+		.st12 {font-size:1em}
+		.st13 {fill:#000000;font-family:Times New Roman;font-size:1.00001em}
+		.st14 {font-family:Latin Modern Math;font-size:1em}
+		.st15 {baseline-shift:-33.349%;font-family:Latin Modern Math;font-size:0.666979em}
+		.st16 {marker-end:url(#mrkr4-151);stroke:#ff0000;stroke-linecap:round;stroke-linejoin:round;stroke-width:0.75}
+		.st17 {fill:#ff0000;fill-opacity:1;stroke:#ff0000;stroke-opacity:1;stroke-width:0.22935779816514}
+		.st18 {fill:#ffffff;stroke:#000000;stroke-linecap:round;stroke-linejoin:round;stroke-width:0.75}
+		.st19 {fill:none;fill-rule:evenodd;font-size:12px;overflow:visible;stroke-linecap:square;stroke-miterlimit:3}
+	]]>
+	</style>
+
+	<defs
+   id="Markers">
+		<g
+   id="lend9">
+			<path
+   d="M 1,-1 -1,1"
+   style="fill:none;stroke-linecap:round;stroke-linejoin:round"
+   id="path4" />
+		</g>
+		<marker
+   id="mrkr9-39"
+   class="st8"
+   v:arrowType="9"
+   v:arrowSize="2"
+   orient="auto"
+   markerUnits="strokeWidth"
+   overflow="visible">
+			<use
+   xlink:href="#lend9"
+   transform="scale(3.52)"
+   id="use7"
+   x="0"
+   y="0"
+   width="100%"
+   height="100%" />
+		</marker>
+		<marker
+   id="mrkr9-41"
+   class="st8"
+   v:arrowType="9"
+   v:arrowSize="2"
+   orient="auto"
+   markerUnits="strokeWidth"
+   overflow="visible">
+			<use
+   xlink:href="#lend9"
+   transform="scale(-3.52)"
+   id="use10"
+   x="0"
+   y="0"
+   width="100%"
+   height="100%" />
+		</marker>
+		<g
+   id="lend4">
+			<path
+   d="M 2,1 0,0 2,-1 v 2"
+   style="stroke:none"
+   id="path13" />
+		</g>
+		<marker
+   id="mrkr4-151"
+   class="st17"
+   v:arrowType="4"
+   v:arrowSize="2"
+   v:setback="8.72"
+   refX="-8.7200003"
+   orient="auto"
+   markerUnits="strokeWidth"
+   overflow="visible">
+			<use
+   xlink:href="#lend4"
+   transform="scale(-4.36)"
+   id="use16"
+   x="0"
+   y="0"
+   width="100%"
+   height="100%" />
+		</marker>
+	
+		
+		
+		
+		
+		
+		
+		
+		
+		
+		
+		
+		
+		
+		
+		
+		
+		
+		
+		
+		
+		
+		
+		
+		
+		
+		
+		
+		
+		
+		
+		
+		
+		
+		
+		
+		
+		
+		
+		
+		
+		
+		
+	</defs>
+	<g
+   id="shape4-1"
+   v:mID="4"
+   v:groupContext="shape"
+   transform="translate(186.91882,-702.43452)">
+			<title
+   id="title22">Rosca</title>
+			<v:userDefs>
+				<v:ud
+   v:nameU="visVersion"
+   v:prompt=""
+   v:val="VT0(15):26" />
+			</v:userDefs>
+			<path
+   d="m 65.2,809.29 a 32.6,32.6 -180 1 0 -65.2,0 32.6,32.6 -180 1 0 65.2,0 z m -44.46,0 a 11.855,11.855 0 1 0 23.71,0 11.855,11.855 0 1 0 -23.71,0 z"
+   class="st1"
+   id="path24" />
+		</g><g
+   id="shape5-3"
+   v:mID="5"
+   v:groupContext="shape"
+   transform="translate(154.32082,-669.83552)">
+			<title
+   id="title27">Rosca.5</title>
+			<v:userDefs>
+				<v:ud
+   v:nameU="visVersion"
+   v:prompt=""
+   v:val="VT0(15):26" />
+			</v:userDefs>
+			<path
+   d="m 130.39,776.69 a 65.1969,65.1969 -180 1 0 -130.39,0 65.1969,65.1969 -180 1 0 130.39,0 z m -117.94,0 a 52.7502,52.7502 0 1 0 105.5,0 52.7502,52.7502 0 1 0 -105.5,0 z"
+   class="st2"
+   id="path29" />
+		</g><g
+   id="shape6-5"
+   v:mID="6"
+   v:groupContext="shape"
+   transform="translate(130.61282,-646.12752)">
+			<title
+   id="title32">Rosca.6</title>
+			<v:userDefs>
+				<v:ud
+   v:nameU="visVersion"
+   v:prompt=""
+   v:val="VT0(15):26" />
+			</v:userDefs>
+			<path
+   d="m 177.81,752.98 a 88.905,88.905 -180 1 0 -177.81,0 88.905,88.905 -180 1 0 177.81,0 z m -165.96,0 a 77.055,77.055 0 1 0 154.11,0 77.055,77.055 0 1 0 -154.11,0 z"
+   class="st3"
+   id="path34" />
+		</g><g
+   id="shape7-7"
+   v:mID="7"
+   v:groupContext="shape"
+   transform="translate(219.51682,-735.03252)">
+			<title
+   id="title37">Círculo de Arrasto Central</title>
+			<v:userDefs>
+				<v:ud
+   v:nameU="visVersion"
+   v:val="VT0(15):26" />
+			</v:userDefs>
+			<path
+   d="m -102.86,841.89 a 102.861,102.861 0 0 1 205.72,0 102.861,102.861 0 1 1 -205.72,0 z"
+   class="st4"
+   id="path39" />
+		</g><g
+   id="shape8-9"
+   v:mID="8"
+   v:groupContext="shape"
+   transform="translate(219.51682,-735.03252)">
+			<title
+   id="title42">Planilha.8</title>
+			<path
+   d="M 0,841.89 H 237.08"
+   class="st5"
+   id="path44" />
+		</g><g
+   id="shape9-12"
+   v:mID="9"
+   v:groupContext="shape"
+   transform="translate(219.51682,-767.63052)">
+			<title
+   id="title47">Planilha.9</title>
+			<path
+   d="M 0,841.89 H 132.67"
+   class="st6"
+   id="path49" />
+		</g><g
+   id="shape10-15"
+   v:mID="10"
+   v:groupContext="shape"
+   transform="translate(220.08982,-746.87252)">
+			<title
+   id="title52">Planilha.10</title>
+			<path
+   d="M 0,841.89 H 111.88"
+   class="st6"
+   id="path54" />
+		</g><g
+   id="shape11-18"
+   v:mID="11"
+   v:groupContext="shape"
+   transform="translate(219.51682,-787.78252)">
+			<title
+   id="title57">Planilha.11</title>
+			<path
+   d="M 0,841.89 H 154.02"
+   class="st6"
+   id="path59" />
+		</g><g
+   id="shape12-21"
+   v:mID="12"
+   v:groupContext="shape"
+   transform="translate(219.51682,-800.22952)">
+			<title
+   id="title62">Planilha.12</title>
+			<path
+   d="M 0,841.89 H 174.43"
+   class="st6"
+   id="path64" />
+		</g><g
+   id="shape13-24"
+   v:mID="13"
+   v:groupContext="shape"
+   transform="translate(218.80982,-812.08052)">
+			<title
+   id="title67">Planilha.13</title>
+			<path
+   d="M 0,841.89 H 194.8"
+   class="st6"
+   id="path69" />
+		</g><g
+   id="shape14-27"
+   v:mID="14"
+   v:groupContext="shape"
+   transform="translate(219.51682,-823.93752)">
+			<title
+   id="title72">Planilha.14</title>
+			<path
+   d="M 0,841.89 H 214.31"
+   class="st6"
+   id="path74" />
+		</g><g
+   id="shape15-30"
+   v:mID="15"
+   v:groupContext="shape"
+   transform="translate(219.51682,-837.89352)">
+			<title
+   id="title77">Planilha.15</title>
+			<path
+   d="M 0,841.89 H 234.34"
+   class="st6"
+   id="path79" />
+		</g><g
+   id="shape16-33"
+   v:mID="16"
+   v:groupContext="shape"
+   transform="rotate(-90,-201.45134,308.30884)">
+			<title
+   id="title82">Planilha.16</title>
+			<path
+   d="M 0,841.89 H 11.84"
+   class="st7"
+   id="path84" />
+		</g><g
+   id="shape17-42"
+   v:mID="17"
+   v:groupContext="shape"
+   transform="rotate(-90,-193.36884,302.69433)">
+			<title
+   id="title87">Planilha.17</title>
+			<desc
+   id="desc89">𝑟1±δ</desc>
+			<v:textBlock
+   v:margins="rect(4,4,4,4)"
+   v:tabSpace="42.5197" />
+			<v:textRect
+   cx="17.0079"
+   cy="835.512"
+   width="34.02"
+   height="12.7559" />
+			<rect
+   x="0"
+   y="829.13397"
+   width="34.015701"
+   height="12.7559"
+   class="st9"
+   id="rect91" />
+			<text
+   x="4.79"
+   y="839.10999"
+   class="st10"
+   v:langID="1046"
+   id="text97"><v:paragraph
+     v:horizAlign="1" /><v:tabList /><tspan
+     style="font-size:8.00001px"
+     id="tspan10102">𝑟</tspan><tspan
+     dy="-0.289em"
+     class="st11"
+     v:baseFontSize="12"
+     id="tspan58">1</tspan><tspan
+     dy="0.193em"
+     class="st12"
+     id="tspan60"
+     style="font-size:8.00001px">±δ</tspan><tspan
+     dy="-0.289em"
+     class="st11"
+     v:baseFontSize="12"
+     id="tspan62">r1</tspan></text>		</g><g
+   id="shape19-47"
+   v:mID="19"
+   v:groupContext="shape"
+   transform="rotate(-90,-190.84784,297.98033)">
+			<title
+   id="title100">Planilha.19</title>
+			<path
+   d="M 0,841.89 H 32.38"
+   class="st7"
+   id="path102" />
+		</g><g
+   id="shape24-54"
+   v:mID="24"
+   v:groupContext="shape"
+   transform="rotate(-90,-179.94084,287.97533)">
+			<title
+   id="title105">Planilha.24</title>
+			<path
+   d="M 0,841.89 H 53.78"
+   class="st7"
+   id="path107" />
+		</g><g
+   id="shape26-61"
+   v:mID="26"
+   v:groupContext="shape"
+   transform="rotate(-90,-169.73634,277.77084)">
+			<title
+   id="title110">Planilha.26</title>
+			<path
+   d="M 0,841.89 H 66.23"
+   class="st7"
+   id="path112" />
+		</g><g
+   id="shape28-68"
+   v:mID="28"
+   v:groupContext="shape"
+   transform="rotate(-90,-159.93084,267.96533)">
+			<title
+   id="title115">Planilha.28</title>
+			<path
+   d="M 0,841.89 H 78.08"
+   class="st7"
+   id="path117" />
+		</g><g
+   id="shape30-75"
+   v:mID="30"
+   v:groupContext="shape"
+   transform="rotate(-90,-149.80984,257.84433)">
+			<title
+   id="title120">Planilha.30</title>
+			<path
+   d="M 0,841.89 H 90.08"
+   class="st7"
+   id="path122" />
+		</g><g
+   id="shape33-82"
+   v:mID="33"
+   v:groupContext="shape"
+   transform="rotate(-90.4583,-136.77995,249.40314)">
+			<title
+   id="title125">Planilha.33</title>
+			<path
+   d="M 0,841.89 H 103.9"
+   class="st7"
+   id="path127" />
+		</g><g
+   id="shape35-89"
+   v:mID="35"
+   v:groupContext="shape"
+   transform="translate(342.99182,-687.42952)">
+			<title
+   id="title130">Planilha.35</title>
+			<desc
+   id="desc132">Core (𝜌1±δ, 𝜇1±δ, 𝜀1±δ)</desc>
+			<v:textBlock
+   v:margins="rect(4,4,4,4)"
+   v:tabSpace="42.5197" />
+			<v:textRect
+   cx="72.2835"
+   cy="830.478"
+   width="144.57"
+   height="22.8239" />
+			<rect
+   x="0"
+   y="819.06598"
+   width="144.567"
+   height="22.8239"
+   class="st9"
+   id="rect134" />
+			<text
+   x="4"
+   y="834.22998"
+   class="st13"
+   v:langID="1046"
+   id="text168"><v:paragraph /><v:tabList />Core <tspan
+   class="st14"
+   id="tspan87">(</tspan><tspan
+   class="st14"
+   id="tspan89">𝜌</tspan><tspan
+   dy="-0.289em"
+   class="st15"
+   v:baseFontSize="12"
+   id="tspan91">1</tspan><tspan
+   dy="0.193em"
+   class="st14"
+   id="tspan93">±</tspan><tspan
+   class="st14"
+   id="tspan95">δ</tspan><tspan
+   dy="-0.289em"
+   class="st15"
+   v:baseFontSize="12"
+   id="tspan97">ρ1</tspan><tspan
+   dy="0.193em"
+   class="st14"
+   id="tspan99">, </tspan><tspan
+   class="st14"
+   id="tspan101">𝜇</tspan><tspan
+   dy="-0.289em"
+   class="st15"
+   v:baseFontSize="12"
+   id="tspan103">1</tspan><tspan
+   dy="0.193em"
+   class="st14"
+   id="tspan105">±</tspan><tspan
+   class="st14"
+   id="tspan107">δ</tspan><tspan
+   dy="-0.289em"
+   class="st15"
+   v:baseFontSize="12"
+   id="tspan109">μ1</tspan><tspan
+   dy="0.193em"
+   class="st14"
+   id="tspan111">, </tspan><tspan
+   class="st14"
+   id="tspan113">𝜀</tspan><tspan
+   dy="-0.289em"
+   class="st15"
+   v:baseFontSize="12"
+   id="tspan115">1</tspan><tspan
+   dy="0.193em"
+   class="st14"
+   id="tspan117">±</tspan><tspan
+   class="st14"
+   id="tspan119">δ</tspan><tspan
+   dy="-0.289em"
+   class="st15"
+   v:baseFontSize="12"
+   id="tspan121">ε1</tspan><tspan
+   dy="0.193em"
+   class="st14"
+   id="tspan123">)</tspan></text>		</g><g
+   id="shape36-108"
+   v:mID="36"
+   v:groupContext="shape"
+   transform="translate(341.29082,-639.04152)">
+			<title
+   id="title171">Planilha.36</title>
+			<desc
+   id="desc173">Sheath (𝜌2±δ, 𝜇2±δ, 𝜀2±δ)</desc>
+			<v:textBlock
+   v:margins="rect(4,4,4,4)"
+   v:tabSpace="42.5197" />
+			<v:textRect
+   cx="72.2835"
+   cy="830.478"
+   width="144.57"
+   height="22.8239" />
+			<rect
+   x="0"
+   y="819.06598"
+   width="144.567"
+   height="22.8239"
+   class="st9"
+   id="rect175" />
+			<text
+   x="4"
+   y="834.22998"
+   class="st13"
+   v:langID="1046"
+   id="text209"><v:paragraph /><v:tabList />Sheath <tspan
+   class="st14"
+   id="tspan130">(</tspan><tspan
+   class="st14"
+   id="tspan132">𝜌</tspan><tspan
+   dy="-0.289em"
+   class="st15"
+   v:baseFontSize="12"
+   id="tspan134">2</tspan><tspan
+   dy="0.193em"
+   class="st14"
+   id="tspan136">±</tspan><tspan
+   class="st14"
+   id="tspan138">δ</tspan><tspan
+   dy="-0.289em"
+   class="st15"
+   v:baseFontSize="12"
+   id="tspan140">ρ2</tspan><tspan
+   dy="0.193em"
+   class="st14"
+   id="tspan142">, </tspan><tspan
+   class="st14"
+   id="tspan144">𝜇</tspan><tspan
+   dy="-0.289em"
+   class="st15"
+   v:baseFontSize="12"
+   id="tspan146">2</tspan><tspan
+   dy="0.193em"
+   class="st14"
+   id="tspan148">±</tspan><tspan
+   class="st14"
+   id="tspan150">δ</tspan><tspan
+   dy="-0.289em"
+   class="st15"
+   v:baseFontSize="12"
+   id="tspan152">μ2</tspan><tspan
+   dy="0.193em"
+   class="st14"
+   id="tspan154">, </tspan><tspan
+   class="st14"
+   id="tspan156">𝜀</tspan><tspan
+   dy="-0.289em"
+   class="st15"
+   v:baseFontSize="12"
+   id="tspan158">2</tspan><tspan
+   dy="0.193em"
+   class="st14"
+   id="tspan160">±</tspan><tspan
+   class="st14"
+   id="tspan162">δ</tspan><tspan
+   dy="-0.289em"
+   class="st15"
+   v:baseFontSize="12"
+   id="tspan164">ε2</tspan><tspan
+   dy="0.193em"
+   class="st14"
+   id="tspan166">)</tspan></text>		</g><g
+   id="shape37-127"
+   v:mID="37"
+   v:groupContext="shape"
+   transform="translate(341.29082,-594.95752)">
+			<title
+   id="title212">Planilha.37</title>
+			<desc
+   id="desc214">Armor (𝜌3±δ, 𝜇3±δ, 𝜀3±δ)</desc>
+			<v:textBlock
+   v:margins="rect(4,4,4,4)"
+   v:tabSpace="42.5197" />
+			<v:textRect
+   cx="72.2835"
+   cy="830.478"
+   width="144.57"
+   height="22.8239" />
+			<rect
+   x="0"
+   y="819.06598"
+   width="144.567"
+   height="22.8239"
+   class="st9"
+   id="rect216" />
+			<text
+   x="4"
+   y="834.22998"
+   class="st13"
+   v:langID="1046"
+   id="text250"><v:paragraph /><v:tabList />Armor <tspan
+   class="st14"
+   id="tspan173">(</tspan><tspan
+   class="st14"
+   id="tspan175">𝜌</tspan><tspan
+   dy="-0.289em"
+   class="st15"
+   v:baseFontSize="12"
+   id="tspan177">3</tspan><tspan
+   dy="0.193em"
+   class="st14"
+   id="tspan179">±</tspan><tspan
+   class="st14"
+   id="tspan181">δ</tspan><tspan
+   dy="-0.289em"
+   class="st15"
+   v:baseFontSize="12"
+   id="tspan183">ρ3</tspan><tspan
+   dy="0.193em"
+   class="st14"
+   id="tspan185">, </tspan><tspan
+   class="st14"
+   id="tspan187">𝜇</tspan><tspan
+   dy="-0.289em"
+   class="st15"
+   v:baseFontSize="12"
+   id="tspan189">3</tspan><tspan
+   dy="0.193em"
+   class="st14"
+   id="tspan191">±</tspan><tspan
+   class="st14"
+   id="tspan193">δ</tspan><tspan
+   dy="-0.289em"
+   class="st15"
+   v:baseFontSize="12"
+   id="tspan195">μ3</tspan><tspan
+   dy="0.193em"
+   class="st14"
+   id="tspan197">, </tspan><tspan
+   class="st14"
+   id="tspan199">𝜀</tspan><tspan
+   dy="-0.289em"
+   class="st15"
+   v:baseFontSize="12"
+   id="tspan201">3</tspan><tspan
+   dy="0.193em"
+   class="st14"
+   id="tspan203">±</tspan><tspan
+   class="st14"
+   id="tspan205">δ</tspan><tspan
+   dy="-0.289em"
+   class="st15"
+   v:baseFontSize="12"
+   id="tspan207">ε3</tspan><tspan
+   dy="0.193em"
+   class="st14"
+   id="tspan209">)</tspan></text>		</g><g
+   id="shape38-146"
+   v:mID="38"
+   v:groupContext="shape"
+   transform="rotate(-170.702,142.75296,474.51775)">
+			<title
+   id="title253">Planilha.38</title>
+			<path
+   d="M 0,841.89 H 100.09"
+   class="st16"
+   id="path255" />
+		</g><g
+   id="shape39-152"
+   v:mID="39"
+   v:groupContext="shape"
+   transform="rotate(-160.551,116.42773,482.64468)">
+			<title
+   id="title258">Planilha.39</title>
+			<path
+   d="M 0,841.89 H 85.22"
+   class="st16"
+   id="path260" />
+		</g><g
+   id="shape40-157"
+   v:mID="40"
+   v:groupContext="shape"
+   transform="rotate(-150.897,93.239258,490.06925)">
+			<title
+   id="title263">Planilha.40</title>
+			<path
+   d="M 0,841.89 H 89.62"
+   class="st16"
+   id="path265" />
+		</g><g
+   id="shape41-162"
+   v:mID="41"
+   v:groupContext="shape"
+   transform="translate(2.8344217,-642.07452)">
+			<title
+   id="title268">Planilha.41</title>
+			<desc
+   id="desc270">Insulation 1 (𝜀i1±δ)</desc>
+			<v:textBlock
+   v:margins="rect(4,4,4,4)"
+   v:tabSpace="42.5197" />
+			<v:textRect
+   cx="60.6872"
+   cy="830.478"
+   width="121.38"
+   height="22.8239" />
+			<rect
+   x="0"
+   y="819.06598"
+   width="121.374"
+   height="22.8239"
+   class="st9"
+   id="rect272" />
+			<text
+   x="4"
+   y="834.22998"
+   class="st13"
+   v:langID="1046"
+   id="text288"><v:paragraph /><v:tabList />Insulation 1 <tspan
+   class="st14"
+   id="tspan225">(</tspan><tspan
+   class="st14"
+   id="tspan227">𝜀</tspan><tspan
+   dy="-0.289em"
+   class="st15"
+   v:baseFontSize="12"
+   id="tspan229">i1</tspan><tspan
+   dy="0.193em"
+   class="st14"
+   id="tspan231">±</tspan><tspan
+   class="st14"
+   id="tspan233">δ</tspan><tspan
+   dy="-0.289em"
+   class="st15"
+   v:baseFontSize="12"
+   id="tspan235">εi1</tspan><tspan
+   dy="0.193em"
+   class="st14"
+   id="tspan237">)</tspan></text>		</g><g
+   id="shape42-172"
+   v:mID="42"
+   v:groupContext="shape"
+   transform="rotate(-25.3167,-1435.6704,305.87445)">
+			<title
+   id="title291">Planilha.42</title>
+			<path
+   d="M 0,841.89 H 98.2"
+   class="st16"
+   id="path293" />
+		</g><g
+   id="shape43-177"
+   v:mID="43"
+   v:groupContext="shape"
+   transform="translate(55.275322,-591.05152)">
+			<title
+   id="title296">Planilha.43</title>
+			<desc
+   id="desc298">Insulation 2 (𝜀i2±δ)</desc>
+			<v:textBlock
+   v:margins="rect(4,4,4,4)"
+   v:tabSpace="42.5197" />
+			<v:textRect
+   cx="55.4173"
+   cy="830.478"
+   width="110.84"
+   height="22.8239" />
+			<rect
+   x="0"
+   y="819.06598"
+   width="110.835"
+   height="22.8239"
+   class="st9"
+   id="rect300" />
+			<text
+   x="4"
+   y="834.22998"
+   class="st13"
+   v:langID="1046"
+   id="text316"><v:paragraph /><v:tabList />Insulation 2 <tspan
+   class="st14"
+   id="tspan247">(</tspan><tspan
+   class="st14"
+   id="tspan249">𝜀</tspan><tspan
+   dy="-0.289em"
+   class="st15"
+   v:baseFontSize="12"
+   id="tspan251">i2</tspan><tspan
+   dy="0.193em"
+   class="st14"
+   id="tspan253">±</tspan><tspan
+   class="st14"
+   id="tspan255">δ</tspan><tspan
+   dy="-0.289em"
+   class="st15"
+   v:baseFontSize="12"
+   id="tspan257">εi2</tspan><tspan
+   dy="0.193em"
+   class="st14"
+   id="tspan259">)</tspan></text>		</g><g
+   id="shape44-187"
+   v:mID="44"
+   v:groupContext="shape"
+   transform="rotate(-39.5121,-787.14406,337.94587)">
+			<title
+   id="title319">Planilha.44</title>
+			<path
+   d="M 0,841.89 H 74.82"
+   class="st16"
+   id="path321" />
+		</g><g
+   id="shape45-192"
+   v:mID="45"
+   v:groupContext="shape"
+   transform="translate(104.17282,-540.02752)">
+			<title
+   id="title324">Planilha.45</title>
+			<desc
+   id="desc326">Insulation 3 (𝜀i3±δ)</desc>
+			<v:textBlock
+   v:margins="rect(4,4,4,4)"
+   v:tabSpace="42.5197" />
+			<v:textRect
+   cx="55.4173"
+   cy="830.478"
+   width="110.84"
+   height="22.8239" />
+			<rect
+   x="0"
+   y="819.06598"
+   width="110.835"
+   height="22.8239"
+   class="st9"
+   id="rect328" />
+			<text
+   x="4"
+   y="834.22998"
+   class="st13"
+   v:langID="1046"
+   id="text344"><v:paragraph /><v:tabList />Insulation 3 <tspan
+   class="st14"
+   id="tspan269">(</tspan><tspan
+   class="st14"
+   id="tspan271">𝜀</tspan><tspan
+   dy="-0.289em"
+   class="st15"
+   v:baseFontSize="12"
+   id="tspan273">i3</tspan><tspan
+   dy="0.193em"
+   class="st14"
+   id="tspan275">±</tspan><tspan
+   class="st14"
+   id="tspan277">δ</tspan><tspan
+   dy="-0.289em"
+   class="st15"
+   v:baseFontSize="12"
+   id="tspan279">εi3</tspan><tspan
+   dy="0.193em"
+   class="st14"
+   id="tspan281">)</tspan></text>		</g><g
+   id="shape46-202"
+   v:mID="46"
+   v:groupContext="shape"
+   transform="rotate(-66.581,-336.29398,413.79743)">
+			<title
+   id="title347">Planilha.46</title>
+			<path
+   d="M 0,841.89 H 72.78"
+   class="st16"
+   id="path349" />
+		</g><g
+   id="shape60-207"
+   v:mID="60"
+   v:groupContext="shape"
+   transform="rotate(-90,-183.09334,292.41884)">
+			<title
+   id="title352">Planilha.60</title>
+			<desc
+   id="desc354">𝑟2±δ</desc>
+			<v:textBlock
+   v:margins="rect(4,4,4,4)"
+   v:tabSpace="42.5197" />
+			<v:textRect
+   cx="17.0079"
+   cy="835.512"
+   width="34.02"
+   height="12.7559" />
+			<rect
+   x="0"
+   y="829.13397"
+   width="34.015701"
+   height="12.7559"
+   class="st9"
+   id="rect356" />
+			<text
+   x="4.79"
+   y="839.10999"
+   class="st10"
+   v:langID="1046"
+   id="text362"><v:paragraph
+   v:horizAlign="1" /><v:tabList />𝑟<tspan
+   dy="-0.289em"
+   class="st11"
+   v:baseFontSize="12"
+   id="tspan291">2</tspan><tspan
+   dy="0.193em"
+   class="st12"
+   id="tspan293">±</tspan>δ<tspan
+   dy="-0.289em"
+   class="st11"
+   v:baseFontSize="12"
+   id="tspan295">r2</tspan></text>		</g><g
+   id="shape62-212"
+   v:mID="62"
+   v:groupContext="shape"
+   transform="rotate(-90,-172.81784,282.14333)">
+			<title
+   id="title365">Planilha.62</title>
+			<desc
+   id="desc367">𝑟3±δ</desc>
+			<v:textBlock
+   v:margins="rect(4,4,4,4)"
+   v:tabSpace="42.5197" />
+			<v:textRect
+   cx="17.0079"
+   cy="835.512"
+   width="34.02"
+   height="12.7559" />
+			<rect
+   x="0"
+   y="829.13397"
+   width="34.015701"
+   height="12.7559"
+   class="st9"
+   id="rect369" />
+			<text
+   x="4.79"
+   y="839.10999"
+   class="st10"
+   v:langID="1046"
+   id="text375"><v:paragraph
+   v:horizAlign="1" /><v:tabList />𝑟<tspan
+   dy="-0.289em"
+   class="st11"
+   v:baseFontSize="12"
+   id="tspan302">3</tspan><tspan
+   dy="0.193em"
+   class="st12"
+   id="tspan304">±</tspan>δ<tspan
+   dy="-0.289em"
+   class="st11"
+   v:baseFontSize="12"
+   id="tspan306">r3</tspan></text>		</g><g
+   id="shape63-217"
+   v:mID="63"
+   v:groupContext="shape"
+   transform="rotate(-90,-162.54234,271.86783)">
+			<title
+   id="title378">Planilha.63</title>
+			<desc
+   id="desc380">𝑟4±δ</desc>
+			<v:textBlock
+   v:margins="rect(4,4,4,4)"
+   v:tabSpace="42.5197" />
+			<v:textRect
+   cx="17.0079"
+   cy="835.512"
+   width="34.02"
+   height="12.7559" />
+			<rect
+   x="0"
+   y="829.13397"
+   width="34.015701"
+   height="12.7559"
+   class="st9"
+   id="rect382" />
+			<text
+   x="4.79"
+   y="839.10999"
+   class="st10"
+   v:langID="1046"
+   id="text388"><v:paragraph
+   v:horizAlign="1" /><v:tabList />𝑟<tspan
+   dy="-0.289em"
+   class="st11"
+   v:baseFontSize="12"
+   id="tspan313">4</tspan><tspan
+   dy="0.193em"
+   class="st12"
+   id="tspan315">±</tspan>δ<tspan
+   dy="-0.289em"
+   class="st11"
+   v:baseFontSize="12"
+   id="tspan317">r4</tspan></text>		</g><g
+   id="shape64-222"
+   v:mID="64"
+   v:groupContext="shape"
+   transform="rotate(-90,-152.97534,262.30083)">
+			<title
+   id="title391">Planilha.64</title>
+			<desc
+   id="desc393">𝑟5±δ</desc>
+			<v:textBlock
+   v:margins="rect(4,4,4,4)"
+   v:tabSpace="42.5197" />
+			<v:textRect
+   cx="17.0079"
+   cy="835.512"
+   width="34.02"
+   height="12.7559" />
+			<rect
+   x="0"
+   y="829.13397"
+   width="34.015701"
+   height="12.7559"
+   class="st9"
+   id="rect395" />
+			<text
+   x="4.79"
+   y="839.10999"
+   class="st10"
+   v:langID="1046"
+   id="text401"><v:paragraph
+   v:horizAlign="1" /><v:tabList />𝑟<tspan
+   dy="-0.289em"
+   class="st11"
+   v:baseFontSize="12"
+   id="tspan324">5</tspan><tspan
+   dy="0.193em"
+   class="st12"
+   id="tspan326">±</tspan>δ<tspan
+   dy="-0.289em"
+   class="st11"
+   v:baseFontSize="12"
+   id="tspan328">r5</tspan></text>		</g><g
+   id="shape65-227"
+   v:mID="65"
+   v:groupContext="shape"
+   transform="rotate(-90,-142.69934,252.02483)">
+			<title
+   id="title404">Planilha.65</title>
+			<desc
+   id="desc406">𝑟6±δ</desc>
+			<v:textBlock
+   v:margins="rect(4,4,4,4)"
+   v:tabSpace="42.5197" />
+			<v:textRect
+   cx="17.0079"
+   cy="835.512"
+   width="34.02"
+   height="12.7559" />
+			<rect
+   x="0"
+   y="829.13397"
+   width="34.015701"
+   height="12.7559"
+   class="st9"
+   id="rect408" />
+			<text
+   x="4.79"
+   y="839.10999"
+   class="st10"
+   v:langID="1046"
+   id="text414"><v:paragraph
+   v:horizAlign="1" /><v:tabList />𝑟<tspan
+   dy="-0.289em"
+   class="st11"
+   v:baseFontSize="12"
+   id="tspan335">6</tspan><tspan
+   dy="0.193em"
+   class="st12"
+   id="tspan337">±</tspan>δ<tspan
+   dy="-0.289em"
+   class="st11"
+   v:baseFontSize="12"
+   id="tspan339">r6</tspan></text>		</g><g
+   id="shape66-232"
+   v:mID="66"
+   v:groupContext="shape"
+   transform="rotate(-90,-132.42384,241.74933)">
+			<title
+   id="title417">Planilha.66</title>
+			<desc
+   id="desc419">𝑟7±δ</desc>
+			<v:textBlock
+   v:margins="rect(4,4,4,4)"
+   v:tabSpace="42.5197" />
+			<v:textRect
+   cx="17.0079"
+   cy="835.512"
+   width="34.02"
+   height="12.7559" />
+			<rect
+   x="0"
+   y="829.13397"
+   width="34.015701"
+   height="12.7559"
+   class="st9"
+   id="rect421" />
+			<text
+   x="4.79"
+   y="839.10999"
+   class="st10"
+   v:langID="1046"
+   id="text427"><v:paragraph
+   v:horizAlign="1" /><v:tabList />𝑟<tspan
+   dy="-0.289em"
+   class="st11"
+   v:baseFontSize="12"
+   id="tspan346">7</tspan><tspan
+   dy="0.193em"
+   class="st12"
+   id="tspan348">±</tspan>δ<tspan
+   dy="-0.289em"
+   class="st11"
+   v:baseFontSize="12"
+   id="tspan350">r7</tspan></text>		</g><g
+   id="shape67-237"
+   v:mID="67"
+   v:groupContext="shape"
+   transform="translate(-2.7826812e-4,-783.95352)">
+			<title
+   id="title430">Planilha.67</title>
+			<desc
+   id="desc432">Surrounding earth (𝜌g±δ, 𝜇g±δ, 𝜀g±δ)</desc>
+			<v:textBlock
+   v:margins="rect(4,4,4,4)"
+   v:tabSpace="42.5197" />
+			<v:textRect
+   cx="65.1969"
+   cy="824.882"
+   width="130.4"
+   height="34.0157" />
+			<rect
+   x="0"
+   y="807.87402"
+   width="130.394"
+   height="34.015701"
+   class="st9"
+   id="rect434" />
+			<text
+   x="4"
+   y="821.28003"
+   class="st13"
+   v:langID="1046"
+   id="text468"><v:paragraph /><v:tabList />Surrounding earth <v:lf /><tspan
+   x="4"
+   dy="1.2em"
+   class="st14"
+   id="tspan357">(</tspan><tspan
+   class="st14"
+   id="tspan359">𝜌</tspan><tspan
+   dy="-0.289em"
+   class="st15"
+   v:baseFontSize="12"
+   id="tspan361">g</tspan><tspan
+   dy="0.193em"
+   class="st14"
+   id="tspan363">±</tspan><tspan
+   class="st14"
+   id="tspan365">δ</tspan><tspan
+   dy="-0.289em"
+   class="st15"
+   v:baseFontSize="12"
+   id="tspan367">ρg</tspan><tspan
+   dy="0.193em"
+   class="st14"
+   id="tspan369">, </tspan><tspan
+   class="st14"
+   id="tspan371">𝜇</tspan><tspan
+   dy="-0.289em"
+   class="st15"
+   v:baseFontSize="12"
+   id="tspan373">g</tspan><tspan
+   dy="0.193em"
+   class="st14"
+   id="tspan375">±</tspan><tspan
+   class="st14"
+   id="tspan377">δ</tspan><tspan
+   dy="-0.289em"
+   class="st15"
+   v:baseFontSize="12"
+   id="tspan379">μg</tspan><tspan
+   dy="0.193em"
+   class="st14"
+   id="tspan381">, </tspan><tspan
+   class="st14"
+   id="tspan383">𝜀</tspan><tspan
+   dy="-0.289em"
+   class="st15"
+   v:baseFontSize="12"
+   id="tspan385">g</tspan><tspan
+   dy="0.193em"
+   class="st14"
+   id="tspan387">±</tspan><tspan
+   class="st14"
+   id="tspan389">δ</tspan><tspan
+   dy="-0.289em"
+   class="st15"
+   v:baseFontSize="12"
+   id="tspan391">εg</tspan><tspan
+   dy="0.193em"
+   class="st14"
+   id="tspan393">)</tspan></text>		</g><g
+   id="shape68-256"
+   v:mID="68"
+   v:groupContext="shape"
+   transform="translate(130.61282,-724.42652)">
+			<title
+   id="title471">Planilha.68</title>
+			<desc
+   id="desc473">Core center (𝑥±δ, 𝑧±δ)</desc>
+			<v:textBlock
+   v:margins="rect(4,4,4,4)"
+   v:tabSpace="42.5197" />
+			<v:textRect
+   cx="35.4331"
+   cy="824.882"
+   width="70.87"
+   height="34.0157" />
+			<rect
+   x="0"
+   y="807.87402"
+   width="70.866096"
+   height="34.015701"
+   class="st18"
+   id="rect475" />
+			<text
+   x="7.6199999"
+   y="820.96997"
+   class="st13"
+   v:langID="1046"
+   id="text493"><v:paragraph
+   v:horizAlign="1" /><v:tabList />Core center<v:lf /><tspan
+   x="6.5300002"
+   dy="1.239em"
+   class="st12"
+   id="tspan400">(</tspan><tspan
+   class="st14"
+   id="tspan402">𝑥</tspan><tspan
+   class="st14"
+   id="tspan404">±</tspan><tspan
+   class="st14"
+   id="tspan406">δ</tspan><tspan
+   dy="-0.289em"
+   class="st15"
+   v:baseFontSize="12"
+   id="tspan408">x</tspan><tspan
+   dy="0.193em"
+   class="st14"
+   id="tspan410">, </tspan><tspan
+   class="st14"
+   id="tspan412">𝑧</tspan><tspan
+   class="st14"
+   id="tspan414">±</tspan><tspan
+   class="st14"
+   id="tspan416">δ</tspan><tspan
+   dy="-0.289em"
+   class="st15"
+   v:baseFontSize="12"
+   id="tspan418">z</tspan><tspan
+   dy="0.193em"
+   class="st14"
+   id="tspan420">)</tspan></text>		</g>
+</svg>

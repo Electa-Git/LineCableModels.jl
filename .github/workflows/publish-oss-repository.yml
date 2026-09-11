@@ -1,0 +1,134 @@
+name: Publish OSS repository
+
+on:
+  workflow_dispatch:
+    inputs:
+      version_tag:
+        description: "Release tag to publish. Must use semantic version format vX.Y.Z."
+        required: true
+        type: string
+      institutional_email:
+        description: "Requester institutional email."
+        required: true
+        type: string
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  create-publish-checklist:
+    name: Create OSS publish checklist
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Validate workflow inputs
+        shell: bash
+        env:
+          VERSION_TAG: ${{ inputs.version_tag }}
+          INSTITUTIONAL_EMAIL: ${{ inputs.institutional_email }}
+        run: |
+          set -euo pipefail
+
+          if [[ ! "${VERSION_TAG}" =~ ^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]]; then
+            echo "Invalid version tag: ${VERSION_TAG}"
+            echo "Expected semantic version format: vX.Y.Z"
+            exit 1
+          fi
+
+          if [[ ! "${INSTITUTIONAL_EMAIL}" =~ ^[^@[:space:]]+@kuleuven\.be$ ]]; then
+            echo "Invalid institutional email: ${INSTITUTIONAL_EMAIL}"
+            echo "Expected address ending in @kuleuven.be"
+            exit 1
+          fi
+
+      - name: Ensure workflow labels exist
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+
+          gh label create "oss-publish" \
+            --description "OSS publish checklist" \
+            --color "5319e7" \
+            --force
+
+          gh label create "oss-publish-pending" \
+            --description "OSS publish pending checklist completion and release tag" \
+            --color "fbca04" \
+            --force
+
+          gh label create "oss-publish-invalid" \
+            --description "OSS publish checklist is incomplete or invalid" \
+            --color "d73a4a" \
+            --force
+
+          gh label create "oss-publish-published" \
+            --description "OSS publish completed by controller" \
+            --color "0e8a16" \
+            --force
+
+      - name: Render checklist issue body
+        shell: bash
+        env:
+          VERSION_TAG: ${{ inputs.version_tag }}
+          INSTITUTIONAL_EMAIL: ${{ inputs.institutional_email }}
+        run: |
+          set -euo pipefail
+
+          TEMPLATE=".github/OSS_PUBLISH_CHECKLIST.md"
+
+          if [[ ! -f "${TEMPLATE}" ]]; then
+            echo "Missing required template: ${TEMPLATE}"
+            exit 1
+          fi
+
+          REPOSITORY_NAME="${GITHUB_REPOSITORY#*/}"
+
+          python - <<'PY'
+          from pathlib import Path
+          import os
+
+          template = Path(".github/OSS_PUBLISH_CHECKLIST.md").read_text(encoding="utf-8")
+          rendered = (
+              template
+              .replace("{{ repository_name }}", os.environ["GITHUB_REPOSITORY"].split("/", 1)[1])
+              .replace("{{ version_tag }}", os.environ["VERSION_TAG"])
+              .replace("{{ institutional_email }}", os.environ["INSTITUTIONAL_EMAIL"])
+          )
+          Path("oss_publish_checklist.md").write_text(rendered, encoding="utf-8")
+          PY
+
+      - name: Create or update checklist issue
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VERSION_TAG: ${{ inputs.version_tag }}
+        run: |
+          set -euo pipefail
+
+          EXISTING_ISSUE="$(
+            gh issue list \
+              --state open \
+              --label "oss-publish" \
+              --search "OSS publish checklist: ${VERSION_TAG} in:title" \
+              --json number \
+              --jq '.[0].number // empty'
+          )"
+
+          if [[ -n "${EXISTING_ISSUE}" ]]; then
+            gh issue comment "${EXISTING_ISSUE}" \
+              --body "OSS publish checklist workflow was run again by @${GITHUB_ACTOR} for ${VERSION_TAG}."
+            echo "Existing publish issue found: #${EXISTING_ISSUE}"
+            exit 0
+          fi
+
+          gh issue create \
+            --title "OSS publish checklist: ${VERSION_TAG}" \
+            --body-file oss_publish_checklist.md \
+            --label "oss-publish" \
+            --label "oss-publish-pending"

@@ -1,0 +1,93 @@
+## group
+Group :core · Ring(n=6, r=2 mm) · Helix(q=11, d…
+└─ Region :wire · Disk(r=1 mm) · conductor
+
+## stack
+Stack · 11 parts
+├─ Group :core · Ring(n=6, r=2 mm) · Helix(q=11…
+│  └─ ⋮ 1 nested parts
+├─ Region :layer_1 · Annulus(rᵢ=1 mm, rₒ=2 mm) …
+├─ Region :layer_2 · Annulus(rᵢ=2 mm, rₒ=3 mm) …
+└─ ⋮ 8 more parts
+
+## assembly
+Assembly · Ring(n=2, r=6 mm)
+└─ Group :core · Ring(n=6, r=2 mm) · Helix(q=11…
+   └─ ⋮ 1 nested parts
+
+## enclosure
+Enclosure :duct · Disk(r=10 mm)
+├─ Group :core · Ring(n=6, r=2 mm) · Helix(q=11…
+│  └─ ⋮ 1 nested parts
+└─ fill · Material · insulator
+
+## geometry
+CableGeometry · 120 regions
+├─ outer    Disk(r=34.6 mm)
+├─ region :core_wire_1 · terminal :core · Disk(…
+├─ region :core_wire_2 · terminal :core · Disk(…
+├─ region :core_wire_2 · terminal :core · Disk(…
+└─ ⋮ 117 more regions
+
+## design
+CableDesign "test_cable"
+├─ terminals  core, sheath, jacket
+├─ regions    120
+├─ diameter   69.2 mm
+└─ root       Stack · 16 parts
+└─ ⋮ 16 nested parts
+
+## system
+LineCableSystem "three-phase-system"
+├─ length     1 km
+├─ terminals  9
+└─ cables
+   └─ ⋮ 3 nested cables
+
+## earth
+EarthModel · 3 earth layers
+├─ air        half-space    ρ=∞  εᵣ=1  μᵣ=1
+├─ layer 1    h=2 m         ρ=100 Ω·m  εᵣ=10  μ…
+├─ layer 2    h=5 m         ρ=30 Ω·m  εᵣ=15  μᵣ…
+└─ basement   half-space    ρ=500 Ω·m  εᵣ=8  μᵣ…
+
+## grid
+Grid · 5 points
+└─ values  1, 2, 3, 4, … (5 values)
+
+## gridspace
+CableConstants parameter space · 2 varying axes…
+├─ axis 1  1, 2, 3
+├─ axis 3  3, 4
+└─ 1 fixed input
+
+## materials_library
+MaterialsLibrary · 12 materials
+├─ air · Material · insulator
+├─ aluminum · Material · conductor
+├─ copper · Material · conductor
+├─ lead · Material · conductor
+└─ ⋮ 8 more materials
+
+## cables_library
+CablesLibrary · 1 design
+└─ test_cable · 3 terminals · 120 regions · D=6…
+
+## parametric_result
+ParametricResult · 1 values
+├─ result type  LineParameters
+└─ details      0 entries
+
+## line_parameters
+LineParameters · phase domain
+├─ f  2 points · 50 Hz … 500 Hz
+├─ Z  2×2×2 · Ω/m
+└─ Y  2×2×2 · S/m
+
+## monte_carlo_result
+Monte Carlo result · 1 points
+├─ result type  CableConstants
+├─ trials       4 per point
+├─ statistics   retained
+├─ root seed    1
+└─ ⋮ 2 more fields

@@ -10,7 +10,7 @@ Beyond showcasing the API, this guide serves as a practical reference by providi
 **Tutorial outline**
 ```@contents
 Pages = [
-	"tutorial1.md",
+    "tutorial1.md",
 ]
 Depth = 2:3
 ```
@@ -20,15 +20,13 @@ Depth = 2:3
 ##   Getting started
 =#
 
-# Load the package:
-using LineCableModels
-using DataFrames
+# Load the public modeling and library-management API:
+using LineCableModels: Material, MaterialsLibrary, add!, load!, save
 fullfile(filename) = joinpath(@__DIR__, filename); #hide
-set_verbosity!(0); #hide
 
 #=
-The [`MaterialsLibrary`](@ref) is a container for storing electromagnetic properties of 
-different materials used in power cables. By default, it initializes with several common 
+The [`MaterialsLibrary`](@ref) is a container for storing electromagnetic properties of
+different materials used in power cables. By default, it initializes with several common
 materials with their standard properties.
 =#
 
@@ -36,52 +34,74 @@ materials with their standard properties.
 materials = MaterialsLibrary()
 
 # Inspect the contents of the materials library:
-materials_df = DataFrame(materials)
+materials_summary = materials
 
 #=
-The function [`DataFrame`](@ref) returns a `DataFrame` with all materials and their properties, namely: electrical resistivity, relative permittivity, relative permeability, reference temperature, and temperature coefficient.
+The bounded `text/plain` display lists material names and their constitutive
+properties without introducing a tabular conversion API for model objects.
 =#
 
 # ##   Adding new materials
 #=
 !!! note "Note"
-	New materials can be added to the library using the [`Material`](@ref) constructor followed by [`add!`](@ref).
+    New materials can be added to the library using the [`Material`](@ref) constructor followed by [`add!`](@ref).
 
-It might be useful to add other conductor materials with corrected properties based on recognized standards [cigre531](@cite) [IEC60287](@cite).
+It might be useful to add other conductor materials with corrected properties based on recognized standards [cigre531](@cite) [IEC60287](@cite). Lead and steel already have built-in records, so the examples below store the cited values under distinct reference names.
 =#
 
-copper_corrected = Material(1.835e-8, 1.0, 0.999994, 20.0, 0.00393) # Copper with corrected resistivity from IEC 60287-3-2
+copper_corrected = Material(
+    kind = :conductor,
+    rho = 1.835e-8,
+    eps_r = 1.0,
+    mu_r = 0.999994,
+    T0 = 20.0,
+    alpha = 0.00393
+) # Copper with corrected resistivity from IEC 60287-3-2
 add!(materials, "copper_corrected", copper_corrected)
-aluminum_corrected = Material(3.03e-8, 1.0, 0.999994, 20.0, 0.00403) # Aluminum with corrected resistivity from IEC 60287-3-2
+aluminum_corrected = Material(
+    kind = :conductor,
+    rho = 3.03e-8,
+    eps_r = 1.0,
+    mu_r = 0.999994,
+    T0 = 20.0,
+    alpha = 0.00403
+) # Aluminum with corrected resistivity from IEC 60287-3-2
 add!(materials, "aluminum_corrected", aluminum_corrected)
-# lead = Material(21.4e-8, 1.0, 0.999983, 20.0, 0.00400) # Lead or lead alloy
-# add!(materials, "lead", lead)
-# steel = Material(13.8e-8, 1.0, 300.0, 20.0, 0.00450) # Steel
-# add!(materials, "steel", steel)
-# bronze = Material(3.5e-8, 1.0, 1.0, 20.0, 0.00300) # Bronze
-# add!(materials, "bronze", bronze)
-stainless_steel = Material(70.0e-8, 1.0, 500.0, 20.0, 0.0) # Stainless steel
+lead = Material(kind = :conductor, rho = 21.4e-8, eps_r = 1.0, mu_r = 0.999983, T0 = 20.0, alpha = 0.00400) # Lead or lead alloy
+add!(materials, "lead_reference", lead)
+steel = Material(kind = :conductor, rho = 13.8e-8, eps_r = 1.0, mu_r = 300.0, T0 = 20.0, alpha = 0.00450) # Steel
+add!(materials, "steel_reference", steel)
+bronze = Material(kind = :conductor, rho = 3.5e-8, eps_r = 1.0, mu_r = 1.0, T0 = 20.0, alpha = 0.00300) # Bronze
+add!(materials, "bronze", bronze)
+stainless_steel = Material(
+    kind = :conductor,
+    rho = 70.0e-8,
+    eps_r = 1.0,
+    mu_r = 500.0,
+    T0 = 20.0,
+    alpha = 0.0
+) # Stainless steel
 add!(materials, "stainless_steel", stainless_steel)
 
 #=
 When modeling cables for EMT analysis, one might be concerned with the impact of insulators and semiconductive layers on cable constants. Common insulation materials and semicons with different dielectric properties are reported in Table 6 of [cigre531](@cite). Let us include some of these materials in the [`MaterialsLibrary`](@ref) to help our future selves.
 =#
 
-epr = Material(1e15, 3.0, 1.0, 20.0, 0.005) # EPR (ethylene propylene rubber)
+epr = Material(kind = :insulator, rho = 1e15, eps_r = 3.0, mu_r = 1.0, T0 = 20.0, alpha = 0.005) # EPR (ethylene propylene rubber)
 add!(materials, "epr", epr)
-pvc = Material(1e15, 8.0, 1.0, 20.0, 0.1) # PVC (polyvinyl chloride)
+pvc = Material(kind = :insulator, rho = 1e15, eps_r = 8.0, mu_r = 1.0, T0 = 20.0, alpha = 0.1) # PVC (polyvinyl chloride)
 add!(materials, "pvc", pvc)
-laminated_paper = Material(1e15, 2.8, 1.0, 20.0, 0.0) # Laminated paper propylene
+laminated_paper = Material(kind = :insulator, rho = 1e15, eps_r = 2.8, mu_r = 1.0, T0 = 20.0, alpha = 0.0) # Laminated paper propylene
 add!(materials, "laminated_paper", laminated_paper)
-carbon_pe = Material(0.06, 1e3, 1.0, 20.0, 0.0) # Carbon-polyethylene compound (semicon)
+carbon_pe = Material(kind = :semicon, rho = 0.06, eps_r = 1e3, mu_r = 1.0, T0 = 20.0, alpha = 0.0) # Carbon-polyethylene compound (semicon)
 add!(materials, "carbon_pe", carbon_pe)
-conductive_paper = Material(18.5, 8.6, 1.0, 20.0, 0.0) # Conductive paper layer (semicon)
+conductive_paper = Material(kind = :semicon, rho = 18.5, eps_r = 8.6, mu_r = 1.0, T0 = 20.0, alpha = 0.0) # Conductive paper layer (semicon)
 add!(materials, "conductive_paper", conductive_paper)
 
 # ##  Removing materials
 #=
 !!! note "Note"
-	Materials can be removed from the library with the [`delete!`](@ref) function.
+    Materials can be removed from the library with the [`delete!`](@ref) function.
 =#
 
 # Add a duplicate material by accident:
@@ -92,17 +112,16 @@ delete!(materials, "epr_dupe")
 
 # Examine the updated library after removing the duplicate:
 println("Material properties compiled from CIGRE TB-531 and IEC 60287:")
-materials_df = DataFrame(materials)
+materials_summary = materials
 
 # ##  Saving the materials library to JSON
 output_file = fullfile("materials_library.json")
 save(materials, file_name = output_file);
 
-
 # ##  Retrieving materials for use
 #=
 !!! note "Note"
-	To load from an existing JSON file, instantiate a new [`MaterialsLibrary`](@ref) followed by a call to the [`load!`](@ref) method. Materials can be retrieved from the library using the [`get`](@ref) function.
+    To load from an existing JSON file, instantiate a new [`MaterialsLibrary`](@ref) followed by a call to the [`load!`](@ref) method. Materials can be retrieved from the library using the [`get`](@ref) function.
 =#
 
 # Initialize a new [`MaterialsLibrary`](@ref) and load from the JSON file:
@@ -110,7 +129,7 @@ materials_from_json = MaterialsLibrary()
 load!(materials_from_json, file_name = output_file)
 
 # Retrieve a material and display the object:
-copper = get(materials_from_json, "copper_corrected")
+copper = materials_from_json["copper_corrected"]
 
 # Access the material properties:
 println("Retrieved copper_corrected material properties:")
@@ -130,5 +149,5 @@ This tutorial has demonstrated how to:
 4. Save the library to a file for future use.
 5. Retrieve materials for use in cable modeling.
 
-The [`MaterialsLibrary`](@ref) provides a flexible and traceable framework to manage material properties for accurate power cable modeling. Custom [`Material`](@ref) objects can be defined and used to match specific manufacturer data or standards requirements.
+The [`MaterialsLibrary`](@ref) provides a traceable way to manage material properties for power cable modeling. Custom [`Material`](@ref) objects can be defined and used to match specific manufacturer data or standards requirements.
 =#

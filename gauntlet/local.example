@@ -1,0 +1,6 @@
+# Explicit CLI configuration; the backend never searches for this file.
+using LineCableModels: PSCAD
+station=PSCAD.RemoteConfig("pscad-host",
+    raw"Z:\shared\lcm",raw"C:\LCM\scratch",raw"C:\Julia\bin\julia.exe",raw"C:\Python\python.exe";
+    local_root="/path/to/shared/lcm")
+(reference_options=(remote=station,work_root=station.local_root),)

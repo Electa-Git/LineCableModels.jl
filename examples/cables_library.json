@@ -1,778 +1,1341 @@
 {
-    "__julia_type__": "LineCableModels.DataModel.CablesLibrary",
-    "data": {
-        "18kV_1000mm2": {
-            "cable_id": "18kV_1000mm2",
-            "nominal_data": {
-                "U": {
-                    "value": 30,
-                    "__type__": "Float"
-                },
-                "screen_cross_section": {
-                    "value": 35,
-                    "__type__": "Float"
-                },
-                "capacitance": {
-                    "value": 0.39,
-                    "__type__": "Float"
-                },
-                "__julia_type__": "LineCableModels.DataModel.NominalData",
-                "U0": {
-                    "value": 18,
-                    "__type__": "Float"
-                },
-                "conductor_cross_section": {
-                    "value": 1000,
-                    "__type__": "Float"
-                },
-                "armor_cross_section": null,
-                "resistance": {
-                    "value": 0.0291,
-                    "__type__": "Float"
-                },
-                "inductance": {
-                    "value": 0.3,
-                    "__type__": "Float"
-                },
-                "designation_code": "NA2XS(FL)2Y"
-            },
-            "__julia_type__": "LineCableModels.DataModel.CableDesign",
-            "components": [
-                {
-                    "insulator_group": {
-                        "__julia_type__": "LineCableModels.DataModel.InsulatorGroup",
-                        "layers": [
-                            {
-                                "material_props": {
-                                    "T0": {
-                                        "value": 20,
-                                        "__type__": "Float"
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "root": {
+        "kind": "cable_library",
+        "cables": {
+            "18kV_1000mm2": {
+                "kind": "cable_design",
+                "cable_id": "18kV_1000mm2",
+                "root": {
+                    "kind": "stack",
+                    "items": [
+                        {
+                            "kind": "group",
+                            "name": "core",
+                            "pattern": null,
+                            "compact": null,
+                            "item": {
+                                "kind": "stack",
+                                "items": [
+                                    {
+                                        "kind": "enclosure",
+                                        "tag": "stranded",
+                                        "item": {
+                                            "kind": "group",
+                                            "name": "core",
+                                            "pattern": null,
+                                            "compact": true,
+                                            "item": {
+                                                "kind": "stack",
+                                                "items": [
+                                                    {
+                                                        "kind": "group",
+                                                        "name": "strand",
+                                                        "pattern": null,
+                                                        "compact": null,
+                                                        "item": {
+                                                            "kind": "region",
+                                                            "tag": "wire",
+                                                            "material": "conductor_1",
+                                                            "primitive": {
+                                                                "kind": "disk",
+                                                                "r": {
+                                                                    "value": 0.00235,
+                                                                    "__type__": "Float64"
+                                                                }
+                                                            }
+                                                        },
+                                                        "at": {
+                                                            "kind": "pose2",
+                                                            "x": {
+                                                                "value": 0,
+                                                                "__type__": "Float64"
+                                                            },
+                                                            "φ": {
+                                                                "value": 0,
+                                                                "__type__": "Float64"
+                                                            },
+                                                            "y": {
+                                                                "value": 0,
+                                                                "__type__": "Float64"
+                                                            }
+                                                        },
+                                                        "path": null,
+                                                        "boundary": null
+                                                    },
+                                                    {
+                                                        "kind": "group",
+                                                        "name": "strand",
+                                                        "pattern": null,
+                                                        "compact": null,
+                                                        "item": {
+                                                            "kind": "region",
+                                                            "tag": "wire",
+                                                            "material": "conductor_1",
+                                                            "primitive": {
+                                                                "kind": "disk",
+                                                                "r": {
+                                                                    "value": 0.00235,
+                                                                    "__type__": "Float64"
+                                                                }
+                                                            }
+                                                        },
+                                                        "at": {
+                                                            "kind": "pose2",
+                                                            "x": {
+                                                                "value": 0,
+                                                                "__type__": "Float64"
+                                                            },
+                                                            "φ": {
+                                                                "value": 0,
+                                                                "__type__": "Float64"
+                                                            },
+                                                            "y": {
+                                                                "value": 0,
+                                                                "__type__": "Float64"
+                                                            }
+                                                        },
+                                                        "path": [
+                                                            {
+                                                                "kind": "helix",
+                                                                "φ0": {
+                                                                    "value": 0,
+                                                                    "__type__": "Float64"
+                                                                },
+                                                                "lay": {
+                                                                    "kind": "lay_ratio",
+                                                                    "q": {
+                                                                        "value": 15,
+                                                                        "__type__": "Float64"
+                                                                    }
+                                                                },
+                                                                "dir": 1
+                                                            },
+                                                            {
+                                                                "kind": "helix",
+                                                                "φ0": {
+                                                                    "value": 0,
+                                                                    "__type__": "Float64"
+                                                                },
+                                                                "lay": {
+                                                                    "kind": "lay_ratio",
+                                                                    "q": {
+                                                                        "value": 13.5,
+                                                                        "__type__": "Float64"
+                                                                    }
+                                                                },
+                                                                "dir": 1
+                                                            },
+                                                            {
+                                                                "kind": "helix",
+                                                                "φ0": {
+                                                                    "value": 0,
+                                                                    "__type__": "Float64"
+                                                                },
+                                                                "lay": {
+                                                                    "kind": "lay_ratio",
+                                                                    "q": {
+                                                                        "value": 12.5,
+                                                                        "__type__": "Float64"
+                                                                    }
+                                                                },
+                                                                "dir": 1
+                                                            },
+                                                            {
+                                                                "kind": "helix",
+                                                                "φ0": {
+                                                                    "value": 0,
+                                                                    "__type__": "Float64"
+                                                                },
+                                                                "lay": {
+                                                                    "kind": "lay_ratio",
+                                                                    "q": {
+                                                                        "value": 11,
+                                                                        "__type__": "Float64"
+                                                                    }
+                                                                },
+                                                                "dir": 1
+                                                            }
+                                                        ],
+                                                        "boundary": null
+                                                    }
+                                                ]
+                                            },
+                                            "at": {
+                                                "kind": "pose2",
+                                                "x": {
+                                                    "value": 0,
+                                                    "__type__": "Float64"
+                                                },
+                                                "φ": {
+                                                    "value": 0,
+                                                    "__type__": "Float64"
+                                                },
+                                                "y": {
+                                                    "value": 0,
+                                                    "__type__": "Float64"
+                                                }
+                                            },
+                                            "path": null,
+                                            "boundary": {
+                                                "kind": "disk",
+                                                "r": {
+                                                    "value": 0.01905,
+                                                    "__type__": "Float64"
+                                                }
+                                            }
+                                        },
+                                        "at": {
+                                            "kind": "pose2",
+                                            "x": {
+                                                "value": 0,
+                                                "__type__": "Float64"
+                                            },
+                                            "φ": {
+                                                "value": 0,
+                                                "__type__": "Float64"
+                                            },
+                                            "y": {
+                                                "value": 0,
+                                                "__type__": "Float64"
+                                            }
+                                        },
+                                        "primitive": {
+                                            "kind": "disk",
+                                            "r": {
+                                                "value": 0.01905,
+                                                "__type__": "Float64"
+                                            }
+                                        },
+                                        "fill": "insulator_2",
+                                        "wall": null
                                     },
-                                    "alpha": {
-                                        "value": 0,
-                                        "__type__": "Float"
+                                    {
+                                        "kind": "region",
+                                        "tag": "screen",
+                                        "material": "semicon_3",
+                                        "primitive": {
+                                            "kind": "shell",
+                                            "t": {
+                                                "value": 0.0003,
+                                                "__type__": "Float64"
+                                            }
+                                        }
                                     },
-                                    "__julia_type__": "LineCableModels.Materials.Material",
-                                    "eps_r": {
-                                        "value": 32.3,
-                                        "__type__": "Float"
+                                    {
+                                        "kind": "region",
+                                        "tag": "screen",
+                                        "material": "semicon_4",
+                                        "primitive": {
+                                            "kind": "shell",
+                                            "t": {
+                                                "value": 0.0006,
+                                                "__type__": "Float64"
+                                            }
+                                        }
                                     },
-                                    "mu_r": {
-                                        "value": 1,
-                                        "__type__": "Float"
+                                    {
+                                        "kind": "region",
+                                        "tag": "insulation",
+                                        "material": "insulator_5",
+                                        "primitive": {
+                                            "kind": "shell",
+                                            "t": {
+                                                "value": 0.008,
+                                                "__type__": "Float64"
+                                            }
+                                        }
                                     },
-                                    "rho": {
-                                        "value": 5300,
-                                        "__type__": "Float"
+                                    {
+                                        "kind": "region",
+                                        "tag": "screen",
+                                        "material": "semicon_6",
+                                        "primitive": {
+                                            "kind": "shell",
+                                            "t": {
+                                                "value": 0.0003,
+                                                "__type__": "Float64"
+                                            }
+                                        }
+                                    },
+                                    {
+                                        "kind": "region",
+                                        "tag": "screen",
+                                        "material": "semicon_3",
+                                        "primitive": {
+                                            "kind": "shell",
+                                            "t": {
+                                                "value": 0.0003,
+                                                "__type__": "Float64"
+                                            }
+                                        }
                                     }
-                                },
-                                "r_in": {
-                                    "value": 0.02115,
-                                    "__type__": "Float"
-                                },
-                                "__julia_type__": "LineCableModels.DataModel.Semicon",
-                                "r_ex": {
-                                    "value": 0.02145,
-                                    "__type__": "Float"
-                                },
-                                "temperature": {
-                                    "value": 20,
-                                    "__type__": "Float"
-                                }
+                                ]
                             },
-                            {
-                                "material_props": {
-                                    "T0": {
-                                        "value": 20,
-                                        "__type__": "Float"
-                                    },
-                                    "alpha": {
-                                        "value": 0,
-                                        "__type__": "Float"
-                                    },
-                                    "__julia_type__": "LineCableModels.Materials.Material",
-                                    "eps_r": {
-                                        "value": 1000,
-                                        "__type__": "Float"
-                                    },
-                                    "mu_r": {
-                                        "value": 1,
-                                        "__type__": "Float"
-                                    },
-                                    "rho": {
-                                        "value": 1000,
-                                        "__type__": "Float"
-                                    }
-                                },
-                                "r_in": {
-                                    "value": 0.02145,
-                                    "__type__": "Float"
-                                },
-                                "__julia_type__": "LineCableModels.DataModel.Semicon",
-                                "r_ex": {
-                                    "value": 0.02205,
-                                    "__type__": "Float"
-                                },
-                                "temperature": {
-                                    "value": 20,
-                                    "__type__": "Float"
-                                }
-                            },
-                            {
-                                "material_props": {
-                                    "T0": {
-                                        "value": 20,
-                                        "__type__": "Float"
-                                    },
-                                    "alpha": {
-                                        "value": 0,
-                                        "__type__": "Float"
-                                    },
-                                    "__julia_type__": "LineCableModels.Materials.Material",
-                                    "eps_r": {
-                                        "value": 2.3,
-                                        "__type__": "Float"
-                                    },
-                                    "mu_r": {
-                                        "value": 1,
-                                        "__type__": "Float"
-                                    },
-                                    "rho": {
-                                        "value": 197000000000000,
-                                        "__type__": "Float"
-                                    }
-                                },
-                                "r_in": {
-                                    "value": 0.02205,
-                                    "__type__": "Float"
-                                },
-                                "__julia_type__": "LineCableModels.DataModel.Insulator",
-                                "r_ex": {
-                                    "value": 0.03005,
-                                    "__type__": "Float"
-                                },
-                                "temperature": {
-                                    "value": 20,
-                                    "__type__": "Float"
-                                }
-                            },
-                            {
-                                "material_props": {
-                                    "T0": {
-                                        "value": 20,
-                                        "__type__": "Float"
-                                    },
-                                    "alpha": {
-                                        "value": 0,
-                                        "__type__": "Float"
-                                    },
-                                    "__julia_type__": "LineCableModels.Materials.Material",
-                                    "eps_r": {
-                                        "value": 1000,
-                                        "__type__": "Float"
-                                    },
-                                    "mu_r": {
-                                        "value": 1,
-                                        "__type__": "Float"
-                                    },
-                                    "rho": {
-                                        "value": 500,
-                                        "__type__": "Float"
-                                    }
-                                },
-                                "r_in": {
-                                    "value": 0.03005,
-                                    "__type__": "Float"
-                                },
-                                "__julia_type__": "LineCableModels.DataModel.Semicon",
-                                "r_ex": {
-                                    "value": 0.030350000000000002,
-                                    "__type__": "Float"
-                                },
-                                "temperature": {
-                                    "value": 20,
-                                    "__type__": "Float"
-                                }
-                            },
-                            {
-                                "material_props": {
-                                    "T0": {
-                                        "value": 20,
-                                        "__type__": "Float"
-                                    },
-                                    "alpha": {
-                                        "value": 0,
-                                        "__type__": "Float"
-                                    },
-                                    "__julia_type__": "LineCableModels.Materials.Material",
-                                    "eps_r": {
-                                        "value": 32.3,
-                                        "__type__": "Float"
-                                    },
-                                    "mu_r": {
-                                        "value": 1,
-                                        "__type__": "Float"
-                                    },
-                                    "rho": {
-                                        "value": 5300,
-                                        "__type__": "Float"
-                                    }
-                                },
-                                "r_in": {
-                                    "value": 0.030350000000000002,
-                                    "__type__": "Float"
-                                },
-                                "__julia_type__": "LineCableModels.DataModel.Semicon",
-                                "r_ex": {
-                                    "value": 0.030650000000000004,
-                                    "__type__": "Float"
-                                },
-                                "temperature": {
-                                    "value": 20,
-                                    "__type__": "Float"
-                                }
-                            }
-                        ]
-                    },
-                    "__julia_type__": "LineCableModels.DataModel.CableComponent",
-                    "id": "core",
-                    "conductor_group": {
-                        "__julia_type__": "LineCableModels.DataModel.ConductorGroup",
-                        "layers": [
-                            {
-                                "lay_ratio": {
+                            "at": {
+                                "kind": "pose2",
+                                "x": {
                                     "value": 0,
-                                    "__type__": "Float"
+                                    "__type__": "Float64"
                                 },
-                                "material_props": {
-                                    "T0": {
-                                        "value": 20,
-                                        "__type__": "Float"
-                                    },
-                                    "alpha": {
-                                        "value": 0.00429,
-                                        "__type__": "Float"
-                                    },
-                                    "__julia_type__": "LineCableModels.Materials.Material",
-                                    "eps_r": {
-                                        "value": 1,
-                                        "__type__": "Float"
-                                    },
-                                    "mu_r": {
-                                        "value": 1.000022,
-                                        "__type__": "Float"
-                                    },
-                                    "rho": {
-                                        "value": 2.8264e-8,
-                                        "__type__": "Float"
-                                    }
-                                },
-                                "lay_direction": {
-                                    "value": 1,
-                                    "__type__": "Int"
-                                },
-                                "r_in": {
+                                "φ": {
                                     "value": 0,
-                                    "__type__": "Float"
+                                    "__type__": "Float64"
                                 },
-                                "__julia_type__": "LineCableModels.DataModel.CircStrands",
-                                "radius_wire": {
-                                    "value": 0.00235,
-                                    "__type__": "Float"
-                                },
-                                "num_wires": {
-                                    "value": 1,
-                                    "__type__": "Int"
-                                },
-                                "temperature": {
-                                    "value": 20,
-                                    "__type__": "Float"
+                                "y": {
+                                    "value": 0,
+                                    "__type__": "Float64"
                                 }
                             },
-                            {
-                                "lay_ratio": {
-                                    "value": 15,
-                                    "__type__": "Float"
-                                },
-                                "material_props": {
-                                    "T0": {
-                                        "value": 20,
-                                        "__type__": "Float"
+                            "path": null,
+                            "boundary": null
+                        },
+                        {
+                            "kind": "group",
+                            "name": "sheath",
+                            "pattern": null,
+                            "compact": null,
+                            "item": {
+                                "kind": "stack",
+                                "items": [
+                                    {
+                                        "kind": "group",
+                                        "name": "screen_wire",
+                                        "pattern": {
+                                            "kind": "ring",
+                                            "span": {
+                                                "value": 6.283185307179586,
+                                                "__type__": "Float64"
+                                            },
+                                            "φ0": {
+                                                "value": 0,
+                                                "__type__": "Float64"
+                                            },
+                                            "gap_frac": {
+                                                "value": 0,
+                                                "__type__": "Float64"
+                                            },
+                                            "r": {
+                                                "value": 0.029025000000000006,
+                                                "__type__": "Float64"
+                                            },
+                                            "n": 49
+                                        },
+                                        "compact": null,
+                                        "item": {
+                                            "kind": "region",
+                                            "tag": "screen_wire",
+                                            "material": "conductor_7",
+                                            "primitive": {
+                                                "kind": "disk",
+                                                "r": {
+                                                    "value": 0.000475,
+                                                    "__type__": "Float64"
+                                                }
+                                            }
+                                        },
+                                        "at": {
+                                            "kind": "pose2",
+                                            "x": {
+                                                "value": 0,
+                                                "__type__": "Float64"
+                                            },
+                                            "φ": {
+                                                "value": 0,
+                                                "__type__": "Float64"
+                                            },
+                                            "y": {
+                                                "value": 0,
+                                                "__type__": "Float64"
+                                            }
+                                        },
+                                        "path": {
+                                            "kind": "helix",
+                                            "φ0": {
+                                                "value": 0,
+                                                "__type__": "Float64"
+                                            },
+                                            "lay": {
+                                                "kind": "lay_ratio",
+                                                "q": {
+                                                    "value": 10,
+                                                    "__type__": "Float64"
+                                                }
+                                            },
+                                            "dir": 1
+                                        },
+                                        "boundary": null
                                     },
-                                    "alpha": {
-                                        "value": 0.00429,
-                                        "__type__": "Float"
-                                    },
-                                    "__julia_type__": "LineCableModels.Materials.Material",
-                                    "eps_r": {
-                                        "value": 1,
-                                        "__type__": "Float"
-                                    },
-                                    "mu_r": {
-                                        "value": 1.000022,
-                                        "__type__": "Float"
-                                    },
-                                    "rho": {
-                                        "value": 2.8264e-8,
-                                        "__type__": "Float"
+                                    {
+                                        "kind": "group",
+                                        "name": "tapes",
+                                        "pattern": {
+                                            "kind": "ring",
+                                            "span": {
+                                                "value": 6.283185307179586,
+                                                "__type__": "Float64"
+                                            },
+                                            "φ0": {
+                                                "value": 0,
+                                                "__type__": "Float64"
+                                            },
+                                            "gap_frac": {
+                                                "value": 0,
+                                                "__type__": "Float64"
+                                            },
+                                            "r": null,
+                                            "n": 1
+                                        },
+                                        "compact": null,
+                                        "item": {
+                                            "kind": "region",
+                                            "tag": "copper_tape",
+                                            "material": "conductor_7",
+                                            "primitive": {
+                                                "kind": "rectangle",
+                                                "w": {
+                                                    "value": 0.01,
+                                                    "__type__": "Float64"
+                                                },
+                                                "h": {
+                                                    "value": 0.0001,
+                                                    "__type__": "Float64"
+                                                }
+                                            }
+                                        },
+                                        "at": {
+                                            "kind": "pose2",
+                                            "x": {
+                                                "value": 0,
+                                                "__type__": "Float64"
+                                            },
+                                            "φ": {
+                                                "value": 0,
+                                                "__type__": "Float64"
+                                            },
+                                            "y": {
+                                                "value": 0,
+                                                "__type__": "Float64"
+                                            }
+                                        },
+                                        "path": {
+                                            "kind": "helix",
+                                            "φ0": {
+                                                "value": 0,
+                                                "__type__": "Float64"
+                                            },
+                                            "lay": {
+                                                "kind": "lay_ratio",
+                                                "q": {
+                                                    "value": 10,
+                                                    "__type__": "Float64"
+                                                }
+                                            },
+                                            "dir": 1
+                                        },
+                                        "boundary": null
                                     }
+                                ]
+                            },
+                            "at": {
+                                "kind": "pose2",
+                                "x": {
+                                    "value": 0,
+                                    "__type__": "Float64"
                                 },
-                                "lay_direction": {
-                                    "value": 1,
-                                    "__type__": "Int"
+                                "φ": {
+                                    "value": 0,
+                                    "__type__": "Float64"
                                 },
-                                "r_in": {
-                                    "value": 0.00235,
-                                    "__type__": "Float"
-                                },
-                                "__julia_type__": "LineCableModels.DataModel.CircStrands",
-                                "radius_wire": {
-                                    "value": 0.00235,
-                                    "__type__": "Float"
-                                },
-                                "num_wires": {
-                                    "value": 6,
-                                    "__type__": "Int"
-                                },
-                                "temperature": {
-                                    "value": 20,
-                                    "__type__": "Float"
+                                "y": {
+                                    "value": 0,
+                                    "__type__": "Float64"
                                 }
                             },
-                            {
-                                "lay_ratio": {
-                                    "value": 13.5,
-                                    "__type__": "Float"
-                                },
-                                "material_props": {
-                                    "T0": {
-                                        "value": 20,
-                                        "__type__": "Float"
-                                    },
-                                    "alpha": {
-                                        "value": 0.00429,
-                                        "__type__": "Float"
-                                    },
-                                    "__julia_type__": "LineCableModels.Materials.Material",
-                                    "eps_r": {
-                                        "value": 1,
-                                        "__type__": "Float"
-                                    },
-                                    "mu_r": {
-                                        "value": 1.000022,
-                                        "__type__": "Float"
-                                    },
-                                    "rho": {
-                                        "value": 2.8264e-8,
-                                        "__type__": "Float"
-                                    }
-                                },
-                                "lay_direction": {
-                                    "value": 1,
-                                    "__type__": "Int"
-                                },
-                                "r_in": {
-                                    "value": 0.007050000000000001,
-                                    "__type__": "Float"
-                                },
-                                "__julia_type__": "LineCableModels.DataModel.CircStrands",
-                                "radius_wire": {
-                                    "value": 0.00235,
-                                    "__type__": "Float"
-                                },
-                                "num_wires": {
-                                    "value": 12,
-                                    "__type__": "Int"
-                                },
-                                "temperature": {
-                                    "value": 20,
-                                    "__type__": "Float"
-                                }
-                            },
-                            {
-                                "lay_ratio": {
-                                    "value": 12.5,
-                                    "__type__": "Float"
-                                },
-                                "material_props": {
-                                    "T0": {
-                                        "value": 20,
-                                        "__type__": "Float"
-                                    },
-                                    "alpha": {
-                                        "value": 0.00429,
-                                        "__type__": "Float"
-                                    },
-                                    "__julia_type__": "LineCableModels.Materials.Material",
-                                    "eps_r": {
-                                        "value": 1,
-                                        "__type__": "Float"
-                                    },
-                                    "mu_r": {
-                                        "value": 1.000022,
-                                        "__type__": "Float"
-                                    },
-                                    "rho": {
-                                        "value": 2.8264e-8,
-                                        "__type__": "Float"
-                                    }
-                                },
-                                "lay_direction": {
-                                    "value": 1,
-                                    "__type__": "Int"
-                                },
-                                "r_in": {
-                                    "value": 0.01175,
-                                    "__type__": "Float"
-                                },
-                                "__julia_type__": "LineCableModels.DataModel.CircStrands",
-                                "radius_wire": {
-                                    "value": 0.00235,
-                                    "__type__": "Float"
-                                },
-                                "num_wires": {
-                                    "value": 18,
-                                    "__type__": "Int"
-                                },
-                                "temperature": {
-                                    "value": 20,
-                                    "__type__": "Float"
-                                }
-                            },
-                            {
-                                "lay_ratio": {
-                                    "value": 11,
-                                    "__type__": "Float"
-                                },
-                                "material_props": {
-                                    "T0": {
-                                        "value": 20,
-                                        "__type__": "Float"
-                                    },
-                                    "alpha": {
-                                        "value": 0.00429,
-                                        "__type__": "Float"
-                                    },
-                                    "__julia_type__": "LineCableModels.Materials.Material",
-                                    "eps_r": {
-                                        "value": 1,
-                                        "__type__": "Float"
-                                    },
-                                    "mu_r": {
-                                        "value": 1.000022,
-                                        "__type__": "Float"
-                                    },
-                                    "rho": {
-                                        "value": 2.8264e-8,
-                                        "__type__": "Float"
-                                    }
-                                },
-                                "lay_direction": {
-                                    "value": 1,
-                                    "__type__": "Int"
-                                },
-                                "r_in": {
-                                    "value": 0.01645,
-                                    "__type__": "Float"
-                                },
-                                "__julia_type__": "LineCableModels.DataModel.CircStrands",
-                                "radius_wire": {
-                                    "value": 0.00235,
-                                    "__type__": "Float"
-                                },
-                                "num_wires": {
-                                    "value": 24,
-                                    "__type__": "Int"
-                                },
-                                "temperature": {
-                                    "value": 20,
-                                    "__type__": "Float"
+                            "path": null,
+                            "boundary": null
+                        },
+                        {
+                            "kind": "region",
+                            "tag": "screen",
+                            "material": "semicon_3",
+                            "primitive": {
+                                "kind": "shell",
+                                "t": {
+                                    "value": 0.0003,
+                                    "__type__": "Float64"
                                 }
                             }
-                        ]
-                    }
+                        },
+                        {
+                            "kind": "group",
+                            "name": "jacket",
+                            "pattern": null,
+                            "compact": null,
+                            "item": {
+                                "kind": "stack",
+                                "items": [
+                                    {
+                                        "kind": "region",
+                                        "tag": "sheath",
+                                        "material": "conductor_1",
+                                        "primitive": {
+                                            "kind": "shell",
+                                            "t": {
+                                                "value": 0.00015,
+                                                "__type__": "Float64"
+                                            }
+                                        }
+                                    }
+                                ]
+                            },
+                            "at": {
+                                "kind": "pose2",
+                                "x": {
+                                    "value": 0,
+                                    "__type__": "Float64"
+                                },
+                                "φ": {
+                                    "value": 0,
+                                    "__type__": "Float64"
+                                },
+                                "y": {
+                                    "value": 0,
+                                    "__type__": "Float64"
+                                }
+                            },
+                            "path": null,
+                            "boundary": null
+                        },
+                        {
+                            "kind": "region",
+                            "tag": "jacket",
+                            "material": "insulator_5",
+                            "primitive": {
+                                "kind": "shell",
+                                "t": {
+                                    "value": 5.0e-5,
+                                    "__type__": "Float64"
+                                }
+                            }
+                        },
+                        {
+                            "kind": "region",
+                            "tag": "jacket",
+                            "material": "insulator_5",
+                            "primitive": {
+                                "kind": "shell",
+                                "t": {
+                                    "value": 0.0024,
+                                    "__type__": "Float64"
+                                }
+                            }
+                        }
+                    ]
                 },
-                {
-                    "insulator_group": {
-                        "__julia_type__": "LineCableModels.DataModel.InsulatorGroup",
-                        "layers": [
-                            {
-                                "material_props": {
-                                    "T0": {
-                                        "value": 20,
-                                        "__type__": "Float"
-                                    },
-                                    "alpha": {
-                                        "value": 0,
-                                        "__type__": "Float"
-                                    },
-                                    "__julia_type__": "LineCableModels.Materials.Material",
-                                    "eps_r": {
-                                        "value": 32.3,
-                                        "__type__": "Float"
-                                    },
-                                    "mu_r": {
-                                        "value": 1,
-                                        "__type__": "Float"
-                                    },
-                                    "rho": {
-                                        "value": 5300,
-                                        "__type__": "Float"
-                                    }
-                                },
-                                "r_in": {
-                                    "value": 0.031700000000000006,
-                                    "__type__": "Float"
-                                },
-                                "__julia_type__": "LineCableModels.DataModel.Semicon",
-                                "r_ex": {
-                                    "value": 0.03200000000000001,
-                                    "__type__": "Float"
-                                },
-                                "temperature": {
-                                    "value": 20,
-                                    "__type__": "Float"
-                                }
-                            }
-                        ]
-                    },
-                    "__julia_type__": "LineCableModels.DataModel.CableComponent",
-                    "id": "sheath",
-                    "conductor_group": {
-                        "__julia_type__": "LineCableModels.DataModel.ConductorGroup",
-                        "layers": [
-                            {
-                                "lay_ratio": {
-                                    "value": 10,
-                                    "__type__": "Float"
-                                },
-                                "material_props": {
-                                    "T0": {
-                                        "value": 20,
-                                        "__type__": "Float"
-                                    },
-                                    "alpha": {
-                                        "value": 0.00393,
-                                        "__type__": "Float"
-                                    },
-                                    "__julia_type__": "LineCableModels.Materials.Material",
-                                    "eps_r": {
-                                        "value": 1,
-                                        "__type__": "Float"
-                                    },
-                                    "mu_r": {
-                                        "value": 0.999994,
-                                        "__type__": "Float"
-                                    },
-                                    "rho": {
-                                        "value": 1.7241e-8,
-                                        "__type__": "Float"
-                                    }
-                                },
-                                "lay_direction": {
-                                    "value": 1,
-                                    "__type__": "Int"
-                                },
-                                "r_in": {
-                                    "value": 0.030650000000000004,
-                                    "__type__": "Float"
-                                },
-                                "__julia_type__": "LineCableModels.DataModel.CircStrands",
-                                "radius_wire": {
-                                    "value": 0.000475,
-                                    "__type__": "Float"
-                                },
-                                "num_wires": {
-                                    "value": 49,
-                                    "__type__": "Int"
-                                },
-                                "temperature": {
-                                    "value": 20,
-                                    "__type__": "Float"
-                                }
-                            },
-                            {
-                                "lay_ratio": {
-                                    "value": 10,
-                                    "__type__": "Float"
-                                },
-                                "material_props": {
-                                    "T0": {
-                                        "value": 20,
-                                        "__type__": "Float"
-                                    },
-                                    "alpha": {
-                                        "value": 0.00393,
-                                        "__type__": "Float"
-                                    },
-                                    "__julia_type__": "LineCableModels.Materials.Material",
-                                    "eps_r": {
-                                        "value": 1,
-                                        "__type__": "Float"
-                                    },
-                                    "mu_r": {
-                                        "value": 0.999994,
-                                        "__type__": "Float"
-                                    },
-                                    "rho": {
-                                        "value": 1.7241e-8,
-                                        "__type__": "Float"
-                                    }
-                                },
-                                "lay_direction": {
-                                    "value": 1,
-                                    "__type__": "Int"
-                                },
-                                "r_in": {
-                                    "value": 0.0316,
-                                    "__type__": "Float"
-                                },
-                                "__julia_type__": "LineCableModels.DataModel.Strip",
-                                "width": {
-                                    "value": 0.01,
-                                    "__type__": "Float"
-                                },
-                                "r_ex": {
-                                    "value": 0.031700000000000006,
-                                    "__type__": "Float"
-                                },
-                                "temperature": {
-                                    "value": 20,
-                                    "__type__": "Float"
-                                }
-                            }
-                        ]
-                    }
-                },
-                {
-                    "insulator_group": {
-                        "__julia_type__": "LineCableModels.DataModel.InsulatorGroup",
-                        "layers": [
-                            {
-                                "material_props": {
-                                    "T0": {
-                                        "value": 20,
-                                        "__type__": "Float"
-                                    },
-                                    "alpha": {
-                                        "value": 0,
-                                        "__type__": "Float"
-                                    },
-                                    "__julia_type__": "LineCableModels.Materials.Material",
-                                    "eps_r": {
-                                        "value": 2.3,
-                                        "__type__": "Float"
-                                    },
-                                    "mu_r": {
-                                        "value": 1,
-                                        "__type__": "Float"
-                                    },
-                                    "rho": {
-                                        "value": 197000000000000,
-                                        "__type__": "Float"
-                                    }
-                                },
-                                "r_in": {
-                                    "value": 0.032150000000000005,
-                                    "__type__": "Float"
-                                },
-                                "__julia_type__": "LineCableModels.DataModel.Insulator",
-                                "r_ex": {
-                                    "value": 0.032200000000000006,
-                                    "__type__": "Float"
-                                },
-                                "temperature": {
-                                    "value": 20,
-                                    "__type__": "Float"
-                                }
-                            },
-                            {
-                                "material_props": {
-                                    "T0": {
-                                        "value": 20,
-                                        "__type__": "Float"
-                                    },
-                                    "alpha": {
-                                        "value": 0,
-                                        "__type__": "Float"
-                                    },
-                                    "__julia_type__": "LineCableModels.Materials.Material",
-                                    "eps_r": {
-                                        "value": 2.3,
-                                        "__type__": "Float"
-                                    },
-                                    "mu_r": {
-                                        "value": 1,
-                                        "__type__": "Float"
-                                    },
-                                    "rho": {
-                                        "value": 197000000000000,
-                                        "__type__": "Float"
-                                    }
-                                },
-                                "r_in": {
-                                    "value": 0.032200000000000006,
-                                    "__type__": "Float"
-                                },
-                                "__julia_type__": "LineCableModels.DataModel.Insulator",
-                                "r_ex": {
-                                    "value": 0.034600000000000006,
-                                    "__type__": "Float"
-                                },
-                                "temperature": {
-                                    "value": 20,
-                                    "__type__": "Float"
-                                }
-                            }
-                        ]
-                    },
-                    "__julia_type__": "LineCableModels.DataModel.CableComponent",
-                    "id": "jacket",
-                    "conductor_group": {
-                        "__julia_type__": "LineCableModels.DataModel.ConductorGroup",
-                        "layers": [
-                            {
-                                "material_props": {
-                                    "T0": {
-                                        "value": 20,
-                                        "__type__": "Float"
-                                    },
-                                    "alpha": {
-                                        "value": 0.00429,
-                                        "__type__": "Float"
-                                    },
-                                    "__julia_type__": "LineCableModels.Materials.Material",
-                                    "eps_r": {
-                                        "value": 1,
-                                        "__type__": "Float"
-                                    },
-                                    "mu_r": {
-                                        "value": 1.000022,
-                                        "__type__": "Float"
-                                    },
-                                    "rho": {
-                                        "value": 2.8264e-8,
-                                        "__type__": "Float"
-                                    }
-                                },
-                                "r_in": {
-                                    "value": 0.03200000000000001,
-                                    "__type__": "Float"
-                                },
-                                "__julia_type__": "LineCableModels.DataModel.Tubular",
-                                "r_ex": {
-                                    "value": 0.032150000000000005,
-                                    "__type__": "Float"
-                                },
-                                "temperature": {
-                                    "value": 20,
-                                    "__type__": "Float"
-                                }
-                            }
-                        ]
-                    }
+                "nominal_data": [
+                ],
+                "catalogue": {
                 }
-            ]
+            },
+            "525kV_1600mm2": {
+                "kind": "cable_design",
+                "cable_id": "525kV_1600mm2",
+                "root": {
+                    "kind": "stack",
+                    "items": [
+                        {
+                            "kind": "group",
+                            "name": "core",
+                            "pattern": null,
+                            "compact": null,
+                            "item": {
+                                "kind": "stack",
+                                "items": [
+                                    {
+                                        "kind": "enclosure",
+                                        "tag": "stranded",
+                                        "item": {
+                                            "kind": "group",
+                                            "name": "core",
+                                            "pattern": null,
+                                            "compact": true,
+                                            "item": {
+                                                "kind": "stack",
+                                                "items": [
+                                                    {
+                                                        "kind": "group",
+                                                        "name": "strand",
+                                                        "pattern": null,
+                                                        "compact": null,
+                                                        "item": {
+                                                            "kind": "region",
+                                                            "tag": "wire",
+                                                            "material": "conductor_7",
+                                                            "primitive": {
+                                                                "kind": "disk",
+                                                                "r": {
+                                                                    "value": 0.00183245,
+                                                                    "__type__": "Float64"
+                                                                }
+                                                            }
+                                                        },
+                                                        "at": {
+                                                            "kind": "pose2",
+                                                            "x": {
+                                                                "value": 0,
+                                                                "__type__": "Float64"
+                                                            },
+                                                            "φ": {
+                                                                "value": 0,
+                                                                "__type__": "Float64"
+                                                            },
+                                                            "y": {
+                                                                "value": 0,
+                                                                "__type__": "Float64"
+                                                            }
+                                                        },
+                                                        "path": null,
+                                                        "boundary": null
+                                                    },
+                                                    {
+                                                        "kind": "group",
+                                                        "name": "strand",
+                                                        "pattern": null,
+                                                        "compact": null,
+                                                        "item": {
+                                                            "kind": "region",
+                                                            "tag": "wire",
+                                                            "material": "conductor_7",
+                                                            "primitive": {
+                                                                "kind": "disk",
+                                                                "r": {
+                                                                    "value": 0.00183245,
+                                                                    "__type__": "Float64"
+                                                                }
+                                                            }
+                                                        },
+                                                        "at": {
+                                                            "kind": "pose2",
+                                                            "x": {
+                                                                "value": 0,
+                                                                "__type__": "Float64"
+                                                            },
+                                                            "φ": {
+                                                                "value": 0,
+                                                                "__type__": "Float64"
+                                                            },
+                                                            "y": {
+                                                                "value": 0,
+                                                                "__type__": "Float64"
+                                                            }
+                                                        },
+                                                        "path": {
+                                                            "kind": "helix",
+                                                            "φ0": {
+                                                                "value": 0,
+                                                                "__type__": "Float64"
+                                                            },
+                                                            "lay": {
+                                                                "kind": "lay_ratio",
+                                                                "q": {
+                                                                    "value": 11,
+                                                                    "__type__": "Float64"
+                                                                }
+                                                            },
+                                                            "dir": 1
+                                                        },
+                                                        "boundary": null
+                                                    }
+                                                ]
+                                            },
+                                            "at": {
+                                                "kind": "pose2",
+                                                "x": {
+                                                    "value": 0,
+                                                    "__type__": "Float64"
+                                                },
+                                                "φ": {
+                                                    "value": 0,
+                                                    "__type__": "Float64"
+                                                },
+                                                "y": {
+                                                    "value": 0,
+                                                    "__type__": "Float64"
+                                                }
+                                            },
+                                            "path": null,
+                                            "boundary": {
+                                                "kind": "disk",
+                                                "r": {
+                                                    "value": 0.02315,
+                                                    "__type__": "Float64"
+                                                }
+                                            }
+                                        },
+                                        "at": {
+                                            "kind": "pose2",
+                                            "x": {
+                                                "value": 0,
+                                                "__type__": "Float64"
+                                            },
+                                            "φ": {
+                                                "value": 0,
+                                                "__type__": "Float64"
+                                            },
+                                            "y": {
+                                                "value": 0,
+                                                "__type__": "Float64"
+                                            }
+                                        },
+                                        "primitive": {
+                                            "kind": "disk",
+                                            "r": {
+                                                "value": 0.02315,
+                                                "__type__": "Float64"
+                                            }
+                                        },
+                                        "fill": "insulator_2",
+                                        "wall": null
+                                    },
+                                    {
+                                        "kind": "region",
+                                        "tag": "screen",
+                                        "material": "semicon_4",
+                                        "primitive": {
+                                            "kind": "shell",
+                                            "t": {
+                                                "value": 0.002,
+                                                "__type__": "Float64"
+                                            }
+                                        }
+                                    },
+                                    {
+                                        "kind": "region",
+                                        "tag": "insulation",
+                                        "material": "insulator_5",
+                                        "primitive": {
+                                            "kind": "shell",
+                                            "t": {
+                                                "value": 0.026,
+                                                "__type__": "Float64"
+                                            }
+                                        }
+                                    },
+                                    {
+                                        "kind": "region",
+                                        "tag": "screen",
+                                        "material": "semicon_6",
+                                        "primitive": {
+                                            "kind": "shell",
+                                            "t": {
+                                                "value": 0.0018,
+                                                "__type__": "Float64"
+                                            }
+                                        }
+                                    },
+                                    {
+                                        "kind": "region",
+                                        "tag": "screen",
+                                        "material": "semicon_3",
+                                        "primitive": {
+                                            "kind": "shell",
+                                            "t": {
+                                                "value": 0.0003,
+                                                "__type__": "Float64"
+                                            }
+                                        }
+                                    }
+                                ]
+                            },
+                            "at": {
+                                "kind": "pose2",
+                                "x": {
+                                    "value": 0,
+                                    "__type__": "Float64"
+                                },
+                                "φ": {
+                                    "value": 0,
+                                    "__type__": "Float64"
+                                },
+                                "y": {
+                                    "value": 0,
+                                    "__type__": "Float64"
+                                }
+                            },
+                            "path": null,
+                            "boundary": null
+                        },
+                        {
+                            "kind": "group",
+                            "name": "sheath",
+                            "pattern": null,
+                            "compact": null,
+                            "item": {
+                                "kind": "stack",
+                                "items": [
+                                    {
+                                        "kind": "region",
+                                        "tag": "sheath",
+                                        "material": "conductor_8",
+                                        "primitive": {
+                                            "kind": "shell",
+                                            "t": {
+                                                "value": 0.0033,
+                                                "__type__": "Float64"
+                                            }
+                                        }
+                                    }
+                                ]
+                            },
+                            "at": {
+                                "kind": "pose2",
+                                "x": {
+                                    "value": 0,
+                                    "__type__": "Float64"
+                                },
+                                "φ": {
+                                    "value": 0,
+                                    "__type__": "Float64"
+                                },
+                                "y": {
+                                    "value": 0,
+                                    "__type__": "Float64"
+                                }
+                            },
+                            "path": null,
+                            "boundary": null
+                        },
+                        {
+                            "kind": "region",
+                            "tag": "jacket",
+                            "material": "insulator_5",
+                            "primitive": {
+                                "kind": "shell",
+                                "t": {
+                                    "value": 0.003,
+                                    "__type__": "Float64"
+                                }
+                            }
+                        },
+                        {
+                            "kind": "region",
+                            "tag": "bedding",
+                            "material": "insulator_9",
+                            "primitive": {
+                                "kind": "shell",
+                                "t": {
+                                    "value": 0.003,
+                                    "__type__": "Float64"
+                                }
+                            }
+                        },
+                        {
+                            "kind": "group",
+                            "name": "armor",
+                            "pattern": null,
+                            "compact": null,
+                            "item": {
+                                "kind": "stack",
+                                "items": [
+                                    {
+                                        "kind": "group",
+                                        "name": "armor_wire",
+                                        "pattern": {
+                                            "kind": "ring",
+                                            "span": {
+                                                "value": 6.283185307179586,
+                                                "__type__": "Float64"
+                                            },
+                                            "φ0": {
+                                                "value": 0,
+                                                "__type__": "Float64"
+                                            },
+                                            "gap_frac": {
+                                                "value": 0,
+                                                "__type__": "Float64"
+                                            },
+                                            "r": null,
+                                            "n": 68
+                                        },
+                                        "compact": null,
+                                        "item": {
+                                            "kind": "region",
+                                            "tag": "armor_wire",
+                                            "material": "conductor_10",
+                                            "primitive": {
+                                                "kind": "disk",
+                                                "r": {
+                                                    "value": 0.0029135,
+                                                    "__type__": "Float64"
+                                                }
+                                            }
+                                        },
+                                        "at": {
+                                            "kind": "pose2",
+                                            "x": {
+                                                "value": 0,
+                                                "__type__": "Float64"
+                                            },
+                                            "φ": {
+                                                "value": 0,
+                                                "__type__": "Float64"
+                                            },
+                                            "y": {
+                                                "value": 0,
+                                                "__type__": "Float64"
+                                            }
+                                        },
+                                        "path": {
+                                            "kind": "helix",
+                                            "φ0": {
+                                                "value": 0,
+                                                "__type__": "Float64"
+                                            },
+                                            "lay": {
+                                                "kind": "lay_ratio",
+                                                "q": {
+                                                    "value": 10,
+                                                    "__type__": "Float64"
+                                                }
+                                            },
+                                            "dir": 1
+                                        },
+                                        "boundary": null
+                                    }
+                                ]
+                            },
+                            "at": {
+                                "kind": "pose2",
+                                "x": {
+                                    "value": 0,
+                                    "__type__": "Float64"
+                                },
+                                "φ": {
+                                    "value": 0,
+                                    "__type__": "Float64"
+                                },
+                                "y": {
+                                    "value": 0,
+                                    "__type__": "Float64"
+                                }
+                            },
+                            "path": null,
+                            "boundary": null
+                        },
+                        {
+                            "kind": "region",
+                            "tag": "jacket",
+                            "material": "insulator_9",
+                            "primitive": {
+                                "kind": "shell",
+                                "t": {
+                                    "value": 0.01,
+                                    "__type__": "Float64"
+                                }
+                            }
+                        }
+                    ]
+                },
+                "nominal_data": [
+                ],
+                "catalogue": {
+                }
+            }
         }
-    }
+    },
+    "format": "linecablemodels.cable",
+    "materials": {
+        "semicon_3": {
+            "kind": "semicon",
+            "rho_thermal": {
+                "value": 0,
+                "__type__": "Float64"
+            },
+            "T0": {
+                "value": 20,
+                "__type__": "Float64"
+            },
+            "theta_max": {
+                "value": 90,
+                "__type__": "Float64"
+            },
+            "alpha": {
+                "value": 0,
+                "__type__": "Float64"
+            },
+            "eps_r": {
+                "value": 32.3,
+                "__type__": "Float64"
+            },
+            "mu_r": {
+                "value": 1,
+                "__type__": "Float64"
+            },
+            "tan_delta": {
+                "value": 0,
+                "__type__": "Float64"
+            },
+            "sigma_solar": {
+                "value": 0,
+                "__type__": "Float64"
+            },
+            "rho": {
+                "value": 5300,
+                "__type__": "Float64"
+            }
+        },
+        "semicon_6": {
+            "kind": "semicon",
+            "rho_thermal": {
+                "value": 0,
+                "__type__": "Float64"
+            },
+            "T0": {
+                "value": 20,
+                "__type__": "Float64"
+            },
+            "theta_max": {
+                "value": 90,
+                "__type__": "Float64"
+            },
+            "alpha": {
+                "value": 0,
+                "__type__": "Float64"
+            },
+            "eps_r": {
+                "value": 1000,
+                "__type__": "Float64"
+            },
+            "mu_r": {
+                "value": 1,
+                "__type__": "Float64"
+            },
+            "tan_delta": {
+                "value": 0,
+                "__type__": "Float64"
+            },
+            "sigma_solar": {
+                "value": 0,
+                "__type__": "Float64"
+            },
+            "rho": {
+                "value": 500,
+                "__type__": "Float64"
+            }
+        },
+        "conductor_8": {
+            "kind": "conductor",
+            "rho_thermal": {
+                "value": 0,
+                "__type__": "Float64"
+            },
+            "T0": {
+                "value": 20,
+                "__type__": "Float64"
+            },
+            "theta_max": {
+                "value": 90,
+                "__type__": "Float64"
+            },
+            "alpha": {
+                "value": 0.004,
+                "__type__": "Float64"
+            },
+            "eps_r": {
+                "value": 1,
+                "__type__": "Float64"
+            },
+            "mu_r": {
+                "value": 0.999983,
+                "__type__": "Float64"
+            },
+            "tan_delta": {
+                "value": 0,
+                "__type__": "Float64"
+            },
+            "sigma_solar": {
+                "value": 0,
+                "__type__": "Float64"
+            },
+            "rho": {
+                "value": 2.14e-7,
+                "__type__": "Float64"
+            }
+        },
+        "semicon_4": {
+            "kind": "semicon",
+            "rho_thermal": {
+                "value": 0,
+                "__type__": "Float64"
+            },
+            "T0": {
+                "value": 20,
+                "__type__": "Float64"
+            },
+            "theta_max": {
+                "value": 90,
+                "__type__": "Float64"
+            },
+            "alpha": {
+                "value": 0,
+                "__type__": "Float64"
+            },
+            "eps_r": {
+                "value": 1000,
+                "__type__": "Float64"
+            },
+            "mu_r": {
+                "value": 1,
+                "__type__": "Float64"
+            },
+            "tan_delta": {
+                "value": 0,
+                "__type__": "Float64"
+            },
+            "sigma_solar": {
+                "value": 0,
+                "__type__": "Float64"
+            },
+            "rho": {
+                "value": 1000,
+                "__type__": "Float64"
+            }
+        },
+        "insulator_5": {
+            "kind": "insulator",
+            "rho_thermal": {
+                "value": 0,
+                "__type__": "Float64"
+            },
+            "T0": {
+                "value": 20,
+                "__type__": "Float64"
+            },
+            "theta_max": {
+                "value": 90,
+                "__type__": "Float64"
+            },
+            "alpha": {
+                "value": 0,
+                "__type__": "Float64"
+            },
+            "eps_r": {
+                "value": 2.3,
+                "__type__": "Float64"
+            },
+            "mu_r": {
+                "value": 1,
+                "__type__": "Float64"
+            },
+            "tan_delta": {
+                "value": 0,
+                "__type__": "Float64"
+            },
+            "sigma_solar": {
+                "value": 0,
+                "__type__": "Float64"
+            },
+            "rho": {
+                "value": 197000000000000,
+                "__type__": "Float64"
+            }
+        },
+        "conductor_1": {
+            "kind": "conductor",
+            "rho_thermal": {
+                "value": 0,
+                "__type__": "Float64"
+            },
+            "T0": {
+                "value": 20,
+                "__type__": "Float64"
+            },
+            "theta_max": {
+                "value": 90,
+                "__type__": "Float64"
+            },
+            "alpha": {
+                "value": 0.00429,
+                "__type__": "Float64"
+            },
+            "eps_r": {
+                "value": 1,
+                "__type__": "Float64"
+            },
+            "mu_r": {
+                "value": 1.000022,
+                "__type__": "Float64"
+            },
+            "tan_delta": {
+                "value": 0,
+                "__type__": "Float64"
+            },
+            "sigma_solar": {
+                "value": 0,
+                "__type__": "Float64"
+            },
+            "rho": {
+                "value": 2.8264e-8,
+                "__type__": "Float64"
+            }
+        },
+        "conductor_7": {
+            "kind": "conductor",
+            "rho_thermal": {
+                "value": 0,
+                "__type__": "Float64"
+            },
+            "T0": {
+                "value": 20,
+                "__type__": "Float64"
+            },
+            "theta_max": {
+                "value": 90,
+                "__type__": "Float64"
+            },
+            "alpha": {
+                "value": 0.00393,
+                "__type__": "Float64"
+            },
+            "eps_r": {
+                "value": 1,
+                "__type__": "Float64"
+            },
+            "mu_r": {
+                "value": 0.999994,
+                "__type__": "Float64"
+            },
+            "tan_delta": {
+                "value": 0,
+                "__type__": "Float64"
+            },
+            "sigma_solar": {
+                "value": 0,
+                "__type__": "Float64"
+            },
+            "rho": {
+                "value": 1.7241e-8,
+                "__type__": "Float64"
+            }
+        },
+        "insulator_9": {
+            "kind": "insulator",
+            "rho_thermal": {
+                "value": 0,
+                "__type__": "Float64"
+            },
+            "T0": {
+                "value": 20,
+                "__type__": "Float64"
+            },
+            "theta_max": {
+                "value": 90,
+                "__type__": "Float64"
+            },
+            "alpha": {
+                "value": 0,
+                "__type__": "Float64"
+            },
+            "eps_r": {
+                "value": 2.8,
+                "__type__": "Float64"
+            },
+            "mu_r": {
+                "value": 1,
+                "__type__": "Float64"
+            },
+            "tan_delta": {
+                "value": 0,
+                "__type__": "Float64"
+            },
+            "sigma_solar": {
+                "value": 0,
+                "__type__": "Float64"
+            },
+            "rho": {
+                "value": 1000000000000000,
+                "__type__": "Float64"
+            }
+        },
+        "conductor_10": {
+            "kind": "conductor",
+            "rho_thermal": {
+                "value": 0,
+                "__type__": "Float64"
+            },
+            "T0": {
+                "value": 20,
+                "__type__": "Float64"
+            },
+            "theta_max": {
+                "value": 90,
+                "__type__": "Float64"
+            },
+            "alpha": {
+                "value": 0.0045,
+                "__type__": "Float64"
+            },
+            "eps_r": {
+                "value": 1,
+                "__type__": "Float64"
+            },
+            "mu_r": {
+                "value": 300,
+                "__type__": "Float64"
+            },
+            "tan_delta": {
+                "value": 0,
+                "__type__": "Float64"
+            },
+            "sigma_solar": {
+                "value": 0,
+                "__type__": "Float64"
+            },
+            "rho": {
+                "value": 1.38e-7,
+                "__type__": "Float64"
+            }
+        },
+        "insulator_2": {
+            "kind": "insulator",
+            "rho_thermal": {
+                "value": 0,
+                "__type__": "Float64"
+            },
+            "T0": {
+                "value": 20,
+                "__type__": "Float64"
+            },
+            "theta_max": {
+                "value": 90,
+                "__type__": "Float64"
+            },
+            "alpha": {
+                "value": 0,
+                "__type__": "Float64"
+            },
+            "eps_r": {
+                "value": 1,
+                "__type__": "Float64"
+            },
+            "mu_r": {
+                "value": 1,
+                "__type__": "Float64"
+            },
+            "tan_delta": {
+                "value": 0,
+                "__type__": "Float64"
+            },
+            "sigma_solar": {
+                "value": 0,
+                "__type__": "Float64"
+            },
+            "rho": {
+                "special": "Inf",
+                "__type__": "Float64"
+            }
+        }
+    },
+    "version": "1.0.0"
 }

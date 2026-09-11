@@ -1,0 +1,219 @@
+"""
+    LineCableModelsMeasurementsExt
+
+Materialise `UncertainValue` as Measurements values and preserve those values
+through numerical kernels, display, and data exchange.
+"""
+module LineCableModelsMeasurementsExt
+
+import Measurements
+import Printf
+import SpecialFunctions
+#! explicit-imports: off
+# Non-exported accessors documented in Measurements usage, and gradient in the
+# Calculus README. Measurements.result is its documented internal propagation
+# hook, required by the existing complex-Bessel adapter (Measurements appendix).
+# Keep the import exception restricted to these upstream bindings.
+using Calculus: gradient
+using Measurements: value as measured_value, uncertainty as measured_uncertainty,
+                    result as measured_result
+#! explicit-imports: on
+
+import LineCableModels
+import LineCableModels.ParametricBuilder
+import LineCableModels.Engine
+import LineCableModels.UQ
+import LineCableModels.ReportBuilder
+
+import LineCableModels: nominal, uncertainty
+import LineCableModels.Engine: has_uncertainty_type
+import LineCableModels.ImportExport:
+                                     serialize_value, deserialize_extension,
+                                     deserialize_value
+import LineCableModels.Grammar: detach
+import LineCableModels.ReportBuilder: encode_cell
+
+# Numeric presentation hooks.
+nominal(value::Measurements.Measurement) = measured_value(value)
+uncertainty(value::Measurements.Measurement) = measured_uncertainty(value)
+
+# Refinement must still see an uncertain contribution whose nominal value is
+# zero. Physical evaluations retain their correlated derivative information;
+# only the scalar numerical error metric and sampling coordinates are nominal.
+function Engine.spectral_magnitude(z::Complex{<:Measurements.Measurement})
+    return max(abs(measured_value(z)),
+        hypot(measured_uncertainty(real(z)), measured_uncertainty(imag(z))))
+end
+function Engine.spectral_magnitude(z::Measurements.Measurement)
+    return max(abs(measured_value(z)), measured_uncertainty(z))
+end
+
+function LineCableModels.materialize(value::ParametricBuilder.UncertainValue{<:Real})
+    Measurements.measurement(value.nominal, value.sigma)
+end
+
+function _measurement(summary::UQ.SampleSummary)
+    Measurements.measurement(summary.mean, summary.std)
+end
+
+function _measurement_result(
+        source::UQ.MonteCarloResult{<:Engine.CableConstants},
+        point::Integer
+)
+    representative = source.values[point]
+    summary = source.stats[point]
+    return Engine.CableConstants(
+        representative.cores,
+        _measurement.(summary.R),
+        _measurement.(summary.L),
+        _measurement.(summary.C),
+        _measurement.(summary.G),
+        representative.frequency
+    )
+end
+
+function _measurement_result(
+        source::UQ.MonteCarloResult{<:Engine.LineParameters},
+        point::Integer
+)
+    representative = source.values[point]
+    summary = source.stats[point]
+    resistance = _measurement.(summary.R)
+    inductance = _measurement.(summary.L)
+    capacitance = _measurement.(summary.C)
+    conductance = _measurement.(summary.G)
+    angular = reshape(2π .* representative.f, 1, 1, :)
+    impedance = complex.(resistance, inductance .* angular)
+    admittance = complex.(conductance, capacitance .* angular)
+    return Engine.LineParameters(
+        representative.domain,
+        impedance,
+        admittance,
+        representative.f;
+        basis = LineCableModels.basis(representative),
+        details = representative.details
+    )
+end
+
+function ParametricBuilder.Gridspace{Target}(
+        source::UQ.MonteCarloResult{T}
+) where {
+        Target,
+        T <: Union{Engine.CableConstants, Engine.LineParameters}
+}
+    first_value = _measurement_result(source, firstindex(source))
+    values = Vector{typeof(first_value)}(undef, length(source))
+    values[1] = first_value
+    for point in 2:length(source)
+        value = _measurement_result(source, point)
+        typeof(value) === eltype(values) || throw(ArgumentError(
+            "Monte Carlo statistics reconstructed inconsistent result types",
+        ))
+        values[point] = value
+    end
+    return ParametricBuilder.Gridspace{Target}(
+        Target,
+        (ParametricBuilder.Grid(values),)
+    )
+end
+
+function has_uncertainty_type(
+        ::Type{Complex{T}},
+) where {T <: Measurements.Measurement}
+    true
+end
+function detach(value::Measurements.Measurement, factor, clip::Bool)
+    nominal = detach(measured_value(value), factor, clip)
+    uncertainty = detach(measured_uncertainty(value), abs(factor), clip)
+    return Measurements.measurement(nominal, uncertainty)
+end
+
+function detach(
+        values::AbstractArray{<:Measurements.Measurement},
+        factor,
+        clip::Bool
+)
+    return map(value -> detach(value, factor, clip), values)
+end
+
+function serialize_value(value::Measurements.Measurement)
+    return Dict(
+        "__type__" => "Measurement",
+        "value" => serialize_value(measured_value(value)),
+        "uncertainty" => serialize_value(measured_uncertainty(value))
+    )
+end
+function deserialize_extension(::Val{:Measurement}, value)
+    nominal = deserialize_value(value["value"])
+    uncertainty = deserialize_value(value["uncertainty"])
+    return Measurements.measurement(nominal, uncertainty)
+end
+function encode_cell(
+        ::ReportBuilder.XLSXReportDefinition,
+        value::Measurements.Measurement
+)
+    Printf.@sprintf("%.12g ± %.6g",
+        measured_value(value),
+        measured_uncertainty(value),)
+end
+
+# Uncertainty-aware SpecialFunctions methods used by the numerical kernels.
+function _lift_complex(function_value, order, value::Complex{<:Measurements.Measurement})
+    nominal = measured_value(value)
+    return measured_result(
+        function_value(order, nominal),
+        vcat(
+            gradient(
+                point -> real(function_value(order, complex(point...))),
+                collect(reim(nominal))
+            ),
+            gradient(
+                point -> imag(function_value(order, complex(point...))),
+                collect(reim(nominal))
+            )
+        ),
+        value
+    )
+end
+
+function SpecialFunctions.besselix(order::Real, value::Complex{<:Measurements.Measurement})
+    return _lift_complex(SpecialFunctions.besselix, order, value)
+end
+
+function SpecialFunctions.besselkx(order::Real, value::Complex{<:Measurements.Measurement})
+    return _lift_complex(SpecialFunctions.besselkx, order, value)
+end
+
+function SpecialFunctions.besseljx(order::Real, value::Complex{<:Measurements.Measurement})
+    return _lift_complex(SpecialFunctions.besseljx, order, value)
+end
+
+function SpecialFunctions.besselyx(order::Real, value::Complex{<:Measurements.Measurement})
+    return _lift_complex(SpecialFunctions.besselyx, order, value)
+end
+
+function SpecialFunctions.besselhx(order::Real, value::Complex{<:Measurements.Measurement})
+    return _lift_complex(SpecialFunctions.besselhx, order, value)
+end
+
+function SpecialFunctions.besseli(order::Real, value::Complex{<:Measurements.Measurement})
+    return _lift_complex(SpecialFunctions.besseli, order, value)
+end
+
+function SpecialFunctions.besselk(order::Real, value::Complex{<:Measurements.Measurement})
+    return _lift_complex(SpecialFunctions.besselk, order, value)
+end
+
+function SpecialFunctions.besselj(order::Real, value::Complex{<:Measurements.Measurement})
+    return _lift_complex(SpecialFunctions.besselj, order, value)
+end
+
+function SpecialFunctions.bessely(order::Real, value::Complex{<:Measurements.Measurement})
+    return _lift_complex(SpecialFunctions.bessely, order, value)
+end
+
+function SpecialFunctions.besselh(order::Real, value::Complex{<:Measurements.Measurement})
+    return _lift_complex(SpecialFunctions.besselh, order, value)
+end
+
+end

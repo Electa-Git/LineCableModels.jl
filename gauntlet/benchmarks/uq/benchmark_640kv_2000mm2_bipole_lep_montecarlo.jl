@@ -1,0 +1,14 @@
+using Measurements
+
+(; frequencies = nothing,
+    reference_options = (;),
+    candidate_options = (;),
+    variation = NoVariation()) ->
+    _catalogue_uq_benchmark(
+        :cable_640kv_2000mm2_bipole,
+        @__FILE__;
+        frequencies,
+        reference_options,
+        candidate_options,
+        variation,
+    )

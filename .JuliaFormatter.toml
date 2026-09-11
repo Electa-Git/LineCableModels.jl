@@ -1,0 +1,10 @@
+style = "sciml"
+ignore = [
+    "@INPROGRESS",
+    "bibliography",
+    "designs",
+    "papers",
+    "src/parametricbuilder/gridspace",
+    "temp",
+    "test/gauntlet/local.jl",
+]

@@ -1,0 +1,122 @@
+## group
+Group :core · Ring(n=6, r=2 mm) · Helix(q=11, dir=+1)
+└─ Region :wire · Disk(r=1 mm) · conductor
+
+## stack
+Stack · 11 parts
+├─ Group :core · Ring(n=6, r=2 mm) · Helix(q=11, dir=+1)
+│  └─ Region :wire · Disk(r=1 mm) · conductor
+├─ Region :layer_1 · Annulus(rᵢ=1 mm, rₒ=2 mm) · insulator
+├─ Region :layer_2 · Annulus(rᵢ=2 mm, rₒ=3 mm) · insulator
+├─ Region :layer_3 · Annulus(rᵢ=3 mm, rₒ=4 mm) · insulator
+├─ Region :layer_4 · Annulus(rᵢ=4 mm, rₒ=5 mm) · insulator
+├─ Region :layer_5 · Annulus(rᵢ=5 mm, rₒ=6 mm) · insulator
+├─ Region :layer_6 · Annulus(rᵢ=6 mm, rₒ=7 mm) · insulator
+├─ Region :layer_7 · Annulus(rᵢ=7 mm, rₒ=8 mm) · insulator
+└─ ⋮ 3 more parts
+
+## assembly
+Assembly · Ring(n=2, r=6 mm)
+└─ Group :core · Ring(n=6, r=2 mm) · Helix(q=11, dir=+1)
+   └─ Region :wire · Disk(r=1 mm) · conductor
+
+## enclosure
+Enclosure :duct · Disk(r=10 mm)
+├─ Group :core · Ring(n=6, r=2 mm) · Helix(q=11, dir=+1)
+│  └─ Region :wire · Disk(r=1 mm) · conductor
+└─ fill · Material · insulator
+
+## geometry
+CableGeometry · 120 regions
+├─ outer    Disk(r=34.6 mm)
+├─ region :core_wire_1 · terminal :core · Disk(r=2.35 mm)
+├─ region :core_wire_2 · terminal :core · Disk(r=2.35 mm, at=Pose(x=4.7 mm, y=0 m, φ=0°))
+├─ region :core_wire_2 · terminal :core · Disk(r=2.35 mm, at=Pose(x=2.35 mm, y=4.07032 mm, φ=60°))
+├─ region :core_wire_2 · terminal :core · Disk(r=2.35 mm, at=Pose(x=-2.35 mm, y=4.07032 mm, φ=120°))
+├─ region :core_wire_2 · terminal :core · Disk(r=2.35 mm, at=Pose(x=-4.7 mm, y=575.584 zm, φ=π))
+├─ region :core_wire_2 · terminal :core · Disk(r=2.35 mm, at=Pose(x=-2.35 mm, y=-4.07032 mm, φ=240°))
+├─ region :core_wire_2 · terminal :core · Disk(r=2.35 mm, at=Pose(x=2.35 mm, y=-4.07032 mm, φ=300°))
+└─ ⋮ 113 more regions
+
+## design
+CableDesign "test_cable"
+├─ terminals  core, sheath, jacket
+├─ regions    120
+├─ diameter   69.2 mm
+└─ root       Stack · 16 parts
+   ├─ Group :core · one member
+   │  └─ Region :core_wire_1 · Disk(r=2.35 mm) · conductor
+   ├─ Group :core · Ring(n=6, r=4.7 mm) · Helix(q=15, dir=+1)
+   │  └─ Region :core_wire_2 · Disk(r=2.35 mm) · conductor
+   ├─ Group :core · Ring(n=12, r=9.4 mm) · Helix(q=13.5, dir=+1)
+   │  └─ Region :core_wire_3 · Disk(r=2.35 mm) · conductor
+   ├─ Group :core · Ring(n=18, r=14.1 mm) · Helix(q=12.5, dir=+1)
+   │  └─ Region :core_wire_4 · Disk(r=2.35 mm) · conductor
+   ├─ Group :core · Ring(n=24, r=18.8 mm) · Helix(q=11, dir=+1)
+   │  └─ Region :core_wire_5 · Disk(r=2.35 mm) · conductor
+   ├─ Region :core_semicon_1 · Annulus(rᵢ=21.15 mm, rₒ=21.45 mm) · semicon
+   ├─ Region :core_semicon_2 · Annulus(rᵢ=21.45 mm, rₒ=22.05 mm) · semicon
+   ├─ Region :core_insulation · Annulus(rᵢ=22.05 mm, rₒ=30.05 mm) · insulator
+   └─ ⋮ 8 more parts
+
+## system
+LineCableSystem "three-phase-system"
+├─ length     1 km
+├─ terminals  9
+└─ cables
+   ├─ test_cable · Pose(x=0 m, y=-959.585 mm, φ=0°) · core→1, sheath→0, jacket→0
+   ├─ test_cable · Pose(x=-35 mm, y=-1.02021 m, φ=0°) · core→2, sheath→0, jacket→0
+   └─ test_cable · Pose(x=35 mm, y=-1.02021 m, φ=0°) · core→3, sheath→0, jacket→0
+
+## earth
+EarthModel · 3 earth layers
+├─ air        half-space    ρ=∞  εᵣ=1  μᵣ=1
+├─ layer 1    h=2 m         ρ=100 Ω·m  εᵣ=10  μᵣ=1
+├─ layer 2    h=5 m         ρ=30 Ω·m  εᵣ=15  μᵣ=1
+└─ basement   half-space    ρ=500 Ω·m  εᵣ=8  μᵣ=1
+
+## grid
+Grid · 5 points
+└─ values  1, 2, 3, 4, … (5 values)
+
+## gridspace
+CableConstants parameter space · 2 varying axes · 6 points
+├─ axis 1  1, 2, 3
+├─ axis 3  3, 4
+└─ 1 fixed input
+
+## materials_library
+MaterialsLibrary · 12 materials
+├─ air · Material · insulator
+├─ aluminum · Material · conductor
+├─ copper · Material · conductor
+├─ lead · Material · conductor
+├─ pe · Material · insulator
+├─ pec · Material · conductor
+├─ polyacrylate · Material · semicon
+├─ pp · Material · insulator
+└─ ⋮ 4 more materials
+
+## cables_library
+CablesLibrary · 1 design
+└─ test_cable · 3 terminals · 120 regions · D=69.2 mm
+
+## parametric_result
+ParametricResult · 1 values
+├─ result type  LineParameters
+└─ details      0 entries
+
+## line_parameters
+LineParameters · phase domain
+├─ f  2 points · 50 Hz … 500 Hz
+├─ Z  2×2×2 · Ω/m
+└─ Y  2×2×2 · S/m
+
+## monte_carlo_result
+Monte Carlo result · 1 points
+├─ result type  CableConstants
+├─ trials       4 per point
+├─ statistics   retained
+├─ root seed    1
+├─ samples      retained
+└─ histograms   retained

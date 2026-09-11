@@ -3,196 +3,157 @@ Base.eltype(::Type{Material{T}}) where {T} = T
 
 # Implement the AbstractDict interface
 Base.length(lib::MaterialsLibrary) = length(lib.data)
-Base.setindex!(lib::MaterialsLibrary, value::Material, key::String) =
-	(lib.data[key] = value)
+function Base.setindex!(lib::MaterialsLibrary, value::Material, key)
+    setindex!(lib.data, validate(value), key)
+    return lib
+end
 Base.iterate(lib::MaterialsLibrary, state...) = iterate(lib.data, state...)
 Base.keys(lib::MaterialsLibrary) = keys(lib.data)
 Base.values(lib::MaterialsLibrary) = values(lib.data)
-Base.haskey(lib::MaterialsLibrary, key::String) = haskey(lib.data, key)
-Base.getindex(lib::MaterialsLibrary, key::String) = getindex(lib.data, key)
-
-
-"""
-$(TYPEDSIGNATURES)
-
-Removes a material from a [`MaterialsLibrary`](@ref).
-
-# Arguments
-
-- `library`: Instance of [`MaterialsLibrary`](@ref) from which the material will be removed.
-- `name`: Name of the material to be removed.
-
-# Returns
-
-- The modified instance of [`MaterialsLibrary`](@ref) without the specified material.
-
-# Errors
-
-Throws an error if the material does not exist in the library.
-
-# Examples
-
-```julia
-library = MaterialsLibrary()
-$(FUNCTIONNAME)(library, "copper")
-```
-
-# See also
-
-- [`add!`](@ref)
-"""
-function Base.delete!(library::MaterialsLibrary, name::String)
-	if !haskey(library, name)
-		@error "Material '$name' not found in the library; cannot delete."
-		throw(KeyError(name))
-
-	end
-	delete!(library.data, name)
-	@info "Material '$name' removed from the library."
-end
-
-
+Base.haskey(lib::MaterialsLibrary, key) = haskey(lib.data, key)
+Base.getindex(lib::MaterialsLibrary, key) = getindex(lib.data, key)
 
 """
 $(TYPEDSIGNATURES)
 
-Retrieves a material from a [`MaterialsLibrary`](@ref) by name.
+Remove the material stored under `name`.
 
 # Arguments
 
-- `library`: Instance of [`MaterialsLibrary`](@ref) containing the materials.
-- `name`: Name of the material to retrieve.
+- `library`: Material library.
+- `name`: Stored material name.
 
 # Returns
 
-- The requested [`Material`](@ref) if found, otherwise `nothing`.
+- The modified `library`.
 
-# Examples
-
-```julia
-library = MaterialsLibrary()
-material = $(FUNCTIONNAME)(library, "copper")
-```
-
-# See also
-
-- [`add!`](@ref)
-- [`delete!`](@ref)
 """
-function Base.get(library::MaterialsLibrary, name::String, default = nothing)
-	material = get(library.data, name, default)
-	if material === nothing
-		@warn "Material '$name' not found in the library; returning default."
-	end
-	return material
+function Base.delete!(library::MaterialsLibrary, name)
+    delete!(library.data, name)
+    return library
 end
 
 """
 $(TYPEDSIGNATURES)
 
-Defines the display representation of a [`Material`](@ref) object for REPL or text output.
+Return the material stored under `name`, or `default` when absent.
 
 # Arguments
 
-- `io`: Output stream.
-- `::MIME"text/plain"`: MIME type for plain text output.
-- `material`: The [`Material`](@ref) instance to be displayed.
+- `library`: Material library.
+- `name`: Stored material name.
+- `default`: Value returned when `name` is absent.
 
 # Returns
 
-- Nothing. Modifies `io` by writing text representation of the material.
+- The stored [`Material`](@ref), or `default`.
+
 """
+function Base.get(library::MaterialsLibrary, name, default)
+    return get(library.data, name, default)
+end
+
+function Base.get(
+        default::Union{Function, Type}, library::MaterialsLibrary, name
+)
+    return get(default, library.data, name)
+end
+
+"Return an empty material library without repopulating built-in records."
+Base.empty(::MaterialsLibrary) = MaterialsLibrary(; add_defaults = false)
+
+"Remove every stored material and return `library`."
+function Base.empty!(library::MaterialsLibrary)
+    empty!(library.data)
+    return library
+end
+
+"Return a shallow material-library copy with independent dictionary storage."
+Base.copy(library::MaterialsLibrary) = MaterialsLibrary(copy(library.data))
+
+TextDisplay.name(::Type{<:Material}) = "Material"
+
+function Base.summary(io::IO, material::Material)
+    print(io, "Material · ", material.kind)
+end
+
+function _material_fields(material::Material)
+    return (
+        ρ = TextDisplay.engineering(material.rho, :ohm_meter),
+        εᵣ = TextDisplay.value(material.eps_r),
+        μᵣ = TextDisplay.value(material.mu_r),
+        T₀ = TextDisplay.engineering(material.T0, :celsius),
+        α = iszero(material.alpha) ? nothing :
+            TextDisplay.engineering(material.alpha, :kelvin_inverse),
+        ρₜₕ = iszero(material.rho_thermal) ? nothing :
+              string(TextDisplay.value(material.rho_thermal), " K·m/W"),
+        θₘₐₓ = material.theta_max == oftype(material.theta_max, 90) ? nothing :
+               TextDisplay.engineering(material.theta_max, :celsius),
+        tanδ = iszero(material.tan_delta) ? nothing :
+               TextDisplay.value(material.tan_delta),
+        σₛ = iszero(material.sigma_solar) ? nothing :
+             TextDisplay.value(material.sigma_solar)
+    )
+end
+
+function Base.show(io::IO, material::Material)
+    fields = _material_fields(material)
+    print(io, "Material(:", material.kind, "; ρ=", fields.ρ,
+        ", εᵣ=", fields.εᵣ, ", μᵣ=", fields.μᵣ)
+    for key in (:ρₜₕ, :θₘₐₓ, :tanδ, :σₛ)
+        displayed = getproperty(fields, key)
+        displayed === nothing && continue
+        print(io, ", ", key, "=", displayed)
+    end
+    print(io, ")")
+end
+
 function Base.show(io::IO, ::MIME"text/plain", material::Material)
-	print(io, "Material with properties: [")
-
-	# Define fields to display
-	fields = [:rho, :eps_r, :mu_r, :T0, :alpha]
-
-	# Print each field with proper formatting
-	for (i, field) in enumerate(fields)
-		value = getproperty(material, field)
-		# Add comma only between items, not after the last one
-		delimiter = i < length(fields) ? ", " : ""
-		print(io, "$field=$(round(value, sigdigits=4))$delimiter")
-	end
-
-	print(io, "]")
+    get(io, :compact, false) && return show(io, material)
+    return TextDisplay.fields(
+        io,
+        "Material · $(material.kind)",
+        _material_fields(material);
+        multiline = true
+    )
 end
 
-"""
-$(TYPEDSIGNATURES)
+TextDisplay.name(::Type{<:MaterialsLibrary}) = "MaterialsLibrary"
 
-Defines the display representation of a [`MaterialsLibrary`](@ref) object for REPL or text output.
+function Base.summary(io::IO, library::MaterialsLibrary)
+    count = length(library)
+    print(io, "MaterialsLibrary with ", count, count == 1 ? " material" : " materials")
+end
 
-# Arguments
+function Base.show(io::IO, library::MaterialsLibrary)
+    count = length(library)
+    print(io, "MaterialsLibrary(", count, count == 1 ? " material)" : " materials)")
+end
 
-- `io`: Output stream.
-- `::MIME"text/plain"`: MIME type for plain text output.
-- `library`: The [`MaterialsLibrary`](@ref) instance to be displayed.
-
-# Returns
-
-- Nothing. Modifies `io` by writing text representation of the library.
-"""
 function Base.show(io::IO, ::MIME"text/plain", library::MaterialsLibrary)
-	num_materials = length(library)
-	material_word = num_materials == 1 ? "material" : "materials"
-	print(io, "MaterialsLibrary with $num_materials $material_word")
-
-	if num_materials > 0
-		print(io, ":")
-		# Optional: list the first few materials
-		shown_materials = min(5, num_materials)
-		material_names = collect(keys(library))[1:shown_materials]
-
-		for (i, name) in enumerate(material_names)
-			print(io, "\n$(i == shown_materials ? "└─" : "├─") $name")
-		end
-
-		# If there are more materials than we're showing
-		if num_materials > shown_materials
-			print(io, "\n└─ ... and $(num_materials - shown_materials) more")
-		end
-	end
+    get(io, :compact, false) && return show(io, library)
+    count = length(library)
+    header = "MaterialsLibrary · $count $(count == 1 ? "material" : "materials")"
+    children = [
+        string(name, " · ", sprint(summary, library[name]))
+        for name in sort!(collect(keys(library)))
+    ]
+    return TextDisplay.tree(io, header, children; noun = "materials")
 end
 
-"""
-$(TYPEDSIGNATURES)
-
-Defines the display representation of a [`MaterialsLibrary`](@ref) object for REPL or text output.
-
-# Arguments
-
-- `io`: Output stream.
-- `::MIME"text/plain"`: MIME type for plain text output.
-- `dict`: The [`MaterialsLibrary`](@ref) contents to be displayed.
-
-# Returns
-
-- Nothing. Modifies `io` by writing text representation of the library.
-"""
-function Base.show(io::IO, ::MIME"text/plain", dict::Dict{String, Material})
-	num_materials = length(dict)
-	material_word = num_materials == 1 ? "material" : "materials"
-	print(io, "Dict{String, Material} with $num_materials $material_word")
-
-	if num_materials > 0
-		print(io, ":")
-		# List the first few materials
-		shown_materials = min(5, num_materials)
-		material_names = collect(keys(dict))[1:shown_materials]
-
-		for (i, name) in enumerate(material_names)
-			print(io, "\n$(i == shown_materials ? "└─" : "├─") $name")
-		end
-
-		# If there are more materials than we're showing
-		if num_materials > shown_materials
-			print(io, "\n└─ ... and $(num_materials - shown_materials) more")
-		end
-	end
+function Base.convert(::Type{Material{T}}, m::Material) where {T <: Real}
+    Material{T}(
+        m.kind,
+        convert(T, m.rho),
+        convert(T, m.eps_r),
+        convert(T, m.mu_r),
+        convert(T, m.T0),
+        convert(T, m.alpha),
+        convert(T, m.rho_thermal),
+        convert(T, m.theta_max),
+        convert(T, m.tan_delta),
+        convert(T, m.sigma_solar)
+    )
 end
 
-Base.convert(::Type{Material{T}}, m::Material) where {T <: REALSCALAR} =
-	Material{T}(convert(T, m.rho), convert(T, m.eps_r), convert(T, m.mu_r),
-		convert(T, m.T0), convert(T, m.alpha))
+Base.convert(::Type{Material{T}}, material::Material{T}) where {T <: Real} = material

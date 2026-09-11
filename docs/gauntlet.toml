@@ -1,0 +1,2 @@
+# Explicit immutable artifact bindings from gauntlet/Artifacts.toml.
+artifacts = []
