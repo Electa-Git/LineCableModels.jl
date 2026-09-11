@@ -1,6 +1,6 @@
 @testitem "PSCAD / verified completed-run reuse" tags=[:integration] begin
     using LineCableModels
-    using TOML, SHA
+    using TOML, SHA, Logging
     const P=LineCableModels.PSCAD
     const launches=Ref(0)
     const mismatched_readback=Ref(false)
@@ -67,7 +67,11 @@
         end
         @test_throws ArgumentError computation_options(P.PSCADFormulation, (;
             remote, solver_identity = 1))
-        first_result=compute(problem, Formulation(:pscad); options)
+        quiet_log=Test.TestLogger()
+        first_result=with_logger(quiet_log) do
+            compute(problem, Formulation(:pscad); options)
+        end
+        @test isempty(quiet_log.logs)
         @test launches[] == 1
         @test !details(first_result).execution.reused
         @test details(first_result).execution.elapsed_scope == P.PSCAD_TIMING_SCOPE
@@ -76,7 +80,13 @@
                for file in names]
         original=Dict(path=>(bytes2hex(open(sha256, path)), mtime(path)) for path in files)
         @test isfile(joinpath(source, "complete.toml"))
-        reused=compute(problem, Formulation(:pscad; earth_impedance = :Pollaczek1926); options)
+        verbose_log=Test.TestLogger()
+        reused=with_logger(verbose_log) do
+            compute(problem, Formulation(:pscad; earth_impedance = :Pollaczek1926);
+                options=(; options..., verbosity=(default=0, PSCAD=1)))
+        end
+        @test any(record->record.message == "Exporting PSCAD computation project", verbose_log.logs)
+        @test any(record->record.message == "PSCAD reuses a verified completed run", verbose_log.logs)
         @test launches[] == 1
         @test Z(reused) == Z(first_result)
         @test Y(reused) == Y(first_result)
@@ -86,18 +96,33 @@
         @test details(reused).execution.source_elapsed_scope == P.PSCAD_TIMING_SCOPE
         @test occursin("no solver execution", details(reused).execution.elapsed_scope)
         @test details(reused).formulations.requested.earth_impedance.identifier === :Pollaczek1926
-        total=compute(problem, Formulation(:pscad); options = (;
-            options..., output_basis = :total))
+        sample_log=Test.TestLogger()
+        total=with_logger(sample_log) do
+            LineCableModels.with_performance_sample() do
+                compute(problem, Formulation(:pscad); options = (;
+                    options..., output_basis = :total, verbosity=(default=0, PSCAD=2)))
+            end
+        end
+        @test isempty(sample_log.logs)
         @test launches[] == 1
         @test Z(total) == 42 .* Z(first_result)
         @test Y(total) == 42 .* Y(first_result)
         @test original ==
               Dict(path=>(bytes2hex(open(sha256, path)), mtime(path)) for path in files)
         callbacks=Int[]
-        batch=compute(problem,
-            [Formulation(:pscad), Formulation(:pscad; earth_impedance = :Pollaczek1926)];
-            options = (;
-                options..., on_result = (problem, index, result)->push!(callbacks, index)))
+        callback_log=Test.TestLogger()
+        batch=with_logger(callback_log) do
+            compute(problem,
+                [Formulation(:pscad), Formulation(:pscad; earth_impedance = :Pollaczek1926)];
+                options = (;
+                    options..., on_result = (problem, index, result)->begin
+                        push!(callbacks, index)
+                        @info "optional callback diagnostic"
+                        @warn "visible callback warning"
+                    end))
+        end
+        @test count(record->record.level == Logging.Warn, callback_log.logs) == 2
+        @test all(record->record.level >= Logging.Warn, callback_log.logs)
         @test launches[] == 1
         @test callbacks == [1, 2]
         @test details(batch[1]).formulations.requested.earth_impedance.identifier === :default

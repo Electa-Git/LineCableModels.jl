@@ -58,6 +58,9 @@
         @test length(read_campaign(joinpath(guarded,"staging")))==1
 
         @test_throws r"immutable" run_benchmark(definition;directory=joinpath(bundle.path,"another"))
+        before_rejected_run=readdir(bundle.path)
+        @test_throws r"immutable" run_campaign(bundle.path,[definition];progress=:auto)
+        @test readdir(bundle.path)==before_rejected_run
         @test_throws r"immutable" lock_campaign(campaign,bundle.path)
         @test_throws r"locked bundles" package_collection(:fixture,v"1.0.0";
             bundles=[campaign],reason="draft rejected",output=joinpath(root,"bad_release"))

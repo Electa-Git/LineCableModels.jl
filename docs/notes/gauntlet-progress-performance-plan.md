@@ -1,6 +1,8 @@
 # Gauntlet campaign progress and performance: execution plan
 
-Status: implementation specification locked on 2026-09-11; implementation pending.
+Status: implemented on 2026-09-11. See the
+[verification and fresh-run handoff](gauntlet-progress-performance-verification.md)
+for measured overhead, checks and remaining test-environment limitations.
 
 This plan consolidates the campaign-tracking and performance-accounting decisions.
 It does not authorize restarting an existing campaign, changing its scientific
@@ -259,7 +261,7 @@ duration measurement. Do not substitute client transport time for source time.
 
 ## 8. UI, watch mode and compatibility
 
-Target interfaces, not yet implemented:
+Implemented interfaces:
 
 ```julia
 run_campaign(directory, definitions; progress=:auto, ...)

@@ -77,6 +77,7 @@ same problem-index-fastest storage order.
   either an empty details tuple or `(points=records,)`.
 """
 function traverse(problem::ParametricProblem, formulation)
+    receiver = progress_receiver()
     point_count = length(problem.space)
     point_count > 0 || throw(ArgumentError(
         "higher-order problem space must contain at least one core problem",
@@ -95,6 +96,9 @@ function traverse(problem::ParametricProblem, formulation)
     ))
     first_point, state = first_item
     first_problem = materialize(first_point)
+    receiver === nothing || report_progress(receiver,
+        (stage=:computing, unit=:points, completed=0, total=point_count,
+            point=1, formulations=formulation_count))
     first_batch = compute(first_problem, formulations; options = problem.options)
     length(first_batch) == formulation_count || throw(DimensionMismatch(
         "batched computation did not return one result per formulation",
@@ -138,6 +142,9 @@ function traverse(problem::ParametricProblem, formulation)
     end
 
     for index in 2:point_count
+        receiver === nothing || report_progress(receiver,
+            (stage=:computing, unit=:points, completed=index-1, total=point_count,
+                point=index, formulations=formulation_count))
         item = iterate(point_source, state)
         item === nothing && throw(DimensionMismatch(
             "problem-space iteration ended before its declared cardinality",
@@ -171,6 +178,9 @@ function traverse(problem::ParametricProblem, formulation)
     iterate(point_source, state) === nothing || throw(DimensionMismatch(
         "problem-space iteration exceeded its declared cardinality",
     ))
+    receiver === nothing || report_progress(receiver,
+        (stage=:computed, unit=:points, completed=point_count, total=point_count,
+            formulations=formulation_count))
 
     retained_details = retained === nothing ? (;) : (points = retained,)
     axes = (

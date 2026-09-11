@@ -73,6 +73,83 @@
     end
 end
 
+@testitem "PSCAD / progress protocol is independent of diagnostic verbosity" tags=[:integration] begin
+    const P = LineCableModels.PSCAD
+    events=NamedTuple[]
+    function P.remote_command(::Val{:local_progress_probe}, config::P.RemoteConfig, command::AbstractString)
+        script="println(\"LCM_PROGRESS_V1\\tstage\\tcompiling\"); println(\"LCM_PROGRESS_V1\\theartbeat\\t1\"); println(\"human diagnostics\")"
+        return `$(Base.julia_cmd()) --startup-file=no --project=@stdlib -e $script`
+    end
+    mktempdir() do root
+        config=P.RemoteConfig("fixture",root,"scratch","julia","python";
+            local_root=root,transport=:local_progress_probe)
+        command()=P._supervisor_command(config,root,"scratch","fixture",
+            Formulation(:pscad),10.0.^range(-1,7;length=101);output_stem="fixture",verbosity=0)
+        @test !occursin("-TrackProgress",command())
+        LineCableModels.with_progress(event->push!(events,event)) do
+            @test occursin("-TrackProgress",command())
+            P._run_remote(config,"ignored";stream=false,
+                stdout_path=joinpath(root,"transport.txt"))
+            @test only(filter(e->haskey(e,:stage),events)).stage === :compiling
+            @test any(e->haskey(e,:heartbeat_unix_seconds),events)
+            @test all(e->!haskey(e,:completed),events)
+            count=length(events)
+            @test P._remote_progress(LineCableModels.progress_receiver(),"LCM_PROGRESS_V1\tstage\tunknown")
+            @test !P._remote_progress(LineCableModels.progress_receiver(),"compiling 50 Hz")
+            @test length(events)==count
+            LineCableModels.with_performance_sample() do
+                @test !occursin("-TrackProgress",command())
+                P._remote_progress(LineCableModels.progress_receiver(),"LCM_PROGRESS_V1\tstage\tcompiling")
+            end
+            @test length(events)==count
+        end
+        @test occursin("human diagnostics",read(joinpath(root,"transport.txt"),String))
+        @test !occursin("LCM_PROGRESS_V1",read(joinpath(root,"transport.txt"),String))
+    end
+end
+
+@testitem "PSCAD / completion verbosity and compile-call timing scope" tags=[:integration] begin
+    using Logging
+    const P = LineCableModels.PSCAD
+    function P.remote_command(::Val{:local_completion_probe}, config::P.RemoteConfig, command::AbstractString)
+        output = joinpath(config.local_root, "case", "outputs")
+        script = "for name in (\"pscad-console.txt\", \"result_zm.out\", \"result_zp.out\", \"result_ym.out\", \"result_yp.out\"); write(joinpath(" *
+            repr(output) * ", name), \"fixture\"); end; write(joinpath(" * repr(output) *
+            ", \"timing.txt\"), \"0.0328471\")"
+        return `$(Base.julia_cmd()) --startup-file=no --project=@stdlib -e $script`
+    end
+    for level in 0:2
+        mktempdir() do root
+            config = P.RemoteConfig("fixture", root, "scratch", "julia", "python";
+                local_root=root, transport=:local_completion_probe)
+            directory = mkpath(joinpath(root, "case"))
+            project = joinpath(directory, "generated.pscx")
+            write(project, "protocol fixture")
+            log = Test.TestLogger()
+            events = NamedTuple[]
+            result = with_logger(log) do
+                LineCableModels.with_progress(e->push!(events, e)) do
+                    P.run_remote_pscad(config, project, joinpath(directory, "outputs"),
+                        Formulation(:pscad), 10.0.^range(-1, 7; length=101);
+                        output_stem="fixture", verbosity=level)
+                end
+            end
+            @test result.elapsed_seconds ≈ 0.0328471
+            @test result.elapsed_scope == P.PSCAD_TIMING_SCOPE
+            @test any(e->get(e, :stage, nothing) === :validating, events)
+            completions = filter(record->record.message == "PSCAD frequency scan completed", log.logs)
+            if level == 0
+                @test isempty(log.logs)
+            else
+                record = only(completions)
+                @test record.kwargs[:compile_call_seconds] ≈ 0.0328471
+                @test record.kwargs[:timing_scope] == P.PSCAD_TIMING_SCOPE
+                @test !haskey(record.kwargs, :elapsed_seconds)
+            end
+        end
+    end
+end
+
 @testitem "PSCAD / unsupported indexed equations fail without fallback" tags=[:integration] begin
     const P = LineCableModels.PSCAD
     for equation in (P.earth_impedance, P.earth_potential_coefficient),

@@ -134,6 +134,21 @@ numerical inputs and stored-file integrity, not the live source tree. Each
 execution session records its environment; reused operands keep their original
 provenance. Actual grids, backend evidence and timing scopes are retained.
 
+Campaign progress is enabled by default: `run_campaign(...; progress=:auto)`
+chooses a terminal bar or plain output. `:plain` forces plain output and `:off`
+disables monitoring. The CLI accepts `--progress auto|plain|off`. Use `status
+--watch --directory DIR` in another terminal to read progress without loading
+results or affecting the solver; Ctrl-C ends only the watcher.
+
+Benchmark, calculation-job, native-worker and MC-trial counts remain separate.
+No solver-frequency counter is added. ETAs say `estimating` until comparable
+history or meaningful active throughput is available. Controlled performance
+samples explicitly pause reporting, redraws and snapshots for the entire compute
+call, including MC reconstruction/retries/aggregation. Normal callbacks remain
+enabled outside the separate timing pass. Execution wall, compute-call wall and
+GetDP/PSCAD native timing scopes are retained separately; recovered work is not a
+new cold timing sample. Solver diagnostics are independent of the progress switch.
+
 The [Gauntlet CLI guide](https://github.com/Electa-Git/LineCableModels.jl/blob/main/gauntlet/README.md)
 contains declaration, release and illustration-file examples. Standard publication
 pins artifact versions. Its default illustration list is empty; explicit exports

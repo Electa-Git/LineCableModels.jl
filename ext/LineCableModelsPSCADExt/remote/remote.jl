@@ -43,6 +43,7 @@ function _run_remote(
         stream::Bool = false,
         on_interrupt::Function = () -> nothing
 )
+    receiver=LineCableModels.progress_receiver()
     stdout_path === nothing || mkpath(dirname(stdout_path))
     stderr_path === nothing || mkpath(dirname(stderr_path))
     output = Pipe()
@@ -58,12 +59,16 @@ function _run_remote(
     output_file = stdout_path === nothing ? nothing : open(stdout_path, "w")
     error_file = stderr_path === nothing ? nothing : open(stderr_path, "w")
     output_task = @async for line in eachline(output)
+        progress_line=_remote_progress(receiver,line)
+        progress_line && continue # Disposable observations are not an event archive.
         println(output_buffer, line)
         output_file === nothing || println(output_file, line)
         output_file === nothing || flush(output_file)
         if stream
-            println(stdout, line)
-            flush(stdout)
+            LineCableModels.with_progress_output() do
+                println(stdout, line)
+                flush(stdout)
+            end
         end
     end
     error_task = @async for line in eachline(errors)
@@ -71,8 +76,10 @@ function _run_remote(
         error_file === nothing || println(error_file, line)
         error_file === nothing || flush(error_file)
         if stream
-            println(stderr, line)
-            flush(stderr)
+            LineCableModels.with_progress_output() do
+                println(stderr, line)
+                flush(stderr)
+            end
         end
     end
     interrupted = nothing
@@ -119,6 +126,19 @@ function _run_remote(
     return stdout_value
 end
 
+function _remote_progress(receiver, line)
+    startswith(line,"LCM_PROGRESS_V1\t") || return false
+    fields=split(line,'\t')
+    length(fields)==3 || return true
+    if fields[2]=="stage" && fields[3] in
+            ("launching","loading","configuring","compiling","waiting_outputs","transferring","validating")
+        LineCableModels.report_progress(receiver,(backend=:pscad,stage=Symbol(fields[3])))
+    elseif fields[2]=="heartbeat"
+        LineCableModels.report_progress(receiver,(backend=:pscad,heartbeat_unix_seconds=time()))
+    end
+    return true
+end
+
 function _supervisor_command(
         config::RemoteConfig,
         shared_case::AbstractString,
@@ -148,7 +168,8 @@ function _supervisor_command(
             "-FrequencyIncrements $(_ps_quote(string(increments)))",
             "-PSCADVersion $(_ps_quote(config.pscad_version))",
             "-Verbosity $(_ps_quote(string(verbosity)))",
-            "-TimeoutSeconds $(_ps_quote(string(config.timeout_seconds)))"
+            "-TimeoutSeconds $(_ps_quote(string(config.timeout_seconds)))",
+            LineCableModels.progress_receiver() === nothing ? "" : "-TrackProgress"
         ),
         ' ')
 end
@@ -276,6 +297,8 @@ function run_remote_pscad(
         verbosity::Integer = 0
 )
     verbosity in 0:2 || throw(ArgumentError("PSCAD verbosity must be 0, 1, or 2"))
+    LineCableModels.performance_sample_active() && (verbosity=0)
+    LineCableModels.report_progress(LineCableModels.progress_receiver(),(backend=:pscad,stage=:staging))
     _validate_frequencies(frequencies_value)
     isdir(local_output) && !isempty(readdir(local_output)) &&
         throw(ArgumentError(
@@ -303,7 +326,7 @@ function run_remote_pscad(
         output_stem,
         verbosity
     )
-    @info "Executing PSCAD frequency scan" host=config.host variant formulation=_formulation_label(formulation) frequencies=length(frequencies_value) timeout_seconds=config.timeout_seconds
+    verbosity >= 1 && @info "Executing PSCAD frequency scan" host=config.host variant formulation=_formulation_label(formulation) frequencies=length(frequencies_value) timeout_seconds=config.timeout_seconds
     execution_error = try
         _run_remote(
             config,
@@ -343,7 +366,8 @@ function run_remote_pscad(
             "\nRemote scratch: $remote_case",
         ))
     end
-    @info "Checking PSCAD outputs" host=config.host variant destination=local_output
+    verbosity >= 1 && @info "Checking PSCAD outputs" host=config.host variant destination=local_output
+    LineCableModels.report_progress(LineCableModels.progress_receiver(),(backend=:pscad,stage=:validating))
     required = (
         "pscad-console.txt", "timing.txt", "result_zm.out", "result_zp.out",
         "result_ym.out", "result_yp.out"
@@ -354,7 +378,7 @@ function run_remote_pscad(
         filesize(path) > 0 || throw(ArgumentError("required PSCAD output is empty: $path"))
     end
     elapsed = parse(Float64, strip(read(joinpath(local_output, "timing.txt"), String)))
-    @info "PSCAD frequency scan completed" host=config.host variant elapsed_seconds=elapsed
+    verbosity >= 1 && @info "PSCAD frequency scan completed" host=config.host variant compile_call_seconds=elapsed timing_scope=PSCAD_TIMING_SCOPE
     return (
         elapsed_seconds = elapsed,
         elapsed_scope = PSCAD_TIMING_SCOPE,

@@ -315,7 +315,8 @@ function _line_parameters(
         formulation::LineCableModelsFEM,
         execution::NamedTuple,
         scan::FEMScan{T},
-        inputs::NamedTuple
+        inputs::NamedTuple;
+        reused::Bool=false
 ) where {T <: Real}
     reduced = Engine.reduce_primitive_matrices(
         scan.Z,
@@ -359,10 +360,15 @@ function _line_parameters(
         formulation.options.reduce_bundle && phase > 0 && length(members) > 1 ?
             "bundle:[" * join(names[members],",") * "]" : names[index]
     end
+    timing_path=joinpath(run.path,"timing-summary.json")
+    timing=isfile(timing_path) ? JSON3.read(read(timing_path,String),NamedTuple) :
+        (backend="getdp",scope="legacy native timing files",recovered_columns=0)
+    timing=merge(timing,(;reused))
     details = (
         files, coordinates,
         formulations = formulation_record(formulation),
         fem = (
+        timing,
         run = record,
         inputs,
         terminal_ids = copy(model.terminal_ids),

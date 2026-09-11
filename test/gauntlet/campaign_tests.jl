@@ -46,6 +46,13 @@
         @test value.reference.Z == direct.Z
         @test value.timings.execution.reference.reused
         @test !value.timings.execution.candidate.reused
+        progress_state=TOML.parsefile(joinpath(directory,"authority","state.toml"))
+        snapshot=TOML.parsefile(joinpath(directory,"sessions",progress_state["session"]*".progress.toml"))
+        observation=only(snapshot["benchmarks"])
+        @test observation["reference"]["saved_result"]
+        @test !haskey(observation["reference"],"compute_seconds")
+        @test observation["candidate"]["execution_seconds"] == value.timings.execution.candidate.seconds
+        @test observation["candidate"]["compute_seconds"] == value.timings.execution.candidate.compute.seconds
         @test value.passes === nothing # Large cross-model differences are observations.
         @test all(==(9),only(row.error.relative for row in value.comparison if row.quantity === :Z && row.error.details.band === :all))
         @test only(campaign_status(directory)).state === :complete

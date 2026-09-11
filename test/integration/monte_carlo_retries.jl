@@ -56,11 +56,20 @@
     end
     recorded = copy(attempted_temperatures)
     empty!(attempted_temperatures)
-    replay = compute(ParametricProblem(space), formulation)
+    progress_events = NamedTuple[]
+    replay = LineCableModels.with_progress(event -> push!(progress_events, event)) do
+        compute(ParametricProblem(space), formulation)
+    end
     @test attempted_temperatures == recorded
     @test samples(replay) == samples(sampled)
     @test replay.point_seeds == sampled.point_seeds
     @test replay.details.failure_summary == sampled.details.failure_summary
+    trial_events = filter(event -> get(event, :unit, nothing) === :trials, progress_events)
+    @test maximum(event.rejected for event in trial_events) == 2
+    @test last(trial_events).completed == 4
+    @test last(trial_events).attempts == 4
+    @test all(event -> event.completed <= event.attempts, trial_events)
+    @test last(progress_events).jobs_completed == 2
 end
 
 @testitem "UQ / retries do not hide non-domain errors or run past their limit" tags=[:integration] begin

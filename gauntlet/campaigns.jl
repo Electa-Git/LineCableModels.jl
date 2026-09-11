@@ -67,11 +67,15 @@ _read_execution(path::AbstractString,key)=jldopen(file->_read_execution(file,key
 function _execute(calculation::BenchmarkCalculation; directory = nothing, model = nothing,
         implementation = (), session = nothing, recover_solvers::Bool = false)
     started = time_ns()
-    keywords=isempty(calculation.options) ? (;) : (; options = calculation.options)
-    directory === nothing && return (
-        result = compute(calculation.problem,
-            calculation.formulation; keywords...),
-        elapsed_seconds = (time_ns()-started)*1e-9, reused = false, session)
+    if directory === nothing
+        began=time_ns()
+        result=_compute_calculation(calculation)
+        seconds=(time_ns()-began)*1e-9
+        return (;result,elapsed_seconds=seconds,reused=false,session,
+            timing=(schema=1,scope=:compute_call_wall,seconds,
+                callback_policy=:declared,diagnostic_policy=:declared,
+                source_timings=_source_timings(result)))
+    end
     validate(Base.write,directory)
     mkpath(directory)
     session === nothing && (session=execution_record())
@@ -95,7 +99,9 @@ function _execute(calculation::BenchmarkCalculation; directory = nothing, model 
         original=saved.metadata.session === nothing ?
             (id="legacy", repository=saved.metadata.repository,
                 active_project=saved.metadata.active_project) : saved.metadata.session
-        return (; result, elapsed_seconds = 0.0, reused = true, session=original)
+        return (; result, elapsed_seconds = (time_ns()-started)*1e-9,
+            reused = true, session=original,
+            timing=saved.metadata.timing)
     end
     inputs=joinpath(directory,"inputs.toml")
     if isfile(inputs)
@@ -107,11 +113,21 @@ function _execute(calculation::BenchmarkCalculation; directory = nothing, model 
     temporary = tempname(directory)
     try
         point_sessions=NamedTuple[]
+        point_timings=NamedTuple[]
+        reused_points=0
+        jobs_reused=nothing
+        compute_seconds=0.0
+        receiver=LineCableModels.progress_receiver()
+        receiver === nothing || LineCableModels.report_progress(receiver,(stage=:computing,
+            backend=_progress_backend(calculation.formulation)))
         result = if calculation.problem isa LineParametersProblem && calculation.formulation isa Gridspace
             # A formulation sweep is a sequence of independently recoverable
             # scalar calculations. Preserve the public problem/formulation axes.
             formulations=collect(calculation.formulation)
+            jobs_reused=0
             values=map(eachindex(formulations)) do index
+                LineCableModels.report_progress(receiver,(stage=:computing,unit=:formulations,
+                    completed=index-1,total=length(formulations),formulation=index))
                 options=calculation.options
                 if haskey(options,:on_result) && options.on_result !== nothing
                     callback=options.on_result
@@ -119,20 +135,34 @@ function _execute(calculation::BenchmarkCalculation; directory = nothing, model 
                 end
                 point=BenchmarkCalculation(calculation.id,calculation.problem,formulations[index];
                     options)
-                value=_execute(point;directory=joinpath(directory,"points",string(index)),
-                    model,implementation,session,recover_solvers)
+                value=LineCableModels.with_progress_scope(formulation=index) do
+                    _execute(point;directory=joinpath(directory,"points",string(index)),
+                        model,implementation,session,recover_solvers)
+                end
                 push!(point_sessions,value.session)
+                push!(point_timings,value.timing)
+                reused_points += value.reused
+                jobs_reused += value.reused || _result_reused(value.result; partial=false)
+                compute_seconds += value.reused ? 0.0 : value.timing.seconds
                 value.result
             end
             ParametricResult(LineCableModels.Combinatorial(calculation.formulation),values,
                 (problems=[calculation.problem],formulations), (;))
         else
+            options=calculation.options
             if recover_solvers && calculation.formulation isa Union{Engine.LineCableModelsFEM,PSCAD.PSCADFormulation}
-                keywords=(options=merge((resume_run_directory=:latest,),calculation.options),)
+                options=merge((resume_run_directory=:latest,),options)
             end
-            compute(calculation.problem, calculation.formulation; keywords...)
+            began=time_ns()
+            value=_compute_calculation(calculation;options)
+            compute_seconds=(time_ns()-began)*1e-9
+            value
         end
         elapsed_seconds = (time_ns()-started)*1e-9
+        timing=(schema=1,scope=:compute_call_wall,seconds=compute_seconds,
+            callback_policy=:declared,diagnostic_policy=:declared,
+            source_timings=_source_timings(result),points=point_timings,reused_points)
+        LineCableModels.report_progress(receiver,(stage=:saving,))
         calculation_record(calculation) == declaration ||
             throw(ArgumentError("calculation inputs changed during execution"))
         retained_files=NamedTuple[]
@@ -168,12 +198,17 @@ function _execute(calculation::BenchmarkCalculation; directory = nothing, model 
             selection = string(calculation.id), formulation = declaration.formulation, calculation=declaration,
             repository=session.repository, active_project=session.active_project, session, point_sessions,
             port_order = copy(output_coordinates), implementation = source_identity, source_evidence = implementation,
-            elapsed_at_completion_seconds = elapsed_seconds)
+            elapsed_at_completion_seconds = elapsed_seconds, timing)
         mv(temporary, path; force = true)
         digest = bytes2hex(open(sha256, path))
         write(path * ".sha256", digest * "  calculation.jld2\n")
         _write_toml(marker, Dict("schema"=>2, "signature"=>signature, "sha256"=>digest))
-        return (; result, elapsed_seconds, reused = false, session)
+        execution_wall=(time_ns()-started)*1e-9
+        _write_toml(joinpath(directory,"timing.toml"),Dict(
+            "schema"=>1,"execution_wall_seconds"=>execution_wall,
+            "compute_call_seconds"=>compute_seconds,
+            "scope"=>"execution through required result persistence; excludes this timing record"))
+        return (; result, elapsed_seconds=execution_wall, reused = false, session,timing,jobs_reused)
     catch error
         _write_toml(joinpath(directory, "failure.toml"),
             Dict("message"=>sprint(showerror, error), "signature"=>signature, "time"=>string(now(UTC))))
@@ -184,7 +219,8 @@ function _execute(calculation::BenchmarkCalculation; directory = nothing, model 
 end
 
 """
-    run_campaign(directory, definitions; on_error=:continue, resume=false)
+    run_campaign(directory, definitions; on_error=:continue, resume=false,
+        recover_solvers=false, progress=:auto)
 
 Save every selected declaration before executing the first benchmark. A fresh run
 replaces only those drafts once complete; resume continues recorded attempts with
@@ -194,10 +230,45 @@ provenance. Previous results remain readable while a replacement is incomplete.
 
 Set `recover_solvers=true` to ask FEM and PSCAD to recover compatible native run
 directories using their own input and output validation.
+
+`progress=:auto` shows a terminal progress bar or throttled plain output on stderr;
+`:plain` always uses plain output, and `:off` disables observation and snapshots.
+Controlled compute samples pause all observation. Operational wall time includes
+monitoring; compute-call and native timing records retain their separate scopes.
 """
 function run_campaign(directory::AbstractString, definitions::AbstractVector{<:BenchmarkDefinition};
         on_error::Symbol=:continue,resume::Bool=false,execution_sources=(),
-        session=execution_record(),recover_solvers::Bool=false)
+        session=execution_record(),recover_solvers::Bool=false,progress::Symbol=:auto)
+    # A rejected immutable destination must not receive even a UI snapshot.
+    validate(Base.write,directory)
+    return _record_campaign_wall(directory,session;progress) do
+        _with_campaign_progress(directory,getproperty.(definitions,:id),session.id;progress) do tracker
+            _progress_declarations!(tracker,definitions)
+            _run_campaign(directory,definitions;on_error,resume,execution_sources,session,recover_solvers)
+        end
+    end
+end
+
+# This measurement belongs to the execution owner, including when monitoring is
+# off. An outer resume invocation replaces intermediate inner-run observations
+# with its complete wall duration. It never includes downtime between invocations.
+function _record_campaign_wall(f,directory,session;progress)
+    started=time_ns()
+    try
+        return f()
+    finally
+        root=joinpath(abspath(directory),"sessions")
+        if isfile(joinpath(root,session.id*".jld2"))
+            _write_toml(joinpath(root,session.id*".timing.toml"),Dict(
+                "schema"=>1,"session"=>session.id,"scope"=>"invocation_wall",
+                "seconds"=>(time_ns()-started)*1e-9,"progress"=>string(progress),
+                "includes"=>"preparation, calculations, reports, persistence and monitoring; excludes this final timing write"))
+        end
+    end
+end
+
+function _run_campaign(directory, definitions;
+        on_error,resume,execution_sources,session,recover_solvers)
     on_error in (:continue,:fail) || throw(ArgumentError("on_error must be :continue or :fail"))
     isempty(definitions) && throw(ArgumentError("campaign needs benchmark definitions"))
     allunique(getproperty.(definitions,:id)) || throw(ArgumentError("campaign benchmark IDs must be unique"))
@@ -266,7 +337,12 @@ function run_campaign(directory::AbstractString, definitions::AbstractVector{<:B
                     declaration_sources,execution_evidence,packages,on_error,case_sources=[definition.model.source_file],
                     repository=session.repository,active_project=session.active_project)
                 write(declaration*".sha256",bytes2hex(open(sha256,declaration)))
+                history=state
                 state=Dict{String,Any}("schema"=>3,"attempt"=>relpath(attempt,benchmark_root))
+                for key in ("fresh_wall_seconds","fresh_timing_key",
+                        "fresh_reference_seconds","fresh_candidate_seconds")
+                    haskey(history,key) && (state[key]=history[key])
+                end
                 previous === nothing || (state["current"]=previous)
                 state["state"]="pending"
                 _write_toml(state_path,state)
@@ -291,27 +367,54 @@ function run_campaign(directory::AbstractString, definitions::AbstractVector{<:B
         end
         try
             completed=resume && get(state,"state","")=="complete"
+            benchmark_started=time_ns()
+            receiver=LineCableModels.progress_receiver()
+            attempt_relative=relpath(attempt,benchmark_root)
+            LineCableModels.report_progress(receiver,(kind=:benchmark,benchmark=definition.id,
+                state=:running,stage=:preparing,attempt=attempt_relative))
             state["state"]="running"
             state["pid"]=getpid()
             state["session"]=session.id
             delete!(state,"message")
             _write_toml(state_path,state)
-            value=run_benchmark(definition;directory=attempt,session,mode=:live,
-                measure_performance=!completed,recover_solvers)
+            value=LineCableModels.with_progress_scope(benchmark=definition.id,
+                    attempt=attempt_relative) do
+                run_benchmark(definition;directory=attempt,session,mode=:live,
+                    measure_performance=!completed,recover_solvers)
+            end
             read_benchmark(attempt)
             identity=semantic_sha256(read_benchmark,attempt)
             state["state"]="complete"
             state["current"]=relpath(attempt,benchmark_root)
             state["identity"]=identity
+            state["wall_seconds"]=(time_ns()-benchmark_started)*1e-9
+            state["timing_key"]=_progress_history_key(definition)
+            state["reused"]=any(values(value.timings.execution)) do execution
+                execution.reused || get(execution.compute, :reused_points, 0) > 0
+            end
+            if !state["reused"]
+                state["fresh_wall_seconds"]=state["wall_seconds"]
+                state["fresh_timing_key"]=state["timing_key"]
+                state["fresh_reference_seconds"]=value.timings.execution.reference.seconds
+                state["fresh_candidate_seconds"]=value.timings.execution.candidate.seconds
+            end
             _write_toml(state_path,state)
             if previous !== nothing && previous != state["current"]
                 rm(joinpath(benchmark_root,previous);recursive=true)
             end
             push!(outcomes,(id=definition.id,state=:complete,result=value,identity))
+            LineCableModels.report_progress(receiver,(kind=:benchmark,benchmark=definition.id,
+                state=:complete,stage=:complete,reused=state["reused"],
+                finalization_seconds=max(0.0, state["wall_seconds"] -
+                    value.timings.execution.reference.seconds -
+                    value.timings.execution.candidate.seconds)))
         catch error
             state["state"]=error isa InterruptException ? "interrupted" : "failed"
             state["message"]=sprint(showerror,error;context=:limit=>true)
             _write_toml(state_path,state)
+            LineCableModels.report_progress(LineCableModels.progress_receiver(),
+                (kind=:benchmark,benchmark=definition.id,state=Symbol(state["state"]),
+                    stage=Symbol(state["state"])))
             error isa InterruptException && rethrow()
             on_error === :fail && rethrow()
             push!(outcomes,(id=definition.id,state=:failed,message=state["message"]))
@@ -323,21 +426,31 @@ function run_campaign(directory::AbstractString, definitions::AbstractVector{<:B
 end
 
 """
-    resume_campaign(directory; recover_solvers=false)
+    resume_campaign(directory; recover_solvers=false, progress=:auto)
 
 Continue the saved work order using checksummed declarations. Restore captured
 declaration code for constructors without consulting the original source files.
 Completed numerical operands keep their original execution provenance; unfinished
 work uses the current Julia environment. A legacy queue without saved declarations
 must first be supplied to `run_campaign` with `resume=true`.
+One progress tracker covers the whole resumed invocation; `progress` has the same
+meaning as in [`run_campaign`](@ref).
 """
-function resume_campaign(directory::AbstractString;recover_solvers::Bool=false)
+function resume_campaign(directory::AbstractString;recover_solvers::Bool=false,progress::Symbol=:auto)
     root=abspath(directory)
     validate(Base.write,root)
     manifest=TOML.parsefile(joinpath(root,"campaign.toml"))
     manifest["schema"] == 3 || throw(ArgumentError("historical campaigns remain readable; new execution requires a new staging directory"))
     outcomes=NamedTuple[]
     session=execution_record()
+    return _record_campaign_wall(root,session;progress) do
+        _with_campaign_progress(root,manifest["benchmarks"],session.id;progress) do tracker
+            _resume_campaign(root,manifest,outcomes,session;recover_solvers,progress)
+        end
+    end
+end
+
+function _resume_campaign(root,manifest,outcomes,session;recover_solvers,progress)
     for id in manifest["benchmarks"]
         state_path=joinpath(root,id,"state.toml")
         isfile(state_path) || throw(ArgumentError(
@@ -371,13 +484,19 @@ function resume_campaign(directory::AbstractString;recover_solvers::Bool=false)
         definitions=_read_execution(declaration,"definitions")
         on_error=JLD2.load(declaration,"on_error")
         append!(outcomes,Base.invokelatest(run_campaign,root,definitions;
-            on_error,resume=true,session,recover_solvers))
+            on_error,resume=true,session,recover_solvers,progress))
     end
     return outcomes
 end
 
-"""Report current draft attempts and the identity of the last complete result."""
-function campaign_status(directory::AbstractString)
+"""
+    campaign_status(directory; verify=true)
+
+Report draft states and the identity of the last complete result. `verify=false`
+reads only campaign metadata and ownership locks, without loading numerical data
+or checking result integrity. Watching uses this lightweight read-only mode.
+"""
+function campaign_status(directory::AbstractString; verify::Bool=true)
     root=abspath(directory)
     manifest=TOML.parsefile(joinpath(root,"campaign.toml"))
     locked=isfile(joinpath(root,"bundle.toml"))
@@ -387,13 +506,18 @@ function campaign_status(directory::AbstractString)
         record=TOML.parsefile(path)
         state=Symbol(record["state"])
         if state === :running && !locked
-            lease=open(joinpath(root,id,"execution.lock"),"a+")
+            lock_path=joinpath(root,id,"execution.lock")
+            if !isfile(lock_path)
+                return (id,state=:interrupted,message=get(record,"message",""),
+                    identity=get(record,"identity",nothing),previous=haskey(record,"current"))
+            end
+            lease=open(lock_path,"r")
             acquired=Sys.iswindows() ? ccall(:_locking,Cint,(Cint,Cint,Clong),fd(lease),2,1)==0 :
                 ccall(:flock,Cint,(Cint,Cint),fd(lease),6)==0
             close(lease)
             acquired && (state=:interrupted)
         end
-        identity=state === :complete ? semantic_sha256(read_benchmark,joinpath(root,id)) : get(record,"identity",nothing)
+        identity=state === :complete && verify ? semantic_sha256(read_benchmark,joinpath(root,id)) : get(record,"identity",nothing)
         return (id,state,message=get(record,"message",""),identity,
             previous=state !== :complete && haskey(record,"current"))
     end

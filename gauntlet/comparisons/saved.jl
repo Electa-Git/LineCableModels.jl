@@ -15,7 +15,7 @@ function read_calculation(path::AbstractString; sha256_expected = nothing)
             "formulation", "calculation", "repository", "active_project", "selection", "frequencies", "basis", "domain", "port_order",
             "Z", "Y", "moments", "comparison_unsupported", "data_sha256",
             "implementation", "session", "point_sessions", "computation_signature", "elapsed_at_completion_seconds",
-            "batch_selection_count", "propagation", "sampling", "parameter_manifest",
+            "batch_selection_count", "timing", "propagation", "sampling", "parameter_manifest",
             "applied_variation", "correlation", "computation_details", "retained_files", "points", "axes")
         Dict(name => file[name] for name in names if haskey(file, name))
     end
@@ -95,11 +95,11 @@ function read_calculation(path::AbstractString; sha256_expected = nothing)
         uncertainty = (parameters = get(document, "parameter_manifest", nothing),
             variation = get(document, "applied_variation", nothing), correlation = get(
                 document, "correlation", nothing)),
-        timing = (
+        timing = get(document,"timing",(
             scope = document["schema_version"] == 1 ? :batch_elapsed_at_completion :
-                    :compute_wall,
+                    :legacy_execution_elapsed,
             seconds = get(document, "elapsed_at_completion_seconds", missing),
-            batch_selections = get(document, "batch_selection_count", missing)))
+            batch_selections = get(document, "batch_selection_count", missing))))
     return (; result, metadata)
 end
 

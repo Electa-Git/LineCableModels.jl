@@ -35,6 +35,7 @@
             row.public_access && continue
             row.self_qualified && continue # Covered by the existing separate check.
             row.accessing_from === Base && Base.ispublic(Core, row.name) && continue
+            row.accessing_from === Logging && documented_fem_access(Logging, row.name) && continue
             consumer === extension && documented_fem_access(row.accessing_from, row.name) && continue
             push!(unexpected, "$(row.accessing_from).$(row.name) at $(row.location)")
         end
@@ -51,6 +52,7 @@ end
     using ExplicitImports: test_explicit_imports, improper_qualified_accesses
     using .GauntletSupport: Gauntlet
     import Pkg
+    import Logging
     using LinearAlgebra: BLAS
 
     file = joinpath(pkgdir(LineCableModels), "gauntlet", "Gauntlet.jl")
@@ -59,10 +61,13 @@ end
     # identify artifact hashes, restore recorded packages, and record BLAS settings.
     # These are external interfaces; package-owned private access has no exception.
     native = (
-        Base => (:JLOptions, :PkgId, :SHA1, :include, :loaded_modules, :require, :structdiff),
+        Base => (:JLOptions, :PkgId, :SHA1, :include, :loaded_modules, :require,
+            :structdiff, :extension_parent_name),
         Base.Filesystem => (:path_separator,),
         Pkg => (:dependencies,),
         BLAS => (:get_config, :get_num_threads),
+        # Required AbstractLogger protocol methods have no public annotation.
+        Logging => (:catch_exceptions, :handle_message, :min_enabled_level, :shouldlog),
     )
     unexpected = String[]
     for (consumer, accesses) in improper_qualified_accesses(Gauntlet, file; skip=())

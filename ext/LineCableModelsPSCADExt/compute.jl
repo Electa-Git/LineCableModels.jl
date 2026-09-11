@@ -318,6 +318,15 @@ function compute(
     _validate_frequencies(problem.frequencies)
     _pscad_size(problem)
     execution = computation_options(PSCADFormulation, options)
+    logger = Engine.ConsoleVerbosityLogger(Logging.current_logger(),
+        (default=verbosity(execution, :PSCAD),))
+    return Logging.with_logger(logger) do
+        _compute_pscad(problem, formulations, execution, settings)
+    end
+end
+
+function _compute_pscad(problem::LineParametersProblem,
+        formulations::AbstractVector{<:PSCADFormulation}, execution::NamedTuple, settings)
     observed = identify(execution.remote)
     execution.solver_identity === nothing || execution.solver_identity == observed ||
         throw(ArgumentError("PSCAD solver installation changed during the campaign; start a new campaign"))

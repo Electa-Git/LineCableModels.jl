@@ -256,13 +256,15 @@ function _monte_carlo(point, formulation::MonteCarlo, options, seed, details_own
     clearance = point isa Gridpoint{Engine.LineParametersProblem} ?
                 DataModel.prepare_clearance(point) : nothing
     try
-        return _monte_carlo(point, formulation, options, seed, details_owner, clearance)
+        return _monte_carlo(point, formulation, options, seed, details_owner, clearance,
+            progress_receiver())
     finally
         DataModel.warn_clearance_summary(clearance)
     end
 end
 
-function _monte_carlo(point, formulation::MonteCarlo, options, seed, details_owner, clearance)
+function _monte_carlo(point, formulation::MonteCarlo, options, seed, details_owner, clearance,
+        receiver)
     rng = Random.Xoshiro(seed)
     failures = NamedTuple[]
     attempts = 0
@@ -272,6 +274,8 @@ function _monte_carlo(point, formulation::MonteCarlo, options, seed, details_own
     sample_values = nothing
     sample_axis = nothing
     retained = nothing
+    receiver === nothing || report_progress(receiver,
+        (stage=:sampling, unit=:trials, completed=0, total=ntrials, attempts=0, rejected=0))
 
     while ntrials === nothing || accepted < ntrials
         attempts += 1
@@ -301,6 +305,9 @@ function _monte_carlo(point, formulation::MonteCarlo, options, seed, details_own
                 exception,
                 backtrace
             ))
+            receiver === nothing || report_progress(receiver,
+                (stage=:sampling, unit=:trials, completed=accepted, total=ntrials,
+                    attempts, rejected=length(failures)))
             length(failures) < formulation.options.max_failures ||
                 _retry_limit_error(
                     failures,
@@ -342,6 +349,9 @@ function _monte_carlo(point, formulation::MonteCarlo, options, seed, details_own
         accepted = target_trial
         _record_sample!(sample_values, value, accepted, sample_axis)
         retained === nothing || (retained[accepted] = record)
+        receiver === nothing || report_progress(receiver,
+            (stage=:sampling, unit=:trials, completed=accepted, total=ntrials,
+                attempts, rejected=length(failures)))
     end
 
     failure_summary = _failure_summary(failures, accepted, attempts)
@@ -352,6 +362,7 @@ function _monte_carlo(point, formulation::MonteCarlo, options, seed, details_own
         failure_summary,
         clearance = DataModel.clearance_summary(clearance)
     )
+    receiver === nothing || report_progress(receiver, (stage=:aggregating,))
     return merge(
         _aggregate(sample_values, first_result, formulation),
         (; trials = ntrials, seed, details = retained_details)
@@ -374,13 +385,15 @@ function compute(problem::ParametricProblem, formulation::MonteCarlo)
     ))
     first_point, state = first_item
     first_seed = root_seed
-    first_aggregate = _monte_carlo(
+    first_aggregate = with_progress_scope(point=1, points=point_count) do
+        _monte_carlo(
         first_point,
         formulation,
         problem.options,
         first_seed,
         details_owner
-    )
+        )
+    end
     check_core_result(typeof(first_aggregate.representation))
 
     values = Vector{typeof(first_aggregate.representation)}(undef, point_count)
@@ -403,6 +416,7 @@ function compute(problem::ParametricProblem, formulation::MonteCarlo)
     seeds[1] = first_aggregate.seed
     trial_counts[1] = first_aggregate.trials
     retained === nothing || (retained[1] = first_aggregate.details)
+    report_progress(progress_receiver(),(jobs_completed=1,))
 
     for index in 2:point_count
         item = iterate(point_source, state)
@@ -411,13 +425,15 @@ function compute(problem::ParametricProblem, formulation::MonteCarlo)
         ))
         point, state = item
         point_seed = root_seed ⊻ (UInt64(index - 1) * 0x9e3779b97f4a7c15)
-        aggregate = _monte_carlo(
+        aggregate = with_progress_scope(point=index, points=point_count) do
+            _monte_carlo(
             point,
             formulation,
             problem.options,
             point_seed,
             details_owner
-        )
+            )
+        end
         typeof(aggregate.representation) === eltype(values) || throw(ArgumentError(
             "Monte Carlo points produced incompatible core result types",
         ))
@@ -447,6 +463,7 @@ function compute(problem::ParametricProblem, formulation::MonteCarlo)
             ))
             retained[index] = aggregate.details
         end
+        report_progress(progress_receiver(),(jobs_completed=index,))
     end
     iterate(point_source, state) === nothing || throw(DimensionMismatch(
         "problem-space iteration exceeded its declared cardinality",

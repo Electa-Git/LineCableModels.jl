@@ -9,7 +9,8 @@ using LineCableModels
 using LineCableModels.Engine
 using LineCableModels: PSCAD, AbstractCoreResult, AbstractFormulation, AbstractGrid,
     AbstractParametricResult, AbstractUncertaintyResult, Formulation, Grid, Gridspace,
-    LineParametersProblem, ParametricResult, PhaseDomain, build, description, details,
+    LineParametersProblem, LinearError, MonteCarlo, ParametricProblem,
+    ParametricResult, PhaseDomain, build, description, details,
     formula, nominal, quantity
 using LineCableModels.Engine: Engine
 import LineCableModels.Grammar
@@ -18,6 +19,7 @@ import LineCableModels.ReportBuilder: BenchmarkTableDefinition, ReportArtifact, 
 import LineCableModels.Units
 import Pkg
 import Serialization
+import Logging
 import Pkg.PlatformEngines: unpack
 using BenchmarkTools: BenchmarkTools
 using LinearAlgebra: BLAS
@@ -53,6 +55,7 @@ include("cases.jl")
 include("records.jl")
 include("uq_benchmarks.jl")
 include("catalogue_benchmarks.jl")
+include("progress.jl")
 include("performance.jl")
 include("benchmarks.jl")
 include("campaigns.jl")

@@ -121,7 +121,7 @@ function _catalogue_fem_benchmark(
     execution = merge((
         mesh_policy = :remesh,
         keep_run_directory = true,
-        gmsh_verbosity = 3,
+        gmsh_verbosity = 0,
         getdp_verbosity = 4,
         frequency_workers = 2,
         solver_threads = 1,
@@ -134,7 +134,7 @@ function _catalogue_fem_benchmark(
             options = _CATALOGUE_PHYSICAL_OPTIONS,
             fem_options = execution,
         );
-        options = merge((trace = true, verbosity = (default = 1,)),
+        options = merge((trace = true, verbosity = (default = 0,)),
             reference_options),
     )
     return benchmark_definition(
@@ -172,7 +172,7 @@ function _catalogue_pscad_benchmark(
         :pscad,
         model.problem,
         Formulation(:pscad; earth_impedance = :WedepohlWilcox1973);
-        options = reference_options,
+        options = merge((verbosity=(default=0,PSCAD=0),),reference_options),
     )
     return benchmark_definition(
         _catalogue_benchmark_id(case_id, :pscad),

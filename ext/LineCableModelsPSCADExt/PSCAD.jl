@@ -9,6 +9,7 @@ module PSCAD
 using Base64: base64encode
 using SHA: sha256
 import TOML
+import Logging
 using LineCableModels
 using LineCableModels.DataModel: LineCableSystem
 using LineCableModels.Earth: EarthModel

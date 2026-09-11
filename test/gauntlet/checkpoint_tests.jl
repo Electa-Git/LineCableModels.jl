@@ -56,6 +56,13 @@
         @test read_calculation(reference_path).metadata.session==initial_session
         completed=first(outcomes).result
         @test completed.timings.execution.reference.reused
+        @test completed.timings.execution.candidate.compute.reused_points == 1
+        session_state=TOML.parsefile(joinpath(directory,"first","state.toml"))
+        snapshot=TOML.parsefile(joinpath(directory,"sessions",session_state["session"]*".progress.toml"))
+        observation=only(row for row in snapshot["benchmarks"] if row["id"]=="first")
+        @test observation["candidate"]["reused"] == 1
+        @test observation["candidate"]["completed"] == 3
+        @test observation["candidate"]["timing_reused"]
         @test completed.metadata.session.id != initial_session.id
         points=read_calculation(joinpath(attempt,"candidate","calculation.jld2")).metadata.point_sessions
         @test points[1].id==initial_session.id
@@ -135,7 +142,7 @@ end
         @test !isempty(read_benchmark(directory).analyses)
         fail_at[]=typemax(Int)
         retried=run_benchmark(timed;directory)
-        @test calls[]==5 # Only the two timing samples are repeated.
+        @test calls[]==7 # Warmup and sample for each operand; numerical checkpoints are reused.
         @test retried.timings.execution.reference.reused
         @test retried.timings.execution.candidate.reused
     end

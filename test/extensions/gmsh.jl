@@ -1344,6 +1344,20 @@ end
         @test result.details.fem.run.completed_columns ==
               length(problem.frequencies) * length(result.details.fem.terminal_ids)
         @test run_directory !== nothing
+        timing=result.details.fem.timing
+        @test timing.backend == "getdp"
+        @test timing.columns == result.details.fem.run.completed_columns
+        @test timing.recovered_columns == 0
+        @test !timing.reused
+        @test timing.worker_wall_seconds >= 0
+        extension=Base.get_extension(LineCableModels,:LineCableModelsGmshExt)
+        native=[extension._column_timing(extension._column_paths(
+                run_directory,frequency,basis,false).timing,frequency,basis)
+            for frequency in eachindex(problem.frequencies)
+            for basis in eachindex(result.details.fem.terminal_ids)]
+        for phase in (:constraint_seconds,:assembly_seconds,:solve_seconds,:output_seconds)
+            @test getproperty(timing,phase) ≈ sum(getproperty(row,phase) for row in native)
+        end
         expected_rows = 1 +
                         length(problem.frequencies) *
                         length(result.details.fem.terminal_ids)^2
@@ -1382,6 +1396,8 @@ end
         @test repeated.Y.values == result.Y.values
         @test repeated.details.formulations.selections.earth_properties === nothing
         @test repeated.details.fem.run.run_directory == run_directory
+        @test repeated.details.fem.timing.reused
+        @test repeated.details.fem.timing.solve_seconds == timing.solve_seconds
         @test repeated.details.fem.inputs.getdp_identity.sha256 != ""
         @test !Bool(Gmsh.gmsh.is_initialized())
         @test snapshot_files(run_directory) == before_reuse

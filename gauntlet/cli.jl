@@ -11,8 +11,9 @@ Usage: lcm gauntlet case import|list|show|validate|catalogue [options]
        lcm gauntlet run --definition FILE.jl --directory DIR [--configuration FILE.jl]
                        [--frequencies FILE.toml | --grid log|linear --count N --bounds LOW,HIGH]
                        [--on-error continue|fail] [--resume] [--recover-solvers]
-       lcm gauntlet resume --directory DIR [--recover-solvers]
-       lcm gauntlet status --directory DIR
+                       [--progress auto|plain|off]
+       lcm gauntlet resume --directory DIR [--recover-solvers] [--progress auto|plain|off]
+       lcm gauntlet status --directory DIR [--watch]
        lcm gauntlet compare --definition FILE.toml --output DIR
        lcm gauntlet lock --directory DIR --output DIR [--benchmark ID[,ID]]
                         [--expected SNAPSHOT] [--note TEXT] [--illustrations FILE.toml]
@@ -327,13 +328,15 @@ function main(args = ARGS)
             note=option(args,"--note";default=""),illustrations))
         return
     elseif args[1] == "status"
+        flag(args,"--watch") && return watch_campaign(required_option(args,"--directory"))
         for row in campaign_status(required_option(args, "--directory"))
             println(row.id, '\t', row.state, '\t', row.identity, '\t', row.previous ? "previous result retained" : "", '\t', row.message)
         end
         return
     elseif args[1] == "resume"
         outcomes=resume_campaign(required_option(args, "--directory");
-            recover_solvers=flag(args,"--recover-solvers"))
+            recover_solvers=flag(args,"--recover-solvers"),
+            progress=Symbol(option(args,"--progress";default="auto")))
         all(row -> row.state === :complete, outcomes) ||
             error("campaign contains failed calculations; inspect status")
         return
@@ -378,6 +381,7 @@ function main(args = ARGS)
             run_campaign, required_option(args, "--directory"), definitions;
             on_error = Symbol(option(args, "--on-error"; default = "continue")),
             resume=flag(args,"--resume"),recover_solvers=flag(args,"--recover-solvers"),
+            progress=Symbol(option(args,"--progress";default="auto")),
             execution_sources = configuration === nothing ?
                                 [(path = source, module_name = :Gauntlet)] :
                                 [(path = abspath(configuration), module_name = :Main),

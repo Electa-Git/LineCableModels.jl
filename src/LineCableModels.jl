@@ -90,9 +90,11 @@ export export_data, import_data, save, load!
 import DocStringExtensions: DocStringExtensions
 using DocStringExtensions: SIGNATURES, TYPEDSIGNATURES, TYPEDEF, TYPEDFIELDS
 using Random
+import Logging
 
 include("docstrings.jl")
 include("interfaces.jl")
+include("progress.jl")
 include("formulas.jl")
 
 public FormulaDefinition, FormulaMethod

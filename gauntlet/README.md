@@ -324,6 +324,86 @@ moved or deleted. Missing, changed and unexpected files reject reads. Writers re
 vault destinations; corrections require a new bundle. Locking does not upload,
 change Git history or update published artifact bindings.
 
+## Live progress and performance
+
+Campaigns display progress on stderr by default. `--progress auto` uses an updating
+bar in a terminal and throttled plain output when redirected; `plain` always emits
+plain output, and `off` disables monitoring and its disposable snapshots. REPL
+calls accept the same choices as `progress=:auto`, `:plain` or `:off`.
+
+```bash
+./gauntlet/lcm gauntlet run --definition gauntlet/benchmark_all_references.jl \
+  --directory gauntlet/.work/all-references --configuration gauntlet/local.jl \
+  --grid log --count 101 --bounds 0.1,1e7 --on-error continue --progress auto
+./gauntlet/lcm gauntlet status --directory gauntlet/.work/all-references --watch
+```
+
+The first command starts fresh attempts. Add `--resume --recover-solvers` only when
+you want verified completed work reused. PSCAD excludes the bare-wire case. The
+local configuration supplies your station and diagnostic verbosity independently
+of progress; set `verbosity=(default=0, PSCAD=0)` there for quiet native chatter.
+
+The display separates selected benchmarks, calculation jobs, native worker jobs
+and MC accepted trials/attempts/rejections. Failed, skipped and interrupted work
+are not counted as successful. It shows outer point/formulation and backend stages,
+not the frequency currently inside a solver. Warnings remain visible. Explicit
+Gmsh console diagnostics switch the bar to append-only plain output. `status
+--watch` only reads metadata and active-session snapshots; Ctrl-C stops the watcher,
+not the campaign. Old runs without snapshots still show coarse campaign status.
+
+Each reference/candidate completion leaves a persistent summary above the live
+display, using the same labels for Owned, FEM, PSCAD, Monte Carlo and LEP runs.
+It shows execution wall time (through required result persistence), compute-call
+wall time, completed/reused calculation jobs and whether recovery was involved.
+Compute-call time covers calls actually made in this invocation; a saved operand
+instead says `not run (saved result)`, without displaying its historical compute
+time as a new measurement. Failed/interrupted operands show their elapsed wall
+time and leave unavailable measurements explicit. These are ordinary execution
+observations, not controlled performance samples. Summaries are emitted by the
+renderer, never from numerical loops, and are disabled by `--progress off`.
+Routine PSCAD messages honor the same 0/1/2 verbosity choices as FEM. With explicit
+verbosity, PSCAD's completion diagnostic labels the compile-call duration and its
+scope; it does not advertise that duration as elapsed scan time.
+
+Stage ETAs use bounded observed throughput. FEM estimates use MSH 4.1 ASCII node
+counts as a workload proxy, calibrated from at least three completed workers;
+remaining terminal columns, worker concurrency and the final serial tail are
+included. Unsupported mesh formats retain the identical-mesh throughput fallback.
+Campaign estimates learn from completed calculations during the current invocation,
+grouped by backend, propagation method and execution settings, with frequency,
+matrix and trial counts as workload proxies. Exact compatible history takes
+precedence. PSCAD uses comparable whole-call durations, including native setup.
+Reused/recovered calculations do not teach fresh computation costs.
+Finalization has its own observations, including reporting, persistence and any
+requested performance pass. Approximate estimates use `~`; when some workloads
+are unknown, the display reports the estimated portion separately. An untouched
+backend remains unknown; PSCAD observations cannot predict FEM or Monte Carlo.
+Overdue work returns to `estimating` until new evidence arrives. Heartbeats establish
+recent observation, not numerical progress. Estimates are advisory and never feed
+performance comparisons or numerical reuse decisions.
+
+Timing records distinguish execution wall, compute-call wall, and backend-native
+time. `sessions/SESSION.timing.toml` retains invocation wall time even with progress
+off. `timing.toml` retains operand wall/compute durations; calculation metadata
+retains compute policy and source timings. GetDP phase sums are accumulated worker
+time, **not** elapsed scan time. PSCAD source time covers remote `line.compile()`;
+output readiness and transfer belong to broader adapter time. Historical elapsed
+fields keep their legacy meaning. Verified recovery retains its original timings
+and is not a new zero-second solver measurement.
+
+Declared performance checks warm owned Julia calls, then time complete compute
+calls without progress, optional diagnostics or `on_result` callbacks. Required
+numerical/checkpoint IO remains included. MC samples include draws, reconstruction,
+retries and aggregation. The display says `Performance sample … — display paused`:
+there are no live trial updates, redraws or snapshot writes inside that sample.
+Normal execution still delivers user callbacks. Julia allocation counts cover
+Julia, not native worker memory. Native repetitions are not enabled implicitly.
+
+Operational runs include monitoring overhead and system load. Quiet samples remove
+the observer's active work, not unrelated machine contention. Speedup decisions
+require matching timing scope, measurement policy and environment, with no recovered
+native work or coverage/allocation instrumentation. One sample is limited evidence.
+
 ## Package and publish accepted bundles
 
 Create an explicit release definition, with bundle paths relative to this file:

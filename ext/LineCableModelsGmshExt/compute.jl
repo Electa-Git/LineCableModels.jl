@@ -290,6 +290,8 @@ end
 function _transition!(run::FEMRun, state::FEMRunState, message::AbstractString)
     run.state = state
     run.message = String(message)
+    state === running || LineCableModels.report_progress(LineCableModels.progress_receiver(),
+        (stage=Symbol(string(state)),backend=:fem))
     _write_json_atomic(joinpath(run.path, "run.json"),
         (
             schema = "LineCableModels.FEMRun",
@@ -394,6 +396,7 @@ function _headless_solve!(
     )
     _transition!(run, geometry_ready, "geometry ready")
     @info "FEM geometry ready" run_directory=run.path
+    LineCableModels.report_progress(LineCableModels.progress_receiver(),(stage=:meshing,backend=:fem))
     mesh_paths = _select_meshes!(
         run, model, geometry, formulation, runtime_root
     )
@@ -406,6 +409,7 @@ function _headless_solve!(
     _transition!(run, running, "GetDP frequency batches running")
     @info "Starting isolated GetDP frequency batches" workers=formulation.execution.frequency_workers
     _run_getdp!(run, model, formulation, mesh_paths)
+    LineCableModels.report_progress(LineCableModels.progress_receiver(),(stage=:validating,backend=:fem))
     scan = _parse_scan(run, model, formulation)
     _write_scan_checksums(run, scan)
     gmsh.onelab.set_number(_onelab_name("completion_status"), [1.0])
@@ -546,7 +550,7 @@ function _compute_fem(
         scan = _parse_scan(run, model, formulation)
         _check_scan_checksums(run, scan)
         @info "FEM reuses completed resolved inputs" run_directory=run.path
-        return _line_parameters(run, model, formulation, execution, scan, inputs)
+        return _line_parameters(run, model, formulation, execution, scan, inputs;reused=true)
     end
     ownership = _claim_run(run)
     parameters = try
@@ -559,7 +563,7 @@ function _compute_fem(
             if run.state === completed
                 scan = _parse_scan(run, model, formulation)
                 _check_scan_checksums(run, scan)
-                return _line_parameters(run, model, formulation, execution, scan, inputs)
+                return _line_parameters(run, model, formulation, execution, scan, inputs;reused=true)
             end
         end
         _assert_no_live_attempts(run)
@@ -580,7 +584,8 @@ function _compute_owned_fem(problem, formulation, execution, model, run, runtime
     _write_json_atomic(joinpath(run.path, "input", "computation.json"), inputs)
     session = nothing
     try
-        session = _start_gmsh(formulation.execution.gmsh_verbosity)
+        session = _start_gmsh(LineCableModels.performance_sample_active() ? 0 :
+            formulation.execution.gmsh_verbosity)
         parameters = formulation.execution.ui ?
                      _ui_solve!(run, model, formulation, execution, runtime_root, inputs) :
                      _headless_solve!(run, model, formulation, execution, runtime_root, inputs)
@@ -664,9 +669,12 @@ function _compute_request(problem, formulation; options)
     execution = _fem_computation_options(options)
     # Scalar and collection calls share completion notification and reuse rules.
     formulations = formulation isa LineCableModelsFEM ? [formulation] : formulation
+    if any(value->value.execution.gmsh_verbosity>0,formulations)
+        LineCableModels.report_progress(LineCableModels.progress_receiver(),(kind=:native_console,))
+    end
     console = ConsoleLogger(stderr, Logging.Debug)
     logger = Engine.ConsoleVerbosityLogger(console, execution.verbosity)
-    values = if execution.log_file === nothing
+    values = if execution.log_file === nothing || LineCableModels.performance_sample_active()
         with_logger(logger) do
             _compute_fem(problem, formulations, execution)
         end
