@@ -64,8 +64,190 @@ end
 
 _read_execution(path::AbstractString,key)=jldopen(file->_read_execution(file,key),path,"r")
 
+function _campaign_request(definition)
+    return (reference=_numerical_record(calculation_record(definition.reference)),
+        candidate=_numerical_record(calculation_record(definition.candidate)),
+        comparison=definition.comparison_settings,tolerances=definition.tolerances)
+end
+
+function _attempt_request(attempt)
+    declaration=joinpath(attempt,"declarations.jld2")
+    isfile(declaration) || return nothing
+    request=jldopen(declaration,"r") do file
+        haskey(file,"request") ? file["request"] : nothing
+    end
+    request === nothing || return request
+    # Legacy completed attempts already retain portable calculation/report records.
+    # Reading these fields does not restore a builder or load numerical arrays.
+    operands=map((:reference,:candidate)) do role
+        path=joinpath(attempt,string(role),"calculation.jld2")
+        isfile(path) ? jldopen(file->file["calculation"],path,"r") : nothing
+    end
+    any(isnothing,operands) && return nothing
+    analyses=joinpath(attempt,"analyses")
+    isdir(analyses) || return nothing
+    snapshots=[joinpath(folder,name) for (folder,_,names) in walkdir(analyses)
+        for name in names if name=="snapshot.jld2"]
+    isempty(snapshots) && return nothing
+    snapshot=last(sort!(snapshots;by=mtime))
+    comparison,tolerances=jldopen(snapshot,"r") do file
+        (file["comparison_settings"],file["tolerances"])
+    end
+    return (reference=_numerical_record(operands[1]),
+        candidate=_numerical_record(operands[2]),comparison,tolerances)
+end
+
+function _calculation_matches(directory,record)
+    isfile(joinpath(directory,"complete.toml")) || return false
+    path=joinpath(directory,"calculation.jld2")
+    isfile(path) || throw(ArgumentError("completed calculation is missing: $path"))
+    saved=jldopen(path,"r") do file
+        haskey(file,"calculation") ? file["calculation"] : nothing
+    end
+    return saved !== nothing && _numerical_record(saved)==record
+end
+
+function _campaign_plan(root,definitions;resume=false,force=false)
+    resume && force && throw(ArgumentError("force and resume are mutually exclusive"))
+    return map(definitions) do definition
+        benchmark_root=joinpath(root,string(definition.id))
+        path=joinpath(benchmark_root,"state.toml")
+        state=isfile(path) ? TOML.parsefile(path) : Dict{String,Any}()
+        previous=get(state,"current",nothing)
+        sources=unique([joinpath(benchmark_root,state[key]) for key in ("attempt","current")
+            if haskey(state,key)])
+        request=_campaign_request(definition)
+        matched=force ? nothing : findfirst(path->_attempt_request(path)==request,sources)
+        attempt=resume && haskey(state,"attempt") ? joinpath(benchmark_root,state["attempt"]) :
+            matched === nothing ? nothing : sources[matched]
+        saved_request=attempt === nothing ? nothing : _attempt_request(attempt)
+        if resume && saved_request !== nothing
+            all(getproperty(saved_request,role)==getproperty(request,role)
+                for role in (:reference,:candidate)) ||
+                throw(ArgumentError("campaign calculation inputs changed: $(definition.id)"))
+        end
+        if attempt !== nothing
+            retained=jldopen(joinpath(attempt,"declarations.jld2"),"r") do file
+                haskey(file,"reuse_attempts") ? file["reuse_attempts"] : nothing
+            end
+            # In particular, resuming a forced attempt cannot resurrect the
+            # older calculations it was explicitly intended to replace.
+            if retained !== nothing
+                sources=unique([attempt;[joinpath(benchmark_root,path) for path in retained]])
+            elseif resume
+                sources=[attempt]
+            end
+        end
+        completed=attempt !== nothing && previous !== nothing &&
+            attempt==joinpath(benchmark_root,previous) &&
+            saved_request==request
+        actions=map((:reference,:candidate)) do role
+            record=getproperty(request,role)
+            !force && any(source->_calculation_matches(joinpath(source,string(role)),record),sources) ?
+                :reuse : :compute
+        end
+        return (;id=definition.id,action=completed ? :skip : attempt === nothing ? :new : :continue,
+            reference=actions[1],candidate=actions[2],definition,request,attempt,previous,
+            sources=force ? String[] : sources)
+    end
+end
+
+# A completed skip checks numerical/report payloads, not the multi-gigabyte
+# native evidence tree. Full evidence validation belongs to the artifact readers.
+function _skip_campaign_benchmark(root,id,attempt)
+    state=TOML.parsefile(joinpath(root,string(id),"state.toml"))
+    observation_path=joinpath(root,"sessions",get(state,"session","")*".progress.toml")
+    observed=isfile(observation_path) ? TOML.parsefile(observation_path) : nothing
+    declaration=joinpath(attempt,"declarations.jld2")
+    bytes2hex(open(sha256,declaration))==strip(read(declaration*".sha256",String)) ||
+        throw(ArgumentError("campaign declaration integrity check failed: $declaration"))
+    jobs=map((:reference,:candidate)) do role
+        directory=joinpath(attempt,string(role))
+        path=joinpath(directory,"calculation.jld2")
+        marker=TOML.parsefile(joinpath(directory,"complete.toml"))
+        digest=bytes2hex(open(sha256,path))
+        digest==marker["sha256"] && first(split(read(path*".sha256",String)))==digest ||
+            throw(ArgumentError("calculation checksum mismatch: $path"))
+        count=get(marker,"jobs",nothing)
+        if count === nothing && isdir(joinpath(directory,"points"))
+            count=length(filter(isdir,readdir(joinpath(directory,"points");join=true)))
+        end
+        if count === nothing && observed !== nothing
+            row=findfirst(row->row["id"]==string(id),observed["benchmarks"])
+            row === nothing || (count=get(observed["benchmarks"][row][string(role)],"total",nothing))
+        end
+        (;digest,total=count)
+    end
+    snapshots=[joinpath(folder,name) for (folder,_,names) in walkdir(joinpath(attempt,"analyses"))
+        for name in names if name=="snapshot.jld2"]
+    isempty(snapshots) && throw(ArgumentError("completed benchmark has no report: $attempt"))
+    for path in snapshots
+        bytes2hex(open(sha256,path))==first(split(read(path*".sha256",String))) ||
+            throw(ArgumentError("benchmark checksum mismatch: $path"))
+        operands=jldopen(file->file["calculations"],path,"r")
+        all(operand.sha256==job.digest for (operand,job) in zip(operands,jobs)) ||
+            throw(ArgumentError("benchmark operand checksum mismatch: $path"))
+    end
+    LineCableModels.report_progress(LineCableModels.progress_receiver(),
+        (kind=:benchmark,benchmark=id,state=:skipped,stage=:skipped,
+            attempt=relpath(attempt,joinpath(root,string(id))),
+            reference_jobs=jobs[1].total,candidate_jobs=jobs[2].total,reused=true))
+    return (id,state=:complete,result=nothing,identity=state["identity"],skipped=true)
+end
+
+function _retain_checkpoint(source,destination)
+    # Completed files are immutable: hard links retain independent directory
+    # ownership without duplicating native evidence. Writes use new files/rename.
+    for (folder,_,names) in walkdir(source), name in names
+        name in ("failure.toml","complete.toml") && continue
+        original=joinpath(folder,name)
+        target=joinpath(destination,relpath(original,source))
+        mkpath(dirname(target))
+        temporary=tempname(dirname(target))
+        try
+            try
+                hardlink(original,temporary)
+            catch
+                cp(original,temporary;follow_symlinks=true)
+            end
+            mv(temporary,target;force=true)
+        finally
+            isfile(temporary) && rm(temporary)
+        end
+    end
+    # Completion records are published last, including independent sweep points.
+    for (folder,_,names) in reverse(collect(walkdir(source)))
+        "complete.toml" in names || continue
+        target=joinpath(destination,relpath(folder,source),"complete.toml")
+        mkpath(dirname(target))
+        temporary=tempname(dirname(target))
+        try
+            cp(joinpath(folder,"complete.toml"),temporary)
+            mv(temporary,target;force=true)
+        finally
+            isfile(temporary) && rm(temporary)
+        end
+    end
+end
+
+function _saved_execution(directory,declaration;destination=nothing)
+    path=joinpath(directory,"calculation.jld2")
+    record=TOML.parsefile(joinpath(directory,"complete.toml"))
+    saved=read_calculation(path;sha256_expected=record["sha256"])
+    saved.metadata.calculation !== nothing &&
+        _numerical_record(saved.metadata.calculation)==_numerical_record(declaration) ||
+        throw(ArgumentError("calculation inputs changed: $directory"))
+    result=_read_execution(path,"result")
+    destination === nothing || _retain_checkpoint(directory,destination)
+    original=saved.metadata.session === nothing ?
+        (id="legacy",repository=saved.metadata.repository,active_project=saved.metadata.active_project) :
+        saved.metadata.session
+    return (;result,reused=true,session=original,timing=saved.metadata.timing)
+end
+
 function _execute(calculation::BenchmarkCalculation; directory = nothing, model = nothing,
-        implementation = (), session = nothing, recover_solvers::Bool = false)
+        implementation = (), session = nothing, recover_solvers::Bool = false,
+        reuse_directories=String[])
     started = time_ns()
     if directory === nothing
         began=time_ns()
@@ -86,28 +268,21 @@ function _execute(calculation::BenchmarkCalculation; directory = nothing, model 
     path = joinpath(directory, "calculation.jld2")
     marker = joinpath(directory, "complete.toml")
     if isfile(marker)
-        record = TOML.parsefile(marker)
-        bytes2hex(open(sha256, path)) == record["sha256"] || throw(ArgumentError(
-            "calculation payload integrity check failed: $path"))
-        saved=read_calculation(path)
-        # Older files included the source tree in their signature. Compare their
-        # retained numerical declaration directly, while preserving the original execution record.
-        saved.metadata.calculation !== nothing &&
-            _numerical_record(saved.metadata.calculation) == _numerical_record(declaration) ||
-            throw(ArgumentError("calculation inputs changed: $directory"))
-        result = _read_execution(path, "result")
-        original=saved.metadata.session === nothing ?
-            (id="legacy", repository=saved.metadata.repository,
-                active_project=saved.metadata.active_project) : saved.metadata.session
-        return (; result, elapsed_seconds = (time_ns()-started)*1e-9,
-            reused = true, session=original,
-            timing=saved.metadata.timing)
+        saved=_saved_execution(directory,declaration)
+        return (;saved...,elapsed_seconds=(time_ns()-started)*1e-9)
     end
     inputs=joinpath(directory,"inputs.toml")
     if isfile(inputs)
         TOML.parsefile(inputs)["signature"] == signature ||
             throw(ArgumentError("calculation inputs changed: $directory"))
-    else
+    end
+    for source in reuse_directories
+        abspath(source)==abspath(directory) && continue
+        _calculation_matches(source,_numerical_record(declaration)) || continue
+        saved=_saved_execution(source,declaration;destination=directory)
+        return (;saved...,elapsed_seconds=(time_ns()-started)*1e-9)
+    end
+    if !isfile(inputs)
         _write_toml(inputs,Dict("signature"=>signature))
     end
     temporary = tempname(directory)
@@ -124,6 +299,10 @@ function _execute(calculation::BenchmarkCalculation; directory = nothing, model 
             # A formulation sweep is a sequence of independently recoverable
             # scalar calculations. Preserve the public problem/formulation axes.
             formulations=collect(calculation.formulation)
+            point_sources=[joinpath(parent,name)
+                for source in reuse_directories
+                for parent in (joinpath(source,"points"),) if isdir(parent)
+                for name in readdir(parent) if isdir(joinpath(parent,name))]
             jobs_reused=0
             values=map(eachindex(formulations)) do index
                 LineCableModels.report_progress(receiver,(stage=:computing,unit=:formulations,
@@ -137,7 +316,8 @@ function _execute(calculation::BenchmarkCalculation; directory = nothing, model 
                     options)
                 value=LineCableModels.with_progress_scope(formulation=index) do
                     _execute(point;directory=joinpath(directory,"points",string(index)),
-                        model,implementation,session,recover_solvers)
+                        model,implementation,session,recover_solvers,
+                        reuse_directories=point_sources)
                 end
                 push!(point_sessions,value.session)
                 push!(point_timings,value.timing)
@@ -202,7 +382,8 @@ function _execute(calculation::BenchmarkCalculation; directory = nothing, model 
         mv(temporary, path; force = true)
         digest = bytes2hex(open(sha256, path))
         write(path * ".sha256", digest * "  calculation.jld2\n")
-        _write_toml(marker, Dict("schema"=>2, "signature"=>signature, "sha256"=>digest))
+        _write_toml(marker, Dict("schema"=>2, "signature"=>signature, "sha256"=>digest,
+            "jobs"=>_progress_job_count(calculation)))
         execution_wall=(time_ns()-started)*1e-9
         _write_toml(joinpath(directory,"timing.toml"),Dict(
             "schema"=>1,"execution_wall_seconds"=>execution_wall,
@@ -220,13 +401,23 @@ end
 
 """
     run_campaign(directory, definitions; on_error=:continue, resume=false,
-        recover_solvers=false, progress=:auto)
+        force=false, benchmark=nothing, dry_run=false, recover_solvers=false,
+        progress=:auto)
 
-Save every selected declaration before executing the first benchmark. A fresh run
-replaces only those drafts once complete; resume continues recorded attempts with
-unchanged numerical inputs. Source edits do not invalidate completed calculations.
+Reconcile selected definitions with retained work. Skip identical completed
+benchmarks, continue identical drafts, and reuse matching operands and formulation
+points when a changed declaration requires a new attempt. Save the entire selected
+queue before entering a solver. Historical attempts remain readable.
+Source edits alone do not invalidate completed calculations.
 Each invocation records a new execution session; reused operands keep their original
-execution records. Previous results remain readable while a replacement is incomplete.
+execution records.
+
+`benchmark` selects explicit IDs. `dry_run=true` returns per-operand scheduling
+decisions without writing campaign files or checking full artifact integrity.
+`force=true` requests fresh calculations for the selection. It is incompatible
+with `resume=true`, which requires unchanged saved numerical declarations.
+Skipped outcomes have `state=:complete`, `skipped=true` and `result=nothing`;
+use `read_benchmark` when numerical results are needed.
 
 Set `recover_solvers=true` to ask FEM and PSCAD to recover compatible native run
 directories using their own input and output validation.
@@ -238,13 +429,21 @@ monitoring; compute-call and native timing records retain their separate scopes.
 """
 function run_campaign(directory::AbstractString, definitions::AbstractVector{<:BenchmarkDefinition};
         on_error::Symbol=:continue,resume::Bool=false,execution_sources=(),
-        session=execution_record(),recover_solvers::Bool=false,progress::Symbol=:auto)
+        session=execution_record(),recover_solvers::Bool=false,progress::Symbol=:auto,
+        force::Bool=false,benchmark=nothing,dry_run::Bool=false)
+    ids=_campaign_selection(string.(getproperty.(definitions,:id)),benchmark)
+    definitions=filter(definition->string(definition.id) in ids,definitions)
+    isempty(definitions) && throw(ArgumentError("campaign needs benchmark definitions"))
+    on_error in (:continue,:fail) || throw(ArgumentError("on_error must be :continue or :fail"))
+    foreach(validate,definitions)
+    plan=_campaign_plan(abspath(directory),definitions;resume,force)
+    dry_run && return [(;item.id,item.action,item.reference,item.candidate) for item in plan]
     # A rejected immutable destination must not receive even a UI snapshot.
     validate(Base.write,directory)
     return _record_campaign_wall(directory,session;progress) do
         _with_campaign_progress(directory,getproperty.(definitions,:id),session.id;progress) do tracker
             _progress_declarations!(tracker,definitions)
-            _run_campaign(directory,definitions;on_error,resume,execution_sources,session,recover_solvers)
+            _run_campaign(directory,definitions;on_error,resume,execution_sources,session,recover_solvers,plan)
         end
     end
 end
@@ -268,7 +467,7 @@ function _record_campaign_wall(f,directory,session;progress)
 end
 
 function _run_campaign(directory, definitions;
-        on_error,resume,execution_sources,session,recover_solvers)
+        on_error,resume,execution_sources,session,recover_solvers,plan)
     on_error in (:continue,:fail) || throw(ArgumentError("on_error must be :continue or :fail"))
     isempty(definitions) && throw(ArgumentError("campaign needs benchmark definitions"))
     allunique(getproperty.(definitions,:id)) || throw(ArgumentError("campaign benchmark IDs must be unique"))
@@ -297,7 +496,8 @@ function _run_campaign(directory, definitions;
     prepared=NamedTuple[]
     # Prepare the entire queue before entering any solver. In particular, an
     # interruption in the first benchmark must not erase later declarations.
-    for definition in definitions
+    for item in plan
+        definition=item.definition
         benchmark_root=joinpath(root,string(definition.id))
         mkpath(benchmark_root)
         lease=open(joinpath(benchmark_root,"execution.lock"),"a+")
@@ -309,16 +509,23 @@ function _run_campaign(directory, definitions;
         previous=get(state,"current",nothing)
         attempt=nothing
         try
-            if resume && haskey(state,"attempt")
-                attempt=joinpath(benchmark_root,state["attempt"])
+            if item.attempt !== nothing
+                attempt=item.attempt
                 declaration=joinpath(attempt,"declarations.jld2")
                 bytes2hex(open(sha256,declaration)) == strip(read(declaration*".sha256",String)) ||
                     throw(ArgumentError("campaign declaration integrity check failed"))
-                saved=only(_read_execution(declaration,"definitions"))
-                for role in (:reference,:candidate)
-                    _numerical_record(calculation_record(getproperty(saved,role))) ==
-                        _numerical_record(calculation_record(getproperty(definition,role))) ||
-                        throw(ArgumentError("campaign calculation inputs changed: $(definition.id)/$role"))
+                if resume
+                    saved=only(_read_execution(declaration,"definitions"))
+                    for role in (:reference,:candidate)
+                        _numerical_record(calculation_record(getproperty(saved,role))) ==
+                            _numerical_record(calculation_record(getproperty(definition,role))) ||
+                            throw(ArgumentError("campaign calculation inputs changed: $(definition.id)/$role"))
+                    end
+                end
+                if state["attempt"] != relpath(attempt,benchmark_root)
+                    state["attempt"]=relpath(attempt,benchmark_root)
+                    state["state"]=item.action===:skip ? "complete" : "pending"
+                    _write_toml(state_path,state)
                 end
             else
                 attempts=joinpath(benchmark_root,"attempts")
@@ -334,6 +541,8 @@ function _run_campaign(directory, definitions;
                 packages=[(name=id.name,uuid=string(id.uuid)) for id in keys(Base.loaded_modules)
                     if id.uuid !== nothing && string(id.uuid) in dependencies]
                 JLD2.jldsave(declaration;definitions_bytes=_execution_bytes([definition]),implementation=(),session,
+                    request=item.request,
+                    reuse_attempts=[relpath(path,benchmark_root) for path in item.sources],
                     declaration_sources,execution_evidence,packages,on_error,case_sources=[definition.model.source_file],
                     repository=session.repository,active_project=session.active_project)
                 write(declaration*".sha256",bytes2hex(open(sha256,declaration)))
@@ -347,13 +556,14 @@ function _run_campaign(directory, definitions;
                 state["state"]="pending"
                 _write_toml(state_path,state)
             end
-            push!(prepared,(;definition,attempt,previous))
+            push!(prepared,(;definition,attempt,previous,reuse_directories=item.sources,
+                skip=item.action===:skip))
         finally
             close(lease)
         end
     end
     outcomes=NamedTuple[]
-    for (;definition,attempt,previous) in prepared
+    for (;definition,attempt,previous,reuse_directories,skip) in prepared
         benchmark_root=joinpath(root,string(definition.id))
         lease=open(joinpath(benchmark_root,"execution.lock"),"a+")
         acquired=Sys.iswindows() ? ccall(:_locking,Cint,(Cint,Cint,Clong),fd(lease),2,1)==0 :
@@ -366,6 +576,10 @@ function _run_campaign(directory, definitions;
             throw(ArgumentError("benchmark attempt was replaced by another process: $(definition.id)"))
         end
         try
+            if skip
+                push!(outcomes,_skip_campaign_benchmark(root,definition.id,attempt))
+                continue
+            end
             completed=resume && get(state,"state","")=="complete"
             benchmark_started=time_ns()
             receiver=LineCableModels.progress_receiver()
@@ -380,9 +594,8 @@ function _run_campaign(directory, definitions;
             value=LineCableModels.with_progress_scope(benchmark=definition.id,
                     attempt=attempt_relative) do
                 run_benchmark(definition;directory=attempt,session,mode=:live,
-                    measure_performance=!completed,recover_solvers)
+                    measure_performance=!completed,recover_solvers,reuse_directories)
             end
-            read_benchmark(attempt)
             identity=semantic_sha256(read_benchmark,attempt)
             state["state"]="complete"
             state["current"]=relpath(attempt,benchmark_root)
@@ -399,9 +612,6 @@ function _run_campaign(directory, definitions;
                 state["fresh_candidate_seconds"]=value.timings.execution.candidate.seconds
             end
             _write_toml(state_path,state)
-            if previous !== nothing && previous != state["current"]
-                rm(joinpath(benchmark_root,previous);recursive=true)
-            end
             push!(outcomes,(id=definition.id,state=:complete,result=value,identity))
             LineCableModels.report_progress(receiver,(kind=:benchmark,benchmark=definition.id,
                 state=:complete,stage=:complete,reused=state["reused"],
@@ -426,24 +636,32 @@ function _run_campaign(directory, definitions;
 end
 
 """
-    resume_campaign(directory; recover_solvers=false, progress=:auto)
+    resume_campaign(directory; benchmark=nothing, recover_solvers=false, progress=:auto)
 
 Continue the saved work order using checksummed declarations. Restore captured
 declaration code for constructors without consulting the original source files.
+Complete entries are skipped before restoring executable declarations or loading
+results. Skip verification checks payload checksums; use artifact readers for full
+backend-evidence validation. `benchmark` optionally selects explicit saved IDs.
 Completed numerical operands keep their original execution records; unfinished
 work uses the current Julia environment. A legacy queue without saved declarations
 must first be supplied to `run_campaign` with `resume=true`.
 One progress tracker covers the whole resumed invocation; `progress` has the same
 meaning as in [`run_campaign`](@ref).
 """
-function resume_campaign(directory::AbstractString;recover_solvers::Bool=false,progress::Symbol=:auto)
+function resume_campaign(directory::AbstractString;recover_solvers::Bool=false,progress::Symbol=:auto,
+        benchmark=nothing)
     root=abspath(directory)
     validate(Base.write,root)
     manifest=TOML.parsefile(joinpath(root,"campaign.toml"))
     manifest["schema"] == 3 || throw(ArgumentError("historical campaigns remain readable; new execution requires a new staging directory"))
+    manifest["benchmarks"]=_campaign_selection(manifest["benchmarks"],benchmark)
     outcomes=NamedTuple[]
     session=execution_record()
     return _record_campaign_wall(root,session;progress) do
+        sessions=joinpath(root,"sessions")
+        mkpath(sessions)
+        JLD2.jldsave(joinpath(sessions,session.id*".jld2");session)
         _with_campaign_progress(root,manifest["benchmarks"],session.id;progress) do tracker
             _resume_campaign(root,manifest,outcomes,session;recover_solvers,progress)
         end
@@ -456,6 +674,20 @@ function _resume_campaign(root,manifest,outcomes,session;recover_solvers,progres
         isfile(state_path) || throw(ArgumentError(
             "legacy campaign has no saved declaration for $id; supply the original definitions to run_campaign(...; resume=true)"))
         state=TOML.parsefile(state_path)
+        if state["state"]=="complete"
+            lease=open(joinpath(root,id,"execution.lock"),"a+")
+            acquired=Sys.iswindows() ? ccall(:_locking,Cint,(Cint,Cint,Clong),fd(lease),2,1)==0 :
+                ccall(:flock,Cint,(Cint,Cint),fd(lease),6)==0
+            acquired || (close(lease);throw(ArgumentError("another process owns benchmark $id")))
+            try
+                current=TOML.parsefile(state_path)
+                current==state || throw(ArgumentError("benchmark state changed during resume: $id"))
+                push!(outcomes,_skip_campaign_benchmark(root,Symbol(id),joinpath(root,id,state["current"])))
+            finally
+                close(lease)
+            end
+            continue
+        end
         declaration=joinpath(root,id,state["attempt"],"declarations.jld2")
         bytes2hex(open(sha256,declaration)) == strip(read(declaration*".sha256",String)) ||
             throw(ArgumentError("campaign declaration integrity check failed"))
@@ -487,6 +719,17 @@ function _resume_campaign(root,manifest,outcomes,session;recover_solvers,progres
             on_error,resume=true,session,recover_solvers,progress))
     end
     return outcomes
+end
+
+function _campaign_selection(ids,selection)
+    allunique(ids) || throw(ArgumentError("campaign benchmark IDs must be unique"))
+    selection === nothing && return ids
+    selected=selection isa Union{Symbol,AbstractString} ? [string(selection)] : string.(collect(selection))
+    isempty(selected) && throw(ArgumentError("benchmark selection cannot be empty"))
+    allunique(selected) || throw(ArgumentError("benchmark selection contains duplicate IDs"))
+    unknown=setdiff(selected,ids)
+    isempty(unknown) || throw(ArgumentError("unknown benchmark IDs: $(join(unknown,", "))"))
+    return filter(id->id in selected,ids)
 end
 
 """

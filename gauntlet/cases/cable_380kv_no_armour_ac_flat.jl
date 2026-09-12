@@ -98,31 +98,31 @@ case_definition(Base.Fix1(build_case, Val(:cable_380kv_no_armour_ac_flat)),
             :strand_layers, 6; tags = (:topology, :cable_layer)
         ),
         strand_diameter = case_parameter(
-            :strand_diameter, 3.66e-3; tags = (:geometry, :cable_layer)
+            :strand_diameter, 3.66e-3; tags = (:geometry, :cable_layer, :length)
         ),
         core_lay_ratio = case_parameter(
-            :core_lay_ratio, 15.0; tags = (:geometry, :cable_layer)
+            :core_lay_ratio, 15.0; tags = (:geometry, :cable_layer, :dimensionless)
         ),
         inner_semicon_thickness = case_parameter(
-            :inner_semicon_thickness, 2.0e-3; tags = (:geometry, :cable_layer)
+            :inner_semicon_thickness, 2.0e-3; tags = (:geometry, :cable_layer, :length)
         ),
         insulation_thickness = case_parameter(
-            :insulation_thickness, 20.0e-3; tags = (:geometry, :cable_layer)
+            :insulation_thickness, 20.0e-3; tags = (:geometry, :cable_layer, :length)
         ),
         outer_semicon_thickness = case_parameter(
-            :outer_semicon_thickness, 1.5e-3; tags = (:geometry, :cable_layer)
+            :outer_semicon_thickness, 1.5e-3; tags = (:geometry, :cable_layer, :length)
         ),
         water_blocking_thickness = case_parameter(
-            :water_blocking_thickness, 0.3e-3; tags = (:geometry, :cable_layer)
+            :water_blocking_thickness, 0.3e-3; tags = (:geometry, :cable_layer, :length)
         ),
         lead_sheath_thickness = case_parameter(
-            :lead_sheath_thickness, 3.3e-3; tags = (:geometry, :cable_layer)
+            :lead_sheath_thickness, 3.3e-3; tags = (:geometry, :cable_layer, :length)
         ),
         inner_pe_thickness = case_parameter(
-            :inner_pe_thickness, 3.0e-3; tags = (:geometry, :cable_layer)
+            :inner_pe_thickness, 3.0e-3; tags = (:geometry, :cable_layer, :length)
         ),
         jacket_thickness = case_parameter(
-            :jacket_thickness, 10.0e-3; tags = (:geometry, :cable_layer)
+            :jacket_thickness, 10.0e-3; tags = (:geometry, :cable_layer, :length)
         ),
         core_rho = case_parameter(
             :core_rho, 2.3853e-8; tags = (:material, :cable_layer)

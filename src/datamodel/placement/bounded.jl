@@ -214,7 +214,10 @@ function normalize_polygon_area(points, target_area::Real, centre)
 end
 
 function clip_halfplane(points, normal, offset)
-    return clip_halfplane!(eltype(points)[], points, normal, offset)
+    isempty(points) && return copy(points)
+    T = promote_type(typeof(first(points)[1]), typeof(first(points)[2]),
+        typeof(normal[1]), typeof(normal[2]), typeof(offset))
+    return clip_halfplane!(Tuple{T,T}[], points, normal, offset)
 end
 
 function clip_halfplane!(output, points, normal, offset)
@@ -323,6 +326,36 @@ function balance_power_cells(boundary, sites, targets; maxiter::Integer = 50,
     sites = [((point[1] - origin[1]) / length_scale,
               (point[2] - origin[2]) / length_scale) for point in sites]
     targets = targets ./ length_scale^2
+    nominal_boundary = [nominal.(point) for point in boundary]
+    nominal_sites = [nominal.(point) for point in sites]
+    nominal_targets = nominal.(targets)
+    cells, weights = _balance_power_cells_nominal(
+        nominal_boundary, nominal_sites, nominal_targets; maxiter, rtol
+    )
+    uncertain = any(point -> any(x -> !iszero(uncertainty(x)), point), boundary) ||
+                any(point -> any(x -> !iszero(uncertainty(x)), point), sites) ||
+                any(x -> !iszero(uncertainty(x)), targets)
+    if uncertain
+        # The area constraint, not Newton's iteration history, defines the
+        # sensitivity. Fix the last weight to zero and use the true Jacobian.
+        scale = maximum(point -> hypot(point...), nominal_boundary)
+        hessian = weight_hessian(cells, nominal_sites, weights, scale)
+        fixed_cells = power_cells(boundary, sites, weights)
+        residual = targets .- signed_polygon_area.(fixed_cells)
+        correction = LinearAlgebra.lu(hessian[1:(end - 1), 1:(end - 1)]) \
+                     (residual[1:(end - 1)] .- nominal.(residual[1:(end - 1)]))
+        weights = weights .+ [correction; zero(first(correction))]
+        cells = power_cells(boundary, sites, weights)
+    end
+    resolved = [[(origin[1] + length_scale * point[1],
+                  origin[2] + length_scale * point[2]) for point in cell]
+                for cell in cells]
+    return (resolved, weights .* length_scale^2)
+end
+
+function _balance_power_cells_nominal(boundary, sites, targets;
+        maxiter::Integer = 50, rtol::Real = 1.0e-11)
+    count = length(sites)
     scale = maximum(point -> hypot(point...), boundary)
     weights = zeros(typeof(float(first(targets))), count)
     best_error = oftype(first(targets), Inf)
@@ -335,10 +368,7 @@ function balance_power_cells(boundary, sites, targets; maxiter::Integer = 50,
         residual = targets .- areas
         relative_error = maximum(abs.(residual) ./ targets)
         if relative_error <= rtol
-            resolved = [[(origin[1] + length_scale * point[1],
-                          origin[2] + length_scale * point[2]) for point in cell]
-                        for cell in cells]
-            return (resolved, weights .* length_scale^2)
+            return (cells, weights)
         end
         if relative_error < best_error
             best_error = relative_error
@@ -631,7 +661,6 @@ function sector_courses(shape::SectorShape, wire::Disk)
         ))
         polygon = sector_polygon(shape; points)
     end
-    polygon = [nominal.(point) for point in polygon]
     centre = polygon_centroid(polygon)
     measure = fan_measure(polygon, centre)
     members = [(site = centre, course = 0, member = 1, angle = zero(shape.at.φ))]
@@ -714,7 +743,7 @@ geometric tolerance.
 function area_preserving_strand(cell, source_area; angle = 0, points::Integer = 128)
     points >= 16 || throw(ArgumentError("a clipped disk requires at least 16 vertices"))
     target = nominal(source_area)
-    cell_area = signed_polygon_area(cell)
+    cell_area = nominal(signed_polygon_area(cell))
     target > 0 || throw(DomainError(source_area, "strand area must be positive"))
     target <= cell_area * (1 + 4.0e-6) || throw(DomainError(
         source_area, "a source strand does not fit inside its allocated cell"
@@ -725,22 +754,24 @@ function area_preserving_strand(cell, source_area; angle = 0, points::Integer = 
     end
 
     # Solve at unit area to avoid coordinate-scale tolerances and cancellation.
-    scale = sqrt(target)
+    scale = sqrt(source_area)
     local_cell = [((point[1] - centre[1]) / scale,
                    (point[2] - centre[2]) / scale) for point in cell]
     directions = [(cos(angle + 2pi * index / points),
                    sin(angle + 2pi * index / points)) for index in 0:(points - 1)]
     lower = inv(sqrt(pi))
-    upper = maximum(point -> hypot(point...), local_cell) / cos(pi / points)
+    nominal_cell = [nominal.(point) for point in local_cell]
+    nominal_directions = [nominal.(point) for point in directions]
+    upper = maximum(point -> hypot(point...), nominal_cell) / cos(pi / points)
     radius = lower
-    buffer = similar(directions, 0)
+    buffer = similar(nominal_directions, 0)
     scratch = similar(buffer)
     sizehint!(buffer, points + length(cell))
     sizehint!(scratch, points + length(cell))
     strand = buffer
     for _ in 1:64
         radius = (lower + upper) / 2
-        strand = clipped_disk!(buffer, scratch, local_cell, radius, directions)
+        strand = clipped_disk!(buffer, scratch, nominal_cell, radius, nominal_directions)
         value = signed_polygon_area(strand)
         abs(value - 1) <= 64eps(float(value)) && break
         value < 1 ? (lower = radius) : (upper = radius)
@@ -748,18 +779,26 @@ function area_preserving_strand(cell, source_area; angle = 0, points::Integer = 
 
     # Differentiate the scalar area constraint for uncertainty-bearing inputs;
     # the nominal cell topology is fixed, as in the existing compaction model.
-    if !iszero(source_area - target)
+    if any(point -> any(x -> !iszero(uncertainty(x)), point), local_cell) ||
+       !iszero(uncertainty(angle))
         step = cbrt(eps(float(radius))) * radius
         area_plus = signed_polygon_area(
-            clipped_disk!(buffer, scratch, local_cell, radius + step, directions)
+            clipped_disk!(buffer, scratch, nominal_cell, radius + step, nominal_directions)
         )
         area_minus = signed_polygon_area(
-            clipped_disk!(buffer, scratch, local_cell, radius - step, directions)
+            clipped_disk!(buffer, scratch, nominal_cell, radius - step, nominal_directions)
         )
         derivative = (area_plus - area_minus) / (2step)
-        radius += (source_area / target - 1) / derivative
-        point_type = typeof((radius * first(directions)[1], radius * first(directions)[2]))
-        strand = clipped_disk!(point_type[], point_type[], local_cell, radius, directions)
+        isfinite(derivative) && derivative > 0 || throw(DomainError(
+            derivative, "clipped-strand area has no positive local radius derivative"
+        ))
+        T = promote_type(typeof(first(local_cell)[1]), typeof(first(local_cell)[2]),
+            typeof(angle), typeof(radius))
+        buffer_t, scratch_t = Tuple{T,T}[], Tuple{T,T}[]
+        fixed = clipped_disk!(buffer_t, scratch_t, local_cell, radius, directions)
+        residual = 1 - signed_polygon_area(fixed)
+        radius += (residual - nominal(residual)) / derivative
+        strand = clipped_disk!(buffer_t, scratch_t, local_cell, radius, directions)
     end
     return [(centre[1] + scale * point[1], centre[2] + scale * point[2])
             for point in strand]
@@ -792,20 +831,17 @@ function deform_disk_members(boundary_shape, members)
             "the compacted strand inventory exceeds its authoritative boundary area"
         ))
     points = boundary_shape isa Disk ? 256 : 64
-    polygon = [nominal.(point)
-               for point in boundary_polygon(boundary_shape; points)]
-    while nominal_total_source_area > signed_polygon_area(polygon) * (1 + 2.0e-6)
+    polygon = boundary_polygon(boundary_shape; points)
+    while nominal_total_source_area > nominal(signed_polygon_area(polygon)) * (1 + 2.0e-6)
         points *= 2
         points <= 16_384 || throw(ArgumentError(
             "bounded compaction could not resolve the declared fill factor " *
             "within its geometric tolerance"
         ))
-        polygon = [nominal.(point)
-                   for point in boundary_polygon(boundary_shape; points)]
+        polygon = boundary_polygon(boundary_shape; points)
     end
-    targets = signed_polygon_area(polygon) .* nominal_source_areas ./
-              nominal_total_source_area
-    sites = [nominal.(member.site) for member in members]
+    targets = signed_polygon_area(polygon) .* source_areas ./ total_source_area
+    sites = [member.site for member in members]
     cells = compact_power_cells(polygon, sites, targets)
     return [
         resolved_polygon(

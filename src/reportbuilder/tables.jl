@@ -86,8 +86,8 @@ end
 function validate(definition::BenchmarkTableDefinition)
     settings=definition.settings
     !isempty(settings.quantities) && allunique(settings.quantities) &&
-        all(q -> q in (:Z, :Y, :R, :L, :G, :C), settings.quantities) ||
-        throw(ArgumentError("benchmark quantities must select distinct Z, Y, R, L, G, or C"))
+        all(q -> q in (:Z, :Y, :R, :X, :L, :G, :B, :C), settings.quantities) ||
+        throw(ArgumentError("benchmark quantities must select distinct Z, Y, R, X, L, G, B, or C"))
     if settings.pairing !== nothing
         settings.pairing isa Union{Tuple,AbstractVector} && !isempty(settings.pairing) &&
             all(pair -> pair isa Tuple{Integer,Integer} && all(index -> !(index isa Bool) && index>0,pair),settings.pairing) &&

@@ -58,7 +58,7 @@
         @test only(campaign_status(directory)).state === :complete
         old_attempt=attempt
         fail_candidate[]=true
-        replacement=only(run_campaign(directory,[definition]))
+        replacement=only(run_campaign(directory,[definition];force=true))
         @test replacement.state === :failed
         @test only(campaign_status(directory)).previous
         @test_throws r"latest draft" read_benchmark(joinpath(directory,"authority"))
@@ -68,7 +68,8 @@
         recovered=only(resume_campaign(directory))
         @test recovered.state === :complete
         @test recovered.result.timings.execution.reference.reused
-        @test !isdir(old_attempt)
+        @test !recovered.result.timings.execution.candidate.reused
+        @test isdir(old_attempt) # Retained numerical history is not deleted by replacement.
         state=TOML.parsefile(joinpath(directory,"authority","state.toml"))
         attempt=joinpath(directory,"authority",state["current"])
         count=length(calls)

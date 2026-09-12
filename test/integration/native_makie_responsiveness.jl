@@ -83,10 +83,11 @@
     )
     Makie.colorbuffer(tall.figure)
     tall_bounds=[axis.layoutobservables.computedbbox[] for axis in tall.axes]
-    @test tall_bounds[1].origin[2] > tall_bounds[2].origin[2]
+    @test tall.figure.scene.viewport[].widths[1] > tall.figure.scene.viewport[].widths[2]
+    @test isapprox(tall_bounds[1].origin[2], tall_bounds[2].origin[2]; atol=1)
     @test all(bounds -> bounds.widths[1] > 350, tall_bounds)
     @test all(bounds -> bounds.widths[2] > 220, tall_bounds)
-    @test [axis.xlabelvisible[] for axis in tall.axes] == [false, true]
+    @test [axis.xlabelvisible[] for axis in tall.axes] == [true, true]
 end
 
 @testitem "Makie addons / compact preview and material scheme geometry" tags=[:visual] setup=[

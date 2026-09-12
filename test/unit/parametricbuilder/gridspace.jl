@@ -46,6 +46,40 @@
     @test_throws ArgumentError PB.Grid(:symbol, PB.AbsoluteError(1.0))
 end
 
+@testitem "ParametricBuilder / joint input identity and bounded covariance" tags=[:unit, :extension] begin
+    using Measurements, Random, Statistics
+    source = Grid(1.,10.)
+    joint = Gridspace{NamedTuple{(:inner,:outer)}}(s->(inner=0.01s,outer=0.012s),(source,))
+    p = only(joint)
+    @test Measurements.cov(p.inner,p.outer) ≈ 0.01*0.01*0.012
+    @test uncertainty(p.outer-p.inner) ≈ 0.0002
+    a,b = only(Gridspace{Tuple}(tuple,(source,source)))
+    @test iszero(Measurements.cov(a,b))
+    calls = Ref(0)
+    sampler = (rng,mu,sigma)->(calls[]+=1;mu+sigma*(2rand(rng)-1))
+    rand(Xoshiro(2),joint;distribution=sampler)
+    @test calls[] == 1
+    calls[] = 0
+    rand(Xoshiro(2),Gridspace{Tuple}(tuple,(source,source));distribution=sampler)
+    @test calls[] == 2
+    for combine in (:product,:zip)
+        nested = Gridspace{Tuple}(tuple,(joint,Grid((:a,:b)));combine)
+        @test length(nested) == 2
+        @test last.(collect(nested)) == [:a,:b]
+        @test all(v->uncertainty(first(v).outer/first(v).inner)<1e-14,nested)
+    end
+    rng = Xoshiro(42)
+    draws = [rand(rng,joint;distribution=:uniform) for _ in 1:10_000]
+    scales = getproperty.(draws,:inner)./0.01
+    @test all(s->1-sqrt(3)*0.1 <= s <= 1+sqrt(3)*0.1,scales)
+    @test all(p->p.outer>p.inner>0,draws)
+    @test mean(scales) ≈ 1 atol=0.004
+    @test std(scales) ≈ 0.1 atol=0.003
+    @test mean(scales.^2) ≈ 1.01 atol=0.008
+    @test Statistics.cov(getproperty.(draws,:inner),getproperty.(draws,:outer)) ≈
+        0.01*0.01*0.012 rtol=0.06
+end
+
 @testitem "ParametricBuilder / Gridspace / product and zip" tags=[:unit] setup=[
     EngineTestSupport, UseEngineSupport] begin
     using Random

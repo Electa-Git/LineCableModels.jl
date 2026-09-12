@@ -7,7 +7,7 @@ for further editing.
 """
 module PlotBuilder
 
-using DocStringExtensions: TYPEDEF, TYPEDFIELDS
+using DocStringExtensions: TYPEDEF, TYPEDFIELDS, TYPEDSIGNATURES
 
 export UIPlot, plot, preview, show_material_scale, export_svg
 export figurelegend!, panellegend!, figuretitle!, paneltitle!

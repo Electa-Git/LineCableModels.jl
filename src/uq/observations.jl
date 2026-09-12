@@ -311,16 +311,7 @@ function detach(summary::SampleSummary, factor)
 end
 
 function detach(summary::SampleSummary, factor, clip::Bool)
-    return SampleSummary(
-        detach(summary.mean, factor, clip),
-        detach(summary.std, abs(factor), clip),
-        detach(summary.min, factor, clip),
-        detach(summary.q05, factor, clip),
-        detach(summary.median, factor, clip),
-        detach(summary.q95, factor, clip),
-        detach(summary.max, factor, clip),
-        summary.n
-    )
+    return detach(summary, factor)
 end
 
 function detach(

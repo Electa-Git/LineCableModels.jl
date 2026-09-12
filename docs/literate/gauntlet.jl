@@ -6,6 +6,23 @@
 # matrix overlays. A reference defines comparison direction and normalization.
 # LCM, PSCAD and FEM remain different models whose discrepancies are measured.
 #
+# ## Catalog uncertainty declarations
+#
+# New catalog UQ declarations record `bounded_correlated_geometry_v1`: one
+# bounded uniform 10%-standard-deviation scale for cross-section lengths,
+# independent bounded lay/fillet inputs, and an independent explicit area input.
+# This synthetic correlated study is not the old independent-normal study and
+# does not assert measured manufacturing correlations. Counts stay fixed over
+# the declared support. Derived areas scale quadratically, so first-order LEP
+# and nonlinear Monte Carlo need not have identical means.
+#
+# Joint sources use ordinary core Gridspace builders. Gauntlet records their
+# primitive supports and output dependencies and passes each joint source once.
+# A fresh declaration adopts the law; resume retains the saved study. Existing
+# results and solver caches are preserved. Removing the artificial buffer in
+# the 525 kV/1600 mm² case changes its nominal geometry and requires matching new
+# references; the 320/380 kV nominal resolved geometry is retained explicitly.
+#
 # ## Retained summaries
 #
 # This page reads the immutable versions selected in `docs/gauntlet.toml`. An
@@ -37,9 +54,9 @@
 # ```
 #
 # Absolute RMS retains the measured difference. No denominator floor is applied.
-# Numerical-zero reference traces give unavailable relative RMS, with a per-term
-# reason and absolute RMS. Pointwise normalization is unavailable if any selected
-# reference sample is numerically zero; samples are never silently omitted.
+# Both operands must exceed the numerical-zero tolerance at every selected sample.
+# Otherwise relative RMS is missing for either normalization, with a per-term
+# reason and absolute RMS; samples are never silently omitted.
 # Defaults are 1e-10 Ω/m for R, 1e-15 H/m for L, 1e-12 S/m for G and 1e-16 F/m
 # for C. Z and Y thresholds follow R + 2πfL and G + 2πfC. Explicit `atol` overrides
 # belong to the comparison request. Empty bands and unsupported quantities retain

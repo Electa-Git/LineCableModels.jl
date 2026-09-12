@@ -159,8 +159,18 @@ function record_benchmark(benchmark::BenchmarkDefinition, publication::ReportArt
         bytes2hex(open(sha256, operand.path)) == operand.sha256 ||
             throw(ArgumentError("saved operand changed during comparison: $(operand.path)"))
     end
+    # Only analysis semantics participate here, never the calculation identity
+    # or runtime source state. Unversioned retained errors remain historical.
+    resolution_semantics = [(quantity=row.quantity, statistic=row.statistic,
+        reference_index=row.reference_index, candidate_index=row.candidate_index,
+        band=row.details.band, normalization=row.details.normalization,
+        resolution_revision=get(get(row.details, :resolution, (;)), :revision, 0),
+        resolution_kind=get(get(row.details, :resolution, (;)), :kind, :historical_unversioned),
+        atol=get(row.details, :atol, nothing),
+        candidate_atol=get(row.details, :candidate_atol, get(row.details, :atol, nothing)))
+        for row in comparisons]
     analysis_id=semantic_sha256((reference = a.sha256, candidate = b.sha256,
-        comparison = benchmark.comparison_settings))
+        comparison = benchmark.comparison_settings, resolution_semantics))
     path = joinpath(abspath(directory), string(benchmark.id), analysis_id, "snapshot.jld2")
     if isfile(path)
         read_benchmark(path)
@@ -172,7 +182,7 @@ function record_benchmark(benchmark::BenchmarkDefinition, publication::ReportArt
     temporary = tempname(dirname(path))
     try
         JLD2.jldsave(temporary; schema_version = 2, kind = :gauntlet_benchmark,
-            analysis_id,
+            analysis_id, resolution_semantics,
             summary=[merge(NamedTuple(row),(snapshot=analysis_id,)) for row in eachrow(publication.table.maxima)],
             formulations=[_selection_value(NamedTuple(row)) for row in eachrow(publication.table.formulations)],
             benchmark_id = string(benchmark.id),

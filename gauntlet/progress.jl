@@ -295,6 +295,22 @@ function _progress_event!(tracker::CampaignProgress, event)
             tracker.active["started"] = now
             tracker.active["phase_started"] = now
             row === nothing || (row["state"] = string(event.state))
+            if event.state === :skipped && row !== nothing
+                for name in (:reference,:candidate)
+                    role=row[string(name)]
+                    total=get(event,Symbol(name,:_jobs),nothing)
+                    if total !== nothing
+                        role["total"]=total
+                        role["known"]=true
+                    end
+                    role["state"]="complete"
+                    role["completed"]=role["total"]
+                    role["reused"]=role["total"]
+                    role["saved_result"]=true
+                    role["timing_reused"]=true
+                    role["announced"]=true
+                end
+            end
         end
         if row !== nothing && haskey(event, :attempt)
             row["attempt"] = string(event.attempt)

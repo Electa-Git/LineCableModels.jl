@@ -102,6 +102,9 @@ function _native_hide_interactive_chrome!(snapshot, plot)
             _native_hide_layout_content!(snapshot, entry.content)
         end
     end
+    # Block publications retain the same axis rectangles as the live pages.
+    # Hide controls without reclaiming their space and enlarging residual cells.
+    haskey(plot.addon_state, :matrix_block) && return nothing
     rowsize!(root, 1, Fixed(0))
     rowsize!(root, 3, Fixed(0))
     root.default_rowgap = Fixed(0)
@@ -198,6 +201,8 @@ function LineCableModels.export_svg(
     previous_backend = Makie.current_backend()
     snapshot = Pair{Any, Any}[]
     layout_snapshot = nothing
+    matrix_layout = plot.addon_state === nothing ? nothing : get(plot.addon_state, :matrix_layout, nothing)
+    matrix_layout === nothing || (matrix_layout.suspended[] = true)
     try
         # Cairo is an installed dependency, loaded only when SVG is requested.
         # Its initialization activates it globally; restore the live backend
@@ -220,6 +225,7 @@ function LineCableModels.export_svg(
     finally
         _native_restore_interactive_chrome!(layout_snapshot)
         _native_restore_snapshot!(snapshot)
+        matrix_layout === nothing || (matrix_layout.suspended[] = false)
         _native_restore_backend!(previous_backend)
     end
     opened = should_open && _native_open_export(output)

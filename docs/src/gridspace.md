@@ -437,6 +437,53 @@ General correlation between distinct variables is a UQ concern. Correlation requ
 joint stochastic source or distribution that returns a tuple or vector sample
 consumed by one builder. Gridspace does not infer or register correlation.
 
+### Feasible geometric dependence
+
+For a fixed-count wire ring, varying the ring radius and wire diameter
+independently can produce overlaps even when the nominal ring fits. Declare the
+intended dependence in an ordinary builder, before constructing physical parts:
+
+```julia
+using LineCableModels, Measurements, Random
+
+joint = Gridspace{NamedTuple{(:inner, :diameter, :x)}}(
+    (scale, x) -> (inner=0.0679scale, diameter=0.006scale, x=x),
+    (Grid(1.0, 10.0), Grid(0.0, AbsoluteError(0.002))),
+)
+geometry = Gridspace{Tuple}(
+    p -> (
+        Ring(68; r=p.inner+p.diameter/2),
+        Disk(p.diameter/2),
+        Annulus(p.inner, p.inner+p.diameter, Pose2(p.x, 0.0)),
+    ),
+    (joint,),
+)
+propagated = only(geometry)
+sampled = rand(Xoshiro(42), geometry; distribution=:uniform)
+```
+
+Lengths are in meters. Here the common scale has mean 1, standard deviation
+0.1 and uniform support `[1-sqrt(3)*0.1, 1+sqrt(3)*0.1]`. The nominal chord
+clearance is positive; shared positive scaling preserves that sign and the
+68-wire inventory throughout this support. The annulus thickness is derived
+from the same diameter, and its independent coordinate retains its own
+uncertainty. For a complete stack, derive successive boundaries from positive
+thicknesses inside the same builder. Nest the resulting source once in the
+`LineParametersProblem` builder, then use it with `ParametricProblem` and
+either `LinearError` or `MonteCarlo`.
+
+This is a specified correlated model, not independent manufacturing tolerances.
+It preserves each length's nominal mean and 10% standard deviation, but derived
+areas scale quadratically: their mean is `1.01` times nominal area. Linear
+propagation is local and does not include that second-order mean shift.
+Normal sampling remains the default and has unbounded support; finite reserve
+distances cannot make all independent normal draws feasible. Retry mode
+estimates a distribution conditional on success, not the original input law.
+
+Executable native checkpoints retain the joint builder and its sources.
+Marginal Measurement JSON retains values and standard uncertainties only; it is
+not a format for archiving the joint statistical law or covariance.
+
 ## Optional package extensions
 
 The core package declares uncertainty without loading Measurements or

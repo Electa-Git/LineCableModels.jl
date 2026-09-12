@@ -1,10 +1,50 @@
 """
-    plot(source[, ydata]; kwargs...)
+$(TYPEDSIGNATURES)
 
 Create a compact native Makie plot for a supported result or observation
 publication. The optional Makie extension infers distinct physical quantities
 from the selected ordinate data; `layout` controls only where those inferred
 axes are placed.
+
+# Keywords
+
+- `ydata`: Selected physical observables and optional original matrix indices.
+- `blocks=nothing`: One complete matrix dashboard per quantity. A tuple
+  `(rows, columns)` partitions matrix dashboards into blocks of at most that
+  many rows and columns. Residual pages retain the full block footprint and
+  equal axis sizes at equal figure dimensions. Empty selected blocks are omitted.
+- `fig_size=nothing`: Figure dimensions in logical pixels for matrix recipes.
+  Width is expanded when necessary to retain a landscape aspect of at least 4:3.
+- `series_attributes=nothing`: Native per-series overrides. Comparison recipes
+  supply solid lines and sparse, staggered markers automatically; `marker=nothing`
+  disables markers. References mark both endpoints. An explicit marker retains
+  native all-sample placement.
+
+# Returns
+
+- A [`UIPlot`](@ref), or a vector of handles when multiple pages are produced.
+  Block titles and export names include one-based block coordinates; subplot
+  titles and panel controls retain original matrix coordinates.
+
+# Notes
+
+Top/bottom legends automatically fit a row-major grid unless native
+`legend_attributes.orientation` or `legend_attributes.nbanks` is specified.
+Long labels wrap; formulation labels omit equation choices belonging only to the
+other plotted family, without merging repeated entries. Matrix pagination performs
+no calculation, comparison, interpolation, or symmetry reduction.
+
+# Errors
+
+`blocks` must contain two positive integers and cannot be combined with a
+conflicting individual or paired `layout`. With blocks, positional `panel_titles`
+must cover all selected facets; dictionary keys use original matrix coordinates.
+
+# Examples
+
+```julia
+pages = plot(results; ydata=(R, L, G, C), blocks=(2, 3))
+```
 """
 function plot end
 

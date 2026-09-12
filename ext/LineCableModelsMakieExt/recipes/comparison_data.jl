@@ -51,7 +51,9 @@ function _prepare_line_comparison(
         freq_unit = :base,
         length_unit = :kilo,
         quantity_units = nothing,
-        clip::Bool = true
+        clip::Bool = true,
+        atol = nothing,
+        frequencies = nothing
 )
     _validate_comparison_inputs(parameters)
     labels = _comparison_labels(series_labels, length(parameters))
@@ -62,7 +64,9 @@ function _prepare_line_comparison(
             freq_unit,
             length_unit,
             quantity_units,
-            clip
+            clip,
+            atol,
+            frequencies
         )
     end
     return (; published, labels)

@@ -61,8 +61,13 @@ function _published_frequency(object, input, selector)
     return published
 end
 
-function _publish_request(object, request, target, clip::Bool)
-    return only(observables(object, (request,); units = (target,), clip))
+function _publish_request(object, request, target, input)
+    publication = observables(object, (request,); units=(target,),
+        clip=input.clip, atol=input.atol, frequencies=input.frequencies)
+    observation = only(publication)
+    contract = getproperty(publication.metadata.observation_columns,
+        Symbol(Units.symbol(observation.quantity)))
+    return (; observation, resolution=contract.resolution)
 end
 
 function _request_coordinates(object, request)
@@ -85,12 +90,12 @@ function _materialized_line_request(object, input, request)
     rows, columns, samples = _request_coordinates(object, request)
     identity = observation_request(object, request).identity
     prefix = identity isa Tuple ? identity : (identity,)
-    _diagonal_request(request) && return (prefix..., rows, samples)
-    if object isa SeriesImpedance && identity === L
-        prefix = (L, input.frequencies)
-    elseif object isa ShuntAdmittance && identity === C
-        prefix = (C, input.frequencies)
+    selector = identity isa Tuple ? first(identity) : identity
+    if (object isa SeriesImpedance && selector === L) ||
+            (object isa ShuntAdmittance && selector === C)
+        prefix = (prefix..., input.frequencies)
     end
+    _diagonal_request(request) && return (prefix..., rows, samples)
     return (prefix..., rows, columns, samples)
 end
 
@@ -107,21 +112,24 @@ function _publish_line_source(object, input, ydata)
         length_prefix = input.length_unit,
         overrides = input.quantity_units
     )
-    observations = map(ydata, targets, coordinates) do request, target, indices
-        observation = _publish_request(
+    publications = map(ydata, targets, coordinates) do request, target, indices
+        publication = _publish_request(
             object,
             _materialized_line_request(object, input, request),
             target,
-            input.clip
+            input
         )
-        _diagonal_request(request) || return observation
+        _diagonal_request(request) || return publication
+        observation = publication.observation
         rows, _, samples = indices
         values = reshape(observation.values, length(rows), 1, length(samples))
-        return merge(observation, (; values))
+        return merge(publication, (observation=merge(observation, (; values)),))
     end
+    observations = map(publication -> publication.observation, publications)
+    resolutions = map(publication -> publication.resolution, publications)
     all(observation -> size(observation.values, 3) == length(frequency.values), observations) ||
         throw(DimensionMismatch("frequency count does not match line-parameter samples"))
-    return (; frequency, observations, coordinates)
+    return (; frequency, observations, coordinates, resolutions)
 end
 
 function _prepare_line_observations(
@@ -131,9 +139,12 @@ function _prepare_line_observations(
         freq_unit = :base,
         length_unit = :kilo,
         quantity_units = nothing,
-        clip::Bool = true
+        clip::Bool = true,
+        atol = nothing
 )
     _validate_plot_ydata(object, ydata)
+    atol isa Real && length(unique(request_identity.(ydata))) > 1 && throw(ArgumentError(
+        "a scalar atol requires one plotted quantity; use keyed native-unit tolerances"))
     supplied = frequencies === nothing ? nothing : collect(frequencies)
     if object isa Union{SeriesImpedance, ShuntAdmittance}
         supplied === nothing && throw(ArgumentError(
@@ -157,7 +168,8 @@ function _prepare_line_observations(
         freq_unit,
         length_unit,
         quantity_units,
-        clip
+        clip,
+        atol
     )
     published = _publish_line_source(object, input, ydata)
     length(published.frequency.values) <= 1 &&

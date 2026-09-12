@@ -52,8 +52,8 @@ end
 
 function _decode_material_record(value)
     if get(value, "kind", nothing) == "radial_dielectric"
-        materials = [_decode_material_record(m) for m in
-            _required(value, "materials", "radial_dielectric")]
+        materials = [_decode_material_record(m)
+                     for m in _required(value, "materials", "radial_dielectric")]
         return RadialDielectric(materials, _field(value, "weights");
             mu_r = _field(value, "mu_r"))
     end
@@ -263,9 +263,10 @@ function _material_reference(value, materials)
         throw(KeyError(String(value)))
     end
     decoded = deserialize_value(value)
-    decoded isa Union{AbstractMaterial, Gridspace{<:AbstractMaterial}} || throw(ArgumentError(
-        "region material must decode as AbstractMaterial"
-    ))
+    decoded isa Union{AbstractMaterial, Gridspace{<:AbstractMaterial}} ||
+        throw(ArgumentError(
+            "region material must decode as AbstractMaterial"
+        ))
     return decoded
 end
 
@@ -424,9 +425,9 @@ function _decode_node(::Val{:line_cable_system}, value)
         String(_required(value, "system_id", "line_cable_system")),
         _field(value, "line_length")
     )
-    declared_positions = _optional(value, "declared_positions")
+    input_positions = _optional(value, "input_positions")
     caller = (selected...) -> build(LineCableSystem, selected...;
-        _declared_positions = declared_positions, _clearances = clearances)
+        _input_positions = input_positions, _clearances = clearances)
     return parameterize(LineCableSystem, caller, inputs)
 end
 

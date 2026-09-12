@@ -101,37 +101,37 @@ case_definition(Base.Fix1(build_case, Val(:cable_640kv_2000mm2_bipole)),
     (
         core_strand_radius = case_parameter(
             :core_strand_radius, 6.543707496202785e-3 / 2;
-            tags = (:geometry, :cable_layer)
+            tags = (:geometry, :cable_layer, :length)
         ),
         ring_counts = case_parameter(
             :ring_counts, (6, 12, 18, 24); tags = (:topology, :cable_layer)
         ),
         core_lay_ratio = case_parameter(
-            :core_lay_ratio, 13.0; tags = (:geometry, :cable_layer)
+            :core_lay_ratio, 13.0; tags = (:geometry, :cable_layer, :dimensionless)
         ),
         semicon_tape_thickness = case_parameter(
-            :semicon_tape_thickness, 0.3e-3; tags = (:geometry, :cable_layer)
+            :semicon_tape_thickness, 0.3e-3; tags = (:geometry, :cable_layer, :length)
         ),
         inner_semicon_thickness = case_parameter(
-            :inner_semicon_thickness, 0.768e-3; tags = (:geometry, :cable_layer)
+            :inner_semicon_thickness, 0.768e-3; tags = (:geometry, :cable_layer, :length)
         ),
         insulation_thickness = case_parameter(
-            :insulation_thickness, 32.0e-3; tags = (:geometry, :cable_layer)
+            :insulation_thickness, 32.0e-3; tags = (:geometry, :cable_layer, :length)
         ),
         outer_semicon_thickness = case_parameter(
-            :outer_semicon_thickness, 0.472e-3; tags = (:geometry, :cable_layer)
+            :outer_semicon_thickness, 0.472e-3; tags = (:geometry, :cable_layer, :length)
         ),
         lead_screen_thickness = case_parameter(
-            :lead_screen_thickness, 3.3e-3; tags = (:geometry, :cable_layer)
+            :lead_screen_thickness, 3.3e-3; tags = (:geometry, :cable_layer, :length)
         ),
         inner_sheath_thickness = case_parameter(
-            :inner_sheath_thickness, 3.0e-3; tags = (:geometry, :cable_layer)
+            :inner_sheath_thickness, 3.0e-3; tags = (:geometry, :cable_layer, :length)
         ),
         aluminum_tape_thickness = case_parameter(
-            :aluminum_tape_thickness, 0.15e-3; tags = (:geometry, :cable_layer)
+            :aluminum_tape_thickness, 0.15e-3; tags = (:geometry, :cable_layer, :length)
         ),
         jacket_thickness = case_parameter(
-            :jacket_thickness, 6.05e-3; tags = (:geometry, :cable_layer)
+            :jacket_thickness, 6.05e-3; tags = (:geometry, :cable_layer, :length)
         ),
         cable_x = case_parameter(
             :cable_x, (-0.5, 0.5); tags = (:geometry, :system)

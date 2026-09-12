@@ -143,11 +143,17 @@ Publish explicitly requested scientific values for presentation or reporting.
 
 `observables(::Type{T})` declares the selectors supported by `T`.
 `observables(source, requests; units, length_unit, frequency_unit,
-quantity_units, clip)` returns one [`ObservationPublication`](@ref). Iteration
+quantity_units, clip, atol, frequencies)` returns one [`ObservationPublication`](@ref). Iteration
 and indexing expose one detached `values`/`quantity`/`unit` payload for each
 positional request. Its Tables.jl view adds owner-defined scientific
 coordinates without retaining or reopening the source. `units` is empty or
-positionally aligned with `requests`; `clip` controls display-residue cleanup
-and defaults to `true`.
+positionally aligned with `requests`. With `clip=true` (default), the result
+owner's declared native-unit reporting resolution is applied before conversion.
+`atol` optionally overrides that resolution; multiple quantities require keyed
+cutoffs. `frequencies` supplies standalone tensor context \\[Hz\\]. These cutoffs
+are not certified floating-point error bounds. Unknown quantities and physical
+uncertainty are not automatically clipped. `clip=false` retains raw values in
+the requested display units. Absolute/relative error products are never clipped
+using their operands' physical cutoffs.
 """
 function observables end

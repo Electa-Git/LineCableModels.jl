@@ -41,6 +41,7 @@ include("uncertainty.jl")
 public check_core_result
 public validate_observables, unit_targets, detach
 public observation_request, observation_indices, materialize_observation
+public observation_resolution
 public request_identity, request_quantity, request_indices
 public ObservationPublication, publication_table
 end # module Grammar

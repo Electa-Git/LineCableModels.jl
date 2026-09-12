@@ -53,8 +53,16 @@ function _semantic_line_layout_mode(object, facets, layout)
            length(facets) > 1 ? :paired : :matrix
 end
 
-function _semantic_line_pages(object, facets, layout)
-    mode = _semantic_line_layout_mode(object, facets, layout)
+function _semantic_line_pages(object, facets, layout, blocks=nothing)
+    if blocks !== nothing
+        blocks isa Tuple && length(blocks) == 2 &&
+            all(value -> value isa Integer && !(value isa Bool) && value > 0, blocks) ||
+            throw(ArgumentError("blocks must be a tuple of two positive integers or nothing"))
+        matrix_size = size(object isa LineParameters ? Z(object) : object, 1)
+        layout === nothing || layout == (matrix_size, matrix_size) ||
+            throw(ArgumentError("blocks requires matrix layout; omit layout or use the full matrix dimensions"))
+    end
+    mode = blocks === nothing ? _semantic_line_layout_mode(object, facets, layout) : :matrix
     if mode === :individual
         return mode,
         [(; facets = Any[facet], positions = ((1, 1),),
@@ -93,7 +101,23 @@ function _semantic_line_pages(object, facets, layout)
             )
             matrix_positions, (matrix_size, matrix_size)
         end
-        push!(pages, (; facets = page_facets, positions, dimensions))
+        if blocks === nothing
+            push!(pages, (; facets = page_facets, positions, dimensions))
+        else
+            block_rows, block_columns = Int.(blocks)
+            for block_row in 1:cld(matrix_size, block_rows),
+                    block_column in 1:cld(matrix_size, block_columns)
+                retained = filter(page_facets) do facet
+                    cld(facet.row, block_rows) == block_row &&
+                        cld(facet.column, block_columns) == block_column
+                end
+                isempty(retained) && continue
+                local_positions = Tuple((mod1(facet.row, block_rows),
+                    mod1(facet.column, block_columns)) for facet in retained)
+                push!(pages, (; facets=retained, positions=local_positions,
+                    dimensions=(block_rows, block_columns), block=(block_row, block_column)))
+            end
+        end
     end
     return mode, pages
 end
@@ -142,7 +166,8 @@ function _semantic_page_title(object, page, mode)
         first_facet.row,
         first_facet.column
     )
-    return LineCableModels.Units.label(first_facet.quantity)
+    label = LineCableModels.Units.label(first_facet.quantity)
+    return haskey(page, :block) ? "$label ($(page.block[1]),$(page.block[2]))" : label
 end
 
 function _semantic_page_option(value, page_index::Int, page_count::Int, name::AbstractString)
@@ -202,6 +227,7 @@ function _addon_semantic_line_page(
         page,
         mode;
         series_indices,
+        series_defaults,
         series_attributes,
         title,
         figure_title,
@@ -227,6 +253,19 @@ function _addon_semantic_line_page(
     shell.canvas.default_colgap = Fixed(48)
     rowgap!(shell.canvas, 24)
     colgap!(shell.canvas, 48)
+    blocked = haskey(page, :block)
+    # Reserve the complete footprint, including residual/empty cells. These are
+    # layout tracks, not dummy axes or numerical observations.
+    cells = Dict{Tuple{Int,Int},Any}()
+    if blocked
+        for row in 1:page.dimensions[1], column in 1:page.dimensions[2]
+            cell = _addon_panel!(shell, (row, column))
+            rowsize!(shell.canvas, row, Auto(false, 1))
+            colsize!(shell.canvas, column, Auto(false, 1))
+            cell.layout.alignmode = Outside()
+            cells[(row, column)] = cell
+        end
+    end
     axes = Any[]
     panels = Any[]
     resets = Function[]
@@ -258,17 +297,28 @@ function _addon_semantic_line_page(
             yvalues,
             "logarithmic ordinate axes require positive finite data and uncertainty bounds"
         ))
-        panel = _addon_panel!(shell, position)
+        panel = if blocked
+            merge(cells[position], (; logical_position=(facet.row, facet.column)))
+        else
+            _addon_panel!(shell, position)
+        end
         row, column = position
+        bottom_row = blocked ? maximum(first, page.positions) : page.dimensions[1]
         attributes = (;
-            xlabelvisible = row == page.dimensions[1],
-            xticklabelsvisible = row == page.dimensions[1],
-            xticksvisible = row == page.dimensions[1],
+            xlabelvisible = row == bottom_row,
+            xticklabelsvisible = row == bottom_row,
+            xticksvisible = row == bottom_row,
             # Matrix cells have independent y limits; each must expose its scale.
             ylabelvisible = true,
             yticklabelsvisible = true,
             yticksvisible = true
         )
+        if all(source -> source.resolutions[facet.request_index].clip &&
+                source.resolutions[facet.request_index].kind === :declared_floor, published)
+            if all(ismissing, yvalues)
+                attributes = merge(attributes, (subtitle="Undefined phase",))
+            end
+        end
         axis = _addon_axis!(
             panel.content,
             xobservation,
@@ -329,9 +379,16 @@ function _addon_semantic_line_page(
     mode === :paired && length(axes) > 1 &&
         _addon_responsive_axis_grid!(
             shell.figure, shell.canvas, panels, axes, page.dimensions)
-    return _addon_finish!(
+    local_panel_legends = if blocked
+        selected = Set((facet.row, facet.column) for facet in page.facets)
+        Tuple(pair for pair in _addon_panel_legend_pairs(panel_legends) if first(pair) in selected)
+    else
+        panel_legends
+    end
+    built = _addon_finish!(
         shell, axes, resets, xsetters, ysetters, groups, group_order, group_labels;
         series_attributes,
+        series_defaults,
         title,
         figure_title,
         title_attributes,
@@ -341,7 +398,7 @@ function _addon_semantic_line_page(
         legend_overflow,
         legend_title,
         panels,
-        panel_legends,
+        panel_legends=local_panel_legends,
         panel_group_labels,
         controls,
         display_plot,
@@ -349,6 +406,13 @@ function _addon_semantic_line_page(
         export_theme,
         open_export
     )
+    if blocked
+        built.addon_state = merge(built.addon_state, (matrix_block=(;
+            index=page.block, dimensions=page.dimensions,
+            cells=Tuple(values(cells)),
+            coordinates=Tuple((facet.row, facet.column) for facet in page.facets)),))
+    end
+    return built
 end
 
 function _addon_line_pages(
@@ -357,7 +421,9 @@ function _addon_line_pages(
         ydata,
         series_labels = nothing,
         series_indices = collect(eachindex(sources)),
+        series_family_labels = nothing,
         series_attributes = nothing,
+        series_defaults = nothing,
         title = nothing,
         figure_title = nothing,
         title_attributes::NamedTuple = (;),
@@ -366,8 +432,10 @@ function _addon_line_pages(
         length_unit = :kilo,
         quantity_units = nothing,
         clip::Bool = true,
+        atol = nothing,
         fig_size = nothing,
         layout = nothing,
+        blocks = nothing,
         xscale::Symbol = :linear,
         yscale::Symbol = :linear,
         legend_position = :right,
@@ -402,7 +470,8 @@ function _addon_line_pages(
             freq_unit,
             length_unit,
             quantity_units,
-            clip
+            clip,
+            atol
         ),)
     else
         _prepare_line_comparison(
@@ -412,29 +481,46 @@ function _addon_line_pages(
             freq_unit,
             length_unit,
             quantity_units,
-            clip
+            clip,
+            atol,
+            frequencies
         ).published
     end
     any(source -> length(source.frequency.values) <= 1, published) &&
         return LineCableModels.UIPlot[]
 
     facets = _semantic_line_facets(first(published), ydata)
-    mode, pages = _semantic_line_pages(first(sources), facets, layout)
+    mode, pages = _semantic_line_pages(first(sources), facets, layout, blocks)
+    if blocks !== nothing
+        selected = Set((facet.row, facet.column) for facet in facets)
+        for (position, _) in _addon_panel_legend_pairs(panel_legends)
+            position in selected || throw(ArgumentError("panel legend $position is not a selected matrix coordinate"))
+        end
+        if panel_titles isa Union{Tuple,AbstractVector}
+            length(panel_titles) == length(facets) || throw(DimensionMismatch(
+                "blocked panel_titles must contain one title per selected matrix facet"))
+            panel_titles = Dict((facet.identity, facet.row, facet.column) => String(label)
+                for (facet, label) in zip(facets, panel_titles))
+        end
+    end
     effective_legend_position = length(sources) > 1 || explicit_source_labels ?
                                 legend_position : nothing
     built = LineCableModels.UIPlot[]
     for (page_index, page) in enumerate(pages)
+        page_labels = series_family_labels === nothing ? source_labels :
+            _comparison_labels(series_family_labels[first(page.facets).family],length(sources))
         automatic_title = _semantic_page_title(first(sources), page, mode)
         page_title = title === nothing ? automatic_title : String(title)
-        length(pages) > 1 && title !== nothing &&
+        (length(pages) > 1 || blocks !== nothing) && title !== nothing &&
             (page_title = "$page_title — $automatic_title")
         visible_title = _semantic_page_option(
             figure_title, page_index, length(pages), "figure_title")
         push!(built,
             with_theme(_addon_theme(export_theme = export_theme)) do
                 _addon_semantic_line_page(
-                    first(sources), published, source_labels, page, mode;
+                    first(sources), published, page_labels, page, mode;
                     series_indices,
+                    series_defaults,
                     series_attributes,
                     title = page_title,
                     figure_title = visible_title,
@@ -451,11 +537,17 @@ function _addon_line_pages(
                     panel_legends,
                     signed_ylog,
                     controls,
-                    display_plot,
+                    display_plot=false,
                     export_theme,
                     open_export
                 )
             end)
+    end
+    blocks === nothing || _addon_equal_matrix_cells!(built)
+    if display_plot
+        for page in built
+            _addon_display!(page.figure, page.export_name)
+        end
     end
     return length(built) == 1 ? only(built) : built
 end
@@ -474,9 +566,4 @@ function _addon_semantic_line_plots(
         series_labels,
         kwargs...
     )
-end
-
-function _addon_comparison_color(index::Int)
-    hue = mod(210.0 + 137.50776405003785 * (index - 1), 360.0)
-    return RGB(HSV(hue, 0.72, 0.78))
 end

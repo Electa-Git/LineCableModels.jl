@@ -63,21 +63,13 @@ function build_case(::Val{:cable_320kv_armoured_dc_bipole}, p)
     radius += p.inner_pe_thickness
 
     armor_wire_radius = p.armor_wire_diameter / 2
-    minimum_armor_inner_radius = armor_wire_radius / sinpi(1 / p.armor_wires) -
-                                 armor_wire_radius
-    nominal_armor_inner_radius = radius + p.bedding_thickness
-    packing_shortfall = max(
-        minimum_armor_inner_radius - nominal_armor_inner_radius,
-        zero(minimum_armor_inner_radius)
-    )
-    effective_bedding_thickness = p.bedding_thickness + packing_shortfall
     push!(parts,
         LineCableModels.Region(
             :sheath_bedding,
-            LineCableModels.Shell(effective_bedding_thickness),
+            LineCableModels.Shell(p.bedding_thickness),
             pp
         ))
-    radius += effective_bedding_thickness
+    radius += p.bedding_thickness
     armor_outer = radius + 2armor_wire_radius
     armor = LineCableModels.Group(
         :armor,
@@ -145,43 +137,45 @@ case_definition(Base.Fix1(build_case, Val(:cable_320kv_armoured_dc_bipole)),
             :strand_layers, 6; tags = (:topology, :cable_layer)
         ),
         strand_diameter = case_parameter(
-            :strand_diameter, 3.66e-3; tags = (:geometry, :cable_layer)
+            :strand_diameter, 3.66e-3; tags = (:geometry, :cable_layer, :length)
         ),
         core_lay_ratio = case_parameter(
-            :core_lay_ratio, 15.0; tags = (:geometry, :cable_layer)
+            :core_lay_ratio, 15.0; tags = (:geometry, :cable_layer, :dimensionless)
         ),
         inner_semicon_thickness = case_parameter(
-            :inner_semicon_thickness, 2.0e-3; tags = (:geometry, :cable_layer)
+            :inner_semicon_thickness, 2.0e-3; tags = (:geometry, :cable_layer, :length)
         ),
         insulation_thickness = case_parameter(
-            :insulation_thickness, 20.0e-3; tags = (:geometry, :cable_layer)
+            :insulation_thickness, 20.0e-3; tags = (:geometry, :cable_layer, :length)
         ),
         outer_semicon_thickness = case_parameter(
-            :outer_semicon_thickness, 1.5e-3; tags = (:geometry, :cable_layer)
+            :outer_semicon_thickness, 1.5e-3; tags = (:geometry, :cable_layer, :length)
         ),
         water_blocking_thickness = case_parameter(
-            :water_blocking_thickness, 0.3e-3; tags = (:geometry, :cable_layer)
+            :water_blocking_thickness, 0.3e-3; tags = (:geometry, :cable_layer, :length)
         ),
         lead_sheath_thickness = case_parameter(
-            :lead_sheath_thickness, 3.3e-3; tags = (:geometry, :cable_layer)
+            :lead_sheath_thickness, 3.3e-3; tags = (:geometry, :cable_layer, :length)
         ),
         inner_pe_thickness = case_parameter(
-            :inner_pe_thickness, 3.0e-3; tags = (:geometry, :cable_layer)
+            :inner_pe_thickness, 3.0e-3; tags = (:geometry, :cable_layer, :length)
         ),
         bedding_thickness = case_parameter(
-            :bedding_thickness, 3.0e-3; tags = (:geometry, :cable_layer)
+            # Explicit reconstructed benchmark dimension: preserves the former
+            # resolved nominal geometry; not a verified manufacturer dimension.
+            :bedding_thickness, 9.376520171274612e-3; tags = (:geometry, :cable_layer, :length)
         ),
         armor_wires = case_parameter(
             :armor_wires, 68; tags = (:topology, :cable_layer)
         ),
         armor_wire_diameter = case_parameter(
-            :armor_wire_diameter, 5.82e-3; tags = (:geometry, :cable_layer)
+            :armor_wire_diameter, 5.82e-3; tags = (:geometry, :cable_layer, :length)
         ),
         armor_lay_ratio = case_parameter(
-            :armor_lay_ratio, 15.0; tags = (:geometry, :cable_layer)
+            :armor_lay_ratio, 15.0; tags = (:geometry, :cable_layer, :dimensionless)
         ),
         jacket_thickness = case_parameter(
-            :jacket_thickness, 10.0e-3; tags = (:geometry, :cable_layer)
+            :jacket_thickness, 10.0e-3; tags = (:geometry, :cable_layer, :length)
         ),
         core_rho = case_parameter(
             :core_rho, 2.3853e-8; tags = (:material, :cable_layer)

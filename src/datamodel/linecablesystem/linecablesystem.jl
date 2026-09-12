@@ -3,7 +3,7 @@ $(TYPEDEF)
 
 Store completed cable placements and their global terminal state.
 
-`designs`, `declared_positions`, `connections`, and `environment` are declarations.
+`designs`, `input_positions`, `connections`, and `environment` are declarations.
 `positions` contains the resolved poses after automatic exterior-clearance
 adjustment. Touching cables are separated by at least 1 μm plus the propagated
 uncertainty reserve; genuinely overlapping nominal designs are rejected.
@@ -29,7 +29,7 @@ struct LineCableSystem{
     "Cable poses in the system frame."
     positions::P
     "Cable poses before automatic clearance adjustment \\[m, m, rad\\]."
-    declared_positions::P
+    input_positions::P
     "Retained pairwise clearance requirements; diagonal entries concern the interface \\[m\\]."
     clearances::Matrix{T}
     "Per-cable terminal connection declarations in terminal order."
@@ -58,7 +58,7 @@ struct LineCableSystem{
             },
             terminal_map::Vector{Int},
             connection_order::Vector{Int},
-            declared_positions::P,
+            input_positions::P,
             clearances::Matrix{T}
     ) where {
             T <: Real,
@@ -73,7 +73,7 @@ struct LineCableSystem{
             line_length,
             designs,
             positions,
-            declared_positions,
+            input_positions,
             clearances,
             connections,
             environment,
@@ -93,16 +93,17 @@ the air-earth interface. Reuse the input when no adjustment is necessary.
 This construction step is called when a line problem supplies the earth model.
 """
 function interface_clearance(system::LineCableSystem)
-    reference = system.declared_positions
+    reference = system.input_positions
     context = _CLEARANCE_CONTEXT[]
     sampling = context !== nothing && context.sampling[]
-    reference_centres = sampling ? get(context.references, system.clearances, nothing) : nothing
+    reference_centres = sampling ? get(context.references, system.clearances, nothing) :
+                        nothing
     positions, _, displacement = clearance_geometry(system.designs, system.positions;
         required = system.clearances, reference, reference_centres, interface = true, sampling)
     iszero(displacement) && return system
     result = build(LineCableSystem, system.designs, positions, system.connections,
         system.environment, system.system_id, system.line_length;
-        _clearances = system.clearances, _declared_positions = system.declared_positions,
+        _clearances = system.clearances, _input_positions = system.input_positions,
         _interface = true, _rebuild = true)
     sampling && reference_centres !== nothing &&
         (context.references[result.clearances] = reference_centres)
@@ -136,8 +137,8 @@ function validate(system::LineCableSystem)
         "LineCableSystem.positions must contain one Pose2 per design; received " *
         "$(length(system.positions)) positions for $(length(system.designs)) designs"
     ))
-    length(system.declared_positions) == length(system.designs) || throw(DimensionMismatch(
-        "LineCableSystem.declared_positions must contain one pose per cable"))
+    length(system.input_positions) == length(system.designs) || throw(DimensionMismatch(
+        "LineCableSystem.input_positions must contain one pose per cable"))
     length(system.connections) == length(system.designs) || throw(DimensionMismatch(
         "LineCableSystem.connections must contain one declaration per design; " *
         "received $(length(system.connections)) for $(length(system.designs)) designs"
@@ -238,7 +239,7 @@ function build(
         line_length::Real;
         combine::Symbol = :product,
         _clearances = nothing,
-        _declared_positions = nothing,
+        _input_positions = nothing,
         _interface::Bool = environment !== nothing,
         _rebuild::Bool = false
 )
@@ -307,8 +308,8 @@ function build(
         (eltype(position) for position in position_values)...
     )
     poses = Pose2{T}[convert(Pose2{T}, position) for position in position_values]
-    original_poses = _declared_positions === nothing ? copy(poses) :
-                     Pose2{T}[convert(Pose2{T}, position) for position in _declared_positions]
+    original_poses = _input_positions === nothing ? copy(poses) :
+                     Pose2{T}[convert(Pose2{T}, position) for position in _input_positions]
     context = _CLEARANCE_CONTEXT[]
     sampling = context !== nothing && context.sampling[]
     reference = _rebuild ? poses : original_poses
@@ -318,7 +319,8 @@ function build(
         context.cursor[] <= length(context.records) || throw(ArgumentError(
             "sampled construction produced more cable systems than its declaration"))
         record = context.records[context.cursor[]]
-        record.system_id == identifier && record.cables == getproperty.(declared_designs, :cable_id) ||
+        record.system_id == identifier &&
+        record.cables == getproperty.(declared_designs, :cable_id) ||
             throw(ArgumentError("sampled cable-system layout differs from its declaration"))
         _clearances = record.clearances
         reference = record.positions
@@ -327,10 +329,11 @@ function build(
     poses, clearances, displacement = clearance_geometry(declared_designs, poses;
         required = _clearances, reference, reference_centres, interface = _interface, sampling)
     if context !== nothing && !_rebuild && !sampling
-        push!(context.records, (system_id = identifier,
-            cables = getproperty.(declared_designs, :cable_id),
-            clearances = nominal.(clearances), positions = original_poses,
-            centres = getproperty.(_clearance_exterior.(declared_designs, original_poses), :centre)))
+        push!(context.records,
+            (system_id = identifier,
+                cables = getproperty.(declared_designs, :cable_id),
+                clearances = nominal.(clearances), positions = original_poses,
+                centres = getproperty.(_clearance_exterior.(declared_designs, original_poses), :centre)))
     end
 
     # 2. Establish global primitive and terminal order while retaining cable

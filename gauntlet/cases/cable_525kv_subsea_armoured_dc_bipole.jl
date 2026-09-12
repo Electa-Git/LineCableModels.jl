@@ -122,44 +122,44 @@ case_definition(Base.Fix1(build_case, Val(:cable_525kv_subsea_armoured_dc_bipole
     :cable_525kv_subsea_armoured_dc_bipole,
     (
         core_diameter = case_parameter(
-            :core_diameter, 60.0e-3; tags = (:geometry, :cable_layer)
+            :core_diameter, 60.0e-3; tags = (:geometry, :cable_layer, :length)
         ),
         core_r20 = case_parameter(
             :core_r20, 0.0072; tags = (:material, :cable_layer)
         ),
         inner_semicon_thickness = case_parameter(
-            :inner_semicon_thickness, 2.0e-3; tags = (:geometry, :cable_layer)
+            :inner_semicon_thickness, 2.0e-3; tags = (:geometry, :cable_layer, :length)
         ),
         insulation_thickness = case_parameter(
-            :insulation_thickness, 26.0e-3; tags = (:geometry, :cable_layer)
+            :insulation_thickness, 26.0e-3; tags = (:geometry, :cable_layer, :length)
         ),
         outer_semicon_thickness = case_parameter(
-            :outer_semicon_thickness, 1.8e-3; tags = (:geometry, :cable_layer)
+            :outer_semicon_thickness, 1.8e-3; tags = (:geometry, :cable_layer, :length)
         ),
         water_blocking_thickness = case_parameter(
-            :water_blocking_thickness, 0.6e-3; tags = (:geometry, :cable_layer)
+            :water_blocking_thickness, 0.6e-3; tags = (:geometry, :cable_layer, :length)
         ),
         lead_sheath_thickness = case_parameter(
-            :lead_sheath_thickness, 3.2e-3; tags = (:geometry, :cable_layer)
+            :lead_sheath_thickness, 3.2e-3; tags = (:geometry, :cable_layer, :length)
         ),
         inner_pe_thickness = case_parameter(
-            :inner_pe_thickness, 3.3e-3; tags = (:geometry, :cable_layer)
+            :inner_pe_thickness, 3.3e-3; tags = (:geometry, :cable_layer, :length)
         ),
         bedding_thickness = case_parameter(
-            :bedding_thickness, 1.0e-3; tags = (:geometry, :cable_layer)
+            :bedding_thickness, 1.0e-3; tags = (:geometry, :cable_layer, :length)
         ),
         armor_wires = case_parameter(
             :armor_wires, 68; tags = (:topology, :cable_layer)
         ),
         armor_wire_diameter = case_parameter(
-            :armor_wire_diameter, 6.0e-3; tags = (:geometry, :cable_layer)
+            :armor_wire_diameter, 6.0e-3; tags = (:geometry, :cable_layer, :length)
         ),
         armor_lay_ratio = case_parameter(
             :armor_lay_ratio, pi / sqrt(1.048^2 - 1);
-            tags = (:geometry, :cable_layer)
+            tags = (:geometry, :cable_layer, :dimensionless)
         ),
         jacket_thickness = case_parameter(
-            :jacket_thickness, 6.6e-3; tags = (:geometry, :cable_layer)
+            :jacket_thickness, 6.6e-3; tags = (:geometry, :cable_layer, :length)
         ),
         xlpe_rho = case_parameter(
             :xlpe_rho, 1.0e14; tags = (:material, :cable_layer)

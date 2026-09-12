@@ -304,7 +304,11 @@ pre-segmented at sector endpoints and circle contacts, so adjacent materials
 reuse the same curve and tangent strands reuse the same point. Compacted strand
 polygons are used unchanged. Touching hole boundaries are partitioned into
 connected filler faces; metal-metal seams are excluded from filler boundaries.
-All filler faces retain their declared material. Equal evaluated material laws
+Annular wire-ring compartments use that same face tracing: a wire-wire point
+contact separates the inner and outer filler lobes into distinct CAD faces,
+without adding clearance or changing any material boundary. Separated wires
+retain their connecting filler gap. All filler faces retain their declared
+material. Equal evaluated material laws
 share a physical material group, independently of geometric strand identity and
 electrical terminal groups. A shared
 material interface takes the smaller of its two local characteristic lengths.

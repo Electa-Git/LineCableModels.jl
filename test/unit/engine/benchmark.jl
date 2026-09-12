@@ -110,7 +110,7 @@
     @test names(table) == ["row", "column", "ΔZ", "εZ", "ΔY", "εY"]
     z_noise=only(eachrow(table[(table.row .== 1) .& (table.column .== 1), :]))
     y_signal=only(eachrow(table[(table.row .== 1) .& (table.column .== 2), :]))
-    @test z_noise.ΔZ == 0.0
+    @test z_noise.ΔZ ≈ 2.0e-17
     @test z_noise.εZ == 0.5
     @test y_signal.εY == 0.001
     @test displayed.Z.relative[1, 1] == 0.5

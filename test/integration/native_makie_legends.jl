@@ -45,7 +45,8 @@
     moved = panellegend!(inside, (1, 1); position=:bottom, overflow=:show_all)
     @test moved === inside.panel_legends[(1, 1)]
     @test moved !== legend
-    @test moved.orientation[] == :horizontal
+    @test moved.orientation[] == :vertical # native row-major grid
+    @test moved.nbanks[] >= 1
     @test first(only(moved.entrygroups[])) == "Local sources"
     @test inside.addon_state.panel_legend_positions[(1, 1)] == :bottom
     @test panellegend!(inside, (1, 1); position=nothing) === nothing
@@ -59,7 +60,8 @@
                 legend_labels=Dict("baseline"=>"renamed"), title="Reactance sources"),
         ))
     @test Set(keys(configured.panel_legends)) == Set(((1, 2),))
-    @test configured.panel_legends[(1, 2)].orientation[] == :horizontal
+    @test configured.panel_legends[(1, 2)].orientation[] == :vertical
+    @test configured.panel_legends[(1, 2)].nbanks[] >= 1
     @test first(only(configured.panel_legends[(1, 2)].entrygroups[])) ==
         "Reactance sources"
     @test Set(values(configured.addon_state.panel_data[(1, 2)].labels)) ==

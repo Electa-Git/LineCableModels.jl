@@ -19,21 +19,12 @@ function build_case(::Val{:cable_525kv_1600mm2_bipole}, p)
                             p.lead_screen_thickness +
                             p.inner_sheath_thickness
     armor_wire_radius = p.armor_wire_diameter / 2
-    minimum_armor_radius = armor_wire_radius / sinpi(1 / p.armor_wires) - armor_wire_radius
     unbuffered_armor_radius = radius_before_bedding + p.bedding_thickness
     unbuffered_outer_radius = unbuffered_armor_radius + p.armor_wire_diameter +
                               p.jacket_thickness
     packing_buffer = p.armor_packing_clearance_ratio * unbuffered_outer_radius
-    buffered_armor_radius = unbuffered_armor_radius + packing_buffer
-    # Fixed-count armor wires cannot occupy a ring smaller than their packing
-    # radius. A fixed design clearance keeps ordinary 10% manufacturing draws
-    # away from that boundary; the compliant bedding still absorbs any extreme
-    # positive shortfall instead of constructing an unsupported wire packing.
-    packing_shortfall = max(
-        minimum_armor_radius - buffered_armor_radius,
-        zero(minimum_armor_radius - buffered_armor_radius)
-    )
-    bedding_thickness = p.bedding_thickness + packing_buffer + packing_shortfall
+    # A nonzero ratio is an explicit design override, never uncertainty repair.
+    bedding_thickness = p.bedding_thickness + packing_buffer
     strand_radius = p.strand_diameter / 2
     radius = (2p.strand_layers + 1) * strand_radius
     stranded_core = LineCableModels.stranded(
@@ -141,47 +132,47 @@ case_definition(Base.Fix1(build_case, Val(:cable_525kv_1600mm2_bipole)),
             :strands_per_layer, 6; tags = (:topology, :cable_layer)
         ),
         strand_diameter = case_parameter(
-            :strand_diameter, 3.6649e-3; tags = (:geometry, :cable_layer)
+            :strand_diameter, 3.6649e-3; tags = (:geometry, :cable_layer, :length)
         ),
         core_lay_ratio = case_parameter(
-            :core_lay_ratio, 11.0; tags = (:geometry, :cable_layer)
+            :core_lay_ratio, 11.0; tags = (:geometry, :cable_layer, :dimensionless)
         ),
         inner_semicon_thickness = case_parameter(
-            :inner_semicon_thickness, 2.0e-3; tags = (:geometry, :cable_layer)
+            :inner_semicon_thickness, 2.0e-3; tags = (:geometry, :cable_layer, :length)
         ),
         insulation_thickness = case_parameter(
-            :insulation_thickness, 26.0e-3; tags = (:geometry, :cable_layer)
+            :insulation_thickness, 26.0e-3; tags = (:geometry, :cable_layer, :length)
         ),
         outer_semicon_thickness = case_parameter(
-            :outer_semicon_thickness, 1.8e-3; tags = (:geometry, :cable_layer)
+            :outer_semicon_thickness, 1.8e-3; tags = (:geometry, :cable_layer, :length)
         ),
         water_blocking_thickness = case_parameter(
-            :water_blocking_thickness, 0.3e-3; tags = (:geometry, :cable_layer)
+            :water_blocking_thickness, 0.3e-3; tags = (:geometry, :cable_layer, :length)
         ),
         lead_screen_thickness = case_parameter(
-            :lead_screen_thickness, 3.3e-3; tags = (:geometry, :cable_layer)
+            :lead_screen_thickness, 3.3e-3; tags = (:geometry, :cable_layer, :length)
         ),
         inner_sheath_thickness = case_parameter(
-            :inner_sheath_thickness, 3.0e-3; tags = (:geometry, :cable_layer)
+            :inner_sheath_thickness, 3.0e-3; tags = (:geometry, :cable_layer, :length)
         ),
         bedding_thickness = case_parameter(
-            :bedding_thickness, 3.0e-3; tags = (:geometry, :cable_layer)
+            :bedding_thickness, 3.0e-3; tags = (:geometry, :cable_layer, :length)
         ),
         armor_wires = case_parameter(
             :armor_wires, 68; tags = (:topology, :cable_layer)
         ),
         armor_wire_diameter = case_parameter(
-            :armor_wire_diameter, 5.827e-3; tags = (:geometry, :cable_layer)
+            :armor_wire_diameter, 5.827e-3; tags = (:geometry, :cable_layer, :length)
         ),
         armor_lay_ratio = case_parameter(
-            :armor_lay_ratio, 10.0; tags = (:geometry, :cable_layer)
+            :armor_lay_ratio, 10.0; tags = (:geometry, :cable_layer, :dimensionless)
         ),
         armor_packing_clearance_ratio = case_parameter(
-            :armor_packing_clearance_ratio, 0.2;
+            :armor_packing_clearance_ratio, 0.0;
             tags = (:constraint, :cable_layer)
         ),
         jacket_thickness = case_parameter(
-            :jacket_thickness, 10.0e-3; tags = (:geometry, :cable_layer)
+            :jacket_thickness, 10.0e-3; tags = (:geometry, :cable_layer, :length)
         ),
         cable_x = case_parameter(
             :cable_x, (-0.5, 0.5); tags = (:geometry, :system)

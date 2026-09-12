@@ -89,6 +89,40 @@ Layout is applied after observation selection. It cannot add an excluded
 conductor, merge unlike physical units onto one axis, or turn a coordinate
 into a data-series label.
 
+### Readable matrix blocks and overlays
+
+`plot(results; ydata=(R, L, G, C), blocks=(2, 3))` splits each quantity's matrix
+into blocks of at most two matrix rows and three matrix columns. With
+`blocks=nothing` (the default), all selected entries remain in one matrix
+window per quantity. Block windows and export names carry `(block_row,block_column)`;
+subplot titles and panel-legend keys retain the original matrix coordinates.
+Blocks are ordered by quantity, block row, then block column. Positional
+`panel_titles` cover all selected facets when blocking; coordinate-keyed
+dictionaries are convenient for sparse selections.
+
+Residual blocks keep the complete grid footprint, with unused positions blank.
+At equal `fig_size`, full and residual pages retain equal axis rectangles and
+common decoration margins. Native SVG export preserves the block geometry.
+Figures are landscape (at least 4:3); physical cross-section axes remain square.
+
+Comparison plots use solid lines with sparse, staggered markers on saved sample
+points: hollow circles for references, filled triangles for requested defaults,
+and other shapes for alternatives. References always mark both endpoints.
+Colors and marker identities remain stable
+when formulations are filtered. No curves are merged because they agree.
+Use `series_attributes=(marker=nothing,)` for lines only, or an explicit native
+`marker` for all-sample placement. References remain comparison operands, not
+declarations of physical truth.
+
+Formulation legends show only the equation choices for the plotted family:
+impedance choices on Z/R/L/X pages, admittance choices on Y/G/C/B pages. Shared
+controls remain visible when they vary. Repeated default choices retain separate
+catalogue entries and curves; explicit `series_labels` remain unchanged.
+
+Top/bottom legends fit a measured row-major grid and wrap long labels without
+dropping fields. Explicit `legend_attributes=(orientation=..., nbanks=...)`
+retains native manual layout control.
+
 ## Gallery data
 
 The frequency responses are deliberately small but non-constant so that
@@ -991,6 +1025,27 @@ needs no LineCableModels controls or export settings, use `Figure` directly.
 ## What the addons do
 
 ### Scientific axes, scale controls, and limits
+
+Physical line plots, formulation overlays and benchmark curves publish through
+the same owned observation API. With `clip=true` (default), deterministic samples
+at or below the declared quantity resolution become zero **before** display-unit
+conversion. Changing Ω/m to Ω/km or selecting a different matrix block cannot
+change that decision. `observe` and stored solver arrays remain untouched;
+`clip=false` displays their original values in the requested units.
+
+Optional `atol` uses the same native-unit controls as `compare`. For multiple
+quantities, use keyed controls such as `atol=(G=1e-14, C=1e-18)`. A benchmark plot
+inherits its comparison controls; an explicit different cutoff is reported as a
+display override and does not change RMS. These cutoffs are declared reporting
+resolution, not proven arithmetic-error bounds or a detector based on curve shape.
+Standalone tensors need frequency context for frequency-dependent defaults.
+Unknown quantities and values carrying physical uncertainty are not automatically
+clipped. Measurement correlations and sample-summary spreads are preserved.
+
+Complex Z/Y and their magnitudes use magnitude resolution; real features use
+their own cutoffs. Phase at an unresolved complex magnitude is published as
+`missing`, not a zero angle. Absolute-error and relative-error products retain
+their measured values and are not clipped with their operands' physical cutoffs.
 
 Scientific recipes supply quantity and unit labels. PlotBuilder formats
 every linear axis, including previews, statistical plots, and `plotwindow`

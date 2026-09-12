@@ -153,15 +153,15 @@ end
         1.0,
         true
     )
-    @test value(clipped) == 0.0
-    @test uncertainty(clipped) == 0.0
+    @test value(clipped) == eps(Float64)/2
+    @test uncertainty(clipped) == eps(Float64)/4
     clipped_array=LineCableModels.Grammar.detach(
         [measurement(eps(Float64)/2, eps(Float64)/4)],
         1.0,
         true
     )
-    @test value(only(clipped_array)) == 0.0
-    @test uncertainty(only(clipped_array)) == 0.0
+    @test value(only(clipped_array)) == eps(Float64)/2
+    @test uncertainty(only(clipped_array)) == eps(Float64)/4
     retained=LineCableModels.Grammar.detach(
         measurement(2.0, 0.25),
         1.0,

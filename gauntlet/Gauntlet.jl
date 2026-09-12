@@ -28,7 +28,7 @@ import LineCableModels: compute, validate
 export ARTIFACT_ROOT, ARTIFACTS_TOML, SNAPSHOT_SCHEMA_VERSION,
        WORK_ROOT,
        AbstractCaseVariation, CaseDefinition, CaseParameter, CompositeVariation,
-       ExactOverrides, LoadedCase, NoVariation, ParameterGrids,
+       ExactOverrides, LoadedCase, NoVariation, ParameterGrids, JointParameterGrids,
        RelativeStandardUncertainty,
        BenchmarkCalculation, MomentBenchmark, MomentResult,
        BenchmarkDefinition,

@@ -14,7 +14,8 @@
     candidates=ParametricResult(nothing,points,(problems=[:one],formulations=selections),(;))
     baseline=(result=reference,metadata=(port_order=["a","b"],formulation=selections[1],axes=nothing))
     publication=report(BenchmarkTableDefinition(),(reference=baseline,candidate=candidates))
-    series_attributes=((marker=:circle, markersize=8), (;), (linestyle=:dash,))
+    series_attributes=((marker=:circle, markersize=8), (marker=nothing,),
+        (linestyle=:dash, marker=nothing))
     plots=LineCableModels.plot(publication,(Z,);options...,series_attributes)
     @test length(plots)==2
     @test sum(length(page.axes) for page in plots)==8
@@ -87,4 +88,55 @@
             @test Z(reference)==z
         end
     end
+end
+
+@testitem "Makie addons / formulation legends follow the plotted family without collapsing entries" tags=[:visual] begin
+    using CairoMakie
+    using LineCableModels.ReportBuilder: BenchmarkTableDefinition
+    f = [1.0, 10.0, 100.0]
+    tensor = fill(1.0+2im, 1, 1, 3)
+    reference = LineParameters(PhaseDomain, tensor, 1e-6tensor, f;
+        details=(coordinates=["a"],))
+    ids = ((:default,:default), (:Pollaczek1926,:Pollaczek1926),
+        (:Saad1996,:default), (:WedepohlWilcox1973,:default), (:Xue2018,:Xue2018))
+    records = [(backend=:coaxial, requested=(
+        earth_impedance=(identifier=z,), earth_admittance=(identifier=y,)),
+        options=(reduce_bundle=false,)) for (z,y) in ids]
+    original = deepcopy(records)
+    candidates = ParametricResult(nothing,fill(reference,5),
+        (problems=[:one],formulations=records),(;))
+    baseline = (result=reference,metadata=(port_order=["a"],formulation=records[1],axes=nothing))
+    artifact = report(BenchmarkTableDefinition(),(reference=baseline,candidate=candidates))
+    options = (;backend=:cairo,display_plot=false,controls=false,open_export=false,
+        length_unit=:base)
+    for source in (candidates,artifact)
+        extra = source === candidates ? (;reference) : (;)
+        for quantity in (R,L,X,Z,G,C,B,Y)
+            built = LineCableModels.plot(source; ydata=(quantity,),options...,extra...)
+            pages = built isa UIPlot ? (built,) : built
+            family = quantity in (R,L,X,Z) ? "Z" : "Y"
+            for page in pages
+                other = family == "Z" ? "Y" : "Z"
+                names = [page.addon_state.labels[group] for group in page.addon_state.order]
+                @test length(names) == 6
+                @test all(!occursin("earth $other",label) for label in names)
+                @test all(occursin("earth $family",label) for label in names[2:end])
+                @test count(label -> occursin("=default",label),names[2:end]) == (family == "Z" ? 1 : 3)
+                curves = filter(plot -> plot isa Makie.Lines,first(page.axes).scene.plots)
+                @test length(curves) == 6
+                @test all(curve -> curve[1][] == first(curves)[1][],curves)
+                @test allunique([curve.color[] for curve in curves])
+                @test length(last(only(page.legend.entrygroups[]))) == 6
+            end
+        end
+        filtered = LineCableModels.plot(source; ydata=(G,),formulations=[4,2,1],options...,extra...)
+        names = [filtered.addon_state.labels[group] for group in filtered.addon_state.order]
+        expected = source === candidates ? ["F4","F2","F1"] : ["F1","F2","F4"]
+        @test all(startswith.(names[2:end],expected))
+        @test count(label -> occursin("=default",label),names[2:end]) == 2
+        override = ("ref","a","b","c","d","e")
+        custom = LineCableModels.plot(source; ydata=(R,G),series_labels=override,options...,extra...)
+        @test all(page -> Set(values(page.addon_state.labels)) == Set(override),custom)
+    end
+    @test records == original
 end

@@ -3,9 +3,13 @@ const FEM_FIELD_QUANTITIES = (
 )
 
 _quasi_full(physics::Symbol) = physics === Symbol("quasi-fw")
-_fem_physics_code(formulation::LineCableModelsFEM) = Int(_quasi_full(formulation.options.physics))
-_field_quantities(physics::Symbol) = _quasi_full(physics) ?
+function _fem_physics_code(formulation::LineCableModelsFEM)
+    Int(_quasi_full(formulation.options.physics))
+end
+function _field_quantities(physics::Symbol)
+    _quasi_full(physics) ?
     (FEM_FIELD_QUANTITIES..., "bt_mesh", "v_local", "hz_scaled") : FEM_FIELD_QUANTITIES
+end
 
 function _pro_string(value::AbstractString)
     escaped = replace(String(value), '\\' => "\\\\", '"' => "\\\"")

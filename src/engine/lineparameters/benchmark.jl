@@ -5,7 +5,7 @@ Store element-wise absolute and reference-normalized root-mean-square benchmark 
 
 Each matrix entry contains the error for the corresponding line-parameter
 term over the selected frequency samples. Missing values represent explicit
-non-applicability, an empty band, or unavailable reference normalization, with
+non-applicability, an empty band, or unavailable relative comparison, with
 the explanation retained in `details`. Absolute differences remain measured
 when only normalization is unavailable.
 
@@ -95,21 +95,33 @@ function observables(::Type{<:LineParametersBenchmark})
 end
 
 function _rms_series(reference::AbstractVector, candidate::AbstractVector,
-        normalization::Symbol, tolerance::AbstractVector)
-    difference_norm = sum(abs2, reference .- candidate)
-    absolute = sqrt(difference_norm / length(reference))
-    negligible = abs.(reference) .<= tolerance
-    if all(negligible)
-        return (; absolute, relative = missing, status = :reference_below_tolerance,
-            reason = "Reference trace is numerically zero under the declared observable tolerance")
-    elseif normalization === :pointwise && any(negligible)
-        return (; absolute, relative = missing, status = :reference_sample_below_tolerance,
-            reason = "Pointwise normalization has a numerically zero reference sample; no samples were omitted")
+        normalization::Symbol, tolerance::AbstractVector, candidate_tolerance::AbstractVector)
+    difference_norm = norm(reference .- candidate)
+    sample_normalizer = sqrt(oftype(difference_norm, length(reference)))
+    absolute = difference_norm / sample_normalizer
+    unresolved_reference = count(abs.(reference) .<= tolerance)
+    unresolved_candidate = count(abs.(candidate) .<= candidate_tolerance)
+    counts = (; reference=unresolved_reference, candidate=unresolved_candidate)
+    # Eligibility is two-sided and independent of normalization. Never reduce a
+    # band's sample population to hide an undefined pairwise relative comparison.
+    for (operand, count) in pairs(counts)
+        if count > 0
+            entire_trace = count == length(reference)
+            status = if operand === :reference
+                entire_trace ? :reference_below_tolerance : :reference_sample_below_tolerance
+            else
+                entire_trace ? :candidate_below_tolerance : :candidate_sample_below_tolerance
+            end
+            reason = "Samples at or below declared resolution: reference " *
+                "$(counts.reference)/$(length(reference)), candidate $(counts.candidate)/$(length(reference)); " *
+                "relative RMS requires both operands above tolerance at every selected sample; no samples were omitted"
+            return (; absolute, relative = missing, status, reason, counts)
+        end
     end
     relative = normalization === :pointwise ?
-               sqrt(sum(abs2, (candidate .- reference) ./ reference) / length(reference)) :
-               sqrt(difference_norm / sum(abs2, reference))
-    return (; absolute, relative, status = :compared, reason = nothing)
+               norm((candidate .- reference) ./ reference) / sample_normalizer :
+               difference_norm / norm(reference)
+    return (; absolute, relative, status = :compared, reason = nothing, counts)
 end
 
 """
@@ -118,8 +130,9 @@ end
 Measure per-entry absolute and relative RMS differences across the third axis.
 The caller must establish equal physical coordinates, units and terminal order.
 `atol` is a nonnegative scalar or one tolerance per sample, in the input units.
-Numerically zero reference traces retain their absolute difference and have
-`missing` relative error with an explanation in `details`.
+Relative RMS is `missing` if either operand's magnitude is at or below `atol`
+at any selected sample, for either normalization. Absolute RMS retains every
+measured difference, and `details` explains the unavailable relative comparison.
 """
 function compare(
         reference::AbstractArray{<:Number, 3}, candidate::AbstractArray{<:Number, 3};
@@ -134,15 +147,21 @@ function compare(
         throw(DimensionMismatch("one tolerance per sample is required"))
     all(value -> value isa Real && isfinite(value) && value >= 0, tolerance) ||
         throw(ArgumentError("RMS tolerances must be finite and nonnegative"))
+    return _rms_arrays(reference, candidate, normalization, tolerance, tolerance)
+end
+
+function _rms_arrays(reference, candidate, normalization, tolerance, candidate_tolerance)
     all(isfinite, reference) && all(isfinite, candidate) ||
         throw(ArgumentError("RMS tensors must be finite"))
     T=promote_type(typeof(float(real(zero(eltype(reference))))), typeof(float(real(zero(eltype(candidate))))))
     errors=[_rms_series(view(reference, row, column, :),
-                view(candidate, row, column, :), normalization, tolerance)
+                view(candidate, row, column, :), normalization, tolerance, candidate_tolerance)
             for row in axes(reference, 1), column in axes(reference, 2)]
     return RMSError{T}(getproperty.(errors, :absolute), getproperty.(errors, :relative);
         details = (normalization, atol = tolerance, sample_count = size(reference, 3),
-            status = getproperty.(errors, :status), normalization_reason = getproperty.(errors, :reason)))
+            status = getproperty.(errors, :status), normalization_reason = getproperty.(errors, :reason),
+            unresolved_samples = getproperty.(errors, :counts),
+            resolution=(revision=OBSERVABLE_RESOLUTION_REVISION, kind=:explicit_floor, unit=nothing)))
 end
 
 """
@@ -169,9 +188,9 @@ The operands must have identical frequency samples, tensor dimensions, basis,
 and domain. Comparison does not reorder conductors, interpolate frequency
 samples, convert basis, or apply a reduction.
 
-When a reference trace is numerically zero under the declared tolerance, its
-relative error is `missing`, including for an identical candidate trace. Its
-absolute RMS difference remains available.
+Both operands must exceed the declared numerical-zero tolerance in magnitude
+at every selected sample. Otherwise relative error is `missing`, including for
+identical traces. Absolute RMS difference remains available.
 
 Keyword arguments are shared with the single-observable `compare` method:
 `normalization`, `band`, `fundamental`, `harmonics`, `atol`, and `unsupported`. Full-band error
@@ -209,7 +228,7 @@ The first operand sets the relative-error normalization, not scientific truth.
 
 - `reference`, `candidate`: Results with identical frequency coordinates, basis,
   domain, and matrix dimensions.
-- `quantity`: `Z`, `Y`, `R`, `L`, `G`, or `C`. In particular, comparing `G`
+- `quantity`: `Z`, `Y`, `R`, `X`, `L`, `G`, `B`, or `C`. In particular, comparing `G`
   separately prevents displacement current from hiding dielectric-loss differences.
 
 # Keywords
@@ -223,11 +242,13 @@ The first operand sets the relative-error normalization, not scientific truth.
 - `fundamental`: Fundamental frequency in Hz; default 50.
 - `harmonics`: Upper harmonic order; default 50. Every stored sample in the
   harmonic band is used, not only samples at integer harmonics.
-- `atol`: Absolute numerical-zero tolerance, in the observable's basis units.
+- `atol`: Declared absolute reporting resolution in the observable's native basis
+  units, not a certified floating-point error bound.
   A scalar applies to the requested quantity; a NamedTuple selects tolerances
   by quantity symbol. Defaults are 1e-10 for R, 1e-12 for G, 1e-15 for L,
   and 1e-16 for C, per meter for `:pul` and total units for `:total`.
-  Unless overridden directly, Z uses `atol_R + 2πf*atol_L` and Y uses
+  Unless overridden directly, X/B use `2πf*atol_L`/`2πf*atol_C`,
+  Z uses `atol_R + 2πf*atol_L` and Y uses
   `atol_G + 2πf*atol_C` at each sample. A fixed admittance threshold would
   otherwise treat the same small capacitance differently across the spectrum.
 - `unsupported`: NamedTuple of quantity symbols and explanatory strings for
@@ -240,10 +261,13 @@ Disjoint bands and an empty `:wide` band return `missing` errors with
 `:no_samples`. No interpolation, extrapolation, weighting, or computation runs
 are introduced. A one-sample band is valid.
 
-Absolute RMS always retains the measured difference. When the reference trace
-lies within `atol`, relative RMS is `missing` with status
-`:reference_below_tolerance`, regardless of the candidate. No denominator floor
-is introduced. Source arrays are never modified.
+Absolute RMS always retains the measured difference. Relative RMS requires both
+operand magnitudes to exceed `atol` at every selected sample, for either
+normalization. An entire trace within tolerance gives `missing` with status
+`:reference_below_tolerance` or `:candidate_below_tolerance`; a partially
+negligible trace gives `:reference_sample_below_tolerance` or
+`:candidate_sample_below_tolerance`. The check is local to the selected band.
+No denominator floor is introduced. Source arrays are never modified.
 
 For `normalization=:pointwise`, the relative error is
 
@@ -252,11 +276,9 @@ For `normalization=:pointwise`, the relative error is
 \\left|\\frac{B_{ij,k}-A_{ij,k}}{A_{ij,k}}\\right|^2}.
 ```
 
-A reference sample within `atol` makes pointwise normalization unavailable with
-`:reference_sample_below_tolerance`; samples are never omitted. A finite
-reference-RMS error can therefore coexist with unavailable pointwise RMS. The
-absolute RMS error is independent of normalization. Each cell retains its
-explanation in `details.normalization_reason`.
+Samples are never omitted to obtain an eligible subset. Absolute RMS and relative
+eligibility are independent of normalization. Each cell retains its explanation
+in `details.normalization_reason`.
 
 # Returns
 
@@ -264,7 +286,7 @@ explanation in `details.normalization_reason`.
   reason, and a per-term status matrix in `details`.
 """
 function compare(reference::AbstractCoreResult, candidate::AbstractCoreResult,
-        quantity::Union{typeof(Z), typeof(Y), typeof(R), typeof(L), typeof(G), typeof(C)};
+        quantity::Union{typeof(Z), typeof(Y), typeof(R), typeof(X), typeof(L), typeof(G), typeof(B), typeof(C)};
         normalization::Symbol = :reference_rms,
         band = :all, fundamental::Real = 50.0, harmonics::Integer = 50,
         atol = nothing, unsupported::NamedTuple = (;))
@@ -317,19 +339,12 @@ function compare(reference::AbstractCoreResult, candidate::AbstractCoreResult,
     T = promote_type(typeof(float(real(zero(eltype(left))))),
         typeof(float(real(zero(eltype(right))))))
     name = Symbol(nameof(quantity))
-    defaults = (R = 1e-10, L = 1e-15, G = 1e-12, C = 1e-16)
-    overrides = atol === nothing ? (;) :
-                atol isa NamedTuple ? atol : NamedTuple{(name,)}((atol,))
-    limits = merge(defaults, overrides)
-    tolerance = if haskey(overrides, name)
-        fill(convert(T, getproperty(overrides, name)), length(indices))
-    elseif name === :Z
-        T[limits.R + 2π*frequency*limits.L for frequency in f[indices]]
-    elseif name === :Y
-        T[limits.G + 2π*frequency*limits.C for frequency in f[indices]]
-    else
-        fill(convert(T, getproperty(limits, name)), length(indices))
-    end
+    resolution = observation_resolution(reference, quantity; atol, frequencies=f)
+    candidate_resolution = observation_resolution(candidate, quantity; atol, frequencies=f)
+    tolerance = resolution.atol isa Real ? fill(T(resolution.atol), length(indices)) :
+        T.(resolution.atol[indices])
+    candidate_tolerance = candidate_resolution.atol isa Real ?
+        fill(T(candidate_resolution.atol), length(indices)) : T.(candidate_resolution.atol[indices])
     reason = get(unsupported, name, nothing)
     for result in (reference, candidate)
         declared = get(details(result), :comparison_unsupported, (;))
@@ -345,19 +360,25 @@ function compare(reference::AbstractCoreResult, candidate::AbstractCoreResult,
     fill!(relative, missing)
     classifications = fill(status, size(absolute))
     normalization_reasons = Matrix{Union{Nothing, String}}(nothing, size(absolute))
+    unresolved_samples = fill((reference=0, candidate=0), size(absolute))
     if status === :compared
-        error=compare(left[:, :, indices], right[:, :, indices]; normalization, atol = tolerance)
+        error=_rms_arrays(left[:, :, indices], right[:, :, indices], normalization,
+            tolerance, candidate_tolerance)
         absolute .= error.absolute
         relative .= error.relative
         classifications .= error.details.status
         normalization_reasons .= error.details.normalization_reason
+        unresolved_samples .= error.details.unresolved_samples
     end
     bounds = isempty(indices) ? (missing, missing) :
              (f[first(indices)], f[last(indices)])
     comparison_details = (; quantity = name, normalization, band,
         requested_bounds = requested, actual_bounds = bounds,
         indices, sample_count = length(indices), fundamental, harmonics, atol = tolerance,
-        status = classifications, reason, normalization_reason = normalization_reasons)
+        candidate_atol = candidate_tolerance,
+        status = classifications, reason, normalization_reason = normalization_reasons,
+        unresolved_samples,
+        resolution=(; resolution.revision, resolution.kind, resolution.unit))
     # Empty bands and supported bands have the same result type on a Gridspace.
     # Preserve the frequency scalar type while admitting an absent bound/reason.
     detail_types=map(keys(comparison_details)) do key
@@ -391,19 +412,9 @@ function validate(::typeof(compare); normalization = :reference_rms, band = :all
         band in (:all, :dc, :harmonic, :narrow, :wide) || throw(ArgumentError(
             "band must be :all, :dc, :harmonic, :narrow, :wide, or (lower, upper) in Hz"))
     end
-    if atol !== nothing
-        if atol isa NamedTuple
-            isempty(setdiff(keys(atol), (:Z, :Y, :R, :L, :G, :C))) ||
-                throw(ArgumentError("atol keys must be Z, Y, R, L, G, or C"))
-            all(v -> v isa Real && isfinite(v) && v >= 0, atol) ||
-                throw(ArgumentError("atol must be finite and nonnegative"))
-        else
-            atol isa Real && isfinite(atol) && atol >= 0 ||
-                throw(ArgumentError("atol must be finite and nonnegative"))
-        end
-    end
-    unsupported isa NamedTuple && isempty(setdiff(keys(unsupported), (:Z, :Y, :R, :L, :G, :C))) ||
-        throw(ArgumentError("unsupported must name Z, Y, R, L, G, or C"))
+    _validate_resolution_atol(atol)
+    unsupported isa NamedTuple && isempty(setdiff(keys(unsupported), (:Z, :Y, :R, :X, :L, :G, :B, :C))) ||
+        throw(ArgumentError("unsupported must name Z, Y, R, X, L, G, B, or C"))
     all(reason -> reason isa AbstractString && !isempty(reason), unsupported) ||
         throw(ArgumentError("unsupported comparisons require nonempty explanatory strings"))
     return nothing

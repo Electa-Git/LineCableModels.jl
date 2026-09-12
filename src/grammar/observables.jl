@@ -260,54 +260,84 @@ factor. Structured result owners extend this method for their published value
 types.
 """
 detach(value::Number, factor) = value * factor
-detach(values::AbstractArray, factor) = map(value -> value * factor, values)
-
-const _DISPLAY_CLIP_TOLERANCE = eps(Float64)
-
-_clip_detached(value, ::Val{false}) = value
-_clip_detached(values::AbstractArray, ::Val{false}) = values
-
-function _clip_detached(value::Real, ::Val{true})
-    isfinite(value) || return value
-    return abs(value) <= _DISPLAY_CLIP_TOLERANCE ? zero(value) : value
-end
-
-_clip_detached(value::Complex, ::Val{true}) = value
-_clip_detached(value::Missing, ::Val{true}) = value
-function _clip_detached(values::AbstractArray, ::Val{true})
-    return map(value -> _clip_detached(value, Val(true)), values)
-end
-_clip_detached(value, ::Val{true}) = value
+detach(value::AbstractFloat, factor::Real) = value * oftype(value, factor)
+detach(value::Complex{T}, factor::Real) where {T<:AbstractFloat} = value * T(factor)
+detach(value::Missing, factor) = missing
+detach(values::AbstractArray, factor) = map(value -> detach(value, factor), values)
 
 """
 $(TYPEDSIGNATURES)
 
-Detach an observed value, convert it by `factor`, and optionally replace
-finite scalar display residue with exact zero. Structured value owners may add
-narrow methods that preserve their constructor invariants.
+Detach an observed value and convert it by `factor`. Without an observation
+owner and physical quantity, no numerical-resolution threshold is inferred.
+Structured value owners preserve their constructor and uncertainty invariants.
 
 # Arguments
 
 - `value`: Observed scalar, array, or supported structured product.
 - `factor`: Multiplicative native-to-display unit conversion.
-- `clip`: Whether values no larger than machine epsilon after conversion are
-  replaced by exact zero.
+- `clip`: Retained call compatibility. Physical clipping is performed by
+  [`observables`](@ref), before conversion, using [`observation_resolution`](@ref).
 
 # Returns
 
 - A detached value in the requested display unit.
 """
 function detach(value, factor, clip::Bool)
-    return _clip_detached(detach(value, factor), Val(clip))
+    return detach(value, factor)
 end
 
-function _publish_observable(source, request, identity, override, clip::Bool)
+"""
+$(TYPEDSIGNATURES)
+
+Resolve the declared physical reporting resolution for one scientific request.
+Result owners extend this operation; the fallback makes no precision claim.
+
+# Arguments
+
+- `source`: Result owning the requested values and native physical basis.
+- `request`: An observable selector or indexed request.
+
+# Keywords
+
+- `atol`: Optional absolute reporting cutoff in the requested native units.
+- `frequencies`: Optional frequency context \\[Hz\\] for standalone tensors.
+
+# Returns
+
+- A record containing `kind`, semantic `revision`, native `atol` and `unit`, and
+  a detached `unresolved` mask aligned with the request. An unassessed request
+  returns `nothing` for its cutoff, unit and mask. Declared reporting cutoffs
+  are not certified numerical forward-error bounds.
+"""
+function observation_resolution(source, request; atol=nothing, frequencies=nothing)
+    return (kind=:unassessed, revision=0, atol=nothing, unit=nothing, unresolved=nothing)
+end
+
+_resolved_observation(value, ::Nothing, phase) = value
+_resolved_observation(value, unresolved::Bool, ::Val{false}) = unresolved ? zero(value) : value
+_resolved_observation(value, unresolved::Bool, ::Val{true}) = unresolved ? missing : value
+function _resolved_observation(values::AbstractArray, unresolved::AbstractArray, phase)
+    return map((value, masked) -> _resolved_observation(value, masked, phase), values, unresolved)
+end
+
+function _publish_observable(source, request, identity, override, clip::Bool, atol, frequencies)
     scientific_quantity = _quantity(identity)
     native = native_unit(scientific_quantity, basis(source))
     displayed = display_unit(scientific_quantity, basis(source), override)
     factor = scale_factor(native, displayed)
-    detached = detach(_observe_request(source, request), factor, clip)
-    return (; values = detached, quantity = scientific_quantity, unit = displayed)
+    resolution = observation_resolution(source, request; atol, frequencies)
+    values = _observe_request(source, request)
+    phase = Val(identity isa Tuple && last(identity) === angle)
+    resolved = clip ? _resolved_observation(values, resolution.unresolved, phase) : values
+    detached = detach(resolved, factor)
+    masked = resolution.unresolved
+    unresolved_count = masked === nothing ? 0 : masked isa Bool ? Int(masked) : count(masked)
+    return (
+        observation=(; values=detached, quantity=scientific_quantity, unit=displayed),
+        resolution=(; resolution.kind, resolution.revision, resolution.atol, resolution.unit,
+            clip, unresolved_count),
+    )
 end
 
 """
@@ -448,9 +478,14 @@ function observables(
         length_unit::Symbol = :kilo,
         frequency_unit::Symbol = :base,
         quantity_units = nothing,
-        clip::Bool = true
+        clip::Bool = true,
+        atol = nothing,
+        frequencies = nothing
 )
     identities = validate_observables(source, requests, units)
+    atol isa Real && length(unique(identities)) > 1 && throw(ArgumentError(
+        "a scalar atol requires one observable quantity; use keyed native-unit tolerances",
+    ))
     isempty(units) || quantity_units === nothing || throw(ArgumentError(
         "use either aligned units or quantity_units, not both",
     ))
@@ -469,19 +504,25 @@ function observables(
     else
         units
     end
-    payloads = map(requests, identities, overrides) do request, identity, override
-        _publish_observable(source, request, identity, override, clip)
+    publications = map(requests, identities, overrides) do request, identity, override
+        _publish_observable(source, request, identity, override, clip, atol, frequencies)
     end
+    payloads = map(publication -> publication.observation, publications)
     table = publication_table(
         source,
         requests,
         payloads,
-        (; length_unit, frequency_unit, quantity_units, clip)
+        (; length_unit, frequency_unit, quantity_units, clip, atol)
     )
+    names = map(payload -> Symbol(Units.symbol(payload.quantity)), payloads)
+    resolutions = NamedTuple{names}(map(publication -> publication.resolution, publications))
+    contracts = map(keys(table.observation_columns), values(table.observation_columns)) do name, contract
+        haskey(resolutions, name) ? merge(contract, (resolution=getproperty(resolutions, name),)) : contract
+    end
     metadata = (
         basis = basis(source),
         row_order = table.row_order,
-        observation_columns = table.observation_columns,
+        observation_columns = NamedTuple{keys(table.observation_columns)}(contracts),
     )
     return ObservationPublication(payloads, table.columns, metadata)
 end

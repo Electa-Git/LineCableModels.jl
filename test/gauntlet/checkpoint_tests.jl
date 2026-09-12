@@ -86,6 +86,18 @@
     end
 end
 
+@testitem "Gauntlet / joint declarations replay in fresh Julia processes" tags=[:gauntlet_toolkit] begin
+    fixture=joinpath(pkgdir(LineCableModels),"test","fixtures","gauntlet_joint_transport.jl")
+    project=dirname(Base.active_project())
+    mktempdir() do directory
+        path=joinpath(directory,"joint.jld2")
+        for mode in ("write","read","legacy_write","legacy_read")
+            command=`$(Base.julia_cmd()) --startup-file=no --compiled-modules=existing --pkgimages=existing --project=$project $fixture $mode $path`
+            @test success(pipeline(command;stdout=stdout,stderr=stderr))
+        end
+    end
+end
+
 @testitem "Gauntlet / native execution checkpoints retain nested cable geometry" tags=[:gauntlet_toolkit] setup=[GauntletSupport] begin
     using .GauntletSupport.Gauntlet
     using LineCableModels, JLD2

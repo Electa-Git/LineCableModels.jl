@@ -105,7 +105,7 @@
         (R,);
         units = (U.units(:base, :farad),)
     )
-    @test LineCableModels.Grammar.detach(eps(Float64) / 2, 1.0, true) == 0.0
+    @test LineCableModels.Grammar.detach(eps(Float64) / 2, 1.0, true) == eps(Float64) / 2
     @test LineCableModels.Grammar.detach(eps(Float64) / 2, 1.0, false) > 0
 
     series=SeriesImpedance(impedance)
@@ -180,6 +180,6 @@ end
     @test GR.detach(complex_values, 2.0, true) == 2 .* complex_values
     nullable = Union{Missing, Float64}[missing, eps()/4, Inf, -Inf, NaN, 1.0]
     detached = GR.detach(nullable, 2.0, true)
-    @test isequal(detached, [missing, 0.0, Inf, -Inf, NaN, 2.0])
+    @test isequal(detached, [missing, eps()/2, Inf, -Inf, NaN, 2.0])
     @test !ismissing(nullable[2]) && nullable[2] > 0
 end

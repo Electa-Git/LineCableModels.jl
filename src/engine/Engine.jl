@@ -62,7 +62,8 @@ import ..Grammar: AbstractProblemDefinition, AbstractFormulation,
                   ComputationDetails,
                   formulation_options, computation_options, computation_details, details,
                   compute, observe, observables,
-                  observation_request, observation_indices,
+                  observation_request, observation_indices, observation_resolution, uncertainty,
+                  request_identity, request_indices,
                   publication_table
 
 using ..Units
@@ -95,6 +96,7 @@ include("compleximages.jl")
 # Line-parameter results and their protocols
 include("lineparameters/lineparameters.jl")
 include("lineparameters/quantities.jl")
+include("lineparameters/resolution.jl")
 include("lineparameters/benchmark.jl")
 include("matrixops.jl")
 
@@ -141,6 +143,7 @@ include("lineparameters/publication.jl")
 include("textdisplay.jl")
 
 public hooks, SpectralIntegral, integrate
+public OBSERVABLE_RESOLUTION_REVISION
 public has_uncertainty_type, spectral_magnitude
 public reduce_primitive_matrices, potential_to_admittance
 public layer_admittance

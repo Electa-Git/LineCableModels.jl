@@ -122,6 +122,39 @@ struct ParameterGrids{G <: NamedTuple} <: AbstractCaseVariation
 end
 ParameterGrids(; values...) = ParameterGrids((; values...))
 
+"""
+    JointParameterGrids(source::Gridspace{<:NamedTuple}; record::NamedTuple)
+
+Supply dependent case parameters from one joint builder. The source target must
+declare its output names, for example `NamedTuple{(:radius, :thickness)}`.
+Each selected joint point is realized once; per-field manifest projections are
+not independent sampling inputs. `record` describes the independent inputs,
+their nominal values, standard uncertainties and supports, output dependencies,
+and study law. The record describes the inputs; it cannot reconstruct a distribution.
+
+Later independent overrides of an owned output are rejected. Change the joint
+builder explicitly to change its dependency law. Unrelated variations compose.
+"""
+struct JointParameterGrids{S <: Gridspace, R <: NamedTuple} <: AbstractCaseVariation
+    "Joint named-parameter source."
+    source::S
+    "Statistical assumptions and output dependencies."
+    record::R
+
+    function JointParameterGrids(source::Gridspace{T}; record::NamedTuple) where {T <: NamedTuple}
+        names = try
+            fieldnames(T)
+        catch
+            throw(ArgumentError("joint source target must declare its NamedTuple output names"))
+        end
+        isempty(names) && throw(ArgumentError("joint parameter source must have nonempty outputs"))
+        return new{typeof(source),typeof(record)}(source, record)
+    end
+end
+
+_joint_names(::Gridspace{T}) where {T <: NamedTuple} = fieldnames(T)
+_variation_leaves(v::AbstractCaseVariation) = (v,)
+
 struct RelativeStandardUncertainty{Tags <: Tuple} <: AbstractCaseVariation
     percent::Float64
     tags::Tags
@@ -157,6 +190,8 @@ struct CompositeVariation{V <: Tuple} <: AbstractCaseVariation
 end
 
 compose_variations(variations::AbstractCaseVariation...) = CompositeVariation(variations)
+_variation_leaves(v::CompositeVariation) = Tuple(Iterators.flatten(
+    _variation_leaves(child) for child in v.variations))
 
 struct LoadedCase{D <: CaseDefinition, N, P, S <: NamedTuple, V}
     id::Symbol
@@ -209,6 +244,10 @@ function variation_record(variation::ParameterGrids)
         parameters = collect(keys(variation.values))
     )
 end
+variation_record(v::JointParameterGrids) = (
+    kind = :joint_parameter_grids, parameters = collect(_joint_names(v.source)),
+    source = _source_record(v.source), assumptions = v.record,
+)
 function variation_record(variation::RelativeStandardUncertainty)
     (
         kind = :relative_uncertainty,
@@ -226,19 +265,40 @@ end
 
 function parameter_manifest(model::LoadedCase)
     selected = Set(model.selected_parameters)
+    joints = filter(v -> v isa JointParameterGrids, _variation_leaves(model.variation))
+    source_record = function (parameter)
+        source = _source_record(getproperty(model.sources,parameter.id))
+        block = findfirst(v -> parameter.id in _joint_names(v.source), joints)
+        block === nothing && return source
+        return merge(source,(interpretation=:joint_projection, joint_block=block,
+            note="marginal view; the joint source is sampled once"))
+    end
     return NamedTuple[(
                           id = parameter.id,
                           nominal = parameter.nominal,
                           tags = collect(parameter.tags),
                           selected = parameter.id in selected,
-                          source = _source_record(getproperty(model.sources, parameter.id))
+                          source = source_record(parameter)
                       ) for parameter in values(model.definition.parameters)]
 end
 
 function correlation_record(model::LoadedCase)
+    joints = filter(v -> v isa JointParameterGrids, _variation_leaves(model.variation))
+    owned = Set(Iterators.flatten(_joint_names(v.source) for v in joints))
+    primitives = Symbol[name for (name, source) in pairs(model.sources)
+        if !(name in owned) && LineCableModels.has_uncertainty(source)]
+    isempty(joints) || return (
+        rule = :joint_builders,
+        uncertain_primitives = primitives,
+        joint_inputs = [v.record for v in joints],
+        dependent_parameters = [collect(_joint_names(v.source)) for v in joints],
+        exact_parameters = Symbol[name for (name, source) in pairs(model.sources)
+            if !(name in owned) && !(source isa Union{AbstractGrid,Gridspace})],
+        note = "each joint source is realised once; projections are marginal views only",
+    )
     return (
         rule = :parameter_identity,
-        uncertain_primitives = copy(model.selected_parameters),
+        uncertain_primitives = primitives,
         note = "each selected parameter ID is one primitive; repeated builder uses are shared"
     )
 end
@@ -358,6 +418,13 @@ function _apply_variation(
     return Grid(value, variation.percent)
 end
 
+function _apply_variation(v::JointParameterGrids, parameter::CaseParameter,
+        value, matched::Vector{Int}, offset::Int)
+    parameter.id in _joint_names(v.source) || return value
+    matched[offset] += 1
+    return Gridspace{Any}(Base.Fix2(getproperty, parameter.id), (v.source,))
+end
+
 function _apply_variation(
         variation::CompositeVariation,
         parameter::CaseParameter,
@@ -382,6 +449,7 @@ end
 _variation_labels(::NoVariation) = ["no variation"]
 _variation_labels(::ExactOverrides) = ["exact overrides"]
 _variation_labels(::ParameterGrids) = ["parameter grids"]
+_variation_labels(::JointParameterGrids) = ["joint parameter grids"]
 function _variation_labels(variation::RelativeStandardUncertainty)
     ["relative standard uncertainty for tags $(variation.tags)"]
 end
@@ -413,11 +481,25 @@ end
 _override_values(::AbstractCaseVariation) = (;)
 _override_values(variation::ExactOverrides) = variation.values
 _override_values(variation::ParameterGrids) = variation.values
+_override_values(v::JointParameterGrids) = NamedTuple{_joint_names(v.source)}(
+    ntuple(_ -> nothing, length(_joint_names(v.source))))
 function _override_values(variation::CompositeVariation)
     return merge((_override_values(child) for child in variation.variations)...)
 end
 
 function _case_sources(definition::CaseDefinition, variation::AbstractCaseVariation)
+    owned = Set{Symbol}()
+    for child in _variation_leaves(variation)
+        names = child isa RelativeStandardUncertainty ?
+            Tuple(p.id for p in values(definition.parameters) if _matches(p, child.tags)) :
+            keys(_override_values(child))
+        overlap = intersect(owned, names)
+        isempty(overlap) || throw(ArgumentError(
+            "joint-owned parameters $(sort!(collect(overlap))) cannot be overridden " *
+            "independently or by another joint block; change the joint builder explicitly"
+        ))
+        child isa JointParameterGrids && union!(owned, names)
+    end
     count = _variation_count(variation)
     matched = zeros(Int, count)
     source_values = map(definition.parameters) do parameter
@@ -430,8 +512,13 @@ end
 function _materialize_case(
         definition::CaseDefinition,
         sources::NamedTuple,
-        nominal_problem
+        nominal_problem,
+        variation::AbstractCaseVariation = NoVariation()
 )
+    any(Base.Fix2(isa,JointParameterGrids),_variation_leaves(variation)) &&
+        return _materialize_joint_case(definition,sources,variation)
+    # Keep this legacy closure's captures and lowering stable: native saved
+    # independent studies retain this callable across fresh Julia processes.
     any(source -> source isa Union{AbstractGrid, Gridspace}, values(sources)) ||
         return Base.invokelatest(definition.build, sources)
     names = keys(sources)
@@ -440,6 +527,25 @@ function _materialize_case(
     end
     materializer = function (args...)
         Base.invokelatest(definition.build, NamedTuple{names}(args))
+    end
+    return Gridspace{Engine.LineParametersProblem}(materializer,grids)
+end
+
+function _materialize_joint_case(definition::CaseDefinition, sources::NamedTuple,
+        variation::AbstractCaseVariation)
+    names = keys(sources)
+    joints = filter(v -> v isa JointParameterGrids, _variation_leaves(variation))
+    owned = Set(Iterators.flatten(_joint_names(v.source) for v in joints))
+    independent_names = Tuple(name for name in names if !(name in owned))
+    grids = map(independent_names) do name
+        source = getproperty(sources, name)
+        source isa Union{AbstractGrid, Gridspace} ? source : Grid((source,))
+    end
+    grids = (grids..., (v.source for v in joints)...)
+    materializer = function (args...)
+        n = length(independent_names)
+        payload = merge(NamedTuple{independent_names}(args[1:n]), args[(n + 1):end]...)
+        Base.invokelatest(definition.build, NamedTuple{names}(payload))
     end
     return Gridspace{Engine.LineParametersProblem}(
         materializer,
@@ -497,7 +603,7 @@ function load_case(
         ))
     expected_size = _validate_loaded_problem(definition, nominal_problem)
     sources = _case_sources(definition, variation)
-    problem = _materialize_case(definition, sources, nominal_problem)
+    problem = _materialize_case(definition, sources, nominal_problem, variation)
     loaded_size = problem isa Engine.LineParametersProblem ?
                   _validate_loaded_problem(definition, problem) : expected_size
     selected = Symbol[parameter.id

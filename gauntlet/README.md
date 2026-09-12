@@ -95,6 +95,54 @@ options remain at their existing formulation owner; unsupported options fail at
 the public compute method. Performance repetition occurs only when explicitly
 declared and records compute wall time, samples and whether native work was reused.
 
+## Catalog uncertainty law
+
+New catalog LEP/Monte Carlo declarations use
+`bounded_correlated_geometry_v1`, a **synthetic correlated-geometry study**:
+
+- All selected cross-section lengths share one uniform scale of mean 1 and
+  standard deviation 0.1, bounded by `1 ± sqrt(3)*0.1`.
+- Lay ratios and the Milliken fillet factor have separate independent uniform
+  inputs with 10% standard uncertainty. The explicit solid-core area is an
+  independent area input, not a length.
+- Counts, formation controls and unselected properties remain exact unless
+  explicitly varied. The existing reuse of a design across cable positions
+  retains its shared inputs.
+
+Role tags `:length`, `:area` and `:dimensionless` make that declaration explicit.
+Finite exact/grid overrides become base values before applying the law; an
+already uncertain geometric source conflicts with the default law. Use a
+complete custom joint declaration instead of layering incompatible assumptions.
+Nominal/base construction is checked before execution, and the Milliken case
+retains a conservative contact/inventory support certificate.
+
+The new law preserves the specified marginal length means and standard
+deviations, **not** independence or the old normal distribution. It is not a
+claim about measured manufacturing correlations. A derived area scales as the
+square of the common scale and has mean `1.01A₀`; first-order LEP does not include
+that second-order shift. Moment differences are not removed by relaxing tolerances.
+
+`JointParameterGrids(source; record)` is an application ingestion adapter for an
+ordinary `Gridspace{NamedTuple{names}}`. Its record describes independent factor
+inputs, supports, base points, roles and output dependencies. The executable
+source is passed once to the case builder; `LoadedCase.sources` projections are
+only marginal views. Later independent overrides of joint-owned fields fail.
+Neither the runner nor the solver implements a separate correlated sampler.
+
+Use a **fresh `run` declaration**, without `--resume`, to adopt this law. Resume
+continues the saved declaration and must not relabel an old independent-normal
+study. Existing attempts/results and solver caches need not be deleted.
+
+The 320/380 kV armored cases now explicitly declare their previously resolved
+9.376520171 mm bedding (a reconstructed benchmark dimension, not a verified
+manufacturer value). The 525 kV/1600 mm² case removes its artificial buffer:
+bedding is 3 mm and outer radius is 79.04885 mm instead of 94.85862 mm. That case
+requires matching new FEM/PSCAD references. A nonzero
+`armor_packing_clearance_ratio` remains an explicit design override, never an
+automatic repair. Other PSCAD references remain candidates for native recovery
+when actual exported inputs and solver settings match; source edits alone do
+not establish compatibility.
+
 ## Inspect results at the REPL
 
 The shared report works with live results independently of Gauntlet:
@@ -277,19 +325,39 @@ explicit keywords. A configuration file returns those keywords as a named tuple.
 requires `--grid`, `--count` and `--bounds` together. Omitted flags preserve the
 definition's frequencies. Backend constraints remain the backend's responsibility.
 
-`run` starts a new attempt for each selected benchmark. On success it replaces
-that benchmark's previous draft. Unselected drafts and vault bundles remain intact.
+`run` reconciles the supplied definitions with saved work. Identical completed
+benchmarks are skipped, identical unfinished declarations continue, and changed
+declarations start new attempts. Matching saved reference/candidate operands and
+formulation points are reused before entering any backend. `--force` explicitly
+requests new calculations for the selection, including after an interrupted forced
+attempt is resumed. Historical attempts, unselected drafts and vault bundles remain intact.
+When only report settings change, matching controlled timing observations also
+retain their original execution session. Changing the declared timing workload
+or timing settings requests new measurements.
 If the replacement fails, the previous complete result remains accessible with
 `read_benchmark(path; previous=true)`; ordinary reads report the failed latest
 attempt. `status` reports this distinction and the current inspected identity.
 Every selected declaration is saved before the first solver starts. `resume`
-checks numerical inputs and saved-file integrity, and reuses matching completed
-calculations. It does not compare the live source tree. A scalar problem with a
+continues the saved work order, including its input law; it does not adopt current
+catalog defaults. Completed entries skip before restoring their executable
+declarations or loading numerical results. A skip verifies declaration, calculation
+and report payload checksums, without traversing native evidence or regenerating
+comparisons. Public saved-artifact readers and verified status retain the full
+evidence checks. Neither route compares the live source tree. A scalar problem with a
 formulation `Gridspace` checkpoints each completed point, so an interruption need
 not repeat earlier points.
 The low-level `run_benchmark` retains and
 reuses calculations in an explicitly supplied attempt directory; use `run_campaign`
 or the CLI for replaceable drafts.
+
+Select exact IDs with `--benchmark ID[,ID]` on `run` or `resume`. Unknown or repeated
+IDs are rejected before campaign writes. Preview per-operand scheduling decisions
+with `run ... --dry-run`; it performs no campaign writes, solver calls or full
+artifact integrity check. In Julia these controls are `benchmark`, `dry_run` and
+`force` keywords. A skipped outcome has `state=:complete`, `skipped=true` and
+`result=nothing`; load results explicitly with `read_benchmark` when needed.
+Use `--force` for a numerical implementation correction whose declared inputs have
+not changed. It cannot be combined with strict `run --resume`.
 
 Each invocation records its Julia version, loaded package versions, Git revision
 and dirty flag once. Reused operands retain their original session metadata; a
@@ -300,8 +368,10 @@ Numerical operands are saved before reporting; reports are saved before optional
 timing repetitions. A reporting or timing failure leaves completed work available.
 Changing report bands requires reanalysis, not another solver run.
 
-`resume --recover-solvers` also asks FEM and PSCAD to recover compatible native
-run directories, after the backend checks its actual inputs and saved outputs.
+`--recover-solvers` asks FEM and PSCAD to recover compatible native run directories
+only when there is no matching Gauntlet calculation. The backend then checks its
+actual inputs and saved outputs; PSCAD may inspect its remote installation.
+A whole-benchmark skip or saved-operand reuse never contacts that station.
 For older campaigns with unsaved queued declarations, supply the original factory
 and options with `run ... --resume --recover-solvers`. Existing attempts must have
 matching numerical declarations; missing queue entries are saved before execution.
@@ -337,8 +407,10 @@ calls accept the same choices as `progress=:auto`, `:plain` or `:off`.
 ./gauntlet/lcm gauntlet status --directory gauntlet/.work/all-references --watch
 ```
 
-The first command starts fresh attempts. Add `--resume --recover-solvers` only when
-you want verified completed work reused. PSCAD excludes the bare-wire case. The
+The first command skips unchanged completed entries and reuses matching saved
+calculations. Use `--benchmark ID[,ID]` to limit the work order and `--dry-run` to
+inspect it first. Add `--recover-solvers` for unfinished native work, or `--force`
+to deliberately repeat selected calculations. PSCAD excludes the bare-wire case. The
 local configuration supplies your station and diagnostic verbosity independently
 of progress; set `verbosity=(default=0, PSCAD=0)` there for quiet native chatter.
 

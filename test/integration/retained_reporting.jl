@@ -28,3 +28,34 @@
     @test errors.axes === space.axes
     @test errors[2].details.actual_bounds == (1f7,2f7)
 end
+
+@testitem "ReportBuilder / two-sided RMS eligibility survives tables and explicit reanalysis" tags=[:integration] begin
+    using LineCableModels.ReportBuilder: BenchmarkTableDefinition
+    using LineCableModels.Engine: RMSError
+    using DataFrames
+    f = [50.0, 500.0]
+    z = ones(ComplexF64, 1, 1, 2)
+    reference = LineParameters(PhaseDomain,z,fill(1e-6+1e-4im,1,1,2),f;
+        details=(coordinates=["a"],))
+    candidate = LineParameters(PhaseDomain,z,fill(1e-14+1e-4im,1,1,2),f;
+        details=(coordinates=["a"],))
+    definition = BenchmarkTableDefinition(quantities=(G,Y),bands=(:all,))
+    artifact = report(definition,(;reference,candidate))
+    g = only(eachrow(filter(row -> row.quantity === :G,artifact.table.terms)))
+    @test ismissing(g.relative_rms_percent)
+    @test g.status === :candidate_below_tolerance
+    @test g.absolute_rms ≈ 1e-6-1e-14
+    @test only(filter(row -> row.quantity === :G,artifact.table.maxima).unavailable) == 1
+    @test !ismissing(only(filter(row -> row.quantity === :Y,artifact.table.terms).relative_rms_percent))
+    # Retained errors are read as recorded; current policy is applied explicitly
+    # to saved numerical operands, without any computation/solver invocation.
+    old = first(artifact.published.comparisons)
+    legacy = merge(old,(error=RMSError{Float64}(old.error.absolute,fill(1.0,1,1);
+        details=old.error.details),))
+    retained = merge(artifact.published,(comparisons=[legacy],))
+    @test only(report(BenchmarkTableDefinition(),retained).table.terms.relative_rms_percent) == 100
+    refreshed = report(BenchmarkTableDefinition(;retained.settings...),
+        (reference=retained.reference,candidate=retained.candidate,context=retained.context))
+    @test ismissing(only(filter(row -> row.quantity === :G,refreshed.table.terms).relative_rms_percent))
+    @test only(first(retained.comparisons).error.relative) == 1
+end

@@ -3,6 +3,13 @@ $(TYPEDEF)
 
 Select direct linear uncertainty propagation with `inner`.
 
+Shared inputs must be supplied once to a joint `Gridspace` builder, which
+derives the dependent geometry. Propagation retains those correlations and
+differentiates continuous geometry at the nominal design, including bounded
+power-cell compaction. Strand counts and clipping topology are nominal discrete
+choices: a study crossing such a transition has no single smooth linear model.
+First-order moments need not equal nonlinear Monte Carlo moments.
+
 $(TYPEDFIELDS)
 """
 struct LinearError{F <: AbstractFormulation, O <: ComputationOptions} <: AbstractFormulation
@@ -58,6 +65,15 @@ describe a clearance-constrained system. Adjustments emit one summary per
 parameter point, not one warning per trial; retained details include their
 count and maximum displacement \\[m\\]. Invalid dimensions and infeasible
 internal cable constructions remain errors subject to `on_error`.
+
+Use one joint `Gridspace` builder for dependent internal dimensions; derive
+stack boundaries and wire placements from its shared inputs. Repeating a Grid
+as separate source arguments creates independent draws. The default normal
+law has unbounded support: marginal means and standard uncertainties cannot
+guarantee feasible geometry. `distribution=:uniform` instead has support
+`nominal ± sqrt(3)*sigma` for each primitive descriptor; the builder must map
+the complete joint support to feasible designs. Selecting this law is an
+explicit statistical assumption, not a repair or an inferred correlation.
 
 $(TYPEDFIELDS)
 """

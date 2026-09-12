@@ -82,7 +82,8 @@ function _addon_display!(figure, title::AbstractString)
         screen = Base.invokelatest(
             extension.make_screen,
             String(title);
-            minimum_size
+            minimum_size,
+            aspect_size=Tuple(Int.(viewport.widths))
         )
         Base.display(screen, figure)
     else
@@ -91,10 +92,16 @@ function _addon_display!(figure, title::AbstractString)
     return figure
 end
 
-function _addon_shell(; size, controls::Bool)
+function _addon_landscape_size(size)
     size isa Tuple{Int, Int} && all(>(0), size) || throw(ArgumentError(
         "fig_size must be a tuple of two positive integers",
     ))
+    width, height = size
+    return (max(width, cld(4height, 3)), height)
+end
+
+function _addon_shell(; size, controls::Bool)
+    size = _addon_landscape_size(size)
     figure = Figure(size = size, figure_padding = (12, 12, 12, 12))
     root = figure.layout
     root.default_rowgap = Fixed(4)
@@ -148,6 +155,85 @@ function _addon_icon(value)
     )
 end
 
+# Full and residual matrix cells share a decoration budget. Their outer grids
+# absorb protrusions, while blank positions remain ordinary layout tracks.
+# Native layout updates are guarded; exports temporarily retain this budget.
+function _addon_equal_matrix_cells!(pages)
+    axes = [axis for page in pages for axis in page.axes]
+    isempty(axes) && return nothing
+    budget = zeros(Float32, 13) # axis, figure docks, panel docks, figure title
+    updating = Ref(false)
+    suspended = Ref(false)
+    sides = (:left, :right, :bottom, :top)
+    extent(legend, position, side) = legend === nothing || position != side ? 0f0 :
+        something(legend.layoutobservables.autosize[][side in (:left,:right) ? 1 : 2], 0f0)
+    function reserve!(grid, sizes)
+        for (side, size) in zip(sides, sizes)
+            size > 0 || continue
+            _addon_activate_dock_tracks!(grid, side)
+            if side in (:left,:right)
+                colsize!(grid, side === :left ? 1 : 3, Fixed(size))
+            else
+                rowsize!(grid, side === :top ? 1 : 3, Fixed(size))
+            end
+        end
+    end
+    function fit!()
+        (updating[] || suspended[]) && return nothing
+        desired = [maximum(getfield(axis.layoutobservables.protrusions[], side)
+            for axis in axes) for side in sides]
+        append!(desired, [maximum(extent(page.legend,
+            page.addon_state.figure_legend_position[], side) for page in pages) for side in sides])
+        append!(desired, [maximum((extent(legend,
+            page.addon_state.panel_legend_positions[key], side)
+            for page in pages for (key,legend) in page.panel_legends); init=0f0) for side in sides])
+        push!(desired, maximum(page.title === nothing ? 0f0 :
+            something(page.title.layoutobservables.autosize[][2], 0f0) for page in pages))
+        all(desired .<= budget) && return nothing
+        updating[] = true
+        try
+            budget .= max.(budget, ceil.(desired))
+            P = Makie.GridLayoutBase.Protrusion
+            alignment = Mixed(left=P(budget[1]), right=P(budget[2]),
+                bottom=P(budget[3]), top=P(budget[4]))
+            for axis in axes
+                axis.alignmode[] = alignment
+            end
+            for page in pages
+                shell = page.addon_state.shell
+                reserve!(shell.body, budget[5:8])
+                for cell in page.addon_state.matrix_block.cells
+                    reserve!(cell.layout, budget[9:12])
+                end
+                if budget[13] > 0
+                    page.title === nothing && (shell.root[0,1] = GridLayout())
+                    rowsize!(shell.root, 0, Fixed(budget[13]))
+                end
+            end
+        finally
+            updating[] = false
+        end
+        return nothing
+    end
+    for page in pages, axis in page.axes
+        on(page.figure.scene, axis.layoutobservables.protrusions) do _
+            fit!()
+        end
+    end
+    for page in pages
+        for block in (page.title, page.legend, values(page.panel_legends)...)
+            block === nothing && continue
+            on(page.figure.scene, block.layoutobservables.autosize) do _
+                fit!()
+            end
+        end
+        page.addon_state = merge(page.addon_state,
+            (matrix_layout=(; suspended, refit=fit!),))
+    end
+    fit!()
+    return nothing
+end
+
 function _addon_button!(toolbar, column::Int, icon)
     return Button(
         toolbar[1, column];
@@ -156,6 +242,19 @@ function _addon_button!(toolbar, column::Int, icon)
         height = _ADDON_BUTTON_SIZE,
         buttoncolor = _ADDON_BUTTON_BACKGROUND
     )
+end
+
+function _addon_refit_matrix_block!(plot, block)
+    data = plot.addon_state
+    haskey(data, :matrix_layout) || return nothing
+    fit! = data.matrix_layout.refit
+    if block !== nothing
+        on(block.blockscene, block.layoutobservables.autosize) do _
+            fit!()
+        end
+    end
+    fit!()
+    return nothing
 end
 
 function _addon_scale(symbol::Symbol)
@@ -245,7 +344,9 @@ function _addon_set_axis!(axis, dim::Symbol, allowed, scale::Symbol)
 end
 
 function _addon_numeric_values(values)
-    nominal_values = LineCableModels.nominal.(values)
+    # Undefined observations remain missing in publications. Makie's numeric
+    # line boundary uses NaN gaps, including an entirely undefined phase trace.
+    nominal_values = map(value -> ismissing(value) ? NaN : LineCableModels.nominal(value), values)
     errors = LineCableModels.uncertainty.(values)
     return nominal_values, any(error -> !iszero(error), errors) ? errors : nothing
 end
@@ -839,6 +940,18 @@ function _addon_remove_legend!(legend)
     return nothing
 end
 
+function _addon_legend_sources!(legend, dependents)
+    legend === nothing && return nothing
+    isempty(dependents) && return legend
+    # Markers inherit visibility from their source lines. Keep their native
+    # glyphs, but do not toggle them a second time after toggling the line.
+    for (_, entries) in legend.entrygroups[], entry in entries, element in entry.elements
+        filter!(plot -> !any(dependent -> dependent === plot, dependents),
+            Makie.get_plots(element))
+    end
+    return legend
+end
+
 function _addon_set_legend_capacity!(legend, title, entries, ellipsis, capacity, state)
     total = length(entries)
     0 <= capacity <= total || throw(BoundsError(entries, capacity))
@@ -933,6 +1046,105 @@ function _addon_inside_aligns(anchor)
         "inside legend anchors must be symbols such as :rt or two-element tuples",
     ))
     return (; halign = anchor[1], valign = anchor[2])
+end
+
+function _addon_wrap_legend_label(label, width, measure)
+    lines = String[]
+    for paragraph in split(label, '\n'; keepempty=true)
+        current = ""
+        for word in split(paragraph)
+            candidate = isempty(current) ? String(word) : "$current $word"
+            if !isempty(current) && measure(candidate) > width
+                push!(lines, current)
+                current = ""
+            end
+            # Very long identifiers also need a lossless fallback. No formula
+            # field is elided merely because its token has no spaces.
+            for character in (isempty(current) ? String(word) : " $word")
+                candidate = current * character
+                if !isempty(current) && measure(candidate) > width
+                    push!(lines, current)
+                    current = ""
+                end
+                current *= character
+            end
+        end
+        push!(lines, current)
+    end
+    return join(lines, '\n')
+end
+
+# Native Legend already owns the row-major grid, text rendering and click
+# targets. Only its bank count and (when necessary) label line breaks change.
+function _addon_grid_legend!(figure, bounds, legend)
+    entries = last(only(legend.entrygroups[]))
+    originals = [String(entry.label[]) for entry in entries]
+    fitting = Ref(false)
+    previous_metrics = Ref{Any}(nothing)
+    # Match native Label: glyphs and positions must share data space for the
+    # bounding box to include font extents rather than just the anchor point.
+    probe = text!(legend.blockscene, 0, 0; text="", markerspace=:data,
+        visible=false, inspectable=false)
+    function fit!()
+        fitting[] && return nothing
+        available = Float64(bounds[].widths[1]) - sum(legend.margin[][1:2]) -
+            sum(legend.padding[][1:2]) - 4
+        available > 0 || return nothing
+        fitting[] = true
+        try
+            widths = Float64[]
+            for (entry, original) in zip(entries, originals)
+                probe.font[] = entry.labelfont[]
+                probe.fontsize[] = entry.labelsize[]
+                measured = Dict{String,Float64}()
+                measure = text -> get!(measured, text) do
+                    probe.text[] = text
+                    Float64(Makie.boundingbox(probe, :data).widths[1])
+                end
+                patch = Float64(entry.patchsize[][1]) + legend.patchlabelgap[]
+                wrapped = measure(original) <= available-patch ? original :
+                    _addon_wrap_legend_label(original, max(1.0, available-patch), measure)
+                entry.label[] == wrapped || (entry.label[] = wrapped)
+                push!(widths, patch + measure(wrapped))
+            end
+            columns = 1
+            for count in length(entries):-1:1
+                required = sum(maximum(widths[column:count:end]) for column in 1:count) +
+                    (count-1)*legend.colgap[]
+                if required <= available
+                    columns = count
+                    break
+                end
+            end
+            metrics = (Tuple(widths), Tuple(entry.label[] for entry in entries),
+                Tuple((entry.labelsize[],entry.labelfont[]) for entry in entries))
+            if legend.nbanks[] != columns
+                legend.nbanks[] = columns
+            elseif previous_metrics[] != metrics
+                # Native Legend relayout is triggered by bank/layout controls,
+                # not by changed label extents alone.
+                notify(legend.nbanks)
+            end
+            previous_metrics[] = metrics
+        finally
+            fitting[] = false
+        end
+        return nothing
+    end
+    on(legend.blockscene, bounds) do _
+        fit!()
+    end
+    onany((_...) -> fit!(), legend.blockscene, legend.labelsize, legend.labelfont,
+        legend.padding, legend.margin, legend.colgap, legend.patchlabelgap, legend.patchsize)
+    for (index, entry) in enumerate(entries)
+        on(legend.blockscene, entry.label) do label
+            fitting[] && return
+            originals[index] = String(label)
+            fit!()
+        end
+    end
+    fit!()
+    return legend
 end
 
 function _addon_axes_viewport(axes, fallback)
@@ -1061,6 +1273,15 @@ function _addon_legend!(
     legend_grid = GridLayout()
     slot[] = legend_grid
     target === nothing && _addon_activate_dock_tracks!(body, position)
+    if position in (:top, :bottom) &&
+            !haskey(attributes, :orientation) && !haskey(attributes, :nbanks)
+        # In Makie, vertical orientation with nbanks columns fills row first.
+        # The legend's dock still determines tellheight/tellwidth, not this
+        # native storage orientation.
+        options = merge(options, (; orientation=:vertical, halign=:center))
+        legend = Legend(legend_grid[1, 1], entries, displayed, title; options...)
+        return _addon_grid_legend!(figure, legend_grid.layoutobservables.computedbbox, legend)
+    end
     if overflow === :show_all
         return Legend(legend_grid[1, 1], entries, displayed, title; options...)
     end
@@ -1443,6 +1664,7 @@ function _addon_finish!(
         figure_title = nothing,
         title_attributes = (;),
         series_attributes = nothing,
+        series_defaults = nothing,
         legend_position,
         legend_attributes,
         legend_overflow = :ellipsis,
@@ -1463,7 +1685,7 @@ function _addon_finish!(
         export_theme,
         open_export
 )
-    _addon_series_styles!(groups, order, series_attributes)
+    dependent_plots = _addon_series_styles!(groups, order, series_attributes; defaults=series_defaults)
     foreach(_addon_axis_format!, axes)
     title_block = _addon_figure_title!(shell, figure_title, title_attributes)
     inside_bbox = _addon_axes_viewport(
@@ -1533,6 +1755,10 @@ function _addon_finish!(
         panel_data,
         panel_legends
     )
+    _addon_legend_sources!(legend, dependent_plots)
+    for panel_legend in values(panel_legend_result.legends)
+        _addon_legend_sources!(panel_legend, dependent_plots)
+    end
     colorbar_result = _addon_colorbars!(
         shell.body,
         color_scales;
@@ -1564,6 +1790,7 @@ function _addon_finish!(
         addon_state = (;
             shell,
             groups,
+            dependent_plots,
             order,
             labels = group_labels,
             title = Ref{Any}(legend_title),
@@ -1664,8 +1891,10 @@ function LineCableModels.figurelegend!(
         target = dock.target,
         target_orientation = dock.orientation
     )
+    _addon_legend_sources!(legend, data.dependent_plots)
     plot.legend = legend
     data.figure_legend_position[] = legend === nothing ? nothing : position
+    _addon_refit_matrix_block!(plot, legend)
     if plot.controls isa AbstractDict
         legend === nothing ? delete!(plot.controls, :legend) :
         (plot.controls[:legend] = legend)
@@ -1714,6 +1943,7 @@ function LineCableModels.panellegend!(
         anchor,
         inside_bbox = panel.axis.scene.viewport
     )
+    _addon_legend_sources!(legend, data.dependent_plots)
     if legend === nothing
         delete!(plot.panel_legends, logical_position)
         delete!(data.panel_legend_positions, logical_position)
@@ -1721,6 +1951,7 @@ function LineCableModels.panellegend!(
         plot.panel_legends[logical_position] = legend
         data.panel_legend_positions[logical_position] = position
     end
+    _addon_refit_matrix_block!(plot, legend)
     return legend
 end
 
@@ -1736,6 +1967,7 @@ function LineCableModels.figuretitle!(
     plot.title === nothing || delete!(plot.title)
     plot.title = title === nothing ? nothing :
                  _addon_figure_title!(data.shell, title, (; kwargs...))
+    _addon_refit_matrix_block!(plot, plot.title)
     return plot.title
 end
 

@@ -10,6 +10,23 @@ ReportBuilder owns the comparison bands, grouping and tables, and PlotBuilder ow
 matrix overlays. A reference defines comparison direction and normalization.
 LCM, PSCAD and FEM remain different models whose discrepancies are measured.
 
+## Catalog uncertainty declarations
+
+New catalog UQ declarations record `bounded_correlated_geometry_v1`: one
+bounded uniform 10%-standard-deviation scale for cross-section lengths,
+independent bounded lay/fillet inputs, and an independent explicit area input.
+This synthetic correlated study is not the old independent-normal study and
+does not assert measured manufacturing correlations. Counts stay fixed over
+the declared support. Derived areas scale quadratically, so first-order LEP
+and nonlinear Monte Carlo need not have identical means.
+
+Joint sources use ordinary core Gridspace builders. Gauntlet records their
+primitive supports and output dependencies and passes each joint source once.
+A fresh declaration adopts the law; resume retains the saved study. Existing
+results and solver caches are preserved. Removing the artificial buffer in
+the 525 kV/1600 mm² case changes its nominal geometry and requires matching new
+references; the 320/380 kV nominal resolved geometry is retained explicitly.
+
 ## Retained summaries
 
 This page reads the immutable versions selected in `docs/gauntlet.toml`. An
@@ -44,13 +61,28 @@ With **A = reference** and **B = candidate**, each matrix term uses
 ```
 
 Absolute RMS retains the measured difference. No denominator floor is applied.
-Numerical-zero reference traces give unavailable relative RMS, with a per-term
-reason and absolute RMS. Pointwise normalization is unavailable if any selected
-reference sample is numerically zero; samples are never silently omitted.
+Both operands must exceed the declared reporting resolution at every selected sample.
+Otherwise relative RMS is missing for either normalization, with a per-term
+reason and absolute RMS; samples are never silently omitted.
 Defaults are 1e-10 Ω/m for R, 1e-15 H/m for L, 1e-12 S/m for G and 1e-16 F/m
-for C. Z and Y thresholds follow R + 2πfL and G + 2πfC. Explicit `atol` overrides
+for C. X/B thresholds follow 2πfL/2πfC; Z/Y follow R + 2πfL and G + 2πfC. Explicit `atol` overrides
 belong to the comparison request. Empty bands and unsupported quantities retain
 their separate reasons. No error threshold is imposed by artifact acceptance.
+
+These are native-unit reporting cutoffs, not certified floating-point forward-error
+bounds. The corresponding `:total` defaults use Ω, H, S and F; they do not infer a
+line length. Equivalent per-length/total comparisons require correspondingly
+scaled explicit cutoffs. Absolute RMS uses unchanged raw values even when relative
+RMS is missing. A missing whole-band KPI does not remove a significant part of
+that band's plotted curve.
+
+New analyses retain their resolution revision, effective cutoffs and per-operand
+unresolved-sample counts. The existing analysis identity includes these semantics,
+without changing any calculation identity. Historical/unversioned RMS remains
+readable as recorded; `compare_saved` explicitly creates current analysis from
+saved operands without a solver run. Reading or plotting never silently rewrites
+old errors. Report tables expose the revision; plots warn when historical RMS and
+current observation resolution differ.
 
 Report bands overlap: near DC is 0.1–100 Hz, the default harmonic range is
 50–2500 Hz, narrowband is 1 kHz–1 MHz, and wideband is strictly above 1 MHz.
@@ -119,9 +151,26 @@ lcm gauntlet package --definition release.toml --output /path/to/package
 lcm gauntlet bind --package /path/to/package --url https://host.example/archive.tar.gz
 ```
 
-A new `run` replaces only selected drafts once complete. Failed replacement leaves
+`run` skips identical completed benchmarks, continues identical drafts, and creates
+new attempts for changed declarations. Matching operands and formulation points
+are reused before any backend is entered. `--force` explicitly requests fresh
+calculations; historical attempts remain retained. Failed replacement leaves
 the previous complete result explicitly accessible with `previous=true`. `resume`
-reuses only matching completed calculations. `lock` copies selected accepted
+preserves the saved work order, skipping complete entries before restoring builders
+or loading results. `--benchmark ID[,ID]` selects run/resume entries; `run --dry-run`
+prints per-operand scheduling decisions without writes or solver calls.
+
+A completed skip verifies declaration and numerical/report payload checksums;
+full native-evidence verification remains in saved-artifact readers and verified
+status. Saved-result reuse does not contact PSCAD. `--recover-solvers` applies only
+to unfinished native work without a matching Gauntlet calculation. Source edits
+alone do not invalidate results; use explicit force for implementation corrections
+with unchanged numerical declarations. Skipped Julia outcomes have
+`state=:complete`, `skipped=true` and `result=nothing`.
+Report-only changes retain matching controlled timing observations and their
+original session; they do not silently repeat the numerical workload for timing.
+
+`lock` copies selected accepted
 benchmarks into an immutable, self-contained bundle; it does not publish them or
 apply a numerical agreement threshold. Packaging accepts only explicit locked
 bundles. Binding verifies the served archive bytes and extracted tree before

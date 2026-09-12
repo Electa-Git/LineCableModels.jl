@@ -99,49 +99,49 @@ case_definition(Base.Fix1(build_case, Val(:cable_220kv_eaxecew_1x2500_252_trefoi
     :cable_220kv_eaxecew_1x2500_252_trefoil,
     (
         core_outer_radius = case_parameter(
-            :core_outer_radius, 0.03115; tags = (:geometry, :cable_layer)
+            :core_outer_radius, 0.03115; tags = (:geometry, :cable_layer, :length)
         ),
         core_wire_radius = case_parameter(
-            :core_wire_radius, 0.001475; tags = (:geometry, :cable_layer)
+            :core_wire_radius, 0.001475; tags = (:geometry, :cable_layer, :length)
         ),
         core_sectors = case_parameter(
             :core_sectors, 6; tags = (:topology, :cable_layer)
         ),
         core_fillet_factor = case_parameter(
-            :core_fillet_factor, 0.04; tags = (:geometry, :cable_layer)
+            :core_fillet_factor, 0.04; tags = (:geometry, :cable_layer, :dimensionless)
         ),
         binder_thickness = case_parameter(
-            :binder_thickness, 0.0005; tags = (:geometry, :cable_layer)
+            :binder_thickness, 0.0005; tags = (:geometry, :cable_layer, :length)
         ),
         inner_semicon_thickness = case_parameter(
-            :inner_semicon_thickness, 0.0016; tags = (:geometry, :cable_layer)
+            :inner_semicon_thickness, 0.0016; tags = (:geometry, :cable_layer, :length)
         ),
         insulation_thickness = case_parameter(
-            :insulation_thickness, 0.0203; tags = (:geometry, :cable_layer)
+            :insulation_thickness, 0.0203; tags = (:geometry, :cable_layer, :length)
         ),
         outer_semicon_thickness = case_parameter(
-            :outer_semicon_thickness, 0.0013; tags = (:geometry, :cable_layer)
+            :outer_semicon_thickness, 0.0013; tags = (:geometry, :cable_layer, :length)
         ),
         screen_inner_bedding_thickness = case_parameter(
-            :screen_inner_bedding_thickness, 0.0003; tags = (:geometry, :cable_layer)
+            :screen_inner_bedding_thickness, 0.0003; tags = (:geometry, :cable_layer, :length)
         ),
         screen_wires = case_parameter(
             :screen_wires, 65; tags = (:topology, :cable_layer)
         ),
         screen_wire_radius = case_parameter(
-            :screen_wire_radius, 0.00111; tags = (:geometry, :cable_layer)
+            :screen_wire_radius, 0.00111; tags = (:geometry, :cable_layer, :length)
         ),
         screen_lay_ratio = case_parameter(
-            :screen_lay_ratio, 5.5012442232492; tags = (:geometry, :cable_layer)
+            :screen_lay_ratio, 5.5012442232492; tags = (:geometry, :cable_layer, :dimensionless)
         ),
         screen_outer_bedding_thickness = case_parameter(
-            :screen_outer_bedding_thickness, 0.00073; tags = (:geometry, :cable_layer)
+            :screen_outer_bedding_thickness, 0.00073; tags = (:geometry, :cable_layer, :length)
         ),
         aluminum_foil_thickness = case_parameter(
-            :aluminum_foil_thickness, 0.0002; tags = (:geometry, :cable_layer)
+            :aluminum_foil_thickness, 0.0002; tags = (:geometry, :cable_layer, :length)
         ),
         jacket_thickness = case_parameter(
-            :jacket_thickness, 0.0048; tags = (:geometry, :cable_layer)
+            :jacket_thickness, 0.0048; tags = (:geometry, :cable_layer, :length)
         ),
         semicon_rho = case_parameter(
             :semicon_rho, 0.06; tags = (:material, :cable_layer)

@@ -10,11 +10,10 @@ import Measurements
 import Printf
 import SpecialFunctions
 #! explicit-imports: off
-# Non-exported accessors documented in Measurements usage, and gradient in the
-# Calculus README. Measurements.result is its documented internal propagation
+# Non-exported accessors documented in Measurements usage.
+# Measurements.result is its documented internal propagation
 # hook, required by the existing complex-Bessel adapter (Measurements appendix).
 # Keep the import exception restricted to these upstream bindings.
-using Calculus: gradient
 using Measurements: value as measured_value, uncertainty as measured_uncertainty,
                     result as measured_result
 #! explicit-imports: on
@@ -123,9 +122,7 @@ function has_uncertainty_type(
     true
 end
 function detach(value::Measurements.Measurement, factor, clip::Bool)
-    nominal = detach(measured_value(value), factor, clip)
-    uncertainty = detach(measured_uncertainty(value), abs(factor), clip)
-    return Measurements.measurement(nominal, uncertainty)
+    return value * factor
 end
 
 function detach(
@@ -159,21 +156,33 @@ end
 
 # Uncertainty-aware SpecialFunctions methods used by the numerical kernels.
 function _lift_complex(function_value, order, value::Complex{<:Measurements.Measurement})
-    nominal = measured_value(value)
-    return measured_result(
-        function_value(order, nominal),
-        vcat(
-            gradient(
-                point -> real(function_value(order, complex(point...))),
-                collect(reim(nominal))
-            ),
-            gradient(
-                point -> imag(function_value(order, complex(point...))),
-                collect(reim(nominal))
-            )
-        ),
-        value
-    )
+    z = measured_value(value)
+    result = function_value(order, z)
+    lower, upper = function_value(order - 1, z), function_value(order + 1, z)
+    # DLMF 10.6.1 and 10.29.1: exact order recurrences avoid an absolute
+    # finite-difference step crossing the singularity at small arguments.
+    derivative = if function_value in (SpecialFunctions.besseli, SpecialFunctions.besselix)
+        (lower + upper) / 2
+    elseif function_value in (SpecialFunctions.besselk, SpecialFunctions.besselkx)
+        -(lower + upper) / 2
+    else
+        (lower - upper) / 2
+    end
+    dx, dy = derivative, im * derivative
+    # Scaled I/J/Y are not holomorphic. Differentiate their scaling in Cartesian
+    # coordinates; sign(0)=0 retains the symmetric slope at an absolute-value cusp.
+    if function_value === SpecialFunctions.besselix
+        dx -= sign(real(z)) * result
+    elseif function_value in (SpecialFunctions.besseljx, SpecialFunctions.besselyx)
+        dy -= sign(imag(z)) * result
+    elseif function_value === SpecialFunctions.besselkx
+        dx += result
+        dy = im * dx
+    elseif function_value === SpecialFunctions.besselhx
+        dx -= im * result
+        dy = im * dx
+    end
+    return measured_result(result, [real(dx), real(dy), imag(dx), imag(dy)], value)
 end
 
 function SpecialFunctions.besselix(order::Real, value::Complex{<:Measurements.Measurement})

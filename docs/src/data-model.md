@@ -451,6 +451,18 @@ preview(
 ).figure
 ```
 
+Bounded circular and sector compaction preserves continuous input uncertainty:
+cell weights are differentiated through their prescribed-area constraint, and
+clipped strands through their area constraint. This retains motion of cell
+boundaries, sites, centroids, scale and fillets; it does not model mechanical
+deformation. Nominal polygons, strand areas, filler regions and terminal groups
+remain the same construction used by deterministic rebuilding.
+
+Course counts and clipping choices are discrete nominal decisions. Linear
+uncertainty propagation is valid locally within a stable topology, not across a
+course-count transition. A joint uncertainty declaration must preserve feasible
+geometry throughout its support; see [joint geometric inputs](gridspace.md#Feasible-geometric-dependence).
+
 ### Rectangular stranded core
 
 Rectangular source strands require a circular center wire. They are always

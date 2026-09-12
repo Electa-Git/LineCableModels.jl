@@ -113,8 +113,69 @@ end
     # An unusable denominator does not change the selected sample population.
     @test ismissing(only(compare(parameters([0, 1]), parameters([0, 2]); normalization = :pointwise).Y.relative))
     @test ismissing(only(compare(parameters([0, 1]), parameters([1, 1]); normalization = :pointwise).Y.relative))
-    @test only(compare(parameters([0, 1]), parameters([1, 1])).Y.relative) == 1
+    @test ismissing(only(compare(parameters([0, 1]), parameters([1, 1])).Y.relative))
     @test_throws ArgumentError compare(a, b; normalization = :unknown)
+end
+
+@testitem "Engine / relative RMS requires two significant operands at every selected sample" tags=[:unit] begin
+    using LineCableModels.Engine: compare
+    tensor(values) = reshape(ComplexF64.(values), 1, 1, :)
+    signal = tensor([2.0, -3.0, 4im])
+    original = copy(signal)
+    tolerance = [0.1, 0.2, 0.3]
+    cases = (([0, 0, 0], :below_tolerance),
+        ([0.01, -0.02, 0.03im], :below_tolerance),
+        ([2, -0.2, 4im], :sample_below_tolerance),
+        ([2, -3, 0.1im], :sample_below_tolerance))
+    for normalization in (:reference_rms, :pointwise), (values, suffix) in cases
+        quiet = tensor(values)
+        for (reference, candidate, role) in ((signal, quiet, :candidate), (quiet, signal, :reference))
+            error = compare(reference, candidate; normalization, atol=tolerance)
+            @test ismissing(only(error.relative))
+            @test only(error.absolute) ≈ sqrt(sum(abs2, signal .- quiet)/3)
+            @test only(error.details.status) === Symbol(role, :_, suffix)
+            @test occursin("no samples were omitted", only(error.details.normalization_reason))
+            @test error.details.sample_count == 3
+            @test quiet == tensor(values)
+        end
+    end
+    for normalization in (:reference_rms, :pointwise)
+        significant = tensor([0.1001, -0.2001, 0.3001im])
+        @test only(compare(significant, significant; normalization, atol=tolerance).relative) == 0
+        @test only(compare(signal, -signal; normalization, atol=tolerance).relative) ≈ 2
+        @test ismissing(only(compare(tensor([0]), tensor([0]); normalization).relative))
+        @test only(compare(signal, signal; normalization, atol=0).relative) == 0
+    end
+    @test signal == original
+
+    # A quiet candidate invalidates only bands containing its quiet samples.
+    f = [1.0, 50.0, 1e3, 1e7]
+    z = ones(ComplexF64, 1, 1, length(f))
+    y = tensor(2π .* f .* 1e-8im)
+    tiny_y = tensor(2π .* f .* 1e-17im)
+    reference = LineParameters(PhaseDomain, z, y, f)
+    candidate = LineParameters(PhaseDomain, z, tiny_y, f)
+    @test only(compare(reference, candidate, Y).details.status) === :candidate_below_tolerance
+    @test ismissing(only(compare(reference, candidate, C).relative))
+    @test only(compare(reference, candidate, Y; atol=(C=1e-18, G=0)).relative) ≈ 1-1e-9
+    mixed_y = copy(y)
+    mixed_y[1, 1, 1] = tiny_y[1, 1, 1]
+    mixed = LineParameters(PhaseDomain, z, mixed_y, f)
+    for normalization in (:reference_rms, :pointwise)
+        for band in (:all, :dc)
+            error = compare(reference, mixed, Y; band, normalization)
+            @test ismissing(only(error.relative))
+            @test only(error.details.status) === :candidate_sample_below_tolerance
+            @test only(error.absolute) > 0
+        end
+        for band in (:harmonic, :narrow, :wide)
+            error = compare(reference, mixed, Y; band, normalization)
+            @test only(error.relative) == 0
+            @test only(error.details.status) === :compared
+        end
+    end
+    @test reference.Y.values == y
+    @test candidate.Y.values == tiny_y
 end
 
 @testitem "Engine / lossless conductance normalization preserves measured differences" tags=[:unit] begin

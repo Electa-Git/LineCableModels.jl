@@ -44,10 +44,10 @@ case_definition(Base.Fix1(build_case, Val(:solid_1000mm2_single)),
     :solid_1000mm2_single,
     (
         core_cross_section = case_parameter(
-            :core_cross_section, 1000.0e-6; tags = (:geometry, :cable_layer)
+            :core_cross_section, 1000.0e-6; tags = (:geometry, :cable_layer, :area)
         ),
         insulation_thickness = case_parameter(
-            :insulation_thickness, 8.3e-3; tags = (:geometry, :cable_layer)
+            :insulation_thickness, 8.3e-3; tags = (:geometry, :cable_layer, :length)
         ),
         cable_x = case_parameter(:cable_x, 0.0; tags = (:geometry, :system)),
         cable_y = case_parameter(:cable_y, -1.0; tags = (:geometry, :system)),

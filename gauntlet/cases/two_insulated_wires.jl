@@ -50,10 +50,10 @@ case_definition(Base.Fix1(build_case, Val(:two_insulated_wires)),
     :two_insulated_wires,
     (
         core_radius = case_parameter(
-            :core_radius, 0.0425; tags = (:geometry, :cable_layer)
+            :core_radius, 0.0425; tags = (:geometry, :cable_layer, :length)
         ),
         insulation_thickness = case_parameter(
-            :insulation_thickness, 1.0e-3; tags = (:geometry, :cable_layer)
+            :insulation_thickness, 1.0e-3; tags = (:geometry, :cable_layer, :length)
         ),
         first_x = case_parameter(:first_x, 0.0; tags = (:geometry, :system)),
         second_x = case_parameter(:second_x, 1.0; tags = (:geometry, :system)),

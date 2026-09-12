@@ -179,10 +179,13 @@ function tabulate(definition::BenchmarkTableDefinition, source,
             reference_point=row.reference_index, candidate_point=row.candidate_index,
             problem_index, formulation_index, band=detail.band, normalization=detail.normalization,
             absolute_unit=Units.label(unit),samples=detail.sample_count,
+            resolution_revision=get(get(detail,:resolution,(;)),:revision,0),
+            resolution_kind=get(get(detail,:resolution,(;)),:kind,:historical_unversioned),
             requested_bounds_Hz=get(detail,:requested_bounds,missing), actual_bounds_Hz=detail.actual_bounds)
         push!(comparisons,merge(identity,(absolute_rms=absolute,relative_rms_percent=relative,
             status=copy(statuses),reason=reasons,port_order=copy(ports),
-            sample_indices=copy(get(detail,:indices,Int[])),tolerance=get(detail,:atol,missing))))
+            sample_indices=copy(get(detail,:indices,Int[])),tolerance=get(detail,:atol,missing),
+            candidate_tolerance=get(detail,:candidate_atol,get(detail,:atol,missing)))))
         for i in eachindex(ports),j in eachindex(ports)
             push!(terms,merge(identity,(row=i,column=j,response=ports[i],excitation=ports[j],
                 absolute_rms=absolute[i,j],relative_rms_percent=relative[i,j],
@@ -198,6 +201,7 @@ function tabulate(definition::BenchmarkTableDefinition, source,
             maximum_relative_rms_percent=rmax === nothing ? missing : relative[rmax],
             relative_term=rmax === nothing ? missing : (ports[rmax[1]],ports[rmax[2]]),
             unavailable=count(ismissing,relative), term_count=length(relative),
+            compared=length(ri),
             reasons=unique(filter(!isnothing,vec(reasons))))))
     end
     return (calculations, formulations=DataFrame(formulations),comparisons=DataFrame(comparisons),

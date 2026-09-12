@@ -32,6 +32,37 @@
         end
         snapshot = only(compare_saved(source; directory=joinpath(root, "analysis")))
         loaded = read_benchmark(snapshot; load_results=true)
+        # Reanalysis identity includes scientific semantics, not runtime sources.
+        @test only(compare_saved(source; directory=joinpath(root, "analysis"))) == snapshot
+        current = report(BenchmarkTableDefinition(; only(loaded.analyses)["comparison_settings"]...),
+            (reference=loaded.reference, candidate=loaded.candidate))
+        operands_for_definition = map((:reference, :candidate)) do role
+            operand = getproperty(loaded, role)
+            Gauntlet.BenchmarkCalculation(role, operand, operand.metadata.formulation)
+        end
+        definition = Gauntlet.benchmark_definition(:matrix_report, :matrix_case, :repl,
+            source, (id=:matrix_case, description="matrix_case"), operands_for_definition...,
+            current.published.settings, (;))
+        old_rows = map(current.published.comparisons) do row
+            old_details = Base.structdiff(row.error.details, (resolution=row.error.details.resolution,))
+            old_error = LineCableModels.Engine.RMSError{Float64}(row.error.absolute, row.error.relative;
+                details=old_details)
+            merge(row, (error=old_error,))
+        end
+        historical = report(BenchmarkTableDefinition(),
+            merge(current.published, (comparisons=old_rows,)))
+        historical_path = Gauntlet.record_benchmark(definition, historical;
+            directory=joinpath(root, "analysis"))
+        @test historical_path != snapshot
+        historical_bytes = read(historical_path)
+        @test Gauntlet.record_benchmark(definition, current;
+            directory=joinpath(root, "analysis")) == snapshot
+        @test all(==(1), current.table.terms.resolution_revision)
+        historical_tables = report(BenchmarkTableDefinition(),
+            read_benchmark(historical_path; load_results=true)).table
+        @test all(==(0), historical_tables.terms.resolution_revision)
+        @test read(historical_path) == historical_bytes
+        @test all(read(path) == bytes for (path, bytes) in original)
         files_before = [(dir, copy(names)) for (dir, _, names) in walkdir(root)]
         tables = report(BenchmarkTableDefinition(false), loaded).table
         @test propertynames(tables) == (:calculations, :formulations, :comparisons, :terms, :maxima, :summary)
@@ -52,7 +83,7 @@
         @test all(ismissing, g.relative_rms_percent)
         @test all(>(0), g.absolute_rms)
         @test all(==(:reference_below_tolerance), g.status)
-        @test all(reason -> occursin("numerically zero", reason), g.reason)
+        @test all(reason -> occursin("below declared resolution", reason), g.reason)
         @test all(==("S/m"), g.absolute_unit)
         r = filter(row -> row.quantity === :R && row.band === :all, tables.terms)
         @test all(value -> value ≈ 100, r.relative_rms_percent)

@@ -161,7 +161,8 @@ Reports are saved before optional timing checks, so timing failures do not disca
 """
 function run_benchmark(benchmark::BenchmarkDefinition; directory = nothing,
         implementation = (), session = nothing, mode::Symbol = :live,
-        measure_performance::Bool = true, recover_solvers::Bool = false)
+        measure_performance::Bool = true, recover_solvers::Bool = false,
+        reuse_directories=String[])
     validate(benchmark)
     directory === nothing || validate(Base.write,directory)
     calculations=(reference=calculation_record(benchmark.reference),
@@ -181,7 +182,8 @@ function run_benchmark(benchmark::BenchmarkDefinition; directory = nothing,
         execution=LineCableModels.with_progress_scope(;role) do
             _execute(getproperty(benchmark,role);
                 directory=directory === nothing ? nothing : joinpath(directory,string(role)),
-                model=benchmark.model,implementation,session,recover_solvers)
+                model=benchmark.model,implementation,session,recover_solvers,
+                reuse_directories=[joinpath(source,string(role)) for source in reuse_directories])
         end
         jobs_reused = execution.result isa ParametricResult ?
             count(value->_result_reused(value;partial=false),execution.result) :
@@ -257,11 +259,30 @@ function run_benchmark(benchmark::BenchmarkDefinition; directory = nothing,
         performance_path !== nothing && isfile(performance_path) ?
             JLD2.load(performance_path,"performance") : nothing
     else
-        value=_benchmark_performance(benchmark)
+        value=nothing
+        performance_session=session
+        settings=_benchmark_performance_settings(benchmark.tolerances)
+        if settings !== nothing && all(execution->execution.reused,executions)
+            for source in reuse_directories
+                saved_path=joinpath(source,"performance.jld2")
+                isfile(saved_path) || continue
+                saved=JLD2.load(saved_path)
+                retained=saved["performance"]
+                retained !== nothing && retained.settings==settings || continue
+                all(getproperty(retained,role).calculation==
+                    _numerical_record(calculation_record(
+                        _performance_calculation(getproperty(benchmark,role))))
+                    for role in (:reference,:candidate)) || continue
+                value=retained
+                performance_session=saved["session"]
+                break
+            end
+        end
+        value === nothing && (value=_benchmark_performance(benchmark))
         if performance_path !== nothing && value !== nothing
             temporary=tempname(directory)
             try
-                JLD2.jldsave(temporary;performance=value,session)
+                JLD2.jldsave(temporary;performance=value,session=performance_session)
                 mv(temporary,performance_path;force=true)
             finally
                 isfile(temporary) && rm(temporary)

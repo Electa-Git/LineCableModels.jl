@@ -308,7 +308,13 @@ function _check_ring_clearance(pattern::Ring, tangential_width::Real)
     tolerance = sqrt(eps(float(chord))) * max(one(chord), chord)
     chord + tolerance >= required || throw(DomainError(
         pattern.n,
-        "ring members overlap or violate the requested gap"
+        "ring members overlap or violate the requested gap: " *
+        "count=$(pattern.n), radius=$(nominal(pattern.r)) m, " *
+        "member width=$(nominal(tangential_width)) m, " *
+        "gap fraction=$(nominal(pattern.gap_frac)), " *
+        "required chord=$(nominal(required)) m, " *
+        "available chord=$(nominal(chord)) m, " *
+        "deficit=$(nominal(required - chord)) m"
     ))
     return nothing
 end

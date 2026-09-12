@@ -17,7 +17,7 @@
         :benchmark_30kv_na2xs2y_630mm2_trefoil_lep_montecarlo;
         frequencies = [0.1, 50.0, 1e7])
     uncertain_problem = benchmark.reference.problem
-    mc = compute(uncertain_problem, MonteCarlo(inner; trials = 3, seed = 100,
+    mc = compute(uncertain_problem, MonteCarlo(inner; trials = 3, seed = 100, distribution = :uniform,
         options = (retain_details = true,)))
     @test mc.trial_counts == [3]
     @test isempty(only(mc.details.failures))

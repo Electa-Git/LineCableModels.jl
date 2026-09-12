@@ -10,9 +10,11 @@ function usage(io::IO = stdout)
 Usage: lcm gauntlet case import|list|show|validate|catalogue [options]
        lcm gauntlet run --definition FILE.jl --directory DIR [--configuration FILE.jl]
                        [--frequencies FILE.toml | --grid log|linear --count N --bounds LOW,HIGH]
-                       [--on-error continue|fail] [--resume] [--recover-solvers]
+                       [--on-error continue|fail] [--resume | --force] [--recover-solvers]
+                       [--benchmark ID[,ID]] [--dry-run]
                        [--progress auto|plain|off]
-       lcm gauntlet resume --directory DIR [--recover-solvers] [--progress auto|plain|off]
+       lcm gauntlet resume --directory DIR [--benchmark ID[,ID]]
+                          [--recover-solvers] [--progress auto|plain|off]
        lcm gauntlet status --directory DIR [--watch]
        lcm gauntlet compare --definition FILE.toml --output DIR
        lcm gauntlet lock --directory DIR --output DIR [--benchmark ID[,ID]]
@@ -26,6 +28,9 @@ tuple of those arguments (for example reference_options=(remote=station,)).
 Frequency overrides are passed to the definition constructor before materialization.
 Frequency files contain `frequencies = [ ... ]` in Hz; grids require spacing, count
 and both bounds. Omitted overrides preserve the benchmark's declared frequencies.
+Run reconciles supplied definitions and reuses matching saved work; --force requests
+fresh calculations. Resume preserves the saved work order, including its input law.
+--dry-run prints scheduling decisions without modifying the campaign or running solvers.
 Case import: --id ID --source FILE [--project DIR] [--description TEXT] [--dry-run] [--force]
 Case catalogue: --output FILE [--check]
 """)
@@ -293,8 +298,12 @@ end
 function main(args = ARGS)
     isempty(args) && return usage()
     args[1] in ("--help", "-h", "help") && return usage()
-    if args[1] in ("lock","package","bind")
-        allowed=args[1] == "lock" ? ("--directory","--output","--benchmark","--expected","--note","--illustrations") :
+    if args[1] in ("run","resume","lock","package","bind")
+        allowed=args[1] == "run" ? ("--definition","--directory","--configuration",
+            "--frequencies","--grid","--count","--bounds","--on-error","--resume",
+            "--force","--recover-solvers","--benchmark","--dry-run","--progress") :
+            args[1] == "resume" ? ("--directory","--benchmark","--recover-solvers","--progress") :
+            args[1] == "lock" ? ("--directory","--output","--benchmark","--expected","--note","--illustrations") :
             args[1] == "package" ? ("--definition","--output") : ("--package","--url","--artifacts","--current")
         seen=Set{String}()
         index=2
@@ -302,9 +311,11 @@ function main(args = ARGS)
             name=args[index]
             name in allowed && !(name in seen) || throw(ArgumentError("unknown or repeated option: $name"))
             push!(seen,name)
-            index+=name == "--current" ? 1 : 2
+            index+=name in ("--current","--force","--resume","--recover-solvers","--dry-run") ? 1 : 2
             index <= length(args)+1 || throw(ArgumentError("$name requires a value"))
         end
+        flag(args,"--force") && flag(args,"--resume") &&
+            throw(ArgumentError("force and resume are mutually exclusive"))
     end
     if args[1] == "compare"
         foreach(println,
@@ -334,7 +345,9 @@ function main(args = ARGS)
         end
         return
     elseif args[1] == "resume"
+        selection=option(args,"--benchmark")
         outcomes=resume_campaign(required_option(args, "--directory");
+            benchmark=selection === nothing ? nothing : split(selection,','),
             recover_solvers=flag(args,"--recover-solvers"),
             progress=Symbol(option(args,"--progress";default="auto")))
         all(row -> row.state === :complete, outcomes) ||
@@ -377,15 +390,25 @@ function main(args = ARGS)
         definitions=value isa BenchmarkDefinition ? [value] : value
         definitions isa AbstractVector{<:BenchmarkDefinition} ||
             throw(ArgumentError("definition must produce benchmark definitions"))
+        selection=option(args,"--benchmark")
         outcomes=Base.invokelatest(
             run_campaign, required_option(args, "--directory"), definitions;
             on_error = Symbol(option(args, "--on-error"; default = "continue")),
             resume=flag(args,"--resume"),recover_solvers=flag(args,"--recover-solvers"),
+            force=flag(args,"--force"),dry_run=flag(args,"--dry-run"),
+            benchmark=selection === nothing ? nothing : split(selection,','),
             progress=Symbol(option(args,"--progress";default="auto")),
             execution_sources = configuration === nothing ?
                                 [(path = source, module_name = :Gauntlet)] :
                                 [(path = abspath(configuration), module_name = :Main),
                 (path = source, module_name = :Gauntlet)])
+        if flag(args,"--dry-run")
+            for row in outcomes
+                println(row.id,'\t',row.action,"\treference=",row.reference,
+                    "\tcandidate=",row.candidate)
+            end
+            return
+        end
         all(row -> row.state === :complete, outcomes) ||
             error("campaign contains failed calculations; inspect status")
         return

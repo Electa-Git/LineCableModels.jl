@@ -1056,11 +1056,15 @@ function _surface_faces!(registry::FEMLoopRegistry, shape, mesh_size)
     if !touching
         return Int[gmsh.model.geo.add_plane_surface([outer_loop.ccw; getproperty.(hole_loops, :cw)])]
     end
+    return _material_faces!(registry,
+        (outer_loop.oriented, (-loop.oriented for loop in hole_loops)...))
+end
 
+function _material_faces!(registry::FEMLoopRegistry, boundaries)
     # Every oriented edge has material on its left. Cancel shared hole edges:
     # a metal-metal seam cannot also bound a third (filler) material.
     counts = Dict{Int, Int}()
-    for curves in (outer_loop.oriented, (-loop.oriented for loop in hole_loops)...)
+    for curves in boundaries
         for curve in curves
             counts[abs(curve)] = get(counts, abs(curve), 0) + sign(curve)
         end
@@ -1240,8 +1244,10 @@ function _tangent_fill_surfaces!(registry::FEMLoopRegistry, shape, mesh_size)
                 first_point = inner_point,
                 last_point = outer_point
             ))
-        loop = gmsh.model.geo.add_curve_loop(curves)
-        push!(surfaces, gmsh.model.geo.add_plane_surface([loop]))
+        # Neighbouring wires may also touch each other. The annular sector is
+        # then a pinched walk, not one face: trace each material-left component
+        # with the same contact rule used by every other enclosure boundary.
+        append!(surfaces, _material_faces!(registry, (curves,)))
     end
     for (start_angle, span) in plan.outer_spans
         push!(surfaces,

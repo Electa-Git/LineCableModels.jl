@@ -104,30 +104,10 @@
     @test nominal_spacing ≈ 2.2nominal_radius
     @test nominal_spacing - 2nominal_radius ≈ 0.2nominal_radius
 
-    expanded_armor=load_case(
+    @test_throws DomainError load_case(
         :cable_525kv_1600mm2_bipole;
         variation = ExactOverrides(armor_wire_diameter = 1.2*5.827e-3)
     )
-    expanded_design=first(expanded_armor.problem.system.designs)
-    armor_group=only(filter(
-        item->item isa Group&&item.name===:armor,
-        nested_groups(expanded_design.root)
-    ))
-    armor=only(filter(
-        value->value.name===:armor,
-        LineCableModels.DataModel.flatten(
-            expanded_design, 50.0
-        )
-    )).conductor
-    armor_wire_radius=armor_group.item.primitive.r
-    @test armor.num_wires == 68
-    @test armor.r_in >=
-          armor_wire_radius / sinpi(1 / armor.num_wires) - armor_wire_radius
-    expanded_bedding=only(filter(
-        source->source.source.tag===:sheath_bedding,
-        expanded_design.geometry.regions
-    ))
-    @test thickness(expanded_bedding.primitive) > 3.0e-3
 
     nominal_armor=load_case(:cable_525kv_1600mm2_bipole)
     nominal_design=first(nominal_armor.problem.system.designs)
@@ -135,9 +115,17 @@
         source->source.source.tag===:sheath_bedding,
         nominal_design.geometry.regions
     ))
-    nominal_unbuffered_outer_radius=63.22185e-3+5.827e-3+10.0e-3
-    @test thickness(nominal_bedding.primitive) ≈
-          3.0e-3 + 0.2nominal_unbuffered_outer_radius
+    @test thickness(nominal_bedding.primitive) ≈ 3.0e-3
+    @test outer_radius(nominal_design) ≈ 0.07904885
+    explicit_buffer=load_case(:cable_525kv_1600mm2_bipole;
+        variation=ExactOverrides(armor_packing_clearance_ratio=0.2))
+    @test outer_radius(first(explicit_buffer.problem.system.designs)) ≈ 0.09485862
+    for id in (:cable_320kv_armoured_dc_bipole,:cable_380kv_armoured_ac_flat)
+        design=first(load_case(id).problem.system.designs)
+        @test outer_radius(design) ≈ 0.07591957280661452
+        bedding=only(filter(r->r.source.tag===:sheath_bedding,design.geometry.regions))
+        @test thickness(bedding.primitive) ≈ 9.376520171274612e-3
+    end
 
     materialized=only(uncertain.problem)
     uncertain_system=materialized.system

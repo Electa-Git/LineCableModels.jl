@@ -16,7 +16,7 @@
         campaign=joinpath(root,"staging")
         initial=run_campaign(campaign,[definition,sibling];on_error=:fail)
         sibling_state=read(joinpath(campaign,"sibling","state.toml"))
-        rerun=only(run_campaign(campaign,[definition];on_error=:fail))
+        rerun=only(run_campaign(campaign,[definition];on_error=:fail,force=true))
         @test read(joinpath(campaign,"sibling","state.toml"))==sibling_state
         @test !rerun.result.timings.execution.reference.reused
         retained_draft=read_benchmark(joinpath(campaign,"accepted"))

@@ -116,37 +116,37 @@ case_definition(Base.Fix1(build_case, Val(:cable_30kv_na2xs2y_630mm2_trefoil)),
             :core_courses, 4; tags = (:topology, :cable_layer)
         ),
         core_strand_diameter = case_parameter(
-            :core_strand_diameter, 3.65e-3; tags = (:geometry, :cable_layer)
+            :core_strand_diameter, 3.65e-3; tags = (:geometry, :cable_layer, :length)
         ),
         core_lay_ratio = case_parameter(
-            :core_lay_ratio, 15.0; tags = (:geometry, :cable_layer)
+            :core_lay_ratio, 15.0; tags = (:geometry, :cable_layer, :dimensionless)
         ),
         inner_semicon_thickness = case_parameter(
-            :inner_semicon_thickness, 0.50e-3; tags = (:geometry, :cable_layer)
+            :inner_semicon_thickness, 0.50e-3; tags = (:geometry, :cable_layer, :length)
         ),
         insulation_thickness = case_parameter(
-            :insulation_thickness, 8.00e-3; tags = (:geometry, :cable_layer)
+            :insulation_thickness, 8.00e-3; tags = (:geometry, :cable_layer, :length)
         ),
         outer_semicon_thickness = case_parameter(
-            :outer_semicon_thickness, 0.40e-3; tags = (:geometry, :cable_layer)
+            :outer_semicon_thickness, 0.40e-3; tags = (:geometry, :cable_layer, :length)
         ),
         screen_wires = case_parameter(
             :screen_wires, 60; tags = (:topology, :cable_layer)
         ),
         screen_wire_diameter = case_parameter(
-            :screen_wire_diameter, 0.85e-3; tags = (:geometry, :cable_layer)
+            :screen_wire_diameter, 0.85e-3; tags = (:geometry, :cable_layer, :length)
         ),
         screen_lay_ratio = case_parameter(
-            :screen_lay_ratio, 15.0; tags = (:geometry, :cable_layer)
+            :screen_lay_ratio, 15.0; tags = (:geometry, :cable_layer, :dimensionless)
         ),
         copper_tape_thickness = case_parameter(
-            :copper_tape_thickness, 0.10e-3; tags = (:geometry, :cable_layer)
+            :copper_tape_thickness, 0.10e-3; tags = (:geometry, :cable_layer, :length)
         ),
         copper_tape_width = case_parameter(
-            :copper_tape_width, 15.0e-3; tags = (:geometry, :cable_layer)
+            :copper_tape_width, 15.0e-3; tags = (:geometry, :cable_layer, :length)
         ),
         jacket_thickness = case_parameter(
-            :jacket_thickness, 2.70e-3; tags = (:geometry, :cable_layer)
+            :jacket_thickness, 2.70e-3; tags = (:geometry, :cable_layer, :length)
         ),
         formation_x = case_parameter(:formation_x, 0.0; tags = (:geometry, :system)),
         formation_y = case_parameter(:formation_y, -1.0; tags = (:geometry, :system)),

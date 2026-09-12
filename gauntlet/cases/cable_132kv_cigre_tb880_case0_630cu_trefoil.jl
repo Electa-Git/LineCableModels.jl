@@ -59,22 +59,22 @@ case_definition(Base.Fix1(build_case, Val(:cable_132kv_cigre_tb880_case0_630cu_t
     :cable_132kv_cigre_tb880_case0_630cu_trefoil,
     (
         core_radius = case_parameter(
-            :core_radius, 0.01515; tags = (:geometry, :cable_layer)
+            :core_radius, 0.01515; tags = (:geometry, :cable_layer, :length)
         ),
         inner_semicon_thickness = case_parameter(
-            :inner_semicon_thickness, 0.0015; tags = (:geometry, :cable_layer)
+            :inner_semicon_thickness, 0.0015; tags = (:geometry, :cable_layer, :length)
         ),
         insulation_thickness = case_parameter(
-            :insulation_thickness, 0.0155; tags = (:geometry, :cable_layer)
+            :insulation_thickness, 0.0155; tags = (:geometry, :cable_layer, :length)
         ),
         outer_semicon_thickness = case_parameter(
-            :outer_semicon_thickness, 0.0013; tags = (:geometry, :cable_layer)
+            :outer_semicon_thickness, 0.0013; tags = (:geometry, :cable_layer, :length)
         ),
         sheath_thickness = case_parameter(
-            :sheath_thickness, 0.0008; tags = (:geometry, :cable_layer)
+            :sheath_thickness, 0.0008; tags = (:geometry, :cable_layer, :length)
         ),
         jacket_thickness = case_parameter(
-            :jacket_thickness, 0.0035; tags = (:geometry, :cable_layer)
+            :jacket_thickness, 0.0035; tags = (:geometry, :cable_layer, :length)
         ),
         semicon_rho = case_parameter(
             :semicon_rho, 0.06; tags = (:material, :cable_layer)

@@ -83,37 +83,37 @@ case_definition(Base.Fix1(build_case, Val(:cable_525kv_land_no_armour_dc_bipole)
     :cable_525kv_land_no_armour_dc_bipole,
     (
         core_diameter = case_parameter(
-            :core_diameter, 68.0e-3; tags = (:geometry, :cable_layer)
+            :core_diameter, 68.0e-3; tags = (:geometry, :cable_layer, :length)
         ),
         core_r20 = case_parameter(
             :core_r20, 0.006; tags = (:material, :cable_layer)
         ),
         inner_semicon_thickness = case_parameter(
-            :inner_semicon_thickness, 1.8e-3; tags = (:geometry, :cable_layer)
+            :inner_semicon_thickness, 1.8e-3; tags = (:geometry, :cable_layer, :length)
         ),
         insulation_thickness = case_parameter(
-            :insulation_thickness, 26.5e-3; tags = (:geometry, :cable_layer)
+            :insulation_thickness, 26.5e-3; tags = (:geometry, :cable_layer, :length)
         ),
         outer_semicon_thickness = case_parameter(
-            :outer_semicon_thickness, 1.5e-3; tags = (:geometry, :cable_layer)
+            :outer_semicon_thickness, 1.5e-3; tags = (:geometry, :cable_layer, :length)
         ),
         water_blocking_thickness = case_parameter(
-            :water_blocking_thickness, 0.3e-3; tags = (:geometry, :cable_layer)
+            :water_blocking_thickness, 0.3e-3; tags = (:geometry, :cable_layer, :length)
         ),
         pre_sheath_filler = case_parameter(
-            :pre_sheath_filler, 3.7e-3; tags = (:geometry, :cable_layer)
+            :pre_sheath_filler, 3.7e-3; tags = (:geometry, :cable_layer, :length)
         ),
         aluminum_sheath_thickness = case_parameter(
-            :aluminum_sheath_thickness, 1.2e-3; tags = (:geometry, :cable_layer)
+            :aluminum_sheath_thickness, 1.2e-3; tags = (:geometry, :cable_layer, :length)
         ),
         post_sheath_filler = case_parameter(
-            :post_sheath_filler, 2.2e-3; tags = (:geometry, :cable_layer)
+            :post_sheath_filler, 2.2e-3; tags = (:geometry, :cable_layer, :length)
         ),
         jacket_thickness = case_parameter(
-            :jacket_thickness, 5.0e-3; tags = (:geometry, :cable_layer)
+            :jacket_thickness, 5.0e-3; tags = (:geometry, :cable_layer, :length)
         ),
         outer_semicon_skin = case_parameter(
-            :outer_semicon_skin, 0.3e-3; tags = (:geometry, :cable_layer)
+            :outer_semicon_skin, 0.3e-3; tags = (:geometry, :cable_layer, :length)
         ),
         xlpe_rho = case_parameter(
             :xlpe_rho, 1.0e14; tags = (:material, :cable_layer)
