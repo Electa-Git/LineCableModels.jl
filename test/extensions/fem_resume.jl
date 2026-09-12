@@ -124,6 +124,11 @@
         run = extension._create_run(root)
         extension._prepare_run_inputs!(run, model)
         assets = extension._getdp_assets(joinpath(run.path, "input", "getdp"))
+        @test keys(assets) ==
+              (:model, :jacobian, :integration, :materials, :quasi_tem, :quasi_full)
+        @test map(basename, values(assets)) ==
+              ("model.pro", "jacobian.pro", "integration.pro", "materials.pro",
+                  "quasi-tem.pro", "quasi-full.pro")
         captured = map(path -> (read(path), stat(path).mtime), assets)
         extension._prepare_run_inputs!(run, model)
         @test map(path -> (read(path), stat(path).mtime), assets) == captured

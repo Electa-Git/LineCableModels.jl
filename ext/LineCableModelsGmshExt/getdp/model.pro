@@ -26,7 +26,8 @@ Group {
   EarthInfJacobian = Region[{EARTH_INF}];
   DomainInf = Region[{AirInfJacobian, EarthInfJacobian}];
 }
-Include "jacobian_integration.pro";
+Include "jacobian.pro";
+Include "integration.pro";
 If(Physics == 0)
   Include "quasi-tem.pro";
 ElseIf(Physics == 1)

@@ -88,7 +88,8 @@ end
 function _getdp_assets(root::AbstractString = joinpath(@__DIR__, "getdp"))
     return (
         model = joinpath(root, "model.pro"),
-        jacobian = joinpath(root, "jacobian_integration.pro"),
+        jacobian = joinpath(root, "jacobian.pro"),
+        integration = joinpath(root, "integration.pro"),
         materials = joinpath(root, "materials.pro"),
         quasi_tem = joinpath(root, "quasi-tem.pro"),
         quasi_full = joinpath(root, "quasi-full.pro")
