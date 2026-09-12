@@ -1,4 +1,6 @@
-"Decode an extension-owned tagged value from the v1 JSON format."
+"""
+Decode an extension-owned tagged value from the v1 JSON format.
+"""
 function deserialize_extension end
 
 _float_type(::Val{:Float16}) = Float16
@@ -86,7 +88,9 @@ function _decoded_target(::Type{Target}, build, values::Tuple) where {Target}
     return Gridspace{Target}(build, sources)
 end
 
-"Decode a supported scalar, collection, Grid, or v1 declaration."
+"""
+Decode a supported scalar, collection, Grid, or v1 declaration.
+"""
 function deserialize_value(value)
     value isa AbstractVector && return [deserialize_value(item) for item in value]
     value isa AbstractDict || return value

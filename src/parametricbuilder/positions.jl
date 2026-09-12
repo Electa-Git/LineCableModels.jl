@@ -237,8 +237,8 @@ Place three copies of one completed cable in an equilateral trefoil formation.
 
 # Keywords
 
-- `center=at(0, 0)`: Formation-centre pose \\[m, m, rad\\].
-- `spacing`: Cable centre-to-centre distance \\[m\\].
+- `center=at(0, 0)`: Formation-center pose \\[m, m, rad\\].
+- `spacing`: Cable center-to-center distance \\[m\\].
 - `connections`: Scalar or three-member terminal connection schedules.
 - `φ0=0`: Formation rotation \\[rad\\].
 - `combine=:product`: Gridspace composition rule.
@@ -276,7 +276,7 @@ $(TYPEDSIGNATURES)
 
 Place three copies of one completed cable in a horizontal flat formation.
 
-`spacing` is the adjacent centre-to-centre distance \\[m\\]. Scalar connection
+`spacing` is the adjacent center-to-center distance \\[m\\]. Scalar connection
 entries apply to every cable; three-element entries distribute by member.
 """
 function hflat(
@@ -297,7 +297,7 @@ $(TYPEDSIGNATURES)
 
 Place three copies of one completed cable in a vertical flat formation.
 
-`spacing` is the adjacent centre-to-centre distance \\[m\\]. Scalar connection
+`spacing` is the adjacent center-to-center distance \\[m\\]. Scalar connection
 entries apply to every cable; three-element entries distribute by member.
 """
 function vflat(

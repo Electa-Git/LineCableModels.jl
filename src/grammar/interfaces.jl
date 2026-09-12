@@ -1,7 +1,7 @@
 """
 $(SIGNATURES)
 
-Validate and normalise the options owned by a formulation type.
+Validate and normalize the options owned by a formulation type.
 
 The implementation that owns `FormulationType` defines a method for the type
 itself. No broad fallback exists. An unregistered formulation
@@ -22,7 +22,7 @@ function formulation_options end
 """
 $(SIGNATURES)
 
-Validate and normalise the options owned by one computation.
+Validate and normalize the options owned by one computation.
 
 The implementation that owns `OwnerType` defines a method for the type itself.
 `OwnerType` may identify a core solver or a composite calculation such as
@@ -65,7 +65,7 @@ $(SIGNATURES)
 
 Calculate a completed result from an explicit problem and formulation.
 
-Concrete solver methods validate and normalise execution `options` through
+Concrete solver methods validate and normalize execution `options` through
 [`computation_options`](@ref) for their owner. Composite computations may
 forward caller options to that solver; they do not reinterpret another owner's
 keys. Scientific choices use [`formulation_options`](@ref), and supplemental

@@ -14,7 +14,7 @@ end
     MomentResult(record::NamedTuple)
 
 Reconstruct stored phase-domain R, L, C, and G means and standard deviations.
-Frequencies are in Hz; products retain their recorded `:pul` (per metre) or
+Frequencies are in Hz; products retain their recorded `:pul` (per meter) or
 `:total` basis. No uncertainty propagation or sampling is performed.
 
 # Returns
@@ -33,7 +33,9 @@ function MomentResult(record::NamedTuple)
         record.basis, LineCableModels.PhaseDomain, String.(record.port_order)))
 end
 
-"Convert checked moments to a plain record without changing the numerical arrays."
+"""
+Convert checked moments to a plain record without changing the numerical arrays.
+"""
 function Base.NamedTuple(value::MomentResult)
     _validate_moment_result(value)
     return (

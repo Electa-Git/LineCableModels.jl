@@ -25,7 +25,9 @@ function _clearance_exterior(design, pose)
     return (radius = radius, centre = pose, reserve = uncertainty(radius))
 end
 
-"Floating-point allowance for subtraction of placement coordinates \\[m\\]."
+"""
+Floating-point allowance for subtraction of placement coordinates \\[m\\].
+"""
 function _clearance_roundoff(radii, poses)
     scale = maximum(abs ∘ nominal, radii)
     for pose in poses
@@ -52,7 +54,7 @@ where all lengths and standard uncertainties are in \\[m\\]. Diagonal entries
 retain the corresponding interface clearance. Supplied `required` values
 retain the original uncertainty budget after stochastic sampling.
 
-Circular boundaries use their composed centres and physical radii; other
+Circular boundaries use their composed centers and physical radii; other
 boundaries use their containing circles. A nominally zero uncertain circular
 offset uses its RMS displacement as a conservative radius-uncertainty reserve.
 
@@ -72,7 +74,7 @@ only validate the supplied geometry and clearance requirements.
 - `interface=false`: Enforce clearance from the air-earth interface.
 - `sampling=false`: Permit correction of overlaps produced by a sampled declaration.
 - `adjust=true`: Resolve placements; `false` performs validation only.
-- `reference_centres=nothing`: Composed exterior-centre poses retained before sampling.
+- `reference_centres=nothing`: Composed exterior-center poses retained before sampling.
 
 # Returns
 

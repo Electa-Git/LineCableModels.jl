@@ -487,7 +487,9 @@ end
     identifier() = (push!(evaluations, :identifier); "single-evaluation")
     phase() = (push!(evaluations, :phase); terminal(:phase, core(copper; r = 1e-3)))
     built = @cable identifier() begin
-        "This literal is documentation, not a cable part."
+        """
+This literal is documentation, not a cable part.
+"""
         nothing
         phase()
     end

@@ -8,7 +8,7 @@ $(TYPEDSIGNATURES)
 displacement current and suppress both material conductivity and loss tangent.
 
 **Reference.** Lossless dielectric approximation to Maxwell's constitutive
-relation; this default is not an author-labelled loss model.
+relation; this default is not an author-labeled loss model.
 """
 description(::Formula{:default}) = "Default lossless cable-insulation admittivity"
 
@@ -28,7 +28,7 @@ current is retained. This choice does not suppress conductor or earth losses.
 
 - `material`: Insulation material and relative permittivity.
 - `frequency`: Evaluation frequency \\[Hz\\].
-- `temperature`: Orchestration-supplied temperature \\[°C\\]; this relation
+- `temperature`: Operating temperature \\[°C\\]; this relation
   applies no temperature correction.
 - `values`: Empty physical-parameter tuple.
 - `options`: Empty numerical sections for this equation.

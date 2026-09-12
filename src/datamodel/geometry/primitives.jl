@@ -26,7 +26,9 @@ abstract type AbstractPrimitive{T <: Real} <: AbstractShape{T} end
 Base.eltype(::AbstractPrimitive{T}) where {T} = T
 Base.eltype(::Type{<:AbstractPrimitive{T}}) where {T} = T
 
-"Explicit initial state for resolving the first member of an outward stack."
+"""
+Explicit initial state for resolving the first member of an outward stack.
+"""
 struct EmptyBoundary end
 
 """
@@ -165,7 +167,7 @@ Base.hash(value::Polygon, seed::UInt) = hash(value.at, hash(value.points, seed))
 Store one exact outer shape with exact material-free holes removed from it.
 
 `DifferenceShape` is a resolved geometry value used by downstream geometry
-consumers; it is not a new modelling declaration.
+consumers; it is not a new modeling declaration.
 """
 struct DifferenceShape{
     T <: Real,
@@ -283,28 +285,44 @@ function Base.convert(
     return _polygon(points, convert(Pose2{T}, value.at))
 end
 
-"Return the outer resolved boundary of `primitive`."
+"""
+Return the outer resolved boundary of `primitive`.
+"""
 function boundary end
 
-"Return cross-sectional area \\[m²\\]."
+"""
+Return cross-sectional area \\[m²\\].
+"""
 function area end
 
-"Return exact boundary perimeter in metres."
+"""
+Return exact boundary perimeter in meters.
+"""
 function perimeter end
 
-"Return the absolute cross-sectional centroid as `(x, y)` \\[m\\]."
+"""
+Return the absolute cross-sectional centroid as `(x, y)` \\[m\\].
+"""
 function centroid end
 
-"Return the absolute directional support coordinate at angle `φ` \\[m\\]."
+"""
+Return the absolute directional support coordinate at angle `φ` \\[m\\].
+"""
 function support end
 
-"Return the inner radius of radial geometry \\[m\\]."
+"""
+Return the inner radius of radial geometry \\[m\\].
+"""
 function r_in end
 
-"Return the outer radius of radial geometry \\[m\\]."
+"""
+Return the outer radius of radial geometry \\[m\\].
+"""
 function r_ex end
 
-"Return the radial thickness of radial geometry \\[m\\]."
+"""
+Return the radial thickness of radial geometry \\[m\\].
+"""
 function thickness end
 
 @inline _local_centroid(::Union{Disk, Rectangle, Ellipse, Annulus}) = (0, 0)

@@ -7,16 +7,20 @@ $(TYPEDFIELDS)
 """
 struct _DeferredCardinality end
 
-"Return the deferred maximum-capacity policy used by placement patterns."
+"""
+Return the deferred maximum-capacity policy used by placement patterns.
+"""
 capacity() = _DeferredCardinality()
 
-"Return the maximum admissible member count for a placement declaration."
+"""
+Return the maximum admissible member count for a placement declaration.
+"""
 function capacity end
 
 struct Ring{N, T <: Real, R}
     "Number of members \\[dimensionless\\]."
     n::N
-    "Radius of the member-centre locus \\[m\\]."
+    "Radius of the member-center locus \\[m\\]."
     r::R
     "Starting angle \\[rad\\]."
     φ0::T
@@ -44,7 +48,9 @@ struct Ring{N, T <: Real, R}
     end
 end
 
-"Maximum circular-wire count on a ring with fractional adjacent clearance."
+"""
+Maximum circular-wire count on a ring with fractional adjacent clearance.
+"""
 function capacity(
         ::Type{Ring},
         lay_radius::Real,
@@ -260,7 +266,9 @@ function Lattice(;
     return parameterize(Lattice, _lattice, (nx, ny, dx, dy); combine)
 end
 
-"Return local member poses prescribed by a placement pattern."
+"""
+Return local member poses prescribed by a placement pattern.
+"""
 function placements end
 
 struct _ResolvedPlacement{P <: Pose2, D <: AbstractShape}

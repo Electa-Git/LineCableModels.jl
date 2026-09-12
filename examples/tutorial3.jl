@@ -1,8 +1,10 @@
 #=
 # Tutorial 3 - Computing line parameters
 
-This case file demonstrates how to model an armored high-voltage single-core power cable
-using the [`LineCableModels.jl`](@ref) package. The objective is to build a complete representation of a single-core 525 kV cable with a 1600 mm² copper conductor, 1.2 mm tubular lead sheath and 68 x 6 mm galvanized steel armor, based on the design described in [Karmokar2025](@cite).
+Compute frequency-dependent line parameters for a 525 kV cable with a
+1600 mm² copper conductor, a 3.3 mm lead sheath, and 68 galvanized steel armor
+wires of 5.827 mm diameter. The construction is based on [Karmokar2025](@cite);
+the dimensions used in this calculation are listed below.
 =#
 
 #=
@@ -17,7 +19,7 @@ Depth = 2:3
 
 #=
 ## Introduction
-HVDC cables are constructed around a central conductor enclosed by a triple-extruded insulation system (inner/outer semi-conductive layers and main insulation). A metallic screen and protective outer sheath are then applied for land cables. Subsea designs add galvanized steel wire armor over this structure to provide mechanical strength against water pressure. A reference design for a 525 kV HVDC cable [is shown here](https://nkt.widen.net/content/pnwgwjfudf/pdf/Extruded_DC_525kV_DS_EN_DEHV_HV_DS_DE-EN.pdf).
+HVDC cables are constructed around a central conductor enclosed by a triple-extruded insulation system (inner/outer semi-conductive layers and main insulation). A metallic screen and protective outer sheath are then applied for land cables. Subsea designs add galvanized steel wire armor for tensile strength and mechanical protection. A reference design for a 525 kV HVDC cable [is shown here](https://nkt.widen.net/content/pnwgwjfudf/pdf/Extruded_DC_525kV_DS_EN_DEHV_HV_DS_DE-EN.pdf).
 =#
 
 #=
@@ -41,9 +43,9 @@ materials
 #=
 ## Cable dimensions
 
-The cable under consideration is a high-voltage, stranded copper conductor cable with XLPE insulation, water-blocking tape, lead tubular screens, PE inner sheath, PP bedding, steel armor and PP jacket, rated for 525 kV HVDC systems. This information is typically found in the cable datasheet and is based on the design studied in [Karmokar2025](@cite).
-
-The cable is found to have the following configuration:
+The 525 kV HVDC cable has a stranded copper conductor, XLPE insulation,
+water-blocking tape, a tubular lead sheath, a PE inner sheath, PP bedding,
+steel armor, and a PP jacket. The example uses the following dimensions:
 =#
 
 num_ar_wires = 68  # number of armor wires
@@ -452,15 +454,3 @@ sequence_plots[1].figure #hide
 sequence_plots[2].figure #hide
 sequence_plots[3].figure #hide
 sequence_plots[4].figure #hide
-
-#=
-## Conclusion
-
-This tutorial has demonstrated how to:
-
-1. Describe and preview a detailed armored HVDC cable.
-2. Save and reload the cable design.
-3. Place two cables in an underground bipole system.
-4. Preview and export the physical system for PSCAD and ATPDraw.
-5. Compute, tabulate, plot, transform, and export frequency-dependent line parameters.
-=#

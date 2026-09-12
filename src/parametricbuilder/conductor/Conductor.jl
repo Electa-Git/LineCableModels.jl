@@ -4,7 +4,7 @@
 Qualified conductor constructions for extension code.
 
 These methods lower through the same `core`, `sheath`, `wires`, `tape`, and
-`Group` functions used by the ordinary construction surface.
+`Group` functions used by the ordinary construction API.
 """
 module Conductor
 
@@ -32,7 +32,7 @@ end
 """
     Conductor.Wires(tag, shape, material; n, r, lay=LayRatio(11), compact=nothing)
 
-Declare one repeated conductor course on a ring of member-centre radius `r`
+Declare one repeated conductor course on a ring of member-center radius `r`
 [m]. The result is the same `Group` produced by [`wires`](@ref).
 """
 function Wires(

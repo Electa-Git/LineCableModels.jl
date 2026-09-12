@@ -1,10 +1,18 @@
 """
 $(TYPEDSIGNATURES)
 
-Return the diagonal modal propagation-constant tensor.
+Return the diagonal modal propagation tensor, with dimensions
+`(mode, mode, frequency)` and zero off-diagonal entries:
 
-The calculation uses the completed modal `YₘZₘ` product, so it is
-independent of the decomposition formula's internal operator convention.
+```math
+\\gamma_{ii}(f)=\\sqrt{[Y_m(f)Z_m(f)]_{ii}}.
+```
+
+`parameters` contains modal series impedance ``Z_m`` and shunt admittance
+``Y_m``. With a `:pul` basis (Ω/m and S/m), the result is in m⁻¹. With a
+`:total` basis (Ω and S), it is the dimensionless propagation product
+``γℓ`` for line length ``ℓ``. Each entry uses Julia's principal complex
+square root; this function performs no additional branch tracking.
 """
 function gamma(
         parameters::LineParameters{
@@ -30,12 +38,28 @@ end
 """
 $(TYPEDSIGNATURES)
 
-Return modal and phase-domain characteristic quantities.
+Return `(Zm, Ym, Zc, Yc, Zp, Yp)`: modal series impedance and shunt admittance,
+followed by modal and phase-domain characteristic impedance and admittance.
+Every array has dimensions `(conductor_or_mode, conductor_or_mode, frequency)`.
 
-The returned tuple contains modal `Z`, modal `Y`, modal characteristic
-impedance, modal characteristic admittance, phase characteristic impedance,
-and phase characteristic admittance. All values use the complete
-frequency-dependent operators carried by the modal domain.
+For each mode and frequency, calculate the diagonal characteristic quantities
+using Julia's principal complex square roots:
+
+```math
+Z_{c,ii}=\\frac{\\sqrt{Z_{m,ii}}}{\\sqrt{Y_{m,ii}}},\\qquad
+Y_{c,ii}=Z_{c,ii}^{-1}.
+```
+
+The voltage and current operators stored in `parameters` map phase quantities
+to modal quantities, ``V_m=AV_p`` and ``I_m=BI_p``. Thus
+
+```math
+Z_p=A^{-1}Z_cB,\\qquad Y_p=B^{-1}Y_cA.
+```
+
+`Zm` and `Ym` retain the input basis: Ω/m and S/m for `:pul`, or Ω and S
+for `:total`. Characteristic impedances `Zc` and `Zp` are in Ω;
+characteristic admittances `Yc` and `Yp` are in S for either basis.
 """
 function modal_quantities(
         parameters::LineParameters{

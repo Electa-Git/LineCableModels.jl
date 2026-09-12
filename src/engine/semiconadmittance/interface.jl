@@ -4,7 +4,7 @@ $(TYPEDEF)
 Select one semiconducting-screen constitutive relation by its stable literature
 identifier.
 
-Each registered formula has one scalar route with the contract
+Each registered formula implements the scalar signature
 `route(material, frequency, temperature, parameters, options, workspace) -> Complex`. The route
 returns the material's frequency-evaluated complex admittivity. Geometry and
 radial series aggregation remain common Engine operations.
@@ -17,16 +17,20 @@ struct Formula{ID, R, A <: NamedTuple, H <: NamedTuple, O <: NamedTuple} <:
     binding::R
     "Explicit model parameters."
     parameters::A
-    "Explicit callable overrides retained for provenance."
+    "Callable overrides supplied by the user."
     hooks::H
     "Normalized numerical sections for the selected contribution."
     options::O
 end
 
-"Return the stable identifier of a semicon-admittance formula."
+"""
+Return the stable identifier of a semicon-admittance formula.
+"""
 formula_id(::Formula{ID}) where {ID} = ID
 
-"Evaluate one formula-owned semiconducting-material constitutive relation."
+"""
+Evaluate one formula-owned semiconducting-material constitutive relation.
+"""
 function semicon_material end
 
 """

@@ -1,4 +1,6 @@
-"Read a checksummed completed calculation without reconstructing a design or loading a solver."
+"""
+Read a checksummed completed calculation without reconstructing a design or loading a solver.
+"""
 function read_calculation(path::AbstractString; sha256_expected = nothing)
     path = abspath(path)
     isfile(path) && isfile(path * ".sha256") || throw(ArgumentError(
@@ -116,7 +118,9 @@ function validate(::typeof(read_calculation), result::AbstractParametricResult, 
     return nothing
 end
 
-"Persist comparisons of saved operands; no numerical execution or CI-reference approval is performed."
+"""
+Persist comparisons of saved operands; no numerical execution or CI-reference approval is performed.
+"""
 function compare_saved(benchmark::BenchmarkDefinition; directory::AbstractString)
     validate(Base.write,directory)
     validate(benchmark)
@@ -270,7 +274,9 @@ function read_benchmark(path::AbstractString; load_results::Bool = false, previo
     return record
 end
 
-"Compare explicit file bindings in a TOML benchmark definition; missing operands are errors, never inferred."
+"""
+Compare explicit file bindings in a TOML benchmark definition; missing operands are errors, never inferred.
+"""
 function compare_saved(definition::AbstractString; directory::AbstractString)
     source = abspath(definition)
     plan = TOML.parsefile(source)

@@ -11,16 +11,20 @@ struct Formula{ID, R, A <: NamedTuple, H <: NamedTuple, O <: NamedTuple} <:
     binding::R
     "Explicit model parameters."
     parameters::A
-    "Explicit callable overrides retained for provenance."
+    "Callable overrides supplied by the user."
     hooks::H
     "Normalized numerical sections for the selected contribution."
     options::O
 end
 
-"Return the stable identifier of an insulation-impedance formula."
+"""
+Return the stable identifier of an insulation-impedance formula.
+"""
 formula_id(::Formula{ID}) where {ID} = ID
 
-"Evaluate one formula-owned insulation-impedance route."
+"""
+Evaluate one formula-owned insulation-impedance route.
+"""
 function insulation_impedance end
 
 """

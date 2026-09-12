@@ -63,7 +63,9 @@ const FORMULAS = let
 end
 #! explicit-imports: on
 
-"Return numerical earth-admittance identifiers."
+"""
+Return numerical earth-admittance identifiers.
+"""
 formulas() = FORMULAS
 
 end # module EarthAdmittance

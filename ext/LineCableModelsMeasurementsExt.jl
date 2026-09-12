@@ -1,7 +1,7 @@
 """
     LineCableModelsMeasurementsExt
 
-Materialise `UncertainValue` as Measurements values and preserve those values
+Materialize `UncertainValue` as Measurements values and preserve those values
 through numerical kernels, display, and data exchange.
 """
 module LineCableModelsMeasurementsExt

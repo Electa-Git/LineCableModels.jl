@@ -6,7 +6,7 @@ Select direct linear uncertainty propagation with `inner`.
 $(TYPEDFIELDS)
 """
 struct LinearError{F <: AbstractFormulation, O <: ComputationOptions} <: AbstractFormulation
-    "Formulation used for each materialised problem."
+    "Formulation used for each materialized problem."
     inner::F
     "Supplemental-output retention options owned by this propagation."
     options::O
@@ -45,7 +45,7 @@ $(TYPEDEF)
 Select conditional Monte Carlo propagation over a
 [`ParametricProblem`](@ref). Randomness is local and reproducible when `seed`
 is supplied. Computation option `on_error=:fail` propagates every exception.
-`on_error=:retry` rejects only realisations that raise `DomainError`, retains
+`on_error=:retry` rejects only realizations that raise `DomainError`, retains
 their sampled arguments and error summaries, and continues until the requested
 number of successful trials is obtained or `max_failures` is reached. Retry
 mode requires `retain_details=true` and estimates the output distribution
@@ -166,7 +166,7 @@ the same names and are merged into `options` before normalization.
 - `return_histograms=false`: Retain marginal histogram densities.
 - `bins=nothing`: Positive histogram bin count, or automatic binning.
 - `retain_details=false`: Retain accepted-trial details and failure diagnostics.
-- `on_error=:fail`: Propagate exceptions; `:retry` rejects `DomainError` realisations and requires `retain_details=true`.
+- `on_error=:fail`: Propagate exceptions; `:retry` rejects `DomainError` realizations and requires `retain_details=true`.
 - `max_failures=100`: Positive maximum rejected-trial count per parameter point.
 
 # Returns

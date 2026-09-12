@@ -49,7 +49,9 @@ const FORMULAS = let
 end
 #! explicit-imports: on
 
-"Return the built-in frequency-dependent earth-material formula identifiers."
+"""
+Return the built-in frequency-dependent earth-material formula identifiers.
+"""
 formulas() = FORMULAS
 
 end # module FrequencyDependent

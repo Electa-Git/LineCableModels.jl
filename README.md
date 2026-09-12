@@ -18,7 +18,7 @@ material data.
 - Earth-return calculations, modal transformations, and ATPDraw/PSCAD data
   exchange.
 - Material and cable libraries with JSON import and export.
-- One typed `Grid`/`Gridspace` grammar for deterministic and uncertain designs.
+- `Grid` and `Gridspace` for deterministic and uncertain designs.
 - Ordinary, combinatorial, and conditional Monte Carlo execution through
   `compute`.
 - Optional Makie plotting through Julia package extensions.
@@ -96,7 +96,7 @@ self_impedance = plot(line_parameters, @observe Z[1, 1, :])
 
 `GLMakie` and `WGLMakie` are supported in the same way. Load the backend you want
 for display; SVG export loads its own renderer on demand. The optional
-`backend=:cairo`, `:gl`, or `:wgl` keyword is explicit call-local sugar. Observation requests determine
+`backend=:cairo`, `:gl`, or `:wgl` keyword selects a backend for one call. Observation requests determine
 physical quantity/coordinate axes; `layout` only groups those facets into
 figures. Singular recipes return a `UIPlot`; calls that produce several figures
 return a vector. Each handle exposes native Makie objects that remain
@@ -112,7 +112,7 @@ display backend.
 
 ## Result access
 
-`CableConstants` stores R/L/C values per metre. `LineParameters`
+`CableConstants` stores R/L/C values per meter. `LineParameters`
 stores its frequency domain and either a `:pul` or `:total` basis:
 
 ```julia
@@ -139,10 +139,21 @@ not copied into completed results. Parametric, linear-error, and Monte Carlo res
 collections: indexing and iteration return stored core results, and Base
 `first`, `last`, `only`, `collect`, `map`, and `zip` retain their standard
 meanings.
-`DataFrame(monte_carlo_result)` renders marginal summaries. After loading a
-Makie package, `Makie.hist`, `Makie.stairs`, `Makie.ecdfplot`, `Makie.lines`,
-and `Makie.qqplot` display retained distribution information through the
-LineCableModels shell.
+Select the statistics to include in a marginal summary before converting it
+to a table:
+
+```julia
+using DataFrames
+
+summary = DataFrame(observables(
+    monte_carlo_result,
+    ((statistics, R, 1), (statistics, L, 1),
+     (statistics, G, 1), (statistics, C, 1)),
+))
+```
+
+After loading a Makie package, `Makie.hist`, `Makie.stairs`, `Makie.ecdfplot`,
+`Makie.lines`, and `Makie.qqplot` display retained distribution information.
 
 Higher-order calculations keep supplemental computation output separate from
 their scientific products. `details(result)` returns the empty named tuple by
@@ -154,15 +165,15 @@ draws can be rejected explicitly with
 `options=(retain_details=true, on_error=:retry, max_failures=100)`. Only
 `DomainError` is retryable; retained details report every rejected argument
 tuple and its error summary. The resulting statistics are conditional on a
-successful realisation.
+successful realization.
 
 Physics and numerical-method choices belong to `Formulation`. Execution choices
-are passed as a named tuple. For a materialised line system, pass
+are passed as a named tuple. For a materialized line system, pass
 `options=(output_basis=:total,)` to `compute` to scale both Z and Y by the line
 length. Composite calculations select their operation explicitly, for example
 `compute(ParametricProblem(space), Combinatorial(Formulation()))`.
 
-Human-facing XLSX output is a ReportBuilder operation:
+Write results to an XLSX workbook with `report`:
 
 ```julia
 using XLSX
@@ -179,19 +190,16 @@ established `export_data(:xlsx, line_parameters; ...)` call delegates to the
 same report and returns its output path. Relative paths and the default
 `ZY_export.xlsx` resolve from the caller's current working directory.
 
-## Retired FEM and sector support
+## Finite-element calculations
 
-FEM/GetDP support and sector-shaped cable support were removed before the
-v0.2 release. Their final snapshot is branch `legacy/fem-sector` at commit
-`b75dd2723f90a83ec090b20605ea42af57f4a9c3`. To use that historical version in
-the current Julia project:
-
-```sh
-julia --project=. -e "using Pkg; Pkg.add(Pkg.PackageSpec(url=ARGS[1], rev=ARGS[2]))" https://github.com/Electa-Git/LineCableModels.jl.git b75dd2723f90a83ec090b20605ea42af57f4a9c3
-```
+Load `Gmsh` to activate the optional `LineCableModelsFEM` formulation, which
+uses Gmsh for meshing and GetDP for field calculations. The geometry model
+includes sector-shaped conductors. Supported geometry and material assumptions
+depend on the selected formulation; see the [FEM guide](docs/src/fem.md)
+and [cable data model](docs/src/data-model.md).
 
 See the [documentation](https://electa-git.github.io/LineCableModels.jl/) and
-[examples](examples) for supported workflows.
+[examples](examples) for model construction and parameter calculations.
 
 ## License and citation
 
@@ -200,7 +208,7 @@ The optional FEM backend invokes third-party GetDP under its own license; see
 [Third-party notices](THIRD_PARTY_NOTICES.md). Citation metadata is provided in
 [CITATION.cff](CITATION.cff).
 
-## Acknowledgements
+## Acknowledgments
 
 This work is supported by the Etch Competence Hub of EnergyVille, financed by
 the Flemish Government. The primary developer is Amauri Martins

@@ -20,7 +20,7 @@ struct Formula{
     binding::R
     "Physical assumptions of the selected recipe."
     parameters::A
-    "Explicit surface-hook overrides retained for provenance."
+    "Surface-equation overrides supplied by the user."
     hooks::H
     "Numerical sections indexed by surface kind."
     options::O
@@ -49,13 +49,19 @@ struct Functor{ID, B, H, S, O}
     options::O
 end
 
-"Return the stable formula identifier of an internal-impedance formula."
+"""
+Return the stable formula identifier of an internal-impedance formula.
+"""
 formula_id(::Formula{ID}) where {ID} = ID
 
-"Evaluate one formula-owned internal-impedance interaction."
+"""
+Evaluate one formula-owned internal-impedance interaction.
+"""
 function internal_impedance end
 
-"Return the three cylindrical surface impedances supplied by one formula."
+"""
+Return the three cylindrical surface impedances supplied by one formula.
+"""
 function surface_impedances end
 
 """

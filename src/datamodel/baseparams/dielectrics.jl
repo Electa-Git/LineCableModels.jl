@@ -7,6 +7,10 @@ $(TYPEDSIGNATURES)
 
 Calculate coaxial shunt capacitance
 ``C=2\\pi\\varepsilon_0\\varepsilon_r/\\log(r_{ex}/r_{in})`` \\[F/m\\].
+
+`r_in` and `r_ex` are the inner and outer dielectric radii in meters,
+with ``0<r_{in}<r_{ex}``. `eps_r` is the nonnegative, dimensionless relative
+permittivity; ``ε_0`` is vacuum permittivity in F/m.
 """
 function shunt_capacitance(r_in::Real, r_ex::Real, eps_r::Real)
     rin, rex, permittivity = promote(float(r_in), float(r_ex), float(eps_r))
@@ -24,6 +28,9 @@ $(TYPEDSIGNATURES)
 
 Calculate coaxial shunt conductance
 ``G=2\\pi/(\\rho\\log(r_{ex}/r_{in}))`` \\[S/m\\].
+
+`r_in` and `r_ex` are the inner and outer dielectric radii in meters,
+with ``0<r_{in}<r_{ex}``. `rho` is positive dielectric resistivity in Ω·m.
 """
 function shunt_conductance(r_in::Real, r_ex::Real, rho::Real)
     rin, rex, resistivity = promote(float(r_in), float(r_ex), float(rho))
@@ -89,6 +96,11 @@ $(TYPEDSIGNATURES)
 
 Recover equivalent relative permittivity from coaxial capacitance:
 ``\\varepsilon_{eq}=C\\log(r_{ex}/r_{in})/(2\\pi\\varepsilon_0)``.
+
+`capacitance` is nonnegative capacitance per unit length in F/m.
+`r_ex` and `r_in` are the outer and inner dielectric radii in meters,
+with ``0<r_{in}<r_{ex}``; ``ε_0`` is vacuum permittivity in F/m.
+The returned relative permittivity is dimensionless.
 """
 function equivalent_eps(capacitance::Real, r_ex::Real, r_in::Real)
     value, rex, rin = promote(float(capacitance), float(r_ex), float(r_in))
@@ -104,6 +116,10 @@ $(TYPEDSIGNATURES)
 
 Recover equivalent conductivity from coaxial conductance:
 ``\\sigma_{eq}=G\\log(r_{ex}/r_{in})/(2\\pi)``.
+
+`conductance` is nonnegative conductance per unit length in S/m.
+`r_in` and `r_ex` are the inner and outer dielectric radii in meters,
+with ``0<r_{in}<r_{ex}``. The returned conductivity is in S/m.
 """
 function equivalent_conductivity(conductance::Real, r_in::Real, r_ex::Real)
     value, rin, rex = promote(float(conductance), float(r_in), float(r_ex))

@@ -3,13 +3,13 @@ $(TYPEDEF)
 
 Detached geometry and material identity for one physical cable region.
 
-This is domain data, not a plotting instruction. Renderers choose colours,
+This is domain data, not a plotting instruction. Renderers choose colors,
 strokes, labels, and legend grouping themselves.
 
 $(TYPEDFIELDS)
 """
 struct PreviewShape{G, M}
-    "Closed two-dimensional region geometry in metres."
+    "Closed two-dimensional region geometry in meters."
     geometry::G
     "Physical material represented by the region."
     material::M

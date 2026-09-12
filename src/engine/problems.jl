@@ -151,12 +151,12 @@ placements.
 - `connections`: Terminal-to-phase declarations.
 - `environment`: Optional physical environment declaration.
 - `system_id`: Stable system identifier.
-- `line_length`: Physical line length in metres.
+- `line_length`: Physical line length in meters.
 - `temperature`: Operating temperature in °C.
 - `earth_props`: Static earth model.
 - `frequencies`: Positive sorted analysis frequencies in Hz.
 - `Γ`: Optional longitudinal propagation constants aligned with `frequencies`
-  in inverse metres.
+  in inverse meters.
 - `combine`: Rule used to combine designs and placements.
 
 # Returns
@@ -278,7 +278,7 @@ air/soil two-half-space model, these select `(s,t)=(1,1)`, `(2,2)`, and the two
 cross-layer mutual directions. Each required kind/layer case is validated against
 the selected equation. Missing cases have no implicit fallback. The shorthand is
 rejected for layered soil; scalar multilayer and explicit equivalent-earth
-selections retain their own contracts. Formula hooks and numerical options remain
+selections retain their own requirements. Formula hooks and numerical options remain
 local to each selected entry.
 
 `temperature_dependence=formula(:default)` selects the Materials-owned linear

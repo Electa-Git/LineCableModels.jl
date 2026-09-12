@@ -54,7 +54,7 @@ Playground also owns the existing `runtime`, `worker`, `presentation`, `nats`,
 unchanged. Its bootstrap installs application dependencies; global command
 installation belongs to `cli/install.sh`.
 
-## Application launcher contract
+## Application launcher requirements
 
 An application supplies an executable `APPLICATION/lcm`. Its name uses lowercase
 letters, digits, `_` or `-`, beginning with a letter. `cli`, `help` and the existing

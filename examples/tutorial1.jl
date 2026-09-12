@@ -1,9 +1,9 @@
 #=
-# Tutorial 1 - Using the  materials library
+# Tutorial 1 - Using the materials library
 
-This tutorial demonstrates how to manage material properties for power cable modeling using the package [`LineCableModels.jl`](@ref). Accurate knowledge of electromagnetic properties is essential for reliable cable design and analysis.
-
-Beyond showcasing the API, this guide serves as a practical reference by providing standard property values from recognized industry sources like CIGRE TB-531 [cigre531](@cite) and IEC 60287 [IEC60287](@cite) that can be stored and consistently applied across multiple design iterations and simulation studies.
+Create, modify, save, and reload a materials library for cable calculations.
+The examples use electromagnetic property values from CIGRE TB-531
+[cigre531](@cite) and IEC 60287 [IEC60287](@cite).
 =#
 
 #=
@@ -17,7 +17,7 @@ Depth = 2:3
 =#
 
 #=
-##   Getting started
+## Getting started
 =#
 
 # Load the public modeling and library-management API:
@@ -37,16 +37,17 @@ materials = MaterialsLibrary()
 materials_summary = materials
 
 #=
-The bounded `text/plain` display lists material names and their constitutive
-properties without introducing a tabular conversion API for model objects.
+The display lists material names and their electromagnetic properties.
 =#
 
-# ##   Adding new materials
+# ## Adding new materials
 #=
 !!! note "Note"
     New materials can be added to the library using the [`Material`](@ref) constructor followed by [`add!`](@ref).
 
-It might be useful to add other conductor materials with corrected properties based on recognized standards [cigre531](@cite) [IEC60287](@cite). Lead and steel already have built-in records, so the examples below store the cited values under distinct reference names.
+Add conductor properties from [cigre531](@cite) and [IEC60287](@cite).
+Lead and steel already have built-in records, so the examples store the cited
+values under distinct reference names.
 =#
 
 copper_corrected = Material(
@@ -84,7 +85,8 @@ stainless_steel = Material(
 add!(materials, "stainless_steel", stainless_steel)
 
 #=
-When modeling cables for EMT analysis, one might be concerned with the impact of insulators and semiconductive layers on cable constants. Common insulation materials and semicons with different dielectric properties are reported in Table 6 of [cigre531](@cite). Let us include some of these materials in the [`MaterialsLibrary`](@ref) to help our future selves.
+Add insulation and semiconducting materials using the dielectric properties
+reported in Table 6 of [cigre531](@cite).
 =#
 
 epr = Material(kind = :insulator, rho = 1e15, eps_r = 3.0, mu_r = 1.0, T0 = 20.0, alpha = 0.005) # EPR (ethylene propylene rubber)
@@ -98,7 +100,7 @@ add!(materials, "carbon_pe", carbon_pe)
 conductive_paper = Material(kind = :semicon, rho = 18.5, eps_r = 8.6, mu_r = 1.0, T0 = 20.0, alpha = 0.0) # Conductive paper layer (semicon)
 add!(materials, "conductive_paper", conductive_paper)
 
-# ##  Removing materials
+# ## Removing materials
 #=
 !!! note "Note"
     Materials can be removed from the library with the [`delete!`](@ref) function.
@@ -114,11 +116,11 @@ delete!(materials, "epr_dupe")
 println("Material properties compiled from CIGRE TB-531 and IEC 60287:")
 materials_summary = materials
 
-# ##  Saving the materials library to JSON
+# ## Saving the materials library to JSON
 output_file = fullfile("materials_library.json")
 save(materials, file_name = output_file);
 
-# ##  Retrieving materials for use
+# ## Retrieving materials for use
 #=
 !!! note "Note"
     To load from an existing JSON file, instantiate a new [`MaterialsLibrary`](@ref) followed by a call to the [`load!`](@ref) method. Materials can be retrieved from the library using the [`get`](@ref) function.
@@ -138,16 +140,3 @@ println("Relative permittivity: $(copper.eps_r)")
 println("Relative permeability: $(copper.mu_r)")
 println("Reference temperature: $(copper.T0) °C")
 println("Temperature coefficient: $(copper.alpha) 1/°C")
-
-# ##  Conclusion
-#=
-This tutorial has demonstrated how to:
-
-1. Initialize a [`MaterialsLibrary`](@ref) with default [`Material`](@ref) objects.
-2. Add new materials with specific properties.
-3. Remove duplicate materials.
-4. Save the library to a file for future use.
-5. Retrieve materials for use in cable modeling.
-
-The [`MaterialsLibrary`](@ref) provides a traceable way to manage material properties for power cable modeling. Custom [`Material`](@ref) objects can be defined and used to match specific manufacturer data or standards requirements.
-=#

@@ -87,7 +87,7 @@ Compose physical parts in outward order.
 
 # Arguments
 
-- `parts`: Physical declarations ordered from the centre outward.
+- `parts`: Physical declarations ordered from the center outward.
 
 # Keywords
 
@@ -239,7 +239,7 @@ retained terminal.
 # Arguments
 
 - `name`: Retained electrical terminal name.
-- `parts`: Physical declarations ordered from the centre outward.
+- `parts`: Physical declarations ordered from the center outward.
 
 # Keywords
 
@@ -466,7 +466,7 @@ and `lay` for the practical ring-course form.
 - `pattern=nothing`: Explicit member placement pattern.
 - `path=nothing`: Explicit longitudinal path.
 - `n=nothing`: Exact ring cardinality or `capacity()`.
-- `r=nothing`: Member-centre ring radius \\[m\\].
+- `r=nothing`: Member-center ring radius \\[m\\].
 - `gap_frac=0`: Fractional adjacent clearance \\[dimensionless\\].
 - `lay=nothing`: One lay law used to construct a `Helix`.
 - `dir=1`: Helix handedness, `1` or `-1` \\[dimensionless\\].
@@ -687,7 +687,7 @@ $(TYPEDSIGNATURES)
 Fill one authoritative core boundary with the maximum admissible inventory of
 equal source strands.
 
-Circular source bundles have one centre strand and `6k` strands in course `k`.
+Circular source bundles have one center strand and `6k` strands in course `k`.
 A sector admits the largest complete inventory satisfying
 ``[1 + 3L(L+1)]\\,\\pi a^2 \\leq A_{\\mathrm{sector}}``. Its mapped sites define
 a prescribed-area power diagram; disks clipped to those cells retain each
@@ -705,10 +705,10 @@ layers start there, without an automatically generated outer filler film.
 
 # Keywords
 
-- `center=nothing`: Circular centre member for a disk-bounded core. Circular
-  strands default to one centre wire equal to `shape`; rectangular strands
-  require an explicit `Disk`. A sector bundle infers its centre strand from
-  `shape` and does not admit a separate centre declaration.
+- `center=nothing`: Circular center member for a disk-bounded core. Circular
+  strands default to one center wire equal to `shape`; rectangular strands
+  require an explicit `Disk`. A sector bundle infers its center strand from
+  `shape` and does not admit a separate center declaration.
 - `shape`: Circular wire or rectangular strand primitive.
 - `boundary`: Nonhollow `Disk` or `Sector` core boundary; for rectangular
   strands, a `Disk` packing limit rather than an imposed finished radius.
@@ -905,14 +905,14 @@ end
 """
 $(TYPEDSIGNATURES)
 
-Declare one Milliken conductor as a cable-centre wire surrounded by equal
-stranded sector segments. Each segment contains its own bundle-centre strand
+Declare one Milliken conductor as a cable-center wire surrounded by equal
+stranded sector segments. Each segment contains its own bundle-center strand
 and complete `6k` courses. Every conductive descendant resolves to one `:core`
 terminal.
 
 # Arguments
 
-- `material`: Conductor material shared by the centre and segment strands.
+- `material`: Conductor material shared by the center and segment strands.
 
 # Keywords
 
@@ -923,11 +923,11 @@ terminal.
 - `lay=nothing`: Common strand lay law.
 - `dir=1`: Helix handedness \\[dimensionless\\].
 - `φ0=0`: Helix initial angle \\[rad\\].
-- `fill=air`: Interstitial material around the centre and every segment strand.
+- `fill=air`: Interstitial material around the center and every segment strand.
 - `combine=:product`: Gridspace composition rule.
 
-The centre-wire radius is inferred from the resolved segment packing so that
-the centre wire is tangent to the innermost strand of every equal segment.
+The center-wire radius is inferred from the resolved segment packing so that
+the center wire is tangent to the innermost strand of every equal segment.
 
 # Returns
 
@@ -1182,7 +1182,7 @@ heterogeneous members and their local poses.
 # Keywords
 
 - `n=nothing`: Repeated cardinality; omit for explicit members.
-- `r=nothing`: Member-centre ring radius \\[m\\], required when `n` is supplied.
+- `r=nothing`: Member-center ring radius \\[m\\], required when `n` is supplied.
 - `names=nothing`: Exact terminal names required for repeated terminal-bearing members.
 - `φ0=0`: Starting angle \\[rad\\].
 - `span=2π`: Angular span \\[rad\\].
@@ -1196,7 +1196,7 @@ heterogeneous members and their local poses.
 
 # Notes
 
-Origin-centred repeated sectors require the sector span to equal their angular
+Origin-centered repeated sectors require the sector span to equal their angular
 pitch. Their resolved sides must not overlap. An outer insulating layer may
 close the clearance to zero; bare sectors require positive side clearance.
 """

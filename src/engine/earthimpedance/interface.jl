@@ -4,7 +4,7 @@ $(TYPEDEF)
 Own one earth impedance formulation, its indexed equation declarations and explicit
 customizations. `assumptions` contains scientific restrictions; each interaction
 is selected by its explicit kind/source-layer/target-layer equation signature.
-`parameters` and `hooks` retain the user's explicit modifications for provenance.
+`parameters` and `hooks` store the user's supplied values and callable overrides.
 
 $(TYPEDFIELDS)
 """
@@ -46,13 +46,21 @@ formula_id(::Formula{ID}) where {ID} = ID
 assumptions(formula::Formula) = formula.assumptions
 media(formula::Formula) = formula.assumptions.media
 
-"Declare model inventory and physical restrictions, without callable behavior."
+"""
+Declare model inventory and physical restrictions, without callable behavior.
+"""
 function assumptions end
-"Evaluate a medium propagation law at jω [1/s], μ [H/m], σ [S/m], ε [F/m]."
+"""
+Evaluate a medium propagation law at jω [1/s], μ [H/m], σ [S/m], ε [F/m].
+"""
 function propagation end
-"Evaluate the prescribed longitudinal Γ [1/m] from jω, evaluated materials and (s,t)."
+"""
+Evaluate the prescribed longitudinal Γ [1/m] from jω, evaluated materials and (s,t).
+"""
 function Γ end
-"Evaluate one source-owned earth impedance equation."
+"""
+Evaluate one source-owned earth impedance equation.
+"""
 function earth_impedance end
 
 Γ(functor::Functor) = functor.state.Γ

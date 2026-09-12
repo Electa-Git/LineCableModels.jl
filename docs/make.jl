@@ -10,6 +10,7 @@ include("type_trees.jl")
 include("owned_doc_links.jl")
 include(joinpath(@__DIR__, "..", "gauntlet", "Gauntlet.jl"))
 include("gauntlet_report.jl")
+include("case_parameter_units.jl")
 
 const ROOT_DIR = normpath(joinpath(@__DIR__, ".."))
 const DOCS_SRC_DIR = joinpath(@__DIR__, "src")
@@ -266,13 +267,14 @@ function case_page(record)
     CairoMakie.save(joinpath(CASE_ASSETS, system_image), system_plot.figure)
 
     parameters = if isempty(record.parameters)
-        "_This is a fixed materialised case; it declares no variable case parameters._\n"
+        "_This is a fixed materialized case; it declares no variable case parameters._\n"
     else
         markdown_table([(
                             id = parameter.id,
                             nominal = parameter.id === :frequencies ?
                                       frequency_parameter(parameter.nominal) :
                                       parameter.nominal,
+                            unit = case_parameter_unit(parameter.id),
                             tags = join(string.(parameter.tags), ", ")
                         ) for parameter in record.parameters])
     end
@@ -304,13 +306,13 @@ The horizontal reference line is the air–earth interface declared by the line-
 
 $(parameters)
 
-## Materialised problem
+## Materialized problem
 
 ```text
 $(problem_text)
 ```
 
-[Back to the case catalogue](index.md).
+[Back to the case catalog](index.md).
 """
 end
 
@@ -318,7 +320,7 @@ function build_case_catalogue!()
     mkpath(dirname(CASE_MANIFEST))
     run(`$LCM_CLI gauntlet case catalogue --output $CASE_MANIFEST`)
     document = JLD2.load(CASE_MANIFEST)
-    document["schema_version"] == 1 || error("unsupported Gauntlet case catalogue")
+    document["schema_version"] == 1 || error("unsupported Gauntlet case catalog")
     records = document["cases"]
 
     rm(CASE_OUTPUT; recursive = true, force = true)
@@ -347,13 +349,13 @@ function build_case_catalogue!()
     end
     write(
         joinpath(CASE_OUTPUT, "index.md"),
-        """# Gauntlet case catalogue
+        """# Gauntlet case catalog
 
-This catalogue is generated from the indexed, materialised Gauntlet cases. It does not run a numerical formulation.
+This catalog is generated from the indexed, materialized Gauntlet cases. It does not run a numerical formulation.
 
 $(markdown_table(index_rows; markdown_columns = (:case,)))
 
-The input fingerprint covers the complete materialised `LineParametersProblem`; result artefacts separately record the selected numerical implementation blobs.
+The input fingerprint covers the complete materialized `LineParametersProblem`; result artifacts separately record the selected numerical implementation blobs.
 """
     )
     return ["Contents" => "cases/index.md"; pages]
@@ -412,7 +414,7 @@ makedocs(;
         "Tutorials" => Any["Contents" => "tutorials.md", tutorials...],
         "User guide" => Any[
             "Cable data model" => "data-model.md",
-            "Modelling and results" => "usage.md",
+            "Modeling and results" => "usage.md",
             "Gmsh/GetDP FEM backend" => "fem.md",
             "Gridspace and uncertainty" => "gridspace.md"
         ],
@@ -423,7 +425,7 @@ makedocs(;
         ],
         "Benchmarks" => Any[
             "Gauntlet" => "gauntlet.md",
-            "Case catalogue" => case_pages
+            "Case catalog" => case_pages
         ],
         "Developers" => Any[
             "Grammar invariants" => "developers.md",

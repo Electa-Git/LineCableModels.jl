@@ -44,7 +44,9 @@ end
 
 awg_sizes(nmin::Integer = -3, nmax::Integer = 40) = awg_sizes(Float64, nmin, nmax)
 
-"Apply a fill factor to solid area to approximate stranded metallic area."
+"""
+Apply a fill factor to solid area to approximate stranded metallic area.
+"""
 function stranded_area_mm2(number::Real; fill_factor::Real = 0.94)
     factor, area = promote(float(fill_factor), float(awg_to_area_mm2(number)))
     return factor * area

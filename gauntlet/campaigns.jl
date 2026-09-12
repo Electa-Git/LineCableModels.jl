@@ -91,7 +91,7 @@ function _execute(calculation::BenchmarkCalculation; directory = nothing, model 
             "calculation payload integrity check failed: $path"))
         saved=read_calculation(path)
         # Older files included the source tree in their signature. Compare their
-        # retained numerical declaration directly, without rewriting provenance.
+        # retained numerical declaration directly, while preserving the original execution record.
         saved.metadata.calculation !== nothing &&
             _numerical_record(saved.metadata.calculation) == _numerical_record(declaration) ||
             throw(ArgumentError("calculation inputs changed: $directory"))
@@ -226,7 +226,7 @@ Save every selected declaration before executing the first benchmark. A fresh ru
 replaces only those drafts once complete; resume continues recorded attempts with
 unchanged numerical inputs. Source edits do not invalidate completed calculations.
 Each invocation records a new execution session; reused operands keep their original
-provenance. Previous results remain readable while a replacement is incomplete.
+execution records. Previous results remain readable while a replacement is incomplete.
 
 Set `recover_solvers=true` to ask FEM and PSCAD to recover compatible native run
 directories using their own input and output validation.
@@ -430,7 +430,7 @@ end
 
 Continue the saved work order using checksummed declarations. Restore captured
 declaration code for constructors without consulting the original source files.
-Completed numerical operands keep their original execution provenance; unfinished
+Completed numerical operands keep their original execution records; unfinished
 work uses the current Julia environment. A legacy queue without saved declarations
 must first be supplied to `run_campaign` with `resume=true`.
 One progress tracker covers the whole resumed invocation; `progress` has the same

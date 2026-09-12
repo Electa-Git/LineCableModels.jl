@@ -1,17 +1,19 @@
 """
 $(TYPEDSIGNATURES)
 
-Return mean diameter, pitch length, and helical overlength for a radial layer.
+Return `(mean_diameter, pitch_length, overlength)` for a helical radial layer:
 
 ```math
-\\lambda=L_p/D_e,\\qquad
+D_e=r_{in}+r_{ex},\\qquad L_p=\\lambda D_e,\\qquad
 k=\\sqrt{1+(\\pi D_e/L_p)^2}.
 ```
 
-# Notes
-
-The lay ratio follows EN 50182. A zero lay ratio represents a straight layer
-and therefore has unit overlength.
+`r_in` and `r_ex` are the inner and outer layer radii in meters, with
+``0\\le r_{in}\\le r_{ex}``. `lay_ratio` is the nonnegative, dimensionless
+ratio ``\\lambda=L_p/D_e`` used in EN 50182. All inputs must be finite.
+The returned diameter and pitch are in meters; overlength ``k`` is dimensionless.
+A zero pitch returns unit overlength. In particular, `lay_ratio=0` represents
+a straight layer and returns a pitch of zero.
 """
 function helix(r_in::Real, r_ex::Real, lay_ratio::Real)
     rin, rex, ratio = promote(float(r_in), float(r_ex), float(lay_ratio))
@@ -33,9 +35,22 @@ end
 """
 $(TYPEDSIGNATURES)
 
-Return the centres of `num_wires` equally spaced circular wires. For wire
-``i=0,\\ldots,N-1`` the coordinates are
-``C+r_l(\\cos(2\\pi i/N),\\sin(2\\pi i/N))``.
+Return the centers of `num_wires` equally spaced circular wires. For
+``N>1`` wires, the center of wire ``i=0,\\ldots,N-1`` is
+
+```math
+C+r_l(\\cos(2\\pi i/N),\\sin(2\\pi i/N)),\\qquad
+r_l=r_{in}+r_w.
+```
+
+`num_wires` is the nonnegative integer count ``N``. `radius_wire` is the
+positive wire radius ``r_w`` and `r_in` is the nonnegative inner radius of
+the wire layer, both in meters. `C` is the layer center `(x, y)` in meters
+and defaults to `(0, 0)`. Coordinates and radii must be finite.
+
+The result is a vector of `(x, y)` tuples in meters, ordered counterclockwise
+from the positive x direction. Zero wires return an empty vector; one wire
+is placed at `C`.
 """
 function wire_coordinates(
         num_wires::Integer,
@@ -67,8 +82,17 @@ end
 """
 $(TYPEDSIGNATURES)
 
-Return the helical-solenoid permeability factor
-``1+2\\pi^2N^2(r_i^2-r_c^2)/\\log(r_i/r_c)``.
+Return the dimensionless permeability factor for a helical solenoid:
+
+```math
+k_\\mu=1+\\frac{2\\pi^2N^2(r_i^2-r_c^2)}{\\log(r_i/r_c)}.
+```
+
+`num_turns` is the nonnegative number of turns per meter ``N``.
+`r_con` is the conductor radius ``r_c`` and `r_ins` is the outer insulation
+radius ``r_i``, both in meters, with ``0\\le r_c<r_i``.
+`num_turns=NaN` denotes an unspecified winding and returns `1` before checking
+the radii.
 """
 function solenoid_factor(num_turns::Real, r_con::Real, r_ins::Real)
     turns, conductor, insulator = promote(

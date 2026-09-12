@@ -1,4 +1,6 @@
-"Resolve one primitive or contextual layer against a geometric context."
+"""
+Resolve one primitive or contextual layer against a geometric context.
+"""
 function resolve end
 
 resolve(::EmptyBoundary, primitive::AbstractPrimitive) = primitive
@@ -28,7 +30,9 @@ function resolve(
     return Annulus(definition.ri, definition.ro, context.at)
 end
 
-"Compose `at` with the existing absolute primitive pose."
+"""
+Compose `at` with the existing absolute primitive pose.
+"""
 resolve(at::Pose2, primitive::AbstractPrimitive) = _with_pose(primitive, at * primitive.at)
 
 function resolve(at::Pose2, primitive::DifferenceShape)

@@ -4,7 +4,7 @@ $(TYPEDEF)
 Own one earth potential coefficient formulation, its indexed equation declarations and explicit
 customizations. `assumptions` contains scientific restrictions; each interaction
 is selected by its explicit kind/source-layer/target-layer equation signature.
-`parameters` and `hooks` retain the user's explicit modifications for provenance.
+`parameters` and `hooks` store the user's supplied values and callable overrides.
 
 $(TYPEDFIELDS)
 """
@@ -46,13 +46,21 @@ formula_id(::Formula{ID}) where {ID} = ID
 assumptions(formula::Formula) = formula.assumptions
 media(formula::Formula) = formula.assumptions.media
 
-"Declare model inventory and physical restrictions, without callable behavior."
+"""
+Declare model inventory and physical restrictions, without callable behavior.
+"""
 function assumptions end
-"Evaluate a medium propagation law at jω [1/s], μ [H/m], σ [S/m], ε [F/m]."
+"""
+Evaluate a medium propagation law at jω [1/s], μ [H/m], σ [S/m], ε [F/m].
+"""
 function propagation end
-"Evaluate the prescribed longitudinal Γ [1/m] from jω, evaluated materials and (s,t)."
+"""
+Evaluate the prescribed longitudinal Γ [1/m] from jω, evaluated materials and (s,t).
+"""
 function Γ end
-"Evaluate one source-owned earth potential coefficient equation."
+"""
+Evaluate one source-owned earth potential coefficient equation.
+"""
 function earth_potential_coefficient end
 
 Γ(functor::Functor) = functor.state.Γ
@@ -179,7 +187,9 @@ function (functor::Functor)(workspace = nothing)
     return oftype(functor.state.jω, value)
 end
 
-"Evaluate a same-source impedance expression used in a potential coefficient."
+"""
+Evaluate a same-source impedance expression used in a potential coefficient.
+"""
 function earth_impedance end
 
 function Formula(selection::FormulaDefinition{ID, Order}) where {ID, Order}

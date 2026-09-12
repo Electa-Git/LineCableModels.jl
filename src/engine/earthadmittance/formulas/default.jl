@@ -27,8 +27,7 @@ depth \\[m\\] are selected through the `reference` physical parameter.
 **Reference.** User-supplied manuscript, *Unified circumferentially averaged
 framework for overhead, buried, and mixed conductor systems*. The mathematical
 source hash and accepted complete matrices are recorded in
-`test/fixtures/reference/unified_earth_return.toml` and the locked implementation
-plan in `docs/notes/unified-earth-return-implementation-plan.md`.
+`test/fixtures/reference/unified_earth_return.toml`.
 """
 function description(::Formula{:default})
     "Unified circumferential earth potential with full current closure"

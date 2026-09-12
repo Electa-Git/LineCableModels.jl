@@ -38,7 +38,9 @@ function Base.convert(::Type{<:Pose2{T}}, pose::Pose2) where {T <: Real}
     return Pose2{T}(convert(T, pose.x), convert(T, pose.y), convert(T, pose.φ))
 end
 
-"Compose `child` relative to `parent`."
+"""
+Compose `child` relative to `parent`.
+"""
 function Base.:*(parent::Pose2, child::Pose2)
     values = map(float, promote(
         parent.x, parent.y, parent.φ, child.x, child.y, child.φ

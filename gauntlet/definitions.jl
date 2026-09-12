@@ -104,7 +104,7 @@ end
 """
     benchmark_definition(id::Symbol; kwargs...)
 
-Materialize a catalogue declaration from `gauntlet/benchmarks`, passing explicit
+Materialize a catalog declaration from `gauntlet/benchmarks`, passing explicit
 configuration and variations to its constructor. This action does not compute.
 """
 function benchmark_definition(id::Symbol; kwargs...)

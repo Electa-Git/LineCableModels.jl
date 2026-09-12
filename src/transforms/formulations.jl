@@ -10,16 +10,20 @@ struct Formula{ID, R, A <: NamedTuple, H <: NamedTuple, O <: NamedTuple}
     binding::R
     "Explicit physical/model parameters."
     parameters::A
-    "Explicit callable overrides retained for provenance."
+    "Callable overrides supplied by the user."
     hooks::H
     "Normalized numerical sections for the selected modal algorithm."
     options::O
 end
 
-"Return the stable identifier of a modal-transformation formula."
+"""
+Return the stable identifier of a modal-transformation formula.
+"""
 formula_id(::Formula{ID}) where {ID} = ID
 
-"Construct phase-to-modal operators for one registered transformation."
+"""
+Construct phase-to-modal operators for one registered transformation.
+"""
 function modal_operators end
 
 """
@@ -27,7 +31,7 @@ $(TYPEDSIGNATURES)
 
 Construct a registered formula with separate model parameters and callable
 hooks. `hooks=(contribution=f,)` replaces the modal decomposition using
-its documented argument and result contract. Unknown fields fail immediately.
+its documented argument and return types. Unknown fields fail immediately.
 """
 Formula(identifier::Symbol; kwargs...) = Formula(Val(identifier); kwargs...)
 Formula(selected::Formula) = selected

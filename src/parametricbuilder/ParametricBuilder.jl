@@ -1,16 +1,16 @@
 """
     LineCableModels.ParametricBuilder
 
-Construct finite parameter spaces and materialise cable problems from explicit
+Construct finite parameter spaces and materialize cable problems from explicit
 `Grid` inputs.
 
 # Overview
 
 - Define deterministic and uncertainty-bearing finite sources.
 - Compose sources with product or zip semantics.
-- Materialise materials, cable parts, cable designs, positions, earth models,
+- Materialize materials, cable parts, cable designs, positions, earth models,
   and line-parameter problems.
-- Evaluate every materialised problem with `Combinatorial`.
+- Evaluate every materialized problem with `Combinatorial`.
 - Transport completed result spaces into target-bearing downstream problem
   spaces.
 - Estimate stranded-conductor and wire-screen patterns.

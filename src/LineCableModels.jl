@@ -3,7 +3,7 @@
 
 Calculate electrical parameters for overhead and underground cable systems.
 
-The public API constructs materialised or finite parametric cable models,
+The public API constructs materialized or finite parametric cable models,
 selects numerical formulations, evaluates cable constants and line-parameter
 matrices, propagates declared uncertainty, and adds a small high-level plotting
 surface when Makie is loaded.

@@ -1,4 +1,6 @@
-"Return a short scientific description of a registered formulation."
+"""
+Return a short scientific description of a registered formulation.
+"""
 function description end
 
 """
@@ -29,7 +31,7 @@ $(TYPEDEF)
 Bind one formula identity and optional semantic selectors to a domain method.
 
 Calling the bound method inserts `Val(ID)` before the stored selectors and
-runtime arguments. Formula catalogues use this invariant to retain owner-local
+runtime arguments. Formula catalogs use this invariant to retain owner-local
 dispatch while carrying the selected formula identity as concrete type
 information.
 
@@ -122,7 +124,9 @@ function formula(identifier::Symbol; order::Symbol = :default,
         parameters, hooks, options, equivalent_earth)
 end
 
-"Return the stable formula identifier of a formula value."
+"""
+Return the stable formula identifier of a formula value.
+"""
 function formula_id end
 
 formula_id(::FormulaDefinition{ID}) where {ID} = ID

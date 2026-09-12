@@ -35,7 +35,7 @@ and versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   and complete native execution in `Engine`.
 - Reduced Gridspace to explicit finite `Grid` sources, local product or zip
   composition, one internal unresolved point, and recursive materialization or
-  realisation through concrete callable builders. Scalar public construction
+  realization through concrete callable builders. Scalar public construction
   calls now invoke the corresponding scalar action.
 - Replaced the declarative PlotBuilder renderer with a compact native Makie
   layer. `plot` retains automatic `(R, X, G, B)` views, scientific formatting,
@@ -88,7 +88,7 @@ and versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - Separated unresolved `*Definition` geometry from resolved primitives carrying
   absolute poses.
 - Removed `NominalData` from `CableDesign`; `CablesLibrary` now binds optional
-  named-tuple catalogue records beside stored designs.
+  named-tuple catalog records beside stored designs.
 - Moved Measurements.jl and Distributions.jl integrations into package
   extensions.
 - Restricted radial declarations to numeric radius or thickness semantics.
@@ -111,7 +111,7 @@ and versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   `a71bdfe1ac832f27a0c88b1d02596194aac46ec7` as the last snapshot able to migrate those
   files.
 - Removed the former parameter tuple grammar, duplicate execution entrypoints,
-  specialised analysis containers, and radial proxy wrapper types.
+  specialized analysis containers, and radial proxy wrapper types.
 - Removed Grid identity and binding machinery, public temporary point records,
   traversal coordinates and metadata, result-side failure dictionaries, and
   passive forwarding definitions from the parametric construction path.

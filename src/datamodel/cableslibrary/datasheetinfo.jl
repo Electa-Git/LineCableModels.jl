@@ -2,7 +2,7 @@
 $(TYPEDEF)
 
 Store the values reported by one cable datasheet without imposing a fixed
-catalogue schema.
+catalog schema.
 
 Field names and values are retained in the supplied `NamedTuple`. Property
 access delegates to that record, so `info.resistance` returns the value stored

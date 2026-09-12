@@ -1,7 +1,11 @@
-"Abstract equivalent homogeneous-earth rule."
+"""
+Abstract equivalent homogeneous-earth rule.
+"""
 abstract type AbstractRule <: AbstractFormulation end
 
-"Abstract ordering of material frequency dependence and EquivalentHomogeneous reduction."
+"""
+Abstract ordering of material frequency dependence and EquivalentHomogeneous reduction.
+"""
 abstract type AbstractSequence <: AbstractFormulation end
 
 """
@@ -23,7 +27,7 @@ $(TYPEDFIELDS)
 struct Formula{ID, A <: NamedTuple, H <: NamedTuple, O <: NamedTuple} <: AbstractRule
     "Explicit model parameters."
     parameters::A
-    "Explicit callable overrides retained for provenance."
+    "Callable overrides supplied by the user."
     hooks::H
     "Explicit numerical sections owned by the reduction."
     options::O
@@ -55,13 +59,19 @@ struct BeforeFD{R <: AbstractRule} <: AbstractSequence
     rule::R
 end
 
-"Return the rule stored by an EquivalentHomogeneous composition."
+"""
+Return the rule stored by an EquivalentHomogeneous composition.
+"""
 rule(sequence::AbstractSequence) = sequence.rule
 
-"Return the stable formula identifier of an EquivalentHomogeneous formula."
+"""
+Return the stable formula identifier of an EquivalentHomogeneous formula.
+"""
 formula_id(::Formula{ID}) where {ID} = ID
 
-"Construct one formula-owned equivalent homogeneous-earth material."
+"""
+Construct one formula-owned equivalent homogeneous-earth material.
+"""
 function equivalent_material end
 
 """

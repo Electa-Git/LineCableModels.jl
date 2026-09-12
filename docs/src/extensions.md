@@ -7,7 +7,7 @@ calculation entry points remain `compute`, `observe`, `observables`,
 `PlotBuilder` owns only optional plotting entry points and the live `UIPlot`
 handle. Scientific owners expose observations, quantities, geometry, and
 physical property ranges. The Makie extension owns request normalization,
-palettes, legend grouping, layout sugar, widgets, and native rendering.
+palettes, legend grouping, layout helpers, widgets, and native rendering.
 
 ## Input validation
 
@@ -86,7 +86,7 @@ Public = true
 Private = false
 ```
 
-## Plotting shell
+## Plotting functions
 
 ```@docs
 LineCableModels.PlotBuilder

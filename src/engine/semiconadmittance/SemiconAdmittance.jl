@@ -48,7 +48,9 @@ const FORMULAS = let
 end
 #! explicit-imports: on
 
-"Return the built-in semicon-admittance formula identifiers."
+"""
+Return the built-in semicon-admittance formula identifiers.
+"""
 formulas() = FORMULAS
 
 end # module SemiconAdmittance

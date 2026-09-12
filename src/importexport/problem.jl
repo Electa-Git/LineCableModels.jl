@@ -1,7 +1,7 @@
 """
 $(TYPEDSIGNATURES)
 
-Write one fully materialised line-parameter problem as versioned JSON.
+Write one fully materialized line-parameter problem as versioned JSON.
 
 # Arguments
 
@@ -32,7 +32,7 @@ end
 """
 $(TYPEDSIGNATURES)
 
-Read one fully materialised line-parameter problem from versioned JSON.
+Read one fully materialized line-parameter problem from versioned JSON.
 
 # Arguments
 

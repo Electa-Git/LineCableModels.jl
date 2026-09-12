@@ -119,7 +119,9 @@ function units(
     return UnitExpr(numerator, denominator)
 end
 
-"Return the SI symbol, including its metric prefix, for `unit`."
+"""
+Return the SI symbol, including its metric prefix, for `unit`.
+"""
 label(unit::Unit) = string(_prefix_symbol(unit.prefix), _unit_symbol(unit.name))
 
 function _unit_side_label(side::Tuple)

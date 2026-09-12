@@ -24,7 +24,13 @@ zero inner radius or zero-thickness annulus contributes zero.
 
 # Returns
 
-- Complex potential coefficient per unit length ``p`` \\[m/F\\].
+- Complex charge-based potential coefficient ``p`` \\[m/F\\].
+
+Here `r_in` and `r_ex` are the dielectric radii in meters, `κ` is complex
+admittivity in S/m, and `s` is complex frequency in s⁻¹. For sinusoidal
+evaluation, ``s=jω``. This definition gives ``y=s/p``; the FEM reduction
+instead accepts an inverse-admittance coefficient ``P=1/y`` in m/S.
+For the same admittance and reference, ``p=sP``.
 """
 @inline function potential_coefficient(
         r_in::T,
@@ -117,7 +123,7 @@ store the potential coefficient of every physical dielectric layer.
 
 # Returns
 
-- `coefficients`, overwritten in physical radial-layer order [m/F].
+- `coefficients`, overwritten in physical radial-layer order \\[m/F\\].
 """
 function dielectric!(
         coefficients::AbstractVector{Complex{T}},
@@ -166,7 +172,7 @@ series sum of physical radial dielectric layers.
 
 # Returns
 
-- `destination`, overwritten with the local potential coefficients [m/F].
+- `destination`, overwritten with the local potential coefficients \\[m/F\\].
 """
 function cable_potential!(
         destination::AbstractMatrix{Complex{T}},

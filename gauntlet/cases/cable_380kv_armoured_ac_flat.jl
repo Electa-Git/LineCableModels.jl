@@ -254,5 +254,5 @@ case_definition(Base.Fix1(build_case, Val(:cable_380kv_armoured_ac_flat)),
         "cable:2:core", "cable:2:sheath", "cable:2:armor",
         "cable:3:core", "cable:3:sheath", "cable:3:armor"
     ];
-    description = "380 kV armoured cables in AC flat formation"
+    description = "380 kV armored cables in AC flat formation"
 )

@@ -11,7 +11,7 @@ struct Formula{ID, R, A <: NamedTuple, H <: NamedTuple, O <: NamedTuple} <: Abst
     binding::R
     "Explicit model parameters."
     parameters::A
-    "Concrete callable overrides retained for execution and provenance."
+    "Callable overrides supplied by the user."
     hooks::H
     "Normalized numerical sections declared by the equation provider."
     options::O
@@ -23,7 +23,7 @@ formula_id(::Formula{ID}) where {ID} = ID
 TextDisplay.@showfields Formula "Formula" selected -> (
     id=formula_id(selected), modified=!isempty(selected.hooks))
 
-"""Evaluate a temperature-dependent electrical resistivity in ohm metres."""
+"""Evaluate a temperature-dependent electrical resistivity in ohm meters."""
 function temperature_resistivity end
 
 """

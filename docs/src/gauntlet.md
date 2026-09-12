@@ -13,7 +13,7 @@ LCM, PSCAD and FEM remain different models whose discrepancies are measured.
 ## Retained summaries
 
 This page reads the immutable versions selected in `docs/gauntlet.toml`. An
-explicit `LINECABLEMODELS_GAUNTLET_RESULTS` directory enables a labelled local
+explicit `LINECABLEMODELS_GAUNTLET_RESULTS` directory enables a labeled local
 preview. Building this page performs no solve, RMS calculation or plotting.
 
 Each row identifies the case, problem, complete candidate formulation, reference
@@ -85,7 +85,7 @@ cell, including both off-diagonals. Z gives R/X pages; Y gives G/B pages. Origin
 formulation indices, complete selections and colors survive filtering and reload.
 Multiple problem points require an explicit `problem` selection. Equal numerical
 curves remain separate formulation choices. UQ mean/std errors remain separate
-statistics under their existing full-band comparison contract.
+statistics under their existing comparison rules over the full frequency band.
 
 The same report and plot APIs accept live completed results without Gauntlet:
 
@@ -127,12 +127,12 @@ apply a numerical agreement threshold. Packaging accepts only explicit locked
 bundles. Binding verifies the served archive bytes and extracted tree before
 recording an immutable version-specific download.
 
-Catalogue defaults remain 101 logarithmic samples from 0.1 Hz to 10 MHz (100
+Catalog defaults remain 101 logarithmic samples from 0.1 Hz to 10 MHz (100
 increments). Frequency overrides are authoritative and backend limitations are
 validated separately. Declarations are saved before execution. Resume checks
 numerical inputs and stored-file integrity, not the live source tree. Each
 execution session records its environment; reused operands keep their original
-provenance. Actual grids, backend evidence and timing scopes are retained.
+execution records. Actual grids, solver details, and timing scopes are retained.
 
 Campaign progress is enabled by default: `run_campaign(...; progress=:auto)`
 chooses a terminal bar or plain output. `:plain` forces plain output and `:off`

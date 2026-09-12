@@ -57,7 +57,7 @@ $(TYPEDSIGNATURES)
 
 Return the maximum number of screen wires that fit on `lay_radius`.
 
-`wire_radius` and `lay_radius` are centre-to-centre geometric radii in the same
+`wire_radius` and `lay_radius` are center-to-center geometric radii in the same
 unit. `gap_frac` adds a fractional clearance between adjacent wires.
 """
 function maxfill(

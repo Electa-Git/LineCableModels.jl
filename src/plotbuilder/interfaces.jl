@@ -57,7 +57,7 @@ end
 """
     show_material_scale(; kwargs...)
 
-Display the three independently defined material colour schemes as a compact
+Display the three independently defined material color schemes as a compact
 reference figure. Use [`materialscale!`](@ref) to place any one scheme in a
 caller-owned Makie layout.
 """
@@ -130,7 +130,7 @@ function plotwindow end
 """
     materialcolors(property, [range]; alpha=1.0)
 
-Construct one reusable material colour scheme. Palette selection is separate
+Construct one reusable material color scheme. Palette selection is separate
 from [`materialscale!`](@ref), which only renders a supplied scheme.
 """
 function materialcolors end

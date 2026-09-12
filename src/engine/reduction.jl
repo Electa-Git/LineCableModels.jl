@@ -293,15 +293,15 @@ frequency scans.
 # Arguments
 
 - `Z_primitive`: Primitive series impedance \\[Ω/m\\], ordered by terminal.
-- `P_primitive`: Primitive potential coefficient whose inverse is shunt
-  admittance \\[S/m\\].
+- `P_primitive`: Primitive inverse-admittance coefficient \\[m/S\\], ordered
+  by terminal. Its inverse is shunt admittance in S/m.
 - `phase_map`: Connection assignment aligned with primitive terminal order.
 - `options`: Normalized shared line-parameter formulation options.
 
 # Returns
 
-- A named tuple containing reduced `Z`, reduced `P`, and the retained phase
-  assignment.
+- A named tuple containing reduced `Z` \\[Ω/m\\], reduced `P` \\[m/S\\], and the
+  retained phase assignment.
 """
 function reduce_primitive_matrices(
         Z_primitive::Array{Complex{T}, 3},
@@ -365,7 +365,12 @@ number.
 
 # Arguments
 
-- `P`: Reduced potential-coefficient scan whose inverse is in \\[S/m\\].
+- `P`: Reduced inverse-admittance scan \\[m/S\\], with dimensions
+  `(terminal, terminal, frequency)`.
+
+This FEM coefficient differs from the analytical engine's charge-based
+coefficient ``p=sY^{-1}`` in m/F. For the same admittance and reference,
+``p=sP``, where ``s=jω`` in sinusoidal evaluation.
 
 # Keywords
 

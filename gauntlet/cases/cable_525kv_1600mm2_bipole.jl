@@ -206,5 +206,5 @@ case_definition(Base.Fix1(build_case, Val(:cable_525kv_1600mm2_bipole)),
         "cable:1:core", "cable:1:sheath", "cable:1:armor",
         "cable:2:core", "cable:2:sheath", "cable:2:armor"
     ];
-    description = "525 kV 1600 mm² armoured cable DC bipole"
+    description = "525 kV 1600 mm² armored cable DC bipole"
 )

@@ -14,7 +14,7 @@
 - [ ] Obtain written consent from contributors whose work is included.
 - [ ] Check active and pending patent applications before release.
 - [ ] Remove personal, confidential, and export-controlled data.
-- [ ] Record third-party licences and verify redistribution terms.
+- [ ] Record third-party licenses and verify redistribution terms.
 - [ ] Confirm that releasing the software does not violate publication embargoes.
 
 ### Source and test checks
@@ -31,7 +31,7 @@
 - [ ] State the package purpose, installation, and first calculation in `README.md`.
 - [ ] Maintain `CHANGELOG.md` using Keep a Changelog.
 - [ ] Provide citation metadata, DOI links, and publication references.
-- [ ] Place the selected licence at the repository root.
+- [ ] Place the selected license at the repository root.
 - [ ] Name funding bodies, institutional support, and contributors.
 - [ ] Document the contribution procedure.
 

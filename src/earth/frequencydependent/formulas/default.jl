@@ -7,7 +7,7 @@ $(TYPEDSIGNATURES)
 **Expression.** Preserve the supplied static soil resistivity, relative permittivity, and
 relative permeability at every positive evaluation frequency.
 
-**Reference.** Package policy with no frequency dependence or fitted parameters.
+The returned material has no frequency dependence or fitted parameters.
 """
 description(::Formula{:default}) = "Static earth material"
 

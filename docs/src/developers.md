@@ -48,7 +48,7 @@ print(Main.DocumentationTrees.type_tree(AbstractReportDefinition))
 ```
 
 Each action has one method at its declared abstract root. Concrete definitions
-implement stage methods. They do not specialise the public action itself.
+implement stage methods. They do not specialize the public action itself.
 Required stages are declared with RequiredInterfaces where the type family
 admits that form. Optional stages have an explicit no-op at the abstract root.
 Plotting is deliberately not such an action: the optional Makie extension

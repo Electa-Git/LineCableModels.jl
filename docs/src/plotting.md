@@ -4,14 +4,9 @@ EditURL = "../literate/plotting.jl"
 
 # Makie plotting: implementation guide and complete gallery
 
-Loading a Makie backend adds a small, opinionated convenience layer to the
-ordinary Makie API. The convenience call should get a scientific plot almost
-finished; the returned `Figure`, `Axis`, `Legend`, `Colorbar`, and controls are
-nevertheless native Makie objects owned by the caller.
-
-This page is both an executable gallery and the implementation guide for the
-plotting surface. Every gallery image below is produced by the call printed
-immediately above it.
+Plot cable geometry, electrical parameters, and uncertainty results with Makie.
+Each example shows the call that produces its figure. The returned `UIPlot`
+contains native Makie objects that you can modify directly.
 
 ````@example plotting
 using LineCableModels
@@ -20,43 +15,12 @@ using LinearAlgebra: diag
 using Measurements: measurement
 ````
 
-## The implementation contract
+## Figures, titles, and legends
 
-Plotting follows one path rather than maintaining a second declarative plot
-model:
-
-1. Scientific owners expose public observations, geometry, material values,
-   and units. They contain no plot preparation, colors, legends, or Makie
-   blocks.
-2. `LineCableModelsMakieExt` normalizes plotting `ydata` into physical
-   quantity/coordinate facets and constructs ordinary Makie blocks and plot
-   primitives. Matrix coordinates identify subplots; result containers
-   identify overlaid series.
-3. The common addon shell contributes the toolbar, observable-driven scale
-   controls, scientific labels, limits, docks, and export action.
-4. The call returns a [`UIPlot`](@ref) containing the live native objects. It
-   does not retain a shadow plot specification and does not replay the plot
-   after the caller changes it.
-
-The relevant implementation files are:
-
-| Responsibility | Implementation |
-|:--|:--|
-| Optional entry points and `UIPlot` | `src/plotbuilder/` |
-| Line request normalization | `ext/LineCableModelsMakieExt/recipes/line_data.jl` and `comparison_data.jl` |
-| Domain-only preview geometry and ranges | `src/datamodel/preview/geometry.jl` and `materials.jl` |
-| Preview presentation data | `ext/LineCableModelsMakieExt/recipes/preview_data.jl` |
-| Independent material palettes | `ext/LineCableModelsMakieExt/material_colors.jl` |
-| Shell, axes, limits, docks, widgets | `ext/LineCableModelsMakieExt/shell.jl` |
-| Line, preview, and publication drawing | `ext/LineCableModelsMakieExt/recipes/*_render.jl` |
-| Monte Carlo verbs | `ext/LineCableModelsMakieExt/montecarlo.jl` |
-| Publication SVG snapshot | `ext/LineCableModelsMakieExt/native_export.jl` |
-
-`UIPlot` is deliberately small. Its `figure`, `axes`, `controls`, `legend`,
-`panel_legends`, and `colorbars` fields point at the exact objects on screen.
-A one-page recipe returns that handle directly. A request that genuinely
-produces several figures returns `Vector{UIPlot}`. No `only(...)` wrapper is
-required for a one-page call.
+A call that produces one figure returns a [`UIPlot`](@ref); a call that
+produces several figures returns `Vector{UIPlot}`. The `figure`, `axes`,
+`controls`, `legend`, `panel_legends`, and `colorbars` fields expose the
+displayed Makie objects.
 
 ### Naming titles and legends
 
@@ -78,7 +42,7 @@ Some established recipes also accept `title` as their window/export or
 single-recipe heading. Use the explicit scoped names above when composing a
 dashboard.
 
-`series_attributes` uses the shared PlotBuilder shell for matrix and benchmark
+`series_attributes` uses the shared PlotBuilder controls for matrix and benchmark
 plots, observation publications, statistical plots, and geometry previews.
 A named tuple applies to every group; a tuple or vector of named tuples styles
 each group separately. For example,
@@ -224,7 +188,7 @@ nothing #hide
 ### Complete default view
 
 `Makie.plot(parameters)` is the minimal call. It observes everything in the
-canonical order ``Z`` then ``Y``, expands those families to ``R``, ``X``,
+order ``Z`` then ``Y``, expands those families to ``R``, ``X``,
 ``G``, and ``B``, and returns four matrix-dashboard pages. For this 2×2
 result, every page contains four axes. The calls below render the full default
 gallery in exactly that order.
@@ -742,14 +706,14 @@ design_collection.figure #hide
 
 Use any sufficient `(rows, columns)` layout. The default omits layer legends;
 request selected local legends with `panel_legends`, using the same logical
-grid-position contract as line dashboards.
+grid-position rules as line dashboards.
 
 ### Cable-system cross-section
 
 A system preview resolves every placed region into the system frame, adds
 reference geometry such as the earth interface, and derives limits from the
 physical placement or `zoom_factor`. Earth properties use the same atomic
-color-scheme contract as cable materials, with a separate logarithmic
+color-scheme rules as cable materials, with a separate logarithmic
 resistivity palette: slate at 0.1 Ω·m, taupe at 100 Ω·m, and ochre at 10⁴ Ω·m.
 Horizontal earth fills follow pan, zoom and figure resizing while interfaces
 stay at their physical depths. A semi-infinite basement covers the remainder
@@ -820,7 +784,7 @@ bitmap tiles in SVG/PDF output while preserving the surrounding geometry.
 
 ### High-level material-scale reference
 
-`show_material_scale` is preview sugar that privately composes the three
+`show_material_scale` is a preview option that combines the three
 default property schemes. Its result still exposes three independent native
 colorbars; it is not the reusable unit of the color API.
 
@@ -980,13 +944,13 @@ quantile_plot.figure #hide
 Set `qqline=:none` to remove the reference. Other scatter attributes are
 forwarded to `scatter!`; data and units remain publication concerns.
 
-## Native composition with the addon shell
+## Composing figures with `plotwindow`
 
 ### A caller-owned 2×2 plot
 
 `plotwindow` is the escape hatch when no high-level recipe is appropriate. It
-creates the common shell and passes only its content `GridLayout` to the
-callback. The callback uses normal Makie constructors; afterward the shell
+creates the figure and controls, then passes its content `GridLayout` to the
+callback. The callback uses normal Makie constructors; afterward `plotwindow`
 discovers the native axes and attaches reset and export controls.
 
 ````@example plotting
@@ -1028,7 +992,7 @@ needs no LineCableModels controls or export settings, use `Figure` directly.
 
 ### Scientific axes, scale controls, and limits
 
-Scientific recipes supply quantity and unit labels. The shared shell formats
+Scientific recipes supply quantity and unit labels. PlotBuilder formats
 every linear axis, including previews, statistical plots, and `plotwindow`
 axes: the displayed limits determine one power-of-ten multiplier in the axis
 label, and ticks show plain decimal mantissas, never another exponent.
@@ -1063,7 +1027,7 @@ semantic handle registry, so placement, title, and semantic labels can also be
 changed after construction. Clicking/toggling a grouped Makie legend entry
 continues to affect every plot handle in that group.
 
-High-level recipes may put a legend and colorbars in the same dock. The shell
+High-level recipes may put a legend and colorbars in the same dock. PlotBuilder
 creates a nested `GridLayout` and gives each block its own cell. Resizing moves
 the entire canvas/dock group; it does not anchor a block to the raw window
 while stretching only the outer figure.
@@ -1071,7 +1035,7 @@ while stretching only the outer figure.
 ### Colorbars
 
 `colorbar_position` and `colorbar_attributes` mirror the legend placement
-contract. A preview can privately request several schemes, but
+rules. A preview can request several schemes, but
 `_addon_colorbar!` always consumes one scheme and creates one native
 `Colorbar`. The reusable public atom remains
 `materialcolors(property, range)` plus `materialscale!(position, scheme)`.
@@ -1162,3 +1126,22 @@ attribute, mutate the returned block, add a Makie primitive, or start from
 `plotwindow`. A new recipe is justified when LineCableModels owns meaningful
 publication, units, coordinate selection, initial limits, or a reusable piece
 of scientific interaction.
+
+## Implementation
+
+Scientific objects supply observations, geometry, material properties, and
+units. `LineCableModelsMakieExt` converts these values into Makie plots.
+Matrix coordinates identify subplots; result containers identify overlaid
+series. PlotBuilder adds labels, controls, and SVG export.
+
+| Implementation | Responsibility |
+|:--|:--|
+| `src/plotbuilder/` | Optional entry points and `UIPlot` |
+| `ext/LineCableModelsMakieExt/recipes/line_data.jl` and `comparison_data.jl` | Select observations for plotting |
+| `src/datamodel/preview/geometry.jl` and `materials.jl` | Geometry and material ranges |
+| `ext/LineCableModelsMakieExt/recipes/preview_data.jl` | Prepare geometry for drawing |
+| `ext/LineCableModelsMakieExt/material_colors.jl` | Material palettes |
+| `ext/LineCableModelsMakieExt/shell.jl` | Figure layout, axes, limits, and controls |
+| `ext/LineCableModelsMakieExt/recipes/*_render.jl` | Draw parameters, geometry, and observation publications |
+| `ext/LineCableModelsMakieExt/montecarlo.jl` | Statistical plots |
+| `ext/LineCableModelsMakieExt/native_export.jl` | SVG export |

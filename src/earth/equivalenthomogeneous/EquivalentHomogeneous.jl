@@ -54,7 +54,9 @@ const FORMULAS = let
 end
 #! explicit-imports: on
 
-"Return the built-in equivalent homogeneous-earth formula identifiers."
+"""
+Return the built-in equivalent homogeneous-earth formula identifiers.
+"""
 formulas() = FORMULAS
 
 end # module EquivalentHomogeneous

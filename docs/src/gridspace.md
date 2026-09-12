@@ -1,11 +1,8 @@
 # Gridspace
 
-Gridspace combines explicit finite sources, selects one unresolved point, and
-invokes a typed callable after resolving that point. The declarative cable API
-uses it to delay construction until each finite selection is known.
-Gridspace does not compute line parameters, aggregate uncertainty, validate physical
-objects independently of their constructors, or store traversal state in
-completed results.
+Gridspace combines finite sets of inputs and constructs one object for each
+selected combination. The cable API uses it to construct designs, systems,
+and problems with varying parameters.
 
 The calculation sequence is:
 
@@ -18,7 +15,7 @@ ParametricBuilder/UQ  collect stored calculation data
 ```
 
 `DataModel` constructors validate physical invariants. Engine calculates
-core results. UQ performs repeated stochastic realisation and aggregation.
+core results. UQ performs repeated stochastic realization and aggregation.
 
 ## Core invariants
 
@@ -36,9 +33,9 @@ as an axis. `Target` is the semantic result family used for dispatch and
 advertises a concrete iterator element type when Julia can prove that type
 without evaluating a point. Otherwise—including uncertainty-bearing and empty
 spaces—its iterator uses `Base.EltypeUnknown`; a Gridspace never advertises a
-`UnionAll` element type. `combine` is normalised into the concrete Gridspace
+`UnionAll` element type. `combine` is normalized into the concrete Gridspace
 type. The space is lazy and has an analytic length. `rand(space)` selects and
-realises one point without collecting the space.
+realizes one point without collecting the space.
 
 The internal selected point contains only the callable and its selected
 arguments. The point is unresolved, unexported, and temporary. The point never enters a
@@ -58,7 +55,7 @@ Grid((1.0, 2.0), AbsoluteError(0.1))   # nominal × absolute error
 The uncertainty-bearing forms yield `UncertainValue(nominal, sigma)`
 descriptors. An `UncertainValue` does not depend on an uncertainty package. The descriptor becomes
 Measurements values during direct propagation or ordinary scalars during
-Monte Carlo realisation.
+Monte Carlo realization.
 
 The constructor laws are:
 
@@ -70,7 +67,7 @@ Grid(other value)         = one alternative
 ```
 
 Grid instances carry no selection identity. Reusing an instance in two source
-positions has the same behaviour as placing two equal, separately constructed
+positions has the same behavior as placing two equal, separately constructed
 Grids in those positions.
 
 ## Collections are atomic until explicitly varied
@@ -121,7 +118,7 @@ collect(space)
 ```
 
 Its length is the product of the direct source lengths. Computing `length`
-does not traverse or materialise any point.
+does not traverse or materialize any point.
 
 ### Zip
 
@@ -141,12 +138,12 @@ collect(space)
 
 All non-singleton direct sources must have equal cardinality. A mismatch
 throws `DimensionMismatch` when the Gridspace is constructed, before any point
-is materialised. Zip traversal is linear in the number of rows.
+is materialized. Zip traversal is linear in the number of rows.
 
 ### Nesting
 
 A nested Gridspace is one finite source at its parent. Its selected value stays
-unresolved until recursive materialisation or realisation reaches it. Nested
+unresolved until recursive materialization or realization reaches it. Nested
 resolution lets one child zip local parameters while its parent forms a
 Cartesian product:
 
@@ -177,7 +174,7 @@ For domain arguments that are tuples or vectors, an admitted source may be a
 collection member; the collection itself is reconstructed before the scalar
 action runs.
 
-The current behaviour is:
+The current behavior is:
 
 | Entry point | Scalar or complete input | Explicit varying input |
 |---|---|---|
@@ -227,19 +224,19 @@ retains the strict positional constructor, returns the struct immediately for
 scalar keyword input, and creates a Gridspace only when a field is an explicit
 finite source.
 
-## Materialisation and realisation
+## Materialization and realization
 
 Ordinary iteration selects an internal target-bearing `Gridpoint{Target}` and recursively
-materialises its arguments. Deterministic values pass through unchanged.
+materializes its arguments. Deterministic values pass through unchanged.
 Nested points invoke their own callable before the parent callable is invoked.
-After loading Measurements, an `UncertainValue` materialises as one
+After loading Measurements, an `UncertainValue` materializes as one
 `Measurement`.
 
-Stochastic realisation follows the same recursion with a caller-owned random
+Stochastic realization follows the same recursion with a caller-owned random
 number generator. Only `UncertainValue` leaves are redrawn. Deterministic
 selections remain fixed. A zero-sigma descriptor resolves deterministically.
 
-Materialisation and realisation are internal. Developers extend the public grammar through
+Materialization and realization are internal. Developers extend the public grammar through
 concrete builders and supported uncertainty extensions, not
 by exposing unresolved points as application data.
 
@@ -267,7 +264,7 @@ run = compute(ParametricProblem(problem_space, options),
 `Combinatorial` accepts one completed formulation, a deterministic
 target-bearing formulation `Gridspace`, or a deterministic `Grid` containing
 completed formulations. Formulation points are resolved once. Traversal then
-materialises each selected problem exactly once and gives the complete
+materializes each selected problem exactly once and gives the complete
 formulation vector to `compute`:
 
 ```text
@@ -310,7 +307,7 @@ for example with
 not retain unresolved points or traversal state.
 
 Direct linear propagation uses the same traversal. The Measurements extension
-changes only how an uncertain descriptor materialises. `LinearErrorResult`
+changes only how an uncertain descriptor materializes. `LinearErrorResult`
 likewise stores only its formulation and ordered core results.
 
 ParametricBuilder owns this shared traversal as the qualified `traverse`
@@ -323,7 +320,7 @@ continues to use one scalar formulation and consumes `values` and `details`;
 Monte Carlo does not use this traversal.
 
 Monte Carlo selects each outer point once, derives a deterministic point seed,
-and repeatedly realises that same point:
+and repeatedly realizes that same point:
 
 ```text
 for each selected outer point
@@ -343,7 +340,7 @@ and trial counts.
 
 The default `on_error=:fail` settings rethrows every exception. With
 `options=(retain_details=true, on_error=:retry, max_failures=n)`, only
-`DomainError` is treated as an unsupported realisation. Rejected draws do not
+`DomainError` is treated as an unsupported realization. Rejected draws do not
 enter samples or statistics, and retry stops when the requested accepted-trial
 count is reached or `n` failures have occurred. This estimates the conditional
 distribution of the output given that problem construction and computation
@@ -445,7 +442,7 @@ consumed by one builder. Gridspace does not infer or register correlation.
 The core package declares uncertainty without loading Measurements or
 Distributions.
 
-- Loading Measurements adds direct materialisation of `UncertainValue` while
+- Loading Measurements adds direct materialization of `UncertainValue` while
   retaining exact structural reuse.
 - Loading Distributions adds standardised univariate sampling families. The
   selected distribution must have finite mean and positive finite standard
@@ -457,15 +454,15 @@ Engine internals.
 
 ## Performance and conformance
 
-The implementation relies on tuple-specialised recursion and Julia's public
+The implementation relies on tuple-specialized recursion and Julia's public
 product and zip iterators. The implementation guarantees:
 
 - `length` is analytic and never enumerates points.
 - Product and zip traversal are linear in yielded work.
-- Materialisation and realisation use no dictionary or identity lookup.
-- Immutable scalar targets infer through selection, materialisation, and
-  realisation.
-- After warmup, deterministic iteration and a bare 10,000-realisation scalar
+- Materialization and realization use no dictionary or identity lookup.
+- Immutable scalar targets infer through selection, materialization, and
+  realization.
+- After warmup, deterministic iteration and a bare 10,000-realization scalar
   loop add zero heap allocations.
 - Full cable and line construction may allocate only what their existing
   vectors, domain constructors, Engine computation, and requested result
@@ -481,7 +478,7 @@ The implementation is split across:
 
 - `src/parametricbuilder/grid.jl`: finite values and uncertainty descriptors.
 - `src/parametricbuilder/gridspace.jl`: composition, point selection, recursive
-  materialisation, and realisation.
+  materialization, and realization.
 - `src/parametricbuilder/macros.jl`: strict scalar construction and explicit
   Gridspace lifting for `@gridspace`.
 - material, cable, position, and system files: scalar construction and lifting
@@ -490,4 +487,4 @@ The implementation is split across:
 - `src/uq/linearerror.jl` and `src/uq/montecarlo/compute.jl`: direct and
   repeated stochastic traversal.
 - Measurements and Distributions extensions: dependency-specific uncertainty
-  behaviour only.
+  behavior only.

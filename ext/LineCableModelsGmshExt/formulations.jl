@@ -1,4 +1,6 @@
-"Record the consumed FEM material laws and selected field assumptions."
+"""
+Record the consumed FEM material laws and selected field assumptions.
+"""
 function formulation_record(formulation::LineCableModelsFEM)
     # Hook descriptions identify the supplied callable, without claiming that
     # arbitrary Julia closures can be reconstructed from a saved record.

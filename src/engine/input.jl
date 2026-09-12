@@ -49,7 +49,7 @@ Base.eltype(::Type{<:LineParametersWorkspace{T}}) where {T} = T
 $(TYPEDSIGNATURES)
 
 Check resolved earth-formula selections against a prepared coaxial workspace.
-This is shared by numerical execution and manual catalogue preflight. It checks
+This is shared by numerical execution and manual catalog preflight. It checks
 the physical earth model and actual assembly interactions without evaluating
 formula kernels or changing any workspace buffers.
 
@@ -185,7 +185,7 @@ line-parameter problem.
 
 The selected designs have already been flattened into frequency-independent
 blueprints. This step constructs local cable arrays, physical geometry,
-canonical indices, and frequency coordinates once. It does not apply
+terminal indices, and frequency coordinates once. It does not apply
 temperature correction, earth-property/EquivalentHomogeneous formulas, reduction policy, or
 allocate formula-owned mutable workspaces.
 
@@ -585,7 +585,7 @@ Construct every ordered external interaction from resolved conductor geometry.
 Source columns and target rows retain physical earth-layer indices; air is 1.
 
 `cables` contains representative conductor indices. `horizontal`, `vertical`,
-and `separation` are aligned coordinates/distances in metres. Diagonal
+and `separation` are aligned coordinates/distances in meters. Diagonal
 separations supply the external self radius. Layer assignment uses `earth`'s
 physical interfaces and rejects conductors on the air/earth interface.
 

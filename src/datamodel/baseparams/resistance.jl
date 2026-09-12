@@ -6,6 +6,10 @@ Calculate the equivalent temperature coefficient of two parallel conductors:
 ```math
 \\alpha_{eq}=\\frac{\\alpha_1R_2+\\alpha_2R_1}{R_1+R_2}.
 ```
+
+`alpha1` and `alpha2` are temperature coefficients in K⁻¹. `R1` and `R2`
+are the corresponding resistances at the same reference temperature, both
+in Ω/m or both in Ω. The returned coefficient is in K⁻¹.
 """
 function equivalent_alpha(alpha1::Real, R1::Real, alpha2::Real, R2::Real)
     a1, r1, a2, r2 = promote(float(alpha1), float(R1), float(alpha2), float(R2))
@@ -15,9 +19,11 @@ end
 """
 $(TYPEDSIGNATURES)
 
-Calculate the parallel equivalent
-``Z_{eq}=Z_1Z_2/(Z_1+Z_2)``. Open- and short-circuit edge cases are
-handled explicitly.
+Return the parallel equivalent ``Z_{eq}=Z_1Z_2/(Z_1+Z_2)``.
+
+`Z1` and `Z2` must have the same units and length basis, for example Ω/m
+or Ω. The result has those same units. An infinite input returns the other
+input; two zero inputs return zero.
 """
 function parallel(Z1::Number, Z2::Number)
     z1, z2 = promote(Z1, Z2)
@@ -88,6 +94,9 @@ $(TYPEDSIGNATURES)
 
 Recover the equivalent resistivity from resistance and annular area:
 ``\\rho_{eq}=R\\pi(r_{ex}^2-r_{in}^2)``.
+
+`R` is resistance per unit length in Ω/m. `r_ex` and `r_in` are the outer
+and inner conductor radii in meters. The returned resistivity is in Ω·m.
 """
 function equivalent_rho(R::Real, r_ex::Real, r_in::Real)
     resistance, rex, rin = promote(float(R), float(r_ex), float(r_in))

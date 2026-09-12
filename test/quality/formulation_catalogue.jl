@@ -126,7 +126,12 @@
             scientific_text = join(strings)
             @test occursin("**Identification.**", scientific_text)
             @test occursin("**Expression.**", scientific_text)
-            @test occursin("**Reference.**", scientific_text)
+            if category.module_owner === LineCableModels.Earth.FrequencyDependent &&
+               basename(String(docstring.data[:path])) == "default.jl"
+                @test !occursin("**Reference.**", scientific_text)
+            else
+                @test occursin("**Reference.**", scientific_text)
+            end
             @test isnothing(match(r"(?m)^\d{4}\.", scientific_text))
         end
     end

@@ -1,4 +1,4 @@
-# Modelling and results
+# Modeling and results
 
 LineCableModels builds complete cable problems from material, geometry, earth,
 and frequency data. A scalar declaration constructs one value. A declaration
@@ -33,7 +33,7 @@ sampled = compute(
 [`Formulation`](@ref) selects the physical and numerical methods used for one
 problem. `Combinatorial` evaluates every selected point. `LinearError` applies
 direct linear uncertainty propagation. `MonteCarlo` samples independent
-realisations within each selected point.
+realizations within each selected point.
 
 Any final formulation slot can be an explicit finite source. The constructor
 then returns a target-bearing formulation space. For homogeneous buried cases:
@@ -53,7 +53,7 @@ run = compute(
 ```
 
 The calculation contains `length(problem_space) * length(formulations)`
-results. Each problem point is materialised once and is evaluated against all
+results. Each problem point is materialized once and is evaluated against all
 resolved formulations. Use `combine=:product` or `combine=:zip` on the
 formulation constructor only to compose fields inside that formulation; the
 outer problem/formulation relation is always Cartesian. Formula-owned numerical
@@ -92,7 +92,7 @@ placement, propagation constant, transposition, or bundle option.
 
 ## Completed results
 
-[`CableConstants`](@ref) stores R/L/C/G values per metre. Its aligned vectors
+[`CableConstants`](@ref) stores R/L/C/G values per meter. Its aligned vectors
 contain one row per independent concentric assembly; `only(constants)` returns
 the scalar row of a conventional single-core coaxial cable. [`LineParameters`](@ref)
 stores frequency-dependent Z/Y matrices and records their physical domain and
@@ -173,7 +173,7 @@ uses the same validation. Normalized settings are stored in
 `formulation.options`; no options type or cast is required.
 
 The default error mode propagates every exception. Conditional rejection of
-unsupported realisations is explicit:
+unsupported realizations is explicit:
 
 ```julia
 MonteCarlo(

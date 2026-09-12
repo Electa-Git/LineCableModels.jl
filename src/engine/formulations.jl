@@ -21,7 +21,7 @@ by [`computation_options`](@ref) for `LineCableModelsFEM`.
 
 The quasi-TEM model solves independent axial ``A_z/u`` and scalar electric
 Helmholtz blocks in one factorization. The magnetic excitation is one ampere;
-the electric excitation is one ampere per metre. Both models retain conduction
+the electric excitation is one ampere per meter. Both models retain conduction
 and displacement through ``κ=σ+jωε`` \\[S/m\\], where ``ω`` is angular
 frequency \\[rad/s\\], ``σ`` conductivity \\[S/m\\], and ``ε`` permittivity \\[F/m\\].
 
@@ -90,14 +90,14 @@ struct LineCableModelsFEM{M <: NamedTuple, O <: FormulationOptions, D <: NamedTu
     methods::M
     "Field model and line-parameter matrix reductions."
     options::O
-    "Requested formula definitions retained for provenance."
+    "Requested formula definitions."
     definitions::D
 end
 
 """
 $(TYPEDEF)
 
-Report a finite-element adaptation, mesh, solve, or result-contract failure.
+Report a failure in finite-element model preparation, meshing, solving, or result validation.
 
 $(TYPEDFIELDS)
 """
@@ -160,13 +160,19 @@ abstract type InsulationAdmittanceFormulation <: AbstractAdmittanceFormulation e
 abstract type SemiconAdmittanceFormulation <: AbstractAdmittanceFormulation end
 abstract type EarthAdmittanceFormulation <: AbstractAdmittanceFormulation end
 
-"Return whether an earth formulation consumes homogeneous or stratified media."
+"""
+Return whether an earth formulation consumes homogeneous or stratified media.
+"""
 function media end
 
-"Declare source-owned physical hook defaults and admitted overrides for an equation binding."
+"""
+Declare source-owned physical hook defaults and admitted overrides for an equation binding.
+"""
 function hooks end
 
-"Resolve scalar or homogeneous three-field selections through their formula owner."
+"""
+Resolve scalar or homogeneous three-field selections through their formula owner.
+"""
 function Formulation(::Type{F}, selected) where {F <: Union{
         EarthImpedanceFormulation, EarthAdmittanceFormulation}}
     return F(selected)
@@ -180,7 +186,9 @@ function Formulation(::Type{F}, selected::NamedTuple) where {F <: Union{
     return map(F, NamedTuple{names}(selected))
 end
 
-"Resolve the selected formula for exact source and target layer indices."
+"""
+Resolve the selected formula for exact source and target layer indices.
+"""
 Formulation(selected::Union{EarthImpedanceFormulation, EarthAdmittanceFormulation},
     ::Val{S}, ::Val{T}) where {S, T} = selected
 
@@ -289,7 +297,9 @@ function validate(formula::Union{EarthImpedanceFormulation, EarthAdmittanceFormu
     return formula
 end
 
-"Route an explicit external formulation tag to its `Val` dispatch method."
+"""
+Route an explicit external formulation tag to its `Val` dispatch method.
+"""
 Formulation(backend::Symbol; kwargs...) = Formulation(Val(backend); kwargs...)
 
 function _fem_formulation(

@@ -1,4 +1,6 @@
-"Supertype for package-owned electromagnetic material values."
+"""
+Supertype for package-owned electromagnetic material values.
+"""
 abstract type AbstractMaterial end
 
 """

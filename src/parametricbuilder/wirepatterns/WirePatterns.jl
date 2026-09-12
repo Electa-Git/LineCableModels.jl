@@ -10,7 +10,9 @@ using DocStringExtensions: TYPEDEF, TYPEDFIELDS, TYPEDSIGNATURES
 
 import ...LineCableModels: nominal
 
-"Return the maximum wire count admitted by one estimate geometry."
+"""
+Return the maximum wire count admitted by one estimate geometry.
+"""
 function maxfill end
 
 export WireEstimate, make_stranded, make_screened

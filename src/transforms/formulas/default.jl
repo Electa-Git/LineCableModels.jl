@@ -10,7 +10,7 @@ initialized from the preceding frequency.
 ```math
 \\widetilde{\\mathbf S}=\\frac{\\mathbf Y\\mathbf Z}
 {-\\omega^2\\mu_0\\varepsilon_0}-\\mathbf I,\\qquad
-\\widetilde{\\mathbf S}\\mathbf t=\\lambda\\mathbf t,qquad
+\\widetilde{\\mathbf S}\\mathbf t=\\lambda\\mathbf t,\\qquad
 \\mathbf t^T\\mathbf t=1.
 ```
 

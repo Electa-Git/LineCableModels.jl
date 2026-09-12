@@ -180,7 +180,9 @@ Base.iterate(value::ParametricResult, state...) = iterate(value.values, state...
 Base.firstindex(value::ParametricResult) = firstindex(value.values)
 Base.lastindex(value::ParametricResult) = lastindex(value.values)
 
-"Return one result selected by its problem and formulation indices."
+"""
+Return one result selected by its problem and formulation indices.
+"""
 function Base.getindex(
         value::ParametricResult,
         problem_index::Integer,

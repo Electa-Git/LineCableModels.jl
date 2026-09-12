@@ -138,7 +138,7 @@ with analytical calculations, cable constants, and PSCAD export. The retired
 The default law requires a positive finite correction factor and
 ``|T-T_0|<150`` K. These are limits of this approximation, independent of thermal
 rating. Custom laws own their applicability and use the usual contribution-hook
-contract; no FEM author registration is required. Passive materials can retain
+signature; no FEM author registration is required. Passive materials can retain
 infinite resistivity. Dielectric constituents are evaluated before radial
 aggregation, and polarization loss is not corrected a second time.
 
@@ -273,7 +273,7 @@ sizes, and GetDP tables; it defines no second cable, material, or project
 schema.
 
 Every FEM computation starts with a numeric preflight before model adaptation,
-runtime-directory creation, Gmsh initialisation, or meshing. The preflight
+runtime-directory creation, Gmsh initialization, or meshing. The preflight
 rebuilds continuous problem data as `Float64`; when a
 `Measurements.Measurement` scalar is present, only its nominal value is
 retained. Discrete topology such as terminal assignments, material tags, and
@@ -292,7 +292,7 @@ rejected. Analytical scalar and uncertainty propagation remain unchanged.
 | Temperature | `LineParametersProblem.temperature` | Prescribed input to the selected temperature law; the default uses material `T0` and `alpha` |
 | Earth material | `LineParametersProblem.earth_props` | Declared air plus one horizontal soil half-space; the soil law is evaluated per frequency |
 | Optional environment declaration | `LineCableSystem.environment` | `nothing` and `EarthModel` are accepted; other declarations produce a typed unsupported-feature error |
-| Line length and output basis | `LineCableSystem.line_length` and shared `compute` options | Per-unit-length is canonical; total basis uses the existing package scaling |
+| Line length and output basis | `LineCableSystem.line_length` and shared `compute` options | Per-unit-length is the default; total basis scales Z and Y by line length |
 | Propagation constant | backend-owned ``\Gamma\to0`` limit, with independent or first-order coupled fields selected by formulation `options.physics` | A non-`nothing` problem-level `Γ` is rejected rather than silently reinterpreted |
 | Mesh resolution | local characteristic lengths derived from each resolved solid, tube, strand, foil, and passive region; per-frequency earth skin depth controls the exterior domain, and air/soil propagation scales constrain surrounding-medium resolution | Thin internal features remain local and cannot refine unrelated layers or the earth domain |
 
@@ -327,7 +327,7 @@ material meshes are rejected.
 
 Rectangular stranded cores supply their occupied disk boundary directly from
 physical resolution. FEM uses the same boundary as preview, analytical
-flattening and subsequent layers. Complete bounded formations are recognised
+flattening and subsequent layers. Complete bounded formations are recognized
 using the same floating-point area tolerance as enclosure resolution, not an
 independent engineering fill-fraction cutoff; retained filler is not replaced
 by an expanded conductor.
@@ -423,7 +423,7 @@ retaining separate selection calculation records and independent result arrays.
 
 ## Optional Gmsh UI
 
-The UI is a visualization and debugging surface, not an input editor:
+The UI displays the model, fields, and solver diagnostics:
 
 ```julia
 interactive_fem = Formulation(:LineCableModelsFEM)

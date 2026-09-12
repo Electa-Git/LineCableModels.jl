@@ -9,7 +9,7 @@ New deterministic campaign artifacts carry the serialized scalar problem actuall
 computed, including the normalized frequency samples, and the full
 physical formulation declaration. Replay uses those stored inputs through the
 package's existing deserializer and `Formulation` constructor, not today's case
-catalogue. Frequency samples, matrix ordering, basis and reduction options are
+catalog. Frequency samples, matrix ordering, basis and reduction options are
 not silently changed. A recorded `:default` exercises the current contextual
 default; a changed result requires investigation and explicit review, not an
 automatic reference refresh. Explicit author choices retain their own tests.
@@ -43,7 +43,7 @@ reason to invalidate the baseline when the implementation under test changes.
 Historical artifacts without replay inputs still work in reports, but are not
 silently reconstructed from current case files.
 
-This initial gate supports deterministic, per-metre phase matrices from owned
+This initial gate supports deterministic, per-meter phase matrices from owned
 coaxial calculations. External results inform their review; they are not
 assumed numerically interchangeable. UQ moments and other problems require an
 explicit reference-replay method before inclusion.

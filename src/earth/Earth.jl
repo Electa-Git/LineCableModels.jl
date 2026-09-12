@@ -30,13 +30,19 @@ import ..LineCableModels: parameterize
 using ..Materials: AbstractMaterial
 import ..TextDisplay
 
-"Supertype for materialized static earth-layer and earth-model descriptions."
+"""
+Supertype for materialized static earth-layer and earth-model descriptions.
+"""
 abstract type AbstractEarthModel end
 
-"Supertype for one static earth layer; retains the abstract earth-model contract."
+"""
+Supertype for a static earth layer.
+"""
 abstract type AbstractEarthLayer <: AbstractEarthModel end
 
-"Supertype for frequency-evaluated earth constitutive properties."
+"""
+Supertype for frequency-evaluated earth constitutive properties.
+"""
 abstract type AbstractEarthMaterial <: AbstractMaterial end
 
 @required AbstractEarthModel begin

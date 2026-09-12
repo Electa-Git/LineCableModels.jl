@@ -323,7 +323,7 @@ struct ObservationPublication{P <: Tuple, C <: NamedTuple, M <: NamedTuple}
     observations::P
     "Validated equal-length table columns."
     columns::C
-    "Basis, row order, and quantity/unit column contracts."
+    "Basis, row order, and quantity and unit metadata for each column."
     metadata::M
 
     function ObservationPublication(
@@ -420,7 +420,7 @@ frequency accompany the requested quantity columns.
 # Returns
 
 - A named tuple containing equal-length `columns`, `row_order`, and the
-  quantity/unit contract `observation_columns`.
+  quantity and unit metadata in `observation_columns`.
 
 # Errors
 

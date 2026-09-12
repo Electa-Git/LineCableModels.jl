@@ -42,7 +42,7 @@ end
         parts...
     end
 
-Build a completed cable from physical declarations ordered from the centre
+Build a completed cable from physical declarations ordered from the center
 outward.
 
 # Arguments
@@ -52,7 +52,7 @@ outward.
 
 # Keywords
 
-- `nominal_data=nothing`: Descriptive catalogue data stored with the design.
+- `nominal_data=nothing`: Descriptive catalog data stored with the design.
 - `combine=:product`: Gridspace composition rule.
 
 # Returns
@@ -344,7 +344,9 @@ function _coordinate_tuple(value, name::Symbol)
     return copy(value.args)
 end
 
-"Place a physical subject using coordinate-tuple notation."
+"""
+Place a physical subject using coordinate-tuple notation.
+"""
 macro at(subject, coordinates, assignments...)
     values = _coordinate_tuple(coordinates, :at)
     keywords = _macro_keywords(assignments, :at)
@@ -446,7 +448,9 @@ macro vflat(design, assignments...)
     return esc(_formation_macro(:vflat, design, assignments))
 end
 
-"Insert the deferred `n = capacity()` policy into a repeated-member call."
+"""
+Insert the deferred `n = capacity()` policy into a repeated-member call.
+"""
 macro distribute(call)
     call isa Expr && call.head === :call || throw(ArgumentError(
         "@distribute requires a constructor call"

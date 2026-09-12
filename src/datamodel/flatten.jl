@@ -32,15 +32,15 @@ end
 $(TYPEDSIGNATURES)
 
 Calculate the geometric mean distance between two conductor-zone element sets
-\\[m\\]. Coincident element centres use the greater element radius as their
+\\[m\\]. Coincident element centers use the greater element radius as their
 finite self-distance. Element areas weight heterogeneous zones by their
 cross-sectional participation.
 
 # Arguments
 
-- `left_coordinates`: Element centres of the accumulated zone \\[m\\].
+- `left_coordinates`: Element centers of the accumulated zone \\[m\\].
 - `left_radius`: Element radius of the accumulated zone \\[m\\].
-- `right_coordinates`: Element centres of the added zone \\[m\\].
+- `right_coordinates`: Element centers of the added zone \\[m\\].
 - `right_radius`: Element radius of the added zone \\[m\\].
 - `left_element_area`: Area represented by each accumulated element \\[m²\\].
 - `right_element_area`: Area represented by each added element \\[m²\\].

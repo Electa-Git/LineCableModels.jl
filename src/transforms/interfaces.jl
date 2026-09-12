@@ -41,7 +41,9 @@ struct ModalOperators{V <: AbstractArray, I <: AbstractArray}
     end
 end
 
-"Return the modal operators carried by modal-domain line parameters."
+"""
+Return the modal operators carried by modal-domain line parameters.
+"""
 function operators(parameters::LineParameters{T, U, D}) where {T, U, D <: ModalDomain}
     parameters.domain.operators
 end

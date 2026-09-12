@@ -4,6 +4,13 @@ $(TYPEDSIGNATURES)
 Calculate the GMR of a circular wire array:
 ``GMR=(r_g N a^{N-1})^{1/N}``, with
 ``r_g=r_w\\exp(-\\mu_r/4)``.
+
+`lay_radius` is the radius `a` of the strand-center circle in meters;
+`count` is the positive integer strand count `N`; `wire_radius` is the
+positive strand radius `r_w` in meters; and `mu_r` is the positive,
+dimensionless relative permeability. The lay radius must be positive for
+multiple wires and may be zero for one wire. The returned geometric mean
+radius (GMR) is in meters.
 """
 function strand_gmr(lay_radius::Real, count::Integer, wire_radius::Real, mu_r::Real)
     count > 0 || throw(DomainError(count, "wire count must be positive"))
@@ -25,7 +32,7 @@ end
 """
 $(TYPEDSIGNATURES)
 
-Calculate the GMR of identical circular strands from their resolved centres:
+Calculate the GMR of identical circular strands from their resolved centers:
 
 ```math
 \\log GMR=\\frac{1}{N^2}\\left[
@@ -36,7 +43,7 @@ r_g=r_w\\exp(-\\mu_r/4).
 
 # Arguments
 
-- `coordinates`: Strand-centre coordinates \\[m\\].
+- `coordinates`: Strand-center coordinates \\[m\\].
 - `wire_radius`: Strand radius \\[m\\].
 - `mu_r`: Relative permeability \\[dimensionless\\].
 
@@ -82,6 +89,10 @@ Calculate the GMR of an annular conductor.
 \\frac{r_1^4}{(r_2^2-r_1^2)^2}\\log\\frac{r_2}{r_1}
 -\\frac{3r_1^2-r_2^2}{4(r_2^2-r_1^2)}\\right].
 ```
+
+`r_in` and `r_ex` are the inner radius ``r_1`` and outer radius ``r_2``
+in meters, with ``0≤r_1≤r_2`` and ``r_2>0``. `mu_r` is the positive,
+dimensionless relative permeability. The returned GMR is in meters.
 
 # Notes
 
@@ -153,11 +164,23 @@ end
 """
 $(TYPEDSIGNATURES)
 
-Recover relative permeability by inverting [`tubular_gmr`](@ref).
+Recover dimensionless relative permeability from the GMR of an annular conductor:
 
-# Notes
+```math
+\\mu_r=\\frac{\\log(r_{ex}/GMR)}{A-B},\\qquad
+A=\\frac{r_{in}^4}{(r_{ex}^2-r_{in}^2)^2}\\log\\frac{r_{ex}}{r_{in}},\\qquad
+B=\\frac{3r_{in}^2-r_{ex}^2}{4(r_{ex}^2-r_{in}^2)}.
+```
 
-The solid-conductor and thin-shell limits use their analytic reductions.
+`gmr`, `r_ex`, and `r_in` are the geometric mean radius, outer conductor
+radius, and inner conductor radius in meters. The GMR and outer radius must
+be positive, with ``0≤r_{in}≤r_{ex}``. A `NaN` input returns `NaN`.
+
+For a solid conductor (`r_in=0`), the result is
+``-4\\log(GMR/r_{ex})``. The implementation sets ``A=0`` when the radii are
+approximately equal. In the thin-shell limit, GMR approaches the outer radius
+regardless of permeability, so the inverse does not determine permeability
+reliably.
 """
 function equivalent_mu(gmr::Real, r_ex::Real, r_in::Real)
     radius, rex, rin = promote(float(gmr), float(r_ex), float(r_in))

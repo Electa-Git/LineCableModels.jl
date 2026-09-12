@@ -29,7 +29,7 @@ and dielectric loss tangent. Select a lossy relation explicitly to retain loss.
 
 - `material`: Semiconducting material and relative permittivity.
 - `frequency`: Evaluation frequency \\[Hz\\].
-- `temperature`: Orchestration-supplied temperature \\[°C\\]; this relation
+- `temperature`: Operating temperature \\[°C\\]; this relation
   applies no temperature correction.
 - `values`: Empty physical-parameter tuple.
 - `options`: Empty numerical sections for this equation.

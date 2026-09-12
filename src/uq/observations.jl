@@ -1,4 +1,6 @@
-"Return core results in Gridspace traversal order."
+"""
+Return core results in Gridspace traversal order.
+"""
 Units.label(::Units.Quantity{:sample_count}) = "Count"
 Units.symbol(::Units.Quantity{:sample_count}) = "n"
 Units.label(::Units.Quantity{:probability}) = "Probability"
@@ -16,18 +18,26 @@ const _DimensionlessStatisticalQuantity = Union{
 Units.native_unit(::_DimensionlessStatisticalQuantity) = Units.units(:base, :dimensionless)
 Units.display_unit(::_DimensionlessStatisticalQuantity) = Units.units(:base, :dimensionless)
 
-"Return the sample-summary product for each Monte Carlo point."
+"""
+Return the sample-summary product for each Monte Carlo point.
+"""
 statistics(value::MonteCarloResult) = value.stats
 
-"Return retained sample products, or `nothing` when retention was disabled."
+"""
+Return retained sample products, or `nothing` when retention was disabled.
+"""
 samples(value::MonteCarloResult) = value.sample_values
 
-"Return retained histogram products, or `nothing` when retention was disabled."
+"""
+Return retained histogram products, or `nothing` when retention was disabled.
+"""
 histograms(value::MonteCarloResult) = value.histogram_values
 
 basis(value::MonteCarloResult) = basis(first(value.values))
 
-"Return the uncertainty-bearing core results of a linear propagation."
+"""
+Return the uncertainty-bearing core results of a linear propagation.
+"""
 uncertain(value::LinearErrorResult) = value.values
 
 """

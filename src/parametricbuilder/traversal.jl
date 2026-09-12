@@ -194,7 +194,7 @@ end
 $(TYPEDSIGNATURES)
 
 Compute one target-bearing scalar grid point. Core workflows may add a more
-specific lowering route; the general compatibility path materialises exactly
+specific lowering route; the general compatibility path materializes exactly
 that selected point and never the surrounding finite space.
 """
 function compute(

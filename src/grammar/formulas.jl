@@ -1,9 +1,13 @@
-"Declare numerical defaults for one complete equation binding."
+"""
+Declare numerical defaults for one complete equation binding.
+"""
 function computation_options(binding::FormulaMethod)
     throw(ArgumentError("missing numerical-default declaration for $binding"))
 end
 
-"Declare the numerical requirements of a complete contribution replacement."
+"""
+Declare the numerical requirements of a complete contribution replacement.
+"""
 function computation_options(binding::FormulaMethod, replacement)
     throw(ArgumentError(
         "complete contribution override $(typeof(replacement)) must declare computation_options(binding, replacement) for $binding"))

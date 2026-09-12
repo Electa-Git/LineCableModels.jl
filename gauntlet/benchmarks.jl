@@ -155,7 +155,7 @@ options. Comparison direction and RMS settings belong to the definition. Differe
 between models are retained observations. Optional performance checks are separate.
 When `directory` is supplied, completed calculations and analysis are recoverable.
 Reuse depends on the numerical declaration and saved-file integrity, not live source
-files. Execution-session metadata records provenance without freezing the environment.
+files. Each execution session records the Julia and package versions and Git state.
 Reports are saved before optional timing checks, so timing failures do not discard them.
 `mode=:record` stages that same complete bundle for explicit artifact packaging.
 """

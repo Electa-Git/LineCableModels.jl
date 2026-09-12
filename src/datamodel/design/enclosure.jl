@@ -3,8 +3,7 @@ $(TYPEDEF)
 
 Mark a resolved fill or wall region that establishes an enclosure boundary.
 
-The marker records construction provenance for geometry consumers. It carries
-no material or rendering policy.
+Geometry methods use this marker to identify an enclosure boundary.
 """
 struct EnclosureBoundary end
 

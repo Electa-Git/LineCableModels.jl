@@ -1,9 +1,9 @@
 """
     PlotBuilder
 
-Provide the thin, renderer-optional plotting surface used by the Makie
-extension.  This module owns live plot handles and addon entry points only; it
-does not define renderer-independent plot specifications or scientific data.
+Provide plotting functions and live figure handles for the Makie extension.
+Load a Makie backend to draw figures; returned handles expose the Makie objects
+for further editing.
 """
 module PlotBuilder
 

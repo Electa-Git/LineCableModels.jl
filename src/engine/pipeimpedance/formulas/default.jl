@@ -7,7 +7,7 @@ $(TYPEDSIGNATURES)
 An eccentric or multicore conductive enclosure requires a pipe formulation:
 the coaxial backend has none yet.
 
-**Reference.** Backend applicability policy; no author-labelled pipe equation
+**Reference.** Backend applicability policy; no author-labeled pipe equation
 or numerical approximation is introduced by this selector.
 """
 description(::Formula{:default}) = "Default analytical pipe-type treatment"

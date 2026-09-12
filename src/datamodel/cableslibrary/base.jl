@@ -65,17 +65,23 @@ function Base.delete!(library::CablesLibrary, cable_id)
     return library
 end
 
-"Return an empty cable library."
+"""
+Return an empty cable library.
+"""
 Base.empty(::CablesLibrary) = CablesLibrary()
 
-"Remove every cable design and catalogue record and return `library`."
+"""
+Remove every cable design and catalog record and return `library`.
+"""
 function Base.empty!(library::CablesLibrary)
     empty!(library.data)
     empty!(library.catalogues)
     return library
 end
 
-"Return a shallow cable-library copy with independent dictionary storage."
+"""
+Return a shallow cable-library copy with independent dictionary storage.
+"""
 function Base.copy(library::CablesLibrary)
     copied = CablesLibrary()
     copied.data = copy(library.data)

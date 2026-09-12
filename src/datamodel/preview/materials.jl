@@ -146,7 +146,7 @@ end
     material_property_ranges(designs::AbstractVector{<:CableDesign})
 
 Return physical resistivity, relative permeability, and relative permittivity
-ranges without assigning any presentation colour scheme.
+ranges without assigning any presentation color scheme.
 """
 function material_property_ranges()
     return (; rho = (_RHO_MIN, _RHO_MAX), mu_r = (1.0, 300.0), eps_r = (1.0, 1000.0))

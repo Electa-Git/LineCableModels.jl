@@ -135,7 +135,7 @@ end
 """
 $(TYPEDSIGNATURES)
 
-Expose comparison records, every matrix term and a labelled summary of per-term
+Expose comparison records, every matrix term and a labeled summary of per-term
 maxima. Absolute RMS uses native units; relative RMS is displayed as percent.
 Unavailable relative values retain their reasons and measured absolute values.
 """

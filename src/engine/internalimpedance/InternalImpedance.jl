@@ -53,7 +53,9 @@ const FORMULAS = let
 end
 #! explicit-imports: on
 
-"Return the built-in internal-impedance formula identifiers."
+"""
+Return the built-in internal-impedance formula identifiers.
+"""
 formulas() = FORMULAS
 
 end # module InternalImpedance

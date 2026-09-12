@@ -50,7 +50,9 @@ const FORMULAS = let
 end
 #! explicit-imports: on
 
-"Return the built-in insulation-impedance formula identifiers."
+"""
+Return the built-in insulation-impedance formula identifiers.
+"""
 formulas() = FORMULAS
 
 end # module InsulationImpedance

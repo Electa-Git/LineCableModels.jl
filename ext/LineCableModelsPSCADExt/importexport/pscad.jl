@@ -11,12 +11,12 @@ The generated project preserves PSCAD's `master:Line_FrePhase_Options`,
 `master:Cable_Coax`, and `master:Line_Ground` component bindings. Cable
 geometry, material properties, dielectric losses, phase eliminations, line
 length, base frequency, and static earth properties are emitted as component
-parameters. PSCAD may normalise the deterministic placeholder identifiers when
+parameters. PSCAD may normalize the deterministic placeholder identifiers when
 it opens the project.
 
 # Arguments
 
-- `system`: Materialised line and cable geometry.
+- `system`: Materialized line and cable geometry.
 - `earth`: Physical air and one infinite homogeneous soil half-space.
 - `base_freq`: Base frequency in hertz.
 - `file_name`: Destination `.pscx` file. The system identifier is prepended to

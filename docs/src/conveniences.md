@@ -16,7 +16,7 @@ phase = terminal(
 ```
 
 Arguments to `terminal`, `layers`, and `build(CableDesign, ...)` are ordered
-from the centre outward. `solid` and `shell` are the general escape hatches for
+from the center outward. `solid` and `shell` are the general escape hatches for
 physical roles not covered by `core`, `insulation`, `screen`, `sheath`,
 `bedding`, `jacket`, and `filler`.
 
@@ -35,13 +35,13 @@ screen_wires = wires(
 )
 ```
 
-With a `Disk` boundary, `stranded` creates a centre wire and infers the maximum
+With a `Disk` boundary, `stranded` creates a center wire and infers the maximum
 complete `6k` course inventory. Without compaction circular wires retain their
 natural shape. `compact=true` requests area-preserving deformation of those
-same complete courses. A `Sector` boundary maps a centre strand and complete
+same complete courses. A `Sector` boundary maps a center strand and complete
 `6k` courses into the sector, then reconstructs each strand as an
 area-preserving clipped disk. Its deformation is intrinsic; it has no
-compaction selector or separately supplied centre wire.
+compaction selector or separately supplied center wire.
 
 ```julia
 compacted_core = stranded(

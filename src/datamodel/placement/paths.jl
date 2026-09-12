@@ -1,4 +1,6 @@
-"Store a helical lay-length to mean-diameter ratio."
+"""
+Store a helical lay-length to mean-diameter ratio.
+"""
 struct LayRatio{T <: Real}
     q::T
     function LayRatio{T}(q::T) where {T <: Real}
@@ -44,7 +46,9 @@ function LayRatio(first, second, remaining...; combine::Symbol = :product)
     _normalize_schedule(LayRatio, (first, second, remaining...); combine)
 end
 
-"Store an authoritative helical pitch length \\[m\\]."
+"""
+Store an authoritative helical pitch length \\[m\\].
+"""
 struct Pitch{T <: Real}
     p::T
     function Pitch{T}(p::T) where {T <: Real}
@@ -84,7 +88,9 @@ function Pitch(first, second, remaining...; combine::Symbol = :product)
     _normalize_schedule(Pitch, (first, second, remaining...); combine)
 end
 
-"Store an authoritative helical lay angle relative to the cable axis \\[rad\\]."
+"""
+Store an authoritative helical lay angle relative to the cable axis \\[rad\\].
+"""
 struct LayAngle{T <: Real}
     α::T
     function LayAngle{T}(α::T) where {T <: Real}
@@ -165,19 +171,25 @@ function Helix(
     return parameterize(Helix, _helix, (lay, dir, φ0); combine)
 end
 
-"Return helical pitch at local radius `radius` \\[m\\]."
+"""
+Return helical pitch at local radius `radius` \\[m\\].
+"""
 function pitch end
 pitch(path::Helix{<:LayRatio}, radius::Real) = path.lay.q * (2 * radius)
 pitch(path::Helix{<:Pitch}, radius::Real) = path.lay.p
 pitch(path::Helix{<:LayAngle}, radius::Real) = 2π * radius / tan(path.lay.α)
 
-"Return helical lay angle at local radius `radius` \\[rad\\]."
+"""
+Return helical lay angle at local radius `radius` \\[rad\\].
+"""
 function angle(path::Helix, radius::Real)
     radius >= zero(radius) || throw(DomainError(radius, "helix radius must be nonnegative"))
     return atan(2π * radius, pitch(path, radius))
 end
 
-"Return the helical path-length ratio at local radius `radius`."
+"""
+Return the helical path-length ratio at local radius `radius`.
+"""
 function overlength(path::Helix, radius::Real)
     value = angle(path, radius)
     return inv(cos(value))

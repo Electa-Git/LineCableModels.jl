@@ -4,7 +4,7 @@ $(TYPEDEF)
 Select one frequency-dependent earth-material relation by its stable formula
 identifier.
 
-Each registered formula has one scalar route with the contract
+Each registered formula implements the scalar signature
 `route(material, frequency, parameters, options, workspace) -> EarthMaterial`. The route and its
 parameters participate in the concrete Julia type.
 
@@ -16,16 +16,20 @@ struct Formula{ID, R, A <: NamedTuple, H <: NamedTuple, O <: NamedTuple} <:
     binding::R
     "Explicit model parameters."
     parameters::A
-    "Explicit callable overrides retained for provenance."
+    "Callable overrides supplied by the user."
     hooks::H
     "Normalized numerical sections for the selected contribution."
     options::O
 end
 
-"Return the stable formula identifier of an earth-property formula."
+"""
+Return the stable formula identifier of an earth-property formula.
+"""
 formula_id(::Formula{ID}) where {ID} = ID
 
-"Evaluate one formula-owned frequency-dependent earth material relation."
+"""
+Evaluate one formula-owned frequency-dependent earth material relation.
+"""
 function earth_material end
 
 """
@@ -80,10 +84,14 @@ function (formula::Formula)(material::EarthMaterial{T}, frequency::Real; workspa
     )
 end
 
-"Pass static earth properties through when no constitutive relation is selected."
+"""
+Pass static earth properties through when no constitutive relation is selected.
+"""
 constitutive(::Nothing, material::EarthMaterial, ::Real) = material
 
-"Evaluate one registered frequency-dependent earth constitutive relation."
+"""
+Evaluate one registered frequency-dependent earth constitutive relation.
+"""
 function constitutive(formula::Formula, material::EarthMaterial, frequency::Real)
     formula(material, frequency)
 end

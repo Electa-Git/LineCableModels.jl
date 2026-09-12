@@ -23,7 +23,7 @@ Z_{e,ij}=\\frac{j\\omega\\mu_0}{2\\pi}\\left[-\\ln
 ```
 
 Here ``d_{ij}=\\sqrt{x_{ij}^2+(h_i-h_j)^2}`` is the distance between
-cable axes and ``H=h_i+h_j`` is the sum of burial depths, all in metres.
+cable axes and ``H=h_i+h_j`` is the sum of burial depths, all in meters.
 
 **Reference.** L. M. Wedepohl and D. J. Wilcox, “Transient Analysis of
 Underground Power-Transmission Systems: System-Model and Wave-Propagation

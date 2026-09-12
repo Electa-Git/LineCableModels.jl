@@ -1,4 +1,6 @@
-"Concrete callable representation of a type constructor used by a Gridspace."
+"""
+Concrete callable representation of a type constructor used by a Gridspace.
+"""
 struct _TypeConstructor{Target} end
 
 (::_TypeConstructor{Target})(arguments...) where {Target} = Target(arguments...)
@@ -15,7 +17,7 @@ in the type and may be `:product` or `:zip`. `Target` identifies the semantic
 result family. A nonempty deterministic space records the concrete type
 returned by its callable when Julia can prove it without evaluating a point.
 Otherwise the space declares its iterator element type unknown until values
-are materialised; it never advertises a `UnionAll` result type.
+are materialized; it never advertises a `UnionAll` result type.
 
 $(TYPEDFIELDS)
 """
@@ -27,7 +29,9 @@ struct Gridspace{Target, F, G <: Tuple, C, R}
     grids::G
 end
 
-"Sentinel result type for a Gridspace whose materialised element type is unknown."
+"""
+Sentinel result type for a Gridspace whose materialized element type is unknown.
+"""
 struct _UnknownGridspaceEltype end
 
 const _GridspaceSource = Union{AbstractGrid, Gridspace, AbstractResultSpace}
@@ -247,7 +251,9 @@ end
 _zip_points(space::Gridspace, ::Val{true}) = _indexed_points(space)
 _zip_points(space::Gridspace, ::Val{false}) = _iterated_points(space)
 
-"Return the lazy unresolved points of a Gridspace."
+"""
+Return the lazy unresolved points of a Gridspace.
+"""
 function points(
         space::Gridspace{<:Any, <:Any, <:Any, Val{:product}, <:Any}
 )
@@ -257,7 +263,9 @@ function points(space::Gridspace{<:Any, <:Any, <:Any, Val{:zip}, <:Any})
     return _zip_points(space, _indexed_sources(space.grids))
 end
 
-"Return a value unchanged during deterministic point materialisation."
+"""
+Return a value unchanged during deterministic point materialization.
+"""
 materialize(value) = value
 
 function materialize(value::UncertainValue)
@@ -268,7 +276,9 @@ function materialize(value::UncertainValue)
     ))
 end
 
-"Recursively materialise a selected Gridspace point."
+"""
+Recursively materialize a selected Gridspace point.
+"""
 function materialize(point::Gridpoint)
     point.build(map(materialize, point.args)...)
 end
@@ -279,19 +289,25 @@ function materialize(
     return validate(point.build(map(materialize, point.args)...))::Target
 end
 
-"Return a deterministic value unchanged during stochastic realisation."
+"""
+Return a deterministic value unchanged during stochastic realization.
+"""
 realize(::Random.AbstractRNG, value, _) = value
 
 function realize(rng::Random.AbstractRNG, value::UncertainValue, distribution)
     rand(rng, value; distribution)
 end
 
-"Draw the arguments of a selected Gridspace point without invoking its builder."
+"""
+Draw the arguments of a selected Gridspace point without invoking its builder.
+"""
 function realize_arguments(rng::Random.AbstractRNG, point::Gridpoint, distribution)
     return map(value -> realize(rng, value, distribution), point.args)
 end
 
-"Build a selected Gridspace point from an already realised argument tuple."
+"""
+Build a selected Gridspace point from an already realized argument tuple.
+"""
 realize(point::Gridpoint, arguments::Tuple) = point.build(arguments...)
 
 function realize(
@@ -301,7 +317,9 @@ function realize(
     return validate(point.build(arguments...))::Target
 end
 
-"Recursively realise a selected Gridspace point using the caller's RNG."
+"""
+Recursively realize a selected Gridspace point using the caller's RNG.
+"""
 function realize(rng::Random.AbstractRNG, point::Gridpoint, distribution)
     return realize(point, realize_arguments(rng, point, distribution))
 end
@@ -352,7 +370,9 @@ end
 Base.length(space::Gridspace{<:Any, <:Any, <:Any, Val{:zip}, <:Any}) = _zip_length(space)
 Base.size(space::Gridspace) = (length(space),)
 
-"Draw one unresolved point, then realize its arguments through the owned construction path."
+"""
+Draw one unresolved point, then realize its arguments through the owned construction path.
+"""
 function Base.rand(
         rng::Random.AbstractRNG,
         space::Gridspace{<:Any, <:Any, <:Any, <:Any, Result};
@@ -371,7 +391,9 @@ function Base.rand(space::Gridspace; distribution = :normal)
     return rand(Random.default_rng(), space; distribution)
 end
 
-"Return whether a value structurally contains an uncertainty descriptor."
+"""
+Return whether a value structurally contains an uncertainty descriptor.
+"""
 has_uncertainty(::UncertainValue) = true
 has_uncertainty(grid::AbstractUncertainGrid) = true
 has_uncertainty(grid::DeterministicGrid) = any(has_uncertainty, grid.vals)

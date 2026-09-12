@@ -61,7 +61,9 @@ const FORMULAS = let
 end
 #! explicit-imports: on
 
-"Return numerical earth-impedance identifiers."
+"""
+Return numerical earth-impedance identifiers.
+"""
 formulas() = FORMULAS
 
 end # module EarthImpedance

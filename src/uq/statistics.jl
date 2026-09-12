@@ -78,7 +78,7 @@ Base.maximum(summary::SampleSummary) = summary.max
 """
 $(TYPEDEF)
 
-Store a normalised piecewise-constant probability density. `edges` use the
+Store a normalized piecewise-constant probability density. `edges` use the
 units of the sampled quantity and `density` uses their reciprocal.
 
 $(TYPEDFIELDS)
@@ -86,7 +86,7 @@ $(TYPEDFIELDS)
 struct HistogramDensity{T <: AbstractFloat}
     "Strictly increasing bin edges."
     edges::Vector{T}
-    "Normalised density in each bin."
+    "Normalized density in each bin."
     density::Vector{T}
 
     function HistogramDensity(edges::Vector{T}, density::Vector{T}) where {T <:
@@ -139,7 +139,9 @@ function HistogramDensity(
     return HistogramDensity(edges, counts ./ (length(values) .* diff(edges)))
 end
 
-"Evaluate the cumulative probability of a piecewise-constant histogram model."
+"""
+Evaluate the cumulative probability of a piecewise-constant histogram model.
+"""
 function cumulative_probability(histogram::HistogramDensity, value::Real)
     value <= first(histogram.edges) && return 0.0
     value >= last(histogram.edges) && return 1.0
@@ -168,7 +170,9 @@ function Statistics.quantile(histogram::HistogramDensity, probability::Real)
     return histogram.edges[bin] + (probability - prior) / density
 end
 
-"Return model/sample quantile coordinates and identity-line endpoints."
+"""
+Return model/sample quantile coordinates and identity-line endpoints.
+"""
 function quantile_pairs(histogram::HistogramDensity, samples::AbstractVector{<:Real})
     isempty(samples) && throw(ArgumentError("Q-Q coordinates require retained samples"))
     all(isfinite, samples) || throw(ArgumentError("Q-Q samples must be finite"))

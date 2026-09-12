@@ -1,10 +1,10 @@
 """
 $(TYPEDEF)
 
-Record the bounded-formation provenance of one resolved member.
+Record the formation boundary and radial course of one resolved member.
 
 The boundary identifies the complete formation while `course` records the
-inferred radial course. Course zero identifies the centre strand of a circular
+inferred radial course. Course zero identifies the center strand of a circular
 bundle or of one sector segment.
 
 $(TYPEDFIELDS)
@@ -12,7 +12,7 @@ $(TYPEDFIELDS)
 struct BoundedPlacement{B <: AbstractShape}
     "Resolved boundary shared by every member of the formation."
     boundary::B
-    "Inferred radial course; zero denotes a centre member."
+    "Inferred radial course; zero denotes a center member."
     course::Int
 
     function BoundedPlacement(boundary::B, course::Integer) where {
@@ -47,7 +47,7 @@ $(TYPEDEF)
 
 Store the exact annular deformation of one rectangular strip.
 
-`BentStrip` is resolved geometry, not a modelling declaration. The source
+`BentStrip` is resolved geometry, not a modeling declaration. The source
 remains a [`Rectangle`](@ref); the strip preserves its source area while its
 radial faces follow the containing circular course.
 
@@ -153,7 +153,9 @@ function tessellate(shape::BentStrip; points_per_arc::Integer = 32)
     ]
 end
 
-"Return a counter-clockwise polygonal approximation of a resolved boundary."
+"""
+Return a counter-clockwise polygonal approximation of a resolved boundary.
+"""
 function boundary_polygon(shape::Disk; points::Integer = 512)
     points >= 16 || throw(ArgumentError(
         "a disk boundary polygon requires at least 16 points"
@@ -591,7 +593,7 @@ end
 """
 $(TYPEDSIGNATURES)
 
-Map one centre strand and complete circular `6k` courses into a sector.
+Map one center strand and complete circular `6k` courses into a sector.
 The mapped sites retain their course identities while a prescribed-area power
 diagram allocates space; clipped disks supply the actual conductor shapes.
 
@@ -608,7 +610,7 @@ by normalized swept area. Sites remain fixed during power-cell balancing.
 
 # Arguments
 
-- `shape`: Resolved sector boundary, with coordinates in metres.
+- `shape`: Resolved sector boundary, with coordinates in meters.
 - `wire`: Circular source strand; its area is preserved in every member.
 
 # Returns

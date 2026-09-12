@@ -39,6 +39,7 @@ local/
 .linecablemodels/fem/
 .linecablemodels/gauntlet/
 .linecablemodels/qa/
+docs/notes/
 
 # examples artifacts
 !examples/*.jl

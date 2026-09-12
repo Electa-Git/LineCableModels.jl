@@ -3,7 +3,7 @@
 `mv_cable_design.json` is UTF-8 JSON using fixture schema version 1. Its root object is
 an encoded `LineCableModels.DataModel.CablesLibrary`. Nested records use fully
 qualified `__julia_type__` discriminators and SI-valued numeric fields accepted by the
-LineCableModels 0.2 serialisation schema. JSON object ordering does not affect
+LineCableModels 0.2 serialization schema. JSON object ordering does not affect
 loading.
 
 The file describes one 18/30 kV three-component cable design. Tests read it

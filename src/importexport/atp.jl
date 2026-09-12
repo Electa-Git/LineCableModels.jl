@@ -1,7 +1,7 @@
 """
 $(TYPEDSIGNATURES)
 
-Write an ATPDraw LCC project for a materialised line-cable system.
+Write an ATPDraw LCC project for a materialized line-cable system.
 
 The XML contains cable positions, conductor and insulation properties, line
 length, system frequency, and the resistivity of the last earth layer.

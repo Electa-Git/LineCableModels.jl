@@ -1,5 +1,13 @@
 # Conventions
 
+## Documentation language
+
+Use US English in docstrings and project documentation. Preserve API identifiers,
+file paths, quoted titles, and proper names. State what a calculation does,
+define its physical inputs and units, and distinguish implemented behavior from
+approximations and literature results. Omit promotional claims and process
+terminology when a concrete description suffices.
+
 LineCableModels follows the SciML formatter style. Run:
 
 ```julia
@@ -45,7 +53,7 @@ Do not add speculative compatibility shims, runtime `eval`, exception-driven
 feature tests, or lookup tables that duplicate Julia methods.
 
 Mutating functions use `!` only when the operation can mutate an argument or
-externally visible state. The suffix states behaviour; it is not decoration.
+externally visible state.
 
 ## Dispatch-driven fixed actions
 
@@ -93,7 +101,7 @@ actions listed in [Grammar invariants](developers.md) directly; runtime
 metadata that merely repeats their method definitions is not part of the
 grammar.
 
-## Ownership-centred recursive module layout
+## Ownership-centered recursive module layout
 
 Place code first by the owner that defines when it changes, then by its precise
 responsibility. Files, directories, and Julia modules solve different
@@ -165,12 +173,12 @@ Apply these rules:
 1. Construct scientific requests with `@observe` and retain their tuple form.
 2. Define quantity identity, units, labels, and symbols in `Units`.
 3. Let the result owner implement `observe` and declare supported requests.
-4. Publish once before a table or report consumes values; plotting sugar must
+4. Publish once before a table or report consumes values; plotting helpers must
    use the same public observation protocol rather than Engine internals.
 5. Keep scientific tables wide: coordinates identify rows and each observed
    quantity owns one column.
 6. Select statistical drawing primitives with Makie function identity itself.
-7. Create ordinary Makie axes directly or through the small addon shell; do not
+7. Create ordinary Makie axes directly or through `plotwindow`; do not
    introduce renderer-independent axis or subscription aggregates.
 8. Add physical preview geometry beside the DataModel type that owns the cable
    part, and add colors or legend grouping only in the Makie extension.
@@ -193,7 +201,7 @@ JSON             persistence
 
 Each public owned type defines `summary`, two-argument `show`, and
 `show(::MIME"text/plain", ...)`. The two-argument form is one line. Rich output
-honours `:compact`, `:limit`, and `displaysize(io)`, reports truncation, uses
+honors `:compact`, `:limit`, and `displaysize(io)`, reports truncation, uses
 engineering notation, and omits inactive fields. Libraries sort their keys.
 Result displays summarize dimensions and ranges; numerical values remain
 available through `observe` and `observables`.
@@ -233,7 +241,7 @@ with the implementation.
 - Place a docstring immediately before the documented module, type,
   constructor, function, or constant.
 - Use triple double quotes, except for concise field and constant docstrings.
-- Describe implemented behaviour. Do not infer equations, units, or defaults
+- Describe implemented behavior. Do not infer equations, units, or defaults
   from a name.
 - State each fact once.
 - Link related local bindings inline when the relationship helps the reader.
@@ -363,7 +371,7 @@ unit.
 
 ## Repository practice
 
-Versions follow [Semantic Versioning](https://semver.org/). Public behaviour
+Versions follow [Semantic Versioning](https://semver.org/). Public behavior
 remains compatible within a minor release. A deprecation includes a migration
 path before removal.
 

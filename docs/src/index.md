@@ -9,10 +9,10 @@ in geometry and material data.
 ## Documentation
 
 - [Tutorials](tutorials.md) introduce cable construction and calculation.
-- [Modelling and results](usage.md) covers calculations, result access,
+- [Modeling and results](usage.md) covers calculations, result access,
   uncertainty, tables, and plots.
 - [Gridspace and uncertainty](gridspace.md) specifies finite variation and
-  uncertainty realisation.
+  uncertainty realization.
 - [API reference](reference.md) lists the line and cable calculation API.
 - [Conveniences](conveniences.md) covers estimates, scalar formulas, and VDE
   designation parsing.

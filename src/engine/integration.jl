@@ -188,7 +188,7 @@ function spectral_estimate(::Val{:cim}, integral::SpectralIntegral{Kind}, contro
     sampled=SpectralIntegral(Val(Kind), counted, integral.weight, Float64(integral.scale);
         angle = integral.angle, pole = integral.pole, features = integral.features)
     reused=cim_reuse_estimate(sampled, controls, workspace, evaluations, Complex{physical_type})
-    # Keep the physical scalar contract explicit across the cache/construction
+    # Keep the physical scalar requirements explicit across the cache/construction
     # join; all fitting and numerical-error arithmetic uses Float64.
     reused===nothing || return reused::SpectralEstimate{Complex{physical_type}, Float64}
     return cim_estimate(sampled, controls, workspace, evaluations,

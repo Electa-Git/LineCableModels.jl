@@ -28,7 +28,9 @@ function _selection_value(value)
             map(name -> _selection_value(getfield(value, name)), names)))
 end
 
-"Return a digest of the materialised numerical declarations in one problem."
+"""
+Return a digest of the materialized numerical declarations in one problem.
+"""
 function numerical_input_sha256(problem::Engine.LineParametersProblem)
     # JSON transport retains the declaration, not the resolved physical tree.
     # Both are inputs to reuse: a placement change must not resurrect results
@@ -50,7 +52,9 @@ function repository_revision()
     return (; commit, dirty)
 end
 
-"Record the environment once per execution session; this is provenance, not a reuse condition."
+"""
+Record Julia and package versions and Git state once per execution session.
+"""
 function execution_record()
     packages = sort!([(name=id.name, uuid=string(id.uuid),
         version=Base.pkgversion(owner) === nothing ? nothing : string(Base.pkgversion(owner)),
@@ -69,7 +73,9 @@ function _selection_value(value::Union{Engine.LineParametersFormulation,Engine.L
     return _selection_value(NamedTuple(value))
 end
 
-"Explicitly capture source files for inspection; ordinary execution does not scan the source tree."
+"""
+Explicitly capture source files for inspection; ordinary execution does not scan the source tree.
+"""
 function implementation_record()
     paths = String[]
     for folder in ("src", "ext", "gauntlet")

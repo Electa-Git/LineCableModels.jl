@@ -16,13 +16,12 @@ completed LineCableSystem ──────────┐
 @earth / build → EarthModel ────────┘
 ```
 
-The notation layer describes physical order and electrical ownership. It does
-not introduce another stored model.
+The construction macros specify physical order and electrical terminals.
 
 ## Constructing a cable
 
 The following declaration describes one coaxial cable. Expressions inside
-`@cable` run from the centre outward. `@terminal` assigns one electrical name
+`@cable` run from the center outward. `@terminal` assigns one electrical name
 to every conductive descendant in its block.
 
 ```julia
@@ -113,7 +112,7 @@ end
 ## Repeated conductors
 
 `stranded` accepts circular wire shapes. For a `Disk` boundary, it infers the
-largest complete family of concentric courses: one centre wire and exactly
+largest complete family of concentric courses: one center wire and exactly
 `6k` wires in course `k`. With `compact=nothing`, those wires remain circles on
 their natural course radii.
 
@@ -145,7 +144,7 @@ compact_core = stranded(
 )
 ```
 
-A `Sector` boundary infers one bundle-centre strand and complete `6k` courses,
+A `Sector` boundary infers one bundle-center strand and complete `6k` courses,
 with total inventory `1 + 3L(L+1)`. The circular sites are mapped into the
 resolved sector and retained while a prescribed-area power diagram allocates
 space. Each strand is a disk grown inside its allocated cell until its clipped
@@ -176,7 +175,7 @@ sector_core = stranded(
 changes the resolved outline. The boundary adds no homogeneous conductor and
 no fictitious strand at the cable origin.
 Rectangular strands are admitted only in a circular core with an explicit
-centre wire. They are always bent area-preservingly into annular courses.
+center wire. They are always bent area-preservingly into annular courses.
 
 ## Independent cores and enclosures
 
@@ -217,7 +216,7 @@ Bare sectors must retain positive physical side clearance. A conformal outer
 insulation may close that clearance to zero, but it may not overlap its
 neighbor.
 
-## Canonical grammar
+## Stored construction types
 
 The notation and practical functions lower immediately to the stored grammar:
 
@@ -334,7 +333,7 @@ Scalar exports such as PSCAD select a formulation and a reference frequency
 explicitly. Their native frequency laws remain approximations to the original
 multi-material response away from that reference point.
 
-`CableConstants(design)` consumes this canonical reduction through the
+`CableConstants(design)` uses this reduction through the
 Engine-owned `CableConstantsProblem → CableConstantsFormulation → compute`
 workflow. It evaluates one concentric assembly at a time at the requested
 temperature and frequency. It contains no earth-return calculation; the
@@ -454,7 +453,7 @@ preview(
 
 ### Rectangular stranded core
 
-Rectangular source strands require a circular centre wire. They are always
+Rectangular source strands require a circular center wire. They are always
 bent into contiguous annular courses; the radial deformation preserves the
 area of every source rectangle. A one-strand course remains a complete annulus.
 The specified `boundary` determines the strand inventory, but the resolved
@@ -465,7 +464,7 @@ sector stranding retain their material-complete `Enclosure` declarations.
 
 When a filled circular-wire course follows the core, its declared filler owns
 the space from the occupied core boundary to the course enclosure, including
-the interstices between wires. Explicit wire-centre radii remain fixed;
+the interstices between wires. Explicit wire-center radii remain fixed;
 contextual `Ring(...; r=nothing)` radii follow the occupied core boundary.
 Explicit enclosing layers and coatings are retained, including thin layers.
 
@@ -494,7 +493,7 @@ preview(
 
 ### Sectorized stranded cores
 
-A sectorized phase core contains its own bundle-centre strand and complete
+A sectorized phase core contains its own bundle-center strand and complete
 `6k` courses. The source wire area and sector area determine the inventory.
 Mapped circular sites retain these identities; prescribed-area power cells
 allocate space, and a clipped-disk area solve determines each copper shape.
@@ -651,12 +650,12 @@ preview(
 
 ### Milliken core
 
-A Milliken core owns one cable-centre wire and six separately bounded stranded
-segments, each with its own bundle-centre strand and `6k` courses.
+A Milliken core owns one cable-center wire and six separately bounded stranded
+segments, each with its own bundle-center strand and `6k` courses.
 `milliken` binds every conductor to one terminal. The segment
 boundaries govern packing without becoming overlapping material domains; one
-explicit fill owns every interstice around the centre and segment wires. Its
-centre-wire radius is inferred after resolving one segment so that the centre
+explicit fill owns every interstice around the center and segment wires. Its
+center-wire radius is inferred after resolving one segment so that the center
 is tangent to the innermost strand in every rotated segment.
 
 This example deliberately uses a densely filled segment: a source-wire radius
@@ -710,7 +709,7 @@ terminal. Here four screened two-core subcables surround a central polyethylene
 copper cores with high-density polyethylene (HDPE) insulation, two PE fillers,
 an explicit nonwoven (TNT) filling region, a copper sheath and a PE jacket.
 The complete assembly has thermoplastic elastomer (TPE) filling, an outer TNT
-wrap and a finite galvanized-steel armour layer.
+wrap and a finite galvanized-steel armor layer.
 
 The dimensions and material constants below are **illustrative**, chosen to
 reproduce the supplied cross-section's composition without claiming a
@@ -722,7 +721,7 @@ for this topology in every numerical backend.
 The ordinary Julia function describes one reusable subcable with the public
 macros. Its name prefix gives each copy two independent core terminals and one
 sheath terminal. Enclosing them in `@pipe` does **not** short them together.
-All dimensions in the code are in metres.
+All dimensions in the code are in meters.
 
 ```@example supported_formations
 umbilical_pe = Material(kind=:insulator, rho=1.0e15, eps_r=2.3)
@@ -776,7 +775,7 @@ preview(
 
 The top and bottom subcables are rotated by 90° with `@at`; their complete
 geometry rotates together. The four independent subcables retain **eight core
-terminals and four sheath terminals**, plus the common armour terminal.
+terminals and four sheath terminals**, plus the common armor terminal.
 Every remaining region is assigned an insulating material, including the
 interstices. No implicit air or unassigned gaps are introduced.
 

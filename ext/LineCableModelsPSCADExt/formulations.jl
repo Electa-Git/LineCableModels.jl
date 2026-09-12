@@ -198,7 +198,9 @@ function formulas(owner::Module, kind::Val, source::Val, target::Val)
         Val{id}, typeof(kind), typeof(source), typeof(target), Val{:pscad}}) !== fallback)
 end
 
-"Compile every required native setting from the physical indexed interactions."
+"""
+Compile every required native setting from the physical indexed interactions.
+"""
 function pscad_setting(formulation::PSCADFormulation, problem::LineParametersProblem)
     validate(problem)
     model = problem.earth_props

@@ -1,4 +1,6 @@
-"Return three cable-centre coordinates in a trefoil formation."
+"""
+Return three cable-center coordinates in a trefoil formation.
+"""
 function trefoil_formation(x0::Real, y0::Real, radius::Real)
     radius > zero(radius) || throw(DomainError(radius, "radius must be positive"))
     x, y, r = promote(float(x0), float(y0), float(radius))
@@ -13,7 +15,9 @@ function trefoil_formation(x0::Real, y0::Real, radius::Real)
     )
 end
 
-"Return three cable-centre coordinates in a horizontal or vertical flat formation."
+"""
+Return three cable-center coordinates in a horizontal or vertical flat formation.
+"""
 function flat_formation(x0::Real, y0::Real, spacing::Real; vertical::Bool = false)
     spacing > zero(spacing) ||
         throw(DomainError(spacing, "spacing must be positive"))
@@ -23,7 +27,9 @@ function flat_formation(x0::Real, y0::Real, spacing::Real; vertical::Bool = fals
            (x, y, x + distance, y, x + 2 * distance, y)
 end
 
-"Return the outer radius of a materialised cable design."
+"""
+Return the outer radius of a materialized cable design.
+"""
 function outer_radius(design::CableDesign)
     return support(boundary(design.geometry))
 end

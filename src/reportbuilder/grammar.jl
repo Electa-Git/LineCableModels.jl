@@ -59,19 +59,29 @@ function TableReportDefinition(
     return TableReportDefinition(requests, units, illustration, plot_options, clip)
 end
 
-"Publish the observations required by a report definition."
+"""
+Publish the observations required by a report definition.
+"""
 function select end
 
-"Construct the report-owned table representation."
+"""
+Construct the report-owned table representation.
+"""
 function tabulate end
 
-"Construct an optional plot from the published observations."
+"""
+Construct an optional plot from the published observations.
+"""
 function illustrate end
 
-"Encode a supported report representation."
+"""
+Encode a supported report representation.
+"""
 function encode end
 
-"Write an encoded report when the definition requests an external artifact."
+"""
+Write an encoded report when the definition requests an external artifact.
+"""
 function write end
 
 @required AbstractReportDefinition begin

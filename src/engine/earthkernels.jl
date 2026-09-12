@@ -1,4 +1,6 @@
-"Return electrical conductivity, including the open-circuit limit."
+"""
+Return electrical conductivity, including the open-circuit limit.
+"""
 @inline conductivity(rho) = isinf(rho) ? zero(rho) : inv(rho)
 
 @inline special_besselix(order::Integer, value) = SpecialFunctions.besselix(order, value)
@@ -89,7 +91,9 @@ function special_besselkx(order::Integer, value::Complex{BigFloat})
     return 2sqrt(BigFloat(π)/(2value))/SpecialFunctions.gamma(BigFloat(order)+BigFloat(1)/2)*result
 end
 
-"Evaluate the shared earth-return modified-Bessel difference."
+"""
+Evaluate the shared earth-return modified-Bessel difference.
+"""
 @inline function bessel_difference(gamma_s, inner, outer)
     maximum_argument = max(abs(gamma_s) * inner, abs(gamma_s) * outer)
     isapprox(nominal(maximum_argument), 0; atol = 1.0e-6) &&
@@ -107,7 +111,7 @@ Rows of the resulting matrices are receivers; columns are sources.
 $(TYPEDFIELDS)
 """
 struct EarthReturnGeometry{T <: Real}
-    "Horizontal conductor centres \\[m\\]."
+    "Horizontal conductor centers \\[m\\]."
     horizontal::Vector{T}
     "Signed conductor heights above the interface \\[m\\]."
     height::Vector{T}
@@ -137,7 +141,9 @@ function EarthReturnGeometry(horizontal::AbstractVector{T}, height::AbstractVect
     return EarthReturnGeometry{T}(horizontal, height, radius)
 end
 
-"Select the outgoing square root for the exp(jωt) convention."
+"""
+Select the outgoing square root for the exp(jωt) convention.
+"""
 @inline function outgoing_root(z)
     root = sqrt(complex(z))
     return real(root) < 0 || (iszero(real(root)) && imag(root) < 0) ? -root : root
@@ -145,7 +151,9 @@ end
 
 @inline root_difference(k2, a, λ) = iszero(k2) ? zero(a) : k2/(a+λ)
 
-"Evaluate I₀(z)−1 without subtracting two nearly equal numbers."
+"""
+Evaluate I₀(z)−1 without subtracting two nearly equal numbers.
+"""
 function bessel_i0m1(z)
     if abs(nominal(z)) > 0.5
         return special_besselix(0, z)*exp(abs(real(z)))-one(z)
@@ -207,7 +215,9 @@ function earth_combined_weight(kernel::EarthPathVoltageSpectrum)
     return nominal(g.logscale+g.hq*maximum(abs, kernel.state.k))>300
 end
 
-"Evaluate the removable I₁(z)/(z I₀(z)) limit."
+"""
+Evaluate the removable I₁(z)/(z I₀(z)) limit.
+"""
 @inline function bessel_current_ratio(z)
     if abs(nominal(z)) < 1e-3
         z2=z*z

@@ -1,8 +1,9 @@
 #=
 # Tutorial 2 - Building a cable design
 
-This tutorial demonstrates how to model a typical medium-voltage single-core power cable
-using the [`LineCableModels.jl`](@ref) package. The objective is to build a complete representation of a single-core 18/30 kV cable with a 1000 mm² aluminum conductor and 35 mm² copper screen.
+Build an 18/30 kV single-core cable with a 1000 mm² aluminum conductor and
+a 35 mm² copper screen, calculate its cable constants, and place three cables
+in a line system.
 =#
 
 #=
@@ -18,13 +19,17 @@ Depth = 2:3
 #=
 ## Introduction
 
-Single-core power cables have a complex structure consisting of multiple concentric layers, each with specific geometric and material properties -- for example, a cable of type NA2XS(FL)2Y 18/30 [is shown here](https://www.google.com/search?udm=2&q=%22NA2XS(FL)2Y%2018/30%20kV%20cable%22). Prior to building actual transmission line models that incorporate cables as part of the transmission system, e.g. for EMT simulations, power flow, harmonics, protection studies etc., it is necessary to determine the base (or DC) electrical parameters of the cable itself.
+The cable consists of concentric conductive, semiconducting, and insulating
+regions. Their dimensions and material properties determine the resistance,
+inductance, and capacitance calculated below. `CableConstants` evaluates
+these quantities at a specified frequency and temperature; its resistance
+is not necessarily the DC resistance.
 
 This tutorial covers:
 
 1. Building a [`CableDesign`](@ref) from physical regions and placement rules.
 2. Examining the resolved geometry and the retained electrical terminals.
-3. Calculating the cable's base resistance, inductance, and capacitance.
+3. Calculating the cable's resistance, inductance, and capacitance.
 4. Saving the design to a [`CablesLibrary`](@ref) for future use.
 5. Placing designs in a [`LineCableSystem`](@ref) and exporting the system for EMT analysis.
 =#
@@ -54,7 +59,11 @@ load!(materials, file_name = "materials_library.json")
 #=
 ## Cable dimensions
 
-The cable under consideration is a medium-voltage, stranded aluminum conductor cable with XLPE insulation, copper wire concentric screens, water-blocking tape, and PE jacket that is rated for 18/30 kV systems. This information is typically found in the cable datasheet and is fully described in the code type under standards HD 620 10C [CENELEC_HD620_S3_2023](@cite) or DIN VDE 0276-620 [VDE_DIN_VDE_0276_620_2024](@cite):
+The 18/30 kV cable has a stranded aluminum conductor, XLPE insulation,
+concentric copper wire screen, water-blocking tape, and PE jacket.
+Its designation describes these construction features under HD 620 10C
+[CENELEC_HD620_S3_2023](@cite) and DIN VDE 0276-620
+[VDE_DIN_VDE_0276_620_2024](@cite):
 
 ```
 NA2XS(FL)2Y
@@ -68,7 +77,7 @@ NA2XS(FL)2Y
 ```
 =#
 
-# After some research, it is found that a typical cable of this type has the following configuration:
+# The example uses the following dimensions:
 num_sc_wires = 49  # number of screen wires
 d_core = 38.1e-3   # nominal core overall diameter
 d_w = 4.7e-3       # nominal strand diameter of the core
@@ -111,20 +120,17 @@ cable_dimensions = DataFrame(
 #=
 ## Describing the cable
 
-The design is one outward physical declaration. The engineering vocabulary
-states what each region does, [`@terminal`](@ref) states electrical ownership,
-and [`@cable`](@ref) completes the declaration once. The order of expressions
-is the physical order from the cable centre to its outside surface.
+Declare the regions in order from the cable center outward.
+[`@terminal`](@ref) groups conductive regions into an electrical terminal;
+[`@cable`](@ref) constructs the cable design.
 =#
 
 #=
 ## Core and main insulation
 
-The reported wire diameter and finished core boundary define the maximum
-admissible strand inventory. The compacted declaration preserves every source
-wire area while resolving the largest complete `6k` inventory into the finished
-38.1 mm circular boundary. The four complete outer courses retain the reported
-lay ratios; no partial fifth course is invented.
+The wire diameter and 38.1 mm finished core diameter determine how many
+complete strand layers fit. Compaction preserves each wire's area. Four outer
+layers fit, with `6k` wires in layer `k` and the lay ratios specified below.
 =#
 
 # Select reusable materials from the library:
@@ -135,8 +141,7 @@ semicon1 = Material(materials, :semicon1)
 semicon2 = Material(materials, :semicon2)
 pe = Material(materials, :pe);
 
-# State the source wire, the inferred-course lay schedule, and the authoritative
-# finished boundary:
+# Specify the wire shape, lay ratios, and finished core diameter:
 stranded_core = stranded(
     aluminum;
     shape = Disk(d_w / 2),
@@ -148,8 +153,9 @@ stranded_core = stranded(
 #=
 ### Inner semiconductor
 
-The inner semiconductor layer ensures uniform electric field distribution between
-the conductor and insulation, eliminating air gaps and reducing field concentrations. An optional semiconductive tape is often used to ensure core uniformity and enhanced adherence.
+The inner semiconducting layer smooths the conductor–insulation interface
+and reduces electric-field concentrations around individual strands.
+Semiconducting tape covers the stranded core beneath this layer.
 =#
 
 #=
@@ -162,8 +168,8 @@ the conductor and insulation, eliminating air gaps and reducing field concentrat
 #=
 ### Main insulation
 
-XLPE (cross-linked polyethylene) is the standard insulation material for modern
-medium and high voltage cables due to its excellent dielectric properties.
+The main insulation separates the conductor from the outer semiconducting
+layer. This example assigns the library's PE material to that region.
 =#
 
 #=
@@ -190,14 +196,14 @@ Modern cables often include an aluminum tape as moisture barrier
 and PE (polyethylene) outer jacket for mechanical protection.
 =#
 
-# The wire screen needs its physical centre locus. The copper tape retains its
+# The wire screen needs its physical center locus. The copper tape retains its
 # measured rectangular width and thickness; placement bends it around the
 # preceding cable boundary without changing its cross-sectional area.
 conductor_outer = d_core / 2
 screen_wire_locus = conductor_outer + t_sct + t_sc_in + t_ins +
                     t_sc_out + t_sct + d_ws / 2
 
-# Keep catalogue data beside the physical model rather than inside it:
+# Keep catalog data beside the physical model rather than inside it:
 cable_id = "18kV_1000mm2"
 datasheet_info = DatasheetInfo(
     designation_code = "NA2XS(FL)2Y",
@@ -259,25 +265,23 @@ cable_plot.figure #hide
 #=
 ## Examining the cable parameters (RLC)
 
-In this section, the cable design is examined and the calculated parameters are compared with datasheet values. [`LineCableModels.jl`](@ref) provides methods to analyze the design in different levels of detail.
+Calculate resistance, inductance, and capacitance, then compare them with the
+datasheet values.
 =#
 
-# Calculate the cable constants explicitly. Scientific extraction and tabular
-# presentation are separate consumers of the completed result:
+# Calculate the cable constants at the defaults of 50 Hz and 20 °C:
 constants = CableConstants(cable_design);
 constants
 
-# A table is constructed only from the explicit detached publication:
+# Select R, L, and C and convert them to a table:
 constants_table = DataFrame(observables(constants, (R, L, C)))
 
-# Materialize the homogeneous equivalent only when that design is
-# itself the requested product:
+# Construct the homogeneous equivalent cable design:
 equivalent_design = homogenize(cable_design; new_id = cable_id * "_equivalent")
 equivalent_summary = equivalent_design
 
 # `observables` publishes detached values in the units conventionally used by
-# cable manufacturers. The two rows identify real comparison sources; the
-# physical quantities remain separate columns:
+# cable manufacturers. Compare the calculated and datasheet values:
 published_constants = observables(constants, (R, L, C));
 datasheet_comparison = DataFrame(
     source = ("calculated", "datasheet"),
@@ -392,7 +396,8 @@ plt4.figure #hide
 #=
 ## PSCAD & ATPDraw export
 
-The final step showcases how to export the model for electromagnetic transient simulations in EMT-type software.
+Export the cable system for electromagnetic transient simulations in PSCAD
+and ATPDraw.
 =#
 
 # Export to PSCAD input file:
@@ -402,19 +407,3 @@ export_file = export_data(:pscad, cable_system, earth_params, file_name = output
 # Export to ATPDraw project file (XML):
 output_file = fullfile("atp_export.xml")
 export_file = export_data(:atp, cable_system, earth_params, file_name = output_file);
-
-#=
-## Conclusion
-
-This tutorial has demonstrated how to:
-
-1. Describe and preview a complex power cable with multiple concentric layers.
-2. Calculate and compare its base parameters (R, L, C) with datasheet values.
-3. Save the design, load it in a fresh library, and reuse it.
-4. Build and preview a three-phase cable system in trefoil arrangement.
-5. Export the physical model for PSCAD and ATPDraw.
-
-[`LineCableModels.jl`](@ref) provides detailed routines for power cable modeling
-with a physically meaningful representation of its regions and terminal groups. This approach
-ensures that electromagnetic parameters are calculated with high precision. Now you can go ahead and run these cable simulations like a boss!
-=#

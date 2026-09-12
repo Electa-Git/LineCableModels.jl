@@ -59,16 +59,22 @@ function Base.get(
     return get(default, library.data, name)
 end
 
-"Return an empty material library without repopulating built-in records."
+"""
+Return an empty material library without repopulating built-in records.
+"""
 Base.empty(::MaterialsLibrary) = MaterialsLibrary(; add_defaults = false)
 
-"Remove every stored material and return `library`."
+"""
+Remove every stored material and return `library`.
+"""
 function Base.empty!(library::MaterialsLibrary)
     empty!(library.data)
     return library
 end
 
-"Return a shallow material-library copy with independent dictionary storage."
+"""
+Return a shallow material-library copy with independent dictionary storage.
+"""
 Base.copy(library::MaterialsLibrary) = MaterialsLibrary(copy(library.data))
 
 TextDisplay.name(::Type{<:Material}) = "Material"

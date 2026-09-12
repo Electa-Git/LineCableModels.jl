@@ -33,7 +33,7 @@ end
 $(TYPEDSIGNATURES)
 
 Estimate single-layer wire-screen patterns for the required area and laying
-diameter, both expressed in millimetre-based input units.
+diameter, both expressed in millimeter-based input units.
 
 Geometrically valid candidates must meet the requested area, coverage, and
 overshoot bounds to make the result feasible. Otherwise the returned

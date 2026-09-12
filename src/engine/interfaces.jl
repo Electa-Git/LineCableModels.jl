@@ -1,7 +1,11 @@
-"Return the series-impedance values of a line-parameter result."
+"""
+Return the series-impedance values of a line-parameter result.
+"""
 function Z end
 
-"Return the shunt-admittance values of a line-parameter result."
+"""
+Return the shunt-admittance values of a line-parameter result.
+"""
 function Y end
 
 function X end
@@ -15,12 +19,18 @@ function susceptance end
 function frequencies end
 function nconductors end
 function nfrequencies end
-"Return absolute numerical errors from an owned comparison result."
+"""
+Return absolute numerical errors from an owned comparison result.
+"""
 function absolute_error end
-"Return reference-normalised numerical errors from an owned comparison result."
+"""
+Return reference-normalized numerical errors from an owned comparison result.
+"""
 function relative_error end
 
-"Identify formulas whose physical current constraint requires the complete exterior system."
+"""
+Identify formulas whose physical current constraint requires the complete exterior system.
+"""
 system_earth(::Any) = false
 function unified_entry end
 
@@ -41,7 +51,9 @@ function earth_parameters(::Val{:default}, parameters::NamedTuple)
     return parameters
 end
 
-"Abstract tag for the physical domain represented by line-parameter matrices."
+"""
+Abstract tag for the physical domain represented by line-parameter matrices.
+"""
 abstract type LineParamsDomain end
 
 """
@@ -58,7 +70,7 @@ struct EarthPair{T <: Real}
     column::Int
     "Conductor heights relative to the air-earth interface \\[m\\]."
     heights::Tuple{T, T}
-    "Horizontal distance between conductor centres \\[m\\]."
+    "Horizontal distance between conductor centers \\[m\\]."
     separation::T
     "Physical layer indices of the source and target conductors."
     layers::Tuple{Int, Int}
@@ -161,14 +173,16 @@ function validate(pair::EarthPair, thickness::Union{Tuple, AbstractVector})
     return pair
 end
 
-"Tag line parameters expressed in the physical phase domain."
+"""
+Tag line parameters expressed in the physical phase domain.
+"""
 struct PhaseDomain <: LineParamsDomain end
 """
 Store the coordinate system of a calculated modal transformation.
 
 The operator tensor type parameterizes the domain because inverse transforms
 consume it numerically. The owning transform module may use one formula-family
-parameter for provenance storage, so different concrete formula identities can
+parameter to record the selected formula, so different concrete formula identities can
 share one concrete result-space element type.
 """
 struct ModalDomain{O, F} <: LineParamsDomain
@@ -178,12 +192,16 @@ struct ModalDomain{O, F} <: LineParamsDomain
     formula::F
 end
 
-"Return a domain value restricted to selected frequency samples."
+"""
+Return a domain value restricted to selected frequency samples.
+"""
 selectdomain(domain::LineParamsDomain, _) = domain
 
 @inline domain(::Type{PhaseDomain}) = PhaseDomain
 @inline domain(::Type{<:ModalDomain}) = ModalDomain
 
-"Return the domain tag type of a value, or `nothing` when it has no domain."
+"""
+Return the domain tag type of a value, or `nothing` when it has no domain.
+"""
 @inline domain(::Type) = nothing
 @inline domain(value) = domain(typeof(value))

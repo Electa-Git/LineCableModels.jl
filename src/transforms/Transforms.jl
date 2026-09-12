@@ -57,7 +57,9 @@ const FORMULAS = let
 end
 #! explicit-imports: on
 
-"Return the built-in modal-transformation formula identifiers."
+"""
+Return the built-in modal-transformation formula identifiers.
+"""
 formulas() = FORMULAS
 
 include("compute.jl")

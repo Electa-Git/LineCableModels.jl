@@ -1,7 +1,7 @@
 """
 $(TYPEDEF)
 
-Store element-wise absolute and reference-normalised root-mean-square benchmark errors.
+Store element-wise absolute and reference-normalized root-mean-square benchmark errors.
 
 Each matrix entry contains the error for the corresponding line-parameter
 term over the selected frequency samples. Missing values represent explicit
@@ -14,7 +14,7 @@ $(TYPEDFIELDS)
 struct RMSError{T <: Real, D <: NamedTuple}
     "Absolute error in the units of the compared quantity."
     absolute::Matrix{Union{Missing, T}}
-    "Reference-normalised error [dimensionless]."
+    "Reference-normalized error [dimensionless]."
     relative::Matrix{Union{Missing, T}}
     "Requested and selected frequency band, tolerance, applicability, and per-term classification."
     details::D
@@ -148,7 +148,7 @@ end
 """
 $(TYPEDSIGNATURES)
 
-Compare two line-parameter results using absolute and reference-normalised
+Compare two line-parameter results using absolute and reference-normalized
 root-mean-square errors for each Z and Y matrix term across frequency.
 
 For the reference series ``A_{ij}`` and candidate series ``B_{ij}`` at one
@@ -226,7 +226,7 @@ The first operand sets the relative-error normalization, not scientific truth.
 - `atol`: Absolute numerical-zero tolerance, in the observable's basis units.
   A scalar applies to the requested quantity; a NamedTuple selects tolerances
   by quantity symbol. Defaults are 1e-10 for R, 1e-12 for G, 1e-15 for L,
-  and 1e-16 for C, per metre for `:pul` and total units for `:total`.
+  and 1e-16 for C, per meter for `:pul` and total units for `:total`.
   Unless overridden directly, Z uses `atol_R + 2πf*atol_L` and Y uses
   `atol_G + 2πf*atol_C` at each sample. A fixed admittance threshold would
   otherwise treat the same small capacitance differently across the spectrum.

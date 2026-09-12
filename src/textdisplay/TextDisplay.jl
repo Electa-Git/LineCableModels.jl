@@ -5,14 +5,18 @@ module TextDisplay
 import ..Units
 import ..LineCableModels: FormulaDefinition
 
-"Return the explicitly declared semantic display name for an owned type."
+"""
+Return the explicitly declared semantic display name for an owned type.
+"""
 function name end
 
 function _fallback(value)
     return sprint(show, value; context = :compact => true)
 end
 
-"Format one numeric value with at most `sigdigits` significant digits."
+"""
+Format one numeric value with at most `sigdigits` significant digits.
+"""
 function value(number::Real; sigdigits::Integer = 6)
     sigdigits > 0 || throw(ArgumentError("sigdigits must be positive"))
     isnan(number) && return "NaN"
@@ -104,7 +108,9 @@ function _append_unit(number::AbstractString, unit::AbstractString)
     return string(number, " ", unit)
 end
 
-"Format a physical value using an adaptive engineering prefix."
+"""
+Format a physical value using an adaptive engineering prefix.
+"""
 function engineering(number::Real, unit::Symbol; sigdigits::Integer = 6)
     if !isfinite(number)
         return _append_unit(value(number; sigdigits), _physical_unit(Val(unit), :base))
@@ -118,7 +124,9 @@ function engineering(number::Real, unit::Symbol; sigdigits::Integer = 6)
     )
 end
 
-"Format an angle stored in radians."
+"""
+Format an angle stored in radians.
+"""
 function angle(radians::Real; sigdigits::Integer = 6)
     if isfinite(radians) && !iszero(radians)
         turns = radians / π
@@ -132,7 +140,9 @@ function angle(radians::Real; sigdigits::Integer = 6)
     return _append_unit(value(rad2deg(radians); sigdigits), "°")
 end
 
-"Format a result quantity using the units already owned by `Units`."
+"""
+Format a result quantity using the units already owned by `Units`.
+"""
 function quantity(
         observed,
         scientific_quantity::Units.Quantity,
@@ -162,7 +172,9 @@ function _display_width(io::IO)
     return max(columns, 20)
 end
 
-"Write an explicitly named flat field record in compact or aligned form."
+"""
+Write an explicitly named flat field record in compact or aligned form.
+"""
 function fields(
         io::IO,
         semantic_name::AbstractString,
@@ -307,7 +319,9 @@ function tree(
     return nothing
 end
 
-"Generate the three Base display methods for one explicitly described flat record."
+"""
+Generate the three Base display methods for one explicitly described flat record.
+"""
 macro showfields(type_expression, semantic_name, mapping)
     mapping isa Expr && mapping.head === :-> || throw(ArgumentError(
         "@showfields expects `value -> (field = formatted, ...)`"

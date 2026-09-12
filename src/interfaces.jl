@@ -1,4 +1,6 @@
-"Add one owned value to a mutable collection."
+"""
+Add one owned value to a mutable collection.
+"""
 function add! end
 
 """
@@ -9,7 +11,7 @@ Construct one completed domain object from complete physical declarations.
 `build(CableDesign, ...)` resolves a physical cable root and terminal state.
 `build(LineCableSystem, ...)` places completed designs and resolves global
 connections. When an argument is a `Grid` or `Gridspace`, or an admitted tuple
-or vector contains one, the same surface returns a `Gridspace{Target}` whose
+or vector contains one, the same call returns a `Gridspace{Target}` whose
 callable invokes scalar `build` after selecting and reconstructing one complete
 point.
 
@@ -29,7 +31,7 @@ function build end
 
 Store one selected but unresolved argument tuple from a finite parameter space.
 `Target` preserves the semantic object or problem family that the point will
-materialise, allowing computation dispatch to consume a scalar point without
+materialize, allowing computation dispatch to consume a scalar point without
 first discarding its target identity.
 """
 struct Gridpoint{Target, F, A <: Tuple}
@@ -68,10 +70,14 @@ matrices, mutual coupling, or earth return.
 """
 function homogenize end
 
-"Evaluate the constitutive relation selected for a material value."
+"""
+Evaluate the constitutive relation selected for a material value.
+"""
 function constitutive end
 
-"Return the physical storage basis of a result."
+"""
+Return the physical storage basis of a result.
+"""
 function basis end
 
 function R end

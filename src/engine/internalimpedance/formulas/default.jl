@@ -18,10 +18,15 @@ D&=I_1(mb)K_1(ma)-K_1(mb)I_1(ma).
 \\end{aligned}
 ```
 
+Here ``a`` and ``b`` are the inner and outer conductor radii in meters,
+``ρ`` is resistivity in Ω·m, and ``m=\\sqrt{jωμ/ρ}`` is in m⁻¹, with
+``μ=μ_0μ_r`` in H/m. ``I_ν`` and ``K_ν`` are modified Bessel functions.
+Each surface impedance is in Ω/m.
+
 For ``a=0``, ``Z_{int}=\\rho mI_0(mb)/(2\\pi bI_1(mb))``.
 
 Schelkunoff's surface terms were later recovered by Ametani to assemble the
-complete core/sheath/armour impedance matrix. The Engine applies that outward
+complete core/sheath/armor impedance matrix. The Engine applies that outward
 assembly recursively to any number of concentric conductive terminals.
 
 **Reference.** S. A. Schelkunoff, “The Electromagnetic Theory of Coaxial
@@ -34,7 +39,7 @@ function description(::Formula{:default})
     "Schelkunoff exact round-conductor surface impedances (1934)"
 end
 
-#=
+"""
 $(TYPEDSIGNATURES)
 
 Construct the exact Schelkunoff surface-impedance evaluator for one solid or
@@ -60,7 +65,8 @@ D=I_1(mb)K_1(ma)-K_1(mb)I_1(ma),
 m=\\sqrt{j\\omega\\mu/\\rho}.
 ```
 
-For ``a=0``, the outer term is evaluated from the solid-cylinder limit
+Here ``μ=μ_0μ_r`` is absolute permeability in H/m, and ``I_ν`` and ``K_ν``
+are modified Bessel functions. For ``a=0``, the outer term is evaluated from the solid-cylinder limit
 ``Z_{int}=\\rho m I_0(mb)/(2\\pi b I_1(mb))``.
 
 # Arguments
@@ -79,9 +85,9 @@ For ``a=0``, the outer term is evaluated from the solid-cylinder limit
 # Notes
 
 Implements Schelkunoff's cylindrical surface terms. Ametani (1980) recovered
-these terms for the complete core/sheath/armour impedance assembly performed
+these terms for the complete core/sheath/armor impedance assembly performed
 recursively by the Engine.
-=#
+"""
 function (formula::Formula{:default})(
         r_in::T,
         r_ex::T,

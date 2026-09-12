@@ -88,10 +88,10 @@ earth_potential_coefficient(::Val{ID}, ::Val{Kind}, ::Val{S}, ::Val{T}, functor,
 
 `Kind` is `:self` or `:mutual`; source `S` is the matrix column, and target `T`
 is the row. Layer 1 is air; soils occupy layers 2 through N. The shared `validate`
-uses native method selection on this canonical signature and excludes the throwing
+uses native method selection on this required signature and excludes the throwing
 fallback. Domain-defining methods accept the three runtime payloads without extra
 subtype constraints. Numerical specializations can optimize an admitted case.
-Adding a canonical equation changes admission without a second capability table.
+Julia method availability determines which equations can be selected.
 
 Each earth slot also accepts a NamedTuple for a physical air/soil two-half-space model:
 
@@ -125,7 +125,7 @@ consumes exactly air and one soil half-space. A finite-layer model consumes its
 whole declared inventory and interfaces. Explicit `Val(S), Val(T)` methods describe
 its cases; arbitrary-layer Green-function generation remains deferred. Buried
 placement in a vertical multilayer earth is rejected because its physical layer
-indexing has no defined origin in the present geometry contract.
+indexing has no defined origin in the present geometry definition.
 
 Carson admits only `(1,1)`. Both Pollaczek families admit only `(2,2)` and reject
 air or mixed pairs. Ametani2009 and Lucca1994 remain mixed-only equations and cannot
@@ -154,7 +154,7 @@ consistent Ze/Pe pair is required.
 
 Public `compute` prepares the complete system. Calling a default pair callback
 without that context is an error; explicit author formulas retain their pairwise
-contract. Contribution overrides that declare integration resources receive the
+signatures. Contribution overrides that declare integration resources receive the
 prepared context at the final-entry stage. Internal conductor and insulation
 contributions retain the existing cable composition and terminal reductions.
 With `options=(trace=true,)`, `trace.Zg` and `trace.Pg` expose the exterior
@@ -179,9 +179,16 @@ its result is one `EarthMaterial`. It owns its numerical sections independently
 of the external equation. The consuming source explicitly admits compatible
 reductions. A full multilayer consumer rejects reductions.
 
-The current reduction default explicitly selects the bottommost soil; this is
-explicit layer selection, not a derived general recursion. `:after` applies the one
-backend-selected frequency law to physical layers first. `:before` reduces static
+The default selects the deepest soil layer. Martins-Britto et al.
+[Martins-BrittoLopes2020](@cite) found that deep-layer conductivity predominated
+in magnetic ground-return impedance for the multilayer soil cases they studied.
+This provides a qualified rationale for the default resistivity. Accuracy depends
+on layer contrasts and frequency; selecting one layer does not implement the
+paper's equivalent-conductivity formula or establish the accuracy of the selected
+permittivity and permeability. Choose another formula or supply a
+`contribution` hook to change the material-selection rule.
+
+`:after` applies the selected frequency law to physical layers first. `:before` reduces static
 properties and applies that same law to the resulting material. Physical and
 effective pairs remain distinct in the binding, and reductions run for each
 ordered interaction on which they depend. Layerwise evaluated properties are reused
@@ -199,11 +206,11 @@ computation_options(
 ) = (;)
 ```
 
-This replaces only an admitted case and receives the canonical runtime suffix.
+This replaces only an admitted case and receives the trailing runtime arguments shown above.
 An algebraic replacement of an integral rejects unused integration controls;
 an integral replacement declares its own integration section. Small physical
 hooks retain the operation they customize. No callback inherits an unrelated
-provider's numerical contract or expands its physical domain.
+formula's numerical options or expands its physical domain.
 
 `InternalImpedance.surface_impedances(resolved_formula, r_in, r_ex, rho, mu_r, jω)`
 returns `(inner,outer,mutual)` coefficients in Ω/m, with hooks and per-kind
@@ -245,12 +252,12 @@ an independent integral of the absolute weighted residual checks its complete
 continuation. With an analytic tail bound, this integral uses a finite interval
 and adds bounds on both the true-kernel and image-expansion remainders. Quadrature
 verifies the image sum and never supplies a value
-labelled `:cim`. Geometry certificates integrate an absolute residual envelope
+labeled `:cim`. Geometry certificates integrate an absolute residual envelope
 over the complete contour, including the tail. They apply to greater weight
 heights and smaller separation-plus-radius on that contour. New geometries
 outside the certified range require another certificate or fit; valid cache hits
 evaluate the images without quadrature or refitting. One kernel prototype
-evaluation still checks the physical scalar contract. Reported certificates
+evaluation still checks the physical scalar requirements. Reported certificates
 remain numerical estimates.
 Before caching a fit, continuation bounds are tightened to the measured finite
 fit-error scale. Reuse selects the strongest applicable certificate, so a loose
@@ -452,7 +459,7 @@ For each selected problem, the Coaxial collection dispatch validates and
 lowers the physical declaration once. LineParameters flattens each design and
 constructs `LocalCableData` plus geometry/index input once before creating a
 separate workspace for every formulation. CableConstants performs its own
-independent one-flatten orchestration. Formula-dependent mutable matrices,
+calculation sequence, also flattening each design once. Formula-dependent mutable matrices,
 earth/EquivalentHomogeneous values, reduction maps, and trace buffers remain workspace-local.
 The generic collection dispatch simply invokes established scalar `compute`
 methods and therefore supports external problem/formulation pairs without a
@@ -464,7 +471,7 @@ new registration layer.
 belong to Engine. They reuse the registered internal-impedance,
 insulation-impedance, insulation-admittance, and semicon-admittance formulas,
 and the same earth-free local primitive assemblers used by LineParameters.
-Their public solve orchestration and reduction remain separate.
+Each calculation has its own solve and reduction methods.
 The default bundle is:
 
 ```julia
@@ -478,7 +485,7 @@ CableConstantsFormulation(
 
 `Engine.flatten(LineCableModelsCoaxial(), design)` supplies a
 frequency-independent, unreduced `CableBlueprint`. Contiguous components
-sharing one radial centre form one concentric assembly. Constitutive relations
+sharing one radial center form one concentric assembly. Constitutive relations
 are evaluated only after the workspace has been allocated. The Engine retains
 each assembly's innermost terminal, grounds every additional outward terminal,
 assembles and reduces the local N-terminal series-impedance matrix, and combines
@@ -565,7 +572,7 @@ objects, execution options, Gridspace points, or Monte Carlo context.
 
 Line plotting accepts explicit observable requests. Its public convenience
 forms expand selectors such as `Z`, `real`, and `angle` once, at the optional
-Makie surface, then enter the same request path. The plotting extension groups completed
+Makie API, then use the same observation requests. The plotting extension groups completed
 observations with the qualified `Units.family(::Quantity)` metadata. Series and
 shunt identities return `Val(:series)` and `Val(:shunt)` respectively. Neither
 the plotting extension nor ReportBuilder owns another quantity or family map.
@@ -729,7 +736,7 @@ Parametric and linear calculations retain `(points=records,)`, with one record
 per core result. Monte Carlo retains `trials`, `failures`, and
 `failure_summary`, each aligned by Gridspace point. `trials` contains one inner
 computation record per accepted trial. Each failure record contains the
-attempt, target trial, failure stage, realised argument tuple, error type and
+attempt, target trial, failure stage, realized argument tuple, error type and
 message, and a bounded stack summary. Statistics, samples, histograms, seeds,
 and accepted-trial counts remain dedicated result fields.
 
@@ -748,7 +755,7 @@ The default line-parameter formulation owns:
 - bundle and Kron reduction.
 - ideal transposition.
 
-The normalised named tuple is stored in `LineParametersFormulation.options`.
+The normalized named tuple is stored in `LineParametersFormulation.options`.
 `PSCADFormulation` uses the shared physical options and currently requires
 unreduced, untransposed matrices.
 
@@ -838,13 +845,13 @@ created by that execution. Neither value belongs to `PSCADFormulation`.
 Both option sets are ordinary `NamedTuple`s, aliased as
 [`FormulationOptions`](@ref) and [`ComputationOptions`](@ref). Callers can
 compose them with `merge`. Each owner rejects unknown keys and returns a
-fixed-key normalised tuple. There is no general fallback and no conversion
+fixed-key normalized tuple. There is no general fallback and no conversion
 from dictionaries, pairs, or `nothing`.
 
-`MonteCarlo` owns a separate outer computation-option tuple. Its normalised
+`MonteCarlo` owns a separate outer computation-option tuple. Its normalized
 keys are `retain_details`, `on_error`, and `max_failures`. `on_error=:fail` is
 the default and rethrows every exception. `on_error=:retry` requires
-`retain_details=true` and rejects only `DomainError` realisations until the
+`retain_details=true` and rejects only `DomainError` realizations until the
 requested accepted-trial count is reached or `max_failures` is exhausted.
 Other exception types always propagate immediately.
 
@@ -882,7 +889,7 @@ computation options.
 ## Extending the engine
 
 An external package may own a backend identity and a separate formulation
-type. The backend's `compute` method normalises execution options before doing
+type. The backend's `compute` method normalizes execution options before doing
 work:
 
 ```julia
@@ -934,7 +941,7 @@ end
 ```
 
 An external implementation does not need a dedicated options struct or private
-wrapper around the two normalisation functions. If it omits either Grammar
+wrapper around the two normalization functions. If it omits either Grammar
 method, Julia raises `MethodError`.
 
 The same backend may expose supplemental output without changing the generic

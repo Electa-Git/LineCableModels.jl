@@ -13,7 +13,7 @@ its Julia environment and command arguments; global routing starts no solver.
 
 ## Declare the calculations
 
-All catalogue cases and benchmark examples default to 101 logarithmically spaced
+All catalog cases and benchmark examples default to 101 logarithmically spaced
 frequencies from 0.1 Hz to 10 MHz (100 increments, including both endpoints):
 
 ```julia
@@ -79,7 +79,7 @@ remain different models. Cross-model RMS values are observations. Incomparable
 coordinates are rejected; numerical-zero reference traces retain absolute RMS
 and report unavailable relative RMS with the recorded reason and tolerance.
 
-Catalogue declarations are ordinary constructors under `gauntlet/benchmarks/`:
+Catalog declarations are ordinary constructors under `gauntlet/benchmarks/`:
 
 ```julia
 definition = benchmark_definition(:benchmark_two_insulated_wires_pscad;
@@ -181,7 +181,7 @@ remain in `tables.formulations.record`.
 The existing unit controls, legends, zoom and SVG export remain available.
 Benchmark plots also retain the log-y toggle for signed matrix entries, using a
 sign-preserving pseudo-log scale on those panels. Use
-`length_unit=:base` to display native per-metre quantities. `band=:dc` uses saved
+`length_unit=:base` to display native per-meter quantities. `band=:dc` uses saved
 sample indices. A band or numerical setting that was not retained requires explicit
 reanalysis of the raw operands, through `report` or `compare_saved`. Loading,
 tabulating, filtering and plotting a retained analysis never calculate RMS again.
@@ -192,7 +192,7 @@ overlap. Ordinary endpoints use the engine's existing nearest-sample selection.
 Tables retain requested/actual bounds and sample indices; no interpolation occurs.
 `clip=false` is the default. Numerical-zero G retains absolute RMS and unavailable
 relative RMS with its reason. UQ mean/std products remain separate statistics under
-their existing full-band contract.
+their existing comparison rules over the full frequency band.
 
 `artifact.published` holds the unformatted scientific products. Ordinary display
 shows the compact summary. No figure is constructed unless requested by `plot`
@@ -294,8 +294,7 @@ or the CLI for replaceable drafts.
 Each invocation records its Julia version, loaded package versions, Git revision
 and dirty flag once. Reused operands retain their original session metadata; a
 resumed campaign can therefore contain results from different execution sessions.
-This records provenance, not a guarantee of a frozen or reproducible environment.
-Use a pinned checkout/environment when that guarantee is required.
+To repeat a calculation in the same environment, pin the checkout and dependency versions.
 
 Numerical operands are saved before reporting; reports are saved before optional
 timing repetitions. A reporting or timing failure leaves completed work available.
@@ -458,11 +457,11 @@ additional figures.
 
 ## Navigation and checks
 
-- `definitions.jl`, `benchmarks/`: concrete benchmark composition and catalogue.
+- `definitions.jl`, `benchmarks/`: concrete benchmark composition and catalog.
 - `cases.jl`, `cases/`: model inputs, variations and source assets.
 - `benchmarks.jl`, `campaigns.jl`: execution, scheduling and recovery.
 - `records.jl`, `fingerprints.jl`: source capture and numerical identities.
-- `comparisons/`: saved-operand binding and the package comparison contract.
+- `comparisons/`: saved-operand binding and the package comparison rules.
 - `artifacts.jl`, `read.jl`: packaging, immutable bundles and retained records.
 - `docs/gauntlet_report.jl`: summary-only publication of retained report products.
 
@@ -525,5 +524,5 @@ and making new comparisons remain independent of the original execution sources.
 
 All built-in cases can be checked without a solver using
 `cli/lcm gauntlet case validate`. A benchmark factory may accept explicit
-frequencies, station options or variations. There is no implicit backend catalogue
+frequencies, station options or variations. There is no implicit backend catalog
 that replaces a declared formulation or suppresses an unavailable selection.

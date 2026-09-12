@@ -53,7 +53,7 @@ Import data in the format selected by `backend`.
 
 # Returns
 
-- Materialised objects defined by the selected format.
+- Materialized objects defined by the selected format.
 
 # Methods
 

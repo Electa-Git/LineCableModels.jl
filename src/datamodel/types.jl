@@ -1,6 +1,6 @@
 """
 $(TYPEDEF)
 
-Supertype for materialised cable parts.
+Supertype for materialized cable parts.
 """
 abstract type AbstractCablePart end

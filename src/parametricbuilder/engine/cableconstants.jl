@@ -4,7 +4,7 @@ $(TYPEDSIGNATURES)
 Map a finite space of completed cable designs to cable constants.
 
 Each deterministic configuration or stochastic realization calls the scalar
-`CableConstants(design; kwargs...)` surface exactly once.
+`CableConstants(design; kwargs...)` call exactly once.
 """
 function Engine.CableConstants(
         designs::Gridspace{<:DataModel.CableDesign};

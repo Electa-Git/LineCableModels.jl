@@ -1,4 +1,6 @@
-"Store one explicitly placed member of an `Assembly`."
+"""
+Store one explicitly placed member of an `Assembly`.
+"""
 struct AssemblyMember{E <: AbstractCablePart, P <: Pose2}
     item::E
     at::P

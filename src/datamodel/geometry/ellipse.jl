@@ -11,7 +11,7 @@ h_t(\\phi) = h(\\phi) + t.
 ```
 
 `EllipseOffset` is resolved geometry produced by applying [`Shell`](@ref); it
-is not a modelling declaration.
+is not a modeling declaration.
 
 $(TYPEDFIELDS)
 """

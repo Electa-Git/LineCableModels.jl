@@ -18,7 +18,7 @@ struct CableDesign{
     cable_id::String
     "Authoritative physical declaration."
     root::R
-    "Descriptive catalogue data supplied with the physical declaration."
+    "Descriptive catalog data supplied with the physical declaration."
     nominal_data::N
     "Resolved physical geometry."
     geometry::G
@@ -232,7 +232,7 @@ It performs no formulation calculation.
 # Keywords
 
 - `combine`: Gridspace composition mode. It is validated here for a common
-  scalar and parametric surface; scalar construction uses one value.
+  scalar and parametric API; scalar construction uses one value.
 
 # Returns
 

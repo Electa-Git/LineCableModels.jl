@@ -26,7 +26,7 @@ struct BlueprintConductor{T <: Real}
     alpha::T
     "Equivalent geometric-mean radius [m]."
     gmr::T
-    "Assembly-local centre in the design frame [m]."
+    "Assembly-local center in the design frame [m]."
     position::Tuple{T, T}
     "Artificial homogeneous conductor material."
     material::Material{T}
@@ -321,7 +321,7 @@ struct LocalCableData{T <: Real}
     assemblies::Vector{UnitRange{Int}}
     "Source-design index for each concentric assembly."
     assembly_designs::Vector{Int}
-    "Assembly-local conductor centres [m]."
+    "Assembly-local conductor centers [m]."
     positions::Vector{Tuple{T, T}}
     "Equivalent conductor inner radii [m]."
     r_in::Vector{T}

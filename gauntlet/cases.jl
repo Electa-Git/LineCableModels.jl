@@ -1,7 +1,7 @@
 """
     build_case(::Val{id}, parameters)
 
-Build one catalogue model from its declared parameter payload. Named methods
+Build one catalog model from its declared parameter payload. Named methods
 give retained UQ builders stable identities across Julia processes; source
 files are captured with the campaign. Case declarations bind their identifier
 with `Base.Fix1` and retain the existing CaseDefinition representation.

@@ -2,15 +2,29 @@
 """
 $(TYPEDSIGNATURES)
 
-**Identification.** Bottommost-layer equivalent homogeneous earth.
+**Identification.** Homogeneous earth represented by the deepest soil layer.
 
-**Expression.** Represent the earth by the bottommost soil layer's resistivity, relative
-permittivity, and relative permeability.
+**Expression.** Select the deepest layer's resistivity \\[Ω·m\\], relative
+permittivity, and relative permeability (both dimensionless). Property
+vectors use index 1 for air and indices 2 through N for soil; this default
+selects index N for every conductor-pair layout.
 
-The property vectors use index 1 for air and indices 2 through N for soil.
-This package default selects index N for every conductor-pair layout.
+**Scope.** Martins-Britto et al. found that deep-layer conductivity predominated
+in the magnetic ground-return impedance of the multilayer soil cases they
+studied. This supports using deep-layer resistivity as a default, subject to
+the soil structure and frequency range. Large conductivity contrasts and
+high-frequency effects limit that approximation. Selecting one layer does
+not implement their equivalent-conductivity formula, and their result does
+not establish the accuracy of selecting its permittivity or permeability.
 
-**Reference.** Package layer-selection policy with no literature approximation.
+The material-selection rule remains configurable through a different formula
+or `hooks=(contribution=f,)`; see [`Formula`](@ref).
+
+**Reference.** A. G. Martins-Britto, F. V. Lopes, and S. R. M. J. Rondineau,
+“Multilayer Earth Structure Approximation by a Homogeneous Conductivity Soil
+for Ground Return Impedance Calculations,” *IEEE Transactions on Power
+Delivery*, 35(2), 881–891, 2020.
+[DOI: 10.1109/TPWRD.2019.2930406](https://doi.org/10.1109/TPWRD.2019.2930406).
 """
 description(::Formula{:default}) = "Bottommost earth layer"
 

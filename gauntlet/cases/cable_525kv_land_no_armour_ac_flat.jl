@@ -159,5 +159,5 @@ case_definition(Base.Fix1(build_case, Val(:cable_525kv_land_no_armour_ac_flat)),
         "cable:2:core", "cable:2:sheath",
         "cable:3:core", "cable:3:sheath"
     ];
-    description = "525 kV unarmoured land cables in AC flat formation"
+    description = "525 kV unarmored land cables in AC flat formation"
 )
