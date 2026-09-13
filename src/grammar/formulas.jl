@@ -43,3 +43,53 @@ function computation_options(binding::FormulaMethod, ::Val{Section}, defaults::N
         supplied::NamedTuple) where {Section}
     throw(ArgumentError("no numerical constructor for section :$Section of $binding"))
 end
+import ..LineCableModels: FormulaDefinition, description, formula_id
+
+"""Read explicit formula controls without validating or evaluating them."""
+function formulation_options(::Type{FormulaDefinition}, retained::NamedTuple)
+    return (; (key => retained[key] for key in (:parameters,:hooks,:options,:equivalent_earth)
+        if haskey(retained,key) && retained[key] !== nothing &&
+            !(retained[key] isa NamedTuple && isempty(retained[key])))...)
+end
+formulation_options(source::Pair{<:Type,<:NamedTuple}) = formulation_options(first(source),last(source),Val(:retained))
+formulation_options(owner::Type,retained::NamedTuple,::Val{:retained}) = formulation_options(owner,retained)
+formulation_options(source::Pair{<:AbstractFormulation,<:NamedTuple}) = last(source)
+formulation_options(value::FormulaDefinition) = formulation_options(FormulaDefinition,
+    (parameters=value.parameters,hooks=value.hooks,options=value.options,equivalent_earth=value.equivalent_earth))
+formulation_options(::Symbol) = (;)
+formulation_options(value::NamedTuple) = map(formulation_options,value)
+formulation_options(::Nothing) = (;)
+formulation_options(::Missing) = (;)
+formula_id(source::Pair{<:AbstractFormulation,<:NamedTuple}) = formula_id(first(source))
+description(source::Pair{<:AbstractFormulation,<:NamedTuple}; compact::Bool=false) = description(first(source);compact)
+
+"""Describe a formulation's composition for one existing physical request."""
+description(source::AbstractFormulation,request;compact::Bool=true) =
+    only(description([source];roles=[:none],quantity=request,compact))
+description(source::Pair{<:Type,<:NamedTuple},request;compact::Bool=true) =
+    only(description([source];roles=[:none],quantity=request,compact))
+
+"""Describe a selection in its consuming owner's scientific context."""
+description(owner::Type,selected;compact::Bool=false) = description(selected;compact)
+
+
+"""Describe an owner-scoped route using the selected leaf's own description."""
+description(scope::Tuple{Type,Tuple},selected;kwargs...) = description(first(scope),last(scope),selected;kwargs...)
+function description(owner::Type,route::Tuple, selected; compact::Bool=true, settings::Bool=false)
+    name=isempty(route) ? description(owner;compact) : description(owner,Val(first(route)))
+    length(route)>1 && (name *= "("*join(string.(Base.tail(route)),",")*")")
+    controls=formulation_options(selected)
+    value=settings ? "" : isempty(route) ? description(selected;compact) : description(owner,selected;compact)
+    isempty(controls) || (value *= (isempty(value) ? "" : " ") *
+        (isempty(route) ? sprint(show,controls;context=:compact=>compact) :
+            description(FormulaDefinition,controls;compact)))
+    return name*"="*value
+end
+
+"""Render only the explicit controls admitted by a formula declaration."""
+function description(::Type{FormulaDefinition},controls::NamedTuple;compact::Bool=true)
+    return "("*join([string(key)*"="*description(Val(key),value;compact)
+        for (key,value) in pairs(controls)],", ")*")"
+end
+description(::Union{Val{:parameters},Val{:hooks},Val{:options}},value;compact::Bool=true) =
+    sprint(show,value;context=:compact=>compact)

@@ -21,7 +21,7 @@ haute fréquence par utilisation des matrices complexes,” *EDF Bulletin de la
 Direction des Études et Recherches*, série B, 1976; formula as reproduced in
 Ametani et al., IET, 2021.
 """
-description(::Formula{:Gary1976}) = "Gary complex-depth approximation (1976)"
+description(::Type{<:Formula{:Gary1976}}; compact::Bool=false) = compact ? "Gary1976" : "Gary complex-depth approximation (1976)"
 
 function Γ(::Val{:Gary1976}, jω, materials, layers)
     return zero(jω)

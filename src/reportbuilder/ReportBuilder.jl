@@ -14,8 +14,9 @@ export select, tabulate, illustrate, encode, write
 
 using DocStringExtensions: TYPEDEF, TYPEDFIELDS, TYPEDSIGNATURES
 using Printf: @sprintf
+import Statistics
 using RequiredInterfaces: @required
-import DataFrames: DataFrame, metadata, metadata!
+import DataFrames: DataFrame, metadata, metadata!, select!, Not
 import ..Grammar: observables
 import ..Grammar: ObservationPublication
 using ..Grammar: @observe
@@ -24,8 +25,10 @@ import ..DataModel
 import ..Engine
 import ..Engine: domain
 import ..ParametricBuilder: ParametricResult
-import ..Grammar: AbstractCoreResult, details, observe, detach
-import ..LineCableModels: validate, description
+import ..Grammar: AbstractCoreResult, AbstractUncertaintyResult, details, observe, detach,
+                  request_identity, request_quantity, request_indices, observation_request
+import ..LineCableModels: validate, description, formula_id
+import ..LineCableModels
 import ..PlotBuilder
 import ..UQ
 import ..TextDisplay
@@ -35,6 +38,7 @@ include("grammar.jl")
 include("tables.jl")
 include("comparisons.jl")
 include("montecarlo.jl")
+include("performance.jl")
 include("xlsx.jl")
 include("textdisplay.jl")
 

@@ -46,6 +46,23 @@ function LinearError(
     return LinearError(inner, options)
 end
 
+function Base.NamedTuple(value::LinearError)
+    inner=NamedTuple(value.inner)
+    declaration=(; (key=>item for (key, item) in pairs(inner) if key!==:methods)...)
+    return (kind = :linear_error, inner = declaration, options = value.options)
+end
+
+"""Identify first-order uncertainty propagation without inspecting its inner owner."""
+description(::Type{<:LinearError}; compact::Bool=false) = "LEP"
+description(::LinearError; compact::Bool=false) = description(LinearError;compact)
+formula_id(::Type{<:LinearError}) = :LinearError
+formula_id(::LinearError) = :LinearError
+formulation_options(value::LinearError) = value.options
+formulation_options(::Type{LinearError}, retained::NamedTuple) = retained.options
+function Base.pairs(value::LinearError; quantity = nothing)
+    pairs(LinearError, (inner = value.inner, options = value.options); quantity)
+end
+
 """
 $(TYPEDEF)
 
@@ -90,6 +107,28 @@ struct MonteCarlo{F <: AbstractFormulation, O <: ComputationOptions} <:
     end
 end
 
+"""Identify Monte Carlo propagation without sampling or configuring a solver."""
+description(::Type{<:MonteCarlo}; compact::Bool=false) = "Monte Carlo"
+description(::MonteCarlo; compact::Bool=false) = description(MonteCarlo;compact)
+formula_id(::Type{<:MonteCarlo}) = :MonteCarlo
+formula_id(::MonteCarlo) = :MonteCarlo
+formulation_options(value::MonteCarlo) = value.options
+formulation_options(::Type{MonteCarlo}, retained::NamedTuple) = retained.options
+function Base.pairs(value::MonteCarlo; quantity = nothing)
+    pairs(MonteCarlo, (inner = value.inner, options = value.options); quantity)
+end
+function Base.pairs(owner::Type{<:Union{MonteCarlo, LinearError}}, retained::NamedTuple; quantity = nothing)
+    entries=Pair{Tuple, Any}[(owner, ()) => (owner => (options = retained.options,))]
+    if ismissing(retained.inner)
+        push!(entries, (owner, (:inner,)) => missing)
+    else
+        append!(entries,
+            pairs((retained.inner isa Pair ? Tuple(retained.inner) : (retained.inner,))...; quantity))
+    end
+    return entries
+end
+description(::Type{<:Union{MonteCarlo, LinearError}}, ::Val{:inner}) = "inner method"
+
 function computation_options(
         ::Type{MonteCarlo},
         options::NamedTuple
@@ -132,9 +171,10 @@ function computation_options(
         throw(ArgumentError(
             "unsupported distribution $(repr(distribution)); expected :normal, :uniform, a sampler function, or an extension-supported distribution",
         ))
-    normalized.on_error === :fail || normalized.on_error === :retry || throw(ArgumentError(
-        "MonteCarlo on_error must be :fail or :retry",
-    ))
+    normalized.on_error === :fail || normalized.on_error === :retry ||
+        throw(ArgumentError(
+            "MonteCarlo on_error must be :fail or :retry",
+        ))
     normalized.on_error === :retry && !normalized.retain_details &&
         throw(
             ArgumentError(
@@ -197,4 +237,10 @@ function MonteCarlo(inner::AbstractFormulation; options::NamedTuple = (;), kwarg
         "MonteCarlo computation options supplied both as keywords and in options: $(collect(duplicates))",
     ))
     return MonteCarlo(inner, merge(options, supplied))
+end
+
+function Base.NamedTuple(value::MonteCarlo)
+    inner=NamedTuple(value.inner)
+    declaration=(; (key=>item for (key, item) in pairs(inner) if key!==:methods)...)
+    return (kind = :monte_carlo, inner = declaration, options = value.options)
 end

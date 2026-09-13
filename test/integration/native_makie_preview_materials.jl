@@ -215,10 +215,18 @@ end
     controlled_axis = only(controlled.axes)
     Makie.colorbuffer(controlled.figure)
     initial = controlled_axis.finallimits[]
-    limits!(controlled_axis, -10, 10, -10, 10)
+    # A native pan changes the view, not the caller's physical-view request.
+    controlled_axis.targetlimits[] = Makie.Rect2d(-10, -10, 20, 20)
     controlled.controls[:reset].clicks[] += 1
     Makie.colorbuffer(controlled.figure)
     @test controlled_axis.finallimits[] == initial
+    # An explicit later request must instead survive the same reset action.
+    limits!(controlled_axis, -10, 10, -10, 10)
+    requested = controlled_axis.limits[]
+    controlled.controls[:reset].clicks[] += 1
+    Makie.colorbuffer(controlled.figure)
+    @test controlled_axis.limits[] == requested
+    @test controlled_axis.finallimits[] == Makie.Rect2d(-10, -10, 20, 20)
     resize!(controlled.figure.scene, 1000, 500)
     Makie.colorbuffer(controlled.figure)
     resized = controlled_axis.finallimits[]

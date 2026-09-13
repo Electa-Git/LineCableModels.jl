@@ -27,23 +27,13 @@ function uq_moment_tolerances(
     ))
     timing_samples > 0 || throw(ArgumentError("timing samples must be positive"))
     timing_seconds > 0 || throw(ArgumentError("timing seconds must be positive"))
-    absolute = (R = 1.0e-7, L = 1.0e-9, C = 1.0e-12, G = 1.0e-15)
-    moment_limits(relative) =
-        map(absolute) do floor
-            (absolute = floor, relative = Float64(relative))
-        end
-    regression_limits = map(absolute) do floor
-        (absolute = floor * 1.0e-3, relative = 1.0e-6)
-    end
+    absolute = (R=>1.0e-7,L=>1.0e-9,C=>1.0e-12,G=>1.0e-15)
     return (
-        reference = (
-            mean = moment_limits(mean_relative),
-            std = moment_limits(std_relative)
-        ),
-        regression = (
-            mean = regression_limits,
-            std = regression_limits
-        ),
+        reference=Tuple((request=(LineCableModels.statistics,quantity,statistic),absolute=floor,
+            relative=Float64(relative)) for (statistic,relative) in ((Statistics.mean,mean_relative),(Statistics.std,std_relative))
+            for (quantity,floor) in absolute),
+        regression=Tuple((request=(LineCableModels.statistics,quantity,statistic),absolute=floor*1e-3,relative=1e-6)
+            for statistic in (Statistics.mean,Statistics.std) for (quantity,floor) in absolute),
         performance = (
             minimum_speedup = Float64(minimum_speedup),
             samples = Int(timing_samples),

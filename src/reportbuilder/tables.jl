@@ -64,18 +64,54 @@ created unless `illustration` is explicitly supplied. `pairing` maps each candid
 point to an explicit reference point when both operands are result spaces.
 """
 function BenchmarkTableDefinition(; clip::Bool=false, illustration=nothing, plot_options=(;), kwargs...)
-    moments=Tuple(get(kwargs,:statistics,(:value,))) == (:mean,:std)
-    defaults=(quantities=moments ? (R,L,C,G) : (Z,Y,R,L,G,C), statistics=(:value,),
-        bands=moments ? (:all,) : (:all,:dc,:harmonic,:narrow,:wide),
+    haskey(kwargs,:requests) && any(key -> haskey(kwargs,key),(:quantities,:statistics)) &&
+        throw(ArgumentError("use requests or quantities/statistics, not both"))
+    statistics = Tuple(get(kwargs,:statistics,(:value,)))
+    quantities = Tuple(get(kwargs,:quantities,statistics == (:value,) ? (Z,Y,R,L,G,C) : (R,L,C,G)))
+    requests = get(kwargs,:requests,nothing)
+    if requests === nothing
+        selectors = map(quantities) do value
+            value isa Function && return value
+            matches = filter(selector -> nameof(selector) == value, (Z,Y,R,X,L,G,B,C))
+            length(matches) == 1 || throw(ArgumentError("unknown physical quantity $value"))
+            only(matches)
+        end
+        transforms = map(statistics) do entry
+            entry === :value && return nothing
+            entry isa Function && return entry
+            matches = filter(selector -> nameof(selector) == entry,
+                (Statistics.mean,Statistics.std,Statistics.median,minimum,maximum))
+            length(matches) == 1 || throw(ArgumentError("unknown statistic $entry"))
+            only(matches)
+        end
+        requests = Tuple(transform === nothing ? selector : (UQ.statistics,selector,transform)
+            for selector in selectors for transform in transforms)
+    end
+    controls = (; (key=>value for (key,value) in kwargs if !(key in (:requests,:quantities,:statistics)))...)
+    result = BenchmarkTableDefinition(Tuple(requests);clip,illustration,plot_options,controls...)
+    requested = Tuple(unique(key in (:quantities,:statistics) ? :requests : key for key in keys(kwargs)))
+    return BenchmarkTableDefinition(result.settings,requested,clip,illustration,plot_options)
+end
+
+"""
+$(TYPEDSIGNATURES)
+
+Select scientific requests for per-term RMS comparisons. Statistical requests
+use `(statistics, quantity, statistic)` function tuples. Bands apply equally to
+deterministic and statistical products. Absolute limits use native physical
+units; relative errors are dimensionless. Plotting remains explicitly requested.
+"""
+function BenchmarkTableDefinition(requests::Tuple; clip::Bool=false, illustration=nothing,
+        plot_options=(;), kwargs...)
+    defaults=(bands=(:all,:dc,:harmonic,:narrow,:wide),
         normalizations=(:reference_rms,), atol=nothing, fundamental=50.0, harmonics=50,
         unsupported=(;), pairing=nothing)
     isempty(setdiff(keys(kwargs),keys(defaults))) || throw(ArgumentError("unknown benchmark comparison controls"))
     supplied=merge(defaults,(;kwargs...))
-    settings=merge(supplied,(
-        quantities=Tuple(q isa Symbol ? q : Symbol(nameof(q)) for q in supplied.quantities),
-        statistics=Tuple(supplied.statistics), bands=Tuple(supplied.bands),
+    settings=merge((;requests),supplied,(
+        bands=Tuple(supplied.bands),
         normalizations=Tuple(supplied.normalizations)))
-    return validate(BenchmarkTableDefinition(settings,Tuple(keys(kwargs)),clip,illustration,plot_options))
+    return validate(BenchmarkTableDefinition(settings,(:requests,keys(kwargs)...),clip,illustration,plot_options))
 end
 
 function BenchmarkTableDefinition(clip::Bool; kwargs...)
@@ -85,17 +121,18 @@ end
 """Validate comparison requests before numerical execution."""
 function validate(definition::BenchmarkTableDefinition)
     settings=definition.settings
-    !isempty(settings.quantities) && allunique(settings.quantities) &&
-        all(q -> q in (:Z, :Y, :R, :X, :L, :G, :B, :C), settings.quantities) ||
-        throw(ArgumentError("benchmark quantities must select distinct Z, Y, R, X, L, G, B, or C"))
+    !isempty(settings.requests) && allunique(settings.requests) ||
+        throw(ArgumentError("benchmark requests must be nonempty and distinct"))
+    for request in settings.requests
+        request_quantity(request)
+        isempty(request_indices(request)) || throw(ArgumentError("benchmark point selection uses pairing"))
+    end
     if settings.pairing !== nothing
         settings.pairing isa Union{Tuple,AbstractVector} && !isempty(settings.pairing) &&
             all(pair -> pair isa Tuple{Integer,Integer} && all(index -> !(index isa Bool) && index>0,pair),settings.pairing) &&
             sort(last.(collect(settings.pairing))) == collect(1:length(settings.pairing)) ||
             throw(ArgumentError("pairing must list positive reference/candidate indices with each candidate exactly once"))
     end
-    settings.statistics in ((:value,), (:mean, :std)) ||
-        throw(ArgumentError("benchmark statistics must be (:value,) or (:mean, :std)"))
     !isempty(settings.bands) && allunique(settings.bands) ||
         throw(ArgumentError("benchmark needs distinct frequency bands"))
     !isempty(settings.normalizations) && allunique(settings.normalizations) ||
@@ -104,12 +141,6 @@ function validate(definition::BenchmarkTableDefinition)
         validate(Engine.compare; band, normalization, atol=settings.atol,
             fundamental=settings.fundamental, harmonics=settings.harmonics,
             unsupported=settings.unsupported)
-    end
-    if settings.statistics == (:mean, :std)
-        settings.quantities == (:R, :L, :C, :G) && settings.bands == (:all,) &&
-            settings.normalizations == (:reference_rms,) && settings.atol === nothing &&
-            isempty(settings.unsupported) || throw(ArgumentError(
-                "moment comparisons support full-band R/L/C/G means and standard deviations with reference-RMS normalization"))
     end
     return definition
 end

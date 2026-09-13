@@ -1,16 +1,7 @@
-function _request_identity(request, supported::Tuple)
-    request isa Function && return request
-    request isa Tuple && !isempty(request) || throw(
-        ArgumentError("observable requests must be selector functions or nonempty tuples"),
-    )
-    pair = length(request) >= 2 ? (request[1], request[2]) : nothing
-    return pair !== nothing && pair in supported ? pair : first(request)
-end
-
 """
 $(TYPEDSIGNATURES)
 
-Return the selector or selector/transform pair encoded by one observable
+Return the function-valued selector prefix encoded by one observable
 request. Positional indices are omitted from the result.
 """
 function request_identity(request)
@@ -18,9 +9,10 @@ function request_identity(request)
     request isa Tuple && !isempty(request) || throw(ArgumentError(
         "observable requests must be selector functions or nonempty tuples",
     ))
-    return length(request) >= 2 && request[1] isa Function &&
-           request[2] isa Function && !(request[2] isa Colon) ?
-           (request[1], request[2]) : first(request)
+    count = findfirst(value -> !(value isa Function) || value isa Colon, request)
+    count = count === nothing ? length(request) : count - 1
+    count > 0 || throw(ArgumentError("an observable request must begin with a selector function"))
+    return count == 1 ? first(request) : request[1:count]
 end
 
 """
@@ -72,7 +64,7 @@ quantity, and positional indices.
 """
 function observation_request(source, request)
     supported = _observable_declaration(source)
-    identity = _request_identity(request, supported)
+    identity = request_identity(request)
     identity in supported || throw(ArgumentError(
         "$(typeof(source)) does not publish selector $(repr(identity))",
     ))
@@ -154,18 +146,12 @@ function validate_observables(
         requests::Tuple,
         unit_overrides::Tuple = ()
 )
-    supported = _observable_declaration(source)
     isempty(unit_overrides) || length(unit_overrides) == length(requests) ||
         throw(
             DimensionMismatch("display units must align with observable requests"),
         )
-    identities = map(request -> _request_identity(request, supported), requests)
-    for identity in identities
-        identity in supported || throw(
-            ArgumentError("$(typeof(source)) does not publish selector $(repr(identity))"),
-        )
-    end
-    return identities
+    allunique(requests) || throw(ArgumentError("observable requests must be distinct"))
+    return map(request -> observation_request(source, request).identity, requests)
 end
 
 _observe_request(source, request::Function) = observe(source, request)
@@ -173,30 +159,18 @@ _observe_request(source, request::Tuple) = observe(source, request...)
 
 _quantity(request::Function) = quantity(request)
 
-function _quantity(request::Tuple{F, Colon, Vararg}) where {F <: Function}
-    return quantity(first(request))
-end
-
-function _quantity(request::Tuple{F, G, Vararg}) where {F <: Function, G <: Function}
-    return quantity(request[1], request[2])
-end
-
 function _quantity(request::Tuple)
-    isempty(request) && throw(
-        ArgumentError("scientific requests must be selector functions or nonempty tuples"),
-    )
-    return quantity(first(request))
+    identity = request_identity(request)
+    return identity isa Tuple ? quantity(identity...) : quantity(identity)
 end
 
 function _override_candidates(request)
-    identity = request isa Function ? request :
-               length(request) >= 2 && request[1] isa Function &&
-               request[2] isa Function && !(request[2] isa Colon) ?
-               (request[1], request[2]) : first(request)
+    identity = request_identity(request)
     names = identity isa Function ? (nameof(identity),) :
             identity isa Tuple && first(identity) isa Function ?
             (nameof(first(identity)),) : ()
-    return (request, identity, names...)
+    prefix = identity isa Tuple && length(identity) > 2 ? (identity[1:2],) : ()
+    return (request, identity, prefix..., names...)
 end
 
 function _unit_override(overrides, request)
@@ -483,7 +457,7 @@ function observables(
         frequencies = nothing
 )
     identities = validate_observables(source, requests, units)
-    atol isa Real && length(unique(identities)) > 1 && throw(ArgumentError(
+    atol isa Real && length(unique(request_quantity.(requests))) > 1 && throw(ArgumentError(
         "a scalar atol requires one observable quantity; use keyed native-unit tolerances",
     ))
     isempty(units) || quantity_units === nothing || throw(ArgumentError(
@@ -514,10 +488,16 @@ function observables(
         payloads,
         (; length_unit, frequency_unit, quantity_units, clip, atol)
     )
-    names = map(payload -> Symbol(Units.symbol(payload.quantity)), payloads)
-    resolutions = NamedTuple{names}(map(publication -> publication.resolution, publications))
     contracts = map(keys(table.observation_columns), values(table.observation_columns)) do name, contract
-        haskey(resolutions, name) ? merge(contract, (resolution=getproperty(resolutions, name),)) : contract
+        selected = findall(eachindex(requests)) do index
+            haskey(contract, :requests) ? requests[index] in contract.requests :
+                Symbol(Units.symbol(payloads[index].quantity)) == name
+        end
+        isempty(selected) && return contract
+        resolutions = Tuple(publications[index].resolution for index in selected)
+        merge(contract, (requests=Tuple(requests[index] for index in selected),
+            observation_indices=Tuple(selected),
+            resolution=length(resolutions) == 1 ? only(resolutions) : resolutions))
     end
     metadata = (
         basis = basis(source),
@@ -525,4 +505,40 @@ function observables(
         observation_columns = NamedTuple{keys(table.observation_columns)}(contracts),
     )
     return ObservationPublication(payloads, table.columns, metadata)
+end
+
+basis(publication::ObservationPublication) = publication.metadata.basis
+
+function observation_request(publication::ObservationPublication,request)
+    identity=request_identity(request)
+    any(contract -> any(stored -> request_identity(stored)==identity,
+        get(contract,:requests,())),values(publication.metadata.observation_columns)) ||
+        throw(ArgumentError("the requested product was not retained in this publication"))
+    return (;identity,quantity=request_quantity(request),indices=request_indices(request))
+end
+
+"""
+$(TYPEDSIGNATURES)
+
+Read a retained publication product in native units. The publication retains
+no source object and performs no reconstruction of absent statistical products.
+An ambiguous retained selection must be selected explicitly before reuse.
+"""
+function observe(publication::ObservationPublication, selectors...)
+    request=length(selectors)==1 ? only(selectors) : selectors
+    resolved=observation_request(publication,request)
+    matching=[(contract,index) for contract in Base.values(publication.metadata.observation_columns)
+        for (stored,index) in zip(get(contract,:requests,()),get(contract,:observation_indices,()))
+        if request_identity(stored)==resolved.identity]
+    length(matching)==1 || throw(ArgumentError("publication product selection is ambiguous"))
+    _,index=only(matching)
+    payload=publication[index]
+    factor=scale_factor(payload.unit,native_unit(payload.quantity,basis(publication)))
+    values=detach(payload.values,factor)
+    indices=resolved.indices
+    if resolved.identity isa Tuple && length(resolved.identity)==3
+        isempty(indices) || first(indices)==1 || throw(ArgumentError("this publication retains one selected point"))
+        isempty(indices) || (indices=Base.tail(indices))
+    end
+    return isempty(indices) ? values : values[indices...]
 end

@@ -19,8 +19,8 @@ matrix.
 of Cables,” *IEEE Transactions on Power Apparatus and Systems*, PAS-99(3),
 902–910, 1980. DOI: 10.1109/TPAS.1980.319718.
 """
-function description(::Formula{:default})
-    "Ametani coaxial-insulation magnetic impedance (1980)"
+function description(::Type{<:Formula{:default}}; compact::Bool=false)
+    compact ? "default" : "Ametani coaxial-insulation magnetic impedance (1980)"
 end
 
 """

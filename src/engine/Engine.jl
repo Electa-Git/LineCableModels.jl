@@ -18,6 +18,7 @@ $(IMPORTS)
 
 """
 module Engine
+import ..Grammar: ObservationPublication
 
 # Export public API
 export LineParametersProblem, CableConstantsProblem,
@@ -67,6 +68,7 @@ import ..Grammar: AbstractProblemDefinition, AbstractFormulation,
                   publication_table
 
 using ..Units
+import ..Grammar
 using ..Materials
 using ..Materials: TemperatureDependent
 import ..Earth

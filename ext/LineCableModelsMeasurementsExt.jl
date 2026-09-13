@@ -146,6 +146,73 @@ function deserialize_extension(::Val{:Measurement}, value)
     uncertainty = deserialize_value(value["uncertainty"])
     return Measurements.measurement(nominal, uncertainty)
 end
+
+"""
+Encode one LEP result with shared independent-source identities and sparse signed
+sensitivities. Source IDs are local to this record; separate outputs are never
+reconstructed as independent measurements.
+"""
+function serialize_value(value::UQ.LinearErrorResult{<:Engine.LineParameters{<:Complex{<:Measurements.Measurement}}})
+    record=NamedTuple(value)
+    isempty(value) && throw(ArgumentError("cannot encode an empty LEP result"))
+    initial=real(first(LineCableModels.observe(first(value),LineCableModels.Z)))
+    source_set=Set(keys(uncertainty_components(initial)))
+    for point_result in value, selector in (LineCableModels.Z,LineCableModels.Y),
+            z in LineCableModels.observe(point_result,selector), component in (real(z),imag(z))
+        union!(source_set,keys(uncertainty_components(component)))
+    end
+    sources=sort!(collect(source_set);by=last)
+    indices=Dict(source=>index for (index,source) in enumerate(sources))
+    points=map(value) do core
+        matrices=map((LineCableModels.Z,LineCableModels.Y)) do selector
+            values=LineCableModels.observe(core,selector)
+            components=map((real,imag)) do component_part
+                [begin
+                    component=component_part(z)
+                    contributions=[(source=indices[source],sensitivity=derivative(component,source))
+                        for source in keys(uncertainty_components(component))]
+                    sort!(contributions;by=entry -> entry.source)
+                    (nominal=nominal(component),uncertainty=uncertainty(component),contributions)
+                end for z in values]
+            end
+            (shape=size(values),real=vec(components[1]),imaginary=vec(components[2]))
+        end
+        (Z=matrices[1],Y=matrices[2],frequencies=LineCableModels.frequencies(core),
+            basis=LineCableModels.basis(core),domain=:PhaseDomain,
+            coordinates=get(LineCableModels.details(core),:coordinates,nothing))
+    end
+    formulation=record.formulation isa NamedTuple ? record.formulation : NamedTuple(record.formulation)
+    payload=(formulation,points,sources=[(nominal=source[1],sigma=source[2]) for source in sources],details=record.details)
+    return Dict("__type__"=>"MeasurementLinearErrorResult","version"=>1,
+        "payload"=>serialize_value(payload,Val(:scientific)))
+end
+
+function deserialize_extension(::Val{:MeasurementLinearErrorResult},record)
+    record["version"] == 1 || throw(ArgumentError("unsupported shared-source LEP record"))
+    payload=deserialize_value(record["payload"])
+    sources=[Measurements.measurement(source.nominal,source.sigma) for source in payload.sources]
+    points=map(payload.points) do point
+        matrices=map((point.Z,point.Y)) do matrix
+            parts=map((matrix.real,matrix.imaginary)) do components
+                [begin
+                    value=Measurements.measurement(component.nominal,zero(component.nominal))
+                    for entry in component.contributions
+                        source=sources[entry.source]
+                        value += entry.sensitivity*(source-nominal(source))
+                    end
+                    isapprox(uncertainty(value),component.uncertainty;rtol=1e-12,atol=0) ||
+                        throw(ArgumentError("restored LEP sensitivity record changes propagated uncertainty"))
+                    value
+                end for component in components]
+            end
+            reshape(complex.(parts...),matrix.shape)
+        end
+        point.domain === :PhaseDomain || throw(ArgumentError("unsupported LEP result domain"))
+        detail=point.coordinates === nothing ? (;) : (coordinates=point.coordinates,)
+        Engine.LineParameters(matrices...,point.frequencies;basis=point.basis,details=detail)
+    end
+    return UQ.LinearErrorResult(payload.formulation,points,payload.details)
+end
 function encode_cell(
         ::ReportBuilder.XLSXReportDefinition,
         value::Measurements.Measurement
@@ -246,7 +313,7 @@ function Engine.internal_shunt_response(values::AbstractVector{<:Measurements.Me
     directions = [Float64(derivative(value,tag)*tag[2]) for value in values, tag in tags]
     result = Engine.internal_shunt_response(nominal_values,domain;directions,kwargs...)
     # Return sensitivities through the original physical arguments, including
-    # shared/dependent ones. A small rank-revealing projection handles redundant
+    # shared/dependent ones. A small rank-revealing solve handles redundant
     # descriptors without creating new independent Measurement identities.
     factor = svd(transpose(directions))
     cutoff = max(size(directions)...)*eps(Float64)*maximum(factor.S)

@@ -21,8 +21,8 @@ K_0(\\gamma_1d_{ij})-K_0(\\gamma_1D_{ij})+2\\int_0^\\infty
 wechselstromdurchflossenen Einfachleitung,” *Elektrische Nachrichtentechnik*,
 3, 339–360, 1926.
 """
-function description(::Formula{:Pollaczek1926})
-    "Pollaczek homogeneous-earth underground impedance (1926)"
+function description(::Type{<:Formula{:Pollaczek1926}}; compact::Bool=false)
+    compact ? "Pollaczek1926" : "Pollaczek homogeneous-earth underground impedance (1926)"
 end
 
 function Γ(

@@ -81,7 +81,7 @@ function Base.show(io::IO, ::MIME"text/plain", backend::LineCableModelsFEM)
     selections = map(backend.methods) do selected
         selected === nothing && return nothing
         modified = !isempty(selected.hooks) || !isempty(selected.parameters)
-        string(formula_id(selected), modified ? " (modified)" : "")
+        string(description(selected;compact=true), modified ? " (modified)" : "")
     end
     return TextDisplay.fields(
         io,

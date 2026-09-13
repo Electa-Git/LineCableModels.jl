@@ -19,12 +19,14 @@
         @test record.methods.earth_admittance.parameters.reference === reference
     end
     artifact=report(BenchmarkTableDefinition(),(reference=results[1],candidate=results[2]))
-    @test artifact.table.formulations.record[1] != artifact.table.formulations.record[2]
+    @test artifact.published.reference.metadata.formulation != artifact.published.candidate.metadata.formulation
     @test occursin("deep",artifact.table.formulations.label[1])
     @test occursin("interface",artifact.table.formulations.label[2])
     io=IOBuffer();serialize(io,results);seekstart(io)
     restored=deserialize(io)
-    @test report(BenchmarkTableDefinition(),(reference=restored[1],candidate=restored[2])).table.formulations == artifact.table.formulations
+    # Unavailable cells must stay unavailable after serialization; == propagates
+    # missing instead of comparing the retained availability mask.
+    @test isequal(report(BenchmarkTableDefinition(),(reference=restored[1],candidate=restored[2])).table.formulations,artifact.table.formulations)
     calls=Ref(0)
     hook=(s,m,l)->(calls[]+=1;zero(s))
     hooked=compute(problem,Formulation(earth_impedance=formula(:default;hooks=(Γ=hook,))))

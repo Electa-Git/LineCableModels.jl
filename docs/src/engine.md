@@ -192,7 +192,7 @@ guessed or retried. Modified selections are recorded in result details.
 
 Scalar families expose `hooks=(contribution=my_law,)` with the signature documented
 by their `Formula` constructor. Internal impedance exposes its inner, outer and
-mutual surface callables. Unknown parameters or hooks fail at construction or indexed preflight. External
+transfer surface callables. Unknown parameters or hooks fail at construction or indexed preflight. External
 hook names and numerical sections are admitted together by the required cases.
 
 `EarthPair` carries conductor row/column indices, integer source/target layer indices,
@@ -335,11 +335,30 @@ hooks retain the operation they customize. No callback inherits an unrelated
 formula's numerical options or expands its physical domain.
 
 `InternalImpedance.surface_impedances(resolved_formula, r_in, r_ex, rho, mu_r, jω)`
-returns `(inner,outer,mutual)` coefficients in Ω/m, with hooks and per-kind
+returns `(inner,outer,transfer)` coefficients in Ω/m, with hooks and per-kind
 numerical options applied. Internal kinds have no earth-layer selectors. Assemblers
 own the current-basis transformation and matrix placement. The deferred pipe
 contribution concerns one contained metal and its enclosing pipe; recursive
 assembly and pipe equations are outside this implementation.
+
+Like the earth selections, internal impedance accepts either one formula or a
+complete named selection:
+
+```julia
+selected = Formulation(internal_impedance=(
+    inner=formula(:default),
+    outer=formula(:default),
+    transfer=formula(:default),
+))
+```
+
+Each surface can select a different registered formula that implements that
+surface, with its own parameters, hooks and numerical options. A replacement
+for the transfer coefficient belongs to the transfer leaf, as
+`transfer=formula(:default; hooks=(transfer=my_transfer,))`. Identical complete
+selections share their prepared conductor state. Scalar shorthand retains its
+existing numerical behavior. The internal term is called `transfer`; earth
+`self`/`mutual` interaction names are unchanged.
 
 `ComputationOptions` remains an alias for `NamedTuple`. The existing
 `computation_options` constructor validates and normalizes execution controls once:

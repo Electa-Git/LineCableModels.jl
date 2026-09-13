@@ -208,12 +208,94 @@ struct LineParametersFormulation{M <: NamedTuple, O <: NamedTuple, D <: NamedTup
     definitions::D
 end
 
+"""Identify the owned coaxial calculation without report numbering."""
+description(::Type{<:LineParametersFormulation}; compact::Bool=false) = description(LineCableModelsCoaxial;compact)
+description(::LineParametersFormulation; compact::Bool=false) = description(LineParametersFormulation;compact)
+formula_id(::Type{<:LineParametersFormulation}) = :coaxial
+formula_id(::LineParametersFormulation) = :coaxial
+
+"""
+$(TYPEDSIGNATURES)
+
+Iterate ordered formula-slot owners relevant to a physical quantity. With
+`quantity=nothing`, retain every declared slot. This is a declaration read,
+not problem-dependent formula resolution.
+"""
+function Base.pairs(::Type{LineParametersFormulation}; quantity=nothing)
+    selected=(internal_impedance=InternalImpedance.Formula,
+        insulation_impedance=InsulationImpedance.Formula,
+        earth_impedance=EarthImpedance.Formula,
+        insulation_admittance=InsulationAdmittance.Formula,
+        semicon_admittance=SemiconAdmittance.Formula,
+        earth_admittance=EarthAdmittance.Formula,
+        earth_properties=Earth.FrequencyDependent.Formula,
+        pipe_impedance=PipeImpedance.Formula,
+        temperature_dependence=TemperatureDependent.Formula)
+    quantity===nothing && return pairs(selected)
+    q=quantity isa Units.Quantity ? quantity : Grammar.request_quantity(quantity)
+    series=q in (Units.quantity(Z),Units.quantity(R),Units.quantity(X),Units.quantity(L),
+        Units.quantity(Z,abs),Units.quantity(Z,angle))
+    shunt=q in (Units.quantity(Y),Units.quantity(G),Units.quantity(B),Units.quantity(C),
+        Units.quantity(Y,abs),Units.quantity(Y,angle))
+    series || shunt || throw(ArgumentError("no line-formulation selections for $q"))
+    omitted=series ? (:insulation_admittance,:semicon_admittance,:earth_admittance) :
+        (:internal_impedance,:insulation_impedance,:earth_impedance,:pipe_impedance)
+    return pairs((; (key=>value for (key,value) in pairs(selected) if key ∉ omitted)...))
+end
+
+description(::Type{LineParametersFormulation},::Val{:internal_impedance}) = "internal Z"
+description(::Type{LineParametersFormulation},::Val{:insulation_impedance}) = "insulation Z"
+description(::Type{LineParametersFormulation},::Val{:earth_impedance}) = "earth Z"
+description(::Type{LineParametersFormulation},::Val{:insulation_admittance}) = "insulation Y"
+description(::Type{LineParametersFormulation},::Val{:semicon_admittance}) = "semicon Y"
+description(::Type{LineParametersFormulation},::Val{:earth_admittance}) = "earth Y"
+description(::Type{LineParametersFormulation},::Val{:earth_properties}) = "soil law"
+description(::Type{LineParametersFormulation},::Val{:pipe_impedance}) = "pipe Z"
+description(::Type{LineParametersFormulation},::Val{:temperature_dependence}) = "temperature law"
+
+"""Expose typed children and controls without serializing the formulation."""
+Base.pairs(value::LineParametersFormulation; quantity=nothing) =
+    pairs(LineParametersFormulation,(methods=value.methods,requested=map(formulation_options,value.definitions),options=value.options);quantity)
+formulation_options(value::LineParametersFormulation) = value.options
+formulation_options(::Type{LineParametersFormulation},retained::NamedTuple,::Val{:retained}) = retained.options
+
+"""
+$(TYPEDSIGNATURES)
+
+Iterate owner-scoped selections from a formulation's declared child interface.
+`retained.methods` contains typed children (including owner-bound saved leaves);
+`retained.requested` contains their explicit controls. `pairs(owner; quantity)`
+owns child order and relevance. The empty route identifies the owner itself.
+"""
+function Base.pairs(::Type{LineParametersFormulation}, retained::NamedTuple;
+        quantity=nothing,owner=LineParametersFormulation)
+    entries=Pair{Tuple,Any}[(owner,()) => (owner => (options=retained.options,))]
+    for (slot,family) in pairs(owner;quantity)
+        selected=retained.methods[slot]
+        requested=retained.requested[slot]
+        if selected isa NamedTuple
+            children = pairs(family)
+            Set(keys(selected)) == Set(key for (key,_) in children) || throw(ArgumentError(
+                "retained $slot selections do not match the owning formula slots"))
+            for (route,_) in children
+                value=selected[route]
+                controls=requested[route]
+                push!(entries,(owner,(slot,route)) => (value===nothing || ismissing(value) ? value : value => controls))
+            end
+        else
+            controls=requested
+            push!(entries,(owner,(slot,)) => (selected===nothing || ismissing(selected) ? selected : selected => controls))
+        end
+    end
+    return entries
+end
+
 function LineParametersFormulation(methods::NamedTuple, options::NamedTuple)
     LineParametersFormulation(methods, options, methods)
 end
 
 function LineParametersFormulation(;
-        internal_impedance::InternalImpedanceFormulation,
+        internal_impedance::Union{InternalImpedanceFormulation, NamedTuple},
         insulation_impedance::InsulationImpedanceFormulation,
         earth_impedance::Union{EarthImpedanceFormulation, NamedTuple},
         insulation_admittance::InsulationAdmittanceFormulation,
@@ -245,7 +327,7 @@ function _line_formulation(
         options::NamedTuple
 )
     selected = LineParametersFormulation(;
-        internal_impedance = InternalImpedance.Formula(internal_impedance),
+        internal_impedance = Formulation(InternalImpedance.Formula, internal_impedance),
         insulation_impedance = InsulationImpedance.Formula(insulation_impedance),
         earth_impedance = Formulation(EarthImpedance.Formula, earth_impedance),
         insulation_admittance = InsulationAdmittance.Formula(insulation_admittance),
@@ -258,7 +340,9 @@ function _line_formulation(
                                  TemperatureDependent.Formula(temperature_dependence),
         options = formulation_options(LineParametersFormulation, options)
     )
-    definitions = (; internal_impedance, insulation_impedance,
+    definitions = (; internal_impedance = internal_impedance isa NamedTuple ?
+            NamedTuple{keys(selected.methods.internal_impedance)}(internal_impedance) : internal_impedance,
+        insulation_impedance,
         earth_impedance = earth_impedance isa NamedTuple ?
             NamedTuple{keys(selected.methods.earth_impedance)}(earth_impedance) : earth_impedance,
         insulation_admittance, semicon_admittance,
@@ -272,6 +356,11 @@ end
 $(TYPEDSIGNATURES)
 
 Select the complete physical-method bundle for a line-parameter calculation.
+
+`internal_impedance` accepts one formula or complete `inner`, `outer`, and
+`transfer` selections. Each selected formula owns its callable overrides and
+numerical controls. Only the surface kinds required by the geometry are
+evaluated; unsupported or explicitly unused overrides fail during preflight.
 
 `earth_impedance` and `earth_admittance` each accept one formula or a NamedTuple
 with exactly `air`, `earth`, and `mixed` selections. For a physical horizontal

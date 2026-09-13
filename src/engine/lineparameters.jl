@@ -217,9 +217,8 @@ function _compute(
     result = _finish(parameters, workspace, formulation, execution)
     fields = keys(formulation.methods)
     # Scalar and homogeneous selections keep a bounded metadata type across grids.
-    HomogeneousIDs = NamedTuple{(:air, :earth, :mixed), NTuple{3, Symbol}}
     Identifiers = NamedTuple{fields,
-        NTuple{length(fields), Union{Nothing, Symbol, HomogeneousIDs}}}
+        NTuple{length(fields), Union{Nothing, Symbol, NamedTuple}}}
     identifier = function (value)
         value === nothing && return nothing
         value isa Symbol && return value
@@ -230,9 +229,8 @@ function _compute(
     end
     effective_ids = map(identifier, formulation.methods)
     modified_fields = filter(!=(:pipe_impedance), fields)
-    HomogeneousFlags = NamedTuple{(:air, :earth, :mixed), NTuple{3, Bool}}
     Modifications = NamedTuple{modified_fields,
-        NTuple{length(modified_fields), Union{Bool, HomogeneousFlags}}}
+        NTuple{length(modified_fields), Union{Bool, NamedTuple}}}
     modified = function (selected)
         selected === nothing && return false
         selected isa NamedTuple && return map(modified, selected)
@@ -258,8 +256,9 @@ function _compute(
         selected === nothing && return (;)
         if name === :internal_impedance
             kinds = any(indices -> length(indices) > 1, workspace.invariants.cable_indices) ?
-                    (:inner, :outer, :mutual) : (:outer,)
-            return selected.options[kinds]
+                    (:inner, :outer, :transfer) : (:outer,)
+            return selected isa NamedTuple ? NamedTuple{kinds}(map(
+                kind -> selected[kind].options[kind], kinds)) : selected.options[kinds]
         end
         selected.options
     end)

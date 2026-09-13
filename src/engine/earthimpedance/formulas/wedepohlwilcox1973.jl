@@ -30,8 +30,8 @@ Underground Power-Transmission Systems: System-Model and Wave-Propagation
 Characteristics,” *Proceedings of the IEE*, 120, 253–260, 1973, Eqs. (7)–(8).
 DOI: 10.1049/piee.1973.0056.
 """
-function description(::Formula{:WedepohlWilcox1973})
-    "Wedepohl-Wilcox low-frequency underground approximation (1973)"
+function description(::Type{<:Formula{:WedepohlWilcox1973}}; compact::Bool=false)
+    compact ? "WedepohlWilcox1973" : "Wedepohl-Wilcox low-frequency underground approximation (1973)"
 end
 
 function Γ(

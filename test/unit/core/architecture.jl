@@ -422,7 +422,9 @@ end
     )
     @test !occursin(r"\bUQ\.(?:statistics|samples|histograms)\(source\)",
         report_monte_carlo)
-    @test length(findall("observables(", report_monte_carlo)) == 1
+    # Reports may call the publication protocol for several result products,
+    # but must not implement another publication orchestrator.
+    @test !occursin(r"function\s+(?:[\w.]+\.)?observables\s*\(", report_monte_carlo)
     report_grammar=source[joinpath("src", "reportbuilder", "grammar.jl")]
     @test occursin("PlotBuilder.plot(published; definition.plot_options...)", report_grammar)
     report_xlsx=source[joinpath("src", "reportbuilder", "xlsx.jl")]

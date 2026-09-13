@@ -100,9 +100,9 @@ function Base.show(io::IO, ::MIME"text/plain", workbook::XLSXWorkbook)
         noun = "sheets")
 end
 
-function Base.show(io::IO,::MIME"text/plain",artifact::ReportArtifact{P,T}) where
-        {P,T<:NamedTuple{(:calculations,:formulations,:comparisons,:terms,:maxima,:summary)}}
+function Base.show(io::IO,::MIME"text/plain",artifact::ReportArtifact{P}) where
+        {P<:NamedTuple{(:reference,:candidate,:context,:settings,:comparisons,:measurements)}}
     get(io,:compact,false) && return show(io,artifact)
-    println(io,"Per-term RMS maxima; full terms and formulation records remain available in .table")
+    println(io,"Per-term RMS maxima; mean, standard deviation, terms and method descriptions are available in .table")
     show(io,MIME"text/plain"(),artifact.table.summary)
 end

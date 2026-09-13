@@ -19,6 +19,20 @@
     overhead, underground=problem(1.0), problem(-1.0)
     @test validate(overhead, Formulation(:pscad)) === overhead
     @test validate(underground, Formulation(:pscad)) === underground
+    composite=Formulation(:pscad;internal_impedance=(transfer=:default,inner=:default,outer=:default))
+    @test keys(composite.methods.internal_impedance)==(:inner,:outer,:transfer)
+    @test P.pscad_setting(composite,underground)==P.pscad_setting(Formulation(:pscad),underground)
+    @test Formulation(Val(:pscad),underground,composite)===composite
+    @test LineCableModels.computation_details(composite).effective.internal_impedance==
+        (inner=:default,outer=:default,transfer=:default)
+    outer=(functor,workspace)->1.0im
+    @eval LineCableModels.computation_options(::LineCableModels.FormulaMethod{:default,
+        typeof(LineCableModels.Engine.InternalImpedance.internal_impedance),Tuple{Val{:outer}}},
+        ::$(typeof(outer)))=(;)
+    rejected=Formulation(:pscad;internal_impedance=(inner=:default,outer=formula(:default;
+        hooks=(outer=outer,)),transfer=:default))
+    @test_throws ArgumentError Formulation(Val(:pscad),underground,rejected)
+    @test_throws MethodError LineCableModelsFEM(internal_impedance=(inner=:default,outer=:default,transfer=:default))
     for selected_problem in (overhead, underground)
         resolved=Formulation(Val(:pscad), selected_problem, Formulation(:pscad))
         @test formula_id(resolved.methods.earth_impedance) === :default

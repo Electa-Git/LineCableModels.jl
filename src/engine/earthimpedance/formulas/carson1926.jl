@@ -21,7 +21,7 @@ Z_{e,ij}=\\frac{j\\omega\\mu_0}{2\\pi}\\left[
 **Reference.** J. R. Carson, “Wave Propagation in Overhead Wires with Ground
 Return,” *Bell System Technical Journal*, 5, 539–554, 1926.
 """
-description(::Formula{:Carson1926}) = "Carson homogeneous-earth overhead impedance (1926)"
+description(::Type{<:Formula{:Carson1926}}; compact::Bool=false) = compact ? "Carson1926" : "Carson homogeneous-earth overhead impedance (1926)"
 
 function Γ(::Val{:Carson1926}, jω, materials, layers)
     return zero(jω)

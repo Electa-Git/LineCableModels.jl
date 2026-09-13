@@ -19,8 +19,8 @@ wechselstromdurchflossenen Einfachleitung,” *Elektrische Nachrichtentechnik*,
 3, 339–360, 1926; potential-coefficient transcription follows Ametani et al.,
 IET, 2021.
 """
-function description(::Formula{:Pollaczek1926})
-    "Pollaczek underground potential coefficients (1926)"
+function description(::Type{<:Formula{:Pollaczek1926}}; compact::Bool=false)
+    compact ? "Pollaczek1926" : "Pollaczek underground potential coefficients (1926)"
 end
 
 function Γ(

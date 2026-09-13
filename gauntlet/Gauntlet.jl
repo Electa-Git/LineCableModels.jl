@@ -11,7 +11,7 @@ using LineCableModels: PSCAD, AbstractCoreResult, AbstractFormulation, AbstractG
     AbstractParametricResult, AbstractUncertaintyResult, Formulation, Grid, Gridspace,
     LineParametersProblem, LinearError, MonteCarlo, ParametricProblem,
     ParametricResult, PhaseDomain, build, description, details,
-    formula, nominal, quantity
+    formula, nominal, quantity, R, L, C, G
 using LineCableModels.Engine: Engine
 import LineCableModels.Grammar
 import LineCableModels.ImportExport
@@ -30,7 +30,7 @@ export ARTIFACT_ROOT, ARTIFACTS_TOML, SNAPSHOT_SCHEMA_VERSION,
        AbstractCaseVariation, CaseDefinition, CaseParameter, CompositeVariation,
        ExactOverrides, LoadedCase, NoVariation, ParameterGrids, JointParameterGrids,
        RelativeStandardUncertainty,
-       BenchmarkCalculation, MomentBenchmark, MomentResult,
+       BenchmarkCalculation,
        BenchmarkDefinition,
        UQ_MONTE_CARLO_TRIALS,
        artifact_name, bind_published_artifact,
@@ -42,7 +42,6 @@ export ARTIFACT_ROOT, ARTIFACTS_TOML, SNAPSHOT_SCHEMA_VERSION,
        correlation_record,
        gauntlet_instrumented, finalize_staging,
        formulation_record,
-       extract_moments, moment_comparison_passes, moment_error_summary,
        parameter_manifest,
        numerical_input_sha256, implementation_record, repository_revision,
        load_case, performance_comparison, package_collection, prepare_staging, release_tag,

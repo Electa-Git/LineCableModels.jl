@@ -381,6 +381,16 @@ end
 details(value::LinearErrorResult) = value.details
 details(value::MonteCarloResult) = value.details
 
+"""Expose retained UQ products for owner-controlled scientific serialization."""
+function Base.NamedTuple(value::MonteCarloResult)
+    return (formulation=value.formulation, values=value.values, statistics=value.stats,
+        samples=value.sample_values,histograms=value.histogram_values,root_seed=value.root_seed,
+        point_seeds=value.point_seeds,trial_counts=value.trial_counts,details=value.details)
+end
+function Base.NamedTuple(value::LinearErrorResult)
+    return (formulation=value.formulation,values=value.values,details=value.details)
+end
+
 """
 $(TYPEDSIGNATURES)
 

@@ -13,7 +13,7 @@ not a thermal-rating or material operating-temperature limit.
 
 **Reference.** Package default linear resistivity approximation.
 """
-description(::Formula{:default}) = "Linear electrical-resistivity temperature dependence"
+description(::Type{<:Formula{:default}}; compact::Bool=false) = compact ? "default" : "Linear electrical-resistivity temperature dependence"
 
 function temperature_resistivity(::Val{:default}, material::Material, temperature::Real,
         parameters::NamedTuple, options::NamedTuple, workspace)

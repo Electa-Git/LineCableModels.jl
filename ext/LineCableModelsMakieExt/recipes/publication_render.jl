@@ -124,8 +124,8 @@ function _addon_publication_plot(
         axes = Any[]
         panels = Any[]
         resets = Function[]
-        xsetters = Function[]
-        ysetters = Function[]
+        xsetters = NamedTuple[]
+        ysetters = NamedTuple[]
         groups = Dict{Symbol, Vector{Any}}()
         order = Symbol[]
         group_labels = Dict{Symbol, String}()
@@ -196,15 +196,12 @@ function _addon_publication_plot(
                 push!(series, (; xdata = item.x, ydata = item.y, plots))
             end
             push!(panel_group_labels, scoped_labels)
-            reset! = () -> _addon_reset!(axis, series)
-            xsetter = scale -> _addon_set_axis!(axis, :x, xscales, scale)
-            ysetter = scale -> _addon_set_axis!(axis, :y, yscales, scale)
+            reset! = _addon_reset!(axis, series)
             push!(axes, axis)
             push!(panels, panel)
             push!(resets, reset!)
-            :log10 in xscales && push!(xsetters, xsetter)
-            :log10 in yscales && push!(ysetters, ysetter)
-            reset!()
+            :log10 in xscales && push!(xsetters, (; axis, allowed=xscales, reset=reset!))
+            :log10 in yscales && push!(ysetters, (; axis, allowed=yscales, reset=reset!))
         end
         length(xsetters) == length(axes) || empty!(xsetters)
         length(ysetters) == length(axes) || empty!(ysetters)

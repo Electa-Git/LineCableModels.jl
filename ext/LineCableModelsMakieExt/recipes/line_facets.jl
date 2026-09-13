@@ -40,7 +40,8 @@ function _semantic_line_layout_mode(object, facets, layout)
         dimensions = Tuple(Int.(layout))
         dimensions == (1, 1) && return :individual
         dimensions in ((1, 2), (2, 1)) && return :paired
-        matrix_size = size(object isa LineParameters ? Z(object) : object, 1)
+        matrix_size = size(object isa LineParameters ? Z(object) :
+            object isa ObservationPublication ? first(object).values : object, 1)
         dimensions == (matrix_size, matrix_size) && return :matrix
         throw(ArgumentError(
             "line layout must be (1, 1), (1, 2), (2, 1), " *
@@ -58,7 +59,8 @@ function _semantic_line_pages(object, facets, layout, blocks=nothing)
         blocks isa Tuple && length(blocks) == 2 &&
             all(value -> value isa Integer && !(value isa Bool) && value > 0, blocks) ||
             throw(ArgumentError("blocks must be a tuple of two positive integers or nothing"))
-        matrix_size = size(object isa LineParameters ? Z(object) : object, 1)
+        matrix_size = size(object isa LineParameters ? Z(object) :
+            object isa ObservationPublication ? first(object).values : object, 1)
         layout === nothing || layout == (matrix_size, matrix_size) ||
             throw(ArgumentError("blocks requires matrix layout; omit layout or use the full matrix dimensions"))
     end
@@ -73,7 +75,7 @@ function _semantic_line_pages(object, facets, layout, blocks=nothing)
     grouped = Vector{Vector{Any}}()
     key = mode === :paired ?
           (facet -> (facet.family, facet.row, facet.column)) :
-          (facet -> facet.quantity)
+          (facet -> (facet.quantity,facet.identity))
     for facet in facets
         facet_key = key(facet)
         index = findfirst(==(facet_key), keys)
@@ -85,7 +87,8 @@ function _semantic_line_pages(object, facets, layout, blocks=nothing)
         end
     end
 
-    matrix_size = size(object isa LineParameters ? Z(object) : object, 1)
+    matrix_size = size(object isa LineParameters ? Z(object) :
+        object isa ObservationPublication ? first(object).values : object, 1)
     pages = NamedTuple[]
     for page_facets in grouped
         positions,
@@ -131,6 +134,8 @@ _semantic_coordinate_name(_) = "conductor"
 
 function _semantic_quantity_title(object, facet)
     quantity_label = LineCableModels.Units.label(facet.quantity)
+    facet.identity isa Tuple && first(facet.identity) === LineCableModels.statistics &&
+        (quantity_label *= " · " * string(last(facet.identity)))
     description = lowercasefirst(quantity_label)
     coordinate = _semantic_coordinate_name(object)
     if coordinate == "mode"
@@ -167,6 +172,8 @@ function _semantic_page_title(object, page, mode)
         first_facet.column
     )
     label = LineCableModels.Units.label(first_facet.quantity)
+    first_facet.identity isa Tuple && first(first_facet.identity) === LineCableModels.statistics &&
+        (label *= " · " * string(last(first_facet.identity)))
     return haskey(page, :block) ? "$label ($(page.block[1]),$(page.block[2]))" : label
 end
 
@@ -269,8 +276,8 @@ function _addon_semantic_line_page(
     axes = Any[]
     panels = Any[]
     resets = Function[]
-    xsetters = Function[]
-    ysetters = Function[]
+    xsetters = NamedTuple[]
+    ysetters = NamedTuple[]
     groups = Dict{Symbol, Vector{Any}}()
     group_order = Symbol[]
     group_labels = Dict{Symbol, String}()
@@ -361,18 +368,14 @@ function _addon_semantic_line_page(
                 plots
             ))
         end
-        reset! = () -> _addon_reset!(axis, series)
-        xsetter = scale -> _addon_set_axis!(axis, :x, xscales, scale)
-        ysetter = scale -> _addon_set_axis!(axis, :y, yscales,
-            scale === :log10 && :pseudolog10 in yscales ? :pseudolog10 : scale)
+        reset! = _addon_reset!(axis, series)
         push!(axes, axis)
         push!(panels, panel)
         push!(panel_group_labels, scoped_labels)
         push!(resets, reset!)
-        :log10 in xscales && push!(xsetters, xsetter)
+        :log10 in xscales && push!(xsetters, (; axis, allowed=xscales, reset=reset!))
         any(scale -> scale in yscales, (:log10, :pseudolog10)) &&
-            push!(ysetters, ysetter)
-        reset!()
+            push!(ysetters, (; axis, allowed=yscales, reset=reset!))
     end
     length(xsetters) == length(axes) || empty!(xsetters)
     length(ysetters) == length(axes) || empty!(ysetters)
@@ -417,6 +420,7 @@ end
 
 function _addon_line_pages(
         sources::Tuple;
+        publications = nothing,
         frequencies = nothing,
         ydata,
         series_labels = nothing,
@@ -462,7 +466,10 @@ function _addon_line_pages(
     source_labels = explicit_source_labels ?
                     _comparison_labels(series_labels, length(sources)) :
                     Tuple("Result $index" for index in eachindex(sources))
-    published = if length(sources) == 1
+    published = if publications !== nothing
+        length(publications)==length(sources) || throw(DimensionMismatch("one publication is required per source"))
+        publications
+    elseif length(sources) == 1
         (_prepare_line_observations(
             only(sources);
             frequencies,

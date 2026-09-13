@@ -133,18 +133,18 @@ end
             BenchmarkCalculation(:mc, candidate, candidate.metadata.formulation), (quantities=(:R, :L, :C, :G), statistics=(:mean, :std)), (;))
         result=compare_saved(benchmark; directory = joinpath(root, "output"))
         record=read_benchmark(result)
-        @test record["comparison_settings"].statistics == (:mean, :std)
-        @test length(record["reference_comparison"])==8
+        @test length(record["comparison_settings"].requests)==8
+        @test length(record["reference_comparison"])==40
         @test Set(r.statistic for r in record["reference_comparison"])==Set((:mean, :std))
-        @test all(r->only(r.relative)≈1.0, record["reference_comparison"])
+        @test all(r->only(r.relative)≈1.0, filter(row -> row.details.band===:all,record["reference_comparison"]))
         loaded=read_benchmark(result;load_results=true)
         tables=report(LineCableModels.ReportBuilder.BenchmarkTableDefinition(false),loaded).table
         @test Set(tables.comparisons.statistic)==Set((:mean,:std))
-        @test length(tables.comparisons.quantity)==8
-        @test all(only(matrix)≈100 for matrix in tables.comparisons.relative_rms_percent)
+        @test length(tables.comparisons.quantity)==40
+        @test all(only(matrix)≈100 for matrix in tables.comparisons.relative_rms_percent[tables.comparisons.band .== :all])
         summary=render_gauntlet_report(joinpath(root, "output"))
         @test occursin("mean", summary) && occursin("std", summary)
-        @test occursin("Entire range", summary)
+        @test occursin("Relative RMS", summary)
         @test !occursin("<svg",summary)
         @test !occursin("Full-band comparisons", summary)
         @test !occursin("pointwise", summary)

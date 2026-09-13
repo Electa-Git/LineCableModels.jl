@@ -10,7 +10,7 @@ the coaxial backend has none yet.
 **Reference.** Backend applicability policy; no author-labeled pipe equation
 or numerical approximation is introduced by this selector.
 """
-description(::Formula{:default}) = "Default analytical pipe-type treatment"
+description(::Type{<:Formula{:default}}; compact::Bool=false) = compact ? "default" : "Default analytical pipe-type treatment"
 
 function Formulation(::LineCableModelsCoaxial, ::Val{:default}, ::Formula{:default}, ::Val{:coaxial})
     nothing

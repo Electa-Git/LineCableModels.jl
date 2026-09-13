@@ -22,7 +22,7 @@ Z_{e,ij}=\\frac{j\\omega\\mu_0}{2\\pi}\\left[
 Return Circuits,” *Proceedings of the Institute of Radio Engineers*, 22,
 522–527, 1934.
 """
-description(::Formula{:Wise1934}) = "Wise1934 homogeneous-earth overhead impedance"
+description(::Type{<:Formula{:Wise1934}}; compact::Bool=false) = compact ? "Wise1934" : "Wise1934 homogeneous-earth overhead impedance"
 
 Γ(::Val{:Wise1934}, jω, materials, layers) = zero(jω)
 

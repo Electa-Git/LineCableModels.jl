@@ -20,6 +20,10 @@ end
 Return the stable identifier of a modal-transformation formula.
 """
 formula_id(::Formula{ID}) where {ID} = ID
+formula_id(::Type{<:Formula{ID}}) where {ID} = ID
+description(value::Formula;compact::Bool=false) = description(typeof(value);compact)
+"""Modal formulas currently have no independently selectable child slots."""
+Base.pairs(::Type{<:Formula};quantity=nothing) = pairs((;))
 
 """
 Construct phase-to-modal operators for one registered transformation.
@@ -133,7 +137,7 @@ function ModalTransformationFormulation(
 end
 
 formula_id(formulation::ModalTransformationFormulation) = formula_id(formulation.formula)
-description(formulation::ModalTransformationFormulation) = description(formulation.formula)
+description(formulation::ModalTransformationFormulation;compact::Bool=false) = description(formulation.formula;compact)
 
 function Formula(selection::FormulaDefinition{ID, Order}) where {ID, Order}
     Order === :default || throw(ArgumentError("order applies only to equivalent_earth"))

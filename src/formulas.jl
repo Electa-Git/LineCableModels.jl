@@ -1,5 +1,6 @@
 """
-Return a short scientific description of a registered formulation.
+Return owned scientific text for a registered formula or formulation.
+`compact=true` selects its short display name; `formula_id` remains its identity.
 """
 function description end
 
@@ -140,73 +141,98 @@ end
 """
 $(TYPEDSIGNATURES)
 
-Describe complete formulation records with stable indices. Common fields are
-omitted from curve labels and retained in the supplied records. Every differing
-nested field, including air/earth/mixed choices and numerical controls, remains
-identifiable. This operation never selects an equation or merges equal curves.
+Describe a retained selection through its owning type. This does not construct
+a formula, evaluate overrides, or substitute current defaults.
 """
-function description(records::AbstractVector; indices=collect(eachindex(records)), prefix="F")
-    length(indices) == length(records) || throw(DimensionMismatch("one index is required per formulation"))
-    flatten = function (record)
-        fields=Pair{String,String}[]
-        function visit(value,path)
-            if value isa NamedTuple
-                for (key,item) in pairs(value)
-                    visit(item,isempty(path) ? string(key) : path*"."*string(key))
-                end
-            elseif value isa AbstractDict
-                for key in sort!(collect(keys(value));by=string)
-                    visit(value[key],isempty(path) ? string(key) : path*"."*string(key))
-                end
-            elseif value isa Union{Nothing,Missing,Number,AbstractString,Symbol,Bool}
-                push!(fields,path=>sprint(show,value;context=:compact=>true))
-            elseif value isa Type
-                visit(sprint(show,value;context=(:module=>nothing,:compact=>false)),path)
-            elseif value isa Union{Tuple,AbstractArray}
-                for (index,item) in enumerate(value)
-                    visit(item,path*"[$index]")
+description(source::Pair{<:Type,<:NamedTuple}; compact::Bool=false) = description(first(source); compact)
+formula_id(source::Pair{<:Type,<:NamedTuple}) = formula_id(first(source))
+
+description(::Missing; compact::Bool=false) = "method unavailable"
+description(::Nothing; compact::Bool=false) = "none"
+formula_id(::Missing) = missing
+formula_id(::Nothing) = :none
+
+"""
+$(TYPEDSIGNATURES)
+
+Label ordered formulation selections without interpreting their representation.
+
+# Arguments
+
+- `sources`: Native formulations or owner-bound retained declarations.
+
+# Keywords
+
+- `roles`: One `:reference`, `:candidate`, or `:none` role per source.
+- `indices`: Original candidate indices; references consume no candidate index.
+- `quantity`: Physical quantity selected through the observation grammar, or
+  `nothing` for all equation choices.
+- `compact=true`: Use the short owned names for both root and child selections.
+
+# Returns
+
+- One text label per source, in input order. Equal selections remain separate.
+
+# Notes
+
+Owners expose native children through `pairs(source; quantity)` and retained
+children through `pairs(owner, record; quantity)`, scoped
+identity through `formula_id`, controls through `formulation_options`, and
+text through `description`. This formatter only decides common-field omission,
+role prefixes and numbering. Unsupported owner methods are not caught.
+"""
+function description(sources::AbstractVector;
+        roles=fill(:candidate,length(sources)), indices=collect(eachindex(sources)),
+        quantity=nothing, compact::Bool=true)
+    length(indices)==length(roles)==length(sources) ||
+        throw(DimensionMismatch("one role and index are required per formulation"))
+    all(in((:reference,:candidate,:none)),roles) ||
+        throw(ArgumentError("description roles must be reference, candidate, or none"))
+    isempty(sources) && return String[]
+    selections=[ismissing(source) ? Pair[] : collect(pairs((source isa Pair ? Tuple(source) : (source,))...; quantity)) for source in sources]
+    complete=[ismissing(source) ? Pair[] : collect(pairs((source isa Pair ? Tuple(source) : (source,))...)) for source in sources]
+    candidates=findall(!=(:reference),roles)
+    # Scientific comparisons use owner-scoped identifiers, never display text.
+    scopes=unique([scope for index in candidates for (scope,_) in complete[index]
+        if !isempty(last(scope))])
+    varying=filter(scopes) do scope
+        values=[[(formula_id(value),formulation_options(value)) for (key,value) in complete[index]
+            if key==scope] for index in candidates]
+        !all(value -> isequal(value,first(values)),values)
+    end
+    identities=[[scope for (scope,_) in entries if isempty(last(scope))] for entries in complete]
+    candidate_owners=unique(first(ids) for ids in identities[candidates] if !isempty(ids))
+    inner_owners=unique(last(ids) for ids in identities if length(ids)>1)
+    return map(eachindex(sources)) do index
+        prefix=roles[index]===:reference ? "Reference" :
+            roles[index]===:candidate ? "F$(indices[index])" : ""
+        parts=String[]
+        for (scope,value) in selections[index]
+            if isempty(last(scope))
+                position=findfirst(==(scope),identities[index])
+                show_identity=position==1 ?
+                    (roles[index]!==:candidate || length(identities[index])>1 || length(candidate_owners)>1) :
+                    length(inner_owners)>1
+                show_identity && push!(parts,description(value;compact))
+                controls=formulation_options(value)
+                peer=[other for entries in selections for (key,other) in entries if key==scope]
+                if !isempty(controls) && any(other -> !isequal(formulation_options(other),controls),peer)
+                    push!(parts,description(scope,value;compact,settings=true))
                 end
             else
-                visit(sprint(show,typeof(value);context=(:module=>nothing,:compact=>false)),path*".type")
-                for key in fieldnames(typeof(value))
-                    visit(getfield(value,key),path*".fields."*string(key))
-                end
+                peer=[other for entries in selections for (key,other) in entries if key==scope]
+                changed=any(other -> !isequal((formula_id(other),formulation_options(other)),
+                    (formula_id(value),formulation_options(value))),peer)
+                explicit=!ismissing(formula_id(value)) && formula_id(value) ∉ (:default,:none)
+                # Explicit branch structure and controls are meaningful even
+                # when every candidate shares them or the leaf ID is default.
+                (length(last(scope))>1 || !isempty(formulation_options(value)) ||
+                    scope in varying || changed || explicit) &&
+                    push!(parts,description(scope,value;compact))
             end
         end
-        if record isa NamedTuple && haskey(record,:requested)
-            visible=NamedTuple{Tuple(key for key in keys(record) if key in (:backend,:requested,:options,:execution))}(
-                Tuple(value for (key,value) in pairs(record) if key in (:backend,:requested,:options,:execution)))
-            visit(visible,"")
-        else
-            visit(record,"")
-        end
-        return Dict(fields)
-    end
-    fields=map(flatten,records)
-    paths=sort!(unique([key for record in fields for key in keys(record)]))
-    differences=filter(paths) do path
-        if length(records)==1
-            value=get(first(fields),path,nothing)
-            return path == "backend" ||
-                ((startswith(path,"requested.") || endswith(path,".identifier")) && value ∉ (":default","nothing"))
-        end
-        !all(record -> get(record,path,nothing) == get(first(fields),path,nothing),fields)
-    end
-    names=map(differences) do path
-        replace(path,r"^requested\."=>"",r"\.identifier$"=>"",
-            "internal_impedance"=>"internal Z","insulation_impedance"=>"insulation Z",
-            "insulation_admittance"=>"insulation Y","semicon_admittance"=>"semicon Y",
-            "earth_impedance"=>"earth Z","earth_admittance"=>"earth Y",
-            "pipe_impedance"=>"pipe Z","earth_properties"=>"soil law",
-            "temperature_dependence"=>"temperature law","equivalent_earth"=>"equivalent earth",
-            ".options."=>".",".integration.method"=>".integration")
-    end
-    return map(enumerate(fields)) do (index,record)
-        selected=map(zip(differences,names)) do (path,name)
-            value=get(record,path,"unspecified")
-            startswith(value,":") && (value=chop(value;head=1,tail=0))
-            "$name=$value"
-        end
-        "$prefix$(indices[index])" * (isempty(selected) ? "" : " · " * join(selected,"; "))
+        isempty(parts) && ismissing(sources[index]) && push!(parts,description(missing;compact))
+        text=join(parts,"; ")
+        isempty(prefix) ? text : isempty(text) ? prefix : prefix*" · "*text
     end
 end

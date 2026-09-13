@@ -48,7 +48,6 @@ No published benchmark artifacts are selected. Add immutable version bindings
 to `docs/gauntlet.toml` after `lcm gauntlet package`, upload and `lcm gauntlet bind`.
 An explicit `LINECABLEMODELS_GAUNTLET_RESULTS` directory enables a local draft preview.
 
-
 ## Numerical comparison
 
 With **A = reference** and **B = candidate**, each matrix term uses
@@ -61,7 +60,7 @@ With **A = reference** and **B = candidate**, each matrix term uses
 ```
 
 Absolute RMS retains the measured difference. No denominator floor is applied.
-Both operands must exceed the declared reporting resolution at every selected sample.
+Both operands must exceed the reporting resolution at every selected sample.
 Otherwise relative RMS is missing for either normalization, with a per-term
 reason and absolute RMS; samples are never silently omitted.
 Defaults are 1e-10 Ω/m for R, 1e-15 H/m for L, 1e-12 S/m for G and 1e-16 F/m
@@ -117,7 +116,44 @@ cell, including both off-diagonals. Z gives R/X pages; Y gives G/B pages. Origin
 formulation indices, complete selections and colors survive filtering and reload.
 Multiple problem points require an explicit `problem` selection. Equal numerical
 curves remain separate formulation choices. UQ mean/std errors remain separate
-statistics under their existing comparison rules over the full frequency band.
+statistics, with the same selectable frequency bands and physical resolution as
+deterministic quantities. `artifact.table.features` contains numeric formula-by-band
+absolute/relative DataFrames; `statistics` retains available UQ summaries and
+`sampling` records finite-sample precision separately from physical spread.
+Execution/native timings and controlled performance samples are available in
+`execution`, `source_timings`, `performance` and `performance_samples`. These are
+recorded measurements, never new benchmark runs triggered by a report.
+
+Backend and method names come from owned `description` methods. References are
+labelled `Reference · FEM`, `Reference · PSCAD`, or `Reference · Monte Carlo`;
+only candidates receive F indices, for example `F1 · LEP`. Common coaxial
+identity is omitted. Quantity-specific legends show the applicable equation
+choices; `formulations` lists labels and `formula_details` supplies scientific
+explanations. Complete declarations remain in the published operand metadata.
+Filtering preserves original F indices, including reordered subsets such as
+`formulations=[3,1]`; it never merges equal curves or equal descriptions.
+Explicit composite selections retain every named branch in the relevant legend,
+even when branches are unchanged or default. Internal selections use
+`inner`/`outer`/`transfer`, and earth selections use `air`/`earth`/`mixed`.
+Formula-local overrides also remain visible when shared by every candidate.
+Short and detailed names both use the owning formula's `description` method;
+identifiers and calculation-reuse decisions do not depend on that text.
+
+`sampling` contains scalar MC counts and CDF bounds. `mean_sampling_precision`
+contains one numeric standard error per quantity, point, terminal pair and
+frequency, with its physical unit. This is precision of the sampled mean, not
+precision of the estimated standard deviation. That latter precision is not
+established by a CDF bound or small LEP/MC RMS discrepancy.
+Performance tables retain seconds, Julia allocated bytes/MiB, actual timed
+repetitions, requested repetitions and the original timing scope. Complete
+workload/session records remain in the publication rather than table cells.
+`terms` and `maxima` keep method labels, numeric errors and separately
+filterable response/excitation coordinates. Requested/actual frequency bounds
+have numeric lower/upper columns. `comparisons` is the explicit structured
+audit view; raw maxima remain in DataFrame metadata for unchanged saved-summary
+writing. Retained consumed formula IDs take precedence when available. With
+only a declaration, descriptions state its selected routes, not inferred
+geometry-dependent execution.
 
 The same report and plot APIs accept live completed results without Gauntlet:
 

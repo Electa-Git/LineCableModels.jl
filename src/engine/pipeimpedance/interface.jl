@@ -74,3 +74,14 @@ end
 
 """Expose the selected pipe equation as a native record."""
 Base.NamedTuple(value::Formula) = (identifier=formula_id(value),)
+
+# Identity-only dispatch also describes retained selections without constructors.
+import ...Grammar: formulation_options
+description(value::Formula; compact::Bool=false) = description(typeof(value); compact)
+
+"""Iterate the independently selectable child slots admitted by this formula family."""
+Base.pairs(::Type{<:Formula}; quantity=nothing) = pairs((;))
+formula_id(::Type{<:Formula{ID}}) where {ID} = ID
+formulation_options(value::Formula) = formulation_options(typeof(value), (;))
+formulation_options(::Type{<:Formula}, retained::NamedTuple) =
+    formulation_options(FormulaDefinition, retained)

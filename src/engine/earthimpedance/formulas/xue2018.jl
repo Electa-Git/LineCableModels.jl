@@ -28,7 +28,7 @@ Earth-Return Parameters for Overhead / Underground Cables*, doctoral thesis,
 Polytechnique Montréal, 2018.
 [Primary source](https://publications.polymtl.ca/3190/1/2018_HaoyanXue.pdf).
 """
-description(::Formula{:Xue2018}) = "Xue2018 homogeneous-earth underground impedance"
+description(::Type{<:Formula{:Xue2018}}; compact::Bool=false) = compact ? "Xue2018" : "Xue2018 homogeneous-earth underground impedance"
 
 Γ(::Val{:Xue2018}, jω, materials, layers) = zero(jω)
 

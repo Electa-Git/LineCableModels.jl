@@ -74,6 +74,24 @@ Statistics.std(summary::SampleSummary) = summary.std
 Statistics.median(summary::SampleSummary) = summary.median
 Base.minimum(summary::SampleSummary) = summary.min
 Base.maximum(summary::SampleSummary) = summary.max
+Base.NamedTuple(summary::SampleSummary) = (mean=summary.mean,std=summary.std,min=summary.min,
+    q05=summary.q05,median=summary.median,q95=summary.q95,max=summary.max,n=summary.n)
+
+"""
+$(TYPEDSIGNATURES)
+
+Return a retained empirical percentile in the summary's physical units.
+Only probabilities 0, 0.05, 0.5, 0.95 and 1 are retained; other probabilities
+raise `ArgumentError`. No distribution is reconstructed from summary moments.
+"""
+function Statistics.quantile(summary::SampleSummary, probability::Real)
+    probability == 0 && return minimum(summary)
+    probability == 0.05 && return summary.q05
+    probability == 0.5 && return Statistics.median(summary)
+    probability == 0.95 && return summary.q95
+    probability == 1 && return maximum(summary)
+    throw(ArgumentError("the summary retains only quantiles at 0, 0.05, 0.5, 0.95 and 1"))
+end
 
 """
 $(TYPEDEF)
@@ -182,3 +200,5 @@ function quantile_pairs(histogram::HistogramDensity, samples::AbstractVector{<:R
     reference = extrema(vcat(model, sample))
     return (; model, sample, reference)
 end
+
+Base.NamedTuple(histogram::HistogramDensity) = (edges=histogram.edges,density=histogram.density)

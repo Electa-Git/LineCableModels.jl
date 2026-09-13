@@ -25,8 +25,8 @@ M_{ij}+jN_{ij}=2\\int_0^\\infty
 **Reference.** W. H. Wise, “Potential Coefficients for Ground Return
 Circuits,” *Bell System Technical Journal*, 27, 365–371, 1948.
 """
-function description(::Formula{:Wise1948})
-    "Wise1948 homogeneous-earth overhead potential coefficient"
+function description(::Type{<:Formula{:Wise1948}}; compact::Bool=false)
+    compact ? "Wise1948" : "Wise1948 homogeneous-earth overhead potential coefficient"
 end
 
 Γ(::Val{:Wise1948}, jω, materials, layers) = zero(jω)

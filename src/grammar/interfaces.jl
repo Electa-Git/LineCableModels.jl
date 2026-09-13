@@ -96,42 +96,40 @@ function _observe_macro_parts(request)
     selector = first(request.args)
     indices = request.args[2:end]
     if selector isa Expr && selector.head === :tuple
-        length(selector.args) == 2 || throw(ArgumentError(
-            "transformed @observe syntax requires exactly `(accessor, transform)`; " *
+        length(selector.args) in (2, 3) || throw(ArgumentError(
+            "@observe selector tuples require two or three functions; " *
             "got `$(selector)`.",
         ))
-        return selector.args[1], selector.args[2], indices
+        return Tuple(selector.args), indices
     end
-    return selector, nothing, indices
+    return (selector,), indices
 end
 
 """
     @observe accessor[indices...]
     @observe (accessor, transform)[indices...]
+    @observe (statistics, quantity, statistic)[indices...]
 
 Construct a plain observable-request tuple without reading a result.
 """
 macro observe(request)
-    selector, transform, indices = _observe_macro_parts(request)
-    parts = transform === nothing ?
-            (selector, indices...) :
-            (selector, transform, indices...)
+    selectors, indices = _observe_macro_parts(request)
+    parts = (selectors..., indices...)
     return Expr(:tuple, map(esc, parts)...)
 end
 
 """
     @observe source accessor[indices...]
     @observe source (accessor, transform)[indices...]
+    @observe source (statistics, quantity, statistic)[indices...]
 
 Expand indexed observable syntax into an immediate [`observe`](@ref) call. The
 indices follow the selected observable. Ordinary line quantities use row,
 column, and sample indices; diagonal transforms use mode and sample indices.
 """
 macro observe(source, request)
-    selector, transform, indices = _observe_macro_parts(request)
-    parts = transform === nothing ?
-            (source, selector, indices...) :
-            (source, selector, transform, indices...)
+    selectors, indices = _observe_macro_parts(request)
+    parts = (source, selectors..., indices...)
     escaped = map(esc, parts)
     return :(observe($(escaped...)))
 end

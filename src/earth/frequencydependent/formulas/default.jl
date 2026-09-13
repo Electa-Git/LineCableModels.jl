@@ -9,7 +9,7 @@ relative permeability at every positive evaluation frequency.
 
 The returned material has no frequency dependence or fitted parameters.
 """
-description(::Formula{:default}) = "Static earth material"
+description(::Type{<:Formula{:default}}; compact::Bool=false) = compact ? "default" : "Static earth material"
 
 function earth_material(
         ::Val{:default}, material::EarthMaterial, frequency::Real,

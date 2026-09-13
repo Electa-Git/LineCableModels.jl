@@ -13,6 +13,21 @@ import Statistics
 import LineCableModels.ParametricBuilder as PB
 import LineCableModels.UQ
 import LineCableModels: sample_uncertainty
+import LineCableModels.ImportExport: serialize_value, deserialize_value, deserialize_extension
+
+serialize_value(distribution::Distributions.UnivariateDistribution) = throw(ArgumentError(
+    "no portable scientific codec for $(typeof(distribution)); supported input-law records are Normal and Uniform"))
+
+function serialize_value(distribution::Union{Distributions.Normal,Distributions.Uniform})
+    return Dict("__type__"=>"Distribution","name"=>distribution isa Distributions.Normal ? "Normal" : "Uniform",
+        "parameters"=>serialize_value(Distributions.params(distribution)))
+end
+function deserialize_extension(::Val{:Distribution},record)
+    parameters=deserialize_value(record["parameters"])
+    record["name"]=="Normal" && return Distributions.Normal(parameters...)
+    record["name"]=="Uniform" && return Distributions.Uniform(parameters...)
+    throw(ArgumentError("no portable codec for the recorded input distribution"))
+end
 
 function sample_uncertainty(
         rng::Random.AbstractRNG,

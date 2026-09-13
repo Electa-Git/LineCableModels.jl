@@ -187,80 +187,41 @@
 end
 
 
-@testitem "Gauntlet / UQ moment comparison contract" tags=[:gauntlet_toolkit] setup=[
-    GauntletSupport
-] begin
-    using Test
-    using LineCableModels
+@testitem "Gauntlet / historical UQ products use owned comparisons" tags=[:gauntlet_toolkit] setup=[GauntletSupport] begin
+    using LineCableModels, Statistics
     using LineCableModels.Engine
     using .GauntletSupport.Gauntlet
-
-    @test parentmodule(MomentResult) === GauntletSupport.Gauntlet
-    @test MomentResult === GauntletSupport.MomentResult
-
-    frequencies_value=[1.0, 10.0]
-    ports=["a", "b"]
-    values=map((R = 1.0, L = 2.0, C = 3.0, G = 4.0)) do scale
-        (
-            mean = fill(scale, 2, 2, 2),
-            std = fill(scale/10, 2, 2, 2)
-        )
+    @test !isdefined(Gauntlet,:MomentResult)
+    @test !isdefined(Gauntlet,:MomentBenchmark)
+    f=[1.0,10.0]
+    ports=["a","b"]
+    products=map((R=1.0,L=2.0,C=3.0,G=4.0)) do scale
+        (mean=fill(scale,2,2,2),std=fill(scale/10,2,2,2))
     end
-    reference=MomentResult(values, frequencies_value, :pul, PhaseDomain, ports)
-    equal_comparison=compare(reference, reference)
-    tolerance=(
-        mean = map(_->(absolute = 0.0, relative = 0.0), values),
-        std = map(_->(absolute = 0.0, relative = 0.0), values)
-    )
-    @test reference ≈ reference
-    @test moment_comparison_passes(equal_comparison, tolerance)
-    @test all(iszero, equal_comparison.errors.R.mean.absolute)
-
-    changed_values=merge(values, (
-        R = (mean = copy(values.R.mean), std = copy(values.R.std)),
-    ))
-    changed_values.R.mean[1, 2, :].=1.5
-    changed=MomentResult(changed_values, frequencies_value, :pul, PhaseDomain, ports)
-    changed_comparison=compare(reference, changed)
-    @test changed_comparison.errors.R.mean.absolute[1, 2] == 0.5
-    @test !moment_comparison_passes(changed_comparison, tolerance)
-
-    zero_values=map(values) do product
-        (mean = zeros(size(product.mean)), std = zeros(size(product.std)))
+    metadata=(frequencies=f,port_order=ports,basis=:pul,domain=:PhaseDomain)
+    stored=(values=products,frequencies=f,basis=:pul,domain=:PhaseDomain,port_order=ports)
+    reference=(result=read_calculation(stored),metadata=metadata)
+    request=(statistics,R,mean)
+    equal=compare(reference,reference,request)
+    @test all(iszero,observe(equal,absolute_error))
+    @test all(iszero,observe(equal,relative_error))
+    changed_products=merge(products,(R=(mean=copy(products.R.mean),std=copy(products.R.std)),))
+    changed_products.R.mean[1,2,:].=1.5
+    candidate=(result=read_calculation(merge(stored,(values=changed_products,))),metadata=metadata)
+    error=compare(reference,candidate,request)
+    @test observe(error,absolute_error)[1,2]==0.5
+    @test observe(error,relative_error)[1,2]==0.5
+    @test details(error).sample_count==2
+    for (key,value) in ((:frequencies,[1.0,11.0]),(:basis,:total),(:port_order,reverse(ports)))
+        other=merge(candidate,(metadata=merge(metadata,NamedTuple{(key,)}((value,))),))
+        @test_throws ArgumentError compare(reference,other,request)
     end
-    small_values=map(zero_values) do product
-        (mean = fill(1.0e-12, size(product.mean)), std = copy(product.std))
-    end
-    zero_reference=MomentResult(zero_values, frequencies_value, :pul, PhaseDomain, ports)
-    small_candidate=MomentResult(small_values, frequencies_value, :pul, PhaseDomain, ports)
-    floor_tolerance=(
-        mean = map(_->(absolute = 1.0e-11, relative = 0.0), values),
-        std = map(_->(absolute = 0.0, relative = 0.0), values)
-    )
-    @test all(ismissing, compare(zero_reference, small_candidate).errors.R.mean.relative)
-    @test moment_comparison_passes(
-        compare(zero_reference, small_candidate), floor_tolerance
-    )
-
-    @test_throws ArgumentError compare(
-        reference,
-        MomentResult(values, [1.0, 11.0], :pul, PhaseDomain, ports)
-    )
-    @test_throws ArgumentError compare(
-        reference,
-        MomentResult(values, frequencies_value, :total, PhaseDomain, ports)
-    )
-    @test_throws ArgumentError compare(
-        reference,
-        MomentResult(values, frequencies_value, :pul, PhaseDomain, reverse(ports))
-    )
-    wrong_shape=merge(values, (
-        R = (mean = zeros(1, 1, 2), std = zeros(1, 1, 2)),
-    ))
-    @test_throws DimensionMismatch compare(
-        reference,
-        MomentResult(wrong_shape, frequencies_value, :pul, PhaseDomain, ports)
-    )
+    wrong=merge(products,(R=(mean=zeros(1,1,2),std=zeros(1,1,2)),))
+    @test_throws DimensionMismatch read_calculation(merge(stored,(values=wrong,)))
+    zero_products=map(product -> (mean=zero(product.mean),std=zero(product.std)),products)
+    zero_operand=(result=read_calculation(merge(stored,(values=zero_products,))),metadata=metadata)
+    @test all(ismissing,observe(compare(zero_operand,zero_operand,request),relative_error))
+    @test all(iszero,observe(compare(zero_operand,zero_operand,request),absolute_error))
 end
 
 

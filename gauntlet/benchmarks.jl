@@ -49,7 +49,7 @@ function _benchmark_owned(calculation::BenchmarkCalculation, settings; role=calc
         calculation = _numerical_record(calculation_record(prepared)),
         policy=(progress=false,diagnostics=:quiet,callbacks=false,
             warmup=external ? :native_not_repeated : :owned_call,
-            allocation_scope=:julia, settings=_selection_value(prepared.options)))
+            allocation_scope=:julia, allocation_statistic=:maximum,settings=_selection_value(prepared.options)))
 end
 
 function _benchmark_performance(benchmark::BenchmarkDefinition)
@@ -71,11 +71,6 @@ function _benchmark_performance(benchmark::BenchmarkDefinition)
     return (; reference, candidate, speedup, comparable, passes, settings)
 end
 
-_normalize(result::Union{AbstractCoreResult, AbstractParametricResult, MomentResult}, model) = result
-function _normalize(result::AbstractUncertaintyResult, model)
-    extract_moments(result, model.port_order)
-end
-
 """
     validate(benchmark::BenchmarkDefinition)
 
@@ -87,16 +82,13 @@ function validate(benchmark::BenchmarkDefinition)
     validate(BenchmarkTableDefinition(; settings...))
     _benchmark_performance_settings(benchmark.tolerances)
     if haskey(benchmark.tolerances, :reference)
-        settings.statistics == (:mean, :std) || throw(ArgumentError(
-            "reference acceptance limits apply only to declared moment comparisons"))
         limits=benchmark.tolerances.reference
-        keys(limits) == (:mean, :std) || throw(ArgumentError("moment tolerances need mean and std"))
-        for group in limits
-            keys(group) == (:R, :L, :C, :G) || throw(ArgumentError("moment tolerances need R, L, C, G"))
-            for limit in group
-                keys(limit) == (:absolute, :relative) && all(v -> v isa Real && isfinite(v) && v >= 0, limit) ||
-                    throw(ArgumentError("moment limits must be finite nonnegative absolute and relative tolerances"))
-            end
+        allunique(row.request for row in limits) && Set(row.request for row in limits)==Set(settings.requests) ||
+            throw(ArgumentError("acceptance limits must match each selected scientific request exactly once"))
+        for limit in limits
+            length(limit)==3 && all(key -> haskey(limit,key),(:request,:absolute,:relative)) &&
+                all(value -> value isa Real && isfinite(value) && value >= 0,(limit.absolute,limit.relative)) ||
+                throw(ArgumentError("acceptance limits require finite nonnegative absolute and relative values"))
         end
     end
     if benchmark.reference.formulation isa Union{Gridspace,LineCableModels.Combinatorial}
@@ -156,7 +148,7 @@ between models are retained observations. Optional performance checks are separa
 When `directory` is supplied, completed calculations and analysis are recoverable.
 Reuse depends on the numerical declaration and saved-file integrity, not live source
 files. Each execution session records the Julia and package versions and Git state.
-Reports are saved before optional timing checks, so timing failures do not discard them.
+A failed optional timing check still retains the scientific report before the error is propagated.
 `mode=:record` stages that same complete bundle for explicit artifact packaging.
 """
 function run_benchmark(benchmark::BenchmarkDefinition; directory = nothing,
@@ -213,21 +205,97 @@ function run_benchmark(benchmark::BenchmarkDefinition; directory = nothing,
                 throw(ArgumentError("benchmark result-space terminal identities or ordering differ"))
         end
     end
-    reference=_normalize(reference_execution.result, benchmark.model)
-    candidate=_normalize(candidate_execution.result, benchmark.model)
+    reference=reference_execution.result
+    candidate=candidate_execution.result
     definition=BenchmarkTableDefinition(;benchmark.comparison_settings...)
     reference_metadata=(port_order=get(details(reference_execution.result isa ParametricResult ? first(reference_execution.result) : reference_execution.result),:coordinates,benchmark.model.port_order),
         formulation=calculation_record(benchmark.reference).formulation, axes=reference isa ParametricResult ? reference.axes : nothing)
     candidate_metadata=(port_order=get(details(candidate_execution.result isa ParametricResult ? first(candidate_execution.result) : candidate_execution.result),:coordinates,benchmark.model.port_order),
         formulation=calculation_record(benchmark.candidate).formulation, axes=candidate isa ParametricResult ? candidate.axes : nothing)
+    performance_path=directory === nothing ? nothing : joinpath(directory,"performance.jld2")
+    performance_error=nothing
+    performance_session=session
+    performance_checks=(checksum_verified=missing,workload_verified=missing)
+    performance=try
+        if performance_path !== nothing && isfile(performance_path)
+            retained=read_benchmark(performance_path,Val(:performance);calculations)
+            if measure_performance && retained.performance !== nothing
+                retained.performance.settings==_benchmark_performance_settings(benchmark.tolerances) ||
+                    throw(ArgumentError("retained performance settings differ; use a new benchmark attempt"))
+            end
+            performance_session=retained.session
+            performance_checks=(checksum_verified=retained.checksum_verified,
+                workload_verified=retained.workload_verified)
+            retained.performance
+        elseif !measure_performance
+            nothing
+    else
+        value=nothing
+        performance_session=session
+        settings=_benchmark_performance_settings(benchmark.tolerances)
+        if settings !== nothing && all(execution->execution.reused,executions)
+            for source in reuse_directories
+                saved_path=joinpath(source,"performance.jld2")
+                isfile(saved_path) || continue
+                saved=read_benchmark(saved_path,Val(:performance);
+                    calculations=(reference=nothing,candidate=nothing))
+                retained=saved.performance
+                retained !== nothing && retained.settings==settings || continue
+                all(getproperty(retained,role).calculation==
+                    _numerical_record(calculation_record(
+                        _performance_calculation(getproperty(benchmark,role))))
+                    for role in (:reference,:candidate)) || continue
+                value=retained
+                performance_session=saved.session
+                performance_checks=(checksum_verified=saved.checksum_verified,workload_verified=true)
+                break
+            end
+        end
+        value === nothing && (value=_benchmark_performance(benchmark))
+        value === nothing || (performance_checks=merge(performance_checks,(workload_verified=true,)))
+        if performance_path !== nothing && value !== nothing
+            temporary=tempname(directory)
+            try
+                JLD2.jldsave(temporary;schema_version=1,performance=value,session=performance_session,
+                    calculations=(reference=value.reference.calculation,candidate=value.candidate.calculation))
+                mv(temporary,performance_path)
+                write(performance_path*".sha256",bytes2hex(open(sha256,performance_path))*"  performance.jld2\n")
+            finally
+                isfile(temporary) && rm(temporary)
+            end
+        end
+        value
+    end
+    catch error
+        error isa InterruptException && rethrow()
+        performance_error=error
+        @error "Performance measurement failed; continuing scientific report persistence" exception=(error,catch_backtrace())
+        nothing
+    end
+    measurements=(execution=(reference=(backend=string(_progress_backend(benchmark.reference.formulation)),timing=reference_execution.timing,
+            reused=reference_execution.reused,session=reference_execution.session,execution_wall_seconds=reference_execution.elapsed_seconds),
+        candidate=(backend=string(_progress_backend(benchmark.candidate.formulation)),timing=candidate_execution.timing,
+            reused=candidate_execution.reused,session=candidate_execution.session,execution_wall_seconds=candidate_execution.elapsed_seconds)),
+        performance,performance_checks...,session=performance_session)
     LineCableModels.report_progress(LineCableModels.progress_receiver(),(stage=:reporting,))
     publication=report(definition,(
         reference=(result=reference,metadata=reference_metadata),
         candidate=(result=candidate,metadata=candidate_metadata),
-        context=(id=benchmark.id,case_id=benchmark.case_id,collection=benchmark.collection)))
+        context=(id=benchmark.id,case_id=benchmark.case_id,collection=benchmark.collection),measurements))
     comparison=publication.published.comparisons
-    passes=haskey(benchmark.tolerances, :reference) ?
-           moment_comparison_passes(comparison, benchmark.tolerances.reference) : nothing
+    passes=if haskey(benchmark.tolerances,:reference)
+        decisions=Union{Nothing,Bool}[]
+        for row in comparison
+            limit=only(filter(limit -> limit.request==row.request,benchmark.tolerances.reference))
+            for (absolute,relative) in zip(observe(row.error,absolute_error),observe(row.error,relative_error))
+                push!(decisions,ismissing(absolute) && ismissing(relative) ? nothing :
+                    (!ismissing(absolute) && absolute<=limit.absolute) || (!ismissing(relative) && relative<=limit.relative))
+            end
+        end
+        any(isequal(false),decisions) ? false : isempty(decisions) || any(isnothing,decisions) ? nothing : true
+    else
+        nothing
+    end
     metadata=(
         benchmark_id = benchmark.id,
         case_id = benchmark.case_id,
@@ -254,42 +322,7 @@ function run_benchmark(benchmark::BenchmarkDefinition; directory = nothing,
             benchmark.comparison_settings, benchmark.tolerances)
         artifact=record_benchmark(retained, publication; directory = joinpath(directory, "analyses"))
     end
-    performance_path=directory === nothing ? nothing : joinpath(directory,"performance.jld2")
-    performance=if !measure_performance
-        performance_path !== nothing && isfile(performance_path) ?
-            JLD2.load(performance_path,"performance") : nothing
-    else
-        value=nothing
-        performance_session=session
-        settings=_benchmark_performance_settings(benchmark.tolerances)
-        if settings !== nothing && all(execution->execution.reused,executions)
-            for source in reuse_directories
-                saved_path=joinpath(source,"performance.jld2")
-                isfile(saved_path) || continue
-                saved=JLD2.load(saved_path)
-                retained=saved["performance"]
-                retained !== nothing && retained.settings==settings || continue
-                all(getproperty(retained,role).calculation==
-                    _numerical_record(calculation_record(
-                        _performance_calculation(getproperty(benchmark,role))))
-                    for role in (:reference,:candidate)) || continue
-                value=retained
-                performance_session=saved["session"]
-                break
-            end
-        end
-        value === nothing && (value=_benchmark_performance(benchmark))
-        if performance_path !== nothing && value !== nothing
-            temporary=tempname(directory)
-            try
-                JLD2.jldsave(temporary;performance=value,session=performance_session)
-                mv(temporary,performance_path;force=true)
-            finally
-                isfile(temporary) && rm(temporary)
-            end
-        end
-        value
-    end
+    performance_error === nothing || throw(performance_error)
     timings=(scope = :execution_wall,
         execution = (
             reference = (seconds = reference_execution.elapsed_seconds,

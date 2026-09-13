@@ -349,7 +349,7 @@ function LineParametersWorkspace(
         Bound((selected, Tuple(cases)))
     end
     validate(formulation.methods.internal_impedance,
-        any(indices -> length(indices) > 1, cable_indices) ? (:inner, :outer, :mutual) :
+        any(indices -> length(indices) > 1, cable_indices) ? (:inner, :outer, :transfer) :
         (:outer,))
     earth = _earth_data(formulation, input, earth_bindings)
     permutation, reordered_map, kron_map = _reduction_map(phase_map, formulation)

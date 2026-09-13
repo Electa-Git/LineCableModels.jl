@@ -54,13 +54,28 @@
 # ```
 #
 # Absolute RMS retains the measured difference. No denominator floor is applied.
-# Both operands must exceed the numerical-zero tolerance at every selected sample.
+# Both operands must exceed the reporting resolution at every selected sample.
 # Otherwise relative RMS is missing for either normalization, with a per-term
 # reason and absolute RMS; samples are never silently omitted.
 # Defaults are 1e-10 Ω/m for R, 1e-15 H/m for L, 1e-12 S/m for G and 1e-16 F/m
-# for C. Z and Y thresholds follow R + 2πfL and G + 2πfC. Explicit `atol` overrides
+# for C. X/B thresholds follow 2πfL/2πfC; Z/Y follow R + 2πfL and G + 2πfC. Explicit `atol` overrides
 # belong to the comparison request. Empty bands and unsupported quantities retain
 # their separate reasons. No error threshold is imposed by artifact acceptance.
+#
+# These are native-unit reporting cutoffs, not certified floating-point forward-error
+# bounds. The corresponding `:total` defaults use Ω, H, S and F; they do not infer a
+# line length. Equivalent per-length/total comparisons require correspondingly
+# scaled explicit cutoffs. Absolute RMS uses unchanged raw values even when relative
+# RMS is missing. A missing whole-band KPI does not remove a significant part of
+# that band's plotted curve.
+#
+# New analyses retain their resolution revision, effective cutoffs and per-operand
+# unresolved-sample counts. The existing analysis identity includes these semantics,
+# without changing any calculation identity. Historical/unversioned RMS remains
+# readable as recorded; `compare_saved` explicitly creates current analysis from
+# saved operands without a solver run. Reading or plotting never silently rewrites
+# old errors. Report tables expose the revision; plots warn when historical RMS and
+# current observation resolution differ.
 #
 # Report bands overlap: near DC is 0.1–100 Hz, the default harmonic range is
 # 50–2500 Hz, narrowband is 1 kHz–1 MHz, and wideband is strictly above 1 MHz.
@@ -95,7 +110,38 @@
 # formulation indices, complete selections and colors survive filtering and reload.
 # Multiple problem points require an explicit `problem` selection. Equal numerical
 # curves remain separate formulation choices. UQ mean/std errors remain separate
-# statistics under their existing comparison rules over the full frequency band.
+# statistics, with the same selectable frequency bands and physical resolution as
+# deterministic quantities. `artifact.table.features` contains numeric formula-by-band
+# absolute/relative DataFrames; `statistics` retains available UQ summaries and
+# `sampling` records finite-sample precision separately from physical spread.
+# Execution/native timings and controlled performance samples are available in
+# `execution`, `source_timings`, `performance` and `performance_samples`. These are
+# recorded measurements, never new benchmark runs triggered by a report.
+#
+# Backend and method names come from owned `description` methods. References are
+# labelled `Reference · fem`, `Reference · PSCAD`, or `Reference · MonteCarlo`;
+# only candidates receive F indices, for example `F1 · LinearError`. Common coaxial
+# identity is omitted. Quantity-specific legends show the applicable equation
+# choices; `formulations` lists labels and `formula_details` supplies scientific
+# explanations. Complete declarations remain in the published operand metadata.
+# Filtering preserves original F indices, including reordered subsets such as
+# `formulations=[3,1]`; it never merges equal curves or equal descriptions.
+#
+# `sampling` contains scalar MC counts and CDF bounds. `mean_sampling_precision`
+# contains one numeric standard error per quantity, point, terminal pair and
+# frequency, with its physical unit. This is precision of the sampled mean, not
+# precision of the estimated standard deviation. That latter precision is not
+# established by a CDF bound or small LEP/MC RMS discrepancy.
+# Performance tables retain seconds, Julia allocated bytes/MiB, actual timed
+# repetitions, requested repetitions and the original timing scope. Complete
+# workload/session records remain in the publication rather than table cells.
+# `terms` and `maxima` keep method labels, numeric errors and separately
+# filterable response/excitation coordinates. Requested/actual frequency bounds
+# have numeric lower/upper columns. `comparisons` is the explicit structured
+# audit view; raw maxima remain in DataFrame metadata for unchanged saved-summary
+# writing. Retained consumed formula IDs take precedence when available. With
+# only a declaration, descriptions state its selected routes, not inferred
+# geometry-dependent execution.
 #
 # The same report and plot APIs accept live completed results without Gauntlet:
 #
@@ -129,9 +175,26 @@
 # lcm gauntlet bind --package /path/to/package --url https://host.example/archive.tar.gz
 # ```
 #
-# A new `run` replaces only selected drafts once complete. Failed replacement leaves
+# `run` skips identical completed benchmarks, continues identical drafts, and creates
+# new attempts for changed declarations. Matching operands and formulation points
+# are reused before any backend is entered. `--force` explicitly requests fresh
+# calculations; historical attempts remain retained. Failed replacement leaves
 # the previous complete result explicitly accessible with `previous=true`. `resume`
-# reuses only matching completed calculations. `lock` copies selected accepted
+# preserves the saved work order, skipping complete entries before restoring builders
+# or loading results. `--benchmark ID[,ID]` selects run/resume entries; `run --dry-run`
+# prints per-operand scheduling decisions without writes or solver calls.
+#
+# A completed skip verifies declaration and numerical/report payload checksums;
+# full native-evidence verification remains in saved-artifact readers and verified
+# status. Saved-result reuse does not contact PSCAD. `--recover-solvers` applies only
+# to unfinished native work without a matching Gauntlet calculation. Source edits
+# alone do not invalidate results; use explicit force for implementation corrections
+# with unchanged numerical declarations. Skipped Julia outcomes have
+# `state=:complete`, `skipped=true` and `result=nothing`.
+# Report-only changes retain matching controlled timing observations and their
+# original session; they do not silently repeat the numerical workload for timing.
+#
+# `lock` copies selected accepted
 # benchmarks into an immutable, self-contained bundle; it does not publish them or
 # apply a numerical agreement threshold. Packaging accepts only explicit locked
 # bundles. Binding verifies the served archive bytes and extracted tree before

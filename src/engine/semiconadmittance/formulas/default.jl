@@ -10,7 +10,7 @@ the screen geometry and permittivity but suppress conductivity and loss tangent.
 **Reference.** Lossless dielectric approximation to Maxwell's constitutive
 relation; request an explicit lossy law to represent semicon conduction.
 """
-description(::Formula{:default}) = "Default lossless semiconducting-screen admittivity"
+description(::Type{<:Formula{:default}}; compact::Bool=false) = compact ? "default" : "Default lossless semiconducting-screen admittivity"
 
 """
 $(TYPEDSIGNATURES)

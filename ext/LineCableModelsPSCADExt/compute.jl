@@ -72,16 +72,6 @@ function computation_options(
     )
 end
 
-function _formulation_label(formulation::PSCADFormulation)
-    return join(
-        (
-            string(NamedTuple(formulation).requested.earth_impedance),
-            "PSCAD native earth admittance",
-            description(formulation.methods.insulation_admittance)
-        ),
-        '/')
-end
-
 function _pscad_size(problem::LineParametersProblem)
     assignments = problem.system.connection_order
     isempty(assignments) && throw(ArgumentError(

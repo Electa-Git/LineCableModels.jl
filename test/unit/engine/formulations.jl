@@ -114,18 +114,18 @@ end
         r_in, r_ex, rho, relative_permeability, s)
     inner=@inferred interaction(Val(:inner))
     outer=@inferred interaction(Val(:outer))
-    mutual=@inferred interaction(Val(:mutual))
-    @test all(isfinite, (inner, outer, mutual))
+    transfer=@inferred interaction(Val(:transfer))
+    @test all(isfinite, (inner, outer, transfer))
     @test real(inner) > 0
     @test real(outer) > 0
-    @test real(mutual) > 0
+    @test real(transfer) > 0
     @test imag(inner) >= 0
     @test imag(outer) >= 0
 
     solid=@inferred formulation(
         0.0, r_ex, rho, relative_permeability, s)
     @test iszero(solid(Val(:inner)))
-    @test iszero(solid(Val(:mutual)))
+    @test iszero(solid(Val(:transfer)))
     solid_outer=solid(Val(:outer))
     @test isfinite(solid_outer)
     @test real(solid_outer) > 0
@@ -142,5 +142,5 @@ end
         r_in, r_ex, rho, relative_permeability, s)
     @test experimental(Val(:inner)) == 7
     @test experimental(Val(:outer)) == outer
-    @test experimental(Val(:mutual)) == mutual
+    @test experimental(Val(:transfer)) == transfer
 end

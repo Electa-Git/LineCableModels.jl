@@ -3,6 +3,114 @@ Decode an extension-owned tagged value from the v1 JSON format.
 """
 function deserialize_extension end
 
+"""
+$(TYPEDSIGNATURES)
+
+Bind a retained formulation declaration to its scientific owner for inspection.
+Native formulations pass through unchanged. Unknown identities return `missing`;
+errors raised by a supported owner description are not intercepted. No runnable
+formulation, problem, solver configuration or callable override is reconstructed.
+"""
+deserialize_value(::Val{:formulation},value::LineCableModels.AbstractFormulation) = value
+deserialize_value(::Val{:formulation},value::Pair{<:Type,<:NamedTuple}) = value
+deserialize_value(::Val{:formulation},::Missing) = missing
+deserialize_value(::Val{:formulation},::Nothing) = missing
+function deserialize_value(::Val{:formulation},record::AbstractDict)
+    return deserialize_value(Val(:formulation),(; (Symbol(k)=>v for (k,v) in pairs(record))...))
+end
+function deserialize_value(::Val{:formulation},record::NamedTuple)
+    if haskey(record,:kind) && record.kind in (:monte_carlo,:linear_error)
+        owner=record.kind===:monte_carlo ? UQ.MonteCarlo : UQ.LinearError
+        retained=(inner=deserialize_value(Val(:formulation),record.inner),options=record.options)
+        return owner => retained
+    elseif haskey(record,:type) && haskey(record,:fields)
+        # Supported historical UQ records used these exact owner prefixes.
+        name=string(record.type)
+        owner=startswith(name,"LineCableModels.UQ.MonteCarlo{") || name=="LineCableModels.UQ.MonteCarlo" ? UQ.MonteCarlo :
+            startswith(name,"LineCableModels.UQ.LinearError{") || name=="LineCableModels.UQ.LinearError" ? UQ.LinearError : nothing
+        owner===nothing && return missing
+        retained=(inner=deserialize_value(Val(:formulation),record.fields.inner),options=record.fields.options)
+        return owner => retained
+    end
+    backend=get(record,:backend,nothing)
+    owner=backend in (:coaxial,"coaxial") ? Engine.LineParametersFormulation :
+        backend in (:fem,:LineCableModelsFEM,"fem","LineCableModelsFEM") ? Engine.LineCableModelsFEM :
+        backend in (:pscad,:PSCAD,"pscad","PSCAD") ? LineCableModels.PSCAD.PSCADFormulation : nothing
+    owner===nothing && return missing
+    # Child families, order and relevance are supplied by the owner, not a reader catalogue.
+    declared=get(record,:requested,nothing)
+    declared===nothing && return missing
+    selected_fields=get(record,:effective,get(record,:methods,declared))
+    children=Pair{Symbol,Any}[]
+    controls=Pair{Symbol,Any}[]
+    for (slot,family) in pairs(owner)
+        definition=get(declared,slot,missing)
+        value=get(selected_fields,slot,missing)
+        selected, settings=deserialize_value(Val(:formulation),family,value,definition)
+        push!(children,slot => selected)
+        push!(controls,slot => settings)
+    end
+    retained=(methods=(;children...),requested=(;controls...),options=get(record,:options,(;)))
+    return owner => retained
+end
+
+"""Bind a retained leaf or named composite using its family's declared child slots."""
+function deserialize_value(::Val{:formulation},family::Type,value,definition)
+    value=deserialize_value(Val(:formulation),family,value,Val(:historical))
+    definition=deserialize_value(Val(:formulation),family,definition,Val(:historical))
+    value===nothing && return (nothing,(;))
+    ismissing(value) && return (missing,(;))
+    value isa Symbol && (value=(identifier=value,))
+    value isa NamedTuple || return (missing,(;))
+    if !haskey(value,:identifier)
+        children=(; pairs(family)...)
+        names=keys(children)
+        isempty(names) && return (missing,(;))
+        Set(keys(value))==Set(names) || throw(ArgumentError(
+            "retained $family selections require exactly $(join(names, ", "))"))
+        definitions=definition isa NamedTuple && Set(keys(definition))==Set(names) ?
+            NamedTuple{names}(definition) : NamedTuple{names}(ntuple(_->definition,length(names)))
+        decoded=map(children,NamedTuple{names}(value),definitions) do child,leaf,declared
+            deserialize_value(Val(:formulation),child,leaf,declared)
+        end
+        return (map(first,decoded),map(last,decoded))
+    end
+    identifier=value.identifier
+    ismissing(identifier) && return (missing,(;))
+    selected=family{identifier}
+    applicable(LineCableModels.description,selected) || return (missing,(;))
+    definition isa Symbol && (definition=(identifier=definition,))
+    settings=definition isa NamedTuple ?
+        LineCableModels.formulation_options(LineCableModels.FormulaDefinition,definition) : (;)
+    if haskey(settings,:equivalent_earth)
+        equivalent=settings.equivalent_earth
+        if equivalent isa NamedTuple && haskey(equivalent,:identifier)
+            # This is a passive declaration; no callback or solver is reconstructed.
+            equivalent=LineCableModels.formula(equivalent.identifier;
+                order=get(equivalent,:order,:default),parameters=get(equivalent,:parameters,(;)),
+                hooks=get(equivalent,:hooks,(;)),options=get(equivalent,:options,(;)))
+            settings=merge(settings,(equivalent_earth=equivalent,))
+        end
+    end
+    return (selected,settings)
+end
+
+"""Retain current owner records unchanged at the historical decoding boundary."""
+deserialize_value(::Val{:formulation},owner::Type,record,::Val{:historical})=record
+
+"""Read historical internal surface names without changing earth interactions or saved files."""
+function deserialize_value(::Val{:formulation},::Type{<:Engine.InternalImpedance.Formula},
+        record::NamedTuple,::Val{:historical})
+    rename=fields -> begin
+        haskey(fields,:mutual) && haskey(fields,:transfer) && throw(ArgumentError(
+            "retained internal surfaces contain both mutual and transfer"))
+        NamedTuple{Tuple(key===:mutual ? :transfer : key for key in keys(fields))}(values(fields))
+    end
+    !haskey(record,:identifier) && haskey(record,:mutual) && return rename(record)
+    return (; (key => (key in (:hooks,:options,:binding) && value isa NamedTuple ?
+        rename(value) : value) for (key,value) in pairs(record))...)
+end
+
 _float_type(::Val{:Float16}) = Float16
 _float_type(::Val{:Float32}) = Float32
 _float_type(::Val{:Float64}) = Float64
@@ -103,6 +211,21 @@ function deserialize_value(value)
             deserialize_value(_required(value, "re", marker)),
             deserialize_value(_required(value, "im", marker))
         )
+        marker == "Missing" && return missing
+        marker == "Tuple" && return Tuple(deserialize_value(item) for item in value["values"])
+        if marker == "Array"
+            decoded=map(deserialize_value,value["values"])
+            if !isempty(decoded)
+                T=typeof(first(decoded))
+                all(item -> item isa T,decoded) && (decoded=collect(T,decoded))
+            end
+            return reshape(decoded,Tuple(Int.(value["size"])))
+        end
+        marker == "NamedTuple" && return NamedTuple{Tuple(Symbol.(value["names"]))}(
+            Tuple(deserialize_value(item) for item in value["values"]))
+        marker in ("Observable", "Quantile", "LineParameters", "MonteCarloResult",
+            "LinearErrorResult", "MeasurementLinearErrorResult", "SampleSummary", "HistogramDensity", "Distribution") &&
+            return deserialize_extension(Val(Symbol(marker)),value)
         if marker == "Measurement"
             applicable(deserialize_extension, Val(:Measurement), value) || throw(
                 ArgumentError("deserialising Measurement values requires Measurements.jl")

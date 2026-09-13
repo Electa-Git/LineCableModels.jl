@@ -34,6 +34,12 @@ Long labels wrap; formulation labels omit equation choices belonging only to the
 other plotted family, without merging repeated entries. Matrix pagination performs
 no calculation, comparison, interpolation, or symmetry reduction.
 
+Numeric axes share size-aware ticks and engineering power-of-ten multipliers.
+Native tick positions, labelled ticks and custom formatters on `plot.axes`
+override automatic presentation. Reset preserves explicit native limits;
+changing a scale refits only its automatic dimension and preserves the other
+dimension's current view. Neither operation changes the published values or units.
+
 # Errors
 
 `blocks` must contain two positive integers and cannot be combined with a

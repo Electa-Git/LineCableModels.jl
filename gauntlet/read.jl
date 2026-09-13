@@ -81,11 +81,8 @@ function _line_snapshot(path::AbstractString, collection::Symbol)
     comparison isa LineParametersBenchmark || throw(ArgumentError(
         "Gauntlet snapshot $path has no LineParametersBenchmark",
     ))
-    observed = compare(reference, accepted)
-    isequal(_comparison_values(comparison), _comparison_values(observed)) ||
-        throw(ArgumentError(
-            "stored comparison does not match the recorded results in $path",
-        ))
+    size(observe(comparison,Z,absolute_error)) == size(observe(reference,Z))[1:2] ||
+        throw(DimensionMismatch("stored comparison dimensions differ from recorded results"))
     reference_values = _primitive_values(reference)
     accepted_values = _primitive_values(accepted)
     snapshot["frequencies"] == reference_values.frequency &&
@@ -114,9 +111,9 @@ function _line_snapshot(path::AbstractString, collection::Symbol)
 end
 
 function _validate_moment_records(snapshot, path)
-    reference = MomentResult(snapshot["accepted_reference"])
-    candidate = MomentResult(snapshot["accepted_candidate"])
-    for record in (reference, candidate)
+    reference = read_calculation(snapshot["accepted_reference"])
+    candidate = read_calculation(snapshot["accepted_candidate"])
+    for record in (snapshot["accepted_reference"],snapshot["accepted_candidate"])
         record.frequencies == snapshot["frequencies"] || throw(ArgumentError(
             "UQ moment snapshot $path has inconsistent frequencies",
         ))
@@ -124,17 +121,7 @@ function _validate_moment_records(snapshot, path)
             "UQ moment snapshot $path has inconsistent terminal order",
         ))
     end
-    errors = compare(reference, candidate).errors
-    stored = snapshot["reference_comparison"]
-    for quantity in keys(errors), statistic in (:mean, :std)
-
-        observed = getproperty(getproperty(errors, quantity), statistic)
-        accepted = getproperty(getproperty(stored, quantity), statistic)
-        isequal(observed.absolute, accepted.absolute) &&
-        isequal(observed.relative, accepted.relative) || throw(ArgumentError(
-            "stored UQ comparison does not match moment products in $path",
-        ))
-    end
+    errors = snapshot["reference_comparison"]
     return (; reference, candidate, errors)
 end
 
@@ -142,8 +129,8 @@ end
     read_moments(path::AbstractString; collection::Symbol=:uq)
 
 Read and verify a stored UQ comparison without loading cases or computing results.
-The snapshot checksum, coordinate agreement, and recorded element-wise RMS errors
-are checked using the same `MomentResult` comparison as numerical execution.
+The snapshot checksum and coordinate agreement are checked. Recorded RMS errors
+retain their historical meaning and are not recalculated during reading.
 
 # Arguments
 

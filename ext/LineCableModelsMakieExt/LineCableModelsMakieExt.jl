@@ -15,6 +15,7 @@ using Statistics: mean
 
 const Units = LineCableModels.Units
 import LineCableModels.Grammar:
+                                ObservationPublication,
                                 observation_indices, observation_request, request_identity,
                                 request_indices,
                                 request_quantity, unit_targets, validate_observables

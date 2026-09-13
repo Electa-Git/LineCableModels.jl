@@ -69,10 +69,28 @@ normalization and point pair. Each row carries its `RMSError` in `error`. Saving
 uses those same comparisons. `compare_saved` explicitly requests another analysis
 of completed operands. Reading, tabulating and plotting those benchmark records never recalculate RMS.
 
-Moment comparisons select `(quantities=(:R, :L, :C, :G), statistics=(:mean, :std))`.
-Their current implementation supports the full frequency range and reference-RMS
-normalization; other moment settings fail before calculation. The line-parameter
-statistics default is `(:value,)`.
+Statistical comparisons select ordinary requests such as
+`BenchmarkTableDefinition(((statistics, R, mean), (statistics, R, std)); bands=(:all, :dc, :harmonic, :narrow, :wide))`.
+The `quantities`/`statistics` shorthand remains accepted and is expanded once.
+MC and LEP retain their native results; each outer point remains a separate population.
+Mean and standard-deviation comparisons use the same physical cutoffs, bands and
+normalizations as deterministic quantities. Retained MC percentiles remain available
+without inventing a LEP output distribution.
+
+`artifact.table.features` contains numeric formula-by-band absolute and relative
+DataFrames. `statistics` and `sampling` expose retained UQ summaries and sampling
+precision. `execution`, `source_timings`, `performance`, `performance_samples`,
+`performance_environment` and `performance_policy` describe recorded measurements;
+they never collect new timings. Worker-time sums and PSCAD compile-only times retain
+their original scopes. A reference/candidate timing ratio describes those workloads,
+not equal accuracy or cost per MC trial.
+
+Read a saved benchmark with `read_benchmark(path; load_results=true)` and render its
+historical analysis with `report(BenchmarkTableDefinition(), benchmark)`. To reanalyse,
+pass its `reference` and `candidate` operands explicitly to a new report definition.
+Neither operation solves a model. `evidence=:numerical` permits numerical inspection
+when auxiliary solver files changed; missing evidence is reported and strict
+acceptance/locking is not relaxed.
 
 A comparison reference defines direction and normalization. PSCAD, FEM and LCM
 remain different models. Cross-model RMS values are observations. Incomparable
@@ -223,8 +241,27 @@ G/B pages. `(R, L, G, C)` requests those quantities directly. Multiple problems
 require `problem=2` or an explicit list; each receives its own pages. Formula
 filtering preserves original indices and colors. Equal curves remain separate
 selections. Scalar and air/earth/mixed choices, parameters, hooks and numerical
-options remain in the full records. Legends show differing fields; common choices
-remain in `tables.formulations.record`.
+options remain in the full published operand metadata. `tables.formulations`
+contains readable labels; `tables.formula_details` contains owner-dispatched
+scientific explanations. Legends use only the choices relevant to the plotted
+quantity. References are named `Reference · fem`, `Reference · PSCAD`, or
+`Reference · MonteCarlo`; only candidates receive F indices, such as
+`F1 · LinearError`. Reordering with `formulations=[3,1]` preserves those identities.
+
+For UQ, mean and standard-deviation comparisons have separate band tables.
+`tables.sampling` contains scalar trial counts and CDF precision, while
+`tables.mean_sampling_precision` identifies the standard error of each sampled
+mean by quantity, point, terminals and frequency. Neither is a precision estimate
+for the sample standard deviation. Timing/allocation tables contain scalar
+measurements, original scopes and actual versus requested timed repetitions;
+they do not contain whole workload/session objects.
+
+`terms` and `maxima` expose scalar errors, method labels and terminal coordinates;
+frequency bounds have separate lower/upper Hz columns. `comparisons` remains the
+explicit structured audit view. Unformatted maxima are retained in native
+DataFrame metadata for the existing saved-summary writer, not reconstructed
+from display strings. Descriptions use retained consumed selections when present;
+a declaration alone does not establish which geometry-dependent routes executed.
 
 The existing unit controls, legends, zoom and SVG export remain available.
 Benchmark plots also retain the log-y toggle for signed matrix entries, using a
@@ -239,8 +276,8 @@ range (50–2500 Hz by default), narrowband (1 kHz–1 MHz), wideband (>1 MHz). 
 overlap. Ordinary endpoints use the engine's existing nearest-sample selection.
 Tables retain requested/actual bounds and sample indices; no interpolation occurs.
 `clip=false` is the default. Numerical-zero G retains absolute RMS and unavailable
-relative RMS with its reason. UQ mean/std products remain separate statistics under
-their existing comparison rules over the full frequency band.
+relative RMS with its reason. UQ statistics use the same selectable bands and
+two-sided relative eligibility, without pooling populations or matrix terms.
 
 `artifact.published` holds the unformatted scientific products. Ordinary display
 shows the compact summary. No figure is constructed unless requested by `plot`

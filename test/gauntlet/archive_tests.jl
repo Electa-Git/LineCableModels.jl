@@ -19,7 +19,8 @@ mktempdir() do parent
     attempt=joinpath(campaign,"portable",state["current"])
     @test isfile(joinpath(attempt,"reference","calculation.jld2"))
     @test isfile(joinpath(attempt,"candidate","calculation.jld2"))
-    @test only(resume_campaign(campaign)).result.timings.execution.reference.reused
+    skipped=only(resume_campaign(campaign))
+    @test skipped.skipped && skipped.result===nothing
     @test read(source)==original_source
     bundle=lock_campaign(campaign,joinpath(parent,"bundle"))
     moved=joinpath(parent,"moved");mv(bundle.path,moved)
@@ -28,11 +29,13 @@ mktempdir() do parent
     @test only(campaign_status(moved)).state===:complete
     @test readdir(moved)==before
     write(source,"global declared_calculation_factor=2\n")
-    @test only(resume_campaign(campaign)).result.timings.execution.reference.reused
-    @test Base.invokelatest(getproperty,Main,:declared_calculation_factor) == 1
+    skipped=only(resume_campaign(campaign))
+    @test skipped.skipped && skipped.result===nothing
+    @test !isdefined(Main,:declared_calculation_factor) # Completed skips never restore source code.
     @test read(source,String)=="global declared_calculation_factor=2\n"
     rm(source)
-    @test only(resume_campaign(campaign)).result.timings.execution.reference.reused
+    skipped=only(resume_campaign(campaign))
+    @test skipped.skipped && skipped.result===nothing
     package=package_collection(:fixture,v"1.0.0";reason="Offline transport verification",
         bundles=[moved],output=joinpath(parent,"release"))
     @test bytes2hex(open(sha256,package.archive))==package.archive_sha256

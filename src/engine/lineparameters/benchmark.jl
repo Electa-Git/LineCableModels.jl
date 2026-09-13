@@ -32,6 +32,13 @@ function RMSError(absolute::AbstractMatrix{T}, relative::AbstractMatrix{S};
     return RMSError{promote_type(T, S)}(absolute, relative; details)
 end
 
+"""Return RMS comparison metadata without exposing result storage to consumers."""
+details(error::RMSError) = error.details
+observe(error::RMSError, ::typeof(absolute_error)) = error.absolute
+observe(error::RMSError, ::typeof(relative_error)) = error.relative
+observe(error::RMSError, ::typeof(absolute_error), indices...) = getindex(error.absolute, indices...)
+observe(error::RMSError, ::typeof(relative_error), indices...) = getindex(error.relative, indices...)
+
 """
 $(TYPEDEF)
 
@@ -304,6 +311,34 @@ function compare(reference::AbstractCoreResult, candidate::AbstractCoreResult,
     domain(reference) === domain(candidate) || throw(ArgumentError("reference and candidate domains must match"))
     issorted(f) || throw(ArgumentError("frequency-band comparison requires ascending stored frequencies"))
     left, right = observe(reference, quantity), observe(candidate, quantity)
+    declared = merge(get(details(candidate), :comparison_unsupported, (;)),
+        get(details(reference), :comparison_unsupported, (;)), unsupported)
+    return compare(left, right, quantity; frequencies=f, result_basis=basis(reference),
+        reference_resolution=observation_resolution(reference, quantity; atol, frequencies=f),
+        candidate_resolution=observation_resolution(candidate, quantity; atol, frequencies=f),
+        normalization, band, fundamental, harmonics, atol, unsupported=declared)
+end
+
+"""
+$(TYPEDSIGNATURES)
+
+Compare physical tensors on an explicit frequency axis using the same band and
+two-sided resolution rules as core results. Arrays use native units in
+`result_basis` (`:pul` or `:total`); frequencies use Hz. Owner-supplied resolution
+records preserve operand-specific precision. No samples are omitted and no
+physical calculation is performed.
+"""
+function compare(left::AbstractArray{<:Number,3}, right::AbstractArray{<:Number,3},
+        quantity::Function; frequencies::AbstractVector, result_basis::Symbol,
+        reference_resolution=nothing, candidate_resolution=nothing,
+        normalization::Symbol=:reference_rms, band=:all, fundamental::Real=50.0,
+        harmonics::Integer=50, atol=nothing, unsupported::NamedTuple=(;))
+    validate(compare; normalization, band, fundamental, harmonics, atol, unsupported)
+    _check_basis(result_basis)
+    quantity in _LINE_RESOLUTION_QUANTITIES || throw(ArgumentError("unsupported physical RMS quantity"))
+    f = frequencies
+    !isempty(f) && issorted(f) && all(value -> isfinite(value) && value >= 0, f) ||
+        throw(ArgumentError("frequency-band comparison requires finite ascending nonnegative frequencies"))
     size(left) == size(right) || throw(DimensionMismatch("reference and candidate quantity dimensions must match"))
     !isempty(left) && size(left, 3) == length(f) ||
         throw(DimensionMismatch("quantity dimensions must match the stored frequencies"))
@@ -339,17 +374,15 @@ function compare(reference::AbstractCoreResult, candidate::AbstractCoreResult,
     T = promote_type(typeof(float(real(zero(eltype(left))))),
         typeof(float(real(zero(eltype(right))))))
     name = Symbol(nameof(quantity))
-    resolution = observation_resolution(reference, quantity; atol, frequencies=f)
-    candidate_resolution = observation_resolution(candidate, quantity; atol, frequencies=f)
+    resolution = reference_resolution === nothing ?
+        observation_resolution(left, quantity; atol, frequencies=f, result_basis) : reference_resolution
+    candidate_resolution = candidate_resolution === nothing ?
+        observation_resolution(right, quantity; atol, frequencies=f, result_basis) : candidate_resolution
     tolerance = resolution.atol isa Real ? fill(T(resolution.atol), length(indices)) :
         T.(resolution.atol[indices])
     candidate_tolerance = candidate_resolution.atol isa Real ?
         fill(T(candidate_resolution.atol), length(indices)) : T.(candidate_resolution.atol[indices])
     reason = get(unsupported, name, nothing)
-    for result in (reference, candidate)
-        declared = get(details(result), :comparison_unsupported, (;))
-        reason === nothing && (reason = get(declared, name, nothing))
-    end
     reason === nothing || reason isa AbstractString && !isempty(reason) ||
         throw(ArgumentError("unsupported comparisons require a nonempty explanatory string for $name"))
     status = reason !== nothing ? :unsupported : isempty(indices) ? :no_samples : :compared
@@ -387,6 +420,36 @@ function compare(reference::AbstractCoreResult, candidate::AbstractCoreResult,
     end
     stable_details=NamedTuple{keys(comparison_details),Tuple{detail_types...}}(values(comparison_details))
     return RMSError{T}(absolute, relative; details=stable_details)
+end
+
+"""Compare explicitly contextualized detached products without inferring coordinates."""
+function compare(reference::NamedTuple{(:result,:metadata)},candidate::NamedTuple{(:result,:metadata)},
+        request; kwargs...)
+    a,b=reference.metadata,candidate.metadata
+    a.port_order==b.port_order && a.frequencies==b.frequencies && a.basis==b.basis && a.domain==b.domain ||
+        throw(ArgumentError("detached comparison coordinates, basis or domain differ"))
+    identity=request_identity(request)
+    identity isa Function || identity isa Tuple && length(identity)==3 ||
+        throw(ArgumentError("detached comparisons require a physical quantity or a selected statistical product"))
+    prefix=identity isa Tuple ? identity : (identity,)
+    left=if reference.result isa AbstractCoreResult || reference.result isa ObservationPublication
+        observe(reference.result,prefix...)
+    else
+        length(reference.result)==1 || throw(ArgumentError("select one UQ point before comparing with a detached publication"))
+        observe(reference.result,prefix...,1)
+    end
+    right=if candidate.result isa AbstractCoreResult || candidate.result isa ObservationPublication
+        observe(candidate.result,prefix...)
+    else
+        length(candidate.result)==1 || throw(ArgumentError("select one UQ point before comparing with a detached publication"))
+        observe(candidate.result,prefix...,1)
+    end
+    quantity=identity isa Tuple ? identity[2] : identity
+    error=compare(left,right,quantity;frequencies=a.frequencies,result_basis=a.basis,kwargs...)
+    semantics=identity isa Tuple ? (statistical_semantics=(revision=1,representation=:retained_products),) : (;)
+    return RMSError{Base.nonmissingtype(eltype(observe(error,absolute_error)))}(
+        observe(error,absolute_error),observe(error,relative_error);
+        details=merge(details(error),(;request=identity),semantics))
 end
 
 """

@@ -39,7 +39,7 @@ const _CATALOGUE_LINE_REPORT = (
 const _CATALOGUE_UQ_REPORT = (
     quantities = (:R, :L, :C, :G),
     statistics = (:mean, :std),
-    bands = (:all,),
+    bands = (:all, :dc, :harmonic, :narrow, :wide),
 )
 
 const _CATALOGUE_UQ_SEEDS = Dict{Symbol, UInt64}(

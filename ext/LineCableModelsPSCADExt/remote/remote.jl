@@ -150,7 +150,7 @@ function _supervisor_command(
         verbosity::Integer = 0
 )
     _validate_frequencies(frequencies_value)
-    label = _formulation_label(formulation)
+    label = only(description([formulation];roles=[:none]))
     increments = length(frequencies_value) - 1
     shared_supervisor = _remote_path(shared_case, "toolkit", "supervisor.ps1")
     return join(
@@ -326,7 +326,7 @@ function run_remote_pscad(
         output_stem,
         verbosity
     )
-    verbosity >= 1 && @info "Executing PSCAD frequency scan" host=config.host variant formulation=_formulation_label(formulation) frequencies=length(frequencies_value) timeout_seconds=config.timeout_seconds
+    verbosity >= 1 && @info "Executing PSCAD frequency scan" host=config.host variant formulation=only(description([formulation];roles=[:none])) frequencies=length(frequencies_value) timeout_seconds=config.timeout_seconds
     execution_error = try
         _run_remote(
             config,

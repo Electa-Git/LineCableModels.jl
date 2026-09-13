@@ -11,7 +11,7 @@
             reference = formula(inner, 0.01, 1.7241e-8, 1.0, complex(0.0, 2pi * frequency))
             precise = @inferred formula(BigFloat(inner), BigFloat(0.01),
                 BigFloat(1.7241e-8), BigFloat(1.0), complex(big"0", 2big(pi) * frequency))
-            for interaction in (Val(:inner), Val(:outer), Val(:mutual))
+            for interaction in (Val(:inner), Val(:outer), Val(:transfer))
                 actual = @inferred precise(interaction)
                 @test actual isa Complex{BigFloat}
                 @test precision(real(actual)) == 128
@@ -21,7 +21,7 @@
             end
             if iszero(inner)
                 @test iszero(precise(Val(:inner)))
-                @test iszero(precise(Val(:mutual)))
+                @test iszero(precise(Val(:transfer)))
             end
         end
 

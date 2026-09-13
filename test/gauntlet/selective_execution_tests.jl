@@ -72,6 +72,12 @@
         measured_state=TOML.parsefile(joinpath(directory,"measured","state.toml"))
         measured_path=joinpath(directory,"measured",measured_state["current"],"performance.jld2")
         measured_session=JLD2.load(measured_path,"session")
+        measured_bytes=read(measured_path)
+        same_attempt=run_benchmark(definition(:measured,6.,7.;tolerances);
+            directory=dirname(measured_path))
+        @test length(calls)==measured_count
+        @test same_attempt.performance==measured.result.performance
+        @test read(measured_path)==measured_bytes
         report_only=only(run_campaign(directory,
             [definition(:measured,6.,7.;bands=(:all,:dc),tolerances)];progress=:off))
         @test length(calls)==measured_count

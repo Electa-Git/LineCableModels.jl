@@ -41,6 +41,13 @@ end
     shifted_draw=rand(MersenneTwister(41), uncertain; distribution = Normal(10, 3))
     @test standard_draw == shifted_draw
     @test isfinite(standard_draw)
+    for law in (Normal(10.,3.),Uniform(-2.,7.))
+        restored=LineCableModels.ImportExport.deserialize_value(LineCableModels.ImportExport.serialize_value(law))
+        @test typeof(restored)===typeof(law)
+        @test params(restored)==params(law)
+        @test rand(MersenneTwister(41),uncertain;distribution=restored)==
+            rand(MersenneTwister(41),uncertain;distribution=law)
+    end
 
     density=LineCableModels.UQ.HistogramDensity(
         [1.0, 3.0, 5.0],

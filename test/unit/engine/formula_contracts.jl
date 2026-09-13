@@ -62,9 +62,9 @@ end
             workspace = resources)
         @test values.outer ≈ 5e-5 rtol=3e-6
         @test values.inner == reference.inner
-        @test values.mutual == reference.mutual
+        @test values.transfer == reference.transfer
         @test last(seen) === (Val(method), resources)
-        @test isempty(selected.options.inner) && isempty(selected.options.mutual)
+        @test isempty(selected.options.inner) && isempty(selected.options.transfer)
     end
     # The same override and numerical selection must reach the backend's internal terms.
     problem=TestFixtures.line_parameters_problem(frequencies = [50.0])
@@ -88,13 +88,13 @@ end
     for frequency in (1e-4, 50.0, 1e5)
         coefficients = II.surface_impedances(selected, 0.008, 0.01, 1.7241e-8, 1.0,
             complex(0.0, 2pi*frequency))
-        W = [coefficients.inner coefficients.mutual; coefficients.mutual coefficients.outer]
+        W = [coefficients.inner coefficients.transfer; coefficients.transfer coefficients.outer]
         # Terminal currents are (contained metal, enclosing wall). Surface
         # currents are (-contained, contained + wall), exactly the current map.
         B = [-1.0 1.0; 0.0 1.0]
         lifted = B * W * transpose(B)
-        @test lifted[1, 1] ≈ coefficients.inner - 2coefficients.mutual + coefficients.outer
-        @test lifted[1, 2] ≈ coefficients.outer - coefficients.mutual
+        @test lifted[1, 1] ≈ coefficients.inner - 2coefficients.transfer + coefficients.outer
+        @test lifted[1, 2] ≈ coefficients.outer - coefficients.transfer
         @test lifted[2, 2] == coefficients.outer
         if frequency == 1e-4
             resistance = 1.7241e-8 / (pi * (0.01^2 - 0.008^2))
@@ -143,7 +143,7 @@ end
         :ManufacturedOuter, typeof(binding), NamedTuple{()}, NamedTuple{()},
         typeof(controls), Tuple{}}(binding, (;), (;), controls, ())
     @test validate(selected, (:outer,)) === selected
-    @test_throws ArgumentError validate(selected, (:inner, :outer, :mutual))
+    @test_throws ArgumentError validate(selected, (:inner, :outer, :transfer))
     @test_throws ArgumentError II.surface_impedances(
         selected, 0.0, 0.01, 1.7e-8, 1.0, 100im)
     copper = Material(kind = :conductor, rho = 1.7e-8)
@@ -172,9 +172,9 @@ end
     const preparations=Tuple[]
     const evaluations=Tuple[]
     function II.internal_impedance(::Val{:ManufacturedSurfaces},
-            kind::Union{Val{:inner}, Val{:outer}, Val{:mutual}}, functor, workspace)
+            kind::Union{Val{:inner}, Val{:outer}, Val{:transfer}}, functor, workspace)
         push!(evaluations, (functor.state.serial, kind))
-        return kind===Val(:mutual) ? 0.5+0.1im : 2.0+1.0im
+        return kind===Val(:transfer) ? 0.5+0.1im : 2.0+1.0im
     end
     LineCableModels.computation_options(::FM{
         :ManufacturedSurfaces, typeof(II.internal_impedance)}) = (;)
@@ -186,7 +186,7 @@ end
             typeof(state), typeof(formula.options)}(
             formula.binding, formula.hooks, state, formula.options)
     end
-    kinds=(:inner, :outer, :mutual)
+    kinds=(:inner, :outer, :transfer)
     binding=NamedTuple{kinds}(map(
         kind->FM(Val(:ManufacturedSurfaces), II.internal_impedance, Val(kind)), kinds))
     controls=NamedTuple{kinds}(map(_->(;), kinds))
@@ -201,6 +201,13 @@ end
     @test allunique(evaluations)
     @test count(record -> record[2] === Val(:outer), evaluations) == expected
     @test any(record -> record[2] === Val(:inner), evaluations)
-    @test any(record -> record[2] === Val(:mutual), evaluations)
+    @test any(record -> record[2] === Val(:transfer), evaluations)
     @test all(isfinite, result.Z.values)
+    empty!(preparations)
+    empty!(evaluations)
+    composite=compute(problem,Formulation(internal_impedance=
+        (inner=selected,outer=selected,transfer=selected)))
+    @test length(preparations)==expected
+    @test allunique(evaluations)
+    @test Z(composite)==Z(result) && Y(composite)==Y(result)
 end

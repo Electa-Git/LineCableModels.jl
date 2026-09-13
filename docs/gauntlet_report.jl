@@ -64,51 +64,41 @@ function render_gauntlet_report(source)
     if any(row -> row.state !== :complete,statuses)
         println(io,"Incomplete drafts: ",join(["$(row.id): $(row.state)" for row in statuses if row.state !== :complete],", "),".\n")
     end
-    maxima=NamedTuple[]
-    labels=NamedTuple[]
-    for record in records,analysis in record.analyses
-        # Schema 1 is a finite historical reader; it uses saved RMS arrays only.
-        if haskey(analysis,"summary")
-            append!(maxima,analysis["summary"])
-            append!(labels,[(benchmark=analysis["benchmark_id"],role=row.role,index=row.formulation_index,label=row.label)
-                for row in analysis["formulations"]])
-        else
-            loaded=(id=record.id,reference=record.reference,candidate=record.candidate,analyses=[analysis])
-            table=LCM.ReportBuilder.report(LCM.ReportBuilder.BenchmarkTableDefinition(),loaded).table
-            append!(maxima,NamedTuple.(eachrow(table.maxima)))
-            append!(labels,[(benchmark=analysis["benchmark_id"],role=row.role,index=row.formulation_index,label=row.label)
-                for row in eachrow(table.formulations)])
+    println(io,"Entries are maxima of per-term RMS discrepancies. Relative tables use percent; absolute tables retain physical units.\n")
+    for record in records, analysis in record.analyses
+        selected=merge(record,(analyses=[analysis],))
+        artifact=LCM.ReportBuilder.report(LCM.ReportBuilder.BenchmarkTableDefinition(),selected)
+        tables=artifact.table
+        println(io,"## ",record.id,"\n")
+        for feature in tables.features
+            println(io,"### ",feature.quantity," · ",feature.statistic===:std ? "standard deviation" : string(feature.statistic),
+                " · point ",feature.problem_index," · ",feature.normalization,"\n")
+            println(io,"Analysis: `",feature.snapshot,"`.\n")
+            for (label,frame) in (("Relative RMS [%]",feature.relative),
+                    ("Absolute RMS ["*feature.absolute_unit*"]",feature.absolute))
+                println(io,label,"\n\n```@raw html")
+                show(IOContext(io,:limit=>false),MIME"text/html"(),frame;summary=false,eltypes=false)
+                println(io,"\n```\n")
+            end
+        end
+        for (label,frame) in (
+                "Worst terms and comparison counts"=>tables.maxima,
+                "Formulations"=>tables.formulations,
+                "Scientific formula descriptions"=>tables.formula_details,
+                "Retained UQ statistics"=>tables.statistics,
+                "MC sampling precision"=>tables.sampling,
+                "MC mean sampling errors by term and frequency"=>tables.mean_sampling_precision,
+                "Execution timings"=>tables.execution,
+                "Native solver timing scopes"=>tables.source_timings,
+                "Controlled performance measurements"=>tables.performance,
+                "Reference/candidate timing ratio"=>tables.performance_comparison)
+            isempty(frame) && continue
+            println(io,"<details><summary>",label," (",nrow(frame)," rows)</summary>\n\n```@raw html")
+            show(IOContext(io,:limit=>true,:displaysize=>(30,150)),MIME"text/html"(),frame;eltypes=false)
+            println(io,"\n```\n</details>\n")
         end
     end
-    definition=LCM.ReportBuilder.BenchmarkTableDefinition()
-    summary=LCM.ReportBuilder.tabulate(definition,nothing,maxima)
-    println(io,"Entries show **maxima of per-term RMS discrepancies**, with the terminal pair and unavailable-term count.\n")
-    for band in unique(vcat(collect(definition.settings.bands),[row.band for row in maxima]))
-        selected=isempty(summary) ? summary : filter(row -> row.band == band,summary)
-        isempty(selected) && continue
-        println(io,"### ",LCM.description(definition,band),"\n")
-        bounds=unique(selected[:,[:samples,:requested_bounds_Hz,:actual_bounds_Hz]])
-        bounds[!,:selection]=collect(1:nrow(bounds))
-        selected[!,:sample_selection]=[findfirst(other -> isequal(
-            (other.samples,other.requested_bounds_Hz,other.actual_bounds_Hz),
-            (row.samples,row.requested_bounds_Hz,row.actual_bounds_Hz)),eachrow(bounds)) for row in eachrow(selected)]
-        columns=[:snapshot,:case_id,:benchmark,:problem_index,:formulation_index,:reference_point,
-            :statistic,:normalization,:sample_selection]
-        append!(columns,[q for q in (:Z,:Y,:R,:L,:G,:C) if q in propertynames(selected)])
-        compact=selected[:,columns]
-        compact.snapshot=[length(string(id))==64 ? first(string(id),12) : string(id) for id in compact.snapshot]
-        println(io,"Stored samples (Hz):\n\n```@raw html")
-        show(IOContext(io,:limit=>false),MIME"text/html"(),bounds;summary=false,eltypes=false)
-        println(io,"\n```\n\n```@raw html")
-        show(IOContext(io,:limit=>false),MIME"text/html"(),compact;summary=false,eltypes=false)
-        println(io,"\n```\n")
-    end
-    if !isempty(labels)
-        println(io,"<details><summary>Formulation keys</summary>\n\n```@raw html")
-        show(IOContext(io,:limit=>false),MIME"text/html"(),DataFrame(unique(labels));summary=false,eltypes=false)
-        println(io,"\n```\n</details>\n")
-    end
-    println(io,"Reopen an accepted bundle with `read_campaign(path)`, select a benchmark, then use `report(BenchmarkTableDefinition(), benchmark)` or explicitly `plot(benchmark, (Z, Y))`. Detailed plots are generated only by that request.\n")
+    println(io,"Historical RMS is rendered unchanged. For current comparisons, explicitly report the saved reference and candidate operands with a new definition. This requires no solver run.\n")
     # Explicit illustrations are already files; rebuilding the page never renders them.
     for root in roots
         bundles=isfile(joinpath(root,"release.toml")) ?

@@ -87,7 +87,8 @@ function tabulate(::MonteCarloTableDefinition, source, publications)
     ))
     contract = first(publications).metadata.observation_columns
     row_order = first(publications).metadata.row_order
-    all(publication -> publication.metadata.observation_columns == contract,
+    physical_contract=map(record -> (;record.quantity,record.unit),contract)
+    all(publication -> map(record -> (;record.quantity,record.unit),publication.metadata.observation_columns) == physical_contract,
         publications) || throw(DimensionMismatch(
         "Monte Carlo points publish different scientific columns",
     ))
@@ -97,4 +98,73 @@ function tabulate(::MonteCarloTableDefinition, source, publications)
     ))
     table = reduce(vcat, (DataFrame(publication) for publication in publications))
     return _monte_carlo_metadata!(table, source, publications)
+end
+
+"""Publish retained UQ statistics and sampling evidence without inspecting result fields."""
+function tabulate(definition::BenchmarkTableDefinition, operands::NamedTuple{(:reference,:candidate)};
+        labels=(reference="Reference",candidate="Candidate"))
+    statistics=DataFrame()
+    sampling=DataFrame()
+    mean_sampling_precision=DataFrame()
+    for (role,operand) in pairs(operands)
+        result=operand.result
+        if result isa ObservationPublication
+            # Historical mean/std rows are already a detached owned table;
+            # no trial count, empirical quantile or dependence is invented.
+            selected_quantities=unique(request_quantity.(definition.settings.requests))
+            coordinates=result.metadata.row_order
+            columns=Tuple(name for (name,contract) in pairs(result.metadata.observation_columns)
+                if contract.quantity in selected_quantities)
+            selected_names=unique((coordinates...,columns...))
+            frame=DataFrame(result)[!,collect(selected_names)]
+            frame[!,:role]=fill(role,size(frame,1))
+            frame[!,:estimator]=fill(:retained_statistic,size(frame,1))
+            append!(statistics,frame;cols=:union)
+            continue
+        end
+        result isa AbstractUncertaintyResult || continue
+        quantities=unique(identity[2] for identity in map(request_identity,definition.settings.requests)
+            if identity isa Tuple && first(identity)===UQ.statistics)
+        declared=observables(typeof(result))
+        products=Tuple(Iterators.flatten((UQ.statistics,quantity) in declared ?
+            ((UQ.statistics,quantity),) :
+            Tuple(identity for identity in declared if identity isa Tuple && length(identity)==3 &&
+                first(identity)===UQ.statistics && identity[2]===quantity) for quantity in quantities))
+        for point in eachindex(result)
+            if !isempty(products)
+                requests=Tuple((identity...,point) for identity in products)
+                frame=DataFrame(observables(result,requests;length_unit=:base,clip=false))
+                frame[!,:role]=fill(role,size(frame,1))
+                frame[!,:estimator]=fill(result isa UQ.MonteCarloResult ? :empirical : :first_order,size(frame,1))
+                append!(statistics,frame;cols=:union)
+            end
+            result isa UQ.MonteCarloResult || continue
+            precision=UQ.confidence(result,point)
+            method=getproperty(labels,role)
+            push!(sampling,(;role,method,point,trials=precision.trials,
+                spread_estimated=precision.spread_estimated,
+                marginal_count=precision.marginal_count,confidence=precision.confidence,
+                target_cdf=precision.target_cdf,cdf_bound=precision.cdf_bound,
+                target_supported=precision.target_supported,scope=precision.scope,
+                distribution=precision.distribution,conditioning=precision.conditioning,
+                samples_retained=precision.samples_retained,histograms_retained=precision.histograms_retained,
+                std_sampling_precision=missing);cols=:union)
+            ports=operand.metadata.port_order
+            frequency=Engine.frequencies(result[point])
+            for quantity in quantities
+                # Standard error of the sampled mean is sigma_hat/sqrt(n),
+                # not a confidence bound for sigma_hat itself.
+                spread=observe(result,UQ.statistics,quantity,Statistics.std,point)
+                unit=Units.native_unit(Units.quantity(quantity),basis(result[point]))
+                for k in eachindex(frequency),i in eachindex(ports),j in eachindex(ports)
+                    value=precision.trials>1 ? spread[i,j,k]/sqrt(precision.trials) : missing
+                    push!(mean_sampling_precision,(;role,method,point,
+                        quantity=Symbol(Units.symbol(Units.quantity(quantity))),row=i,column=j,
+                        response=ports[i],excitation=ports[j],frequency_Hz=frequency[k],
+                        mean_standard_error=value,unit=Units.label(unit));cols=:union)
+                end
+            end
+        end
+    end
+    return (;statistics,sampling,mean_sampling_precision)
 end

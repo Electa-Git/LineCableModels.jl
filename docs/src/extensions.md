@@ -9,6 +9,31 @@ handle. Scientific owners expose observations, quantities, geometry, and
 physical property ranges. The Makie extension owns request normalization,
 palettes, legend grouping, layout helpers, widgets, and native rendering.
 
+## Formula selection and descriptions
+
+`formula_id` identifies a scientific selection; `description` supplies its
+human-readable text. Registered formula types implement
+`description(::Type{<:OwnedFormula{:ID}}; compact=false)`, and their instances
+delegate with the same keyword. The default is the detailed scientific
+description; `compact=true` is the short name used in legends. Override this
+method to customize a name, not `formula_id`.
+
+A family declares independently selectable children through
+`pairs(Family.Formula; quantity=nothing)`, returning ordered `slot => family`
+pairs, or an empty mapping for a scalar leaf. Constructors, retained-record
+readers and formulation projections use that same owner declaration.
+Internal impedance admits `inner`, `outer`, `transfer`; the external earth
+families admit `air`, `earth`, `mixed`. Explicit composites retain every branch,
+including default branches, in quantity-relevant legends.
+
+Formulation owners expose ordered `(owner, route_tuple) => selection` pairs
+through `pairs(source; quantity)` and `pairs(owner, retained; quantity)`.
+`formulation_options(selection)` retains explicit controls. `description` remains
+a text interface: consumers must not parse its output for identity, child
+structure, ordering or quantity relevance. Backend-specific scientific meaning
+belongs to the contextual `description(owner, selection; compact)` method;
+PSCAD's native defaults must not be described as the analytical default equations.
+
 ## Input validation
 
 A materialized input owns one direct `validate(::OwnedType)` method. The method

@@ -30,8 +30,8 @@ Impedance and its Effect on Cable Wave-Propagation and Transient Characteristics
 IEEE Transactions on Power Delivery, 19(4), 1523–1531, 2004,
 doi:10.1109/TPWRD.2003.822502, Eqs. (14)–(15).
 """
-function description(::Formula{:Ametani2004})
-    "Ametani semiconducting-screen admittance model (2004)"
+function description(::Type{<:Formula{:Ametani2004}}; compact::Bool=false)
+    compact ? "Ametani2004" : "Ametani semiconducting-screen admittance model (2004)"
 end
 
 """

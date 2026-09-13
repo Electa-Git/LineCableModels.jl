@@ -20,7 +20,7 @@ K_0(\\gamma_1R_{ab})+
 for Ground Return Impedance of Underground Cables,” *IEEE Transactions on
 Power Delivery*, 11(3), 1536–1545, 1996.
 """
-description(::Formula{:Saad1996}) = "Saad underground closed form (1996)"
+description(::Type{<:Formula{:Saad1996}}; compact::Bool=false) = compact ? "Saad1996" : "Saad underground closed form (1996)"
 
 function Γ(::Val{:Saad1996}, jω, materials, layers)
     return zero(jω)

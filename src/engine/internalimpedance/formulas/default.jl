@@ -35,8 +35,8 @@ Transmission Lines and Cylindrical Shields,” *Bell System Technical Journal*,
 Admittance of Cables,” *IEEE Transactions on Power Apparatus and Systems*,
 PAS-99(3), 902–910, 1980. DOI: 10.1109/TPAS.1980.319718.
 """
-function description(::Formula{:default})
-    "Schelkunoff exact round-conductor surface impedances (1934)"
+function description(::Type{<:Formula{:default}}; compact::Bool=false)
+    compact ? "default" : "Schelkunoff exact round-conductor surface impedances (1934)"
 end
 
 """
@@ -79,7 +79,7 @@ are modified Bessel functions. For ``a=0``, the outer term is evaluated from the
 
 # Returns
 
-- A formula functor evaluating inner, outer, and mutual surface impedances
+- A formula functor evaluating inner, outer, and transfer surface impedances
   \\[Ω/m\\].
 
 # Notes
@@ -190,7 +190,7 @@ end
 
 @inline function internal_impedance(
         ::Val{:default},
-        ::Val{:mutual},
+        ::Val{:transfer},
         functor, workspace
 )
     state = functor.state

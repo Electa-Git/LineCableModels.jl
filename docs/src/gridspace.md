@@ -355,6 +355,57 @@ are internal point-aligned storage, not result types or observation surfaces.
 `MonteCarloResult` validates their keys and dimensions and owns every public
 observation method.
 
+### Observe and compare retained uncertainty
+
+Statistical selectors use the same observation grammar as deterministic values:
+
+```julia
+using Statistics
+using LineCableModels.ReportBuilder: BenchmarkTableDefinition
+request = @observe (statistics, R, mean)[1, :, :, :]
+table = observables(mc_result, (request, (statistics, R, std, 1)); length_unit=:base)
+```
+
+Both MC and LEP expose selected `mean` and `std`. MC means are empirical;
+LEP means are first-order nominal predictions. `std` is physical spread, not
+uncertainty of the estimated mean. A full MC request `(statistics, R, 1)`
+publishes mean/std/min/q05/median/q95/max and the successful trial count.
+`Base.Fix2(quantile, 0.05)` selects the retained fifth percentile; unsupported
+percentiles fail rather than interpolate an invented distribution.
+X/B scale the retained L/C summaries by positive `2πf`. Complex Z/Y support
+mean and the nonnegative complex standard deviation; ordered complex
+percentiles are undefined. Joint samples and histograms remain separate
+products, available only when retained or derivable from retained samples.
+
+```julia
+definition = BenchmarkTableDefinition(((statistics, R, mean), (statistics, R, std));
+    bands=(:all, :dc, :harmonic, :narrow, :wide))
+comparison = report(definition, (reference=mc_result, candidate=lep_result))
+comparison.table.features   # Numeric formulation rows, frequency-band columns
+comparison.table.statistics
+comparison.table.sampling
+```
+
+Results without terminal identities require explicit `(result, metadata)`
+operands. Multiple reference points require explicit `pairing`; populations
+are never pooled. The shared Engine RMS applies the same two-sided numerical
+resolution rule to each selected statistic and frequency band.
+
+`confidence(mc_result, point)` reports the actual simultaneous DKW bound,
+configured target, marginal count, trial count and conditioning. It counts
+both matrix orientations conservatively and applies per outer point, not
+campaign-wide. Fixed trials need not certify the configured target. Its
+`mean_standard_error` is `s/sqrt(n)` for `n>1`, not an exact confidence interval;
+one trial cannot establish population spread. No LEP distribution is inferred
+from two moments, and no report initiates sampling or physical computation.
+
+Portable scientific records preserve all retained MC products and shared LEP
+Measurement sources, including signed sensitivities. Built-in `:normal` and
+`:uniform` law choices are retained directly; Distributions.jl `Normal` and
+`Uniform` records retain their actual parameters. Other custom input laws or
+formulation declarations require an owner-provided codec and fail explicitly
+when no codec exists. They are never changed into a supported law on recovery.
+
 All completed result spaces are one-dimensional finite Julia collections.
 Iteration and indexing return one stored core result per calculation. A
 `ParametricResult` with several formulations contains the Cartesian

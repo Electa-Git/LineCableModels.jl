@@ -111,11 +111,22 @@
         ))
         @test documented_files == formula_files
 
-        documented_identifiers = map(descriptions) do (typesig, _)
-            formula_type = only(typesig.parameters)
-            first(Base.unwrap_unionall(formula_type).parameters)
+        # Every registered choice must reach a real description. Whether its
+        # sole authority dispatches on an instance or its type is not a docs
+        # invariant; indexing the method-signature representation rejected
+        # legitimate type/instance delegation without checking this behavior.
+        for identifier in category.registry
+            selected=category.module_owner.Formula(identifier)
+            @test formula_id(selected)===identifier
+            @test description(selected) isa AbstractString
+            @test !isempty(description(selected))
+            for compact in (false,true)
+                @test description(selected;compact)==description(typeof(selected);compact)
+                @test description(selected;compact) isa AbstractString
+                @test !isempty(description(selected;compact))
+            end
         end
-        @test isempty(setdiff(category.registry, documented_identifiers))
+        @test !applicable(description,category.module_owner.Formula{:UnregisteredDescriptionTest})
 
         for (_, docstring) in descriptions
             @test any(

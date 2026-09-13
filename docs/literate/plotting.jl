@@ -112,6 +112,14 @@ using Measurements: measurement
 # impedance choices on Z/R/L/X pages, admittance choices on Y/G/C/B pages. Shared
 # controls remain visible when they vary. Repeated default choices retain separate
 # catalogue entries and curves; explicit `series_labels` remain unchanged.
+# Names come from the same owner-dispatched `description` methods as report
+# tables: `Reference · fem`, `Reference · PSCAD`, `Reference · MonteCarlo`, and
+# candidate labels such as `F1 · LinearError`. References consume no F index.
+# Filtering with `formulations=[3,1]` keeps those original candidate numbers
+# and styles. Shared coaxial identity is omitted; differing inner backends,
+# equation routes and physical settings remain distinguishable. Full scientific
+# explanations and common settings are available in the report's
+# `formula_details` table, not reconstructed by the plotting backend.
 #
 # Top/bottom legends fit a measured row-major grid and wrap long labels without
 # dropping fields. Explicit `legend_attributes=(orientation=..., nbanks=...)`
@@ -950,14 +958,23 @@ custom_dashboard.figure #hide
 # ### Scientific axes, scale controls, and limits
 
 # Scientific recipes supply quantity and unit labels. PlotBuilder formats
-# every linear axis, including previews, statistical plots, and `plotwindow`
-# axes: the displayed limits determine one power-of-ten multiplier in the axis
-# label, and ticks show plain decimal mantissas, never another exponent.
+# every linear numeric axis, including previews, statistical plots, and `plotwindow`
+# axes: the displayed limits determine one engineering power-of-ten multiplier
+# (powers of three) in the axis label. Ticks show plain decimal mantissas, never
+# another exponent. Tick density follows each data rectangle and the rendered
+# label size. For example, a linear frequency view can show `0, 2, 4, 6, 8, 10`
+# with `Frequency [Hz] ×10⁶`; the published frequencies are unchanged.
 # Zooming, panning, changing limits, and resetting keep the ticks and multiplier
 # synchronized. Native custom tick formatters or explicit tick labels override
-# this settings; setting the formatter back to `Makie.automatic` restores it.
+# automatic formatting; setting the formatter back to `Makie.automatic` restores
+# it. Native tick positions persist across scale changes. Caller tick functions
+# and custom locator objects retain native formatting; resetting the tick
+# attribute to `Makie.automatic` restores the shared locator.
+# Date/category axes and other native transforms retain Makie's own presentation.
+# These defaults use the native tick locators in Makie 0.24.11 or newer.
 # Logarithmic axes have no additional multiplier. The x/y toggles select native
-# linear or logarithmic scales, with explicit decade ticks for log scales.
+# linear or logarithmic scales, with decade ticks over broad log ranges and
+# native log ticks when zoomed into less than a decade.
 # Benchmark overlays retain the y toggle when matrix entries include zero or
 # negative values; those panels use a sign-preserving pseudo-log transform.
 #
@@ -968,6 +985,11 @@ custom_dashboard.figure #hide
 # Legend visibility changes
 # trigger another limit pass, so hiding a dominant curve exposes the remaining
 # data instead of leaving a stale range.
+# Explicit native limits, including one-sided limits, remain authoritative.
+# Reset refits automatic bounds and restores explicit bounds. Changing x/y scale
+# refits that automatic dimension while preserving the other dimension's current
+# view. Incompatible log limits are rejected before the page changes. Use native
+# `autolimits!(axis)` explicitly when manual bounds should be discarded.
 
 # ### Legends and docks
 

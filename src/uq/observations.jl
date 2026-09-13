@@ -34,6 +34,7 @@ Return retained histogram products, or `nothing` when retention was disabled.
 histograms(value::MonteCarloResult) = value.histogram_values
 
 basis(value::MonteCarloResult) = basis(first(value.values))
+basis(value::LinearErrorResult) = basis(first(value.values))
 
 """
 Return the uncertainty-bearing core results of a linear propagation.
@@ -82,6 +83,35 @@ Return the sampling distribution of a Monte Carlo calculation.
 """
 sampling_distribution(value::MonteCarloResult) = value.formulation.options.distribution
 
+"""
+$(TYPEDSIGNATURES)
+
+Return the simultaneous DKW bound for all retained real marginal summaries at
+one outer point. Both matrix orientations are counted conservatively. This is
+an iid-sampling bound, not measured CDF error; retry sampling concerns the
+population conditional on success. Fixed trial counts do not certify the
+configured target automatically.
+"""
+function confidence(value::MonteCarloResult, point::Integer)
+    count = sum(length, values(value.stats[point]))
+    trials = trial_count(value,point)
+    bound = sqrt(log(2count / (1-confidence(value))) / (2trials))
+    retained=details(value)
+    diagnostics = isempty(retained) ? nothing :
+        (failures=retained.failures[point],failure_summary=retained.failure_summary[point],
+            clearance=haskey(retained,:clearance) ? retained.clearance[point] : nothing)
+    mean_standard_error=map(value.stats[point]) do summaries
+        map(summary -> summary.n>1 ? summary.std/sqrt(summary.n) : missing,summaries)
+    end
+    return (point, trials, spread_estimated=trials>1,marginal_count=count, confidence=confidence(value),
+        target_cdf=cdf_tolerance(value), cdf_bound=min(1.0,bound),
+        target_supported=bound <= cdf_tolerance(value), scope=:point_all_retained_marginals,
+        assumption=:iid, distribution=sampling_distribution(value),
+        conditioning=value.formulation.options.on_error === :retry ? :successful_realizations : :none,
+        diagnostics, mean_standard_error, root_seed=root_seed(value), point_seed=point_seed(value,point),
+        samples_retained=samples(value) !== nothing, histograms_retained=histograms(value) !== nothing)
+end
+
 const _MonteCarloProductSelector = Union{
     typeof(statistics),
     typeof(samples),
@@ -92,7 +122,7 @@ const _MonteCarloScientificSelector = Union{
     typeof(R),
     typeof(L),
     typeof(C),
-    typeof(Engine.G)
+    typeof(Engine.G), typeof(Engine.X), typeof(Engine.B), typeof(Engine.Z), typeof(Engine.Y)
 }
 
 const _StatisticSelector = Union{
@@ -100,13 +130,18 @@ const _StatisticSelector = Union{
     typeof(Statistics.std),
     typeof(Statistics.median),
     typeof(minimum),
-    typeof(maximum)
+    typeof(maximum), Base.Fix2{typeof(Statistics.quantile)}
 }
 
 function Units.quantity(
         ::_MonteCarloProductSelector,
         selector::_MonteCarloScientificSelector
 )
+    return Units.quantity(selector)
+end
+
+function Units.quantity(::typeof(statistics), selector::_MonteCarloScientificSelector,
+        ::_StatisticSelector)
     return Units.quantity(selector)
 end
 
@@ -153,10 +188,21 @@ function observe(
         point::Integer,
         indices...
 )
-    stored = _monte_carlo_field(
-        _monte_carlo_product(value, product, point),
-        selector
-    )
+    stored = if selector in (Engine.X, Engine.B)
+        source = selector === Engine.X ? L : C
+        values = observe(value, product, source, point)
+        angular = reshape(2pi .* frequencies(value[point]), 1, 1, :)
+        product === samples && (angular = reshape(angular, 1, 1, :, 1))
+        detach.(values, angular)
+    elseif selector in (Engine.Z, Engine.Y)
+        product === samples || throw(ArgumentError(
+            "complex quantities support selected mean/std or retained joint samples, not ordered summaries"))
+        real_selector, imaginary_selector = selector === Engine.Z ? (R, Engine.X) : (Engine.G, Engine.B)
+        observe(value, samples, real_selector, point) .+
+            im .* observe(value, samples, imaginary_selector, point)
+    else
+        _monte_carlo_field(_monte_carlo_product(value, product, point), selector)
+    end
     return _product_value(stored, indices)
 end
 
@@ -168,6 +214,12 @@ function _histogram_observation(
         bins::Union{Nothing, Integer}
 )
     bins === nothing || bins > 0 || throw(ArgumentError("histogram bins must be positive"))
+    if selector in (Engine.X,Engine.B)
+        base_selector=selector===Engine.X ? L : C
+        original=_histogram_observation(value,base_selector,point,indices,bins)
+        return detach(original,2pi*frequencies(value[point])[last(indices)])
+    end
+    selector in (Engine.Z,Engine.Y) && throw(ArgumentError("complex histograms require a real-valued observable"))
     if value.histogram_values !== nothing
         stored = _monte_carlo_field(value.histogram_values[point], selector)
         histogram = _product_value(stored, indices)
@@ -260,18 +312,40 @@ function observe(
         point::Integer,
         indices...
 )
-    stored = _monte_carlo_field(
-        _monte_carlo_product(value, statistics, point),
-        selector
-    )
-    return _statistic(transform, _product_value(stored, indices))
+    if selector in (Engine.X,Engine.B)
+        base_selector=selector===Engine.X ? L : C
+        values=observe(value,statistics,base_selector,transform,point,indices...)
+        sample=length(indices)==3 ? last(indices) : Colon()
+        angular=2pi .* frequencies(value[point])[sample]
+        factor=angular isa AbstractArray ? reshape(angular,ntuple(_ -> 1,ndims(values)-1)...,:) : angular
+        return values .* factor
+    end
+    if selector in (Engine.Z, Engine.Y)
+        transform in (Statistics.mean, Statistics.std) || throw(ArgumentError(
+            "complex statistics require mean or std; ordered statistics need a real-valued observable"))
+        real_selector, imaginary_selector = selector === Engine.Z ? (R, Engine.X) : (Engine.G, Engine.B)
+        real_values = observe(value, statistics, real_selector, transform, point, indices...)
+        imaginary_values = observe(value, statistics, imaginary_selector, transform, point, indices...)
+        return transform === Statistics.mean ? real_values .+ im .* imaginary_values :
+            hypot.(real_values, imaginary_values)
+    end
+    return _statistic(transform, observe(value, statistics, selector, point, indices...))
 end
 
 function _monte_carlo_observables(selectors::Tuple)
     product_selectors = (statistics, samples, histograms)
+    real_selectors = filter(selector -> !(selector in (Engine.Z, Engine.Y)), selectors)
     products = Tuple((product, selector)
-    for product in product_selectors for selector in selectors)
-    return (selectors..., products...)
+        for product in product_selectors for selector in real_selectors)
+    selected = Tuple((statistics, selector, transform)
+        for selector in selectors for transform in
+            (selector in (Engine.Z, Engine.Y) ? (Statistics.mean, Statistics.std) :
+             (Statistics.mean, Statistics.std, minimum, Statistics.median, maximum,
+              Base.Fix2(Statistics.quantile, 0.0), Base.Fix2(Statistics.quantile, 0.05),
+              Base.Fix2(Statistics.quantile, 0.5), Base.Fix2(Statistics.quantile, 0.95),
+              Base.Fix2(Statistics.quantile, 1.0))))
+    complex_samples=Tuple((samples,selector) for selector in selectors if selector in (Engine.Z,Engine.Y))
+    return (selectors..., products..., selected..., complex_samples...)
 end
 
 function observables(
@@ -283,7 +357,60 @@ end
 function observables(
         ::Type{<:MonteCarloResult{T}}
 ) where {T <: Engine.LineParameters}
-    return (frequencies, _monte_carlo_observables((R, L, C, Engine.G))...)
+    return (frequencies, _monte_carlo_observables((R, L, C, Engine.G, Engine.X, Engine.B, Engine.Z, Engine.Y))...)
+end
+
+function observables(::Type{<:LinearErrorResult{T}}) where {T}
+    selectors = T <: Engine.CableConstants ? (R, L, C, Engine.G) :
+        (R, L, C, Engine.G, Engine.X, Engine.B, Engine.Z, Engine.Y)
+    selected = Tuple((statistics, selector, transform) for selector in selectors
+        for transform in (Statistics.mean, Statistics.std))
+    return (selectors..., selected..., (T <: Engine.LineParameters ? (frequencies,) : ())...)
+end
+
+function observe(value::LinearErrorResult, selector::_MonteCarloScientificSelector,
+        point::Integer, indices...)
+    return observe(value[point], selector, indices...)
+end
+
+function observe(value::LinearErrorResult{<:Engine.LineParameters}, ::typeof(frequencies),
+        point::Integer, indices...)
+    return observe(value[point], frequencies, indices...)
+end
+
+"""
+$(TYPEDSIGNATURES)
+
+Observe first-order nominal values or propagated standard uncertainties in the
+quantity's native units. Complex standard deviation is the nonnegative root
+sum of component variances; it is not a magnitude-distribution statistic.
+No output distribution or independent Measurement values are constructed.
+"""
+function observe(value::LinearErrorResult, ::typeof(statistics),
+        selector::_MonteCarloScientificSelector,
+        transform::Union{typeof(Statistics.mean),typeof(Statistics.std)},
+        point::Integer, indices...)
+    values = observe(value[point], selector, indices...)
+    if transform === Statistics.mean
+        return nominal.(values)
+    end
+    return hypot.(uncertainty.(real.(values)), uncertainty.(imag.(values)))
+end
+
+function observation_resolution(source::Union{MonteCarloResult,LinearErrorResult}, request;
+        atol=nothing, frequencies=nothing)
+    identity = request_identity(request)
+    if !(identity isa Tuple && length(identity) == 3 && first(identity) === statistics)
+        return observation_resolution(nothing, request; atol, frequencies)
+    end
+    point, indices = _statistics_point(request)
+    core = source[point]
+    core isa Engine.LineParameters || return observation_resolution(nothing, request; atol, frequencies)
+    f = observe(source, LineCableModels.frequencies, point)
+    frequencies === nothing || frequencies == f || throw(ArgumentError("supplied frequencies differ from the UQ point"))
+    sample = length(indices) == 3 ? last(indices) : Colon()
+    values = observe(source, request...)
+    return observation_resolution(values, identity[2]; atol, frequencies=f[sample], result_basis=basis(core))
 end
 
 @inline _product_value(value, ::Tuple{}) = value

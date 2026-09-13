@@ -29,6 +29,7 @@ using DocStringExtensions: IMPORTS
 #! explicit-imports: on
 using DocStringExtensions: TYPEDSIGNATURES, METHODLIST
 import ..LineCableModels: build, validate, nominal, parameterize
+import ..LineCableModels
 import ..Grammar: observe
 import ..ReportBuilder
 using ..Materials: AbstractMaterial, Material, RadialDielectric, MaterialsLibrary
@@ -52,12 +53,15 @@ using EzXML: ElementNode, XMLDocument, addelement!, prettyprint, setroot!
 using Printf: @printf, @sprintf
 import JSON3
 import Serialization
+import Statistics
+import ..UQ
 using LinearAlgebra: tril
 
 include("interfaces.jl")
 include("paths.jl")
 include("serialize.jl")
 include("deserialize.jl")
+include("uncertainty.jl")
 include("problem.jl")
 include("cableslibrary.jl")
 include("materialslibrary.jl")

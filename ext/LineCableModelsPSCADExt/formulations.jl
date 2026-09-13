@@ -1,3 +1,5 @@
+import LineCableModels: formula_id
+
 """
     PSCADFormulation
 
@@ -10,6 +12,28 @@ struct PSCADFormulation{M <: NamedTuple, O <: NamedTuple, D <: NamedTuple} <:
     options::O
     definitions::D
 end
+
+"""Identify PSCAD without server access or native setting compilation."""
+description(::Type{<:PSCADFormulation}; compact::Bool=false) = "PSCAD"
+description(::PSCADFormulation; compact::Bool=false) = description(PSCADFormulation;compact)
+formula_id(::Type{<:PSCADFormulation}) = :pscad
+formula_id(::PSCADFormulation) = :pscad
+formulation_options(value::PSCADFormulation) = value.options
+formulation_options(::Type{PSCADFormulation},retained::NamedTuple,::Val{:retained}) = retained.options
+Base.pairs(::Type{PSCADFormulation};quantity=nothing) = pairs(LineParametersFormulation;quantity)
+Base.pairs(value::PSCADFormulation;quantity=nothing) =
+    pairs(PSCADFormulation,(methods=value.methods,requested=map(formulation_options,value.definitions),options=value.options);quantity)
+description(::Type{PSCADFormulation},slot::Val) = description(LineParametersFormulation,slot)
+Base.pairs(::Type{PSCADFormulation},retained::NamedTuple;quantity=nothing) =
+    pairs(LineParametersFormulation,retained;quantity,owner=PSCADFormulation)
+
+function description(::Type{PSCADFormulation},selected;compact::Bool=false)
+    # Native PSCAD defaults are not the analytical equations with the same ID.
+    text=description(selected;compact=true)
+    return compact ? text : "PSCAD native selection "*text
+end
+description(::Type{PSCADFormulation},selected::Union{Nothing,Missing};compact::Bool=false) =
+    description(selected;compact)
 
 function formulation_options(::Type{PSCADFormulation}, options::NamedTuple)::FormulationOptions
     base_frequency = get(options, :base_frequency, 50.0)
@@ -173,7 +197,7 @@ function earth_potential_coefficient(
 end
 function internal_impedance(
         ::Val{:default}, ::Union{
-            Val{:inner}, Val{:outer}, Val{:mutual}}, ::Val{:pscad})
+            Val{:inner}, Val{:outer}, Val{:transfer}}, ::Val{:pscad})
     (;) # Fixed Cable_Coax conductor calculation; no native author/formula switch.
 end
 insulation_impedance(::Val{:default}, ::Val{:pscad}) = (;)
@@ -266,9 +290,11 @@ function pscad_setting(formulation::PSCADFormulation, problem::LineParametersPro
         records
     end
     kinds = any(indices -> length(indices) > 1, input.cable.assemblies) ?
-            (:inner, :outer, :mutual) : (:outer,)
+            (:inner, :outer, :transfer) : (:outer,)
     for kind in kinds
-        FormulaMethod(Val(formula_id(formulation.methods.internal_impedance)),
+        selection = formulation.methods.internal_impedance
+        selected = selection isa NamedTuple ? selection[kind] : selection
+        FormulaMethod(Val(formula_id(selected)),
             internal_impedance, Val(kind))(Val(:pscad))
     end
     FormulaMethod(Val(formula_id(formulation.methods.insulation_impedance)), insulation_impedance)(Val(:pscad))
@@ -300,9 +326,8 @@ function computation_details(formulation::PSCADFormulation)
         definition isa Symbol ? definition : formula_id(definition)
     end
     fields = keys(formulation.definitions)
-    HomogeneousIDs = NamedTuple{(:air, :earth, :mixed), NTuple{3, Symbol}}
     Identifiers = NamedTuple{fields,
-        NTuple{length(fields), Union{Nothing, Symbol, HomogeneousIDs}}}
+        NTuple{length(fields), Union{Nothing, Symbol, NamedTuple}}}
     methods = formulation.methods
     return merge((
         schema_version = 3,

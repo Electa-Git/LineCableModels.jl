@@ -228,3 +228,14 @@ function Base.NamedTuple(value::Formula)
         parameters=value.parameters, hooks=value.hooks, options=value.options,
         equivalent_earth=value.equivalent_earth === nothing ? nothing : NamedTuple(value.equivalent_earth))
 end
+
+# Identity-only dispatch also describes retained selections without constructors.
+import ...Grammar: formulation_options
+description(value::Formula; compact::Bool=false) = description(typeof(value); compact)
+
+"""Iterate the independently selectable child slots admitted by this formula family."""
+Base.pairs(::Type{<:Formula}; quantity=nothing) = pairs((air=Formula, earth=Formula, mixed=Formula))
+formula_id(::Type{<:Formula{ID}}) where {ID} = ID
+formulation_options(value::Formula) = formulation_options(typeof(value), (parameters=value.parameters, hooks=value.hooks, options=value.options, equivalent_earth=value.equivalent_earth))
+formulation_options(::Type{<:Formula}, retained::NamedTuple) =
+    formulation_options(FormulaDefinition, retained)

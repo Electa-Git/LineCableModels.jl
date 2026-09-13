@@ -95,7 +95,7 @@ function benchmark_local(
         reused = reused[],
         policy = (progress=false,diagnostics=:quiet,callbacks=false,
             warmup=external ? :native_not_repeated : :owned_call,
-            allocation_scope=:julia, settings=_selection_value(calculation.options),
+            allocation_scope=:julia, allocation_statistic=:minimum,settings=_selection_value(calculation.options),
             workload=_numerical_record(calculation_record(calculation))),
         environment = _performance_identity()
     )

@@ -4,7 +4,7 @@ using JLD2: JLD2, jldopen
 import LineCableModels
 using LineCableModels: basis, domain, observe
 using LineCableModels.Engine: LineParameters, LineParametersBenchmark, RMSError,
-                              absolute_error, compare, frequencies,
+                              absolute_error, frequencies,
                               relative_error, Z, Y
 using Pkg.Artifacts: Artifacts, archive_artifact, bind_artifact!, create_artifact
 using SHA: SHA, sha256
@@ -16,8 +16,7 @@ export ARTIFACT_ROOT, ARTIFACTS_TOML, SNAPSHOT_SCHEMA_VERSION,
        cleanup_work, collection_archive_name, collection_release,
        collection_stage, finalize_staging, gauntlet_instrumented,
        package_collection, prepare_staging, release_tag, read_collection,
-       MomentResult, MomentBenchmark, extract_moments,
-       moment_comparison_passes, moment_error_summary, read_moments
+       read_moments
 
 export BenchmarkCalculation, BenchmarkDefinition,
        benchmark_definition, compare_saved, read_benchmark,
@@ -93,7 +92,6 @@ function collection_release(
     )
 end
 
-include("comparisons/uq_moments.jl")
 include("definitions.jl")
 include("fingerprints.jl")
 include("comparisons/saved.jl")

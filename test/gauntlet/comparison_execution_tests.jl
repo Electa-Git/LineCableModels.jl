@@ -4,6 +4,7 @@
     using LineCableModels.ReportBuilder: BenchmarkTableDefinition
     using .GauntletSupport.Gauntlet
     using LineCableModels.Grammar: AbstractCoreResult
+    include(joinpath(pkgdir(LineCableModels),"docs","gauntlet_report.jl"))
     const executions=Bool[]
     const comparisons=Tuple[]
     struct AlternativeResult <: AbstractCoreResult
@@ -17,6 +18,7 @@
     LineCableModels.basis(::AlternativeResult)=:pul
     LineCableModels.domain(::AlternativeResult)=PhaseDomain
     LineCableModels.details(::AlternativeResult)=(;)
+    LineCableModels.observables(::Type{AlternativeResult})=(Z,Y,frequencies)
     function LineCableModels.Engine.compare(a::AlternativeResult, b::AlternativeResult, quantity::typeof(Z); kwargs...)
         push!(comparisons, (quantity, kwargs[:band], kwargs[:normalization]))
         return invoke(compare, Tuple{AbstractCoreResult,AbstractCoreResult,typeof(quantity)}, a, b, quantity; kwargs...)
@@ -61,6 +63,12 @@
         @test isequal(report(BenchmarkTableDefinition(false),alternative).table.terms,tables.terms)
         @test length(comparisons)==1
         @test length(executions)==2
+        html=render_gauntlet_report(result.artifact)
+        @test occursin("Relative RMS [%]",html)
+        @test occursin("Absolute RMS [",html)
+        @test occursin("Historical RMS is rendered unchanged",html)
+        @test length(comparisons)==1
+        @test length(executions)==2
         observe(result.candidate,Z)[1,1,2]+=1
         @test_throws r"modified after loading" report(BenchmarkTableDefinition(false),alternative)
     end
@@ -83,7 +91,7 @@
     limits=(Z=(absolute=1.,relative=1.),Y=(absolute=1.,relative=1.))
     unsupported_limits=benchmark_definition(:unsupported_limits,model.id,:fixture,
         @__FILE__,model,reference,candidate,(;),(reference=limits,))
-    @test_throws r"only to declared moment comparisons" run_benchmark(unsupported_limits)
+    @test_throws r"match each selected scientific request" run_benchmark(unsupported_limits)
     @test isempty(executions)
     @test !isdefined(GauntletSupport.Gauntlet,:LineParametersPolicy)
     @test !isdefined(GauntletSupport.Gauntlet,:UQMomentPolicy)

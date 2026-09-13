@@ -86,16 +86,8 @@ function _addon_preview_axis!(
         push!(groups[polygon.group], plot)
         polygon.label === nothing || (group_labels[polygon.group] = polygon.label)
     end
-    reset! = if limits === nothing
-        () -> autolimits!(axis)
-    else
-        () -> begin
-            xlims!(axis, limits[1]...)
-            ylims!(axis, limits[2]...)
-            axis
-        end
-    end
-    reset!()
+    limits === nothing || (axis.limits[] = limits)
+    reset! = _addon_reset!(axis)
     if !isempty(earth_spans)
         # HSpan owns full-width coverage. This scene-owned callback clips only
         # the physical vertical extents, keeping infinite coordinates out of

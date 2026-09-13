@@ -12,6 +12,12 @@ treatment. This geometry selection introduces no new formulation keyword.
 """
 struct LineCableModelsCoaxial end
 
+"""Identify the coaxial backend without executing or configuring a calculation."""
+description(::Type{LineCableModelsCoaxial}; compact::Bool=false) = "coaxial"
+description(::LineCableModelsCoaxial; compact::Bool=false) = description(LineCableModelsCoaxial;compact)
+formula_id(::Type{LineCableModelsCoaxial}) = :coaxial
+formula_id(::LineCableModelsCoaxial) = :coaxial
+
 """
 $(TYPEDEF)
 
@@ -97,6 +103,37 @@ struct LineCableModelsFEM{M <: NamedTuple, O <: FormulationOptions, D <: NamedTu
     definitions::D
 end
 
+"""Identify the FEM backend without loading meshing or solver packages."""
+description(::Type{<:LineCableModelsFEM}; compact::Bool=false) = "FEM"
+description(::LineCableModelsFEM; compact::Bool=false) = description(LineCableModelsFEM;compact)
+formula_id(::Type{<:LineCableModelsFEM}) = :fem
+formula_id(::LineCableModelsFEM) = :fem
+formulation_options(value::LineCableModelsFEM) = value.options
+function formulation_options(::Type{LineCableModelsFEM}, retained::NamedTuple, ::Val{:retained})
+    retained.options
+end
+function Base.pairs(value::LineCableModelsFEM; quantity = nothing)
+    pairs(LineCableModelsFEM,
+        (methods = value.methods,
+            requested = map(formulation_options, value.definitions),
+            options = value.options);
+        quantity)
+end
+
+"""FEM's coupled field equations retain all four constitutive selections."""
+function Base.pairs(::Type{LineCableModelsFEM}; quantity = nothing)
+    return pairs((insulation_admittance = InsulationAdmittance.Formula,
+        semicon_admittance = SemiconAdmittance.Formula,
+        earth_properties = Earth.FrequencyDependent.Formula,
+        temperature_dependence = TemperatureDependent.Formula))
+end
+function description(::Type{LineCableModelsFEM}, slot::Val)
+    description(LineParametersFormulation, slot)
+end
+function Base.pairs(::Type{LineCableModelsFEM}, retained::NamedTuple; quantity = nothing)
+    pairs(LineParametersFormulation, retained; quantity, owner = LineCableModelsFEM)
+end
+
 """
 $(TYPEDEF)
 
@@ -174,31 +211,41 @@ Declare source-owned physical hook defaults and admitted overrides for an equati
 function hooks end
 
 """
-Resolve scalar or homogeneous three-field selections through their formula owner.
+Resolve scalar or named selections through the child slots declared by their formula owner.
 """
-function Formulation(::Type{F}, selected) where {F <: Union{
-        EarthImpedanceFormulation, EarthAdmittanceFormulation}}
+function Formulation(::Type{F},
+        selected) where {F <: AbstractFormulation}
     return F(selected)
 end
 
-function Formulation(::Type{F}, selected::NamedTuple) where {F <: Union{
-        EarthImpedanceFormulation, EarthAdmittanceFormulation}}
-    names = (:air, :earth, :mixed)
-    length(selected) == 3 && all(in(keys(selected)), names) || throw(ArgumentError(
-        "homogeneous earth selections require exactly air, earth and mixed"))
-    return map(F, NamedTuple{names}(selected))
+function Formulation(::Type{F},
+        selected::NamedTuple) where {F <: AbstractFormulation}
+    children = (; pairs(F)...)
+    names = keys(children)
+    !isempty(names) && length(selected) == length(names) && all(in(keys(selected)), names) ||
+        throw(ArgumentError("$F selections require exactly $(join(names, ", "))"))
+    return map((family, value) -> family(value), children, NamedTuple{names}(selected))
 end
 
 """
 Resolve the selected formula for exact source and target layer indices.
 """
-Formulation(selected::Union{EarthImpedanceFormulation, EarthAdmittanceFormulation},
-    ::Val{S}, ::Val{T}) where {S, T} = selected
+function Formulation(
+        selected::Union{EarthImpedanceFormulation, EarthAdmittanceFormulation},
+        ::Val{S}, ::Val{T}) where {S, T}
+    selected
+end
 
 Formulation(selected::NamedTuple{(:air, :earth, :mixed)}, ::Val{1}, ::Val{1}) = selected.air
-Formulation(selected::NamedTuple{(:air, :earth, :mixed)}, ::Val{2}, ::Val{2}) = selected.earth
-Formulation(selected::NamedTuple{(:air, :earth, :mixed)}, ::Val{1}, ::Val{2}) = selected.mixed
-Formulation(selected::NamedTuple{(:air, :earth, :mixed)}, ::Val{2}, ::Val{1}) = selected.mixed
+function Formulation(selected::NamedTuple{(:air, :earth, :mixed)}, ::Val{2}, ::Val{2})
+    selected.earth
+end
+function Formulation(selected::NamedTuple{(:air, :earth, :mixed)}, ::Val{1}, ::Val{2})
+    selected.mixed
+end
+function Formulation(selected::NamedTuple{(:air, :earth, :mixed)}, ::Val{2}, ::Val{1})
+    selected.mixed
+end
 
 function Formulation(::NamedTuple{(:air, :earth, :mixed)}, ::Val{S}, ::Val{T}) where {S, T}
     throw(ArgumentError(
@@ -208,7 +255,7 @@ end
 function validate(selected::NamedTuple{(:air, :earth, :mixed)}, earth::EarthModel)
     validate(earth)
     !earth.vertical_layers && length(earth.layers) == 2 &&
-        all(layer -> isinf(layer.thickness), earth.layers) || throw(ArgumentError(
+    all(layer -> isinf(layer.thickness), earth.layers) || throw(ArgumentError(
         "air/earth/mixed selections require physical air and one homogeneous soil half-space; use a scalar formulation for a layered model"))
     return selected
 end
@@ -315,7 +362,7 @@ function _fem_formulation(
         earth_properties = earth_properties === nothing ? nothing :
                            Earth.FrequencyDependent.Formula(earth_properties),
         temperature_dependence = temperature_dependence === nothing ? nothing :
-                                 TemperatureDependent.Formula(temperature_dependence),
+                                 TemperatureDependent.Formula(temperature_dependence)
     )
     definitions = (; insulation_admittance, semicon_admittance, earth_properties,
         temperature_dependence)
@@ -382,10 +429,11 @@ function Base.NamedTuple(value::LineCableModelsFEM)
     record = function (selected)
         selected === nothing && return nothing
         selected isa Symbol && return NamedTuple(formula(selected))
-        selected isa NamedTuple && return map(record,selected)
+        selected isa NamedTuple && return map(record, selected)
         return NamedTuple(selected)
     end
-    Record=NamedTuple{(:backend,:requested,:methods,:options),
-        Tuple{Symbol,NamedTuple,NamedTuple,NamedTuple}}
-    return Record((:fem,map(record,value.definitions),map(record,value.methods),value.options))
+    Record=NamedTuple{(:backend, :requested, :methods, :options),
+        Tuple{Symbol, NamedTuple, NamedTuple, NamedTuple}}
+    return Record((
+        :fem, map(record, value.definitions), map(record, value.methods), value.options))
 end

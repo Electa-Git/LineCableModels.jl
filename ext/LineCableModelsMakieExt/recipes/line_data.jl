@@ -190,6 +190,53 @@ function _supports_log_values(samples)
     return found
 end
 
+function _prepare_line_observations(source::Union{LineCableModels.AbstractUncertaintyResult,ObservationPublication};
+        point::Integer,ydata,freq_unit=:base,length_unit=:kilo,quantity_units=nothing,
+        clip::Bool=true,atol=nothing,frequencies=nothing,sample_indices=nothing)
+    retained=source isa ObservationPublication
+    retained && point!=1 && throw(ArgumentError("a retained publication contains one selected point"))
+    dimensions=retained ? size(first(source).values) : size(observe(source[point],Z))
+    coordinates=map(ydata) do request
+        indices=request_indices(request)
+        if length(indices)==4
+            first(indices) isa Colon || first(indices)==point || throw(ArgumentError(
+                "statistical request point differs from the selected comparison; select its pair explicitly"))
+            indices=Base.tail(indices)
+        end
+        isempty(indices) && (indices=(Colon(),Colon(),Colon()))
+        length(indices)==3 || throw(ArgumentError("UQ matrix plots require row, column and frequency indices"))
+        selected=map(observation_indices,indices,dimensions)
+        sample_indices===nothing && return selected
+        frequency=filter(in(sample_indices),last(selected))
+        isempty(frequency) && throw(ArgumentError("the selected band and request have no common frequency samples"))
+        return (selected[1],selected[2],frequency)
+    end
+    all(indices -> last(indices)==last(first(coordinates)),coordinates) || throw(DimensionMismatch("UQ plot frequency selections differ"))
+    targets=unit_targets(ydata,basis(source);length_prefix=length_unit,overrides=quantity_units)
+    publications=map(ydata,targets,coordinates) do request,target,indices
+        identity=request_identity(request)
+        identity isa Tuple && length(identity)==3 && first(identity)===LineCableModels.statistics ||
+            throw(ArgumentError("UQ matrix plots require an explicit selected statistic"))
+        publication=observables(source,((identity...,point,indices...),);units=(target,),clip,atol)
+        observation=only(publication)
+        eltype(observation.values) <: Real || throw(ArgumentError(
+            "complex statistical plots require explicit real-valued quantities, such as R/X or G/B"))
+        contract=getproperty(publication.metadata.observation_columns,Symbol(Units.symbol(observation.quantity)))
+        (;observation,resolution=contract.resolution)
+    end
+    f=if retained
+        selected=unique(source.columns.frequency)
+        contract=get(source.metadata.observation_columns,:frequency,nothing)
+        contract===nothing ? selected : selected.*Units.scale_factor(contract.unit,Units.units(:base,:hertz))
+    else
+        LineCableModels.frequencies(source[point])
+    end
+    frequencies===nothing || frequencies==f || throw(ArgumentError("supplied UQ frequencies differ"))
+    frequency=_frequency_observation(f[last(first(coordinates))],Units.units(freq_unit,:hertz))
+    return (;frequency,observations=map(value -> value.observation,publications),coordinates,
+        resolutions=map(value -> value.resolution,publications))
+end
+
 function _axis_scales(values; signed_log::Bool=false)
     _supports_log_values(values) && return (:linear, :log10)
     # Benchmark matrices commonly contain negative mutual terms. Preserve their

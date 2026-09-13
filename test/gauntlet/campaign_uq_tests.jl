@@ -11,7 +11,7 @@
     definition=benchmark_definition(:uncertainty,model.id,:fixture,@__FILE__,model,reference,candidate,(quantities=(:R, :L, :C, :G), statistics=(:mean, :std)),(;))
     mktempdir() do directory
         result=only(run_campaign(directory,[definition];on_error=:fail)).result
-        @test result.reference.frequencies == [1.,37.]
+        @test frequencies(only(result.reference)) == [1.,37.]
         @test result.candidate_result.root_seed == 0x1234
         @test result.candidate_result.trial_counts == [8]
         recovered=only(resume_campaign(directory))

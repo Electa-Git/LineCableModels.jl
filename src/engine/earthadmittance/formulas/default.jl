@@ -29,8 +29,8 @@ framework for overhead, buried, and mixed conductor systems*. The mathematical
 source hash and accepted complete matrices are recorded in
 `test/fixtures/reference/unified_earth_return.toml`.
 """
-function description(::Formula{:default})
-    "Unified circumferential earth potential with full current closure"
+function description(::Type{<:Formula{:default}}; compact::Bool=false)
+    compact ? "default" : "Unified circumferential earth potential with full current closure"
 end
 
 Γ(::Val{:default}, jω, materials, layers) = zero(jω)

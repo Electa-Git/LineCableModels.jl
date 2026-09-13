@@ -65,11 +65,16 @@
         @test all(read(path) == bytes for (path, bytes) in original)
         files_before = [(dir, copy(names)) for (dir, _, names) in walkdir(root)]
         tables = report(BenchmarkTableDefinition(false), loaded).table
-        @test propertynames(tables) == (:calculations, :formulations, :comparisons, :terms, :maxima, :summary)
+        @test propertynames(tables) == (:calculations,:formulations,:formula_details,:comparisons,:terms,:maxima,:summary,:features,
+            :execution,:source_timings,:performance,:performance_samples,:performance_environment,
+            :performance_policy,:performance_comparison,:statistics,:sampling,:mean_sampling_precision)
         @test nrow(tables.calculations) == 2
-        @test tables.calculations.formulation[1].equation === :reference
-        @test tables.calculations.formulation[2].equation === :candidate
-        @test tables.calculations.selection == [(id=:reference,), (id=:candidate,)]
+        @test loaded.reference.metadata.formulation.equation === :reference
+        @test loaded.candidate.metadata.formulation.equation === :candidate
+        @test loaded.reference.metadata.selection == (id=:reference,)
+        @test loaded.candidate.metadata.selection == (id=:candidate,)
+        @test all(column -> all(value -> value isa Union{Number,Symbol,AbstractString,Missing},column),
+            eachcol(tables.calculations))
         @test nrow(tables.comparisons) == 24
         @test nrow(tables.terms) == 96
         @test Set(tables.terms.quantity) == Set((:Z, :Y, :R, :L, :G, :C))
@@ -88,7 +93,8 @@
         r = filter(row -> row.quantity === :R && row.band === :all, tables.terms)
         @test all(value -> value ≈ 100, r.relative_rms_percent)
         @test all(==("Ω/m"), r.absolute_unit)
-        empty_band = filter(row -> row.band == (1e8, 1e9), tables.terms)
+        empty_band = filter(row -> row.band == string((1e8, 1e9)), tables.terms)
+        @test !isempty(empty_band)
         @test all(ismissing, empty_band.absolute_rms)
         @test all(ismissing, empty_band.relative_rms_percent)
         @test all(iszero, empty_band.samples)
@@ -125,5 +131,35 @@
         finally
             rm(parent; recursive=true)
         end
+    end
+end
+
+@testitem "Gauntlet / saved performance is bound to workloads and its original session" tags=[:gauntlet_toolkit] setup=[GauntletSupport] begin
+    using JLD2,SHA
+    using .GauntletSupport.Gauntlet
+    mktempdir() do root
+        path=joinpath(root,"performance.jld2")
+        calculations=(reference=(problem=:a,formulation=:mc),candidate=(problem=:a,formulation=:lep))
+        performance=(reference=(calculation=calculations.reference,median_seconds=3.0),
+            candidate=(calculation=calculations.candidate,median_seconds=1.0))
+        JLD2.jldsave(path;performance)
+        historical=Gauntlet.read_benchmark(path,Val(:performance);calculations)
+        @test ismissing(historical.checksum_verified)
+        @test historical.workload_verified===true
+        @test historical.session===nothing
+        @test historical.performance==performance
+        session=(id="original",started_at="2026-09-13T12:00:00")
+        JLD2.jldsave(path;schema_version=1,performance,session)
+        write(path*".sha256",bytes2hex(open(sha256,path)))
+        original=read(path)
+        retained=Gauntlet.read_benchmark(path,Val(:performance);calculations)
+        @test retained.checksum_verified===true
+        @test retained.workload_verified===true
+        @test retained.session==session
+        @test read(path)==original
+        @test_throws r"workload differs" Gauntlet.read_benchmark(path,Val(:performance);
+            calculations=merge(calculations,(candidate=(problem=:b,formulation=:lep),)))
+        write(path*".sha256","wrong")
+        @test_throws r"checksum mismatch" Gauntlet.read_benchmark(path,Val(:performance);calculations)
     end
 end

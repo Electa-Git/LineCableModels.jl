@@ -5,7 +5,7 @@ Assemble the earth-free primitive series-impedance matrix of independent
 concentric cable assemblies.
 
 The selected internal- and insulation-impedance formulas contribute their
-outer, inner, mutual, and longitudinal-insulation terms directly to
+outer, inner, transfer, and longitudinal-insulation terms directly to
 `destination`. The matrix remains unreduced.
 
 # Arguments
@@ -33,15 +33,16 @@ function cable_impedance!(
         inside = zero(eltype(destination))
         for position in count:-1:1
             index = conductors[position]
-            interaction = methods.internal_impedance(
+            surfaces = InternalImpedance.surface_impedances(methods.internal_impedance,
+                position > 1 ? Val((:outer,:transfer,:inner)) : Val((:outer,)),
                 input.r_in[index],
                 input.r_ext[index],
                 rho_cond[index],
                 input.mu_cond[index],
                 s
             )
-            outside = interaction(Val(:outer))
-            mutual = position > 1 ? interaction(Val(:mutual)) : zero(outside)
+            outside = surfaces.outer
+            transfer = position > 1 ? surfaces.transfer : zero(outside)
             insulation = methods.insulation_impedance(
                 input.r_ext[index],
                 input.r_ins_ext[index],
@@ -52,17 +53,17 @@ function cable_impedance!(
             if position > 1
                 for row in 1:(position - 1), column in 1:(position - 1)
 
-                    destination[conductors[row], conductors[column]] += loop - 2 * mutual
+                    destination[conductors[row], conductors[column]] += loop - 2 * transfer
                 end
                 for row in 1:(position - 1)
-                    destination[index, conductors[row]] += loop - mutual
-                    destination[conductors[row], index] += loop - mutual
+                    destination[index, conductors[row]] += loop - transfer
+                    destination[conductors[row], index] += loop - transfer
                 end
             end
             destination[index, index] += loop
             # Reuse this wall's prepared state when its inner surface is needed
             # by the next contained conductor.
-            position > 1 && (inside = interaction(Val(:inner)))
+            position > 1 && (inside = surfaces.inner)
         end
     end
     return destination

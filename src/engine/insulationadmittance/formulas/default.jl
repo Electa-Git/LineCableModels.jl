@@ -10,7 +10,7 @@ displacement current and suppress both material conductivity and loss tangent.
 **Reference.** Lossless dielectric approximation to Maxwell's constitutive
 relation; this default is not an author-labeled loss model.
 """
-description(::Formula{:default}) = "Default lossless cable-insulation admittivity"
+description(::Type{<:Formula{:default}}; compact::Bool=false) = compact ? "default" : "Default lossless cable-insulation admittivity"
 
 """
 $(TYPEDSIGNATURES)

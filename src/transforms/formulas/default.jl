@@ -22,8 +22,8 @@ with a damped normal-equation step.
 Matrices Using the Levenberg–Marquardt Method,” *IEEE Transactions on Power
 Delivery*, 29(4), 1621–1629, 2014. DOI: 10.1109/TPWRD.2013.2284504.
 """
-function description(::Formula{:default})
-    "Chrysochos et al. Levenberg–Marquardt modal transformation (2014)"
+function description(::Type{<:Formula{:default}}; compact::Bool=false)
+    compact ? "default" : "Chrysochos et al. Levenberg–Marquardt modal transformation (2014)"
 end
 
 function levenberg_marquardt_residual!(

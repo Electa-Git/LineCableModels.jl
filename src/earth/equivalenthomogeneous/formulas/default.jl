@@ -26,7 +26,7 @@ for Ground Return Impedance Calculations,” *IEEE Transactions on Power
 Delivery*, 35(2), 881–891, 2020.
 [DOI: 10.1109/TPWRD.2019.2930406](https://doi.org/10.1109/TPWRD.2019.2930406).
 """
-description(::Formula{:default}) = "Bottommost earth layer"
+description(::Type{<:Formula{:default}}; compact::Bool=false) = compact ? "default" : "Bottommost earth layer"
 
 function equivalent_material(
         ::Val{:default}, ::Union{Val{:self}, Val{:mutual}}, ::Val{S}, ::Val{T},

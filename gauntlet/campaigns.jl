@@ -7,14 +7,15 @@ function record_calculation(result::AbstractCoreResult, model)
 end
 
 function record_calculation(result::LineCableModels.AbstractUncertaintyResult, model)
-    moments = NamedTuple(extract_moments(result, model.port_order))
-    propagation = formulation_record(result.formulation)
+    scientific_result=ImportExport.serialize_value(result)
+    core=first(result)
+    propagation = formulation_record(NamedTuple(result).formulation)
     sampling = result isa LineCableModels.MonteCarloResult ?
-               (root_seed = result.root_seed, point_seeds = copy(result.point_seeds),
-        trial_counts = copy(result.trial_counts), distribution = result.formulation.options.distribution) :
+               (root_seed = LineCableModels.root_seed(result), point_seeds = [LineCableModels.point_seed(result,i) for i in eachindex(result)],
+        trial_counts = [LineCableModels.trial_count(result,i) for i in eachindex(result)], distribution = LineCableModels.sampling_distribution(result)) :
                nothing
-    return (kind = :gauntlet_moments, moments, frequencies = copy(moments.frequencies),
-        basis = moments.basis, domain = moments.domain, data_sha256 = semantic_sha256(MomentResult(moments), (; port_order=get(details(result),:coordinates,model.port_order))),
+    return (kind = :gauntlet_uncertainty, scientific_result, frequencies = copy(frequencies(core)),
+        basis = basis(core), domain = nameof(domain(core)), data_sha256 = semantic_sha256((scientific=scientific_result,port_order=get(details(core),:coordinates,model.port_order))),
         parameter_manifest = parameter_manifest(model), applied_variation = variation_record(model.variation),
         correlation = correlation_record(model), propagation, sampling,
         computation_details = _selection_value(LineCableModels.details(result)))
@@ -368,7 +369,7 @@ function _execute(calculation::BenchmarkCalculation; directory = nothing, model 
         end
         payload = record_calculation(result, model)
         output_coordinates=get(details(result isa ParametricResult ? first(result) : result),:coordinates,model.port_order)
-        JLD2.jldsave(temporary; schema_version = 2, status = :complete,
+        JLD2.jldsave(temporary; schema_version = 3, status = :complete,
             result_bytes=_execution_bytes(result),payload...,
             retained_files, computation_signature = signature,
             problem = ImportExport.serialize_value(

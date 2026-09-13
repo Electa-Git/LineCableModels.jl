@@ -1,7 +1,39 @@
+import DataFrames: metadata
+
 """
 Read a checksummed completed calculation without reconstructing a design or loading a solver.
 """
-function read_calculation(path::AbstractString; sha256_expected = nothing)
+function read_calculation(record::NamedTuple{(:values,:frequencies,:basis,:domain,:port_order)})
+    record.domain === :PhaseDomain && record.basis in (:pul,:total) || throw(ArgumentError("unsupported historical moment coordinates"))
+    f=record.frequencies
+    !isempty(f) && issorted(f) && allunique(f) && all(value -> isfinite(value) && value>0,f) ||
+        throw(ArgumentError("historical frequencies must be finite, positive and strictly increasing"))
+    n=length(record.port_order)
+    n>0 && allunique(record.port_order) || throw(ArgumentError("historical terminal identities must be nonempty and unique"))
+    quantities=(LineCableModels.R,LineCableModels.L,LineCableModels.C,LineCableModels.G)
+    keys(record.values)==(:R,:L,:C,:G) || throw(ArgumentError("invalid historical moment products"))
+    requests=Tuple((LineCableModels.statistics,q,stat,1) for q in quantities for stat in (Statistics.mean,Statistics.std))
+    payloads=map(requests) do request
+        q,stat=request[2],request[3]
+        values=getproperty(getproperty(record.values,nameof(q)),nameof(stat))
+        size(values)==(n,n,length(f)) || throw(DimensionMismatch("historical moment tensor dimensions differ"))
+        all(isfinite,values) && (stat !== Statistics.std || all(>=(0),values)) ||
+            throw(ArgumentError("invalid historical statistic values"))
+        (values=copy(values),quantity=Units.quantity(q),unit=Units.native_unit(q,record.basis))
+    end
+    entries=[(i,j,k,s) for k in eachindex(f) for i in 1:n for j in 1:n for s in (:mean,:std)]
+    columns=merge((point=fill(1,length(entries)),frequency=[f[k] for (_,_,k,_) in entries],
+        row=[i for (i,_,_,_) in entries],column=[j for (_,j,_,_) in entries],statistic=[s for (_,_,_,s) in entries]),
+        NamedTuple{(:R,:L,:C,:G)}(Tuple([getproperty(getproperty(record.values,nameof(q)),s)[i,j,k]
+            for (i,j,k,s) in entries] for q in quantities)))
+    contracts=NamedTuple{(:R,:L,:C,:G)}(Tuple((quantity=payloads[2i-1].quantity,unit=payloads[2i-1].unit,
+        requests=requests[2i-1:2i],observation_indices=(2i-1,2i)) for i in 1:4))
+    return Grammar.ObservationPublication(payloads,columns,
+        (basis=record.basis,row_order=(:point,:frequency,:row,:column,:statistic),observation_columns=contracts))
+end
+
+function read_calculation(path::AbstractString; sha256_expected = nothing, evidence::Symbol=:strict)
+    evidence in (:strict,:numerical) || throw(ArgumentError("evidence must be :strict or :numerical"))
     path = abspath(path)
     isfile(path) && isfile(path * ".sha256") || throw(ArgumentError(
         "completed calculation and checksum required: $path"))
@@ -15,21 +47,23 @@ function read_calculation(path::AbstractString; sha256_expected = nothing)
     document = jldopen(path, "r") do file
         names = ("schema_version", "kind", "status", "case_id", "backend", "problem",
             "formulation", "calculation", "repository", "active_project", "selection", "frequencies", "basis", "domain", "port_order",
-            "Z", "Y", "moments", "comparison_unsupported", "data_sha256",
+            "Z", "Y", "moments", "scientific_result", "comparison_unsupported", "data_sha256",
             "implementation", "session", "point_sessions", "computation_signature", "elapsed_at_completion_seconds",
             "batch_selection_count", "timing", "propagation", "sampling", "parameter_manifest",
             "applied_variation", "correlation", "computation_details", "retained_files", "points", "axes")
         Dict(name => file[name] for name in names if haskey(file, name))
     end
-    document["schema_version"] in (1, 2) && document["status"] === :complete ||
+    document["schema_version"] in (1, 2, 3) && document["status"] === :complete ||
         throw(ArgumentError("unsupported or incomplete calculation: $path"))
+    evidence_issues=String[]
     for file in get(document, "retained_files", ())
         (isabspath(file.path) || first(splitpath(normpath(file.path))) == "..") &&
             throw(ArgumentError("retained evidence must be inside its calculation directory"))
-        evidence=joinpath(dirname(path), file.path)
-        isfile(evidence) && bytes2hex(open(sha256, evidence)) == file.sha256 ||
-            throw(ArgumentError("retained backend evidence is missing or changed: $evidence"))
+        evidence_path=joinpath(dirname(path), file.path)
+        isfile(evidence_path) && bytes2hex(open(sha256, evidence_path)) == file.sha256 ||
+            push!(evidence_issues,"retained backend evidence is missing or changed: $evidence_path")
     end
+    evidence === :strict && !isempty(evidence_issues) && throw(ArgumentError(join(evidence_issues,"\n")))
     kind = document["kind"]
     result = if kind === :gauntlet_calculation
         document["domain"] === :PhaseDomain ||
@@ -57,7 +91,9 @@ function read_calculation(path::AbstractString; sha256_expected = nothing)
         end
         ParametricResult(nothing, values, document["axes"], (;))
     elseif kind === :gauntlet_moments
-        MomentResult(document["moments"])
+        read_calculation(document["moments"])
+    elseif kind === :gauntlet_uncertainty
+        ImportExport.deserialize_value(document["scientific_result"])
     else
         throw(ArgumentError("not a saved Gauntlet calculation: $path"))
     end
@@ -66,10 +102,13 @@ function read_calculation(path::AbstractString; sha256_expected = nothing)
     length(ports) == (kind === :gauntlet_calculation ?
      size(result.Z, 1) :
      kind === :gauntlet_result_space ? size(first(result).Z, 1) :
-     length(result.port_order)) ||
+     kind === :gauntlet_moments ? length(document["moments"].port_order) :
+     size(observe(first(result),Z),1)) ||
         throw(DimensionMismatch("invalid saved terminal order: $path"))
     coordinates=(port_order=ports, axes=get(document, "axes", nothing))
-    data_digest = semantic_sha256(result, coordinates)
+    data_digest = kind === :gauntlet_moments ? semantic_sha256(document["moments"]) :
+        kind === :gauntlet_uncertainty ? semantic_sha256((scientific=document["scientific_result"],port_order=ports)) :
+        semantic_sha256(result, coordinates)
     get(document, "data_sha256", data_digest) == data_digest ||
         throw(ArgumentError("calculation data digest mismatch: $path"))
     selection=document["selection"]
@@ -83,7 +122,43 @@ function read_calculation(path::AbstractString; sha256_expected = nothing)
     if formulation isa NamedTuple && all(key -> haskey(formulation,key),(:id,:input_sha256,:formulation,:options))
         formulation=formulation.formulation
     end
+    recovery=:portable
+    if kind === :gauntlet_moments
+        native=jldopen(path,"r") do file
+            if haskey(file,"result_bytes")
+                try
+                    Serialization.deserialize(IOBuffer(file["result_bytes"]))
+                catch error
+                    @warn "Native UQ checkpoint could not be restored; retained mean/std remain available" path exception=error
+                    nothing
+                end
+            else
+                nothing
+            end
+        end
+        if native !== nothing
+            native isa AbstractUncertaintyResult && length(native)==1 || throw(ArgumentError("invalid native UQ checkpoint"))
+            core=only(native)
+            frequencies(core)==document["frequencies"] && basis(core)==document["basis"] &&
+                nameof(domain(core))==document["domain"] ||
+                throw(ArgumentError("native UQ checkpoint differs from saved coordinates"))
+            get(details(core),:coordinates,ports)==ports ||
+                throw(ArgumentError("native UQ checkpoint differs from saved terminal identities"))
+            for (name,selector) in pairs((R=LineCableModels.R,L=LineCableModels.L,C=LineCableModels.C,G=LineCableModels.G)),
+                    (statistic,transform) in ((:mean,Statistics.mean),(:std,Statistics.std))
+                isequal(Float64.(observe(native,LineCableModels.statistics,selector,transform,1)),
+                    getproperty(getproperty(document["moments"].values,name),statistic)) ||
+                    throw(ArgumentError("native UQ checkpoint differs from saved moment products"))
+            end
+            result=native
+            recovery=:native_checkpoint
+        else
+            recovery=:retained_mean_std_only
+        end
+    end
     metadata = (path, sha256 = digest, data_sha256 = data_digest,
+        loaded_data_sha256=result isa AbstractUncertaintyResult ? data_digest : semantic_sha256(result,coordinates), recovery, evidence_issues,
+        report_data_sha256=result isa AbstractUncertaintyResult ? semantic_sha256(result,coordinates,report) : nothing,
         case_id = string(document["case_id"]),
         backend = string(document["backend"]), selection = selection,
         axes=coordinates.axes,
@@ -105,9 +180,15 @@ function read_calculation(path::AbstractString; sha256_expected = nothing)
     return (; result, metadata)
 end
 
-function validate(::typeof(read_calculation), result::Union{AbstractCoreResult, MomentResult}, metadata::NamedTuple)
-    semantic_sha256(result, metadata) == metadata.data_sha256 || throw(ArgumentError(
+function validate(::typeof(read_calculation), result::Union{AbstractCoreResult,Grammar.ObservationPublication}, metadata::NamedTuple)
+    semantic_sha256(result, metadata) == get(metadata,:loaded_data_sha256,metadata.data_sha256) || throw(ArgumentError(
         "result was modified after loading; saved RMS values no longer describe it"))
+    return nothing
+end
+
+function validate(::typeof(read_calculation),result::AbstractUncertaintyResult,metadata::NamedTuple)
+    semantic_sha256(result,metadata,report)==metadata.report_data_sha256 || throw(ArgumentError(
+        "statistical observations were modified after loading; saved RMS values no longer describe them"))
     return nothing
 end
 
@@ -146,12 +227,12 @@ function record_benchmark(benchmark::BenchmarkDefinition, publication::ReportArt
         throw(ArgumentError("benchmark $(benchmark.id): saved inputs or coordinates differ; no implicit conversion is permitted"))
     # Persist the existing RMSError payload as plain arrays/details. Readers do
     # not depend on the concrete parametric type used when it was calculated.
-    comparisons = [(quantity = row.quantity, statistic = row.statistic,
+    comparisons = [(request=ImportExport.serialize_value(row.request,Val(:scientific)),quantity = row.quantity, statistic = row.statistic,
                        reference_index = row.reference_index, candidate_index = row.candidate_index,
-                       absolute = row.error.absolute, relative = row.error.relative,
-                       details = row.error.details) for row in errors]
+                       absolute = observe(row.error,absolute_error), relative = observe(row.error,relative_error),
+                       details = (; (key=>value for (key,value) in pairs(details(row.error)) if key !== :request)...)) for row in errors]
     for error in errors
-        all(name -> haskey(error.error.details, name),
+        all(name -> haskey(details(error.error), name),
             (:band, :normalization, :actual_bounds, :sample_count, :indices, :status)) ||
             throw(ArgumentError("completed comparisons must retain their actual settings and sample coordinates"))
     end
@@ -166,6 +247,7 @@ function record_benchmark(benchmark::BenchmarkDefinition, publication::ReportArt
         band=row.details.band, normalization=row.details.normalization,
         resolution_revision=get(get(row.details, :resolution, (;)), :revision, 0),
         resolution_kind=get(get(row.details, :resolution, (;)), :kind, :historical_unversioned),
+        statistical_semantics=get(row.details,:statistical_semantics,nothing),
         atol=get(row.details, :atol, nothing),
         candidate_atol=get(row.details, :candidate_atol, get(row.details, :atol, nothing)))
         for row in comparisons]
@@ -181,9 +263,10 @@ function record_benchmark(benchmark::BenchmarkDefinition, publication::ReportArt
     mkpath(dirname(path))
     temporary = tempname(dirname(path))
     try
-        JLD2.jldsave(temporary; schema_version = 2, kind = :gauntlet_benchmark,
+        JLD2.jldsave(temporary; schema_version = 3, kind = :gauntlet_benchmark,
             analysis_id, resolution_semantics,
-            summary=[merge(NamedTuple(row),(snapshot=analysis_id,)) for row in eachrow(publication.table.maxima)],
+            summary=[merge(row,(snapshot=analysis_id,request=ImportExport.serialize_value(row.request,Val(:scientific))))
+                for row in metadata(publication.table.maxima,"comparison_records")],
             formulations=[_selection_value(NamedTuple(row)) for row in eachrow(publication.table.formulations)],
             benchmark_id = string(benchmark.id),
             case_id = string(benchmark.case_id), description = benchmark.model isa
@@ -196,8 +279,8 @@ function record_benchmark(benchmark::BenchmarkDefinition, publication::ReportArt
                     id = benchmark.reference.id)),
                 candidate = merge(b, (path = relpath(b.path, dirname(path)),
                     id = benchmark.candidate.id))),
-            comparison_settings = benchmark.comparison_settings,
-            tolerances = benchmark.tolerances, port_order = a.port_order, frequencies = a.frequencies,
+            comparison_settings = ImportExport.serialize_value(benchmark.comparison_settings,Val(:scientific)),
+            tolerances = ImportExport.serialize_value(benchmark.tolerances,Val(:scientific)), port_order = a.port_order, frequencies = a.frequencies,
             basis = a.basis, domain = a.domain, reference_comparison = comparisons,
             timings = (reference = a.timing, candidate = b.timing), recorded_at_utc = string(now(UTC)))
         mv(temporary, path; force = false)
@@ -212,7 +295,7 @@ end
     read_benchmark(path; load_results=false)
 
 Read an explicitly ordered benchmark and verify the snapshot and operand hashes.
-A benchmark directory returns `(id, reference, candidate, analyses)`, with loaded
+A benchmark directory returns `(id, reference, candidate, analyses, measurements)`, with loaded
 results and metadata. For a snapshot file, the default returns the recorded
 dictionary; `load_results=true` returns the same loaded bundle as a directory,
 resolving operand paths relative to the snapshot. Loading performs no solve.
@@ -220,7 +303,7 @@ resolving operand paths relative to the snapshot. Loading performs no solve.
 The loaded bundle supports `report(BenchmarkTableDefinition(false), benchmark)`
 and `plot(benchmark, ydata; ...)` for REPL tables and matrix-cell overlays.
 """
-function read_benchmark(path::AbstractString; load_results::Bool = false, previous::Bool=false)
+function read_benchmark(path::AbstractString; load_results::Bool = false, previous::Bool=false,evidence::Symbol=:strict)
     if isdir(path)
         state_path=joinpath(path,"state.toml")
         if isfile(state_path)
@@ -232,18 +315,18 @@ function read_benchmark(path::AbstractString; load_results::Bool = false, previo
                 current=state["current"]
                 isabspath(current) || first(splitpath(normpath(current))) == ".." ?
                     throw(ArgumentError("invalid draft path")) : nothing
-                return read_benchmark(joinpath(path,current);load_results)
+                return read_benchmark(joinpath(path,current);load_results,evidence)
             end
         end
-        reference=read_calculation(joinpath(path, "reference", "calculation.jld2"))
-        candidate=read_calculation(joinpath(path, "candidate", "calculation.jld2"))
+        reference=read_calculation(joinpath(path, "reference", "calculation.jld2");evidence)
+        candidate=read_calculation(joinpath(path, "candidate", "calculation.jld2");evidence)
         analyses=[read_benchmark(joinpath(folder, name))
                   for (folder, _, names) in
                       walkdir(joinpath(path, "analyses"))
                   for name in sort(names) if name == "snapshot.jld2"]
         isempty(analyses) &&
             throw(ArgumentError("benchmark has no retained analysis: $path"))
-        return (id = Symbol(first(analyses)["benchmark_id"]), reference, candidate, analyses)
+        return read_benchmark((id = Symbol(first(analyses)["benchmark_id"]), reference, candidate, analyses))
     end
     isfile(path) && isfile(path * ".sha256") ||
         throw(ArgumentError("benchmark record and checksum required: $path"))
@@ -251,6 +334,10 @@ function read_benchmark(path::AbstractString; load_results::Bool = false, previo
     !isempty(checksum) && first(checksum) == bytes2hex(open(sha256, path)) ||
         throw(ArgumentError("benchmark checksum mismatch: $path"))
     record = JLD2.load(path)
+    if get(record,"schema_version",nothing)==3
+        record["comparison_settings"]=ImportExport.deserialize_value(record["comparison_settings"])
+        record["tolerances"]=ImportExport.deserialize_value(record["tolerances"])
+    end
     if haskey(record, "comparison_policy")
         record["comparison_settings"] = pop!(record, "comparison_policy")
     end
@@ -260,9 +347,12 @@ function read_benchmark(path::AbstractString; load_results::Bool = false, previo
         statistics=settings.kind === :uq_moments ? (:mean, :std) : (:value,)
         record["comparison_settings"]=merge(Base.structdiff(settings, (;kind=settings.kind)), (;statistics))
     end
-    record["schema_version"] in (1,2) && record["kind"] === :gauntlet_benchmark ||
+    record["schema_version"] in (1,2,3) && record["kind"] === :gauntlet_benchmark ||
         throw(ArgumentError("explicit benchmark record required; calculation artifacts do not declare references: $path"))
-    record["reference_comparison"] = [merge((reference_index=1, candidate_index=1), row)
+    record["comparison_settings"]=BenchmarkTableDefinition(;record["comparison_settings"]...).settings
+    record["reference_comparison"] = [merge((reference_index=1,candidate_index=1),row,
+        (request=haskey(row,:request) ? ImportExport.deserialize_value(row.request) :
+            only(BenchmarkTableDefinition(;quantities=(row.quantity,),statistics=(row.statistic,)).settings.requests),))
         for row in record["reference_comparison"]]
     operands = record["calculations"]
     keys(operands) == (:reference, :candidate) ||
@@ -277,11 +367,55 @@ function read_benchmark(path::AbstractString; load_results::Bool = false, previo
         reference, candidate = map(operands) do operand
             source = isabspath(operand.path) ? operand.path :
                      normpath(joinpath(dirname(path), operand.path))
-            read_calculation(source; sha256_expected = operand.sha256)
+            read_calculation(source; sha256_expected = operand.sha256,evidence)
         end
-        return (id = Symbol(record["benchmark_id"]), reference, candidate, analyses = [record])
+        return read_benchmark((id = Symbol(record["benchmark_id"]), reference, candidate, analyses = [record]))
     end
     return record
+end
+
+"""Bind recorded performance evidence to the already loaded numerical operands."""
+function read_benchmark(benchmark::NamedTuple{(:id,:reference,:candidate,:analyses)})
+    measurements=(execution=(reference=benchmark.reference.metadata,candidate=benchmark.candidate.metadata),
+        performance=nothing,checksum_verified=missing,workload_verified=missing)
+    reference_directory=dirname(benchmark.reference.metadata.path)
+    candidate_directory=dirname(benchmark.candidate.metadata.path)
+    if dirname(reference_directory)==dirname(candidate_directory)
+        path=joinpath(dirname(reference_directory),"performance.jld2")
+        if isfile(path)
+            calculations=(reference=get(benchmark.reference.metadata,:calculation,nothing),
+                candidate=get(benchmark.candidate.metadata,:calculation,nothing))
+            measurements=merge(measurements,read_benchmark(path,Val(:performance);calculations))
+        end
+    end
+    return merge(benchmark,(;measurements))
+end
+
+"""Read optional timing evidence with its checksum, original session and exact workloads."""
+function read_benchmark(path::AbstractString,::Val{:performance};calculations)
+    bound=isfile(path*".sha256")
+    if bound
+        checksum=split(read(path*".sha256",String))
+        !isempty(checksum) && first(checksum)==bytes2hex(open(sha256,path)) ||
+            throw(ArgumentError("performance checksum mismatch"))
+    end
+    retained=JLD2.load(path)
+    get(retained,"schema_version",1)==1 || throw(ArgumentError("unsupported performance record schema"))
+    performance=retained["performance"]
+    verified=Bool[]
+    if performance!==nothing
+        for role in (:reference,:candidate)
+            calculation=getproperty(calculations,role)
+            calculation===nothing && (push!(verified,false);continue)
+            expected=haskey(calculation,:id) ? _numerical_record(calculation) : calculation
+            getproperty(performance,role).calculation==expected ||
+                throw(ArgumentError("performance workload differs from selected $role calculation"))
+            push!(verified,true)
+        end
+    end
+    return (performance,checksum_verified=bound ? true : missing,
+        workload_verified=length(verified)==2 && all(verified) ? true : missing,
+        session=get(retained,"session",nothing))
 end
 
 """
@@ -320,11 +454,8 @@ function compare_saved(definition::AbstractString; directory::AbstractString)
              key == "pairing" ? Tuple(Tuple(pair) for pair in value) :
              key in ("atol","unsupported") && value isa AbstractDict ? (;(Symbol(k)=>v for (k,v) in value)...) : value)
             for (key,value) in settings if key != "kind")...)
-        if kind == "uq_moments"
-            get(comparison,:statistics,(:mean,:std)) == (:mean,:std) ||
-                throw(ArgumentError("moment kind requires mean/std statistics"))
-            comparison=merge(comparison,(statistics=(:mean,:std),))
-        end
+        kind == "uq_moments" && !haskey(comparison,:statistics) &&
+            (comparison=merge(comparison,(statistics=(:mean,:std),)))
         model = (id = Symbol(entry["case"]),
             description = get(entry, "description", entry["case"]))
         benchmark_definition(

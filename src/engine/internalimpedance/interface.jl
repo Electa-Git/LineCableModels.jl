@@ -76,17 +76,19 @@ Formula(identifier::Symbol; kwargs...) = Formula(Val(identifier); kwargs...)
 
 function Formula(::Val{ID}; parameters::NamedTuple = (;),
         hooks::NamedTuple = (;), options::NamedTuple = (;)) where {ID}
+    haskey(hooks, :mutual) && throw(ArgumentError(
+        "internal-impedance hooks use transfer, not mutual"))
     ID in FORMULAS || throw(ArgumentError("unknown internal-impedance formula :$ID"))
     isempty(parameters) ||
         throw(ArgumentError("internal impedance :$ID has no model parameters"))
-    kinds = (:inner, :outer, :mutual)
+    kinds = Tuple(key for (key,_) in pairs(Formula))
     equations = (inner = FormulaMethod(Val(ID), internal_impedance, Val(:inner)),
         outer = FormulaMethod(Val(ID), internal_impedance, Val(:outer)),
-        mutual = FormulaMethod(Val(ID), internal_impedance, Val(:mutual)))
+        transfer = FormulaMethod(Val(ID), internal_impedance, Val(:transfer)))
     Bindings = NamedTuple{kinds,
         Tuple{Union{Nothing, typeof(equations.inner)},
             Union{Nothing, typeof(equations.outer)}, Union{
-                Nothing, typeof(equations.mutual)}}}
+                Nothing, typeof(equations.transfer)}}}
     defaults::Bindings = Bindings(map(kinds) do kind
         which(internal_impedance, Tuple{Val{ID}, Val{kind}, Any, Any}) === EQUATION_FALLBACK ?
         nothing : getproperty(equations, kind)
@@ -160,8 +162,8 @@ end
 $(TYPEDSIGNATURES)
 
 Evaluate cylindrical surface coefficients using a resolved formula, including
-its explicit hooks and numerical options. The returned `(inner, outer, mutual)`
-coefficients have units \\[Ω/m\\]. The wall operator is `[inner mutual; mutual outer]` in the surface-current
+its explicit hooks and numerical options. The returned `(inner, outer, transfer)`
+coefficients have units \\[Ω/m\\]. The wall operator is `[inner transfer; transfer outer]` in the surface-current
 basis `(-enclosed axial current, total axial current including the wall)`.
 Assemblers supply their current-basis transformation; this action performs no
 matrix placement or enclosing-pipe calculation.
@@ -175,16 +177,61 @@ matrix placement or enclosing-pipe calculation.
 - `jω`: Imaginary angular frequency \\[1/s\\].
 - `workspace`: Optional numerical resources, passed unchanged to every kind.
 """
-function surface_impedances(formula::Formula, r_in, r_ex, rho, mu_r, jω;
+function surface_impedances(formula::Union{Formula,NamedTuple{(:inner,:outer,:transfer)}},
+        r_in, r_ex, rho, mu_r, jω;
         workspace = nothing)
-    validate(formula, (:inner, :outer, :mutual))
+    validate(formula, (:inner, :outer, :transfer))
+    return surface_impedances(formula, Val((:inner,:outer,:transfer)),
+        r_in, r_ex, rho, mu_r, jω; workspace)
+end
+
+"""
+$(TYPEDSIGNATURES)
+
+Evaluate the prevalidated surface kinds in `Kinds`, in their supplied order,
+returning a NamedTuple of coefficients \\[Ω/m\\]. Shared formula state is
+prepared once per distinct complete selection for this conductor and frequency.
+"""
+@inline function surface_impedances(formula::Formula, ::Val{Kinds},
+        r_in, r_ex, rho, mu_r, jω; workspace=nothing) where {Kinds}
     functor = formula(r_in, r_ex, rho, mu_r, jω)
-    return (inner = functor(Val(:inner), workspace),
-        outer = functor(Val(:outer), workspace),
-        mutual = functor(Val(:mutual), workspace))
+    length(Kinds) == 1 && return NamedTuple{Kinds}((functor(Val(Kinds[1]),workspace),))
+    length(Kinds) == 3 || throw(ArgumentError("internal surfaces require one or three kinds"))
+    return NamedTuple{Kinds}((functor(Val(Kinds[1]),workspace),
+        functor(Val(Kinds[2]),workspace), functor(Val(Kinds[3]),workspace)))
+end
+
+@inline function surface_impedances(selected::NamedTuple{(:inner,:outer,:transfer)},
+        ::Val{Kinds}, r_in, r_ex, rho, mu_r, jω; workspace=nothing) where {Kinds}
+    if length(Kinds) == 1
+        return surface_impedances(selected[first(Kinds)], Val(Kinds),
+            r_in, r_ex, rho, mu_r, jω; workspace)
+    end
+    length(Kinds) == 3 || throw(ArgumentError("internal surfaces require one or three kinds"))
+    a, b, c = selected[Kinds[1]], selected[Kinds[2]], selected[Kinds[3]]
+    first_functor = a(r_in, r_ex, rho, mu_r, jω)
+    second_functor = b === a ? first_functor : b(r_in, r_ex, rho, mu_r, jω)
+    third_functor = c === a ? first_functor : c === b ? second_functor :
+                    c(r_in, r_ex, rho, mu_r, jω)
+    return NamedTuple{Kinds}((first_functor(Val(Kinds[1]),workspace),
+        second_functor(Val(Kinds[2]),workspace), third_functor(Val(Kinds[3]),workspace)))
+end
+
+"""Validate each required internal surface against its own selected formula and controls."""
+function validate(selected::NamedTuple{(:inner,:outer,:transfer)}, kinds::Tuple)
+    for (kind, leaf) in pairs(selected)
+        if kind in kinds
+            validate(leaf, (kind,))
+        else
+            isempty(leaf.hooks) && isempty(leaf.parameters) && isempty(leaf.configured_options) ||
+                throw(ArgumentError("explicit internal $kind controls are unused by this assembly"))
+        end
+    end
+    return selected
 end
 
 function validate(formula::Formula{ID}, kinds::Tuple) where {ID}
+    :mutual in kinds && throw(ArgumentError("internal-impedance kinds use transfer, not mutual"))
     foreach(kinds) do kind
         validate(FormulaMethod(Val(ID), internal_impedance, Val(kind)))
     end
@@ -207,3 +254,14 @@ function Base.NamedTuple(value::Formula)
         parameters=value.parameters, hooks=value.hooks, options=value.options,
         configured_options=value.configured_options)
 end
+
+# Identity-only dispatch also describes retained selections without constructors.
+import ...Grammar: formulation_options
+description(value::Formula; compact::Bool=false) = description(typeof(value); compact)
+
+"""Iterate the independently selectable child slots admitted by this formula family."""
+Base.pairs(::Type{<:Formula}; quantity=nothing) = pairs((inner=Formula, outer=Formula, transfer=Formula))
+formula_id(::Type{<:Formula{ID}}) where {ID} = ID
+formulation_options(value::Formula) = formulation_options(typeof(value), (parameters=value.parameters, hooks=value.hooks, options=value.options))
+formulation_options(::Type{<:Formula}, retained::NamedTuple) =
+    formulation_options(FormulaDefinition, retained)

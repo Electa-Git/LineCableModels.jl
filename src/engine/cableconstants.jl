@@ -286,7 +286,7 @@ function _constants_formulation(
         options::NamedTuple
 )
     methods = (
-        internal_impedance = InternalImpedance.Formula(internal_impedance),
+        internal_impedance = Formulation(InternalImpedance.Formula, internal_impedance),
         insulation_impedance = InsulationImpedance.Formula(insulation_impedance),
         insulation_admittance = InsulationAdmittance.Formula(insulation_admittance),
         semicon_admittance = SemiconAdmittance.Formula(semicon_admittance),
@@ -294,6 +294,8 @@ function _constants_formulation(
         temperature_dependence = temperature_dependence === nothing ? nothing :
                                  TemperatureDependent.Formula(temperature_dependence)
     )
+    internal_impedance isa NamedTuple &&
+        (internal_impedance = NamedTuple{keys(methods.internal_impedance)}(internal_impedance))
     return CableConstantsFormulation(
         methods,
         formulation_options(CableConstantsFormulation, options),
@@ -412,7 +414,7 @@ function CableConstantsWorkspace(
 
     maximum_size = maximum(length, cable.assemblies)
     validate(formulation.methods.internal_impedance,
-        maximum_size > 1 ? (:inner, :outer, :mutual) : (:outer,))
+        maximum_size > 1 ? (:inner, :outer, :transfer) : (:outer,))
     removed = maximum_size - 1
     buffers = (
         shunt = _shunt_lossless(formulation.methods) ? shunt : nothing,

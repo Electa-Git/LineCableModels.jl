@@ -26,7 +26,7 @@ D=\\sqrt{(h_a+h_g)^2+y_{ij}^2}.
 Line with Earth Return,” *9th International Conference on Electromagnetic
 Compatibility*, 1994. DOI: 10.1049/cp:19940679.
 """
-description(::Formula{:Lucca1994}) = "Lucca mixed-pair homogeneous-earth impedance (1994)"
+description(::Type{<:Formula{:Lucca1994}}; compact::Bool=false) = compact ? "Lucca1994" : "Lucca mixed-pair homogeneous-earth impedance (1994)"
 
 function Γ(::Val{:Lucca1994}, jω, materials, layers)
     return zero(jω)

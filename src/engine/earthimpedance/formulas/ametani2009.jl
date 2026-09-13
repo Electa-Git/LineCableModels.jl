@@ -25,8 +25,8 @@ Conductors and Its Approximation,” *IEEE Transactions on Electromagnetic
 Compatibility*, 51, 860–867, 2009.
 DOI: 10.1109/TEMC.2009.2019953.
 """
-function description(::Formula{:Ametani2009})
-    "Ametani mixed-pair homogeneous-earth impedance (2009)"
+function description(::Type{<:Formula{:Ametani2009}}; compact::Bool=false)
+    compact ? "Ametani2009" : "Ametani mixed-pair homogeneous-earth impedance (2009)"
 end
 
 function Γ(::Val{:Ametani2009}, jω, materials, layers)

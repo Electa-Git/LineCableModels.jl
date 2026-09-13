@@ -101,11 +101,11 @@ end
 AfterFD(identifier::Symbol; kwargs...) = AfterFD(Formula(identifier; kwargs...))
 BeforeFD(identifier::Symbol; kwargs...) = BeforeFD(Formula(identifier; kwargs...))
 
-function description(sequence::AfterFD)
-    "$(description(sequence.rule)) after layerwise FrequencyDependent"
+function description(sequence::AfterFD;compact::Bool=false)
+    "$(description(sequence.rule;compact)) after layerwise FrequencyDependent"
 end
-function description(sequence::BeforeFD)
-    "$(description(sequence.rule)) before layerwise FrequencyDependent"
+function description(sequence::BeforeFD;compact::Bool=false)
+    "$(description(sequence.rule;compact)) before layerwise FrequencyDependent"
 end
 
 @inline function (formula::Formula)(
@@ -197,3 +197,24 @@ end
 function Base.NamedTuple(value::AbstractSequence)
     return (order=nameof(typeof(value)), rule=NamedTuple(value.rule))
 end
+
+# Identity-only dispatch also describes retained selections without constructors.
+import ...Grammar: formulation_options
+description(value::Formula; compact::Bool=false) = description(typeof(value); compact)
+
+"""Iterate the independently selectable child slots admitted by this formula family."""
+Base.pairs(::Type{<:Formula}; quantity=nothing) = pairs((;))
+formula_id(::Type{<:Formula{ID}}) where {ID} = ID
+formulation_options(value::Formula) = formulation_options(typeof(value), (parameters=value.parameters, hooks=value.hooks, options=value.options))
+formulation_options(::Type{<:Formula}, retained::NamedTuple) =
+    formulation_options(FormulaDefinition, retained)
+
+"""Describe an explicit equivalent-earth rule and its requested material-law order."""
+function description(::Val{:equivalent_earth},value::FormulaDefinition{ID,Order};compact::Bool=true) where {ID,Order}
+    text=description(Formula{ID};compact)
+    Order===:default || (text *= " "*string(Order)*" FrequencyDependent")
+    controls=formulation_options(value)
+    isempty(controls) || (text *= " "*description(FormulaDefinition,controls;compact))
+    return text
+end
+description(::Val{:equivalent_earth},value::AbstractSequence;compact::Bool=true) = description(value;compact)

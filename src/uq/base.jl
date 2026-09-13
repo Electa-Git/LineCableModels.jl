@@ -11,3 +11,4 @@ Base.getindex(value::MonteCarloResult, index::Integer) = value.values[index]
 Base.iterate(value::MonteCarloResult, state...) = iterate(value.values, state...)
 Base.firstindex(value::MonteCarloResult) = firstindex(value.values)
 Base.lastindex(value::MonteCarloResult) = lastindex(value.values)
+Base.eachindex(value::Union{MonteCarloResult,LinearErrorResult}) = Base.OneTo(length(value))
