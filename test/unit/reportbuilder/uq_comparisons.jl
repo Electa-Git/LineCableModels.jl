@@ -54,6 +54,37 @@
     detached_report=report(BenchmarkTableDefinition(((statistics,R,mean),);bands=(:all,)),
         (reference=(result=retained,metadata),candidate=(result=mc,metadata)))
     @test all(<(1e-14),skipmissing(detached_report.table.terms.absolute_rms))
+    # A saved table may use kHz and ohms/km while its native peer uses Hz and
+    # ohms/m. Equal column names must not silently combine different units.
+    combined=detached_report.table.statistics
+    contracts=LineCableModels.ReportBuilder.observation_columns(combined)
+    @test LineCableModels.Units.label(contracts.R.unit)=="Ω/m"
+    @test LineCableModels.Units.label(contracts.frequency.unit)=="Hz"
+    for role in (:reference,:candidate)
+        rows=filter(row -> row.role===role && row.statistic===:mean,combined)
+        @test Set(rows.frequency)==Set(f)
+        for row in eachrow(rows)
+            k=only(findall(==(row.frequency),f))
+            @test row.R≈means.R[row.row,row.column,k]
+        end
+    end
+    @test retained.columns.frequency≈f[repeat(1:length(f);inner=4)] ./ 1000
+
+    # Numerator prefixes matter too: the default statistics publication uses
+    # mH and µF. Report values, unit labels and coordinate-specific mean errors
+    # must agree without changing the retained moments.
+    physical_report=report(BenchmarkTableDefinition(
+        ((statistics,L,std),(statistics,C,mean));bands=(:all,)),(reference=mc,candidate=mc))
+    physical=physical_report.table.statistics
+    physical_contracts=LineCableModels.ReportBuilder.observation_columns(physical)
+    @test LineCableModels.Units.label(physical_contracts.L.unit)=="H/m"
+    @test LineCableModels.Units.label(physical_contracts.C.unit)=="F/m"
+    for row in eachrow(filter(row -> row.statistic in (:mean,:std),physical))
+        k=only(findall(==(row.frequency),f))
+        stat=row.statistic===:mean ? mean : std
+        @test row.L≈stat(summaries.L[row.row,row.column,k])
+        @test row.C≈stat(summaries.C[row.row,row.column,k])
+    end
 
     two=MonteCarloResult(
         mc.formulation, [core, core], [summaries, summaries], nothing, nothing,

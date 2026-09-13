@@ -104,6 +104,7 @@ end
 function tabulate(definition::BenchmarkTableDefinition, operands::NamedTuple{(:reference,:candidate)};
         labels=(reference="Reference",candidate="Candidate"))
     statistics=DataFrame()
+    statistic_frames=DataFrame[]
     sampling=DataFrame()
     mean_sampling_precision=DataFrame()
     for (role,operand) in pairs(operands)
@@ -119,7 +120,7 @@ function tabulate(definition::BenchmarkTableDefinition, operands::NamedTuple{(:r
             frame=DataFrame(result)[!,collect(selected_names)]
             frame[!,:role]=fill(role,size(frame,1))
             frame[!,:estimator]=fill(:retained_statistic,size(frame,1))
-            append!(statistics,frame;cols=:union)
+            push!(statistic_frames,frame)
             continue
         end
         result isa AbstractUncertaintyResult || continue
@@ -136,7 +137,7 @@ function tabulate(definition::BenchmarkTableDefinition, operands::NamedTuple{(:r
                 frame=DataFrame(observables(result,requests;length_unit=:base,clip=false))
                 frame[!,:role]=fill(role,size(frame,1))
                 frame[!,:estimator]=fill(result isa UQ.MonteCarloResult ? :empirical : :first_order,size(frame,1))
-                append!(statistics,frame;cols=:union)
+                push!(statistic_frames,frame)
             end
             result isa UQ.MonteCarloResult || continue
             precision=UQ.confidence(result,point)
@@ -165,6 +166,28 @@ function tabulate(definition::BenchmarkTableDefinition, operands::NamedTuple{(:r
                 end
             end
         end
+    end
+    # Appending publications can discard their metadata, and historical tables
+    # may use different prefixes. Normalize detached columns before combining
+    # them; retain units, not point-specific request/resolution metadata.
+    columns=(;)
+    for frame in statistic_frames
+        frame_basis=metadata(frame,"basis")
+        for (name,contract) in pairs(observation_columns(frame))
+            name in propertynames(frame) || continue
+            unit=Units.native_unit(contract.quantity,frame_basis)
+            column=(;contract.quantity,unit)
+            haskey(columns,name) && columns[name]!=column && throw(ArgumentError(
+                "retained statistics have inconsistent physical columns"))
+            frame[!,name]=detach(frame[!,name],Units.scale_factor(contract.unit,unit))
+            columns=merge(columns,NamedTuple{(name,)}((column,)))
+        end
+        append!(statistics,frame;cols=:union)
+    end
+    if !isempty(statistic_frames)
+        metadata!(statistics,"observation_columns",columns;style=:note)
+        metadata!(statistics,"basis",metadata(first(statistic_frames),"basis");style=:note)
+        metadata!(statistics,"row_order",metadata(first(statistic_frames),"row_order");style=:note)
     end
     return (;statistics,sampling,mean_sampling_precision)
 end
