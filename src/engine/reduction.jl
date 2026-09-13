@@ -2,11 +2,11 @@ using LinearAlgebra: axpy!
 
 function reorder_indices(map::AbstractVector{<:Integer})
     n = length(map)
-    phases = Int[]                     # encounter order of phases > 0
+    phases = Int[]                     # encounter order of active phase IDs
     firsts = Int[]
     sizehint!(firsts, n)
-    zeros = Int[]
-    sizehint!(zeros, n)
+    eliminated = Int[]                 # phase-zero conductors
+    sizehint!(eliminated, n)
     tails = Dict{Int, Vector{Int}}()   # phase => remaining indices
 
     seen = Set{Int}()
@@ -20,7 +20,7 @@ function reorder_indices(map::AbstractVector{<:Integer})
                 push!(get!(tails, p, Int[]), i)
             end
         else
-            push!(zeros, i)
+            push!(eliminated, i)
         end
     end
 
@@ -39,7 +39,7 @@ function reorder_indices(map::AbstractVector{<:Integer})
                 end
             end
         end
-        for i in zeros
+        for i in eliminated
             perm[k] = i
             k += 1
         end
@@ -70,8 +70,8 @@ M_{\\mathrm{red}} = M_{11} - M_{12}M_{22}^{-1}M_{21}.
 # Arguments
 
 - `M`: Square complex matrix.
-- `phase_map`: Phase assignment for each row and column. Zero marks an
-  eliminated conductor.
+- `phase_map`: Active-phase assignment for each row and column. Nonzero IDs
+  identify active phases; zero marks a grounded/eliminated conductor.
 
 # Returns
 
@@ -100,7 +100,8 @@ Write the Kron-reduced matrix from [`kronify`](@ref) into `Mred`.
 # Arguments
 
 - `M`: Square complex matrix.
-- `phase_map`: Phase assignment for each row and column.
+- `phase_map`: Active-phase assignment for each row and column. Nonzero IDs
+  identify active phases; zero marks a grounded/eliminated conductor.
 - `Mred`: Destination matrix.
 
 # Returns
@@ -220,9 +221,10 @@ end
 """
 $(TYPEDSIGNATURES)
 
-Apply the bundle change of basis to conductors assigned to the same positive
-phase. Phase zero denotes independent conductors selected for elimination and
-is never interpreted as a bundle identity.
+Apply the bundle change of basis to conductors assigned to the same active
+phase. A zero assignment denotes an independent conductor selected for
+grounded/eliminated-conductor reduction and is never interpreted as a bundle
+identity.
 """
 function merge_bundles!(
         matrix::AbstractMatrix{T},
@@ -295,13 +297,15 @@ frequency scans.
 - `Z_primitive`: Primitive series impedance \\[Ω/m\\], ordered by terminal.
 - `P_primitive`: Primitive inverse-admittance coefficient \\[m/S\\], ordered
   by terminal. Its inverse is shunt admittance in S/m.
-- `phase_map`: Connection assignment aligned with primitive terminal order.
+- `phase_map`: Active-phase assignment aligned with primitive terminal order.
+  Nonzero IDs identify retained phases; zero identifies a grounded/eliminated
+  conductor.
 - `options`: Normalized shared line-parameter formulation options.
 
 # Returns
 
 - A named tuple containing reduced `Z` \\[Ω/m\\], reduced `P` \\[m/S\\], and the
-  retained phase assignment.
+  retained active-phase assignment.
 """
 function reduce_primitive_matrices(
         Z_primitive::Array{Complex{T}, 3},

@@ -140,8 +140,9 @@ connections, or compose an outer transform onto a placement collection.
 # Keywords
 
 - `φ=0`: Counter-clockwise rotation \\[rad\\].
-- `connections`: Terminal connection declaration required for a completed
-  cable design.
+- `connections`: Terminal-to-active-phase declaration required for a completed
+  cable design. Use one-based active phase IDs and `0` for a grounded/eliminated
+  conductor.
 - `combine=:product`: Gridspace composition rule.
 
 # Returns

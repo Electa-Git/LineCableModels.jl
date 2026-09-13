@@ -56,6 +56,11 @@ problem = LineParametersProblem(
 parameters = compute(problem)
 ```
 
+System `phase` values are one-based active phase identifiers. They label retained
+electrical matrix coordinates and carry no voltage polarity or phase-angle
+meaning. Use `0` for a conductor selected as a grounded/eliminated conductor by
+the line-parameter reduction.
+
 System placement composes an outer transform with the design; it does not
 rewrite the design's local geometry.
 

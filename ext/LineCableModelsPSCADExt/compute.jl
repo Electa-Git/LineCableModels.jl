@@ -91,13 +91,13 @@ function _pscad_size(problem::LineParametersProblem)
         "PSCAD computation does not permit conductor elimination",
     ))
     all(>(0), assignments) || throw(ArgumentError(
-        "PSCAD computation phase assignments must be positive",
+        "PSCAD computation phase assignments must identify active phases",
     ))
     length(unique(assignments)) == length(assignments) || throw(ArgumentError(
         "PSCAD computation does not permit bundled terminals",
     ))
     sort(assignments) == collect(1:length(assignments)) || throw(ArgumentError(
-        "PSCAD computation phase assignments must be contiguous from 1",
+        "PSCAD computation active-phase assignments must be contiguous from 1",
     ))
     return (length(assignments), length(assignments), length(problem.frequencies))
 end

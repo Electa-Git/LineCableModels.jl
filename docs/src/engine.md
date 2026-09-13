@@ -881,6 +881,10 @@ The normalized named tuple is stored in `LineParametersFormulation.options`.
 `PSCADFormulation` uses the shared physical options and currently requires
 unreduced, untransposed matrices.
 
+Connection assignments use one-based active phase IDs. A zero assignment marks
+a grounded/eliminated conductor, while repeated active IDs identify conductors
+that belong to the same bundle.
+
 `Formulation()` constructs the default method bundle without a backend
 tag. `LineParametersFormulation` owns the formulation options;
 `LineCableModelsCoaxial` separately owns execution. Symbol and `Val` selectors

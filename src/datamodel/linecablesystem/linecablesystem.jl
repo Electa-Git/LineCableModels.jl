@@ -42,7 +42,7 @@ struct LineCableSystem{
     terminal_order::Vector{NamedTuple{(:cable, :terminal), Tuple{Int, Symbol}}}
     "Global terminal index for every resolved system region."
     terminal_map::Vector{Int}
-    "Connection assignments aligned with `terminal_order`."
+    "Active phase IDs aligned with `terminal_order`; zero selects a conductor for elimination."
     connection_order::Vector{Int}
 
     function LineCableSystem{T, D, P, C, E, G}(
@@ -185,7 +185,8 @@ function validate(system::LineCableSystem)
             ))
         all(>=(0), connection) || throw(DomainError(
             connection,
-            "LineCableSystem.connections[$cable_index] must be nonnegative"
+            "LineCableSystem.connections[$cable_index] must contain nonnegative " *
+            "active phase IDs or zero"
         ))
         for (local_terminal, name) in pairs(design.terminal_order)
             terminal_index += 1
@@ -398,7 +399,7 @@ function build(
         end
         all(>=(0), values) || throw(DomainError(
             values,
-            "phase assignments must be nonnegative"
+            "connection assignments must contain nonnegative active phase IDs or zero"
         ))
         push!(normalized_connections, values)
     end

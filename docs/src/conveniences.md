@@ -153,6 +153,10 @@ Formation functions return ordinary placed-cable declarations:
 placements = @trefoil design spacing=0.09 center=(0.0, -1.0) phase=(1, 2, 3) sheath=0
 ```
 
+Nonzero one-based values identify active phases; `0` marks a conductor selected
+for grounded/eliminated-conductor reduction. The values are identifiers, not
+electrical polarity or phase-angle signs.
+
 The function forms `trefoil`, `hflat`, and `vflat` accept the same data.
 `at(placements, ...)` composes an outer translation and rotation without
 copying the cable designs.

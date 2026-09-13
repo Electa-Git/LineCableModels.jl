@@ -54,13 +54,13 @@ function validate(problem::LineParametersProblem)
     DataModel.clearance_geometry(problem.system.designs, problem.system.positions;
         required = problem.system.clearances, interface = true, adjust = false)
     phases = unique(problem.system.connection_order)
-    positive = filter(>(0), phases)
-    isempty(positive) && throw(ArgumentError(
-        "at least one conductor must be assigned to a positive phase",
+    active = filter(>(0), phases)
+    isempty(active) && throw(ArgumentError(
+        "at least one conductor must be assigned to an active phase",
     ))
-    maximum(positive) <= nphases(problem.system) || throw(DomainError(
-        positive,
-        "a phase assignment exceeds the number of distinct positive phases"
+    maximum(active) <= nphases(problem.system) || throw(DomainError(
+        active,
+        "an active-phase assignment exceeds the number of distinct active phases"
     ))
     isfinite(problem.temperature) || throw(DomainError(problem.temperature,
         "operating temperature must be finite"))
@@ -148,7 +148,8 @@ placements.
 
 # Keywords
 
-- `connections`: Terminal-to-phase declarations.
+- `connections`: Terminal-to-active-phase declarations; use one-based active
+  phase IDs and `0` for grounded/eliminated conductors.
 - `environment`: Optional physical environment declaration.
 - `system_id`: Stable system identifier.
 - `line_length`: Physical line length in meters.

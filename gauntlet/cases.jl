@@ -568,7 +568,7 @@ function _validate_loaded_problem(
         "case :$(definition.id) may not eliminate a declared terminal",
     ))
     sort(assignments) == collect(1:length(assignments)) || throw(ArgumentError(
-        "case :$(definition.id) phase assignments must be contiguous from one",
+        "case :$(definition.id) active-phase assignments must be contiguous from one",
     ))
     length(unique(assignments)) == length(assignments) || throw(ArgumentError(
         "case :$(definition.id) may not bundle declared terminals",

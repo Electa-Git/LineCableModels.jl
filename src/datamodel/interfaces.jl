@@ -4,7 +4,7 @@ Return the number of cable positions in a line-cable system.
 function ncables end
 
 """
-Return the number of distinct positive phases in a line-cable system.
+Return the number of distinct active phases in a line-cable system.
 """
 function nphases end
 

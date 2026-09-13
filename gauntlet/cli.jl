@@ -65,10 +65,10 @@ function port_order(problem)
         "system terminal and connection orders differ",
     ))
     any(iszero, assignments) && throw(ArgumentError(
-        "Gauntlet cases require every declared terminal to have a positive phase",
+        "Gauntlet cases require every declared terminal to have an active phase",
     ))
     sort(assignments) == collect(1:length(assignments)) || throw(ArgumentError(
-        "Gauntlet phase assignments must be unique and contiguous from one",
+        "Gauntlet active-phase assignments must be unique and contiguous from one",
     ))
     ports = Vector{String}(undef, length(assignments))
     for (terminal, phase) in zip(terminals, assignments)
@@ -206,7 +206,7 @@ function summary_rows(model)
     return NamedTuple[
         (property = "Cables", value = string(length(system.designs))),
         (property = "Terminals", value = string(length(system.terminal_order))),
-        (property = "Positive phases", value = string(LineCableModels.nphases(system))),
+        (property = "Active phases", value = string(LineCableModels.nphases(system))),
         (property = "Line length [m]", value = string(system.line_length)),
         (property = "Temperature [°C]", value = string(problem.temperature)),
         (property = "Frequencies", value = string(length(frequencies))),

@@ -370,8 +370,8 @@ earth_params
 !!! note "Phase mapping"
     Each connection mapping uses retained terminal names from `terminal_order`.
     Core assignments `1`, `2`, and `3` select phases A, B, and C. A zero
-    assignment marks a terminal for Kron elimination. Reusing one positive
-    assignment bundles terminals.
+    assignment marks a terminal for grounded/eliminated-conductor reduction.
+    Reusing one active assignment bundles terminals.
 =#
 
 #=
