@@ -411,6 +411,72 @@ makedocs(;
     ),
     pages = [
         "Home" => "index.md",
+        "Theory" => Any[
+            "Contents" => "theory/contents.md",
+            "Matrix formulation" => "theory/matrix_formulation.md",
+            "Modal decomposition" => Any[
+                "Overview" => "theory/modal_decomposition.md",
+                "Default modal decomposition and eigenvalue tracking" =>
+                    "theory/modal-decomposition/default.md"
+            ],
+            "Earth properties" => Any[
+                "Overview" => "theory/earth_properties.md",
+                "Default frequency-dependent earth material" =>
+                    "theory/earth-properties/frequency-dependent/default.md",
+                "Default equivalent homogeneous-earth rule" =>
+                    "theory/earth-properties/equivalent-homogeneous/default.md"
+            ],
+            "Earth return admittance" => Any[
+                "Overview" => "theory/earth_return_admittance.md",
+                "Default two-half-space earth-return admittance" =>
+                    "theory/external-admittance/default.md",
+                "Pollaczek underground earth-return admittance" =>
+                    "theory/external-admittance/1926/homogeneous-earth-generalized-induction-green-function/Pollaczek1926.md",
+                "Wise homogeneous-earth overhead potential coefficient" =>
+                    "theory/external-admittance/1948/homogeneous-earth-overhead-potential-coefficient/Wise1948.md",
+                "Xue underground earth-return admittance" =>
+                    "theory/external-admittance/2018/complete-field-and-quasi-tem-underground/Xue2018.md"
+            ],
+            "Earth return impedance" => Any[
+                "Overview" => "theory/earth_return_impedance.md",
+                "Default two-half-space earth-return impedance" =>
+                    "theory/external-impedance/default.md",
+                "Carson homogeneous-earth overhead correction integral" =>
+                    "theory/external-impedance/1926/homogeneous-earth-overhead-integral/Carson1926.md",
+                "Gary complex-depth overhead approximation" =>
+                    "theory/external-impedance/1976/complex-depth-overhead/Gary1976.md",
+                "Lucca mixed-pair homogeneous-earth impedance" =>
+                    "theory/external-impedance/1994/mixed-pair/Lucca1994.md",
+                "Pollaczek generalized induction coefficients" =>
+                    "theory/external-impedance/1926/homogeneous-earth-generalized-induction-green-function/Pollaczek1926.md",
+                "Saad homogeneous-earth underground closed form" =>
+                    "theory/external-impedance/1996/homogeneous-earth-underground-closed-form/Saad1996.md",
+                "Wise high-frequency overhead displacement-current integral" =>
+                    "theory/external-impedance/1934/homogeneous-earth-overhead-displacement-current-integral/Wise1934.md",
+                "Wedepohl–Wilcox underground low-order impedance" =>
+                    "theory/external-impedance/1973/wedepohl-wilcox-low-order/WedepohlWilcox1973.md",
+                "Xue underground earth-return impedance" =>
+                    "theory/external-impedance/2018/complete-field-and-quasi-tem-underground/Xue2018.md",
+                "Ametani mixed-pair exponential-image approximation" =>
+                    "theory/external-impedance/2009/homogeneous-earth-mixed-exponential-image/Ametani2009.md"
+            ],
+            "Insulation parameters" => Any[
+                "Overview" => "theory/insulation_parameters.md",
+                "Default lossless cable-insulation admittivity" =>
+                    "theory/insulation-admittance/default.md",
+                "Ametani–Miyamoto–Nagaoka semiconducting-screen admittance" =>
+                    "theory/insulation-admittance/2004/semiconducting-screen-complex-permittivity/Ametani2004.md",
+                "Default coaxial-insulation magnetic series impedance" =>
+                    "theory/insulation-impedance/default.md"
+            ],
+            "Internal impedance" => Any[
+                "Overview" => "theory/internal_impedance.md",
+                "Default cylindrical-conductor surface impedances" =>
+                    "theory/internal-impedance/default.md",
+                "Default analytical pipe-type treatment" =>
+                    "theory/internal-impedance/pipe-default.md"
+            ]
+        ],
         "Tutorials" => Any["Contents" => "tutorials.md", tutorials...],
         "User guide" => Any[
             "Cable data model" => "data-model.md",
