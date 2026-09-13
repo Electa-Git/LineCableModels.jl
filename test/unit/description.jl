@@ -25,14 +25,14 @@
         @test description(typeof(value))==description(value)
     end
     @test description([MonteCarlo(normal),LinearError(normal)];
-        roles=[:reference,:candidate],indices=[0,1])==["Reference · Monte Carlo","F1 · LEP"]
+        roles=[:reference,:candidate])==["Reference · Monte Carlo","LEP"]
 
     f=[0.1,50.,100.,1e3,1e6,1e7]
     z=reshape(complex.(collect(1.:24.),collect(101.:124.)),2,2,6)
     y=reshape(complex.(collect(201.:224.),collect(301.:324.)),2,2,6)*1e-6
     ports=["a","b"]
     ref=LineParameters(z,y,f;details=(coordinates=ports,formulations=NamedTuple(LineCableModelsFEM()),))
-    points=[LineParameters(scale*z,scale*y,f;details=(coordinates=ports,)) for scale in (1.1,1.2,1.3)]
+    points=[LineParameters(scale*z,y,f;details=(coordinates=ports,)) for scale in (1.1,1.2,1.3)]
     candidates=ParametricResult(nothing,points,(problems=[:one],formulations=choices),(;))
     source=(reference=ref,candidate=candidates)
     result=report(BenchmarkTableDefinition((R,X,G,B);bands=(:all,:dc,:harmonic,:narrow,:wide)),source)
@@ -42,8 +42,8 @@
     @test count(contains("Test-owned explanation"),result.table.formula_details.selection)==2
     @test length(result.published.candidate.metadata.formulation_sources)==3
     @test result.published.candidate.metadata.formulation_sources[1]===choices[1]
-    @test description(choices[[3,1]];indices=[3,1],quantity=R)==
-        ["F3 · earth Z=default","F1 · earth Z=Display-TestAlpha"]
+    @test description(choices[[3,1]];quantity=R)==
+        ["earth Z=default","earth Z=Display-TestAlpha"]
     @test all(feature -> !occursin("earth Y",join(feature.relative.formula)),
         filter(feature -> feature.quantity in (:R,:X),result.table.features))
 
@@ -57,8 +57,8 @@
     saved_pair=[IO.deserialize_value(Val(:formulation),NamedTuple(method)) for method in
         (MonteCarlo(normal),LinearError(normal))]
     # Ordinary collection promotion must not erase a retained method's owner.
-    @test description(saved_pair;roles=[:reference,:candidate],indices=[0,1])==
-        ["Reference · Monte Carlo","F1 · LEP"]
+    @test description(saved_pair;roles=[:reference,:candidate])==
+        ["Reference · Monte Carlo","LEP"]
     for order in (:before,:after)
         native=Formulation(earth_impedance=formula(:Carson1926;
             equivalent_earth=formula(:default;order)))
@@ -162,4 +162,40 @@
         @test row.maximum_absolute_rms==largest.absolute_rms
     end
     @test occursin("Per-term RMS maxima",sprint(show,MIME"text/plain"(),result))
+end
+
+@testitem "Descriptions / quantity identities ignore unrelated slots and retain composite controls" tags=[:unit] begin
+    IO=LineCableModels.ImportExport
+    a=Formulation(earth_impedance=:Saad1996)
+    b=Formulation(earth_impedance=:Xue2018)
+    @test formula_id(a,Y)==formula_id(b,Y)
+    @test formula_id(a,Z)!=formula_id(b,Z)
+    @test formula_id(a,nothing)!=formula_id(b,nothing)
+    for source in (a,b,MonteCarlo(a),LinearError(a),LineCableModelsFEM(),Formulation(:pscad))
+        saved=IO.deserialize_value(Val(:formulation),NamedTuple(source))
+        for quantity in (nothing,R,B)
+            @test formula_id(source,quantity)==formula_id(saved,quantity)
+        end
+    end
+    routed=Formulation(earth_impedance=(air=:default,earth=:default,mixed=:Xue2018))
+    other=Formulation(earth_impedance=(air=:default,earth=:default,mixed=:Lucca1994))
+    @test formula_id(routed,R)!=formula_id(other,R)
+    @test formula_id(routed,B)==formula_id(other,B)
+    hook=(args...)->error("inspection must not execute a transfer override")
+    LineCableModels.computation_options(::LineCableModels.FormulaMethod{:default,
+        typeof(LineCableModels.Engine.InternalImpedance.internal_impedance),Tuple{Val{:transfer}}},
+        ::typeof(hook))=(;)
+    internal=Formulation(internal_impedance=(inner=:default,outer=:default,
+        transfer=formula(:default;hooks=(transfer=hook,))))
+    @test formula_id(internal,R)!=formula_id(Formulation(),R)
+    @test formula_id(internal,Y)==formula_id(Formulation(),Y)
+    overridden=Formulation(earth_admittance=formula(:default;parameters=(reference=:interface,)))
+    @test formula_id(overridden,Y)!=formula_id(Formulation(),Y)
+    @test formula_id(overridden,Z)==formula_id(Formulation(),Z)
+    @test formula_id(MonteCarlo(a),Y)!=formula_id(LinearError(a),Y)
+    @test ismissing(formula_id(missing,Y))
+    incomplete=IO.deserialize_value(Val(:formulation),
+        (backend=:coaxial,requested=(earth_admittance=(identifier=:default,),)))
+    @test ismissing(formula_id(incomplete,Y))
+    @test description([Formulation()];quantity=Y)==["default"]
 end

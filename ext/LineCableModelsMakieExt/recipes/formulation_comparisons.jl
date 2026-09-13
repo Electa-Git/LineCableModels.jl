@@ -1,27 +1,18 @@
 import LineCableModels.ReportBuilder: ReportArtifact, select
 
 # Styles consume owner-scoped identifiers, not serialized field layouts.
-function _addon_default_formulations(sources)
-    identifiers=[Dict(scope=>LineCableModels.formula_id(value) for (scope,value) in pairs((source isa Pair ? Tuple(source) : (source,))...)
-        if !isempty(last(scope))) for source in sources if !ismissing(source)]
-    length(identifiers)==length(sources) || return fill(false,length(sources))
-    scopes=unique([scope for entries in identifiers for scope in keys(entries)])
-    varying=filter(scope -> !all(entries -> isequal(get(entries,scope,missing),
-        get(first(identifiers),scope,missing)),identifiers),scopes)
-    considered=isempty(varying) ? scopes : varying
-    return [!isempty(considered) && all(scope -> get(entries,scope,missing)===:default,considered)
-        for entries in identifiers]
-end
-
-function _addon_candidate_style_indices(defaults)
-    first_default = findfirst(defaults)
-    return [2 * (first_default === nothing ? index : index == first_default ? 1 :
-        index == 1 ? first_default : index) for index in eachindex(defaults)]
+function _addon_default_formulations(sources;quantity=nothing)
+    return map(sources) do source
+        ismissing(source) && return false
+        identifiers=[LineCableModels.formula_id(value) for (scope,value) in
+            pairs((source isa Pair ? Tuple(source) : (source,))...;quantity) if !isempty(last(scope))]
+        !isempty(identifiers) && all(id -> id===:default,identifiers)
+    end
 end
 
 """
-Plot completed formulation results for an explicitly selected problem. All
-formulations are overlaid by default; filtering retains original labels/colors.
+Plot completed formulation results for an explicitly selected problem. Unique
+quantity-relevant formulations are overlaid; filtering retains source order/colors.
 A scalar reference is drawn once. No solve or comparison is performed.
 """
 function plot(results::LineCableModels.ParametricResult, selection=nothing;
@@ -44,16 +35,15 @@ function plot(results::LineCableModels.ParametricResult, selection=nothing;
     labels=LineCableModels.description(records)
     family_labels=Dict(family => LineCableModels.description(records;quantity)
         for (family,quantity) in ((Val(:series),LineCableModels.Z),(Val(:shunt),LineCableModels.Y)))
-    defaults=_addon_default_formulations(records)
-    catalogue_styles=_addon_candidate_style_indices(defaults)
     built=LineCableModels.UIPlot[]
     for p in problems
         sources=Tuple(results[p,index] for index in indices)
         names=Tuple(labels[index] for index in indices)
         page_labels=Dict(family => Tuple(values[index] for index in indices)
             for (family,values) in family_labels)
-        styles=Tuple(catalogue_styles[index] for index in indices)
-        roles=Tuple(defaults[index] ? :default : :alternative for index in indices)
+        styles=Tuple(index+1 for index in indices)
+        displayed_records=records[indices]
+        roles=fill(:candidate,length(indices))
         if reference !== nothing
             reference isa LineCableModels.LineParameters || throw(ArgumentError("reference must be a scalar LineParameters result"))
             sources=(reference,sources...)
@@ -61,21 +51,21 @@ function plot(results::LineCableModels.ParametricResult, selection=nothing;
                 get(LineCableModels.details(reference),:formulations,(;)))
             all_sources=Any[reference_record;records]
             label_roles=[:reference;fill(:candidate,length(records))]
-            label_indices=[0;collect(eachindex(records))]
-            all_labels=LineCableModels.description(all_sources;roles=label_roles,indices=label_indices)
+            all_labels=LineCableModels.description(all_sources;roles=label_roles)
             names=Tuple(all_labels[[1;indices.+1]])
             page_labels=Dict(family => Tuple(LineCableModels.description(all_sources;
-                roles=label_roles,indices=label_indices,quantity)[[1;indices.+1]])
+                roles=label_roles,quantity)[[1;indices.+1]])
                 for (family,quantity) in ((Val(:series),LineCableModels.Z),(Val(:shunt),LineCableModels.Y)))
             styles=(1,styles...)
-            roles=(:reference,roles...)
+            roles=[:reference;roles]
+            displayed_records=Any[reference_record;displayed_records]
         end
         all(value -> value isa LineCableModels.LineParameters,sources) || throw(ArgumentError("matrix-curve overlays require line-parameter results"))
         normalized=_line_plot_ydata(first(sources),selected_ydata)
         pages=_addon_line_pages(sources; ydata=normalized, series_labels=series_labels === nothing ? names : series_labels,
             series_family_labels=series_labels === nothing ? page_labels : nothing,
             series_indices=styles,xscale=_scale_symbol(xscale),yscale=_scale_symbol(yscale),clip,
-            series_defaults=_addon_comparison_styles(styles,roles,2length(records)),
+            formulation_sources=displayed_records,formulation_roles=roles,
             legend_position,legend_overflow,legend_attributes,
             signed_ylog=true,kwargs...)
         for page in (pages isa LineCableModels.UIPlot ? (pages,) : pages)
@@ -125,16 +115,13 @@ function plot(published::NamedTuple{(:reference,:candidate,:context,:settings,:c
         reference isa LineCableModels.AbstractUncertaintyResult ? length(reference) : 1
     all_sources=Any[reference_records...;records...]
     label_roles=vcat(fill(:reference,length(reference_records)),fill(:candidate,length(records)))
-    label_indices=vcat(zeros(Int,length(reference_records)),collect(eachindex(records)))
-    combined=LineCableModels.description(all_sources;roles=label_roles,indices=label_indices)
+    combined=LineCableModels.description(all_sources;roles=label_roles)
     reference_labels=combined[1:length(reference_records)]
     labels=combined[length(reference_records)+1:end]
     family_labels=Dict(family => let
-        values=LineCableModels.description(all_sources;roles=label_roles,indices=label_indices,quantity)
+        values=LineCableModels.description(all_sources;roles=label_roles,quantity)
         (reference=values[1:length(reference_records)],candidate=values[length(reference_records)+1:end])
     end for (family,quantity) in ((Val(:series),LineCableModels.Z),(Val(:shunt),LineCableModels.Y)))
-    defaults=_addon_default_formulations(records)
-    catalogue_styles=_addon_candidate_style_indices(defaults)
     built=LineCableModels.UIPlot[]
     for p in problems
         points=[p+(f-1)*nproblems for f in indices]
@@ -142,7 +129,7 @@ function plot(published::NamedTuple{(:reference,:candidate,:context,:settings,:c
         isempty(selected) && throw(ArgumentError("no retained comparisons match the selection"))
         refs=unique(first.(selected))
         candidates=[point for point in points if any(entry -> last(entry)==point,selected)]
-        # Equal numerical curves are distinct declared selections, never set elements.
+        # Raw points remain intact; each quantity page selects its unique formulas.
         sources=Tuple(vcat([select(reference,i) for i in refs],[select(candidate,i) for i in candidates]))
         all(value -> value isa Union{LineCableModels.LineParameters,ObservationPublication},sources) || throw(ArgumentError("matrix-curve overlays require retained matrix coordinates"))
         names=Tuple(vcat([reference_labels[cld(i,reference_problems)] for i in refs],[labels[cld(i,nproblems)] for i in candidates]))
@@ -150,10 +137,12 @@ function plot(published::NamedTuple{(:reference,:candidate,:context,:settings,:c
             [values.reference[cld(i,reference_problems)] for i in refs],
             [values.candidate[cld(i,nproblems)] for i in candidates]))
             for (family,values) in family_labels)
-        styles=Tuple(vcat([2cld(i,reference_problems)-1 for i in refs],
-            [catalogue_styles[cld(i,nproblems)] for i in candidates]))
+        styles=Tuple(vcat([cld(i,reference_problems) for i in refs],
+            [length(reference_records)+cld(i,nproblems) for i in candidates]))
         roles=Tuple(vcat(fill(:reference,length(refs)),
-            [defaults[cld(i,nproblems)] ? :default : :alternative for i in candidates]))
+            fill(:candidate,length(candidates))))
+        displayed_records=Any[[reference_records[cld(i,reference_problems)] for i in refs]...;
+            [records[cld(i,nproblems)] for i in candidates]...]
         if band !== nothing && !isuQ
             sources=map(sources, vcat([(:reference,i) for i in refs],[(:candidate,i) for i in candidates])) do value,entry
                 role,index=entry
@@ -192,7 +181,7 @@ function plot(published::NamedTuple{(:reference,:candidate,:context,:settings,:c
         pages=_addon_line_pages(sources;publications=prepared,ydata=normalized,series_labels=series_labels === nothing ? names : series_labels,
             series_family_labels=series_labels === nothing ? page_labels : nothing,
             series_indices=styles,xscale=_scale_symbol(xscale),yscale=_scale_symbol(yscale),clip,atol,
-            series_defaults=_addon_comparison_styles(styles,roles,2max(length(records),length(reference_records))),
+            formulation_sources=displayed_records,formulation_roles=roles,
             legend_position,legend_overflow,legend_attributes,
             signed_ylog=true,kwargs...)
         for page in (pages isa LineCableModels.UIPlot ? (pages,) : pages)

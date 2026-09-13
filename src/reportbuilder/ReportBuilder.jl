@@ -26,7 +26,8 @@ import ..Engine
 import ..Engine: domain
 import ..ParametricBuilder: ParametricResult
 import ..Grammar: AbstractCoreResult, AbstractUncertaintyResult, details, observe, detach,
-                  request_identity, request_quantity, request_indices, observation_request
+                  request_identity, request_quantity, request_indices, observation_request,
+                  materialize_observation
 import ..LineCableModels: validate, description, formula_id
 import ..LineCableModels
 import ..PlotBuilder

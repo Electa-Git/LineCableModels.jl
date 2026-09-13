@@ -164,28 +164,28 @@ Label ordered formulation selections without interpreting their representation.
 # Keywords
 
 - `roles`: One `:reference`, `:candidate`, or `:none` role per source.
-- `indices`: Original candidate indices; references consume no candidate index.
 - `quantity`: Physical quantity selected through the observation grammar, or
   `nothing` for all equation choices.
 - `compact=true`: Use the short owned names for both root and child selections.
 
 # Returns
 
-- One text label per source, in input order. Equal selections remain separate.
+- One text label per source, in input order, without candidate numbering.
+  Consumers select unique quantity-relevant formulations before presentation.
 
 # Notes
 
 Owners expose native children through `pairs(source; quantity)` and retained
 children through `pairs(owner, record; quantity)`, scoped
 identity through `formula_id`, controls through `formulation_options`, and
-text through `description`. This formatter only decides common-field omission,
-role prefixes and numbering. Unsupported owner methods are not caught.
+text through `description`. This formatter only decides common-field omission
+and reference prefixes. Unsupported owner methods are not caught.
 """
 function description(sources::AbstractVector;
-        roles=fill(:candidate,length(sources)), indices=collect(eachindex(sources)),
+        roles=fill(:candidate,length(sources)),
         quantity=nothing, compact::Bool=true)
-    length(indices)==length(roles)==length(sources) ||
-        throw(DimensionMismatch("one role and index are required per formulation"))
+    length(roles)==length(sources) ||
+        throw(DimensionMismatch("one role is required per formulation"))
     all(in((:reference,:candidate,:none)),roles) ||
         throw(ArgumentError("description roles must be reference, candidate, or none"))
     isempty(sources) && return String[]
@@ -204,8 +204,7 @@ function description(sources::AbstractVector;
     candidate_owners=unique(first(ids) for ids in identities[candidates] if !isempty(ids))
     inner_owners=unique(last(ids) for ids in identities if length(ids)>1)
     return map(eachindex(sources)) do index
-        prefix=roles[index]===:reference ? "Reference" :
-            roles[index]===:candidate ? "F$(indices[index])" : ""
+        prefix=roles[index]===:reference ? "Reference" : ""
         parts=String[]
         for (scope,value) in selections[index]
             if isempty(last(scope))
@@ -231,7 +230,11 @@ function description(sources::AbstractVector;
                     push!(parts,description(scope,value;compact))
             end
         end
-        isempty(parts) && ismissing(sources[index]) && push!(parts,description(missing;compact))
+        if isempty(parts)
+            unavailable=ismissing(sources[index]) ||
+                any(entry -> ismissing(formula_id(last(entry))),selections[index])
+            push!(parts,unavailable ? description(missing;compact) : "default")
+        end
         text=join(parts,"; ")
         isempty(prefix) ? text : isempty(text) ? prefix : prefix*" · "*text
     end

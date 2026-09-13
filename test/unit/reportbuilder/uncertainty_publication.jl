@@ -107,7 +107,7 @@
     definition=RB.BenchmarkTableDefinition(((statistics,R,mean),(statistics,R,std),(statistics,B,mean)))
     artifact=RB.report(definition,(reference=(result=source,metadata=metadata),candidate=(result=source,metadata=metadata)))
     @test length(artifact.table.features) == 3
-    @test names(first(artifact.table.features).relative) == ["formulation_index","formula","all","dc","harmonic","narrow","wide"]
+    @test names(first(artifact.table.features).relative) == ["formula","all","dc","harmonic","narrow","wide"]
     @test size(artifact.table.sampling,1) == 2
     @test all(iszero,skipmissing(artifact.table.terms.relative_rms_percent))
     # Coordinate-specific precision must select std, not mean or another entry.

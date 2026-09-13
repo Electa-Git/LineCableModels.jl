@@ -105,9 +105,9 @@
 # export_svg(first(plots); path="impedance.svg", open_file=false)
 # ```
 #
-# All selected formulations and the reference appear in each corresponding matrix
-# cell, including both off-diagonals. Z gives R/X pages; Y gives G/B pages. Original
-# formulation indices, complete selections and colors survive filtering and reload.
+# The reference and unique quantity-relevant candidates appear in each matrix
+# cell, including both off-diagonals. Z gives R/X pages; Y gives G/B pages.
+# Complete saved selections and source colors survive filtering and reload.
 # Multiple problem points require an explicit `problem` selection. Equal numerical
 # curves remain separate formulation choices. UQ mean/std errors remain separate
 # statistics, with the same selectable frequency bands and physical resolution as
@@ -119,13 +119,15 @@
 # recorded measurements, never new benchmark runs triggered by a report.
 #
 # Backend and method names come from owned `description` methods. References are
-# labelled `Reference · fem`, `Reference · PSCAD`, or `Reference · MonteCarlo`;
-# only candidates receive F indices, for example `F1 · LinearError`. Common coaxial
+# labelled `Reference · FEM`, `Reference · PSCAD`, or `Reference · Monte Carlo`;
+# candidate labels are unnumbered, for example `LEP`. Common coaxial
 # identity is omitted. Quantity-specific legends show the applicable equation
 # choices; `formulations` lists labels and `formula_details` supplies scientific
 # explanations. Complete declarations remain in the published operand metadata.
-# Filtering preserves original F indices, including reordered subsets such as
-# `formulations=[3,1]`; it never merges equal curves or equal descriptions.
+# `formulations=[3,1]` selects stored array positions before deduplication.
+# Repeated quantity-relevant selections share one curve and feature-table row;
+# every relevant route and control participates in equality, not the label or
+# numerical curve. Conflicting repeated observations raise an error.
 #
 # `sampling` contains scalar MC counts and CDF bounds. `mean_sampling_precision`
 # contains one numeric standard error per quantity, point, terminal pair and

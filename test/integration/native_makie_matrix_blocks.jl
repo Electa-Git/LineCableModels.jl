@@ -94,7 +94,7 @@ end
     frequency = 10.0 .^ range(-1,7; length=101)
     z = reshape(complex.(1 .+ log10.(frequency.+1), frequency.*1e-4),1,1,:)
     reference = LineParameters(z,z.*1e-6,frequency)
-    records = [(backend=:coaxial, requested=(earth_impedance=(identifier=id,),))
+    records = [NamedTuple(Formulation(earth_impedance=id))
         for id in (:Xue2018,:default,:Pollaczek1926,:Saad1996,:WedepohlWilcox1973)]
     result = ParametricResult(nothing,fill(reference,5),
         (problems=[:one],formulations=records),(;))
@@ -110,7 +110,7 @@ end
     @test all(curve -> curve[1][] == first(curves)[1][],curves)
     @test allunique([curve.color[] for curve in curves])
     @test first(markers).marker[] == Makie.to_spritemarker(:circle)
-    @test markers[3].marker[] == Makie.to_spritemarker(:utriangle) # default is not F1
+    @test markers[3].marker[] == Makie.to_spritemarker(:utriangle) # default is not the first candidate
     @test Makie.alpha(first(markers).color[]) == 0
     @test all(marker -> 1 <= length(marker[1][]) < length(frequency),markers)
     @test all(marker -> all(point -> point in first(curves)[1][],marker[1][]),markers)

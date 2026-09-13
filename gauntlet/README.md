@@ -239,14 +239,18 @@ Explicitly requesting one problem overlays its reference and every candidate in
 each matrix cell, including both off-diagonals. `Z` gives R/X pages and `Y` gives
 G/B pages. `(R, L, G, C)` requests those quantities directly. Multiple problems
 require `problem=2` or an explicit list; each receives its own pages. Formula
-filtering preserves original indices and colors. Equal curves remain separate
-selections. Scalar and air/earth/mixed choices, parameters, hooks and numerical
+filtering selects stored array positions and preserves source colors. Candidates
+with the same quantity-relevant selection share one curve and feature-table row;
+different formulas remain separate even when their curves agree. Scalar and
+air/earth/mixed choices, parameters, hooks and numerical
 options remain in the full published operand metadata. `tables.formulations`
 contains readable labels; `tables.formula_details` contains owner-dispatched
 scientific explanations. Legends use only the choices relevant to the plotted
-quantity. References are named `Reference · fem`, `Reference · PSCAD`, or
-`Reference · MonteCarlo`; only candidates receive F indices, such as
-`F1 · LinearError`. Reordering with `formulations=[3,1]` preserves those identities.
+quantity. References are named `Reference · FEM`, `Reference · PSCAD`, or
+`Reference · Monte Carlo`; candidate labels have no numbering, for example `LEP`.
+Every relevant route and control participates in equality; descriptions do not.
+Reordering with `formulations=[3,1]` applies before deduplication. Conflicting
+observations under the same selection raise an error; saved results stay intact.
 
 For UQ, mean and standard-deviation comparisons have separate band tables.
 `tables.sampling` contains scalar trial counts and CDF precision, while

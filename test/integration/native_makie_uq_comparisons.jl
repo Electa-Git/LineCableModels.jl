@@ -71,7 +71,7 @@
         ydata=((statistics,R,mean,2,Colon(),Colon(),Colon()),),
         display_plot=false,controls=false,open_export=false)
     # Check the real composed output, not a retired private projection helper.
-    @test Set(Base.values(first(pages).addon_state.labels))==Set(("Reference · Monte Carlo","F1 · LEP"))
+    @test Set(Base.values(first(pages).addon_state.labels))==Set(("Reference · Monte Carlo","LEP"))
     @test all(label -> !occursin("earth Y",label),Base.values(first(pages).addon_state.labels))
 
     # Composite children remain visible even when all candidates share them.
@@ -93,7 +93,7 @@
             "internal Z(inner)=default; internal Z(outer)=default; internal Z(transfer)=default; earth Z(air)=default; earth Z(earth)=Pollaczek1926; earth Z(mixed)=default" :
             "earth Y(air)=default; earth Y(earth)=default; earth Y(mixed)=default"
         names=[page.addon_state.labels[group] for group in page.addon_state.order]
-        @test names==["Reference · Monte Carlo; "*suffix,"F1 · LEP; "*suffix]
+        @test names==["Reference · Monte Carlo; "*suffix,"LEP; "*suffix]
         expected=observe(reference,statistics,request[2],request[3],1)
         for ((i,j),panel) in pairs(page.addon_state.panel_data)
             curves=filter(item->item isa Makie.Lines,panel.axis.scene.plots)

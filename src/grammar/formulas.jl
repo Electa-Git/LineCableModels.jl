@@ -63,6 +63,21 @@ formulation_options(::Missing) = (;)
 formula_id(source::Pair{<:AbstractFormulation,<:NamedTuple}) = formula_id(first(source))
 description(source::Pair{<:AbstractFormulation,<:NamedTuple}; compact::Bool=false) = description(first(source);compact)
 
+"""
+$(TYPEDSIGNATURES)
+
+Return the ordered, owner-scoped formula selections and controls relevant to
+`quantity`. Pass `nothing` to retain the complete formulation. Native and saved
+formulations use the same owning `pairs` methods; descriptions are not identities.
+Return `missing` if any selected identity is unavailable. No formula is evaluated.
+"""
+function formula_id(source::Union{AbstractFormulation,Pair{<:Type,<:NamedTuple}}, quantity)
+    selections = Tuple((scope, formula_id(value), formulation_options(value))
+        for (scope, value) in pairs((source isa Pair ? Tuple(source) : (source,))...; quantity))
+    return any(selection -> ismissing(selection[2]), selections) ? missing : selections
+end
+formula_id(::Missing, quantity) = missing
+
 """Describe a formulation's composition for one existing physical request."""
 description(source::AbstractFormulation,request;compact::Bool=true) =
     only(description([source];roles=[:none],quantity=request,compact))

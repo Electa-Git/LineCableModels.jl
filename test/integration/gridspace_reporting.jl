@@ -19,7 +19,11 @@
     @test definition.settings.bands == (:all,:dc,:harmonic,:narrow,:wide)
     artifact=report(definition,(;reference,candidate=candidates))
     @test artifact.illustration === nothing
-    @test nrow(artifact.table.maxima)==60
+    @test nrow(artifact.table.maxima)==45
+    # The three shunt quantities share one candidate; numerical records for
+    # both completed calculations remain available to the saved-result writer.
+    @test length(metadata(artifact.table.maxima,"comparison_records"))==60
+    @test nrow(artifact.table.comparisons)==60
     @test nrow(artifact.table.summary)==10
     @test Set(artifact.table.terms.formulation_index)==Set((1,2))
     @test Set(zip(artifact.table.terms.row,artifact.table.terms.column)) ==

@@ -114,18 +114,20 @@ Use `series_attributes=(marker=nothing,)` for lines only, or an explicit native
 `marker` for all-sample placement. References remain comparison operands, not
 declarations of physical truth.
 
-Formulation legends show only the equation choices for the plotted family:
-impedance choices on Z/R/L/X pages, admittance choices on Y/G/C/B pages. Shared
-controls remain visible when they vary. Repeated default choices retain separate
-catalogue entries and curves; explicit `series_labels` remain unchanged.
-Names come from the same owner-dispatched `description` methods as report
-tables: `Reference · fem`, `Reference · PSCAD`, `Reference · MonteCarlo`, and
-candidate labels such as `F1 · LinearError`. References consume no F index.
-Filtering with `formulations=[3,1]` keeps those original candidate numbers
-and styles. Shared coaxial identity is omitted; differing inner backends,
-equation routes and physical settings remain distinguishable. Full scientific
-explanations and common settings are available in the report's
-`formula_details` table, not reconstructed by the plotting backend.
+Formulation legends and formula-by-band tables retain one candidate per unique
+quantity-relevant selection: impedance choices on Z/R/L/X pages, admittance
+choices on Y/G/C/B pages. Different Z selections paired with the same Y selection
+therefore share one Y candidate. Every relevant composite route and its controls
+participates in this comparison; equal curves or equal descriptions alone never
+merge different selections. Conflicting observations under the same selection
+raise an error instead of silently discarding data. Saved results remain intact.
+Names come from the same owner-dispatched `description` methods as report tables:
+`Reference · FEM`, `Reference · PSCAD`, `Reference · Monte Carlo`, and candidates
+such as `LEP` or `earth Z=Saad1996`, without candidate numbering.
+`formulations=[3,1]` selects stored array positions before deduplication, preserving
+order and colors. Explicit `series_labels` and styles follow the retained source;
+they do not create new formula identities. Shared coaxial identity is omitted.
+Full scientific explanations and common settings remain in `formula_details`.
 
 Top/bottom legends fit a measured row-major grid and wrap long labels without
 dropping fields. Explicit `legend_attributes=(orientation=..., nbanks=...)`
@@ -574,9 +576,15 @@ appearance by mutating the returned axes or forwarding Makie plot attributes.
 
 ### Measurement uncertainty
 
-If the published scalar type carries uncertainty, `_addon_line!` draws native
+If the published scalar type carries uncertainty, the shared line recipe draws native
 Makie error bars around the nominal line. Limits include the uncertainty
 bounds, so error bars are not clipped by a nominal-only autolimit pass.
+
+Legend actions hide or restore the nominal line, its markers, and its x/y
+error bars together. Figure legends act across the figure; panel legends act
+only on their panel. This also applies to overlays and report illustrations.
+Native error-bar handles remain independently editable; the next series
+hide/show action restores the complete set of components.
 
 ````@example plotting
 measured_parameters = LineParameters(

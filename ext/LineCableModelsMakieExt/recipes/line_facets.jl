@@ -429,6 +429,8 @@ function _addon_line_pages(
         series_labels = nothing,
         series_indices = collect(eachindex(sources)),
         series_family_labels = nothing,
+        formulation_sources = nothing,
+        formulation_roles = nothing,
         series_attributes = nothing,
         series_defaults = nothing,
         title = nothing,
@@ -516,9 +518,46 @@ function _addon_line_pages(
     effective_legend_position = length(sources) > 1 || explicit_source_labels ?
                                 legend_position : nothing
     built = LineCableModels.UIPlot[]
+    styles = formulation_sources === nothing ? nothing :
+        LineCableModels.PlotBuilder._series_attributes(series_attributes,length(sources))
     for (page_index, page) in enumerate(pages)
         page_labels = series_family_labels === nothing ? source_labels :
             _comparison_labels(series_family_labels[first(page.facets).family],length(sources))
+        retained = collect(eachindex(sources))
+        page_defaults = series_defaults
+        page_attributes = series_attributes
+        if formulation_sources !== nothing
+            quantities = unique(facet.quantity for facet in page.facets)
+            identities = [Tuple(LineCableModels.formula_id(source,quantity) for quantity in quantities)
+                for source in formulation_sources]
+            retained = unique(eachindex(sources)) do index
+                formulation_roles[index] === :reference || any(ismissing,identities[index]) ?
+                    index : identities[index]
+            end
+            for index in setdiff(eachindex(sources),retained)
+                representative = only(filter(other -> formulation_roles[other] !== :reference &&
+                    isequal(identities[other],identities[index]),retained))
+                left,right = published[representative],published[index]
+                same = isequal(left.frequency.values,right.frequency.values)
+                for request in unique(facet.request_index for facet in page.facets)
+                    a,b = left.observations[request].values,right.observations[request].values
+                    same &= isequal(left.coordinates[request],right.coordinates[request]) && size(a)==size(b) &&
+                        all(zip(a,b)) do (a,b)
+                            isequal(a,b) || a isa Number && b isa Number &&
+                                isapprox(LineCableModels.nominal(a),LineCableModels.nominal(b)) &&
+                                isapprox(LineCableModels.uncertainty(a),LineCableModels.uncertainty(b))
+                        end
+                end
+                same || throw(ArgumentError(
+                    "repeated formulation for $(first(page.facets).quantity) has conflicting saved observations; inspect the calculations separately"))
+            end
+            defaults = _addon_default_formulations(formulation_sources;quantity=first(quantities))
+            roles = Tuple(formulation_roles[index] === :reference ? :reference :
+                defaults[index] ? :default : :alternative for index in retained)
+            page_defaults = _addon_comparison_styles(Tuple(series_indices[index] for index in retained),
+                roles,maximum(series_indices))
+            page_attributes = Tuple(styles[index] for index in retained)
+        end
         automatic_title = _semantic_page_title(first(sources), page, mode)
         page_title = title === nothing ? automatic_title : String(title)
         (length(pages) > 1 || blocks !== nothing) && title !== nothing &&
@@ -528,10 +567,11 @@ function _addon_line_pages(
         push!(built,
             with_theme(_addon_theme(export_theme = export_theme)) do
                 _addon_semantic_line_page(
-                    first(sources), published, page_labels, page, mode;
-                    series_indices,
-                    series_defaults,
-                    series_attributes,
+                    first(sources), Tuple(published[index] for index in retained),
+                    Tuple(page_labels[index] for index in retained), page, mode;
+                    series_indices=Tuple(series_indices[index] for index in retained),
+                    series_defaults=page_defaults,
+                    series_attributes=page_attributes,
                     title = page_title,
                     figure_title = visible_title,
                     title_attributes,

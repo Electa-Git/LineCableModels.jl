@@ -10,7 +10,7 @@
     selections=[merge(common,(requested=(earth_impedance=(air=NamedTuple(formula(:Carson1926)),
         earth=NamedTuple(formula(id)),mixed=NamedTuple(formula(:Lucca1994))),),)) for id in (:default,:Pollaczek1926)]
     reference=LineParameters(PhaseDomain,copy(z),copy(y),copy(f);details=(coordinates=["a","b"],))
-    points=[LineParameters(PhaseDomain,factor*z,factor*y,copy(f);details=(coordinates=["a","b"],)) for factor in (2,3)]
+    points=[LineParameters(PhaseDomain,factor*z,y,copy(f);details=(coordinates=["a","b"],)) for factor in (2,3)]
     candidates=ParametricResult(nothing,points,(problems=[:one],formulations=selections),(;))
     baseline=(result=reference,metadata=(port_order=["a","b"],formulation=selections[1],axes=nothing))
     publication=report(BenchmarkTableDefinition(),(reference=baseline,candidate=candidates))
@@ -90,6 +90,39 @@
     end
 end
 
+@testitem "Makie addons / repeated formulas preserve uncertainty marginals" tags=[:visual] begin
+    using CairoMakie, Measurements
+    using LineCableModels.ReportBuilder: BenchmarkTableDefinition
+    tensor=reshape([1.,2.,3.],1,1,:)
+    parameters=map((0.1,0.1,0.4)) do spread
+        LineParameters(complex.(measurement.(tensor,spread),tensor),1e-6im.*tensor,
+            measurement.([1.,10.,100.],0.01);details=(coordinates=["a"],))
+    end
+    options=(backend=:cairo,display_plot=false,controls=false,open_export=false)
+    choices=(problems=[:one],formulations=[Formulation(),Formulation()])
+    for index in (2,3)
+        candidates=ParametricResult(nothing,[parameters[1],parameters[index]],choices,(;))
+        if index==2
+            artifact=report(BenchmarkTableDefinition((R,);bands=(:all,)),
+                (reference=parameters[1],candidate=candidates))
+            @test size(only(artifact.table.features).relative,1)==1
+            for source in (candidates,artifact)
+                page=LineCableModels.plot(source;ydata=(R,),options...)
+                expected=source===candidates ? 1 : 2
+                @test count(item -> item isa Makie.Lines,first(page.axes).scene.plots)==expected
+                @test count(item -> item isa Makie.Errorbars,first(page.axes).scene.plots)==2expected
+            end
+        else
+            # Same means do not make differing uncertainty bars interchangeable.
+            @test_throws r"conflicting saved observations" report(
+                BenchmarkTableDefinition((R,);bands=(:all,)),
+                (reference=parameters[1],candidate=candidates))
+            @test_throws r"conflicting saved observations" LineCableModels.plot(
+                candidates;ydata=(R,),options...)
+        end
+    end
+end
+
 @testitem "Makie addons / owner-defined composite slots survive real reports and legends" tags=[:visual] begin
     using CairoMakie
     using LineCableModels.ReportBuilder: BenchmarkTableDefinition
@@ -136,7 +169,7 @@ end
     z=reshape(complex.(1.:12.,21.:32.),2,2,3)
     y=reshape(complex.(101.:112.,201.:212.),2,2,3)*1e-6
     reference=LineParameters(z,y,f;details=(coordinates=["a","b"],formulations=NamedTuple(LineCableModelsFEM()),))
-    points=[LineParameters(k*z,k*y,f;details=(coordinates=["a","b"],)) for k in (1.,2.,3.)]
+    points=[LineParameters(k*z,k*y,f;details=(coordinates=["a","b"],)) for k in (1.,2.,1.)]
     choices=[TestOwner(a),TestOwner(b),saved]
     candidates=ParametricResult(nothing,points,(problems=[:one],formulations=choices),(;))
     artifact=report(BenchmarkTableDefinition((R,B);bands=(:all,)),(reference=reference,candidate=candidates))
@@ -145,13 +178,17 @@ end
         page=LineCableModels.plot(source;ydata=(R,),formulations=[3,1],options...)
         names=[page.addon_state.labels[group] for group in page.addon_state.order]
         candidate_names=source===artifact ? names[2:end] : names
-        @test candidate_names==[
-            "F3 · channel(east)=Shared display; channel(west)=Shared display",
-            "F1 · channel(east)=Shared display; channel(west)=Shared display"]
+        @test candidate_names==["channel(east)=Shared display; channel(west)=Shared display"]
         curves=filter(item->item isa Makie.Lines,first(page.axes).scene.plots)
-        @test length(curves)==(source===artifact ? 3 : 2)
-        @test last.(curves[end-1][1][])≈3real.(z[1,1,:])
+        @test length(curves)==(source===artifact ? 2 : 1)
         @test last.(curves[end][1][])≈real.(z[1,1,:])
+        # Equal descriptions are legitimate for distinct test-owned equations;
+        # neither formatter text nor the selected position defines equivalence.
+        distinct=LineCableModels.plot(source;ydata=(R,),formulations=[2,1],options...)
+        distinct_curves=filter(item -> item isa Makie.Lines,first(distinct.axes).scene.plots)
+        @test length(distinct_curves)==(source===artifact ? 3 : 2)
+        @test last.(distinct_curves[end-1][1][])≈2real.(z[1,1,:])
+        @test last.(distinct_curves[end][1][])≈real.(z[1,1,:])
     end
     # This checks literal route completeness, not table==plot: both consumers
     # used to agree while silently dropping unchanged/default branches.
@@ -174,7 +211,7 @@ end
     @test Z(reference)==z && Y(reference)==y
 end
 
-@testitem "Makie addons / formulation legends follow the plotted family without collapsing entries" tags=[:visual] begin
+@testitem "Makie addons / quantity-specific formulas remove redundant curves and rows" tags=[:visual] begin
     using CairoMakie
     using LineCableModels.ReportBuilder: BenchmarkTableDefinition
     f = [1.0, 10.0, 100.0]
@@ -183,9 +220,8 @@ end
         details=(coordinates=["a"],))
     ids = ((:default,:default), (:Pollaczek1926,:Pollaczek1926),
         (:Saad1996,:default), (:WedepohlWilcox1973,:default), (:Xue2018,:Xue2018))
-    records = [(backend=:coaxial, requested=(
-        earth_impedance=(identifier=z,), earth_admittance=(identifier=y,)),
-        options=(reduce_bundle=false,)) for (z,y) in ids]
+    records = [NamedTuple(Formulation(earth_impedance=z,earth_admittance=y,
+        options=(reduce_bundle=false,))) for (z,y) in ids]
     original = deepcopy(records)
     candidates = ParametricResult(nothing,fill(reference,5),
         (problems=[:one],formulations=records),(;))
@@ -202,28 +238,43 @@ end
             for page in pages
                 other = family == "Z" ? "Y" : "Z"
                 names = [page.addon_state.labels[group] for group in page.addon_state.order]
-                @test length(names) == 6
+                @test length(names) == (family == "Z" ? 6 : 4)
                 @test all(!occursin("earth $other",label) for label in names)
                 @test all(occursin("earth $family",label) for label in names[2:end])
-                @test count(label -> occursin("=default",label),names[2:end]) == (family == "Z" ? 1 : 3)
+                @test count(label -> occursin("=default",label),names[2:end]) == 1
                 curves = filter(plot -> plot isa Makie.Lines,first(page.axes).scene.plots)
-                @test length(curves) == 6
+                @test length(curves) == (family == "Z" ? 6 : 4)
                 @test all(curve -> curve[1][] == first(curves)[1][],curves)
                 @test allunique([curve.color[] for curve in curves])
-                @test length(last(only(page.legend.entrygroups[]))) == 6
+                @test length(last(only(page.legend.entrygroups[]))) == length(curves)
             end
         end
         filtered = LineCableModels.plot(source; ydata=(G,),formulations=[4,2,1],options...,extra...)
         names = [filtered.addon_state.labels[group] for group in filtered.addon_state.order]
-        expected = ["F4","F2","F1"]
-        @test all(startswith.(names[2:end],expected))
-        @test count(label -> occursin("=default",label),names[2:end]) == 2
+        @test names[2:end] == ["earth Y=default","earth Y=Pollaczek1926"]
         reordered=LineCableModels.plot(source;ydata=(R,),formulations=[3,1],options...,extra...)
         reordered_names=[reordered.addon_state.labels[group] for group in reordered.addon_state.order]
-        @test startswith.(reordered_names[2:end],["F3","F1"])==[true,true]
+        @test reordered_names[2:end]==["earth Z=Saad1996","earth Z=default"]
         override = ("ref","a","b","c","d","e")
         custom = LineCableModels.plot(source; ydata=(R,G),series_labels=override,options...,extra...)
-        @test all(page -> Set(values(page.addon_state.labels)) == Set(override),custom)
+        @test Set(values(first(custom).addon_state.labels)) == Set(override)
+        @test Set(values(last(custom).addon_state.labels)) == Set(override[[1,2,3,6]])
     end
+    for feature in artifact.table.features
+        @test String.(propertynames(feature.relative)) == ["formula","all","dc","harmonic","narrow","wide"]
+        @test size(feature.relative,1) == (feature.quantity in (:Z,:R,:L,:X) ? 5 : 3)
+    end
+    # Reports and plots must reject contradictory data under an equal relevant
+    # selection, not average it, silently discard it, or add a numeric label.
+    broken_points=collect(candidates)
+    broken_points[3]=LineParameters(PhaseDomain,tensor,2e-6tensor,f;details=(coordinates=["a"],))
+    broken=ParametricResult(nothing,broken_points,candidates.axes,(;))
+    @test_throws r"conflicting saved observations" report(BenchmarkTableDefinition((B,)),
+        (reference=baseline,candidate=broken))
+    @test_throws r"conflicting saved observations" LineCableModels.plot(broken;ydata=(B,),options...)
+    unknown=ParametricResult(nothing,[reference,reference],
+        (problems=[:one],formulations=[missing,missing]),(;))
+    page=LineCableModels.plot(unknown;ydata=(B,),options...)
+    @test length(filter(item -> item isa Makie.Lines,first(page.axes).scene.plots))==2
     @test records == original
 end

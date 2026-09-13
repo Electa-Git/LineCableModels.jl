@@ -189,15 +189,18 @@ function tabulate(definition::BenchmarkTableDefinition, source,
     selections=(published.reference.metadata.formulation_sources,published.candidate.metadata.formulation_sources)
     sources=Any[selections[1]...;selections[2]...]
     roles=vcat(fill(:reference,length(selections[1])),fill(:candidate,length(selections[2])))
-    numbers=vcat(zeros(Int,length(selections[1])),collect(eachindex(selections[2])))
-    labels=description(sources;roles,indices=numbers)
+    labels=description(sources;roles)
     formula_details=NamedTuple[]
-    for (index,(role,source)) in enumerate(zip(roles,sources))
-        number=role===:reference ? missing : numbers[index]
-        push!(formulations,(role,formulation_index=number,label=labels[index]))
+    unique_sources=unique(eachindex(sources)) do index
+        identity=formula_id(sources[index],nothing)
+        roles[index]===:reference || ismissing(identity) ? index : identity
+    end
+    for index in unique_sources
+        role,source=roles[index],sources[index]
+        push!(formulations,(role,label=labels[index]))
         ismissing(source) && continue
         for (scope,selected) in pairs((source isa Pair ? Tuple(source) : (source,))...)
-            push!(formula_details,(role,formulation_index=number,label=labels[index],
+            push!(formula_details,(role,label=labels[index],
                 selection=description(scope,selected;compact=false),
                 identifier=ismissing(formula_id(selected)) ? missing : string(formula_id(selected))))
         end
@@ -251,14 +254,44 @@ function tabulate(definition::BenchmarkTableDefinition, source,
             reasons=unique(filter(!isnothing,vec(reasons))))))
     end
     features=NamedTuple[]
+    displayed_summaries=NamedTuple[]
     partitions=unique((;row.snapshot,row.benchmark,row.case_id,row.collection,row.problem_index,
         row.reference_point,row.request,row.quantity,row.statistic,row.normalization,row.absolute_unit) for row in summaries)
     for partition in partitions
         metrics=filter(row -> all(key -> getproperty(row,key)==getproperty(partition,key),keys(partition)),summaries)
         indices=unique(row.formulation_index for row in metrics)
-        quantity_labels=description(sources;roles,indices=numbers,quantity=request_quantity(partition.request))
+        quantity=request_quantity(partition.request)
+        identities=Dict(index => formula_id(selections[2][index],quantity) for index in indices)
+        retained=unique(index -> ismissing(identities[index]) ? index : identities[index],indices)
+        for index in setdiff(indices,retained)
+            representative=only(filter(other -> isequal(identities[other],identities[index]),retained))
+            # Verify the observations, not merely equal RMS maxima. Resolution
+            # belongs to observables; this check never changes the saved errors.
+            points=map((representative,index)) do selected
+                point=first(row.candidate_point for row in metrics if row.formulation_index==selected)
+                select(published.candidate.result,point)
+            end
+            a,b=map(points) do point
+                resolved=observation_request(point,partition.request)
+                request=materialize_observation(resolved,
+                    isempty(resolved.indices) ? (Colon(),Colon(),Colon()) : resolved.indices)
+                only(observables(point,(request,);length_unit=:base,
+                    quantity_units=:base,clip=true,atol=published.settings.atol)).values
+            end
+            same=size(a)==size(b) && Engine.frequencies(points[1])==Engine.frequencies(points[2]) &&
+                all(zip(a,b)) do (left,right)
+                    isequal(left,right) || left isa Number && right isa Number &&
+                        isapprox(LineCableModels.nominal(left),LineCableModels.nominal(right)) &&
+                        isapprox(LineCableModels.uncertainty(left),LineCableModels.uncertainty(right))
+                end
+            same || throw(ArgumentError(
+                "repeated formulation for $(partition.quantity) has conflicting saved observations; inspect the calculations separately"))
+        end
+        indices=retained
+        append!(displayed_summaries,filter(row -> row.formulation_index in indices,metrics))
+        quantity_labels=description(sources;roles,quantity)
         selected_labels=quantity_labels[length(selections[1]).+indices]
-        relative=DataFrame(formulation_index=indices,formula=selected_labels)
+        relative=DataFrame(formula=selected_labels)
         absolute=copy(relative)
         for band in published.settings.bands
             name=band isa Symbol ? band : Symbol(string(band))
@@ -272,8 +305,8 @@ function tabulate(definition::BenchmarkTableDefinition, source,
         push!(features,merge(partition,(;relative,absolute)))
     end
     terms_table=DataFrame(terms)
-    maxima_table=DataFrame(summaries)
-    summary_table=tabulate(definition,source,summaries)
+    maxima_table=DataFrame(displayed_summaries)
+    summary_table=tabulate(definition,source,displayed_summaries)
     # Keep structured comparison products in the audit table/publication. The
     # displayed term tables retain separately filterable physical coordinates.
     for frame in (terms_table,maxima_table,summary_table)
@@ -286,7 +319,7 @@ function tabulate(definition::BenchmarkTableDefinition, source,
         select!(frame,Not([:requested_bounds_Hz,:actual_bounds_Hz]))
     end
     for frame in (terms_table,maxima_table)
-        names_by_quantity=Dict(quantity => description(sources;roles,indices=numbers,quantity)
+        names_by_quantity=Dict(quantity => description(sources;roles,quantity)
             for quantity in unique(request_quantity.(frame.request)))
         frame[!,:method]=[names_by_quantity[request_quantity(row.request)][length(selections[1])+row.formulation_index] for row in eachrow(frame)]
         reference_count=published.reference.result isa ParametricResult ? length(published.reference.result.axes.problems) :
@@ -302,12 +335,11 @@ function tabulate(definition::BenchmarkTableDefinition, source,
     maxima_table[!,:reasons]=[join(string.(reasons),"; ") for reasons in maxima_table.reasons]
     select!(maxima_table,Not([:absolute_term,:relative_term]))
     metadata!(maxima_table,"comparison_records",summaries;style=:note)
-    method_labels=(reference=join(labels[1:length(selections[1])]," / "),
-        candidate=join(labels[length(selections[1])+1:end]," / "))
+    method_labels=(reference=join([labels[index] for index in unique_sources if roles[index]===:reference]," / "),
+        candidate=join([labels[index] for index in unique_sources if roles[index]===:candidate]," / "))
     return merge((calculations,formulations=DataFrame(formulations),formula_details=DataFrame(formula_details),comparisons=DataFrame(comparisons),
         terms=terms_table,maxima=maxima_table,summary=summary_table,features),
-        tabulate(definition,published.measurements;labels=method_labels,
-            indices=(reference=missing,candidate=length(selections[2])==1 ? 1 : missing)),
+        tabulate(definition,published.measurements;labels=method_labels),
         tabulate(definition,(reference=published.reference,candidate=published.candidate);labels=method_labels))
 end
 

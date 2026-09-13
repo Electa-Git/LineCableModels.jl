@@ -7,12 +7,9 @@ Native backend timing scopes are preserved rather than relabelled as wall time.
 
 The optional `labels` are supplied by the same formulation descriptions used
 by the comparison report. Raw workload/session records stay in its publication.
-`indices` identifies a scalar candidate; timings of an entire formulation batch
-have no single formulation index. References are never formula-numbered.
 """
 function tabulate(::BenchmarkTableDefinition, measurements::Union{Nothing, NamedTuple};
-        labels=(reference="Reference",candidate="Candidate"),
-        indices=(reference=missing,candidate=missing))
+        labels=(reference="Reference",candidate="Candidate"))
     execution=DataFrame()
     source_timings=DataFrame()
     performance=DataFrame()
@@ -54,7 +51,7 @@ function tabulate(::BenchmarkTableDefinition, measurements::Union{Nothing, Named
                 measured=getproperty(recorded,role)
                 observations=get(measured,:observations,())
                 policy=get(measured,:policy,(;))
-                push!(performance,(;role,method,formulation_index=getproperty(indices,role),scope=measured.scope,
+                push!(performance,(;role,method,scope=measured.scope,
                     median_seconds=measured.median_seconds,allocated_bytes=measured.bytes,
                     allocated_MiB=measured.bytes/2.0^20,
                     allocation_statistic=get(policy,:allocation_statistic,
@@ -66,7 +63,7 @@ function tabulate(::BenchmarkTableDefinition, measurements::Union{Nothing, Named
                     checksum_verified=get(measurements,:checksum_verified,missing),
                     workload_verified=get(measurements,:workload_verified,missing));cols=:union)
                 for (sample,observation) in enumerate(observations)
-                    push!(performance_samples,(;role,method,formulation_index=getproperty(indices,role),sample,scope=measured.scope,
+                    push!(performance_samples,(;role,method,sample,scope=measured.scope,
                         seconds=get(observation,:seconds,missing),
                         allocated_bytes=get(observation,:bytes,missing),
                         reused=get(observation,:reused,missing));cols=:union)
