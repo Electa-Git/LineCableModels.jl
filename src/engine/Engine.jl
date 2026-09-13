@@ -53,7 +53,7 @@ import ..LineCableModels: nominal
 import ..LineCableModels: constitutive, formula, formula_id,
                           FormulaMethod
 import ..LineCableModels: parameterize
-import ..LineCableModels: performance_sample_active, with_progress_output
+import ..LineCableModels: performance_sample_active
 #! explicit-imports: off
 import ..LineCableModels: description
 #! explicit-imports: on

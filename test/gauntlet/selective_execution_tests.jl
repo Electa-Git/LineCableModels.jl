@@ -33,6 +33,8 @@
         checkpoint=joinpath(old_attempt,"reference","calculation.jld2")
         bytes=read(checkpoint)
         session=read_calculation(checkpoint).metadata.session
+        # Disposable progress cannot determine required skip/recovery policy.
+        write(joinpath(directory,"sessions",old["session"]*".progress.toml"),"broken = [")
         skipped=run_campaign(directory,[first,second];progress=:off)
         @test all(row->row.skipped && row.result===nothing,skipped)
         @test calls==[1.,2.,3.,4.]
@@ -120,9 +122,8 @@ end
             readdir(joinpath(directory,"sessions");join=true));by=mtime))
         row=only(TOML.parsefile(snapshot)["benchmarks"])
         @test row["state"]=="skipped"
-        @test all(row[role]["saved_result"] for role in ("reference","candidate"))
-        @test all(row[role]["completed"]==1 for role in ("reference","candidate"))
-        @test all(!haskey(row[role],"compute_seconds") for role in ("reference","candidate"))
+        @test TOML.parsefile(snapshot)["schema"]==2
+        @test TOML.parsefile(snapshot)["termination"]=="exhausted"
         @test !isdir(joinpath(attempt,"sources"))
         open(io->write(io,"damage"),joinpath(attempt,"reference","calculation.jld2"),"a")
         @test_throws r"checksum" resume_campaign(directory;progress=:off)
@@ -137,6 +138,7 @@ end
         factor::Float64
     end
     Base.NamedTuple(formulation::SweepReuseBackend)=(factor=formulation.factor,)
+    Base.pairs(::SweepReuseBackend;quantity=nothing) = Pair[]
     function LineCableModels.compute(problem::LineParametersProblem,f::SweepReuseBackend;options=(;))
         push!(calls,f.factor)
         z=fill(complex(f.factor),2,2,length(problem.frequencies))

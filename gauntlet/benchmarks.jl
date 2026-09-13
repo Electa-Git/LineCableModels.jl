@@ -28,20 +28,25 @@ function _benchmark_owned(calculation::BenchmarkCalculation, settings; role=calc
     prepared=_performance_calculation(calculation)
     external=_external_formulation(prepared.formulation)
     if !external
-        _performance_span(;sample="warmup",samples=settings.samples,role) do
+        _performance_span(;sample="warmup",samples=settings.samples,role,
+                record=_-> _performance_observation!(role;sample="warmup")) do
             _compute_calculation(prepared)
         end
     end
+    _performance_observation!(role;sample="warmup")
     started=time_ns()
     for sample in 1:settings.samples
-        elapsed=_performance_span(;sample,samples=settings.samples,role) do
+        _performance_span(;sample,samples=settings.samples,role,record=elapsed->begin
+            reused=_result_reused(elapsed.value)
+            push!(observations,(seconds=elapsed.time,bytes=elapsed.bytes,reused,
+                source_timings=_source_timings(elapsed.value)))
+            _performance_observation!(role;sample,seconds=elapsed.time,reused)
+        end) do
             @timed _compute_calculation(prepared)
         end
-        reused=_result_reused(elapsed.value)
-        push!(observations, (seconds = elapsed.time, bytes = elapsed.bytes, reused,
-            source_timings=_source_timings(elapsed.value)))
         (time_ns()-started)*1e-9 >= settings.seconds && break
     end
+    _performance_observation!(role;finished=true)
     return (
         scope = :compute_call_wall, median_seconds = median(row.seconds for row in observations),
         bytes = maximum(row.bytes for row in observations), samples = length(observations),
@@ -170,7 +175,8 @@ function run_benchmark(benchmark::BenchmarkDefinition; directory = nothing,
     executions=map((:reference,:candidate)) do role
         receiver=LineCableModels.progress_receiver()
         receiver === nothing || LineCableModels.report_progress(receiver,(kind=:operand,role,state=:running,stage=:preparing,
-            backend=_progress_backend(getproperty(benchmark,role).formulation)))
+            backend=_execution_backend(getproperty(benchmark,role).formulation),
+            mode=_execution_mode(getproperty(benchmark,role).formulation)))
         execution=LineCableModels.with_progress_scope(;role) do
             _execute(getproperty(benchmark,role);
                 directory=directory === nothing ? nothing : joinpath(directory,string(role)),
@@ -181,7 +187,7 @@ function run_benchmark(benchmark::BenchmarkDefinition; directory = nothing,
             count(value->_result_reused(value;partial=false),execution.result) :
             Int(_result_reused(execution.result;partial=false))
         jobs_reused = something(get(execution, :jobs_reused, nothing), jobs_reused)
-        LineCableModels.report_progress(receiver,
+        receiver === nothing || LineCableModels.report_progress(receiver,
             (kind=:operand,role,state=:complete,stage=:computed,
                 reused=execution.reused,jobs_reused,
                 seconds=execution.elapsed_seconds,
@@ -191,7 +197,8 @@ function run_benchmark(benchmark::BenchmarkDefinition; directory = nothing,
         execution
     end
     reference_execution,candidate_execution=executions
-    LineCableModels.report_progress(LineCableModels.progress_receiver(),(stage=:validating,))
+    receiver=LineCableModels.progress_receiver()
+    receiver === nothing || LineCableModels.report_progress(receiver,(stage=:validating,))
     # Result-space axes retain the actual resolved problems, including port identity.
     expected=benchmark.model.nominal_problem.system
     for (calculation, execution) in ((benchmark.reference, reference_execution),
@@ -272,12 +279,14 @@ function run_benchmark(benchmark::BenchmarkDefinition; directory = nothing,
         @error "Performance measurement failed; continuing scientific report persistence" exception=(error,catch_backtrace())
         nothing
     end
-    measurements=(execution=(reference=(backend=string(_progress_backend(benchmark.reference.formulation)),timing=reference_execution.timing,
+    _performance_observation!(:reference;finished=true)
+    _performance_observation!(:candidate;finished=true)
+    measurements=(execution=(reference=(backend=string(_execution_label(benchmark.reference.formulation)),timing=reference_execution.timing,
             reused=reference_execution.reused,session=reference_execution.session,execution_wall_seconds=reference_execution.elapsed_seconds),
-        candidate=(backend=string(_progress_backend(benchmark.candidate.formulation)),timing=candidate_execution.timing,
+        candidate=(backend=string(_execution_label(benchmark.candidate.formulation)),timing=candidate_execution.timing,
             reused=candidate_execution.reused,session=candidate_execution.session,execution_wall_seconds=candidate_execution.elapsed_seconds)),
         performance,performance_checks...,session=performance_session)
-    LineCableModels.report_progress(LineCableModels.progress_receiver(),(stage=:reporting,))
+    receiver === nothing || LineCableModels.report_progress(receiver,(stage=:reporting,))
     publication=report(definition,(
         reference=(result=reference,metadata=reference_metadata),
         candidate=(result=candidate,metadata=candidate_metadata),
@@ -311,7 +320,7 @@ function run_benchmark(benchmark::BenchmarkDefinition; directory = nothing,
     )
     artifact=nothing
     if directory !== nothing
-        LineCableModels.report_progress(LineCableModels.progress_receiver(),(stage=:saving_report,))
+        receiver === nothing || LineCableModels.report_progress(receiver,(stage=:saving_report,))
         operands=map((:reference, :candidate)) do role
             saved=read_calculation(joinpath(directory, string(role), "calculation.jld2"))
             BenchmarkCalculation(role, saved, saved.metadata.formulation)

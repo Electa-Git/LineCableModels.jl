@@ -256,8 +256,9 @@ function _monte_carlo(point, formulation::MonteCarlo, options, seed, details_own
     clearance = point isa Gridpoint{Engine.LineParametersProblem} ?
                 DataModel.prepare_clearance(point) : nothing
     try
-        return _monte_carlo(point, formulation, options, seed, details_owner, clearance,
-            progress_receiver())
+        return with_scan_progress(;total=formulation.options.trials) do receiver
+            _monte_carlo(point, formulation, options, seed, details_owner, clearance,receiver)
+        end
     finally
         DataModel.warn_clearance_summary(clearance)
     end
@@ -275,7 +276,7 @@ function _monte_carlo(point, formulation::MonteCarlo, options, seed, details_own
     sample_axis = nothing
     retained = nothing
     receiver === nothing || report_progress(receiver,
-        (stage=:sampling, unit=:trials, completed=0, total=ntrials, attempts=0, rejected=0))
+        (kind=:scan, stage=:sampling, completed=0, total=ntrials, attempts=0, rejected=0))
 
     while ntrials === nothing || accepted < ntrials
         attempts += 1
@@ -291,7 +292,13 @@ function _monte_carlo(point, formulation::MonteCarlo, options, seed, details_own
                 realize(point, sample)
             end
             stage = :compute
-            value = compute(realization, formulation.inner; options)
+            value = if receiver === nothing
+                compute(realization, formulation.inner; options)
+            else
+                with_progress_scope(child=attempts) do
+                    compute(realization, formulation.inner; options)
+                end
+            end
             succeeded = true
         catch exception
             backtrace = catch_backtrace()
@@ -306,8 +313,8 @@ function _monte_carlo(point, formulation::MonteCarlo, options, seed, details_own
                 backtrace
             ))
             receiver === nothing || report_progress(receiver,
-                (stage=:sampling, unit=:trials, completed=accepted, total=ntrials,
-                    attempts, rejected=length(failures)))
+                (kind=:scan, stage=:sampling, completed=accepted, total=ntrials,
+                    attempts, children_completed=attempts, rejected=length(failures)))
             length(failures) < formulation.options.max_failures ||
                 _retry_limit_error(
                     failures,
@@ -350,8 +357,8 @@ function _monte_carlo(point, formulation::MonteCarlo, options, seed, details_own
         _record_sample!(sample_values, value, accepted, sample_axis)
         retained === nothing || (retained[accepted] = record)
         receiver === nothing || report_progress(receiver,
-            (stage=:sampling, unit=:trials, completed=accepted, total=ntrials,
-                attempts, rejected=length(failures)))
+            (kind=:scan, stage=:sampling, completed=accepted, total=ntrials,
+                attempts, children_completed=attempts, rejected=length(failures)))
     end
 
     failure_summary = _failure_summary(failures, accepted, attempts)
@@ -416,7 +423,6 @@ function compute(problem::ParametricProblem, formulation::MonteCarlo)
     seeds[1] = first_aggregate.seed
     trial_counts[1] = first_aggregate.trials
     retained === nothing || (retained[1] = first_aggregate.details)
-    report_progress(progress_receiver(),(jobs_completed=1,))
 
     for index in 2:point_count
         item = iterate(point_source, state)
@@ -463,7 +469,6 @@ function compute(problem::ParametricProblem, formulation::MonteCarlo)
             ))
             retained[index] = aggregate.details
         end
-        report_progress(progress_receiver(),(jobs_completed=index,))
     end
     iterate(point_source, state) === nothing || throw(DimensionMismatch(
         "problem-space iteration exceeded its declared cardinality",

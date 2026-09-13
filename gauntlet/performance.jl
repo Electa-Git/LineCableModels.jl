@@ -1,3 +1,19 @@
+# Execution labels also belong to retained measurements, independent of progress.
+_execution_backend(formulation) = _execution_backend(typeof(formulation))
+_execution_backend(::Type{T}) where {T} = string(nameof(T))
+_execution_backend(::Type{<:Engine.LineParametersFormulation}) = "Owned"
+_execution_backend(::Type{<:Engine.LineCableModelsFEM}) = "FEM"
+_execution_backend(::Type{<:PSCAD.PSCADFormulation}) = "PSCAD"
+_execution_backend(::Gridspace{T}) where {T} = _execution_backend(T)
+_execution_backend(f::Union{MonteCarlo,LinearError,LineCableModels.Combinatorial}) = _execution_backend(f.inner)
+_execution_backend(f::AbstractVector) = join(unique(_execution_backend.(f)), ", ")
+_execution_mode(f) = "ordinary"
+_execution_mode(::MonteCarlo) = "Monte Carlo"
+_execution_mode(::LinearError) = "LEP"
+_execution_mode(::LineCableModels.Combinatorial) = "sweep"
+_execution_mode(::Union{Gridspace,AbstractVector}) = "sweep"
+_execution_label(f) = _execution_backend(f) * (_execution_mode(f) in ("ordinary","sweep") ? "" : " / "*_execution_mode(f))
+
 function _performance_identity()
     return (
         julia_version = string(VERSION),

@@ -42,9 +42,7 @@ function Logging.handle_message(
         line;
         kwargs...
 )
-    return with_progress_output() do
-        Logging.handle_message(
-            logger.console, level, message, source, group, id, file, line; kwargs...
-        )
-    end
+    return Logging.handle_message(
+        logger.console, level, message, source, group, id, file, line; kwargs...
+    )
 end

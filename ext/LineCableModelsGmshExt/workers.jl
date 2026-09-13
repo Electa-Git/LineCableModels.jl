@@ -408,51 +408,6 @@ function _assemble_columns!(run, model)
     return nothing
 end
 
-function _mesh_work_size(path)
-    # Read only the ASCII MSH header, once per unique mesh, outside worker loops.
-    # Unsupported external formats simply have no mesh-weighted estimate.
-    try
-        return open(path) do io
-            strip(readline(io)) == "\$MeshFormat" || return nothing
-            format = split(readline(io))
-            length(format) == 3 && format[1] == "4.1" && format[2] == "0" || return nothing
-            for line in eachline(io)
-                strip(line) == "\$Nodes" || continue
-                fields = split(readline(io))
-                length(fields) == 4 || return nothing
-                count = tryparse(Int, fields[2])
-                return count !== nothing && count > 0 ? Float64(count) : nothing
-            end
-            return nothing
-        end
-    catch error
-        error isa InterruptException && rethrow()
-        return nothing
-    end
-end
-
-function _fem_remaining_seconds(work, rates, active, next_job, workers, now_ns)
-    length(rates) >= 3 || return -1.0
-    # A median of recent seconds per mesh-work unit limits startup outliers.
-    ordered = sort(rates)
-    n = length(ordered)
-    rate = (ordered[div(n+1,2)] + ordered[div(n+2,2)]) / 2
-    # Simulate the existing FIFO scheduler, including its serial tail. Summing
-    # worker wall durations would overestimate concurrent work.
-    lanes = zeros(Float64, workers)
-    for (index, (job_index, started_ns)) in enumerate(active)
-        elapsed = max(0.0, Float64(now_ns-started_ns)*1e-9)
-        predicted = rate*work[job_index]
-        elapsed >= predicted && return -1.0 # Overdue work is still unfinished.
-        lanes[index] = predicted-elapsed
-    end
-    for index in next_job:length(work)
-        lane = argmin(lanes)
-        lanes[lane] += rate*work[index]
-    end
-    return maximum(lanes)
-end
-
 function _run_getdp!(run::FEMRun, model::FEMResolvedModel, formulation::LineCableModelsFEM,
         execution::ComputationOptions, mesh_paths::AbstractVector{<:AbstractString}; pump = () -> true,
         reuse_factorization::Bool = true, batch_terminals::Bool = true)
@@ -466,7 +421,6 @@ function _run_getdp!(run::FEMRun, model::FEMResolvedModel, formulation::LineCabl
     valid = _recover_columns!(run, model, execution.plot_field_maps, mesh_digests;
         physics=formulation.options.physics)
     recovered_columns=count(valid)
-    recovered_jobs=batch_terminals ? count(all,eachcol(valid)) : recovered_columns
     receiver=LineCableModels.progress_receiver()
     pending = Tuple{Int, Vector{Int}}[]
     for frequency in axes(valid, 2)
@@ -482,26 +436,11 @@ function _run_getdp!(run::FEMRun, model::FEMResolvedModel, formulation::LineCabl
     next_job = 1
     worker_wall_seconds=0.0
     previous_progress=nothing
-    # Node count is a proxy for sparse factorization work, scaled by remaining
-    # terminal columns. Calibrate it against measured process wall durations.
-    work = Float64[]
-    work_index = Dict{Int, Int}()
-    rates = Float64[]
-    if receiver !== nothing
-        sizes = Dict(path => _mesh_work_size(path) for path in unique(mesh_paths))
-        if all(size -> size !== nothing, values(sizes))
-            work = [sizes[mesh_paths[frequency]]^1.5 * length(bases)
-                for (frequency, bases) in pending]
-        end
-    end
-    # Mixed meshes or partially recovered terminal batches have unequal costs.
-    # Their job counts remain useful, but do not imply equal-cost throughput.
-    estimate_throughput=all(==(first(mesh_digests)),mesh_digests) &&
-        (isempty(pending) || all(job->length(job[2])==length(first(pending)[2]),pending))
     receiver === nothing || LineCableModels.report_progress(receiver,
-        (stage=:solving,unit=:jobs,completed=recovered_jobs,
-            total=length(pending)+recovered_jobs,workers=0,queued=length(pending),
-            recovered=recovered_jobs,estimate_throughput))
+        (stage=:solving, frequencies_completed=count(all,eachcol(valid)),
+            frequencies_total=size(valid,2), workers=0,
+            capacity=(execution.frequency_workers,execution.solver_threads),
+            partial_recovery=recovered_columns>0))
     try
         while next_job <= length(pending) || !isempty(active)
             pump() || _fem_error(:cancelled, "GetDP", :ui,
@@ -513,7 +452,6 @@ function _run_getdp!(run::FEMRun, model::FEMResolvedModel, formulation::LineCabl
                     run, model, formulation, execution, executable, mesh_paths[frequency],
                     mesh_digests[frequency], frequency, bases; reuse_factorization)
                 push!(active, _start_worker!(run, job, execution))
-                isempty(work) || (work_index[active[end].pid] = next_job)
                 next_job += 1
             end
             for index in reverse(eachindex(active))
@@ -526,10 +464,6 @@ function _run_getdp!(run::FEMRun, model::FEMResolvedModel, formulation::LineCabl
                     physics=formulation.options.physics)
                 duration = _finish_worker!(run, worker, execution)
                 worker_wall_seconds += duration
-                if !isempty(work) && success(worker.process) && isempty(worker.pending)
-                    push!(rates, duration/work[pop!(work_index, worker.pid)])
-                    length(rates) > 32 && popfirst!(rates)
-                end
                 deleteat!(active, index)
                 if !success(worker.process) || !isempty(worker.pending)
                     tail = _log_tail(readlines(joinpath(worker.job.directory, "getdp.log")))
@@ -544,18 +478,14 @@ function _run_getdp!(run::FEMRun, model::FEMResolvedModel, formulation::LineCabl
                         "Attempt: $(worker.job.directory)\nGetDP log tail:\n$tail"; run_directory = run.path)
                 end
             end
-            current=(next_job,length(active),run.completed_columns)
-            if receiver !== nothing && current != previous_progress
-                remaining_seconds = isempty(work) ? -1.0 : _fem_remaining_seconds(
-                    work, rates, [(work_index[w.pid], w.started_ns) for w in active],
-                    next_job, execution.frequency_workers, time_ns())
-                LineCableModels.report_progress(receiver,
-                    (stage=:solving,unit=:jobs,
-                        completed=recovered_jobs+next_job-1-length(active),
-                        total=length(pending)+recovered_jobs,workers=length(active),
-                        queued=length(pending)-next_job+1,recovered=recovered_jobs,
-                        remaining_seconds,eta_source=:mesh_work))
-                previous_progress=current
+            if receiver !== nothing
+                current=(next_job,length(active),run.completed_columns)
+                if current != previous_progress
+                    LineCableModels.report_progress(receiver,
+                        (stage=:solving, frequencies_completed=count(all,eachcol(valid)),
+                            frequencies_total=size(valid,2), workers=length(active)))
+                    previous_progress=current
+                end
             end
             isempty(active) || sleep(0.02)
         end

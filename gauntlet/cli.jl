@@ -15,7 +15,7 @@ Usage: lcm gauntlet case import|list|show|validate|catalogue [options]
                        [--progress auto|plain|off]
        lcm gauntlet resume --directory DIR [--benchmark ID[,ID]]
                           [--recover-solvers] [--progress auto|plain|off]
-       lcm gauntlet status --directory DIR [--watch]
+       lcm gauntlet status --directory DIR [--watch [--session SESSION]]
        lcm gauntlet compare --definition FILE.toml --output DIR
        lcm gauntlet lock --directory DIR --output DIR [--benchmark ID[,ID]]
                         [--expected SNAPSHOT] [--note TEXT] [--illustrations FILE.toml]
@@ -31,6 +31,10 @@ and both bounds. Omitted overrides preserve the benchmark's declared frequencies
 Run reconciles supplied definitions and reuses matching saved work; --force requests
 fresh calculations. Resume preserves the saved work order, including its input law.
 --dry-run prints scheduling decisions without modifying the campaign or running solvers.
+Progress auto publishes snapshots and prints an exact-session watch command; it
+shows no live panel. Plain adds throttled execution summaries; off disables
+optional observation. Run status --watch in a separate terminal; diagnostics stay
+in the execution terminal. --session pins the invocation, not solver liveness.
 Case import: --id ID --source FILE [--project DIR] [--description TEXT] [--dry-run] [--force]
 Case catalogue: --output FILE [--check]
 """)
@@ -298,11 +302,12 @@ end
 function main(args = ARGS)
     isempty(args) && return usage()
     args[1] in ("--help", "-h", "help") && return usage()
-    if args[1] in ("run","resume","lock","package","bind")
+    if args[1] in ("run","resume","lock","package","bind","status")
         allowed=args[1] == "run" ? ("--definition","--directory","--configuration",
             "--frequencies","--grid","--count","--bounds","--on-error","--resume",
             "--force","--recover-solvers","--benchmark","--dry-run","--progress") :
             args[1] == "resume" ? ("--directory","--benchmark","--recover-solvers","--progress") :
+            args[1] == "status" ? ("--directory","--watch","--session") :
             args[1] == "lock" ? ("--directory","--output","--benchmark","--expected","--note","--illustrations") :
             args[1] == "package" ? ("--definition","--output") : ("--package","--url","--artifacts","--current")
         seen=Set{String}()
@@ -311,7 +316,7 @@ function main(args = ARGS)
             name=args[index]
             name in allowed && !(name in seen) || throw(ArgumentError("unknown or repeated option: $name"))
             push!(seen,name)
-            index+=name in ("--current","--force","--resume","--recover-solvers","--dry-run") ? 1 : 2
+            index+=name in ("--current","--force","--resume","--recover-solvers","--dry-run","--watch") ? 1 : 2
             index <= length(args)+1 || throw(ArgumentError("$name requires a value"))
         end
         flag(args,"--force") && flag(args,"--resume") &&
@@ -339,7 +344,11 @@ function main(args = ARGS)
             note=option(args,"--note";default=""),illustrations))
         return
     elseif args[1] == "status"
-        flag(args,"--watch") && return watch_campaign(required_option(args,"--directory"))
+        if flag(args,"--watch")
+            Base.exit_on_sigint(false) # Let the viewer restore cursor visibility in finally.
+            return watch_campaign(required_option(args,"--directory");session=option(args,"--session"))
+        end
+        option(args,"--session") === nothing || throw(ArgumentError("--session requires --watch"))
         for row in campaign_status(required_option(args, "--directory"))
             println(row.id, '\t', row.state, '\t', row.identity, '\t', row.previous ? "previous result retained" : "", '\t', row.message)
         end

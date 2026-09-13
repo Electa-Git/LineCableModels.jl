@@ -157,27 +157,21 @@ end
 # native evidence tree. Full evidence validation belongs to the artifact readers.
 function _skip_campaign_benchmark(root,id,attempt)
     state=TOML.parsefile(joinpath(root,string(id),"state.toml"))
-    observation_path=joinpath(root,"sessions",get(state,"session","")*".progress.toml")
-    observed=isfile(observation_path) ? TOML.parsefile(observation_path) : nothing
+    receiver=LineCableModels.progress_receiver()
+    receiver === nothing || LineCableModels.report_progress(receiver,
+        (kind=:benchmark,benchmark=id,attempt=relpath(attempt,joinpath(root,string(id))),
+            state=:running,stage=:validating))
     declaration=joinpath(attempt,"declarations.jld2")
     bytes2hex(open(sha256,declaration))==strip(read(declaration*".sha256",String)) ||
         throw(ArgumentError("campaign declaration integrity check failed: $declaration"))
-    jobs=map((:reference,:candidate)) do role
+    digests=map((:reference,:candidate)) do role
         directory=joinpath(attempt,string(role))
         path=joinpath(directory,"calculation.jld2")
         marker=TOML.parsefile(joinpath(directory,"complete.toml"))
         digest=bytes2hex(open(sha256,path))
         digest==marker["sha256"] && first(split(read(path*".sha256",String)))==digest ||
             throw(ArgumentError("calculation checksum mismatch: $path"))
-        count=get(marker,"jobs",nothing)
-        if count === nothing && isdir(joinpath(directory,"points"))
-            count=length(filter(isdir,readdir(joinpath(directory,"points");join=true)))
-        end
-        if count === nothing && observed !== nothing
-            row=findfirst(row->row["id"]==string(id),observed["benchmarks"])
-            row === nothing || (count=get(observed["benchmarks"][row][string(role)],"total",nothing))
-        end
-        (;digest,total=count)
+        digest
     end
     snapshots=[joinpath(folder,name) for (folder,_,names) in walkdir(joinpath(attempt,"analyses"))
         for name in names if name=="snapshot.jld2"]
@@ -186,13 +180,14 @@ function _skip_campaign_benchmark(root,id,attempt)
         bytes2hex(open(sha256,path))==first(split(read(path*".sha256",String))) ||
             throw(ArgumentError("benchmark checksum mismatch: $path"))
         operands=jldopen(file->file["calculations"],path,"r")
-        all(operand.sha256==job.digest for (operand,job) in zip(operands,jobs)) ||
+        all(operand.sha256==digest for (operand,digest) in zip(operands,digests)) ||
             throw(ArgumentError("benchmark operand checksum mismatch: $path"))
     end
-    LineCableModels.report_progress(LineCableModels.progress_receiver(),
+    receiver=LineCableModels.progress_receiver()
+    receiver === nothing || LineCableModels.report_progress(receiver,
         (kind=:benchmark,benchmark=id,state=:skipped,stage=:skipped,
             attempt=relpath(attempt,joinpath(root,string(id))),
-            reference_jobs=jobs[1].total,candidate_jobs=jobs[2].total,reused=true))
+            reused=true))
     return (id,state=:complete,result=nothing,identity=state["identity"],skipped=true)
 end
 
@@ -254,6 +249,7 @@ function _execute(calculation::BenchmarkCalculation; directory = nothing, model 
         began=time_ns()
         result=_compute_calculation(calculation)
         seconds=(time_ns()-began)*1e-9
+        _accepted_scan_report(LineCableModels.progress_receiver(),result)
         return (;result,elapsed_seconds=seconds,reused=false,session,
             timing=(schema=1,scope=:compute_call_wall,seconds,
                 callback_policy=:declared,diagnostic_policy=:declared,
@@ -270,6 +266,7 @@ function _execute(calculation::BenchmarkCalculation; directory = nothing, model 
     marker = joinpath(directory, "complete.toml")
     if isfile(marker)
         saved=_saved_execution(directory,declaration)
+        _accepted_scan_report(LineCableModels.progress_receiver(),saved.result;reused=true)
         return (;saved...,elapsed_seconds=(time_ns()-started)*1e-9)
     end
     inputs=joinpath(directory,"inputs.toml")
@@ -281,6 +278,7 @@ function _execute(calculation::BenchmarkCalculation; directory = nothing, model 
         abspath(source)==abspath(directory) && continue
         _calculation_matches(source,_numerical_record(declaration)) || continue
         saved=_saved_execution(source,declaration;destination=directory)
+        _accepted_scan_report(LineCableModels.progress_receiver(),saved.result;reused=true)
         return (;saved...,elapsed_seconds=(time_ns()-started)*1e-9)
     end
     if !isfile(inputs)
@@ -295,7 +293,7 @@ function _execute(calculation::BenchmarkCalculation; directory = nothing, model 
         compute_seconds=0.0
         receiver=LineCableModels.progress_receiver()
         receiver === nothing || LineCableModels.report_progress(receiver,(stage=:computing,
-            backend=_progress_backend(calculation.formulation)))
+            backend=_execution_backend(calculation.formulation)))
         result = if calculation.problem isa LineParametersProblem && calculation.formulation isa Gridspace
             # A formulation sweep is a sequence of independently recoverable
             # scalar calculations. Preserve the public problem/formulation axes.
@@ -305,8 +303,9 @@ function _execute(calculation::BenchmarkCalculation; directory = nothing, model 
                 for parent in (joinpath(source,"points"),) if isdir(parent)
                 for name in readdir(parent) if isdir(joinpath(parent,name))]
             jobs_reused=0
-            values=map(eachindex(formulations)) do index
-                LineCableModels.report_progress(receiver,(stage=:computing,unit=:formulations,
+            values=LineCableModels.with_scan_progress(;total=length(formulations)) do scan_receiver
+              map(eachindex(formulations)) do index
+                scan_receiver === nothing || LineCableModels.report_progress(scan_receiver,(kind=:scan,stage=:computing,
                     completed=index-1,total=length(formulations),formulation=index))
                 options=calculation.options
                 if haskey(options,:on_result) && options.on_result !== nothing
@@ -325,7 +324,10 @@ function _execute(calculation::BenchmarkCalculation; directory = nothing, model 
                 reused_points += value.reused
                 jobs_reused += value.reused || _result_reused(value.result; partial=false)
                 compute_seconds += value.reused ? 0.0 : value.timing.seconds
+                scan_receiver === nothing || LineCableModels.report_progress(scan_receiver,
+                    (kind=:scan,stage=:computing,completed=index,total=length(formulations),reused=jobs_reused))
                 value.result
+              end
             end
             ParametricResult(LineCableModels.Combinatorial(calculation.formulation),values,
                 (problems=[calculation.problem],formulations), (;))
@@ -343,7 +345,8 @@ function _execute(calculation::BenchmarkCalculation; directory = nothing, model 
         timing=(schema=1,scope=:compute_call_wall,seconds=compute_seconds,
             callback_policy=:declared,diagnostic_policy=:declared,
             source_timings=_source_timings(result),points=point_timings,reused_points)
-        LineCableModels.report_progress(receiver,(stage=:saving,))
+        _accepted_scan_report(receiver,result)
+        receiver === nothing || LineCableModels.report_progress(receiver,(stage=:saving,))
         calculation_record(calculation) == declaration ||
             throw(ArgumentError("calculation inputs changed during execution"))
         retained_files=NamedTuple[]
@@ -384,7 +387,7 @@ function _execute(calculation::BenchmarkCalculation; directory = nothing, model 
         digest = bytes2hex(open(sha256, path))
         write(path * ".sha256", digest * "  calculation.jld2\n")
         _write_toml(marker, Dict("schema"=>2, "signature"=>signature, "sha256"=>digest,
-            "jobs"=>_progress_job_count(calculation)))
+            "jobs"=>_calculation_jobs(calculation)))
         execution_wall=(time_ns()-started)*1e-9
         _write_toml(joinpath(directory,"timing.toml"),Dict(
             "schema"=>1,"execution_wall_seconds"=>execution_wall,
@@ -423,9 +426,10 @@ use `read_benchmark` when numerical results are needed.
 Set `recover_solvers=true` to ask FEM and PSCAD to recover compatible native run
 directories using their own input and output validation.
 
-`progress=:auto` shows a terminal progress bar or throttled plain output on stderr;
-`:plain` always uses plain output, and `:off` disables observation and snapshots.
-Controlled compute samples pause all observation. Operational wall time includes
+`progress=:auto` publishes snapshots and prints a command for a separate watcher
+plus a final summary. `:plain` adds throttled single-line status at outer boundaries;
+`:off` disables optional observation, estimation and publication. Controlled compute
+samples suspend observation before the timing boundary. Operational wall time includes
 monitoring; compute-call and native timing records retain their separate scopes.
 """
 function run_campaign(directory::AbstractString, definitions::AbstractVector{<:BenchmarkDefinition};
@@ -441,9 +445,11 @@ function run_campaign(directory::AbstractString, definitions::AbstractVector{<:B
     dry_run && return [(;item.id,item.action,item.reference,item.candidate) for item in plan]
     # A rejected immutable destination must not receive even a UI snapshot.
     validate(Base.write,directory)
-    return _record_campaign_wall(directory,session;progress) do
-        _with_campaign_progress(directory,getproperty.(definitions,:id),session.id;progress) do tracker
-            _progress_declarations!(tracker,definitions)
+    started=time_ns()
+    return _with_campaign_progress(directory,getproperty.(definitions,:id),session.id;
+            progress,selected=benchmark !== nothing) do tracker
+        _record_campaign_wall(directory,session;progress,started) do
+            _progress_declarations!(tracker,definitions,plan)
             _run_campaign(directory,definitions;on_error,resume,execution_sources,session,recover_solvers,plan)
         end
     end
@@ -452,8 +458,7 @@ end
 # This measurement belongs to the execution owner, including when monitoring is
 # off. An outer resume invocation replaces intermediate inner-run observations
 # with its complete wall duration. It never includes downtime between invocations.
-function _record_campaign_wall(f,directory,session;progress)
-    started=time_ns()
+function _record_campaign_wall(f,directory,session;progress,started=time_ns())
     try
         return f()
     finally
@@ -486,6 +491,8 @@ function _run_campaign(directory, definitions;
             Dict("schema"=>3,"benchmarks"=>String[],"created"=>string(now(UTC)))
         manifest["schema"] == 3 || throw(ArgumentError("historical campaigns remain readable; run new drafts in a new staging directory"))
         manifest["benchmarks"]=sort!(unique(vcat(manifest["benchmarks"],string.(getproperty.(definitions,:id)))))
+        tracker=_CAMPAIGN_TRACKER[]
+        tracker === nothing || (tracker.selected |= length(tracker.rows)<length(manifest["benchmarks"]))
         _write_toml(manifest_path,manifest)
     finally
         close(manifest_lock)
@@ -585,7 +592,7 @@ function _run_campaign(directory, definitions;
             benchmark_started=time_ns()
             receiver=LineCableModels.progress_receiver()
             attempt_relative=relpath(attempt,benchmark_root)
-            LineCableModels.report_progress(receiver,(kind=:benchmark,benchmark=definition.id,
+            receiver === nothing || LineCableModels.report_progress(receiver,(kind=:benchmark,benchmark=definition.id,
                 state=:running,stage=:preparing,attempt=attempt_relative))
             state["state"]="running"
             state["pid"]=getpid()
@@ -602,20 +609,19 @@ function _run_campaign(directory, definitions;
             state["current"]=relpath(attempt,benchmark_root)
             state["identity"]=identity
             state["wall_seconds"]=(time_ns()-benchmark_started)*1e-9
-            state["timing_key"]=_progress_history_key(definition)
             state["reused"]=any(values(value.timings.execution)) do execution
                 execution.reused || get(execution.compute, :reused_points, 0) > 0
             end
             if !state["reused"]
                 state["fresh_wall_seconds"]=state["wall_seconds"]
-                state["fresh_timing_key"]=state["timing_key"]
                 state["fresh_reference_seconds"]=value.timings.execution.reference.seconds
                 state["fresh_candidate_seconds"]=value.timings.execution.candidate.seconds
             end
             _write_toml(state_path,state)
             push!(outcomes,(id=definition.id,state=:complete,result=value,identity))
-            LineCableModels.report_progress(receiver,(kind=:benchmark,benchmark=definition.id,
-                state=:complete,stage=:complete,reused=state["reused"],
+            receiver === nothing || LineCableModels.report_progress(receiver,(kind=:benchmark,benchmark=definition.id,
+                state=:complete,stage=:complete,reused=state["reused"],seconds=state["wall_seconds"],
+                verdict_failed=value.passes === false || (value.performance !== nothing && value.performance.passes === false),
                 finalization_seconds=max(0.0, state["wall_seconds"] -
                     value.timings.execution.reference.seconds -
                     value.timings.execution.candidate.seconds)))
@@ -623,7 +629,8 @@ function _run_campaign(directory, definitions;
             state["state"]=error isa InterruptException ? "interrupted" : "failed"
             state["message"]=sprint(showerror,error;context=:limit=>true)
             _write_toml(state_path,state)
-            LineCableModels.report_progress(LineCableModels.progress_receiver(),
+            receiver=LineCableModels.progress_receiver()
+            receiver === nothing || LineCableModels.report_progress(receiver,
                 (kind=:benchmark,benchmark=definition.id,state=Symbol(state["state"]),
                     stage=Symbol(state["state"])))
             error isa InterruptException && rethrow()
@@ -659,11 +666,13 @@ function resume_campaign(directory::AbstractString;recover_solvers::Bool=false,p
     manifest["benchmarks"]=_campaign_selection(manifest["benchmarks"],benchmark)
     outcomes=NamedTuple[]
     session=execution_record()
-    return _record_campaign_wall(root,session;progress) do
-        sessions=joinpath(root,"sessions")
-        mkpath(sessions)
-        JLD2.jldsave(joinpath(sessions,session.id*".jld2");session)
-        _with_campaign_progress(root,manifest["benchmarks"],session.id;progress) do tracker
+    started=time_ns()
+    return _with_campaign_progress(root,manifest["benchmarks"],session.id;
+            progress,selected=benchmark !== nothing) do tracker
+        _record_campaign_wall(root,session;progress,started) do
+            sessions=joinpath(root,"sessions")
+            mkpath(sessions)
+            JLD2.jldsave(joinpath(sessions,session.id*".jld2");session)
             _resume_campaign(root,manifest,outcomes,session;recover_solvers,progress)
         end
     end
@@ -689,6 +698,9 @@ function _resume_campaign(root,manifest,outcomes,session;recover_solvers,progres
             end
             continue
         end
+        receiver=LineCableModels.progress_receiver()
+        receiver === nothing || LineCableModels.report_progress(receiver,
+            (kind=:benchmark,benchmark=id,attempt=state["attempt"],state=:running,stage=:restoring))
         declaration=joinpath(root,id,state["attempt"],"declarations.jld2")
         bytes2hex(open(sha256,declaration)) == strip(read(declaration*".sha256",String)) ||
             throw(ArgumentError("campaign declaration integrity check failed"))
@@ -768,3 +780,36 @@ function campaign_status(directory::AbstractString; verify::Bool=true)
 end
 
 export run_campaign,resume_campaign,campaign_status
+
+function _calculation_jobs(calculation)
+    problem, formulation = calculation.problem, calculation.formulation
+    points = problem isa ParametricProblem ? length(problem.space) : 1
+    forms = formulation isa Gridspace ? length(formulation) :
+        formulation isa Union{LinearError,LineCableModels.Combinatorial} &&
+        formulation.inner isa Union{Gridspace,AbstractVector} ? length(formulation.inner) : 1
+    return points * forms
+end
+
+function _calculation_progress(calculation)
+    jobs=_calculation_jobs(calculation)
+    form=calculation.formulation
+    total=form isa MonteCarlo ? (form.options.trials === nothing ? -1 : jobs*form.options.trials) : jobs
+    batch=calculation.problem isa ParametricProblem && form isa Union{LinearError,LineCableModels.Combinatorial} &&
+        form.inner isa Union{Gridspace,AbstractVector} ? length(form.inner) : 1
+    return (backend=_execution_backend(form),mode=_execution_mode(form),total,batch,
+        warmup=!_external_formulation(form))
+end
+
+_accepted_scans(result) = 1
+_accepted_scans(result::ParametricResult) = sum(_accepted_scans,result;init=0)
+_accepted_scans(result::LineCableModels.AbstractUncertaintyResult) = length(result)
+_accepted_scans(result::LineCableModels.MonteCarloResult) = sum(i->LineCableModels.trial_count(result,i),eachindex(result);init=0)
+_recovered_scans(result) = _result_reused(result;partial=false) ? _accepted_scans(result) : 0
+_recovered_scans(result::ParametricResult) = sum(_recovered_scans,result;init=0)
+function _accepted_scan_report(receiver,result;reused=false)
+    receiver === nothing && return
+    count=_accepted_scans(result)
+    recovered=reused ? count : _recovered_scans(result)
+    LineCableModels.report_progress(receiver,(kind=:scan_result,completed=count,total=count,
+        reused=recovered,partial_recovery=recovered>0 || _result_reused(result)))
+end

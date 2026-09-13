@@ -430,87 +430,119 @@ moved or deleted. Missing, changed and unexpected files reject reads. Writers re
 vault destinations; corrections require a new bundle. Locking does not upload,
 change Git history or update published artifact bindings.
 
-## Live progress and performance
+## Campaign progress and performance
 
-Campaigns display progress on stderr by default. `--progress auto` uses an updating
-bar in a terminal and throttled plain output when redirected; `plain` always emits
-plain output, and `off` disables monitoring and its disposable snapshots. REPL
-calls accept the same choices as `progress=:auto`, `:plain` or `:off`.
+`--progress auto` publishes lightweight snapshots and prints an exact-session watch
+command plus a final summary. It installs no live display in the calculation
+process. `plain` adds single-line status at outer boundaries, throttled to about ten
+seconds. `off` disables optional observation, estimation, publication, and progress
+output. Julia entrypoints accept the same values as `progress=:auto`, `:plain`, or
+`:off`. Diagnostics retain their separately declared verbosity and callbacks.
+
+Run the printed watcher command in a separate terminal:
 
 ```bash
-./gauntlet/lcm gauntlet run --definition gauntlet/benchmark_all_references.jl \
-  --directory gauntlet/.work/all-references --configuration gauntlet/local.jl \
-  --grid log --count 101 --bounds 0.1,1e7 --on-error continue --progress auto
-./gauntlet/lcm gauntlet status --directory gauntlet/.work/all-references --watch
+./gauntlet/lcm gauntlet run --definition FILE.jl --directory DIR --progress auto
+./gauntlet/lcm gauntlet resume --directory DIR --progress auto
+./gauntlet/lcm gauntlet status --directory DIR --watch --session SESSION
 ```
 
-The first command skips unchanged completed entries and reuses matching saved
-calculations. Use `--benchmark ID[,ID]` to limit the work order and `--dry-run` to
-inspect it first. Add `--recover-solvers` for unfinished native work, or `--force`
-to deliberately repeat selected calculations. PSCAD excludes the bare-wire case. The
-local configuration supplies your station and diagnostic verbosity independently
-of progress; set `verbosity=(default=0, PSCAD=0)` there for quiet native chatter.
+The startup hint contains the actual safely quoted directory and session. The
+optional session selector pins the invocation across benchmark/attempt transitions
+and after completion. Directory-only watching remains valid and uses conservative
+metadata discovery; ambiguous sessions produce an inventory-only display without a
+combined ETA. Session identity does not establish solver liveness. Ctrl-C or a
+broken output pipe ends only watching. One-shot status remains available.
 
-The display separates selected benchmarks, calculation jobs, native worker jobs
-and MC accepted trials/attempts/rejections. Failed, skipped and interrupted work
-are not counted as successful. It shows outer point/formulation and backend stages,
-not the frequency currently inside a solver. Warnings remain visible. Explicit
-Gmsh console diagnostics switch the bar to append-only plain output. `status
---watch` only reads metadata and active-session snapshots; Ctrl-C stops the watcher,
-not the campaign. Old runs without snapshots still show coarse campaign status.
+At ordinary terminal sizes, the watcher owns six rows:
 
-Each reference/candidate completion leaves a persistent summary above the live
-display, using the same labels for Owned, FEM, PSCAD, Monte Carlo and LEP runs.
-It shows execution wall time (through required result persistence), compute-call
-wall time, completed/reused calculation jobs and whether recovery was involved.
-Compute-call time covers calls actually made in this invocation; a saved operand
-instead says `not run (saved result)`, without displaying its historical compute
-time as a new measurement. Failed/interrupted operands show their elapsed wall
-time and leave unavailable measurements explicit. These are ordinary execution
-observations, not controlled performance samples. Summaries are emitted by the
-renderer, never from numerical loops, and are disabled by `--progress off`.
-Routine PSCAD messages honor the same 0/1/2 verbosity choices as FEM. With explicit
-verbosity, PSCAD's completion diagnostic labels the compile-call duration and its
-scope; it does not advertise that duration as elapsed scan time.
+```text
+Benchmarks [====................] 12/59 finished
+OK 11 | Failed 1 | Running 1 | Pending 46
+13/59 NA2XS2Y trefoil | reference / Monte Carlo
+Elapsed 00:42:18 | ETA ~00:08:40
+Current run / (96/512 scans) | sampling; rejected 3
+Last work observation 2s ago
+```
 
-Stage ETAs use bounded observed throughput. FEM estimates use MSH 4.1 ASCII node
-counts as a workload proxy, calibrated from at least three completed workers;
-remaining terminal columns, worker concurrency and the final serial tail are
-included. Unsupported mesh formats retain the identical-mesh throughput fallback.
-Campaign estimates learn from completed calculations during the current invocation,
-grouped by backend, propagation method and execution settings, with frequency,
-matrix and trial counts as workload proxies. Exact compatible history takes
-precedence. PSCAD uses comparable whole-call durations, including native setup.
-Reused/recovered calculations do not teach fresh computation costs.
-Finalization has its own observations, including reporting, persistence and any
-requested performance pass. Approximate estimates use `~`; when some workloads
-are unknown, the display reports the estimated portion separately. An untouched
-backend remains unknown; PSCAD observations cannot predict FEM or Monte Carlo.
-Overdue work returns to `estimating` until new evidence arrives. Heartbeats establish
-recent observation, not numerical progress. Estimates are advisory and never feed
-performance comparisons or numerical reuse decisions.
+A scan is an accepted complete frequency-grid result for one realized problem and
+core formulation. MC counts accepted trials, including an inferred target once it
+is known; rejections consume time without advancing scans. Batched traversals count
+accepted complete outputs without changing batching. Nested FEM contributes
+validated completed-frequency detail while MC retains the primary scan counter.
+Unknown totals use `?`. Recovered scans satisfy work without becoming fresh solver
+timing evidence; partial native recovery remains incomplete until its result is
+accepted. Validation, persistence, reports, and declared performance checks must
+finish before the benchmark becomes terminal.
 
-Timing records distinguish execution wall, compute-call wall, and backend-native
-time. `sessions/SESSION.timing.toml` retains invocation wall time even with progress
-off. `timing.toml` retains operand wall/compute durations; calculation metadata
-retains compute policy and source timings. GetDP phase sums are accumulated worker
-time, **not** elapsed scan time. PSCAD source time covers remote `line.compile()`;
-output readiness and transfer belong to broader adapter time. Historical elapsed
-fields keep their legacy meaning. Verified recovery retains its original timings
-and is not a new zero-second solver measurement.
+Subset invocations say `Selected benchmarks`. Failed, skipped, and interrupted
+outcomes remain distinct. A failed comparison or declared performance verdict counts
+as Failed while its completed execution remains recoverable. If the invocation
+exhausts its selected execution, ETA says `done`, including when some verdicts failed.
+An interruption, fail-fast termination, or other early abort says `stopped`. Valid
+accepted-scan durations remain useful when later scientific comparisons disagree.
 
-Declared performance checks warm owned Julia calls, then time complete compute
-calls without progress, optional diagnostics or `on_result` callbacks. Required
-numerical/checkpoint IO remains included. MC samples include draws, reconstruction,
-retries and aggregation. The display says `Performance sample … — display paused`:
-there are no live trial updates, redraws or snapshot writes inside that sample.
-Normal execution still delivers user callbacks. Julia allocation counts cover
-Julia, not native worker memory. Native repetitions are not enabled implicitly.
+The ASCII spinner advances every 250 ms in the watcher using cached state. Elapsed,
+freshness, ETA, and snapshot polling advance about once per second. The spinner
+means the viewer is active; an opaque computation can publish no new observation
+for a long time. Heartbeats do not reset work freshness or teach duration estimates.
+Final elapsed freezes and the spinner stops. Missing, malformed, legacy, or stale
+snapshots produce a compact status; staleness never cancels work or implies failure.
+The watcher reads metadata and snapshots, never executable declarations, numerical
+results, or worker artifacts. Narrow/short terminals and redirected output receive
+plain summaries without cursor escapes, color, or spinner frames. Color honors the
+IO setting and `NO_COLOR`.
 
-Operational runs include monitoring overhead and system load. Quiet samples remove
-the observer's active work, not unrelated machine contention. Speedup decisions
-require matching timing scope, measurement policy and environment, with no recovered
-native work or coverage/allocation instrumentation. One sample is limited evidence.
+There is one approximate remaining campaign duration, including unfinished
+calculation and required overhead/performance work. The collector smooths eligible
+observed durations with an EWMA coefficient of 0.25. It uses fresh repeated-operation
+throughput, compatible operation timings, coarse backend/mode timing evidence, and
+provisional pooled assumptions, keeping scan, whole-operation, controlled-call, and
+whole-benchmark timing scopes separate. Batch throughput cannot silently predict
+independent scalar calls. Mesh sizes, frequency detail, geometry, and matrix sizes
+are not workload models. Unresolved resumed definitions use a provisional whole-
+benchmark observation or forecast; a lone scan duration cannot establish seconds
+per unresolved benchmark, so `ETA --` is legitimate during bootstrap.
+
+Unmeasured required overhead gets one provisional allowance of at least one second
+or ten percent of the whole calculation forecast. The allowance does not shrink
+with the calculation countdown and is not added to work already covered by a whole
+budget. For active residual budget B and elapsed time A since a genuine estimate
+anchor, remaining active time is `max(B-A, 1 + 0.25*max(A-B, 0))` seconds. It becomes
+revising only after A exceeds B. Queued work is added once. These allowances and the
+overdue extension are assumptions, never measured samples. ETA can increase after
+new duration evidence and never enters numerical reuse or performance pass/fail.
+
+Execution publishes at most once per second at ordinary outer boundaries and
+forces lifecycle and controlled-call boundaries. Same-directory rename replaces
+snapshots; optional output failure disables that output with one diagnostic.
+Required result/checkpoint IO failures retain their normal behavior. There is no
+producer rendering timer, progress-driven yield, or handshake with the watcher.
+
+Timing records still distinguish invocation wall, operand wall, compute-call wall,
+and backend-native scopes. `sessions/SESSION.timing.toml` exists even with progress
+off. Operand `timing.toml` and calculation metadata retain durations, callback policy,
+and source timings. GetDP phase/process sums are accumulated worker durations, not
+elapsed scan time. PSCAD source `timing.txt` measures remote `line.compile()` only;
+output readiness and transfer belong to broader adapter time. Recovery retains its
+original timing provenance and is not a new zero-second solver measurement.
+
+Before a controlled call, execution publishes sample identity and suspended
+observation together, then enters the task-scoped quiet context. The watcher shows
+`performance sample 2/3; observation suspended` and can keep animating its cache.
+No optional reporting, publication, monitoring transport, or progress-driven yield
+occurs within the measured call, including nested MC/backend work. After timing,
+execution records the measurement and publishes restored observation with the actual
+outcome. Exceptions and interrupts restore scoped state. Normal correctness callbacks
+remain enabled; controlled samples retain their recorded callback-free policy and
+required numerical/checkpoint IO. Native warmup/repeats remain absent unless already
+declared. Allocation counts describe Julia allocations, not native worker memory.
+
+Ordinary publication has measurable overhead. The [validation report](progress-validation.md) compares off,
+publisher-only, and publisher-plus-watcher workloads, with variability and the
+approximately one-percent median target. This is a measurement target, not a noisy
+wall-clock regression assertion. Quiet samples exclude optional execution-side
+observation; they do not isolate computation from unrelated machine load.
 
 ## Package and publish accepted bundles
 

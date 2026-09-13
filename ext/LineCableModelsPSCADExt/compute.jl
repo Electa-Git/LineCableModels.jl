@@ -211,6 +211,8 @@ function _compute_pscad(problem::LineParametersProblem, formulation::PSCADFormul
     end
     reused = source_root !== nothing
     if reused
+        receiver=LineCableModels.progress_receiver()
+        receiver === nothing || LineCableModels.report_progress(receiver,(stage=:validating,partial_recovery=true,recovered=true))
         @info "PSCAD reuses a verified completed run" source_run=source_root
         output = joinpath(source_root, "outputs")
         execution = (elapsed_seconds = 0.0,

@@ -8,6 +8,7 @@
         factor::Float64
     end
     Base.NamedTuple(formulation::CheckpointBackend)=(factor=formulation.factor,)
+    Base.pairs(::CheckpointBackend;quantity=nothing) = Pair[]
     function LineCableModels.compute(problem::LineParametersProblem, formulation::CheckpointBackend;options=(;))
         push!(calls,formulation.factor)
         # The declaration is edited while a solver is active, then disappears.
@@ -60,9 +61,9 @@
         session_state=TOML.parsefile(joinpath(directory,"first","state.toml"))
         snapshot=TOML.parsefile(joinpath(directory,"sessions",session_state["session"]*".progress.toml"))
         observation=only(row for row in snapshot["benchmarks"] if row["id"]=="first")
-        @test observation["candidate"]["reused"] == 1
-        @test observation["candidate"]["completed"] == 3
-        @test observation["candidate"]["timing_reused"]
+        @test observation["execution_state"]=="complete"
+        @test length(snapshot["benchmarks"])==2
+        @test snapshot["termination"]=="exhausted"
         @test completed.metadata.session.id != initial_session.id
         points=read_calculation(joinpath(attempt,"candidate","calculation.jld2")).metadata.point_sessions
         @test points[1].id==initial_session.id

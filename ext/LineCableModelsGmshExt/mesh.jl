@@ -614,7 +614,6 @@ function _select_meshes!(
         mesh_paths[mesh_plan.frequency_index] = _select_mesh!(
             run, model, display_geometry, execution, runtime_root, mesh_plan
         )
-        yield()
     end
     return mesh_paths
 end

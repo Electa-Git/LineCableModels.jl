@@ -65,10 +65,8 @@ function _run_remote(
         output_file === nothing || println(output_file, line)
         output_file === nothing || flush(output_file)
         if stream
-            LineCableModels.with_progress_output() do
-                println(stdout, line)
-                flush(stdout)
-            end
+            println(stdout, line)
+            flush(stdout)
         end
     end
     error_task = @async for line in eachline(errors)
@@ -76,10 +74,8 @@ function _run_remote(
         error_file === nothing || println(error_file, line)
         error_file === nothing || flush(error_file)
         if stream
-            LineCableModels.with_progress_output() do
-                println(stderr, line)
-                flush(stderr)
-            end
+            println(stderr, line)
+            flush(stderr)
         end
     end
     interrupted = nothing
@@ -128,6 +124,7 @@ end
 
 function _remote_progress(receiver, line)
     startswith(line,"LCM_PROGRESS_V1\t") || return false
+    receiver === nothing && return true
     fields=split(line,'\t')
     length(fields)==3 || return true
     if fields[2]=="stage" && fields[3] in
@@ -298,7 +295,8 @@ function run_remote_pscad(
 )
     verbosity in 0:2 || throw(ArgumentError("PSCAD verbosity must be 0, 1, or 2"))
     LineCableModels.performance_sample_active() && (verbosity=0)
-    LineCableModels.report_progress(LineCableModels.progress_receiver(),(backend=:pscad,stage=:staging))
+    receiver=LineCableModels.progress_receiver()
+    receiver === nothing || LineCableModels.report_progress(receiver,(backend=:pscad,stage=:staging))
     _validate_frequencies(frequencies_value)
     isdir(local_output) && !isempty(readdir(local_output)) &&
         throw(ArgumentError(
@@ -367,7 +365,8 @@ function run_remote_pscad(
         ))
     end
     verbosity >= 1 && @info "Checking PSCAD outputs" host=config.host variant destination=local_output
-    LineCableModels.report_progress(LineCableModels.progress_receiver(),(backend=:pscad,stage=:validating))
+    receiver=LineCableModels.progress_receiver()
+    receiver === nothing || LineCableModels.report_progress(receiver,(backend=:pscad,stage=:validating))
     required = (
         "pscad-console.txt", "timing.txt", "result_zm.out", "result_zp.out",
         "result_ym.out", "result_yp.out"

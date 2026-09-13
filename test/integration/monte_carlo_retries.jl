@@ -64,12 +64,13 @@
     @test samples(replay) == samples(sampled)
     @test replay.point_seeds == sampled.point_seeds
     @test replay.details.failure_summary == sampled.details.failure_summary
-    trial_events = filter(event -> get(event, :unit, nothing) === :trials, progress_events)
+    trial_events = filter(event -> get(event, :kind, nothing) === :scan, progress_events)
     @test maximum(event.rejected for event in trial_events) == 2
     @test last(trial_events).completed == 4
     @test last(trial_events).attempts == 4
     @test all(event -> event.completed <= event.attempts, trial_events)
-    @test last(progress_events).jobs_completed == 2
+    @test count(event -> get(event, :kind, nothing) === :scan_end, progress_events) == 2
+    @test all(event -> get(event, :state, :complete) === :complete, progress_events)
 end
 
 @testitem "UQ / retries do not hide non-domain errors or run past their limit" tags=[:integration] begin

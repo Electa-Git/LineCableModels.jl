@@ -72,7 +72,13 @@ with open(sys.argv[1],'a+') as f:
             E._release_run(owner)
             @test strip(read(lock_command,String))=="acquired"
             E._release_run(E._claim_run(run))
-            E._run_getdp!(run,model,form, execution_options,meshes)
+            observations=NamedTuple[]
+            LineCableModels.with_progress(e->push!(observations,e)) do
+                E._run_getdp!(run,model,form, execution_options,meshes)
+            end
+            @test last(observations).frequencies_completed==2
+            @test last(observations).frequencies_total==2
+            @test all(e->!haskey(e,:remaining_seconds) && !haskey(e,:completed),observations)
             @test (run.getdp_invocations,run.completed_columns,run.completed_frequencies)==(2,4,2)
             scan=E._parse_scan(run,model,form, execution_options)
             @test real.(scan.Z[:,:,1])==[111 112;121 122]
@@ -114,7 +120,13 @@ with open(sys.argv[1],'a+') as f:
             serial=fresh()
             serial_form=Formulation(:LineCableModelsFEM;options=form.options)
             serial_form_controls = merge(execution,(frequency_workers=1,))
-            E._run_getdp!(serial,model,serial_form, computation_options(LineCableModelsFEM, serial_form_controls),meshes)
+            empty!(observations)
+            LineCableModels.with_progress(e->push!(observations,e)) do
+                LineCableModels.with_performance_sample() do
+                    E._run_getdp!(serial,model,serial_form, computation_options(LineCableModelsFEM, serial_form_controls),meshes)
+                end
+            end
+            @test isempty(observations)
             @test E._parse_scan(serial,model,serial_form, computation_options(LineCableModelsFEM, serial_form_controls)).Z==scan.Z
             # A failed basis does not get a checkpoint and must be retried.
             broken=fresh();write(config,JSON3.write((delay=0.01,fail=true)))
