@@ -1,7 +1,7 @@
 # Apply styles to the native semantic handles before constructing legends and
 # visibility controls. Every recipe uses this through the common plot shell.
 function _addon_series_styles!(groups, order, attributes; defaults=nothing)
-    dependents = Any[]
+    dependents = Pair{Makie.Plot,Makie.Plot}[]
     attributes === nothing && defaults === nothing && return dependents
     styles = LineCableModels.PlotBuilder._series_attributes(attributes, length(order))
     drawing_order = defaults === nothing ? collect(eachindex(order)) :
@@ -40,12 +40,9 @@ function _addon_series_styles!(groups, order, attributes; defaults=nothing)
                 points = scatter!(handle.parent, coordinates;
                     color=hollow ? :transparent : handle.color[],
                     visible=handle.visible[], marker_attributes...)
-                # Native legend clicks assign attributes directly. Give each
-                # scatter its own writable input, rather than a compute-graph
-                # alias that Makie cannot replace during visibility toggling.
-                on(handle.parent, handle.visible) do value
-                    points.visible[] = value
-                end
+                # Visibility follows the same owner contract as uncertainty
+                # bars; the shared shell binds it once for the complete series.
+                push!(dependents, points => handle)
                 on(handle.parent, handle.color) do value
                     if hollow
                         haskey(overrides, :strokecolor) || (points.strokecolor[] = value)
@@ -61,7 +58,6 @@ function _addon_series_styles!(groups, order, attributes; defaults=nothing)
         isempty(unused) || throw(ArgumentError(
             "series_attributes for $group are unsupported by its native plots: $(join(unused, ", "))"))
         append!(handles, markers)
-        append!(dependents, markers)
     end
     return dependents
 end

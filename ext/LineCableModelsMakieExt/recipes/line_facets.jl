@@ -279,6 +279,7 @@ function _addon_semantic_line_page(
     xsetters = NamedTuple[]
     ysetters = NamedTuple[]
     groups = Dict{Symbol, Vector{Any}}()
+    dependent_plots = Pair{Makie.Plot,Makie.Plot}[]
     group_order = Symbol[]
     group_labels = Dict{Symbol, String}()
     panel_group_labels = Any[]
@@ -352,6 +353,7 @@ function _addon_semantic_line_page(
                 axis,
                 source.frequency.values,
                 curve;
+                dependent_plots,
                 label = source_label,
                 color = colors[source_index]
             )
@@ -390,6 +392,7 @@ function _addon_semantic_line_page(
     end
     built = _addon_finish!(
         shell, axes, resets, xsetters, ysetters, groups, group_order, group_labels;
+        dependent_plots,
         series_attributes,
         series_defaults,
         title,

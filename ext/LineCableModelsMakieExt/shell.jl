@@ -366,7 +366,7 @@ function _addon_numeric_values(values)
     return nominal_values, any(error -> !iszero(error), errors) ? errors : nothing
 end
 
-function _addon_line!(axis, xdata, ydata; label, color = nothing, visible = true)
+function _addon_line!(axis, xdata, ydata; dependent_plots, label, color = nothing, visible = true)
     x, xerror = _addon_numeric_values(xdata)
     y, yerror = _addon_numeric_values(ydata)
     attributes = color === nothing ? (; linewidth = 2) : (; linewidth = 2, color)
@@ -396,6 +396,7 @@ function _addon_line!(axis, xdata, ydata; label, color = nothing, visible = true
             linewidth = 1,
             visible
         ))
+    append!(dependent_plots, (plot => first(plots) for plot in Iterators.drop(plots, 1)))
     return plots
 end
 
@@ -1097,15 +1098,53 @@ function _addon_remove_legend!(legend)
     return nothing
 end
 
-function _addon_legend_sources!(legend, dependents)
+function _addon_legend_sources!(legend, groups, dependents)
     legend === nothing && return nothing
-    isempty(dependents) && return legend
-    # Markers inherit visibility from their source lines. Keep their native
-    # glyphs, but do not toggle them a second time after toggling the line.
-    for (_, entries) in legend.entrygroups[], entry in entries, element in entry.elements
-        filter!(plot -> !any(dependent -> dependent === plot, dependents),
-            Makie.get_plots(element))
+    owners = IdDict{Any,Any}(dependents)
+    for handles in values(groups), handle in handles
+        get!(owners, handle, handle)
     end
+    # Preserve Makie's glyphs, but target the registered owning plots. Composite
+    # glyphs may refer to derived child attributes that are not writable inputs.
+    # Deduplicate across the entire entry: several glyphs still mean one action.
+    for (_, entries) in legend.entrygroups[], entry in entries
+        seen = Base.IdSet{Any}()
+        for element in entry.elements
+            # Cairo's LineSegments renderer adds joinstyle=nothing to the
+            # source graph. Native legend extraction then mistakes that cache
+            # for a line style on recreation. Keep the fallback in the glyph,
+            # without modifying the source graph or overriding a real style.
+            if element isa LineElement && to_value(element.joinstyle) === nothing
+                element.attributes[:joinstyle] = legend.joinstyle
+            end
+            targets = Makie.get_plots(element)
+            resolved = Makie.Plot[]
+            for plot in targets
+                owner = plot
+                while owner isa Makie.Plot && !haskey(owners, owner)
+                    owner = owner.parent
+                end
+                owner = get(owners, owner, plot)
+                while haskey(owners, owner) && owners[owner] !== owner
+                    owner = owners[owner]
+                end
+                if owner ∉ seen
+                    push!(seen, owner)
+                    push!(resolved, owner)
+                end
+            end
+            empty!(targets)
+            append!(targets, resolved)
+        end
+    end
+    # Rebuild native listeners after changing targets. Also initialise their
+    # shades when a hidden entry is recreated or reappears after overflow.
+    on(legend.blockscene, legend.entrygroups; priority=-1) do entrygroups
+        for (_, entries) in entrygroups, entry in entries
+            foreach(notify, Makie.get_plot_visibilities(entry))
+        end
+    end
+    notify(legend.entrygroups)
     return legend
 end
 
@@ -1180,6 +1219,7 @@ function _addon_responsive_legend!(figure, bounding_box, legend)
         empty!(extents)
         fit!(bounding_box[])
     end
+    fit!(bounding_box[])
     return legend
 end
 
@@ -1353,6 +1393,7 @@ function _addon_legend!(
         groups,
         order,
         labels;
+        dependent_plots,
         position,
         attributes,
         overflow::Symbol,
@@ -1392,13 +1433,14 @@ function _addon_legend!(
             attributes
         )
         if overflow === :show_all
-            return Legend(
+            legend = Legend(
                 figure,
                 entries,
                 displayed,
                 title;
                 options...
             )
+            return _addon_legend_sources!(legend, groups, dependent_plots)
         end
         ellipsis = LineElement(color = :transparent)
         legend = Legend(
@@ -1408,9 +1450,11 @@ function _addon_legend!(
             title;
             options...
         )
+        _addon_legend_sources!(legend, groups, dependent_plots)
         return _addon_responsive_legend!(
             figure,
-            legend.layoutobservables.computedbbox,
+            # Available space, not the legend's content-dependent size.
+            legend.layoutobservables.suggestedbbox,
             legend
         )
     end
@@ -1437,10 +1481,12 @@ function _addon_legend!(
         # native storage orientation.
         options = merge(options, (; orientation=:vertical, halign=:center))
         legend = Legend(legend_grid[1, 1], entries, displayed, title; options...)
+        _addon_legend_sources!(legend, groups, dependent_plots)
         return _addon_grid_legend!(figure, legend_grid.layoutobservables.computedbbox, legend)
     end
     if overflow === :show_all
-        return Legend(legend_grid[1, 1], entries, displayed, title; options...)
+        legend = Legend(legend_grid[1, 1], entries, displayed, title; options...)
+        return _addon_legend_sources!(legend, groups, dependent_plots)
     end
     ellipsis = LineElement(color = :transparent)
     legend = Legend(
@@ -1450,6 +1496,7 @@ function _addon_legend!(
         title;
         options...
     )
+    _addon_legend_sources!(legend, groups, dependent_plots)
     return _addon_responsive_legend!(
         figure,
         legend_grid.layoutobservables.computedbbox,
@@ -1557,7 +1604,7 @@ function _addon_legend_configuration(value; default_position, default_title = no
     return (; position, overflow, title, anchor, legend_labels, attributes)
 end
 
-function _addon_panel_legends!(figure, panel_data, requested)
+function _addon_panel_legends!(figure, panel_data, requested, dependent_plots)
     built = Dict{Tuple{Int, Int}, Any}()
     positions = Dict{Tuple{Int, Int}, Any}()
     for pair in _addon_panel_legend_pairs(requested)
@@ -1587,6 +1634,7 @@ function _addon_panel_legends!(figure, panel_data, requested)
             data.groups,
             data.order,
             data.labels;
+            dependent_plots,
             position = configuration.position,
             attributes = configuration.attributes,
             overflow = configuration.overflow,
@@ -1716,8 +1764,12 @@ end
 
 function _addon_bind_visibility!(figure, axes, resets, groups, status)
     for plots in values(groups), plot in plots
-
-        on(figure.scene, plot.visible) do _
+        previous = Ref(plot.visible[])
+        on(figure.scene, plot.visible) do visible
+            # A legend rebuild can notify without changing visibility. Keep
+            # the current zoom and avoid fitting identical series repeatedly.
+            visible == previous[] && return nothing
+            previous[] = visible
             foreach(callback -> callback(), resets)
             status[] = "Axis limits fitted to visible series"
             return nothing
@@ -1816,6 +1868,7 @@ function _addon_finish!(
         groups,
         order,
         group_labels;
+        dependent_plots = Pair{Makie.Plot,Makie.Plot}[],
         title,
         figure_title = nothing,
         title_attributes = (;),
@@ -1841,7 +1894,18 @@ function _addon_finish!(
         export_theme,
         open_export
 )
-    dependent_plots = _addon_series_styles!(groups, order, series_attributes; defaults=series_defaults)
+    append!(dependent_plots, _addon_series_styles!(groups, order, series_attributes; defaults=series_defaults))
+    for (dependent, owner) in dependent_plots
+        dependent.visible[] = owner.visible[]
+        previous = Ref(owner.visible[])
+        on(shell.figure.scene, owner.visible) do visible
+            # Legend relayout re-emits the current state to initialise shading;
+            # it is not a series action and must preserve native component edits.
+            visible == previous[] && return nothing
+            previous[] = visible
+            dependent.visible[] = visible
+        end
+    end
     foreach(_addon_axis_format!, axes)
     title_block = _addon_figure_title!(shell, figure_title, title_attributes)
     inside_bbox = _addon_axes_viewport(
@@ -1887,6 +1951,7 @@ function _addon_finish!(
         groups,
         order,
         group_labels;
+        dependent_plots,
         position = legend_position,
         attributes = legend_attributes,
         overflow = legend_overflow,
@@ -1909,12 +1974,9 @@ function _addon_finish!(
     panel_legend_result = _addon_panel_legends!(
         shell.figure,
         panel_data,
-        panel_legends
+        panel_legends,
+        dependent_plots
     )
-    _addon_legend_sources!(legend, dependent_plots)
-    for panel_legend in values(panel_legend_result.legends)
-        _addon_legend_sources!(panel_legend, dependent_plots)
-    end
     colorbar_result = _addon_colorbars!(
         shell.body,
         color_scales;
@@ -2038,6 +2100,7 @@ function LineCableModels.figurelegend!(
         data.groups,
         data.order,
         data.labels;
+        dependent_plots = data.dependent_plots,
         position,
         attributes = (; kwargs...),
         overflow,
@@ -2047,7 +2110,6 @@ function LineCableModels.figurelegend!(
         target = dock.target,
         target_orientation = dock.orientation
     )
-    _addon_legend_sources!(legend, data.dependent_plots)
     plot.legend = legend
     data.figure_legend_position[] = legend === nothing ? nothing : position
     _addon_refit_matrix_block!(plot, legend)
@@ -2092,6 +2154,7 @@ function LineCableModels.panellegend!(
         panel.groups,
         panel.order,
         panel.labels;
+        dependent_plots = data.dependent_plots,
         position,
         attributes = (; kwargs...),
         overflow,
@@ -2099,7 +2162,6 @@ function LineCableModels.panellegend!(
         anchor,
         inside_bbox = panel.axis.scene.viewport
     )
-    _addon_legend_sources!(legend, data.dependent_plots)
     if legend === nothing
         delete!(plot.panel_legends, logical_position)
         delete!(data.panel_legend_positions, logical_position)

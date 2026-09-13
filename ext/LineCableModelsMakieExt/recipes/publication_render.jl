@@ -127,6 +127,7 @@ function _addon_publication_plot(
         xsetters = NamedTuple[]
         ysetters = NamedTuple[]
         groups = Dict{Symbol, Vector{Any}}()
+        dependent_plots = Pair{Makie.Plot,Makie.Plot}[]
         order = Symbol[]
         group_labels = Dict{Symbol, String}()
         group_colors = Dict{Symbol, Any}()
@@ -188,6 +189,7 @@ function _addon_publication_plot(
                     axis,
                     item.x,
                     item.y;
+                    dependent_plots,
                     label = local_label,
                     color = group_colors[group]
                 )
@@ -228,6 +230,7 @@ function _addon_publication_plot(
             groups,
             order,
             group_labels;
+            dependent_plots,
             series_attributes,
             title = display_title,
             figure_title,
