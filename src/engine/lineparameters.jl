@@ -155,16 +155,17 @@ function _solve!(
     )
 end
 
-function _retained_details(::LineParametersWorkspace{<:Real, <:NamedTuple, <:NamedTuple,
+function _retained_details(workspace::LineParametersWorkspace{<:Real, <:NamedTuple, <:NamedTuple,
         <:NamedTuple, Nothing})
-    (;)
+    (internal_shunt=_shunt_details(workspace.input.shunt_domains,workspace.invariants.shunt),)
 end
 
 function _retained_details(workspace::LineParametersWorkspace)
     capture = workspace.capture
-    capture === nothing && return (;)
+    shunt = (internal_shunt=_shunt_details(workspace.input.shunt_domains,workspace.invariants.shunt),)
+    capture === nothing && return shunt
     input = workspace.input
-    return (
+    return merge(shunt, (
         trace = (
         phase_map = input.phase_map,
         cable_map = input.cable_map,
@@ -175,7 +176,7 @@ function _retained_details(workspace::LineParametersWorkspace)
         Z = capture.Z,
         P = capture.P
     ),
-    )
+    ))
 end
 
 function _finish(
@@ -401,6 +402,12 @@ function _compute(
     blueprints = CableBlueprint{T}[flatten(engine, design, T)
                                    for design in problem.system.designs]
     input = lineinput(problem, blueprints)
+    lossless = findfirst(f->_shunt_lossless(f.methods),formulations)
+    prepared_shunt = lossless === nothing ? nothing :
+        prepare_internal_shunt(input.shunt_domains,input.n_phases,
+            formulations[lossless].methods,first(input.freq),input.temperature)
+    ShuntStorage = Union{Nothing,PreparedInternalShunt{T,Vector{InternalShuntDiagnostic}}}
+    input = merge(input,NamedTuple{(:prepared_shunt,),Tuple{ShuntStorage}}((prepared_shunt,)))
     first_result = _compute(
         engine,
         problem,
@@ -457,10 +464,12 @@ $(TYPEDSIGNATURES)
 
 Compute frequency-dependent line parameters with the coaxial backend.
 
-Every nonconcentric cable part must already have an equivalent concentric
-representation in the completed data model. The physical system is normalized
-once into a backend-owned workspace, and all reusable numerical storage is
-allocated before the frequency loop. `trace=true` retains completed
+The completed data model supplies the equivalent concentric representation
+used for series impedance and ordinary radial dielectric intervals. Eligible
+open wire/tape domains also retain their physical geometry for the local shunt
+calculation. The physical system is normalized once into a backend-owned
+workspace, and all reusable numerical storage is allocated before the frequency
+loop. `trace=true` retains completed
 intermediate matrices under `details(result).trace`; it does not change the
 result type.
 

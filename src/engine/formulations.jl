@@ -4,8 +4,11 @@ $(TYPEDEF)
 
 Select the LineCableModels backend for concentric coaxial cable assemblies.
 
-Nonconcentric cable parts must reach this backend through an equivalent
-concentric representation supplied by DataModel.
+Series impedance uses the equivalent concentric representation supplied by
+DataModel. Internal shunt assembly additionally resolves eligible open wires
+and finite tapes in a lossless, radially layered circular shielded domain.
+Other geometry and material selections retain their equivalent-coaxial
+treatment. This geometry selection introduces no new formulation keyword.
 """
 struct LineCableModelsCoaxial end
 

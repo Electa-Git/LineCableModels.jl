@@ -183,7 +183,8 @@ function cable_potential!(
         s::Complex{T},
         layer_coefficients::AbstractVector{Complex{T}},
         coefficients::AbstractVector{Complex{T}},
-        tails::AbstractVector{Complex{T}}
+        tails::AbstractVector{Complex{T}},
+        shunt = nothing
 ) where {T <: Real}
     fill!(destination, zero(Complex{T}))
     dielectric!(layer_coefficients, input, methods, frequency,
@@ -191,7 +192,7 @@ function cable_potential!(
     @inbounds for conductors in input.assemblies
         count = length(conductors)
         for component in 1:count
-            coefficients[component] = radial_coefficient(
+            coefficients[component] = _shunt_covered(shunt,conductors[component]) ? zero(s) : radial_coefficient(
                 layer_coefficients,
                 input.dielectric_ranges[conductors[component]]
             )
@@ -205,7 +206,7 @@ function cable_potential!(
             destination[conductors[row], conductors[column]] += tails[max(row, column)]
         end
     end
-    return destination
+    return _shunt_potential!(destination,shunt)
 end
 
 """
@@ -230,7 +231,8 @@ function cable_admittance!(
         frequency::T,
         temperature::T,
         s::Complex{T},
-        layer_coefficients::AbstractVector{Complex{T}}
+        layer_coefficients::AbstractVector{Complex{T}},
+        shunt = nothing
 ) where {T <: Real}
     fill!(destination, zero(Complex{T}))
     dielectric!(layer_coefficients, input, methods, frequency,
@@ -239,6 +241,7 @@ function cable_admittance!(
         count = length(conductors)
         for position in 1:count
             index = conductors[position]
+            _shunt_covered(shunt,index) && continue
             coefficient = radial_coefficient(
                 layer_coefficients,
                 input.dielectric_ranges[index]
@@ -254,7 +257,7 @@ function cable_admittance!(
             end
         end
     end
-    return destination
+    return _shunt_admittance!(destination,shunt,s)
 end
 
 function admittance!(
@@ -281,7 +284,8 @@ function admittance!(
         s,
         layer_coefficients,
         coefficients,
-        tails
+        tails,
+        workspace.invariants.shunt
     )
     _stash!(_capture_target(capture, :Pin), frequency, destination)
 

@@ -9,13 +9,14 @@ module LineCableModelsMeasurementsExt
 import Measurements
 import Printf
 import SpecialFunctions
+using LinearAlgebra: svd
 #! explicit-imports: off
 # Non-exported accessors documented in Measurements usage.
 # Measurements.result is its documented internal propagation
 # hook, required by the existing complex-Bessel adapter (Measurements appendix).
 # Keep the import exception restricted to these upstream bindings.
 using Measurements: value as measured_value, uncertainty as measured_uncertainty,
-                    result as measured_result
+                    result as measured_result, derivative, uncertainty_components
 #! explicit-imports: on
 
 import LineCableModels
@@ -225,4 +226,33 @@ function SpecialFunctions.besselh(order::Real, value::Complex{<:Measurements.Mea
     return _lift_complex(SpecialFunctions.besselh, order, value)
 end
 
+"""
+Lift local capacitance through its fixed-resolution least-squares equations.
+Independent uncertainty directions preserve the original Measurement graph;
+only the nominal factorization and bounded Float64 derivative blocks are dense.
+Kernel derivatives use centered steps, checked by halving the step. This avoids
+both a dense Measurement matrix and repeated perturbed factorizations.
+"""
+function Engine.internal_shunt_response(values::AbstractVector{<:Measurements.Measurement},domain;kwargs...)
+    nominal_values = Float64.(measured_value.(values))
+    tags = sort!(unique!([tag for value in values
+        for tag in keys(uncertainty_components(value)) if !iszero(tag[2])]);by=last)
+    if isempty(tags)
+        result = Engine.internal_shunt_response(nominal_values,domain;kwargs...)
+        return (;C=eltype(values).(result.C),diagnostic=result.diagnostic,state=nothing)
+    end
+    # Columns are physical perturbations per standard deviation of each
+    # independent input. This normalization does not change their distribution.
+    directions = [Float64(derivative(value,tag)*tag[2]) for value in values, tag in tags]
+    result = Engine.internal_shunt_response(nominal_values,domain;directions,kwargs...)
+    # Return sensitivities through the original physical arguments, including
+    # shared/dependent ones. A small rank-revealing projection handles redundant
+    # descriptors without creating new independent Measurement identities.
+    factor = svd(transpose(directions))
+    cutoff = max(size(directions)...)*eps(Float64)*maximum(factor.S)
+    keep = factor.S .> cutoff
+    gradient = factor.V[:,keep]*((transpose(factor.U[:,keep])*result.tangents)./factor.S[keep])
+    lifted = [measured_result(result.C[i],@view(gradient[:,i]),values) for i in eachindex(result.C)]
+    return (;C=reshape(lifted,size(result.C)),diagnostic=result.diagnostic,state=nothing)
+end
 end

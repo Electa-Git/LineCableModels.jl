@@ -389,14 +389,17 @@ function CableConstantsWorkspace(
     return CableConstantsWorkspace(
         problem,
         formulation,
-        LocalCableData(blueprint)
+        LocalCableData(blueprint),
+        prepare_internal_shunt(internal_shunt_domains([problem.design],[blueprint]),
+            length(blueprint),formulation.methods,problem.frequency,problem.temperature)
     )
 end
 
 function CableConstantsWorkspace(
         problem::CableConstantsProblem{T},
         formulation::CableConstantsFormulation,
-        cable::LocalCableData{T}
+        cable::LocalCableData{T},
+        shunt = nothing
 ) where {T <: Real}
     @inbounds for assembly in cable.assemblies
         isempty(cable.dielectric_ranges[first(assembly)]) && throw(ArgumentError(
@@ -412,6 +415,7 @@ function CableConstantsWorkspace(
         maximum_size > 1 ? (:inner, :outer, :mutual) : (:outer,))
     removed = maximum_size - 1
     buffers = (
+        shunt = _shunt_lossless(formulation.methods) ? shunt : nothing,
         Z = Matrix{Complex{T}}(undef, count, count),
         Y = Matrix{Complex{T}}(undef, count, count),
         reduced = Matrix{Complex{T}}(undef, 1, 1),
@@ -454,7 +458,8 @@ function _solve!(
         problem.frequency,
         problem.temperature,
         s,
-        buffers.layer_coefficients
+        buffers.layer_coefficients,
+        buffers.shunt
     )
     keep = @view buffers.indices[1:1]
     @inbounds for (assembly, chain) in pairs(workspace.cable.assemblies)
@@ -569,18 +574,23 @@ function compute(
     end
     blueprint = flatten(engine, problem.design, eltype(problem))
     cable = LocalCableData(blueprint)
+    domains = internal_shunt_domains([problem.design],[blueprint])
+    lossless = findfirst(f->_shunt_lossless(f.methods),formulations)
+    shunt = lossless === nothing ? nothing : prepare_internal_shunt(domains,length(blueprint),
+        formulations[lossless].methods,problem.frequency,problem.temperature)
     first_formulation = first(formulations)
     first_workspace = CableConstantsWorkspace(
         problem,
         first_formulation,
-        cable
+        cable,
+        shunt
     )
     first_result = _solve!(first_workspace, problem, first_formulation)
     values = Vector{typeof(first_result)}(undef, length(formulations))
     values[1] = first_result
     for index in 2:length(formulations)
         formulation = formulations[index]
-        workspace = CableConstantsWorkspace(problem, formulation, cable)
+        workspace = CableConstantsWorkspace(problem, formulation, cable, shunt)
         value = _solve!(workspace, problem, formulation)
         typeof(value) === eltype(values) || throw(ArgumentError(
             "cable-constant formulations produced inconsistent result types",

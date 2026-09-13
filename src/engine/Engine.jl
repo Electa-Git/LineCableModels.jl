@@ -43,7 +43,7 @@ export compute
 
 # Module-specific dependencies
 using LinearAlgebra: svd, svd!, eigvals!, Diagonal, I, checksquare, cond, diag, ldiv!, lu, lu!,
-                     mul!, qr, ColumnNorm
+                     mul!, qr, qr!, ColumnNorm, eigen, SymTridiagonal, UpperTriangular
 import LinearAlgebra: norm
 using DocStringExtensions: IMPORTS, TYPEDEF, TYPEDFIELDS, TYPEDSIGNATURES
 import ..LineCableModels: basis, build, R, L, C,
@@ -78,7 +78,7 @@ import ..LineCableModels: validate
 import Logging
 using Logging: AbstractLogger, ConsoleLogger, with_logger
 import SpecialFunctions
-using QuadGK: alloc_segbuf, quadgk
+using QuadGK: alloc_segbuf, quadgk, quadgk!
 using DoubleExponentialFormulas: QuadDE
 
 include("interfaces.jl")
@@ -128,6 +128,8 @@ using .EarthAdmittance: EarthAdmittance
 
 # Native workspace and numerical action
 include("blueprint.jl")
+include("shunt_geometry.jl")
+include("internalshunt.jl")
 include("input.jl")
 include("logging.jl")
 include("earthreturn.jl")
@@ -145,6 +147,7 @@ include("textdisplay.jl")
 public hooks, SpectralIntegral, integrate
 public OBSERVABLE_RESOLUTION_REVISION
 public has_uncertainty_type, spectral_magnitude
+public internal_shunt_response
 public reduce_primitive_matrices, potential_to_admittance
 public layer_admittance
 public ConsoleVerbosityLogger

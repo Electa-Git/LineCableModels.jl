@@ -26,6 +26,128 @@ default preserves static properties, EquivalentHomogeneous selects the basement 
 requested, and the modal default performs Levenberg–Marquardt tracking.
 Bibliography remains attached to the equations despite the package-owned names.
 
+## Internal shunt geometry
+
+`compute(problem, Formulation(...))` automatically resolves eligible open wire
+and finite-tape groups inside a closed circular shield. This is an internal
+geometry calculation, not another earth formula or a new backend. The same
+operator supplies `CableConstants`; no new modeling keyword is required.
+
+The resolved local calculation preserves physical filler permittivity, finite
+tape thickness, conductor terminal membership and concentric dielectric layers.
+It couples all intermediate terminals in a qualifying domain together. Round
+wires use auxiliary sources; tapes use integrated corner-weighted charges on
+their two circular faces and two ends. The inner core retains the existing
+equivalent-core assumption, including bounded circular, rectangular, compacted
+and sector stranded constructions. Strand packing and clearance are unchanged.
+Series impedance, earth return, terminal ordering and matrix reductions are
+also unchanged. Only the applicable internal shunt contribution changes.
+Existing coaxial lowering requirements, including radial terminal ordering,
+remain in force; this does not add support for declarations that lowering
+already rejects.
+
+Qualification currently requires an explicitly filled annular host, continuous
+concentric dielectric paths, exposed whole wire/tape boundaries, and a closed
+circular reference shield. Separate shielded assemblies are handled in their
+own local frames. Overlapping same-terminal faces, interacting courses in
+different hosts, nonconcentric dielectric interfaces and noncircular reference
+shields retain the existing equivalent-coaxial treatment. They are not fed to
+an inapplicable circular Green function. The resolved path currently uses the
+unmodified lossless insulation/semicon defaults; lossy or custom constitutive
+selections retain their established radial calculation, without losing their
+conductivity or frequency dependence.
+
+Inspect `details(result).internal_shunt` for `:resolved_local` versus
+`:equivalent_coaxial`, terminal ranges, preparation counts and sampled
+diagnostics. A resolved treatment can coexist with ordinary radial intervals
+in the same system. The diagnostic boundary residual and small-coupling
+indicator are not certified error bounds. The accepted 18 kV finite-strip
+control has a roughly 0.007 V sampled residual under unit excitation and a
+0.107 small-coupling indicator; these are retained, not hidden or relabeled as
+a proven 6% accuracy guarantee. Reference comparisons remain separate from
+numerical convergence.
+
+Preparation uses bounded dense storage and in-place pivoted QR. Repeated
+identical domains and lossless formula variants share their prepared local
+operators within a compute call, and boundary matrices are released afterwards.
+The lossless local matrix is reused across the frequency sweep. There is no
+global cache and no boundary solve in the frequency loop. Large domains that
+exceed the storage budget or fail numerical validation produce an explicit
+calculation error; they do not silently fall back or become rejected Monte
+Carlo geometry samples.
+
+With Measurements loaded, local sensitivities preserve the original correlated
+inputs. The nominal QR is reused in an implicit least-squares derivative that
+includes its residual term. Centered kernel derivatives are checked by step
+halving; derivative matrices are streamed in bounded blocks rather than stored
+as dense Measurement arrays. This is fixed-topology linear propagation, not a
+claim about differentiability across a contact or strand-count transition.
+Each Monte Carlo realization prepares its own physical geometry/material
+operator; identical cables/formulations within that realization share it.
+Concentricity checks include coordinate dependencies: two centres with equal
+nominal positions but independent uncertainty do not qualify as concentric.
+The local boundary calculation uses Float64 workspaces; it does not promise
+arbitrary-precision boundary accuracy when surrounding scalar inputs use a
+wider type.
+
+### Numerical method and attribution
+
+The annular Green function is assembled from classical cylindrical Laplace
+harmonics: `r^m` and `r^-m`, with `1` and `log(r)` for the zero mode.
+[Schelkunoff1934](@cite), Eqs. (122)–(124), p. 573, gives this radial basis
+in its treatment of cylindrical fields in the small-radius-to-wavelength
+limit. Here the same basis solves the electrostatic potential problem.
+[Sunde1968](@cite), Section 1.5, Eq. (1.20), p. 11, supports the coaxial
+capacitance normalization; Section 1.6, Eqs. (1.39)–(1.42), p. 15, gives
+the load/reflection transformation applied here in log-radius coordinates.
+Matching the dielectric interfaces and grounded inner/outer boundaries
+assembles these ingredients into the implemented layered annular kernel.
+
+The finite-thickness, layered-Green-function, whole-face charge approach has
+precedent in [Bernal1997](@cite), especially Section IV, Eq. (10). Their
+Maxwell-weighted Chebyshev/Galerkin formulation is not reproduced verbatim:
+this implementation uses a concentric circular Green function, normalized
+Jacobi face charges and oversampled boundary collocation with pivoted QR.
+
+[Campione2018](@cite), Section 2, Eq. (3), provides a cable-screen application
+of dielectric image factors `(εhost − εadjacent)/(εhost + εadjacent)`, also
+used in the extracted nearest-interface terms here. Their cylindrical braid
+is locally approximated by a plane; that work is not a derivation of this
+implementation's concentric annular kernel or radial layer recursion.
+
+The corner weights encode the finite-energy edge behaviour of
+[Meixner1972](@cite). Corners on dielectric interfaces use the actual adjacent
+permittivities, following the metal–dielectric wedge principle of
+[VanBladel1985](@cite), rather than assigning every corner the homogeneous
+exponent. [Classen2011](@cite), Sections 2 and 4, supports incorporating known
+singularities into an approximation space; its FIT/DG methods are not this
+tape element. The implemented corner equation and normalized charge measure
+are documented below.
+
+The need for special evaluation near source boundaries is discussed by
+[HelsingOjala2008](@cite), Section 1. Here logarithmic direct/image moments use
+adaptive Gauss–Kronrod quadrature after a cosine change of variable, while
+the smooth remainder uses Gauss–Jacobi quadrature. This is a different
+algorithm from their rational-quadrature scheme.
+
+The following internal numerical methods document the equations, charge
+normalization and quadrature needed to reproduce the calculation. They are
+implementation details, not additional public modeling APIs. Source placement,
+resolution controls, validation thresholds and uncertainty differentiation
+remain package-specific choices, not accuracy guarantees supplied by these
+references.
+
+```@docs
+LineCableModels.Engine._shunt_load
+LineCableModels.Engine._shunt_kernel_coefficients
+LineCableModels.Engine._shunt_junction_exponent
+LineCableModels.Engine._shunt_tape_faces
+LineCableModels.Engine._shunt_log_moments
+LineCableModels.Engine._shunt_capacitance
+```
+
+## Formula selection
+
 ```julia
 selected = Formulation(
     earth_impedance=formula(:default;

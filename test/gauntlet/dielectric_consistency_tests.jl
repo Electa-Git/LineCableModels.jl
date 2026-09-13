@@ -1,4 +1,4 @@
-@testitem "Gauntlet / 18 kV radial equivalence does not select dielectric losses" tags=[:gauntlet_toolkit] setup=[GauntletSupport] begin
+@testitem "Gauntlet / 18 kV shunt geometry does not select dielectric losses" tags=[:gauntlet_toolkit] setup=[GauntletSupport] begin
     using LinearAlgebra
     using LineCableModels.Engine
     using .GauntletSupport.Gauntlet
@@ -22,7 +22,14 @@
         constants = CableConstantsFormulation(insulation_admittance=identifier,
             semicon_admittance=identifier)
         a, b = map(design -> compute(CableConstantsProblem(design), constants), (source, reduced))
-        @test a.C ≈ b.C rtol=1e-12
+        if identifier === :default
+            # Physical wire/tape gaps intentionally differ from homogenized
+            # annuli; resolving them must not invent a dielectric loss law.
+            @test all(>(0),a.C)
+            @test !isapprox(a.C,b.C;rtol=1e-3)
+        else
+            @test a.C ≈ b.C rtol=1e-12
+        end
         @test a.G ≈ b.G rtol=1e-12
         @test a.R ≈ b.R rtol=1e-10
         @test a.L ≈ b.L rtol=1e-10
