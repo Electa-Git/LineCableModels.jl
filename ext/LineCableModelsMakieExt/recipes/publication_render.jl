@@ -13,7 +13,7 @@ function _publication_frequency_name(publication, observation_name)
         hasproperty(publication.columns, name) || continue
         hasproperty(publication.metadata.observation_columns, name) || continue
         contract = getproperty(publication.metadata.observation_columns, name)
-        contract.quantity isa LineCableModels.Units.Quantity{:frequency} && return name
+        contract.quantity isa Units.Quantity{:frequency} && return name
     end
     return nothing
 end
@@ -72,11 +72,11 @@ function _publication_coordinate_label(names, coordinate)
 end
 
 function _publication_group(observation, coordinate, index::Int)
-    family = LineCableModels.Units.family(observation.quantity)
+    family = Units.family(observation.quantity)
     prefix = if family === Val(:series) || family === Val(:shunt)
-        LineCableModels.Units.symbol(LineCableModels.Units.quantity(_family_parent(family)))
+        Units.symbol(Units.quantity(_family_parent(family)))
     else
-        LineCableModels.Units.symbol(observation.quantity)
+        Units.symbol(observation.quantity)
     end
     isempty(coordinate) && return Symbol("$(prefix)_observation_$index"), prefix
     suffix = join(string.(coordinate), "_")
@@ -84,7 +84,7 @@ function _publication_group(observation, coordinate, index::Int)
 end
 
 function _addon_publication_plot(
-        publication::LineCableModels.Grammar.ObservationPublication;
+        publication::Grammar.ObservationPublication;
         title = nothing,
         figure_title = nothing,
         title_attributes::NamedTuple = (;),
@@ -135,7 +135,7 @@ function _addon_publication_plot(
         for (index, observation) in enumerate(publication)
             data = _publication_series_data(publication, observation)
             panel_title = resolved_panel_titles === nothing ?
-                          LineCableModels.Units.label(observation.quantity) :
+                          Units.label(observation.quantity) :
                           resolved_panel_titles[index]
             row, column = positions[index]
             panel = _addon_panel!(shell, (row, column))
@@ -157,7 +157,7 @@ function _addon_publication_plot(
             )
             series = NamedTuple[]
             scoped_labels = Dict{Symbol, String}()
-            quantity_symbol = LineCableModels.Units.symbol(observation.quantity)
+            quantity_symbol = Units.symbol(observation.quantity)
             for item in data.series
                 coordinate_label = _publication_coordinate_label(
                     data.coordinate_names, item.coordinate)

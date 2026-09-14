@@ -161,7 +161,9 @@
             term.excitation==row.absolute_term_excitation,evidence))
         @test row.maximum_absolute_rms==largest.absolute_rms
     end
-    @test occursin("Per-term RMS maxima",sprint(show,MIME"text/plain"(),result))
+    rendered=sprint(show,MIME"text/plain"(),result)
+    # New leaf descriptions must also reach the composed human-readable report.
+    @test all(leaf->occursin(description(leaf;compact=true),rendered),leaves)
 end
 
 @testitem "Descriptions / quantity identities ignore unrelated slots and retain composite controls" tags=[:unit] begin

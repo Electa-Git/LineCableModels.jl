@@ -35,7 +35,9 @@
             @test observe(model_only, histograms, selector, 1, indices..., nothing) === retained
             @test observe(model_only, histograms, selector, 1, indices..., 2) === retained
             for input in (source, samples_only), bins in (1, 3, 4)
-                model = @inferred observe(input, histograms, selector, 1, indices..., bins)
+                # Rebuilding can promote precision to represent finite support
+                # and density. Retained-model retrieval above stays inferred.
+                model = observe(input, histograms, selector, 1, indices..., bins)
                 expected = HistogramDensity(sample; bins)
                 @test length(model.density) == bins
                 @test model.edges == expected.edges

@@ -100,8 +100,29 @@
             (1, 2), (2, 1))),
         (reference = two, candidate = two))
     @test Set(report_two.table.terms.problem_index)==Set((1, 2))
+    @test Set(report_two.table.overview.coverage.candidate_point)==Set((1,2))
+    @test Set(zip(report_two.table.overview.coverage.point,
+        report_two.table.overview.coverage.reference_point))==Set(((1,2),(2,1)))
     @test length(report_two.table.features)==4
     @test length(report_two.table.sampling.point)==4
+    # Equal nominal endpoints and standard uncertainties can carry different
+    # correlations. Coordinate identity and the original quantities survive
+    # presentation-row deduplication through the full reporting stages.
+    correlated_frequency=measurement(50.,.25)
+    independent_frequency=measurement(50.,.25)
+    uncertain_sources=map((correlated_frequency,independent_frequency)) do frequency
+        LineParameters(fill(1.0+2im,1,1,1),fill(3e-6+4e-6im,1,1,1),[frequency];
+            details=(coordinates=["core"],))
+    end
+    uncertain_pair=LinearErrorResult(LinearError(Formulation()),collect(uncertain_sources))
+    correlated_report=report(BenchmarkTableDefinition(((statistics,R,mean),);
+        bands=(:all,),pairing=((1,1),(2,2))),
+        (reference=uncertain_pair,candidate=uncertain_pair))
+    coverage=correlated_report.table.overview.coverage
+    @test coverage.point==[1,2]
+    @test uncertainty(coverage.first_Hz[1]-correlated_frequency)==0
+    @test uncertainty(coverage.first_Hz[2]-independent_frequency)==0
+    @test uncertainty(coverage.first_Hz[1]-coverage.first_Hz[2])≈sqrt(2)*.25
     # Multiple configurations stay explicit; selecting a comparison configuration
     # must not mislabel a source-owned MC sampling point or hide whole-call timings.
     for mime in (MIME"text/plain"(),MIME"text/html"())

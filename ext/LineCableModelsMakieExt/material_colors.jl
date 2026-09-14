@@ -213,7 +213,7 @@ function LineCableModels.materialcolors(
     0 <= alpha <= 1 || throw(ArgumentError(
         "alpha must be between zero and one",
     ))
-    ranges = LineCableModels.DataModel.material_property_ranges()
+    ranges = DataModel.material_property_ranges()
     resolved_range = property_range === nothing ? getproperty(ranges, property) :
                      property_range
     resolved_range isa Tuple && length(resolved_range) == 2 &&

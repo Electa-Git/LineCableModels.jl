@@ -5,7 +5,7 @@ end
 
 function _native_cable_colorbars(display::Bool, design)
     display ?
-    _material_schemes(LineCableModels.DataModel.material_property_ranges(design)) : ()
+    _material_schemes(DataModel.material_property_ranges(design)) : ()
 end
 
 function _default_preview_legend_group(region, milliken::Bool)
@@ -13,7 +13,7 @@ function _default_preview_legend_group(region, milliken::Bool)
     tag === :wire || return tag
     patterns = region.placement.patterns
     bounded = any(patterns) do entry
-        entry.pattern isa LineCableModels.DataModel.BoundedPlacement
+        entry.pattern isa DataModel.BoundedPlacement
     end
     milliken && (bounded || isempty(patterns)) && return :stranded_sector
     bounded && return :stranded_core
@@ -78,10 +78,10 @@ function _native_design_shapes(
     polygons = PreviewPolygon[]
     for region in design.geometry.regions
         bounded = any(region.placement.patterns) do entry
-            entry.pattern isa LineCableModels.DataModel.BoundedPlacement
+            entry.pattern isa DataModel.BoundedPlacement
         end
         enclosure_boundary = any(region.placement.patterns) do entry
-            entry.pattern isa LineCableModels.DataModel.EnclosureBoundary
+            entry.pattern isa DataModel.EnclosureBoundary
         end
         stroke = enclosure_boundary ? :black :
                  RGB(102 / 255, 109 / 255, 118 / 255)
@@ -101,7 +101,7 @@ function _native_design_shapes(
             (patterns = region.placement.patterns,),
             region.paths,
         )
-        for shape in LineCableModels.DataModel.preview_shapes(placed)
+        for shape in DataModel.preview_shapes(placed)
             label = display_legend && identity.group ∉ labelled_groups ?
                     identity.label : nothing
             push!(polygons, PreviewPolygon(

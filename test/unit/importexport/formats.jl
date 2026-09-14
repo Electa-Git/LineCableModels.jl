@@ -127,7 +127,10 @@ end
         @test occursin("UNIFORM,100.0,1.0,10.0", text)
         @test length(collect(eachmatch(r"FREQUENCY", text))) == 2
         @test count(line -> startswith(line, "GROUP,PH-"), readlines(exported)) == 3
-        @test all(label -> occursin(label, text), ("CORE,", "SHEATH,", "ARMOUR,"))
+        # The current three-phase scenario has two concentric terminals per cable.
+        @test count(line->startswith(line,"CORE,"),split(text,'\n')) == 3
+        @test count(line->startswith(line,"SHEATH,"),split(text,'\n')) == 3
+        @test !occursin("ARMOUR,",text)
 
         layered=build(EarthModel, (
             EarthLayer(80.0, 8.0, 1.0, 4.0),
@@ -164,6 +167,18 @@ end
                     dielectric
                 ))
         end
+        # Exercise the third supported component with an explicit current
+        # construction, independent of the shared two-terminal scenario.
+        three_design=build(CableDesign,"three-terminal",Stack(parts[1:6]))
+        three_system=build(LineCableSystem,three_design,Pose2(0.0,-1.0);
+            connections=Dict(:terminal_1=>1,:terminal_2=>0,:terminal_3=>0))
+        three_path=export_data(:tralin,three_system,homogeneous;
+            file_name=joinpath(directory,"three-terminal.f05"))
+        component_lines=filter(line->any(label->startswith(line,label*","),
+            ("CORE","SHEATH","ARMOUR")),readlines(three_path))
+        @test first.(split.(component_lines,',')) == ["CORE","SHEATH","ARMOUR"]
+        @test [parse(Int,split(line,',')[3]) for line in component_lines] == [1,0,0]
+
         oversized_design=build(CableDesign, "oversized", Stack(parts))
         oversized_system=build(
             LineCableSystem,

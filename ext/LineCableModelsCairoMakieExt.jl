@@ -5,8 +5,7 @@ Activate CairoMakie for non-interactive LineCableModels rendering.
 """
 module LineCableModelsCairoMakieExt
 
-using CairoMakie
-using LineCableModels
+import CairoMakie
 
 activate!() = (CairoMakie.activate!(); :cairo)
 make_screen(::AbstractString; kwargs...) = nothing

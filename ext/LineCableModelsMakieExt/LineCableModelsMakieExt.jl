@@ -5,15 +5,33 @@ Add compact high-level LineCableModels plotting methods to native Makie.
 """
 module LineCableModelsMakieExt
 
-using LineCableModels
-using Makie
+import LineCableModels
+using LineCableModels: C, EarthLayer, L, LineParameters, Material, RadialDielectric,
+    SeriesImpedance, ShuntAdmittance, Y, Z, assembly, basis,
+    domain, frequencies, label, nconductors, nfrequencies, nominal,
+    observables, observe, outer_radius, quantity, samples
+import Makie
+using Makie: Auto, Axis, Button, Colorbar, DataAspect, Figure,
+    Fixed, GridLayout, Label, Legend, LineElement, Mixed,
+    Observable, Outside, Rect2f, Relative, Theme, Toggle,
+    colgap!, colsize!, content, ecdfplot!, errorbars!, height,
+    hist!, hlines!, hspan!, left, lift, lines!,
+    on, onany, poly!, reset_limits!, right, rowgap!,
+    rowsize!, scatter!, stairs!, text!, to_value, translate!,
+    update!, width, widths, with_theme
 using LinearAlgebra: diag
 using Printf: @sprintf
-using Colors: HSV, Oklab, RGB, RGBA, alpha, blue, green, red
-using Dates
+using Colors: HSV, Oklab, RGB, RGBA, blue, green, red
+import Dates
 using Statistics: mean
 
-const Units = LineCableModels.Units
+import LineCableModels.Units
+import LineCableModels.Engine
+import LineCableModels.DataModel
+import LineCableModels.Grammar
+import LineCableModels.ImportExport
+import LineCableModels.UQ
+import Makie.GridLayoutBase
 import LineCableModels.Grammar:
                                 ObservationPublication,
                                 observation_indices, observation_request, request_identity,
@@ -62,7 +80,7 @@ end
 function _is_line_observation_request(source, value)
     value isa Tuple || return false
     resolved = try
-        LineCableModels.Grammar.observation_request(source, value)
+        Grammar.observation_request(source, value)
     catch error
         error isa ArgumentError || rethrow()
         return false
@@ -73,7 +91,7 @@ function _is_line_observation_request(source, value)
 end
 
 function _expand_line_observation_request(source, request)
-    resolved = LineCableModels.Grammar.observation_request(source, request)
+    resolved = Grammar.observation_request(source, request)
     identity = resolved.identity
     indices = resolved.indices
     if identity === LineCableModels.Z
@@ -377,7 +395,7 @@ function Makie.plot(
 end
 
 function preview(
-        design::LineCableModels.DataModel.CableDesign;
+        design::DataModel.CableDesign;
         backend = nothing,
         display_plot::Bool = true,
         controls::Bool = true,
@@ -396,7 +414,7 @@ end
 # remaining preview options unchanged. DataModel retains only detached geometry
 # and material attributes; Makie objects and backend state stay here.
 function preview(
-        designs::AbstractVector{<:LineCableModels.DataModel.CableDesign};
+        designs::AbstractVector{<:DataModel.CableDesign};
         backend = nothing,
         display_plot::Bool = true,
         controls::Bool = true,
@@ -412,7 +430,7 @@ function preview(
 end
 
 function preview(
-        system::LineCableModels.DataModel.LineCableSystem;
+        system::DataModel.LineCableSystem;
         backend = nothing,
         display_plot::Bool = true,
         controls::Bool = true,
@@ -442,13 +460,13 @@ function show_material_scale(
 end
 
 function plot(
-        publication::LineCableModels.Grammar.ObservationPublication;
+        publication::Grammar.ObservationPublication;
         kwargs...
 )
     return _addon_publication_plot(publication; kwargs...)
 end
 
-function Makie.plot(publication::LineCableModels.Grammar.ObservationPublication; kwargs...)
+function Makie.plot(publication::Grammar.ObservationPublication; kwargs...)
     plot(publication; kwargs...)
 end
 

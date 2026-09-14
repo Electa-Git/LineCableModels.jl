@@ -10,6 +10,18 @@ rebuild(value;kwargs...)=typeof(value)((get(kwargs,name,getfield(value,name))
 function study(FEM,problem,formulation,controls;directory,observable)
     model=FEM._resolved_fem_model(FEM._preflight_fem_problem(problem),formulation)
     plan=only(model.mesh_plans)
+    # Start one mesh scale coarser, then complete all three refinements. The
+    # former 500000-triangle allocation could not supply four mesh levels and
+    # three domains. Only this test-owned construction allocation changes.
+    plan=rebuild(plan;domain_mesh_size=2plan.domain_mesh_size,
+        infinite_mesh_size=2plan.infinite_mesh_size,
+        interface_mesh_size=2plan.interface_mesh_size,
+        cable_interface_mesh_sizes=2plan.cable_interface_mesh_sizes,
+        wave_mesh_sizes=map(x->2x,plan.wave_mesh_sizes))
+    model=rebuild(model;region_plans=[rebuild(region;mesh_size=2region.mesh_size)
+            for region in model.region_plans],
+        fine_mesh_size=2model.fine_mesh_size,coarse_mesh_size=2model.coarse_mesh_size,
+        cable_outer_mesh_sizes=2model.cable_outer_mesh_sizes,mesh_plans=[plan])
     execution=computation_options(LineCableModelsFEM,controls)
     executable=FEM._getdp_selection(execution).path
     records=Dict{String,Any}[];mesh_values=Any[];domain_values=Any[]
@@ -33,7 +45,7 @@ function study(FEM,problem,formulation,controls;directory,observable)
                 kinds,tags,_=gmsh.model.mesh.get_elements(2)
                 all(==(2),kinds) || error("inconclusive mesh study: non-first-order triangles")
                 triangles=sum(length,tags)
-                triangles<=500000 || error("inconclusive mesh study: triangle bound")
+                triangles<=2000000 || error("inconclusive mesh study: 2000000-triangle bound")
                 mesh=joinpath(run.path,"mesh","level$level.msh")
                 gmsh.write(mesh)
                 FEM._inspect_loaded_mesh(changed_model,mesh)
@@ -71,12 +83,7 @@ function study(FEM,problem,formulation,controls;directory,observable)
                     end
                 end
                 level==affordable && break
-                if 4triangles>500000
-                    factor==1 || error("inconclusive domain study: cannot match local refinement")
-                    affordable=level
-                    push!(domain_values,last(mesh_values))
-                    break
-                end
+                4triangles<=2000000 || error("inconclusive mesh study: cannot complete the allocated four levels")
                 gmsh.model.mesh.refine()
             end
         finally

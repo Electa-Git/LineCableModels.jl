@@ -34,7 +34,7 @@ function _monte_carlo_publication(
     else
         error("Monte Carlo plotting requested no published product")
     end
-    target = only(LineCableModels.Grammar.unit_targets(
+    target = only(Grammar.unit_targets(
         (scientific_selector,),
         LineCableModels.basis(result);
         length_prefix = length_unit,
@@ -96,7 +96,7 @@ end
 
 function _monte_carlo_title(publication, suffix::AbstractString)
     payload = publication.sample === nothing ? publication.model : publication.sample
-    symbol = LineCableModels.Units.symbol(payload.quantity)
+    symbol = Units.symbol(payload.quantity)
     indices = isempty(publication.indices) ? "" :
               "[$(join(publication.indices, ','))]"
     return "$symbol$indices $suffix"
@@ -143,18 +143,18 @@ function Makie.hist(
     y_observation = normalization === :none ?
                     (;
         values = Float64[],
-        quantity = LineCableModels.Units.Quantity{:sample_count}(),
-        unit = LineCableModels.Units.UnitExpr()
+        quantity = Units.Quantity{:sample_count}(),
+        unit = Units.UnitExpr()
     ) :
                     normalization === :probability ?
                     (;
         values = Float64[],
-        quantity = LineCableModels.Units.Quantity{:probability}(),
-        unit = LineCableModels.Units.UnitExpr()
+        quantity = Units.Quantity{:probability}(),
+        unit = Units.UnitExpr()
     ) :
                     (;
         values = Float64[],
-        quantity = LineCableModels.Units.Quantity{:probability_density}(),
+        quantity = Units.Quantity{:probability_density}(),
         unit = inv(sample.unit)
     )
     return _addon_statistical_plot(
@@ -234,7 +234,7 @@ function Makie.stairs(
     )
     ordinate = (;
         values = model.values.density,
-        quantity = LineCableModels.Units.Quantity{:probability_density}(),
+        quantity = Units.Quantity{:probability_density}(),
         unit = inv(model.unit)
     )
     return _addon_statistical_plot(
@@ -309,8 +309,8 @@ function Makie.ecdfplot(
     sample = publication.sample
     ordinate = (;
         values = Float64[],
-        quantity = LineCableModels.Units.Quantity{:cumulative_probability}(),
-        unit = LineCableModels.Units.UnitExpr()
+        quantity = Units.Quantity{:cumulative_probability}(),
+        unit = Units.UnitExpr()
     )
     return _addon_statistical_plot(
         sample,
@@ -389,12 +389,12 @@ function Makie.lines(
               String(title)
     model = publication.model
     grid = _model_cdf_grid(model.values)
-    probability = LineCableModels.UQ.cumulative_probability.(Ref(model.values), grid)
+    probability = UQ.cumulative_probability.(Ref(model.values), grid)
     abscissa = (; values = grid, quantity = model.quantity, unit = model.unit)
     ordinate = (;
         values = probability,
-        quantity = LineCableModels.Units.Quantity{:cumulative_probability}(),
-        unit = LineCableModels.Units.UnitExpr()
+        quantity = Units.Quantity{:cumulative_probability}(),
+        unit = Units.UnitExpr()
     )
     return _addon_statistical_plot(
         abscissa,
@@ -467,7 +467,7 @@ function Makie.qqplot(
         clip)
     heading = title === nothing ? _monte_carlo_title(publication, "Q-Q plot") :
               String(title)
-    pairs = LineCableModels.UQ.quantile_pairs(
+    pairs = UQ.quantile_pairs(
         publication.model.values,
         publication.sample.values
     )
@@ -481,7 +481,7 @@ function Makie.qqplot(
         quantity = publication.model.quantity,
         unit = publication.model.unit
     )
-    displayed_unit = LineCableModels.Units.label(sample.unit)
+    displayed_unit = Units.label(sample.unit)
     return _addon_statistical_plot(
         sample,
         model;

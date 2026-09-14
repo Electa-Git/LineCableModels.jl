@@ -544,7 +544,7 @@ end
     ))
 
     invalid=deepcopy(cables_document)
-    delete!(invalid["root"]["cables"]["test_cable"], "origin")
+    delete!(only(values(invalid["root"]["cables"])), "origin")
     @test JSONSchema.validate(schema, invalid) !== nothing
 
     @test_throws ArgumentError IE._json_path("library.archive")

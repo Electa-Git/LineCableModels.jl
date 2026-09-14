@@ -67,7 +67,27 @@
 end
 
 @testitem "UQ / current AC cable / actual sampling and independently recomputed statistics" tags=[:integration] setup=[TestFixtures] begin
-    using Measurements,Statistics,TOML
+    using Measurements,Statistics,TOML,QuadGK
+    include(joinpath(pkgdir(LineCableModels),"test/support/radial_control.jl"))
+    # Independent radial diffusion plus the explicit two-terminal Schur
+    # complement gives the AC resistance law for this concentric construction.
+    # It is separate from the sampling/retention contracts below.
+    function reference_resistance(temperature)
+        setprecision(BigFloat,256) do
+            rho=big"2e-8"*(1+big".004"*(BigFloat(temperature)-20))
+            mu=4big(pi)*big"1e-7";s=100big(pi)*im
+            core=RadialControl.surfaces(big"0",big".005",rho,mu,s)
+            wall=RadialControl.surfaces(big".01",big".011",rho,mu,s)
+            exterior=wall.outer+s*mu/(2big(pi))*log(big".012"/big".011")
+            value=core.outer+wall.inner+s*mu/(2big(pi))*log(big"2")-
+                wall.transfer^2/exterior
+            @assert wall.bound<abs(exterior)/2
+            bound=core.bound+wall.bound+
+                4abs(wall.transfer)*wall.bound/abs(exterior)+
+                2abs(wall.transfer)^2*wall.bound/abs(exterior)^2
+            return (value=Float64(real(value)),bound=Float64(bound)+eps(Float64(real(value))))
+        end
+    end
     design=TestFixtures.coaxial_design()
     temperatures=(20.0,60.0)
     space=Gridspace{CableConstantsProblem}(t->CableConstantsProblem(design;temperature=t),
@@ -78,9 +98,9 @@ end
     directory=mktempdir(;prefix="lcm-uq-temperature-provisional-",cleanup=false)
     println("Temperature UQ evidence: ",directory);flush(stdout)
     rows=[Dict("temperature_C"=>temperature,"AC_R_Ohm_per_m"=>only(compute(CableConstantsProblem(design;temperature))).R,
-        "DC_core_R_Ohm_per_m"=>2e-8*(1+.004*(temperature-20))/(pi*.005^2)) for temperature in temperatures]
+        "independent_AC_R_Ohm_per_m"=>reference_resistance(temperature).value) for temperature in temperatures]
     open(joinpath(directory,"premise.toml"),"w") do io
-        TOML.print(io,Dict("status"=>"affine DC distribution oracle inapplicable to current AC cable constants", "cases"=>rows))
+        TOML.print(io,Dict("status"=>"current AC radial diffusion and explicit terminal reduction control", "cases"=>rows))
     end
     for N in (calibration ? (512,2048) : (8192,))
     seed=calibration ? 101 : 2027
@@ -89,6 +109,33 @@ end
     @test sampled.trial_counts==[N,N]
     @test length(unique(sampled.point_seeds))==2
     @test all(isempty,sampled.details.failures)
+    for (point,temperature) in enumerate(temperatures)
+        # Uniform temperature uncertainty has the prescribed standard deviation
+        # of 1 K. Integrate the independent AC mapping, not an affine DC law.
+        halfwidth=sqrt(3.)
+        reference_mean,quadrature_error=quadgk(
+            t->reference_resistance(t).value/(2halfwidth),
+            temperature-halfwidth,temperature+halfwidth;rtol=1e-11)
+        probes=[reference_resistance(t) for t in range(
+            temperature-halfwidth,temperature+halfwidth;length=9)]
+        physical_budget=1e-6abs(reference_mean)
+        @test quadrature_error+maximum(p.bound for p in probes)<=physical_budget/4
+        for t in (temperature-halfwidth,temperature,temperature+halfwidth)
+            reference=reference_resistance(t)
+            actual=only(compute(CableConstantsProblem(design;temperature=t))).R
+            @test abs(actual-reference.value)+reference.bound<=1e-6abs(reference.value)
+        end
+        # Chebyshev's finite-sample bound uses the independently integrated
+        # variance of the nonlinear mapping. It needs no assumed Gaussian
+        # output law or extrema inferred from a finite grid.
+        variance,variance_error=quadgk(
+            t->(reference_resistance(t).value-reference_mean)^2/(2halfwidth),
+            temperature-halfwidth,temperature+halfwidth;rtol=1e-10)
+        @test variance_error<=variance/100
+        bound=sqrt((variance+variance_error)/(N*.001))
+        @test abs(only(sampled.stats[point].R).mean-reference_mean)<=
+            bound+physical_budget+quadrature_error
+    end
     # CableConstants reports AC, reduced impedance at 50/60Hz. The proposed
     # affine DC R(T) law is not a valid oracle here. These tests establish actual
     # execution, retained sample arithmetic and independent storage only.

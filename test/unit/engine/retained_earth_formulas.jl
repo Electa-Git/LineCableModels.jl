@@ -4,7 +4,7 @@
 @testitem "Engine / author equations / current placement and integration consistency" tags=[:unit] begin
     const E=LineCableModels.Engine
     controls(method)=method===:trapz ? (;max_refinements=14) :
-        method===:cim ? (;samples=512,maxevals=10^6) : (;maxevals=10^6)
+        method===:cim ? (;samples=8192,maxevals=10^6) : (;maxevals=10^6)
     rho=[Inf,100.0]; epsilon=8.8541878128e-12.*[1.0,10.0]; mu=fill(4pi*1e-7,2)
     cases=((E.EarthImpedance,:overhead,(:Carson1926,:Wise1934,:Gary1976)),
         (E.EarthImpedance,:underground,(:Pollaczek1926,:WedepohlWilcox1973,:Saad1996,:Xue2018)),
@@ -47,7 +47,7 @@ end
     using QuadGK
     const E=LineCableModels.Engine
     controls(method)=method===:trapz ? (;max_refinements=14) :
-        method===:cim ? (;samples=512,maxevals=10^6) : (;maxevals=10^6)
+        method===:cim ? (;samples=8192,maxevals=10^6) : (;maxevals=10^6)
     epsilon=8.8541878128e-12.*[1.0,10.0];mu=fill(4pi*1e-7,2);rho=[Inf,100.0]
     for f in (50.0,10000.0),self in (true,false)
         heights=self ? (1.0,1.0) : (1.0,1.5)
@@ -87,7 +87,7 @@ end
     using QuadGK
     const E=LineCableModels.Engine
     controls(method)=method===:trapz ? (;max_refinements=14) :
-        method===:cim ? (;samples=512,maxevals=10^6) : (;maxevals=10^6)
+        method===:cim ? (;samples=8192,maxevals=10^6) : (;maxevals=10^6)
     rho=[Inf,100.0]; epsilon=8.8541878128e-12.*[1,10]; mu=fill(4pi*1e-7,2)
     for f in (50.0,10000.0), self in (true,false)
         s=2pi*im*f; heights=self ? (1.0,1.0) : (1.0,1.5)

@@ -75,7 +75,7 @@
         @test [(LineCableModels.nominal(p.x),LineCableModels.nominal(p.y))
             for p in differentiated_problem.system.positions] == [(0.0,-1.0),(.2,-1.3)]
         differentiated=compute(differentiated_problem,inner)
-        previous=nothing;resolved=0
+        previous=nothing;previous_roundoff=nothing;resolved=0
         for relative in (.01,.005,.0025,.00125)
             step=relative*nominal[coordinate]
             plus=copy(nominal);minus=copy(nominal)
@@ -84,27 +84,44 @@
             derivatives=map((R,L,C,G)) do quantity
                 (quantity(hi).-quantity(lo))./(2step)
             end
+            # Even an exact scalar solver must round its final Float64 values.
+            # One spacing per endpoint and arithmetic result conservatively
+            # covers this final-output quantization contribution. It does not
+            # bound upstream quadrature, Bessel or matrix-solve errors.
+            roundoff=map((R,L,C,G),derivatives) do quantity,derivative
+                (eps.(abs.(quantity(hi))).+eps.(abs.(quantity(lo))))./(2step) .+
+                    2eps.(abs.(derivative))
+            end
             if previous!==nothing
                 all_resolved=true
-                for (quantity,current,coarse) in zip((R,L,C,G),derivatives,previous)
+                for (quantity,current,coarse,fine_roundoff,coarse_roundoff) in
+                        zip((R,L,C,G),derivatives,previous,roundoff,previous_roundoff)
                     extrapolated=(4current.-coarse)./3
                     actual=map(x->x isa Measurement ? Measurements.derivative(x,variable) : 0.0,quantity(differentiated))
                     budget=.001abs.(extrapolated)
-                    uncertainty=abs.(extrapolated.-current)
+                    truncation=abs.(extrapolated.-current)
+                    quantization=(4fine_roundoff.+coarse_roundoff)./3 .+
+                        4eps.(abs.(extrapolated))
+                    uncertainty=truncation.+quantization
                     all_resolved &= all(uncertainty .<= budget./4)
                     all_resolved &= all(abs.(actual.-extrapolated).+uncertainty .<= budget)
                     for entry in eachindex(actual)
                         push!(diagnostics,Dict("scale"=>nominal_scale,"coordinate"=>coordinate,
                             "relative_step"=>relative,"quantity"=>string(quantity),"entry"=>entry,
                             "actual"=>actual[entry],"reference"=>extrapolated[entry],
+                            "truncation_estimate"=>truncation[entry],
+                            "output_quantization_allowance"=>quantization[entry],
                             "uncertainty"=>uncertainty[entry],"budget"=>budget[entry],
-                            "reference_resolved"=>uncertainty[entry]<=budget[entry]/4,
-                            "comparison_passed"=>abs(actual[entry]-extrapolated[entry])+uncertainty[entry]<=budget[entry]))
+                            "output_resolution_sufficient"=>quantization[entry]<=budget[entry]/4,
+                            "reference_resolved"=>false,
+                            "reference_status"=>"inconclusive: scalar evaluation error is not independently bounded",
+                            "difference_within_estimated_budget"=>abs(actual[entry]-extrapolated[entry])+uncertainty[entry]<=budget[entry]))
                     end
                 end
                 resolved=all_resolved ? resolved+1 : 0
             end
             previous=derivatives
+            previous_roundoff=roundoff
         end
         open(joinpath(directory,"derivatives.toml"),"w") do io
             TOML.print(io,Dict("cases"=>diagnostics))
@@ -112,4 +129,7 @@
         @test resolved>=2
     end
     @test_throws DomainError problem(-.1,.2)
+    # Estimated stability cannot grant scientific acceptance while the scalar
+    # reference lacks an independent evaluation-error bound.
+    error("inconclusive S10 derivative reference: upstream scalar evaluation error is not independently bounded; see $directory")
 end

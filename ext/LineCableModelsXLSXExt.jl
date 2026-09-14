@@ -5,11 +5,9 @@ Write ReportBuilder workbook descriptions with XLSX.jl.
 """
 module LineCableModelsXLSXExt
 
-using LineCableModels
-using XLSX
-
-const ReportBuilder = LineCableModels.ReportBuilder
-const Engine = LineCableModels.Engine
+import LineCableModels.ReportBuilder
+import LineCableModels.Engine
+import XLSX
 
 function ReportBuilder.write(
         ::ReportBuilder.XLSXReportDefinition,
@@ -23,7 +21,7 @@ function ReportBuilder.write(
         for (index, sheet) in enumerate(encoded.sheets)
             worksheet = if index == 1
                 existing = workbook["Sheet1"]
-                XLSX.rename!(existing, sheet.name)
+                XLSX.renamesheet!(existing, sheet.name)
                 existing
             else
                 XLSX.addsheet!(workbook, sheet.name)

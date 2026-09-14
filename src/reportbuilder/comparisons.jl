@@ -352,9 +352,13 @@ function tabulate(definition::BenchmarkTableDefinition, source,
 
     # Presentation projections of already-owned products. No comparisons, sampling
     # estimates or performance measurements are calculated on this path.
-    coverage=unique(DataFrames.select(maxima_table,
-        :snapshot,:problem_index=>:point,:reference_point,:band,
-        :samples=>:frequency_count,:actual_lower_Hz=>:first_Hz,:actual_upper_Hz=>:last_Hz))
+    coverage=DataFrames.select(maxima_table,
+        :snapshot,:benchmark,:case_id,:collection,:candidate_point,
+        :formulation_index,:problem_index=>:point,:reference_point,:band,
+        :samples=>:frequency_count,:actual_lower_Hz=>:first_Hz,:actual_upper_Hz=>:last_Hz)
+    # Deduplicate presentation rows with their own value equality, preserving
+    # uncertain columns and first-occurrence order without integer pooling.
+    coverage=coverage[unique(i->Tuple(coverage[i,:]),axes(coverage,1)),:]
     coverage[!,:range]=[description(definition,band) for band in coverage.band]
     execution=isempty(tables.execution) ? DataFrame() : DataFrames.select(
         filter(row -> ismissing(row.point),tables.execution),

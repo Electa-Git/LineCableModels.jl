@@ -263,13 +263,14 @@ and retained products are not modified.
 - `selector`: `R`, `L`, `C`, or `G`.
 - `point`: Gridspace point index.
 - `assembly`: Cable assembly index.
-- `bins`: Positive bin count, or `nothing` to reuse the retained model. Without
+- `bins`: Positive maximum bin count, or `nothing` to reuse the retained model. Without
   a retained model, `nothing` selects the sample-based automatic bin count.
 
 # Returns
 
 - A normalized histogram in the observed quantity's native units. Constant
   samples produce one finite-width bin, irrespective of the requested count.
+  Coincident representable edges in varying samples are merged.
 
 # Errors
 

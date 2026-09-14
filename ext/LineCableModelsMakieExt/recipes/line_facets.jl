@@ -133,7 +133,7 @@ end
 _semantic_coordinate_name(_) = "conductor"
 
 function _semantic_quantity_title(object, facet)
-    quantity_label = LineCableModels.Units.label(facet.quantity)
+    quantity_label = Units.label(facet.quantity)
     facet.identity isa Tuple && first(facet.identity) === LineCableModels.statistics &&
         (quantity_label *= " · " * string(last(facet.identity)))
     description = lowercasefirst(quantity_label)
@@ -149,7 +149,7 @@ function _semantic_quantity_title(object, facet)
 end
 
 function _semantic_relation_title(object, quantity, row, column)
-    quantity_label = LineCableModels.Units.label(quantity)
+    quantity_label = Units.label(quantity)
     description = lowercasefirst(quantity_label)
     coordinate = _semantic_coordinate_name(object)
     if coordinate == "mode"
@@ -167,11 +167,11 @@ function _semantic_page_title(object, page, mode)
     mode === :individual && return _semantic_quantity_title(object, first_facet)
     mode === :paired && return _semantic_relation_title(
         object,
-        LineCableModels.Units.quantity(_family_parent(first_facet.family)),
+        Units.quantity(_family_parent(first_facet.family)),
         first_facet.row,
         first_facet.column
     )
-    label = LineCableModels.Units.label(first_facet.quantity)
+    label = Units.label(first_facet.quantity)
     first_facet.identity isa Tuple && first(first_facet.identity) === LineCableModels.statistics &&
         (label *= " · " * string(last(first_facet.identity)))
     return haskey(page, :block) ? "$label ($(page.block[1]),$(page.block[2]))" : label
@@ -193,7 +193,7 @@ function _semantic_panel_title(
     panel_titles === nothing && return _semantic_quantity_title(object, facet)
     panel_titles isa Function && return String(panel_titles(facet))
     if panel_titles isa AbstractDict
-        quantity_symbol = Symbol(LineCableModels.Units.symbol(facet.quantity))
+        quantity_symbol = Symbol(Units.symbol(facet.quantity))
         candidates = (
             (facet.identity, facet.row, facet.column),
             (quantity_symbol, facet.row, facet.column),

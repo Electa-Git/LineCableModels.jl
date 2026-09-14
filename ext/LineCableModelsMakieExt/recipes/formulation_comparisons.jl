@@ -31,7 +31,7 @@ function plot(results::LineCableModels.ParametricResult, selection=nothing;
         formulations isa Integer ? [formulations] : collect(formulations)
     !isempty(indices) && allunique(indices) && all(index -> index isa Integer &&
         1 <= index <= length(results.axes.formulations),indices) || throw(ArgumentError("invalid formulation selection"))
-    records=[LineCableModels.ImportExport.deserialize_value(Val(:formulation),value) for value in results.axes.formulations]
+    records=[ImportExport.deserialize_value(Val(:formulation),value) for value in results.axes.formulations]
     labels=LineCableModels.description(records)
     family_labels=Dict(family => LineCableModels.description(records;quantity)
         for (family,quantity) in ((Val(:series),LineCableModels.Z),(Val(:shunt),LineCableModels.Y)))
@@ -47,7 +47,7 @@ function plot(results::LineCableModels.ParametricResult, selection=nothing;
         if reference !== nothing
             reference isa LineCableModels.LineParameters || throw(ArgumentError("reference must be a scalar LineParameters result"))
             sources=(reference,sources...)
-            reference_record=LineCableModels.ImportExport.deserialize_value(Val(:formulation),
+            reference_record=ImportExport.deserialize_value(Val(:formulation),
                 get(LineCableModels.details(reference),:formulations,(;)))
             all_sources=Any[reference_record;records]
             label_roles=[:reference;fill(:candidate,length(records))]
@@ -92,7 +92,7 @@ function plot(published::NamedTuple{(:reference,:candidate,:context,:settings,:c
     selected_ydata=_plot_ydata(selection,ydata,
         (LineCableModels.Z,LineCableModels.Y))
     current_resolution = all(row -> get(get(LineCableModels.details(row.error),:resolution,(;)),:revision,0) ==
-        LineCableModels.Engine.OBSERVABLE_RESOLUTION_REVISION, published.comparisons)
+        Engine.OBSERVABLE_RESOLUTION_REVISION, published.comparisons)
     current_resolution || @warn "Historical comparison semantics: curves use current observation resolution; retained RMS is unchanged. Request explicit reanalysis for a current report."
     isequal(atol,published.settings.atol) || @warn "Plot resolution override differs from retained comparison controls; retained RMS is unchanged." atol
     candidate=published.candidate.result

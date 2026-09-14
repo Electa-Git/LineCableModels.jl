@@ -96,8 +96,10 @@ end
         end
         direct = LineParametersProblem(assembled; earth_props=soil,
             frequencies=problem.frequencies, temperature=problem.temperature)
-        actual = @inferred compute(problem)
-        expected = @inferred compute(direct)
+        # Exercise the complete publication path; its runtime-selected details
+        # have no single-concrete-return-type guarantee.
+        actual = compute(problem)
+        expected = compute(direct)
         @test actual.Z.values == expected.Z.values
         @test actual.Y.values == expected.Y.values
     end

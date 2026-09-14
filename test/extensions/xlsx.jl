@@ -72,4 +72,19 @@ end
         method -> method.module === extension_module,
         methods(LineCableModels.ReportBuilder.write)
     )
+    # Exercise encoding, first-sheet rename, subsequent sheets and readback
+    # through the current XLSX writer with distinguishable channel values.
+    parameters=LineCableModels.LineParameters(
+        reshape(ComplexF64[1+2im,3+4im],1,1,2),
+        reshape(ComplexF64[5e-6+6e-6im,7e-6+8e-6im],1,1,2),[50.,125.])
+    mktempdir() do directory
+        cd(directory) do
+            LineCableModels.report(LineCableModels.XLSXReportDefinition(),parameters)
+            workbook=XLSX.readxlsx("ZY_export.xlsx")
+            @test XLSX.sheetnames(workbook)==["Z(1,1)","Y(1,1)"]
+            @test workbook["Z(1,1)"]["A6:C7"]==["50" "1000" "2000"; "125" "3000" "4000"]
+            @test workbook["Y(1,1)"]["A6"]=="50"
+            @test workbook["Y(1,1)"]["B6"]!=workbook["Z(1,1)"]["B6"]
+        end
+    end
 end

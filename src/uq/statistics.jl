@@ -132,6 +132,34 @@ function HistogramDensity(edges::AbstractVector{<:Real}, density::AbstractVector
     return HistogramDensity(Vector{T}(edges), Vector{T}(density))
 end
 
+"""
+$(TYPEDSIGNATURES)
+
+Estimate a normalized piecewise-constant density without modifying the samples.
+
+# Arguments
+
+- `values`: Nonempty finite observations in the sampled quantity's native units.
+
+# Keywords
+
+- `bins=nothing`: Maximum bin count for varying samples; the default is the
+  ceiling of the square root of the sample count. Coincident floating-point
+  edges are merged. Constant samples use one finite-width bin.
+
+# Returns
+
+- A `HistogramDensity` with density in reciprocal sample units. Bins include
+  their left endpoint; the last bin also includes its right endpoint.
+
+# Notes
+
+Constant samples use a half-width of `sqrt(eps(Float64)) * max(1, abs(value))`.
+This is a density representation, not added sample variation. Varying samples
+retain their extrema as endpoints, even when they are adjacent floating-point
+values. If finite edges or densities cannot be represented in the working
+type, construction uses `BigFloat` with additional precision.
+"""
 function HistogramDensity(
         values::AbstractVector{<:Real};
         bins::Union{Nothing, Integer} = nothing
@@ -146,7 +174,18 @@ function HistogramDensity(
         [float(lo) - width, float(hi) + width]
     else
         count = something(bins, max(1, ceil(Int, sqrt(length(values)))))
-        collect(range(float(lo), float(hi); length = count + 1))
+        unique(collect(range(float(lo), float(hi); length = count + 1)))
+    end
+    # Extreme finite inputs can overflow a padded endpoint, bin width, or its
+    # reciprocal. Re-evaluate this same bin construction at higher precision;
+    # do not move the observations or collapse a varying population to its mean.
+    if length(edges) < 2 || !all(isfinite, edges) ||
+            !all(width -> isfinite(width) && width > 0 && isfinite(inv(width)), diff(edges))
+        bits = max(precision(BigFloat), precision(float(lo)), precision(float(hi))) +
+            64 + ndigits(something(bins, length(values)); base=2)
+        return setprecision(BigFloat, bits) do
+            HistogramDensity(BigFloat.(values); bins)
+        end
     end
     counts = zeros(Float64, length(edges) - 1)
     for value in values
@@ -154,7 +193,7 @@ function HistogramDensity(
                 clamp(searchsortedlast(edges, value), 1, length(counts))
         counts[index] += 1
     end
-    return HistogramDensity(edges, counts ./ (length(values) .* diff(edges)))
+    return HistogramDensity(edges, (counts ./ length(values)) ./ diff(edges))
 end
 
 """

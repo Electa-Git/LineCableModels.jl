@@ -151,7 +151,7 @@ function _show_benchmark(io::IO,mime,artifact::ReportArtifact;
         push!(sections,title=>getproperty(feature,metric))
     end
     coverage=filter(row -> problem===nothing || row.point==problem,tables.overview.coverage)
-    hidden=Symbol[]
+    hidden=[:benchmark,:case_id,:collection,:formulation_index,:candidate_point]
     multiple_snapshots || push!(hidden,:snapshot)
     multiple_points || problem!==nothing || push!(hidden,:point)
     show_reference_point || push!(hidden,:reference_point)

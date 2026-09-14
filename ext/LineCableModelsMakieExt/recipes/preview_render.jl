@@ -11,8 +11,8 @@ function _addon_preview_axis!(
         earth_model = nothing,
         display_surface_gradient::Bool = true
 )
-    unit = LineCableModels.Units.units(:base, :meter)
-    unit_label = LineCableModels.Units.label(unit)
+    unit = Units.units(:base, :meter)
+    unit_label = Units.label(unit)
     panel = _addon_panel!(shell, position)
     axis = Axis(
         panel.content;
@@ -176,7 +176,7 @@ function _addon_preview_finish!(
 end
 
 function _addon_preview(
-        design::LineCableModels.DataModel.CableDesign;
+        design::DataModel.CableDesign;
         x_offset::Real = 0.0,
         y_offset::Real = 0.0,
         display_dielectric_pattern::Bool = true,
@@ -229,7 +229,7 @@ function _addon_preview(
     )
     color_scales = display_colorbars ?
                    _material_schemes(
-        LineCableModels.DataModel.material_property_ranges(design)
+        DataModel.material_property_ranges(design)
     ) : ()
     return with_theme(_addon_theme(export_theme = export_theme)) do
         shell = _addon_shell(; size, controls, kwargs...)
@@ -281,7 +281,7 @@ function _addon_preview(
 end
 
 function _addon_preview(
-        designs::AbstractVector{<:LineCableModels.DataModel.CableDesign};
+        designs::AbstractVector{<:DataModel.CableDesign};
         layout = nothing,
         display_dielectric_pattern::Bool = true,
         title = nothing,
@@ -308,7 +308,7 @@ function _addon_preview(
         length(designs), layout)
     color_scales = display_colorbars ?
                    _material_schemes(
-        LineCableModels.DataModel.material_property_ranges(designs)
+        DataModel.material_property_ranges(designs)
     ) : ()
     display_title = title === nothing ? "Cable design previews" : String(title)
     resolved_panel_titles = _addon_panel_titles(panel_titles, length(designs))
@@ -386,7 +386,7 @@ function _addon_preview(
 end
 
 function _addon_preview(
-        system::LineCableModels.DataModel.LineCableSystem;
+        system::DataModel.LineCableSystem;
         earth_model = nothing,
         zoom_factor = nothing,
         display_dielectric_pattern::Bool = true,
@@ -529,7 +529,7 @@ function _addon_material_scale(;
             legend_attributes = (;),
             legend_overflow = :show_all,
             color_scales = _material_schemes(
-                LineCableModels.DataModel.material_property_ranges()
+                DataModel.material_property_ranges()
             ),
             colorbar_position = use_canvas ? :right : colorbar_position,
             colorbar_attributes,
