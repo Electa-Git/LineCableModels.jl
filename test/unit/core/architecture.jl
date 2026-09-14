@@ -492,9 +492,9 @@ end
     )
         @test !occursin(token, maintained_implementation)
     end
-    # Plotting keeps the observation-request grammar. ReportBuilder separately
-    # owns the requested quantities and bands of a benchmark analysis.
-    @test !occursin(r"\bquantities\s*=", makie_source)
+    # The removed public `quantities` keyword is rejected through real plot
+    # calls in native_makie_axis_format.jl. A local variable holding selected
+    # physical quantities is not a second public observation grammar.
     @test !occursin(r"\bcon\s*=", maintained_implementation)
     @test !occursin("alpha_value", maintained_implementation)
     @test !occursin("legend_labels", line_facets)
@@ -515,7 +515,9 @@ end
     @test occursin("function _addon_controls!", native_addons)
     @test occursin("function LineCableModels.plotwindow", native_addons)
     @test occursin("function _addon_responsive_legend!", native_addons)
-    @test occursin("foreach(_addon_axis_format!, axes)", native_addons)
+    # Initial-fit/toggle behavior is exercised in native_makie_axis_format.jl.
+    # Do not prescribe a late formatter installation here: ownership belongs
+    # to the shell lifecycle, and its callbacks must precede the first fit.
     # Axis formatting belongs to the common shell, not to individual recipes.
     for (directory, _, files) in walkdir(joinpath(
             extension_root, "LineCableModelsMakieExt", "recipes")),

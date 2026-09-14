@@ -92,8 +92,8 @@ function _addon_publication_plot(
         panel_titles = nothing,
         fig_size::Tuple{Int, Int} = (800, 400),
         layout = nothing,
-        xscale::Symbol = :linear,
-        yscale::Symbol = :linear,
+        xscale = :linear,
+        yscale = :linear,
         display_legend::Bool = false,
         legend_position = :right,
         legend_anchor = :rt,
@@ -106,7 +106,8 @@ function _addon_publication_plot(
         display_plot::Bool = true,
         controls::Bool = true,
         export_theme::Symbol = :default,
-        open_export::Bool = true
+        open_export::Bool = true,
+        kwargs...
 )
     isempty(publication.observations) && throw(ArgumentError(
         "an observation publication plot requires at least one observation",
@@ -116,7 +117,7 @@ function _addon_publication_plot(
     _addon_activate_backend(backend)
     positions, dimensions = _addon_positions(length(publication), layout)
     return with_theme(_addon_theme(export_theme = export_theme)) do
-        shell = _addon_shell(; size = fig_size, controls)
+        shell = _addon_shell(; size = fig_size, controls, kwargs...)
         shell.canvas.default_rowgap = Fixed(24)
         shell.canvas.default_colgap = Fixed(64)
         rowgap!(shell.canvas, 24)
@@ -124,8 +125,7 @@ function _addon_publication_plot(
         axes = Any[]
         panels = Any[]
         resets = Function[]
-        xsetters = NamedTuple[]
-        ysetters = NamedTuple[]
+        requested_scales = NamedTuple[]
         groups = Dict{Symbol, Vector{Any}}()
         dependent_plots = Pair{Makie.Plot,Makie.Plot}[]
         order = Symbol[]
@@ -134,18 +134,6 @@ function _addon_publication_plot(
         panel_group_labels = Any[]
         for (index, observation) in enumerate(publication)
             data = _publication_series_data(publication, observation)
-            xvalues = data.xobservation.values
-            yvalues = data.yobservation.values
-            xscales = _axis_scales(xvalues)
-            yscales = _axis_scales(yvalues)
-            xscale in xscales || throw(DomainError(
-                xvalues,
-                "logarithmic sample axes require positive finite values"
-            ))
-            yscale in yscales || throw(DomainError(
-                yvalues,
-                "logarithmic ordinate axes require positive finite data and uncertainty bounds"
-            ))
             panel_title = resolved_panel_titles === nothing ?
                           LineCableModels.Units.label(observation.quantity) :
                           resolved_panel_titles[index]
@@ -156,7 +144,7 @@ function _addon_publication_plot(
                 xticklabelsvisible = row == dimensions[1],
                 xticksvisible = row == dimensions[1]
             )
-            axis = _addon_axis!(
+            axis,scales = _addon_axis!(
                 panel.content,
                 data.xobservation,
                 data.yobservation;
@@ -164,7 +152,8 @@ function _addon_publication_plot(
                 xlabel = data.xlabel,
                 xscale,
                 yscale,
-                attributes
+                attributes,
+                native_attributes=shell.axis_attributes
             )
             series = NamedTuple[]
             scoped_labels = Dict{Symbol, String}()
@@ -202,11 +191,8 @@ function _addon_publication_plot(
             push!(axes, axis)
             push!(panels, panel)
             push!(resets, reset!)
-            :log10 in xscales && push!(xsetters, (; axis, allowed=xscales, reset=reset!))
-            :log10 in yscales && push!(ysetters, (; axis, allowed=yscales, reset=reset!))
+            push!(requested_scales,scales)
         end
-        length(xsetters) == length(axes) || empty!(xsetters)
-        length(ysetters) == length(axes) || empty!(ysetters)
         _addon_relabel_legend!(group_labels, groups, order, legend_labels)
         if legend_labels !== nothing
             for scoped_labels in panel_group_labels, group in keys(scoped_labels)
@@ -225,11 +211,10 @@ function _addon_publication_plot(
             shell,
             axes,
             resets,
-            xsetters,
-            ysetters,
             groups,
             order,
             group_labels;
+            requested_scales,
             dependent_plots,
             series_attributes,
             title = display_title,

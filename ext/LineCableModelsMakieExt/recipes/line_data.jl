@@ -177,19 +177,6 @@ function _prepare_line_observations(
     return published
 end
 
-function _supports_log_values(samples)
-    found = false
-    samples === nothing && return false
-    for sample in samples
-        found = true
-        value = nominal(sample)
-        uncertainty_value = abs(uncertainty(sample))
-        value isa Real && isfinite(value) && isfinite(uncertainty_value) &&
-        value - uncertainty_value > 0 || return false
-    end
-    return found
-end
-
 function _prepare_line_observations(source::Union{LineCableModels.AbstractUncertaintyResult,ObservationPublication};
         point::Integer,ydata,freq_unit=:base,length_unit=:kilo,quantity_units=nothing,
         clip::Bool=true,atol=nothing,frequencies=nothing,sample_indices=nothing)
@@ -235,15 +222,4 @@ function _prepare_line_observations(source::Union{LineCableModels.AbstractUncert
     frequency=_frequency_observation(f[last(first(coordinates))],Units.units(freq_unit,:hertz))
     return (;frequency,observations=map(value -> value.observation,publications),coordinates,
         resolutions=map(value -> value.resolution,publications))
-end
-
-function _axis_scales(values; signed_log::Bool=false)
-    _supports_log_values(values) && return (:linear, :log10)
-    # Benchmark matrices commonly contain negative mutual terms. Preserve their
-    # signs and zeros instead of suppressing the page-level log-y control.
-    signed_log && !isempty(values) && all(value -> begin
-        sample=nominal(value)
-        sample isa Real && isfinite(sample) && isfinite(abs(uncertainty(value)))
-    end,values) && return (:linear, :pseudolog10)
-    return (:linear,)
 end

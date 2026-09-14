@@ -1,3 +1,171 @@
+@testitem "Makie addons / narrow log values and native constructors share the shell" tags=[:visual] begin
+    using CairoMakie, Measurements, Logging
+    f = collect(range(2.0,8.0;length=9))
+    r = reshape(measurement.(reverse(f),0.02),1,1,:)
+    source = LineParameters(complex.(r,r),ones(ComplexF64,1,1,9),f)
+    before = deepcopy((Z(source),Y(source),frequencies(source)))
+    logger = Test.TestLogger(min_level=Logging.Warn)
+    with_logger(logger) do
+        page = LineCableModels.plot(source; ydata=(R,),length_unit=:base,
+            backend=:cairo,display_plot=false,open_export=false,
+            figure=(size=(800,500),),axis=(limits=((2.0,8.0),(1.9,8.1)),),linewidth=3)
+        axis = only(page.axes)
+        line = only(filter(p -> p isa Makie.Lines,axis.scene.plots))
+        @test line.linewidth[] == 3
+        requested = axis.limits[]
+        for _ in 1:2
+            page.controls[:xlog].active[] = true
+            page.controls[:ylog].active[] = true
+            Makie.colorbuffer(page.figure)
+            @test page.controls[:xlog].active[] && page.controls[:ylog].active[]
+            for dim in (:x,:y)
+                native = getproperty(axis,Symbol(dim,:axis))
+                @test length(native.tickvalues[]) >= 3
+                @test all(label -> label isa AbstractString,native.ticklabels[])
+                @test parse.(Float64,native.ticklabels[]) ≈ native.tickvalues[]
+            end
+            # Raw points staying equal cannot detect a failed transform. Compare
+            # rendered geometry with the log of these distinguishable values.
+            raw = Makie.Point2d.(line[1][])
+            pixels = Makie.transform_and_project(line,:data,:pixel,raw)
+            for dim in 1:2
+                projected = getindex.(pixels,dim)
+                values = getindex.(raw,dim)
+                @test (projected.-first(projected))./(last(projected)-first(projected)) ≈
+                    (log10.(values).-log10(first(values)))./(log10(last(values))-log10(first(values))) atol=2e-6
+            end
+            for bars in filter(p -> p isa Makie.Errorbars,axis.scene.plots), child in bars.plots
+                @test child.transformation.transform_func[] == line.transformation.transform_func[]
+                # Check rendered bar endpoints as well as their parent scale;
+                # a pre-logged child could otherwise pass a transform-only check.
+                endpoints = filter(point -> all(isfinite,point),Makie.Point2d.(child[1][]))
+                projected = Makie.transform_and_project(child,:data,:pixel,endpoints)
+                limits = axis.finallimits[]
+                viewport = axis.scene.viewport[]
+                for dimension in 1:2
+                    lower = limits.origin[dimension]
+                    upper = lower+limits.widths[dimension]
+                    fractions = (log10.(getindex.(endpoints,dimension)).-log10(lower))./
+                        (log10(upper)-log10(lower))
+                    @test getindex.(projected,dimension)./viewport.widths[dimension] ≈ fractions atol=2e-6
+                end
+            end
+            @test axis.limits[] == requested
+            page.controls[:xlog].active[] = false
+            page.controls[:ylog].active[] = false
+        end
+        page.controls[:ylog].active[] = true
+        for bounds in ((2.71,2.79),(2e-12,8e-12),(2e100,8e100))
+            ylims!(axis,bounds...)
+            Makie.colorbuffer(page.figure)
+            @test length(axis.yaxis.tickvalues[]) >= 2
+            @test allunique(axis.yaxis.ticklabels[])
+            @test all(label -> label isa AbstractString,axis.yaxis.ticklabels[])
+        end
+        ylims!(axis,0.1,1e7)
+        Makie.colorbuffer(page.figure)
+        @test all(value -> isapprox(log10(Float64(value)),round(log10(Float64(value)));atol=1e-7),axis.yaxis.tickvalues[])
+        @test !occursin("× 10",repr(axis.ylabel[]))
+        for dim in (:x,:y), bounds in ((0.6,3.0),(2.0,80.0),(2.71,2.79),(8.0,12.0))
+            getproperty(axis,Symbol(dim,:scale))[] = log10
+            (dim === :x ? xlims! : ylims!)(axis,bounds...)
+            Makie.colorbuffer(page.figure)
+            native = getproperty(axis,Symbol(dim,:axis))
+            @test all(label -> label isa AbstractString,native.ticklabels[])
+            # Measure actual strings against their native projected positions.
+            # Density may change; collisions or identical labels may not.
+            dimension = dim === :x ? 1 : 2
+            fontsize = getproperty(axis,Symbol(dim,:ticklabelsize))[]
+            probe = text!(axis.blockscene,0,0;visible=false,fontsize,
+                font=getproperty(axis,Symbol(dim,:ticklabelfont))[],
+                rotation=getproperty(axis,Symbol(dim,:ticklabelrotation))[])
+            extents = map(native.ticklabels[]) do label
+                probe.text[] = label
+                Makie.boundingbox(probe,:data).widths[dimension]
+            end
+            @test allunique(native.ticklabels[])
+            @test all(diff(getindex.(native.tickpositions[],dimension)) .>=
+                (extents[1:end-1].+extents[2:end])./2 .+fontsize/2 .-1)
+            delete!(axis.blockscene,probe)
+        end
+        ylims!(axis,2e-12,8e-12)
+        axis.yticks[] = ([3e-12,7e-12],["low","high"])
+        Makie.colorbuffer(page.figure)
+        @test axis.yaxis.ticklabels[] == ["low","high"]
+        @test !occursin("× 10",repr(axis.ylabel[]))
+        mktempdir() do directory
+            @test isfile(export_svg(page;path=joinpath(directory,"narrow.svg"),open_file=false))
+            @test axis.yaxis.ticklabels[] == ["low","high"]
+        end
+    end
+    @test isempty(logger.logs)
+    @test isequal(before,(Z(source),Y(source),frequencies(source)))
+end
+
+@testitem "Makie addons / current visible extents control log eligibility" tags=[:visual] begin
+    using CairoMakie
+    page = LineCableModels.plotwindow(;title="Native",backend=:cairo,
+        display_plot=false,open_export=false) do layout
+        axis = Axis(layout[1,1])
+        lines!(axis,[1.0,2.0],[2.0,2.0])
+        lines!(axis,[1.0,2.0],[-1.0,-2.0])
+    end
+    axis = only(page.axes)
+    @test haskey(page.controls,:xlog) && haskey(page.controls,:ylog)
+    previous = axis.targetlimits[]
+    page.controls[:ylog].active[] = true
+    @test !page.controls[:ylog].active[]
+    @test axis.yscale[] === identity
+    @test axis.targetlimits[] == previous
+    @test occursin(repr(axis.title[]),page.addon_state.shell.status[])
+    last(axis.scene.plots).visible[] = false
+    page.controls[:ylog].active[] = true
+    Makie.colorbuffer(page.figure)
+    @test axis.yscale[] === log10
+    low = axis.finallimits[].origin[2]
+    high = low+axis.finallimits[].widths[2]
+    @test 1.8 < low < 2 < high < 2.2
+end
+
+@testitem "Makie addons / native override precedence and custom transforms" tags=[:visual] begin
+    using CairoMakie
+    source = LineParameters(reshape(ComplexF64[2,4,8],1,1,:),ones(ComplexF64,1,1,3),[2.0,4.0,8.0])
+    page = LineCableModels.plot(source; ydata=R,backend=:cairo,display_plot=false,
+        open_export=false,length_unit=:base,xscale=sqrt,
+        figure=(size=(500,700),),ylabel="Shared",axis=(ylabel="Explicit",),
+        linewidth=3,series_attributes=((linewidth=5,),))
+    axis = only(page.axes)
+    @test axis.xscale[] === sqrt
+    @test !haskey(page.controls,:xlog)
+    @test axis.ylabel[] == "Explicit"
+    @test Tuple(page.figure.scene.viewport[].widths) == (500,700)
+    @test only(filter(p->p isa Makie.Lines,axis.scene.plots)).linewidth[] == 5
+    @test_throws ArgumentError LineCableModels.plot(source;ydata=R,backend=:cairo,
+        display_plot=false,not_a_native_attribute=true)
+    # Reject a second public selection grammar, without banning legitimate
+    # local variables called quantities inside the implementation.
+    @test_throws ArgumentError LineCableModels.plot(source;backend=:cairo,
+        display_plot=false,quantities=(R,))
+    @test_throws ArgumentError LineCableModels.plotwindow(_ -> nothing;
+        title="No axis",backend=:cairo,display_plot=false,axis=(xlabel="Unused",))
+
+    native = LineCableModels.plotwindow(;title="Native overrides",backend=:cairo,
+        display_plot=false,open_export=false,axis=(xscale=log10,ylabel="Explicit"),
+        linewidth=4) do grid
+        axis = Axis(grid[1,1];xlabel="Native label",ylabel="Native label",limits=(2,8,2,8))
+        lines!(axis,[2.0,4.0,8.0],[2.0,4.0,8.0])
+    end
+    axis = only(native.axes)
+    @test axis.xscale[] === log10
+    @test axis.xlabel[] == "Native label"
+    @test axis.ylabel[] == "Explicit"
+    @test axis.limits[] == (2,8,2,8)
+    @test first(axis.scene.plots).linewidth[] == 4
+    @test native.controls[:xlog].active[]
+    @test !native.controls[:ylog].active[]
+    @test !isempty(Makie.colorbuffer(native.figure))
+end
+
 @testitem "Makie addons / axis multipliers follow the displayed range" tags=[:visual] begin
     using CairoMakie
 
@@ -41,6 +209,66 @@
     Makie.colorbuffer(published_plot.figure)
     @test published_axis.ytickformat[]([-1e-9, 0.0, 1e-9]) == ["-1", "0", "1"]
     @test occursin("−9", repr(published_axis.ylabel[]))
+end
+
+@testitem "Makie addons / near-constant views and stable signed scales share the lifecycle" tags=[:visual] begin
+    using CairoMakie, Logging
+    options = (backend=:cairo, display_plot=false, controls=true, open_export=false,
+        length_unit=:base, quantity_units=:base, clip=false, signed_ylog=true)
+    f = [1.0, nextfloat(1.0), nextfloat(nextfloat(1.0))]
+    response = [-3.592027795269888e-10, -3.592027795269885e-10, -3.592027795269883e-10]
+    source = LineParameters(reshape(response .+ im, 1, 1, :), ones(ComplexF64, 1, 1, 3), f)
+    logger = Test.TestLogger(min_level=Logging.Warn)
+    page = with_logger(logger) do
+        page = LineCableModels.plot(source; ydata=(R,), xscale=:linear, options...)
+        Makie.colorbuffer(page.figure)
+        page
+    end
+    @test isempty(logger.logs)
+    axis = only(page.axes)
+    @test axis.finallimits[].widths[1] ≈ 0.1
+    @test axis.finallimits[].widths[2] ≈ 0.1abs(first(response))
+    @test axis.limits[] == (nothing, nothing)
+    # Native zoom and explicit narrow views remain possible; padding belongs
+    # only to automatic fitting, not to tick updates or every targetlimits write.
+    manual = Makie.Rect2d(1.0, minimum(response), 1e-12, 1e-20)
+    axis.targetlimits[] = manual
+    @test axis.targetlimits[] == manual
+    ylims!(axis, minimum(response), maximum(response))
+    @test axis.targetlimits[].widths[2] < 1e-22
+    axis.limits[] = ((0.9, nothing), (nothing, -3e-10))
+    page.controls[:reset].clicks[] += 1
+    @test axis.targetlimits[].origin[1] == 0.9
+    @test axis.targetlimits[].origin[2] + axis.targetlimits[].widths[2] ≈ -3e-10
+    autolimits!(axis)
+    with_logger(logger) do
+        for _ in 1:2
+            page.controls[:ylog].active[] = true
+            scale = axis.yscale[]
+            inverse = Makie.inverse_transform(scale)
+            # Numerical behavior, not identity of a dependency's unstable scale,
+            # is the contract. It must work both near zero and over large decades.
+            for value in (-1e100, -1.0, -1e-18, 0.0, 1e-18, 1.0, 1e100)
+                @test inverse(scale(value)) ≈ value rtol=1e-13
+                @test sign(scale(value)) == sign(value)
+            end
+            for bounds in ((-2e-18, 2e-18), (-1000.0, 1000.0))
+                ylims!(axis, bounds...)
+                Makie.colorbuffer(page.figure)
+                @test length(axis.yaxis.tickvalues[]) >= 2
+                @test allunique(axis.yaxis.ticklabels[])
+                @test all(point -> all(isfinite, point), axis.yaxis.tickpositions[])
+            end
+            autolimits!(axis)
+            page.controls[:ylog].active[] = false
+            page.controls[:reset].clicks[] += 1
+        end
+        mktempdir() do directory
+            @test isfile(export_svg(page; path=joinpath(directory, "resolved.svg"), open_file=false))
+        end
+    end
+    @test isempty(logger.logs)
+    @test vec(real.(Z(source))) == response
 end
 
 @testitem "Makie addons / rendered benchmark axes share scale and limit behavior" tags=[:visual] begin
@@ -166,7 +394,8 @@ end
     old_views = [axis.targetlimits[] for axis in page.axes]
     # The invalid request is on the LAST axis: validating only while applying
     # changes would leave the earlier axes switched when the exception is raised.
-    @test_throws DomainError (page.controls[:xlog].active[] = true)
+    page.controls[:xlog].active[] = true
+    @test occursin("positive",page.addon_state.shell.status[])
     @test !page.controls[:xlog].active[]
     @test all(axis -> axis.xscale[] === identity, page.axes)
     @test [axis.targetlimits[] for axis in page.axes] == old_views
@@ -188,7 +417,8 @@ end
     @test signed.controls[:ylog].active[]
     signed.controls[:ylog].active[] = false
     signed.controls[:ylog].active[] = true
-    @test all(axis -> axis.yscale[] === Makie.pseudolog10, signed.axes)
+    @test all(axis -> axis.yscale[](1e-18) > 0 &&
+        axis.yscale[](-1e-18) < 0, signed.axes)
 end
 
 @testitem "Makie addons / native axis density responds to size without losing precision" tags=[:visual] begin
@@ -330,8 +560,10 @@ end
         plot.controls[:ylog].active[] = true
         Makie.colorbuffer(plot.figure)
         @test axis.yscale[] === log10
-        @test !occursin("× 10", repr(axis.ylabel[]))
-        @test all(label -> label isa Makie.RichText, axis.yaxis.ticklabels[])
+        # A constant's modest log view is value-labelled, with the same single
+        # engineering multiplier as other narrow numeric views.
+        @test length(findall("× 10",repr(axis.ylabel[]))) == 1
+        @test all(label -> label isa AbstractString, axis.yaxis.ticklabels[])
         plot.controls[:ylog].active[] = false
         Makie.colorbuffer(plot.figure)
         @test axis.yscale[] === identity

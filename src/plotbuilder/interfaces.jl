@@ -19,6 +19,15 @@ axes are placed.
   supply solid lines and sparse, staggered markers automatically; `marker=nothing`
   disables markers. References mark both endpoints. An explicit marker retains
   native all-sample placement.
+- Native Axis keywords such as `xticks`, `ytickformat` and `limits` are forwarded
+  to each axis. Other native plot attributes, such as `linewidth`, apply to
+  compatible series. `axis=(...)` and `figure=(...)` explicitly target native
+  constructors; explicit groups and per-series overrides take precedence over
+  shared keywords. Native scale functions are accepted as well as symbol presets.
+- `clip=true`: Publish line quantities with negligible nominal values and
+  standard uncertainties independently set to zero before unit conversion.
+  Meaningful uncertainty around zero remains visible. `clip=false` retains raw
+  detached values; `atol` overrides cutoffs in native quantity units.
 
 # Returns
 
@@ -35,10 +44,25 @@ other plotted family, without merging repeated entries. Matrix pagination perfor
 no calculation, comparison, interpolation, or symmetry reduction.
 
 Numeric axes share size-aware ticks and engineering power-of-ten multipliers.
+Log views spanning less than two decades show decimal values at logarithmic
+positions with one multiplier when needed; broader views show integer powers
+of ten. Tick spacing is checked in rendered coordinates on both axes.
 Native tick positions, labelled ticks and custom formatters on `plot.axes`
 override automatic presentation. Reset preserves explicit native limits;
 changing a scale refits only its automatic dimension and preserves the other
 dimension's current view. Neither operation changes the published values or units.
+Automatic near-constant ranges receive ±5% padding around a nonzero linear
+baseline, or multiplicative bounds `c/1.05` to `c*1.05` on positive log axes,
+enlarged for visible uncertainty; exact zeros use a neutral range.
+This view rule does not round data or restrict explicit zooms. Signed logarithmic
+axes use cancellation-safe `log1p`/`expm1` transforms near zero. Already prepared
+observation publications are rendered as supplied, without another clipping pass.
+
+On UQ benchmarks, ordinary quantities such as `ydata=(R,L,G,C)` overlay the
+uncertainty-bearing core results as means with ±1 standard deviation. Explicit
+requests such as `(statistics,L,std)` select statistic-only plots. Use separate
+calls for these two products. Monte Carlo marginal surrogates do not reconstruct
+joint correlations or imply reliable uncertainty for arbitrary nonlinear transforms.
 
 # Errors
 
@@ -170,6 +194,10 @@ function paneltitle! end
 Build the standard Makie shell, pass its caller-owned content `GridLayout` to
 `callback`, and return a [`UIPlot`](@ref). The callback uses ordinary Makie and
 is not constrained by a renderer-independent plot specification.
+Numeric axes share scale, reset and export controls. Native `axis=(...)`
+attributes explicitly override callback-created axes; otherwise their native
+construction settings are retained. Shared series and `figure=(...)` attributes
+follow the same rules as [`plot`](@ref).
 """
 function plotwindow end
 

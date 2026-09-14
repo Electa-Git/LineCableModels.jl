@@ -57,7 +57,7 @@
         historical_bytes = read(historical_path)
         @test Gauntlet.record_benchmark(definition, current;
             directory=joinpath(root, "analysis")) == snapshot
-        @test all(==(1), current.table.terms.resolution_revision)
+        @test all(==(LineCableModels.Engine.OBSERVABLE_RESOLUTION_REVISION), current.table.terms.resolution_revision)
         historical_tables = report(BenchmarkTableDefinition(),
             read_benchmark(historical_path; load_results=true)).table
         @test all(==(0), historical_tables.terms.resolution_revision)

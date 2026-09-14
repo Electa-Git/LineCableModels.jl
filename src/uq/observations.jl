@@ -37,9 +37,20 @@ basis(value::MonteCarloResult) = basis(first(value.values))
 basis(value::LinearErrorResult) = basis(first(value.values))
 
 """
-Return the uncertainty-bearing core results of a linear propagation.
+$(TYPEDSIGNATURES)
+
+Return uncertainty-bearing core results, in configuration order, or the core
+result at `point`. Monte Carlo reconstruction requires Measurements.jl and
+preserves retained marginal means and standard deviations, not joint output
+correlations. An indexed Monte Carlo read reconstructs only the selected point.
 """
 uncertain(value::LinearErrorResult) = value.values
+uncertain(value::AbstractUncertaintyResult, point::Integer) = uncertain(value)[point]
+
+function uncertain(value::MonteCarloResult)
+    throw(ArgumentError("uncertain requires a reconstruction for this Monte Carlo result; " *
+        "load Measurements.jl for built-in cable and line results"))
+end
 
 """
 $(TYPEDSIGNATURES)

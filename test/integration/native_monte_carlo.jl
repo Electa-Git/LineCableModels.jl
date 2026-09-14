@@ -28,7 +28,7 @@
     @test all(plot -> length(plot.axes) == 1, plots)
     @test all(
         plot -> Set(keys(plot.controls)) ==
-                Set((:reset, :export_svg, :legend)), plots)
+                Set((:reset, :export_svg, :legend, :xlog, :ylog)), plots)
     @test all(plot -> plot.legend !== nothing, plots)
     @test first(plots).title.text[] == "Retained samples"
     @test only(first(plots).axes).title[] == "Sample histogram"

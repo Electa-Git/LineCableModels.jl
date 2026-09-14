@@ -530,6 +530,12 @@ modal_inductance.figure #hide
 # If the published scalar type carries uncertainty, the shared line recipe draws native
 # Makie error bars around the nominal line. Limits include the uncertainty
 # bounds, so error bars are not clipped by a nominal-only autolimit pass.
+# `observables` filters negligible nominal values and standard uncertainties
+# independently, using the quantity's cutoff in native units before display
+# scaling. A zero-centred value with meaningful uncertainty keeps its error bars.
+# This leaves raw results and their correlations unchanged. Use `clip=false`
+# for unfiltered observations, or `atol` to select a native-unit cutoff.
+# An existing observation publication is rendered as supplied, not filtered again.
 
 # Legend actions hide or restore the nominal line, its markers, and its x/y
 # error bars together. Figure legends act across the figure; panel legends act
@@ -926,7 +932,9 @@ quantile_plot.figure #hide
 # `plotwindow` is the escape hatch when no high-level recipe is appropriate. It
 # creates the figure and controls, then passes its content `GridLayout` to the
 # callback. The callback uses normal Makie constructors; afterward `plotwindow`
-# discovers the native axes and attaches reset and export controls.
+# discovers the native axes and attaches shared numeric scale, reset and export
+# controls. Explicit `axis=(...)` overrides apply to callback-created axes;
+# otherwise their native construction settings are retained.
 
 custom_dashboard = LineCableModels.plotwindow(
     title = "Caller-owned diagnostics",
@@ -980,16 +988,39 @@ custom_dashboard.figure #hide
 # attribute to `Makie.automatic` restores the shared locator.
 # Date/category axes and other native transforms retain Makie's own presentation.
 # These defaults use the native tick locators in Makie 0.24.11 or newer.
-# Logarithmic axes have no additional multiplier. The x/y toggles select native
-# linear or logarithmic scales, with decade ticks over broad log ranges and
-# native log ticks when zoomed into less than a decade.
+# Logarithmic views spanning less than two decades show decimal values at
+# logarithmic positions, with one engineering multiplier when needed. Broader
+# views show integer powers of ten without another multiplier. Both x and y
+# use the same policy, fitting actual label spacing after the coordinate transform.
+# The x/y toggles validate current visible data and uncertainty bounds before
+# changing the page. Native numeric `plotwindow` axes share these controls.
+# Automatic near-constant positive log ranges use modest multiplicative padding
+# (`c/1.05` to `c*1.05`, enlarged for uncertainty), not whole-decade bounds.
+#
+# Native Axis keywords (`xticks`, `limits`, `ytickformat`, etc.) and native
+# series attributes (`linewidth`, `color`, etc.) can be passed at construction.
+# Explicit `axis=(...)`, `figure=(...)` and per-series `series_attributes`
+# override shared defaults. Subsequent native mutations remain authoritative.
+# For names shared by Axis and a plot, the unqualified form targets Axis.
+# An explicit native `figure.size` overrides the managed landscape default.
+#
+# UQ benchmark plots with ordinary `ydata=(R,L,G,C)` overlay mean ±1 standard
+# deviation through the same line-result renderer. Explicit `(statistics,L,std)`
+# requests retain statistic-only plots; request these two products in separate
+# calls. `uncertain(result, configuration)` reads one uncertainty-bearing core
+# result; for MC it reconstructs only that configuration's marginal means/stds,
+# without inferring joint correlations.
 # Benchmark overlays retain the y toggle when matrix entries include zero or
-# negative values; those panels use a sign-preserving pseudo-log transform.
+# negative values; those panels use a sign-preserving pseudo-log transform with
+# `log1p`/`expm1` evaluation to retain tiny signed values near zero.
 #
 # Limits are calculated from finite visible data, including measurement error
-# bounds. Constant series receive magnitude-relative padding; an exactly zero
-# series without uncertainty uses a neutral nonzero range. Small physical values
-# are not treated as zero merely because they are below machine square-root epsilon.
+# bounds. Constant and near-constant series receive at least ±5% padding around
+# a nonzero baseline, enlarged for visible uncertainty. An exactly zero series
+# without uncertainty uses a neutral nonzero range. Near-constant means that the
+# endpoints agree within `sqrt(eps(Float64))` relatively in view coordinates.
+# This is only an automatic-view rule: no sample is rounded. Small physical
+# values with meaningful relative variation still receive a tightly fitted view.
 # Legend visibility changes
 # trigger another limit pass, so hiding a dominant curve exposes the remaining
 # data instead of leaving a stale range.

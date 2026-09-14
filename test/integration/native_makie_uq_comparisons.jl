@@ -1,3 +1,71 @@
+@testitem "Makie addons / ordinary UQ overlays delegate uncertainty to its owner" tags=[:visual] begin
+    using CairoMakie, Measurements, Statistics
+    using LineCableModels.ReportBuilder: BenchmarkTableDefinition
+    f = collect(range(2.0,8.0;length=7))
+    omega = reshape(2pi.*f,1,1,:)
+    r = [i+2j+x/10 for i in 1:2,j in 1:2,x in f]
+    parts = (R=r,L=r.*1e-4,C=r.*1e-8,G=r.*1e-5)
+    summaries = map(a -> map(x -> SampleSummary([0.9x,x,1.1x]),a),parts)
+    core = LineParameters(complex.(parts.R,omega.*parts.L),complex.(parts.G,omega.*parts.C),f)
+    second_core = LineParameters(1.2.*Z(core),1.2.*Y(core),f)
+    second_summaries = map(a -> map(x -> SampleSummary(1.2.*[0.9x,x,1.1x]),a),parts)
+    mc = MonteCarloResult(MonteCarlo(Formulation();trials=3,seed=1),
+        [core,second_core],[summaries,second_summaries],nothing,nothing,UInt64(1),UInt64[1,2],[3,3])
+    measured = map(a -> measurement.(1.05.*a,0.03.*a),parts)
+    candidate = LineParameters(complex.(measured.R,omega.*measured.L),
+        complex.(measured.G,omega.*measured.C),f)
+    second_candidate = LineParameters(1.2.*Z(candidate),1.2.*Y(candidate),f)
+    lep = LinearErrorResult(LinearError(Formulation()),[candidate,second_candidate])
+    definition = BenchmarkTableDefinition(((statistics,R,mean),(statistics,R,std));
+        bands=(:all,),pairing=((1,1),(2,2)))
+    metadata = (port_order=["a","b"],)
+    artifact = report(definition,(reference=(result=mc,metadata=metadata),
+        candidate=(result=lep,metadata=metadata)))
+    before = deepcopy((Z(candidate),Y(candidate),frequencies(candidate)))
+    page = LineCableModels.plot(artifact;ydata=((R,2,1,:),),problem=2,
+        backend=:cairo,display_plot=false,open_export=false,length_unit=:base,
+        axis=(limits=((2.0,8.0),(3.0,7.0)),),linewidth=3)
+    axis = only(page.axes)
+    lines = filter(p -> p isa Makie.Lines,axis.scene.plots)
+    bars = filter(p -> p isa Makie.Errorbars,axis.scene.plots)
+    @test length(lines)==length(bars)==2
+    for (line,bar,source) in zip(lines,bars,(uncertain(mc,2),uncertain(lep,2)))
+        @test last.(line[1][]) ≈ nominal.(R(source)[2,1,:])
+        # Errorbars encode x,y,negative error,positive error in native Point4.
+        @test getindex.(bar[1][],2) ≈ nominal.(R(source)[2,1,:])
+        @test getindex.(bar[1][],3) ≈ uncertainty.(R(source)[2,1,:])
+        @test line.linewidth[] == 3
+    end
+    @test last.(lines[1][1][]) != last.(lines[2][1][])
+    @test getindex.(bars[1][1][],3) != getindex.(bars[2][1][],3)
+    page.controls[:ylog].active[]=true
+    Makie.colorbuffer(page.figure)
+    @test axis.yscale[] === log10
+    @test all(x -> x isa AbstractString,axis.yaxis.ticklabels[])
+
+    # A new result owner must enter the real comparison renderer without adding
+    # a PlotBuilder type/name branch. Reuse retained comparisons, not new physics.
+    struct PlotOwnerProbe{T,F} <: AbstractUncertaintyResult{T}
+        values::Vector{T}
+        formulation::F
+    end
+    Base.NamedTuple(x::PlotOwnerProbe) = (values=x.values,formulation=NamedTuple(x.formulation),details=(;))
+    Base.length(x::PlotOwnerProbe) = length(x.values)
+    Base.getindex(x::PlotOwnerProbe,i::Integer) = x.values[i]
+    LineCableModels.uncertain(x::PlotOwnerProbe) = x.values
+    probe = PlotOwnerProbe([candidate,second_candidate],LinearError(Formulation()))
+    retained = merge(artifact.published,(candidate=merge(artifact.published.candidate,(result=probe,)),))
+    # Use the owned saved-report path; the test result provides native cores via
+    # the existing result/uncertain contracts, not a bespoke recipe.
+    other = LineCableModels.plot(retained;ydata=((R,2,1,:),),problem=2,
+        backend=:cairo,display_plot=false,open_export=false,length_unit=:base)
+    other_lines = filter(p -> p isa Makie.Lines,only(other.axes).scene.plots)
+    @test last.(last(other_lines)[1][]) ≈ nominal.(R(second_candidate)[2,1,:])
+    @test isequal(before,(Z(candidate),Y(candidate),frequencies(candidate)))
+    @test_throws ArgumentError LineCableModels.plot(artifact;problem=2,
+        ydata=(R,(statistics,R,std)),backend=:cairo,display_plot=false)
+end
+
 @testitem "Makie addons / UQ comparisons use native statistics and matrix pages" tags=[:visual] begin
     using CairoMakie, Statistics, Measurements, DataFrames
     using LineCableModels.ReportBuilder: BenchmarkTableDefinition
@@ -112,10 +180,12 @@
         (reference = (result = retained, metadata = context),
             candidate = (result = retained, metadata = context)))
     selected=LineCableModels.plot(
-        historical; backend = :cairo, ydata = (R,), blocks = (2, 2), band = :wide,
+        historical; backend = :cairo, ydata = ((statistics,R,mean),(statistics,R,std)), blocks = (2, 2), band = :wide,
         display_plot = false, controls = false, open_export = false, length_unit = :base, fig_size = (
             1100, 750))
     @test length(selected)==8
+    @test_throws r"uncertainty-bearing core" LineCableModels.plot(historical;
+        backend=:cairo,ydata=(R,),display_plot=false)
     for page in selected
         @test !isempty(Makie.colorbuffer(page.figure))
         for panel in Base.values(page.addon_state.panel_data)

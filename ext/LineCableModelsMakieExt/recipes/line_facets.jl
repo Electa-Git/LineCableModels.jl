@@ -253,9 +253,10 @@ function _addon_semantic_line_page(
         controls,
         display_plot,
         export_theme,
-        open_export
+        open_export,
+        kwargs...
 )
-    shell = _addon_shell(; size = _semantic_figure_size(fig_size, page.dimensions), controls)
+    shell = _addon_shell(; size = _semantic_figure_size(fig_size, page.dimensions), controls, kwargs...)
     shell.canvas.default_rowgap = Fixed(24)
     shell.canvas.default_colgap = Fixed(48)
     rowgap!(shell.canvas, 24)
@@ -276,8 +277,7 @@ function _addon_semantic_line_page(
     axes = Any[]
     panels = Any[]
     resets = Function[]
-    xsetters = NamedTuple[]
-    ysetters = NamedTuple[]
+    requested_scales = NamedTuple[]
     groups = Dict{Symbol, Vector{Any}}()
     dependent_plots = Pair{Makie.Plot,Makie.Plot}[]
     group_order = Symbol[]
@@ -295,16 +295,6 @@ function _addon_semantic_line_page(
         ))
         xobservation = merge(first(published).frequency, (; values = xvalues))
         yobservation = merge(observation, (; values = yvalues))
-        xscales = _axis_scales(xvalues)
-        yscales = _axis_scales(yvalues; signed_log=signed_ylog)
-        xscale in xscales || throw(DomainError(
-            xvalues,
-            "logarithmic frequency axes require positive finite data and uncertainty bounds"
-        ))
-        yscale in yscales || throw(DomainError(
-            yvalues,
-            "logarithmic ordinate axes require positive finite data and uncertainty bounds"
-        ))
         panel = if blocked
             merge(cells[position], (; logical_position=(facet.row, facet.column)))
         else
@@ -327,7 +317,7 @@ function _addon_semantic_line_page(
                 attributes = merge(attributes, (subtitle="Undefined phase",))
             end
         end
-        axis = _addon_axis!(
+        axis,scales = _addon_axis!(
             panel.content,
             xobservation,
             yobservation;
@@ -335,7 +325,8 @@ function _addon_semantic_line_page(
                 panel_titles, object, facet, panel_index, length(page.facets)),
             xscale,
             yscale,
-            attributes
+            attributes,
+            native_attributes=shell.axis_attributes
         )
         series = NamedTuple[]
         scoped_labels = Dict{Symbol, String}()
@@ -375,12 +366,8 @@ function _addon_semantic_line_page(
         push!(panels, panel)
         push!(panel_group_labels, scoped_labels)
         push!(resets, reset!)
-        :log10 in xscales && push!(xsetters, (; axis, allowed=xscales, reset=reset!))
-        any(scale -> scale in yscales, (:log10, :pseudolog10)) &&
-            push!(ysetters, (; axis, allowed=yscales, reset=reset!))
+        push!(requested_scales,scales)
     end
-    length(xsetters) == length(axes) || empty!(xsetters)
-    length(ysetters) == length(axes) || empty!(ysetters)
     mode === :paired && length(axes) > 1 &&
         _addon_responsive_axis_grid!(
             shell.figure, shell.canvas, panels, axes, page.dimensions)
@@ -391,7 +378,8 @@ function _addon_semantic_line_page(
         panel_legends
     end
     built = _addon_finish!(
-        shell, axes, resets, xsetters, ysetters, groups, group_order, group_labels;
+        shell, axes, resets, groups, group_order, group_labels;
+        requested_scales, signed_ylog,
         dependent_plots,
         series_attributes,
         series_defaults,
@@ -445,8 +433,8 @@ function _addon_line_pages(
         fig_size = nothing,
         layout = nothing,
         blocks = nothing,
-        xscale::Symbol = :linear,
-        yscale::Symbol = :linear,
+        xscale = :linear,
+        yscale = :linear,
         legend_position = :right,
         legend_anchor = :rt,
         legend_title = nothing,
@@ -458,7 +446,8 @@ function _addon_line_pages(
         display_plot::Bool = true,
         controls::Bool = true,
         export_theme::Symbol = :default,
-        open_export::Bool = true
+        open_export::Bool = true,
+        kwargs...
 )
     _addon_activate_backend(backend)
     legend_overflow in (:ellipsis, :show_all) || throw(ArgumentError(
@@ -589,7 +578,8 @@ function _addon_line_pages(
                     controls,
                     display_plot=false,
                     export_theme,
-                    open_export
+                    open_export,
+                    kwargs...
                 )
             end)
     end

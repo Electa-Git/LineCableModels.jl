@@ -100,9 +100,12 @@ function _addon_landscape_size(size)
     return (max(width, cld(4height, 3)), height)
 end
 
-function _addon_shell(; size, controls::Bool)
+function _addon_shell(; size, controls::Bool, axis::NamedTuple=(;), figure::NamedTuple=(;), kwargs...)
+    axis_keys = Makie.attribute_names(Axis)
+    axis_attributes = merge((; (key=>value for (key,value) in kwargs if key in axis_keys)...), axis)
+    series_attributes = (; (key=>value for (key,value) in kwargs if key ∉ axis_keys)...)
     size = _addon_landscape_size(size)
-    figure = Figure(size = size, figure_padding = (12, 12, 12, 12))
+    figure = Figure(; merge((; size, figure_padding=(12,12,12,12)), figure)...)
     root = figure.layout
     root.default_rowgap = Fixed(4)
     rowgap!(root, 4)
@@ -142,7 +145,7 @@ function _addon_shell(; size, controls::Bool)
     colsize!(body, 1, Fixed(0))
     colsize!(body, 2, Auto(false, 1))
     colsize!(body, 3, Fixed(0))
-    return (; figure, root, body, canvas, toolbar, status)
+    return (; figure, root, body, canvas, toolbar, status, axis_attributes, series_attributes)
 end
 
 function _addon_icon(value)
@@ -260,9 +263,14 @@ end
 function _addon_scale(symbol::Symbol)
     symbol === :linear && return Makie.identity
     symbol === :log10 && return Makie.log10
-    symbol === :pseudolog10 && return Makie.pseudolog10
+    # Same signed-log scale, with no cancellation in its linear neighbourhood.
+    symbol === :pseudolog10 && return Makie.ReversibleScale(
+        x -> sign(x) * log1p(abs(x)) / log(10),
+        x -> sign(x) * expm1(abs(x) * log(10));
+        limits=(0.0f0, 3.0f0), name=:pseudolog10)
     throw(ArgumentError("unsupported axis scale :$symbol"))
 end
+_addon_scale(scale) = scale
 
 function _addon_scientific_exponent(values)
     magnitudes = Float64[]
@@ -305,6 +313,24 @@ end
 
 function _addon_decade_ticks(vmin, vmax, count::Int)
     isfinite(vmin) && isfinite(vmax) && 0 < vmin <= vmax || return Float64[]
+    span = log10(vmax)-log10(vmin)
+    if span < 2
+        isapprox(vmin,vmax;rtol=sqrt(eps(Float64)),atol=0) && return unique([vmin,vmax])
+        ticks = Float64[]
+        for exponent in floor(Int,log10(vmin)):floor(Int,log10(vmax))
+            lower,upper = max(vmin,10.0^exponent),min(vmax,10.0^(exponent+1))
+            lower < upper || continue
+            budget = max(2,ceil(Int,count*(log10(upper)-log10(lower))/span)+1)
+            # Locator arithmetic is local to one decade, including extreme SI
+            # magnitudes. Only the returned positions use the published units.
+            factor = 10.0^clamp(exponent,-307,307)
+            values = Makie.get_tickvalues(Makie.LinearTicks(budget),lower/factor,upper/factor)
+            append!(ticks,filter(x -> isfinite(x) && lower <= x <= upper,values.*factor))
+            vmin <= 10.0^exponent <= vmax && push!(ticks,10.0^exponent)
+        end
+        isempty(ticks) && append!(ticks,(vmin,vmax))
+        return sort!(unique!(ticks))
+    end
     first_exponent = ceil(Int, log10(vmin))
     last_exponent = floor(Int, log10(vmax))
     step = max(1, cld(last_exponent - first_exponent, max(1, count - 1)))
@@ -322,25 +348,39 @@ function _addon_axis_label(label, exponent::Int, scale::Symbol)
     )
 end
 
-function _addon_set_axis!(entries::AbstractVector, dim::Symbol, scale::Symbol)
+function _addon_set_axis!(entries::AbstractVector, dim::Symbol, scale=nothing)
     dim in (:x, :y) || throw(ArgumentError("axis dimension must be :x or :y"))
     index = dim === :x ? 1 : 2
     # Resolve and validate the complete page before any native observable changes.
     # These are native axis bindings, not another interpretation of result data.
     targets = map(entries) do entry
-        selected = scale === :log10 && :pseudolog10 in entry.allowed ? :pseudolog10 : scale
-        selected in entry.allowed || throw(ArgumentError("axis :$dim does not allow scale :$selected"))
+        target = _addon_scale(scale === nothing ? entry.scale : scale)
+        context = "axis :$dim ($(repr(entry.axis.title[])))"
         requested = entry.axis.limits[]
         requested = length(requested) == 4 ? (requested[1:2], requested[3:4]) : requested
         bounds = requested[index] === nothing ? () : requested[index]
         all(value -> value === nothing || isfinite(value), bounds) ||
-            throw(DomainError(bounds, "axis :$dim requires finite explicit limits"))
-        if selected === :log10
-            values = _addon_visible_values(entry.axis, dim)
-            all(>(0), values) && all(value -> value === nothing || value > 0, bounds) ||
-                throw(DomainError(bounds, "logarithmic axis :$dim requires positive visible data, uncertainty bounds and explicit limits"))
+            throw(DomainError(bounds, "$context requires finite explicit limits"))
+        values = _addon_visible_values(entry.axis, dim)
+        if target === Makie.log10 && entry.signed && !isempty(values) && !all(>(0),values)
+            target = _addon_scale(:pseudolog10)
         end
-        _addon_scale(selected)
+        if target === Makie.log10
+            all(>(0), values) && all(value -> value === nothing || value > 0, bounds) ||
+                throw(DomainError(bounds, "logarithmic $context requires positive visible data, uncertainty bounds and explicit limits"))
+        end
+        if !isempty(values)
+            lower, upper = extrema(values)
+            if isapprox(lower, upper; rtol=sqrt(eps(Float64)), atol=0)
+                lower, upper = _addon_constant_limits(values, values, target === Makie.log10)
+            end
+            explicit = isempty(bounds) ? (nothing, nothing) : bounds
+            lower, upper = something(explicit[1], lower), something(explicit[2], upper)
+            transformed = (target(lower), target(upper))
+            all(isfinite, transformed) && transformed[1] < transformed[2] ||
+                throw(DomainError((lower, upper), "$context requires distinct finite transformed limits"))
+        end
+        target
     end
     for (entry, target) in zip(entries, targets)
         axis = entry.axis
@@ -445,11 +485,12 @@ function LineCableModels.plotwindow(
         controls::Bool = true,
         export_theme::Symbol = :default,
         open_export::Bool = true,
-        export_name::AbstractString = title
+        export_name::AbstractString = title,
+        kwargs...
 ) where {F}
     _addon_activate_backend(backend)
     return with_theme(_addon_theme(export_theme = export_theme)) do
-        shell = _addon_shell(; size, controls)
+        shell = _addon_shell(; size, controls, kwargs...)
         dimensions = layout === nothing ? nothing :
                      _native_preview_layout(1, layout)
         callback(shell.canvas)
@@ -463,8 +504,16 @@ function LineCableModels.plotwindow(
             end
         end
         axes = Any[content for content in shell.figure.content if content isa Axis]
+        # Only caller-supplied overrides apply to caller-constructed axes. Keep
+        # native defaults/conversions intact; scale changes use common preflight.
+        for axis in axes, (key,value) in pairs(shell.axis_attributes)
+            key in (:xscale,:yscale) || setproperty!(axis,key,value)
+        end
+        requested_scales = !any(key -> key in (:xscale,:yscale), keys(shell.axis_attributes)) ? nothing :
+            [(x=get(shell.axis_attributes,:xscale,axis.xscale[]),
+                y=get(shell.axis_attributes,:yscale,axis.yscale[])) for axis in axes]
         resets = Function[_addon_reset!(axis) for axis in axes]
-        native = series_attributes === nothing ? Any[] :
+        native = series_attributes === nothing && isempty(shell.series_attributes) ? Any[] :
             Any[handle for axis in axes for handle in axis.scene.plots]
         order = [Symbol("series_$index") for index in eachindex(native)]
         groups = Dict(group => Any[handle] for (group, handle) in zip(order, native))
@@ -472,11 +521,10 @@ function LineCableModels.plotwindow(
             shell,
             axes,
             resets,
-            Function[],
-            Function[],
             groups,
             order,
             Dict(group => string(group) for group in order);
+            requested_scales,
             series_attributes,
             title = String(title),
             figure_title,
@@ -515,24 +563,28 @@ function _addon_statistical_plot(
         legend_overflow = :ellipsis,
         panel_legends = (),
         xlabel = nothing,
-        ylabel = nothing
+        ylabel = nothing,
+        xscale = :linear,
+        yscale = :linear,
+        kwargs...
 ) where {F}
     _addon_activate_backend(backend)
     resolved_panel_titles = _addon_panel_titles(panel_titles, 1)
     panel_title = resolved_panel_titles === nothing ? title :
                   only(resolved_panel_titles)
     return with_theme(_addon_theme(export_theme = export_theme)) do
-        shell = _addon_shell(; size = fig_size, controls)
+        shell = _addon_shell(; size = fig_size, controls, kwargs...)
         panel = _addon_panel!(shell, (1, 1))
-        axis = _addon_axis!(
+        axis,scales = _addon_axis!(
             panel.content,
             xobservation,
             yobservation;
             title = panel_title,
-            xscale = :linear,
-            yscale = :linear,
+            xscale,
+            yscale,
             xlabel,
-            ylabel
+            ylabel,
+            native_attributes=shell.axis_attributes
         )
         groups = Dict{Symbol, Vector{Any}}()
         order = Symbol[]
@@ -545,11 +597,10 @@ function _addon_statistical_plot(
             shell,
             Any[axis],
             Function[reset!],
-            Function[],
-            Function[],
             groups,
             order,
             labels;
+            requested_scales=(scales,),
             series_attributes,
             title,
             figure_title,
@@ -576,11 +627,12 @@ function _addon_constant_limits(values, interval_values, logarithmic::Bool)
             interval_values,
             "logarithmic axes require strictly positive data"
         ))
-        lower, upper = extrema(interval_values)
-        first_exponent = floor(Int, log10(lower))
-        last_exponent = ceil(Int, log10(upper))
-        first_exponent == last_exponent && (first_exponent -= 1; last_exponent += 1)
-        return 10.0^first_exponent, 10.0^last_exponent
+        center = sum(log, extrema(values))/2
+        halfspan = max(log(1.05),2maximum(value -> abs(log(value)-center),interval_values))
+        lower,upper = exp(center-halfspan),exp(center+halfspan)
+        isfinite(upper) && 0 < lower < upper && log10(lower) < log10(upper) ||
+            throw(DomainError((lower,upper),"automatic logarithmic bounds are not representable"))
+        return lower,upper
     end
     all(iszero, interval_values) && return (-1.0, 1.0)
     lower, upper = extrema(values)
@@ -629,13 +681,16 @@ function _addon_axis_format!(axis)
                 numeric = conversion[] === nothing
                 lower, upper = limits.origin[index], limits.origin[index] + limits.widths[index]
                 decades = current_scale === Makie.log10 && 0 < lower < upper &&
-                    floor(log10(upper)) - ceil(log10(lower)) >= 1
+                    log10(upper) - log10(lower) >= 2
                 exponent = something(_addon_scientific_exponent((lower, upper)), 0)
-                mode = if numeric && current_scale === Makie.identity &&
+                signed_linear = current_scale === _addon_scale(:pseudolog10) &&
+                    max(abs(lower), abs(upper)) < 1
+                mode = if numeric && (current_scale === Makie.identity || signed_linear) &&
                         (owned_ticks || current_ticks isa AbstractVector{<:Real})
                     (:linear, exponent)
-                elseif numeric && current_scale === Makie.log10 && owned_ticks && decades
-                    (:log10, 0)
+                elseif numeric && current_scale === Makie.log10 &&
+                        (owned_ticks || current_ticks isa AbstractVector{<:Real})
+                    owned_ticks && decades ? (:log10, 0) : (:linear, exponent)
                 else
                     nothing
                 end
@@ -676,12 +731,27 @@ function _addon_axis_format!(axis)
                         selected = if !numeric
                             Makie.automatic
                         elseif current_scale === Makie.identity
-                            Makie.LinearTicks(count)
+                            # A native fit can briefly expose equal or adjacent
+                            # Float64 endpoints before automatic padding runs.
+                            # Preserve explicit narrow zooms too, without asking
+                            # LinearTicks to subdivide an unrepresentable interval.
+                            let count=count
+                                (lo, hi) -> isapprox(lo, hi; rtol=sqrt(eps(Float64)), atol=0) ?
+                                    unique([lo, hi]) : Makie.get_tickvalues(Makie.LinearTicks(count), lo, hi)
+                            end
                         elseif current_scale === Makie.log10
-                            decades ? _addon_decade_ticks(lower, upper, count) :
-                                Makie.LogTicks(Makie.LinearTicks(count))
-                        elseif current_scale === Makie.pseudolog10
-                            Makie.PseudologTicks(count)
+                            _addon_decade_ticks(lower, upper, count)
+                        elseif current_scale === _addon_scale(:pseudolog10)
+                            # Native PseudologTicks dispatches on Makie's scale
+                            # instance. Reuse its placement, not its cancelling
+                            # transform, and pass numeric positions to this axis.
+                            if isapprox(lower, upper; rtol=sqrt(eps(Float64)), atol=0)
+                                unique([lower, upper])
+                            else
+                                locator = signed_linear ? Makie.LinearTicks(count) : Makie.PseudologTicks(count)
+                                first(Makie.get_ticks(locator, Makie.pseudolog10,
+                                    Makie.automatic, lower, upper))
+                            end
                         else
                             Makie.automatic
                         end
@@ -690,6 +760,33 @@ function _addon_axis_format!(axis)
                             ticks[] = selected
                         end
                         selected === Makie.automatic && break
+                        if current_scale === Makie.log10 && !decades
+                            # Physical-value log ticks are NOT equally spaced on
+                            # screen. Fit adjacent rendered labels, not count/width.
+                            positions = Float64[]
+                            extents = Float64[]
+                            for (value,text) in zip(selected,lineaxis.ticklabels[])
+                                value > 0 || continue
+                                probe.text[] = text
+                                push!(positions,pixels*(log10(value)-log10(lower))/(log10(upper)-log10(lower)))
+                                push!(extents,Makie.boundingbox(probe,:data).widths[index])
+                            end
+                            if length(positions) == length(selected)
+                                retained = Int[]
+                                for i in eachindex(positions)
+                                    if isempty(retained) || positions[i]-positions[last(retained)] >=
+                                            (extents[i]+extents[last(retained)])/2+labelsize[]/2
+                                        push!(retained,i)
+                                    end
+                                end
+                                fitted_ticks = selected[retained]
+                                if !isequal(ticks[],fitted_ticks)
+                                    installed_ticks[] = fitted_ticks
+                                    ticks[] = fitted_ticks
+                                end
+                            end
+                            break
+                        end
                         extent = 0.0
                         for text in lineaxis.ticklabels[]
                             probe.text[] = text
@@ -708,22 +805,6 @@ function _addon_axis_format!(axis)
         # Run before native tick conversion: a newly assigned labelled tuple
         # cannot be consumed with the previously installed numeric formatter.
         onany((_...) -> update!(), axis.scene, ticks, tickformat; priority=1)
-        # Scale-specific native locators cannot survive a transform transition:
-        # Makie refits before our late formatter runs. Release only our locator
-        # first; the new scale's locator is installed after native propagation.
-        on(axis.scene, scale; priority=1) do _
-            updating[] && return nothing
-            ticks[] === installed_ticks[] || return nothing
-            ticks[] isa Union{Makie.LogTicks, Makie.PseudologTicks} || return nothing
-            updating[] = true
-            try
-                installed_ticks[] = Makie.automatic
-                ticks[] = Makie.automatic
-            finally
-                updating[] = false
-            end
-            return nothing
-        end
         # Range/transform updates must instead follow native LineAxis propagation;
         # changing its formatter while it still has the old limits is unsafe.
         onany((_...) -> update!(), axis.scene, axis.finallimits, scale, label,
@@ -735,6 +816,9 @@ end
 
 # Bind the native limit lifecycle once and return this axis's reset action.
 function _addon_reset!(axis, series=())
+    # Own numeric ticks before the first data fit, including its synchronous
+    # native callbacks. Every recipe and caller-owned plotwindow uses this bind.
+    _addon_axis_format!(axis)
     fitting = Ref(false)
     corrections = Any[nothing, nothing]
     function reset!(; xauto::Bool=true, yauto::Bool=true)
@@ -753,13 +837,13 @@ function _addon_reset!(axis, series=())
                 isempty(interval_values) && continue
                 values = isempty(series) ? interval_values : _addon_visible_values(series, dim)
                 isempty(values) && continue
-                allequal(values) || continue
+                isapprox(extrema(values)...; rtol=sqrt(eps(Float64)), atol=0) || continue
                 if !isempty(series)
                     expected = _addon_visible_values(series, dim; include_uncertainty=true)
                     # Native extra plots or independently hidden error bars own
                     # their actual extents, not the original observation array.
                     if !all(isapprox.(interval_values, collect(extrema(expected))))
-                        allequal(interval_values) || continue
+                        isapprox(extrema(interval_values)...; rtol=sqrt(eps(Float64)), atol=0) || continue
                         values = interval_values
                     end
                 end
@@ -786,13 +870,24 @@ function _addon_reset!(axis, series=())
     # padding without storing automatic limits as user requests. Only the exact
     # native auto-fit for the same scale/request is corrected; zooms are untouched.
     # This callback uses two cached bounds, not a data scan on every view update.
-    on(axis.scene, axis.targetlimits) do view
-        fitting[] && return nothing
-        all(isnothing, corrections) && return nothing
+    on(axis.scene, axis.targetlimits; priority=1) do view
         requested = axis.limits[]
         requested = length(requested) == 4 ? (requested[1:2], requested[3:4]) : requested
         origin, widths = collect(view.origin), collect(view.widths)
         for (index, dim) in enumerate((:x, :y))
+            explicit = requested[index] === nothing ? (nothing, nothing) : requested[index]
+            # Native nonlinear auto-fitting leaves an all-zero series at (0,0).
+            # Repair that automatic singular view before the camera's reciprocal
+            # scaling runs, including during the transform-triggered first fit.
+            # This uses only the view bounds, never a new data scan on zoom.
+            if iszero(widths[index]) && any(isnothing, explicit) &&
+                    getproperty(axis, Symbol(:dim, index, :_conversion))[] === nothing
+                bounds = _addon_constant_limits((origin[index],), (origin[index],),
+                    getproperty(axis, Symbol(dim, :scale))[] === Makie.log10)
+                lower, upper = something(explicit[1], bounds[1]), something(explicit[2], bounds[2])
+                origin[index], widths[index] = lower, upper-lower
+            end
+            fitting[] && continue
             correction = corrections[index]
             correction === nothing && continue
             if isequal(requested[index], correction.requested) &&
@@ -819,7 +914,8 @@ function _addon_axis!(
         yscale,
         xlabel = nothing,
         ylabel = nothing,
-        attributes = (;)
+        attributes = (;),
+        native_attributes = (;)
 )
     xaxis_label = xlabel === nothing ?
                   LineCableModels.Units.label(xobservation.quantity, xobservation.unit) :
@@ -837,9 +933,12 @@ function _addon_axis!(
             xlabel = xaxis_label,
             ylabel = yaxis_label
         ),
-        attributes)
-    axis = Axis(position; options...)
-    return axis
+        attributes, native_attributes)
+    scales = (x=_addon_scale(options.xscale),y=_addon_scale(options.yscale))
+    # Draw on safe axes, then validate complete native extents in the common
+    # finish before applying requested transforms to any axis on the page.
+    axis = Axis(position; merge(options,(xscale=identity,yscale=identity))...)
+    return axis,scales
 end
 
 function _addon_positions(count::Int, layout)
@@ -1817,24 +1916,44 @@ function _addon_controls!(
     end
     for (dim, setters) in ((:x, xsetters), (:y, ysetters))
         isempty(setters) && continue
-        active = all(axis -> getproperty(axis, Symbol(dim, :scale))[] in
-            (Makie.log10, Makie.pseudolog10), axes)
+        active = all(entry -> getproperty(entry.axis, Symbol(dim, :scale))[] in
+            (Makie.log10, _addon_scale(:pseudolog10)), setters)
         toggle = Toggle(shell.toolbar[1, column]; active)
         column += 1
-        Label(shell.toolbar[1, column], "log $dim")
+        caption = Label(shell.toolbar[1, column], "log $dim")
         column += 1
         widgets[Symbol(dim, :log)] = toggle
         changing = Ref(false)
+        for entry in setters
+            on(shell.figure.scene,getproperty(entry.axis,Symbol(dim,:scale));update=true) do _
+                kinds = unique(getproperty(item.axis,Symbol(dim,:scale))[] === log10 ?
+                    "log" : getproperty(item.axis,Symbol(dim,:scale))[] === identity ?
+                    "linear" : getproperty(item.axis,Symbol(dim,:scale))[] === _addon_scale(:pseudolog10) ?
+                    "signed log" : "custom" for item in setters)
+                mode = length(kinds)==1 ? only(kinds) : "mixed log"
+                caption.text[] = mode == "linear" ? "log $dim" : "$mode $dim"
+                if !changing[]
+                    changing[] = true
+                    try
+                        active = all(kind -> kind in ("log","signed log"),kinds)
+                        toggle.active[] == active || (toggle.active[] = active)
+                    finally
+                        changing[] = false
+                    end
+                end
+            end
+        end
         on(shell.figure.scene, toggle.active) do enabled
             changing[] && return nothing
             changing[] = true
             try
                 _addon_set_axis!(setters, dim, enabled ? :log10 : :linear)
-                shell.status[] = "$dim-axis scale set to $(enabled ? "log" : "linear")"
+                shell.status[] = enabled ? "Axis scale set to $(caption.text[])" : "$dim-axis scale set to linear"
             catch exception
                 if exception isa Union{ArgumentError, DomainError}
                     toggle.active[] = !enabled
                     shell.status[] = sprint(showerror, exception)
+                    return nothing
                 end
                 rethrow()
             finally
@@ -1863,11 +1982,12 @@ function _addon_finish!(
         shell,
         axes,
         resets,
-        xsetters,
-        ysetters,
         groups,
         order,
         group_labels;
+        scale_controls::Bool=true,
+        signed_ylog::Bool=false,
+        requested_scales=nothing,
         dependent_plots = Pair{Makie.Plot,Makie.Plot}[],
         title,
         figure_title = nothing,
@@ -1894,7 +2014,25 @@ function _addon_finish!(
         export_theme,
         open_export
 )
-    append!(dependent_plots, _addon_series_styles!(groups, order, series_attributes; defaults=series_defaults))
+    isempty(axes) && !isempty(shell.axis_attributes) && throw(ArgumentError(
+        "native Axis attributes require a figure containing an Axis"))
+    append!(dependent_plots, _addon_series_styles!(groups, order, series_attributes;
+        defaults=series_defaults, shared=shell.series_attributes))
+    setters = map(enumerate((:x,:y))) do (index,dim)
+        entries = [(;axis,reset,signed=index==2 && signed_ylog) for (axis,reset) in zip(axes,resets)]
+        if requested_scales !== nothing
+            _addon_set_axis!([merge(entry,(scale=getproperty(scales,dim),))
+                for (entry,scales) in zip(entries,requested_scales)],dim)
+        end
+        scale_controls || return NamedTuple[]
+        filter(entries) do entry
+            getproperty(entry.axis,Symbol(:dim,index,:_conversion))[] === nothing &&
+                getproperty(entry.axis,Symbol(dim,:scale))[] in
+                    (identity,log10,_addon_scale(:pseudolog10)) &&
+                !isempty(_addon_visible_values(entry.axis,dim))
+        end
+    end
+    xsetters,ysetters = setters
     for (dependent, owner) in dependent_plots
         dependent.visible[] = owner.visible[]
         previous = Ref(owner.visible[])
@@ -1906,7 +2044,6 @@ function _addon_finish!(
             dependent.visible[] = visible
         end
     end
-    foreach(_addon_axis_format!, axes)
     title_block = _addon_figure_title!(shell, figure_title, title_attributes)
     inside_bbox = _addon_axes_viewport(
         axes,

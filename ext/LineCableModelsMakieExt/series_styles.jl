@@ -1,13 +1,14 @@
 # Apply styles to the native semantic handles before constructing legends and
 # visibility controls. Every recipe uses this through the common plot shell.
-function _addon_series_styles!(groups, order, attributes; defaults=nothing)
+function _addon_series_styles!(groups, order, attributes; defaults=nothing, shared=(;))
     dependents = Pair{Makie.Plot,Makie.Plot}[]
-    attributes === nothing && defaults === nothing && return dependents
+    attributes === nothing && defaults === nothing && isempty(shared) && return dependents
     styles = LineCableModels.PlotBuilder._series_attributes(attributes, length(order))
+    shared_consumed = Set{Symbol}()
     drawing_order = defaults === nothing ? collect(eachindex(order)) :
         sortperm(collect(eachindex(order)); by=index -> defaults[index].priority)
     for index in drawing_order
-        group, overrides = order[index], styles[index]
+        group, overrides = order[index], merge(shared,styles[index])
         automatic = defaults === nothing ? nothing : defaults[index]
         style = automatic === nothing ? overrides : merge(automatic.attributes, overrides)
         isempty(style) && continue
@@ -54,11 +55,14 @@ function _addon_series_styles!(groups, order, attributes; defaults=nothing)
                 union!(consumed, marker_keys)
             end
         end
-        unused = setdiff(keys(overrides), consumed)
+        union!(shared_consumed,consumed)
+        unused = setdiff(keys(styles[index]), consumed)
         isempty(unused) || throw(ArgumentError(
             "series_attributes for $group are unsupported by its native plots: $(join(unused, ", "))"))
         append!(handles, markers)
     end
+    unused = setdiff(keys(shared),shared_consumed)
+    isempty(unused) || throw(ArgumentError("native series attributes are unsupported by these plots: $(join(unused, ", "))"))
     return dependents
 end
 

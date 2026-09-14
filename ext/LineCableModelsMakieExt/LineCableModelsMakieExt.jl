@@ -46,13 +46,6 @@ include("native_export.jl")
 import LineCableModels.PlotBuilder: plot, preview, show_material_scale
 include("recipes/formulation_comparisons.jl")
 
-function _scale_symbol(value)
-    value isa Symbol && return value
-    value === Makie.identity && return :linear
-    value === Makie.log10 && return :log10
-    throw(ArgumentError("axis scale must be :linear, :log10, Makie.identity, or Makie.log10"))
-end
-
 const _LineSource = Union{
     LineCableModels.LineParameters,
     LineCableModels.SeriesImpedance,
@@ -202,8 +195,8 @@ function plot(
         object;
         frequencies,
         ydata = _line_plot_ydata(object, _plot_ydata(selection,ydata,())),
-        xscale = _scale_symbol(xscale),
-        yscale = _scale_symbol(yscale),
+        xscale = xscale,
+        yscale = yscale,
         backend,
         display_plot,
         controls,
@@ -236,8 +229,8 @@ function plot(
         object;
         frequencies,
         ydata = _line_plot_ydata(object, _plot_ydata(selection,ydata,())),
-        xscale = _scale_symbol(xscale),
-        yscale = _scale_symbol(yscale),
+        xscale = xscale,
+        yscale = yscale,
         backend,
         display_plot,
         controls,
@@ -268,8 +261,8 @@ function plot(
     return _addon_semantic_line_plots(
         parameters;
         ydata = _line_plot_ydata(parameters, _plot_ydata(selection,ydata,())),
-        xscale = _scale_symbol(xscale),
-        yscale = _scale_symbol(yscale),
+        xscale = xscale,
+        yscale = yscale,
         backend,
         display_plot,
         controls,
@@ -323,8 +316,8 @@ function plot(
         Tuple(sources);
         series_labels = labels,
         ydata = normalized,
-        xscale = _scale_symbol(xscale),
-        yscale = _scale_symbol(yscale),
+        xscale = xscale,
+        yscale = yscale,
         backend,
         display_plot,
         controls,
@@ -360,8 +353,8 @@ function plot(
         series_labels = labels,
         ydata = _line_plot_ydata(first(parameters),
             _plot_ydata(selection,ydata,())),
-        xscale = _scale_symbol(xscale),
-        yscale = _scale_symbol(yscale),
+        xscale = xscale,
+        yscale = yscale,
         backend,
         display_plot,
         controls,

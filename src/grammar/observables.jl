@@ -280,19 +280,30 @@ Result owners extend this operation; the fallback makes no precision claim.
 # Returns
 
 - A record containing `kind`, semantic `revision`, native `atol` and `unit`, and
-  a detached `unresolved` mask aligned with the request. An unassessed request
-  returns `nothing` for its cutoff, unit and mask. Declared reporting cutoffs
+  detached `unresolved` and `uncertainty_unresolved` masks aligned with the
+  request's nominal values and standard uncertainties. An unassessed request
+  returns `nothing` for its cutoff, unit and both masks. Reporting cutoffs
   are not certified numerical forward-error bounds.
 """
 function observation_resolution(source, request; atol=nothing, frequencies=nothing)
-    return (kind=:unassessed, revision=0, atol=nothing, unit=nothing, unresolved=nothing)
+    return (kind=:unassessed, revision=0, atol=nothing, unit=nothing,
+        unresolved=nothing, uncertainty_unresolved=nothing)
 end
 
-_resolved_observation(value, ::Nothing, phase) = value
-_resolved_observation(value, unresolved::Bool, ::Val{false}) = unresolved ? zero(value) : value
-_resolved_observation(value, unresolved::Bool, ::Val{true}) = unresolved ? missing : value
-function _resolved_observation(values::AbstractArray, unresolved::AbstractArray, phase)
-    return map((value, masked) -> _resolved_observation(value, masked, phase), values, unresolved)
+_resolved_observation(value, ::Nothing, ::Nothing, phase) = value
+function _resolved_observation(value, unresolved::Bool, uncertainty_unresolved::Bool, ::Val{false})
+    # Recentring retains the dependency graph; removing negligible spread does
+    # not manufacture a fresh independent uncertain variable or change its type.
+    uncertainty_unresolved && return unresolved ? zero(value) : zero(value) + nominal(value)
+    return unresolved ? value - nominal(value) : value
+end
+_resolved_observation(value, unresolved::Bool, uncertainty_unresolved::Bool, ::Val{true}) =
+    unresolved ? missing : value
+function _resolved_observation(values::AbstractArray, unresolved::AbstractArray,
+        uncertainty_unresolved::AbstractArray, phase)
+    return map((value, masked, spread_masked) ->
+        _resolved_observation(value, masked, spread_masked, phase),
+        values, unresolved, uncertainty_unresolved)
 end
 
 function _publish_observable(source, request, identity, override, clip::Bool, atol, frequencies)
@@ -303,14 +314,18 @@ function _publish_observable(source, request, identity, override, clip::Bool, at
     resolution = observation_resolution(source, request; atol, frequencies)
     values = _observe_request(source, request)
     phase = Val(identity isa Tuple && last(identity) === angle)
-    resolved = clip ? _resolved_observation(values, resolution.unresolved, phase) : values
+    resolved = clip ? _resolved_observation(values, resolution.unresolved,
+        resolution.uncertainty_unresolved, phase) : values
     detached = detach(resolved, factor)
     masked = resolution.unresolved
     unresolved_count = masked === nothing ? 0 : masked isa Bool ? Int(masked) : count(masked)
+    spread_masked = resolution.uncertainty_unresolved
+    uncertainty_unresolved_count = spread_masked === nothing ? 0 :
+        spread_masked isa Bool ? Int(spread_masked) : count(spread_masked)
     return (
         observation=(; values=detached, quantity=scientific_quantity, unit=displayed),
         resolution=(; resolution.kind, resolution.revision, resolution.atol, resolution.unit,
-            clip, unresolved_count),
+            clip, unresolved_count, uncertainty_unresolved_count),
     )
 end
 

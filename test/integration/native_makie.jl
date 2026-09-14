@@ -574,7 +574,7 @@ end
         end
     end
     @test length(native_grid.axes) == 4
-    @test Set(keys(native_grid.controls)) == Set((:reset, :export_svg))
+    @test Set(keys(native_grid.controls)) == Set((:reset, :export_svg, :xlog, :ylog))
     @test native_grid.title.text[] == "Native dashboard"
 
     report_plot=report(

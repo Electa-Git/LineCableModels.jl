@@ -177,11 +177,12 @@ function Makie.hist(
         legend_attributes,
         legend_overflow,
         panel_legends,
-        series_attributes
+        series_attributes,
+        kwargs...
     ) do axis, groups, order, labels, series
         plot = bins === nothing ?
-               hist!(axis, sample.values; normalization, label = "samples", kwargs...) :
-               hist!(axis, sample.values; bins, normalization, label = "samples", kwargs...)
+               hist!(axis, sample.values; normalization, label = "samples") :
+               hist!(axis, sample.values; bins, normalization, label = "samples")
         groups[:samples] = Any[plot]
         push!(order, :samples)
         labels[:samples] = "samples"
@@ -256,11 +257,12 @@ function Makie.stairs(
         legend_attributes,
         legend_overflow,
         panel_legends,
-        series_attributes
+        series_attributes,
+        kwargs...
     ) do axis, groups, order, labels, series
         y = [model.values.density; last(model.values.density)]
         plot = stairs!(axis, model.values.edges, y;
-            step = :post, label = "model PDF", kwargs...)
+            step = :post, label = "model PDF")
         groups[:model] = Any[plot]
         push!(order, :model)
         labels[:model] = "model PDF"
@@ -330,9 +332,10 @@ function Makie.ecdfplot(
         legend_attributes,
         legend_overflow,
         panel_legends,
-        series_attributes
+        series_attributes,
+        kwargs...
     ) do axis, groups, order, labels, series
-        plot = ecdfplot!(axis, sample.values; label = "empirical CDF", kwargs...)
+        plot = ecdfplot!(axis, sample.values; label = "empirical CDF")
         groups[:empirical] = Any[plot]
         push!(order, :empirical)
         labels[:empirical] = "empirical CDF"
@@ -413,9 +416,10 @@ function Makie.lines(
         legend_attributes,
         legend_overflow,
         panel_legends,
-        series_attributes
+        series_attributes,
+        kwargs...
     ) do axis, groups, order, labels, series
-        plot = lines!(axis, grid, probability; label = "model CDF", kwargs...)
+        plot = lines!(axis, grid, probability; label = "model CDF")
         groups[:model] = Any[plot]
         push!(order, :model)
         labels[:model] = "model CDF"
@@ -500,10 +504,11 @@ function Makie.qqplot(
         panel_legends,
         series_attributes,
         xlabel = "Sample quantiles [$displayed_unit]",
-        ylabel = "Model quantiles [$displayed_unit]"
+        ylabel = "Model quantiles [$displayed_unit]",
+        kwargs...
     ) do axis, groups, order, labels, series
         points = scatter!(axis, pairs.sample, pairs.model;
-            label = "quantiles", kwargs...)
+            label = "quantiles")
         groups[:quantiles] = Any[points]
         push!(order, :quantiles)
         labels[:quantiles] = "quantiles"

@@ -1,5 +1,5 @@
 "Revision of the shared declared line-observable resolution contract."
-const OBSERVABLE_RESOLUTION_REVISION = 1
+const OBSERVABLE_RESOLUTION_REVISION = 2
 
 # Native basis units: ohm, H, S, F; per metre for :pul. These are reporting
 # cutoffs, not a posteriori forward-error estimates from any solver.
@@ -43,19 +43,26 @@ function _line_resolution_tolerance(quantity, ::Type{T}, f, atol) where {T}
     return T(limits.G) .+ angular .* T(limits.C)
 end
 
-_resolution_uncertain(value::Number) = !iszero(uncertainty(value))
-_resolution_uncertain(value::Complex) =
-    !iszero(uncertainty(real(value))) || !iszero(uncertainty(imag(value)))
 _resolution_unresolved(value::Number, tolerance) =
-    isfinite(value) && !_resolution_uncertain(value) && abs(nominal(value)) <= tolerance
+    isfinite(value) && abs(nominal(value)) <= tolerance
 _resolution_unresolved(value, tolerance) = false
+_resolution_unresolved(value::Number, tolerance, ::Val{:uncertainty}) =
+    isfinite(value) && isfinite(uncertainty(value)) && abs(uncertainty(value)) <= tolerance
+function _resolution_unresolved(value::Complex, tolerance, ::Val{:uncertainty})
+    spread = hypot(uncertainty(real(value)), uncertainty(imag(value)))
+    return isfinite(value) && isfinite(spread) && spread <= tolerance
+end
+_resolution_unresolved(value, tolerance, ::Val{:uncertainty}) = false
 
 """
 $(TYPEDSIGNATURES)
 
 Resolve physical reporting cutoffs for detached numerical projections. The
 quantity and native basis must be explicit; X/B/Z/Y also require frequency
-context in Hz. This does not infer numerical accuracy from tensor magnitudes.
+context in Hz. Nominal magnitude and standard uncertainty are assessed
+independently against the same cutoff. Complex spread uses the root-sum-square
+of the real and imaginary standard uncertainties. This does not infer numerical
+accuracy from tensor magnitudes.
 """
 function observation_resolution(values::Union{Number,AbstractArray}, selector::Function;
         atol=nothing, frequencies=nothing, result_basis::Symbol=:pul)
@@ -73,7 +80,7 @@ function observation_resolution(values::Union{Number,AbstractArray}, selector::F
         (values isa Number ? 1 : size(values, ndims(values))) == length(frequencies) ||
             throw(DimensionMismatch("resolution frequencies must match the tensor depth"))
     end
-    T = typeof(float(real(nominal(zero(eltype(values))))))
+    T = typeof(float(real(nominal(zero(Base.nonmissingtype(eltype(values)))))))
     tolerance = _line_resolution_tolerance(selector, T, frequencies, atol)
     tolerance === nothing && return observation_resolution(nothing, selector; atol, frequencies)
     limits = tolerance isa Real ? (tolerance,) : tolerance
@@ -83,7 +90,8 @@ function observation_resolution(values::Union{Number,AbstractArray}, selector::F
         reshape(tolerance, (ntuple(_ -> 1, ndims(values)-1)..., length(tolerance))) : tolerance
     return (kind=:declared_floor, revision=OBSERVABLE_RESOLUTION_REVISION,
         atol=tolerance, unit=Units.native_unit(selector, result_basis),
-        unresolved=_resolution_unresolved.(values, aligned))
+        unresolved=_resolution_unresolved.(values, aligned),
+        uncertainty_unresolved=_resolution_unresolved.(values, aligned, Val(:uncertainty)))
 end
 
 # These scientific arrays own their basis; route function requests through
@@ -124,7 +132,10 @@ Resolve line-quantity reporting cutoffs in native basis units: R/X/Z in
 \\[Ω/m\\], L in \\[H/m\\], G/B/Y in \\[S/m\\], C in \\[F/m\\] for `:pul`,
 and the corresponding total units for `:total`. X/B follow `2πf` times the
 L/C cutoffs; Z/Y use the sum of component cutoffs unless directly overridden.
-Physical uncertainty is retained, not classified as deterministic residue.
+Nominal magnitude and standard uncertainty have separate, aligned masks.
+Resolved uncertainty is retained even when the nominal value is unresolved.
+For phase requests, the masks assess the underlying complex quantity; its
+nominal mask determines whether a phase can be published.
 """
 function observation_resolution(source::Union{AbstractCoreResult, SeriesImpedance, ShuntAdmittance},
         request; atol=nothing, frequencies=nothing)
@@ -154,18 +165,9 @@ function observation_resolution(source::Union{AbstractCoreResult, SeriesImpedanc
     phase = identity isa Tuple && last(identity) === angle
     values = phase ? observe(source, selector, indices...) :
         request isa Function ? observe(source, request) : observe(source, request...)
-    T = typeof(float(real(nominal(zero(eltype(values))))))
     diagonal = identity isa Tuple && last(identity) === diag
     sample_selector = length(indices) == (diagonal ? 2 : 3) ? last(indices) : Colon()
     selected_f = f === nothing ? nothing : f[sample_selector]
-    tolerance = _line_resolution_tolerance(selector, T, selected_f, atol)
-    tolerance === nothing && return observation_resolution(nothing, request; atol, frequencies)
-    limits = tolerance isa Real ? (tolerance,) : tolerance
-    all(limit -> isfinite(limit) && limit >= 0, limits) || throw(ArgumentError(
-        "declared resolution must remain finite and nonnegative in the result precision"))
-    aligned = tolerance isa AbstractArray ?
-        reshape(tolerance, (ntuple(_ -> 1, ndims(values) - 1)..., length(tolerance))) : tolerance
-    unresolved = _resolution_unresolved.(values, aligned)
-    return (kind=:declared_floor, revision=OBSERVABLE_RESOLUTION_REVISION,
-        atol=tolerance, unit=Units.native_unit(selector, basis(source)), unresolved)
+    return observation_resolution(values, selector; atol, frequencies=selected_f,
+        result_basis=basis(source))
 end

@@ -348,6 +348,12 @@ end
     @test length(transported_points) == 2
     @test isconcretetype(eltype(transported_points))
     modal_problems = collect(transported_points)
+    selected_core = @inferred uncertain(two_points,2)
+    all_cores = @inferred uncertain(two_points)
+    @test length(all_cores) == 2
+    @test nominal.(Z(selected_core)) == nominal.(Z(all_cores[2]))
+    @test uncertainty.(real.(Z(selected_core))) == uncertainty.(real.(Z(all_cores[2])))
+    @test_throws BoundsError uncertain(two_points,3)
     for (index, problem) in enumerate(modal_problems)
         point_parameters = problem.parameters
         @test point_parameters.f == frequency
@@ -365,4 +371,15 @@ end
         real(first(modal_problems[1].parameters.Z.values)),
         real(first(modal_problems[2].parameters.Z.values))
     ))
+    # An indexed read must not reconstruct another configuration. Make that
+    # other product unreadable AFTER construction, leaving the selected one valid.
+    previous = two_points.stats[1]
+    try
+        two_points.stats[1] = map(a -> similar(a,0,0,0), previous)
+        selected = @inferred uncertain(two_points,2)
+        @test nominal.(Z(selected)) == nominal.(Z(selected_core))
+        @test_throws DimensionMismatch uncertain(two_points)
+    finally
+        two_points.stats[1] = previous
+    end
 end

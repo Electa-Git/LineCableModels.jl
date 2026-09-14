@@ -16,12 +16,12 @@ function _addon_preview_axis!(
     panel = _addon_panel!(shell, position)
     axis = Axis(
         panel.content;
-        title,
+        merge((; title,
         xlabel = "y [$unit_label]",
         ylabel = "z [$unit_label]",
         aspect = DataAspect(),
         tellwidth = false,
-        tellheight = false
+        tellheight = false),shell.axis_attributes)...
     )
     earth_spans = NamedTuple[]
     surface_gradient = nothing
@@ -86,7 +86,7 @@ function _addon_preview_axis!(
         push!(groups[polygon.group], plot)
         polygon.label === nothing || (group_labels[polygon.group] = polygon.label)
     end
-    limits === nothing || (axis.limits[] = limits)
+    limits === nothing || haskey(shell.axis_attributes,:limits) || (axis.limits[] = limits)
     reset! = _addon_reset!(axis)
     if !isempty(earth_spans)
         # HSpan owns full-width coverage. This scene-owned callback clips only
@@ -148,11 +148,10 @@ function _addon_preview_finish!(
         shell,
         axes,
         resets,
-        Function[],
-        Function[],
         groups,
         group_order,
         group_labels;
+        scale_controls=false,
         series_attributes,
         title,
         figure_title,
@@ -204,7 +203,8 @@ function _addon_preview(
         display_plot::Bool = true,
         controls::Bool = true,
         export_theme::Symbol = :default,
-        open_export::Bool = true
+        open_export::Bool = true,
+        kwargs...
 )
     _addon_activate_backend(backend)
     isfinite(x_offset) && isfinite(y_offset) || throw(ArgumentError(
@@ -232,7 +232,7 @@ function _addon_preview(
         LineCableModels.DataModel.material_property_ranges(design)
     ) : ()
     return with_theme(_addon_theme(export_theme = export_theme)) do
-        shell = _addon_shell(; size, controls)
+        shell = _addon_shell(; size, controls, kwargs...)
         groups = Dict{Symbol, Vector{Any}}()
         order = Symbol[]
         labels = Dict{Symbol, String}()
@@ -300,7 +300,8 @@ function _addon_preview(
         display_plot::Bool = true,
         controls::Bool = true,
         export_theme::Symbol = :default,
-        open_export::Bool = true
+        open_export::Bool = true,
+        kwargs...
 )
     _addon_activate_backend(backend)
     rows, columns = _native_preview_layout(
@@ -312,7 +313,7 @@ function _addon_preview(
     display_title = title === nothing ? "Cable design previews" : String(title)
     resolved_panel_titles = _addon_panel_titles(panel_titles, length(designs))
     return with_theme(_addon_theme(export_theme = export_theme)) do
-        shell = _addon_shell(; size, controls)
+        shell = _addon_shell(; size, controls, kwargs...)
         axes = Any[]
         panels = Any[]
         resets = Function[]
@@ -413,7 +414,8 @@ function _addon_preview(
         display_plot::Bool = true,
         controls::Bool = true,
         export_theme::Symbol = :default,
-        open_export::Bool = true
+        open_export::Bool = true,
+        kwargs...
 )
     _addon_activate_backend(backend)
     limits = _native_system_limits(system, zoom_factor)
@@ -434,7 +436,7 @@ function _addon_preview(
     panel_title = resolved_panel_titles === nothing ?
                   display_title : only(resolved_panel_titles)
     return with_theme(_addon_theme(export_theme = export_theme)) do
-        shell = _addon_shell(; size, controls)
+        shell = _addon_shell(; size, controls, kwargs...)
         groups = Dict{Symbol, Vector{Any}}()
         order = Symbol[]
         labels = Dict{Symbol, String}()
@@ -494,12 +496,13 @@ function _addon_material_scale(;
         display_plot::Bool = true,
         controls::Bool = true,
         export_theme::Symbol = :default,
-        open_export::Bool = true
+        open_export::Bool = true,
+        kwargs...
 )
     _addon_activate_backend(backend)
     title = "Material property colour scale"
     return with_theme(_addon_theme(export_theme = export_theme)) do
-        shell = _addon_shell(; size, controls)
+        shell = _addon_shell(; size, controls, kwargs...)
         use_canvas = colorbar_position === nothing
         scale_canvas = if use_canvas
             grid = GridLayout(
@@ -515,11 +518,10 @@ function _addon_material_scale(;
             shell,
             Any[],
             Function[],
-            Function[],
-            Function[],
             Dict{Symbol, Vector{Any}}(),
             Symbol[],
             Dict{Symbol, String}();
+            scale_controls=false,
             title,
             figure_title,
             title_attributes,

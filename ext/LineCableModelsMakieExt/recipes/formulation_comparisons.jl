@@ -64,7 +64,7 @@ function plot(results::LineCableModels.ParametricResult, selection=nothing;
         normalized=_line_plot_ydata(first(sources),selected_ydata)
         pages=_addon_line_pages(sources; ydata=normalized, series_labels=series_labels === nothing ? names : series_labels,
             series_family_labels=series_labels === nothing ? page_labels : nothing,
-            series_indices=styles,xscale=_scale_symbol(xscale),yscale=_scale_symbol(yscale),clip,
+            series_indices=styles,xscale=xscale,yscale=yscale,clip,
             formulation_sources=displayed_records,formulation_roles=roles,
             legend_position,legend_overflow,legend_attributes,
             signed_ylog=true,kwargs...)
@@ -99,6 +99,20 @@ function plot(published::NamedTuple{(:reference,:candidate,:context,:settings,:c
     reference=published.reference.result
     isspace=candidate isa LineCableModels.ParametricResult
     isuQ=candidate isa Union{LineCableModels.AbstractUncertaintyResult,ObservationPublication}
+    desired = selected_ydata isa Function ||
+        (selected_ydata isa Tuple && !isempty(selected_ydata) && first(selected_ydata) isa Function &&
+            (first(selected_ydata) === LineCableModels.statistics || any(item -> !(item isa Function) || item isa Colon,selected_ydata))) ?
+        (selected_ydata,) : selected_ydata
+    statistical = map(desired) do item
+        identity = request_identity(item)
+        identity isa Tuple && !isempty(identity) && first(identity) === LineCableModels.statistics
+    end
+    any(statistical) && !all(statistical) && throw(ArgumentError(
+        "plot ordinary quantities and explicit statistics in separate calls"))
+    statistical_view = isuQ && !isempty(statistical) && all(statistical)
+    isuQ && !statistical_view &&
+        (reference isa ObservationPublication || candidate isa ObservationPublication) &&
+        throw(ArgumentError("mean ± std overlays require uncertainty-bearing core results; select explicit retained statistics for this publication"))
     nproblems=isspace ? length(candidate.axes.problems) : candidate isa LineCableModels.AbstractUncertaintyResult ? length(candidate) : 1
     problem === nothing && nproblems != 1 && throw(ArgumentError("select problem explicitly before plotting multiple problems"))
     problems=problem === nothing ? [1] : problem isa Integer ? [problem] : collect(problem)
@@ -130,7 +144,8 @@ function plot(published::NamedTuple{(:reference,:candidate,:context,:settings,:c
         refs=unique(first.(selected))
         candidates=[point for point in points if any(entry -> last(entry)==point,selected)]
         # Raw points remain intact; each quantity page selects its unique formulas.
-        sources=Tuple(vcat([select(reference,i) for i in refs],[select(candidate,i) for i in candidates]))
+        read_core = isuQ && !statistical_view ? LineCableModels.uncertain : select
+        sources=Tuple(vcat([read_core(reference,i) for i in refs],[read_core(candidate,i) for i in candidates]))
         all(value -> value isa Union{LineCableModels.LineParameters,ObservationPublication},sources) || throw(ArgumentError("matrix-curve overlays require retained matrix coordinates"))
         names=Tuple(vcat([reference_labels[cld(i,reference_problems)] for i in refs],[labels[cld(i,nproblems)] for i in candidates]))
         page_labels=Dict(family => Tuple(vcat(
@@ -143,7 +158,7 @@ function plot(published::NamedTuple{(:reference,:candidate,:context,:settings,:c
             fill(:candidate,length(candidates))))
         displayed_records=Any[[reference_records[cld(i,reference_problems)] for i in refs]...;
             [records[cld(i,nproblems)] for i in candidates]...]
-        if band !== nothing && !isuQ
+        if band !== nothing && !statistical_view
             sources=map(sources, vcat([(:reference,i) for i in refs],[(:candidate,i) for i in candidates])) do value,entry
                 role,index=entry
                 rows=filter(row -> LineCableModels.details(row.error).band == band &&
@@ -156,14 +171,11 @@ function plot(published::NamedTuple{(:reference,:candidate,:context,:settings,:c
             end |> Tuple
         end
         prepared=nothing
-        normalized=if isuQ
+        normalized=if statistical_view
             reference isa Union{LineCableModels.AbstractUncertaintyResult,ObservationPublication} || throw(ArgumentError("UQ overlays require explicit compatible statistical operands"))
-            desired=selected_ydata isa Function ? (selected_ydata,) : selected_ydata
             requests=Tuple(request_identity(item)==request ? item : request
                 for item in desired for request in published.settings.requests if
-                request_identity(item)==request || request_identity(request)[2]===item ||
-                (request_identity(request)[2] in (LineCableModels.R,LineCableModels.X,LineCableModels.L) && item===LineCableModels.Z) ||
-                (request_identity(request)[2] in (LineCableModels.G,LineCableModels.B,LineCableModels.C) && item===LineCableModels.Y))
+                request_identity(item)==request)
             isempty(requests) && throw(ArgumentError("no retained statistical requests match ydata"))
             allunique(requests) || throw(ArgumentError("duplicate statistical plot requests"))
             rows=filter(row -> LineCableModels.details(row.error).band==band,published.comparisons)
@@ -180,7 +192,7 @@ function plot(published::NamedTuple{(:reference,:candidate,:context,:settings,:c
         end
         pages=_addon_line_pages(sources;publications=prepared,ydata=normalized,series_labels=series_labels === nothing ? names : series_labels,
             series_family_labels=series_labels === nothing ? page_labels : nothing,
-            series_indices=styles,xscale=_scale_symbol(xscale),yscale=_scale_symbol(yscale),clip,atol,
+            series_indices=styles,xscale=xscale,yscale=yscale,clip,atol,
             formulation_sources=displayed_records,formulation_roles=roles,
             legend_position,legend_overflow,legend_attributes,
             signed_ylog=true,kwargs...)

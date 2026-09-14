@@ -26,7 +26,7 @@
     @test_throws ArgumentError observables(source, request; atol=(oops=0.0,))
     for quantity in (R, X, L, G, B, C, Z, Y)
         error = compare(source, source, quantity)
-        @test error.details.resolution.revision == 1
+        @test error.details.resolution.revision == LineCableModels.Engine.OBSERVABLE_RESOLUTION_REVISION
         @test error.details.resolution.unit == LineCableModels.Units.native_unit(quantity, :pul)
     end
     @test compare(source, source, B).details.atol ≈ 2π .* f .* compare(source, source, C).details.atol
@@ -131,6 +131,66 @@ end
     source = LineParameters(PhaseDomain, fill(complex(a, b), 1, 1, 2),
         fill(complex(a, b), 1, 1, 2), [1.0, 2.0])
     result = only(observables(source, ((G, 1, 1, :),); length_unit=:base)).values
-    @test all(value -> iszero(Measurements.uncertainty(value - a)), result)
-    @test all(value -> Measurements.value(value) == Measurements.value(a), result)
+    @test all(iszero, Measurements.value.(result))
+    @test all(iszero, Measurements.uncertainty.(result))
+    raw = only(observables(source, ((G, 1, 1, :),); length_unit=:base, clip=false)).values
+    @test all(value -> iszero(Measurements.uncertainty(value - a)), raw)
+    @test all(value -> Measurements.value(value) == Measurements.value(a), raw)
+end
+
+@testitem "Engine / nominal and spread resolution are independent projections" tags=[:extension] begin
+    using Measurements
+    using LinearAlgebra: diag
+    using LineCableModels.Grammar: observation_resolution
+    using LineCableModels.Engine: compare
+    for T in (Float32, Float64, BigFloat)
+        cutoff = T(1e-12)
+        values = measurement.(T[cutoff/2, cutoff/2, 2cutoff, 2cutoff],
+            T[cutoff/2, 2cutoff, cutoff/2, 2cutoff])
+        y = reshape(complex.(values, zero.(values)), 1, 1, :)
+        f = T[1, 10, 100, 1000]
+        source = LineParameters(PhaseDomain, copy(y), y, f)
+        saved = deepcopy((Z(source), Y(source), source.f))
+        before = compare(source, source, G)
+        for length_unit in (:base, :kilo)
+            factor = length_unit === :base ? T(1) : T(1000)
+            publication = observables(source, ((G, 1, 1, :),); length_unit, atol=cutoff)
+            result = only(publication).values
+            @test eltype(result) === eltype(values)
+            @test Measurements.value.(result) ≈ factor .* T[0, 0, 2cutoff, 2cutoff]
+            @test Measurements.uncertainty.(result) ≈ factor .* T[0, 2cutoff, 0, 2cutoff]
+            @test iszero(Measurements.uncertainty(result[2] - factor * values[2]))
+            @test iszero(Measurements.uncertainty(result[4] - factor * values[4]))
+            metadata = publication.metadata.observation_columns.G.resolution
+            @test metadata.unresolved_count == metadata.uncertainty_unresolved_count == 2
+            raw = only(observables(source, ((G, 1, 1, :),); length_unit, clip=false)).values
+            @test all(iszero, Measurements.uncertainty.(raw .- factor .* values))
+            @test Measurements.value.(raw) == factor .* Measurements.value.(values)
+        end
+        clean = only(observables(source, ((G, 1, 1, :),); length_unit=:base, atol=cutoff)).values
+        diagonal = only(observables(source, ((G, diag, :, :),); length_unit=:base, atol=cutoff)).values
+        @test vec(diagonal) == clean
+        @test only(observables(source, ((G, 1, 1, 2),); length_unit=:base, atol=cutoff)).values == clean[2]
+        @test only(observables(source, ((G, 1, 1, :),); length_unit=:base, atol=0)).values == values
+        after = compare(source, source, G)
+        @test isequal(before.absolute, after.absolute) && isequal(before.relative, after.relative)
+        @test isequal((Z(source), Y(source), source.f), saved)
+    end
+    # A complex uncertainty has two components; the generic Number uncertainty
+    # fallback must not classify it as deterministic. Phase uses nominal magnitude.
+    value = complex(measurement(1e-18, 2e-12), measurement(1e-18, 3e-12))
+    resolution = observation_resolution(value, Y; atol=1e-12)
+    @test resolution.unresolved && !resolution.uncertainty_unresolved
+    @test observation_resolution(value, Y; atol=4e-12).uncertainty_unresolved
+    source = LineParameters(fill(value, 1, 1, 1), fill(value, 1, 1, 1), [1.0])
+    @test ismissing(only(only(observables(source, ((Y, angle, 1, 1, :),); atol=1e-12)).values))
+    clean = only(only(observables(source, ((Y, 1, 1, :),); atol=1e-12, length_unit=:base)).values)
+    @test nominal(clean) == 0
+    @test uncertainty(real(clean) - real(value)) == uncertainty(imag(clean) - imag(value)) == 0
+    for value in (NaN, Inf, missing)
+        nonfinite_resolution = observation_resolution(Union{Missing,Float64}[value], G)
+        @test !only(nonfinite_resolution.unresolved) && !only(nonfinite_resolution.uncertainty_unresolved)
+    end
+    unassessed = observation_resolution(nothing, identity)
+    @test unassessed.unresolved === unassessed.uncertainty_unresolved === nothing
 end

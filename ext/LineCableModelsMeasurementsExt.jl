@@ -73,9 +73,9 @@ function _measurement_result(
 end
 
 function _measurement_result(
-        source::UQ.MonteCarloResult{<:Engine.LineParameters},
+        source::UQ.MonteCarloResult{<:Engine.LineParameters{T, U, D, Basis}},
         point::Integer
-)
+) where {T, U, D, Basis}
     representative = source.values[point]
     summary = source.stats[point]
     resistance = _measurement.(summary.R)
@@ -85,36 +85,43 @@ function _measurement_result(
     angular = reshape(2π .* representative.f, 1, 1, :)
     impedance = complex.(resistance, inductance .* angular)
     admittance = complex.(conductance, capacitance .* angular)
+    element_type = promote_type(eltype(impedance), eltype(admittance))
     return Engine.LineParameters(
         representative.domain,
-        impedance,
-        admittance,
-        representative.f;
-        basis = LineCableModels.basis(representative),
-        details = representative.details
+        Engine.SeriesImpedance{element_type, Basis}(convert(Array{element_type, 3}, impedance)),
+        Engine.ShuntAdmittance{element_type, Basis}(convert(Array{element_type, 3}, admittance)),
+        representative.f,
+        representative.details
     )
 end
 
-function ParametricBuilder.Gridspace{Target}(
+function UQ.uncertain(source::UQ.MonteCarloResult{T}, point::Integer) where {
+        T <: Union{Engine.CableConstants, Engine.LineParameters}}
+    checkbounds(source.values, point)
+    return _measurement_result(source, point)
+end
+
+function UQ.uncertain(
         source::UQ.MonteCarloResult{T}
 ) where {
-        Target,
         T <: Union{Engine.CableConstants, Engine.LineParameters}
 }
-    first_value = _measurement_result(source, firstindex(source))
+    first_value = UQ.uncertain(source, firstindex(source))
     values = Vector{typeof(first_value)}(undef, length(source))
     values[1] = first_value
     for point in 2:length(source)
-        value = _measurement_result(source, point)
+        value = UQ.uncertain(source, point)
         typeof(value) === eltype(values) || throw(ArgumentError(
             "Monte Carlo statistics reconstructed inconsistent result types",
         ))
         values[point] = value
     end
-    return ParametricBuilder.Gridspace{Target}(
-        Target,
-        (ParametricBuilder.Grid(values),)
-    )
+    return values
+end
+
+function ParametricBuilder.Gridspace{Target}(source::UQ.MonteCarloResult{T}) where {
+        Target, T <: Union{Engine.CableConstants, Engine.LineParameters}}
+    return ParametricBuilder.Gridspace{Target}(Target, (ParametricBuilder.Grid(UQ.uncertain(source)),))
 end
 
 function has_uncertainty_type(

@@ -46,7 +46,8 @@
     signed=LineCableModels.plot(publication;ydata=(G,),options...,controls=true)
     @test haskey(signed.controls,:ylog)
     signed.controls[:ylog].active[]=true
-    @test all(axis -> axis.yscale[] === Makie.pseudolog10,signed.axes)
+    @test all(axis -> axis.yscale[](1e-18) > 0 &&
+        axis.yscale[](-1e-18) < 0,signed.axes)
     keyword_ydata=LineCableModels.plot(reference,points[1];
         ydata=(R,),series_labels=("reference","candidate"),options...)
     @test length(keyword_ydata.axes)==4
