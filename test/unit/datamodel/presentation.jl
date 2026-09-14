@@ -5,8 +5,15 @@
 ] begin
     design=TestFixtures.mv_cable_design()
     system=TestFixtures.three_phase_system()
+    @test hasfield(typeof(design), :origin)
+    @test hasproperty(design, :origin)
+    @test !hasfield(typeof(design), :root)
+    @test !hasproperty(design, :root)
+    @test_throws FieldError getproperty(design, :root)
+    @test build(CableDesign, design.cable_id, design.origin;
+        nominal_data=design.nominal_data) == design
 
-    for object in (design.root, first(design.geometry.regions), design, system)
+    for object in (design.origin, first(design.geometry.regions), design, system)
         @test !isempty(sprint(show, MIME("text/plain"), object))
     end
 
@@ -18,6 +25,8 @@
     design_display=sprint(show, MIME("text/plain"), design)
     @test contains(design_display, design.cable_id)
     @test contains(design_display, "regions    $(length(design.geometry.regions))")
+    @test contains(design_display, "origin     ")
+    @test !contains(design_display, "root       ")
     system_display=sprint(show, MIME("text/plain"), system)
     @test contains(system_display, system.system_id)
     @test contains(system_display, "cables")

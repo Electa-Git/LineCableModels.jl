@@ -50,11 +50,11 @@ parts:
 copper = Material(; kind=:conductor, rho=1.7241e-8)
 xlpe = Material(; kind=:insulator, rho=1.97e14, eps_r=2.5)
 
-root = Stack(
+origin = Stack(
     Group(:core, Conductor.Solid(:core_metal, copper; r=10e-3)),
     Insulator.Shell(:insulation, xlpe; t=8e-3),
 )
-design = build(CableDesign, "example", root)
+design = build(CableDesign, "example", origin)
 
 constants = CableConstants(design)
 ```

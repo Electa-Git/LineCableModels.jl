@@ -6,7 +6,7 @@
             "test_cable": {
                 "kind": "cable_design",
                 "cable_id": "test_cable",
-                "root": {
+                "origin": {
                     "kind": "stack",
                     "items": [
                         {

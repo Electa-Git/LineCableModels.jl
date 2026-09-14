@@ -108,6 +108,7 @@ end
     @test derivative(r_ex(semicon_shape), semicon_thickness) ≈ 1.0
 
     design=build(CableDesign, "uq-path", root)
+    @test design.origin === root
     system=build(
         LineCableSystem,
         design,

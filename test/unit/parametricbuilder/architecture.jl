@@ -76,7 +76,7 @@
     design_space=build(CableDesign, identifiers, first(terminal))
     @test eltype(design_space) === Any
     @test Base.IteratorEltype(typeof(design_space)) isa Base.EltypeUnknown
-    @test first(design_space).root == direct.root
+    @test first(design_space).origin == direct.origin
     @test first(design_space).terminal_order == direct.terminal_order
     @test rand(design_space) isa CableDesign
 

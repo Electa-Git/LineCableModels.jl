@@ -6,7 +6,7 @@
             "18kV_1000mm2": {
                 "kind": "cable_design",
                 "cable_id": "18kV_1000mm2",
-                "root": {
+                "origin": {
                     "kind": "stack",
                     "items": [
                         {
@@ -541,7 +541,7 @@
             "525kV_1600mm2": {
                 "kind": "cable_design",
                 "cable_id": "525kV_1600mm2",
-                "root": {
+                "origin": {
                     "kind": "stack",
                     "items": [
                         {

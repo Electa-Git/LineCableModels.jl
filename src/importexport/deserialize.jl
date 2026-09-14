@@ -496,15 +496,22 @@ function _decode_design_resolved(value, materials)
     get(value, "kind", nothing) == "cable_design" || throw(ArgumentError(
         "cable declaration must have kind 'cable_design'"
     ))
+    # Historical records used "root"; only the import boundary accepts that key.
+    # Never silently choose between two competing physical declarations.
+    haskey(value, "origin") && haskey(value, "root") && throw(ArgumentError(
+        "cable_design must not contain both 'origin' and legacy 'root'"
+    ))
+    origin = haskey(value, "root") ? value["root"] :
+             _required(value, "origin", "cable_design")
     values = (
         String(_required(value, "cable_id", "cable_design")),
-        _decode_part(_required(value, "root", "cable_design"), materials),
+        _decode_part(origin, materials),
         haskey(value, "nominal_data") ?
         _decode_named_tuple(_required(value, "nominal_data", "cable_design")) : (;)
     )
     caller = (
-        cable_id, root, nominal_data) -> build(
-        CableDesign, cable_id, root; nominal_data
+        cable_id, origin, nominal_data) -> build(
+        CableDesign, cable_id, origin; nominal_data
     )
     return _decoded_target(CableDesign, caller, values)
 end

@@ -61,7 +61,7 @@
     left = internal_shunt_test_design(count=4,suffix="_left")
     right = internal_shunt_test_design(count=4,suffix="_right")
     pair = build(CableDesign,"two-local-domains",
-        assembly(at(left.root,-0.01,0.0),at(right.root,0.01,0.0)))
+        assembly(at(left.origin,-0.01,0.0),at(right.origin,0.01,0.0)))
     pair_blueprint = E.flatten(LineCableModelsCoaxial(),pair)
     domains = E.internal_shunt_domains([pair],[pair_blueprint])
     @test length(domains) == 2

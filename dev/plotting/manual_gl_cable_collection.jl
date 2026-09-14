@@ -23,7 +23,7 @@ source = only(values(library.data))
 designs = [build(
                CableDesign,
                cable_id,
-               source.root
+               source.origin
            )
            for cable_id in (
     "Detailed cable A",

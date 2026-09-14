@@ -287,6 +287,12 @@ dielectric to equivalent-area circles only while preparing its numerical
 input. The exact sectors and their centroids remain authoritative in the
 completed design and in persisted declarations.
 
+`design.origin` retains the physical declaration used to build the cable;
+`design.geometry` is its resolved geometry. The former `design.root` field is
+not an alias. New serialized cable-design records use `"origin"`; older records
+with `"root"` are translated only when imported. This does not rename the outer
+JSON document's `"root"` key.
+
 ## Parameter spaces
 
 Only an explicit `Grid` introduces variation:

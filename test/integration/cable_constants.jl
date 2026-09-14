@@ -422,7 +422,7 @@
     designs=build(
         CableDesign,
         Grid(("constants-a", "constants-b")),
-        design.root
+        design.origin
     )
     constant_space=CableConstants(designs)
     @test constant_space isa Gridspace{CableConstants}
@@ -444,7 +444,7 @@
 
     sampled=compute(
         ParametricProblem(CableConstantsProblem(
-            build(CableDesign, Grid(("sampled",)), design.root);
+            build(CableDesign, Grid(("sampled",)), design.origin);
             frequency = 50.0
         )),
         MonteCarlo(
@@ -466,7 +466,7 @@ end
     first_design=TestFixtures.mv_cable_design()
     second_design=TestFixtures.mv_cable_design()
     @test first_design !== second_design
-    @test first_design.root !== second_design.root
+    @test first_design.origin !== second_design.origin
     @test first_design.geometry.regions !== second_design.geometry.regions
 
     first_system=TestFixtures.three_phase_system()

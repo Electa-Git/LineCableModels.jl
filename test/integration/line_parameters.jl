@@ -515,7 +515,7 @@ end
     singleton_design=build(
         CableDesign,
         "single-component",
-        Stack(deepcopy(design.root.items[1:10]))
+        Stack(deepcopy(design.origin.items[1:10]))
     )
     singleton_system=build(
         LineCableSystem,

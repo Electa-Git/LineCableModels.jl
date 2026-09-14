@@ -126,9 +126,9 @@ end
     @test row.material.mu_r ≈ solid_row.material.mu_r rtol=2e-11
 
     dielectric = Material(:insulator, Inf, 2.3, 1.0)
-    insulated = map((design.root, solid_design.root)) do root
+    insulated = map((design.origin, solid_design.origin)) do origin
         build(CableDesign, "uniform-current-limit", Stack(
-            root,
+            origin,
             insulation(dielectric; t=0.2e-3),
             terminal(:sheath, Region(:metal_screen, Shell(0.05e-3), copper)),
         ))

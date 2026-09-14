@@ -203,7 +203,7 @@ end
     @test Base.IteratorEltype(typeof(designs)) isa Base.EltypeUnknown
     @test length(designs) == 32
     @test all(design -> design isa CableDesign, designs)
-    @test all(design -> design.root isa DM.Group, designs)
+    @test all(design -> design.origin isa DM.Group, designs)
 end
 
 @testitem "DataModel / Sector / member-local equivalent-area flattening" tags=[:unit] begin
@@ -299,7 +299,7 @@ end
         frequencies = [50.0]
     )
     flattened=homogenize(design)
-    @test flattened.root isa DM.Assembly
+    @test flattened.origin isa DM.Assembly
     @test flattened.terminal_order == design.terminal_order
     flattened_conductors=filter(
         region->region.source.material.kind===:conductor,
@@ -327,7 +327,7 @@ end
     @test details(parameters).trace.cable_map == [1, 2, 3]
 
     encoded=LineCableModels.ImportExport.serialize_value(design)
-    @test encoded["root"]["item"]["item"]["items"][1]["primitive"]["kind"] ==
+    @test encoded["origin"]["item"]["item"]["items"][1]["primitive"]["kind"] ==
           "sector"
     serialized=sprint(show, encoded)
     for derived in (

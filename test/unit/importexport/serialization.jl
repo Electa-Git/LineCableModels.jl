@@ -143,6 +143,9 @@ end
     @test encoded["kind"] == "cable_design"
     @test encoded["cable_id"] == design.cable_id
     @test !haskey(encoded, "reference_frequency")
+    @test haskey(encoded, "origin")
+    @test !haskey(encoded, "root")
+    @test encoded["origin"] == IE.serialize_value(design.origin)
 
     function contains_key(value, key)
         value isa AbstractDict&&(
@@ -169,8 +172,24 @@ end
           getproperty.(design.geometry.regions, :terminal)
     @test restored.terminal_map == design.terminal_map
 
+    # Historical dictionaries are decoded at the import boundary; all live
+    # designs and newly emitted records use origin, without a property alias.
+    legacy=deepcopy(encoded)
+    legacy["root"]=pop!(legacy, "origin")
+    migrated=IE.deserialize_value(legacy)
+    @test migrated == restored
+    @test IE.serialize_value(migrated) == encoded
+    @test !hasproperty(migrated, :root)
+    @test !haskey(legacy, "origin")  # Loading must not rewrite a saved declaration.
+    ambiguous=deepcopy(encoded)
+    ambiguous["root"]=legacy["root"]
+    @test_throws r"both 'origin' and legacy 'root'" IE.deserialize_value(ambiguous)
+    absent=deepcopy(encoded)
+    delete!(absent, "origin")
+    @test_throws r"origin" IE.deserialize_value(absent)
+
     malformed=deepcopy(encoded)
-    empty!(malformed["root"]["items"])
+    empty!(malformed["origin"]["items"])
     @test_throws ArgumentError IE.deserialize_value(malformed)
 
     earth=EarthModel(100.0, 10.0, 1.0)
@@ -193,6 +212,11 @@ end
     end
     restored_system=IE.deserialize_value(encoded_system)
     @test IE.serialize_value(restored_system) == encoded_system
+    legacy_system=deepcopy(encoded_system)
+    for item in legacy_system["designs"]
+        item["root"]=pop!(item, "origin")
+    end
+    @test IE.serialize_value(IE.deserialize_value(legacy_system)) == encoded_system
     @test restored_system.terminal_order == system.terminal_order
     @test restored_system.connection_order == system.connection_order
     @test restored_system.environment.vertical_layers == earth.vertical_layers
@@ -316,11 +340,11 @@ end
         )
     )
     bounded_record=IE.serialize_value(bounded)
-    @test bounded_record["root"]["item"]["items"][1]["item"]["compact"] === nothing
+    @test bounded_record["origin"]["item"]["items"][1]["item"]["compact"] === nothing
     restored_bounded=IE.deserialize_value(bounded_record)
     @test restored_bounded == bounded
     @test IE.serialize_value(restored_bounded) == bounded_record
-    bounded_group=only(bounded.root.item.items).item
+    bounded_group=only(bounded.origin.item.items).item
     @test bounded_group isa Group
     @test bounded_group.boundary == sector_boundary
     @test bounded_group.compact === nothing
@@ -424,6 +448,13 @@ end
     schema=JSONSchema.Schema(JSON3.read(read(schema_path, String), Dict{String, Any}))
     @test JSONSchema.validate(schema, cables_document) === nothing
     @test JSONSchema.validate(schema, materials_document) === nothing
+    @test all(value -> haskey(value, "origin") && !haskey(value, "root"),
+        values(cables_document["root"]["cables"]))
+    legacy_document=deepcopy(cables_document)
+    for value in values(legacy_document["root"]["cables"])
+        value["root"]=pop!(value, "origin")
+    end
+    @test JSONSchema.validate(schema, legacy_document) !== nothing
 
     packed_cables=CablesLibrary()
     add!(packed_cables,
@@ -467,7 +498,7 @@ end
     @test JSONSchema.validate(schema, sector_document) === nothing
     invalid_sector=deepcopy(sector_document)
     sector_design=only(values(invalid_sector["root"]["cables"]))
-    sector_design["root"]["item"]["items"][1]["item"]["compact"]=true
+    sector_design["origin"]["item"]["items"][1]["item"]["compact"]=true
     @test JSONSchema.validate(schema, invalid_sector) !== nothing
 
     earth=EarthModel(100.0, 10.0, 1.0)
@@ -494,7 +525,7 @@ end
         get(node, "kind", nothing)=="region"&&
             get(node, "material", nothing)==material_name&&
             push!(tags, node["tag"])
-        for child_name in ("items", "item", "fill", "wall", "root")
+        for child_name in ("items", "item", "fill", "wall", "origin")
             child=get(node, child_name, nothing)
             child isa AbstractVector&&foreach(
                 item->append!(tags, referenced_tags(item, material_name)), child
@@ -539,7 +570,7 @@ end
     ))
 
     invalid=deepcopy(cables_document)
-    delete!(invalid["root"]["cables"]["test_cable"], "root")
+    delete!(invalid["root"]["cables"]["test_cable"], "origin")
     @test JSONSchema.validate(schema, invalid) !== nothing
 
     @test_throws ArgumentError IE._json_path("library.archive")

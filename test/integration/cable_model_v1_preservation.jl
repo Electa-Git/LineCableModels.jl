@@ -22,7 +22,7 @@
     @test String.(design.terminal_order) ==
           String.(expected_design["terminal_order"])
 
-    @test design.root isa Stack
+    @test design.origin isa Stack
     @test all(region -> region isa PlacedRegion, design.geometry.regions)
     @test design.terminal_map == [region.terminal === nothing ? 0 :
            only(findall(==(region.terminal), design.terminal_order))
