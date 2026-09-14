@@ -49,9 +49,9 @@
     @test occursin("EarthLayer.thickness", sprint(showerror, layer_error))
     @test occursin("0.0", sprint(showerror, layer_error))
 
-    design=TestFixtures.mv_cable_design()
+    design=TestFixtures.coaxial_design()
     @test validate(design) === design
-    damaged_design=TestFixtures.mv_cable_design()
+    damaged_design=TestFixtures.coaxial_design()
     pop!(damaged_design.terminal_map)
     design_error=try
         validate(damaged_design)

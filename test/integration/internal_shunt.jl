@@ -1,7 +1,7 @@
 @testitem "Engine / internal shunt / default workflow and reuse" tags=[:integration] begin
     using LinearAlgebra
     E = LineCableModels.Engine
-    include(joinpath(pkgdir(LineCableModels),"test","fixtures","internal_shunt.jl"))
+    include(joinpath(pkgdir(LineCableModels),"test","support","internal_shunt.jl"))
     design = internal_shunt_test_design(count=4)
     system = build(LineCableSystem,[design,design],[(-0.02,-1.0),(0.02,-1.0)];
         connections=[Dict(:inner=>1,:middle=>0,:reference=>0),
@@ -32,19 +32,6 @@
             (2pi*im*problem.frequencies[k]).*inv(reduced.P[:,:,k]) rtol=1e-10
     end
     @test details(results[3]).internal_shunt.solves == 1
-    bp = E.flatten.(Ref(LineCableModelsCoaxial()),problem.system.designs)
-    input = E.lineinput(problem,bp)
-    # Explicit test of the old internal arithmetic, without a public toggle or
-    # a material-law change that would alter the physical reference itself.
-    legacy_input = merge(input,(prepared_shunt=nothing,))
-    execution = E.computation_options(LineCableModelsCoaxial,(trace=true,))
-    legacy = E._compute(LineCableModelsCoaxial(),problem,first_formula,execution,legacy_input)
-    @test observe(first_result,Z) == observe(legacy,Z)
-    @test details(first_result).trace.Pg == details(legacy).trace.Pg
-    @test details(first_result).trace.Pin != details(legacy).trace.Pin
-    @test details(first_result).trace.P[3:3:6,:,:] == details(legacy).trace.P[3:3:6,:,:]
-    @test details(first_result).trace.P[:,3:3:6,:] == details(legacy).trace.P[:,3:3:6,:]
-    @test details(first_result).trace.P[1:3,4:6,:] == details(legacy).trace.P[1:3,4:6,:]
     constants = @inferred CableConstants(design;frequency=50.0)
     local_domain,blueprint = internal_shunt_test_domain(design)
     prepared = E.prepare_internal_shunt([local_domain],3,Formulation().methods,50.0,20.0)
@@ -66,6 +53,5 @@
     domains = E.internal_shunt_domains([pair],[pair_blueprint])
     @test length(domains) == 2
     @test getproperty.(domains,:terminals) == [1:3,4:6]
-    @test E._shunt_domain_equal(domains...)
     @test CableConstants(pair).C ≈ fill(constants.C[1],2) rtol=1e-8
 end

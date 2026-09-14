@@ -1,5 +1,5 @@
 @testitem "Makie addons / responsive native legend and visible-series limits" tags=[:visual] setup=[
-    NativePlotTestSupport, UseNativePlotSupport, TestFixtures
+    UseNativePlotSupport, TestFixtures
 ] begin
     get(ENV, "LINECABLEMODELS_TEST_PLOTTING", "false")=="true"||
     error("set LINECABLEMODELS_TEST_PLOTTING=true to run the visual contract")
@@ -91,7 +91,7 @@
 end
 
 @testitem "Makie addons / compact preview and material scheme geometry" tags=[:visual] setup=[
-    NativePlotTestSupport, UseNativePlotSupport, TestFixtures
+    UseNativePlotSupport, TestFixtures
 ] begin
     get(ENV, "LINECABLEMODELS_TEST_PLOTTING", "false")=="true"||
     error("set LINECABLEMODELS_TEST_PLOTTING=true to run the visual contract")
@@ -106,7 +106,7 @@ end
         return all(lower .>= viewport_lower)&&all(upper .<= viewport_upper)
     end
 
-    design=TestFixtures.mv_cable_design()
+    design=TestFixtures.coaxial_design()
     compact=preview(
         design;
         backend = :cairo,

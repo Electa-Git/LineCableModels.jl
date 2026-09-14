@@ -381,25 +381,14 @@ end
     end
 end
 
-@testitem "Gauntlet / progress / conservative discovery and legacy data" tags=[:gauntlet_toolkit] setup=[GauntletSupport] begin
+@testitem "Gauntlet / progress / conservative current-session discovery" tags=[:gauntlet_toolkit] setup=[GauntletSupport] begin
     using .GauntletSupport: Gauntlet
     using TOML
     mktempdir() do root
-        watch=Gauntlet.CampaignWatch(;session="legacy")
-        legacy=Dict{String,Any}("schema"=>1,"session"=>"legacy","elapsed_seconds"=>10.0,
-            "updated_unix_seconds"=>100.0,"closed"=>true,"measurement_active"=>false,
-            "benchmarks"=>[Dict("id"=>"a","state"=>"complete")],"counts"=>Dict("complete"=>1),
-            "active"=>Dict("benchmark"=>"a","unit"=>"trials","completed"=>999),
-            "campaign_eta_seconds"=>1.0)
-        Gauntlet._write_progress(joinpath(root,"sessions","legacy.progress.toml"),legacy)
+        # Missing current session data cannot invent a completed estimate.
+        watch=Gauntlet.CampaignWatch(;session="current")
         Gauntlet._watch_poll!(watch,root,0.0,120.0)
-        lines=Gauntlet._watch_lines(watch.snapshot,100;advance=100.,notice=watch.notice)
-        @test occursin("ETA --",lines[4]) # Legacy closure has no execution-exhaustion fact.
-        @test occursin("00:00:10",lines[4])
-        @test !occursin("999",lines[5])
-        @test occursin("Legacy",lines[6])
-        legacy["updated_unix_seconds"]="bad"
-        @test !Gauntlet._valid_watch_snapshot(legacy,"legacy")
+        @test occursin("unavailable",watch.notice)
         @test !Gauntlet._watch_color(IOContext(IOBuffer(),:color=>false))
         if Sys.isunix()
             Gauntlet._write_progress(joinpath(root,"campaign.toml"),Dict("schema"=>3,"benchmarks"=>["a","b"]))
@@ -428,7 +417,7 @@ end
     end
 end
 
-@testitem "Gauntlet / performance / compute scope, callbacks and legacy observations" tags=[:gauntlet_toolkit] setup=[GauntletSupport] begin
+@testitem "Gauntlet / performance / compute scope, callbacks and current timing retention" tags=[:gauntlet_toolkit] setup=[GauntletSupport] begin
     using .GauntletSupport: Gauntlet
     using LineCableModels, Logging, JLD2
     const calls=NamedTuple[]

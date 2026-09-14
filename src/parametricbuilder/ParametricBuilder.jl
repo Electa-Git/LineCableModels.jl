@@ -50,7 +50,7 @@ import ..LineCableModels: Grid, AbsoluteError, DeterministicGrid, RelativeGrid
 import ..LineCableModels: AbsoluteGrid, AbstractGrid, AbstractUncertainGrid
 import ..LineCableModels: UncertainValue, Gridspace, has_uncertainty
 import ..LineCableModels: parameterize, materialize, points
-import ..LineCableModels: progress_receiver, report_progress, with_scan_progress
+import ..LineCableModels: report_progress, with_scan_progress
 import ..Grammar
 import ..Grammar: compute, computation_options, computation_details, details,
                   nominal, uncertainty, check_core_result

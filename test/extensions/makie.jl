@@ -9,7 +9,6 @@
     @test Base.get_extension(LineCableModels, :LineCableModelsGLMakieExt) === nothing
     @test Base.get_extension(LineCableModels, :LineCableModelsWGLMakieExt) === nothing
     @test isdefined(LineCableModels, :PlotBuilder)
-    @test !isdefined(LineCableModels, :set_backend!)
     @test_throws ArgumentError LineCableModels.preview(nothing)
     @test_throws ArgumentError LineCableModels.show_material_scale()
     @test_throws ArgumentError LineCableModels.plot(nothing)

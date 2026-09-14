@@ -189,15 +189,14 @@ end
         @test rho == [Inf, 50.0, 100.0]
         @test physical.layers == layers && physical.heights == geometry
     end
-    for t in 1:3, s in 1:3
-
-        coefficient=10s+t+(s==t ? 100 : 0)
-        @test details(result).trace.Zg[t, s, 1] ≈ coefficient * (1e-4 + 1e-3im) rtol=3e-6
-        @test details(result).trace.Pg[t, s, 1] ≈ coefficient * 1e9
+    for k in eachindex(problem.frequencies), t in 1:3, s in 1:3
+        # Declared manufactured rule, evaluated independently of the probe method.
+        coefficient=11s+17t+3t+5s+problem.frequencies[k]/100+(s==t ? 101 : 0)
+        @test details(result).trace.Zg[t,s,k] ≈ coefficient*(1e-4+1e-3im) rtol=3e-6
+        @test details(result).trace.Pg[t,s,k] ≈ coefficient*1e9
     end
-    # Matrix placement preserves the two ordered contributions and P is inverted as a matrix.
-    @test result.Z.values[1, 2, 1] ≈ 21 * (1e-4 + 1e-3im)
-    @test result.Z.values[2, 1, 1] ≈ 12 * (1e-4 + 1e-3im)
+    @test result.Z.values[1,2,1] ≈ (11*2+17+3+5*2+.5)*(1e-4+1e-3im)
+    @test result.Z.values[2,1,1] ≈ (11+17*2+3*2+5+.5)*(1e-4+1e-3im)
     @test result.Y.values[:, :, 1] ≈ 2pi * 50im * inv(details(result).trace.P[:, :, 1])
     # A full-layer impedance and a separately reduced homogeneous potential
     # consume different material inventories in the same solve.

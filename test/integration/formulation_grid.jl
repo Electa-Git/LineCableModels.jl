@@ -1,5 +1,4 @@
 @testitem "Engine / formulation grids / exact batched calculations" tags=[:integration] setup=[
-    EngineTestSupport,
     UseEngineSupport,
     TestFixtures
 ] begin
@@ -105,7 +104,7 @@
     automatic_scalar=compute(first(problems), formulation_space)
     @test all(same_parameters.(collect(automatic_scalar), direct))
 
-    design=TestFixtures.mv_cable_design()
+    design=TestFixtures.coaxial_design()
     constants_problem=CableConstantsProblem(design; frequency = 50.0)
     constants_space=CableConstantsFormulation(
         insulation_admittance = Grid((:Ametani2004, :default)),

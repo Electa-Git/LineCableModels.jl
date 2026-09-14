@@ -1,180 +1,162 @@
-"""Exercise the package launcher without Julia packages or application services."""
+"""Current launcher and install contracts, using disposable applications.
+
+Python is the existing test mechanism. These checks establish process and file
+ownership, not a language decision or a historical command snapshot.
+"""
+import json
 import os
 from pathlib import Path
+import selectors
 import shutil
 import signal
 import subprocess
 import tempfile
 import unittest
 
+ROOT = Path(__file__).resolve().parents[2]
 
-REPOSITORY = Path(__file__).resolve().parents[2]
 
-
-class EntryPointTests(unittest.TestCase):
+class LauncherContracts(unittest.TestCase):
     def setUp(self):
-        self.temporary = tempfile.TemporaryDirectory(prefix="lcm cli ")
-        self.addCleanup(self.temporary.cleanup)
-        self.directory = Path(self.temporary.name)
-        self.root = self.directory / "package checkout"
-        self.root.mkdir()
-        shutil.copytree(REPOSITORY / "cli", self.root / "cli")
-        (self.root / "Project.toml").write_text('name = "LineCableModels"\nversion = "0.2.0"\n')
-        self.bin = self.directory / "user bin"
-        self.bin.mkdir()
-        self.links = self.directory / "configuration" / "applications"
-        self.env = dict(os.environ, LCM_APPLICATIONS_DIR=str(self.links),
-                        LCM_INSTALL_DIR=str(self.bin), PATH=f"{self.bin}:{os.environ['PATH']}")
-        self.caller = self.directory / "working directory"
-        self.caller.mkdir()
-        self.launcher = self.root / "cli" / "lcm"
-        self.installer = self.root / "cli" / "install.sh"
+        directory = tempfile.TemporaryDirectory(prefix="lcm-contract-")
+        self.addCleanup(directory.cleanup)
+        self.base = Path(directory.name)
+        self.checkout = self.base / "candidate checkout"
+        self.checkout.mkdir()
+        shutil.copytree(ROOT / "cli", self.checkout / "cli")
+        self.version = "0.2.0-validation"
+        (self.checkout / "Project.toml").write_text(f'version = "{self.version}"\n')
+        self.cwd = self.base / "caller directory"
+        self.cwd.mkdir()
+        self.bin = self.base / "bin directory"
+        self.apps = self.base / "application links"
+        self.record = self.base / "invocation.json"
+        self.env = dict(os.environ, LCM_INSTALL_DIR=str(self.bin),
+                        LCM_APPLICATIONS_DIR=str(self.apps), LCM_RECORD=str(self.record))
+        self.launcher = self.checkout / "cli/lcm"
+        self.installer = self.checkout / "cli/install.sh"
 
-    def invoke(self, *arguments, launcher=None, **kwargs):
-        return subprocess.run([str(launcher or self.launcher), *arguments],
-                              cwd=self.caller, env=self.env, capture_output=True, **kwargs)
+    def run_command(self, *args, executable=None):
+        return subprocess.run([str(executable or self.launcher), *args],
+                              cwd=self.cwd, env=self.env, text=True,
+                              capture_output=True, timeout=10)
 
-    def application(self, name, directory=None):
-        target = (directory or self.root) / name
-        target.mkdir(parents=True)
-        script = target / "lcm"
-        script.write_text('#!/usr/bin/env bash\n'
-                          'printf "%s\\0" "$PWD" "$0" "$@"\n'
-                          'exit "${LCM_TEST_EXIT:-0}"\n')
+    def app(self, name, *, checkout=None, status=0):
+        location = (checkout or self.checkout) / name
+        location.mkdir(parents=True)
+        script = location / "lcm"
+        script.write_text("#!/usr/bin/env python3\n"
+                          "import json,os,sys\n"
+                          "from pathlib import Path\n"
+                          "Path(os.environ['LCM_RECORD']).write_text(json.dumps({"
+                          "'cwd':os.getcwd(),'argv':sys.argv,'pid':os.getpid()}))\n"
+                          f"sys.exit({status})\n")
         script.chmod(0o755)
-        return target
+        return location
 
-    def test_global_inspection_does_not_start_an_application(self):
-        self.application("gauntlet")
-        self.application("playground")
-        for arguments in [(), ("--help",), ("-h",), ("help",), ("--paths",)]:
-            with self.subTest(arguments=arguments):
-                result = self.invoke(*arguments)
-                self.assertEqual(result.returncode, 0, result.stderr)
-                self.assertIn(b"gauntlet", result.stdout)
-                self.assertIn(b"playground", result.stdout)
-                self.assertNotIn(b"\0", result.stdout)
-                self.assertNotIn(b"  cli ", result.stdout)
-        self.assertEqual(self.invoke("--version").stdout, b"lcm 0.2.0\n")
-
-    def test_symlink_chain_arguments_cwd_and_application_exit_status(self):
-        app = self.application("gauntlet")
-        intermediate = self.bin / "intermediate"
-        intermediate.symlink_to(self.launcher)
+    def test_argument_boundaries_caller_directory_and_exit(self):
+        target = self.app("study", status=23)
+        self.bin.mkdir()
+        (self.bin / "inner").symlink_to(self.launcher)
         public = self.bin / "lcm"
-        public.symlink_to("intermediate")
-        self.env["LCM_TEST_EXIT"] = "37"
-        arguments = ("gauntlet", "run", "--definition", "file with spaces.jl", "", "$(touch forbidden)")
-        result = self.invoke(*arguments, launcher=public)
-        self.assertEqual(result.returncode, 37)
-        self.assertEqual(result.stdout.decode().split("\0")[:-1],
-                         [str(self.caller), str(app / "lcm"), *arguments])
-        self.assertFalse((self.caller / "forbidden").exists())
-        result = self.invoke("--paths", launcher="lcm")
-        self.assertEqual(result.returncode, 0, result.stderr)
-        self.assertIn(str(self.root).encode(), result.stdout)
+        public.symlink_to("inner")
+        args = ["study", "run", "case with spaces", "", "line\nbreak", "$(touch side-effect)", "a'b\"c"]
+        result = self.run_command(*args, executable=public)
+        self.assertEqual(result.returncode, 23, result.stderr)
+        record = json.loads(self.record.read_text())
+        self.assertEqual(record["cwd"], str(self.cwd))
+        self.assertEqual(record["argv"], [str(target / "lcm"), *args])
+        self.assertFalse((self.cwd / "side-effect").exists())
 
-    def test_unknown_invalid_and_global_extra_arguments(self):
-        for arguments in [("unknown",), ("../cli",), ("cli",), ("--bogus",),
-                          ("",), ("--version", "unexpected"), ("help", "a", "b")]:
-            with self.subTest(arguments=arguments):
-                result = self.invoke(*arguments)
-                self.assertEqual(result.returncode, 2)
-                self.assertTrue(result.stderr)
+    def test_inspection_and_rejected_commands_do_not_launch(self):
+        self.app("study")
+        for args in [(), ("--help",), ("-h",), ("help",), ("--paths",)]:
+            result = self.run_command(*args)
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertIn("study", result.stdout)
+            self.assertFalse(self.record.exists())
+        self.assertEqual(self.run_command("--version").stdout, f"lcm {self.version}\n")
+        for args in [("absent",), ("../study",), ("",), ("cli",), ("--unknown",),
+                     ("help", "study", "extra"), ("--version", "extra")]:
+            result = self.run_command(*args)
+            self.assertEqual(result.returncode, 2)
+            self.assertTrue(result.stderr)
+            self.assertFalse(self.record.exists())
 
-    def test_other_worktree_and_playground_commands(self):
-        app = self.application("playground", self.directory / "other worktree")
-        result = self.invoke("--application", "playground", str(app), launcher=self.installer)
+    def test_application_ownership_and_namespace_forwarding(self):
+        outside = self.app("playground", checkout=self.base / "external")
+        result = self.run_command("--application", "playground", str(outside), executable=self.installer)
         self.assertEqual(result.returncode, 0, result.stderr)
         for command in ("playground", "runtime", "worker", "presentation", "nats", "container", "demo"):
-            with self.subTest(command=command):
-                result = self.invoke(command, "--help", launcher=self.bin / "lcm")
-                self.assertEqual(result.returncode, 0, result.stderr)
-                self.assertEqual(result.stdout.decode().split("\0")[-3:-1], [command, "--help"])
-        self.assertIn(str(app).encode(), self.invoke("--paths").stdout)
-        self.assertEqual(self.invoke("help", "playground").stdout,
-                         self.invoke("playground", "--help").stdout)
+            self.assertEqual(self.run_command(command, "inspect").returncode, 0)
+            self.assertEqual(json.loads(self.record.read_text())["argv"],
+                             [str(self.apps / "playground/lcm"), command, "inspect"])
+        local = self.app("playground")
+        self.assertEqual(self.run_command("help", "playground").returncode, 0)
+        self.assertEqual(json.loads(self.record.read_text())["argv"],
+                         [str(local / "lcm"), "playground", "--help"])
+        paths = self.run_command("--paths").stdout
+        self.assertIn(str(local), paths)
+        self.assertNotIn(str(outside), paths)
 
-    def test_checkout_application_wins_and_future_application_uses_same_contract(self):
-        configured = self.application("study", self.directory / "another checkout")
-        self.links.mkdir(parents=True)
-        (self.links / "study").symlink_to(configured, target_is_directory=True)
-        local = self.application("study")
-        result = self.invoke("study", "inspect")
-        self.assertEqual(result.returncode, 0, result.stderr)
-        self.assertIn(str(local / "lcm").encode(), result.stdout)
-        paths = self.invoke("--paths").stdout
-        self.assertIn(str(local).encode(), paths)
-        self.assertNotIn(str(configured).encode(), paths)
-
-    def test_gauntlet_owns_julia_project_and_consumes_its_namespace(self):
-        app = self.root / "gauntlet"
-        app.mkdir()
-        shutil.copy2(REPOSITORY / "gauntlet" / "lcm", app / "lcm")
-        julia = self.application("fake julia", self.directory) / "lcm"
+    def test_gauntlet_selects_its_project_and_consumes_namespace(self):
+        target = self.checkout / "gauntlet"
+        target.mkdir()
+        shutil.copy2(ROOT / "gauntlet/lcm", target / "lcm")
+        julia = self.app("record-julia", checkout=self.base) / "lcm"
         self.env["LCM_JULIA"] = str(julia)
-        result = self.invoke("gauntlet", "run", "--definition", "relative case.jl")
-        self.assertEqual(result.returncode, 0, result.stderr)
-        self.assertEqual(result.stdout.decode().split("\0")[:-1], [str(self.caller), str(julia),
-                         f"--project={app}", "--startup-file=no", str(app / "cli.jl"),
-                         "run", "--definition", "relative case.jl"])
+        self.assertEqual(self.run_command("gauntlet", "inspect", "local case.jl").returncode, 0)
+        self.assertEqual(json.loads(self.record.read_text())["argv"], [str(julia),
+            f"--project={target}", "--startup-file=no", str(target / "cli.jl"), "inspect", "local case.jl"])
 
-    def test_installer_is_repeatable_and_replaces_legacy_symlink(self):
-        old = self.application("playground", self.directory / "legacy checkout")
-        (self.bin / "lcm").symlink_to(old / "lcm")
-        for _ in range(2):
-            result = self.invoke("--application", "playground", str(old), launcher=self.installer)
-            self.assertEqual(result.returncode, 0, result.stderr)
-            self.assertEqual((self.bin / "lcm").resolve(), self.launcher)
-            self.assertEqual((self.links / "playground").resolve(), old)
-
-    def test_installer_validates_all_inputs_before_changing_links(self):
-        existing = self.application("gauntlet", self.directory / "existing")
+    def test_install_preflight_and_file_preservation(self):
+        app = self.app("study")
+        self.bin.mkdir()
         public = self.bin / "lcm"
-        public.symlink_to(existing / "lcm")
-        for arguments in [("--application", "missing", str(self.directory)),
-                          ("--application", "../bad", str(existing)),
-                          ("--application", "gauntlet"), ("--bin-dir",),
-                          ("--application", "runtime", str(existing)),
-                          ("--application", "gauntlet", str(existing),
-                           "--application", "gauntlet", str(existing))]:
-            with self.subTest(arguments=arguments):
-                result = self.invoke(*arguments, launcher=self.installer)
-                self.assertNotEqual(result.returncode, 0)
-                self.assertEqual(public.resolve(), existing / "lcm")
-                self.assertFalse(self.links.exists())
-
-    def test_installer_preserves_regular_files_and_directories(self):
-        public = self.bin / "lcm"
-        public.write_text("owned file")
-        self.assertNotEqual(self.invoke(launcher=self.installer).returncode, 0)
-        self.assertEqual(public.read_text(), "owned file")
+        public.write_bytes(b"user-owned\x00content")
+        result = self.run_command("--application", "study", str(app), executable=self.installer)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertEqual(public.read_bytes(), b"user-owned\x00content")
+        self.assertFalse(self.apps.exists())
         public.unlink()
-        self.links.mkdir(parents=True)
-        (self.links / "gauntlet").mkdir()
-        app = self.application("gauntlet")
-        self.assertNotEqual(self.invoke("--application", "gauntlet", str(app),
-                                        launcher=self.installer).returncode, 0)
-        self.assertTrue((self.links / "gauntlet").is_dir())
-        self.assertFalse(public.exists())
+        public.symlink_to(app / "lcm")
+        invalid = [("--bin-dir",), ("--application", "study"),
+            ("--application", "runtime", str(app)), ("--application", "../study", str(app)),
+            ("--application", "study", str(app), "--application", "study", str(app)),
+            ("--application", "study", str(app), "--application", "missing", str(self.base))]
+        for args in invalid:
+            self.assertNotEqual(self.run_command(*args, executable=self.installer).returncode, 0)
+            self.assertEqual(public.resolve(), app / "lcm")
+            self.assertFalse(self.apps.exists())
+        self.apps.mkdir()
+        (self.apps / "study").mkdir()
+        self.assertNotEqual(self.run_command("--application", "study", str(app), executable=self.installer).returncode, 0)
+        self.assertTrue((self.apps / "study").is_dir())
+        self.assertEqual(public.resolve(), app / "lcm")
+        (self.apps / "study").rmdir()
+        for _ in range(2):
+            self.assertEqual(self.run_command("--application", "study", str(app), executable=self.installer).returncode, 0)
+            self.assertEqual(public.resolve(), self.launcher)
+            self.assertEqual((self.apps / "study").resolve(), app)
 
-    def test_application_receives_termination_directly(self):
-        app = self.application("study")
-        (app / "lcm").write_text('#!/usr/bin/env bash\n'
-                                 "trap 'exit 42' TERM\n"
-                                 "printf 'ready\\n'\n"
-                                 'read -r ignored\n')
-        process = subprocess.Popen([str(self.launcher), "study"], cwd=self.caller,
-                                   env=self.env, stdin=subprocess.PIPE, stdout=subprocess.PIPE)
+    def test_exec_preserves_pid_and_signal_delivery(self):
+        target = self.app("study") / "lcm"
+        target.write_text("#!/usr/bin/env python3\nimport os,signal,sys\n"
+                          "signal.signal(signal.SIGTERM,lambda *_:sys.exit(29))\n"
+                          "print(os.getpid(),flush=True)\nsignal.pause()\n")
+        process = subprocess.Popen([str(self.launcher), "study"], cwd=self.cwd,
+                                   env=self.env, stdout=subprocess.PIPE, text=True)
         try:
-            self.assertEqual(process.stdout.readline(), b"ready\n")
+            with selectors.DefaultSelector() as ready:
+                ready.register(process.stdout, selectors.EVENT_READ)
+                self.assertTrue(ready.select(timeout=5), "application did not become ready")
+                self.assertEqual(int(process.stdout.readline()), process.pid)
             process.send_signal(signal.SIGTERM)
-            self.assertEqual(process.wait(timeout=5), 42)
+            self.assertEqual(process.wait(timeout=5), 29)
         finally:
             if process.poll() is None:
                 process.kill()
-                process.wait()
-            process.stdin.close()
+                process.wait(timeout=5)
             process.stdout.close()
 
 

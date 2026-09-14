@@ -201,12 +201,12 @@
     @test builds[] == 4
     @test collect(linear) == CountedResult.(Int[1, 2])
 
-    legacy=ParametricResult(
+    unindexed=ParametricResult(
         Combinatorial(CountedFormulation{:first}()),
         CountedResult[CountedResult(1)]
     )
-    @test isempty(legacy.axes)
-    @test_throws ArgumentError legacy[1, 1]
+    @test isempty(unindexed.axes)
+    @test_throws ArgumentError unindexed[1, 1]
     @test_throws MethodError compute(CountedProblem(1), formulas)
     @test_throws ArgumentError Combinatorial(Grid((1, 2)))
     @test_throws ArgumentError Combinatorial(

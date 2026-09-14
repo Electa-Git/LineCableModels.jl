@@ -1,71 +1,115 @@
-@testitem "UQ / ordinary joint rings stacks and bounded cores" tags=[:integration, :extension] begin
-    using Measurements, Random, Statistics
-    const DM = LineCableModels.DataModel
-    b0, d0, count = 0.0679,0.006,68
-    gap(b,d) = 2(b+d/2)*sinpi(1/count)-d
-    @test gap(b0,d0) > 0
-    error = try
-        DM.placements(Ring(count;r=b0+1.1d0/2),Disk(1.1d0/2),nothing)
-        nothing
-    catch exception
-        exception
+@testitem "UQ / current joint radial scale and spacing / actual line aggregation and derivatives" tags=[:integration,:extension] begin
+    using Measurements,Random,Statistics,TOML
+    function problem(scale,spacing)
+        scale>0 || throw(DomainError(scale,"radial dimensions must be positive"))
+        conductor=Material(kind=:conductor,rho=2e-8,eps_r=1.0,mu_r=1.0,T0=20.0,alpha=.004)
+        dielectric=Material(kind=:insulator,rho=1e8,eps_r=3.0)
+        designs=[build(CableDesign,"joint-wire-$i",Stack(
+            terminal(:core,Region(:metal,Disk(.005scale),conductor)),
+            Region(:insulation,Shell(.005scale),dielectric))) for i in 1:2]
+        system=build(LineCableSystem,designs,[(0.0,-1.0),(spacing,-1.3)];
+            connections=[Dict(:core=>1),Dict(:core=>2)])
+        return LineParametersProblem(system;frequencies=[50.0,1000.0],
+            earth_props=homogeneous(rho=100.0,eps_r=10.0),temperature=20.0)
     end
-    @test error isa DomainError
-    @test error.val == count
-    @test occursin("deficit=",error.msg)
-    @test occursin("available chord=",error.msg)
-    copper = Material(kind=:conductor,rho=1.72e-8)
-    steel = Material(kind=:conductor,rho=2e-7,mu_r=10.)
-    dielectric = Material(kind=:insulator,rho=Inf,eps_r=2.3)
-    function problem(p,bounded)
-        b,d = b0*p.scale,d0*p.scale
-        core = bounded ? stranded(copper;shape=Disk(0.01p.scale),
-            boundary=Disk(0.04p.scale),compact=true,fill=dielectric) :
-            Region(:metal,Disk(0.04p.scale),copper)
-        ring = Group(:armour,Region(:wires,Disk(d/2),steel);
-            pattern=Ring(count;r=b+d/2))
-        cable = build(CableDesign,"joint",Stack(
-            terminal(:core,core),Region(:insulation,Shell(b-0.04p.scale),dielectric),
-            Enclosure(:interstices,ring;primitive=Annulus(b,b+d),fill=dielectric),
-            Region(:jacket,Shell(0.003p.scale),dielectric)))
-        system = build(LineCableSystem,[cable],[Pose2(p.x,-1.)];
-            connections=[Dict(:core=>1,:armour=>2)],system_id="joint")
-        return LineParametersProblem(system;frequencies=[0.1,50.,1e7],
-            earth_props=homogeneous(rho=100.,eps_r=10.))
+    # Uniform inputs have half-width sqrt(3)*sigma. Even at both worst-case
+    # bounds the circular surfaces are separated before clearance adjustment.
+    @test hypot(.2-sqrt(3)*.002,.3)-2*.01*(1.1+sqrt(3)*.01)>0
+    calls=Tuple{Float64,Float64}[]
+    log_inputs=Ref(false)
+    builder=(scale,spacing)->begin
+        log_inputs[] && !(scale isa Measurement) && !(spacing isa Measurement) && push!(calls,(scale,spacing))
+        problem(scale,spacing)
     end
-    inner = Formulation(options=(reduce_bundle=false,kron_reduction=false,ideal_transposition=false))
-    # One scale simultaneously controls the ring, the stack and its local
-    # dimensions. A separate bounded coordinate remains an independent input.
-    inputs = Gridspace{NamedTuple{(:scale,:x)}}((base,s,x)->(scale=base*s,x=x),
-        (Grid((1.,1.05)),Grid(1.,10.),Grid(0.,AbsoluteError(0.002))))
-    for bounded in (false,true)
-        space = Gridspace{LineParametersProblem}(p->problem(p,bounded),(inputs,))
-        parametric = ParametricProblem(space)
-        lep = compute(parametric,LinearError(inner))
-        mc = compute(parametric,MonteCarlo(inner;trials=16,seed=0x1234,
-            distribution=:uniform,return_samples=true,retain_details=true))
-        @test mc.trial_counts == [16,16]
-        @test all(isempty,mc.details.failures)
-        @test length(lep.values) == 2
-        @test all(v->all(isfinite,observe(v,R)),lep.values)
-        @test all(v->all(isfinite,observe(v,R)),mc.values)
-        z = measurement(1.,0.01)
-        measured = compute(problem((scale=z,x=0.),bounded),inner)
-        @test any(v->uncertainty(v)>0,observe(measured,R))
-        for h in (1e-5,3e-6)
-            plus = compute(problem((scale=1+h,x=0.),bounded),inner)
-            minus = compute(problem((scale=1-h,x=0.),bounded),inner)
-            for quantity in (R,L,C,G)
-                expected = (observe(plus,quantity).-observe(minus,quantity))./(2h)
-                actual = map(observe(measured,quantity)) do v
-                    v isa Measurement ? Measurements.derivative(v,z) : 0.
-                end
-                @test actual ≈ expected rtol=2e-4 atol=1e-12
-            end
+    space=Gridspace{LineParametersProblem}(builder,
+        (Grid((1.0,1.1),AbsoluteError(.01)),Grid(.2,AbsoluteError(.002))))
+    inner=Formulation(options=(reduce_bundle=false,kron_reduction=false,ideal_transposition=false))
+    parametric=ParametricProblem(space)
+    linear=compute(parametric,LinearError(inner))
+    @test length(linear.values)==2
+    calibration=get(ENV,"LINECABLEMODELS_VALIDATION_PHASE","final")=="calibration"
+    N=calibration ? 16 : 128
+    seed=calibration ? 103 : 2029
+    method=MonteCarlo(inner;trials=N,seed,distribution=:uniform,
+        return_samples=true,retain_details=true)
+    log_inputs[]=true
+    sampled=compute(parametric,method)
+    log_inputs[]=false
+    @test sampled.trial_counts==[N,N]
+    @test all(isempty,sampled.details.failures)
+    @test length(unique(sampled.point_seeds))==2
+    # The builder log contains the inputs that reached actual scalar compute.
+    # Reconstruct the exact retained draws through the current sampler, then
+    # compare the resulting channel arrays and independently aggregate them.
+    recorded=copy(calls)
+    for (index,point) in enumerate(LineCableModels.points(space))
+        rng=Xoshiro(sampled.point_seeds[index])
+        expected=NamedTuple[]
+        realized=Tuple{Float64,Float64}[]
+        for trial in 1:N
+            arguments=LineCableModels.realize_arguments(rng,point,:uniform)
+            push!(realized,Tuple(arguments))
+            value=compute(problem(arguments...),inner)
+            push!(expected,(R=R(value),L=L(value),C=C(value),G=G(value)))
         end
-        sampled = rand(Xoshiro(3),space;distribution=:uniform)
-        @test length(first(sampled.system.designs).geometry.regions) ==
-            length(first(first(space).system.designs).geometry.regions)
-        @test uncertainty(first(first(space).system.positions).x) ≈ 0.002
+        @test all(pair->count(==(pair),recorded)==1,realized)
+        for channel in (:R,:L,:C,:G)
+            values=cat((getproperty(value,channel) for value in expected)...;dims=4)
+            @test getproperty(sampled.sample_values[index],channel)==values
+            average=dropdims(sum(values;dims=4)./N;dims=4)
+            @test getproperty(LineCableModels,channel)(sampled.values[index]) ≈ average rtol=1e-10 atol=0
+        end
     end
+    # Direct Measurements derivatives are compared to independently evaluated
+    # central differences. The fixed refinement sequence cannot select a lucky h.
+    directory=mktempdir(;prefix="lcm-uq-derivatives-provisional-",cleanup=false)
+    println("UQ derivative evidence: ",directory);flush(stdout)
+    diagnostics=Dict{String,Any}[]
+    for nominal_scale in (1.0,1.1), coordinate in 1:2
+        nominal=[nominal_scale,.2]
+        # A unit-uncertainty spacing probe activates the clearance reserve and
+        # changes the nominal geometry. Use the prescribed interior support.
+        variable=measurement(nominal[coordinate],coordinate==1 ? .01 : .002)
+        inputs=coordinate==1 ? (variable,nominal[2]) : (nominal[1],variable)
+        differentiated_problem=problem(inputs...)
+        @test [(LineCableModels.nominal(p.x),LineCableModels.nominal(p.y))
+            for p in differentiated_problem.system.positions] == [(0.0,-1.0),(.2,-1.3)]
+        differentiated=compute(differentiated_problem,inner)
+        previous=nothing;resolved=0
+        for relative in (.01,.005,.0025,.00125)
+            step=relative*nominal[coordinate]
+            plus=copy(nominal);minus=copy(nominal)
+            plus[coordinate]+=step;minus[coordinate]-=step
+            hi=compute(problem(plus...),inner);lo=compute(problem(minus...),inner)
+            derivatives=map((R,L,C,G)) do quantity
+                (quantity(hi).-quantity(lo))./(2step)
+            end
+            if previous!==nothing
+                all_resolved=true
+                for (quantity,current,coarse) in zip((R,L,C,G),derivatives,previous)
+                    extrapolated=(4current.-coarse)./3
+                    actual=map(x->x isa Measurement ? Measurements.derivative(x,variable) : 0.0,quantity(differentiated))
+                    budget=.001abs.(extrapolated)
+                    uncertainty=abs.(extrapolated.-current)
+                    all_resolved &= all(uncertainty .<= budget./4)
+                    all_resolved &= all(abs.(actual.-extrapolated).+uncertainty .<= budget)
+                    for entry in eachindex(actual)
+                        push!(diagnostics,Dict("scale"=>nominal_scale,"coordinate"=>coordinate,
+                            "relative_step"=>relative,"quantity"=>string(quantity),"entry"=>entry,
+                            "actual"=>actual[entry],"reference"=>extrapolated[entry],
+                            "uncertainty"=>uncertainty[entry],"budget"=>budget[entry],
+                            "reference_resolved"=>uncertainty[entry]<=budget[entry]/4,
+                            "comparison_passed"=>abs(actual[entry]-extrapolated[entry])+uncertainty[entry]<=budget[entry]))
+                    end
+                end
+                resolved=all_resolved ? resolved+1 : 0
+            end
+            previous=derivatives
+        end
+        open(joinpath(directory,"derivatives.toml"),"w") do io
+            TOML.print(io,Dict("cases"=>diagnostics))
+        end
+        @test resolved>=2
+    end
+    @test_throws DomainError problem(-.1,.2)
 end

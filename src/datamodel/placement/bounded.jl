@@ -570,7 +570,7 @@ function clearance(shape::SectorShape, centre)
 end
 
 function accommodates(shape::SectorShape, centre, radius::Real)
-    tolerance = 256 * _geometry_tolerance(
+    tolerance = 256 * geometry_tolerance(
         max(shape.primitive.r_back, radius)
     )
     return _geometry_scalar(clearance(shape, centre) + tolerance - radius) >= 0

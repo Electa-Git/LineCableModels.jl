@@ -371,9 +371,9 @@ unit.
 
 ## Repository practice
 
-Versions follow [Semantic Versioning](https://semver.org/). Public behavior
-remains compatible within a minor release. A deprecation includes a migration
-path before removal.
+After the initial accepted release, versions follow [Semantic Versioning](https://semver.org/).
+The current 0.2.0 candidate establishes the initial intended contract; development API
+renames are not regressions merely because an earlier spelling existed.
 
 Commit subjects use scoped Conventional Commits, begin with a lowercase
 description, and stay within 72 characters:
@@ -383,5 +383,36 @@ fix(engine): reject unsupported formulation options
 ```
 
 Every change includes tests at the closest relevant scope. Core tests do not
-load optional packages. CairoMakie and other optional paths run in their own
-environments. Public examples should be executable and self-contained.
+load optional packages. Rendering activation and dependency installation are distinct. CairoMakie is a current
+package dependency; its rendering extensions activate when loaded. Rendering and other
+extension paths also run in their dedicated test environments. Public examples should be executable and self-contained.
+
+## Initial candidate validation policy
+
+Version 0.2.0 names the intended first accepted release candidate. It does not
+establish a published 0.1.0, historical API guarantees or numerical correctness.
+Current intended behavior governs; superseded development output has no authority.
+
+Evidence has four distinct scopes:
+
+- Current-contract tests establish API, dispatch, units, identities, errors and side effects.
+- Scientific controls establish a stated property against a justified independent expectation,
+  limiting case or convergence/error study, with its assumptions and uncertainty.
+- Candidate snapshots record what an identified implementation produced. They are provisional
+  repeatability/change detectors and cannot certify their own numbers.
+- Explicitly accepted release snapshots record acceptance of specific results within a stated
+  validation scope. They do not establish universal correctness.
+
+Inherited test fixtures, embedded numerical expectations, golden generators and historical
+preservation paths are retired without archival consumers or renamed payloads. Rebuild
+necessary scenarios through current APIs. Production libraries and real research/user
+calculations remain protected. Fresh engine output is never promoted automatically.
+Do not regenerate expectations or widen tolerances after a failure. An unresolved reference,
+mesh, statistical or rendering control is inconclusive; a resolved discrepancy is failed.
+
+During WIP, a retained guard states a current invariant and plausible failure beside the test
+when the purpose is non-obvious. Historical helper names and arbitrary development behavior
+are not contracts. After the first Julia-registry publication, a test designated as a bug
+regression must cite the actual reported tracker issue and protected behavior. Feature,
+mathematical, architectural and integration tests need no fabricated issues. Do not evade
+that rule by retitling a bug test. No issue registry or CI tracker lookup is required.

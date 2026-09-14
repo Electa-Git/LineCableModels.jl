@@ -1,5 +1,5 @@
 @testitem "BaseParams / tubular_resistance / reference-state contracts" tags=[:unit] setup=[
-    BaseParamsTestSupport, UseBaseParamsSupport, TestNumerics] begin
+    UseBaseParamsSupport, TestNumerics] begin
     using Measurements
 
     r_in=0.01
@@ -44,7 +44,7 @@
 end
 
 @testitem "BaseParams / strip_resistance / reference-state contracts" tags=[:unit] setup=[
-    BaseParamsTestSupport, UseBaseParamsSupport, TestNumerics] begin
+    UseBaseParamsSupport, TestNumerics] begin
     using Measurements
 
     thickness=0.002
@@ -89,7 +89,7 @@ end
 end
 
 @testitem "BaseParams / parallel / contracts" tags=[:unit] setup=[
-    BaseParamsTestSupport, UseBaseParamsSupport, TestNumerics] begin
+    UseBaseParamsSupport, TestNumerics] begin
     @testset "Basic Functionality" begin
         # Test with real numbers (Float64)
         Z1_real = 5.0
@@ -226,7 +226,7 @@ end
     end
 end
 @testitem "BaseParams / equivalent_alpha / contracts" tags=[:unit] setup=[
-    BaseParamsTestSupport, UseBaseParamsSupport, TestNumerics] begin
+    UseBaseParamsSupport, TestNumerics] begin
     @testset "equivalent_alpha: Basic Functionality (Copper & Aluminum)" begin
         alpha1 = 0.00393  # Copper
         R1 = 0.5
@@ -360,7 +360,7 @@ end
     end
 end # End of test file
 @testitem "BaseParams / equivalent_rho / contracts" tags=[:unit] setup=[
-    BaseParamsTestSupport, UseBaseParamsSupport, TestNumerics] begin
+    UseBaseParamsSupport, TestNumerics] begin
     @testset "Basic Functionality" begin
         # Example from docstring: R=0.01 Ω, r_ext=0.02 m, r_in=0.01 m
         result = equivalent_rho(0.01, 0.02, 0.01)

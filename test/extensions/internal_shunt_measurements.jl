@@ -1,7 +1,7 @@
 @testitem "Measurements / internal shunt / correlated implicit sensitivities" tags=[:extension] begin
     using Measurements, LinearAlgebra, Random, Statistics
     E = LineCableModels.Engine
-    include(joinpath(pkgdir(LineCableModels),"test","fixtures","internal_shunt.jl"))
+    include(joinpath(pkgdir(LineCableModels),"test","support","internal_shunt.jl"))
     epsilon = measurement(2.5,0.0025)
     design = internal_shunt_test_design(;epsilon,count=4)
     domain,_ = internal_shunt_test_domain(design)
@@ -61,7 +61,7 @@ end
 
 @testitem "Measurements / internal shunt / public parametric studies" tags=[:extension,:integration] begin
     using Measurements, Statistics
-    include(joinpath(pkgdir(LineCableModels),"test","fixtures","internal_shunt.jl"))
+    include(joinpath(pkgdir(LineCableModels),"test","support","internal_shunt.jl"))
     space = Gridspace{CableConstantsProblem}(epsilon->CableConstantsProblem(
         internal_shunt_test_design(;epsilon,tapes=false,count=4)),
         (Grid(2.5,AbsoluteError(0.0025)),))

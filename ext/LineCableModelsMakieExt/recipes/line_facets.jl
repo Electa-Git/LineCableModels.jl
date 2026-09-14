@@ -509,7 +509,7 @@ function _addon_line_pages(
                                 legend_position : nothing
     built = LineCableModels.UIPlot[]
     styles = formulation_sources === nothing ? nothing :
-        LineCableModels.PlotBuilder._series_attributes(series_attributes,length(sources))
+        _series_attributes(series_attributes,length(sources))
     for (page_index, page) in enumerate(pages)
         page_labels = series_family_labels === nothing ? source_labels :
             _comparison_labels(series_family_labels[first(page.facets).family],length(sources))

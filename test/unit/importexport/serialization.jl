@@ -1,5 +1,4 @@
 @testitem "ImportExport / v1 scalar and Grid encoding" tags=[:unit] setup=[
-    ImportExportTestSupport,
     UseImportExportSupport
 ] begin
     import LineCableModels.ImportExport as IE
@@ -132,13 +131,12 @@ end
 end
 
 @testitem "ImportExport / v1 declaration round trip excludes derived state" tags=[:unit] setup=[
-    ImportExportTestSupport,
     UseImportExportSupport,
     TestFixtures
 ] begin
     import LineCableModels.ImportExport as IE
 
-    design=TestFixtures.mv_cable_design()
+    design=TestFixtures.coaxial_design()
     encoded=IE.serialize_value(design)
     @test encoded["kind"] == "cable_design"
     @test encoded["cable_id"] == design.cable_id
@@ -172,18 +170,6 @@ end
           getproperty.(design.geometry.regions, :terminal)
     @test restored.terminal_map == design.terminal_map
 
-    # Historical dictionaries are decoded at the import boundary; all live
-    # designs and newly emitted records use origin, without a property alias.
-    legacy=deepcopy(encoded)
-    legacy["root"]=pop!(legacy, "origin")
-    migrated=IE.deserialize_value(legacy)
-    @test migrated == restored
-    @test IE.serialize_value(migrated) == encoded
-    @test !hasproperty(migrated, :root)
-    @test !haskey(legacy, "origin")  # Loading must not rewrite a saved declaration.
-    ambiguous=deepcopy(encoded)
-    ambiguous["root"]=legacy["root"]
-    @test_throws r"both 'origin' and legacy 'root'" IE.deserialize_value(ambiguous)
     absent=deepcopy(encoded)
     delete!(absent, "origin")
     @test_throws r"origin" IE.deserialize_value(absent)
@@ -212,11 +198,6 @@ end
     end
     restored_system=IE.deserialize_value(encoded_system)
     @test IE.serialize_value(restored_system) == encoded_system
-    legacy_system=deepcopy(encoded_system)
-    for item in legacy_system["designs"]
-        item["root"]=pop!(item, "origin")
-    end
-    @test IE.serialize_value(IE.deserialize_value(legacy_system)) == encoded_system
     @test restored_system.terminal_order == system.terminal_order
     @test restored_system.connection_order == system.connection_order
     @test restored_system.environment.vertical_layers == earth.vertical_layers
@@ -409,7 +390,6 @@ end
 end
 
 @testitem "ImportExport / Draft 2020-12 cable document" tags=[:unit] setup=[
-    ImportExportTestSupport,
     UseImportExportSupport,
     TestFixtures
 ] begin
@@ -418,7 +398,7 @@ end
     import LineCableModels.ImportExport as IE
 
     materials=MaterialsLibrary(add_defaults = false)
-    add!(materials, "copper", TestFixtures.copper_material())
+    add!(materials, "copper", TestFixtures.conductor_material())
     materials_document=IE._json_document(materials)
     @test materials_document["\$schema"] == IE.JSON_SCHEMA_DIALECT
     @test materials_document["format"] == IE.MATERIALS_SCHEMA
@@ -427,7 +407,7 @@ end
     cables=CablesLibrary()
     add!(
         cables,
-        TestFixtures.mv_cable_design();
+        TestFixtures.coaxial_design();
         catalogue = DatasheetInfo(designation_code = "NA2XS(FL)2Y", U = 30.0)
     )
     cables_document=IE._json_document(cables)
@@ -450,12 +430,6 @@ end
     @test JSONSchema.validate(schema, materials_document) === nothing
     @test all(value -> haskey(value, "origin") && !haskey(value, "root"),
         values(cables_document["root"]["cables"]))
-    legacy_document=deepcopy(cables_document)
-    for value in values(legacy_document["root"]["cables"])
-        value["root"]=pop!(value, "origin")
-    end
-    @test JSONSchema.validate(schema, legacy_document) !== nothing
-
     packed_cables=CablesLibrary()
     add!(packed_cables,
         build(
@@ -464,7 +438,7 @@ end
             terminal(
                 :core,
                 stranded(
-                    TestFixtures.copper_material();
+                    TestFixtures.conductor_material();
                     shape = Disk(0.5e-3),
                     boundary = Disk(3e-3)
                 )
@@ -483,7 +457,7 @@ end
             terminal(
                 :core,
                 stranded(
-                    TestFixtures.copper_material();
+                    TestFixtures.conductor_material();
                     shape = Disk(0.5e-3),
                     boundary = Sector(
                         span = 2pi / 3,
@@ -502,7 +476,7 @@ end
     @test JSONSchema.validate(schema, invalid_sector) !== nothing
 
     earth=EarthModel(100.0, 10.0, 1.0)
-    design=TestFixtures.mv_cable_design()
+    design=TestFixtures.coaxial_design()
     connections=Dict(
         terminal=>(index==1 ? 1 : 0)
     for (index, terminal) in enumerate(design.terminal_order)

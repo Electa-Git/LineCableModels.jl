@@ -1,10 +1,9 @@
 @testitem "Engine / cable constants / earth-free assemblies and physical invariants" tags=[:integration] setup=[
-    EngineTestSupport,
     UseEngineSupport,
     TestFixtures,
     TestNumerics
 ] begin
-    design=TestFixtures.mv_cable_design()
+    design=TestFixtures.coaxial_design()
     constants=CableConstants(design)
     row=only(constants)
 
@@ -128,7 +127,7 @@
         LineCableModelsCoaxial(), design
     )
     @test blueprint isa LineCableModels.Engine.CableBlueprint{Float64}
-    @test blueprint.assembly_ranges == [1:3]
+    @test blueprint.assembly_ranges == [1:length(design.terminal_order)]
     @test getproperty.(blueprint.conductors, :terminal) == design.terminal_order
     @test fieldnames(typeof(blueprint)) == (
         :cable_id, :conductors, :dielectrics, :dielectric_ranges,
@@ -231,7 +230,7 @@
         LineCableSystem,
         design,
         Pose2(0.0, -1.0);
-        connections = Dict(:core=>1, :sheath=>0, :jacket=>0)
+        connections = Dict(:core=>1, :sheath=>0)
     )
     traced_problem=LineParametersProblem(
         traced_system;
@@ -251,7 +250,7 @@
     ))
         local_Z=kronify(
             Matrix(primitive.Zin[:, :, frequency_index]),
-            [1, 0, 0]
+            [1, 0]
         )[1, 1]
         local_Y=im*2π*frequency*inv(
             Matrix(primitive.Pin[:, :, frequency_index])
@@ -463,8 +462,8 @@ end
 @testitem "Fixtures / factories / mutable state is never shared" tags=[:integration] setup=[
     TestFixtures,
 ] begin
-    first_design=TestFixtures.mv_cable_design()
-    second_design=TestFixtures.mv_cable_design()
+    first_design=TestFixtures.coaxial_design()
+    second_design=TestFixtures.coaxial_design()
     @test first_design !== second_design
     @test first_design.origin !== second_design.origin
     @test first_design.geometry.regions !== second_design.geometry.regions

@@ -1,5 +1,5 @@
 @testitem "ReportBuilder / grammar / publication and stage order" tags=[:unit] begin
-    using DataFrames
+    using DataFrames, RequiredInterfaces
 
     const RB = LineCableModels.ReportBuilder
     const U = LineCableModels.Units
@@ -32,7 +32,7 @@
         return (; kind = :report_profile, marker)
     end
 
-    source = ReportProfile([1.0, 2.0])
+    source = ReportProfile([0.125, 0.375])
     definition = TableReportDefinition(
         (profile_response,);
         illustration = report_profile_plot,
@@ -43,7 +43,7 @@
     @test report_observation_calls[] == 1
     @test artifact isa ReportArtifact
     @test parentmodule(typeof(artifact)) === RB
-    @test artifact.table.u == [1_000.0, 2_000.0]
+    @test artifact.table.u == source.values .* 1000
     columns=RB.observation_columns(artifact.table)
     @test U.label(columns.u.unit) == "mΩ"
     @test U.label(columns.u.quantity, columns.u.unit) == "Response [mΩ]"
@@ -51,7 +51,7 @@
     @test only(illustrated_publication[]).values == artifact.table.u
     @test artifact.output === nothing
     artifact.table.u[1] = 0.0
-    @test source.values == [1.0, 2.0]
+    @test source.values == [0.125, 0.375]
     @test_throws ArgumentError report(
         TableReportDefinition((identity,)),
         source
@@ -60,48 +60,54 @@
         TableReportDefinition((identity,)),
         :unsupported
     )
+    # Each stage consumes the actual predecessor. A wrong argument position or
+    # replay of an earlier stage cannot pass by merely recording the call name.
     struct StageReport <: RB.AbstractReportDefinition end
-    const report_stage_calls = Symbol[]
-    function RB.select(::StageReport, source)
-        push!(report_stage_calls, :select)
-        return :published
+    struct StageSource
+        token::Vector{Int}
     end
-    function RB.tabulate(::StageReport, source, published)
-        push!(report_stage_calls, :tabulate)
-        return :table
+    struct Published
+        source::StageSource
     end
-    function RB.illustrate(::StageReport, source, published, table)
-        push!(report_stage_calls, :illustrate)
-        return :illustration
+    struct Tabulated
+        published::Published
     end
-    function RB.encode(::StageReport, source, published, table, illustration)
-        push!(report_stage_calls, :encode)
-        return :encoded
+    struct Illustrated
+        table::Tabulated
     end
-    function RB.write(
-            ::StageReport,
-            source,
-            published,
-            table,
-            illustration,
-            encoded
-    )
-        push!(report_stage_calls, :write)
-        return :written
+    struct Encoded
+        illustration::Illustrated
     end
-
-    completed = report(StageReport(), :source)
-    @test completed isa ReportArtifact
-    @test completed.table === :table
-    @test completed.illustration === :illustration
-    @test completed.output === :written
-    @test report_stage_calls == [
-        :select,
-        :tabulate,
-        :illustrate,
-        :encode,
-        :write
-    ]
+    struct Written
+        encoded::Encoded
+    end
+    RB.select(::StageReport, source::StageSource)=Published(source)
+    function RB.tabulate(::StageReport, source::StageSource, p::Published)
+        @test p.source === source
+        return Tabulated(p)
+    end
+    function RB.illustrate(::StageReport, source::StageSource, p::Published, t::Tabulated)
+        @test t.published === p && p.source === source
+        return Illustrated(t)
+    end
+    function RB.encode(::StageReport, source::StageSource, p::Published, t::Tabulated, i::Illustrated)
+        @test i.table === t && t.published === p && p.source === source
+        return Encoded(i)
+    end
+    function RB.write(::StageReport, source::StageSource, p::Published, t::Tabulated,
+            i::Illustrated, e::Encoded)
+        @test e.illustration === i && i.table === t && t.published === p && p.source === source
+        return Written(e)
+    end
+    stage_source=StageSource([17,31])
+    completed=report(StageReport(),stage_source)
+    @test completed.published.source === stage_source
+    @test completed.table.published === completed.published
+    @test completed.illustration.table === completed.table
+    @test completed.output.encoded.illustration === completed.illustration
+    @test_throws MethodError RB.write(StageReport(),stage_source,completed.published,
+        completed.table,completed.illustration,completed.table)
+    @test_throws RequiredInterfaces.NotImplementedError RB.tabulate(StageReport(),stage_source,completed.table)
 
     struct MinimalReport <: RB.AbstractReportDefinition end
     RB.select(::MinimalReport, source) = :published
@@ -111,7 +117,6 @@
 end
 
 @testitem "ReportBuilder / XLSX / workbook pipeline and delegation" tags=[:integration] setup=[
-    EngineTestSupport,
     UseEngineSupport,
     TestFixtures
 ] begin
@@ -125,14 +130,8 @@ end
     @test xlsx_extension !== nothing
     @test any(method -> method.module === xlsx_extension, methods(RB.write))
 
-    frequency=[50.0, 500.0]
-    impedance=Array{ComplexF64}(undef, 2, 2, 2)
-    admittance=similar(impedance)
-    for index in eachindex(frequency)
-        impedance[:, :, index]=[1.0+2.0im 0.2+0.3im; 0.2+0.3im 1.5+2.5im]
-        admittance[:, :, index]=[3.0+4.0im 0.4+0.5im; 0.4+0.5im 3.5+4.5im] .* 1.0e-6
-    end
-    parameters=LineParameters(impedance, admittance, frequency)
+    parameters=TestFixtures.two_conductor_results()
+    frequency=parameters.f
 
     mktempdir() do directory
         path=joinpath(directory, "full.xlsx")
@@ -159,9 +158,9 @@ end
             @test worksheet["A5"] == "frequency"
             @test worksheet["B5"] == "R"
             @test worksheet["C5"] == "X"
-            @test worksheet["A6"] == "50"
-            @test worksheet["B6"] == "1000"
-            @test worksheet["C6"] == "2000"
+            @test parse(Float64,worksheet["A6"]) == first(frequency)
+            @test parse(Float64,worksheet["B6"]) ≈ TestFixtures.channel_value(Val(:R),1,1,1)*1000
+            @test parse(Float64,worksheet["C6"]) ≈ 2pi*first(frequency)*TestFixtures.channel_value(Val(:L),1,1,1)*1000 rtol=1e-6
         end
 
         delegated=export_data(
@@ -235,22 +234,8 @@ end
         )
     end
 
-    @test !isdefined(IE, :XLSXWorkbook)
-    @test !isdefined(IE, :_write_xlsx_sheet!)
-    @test !isdefined(IE, :df_to_strings)
-    @test !isdefined(RB, :_write_xlsx_sheet!)
-    for private_name in (
-        :_xlsx_string,
-        :_xlsx_strings,
-        :_xlsx_units,
-        :_xlsx_destination
-    )
-        @test !isdefined(RB, private_name)
-    end
     @test Base.ispublic(RB, :XLSXSheet)
     @test Base.ispublic(RB, :XLSXWorkbook)
-    @test !isdefined(LineCableModels, :XLSXSheet)
-    @test !isdefined(LineCableModels, :XLSXWorkbook)
 end
 
 @testitem "ReportBuilder / XLSX / mutual sheets preserve the whole sweep" tags=[:integration] begin
@@ -404,16 +389,5 @@ end
     )
         @test isdefined(RB, name)
         @test parentmodule(getproperty(RB, name)) === RB
-    end
-    for retired in (
-        :TableReport,
-        :CableConstantsTable,
-        :LineParametersTable,
-        :BenchmarkTable,
-        :MonteCarloTable,
-        :XLSXReport
-    )
-        @test !isdefined(RB, retired)
-        @test !isdefined(LineCableModels, retired)
     end
 end

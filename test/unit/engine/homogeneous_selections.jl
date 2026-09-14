@@ -34,7 +34,17 @@
                 earth_admittance = potential, options = (ideal_transposition = false,));
             options = (trace = true,))
         @test result.Z.values[indices, indices, :] ≈ subresult.Z.values
-        @test details(result).trace.Pg[indices, indices, :] ≈ details(subresult).trace.Pg
+        # The manufactured potential deliberately identifies local row/column
+        # indices. Rebuilding a subproblem renumbers them; it cannot preserve the
+        # corresponding numerical block as a physical potential formula would.
+        layer = last(positions[first(indices)]) > 0 ? 1 : 2
+        for (row, p) in enumerate(indices), (column, q) in enumerate(indices),
+                (k, frequency) in enumerate(problem.frequencies)
+            coefficient = (i, j) -> 1e9 * (11layer + 17layer + 3i + 5j +
+                frequency/100 + (i == j ? 101 : 0))
+            @test details(result).trace.Pg[p, q, k] ≈ coefficient(p, q)
+            @test details(subresult).trace.Pg[row, column, k] ≈ coefficient(row, column)
+        end
     end
     provenance=details(result).formulations
     @test provenance.requested.earth_impedance == NamedTuple(selected).requested.earth_impedance
@@ -160,7 +170,7 @@ end
     @test_throws ArgumentError compute(layered, Formulation(earth_impedance = same))
     air_system=build(LineCableSystem, problem.system.designs,
         [Pose2(i, 10.0) for i in eachindex(problem.system.designs)];
-        connections = [Dict(:core=>i, :sheath=>0, :jacket=>0)
+        connections = [Dict(:core=>i, :sheath=>0)
                        for i in eachindex(problem.system.designs)])
     overhead_layered=LineParametersProblem(air_system; earth_props = model, frequencies = [50.0])
     @test_throws ArgumentError compute(overhead_layered,

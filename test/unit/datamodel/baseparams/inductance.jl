@@ -1,5 +1,4 @@
 @testitem "BaseParams / inductance / GMR and equivalent permeability" tags=[:unit] setup=[
-    BaseParamsTestSupport,
     UseBaseParamsSupport
 ] begin
     for T in (Float32, Float64, BigFloat)

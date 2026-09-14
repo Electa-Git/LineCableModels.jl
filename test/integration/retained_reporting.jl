@@ -49,10 +49,10 @@ end
     @test !ismissing(only(filter(row -> row.quantity === :Y,artifact.table.terms).relative_rms_percent))
     # Retained errors are read as recorded; current policy is applied explicitly
     # to saved numerical operands, without any computation/solver invocation.
-    old = first(artifact.published.comparisons)
-    legacy = merge(old,(error=RMSError{Float64}(old.error.absolute,fill(1.0,1,1);
-        details=old.error.details),))
-    retained = merge(artifact.published,(comparisons=[legacy],))
+    original = first(artifact.published.comparisons)
+    recorded = merge(original,(error=RMSError{Float64}(original.error.absolute,fill(1.0,1,1);
+        details=original.error.details),))
+    retained = merge(artifact.published,(comparisons=[recorded],))
     @test only(report(BenchmarkTableDefinition(),retained).table.terms.relative_rms_percent) == 100
     refreshed = report(BenchmarkTableDefinition(;retained.settings...),
         (reference=retained.reference,candidate=retained.candidate,context=retained.context))

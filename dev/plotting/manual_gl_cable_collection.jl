@@ -7,31 +7,9 @@ const CABLE_COLLECTION_GALLERY_SMOKE_ONLY = lowercase(
     get(ENV, "LINECABLEMODELS_GL_GALLERY_SMOKE", "false")
 ) == "true"
 
-# Load one detailed design and derive renderer-independent variants. `preview`
-# accepts an ordinary vector; no gallery or Makie wrapper type is required at
-# the call site.
-library = CablesLibrary()
-load!(library;
-    file_name = joinpath(
-        pkgdir(LineCableModels),
-        "test",
-        "fixtures",
-        "data",
-        "mv_cable_design.json"
-    ))
-source = only(values(library.data))
-designs = [build(
-               CableDesign,
-               cable_id,
-               source.origin
-           )
-           for cable_id in (
-    "Detailed cable A",
-    "Detailed cable B",
-    "Detailed cable C",
-    "Detailed cable D",
-    "Detailed cable E"
-)]
+# Current construction inputs; no serialized historical model is loaded.
+include(joinpath(@__DIR__,"../../test/support/scenarios.jl"))
+designs=[CurrentScenarios.coaxial_design(;scale=1+index/10,name="Cable $index") for index in 1:5]
 display_plot = !CABLE_COLLECTION_GALLERY_SMOKE_ONLY
 
 # Omitting `layout` exercises the near-square rule: five designs become a 2×3

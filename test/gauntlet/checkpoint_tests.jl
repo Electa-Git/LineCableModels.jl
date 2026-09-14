@@ -8,7 +8,11 @@
         factor::Float64
     end
     Base.NamedTuple(formulation::CheckpointBackend)=(factor=formulation.factor,)
-    Base.pairs(::CheckpointBackend;quantity=nothing) = Pair[]
+    Base.pairs(formulation::CheckpointBackend;quantity=nothing) =
+        [(CheckpointBackend,()) => (formulation => (factor=formulation.factor,))]
+    LineCableModels.formula_id(::CheckpointBackend) = :CheckpointBackend
+    LineCableModels.description(::CheckpointBackend;compact=false) = "current checkpoint backend"
+    LineCableModels.description(::Type{CheckpointBackend};compact=false) = "current checkpoint backend"
     function LineCableModels.compute(problem::LineParametersProblem, formulation::CheckpointBackend;options=(;))
         push!(calls,formulation.factor)
         # The declaration is edited while a solver is active, then disappears.
@@ -70,13 +74,6 @@
         @test points[2].id==completed.metadata.session.id
         @test numerical_input_sha256(only(completed.candidate_result.axes.problems))==numerical_input_sha256(model.problem)
         @test length(completed.candidate_result)==3
-        # Archived implementation metadata is not part of legacy reuse identity.
-        marker=joinpath(attempt,"reference","complete.toml")
-        record=TOML.parsefile(marker);record["signature"]="legacy-source-tree-signature"
-        open(io->TOML.print(io,record),marker,"w")
-        count=length(calls)
-        @test all(row -> row.state===:complete,resume_campaign(directory))
-        @test length(calls)==count
         # A changed formulation cannot reuse the old scalar checkpoint.
         changed=BenchmarkCalculation(:candidate,model.problem,CheckpointBackend(99.))
         @test_throws r"inputs changed" Gauntlet._execute(changed;
@@ -88,11 +85,11 @@
 end
 
 @testitem "Gauntlet / joint declarations replay in fresh Julia processes" tags=[:gauntlet_toolkit] begin
-    fixture=joinpath(pkgdir(LineCableModels),"test","fixtures","gauntlet_joint_transport.jl")
+    fixture=joinpath(pkgdir(LineCableModels),"test","gauntlet","fixtures","current_transport.jl")
     project=dirname(Base.active_project())
     mktempdir() do directory
         path=joinpath(directory,"joint.jld2")
-        for mode in ("write","read","legacy_write","legacy_read")
+        for mode in ("write","read")
             command=`$(Base.julia_cmd()) --startup-file=no --compiled-modules=existing --pkgimages=existing --project=$project $fixture $mode $path`
             @test success(pipeline(command;stdout=stdout,stderr=stderr))
         end

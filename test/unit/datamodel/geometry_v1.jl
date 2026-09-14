@@ -117,3 +117,33 @@ end
     @test collect(rectangles) ==
           [DM.Rectangle(1.0, 3.0), DM.Rectangle(2.0, 3.0)]
 end
+
+@testitem "DataModel / geometry / independent SI primitive controls" tags=[:unit] begin
+    using QuadGK
+    DM=LineCableModels.DataModel
+    pose=Pose2(.02,-.03,pi/6)
+    ellipse_perimeter,error=quadgk(t->hypot(.006*sin(t),.003*cos(t)),0.0,2pi;rtol=1e-12)
+    cases=((Disk(.005),pi*.005^2,2pi*.005),
+        (Annulus(.005,.01),pi*(.01^2-.005^2),2pi*(.01+.005)),
+        (Rectangle(.012,.004),.012*.004,2*(.012+.004)),
+        (Ellipse(.006,.003),pi*.006*.003,ellipse_perimeter))
+    @test error<=1e-10*ellipse_perimeter/4
+    for (primitive,expected_area,expected_perimeter) in cases
+        shape=resolve(EmptyBoundary(),primitive)
+        @test area(shape) ≈ expected_area rtol=1e-10 atol=0
+        @test perimeter(shape) ≈ expected_perimeter rtol=1e-10 atol=0
+        placed=resolve(pose,shape)
+        @test area(placed) ≈ expected_area rtol=1e-10
+        @test perimeter(placed) ≈ expected_perimeter rtol=1e-10
+        @test collect(centroid(placed)) ≈ [pose.x,pose.y] rtol=1e-10
+        for phi in (0.0,pi/7,pi/2,pi)
+            @test support(placed,phi) ≈ pose.x*cos(phi)+pose.y*sin(phi)+support(shape,phi-pose.φ) rtol=1e-10
+        end
+    end
+    BP=DM.BaseParams
+    for temperature in (20.0,70.0)
+        rho=2e-8*(1+.004*(temperature-20))
+        @test BP.tubular_resistance(0.0,.005,rho) ≈ rho/(pi*.005^2) rtol=1e-10
+    end
+    @test BP.tubular_gmr(.005,0.0,1.0) ≈ .005exp(-.25) rtol=1e-10
+end

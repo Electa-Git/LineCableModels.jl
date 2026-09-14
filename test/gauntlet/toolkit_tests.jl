@@ -187,43 +187,9 @@
 end
 
 
-@testitem "Gauntlet / historical UQ products use owned comparisons" tags=[:gauntlet_toolkit] setup=[GauntletSupport] begin
-    using LineCableModels, Statistics
-    using LineCableModels.Engine
-    using .GauntletSupport.Gauntlet
-    @test !isdefined(Gauntlet,:MomentResult)
-    @test !isdefined(Gauntlet,:MomentBenchmark)
-    f=[1.0,10.0]
-    ports=["a","b"]
-    products=map((R=1.0,L=2.0,C=3.0,G=4.0)) do scale
-        (mean=fill(scale,2,2,2),std=fill(scale/10,2,2,2))
-    end
-    metadata=(frequencies=f,port_order=ports,basis=:pul,domain=:PhaseDomain)
-    stored=(values=products,frequencies=f,basis=:pul,domain=:PhaseDomain,port_order=ports)
-    reference=(result=read_calculation(stored),metadata=metadata)
-    request=(statistics,R,mean)
-    equal=compare(reference,reference,request)
-    @test all(iszero,observe(equal,absolute_error))
-    @test all(iszero,observe(equal,relative_error))
-    changed_products=merge(products,(R=(mean=copy(products.R.mean),std=copy(products.R.std)),))
-    changed_products.R.mean[1,2,:].=1.5
-    candidate=(result=read_calculation(merge(stored,(values=changed_products,))),metadata=metadata)
-    error=compare(reference,candidate,request)
-    @test observe(error,absolute_error)[1,2]==0.5
-    @test observe(error,relative_error)[1,2]==0.5
-    @test details(error).sample_count==2
-    for (key,value) in ((:frequencies,[1.0,11.0]),(:basis,:total),(:port_order,reverse(ports)))
-        other=merge(candidate,(metadata=merge(metadata,NamedTuple{(key,)}((value,))),))
-        @test_throws ArgumentError compare(reference,other,request)
-    end
-    wrong=merge(products,(R=(mean=zeros(1,1,2),std=zeros(1,1,2)),))
-    @test_throws DimensionMismatch read_calculation(merge(stored,(values=wrong,)))
-    zero_products=map(product -> (mean=zero(product.mean),std=zero(product.std)),products)
-    zero_operand=(result=read_calculation(merge(stored,(values=zero_products,))),metadata=metadata)
-    @test all(ismissing,observe(compare(zero_operand,zero_operand,request),relative_error))
-    @test all(iszero,observe(compare(zero_operand,zero_operand,request),absolute_error))
-end
-
+# Current UQ comparison and saved-publication contracts are exercised through
+# actual current results in comparison_execution_tests and the UQ integration
+# families. A hand-built obsolete moments record establishes no current contract.
 
 @testitem "Gauntlet / fixed-seed Monte Carlo reproducibility" tags=[:gauntlet_toolkit] setup=[
     GauntletSupport

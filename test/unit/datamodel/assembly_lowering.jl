@@ -111,8 +111,8 @@ end
         end
         problems = map(system -> LineParametersProblem(system;
             earth_props=homogeneous(rho=100.0), frequencies=[50.0, 1000.0]), systems)
-        actual = @inferred compute(first(problems))
-        expected = @inferred compute(last(problems))
+        actual = compute(first(problems))
+        expected = compute(last(problems))
         @test actual.Z.values == expected.Z.values
         @test actual.Y.values == expected.Y.values
         @test EN.flatten(LineCableModelsCoaxial(), design, Float64).assembly_ranges == [1:1, 2:2, 3:3]

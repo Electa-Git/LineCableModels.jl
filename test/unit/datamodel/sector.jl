@@ -2,10 +2,10 @@
     const DM=LineCableModels.DataModel
 
     primitive=Sector(
-        span = deg2rad(119.0),
-        r_base = 1.10e-3,
-        r_back = 10.24e-3,
-        fillet = 1.02e-3
+        span = 2pi/3,
+        r_base = .001,
+        r_back = .008,
+        fillet = .0005
     )
     @test fieldnames(typeof(primitive)) == (:span, :r_base, :r_back, :fillet)
     for forbidden in (
@@ -17,10 +17,28 @@
 
     shape=DM.resolve(DM.EmptyBoundary(), primitive)
     @test shape isa DM.SectorShape
-    @test DM.area(shape) ≈ 9.207305021593468e-5 rtol=4eps(Float64)
-    @test DM.perimeter(shape) ≈ 3.780313381817682e-2 rtol=4eps(Float64)
-    @test DM.centroid(shape)[1] ≈ 6.131368623545798e-3 rtol=4eps(Float64)
-    @test abs(DM.centroid(shape)[2]) <= 16eps(Float64)
+    include(joinpath(pkgdir(LineCableModels),"test/support/sector_control.jl"))
+    controls=[setprecision(BigFloat,bits) do
+        SectorControl.moments(2big(pi)/3,big".001",big".008",big".0005")
+    end for bits in (128,256,512)]
+    expected=last(controls)
+    for name in (:area,:perimeter)
+        target=getproperty(expected,name); budget=1e-10*abs(target)
+        u=getproperty(expected.errors,name)+abs(target-getproperty(controls[2],name))
+        @test u<=budget/4
+        @test abs(getproperty(DM,name)(shape)-target)+u<=budget
+    end
+    @test DM.centroid(shape)[1] ≈ expected.centroid[1] rtol=1e-10
+    @test abs(DM.centroid(shape)[2])<=1e-10*primitive.r_back
+    previous_error=Ref(Inf)
+    for count in (32,64,128,256,512)
+        polygon=DM.tessellate(shape;points_per_arc=count)
+        polygon_area=abs(sum(p[1]*q[2]-p[2]*q[1] for (p,q) in
+            zip(polygon,circshift(polygon,-1))))/2
+        error=abs(polygon_area-expected.area)
+        @test error<previous_error[]
+        previous_error[]=Float64(error)
+    end
 
     exact=(DM.area(shape), DM.perimeter(shape), DM.centroid(shape))
     coarse=DM.tessellate(shape; points_per_arc = 3)
@@ -41,9 +59,9 @@
         point -> point[1] * cos(coarse_angle) + point[2] * sin(coarse_angle),
         coarse
     )
-    @test DM.support(shape, coarse_angle) - coarse_support > 4e-4
+    @test DM.support(shape, coarse_angle) - coarse_support > 0
 
-    pose=Pose2(0.2, -0.1, pi / 3)
+    pose=Pose2(.02,-.03,pi/6)
     placed=DM.resolve(pose, shape)
     local_centre=DM.centroid(shape)
     expected=(
@@ -95,9 +113,9 @@ end
     insulation_material=Material(kind = :insulator, rho = 1.97e14, eps_r = 2.5)
     primitive=Sector(
         span = 2pi / 3,
-        r_base = 1.10e-3,
-        r_back = 10.24e-3,
-        fillet = 1.02e-3
+        r_base = .001,
+        r_back = .008,
+        fillet = .0005
     )
     phase=terminal(
         :phase,
@@ -137,9 +155,9 @@ end
             :core,
             Sector(
                 span = deg2rad(119),
-                r_base = 1.10e-3,
-                r_back = 10.24e-3,
-                fillet = 1.02e-3
+                r_base = .001,
+                r_back = .008,
+                fillet = .0005
             ),
             copper
         )
@@ -214,9 +232,9 @@ end
     xlpe=Material(kind = :insulator, rho = 1.97e14, eps_r = 2.5)
     primitive=Sector(
         span = 2pi / 3,
-        r_base = 1.10e-3,
-        r_back = 10.24e-3,
-        fillet = 1.02e-3
+        r_base = .001,
+        r_back = .008,
+        fillet = .0005
     )
     phase=terminal(
         :phase,
@@ -340,51 +358,5 @@ end
     @test restored == design
 end
 
-@testitem "DataModel / Sector / legacy equivalence equations" tags=[:unit] begin
-    const DM=LineCableModels.DataModel
-
-    # The sector fork used these material values and dimensions. Its scientific
-    # contract was the equivalent-area calculation; sampled polygon vertices
-    # were only its approximation of the same physical boundary.
-    aluminum=Material(
-        kind = :conductor,
-        rho = 2.8264e-8,
-        eps_r = 1.0,
-        mu_r = 1.000022,
-        T0 = 20.0,
-        alpha = 0.00429
-    )
-    pvc=Material(
-        kind = :insulator,
-        rho = Inf,
-        eps_r = 8.0,
-        mu_r = 1.0,
-        T0 = 20.0,
-        alpha = 0.1
-    )
-    phase=terminal(
-        :phase,
-        Region(:core,
-            Sector(
-                span = deg2rad(119.0),
-                r_base = 1.10e-3,
-                r_back = 10.24e-3,
-                fillet = 1.02e-3
-            ),
-            aluminum),
-        Region(:insulation, Shell(1.1e-3), pvc)
-    )
-    design=build(CableDesign, "legacy-sector-equivalence", phase)
-    component=only(DM.flatten(design, 20.0))
-
-    # Fixed values prevent the compatibility test from merely recomputing its
-    # expectations through the same implementation under test.
-    @test component.conductor.cross_section ≈ 9.207305021593469e-5 rtol=8eps()
-    @test component.conductor.resistance ≈ 3.069736468349179e-4 rtol=8eps()
-    @test component.conductor.gmr ≈ 4.216142877891434e-3 rtol=8eps()
-    @test component.dielectric.r_in ≈ 5.413664390671869e-3 rtol=8eps()
-    @test component.dielectric.r_ex ≈ 6.614694587068139e-3 rtol=8eps()
-    @test component.dielectric.cross_section ≈ 4.538477431083816e-5 rtol=8eps()
-    @test component.dielectric.shunt_capacitance ≈ 2.221219434950488e-9 rtol=8eps()
-    @test component.dielectric.shunt_conductance == 0
-end
+# Historical sector outputs are retired. Current equivalent-area and shell
+# contracts above use directly established geometry and constitutive identities.

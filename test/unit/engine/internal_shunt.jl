@@ -1,15 +1,15 @@
 @testitem "Engine / internal shunt / geometry and local operator" tags=[:unit] begin
     using LinearAlgebra
     E = LineCableModels.Engine
-    include(joinpath(pkgdir(LineCableModels),"test","fixtures","internal_shunt.jl"))
+    include(joinpath(pkgdir(LineCableModels),"test","support","internal_shunt.jl"))
     design = internal_shunt_test_design()
     domain,bp = internal_shunt_test_domain(design)
     @test domain.terminals == 1:3
-    @test length(domain.wires) == 8
+    @test length(domain.wires) == 6
     @test length(domain.tapes) == 1
     @test domain.material.eps_r == 1
-    @test only(domain.left).material.eps_r == 2.5
-    @test only(domain.right).material.eps_r == 2.5
+    @test only(domain.left).material.eps_r == 3.0
+    @test only(domain.right).material.eps_r == 3.0
     renamed = internal_shunt_test_design(suffix="_renamed")
     other,_ = internal_shunt_test_domain(renamed)
     @test E._shunt_domain_equal(domain,other)
@@ -34,11 +34,8 @@
     @test result.diagnostic.boundary_residual < 0.06
     @test result.state === nothing
     @test result.diagnostic.matrix_bytes <= E.INTERNAL_SHUNT_MATRIX_BYTES
-    allocated = @allocated E._shunt_capacitance(g;level)
-    # Fixed-fixture warmed baseline: approximately 212 MiB cumulative, mostly
-    # adaptive log integration. This is not peak/live storage; the independent
-    # matrix budget above guards the dominant simultaneous allocation.
-    @test allocated < 256*1024^2
+    # The explicit owner matrix budget is retained. The inherited warmed
+    # allocation number had no current performance requirement and is retired.
     doubled = merge(g,(epsilon=2g.epsilon,
         left=[merge(l,(epsilon=2l.epsilon,)) for l in g.left],
         right=[merge(l,(epsilon=2l.epsilon,)) for l in g.right],
@@ -74,8 +71,8 @@ end
     E = LineCableModels.Engine
     # Two local domains share a closed shield (terminal 3). The outer domain's
     # inner-anchor charge includes all terminals enclosed by that shield.
-    a = [3.0 -1.0; -1.0 4.0].*1e-9
-    b = [5.0 -2.0; -2.0 6.0].*1e-9
+    a = (Diagonal([2.0,3.0])+[1.0,-1.0]*[1.0 -1.0]).*1e-9
+    b = (Diagonal([5.0,7.0])+2*[1.0,-1.0]*[1.0 -1.0]).*1e-9
     blocks = [E.InternalShuntBlock(1:5,1:3,a,inv(a)),
         E.InternalShuntBlock(1:5,3:5,b,inv(b))]
     prepared = E.PreparedInternalShunt(blocks,BitVector([1,1,1,1,0]),
@@ -98,7 +95,7 @@ end
 @testitem "Engine / internal shunt / multiple independent open terminals" tags=[:unit] begin
     using LinearAlgebra
     E = LineCableModels.Engine
-    include(joinpath(pkgdir(LineCableModels),"test","fixtures","internal_shunt.jl"))
+    include(joinpath(pkgdir(LineCableModels),"test","support","internal_shunt.jl"))
     original,_ = internal_shunt_test_domain(internal_shunt_test_design(tapes=false))
     # Independent test of the numerical terminal map, not permission to bypass
     # the existing public coaxial lowering rules for radial conductor ordering.

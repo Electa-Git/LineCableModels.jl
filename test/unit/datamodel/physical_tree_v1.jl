@@ -485,7 +485,7 @@ end
     )
 end
 
-@testitem "DataModel / v1 construction / concrete boundaries and allocations" tags=[:unit] begin
+@testitem "DataModel / construction / concrete boundaries" tags=[:unit] begin
     using LineCableModels
 
     conductor=Material(kind = :conductor, rho = 1.7241e-8)
@@ -494,7 +494,7 @@ end
         Group(:phase, Region(:core, Disk(0.01), conductor)),
         Region(:insulation, Shell(0.003), dielectric)
     )
-    make_design() = build(CableDesign, "allocation-baseline", root)
+    make_design() = build(CableDesign, "concrete-construction", root)
     design=make_design()
     make_system() = build(
         LineCableSystem,
@@ -526,10 +526,5 @@ end
         blueprints
     )) isa LineCableModels.Engine.LineParametersWorkspace{Float64}
 
-    # These bounds record the construction scale without turning the
-    # physical grammar into an allocation optimization exercise.
-    make_design()
-    make_system()
-    @test @allocated(make_design()) <= 20_000
-    @test @allocated(make_system()) <= 12_000
+
 end

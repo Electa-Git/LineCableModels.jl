@@ -1,7 +1,7 @@
 @testitem "UQ / retries preserve accepted trials, provenance and seeded replay" tags=[:integration] setup=[TestFixtures] begin
     using Measurements
     using Statistics
-    design = TestFixtures.mv_cable_design()
+    design = TestFixtures.coaxial_design()
     attempted_temperatures = Float64[]
     space = Gridspace{CableConstantsProblem}(
         temperature -> begin
@@ -108,4 +108,51 @@ end
         end
     end
     @test_throws ArgumentError MonteCarlo(inner; options=(on_error=:retry,))
+end
+
+@testitem "UQ / negative physical radius / failure and retry provenance" tags=[:integration] begin
+    attempts=Float64[]
+    function physical_problem(radius)
+        push!(attempts,radius)
+        radius>0 || throw(DomainError(radius,"physical radius must be positive"))
+        metal=Material(kind=:conductor,rho=2e-8)
+        dielectric=Material(kind=:insulator,rho=1e8,eps_r=3.)
+        design=build(CableDesign,"positive-radius",Stack(
+            terminal(:core,Region(:metal,Disk(radius),metal)),
+            Region(:insulation,Shell(.005),dielectric)))
+        CableConstantsProblem(design)
+    end
+    problem=ParametricProblem(Gridspace{CableConstantsProblem}(physical_problem,
+        (Grid(.005,AbsoluteError(.001)),)))
+    inner=CableConstantsFormulation()
+    negative=(_rng,mean,_sigma)->-mean
+    @test_throws DomainError compute(problem,MonteCarlo(inner;trials=2,seed=103,
+        distribution=negative,on_error=:fail))
+    @test attempts==[-.005]
+    empty!(attempts)
+    failure=try
+        compute(problem,MonteCarlo(inner;trials=2,seed=103,distribution=negative,
+            on_error=:retry,max_failures=3,retain_details=true))
+    catch error
+        error
+    end
+    @test attempts==fill(-.005,3)
+    @test failure isa ErrorException
+    @test occursin("3 attempts (0 accepted)",sprint(showerror,failure))
+    @test occursin("physical radius must be positive",sprint(showerror,failure))
+    # This deterministic control tests conditioning/provenance only; no claim
+    # is made that accepted retries follow an unconditioned input law.
+    calls=Ref(0)
+    alternating=(_rng,mean,_sigma)->begin
+        calls[]+=1
+        isodd(calls[]) ? -mean : mean
+    end
+    empty!(attempts)
+    sampled=compute(problem,MonteCarlo(inner;trials=2,seed=103,distribution=alternating,
+        on_error=:retry,max_failures=3,retain_details=true,return_samples=true))
+    @test sampled.trial_counts==[2]
+    @test attempts==[-.005,.005,-.005,.005]
+    @test length(only(sampled.details.failures))==2
+    @test only(sampled.details.failure_summary).accepted==2
+    @test only(sampled.details.failure_summary).failed==2
 end

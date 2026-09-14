@@ -5,7 +5,7 @@ end
 # TODO: test if serialization works properly if uncertain types are used (Measurements)
 
 @testitem "ImportExport / ATP / LineCableSystem LCC export" tags=[:integration] setup=[
-    ImportExportTestSupport, UseImportExportSupport, TestNumerics,
+    UseImportExportSupport, TestNumerics,
     TestFixtures, CableSystemFixture, deps_export_atp] begin
 
     # 1. ARRANGE & ACT: Run the export in a temporary directory
@@ -101,7 +101,7 @@ end
 end
 
 @testitem "ImportExport / ATP / LineParameters ZY export" tags=[:integration] setup=[
-    ImportExportTestSupport, UseImportExportSupport, TestNumerics,
+    UseImportExportSupport, TestNumerics,
     TestFixtures, CableSystemFixture, deps_export_atp] begin
 
     # 1. RUN THE TEST IN A TEMPORARY DIRECTORY

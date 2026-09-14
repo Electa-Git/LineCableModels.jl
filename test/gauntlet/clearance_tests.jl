@@ -1,32 +1,31 @@
-@testitem "Gauntlet / clearance / NA2XS2Y touching trefoil analytical and UQ regression" tags=[:gauntlet_toolkit] setup=[GauntletSupport] begin
-    using .GauntletSupport: Gauntlet
-    using LineCableModels
-    using Measurements
-    model = Gauntlet.load_case(:cable_30kv_na2xs2y_630mm2_trefoil)
-    problem = model.problem
-    @test length(problem.frequencies) == 101
-    @test first(problem.frequencies) == 0.1
-    @test last(problem.frequencies) == 1e7
-    inner = Gauntlet.uq_inner_formulation()
-    result = compute(problem, inner)
-    @test size(observe(result, Z)) == (6, 6, 101)
-    @test all(isfinite, observe(result, Z))
-    @test all(isfinite, observe(result, Y))
-
-    benchmark = Gauntlet.benchmark_definition(
-        :benchmark_30kv_na2xs2y_630mm2_trefoil_lep_montecarlo;
-        frequencies = [0.1, 50.0, 1e7])
-    uncertain_problem = benchmark.reference.problem
-    mc = compute(uncertain_problem, MonteCarlo(inner; trials = 3, seed = 100, distribution = :uniform,
-        options = (retain_details = true,)))
-    @test mc.trial_counts == [3]
-    @test isempty(only(mc.details.failures))
-    @test only(mc.details.clearance).adjustments == 3
-    lep = compute(uncertain_problem, LinearError(inner))
-    for quantity in (Z, Y)
-        values = observe(only(lep.values), quantity)
-        @test all(isfinite, nominal.(values))
-        @test all(isfinite, uncertainty.(real.(values)))
-        @test all(isfinite, uncertainty.(imag.(values)))
+@testitem "Gauntlet / current touching disks / UQ clearance and retained geometry" tags=[:gauntlet_toolkit] setup=[GauntletSupport] begin
+    using LineCableModels,Measurements,LinearAlgebra
+    built=LineCableSystem[]
+    function problem(radius)
+        radius>0 || throw(DomainError(radius,"radius must be positive"))
+        wire=build(CableDesign,"touching-current-disk",terminal(:core,
+            Region(:metal,Disk(radius),Material(kind=:conductor,rho=2e-8))))
+        system=build(LineCableSystem,[wire,wire],[(0.,-1.),(.02,-1.)];
+            connections=[Dict(:core=>1),Dict(:core=>2)])
+        push!(built,system)
+        LineParametersProblem(system;frequencies=[50.,1000.],earth_props=homogeneous(rho=100.))
     end
+    space=Gridspace{LineParametersProblem}(problem,(Grid(.01,AbsoluteError(.0002)),))
+    inner=Formulation(options=(reduce_bundle=false,kron_reduction=false,ideal_transposition=false))
+    sampled=compute(ParametricProblem(space),MonteCarlo(inner;trials=8,seed=103,
+        distribution=:uniform,return_samples=true,retain_details=true))
+    @test sampled.trial_counts==[8]
+    @test isempty(only(sampled.details.failures))
+    @test length(built)==9
+    @test only(sampled.details.clearance).adjustments>0
+    for system in built
+        centres=[centroid(resolve(pose,boundary(design.geometry))) for (pose,design) in zip(system.positions,system.designs)]
+        radii=[outer_radius(design) for design in system.designs]
+        gap=norm(collect(centres[1]).-collect(centres[2]))-sum(radii)
+        @test nominal(gap)>=nominal(system.clearances[1,2])-64eps(Float64)
+        @test nominal(gap)>0
+    end
+    linear=compute(ParametricProblem(space),LinearError(inner))
+    @test all(isfinite,nominal.(Z(only(linear.values))))
+    @test all(isfinite,uncertainty.(real.(Y(only(linear.values)))))
 end

@@ -25,9 +25,9 @@ voltage reference is deep earth; `:interface`, `:scalar`, or a positive referenc
 depth \\[m\\] are selected through the `reference` physical parameter.
 
 **Reference.** User-supplied manuscript, *Unified circumferentially averaged
-framework for overhead, buried, and mixed conductor systems*. The mathematical
-source hash and accepted complete matrices are recorded in
-`test/fixtures/reference/unified_earth_return.toml`.
+framework for overhead, buried, and mixed conductor systems*. Current closure, reference conventions and the
+equal-medium limit are exercised in `test/unit/engine/unified_earth_return.jl`.
+These scoped controls do not establish acceptance of arbitrary complete matrices.
 """
 function description(::Type{<:Formula{:default}}; compact::Bool=false)
     compact ? "default" : "Unified circumferential earth potential with full current closure"

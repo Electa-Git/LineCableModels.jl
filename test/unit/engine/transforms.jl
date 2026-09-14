@@ -1,5 +1,4 @@
 @testitem "Transforms / uncertain matrices / inferred round trip" tags=[:unit] setup=[
-    EngineTestSupport,
     UseEngineSupport,
     TestNumerics
 ] begin
@@ -41,7 +40,6 @@
 end
 
 @testitem "Transforms / tracked eigensystems / numerical invariants" tags=[:unit] setup=[
-    EngineTestSupport,
     UseEngineSupport,
     TestNumerics,
     TestAssertions
@@ -149,7 +147,6 @@ end
 end
 
 @testitem "Engine / reduction / reorder, Kron, and bundle invariants" tags=[:unit] setup=[
-    EngineTestSupport,
     UseEngineSupport,
     TestNumerics
 ] begin
@@ -218,4 +215,60 @@ end
     @test rebuilt.Z.values ≈ Z
     @test rebuilt.Y.values ≈ Y
     @test phase.Z.values == Z && phase.Y.values == Y
+end
+
+@testitem "Engine / reduction / passive network constrained solves" tags=[:unit] begin
+    using LinearAlgebra
+    E=LineCableModels.Engine
+    incidence=[1.0 0 0 1 1 0;0 1 0 -1 0 1;0 0 1 0 -1 -1]
+    for f in (10.0,100.0,1000.0)
+        s=2pi*im*f
+        r=collect(1:6).*1e-3;l=collect(7:12).*1e-6
+        g=collect(1:2:11).*1e-9;c=collect(2:2:12).*1e-10
+        z=inv(incidence*Diagonal(inv.(r.+s.*l))*transpose(incidence))
+        y=incidence*Diagonal(g.+s.*c)*transpose(incidence)
+        p=s*inv(y)
+        # Original equations have eliminated voltage/potential zero. Solve for
+        # constrained currents/charges without constructing a Schur complement.
+        for matrix in (z,p)
+            excitation=Matrix{ComplexF64}(I,3,3)[:,1:2]
+            currents=matrix\excitation
+            expected=inv(currents[1:2,:])
+            @test kronify(matrix,[1,2,0]) ≈ expected rtol=1e-10 atol=0
+        end
+        options=(reduce_bundle=false,kron_reduction=true,ideal_transposition=false)
+        reduced=E.reduce_primitive_matrices(reshape(z,3,3,1),reshape(p,3,3,1),[1,2,0],options)
+        @test reduced.Z[:,:,1] ≈ inv((z\Matrix{ComplexF64}(I,3,3)[:,1:2])[1:2,:]) rtol=1e-10
+        @test s*inv(reduced.P[:,:,1]) ≈ s*((p\Matrix{ComplexF64}(I,3,3)[:,1:2])[1:2,:]) rtol=1e-10
+        bundled=E.reduce_primitive_matrices(reshape(z,3,3,1),reshape(p,3,3,1),[1,1,2],
+            (reduce_bundle=true,kron_reduction=true,ideal_transposition=false))
+        equal_potentials=[1.0 0;1 0;0 1]
+        @test bundled.Z[:,:,1] ≈ inv(transpose(equal_potentials)*(z\equal_potentials)) rtol=1e-10
+        @test bundled.P[:,:,1] ≈ inv(transpose(equal_potentials)*(p\equal_potentials)) rtol=1e-10
+    end
+end
+
+@testitem "Transforms / current commuting modes / rotation-invariant eigenspaces" tags=[:unit] begin
+    using LinearAlgebra
+    f=[10.0,100.0,1000.0];theta=pi/6
+    q=[cos(theta) -sin(theta);sin(theta) cos(theta)]
+    zs=[q*Diagonal([1+s*1e-3,3+s*2e-3])*transpose(q) for s in 2pi*im.*f]
+    ys=[q*Diagonal([1e-6+s*1e-9,3e-6+s*2e-9])*transpose(q) for s in 2pi*im.*f]
+    source=LineParameters(cat(zs...;dims=3),cat(ys...;dims=3),f)
+    modes=compute(ModalTransformationProblem(source),ModalTransformationFormulation())
+    restored=compute(ModalTransformationProblem(modes))
+    @test Z(restored) ≈ Z(source) rtol=1e-10
+    @test Y(restored) ≈ Y(source) rtol=1e-10
+    for k in eachindex(f)
+        s=2pi*im*f[k]
+        expected=[(1+s*1e-3)*(1e-6+s*1e-9),(3+s*2e-3)*(3e-6+s*2e-9)]
+        actual=eigvals(Z(modes)[:,:,k]*Y(modes)[:,:,k])
+        @test sort(actual;by=abs) ≈ sort(expected;by=abs) rtol=1e-10
+        # Compare invariant projectors; eigenvector sign/order is arbitrary.
+        system=zs[k]*ys[k]
+        for j in 1:2
+            projector=q[:,j]*transpose(q[:,j])
+            @test norm(system*projector-expected[j]*projector)<=1e-10*norm(system)
+        end
+    end
 end

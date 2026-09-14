@@ -1,5 +1,5 @@
 @testitem "ParametricBuilder / Grid / finite sources" tags=[:unit] setup=[
-    EngineTestSupport, UseEngineSupport] begin
+    UseEngineSupport] begin
     using Random
     import LineCableModels.ParametricBuilder as PB
 
@@ -81,7 +81,7 @@ end
 end
 
 @testitem "ParametricBuilder / Gridspace / product and zip" tags=[:unit] setup=[
-    EngineTestSupport, UseEngineSupport] begin
+    UseEngineSupport] begin
     using Random
     import LineCableModels.ParametricBuilder as PB
 
@@ -163,7 +163,7 @@ end
 end
 
 @testitem "ParametricBuilder / Material / invariant class and scalar precision" tags=[:unit] setup=[
-    EngineTestSupport, UseEngineSupport] begin
+    UseEngineSupport] begin
     using Random
     import LineCableModels.ParametricBuilder as PB
 
@@ -233,7 +233,7 @@ end
 end
 
 @testitem "ParametricBuilder / Gridspace / recursive point resolution" tags=[:unit] setup=[
-    EngineTestSupport, UseEngineSupport, TestNumerics] begin
+    UseEngineSupport, TestNumerics] begin
     using Random
     import LineCableModels.ParametricBuilder as PB
 
@@ -257,7 +257,7 @@ end
 end
 
 @testitem "ParametricBuilder / macros / strict and lifted construction" tags=[:unit] setup=[
-    EngineTestSupport, UseEngineSupport] begin
+    UseEngineSupport] begin
     import LineCableModels.ParametricBuilder as PB
 
     PB.@gridspace struct MacroVault{T <: Real}

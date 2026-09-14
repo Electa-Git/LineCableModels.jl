@@ -21,7 +21,7 @@ function _addon_series_styles!(groups, order, attributes; defaults=nothing, shar
         end
     end
     attributes === nothing && defaults === nothing && isempty(shared) && return dependents
-    styles = LineCableModels.PlotBuilder._series_attributes(attributes, length(order))
+    styles = _series_attributes(attributes, length(order))
     shared_consumed = Set{Symbol}()
     drawing_order = defaults === nothing ? collect(eachindex(order)) :
         sortperm(collect(eachindex(order)); by=index -> defaults[index].priority)

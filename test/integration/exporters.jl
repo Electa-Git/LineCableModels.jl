@@ -1,5 +1,4 @@
 @testitem "ImportExport / PSCAD / system structure and physical values" tags=[:integration] setup=[
-    ImportExportTestSupport,
     UseImportExportSupport,
     TestFixtures
 ] begin
@@ -10,7 +9,20 @@
         for parameter in findall("./paramlist/param", node))
     end
 
-    system=TestFixtures.three_phase_system()
+    # A split dielectric with distinct laws exercises the actual multilayer
+    # exporter. A generic coaxial recipe need not carry this extra scenario.
+    metal=TestFixtures.conductor_material()
+    first_layer=Material(kind=:insulator,rho=1e8,eps_r=3.0)
+    second_layer=Material(kind=:insulator,rho=2e8,eps_r=5.0)
+    design=build(CableDesign,"export-layers",Stack(
+        terminal(:core,Region(:metal,Disk(.005),metal)),
+        Region(:inner_dielectric,Shell(.002),first_layer),
+        Region(:outer_dielectric,Shell(.003),second_layer),
+        terminal(:sheath,Region(:return,Shell(.001),metal)),
+        Region(:cover,Shell(.001),first_layer)))
+    system=build(LineCableSystem,[design,design,design],
+        [(-.08,-1.0),(0.,-1.08),(.08,-1.0)];
+        connections=[Dict(:core=>i,:sheath=>0) for i in 1:3],system_id="export-current")
     earth=EarthModel(100.0, 10.0, 1.0)
 
     mktempdir() do directory
@@ -160,7 +172,6 @@
 end
 
 @testitem "ImportExport / PSCAD / four-component limit" tags=[:integration] setup=[
-    ImportExportTestSupport,
     UseImportExportSupport
 ] begin
     using LineCableModels
@@ -218,11 +229,23 @@ end
 end
 
 @testitem "ImportExport / PSCAD / materialized round trip" tags=[:integration] setup=[
-    ImportExportTestSupport,
     UseImportExportSupport,
     TestFixtures
 ] begin
-    system=TestFixtures.three_phase_system()
+    # A split dielectric with distinct laws exercises the actual multilayer
+    # exporter. A generic coaxial recipe need not carry this extra scenario.
+    metal=TestFixtures.conductor_material()
+    first_layer=Material(kind=:insulator,rho=1e8,eps_r=3.0)
+    second_layer=Material(kind=:insulator,rho=2e8,eps_r=5.0)
+    design=build(CableDesign,"export-layers",Stack(
+        terminal(:core,Region(:metal,Disk(.005),metal)),
+        Region(:inner_dielectric,Shell(.002),first_layer),
+        Region(:outer_dielectric,Shell(.003),second_layer),
+        terminal(:sheath,Region(:return,Shell(.001),metal)),
+        Region(:cover,Shell(.001),first_layer)))
+    system=build(LineCableSystem,[design,design,design],
+        [(-.08,-1.0),(0.,-1.08),(.08,-1.0)];
+        connections=[Dict(:core=>i,:sheath=>0) for i in 1:3],system_id="export-current")
     earth=EarthModel(100.0, 10.0, 1.0)
 
     mktempdir() do directory

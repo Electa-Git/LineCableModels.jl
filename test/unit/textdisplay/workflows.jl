@@ -2,7 +2,7 @@
     TestFixtures,
 ] begin
     const EN=LineCableModels.Engine
-    design=TestFixtures.mv_cable_design()
+    design=TestFixtures.coaxial_design()
     problem=CableConstantsProblem(design; temperature = 60.0, frequency = 60.0)
     line_problem=LineParametersProblem(TestFixtures.three_phase_system();
         earth_props = homogeneous(rho = 100.0), frequencies = [0.1, 50.0, 1e6])
@@ -137,7 +137,7 @@ end
     relative=Grid((10.0, 100.0), (1.0, 2.0))
     absolute=Grid((10.0, 100.0), AbsoluteError((0.1, 0.2)))
     calls=Ref(0)
-    design=TestFixtures.mv_cable_design()
+    design=TestFixtures.coaxial_design()
     space=Gridspace{CableConstantsProblem}(
         temperature->begin
             calls[]+=1

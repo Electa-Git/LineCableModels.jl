@@ -6,8 +6,13 @@
         # FLTK/Gmsh retain native GUI state after finalize. Exercise each closure
         # scenario in a fresh process, including when other tests used the GUI.
         for action in ("before_mesh","before_solve","during_solve","complete")
-            code="include(" * repr(joinpath(pkgdir(LineCableModels),"test","runtests.jl")) * ")"
-            command=`$(Base.julia_cmd()) --startup-file=no --project=$(dirname(Base.active_project())) -e $code fem_ui.jl`
+            # Select only this native item. A filename alone does not enable the
+            # excluded FEM lane, while adding its tag would select every FEM item.
+            helper=joinpath(pkgdir(LineCableModels),"test","support","runner.jl")
+            code="include($(repr(helper))); ValidationTestRunner.run_tests(" *
+                "$(repr(pkgdir(LineCableModels))); filter=item->endswith(item.filename," *
+                "joinpath(\"test\",\"extensions\",\"fem_ui.jl\")))"
+            command=`$(Base.julia_cmd()) --startup-file=no --project=$(dirname(Base.active_project())) -e $code`
             @test success(addenv(command,"LINECABLEMODELS_FEM_UI_CASE"=>action))
         end
     else

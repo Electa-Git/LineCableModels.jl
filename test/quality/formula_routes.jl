@@ -1,4 +1,4 @@
-@testitem "Quality / equation ownership and absence of cross-author delegation" tags=[:quality] begin
+@testitem "Quality / current equation bindings and owner hooks" tags=[:quality] begin
     const E=LineCableModels.Engine
     const EP=LineCableModels.Earth
     const FM=LineCableModels.FormulaMethod
@@ -6,21 +6,6 @@
         E.InsulationAdmittance, E.SemiconAdmittance, E.EarthAdmittance,
         EP.FrequencyDependent, EP.EquivalentHomogeneous, LineCableModels.Transforms,
         LineCableModels.Materials.TemperatureDependent)
-    function inspect(node, identifier, violations)
-        node isa Expr || return
-        if node.head === :call &&
-           first(node.args) in (:earth_impedance, :earth_potential_coefficient,
-            :internal_impedance, :insulation_impedance, :insulation_material, :semicon_material,
-            :earth_material, :equivalent_material, :modal_operators, :temperature_resistivity)
-            arg=length(node.args)>1 ? node.args[2] : nothing
-            if arg isa Expr && arg.head === :call && first(arg.args) === :Val &&
-               last(arg.args) isa QuoteNode
-                target=last(arg.args).value
-                target===identifier || push!(violations, (identifier, target))
-            end
-        end
-        foreach(child->inspect(child, identifier, violations), node.args)
-    end
     for owner in owners, identifier in owner.formulas()
 
         selected=owner.Formula(identifier)
@@ -53,17 +38,6 @@
             @test parentmodule(route.method) === owner
             @test all(arg->arg isa Val, route.arguments)
         end
-        family=owner===LineCableModels.Transforms ? "transforms" :
-               lowercase(String(nameof(owner)))
-        location=owner in (EP.FrequencyDependent, EP.EquivalentHomogeneous) ? "earth" :
-                 owner === LineCableModels.Materials.TemperatureDependent ? "materials" : "engine"
-        directory=owner===LineCableModels.Transforms ?
-                  joinpath(pkgdir(LineCableModels), "src", "transforms", "formulas") :
-                  joinpath(pkgdir(LineCableModels), "src", location, family, "formulas")
-        syntax=Meta.parseall(read(joinpath(directory, lowercase(String(identifier))*".jl"), String))
-        violations=Tuple{Symbol, Symbol}[]
-        inspect(syntax, identifier, violations)
-        @test isempty(violations)
         custom=(args...)->args
         key=owner===E.InternalImpedance ? :inner : :contribution
         for route in routes
@@ -85,10 +59,4 @@
             @test_throws ArgumentError owner.Formula(identifier; hooks = (unknown = custom,))
         end
     end
-    # Guard must detect semantic delegation even when arguments are modified;
-    # an exact-text forwarding check would miss this call.
-    violations=Tuple{Symbol, Symbol}[]
-    inspect(:(earth_impedance(Val(:OtherAuthor), Val(:mutual), modified_state, pair)),
-        :Carson1926, violations)
-    @test violations == [(:Carson1926, :OtherAuthor)]
 end

@@ -48,7 +48,7 @@
 end
 
 @testitem "Makie addons / colorbar endpoint labels stay inside the figure" tags=[:visual] setup=[
-    NativePlotTestSupport, UseNativePlotSupport
+    UseNativePlotSupport
 ] begin
     using CairoMakie
 
@@ -103,7 +103,7 @@ end
 end
 
 @testitem "Makie addons / native figures, layouts, docks, widgets, and export" tags=[:visual] setup=[
-    NativePlotTestSupport, UseNativePlotSupport, TestFixtures
+    UseNativePlotSupport, TestFixtures
 ] begin
     get(ENV,
         "LINECABLEMODELS_TEST_PLOTTING",
@@ -441,13 +441,9 @@ end
     @test all(axis -> axis.xscale[] === Makie.identity, automatic_page.axes)
     @test occursin("10", sprint(show, first_axis.ylabel[]))
 
-    library=CablesLibrary()
-    load!(library;
-        file_name = joinpath(
-            pkgdir(LineCableModels), "test", "fixtures", "data", "mv_cable_design.json"
-        )
-    )
-    design=first(values(library.data))
+    include(joinpath(pkgdir(LineCableModels),"test/support/scenarios.jl"))
+    design=CurrentScenarios.coaxial_design()
+
     cable=preview(
         design;
         backend = :cairo,
@@ -467,12 +463,14 @@ end
         display_plot = false,
         controls = false,
         display_colorbars = false,
-        legend_group = region->startswith(
-            String(region.source.tag), "core_wire_") ?
-                               :stranded_core : region.source.tag,
-        legend_labels = Dict(:stranded_core=>"Stranded core")
+        # Both independently tagged metal regions share one caller-defined
+        # legend entry; the dielectric regions retain their own identities.
+        legend_group = region->region.source.tag in (:metal, :return) ?
+                               :conductors : region.source.tag,
+        legend_labels = Dict(:conductors=>"Conductors")
     )
-    @test count(==("Stranded core"), legend_labels(grouped_cable.legend)) == 1
+    @test count(==("Conductors"), legend_labels(grouped_cable.legend)) == 1
+    @test length(legend_labels(grouped_cable.legend)) == 3
 
     late_legend_cable=preview(
         design;

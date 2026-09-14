@@ -1,5 +1,5 @@
 @testitem "Makie addons / native Monte Carlo verbs" tags=[:visual] setup=[
-    NativePlotTestSupport, UseNativePlotSupport, TestFixtures
+    UseNativePlotSupport, TestFixtures
 ] begin
     get(ENV, "LINECABLEMODELS_TEST_PLOTTING", "false")=="true"||
     error("set LINECABLEMODELS_TEST_PLOTTING=true to run the visual contract")
@@ -51,7 +51,7 @@ end
     @test first.(native[1][]) ≈ expected.edges
     @test last.(native[1][]) ≈ [expected.density; last(expected.density)]
     @test length(retained.density) == 2
-    @test retained.edges == [1.0, 3.0, 5.0]
+    @test retained.edges == HistogramDensity(vec(only(result.sample_values).R);bins=2).edges
     @test_throws ArgumentError Makie.stairs(result, R; bins=0, backend=:cairo,
         display_plot=false)
     without_samples = MonteCarloResult(result.formulation, result.values, result.stats,

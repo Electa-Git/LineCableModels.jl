@@ -46,10 +46,7 @@ end
     @test decoded.positions == system.positions
     @test decoded.input_positions == system.input_positions
     @test decoded.clearances == system.clearances
-    legacy=IE.serialize_value(system)
-    delete!(legacy, "input_positions")
-    delete!(legacy, "clearances")
-    @test IE.deserialize_value(legacy).positions == system.positions
+
 
     reversed=@test_logs (:warn, r"Cable placements adjusted") build(LineCableSystem, reverse(declared))
     @test getproperty.(reverse(reversed.positions), :x) ≈ getproperty.(system.positions, :x) atol=1e-14

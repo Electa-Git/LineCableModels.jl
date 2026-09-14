@@ -1,59 +1,30 @@
-@testitem "Quality / report orchestration / direct contracts" tags = [:quality] begin
+@testitem "Quality / report orchestration / concrete protocol calls" tags=[:quality] setup=[TestFixtures] begin
     using RequiredInterfaces
-
-    const Grammar = LineCableModels.Grammar
-    const ReportBuilder = LineCableModels.ReportBuilder
-
-    @test !isdefined(Grammar, Symbol("@orchestrator"))
-    @test !isdefined(Grammar, :orchestrator_root)
-    @test !isdefined(Grammar, :orchestrator_method)
-    @test !isdefined(ReportBuilder, :entitle)
-    @test !isdefined(ReportBuilder, :finish)
-
-    root = ReportBuilder.AbstractReportDefinition
-    @test RequiredInterfaces.isInterface(root)
-    hooks = Set(RequiredInterfaces.functions(RequiredInterfaces.getInterface(root)))
-    @test hooks == Set((ReportBuilder.select, ReportBuilder.tabulate))
-
-    report_methods = collect(methods(ReportBuilder.report))
-    @test length(report_methods) == 1
-    report_method = only(report_methods)
-    @test report_method.module === ReportBuilder
-    @test report_method.sig == Tuple{
-        typeof(ReportBuilder.report),
-        ReportBuilder.AbstractReportDefinition,
-        Any
-    }
-
-    function signature_mentions(value, owner)
-        value === owner && return true
-        value isa TypeVar && return signature_mentions(value.lb, owner) ||
-               signature_mentions(value.ub, owner)
-        value isa UnionAll && return signature_mentions(value.var, owner) ||
-               signature_mentions(value.body, owner)
-        value isa DataType && return any(
-            parameter -> signature_mentions(parameter, owner),
-            value.parameters
-        )
-        value isa Union && return signature_mentions(value.a, owner) ||
-               signature_mentions(value.b, owner)
-        return false
+    const RB=LineCableModels.ReportBuilder
+    @test RequiredInterfaces.isInterface(RB.AbstractReportDefinition)
+    @test Set(RequiredInterfaces.functions(RequiredInterfaces.getInterface(RB.AbstractReportDefinition))) ==
+        Set((RB.select,RB.tabulate))
+    line=TestFixtures.two_conductor_results()
+    cable=CableConstants(0.2,3e-6,4e-10,5e-9)
+    mc=TestFixtures.cable_monte_carlo_result()
+    cases=((RB.CableConstantsTableDefinition(),cable),
+        (RB.LineParametersTableDefinition((@observe(R[:,:,:]),@observe(L[:,:,:]),@observe(G[:,:,:]),@observe(C[:,:,:])),:base,:base,:base,false),line),
+        (RB.BenchmarkTableDefinition(),(reference=line,candidate=line)),
+        (RB.MonteCarloTableDefinition(:base,nothing),mc),
+        (XLSXReportDefinition(),line), (TableReportDefinition((R,)),cable))
+    for (definition,source) in cases
+        @test applicable(RB.select,definition,source)
+        published=RB.select(definition,source)
+        @test applicable(RB.tabulate,definition,source,published)
+        table=RB.tabulate(definition,source,published)
+        @test table !== nothing
+        @test which(report,(typeof(definition),typeof(source))).module === RB
     end
-
-    implementors = Tuple(RequiredInterfaces.nonabstract_subtypes(root))
-    missing = Tuple(
-        (implementor, hook) for implementor in implementors
-    for hook in hooks
-    if !any(method -> signature_mentions(method.sig, implementor), methods(hook))
-    )
-    @test isempty(missing)
-
-    publication_methods = Method[method
-                                 for method in methods(LineCableModels.observables)
-                                 if method.nargs == 3]
-    @test length(publication_methods) == 1
-    publication_method = only(publication_methods)
-    @test publication_method.module === Grammar
-    @test publication_method.sig ==
-          Tuple{typeof(LineCableModels.observables), Any, Tuple}
+    # Mentioning an implementor in the wrong argument is no implementation of
+    # this protocol. Execute the required position to expose the fallback.
+    struct WrongPositionReport <: RB.AbstractReportDefinition end
+    RB.select(source::Integer,::WrongPositionReport)=source
+    RB.tabulate(source::Integer,published,::WrongPositionReport)=published
+    @test_throws RequiredInterfaces.NotImplementedError RB.select(WrongPositionReport(),23)
+    @test_throws RequiredInterfaces.NotImplementedError RB.tabulate(WrongPositionReport(),23,29)
 end

@@ -1,45 +1,9 @@
 @testitem "Quality / TextDisplay / ownership and side-effect boundaries" tags=[:quality] begin
     using DataFrames
 
-    root=pkgdir(LineCableModels)
-    source_root=joinpath(root, "src")
-    display_paths=String[
-    joinpath(source_root, "textdisplay", "TextDisplay.jl"),
-    joinpath(
-        source_root, "materials", "base.jl"),
-    joinpath(
-        source_root, "earth", "base.jl"),
-    joinpath(
-        source_root, "plotbuilder", "handle.jl")
-]
-    append!(display_paths,
-        [joinpath(source_root, owner, "textdisplay.jl")
-         for owner in (
-            "datamodel",
-            "engine",
-            "parametricbuilder",
-            "reportbuilder",
-            "uq"
-        )])
-    display_source=join(read(path, String) for path in display_paths)
-
-    for forbidden in (
-        r"\bbuild\s*\(",
-        r"\bresolve\s*\(",
-        r"\bcompute\s*\(",
-        r"\bobservables\s*\(",
-        r"\bDataFrame\s*\(",
-        r"\bmaterialize\s*\(",
-        r"\btessellate\s*\(",
-        r"\b(?:CairoMakie|GLMakie|Makie)\."
-    )
-        @test !occursin(forbidden, display_source)
-    end
-    @test !occursin("fieldnames", display_source)
-    @test !occursin("PrettyTables", display_source)
-    @test length(collect(eachmatch(r"\bmacro\s+showfields\b", display_source))) == 1
-    @test !Base.ispublic(LineCableModels.TextDisplay, Symbol("@showfields"))
-
+    # Current show/summary methods are owned by the domain. Observable
+    # publication and display side effects are exercised by the behavioral
+    # ReportBuilder/TextDisplay tests, not inferred from source tokens.
     owner_modules=(
         LineCableModels.Units,
         LineCableModels.InputValidation,
@@ -80,42 +44,4 @@
     signature=Base.unwrap_unionall(only(report_methods).sig)
     @test signature.parameters[2] <: LineCableModels.Grammar.ObservationPublication
 
-    tables_owners=String[]
-    for (directory, _, files) in walkdir(source_root)
-        for file in files
-            endswith(file, ".jl") || continue
-            path=joinpath(directory, file)
-            occursin(r"Tables\.(?:istable|rowaccess|columnaccess|columns|schema)\s*\(",
-                read(path, String)) && push!(tables_owners, relpath(path, root))
-        end
-    end
-    @test tables_owners == [joinpath("src", "grammar", "observables.jl")]
-
-    for owner in ("datamodel", "engine")
-        owner_source=join(
-            read(joinpath(directory, file), String)
-        for (directory, _, files) in walkdir(joinpath(source_root, owner))
-        for file in files if endswith(file, ".jl")
-        )
-        @test !occursin("DataFrames", owner_source)
-    end
-
-    tutorial_source=join(
-        read(joinpath(root, "examples", tutorial), String)
-    for tutorial in ("tutorial2.jl", "tutorial3.jl")
-    )
-    for object in (
-        "materials",
-        "constants",
-        "equivalent_design",
-        "cable_design",
-        "library",
-        "earth_params",
-        "cable_system",
-        "line_parameters",
-        "sequence_parameters"
-    )
-        @test !occursin(Regex("DataFrame\\s*\\(\\s*" * object * "\\s*[),]"),
-            tutorial_source)
-    end
 end

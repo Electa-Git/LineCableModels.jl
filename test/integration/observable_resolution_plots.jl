@@ -33,15 +33,6 @@
         tight; ydata=(G,), atol=(G=1e-12,), options...)
     @test overridden.addon_state.resolution.display_override
     @test all(values -> all(iszero, values), ordinates(overridden))
-    historical = merge(publication.published, (comparisons=map(publication.published.comparisons) do row
-        old_details = Base.structdiff(row.error.details, (; resolution=row.error.details.resolution))
-        old = LineCableModels.Engine.RMSError{Float64}(row.error.absolute, row.error.relative;
-            details=old_details)
-        merge(row, (error=old,))
-    end,))
-    history = @test_logs (:warn, r"Historical comparison semantics") LineCableModels.plot(
-        historical; ydata=(G,), options...)
-    @test !history.addon_state.resolution.current_comparison
     phase = LineCableModels.plot(reference; ydata=((Y, angle, 1, 1, :),), options...)
     @test all(isnan, only(ordinates(phase)))
     @test only(phase.axes).subtitle[] == "Undefined phase"
@@ -61,7 +52,7 @@ end
     # failures. Real uncertainty at zero must still produce correctly centred bars.
     for (means, spreads, clean_means, clean_spreads) in (
             (range(-1e-27, 2e-27; length=13), fill(4e-27, 13), zeros(13), zeros(13)),
-            (fill(-3.592027795269888e-10, 13) .+ (0:12) .* 1e-25,
+            (fill(-7e-10, 13) .+ (0:12) .* 1e-25,
                 fill(3e-25, 13), nothing, zeros(13)),
             (fill(1e-27, 13), fill(4e-10, 13), zeros(13), fill(4e-10, 13)))
         c = reshape(measurement.(means, spreads), 1, 1, :)

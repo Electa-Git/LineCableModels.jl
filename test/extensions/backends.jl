@@ -22,7 +22,6 @@
             @test Base.invokelatest(makie_extension.current_backend_symbol) === backend
         end
     end
-    @test !isdefined(LineCableModels, :set_backend!)
 end
 
 @testitem "Extensions / backend dispatch / explicit Cairo sugar" tags=[:visual] setup=[
@@ -37,7 +36,6 @@ end
     @test cairo_extension !== nothing
     @test cairo_extension.activate!() === :cairo
     @test extension.current_backend_symbol() === :cairo
-    @test !isdefined(LineCableModels, :set_backend!)
 
     parameters=TestFixtures.two_conductor_results(
         frequencies = [50.0, 100.0, 500.0]

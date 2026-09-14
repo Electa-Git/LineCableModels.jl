@@ -8,19 +8,7 @@
     @test parentmodule(LineCableModels.preview) === LineCableModels.PlotBuilder
     @test parentmodule(LineCableModels.show_material_scale) ===
           LineCableModels.PlotBuilder
-    @test !isdefined(LineCableModels, :set_backend!)
-    @test !isdefined(LineCableModels.Engine, :plot)
-    @test !isdefined(LineCableModels.DataModel, :preview)
-    @test !isdefined(LineCableModels.DataModel, :show_material_scale)
-    @test !isdefined(LineCableModels.Engine, :_prepare_line_observations)
-    @test !isdefined(LineCableModels.DataModel, :NativePreviewPolygon)
-    @test !isdefined(LineCableModels.DataModel, :NativePreviewReference)
-    @test !isdefined(LineCableModels.DataModel, :material_color_scheme)
 
-    @test fieldnames(Base.unwrap_unionall(UIPlot)) == (
-        :figure, :title, :axes, :controls, :legend, :panel_legends, :colorbars,
-        :addon_state, :export_name, :export_theme, :open_export
-    )
 
     figure=Ref(:native_figure)
     axes=(:axis_1, :axis_2)
@@ -46,11 +34,8 @@
     @test isempty(plot_handle.panel_legends)
     @test plot_handle.colorbars === colorbars
     @test plot_handle.addon_state === addon_state
-    @test !hasproperty(plot_handle, :context)
-    @test !hasproperty(plot_handle, :panels)
-    @test !hasproperty(plot_handle, :legend_data)
 
-    design=TestFixtures.mv_cable_design()
+    design=TestFixtures.coaxial_design()
     placed=first(design.geometry.regions)
     shapes=LineCableModels.DataModel.preview_shapes(placed)
     @test !isempty(shapes)
@@ -83,17 +68,4 @@
     @test keys(ranges) == (:rho, :mu_r, :eps_r)
     @test all(range -> range isa Tuple{<:Real, <:Real}, values(ranges))
 
-    root=pkgdir(LineCableModels)
-    @test !ispath(joinpath(
-        root, "src", "engine", "lineparameters", "plotdata.jl"
-    ))
-    @test !ispath(joinpath(
-        root, "src", "engine", "lineparameters", "comparisondata.jl"
-    ))
-    @test isfile(joinpath(
-        root, "ext", "LineCableModelsMakieExt", "recipes", "line_data.jl"
-    ))
-    @test isfile(joinpath(
-        root, "ext", "LineCableModelsMakieExt", "recipes", "preview_data.jl"
-    ))
 end

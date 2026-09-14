@@ -1,5 +1,4 @@
 @testitem "BaseParams / numeric matrix / precision and exactness" tags=[:unit] setup=[
-    BaseParamsTestSupport,
     UseBaseParamsSupport,
     TestNumerics
 ] begin
@@ -42,27 +41,19 @@
 end
 
 @testitem "BaseParams / numeric matrix / cross-precision convergence" tags=[:unit] setup=[
-    BaseParamsTestSupport,
     UseBaseParamsSupport
 ] begin
-    using TOML
-
-    reference=TOML.parsefile(joinpath(
-        pkgdir(LineCableModels),
-        "test",
-        "fixtures",
-        "reference",
-        "coaxial_capacitance.toml"
-    ))
-    oracle=setprecision(BigFloat, reference["precision_bits"]) do
-        parse(BigFloat, reference["value"])
+    # Independent electrostatic Dirichlet solution v=log(b/r)/log(b/a):
+    # integrate normal displacement on the inner circular boundary.
+    oracle=setprecision(BigFloat,256) do
+        2big(pi)*big"8.8541878128e-12"*3/log(big".01"/big".005")
     end
 
     approximations=(
-        shunt_capacitance(Float32(0.01), Float32(0.02), Float32(2.3)),
-        shunt_capacitance(0.01, 0.02, 2.3),
+        shunt_capacitance(Float32(.005), Float32(.01), Float32(3.0)),
+        shunt_capacitance(.005, .01, 3.0),
         setprecision(BigFloat, 128) do
-            shunt_capacitance(big"0.01", big"0.02", big"2.3")
+            shunt_capacitance(big".005", big".01", big"3")
         end
     )
     errors=map(value->abs(BigFloat(value)-oracle)/abs(oracle), approximations)

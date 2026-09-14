@@ -4,7 +4,7 @@
     using Pkg.Artifacts
     include(joinpath(pkgdir(LineCableModels), "test", "numerical", "references.jl"))
     owner = NumericalReferences
-    problem = TestFixtures.line_parameters_problem(; frequencies=[0.1, 50.0, 1.0e6])
+    problem = TestFixtures.line_parameters_problem(TestFixtures.two_wire_system(); frequencies=[10.0,100.0,1000.0])
     formulation = Formulation(insulation_admittance=:Ametani2004,
         options=(reduce_bundle=false, kron_reduction=false, ideal_transposition=false))
     parameters = compute(problem, formulation)
@@ -16,7 +16,7 @@
         problem=LineCableModels.ImportExport.serialize_value(problem),
         formulation=(definitions=formulation.definitions, options=formulation.options),
         Z=parameters.Z.values, Y=parameters.Y.values, frequencies=problem.frequencies,
-        port_order=string.(axes(parameters.Z, 1)), basis=:pul, domain=:PhaseDomain,
+        port_order=copy(details(parameters).coordinates), basis=:pul, domain=:PhaseDomain,
     )
     protected = [joinpath(pkgdir(LineCableModels), "test", "numerical", name)
         for name in ("approved.toml", "Artifacts.toml")]
@@ -35,12 +35,22 @@
         comparison = owner.compare_reference(reference)
         @test all(iszero, comparison.Z.absolute)
         @test all(iszero, comparison.Y.absolute)
-        @test !isdefined(owner, :GauntletSupport)
-        @test !isdefined(owner, :Gmsh)
-        @test owner.PSCAD === LineCableModels.PSCAD
+        @test details(reference.parameters).coordinates == document.port_order
+        # Numerical values cannot rescue different terminal or frequency identities.
+        for update in ((port_order=reverse(document.port_order),),
+                (port_order=["invented-west","invented-east"],),
+                (frequencies=reverse(document.frequencies),))
+            invalid=joinpath(root,"identity.jld2")
+            JLD2.jldsave(invalid;merge(document,update)...)
+            @test_throws ArgumentError begin
+                altered=owner.read_reference(invalid,bytes2hex(open(sha256,invalid)))
+                owner.compare_reference(altered)
+            end
+        end
 
         hash = create_artifact() do directory
             cp(path, joinpath(directory, "reference.jld2"))
+            JLD2.jldsave(joinpath(directory,"zero-reference.jld2");merge(document,(Z=zero.(document.Z),))...)
             altered = copy(document.Z)
             altered[1, 2, :] .+= 1
             JLD2.jldsave(joinpath(directory, "changed.jld2");
@@ -80,6 +90,13 @@
         @test read(changed) == changed_bytes
         @test stat(changed).mtime == changed_mtime
 
+        zero_path=joinpath(artifact_path(hash),"zero-reference.jld2")
+        write_manifest([merge(entry,Dict("file"=>"zero-reference.jld2",
+            "sha256"=>bytes2hex(open(sha256,zero_path))))])
+        zero_rows=owner.check(manifest)
+        @test all(row->row.passed isa Bool,zero_rows)
+        @test all(row->!row.passed,filter(row->row.quantity===:Z,zero_rows))
+
         # Missing authority and malformed review settings fail before any replay.
         write_manifest([])
         @test_throws "no numerical references have been approved" owner.check(manifest)
@@ -105,20 +122,20 @@
             JLD2.jldsave(invalid; merge(document, update)...)
             @test_throws ArgumentError owner.read_reference(invalid, bytes2hex(open(sha256, invalid)))
         end
-        legacy = Dict(pairs(document))
-        delete!(legacy, :problem)
-        path = joinpath(root, "legacy.jld2")
-        JLD2.jldsave(path; legacy...)
+        incomplete = Dict(pairs(document))
+        delete!(incomplete, :problem)
+        path = joinpath(root, "incomplete.jld2")
+        JLD2.jldsave(path; incomplete...)
         @test_throws "replay requires stored problem" owner.read_reference(path, bytes2hex(open(sha256, path)))
     end
     @test [(read(path), stat(path).mtime) for path in protected] == original
     # A quiet trace still detects drift when the reviewed CI tolerance is zero.
-    quiet_problem = TestFixtures.line_parameters_problem(; frequencies=[1e-8])
+    quiet_problem = TestFixtures.line_parameters_problem(TestFixtures.two_wire_system(); frequencies=[1e-8])
     quiet_formulation = Formulation(options=(reduce_bundle=false,
         kron_reduction=false, ideal_transposition=false))
     actual = compute(quiet_problem, quiet_formulation)
     changed = LineParameters(PhaseDomain, copy(actual.Z.values),
-        actual.Y.values .+ 1e-15, actual.f)
+        actual.Y.values .+ 1e-15, actual.f; details=(coordinates=copy(details(actual).coordinates),))
     scientific = LineCableModels.Engine.compare(changed, actual)
     @test all(>(0), scientific.Y.absolute)
     @test all(ismissing, scientific.Y.relative)

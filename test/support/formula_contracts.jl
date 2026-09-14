@@ -8,7 +8,8 @@
     const calls = Tuple[]
 
     # Finite, deliberately asymmetric manufactured equations. These do not enter
-    # the literature inventory. Exact selector methods are the case authority.
+    # the literature inventory. Routing expectations are declared test rules. Each
+    # call retains its own argument storage and identifies the physical quantity.
     for owner in (EI, EA)
         operation = owner === EI ? EI.earth_impedance : EA.earth_potential_coefficient
         operation_name = GlobalRef(owner, nameof(operation))
@@ -20,7 +21,8 @@
                     ($(QuoteNode(nameof(owner))), functor.state.jω,
                         pair.row, pair.column, pair.layers, pair.heights,
                         copy(functor.state.rho), functor.binding.physical_pair))
-                coefficient = 10 * $s + $t + (pair.row == pair.column ? 100 : 0)
+                coefficient = 11 * $s + 17 * $t + 3 * pair.row + 5 * pair.column +
+                    real(functor.state.jω / (2pi*im)) / 100 + (pair.row == pair.column ? 101 : 0)
                 if haskey(functor.options, :integration)
                     integral = E.SpectralIntegral(Val(:cosine), λ -> complex(exp(-λ)),
                         (height = 1.0, separation = 0.0), 1.0)

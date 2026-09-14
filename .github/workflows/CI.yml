@@ -250,8 +250,8 @@ jobs:
           Pkg.activate(; temp = true)
           Pkg.develop(PackageSpec(path = pwd()))
           Pkg.add(["Aqua", "TestItemRunner"])
-          using TestItemRunner
-          TestItemRunner.run_tests(pwd(); filter=item ->
+          include("test/support/runner.jl")
+          ValidationTestRunner.run_tests(pwd(); filter=item ->
               endswith(item.filename, joinpath("test", "quality", "aqua.jl")))
 
   clean-install:

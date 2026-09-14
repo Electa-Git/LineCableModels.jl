@@ -1,9 +1,8 @@
 @testitem "DataModel / v1 presentation / model display and result table" tags=[:unit] setup=[
-    DataModelTestSupport,
     UseDataModelSupport,
     TestFixtures
 ] begin
-    design=TestFixtures.mv_cable_design()
+    design=TestFixtures.coaxial_design()
     system=TestFixtures.three_phase_system()
     @test hasfield(typeof(design), :origin)
     @test hasproperty(design, :origin)

@@ -6,18 +6,32 @@
         Rtotal = log(3.0), left = NamedTuple[], right = NamedTuple[])
     k = E._shunt_kernel_coefficients(h, 256)
     @testset "Local Green function controls" begin
-        for (z, s) in ((1.3cis(0.2), 2.1cis(1.1)), (1.4cis(2.1), 2.5cis(-0.4)))
-            x, y, L = log(abs(z)), log(abs(s)), log(3.0)
-            exact = min(x, y)*(L-max(x, y))/L
-            for m in 1:256
-                exact += 2sinh(m*min(x, y))*sinh(m*(L-max(x, y))) /
-                         (m*sinh(m*L))*cos(m*(angle(z)-angle(s)))
+        z,s=1.4cis(.3),2.2cis(1.2)
+        x,y,L=log(abs(z)),log(abs(s)),log(3.0)
+        resolved=false
+        for order in (32,64,128,256,512)
+            exact=min(x,y)*(L-max(x,y))/L
+            magnitude=abs(exact)
+            for m in 1:order
+                term=2sinh(m*min(x,y))*sinh(m*(L-max(x,y)))/
+                    (m*sinh(m*L))*cos(m*(angle(z)-angle(s)))
+                exact+=term;magnitude+=abs(term)
             end
-            @test E._shunt_kernel(z, s, h, k) ≈ exact atol=2e-14
-            @test E._shunt_kernel(z, s, h, k) ≈ E._shunt_kernel(s, z, h, k) atol=2e-14
-            @test abs(E._shunt_kernel(cis(0.3), s, h, k)) < 2e-14
-            @test abs(E._shunt_kernel(3cis(0.3), s, h, k)) < 2e-14
+            ratio=exp(-abs(y-x))
+            tail=ratio^(order+1)/((order+1)*(1-ratio)*(1-exp(-2L)))
+            coefficients=E._shunt_kernel_coefficients(h,order)
+            actual=E._shunt_kernel(z,s,h,coefficients)
+            budget=1e-10abs(exact)
+            uncertainty=tail+(2order+20)*eps(Float64)*magnitude
+            if uncertainty<=budget/4
+                @test abs(actual-exact)+uncertainty<=budget
+                resolved=true
+            end
+            @test E._shunt_kernel(z,s,h,coefficients) ≈ E._shunt_kernel(s,z,h,coefficients) atol=1e-12
+            @test abs(E._shunt_kernel(cis(.3),s,h,coefficients))<1e-12
+            @test abs(E._shunt_kernel(3cis(.3),s,h,coefficients))<1e-12
         end
+        @test resolved
         h2 = merge(h, (epsilon = 2.0, Rtotal = log(3.0)/2))
         @test E._shunt_kernel(1.4cis(0.2), 2.1cis(1.1), h2, E._shunt_kernel_coefficients(h2, 256)) ≈
               E._shunt_kernel(1.4cis(0.2), 2.1cis(1.1), h, k)/2
@@ -52,8 +66,8 @@
         @test E._shunt_junction_exponent(1.0,1.0) ≈ 2/3
         @test E._shunt_junction_exponent(1.0,32.3) ≈ 2/pi*acos(sqrt(32.3/(2*33.3)))
         @test 0.5 < E._shunt_junction_exponent(1.0,32.3) < 2/3
-        for (alpha,beta) in ((0.0,0.0),(-1/3,-1/3),(-0.4904397072754232,-1/3))
-            nodes,weights = E._shunt_gauss_jacobi(48,alpha,beta)
+        for (alpha,beta) in ((0.0,0.0),(-1/3,-1/3),(-.49,-1/3)), order in (16,32,64,128)
+            nodes,weights = E._shunt_gauss_jacobi(order,alpha,beta)
             values = reduce(hcat,[E._shunt_jacobi(t,alpha,beta,8) for t in nodes])
             @test sum(weights) ≈ 1
             @test all(weights .> 0)

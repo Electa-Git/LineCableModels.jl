@@ -115,7 +115,24 @@ end
 
 _geometry_scalar(value) = float(nominal(value))
 
-function _geometry_tolerance(value)
+"""
+$(TYPEDSIGNATURES)
+
+Return the absolute floating-point roundoff allowance used by geometric
+predicates: 64 spacings at the magnitude of the nominal input, with unit scale
+when that magnitude is zero.
+
+# Arguments
+
+- `value`: Geometric scale in the SI units of the quantity being compared
+  (for example length \\[m\\] or area \\[m²\\]).
+
+# Returns
+
+- A nonnegative numerical allowance in the same units. Physical uncertainty
+  is not included in this roundoff policy.
+"""
+function geometry_tolerance(value)
     scale = abs(_geometry_scalar(value))
     return 64 * eps(iszero(scale) ? one(scale) : scale)
 end
@@ -151,7 +168,7 @@ function _sector_contacts(primitive::Sector)
     qb = 2 * line_offset * tangent
     qc = line_offset^2 - (radius - fillet)^2
     discriminant = qb^2 - 4 * qa * qc
-    tolerance = _geometry_tolerance(max(abs(qb^2), abs(4 * qa * qc)))
+    tolerance = geometry_tolerance(max(abs(qb^2), abs(4 * qa * qc)))
     discriminant_value = _geometry_scalar(discriminant)
     discriminant_value < -tolerance && throw(DomainError(
         discriminant,
@@ -162,7 +179,7 @@ function _sector_contacts(primitive::Sector)
     old_x = (-qb + sqrt(discriminant)) / (2 * qa)
     old_y = old_x * tangent + line_offset
     side_distance = hypot(old_x, old_y)
-    distance_tolerance = _geometry_tolerance(radius)
+    distance_tolerance = geometry_tolerance(radius)
     abs(_geometry_scalar(side_distance - (radius - fillet))) <=
         distance_tolerance || throw(DomainError(
         side_distance,
@@ -325,7 +342,7 @@ end
 function _angle_in_arc(angle, arc)
     period = oftype(angle, 2π)
     candidate = angle + ceil((arc.start - angle) / period) * period
-    tolerance = _geometry_tolerance(arc.stop - arc.start)
+    tolerance = geometry_tolerance(arc.stop - arc.start)
     return _geometry_scalar(candidate - arc.stop) <= tolerance
 end
 

@@ -1,9 +1,7 @@
 @testitem "Engine / insulation formulations / analytical limits across precision" tags=[:unit] setup=[
-    EngineTestSupport,
     UseEngineSupport,
     TestNumerics
 ] begin
-    using TOML
 
     impedance_formulation=InsulationImpedance.Formula(:default)
     admittance_formulation=InsulationAdmittance.Formula(:default)
@@ -15,23 +13,14 @@
     @test :default in InsulationImpedance.formulas()
     @test all(in(InsulationAdmittance.formulas()), (:Ametani2004, :default))
     @test all(in(SemiconAdmittance.formulas()), (:Ametani2004, :default))
-    @test !isdefined(InsulationAdmittance, :default)
-    @test !isdefined(InsulationAdmittance, :Ametani2004)
-    @test !isdefined(SemiconAdmittance, :Ametani2004)
-    reference=TOML.parsefile(joinpath(
-        pkgdir(LineCableModels),
-        "test",
-        "fixtures",
-        "reference",
-        "coaxial_capacitance.toml"
-    ))["lossless_formulation"]
-
+    # Current lossless radial fields: H=I/(2pi*r) and
+    # E=V/(r*log(b/a)); integrate their magnetic/electric energy.
     for T in (Float32, Float64, BigFloat)
         setprecision(BigFloat, 128) do
-            r_in=parse(T, "0.01")
-            r_ex=parse(T, "0.02")
-            relative_permeability=parse(T, "1.2")
-            relative_permittivity=parse(T, "2.3")
+            r_in=parse(T, "0.005")
+            r_ex=parse(T, "0.01")
+            relative_permeability=one(T)
+            relative_permittivity=T(3)
             angular_frequency=T(2)*T(π)*T(50)
             s=Complex{T}(zero(T), angular_frequency)
 
@@ -55,12 +44,12 @@
                 impedance,
                 Complex{T}(
                     zero(T),
-                    T(parse(BigFloat, reference["series_impedance_imaginary"]))
+                    angular_frequency*T(4)*T(pi)*parse(T,"1e-7")*relative_permeability*log(r_ex/r_in)/(T(2)*T(pi))
                 )
             )
             @test TestNumerics.isapprox_scaled(
                 potential,
-                Complex{T}(T(parse(BigFloat, reference["potential_coefficient"])))
+                Complex{T}(log(r_ex/r_in)/(T(2)*T(pi)*parse(T,"8.8541878128e-12")*relative_permittivity))
             )
             @test iszero(impedance_formulation(zero(T), r_ex, one(T), s))
             @test iszero(impedance_formulation(r_ex, r_ex, one(T), s))
@@ -97,7 +86,6 @@
 end
 
 @testitem "Engine / internal impedance / passivity and solid-conductor limits" tags=[:unit] setup=[
-    EngineTestSupport,
     UseEngineSupport
 ] begin
     formulation=InternalImpedance.Formula(:default)

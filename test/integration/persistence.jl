@@ -1,9 +1,8 @@
 @testitem "ImportExport / CablesLibrary / versioned JSON and trusted JLS" tags=[:integration] setup=[
-    EngineTestSupport,
     UseEngineSupport,
     TestFixtures
 ] begin
-    design=TestFixtures.mv_cable_design()
+    design=TestFixtures.coaxial_design()
     library=CablesLibrary()
     add!(library, design)
     reference=CableConstants(design)
@@ -26,7 +25,6 @@
 end
 
 @testitem "ImportExport / CablesLibrary / failures are atomic" tags=[:integration] setup=[
-    EngineTestSupport,
     UseEngineSupport,
     TestFixtures
 ] begin
@@ -35,7 +33,7 @@ end
     import LineCableModels.ImportExport as IE
 
     library=CablesLibrary()
-    design=TestFixtures.mv_cable_design()
+    design=TestFixtures.coaxial_design()
     add!(library, design)
 
     mktempdir() do directory
@@ -83,10 +81,10 @@ end
         end
         @test unchanged_after(schema_path) isa ArgumentError
 
-        legacy=joinpath(directory, "legacy.json")
-        write(legacy, "{\"data\":{}}")
+        malformed=joinpath(directory, "missing-fields.json")
+        write(malformed, "{\"data\":{}}")
         before=library.data
-        @test_throws ArgumentError load!(library; file_name = legacy)
+        @test_throws ArgumentError load!(library; file_name = malformed)
         @test library.data === before
 
         @test_throws ArgumentError save(

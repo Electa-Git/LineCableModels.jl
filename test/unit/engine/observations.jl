@@ -1,7 +1,8 @@
 @testitem "Engine / observations / native selectors and detached publication" tags=[:unit] setup=[
-    EngineTestSupport, UseEngineSupport
+    UseEngineSupport
 ] begin
     using LinearAlgebra: diag
+    using Statistics: mean
 
     const U=LineCableModels.Units
 
@@ -41,9 +42,12 @@
     @test @observe(parameters, L[i, j, samples]) ≈ inductance[1, 1, :]
     @test @observe(parameters, Z[1, 1]) == impedance[1, 1, :]
     @test @observe((Z, diag)[:, :]) == (Z, diag, Colon(), Colon())
+    # Three selectors carry owner-defined statistical requests. The macro
+    # preserves them; whether a result supports the request belongs to dispatch.
+    @test @observe((statistics, R, mean)[1, 1]) == (statistics, R, mean, 1, 1)
     @test_throws ArgumentError macroexpand(
         @__MODULE__,
-        :(@observe (Z, abs, angle)[1, 1, :])
+        :(@observe (Z, abs, angle, identity)[1, 1, :])
     )
     observe(parameters, Z, 1, 1, 1)
     observe(parameters, R, 1, 1, 1)
@@ -59,8 +63,9 @@
     )
     target=U.units(:milli, :ohm; per = (:kilo, :meter))
     published=observables(parameters, requests; units = (nothing, target, nothing))
-    @test @inferred(observables(parameters, ((R, 1, 1, Colon()),))) isa
-          LineCableModels.Grammar.ObservationPublication
+    # Publication carries value-dependent table/metadata schemas. Its contract
+    # is detached, correctly identified payloads; native scalar selector
+    # inference and allocation guarantees are checked above.
     @test published isa LineCableModels.Grammar.ObservationPublication
     for payload in published
         @test keys(payload) == (:values, :quantity, :unit)

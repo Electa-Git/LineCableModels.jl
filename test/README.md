@@ -39,8 +39,7 @@ without Julia packages or application services.
 The supported tags are `unit`, `integration`, `extension`, `fem_numerical`, `visual`, `quality`, `gauntlet`, and `gauntlet_toolkit`. Visual, quality, `core_only`, and both gauntlet tags are excluded from the default run and execute in dedicated environments. See
 [`gauntlet/README.md`](../gauntlet/README.md) for explicit campaign, comparison and recovery commands.
 
-The `fem_numerical` items exercise deterministic multi-frequency FEM solves and
-the frozen Python reference matrices. They are excluded from the ordinary test
+The `fem_numerical` items exercise the current native FEM formulation and extraction path. They are excluded from the ordinary test
 run and execute explicitly with the package's hash-pinned GetDP 3.5.0 complex
 artifact. To run them locally:
 
@@ -53,7 +52,7 @@ Set `LINECABLEMODELS_GETDP=/absolute/path/to/getdp` only to exercise an external
 solver override.
 
 The full gauntlet remains a manual workflow, separate from these deterministic
-FEM regressions. CI must not launch live PSCAD/FEM gauntlet campaigns or promote
+FEM controls. CI must not launch live PSCAD/FEM gauntlet campaigns or promote
 their output to references. The read-only [numerical-reference gate](numerical/README.md)
 replays stored problem and formulation declarations against explicitly reviewed,
 pinned gauntlet arrays, with element-wise RMS tolerances and scalar inference
@@ -76,9 +75,9 @@ During development, select the owned UQ or external PSCAD family directly:
 
 ```sh
 julia --project=gauntlet --startup-file=no -e \
-  'using TestItemRunner; TestItemRunner.run_tests(joinpath(pwd(), "test"); filter=ti -> :uq in ti.tags, verbose=true)'
+  'include("test/support/runner.jl"); ValidationTestRunner.run_tests(pwd(); filter=ti -> :uq in ti.tags, verbose=true)'
 julia --project=gauntlet --startup-file=no -e \
-  'using TestItemRunner; TestItemRunner.run_tests(joinpath(pwd(), "test"); filter=ti -> :pscad in ti.tags, verbose=true)'
+  'include("test/support/runner.jl"); ValidationTestRunner.run_tests(pwd(); filter=ti -> :pscad in ti.tags, verbose=true)'
 ```
 
 Run the reusable gauntlet toolkit checks separately with:
@@ -115,33 +114,54 @@ julia --project=test/core \
   -e 'push!(ARGS, "tag:core_only"); include("test/runtests.jl")'
 ```
 
-Fixture factories live in `support/fixtures.jl` and must return fresh mutable objects.
-Static input data belongs in `fixtures/data`, independently sourced numerical values in
-`fixtures/reference`, and current rendering baselines in `fixtures/golden`. Ordinary
-tests write only to system temporary directories. Explicit live Gauntlet runs preserve
-projects and diagnostics in the declared campaign and backend work directories.
+Current input recipes live in `support/scenarios.jl`; `support/fixtures.jl` exposes
+native test setups. They return independent mutable storage and confer no numerical
+authority. Tests write to temporary directories. The native `JuliaTestItems.toml`
+configuration excludes generated/tool/process sources before item/setup extraction.
+Both runners strictly parse whole included files and fail empty selections.
 
-Numerical tests use scale- and precision-aware helpers from `support/numerical.jl`.
-There is no suite-wide absolute tolerance. Expected values must come from analytical
-identities, independent references, residuals, or other observable invariants—not from
-reimplementing the function under test.
+Rendering generation validates one named scene before importing a renderer or constructing
+other scenes, then writes provisional files into a retained temporary directory:
 
-Regression tests preserve current scientific and architectural behavior, not every
-spelling used during unreleased development:
+```sh
+LINECABLEMODELS_UPDATE_PLOT_REFERENCES=true LINECABLEMODELS_PLOT_REFERENCE=line_rlcg \
+  julia --project=test/visual test/tools/regenerate_goldens.jl
+```
 
-- Keep exact checks for identity, units, ordering, and repeated scalar/batched
-  calculations in the same runtime.
-- Compare archived floating-point references component by component at their own
-  scale. For ill-conditioned equivalent permeability, preserve the physical GMR
-  rather than the last bits of the intermediate coefficient. Do not refresh the
-  frozen reference merely because a dependency changes final rounding.
-- Treat recovered formula inventories as required subsets. Inspect every currently
-  registered formula for route ownership and documentation without prohibiting new
-  registrations.
-- Keep absence tests for deliberately retired abstractions. Exercise orchestration
-  counts/order at runtime; private helper names and import formatting are not APIs.
-- Mesh every supported bounded formation and check elements on every material
-  surface. A nonempty overall mesh or physical-tag list is insufficient.
+The generator does not write accepted baselines. Image acceptance requires inspected current
+renders, repeatability calibration, meaningful defect controls and explicit scoped approval.
+No inherited image threshold applies. Numerical controls check resolved components with
+independently established error budgets; same-engine consistency is labelled accordingly.
+
+## Initial candidate validation policy
+
+Version 0.2.0 names the intended first accepted release candidate. It does not
+establish a published 0.1.0, historical API guarantees or numerical correctness.
+Current intended behavior governs; superseded development output has no authority.
+
+Evidence has four distinct scopes:
+
+- Current-contract tests establish API, dispatch, units, identities, errors and side effects.
+- Scientific controls establish a stated property against a justified independent expectation,
+  limiting case or convergence/error study, with its assumptions and uncertainty.
+- Candidate snapshots record what an identified implementation produced. They are provisional
+  repeatability/change detectors and cannot certify their own numbers.
+- Explicitly accepted release snapshots record acceptance of specific results within a stated
+  validation scope. They do not establish universal correctness.
+
+Inherited test fixtures, embedded numerical expectations, golden generators and historical
+preservation paths are retired without archival consumers or renamed payloads. Rebuild
+necessary scenarios through current APIs. Production libraries and real research/user
+calculations remain protected. Fresh engine output is never promoted automatically.
+Do not regenerate expectations or widen tolerances after a failure. An unresolved reference,
+mesh, statistical or rendering control is inconclusive; a resolved discrepancy is failed.
+
+During WIP, a retained guard states a current invariant and plausible failure beside the test
+when the purpose is non-obvious. Historical helper names and arbitrary development behavior
+are not contracts. After the first Julia-registry publication, a test designated as a bug
+regression must cite the actual reported tracker issue and protected behavior. Feature,
+mathematical, architectural and integration tests need no fabricated issues. Do not evade
+that rule by retitling a bug test. No issue registry or CI tracker lookup is required.
 
 The enforced coverage ratio includes all production code under `src/` and
 `ext/`. The LCOV report also publishes reusable gauntlet helper coverage when traces

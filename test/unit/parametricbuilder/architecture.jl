@@ -1,5 +1,4 @@
 @testitem "ParametricBuilder / v1 direct target materialization" tags=[:unit] setup=[
-    EngineTestSupport,
     UseEngineSupport
 ] begin
     import LineCableModels.ParametricBuilder as PB
@@ -164,65 +163,6 @@ end
     @test length(PB.vflat(design; spacing = 0.1, connections)) == 3
 end
 
-@testitem "Architecture / retired cable builders are absent" tags=[:quality] begin
-    using LineCableModels
-    import LineCableModels.DataModel as DM
-    import LineCableModels.ParametricBuilder as PB
-
-    for name in (
-        :CableBuilder, :SystemBuilder, :PartBuilder, :PositionDefinition,
-        :DesignMaterializer, :SystemMaterializer, :MemberPlacementSpec,
-        :HeterogeneousAssembly, :AssemblySpec, :StrandDefinition,
-        :RopeDefinition, :DuctBank, :ResolvedPart, :ResolvedRegion,
-        :CableComponent, :CablePosition, :ConductorGroup, :InsulatorGroup,
-        :CircStrands, :RectStrands, :Tubular, :Strip, :Semicon
-    )
-        @test !isdefined(LineCableModels, name)
-        @test !isdefined(DM, name)
-        @test !isdefined(PB, name)
-    end
-
-    retired=(
-        "CableBuilder", "SystemBuilder", "PartBuilder", "GroupBuilder",
-        "DesignMaterializer", "SystemMaterializer", "MemberPlacementSpec",
-        "HeterogeneousAssembly", "AssemblySpec", "StrandDefinition",
-        "RopeDefinition", "DuctBank", "ResolvedPart", "ResolvedRegion",
-        "BuildContext", "BuildManager", "BuildPlan", "BuildSpec",
-        "BuildResult", "compute_cable_constants",
-        "_current_radial_equivalence", "reference_frequency",
-        "CableComponent", "CablePosition", "ConductorGroup", "InsulatorGroup",
-        "CircStrands", "RectStrands", "ConductorPart", "InsulatorPart",
-        "SolidCore", "TubularLayer", "EnclosureSpec", "StrandedSpec",
-        "LayRatioSpec", "AbstractRole", "AbstractPattern", "AbstractPath",
-        "AbstractCompaction", "AbstractNames", "PartGroup"
-    )
-    pattern=Regex("\\b(?:"*join(retired, "|")*")\\b")
-    root=pkgdir(LineCableModels)
-    maintained=String[
-        joinpath(root, "README.md"),
-        joinpath(root, "CHANGELOG.md")
-    ]
-    for directory in ("src", "examples", "dev", joinpath("docs", "src"))
-        base=joinpath(root, directory)
-        append!(maintained,
-            [joinpath(path, file)
-             for (path, _, files) in walkdir(base)
-             for file in files
-             if endswith(file, ".jl")||endswith(file, ".md")])
-    end
-    offenders=filter(maintained) do path
-        occursin(pattern, read(path, String))
-    end
-    @test isempty(offenders)
-
-    for path in (
-        joinpath("src", "parametricbuilder", "cablebuilder.jl"),
-        joinpath("src", "parametricbuilder", "systembuilder.jl"),
-        joinpath("src", "parametricbuilder", "parts.jl"),
-        joinpath("src", "datamodel", "cablecomponent"),
-        joinpath("src", "datamodel", "conductorgroup.jl"),
-        joinpath("src", "datamodel", "insulatorgroup.jl")
-    )
-        @test !ispath(joinpath(root, path))
-    end
-end
+# Retired-name and file-absence scans were development preservation guards.
+# The current constructors and single materialization path are exercised above;
+# ownership is checked by ExplicitImports through the loaded implementations.

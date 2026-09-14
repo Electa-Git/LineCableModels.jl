@@ -1,5 +1,4 @@
 @testitem "ImportExport / VDE parser / ordered tokens and residue" tags=[:unit] setup=[
-    DataModelTestSupport,
     UseDataModelSupport
 ] begin
     parser=LineCableModels.DataModel.vdeparse
@@ -52,7 +51,6 @@
 end
 
 @testitem "ImportExport / MaterialsLibrary / versioned and atomic JSON" tags=[:integration] setup=[
-    ImportExportTestSupport,
     UseImportExportSupport
 ] begin
     using JSON3
@@ -104,7 +102,6 @@ end
 end
 
 @testitem "ImportExport / TRALIN / export and parser contracts" tags=[:integration] setup=[
-    ImportExportTestSupport,
     UseImportExportSupport,
     TestFixtures
 ] begin

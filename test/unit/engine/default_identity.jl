@@ -1,5 +1,5 @@
 @testitem "Engine / retained defaults and PSCAD comparison inventory" tags=[:unit] begin
-    @test (@inferred Formulation()) isa LineParametersFormulation
+    @test Formulation() isa LineParametersFormulation
     const E=LineCableModels.Engine
     const EP=LineCableModels.Earth
     expected = (

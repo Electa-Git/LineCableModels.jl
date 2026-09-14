@@ -1,6 +1,6 @@
 @testitem "Execution options / inner owner validation through traversal" tags=[:integration] setup=[TestFixtures] begin
     inner = CableConstantsFormulation()
-    problem = CableConstantsProblem(TestFixtures.mv_cable_design())
+    problem = CableConstantsProblem(TestFixtures.coaxial_design())
     space = Gridspace{CableConstantsProblem}(identity, (Grid((problem,)),))
     point = first(LineCableModels.points(space))
     invalid = (unsupported=true,)
@@ -50,7 +50,7 @@ end
     using Measurements
     using Distributions
     using Random
-    design = TestFixtures.mv_cable_design()
+    design = TestFixtures.coaxial_design()
     inner = CableConstantsFormulation()
     space = Gridspace{CableConstantsProblem}(
         temperature -> CableConstantsProblem(design; temperature),

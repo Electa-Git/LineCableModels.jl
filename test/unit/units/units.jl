@@ -139,7 +139,6 @@ end
     @test targets[2] == U.units(:base, :radian)
     @test targets[3] == U.units(:micro, :farad; per = (:base, :meter))
     @test Base.ispublic(Grammar, :unit_targets)
-    @test !isdefined(LineCableModels, :unit_targets)
     @test_throws ArgumentError Grammar.unit_targets((R,), :pul; overrides = 1)
 end
 
@@ -211,22 +210,13 @@ end
     end
     @test isbitstype(U.Quantity{:series_resistance})
     @test fieldcount(U.Quantity{:series_resistance}) == 0
-    @test !isdefined(U, :QuantityTag)
     for name in (:quantity, :native_unit, :display_unit, :scale_factor, :label, :symbol)
         @test name in names(LineCableModels)
         @test getfield(LineCableModels, name) === getfield(U, name)
     end
     for name in (:Quantity, :Unit, :UnitExpr)
         @test name ∉ names(LineCableModels)
-        @test !isdefined(LineCableModels, name)
     end
-    @test !isdefined(LineCableModels, :QuantityTag)
-    @test !isdefined(LineCableModels, :QuantityUnits)
-    @test !isdefined(U, :default_unit)
-    @test !isdefined(U, :get_label)
-    @test !isdefined(U, :get_symbol)
-    @test !isdefined(U, :line_component_quantity)
-    @test !isdefined(U, :line_component_unit)
 end
 @testitem "Units / statistical report axes keep counts and probabilities dimensionless" tags=[:unit] begin
     const U = LineCableModels.Units

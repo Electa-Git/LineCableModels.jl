@@ -1,5 +1,4 @@
 @testitem "Materials / Material / numeric normalization and conversion" tags=[:unit] setup=[
-    DataModelTestSupport,
     UseDataModelSupport
 ] begin
     ordinary=Material(
@@ -34,7 +33,6 @@
 end
 
 @testitem "Materials / MaterialsLibrary / dictionary and presentation contracts" tags=[:unit] setup=[
-    DataModelTestSupport,
     UseDataModelSupport
 ] begin
     empty_library=MaterialsLibrary(add_defaults = false)
@@ -99,7 +97,6 @@ end
 end
 
 @testitem "Materials / presentation / bounded collection summaries" tags=[:unit] setup=[
-    DataModelTestSupport,
     UseDataModelSupport
 ] begin
     library=MaterialsLibrary(add_defaults = false)

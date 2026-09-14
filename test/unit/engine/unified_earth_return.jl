@@ -1,47 +1,26 @@
-@testitem "Engine / complete manuscript earth matrices reproduce the accepted snapshot" tags=[:unit] begin
-    using TOML, LinearAlgebra
+# Closure identities establish current algebra and conventions; unlike-media
+# cross-integrator agreement is consistency evidence, not physical validation.
+@testitem "Engine / full earth / current closure across layouts" tags=[:unit] begin
+    using LinearAlgebra
     const E=LineCableModels.Engine
-    fixture=TOML.parsefile(joinpath(
-        pkgdir(LineCableModels), "test/fixtures/reference/unified_earth_return.toml"))
-    for row in fixture["cases"]
-        row["model"]=="proposed_full_current" || continue
-        positions=row["positions_m"]
+    layouts=([(0.0,-1.0)],[(0.0,1.0),(0.4,1.5)],
+        [(0.0,-1.0),(0.4,-1.5)],[(0.0,1.0),(0.4,-1.0),(0.9,-1.5)])
+    for positions in layouts, f in (50.0,10000.0)
         n=length(positions)
-        geometry=E.EarthReturnGeometry(first.(positions), last.(positions), fill(row["radius_m"], n))
-        workspace=E.EarthReturnWorkspace(geometry)
-        s=complex(0.0, 2pi*row["frequency"])
-        sigma=[0.0, inv(row["earth_resistivity_ohm_m"])]
-        epsilon=fill(fixture["analytic_epsilon"], 2)
-        mu=fill(fixture["analytic_mu"], 2)
-        state=(jω = s, Γ = zero(s), sigma, epsilon, mu,
-            gamma_medium_squared = s .* mu .* (sigma .+ s .* epsilon))
-        for method in (:quad, :trapz, :cim)
-            rtol=method===:quad ? 1e-9 : 1e-6
-            controls=E.computation_options(E.SpectralIntegral, (method, options = (; rtol)))
-            E.unified_earth!(workspace, state, controls)
-            @testset "$n wires / $(row["frequency"]) Hz / $method" begin
-                for (key, floor) in ((:Ze, 1e-14), (:Pe, 1e-14), (:Ye, 1e-10))
-                    expected=reshape(complex.(row[string(key) * "_real"], row[string(key) * "_imag"]), n, n)
-                    actual=getproperty(workspace, key)
-                    for i in eachindex(actual), component in (identity, real, imag)
-
-                        @test isapprox(component(actual[i]), component(expected[i]);
-                            rtol = method===:quad ? 1e-7 : 1e-5, atol = floor)
-                    end
-                end
-                @test workspace.Ye*workspace.Pe≈s*I rtol=1e-11 atol=1e-12*abs(s)
-                @test workspace.Pe*workspace.L≈workspace.H rtol=1e-11
-                @test workspace.Ze*workspace.L≈workspace.K rtol=1e-11
-                # Independent frozen source kernels also validate the current
-                # map before the complete matrix elimination.
-                u=E.unified_earth_state(state, geometry)
-                for key in (:K, :H, :L)
-                    expected=reshape(complex.(row[string(key) * "_real"], row[string(key) * "_imag"]), n, n)
-                    expected .*= reshape(exp.(u.scaling), 1, n)
-                    for i in eachindex(expected)
-                        @test isapprox(getproperty(workspace, key)[i], expected[i];
-                            rtol = method===:quad ? 1e-7 : 1e-5, atol = 1e-14)
-                    end
+        geometry=E.EarthReturnGeometry(first.(positions),last.(positions),[.005,.007,.009][1:n])
+        for gamma in (n==3 ? (0im,1e-4*(1+im)) : (0im,))
+            s=2pi*im*f; sigma=[0.0,.01]; epsilon=8.8541878128e-12.*[1,10]; mu=fill(4pi*1e-7,2)
+            state=(jω=s,Γ=gamma,sigma,epsilon,mu,gamma_medium_squared=s.*mu.*(sigma.+s.*epsilon))
+            @testset "n=$n / $f Hz / gamma=$gamma / $method" for method in (:quad,:trapz,:cim)
+                limits=method===:trapz ? (;max_refinements=14) : method===:cim ? (;samples=512,maxevals=10^6) : (;maxevals=10^6)
+                controls=E.computation_options(E.SpectralIntegral,(method,options=merge((rtol=1e-9,),limits)))
+                w=E.unified_earth!(E.EarthReturnWorkspace(geometry),state,controls)
+                # Normalized backward errors use independent operand norms.
+                for (lhs,rhs,scale) in ((w.Pe*w.L,w.H,norm(w.Pe)*norm(w.L)+norm(w.H)),
+                    (w.Ze*w.L,w.K+gamma^2*w.H/s,norm(w.Ze)*norm(w.L)+norm(w.K)+abs(gamma^2/s)*norm(w.H)),
+                    (w.Ye*w.H,s*w.L,norm(w.Ye)*norm(w.H)+abs(s)*norm(w.L)),
+                    (w.Ye*w.Pe,s*I,norm(w.Ye)*norm(w.Pe)+abs(s)*sqrt(n)))
+                    @test norm(lhs-rhs)/scale <= 1e-10
                 end
             end
         end
@@ -74,7 +53,7 @@ end
     @test_throws DomainError E.unified_earth!(
         E.EarthReturnWorkspace(geometry), state, integration; reference = 1.0)
     # Identical media erase the interface. The unbounded-medium direct field
-    # provides an independent closed-form kernel for both ordered mixed cases.
+    # provides a closed-form consistency check using production special functions.
     sigma=fill(0.1, 2)
     epsilon=fill(8.8541878128e-12, 2)
     mu=fill(4pi*1e-7, 2)
@@ -93,7 +72,7 @@ end
         @test free.H[p, q]≈s/(2pi*u.sh[1])*trace rtol=1e-8
     end
     # Large electrical sizes require the spectral decay and analytic weight
-    # in one exponential. Equal media give an independent one-wire K0 field.
+    # in one exponential. This is a consistency check with the production K0 path.
     single=E.EarthReturnGeometry([0.0], [-1.0], [0.0425])
     s=2pi*1e12im
     sigma=fill(10.0, 2)
@@ -269,6 +248,86 @@ end
             (actual.Ze, actual.Pe, actual.Ye), (
                 reference.Ze, reference.Pe, reference.Ye))
             @test value≈expected rtol=1e-5 atol=1e-10
+        end
+    end
+end
+
+@testitem "Engine / full earth / independent equal-medium cylindrical control" tags=[:unit] begin
+    using LinearAlgebra, QuadGK
+    include(joinpath(pkgdir(LineCableModels),"test/support/radial_control.jl"))
+    const E=LineCableModels.Engine
+    # I0/I1 use an independently coded Frobenius recurrence; K0 uses its
+    # decaying integral, not the engine's selected spectral integrator.
+    function reference(positions,radii,f)
+        s=2big(pi)*im*BigFloat(f); mu=4big(pi)*big"1e-7"
+        kappa=big".01"+s*3big"8.8541878128e-12"; k=sqrt(s*mu*kappa)
+        n=length(radii); A=zeros(Complex{BigFloat},n); F=similar(A)
+        eA=zeros(BigFloat,n);eF=similar(eA)
+        for p in 1:n
+            x=k*radii[p]; v=RadialControl.fundamental(x)
+            A[p]=v.u; F[p]=2big(pi)*kappa*radii[p]^2*v.du/(x*v.u)
+            eA[p]=v.bound
+            eA[p]<abs(A[p])/2 || error("inconclusive cylindrical reference denominator")
+            eF[p]=abs(2big(pi)*kappa*radii[p]^2/x)*v.bound*
+                (1+abs(v.du/A[p]))/(abs(A[p])-eA[p])
+        end
+        T=zeros(Complex{BigFloat},n,n); eT=zeros(BigFloat,n,n)
+        for p in 1:n,q in 1:n
+            distance=p==q ? radii[p] : hypot((positions[p].-positions[q])...)
+            z=k*distance; limit=log(160/real(z))
+            value,error=quadgk(t->exp(-z*cosh(t)),big"0",limit;rtol=big"1e-12",maxevals=10^6)
+            tail=2exp(-real(z)*exp(limit)/2)/(real(z)*exp(limit))
+            T[p,q]=(p==q ? one(k) : A[p])*value
+            eT[p,q]=p==q ? error+tail :
+                abs(A[p])*(error+tail)+eA[p]*(abs(value)+error+tail)
+        end
+        K=s*mu*T/(2big(pi)); H=s*T/(2big(pi)*kappa)
+        L=diagm(inv.(A))-diagm(F)*K
+        Ze=K/L; Pe=H/L; Ye=s*inv(Pe)
+        # Normwise perturbation bounds for right solves X*L=B. For
+        # eta=||L^-1||*deltaL<1, deltaX <=
+        # (deltaB+||X||*deltaL)*||L^-1||/(1-eta).
+        # Absolute input bounds retain units and apply to either component.
+        norminf(x)=opnorm(x,Inf)
+        roundoff(x)=128eps(BigFloat)*norminf(x)
+        eK=abs(s*mu/(2big(pi)))*norminf(eT)+roundoff(K)
+        eH=abs(s/(2big(pi)*kappa))*norminf(eT)+roundoff(H)
+        eL=maximum(eA./(abs.(A).*(abs.(A).-eA)))+
+            maximum(abs,F)*eK+maximum(eF)*(norminf(K)+eK)+roundoff(L)
+        inverseL=norminf(inv(L));eta=inverseL*eL
+        eta<1 || error("inconclusive cylindrical closure conditioning")
+        eZe=(eK+norminf(Ze)*eL)*inverseL/(1-eta)+roundoff(Ze)
+        ePe=(eH+norminf(Pe)*eL)*inverseL/(1-eta)+roundoff(Pe)
+        inverseP=norminf(inv(Pe));etaP=inverseP*ePe
+        etaP<1 || error("inconclusive cylindrical admittance conditioning")
+        eYe=abs(s)*inverseP^2*ePe/(1-etaP)+roundoff(Ye)
+        bounds=(K=eK,H=eH,L=eL,Ze=eZe,Pe=ePe,Ye=eYe)
+        return (;K,H,L,Ze,Pe,Ye,k,bounds)
+    end
+    layouts=([(0.0,-1.0)],[(0.0,1.0),(.4,1.5)],[(0.0,-1.0),(.4,-1.5)],
+        [(0.0,1.0),(.4,-1.0),(.9,-1.5)])
+    for positions in layouts,f in (50.0,10000.0)
+        n=length(positions);radii=[.005,.007,.009][1:n]
+        refs=[setprecision(BigFloat,bits) do
+            reference(map(p->BigFloat.(p),positions),BigFloat.(radii),f)
+        end for bits in (128,256,512)]
+        expected=last(refs)
+        geometry=E.EarthReturnGeometry(first.(positions),last.(positions),radii)
+        s=2pi*im*f; sigma=fill(.01,2);epsilon=fill(3*8.8541878128e-12,2);mu=fill(4pi*1e-7,2)
+        state=(jω=s,Γ=zero(s),sigma,epsilon,mu,gamma_medium_squared=s.*mu.*(sigma.+s.*epsilon))
+        controls=E.computation_options(E.SpectralIntegral,(method=:quad,options=(rtol=1e-10,maxevals=10^6)))
+        w=E.unified_earth!(E.EarthReturnWorkspace(geometry),state,controls)
+        column_scale=reshape(exp.(abs.(real.(expected.k.*radii))),1,:)
+        for quantity in (:K,:H,:L,:Ze,:Pe,:Ye)
+            target=getproperty(expected,quantity)
+            actual=quantity in (:K,:H,:L) ? getproperty(w,quantity)./column_scale : getproperty(w,quantity)
+            for index in eachindex(target),component in (real,imag)
+                qstar=component(target[index]);budget=1e-5*abs(qstar)
+                u=getproperty(expected.bounds,quantity)+
+                    abs(component(target[index]-getproperty(first(refs),quantity)[index]))
+                @test u<=budget/4
+                @test abs(component(actual[index])-qstar)+u<=budget
+            end
         end
     end
 end

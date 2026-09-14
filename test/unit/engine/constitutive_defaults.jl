@@ -4,7 +4,6 @@
     const E = LineCableModels.Engine
 
     @test formula(:default) isa LineCableModels.FormulaDefinition
-    @test !isdefined(LineCableModels, Symbol("Formula", "Spec"))
     ε0 = 8.8541878128e-12
     for (owner, kind) in ((E.InsulationAdmittance, :insulator),
         (E.SemiconAdmittance, :semicon))

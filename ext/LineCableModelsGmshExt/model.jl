@@ -481,7 +481,7 @@ function _formations(regions, terminal_map, object_id)
             occupied_area,
             boundary_area;
             rtol = 0,
-            atol = DataModel._geometry_tolerance(boundary_area)
+            atol = DataModel.geometry_tolerance(boundary_area)
         )
         member_shapes = [regions[index].primitive for index in members]
         if complete

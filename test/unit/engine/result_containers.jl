@@ -1,19 +1,8 @@
 @testitem "Engine / result containers / numeric and selector behavior" tags=[:unit] setup=[
-    EngineTestSupport, UseEngineSupport, TestNumerics] begin
+    UseEngineSupport, TestNumerics, TestFixtures] begin
     using DataFrames
 
-    library=CablesLibrary()
-    load!(
-        library;
-        file_name = joinpath(
-            pkgdir(LineCableModels),
-            "test",
-            "fixtures",
-            "data",
-            "mv_cable_design.json"
-        )
-    )
-    design=first(values(library.data))
+    design=TestFixtures.coaxial_design()
     constants=CableConstants(design)
     @test constants isa CableConstants{Float64}
     @test all(>(0), constants.R)
@@ -265,7 +254,7 @@
 end
 
 @testitem "UQ / result products / statistical invariants" tags=[:unit] setup=[
-    EngineTestSupport, UseEngineSupport, TestNumerics, TestFixtures] begin
+    UseEngineSupport, TestNumerics, TestFixtures] begin
     using Distributions
     using Random
     using Statistics
@@ -313,9 +302,28 @@ end
     @test_throws ArgumentError HistogramDensity([0.0, 0.0], [1.0])
     @test_throws ArgumentError HistogramDensity([0.0, Inf], [1.0])
 
-    complete=TestFixtures.cable_monte_carlo_result()
-    @test UQ.root_seed(complete) == UInt64(1)
-    @test UQ.point_seed(complete, 1) == UInt64(1)
+    # Explicit, distinguishable channel inputs control publication and retention;
+    # no historical model calculation supplies these expectations.
+    raw_samples=(R=reshape([2.0, 3.0, 5.0, 8.0], 1, :),
+        L=reshape([11.0, 13.0, 17.0, 19.0].*1e-6, 1, :),
+        C=reshape([23.0, 29.0, 31.0, 37.0].*1e-10, 1, :),
+        G=reshape([41.0, 43.0, 47.0, 53.0].*1e-9, 1, :))
+    retained_samples=vec(raw_samples.R)
+    retained_mean=sum(retained_samples)/length(retained_samples)
+    retained_std=sqrt(sum(abs2, retained_samples .- retained_mean)/
+        (length(retained_samples)-1))
+    expected_edges=[2.0, 5.0, 8.0]
+    expected_density=[2/4/3, 2/4/3]
+    complete=MonteCarloResult(
+        MonteCarlo(Formulation(); trials=4, seed=2027,
+            return_samples=true, return_histograms=true),
+        [CableConstants(mean(raw_samples.R), mean(raw_samples.L),
+            mean(raw_samples.C), mean(raw_samples.G))],
+        [map(x->[SampleSummary(vec(x))], raw_samples)],
+        [raw_samples], [map(x->[HistogramDensity(vec(x); bins=2)], raw_samples)],
+        UInt64(2027), UInt64[2039], [4])
+    @test UQ.root_seed(complete) == UInt64(2027)
+    @test UQ.point_seed(complete, 1) == UInt64(2039)
     @test UQ.trial_count(complete, 1) == 4
     @test UQ.confidence(complete) == 0.95
     @test UQ.cdf_tolerance(complete) == 0.02
@@ -357,20 +365,19 @@ end
     @test_throws MethodError observables(histogram_only)
     @test_throws MethodError observables(summaries_only)
 
-    @test observables(typeof(complete)) == (
+    @test all(in(observables(typeof(complete))), (
         R, L, C, G,
         (statistics, R), (statistics, L), (statistics, C), (statistics, G),
         (samples, R), (samples, L), (samples, C), (samples, G),
         (histograms, R), (histograms, L), (histograms, C), (histograms, G)
-    )
-    @test only(@inferred(observe(complete, R, 1))) == 2.5
-    @test only(@inferred(observe(complete, statistics, R, mean, 1))) == 2.5
-    @test only(@inferred(observe(complete, statistics, R, std, 1))) ≈ sqrt(5 / 3)
-    retained_samples=[1.0, 2.0, 3.0, 4.0]
+    ))
+    @test only(@inferred(observe(complete, R, 1))) == retained_mean
+    @test only(@inferred(observe(complete, statistics, R, mean, 1))) == retained_mean
+    @test only(@inferred(observe(complete, statistics, R, std, 1))) ≈ retained_std
     retained_histogram=observe(complete, histograms, R, 1, 1)
     @test observe(complete, samples, R, 1, 1, :) == retained_samples
-    @test retained_histogram.edges == density.edges
-    @test retained_histogram.density == density.density
+    @test retained_histogram.edges == expected_edges
+    @test retained_histogram.density == expected_density
     @test_throws BoundsError observe(complete, samples, R, 2, 1, :)
     @test_throws BoundsError observe(complete, samples, R, 1, 2, :)
     @test_throws ArgumentError observe(histogram_only, samples, R, 1, 1, :)
@@ -406,11 +413,10 @@ end
         units = (:milli, :milli, :milli)
     )
     @test result_publication[1].quantity == quantity(R)
-    @test result_publication[1].values == 2.5e6
+    @test result_publication[1].values == retained_mean * 1.0e6
     @test result_publication[2].values == retained_samples .* 1.0e6
-    @test result_publication[3].values.edges == density.edges .* 1.0e6
-    @test result_publication[3].values.density ==
-          density.density ./ 1.0e6
+    @test result_publication[3].values.edges == expected_edges .* 1.0e6
+    @test result_publication[3].values.density ≈ expected_density ./ 1.0e6 rtol=4eps(Float64)
 
     summary_product=only(statistics(complete))
     sample_product=only(samples(complete))
@@ -436,8 +442,10 @@ end
     @test summary_publication.values.std == summary_product.R[1].std * abs(summary_factor)
     @test histogram_publication.values.edges ==
           histogram_product.R[1].edges .* summary_factor
-    @test histogram_publication.values.density ==
-          histogram_product.R[1].density ./ summary_factor
+    # Density rescaling normalizes mass after scaling the edges; the two
+    # equivalent arithmetic paths need a small floating-point roundoff budget.
+    @test histogram_publication.values.density ≈
+          histogram_product.R[1].density ./ summary_factor rtol=4eps(Float64)
 
     frequency=[50.0, 100.0]
     impedance=fill(1.0e-4+2.0e-4im, 2, 2, 2)

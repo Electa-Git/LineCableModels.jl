@@ -62,9 +62,9 @@ end
         @test settings["frequency"]["Output"] == "YES"
         @test pyconvert(Dict, state.frequency.parameters())["Numf"] == 1
         @test pyconvert(Dict, state.line.parameters())["Name"] == "fixture"
-        for name in ("zm", "zp", "ym", "yp")
+        for (index,name) in enumerate(("zm", "zp", "ym", "yp"))
             @test read(joinpath(output, "result_" * name * ".out"), String) ==
-                "LOG10(FN) FN element\n-1 0.1 2\n1 10 3\n"
+                "LOG10(FN) FN element\n-1 0.1 $(100index+7)\n1 10 $(100index+14)\n"
         end
         @test TOML.parsefile(joinpath(output, "solver.toml")) ==
             Dict("version" => "5.1.0", "installation" => "fixture")
@@ -76,7 +76,7 @@ end
         log = read(joinpath(output, "pscad-console.txt"), String)
         @test occursin("synthetic unload failure", log)
         @test occursin("synthetic quit failure", log)
-        @test occursin("automation fixture output", log)
+        @test occursin("current automation output", log)
     end
 
     for (configure, expected, compiled, unloaded, quit) in (

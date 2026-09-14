@@ -40,6 +40,7 @@ export LayRatio, Pitch, LayAngle, Helix, pitch, angle, overlength
 export ncables, nphases
 
 public AssemblyMember, AssemblyShape, BentStrip, BoundedPlacement, EnclosureBoundary
+public geometry_tolerance
 public DifferenceShape, EllipseOffset, ShellShape, SectorShape
 
 # Module-specific dependencies

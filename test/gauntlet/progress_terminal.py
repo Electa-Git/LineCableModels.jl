@@ -58,9 +58,14 @@ class Screen:
                 if code == "A": self.row = max(0, self.row - count)
                 elif code == "B": self.row = min(self.height - 1, self.row + count)
                 elif code == "C": self.col = min(self.width - 1, self.col + count)
+                elif code == "G": self.col = min(self.width - 1, max(0, count - 1))
                 elif code == "K":
                     assert params == "2", match.group()
                     self.rows[self.row] = [" "] * self.width
+                elif code == "J" and params in ("", "0"):
+                    self.rows[self.row][self.col:] = [" "] * (self.width-self.col)
+                    for row in range(self.row+1,self.height):
+                        self.rows[row] = [" "] * self.width
                 elif code == "m": pass
                 elif code in "hl" and params == "?25": self.visible = code == "h"
                 else: raise AssertionError(f"Unhandled VT sequence {match.group()!r}")
@@ -87,6 +92,8 @@ class Screen:
 
 def run_smoke():
     with tempfile.TemporaryDirectory(prefix="gauntlet terminal '") as directory:
+        trace = Path(tempfile.mkdtemp(prefix="lcm-progress-provisional-")) / "terminal.raw"
+        print(f"PTY evidence: {trace}", flush=True)
         master, slave = pty.openpty()
         screen = Screen()
         def resize(height, width):
@@ -94,19 +101,19 @@ def run_smoke():
             screen.resize(height, width)
         resize(24, 100)
         env = {**os.environ, "TERM": "xterm-256color", "NO_COLOR": "1"}
-        command = ["julia", "--startup-file=no", "--project=gauntlet", str(FIXTURE)]
+        command = ["julia", "--startup-file=no", "--compiled-modules=existing", "--project=gauntlet", str(FIXTURE)]
         producer = subprocess.Popen(command + ["produce", directory], cwd=ROOT, env=env,
                                     stdout=subprocess.DEVNULL, stderr=subprocess.PIPE)
-        watcher = subprocess.Popen(command + ["watch", directory, "smoke"], cwd=ROOT, env=env,
+        watcher = subprocess.Popen(command + ["watch", directory, "current-session"], cwd=ROOT, env=env,
                                    stdin=slave, stdout=slave, stderr=slave, start_new_session=True)
         def pump(seconds):
             deadline = time.monotonic() + seconds
             while time.monotonic() < deadline:
                 if select.select([master], [], [], min(0.1, max(0, deadline-time.monotonic())))[0]:
                     data=os.read(master, 65536)
-                    with open("/tmp/lcm-progress-terminal.raw", "ab") as trace: trace.write(data)
+                    with trace.open("ab") as stream: stream.write(data)
                     screen.feed(data)
-        def until(predicate, timeout=240):
+        def until(predicate, timeout=60):
             deadline = time.monotonic() + timeout
             while not predicate():
                 assert time.monotonic() < deadline, (screen.text(), screen.pending[:500])
@@ -116,16 +123,16 @@ def run_smoke():
         def command_phase(name): (Path(directory) / name).touch()
         def text(): return "\n".join(screen.text())
         try:
-            until(lambda: "long case" in text())
+            until(lambda: "expanded current label" in text())
             assert len(screen.text()) == 6, screen.text()
-            command_phase("short")
-            until(lambda: "short" in text() and "long case" not in text())
-            assert len(screen.text()) == 6 and "decreasing" not in text(), screen.text()
+            command_phase("compact")
+            until(lambda: "compact" in text() and "expanded current label" not in text())
+            assert len(screen.text()) == 6 and "wide label" not in text(), screen.text()
             resize(24, 45); pump(1.5)
             assert len(screen.text()) <= 1, screen.text()
             resize(24, 100); pump(1.5)
             assert len(screen.text()) == 6, screen.text()
-            command_phase("opaque")
+            command_phase("busy")
             until(lambda: "solving" in text())
             first = screen.text()[4]
             pump(0.3)

@@ -5,7 +5,6 @@
     import LineCableModels
 
     @test Base.get_extension(LineCableModels, :LineCableModelsXLSXExt) === nothing
-    @test !isdefined(LineCableModels.ReportBuilder, :_write_xlsx_sheet!)
 
     impedance = reshape(
         ComplexF64[1 + 2im, 0.2 + 0.3im, 0.2 + 0.3im, 1.5 + 2.5im],
@@ -55,15 +54,7 @@
         definition,
         parameters
     )
-    for private_name in (
-        :_xlsx_string,
-        :_xlsx_strings,
-        :_xlsx_units,
-        :_xlsx_destination,
-        :_write_xlsx_sheet!
-    )
-        @test !isdefined(report_builder, private_name)
-    end
+
 end
 
 @testitem "Extensions / XLSX writer / explicit package activation" tags = [
@@ -81,5 +72,4 @@ end
         method -> method.module === extension_module,
         methods(LineCableModels.ReportBuilder.write)
     )
-    @test !isdefined(extension_module, :_write_xlsx_sheet!)
 end

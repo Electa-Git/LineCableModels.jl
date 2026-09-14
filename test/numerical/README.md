@@ -3,7 +3,9 @@
 This gate is prepared but not enabled in CI: no reference has been approved.
 It does not run Gauntlet, PSCAD, GetDP, a case importer or a sampler. It checks
 the current coaxial engine against explicitly reviewed, pinned Gauntlet outputs.
-The existing independent physics fixtures remain in `test/fixtures/reference`.
+Inherited numerical fixtures have been retired. Fresh scientific controls state their
+independent expectation, assumptions and error budget beside their test family.
+Current-engine output begins as a provisional snapshot, including output in another language.
 
 New deterministic campaign artifacts carry the serialized scalar problem actually
 computed, including the normalized frequency samples, and the full
@@ -25,7 +27,8 @@ assumptions and numerical results:
    the immutable source artifact can remain marked `:unreviewed`.
 3. Choose tolerances explicitly. The existing `compare` API calculates RMS
    error across the full frequency vector for every Z/Y matrix entry. Every
-   entry must satisfy its absolute **or** relative tolerance. `Z_atol` is in
+   entry must satisfy its absolute **or** available finite relative tolerance. A missing
+   relative error cannot rescue a failed absolute check. `Z_atol` is in
    Ω/m, `Y_atol` in S/m, and `rtol` is a fraction, not percent. No tolerance is
    inferred from the candidate result or from another backend's RMS difference.
    Replay passes `atol=0` to `compare`: the scientific numerical-zero policy
@@ -33,7 +36,7 @@ assumptions and numerical results:
    manifest tolerances govern acceptance.
    The command reports the absolute and relative errors for every matrix entry,
    identifying a failing row and column rather than only a matrix-wide maximum.
-4. Run `julia --project=test/gauntlet --startup-file=no test/numerical/runtests.jl`.
+4. Run `julia --project=gauntlet --startup-file=no test/numerical/runtests.jl`.
    Enable this command in CI only when the bindings and review are complete.
 
 An empty approval manifest fails explicitly when this command is invoked. The
@@ -46,7 +49,7 @@ silently reconstructed from current case files.
 This initial gate supports deterministic, per-meter phase matrices from owned
 coaxial calculations. External results inform their review; they are not
 assumed numerically interchangeable. UQ moments and other problems require an
-explicit reference-replay method before inclusion.
+explicit reference-replay method before inclusion; no new FEM/UQ replay mechanism is implied by this gate.
 
 `@inferred compute` checks the replayed scalar computation. Wall-clock timing
 is deliberately absent: the core suite owns hot-path allocation checks, while

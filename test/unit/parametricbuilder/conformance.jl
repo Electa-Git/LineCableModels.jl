@@ -1,5 +1,5 @@
 @testitem "ParametricBuilder / Gridspace / composition conformance" tags=[:unit] setup=[
-    EngineTestSupport, UseEngineSupport] begin
+    UseEngineSupport] begin
     using Random
     import LineCableModels.ParametricBuilder as PB
 
@@ -93,7 +93,7 @@
 end
 
 @testitem "ParametricBuilder / Gridspace / structural realization" tags=[:unit] setup=[
-    EngineTestSupport, UseEngineSupport] begin
+    UseEngineSupport] begin
     using Random
     using Measurements
     import LineCableModels.ParametricBuilder as PB
@@ -140,7 +140,7 @@ end
 end
 
 @testitem "ParametricBuilder / Gridspace / inference and allocation contracts" tags=[:unit] setup=[
-    EngineTestSupport, UseEngineSupport] begin
+    UseEngineSupport] begin
     using Random
     import LineCableModels.ParametricBuilder as PB
 
@@ -195,35 +195,10 @@ end
 end
 
 @testitem "ParametricBuilder / Gridspace / removed traversal machinery" tags=[:unit] setup=[
-    EngineTestSupport, UseEngineSupport] begin
+    UseEngineSupport] begin
     import LineCableModels.ParametricBuilder as PB
 
-    for name in (
-        :AutomaticGridKey,
-        :NamedGridKey,
-        :ConstantAxis,
-        :GridBinding,
-        :AxisSelection,
-        :ResolvedGridValue,
-        :Configuration,
-        :configurations,
-        :configuration_manifest,
-        :_same_grid_key,
-        :_axis_bindings,
-        :_compatible_bindings,
-        :_merged_bindings,
-        :_gridspace_axis,
-        :_AbstractDefinition,
-        :_ManifestState,
-        :_manifest_tree,
-        :_coupling_manifest
-    )
-        @test !isdefined(PB, name)
-        @test !isdefined(LineCableModels, name)
-    end
     @test :Gridpoint ∉ names(PB)
     @test :points ∉ names(PB)
     @test :realize ∉ names(PB)
-    @test !isdefined(PB, :realize)
-    @test !isdefined(PB, :realize_arguments)
 end

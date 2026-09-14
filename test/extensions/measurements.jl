@@ -2,18 +2,19 @@
     :extension,
     :core_only
 ] begin
+    program=raw"""
+    using Test
     import LineCableModels
 
     @test Base.get_extension(LineCableModels, :LineCableModelsMeasurementsExt) === nothing
-    @test !isdefined(LineCableModels, :Utils)
     @test LineCableModels.nominal(1.0) == 1.0
     @test LineCableModels.nominal(1.0 + 2.0im) == 1.0 + 2.0im
     @test LineCableModels.uncertainty(1.0) == 0.0
 
     uncertain_space=LineCableModels.Material(
         kind = :insulator,
-        rho = 1.97e14,
-        eps_r = LineCableModels.Grid((2.3,), 1.0),
+        rho = 1e8,
+        eps_r = LineCableModels.Grid((3.0,), 0.1),
         mu_r = 1.0,
         T0 = 20.0,
         alpha = 0.0
@@ -35,10 +36,20 @@
     @test_throws ArgumentError LineCableModels.ImportExport.deserialize_value(
         encoded_measurement
     )
+    """
+    project=dirname(Base.active_project())
+    process=run(`$(Base.julia_cmd()) --startup-file=no --project=$project -e $program`;wait=false)
+    status=timedwait(()->process_exited(process),180.;pollint=.1)
+    if status===:timed_out
+        kill(process)
+    end
+    wait(process)
+    @test status===:ok
+    @test success(process)
 end
 
 @testitem "Measurements / natural promotion preserves covariance" tags=[:extension] setup=[
-    DataModelTestSupport, UseDataModelSupport, TestNumerics] begin
+    UseDataModelSupport, TestNumerics] begin
     using Measurements
     import Measurements: derivative
 
@@ -76,7 +87,7 @@ end
 end
 
 @testitem "DataModel / Measurements / covariance through complete assembly" tags=[:extension] setup=[
-    DataModelTestSupport, UseDataModelSupport, TestNumerics] begin
+    UseDataModelSupport, TestNumerics] begin
     using Measurements
     import Measurements: derivative
     copper_props=Material(:conductor, 1.7241e-8, 1.0, 1.0, 20.0, 0.00393)
@@ -126,7 +137,7 @@ end
 end
 
 @testitem "Measurements / external boundaries and numerical kernels" tags=[:extension] setup=[
-    EngineTestSupport, UseEngineSupport, TestNumerics] begin
+    UseEngineSupport, TestNumerics] begin
     using Measurements
     using Statistics
     using SpecialFunctions
@@ -191,7 +202,6 @@ end
         @test uncertainty(imag(propagated)) > 0
     end
 
-    @test !isdefined(extension_module, :_joint_coordinates)
 end
 
 @testitem "Measurements / Bessel sensitivities preserve complex covariance" tags=[:extension] begin
@@ -245,7 +255,7 @@ end
 end
 
 @testitem "Measurements / Monte Carlo / explicit Gridspace reconstruction" tags=[:extension] setup=[
-    EngineTestSupport, UseEngineSupport, TestNumerics] begin
+    UseEngineSupport, TestNumerics] begin
     using Measurements
     using Statistics
     formulation=MonteCarlo(Formulation(); trials = 3, seed = 9,

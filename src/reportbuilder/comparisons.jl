@@ -364,7 +364,7 @@ function tabulate(definition::BenchmarkTableDefinition, source,
         :allocation_statistic,:allocation_scope,:scope,:reused)
     timing_ratio=isempty(tables.performance_comparison) ? DataFrame() : DataFrames.select(
         tables.performance_comparison,:reference_over_candidate,:comparable)
-    source_timings=isempty(tables.source_timings) ? DataFrame() : DataFrames.stack(
+    source_timings=isempty(tables.source_timings) ? DataFrame() : Base.stack(
         tables.source_timings,Not([:role,:method,:point]),[:method,:point];
         variable_name=:measurement,value_name=:value)
     sampling=isempty(tables.sampling) ? DataFrame() : DataFrames.select(tables.sampling,

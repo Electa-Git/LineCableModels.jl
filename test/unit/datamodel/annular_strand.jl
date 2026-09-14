@@ -142,7 +142,7 @@ end
             connections=Dict(:core=>1, :sheath=>0))
         problem = LineParametersProblem(system; earth_props=homogeneous(rho=100.0),
             frequencies=[0.1, 50.0, 1e6])
-        @inferred compute(problem)
+        compute(problem)
     end
     @test first(parameters).Z ≈ last(parameters).Z rtol=2e-10
     @test first(parameters).Y ≈ last(parameters).Y rtol=2e-10

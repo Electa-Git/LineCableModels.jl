@@ -1,38 +1,48 @@
-@testitem "Engine / internal impedance / solid and hollow working precision" tags=[:unit] begin
-    const II = LineCableModels.Engine.InternalImpedance
-    formula = II.Formula(:default)
-    @test II.formula_id(formula) === :default
-
-    # Float64 uses SpecialFunctions; Complex{BigFloat} uses the package's
-    # precision-preserving Bessel implementation. Compare the complete surface
-    # impedances rather than testing an otherwise unused numerical helper.
-    setprecision(BigFloat, 128) do
-        for inner in (0.0, 0.008), frequency in (50.0, 1000.0)
-            reference = formula(inner, 0.01, 1.7241e-8, 1.0, complex(0.0, 2pi * frequency))
-            precise = @inferred formula(BigFloat(inner), BigFloat(0.01),
-                BigFloat(1.7241e-8), BigFloat(1.0), complex(big"0", 2big(pi) * frequency))
-            for interaction in (Val(:inner), Val(:outer), Val(:transfer))
-                actual = @inferred precise(interaction)
-                @test actual isa Complex{BigFloat}
-                @test precision(real(actual)) == 128
-                @test precision(imag(actual)) == 128
-                @test isfinite(actual)
-                @test actual ≈ reference(interaction) rtol=2e-12 atol=0
-            end
-            if iszero(inner)
-                @test iszero(precise(Val(:inner)))
-                @test iszero(precise(Val(:transfer)))
+@testitem "Engine / internal impedance / independent radial diffusion control" tags=[:unit] begin
+    include(joinpath(pkgdir(LineCableModels),"test/support/radial_control.jl"))
+    using .RadialControl
+    const II=LineCableModels.Engine.InternalImpedance
+    selected=II.Formula(:default)
+    for inner in (0.0,.003),f in (10.0,1000.0)
+        references=map((128,256,512)) do bits
+            setprecision(BigFloat,bits) do
+                ri,ro,rho=BigFloat(inner),big".005",big"2e-8"
+                RadialControl.surfaces(ri,ro,rho,4big(pi)*big"1e-7",2big(pi)*im*f)
             end
         end
-
-        # Independent DC and low-frequency internal-inductance limits of a
-        # solid round wire; the test frequency is explicitly positive.
-        radius = big"0.01"
-        resistivity = big"1.7241e-8"
-        omega = 2big(pi) * big"1e-6"
-        impedance = formula(BigFloat(0), radius, resistivity, BigFloat(1),
-            complex(big"0", omega))(Val(:outer))
-        @test real(impedance) ≈ resistivity / (big(pi) * radius^2) rtol=1e-12
-        @test imag(impedance) / omega ≈ big"5e-8" rtol=1e-12
+        reference=last(references)
+        for kind in (:inner,:outer,:transfer)
+            expected=getproperty(reference,kind)
+            uncertainty=reference.bound+abs(expected-getproperty(references[2],kind))
+            @testset "$T $kind ri=$inner f=$f" for T in (Float32,Float64,BigFloat)
+                actual=selected(T(inner),T(.005),T(2e-8),one(T),2T(pi)*im*T(f))(Val(kind))
+                @test actual isa Complex{T}
+                for component in (real,imag)
+                    target=component(expected)
+                    if iszero(target)
+                        @test iszero(component(actual))
+                    else
+                        budget=1e-6*abs(target)
+                        @test uncertainty<=budget/4
+                        @test abs(component(actual)-target)+uncertainty<=budget
+                    end
+                end
+            end
+        end
+    end
+    # Derive the approach to DC from the same independently bounded radial
+    # solution; no exact DC equality is imposed at a positive frequency.
+    previous=Ref(Inf)
+    for f in (1.0,.1,.01)
+        reference=setprecision(BigFloat,256) do
+            RadialControl.surfaces(big"0",big".005",big"2e-8",4big(pi)*big"1e-7",2big(pi)*im*f)
+        end
+        value=selected(0.0,.005,2e-8,1.0,2pi*im*f)(Val(:outer))
+        rdc=2e-8/(pi*.005^2); ldc=4pi*1e-7/(8pi)
+        remainder=abs(real(reference.outer)-rdc)+abs(imag(reference.outer)/(2pi*f)-ldc)
+        @test remainder<previous[]
+        @test abs(real(value)-rdc)<=abs(real(reference.outer)-rdc)+reference.bound+1e-6rdc
+        @test abs(imag(value)/(2pi*f)-ldc)<=abs(imag(reference.outer)/(2pi*f)-ldc)+reference.bound/(2pi*f)+1e-6ldc
+        previous[]=Float64(remainder)
     end
 end

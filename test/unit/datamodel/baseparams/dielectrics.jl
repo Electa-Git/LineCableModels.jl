@@ -1,5 +1,4 @@
 @testitem "BaseParams / dielectrics / coaxial kernels" tags=[:unit] setup=[
-    BaseParamsTestSupport,
     UseBaseParamsSupport
 ] begin
     ε0=8.8541878128e-12

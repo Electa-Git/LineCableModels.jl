@@ -3,8 +3,9 @@
     using LineCableModels.ReportBuilder: BenchmarkTableDefinition
     f = collect(range(2.0,8.0;length=7))
     omega = reshape(2pi.*f,1,1,:)
-    r = [i+2j+x/10 for i in 1:2,j in 1:2,x in f]
-    parts = (R=r,L=r.*1e-4,C=r.*1e-8,G=r.*1e-5)
+    include(joinpath(pkgdir(LineCableModels),"test/support/scenarios.jl"))
+    parts=NamedTuple{(:R,:L,:C,:G)}(Tuple([CurrentScenarios.channel_value(Val(q),i,j,k)
+        for i in 1:2,j in 1:2,k in eachindex(f)] for q in (:R,:L,:C,:G)))
     summaries = map(a -> map(x -> SampleSummary([0.9x,x,1.1x]),a),parts)
     core = LineParameters(complex.(parts.R,omega.*parts.L),complex.(parts.G,omega.*parts.C),f)
     second_core = LineParameters(1.2.*Z(core),1.2.*Y(core),f)
@@ -25,7 +26,7 @@
     before = deepcopy((Z(candidate),Y(candidate),frequencies(candidate)))
     page = LineCableModels.plot(artifact;ydata=((R,2,1,:),),problem=2,
         backend=:cairo,display_plot=false,open_export=false,length_unit=:base,
-        axis=(limits=((2.0,8.0),(3.0,7.0)),),linewidth=3)
+        axis=(limits=((2.0,8.0),(.0005,.0030)),),linewidth=3)
     axis = only(page.axes)
     lines = filter(p -> p isa Makie.Lines,axis.scene.plots)
     bars = filter(p -> p isa Makie.Errorbars,axis.scene.plots)
@@ -80,9 +81,11 @@ end
     using CairoMakie, Statistics, Measurements, DataFrames
     using LineCableModels.ReportBuilder: BenchmarkTableDefinition
     f=10.0 .^ range(-1, 7; length = 13)
-    r=[(i+j)*1e-3*(1+log10(1+x)) for i in 1:3, j in 1:3, x in f]
+    include(joinpath(pkgdir(LineCableModels),"test/support/scenarios.jl"))
+    values=NamedTuple{(:R,:L,:C,:G)}(Tuple([CurrentScenarios.channel_value(Val(q),i,j,k)
+        for i in 1:3,j in 1:3,k in eachindex(f)] for q in (:R,:L,:C,:G)))
+    r=values.R
     omega=reshape(2pi .* f, 1, 1, :)
-    values=(R = r, L = r .* 1e-4, C = r .* 1e-8, G = r .* 1e-5)
     stats=map(values) do array
         map(value -> SampleSummary([0.9value, 1.1value]), array)
     end
@@ -187,17 +190,17 @@ end
     retained=observables(reference, ((statistics, R, mean, 1), (statistics, R, std, 1));
         length_unit = :base, clip = false)
     context=merge(metadata, (basis = :pul, domain = :PhaseDomain, frequencies = f))
-    historical=report(
+    detached_report=report(
         BenchmarkTableDefinition(((statistics, R, mean), (statistics, R, std)); bands = (
             :all, :wide)),
         (reference = (result = retained, metadata = context),
             candidate = (result = retained, metadata = context)))
     selected=LineCableModels.plot(
-        historical; backend = :cairo, ydata = ((statistics,R,mean),(statistics,R,std)), blocks = (2, 2), band = :wide,
+        detached_report; backend = :cairo, ydata = ((statistics,R,mean),(statistics,R,std)), blocks = (2, 2), band = :wide,
         display_plot = false, controls = false, open_export = false, length_unit = :base, fig_size = (
             1100, 750))
     @test length(selected)==8
-    @test_throws r"uncertainty-bearing core" LineCableModels.plot(historical;
+    @test_throws r"uncertainty-bearing core" LineCableModels.plot(detached_report;
         backend=:cairo,ydata=(R,),display_plot=false)
     for page in selected
         @test !isempty(Makie.colorbuffer(page.figure))

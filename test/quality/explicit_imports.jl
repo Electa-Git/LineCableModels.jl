@@ -2,7 +2,15 @@
     using ExplicitImports: test_explicit_imports, improper_qualified_accesses
     # These adapters participate in the numerical/UQ paths. Check the loaded
     # extensions too; a cold root-only scan cannot see their ownership errors.
-    import Measurements, Distributions, Gmsh
+    import Measurements, Distributions, Gmsh, Calculus, XLSX
+    for name in (:LineCableModelsMeasurementsExt, :LineCableModelsDistributionsExt,
+            :LineCableModelsGmshExt, :LineCableModelsXLSXExt)
+        @test Base.get_extension(LineCableModels, name) !== nothing
+    end
+    if isdefined(Main, :CairoMakie)
+        @test Base.get_extension(LineCableModels, :LineCableModelsMakieExt) !== nothing
+        @test Base.get_extension(LineCableModels, :LineCableModelsCairoMakieExt) !== nothing
+    end
     import Logging, JSON3
 
     # Gmsh's generated API deliberately uses qualified calls without export/
@@ -59,10 +67,11 @@ end
     test_explicit_imports(Gauntlet, file; all_qualified_accesses_are_public=false)
     # Native facilities with no public annotation: detect instrumented runs,
     # identify artifact hashes, restore recorded packages, and record BLAS settings.
+    # IOError is the exception raised by native I/O, including interrupted pipes.
     # These are external interfaces; package-owned private access has no exception.
     native = (
         Base => (:JLOptions, :PkgId, :SHA1, :include, :loaded_modules, :require,
-            :structdiff, :extension_parent_name),
+            :structdiff, :extension_parent_name, :IOError),
         Base.Filesystem => (:path_separator,),
         Pkg => (:dependencies,),
         BLAS => (:get_config, :get_num_threads),

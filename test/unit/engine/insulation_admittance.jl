@@ -1,25 +1,17 @@
 @testitem "Engine / dielectric admittance / analytical layer and lossless limit" tags=[:unit] setup=[
-    EngineTestSupport, UseEngineSupport, TestNumerics] begin
-    using TOML
+    UseEngineSupport, TestNumerics] begin
 
     formulation=InsulationAdmittance.Formula(:Ametani2004)
     lossless=InsulationAdmittance.Formula(:default)
     semicon=SemiconAdmittance.Formula(:Ametani2004)
 
-    reference=TOML.parsefile(joinpath(
-        pkgdir(LineCableModels),
-        "test",
-        "fixtures",
-        "reference",
-        "coaxial_capacitance.toml"
-    ))
     for T in (Float32, Float64, BigFloat)
         setprecision(BigFloat, 128) do
             typed(value)=parse(T, value)
-            r_inner=typed("0.01")
-            r_outer=typed("0.02")
-            resistivity=typed("2.0e11")
-            relative_permittivity=typed("2.3")
+            r_inner=typed("0.005")
+            r_outer=typed("0.01")
+            resistivity=typed("1.0e8")
+            relative_permittivity=typed("3.0")
             angular_frequency=T(2)*T(π)*T(50)
             frequency_point=Complex{T}(zero(T), angular_frequency)
             material=Material(
@@ -35,14 +27,11 @@
             log_ratio=log(r_outer/r_inner)
             capacitance=circumference*ε0*relative_permittivity/log_ratio
             conductance=circumference*inv(resistivity)/log_ratio
-            previous=frequency_point/(conductance+frequency_point*capacitance)
-            T===Float64&&@test coefficient == previous
             recovered_admittance=frequency_point/coefficient
-            expected_conductance=T(parse(
-                BigFloat,
-                reference["parallel_rc"]["conductance"]
-            ))
-            expected_capacitance=T(parse(BigFloat, reference["value"]))
+            # Radial current integration gives 2πκ/log(b/a); this expectation
+            # is derived here, without reading engine output or saved values.
+            expected_conductance=conductance
+            expected_capacitance=capacitance
             @test TestNumerics.isapprox_scaled(
                 real(recovered_admittance),
                 expected_conductance
@@ -54,10 +43,10 @@
         end
     end
 
-    r_in=0.010
-    r_ex=0.018
-    rho=2.0e11
-    eps_r=2.4
+    r_in=0.005
+    r_ex=0.01
+    rho=1e8
+    eps_r=3.0
     s=Complex(0.0, 2π*50.0)
     epsilon0=8.8541878128e-12
 
@@ -72,9 +61,9 @@
     @test real(s / coefficient) > 0
     @test imag(s / coefficient) > 0
 
-    r_mid=0.013
-    second_rho=8.0e10
-    second_eps=3.6
+    r_mid=0.007
+    second_rho=2e8
+    second_eps=5.0
     first_material=Material(:semicon, rho, eps_r, 1.0, 20.0, 0.0)
     second_material=Material(:insulator, second_rho, second_eps, 1.0, 20.0, 0.0)
     first_layer=LineCableModels.Engine.potential_coefficient(
@@ -143,7 +132,7 @@ end
 end
 
 @testitem "Engine / dielectric admittance / strict layers reach direct computation" tags=[:unit] setup=[
-    EngineTestSupport, UseEngineSupport, TestNumerics] begin
+    UseEngineSupport, TestNumerics] begin
     using LinearAlgebra
 
     function two_terminal_problem(;
@@ -332,7 +321,7 @@ end
 end
 
 @testitem "Engine / Ametani2004 / Gridspace Monte Carlo samples before assembly" tags=[:unit] setup=[
-    EngineTestSupport, UseEngineSupport, TestNumerics] begin
+    UseEngineSupport, TestNumerics] begin
     using Statistics
     import LineCableModels.ParametricBuilder as PB
 

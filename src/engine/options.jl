@@ -82,7 +82,7 @@ function formulation_options(::Type{LineCableModelsFEM}, options::NamedTuple)::F
     physics in (Symbol("quasi-tem"), Symbol("quasi-fw")) || throw(ArgumentError(
         "physics must be :quasi_tem or :quasi_fw (also accepted as hyphenated strings or Symbols)"))
     reductions = formulation_options(LineParametersFormulation,
-        Base.structdiff(options, (; physics)))
+        (; (key => value for (key, value) in pairs(options) if key !== :physics)...))
     return (; reductions..., physics)
 end
 
@@ -132,8 +132,9 @@ function computation_options(::Type{LineCableModelsFEM}, options::NamedTuple)::C
     isempty(unknown) || throw(ArgumentError(
         "unknown LineCableModelsFEM computation options: $(Tuple(unknown))"))
     standard = computation_options(LineCableModelsCoaxial,
-        Base.structdiff(options, defaults))
-    normalized = merge(defaults, Base.structdiff(options, standard))
+        (; (key => value for (key, value) in pairs(options) if key in standard_keys)...))
+    normalized = merge(defaults,
+        (; (key => value for (key, value) in pairs(options) if key in keys(defaults))...))
     for name in (:ui, :plot_field_maps, :keep_run_directory)
         getproperty(normalized, name) isa Bool || throw(ArgumentError("$name must be Bool"))
     end

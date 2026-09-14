@@ -14,7 +14,6 @@ export figurelegend!, panellegend!, figuretitle!, paneltitle!
 export plotwindow, materialcolors, materialscale!
 
 include("handle.jl")
-include("attributes.jl")
 include("interfaces.jl")
 
 end # module PlotBuilder

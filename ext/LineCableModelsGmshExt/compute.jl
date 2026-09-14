@@ -606,8 +606,9 @@ function _fem_input_record(model::FEMResolvedModel, formulation::LineCableModels
         cable_outer_mesh_sizes = model.cable_outer_mesh_sizes,
         mesh_growth_factor = model.mesh_growth_factor,
         options = formulation.options,
-        execution = Base.structdiff(execution, (; verbosity=nothing, output_basis=nothing,
-            trace=nothing, on_result=nothing, log_file=nothing, resume_run_directory=nothing)),
+        execution = (; (key => value for (key, value) in pairs(execution)
+            if key ∉ (:verbosity, :output_basis, :trace, :on_result, :log_file,
+                :resume_run_directory))...),
         supplied_mesh = mesh_path === nothing || !isfile(mesh_path) ? nothing :
             bytes2hex(open(sha256, mesh_path)),
         owned_gmsh = !Bool(gmsh.is_initialized()),

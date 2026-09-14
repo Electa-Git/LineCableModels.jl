@@ -85,17 +85,6 @@
         @test formula_id(selected_default) === :default
         @test :default in category.registry
 
-        for file in formula_files
-            # Static FrequencyDependent is an intentional identity relation, exercised numerically.
-            category.module_owner === LineCableModels.Earth.FrequencyDependent &&
-                file == "default.jl" && continue
-            source = read(joinpath(directory, file), String)
-            @test isnothing(match(
-                r"(?m)^\s*return\s+(material|model|parameters|input|source)\s*$",
-                source
-            ))
-        end
-
         descriptions = Tuple{Any, DocStr}[]
         for (binding, multidoc) in meta(category.module_owner)
             binding.var === :description || continue

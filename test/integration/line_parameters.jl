@@ -1,5 +1,4 @@
 @testitem "Engine / solver / multicable reciprocity and modal transformation" tags=[:integration] setup=[
-    EngineTestSupport,
     UseEngineSupport,
     TestFixtures,
     TestNumerics
@@ -27,12 +26,12 @@
     @test size(parameters.Z) == (3, 3, 2)
     @test all(isfinite, parameters.Z)
     @test all(isfinite, parameters.Y)
-    @test trace.phase_map == [1, 0, 0, 2, 0, 0, 3, 0, 0]
-    @test trace.cable_map == repeat(1:3; inner = 3)
-    @test size(trace.Zin) == (9, 9, 2)
-    @test size(trace.Pin) == (9, 9, 2)
-    @test size(trace.Z) == (9, 9, 2)
-    @test size(trace.P) == (9, 9, 2)
+    @test trace.phase_map == [1, 0, 2, 0, 3, 0]
+    @test trace.cable_map == repeat(1:3; inner = 2)
+    @test size(trace.Zin) == (6, 6, 2)
+    @test size(trace.Pin) == (6, 6, 2)
+    @test size(trace.Z) == (6, 6, 2)
+    @test size(trace.P) == (6, 6, 2)
     @test size(trace.Zg) == (3, 3, 2)
     @test size(trace.Pg) == (3, 3, 2)
     for identifier in (:default,)
@@ -133,7 +132,6 @@
 end
 
 @testitem "Engine / Gridpoint / selected line problem reaches scalar compute" tags=[:integration] setup=[
-    EngineTestSupport,
     UseEngineSupport,
     TestFixtures
 ] begin
@@ -158,7 +156,6 @@ end
 end
 
 @testitem "Engine / coaxial choreography / local formulas precede earth formulas" tags=[:integration] setup=[
-    EngineTestSupport,
     UseEngineSupport,
     TestFixtures
 ] begin
@@ -258,14 +255,13 @@ end
 end
 
 @testitem "Engine / transform / symmetric two-cable system retains two modes" tags=[:integration] setup=[
-    EngineTestSupport,
     UseEngineSupport,
     TestFixtures,
     TestNumerics
 ] begin
     using LinearAlgebra: Diagonal, diag, norm
 
-    design=TestFixtures.mv_cable_design()
+    design=TestFixtures.coaxial_design()
     connections=[Dict(terminal=>(terminal===:core ? phase : 0)
                  for terminal in design.terminal_order)
                  for phase in 1:2]
@@ -312,7 +308,6 @@ end
 end
 
 @testitem "Engine / formulation boundary / physical geometry precedes backend support" tags=[:integration] setup=[
-    EngineTestSupport,
     UseEngineSupport
 ] begin
     conductor=Material(kind = :conductor, rho = 1.7241e-8)
@@ -364,7 +359,6 @@ end
 end
 
 @testitem "Engine / coaxial profile / explicit radial support boundary" tags=[:integration] setup=[
-    EngineTestSupport,
     UseEngineSupport
 ] begin
     conductor=Material(kind = :conductor, rho = 1.7241e-8)
@@ -478,12 +472,11 @@ end
 end
 
 @testitem "Engine / solver / bundle-only and singleton reduction policies" tags=[:integration] setup=[
-    EngineTestSupport,
     UseEngineSupport,
     TestFixtures
 ] begin
-    design=TestFixtures.mv_cable_design()
-    duplicate_mapping=Dict("core"=>1, "sheath"=>1, "jacket"=>0)
+    design=TestFixtures.coaxial_design()
+    duplicate_mapping=Dict("core"=>1, "sheath"=>1)
     duplicate_system=build(
         LineCableSystem,
         design,
@@ -508,14 +501,15 @@ end
         )
     )
     duplicate_result=@inferred compute(duplicate_problem, bundle_only)
-    @test size(duplicate_result.Z) == (2, 2, 1)
+    @test size(duplicate_result.Z) == (1, 1, 1)
     @test all(isfinite, duplicate_result.Z)
     @test all(isfinite, duplicate_result.Y)
 
     singleton_design=build(
         CableDesign,
         "single-component",
-        Stack(deepcopy(design.origin.items[1:10]))
+        Stack(terminal(:core,Region(:metal,Disk(.005),TestFixtures.conductor_material())),
+            Region(:cover,Shell(.005),Material(kind=:insulator,rho=1e8,eps_r=3.)))
     )
     singleton_system=build(
         LineCableSystem,
@@ -545,7 +539,7 @@ end
 end
 
 @testitem "Engine / indexed restrictions and Γ overrides reach public compute" tags=[:integration] setup=[
-    EngineTestSupport, UseEngineSupport, TestFixtures
+    UseEngineSupport, TestFixtures
 ] begin
     base=TestFixtures.line_parameters_problem(frequencies = [50.0, 500.0])
     explicit=LineParametersProblem(base.system; earth_props = base.earth_props,
@@ -567,8 +561,8 @@ end
     @test_throws ArgumentError compute(zero_problem, selected)
     @test_throws DimensionMismatch LineParametersProblem(base.system;
         earth_props = base.earth_props, frequencies = base.frequencies, Γ = [0.0])
-    design=TestFixtures.mv_cable_design()
-    connections(phase) = Dict("core"=>phase, "sheath"=>0, "jacket"=>0)
+    design=TestFixtures.coaxial_design()
+    connections(phase) = Dict("core"=>phase, "sheath"=>0)
     mixed=build(LineCableSystem, [design, design], [Pose2(0.0, 1.0), Pose2(1.0, -1.0)];
         connections = [connections(1), connections(2)])
     problem=LineParametersProblem(mixed; earth_props = EarthModel(100.0), frequencies = [50.0])
@@ -578,7 +572,6 @@ end
 end
 
 @testitem "Engine / frequency-dependent earth relation reaches coaxial solve" tags=[:integration] setup=[
-    EngineTestSupport,
     UseEngineSupport,
     TestFixtures
 ] begin

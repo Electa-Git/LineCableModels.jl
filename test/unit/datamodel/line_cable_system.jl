@@ -1,9 +1,8 @@
 @testitem "DataModel / LineCableSystem / completed immutable state" tags=[:unit] setup=[
-    DataModelTestSupport,
     UseDataModelSupport,
     TestFixtures
 ] begin
-    design=TestFixtures.mv_cable_design()
+    design=TestFixtures.coaxial_design()
     mapping(phase) = Dict(
         terminal=>(index==1 ? phase : 0)
     for (index, terminal) in enumerate(design.terminal_order)

@@ -4,30 +4,58 @@
     options(method;
         controls...) = E.computation_options(E.SpectralIntegral,
         (method = method, options = (; controls...)))
-    a, b, h, y = 2+im, 3+2im, 0.5, 1.2
-    integral=E.SpectralIntegral(Val(:cosine), x->a*exp(-b*x), (height = h, separation = y), 1.0)
+    using QuadGK
+    a,b,h,y=1+im,2+im,0.5,1.0
+    integral=E.SpectralIntegral(Val(:cosine),x->a*exp(-b*x),(height=h,separation=y),1.0)
     exact=a*(h+b)/((h+b)^2+y^2)
-    for method in (:quad, :trapz, :cim)
-        o=options(method)
-        @test E.integrate(o.method, integral, o.options, nothing) ≈
-              exact rtol=2e-6
+    q=1+.25im
+    radial=E.SpectralIntegral(Val(:radial),u->a*exp(-b*u),(height=h,separation=y,q),1.0)
+    # Independent hyperbolic parameterization. |cos(z)| <= exp(|Im(z)|).
+    # For t>=T the integrand is bounded by |a|exp(-d*exp(t)),
+    # d=(Re((h+b)q)-|Im(yq)|)/2; its integral <= exp(-d*exp(T))/(d*exp(T)).
+    d=(real((h+b)*q)-abs(imag(y*q)))/2
+    @test d>0
+    T=log(80/d)
+    radial_exact,estimate=quadgk(t->a*exp(-(h+b)*q*cosh(t))*cos(y*q*sinh(t)),
+        0.0,T;rtol=1e-12,maxevals=10^6)
+    uncertainty=estimate+abs(a)*exp(-d*exp(T))/(d*exp(T))
+    for method in (:quad,:trapz,:cim)
+        controls=method===:trapz ? (;max_refinements=14) : method===:cim ? (;samples=512,maxevals=10^6) : (;maxevals=10^6)
+        o=options(method;controls...)
+        @info "S4 resolved options" method o.options
+        for (problem,expected,u) in ((integral,exact,0.0),(radial,radial_exact,uncertainty))
+            actual=E.integrate(o.method,problem,o.options,nothing)
+            for component in (real,imag)
+                B=1e-6*abs(component(expected))
+                @test u<=B/4
+                @test abs(component(actual-expected))+u<=B
+            end
+        end
     end
-    radial=E.SpectralIntegral(Val(:radial), u->a*exp(-b*u),
-        (height = h, separation = y, q = 0.7+0.2im), 1.0)
-    radial_exact=a*E.special_besselk(0, radial.weight.q*sqrt((h+b)^2+y^2))
-    for method in (:quad, :trapz, :cim)
-        o=options(method)
-        @test E.integrate(o.method, radial, o.options, nothing) ≈
-              radial_exact rtol=2e-6
-    end
-    # A zero residual and an exact extracted pole need no exponential images.
-    for pole in (nothing, (residue = 1.0+0.2im, location = 0.5-0.1im))
-        zero_residual=E.SpectralIntegral(Val(:cosine), λ->zero(complex(λ)),
-            (height = 1.0, separation = 0.2), 1.0; pole)
-        q=options(:quad);
-        c=options(:cim)
-        @test E.integrate(c.method, zero_residual, c.options, nothing) ≈
-              E.integrate(q.method, zero_residual, q.options, nothing)
+    # The extracted pole is evaluated independently using its Laplace identity,
+    # 1/(lambda+p)=integral(exp(-(lambda+p)t),t=0..Inf).
+    residue,location=1+.2im,.5-.1im
+    stop=80/real(location)
+    pole_exact,pole_error=quadgk(t->residue*exp(-location*t)*(1+t)/((1+t)^2+.2^2),
+        0.0,stop;rtol=1e-12,maxevals=10^6)
+    pole_error+=abs(residue)*exp(-real(location)*stop)/(real(location)*(1+stop))
+    for pole in (nothing,(;residue,location)),method in (:quad,:trapz,:cim)
+        zero_residual=E.SpectralIntegral(Val(:cosine),lambda->zero(complex(lambda)),
+            (height=1.0,separation=.2),1.0;pole)
+        controls=method===:trapz ? (;max_refinements=14) : method===:cim ? (;samples=512,maxevals=10^6) : (;maxevals=10^6)
+        o=options(method;controls...)
+        actual=E.integrate(o.method,zero_residual,o.options,nothing)
+        if pole===nothing
+            @test iszero(actual)
+        else
+            # This is a quadrature control, with the approved S4 component
+            # budget of 1e-6; the pole integral is not an algebraic identity.
+            for component in (real,imag)
+                budget=1e-6*abs(component(pole_exact))
+                @test pole_error<=budget/4
+                @test abs(component(actual-pole_exact))+pole_error<=budget
+            end
+        end
     end
     @test_throws ArgumentError options(:unknown)
     @test_throws ArgumentError options(:quad; max_terms = 10)

@@ -1,5 +1,4 @@
 @testitem "Engine / option grammar / owner dispatch contract" tags=[:unit] setup=[
-    EngineTestSupport,
     UseEngineSupport
 ] begin
     const Grammar=LineCableModels.Grammar
@@ -24,7 +23,12 @@
         Grammar.computation_options,
         Tuple{Type{LineCableModelsCoaxial}, NamedTuple}
     )
-    @test_throws MethodError Grammar.formulation_options((;))
+    # Composed retained selections traverse each owning formulation interface.
+    @test Grammar.formulation_options((;)) == (;)
+    retained_options = (reduce_bundle=false, kron_reduction=true,
+        ideal_transposition=false)
+    @test Grammar.formulation_options((leaf=formulation_owner =>
+        (options=retained_options,),)) == (leaf=retained_options,)
     @test_throws MethodError Grammar.computation_options((;))
     @test_throws MethodError Grammar.formulation_options(:analytical, (;))
     @test_throws MethodError Grammar.computation_options(:analytical, (;))

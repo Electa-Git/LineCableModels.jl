@@ -257,7 +257,7 @@ function _resolve_enclosure(enclosure::Enclosure, container, contents::CableGeom
     if container isa Disk && occupied isa Disk &&
        occupied.at.x == container.at.x && occupied.at.y == container.at.y &&
        isapprox(sum(area, holes), area(occupied);
-            rtol=0, atol=_geometry_tolerance(area(occupied)))
+            rtol=0, atol=geometry_tolerance(area(occupied)))
         holes = (occupied,)
     end
 
@@ -275,7 +275,7 @@ function _resolve_enclosure(enclosure::Enclosure, container, contents::CableGeom
     end
 
     remaining_area = area(container) - sum(area, holes; init = zero(area(container)))
-    tolerance = _geometry_tolerance(area(container))
+    tolerance = geometry_tolerance(area(container))
     remaining_area >= -tolerance || throw(DomainError(
         remaining_area, "enclosure contents exceed the containing boundary area"
     ))
@@ -352,7 +352,7 @@ function resolve(context::AbstractShape, enclosure::Enclosure)
     context isa Disk &&
     isapprox(context.at.x, placed.at.x) &&
     isapprox(context.at.y, placed.at.y) &&
-    context.r <= placed.ri + _geometry_tolerance(placed.ri) || throw(DomainError(
+    context.r <= placed.ri + geometry_tolerance(placed.ri) || throw(DomainError(
         context,
         "an annular Enclosure must be concentric with and outside the preceding circular boundary"
     ))
@@ -360,7 +360,7 @@ function resolve(context::AbstractShape, enclosure::Enclosure)
     # boundary. Explicit wire radii stay fixed; contextual rings use this disk.
     # An explicit fill Region has its own geometry and is not extended.
     enclosure.fill isa Material || isapprox(context.r, placed.ri;
-        rtol=0, atol=_geometry_tolerance(placed.ri)) || throw(DomainError(
+        rtol=0, atol=geometry_tolerance(placed.ri)) || throw(DomainError(
         context, "an explicit fill Region must continue the preceding boundary"))
     inner = Disk(context.r, container.at)
     contents = resolve(inner, enclosure.item)

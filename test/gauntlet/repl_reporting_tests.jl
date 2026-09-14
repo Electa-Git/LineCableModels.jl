@@ -5,7 +5,7 @@
     using .GauntletSupport.Gauntlet
     mktempdir() do root
         f = [0.1, 1.0, 10.0, 100.0, 1e3, 1e4, 1e5, 1e6, 1e7]
-        z = cat(([1.0 2.0; 3.0 5.0] .* (1 + im * frequency) for frequency in f)...; dims=3)
+        z = [complex(11i+7j+k,2i+5j+3k) for i in 1:2,j in 1:2,k in eachindex(f)]
         y = im .* z .- real.(im .* z) # exactly zero G
         original = Dict{String, Vector{UInt8}}()
         operands = map(("reference", "candidate"), (1.0, 2.0)) do role, factor
@@ -43,31 +43,15 @@
         definition = Gauntlet.benchmark_definition(:matrix_report, :matrix_case, :repl,
             source, (id=:matrix_case, description="matrix_case"), operands_for_definition...,
             current.published.settings, (;))
-        old_rows = map(current.published.comparisons) do row
-            old_details = Base.structdiff(row.error.details, (resolution=row.error.details.resolution,))
-            old_error = LineCableModels.Engine.RMSError{Float64}(row.error.absolute, row.error.relative;
-                details=old_details)
-            merge(row, (error=old_error,))
-        end
-        historical = report(BenchmarkTableDefinition(),
-            merge(current.published, (comparisons=old_rows,)))
-        historical_path = Gauntlet.record_benchmark(definition, historical;
-            directory=joinpath(root, "analysis"))
-        @test historical_path != snapshot
-        historical_bytes = read(historical_path)
         @test Gauntlet.record_benchmark(definition, current;
             directory=joinpath(root, "analysis")) == snapshot
         @test all(==(LineCableModels.Engine.OBSERVABLE_RESOLUTION_REVISION), current.table.terms.resolution_revision)
-        historical_tables = report(BenchmarkTableDefinition(),
-            read_benchmark(historical_path; load_results=true)).table
-        @test all(==(0), historical_tables.terms.resolution_revision)
-        @test read(historical_path) == historical_bytes
         @test all(read(path) == bytes for (path, bytes) in original)
         files_before = [(dir, copy(names)) for (dir, _, names) in walkdir(root)]
         tables = report(BenchmarkTableDefinition(false), loaded).table
         @test propertynames(tables) == (:calculations,:formulations,:formula_details,:comparisons,:terms,:maxima,:summary,:features,
             :execution,:source_timings,:performance,:performance_samples,:performance_environment,
-            :performance_policy,:performance_comparison,:statistics,:sampling,:mean_sampling_precision)
+            :performance_policy,:performance_comparison,:statistics,:sampling,:mean_sampling_precision,:overview)
         @test nrow(tables.calculations) == 2
         @test loaded.reference.metadata.formulation.equation === :reference
         @test loaded.candidate.metadata.formulation.equation === :candidate
@@ -142,12 +126,6 @@ end
         calculations=(reference=(problem=:a,formulation=:mc),candidate=(problem=:a,formulation=:lep))
         performance=(reference=(calculation=calculations.reference,median_seconds=3.0),
             candidate=(calculation=calculations.candidate,median_seconds=1.0))
-        JLD2.jldsave(path;performance)
-        historical=Gauntlet.read_benchmark(path,Val(:performance);calculations)
-        @test ismissing(historical.checksum_verified)
-        @test historical.workload_verified===true
-        @test historical.session===nothing
-        @test historical.performance==performance
         session=(id="original",started_at="2026-09-13T12:00:00")
         JLD2.jldsave(path;schema_version=1,performance,session)
         write(path*".sha256",bytes2hex(open(sha256,path)))

@@ -1,4 +1,5 @@
 using TestItemRunner
+include(joinpath(@__DIR__, "support", "runner.jl"))
 
 const DEFAULT_EXCLUDED_TAGS = Set((
     :quality, :visual, :core_only, :fem_numerical, :gauntlet, :gauntlet_toolkit))
@@ -30,4 +31,4 @@ function selected(testitem)
              (explicitly_core_only || explicit_name_or_file)))
 end
 
-@run_package_tests(filter=selected, verbose=true)
+ValidationTestRunner.run_tests(dirname(@__DIR__); filter=selected, verbose=true)

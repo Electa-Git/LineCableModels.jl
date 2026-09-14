@@ -145,7 +145,7 @@ end
         primitive = Disk(10.0e-3),
         fill = insulator
     )
-    design=TestFixtures.mv_cable_design()
+    design=TestFixtures.coaxial_design()
     system=TestFixtures.three_phase_system()
     earth=build(EP.EarthModel,
         (
@@ -204,28 +204,8 @@ end
         :monte_carlo_result
     )
 
-    function structural_snapshot(names, objects, display_size)
-        sections=map(names, objects) do name, object
-            rendered=sprint(
-                show,
-                MIME"text/plain"(),
-                object;
-                context = IOContext(
-                    IOBuffer(), :compact=>false, :limit=>true,
-                    :displaysize=>display_size
-                )
-            )
-            return string("## ", name, '\n', rendered)
-        end
-        return join(sections, "\n\n")*'\n'
-    end
-
-    snapshot_root=joinpath(pkgdir(LineCableModels), "test", "fixtures", "textdisplay")
-    @test structural_snapshot(family_names, families, (40, 120)) ==
-          read(joinpath(snapshot_root, "wide.txt"), String)
-    @test structural_snapshot(family_names, families, (6, 48)) ==
-          read(joinpath(snapshot_root, "narrow.txt"), String)
-
+    # Semantic width/compactness controls below replace saved terminal pages.
+    # A renderer may change spacing without inheriting a historical transcript.
     for object in families
         compact=sprint(show, object)
         @test !occursin('\n', compact)

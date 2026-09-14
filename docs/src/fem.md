@@ -462,15 +462,14 @@ Its geometry contains only two metal disks: radius 4.25 cm, depth 1 m, separatio
 table. Run it through `dev/run_two_bare_wires.jl` for the shared report and
 PlotBuilder comparison plots.
 
-Native regressions compare every complex self and mutual entry at 100 kHz and
-1 MHz, where a matrix norm alone can hide a mutual-admittance error. They also
-check reciprocity, independent unit-current and unit-voltage extraction,
-invariance of shunt admittance to metal conductivity, factorization reuse,
-and overhead and mixed conductor layouts. Existing coaxial-capacitance,
-constitutive-law, enclosure, reduction and recovery tests cover the surrounding
-backend behavior.
+Native acceptance requires resolved real and imaginary components with independent
+reference and discretization error budgets. Reciprocity is asserted only when the
+current formulation and extraction conventions justify it; path-defined mixed-media
+matrices have no blanket symmetry requirement.
 
-The committed `fem_python_quasi_tem.json` retains historical outputs from the
-earlier coupled Python prototype for two insulated coaxial cases. Its optional
-comparisons are legacy checks with a 10% matrix-norm tolerance, not the reference
-for the bare-wire electric formulation. The backend has no Python dependency.
+The inherited Python numerical records and test operator are retired. Current FEM
+controls must address the present material laws, boundary conditions, excitation,
+terminal/reference conventions, extraction and mesh/domain/path convergence. A
+same-mesh voltage/current basis comparison establishes extraction consistency, not
+independent operator accuracy. No language or saved file supplies validation authority.
+The backend has no Python dependency.

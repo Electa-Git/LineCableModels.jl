@@ -65,3 +65,71 @@
     @test all(isfinite,compute(hot,identity).Z)
     @test all(isfinite,compute(hot,selected).Z)
 end
+
+@testitem "UQ / current AC cable / actual sampling and independently recomputed statistics" tags=[:integration] setup=[TestFixtures] begin
+    using Measurements,Statistics,TOML
+    design=TestFixtures.coaxial_design()
+    temperatures=(20.0,60.0)
+    space=Gridspace{CableConstantsProblem}(t->CableConstantsProblem(design;temperature=t),
+        (Grid(temperatures,AbsoluteError(1.0)),))
+    problem=ParametricProblem(space)
+    linear=compute(problem,LinearError(CableConstantsFormulation()))
+    calibration=get(ENV,"LINECABLEMODELS_VALIDATION_PHASE","final")=="calibration"
+    directory=mktempdir(;prefix="lcm-uq-temperature-provisional-",cleanup=false)
+    println("Temperature UQ evidence: ",directory);flush(stdout)
+    rows=[Dict("temperature_C"=>temperature,"AC_R_Ohm_per_m"=>only(compute(CableConstantsProblem(design;temperature))).R,
+        "DC_core_R_Ohm_per_m"=>2e-8*(1+.004*(temperature-20))/(pi*.005^2)) for temperature in temperatures]
+    open(joinpath(directory,"premise.toml"),"w") do io
+        TOML.print(io,Dict("status"=>"affine DC distribution oracle inapplicable to current AC cable constants", "cases"=>rows))
+    end
+    for N in (calibration ? (512,2048) : (8192,))
+    seed=calibration ? 101 : 2027
+    sampled=compute(problem,MonteCarlo(CableConstantsFormulation();trials=N,seed,
+        distribution=:uniform,return_samples=true,return_histograms=true,retain_details=true))
+    @test sampled.trial_counts==[N,N]
+    @test length(unique(sampled.point_seeds))==2
+    @test all(isempty,sampled.details.failures)
+    # CableConstants reports AC, reduced impedance at 50/60Hz. The proposed
+    # affine DC R(T) law is not a valid oracle here. These tests establish actual
+    # execution, retained sample arithmetic and independent storage only.
+    quantile7(sorted,p)=begin
+        position=1+(length(sorted)-1)*p
+        i=floor(Int,position);fraction=position-i
+        i==length(sorted) ? last(sorted) : (1-fraction)*sorted[i]+fraction*sorted[i+1]
+    end
+    for point in eachindex(temperatures),quantity in (:R,:L,:C,:G)
+        draws=vec(getproperty(sampled.sample_values[point],quantity))
+        summary=only(getproperty(sampled.stats[point],quantity))
+        density=only(getproperty(sampled.histogram_values[point],quantity))
+        @test length(draws)==N
+        expected_mean=sum(draws)/N
+        expected_std=sqrt(sum(x->(x-expected_mean)^2,draws)/(N-1))
+        sorted=sort(draws)
+        @test summary.mean ≈ expected_mean rtol=1e-10 atol=0
+        @test summary.std ≈ expected_std rtol=1e-10 atol=eps(maximum(abs,draws))
+        @test summary.min==first(sorted) && summary.max==last(sorted)
+        @test summary.q05 ≈ quantile7(sorted,.05) rtol=1e-10 atol=0
+        @test summary.median ≈ quantile7(sorted,.5) rtol=1e-10 atol=0
+        @test summary.q95 ≈ quantile7(sorted,.95) rtol=1e-10 atol=0
+        counts=zeros(Int,length(density.density))
+        for value in draws
+            index=min(searchsortedlast(density.edges,value),length(counts))
+            1<=index<=length(counts) || error("sample outside declared histogram support")
+            counts[index]+=1
+        end
+        @test density.density ≈ counts./(N.*diff(density.edges)) rtol=1e-10 atol=0
+        @test sum(density.density.*diff(density.edges)) ≈ 1.0 rtol=1e-10
+        @test getproperty(sampled.values[point],quantity)[1] ≈ summary.mean rtol=1e-10 atol=0
+        @test isfinite(Measurements.value(getproperty(linear.values[point],quantity)[1]))
+    end
+    for point in eachindex(temperatures)
+        arrays=values(sampled.sample_values[point]);models=values(sampled.histogram_values[point])
+        for i in eachindex(arrays),j in eachindex(arrays)
+            i==j && continue
+            @test arrays[i] !== arrays[j]
+            @test only(models[i]).density !== only(models[j]).density
+        end
+        @test all(iszero,sampled.sample_values[point].G)
+    end
+    end
+end

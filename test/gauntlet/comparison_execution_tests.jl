@@ -97,7 +97,4 @@
         @__FILE__,model,reference,candidate,(;),(reference=limits,))
     @test_throws r"match each selected scientific request" run_benchmark(unsupported_limits)
     @test isempty(executions)
-    @test !isdefined(GauntletSupport.Gauntlet,:LineParametersPolicy)
-    @test !isdefined(GauntletSupport.Gauntlet,:UQMomentPolicy)
-    @test !isdefined(GauntletSupport.Gauntlet,:benchmark_calculation)
 end

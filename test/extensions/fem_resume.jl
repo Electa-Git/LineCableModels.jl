@@ -142,22 +142,13 @@
         @test extension._resume_inputs_match(run.path, model, other_inputs)
         @test !extension._resume_inputs_match(run.path,hot_model,hot_inputs)
         @test !extension._resume_inputs_match(run.path,dispersive_model,dispersive_inputs)
-        legacy = Dict(String(key)=>value for (key, value) in
-            pairs(extension.JSON3.read(extension.JSON3.write(inputs))))
-        legacy["schema_version"] = 4
-        legacy_identity = Dict(String(key)=>value for (key, value) in
-            pairs(legacy["getdp_identity"]))
-        legacy_identity["path"] = inputs.getdp_provenance.path
-        legacy["getdp_identity"] = legacy_identity
-        pop!(legacy, "getdp_provenance")
-        extension._write_json_atomic(
-            joinpath(run.path, "input", "computation.json"), legacy,
-        )
-        @test !extension._resume_inputs_match(run.path, model, inputs)
-        legacy["schema_version"] = 5
-        extension._write_json_atomic(joinpath(run.path, "input", "computation.json"), legacy)
-        @test !extension._resume_inputs_match(run.path, model, inputs)
-        extension._write_json_atomic(joinpath(run.path, "input", "computation.json"), inputs)
+        # Current missing metadata is corruption; obsolete development schema
+        # examples do not establish a compatibility obligation.
+        incomplete=Dict(String(k)=>v for (k,v) in pairs(extension.JSON3.read(extension.JSON3.write(inputs))))
+        delete!(incomplete,"solver_protocol")
+        extension._write_json_atomic(joinpath(run.path,"input","computation.json"),incomplete)
+        @test !extension._resume_inputs_match(run.path,model,inputs)
+        extension._write_json_atomic(joinpath(run.path,"input","computation.json"),inputs)
         @test !extension._resume_inputs_match(run.path, changed_model, changed_inputs)
         @test !extension._resume_inputs_match(run.path, lossy_model, lossy_inputs)
         @test_throws ArgumentError extension._resume_run(root, run.path, lossy_model, lossy_inputs)
