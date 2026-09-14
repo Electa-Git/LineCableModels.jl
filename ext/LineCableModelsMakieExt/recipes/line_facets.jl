@@ -422,6 +422,7 @@ function _addon_line_pages(
         series_attributes = nothing,
         series_defaults = nothing,
         title = nothing,
+        title_prefix = nothing,
         figure_title = nothing,
         title_attributes::NamedTuple = (;),
         panel_titles = nothing,
@@ -551,6 +552,8 @@ function _addon_line_pages(
         page_title = title === nothing ? automatic_title : String(title)
         (length(pages) > 1 || blocks !== nothing) && title !== nothing &&
             (page_title = "$page_title — $automatic_title")
+        title === nothing && title_prefix !== nothing && !ismissing(title_prefix) &&
+            (page_title = "$title_prefix — $automatic_title")
         visible_title = _semantic_page_option(
             figure_title, page_index, length(pages), "figure_title")
         push!(built,

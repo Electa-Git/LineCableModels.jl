@@ -252,27 +252,13 @@ benchmark_plots = if make_plots
     end
     all(quantity -> quantity in (R, X, L, G, B, C), ydata) || throw(ArgumentError(
         "Use R/X/L and G/B/C for marginal mean ± std plots; complex-magnitude uncertainty requires joint statistics"))
-    # The UQ owner reads one uncertainty-bearing core: MC reconstructs marginal
-    # means/stds; LEP preserves its native values and Measurement dependencies.
-    uncertainty_sources = map((benchmark.reference, benchmark.candidate)) do operand
-        uncertain(operand.result, configuration_index)
-    end
-    if plot_band !== nothing
-        comparisons = filter(row -> LineCableModels.details(row.error).band == plot_band,
-            benchmark_report.published.comparisons)
-        isempty(comparisons) && throw(ArgumentError("plot_band must be included in bands"))
-        samples = only(unique(LineCableModels.details(row.error).indices
-        for row in comparisons))
-        uncertainty_sources = map(source -> source[samples], uncertainty_sources)
-    end
+    # The benchmark recipe uses the same uncertainty-bearing core overlay as
+    # plot(LineParameters), with owner labels, case titles and band selection.
     println("\nPlotting both methods: frequency on x, mean on y, error bars ±1 std (not standard error).")
-    mean_std_plots = LineCableModels.plot(uncertainty_sources...; ydata,
-        series_labels = (timing_labels[:reference], timing_labels[:candidate]),
-        series_attributes = (
-            (marker = :circle, markersize = 5), (marker = :utriangle, markersize = 5)),
-        title = string(benchmark.id, " — mean ± 1σ"),
-        blocks, backend = plot_backend, display_plot, fig_size,
-        xscale = :log10, signed_ylog = true, legend_position = :bottom)
+    mean_std_plots = LineCableModels.plot(benchmark_report; ydata,
+        problem = problem_index, band = plot_band, blocks,
+        backend = plot_backend, display_plot, fig_size,
+        xscale = :log10, legend_position = :bottom)
     if make_statistic_plots
         statistic_plots = LineCableModels.plot(
             benchmark_report, requests; problem = problem_index,

@@ -195,7 +195,7 @@ function plot(published::NamedTuple{(:reference,:candidate,:context,:settings,:c
             series_indices=styles,xscale=xscale,yscale=yscale,clip,atol,
             formulation_sources=displayed_records,formulation_roles=roles,
             legend_position,legend_overflow,legend_attributes,
-            signed_ylog=true,kwargs...)
+            title_prefix=get(published.context,:id,nothing),signed_ylog=true,kwargs...)
         for page in (pages isa LineCableModels.UIPlot ? (pages,) : pages)
             page.addon_state=merge(page.addon_state,(
                 resolution=(atol,clip,current_comparison=current_resolution,

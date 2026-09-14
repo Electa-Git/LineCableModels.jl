@@ -1,3 +1,71 @@
+@testitem "Makie addons / coincident uncertainty intervals retain nested native glyphs" tags=[:visual] begin
+    using CairoMakie, Measurements
+
+    f = measurement.([1.0,10.0,100.0], [0.1,0.2,0.3])
+    z = [measurement(i+2j+k,0.1i+0.01j+0.001k) + im*measurement(i+j+k,0.2)
+         for i in 1:2,j in 1:2,k in eachindex(f)]
+    source = LineParameters(z,z.*1e-6,f)
+    before = deepcopy((Z(source),Y(source),frequencies(source)))
+    options = (backend=:cairo,display_plot=false,open_export=false,
+        length_unit=:base,quantity_units=:base,freq_unit=:base,clip=false)
+    pages = LineCableModels.plot(source,source,source;options...,ydata=(R,),blocks=(1,2),
+        series_labels=("first","second","third"),legend_position=:bottom)
+    for page in pages
+        for axis in page.axes
+            curves = filter(p -> p isa Makie.Lines,axis.scene.plots)
+            bars = filter(p -> p isa Makie.Errorbars,axis.scene.plots)
+            @test length(curves)==3 && length(bars)==6
+            @test !any(p -> p isa Makie.Scatter,axis.scene.plots)
+            @test all(line -> line.linewidth[] == 2,curves)
+            @test all(line -> line[1][] == first(curves)[1][],curves)
+            for direction in (:x,:y)
+                intervals = filter(bar -> bar.direction[] === direction,bars)
+                @test all(bar -> bar[1][] == first(intervals)[1][],intervals)
+                @test length(first(intervals)[1][]) == length(f)
+                # Wider caps AND stems expose earlier coincident intervals.
+                # Exact styling constants are not part of the data contract.
+                caps = [bar.whiskerwidth[] for bar in intervals]
+                stems = [bar.linewidth[] for bar in intervals]
+                @test all(diff(caps) .< 0) && all(caps .> 0)
+                @test all(diff(stems) .< 0) && all(stems .> 0)
+            end
+        end
+        intervals = [p for axis in page.axes for p in axis.scene.plots if p isa Makie.Errorbars]
+        saved = [(copy(p[1][]),p.whiskerwidth[],p.linewidth[]) for p in intervals]
+        entry = first(last(only(page.legend.entrygroups[])))
+        Makie.toggle_visibility!(entry)
+        Makie.toggle_visibility!(entry,true)
+        for key in (:xlog,:ylog)
+            page.controls[key].active[] = true
+            @test !isempty(Makie.colorbuffer(page.figure))
+            page.controls[key].active[] = false
+        end
+        resize!(page.figure,1000,700)
+        mktempdir() do directory
+            @test isfile(export_svg(page;path=joinpath(directory,"nested.svg"),open_file=false))
+        end
+        @test [(p[1][],p.whiskerwidth[],p.linewidth[]) for p in intervals] == saved
+    end
+    # Default nesting must not take ownership away from explicit native kwargs.
+    custom = LineCableModels.plot(source,source;options...,ydata=((R,1,1,:),),
+        series_attributes=((whiskerwidth=15,linewidth=2.5),(whiskerwidth=7,linewidth=0.8)))
+    bars = filter(p -> p isa Makie.Errorbars,only(custom.axes).scene.plots)
+    @test [bar.whiskerwidth[] for bar in bars] == [15,15,7,7]
+    @test [bar.linewidth[] for bar in bars] ≈ [2.5,2.5,0.8,0.8]
+    # Styling a caller's native plots must not reset unrelated attributes to
+    # owned defaults merely because those primitives also happen to be bars.
+    native = LineCableModels.plotwindow(;title="Native bars",backend=:cairo,display_plot=false,
+        controls=false,open_export=false,series_attributes=(color=:red,)) do canvas
+        axis = Axis(canvas[1,1])
+        errorbars!(axis,[1.,2.],[3.,4.],[0.2,0.3];whiskerwidth=15,linewidth=2.5)
+        errorbars!(axis,[1.,2.],[3.,4.],[0.2,0.3];whiskerwidth=7,linewidth=0.8)
+    end
+    bars = filter(p -> p isa Makie.Errorbars,only(native.axes).scene.plots)
+    @test [bar.whiskerwidth[] for bar in bars] == [15,7]
+    @test [bar.linewidth[] for bar in bars] ≈ [2.5,0.8]
+    @test isequal(before,(Z(source),Y(source),frequencies(source)))
+end
+
 @testitem "Makie addons / uncertainty legend actions preserve complete series" tags=[:visual] begin
     using CairoMakie, Measurements
 

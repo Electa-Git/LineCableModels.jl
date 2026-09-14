@@ -35,6 +35,10 @@ using Measurements: measurement
 # Some established recipes also accept `title` as their window/export or
 # single-recipe heading. Use the explicit scoped names above when composing a
 # dashboard.
+# Benchmark windows default to `case ID — quantity`, followed by block indices
+# when split. Deterministic, mean ± std, and explicit-statistic comparisons use
+# this same rule. An explicit `title` overrides the default case prefix; subplot
+# titles and `figure_title` remain independent.
 #
 # `series_attributes` uses the shared PlotBuilder controls for matrix and benchmark
 # plots, observation publications, statistical plots, and geometry previews.
@@ -99,7 +103,7 @@ using Measurements: measurement
 # common decoration margins. Native SVG export preserves the block geometry.
 # Figures are landscape (at least 4:3); physical cross-section axes remain square.
 #
-# Comparison plots use solid lines with sparse, staggered markers on saved sample
+# Deterministic comparison plots use solid lines with sparse, staggered markers on saved sample
 # points: hollow circles for references, filled triangles for requested defaults,
 # and other shapes for alternatives. References always mark both endpoints.
 # Colors and marker identities remain stable
@@ -107,6 +111,17 @@ using Measurements: measurement
 # Use `series_attributes=(marker=nothing,)` for lines only, or an explicit native
 # `marker` for all-sample placement. References remain comparison operands, not
 # declarations of physical truth.
+#
+# Uncertainty overlays use solid mean lines and error bars at every retained
+# sample, without automatic point markers. Across overlaid series, cap widths
+# decrease from 10 to 4 screen units and stem widths from 2 to 1, in drawing
+# order. This exposes earlier coincident intervals without moving frequencies,
+# changing uncertainties, or changing the mean-line widths. The same policy
+# applies to x and y uncertainty, including ordinary `LineParameters` overlays.
+# Styling stays fixed when a series is hidden or scales are toggled. Native
+# `whiskerwidth`, `linewidth`, or explicit `marker` overrides still take priority.
+# Many exactly coincident methods cannot all remain distinguishable at finite
+# screen resolution; use legend visibility to inspect them separately.
 #
 # Formulation legends and formula-by-band tables retain one candidate per unique
 # quantity-relevant selection: impedance choices on Z/R/L/X pages, admittance

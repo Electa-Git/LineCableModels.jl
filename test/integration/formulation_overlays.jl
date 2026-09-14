@@ -13,11 +13,14 @@
     points=[LineParameters(PhaseDomain,factor*z,y,copy(f);details=(coordinates=["a","b"],)) for factor in (2,3)]
     candidates=ParametricResult(nothing,points,(problems=[:one],formulations=selections),(;))
     baseline=(result=reference,metadata=(port_order=["a","b"],formulation=selections[1],axes=nothing))
-    publication=report(BenchmarkTableDefinition(),(reference=baseline,candidate=candidates))
+    publication=report(BenchmarkTableDefinition(),(reference=baseline,candidate=candidates,
+        context=(id=:benchmark_title_probe,case_id=:title_probe,collection=:test)))
     series_attributes=((marker=:circle, markersize=8), (marker=nothing,),
         (linestyle=:dash, marker=nothing))
     plots=LineCableModels.plot(publication,(Z,);options...,series_attributes)
     @test length(plots)==2
+    @test getproperty.(plots,:export_name) == [
+        "benchmark_title_probe — Series resistance", "benchmark_title_probe — Series reactance"]
     @test sum(length(page.axes) for page in plots)==8
     expected_labels=publication.table.formulations.label
     for (q,page) in zip((real,imag),plots)
@@ -36,6 +39,13 @@
         @test length(page.addon_state.formulations.records)==length(selections)
     end
     filtered=LineCableModels.plot(publication,(R,);formulations=2,options...)
+    @test filtered.export_name == "benchmark_title_probe — Series resistance"
+    blocked=LineCableModels.plot(publication,(R,);blocks=(1,2),options...)
+    @test getproperty.(blocked,:export_name) == [
+        "benchmark_title_probe — Series resistance (1,1)",
+        "benchmark_title_probe — Series resistance (2,1)"]
+    custom=LineCableModels.plot(publication,(R,);title="My comparison",options...)
+    @test custom.export_name == "My comparison"
     for (all_axis,filtered_axis) in zip(first(plots).axes,filtered.axes)
         all_curves=filter(item -> item isa Makie.Lines,all_axis.scene.plots)
         selected=filter(item -> item isa Makie.Lines,filtered_axis.scene.plots)
@@ -51,6 +61,7 @@
     keyword_ydata=LineCableModels.plot(reference,points[1];
         ydata=(R,),series_labels=("reference","candidate"),options...)
     @test length(keyword_ydata.axes)==4
+    @test keyword_ydata.export_name == "Series resistance"
     foreign=LineParameters(PhaseDomain,z,y,f;details=(coordinates=["a","b"],
         formulations=(schema_version=3,selections=(constitutive=(identifier=:default,),),
             assumptions=(equations=repeat("field equations ",100),))))

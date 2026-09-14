@@ -2,6 +2,24 @@
 # visibility controls. Every recipe uses this through the common plot shell.
 function _addon_series_styles!(groups, order, attributes; defaults=nothing, shared=(;))
     dependents = Pair{Makie.Plot,Makie.Plot}[]
+    # Nest coincident intervals in insertion order, without moving or sampling
+    # their coordinates. Stroke widths stay in screen units on logarithmic axes.
+    error_groups = filter(order) do group
+        # Only grouped curve/interval series receive defaults. A plotwindow
+        # caller's individually styled native primitives remain caller-owned.
+        any(handle -> handle isa Makie.Lines, groups[group]) &&
+            any(handle -> handle isa Makie.Errorbars, groups[group])
+    end
+    if length(error_groups) > 1
+        for (index, group) in enumerate(error_groups)
+            width = (length(error_groups) - index) / (length(error_groups) - 1)
+            for handle in groups[group]
+                handle isa Makie.Errorbars || continue
+                handle.whiskerwidth[] = 4 + 6width
+                handle.linewidth[] = 1 + width
+            end
+        end
+    end
     attributes === nothing && defaults === nothing && isempty(shared) && return dependents
     styles = LineCableModels.PlotBuilder._series_attributes(attributes, length(order))
     shared_consumed = Set{Symbol}()
@@ -10,7 +28,11 @@ function _addon_series_styles!(groups, order, attributes; defaults=nothing, shar
     for index in drawing_order
         group, overrides = order[index], merge(shared,styles[index])
         automatic = defaults === nothing ? nothing : defaults[index]
-        style = automatic === nothing ? overrides : merge(automatic.attributes, overrides)
+        automatic_attributes = automatic === nothing ? (;) : automatic.attributes
+        # Error bars supply the glyphs for an uncertainty overlay, regardless of
+        # result owner. Explicit native marker overrides remain intentional.
+        isempty(error_groups) || (automatic_attributes = merge(automatic_attributes, (marker=nothing,)))
+        style = merge(automatic_attributes, overrides)
         isempty(style) && continue
         handles = groups[group]
         consumed = Set{Symbol}()

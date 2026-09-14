@@ -20,7 +20,8 @@
         bands=(:all,),pairing=((1,1),(2,2)))
     metadata = (port_order=["a","b"],)
     artifact = report(definition,(reference=(result=mc,metadata=metadata),
-        candidate=(result=lep,metadata=metadata)))
+        candidate=(result=lep,metadata=metadata),
+        context=(id=:benchmark_uq_title_probe,case_id=:uq_title_probe,collection=:test)))
     before = deepcopy((Z(candidate),Y(candidate),frequencies(candidate)))
     page = LineCableModels.plot(artifact;ydata=((R,2,1,:),),problem=2,
         backend=:cairo,display_plot=false,open_export=false,length_unit=:base,
@@ -29,12 +30,18 @@
     lines = filter(p -> p isa Makie.Lines,axis.scene.plots)
     bars = filter(p -> p isa Makie.Errorbars,axis.scene.plots)
     @test length(lines)==length(bars)==2
+    @test page.export_name == "benchmark_uq_title_probe — Series resistance"
+    # Data markers must not compete with the uncertainty glyphs. Native
+    # Errorbars still own their cap geometry (which can itself use Scatter).
+    @test !any(p -> p isa Makie.Scatter,axis.scene.plots)
+    @test bars[1].whiskerwidth[] > bars[2].whiskerwidth[] > 0
     for (line,bar,source) in zip(lines,bars,(uncertain(mc,2),uncertain(lep,2)))
         @test last.(line[1][]) ≈ nominal.(R(source)[2,1,:])
         # Errorbars encode x,y,negative error,positive error in native Point4.
         @test getindex.(bar[1][],2) ≈ nominal.(R(source)[2,1,:])
         @test getindex.(bar[1][],3) ≈ uncertainty.(R(source)[2,1,:])
         @test line.linewidth[] == 3
+        @test bar.linewidth[] == 3 # Explicit native style wins over nested defaults.
     end
     @test last.(lines[1][1][]) != last.(lines[2][1][])
     @test getindex.(bars[1][1][],3) != getindex.(bars[2][1][],3)
@@ -60,6 +67,9 @@
     other = LineCableModels.plot(retained;ydata=((R,2,1,:),),problem=2,
         backend=:cairo,display_plot=false,open_export=false,length_unit=:base)
     other_lines = filter(p -> p isa Makie.Lines,only(other.axes).scene.plots)
+    other_bars = filter(p -> p isa Makie.Errorbars,only(other.axes).scene.plots)
+    @test !any(p -> p isa Makie.Scatter,only(other.axes).scene.plots)
+    @test other_bars[1].linewidth[] > other_bars[2].linewidth[] > 0
     @test last.(last(other_lines)[1][]) ≈ nominal.(R(second_candidate)[2,1,:])
     @test isequal(before,(Z(candidate),Y(candidate),frequencies(candidate)))
     @test_throws ArgumentError LineCableModels.plot(artifact;problem=2,
@@ -94,12 +104,15 @@ end
         formulation = NamedTuple(LinearError(Formulation())), axes = nothing)
     artifact=report(BenchmarkTableDefinition(requests; bands = (:all,)),
         (reference = (result = reference, metadata = metadata),
-            candidate = (result = candidate, metadata = metadata)))
+            candidate = (result = candidate, metadata = metadata),
+            context = (id=:benchmark_uq_statistics,case_id=:uq_statistics,collection=:test)))
     pages=LineCableModels.plot(
         artifact; backend = :cairo, ydata = requests, blocks = (2, 2),
         display_plot = false, controls = true, open_export = false, length_unit = :base, clip = false,
         fig_size = (1100, 750))
     @test length(pages)==12
+    @test first(pages).export_name == "benchmark_uq_statistics — Series resistance · mean (1,1)"
+    @test pages[5].export_name == "benchmark_uq_statistics — Series resistance · std (1,1)"
     @test [length(page.axes) for page in pages]==repeat([4, 2, 2, 1], 3)
     for (page_index,page) in enumerate(pages)
         @test page.figure.scene.viewport[].widths[1]>page.figure.scene.viewport[].widths[2]
