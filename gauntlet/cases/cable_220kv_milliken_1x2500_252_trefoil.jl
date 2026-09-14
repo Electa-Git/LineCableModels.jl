@@ -1,4 +1,4 @@
-function build_case(::Val{:cable_220kv_eaxecew_1x2500_252_trefoil}, p)
+function build_case(::Val{:cable_220kv_milliken_1x2500_252_trefoil}, p)
     materials = LineCableModels.MaterialsLibrary(add_defaults = true)
     aluminum = LineCableModels.Material(materials, :aluminum)
     copper = LineCableModels.Material(materials, :copper)
@@ -72,7 +72,7 @@ function build_case(::Val{:cable_220kv_eaxecew_1x2500_252_trefoil}, p)
     )
     system = LineCableModels.build(
         LineCableModels.LineCableSystem, placements;
-        system_id = "cable_220kv_eaxecew_1x2500_252_trefoil",
+        system_id = "cable_220kv_milliken_1x2500_252_trefoil",
         line_length = p.line_length
     )
     return LineCableModels.Engine.LineParametersProblem(
@@ -95,8 +95,8 @@ end
 # no bonding or reduction is baked into the case definition.
 # Nominal 2500/252 mm² labels do not override the explicit source dimensions.
 # Operating conditions follow the existing trefoil gauntlet, not the thermal job.
-case_definition(Base.Fix1(build_case, Val(:cable_220kv_eaxecew_1x2500_252_trefoil)),
-    :cable_220kv_eaxecew_1x2500_252_trefoil,
+case_definition(Base.Fix1(build_case, Val(:cable_220kv_milliken_1x2500_252_trefoil)),
+    :cable_220kv_milliken_1x2500_252_trefoil,
     (
         core_outer_radius = case_parameter(
             :core_outer_radius, 0.03115; tags = (:geometry, :cable_layer, :length)
@@ -123,7 +123,8 @@ case_definition(Base.Fix1(build_case, Val(:cable_220kv_eaxecew_1x2500_252_trefoi
             :outer_semicon_thickness, 0.0013; tags = (:geometry, :cable_layer, :length)
         ),
         screen_inner_bedding_thickness = case_parameter(
-            :screen_inner_bedding_thickness, 0.0003; tags = (:geometry, :cable_layer, :length)
+            :screen_inner_bedding_thickness, 0.0003; tags = (
+                :geometry, :cable_layer, :length)
         ),
         screen_wires = case_parameter(
             :screen_wires, 65; tags = (:topology, :cable_layer)
@@ -132,10 +133,12 @@ case_definition(Base.Fix1(build_case, Val(:cable_220kv_eaxecew_1x2500_252_trefoi
             :screen_wire_radius, 0.00111; tags = (:geometry, :cable_layer, :length)
         ),
         screen_lay_ratio = case_parameter(
-            :screen_lay_ratio, 5.5012442232492; tags = (:geometry, :cable_layer, :dimensionless)
+            :screen_lay_ratio, 5.5012442232492; tags = (
+                :geometry, :cable_layer, :dimensionless)
         ),
         screen_outer_bedding_thickness = case_parameter(
-            :screen_outer_bedding_thickness, 0.00073; tags = (:geometry, :cable_layer, :length)
+            :screen_outer_bedding_thickness, 0.00073; tags = (
+                :geometry, :cable_layer, :length)
         ),
         aluminum_foil_thickness = case_parameter(
             :aluminum_foil_thickness, 0.0002; tags = (:geometry, :cable_layer, :length)
