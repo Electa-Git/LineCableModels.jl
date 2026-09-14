@@ -1,0 +1,182 @@
+@testitem "Engine / shared temperature law reaches scalar, Gridspace, constants and export" tags=[:integration] begin
+    copper = Material(:conductor,1.72e-8,1,1,20,0.004)
+    dielectric = Material(:insulator,1e7,2.3,1,20,-0.003;tan_delta=0.025)
+    function cable_with(metal, passive)
+        build(CableDesign,"temperature-law",terminal(:core,
+            core(metal;r=0.005),insulation(passive;t=0.005)))
+    end
+    function system_with(design)
+        build(LineCableSystem,[design,design],[(0.0,-1.0),(0.1,-1.0)];
+            connections=[Dict(:core=>1),Dict(:core=>2)])
+    end
+    design = cable_with(copper,dielectric)
+    system = system_with(design)
+    problem = LineParametersProblem(system;temperature=80.0,frequencies=[50.0,1000.0],earth_props=homogeneous(rho=100.0))
+    calls = Ref(0)
+    twice = (m,t,p,o,w) -> begin
+        calls[] += 1
+        2m.rho
+    end
+    const TD = LineCableModels.Materials.TemperatureDependent
+    @eval LineCableModels.computation_options(
+        ::LineCableModels.FormulaMethod{:default,typeof(TD.temperature_resistivity)},
+        ::$(typeof(twice))) = (;)
+    declaration = formula(:default;hooks=(contribution=twice,))
+    selected = Formulation(temperature_dependence=declaration,
+        insulation_admittance=:Ametani2004,options=(ideal_transposition=false,))
+    reference_design = cable_with(
+        Material(:conductor,2copper.rho,copper.eps_r,copper.mu_r),
+        Material(:insulator,2dielectric.rho,dielectric.eps_r,dielectric.mu_r;
+            tan_delta=dielectric.tan_delta))
+    reference_problem = LineParametersProblem(system_with(reference_design);
+        temperature=80.0,frequencies=problem.frequencies,earth_props=problem.earth_props)
+    identity = Formulation(temperature_dependence=nothing,
+        insulation_admittance=:Ametani2004,options=selected.options)
+    reference = compute(reference_problem,identity)
+    actual = compute(problem,selected)
+    @test calls[] > 0
+    @test actual.Z.values ≈ reference.Z.values rtol=2e-13
+    @test actual.Y.values ≈ reference.Y.values rtol=2e-13
+    @test details(actual).formulations.modified.temperature_dependence
+    grid = Formulation(temperature_dependence=Grid((declaration,nothing)),
+        insulation_admittance=:Ametani2004,options=selected.options)
+    results = compute(problem,grid)
+    @test results[1].Z.values == actual.Z.values
+    @test results[1].Y.values == actual.Y.values
+    unchanged = compute(problem,identity)
+    @test results[2].Z.values == unchanged.Z.values
+    @test results[2].Y.values == unchanged.Y.values
+    @test !isapprox(results[1].Z.values,results[2].Z.values;rtol=1e-5)
+    constants = compute(CableConstantsProblem(design;temperature=80.0),
+        CableConstantsFormulation(temperature_dependence=declaration,insulation_admittance=:Ametani2004))
+    reference_constants = compute(CableConstantsProblem(reference_design;temperature=80.0),
+        CableConstantsFormulation(temperature_dependence=nothing,insulation_admittance=:Ametani2004))
+    for request in (R,L,C,G)
+        @test request(constants) ≈ request(reference_constants) rtol=2e-13
+    end
+    const IE = LineCableModels.ImportExport
+    exported = only(LineCableModels.PSCAD._pscad_components(design,50.0,selected,80.0))
+    expected = only(LineCableModels.PSCAD._pscad_components(reference_design,50.0,identity,80.0))
+    @test exported.conductor.material.rho == expected.conductor.material.rho
+    @test exported.dielectric.shunt_conductance ≈ expected.dielectric.shunt_conductance
+    @test exported.dielectric.shunt_capacitance ≈ expected.dielectric.shunt_capacitance
+    hot = LineParametersProblem(system;temperature=250.0,frequencies=[50.0],earth_props=problem.earth_props)
+    @test_throws DomainError compute(hot,Formulation())
+    @test all(isfinite,compute(hot,identity).Z)
+    @test all(isfinite,compute(hot,selected).Z)
+end
+
+@testitem "UQ / current AC cable / actual sampling and independently recomputed statistics" tags=[:integration] setup=[TestFixtures] begin
+    using Measurements,Statistics,TOML,QuadGK
+    include(joinpath(pkgdir(LineCableModels),"test/support/radial_control.jl"))
+    # Independent radial diffusion plus the explicit two-terminal Schur
+    # complement gives the AC resistance law for this concentric construction.
+    # It is separate from the sampling/retention contracts below.
+    function reference_resistance(temperature)
+        setprecision(BigFloat,256) do
+            rho=big"2e-8"*(1+big".004"*(BigFloat(temperature)-20))
+            mu=4big(pi)*big"1e-7";s=100big(pi)*im
+            core=RadialControl.surfaces(big"0",big".005",rho,mu,s)
+            wall=RadialControl.surfaces(big".01",big".011",rho,mu,s)
+            exterior=wall.outer+s*mu/(2big(pi))*log(big".012"/big".011")
+            value=core.outer+wall.inner+s*mu/(2big(pi))*log(big"2")-
+                wall.transfer^2/exterior
+            @assert wall.bound<abs(exterior)/2
+            bound=core.bound+wall.bound+
+                4abs(wall.transfer)*wall.bound/abs(exterior)+
+                2abs(wall.transfer)^2*wall.bound/abs(exterior)^2
+            return (value=Float64(real(value)),bound=Float64(bound)+eps(Float64(real(value))))
+        end
+    end
+    design=TestFixtures.coaxial_design()
+    temperatures=(20.0,60.0)
+    space=Gridspace{CableConstantsProblem}(t->CableConstantsProblem(design;temperature=t),
+        (Grid(temperatures,AbsoluteError(1.0)),))
+    problem=ParametricProblem(space)
+    linear=compute(problem,LinearError(CableConstantsFormulation()))
+    calibration=get(ENV,"LINECABLEMODELS_VALIDATION_PHASE","final")=="calibration"
+    directory=mktempdir(;prefix="lcm-uq-temperature-provisional-",cleanup=false)
+    println("Temperature UQ evidence: ",directory);flush(stdout)
+    rows=[Dict("temperature_C"=>temperature,"AC_R_Ohm_per_m"=>only(compute(CableConstantsProblem(design;temperature))).R,
+        "independent_AC_R_Ohm_per_m"=>reference_resistance(temperature).value) for temperature in temperatures]
+    open(joinpath(directory,"premise.toml"),"w") do io
+        TOML.print(io,Dict("status"=>"current AC radial diffusion and explicit terminal reduction control", "cases"=>rows))
+    end
+    for N in (calibration ? (512,2048) : (8192,))
+    seed=calibration ? 101 : 2027
+    sampled=compute(problem,MonteCarlo(CableConstantsFormulation();trials=N,seed,
+        distribution=:uniform,return_samples=true,return_histograms=true,retain_details=true))
+    @test sampled.trial_counts==[N,N]
+    @test length(unique(sampled.point_seeds))==2
+    @test all(isempty,sampled.details.failures)
+    for (point,temperature) in enumerate(temperatures)
+        # Uniform temperature uncertainty has the prescribed standard deviation
+        # of 1 K. Integrate the independent AC mapping, not an affine DC law.
+        halfwidth=sqrt(3.)
+        reference_mean,quadrature_error=quadgk(
+            t->reference_resistance(t).value/(2halfwidth),
+            temperature-halfwidth,temperature+halfwidth;rtol=1e-11)
+        probes=[reference_resistance(t) for t in range(
+            temperature-halfwidth,temperature+halfwidth;length=9)]
+        physical_budget=1e-6abs(reference_mean)
+        @test quadrature_error+maximum(p.bound for p in probes)<=physical_budget/4
+        for t in (temperature-halfwidth,temperature,temperature+halfwidth)
+            reference=reference_resistance(t)
+            actual=only(compute(CableConstantsProblem(design;temperature=t))).R
+            @test abs(actual-reference.value)+reference.bound<=1e-6abs(reference.value)
+        end
+        # Chebyshev's finite-sample bound uses the independently integrated
+        # variance of the nonlinear mapping. It needs no assumed Gaussian
+        # output law or extrema inferred from a finite grid.
+        variance,variance_error=quadgk(
+            t->(reference_resistance(t).value-reference_mean)^2/(2halfwidth),
+            temperature-halfwidth,temperature+halfwidth;rtol=1e-10)
+        @test variance_error<=variance/100
+        bound=sqrt((variance+variance_error)/(N*.001))
+        @test abs(only(sampled.stats[point].R).mean-reference_mean)<=
+            bound+physical_budget+quadrature_error
+    end
+    # CableConstants reports AC, reduced impedance at 50/60Hz. The proposed
+    # affine DC R(T) law is not a valid oracle here. These tests establish actual
+    # execution, retained sample arithmetic and independent storage only.
+    quantile7(sorted,p)=begin
+        position=1+(length(sorted)-1)*p
+        i=floor(Int,position);fraction=position-i
+        i==length(sorted) ? last(sorted) : (1-fraction)*sorted[i]+fraction*sorted[i+1]
+    end
+    for point in eachindex(temperatures),quantity in (:R,:L,:C,:G)
+        draws=vec(getproperty(sampled.sample_values[point],quantity))
+        summary=only(getproperty(sampled.stats[point],quantity))
+        density=only(getproperty(sampled.histogram_values[point],quantity))
+        @test length(draws)==N
+        expected_mean=sum(draws)/N
+        expected_std=sqrt(sum(x->(x-expected_mean)^2,draws)/(N-1))
+        sorted=sort(draws)
+        @test summary.mean ≈ expected_mean rtol=1e-10 atol=0
+        @test summary.std ≈ expected_std rtol=1e-10 atol=eps(maximum(abs,draws))
+        @test summary.min==first(sorted) && summary.max==last(sorted)
+        @test summary.q05 ≈ quantile7(sorted,.05) rtol=1e-10 atol=0
+        @test summary.median ≈ quantile7(sorted,.5) rtol=1e-10 atol=0
+        @test summary.q95 ≈ quantile7(sorted,.95) rtol=1e-10 atol=0
+        counts=zeros(Int,length(density.density))
+        for value in draws
+            index=min(searchsortedlast(density.edges,value),length(counts))
+            1<=index<=length(counts) || error("sample outside declared histogram support")
+            counts[index]+=1
+        end
+        @test density.density ≈ counts./(N.*diff(density.edges)) rtol=1e-10 atol=0
+        @test sum(density.density.*diff(density.edges)) ≈ 1.0 rtol=1e-10
+        @test getproperty(sampled.values[point],quantity)[1] ≈ summary.mean rtol=1e-10 atol=0
+        @test isfinite(Measurements.value(getproperty(linear.values[point],quantity)[1]))
+    end
+    for point in eachindex(temperatures)
+        arrays=values(sampled.sample_values[point]);models=values(sampled.histogram_values[point])
+        for i in eachindex(arrays),j in eachindex(arrays)
+            i==j && continue
+            @test arrays[i] !== arrays[j]
+            @test only(models[i]).density !== only(models[j]).density
+        end
+        @test all(iszero,sampled.sample_values[point].G)
+    end
+    end
+end

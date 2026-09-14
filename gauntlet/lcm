@@ -1,0 +1,12 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+lcm_launcher=$(readlink -f -- "${BASH_SOURCE[0]}")
+lcm_gauntlet=$(cd -- "$(dirname -- "$lcm_launcher")" && pwd -P)
+if [[ "${1:-}" != gauntlet ]]; then
+    printf 'Usage: lcm gauntlet [arguments]\n' >&2
+    exit 2
+fi
+shift
+exec "${LCM_JULIA:-julia}" --project="$lcm_gauntlet" --startup-file=no \
+    "$lcm_gauntlet/cli.jl" "$@"
