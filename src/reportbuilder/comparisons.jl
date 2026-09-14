@@ -173,6 +173,12 @@ Unavailable relative values retain their reasons and measured absolute values.
 Term/maxima tables use scalar coordinates. Their unformatted maxima records
 remain in `metadata(table.maxima, "comparison_records")` for the existing writer;
 changing display columns therefore does not change the saved summary schema.
+
+`features` contains one numeric formula-by-band table per quantity and statistic,
+with separate relative [%] and absolute [native unit] values. `overview` contains
+compact frequency coverage, recorded timing and MC sampling tables for display.
+It does not estimate statistics or collect measurements. Detailed coordinates,
+availability reasons and individual timing observations remain in the full tables.
 """
 function tabulate(definition::BenchmarkTableDefinition, source,
         published::NamedTuple{(:reference, :candidate, :context, :settings, :comparisons, :measurements)})
@@ -335,12 +341,39 @@ function tabulate(definition::BenchmarkTableDefinition, source,
     maxima_table[!,:reasons]=[join(string.(reasons),"; ") for reasons in maxima_table.reasons]
     select!(maxima_table,Not([:absolute_term,:relative_term]))
     metadata!(maxima_table,"comparison_records",summaries;style=:note)
-    method_labels=(reference=join([labels[index] for index in unique_sources if roles[index]===:reference]," / "),
-        candidate=join([labels[index] for index in unique_sources if roles[index]===:candidate]," / "))
-    return merge((calculations,formulations=DataFrame(formulations),formula_details=DataFrame(formula_details),comparisons=DataFrame(comparisons),
+    method_labels=NamedTuple{(:reference,:candidate)}(Tuple(begin
+        selected=[labels[index] for index in unique_sources if roles[index]===role]
+        length(selected)>1 ? string(uppercasefirst(string(role))," formulation batch") : join(selected)
+    end for role in (:reference,:candidate)))
+    tables=merge((calculations,formulations=DataFrame(formulations),formula_details=DataFrame(formula_details),comparisons=DataFrame(comparisons),
         terms=terms_table,maxima=maxima_table,summary=summary_table,features),
         tabulate(definition,published.measurements;labels=method_labels),
         tabulate(definition,(reference=published.reference,candidate=published.candidate);labels=method_labels))
+
+    # Presentation projections of already-owned products. No comparisons, sampling
+    # estimates or performance measurements are calculated on this path.
+    coverage=unique(DataFrames.select(maxima_table,
+        :snapshot,:problem_index=>:point,:reference_point,:band,
+        :samples=>:frequency_count,:actual_lower_Hz=>:first_Hz,:actual_upper_Hz=>:last_Hz))
+    coverage[!,:range]=[description(definition,band) for band in coverage.band]
+    execution=isempty(tables.execution) ? DataFrame() : DataFrames.select(
+        filter(row -> ismissing(row.point),tables.execution),
+        :method,:seconds,:scope,:reused)
+    performance=isempty(tables.performance) ? DataFrame() : DataFrames.select(tables.performance,
+        :method,:median_seconds,:samples=>:timed_calls,:allocated_MiB,
+        :allocation_statistic,:allocation_scope,:scope,:reused)
+    timing_ratio=isempty(tables.performance_comparison) ? DataFrame() : DataFrames.select(
+        tables.performance_comparison,:reference_over_candidate,:comparable)
+    source_timings=isempty(tables.source_timings) ? DataFrame() : DataFrames.stack(
+        tables.source_timings,Not([:role,:method,:point]),[:method,:point];
+        variable_name=:measurement,value_name=:value)
+    sampling=isempty(tables.sampling) ? DataFrame() : DataFrames.select(tables.sampling,
+        :method,:point,:trials,:distribution,:conditioning,:spread_estimated,
+        :samples_retained,:histograms_retained)
+    cdf_precision=isempty(tables.sampling) ? DataFrame() : DataFrames.select(tables.sampling,
+        :method,:point,:confidence,:marginal_count,:cdf_bound,:target_cdf,:target_supported,:scope)
+    return merge(tables,(overview=(;coverage,execution,performance,timing_ratio,source_timings,
+        sampling,cdf_precision),))
 end
 
 function illustrate(definition::BenchmarkTableDefinition, source,

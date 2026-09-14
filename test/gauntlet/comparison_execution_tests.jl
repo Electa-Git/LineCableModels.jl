@@ -65,8 +65,12 @@
         @test length(executions)==2
         html=render_gauntlet_report(result.artifact)
         @test occursin("Relative RMS [%]",html)
-        @test occursin("Absolute RMS [",html)
+        @test !occursin("Absolute RMS [",html)
         @test occursin("Historical RMS is rendered unchanged",html)
+        text=sprint(show,MIME"text/plain"(),report(BenchmarkTableDefinition(false),saved))
+        @test occursin("Relative RMS [%]",text)
+        # Both renderers consume the same retained comparisons. Table rendering
+        # must never trigger even a second in-memory RMS calculation.
         @test length(comparisons)==1
         @test length(executions)==2
         observe(result.candidate,Z)[1,1,2]+=1

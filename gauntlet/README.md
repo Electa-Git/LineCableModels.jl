@@ -173,7 +173,7 @@ selected = Formulation(earth_impedance=Grid((:default, :Pollaczek1926)))
 reference = compute(problem, Formulation())
 candidates = compute(problem, selected)
 artifact = report(BenchmarkTableDefinition(), (; reference, candidate=candidates))
-artifact.table.summary
+display(artifact)
 artifact.table.formulations
 artifact.table.maxima
 artifact.table.terms
@@ -213,7 +213,8 @@ benchmark = read_benchmark("/path/to/staging/benchmark_id")
 artifact = report(BenchmarkTableDefinition(), benchmark)
 tables = artifact.table
 
-tables.summary      # Compact maxima, grouped by problem/formulation and band
+tables.features     # Per-quantity/statistic DataFrames: unique formulas × bands
+tables.overview     # Compact coverage, timing and MC sampling tables
 tables.maxima       # Numerical per-term maxima, units, coordinates and availability
 tables.formulations # Stable keys, labels and complete selection records
 tables.calculations # Inputs, output coordinates, execution records and file hashes
@@ -289,16 +290,29 @@ or `BenchmarkTableDefinition(illustration=true, plot_options=(...))`.
 
 ## What the documentation publishes
 
-The standard Gauntlet page contains completion counts, compact formulation keys
-and five ordered band summaries. Each quantity cell shows the maximum of per-term
-RMS discrepancies and its terminal pair, with unavailable-term counts. These are
-neither whole-matrix RMS values nor averages across formulations. When relative
-RMS is unavailable, the page shows absolute RMS with units and the reason.
+The standard Gauntlet page contains completion counts and one numeric DataFrame
+per physical quantity: unique relevant formulations are rows, retained bands are
+adjacent columns (`all`, `dc`, `harmonic`, `narrow`, `wide`). UQ mean and standard
+deviation have separate tables. Cells show maximum eligible per-term relative RMS
+[%], not whole-matrix RMS or averages across formulations. Missing stays missing;
+absolute errors, winning pairs and unavailable-term counts remain in detailed
+`features`, `maxima` and `terms` tables. References are comparison methods, not truth.
 
-The page has no default matrix figures, thumbnails or interactive plot payloads.
-A build reads retained summaries and explicitly selected image files; it does not
-solve, calculate RMS or render benchmark illustrations. Detailed plots remain an
-explicit REPL request for a chosen benchmark/problem.
+`artifact.table.overview` owns compact frequency coverage, recorded whole-workload
+timings, controlled median seconds, timed-call counts, cumulative Julia allocations
+in MiB, and the recorded reference/candidate time ratio with its comparability flag.
+MC trial counts, input distribution and CDF precision are separate tables: the CDF
+bound is not relative error in the mean or standard deviation. Unrecorded timings
+are not estimated, a single timing cannot establish variability, and a batch timing
+is not a per-formula measurement. REPL and HTML displays use these same views.
+
+The summary page contains no plots, including retained illustrations. A build reads
+saved comparisons; it does not solve, sample, calculate RMS, collect timings or copy
+images. Detailed plots remain an explicit REPL request for a chosen benchmark/problem.
+The disposable `dev/inspect_saved_gauntlet.jl` and `dev/inspect_saved_gauntlet_mc.jl`
+scripts show the shared compact summary and expose its DataFrames in the IDE, plus
+optional detail tables and plots. Unlike publication, they explicitly reanalyse the
+saved operands using the selected quantities and bands, without rerunning solvers.
 
 `docs/gauntlet.toml` lists version-specific artifact bindings, for example
 `artifacts = ["gauntlet_soil_v1_0_0"]`. An empty list reports that no published

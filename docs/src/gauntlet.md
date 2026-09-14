@@ -33,20 +33,24 @@ This page reads the immutable versions selected in `docs/gauntlet.toml`. An
 explicit `LINECABLEMODELS_GAUNTLET_RESULTS` directory enables a labeled local
 preview. Building this page performs no solve, RMS calculation or plotting.
 
-Each row identifies the case, problem, complete candidate formulation, reference
-and comparison snapshot. The default sections are the entire range, near DC,
-harmonic range, narrowband and wideband. Each quantity cell shows the **maximum
-of per-term RMS discrepancies**, its terminal pair, and unavailable-term count.
-This is neither a whole-matrix RMS nor an average across formulations. If relative
-RMS is unavailable, the summary retains absolute RMS and its units.
+Each benchmark has one numeric DataFrame per physical quantity, with unique
+relevant formulations as rows and retained bands side by side: `all`, `dc`,
+`harmonic`, `narrow`, `wide`. UQ mean and standard deviation have separate tables.
+Each cell is the **maximum of eligible per-term relative RMS discrepancies [%]**,
+not a whole-matrix RMS or an average across formulations. Missing stays missing;
+absolute errors, winning terminal pairs and availability counts remain in the
+detailed report tables. References identify comparison methods, not ground truth.
 
-The default page contains no matrix figures or plot thumbnails. Detailed plots
-require an explicit request for the selected benchmark/problem. Only explicitly
-exported and retained illustrations are embedded during publication.
+Compact performance tables show recorded whole-workload timings, timed calls,
+cumulative Julia allocations and the reference/candidate time ratio with its
+comparability flag. MC workload and CDF precision are separate from physical spread.
+Missing measurements are not manufactured. No plots, thumbnails or retained
+illustrations are embedded; detailed plots remain an explicit inspector request.
 
 No published benchmark artifacts are selected. Add immutable version bindings
 to `docs/gauntlet.toml` after `lcm gauntlet package`, upload and `lcm gauntlet bind`.
 An explicit `LINECABLEMODELS_GAUNTLET_RESULTS` directory enables a local draft preview.
+
 
 ## Numerical comparison
 
@@ -100,7 +104,9 @@ benchmark = read_benchmark("/path/to/staging/benchmark_id")
 # A vault can be moved and read independently of its original staging folder:
 # benchmark = only(read_campaign("/path/to/vault/accepted"))
 artifact = report(BenchmarkTableDefinition(), benchmark)
-artifact.table.summary
+display(artifact)             # Compact published-summary layout in the REPL
+artifact.table.features      # Quantity/statistic DataFrames, bands side by side
+artifact.table.overview      # Compact coverage, performance and sampling tables
 artifact.table.formulations
 artifact.table.maxima
 artifact.table.terms
@@ -123,6 +129,12 @@ absolute/relative DataFrames; `statistics` retains available UQ summaries and
 Execution/native timings and controlled performance samples are available in
 `execution`, `source_timings`, `performance` and `performance_samples`. These are
 recorded measurements, never new benchmark runs triggered by a report.
+`overview` supplies the scalar compact views used by the REPL, HTML publication
+and both `dev/inspect_saved_gauntlet*.jl` scripts. Detailed statistics and native
+timing records are not dumped into the default summary. In the inspectors,
+`overview_tables`, `performance_display_df`, `timing_ratio_df` and
+`band_coverage_df` remain ordinary IDE-accessible tables. Those scripts explicitly
+reanalyse saved operands using their selected bands; publication uses saved RMS.
 
 Backend and method names come from owned `description` methods. References are
 labelled `Reference · FEM`, `Reference · PSCAD`, or `Reference · Monte Carlo`;
@@ -266,8 +278,8 @@ their separate scopes. Recovery is not a new cold timing sample. Solver diagnost
 
 The [Gauntlet CLI guide](https://github.com/Electa-Git/LineCableModels.jl/blob/main/gauntlet/README.md)
 contains declaration, release and illustration-file examples. Standard publication
-pins artifact versions. Its default illustration list is empty; explicit exports
-are retained with their display selections and embedded without rerendering.
+pins artifact versions. Explicit plot exports may be retained with their display
+selections in artifacts, but the results-summary page never embeds or copies them.
 
 Stored comparisons are not automatically numerical references for CI. The separate
 [numerical-reference gate](https://github.com/Electa-Git/LineCableModels.jl/tree/main/test/numerical)

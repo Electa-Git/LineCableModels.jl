@@ -102,6 +102,22 @@
     @test Set(report_two.table.terms.problem_index)==Set((1, 2))
     @test length(report_two.table.features)==4
     @test length(report_two.table.sampling.point)==4
+    # Multiple configurations stay explicit; selecting a comparison configuration
+    # must not mislabel a source-owned MC sampling point or hide whole-call timings.
+    for mime in (MIME"text/plain"(),MIME"text/html"())
+        text=sprint(show,mime,report_two)
+        @test occursin("configuration 1",text) && occursin("configuration 2",text)
+        @test occursin("reference configuration 1",text) && occursin("reference configuration 2",text)
+        @test occursin("R · mean",text)
+        @test occursin("R · std (propagated uncertainty)",text)
+        selected=sprint((io,value) -> show(io,mime,value;problem=2),report_two)
+        @test occursin("R · mean · configuration 2",selected)
+        @test !occursin("R · mean · configuration 1",selected)
+        @test occursin("reference configuration 1",selected)
+        @test occursin("MC sampling workload",text)
+        @test occursin("CDF precision",text)
+        @test !occursin("mean_standard_error",text)
+    end
     percentiles=report(
         BenchmarkTableDefinition((
             (statistics, R, median), (statistics, R, Base.Fix2(quantile, 0.05)))),

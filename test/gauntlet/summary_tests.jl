@@ -66,6 +66,10 @@
         @test occursin("3 complete benchmarks",summary)
         @test occursin("Entire range",summary) && occursin("Near DC",summary) && occursin("Wideband",summary)
         @test !occursin("<svg",summary) && !occursin("data:image",summary)
+        @test !occursin("<img",summary) && !occursin("![",summary)
+        @test !occursin("Absolute RMS [",summary)
+        @test !occursin("Worst terms and comparison counts",summary)
+        @test !occursin("Scientific formula descriptions",summary)
         @test !isdefined(@__MODULE__,:gauntlet_table)
         tables=[report(LineCableModels.ReportBuilder.BenchmarkTableDefinition(),read_benchmark(path;load_results=true)).table for path in paths]
         row=only(filter(row -> row.quantity===:Z && row.band===:all && row.normalization===:reference_rms,tables[1].maxima))
@@ -77,6 +81,13 @@
         @test all(iszero,empty_rows.samples)
         @test all(row -> row.unavailable == row.term_count,eachrow(empty_rows))
         @test all(table -> Set(table.terms.quantity)==Set((:Z,:Y,:G)),tables)
+        # Publication must embed the owner's complete numeric table, not the
+        # old quantities-as-columns text summary or a second RMS aggregation.
+        for table in tables,feature in table.features
+            rendered=sprint((io,frame) -> show(IOContext(io,:limit=>false),MIME"text/html"(),
+                frame;summary=false,eltypes=false),feature.relative)
+            @test occursin(rendered,summary)
+        end
         for token in
             ("private_input_dump", "not for publication", "all slots :default", "remaining slots :default")
             @test !occursin(token, summary)
@@ -110,7 +121,7 @@ end
         paths=String[]
         for (id, factor) in (("lep", 1.0), ("monte_carlo", 2.0))
             values=(;
-                (quantity=>(mean = fill(factor, 1, 1, 2), std = fill(0.1factor, 1, 1, 2))
+                (quantity=>(mean = fill(factor, 1, 1, 2), std = fill(0.1factor^2, 1, 1, 2))
             for quantity in (:R, :L, :C, :G))...)
             moments=(values = values, frequencies = f, basis = :pul,
                 domain = :PhaseDomain, port_order = ["core"])
@@ -136,18 +147,32 @@ end
         @test length(record["comparison_settings"].requests)==8
         @test length(record["reference_comparison"])==40
         @test Set(r.statistic for r in record["reference_comparison"])==Set((:mean, :std))
-        @test all(r->only(r.relative)≈1.0, filter(row -> row.details.band===:all,record["reference_comparison"]))
+        # Mean and spread deliberately disagree by different amounts: swapping
+        # them must fail even when both have the same matrix and band coordinates.
+        @test all(r->only(r.relative)≈(r.statistic===:mean ? 1.0 : 3.0),
+            filter(row -> row.details.band===:all,record["reference_comparison"]))
         loaded=read_benchmark(result;load_results=true)
         tables=report(LineCableModels.ReportBuilder.BenchmarkTableDefinition(false),loaded).table
         @test Set(tables.comparisons.statistic)==Set((:mean,:std))
         @test length(tables.comparisons.quantity)==40
-        @test all(only(matrix)≈100 for matrix in tables.comparisons.relative_rms_percent[tables.comparisons.band .== :all])
+        @test all(row -> only(row.relative_rms_percent)≈(row.statistic===:mean ? 100 : 300),
+            eachrow(filter(row -> row.band===:all,tables.comparisons)))
+        for feature in tables.features
+            @test only(feature.relative.all)≈(feature.statistic===:mean ? 100 : 300)
+        end
         summary=render_gauntlet_report(joinpath(root, "output"))
         @test occursin("mean", summary) && occursin("std", summary)
         @test occursin("Relative RMS", summary)
         @test !occursin("<svg",summary)
         @test !occursin("Full-band comparisons", summary)
         @test !occursin("pointwise", summary)
+        @test !occursin("Retained UQ statistics",summary)
+        @test !occursin("mean_standard_error",summary)
+        @test !occursin("configuration 1",summary)
+        # Historical moments without sampling evidence must not acquire an MC
+        # trial count or a fabricated CDF bound simply because they are reported.
+        @test !occursin("MC sampling workload",summary)
+        @test !occursin("CDF precision",summary)
     end
 end
 

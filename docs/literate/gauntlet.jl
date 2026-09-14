@@ -29,16 +29,19 @@
 # explicit `LINECABLEMODELS_GAUNTLET_RESULTS` directory enables a labeled local
 # preview. Building this page performs no solve, RMS calculation or plotting.
 #
-# Each row identifies the case, problem, complete candidate formulation, reference
-# and comparison snapshot. The default sections are the entire range, near DC,
-# harmonic range, narrowband and wideband. Each quantity cell shows the **maximum
-# of per-term RMS discrepancies**, its terminal pair, and unavailable-term count.
-# This is neither a whole-matrix RMS nor an average across formulations. If relative
-# RMS is unavailable, the summary retains absolute RMS and its units.
+# Each benchmark has one numeric DataFrame per physical quantity, with unique
+# relevant formulations as rows and retained bands side by side: `all`, `dc`,
+# `harmonic`, `narrow`, `wide`. UQ mean and standard deviation have separate tables.
+# Each cell is the **maximum of eligible per-term relative RMS discrepancies [%]**,
+# not a whole-matrix RMS or an average across formulations. Missing stays missing;
+# absolute errors, winning terminal pairs and availability counts remain in the
+# detailed report tables. References identify comparison methods, not ground truth.
 #
-# The default page contains no matrix figures or plot thumbnails. Detailed plots
-# require an explicit request for the selected benchmark/problem. Only explicitly
-# exported and retained illustrations are embedded during publication.
+# Compact performance tables show recorded whole-workload timings, timed calls,
+# cumulative Julia allocations and the reference/candidate time ratio with its
+# comparability flag. MC workload and CDF precision are separate from physical spread.
+# Missing measurements are not manufactured. No plots, thumbnails or retained
+# illustrations are embedded; detailed plots remain an explicit inspector request.
 #
 # <!-- GAUNTLET_REPORT -->
 #
@@ -94,7 +97,9 @@
 # # A vault can be moved and read independently of its original staging folder:
 # # benchmark = only(read_campaign("/path/to/vault/accepted"))
 # artifact = report(BenchmarkTableDefinition(), benchmark)
-# artifact.table.summary
+# display(artifact)             # Compact published-summary layout in the REPL
+# artifact.table.features      # Quantity/statistic DataFrames, bands side by side
+# artifact.table.overview      # Compact coverage, performance and sampling tables
 # artifact.table.formulations
 # artifact.table.maxima
 # artifact.table.terms
@@ -117,6 +122,12 @@
 # Execution/native timings and controlled performance samples are available in
 # `execution`, `source_timings`, `performance` and `performance_samples`. These are
 # recorded measurements, never new benchmark runs triggered by a report.
+# `overview` supplies the scalar compact views used by the REPL, HTML publication
+# and both `dev/inspect_saved_gauntlet*.jl` scripts. Detailed statistics and native
+# timing records are not dumped into the default summary. In the inspectors,
+# `overview_tables`, `performance_display_df`, `timing_ratio_df` and
+# `band_coverage_df` remain ordinary IDE-accessible tables. Those scripts explicitly
+# reanalyse saved operands using their selected bands; publication uses saved RMS.
 #
 # Backend and method names come from owned `description` methods. References are
 # labelled `Reference · FEM`, `Reference · PSCAD`, or `Reference · Monte Carlo`;
@@ -128,6 +139,12 @@
 # Repeated quantity-relevant selections share one curve and feature-table row;
 # every relevant route and control participates in equality, not the label or
 # numerical curve. Conflicting repeated observations raise an error.
+# Explicit composite selections retain every named branch in the relevant legend,
+# even when branches are unchanged or default. Internal selections use
+# `inner`/`outer`/`transfer`, and earth selections use `air`/`earth`/`mixed`.
+# Formula-local overrides also remain visible when shared by every candidate.
+# Short and detailed names both use the owning formula's `description` method;
+# identifiers and calculation-reuse decisions do not depend on that text.
 #
 # `sampling` contains scalar MC counts and CDF bounds. `mean_sampling_precision`
 # contains one numeric standard error per quantity, point, terminal pair and
@@ -209,25 +226,53 @@
 # execution session records its environment; reused operands keep their original
 # execution records. Actual grids, solver details, and timing scopes are retained.
 #
-# Campaign progress is enabled by default: `run_campaign(...; progress=:auto)`
-# chooses a terminal bar or plain output. `:plain` forces plain output and `:off`
-# disables monitoring. The CLI accepts `--progress auto|plain|off`. Use `status
-# --watch --directory DIR` in another terminal to read progress without loading
-# results or affecting the solver; Ctrl-C ends only the watcher.
+# Campaign progress is enabled by default. `run_campaign(...; progress=:auto)`
+# publishes lightweight snapshots and prints an exact-session watch command and final
+# summary. `:plain` adds throttled single-line execution status; `:off` disables
+# optional observation, estimation, and publication. The CLI uses
+# `--progress auto|plain|off`.
 #
-# Benchmark, calculation-job, native-worker and MC-trial counts remain separate.
-# No solver-frequency counter is added. ETAs say `estimating` until comparable
-# history or meaningful active throughput is available. Controlled performance
-# samples explicitly pause reporting, redraws and snapshots for the entire compute
-# call, including MC reconstruction/retries/aggregation. Normal callbacks remain
-# enabled outside the separate timing pass. Execution wall, compute-call wall and
-# GetDP/PSCAD native timing scopes are retained separately; recovered work is not a
-# new cold timing sample. Solver diagnostics are independent of the progress switch.
+# Run the printed command in a separate terminal:
+#
+# ```bash
+# ./gauntlet/lcm gauntlet status --directory DIR --watch --session SESSION
+# ```
+#
+# `--session` pins the selected invocation across benchmarks and final closure.
+# Directory-only watching remains valid; ambiguous sessions show inventory without a
+# combined ETA. The watcher reads lightweight metadata and snapshots only. Closing it
+# never affects computation, and session identity or stale observations do not prove
+# solver liveness.
+#
+# The six-row display counts selected terminal benchmarks and accepted complete
+# frequency scans. MC retains its accepted-trial counter when a child FEM call supplies
+# optional validated-frequency detail. Unknown scan totals use `?`. Validation,
+# persistence, reports, and declared performance work remain unfinished after the
+# last scan. Failed comparison verdicts count as Failed without changing saved-result
+# recovery or timing eligibility. Exhausting selected execution shows `ETA done`, even
+# with failed verdicts; early abort shows `ETA stopped`.
+#
+# One approximate campaign ETA combines remaining operation, overhead, and declared
+# performance budgets. Scope-correct observations and explicitly provisional fallback
+# forecasts replace workload scaling; an individual scan seed cannot predict an
+# unresolved benchmark's multiplicity. ETA may be unavailable during bootstrap or
+# increase when costs change. Backend frequency detail and heartbeats do not train it.
+# Only actual work changes reset freshness. The watcher animates its cache independently
+# of execution, freezes elapsed at closure, honors `NO_COLOR`, and uses plain output
+# when the terminal cannot fit the panel or output is redirected.
+#
+# Controlled performance calls publish their sample identity and suspended state
+# before timing. Nested UQ/backend work performs no optional reporting, snapshot IO,
+# or monitoring transport during that call; the external watcher may keep animating.
+# Actual outcome and restored observation publish afterward, including on exceptions.
+# Normal callbacks remain enabled outside the separate timing pass. Execution wall,
+# compute-call wall, GetDP worker-time sums, and PSCAD compile-only timings retain
+# their separate scopes. Recovery is not a new cold timing sample. Solver diagnostics are independent of the progress switch.
 #
 # The [Gauntlet CLI guide](https://github.com/Electa-Git/LineCableModels.jl/blob/main/gauntlet/README.md)
 # contains declaration, release and illustration-file examples. Standard publication
-# pins artifact versions. Its default illustration list is empty; explicit exports
-# are retained with their display selections and embedded without rerendering.
+# pins artifact versions. Explicit plot exports may be retained with their display
+# selections in artifacts, but the results-summary page never embeds or copies them.
 #
 # Stored comparisons are not automatically numerical references for CI. The separate
 # [numerical-reference gate](https://github.com/Electa-Git/LineCableModels.jl/tree/main/test/numerical)

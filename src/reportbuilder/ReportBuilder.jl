@@ -15,6 +15,7 @@ export select, tabulate, illustrate, encode, write
 using DocStringExtensions: TYPEDEF, TYPEDFIELDS, TYPEDSIGNATURES
 using Printf: @sprintf
 import Statistics
+import DataFrames
 using RequiredInterfaces: @required
 import DataFrames: DataFrame, metadata, metadata!, select!, Not
 import ..Grammar: observables

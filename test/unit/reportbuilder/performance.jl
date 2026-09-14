@@ -50,4 +50,36 @@
     for table in values(tables),column in eachcol(table),value in column
         @test value isa Union{Number,Bool,Symbol,AbstractString,Missing}
     end
+
+    parameters=LineParameters(reshape(ComplexF64[1,2],1,1,2),
+        reshape(ComplexF64[1im,2im],1,1,2),[1.,100.];details=(coordinates=["core"],))
+    artifact=report(BenchmarkTableDefinition((R,);bands=(:all,:dc)),
+        (reference=parameters,candidate=parameters,
+            measurements=(;execution,performance)))
+    overview=artifact.table.overview
+    @test overview.performance.median_seconds==[10.,1.]
+    @test overview.performance.timed_calls==[1,1]
+    @test overview.execution.seconds==[12.,4.]
+    @test overview.execution.reused[1]===true
+    @test only(overview.timing_ratio.reference_over_candidate)==10.
+    @test !only(overview.timing_ratio.comparable)
+    @test overview.coverage.band==[:all,:dc]
+    @test overview.coverage.frequency_count==[2,2]
+    # Rendering must not substitute tiny PSCAD compile times or accumulated FEM
+    # worker times for controlled whole-call measurements, or claim a speedup.
+    for mime in (MIME"text/plain"(),MIME"text/html"())
+        displayed=sprint(show,mime,artifact)
+        @test occursin("Controlled calculation measurements",displayed)
+        @test occursin("not a validated speedup",displayed)
+        @test occursin("only one timed call",displayed)
+        @test occursin("not peak memory",displayed)
+        @test !occursin("compile_call",displayed)
+        @test !occursin("worker_sum",displayed)
+        @test !occursin("input_sha",displayed)
+        @test !occursin("session_id",displayed)
+        @test occursin("worker_sum",sprint((io,value) -> show(io,mime,value;native_timings=true),artifact))
+    end
+    for frame in values(overview),column in eachcol(frame),value in column
+        @test value isa Union{Number,Bool,Symbol,AbstractString,Missing}
+    end
 end

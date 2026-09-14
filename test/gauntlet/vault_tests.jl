@@ -1,7 +1,9 @@
 @testitem "Gauntlet / mutable drafts, explicit acceptance and immutable release packages" tags=[:gauntlet_toolkit] setup=[GauntletSupport] begin
     using LineCableModels, SHA, TOML
     using .GauntletSupport.Gauntlet
+    using .GauntletSupport: Gauntlet
     using LineCableModels.ReportBuilder
+    include(joinpath(pkgdir(LineCableModels),"docs","gauntlet_report.jl"))
     model=load_case(:two_insulated_wires;variation=ExactOverrides(frequencies=[1.,37.]))
     options=(reduce_bundle=false,kron_reduction=false,ideal_transposition=false)
     formulation=Formulation(;options)
@@ -45,6 +47,14 @@
                 selection=(problem=1,quantities=["R"],formulations=[1,2]))])
         document=TOML.parsefile(joinpath(illustrated.path,"bundle.toml"))
         @test only(document["illustrations"])["selection"]["formulations"]==[1,2]
+        @test read(joinpath(illustrated.path,only(document["illustrations"])["path"]))==read(figure)
+        # An explicitly retained illustration still belongs to the artifact,
+        # but must never be copied or embedded into the compact results summary.
+        assets=joinpath(pkgdir(LineCableModels),"docs","src","assets","gauntlet")
+        before_assets=isdir(assets) ? readdir(assets) : nothing
+        summary=render_gauntlet_report(illustrated.path)
+        @test !occursin("![",summary) && !occursin("<svg",summary) && !occursin("<img",summary)
+        @test (isdir(assets) ? readdir(assets) : nothing)==before_assets
         @test read(joinpath(illustrated.path,only(document["illustrations"])["path"]))==read(figure)
         @test length(read_campaign(bundle.path))==1
         @test only(read_campaign(bundle.path)).id==:accepted

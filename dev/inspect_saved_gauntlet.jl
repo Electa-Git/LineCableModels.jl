@@ -16,8 +16,8 @@ analysis_snapshot = nothing       # Optional explicit snapshot.jld2 path.
 ydata = (R, X, G, B)
 
 bands = (:all, :dc, :harmonic, :narrow, :wide)
-detail_bands = (:all,)             # Print worst pairs for these bands; IDE tables retain all bands.
-show_native_timings = true
+detail_bands = ()                  # Optional worst-pair detail, e.g. (:all,); all bands remain in the IDE.
+show_native_timings = false
 blocks = nothing
 problem_index = nothing          # Required when the result has several outer points.
 plot_band = nothing
@@ -59,27 +59,12 @@ performance_samples_df = inspection_tables.performance_samples
 performance_environment_df = inspection_tables.performance_environment
 performance_policy_df = inspection_tables.performance_policy
 
-# Presentation only: labels, moments, RMS, units and timing scopes come from ReportBuilder.
-# Full owner tables above remain available in the IDE through inspection_tables.
-timing_labels = Dict(group.role[1] => (
-    group.role[1] === :candidate && nrow(group) > 1 ?
-    "Candidate formulation batch" :
-    join(group.label, " / ")) for group in groupby(formulations_df, :role))
-performance_display_df = isempty(performance_df) ? DataFrame() :
-    select(performance_df, :role => ByRow(role -> timing_labels[role]) => :method,
-        :median_seconds, :samples => :timed_calls, :allocated_MiB,
-        :allocation_statistic, :allocation_scope, :scope, :reused)
-timing_ratio_df = isempty(performance_comparison_df) ? DataFrame() :
-    select(performance_comparison_df, :reference_over_candidate, :comparable)
-execution_display_df = isempty(execution_df) ? DataFrame() :
-    select(filter(row -> ismissing(row.point), execution_df),
-        :role => ByRow(role -> timing_labels[role]) => :method,
-        :seconds, :scope, :reused)
-# Transpose backend-owned fields instead of making a window-wide row. In particular,
-# accumulated worker times retain their scope; they are not campaign elapsed time.
-source_timing_values_df = isempty(source_timings_df) ? DataFrame() :
-    stack(source_timings_df, Not([:role, :method, :point]), [:method, :point];
-        variable_name = :measurement, value_name = :value)
+# Compact display tables are owned by ReportBuilder, shared with documentation.
+overview_tables = inspection_tables.overview
+performance_display_df = overview_tables.performance
+timing_ratio_df = overview_tables.timing_ratio
+execution_display_df = overview_tables.execution
+source_timing_values_df = overview_tables.source_timings
 
 # Keep separate winners: the largest absolute error need not be at the largest
 # relative error's terminal pair. Never put the two maxima beside a shared pair.
@@ -93,23 +78,12 @@ worst_absolute_df = select(maxima_df,
     :quantity, :statistic, :problem_index => :point, :band,
     :absolute_term_response => :response, :absolute_term_excitation => :excitation,
     :maximum_absolute_rms => :RMS, :absolute_unit => :unit)
-band_coverage_df = unique(select(maxima_df,
-    :problem_index => :point, :band, :samples => :frequency_count,
-    :actual_lower_Hz => :first_Hz, :actual_upper_Hz => :last_Hz))
+band_coverage_df = overview_tables.coverage
 
 println("\n", benchmark.id, " — saved calculations, current report")
-println(join(formulations_df.label[formulations_df.role .=== :reference], " / "))
-println("RMS tables show the worst eligible matrix entry in each band; entries are not averaged together.")
-for (feature, frame) in zip(feature_tables, feature_dataframes)
-    title = feature.statistic === :std ? "standard deviation (propagated uncertainty)" :
-        feature.statistic === :mean ? "mean" : string(feature.statistic)
-    println("\n", feature.quantity, " · ", title, " · parameter point ", feature.problem_index,
-        " — maximum per-term ", rms_metric, " RMS ",
-        rms_metric === :relative ? "[%]" : "[" * feature.absolute_unit * "]")
-    show(stdout, MIME"text/plain"(), frame;
-        allrows = true, allcols = true, truncate = 0)
-    println()
-end
+show(stdout, MIME"text/plain"(), benchmark_report;
+    metric = rms_metric, problem = problem_index, native_timings = show_native_timings)
+println()
 for (label, frame) in (
         "Worst relative terms and counts" => worst_relative_df,
         "Worst absolute terms (independent maxima)" => worst_absolute_df)
@@ -117,32 +91,6 @@ for (label, frame) in (
     isempty(selected) && continue
     println("\n", label, " — ", join(string.(detail_bands), ", "))
     show(stdout, MIME"text/plain"(), selected; allrows = true, allcols = true, truncate = 0)
-    println()
-end
-println("\nFrequency coverage")
-show(stdout, MIME"text/plain"(), band_coverage_df; allrows = true, allcols = true)
-println()
-for (label, frame) in (
-        "Recorded calculation wall times (not controlled repetitions)" => execution_display_df,
-        "Controlled calculation measurements" => performance_display_df,
-        "Recorded reference / candidate time ratio" => timing_ratio_df)
-    isempty(frame) && continue
-    println("\n", label)
-    show(stdout, MIME"text/plain"(), frame; allrows = true, allcols = true, truncate = 0)
-    println()
-end
-if isempty(performance_display_df)
-    println("\nNo controlled performance measurements were saved for this case.")
-else
-    println("\nAllocated MiB are cumulative Julia allocations per call, not peak memory.")
-    any(==(1), performance_display_df.timed_calls) &&
-        println("A method has only one timed call; its timing variability cannot be assessed.")
-    println("The ratio is reference time / candidate time for the recorded workloads, not per-formula cost.")
-end
-if show_native_timings && !isempty(source_timing_values_df)
-    println("\nBackend timing records — scopes and counts as recorded by the backend")
-    show(stdout, MIME"text/plain"(), source_timing_values_df;
-        allrows = true, allcols = true, truncate = 0)
     println()
 end
 println("\nMissing relative RMS: near-zero operand or unavailable comparison; see terms_df.reason.")
