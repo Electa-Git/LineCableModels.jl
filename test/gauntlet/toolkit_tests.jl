@@ -282,7 +282,7 @@ end
         outcome=run_benchmark(benchmark)
         @test outcome.reference isa LineParameters
         @test outcome.candidate isa LineParameters
-        @test outcome.passes === nothing
+        @test !hasproperty(outcome,:passes)
         @test outcome.metadata.calculations.reference.id === :pollaczek
         @test outcome.metadata.calculations.candidate.id === :saad
         @test size(Z(outcome.reference)) == (2, 2, 1)
@@ -317,60 +317,33 @@ end
     @test timing.environment.cpu_threads == Sys.CPU_THREADS
     @test timing.environment.blas_threads == GauntletSupport.Gauntlet.BLAS.get_num_threads()
 
-    tolerance=(median_time_ratio = 1.2, bytes_ratio = 1.05, allocations_ratio = 1.05)
-    diagnostic=performance_comparison(timing, timing, tolerance)
+    diagnostic=performance_comparison(timing, timing)
     @test diagnostic.comparable == !gauntlet_instrumented()
-    @test diagnostic.passes === (gauntlet_instrumented() ? nothing : true)
+    @test keys(diagnostic) == (:comparable, :ratios)
 
-    # Exercise comparison arithmetic with declared inputs, independently of
-    # this test process's timing/coverage instrumentation. The actual measured
-    # record above remains subject to the declared comparison checks.
-    accepted=(;
-        timing...,
-        median_seconds = 1.0,
-        bytes = 1000,
-        allocations = 100
-    )
-    current=(; accepted..., median_seconds = 1.1, bytes = 1010, allocations = 101)
-    compared=performance_comparison(accepted, current, tolerance; instrumented = false)
+    # Declared measurements exercise ratio arithmetic without judging speed.
+    reference=(; timing..., median_seconds=1.0, bytes=1000, allocations=100)
+    current=(; reference..., median_seconds=1.1, bytes=1010, allocations=101)
+    compared=performance_comparison(reference, current; instrumented=false)
     @test compared.comparable
-    @test compared.passes
-    @test compared.ratios == (median_time = 1.1, bytes = 1.01, allocations = 1.01)
-    for (field, value) in ((:median_seconds, 1.3), (:bytes, 1060), (:allocations, 106))
-        slower=merge(current, NamedTuple{(field,)}((value,)))
-        @test !performance_comparison(accepted, slower, tolerance; instrumented = false).passes
-    end
-    no_allocations=(; accepted..., bytes = 0, allocations = 0)
-    equal=performance_comparison(no_allocations, no_allocations, tolerance; instrumented = false)
-    @test equal.passes
+    @test compared.ratios == (median_time=1.1, bytes=1.01, allocations=1.01)
+    slower=merge(current, (median_seconds=13.0, bytes=2000, allocations=300))
+    @test performance_comparison(reference, slower; instrumented=false).ratios ==
+        (median_time=13.0, bytes=2.0, allocations=3.0)
+    no_allocations=(; reference..., bytes=0, allocations=0)
+    equal=performance_comparison(no_allocations, no_allocations; instrumented=false)
     @test equal.ratios.bytes == equal.ratios.allocations == 1.0
-    allocated=performance_comparison(no_allocations, current, tolerance; instrumented = false)
-    @test !allocated.passes
+    allocated=performance_comparison(no_allocations, current; instrumented=false)
     @test isinf(allocated.ratios.bytes) && isinf(allocated.ratios.allocations)
-    other_environment=(;
-        accepted...,
-        environment = (; accepted.environment..., julia_version = "different")
-    )
-    diagnostic=performance_comparison(other_environment, current, tolerance; instrumented = false)
-    @test !diagnostic.comparable
-    @test diagnostic.passes === nothing
-    for (field,
-        value) in (
-        (:cpu, "different CPU"), (:blas_threads, timing.environment.blas_threads+1))
-        mismatched=merge(
-            accepted, (;
-                environment = merge(accepted.environment, NamedTuple{(field,)}((value,)))))
-        comparison=performance_comparison(mismatched, current, tolerance; instrumented = false)
+    for (field,value) in ((:julia_version,"different"), (:cpu,"different CPU"),
+            (:blas_threads,timing.environment.blas_threads+1))
+        mismatched=merge(reference, (environment=merge(reference.environment,
+            NamedTuple{(field,)}((value,))),))
+        comparison=performance_comparison(mismatched, current; instrumented=false)
         @test !comparison.comparable
-        @test comparison.passes === nothing
+        @test comparison.ratios == compared.ratios
     end
-
-    instrumented=performance_comparison(
-        accepted,
-        current,
-        tolerance;
-        instrumented = true
-    )
+    instrumented=performance_comparison(reference, current; instrumented=true)
     @test !instrumented.comparable
-    @test instrumented.passes === nothing
+    @test instrumented.ratios == compared.ratios
 end

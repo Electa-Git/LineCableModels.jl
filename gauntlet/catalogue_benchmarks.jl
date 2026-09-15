@@ -356,6 +356,6 @@ function _catalogue_uq_benchmark(
         reference,
         candidate,
         _CATALOGUE_UQ_REPORT,
-        uq_moment_tolerances()
+        uq_timing_settings()
     )
 end

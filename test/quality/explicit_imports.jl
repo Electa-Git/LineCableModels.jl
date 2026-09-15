@@ -2,15 +2,15 @@
     using ExplicitImports: test_explicit_imports, improper_qualified_accesses
     # These adapters participate in the numerical/UQ paths. Check the loaded
     # extensions too; a cold root-only scan cannot see their ownership errors.
-    import Measurements, Distributions, Gmsh, Calculus, XLSX
+    import Measurements, Distributions, Gmsh, Calculus, XLSX, CairoMakie
     for name in (:LineCableModelsMeasurementsExt, :LineCableModelsDistributionsExt,
             :LineCableModelsGmshExt, :LineCableModelsXLSXExt)
         @test Base.get_extension(LineCableModels, name) !== nothing
     end
-    if isdefined(Main, :CairoMakie)
-        @test Base.get_extension(LineCableModels, :LineCableModelsMakieExt) !== nothing
-        @test Base.get_extension(LineCableModels, :LineCableModelsCairoMakieExt) !== nothing
-    end
+    renderer = Base.get_extension(LineCableModels, :LineCableModelsMakieExt)
+    cairo = Base.get_extension(LineCableModels, :LineCableModelsCairoMakieExt)
+    @test renderer !== nothing
+    @test cairo !== nothing
     import Logging, JSON3
 
     # Gmsh's generated API deliberately uses qualified calls without export/
@@ -34,6 +34,21 @@
             (value isa Function && Base.Docs.hasdoc(parentmodule(value), nameof(value)))
     end
 
+    # Exact external contracts, classified in docs/src/developers.md. Public
+    # annotations alone miss documented qualified APIs. The one layout removal
+    # workaround is explicitly recommended by its upstream maintainer; it is
+    # not a general permission to consume Makie or package-owned internals.
+    function external_contract(consumer, owner, name)
+        consumer === cairo && owner === CairoMakie && name === :activate! && return true
+        consumer === renderer && owner === CairoMakie.Makie && name in (
+            :automatic, :current_backend, :get_ticks, :get_tickvalues,
+            :pseudolog10, :fast_string_boundingboxes) && return true
+        consumer === renderer && owner === CairoMakie.Makie.GridLayoutBase &&
+            name === :remove_from_gridlayout! && return true
+        consumer === renderer && owner === Base && name in (:require, :IOError) && return true
+        return false
+    end
+
     # All other ExplicitImports checks remain unchanged, including ownership.
     test_explicit_imports(LineCableModels; all_qualified_accesses_are_public=false)
     extension = Base.get_extension(LineCableModels, :LineCableModelsGmshExt)
@@ -45,14 +60,20 @@
             row.accessing_from === Base && Base.ispublic(Core, row.name) && continue
             row.accessing_from === Logging && documented_fem_access(Logging, row.name) && continue
             consumer === extension && documented_fem_access(row.accessing_from, row.name) && continue
+            external_contract(consumer, row.accessing_from, row.name) && continue
             push!(unexpected, "$(row.accessing_from).$(row.name) at $(row.location)")
         end
     end
-    @test isempty(unexpected)
+    @test unexpected == String[]
     @test documented_fem_access(Gmsh.gmsh.model, :add_physical_group)
     @test !documented_fem_access(Gmsh.gmsh.model, :_unregistered_helper)
     @test !documented_fem_access(LineCableModels.Engine, :compute)
     @test !documented_fem_access(JSON3, :StructTypes)
+    @test external_contract(renderer, CairoMakie.Makie, :get_ticks)
+    @test !external_contract(LineCableModels.Engine, CairoMakie.Makie, :get_ticks)
+    @test !external_contract(renderer, CairoMakie.Makie, :get_plot_visibilities)
+    @test !external_contract(renderer, CairoMakie.Makie, :fast_string_boundingboxes_obs)
+    @test !external_contract(renderer, LineCableModels.Engine, :compute)
 end
 
 

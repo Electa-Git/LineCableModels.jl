@@ -91,10 +91,12 @@
         end
     end
 
-    empty!(executions)
-    limits=(Z=(absolute=1.,relative=1.),Y=(absolute=1.,relative=1.))
-    unsupported_limits=benchmark_definition(:unsupported_limits,model.id,:fixture,
-        @__FILE__,model,reference,candidate,(;),(reference=limits,))
-    @test_throws r"match each selected scientific request" run_benchmark(unsupported_limits)
-    @test isempty(executions)
+    for timing in ((samples=0,seconds=1.),(samples=true,seconds=1.),
+            (samples=1,seconds=0.),(samples=1,seconds=Inf),(samples=1,))
+        empty!(executions)
+        invalid=benchmark_definition(:invalid_timing,model.id,:fixture,@__FILE__,
+            model,reference,candidate,settings,(performance=timing,))
+        @test_throws ArgumentError run_benchmark(invalid)
+        @test isempty(executions)
+    end
 end

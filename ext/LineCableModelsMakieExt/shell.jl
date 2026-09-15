@@ -101,7 +101,7 @@ function _addon_landscape_size(size)
 end
 
 function _addon_shell(; size, controls::Bool, axis::NamedTuple=(;), figure::NamedTuple=(;), kwargs...)
-    axis_keys = Makie.attribute_names(Axis)
+    axis_keys = (propertynames(Axis)..., :palette)
     axis_attributes = merge((; (key=>value for (key,value) in kwargs if key in axis_keys)...), axis)
     series_attributes = (; (key=>value for (key,value) in kwargs if key ∉ axis_keys)...)
     size = _addon_landscape_size(size)
@@ -1216,7 +1216,9 @@ function _addon_legend_sources!(legend, groups, dependents)
             if element isa LineElement && to_value(element.joinstyle) === nothing
                 element.attributes[:joinstyle] = legend.joinstyle
             end
-            targets = Makie.get_plots(element)
+            # Makie's LegendElement extension contract requires this mutable
+            # vector to identify the plots represented by a glyph.
+            targets = element.plots
             resolved = Makie.Plot[]
             for plot in targets
                 owner = plot
@@ -1238,10 +1240,17 @@ function _addon_legend_sources!(legend, groups, dependents)
     end
     # Rebuild native listeners after changing targets. Also initialise their
     # shades when a hidden entry is recreated or reappears after overflow.
-    on(legend.blockscene, legend.entrygroups; priority=-1) do entrygroups
-        for (_, entries) in entrygroups, entry in entries
-            foreach(notify, Makie.get_plot_visibilities(entry))
-        end
+    visibilities = map(collect(keys(owners))) do plot
+        # on returns an ObserverFunction with a documented `observable` field.
+        # Release the temporary subscription; native legend listeners own the
+        # updates. notify(plot.visible) is a no-op for Makie Computed inputs.
+        subscription = on(identity, plot.visible)
+        observable = subscription.observable
+        off(subscription)
+        observable
+    end
+    on(legend.blockscene, legend.entrygroups; priority=-1) do _
+        foreach(notify, visibilities)
     end
     notify(legend.entrygroups)
     return legend
@@ -1771,9 +1780,10 @@ function _addon_colorbar!(position, scale; attributes)
         # extending beyond its endpoints. Include the rendered text extents in
         # the native layout, independently of the bar's position or length.
         labels = colorbar.axis.elements[:ticklabels]
-        bounds = Makie.fast_string_boundingboxes_obs(labels)
-        onany(colorbar.blockscene, bounds, colorbar.vertical,
-            colorbar.ticklabelsvisible; update = true) do boxes, vertical, visible
+        onany(colorbar.blockscene, labels.text, labels.fontsize, labels.font,
+            labels.rotation, labels.align, labels.offset, colorbar.vertical,
+            colorbar.ticklabelsvisible; update = true) do _, _, _, _, _, _, vertical, visible
+            boxes = Makie.fast_string_boundingboxes(labels)
             dimension = vertical ? 2 : 1
             finite_boxes = filter(
                 box -> isfinite(box.origin[dimension]) &&

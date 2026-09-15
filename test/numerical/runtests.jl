@@ -7,4 +7,4 @@ for row in rows
         '\t', row.passed ? "pass" : "FAIL",
         "\tabs_rms=", row.absolute, "\trel_rms=", row.relative)
 end
-all(row -> row.passed, rows) || error("numerical-reference regression; stored arrays were not updated")
+all(row -> row.passed, rows) || error("numerical snapshot changed; stored arrays were not updated")

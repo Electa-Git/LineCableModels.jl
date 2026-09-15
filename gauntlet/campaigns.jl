@@ -621,7 +621,6 @@ function _run_campaign(directory, definitions;
             push!(outcomes,(id=definition.id,state=:complete,result=value,identity))
             receiver === nothing || LineCableModels.report_progress(receiver,(kind=:benchmark,benchmark=definition.id,
                 state=:complete,stage=:complete,reused=state["reused"],seconds=state["wall_seconds"],
-                verdict_failed=value.passes === false || (value.performance !== nothing && value.performance.passes === false),
                 finalization_seconds=max(0.0, state["wall_seconds"] -
                     value.timings.execution.reference.seconds -
                     value.timings.execution.candidate.seconds)))

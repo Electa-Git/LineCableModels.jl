@@ -83,9 +83,7 @@ function tabulate(::BenchmarkTableDefinition, measurements::Union{Nothing, Named
             end
             push!(performance_comparison,(
                 reference_over_candidate=recorded.speedup,comparable=recorded.comparable,
-                passes=something(recorded.passes,missing),
-                requested_samples=recorded.settings.samples,time_budget_seconds=recorded.settings.seconds,
-                minimum_speedup=recorded.settings.minimum_speedup))
+                requested_samples=recorded.settings.samples,time_budget_seconds=recorded.settings.seconds))
         end
     end
     return (;execution,source_timings,performance,performance_samples,

@@ -147,7 +147,7 @@ def run_smoke():
             until(lambda: "observation suspended" not in text())
             command_phase("finish")
             until(lambda: "ETA done" in text())
-            assert "Failed 1" in text() and len(screen.text()) == 6, screen.text()
+            assert "Complete 1" in text() and "Failed 0" in text() and len(screen.text()) == 6, screen.text()
             final = screen.text()
             pump(1.5)
             assert screen.text() == final, screen.text()

@@ -46,6 +46,10 @@ end
     mktempdir() do directory
         result = run_benchmark(definition;directory)
         @test result.reference_result.trial_counts == [8]
+        for value in (result.reference_result,result.candidate_result),
+                quantity in (R,L,C,LineCableModels.G)
+            @test all(isfinite,observe(only(value.values),quantity))
+        end
         restored = run_benchmark(definition;directory)
         @test restored.timings.execution.reference.reused
         @test restored.timings.execution.candidate.reused

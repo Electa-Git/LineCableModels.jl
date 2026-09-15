@@ -316,14 +316,31 @@ end
     @test model.cable_outer_mesh_sizes ≈ [0.001]
     @test model.mesh_growth_factor == 1.2
     @test length(model.mesh_plans) == 1
-    @test only(model.mesh_plans).domain_mesh_size == model.domain_radius / 20
-    @test only(model.mesh_plans).infinite_mesh_size == model.domain_radius / 10
+    skin_depth = sqrt(100.0 / (π * 50.0 * 4π * 1e-7))
+    @test model.domain_radius ≈ 2skin_depth
+    @test only(model.mesh_plans).domain_mesh_size ≈ skin_depth / 20
+    @test only(model.mesh_plans).infinite_mesh_size ≈ skin_depth / 10
     @test only(model.mesh_plans).cable_interface_mesh_sizes ≈ [
         min(
-        model.domain_radius / 20,
+        skin_depth / 20,
         0.001 + 0.2 * (0.1 - 0.013)
     )
     ]
+    smaller_model = extension_module._resolved_fem_model(problem, formulation,
+        computation_options(LineCableModelsFEM, (;domain_skin_depths=1.5)))
+    smaller, larger = only(smaller_model.mesh_plans), only(model.mesh_plans)
+    @test smaller.domain_radius ≈ 1.5skin_depth
+    @test smaller.shell_outer_radius ≈ 1.25smaller.domain_radius
+    # Enlarging the finite domain preserves conductor, interface and medium
+    # resolution targets; it does not apply a global mesh coarsening/refinement.
+    @test getproperty.(smaller_model.region_plans, :mesh_size) ==
+        getproperty.(model.region_plans, :mesh_size)
+    for property in (:domain_mesh_size, :infinite_mesh_size, :interface_mesh_size,
+        :cable_interface_mesh_sizes, :wave_mesh_sizes, :wave_decay_radii)
+        @test getproperty(smaller, property) == getproperty(larger, property)
+    end
+    @test extension_module._mesh_fingerprint(smaller_model, Gmsh.gmsh.GMSH_API_VERSION) !=
+        extension_module._mesh_fingerprint(model, Gmsh.gmsh.GMSH_API_VERSION)
 
     multifrequency_problem = LineParametersProblem(
         system;
@@ -1402,47 +1419,7 @@ end
         end
         rm(lossy.details.fem.run.run_directory; recursive = true, force = true)
 
-        if !isempty(get(ENV, "DISPLAY", ""))
-            ui_formulation = Formulation(
-                :LineCableModelsFEM;
-                options = (ideal_transposition = false,))
-            ui_formulation_controls = (
-                    ui = true,
-                    getdp_verbosity = 0,
-                    gmsh_verbosity = 0
-                )
-            action_name = "LineCableModels/FEM/ui/action"
-            mesh_state_name = "LineCableModels/FEM/ui/mesh_state"
-            solve_state_name = "LineCableModels/FEM/ui/solve_state"
-            driver = @async begin
-                deadline = time() + 60
-                while !Bool(gmsh.is_initialized()) || isempty(try
-                    gmsh.onelab.get_names("^$action_name\$")
-                catch
-                    String[]
-                end)
-                    time() < deadline || error("Gmsh UI action did not become ready")
-                    sleep(0.02)
-                end
-                gmsh.onelab.set_string(action_name, ["generate_mesh"])
-                while gmsh.onelab.get_string(mesh_state_name) != ["ready"]
-                    time() < deadline || error("Gmsh UI mesh action timed out")
-                    sleep(0.02)
-                end
-                gmsh.onelab.set_string(action_name, ["run_model"])
-                while gmsh.onelab.get_string(solve_state_name) != ["completed"]
-                    time() < deadline || error("Gmsh UI solve action timed out")
-                    sleep(0.02)
-                end
-                gmsh.fltk.finalize()
-            end
-            ui_result = compute(problem, ui_formulation; options=merge(ui_formulation_controls, (trace = true,)))
-            wait(driver)
-            @test ui_result.f == [50.0, 1000.0]
-            @test ui_result.details.fem.run.getdp_invocations ==
-                  length(problem.frequencies)
-            @test ui_result.details.fem.run.run_directory === nothing
-        end
+        # The display lifecycle belongs to fem_ui.jl and its isolated children.
         rm(run_directory; recursive = true, force = true)
 end
 

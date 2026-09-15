@@ -10,9 +10,9 @@ calculation or additional native warmup/repeat was run.
 - `src/progress.jl`, MC and batched traversal report accepted scans with source
   ordering and parent scope identity. Package code has no Gauntlet dependency.
 - `gauntlet/progress.jl` synchronously collects outcomes and coarse duration
-  evidence, then publishes throttled snapshots. Execution completion, comparison
-  verdict and fresh timing eligibility are separate facts. Accepted counts and
-  duration observations use their actual completion anchors; duplicate, delayed
+  evidence, then publishes throttled snapshots. Execution completion and fresh
+  timing eligibility are separate facts; comparisons carry no acceptance verdict.
+  Accepted counts and duration observations use their actual completion anchors; duplicate, delayed
   and aborted child observations cannot stretch accepted-scan durations.
 - `gauntlet/watch.jl` reads metadata and snapshots in a separate process. It owns
   the six terminal rows, cached spinner and local clocks, input validation, resize,
@@ -29,7 +29,7 @@ calls publish suspended state before entering the timer; the post-call transitio
 records the result and restores observation. Optional IO failure disables that
 output; required timing/checkpoint IO still fails normally.
 
-## Regression commands
+## Contract checks
 
 The default depot is read-only in this environment. Commands used a writable cache:
 
@@ -66,7 +66,7 @@ The PTY smoke launches separate producer and viewer Julia processes, feeds actua
 terminal output into a small VT screen emulator, and asserts the resulting screen.
 It checks shorter labels without leftovers, a narrow resize and return to six
 rows, cached animation during a non-yielding opaque call, truthful controlled-call
-suspension, failed comparison with `ETA done`, frozen elapsed/spinner on closure,
+suspension, completed execution with `ETA done`, frozen elapsed/spinner on closure,
 and cursor restoration after SIGINT. The CLI enables catchable SIGINT in watch mode
 so cleanup runs before exit. Terminal validation used a Linux PTY; Windows
 terminal behavior was not exercised.
@@ -146,3 +146,38 @@ Use the actual quoted watch command printed by run/resume. `plain` adds throttle
 execution summaries; `off` removes optional observation while retaining required
 timing records. Directory-only `status --directory DIR --watch` remains available
 with conservative discovery. Closing the watcher has no effect on execution.
+
+## Execution outcomes — 2026-09-15
+
+Gauntlet now runs, compares and reports without numerical or speedup acceptance
+verdicts. Completed comparisons remain complete even when relative RMS is
+unavailable or differences are large. Calculation, comparison-input, timing and
+required-persistence errors still fail execution. Legacy progress files are
+interpreted from their separate execution state without rewriting them.
+
+The bounded repair exercised 18 Gauntlet items in six existing files and one
+ReportBuilder item. Individual wall times include compilation and shared machine
+load:
+
+| Execution | Scope and outcome | Wall time |
+| --- | --- | ---: |
+| Initial focused selection | 17 items: execution/recovery, comparisons, timing reuse and progress; one new test setup errored | 381 s |
+| Corrected progress owner | Eight items completed, including legacy snapshots and genuine aborted execution | 70 s |
+| Formula dispatch | One item completed | 128 s |
+| Timing report owner | One item completed; fresh and historical records | 46 s |
+| Existing PTY smoke | Producer/viewer, counts, resize, suspension and closure completed | 28 s |
+| Retained-record inspection | Archived watcher state, one original timing record and one UQ declaration; no calculations | 51 s |
+
+The initial test error was a string-only dictionary used to construct a legacy
+snapshot containing a Boolean; the setup was corrected. All selected behaviors
+completed on the combined runs. This is not a full-suite or numerical campaign
+result. The standalone FEM replay's threshold removal was reviewed and parsed;
+its native campaign was not rerun.
+
+The archived session `143976-30413896018032` now displays 47 complete and one
+failed, instead of 39 complete and nine failed. Its one recorded running job and
+ten pending jobs remain recorded observations, not proof of current liveness.
+The 132 kV Monte Carlo attempt still has the logarithmic-quadrature error; its
+previous completed attempt remains retained. Saved progress and inspected timing
+bytes were unchanged. [Logs and bounded diff](../local/validation-refoundation/2026-09-15/gauntlet-execution-only/)
+record the commands and outcomes; no numerical algorithm or tolerance was tuned.

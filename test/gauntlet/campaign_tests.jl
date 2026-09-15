@@ -10,7 +10,7 @@
         push!(calls,(;problem,formulation,options))
         fail_candidate[] && formulation.factor == 10 && error("deliberate interrupted operand")
         z=fill(complex(formulation.factor),2,2,length(problem.frequencies))
-        y=fill(complex(0,formulation.factor),2,2,length(problem.frequencies))
+        y=fill(complex(formulation.factor-1,formulation.factor),2,2,length(problem.frequencies))
         result=LineParameters(PhaseDomain,z,y,copy(problem.frequencies))
         haskey(options,:on_result) && options.on_result(problem,1,result)
         return result
@@ -23,8 +23,11 @@
     options=(tolerance=1e-9,custom_control=:unchanged,on_result=callback)
     reference=BenchmarkCalculation(:reference,problem,SpyBackend(1.);options)
     candidate=BenchmarkCalculation(:candidate,problem,SpyBackend(10.);options)
+    # Old work orders can contain acceptance limits. They must neither judge
+    # model differences nor turn unresolved relative RMS into failed jobs.
+    legacy_limits=(reference=(Z=(absolute=0.,relative=0.),G=(absolute=0.,relative=0.)),)
     definition=benchmark_definition(:authority,model.id,:fixture,@__FILE__,model,reference,candidate,
-        (; quantities=(:Z,:Y,:G)),(;))
+        (; quantities=(:Z,:Y,:G)),legacy_limits)
     direct=compute(problem,reference.formulation;options)
     empty!(calls);empty!(events)
     mktempdir() do parent
@@ -37,6 +40,8 @@
         @test isfile(joinpath(attempt,"reference","complete.toml"))
         @test !isfile(joinpath(attempt,"candidate","complete.toml"))
         @test only(campaign_status(directory)).state === :failed
+        failed_progress=TOML.parsefile(joinpath(directory,"sessions",state["session"]*".progress.toml"))
+        @test failed_progress["counts"]["failed"]==1
         @test all(row -> row.problem === problem && row.options === options,calls)
         @test all(row -> row.problem.temperature == 73. && row.problem.frequencies == [.01,3.,17.,400.],calls)
         fail_candidate[]=false
@@ -50,12 +55,17 @@
         snapshot=TOML.parsefile(joinpath(directory,"sessions",progress_state["session"]*".progress.toml"))
         observation=only(snapshot["benchmarks"])
         @test observation["state"]=="complete"
+        @test snapshot["counts"]["complete"]==1
+        @test snapshot["counts"]["failed"]==0
         @test snapshot["schema"]==2
         @test snapshot["termination"]=="exhausted"
         @test value.timings.execution.reference.reused
         @test value.timings.execution.candidate.compute.seconds>=0
-        @test value.passes === nothing # Large cross-model differences are observations.
+        @test !hasproperty(value,:passes)
         @test all(==(9),only(row.error.relative for row in value.comparison if row.quantity === :Z && row.error.details.band === :all))
+        conductance=only(row.error for row in value.comparison if row.quantity === :G && row.error.details.band === :all)
+        @test all(==(9),conductance.absolute)
+        @test all(ismissing,conductance.relative)
         @test only(campaign_status(directory)).state === :complete
         old_attempt=attempt
         fail_candidate[]=true

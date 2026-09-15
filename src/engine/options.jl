@@ -100,6 +100,9 @@ The field model is selected separately by `formulation_options(LineCableModelsFE
   - `plot_field_maps=false`: Emit spatial field maps for every solve.
   - `mesh_policy=:reuse`: Reuse compatible meshes; `:remesh` regenerates them.
   - `mesh_path=nothing`: Optional existing `.msh` path.
+  - `domain_skin_depths=2.0`: Minimum finite earth-domain radius in conductive
+    skin depths \\[dimensionless\\]; the layout can require a larger radius.
+    Must be finite and positive. Changing it retains local mesh-size targets.
   - `keep_run_directory=false`: Retain successful run artifacts.
   - `getdp_executable=nothing`: Executable override; otherwise resolve the
     environment override, package artifact, or unsupported-platform `PATH` fallback.
@@ -124,7 +127,8 @@ The field model is selected separately by `formulation_options(LineCableModelsFE
 """
 function computation_options(::Type{LineCableModelsFEM}, options::NamedTuple)::ComputationOptions
     defaults = (ui=false, plot_field_maps=false, mesh_policy=:reuse,
-        mesh_path=nothing, keep_run_directory=false, getdp_executable=nothing,
+        mesh_path=nothing, domain_skin_depths=2.0,
+        keep_run_directory=false, getdp_executable=nothing,
         gmsh_verbosity=2, getdp_verbosity=2, frequency_workers=2, solver_threads=1,
         log_file=nothing, resume_run_directory=nothing)
     standard_keys = (:verbosity, :output_basis, :trace, :on_result)
@@ -140,6 +144,11 @@ function computation_options(::Type{LineCableModelsFEM}, options::NamedTuple)::C
     end
     normalized.mesh_policy in (:reuse, :remesh) || throw(ArgumentError(
         "mesh_policy must be :reuse or :remesh"))
+    radius_factor = normalized.domain_skin_depths
+    radius_factor isa Real && !(radius_factor isa Bool) &&
+        isfinite(radius_factor) && 0 < radius_factor <= floatmax(Float64) &&
+        Float64(radius_factor) > 0 || throw(ArgumentError(
+            "domain_skin_depths must be a finite positive Float64-representable number"))
     for name in (:mesh_path, :getdp_executable, :log_file)
         value = getproperty(normalized, name)
         value isa Union{Nothing, AbstractString} || throw(ArgumentError(
@@ -163,6 +172,7 @@ function computation_options(::Type{LineCableModelsFEM}, options::NamedTuple)::C
         ui=normalized.ui, plot_field_maps=normalized.plot_field_maps,
         mesh_policy=normalized.mesh_policy,
         mesh_path=normalized.mesh_path === nothing ? nothing : String(normalized.mesh_path),
+        domain_skin_depths=Float64(radius_factor),
         keep_run_directory=normalized.keep_run_directory,
         getdp_executable=normalized.getdp_executable === nothing ? nothing : String(normalized.getdp_executable),
         gmsh_verbosity=Int(normalized.gmsh_verbosity), getdp_verbosity=Int(normalized.getdp_verbosity),

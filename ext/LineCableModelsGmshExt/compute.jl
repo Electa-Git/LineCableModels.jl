@@ -498,7 +498,7 @@ function _compute_fem(
         problem::LineParametersProblem{Float64},
         formulation::LineCableModelsFEM,
         execution::ComputationOptions,
-        model::FEMResolvedModel = _resolved_fem_model(problem, formulation)
+        model::FEMResolvedModel = _resolved_fem_model(problem, formulation, execution)
 )
     runtime_root = _runtime_root()
     inputs = _fem_input_record(model, formulation, execution)
@@ -663,7 +663,7 @@ function _compute_fem(
     isempty(formulations) && throw(ArgumentError(
         "FEM formulation collections cannot be empty"))
     # Resolve and validate all requests before opening Gmsh or starting GetDP.
-    models = [_resolved_fem_model(problem, formulation) for formulation in formulations]
+    models = [_resolved_fem_model(problem, formulation, execution) for formulation in formulations]
     # The problem and loaded solver source are common to this batch. Only actual
     # material/mesh inputs and execution settings distinguish its calculations.
     keys = [JSON3.write(_fem_input_record(model, formulation, execution))

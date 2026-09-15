@@ -118,27 +118,22 @@ function benchmark_local(
 end
 
 function performance_comparison(
-        accepted,
-        current,
-        tolerance;
+        reference,
+        current;
         instrumented::Bool = gauntlet_instrumented()
 )
-    same_environment = accepted.environment == current.environment && !instrumented
+    same_environment = reference.environment == current.environment && !instrumented
     comparable = same_environment &&
-        get(accepted,:scope,nothing) === get(current,:scope,nothing) &&
-        get(accepted,:policy,nothing) == get(current,:policy,nothing) &&
-        !get(accepted,:reused,false) && !get(current,:reused,false)
+        get(reference,:scope,nothing) === get(current,:scope,nothing) &&
+        get(reference,:policy,nothing) == get(current,:policy,nothing) &&
+        !get(reference,:reused,false) && !get(current,:reused,false)
     ratios = (
-        median_time = current.median_seconds / accepted.median_seconds,
-        bytes = accepted.bytes == 0 ? (current.bytes == 0 ? 1.0 : Inf) :
-                current.bytes / accepted.bytes,
-        allocations = accepted.allocations == 0 ?
+        median_time = current.median_seconds / reference.median_seconds,
+        bytes = reference.bytes == 0 ? (current.bytes == 0 ? 1.0 : Inf) :
+                current.bytes / reference.bytes,
+        allocations = reference.allocations == 0 ?
                       (current.allocations == 0 ? 1.0 : Inf) :
-                      current.allocations / accepted.allocations
+                      current.allocations / reference.allocations
     )
-    passes = comparable ?
-             ratios.median_time <= tolerance.median_time_ratio &&
-             ratios.bytes <= tolerance.bytes_ratio &&
-             ratios.allocations <= tolerance.allocations_ratio : nothing
-    return (; comparable, ratios, passes)
+    return (; comparable, ratios)
 end

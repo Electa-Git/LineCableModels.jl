@@ -75,7 +75,7 @@
     end
 end
 
-@testitem "Gauntlet / progress / exhaustion, verdicts and suspended publication" tags=[:gauntlet_toolkit] setup=[GauntletSupport] begin
+@testitem "Gauntlet / progress / execution outcomes and suspended publication" tags=[:gauntlet_toolkit] setup=[GauntletSupport] begin
     using .GauntletSupport: Gauntlet
     using LineCableModels, TOML
     mktempdir() do root
@@ -112,6 +112,7 @@ end
                 end
                 @test !tracker.paused
                 @test TOML.parsefile(path)["active"]["sample_outcome"]=="interrupted"
+                # A legacy producer's comparison verdict cannot override execution.
                 LineCableModels.report_progress(receiver,(kind=:benchmark,state=:complete,verdict_failed=true,seconds=4.0))
                 @test tracker.evidence[("new","ordinary","operation")]==3.0
             end
@@ -119,7 +120,8 @@ end
         end
         snapshot=Gauntlet._progress_snapshot(tracker_ref[])
         @test snapshot["termination"]=="exhausted"
-        @test snapshot["counts"]["failed"]==1
+        @test snapshot["counts"]["complete"]==1
+        @test snapshot["counts"]["failed"]==0
         @test snapshot["counts"]["skipped"]==1
         @test occursin("ETA done",Gauntlet._watch_lines(snapshot,120)[4])
         elapsed=snapshot["elapsed_seconds"]
@@ -133,6 +135,29 @@ end
         @test aborted["counts"]["failed"]==1
         @test aborted["counts"]["skipped"]==1
         @test occursin("ETA stopped",Gauntlet._watch_lines(aborted,120)[4])
+        stopped=Gauntlet.CampaignWatch(;session="abort")
+        Gauntlet._watch_poll!(stopped,root,1.0,time())
+        @test stopped.snapshot["counts"]["failed"]==1
+        @test stopped.snapshot["counts"]["running"]==0
+        # Read the old conflated presentation through the actual watcher path.
+        # One completed comparison and one real execution failure stay distinct.
+        legacy=deepcopy(snapshot)
+        legacy["benchmarks"]=[Dict{String,Any}(row) for row in legacy["benchmarks"]]
+        legacy["benchmarks"][1]["state"]="failed"
+        legacy["benchmarks"][1]["verdict_failed"]=true
+        legacy["benchmarks"][2]["state"]="failed"
+        legacy["benchmarks"][2]["execution_state"]="failed"
+        legacy["counts"]=Dict("complete"=>0,"failed"=>2,"skipped"=>0)
+        path=joinpath(root,"sessions","closed.progress.toml")
+        Gauntlet._write_progress(path,legacy)
+        before=read(path)
+        watch=Gauntlet.CampaignWatch(;session="closed")
+        Gauntlet._watch_poll!(watch,root,1.0,time())
+        @test watch.snapshot["counts"]["complete"]==1
+        @test watch.snapshot["counts"]["failed"]==1
+        @test watch.snapshot["benchmarks"][1]["state"]=="complete"
+        @test occursin("Complete 1 | Failed 1",Gauntlet._watch_lines(watch.snapshot,120)[2])
+        @test read(path)==before
     end
 end
 
@@ -375,8 +400,8 @@ end
         short=Gauntlet.CampaignWatch(;snapshot=watch.snapshot)
         Gauntlet._watch_render!(short,output,lines,(4,80);terminal=true)
         @test !occursin('\e',String(take!(output)))
-        @test occursin("\e[32m",Gauntlet._watch_styled("OK 2 | Failed 1",2,true))
-        @test occursin("\e[31m",Gauntlet._watch_styled("OK 2 | Failed 1",2,true))
+        @test occursin("\e[32m",Gauntlet._watch_styled("Complete 2 | Failed 1",2,true))
+        @test occursin("\e[31m",Gauntlet._watch_styled("Complete 2 | Failed 1",2,true))
         @test Gauntlet._watch_styled("ETA --",4,false)=="ETA --"
     end
 end

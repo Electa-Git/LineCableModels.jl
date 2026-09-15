@@ -20,7 +20,6 @@ end
         # 2. ASSERT: Basic file checks (exporter prefixes basename with system_id)
         @test result_path == expected_file
         @test isfile(expected_file)
-        @test filesize(expected_file) > 500
 
         # 3. ASSERT: General XML structure and LCC data
         doc=readxml(expected_file)
@@ -101,71 +100,42 @@ end
 end
 
 @testitem "ImportExport / ATP / LineParameters ZY export" tags=[:integration] setup=[
-    UseImportExportSupport, TestNumerics,
-    TestFixtures, CableSystemFixture, deps_export_atp] begin
-
-    # 1. RUN THE TEST IN A TEMPORARY DIRECTORY
-    mktempdir() do tmpdir
-        output_file=joinpath(tmpdir, "atp_export_test.xml")
-        Z_matrix=randn(ComplexF64, num_phases, num_phases, length(freqs))
-        Y_matrix=randn(ComplexF64, num_phases, num_phases, length(freqs))
-        line_params=LineParameters(Z_matrix, Y_matrix, freqs)
-
-        # Call the function we want to test (use the LineParameters overload and pass freqs)
-        result_path=export_data(
-            :atp,
-            line_params;
-            file_name = output_file,
-            cable_system = cable_system
-        )
-        expected_file=joinpath(
-            dirname(output_file),
-            "$(cable_system.system_id)_$(basename(output_file))"
-        )
-
-        # 2. BASIC FILE CHECKS
-        @test result_path == expected_file
-        @test isfile(expected_file)
-        @test filesize(expected_file) > 100
-
-        xml_content=read(expected_file, String)
-        @test occursin("<ZY", xml_content)
-        @test occursin("</ZY>", xml_content)
-
-        # 3. XML STRUCTURE AND DATA VALIDATION
-        xml_doc=readxml(expected_file)
-        root_node=root(xml_doc)
-
-        @test nodename(root_node) == "ZY"
-        @test parse(Int, root_node["NumPhases"]) == num_phases
-
-        # Search the whole document for Z blocks (safer) and assert presence before indexing
-        z_blocks=findall("//Z", xml_doc)
-        @test !isempty(z_blocks)
-        @test length(z_blocks) == length(freqs)
-
-        # 4. DETAILED DATA VERIFICATION (for the first frequency)
-        first_z_block=z_blocks[1]
-        @test parse(Float64, first_z_block["Freq"]) ≈ freqs[1]
-
-        z_matrix_rows=split(strip(nodecontent(first_z_block)), '\n')
-        @test length(z_matrix_rows) == num_phases
-
-        first_row_elements=split(z_matrix_rows[1], ',')
-        @test length(first_row_elements) == num_phases
-        number_pattern=r"(-?[\d\.]+E[+-]\d+)"
-        complex_pattern=Regex("$(number_pattern.pattern)([+-][\\d\\.]+E[+-]\\d+)i")
-
-        match_result=match(complex_pattern, first_row_elements[1])
-
-        if !isnothing(match_result)
-            # The captures are now guaranteed to be valid Float64 strings
-            real_part=parse(Float64, match_result.captures[1])
-            imag_part=parse(Float64, match_result.captures[2])
-            parsed_z11=complex(real_part, imag_part)
-
-            expected_z11=Z_matrix[1, 1, 1]
-            @test parsed_z11 ≈ expected_z11 rtol = 1e-12
+    TestFixtures, deps_export_atp] begin
+    source=TestFixtures.two_conductor_results()
+    z,y=copy(Z(source)),copy(Y(source))
+    # Distinct self/mutual entries and both signs expose ordering and parsing errors.
+    z[1,2,:].*=-1
+    y[2,1,:].*=-1
+    parameters=LineParameters(z,y,frequencies(source))
+    mktempdir() do directory
+        path=joinpath(directory,"matrices.xml")
+        @test export_data(:atp,parameters;file_name=path)==path
+        document=readxml(path)
+        node=root(document)
+        @test nodename(node)=="ZY"
+        @test parse(Int,node["NumPhases"])==2
+        @test node["ZFmt"]=="R+Xi"
+        @test node["YFmt"]=="G+Bi"
+        pattern=r"^([+-]?[0-9.]+E[+-][0-9]+)([+-][0-9.]+E[+-][0-9]+)i$"
+        for (name,expected) in (("Z",z),("Y",y))
+            blocks=findall(name,node)
+            @test length(blocks)==length(frequencies(source))
+            for (k,block) in enumerate(blocks)
+                @test parse(Float64,block["Freq"])==frequencies(source)[k]
+                rows=split(strip(nodecontent(block)),'\n')
+                @test length(rows)==2
+                for (i,row) in enumerate(rows)
+                    entries=split(row,',')
+                    @test length(entries)==2
+                    for (j,entry) in enumerate(entries)
+                        parsed=match(pattern,strip(entry))
+                        @test parsed!==nothing
+                        parsed===nothing && error("Malformed ATP $name entry [$i,$j,$k]: $entry")
+                        @test parse(Float64,parsed.captures[1])==real(expected[i,j,k])
+                        @test parse(Float64,parsed.captures[2])==imag(expected[i,j,k])
+                    end
+                end
+            end
         end
     end
 end

@@ -59,10 +59,9 @@ Grammar owns one `observables(source, requests::Tuple; ...)` publication
 method. Standalone arrays and external result types do not need a shared
 abstract observation type.
 
-## CI hard gates
+## Architecture checks
 
-The `Quality contracts` CI job rejects changes that violate these rules. Its
-checks inspect the native method and interface declarations and require:
+The architecture that the quality, core and integration tests protect requires:
 
 - the action and its abstract root to belong to the same module;
 - one public action method, with no more-specific definition methods;
@@ -77,8 +76,9 @@ checks inspect the native method and interface declarations and require:
   arguments to the same package-owned function. Owner-local numerical kernels
   and type-dispatch branches remain valid.
 
-These checks run as test failures. A new definition must satisfy them before it
-can enter the maintained type family.
+A new definition must satisfy these standards. Native interface/import checks
+and tests through actual composed consumers provide the protection; the suite
+does not claim a universal source analysis of every method or forwarding wrapper.
 
 Integration tests also count actual blueprint lowering calls: one per selected
 design point, shared across its formulation alternatives and frequency sweep.
@@ -87,15 +87,17 @@ phase-to-modal result transport without another geometry lowering. The visual
 suite applies the ownership checks to the loaded Makie extensions and verifies
 that material colors consume `Material` or `EarthLayer` objects directly.
 
-InputValidation guards inspect every package-owned `validate` method in the
-dispatch table, including new input types. Checks must remain in the validator:
-delegation to private check helpers, unapproved package actions, and mutation are
-rejected. The required interfaces for materials, earth models, and problem
-definitions remain enforced independently.
+InputValidation tests check owner dispatch, required interfaces, unchanged valid
+inputs and rejection of damaged inputs through validation and computation. The
+standards require checks to remain with the owning validator; representative
+behavioral tests do not establish that every method body has been inspected.
 
-The separate deterministic FEM job uses a pinned GetDP executable and frozen
-reference matrices. Full gauntlet campaigns remain manual; their results require
-explicit validation before becoming CI references.
+The native FEM environment uses pinned GetDP 3.5.0. Keep tests of its actual
+execution, extraction, terminal identity, material/option transport and resume
+behavior. Physical cross-backend accuracy and domain-convergence acceptance
+belong to explicit Gauntlet/research work under the testing policy below. See the
+[test commands](https://github.com/Electa-Git/LineCableModels.jl/blob/main/test/README.md) for the implementation checks and their
+execution environments.
 
 ## Developer paths
 
@@ -107,32 +109,135 @@ explicit validation before becoming CI references.
 - [Conventions](conventions.md) defines placement, dispatch, naming, and
   docstring rules.
 
-## Initial candidate validation policy
+## Testing policy
 
-Version 0.2.0 names the intended first accepted release candidate. It does not
-establish a published 0.1.0, historical API guarantees or numerical correctness.
-Current intended behavior governs; superseded development output has no authority.
+### Release status and regressions
 
-Evidence has four distinct scopes:
+The codebase is moving toward its first stable release. Everything currently
+pushed to `main`, including the `0.1.0` tag, is unreleased. The intended `0.2.0`
+candidate does not create a previous stable release or a compatibility promise.
 
-- Current-contract tests establish API, dispatch, units, identities, errors and side effects.
-- Scientific controls establish a stated property against a justified independent expectation,
-  limiting case or convergence/error study, with its assumptions and uncertainty.
-- Candidate snapshots record what an identified implementation produced. They are provisional
-  repeatability/change detectors and cannot certify their own numbers.
-- Explicitly accepted release snapshots record acceptance of specific results within a stated
-  validation scope. They do not establish universal correctness.
+In this repository, a regression test protects against a real bug detected in
+released stable code. It identifies the reported tracker issue, affected stable
+release and protected behavior. Current development defects are bugs to fix;
+they are not regressions against an unreleased prototype. Ordinary behavior,
+mathematical implementation, integration and architecture tests need no invented
+issue. Existing useful tests remain under those purposes. Stable publication
+does not retroactively turn WIP tests into bug-regression tests.
 
-Inherited test fixtures, embedded numerical expectations, golden generators and historical
-preservation paths are retired without archival consumers or renamed payloads. Rebuild
-necessary scenarios through current APIs. Production libraries and real research/user
-calculations remain protected. Fresh engine output is never promoted automatically.
-Do not regenerate expectations or widen tolerances after a failure. An unresolved reference,
-mesh, statistical or rendering control is inconclusive; a resolved discrepancy is failed.
+Deliberate API and architectural changes update the implementation, callers and
+relevant tests together. Do not restore obsolete APIs or preserve prototype
+outputs to satisfy tests. A test whose only purpose is to prove an old name
+vanished or a new spelling appeared is not an architectural safeguard.
 
-During WIP, a retained guard states a current invariant and plausible failure beside the test
-when the purpose is non-obvious. Historical helper names and arbitrary development behavior
-are not contracts. After the first Julia-registry publication, a test designated as a bug
-regression must cite the actual reported tracker issue and protected behavior. Feature,
-mathematical, architectural and integration tests need no fabricated issues. Do not evade
-that rule by retitling a bug test. No issue registry or CI tracker lookup is required.
+### What the harness checks
+
+The harness checks that the current implementation works and follows the
+codebase standards. It exercises actual public workflows and their owned
+kernels: calculations, dispatch, units, ordering, data transport, errors,
+resource handling and side effects. Tests use current input builders and small,
+distinguishable examples with an expected result or rejection.
+
+Mathematical implementation tests remain appropriate. Checking an implemented
+formula against a directly calculable result, a matrix reduction against a
+constrained solve, or a derivative of a simple function checks code correctness.
+It does not certify the physical applicability of the model. Imports, shapes,
+finiteness and round trips provide useful limited checks; they do not replace
+value assertions where the implemented behavior has a decidable expectation.
+
+Float32 support means that valid ordinary inputs containing Float32 values work
+without type-induced crashes. It carries no additional numerical accuracy
+promise. Do not impose a high-precision reference target on Float32 and then
+change owned numerical code to meet it. No Float32-specific widening, compensated
+arithmetic or precision infrastructure is justified by such a test. Preserve
+existing dispatch, hook, uncertainty and type contracts; keep boundary conversions
+when an actual API or dependency interface requires them. A requested tolerance
+does not create an accuracy guarantee.
+
+Scientific validity, comparison of physical approximations, broad accuracy
+claims, convergence research and scientific acceptance are outside the test
+harness. Gauntlet executes calculations and reports comparisons and timings;
+scientific acceptance belongs to the researcher's interpretation, not its runner.
+Such research is not a required CI job, and unfinished scientific evidence is not a failing code
+contract. Apply this boundary to passing and failing experiments alike.
+
+A fabricated failure is as unacceptable as a fabricated success. Verify an
+assertion's premise before treating its outcome as a product defect. Correct or
+remove a defective criterion with its reason; do not preserve it merely because
+it was fixed before execution. Do not change inputs, outputs or tolerances just
+to obtain a pass. Preserve observed differences and distinguish assertion
+failures from execution errors or unavailable verification.
+
+### Architecture and coverage
+
+Architectural tests protect current responsibilities through real behavior and
+native method/interface checks: owner-local dispatch, fixed report stages,
+observation and table boundaries, validated inputs, optional integrations and
+caller-owned state. A conforming new leaf must work through the actual composed
+consumer. Unrelated old helper names, private storage layouts and incidental
+source expressions are not substitutes for these checks. Keep the standards
+in this guide and the conventions; do not invent a second architecture framework.
+
+The existing source-amended production line-coverage gate remains at 95%, with
+its current `src/` and `ext/` inventory. Measure executed code, then cover actual
+missing behavior in its existing test owner. Assertion counts, obsolete guards,
+denominator changes and fabricated expectations cannot satisfy this objective.
+Keep incomplete executions and real bugs visible; coverage does not turn them
+into successes.
+
+The completed fixture reset and useful rendering, reporting and harness repairs
+stand. Do not repeat the reset, restore legacy expected output, or turn completed
+calibration into a recurring obligation. Prior completion does not justify a
+test or numerical change whose requirement was unsupported, including the
+accuracy-driven Float32 surface-evaluation change.
+
+### Numerical snapshots after stable publication
+
+Numerical snapshot testing is deferred until after the first stable publication.
+The user will choose a small number of Gauntlet artifacts. Do not select, create,
+refresh or approve numerical baselines, add a snapshot dependency, or activate a
+snapshot CI job before then. The existing inactive provision is sufficient now;
+its empty reference list is not a prerelease failure or missing approval task.
+
+The future check compares each selected backend with its own retained output
+across revisions. It records case/settings identity, frequencies, terminal order,
+units/basis, relevant returned quantities and execution provenance. Compare
+individual meaningful components with explicit continuity tolerances; an RMS
+summary alone must not hide a local change. Do not snapshot private workspaces,
+internal layouts or incidental paths. Keep a designated reference fixed until
+an explicit user-approved update; no automatic refresh after a passing push.
+
+These snapshots detect behavioral change, not scientific validity. They do not
+replace architectural tests or create a new scientific approval process. Reuse
+existing storage and test owners when the user activates this later work.
+
+## External interface contracts
+
+`test/quality/explicit_imports.jl` loads the numerical, XLSX and Cairo adapters
+explicitly. All mechanical ownership/import checks remain active. Its exact
+consumer/owner/name exceptions recognize documented upstream interfaces that
+lack Julia `public` annotations; they grant no package-private access.
+
+The 13 previously reported external accesses have these dispositions:
+
+| Access | Contract and disposition |
+| --- | --- |
+| `CairoMakie.activate!` | Documented [backend activation](https://docs.makie.org/stable/explanations/backends/cairomakie.html); Cairo adapter only. |
+| `Base.IOError` | Native I/O exception, including [filesystem errors](https://docs.julialang.org/en/v1/base/file/); renderer export error handling only. |
+| `Base.require` | Documented [module loading](https://docs.julialang.org/en/v1/base/base/#Base.require); lazy backend loading only. |
+| `Makie.automatic` | Documented [native attribute default](https://docs.makie.org/stable/api); renderer only. |
+| `Makie.current_backend` | Documented [backend-dependent API default](https://docs.makie.org/stable/api); renderer only. |
+| `Makie.get_ticks`, `Makie.get_tickvalues` | Documented [axis extension hooks](https://docs.makie.org/stable/reference/blocks/axis.html); renderer only. |
+| `Makie.pseudolog10` | Documented [axis scale](https://docs.makie.org/stable/reference/blocks/axis.html); renderer only. |
+| `Makie.attribute_names` | Removed. Axis uses its `propertynames` interface plus the native `palette` keyword; Scatter uses the exported [`default_theme`](https://docs.makie.org/v0.24/explanations/recipes) contract. |
+| `Makie.get_plots` | Removed. Legend glyphs use the `plots` vector required by the [LegendElement extension contract](https://github.com/MakieOrg/Makie.jl/blob/v0.24.13/Makie/src/makielayout/types.jl). This is the documented source association, not arbitrary private-field inspection. |
+| `Makie.get_plot_visibilities` | Removed. Native `on`/`off` and the documented [`ObserverFunction.observable`](https://juliagizmos.github.io/Observables.jl/stable/#Observables.ObserverFunction) supply the notification target without changing visibility. |
+| `Makie.fast_string_boundingboxes_obs` | Removed. Public attribute subscriptions query the documented [`fast_string_boundingboxes(Text)`](https://github.com/MakieOrg/Makie.jl/blob/v0.24.13/Makie/src/basic_recipes/text.jl) result, preserving marker-space extents without the internal observable helper. The exact documented query is allowed for the renderer. |
+| `GridLayoutBase.remove_from_gridlayout!` | Retained as the [maintainer-prescribed nested-layout removal](https://discourse.julialang.org/t/makie-removing-gridlayouts/103935) workaround. It is not an exported stable API. Only this renderer call is admitted; existing legend recreation/layout tests protect it. |
+
+These integration contracts are scoped to the supported Makie 0.24 family.
+The layout workaround needs review when that compatibility range changes.
+The owned legend, uncertainty visibility, series style and colorbar endpoint tests
+exercise the actual affected paths. Source declarations alone do not establish
+behavioral compatibility. Negative gate controls reject unlisted renderer
+internals, different consumers and package-owned private calls.

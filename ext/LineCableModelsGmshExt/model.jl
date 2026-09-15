@@ -370,7 +370,8 @@ function _fem_mesh_plans(
         centre_x::T,
         layout_radius::T,
         cable_outer_mesh_sizes::Vector{T},
-        growth_factor::T
+        growth_factor::T,
+        domain_skin_depths::Real
 ) where {T <: Real}
     plans = FEMMeshPlan{T}[]
     for (frequency_index, frequency) in enumerate(problem.frequencies)
@@ -382,9 +383,12 @@ function _fem_mesh_plans(
         isfinite(earth_skin_depth) && earth_skin_depth > zero(T) || _fem_error(
             :unsupported, problem.system.system_id, :earth_properties,
             "evaluated soil at $frequency Hz requires a finite positive conductive skin depth")
-        domain_radius = max(layout_radius, convert(T, earth_skin_depth))
+        domain_radius = max(layout_radius, convert(T, domain_skin_depths) * earth_skin_depth)
         shell_outer_radius = convert(T, 1.25) * domain_radius
-        domain_mesh_size = domain_radius / 20
+        # Domain enlargement must not also coarsen the surrounding-medium mesh.
+        # Keep the physical resolution scale independent of the chosen radius.
+        resolution_radius = max(layout_radius, earth_skin_depth)
+        domain_mesh_size = resolution_radius / 20
         infinite_mesh_size = 2domain_mesh_size
         # Resolve both attenuation and phase in each surrounding medium.
         # A skin-depth-sized outer domain alone does not resolve mutual fields
@@ -398,7 +402,7 @@ function _fem_mesh_plans(
                 omega * (mu_r * convert(T, 4π * 1e-7)) * sigma))
         end
         wave_mesh_sizes = map(q -> min(domain_mesh_size, inv(8abs(q))), wave_numbers)
-        wave_decay_radii = map(q -> min(2domain_radius, 6 / real(q)), wave_numbers)
+        wave_decay_radii = map(q -> min(2resolution_radius, 6 / real(q)), wave_numbers)
         cable_interface_mesh_sizes = T[]
         for (cable_index, (design, position)) in enumerate(zip(
             problem.system.designs, problem.system.positions
@@ -580,7 +584,8 @@ _coalesce(shape, ::Any, ::Any) = shape
 
 function _resolved_fem_model(
         problem::LineParametersProblem{T},
-        formulation::LineCableModelsFEM
+        formulation::LineCableModelsFEM,
+        options::ComputationOptions = computation_options(LineCableModelsFEM, (;))
 ) where {T <: Real}
     try
         LineCableModels.validate(problem)
@@ -835,7 +840,8 @@ function _resolved_fem_model(
         centre_x,
         layout_radius,
         cable_outer_mesh_sizes,
-        mesh_growth_factor
+        mesh_growth_factor,
+        options.domain_skin_depths
     )
     display_plan = last(mesh_plans)
     domain_radius = display_plan.domain_radius

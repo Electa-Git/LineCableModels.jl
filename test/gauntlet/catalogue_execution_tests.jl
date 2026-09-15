@@ -5,6 +5,8 @@
     for (directory,_,names) in walkdir(root), name in names
         endswith(name,".jl") || continue
         id=Symbol(first(splitext(name)))
+        println("Catalogue declaration: ",id)
+        flush(stdout)
         benchmark=benchmark_definition(id;frequencies=[.1,1.,7.,100.])
         @test benchmark.id === id
         @test benchmark.reference.problem === benchmark.candidate.problem
@@ -13,15 +15,17 @@
             @test problem.frequencies == [.1,1.,7.,100.]
             if benchmark.reference.formulation isa PSCAD.PSCADFormulation
                 @test_throws ArgumentError validate(problem,benchmark.reference.formulation)
-            elseif benchmark.reference.formulation isa LineCableModelsFEM
-                @test problem.frequencies == [.1,1.,7.,100.]
-            else
-                @test frequencies(compute(problem,benchmark.reference.formulation)) == problem.frequencies
             end
         else
             @test first(problem.space).frequencies == [.1,1.,7.,100.]
         end
     end
+    # Catalogue transport is exhaustive above. One current analytical calculation
+    # checks the execution path; solving every cable adds no frequency contract.
+    basic = benchmark_definition(:benchmark_two_bare_wires_fem;
+        frequencies=[.1,1.,7.,100.]).candidate
+    @test frequencies(compute(basic.problem,first(basic.formulation);options=basic.options)) ==
+        [.1,1.,7.,100.]
     fem = benchmark_definition(:benchmark_two_bare_wires_fem;
         frequencies=[50.0], reference_options=(frequency_workers=1, mesh_policy=:reuse,))
     @test !hasproperty(fem.reference.formulation, :execution)

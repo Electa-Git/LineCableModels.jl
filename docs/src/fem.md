@@ -194,8 +194,7 @@ Here ``Q`` is a current per unit length, not an electrostatic charge;
 
 This is equivalent to prescribing a unit voltage on each source terminal in
 turn, grounding the others, and extracting ``Y_{is}=-Q_i/(1\ \mathrm{V})``.
-The native regression checks both excitations independently. For any other
-set of voltage excitations, terminal currents satisfy ``J=YV``; extracting
+For any other set of voltage excitations, terminal currents satisfy ``J=YV``; extracting
 ``Y`` requires the complete voltage matrix, not just a source-voltage rescaling.
 
 The magnetic and electric blocks are separate unit excitations. Electric
@@ -217,9 +216,15 @@ reducing Γ does not remove the error after normalization by Γ.
 ## Execution model
 
 One call to `compute` builds one complete two-dimensional Gmsh mesh for each
-distinct physical frequency. Each mesh uses that frequency's earth skin depth
-for its finite air/earth radius and has its own conformal annular
-transformation-to-infinity shell. The final, highest-frequency mesh is the
+distinct physical frequency. The finite air/earth radius is
+``R=\max(R_{\mathrm{layout}},m\delta)`` with conductive soil skin depth
+``\delta=\sqrt{\rho/(\pi f\mu)}``. The computation option
+`domain_skin_depths=2.0` sets ``m``; the transformed exterior occupies the annulus
+from ``R`` to ``1.25R``. For example, use
+`compute(problem, fem; options=(domain_skin_depths=1.5,))` for a domain comparison.
+The 1.5–2 range is an empirical operating range for the basic buried-wire checks,
+not a universal accuracy guarantee. Radius changes preserve the local mesh-size
+targets and enter mesh-cache and resume identity. The final, highest-frequency mesh is the
 displayed mesh; every frequency-specific mesh is reused by all of that
 frequency's terminal excitations. Cable topology is constructed once: successive
 meshes retain its vertices and surfaces while updating the exterior circles and
@@ -314,12 +319,15 @@ electrical terminal groups. A shared
 material interface takes the smaller of its two local characteristic lengths.
 Thin internal foils and strands do not export their size to the cable/earth
 boundary. One `Distance`/`Threshold` field per actual cable exterior grows
-from that exterior layer's size to `domain_radius/20` using an adjacent-element
-growth factor of 1.2. Additional fields restrict the surrounding-medium size to
+from that exterior layer's size to ``R_{\mathrm{resolution}}/20``, where
+``R_{\mathrm{resolution}}=\max(R_{\mathrm{layout}},\delta)``, using an adjacent-element
+growth factor of 1.2. This resolution scale is independent of `domain_skin_depths`;
+the transformed shell's maximum size is twice that value.
+Additional fields restrict the surrounding-medium size to
 ``h\leq 1/(8|q|)``, where ``q=\sqrt{j\omega\mu\kappa}``, within six attenuation
-lengths of cable exteriors and the air/soil interface. The bound resolves both
-decay and phase; it transitions back to the existing domain size beyond that
-distance. A lossless medium keeps its phase-resolution bound across the domain.
+lengths of cable exteriors and the air/soil interface, capped at
+``2R_{\mathrm{resolution}}``. The bound resolves both decay and phase;
+it transitions back to the surrounding-medium size beyond that distance.
 Gmsh `Restrict` fields apply each bound to its own air or soil surfaces, and
 `Min` combines overlapping fields. No artificial refinement rings are
 introduced. The adapter
@@ -453,23 +461,21 @@ The extension finalizes only Gmsh sessions it owns. A caller-owned initialized
 session retains its current model, unrelated models and views, Gmsh verbosity
 options, and pre-existing `LineCableModels/FEM/` ONELAB parameters.
 
-## Numerical reference validation
+## Basic execution verification
 
-The two-bare-wire Gauntlet benchmark runs fresh native FEM against the default
-and Xue analytical formulations at eight frequencies from 0.1 Hz to 1 MHz.
-Its geometry contains only two metal disks: radius 4.25 cm, depth 1 m, separation
-1 m, in soil with resistivity 0.1 Ω m. There is no insulation or fitted FEM
-table. Run it through `dev/run_two_bare_wires.jl` for the shared report and
-PlotBuilder comparison plots.
+Run `julia --project=test test/runtests.jl extensions/fem_electrodynamics.jl`
+for the basic cases, or select `tag:fem_numerical` for all native FEM contracts.
+The basic test reuses the Gauntlet `two_bare_wires` and `two_insulated_wires`
+declarations at 50 Hz and 10 kHz through the unchanged production quasi-TEM
+programs. It checks terminal/frequency identity, per-unit-length basis, completed
+native solves, every retained primitive entry, and the extraction of returned
+`Z` and `Y`. The other FEM owners cover material laws, reductions, affine-path
+integration, session handling, failure and resume.
 
-Native acceptance requires resolved real and imaginary components with independent
-reference and discretization error budgets. Reciprocity is asserted only when the
-current formulation and extraction conventions justify it; path-defined mixed-media
-matrices have no blanket symmetry requirement.
-
-The inherited Python numerical records and test operator are retired. Current FEM
-controls must address the present material laws, boundary conditions, excitation,
-terminal/reference conventions, extraction and mesh/domain/path convergence. A
-same-mesh voltage/current basis comparison establishes extraction consistency, not
-independent operator accuracy. No language or saved file supplies validation authority.
+Physical comparisons between FEM and analytical approximations and domain or
+mesh-convergence studies belong to Gauntlet/research workflows. The former 1%
+comparison and domain-stability targets are not code-contract gates. Their
+observed differences remain in the existing dated evidence; no solver or
+quadrature repair is implied by this test-system handoff. See the
+[test README](https://github.com/Electa-Git/LineCableModels.jl/blob/main/test/README.md) for commands and measured execution limits.
 The backend has no Python dependency.

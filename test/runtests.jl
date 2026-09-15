@@ -1,34 +1,6 @@
 using TestItemRunner
 include(joinpath(@__DIR__, "support", "runner.jl"))
 
-const DEFAULT_EXCLUDED_TAGS = Set((
-    :quality, :visual, :core_only, :fem_numerical, :gauntlet, :gauntlet_toolkit))
-const TEST_ROOT_PREFIX = abspath(@__DIR__) * Base.Filesystem.path_separator
-
-function matches_selector(testitem, selector::AbstractString)
-    if startswith(selector, "tag:")
-        tag = Symbol(chop(selector; head = 4, tail = 0))
-        return tag in testitem.tags
-    end
-    query=lowercase(selector)
-    return occursin(query, lowercase(relpath(testitem.filename, @__DIR__))) ||
-           occursin(query, lowercase(String(testitem.name)))
-end
-
-function selected(testitem)
-    startswith(abspath(testitem.filename), TEST_ROOT_PREFIX) || return false
-    if isempty(ARGS)
-        return isempty(intersect(DEFAULT_EXCLUDED_TAGS, Set(testitem.tags)))
-    end
-    explicitly_core_only=any(==("tag:core_only"), ARGS)
-    explicit_name_or_file=any(selector->!startswith(selector, "tag:"), ARGS)
-    selected_by_argument=any(selector->matches_selector(testitem, selector), ARGS)
-    excluded=intersect(DEFAULT_EXCLUDED_TAGS, Set(testitem.tags))
-    explicitly_excluded=all(tag->"tag:$tag" in ARGS, excluded)
-    return selected_by_argument &&
-           (isempty(excluded) || explicitly_excluded ||
-            (excluded == Set((:core_only,)) &&
-             (explicitly_core_only || explicit_name_or_file)))
-end
-
-ValidationTestRunner.run_tests(dirname(@__DIR__); filter=selected, verbose=true)
+ValidationTestRunner.run_tests(dirname(@__DIR__);
+    filter=ValidationTestRunner.selection(ARGS, @__DIR__),
+    list="--list" in ARGS, verbose=true)

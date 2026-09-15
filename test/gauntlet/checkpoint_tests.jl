@@ -146,7 +146,7 @@ end
     mktempdir() do directory
         calls[]=0;fail_at[]=3
         timed=definition((bands=(:all,),),
-            (performance=(minimum_speedup=2.,samples=1,seconds=1.),))
+            (performance=(samples=1,seconds=1.),))
         @test_throws r"timing failed" run_benchmark(timed;directory)
         @test calls[]==3
         @test !isempty(read_benchmark(directory).analyses)

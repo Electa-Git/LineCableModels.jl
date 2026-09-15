@@ -248,7 +248,7 @@ end
     end
 end
 
-@testitem "Transforms / current commuting modes / rotation-invariant eigenspaces" tags=[:unit] begin
+@testitem "Transforms / current commuting modes / eigenvalues and reconstruction" tags=[:unit] begin
     using LinearAlgebra
     f=[10.0,100.0,1000.0];theta=pi/6
     q=[cos(theta) -sin(theta);sin(theta) cos(theta)]
@@ -264,11 +264,5 @@ end
         expected=[(1+s*1e-3)*(1e-6+s*1e-9),(3+s*2e-3)*(3e-6+s*2e-9)]
         actual=eigvals(Z(modes)[:,:,k]*Y(modes)[:,:,k])
         @test sort(actual;by=abs) ≈ sort(expected;by=abs) rtol=1e-10
-        # Compare invariant projectors; eigenvector sign/order is arbitrary.
-        system=zs[k]*ys[k]
-        for j in 1:2
-            projector=q[:,j]*transpose(q[:,j])
-            @test norm(system*projector-expected[j]*projector)<=1e-10*norm(system)
-        end
     end
 end

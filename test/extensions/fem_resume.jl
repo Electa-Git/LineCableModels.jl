@@ -42,6 +42,11 @@
         )
     end
     @test inputs.mesh_fingerprint == extension._mesh_fingerprint(model, Gmsh.gmsh.GMSH_API_VERSION)
+    smaller_controls = computation_options(LineCableModelsFEM,
+        (;formulation_controls..., domain_skin_depths=1.5))
+    smaller_model = extension._resolved_fem_model(problem, formulation, smaller_controls)
+    smaller_inputs = extension._fem_input_record(smaller_model, formulation, smaller_controls)
+    @test smaller_inputs.mesh_fingerprint != inputs.mesh_fingerprint
     # Dictionary iteration order can change between Julia versions. Resume
     # records the Julia version; the key must be repeatable within that runtime.
     recorded_key=extension._mesh_fingerprint(model, "recorded-gmsh-version")

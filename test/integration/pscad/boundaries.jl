@@ -8,9 +8,11 @@
         return `$(Base.julia_cmd()) --startup-file=no --project=@stdlib -e $script`
     end
     function P.remote_command(::Val{:local_interrupt_probe}, config::P.RemoteConfig, command::AbstractString)
+        # Model a transport command with default OS termination. Julia's native
+        # SIGTERM diagnostic handler can deadlock while printing its own stack.
         script = "write(" * repr(joinpath(config.local_root, "started")) *
             ", \"started\"); println(\"running\"); println(stderr, \"diagnostic\"); flush(stdout); flush(stderr); sleep(30)"
-        return `$(Base.julia_cmd()) --startup-file=no --project=@stdlib -e $script`
+        return `$(Base.julia_cmd()) --startup-file=no --handle-signals=no --project=@stdlib -e $script`
     end
     mktempdir() do root
         config = P.RemoteConfig("local-fixture", root, "scratch", "julia", "python";

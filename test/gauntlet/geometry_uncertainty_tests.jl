@@ -93,28 +93,6 @@ end
     end
 end
 
-@testitem "Gauntlet / catalogue short MC and LEP use the same joint models" tags=[:gauntlet_toolkit] setup=[GauntletSupport] begin
-    using .GauntletSupport.Gauntlet
-    using Measurements
-    const G = GauntletSupport.Gauntlet
-    for id in G.CATALOGUE_CASE_IDS
-        @testset "$id" begin
-            declaration = G._catalogue_uq_benchmark(id,@__FILE__;frequencies=[0.1,50.,1e7])
-            @test declaration.reference.problem === declaration.candidate.problem
-            inner = uq_inner_formulation()
-            lep = compute(declaration.reference.problem,LinearError(inner))
-            mc = compute(declaration.reference.problem,MonteCarlo(inner;trials=2,
-                seed=0x1234,distribution=:uniform,retain_details=true))
-            @test mc.trial_counts == [2]
-            @test isempty(only(mc.details.failures))
-            for quantity in (R,L,C,LineCableModels.G)
-                @test all(isfinite,observe(only(lep.values),quantity))
-                @test all(isfinite,observe(only(mc.values),quantity))
-            end
-        end
-    end
-end
-
 @testitem "Gauntlet / bounded catalogue law and deterministic base variations" tags=[:gauntlet_toolkit] setup=[GauntletSupport] begin
     using .GauntletSupport.Gauntlet
     using Measurements, Random

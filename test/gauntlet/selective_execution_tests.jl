@@ -67,9 +67,13 @@
         @test_throws r"unknown benchmark" resume_campaign(directory;benchmark=[:missing],progress=:off)
         # Report-only changes must also retain controlled timing observations,
         # not quietly reexecute the numerical workload through the timing path.
-        tolerances=(performance=(minimum_speedup=2.,samples=1,seconds=0.01),)
+        tolerances=(performance=(minimum_speedup=1e100,samples=1,seconds=0.01),)
         measured=only(run_campaign(directory,
             [definition(:measured,6.,7.;tolerances)];progress=:off))
+        @test measured.state==:complete
+        @test !hasproperty(measured.result.performance,:passes)
+        @test keys(measured.result.performance.settings)==(:samples,:seconds)
+        @test isfinite(measured.result.performance.speedup)
         measured_count=length(calls)
         measured_state=TOML.parsefile(joinpath(directory,"measured","state.toml"))
         measured_path=joinpath(directory,"measured",measured_state["current"],"performance.jld2")
@@ -138,7 +142,13 @@ end
         factor::Float64
     end
     Base.NamedTuple(formulation::SweepReuseBackend)=(factor=formulation.factor,)
-    Base.pairs(::SweepReuseBackend;quantity=nothing) = Pair[]
+    # The owner must expose the factor that changes its output, so composed
+    # reporting and reuse can distinguish the sweep's actual selections.
+    Base.pairs(formulation::SweepReuseBackend;quantity=nothing) =
+        [(SweepReuseBackend,()) => (formulation => (factor=formulation.factor,))]
+    LineCableModels.formula_id(::SweepReuseBackend) = :SweepReuseBackend
+    LineCableModels.description(::SweepReuseBackend;compact=false) = "sweep reuse backend"
+    LineCableModels.description(::Type{SweepReuseBackend};compact=false) = "sweep reuse backend"
     function LineCableModels.compute(problem::LineParametersProblem,f::SweepReuseBackend;options=(;))
         push!(calls,f.factor)
         z=fill(complex(f.factor),2,2,length(problem.frequencies))

@@ -56,7 +56,7 @@ Base.@kwdef mutable struct CampaignProgress
     paused::Bool = false
     "Whether the selected invocation is closed."
     closed::Bool = false
-    "Execution termination independent of scientific verdicts."
+    "Whether execution exhausted its selection or stopped early."
     termination::String = "running"
     "Whether optional file publication failed."
     snapshot_failed::Bool = false
@@ -218,9 +218,8 @@ function _progress_event!(tracker::CampaignProgress, event)
             empty!(tracker.scopes)
             a["benchmark"]=id; a["attempt"]=attempt; a["stage"]=string(get(event,:stage,event.state))
             row["attempt"]=attempt
-            row["state"]=event.state === :complete && get(event,:verdict_failed,false) ? "failed" : string(event.state)
+            row["state"]=string(event.state)
             row["execution_state"]=string(event.state)
-            row["verdict_failed"]=get(event,:verdict_failed,false)
             if event.state === :running
                 row["started"]=now
             else
@@ -482,7 +481,7 @@ end
 function _progress_snapshot(tracker)
     lock(tracker.state_lock) do
         now=tracker.closed ? tracker.stopped : tracker.clock()
-        rows=[Dict(k=>v for (k,v) in row if k in ("id","case","state","attempt","execution_state","verdict_failed")) for row in tracker.rows]
+        rows=[Dict(k=>v for (k,v) in row if k in ("id","case","state","attempt","execution_state")) for row in tracker.rows]
         counts=Dict(state=>count(row->row["state"]==state,tracker.rows)
             for state in ("pending","running",_PROGRESS_TERMINAL_STATES...))
         keys=("benchmark","attempt","role","backend","mode","stage","completed","total","reused",
@@ -541,7 +540,7 @@ function _publish_progress!(tracker; force=false, boundary=false)
             try
                 counts=snapshot["counts"]
                 finished=sum(counts[k] for k in _PROGRESS_TERMINAL_STATES)
-                println(tracker.io,"Benchmarks $finished/$(length(tracker.rows)) finished | OK $(counts["complete"]) | Failed $(counts["failed"]) | ",
+                println(tracker.io,"Benchmarks $finished/$(length(tracker.rows)) finished | Complete $(counts["complete"]) | Failed $(counts["failed"]) | ",
                     tracker.closed ? "ETA "*(tracker.termination=="exhausted" ? "done" : "stopped") : get(snapshot["active"],"stage","preparing"))
                 flush(tracker.io)
                 tracker.last_plain=now

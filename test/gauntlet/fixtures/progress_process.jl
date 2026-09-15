@@ -41,7 +41,7 @@ elseif ARGS[1]=="produce"
         end
         handshake("finish")
         emit((kind=:operand,role=:reference,state=:complete,seconds=8.0))
-        emit((kind=:benchmark,state=:complete,verdict_failed=true))
+        emit((kind=:benchmark,state=:complete))
     end
 else
     error("unknown current process mode")

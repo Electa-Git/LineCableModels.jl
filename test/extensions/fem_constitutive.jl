@@ -41,10 +41,12 @@
     @test real.(metal.admittivity) ≈ fill(inv(copper.rho*exp(0.06)), 2)
     @test real.(passive.admittivity) ≈ fill(inv(dielectric.rho*exp(0.06)), 2)
     @test problem.system.designs[1].geometry.regions[1].source.material.rho == copper.rho
+    # This single cable's envelope is below the 5 m layout floor.
     for (index,f) in pairs(problem.frequencies)
         earth = model.earth_materials[index]
         @test (earth.rho,earth.eps_r,earth.mu_r) == (100/(1+f/1000),10*(1+f/2000),1+f/10000)
-        @test model.mesh_plans[index].domain_radius ≈ sqrt(earth.rho/(pi*f*earth.mu_r*4pi*1e-7))
+        @test model.mesh_plans[index].domain_radius ≈ max(5.0,
+            2sqrt(earth.rho/(pi*f*earth.mu_r*4pi*1e-7)))
     end
     record = FEM.formulation_record(formulation)
     @test record.requested == NamedTuple(formulation).requested

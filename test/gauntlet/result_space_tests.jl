@@ -31,14 +31,21 @@
             saved=read_calculation(joinpath(directory, "candidate", "calculation.jld2"))
             @test length(saved.result)==expected
             @test saved.result.axes.problems[1].terminal_order==model.problem.system.terminal_order
-            @test all(saved.result[index].Z == value.candidate_result[index].Z
-            for index in 1:expected)
+            for index in 1:expected, quantity in (Z,Y)
+                @test quantity(saved.result[index]) == quantity(value.candidate_result[index])
+            end
             @test length(only(read_benchmark(directory).analyses)["reference_comparison"])==15expected
             retained=read_benchmark(directory)
-            tables=report(BenchmarkTableDefinition(false),retained).table
+            artifact=report(BenchmarkTableDefinition(false),retained)
+            tables=artifact.table
             @test length(tables.comparisons.quantity)==15expected
             @test Set(tables.comparisons.candidate_point)==Set(1:expected)
-            @test tables.calculations.axes[2]==saved.result.axes
+            # Published operands retain full axes; the summary exposes scalar
+            # counts and comparison rows retain each candidate point's identity.
+            @test artifact.published.candidate.result.axes==saved.result.axes
+            candidate_summary=only(eachrow(filter(row->row.role===:candidate,tables.calculations)))
+            @test candidate_summary.points==candidate_summary.formulations==expected
+            @test candidate_summary.terminals==length(model.port_order)
             @test report(BenchmarkTableDefinition(),retained).illustration === nothing
             @test_throws r"Plotting is optional" LineCableModels.plot(retained, (R,))
             previous=length(observed)

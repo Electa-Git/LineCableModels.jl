@@ -1,4 +1,4 @@
-# Run with --project=. after three_wire_earth_matrices.jl.
+# Plot existing retained research data with --project=.; the old generator is retired.
 using CairoMakie
 using JSON3
 using Printf

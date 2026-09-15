@@ -34,7 +34,7 @@ function _watch_lines(snapshot,width;advance=0.0,spinner='|',notice="")
     bars=clamp(width-textwidth(label)-textwidth(suffix)-3,0,20)
     filled=total==0 ? 0 : clamp(floor(Int,bars*finished/total),0,bars)
     first=label*" ["*repeat("=",filled)*repeat(".",bars-filled)*"]"*suffix
-    fields=["OK $(get(counts,"complete",0))","Failed $(get(counts,"failed",0))",
+    fields=["Complete $(get(counts,"complete",0))","Failed $(get(counts,"failed",0))",
         "Running $(get(counts,"running",0))","Pending $(get(counts,"pending",0))"]
     for state in ("skipped","interrupted")
         get(counts,state,0)>0 && push!(fields,uppercasefirst(state)*" $(counts[state])")
@@ -42,7 +42,7 @@ function _watch_lines(snapshot,width;advance=0.0,spinner='|',notice="")
     second=join(fields," | ")
     if textwidth(second)>width
         second=join(["$(label) $(get(counts,state,0))" for (label,state) in
-            (("OK","complete"),("F","failed"),("Run","running"),("Pend","pending"),("Skip","skipped"),("Int","interrupted"))
+            (("Done","complete"),("F","failed"),("Run","running"),("Pend","pending"),("Skip","skipped"),("Int","interrupted"))
             if state in ("complete","failed","running","pending") || get(counts,state,0)>0]," | ")
     end
     id=get(active,"benchmark","")
@@ -197,6 +197,15 @@ function _watch_poll!(watch,root,now,wall)
         end
         return
     end
+    # Older snapshots folded comparison verdicts into job status. Use their
+    # recorded execution state for display, without rewriting retained files.
+    for row in snapshot["benchmarks"]
+        get(row,"state",nothing)=="failed" && get(row,"execution_state",nothing)=="complete" &&
+            get(row,"verdict_failed",false)===true || continue
+        row["state"]="complete"
+    end
+    snapshot["counts"]=Dict(state=>count(row->get(row,"state",nothing)==state,snapshot["benchmarks"])
+        for state in ("pending","running",_PROGRESS_TERMINAL_STATES...))
     active=snapshot["active"]
     id=get(active,"benchmark",nothing)
     if id!==nothing && !get(snapshot,"closed",false)
@@ -234,8 +243,8 @@ end
 function _watch_styled(line,index,color)
     color || return line
     if index==2
-        return replace(line,r"(?:OK|Failed|F|Interrupted|Int) [0-9]+"=>
-            value->(startswith(value,"OK") ? "\e[32m" : "\e[31m")*value*"\e[0m")
+        return replace(line,r"(?:Complete|Done|Failed|F|Interrupted|Int) [0-9]+"=>
+            value->(startswith(value,"Complete") || startswith(value,"Done") ? "\e[32m" : "\e[31m")*value*"\e[0m")
     end
     style=index in (3,5) ? "\e[36m" : index==6 ? "\e[2m" :
         index==4 ? (occursin("done",line) ? "\e[32m" : occursin("stopped",line) ? "\e[31m" : "\e[33m") : ""

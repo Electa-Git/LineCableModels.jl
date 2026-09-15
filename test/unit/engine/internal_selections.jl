@@ -36,6 +36,30 @@
     @test validate(same,(:outer,))===same
     @test keys(II.surface_impedances(same,Val((:outer,)),args...))==(:outer,)
 
+    # Hooks receive the caller's original state and workspace; delegating to
+    # the owning implementation must not mutate that state.
+    args32=(0.003f0,0.005f0,2f-8,1f0,20Float32(pi)*im)
+    workspace=Ref(:surface_workspace)
+    delegated=(functor,actual_workspace)->begin
+        @test actual_workspace===workspace
+        @test (functor.state.r_in,functor.state.r_ex,functor.state.rho_c,
+            functor.state.mur_c,functor.state.jω)===args32
+        @test functor.state.m isa ComplexF32
+        before=functor.state
+        value=functor.binding(functor,actual_workspace)
+        @test functor.state===before
+        value
+    end
+    for kind in (:inner,:outer,:transfer)
+        @eval LineCableModels.computation_options(
+            ::FM{:default,typeof(II.internal_impedance),Tuple{Val{$(QuoteNode(kind))}}},
+            ::$(typeof(delegated)))=(;)
+    end
+    hooked=II.Formula(:default;hooks=(inner=delegated,outer=delegated,transfer=delegated))
+    delegated_values=II.surface_impedances(hooked,args32...;workspace)
+    @test delegated_values===II.surface_impedances(scalar,args32...)
+    @test all(value->value isa ComplexF32,delegated_values)
+
     # A different ID must dispatch to its own equation and prepare only that
     # provider. Hooks on a shared default are not a substitute for this gate.
     preparations=Ref(0)

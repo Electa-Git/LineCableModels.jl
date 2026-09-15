@@ -47,7 +47,8 @@ function _addon_series_styles!(groups, order, attributes; defaults=nothing, shar
             if handle isa Union{Makie.Lines, Makie.LineSegments} && haskey(style, :marker)
                 push!(consumed, :marker)
                 style.marker === nothing && continue
-                marker_keys = filter(key -> key in Makie.attribute_names(Makie.Scatter) &&
+                marker_defaults = Makie.default_theme(handle.parent, Makie.Scatter)
+                marker_keys = filter(key -> haskey(marker_defaults, key) &&
                     key ∉ (:color, :visible), keys(style))
                 marker_attributes = NamedTuple{marker_keys}(map(key -> getproperty(style, key), marker_keys))
                 coordinates = if automatic === nothing || haskey(overrides, :marker)

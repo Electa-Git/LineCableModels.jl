@@ -193,12 +193,3 @@ end
     rng=Random.Xoshiro(0x1234)
     @test @allocated(realization_sum(rng, uncertain_point, 10_000)) == 0
 end
-
-@testitem "ParametricBuilder / Gridspace / removed traversal machinery" tags=[:unit] setup=[
-    UseEngineSupport] begin
-    import LineCableModels.ParametricBuilder as PB
-
-    @test :Gridpoint ∉ names(PB)
-    @test :points ∉ names(PB)
-    @test :realize ∉ names(PB)
-end

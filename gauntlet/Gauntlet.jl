@@ -46,7 +46,7 @@ export ARTIFACT_ROOT, ARTIFACTS_TOML, SNAPSHOT_SCHEMA_VERSION,
        numerical_input_sha256, implementation_record, repository_revision,
        load_case, performance_comparison, package_collection, prepare_staging, release_tag,
        read_collection,
-       run_benchmark, uq_inner_formulation, uq_moment_tolerances,
+       run_benchmark, uq_inner_formulation, uq_timing_settings,
        variation_record
 
 include("artifacts.jl")

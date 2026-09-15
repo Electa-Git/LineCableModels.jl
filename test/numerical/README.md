@@ -1,56 +1,45 @@
-# Reviewed numerical references
+# Numerical snapshots — deferred
 
-This gate is prepared but not enabled in CI: no reference has been approved.
-It does not run Gauntlet, PSCAD, GetDP, a case importer or a sampler. It checks
-the current coaxial engine against explicitly reviewed, pinned Gauntlet outputs.
-Inherited numerical fixtures have been retired. Fresh scientific controls state their
-independent expectation, assumptions and error budget beside their test family.
-Current-engine output begins as a provisional snapshot, including output in another language.
+Numerical snapshot testing will not be activated before the first stable
+publication. The user will then choose a small number of Gauntlet artifacts.
+There is no snapshot-approval task for this prerelease. See the governing
+[testing policy](../../docs/src/developers.md#testing-policy).
 
-New deterministic campaign artifacts carry the serialized scalar problem actually
-computed, including the normalized frequency samples, and the full
-physical formulation declaration. Replay uses those stored inputs through the
-package's existing deserializer and `Formulation` constructor, not today's case
-catalog. Frequency samples, matrix ordering, basis and reduction options are
-not silently changed. A recorded `:default` exercises the current contextual
-default; a changed result requires investigation and explicit review, not an
-automatic reference refresh. Explicit author choices retain their own tests.
+The pasted snapshot concept describes a possible later continuity check; its
+suggestion to begin before release is superseded. No reference is to be selected,
+generated, refreshed or added to CI now. No new framework or dependency is needed.
 
-After reviewing an artifact's input data, backend comparisons, physical
-assumptions and numerical results:
+## Existing inactive provision
 
-1. Pin its published archive in this directory's standard Julia `Artifacts.toml`.
-2. Add a `[[references]]` entry to `approved.toml` with `id`, `artifact`, `file`,
-   `sha256`, `review`, `Z_atol`, `Y_atol` and `rtol`. `file` is relative to the
-   artifact root; `sha256` selects the exact reviewed JLD2 bytes. `review` records
-   the review decision or its link. This manifest is the separate approval;
-   the immutable source artifact can remain marked `:unreviewed`.
-3. Choose tolerances explicitly. The existing `compare` API calculates RMS
-   error across the full frequency vector for every Z/Y matrix entry. Every
-   entry must satisfy its absolute **or** available finite relative tolerance. A missing
-   relative error cannot rescue a failed absolute check. `Z_atol` is in
-   Ω/m, `Y_atol` in S/m, and `rtol` is a fraction, not percent. No tolerance is
-   inferred from the candidate result or from another backend's RMS difference.
-   Replay passes `atol=0` to `compare`: the scientific numerical-zero policy
-   must not hide drift from a reviewed CI reference. Only these explicit
-   manifest tolerances govern acceptance.
-   The command reports the absolute and relative errors for every matrix entry,
-   identifying a failing row and column rather than only a matrix-wide maximum.
-4. Run `julia --project=gauntlet --startup-file=no test/numerical/runtests.jl`.
-   Enable this command in CI only when the bindings and review are complete.
+`references.jl`, `runtests.jl`, `approved.toml` and `Artifacts.toml` are existing
+inactive replay machinery. The list is empty and CI does not invoke its command.
+The legacy command errors on that empty list; this is not a failed calculation
+or a missing prerequisite for the first stable release. Its protocol tests use
+temporary records and do not select any numerical baseline.
 
-An empty approval manifest fails explicitly when this command is invoked. The
-gate never generates, approves, binds or overwrites reference data. File hashes
-protect the reviewed bytes; implementation fingerprints are provenance, not a
-reason to invalidate the baseline when the implementation under test changes.
-Historical artifacts without replay inputs still work in reports, but are not
-silently reconstructed from current case files.
+The current reader supports deterministic coaxial per-metre phase matrices and
+uses per-entry RMS across frequencies. It is not a finished general snapshot
+system: do not advertise FEM/UQ replay or elementwise continuity that it does not
+implement. Leave it dormant rather than expanding it speculatively.
 
-This initial gate supports deterministic, per-meter phase matrices from owned
-coaxial calculations. External results inform their review; they are not
-assumed numerically interchangeable. UQ moments and other problems require an
-explicit reference-replay method before inclusion; no new FEM/UQ replay mechanism is implied by this gate.
+## Minimal later design
 
-`@inferred compute` checks the replayed scalar computation. Wall-clock timing
-is deliberately absent: the core suite owns hot-path allocation checks, while
-controlled performance comparisons remain a separately recorded manual check.
+Once the user selects artifacts after stable publication:
+
+- Reuse existing Gauntlet records, JLD2, the runner and `Test`. Adapt only what the
+  selected records require.
+- Compare a backend with its own retained output across revisions. Preserve input
+  and formulation settings, frequency/terminal identity, units/basis, relevant
+  numerical quantities and execution provenance.
+- Check real/imaginary components at individual entries/frequencies with explicit
+  continuity tolerances; RMS may summarize differences. Report the differing
+  entry, old/new values and permitted difference.
+- Keep the selected reference fixed. Updating it requires an explicit user
+  decision; CI must not generate missing references or refresh them after passing.
+- Keep private workspaces, struct layouts, temporary paths and incidental output
+  out of the snapshot. A source revision is provenance, not a reason to bypass
+  the comparison.
+
+These are behavior snapshots, not scientific approvals. No previous-push service,
+reference promotion workflow, new artifact catalogue or scientific manager is
+part of the present work.

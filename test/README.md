@@ -1,199 +1,132 @@
 # Test suite
 
-Tests assert public results and invariants rather than copying source functions
-or tutorial scripts. Files use lowercase snake case and mirror the source
-module they exercise.
+Tests check the current implementation and architecture, with a **95% production
+line-coverage gate**. Scientific acceptance is a research judgment. Gauntlet runs
+calculations, compares and reports; it assigns no scientific or speedup verdicts.
+Float32 inputs must work without type-induced crashes; there is no extra Float32
+accuracy promise. Numerical snapshots remain inactive until after stable
+publication and user selection. See the [testing policy](../docs/src/developers.md#testing-policy).
 
-Run the default unit, integration, and non-graphical extension suite with:
+## While coding
 
-```julia
-using Pkg
-Pkg.test()
-```
-
-The package and `test/Project.toml` form one Julia 1.12 workspace. Add ordinary
-test-only dependencies to that test project. The visual, core-only, gauntlet,
-and coverage projects remain isolated because they verify different dependency
-boundaries.
-
-Pass selectors through `test_args`. A plain selector matches a file path or test-item
-name. A `tag:` selector matches a test tag:
-
-```julia
-Pkg.test(test_args = ["tag:unit"])
-Pkg.test(test_args = ["tag:integration"])
-Pkg.test(test_args = ["Engine / solver"])
-```
-
-The package CLI has independent process-boundary tests requiring only Python's
-standard library:
+Run from the repository root with Julia 1.12. Prepare the environment before first
+use and after dependency changes:
 
 ```sh
+julia --project=test -e 'using Pkg; Pkg.resolve(); Pkg.instantiate()'
+```
+
+Use the corresponding project for additional environments. `resolve` refreshes
+local manifests after changes to the developed package; `instantiate` installs
+and precompiles that resolved graph. Finish preparation before starting tests.
+Ordinary tests share the root workspace `Manifest.toml`; there is no separate
+`test/Manifest.toml`. Gauntlet uses `gauntlet/`, not `test/gauntlet/`, as its project.
+Do not launch overlapping cold preparations or use `--compiled-modules=no` to
+work around stale manifests. That flag is retained only for the existing native
+and visual commands below.
+
+```sh
+julia --project=test test/runtests.jl
+julia --project=test test/runtests.jl unit/importexport/atp
+julia --project=test test/runtests.jl integration/feasible_geometry_uq
+julia --project=test test/runtests.jl tag:quality
+julia --project=gauntlet test/gauntlet/runtests.jl progress_tests campaign_tests
 python3 -m unittest discover -s test/cli -v
 ```
 
-They cover symlink installation and invocation, application selection, arguments,
-working directories, exit codes and termination. The quality CI job runs them
-without Julia packages or application services.
+Use a file selection while editing; the unfiltered command is the full sweep.
+The unfiltered Julia command runs ordinary unit, integration and non-native
+extension checks, including small UQ sampling/aggregation and linear propagation.
+`tag:quality` checks architecture, formula ownership, descriptions and the actual
+external interfaces of loaded adapters. Python tests exercise the package CLI
+and process routing; they are not numerical references.
 
-The supported tags are `unit`, `integration`, `extension`, `fem_numerical`, `visual`, `quality`, `gauntlet`, and `gauntlet_toolkit`. Visual, quality, `core_only`, and both gauntlet tags are excluded from the default run and execute in dedicated environments. See
-[`gauntlet/README.md`](../gauntlet/README.md) for explicit campaign, comparison and recovery commands.
+Selectors match file/name substrings or exact `tag:<name>`. Multiple names are
+alternatives; multiple tags are alternatives; both groups must match when combined.
+Append `--list` to inspect selection without executing bodies. Empty selections
+and unknown options fail. The runner prints item starts, selected files/items,
+elapsed time and completion/failure. A started item is not necessarily completed.
 
-The `fem_numerical` items exercise the current native FEM formulation and extraction path. They are excluded from the ordinary test
-run and execute explicitly with the package's hash-pinned GetDP 3.5.0 complex
-artifact. To run them locally:
+## Additional execution environments
 
-```sh
-julia --project=test \
-  -e 'push!(ARGS, "tag:fem_numerical"); include("test/runtests.jl")'
-```
+| Command | What it executes |
+| --- | --- |
+| `DISPLAY= julia --project=test --compiled-modules=no test/runtests.jl tag:fem_numerical` | Native GetDP/Gmsh execution, extraction, material transport, reductions, failure and resume. The UI item is skipped here. |
+| `julia --project=test test/runtests.jl extensions/fem_ui.jl` | Four UI lifecycle scenarios in fresh processes; requires an accessible `DISPLAY`. CI uses `xvfb-run -a`. |
+| `julia --project=gauntlet test/gauntlet/runtests.jl` | Gauntlet catalogue, case/configuration transport, execution, persistence and reporting contracts. No external solver campaign. |
+| `julia --project=test/core test/runtests.jl tag:core_only` | Optional-extension boundaries with core dependencies only. |
+| `LINECABLEMODELS_TEST_PLOTTING=true julia --project=test/visual --compiled-modules=no test/runtests.jl tag:visual` | Existing rendering, plot lifecycle, layout and output contracts; no new calibration. |
+| `JULIA_CONDAPKG_BACKEND=Null JULIA_PYTHONCALL_EXE=python3 julia --project=ext/LineCableModelsPSCADExt/remote test/integration/pscad/worker.jl` | PSCAD worker protocol against its test double; no native PSCAD installation. |
+| `julia --project=test test/runtests.jl tag:aqua` | Aqua in a fresh Julia process. |
+| `julia --project=docs docs/doctest.jl` and `julia --project=docs docs/make.jl` | Docstrings and documentation build; instantiate with `docs/instantiate.jl`. |
 
-Set `LINECABLEMODELS_GETDP=/absolute/path/to/getdp` only to exercise an external
-solver override.
+Ordinary exclusions are `quality`, `aqua`, `visual`, `core_only`, `fem_numerical`,
+`gauntlet` and `gauntlet_toolkit`. They describe purpose/environment, never outcome.
+There is no required scientific-study job or `scientific` selection.
+The basic FEM case checks native outputs and returned Z/Y extraction, without a
+cross-formulation accuracy or domain-convergence target. Use the existing
+[Gauntlet workflows](../gauntlet/README.md) for such studies.
 
-The full gauntlet remains a manual workflow, separate from these deterministic
-FEM controls. CI must not launch live PSCAD/FEM gauntlet campaigns or promote
-their output to references. The read-only [numerical-reference gate](numerical/README.md)
-replays stored problem and formulation declarations against explicitly reviewed,
-pinned gauntlet arrays, with element-wise RMS tolerances and scalar inference
-checks. Its approval manifest and bindings remain empty; it is not enabled in CI.
+## Coverage and release verification
 
-Instantiate the gauntlet environment and run every tagged case through the dedicated TestItemRunner entry point:
+The [existing CI workflow](../.github/workflows/CI.yml) owns the complete recipe:
+Julia 1.12 and prerelease ordinary runs, all environments above, Cairo/GL/WGL
+activation, clean installation, documentation and merged coverage. Release
+verification adds execution environments; it does not certify model physics.
 
-```sh
-julia --project=gauntlet -e 'using Pkg; Pkg.instantiate()'
-julia --project=gauntlet \
-  test/gauntlet/runtests.jl
-```
-
-`test/gauntlet/runtests.jl` selects both `gauntlet` and `gauntlet_toolkit` tests.
-These check declarations, execution, persistence and comparison without native
-PSCAD. Reusable declarations live in `gauntlet/benchmarks/`; indexed physical
-models live in `gauntlet/cases/`. Live campaigns are explicit CLI actions.
-
-During development, select the owned UQ or external PSCAD family directly:
-
-```sh
-julia --project=gauntlet --startup-file=no -e \
-  'include("test/support/runner.jl"); ValidationTestRunner.run_tests(pwd(); filter=ti -> :uq in ti.tags, verbose=true)'
-julia --project=gauntlet --startup-file=no -e \
-  'include("test/support/runner.jl"); ValidationTestRunner.run_tests(pwd(); filter=ti -> :pscad in ti.tags, verbose=true)'
-```
-
-Run the reusable gauntlet toolkit checks separately with:
+For coverage, use one Julia/BLAS thread and remove old traces first:
 
 ```sh
-julia --project=gauntlet --startup-file=no \
-  -e 'push!(ARGS, "tag:gauntlet_toolkit"); include("test/runtests.jl")'
-```
-
-The PSCAD worker uses its existing PythonCall environment for local protocol tests.
-The automation double checks settings, file collection and cleanup; it does not
-simulate electromagnetic results or require a PSCAD installation:
-
-```sh
-JULIA_CONDAPKG_BACKEND=Null JULIA_PYTHONCALL_EXE=python3 \
-  julia --project=ext/LineCableModelsPSCADExt/remote -e 'using Pkg; Pkg.instantiate()'
-JULIA_CONDAPKG_BACKEND=Null JULIA_PYTHONCALL_EXE=python3 \
-  julia --project=ext/LineCableModelsPSCADExt/remote test/integration/pscad/worker.jl
-```
-
-The deterministic Cairo suite has its own environment and may be run headlessly with:
-
-```sh
-julia --project=test/visual -e 'using Pkg; Pkg.instantiate()'
-LINECABLEMODELS_TEST_PLOTTING=true julia --project=test/visual \
-  -e 'push!(ARGS, "tag:visual"); include("test/runtests.jl")'
-```
-
-Exercise optional-dependency fallbacks without loading any weak dependency:
-
-```sh
-julia --project=test/core -e 'using Pkg; Pkg.instantiate()'
-julia --project=test/core \
-  -e 'push!(ARGS, "tag:core_only"); include("test/runtests.jl")'
-```
-
-Current input recipes live in `support/scenarios.jl`; `support/fixtures.jl` exposes
-native test setups. They return independent mutable storage and confer no numerical
-authority. Tests write to temporary directories. The native `JuliaTestItems.toml`
-configuration excludes generated/tool/process sources before item/setup extraction.
-Both runners strictly parse whole included files and fail empty selections.
-
-Rendering generation validates one named scene before importing a renderer or constructing
-other scenes, then writes provisional files into a retained temporary directory:
-
-```sh
-LINECABLEMODELS_UPDATE_PLOT_REFERENCES=true LINECABLEMODELS_PLOT_REFERENCE=line_rlcg \
-  julia --project=test/visual test/tools/regenerate_goldens.jl
-```
-
-The generator does not write accepted baselines. Image acceptance requires inspected current
-renders, repeatability calibration, meaningful defect controls and explicit scoped approval.
-No inherited image threshold applies. Numerical controls check resolved components with
-independently established error budgets; same-engine consistency is labelled accordingly.
-
-## Initial candidate validation policy
-
-Version 0.2.0 names the intended first accepted release candidate. It does not
-establish a published 0.1.0, historical API guarantees or numerical correctness.
-Current intended behavior governs; superseded development output has no authority.
-
-Evidence has four distinct scopes:
-
-- Current-contract tests establish API, dispatch, units, identities, errors and side effects.
-- Scientific controls establish a stated property against a justified independent expectation,
-  limiting case or convergence/error study, with its assumptions and uncertainty.
-- Candidate snapshots record what an identified implementation produced. They are provisional
-  repeatability/change detectors and cannot certify their own numbers.
-- Explicitly accepted release snapshots record acceptance of specific results within a stated
-  validation scope. They do not establish universal correctness.
-
-Inherited test fixtures, embedded numerical expectations, golden generators and historical
-preservation paths are retired without archival consumers or renamed payloads. Rebuild
-necessary scenarios through current APIs. Production libraries and real research/user
-calculations remain protected. Fresh engine output is never promoted automatically.
-Do not regenerate expectations or widen tolerances after a failure. An unresolved reference,
-mesh, statistical or rendering control is inconclusive; a resolved discrepancy is failed.
-
-During WIP, a retained guard states a current invariant and plausible failure beside the test
-when the purpose is non-obvious. Historical helper names and arbitrary development behavior
-are not contracts. After the first Julia-registry publication, a test designated as a bug
-regression must cite the actual reported tracker issue and protected behavior. Feature,
-mathematical, architectural and integration tests need no fabricated issues. Do not evade
-that rule by retitling a bug test. No issue registry or CI tracker lookup is required.
-
-The enforced coverage ratio includes all production code under `src/` and
-`ext/`. The LCOV report also publishes reusable gauntlet helper coverage when traces
-exist, while excluding manually authored files under `gauntlet/cases/`. Clean stale
-traces before a coverage run, merge traces from the ordinary, core-only, and visual
-environments, and enforce the source-amended 95% gate afterward:
-
-```sh
-julia --project=test/coverage -e 'using Pkg; Pkg.instantiate()'
+export JULIA_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1
 julia --project=test/coverage test/coverage.jl clean
 julia --project=. -e 'using Pkg; Pkg.test(coverage=true)'
-julia --project=test/core --code-coverage=@. \
-  -e 'push!(ARGS, "tag:core_only"); include("test/runtests.jl")'
-LINECABLEMODELS_TEST_PLOTTING=true julia --project=test/visual \
-  --compiled-modules=no --code-coverage=@. \
-  -e 'append!(ARGS, ["tag:visual", "loaded extension activation"]); include("test/runtests.jl")'
+```
+
+Run the additional environments above with `--code-coverage=@.`. For activation,
+use `julia --project=test/visual --code-coverage=@. test/runtests.jl "loaded extension activation"`
+for Cairo; CI contains the temporary-environment commands for GLMakie and WGLMakie.
+Complete the display-dependent UI run as well. Then merge and enforce the gate:
+
+```sh
 julia --project=test/coverage test/coverage.jl check
 ```
 
-CI additionally collects the local PSCAD worker protocol traces and checks backend selection in isolated GLMakie and
-WGLMakie environments (GLMakie runs under Xvfb). The deterministic FEM job uploads
-its production traces with a `.fem.cov` suffix to avoid cross-runner process-ID
-collisions. The solver-free toolkit job uploads `.toolkit.cov` traces as well;
-its reusable helper coverage is published, but only `src/` and `ext/` contribute
-to the production threshold. Codecov's project and changed-line checks use these
-same production paths and retain their 95% targets. Gauntlet files remain visible
-in the published report. Neither job runs the manual Gauntlet campaign.
-The coverage job merges both artifacts before the same single check. The cleaner
-removes Julia-native, imported FEM, imported toolkit and documentation traces after
-all instrumented workers exit, even when the coverage check fails. The checker amends
-coverage from source, rejects any missing `src/` or `ext/` Julia file, writes
-`lcov.info`, and fails below 95% aggregate line coverage.
+This inventories every production Julia file under `src/` and `ext/`, writes
+`lcov.info`, and fails below 95%. Gauntlet coverage is reported separately from
+that denominator. The check removes traces afterward, including on failure;
+retain the report. Missing executions and failing tests remain visible even if
+the line percentage passes.
 
-Documentation, Aqua, and golden regeneration are separate checks and must not
-be used to satisfy the production coverage threshold.
+## Measured execution and remaining work
+
+The [execution report](../local/validation-refoundation/2026-09-15/execution/report.md)
+records scopes and measured wall times on the shared local machine.
+The ATP file selection took 41 s. Core-only preparation plus six checks took
+74 s; quality took 279 s; native FEM and the existing visual selection took
+about 25 minutes each. These include compilation and are not isolated CI timing
+predictions.
+
+The complete Julia 1.13.0-rc4 ordinary run executed 295 items / 125 files in
+84.8 minutes and reported two CIM error-budget rejections: the nonzero-Γ mixed
+layout at 50 Hz and 10 kHz (`unit/engine/unified_earth_return`). No matrices were
+returned for those requests. They remain visible; no accuracy target or algorithm
+was changed to force a pass. The Julia 1.12 full run reached its 90-minute limit;
+Gauntlet also has unresolved full-run execution within its 30-minute allocation.
+Final coverage is **19,609/20,582 production lines (95.27%)**, passing the unchanged
+95% gate. Three earth-return items remain unfinished on Julia 1.12; they completed
+on 1.13.0-rc4. Gauntlet's fixed-seed MC item also reached its focused 10-minute
+limit. The report identifies these exact items. Coverage does not close them.
+
+Gauntlet counts execution outcomes only. The archived `all-references` session
+`143976-30413896018032` has eight completed comparisons formerly displayed as
+failures; they remain reported differences. Its 132 kV Monte Carlo attempt really
+failed with `internal shunt: logarithmic quadrature did not converge`; the previous
+completed attempt remains retained. This repair does not resolve that calculation.
+The [focused execution-status checks](../gauntlet/progress-validation.md#execution-outcomes--2026-09-15)
+record their actual scopes and times; the terminal smoke took 28 s and the timing
+report check took 46 s.
+
+The earlier FEM/analytical mutual-admittance difference, transformed-exterior
+quadrature sensitivity and unresolved derivative-reference study remain in the
+[dated evidence](../local/validation-refoundation/2026-09-15/test-system-audit.md).
+They are research observations, not fabricated code failures or release approvals.

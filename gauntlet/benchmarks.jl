@@ -1,12 +1,11 @@
 function _benchmark_performance_settings(tolerances)
     haskey(tolerances, :performance) || return nothing
     settings = tolerances.performance
-    keys(settings) == (:minimum_speedup, :samples, :seconds) || throw(ArgumentError(
-        "benchmark performance settings must contain minimum_speedup, samples, and seconds",
-    ))
-    settings.minimum_speedup isa Real && isfinite(settings.minimum_speedup) &&
-    settings.minimum_speedup > 1 || throw(ArgumentError(
-        "benchmark minimum speedup must be finite and greater than one",
+    # Saved work orders may carry a former speedup threshold. It has no role in
+    # measurement or execution; retain only the requested sampling budget.
+    all(key -> haskey(settings, key), (:samples, :seconds)) &&
+    isempty(setdiff(keys(settings), (:samples, :seconds, :minimum_speedup))) || throw(ArgumentError(
+        "benchmark performance settings must contain samples and seconds",
     ))
     settings.samples isa Integer && !(settings.samples isa Bool) &&
     settings.samples > 0 || throw(ArgumentError(
@@ -17,7 +16,6 @@ function _benchmark_performance_settings(tolerances)
         "benchmark timing duration must be positive and finite",
     ))
     return (
-        minimum_speedup = Float64(settings.minimum_speedup),
         samples = Int(settings.samples),
         seconds = Float64(settings.seconds)
     )
@@ -62,8 +60,7 @@ function _benchmark_performance(benchmark::BenchmarkDefinition)
     settings === nothing && return nothing
     reference=_benchmark_owned(benchmark.reference, settings;role=:reference)
     candidate=_benchmark_owned(benchmark.candidate, settings;role=:candidate)
-    # The candidate is the implementation under test, so its speedup over the
-    # reference is the reference wall time divided by the candidate wall time.
+    # Keep the declared direction: reference wall time divided by candidate time.
     speedup=reference.median_seconds/candidate.median_seconds
     comparable=!gauntlet_instrumented() &&
                reference.scope === candidate.scope &&
@@ -72,8 +69,7 @@ function _benchmark_performance(benchmark::BenchmarkDefinition)
                    (:progress,:diagnostics,:callbacks,:allocation_scope)) &&
                !any(row.reused for row in reference.observations) &&
                !any(row.reused for row in candidate.observations)
-    passes=comparable ? speedup >= settings.minimum_speedup : nothing
-    return (; reference, candidate, speedup, comparable, passes, settings)
+    return (; reference, candidate, speedup, comparable, settings)
 end
 
 """
@@ -86,16 +82,6 @@ function validate(benchmark::BenchmarkDefinition)
     settings = benchmark.comparison_settings
     validate(BenchmarkTableDefinition(; settings...))
     _benchmark_performance_settings(benchmark.tolerances)
-    if haskey(benchmark.tolerances, :reference)
-        limits=benchmark.tolerances.reference
-        allunique(row.request for row in limits) && Set(row.request for row in limits)==Set(settings.requests) ||
-            throw(ArgumentError("acceptance limits must match each selected scientific request exactly once"))
-        for limit in limits
-            length(limit)==3 && all(key -> haskey(limit,key),(:request,:absolute,:relative)) &&
-                all(value -> value isa Real && isfinite(value) && value >= 0,(limit.absolute,limit.relative)) ||
-                throw(ArgumentError("acceptance limits require finite nonnegative absolute and relative values"))
-        end
-    end
     if benchmark.reference.formulation isa Union{Gridspace,LineCableModels.Combinatorial}
         settings.pairing === nothing && throw(ArgumentError("a reference result space requires explicit pairing before execution"))
     end
@@ -149,11 +135,12 @@ end
 
 Compute the two declared operands with their unchanged problems, formulations and
 options. Comparison direction and RMS settings belong to the definition. Differences
-between models are retained observations. Optional performance checks are separate.
+between models and optional timing ratios are retained observations, without
+acceptance verdicts.
 When `directory` is supplied, completed calculations and analysis are recoverable.
 Reuse depends on the numerical declaration and saved-file integrity, not live source
 files. Each execution session records the Julia and package versions and Git state.
-A failed optional timing check still retains the scientific report before the error is propagated.
+A timing computation error still retains the comparison report before the error is propagated.
 `mode=:record` stages that same complete bundle for explicit artifact packaging.
 """
 function run_benchmark(benchmark::BenchmarkDefinition; directory = nothing,
@@ -227,7 +214,7 @@ function run_benchmark(benchmark::BenchmarkDefinition; directory = nothing,
         if performance_path !== nothing && isfile(performance_path)
             retained=read_benchmark(performance_path,Val(:performance);calculations)
             if measure_performance && retained.performance !== nothing
-                retained.performance.settings==_benchmark_performance_settings(benchmark.tolerances) ||
+                _benchmark_performance_settings((performance=retained.performance.settings,))==_benchmark_performance_settings(benchmark.tolerances) ||
                     throw(ArgumentError("retained performance settings differ; use a new benchmark attempt"))
             end
             performance_session=retained.session
@@ -247,7 +234,7 @@ function run_benchmark(benchmark::BenchmarkDefinition; directory = nothing,
                 saved=read_benchmark(saved_path,Val(:performance);
                     calculations=(reference=nothing,candidate=nothing))
                 retained=saved.performance
-                retained !== nothing && retained.settings==settings || continue
+                retained !== nothing && _benchmark_performance_settings((performance=retained.settings,))==settings || continue
                 all(getproperty(retained,role).calculation==
                     _numerical_record(calculation_record(
                         _performance_calculation(getproperty(benchmark,role))))
@@ -276,7 +263,7 @@ function run_benchmark(benchmark::BenchmarkDefinition; directory = nothing,
     catch error
         error isa InterruptException && rethrow()
         performance_error=error
-        @error "Performance measurement failed; continuing scientific report persistence" exception=(error,catch_backtrace())
+        @error "Performance measurement failed; continuing comparison report persistence" exception=(error,catch_backtrace())
         nothing
     end
     _performance_observation!(:reference;finished=true)
@@ -292,19 +279,6 @@ function run_benchmark(benchmark::BenchmarkDefinition; directory = nothing,
         candidate=(result=candidate,metadata=candidate_metadata),
         context=(id=benchmark.id,case_id=benchmark.case_id,collection=benchmark.collection),measurements))
     comparison=publication.published.comparisons
-    passes=if haskey(benchmark.tolerances,:reference)
-        decisions=Union{Nothing,Bool}[]
-        for row in comparison
-            limit=only(filter(limit -> limit.request==row.request,benchmark.tolerances.reference))
-            for (absolute,relative) in zip(observe(row.error,absolute_error),observe(row.error,relative_error))
-                push!(decisions,ismissing(absolute) && ismissing(relative) ? nothing :
-                    (!ismissing(absolute) && absolute<=limit.absolute) || (!ismissing(relative) && relative<=limit.relative))
-            end
-        end
-        any(isequal(false),decisions) ? false : isempty(decisions) || any(isnothing,decisions) ? nothing : true
-    else
-        nothing
-    end
     metadata=(
         benchmark_id = benchmark.id,
         case_id = benchmark.case_id,
@@ -346,7 +320,7 @@ function run_benchmark(benchmark::BenchmarkDefinition; directory = nothing,
     return (; mode, reference_result = reference_execution.result,
         candidate_result = candidate_execution.result,
         reference, candidate, comparison,
-        passes, performance, timings, metadata, artifact, report=publication)
+        performance, timings, metadata, artifact, report=publication)
 end
 
 """

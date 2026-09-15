@@ -24,8 +24,8 @@
         candidate = merge(
             measure, (median_seconds = 1.0,
                 calculation = (input = "candidate workload", trials = 0))),
-        speedup = 10.0, comparable = false, passes = nothing,
-        settings = (minimum_speedup = 2.0, samples = 3, seconds = 20.0))
+        speedup = 10.0, comparable = false,
+        settings = (samples = 3, seconds = 20.0))
     tables=tabulate(definition,
         (execution = execution, performance = performance,
             checksum_verified=missing,workload_verified=true,session=(id="original",)))
@@ -42,7 +42,13 @@
     @test tables.performance.session_id==["original","original"]
     @test only(tables.performance_comparison.reference_over_candidate)==10.0
     @test !only(tables.performance_comparison.comparable)
-    @test ismissing(only(tables.performance_comparison.passes))
+    @test propertynames(tables.performance_comparison)==
+        [:reference_over_candidate,:comparable,:requested_samples,:time_budget_seconds]
+    # Historical verdict fields remain readable but add no acceptance columns.
+    legacy=merge(performance,(passes=false,
+        settings=merge(performance.settings,(minimum_speedup=20.0,))))
+    @test isequal(tabulate(definition,(performance=legacy,)).performance_comparison,
+        tables.performance_comparison)
     @test only(tables.performance_comparison.requested_samples)==3
     @test size(tables.performance_samples, 1)==2
     # Counts retain their measurement meaning: timed repetitions, not MC trials.

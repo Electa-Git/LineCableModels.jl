@@ -28,6 +28,8 @@ struct BenchmarkDefinition{M, R <: BenchmarkCalculation,
     reference::R
     candidate::C
     comparison_settings::P
+    # Keep the serialized work-order layout readable. Only performance sampling
+    # settings are used; historical acceptance limits are inert provenance.
     tolerances::T
 
     function BenchmarkDefinition(
@@ -56,24 +58,6 @@ struct BenchmarkDefinition{M, R <: BenchmarkCalculation,
             "benchmark calculations must have distinct identifiers",
         ))
         comparison_settings = BenchmarkTableDefinition(; comparison_settings...).settings
-        if haskey(tolerances,:reference)
-            limits=tolerances.reference
-            normalized=if limits isa NamedTuple
-                if all(limit -> haskey(limit,:absolute) && haskey(limit,:relative),limits)
-                    Tuple((request=only(BenchmarkTableDefinition(;quantities=(quantity,)).settings.requests),limit...)
-                        for (quantity,limit) in pairs(limits))
-                else
-                    Tuple((request=only(BenchmarkTableDefinition(;
-                        quantities=(quantity,),statistics=(statistic,)).settings.requests),limit...)
-                        for (statistic,group) in pairs(limits) for (quantity,limit) in pairs(group))
-                end
-            elseif limits isa AbstractDict
-                Tuple((;request,limit...) for (request,limit) in pairs(limits))
-            else
-                Tuple(limits)
-            end
-            tolerances=merge(tolerances,(reference=normalized,))
-        end
         return new{M, R, C, typeof(comparison_settings), typeof(tolerances)}(
             id,
             case_id,

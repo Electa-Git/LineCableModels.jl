@@ -2,6 +2,9 @@
 
 Gauntlet is the application in `gauntlet/`. It ingests cases, materializes benchmark
 definitions, schedules calculations, compares saved operands and locks artifacts.
+Its role is **run, compare and report**. Numerical differences, unavailable relative
+RMS values and timing ratios are observations for the user to interpret. Gauntlet
+assigns no scientific or performance acceptance verdicts.
 `test/gauntlet/` contains its tests. `LineCableModels.PSCAD` owns the PSCAD adapter
 in `ext/LineCableModelsPSCADExt/`; it loads with LineCableModels and launches the
 external tool only through explicit computation or station identification.
@@ -96,6 +99,15 @@ A comparison reference defines direction and normalization. PSCAD, FEM and LCM
 remain different models. Cross-model RMS values are observations. Incomparable
 coordinates are rejected; numerical-zero reference traces retain absolute RMS
 and report unavailable relative RMS with the recorded reason and tolerance.
+That numerical-resolution tolerance decides whether a ratio is meaningful; it is
+not an acceptance limit or an absolute-error fallback verdict. UQ declarations
+request timing samples with `uq_timing_settings()`; they set no moment-error or
+minimum-speedup thresholds. `performance_comparison(reference, current)` reports
+ratios and whether the measurement environments/scopes are comparable.
+
+Historical declarations retain their serialized `tolerances` field so saved work
+orders remain readable. Only its performance sampling budget is used; old numerical
+limits and minimum-speedup thresholds have no effect on execution or reporting.
 
 Catalog declarations are ordinary constructors under `gauntlet/benchmarks/`:
 
@@ -476,7 +488,7 @@ At ordinary terminal sizes, the watcher owns six rows:
 
 ```text
 Benchmarks [====................] 12/59 finished
-OK 11 | Failed 1 | Running 1 | Pending 46
+Complete 11 | Failed 1 | Running 1 | Pending 46
 13/59 NA2XS2Y trefoil | reference / Monte Carlo
 Elapsed 00:42:18 | ETA ~00:08:40
 Current run / (96/512 scans) | sampling; rejected 3
@@ -490,15 +502,19 @@ accepted complete outputs without changing batching. Nested FEM contributes
 validated completed-frequency detail while MC retains the primary scan counter.
 Unknown totals use `?`. Recovered scans satisfy work without becoming fresh solver
 timing evidence; partial native recovery remains incomplete until its result is
-accepted. Validation, persistence, reports, and declared performance checks must
+accepted. Validation, persistence, reports, and requested timing measurements must
 finish before the benchmark becomes terminal.
 
 Subset invocations say `Selected benchmarks`. Failed, skipped, and interrupted
-outcomes remain distinct. A failed comparison or declared performance verdict counts
-as Failed while its completed execution remains recoverable. If the invocation
-exhausts its selected execution, ETA says `done`, including when some verdicts failed.
+outcomes remain distinct. `Complete` means the requested execution, comparison and
+report persistence finished. `Failed` means an execution error, including errors
+in calculation, comparison inputs, timing collection or required persistence.
+Differences between operands and unavailable relative RMS do not fail a job.
+Older progress snapshots are displayed using their recorded execution state;
+saved comparisons and timing records are left intact. If the invocation
+exhausts its selected execution, ETA says `done`, including when some jobs failed.
 An interruption, fail-fast termination, or other early abort says `stopped`. Valid
-accepted-scan durations remain useful when later scientific comparisons disagree.
+accepted-scan durations remain useful regardless of numerical differences.
 
 The ASCII spinner advances every 250 ms in the watcher using cached state. Elapsed,
 freshness, ETA, and snapshot polling advance about once per second. The spinner
@@ -638,8 +654,12 @@ OPENBLAS_NUM_THREADS=1 JULIA_NUM_THREADS=1 julia --project=gauntlet \
   test/gauntlet/runtests.jl spectral_reporting_tests
 ```
 
-Multiple selectors are alternatives. Omitting selectors retains the full suite.
-For upstream spectral-control reconciliation, the selected regression covers
+Multiple file/name selectors are alternatives, as are multiple `tag:` selectors.
+If both groups are supplied, both must match. Append `--list` to inspect the
+selection without executing it; `tag:uq` and `tag:pscad` select the owned families.
+Omitting selectors retains the full suite. See [test commands](../test/README.md)
+for release scopes and unresolved outcomes.
+For upstream spectral-control reconciliation, the selected contract covers
 formula Gridspace computation, saved results, reporting and budget exhaustion.
 The wider numerical, FEM and documentation suites can run in CI when local power
 or time is limited.

@@ -16,7 +16,7 @@ using Makie: Auto, Axis, Button, Colorbar, DataAspect, Figure,
     Observable, Outside, Rect2f, Relative, Theme, Toggle,
     colgap!, colsize!, content, ecdfplot!, errorbars!, height,
     hist!, hlines!, hspan!, left, lift, lines!,
-    on, onany, poly!, reset_limits!, right, rowgap!,
+    off, on, onany, poly!, reset_limits!, right, rowgap!,
     rowsize!, scatter!, stairs!, text!, to_value, translate!,
     update!, width, widths, with_theme
 using LinearAlgebra: diag

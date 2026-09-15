@@ -97,11 +97,14 @@ end
     @test !haskey(NamedTuple(formulation), :execution)
     # Execution settings cannot enter through the formulation, or vice versa.
     @test_throws ArgumentError LineCableModelsFEM(options=(frequency_workers=4,))
+    @test_throws ArgumentError LineCableModelsFEM(options=(domain_skin_depths=1.5,))
     @test_throws MethodError LineCableModelsFEM(fem_options=(ui=true,))
     @test_throws ArgumentError computation_options(LineCableModelsFEM, (physics=:quasi_fw,))
     @test_throws ArgumentError computation_options(LineCableModelsFEM, (unknown=true,))
     defaults = @inferred computation_options(LineCableModelsFEM, (;))
     @test defaults isa ComputationOptions
+    @test defaults.domain_skin_depths === 2.0
+    @test computation_options(LineCableModelsFEM, (;domain_skin_depths=1.5)).domain_skin_depths === 1.5
     callback = (problem, index, result) -> nothing
     raw = (frequency_workers=Int32(4), solver_threads=Int16(2),
         on_result=callback, trace=true, mesh_policy=:remesh,
@@ -122,5 +125,8 @@ end
         (frequency_workers=true,), (solver_threads=1.5,), (gmsh_verbosity=true,),
         (getdp_verbosity=6,), (resume_run_directory="",), (resume_run_directory=:bad,))
         @test_throws ArgumentError computation_options(LineCableModelsFEM, invalid)
+    end
+    for invalid in (0, -1, Inf, NaN, true, "2")
+        @test_throws ArgumentError computation_options(LineCableModelsFEM, (;domain_skin_depths=invalid))
     end
 end

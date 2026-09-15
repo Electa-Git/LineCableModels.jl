@@ -12,7 +12,10 @@
             s=2pi*im*f; sigma=[0.0,.01]; epsilon=8.8541878128e-12.*[1,10]; mu=fill(4pi*1e-7,2)
             state=(jω=s,Γ=gamma,sigma,epsilon,mu,gamma_medium_squared=s.*mu.*(sigma.+s.*epsilon))
             @testset "n=$n / $f Hz / gamma=$gamma / $method" for method in (:quad,:trapz,:cim)
-                limits=method===:trapz ? (;max_refinements=14) : method===:cim ? (;samples=8192,maxevals=10^6) : (;maxevals=10^6)
+                # Closure algebra does not require a fixed construction sample
+                # cap. Adaptive construction and explicit exhaustion have
+                # separate contracts under the spectral owner.
+                limits=method===:trapz ? (;max_refinements=14) : (;maxevals=10^6)
                 controls=E.computation_options(E.SpectralIntegral,(method,options=merge((rtol=1e-9,),limits)))
                 w=E.unified_earth!(E.EarthReturnWorkspace(geometry),state,controls)
                 # Normalized backward errors use independent operand norms.
