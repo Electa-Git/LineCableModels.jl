@@ -71,7 +71,7 @@ accept Grid inputs with product or zip composition. Earth-impedance
 `:default` retains its identity and selects the native direct numerical
 integration setting for overhead or underground placement, or the native Lucca
 setting for mixed placement. Dielectric
-`:default` is explicitly lossless. An explicit Ametani selection is represented
+`:default` routes to `:lossless`. An explicit `:lossy` selection is represented
 by the equivalent capacitance and loss tangent at the export reference
 frequency; PSCAD's native frequency law and loss-tangent cap of ten still apply.
 Native defaults have their own indexed implementations. External selections
@@ -140,40 +140,40 @@ end
 function earth_impedance(::Val{:default}, ::Val{:mutual}, ::Val{2}, ::Val{1}, ::Val{:pscad})
     (EarthForm3 = (value = 2, readback = "LUCCA"),)
 end
-function earth_impedance(::Val{:Gary1976}, ::Union{Val{:self}, Val{:mutual}},
+function earth_impedance(::Val{:gary1976}, ::Union{Val{:self}, Val{:mutual}},
         ::Val{1}, ::Val{1}, ::Val{:pscad})
     (EarthForm2 = (value = 0, readback = "DERISEMLYEN"),)
 end
-function earth_impedance(::Val{:Carson1926}, ::Union{Val{:self}, Val{:mutual}},
+function earth_impedance(::Val{:carson1926}, ::Union{Val{:self}, Val{:mutual}},
         ::Val{1}, ::Val{1}, ::Val{:pscad})
     (EarthForm2 = (value = 2, readback = "DIRECT_NUMERICAL_INTEGRATION"),)
 end
-function earth_impedance(::Val{:Pollaczek1926}, ::Union{Val{:self}, Val{:mutual}},
+function earth_impedance(::Val{:pollaczek1926}, ::Union{Val{:self}, Val{:mutual}},
         ::Val{2}, ::Val{2}, ::Val{:pscad})
     (EarthForm = (value = 2, readback = "DIRECT_NUMERICAL_INTEGRATION"),)
 end
-function earth_impedance(::Val{:WedepohlWilcox1973}, ::Union{Val{:self}, Val{:mutual}},
+function earth_impedance(::Val{:wedepohl1973}, ::Union{Val{:self}, Val{:mutual}},
         ::Val{2}, ::Val{2}, ::Val{:pscad})
     (EarthForm = (value = 0, readback = "WEDEPOHL"),)
 end
-function earth_impedance(::Val{:Saad1996}, ::Union{Val{:self}, Val{:mutual}},
+function earth_impedance(::Val{:saad1996}, ::Union{Val{:self}, Val{:mutual}},
         ::Val{2}, ::Val{2}, ::Val{:pscad})
     (EarthForm = (value = 3, readback = "SAAD"),)
 end
 function earth_impedance(
-        ::Val{:Ametani2009}, ::Val{:mutual}, ::Val{1}, ::Val{2}, ::Val{:pscad})
+        ::Val{:ametani2009}, ::Val{:mutual}, ::Val{1}, ::Val{2}, ::Val{:pscad})
     (EarthForm3 = (value = 0, readback = "AMETANIL"),)
 end
 function earth_impedance(
-        ::Val{:Ametani2009}, ::Val{:mutual}, ::Val{2}, ::Val{1}, ::Val{:pscad})
+        ::Val{:ametani2009}, ::Val{:mutual}, ::Val{2}, ::Val{1}, ::Val{:pscad})
     (EarthForm3 = (value = 0, readback = "AMETANIL"),)
 end
 function earth_impedance(
-        ::Val{:Lucca1994}, ::Val{:mutual}, ::Val{1}, ::Val{2}, ::Val{:pscad})
+        ::Val{:lucca1994}, ::Val{:mutual}, ::Val{1}, ::Val{2}, ::Val{:pscad})
     (EarthForm3 = (value = 2, readback = "LUCCA"),)
 end
 function earth_impedance(
-        ::Val{:Lucca1994}, ::Val{:mutual}, ::Val{2}, ::Val{1}, ::Val{:pscad})
+        ::Val{:lucca1994}, ::Val{:mutual}, ::Val{2}, ::Val{1}, ::Val{:pscad})
     (EarthForm3 = (value = 2, readback = "LUCCA"),)
 end
 
@@ -252,7 +252,7 @@ function pscad_setting(formulation::PSCADFormulation, problem::LineParametersPro
     end
     for name in (:insulation_admittance, :semicon_admittance)
         selected = getproperty(formulation.methods, name)
-        formula_id(selected) in (:default, :Ametani2004) || throw(ArgumentError(
+        formula_id(selected) in (:default, :lossless, :lossy) || throw(ArgumentError(
             "PSCAD does not implement $name :$(formula_id(selected))"))
     end
     for design in problem.system.designs

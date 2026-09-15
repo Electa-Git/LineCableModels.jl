@@ -22,7 +22,7 @@ it opens the project.
 - `file_name`: Destination `.pscx` file. The system identifier is prepended to
   an explicitly supplied basename.
 - `formulation`: Selected line-parameter or cable-constant formulation.
-  The default selects lossless dielectric relations. Request `:Ametani2004`
+  The default routes to the lossless dielectric relation. Request `:lossy`
   explicitly to include the supplied material losses.
 - `native_settings=(;)`: Optional validated native `ground` and `frequency`
   field records supplied by the PSCAD formula adapter. Each field carries its

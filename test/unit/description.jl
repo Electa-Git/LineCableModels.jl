@@ -47,7 +47,7 @@
     @test all(feature -> !occursin("earth Y",join(feature.relative.formula)),
         filter(feature -> feature.quantity in (:R,:X),result.table.features))
 
-    for native in (normal,Formulation(earth_impedance=:Saad1996),LineCableModelsFEM(),
+    for native in (normal,Formulation(earth_impedance=:saad1996),LineCableModelsFEM(),
             Formulation(:pscad),MonteCarlo(normal),LinearError(normal))
         saved=IO.deserialize_value(Val(:formulation),NamedTuple(native))
         @test description([saved];roles=[:reference])==description([native];roles=[:reference])
@@ -60,7 +60,7 @@
     @test description(saved_pair;roles=[:reference,:candidate])==
         ["Reference · Monte Carlo","LEP"]
     for order in (:before,:after)
-        native=Formulation(earth_impedance=formula(:Carson1926;
+        native=Formulation(earth_impedance=formula(:carson1926;
             equivalent_earth=formula(:default;order)))
         saved=IO.deserialize_value(Val(:formulation),NamedTuple(native))
         label=only(description([native];quantity=R))
@@ -77,7 +77,7 @@
         ::typeof(hook))=(;)
     routed=Formulation(
         internal_impedance=formula(:default;hooks=(inner=hook,)),
-        earth_impedance=(air=:Carson1926,earth=:Pollaczek1926,mixed=:Lucca1994),
+        earth_impedance=(air=:carson1926,earth=:pollaczek1926,mixed=:lucca1994),
         earth_admittance=formula(:default;parameters=(reference=:interface,),options=(integration=(method=:quad,),)))
     for native in (routed,MonteCarlo(routed),LinearError(routed),
             LineCableModelsFEM(options=(physics=:quasi_fw,)),
@@ -93,7 +93,7 @@
         (problems=[:one],formulations=[routed,normal]),(;))
     routed_report=report(BenchmarkTableDefinition((R,B);bands=(:all,)),
         (reference=ref,candidate=routed_result))
-    @test any(contains("earth Z(air)=Carson1926"),first(routed_report.table.features).relative.formula)
+    @test any(contains("earth Z(air)=Carson"),first(routed_report.table.features).relative.formula)
     @test any(contains("inner"),routed_report.table.formula_details.selection)
     @test !called[]
     LineCableModels.computation_options(::LineCableModels.FormulaMethod{:default,
@@ -124,9 +124,9 @@
     # route as used, or replace an explicit unknown selection with today's default.
     declared=NamedTuple(normal)
     consumed=merge(declared,(effective=merge(map(_ -> :default,declared.requested),
-        (earth_impedance=:Saad1996,pipe_impedance=nothing)),))
+        (earth_impedance=:saad1996,pipe_impedance=nothing)),))
     decoded=IO.deserialize_value(Val(:formulation),consumed)
-    @test occursin("earth Z=Saad1996",only(description([decoded];quantity=R)))
+    @test occursin("earth Z=Saad",only(description([decoded];quantity=R)))
     @test any(last(scope)==(:pipe_impedance,) && value===nothing for (scope,value) in pairs(decoded...))
 
     # A programming error is not absent metadata. The real composed consumer
@@ -168,8 +168,8 @@ end
 
 @testitem "Descriptions / quantity identities ignore unrelated slots and retain composite controls" tags=[:unit] begin
     IO=LineCableModels.ImportExport
-    a=Formulation(earth_impedance=:Saad1996)
-    b=Formulation(earth_impedance=:Xue2018)
+    a=Formulation(earth_impedance=:saad1996)
+    b=Formulation(earth_impedance=:xue2018)
     @test formula_id(a,Y)==formula_id(b,Y)
     @test formula_id(a,Z)!=formula_id(b,Z)
     @test formula_id(a,nothing)!=formula_id(b,nothing)
@@ -179,8 +179,8 @@ end
             @test formula_id(source,quantity)==formula_id(saved,quantity)
         end
     end
-    routed=Formulation(earth_impedance=(air=:default,earth=:default,mixed=:Xue2018))
-    other=Formulation(earth_impedance=(air=:default,earth=:default,mixed=:Lucca1994))
+    routed=Formulation(earth_impedance=(air=:default,earth=:default,mixed=:xue2018))
+    other=Formulation(earth_impedance=(air=:default,earth=:default,mixed=:lucca1994))
     @test formula_id(routed,R)!=formula_id(other,R)
     @test formula_id(routed,B)==formula_id(other,B)
     hook=(args...)->error("inspection must not execute a transfer override")

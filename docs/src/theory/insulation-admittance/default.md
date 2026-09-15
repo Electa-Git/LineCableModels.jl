@@ -1,4 +1,4 @@
-# Default lossless cable-insulation admittivity
+# Default cable-layer admittivity
 
 ## Identification and source
 
@@ -6,29 +6,25 @@
 | --- | --- |
 | Family | Insulation admittance |
 | Formula identifier | `:default` |
-| Documentation status | Placeholder; formula transcription is intentionally pending. |
+| Route | `:lossless` |
+| Documentation status | Routing alias; the equation is documented separately. |
 
-**Description.** This page reserves the documentation slot for the registered
-`:default` formulation.
+**Description.** `:default` routes to the explicit `:lossless` constitutive
+relation. It is retained as the package-level selection convention and does
+not define a second equation.
 
 **Assumptions.**
 
 _To be documented._
 
-**Expression.**
+**Expression.** See [Lossless cable-layer admittivity](lossless.md).
 
-_Formula transcription to be added._
+**Approximation.** Lossless dielectric material: conduction and polarization
+loss are suppressed.
 
-**Approximation.**
+**Limitations.** Select `:lossy` to retain material conduction and polarization
+loss.
 
-_To be documented._
-
-**Limitations.**
-
-_To be documented._
-
-**Reference.**
-
-_To be documented._
+**Reference.** Standard frequency-domain dielectric constitutive relation.
 
 [Back to the relevant theory overview](../insulation_parameters.md)

@@ -1,10 +1,10 @@
 @testitem "Gauntlet / one formulation record writer retains route inputs" tags=[:gauntlet_toolkit] setup=[GauntletSupport] begin
     using LineCableModels
     using .GauntletSupport.Gauntlet
-    ordinary=Formulation(insulation_admittance = :Ametani2004)
+    ordinary=Formulation(insulation_admittance = :lossy)
     record=formulation_record(ordinary)
     @test record.backend === :coaxial
-    @test record.methods.insulation_admittance.identifier === :Ametani2004
+    @test record.methods.insulation_admittance.identifier === :lossy
     @test record.methods.insulation_admittance.binding !== nothing
     @test record.methods.earth_impedance.equivalent_earth === nothing
     @test record.methods.earth_admittance.equivalent_earth === nothing
@@ -17,13 +17,13 @@
         workspace)->scale*constitutive(
         ordinary.methods.insulation_admittance, material, frequency, temperature)
     @eval LineCableModels.computation_options(
-        ::LineCableModels.FormulaMethod{:Ametani2004,
+        ::LineCableModels.FormulaMethod{:lossy,
             typeof(LineCableModels.Engine.InsulationAdmittance.insulation_material)},
         ::$(typeof(make_route(1.0)))) = (;)
     first_formulation=Formulation(insulation_admittance = formula(
-        :Ametani2004; hooks = (contribution = make_route(1.0),)))
+        :lossy; hooks = (contribution = make_route(1.0),)))
     second_formulation=Formulation(insulation_admittance = formula(
-        :Ametani2004; hooks = (contribution = make_route(2.0),)))
+        :lossy; hooks = (contribution = make_route(2.0),)))
     @test typeof(first_formulation.methods.insulation_admittance.hooks.contribution) ===
           typeof(second_formulation.methods.insulation_admittance.hooks.contribution)
     first_record=formulation_record(first_formulation)

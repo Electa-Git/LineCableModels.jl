@@ -4,7 +4,7 @@
     using DataFrames
     system=TestFixtures.three_phase_system()
     problem=LineParametersProblem(system;earth_props=EarthModel(100.,10.,1.),frequencies=[0.1,1.,10.,100.,1e3,1e4,1e5,1e6,1e7])
-    space=Formulation(earth_impedance=Grid((:default,:Pollaczek1926)))
+    space=Formulation(earth_impedance=Grid((:default,:pollaczek1926)))
     reference=compute(problem,Formulation())
     candidates=compute(problem,space)
     errors=compare(reference,candidates,Z)
@@ -45,5 +45,5 @@
     labels=artifact.table.formulations.label[artifact.table.formulations.role .== :candidate]
     @test labels[1] != labels[2]
     @test occursin("default",labels[1])
-    @test occursin("Pollaczek1926",labels[2])
+    @test occursin("Pollaczek",labels[2])
 end

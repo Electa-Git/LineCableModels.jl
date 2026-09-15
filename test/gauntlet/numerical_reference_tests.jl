@@ -5,7 +5,7 @@
     include(joinpath(pkgdir(LineCableModels), "test", "numerical", "references.jl"))
     owner = NumericalReferences
     problem = TestFixtures.line_parameters_problem(TestFixtures.two_wire_system(); frequencies=[10.0,100.0,1000.0])
-    formulation = Formulation(insulation_admittance=:Ametani2004,
+    formulation = Formulation(insulation_admittance=:lossy,
         options=(reduce_bundle=false, kron_reduction=false, ideal_transposition=false))
     parameters = compute(problem, formulation)
     # These computed arrays exercise the file/replay protocol, not scientific

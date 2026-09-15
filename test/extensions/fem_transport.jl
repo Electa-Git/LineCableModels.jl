@@ -11,7 +11,7 @@
             Region(:insulation, Shell(0.005), dielectric)))
     system = build(LineCableSystem, [design, design], [(0.0, -0.1), (0.1, -0.1)];
         connections = [Dict(:core=>1), Dict(:core=>2)])
-    for method in (:default, :Ametani2004)
+    for method in (:default, :lossy)
         formulation = Formulation(:LineCableModelsFEM; insulation_admittance = method,
             options = (ideal_transposition = false,))
         line_counts = Int[]

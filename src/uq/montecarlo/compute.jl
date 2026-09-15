@@ -53,6 +53,14 @@ function _cable_summaries(values::AbstractMatrix)
             for assembly in axes(values, 1)]
 end
 
+function _sample_shunt_model(value::Union{Engine.LineParameters,Engine.CableConstants})
+    model=get(details(value),:shunt_model,nothing)
+    model===nothing && return (;)
+    return (shunt_model=(requested=model.requested,effective=model.effective,
+        domains=[(design=d.design,terminals=collect(d.terminals),effective=d.effective)
+            for d in model.domains]),)
+end
+
 function _aggregate(
         sample_values::NamedTuple{(:R, :L, :C, :G)},
         first_result::Engine.CableConstants,
@@ -70,7 +78,8 @@ function _aggregate(
         Statistics.mean.(summaries.L),
         Statistics.mean.(summaries.C),
         Statistics.mean.(summaries.G),
-        first_result.frequency
+        first_result.frequency,
+        _sample_shunt_model(first_result)
     )
     retained = formulation.options.return_samples ? sample_values : nothing
     hist = formulation.options.return_histograms ?
@@ -155,7 +164,7 @@ function _aggregate(
         complex.(means.R, means.L .* angular),
         complex.(means.G, means.C .* angular),
         observe(first_result, Engine.frequencies);
-        basis = basis(first_result)
+        basis = basis(first_result), details = _sample_shunt_model(first_result)
     )
     hist = formulation.options.return_histograms ?
            NamedTuple{(:R, :L, :C, :G)}(Tuple(
@@ -343,6 +352,8 @@ function _monte_carlo(point, formulation::MonteCarlo, options, seed, details_own
                 retained = Vector{typeof(record)}(undef, ntrials)
             end
         else
+            _sample_shunt_model(value) == _sample_shunt_model(first_result) || throw(ArgumentError(
+                "Monte Carlo realizations changed shunt-model coverage; select a fixed geometry model for this study"))
             typeof(value) === typeof(first_result) || throw(ArgumentError(
                 "Monte Carlo realisations produced incompatible result types",
             ))

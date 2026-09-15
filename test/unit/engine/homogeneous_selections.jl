@@ -15,9 +15,9 @@
     problem=LineParametersProblem(system; earth_props = homogeneous(rho = 100.0), frequencies = [
         50.0, 500.0])
     choices=(
-        air = formula(:Carson1926; options = (integration = (options = (rtol = 1e-6,),),)),
-        earth = formula(:Pollaczek1926; options = (integration = (options = (rtol = 1e-8,),),)),
-        mixed = formula(:Lucca1994))
+        air = formula(:carson1926; options = (integration = (options = (rtol = 1e-6,),),)),
+        earth = formula(:pollaczek1926; options = (integration = (options = (rtol = 1e-8,),),)),
+        mixed = formula(:lucca1994))
     selected=Formulation(earth_impedance = choices, earth_admittance = potential,
         options = (ideal_transposition = false,))
     result=compute(problem, selected; options = (trace = true,))
@@ -52,14 +52,14 @@
           map(record -> record.identifier,provenance.requested.earth_impedance)
     records=provenance.numerical.earth_impedance
     @test Set((record.formula, record.source, record.target) for record in records) ==
-          Set(((:Carson1926, 1, 1), (:Pollaczek1926, 2, 2),
-        (:Lucca1994, 1, 2), (:Lucca1994, 2, 1)))
-    @test all(record -> isempty(record.options), filter(r -> r.formula === :Lucca1994, records))
+          Set(((:carson1926, 1, 1), (:pollaczek1926, 2, 2),
+        (:lucca1994, 1, 2), (:lucca1994, 2, 1)))
+    @test all(record -> isempty(record.options), filter(r -> r.formula === :lucca1994, records))
     @test all(record -> record.options.integration.options.rtol == 1e-6,
-        filter(r -> r.formula === :Carson1926, records))
+        filter(r -> r.formula === :carson1926, records))
     @test all(record -> record.options.integration.options.rtol == 1e-8,
-        filter(r -> r.formula === :Pollaczek1926, records))
-    @test_throws ArgumentError compute(problem, Formulation(earth_impedance = formula(:Lucca1994)))
+        filter(r -> r.formula === :pollaczek1926, records))
+    @test_throws ArgumentError compute(problem, Formulation(earth_impedance = formula(:lucca1994)))
     hybrid=compute(problem,
         Formulation(earth_impedance = merge(choices,
                 (mixed = formula(:default),)),
@@ -94,7 +94,7 @@
         complex(pair.layers[1], pair.layers[2])
     end
     for (id,
-        hook) in ((:default, air_hook), (:default, earth_hook), (:Lucca1994, mixed_hook))
+        hook) in ((:default, air_hook), (:default, earth_hook), (:lucca1994, mixed_hook))
         @eval LineCableModels.computation_options(
             ::LineCableModels.FormulaMethod{$(QuoteNode(id)),
                 typeof(E.EarthImpedance.earth_impedance)},
@@ -105,7 +105,7 @@
             earth_impedance = (
                 air = formula(:default; hooks = (contribution = air_hook,)),
                 earth = formula(:default; hooks = (contribution = earth_hook,)),
-                mixed = formula(:Lucca1994; hooks = (contribution = mixed_hook,))),
+                mixed = formula(:lucca1994; hooks = (contribution = mixed_hook,))),
             earth_admittance = potential, options = (ideal_transposition = false,));
         options = (trace = true,))
     @test length(calls) == 32

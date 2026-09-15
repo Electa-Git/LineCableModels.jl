@@ -77,28 +77,28 @@ function _catalogue_candidate_formulations(model::LoadedCase)
     earth_impedance = saad_applicable ?
                       (
         :default,
-        :Pollaczek1926,
-        :Saad1996,
-        :WedepohlWilcox1973,
-        :Xue2018
+        :pollaczek1926,
+        :saad1996,
+        :wedepohl1973,
+        :xue2018
     ) : (
         :default,
-        :Pollaczek1926,
-        :WedepohlWilcox1973,
-        :Xue2018
+        :pollaczek1926,
+        :wedepohl1973,
+        :xue2018
     )
     earth_admittance = saad_applicable ?
                        (
         :default,
-        :Pollaczek1926,
+        :pollaczek1926,
         :default,
         :default,
-        :Xue2018
+        :xue2018
     ) : (
         :default,
-        :Pollaczek1926,
+        :pollaczek1926,
         :default,
-        :Xue2018
+        :xue2018
     )
     return Formulation(
         earth_impedance = Grid(earth_impedance),
@@ -173,7 +173,7 @@ function _catalogue_pscad_benchmark(
     reference = BenchmarkCalculation(
         :pscad,
         model.problem,
-        Formulation(:pscad; earth_impedance = :WedepohlWilcox1973);
+        Formulation(:pscad; earth_impedance = :wedepohl1973);
         options = merge((verbosity = (default = 0, PSCAD = 0),), reference_options)
     )
     return benchmark_definition(

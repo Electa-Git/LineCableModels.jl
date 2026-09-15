@@ -11,8 +11,8 @@
     @test formula_id(impedance_formulation) === :default
     @test formula_id(admittance_formulation) === :default
     @test :default in InsulationImpedance.formulas()
-    @test all(in(InsulationAdmittance.formulas()), (:Ametani2004, :default))
-    @test all(in(SemiconAdmittance.formulas()), (:Ametani2004, :default))
+    @test all(in(InsulationAdmittance.formulas()), (:lossless, :lossy, :default))
+    @test all(in(SemiconAdmittance.formulas()), (:lossless, :lossy, :default))
     # Current lossless radial fields: H=I/(2pi*r) and
     # E=V/(r*log(b/a)); integrate their magnetic/electric energy.
     for T in (Float32, Float64, BigFloat)
@@ -82,7 +82,7 @@
     material=Material(:insulator, 1.0e12, 2.3, 1.0, 20.0, 0.0)
     @test imag(@inferred(experimental_admittance(material, 50.0, 20.0))) ≈ 6.9
     @test_throws ArgumentError InsulationImpedance.Formula(:default; parameters = (bad = true,))
-    @test_throws ArgumentError InsulationAdmittance.Formula(:Ametani2004; parameters = (bad = true,))
+    @test_throws ArgumentError InsulationAdmittance.Formula(:lossy; parameters = (bad = true,))
 end
 
 @testitem "Engine / internal impedance / passivity and solid-conductor limits" tags=[:unit] setup=[

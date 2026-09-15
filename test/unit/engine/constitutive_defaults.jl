@@ -1,4 +1,4 @@
-@testitem "Engine / explicit lossless defaults and Ametani 2004 radial admittance" tags=[:unit] begin
+@testitem "Engine / explicit lossless defaults and lossy radial admittance" tags=[:unit] begin
     using Test
     using LineCableModels
     const E = LineCableModels.Engine
@@ -9,7 +9,7 @@
         (E.SemiconAdmittance, :semicon))
         material = Material(kind, 1.0, 100.0; tan_delta = 0.02)
         lossless = owner.Formula(:default)
-        lossy = owner.Formula(:Ametani2004)
+        lossy = owner.Formula(:lossy)
         @test formula_id(lossless) === :default
         for frequency in (0.1, 50.0, 1.0e6)
             ω = 2π * frequency
@@ -34,7 +34,7 @@
             LineCableModels.screen(screen; t = c - b),
             insulation(insulation_material; t = r0 - c)))
     selected = E.CableConstantsFormulation(
-        insulation_admittance = :Ametani2004, semicon_admittance = :Ametani2004)
+        insulation_admittance = :lossy, semicon_admittance = :lossy)
     for frequency in (50.0, 60.0)
         ω = 2π * frequency
         εs = ε0 * screen.eps_r + 1 / (im * ω * screen.rho)

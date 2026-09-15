@@ -28,7 +28,7 @@
     mktempdir() do directory
         requested=joinpath(directory, "system.pscx")
         output=export_data(:pscad, system, earth; file_name = requested,
-            formulation = Formulation(insulation_admittance=:Ametani2004, semicon_admittance=:Ametani2004))
+            formulation = Formulation(insulation_admittance=:lossy, semicon_admittance=:lossy))
         @test output == joinpath(directory, "$(system.system_id)_system.pscx")
         @test isfile(output)
         @test filesize(output) > 200
@@ -253,7 +253,7 @@ end
             :pscad,
             system,
             earth;
-            formulation = Formulation(insulation_admittance=:Ametani2004, semicon_admittance=:Ametani2004),
+            formulation = Formulation(insulation_admittance=:lossy, semicon_admittance=:lossy),
             file_name = joinpath(directory, "system.pscx")
         )
         imported_earth, imported_system=import_data(:pscad, output)

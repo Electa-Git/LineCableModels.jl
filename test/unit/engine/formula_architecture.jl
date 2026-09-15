@@ -28,12 +28,12 @@
         @test validate(selected, 2) === selected
         override = owner.Formula(:default; hooks = (contribution = (f, p, w)->1.0im,))
         # An override does not widen an author's source domain.
-        author=owner.Formula(:Xue2018; hooks = (contribution = (f, p, w)->1.0im,))
+        author=owner.Formula(:xue2018; hooks = (contribution = (f, p, w)->1.0im,))
         @test_throws ArgumentError validate(author, mixed)
         @test validate(selected, air).equation isa FM
         @test typeof(validate(selected, air).equation).parameters[1] === :default
     end
-    for id in (:Ametani2009, :Lucca1994)
+    for id in (:ametani2009, :lucca1994)
         selected = EI.Formula(id)
         @test validate(selected, mixed).kind === :mutual
         @test_throws ArgumentError validate(selected, air)
@@ -41,19 +41,19 @@
         @test_throws ArgumentError validate(selected, self)
     end
     vertical=E.EarthPair(1, 2, (-1.0, -2.0), 0.0, (2, 2))
-    @test_throws DomainError validate(EI.Formula(:Saad1996), vertical)
+    @test_throws DomainError validate(EI.Formula(:saad1996), vertical)
     @test_throws DomainError validate(
-        EI.Formula(:Saad1996; hooks = (contribution = (f, p, w)->zero(f.state.jω),)), vertical)
-    @test validate(EI.Formula(:Saad1996), self).kind === :self
-    @test validate(EI.Formula(:WedepohlWilcox1973), vertical).kind === :mutual
-    @test validate(EI.Formula(:WedepohlWilcox1973), self).kind === :self
-    @test_throws ArgumentError validate(EI.Formula(:Pollaczek1926), air)
-    @test_throws ArgumentError validate(EI.Formula(:Carson1926), soil)
+        EI.Formula(:saad1996; hooks = (contribution = (f, p, w)->zero(f.state.jω),)), vertical)
+    @test validate(EI.Formula(:saad1996), self).kind === :self
+    @test validate(EI.Formula(:wedepohl1973), vertical).kind === :mutual
+    @test validate(EI.Formula(:wedepohl1973), self).kind === :self
+    @test_throws ArgumentError validate(EI.Formula(:pollaczek1926), air)
+    @test_throws ArgumentError validate(EI.Formula(:carson1926), soil)
 end
 
 @testitem "Engine / Wedepohl mutual distance includes the vertical displacement" tags=[:unit] begin
     const E = LineCableModels.Engine
-    selected = E.EarthImpedance.Formula(:WedepohlWilcox1973)
+    selected = E.EarthImpedance.Formula(:wedepohl1973)
     # Eq. (8) depends on axis distance and the sum of depths. Rotating the
     # displacement at fixed midpoint preserves both, including vertical axes.
     for T in (Float32, Float64, BigFloat), frequency in (50, 1000)
@@ -75,7 +75,7 @@ end
     end
     coincident = E.EarthPair(1, 2, (-2.0, -2.0), 0.0, (2, 2))
     @test_throws DomainError validate(selected, coincident)
-    overridden = E.EarthImpedance.Formula(:WedepohlWilcox1973;
+    overridden = E.EarthImpedance.Formula(:wedepohl1973;
         hooks = (contribution = (f, p, w) -> zero(f.state.jω),))
     @test_throws DomainError validate(overridden, coincident)
 end
@@ -208,7 +208,7 @@ end
         empty!(M.calls)
         empty!(fd_calls)
         hybrid=Formulation(earth_impedance = M.selection(EI),
-            earth_admittance = formula(:Xue2018; equivalent_earth = formula(:default; order)),
+            earth_admittance = formula(:xue2018; equivalent_earth = formula(:default; order)),
             earth_properties = formula(:default; hooks = (contribution = fd,)),
             options = (ideal_transposition = false,))
         value=compute(buried_problem, hybrid)
@@ -236,7 +236,7 @@ end
             :default, typeof(LineCableModels.Earth.FrequencyDependent.earth_material)},
         ::$(typeof(fd))) = (;)
     @test_throws ArgumentError compute(base,
-        Formulation(earth_impedance = :Carson1926,
+        Formulation(earth_impedance = :carson1926,
             earth_properties = formula(:default; hooks = (contribution = fd,))))
     @test fd_calls[]==0
     calls=ComplexF64[]
@@ -267,7 +267,7 @@ end
             details(result).formulations.numerical.earth_impedance)
     end
     @test_throws ArgumentError validate(
-        E.EarthImpedance.Formula(:Carson1926;
+        E.EarthImpedance.Formula(:carson1926;
             hooks = (air = (s, m, c, e)->zero(s),)),
         E.EarthPair(1, 2, (1.0, 2.0), 1.0, (1, 1)))
     @test_throws ArgumentError validate(
@@ -289,7 +289,7 @@ end
 
             options=(integration = (method = method,
                 options = (rtol = T===Float32 ? 1e-4 : 1e-6,)),)
-            functor=owner.Formula(:Xue2018; options)(rho, epsilon, mu, s, pair)
+            functor=owner.Formula(:xue2018; options)(rho, epsilon, mu, s, pair)
             @test functor.state.Γ isa Complex{T}
             result=functor()
             @test result isa Complex{T}
@@ -302,7 +302,7 @@ end
     s=complex(measurement(0.0, 0.0), measurement(2pi*50, 0.0))
     pair=E.EarthPair(1, 2, (-1.0, -2.0), 0.75, (2, 2))
     for owner in (E.EarthImpedance, E.EarthAdmittance)
-        value=owner.Formula(:Xue2018)(rho, epsilon, mu, s, pair)()
+        value=owner.Formula(:xue2018)(rho, epsilon, mu, s, pair)()
         @test value isa Complex{Measurement{Float64}}
         @test isfinite(value)
         @test uncertainty(real(value)) > 0

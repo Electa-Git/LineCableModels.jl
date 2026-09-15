@@ -5,5 +5,5 @@
     options=(reduce_bundle = false, kron_reduction = false, ideal_transposition = false)
     benchmark_definition(model; id=:compare_soil, collection=:manual,
         source_file=@__FILE__, reference=Formulation(;options),
-        formulations=Formulation(earth_impedance=Grid((:default,:Pollaczek1926));options))
+        formulations=Formulation(earth_impedance=Grid((:default,:pollaczek1926));options))
 end

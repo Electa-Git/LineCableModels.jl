@@ -41,8 +41,8 @@ then returns a target-bearing formulation space. For homogeneous buried cases:
 ```julia
 formulations = Formulation(
     earth_impedance = Grid((
-        :Pollaczek1926,
-        :Saad1996,
+        :pollaczek1926,
+        :saad1996,
     )),
 )
 

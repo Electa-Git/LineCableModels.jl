@@ -462,9 +462,11 @@ makedocs(;
             ],
             "Insulation parameters" => Any[
                 "Overview" => "theory/insulation_parameters.md",
-                "Default lossless cable-insulation admittivity" =>
+                "Default cable-insulation admittivity" =>
                     "theory/insulation-admittance/default.md",
-                "Ametani–Miyamoto–Nagaoka semiconducting-screen admittance" =>
+                "Lossless cable-layer admittivity" =>
+                    "theory/insulation-admittance/lossless.md",
+                "Lossy cable-layer admittivity (Ametani 2004 application)" =>
                     "theory/insulation-admittance/2004/semiconducting-screen-complex-permittivity/Ametani2004.md",
                 "Default coaxial-insulation magnetic series impedance" =>
                     "theory/insulation-impedance/default.md"

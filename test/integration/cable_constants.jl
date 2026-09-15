@@ -131,8 +131,10 @@
     @test getproperty.(blueprint.conductors, :terminal) == design.terminal_order
     @test fieldnames(typeof(blueprint)) == (
         :cable_id, :conductors, :dielectrics, :dielectric_ranges,
-        :assembly_ranges
+        :assembly_ranges, :shunt, :shunt_details
     )
+    @test isempty(blueprint.shunt)
+    @test blueprint.shunt_details.solves == 0
     @test :frequency ∉ fieldnames(typeof(blueprint))
     @test compute(problem, formulation) == constants
     @test @inferred(compute(problem, formulation)) == constants
@@ -160,8 +162,8 @@
         @test reduced.dielectric.material.mu_r ≈ source.dielectric.material.mu_r
     end
     flattening_formulation=CableConstantsFormulation(
-        insulation_admittance = formula(:Ametani2004),
-        semicon_admittance = formula(:Ametani2004)
+        insulation_admittance = formula(:lossy),
+        semicon_admittance = formula(:lossy)
     )
     source_at_flattening_frequency=CableConstants(
         design;
@@ -206,7 +208,7 @@
     )
     lossy_dielectric=CableConstants(design; frequency = 50.0,
         formulation = CableConstantsFormulation(
-            insulation_admittance = formula(:Ametani2004)))
+            insulation_admittance = formula(:lossy)))
     @test lossless_dielectric.G[1] < lossy_dielectric.G[1]
     @test lossless_dielectric.C[1] ≈ lossy_dielectric.C[1]
 

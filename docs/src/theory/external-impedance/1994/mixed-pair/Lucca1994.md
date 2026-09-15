@@ -5,11 +5,11 @@
 | Field | Value |
 | --- | --- |
 | Family | External impedance |
-| Formula identifier | `:Lucca1994` |
+| Formula identifier | `:lucca1994` |
 | Documentation status | Placeholder; formula transcription is intentionally pending. |
 
 **Description.** This page reserves the documentation slot for the registered
-`:Lucca1994` formulation.
+`:lucca1994` formulation.
 
 **Assumptions.**
 

@@ -162,7 +162,7 @@ end
     # Distinct mean/std data above also guard this real wrapped path against a
     # shared coordinate or statistic swap hidden by agreeing legend strings.
     inner=Formulation(internal_impedance=(inner=:default,outer=:default,transfer=:default),
-        earth_impedance=(air=:default,earth=:Pollaczek1926,mixed=:default),
+        earth_impedance=(air=:default,earth=:pollaczek1926,mixed=:default),
         earth_admittance=(air=:default,earth=:default,mixed=:default))
     composite_reference=MonteCarloResult(MonteCarlo(inner;trials=2,seed=7),
         [core],[stats],nothing,nothing,UInt64(7),UInt64[8],[2])
@@ -174,7 +174,7 @@ end
         display_plot=false,controls=false,open_export=false,length_unit=:base,clip=false)
     for (page,request) in zip(composite_pages,requests)
         suffix=request[2]===R ?
-            "internal Z(inner)=default; internal Z(outer)=default; internal Z(transfer)=default; earth Z(air)=default; earth Z(earth)=Pollaczek1926; earth Z(mixed)=default" :
+            "internal Z(inner)=default; internal Z(outer)=default; internal Z(transfer)=default; earth Z(air)=default; earth Z(earth)=Pollaczek; earth Z(mixed)=default" :
             "earth Y(air)=default; earth Y(earth)=default; earth Y(mixed)=default"
         names=[page.addon_state.labels[group] for group in page.addon_state.order]
         @test names==["Reference · Monte Carlo; "*suffix,"LEP; "*suffix]

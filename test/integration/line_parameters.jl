@@ -87,8 +87,8 @@
           nothing
 
     allocation_formulation=Formulation(
-        earth_impedance = :Pollaczek1926,
-        earth_admittance = :Xue2018,
+        earth_impedance = :pollaczek1926,
+        earth_admittance = :xue2018,
         options = (
             reduce_bundle = true,
             kron_reduction = true,
@@ -178,14 +178,14 @@ end
         push!(events, :local_z)
         insulation_impedance(r_in, r_ex, mu_r, s, values, options, workspace)
     end
-    insulation=IA.Formula(:Ametani2004).binding
+    insulation=IA.Formula(:lossy).binding
     local_insulation_y=(material, frequency, temperature,
         values, options,
         workspace)->begin
         push!(events, :local_y)
         insulation(material, frequency, temperature, values, options, workspace)
     end
-    semicon=SA.Formula(:Ametani2004).binding
+    semicon=SA.Formula(:lossy).binding
     local_semicon_y=(material, frequency, temperature,
         values, options,
         workspace)->begin
@@ -207,8 +207,8 @@ end
         identifier,
         callback) in (
         (II.insulation_impedance, :default, local_z),
-        (IA.insulation_material, :Ametani2004, local_insulation_y),
-        (SA.semicon_material, :Ametani2004, local_semicon_y))
+        (IA.insulation_material, :lossy, local_insulation_y),
+        (SA.semicon_material, :lossy, local_semicon_y))
         @eval LineCableModels.computation_options(
             ::LineCableModels.FormulaMethod{$(QuoteNode(identifier)), typeof($operation)},
             ::$(typeof(callback))) = (;)
@@ -222,8 +222,8 @@ end
     end
     formulation=Formulation(
         insulation_impedance = formula(:default; hooks = (contribution = local_z,)),
-        insulation_admittance = formula(:Ametani2004; hooks = (contribution = local_insulation_y,)),
-        semicon_admittance = formula(:Ametani2004; hooks = (contribution = local_semicon_y,)),
+        insulation_admittance = formula(:lossy; hooks = (contribution = local_insulation_y,)),
+        semicon_admittance = formula(:lossy; hooks = (contribution = local_semicon_y,)),
         earth_impedance = formula(:default; hooks = (contribution = earth_z,)),
         earth_admittance = formula(:default; hooks = (contribution = earth_y,)),
         options = (ideal_transposition = false,))
@@ -546,7 +546,7 @@ end
         frequencies = base.frequencies, Γ = [1e-5im, 2e-5im])
     prescribed=compute(explicit, Formulation())
     @test all(isfinite, prescribed.Z)&&all(isfinite, prescribed.Y)
-    @test_throws ArgumentError compute(explicit, Formulation(earth_impedance = :Xue2018))
+    @test_throws ArgumentError compute(explicit, Formulation(earth_impedance = :xue2018))
     calls=Tuple{Int, Int}[]
     prescription=(s, m, l)->(push!(calls, l); zero(s))
     selected=Formulation(earth_impedance = formula(:default; hooks = (Γ = prescription,)))
@@ -568,7 +568,7 @@ end
     problem=LineParametersProblem(mixed; earth_props = EarthModel(100.0), frequencies = [50.0])
     mixed_result=compute(problem)
     @test all(isfinite, mixed_result.Z)&&all(isfinite, mixed_result.Y)
-    @test_throws ArgumentError compute(problem, Formulation(earth_impedance = :Xue2018))
+    @test_throws ArgumentError compute(problem, Formulation(earth_impedance = :xue2018))
 end
 
 @testitem "Engine / frequency-dependent earth relation reaches coaxial solve" tags=[:integration] setup=[

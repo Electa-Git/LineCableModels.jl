@@ -1,4 +1,4 @@
-function assumptions(::Val{:Pollaczek1926})
+function assumptions(::Val{:pollaczek1926})
     (media = :homogeneous, layers = 2:2, longitudinal = :zero, permittivity = :positive)
 end
 
@@ -21,12 +21,12 @@ K_0(\\gamma_1d_{ij})-K_0(\\gamma_1D_{ij})+2\\int_0^\\infty
 wechselstromdurchflossenen Einfachleitung,” *Elektrische Nachrichtentechnik*,
 3, 339–360, 1926.
 """
-function description(::Type{<:Formula{:Pollaczek1926}}; compact::Bool=false)
-    compact ? "Pollaczek1926" : "Pollaczek homogeneous-earth underground impedance (1926)"
+function description(::Type{<:Formula{:pollaczek1926}}; compact::Bool=false)
+    compact ? "Pollaczek" : "Pollaczek homogeneous-earth underground impedance (1926)"
 end
 
 function Γ(
-        ::Val{:Pollaczek1926}, jω, materials, layers
+        ::Val{:pollaczek1926}, jω, materials, layers
 )
     zero(jω)
 end
@@ -43,7 +43,7 @@ K_0(\gamma_1D_{ij})+2\int_0^\infty
 ```
 """
 function earth_impedance(
-        ::Val{:Pollaczek1926}, ::Union{Val{:self}, Val{:mutual}}, ::Val{2}, ::Val{2},
+        ::Val{:pollaczek1926}, ::Union{Val{:self}, Val{:mutual}}, ::Val{2}, ::Val{2},
         functor, pair, workspace
 )
     state = functor.state
@@ -68,27 +68,27 @@ function earth_impedance(
     return state.jω * state.mu[1] / (2πT) * (direct + 2 * integral)
 end
 
-Formulation(::LineCableModelsCoaxial, selected::Formula{:Pollaczek1926}) = selected
+Formulation(::LineCableModelsCoaxial, selected::Formula{:pollaczek1926}) = selected
 
-function hooks(::FormulaMethod{:Pollaczek1926, typeof(earth_impedance),
+function hooks(::FormulaMethod{:pollaczek1926, typeof(earth_impedance),
         A}) where {A <: Tuple{Union{Val{:self}, Val{:mutual}}, Val{2}, Val{2}}}
     return (configurable = (:Γ, :earth, :permeability, :contribution),
         defaults = (
-            Γ = FormulaMethod(Val(:Pollaczek1926), Γ),
+            Γ = FormulaMethod(Val(:pollaczek1926), Γ),
             air = FormulaMethod(Val(:lossless), propagation),
             earth = FormulaMethod(Val(:conductive), propagation),
             permeability = vacuum_permeability,
             contribution = nothing))
 end
 
-function computation_options(::FormulaMethod{:Pollaczek1926, typeof(earth_impedance),
+function computation_options(::FormulaMethod{:pollaczek1926, typeof(earth_impedance),
         A}) where {A <: Tuple{Union{Val{:self}, Val{:mutual}}, Val{2}, Val{2}}}
     (integration = (method = :quad, options = (;)),)
 end
 
-function validate(binding::FormulaMethod{:Pollaczek1926, typeof(earth_impedance)},
+function validate(binding::FormulaMethod{:pollaczek1926, typeof(earth_impedance)},
         ::EquivalentHomogeneous.Formula{:default})
     binding
 end
 
-:Pollaczek1926
+:pollaczek1926

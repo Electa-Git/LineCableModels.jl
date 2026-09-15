@@ -34,7 +34,7 @@
     @test last(reconstructed.geometry.regions).source.material == material
 
     frequencies = 10.0 .^ range(-1, 6; length=31)
-    for ins in (:default, :Ametani2004), semi in (:default, :Ametani2004)
+    for ins in (:default, :lossy), semi in (:default, :lossy)
         formulation = CableConstantsFormulation(insulation_admittance=ins,
             semicon_admittance=semi)
         relations = (formulation.methods.insulation_admittance,
@@ -73,7 +73,7 @@
     weights = log.(collect(radii[2:end]) ./ collect(radii[1:end-1]))
     physical = (semicon, dielectric, semicon)
     lossless = (E.InsulationAdmittance.Formula(:default), E.SemiconAdmittance.Formula(:default))
-    lossy = (E.InsulationAdmittance.Formula(:Ametani2004), E.SemiconAdmittance.Formula(:Ametani2004))
+    lossy = (E.InsulationAdmittance.Formula(:lossy), E.SemiconAdmittance.Formula(:lossy))
     for f in (0.1, 50.0, 60.0, 1e3, 1e6)
         expected = inv(sum(q / (2π * (inv(m.rho) + 2π*f*ε0*m.eps_r*(m.tan_delta+im)))
             for (q,m) in zip(weights,physical)))
@@ -90,8 +90,8 @@
         @test constitutive(lossy, single, f, 20.0) ≈ constitutive(lossy, subdivided, f, 20.0)
     end
     for correction in (false, true), f in (50.0, 60.0)
-        formulation = CableConstantsFormulation(insulation_admittance=:Ametani2004,
-            semicon_admittance=:Ametani2004, temperature_dependence=correction ? formula(:default) : nothing)
+        formulation = CableConstantsFormulation(insulation_admittance=:lossy,
+            semicon_admittance=:lossy, temperature_dependence=correction ? formula(:default) : nothing)
         original = compute(CableConstantsProblem(source; frequency=f, temperature=60.0), formulation)
         reduced = compute(CableConstantsProblem(homogeneous; frequency=f, temperature=60.0), formulation)
         @test original.C ≈ reduced.C rtol=2e-13
@@ -170,7 +170,7 @@ end
         material = last(actual.geometry.regions).source.material
         @test material isa RadialDielectric{Float64}
         @test getproperty.(material.materials, :kind) == [:semicon, :insulator]
-        for selector in (:default, :Ametani2004), frequency in (50.0, 60.0)
+        for selector in (:default, :lossy), frequency in (50.0, 60.0)
             formulation = CableConstantsFormulation(insulation_admittance=selector,
                 semicon_admittance=selector)
             expected = compute(CableConstantsProblem(design; frequency), formulation)
@@ -197,7 +197,7 @@ end
     system = build(LineCableSystem, design, (0.0, -0.2); connections=Dict(:core=>1))
     problem = LineParametersProblem(system; frequencies=[0.1, 50.0, 60.0, 1e3, 1e6], temperature=60.0,
         earth_props=homogeneous(rho=100.0, eps_r=10.0))
-    for ins in (:default, :Ametani2004), semi in (:default, :Ametani2004), correction in (false, true)
+    for ins in (:default, :lossy), semi in (:default, :lossy), correction in (false, true)
         formulation = Formulation(:LineCableModelsFEM; insulation_admittance=ins, semicon_admittance=semi,
             temperature_dependence=correction ? formula(:default) : nothing, options=(ideal_transposition=false,))
         model = FEM._resolved_fem_model(problem, formulation)

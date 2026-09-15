@@ -4,6 +4,7 @@ function uq_inner_formulation()
     return Formulation(
         earth_impedance = :default,
         earth_admittance = :default,
+        shunt_model = :coaxial,
         insulation_admittance = formula(:default),
         options = (
             kron_reduction = false,

@@ -134,7 +134,7 @@ end
     system = system_for(copper,dielectric)
     options = (reduce_bundle=false,kron_reduction=false,ideal_transposition=false)
     execution = (gmsh_verbosity=0,getdp_verbosity=0)
-    for law in (:default,:Ametani2004), temperature in (20.0,80.0)
+    for law in (:default,:lossy), temperature in (20.0,80.0)
         problem = LineParametersProblem(system; temperature, frequencies=[50.0],
             earth_props=homogeneous(rho=100.0,eps_r=10.0))
         selected = LineCableModelsFEM(insulation_admittance=law; options)

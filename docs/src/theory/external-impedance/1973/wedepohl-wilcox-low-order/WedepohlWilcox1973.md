@@ -5,11 +5,11 @@
 | Field | Value |
 | --- | --- |
 | Family | External impedance |
-| Formula identifier | `:WedepohlWilcox1973` |
+| Formula identifier | `:wedepohl1973` |
 | Documentation status | Placeholder; formula transcription is intentionally pending. |
 
 **Description.** This page reserves the documentation slot for the registered
-`:WedepohlWilcox1973` formulation.
+`:wedepohl1973` formulation.
 
 **Assumptions.**
 

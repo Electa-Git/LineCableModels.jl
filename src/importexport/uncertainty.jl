@@ -65,6 +65,7 @@ function serialize_value(value::LineParameters)
         "Y"=>serialize_value(observe(value, Y)), "frequencies"=>serialize_value(frequencies(value)),
         "basis"=>string(LineCableModels.basis(value)), "domain"=>string(nameof(Engine.domain(value))),
         "coordinates"=>serialize_value(get(retained, :coordinates, nothing)),
+        "shunt_model"=>serialize_value(get(retained, :shunt_model, nothing),Val(:scientific)),
         "comparison_unsupported"=>serialize_value(get(retained, :comparison_unsupported, (;))))
 end
 function deserialize_extension(::Val{:LineParameters}, record)
@@ -74,9 +75,23 @@ function deserialize_extension(::Val{:LineParameters}, record)
     unsupported=deserialize_value(get(record, "comparison_unsupported", Dict()))
     detail=(comparison_unsupported = (; (Symbol(k)=>v for (k, v) in pairs(unsupported))...),)
     coordinates === nothing || (detail=merge(detail, (; coordinates)))
+    shunt_model=deserialize_value(get(record,"shunt_model",nothing))
+    shunt_model === nothing || (detail=merge(detail,(;shunt_model)))
     return LineParameters(
         Engine.PhaseDomain, deserialize_value(record["Z"]), deserialize_value(record["Y"]),
         deserialize_value(record["frequencies"]); basis = Symbol(record["basis"]), details = detail)
+end
+
+function serialize_value(value::Engine.CableConstants)
+    return Dict("__type__"=>"CableConstants", "cores"=>serialize_value(value.cores),
+        "R"=>serialize_value(value.R),"L"=>serialize_value(value.L),
+        "C"=>serialize_value(value.C),"G"=>serialize_value(value.G),
+        "frequency"=>serialize_value(value.frequency),
+        "details"=>serialize_value(value.details,Val(:scientific)))
+end
+function deserialize_extension(::Val{:CableConstants},record)
+    return Engine.CableConstants(Symbol.(deserialize_value(record["cores"])),
+        (deserialize_value(record[key]) for key in ("R","L","C","G","frequency","details"))...)
 end
 
 """

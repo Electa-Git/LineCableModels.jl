@@ -8,10 +8,10 @@
         earth_props = homogeneous(rho = 100.0), frequencies = [0.1, 50.0, 1e6])
     formulation=Formulation(
         earth_impedance = :default,
-        insulation_admittance = :Ametani2004,
+        insulation_admittance = :lossy,
         semicon_admittance = :default
     )
-    cable_formulation=CableConstantsFormulation(insulation_admittance = :Ametani2004)
+    cable_formulation=CableConstantsFormulation(insulation_admittance = :lossy)
     parameters=TestFixtures.two_conductor_results()
     modal=compute(ModalTransformationProblem(parameters), ModalTransformationFormulation())
     benchmark=EN.compare(parameters, parameters)
@@ -75,10 +75,10 @@
     shown=sprint(show, MIME"text/plain"(), formulation;
         context = IOContext(IOBuffer(), :displaysize=>(40, 160)))
     @test occursin("default", shown)
-    @test occursin("Ametani2004", shown)
+    @test occursin("Ametani", shown)
     @test occursin("semicon_admittance", shown)
     @test occursin("default", shown)
-    @test occursin("Ametani2004", sprint(show, MIME"text/plain"(), cable_formulation))
+    @test occursin("Ametani", sprint(show, MIME"text/plain"(), cable_formulation))
     @test occursin("Ω/m", sprint(show, MIME"text/plain"(), parameters.Z))
     @test occursin("S/m", sprint(show, MIME"text/plain"(), parameters.Y))
     @test occursin("RMS errors", sprint(show, MIME"text/plain"(), benchmark))
@@ -164,7 +164,7 @@ end
     histogram=UQ.HistogramDensity([1.0, 3.0, 5.0], [0.25, 0.25])
     objects=(
         relative, absolute, AbsoluteError((0.1, 0.2)), PB.UncertainValue(10.0, 0.1),
-        Grid((:default, :Ametani2004)), nested, parametric, combinatorial,
+        Grid((:default, :lossy)), nested, parametric, combinatorial,
         linear, automatic, explicit, results, empty_results,
         linear_results, empty_linear, mc_results, histogram,
         earth_definition, soil_definition, Grid((earth_definition, soil_definition))

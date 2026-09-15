@@ -39,7 +39,9 @@ TextDisplay.@showfields CableBlueprint "CableBlueprint" blueprint -> (
     cable_id = blueprint.cable_id,
     conductors = length(blueprint.conductors),
     dielectrics = length(blueprint.dielectrics),
-    assemblies = length(blueprint.assembly_ranges)
+    assemblies = length(blueprint.assembly_ranges),
+    shunt_model = blueprint.shunt_details.requested,
+    boundary_blocks = length(blueprint.shunt)
 )
 
 TextDisplay.@showfields ConsoleVerbosityLogger "ConsoleVerbosityLogger" logger -> (
@@ -114,6 +116,7 @@ TextDisplay.@showfields Union{
     InternalImpedance.Formula, InsulationImpedance.Formula,
     EarthImpedance.Formula, InsulationAdmittance.Formula,
     SemiconAdmittance.Formula, EarthAdmittance.Formula, PipeImpedance.Formula,
+    ShuntModel.Formula,
 } "Formula" method -> (id = formula_id(method),)
 
 TextDisplay.name(::Type{<:LineParametersFormulation}) = "LineParametersFormulation"

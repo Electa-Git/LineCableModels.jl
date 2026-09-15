@@ -21,6 +21,9 @@ with a damped normal-equation step.
 “Robust Calculation of Frequency-Dependent Transmission-Line Transformation
 Matrices Using the Levenberg–Marquardt Method,” *IEEE Transactions on Power
 Delivery*, 29(4), 1621–1629, 2014. DOI: 10.1109/TPWRD.2013.2284504.
+
+The same route is also registered as `:chrysochos2014`; `:default` remains the
+package-owned selection.
 """
 function description(::Type{<:Formula{:default}}; compact::Bool=false)
     compact ? "default" : "Chrysochos et al. Levenberg–Marquardt modal transformation (2014)"

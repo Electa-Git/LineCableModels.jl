@@ -6,29 +6,36 @@
 | --- | --- |
 | Family | Insulation impedance |
 | Formula identifier | `:default` |
-| Documentation status | Placeholder; formula transcription is intentionally pending. |
+| Explicit literature identifier | `:ametani1980` |
+| Documentation status | Registered and documented. |
 
-**Description.** This page reserves the documentation slot for the registered
-`:default` formulation.
+**Description.** Longitudinal magnetic impedance of one concentric insulation
+region. The package default and `:ametani1980` use the same Ametani route; the
+latter exposes the author-year identity.
 
 **Assumptions.**
 
-_To be documented._
+The region is a homogeneous annulus with finite positive relative
+permeability.
 
 **Expression.**
 
-_Formula transcription to be added._
+For inner and outer radii ``a`` and ``b``,
+``Z_{ins}=j\omega\mu_0\mu_r\ln(b/a)/(2\pi)``.
 
 **Approximation.**
 
-_To be documented._
+The term is assembled with conductor surface impedances in the cable series
+impedance matrix.
 
 **Limitations.**
 
-_To be documented._
+The term vanishes for zero-thickness or zero-inner-radius regions under the
+package's boundary convention.
 
 **Reference.**
 
-_To be documented._
+ A. Ametani, *A General Formulation of Impedance and Admittance of Cables*,
+1980.
 
 [Back to the relevant theory overview](../insulation_parameters.md)

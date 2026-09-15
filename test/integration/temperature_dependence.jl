@@ -23,7 +23,7 @@
         ::$(typeof(twice))) = (;)
     declaration = formula(:default;hooks=(contribution=twice,))
     selected = Formulation(temperature_dependence=declaration,
-        insulation_admittance=:Ametani2004,options=(ideal_transposition=false,))
+        insulation_admittance=:lossy,options=(ideal_transposition=false,))
     reference_design = cable_with(
         Material(:conductor,2copper.rho,copper.eps_r,copper.mu_r),
         Material(:insulator,2dielectric.rho,dielectric.eps_r,dielectric.mu_r;
@@ -31,7 +31,7 @@
     reference_problem = LineParametersProblem(system_with(reference_design);
         temperature=80.0,frequencies=problem.frequencies,earth_props=problem.earth_props)
     identity = Formulation(temperature_dependence=nothing,
-        insulation_admittance=:Ametani2004,options=selected.options)
+        insulation_admittance=:lossy,options=selected.options)
     reference = compute(reference_problem,identity)
     actual = compute(problem,selected)
     @test calls[] > 0
@@ -39,7 +39,7 @@
     @test actual.Y.values ≈ reference.Y.values rtol=2e-13
     @test details(actual).formulations.modified.temperature_dependence
     grid = Formulation(temperature_dependence=Grid((declaration,nothing)),
-        insulation_admittance=:Ametani2004,options=selected.options)
+        insulation_admittance=:lossy,options=selected.options)
     results = compute(problem,grid)
     @test results[1].Z.values == actual.Z.values
     @test results[1].Y.values == actual.Y.values
@@ -48,9 +48,9 @@
     @test results[2].Y.values == unchanged.Y.values
     @test !isapprox(results[1].Z.values,results[2].Z.values;rtol=1e-5)
     constants = compute(CableConstantsProblem(design;temperature=80.0),
-        CableConstantsFormulation(temperature_dependence=declaration,insulation_admittance=:Ametani2004))
+        CableConstantsFormulation(temperature_dependence=declaration,insulation_admittance=:lossy))
     reference_constants = compute(CableConstantsProblem(reference_design;temperature=80.0),
-        CableConstantsFormulation(temperature_dependence=nothing,insulation_admittance=:Ametani2004))
+        CableConstantsFormulation(temperature_dependence=nothing,insulation_admittance=:lossy))
     for request in (R,L,C,G)
         @test request(constants) ≈ request(reference_constants) rtol=2e-13
     end

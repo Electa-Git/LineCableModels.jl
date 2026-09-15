@@ -261,7 +261,6 @@ function lineinput(
         horz_sep,
         vert,
         cable,
-        shunt_domains = internal_shunt_domains(system.designs, blueprints),
         phase_map,
         cable_map,
         design_map,
@@ -385,17 +384,7 @@ function LineParametersWorkspace(
         nkeep
     ))
 
-    shunt = if _shunt_lossless(formulation.methods)
-        haskey(input,:prepared_shunt) ? input.prepared_shunt :
-            prepare_internal_shunt(input.shunt_domains,input.n_phases,
-                formulation.methods,first(input.freq),input.temperature)
-    else
-        nothing
-    end
-    ShuntStorage = Union{Nothing,PreparedInternalShunt{T,Vector{InternalShuntDiagnostic}}}
-    prepared = NamedTuple{(:earth_bindings,:shunt),Tuple{typeof(earth_bindings),ShuntStorage}}(
-        (earth_bindings,shunt))
-    invariants = merge(invariants, prepared)
+    invariants = merge(invariants, (; earth_bindings))
 
     Zbuffer = Matrix{Complex{T}}(undef, n_phases, n_phases)
     Pbuffer = similar(Zbuffer)

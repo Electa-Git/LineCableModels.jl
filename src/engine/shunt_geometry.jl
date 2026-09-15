@@ -117,7 +117,7 @@ function _shunt_host_domain(design, blueprint, host_region, design_index, offset
     length(holes) == length(members) && all(index ->
         any(hole -> isequal(design.geometry.regions[index].primitive,hole),holes),members) || return nothing
     terminals = sort!(unique(design.terminal_map[members]))
-    first(terminals) > 1 && last(terminals) < length(blueprint) || return nothing
+    first(terminals) > 1 && last(terminals) < length(blueprint.conductors) || return nothing
     terminals == collect(first(terminals):last(terminals)) || return nothing
     # Never resolve only some pieces of a retained terminal.
     all(i -> design.terminal_map[i] ∉ terminals || i in members,
@@ -204,17 +204,23 @@ function internal_shunt_domains(designs, blueprints::AbstractVector{<:CableBluep
     domains = InternalShuntDomain{T}[]
     offset = 0
     for (design_index, (design, blueprint)) in enumerate(zip(designs, blueprints))
-        for placed in design.geometry.regions
-            shape = placed.primitive
-            placed.terminal === nothing && shape isa DataModel.DifferenceShape &&
-                shape.outer isa DataModel.Annulus || continue
-            domain = _shunt_host_domain(design, blueprint, placed, design_index, offset, T)
-            domain === nothing && continue
-            any(old -> max(first(old.terminals), first(domain.terminals)) <
-                min(last(old.terminals), last(domain.terminals)), domains) && continue
-            push!(domains, domain)
-        end
+        append!(domains, internal_shunt_domains(design, blueprint, T; design_index, offset))
         offset += length(blueprint)
+    end
+    return domains
+end
+
+function internal_shunt_domains(design::CableDesign, geometry, ::Type{T}; design_index = 1, offset = 0) where {T}
+    domains = InternalShuntDomain{T}[]
+    for placed in design.geometry.regions
+        shape = placed.primitive
+        placed.terminal === nothing && shape isa DataModel.DifferenceShape &&
+            shape.outer isa DataModel.Annulus || continue
+        domain = _shunt_host_domain(design, geometry, placed, design_index, offset, T)
+        domain === nothing && continue
+        any(old -> max(first(old.terminals), first(domain.terminals)) <
+            min(last(old.terminals), last(domain.terminals)), domains) && continue
+        push!(domains, domain)
     end
     return domains
 end
@@ -238,7 +244,9 @@ function _shunt_domain_equal(a, b)
 end
 
 _shunt_lossless(::Any) = false
-_shunt_lossless(f::Union{InsulationAdmittance.Formula{:default}, SemiconAdmittance.Formula{:default}}) =
+_shunt_lossless(f::Union{InsulationAdmittance.Formula{:default},
+    InsulationAdmittance.Formula{:lossless}, SemiconAdmittance.Formula{:default},
+    SemiconAdmittance.Formula{:lossless}}) =
     isempty(f.hooks)
 _shunt_lossless(methods::NamedTuple) =
     _shunt_lossless(methods.insulation_admittance) && _shunt_lossless(methods.semicon_admittance)

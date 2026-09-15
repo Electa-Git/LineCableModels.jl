@@ -209,7 +209,7 @@ end
         )
     )
     inner=Formulation(
-        earth_impedance = :Pollaczek1926,
+        earth_impedance = :pollaczek1926,
         earth_admittance = :default,
         insulation_admittance = formula(:default),
         options = (
@@ -253,13 +253,13 @@ end
             variation = ExactOverrides(frequencies = [50.0])
         )
         pollaczek=Formulation(
-            earth_impedance = :Pollaczek1926,
+            earth_impedance = :pollaczek1926,
             earth_admittance = :default,
             insulation_admittance = formula(:default),
             options = (kron_reduction = false, reduce_bundle = false)
         )
         saad=Formulation(
-            earth_impedance = :Saad1996,
+            earth_impedance = :saad1996,
             earth_admittance = :default,
             insulation_admittance = formula(:default),
             options = (kron_reduction = false, reduce_bundle = false)

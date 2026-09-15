@@ -24,13 +24,17 @@ struct CableConstants{T <: Real} <: AbstractCoreResult
     "Evaluation frequency [Hz]."
     frequency::T
 
+    "Selected/effective shunt model and blueprint construction diagnostics."
+    details::NamedTuple
+
     function CableConstants{T}(
             cores::Vector{Symbol},
             R::Vector{T},
             L::Vector{T},
             C::Vector{T},
             G::Vector{T},
-            frequency::T
+            frequency::T,
+            details::NamedTuple = (;)
     ) where {T <: Real}
         count = length(cores)
         iszero(count) && throw(ArgumentError(
@@ -51,7 +55,7 @@ struct CableConstants{T <: Real} <: AbstractCoreResult
             (R, L, C, G),
             "cable constants must be finite"
         ))
-        return new{T}(cores, R, L, C, G, frequency)
+        return new{T}(cores, R, L, C, G, frequency, details)
     end
 end
 
@@ -61,7 +65,8 @@ function CableConstants(
         L::AbstractVector{<:Real},
         C::AbstractVector{<:Real},
         G::AbstractVector{<:Real},
-        frequency::Real
+        frequency::Real,
+        details::NamedTuple = (;)
 )
     T = promote_type(
         eltype(R), eltype(L), eltype(C), eltype(G), typeof(float(frequency))
@@ -72,7 +77,8 @@ function CableConstants(
         T.(L),
         T.(C),
         T.(G),
-        convert(T, float(frequency))
+        convert(T, float(frequency)),
+        details
     )
 end
 
@@ -102,6 +108,7 @@ function Base.:(==)(left::CableConstants, right::CableConstants)
 end
 
 Base.length(constants::CableConstants) = length(constants.cores)
+details(constants::CableConstants) = constants.details
 Base.size(constants::CableConstants) = (length(constants),)
 function Base.eltype(::Type{CableConstants{T}}) where {T}
     NamedTuple{
@@ -276,9 +283,38 @@ function formulation_options(
     return (;)
 end
 
+description(::Type{<:CableConstantsFormulation};compact::Bool=false) = "Cable constants"
+description(::CableConstantsFormulation;compact::Bool=false) = description(CableConstantsFormulation;compact)
+formula_id(::Type{<:CableConstantsFormulation}) = :cable_constants
+formula_id(::CableConstantsFormulation) = :cable_constants
+formulation_options(value::CableConstantsFormulation) = value.options
+formulation_options(::Type{CableConstantsFormulation},retained::NamedTuple,::Val{:retained}) = retained.options
+function Base.pairs(::Type{CableConstantsFormulation};quantity=nothing)
+    return pairs((; (key=>family for (key,family) in pairs(LineParametersFormulation;quantity)
+        if key ∉ (:earth_impedance,:earth_admittance,:earth_properties))...))
+end
+description(::Type{CableConstantsFormulation},slot::Val) = description(LineParametersFormulation,slot)
+Base.pairs(value::CableConstantsFormulation;quantity=nothing) = pairs(CableConstantsFormulation,
+    (methods=value.methods,requested=map(formulation_options,value.definitions),options=value.options);quantity)
+Base.pairs(::Type{CableConstantsFormulation},retained::NamedTuple;quantity=nothing) =
+    pairs(LineParametersFormulation,retained;quantity,owner=CableConstantsFormulation)
+
+"""Expose requested and resolved local formulas for passive scientific records."""
+function Base.NamedTuple(value::CableConstantsFormulation)
+    record = function (selected)
+        selected === nothing && return nothing
+        selected isa Symbol && return NamedTuple(formula(selected))
+        selected isa NamedTuple && return map(record,selected)
+        return NamedTuple(selected)
+    end
+    return (backend=:cable_constants,requested=map(record,value.definitions),
+        methods=map(record,value.methods),options=value.options)
+end
+
 function _constants_formulation(
         internal_impedance,
         insulation_impedance,
+        shunt_model,
         insulation_admittance,
         semicon_admittance,
         pipe_impedance,
@@ -288,6 +324,7 @@ function _constants_formulation(
     methods = (
         internal_impedance = Formulation(InternalImpedance.Formula, internal_impedance),
         insulation_impedance = InsulationImpedance.Formula(insulation_impedance),
+        shunt_model = ShuntModel.Formula(shunt_model),
         insulation_admittance = InsulationAdmittance.Formula(insulation_admittance),
         semicon_admittance = SemiconAdmittance.Formula(semicon_admittance),
         pipe_impedance = PipeImpedance.Formula(pipe_impedance),
@@ -299,7 +336,7 @@ function _constants_formulation(
     return CableConstantsFormulation(
         methods,
         formulation_options(CableConstantsFormulation, options),
-        (; internal_impedance, insulation_impedance, insulation_admittance,
+        (; internal_impedance, insulation_impedance, shunt_model, insulation_admittance,
             semicon_admittance, pipe_impedance, temperature_dependence)
     )
 end
@@ -319,6 +356,8 @@ inputs return one [`CableConstantsFormulation`](@ref); varying inputs return a
 
 - `internal_impedance`: Conductor surface-impedance recipe.
 - `insulation_impedance`: Longitudinal insulation-impedance recipe.
+- `shunt_model`: Local geometry model; `:default`/`:coaxial` uses annuli,
+  `:boundary` explicitly prepares lossless open-screen coupling.
 - `insulation_admittance`: Insulation constitutive relation.
 - `semicon_admittance`: Semiconducting-layer constitutive relation.
 - `pipe_impedance`: Pipe-type selection; the coaxial pipe implementation is not
@@ -331,6 +370,7 @@ inputs return one [`CableConstantsFormulation`](@ref); varying inputs return a
 function CableConstantsFormulation(;
         internal_impedance = formula(:default),
         insulation_impedance = formula(:default),
+        shunt_model = formula(:default),
         insulation_admittance = formula(:default),
         semicon_admittance = formula(:default),
         pipe_impedance = formula(:default),
@@ -341,6 +381,7 @@ function CableConstantsFormulation(;
     values = (
         internal_impedance,
         insulation_impedance,
+        shunt_model,
         insulation_admittance,
         semicon_admittance,
         pipe_impedance,
@@ -369,7 +410,7 @@ end
 $(TYPEDEF)
 
 Own the local cable arrays, corrected resistivities, and reusable matrices for
-one cable-constant calculation. The constructor consumes the structural
+one cable-constant calculation. The constructor consumes the completed
 blueprint without retaining a duplicate representation.
 
 $(TYPEDFIELDS)
@@ -391,17 +432,14 @@ function CableConstantsWorkspace(
     return CableConstantsWorkspace(
         problem,
         formulation,
-        LocalCableData(blueprint),
-        prepare_internal_shunt(internal_shunt_domains([problem.design],[blueprint]),
-            length(blueprint),formulation.methods,problem.frequency,problem.temperature)
+        LocalCableData(blueprint)
     )
 end
 
 function CableConstantsWorkspace(
         problem::CableConstantsProblem{T},
         formulation::CableConstantsFormulation,
-        cable::LocalCableData{T},
-        shunt = nothing
+        cable::LocalCableData{T}
 ) where {T <: Real}
     @inbounds for assembly in cable.assemblies
         isempty(cable.dielectric_ranges[first(assembly)]) && throw(ArgumentError(
@@ -417,7 +455,6 @@ function CableConstantsWorkspace(
         maximum_size > 1 ? (:inner, :outer, :transfer) : (:outer,))
     removed = maximum_size - 1
     buffers = (
-        shunt = _shunt_lossless(formulation.methods) ? shunt : nothing,
         Z = Matrix{Complex{T}}(undef, count, count),
         Y = Matrix{Complex{T}}(undef, count, count),
         reduced = Matrix{Complex{T}}(undef, 1, 1),
@@ -460,8 +497,7 @@ function _solve!(
         problem.frequency,
         problem.temperature,
         s,
-        buffers.layer_coefficients,
-        buffers.shunt
+        buffers.layer_coefficients
     )
     keep = @view buffers.indices[1:1]
     @inbounds for (assembly, chain) in pairs(workspace.cable.assemblies)
@@ -498,7 +534,8 @@ function _solve!(
         buffers.L,
         buffers.C,
         buffers.G,
-        problem.frequency
+        problem.frequency,
+        (shunt_model=workspace.cable.shunt_details,)
     )
 end
 
@@ -574,25 +611,24 @@ function compute(
     for formulation in formulations
         Formulation(engine, formulation.methods.pipe_impedance, problem.design)
     end
-    blueprint = flatten(engine, problem.design, eltype(problem))
-    cable = LocalCableData(blueprint)
-    domains = internal_shunt_domains([problem.design],[blueprint])
-    lossless = findfirst(f->_shunt_lossless(f.methods),formulations)
-    shunt = lossless === nothing ? nothing : prepare_internal_shunt(domains,length(blueprint),
-        formulations[lossless].methods,problem.frequency,problem.temperature)
+    blueprints = flatten(engine, [problem.design], eltype(problem), formulations)
+    cables = [LocalCableData(first(blueprints))]
+    for index in 2:length(blueprints)
+        previous = findfirst(other -> other === blueprints[index], blueprints)
+        push!(cables, previous < index ? cables[previous] : LocalCableData(blueprints[index]))
+    end
     first_formulation = first(formulations)
     first_workspace = CableConstantsWorkspace(
         problem,
         first_formulation,
-        cable,
-        shunt
+        first(cables)
     )
     first_result = _solve!(first_workspace, problem, first_formulation)
     values = Vector{typeof(first_result)}(undef, length(formulations))
     values[1] = first_result
     for index in 2:length(formulations)
         formulation = formulations[index]
-        workspace = CableConstantsWorkspace(problem, formulation, cable, shunt)
+        workspace = CableConstantsWorkspace(problem, formulation, cables[index])
         value = _solve!(workspace, problem, formulation)
         typeof(value) === eltype(values) || throw(ArgumentError(
             "cable-constant formulations produced inconsistent result types",
@@ -620,7 +656,7 @@ end
 
 function computation_details(
         ::Type{<:CableConstantsFormulation},
-        ::CableConstants
+        result::CableConstants
 )::ComputationDetails
-    return (;)
+    return details(result)
 end

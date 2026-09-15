@@ -28,7 +28,7 @@
         frequencies = [50.0]
     )
     formulation_space=Formulation(
-        earth_impedance = Grid((:Pollaczek1926, :Saad1996)),
+        earth_impedance = Grid((:pollaczek1926, :saad1996)),
     )
     problems=collect(problem_space)
     formulations=collect(formulation_space)
@@ -50,7 +50,7 @@
     @test formula_id.(getproperty.(
         getproperty.(run.axes.formulations, :methods),
         :earth_impedance
-    )) == [:Pollaczek1926, :Saad1996]
+    )) == [:pollaczek1926, :saad1996]
     for index in eachindex(expected)
         @test same_parameters(run[index], expected[index])
     end
@@ -107,7 +107,7 @@
     design=TestFixtures.coaxial_design()
     constants_problem=CableConstantsProblem(design; frequency = 50.0)
     constants_space=CableConstantsFormulation(
-        insulation_admittance = Grid((:Ametani2004, :default)),
+        insulation_admittance = Grid((:lossy, :default)),
     )
     constants_formulations=collect(constants_space)
     constants_batch=compute(constants_problem, constants_formulations)
@@ -161,13 +161,14 @@ end
     end
     function EN.flatten(engine::LineCableModelsCoaxial,
             design::CableDesign{T, R, G, NamedTuple{(:counter,), Tuple{LoweringCounter}}},
-            ::Type{S}) where {
+            ::Type{S}, methods::NamedTuple, solutions::Vector, design_index::Int) where {
             T <: Real, R <: AbstractCablePart,
             G <: LineCableModels.DataModel.CableGeometry, S <: Real
     }
         design.nominal_data.counter.calls[]+=1
         return invoke(EN.flatten,
-            Tuple{LineCableModelsCoaxial, CableDesign, Type{S}}, engine, design, S)
+            Tuple{LineCableModelsCoaxial, CableDesign, Type{S}, NamedTuple, Vector, Int},
+            engine, design, S, methods, solutions, design_index)
     end
 
     counter=LoweringCounter(Ref(0))
@@ -181,7 +182,7 @@ end
         connections = (core = 1, sheath = 0))
     problems=LineParametersProblem(system, homogeneous(rho = Grid((10.0, 100.0)));
         frequencies = [1.0, 50.0, 1000.0])
-    formulations=Formulation(earth_impedance = Grid((:Pollaczek1926, :Saad1996)))
+    formulations=Formulation(earth_impedance = Grid((:pollaczek1926, :saad1996)))
     @test counter.calls[] == 0
 
     phase=compute(ParametricProblem(problems), Combinatorial(formulations))
@@ -199,7 +200,7 @@ end
     counter.calls[]=0
     constants_problem=CableConstantsProblem(design; frequency = 50.0)
     constants_formulations=collect(CableConstantsFormulation(
-        insulation_admittance = Grid((:Ametani2004, :default))))
+        insulation_admittance = Grid((:lossy, :default))))
     constants=compute(constants_problem, constants_formulations)
     @test length(constants) == 2
     @test counter.calls[] == 1

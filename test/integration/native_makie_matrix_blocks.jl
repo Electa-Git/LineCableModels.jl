@@ -95,7 +95,7 @@ end
     z = reshape(complex.(1 .+ log10.(frequency.+1), frequency.*1e-4),1,1,:)
     reference = LineParameters(z,z.*1e-6,frequency)
     records = [NamedTuple(Formulation(earth_impedance=id))
-        for id in (:Xue2018,:default,:Pollaczek1926,:Saad1996,:WedepohlWilcox1973)]
+        for id in (:xue2018,:default,:pollaczek1926,:saad1996,:wedepohl1973)]
     result = ParametricResult(nothing,fill(reference,5),
         (problems=[:one],formulations=records),(;))
     options = (; backend=:cairo,display_plot=false,controls=true,open_export=false,

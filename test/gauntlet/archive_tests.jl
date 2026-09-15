@@ -4,7 +4,7 @@
 model=load_case(:two_insulated_wires;variation=ExactOverrides(frequencies=[1.,37.]))
 options=(reduce_bundle=false,kron_reduction=false,ideal_transposition=false)
 reference=BenchmarkCalculation(:first,model.problem,Formulation(;options))
-candidate=BenchmarkCalculation(:second,model.problem,Formulation(earth_impedance=:Pollaczek1926;options))
+candidate=BenchmarkCalculation(:second,model.problem,Formulation(earth_impedance=:pollaczek1926;options))
 definition=benchmark_definition(:portable,model.id,:fixture,@__FILE__,model,
     reference,candidate,(; quantities=(:Z,:Y,:G)),(;))
 mktempdir() do parent

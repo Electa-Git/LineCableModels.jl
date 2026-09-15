@@ -60,7 +60,7 @@
     other_controls = formulation_controls
     other_model = extension._resolved_fem_model(problem, other)
     other_inputs = extension._fem_input_record(other_model, other, computation_options(LineCableModelsFEM, other_controls))
-    lossy = Formulation(:LineCableModelsFEM; insulation_admittance = :Ametani2004,
+    lossy = Formulation(:LineCableModelsFEM; insulation_admittance = :lossy,
         options = formulation.options)
     lossy_controls = formulation_controls
     lossy_model = extension._resolved_fem_model(problem, lossy)

@@ -15,7 +15,7 @@
     source_fill = last(first(designs).geometry.regions).primitive
     @test source_fill isa DM.DifferenceShape
     @test length(source_fill.holes) == 7
-    for dielectric_formula in (:default, :Ametani2004)
+    for dielectric_formula in (:default, :lossy)
         formulation = Formulation(:LineCableModelsFEM;
             insulation_admittance=dielectric_formula)
         models = map(designs) do design

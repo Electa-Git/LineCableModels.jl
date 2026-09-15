@@ -4,34 +4,56 @@ LineCableModels separates the physical problem, selected equations, and numerica
 execution. Source equations and bibliography belong in the implementing formula
 file. Backend/formula methods select an implementation through Julia dispatch.
 
-Every family owns a concrete `:default` identifier. There is no author alias or
-forwarding map. Author registrations preserve comparison formulas and the former earth defaults:
+Every family owns a `:default` routing identifier and may expose the concrete
+equations it routes to explicitly. Literature references remain attached to
+the equations without determining their software names.
 
 | Family | Registered choices |
 |---|---|
-| Internal impedance, insulation impedance, pipe impedance | `:default` |
-| Insulation admittance, semicon admittance | `:default`, `:Ametani2004` |
-| Earth impedance | `:default`, `:Carson1926`, `:Pollaczek1926`, `:Gary1976`, `:WedepohlWilcox1973`, `:Saad1996`, `:Ametani2009`, `:Lucca1994`, `:Wise1934`, `:Xue2018` |
-| Earth admittance | `:default`, `:Pollaczek1926`, `:Wise1948`, `:Xue2018` |
-| Frequency-dependent soil properties, equivalent earth, modal transformation | `:default` |
+| Internal impedance | `:default`, `:schelkunoff1934` |
+| Insulation impedance | `:default`, `:ametani1980` |
+| Pipe impedance | `:default` |
+| Insulation admittance, semicon admittance | `:default`, `:lossless`, `:lossy` |
+| Local shunt geometry | `:default` (coaxial), `:coaxial`, `:boundary` |
+| Earth impedance | `:default`, `:carson1926`, `:pollaczek1926`, `:gary1976`, `:wedepohl1973`, `:saad1996`, `:ametani2009`, `:lucca1994`, `:wise1934`, `:xue2018` |
+| Earth admittance | `:default`, `:pollaczek1926`, `:wise1948`, `:xue2018` |
+| Frequency-dependent soil properties | `:default` |
+| Equivalent earth | `:default` |
+| Modal transformation | `:default`, `:chrysochos2014` |
 
-The internal default retains Schelkunoff's tubular conductor expressions;
-insulation impedance retains the annular magnetic term documented by Ametani.
+The internal default and `:schelkunoff1934` retain Schelkunoff's tubular
+conductor expressions; insulation impedance's default and `:ametani1980`
+retain the annular magnetic term documented by Ametani.
 Both earth defaults implement the supplied circumferentially averaged framework
 with complete enclosed-current normalization. The former air defaults remain
-available as `:Wise1934` for impedance and `:Wise1948` for potential coefficients;
-both former buried defaults are `:Xue2018`. Dielectric defaults are lossless; explicit `:Ametani2004`
-retains conductivity and the material's supplied polarization losses. The FrequencyDependent
-default preserves static properties, EquivalentHomogeneous selects the basement when explicitly
-requested, and the modal default performs Levenberg–Marquardt tracking.
-Bibliography remains attached to the equations despite the package-owned names.
+available as `:wise1934` for impedance and `:wise1948` for potential coefficients;
+both former buried defaults are `:xue2018`. Dielectric `:default` selections
+route to explicit `:lossless` equations; `:lossy` retains conductivity and the
+material's supplied polarization losses. The FrequencyDependent default
+preserves static properties.
+EquivalentHomogeneous selects the basement when explicitly requested, and the
+modal default performs Levenberg–Marquardt tracking. The EquivalentHomogeneous
+default is a package-owned policy rather than an author equation.
 
 ## Internal shunt geometry
 
-`compute(problem, Formulation(...))` automatically resolves eligible open wire
-and finite-tape groups inside a closed circular shield. This is an internal
-geometry calculation, not another earth formula or a new backend. The same
-operator supplies `CableConstants`; no new modeling keyword is required.
+`shunt_model` selects the cable-local geometry approximation independently of
+the dielectric material laws. Both `Formulation()` and
+`CableConstantsFormulation()` default to `shunt_model=:default`: ordinary
+coaxial annuli, with no boundary solve. `:coaxial` selects this explicitly.
+
+`insulation_admittance` and `semicon_admittance` still select material
+admittivity κ [S/m]. They do not select geometry. For one homogeneous annulus,
+the shunt branch is `y = 2πκ/log(ro/ri)` [S/m]; successive dielectric layers
+combine in series. This is the same reduced geometry used by the coaxial
+backend, including its equivalent wire-screen geometry.
+
+Select `shunt_model=:boundary` to resolve eligible open wire and finite-tape
+groups inside a closed circular shield before the frequency sweep. This is an
+explicit local refinement of the coaxial backend, not another earth formula.
+It supplies a coupled terminal operator, not a fitted scalar permittivity:
+an annular chain cannot retain direct coupling across an open intermediate
+screen. The same blueprint construction supplies `CableConstants`.
 
 The resolved local calculation preserves physical filler permittivity, finite
 tape thickness, conductor terminal membership and concentric dielectric layers.
@@ -53,33 +75,81 @@ own local frames. Overlapping same-terminal faces, interacting courses in
 different hosts, nonconcentric dielectric interfaces and noncircular reference
 shields retain the existing equivalent-coaxial treatment. They are not fed to
 an inapplicable circular Green function. The resolved path currently uses the
-unmodified lossless insulation/semicon defaults; lossy or custom constitutive
-selections retain their established radial calculation, without losing their
-conductivity or frequency dependence.
+unmodified `:lossless` insulation/semicon laws or their `:default` aliases.
+Lossy or custom constitutive selections are unsupported by `:boundary` and raise `BoundarySolveError` for
+eligible domains. Select `:coaxial` to retain their radial calculation without
+losing conductivity or frequency dependence.
 
-Inspect `details(result).internal_shunt` for `:resolved_local` versus
-`:equivalent_coaxial`, terminal ranges, preparation counts and sampled
-diagnostics. A resolved treatment can coexist with ordinary radial intervals
-in the same system. The diagnostic boundary residual and small-coupling
-indicator are not certified error bounds. The accepted 18 kV finite-strip
-control has a roughly 0.007 V sampled residual under unit excitation and a
-0.107 small-coupling indicator; these are retained, not hidden or relabeled as
-a proven 6% accuracy guarantee. Reference comparisons remain separate from
-numerical convergence.
+Inspect `details(result).shunt_model` for requested/effective model, domain
+terminal ranges, solve counts, and diagnostics. Boundary-resolved domains
+coexist with ordinary radial intervals outside their coverage. `effective`
+describes the qualifying domains; `:mixed` indicates explicit fallback in some
+of them. Numerical grid residuals and small-coupling indicators are not
+certified error bounds. Whole-matrix convergence can conceal substantial
+relative changes in weak individual couplings.
 
-Preparation uses bounded dense storage and in-place pivoted QR. Repeated
-identical domains and lossless formula variants share their prepared local
-operators within a compute call, and boundary matrices are released afterwards.
-The lossless local matrix is reused across the frequency sweep. There is no
-global cache and no boundary solve in the frequency loop. Large domains that
-exceed the storage budget or fail numerical validation produce an explicit
-calculation error; they do not silently fall back or become rejected Monte
-Carlo geometry samples.
+Formulation-aware blueprint construction uses bounded dense storage and
+in-place pivoted QR. The completed `CableBlueprint` owns lossless terminal
+capacitance and potential coefficients, local terminal coverage and numerical
+outcomes. Workspaces consume these coefficients; they perform no boundary solve.
+Repeated equivalent domains share coefficient matrices within the same
+construction call. Formulations with identical local selections share blueprints
+even when earth-return choices differ. Independent uncertainty sources prevent
+sharing, and dense boundary matrices are released after construction.
+
+Select the formulation and call `compute` directly:
+
+```julia
+formulation = Formulation(shunt_model=:boundary)
+result = @time compute(problem, formulation)
+```
+
+There is no separate preparation object or execution option. Default coaxial
+blueprints contain no boundary blocks and evaluate no boundary material law.
+Boundary coefficients are independent of the frequency grid and external earth
+model. They are reused across the frequency sweep, but a fresh `compute` call
+constructs fresh blueprints: there is no process-global or cross-call cache.
+Changed geometry and Monte Carlo realizations therefore receive new coefficients.
+Do not mutate coefficient arrays shared by completed blueprints.
+
+Production retains quadrature convergence, dense-storage budget, rank,
+finite-value, reciprocity and positive terminal-capacitance checks. The
+independent validation grid and derivative step-refinement are opt-in:
+
+```julia
+boundary = formula(:boundary;
+    parameters=(fallback=:error,),
+    options=(
+        resolution=(wire=64, order=32, quadrature=256, modes=1024),
+        integration=(rtol=1e-8, atol=1e-10, maxevals=100_000),
+        audit=false,
+    ))
+formulation = Formulation(shunt_model=boundary)
+```
+
+Set `audit=true` for the independent checks. Unaudited residual fields are
+`nothing`, not zero. The audit does not alter the accepted terminal matrix.
+The integration tolerances control dimensionless logarithmic moments, not
+the error in an individual terminal coupling.
+
+```@docs
+BoundarySolveError
+LineCableModels.Engine.ShuntModel.Formula
+```
+
+Strict failure is the default. An explicit `parameters=(fallback=:coaxial,)`
+permits annular replacement only after recognized numerical or unsupported-law
+failures, with a warning and recorded reason. Invalid inputs and unexpected
+exceptions propagate. UQ wrappers reject automatic fallback; choose strict
+`:boundary` or `:coaxial` for the whole study. Monte Carlo also checks that
+shunt-model coverage stays fixed across realizations and never retries a
+`BoundarySolveError` as a geometry rejection.
 
 With Measurements loaded, local sensitivities preserve the original correlated
 inputs. The nominal QR is reused in an implicit least-squares derivative that
-includes its residual term. Centered kernel derivatives are checked by step
-halving; derivative matrices are streamed in bounded blocks rather than stored
+includes its residual term. Centered kernel derivatives use one step in
+production; the audit additionally checks step halving. Derivative matrices
+are streamed in bounded blocks rather than stored
 as dense Measurement arrays. This is fixed-topology linear propagation, not a
 claim about differentiability across a contact or strand-count transition.
 Each Monte Carlo realization prepares its own physical geometry/material
@@ -219,9 +289,9 @@ Each earth slot also accepts a NamedTuple for a physical air/soil two-half-space
 
 ```julia
 selected = Formulation(earth_impedance = (
-    air = formula(:Carson1926),
-    earth = formula(:Pollaczek1926),
-    mixed = formula(:Lucca1994),
+    air = formula(:carson1926),
+    earth = formula(:pollaczek1926),
+    mixed = formula(:lucca1994),
 ))
 ```
 
@@ -573,12 +643,12 @@ the complete options tuple may be an explicit finite source:
 ```julia
 formulations = Formulation(
     insulation_admittance = Grid((
-        :Ametani2004,
+        :lossy,
         :default,
     )),
     earth_impedance = Grid((
-        :Pollaczek1926,
-        :Saad1996,
+        :pollaczek1926,
+        :saad1996,
     )),
     combine = :product,
 )
@@ -624,10 +694,12 @@ CableConstantsFormulation(
 )
 ```
 
-`Engine.flatten(LineCableModelsCoaxial(), design)` supplies a
-frequency-independent, unreduced `CableBlueprint`. Contiguous components
-sharing one radial center form one concentric assembly. Constitutive relations
-are evaluated only after the workspace has been allocated. The Engine retains
+`Engine.flatten(LineCableModelsCoaxial(), design, formulation)` supplies a
+frequency-independent, unreduced `CableBlueprint`; omitting the formulation
+uses the default annular model. Contiguous components sharing one radial center
+form one concentric assembly. Explicit boundary shunt coefficients are completed
+during flattening. Frequency-dependent constitutive evaluation and conductor
+temperature corrections remain in the calculation. The Engine retains
 each assembly's innermost terminal, grounds every additional outward terminal,
 assembles and reduces the local N-terminal series-impedance matrix, and combines
 the physical dielectric layers in radial series. A one-terminal assembly uses
@@ -1136,7 +1208,7 @@ For formulation comparisons, ReportBuilder retains unformatted data in
 ```julia
 using LineCableModels.ReportBuilder: BenchmarkTableDefinition
 
-candidates = compute(problem, Formulation(earth_impedance=Grid((:default, :Pollaczek1926))))
+candidates = compute(problem, Formulation(earth_impedance=Grid((:default, :pollaczek1926))))
 reference = compute(problem, Formulation())
 artifact = report(BenchmarkTableDefinition(), (; reference, candidate=candidates))
 artifact.table.summary

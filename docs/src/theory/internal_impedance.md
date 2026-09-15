@@ -10,6 +10,7 @@ conductors.
 ## Cylindrical and equivalent-section conductors
 
 - [Default cylindrical-conductor surface impedances](internal-impedance/default.md)
+  (`:schelkunoff1934` is the explicit literature identifier for the same route)
 
 ## Pipe walls and conductor proximity
 

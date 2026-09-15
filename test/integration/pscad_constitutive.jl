@@ -19,7 +19,7 @@
 
     mktempdir() do directory
         for constructor in (Formulation, CableConstantsFormulation),
-            insulation_id in (:default, :Ametani2004), semicon_id in (:default, :Ametani2004)
+            insulation_id in (:default, :lossy), semicon_id in (:default, :lossy)
             selected = constructor(insulation_admittance=insulation_id,
                 semicon_admittance=semicon_id)
             component = only(LineCableModels.PSCAD._pscad_components(design, frequency, selected, 60.0))
@@ -43,11 +43,11 @@
         @test only(LineCableModels.PSCAD._pscad_components(design, frequency, selected, nothing)).conductor.material.rho == copper.rho
         uncorrected = Formulation(temperature_dependence=nothing)
         @test only(LineCableModels.PSCAD._pscad_components(design, frequency, uncorrected, 60.0)).conductor.material.rho == copper.rho
-        reference_shunt = inv(log(0.0045 / 0.004) / (2pi * admittivity(semicon, :Ametani2004, 20.0)) +
-            log(0.0065 / 0.0045) / (2pi * admittivity(dielectric, :Ametani2004, 20.0)))
+        reference_shunt = inv(log(0.0045 / 0.004) / (2pi * admittivity(semicon, :lossy, 20.0)) +
+            log(0.0065 / 0.0045) / (2pi * admittivity(dielectric, :lossy, 20.0)))
         for (temperature, correction) in ((nothing, true), (60.0, false))
-            selected = Formulation(insulation_admittance=:Ametani2004,
-                semicon_admittance=:Ametani2004, temperature_dependence=correction ? formula(:default) : nothing)
+            selected = Formulation(insulation_admittance=:lossy,
+                semicon_admittance=:lossy, temperature_dependence=correction ? formula(:default) : nothing)
             component = only(LineCableModels.PSCAD._pscad_components(design, frequency, selected, temperature))
             @test component.dielectric.shunt_conductance ≈ real(reference_shunt)
             @test component.dielectric.shunt_capacitance ≈ imag(reference_shunt) / omega
@@ -73,7 +73,7 @@
         lossy = build(CableDesign, "loss-cap", terminal(:core, solid(copper, Disk(0.004)),
             insulation(Material(:insulator, 1.0, 2.3); t=0.002)))
         component = only(LineCableModels.PSCAD._pscad_components(lossy, 50.0,
-            Formulation(insulation_admittance=:Ametani2004), 20.0))
+            Formulation(insulation_admittance=:lossy), 20.0))
         requested = component.dielectric.shunt_conductance /
             (2pi * 50 * component.dielectric.shunt_capacitance)
         @test requested > 10

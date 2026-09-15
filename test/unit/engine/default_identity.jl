@@ -3,17 +3,17 @@
     const E=LineCableModels.Engine
     const EP=LineCableModels.Earth
     expected = (
-        (E.InternalImpedance, (:default,)),
-        (E.InsulationImpedance, (:default,)),
+        (E.InternalImpedance, (:default, :schelkunoff1934)),
+        (E.InsulationImpedance, (:default, :ametani1980)),
         (E.EarthImpedance,
-            (:default, :Carson1926, :Pollaczek1926, :Gary1976,
-                :WedepohlWilcox1973, :Saad1996, :Ametani2009, :Lucca1994, :Wise1934, :Xue2018)),
-        (E.InsulationAdmittance, (:default, :Ametani2004)),
-        (E.SemiconAdmittance, (:default, :Ametani2004)),
-        (E.EarthAdmittance, (:default, :Pollaczek1926, :Wise1948, :Xue2018)),
+            (:default, :carson1926, :pollaczek1926, :gary1976,
+                :wedepohl1973, :saad1996, :ametani2009, :lucca1994, :wise1934, :xue2018)),
+        (E.InsulationAdmittance, (:default, :lossless, :lossy)),
+        (E.SemiconAdmittance, (:default, :lossless, :lossy)),
+        (E.EarthAdmittance, (:default, :pollaczek1926, :wise1948, :xue2018)),
         (E.PipeImpedance, (:default,)), (EP.FrequencyDependent, (:default,)), (
             EP.EquivalentHomogeneous, (:default,)),
-        (LineCableModels.Transforms, (:default,)))
+        (LineCableModels.Transforms, (:default, :chrysochos2014)))
     for (owner, ids) in expected
         @test Set(owner.formulas()) == Set(ids)
         for id in ids

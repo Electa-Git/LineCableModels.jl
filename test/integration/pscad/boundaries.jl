@@ -168,9 +168,9 @@ end
     @test_throws ArgumentError P.internal_impedance(Val(:default), Val(:invalid), Val(:pscad))
     @test_throws ArgumentError P.insulation_impedance(Val(:not_registered), Val(:pscad))
     for (s, t) in ((1, 2), (2, 1))
-        @test P.earth_impedance(Val(:Ametani2009), Val(:mutual), Val(s), Val(t), Val(:pscad)) ==
+        @test P.earth_impedance(Val(:ametani2009), Val(:mutual), Val(s), Val(t), Val(:pscad)) ==
             (EarthForm3 = (value = 0, readback = "AMETANIL"),)
-        @test P.earth_impedance(Val(:Lucca1994), Val(:mutual), Val(s), Val(t), Val(:pscad)) ==
+        @test P.earth_impedance(Val(:lucca1994), Val(:mutual), Val(s), Val(t), Val(:pscad)) ==
             (EarthForm3 = (value = 2, readback = "LUCCA"),)
     end
     const pipe = LineCableModels.Engine.PipeImpedance.Formula(:default)
@@ -182,7 +182,7 @@ end
     rho = [Inf, 100.0]
     epsilon = 8.8541878128e-12 .* [1, 10]
     mu = fill(4pi * 1e-7, 2)
-    selected = E.EarthImpedance.Formula(:Ametani2009)
+    selected = E.EarthImpedance.Formula(:ametani2009)
     @test occursin("mixed", description(selected))
     forward = E.EarthPair(1, 2, (2.0, -1.0), 0.75, (1, 2))
     reverse = E.EarthPair(2, 1, (-1.0, 2.0), 0.75, (2, 1))
@@ -200,7 +200,7 @@ end
     copper = Material(:conductor, 1.72e-8, 1.0)
     design = build(CableDesign, "mixed-order", terminal(:core,
         solid(copper, Disk(0.004)), insulation(Material(:insulator, 1e14, 2.3); t = 0.002)))
-    choices = (air = :Carson1926, earth = :Pollaczek1926, mixed = :Ametani2009)
+    choices = (air = :carson1926, earth = :pollaczek1926, mixed = :ametani2009)
     configuration = Formulation(earth_impedance = choices)
     function problem(poses)
         system = build(LineCableSystem, [design, design], poses;
@@ -214,6 +214,6 @@ end
         @test all(isfinite,result.Z) && all(isfinite,result.Y)
         @test !iszero(result.Y[1,2,1]) && !iszero(result.Y[2,1,1])
         @test_throws ArgumentError compute(problem(poses),
-            Formulation(earth_impedance=choices,earth_admittance=:Pollaczek1926))
+            Formulation(earth_impedance=choices,earth_admittance=:pollaczek1926))
     end
 end

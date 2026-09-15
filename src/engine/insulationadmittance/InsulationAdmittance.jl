@@ -2,8 +2,9 @@
     LineCableModels.Engine.InsulationAdmittance
 
 Define registered constitutive relations for cable-insulation admittance.
-`:Ametani2004` retains material conduction and displacement current;
-`:default` explicitly selects the lossless approximation.
+`:lossy` retains material conduction and displacement current; `:lossless`
+explicitly selects the lossless approximation; and `:default` routes to
+`:lossless`.
 
 # Dependencies
 

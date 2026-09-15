@@ -1,4 +1,4 @@
-function assumptions(::Val{:Xue2018})
+function assumptions(::Val{:xue2018})
     (media = :homogeneous, layers = 2:2, longitudinal = :zero, permittivity = :positive)
 end
 
@@ -28,9 +28,9 @@ Earth-Return Parameters for Overhead / Underground Cables*, doctoral thesis,
 Polytechnique Montréal, 2018.
 [Primary source](https://publications.polymtl.ca/3190/1/2018_HaoyanXue.pdf).
 """
-description(::Type{<:Formula{:Xue2018}}; compact::Bool=false) = compact ? "Xue2018" : "Xue2018 homogeneous-earth underground impedance"
+description(::Type{<:Formula{:xue2018}}; compact::Bool=false) = compact ? "Xue" : "Xue homogeneous-earth underground impedance (2018)"
 
-Γ(::Val{:Xue2018}, jω, materials, layers) = zero(jω)
+Γ(::Val{:xue2018}, jω, materials, layers) = zero(jω)
 
 raw"""
 Evaluate the Xue et al. generalized homogeneous-earth underground impedance:
@@ -51,7 +51,7 @@ S_{13}^c=\int_0^\infty\frac{e^{-Hu_1}\cos(y\lambda)}
 where ``u_m=\sqrt{\lambda^2+\gamma_m^2}``.
 """
 function earth_impedance(
-        ::Val{:Xue2018}, ::Union{Val{:self}, Val{:mutual}}, ::Val{2}, ::Val{2},
+        ::Val{:xue2018}, ::Union{Val{:self}, Val{:mutual}}, ::Val{2}, ::Val{2},
         functor, pair, workspace
 )
     state = functor.state
@@ -90,27 +90,27 @@ function earth_impedance(
            (direct + 2 * S11 + 2 * gamma_1_squared * S13)
 end
 
-Formulation(::LineCableModelsCoaxial, selected::Formula{:Xue2018}) = selected
+Formulation(::LineCableModelsCoaxial, selected::Formula{:xue2018}) = selected
 
-function hooks(::FormulaMethod{:Xue2018, typeof(earth_impedance),
+function hooks(::FormulaMethod{:xue2018, typeof(earth_impedance),
         A}) where {A <: Tuple{Union{Val{:self}, Val{:mutual}}, Val{2}, Val{2}}}
     return (configurable = (:Γ, :air, :earth, :permeability, :contribution),
         defaults = (
-            Γ = FormulaMethod(Val(:Xue2018), Γ),
+            Γ = FormulaMethod(Val(:xue2018), Γ),
             air = FormulaMethod(Val(:full), propagation),
             earth = FormulaMethod(Val(:full), propagation),
             permeability = vacuum_permeability,
             contribution = nothing))
 end
 
-function computation_options(::FormulaMethod{:Xue2018, typeof(earth_impedance),
+function computation_options(::FormulaMethod{:xue2018, typeof(earth_impedance),
         A}) where {A <: Tuple{Union{Val{:self}, Val{:mutual}}, Val{2}, Val{2}}}
     (integration = (method = :quad, options = (;)),)
 end
 
-function validate(binding::FormulaMethod{:Xue2018, typeof(earth_impedance)},
+function validate(binding::FormulaMethod{:xue2018, typeof(earth_impedance)},
         ::EquivalentHomogeneous.Formula{:default})
     binding
 end
 
-:Xue2018
+:xue2018

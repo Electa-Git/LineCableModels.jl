@@ -6,19 +6,19 @@
     using LineCableModels.Engine
 
     harness=LineCableModels.PSCAD
-    overhead=Formulation(:pscad; earth_impedance = :Gary1976)
-    underground=Formulation(:pscad; earth_impedance = :WedepohlWilcox1973)
+    overhead=Formulation(:pscad; earth_impedance = :gary1976)
+    underground=Formulation(:pscad; earth_impedance = :wedepohl1973)
     @test overhead isa harness.PSCADFormulation
     @test underground isa harness.PSCADFormulation
     @test hasmethod(compute, Tuple{LineParametersProblem, harness.PSCADFormulation})
     @test !isdefined(harness,:Gauntlet)
-    @test harness.earth_impedance(Val(:Gary1976), Val(:mutual), Val(1), Val(1), Val(:pscad)) ==
+    @test harness.earth_impedance(Val(:gary1976), Val(:mutual), Val(1), Val(1), Val(:pscad)) ==
           (EarthForm2 = (value = 0, readback = "DERISEMLYEN"),)
-    @test harness.earth_impedance(Val(:WedepohlWilcox1973), Val(:mutual), Val(2), Val(2), Val(:pscad)) ==
+    @test harness.earth_impedance(Val(:wedepohl1973), Val(:mutual), Val(2), Val(2), Val(:pscad)) ==
           (EarthForm = (value = 0, readback = "WEDEPOHL"),)
-    @test EarthImpedance.formula_id(overhead.methods.earth_impedance) === :Gary1976
+    @test EarthImpedance.formula_id(overhead.methods.earth_impedance) === :gary1976
     @test EarthImpedance.formula_id(underground.methods.earth_impedance) ===
-          :WedepohlWilcox1973
+          :wedepohl1973
     @test LineCableModels.formula_id(overhead.methods.earth_admittance) === :default
     @test LineCableModels.formula_id(overhead.methods.insulation_admittance) === :default
     @test occursin("lossless", lowercase(description(overhead.methods.insulation_admittance)))
@@ -29,17 +29,17 @@
         ideal_transposition = false,base_frequency=50.0)
     @test_throws ArgumentError Formulation(:pscad; options = (output_stem = "invalid",))
 
-    identifiers=(:Gary1976, :Carson1926, :Pollaczek1926, :WedepohlWilcox1973,
-        :Saad1996, :Ametani2009, :Lucca1994)
+    identifiers=(:gary1976, :carson1926, :pollaczek1926, :wedepohl1973,
+        :saad1996, :ametani2009, :lucca1994)
     @test all(
         id -> Formulation(:pscad; earth_impedance = LineCableModels.formula(id)) isa
               harness.PSCADFormulation,
         identifiers)
-    @test haskey(harness.earth_impedance(Val(:Saad1996), Val(:mutual), Val(2), Val(2), Val(:pscad)), :EarthForm)
-    @test harness.earth_impedance(Val(:Lucca1994), Val(:mutual), Val(1), Val(2), Val(:pscad)).EarthForm3.readback == "LUCCA"
-    @test harness.earth_impedance(Val(:Carson1926), Val(:mutual), Val(1), Val(1), Val(:pscad)).EarthForm2.value == 2
-    @test harness.earth_impedance(Val(:Pollaczek1926), Val(:mutual), Val(2), Val(2), Val(:pscad)).EarthForm.value == 2
-    @test_throws ArgumentError harness.earth_impedance(Val(:Pollaczek1926), Val(:mutual), Val(1), Val(1), Val(:pscad))
+    @test haskey(harness.earth_impedance(Val(:saad1996), Val(:mutual), Val(2), Val(2), Val(:pscad)), :EarthForm)
+    @test harness.earth_impedance(Val(:lucca1994), Val(:mutual), Val(1), Val(2), Val(:pscad)).EarthForm3.readback == "LUCCA"
+    @test harness.earth_impedance(Val(:carson1926), Val(:mutual), Val(1), Val(1), Val(:pscad)).EarthForm2.value == 2
+    @test harness.earth_impedance(Val(:pollaczek1926), Val(:mutual), Val(2), Val(2), Val(:pscad)).EarthForm.value == 2
+    @test_throws ArgumentError harness.earth_impedance(Val(:pollaczek1926), Val(:mutual), Val(1), Val(1), Val(:pscad))
     @test_throws ArgumentError harness.earth_impedance(Val(:DirectNumericalIntegration), Val(:mutual), Val(1), Val(2), Val(:pscad))
 
     mktempdir() do directory
@@ -197,7 +197,7 @@
         raw"Z:\gauntlet\benchmarks\.work\case\current",
         raw"C:\gauntlet\case\current",
         "generated",
-        Formulation(:pscad; earth_impedance = :Saad1996),
+        Formulation(:pscad; earth_impedance = :saad1996),
         frequency_probe;
         output_stem = "saad",
         verbosity = 0

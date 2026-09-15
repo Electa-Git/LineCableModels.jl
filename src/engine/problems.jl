@@ -225,6 +225,7 @@ function Base.pairs(::Type{LineParametersFormulation}; quantity=nothing)
     selected=(internal_impedance=InternalImpedance.Formula,
         insulation_impedance=InsulationImpedance.Formula,
         earth_impedance=EarthImpedance.Formula,
+        shunt_model=ShuntModel.Formula,
         insulation_admittance=InsulationAdmittance.Formula,
         semicon_admittance=SemiconAdmittance.Formula,
         earth_admittance=EarthAdmittance.Formula,
@@ -238,7 +239,7 @@ function Base.pairs(::Type{LineParametersFormulation}; quantity=nothing)
     shunt=q in (Units.quantity(Y),Units.quantity(G),Units.quantity(B),Units.quantity(C),
         Units.quantity(Y,abs),Units.quantity(Y,angle))
     series || shunt || throw(ArgumentError("no line-formulation selections for $q"))
-    omitted=series ? (:insulation_admittance,:semicon_admittance,:earth_admittance) :
+    omitted=series ? (:shunt_model,:insulation_admittance,:semicon_admittance,:earth_admittance) :
         (:internal_impedance,:insulation_impedance,:earth_impedance,:pipe_impedance)
     return pairs((; (key=>value for (key,value) in pairs(selected) if key ∉ omitted)...))
 end
@@ -246,6 +247,7 @@ end
 description(::Type{LineParametersFormulation},::Val{:internal_impedance}) = "internal Z"
 description(::Type{LineParametersFormulation},::Val{:insulation_impedance}) = "insulation Z"
 description(::Type{LineParametersFormulation},::Val{:earth_impedance}) = "earth Z"
+description(::Type{LineParametersFormulation},::Val{:shunt_model}) = "shunt geometry"
 description(::Type{LineParametersFormulation},::Val{:insulation_admittance}) = "insulation Y"
 description(::Type{LineParametersFormulation},::Val{:semicon_admittance}) = "semicon Y"
 description(::Type{LineParametersFormulation},::Val{:earth_admittance}) = "earth Y"
@@ -301,13 +303,14 @@ function LineParametersFormulation(;
         insulation_admittance::InsulationAdmittanceFormulation,
         semicon_admittance::SemiconAdmittanceFormulation,
         earth_admittance::Union{EarthAdmittanceFormulation, NamedTuple},
+        shunt_model::ShuntModelFormulation = ShuntModel.Formula(:default),
         earth_properties,
         pipe_impedance::PipeImpedanceFormulation,
         temperature_dependence::Union{Nothing, TemperatureDependent.Formula} = TemperatureDependent.Formula(:default),
         options::NamedTuple
 )
     methods = (;
-        internal_impedance, insulation_impedance, earth_impedance,
+        internal_impedance, insulation_impedance, earth_impedance, shunt_model,
         insulation_admittance, semicon_admittance, earth_admittance, earth_properties,
         pipe_impedance, temperature_dependence
     )
@@ -318,6 +321,7 @@ function _line_formulation(
         internal_impedance,
         insulation_impedance,
         earth_impedance,
+        shunt_model,
         insulation_admittance,
         semicon_admittance,
         earth_admittance,
@@ -330,6 +334,7 @@ function _line_formulation(
         internal_impedance = Formulation(InternalImpedance.Formula, internal_impedance),
         insulation_impedance = InsulationImpedance.Formula(insulation_impedance),
         earth_impedance = Formulation(EarthImpedance.Formula, earth_impedance),
+        shunt_model = ShuntModel.Formula(shunt_model),
         insulation_admittance = InsulationAdmittance.Formula(insulation_admittance),
         semicon_admittance = SemiconAdmittance.Formula(semicon_admittance),
         earth_admittance = Formulation(EarthAdmittance.Formula, earth_admittance),
@@ -345,7 +350,7 @@ function _line_formulation(
         insulation_impedance,
         earth_impedance = earth_impedance isa NamedTuple ?
             NamedTuple{keys(selected.methods.earth_impedance)}(earth_impedance) : earth_impedance,
-        insulation_admittance, semicon_admittance,
+        shunt_model, insulation_admittance, semicon_admittance,
         earth_admittance = earth_admittance isa NamedTuple ?
             NamedTuple{keys(selected.methods.earth_admittance)}(earth_admittance) : earth_admittance,
         earth_properties, pipe_impedance, temperature_dependence)
@@ -356,6 +361,12 @@ end
 $(TYPEDSIGNATURES)
 
 Select the complete physical-method bundle for a line-parameter calculation.
+
+`shunt_model=:default` (or `:coaxial`) selects annular local shunt geometry.
+`:boundary` explicitly prepares a lossless wire/tape boundary correction.
+This choice is independent of `insulation_admittance` and `semicon_admittance`,
+which select material constitutive laws. Boundary numerical controls and an
+explicit fallback belong to `formula(:boundary; options, parameters)`.
 
 `internal_impedance` accepts one formula or complete `inner`, `outer`, and
 `transfer` selections. Each selected formula owns its callable overrides and
@@ -395,6 +406,7 @@ function Formulation(;
         internal_impedance = formula(:default),
         insulation_impedance = formula(:default),
         earth_impedance = formula(:default),
+        shunt_model = formula(:default),
         insulation_admittance = formula(:default),
         semicon_admittance = formula(:default),
         earth_admittance = formula(:default),
@@ -408,6 +420,7 @@ function Formulation(;
         internal_impedance,
         insulation_impedance,
         earth_impedance,
+        shunt_model,
         insulation_admittance,
         semicon_admittance,
         earth_admittance,

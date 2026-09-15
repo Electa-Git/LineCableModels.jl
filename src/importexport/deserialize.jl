@@ -34,6 +34,7 @@ function deserialize_value(::Val{:formulation},record::NamedTuple)
     end
     backend=get(record,:backend,nothing)
     owner=backend in (:coaxial,"coaxial") ? Engine.LineParametersFormulation :
+        backend in (:cable_constants,"cable_constants") ? Engine.CableConstantsFormulation :
         backend in (:fem,:LineCableModelsFEM,"fem","LineCableModelsFEM") ? Engine.LineCableModelsFEM :
         backend in (:pscad,:PSCAD,"pscad","PSCAD") ? LineCableModels.PSCAD.PSCADFormulation : nothing
     owner===nothing && return missing
@@ -223,7 +224,7 @@ function deserialize_value(value)
         end
         marker == "NamedTuple" && return NamedTuple{Tuple(Symbol.(value["names"]))}(
             Tuple(deserialize_value(item) for item in value["values"]))
-        marker in ("Observable", "Quantile", "LineParameters", "MonteCarloResult",
+        marker in ("Observable", "Quantile", "LineParameters", "CableConstants", "MonteCarloResult",
             "LinearErrorResult", "MeasurementLinearErrorResult", "SampleSummary", "HistogramDensity", "Distribution") &&
             return deserialize_extension(Val(Symbol(marker)),value)
         if marker == "Measurement"

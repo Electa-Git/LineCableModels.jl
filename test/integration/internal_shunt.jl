@@ -1,4 +1,4 @@
-@testitem "Engine / internal shunt / default workflow and reuse" tags=[:integration] begin
+@testitem "Engine / internal shunt / explicit boundary workflow and reuse" tags=[:integration] begin
     using LinearAlgebra
     E = LineCableModels.Engine
     include(joinpath(pkgdir(LineCableModels),"test","support","internal_shunt.jl"))
@@ -8,17 +8,18 @@
             Dict(:inner=>2,:middle=>0,:reference=>0)])
     problem = LineParametersProblem(system;earth_props=homogeneous(rho=100.0),frequencies=[0.1,50.0,1e7])
     physical = (reduce_bundle=false,kron_reduction=false,ideal_transposition=false)
-    first_formula = Formulation(earth_impedance=:Pollaczek1926,
-        earth_admittance=:Pollaczek1926;options=physical)
-    other_formula = Formulation(earth_impedance=:Saad1996,
-        earth_admittance=:Pollaczek1926;options=physical)
-    reduced_formula = Formulation(earth_impedance=:Pollaczek1926,
-        earth_admittance=:Pollaczek1926;options=(reduce_bundle=true,
+    boundary = formula(:boundary;options=(resolution=(wire=32,order=16,quadrature=128,modes=256),))
+    first_formula = Formulation(shunt_model=boundary,earth_impedance=:pollaczek1926,
+        earth_admittance=:pollaczek1926;options=physical)
+    other_formula = Formulation(shunt_model=boundary,earth_impedance=:saad1996,
+        earth_admittance=:pollaczek1926;options=physical)
+    reduced_formula = Formulation(shunt_model=boundary,earth_impedance=:pollaczek1926,
+        earth_admittance=:pollaczek1926;options=(reduce_bundle=true,
             kron_reduction=true,ideal_transposition=false))
     results = compute(problem,[first_formula,other_formula,reduced_formula];options=(trace=true,))
     first_result = first(results)
-    shunt = details(first_result).internal_shunt
-    @test shunt.treatment === :resolved_local
+    shunt = details(first_result).shunt_model
+    @test shunt.effective === :boundary
     @test shunt.solves == 1
     @test length(shunt.domains) == 2
     @test details(results[2]).trace.Pin == details(first_result).trace.Pin
@@ -31,18 +32,36 @@
         @test observe(results[3],Y)[:,:,k] ≈
             (2pi*im*problem.frequencies[k]).*inv(reduced.P[:,:,k]) rtol=1e-10
     end
-    @test details(results[3]).internal_shunt.solves == 1
-    constants = @inferred CableConstants(design;frequency=50.0)
+    @test details(results[3]).shunt_model.solves == 1
+    constants = @inferred CableConstants(design;frequency=50.0,
+        formulation=CableConstantsFormulation(shunt_model=boundary))
     local_domain,blueprint = internal_shunt_test_domain(design)
-    prepared = E.prepare_internal_shunt([local_domain],3,Formulation().methods,50.0,20.0)
-    @test constants.C[1] ≈ prepared.blocks[1].C[1,1] rtol=1e-10
+    blueprint = E.flatten(LineCableModelsCoaxial(), design,
+        CableConstantsFormulation(shunt_model=boundary))
+    @test constants.C[1] ≈ blueprint.shunt[1].C[1,1] rtol=1e-10
     @test constants.G[1] == 0
-    lossy = Formulation(insulation_admittance=:Ametani2004,
-        earth_impedance=:Pollaczek1926,earth_admittance=:Pollaczek1926;options=physical)
+    lossy = Formulation(insulation_admittance=:lossy,
+        earth_impedance=:pollaczek1926,earth_admittance=:pollaczek1926;options=physical)
     mixed = compute(problem,[first_formula,lossy])
     @test length(mixed) == 2
     @test typeof(mixed[1]) == typeof(mixed[2])
-    @test details(mixed[2]).internal_shunt.reason === :equivalent_material_law
+    @test details(mixed[2]).shunt_model.effective === :coaxial
+    @test details(mixed[2]).shunt_model.solves == 0
+    reference_temperature = Formulation(shunt_model=boundary,
+        temperature_dependence=nothing, earth_impedance=:pollaczek1926,
+        earth_admittance=:pollaczek1926;options=physical)
+    blueprints = E.flatten(LineCableModelsCoaxial(), system.designs, Float64,
+        [first_formula, other_formula, lossy, reference_temperature])
+    @test blueprints[1] === blueprints[2]
+    @test blueprints[1] === blueprints[4]
+    @test blueprints[1][1].shunt[1].C === blueprints[1][2].shunt[1].C
+    @test all(bp -> isempty(bp.shunt), blueprints[3])
+    input = E.lineinput(problem, blueprints[1])
+    @test input.cable.shunt[1].terminals == 1:3
+    @test input.cable.shunt[2].terminals == 4:6
+    @test input.cable.shunt[2].C === blueprints[1][2].shunt[1].C
+    execution = computation_options(LineCableModelsCoaxial, (;))
+    @test observe(E._compute(LineCableModelsCoaxial(), problem, other_formula, execution, input), Y) == observe(results[2], Y)
     # The same physical API supports independent translated assemblies inside
     # one design; their local operators must be scattered into distinct ports.
     left = internal_shunt_test_design(count=4,suffix="_left")
@@ -53,5 +72,5 @@
     domains = E.internal_shunt_domains([pair],[pair_blueprint])
     @test length(domains) == 2
     @test getproperty.(domains,:terminals) == [1:3,4:6]
-    @test CableConstants(pair).C ≈ fill(constants.C[1],2) rtol=1e-8
+    @test CableConstants(pair;formulation=CableConstantsFormulation(shunt_model=boundary)).C ≈ fill(constants.C[1],2) rtol=1e-8
 end

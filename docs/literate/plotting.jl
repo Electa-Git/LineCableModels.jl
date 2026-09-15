@@ -132,7 +132,7 @@ using Measurements: measurement
 # raise an error instead of silently discarding data. Saved results remain intact.
 # Names come from the same owner-dispatched `description` methods as report tables:
 # `Reference · FEM`, `Reference · PSCAD`, `Reference · Monte Carlo`, and candidates
-# such as `LEP` or `earth Z=Saad1996`, without candidate numbering.
+# such as `LEP` or `earth Z=Saad`, without candidate numbering.
 # `formulations=[3,1]` selects stored array positions before deduplication, preserving
 # order and colors. Explicit `series_labels` and styles follow the retained source;
 # they do not create new formula identities. Shared coaxial identity is omitted.

@@ -1,4 +1,4 @@
-function assumptions(::Val{:Wise1948})
+function assumptions(::Val{:wise1948})
     (media = :homogeneous, layers = 2:2, longitudinal = :zero, permittivity = :positive)
 end
 
@@ -25,11 +25,11 @@ M_{ij}+jN_{ij}=2\\int_0^\\infty
 **Reference.** W. H. Wise, “Potential Coefficients for Ground Return
 Circuits,” *Bell System Technical Journal*, 27, 365–371, 1948.
 """
-function description(::Type{<:Formula{:Wise1948}}; compact::Bool=false)
-    compact ? "Wise1948" : "Wise1948 homogeneous-earth overhead potential coefficient"
+function description(::Type{<:Formula{:wise1948}}; compact::Bool=false)
+    compact ? "Wise" : "Wise homogeneous-earth overhead potential coefficient (1948)"
 end
 
-Γ(::Val{:Wise1948}, jω, materials, layers) = zero(jω)
+Γ(::Val{:wise1948}, jω, materials, layers) = zero(jω)
 
 raw"""
 Evaluate Wise's wideband overhead earth potential coefficient:
@@ -47,7 +47,7 @@ M_{ij}+jN_{ij}=2\int_0^\infty
 ```
 """
 function earth_potential_coefficient(
-        ::Val{:Wise1948}, ::Union{Val{:self}, Val{:mutual}}, ::Val{1}, ::Val{1},
+        ::Val{:wise1948}, ::Union{Val{:self}, Val{:mutual}}, ::Val{1}, ::Val{1},
         functor, pair, workspace
 )
     state = functor.state
@@ -74,13 +74,13 @@ function earth_potential_coefficient(
            (2π * state.epsilon[1])
 end
 
-Formulation(::LineCableModelsCoaxial, selected::Formula{:Wise1948}) = selected
+Formulation(::LineCableModelsCoaxial, selected::Formula{:wise1948}) = selected
 
-function hooks(::FormulaMethod{:Wise1948, typeof(earth_potential_coefficient),
+function hooks(::FormulaMethod{:wise1948, typeof(earth_potential_coefficient),
         A}) where {A <: Tuple{Union{Val{:self}, Val{:mutual}}, Val{1}, Val{1}}}
     return (configurable = (:Γ, :air, :earth, :permeability, :contribution),
         defaults = (
-            Γ = FormulaMethod(Val(:Wise1948), Γ),
+            Γ = FormulaMethod(Val(:wise1948), Γ),
             air = FormulaMethod(Val(:full), propagation),
             earth = FormulaMethod(Val(:full), propagation),
             permeability = vacuum_permeability,
@@ -88,14 +88,14 @@ function hooks(::FormulaMethod{:Wise1948, typeof(earth_potential_coefficient),
 end
 
 function computation_options(::FormulaMethod{
-        :Wise1948, typeof(earth_potential_coefficient),
+        :wise1948, typeof(earth_potential_coefficient),
         A}) where {A <: Tuple{Union{Val{:self}, Val{:mutual}}, Val{1}, Val{1}}}
     (integration = (method = :quad, options = (;)),)
 end
 
-function validate(binding::FormulaMethod{:Wise1948, typeof(earth_potential_coefficient)},
+function validate(binding::FormulaMethod{:wise1948, typeof(earth_potential_coefficient)},
         ::EquivalentHomogeneous.Formula{:default})
     binding
 end
 
-:Wise1948
+:wise1948

@@ -26,7 +26,7 @@
     @test only(blueprint.dielectrics).r_ex ≈ 3.5e-3
 
     constants = CableConstants(design; frequency=50.0,
-        formulation=CableConstantsFormulation(insulation_admittance=:Ametani2004))
+        formulation=CableConstantsFormulation(insulation_admittance=:lossy))
     row = only(constants)
     @test all(isfinite, (row.R, row.L, row.C, row.G))
     @test row.G > 0

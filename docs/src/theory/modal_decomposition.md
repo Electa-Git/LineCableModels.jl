@@ -7,5 +7,6 @@ symmetrical-component transform is a separate choice whose decoupling
 depends on the symmetry of the line.
 
 - [Default modal decomposition and eigenvalue tracking](modal-decomposition/default.md)
+  (`:chrysochos2014` is the explicit literature identifier for the same route)
 
 [Back to Contents](contents.md)

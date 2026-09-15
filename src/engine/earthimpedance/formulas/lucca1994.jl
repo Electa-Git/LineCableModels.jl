@@ -1,4 +1,4 @@
-function assumptions(::Val{:Lucca1994})
+function assumptions(::Val{:lucca1994})
     (media = :homogeneous, layers = 2:2, longitudinal = :zero, permittivity = :positive)
 end
 
@@ -26,9 +26,9 @@ D=\\sqrt{(h_a+h_g)^2+y_{ij}^2}.
 Line with Earth Return,” *9th International Conference on Electromagnetic
 Compatibility*, 1994. DOI: 10.1049/cp:19940679.
 """
-description(::Type{<:Formula{:Lucca1994}}; compact::Bool=false) = compact ? "Lucca1994" : "Lucca mixed-pair homogeneous-earth impedance (1994)"
+description(::Type{<:Formula{:lucca1994}}; compact::Bool=false) = compact ? "Lucca" : "Lucca mixed-pair homogeneous-earth impedance (1994)"
 
-function Γ(::Val{:Lucca1994}, jω, materials, layers)
+function Γ(::Val{:lucca1994}, jω, materials, layers)
     return zero(jω)
 end
 
@@ -58,7 +58,7 @@ return," *9th International Conference on Electromagnetic Compatibility*, 1994.
 DOI: 10.1049/cp:19940679.
 """
 function earth_impedance(
-        ::Val{:Lucca1994}, ::Val{:mutual}, ::Val{1}, ::Val{2},
+        ::Val{:lucca1994}, ::Val{:mutual}, ::Val{1}, ::Val{2},
         functor, pair, workspace
 )
     state = functor.state
@@ -78,7 +78,7 @@ function earth_impedance(
 end
 
 function earth_impedance(
-        ::Val{:Lucca1994}, ::Val{:mutual}, ::Val{2}, ::Val{1},
+        ::Val{:lucca1994}, ::Val{:mutual}, ::Val{2}, ::Val{1},
         functor, pair, workspace
 )
     state = functor.state
@@ -97,43 +97,43 @@ function earth_impedance(
     return state.jω * state.mu[1] / (2πT) * (log(S / D) - correction)
 end
 
-Formulation(::LineCableModelsCoaxial, selected::Formula{:Lucca1994}) = selected
+Formulation(::LineCableModelsCoaxial, selected::Formula{:lucca1994}) = selected
 
-function hooks(::FormulaMethod{:Lucca1994, typeof(earth_impedance),
+function hooks(::FormulaMethod{:lucca1994, typeof(earth_impedance),
         A}) where {A <: Tuple{Val{:mutual}, Val{1}, Val{2}}}
     return (configurable = (:Γ, :earth, :permeability, :contribution),
         defaults = (
-            Γ = FormulaMethod(Val(:Lucca1994), Γ),
+            Γ = FormulaMethod(Val(:lucca1994), Γ),
             air = FormulaMethod(Val(:lossless), propagation),
             earth = FormulaMethod(Val(:conductive), propagation),
             permeability = vacuum_permeability,
             contribution = nothing))
 end
 
-function computation_options(::FormulaMethod{:Lucca1994, typeof(earth_impedance),
+function computation_options(::FormulaMethod{:lucca1994, typeof(earth_impedance),
         A}) where {A <: Tuple{Val{:mutual}, Val{1}, Val{2}}}
     (;)
 end
 
-function hooks(::FormulaMethod{:Lucca1994, typeof(earth_impedance),
+function hooks(::FormulaMethod{:lucca1994, typeof(earth_impedance),
         A}) where {A <: Tuple{Val{:mutual}, Val{2}, Val{1}}}
     return (configurable = (:Γ, :earth, :permeability, :contribution),
         defaults = (
-            Γ = FormulaMethod(Val(:Lucca1994), Γ),
+            Γ = FormulaMethod(Val(:lucca1994), Γ),
             air = FormulaMethod(Val(:lossless), propagation),
             earth = FormulaMethod(Val(:conductive), propagation),
             permeability = vacuum_permeability,
             contribution = nothing))
 end
 
-function computation_options(::FormulaMethod{:Lucca1994, typeof(earth_impedance),
+function computation_options(::FormulaMethod{:lucca1994, typeof(earth_impedance),
         A}) where {A <: Tuple{Val{:mutual}, Val{2}, Val{1}}}
     (;)
 end
 
-function validate(binding::FormulaMethod{:Lucca1994, typeof(earth_impedance)},
+function validate(binding::FormulaMethod{:lucca1994, typeof(earth_impedance)},
         ::EquivalentHomogeneous.Formula{:default})
     binding
 end
 
-:Lucca1994
+:lucca1994

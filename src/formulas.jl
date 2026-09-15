@@ -88,8 +88,9 @@ keyword slot in which the selection appears.
 - `identifier`: Stable formula identifier.
   `:default` requests the applicable choice from the resolved problem, geometry,
   earth characteristics and backend. It is not a fallback after a failed formula.
-  Cable-insulation and semicon-admittance defaults explicitly select lossless
-  dielectric relations. Unsupported contexts fail before frequency evaluation.
+  Cable-insulation and semicon-admittance `:default` selections route to the
+  explicit `:lossless` dielectric relation. Unsupported contexts fail before
+  frequency evaluation.
 
 # Keywords
 
@@ -109,7 +110,7 @@ keyword slot in which the selection appears.
 # Examples
 
 ```julia
-earth = formula(:Carson1926)
+earth = formula(:carson1926)
 soil = formula(:default)
 equivalent = formula(:default; order=:before)
 ```
@@ -129,6 +130,9 @@ end
 Return the stable formula identifier of a formula value.
 """
 function formula_id end
+
+"Return the stable formula identifier carried by a bound formula hook."
+formula_id(::FormulaMethod{ID}) where {ID} = ID
 
 formula_id(::FormulaDefinition{ID}) where {ID} = ID
 

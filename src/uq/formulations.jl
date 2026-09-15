@@ -1,3 +1,12 @@
+_validate_shunt_policy(::AbstractFormulation) = nothing
+function _validate_shunt_policy(inner::Union{Engine.LineParametersFormulation,Engine.CableConstantsFormulation})
+    selected = inner.methods.shunt_model
+    if selected isa Engine.ShuntModel.Formula{:boundary} && selected.parameters.fallback !== :error
+        throw(ArgumentError("uncertainty propagation requires a fixed shunt model; select strict :boundary or :coaxial, without automatic fallback"))
+    end
+    return nothing
+end
+
 """
 $(TYPEDEF)
 
@@ -19,6 +28,7 @@ struct LinearError{F <: AbstractFormulation, O <: ComputationOptions} <: Abstrac
     options::O
 
     function LinearError(inner::AbstractFormulation, options::NamedTuple)
+        _validate_shunt_policy(inner)
         normalized = computation_options(LinearError, options)
         return new{typeof(inner), typeof(normalized)}(inner, normalized)
     end
@@ -102,6 +112,7 @@ struct MonteCarlo{F <: AbstractFormulation, O <: ComputationOptions} <:
     options::O
 
     function MonteCarlo(inner::AbstractFormulation, options::NamedTuple)
+        _validate_shunt_policy(inner)
         normalized = computation_options(MonteCarlo, options)
         return new{typeof(inner), typeof(normalized)}(inner, normalized)
     end

@@ -1,19 +1,22 @@
-# Ametani–Miyamoto–Nagaoka semiconducting-screen admittance
+# Lossy cable-layer admittivity (Ametani 2004 application)
 
 ## Identification and source
 
 | Field | Value |
 | --- | --- |
-| Family | Insulation admittance |
+| Family | Insulation admittance; semicon admittance |
 | Geometry | Semiconductor occupies annulus ``b'<r<c``; main insulation occupies ``c<r<r_0``; concentric cylindrical interfaces. |
 | Calculated quantities | Shunt admittance of a cylindrical semiconducting layer; series radial combination with the main insulation admittance |
 | Earth structure | Not applicable. |
 | Model and approximation | Not an analytical approximation within the scalar, concentric, radial dielectric model. The constitutive representation treats static resistivity ``\rho_2`` as a frequency-independent conduction term and adds it to displacement current through complex permittivity. |
-| Main source | A. Ametani, Y. Miyamoto, and N. Nagaoka (2004) |
-| Citation key(s) | `:Ametani2004` |
+| Main source | Standard frequency-domain constitutive relation; Ametani et al. (2004) application |
+| Formula identifier | `:lossy` |
+| Citation key(s) | `Ametani2004` |
 | Evidence status | PDF page images checked |
 
-**Description.** Complex-permittivity shunt admittance of a concentric semiconducting screen and its radial series combination with the main cable insulation between the core outer and sheath inner surfaces.
+**Description.** Generic lossy complex-admittivity relation for cable layers,
+with Ametani et al. (2004) retained as an application reference for the
+semiconducting-screen specialization and radial series assembly.
 
 **Assumptions.**
 
@@ -49,13 +52,28 @@ y_i&=\frac{j\omega\,2\pi\varepsilon_i}{\ln(r_0/c)}.
 
 ``y_s`` is the semiconductor-layer shunt admittance, ``y_i`` the main-insulation shunt admittance, and ``Y`` their radial series combination between the core outer and sheath inner surfaces. ``r_0`` is the outer insulation radius, equal to the sheath inner radius.
 
-**Approximation.** Not an analytical approximation within the scalar, concentric, radial dielectric model. The constitutive representation treats static resistivity ``\rho_2`` as a frequency-independent conduction term and adds it to displacement current through complex permittivity.
+**Approximation.** This is the standard scalar frequency-domain constitutive
+relation with static material properties. It treats resistivity as a
+frequency-independent conduction term and optionally adds polarization loss
+through ``\tan\delta``. It is not an Ametani-specific empirical law.
 
-**Limitations.** The formulation does not model frequency dependence of ``\rho_2`` or ``\varepsilon_s'``, anisotropy, interfacial polarization, or nonconcentric geometry. It is a per-unit-length shunt admittance, not the semiconducting layer's longitudinal impedance. The paper does not discuss whether measured loss data might already include conduction, so double-counting cannot be assessed from this source.
+**Limitations.** The formulation does not model frequency dependence of
+material properties, anisotropy, interfacial polarization, or nonconcentric
+geometry. It is a per-unit-length shunt admittance, not a longitudinal layer
+impedance. The optional polarization-loss input must exclude conduction already
+represented by resistivity.
 
-**Reference.** [Ametani2004](@cite).  A. Ametani, Y. Miyamoto, and N. Nagaoka, “Semiconducting Layer Impedance and its Effect on Cable Wave-Propagation and Transient Characteristics,” *IEEE Transactions on Power Delivery* 19(4), 1523–1531 (2004), DOI `10.1109/TPWRD.2003.822502`; equations (14)–(15), printed p. 1525.
+**Application reference.** [Ametani2004](@cite). A. Ametani, Y. Miyamoto,
+and N. Nagaoka, “Semiconducting Layer Impedance and its Effect on Cable
+Wave-Propagation and Transient Characteristics,” *IEEE Transactions on Power
+Delivery* 19(4), 1523–1531 (2004), DOI `10.1109/TPWRD.2003.822502`; equations
+(14)–(15), printed p. 1525. The paper applies the standard relation to a
+semiconducting screen and its radial combination with the main insulation.
 
-**Transcription source.** Original publication PDF. Both logarithmic denominators, the sign and placement of ``1/(j\omega\rho_2)``, and the series relation were checked against the rendered printed-p. 1525 image. The Markdown conversion leaves (14)–(15) blank and is navigation-only.
+**Source note.** The Ametani equations were checked against the original
+publication PDF. They provide application geometry and context for this
+registration; the constitutive relation is not claimed as newly developed by
+that paper.
 
 ## Source transcription
 

@@ -1,6 +1,38 @@
-# Integrated finite-face charge element, using the accepted dev prototype.
+# Integrated finite-face charge element for the explicit boundary shunt model.
 # Coordinates are in m; Green functions use charge/(2pi*epsilon0).
-# Numerical arrays are local to a preparation, never a process-global cache.
+# Dense numerical arrays are local to a boundary solve, never a global cache.
+
+"""
+$(TYPEDEF)
+
+Report a recognized failure of the local boundary approximation. Numerical
+failure is distinct from invalid physical input and must not trigger Monte
+Carlo rejection/resampling.
+
+$(TYPEDFIELDS)
+"""
+struct BoundarySolveError <: Exception
+    "Failure stage or unsupported model assumption."
+    category::Symbol
+    "Physical location and available numerical diagnostics."
+    context::NamedTuple
+    "Explanation of the failure."
+    message::String
+end
+
+function Base.showerror(io::IO, error::BoundarySolveError)
+    print(io,"BoundarySolveError(",error.category,"): ",error.message)
+    isempty(error.context) || print(io,"; ",error.context)
+end
+Base.show(io::IO,error::BoundarySolveError) = showerror(io,error)
+Base.summary(io::IO,error::BoundarySolveError) = print(io,"BoundarySolveError(",error.category,")")
+function Base.show(io::IO, ::MIME"text/plain", error::BoundarySolveError)
+    get(io, :compact, false) && return summary(io, error)
+    TextDisplay.tree(io, sprint(summary, error), (
+        (label = error.message, noun = "details"),
+        (label = sprint(show, error.context; context = :limit => true), noun = "details"),
+    ); noun = "details")
+end
 
 """
 $(TYPEDSIGNATURES)
@@ -143,19 +175,34 @@ function _shunt_kernel(z, source, g, k; regular = false, split_images = false)
     result
 end
 
-function _shunt_kernel_matrix!(matrix, targets, sources, g, k; regular = false, split_images = false)
+function _shunt_kernel_storage(rows, columns, modes; quadrature=0)
+    return (ta=Vector{ComplexF64}(undef,rows),tb=Vector{ComplexF64}(undef,rows),
+        sa=Vector{ComplexF64}(undef,columns),sb=Vector{ComplexF64}(undef,columns),
+        tpa=Vector{ComplexF64}(undef,rows),tpb=Vector{ComplexF64}(undef,rows),
+        spa=Vector{ComplexF64}(undef,columns),spb=Vector{ComplexF64}(undef,columns),
+        U=Matrix{Float64}(undef,rows,4min(64,modes)),
+        V=Matrix{Float64}(undef,columns,4min(64,modes)),
+        tape=Matrix{Float64}(undef,rows,quadrature))
+end
+
+function _shunt_kernel_matrix!(matrix, targets, sources, g, k; regular = false,
+        split_images = false, scratch=nothing)
     # Same Green function, batched into small Fourier blocks for BLAS. No dense
     # N-by-modes cache: working storage is only 4*64 columns per boundary set.
-    zero_modes = merge(k, (; A = Float64[], B = Float64[], D = Float64[]))
+    zero_modes = merge(k, (; A = (), B = (), D = ()))
     @inbounds for j in eachindex(sources), i in eachindex(targets)
         matrix[i,j] = _shunt_kernel(targets[i], sources[j], g, zero_modes; regular, split_images)
     end
-    ta, tb = g.a ./ conj.(targets), targets ./ g.b
-    sa, sb = g.a ./ conj.(sources), sources ./ g.b
-    tpa, tpb = ones(ComplexF64, length(targets)), ones(ComplexF64, length(targets))
-    spa, spb = ones(ComplexF64, length(sources)), ones(ComplexF64, length(sources))
-    U = Matrix{Float64}(undef, length(targets), 4min(64,length(k.A)))
-    V = Matrix{Float64}(undef, length(sources), size(U,2))
+    storage = scratch === nothing ? _shunt_kernel_storage(length(targets),length(sources),length(k.A)) : scratch
+    nr,nc = length(targets),length(sources)
+    ta,tb = @view(storage.ta[1:nr]),@view(storage.tb[1:nr])
+    sa,sb = @view(storage.sa[1:nc]),@view(storage.sb[1:nc])
+    tpa,tpb = @view(storage.tpa[1:nr]),@view(storage.tpb[1:nr])
+    spa,spb = @view(storage.spa[1:nc]),@view(storage.spb[1:nc])
+    ta .= g.a ./ conj.(targets); tb .= targets ./ g.b
+    sa .= g.a ./ conj.(sources); sb .= sources ./ g.b
+    fill!(tpa,1); fill!(tpb,1); fill!(spa,1); fill!(spb,1)
+    U,V = @view(storage.U[1:nr,:]),@view(storage.V[1:nc,:])
     for first_mode in 1:64:length(k.A)
         modes = first_mode:min(first_mode + 63, length(k.A))
         for (column, m) in enumerate(modes)
@@ -411,6 +458,8 @@ algorithm, and that reference does not prescribe the corner basis.
 
 - `rtol=1e-10`: Relative adaptive quadrature tolerance; the absolute tolerance
   is `0.01rtol` for these dimensionless moments.
+- `atol=0.01rtol`: Absolute tolerance for the dimensionless moment vector.
+- `maxevals=100_000`: Adaptive quadrature evaluation budget.
 - `result=zeros(face.p+1)`: In-place moment workspace, also returned.
 - `segments=nothing`: Optional reusable QuadGK segment buffer.
 
@@ -423,10 +472,10 @@ algorithm, and that reference does not prescribe the corner basis.
 # Errors
 
 An unresolved zero-distance evaluation or failed adaptive quadrature raises
-`ErrorException`; the logarithm is not replaced by an arbitrary finite floor.
+`BoundarySolveError`; the logarithm is not replaced by an arbitrary finite floor.
 """
-function _shunt_log_moments(z,face; rtol = 1e-10,
-        result = zeros(face.p+1), segments = nothing)
+function _shunt_log_moments(z,face; rtol = 1e-10, atol = 0.01rtol,
+        maxevals = 100_000, result = zeros(face.p+1), segments = nothing)
     u,delta = _shunt_face_projection(z,face)
     if hypot(max(abs(u)-1,0),delta) > 0.2
         fill!(result,0)
@@ -450,7 +499,9 @@ function _shunt_log_moments(z,face; rtol = 1e-10,
         end
     end
     sort!(unique!(splits))
+    evaluations = Ref(0)
     function integrand!(output,theta)
+        evaluations[] += 1
         t = cos(theta)
         difference = abs(u) <= 1 ?
             -2sin((theta+theta0)/2)*sin((theta-theta0)/2) : t-u
@@ -463,7 +514,8 @@ function _shunt_log_moments(z,face; rtol = 1e-10,
         end
         # Roundoff may identify the endpoint only after its contribution is
         # below integration accuracy; never manufacture a finite log(0) floor.
-        distance > 0 || error("Unresolved logarithmic integration point.")
+        distance > 0 || throw(BoundarySolveError(:quadrature,
+            (;point=z,theta,face=face.kind),"unresolved logarithmic integration point"))
         weight = sin(theta/2)^(2face.alpha+1)*cos(theta/2)^(2face.beta+1)/face.beta_norm
         _shunt_jacobi!(output,t,face.alpha,face.beta)
         output .*= log(distance)*weight
@@ -471,35 +523,39 @@ function _shunt_log_moments(z,face; rtol = 1e-10,
     # Reuse quadrature work vectors; modal integration must not allocate a new
     # polynomial vector at each of its thousands of function evaluations.
     integral, estimate = quadgk!(integrand!,result,splits;
-        segbuf=segments,rtol,atol = rtol*0.01,order = max(7,cld(face.p+1,2)),maxevals = 100000)
-    estimate <= max(rtol*norm(integral),rtol*0.01) ||
-        error("internal shunt: logarithmic quadrature did not converge")
+        segbuf=segments,rtol,atol,order = max(7,cld(face.p+1,2)),maxevals)
+    tolerance = max(rtol*norm(integral),atol)
+    estimate <= tolerance || throw(BoundarySolveError(:quadrature,
+        (;point=z,face=face.kind,radius=face.radius,phi=face.phi,degree=face.p,
+            span=face.span,mid=face.mid,half=face.half,alpha=face.alpha,beta=face.beta,
+            quadrature=length(face.points),
+            estimate,tolerance,evaluations=evaluations[],maxevals),
+        "logarithmic quadrature did not converge"))
     return integral, estimate
 end
 
-function _shunt_tape_columns!(columns,targets,faces,g,k; log_rtol = 1e-10)
+function _shunt_tape_columns!(columns,targets,faces,g,k; log_rtol = 1e-10,
+        integration=(rtol=log_rtol,atol=0.01log_rtol,maxevals=100_000), scratch=nothing)
     error_bound = 0.0
     offset = 0
     for face in faces
         block = @view columns[:,offset+1:offset+face.p+1]
-        mul!(block,_shunt_kernel_matrix(targets,face.points,g,k; split_images = true),face.weighted)
+        kernel = scratch === nothing ? Matrix{Float64}(undef,length(targets),length(face.points)) :
+            @view scratch.tape[1:length(targets),1:length(face.points)]
+        _shunt_kernel_matrix!(kernel,targets,face.points,g,k; split_images=true,scratch)
+        mul!(block,kernel,face.weighted)
         result = zeros(face.p+1)
         segments = alloc_segbuf(Float64, Vector{Float64}, Float64; size=32)
         for (i,z) in pairs(targets)
             inner,outer = g.a^2/conj(z),g.b^2/conj(z)
             direct_coefficient = 1.0
-            images = Tuple{ComplexF64,Float64}[]
-            for (point,coefficient) in ((inner,k.ra0),(outer,k.rb0))
-                if abs(point-z) <= 8eps(Float64)*g.b
-                    direct_coefficient += coefficient
-                else
-                    push!(images,(point,coefficient))
-                end
-            end
-            push!(images,(z,direct_coefficient))
-            for (point,coefficient) in images
+            inner_same = abs(inner-z) <= 8eps(Float64)*g.b
+            outer_same = abs(outer-z) <= 8eps(Float64)*g.b
+            direct_coefficient += (inner_same ? k.ra0 : 0.0) + (outer_same ? k.rb0 : 0.0)
+            for (point,coefficient) in ((inner,inner_same ? 0.0 : k.ra0),
+                    (outer,outer_same ? 0.0 : k.rb0),(z,direct_coefficient))
                 coefficient == 0 && continue
-                moments,err = _shunt_log_moments(point,face; rtol = log_rtol, result, segments)
+                moments,err = _shunt_log_moments(point,face; integration..., result, segments)
                 @inbounds for n in eachindex(moments)
                     block[i,n] -= (coefficient/g.epsilon)*moments[n]
                 end
@@ -527,7 +583,7 @@ function _shunt_face_targets(faces,n; validation = false)
 end
 
 "Accepted finite-strip discretization; controls change numerical resolution, not geometry."
-const INTERNAL_SHUNT_RESOLUTION = (wire=64, order=32, quadrature=256, modes=1024)
+const INTERNAL_SHUNT_RESOLUTION = ShuntModel.DEFAULT_RESOLUTION
 "Maximum dense collocation storage per local solve [bytes]."
 const INTERNAL_SHUNT_MATRIX_BYTES = 384 * 1024^2
 
@@ -541,55 +597,18 @@ const InternalShuntDiagnostic = NamedTuple{
     (:boundary_residual,:wire_residual,:tape_residual,:common_residual,
         :penetration_indicator,:reciprocity,:log_moment_error,:unknowns,
         :equations,:matrix_bytes,:level),
-    Tuple{Float64,Float64,Float64,Float64,Float64,Float64,Float64,
+    Tuple{Union{Nothing,Float64},Union{Nothing,Float64},Union{Nothing,Float64},
+        Union{Nothing,Float64},Union{Nothing,Float64},Float64,Float64,
         Int,Int,Int,typeof(INTERNAL_SHUNT_RESOLUTION)}}
 
-"""
-$(TYPEDEF)
-
-Store one prepared lossless local terminal operator. `C` is shield-referenced
-capacitance \\[F/m\\]; `P` is its charge-potential inverse \\[m/F\\]. No
-boundary matrices survive preparation.
-
-$(TYPEDFIELDS)
-"""
-struct InternalShuntBlock{T <: Real}
-    "Global assembly conductor range."
-    assembly::UnitRange{Int}
-    "Global local-domain terminals including the reference shield."
-    terminals::UnitRange{Int}
-    "Local capacitance \\[F/m\\]."
-    C::Matrix{T}
-    "Local charge-potential coefficients \\[m/F\\]."
-    P::Matrix{T}
-end
-
-"""
-$(TYPEDEF)
-
-Own prepared internal shunt blocks and their bounded diagnostic records for
-one calculation. Read-only blocks can be shared across identical lossless
-formulations; no mutable numerical workspace is shared.
-
-$(TYPEDFIELDS)
-"""
-struct PreparedInternalShunt{T <: Real, D}
-    "Local blocks, in physical terminal order."
-    blocks::Vector{InternalShuntBlock{T}}
-    "Conductor-owned radial intervals replaced by the local blocks."
-    covered::BitVector
-    "Per-domain numerical diagnostics without matrices or geometry."
-    diagnostics::D
-    "Number of distinct boundary solves performed."
-    solves::Int
-end
-
-function _shunt_values(domain::InternalShuntDomain{T}, methods, frequency, temperature) where {T}
+function _shunt_values(domain::InternalShuntDomain{T}, methods) where {T}
+    # The admitted lossless laws depend only on relative permittivity. Resistivity
+    # temperature corrections do not belong to these blueprint coefficients.
+    reference_frequency = one(T)
     epsilon(material) = begin
         law = material.kind === :semicon ? methods.semicon_admittance : methods.insulation_admittance
-        kappa = constitutive(law, material, frequency, temperature;
-            temperature_dependence=methods.temperature_dependence)
-        imag(kappa)/(2pi*frequency*(one(T)*8.8541878128e-12))
+        kappa = law(material, reference_frequency, material.T0)
+        imag(kappa)/(2pi*reference_frequency*(one(T)*8.8541878128e-12))
     end
     values = T[domain.a,domain.b,epsilon(domain.material)]
     for layers in (domain.left,domain.right), layer in layers
@@ -659,11 +678,17 @@ function _shunt_rhs!(rhs, points, terminals, g)
     return rhs
 end
 
-function _shunt_matrix!(matrix, points, sources, faces, g, k)
+function _shunt_matrix!(matrix, points, sources, faces, g, k;
+        integration=ShuntModel.DEFAULT_INTEGRATION, scratch=nothing, stage=:assembly)
     count = length(sources)
-    _shunt_kernel_matrix!(@view(matrix[:,1:count]),points,sources,g,k)
-    tape = _shunt_tape_columns!(@view(matrix[:,count+1:end]),points,faces,g,k)
-    return tape.log_moment_error
+    try
+        _shunt_kernel_matrix!(@view(matrix[:,1:count]),points,sources,g,k;scratch)
+        tape = _shunt_tape_columns!(@view(matrix[:,count+1:end]),points,faces,g,k;integration,scratch)
+        return tape.log_moment_error
+    catch exception
+        exception isa BoundarySolveError || rethrow()
+        throw(BoundarySolveError(exception.category,merge(exception.context,(;stage)),exception.message))
+    end
 end
 
 function _shunt_charge_map(g, sources, faces, level)
@@ -704,8 +729,12 @@ moments, not by symmetrizing the answer.
 
 # Keywords
 
-- `level`: Fixed numerical resolution, defaulting to the accepted prototype.
+- `level`: Fixed numerical resolution; the reference settings are not an
+  accuracy guarantee for arbitrary geometry or weak terminal couplings.
 - `retain=false`: Retain the factorization only for local differentiation.
+- `integration`: Dimensionless logarithmic-moment quadrature controls.
+- `audit=false`: Evaluate independent boundary-grid residuals. When disabled,
+  those diagnostic fields are `nothing`; the terminal solve is unchanged.
 
 # Returns
 
@@ -723,60 +752,98 @@ establish an accuracy bound for this combined discretization.
 
 # Errors
 
-Memory-budget, rank and boundary-resolution failures are `ErrorException`, not
+Memory-budget, rank and boundary-resolution failures are `BoundarySolveError`, not
 geometry `DomainError`; Monte Carlo must not condition its samples on them.
 """
-Base.@constprop :aggressive function _shunt_capacitance(g;level=INTERNAL_SHUNT_RESOLUTION,retain=false)
-    return _shunt_capacitance(g,Val(retain);level)
+Base.@constprop :aggressive function _shunt_capacitance(g;level=INTERNAL_SHUNT_RESOLUTION,
+        retain=false,integration=ShuntModel.DEFAULT_INTEGRATION,audit=false)
+    return _shunt_capacitance(g,Val(retain);level,integration,audit)
 end
 
-function _shunt_capacitance(g,::Val{retain};level=INTERNAL_SHUNT_RESOLUTION) where {retain}
+function _shunt_capacitance(g,::Val{retain};level=INTERNAL_SHUNT_RESOLUTION,
+        integration=ShuntModel.DEFAULT_INTEGRATION,audit=false) where {retain}
     estimated_unknowns = length(g.wires)*level.wire + 4length(g.tapes)*(level.order+1)
     estimated_rows = 2length(g.wires)*level.wire +
         4length(g.tapes)*max(24,4(level.order+1))
     estimated_unknowns > 0 && estimated_rows >= estimated_unknowns ||
         error("internal shunt: insufficient boundary equations")
-    estimated_unknowns <= div(INTERNAL_SHUNT_MATRIX_BYTES,8estimated_rows) || error(
-        "internal shunt: requested resolution exceeds the dense storage budget")
+    estimated_unknowns <= div(INTERNAL_SHUNT_MATRIX_BYTES,8estimated_rows) || throw(
+        BoundarySolveError(:budget,(;estimated_unknowns,estimated_rows),
+            "requested resolution exceeds the dense storage budget"))
     discretization = _shunt_discretization(g,level)
     (;faces,points,terminals) = discretization
     sources = _shunt_points(g,level.wire,0.75).sources
     n = length(sources)+sum(f->f.p+1,faces;init=0)
     m = length(points)
     n > 0 && m >= n || error("internal shunt: insufficient boundary equations")
-    n <= div(INTERNAL_SHUNT_MATRIX_BYTES,8m) || error(
-        "internal shunt: $m by $n boundary matrix exceeds the $(INTERNAL_SHUNT_MATRIX_BYTES÷1024^2) MiB storage budget")
+    n <= div(INTERNAL_SHUNT_MATRIX_BYTES,8m) || throw(BoundarySolveError(:budget,(;rows=m,columns=n),
+        "boundary matrix exceeds the $(INTERNAL_SHUNT_MATRIX_BYTES÷1024^2) MiB storage budget"))
     k = _shunt_kernel_coefficients(g,level.modes)
     matrix = Matrix{Float64}(undef,m,n)
-    moment_error = _shunt_matrix!(matrix,points,sources,faces,g,k)
+    kernel_storage = _shunt_kernel_storage(max(m,192),max(length(sources),level.quadrature),
+        level.modes;quadrature=isempty(faces) ? 0 : level.quadrature)
+    moment_error = _shunt_matrix!(matrix,points,sources,faces,g,k;integration,scratch=kernel_storage)
     rhs = _shunt_rhs!(zeros(m,g.ports),points,terminals,g)
     scales = Vector{Float64}(undef,n)
     @inbounds for j in 1:n
         scales[j] = norm(@view matrix[:,j])
-        isfinite(scales[j]) && scales[j] > 0 || error("internal shunt: degenerate charge column")
+        isfinite(scales[j]) && scales[j] > 0 || throw(BoundarySolveError(
+            :rank,(;column=j),"degenerate charge column"))
         @views matrix[:,j] ./= scales[j]
     end
     # In-place pivoted QR avoids retaining K, scaled K, U and V simultaneously.
     factor = qr!(matrix,ColumnNorm())
     diagonal = [abs(factor.factors[i,i]) for i in 1:n]
     cutoff = max(m,n)*eps(Float64)*maximum(diagonal)
-    count(>(cutoff),diagonal) == n || error("internal shunt: unresolved rank-deficient charge basis")
+    count(>(cutoff),diagonal) == n || throw(BoundarySolveError(:rank,(;cutoff),
+        "unresolved rank-deficient charge basis"))
     scaled_coefficients = factor\rhs
     coefficients = scaled_coefficients./scales
     charge = _shunt_charge_map(g,sources,faces,level)
     C = (2pi*8.8541878128e-12).*(charge*coefficients)
     C[1,1] += 2pi*8.8541878128e-12/g.Rtotal
-    all(isfinite,C) || error("internal shunt: nonfinite terminal capacitance")
+    all(isfinite,C) || throw(BoundarySolveError(:nonfinite,(;),"nonfinite terminal capacitance"))
+    audit_result = audit ? _shunt_audit(g,level,sources,k,coefficients,n,kernel_storage,integration) : nothing
+    boundary = audit_result === nothing ? nothing : audit_result.boundary
+    common = audit_result === nothing ? nothing : audit_result.common
+    wire_residual = audit_result === nothing ? nothing : audit_result.wire_residual
+    tape_residual = audit_result === nothing ? nothing : audit_result.tape_residual
+    audit_result === nothing || (moment_error=max(moment_error,audit_result.moment_error))
+    reciprocity = norm(C-transpose(C))/norm(C)
+    reciprocity <= 0.01 || throw(BoundarySolveError(:reciprocity,(;reciprocity),
+        "terminal reciprocity did not resolve"))
+    minimum(eigvals!(copy((C+transpose(C))/2))) > 0 || throw(BoundarySolveError(
+        :passivity,(;),"nonpassive local capacitance"))
+    leakage = abs(sum(@view C[1,:]))
+    coupling = sum(abs,@view C[1,2:end])
+    indicator = common === nothing ? nothing : iszero(leakage) ? Inf : common*coupling/leakage
+    diagnostic = InternalShuntDiagnostic((boundary,wire_residual,tape_residual,
+        common,indicator,reciprocity,moment_error,n,m,8m*n,level))
+    state = if retain
+        residual = factor.Q' * rhs
+        residual[1:n,:] .= 0
+        residual = factor.Q * residual
+        (;factor,scales,scaled_coefficients,coefficients,charge,residual,
+            points,terminals,sources,faces,k,level,integration)
+    else
+        nothing
+    end
+    return (;C,diagnostic,state)
+end
+
+function _shunt_audit(g,level,sources,k,coefficients,n,kernel_storage,integration)
     checks = _shunt_discretization(g,level;validation=true)
     scratch = Matrix{Float64}(undef,min(192,length(checks.points)),n)
     errors = zeros(size(scratch,1),g.ports)
     boundary = common = wire_residual = tape_residual = 0.0
+    moment_error = 0.0
     for start in 1:192:length(checks.points)
         stop = min(start+191,length(checks.points))
         rows = 1:(stop-start+1)
         block = @view scratch[rows,:]
         selected = @view checks.points[start:stop]
-        moment_error = max(moment_error,_shunt_matrix!(block,selected,sources,faces,g,k))
+        moment_error = max(moment_error,_shunt_matrix!(block,selected,sources,checks.faces,g,k;
+            integration,scratch=kernel_storage,stage=:audit))
         residual = @view errors[rows,:]
         _shunt_rhs!(residual,selected,@view(checks.terminals[start:stop]),g)
         mul!(residual,block,coefficients,1.0,-1.0)
@@ -791,27 +858,9 @@ function _shunt_capacitance(g,::Val{retain};level=INTERNAL_SHUNT_RESOLUTION) whe
             end
         end
     end
-    boundary <= 0.06 || error("internal shunt: sampled boundary residual $boundary exceeds 0.06 V per unit excitation")
-    reciprocity = norm(C-transpose(C))/norm(C)
-    reciprocity <= 0.01 || error("internal shunt: terminal reciprocity did not resolve ($reciprocity)")
-    minimum(eigvals!(copy((C+transpose(C))/2))) > 0 || error("internal shunt: nonpassive local capacitance")
-    leakage = abs(sum(@view C[1,:]))
-    coupling = sum(abs,@view C[1,2:end])
-    indicator = iszero(leakage) ? Inf : common*coupling/leakage
-    diagnostic = (;boundary_residual=boundary,wire_residual,tape_residual,
-        common_residual=common,penetration_indicator=indicator,reciprocity,
-        log_moment_error=moment_error,unknowns=n,equations=m,
-        matrix_bytes=8m*n,level)
-    state = if retain
-        residual = factor.Q' * rhs
-        residual[1:n,:] .= 0
-        residual = factor.Q * residual
-        (;factor,scales,scaled_coefficients,coefficients,charge,residual,
-            points,terminals,sources,faces,k,level)
-    else
-        nothing
-    end
-    return (;C,diagnostic,state)
+    boundary <= 0.06 || throw(BoundarySolveError(:audit,(;boundary),
+        "sampled boundary residual exceeds 0.06 V per unit excitation"))
+    return (;boundary,common,wire_residual,tape_residual,moment_error)
 end
 
 """
@@ -848,13 +897,15 @@ function _shunt_tangent(values, direction, domain, state, step)
     matrix_p,matrix_m = Matrix{Float64}(undef,count,n),Matrix{Float64}(undef,count,n)
     bp,bm = zeros(count,plus.ports),zeros(count,plus.ports)
     drive,stationarity = zeros(m,plus.ports),zeros(n,plus.ports)
+    scratch = _shunt_kernel_storage(count,max(length(sp),state.level.quadrature),
+        state.level.modes;quadrature=isempty(dp.faces) ? 0 : state.level.quadrature)
     for start in 1:192:m
         stop = min(start+191,m)
         rows = 1:(stop-start+1)
         ap,am = @view(matrix_p[rows,:]),@view(matrix_m[rows,:])
         xp,xm = @view(dp.points[start:stop]),@view(dm.points[start:stop])
-        _shunt_matrix!(ap,xp,sp,dp.faces,plus,kp)
-        _shunt_matrix!(am,xm,sm,dm.faces,minus,km)
+        _shunt_matrix!(ap,xp,sp,dp.faces,plus,kp;integration=state.integration,scratch,stage=:derivative)
+        _shunt_matrix!(am,xm,sm,dm.faces,minus,km;integration=state.integration,scratch,stage=:derivative)
         ap .-= am
         ap ./= 2step
         rp,rm = @view(bp[rows,:]),@view(bm[rows,:])
@@ -883,7 +934,7 @@ end
 """
 $(TYPEDSIGNATURES)
 
-Evaluate a prepared local shunt domain from its physical scalar descriptors.
+Evaluate a local shunt domain from its physical scalar descriptors.
 This non-exported extension protocol lets Measurements preserve correlations
 without introducing uncertain scalars into dense numerical workspaces.
 
@@ -891,12 +942,14 @@ without introducing uncertain scalars into dense numerical workspaces.
 
 - `values`: Host/layer radii, wire coordinates/radii and tape dimensions
   \\[m\\], relative permittivities and tape angles \\[rad\\], in the order
-  supplied by Engine preparation.
-- `domain`: Engine-prepared geometry and terminal ownership.
+  supplied during blueprint construction.
+- `domain`: Extracted local geometry and terminal ownership.
 
 # Keywords
 
-- `level`: Numerical resolution of the accepted finite-strip calculation.
+- `level`: Wire, tape, and Fourier discretization controls.
+- `integration`: Dimensionless logarithmic-moment quadrature controls.
+- `audit=false`: Enable independent boundary-grid and derivative step checks.
 - `retain=false`: Retain the nominal factorization for differentiation tests.
 - `directions=nothing`: Optional columns of physical input perturbations per
   unit dimensionless direction parameter.
@@ -907,14 +960,16 @@ without introducing uncertain scalars into dense numerical workspaces.
   With `directions`, also return checked implicit capacitance derivatives.
 """
 function internal_shunt_response(values::AbstractVector{<:Real}, domain;
-        level=INTERNAL_SHUNT_RESOLUTION,retain=false,directions=nothing)
+        level=INTERNAL_SHUNT_RESOLUTION,retain=false,directions=nothing,
+        integration=ShuntModel.DEFAULT_INTEGRATION,audit=false)
     numerical = Float64.(values)
     result = try
-        _shunt_capacitance(_shunt_data(numerical,domain);level,
+        _shunt_capacitance(_shunt_data(numerical,domain);level,integration,audit,
             retain=retain || directions !== nothing)
     catch exception
-        exception isa ErrorException || rethrow()
-        error("internal shunt, design $(domain.design), terminals $(domain.terminals): " * exception.msg)
+        exception isa BoundarySolveError || rethrow()
+        throw(BoundarySolveError(exception.category,merge(exception.context,
+            (;design=domain.design,terminals=domain.terminals)),exception.message))
     end
     directions === nothing && return result
     size(directions,1) == length(numerical) || throw(DimensionMismatch(
@@ -927,56 +982,24 @@ function internal_shunt_response(values::AbstractVector{<:Real}, domain;
         end
         iszero(relative) && (derivatives[column,:] .= 0; continue)
         step = cbrt(eps(Float64))/relative
-        coarse = _shunt_tangent(numerical,direction,domain,result.state,step)
         fine = _shunt_tangent(numerical,direction,domain,result.state,step/2)
-        all(isfinite,fine) && norm(fine-coarse) <=
-            0.02max(norm(fine),norm(coarse)) + 256eps(Float64)*norm(result.C)/step ||
-            error("internal shunt, design $(domain.design), terminals $(domain.terminals): " *
-                "uncertainty sensitivity did not resolve on step refinement")
+        all(isfinite,fine) || throw(BoundarySolveError(:derivative,
+            (;design=domain.design,terminals=domain.terminals,column),"nonfinite sensitivity"))
+        if audit
+            coarse = _shunt_tangent(numerical,direction,domain,result.state,step)
+            norm(fine-coarse) <= 0.02max(norm(fine),norm(coarse)) +
+                256eps(Float64)*norm(result.C)/step || throw(BoundarySolveError(:derivative,
+                (;design=domain.design,terminals=domain.terminals,column),
+                "uncertainty sensitivity did not resolve on step refinement"))
+        end
         derivatives[column,:] .= vec(fine)
     end
     return (;C=result.C,diagnostic=result.diagnostic,
         state=retain ? result.state : nothing,tangents=derivatives)
 end
 
-function prepare_internal_shunt(domains::Vector{InternalShuntDomain{T}}, count,
-        methods, frequency, temperature;level=INTERNAL_SHUNT_RESOLUTION) where {T}
-    isempty(domains) && return nothing
-    _shunt_lossless(methods) || return nothing
-    blocks = InternalShuntBlock{T}[]
-    covered = falses(count)
-    # A concrete vector is inferred from the first result, independent of cable
-    # count or shape. It never retains the expensive collocation matrix.
-    first_result = internal_shunt_response(_shunt_values(first(domains),methods,frequency,temperature),
-        first(domains);level)
-    diagnostics = typeof(first_result.diagnostic)[]
-    solves = 0
-    for (index,domain) in pairs(domains)
-        previous = findfirst(i->_shunt_domain_equal(domain,domains[i]),1:(index-1))
-        if previous === nothing
-            result = index == 1 ? first_result :
-                internal_shunt_response(_shunt_values(domain,methods,frequency,temperature),domain;level)
-            C = Matrix{T}(result.C)
-            P = lu(C)\Matrix{T}(I,size(C,1),size(C,1))
-            push!(diagnostics,result.diagnostic)
-            solves += 1
-        else
-            C,P = blocks[previous].C,blocks[previous].P
-            push!(diagnostics,diagnostics[previous])
-        end
-        push!(blocks,InternalShuntBlock(domain.assembly,domain.terminals,C,P))
-        covered[first(domain.terminals):last(domain.terminals)-1] .= true
-    end
-    return PreparedInternalShunt(blocks,covered,diagnostics,solves)
-end
-
-_shunt_covered(::Nothing, index) = false
-_shunt_covered(shunt::PreparedInternalShunt, index) = shunt.covered[index]
-_shunt_potential!(destination, ::Nothing) = destination
-_shunt_admittance!(destination, ::Nothing, s) = destination
-
-function _shunt_potential!(destination, shunt::PreparedInternalShunt)
-    for block in shunt.blocks
+function _shunt_potential!(destination, blocks::AbstractVector{<:InternalShuntBlock})
+    for block in blocks
         inner,reference = first(block.terminals),last(block.terminals)
         # Charge on the inner anchor includes all conductors shielded inside it.
         @inbounds for j in first(block.assembly):reference-1, i in first(block.assembly):reference-1
@@ -986,8 +1009,8 @@ function _shunt_potential!(destination, shunt::PreparedInternalShunt)
     return destination
 end
 
-function _shunt_admittance!(destination, shunt::PreparedInternalShunt, s)
-    for block in shunt.blocks
+function _shunt_admittance!(destination, blocks::AbstractVector{<:InternalShuntBlock}, s)
+    for block in blocks
         first_index,reference = first(block.terminals),last(block.terminals)
         @inbounds for j in axes(block.C,2), i in axes(block.C,1)
             value = s*block.C[i,j]
@@ -999,14 +1022,4 @@ function _shunt_admittance!(destination, shunt::PreparedInternalShunt, s)
         end
     end
     return destination
-end
-
-function _shunt_details(domains, prepared)
-    resolved = prepared !== nothing
-    return (treatment=resolved ? :resolved_local : :equivalent_coaxial,
-        domains=[(design=d.design,terminals=collect(d.terminals)) for d in domains],
-        solves=resolved ? prepared.solves : 0,
-        diagnostics=resolved ? prepared.diagnostics : InternalShuntDiagnostic[],
-        reason=resolved ? :qualified_lossless_domain :
-            isempty(domains) ? :equivalent_geometry : :equivalent_material_law)
 end

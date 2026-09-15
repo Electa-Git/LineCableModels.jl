@@ -5,10 +5,11 @@ $(TYPEDEF)
 Select the LineCableModels backend for concentric coaxial cable assemblies.
 
 Series impedance uses the equivalent concentric representation supplied by
-DataModel. Internal shunt assembly additionally resolves eligible open wires
-and finite tapes in a lossless, radially layered circular shielded domain.
-Other geometry and material selections retain their equivalent-coaxial
-treatment. This geometry selection introduces no new formulation keyword.
+DataModel. The default local shunt model uses coaxial annuli. Explicit
+`shunt_model=:boundary` resolves eligible open wires and finite tapes in a
+lossless, radially layered circular shielded domain during blueprint
+construction. Other geometry and material selections retain their
+equivalent-coaxial treatment.
 """
 struct LineCableModelsCoaxial end
 
@@ -196,6 +197,7 @@ abstract type InsulationImpedanceFormulation <: AbstractImpedanceFormulation end
 abstract type EarthImpedanceFormulation <: AbstractImpedanceFormulation end
 
 abstract type AbstractAdmittanceFormulation <: AbstractFormulation end
+abstract type ShuntModelFormulation <: AbstractAdmittanceFormulation end
 abstract type InsulationAdmittanceFormulation <: AbstractAdmittanceFormulation end
 abstract type SemiconAdmittanceFormulation <: AbstractAdmittanceFormulation end
 abstract type EarthAdmittanceFormulation <: AbstractAdmittanceFormulation end
@@ -380,8 +382,10 @@ scalar or an explicit `Grid`/`Gridspace`; varying inputs return a
 
 # Keywords
 
-- `insulation_admittance`: Insulation admittivity law; `:default` is lossless.
-- `semicon_admittance`: Semicon admittivity law; `:default` is lossless.
+- `insulation_admittance`: Insulation admittivity law; `:default` routes to
+  `:lossless`.
+- `semicon_admittance`: Semicon admittivity law; `:default` routes to
+  `:lossless`.
 - `earth_properties`: Soil frequency-dependent constitutive law; `:default` and
   `nothing` preserve the declared static soil. Equivalent-earth reductions are
   unsupported. Air uses its declared static properties.

@@ -157,12 +157,12 @@ end
 
 function _retained_details(workspace::LineParametersWorkspace{<:Real, <:NamedTuple, <:NamedTuple,
         <:NamedTuple, Nothing})
-    (internal_shunt=_shunt_details(workspace.input.shunt_domains,workspace.invariants.shunt),)
+    (shunt_model=workspace.input.cable.shunt_details,)
 end
 
 function _retained_details(workspace::LineParametersWorkspace)
     capture = workspace.capture
-    shunt = (internal_shunt=_shunt_details(workspace.input.shunt_domains,workspace.invariants.shunt),)
+    shunt = (shunt_model=workspace.input.cable.shunt_details,)
     capture === nothing && return shunt
     input = workspace.input
     return merge(shunt, (
@@ -248,7 +248,7 @@ function _compute(
                    first(case.interactions).pair.layers...,
                    case.declaration.options) for case in bound.cases]
     end)
-    local_fields = (:internal_impedance, :insulation_impedance,
+    local_fields = (:internal_impedance, :insulation_impedance, :shunt_model,
         :insulation_admittance, :semicon_admittance, :earth_properties, :temperature_dependence)
     LocalNumerical = NamedTuple{local_fields, NTuple{length(local_fields), NamedTuple}}
     local_numerical::LocalNumerical = LocalNumerical(map(local_fields) do name
@@ -263,7 +263,7 @@ function _compute(
         selected.options
     end)
     FormulaNumerical = NamedTuple{(local_fields..., :earth_impedance, :earth_admittance),
-        Tuple{NamedTuple, NamedTuple, NamedTuple, NamedTuple, NamedTuple, NamedTuple,
+        Tuple{NamedTuple, NamedTuple, NamedTuple, NamedTuple, NamedTuple, NamedTuple, NamedTuple,
             Vector{Record}, Vector{Record}}}
     numerical::FormulaNumerical = FormulaNumerical((values(local_numerical)...,
         values(external_numerical)...))
@@ -398,21 +398,18 @@ function _compute(
         @warn("Frequencies above 100 MHz exceed the quasi-TEM validity range.",
             max_frequency=maximum(problem.frequencies),)
     T = eltype(problem)
-    blueprints = CableBlueprint{T}[flatten(engine, design, T)
-                                   for design in problem.system.designs]
-    input = lineinput(problem, blueprints)
-    lossless = findfirst(f->_shunt_lossless(f.methods),formulations)
-    prepared_shunt = lossless === nothing ? nothing :
-        prepare_internal_shunt(input.shunt_domains,input.n_phases,
-            formulations[lossless].methods,first(input.freq),input.temperature)
-    ShuntStorage = Union{Nothing,PreparedInternalShunt{T,Vector{InternalShuntDiagnostic}}}
-    input = merge(input,NamedTuple{(:prepared_shunt,),Tuple{ShuntStorage}}((prepared_shunt,)))
+    blueprints = flatten(engine, problem.system.designs, T, formulations)
+    inputs = [lineinput(problem, first(blueprints))]
+    for index in 2:length(blueprints)
+        previous = findfirst(other -> other === blueprints[index], blueprints)
+        push!(inputs, previous < index ? inputs[previous] : lineinput(problem, blueprints[index]))
+    end
     first_result = _compute(
         engine,
         problem,
         first(formulations),
         execution,
-        input
+        first(inputs)
     )
     values = Vector{typeof(first_result)}(undef, length(formulations))
     values[1] = first_result
@@ -423,7 +420,7 @@ function _compute(
             problem,
             formulations[index],
             execution,
-            input
+            inputs[index]
         )
         typeof(value) === eltype(values) || throw(ArgumentError(
             "line-parameter formulations produced inconsistent result types",
@@ -465,8 +462,9 @@ Compute frequency-dependent line parameters with the coaxial backend.
 
 The completed data model supplies the equivalent concentric representation
 used for series impedance and ordinary radial dielectric intervals. Eligible
-open wire/tape domains also retain their physical geometry for the local shunt
-calculation. The physical system is normalized once into a backend-owned
+open wire/tape domains retain their physical geometry for the explicitly selected
+`shunt_model=:boundary` calculation; the default uses annular geometry. The
+physical system is normalized once into a backend-owned
 workspace, and all reusable numerical storage is allocated before the frequency
 loop. `trace=true` retains completed
 intermediate matrices under `details(result).trace`; it does not change the
@@ -485,6 +483,8 @@ result type.
   before the next calculation. `index` is local to the formulation collection
   (`1` for a scalar call). Its return value is ignored; exceptions propagate.
   The callback must not mutate the problem or result. The default is `nothing`.
+  The selected local shunt coefficients are constructed in the cable blueprints;
+  no separate preparation call or execution option is required.
 
 # Returns
 

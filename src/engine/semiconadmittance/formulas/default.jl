@@ -2,52 +2,29 @@
 """
 $(TYPEDSIGNATURES)
 
-**Identification.** Explicit default lossless semiconducting-screen approximation.
-
-**Expression.** ``\\kappa=j\\omega\\varepsilon_0\\varepsilon_r``. Retain
-the screen geometry and permittivity but suppress conductivity and loss tangent.
-
-**Reference.** Lossless dielectric approximation to Maxwell's constitutive
-relation; request an explicit lossy law to represent semicon conduction.
+`:default` is the package routing alias for `:lossless`; it has no separate
+constitutive equation.
 """
-description(::Type{<:Formula{:default}}; compact::Bool=false) = compact ? "default" : "Default lossless semiconducting-screen admittivity"
+function description(::Type{<:Formula{:default}}; compact::Bool=false)
+    compact ? "Default" : "Default routing alias to lossless semiconducting-screen admittivity"
+end
 
 """
 $(TYPEDSIGNATURES)
 
-Treat a semiconducting screen as a lossless dielectric under the default
-constitutive choice:
-
-```math
-\\kappa_s=j\\omega\\varepsilon_0\\varepsilon_{r,s}.
-```
-
-This explicit approximation retains permittivity and suppresses conductivity
-and dielectric loss tangent. Select a lossy relation explicitly to retain loss.
-
-# Arguments
-
-- `material`: Semiconducting material and relative permittivity.
-- `frequency`: Evaluation frequency \\[Hz\\].
-- `temperature`: Operating temperature \\[°C\\]; this relation
-  applies no temperature correction.
-- `values`: Empty physical-parameter tuple.
-- `options`: Empty numerical sections for this equation.
-- `workspace`: Optional execution resources.
-
-# Returns
-
-- Complex lossless admittivity \\[S/m\\].
+Route the default semiconducting-screen selection to the explicit `:lossless`
+constitutive relation.
 """
 @inline function semicon_material(
         ::Val{:default}, material::Material{T}, frequency::T,
         temperature::T, values::NamedTuple, options::NamedTuple, workspace
 ) where {T <: Real}
-    ε₀ = one(T) * 88541878128 * (one(T) * 10)^(-22)
-    ω = 2 * (one(T) * π) * frequency
-    return complex(zero(T), ω) * ε₀ * material.eps_r
+    semicon_material(
+        Val(:lossless), material, frequency, temperature, values, options, workspace
+    )
 end
 
-computation_options(::FormulaMethod{:default, typeof(semicon_material)}) = (;)
+computation_options(::FormulaMethod{:default, typeof(semicon_material)}) =
+    computation_options(FormulaMethod(Val(:lossless), semicon_material))
 
 :default

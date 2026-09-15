@@ -9,6 +9,15 @@ and versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- Normalized author-formula identifiers to lowercase main-author/year symbols
+  and made their compact descriptions readable author names.
+- Renamed the dielectric constitutive choices to `:lossy` and `:lossless`,
+  with `:default` retained as a routing alias; Ametani (2004) remains an
+  application reference rather than the formula name.
+- Registered the literature identities for the Schelkunoff internal-impedance,
+  Ametani insulation-impedance, and Chrysochos modal routes while retaining
+  their package-owned `:default` selections; formula hook IDs are now directly
+  queryable through `formula_id`.
 - Refactored the `Material`-to-`compute` path around natural Julia promotion,
   owner-local validation, explicit definitions, immutable solver input, and scoped console
   logging.
@@ -68,15 +77,15 @@ and versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - Replaced nominal author-formula types with stable literature symbols,
   formula-owned typed functors, overridable leaf routes, deterministic formula
   discovery, and an explicit longitudinal propagation-constant path.
-- Ported nine legacy soil-dispersion laws into one discovered
-  `earthprops/fd/formulas/authoryear.jl` file per literature identity, with SI
-  conversion and typed assumptions in place of MATLAB flags and runtime
-  coefficient files.
+- Ported nine legacy soil-dispersion laws into discovered
+  `earth/frequencydependent/formulas/mainauthorYear.jl` files per literature
+  identity, with SI conversion and typed assumptions in place of MATLAB flags
+  and runtime coefficient files.
 - Moved equivalent homogeneous-earth rules to `EarthProps.EHEM`, separated
   before-FD and after-FD composition by dispatch, and evaluated the resulting
   material per conductor pair before the shared earth-impedance/admittance
-  calculations. Added the conductivity-only `:MartinsBritto2020` and complex
-  propagation-constant `:Xue2021` recurrences as discovered formulas.
+  calculations. Added the conductivity-only `:martinsbritto2020` and complex
+  propagation-constant `:xue2021` recurrences as discovered formulas.
 - Added the public `formula(:AuthorYear; ...)` selector. Each formulation owner
   resolves the same wrapper locally, while EHEM order is selected with
   `order=:before` or `order=:after` without exposing sequence wrappers.

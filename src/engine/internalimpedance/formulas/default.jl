@@ -34,6 +34,9 @@ Transmission Lines and Cylindrical Shields,” *Bell System Technical Journal*,
 13, 532–579, 1934; A. Ametani, “A General Formulation of Impedance and
 Admittance of Cables,” *IEEE Transactions on Power Apparatus and Systems*,
 PAS-99(3), 902–910, 1980. DOI: 10.1109/TPAS.1980.319718.
+
+The same route is also registered as `:schelkunoff1934`; `:default` remains the
+package-owned selection.
 """
 function description(::Type{<:Formula{:default}}; compact::Bool=false)
     compact ? "default" : "Schelkunoff exact round-conductor surface impedances (1934)"

@@ -38,7 +38,7 @@ model = load_case(:two_insulated_wires;
     variation=ExactOverrides(frequencies=[1.0, 10.0, 37.0, 1e3], temperature=60.0))
 problem = model.problem # nominal_problem retains the original case baseline.
 reference = Formulation()
-formulations = Formulation(earth_impedance=Grid((:default, :Pollaczek1926)))
+formulations = Formulation(earth_impedance=Grid((:default, :pollaczek1926)))
 definition = benchmark_definition(model; id=:soil_comparison,
     source_file=@__FILE__, reference, formulations, collection=:manual,
     report=BenchmarkTableDefinition())
@@ -181,7 +181,7 @@ The shared report works with live results independently of Gauntlet:
 using LineCableModels
 using LineCableModels.ReportBuilder: BenchmarkTableDefinition
 
-selected = Formulation(earth_impedance=Grid((:default, :Pollaczek1926)))
+selected = Formulation(earth_impedance=Grid((:default, :pollaczek1926)))
 reference = compute(problem, Formulation())
 candidates = compute(problem, selected)
 artifact = report(BenchmarkTableDefinition(), (; reference, candidate=candidates))

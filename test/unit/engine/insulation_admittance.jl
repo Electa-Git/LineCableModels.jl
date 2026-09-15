@@ -1,9 +1,9 @@
 @testitem "Engine / dielectric admittance / analytical layer and lossless limit" tags=[:unit] setup=[
     UseEngineSupport, TestNumerics] begin
 
-    formulation=InsulationAdmittance.Formula(:Ametani2004)
+    formulation=InsulationAdmittance.Formula(:lossy)
     lossless=InsulationAdmittance.Formula(:default)
-    semicon=SemiconAdmittance.Formula(:Ametani2004)
+    semicon=SemiconAdmittance.Formula(:lossy)
 
     for T in (Float32, Float64, BigFloat)
         setprecision(BigFloat, 128) do
@@ -100,13 +100,13 @@ end
                     EN.InsulationAdmittance.insulation_material :
                     EN.SemiconAdmittance.semicon_material
         @eval LineCableModels.computation_options(
-            ::LineCableModels.FormulaMethod{:Ametani2004, typeof($operation)}, ::$(typeof(route))) = (;)
-        selected = owner.Formula(:Ametani2004; hooks = (contribution = route,))
-        explicit = owner.Formula(Val(:Ametani2004); hooks = (contribution = route,))
+            ::LineCableModels.FormulaMethod{:lossy, typeof($operation)}, ::$(typeof(route))) = (;)
+        selected = owner.Formula(:lossy; hooks = (contribution = route,))
+        explicit = owner.Formula(Val(:lossy); hooks = (contribution = route,))
         @test selected == explicit
-        @test formula_id(selected) === :Ametani2004
+        @test formula_id(selected) === :lossy
         @test selected.parameters === values
-        @test_throws ArgumentError owner.Formula(:Ametani2004; parameters = (unrecognized = true,))
+        @test_throws ArgumentError owner.Formula(:lossy; parameters = (unrecognized = true,))
         material = Material(kind, 100.0f0, 2.3f0, 1.0f0, 20.0f0, 0.0f0)
         for (frequency, temperature) in ((50.0f0, 20.0f0), (50.0, 20),
             (50, 20.0f0), (BigFloat(50), 20.0))
@@ -195,7 +195,7 @@ end
 
     formulation=Formulation(;
         insulation_admittance = formula(:default),
-        semicon_admittance = formula(:Ametani2004),
+        semicon_admittance = formula(:lossy),
         earth_admittance = :default,
         options = (
             reduce_bundle = false,
@@ -320,7 +320,7 @@ end
     @test total.Y.values ≈ problem.system.line_length .* parameters.Y.values
 end
 
-@testitem "Engine / Ametani2004 / Gridspace Monte Carlo samples before assembly" tags=[:unit] setup=[
+@testitem "Engine / lossy dielectric / Gridspace Monte Carlo samples before assembly" tags=[:unit] setup=[
     UseEngineSupport, TestNumerics] begin
     using Statistics
     import LineCableModels.ParametricBuilder as PB
@@ -386,7 +386,7 @@ end
         frequencies = [50.0, 500.0]
     )
     formulation=Formulation(;
-        insulation_admittance = formula(:Ametani2004),
+        insulation_admittance = formula(:lossy),
         options = (
             reduce_bundle = false,
             kron_reduction = false,

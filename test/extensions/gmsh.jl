@@ -1278,7 +1278,7 @@ end
             )
         formulation_space = Formulation(:LineCableModelsFEM;
             earth_properties = Grid((formula(:default), nothing)),
-            insulation_admittance = Grid((:default, :Ametani2004)),
+            insulation_admittance = Grid((:default, :lossy)),
             options = formulation.options)
         selected = collect(formulation_space)
         completions = Tuple[]
@@ -1304,7 +1304,7 @@ end
         default_indices = findall(
             value -> formula_id(value.methods.insulation_admittance) === :default, selected)
         lossy_indices = findall(
-            value -> formula_id(value.methods.insulation_admittance) === :Ametani2004, selected)
+            value -> formula_id(value.methods.insulation_admittance) === :lossy, selected)
         for indices in (default_indices, lossy_indices)
             first_result, second_result = batch[indices[1]], batch[indices[2]]
             @test first_result.Z.values == second_result.Z.values

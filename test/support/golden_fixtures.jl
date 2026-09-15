@@ -66,7 +66,7 @@ function comparison(;uncertain=false)
     candidate=LineParameters(1.1R(reference).+im.*omega.*1.2L(reference),
         1.3G(reference).+im.*omega.*1.4C(reference),reference.f;
         details=(coordinates=["west","east"],))
-    selections=[NamedTuple(Formulation()),NamedTuple(Formulation(earth_impedance=:Pollaczek1926))]
+    selections=[NamedTuple(Formulation()),NamedTuple(Formulation(earth_impedance=:pollaczek1926))]
     points=ParametricResult(nothing,[reference,candidate],
         (problems=[:current],formulations=selections),(;))
     baseline=(result=reference,metadata=(port_order=["west","east"],formulation=selections[1],axes=nothing))

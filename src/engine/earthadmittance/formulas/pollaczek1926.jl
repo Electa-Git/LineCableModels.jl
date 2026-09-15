@@ -1,4 +1,4 @@
-function assumptions(::Val{:Pollaczek1926})
+function assumptions(::Val{:pollaczek1926})
     (media = :homogeneous, layers = 2:2, longitudinal = :zero, permittivity = :positive)
 end
 
@@ -19,12 +19,12 @@ wechselstromdurchflossenen Einfachleitung,” *Elektrische Nachrichtentechnik*,
 3, 339–360, 1926; potential-coefficient transcription follows Ametani et al.,
 IET, 2021.
 """
-function description(::Type{<:Formula{:Pollaczek1926}}; compact::Bool=false)
-    compact ? "Pollaczek1926" : "Pollaczek underground potential coefficients (1926)"
+function description(::Type{<:Formula{:pollaczek1926}}; compact::Bool=false)
+    compact ? "Pollaczek" : "Pollaczek underground potential coefficients (1926)"
 end
 
 function Γ(
-        ::Val{:Pollaczek1926}, jω, materials, layers
+        ::Val{:pollaczek1926}, jω, materials, layers
 )
     zero(jω)
 end
@@ -42,7 +42,7 @@ P_{e,ij}^{11}=\frac{j\omega}{2\pi(\sigma_1+j\omega\varepsilon_1)}
 Earth conductivity remains in the potential-coefficient prefactor.
 """
 function earth_potential_coefficient(
-        ::Val{:Pollaczek1926}, ::Union{Val{:self}, Val{:mutual}}, ::Val{2}, ::Val{2},
+        ::Val{:pollaczek1926}, ::Union{Val{:self}, Val{:mutual}}, ::Val{2}, ::Val{2},
         functor, pair, workspace
 )
     state = functor.state
@@ -54,13 +54,13 @@ function earth_potential_coefficient(
     return state.jω / (2π * kappa_1) * direct
 end
 
-Formulation(::LineCableModelsCoaxial, selected::Formula{:Pollaczek1926}) = selected
+Formulation(::LineCableModelsCoaxial, selected::Formula{:pollaczek1926}) = selected
 
-function hooks(::FormulaMethod{:Pollaczek1926, typeof(earth_potential_coefficient),
+function hooks(::FormulaMethod{:pollaczek1926, typeof(earth_potential_coefficient),
         A}) where {A <: Tuple{Union{Val{:self}, Val{:mutual}}, Val{2}, Val{2}}}
     return (configurable = (:Γ, :earth, :contribution),
         defaults = (
-            Γ = FormulaMethod(Val(:Pollaczek1926), Γ),
+            Γ = FormulaMethod(Val(:pollaczek1926), Γ),
             air = FormulaMethod(Val(:vacuum), propagation),
             earth = FormulaMethod(Val(:vacuum), propagation),
             permeability = vacuum_permeability,
@@ -68,15 +68,15 @@ function hooks(::FormulaMethod{:Pollaczek1926, typeof(earth_potential_coefficien
 end
 
 function computation_options(::FormulaMethod{
-        :Pollaczek1926, typeof(earth_potential_coefficient),
+        :pollaczek1926, typeof(earth_potential_coefficient),
         A}) where {A <: Tuple{Union{Val{:self}, Val{:mutual}}, Val{2}, Val{2}}}
     (;)
 end
 
 function validate(
-        binding::FormulaMethod{:Pollaczek1926, typeof(earth_potential_coefficient)},
+        binding::FormulaMethod{:pollaczek1926, typeof(earth_potential_coefficient)},
         ::EquivalentHomogeneous.Formula{:default})
     binding
 end
 
-:Pollaczek1926
+:pollaczek1926

@@ -10,7 +10,8 @@
 | Earth structure | Plane homogeneous conducting half-space (medium 1) below homogeneous air (medium 2). |
 | Model and approximation | Not an analytical approximation within the explicitly reduced filamentary, two-dimensional physical model. The reductions ``\Gamma=0``, ``\varepsilon_1=0``, ``\mu_1=\mu_2=1`` and ``k_2=0`` precede application. The finite-radius self rule is an additional small-radius approximation; separate small- and large-``\|k\eta\|`` asymptotic self expressions (59a)–(59b) are not substituted here. |
 | Main source | F. Pollaczek (1926) |
-| Citation key(s) | `:Pollaczek1926` |
+| Formula identifier | `:pollaczek1926` |
+| Citation key(s) | `Pollaczek1926` |
 | Evidence status | Original-publication scan image verified for the displayed equations and definitions |
 
 **Description.** Source-defined complex generalized induction coefficients per unit length between infinitely long parallel filamentary conductors above a homogeneous conducting earth, below its plane surface, or on opposite sides of the interface. The longitudinal electric Green function is converted by the author to mutual induction; the corresponding ``j\omega M`` term is the external series contribution under the source convention.

@@ -9,10 +9,12 @@ are assembled before matrix inversion, as set out in the
 ## Series impedance
 
 - [Default coaxial-insulation magnetic series impedance](insulation-impedance/default.md)
+  (`:ametani1980` is the explicit literature identifier for the same route)
 
 ## Shunt admittance
 
-- [Default lossless cable-insulation admittivity](insulation-admittance/default.md)
-- [Ametani–Miyamoto–Nagaoka semiconducting-screen admittance](insulation-admittance/2004/semiconducting-screen-complex-permittivity/Ametani2004.md)
+- [Default cable-insulation admittivity](insulation-admittance/default.md)
+- [Lossless cable-layer admittivity](insulation-admittance/lossless.md)
+- [Lossy cable-layer admittivity (Ametani 2004 application)](insulation-admittance/2004/semiconducting-screen-complex-permittivity/Ametani2004.md)
 
 [Back to Contents](contents.md)

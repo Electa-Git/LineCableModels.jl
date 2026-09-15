@@ -17,10 +17,10 @@
             :default, formula(:default; hooks = (inner = inner,)))),
         insulation_impedance = Grid((:default,
             formula(:default; hooks = (contribution = insulation,)))),
-        earth_impedance = Grid((:Pollaczek1926, :default)),
-        insulation_admittance = Grid((:Ametani2004, :default)),
-        semicon_admittance = Grid((:default, :Ametani2004)),
-        earth_admittance = Grid((:Pollaczek1926, :default)),
+        earth_impedance = Grid((:pollaczek1926, :default)),
+        insulation_admittance = Grid((:lossy, :default)),
+        semicon_admittance = Grid((:default, :lossy)),
+        earth_admittance = Grid((:pollaczek1926, :default)),
         earth_properties = Grid((nothing, :default)),
         temperature_dependence = Grid((nothing, :default)),
         pipe_impedance = Grid((:default, formula(:default))),
@@ -50,23 +50,23 @@
     end
 
     product=Formulation(
-        earth_impedance = Grid((:Pollaczek1926, :default)),
-        earth_admittance = Grid((:Pollaczek1926, :default))
+        earth_impedance = Grid((:pollaczek1926, :default)),
+        earth_admittance = Grid((:pollaczek1926, :default))
     )
     @test length(product) == 4
     @test Set((
                   formula_id(value.methods.earth_impedance),
                   formula_id(value.methods.earth_admittance)
               ) for value in product) == Set((
-        (:Pollaczek1926, :Pollaczek1926),
-        (:default, :Pollaczek1926),
-        (:Pollaczek1926, :default),
+        (:pollaczek1926, :pollaczek1926),
+        (:default, :pollaczek1926),
+        (:pollaczek1926, :default),
         (:default, :default)
     ))
 
     zipped=Formulation(
-        earth_impedance = Grid((:Pollaczek1926, :default)),
-        earth_admittance = Grid((:Pollaczek1926, :default));
+        earth_impedance = Grid((:pollaczek1926, :default)),
+        earth_admittance = Grid((:pollaczek1926, :default));
         combine = :zip
     )
     @test length(zipped) == 2
@@ -74,18 +74,18 @@
                formula_id(value.methods.earth_impedance),
                formula_id(value.methods.earth_admittance)
            ) for value in zipped] == [
-        (:Pollaczek1926, :Pollaczek1926),
+        (:pollaczek1926, :pollaczek1926),
         (:default, :default)
     ]
 
     broadcast_zip=Formulation(
-        earth_impedance = Grid((:Pollaczek1926, :default)),
-        earth_admittance = Grid(:Pollaczek1926);
+        earth_impedance = Grid((:pollaczek1926, :default)),
+        earth_admittance = Grid(:pollaczek1926);
         combine = :zip
     )
     @test length(broadcast_zip) == 2
     @test [formula_id(value.methods.earth_admittance)
-           for value in broadcast_zip] == fill(:Pollaczek1926, 2)
+           for value in broadcast_zip] == fill(:pollaczek1926, 2)
 
     reductions=Formulation(earth_impedance = Grid((
         formula(:default; equivalent_earth = formula(:default; order = :before)),
@@ -98,7 +98,7 @@
     @test all(value -> value.methods.earth_admittance.equivalent_earth === nothing, reductions)
 
     constants=CableConstantsFormulation(
-        insulation_admittance = Grid((:default, :Ametani2004)),
+        insulation_admittance = Grid((:default, :lossy)),
     )
     @test constants isa Gridspace{CableConstantsFormulation}
     @test length(constants) == 2
@@ -141,12 +141,12 @@
         end
     end
     fem_zipped=Formulation(:LineCableModelsFEM;
-        insulation_admittance = Grid((:default, :Ametani2004)),
-        semicon_admittance = Grid((:default, :Ametani2004)), combine = :zip)
+        insulation_admittance = Grid((:default, :lossy)),
+        semicon_admittance = Grid((:default, :lossy)), combine = :zip)
     @test length(fem_zipped) == 2
     @test [(formula_id(value.methods.insulation_admittance),
                formula_id(value.methods.semicon_admittance)) for value in fem_zipped] ==
-          [(:default, :default), (:Ametani2004, :Ametani2004)]
+          [(:default, :default), (:lossy, :lossy)]
 
     struct CountedProblem<:AbstractProblemDefinition
         value::Int

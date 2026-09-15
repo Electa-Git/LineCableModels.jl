@@ -5,11 +5,11 @@
 | Field | Value |
 | --- | --- |
 | Family | External admittance |
-| Formula identifier | `:Pollaczek1926` |
+| Formula identifier | `:pollaczek1926` |
 | Documentation status | Placeholder; formula transcription is intentionally pending. |
 
 **Description.** This page reserves the documentation slot for the registered
-`:Pollaczek1926` formulation.
+`:pollaczek1926` formulation.
 
 **Assumptions.**
 

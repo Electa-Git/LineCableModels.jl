@@ -57,11 +57,11 @@ flush(stdout)
         Formulation(:pscad),
         Formulation(:pscad; earth_impedance = (air = :default, earth = :default, mixed = :default)),
         Formulation(:pscad; earth_impedance = (
-            air = :Carson1926, earth = :Pollaczek1926, mixed = :Lucca1994)),
+            air = :carson1926, earth = :pollaczek1926, mixed = :lucca1994)),
         Formulation(:pscad; earth_impedance = (
-            air = :Gary1976, earth = :WedepohlWilcox1973, mixed = :Ametani2009)),
+            air = :gary1976, earth = :wedepohl1973, mixed = :ametani2009)),
         Formulation(:pscad; earth_impedance = (
-            air = :Gary1976, earth = :Saad1996, mixed = :Lucca1994)),
+            air = :gary1976, earth = :saad1996, mixed = :lucca1994)),
     ]
     results = compute(hot_problem, selections; options = merge(OPTIONS,
         (on_result = (input, index, value) -> retain(labels[index], input, value),)))
@@ -79,7 +79,7 @@ flush(stdout)
             LineCableModels.computation_details(selections[index]).requested.earth_impedance
     end
 
-    lossy_selection = Formulation(:pscad; insulation_admittance = :Ametani2004)
+    lossy_selection = Formulation(:pscad; insulation_admittance = :lossy)
     lossy = retain("lossy", hot_problem, compute(hot_problem, lossy_selection; options = OPTIONS))
     conductance = E.compare(hot, lossy, G)
     admittance = E.compare(hot, lossy, Y)
@@ -93,7 +93,7 @@ flush(stdout)
     screen_problem = problem(; semicon = true)
     screen_labels = ("semicon-lossless", "semicon-lossy")
     screens = compute(screen_problem,
-        [Formulation(:pscad), Formulation(:pscad; semicon_admittance = :Ametani2004)];
+        [Formulation(:pscad), Formulation(:pscad; semicon_admittance = :lossy)];
         options = merge(OPTIONS, (on_result = (input, index, value) ->
             retain(screen_labels[index], input, value),)))
     screen_conductance = E.compare(screens[1], screens[2], G)

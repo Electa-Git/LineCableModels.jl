@@ -6,12 +6,12 @@
     controls(method)=method===:trapz ? (;max_refinements=14) :
         method===:cim ? (;samples=8192,maxevals=10^6) : (;maxevals=10^6)
     rho=[Inf,100.0]; epsilon=8.8541878128e-12.*[1.0,10.0]; mu=fill(4pi*1e-7,2)
-    cases=((E.EarthImpedance,:overhead,(:Carson1926,:Wise1934,:Gary1976)),
-        (E.EarthImpedance,:underground,(:Pollaczek1926,:WedepohlWilcox1973,:Saad1996,:Xue2018)),
-        (E.EarthImpedance,:mixed,(:Ametani2009,:Lucca1994)),
-        (E.EarthImpedance,:mixedreverse,(:Ametani2009,:Lucca1994)),
-        (E.EarthAdmittance,:overhead,(:Wise1948,)),
-        (E.EarthAdmittance,:underground,(:Pollaczek1926,:Xue2018)))
+    cases=((E.EarthImpedance,:overhead,(:carson1926,:wise1934,:gary1976)),
+        (E.EarthImpedance,:underground,(:pollaczek1926,:wedepohl1973,:saad1996,:xue2018)),
+        (E.EarthImpedance,:mixed,(:ametani2009,:lucca1994)),
+        (E.EarthImpedance,:mixedreverse,(:ametani2009,:lucca1994)),
+        (E.EarthAdmittance,:overhead,(:wise1948,)),
+        (E.EarthAdmittance,:underground,(:pollaczek1926,:xue2018)))
     for (owner,placement,authors) in cases, author in authors, f in (50.0,10000.0), self in (false,true)
         placement in (:mixed,:mixedreverse) && self && continue
         @testset "$author / $placement / $f Hz / self=$self" begin
@@ -39,7 +39,7 @@
     end
     for owner in (E.EarthImpedance,E.EarthAdmittance)
         pair=E.EarthPair(1,2,(1.0,1.5),0.4,(1,1))
-        @test_throws ArgumentError owner.Formula(:Pollaczek1926)(rho,epsilon,mu,100pi*im,pair)
+        @test_throws ArgumentError owner.Formula(:pollaczek1926)(rho,epsilon,mu,100pi*im,pair)
     end
 end
 
@@ -72,7 +72,7 @@ end
         uncertainty=expected.bound+abs(expected.value-references[2].value)
         pair=E.EarthPair(1,self ? 1 : 2,heights,y,(1,1);radius=self ? .005 : nothing)
         @testset "$f Hz / self=$self / $method" for method in (:quad,:trapz,:cim)
-            actual=E.EarthAdmittance.Formula(:Wise1948;options=(integration=(method,options=controls(method)),))(
+            actual=E.EarthAdmittance.Formula(:wise1948;options=(integration=(method,options=controls(method)),))(
                 rho,epsilon,mu,2pi*im*f,pair)()
             for component in (real,imag)
                 budget=1e-6*abs(component(expected.value))
@@ -109,7 +109,7 @@ end
         uncertainty=last(refs).bound+abs(last(refs).value-refs[2].value)
         pair=E.EarthPair(1,self ? 1 : 2,heights,y,(1,1);radius=self ? .005 : nothing)
         @testset "$f Hz / self=$self / $method" for method in (:quad,:trapz,:cim)
-            actual=E.EarthImpedance.Formula(:Carson1926;options=(integration=(method,options=controls(method)),))(
+            actual=E.EarthImpedance.Formula(:carson1926;options=(integration=(method,options=controls(method)),))(
                 rho,epsilon,mu,s,pair)()
             for component in (real,imag)
                 budget=1e-6*abs(component(expected))

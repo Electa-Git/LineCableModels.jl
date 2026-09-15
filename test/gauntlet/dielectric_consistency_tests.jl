@@ -8,7 +8,7 @@
     reduced = homogenize(source)
     inputs = map(design -> E.LocalCableData(E.flatten(LineCableModelsCoaxial(), design)),
         (source, reduced))
-    for identifier in (:default, :Ametani2004)
+    for identifier in (:default, :lossy)
         formulation = Formulation(insulation_admittance=identifier, semicon_admittance=identifier)
         for frequency in model.nominal_problem.frequencies
             matrices = map(inputs) do input
@@ -22,13 +22,18 @@
         constants = CableConstantsFormulation(insulation_admittance=identifier,
             semicon_admittance=identifier)
         a, b = map(design -> compute(CableConstantsProblem(design), constants), (source, reduced))
+        @test a.C ≈ b.C rtol=1e-12
+        @test details(a).shunt_model.solves == 0
         if identifier === :default
             # Physical wire/tape gaps intentionally differ from homogenized
             # annuli; resolving them must not invent a dielectric loss law.
             @test all(>(0),a.C)
-            @test !isapprox(a.C,b.C;rtol=1e-3)
-        else
-            @test a.C ≈ b.C rtol=1e-12
+            resolved = compute(CableConstantsProblem(source),
+                CableConstantsFormulation(shunt_model=:boundary))
+            @test !isapprox(resolved.C,b.C;rtol=1e-3)
+            @test resolved.G == a.G
+            @test resolved.R == a.R && resolved.L == a.L
+            @test details(resolved).shunt_model.effective === :boundary
         end
         @test a.G ≈ b.G rtol=1e-12
         @test a.R ≈ b.R rtol=1e-10

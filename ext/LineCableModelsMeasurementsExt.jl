@@ -68,7 +68,8 @@ function _measurement_result(
         _measurement.(summary.L),
         _measurement.(summary.C),
         _measurement.(summary.G),
-        representative.frequency
+        representative.frequency,
+        representative.details
     )
 end
 
@@ -186,8 +187,36 @@ function serialize_value(value::UQ.LinearErrorResult{<:Engine.LineParameters{<:C
         end
         (Z=matrices[1],Y=matrices[2],frequencies=LineCableModels.frequencies(core),
             basis=LineCableModels.basis(core),domain=:PhaseDomain,
-            coordinates=get(LineCableModels.details(core),:coordinates,nothing))
+            coordinates=get(LineCableModels.details(core),:coordinates,nothing),
+            shunt_model=get(LineCableModels.details(core),:shunt_model,nothing))
     end
+    formulation=record.formulation isa NamedTuple ? record.formulation : NamedTuple(record.formulation)
+    payload=(formulation,points,sources=[(nominal=source[1],sigma=source[2]) for source in sources],details=record.details)
+    return Dict("__type__"=>"MeasurementLinearErrorResult","version"=>1,
+        "payload"=>serialize_value(payload,Val(:scientific)))
+end
+
+function serialize_value(value::UQ.LinearErrorResult{<:Engine.CableConstants{<:Measurements.Measurement}})
+    isempty(value) && throw(ArgumentError("cannot encode an empty LEP result"))
+    initial=first(first(value).R)
+    source_set=Set(keys(uncertainty_components(initial)))
+    for core in value, component in Iterators.flatten((core.R,core.L,core.C,core.G,(core.frequency,)))
+        union!(source_set,keys(uncertainty_components(component)))
+    end
+    sources=sort!(collect(source_set);by=last)
+    indices=Dict(source=>index for (index,source) in enumerate(sources))
+    encode = component -> begin
+        contributions=[(source=indices[source],sensitivity=derivative(component,source))
+            for source in keys(uncertainty_components(component))]
+        sort!(contributions;by=entry->entry.source)
+        (nominal=nominal(component),uncertainty=uncertainty(component),contributions)
+    end
+    points=map(value) do core
+        (kind=:cable_constants,cores=core.cores,R=encode.(core.R),L=encode.(core.L),
+            C=encode.(core.C),G=encode.(core.G),frequency=encode(core.frequency),
+            shunt_model=get(LineCableModels.details(core),:shunt_model,nothing))
+    end
+    record=NamedTuple(value)
     formulation=record.formulation isa NamedTuple ? record.formulation : NamedTuple(record.formulation)
     payload=(formulation,points,sources=[(nominal=source[1],sigma=source[2]) for source in sources],details=record.details)
     return Dict("__type__"=>"MeasurementLinearErrorResult","version"=>1,
@@ -198,24 +227,31 @@ function deserialize_extension(::Val{:MeasurementLinearErrorResult},record)
     record["version"] == 1 || throw(ArgumentError("unsupported shared-source LEP record"))
     payload=deserialize_value(record["payload"])
     sources=[Measurements.measurement(source.nominal,source.sigma) for source in payload.sources]
+    restore = component -> begin
+        value=Measurements.measurement(component.nominal,zero(component.nominal))
+        for entry in component.contributions
+            source=sources[entry.source]
+            value += entry.sensitivity*(source-nominal(source))
+        end
+        isapprox(uncertainty(value),component.uncertainty;rtol=1e-12,atol=0) ||
+            throw(ArgumentError("restored LEP sensitivity record changes propagated uncertainty"))
+        value
+    end
     points=map(payload.points) do point
+        model=get(point,:shunt_model,nothing)
+        detail=model===nothing ? (;) : (shunt_model=model,)
+        if get(point,:kind,nothing)===:cable_constants
+            return Engine.CableConstants(point.cores,restore.(point.R),restore.(point.L),
+                restore.(point.C),restore.(point.G),restore(point.frequency),detail)
+        end
         matrices=map((point.Z,point.Y)) do matrix
             parts=map((matrix.real,matrix.imaginary)) do components
-                [begin
-                    value=Measurements.measurement(component.nominal,zero(component.nominal))
-                    for entry in component.contributions
-                        source=sources[entry.source]
-                        value += entry.sensitivity*(source-nominal(source))
-                    end
-                    isapprox(uncertainty(value),component.uncertainty;rtol=1e-12,atol=0) ||
-                        throw(ArgumentError("restored LEP sensitivity record changes propagated uncertainty"))
-                    value
-                end for component in components]
+                restore.(components)
             end
             reshape(complex.(parts...),matrix.shape)
         end
         point.domain === :PhaseDomain || throw(ArgumentError("unsupported LEP result domain"))
-        detail=point.coordinates === nothing ? (;) : (coordinates=point.coordinates,)
+        point.coordinates === nothing || (detail=merge(detail,(coordinates=point.coordinates,)))
         Engine.LineParameters(matrices...,point.frequencies;basis=point.basis,details=detail)
     end
     return UQ.LinearErrorResult(payload.formulation,points,payload.details)

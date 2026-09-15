@@ -7,8 +7,8 @@
     options=(backend=:cairo,display_plot=false,controls=false,length_unit=:base,
         quantity_units=:base,freq_unit=:base,open_export=false)
     common=(backend=:coaxial,options=(reduce_bundle=false,),)
-    selections=[merge(common,(requested=(earth_impedance=(air=NamedTuple(formula(:Carson1926)),
-        earth=NamedTuple(formula(id)),mixed=NamedTuple(formula(:Lucca1994))),),)) for id in (:default,:Pollaczek1926)]
+    selections=[merge(common,(requested=(earth_impedance=(air=NamedTuple(formula(:carson1926)),
+        earth=NamedTuple(formula(id)),mixed=NamedTuple(formula(:lucca1994))),),)) for id in (:default,:pollaczek1926)]
     reference=LineParameters(PhaseDomain,copy(z),copy(y),copy(f);details=(coordinates=["a","b"],))
     points=[LineParameters(PhaseDomain,factor*z,y,copy(f);details=(coordinates=["a","b"],)) for factor in (2,3)]
     candidates=ParametricResult(nothing,points,(problems=[:one],formulations=selections),(;))
@@ -205,14 +205,14 @@ end
     # This checks literal route completeness, not table==plot: both consumers
     # used to agree while silently dropping unchanged/default branches.
     internal=(inner=:default,outer=:default,transfer=:default)
-    earth=(air=:default,earth=:Pollaczek1926,mixed=:default)
+    earth=(air=:default,earth=:pollaczek1926,mixed=:default)
     physical=Formulation(internal_impedance=internal,earth_impedance=earth,
         earth_admittance=(air=:default,earth=:default,mixed=:default))
     for retained in (physical,IO.deserialize_value(Val(:formulation),NamedTuple(physical)))
         data=ParametricResult(nothing,points[1:1],(problems=[:one],formulations=[retained]),(;))
         for (request,names) in ((R,("internal Z(inner)=default","internal Z(outer)=default",
                 "internal Z(transfer)=default","earth Z(air)=default",
-                "earth Z(earth)=Pollaczek1926","earth Z(mixed)=default")),
+                "earth Z(earth)=Pollaczek","earth Z(mixed)=default")),
                 (B,("earth Y(air)=default","earth Y(earth)=default","earth Y(mixed)=default")))
             page=LineCableModels.plot(data;ydata=(request,),options...)
             label=only(values(page.addon_state.labels))
@@ -230,8 +230,8 @@ end
     tensor = fill(1.0+2im, 1, 1, 3)
     reference = LineParameters(PhaseDomain, tensor, 1e-6tensor, f;
         details=(coordinates=["a"],))
-    ids = ((:default,:default), (:Pollaczek1926,:Pollaczek1926),
-        (:Saad1996,:default), (:WedepohlWilcox1973,:default), (:Xue2018,:Xue2018))
+    ids = ((:default,:default), (:pollaczek1926,:pollaczek1926),
+        (:saad1996,:default), (:wedepohl1973,:default), (:xue2018,:xue2018))
     records = [NamedTuple(Formulation(earth_impedance=z,earth_admittance=y,
         options=(reduce_bundle=false,))) for (z,y) in ids]
     original = deepcopy(records)
@@ -263,10 +263,10 @@ end
         end
         filtered = LineCableModels.plot(source; ydata=(G,),formulations=[4,2,1],options...,extra...)
         names = [filtered.addon_state.labels[group] for group in filtered.addon_state.order]
-        @test names[2:end] == ["earth Y=default","earth Y=Pollaczek1926"]
+        @test names[2:end] == ["earth Y=default","earth Y=Pollaczek"]
         reordered=LineCableModels.plot(source;ydata=(R,),formulations=[3,1],options...,extra...)
         reordered_names=[reordered.addon_state.labels[group] for group in reordered.addon_state.order]
-        @test reordered_names[2:end]==["earth Z=Saad1996","earth Z=default"]
+        @test reordered_names[2:end]==["earth Z=Saad","earth Z=default"]
         override = ("ref","a","b","c","d","e")
         custom = LineCableModels.plot(source; ydata=(R,G),series_labels=override,options...,extra...)
         @test Set(values(first(custom).addon_state.labels)) == Set(override)

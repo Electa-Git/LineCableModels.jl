@@ -82,7 +82,7 @@
         @test isfile(joinpath(source, "complete.toml"))
         verbose_log=Test.TestLogger()
         reused=with_logger(verbose_log) do
-            compute(problem, Formulation(:pscad; earth_impedance = :Pollaczek1926);
+            compute(problem, Formulation(:pscad; earth_impedance = :pollaczek1926);
                 options=(; options..., verbosity=(default=0, PSCAD=1)))
         end
         @test any(record->record.message == "Exporting PSCAD computation project", verbose_log.logs)
@@ -95,7 +95,7 @@
         @test details(reused).execution.source_elapsed_seconds == 3.25
         @test details(reused).execution.source_elapsed_scope == P.PSCAD_TIMING_SCOPE
         @test occursin("no solver execution", details(reused).execution.elapsed_scope)
-        @test details(reused).formulations.requested.earth_impedance.identifier === :Pollaczek1926
+        @test details(reused).formulations.requested.earth_impedance.identifier === :pollaczek1926
         sample_log=Test.TestLogger()
         total=with_logger(sample_log) do
             LineCableModels.with_performance_sample() do
@@ -113,7 +113,7 @@
         callback_log=Test.TestLogger()
         batch=with_logger(callback_log) do
             compute(problem,
-                [Formulation(:pscad), Formulation(:pscad; earth_impedance = :Pollaczek1926)];
+                [Formulation(:pscad), Formulation(:pscad; earth_impedance = :pollaczek1926)];
                 options = (;
                     options..., on_result = (problem, index, result)->begin
                         push!(callbacks, index)
@@ -126,8 +126,8 @@
         @test launches[] == 1
         @test callbacks == [1, 2]
         @test details(batch[1]).formulations.requested.earth_impedance.identifier === :default
-        @test details(batch[2]).formulations.requested.earth_impedance.identifier === :Pollaczek1926
-        @test all(record -> record.formula === :Pollaczek1926,
+        @test details(batch[2]).formulations.requested.earth_impedance.identifier === :pollaczek1926
+        @test all(record -> record.formula === :pollaczek1926,
             details(batch[2]).native_setting.interactions.earth_impedance)
         @test Z(batch[1]) == Z(batch[2])
         @test Z(batch[1]) !== Z(batch[2])
@@ -151,12 +151,12 @@
             options = (; remote, resume_run_directory = source))
 
         @test_throws ArgumentError compute(
-            problem, Formulation(:pscad; earth_impedance = :Saad1996);
+            problem, Formulation(:pscad; earth_impedance = :saad1996);
             options = (; remote, resume_run_directory = source))
         @test_throws ArgumentError compute(problem, Formulation(:pscad);
             options = (; remote, solver_identity = Dict("version"=>"changed")))
         @test launches[] == 1
-        compute(problem, Formulation(:pscad; earth_impedance = :Saad1996); options)
+        compute(problem, Formulation(:pscad; earth_impedance = :saad1996); options)
         @test launches[] == 2
         station_identity["line_constants_sha256"]=repeat("4", 64)
         compute(problem, Formulation(:pscad); options)
@@ -191,7 +191,7 @@
         # Distinct physical settings in one batch require distinct native runs.
         before = launches[]
         heterogeneous = compute(problem,
-            [Formulation(:pscad), Formulation(:pscad; earth_impedance = :Saad1996)];
+            [Formulation(:pscad), Formulation(:pscad; earth_impedance = :saad1996)];
             options = (; remote))
         @test launches[] == before + 2
         @test !details(heterogeneous[1]).execution.reused

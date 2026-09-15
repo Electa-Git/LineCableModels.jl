@@ -10,7 +10,8 @@
 | Earth structure | Plane homogeneous semi-infinite ground ``y\leq0`` beneath a nonconducting dielectric ``y>0``. |
 | Model and approximation | Integral representation exact within Carson's stated reduced field model. The reductions are the very-small-``\Gamma`` assumption and neglect of transverse ground electric-field components; earth displacement current and an independent permeability are absent. Carson's later series evaluations of ``J`` are distinct evaluator forms and are not substituted here. |
 | Main source | John R. Carson (1926) |
-| Citation key(s) | `:Carson1926` |
+| Formula identifier | `:carson1926` |
+| Citation key(s) | `Carson1926` |
 | Evidence status | PDF page images checked |
 
 **Description.** Carson's per-unit-length correction to the self and mutual series impedance of parallel overhead wires caused by finite conductivity of a homogeneous semi-infinite ground, in the source's electromagnetic c.g.s. notation.

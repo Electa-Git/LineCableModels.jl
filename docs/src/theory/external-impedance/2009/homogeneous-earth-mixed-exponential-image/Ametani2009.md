@@ -10,7 +10,8 @@
 | Earth structure | Homogeneous conducting half-space below homogeneous air with a planar interface. |
 | Model and approximation | The parent is the Pollaczek mixed integral as restated in (5)–(6). The authors first substitute ``\sqrt{s^2+m^2}\simeq s+m`` in the exponent, (17), then differentiate with respect to ``y``, change variables ``s=mt``, deform the contour under a stated no-pole assumption, and substitute ``t/(\sqrt{t^2+1}+t)\simeq(1-e^{-2t})/2``, (24). Integration and the subsequent antiderivative in ``y`` lead to (27). No controlled retained/discarded series order or uniform expansion parameter is assigned to these two substitutions. A further power-frequency approximation is recorded separately. |
 | Main source | Akihiro Ametani, Tetsuzo Yoneda, Yoshihiro Baba, and Naoto Nagaoka (2009) |
-| Citation key(s) | `:Ametani2009` |
+| Formula identifier | `:ametani2009` |
+| Citation key(s) | `Ametani2009` |
 | Evidence status | Original PDF equations checked against page images; source coordinate convention unresolved. |
 
 **Description.** Exponential-image approximation to the mutual earth-return impedance between parallel horizontal conductors on opposite sides of a homogeneous air–earth interface.

@@ -125,8 +125,8 @@ function validate_campaign(name, method)
     flush(stdout)
 end
 
-for (name, method) in (("run-YiqIRh", :default), ("run-aZVWtq", :Ametani2004),
-    ("run-Pbj2uz", :Ametani2004), ("run-orkY1H", :default))
+for (name, method) in (("run-YiqIRh", :default), ("run-aZVWtq", :lossy),
+    ("run-Pbj2uz", :lossy), ("run-orkY1H", :default))
     validate_campaign(name, method)
 end
 println("ALL_FOUR_CAMPAIGNS_COMPLETE ", ROOT);

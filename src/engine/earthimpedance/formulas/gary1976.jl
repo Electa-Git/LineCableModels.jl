@@ -1,4 +1,4 @@
-function assumptions(::Val{:Gary1976})
+function assumptions(::Val{:gary1976})
     (media = :homogeneous, layers = 2:2, longitudinal = :zero, permittivity = :positive)
 end
 
@@ -21,9 +21,9 @@ haute fréquence par utilisation des matrices complexes,” *EDF Bulletin de la
 Direction des Études et Recherches*, série B, 1976; formula as reproduced in
 Ametani et al., IET, 2021.
 """
-description(::Type{<:Formula{:Gary1976}}; compact::Bool=false) = compact ? "Gary1976" : "Gary complex-depth approximation (1976)"
+description(::Type{<:Formula{:gary1976}}; compact::Bool=false) = compact ? "Gary" : "Gary complex-depth approximation (1976)"
 
-function Γ(::Val{:Gary1976}, jω, materials, layers)
+function Γ(::Val{:gary1976}, jω, materials, layers)
     return zero(jω)
 end
 
@@ -41,7 +41,7 @@ The direct distance is
 supplies the outer radius as ``y_{ii}=r_i``.
 """
 function earth_impedance(
-        ::Val{:Gary1976}, ::Union{Val{:self}, Val{:mutual}}, ::Val{1}, ::Val{1},
+        ::Val{:gary1976}, ::Union{Val{:self}, Val{:mutual}}, ::Val{1}, ::Val{1},
         functor, pair, workspace
 )
     state = functor.state
@@ -51,27 +51,27 @@ function earth_impedance(
     return state.jω * state.mu[1] / (2π) * log(S_ij / geometry.d_ij)
 end
 
-Formulation(::LineCableModelsCoaxial, selected::Formula{:Gary1976}) = selected
+Formulation(::LineCableModelsCoaxial, selected::Formula{:gary1976}) = selected
 
-function hooks(::FormulaMethod{:Gary1976, typeof(earth_impedance),
+function hooks(::FormulaMethod{:gary1976, typeof(earth_impedance),
         A}) where {A <: Tuple{Union{Val{:self}, Val{:mutual}}, Val{1}, Val{1}}}
     return (configurable = (:Γ, :earth, :permeability, :contribution),
         defaults = (
-            Γ = FormulaMethod(Val(:Gary1976), Γ),
+            Γ = FormulaMethod(Val(:gary1976), Γ),
             air = FormulaMethod(Val(:lossless), propagation),
             earth = FormulaMethod(Val(:conductive), propagation),
             permeability = vacuum_permeability,
             contribution = nothing))
 end
 
-function computation_options(::FormulaMethod{:Gary1976, typeof(earth_impedance),
+function computation_options(::FormulaMethod{:gary1976, typeof(earth_impedance),
         A}) where {A <: Tuple{Union{Val{:self}, Val{:mutual}}, Val{1}, Val{1}}}
     (;)
 end
 
-function validate(binding::FormulaMethod{:Gary1976, typeof(earth_impedance)},
+function validate(binding::FormulaMethod{:gary1976, typeof(earth_impedance)},
         ::EquivalentHomogeneous.Formula{:default})
     binding
 end
 
-:Gary1976
+:gary1976

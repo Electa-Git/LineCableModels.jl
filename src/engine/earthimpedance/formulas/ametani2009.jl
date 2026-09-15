@@ -1,4 +1,4 @@
-function assumptions(::Val{:Ametani2009})
+function assumptions(::Val{:ametani2009})
     (media = :homogeneous, layers = 2:2, longitudinal = :zero, permittivity = :positive)
 end
 
@@ -25,11 +25,11 @@ Conductors and Its Approximation,” *IEEE Transactions on Electromagnetic
 Compatibility*, 51, 860–867, 2009.
 DOI: 10.1109/TEMC.2009.2019953.
 """
-function description(::Type{<:Formula{:Ametani2009}}; compact::Bool=false)
-    compact ? "Ametani2009" : "Ametani mixed-pair homogeneous-earth impedance (2009)"
+function description(::Type{<:Formula{:ametani2009}}; compact::Bool=false)
+    compact ? "Ametani" : "Ametani mixed-pair homogeneous-earth impedance (2009)"
 end
 
-function Γ(::Val{:Ametani2009}, jω, materials, layers)
+function Γ(::Val{:ametani2009}, jω, materials, layers)
     return zero(jω)
 end
 
@@ -59,7 +59,7 @@ Electromagnetic Compatibility*, vol. 51, pp. 860-867, 2009.
 DOI: 10.1109/TEMC.2009.2019953.
 """
 function earth_impedance(
-        ::Val{:Ametani2009}, ::Val{:mutual}, ::Val{1}, ::Val{2},
+        ::Val{:ametani2009}, ::Val{:mutual}, ::Val{1}, ::Val{2},
         functor, pair, workspace
 )
     state = functor.state
@@ -76,7 +76,7 @@ function earth_impedance(
 end
 
 function earth_impedance(
-        ::Val{:Ametani2009}, ::Val{:mutual}, ::Val{2}, ::Val{1},
+        ::Val{:ametani2009}, ::Val{:mutual}, ::Val{2}, ::Val{1},
         functor, pair, workspace
 )
     state = functor.state
@@ -92,43 +92,43 @@ function earth_impedance(
            exp(-h_g / h_e) * log(S / D)
 end
 
-Formulation(::LineCableModelsCoaxial, selected::Formula{:Ametani2009}) = selected
+Formulation(::LineCableModelsCoaxial, selected::Formula{:ametani2009}) = selected
 
-function hooks(::FormulaMethod{:Ametani2009, typeof(earth_impedance),
+function hooks(::FormulaMethod{:ametani2009, typeof(earth_impedance),
         A}) where {A <: Tuple{Val{:mutual}, Val{1}, Val{2}}}
     return (configurable = (:Γ, :earth, :permeability, :contribution),
         defaults = (
-            Γ = FormulaMethod(Val(:Ametani2009), Γ),
+            Γ = FormulaMethod(Val(:ametani2009), Γ),
             air = FormulaMethod(Val(:lossless), propagation),
             earth = FormulaMethod(Val(:conductive), propagation),
             permeability = vacuum_permeability,
             contribution = nothing))
 end
 
-function computation_options(::FormulaMethod{:Ametani2009, typeof(earth_impedance),
+function computation_options(::FormulaMethod{:ametani2009, typeof(earth_impedance),
         A}) where {A <: Tuple{Val{:mutual}, Val{1}, Val{2}}}
     (;)
 end
 
-function hooks(::FormulaMethod{:Ametani2009, typeof(earth_impedance),
+function hooks(::FormulaMethod{:ametani2009, typeof(earth_impedance),
         A}) where {A <: Tuple{Val{:mutual}, Val{2}, Val{1}}}
     return (configurable = (:Γ, :earth, :permeability, :contribution),
         defaults = (
-            Γ = FormulaMethod(Val(:Ametani2009), Γ),
+            Γ = FormulaMethod(Val(:ametani2009), Γ),
             air = FormulaMethod(Val(:lossless), propagation),
             earth = FormulaMethod(Val(:conductive), propagation),
             permeability = vacuum_permeability,
             contribution = nothing))
 end
 
-function computation_options(::FormulaMethod{:Ametani2009, typeof(earth_impedance),
+function computation_options(::FormulaMethod{:ametani2009, typeof(earth_impedance),
         A}) where {A <: Tuple{Val{:mutual}, Val{2}, Val{1}}}
     (;)
 end
 
-function validate(binding::FormulaMethod{:Ametani2009, typeof(earth_impedance)},
+function validate(binding::FormulaMethod{:ametani2009, typeof(earth_impedance)},
         ::EquivalentHomogeneous.Formula{:default})
     binding
 end
 
-:Ametani2009
+:ametani2009

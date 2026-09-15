@@ -39,6 +39,7 @@ export constitutive, formula_id, EarthPair
 export verbosity
 export InternalImpedance, InsulationImpedance, EarthImpedance, PipeImpedance
 export InsulationAdmittance, SemiconAdmittance, EarthAdmittance
+export ShuntModel, BoundarySolveError
 
 export compute
 
@@ -129,9 +130,11 @@ include("earthadmittance/EarthAdmittance.jl")
 using .EarthAdmittance: EarthAdmittance
 
 # Native workspace and numerical action
+include("shuntmodel/ShuntModel.jl")
 include("blueprint.jl")
 include("shunt_geometry.jl")
 include("internalshunt.jl")
+include("blueprint_shunt.jl")
 include("input.jl")
 include("logging.jl")
 include("earthreturn.jl")

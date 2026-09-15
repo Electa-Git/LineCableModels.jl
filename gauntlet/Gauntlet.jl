@@ -11,7 +11,7 @@ using LineCableModels: PSCAD, AbstractCoreResult, AbstractFormulation, AbstractG
     AbstractParametricResult, AbstractUncertaintyResult, Formulation, Grid, Gridspace,
     LineParametersProblem, LinearError, MonteCarlo, ParametricProblem,
     ParametricResult, PhaseDomain, build, description, details,
-    formula, nominal, quantity, R, L, C, G
+    formula, nominal
 using LineCableModels.Engine: Engine
 import LineCableModels.Grammar
 import LineCableModels.ImportExport
