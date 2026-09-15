@@ -41,26 +41,12 @@ include("interface.jl")
 include("homogeneous.jl")
 
 #! explicit-imports: off
-const FORMULAS = let
-    directory = joinpath(@__DIR__, "formulas")
-    Base.include_dependency(directory)
-    files = sort!(filter(
-        path -> endswith(path, ".jl"),
-        readdir(directory; join = true)
-    ))
-    identifiers = Symbol[]
-    for file in files
-        identifier = include(file)
-        identifier isa Symbol || error(
-            "earth-admittance formula file $(basename(file)) must return its Symbol identifier"
-        )
-        identifier in identifiers && error(
-            "duplicate earth-admittance formula identifier :$identifier"
-        )
-        push!(identifiers, identifier)
-    end
-    Tuple(identifiers)
-end
+const FORMULAS = (
+    include("formulas/default.jl"),
+    include("formulas/pollaczek1926.jl"),
+    include("formulas/wise1948.jl"),
+    include("formulas/xue2018.jl"),
+)
 #! explicit-imports: on
 
 """

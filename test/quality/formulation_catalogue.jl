@@ -125,3 +125,18 @@
         end
     end
 end
+
+@testitem "Quality / local shunt formulation catalogue" tags = [:quality] begin
+    const owner = LineCableModels.Engine.ShuntModel
+    @test owner.formulas() == (:default, :coaxial, :boundary)
+    @test allunique(owner.formulas())
+    for identifier in owner.formulas()
+        selected = owner.Formula(identifier)
+        @test formula_id(selected) === identifier
+        @test NamedTuple(selected).identifier === identifier
+        for compact in (false, true)
+            @test !isempty(description(selected; compact))
+            @test description(selected; compact) == description(typeof(selected); compact)
+        end
+    end
+end

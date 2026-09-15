@@ -32,26 +32,9 @@ import ...LineCableModels: description
 include("interface.jl")
 
 #! explicit-imports: off
-const FORMULAS = let
-    directory = joinpath(@__DIR__, "formulas")
-    Base.include_dependency(directory)
-    files = sort!(filter(
-        path -> endswith(path, ".jl"),
-        readdir(directory; join = true)
-    ))
-    identifiers = Symbol[]
-    for file in files
-        identifier = include(file)
-        identifier isa Symbol || error(
-            "EquivalentHomogeneous formula file $(basename(file)) must return its Symbol identifier"
-        )
-        identifier in identifiers && error(
-            "duplicate EquivalentHomogeneous formula identifier :$identifier"
-        )
-        push!(identifiers, identifier)
-    end
-    Tuple(identifiers)
-end
+const FORMULAS = (
+    include("formulas/default.jl"),
+)
 #! explicit-imports: on
 
 """
