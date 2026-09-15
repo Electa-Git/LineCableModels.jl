@@ -82,7 +82,7 @@
         ))
 
         selected_default = category.module_owner.Formula(:default)
-        @test formula_id(selected_default) === :default
+        @test formula_id(selected_default) !== :default
         @test :default in category.registry
 
         descriptions = Tuple{Any, DocStr}[]
@@ -106,7 +106,7 @@
         # legitimate type/instance delegation without checking this behavior.
         for identifier in category.registry
             selected=category.module_owner.Formula(identifier)
-            @test formula_id(selected)===identifier
+            @test formula_id(selected)===(identifier === :default ? formula_id(selected_default) : identifier)
             @test description(selected) isa AbstractString
             @test !isempty(description(selected))
             for compact in (false,true)
@@ -132,8 +132,8 @@ end
     @test allunique(owner.formulas())
     for identifier in owner.formulas()
         selected = owner.Formula(identifier)
-        @test formula_id(selected) === identifier
-        @test NamedTuple(selected).identifier === identifier
+        @test formula_id(selected) === (identifier === :default ? :coaxial : identifier)
+        @test NamedTuple(selected).identifier === formula_id(selected)
         for compact in (false, true)
             @test !isempty(description(selected; compact))
             @test description(selected; compact) == description(typeof(selected); compact)

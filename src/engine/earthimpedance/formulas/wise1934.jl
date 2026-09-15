@@ -24,7 +24,6 @@ Return Circuits,” *Proceedings of the Institute of Radio Engineers*, 22,
 """
 description(::Type{<:Formula{:wise1934}}; compact::Bool=false) = compact ? "Wise" : "Wise homogeneous-earth overhead impedance (1934)"
 
-Γ(::Val{:wise1934}, jω, materials, layers) = zero(jω)
 
 raw"""
 Evaluate Wise's homogeneous-earth overhead impedance:
@@ -41,7 +40,7 @@ a_1=\sqrt{\lambda^2+\gamma_1^2-\gamma_0^2}.
 ```
 """
 function earth_impedance(
-        ::Val{:wise1934}, ::Union{Val{:self}, Val{:mutual}}, ::Val{1}, ::Val{1},
+        ::Formula{:wise1934}, ::Union{Val{:self}, Val{:mutual}}, ::Val{1}, ::Val{1},
         functor, pair, workspace
 )
     state = functor.state
@@ -63,27 +62,32 @@ function earth_impedance(
            (log(geometry.D_ij / geometry.d_ij) + 2 * integral)
 end
 
-Formulation(::LineCableModelsCoaxial, selected::Formula{:wise1934}) = selected
 
-function hooks(::FormulaMethod{:wise1934, typeof(earth_impedance),
-        A}) where {A <: Tuple{Union{Val{:self}, Val{:mutual}}, Val{1}, Val{1}}}
-    return (configurable = (:Γ, :air, :earth, :permeability, :contribution),
-        defaults = (
-            Γ = FormulaMethod(Val(:wise1934), Γ),
-            air = FormulaMethod(Val(:full), propagation),
-            earth = FormulaMethod(Val(:full), propagation),
-            permeability = identity,
-            contribution = nothing))
-end
 
-function computation_options(::FormulaMethod{:wise1934, typeof(earth_impedance),
+function computation_options(::FormulaMethod{<:Formula{:wise1934}, typeof(earth_impedance),
         A}) where {A <: Tuple{Union{Val{:self}, Val{:mutual}}, Val{1}, Val{1}}}
     (integration = (method = :quad, options = (;)),)
 end
 
-function validate(binding::FormulaMethod{:wise1934, typeof(earth_impedance)},
-        ::EquivalentHomogeneous.Formula{:default})
+function validate(binding::FormulaMethod{<:Formula{:wise1934}, typeof(earth_impedance)},
+        ::EquivalentHomogeneous.Formula{:bottommost})
     binding
+end
+
+"""
+$(TYPEDSIGNATURES)
+
+Evaluate this formulation's medium state: absolute permeability \\[H/m\\]
+and transverse propagation constant \\[1/m\\]. Air retains its prescribed
+permeability; soil follows the selected source's magnetic approximation.
+"""
+function constitutive(::Formula{:wise1934}, ::Val{:air}, jω, μ, σ, ε)
+    return (mu=μ, gamma=propagation(Val(:full), jω, μ, σ, ε))
+end
+
+function constitutive(::Formula{:wise1934}, ::Val{:earth}, jω, μ, σ, ε)
+    permeability = μ
+    return (mu=permeability, gamma=propagation(Val(:full), jω, permeability, σ, ε))
 end
 
 :wise1934

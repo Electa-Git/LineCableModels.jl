@@ -153,7 +153,7 @@ end
     automatic=MonteCarlo(inner)
     explicit=MonteCarlo(inner; trials = 12, seed = 17, distribution = Uniform(-1, 1),
         return_samples = true, return_histograms = true)
-    earth_definition=formula(:default; order = :before, hooks = (contribution = identity,))
+    earth_definition=formula(:default; order = :before)
     soil_definition=formula(:default; parameters = (tolerance = 1e-6,))
     constants=CableConstants(1e-4, 2e-7, 3e-10)
     results=ParametricResult(combinatorial, [constants])

@@ -12,15 +12,15 @@
     @test underground isa harness.PSCADFormulation
     @test hasmethod(compute, Tuple{LineParametersProblem, harness.PSCADFormulation})
     @test !isdefined(harness,:Gauntlet)
-    @test harness.earth_impedance(Val(:gary1976), Val(:mutual), Val(1), Val(1), Val(:pscad)) ==
+    @test harness.earth_impedance(Formulation(:pscad; earth_impedance=:gary1976).methods.earth_impedance, Val(:mutual), Val(1), Val(1), Val(:pscad)) ==
           (EarthForm2 = (value = 0, readback = "DERISEMLYEN"),)
-    @test harness.earth_impedance(Val(:wedepohl1973), Val(:mutual), Val(2), Val(2), Val(:pscad)) ==
+    @test harness.earth_impedance(Formulation(:pscad; earth_impedance=:wedepohl1973).methods.earth_impedance, Val(:mutual), Val(2), Val(2), Val(:pscad)) ==
           (EarthForm = (value = 0, readback = "WEDEPOHL"),)
     @test EarthImpedance.formula_id(overhead.methods.earth_impedance) === :gary1976
     @test EarthImpedance.formula_id(underground.methods.earth_impedance) ===
           :wedepohl1973
-    @test LineCableModels.formula_id(overhead.methods.earth_admittance) === :default
-    @test LineCableModels.formula_id(overhead.methods.insulation_admittance) === :default
+    @test LineCableModels.formula_id(overhead.methods.earth_admittance) === :coupled
+    @test LineCableModels.formula_id(overhead.methods.insulation_admittance) === :lossless
     @test occursin("lossless", lowercase(description(overhead.methods.insulation_admittance)))
     # The selected owner supplies descriptions through current computation
     # details; a removed consumer-local label helper is not a contract.
@@ -35,12 +35,12 @@
         id -> Formulation(:pscad; earth_impedance = LineCableModels.formula(id)) isa
               harness.PSCADFormulation,
         identifiers)
-    @test haskey(harness.earth_impedance(Val(:saad1996), Val(:mutual), Val(2), Val(2), Val(:pscad)), :EarthForm)
-    @test harness.earth_impedance(Val(:lucca1994), Val(:mutual), Val(1), Val(2), Val(:pscad)).EarthForm3.readback == "LUCCA"
-    @test harness.earth_impedance(Val(:carson1926), Val(:mutual), Val(1), Val(1), Val(:pscad)).EarthForm2.value == 2
-    @test harness.earth_impedance(Val(:pollaczek1926), Val(:mutual), Val(2), Val(2), Val(:pscad)).EarthForm.value == 2
-    @test_throws ArgumentError harness.earth_impedance(Val(:pollaczek1926), Val(:mutual), Val(1), Val(1), Val(:pscad))
-    @test_throws ArgumentError harness.earth_impedance(Val(:DirectNumericalIntegration), Val(:mutual), Val(1), Val(2), Val(:pscad))
+    @test haskey(harness.earth_impedance(Formulation(:pscad; earth_impedance=:saad1996).methods.earth_impedance, Val(:mutual), Val(2), Val(2), Val(:pscad)), :EarthForm)
+    @test harness.earth_impedance(Formulation(:pscad; earth_impedance=:lucca1994).methods.earth_impedance, Val(:mutual), Val(1), Val(2), Val(:pscad)).EarthForm3.readback == "LUCCA"
+    @test harness.earth_impedance(Formulation(:pscad; earth_impedance=:carson1926).methods.earth_impedance, Val(:mutual), Val(1), Val(1), Val(:pscad)).EarthForm2.value == 2
+    @test harness.earth_impedance(Formulation(:pscad; earth_impedance=:pollaczek1926).methods.earth_impedance, Val(:mutual), Val(2), Val(2), Val(:pscad)).EarthForm.value == 2
+    @test_throws ArgumentError harness.earth_impedance(Formulation(:pscad; earth_impedance=:pollaczek1926).methods.earth_impedance, Val(:mutual), Val(1), Val(1), Val(:pscad))
+    @test_throws ArgumentError harness.earth_impedance(Formulation(:pscad; earth_impedance=:DirectNumericalIntegration).methods.earth_impedance, Val(:mutual), Val(1), Val(2), Val(:pscad))
 
     mktempdir() do directory
         frequency=[10.0, 100.0]

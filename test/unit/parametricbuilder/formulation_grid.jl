@@ -1,22 +1,13 @@
 @testitem "ParametricBuilder / formulation grids / construction and traversal" tags=[:unit] setup=[
-    UseEngineSupport,
+    UseEngineSupport,FormulaContractModels,
 ] begin
-    inner=(f, w)->zero(f.state.jω)
-    insulation=(r_in, r_ex, mu_r, s, values, options, workspace)->zero(s)
-    @eval LineCableModels.computation_options(
-        ::LineCableModels.FormulaMethod{
-            :default, typeof(LineCableModels.Engine.InternalImpedance.internal_impedance),
-            Tuple{Val{:inner}}},
-        ::$(typeof(inner))) = (;)
-    @eval LineCableModels.computation_options(
-        ::LineCableModels.FormulaMethod{:default,
-            typeof(LineCableModels.Engine.InsulationImpedance.insulation_impedance)},
-        ::$(typeof(insulation))) = (;)
+    internal=FormulaContractModels.SurfaceLaw()
+    insulation=FormulaContractModels.InsulationReactance(0)
     selections=(
         internal_impedance = Grid((
-            :default, formula(:default; hooks = (inner = inner,)))),
+            :default, internal)),
         insulation_impedance = Grid((:default,
-            formula(:default; hooks = (contribution = insulation,)))),
+            insulation)),
         earth_impedance = Grid((:pollaczek1926, :default)),
         insulation_admittance = Grid((:lossy, :default)),
         semicon_admittance = Grid((:default, :lossy)),
@@ -59,9 +50,9 @@
                   formula_id(value.methods.earth_admittance)
               ) for value in product) == Set((
         (:pollaczek1926, :pollaczek1926),
-        (:default, :pollaczek1926),
-        (:pollaczek1926, :default),
-        (:default, :default)
+        (:unified, :pollaczek1926),
+        (:pollaczek1926, :unified),
+        (:unified, :unified)
     ))
 
     zipped=Formulation(
@@ -75,7 +66,7 @@
                formula_id(value.methods.earth_admittance)
            ) for value in zipped] == [
         (:pollaczek1926, :pollaczek1926),
-        (:default, :default)
+        (:unified, :unified)
     ]
 
     broadcast_zip=Formulation(
@@ -107,7 +98,7 @@
         Grid((:default, :default)),
     )
     @test modal isa Gridspace{ModalTransformationFormulation}
-    @test formula_id.(collect(modal)) == [:default, :default]
+    @test formula_id.(collect(modal)) == [:modal, :modal]
 
     modal_assumptions=ModalTransformationFormulation(Grid((
         formula(:default; options = (iteration = (convergence = 1e-4,),)),
@@ -146,7 +137,7 @@
     @test length(fem_zipped) == 2
     @test [(formula_id(value.methods.insulation_admittance),
                formula_id(value.methods.semicon_admittance)) for value in fem_zipped] ==
-          [(:default, :default), (:lossy, :lossy)]
+          [(:lossless, :lossless), (:lossy, :lossy)]
 
     struct CountedProblem<:AbstractProblemDefinition
         value::Int

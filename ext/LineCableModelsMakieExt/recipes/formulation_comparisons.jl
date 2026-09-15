@@ -1,15 +1,5 @@
 import LineCableModels.ReportBuilder: ReportArtifact, select
 
-# Styles consume owner-scoped identifiers, not serialized field layouts.
-function _addon_default_formulations(sources;quantity=nothing)
-    return map(sources) do source
-        ismissing(source) && return false
-        identifiers=[LineCableModels.formula_id(value) for (scope,value) in
-            pairs((source isa Pair ? Tuple(source) : (source,))...;quantity) if !isempty(last(scope))]
-        !isempty(identifiers) && all(id -> id===:default,identifiers)
-    end
-end
-
 """
 Plot completed formulation results for an explicitly selected problem. Unique
 quantity-relevant formulations are overlaid; filtering retains source order/colors.

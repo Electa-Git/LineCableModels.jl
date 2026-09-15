@@ -24,18 +24,14 @@
     @test P.pscad_setting(composite,underground)==P.pscad_setting(Formulation(:pscad),underground)
     @test Formulation(Val(:pscad),underground,composite)===composite
     @test LineCableModels.computation_details(composite).effective.internal_impedance==
-        (inner=:default,outer=:default,transfer=:default)
-    outer=(functor,workspace)->1.0im
-    @eval LineCableModels.computation_options(::LineCableModels.FormulaMethod{:default,
-        typeof(LineCableModels.Engine.InternalImpedance.internal_impedance),Tuple{Val{:outer}}},
-        ::$(typeof(outer)))=(;)
-    rejected=Formulation(:pscad;internal_impedance=(inner=:default,outer=formula(:default;
-        hooks=(outer=outer,)),transfer=:default))
+        (inner=:cable_coax,outer=:cable_coax,transfer=:cable_coax)
+    rejected=Formulation(:pscad;internal_impedance=(inner=:default,
+        outer=:schelkunoff1934,transfer=:default))
     @test_throws ArgumentError Formulation(Val(:pscad),underground,rejected)
     @test_throws MethodError LineCableModelsFEM(internal_impedance=(inner=:default,outer=:default,transfer=:default))
     for selected_problem in (overhead, underground)
         resolved=Formulation(Val(:pscad), selected_problem, Formulation(:pscad))
-        @test formula_id(resolved.methods.earth_impedance) === :default
+        @test formula_id(resolved.methods.earth_impedance) === :direct_lucca
         @test formula_id(resolved.definitions.earth_impedance) === :default
         @test all(control -> control.value == 2, P.pscad_setting(resolved, selected_problem).ground)
     end
@@ -85,10 +81,12 @@
         foreach(value->rm(value.root; recursive = true), prepared)
     end
 
-    @test NamedTuple(Formulation(:pscad)).methods.internal_impedance.identifier === :default
+    @test NamedTuple(Formulation(:pscad)).methods.internal_impedance.identifier === :cable_coax
     baseline=LineCableModels.computation_details(Formulation(:pscad))
     alternative=LineCableModels.computation_details(Formulation(:pscad;
-        earth_impedance = formula(:default; equivalent_earth = formula(:default)), insulation_admittance = :lossy))
+        earth_impedance = :saad1996, insulation_admittance = :lossy))
+    @test_throws ArgumentError Formulation(:pscad;
+        earth_impedance = formula(:default; equivalent_earth = formula(:default)))
     @test typeof(baseline) === typeof(alternative)
     result=LineParameters(PhaseDomain, zeros(ComplexF64, 1, 1, 1),
         zeros(ComplexF64, 1, 1, 1), [50.0]; details = (formulations = baseline,))
@@ -100,15 +98,16 @@ end
     const EI=LineCableModels.Engine.EarthImpedance
     for owner in (EI, LineCableModels.Engine.EarthAdmittance)
         equation = owner === EI ? P.earth_impedance : P.earth_potential_coefficient
-        fallback = which(equation, Tuple{Val, Val, Val, Val, Val{:pscad}})
+        fallback = which(equation, Tuple{P.NativeFormula{owner.Formula}, Val, Val, Val, Val{:pscad}})
         for (kind, source, target) in ((:self, 1, 1), (:mutual, 1, 1),
                 (:self, 2, 2), (:mutual, 2, 2), (:mutual, 1, 2), (:mutual, 2, 1))
             identifiers = P.formulas(owner, Val(kind), Val(source), Val(target))
             @test allunique(identifiers)
-            @test :default in identifiers
+            @test (owner === EI ? :direct_lucca : :coupled) in identifiers
+            @test :default ∉ identifiers
             for identifier in owner.formulas()
                 @test (identifier in identifiers) == (which(equation,
-                    Tuple{Val{identifier}, Val{kind}, Val{source}, Val{target}, Val{:pscad}}) !== fallback)
+                    Tuple{P.NativeFormula{owner.Formula,identifier}, Val{kind}, Val{source}, Val{target}, Val{:pscad}}) !== fallback)
             end
         end
         @test isempty(P.formulas(owner, Val(:self), Val(1), Val(2)))
@@ -170,7 +169,7 @@ end
     end
     record = NamedTuple(selected)
     @test map(value -> value.identifier,record.requested.earth_impedance) == choices
-    @test record.methods.earth_admittance.identifier === :default
+    @test record.methods.earth_admittance.identifier === :coupled
     @test record.requested.earth_impedance.air.identifier === :gary1976
     vertical = LineParametersProblem(build(LineCableSystem, [design, design],
         [Pose2(0, -1), Pose2(0, -2)]; connections = [Dict(:core => 1), Dict(:core => 2)]);

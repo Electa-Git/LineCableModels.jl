@@ -31,8 +31,11 @@ import ...LineCableModels: description
 
 include("interface.jl")
 
+public equivalent_material, AbstractRule
+
 #! explicit-imports: off
 const FORMULAS = (
+    include("formulas/bottommost.jl"),
     include("formulas/default.jl"),
 )
 #! explicit-imports: on

@@ -387,7 +387,7 @@ function Base.show(io::IO, definition::FormulaDefinition{ID, Order}) where {ID, 
     fields(io,
         "FormulaDefinition",
         (id = ID, order = Order, parameters = definition.parameters,
-            hooks = definition.hooks, options = definition.options,
+            options = definition.options,
             equivalent_earth = definition.equivalent_earth);
         multiline = false)
 end
@@ -396,7 +396,7 @@ function Base.show(io::IO, ::MIME"text/plain", definition::FormulaDefinition{
     fields(io,
         "FormulaDefinition",
         (id = ID, order = Order, parameters = definition.parameters,
-            hooks = definition.hooks, options = definition.options,
+            options = definition.options,
             equivalent_earth = definition.equivalent_earth);
         multiline = true)
 end

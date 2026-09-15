@@ -40,7 +40,7 @@ Evaluate lossless semiconducting-screen admittivity:
 - Complex lossless admittivity \\[S/m\\].
 """
 @inline function semicon_material(
-        ::Val{:lossless}, material::Material{T}, frequency::T,
+        ::Formula{:lossless}, material::Material{T}, frequency::T,
         temperature::T, values::NamedTuple, options::NamedTuple, workspace
 ) where {T <: Real}
     ε₀ = one(T) * 88541878128 * (one(T) * 10)^(-22)
@@ -48,6 +48,6 @@ Evaluate lossless semiconducting-screen admittivity:
     return complex(zero(T), ω) * ε₀ * material.eps_r
 end
 
-computation_options(::FormulaMethod{:lossless, typeof(semicon_material)}) = (;)
+computation_options(::FormulaMethod{<:Formula{:lossless}, typeof(semicon_material)}) = (;)
 
 :lossless

@@ -23,9 +23,6 @@ Return,” *Bell System Technical Journal*, 5, 539–554, 1926.
 """
 description(::Type{<:Formula{:carson1926}}; compact::Bool=false) = compact ? "Carson" : "Carson homogeneous-earth overhead impedance (1926)"
 
-function Γ(::Val{:carson1926}, jω, materials, layers)
-    return zero(jω)
-end
 
 raw"""
 Evaluate Carson's homogeneous-earth overhead impedance:
@@ -49,7 +46,7 @@ J. R. Carson, "Wave propagation in overhead wires with ground return,"
 *Bell System Technical Journal*, vol. 5, pp. 539-554, 1926.
 """
 function earth_impedance(
-        ::Val{:carson1926}, ::Union{Val{:self}, Val{:mutual}}, ::Val{1}, ::Val{1},
+        ::Formula{:carson1926}, ::Union{Val{:self}, Val{:mutual}}, ::Val{1}, ::Val{1},
         functor, pair, workspace
 )
     state = functor.state
@@ -70,27 +67,32 @@ function earth_impedance(
            (log(geometry.D_ij / geometry.d_ij) + 2 * integral)
 end
 
-Formulation(::LineCableModelsCoaxial, selected::Formula{:carson1926}) = selected
 
-function hooks(::FormulaMethod{:carson1926, typeof(earth_impedance),
-        A}) where {A <: Tuple{Union{Val{:self}, Val{:mutual}}, Val{1}, Val{1}}}
-    return (configurable = (:Γ, :earth, :permeability, :contribution),
-        defaults = (
-            Γ = FormulaMethod(Val(:carson1926), Γ),
-            air = FormulaMethod(Val(:lossless), propagation),
-            earth = FormulaMethod(Val(:conductive), propagation),
-            permeability = vacuum_permeability,
-            contribution = nothing))
-end
 
-function computation_options(::FormulaMethod{:carson1926, typeof(earth_impedance),
+function computation_options(::FormulaMethod{<:Formula{:carson1926}, typeof(earth_impedance),
         A}) where {A <: Tuple{Union{Val{:self}, Val{:mutual}}, Val{1}, Val{1}}}
     (integration = (method = :quad, options = (;)),)
 end
 
-function validate(binding::FormulaMethod{:carson1926, typeof(earth_impedance)},
-        ::EquivalentHomogeneous.Formula{:default})
+function validate(binding::FormulaMethod{<:Formula{:carson1926}, typeof(earth_impedance)},
+        ::EquivalentHomogeneous.Formula{:bottommost})
     binding
+end
+
+"""
+$(TYPEDSIGNATURES)
+
+Evaluate this formulation's medium state: absolute permeability \\[H/m\\]
+and transverse propagation constant \\[1/m\\]. Air retains its prescribed
+permeability; soil follows the selected source's magnetic approximation.
+"""
+function constitutive(::Formula{:carson1926}, ::Val{:air}, jω, μ, σ, ε)
+    return (mu=μ, gamma=propagation(Val(:lossless), jω, μ, σ, ε))
+end
+
+function constitutive(::Formula{:carson1926}, ::Val{:earth}, jω, μ, σ, ε)
+    permeability = vacuum_permeability(μ)
+    return (mu=permeability, gamma=propagation(Val(:conductive), jω, permeability, σ, ε))
 end
 
 :carson1926

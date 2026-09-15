@@ -24,6 +24,7 @@ include("interface.jl")
 
 #! explicit-imports: off
 const FORMULAS = (
+    include("formulas/none.jl"),
     include("formulas/default.jl"),
 )
 #! explicit-imports: on

@@ -8,18 +8,16 @@ function description end
 $(TYPEDEF)
 
 Store one declarative formula selection until its owning formulation resolves
-the identifier and overrides into a concrete formula type.
+the identifier and controls into a concrete formula type.
 
 `FormulaDefinition` is produced by [`formula`](@ref). It does not participate in a
 numerical loop.
 
 $(TYPEDFIELDS)
 """
-struct FormulaDefinition{ID, Order, P <: NamedTuple, H <: NamedTuple, O <: NamedTuple, E}
+struct FormulaDefinition{ID, Order, P <: NamedTuple, O <: NamedTuple, E}
     "Explicit formula parameters, without evaluated physical state."
     parameters::P
-    "Explicit callable overrides, without numerical workspaces."
-    hooks::H
     "Explicit numerical sections owned by the consuming equation."
     options::O
     "Optional equivalent homogeneous-earth selection owned by this formula."
@@ -29,16 +27,18 @@ end
 """
 $(TYPEDEF)
 
-Bind one formula identity and optional semantic selectors to a domain method.
+Bind one selected formulation and optional semantic selectors to a domain method.
 
-Calling the bound method inserts `Val(ID)` before the stored selectors and
-runtime arguments. Formula catalogs use this invariant to retain owner-local
-dispatch while carrying the selected formula identity as concrete type
-information.
+Calling the bound method passes the selected formulation before the stored
+selectors and runtime arguments. Built-in and user-owned formulations use
+the same domain-method dispatch; identities are descriptive, not a second
+implementation registry.
 
 $(TYPEDFIELDS)
 """
-struct FormulaMethod{ID, F, A <: Tuple}
+struct FormulaMethod{S, F, A <: Tuple}
+    "Selected formulation whose concrete type owns equation dispatch."
+    selection::S
     "Owner-local domain method selected by the formula."
     method::F
     "Semantic `Val` selectors inserted before runtime arguments."
@@ -48,13 +48,12 @@ end
 """
 $(TYPEDSIGNATURES)
 
-Bind a formula identity and optional semantic selectors to a domain method.
+Bind a selected formulation and optional semantic selectors to a domain method.
 
 # Arguments
 
-- `identifier`: Formula identity carried as `Val{:ID}`.
-- `method`: Owner-local domain method whose first argument accepts that
-  identity.
+- `selection`: Built-in or user-owned formulation.
+- `method`: Owner-local domain method accepting that formulation first.
 - `arguments`: Optional semantic selectors inserted before runtime arguments.
 
 # Returns
@@ -65,15 +64,15 @@ Bind a formula identity and optional semantic selectors to a domain method.
 
 - Throws `ArgumentError` when a stored semantic selector is not a `Val`.
 """
-function FormulaMethod(::Val{ID}, method::F, arguments...) where {ID, F}
+function FormulaMethod(selection::S, method::F, arguments...) where {S, F}
     all(argument->argument isa Val, arguments) || throw(ArgumentError(
         "FormulaMethod semantic selectors must be Val instances"
     ))
-    return FormulaMethod{ID, F, typeof(arguments)}(method, arguments)
+    return FormulaMethod{S, F, typeof(arguments)}(selection, method, arguments)
 end
 
-@inline function (bound::FormulaMethod{ID})(arguments...) where {ID}
-    return bound.method(Val(ID), bound.arguments..., arguments...)
+@inline function (bound::FormulaMethod)(arguments...)
+    return bound.method(bound.selection, bound.arguments..., arguments...)
 end
 
 """
@@ -86,8 +85,9 @@ keyword slot in which the selection appears.
 # Arguments
 
 - `identifier`: Stable formula identifier.
-  `:default` requests the applicable choice from the resolved problem, geometry,
-  earth characteristics and backend. It is not a fallback after a failed formula.
+  `:default` routes to the owning family's explicit default implementation for
+  the chosen backend. The resulting selection is checked against the problem;
+  it is not a fallback after a failed or inapplicable formula.
   Cable-insulation and semicon-admittance `:default` selections route to the
   explicit `:lossless` dielectric relation. Unsupported contexts fail before
   frequency evaluation.
@@ -99,7 +99,6 @@ keyword slot in which the selection appears.
   applies EquivalentHomogeneous after FrequencyDependent, and `:default` selects the receiving formulation's
   default. Non-EquivalentHomogeneous formula slots accept only `:default`.
 - `parameters=(;)`: Explicit model parameters accepted by the owning formula.
-- `hooks=(;)`: Callable overrides at the owning formula's documented variation points.
 - `options=(;)`: Numerical operation sections, such as `integration=(method=:quad, options=(;))`.
 - `equivalent_earth=nothing`: Explicit reduction for a compatible external formula.
 
@@ -116,14 +115,14 @@ equivalent = formula(:default; order=:before)
 ```
 """
 function formula(identifier::Symbol; order::Symbol = :default,
-        parameters::NamedTuple = (;), hooks::NamedTuple = (;),
+        parameters::NamedTuple = (;),
         options::NamedTuple = (;), equivalent_earth = nothing)
     order in (:default, :before, :after) || throw(ArgumentError(
         "formula order must be :default, :before, or :after"
     ))
-    return FormulaDefinition{identifier, order, typeof(parameters), typeof(hooks),
+    return FormulaDefinition{identifier, order, typeof(parameters),
         typeof(options), typeof(equivalent_earth)}(
-        parameters, hooks, options, equivalent_earth)
+        parameters, options, equivalent_earth)
 end
 
 """
@@ -131,14 +130,18 @@ Return the stable formula identifier of a formula value.
 """
 function formula_id end
 
-"Return the stable formula identifier carried by a bound formula hook."
-formula_id(::FormulaMethod{ID}) where {ID} = ID
+"Return the selected formulation's identifier without evaluating its equation."
+formula_id(bound::FormulaMethod) = formula_id(bound.selection)
 
 formula_id(::FormulaDefinition{ID}) where {ID} = ID
+formula_id(::Type{<:FormulaDefinition{ID}}) where {ID} = ID
 
-"""Expose a requested formula identifier and its explicit parameters and overrides."""
+"""Describe an opaque retained identity without claiming or reconstructing an implementation."""
+description(::Type{<:FormulaDefinition{ID}}; compact::Bool=false) where {ID} = string(ID)
+
+"""Expose a requested formula identifier and its explicit model and numerical controls."""
 function Base.NamedTuple(value::FormulaDefinition{ID,Order}) where {ID,Order}
-    return (identifier=ID, order=Order, parameters=value.parameters, hooks=value.hooks,
+    return (identifier=ID, order=Order, parameters=value.parameters,
         options=value.options, equivalent_earth=value.equivalent_earth === nothing ? nothing : NamedTuple(value.equivalent_earth))
 end
 
@@ -146,7 +149,7 @@ end
 $(TYPEDSIGNATURES)
 
 Describe a retained selection through its owning type. This does not construct
-a formula, evaluate overrides, or substitute current defaults.
+a formula, evaluate equations, or substitute current defaults.
 """
 description(source::Pair{<:Type,<:NamedTuple}; compact::Bool=false) = description(first(source); compact)
 formula_id(source::Pair{<:Type,<:NamedTuple}) = formula_id(first(source))
@@ -226,18 +229,20 @@ function description(sources::AbstractVector;
                 peer=[other for entries in selections for (key,other) in entries if key==scope]
                 changed=any(other -> !isequal((formula_id(other),formulation_options(other)),
                     (formula_id(value),formulation_options(value))),peer)
-                explicit=!ismissing(formula_id(value)) && formula_id(value) ∉ (:default,:none)
-                # Explicit branch structure and controls are meaningful even
-                # when every candidate shares them or the leaf ID is default.
+                standalone=length(sources)==1 && !ismissing(formula_id(value)) &&
+                    formula_id(value)!==:none
+                # Common scalar choices are omitted independently of their IDs.
+                # Branch structure and controls remain visible in comparisons;
+                # a standalone description shows its concrete selections.
                 (length(last(scope))>1 || !isempty(formulation_options(value)) ||
-                    scope in varying || changed || explicit) &&
+                    scope in varying || changed || standalone) &&
                     push!(parts,description(scope,value;compact))
             end
         end
         if isempty(parts)
             unavailable=ismissing(sources[index]) ||
                 any(entry -> ismissing(formula_id(last(entry))),selections[index])
-            push!(parts,unavailable ? description(missing;compact) : "default")
+            push!(parts,unavailable ? description(missing;compact) : description(sources[index];compact))
         end
         text=join(parts,"; ")
         isempty(prefix) ? text : isempty(text) ? prefix : prefix*" · "*text

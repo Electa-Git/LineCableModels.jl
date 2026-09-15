@@ -191,26 +191,75 @@ $(TYPEDEF)
 Supertype for Engine impedance formulations.
 """
 abstract type AbstractImpedanceFormulation <: AbstractFormulation end
+"""
+Select conductor surface impedance equations [Ω/m]. Concrete subtypes prepare
+shared state when called with conductor dimensions and material properties,
+and implement `InternalImpedance.internal_impedance` for their supported
+`inner`, `outer`, and `transfer` cases.
+"""
 abstract type InternalImpedanceFormulation <: AbstractImpedanceFormulation end
+"""
+Select the pipe contribution and its backend/topology applicability. Concrete
+subtypes extend `Formulation(backend, selected, Val(topology))`; admission alone
+does not supply an impedance equation.
+"""
 abstract type PipeImpedanceFormulation <: AbstractImpedanceFormulation end
+"""
+Select magnetic impedance across an insulation annulus [Ω/m]. Concrete subtypes
+implement `InsulationImpedance.insulation_impedance` on their selected type.
+"""
 abstract type InsulationImpedanceFormulation <: AbstractImpedanceFormulation end
+"""
+Select earth-return impedance equations [Ω/m]. Concrete subtypes implement
+`EarthImpedance.constitutive` and indexed `EarthImpedance.earth_impedance` methods.
+Air, earth, and mixed selections refer to conductor locations.
+"""
 abstract type EarthImpedanceFormulation <: AbstractImpedanceFormulation end
 
+"""Supertype for local shunt geometry and dielectric/earth admittance selections."""
 abstract type AbstractAdmittanceFormulation <: AbstractFormulation end
+"""
+Select cable-local shunt geometry, independently of material admittivity.
+Concrete subtypes implement `internal_shunt_response` during blueprint construction.
+"""
 abstract type ShuntModelFormulation <: AbstractAdmittanceFormulation end
+"""
+Select insulation admittivity [S/m]. Concrete subtypes implement
+`InsulationAdmittance.insulation_material`; radial geometry is applied separately.
+"""
 abstract type InsulationAdmittanceFormulation <: AbstractAdmittanceFormulation end
+"""
+Select semiconducting-layer admittivity [S/m]. Concrete subtypes implement
+`SemiconAdmittance.semicon_material`; radial geometry is applied separately.
+"""
 abstract type SemiconAdmittanceFormulation <: AbstractAdmittanceFormulation end
+"""
+Select earth potential-coefficient equations [m/F]. Concrete subtypes implement
+`EarthAdmittance.constitutive` and indexed
+`EarthAdmittance.earth_potential_coefficient` methods. Matrix assembly converts
+the potential coefficients to shunt admittance [S/m].
+"""
 abstract type EarthAdmittanceFormulation <: AbstractAdmittanceFormulation end
+
+"""
+Validate a dielectric law's admittivity [S/m] at its material boundary and
+represent it as `Complex{T}` for radial aggregation. A result requiring a wider
+scalar type is rejected instead of silently discarding precision or uncertainty.
+"""
+function validate(::Union{InsulationAdmittanceFormulation, SemiconAdmittanceFormulation},
+        ::Type{T}, value) where {T <: Real}
+    value isa Number && !(value isa Bool) && isfinite(value) || throw(DomainError(
+        value, "a dielectric material law must return a finite scalar admittivity [S/m]"))
+    promote_type(T, typeof(real(value))) === T || throw(ArgumentError(
+        "dielectric admittivity requires scalar type $(typeof(real(value))); " *
+        "use a material and problem scalar type that preserves its precision and uncertainty"))
+    return convert(Complex{T}, value)
+end
 
 """
 Return whether an earth formulation consumes homogeneous or stratified media.
 """
 function media end
-
-"""
-Declare source-owned physical hook defaults and admitted overrides for an equation binding.
-"""
-function hooks end
 
 """
 Resolve scalar or named selections through the child slots declared by their formula owner.
@@ -277,14 +326,9 @@ function validate(formula::Union{EarthImpedanceFormulation, EarthAdmittanceFormu
     end
     identities = unique(equations)
     bindings = map(identities) do equation
-        declared = hooks(equation)
-        all(in(declared.configurable), keys(formula.hooks)) || throw(ArgumentError(
-            "an explicit physical hook is unused by $equation"))
-        selected_hooks = merge(declared.defaults, formula.hooks)
-        defaults = selected_hooks.contribution === nothing ? computation_options(equation) :
-                   computation_options(equation, selected_hooks.contribution)
+        defaults = computation_options(equation)
         (equation = equation, kind = typeof(first(equation.arguments)).parameters[1],
-            hooks = selected_hooks, defaults = defaults)
+            defaults = defaults)
     end
     admitted = union((keys(binding.defaults) for binding in bindings)...)
     unknown = setdiff(keys(formula.options), admitted)
@@ -293,8 +337,7 @@ function validate(formula::Union{EarthImpedanceFormulation, EarthAdmittanceFormu
     resolved = map(bindings) do binding
         names = Tuple(intersect(keys(formula.options), keys(binding.defaults)))
         options = computation_options(binding.equation, binding.defaults, formula.options[names])
-        (equation = binding.equation, kind = binding.kind,
-            hooks = binding.hooks, options = options)
+        (equation = binding.equation, kind = binding.kind, options = options)
     end
     return map(equation -> resolved[findfirst(==(equation), identities)], equations)
 end
@@ -386,9 +429,10 @@ scalar or an explicit `Grid`/`Gridspace`; varying inputs return a
   `:lossless`.
 - `semicon_admittance`: Semicon admittivity law; `:default` routes to
   `:lossless`.
-- `earth_properties`: Soil frequency-dependent constitutive law; `:default` and
-  `nothing` preserve the declared static soil. Equivalent-earth reductions are
-  unsupported. Air uses its declared static properties.
+- `earth_properties`: Soil frequency-dependent constitutive law; `:default`
+  routes to the explicit `:constant` pass-through, while `nothing` preserves
+  the declared static soil. Equivalent-earth reductions are unsupported. Air
+  uses its declared static properties.
 - `temperature_dependence`: Cable-material resistivity law; `:default` selects
   the linear law and `nothing` retains reference resistivity. Operating
   temperature belongs to `LineParametersProblem`.

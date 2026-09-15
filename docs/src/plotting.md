@@ -110,8 +110,9 @@ common decoration margins. Native SVG export preserves the block geometry.
 Figures are landscape (at least 4:3); physical cross-section axes remain square.
 
 Deterministic comparison plots use solid lines with sparse, staggered markers on saved sample
-points: hollow circles for references, filled triangles for requested defaults,
-and other shapes for alternatives. References always mark both endpoints.
+points: hollow circles for references and filled shapes for candidates.
+Default routes and explicit implementations have the same styling semantics.
+References always mark both endpoints.
 Colors and marker identities remain stable
 when formulations are filtered. No curves are merged because they agree.
 Use `series_attributes=(marker=nothing,)` for lines only, or an explicit native

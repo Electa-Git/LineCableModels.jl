@@ -20,10 +20,9 @@ function flatten(engine::LineCableModelsCoaxial, designs::AbstractVector,
     blueprints = Vector{CableBlueprint{T}}[]
     for formulation in formulations
         methods = formulation.methods
-        selected = formula_id(methods.shunt_model) === :boundary ?
-                   methods[(
-            :shunt_model, :insulation_admittance, :semicon_admittance)] :
-                   methods[(:shunt_model,)]
+        selected = methods.shunt_model isa ShuntModel.Formula{:coaxial} ?
+                   methods[(:shunt_model,)] :
+                   methods[(:shunt_model, :insulation_admittance, :semicon_admittance)]
         previous = findfirst(value -> isequal(value, selected), selections)
         current = previous === nothing ?
                   CableBlueprint{T}[flatten(engine, design, T, selected, solutions, index)
@@ -36,7 +35,7 @@ function flatten(engine::LineCableModelsCoaxial, designs::AbstractVector,
 end
 
 function internal_shunt_response(
-        selected::Union{ShuntModel.Formula{:default}, ShuntModel.Formula{:coaxial}},
+        selected::ShuntModel.Formula{:coaxial},
         domains::Vector{InternalShuntDomain{T}}, methods, solutions) where {T}
     requested = formula_id(selected)
     reports = ShuntDomainReport[(d.design, d.terminals, requested,
@@ -56,7 +55,7 @@ function internal_shunt_response(selected::ShuntModel.Formula{:boundary},
         try
             _shunt_lossless(methods) || throw(BoundarySolveError(:unsupported,
                 (; design = domain.design, terminals = domain.terminals),
-                "boundary shunt requires the built-in lossless dielectric laws without overrides"))
+                "boundary shunt requires the built-in lossless dielectric laws"))
             previous = findfirst(
                 value -> isequal(value.methods, methods) &&
                          _shunt_domain_equal(value.domain, domain),

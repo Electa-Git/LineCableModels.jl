@@ -16,11 +16,11 @@ export operators, formula_id, formulas, gamma, modal_quantities
 
 #! explicit-imports: off
 using DocStringExtensions: IMPORTS, TYPEDEF, TYPEDFIELDS, TYPEDSIGNATURES
-import ..LineCableModels: FormulaMethod, nominal, FormulaDefinition, parameterize, validate
+import ..LineCableModels: FormulaMethod, nominal, FormulaDefinition, formula, parameterize, validate
 import ..Grammar: AbstractProblemDefinition, AbstractFormulation,
                   ComputationOptions, ComputationDetails,
-                  compute, computation_options, computation_details, details
-import ..Engine: LineParameters, PhaseDomain, ModalDomain,
+                  compute, computation_options, computation_details, formulation_options, details
+import ..Engine: LineParameters, LineParametersFormulation, PhaseDomain, ModalDomain,
                  SeriesImpedance, ShuntAdmittance,
                  description, formula_id, selectdomain,
                  offdiagonal_ratio
@@ -32,6 +32,7 @@ include("interfaces.jl")
 include("problems.jl")
 
 include("formulations.jl")
+public modal_operators
 include("eigensystems.jl")
 
 #! explicit-imports: off

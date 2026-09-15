@@ -22,7 +22,7 @@ export Formula, formula_id, formulas
 # IMPORTS is expanded in this module docstring rather than called as Julia code.
 using DocStringExtensions: IMPORTS, TYPEDEF, TYPEDFIELDS, TYPEDSIGNATURES
 #! explicit-imports: on
-import ..Engine: InsulationAdmittanceFormulation, formula_id
+import ..Engine: InsulationAdmittanceFormulation, formula_id, validate
 import ...LineCableModels: FormulaDefinition, FormulaMethod
 using ...Materials: Material
 #! explicit-imports: off
@@ -30,6 +30,8 @@ import ..Engine: description, conductivity
 #! explicit-imports: on
 
 include("interface.jl")
+
+public insulation_material
 
 #! explicit-imports: off
 const FORMULAS = (

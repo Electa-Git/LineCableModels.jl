@@ -423,6 +423,8 @@ makedocs(;
                 "Overview" => "theory/earth_properties.md",
                 "Default frequency-dependent earth material" =>
                     "theory/earth-properties/frequency-dependent/default.md",
+                "Registered frequency-dependent soil relations" =>
+                    "theory/earth-properties/frequency-dependent/formulas.md",
                 "Default equivalent homogeneous-earth rule" =>
                     "theory/earth-properties/equivalent-homogeneous/default.md"
             ],

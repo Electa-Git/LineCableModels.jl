@@ -157,7 +157,7 @@ end
 
 @testitem "Engine / coaxial choreography / local formulas precede earth formulas" tags=[:integration] setup=[
     UseEngineSupport,
-    TestFixtures
+    TestFixtures,FormulaContractModels
 ] begin
     const EN=LineCableModels.Engine
     const II=EN.InsulationImpedance
@@ -167,66 +167,13 @@ end
     const EY=EN.EarthAdmittance
 
     events=Symbol[]
-    insulation_impedance=II.Formula(:default).binding
-    local_z=(
-        r_in, r_ex,
-        mu_r,
-        s,
-        values,
-        options,
-        workspace)->begin
-        push!(events, :local_z)
-        insulation_impedance(r_in, r_ex, mu_r, s, values, options, workspace)
-    end
-    insulation=IA.Formula(:lossy).binding
-    local_insulation_y=(material, frequency, temperature,
-        values, options,
-        workspace)->begin
-        push!(events, :local_y)
-        insulation(material, frequency, temperature, values, options, workspace)
-    end
-    semicon=SA.Formula(:lossy).binding
-    local_semicon_y=(material, frequency, temperature,
-        values, options,
-        workspace)->begin
-        push!(events, :local_y)
-        semicon(material, frequency, temperature, values, options, workspace)
-    end
-
-    earth_z=(
-        functor, pair, workspace)->begin
-        push!(events, :earth_z)
-        functor.binding.equation(functor, pair, workspace)
-    end
-    earth_y=(
-        functor, pair, workspace)->begin
-        push!(events, :earth_y)
-        functor.binding.equation(functor, pair, workspace)
-    end
-    for (operation,
-        identifier,
-        callback) in (
-        (II.insulation_impedance, :default, local_z),
-        (IA.insulation_material, :lossy, local_insulation_y),
-        (SA.semicon_material, :lossy, local_semicon_y))
-        @eval LineCableModels.computation_options(
-            ::LineCableModels.FormulaMethod{$(QuoteNode(identifier)), typeof($operation)},
-            ::$(typeof(callback))) = (;)
-    end
-    for (operation,
-        callback) in (
-        (EZ.earth_impedance, earth_z), (EY.earth_potential_coefficient, earth_y))
-        @eval LineCableModels.computation_options(
-            ::LineCableModels.FormulaMethod{:default, typeof($operation)},
-            ::$(typeof(callback))) = (integration = (method = :quad, options = (;)),)
-    end
-    formulation=Formulation(
-        insulation_impedance = formula(:default; hooks = (contribution = local_z,)),
-        insulation_admittance = formula(:lossy; hooks = (contribution = local_insulation_y,)),
-        semicon_admittance = formula(:lossy; hooks = (contribution = local_semicon_y,)),
-        earth_impedance = formula(:default; hooks = (contribution = earth_z,)),
-        earth_admittance = formula(:default; hooks = (contribution = earth_y,)),
-        options = (ideal_transposition = false,))
+    M=FormulaContractModels
+    formulation=Formulation(insulation_impedance=M.CountedInsulationZ(events),
+        insulation_admittance=M.CountedInsulationY(events),
+        semicon_admittance=M.CountedSemiconY(events),
+        earth_impedance=M.CountedEarthZ(events),
+        earth_admittance=M.CountedEarthP(events),
+        options=(ideal_transposition=false,))
     result=compute(
         TestFixtures.line_parameters_problem(frequencies = [50.0]),
         formulation
@@ -538,7 +485,7 @@ end
     @test imag(singleton_result.Y[1, 1, 1]) > 0
 end
 
-@testitem "Engine / indexed restrictions and Γ overrides reach public compute" tags=[:integration] setup=[
+@testitem "Engine / indexed restrictions and problem-owned Γ reach public compute" tags=[:integration] setup=[
     UseEngineSupport, TestFixtures
 ] begin
     base=TestFixtures.line_parameters_problem(frequencies = [50.0, 500.0])
@@ -547,18 +494,13 @@ end
     prescribed=compute(explicit, Formulation())
     @test all(isfinite, prescribed.Z)&&all(isfinite, prescribed.Y)
     @test_throws ArgumentError compute(explicit, Formulation(earth_impedance = :xue2018))
-    calls=Tuple{Int, Int}[]
-    prescription=(s, m, l)->(push!(calls, l); zero(s))
-    selected=Formulation(earth_impedance = formula(:default; hooks = (Γ = prescription,)))
-    result=compute(base, selected)
     ordinary=compute(base)
-    @test result.Z.values == ordinary.Z.values
-    @test !isempty(calls) && all(==((2, 2)), calls)
-    @test details(result).formulations.modified.earth_impedance
-    @test !details(ordinary).formulations.modified.earth_impedance
-    zero_problem=LineParametersProblem(base.system; earth_props = base.earth_props,
-        frequencies = base.frequencies, Γ = zeros(ComplexF64, 2))
-    @test_throws ArgumentError compute(zero_problem, selected)
+    zero_problem=LineParametersProblem(base.system;earth_props=base.earth_props,
+        frequencies=base.frequencies,Γ=zeros(ComplexF64,2))
+    zero_result=compute(zero_problem)
+    @test Z(zero_result)==Z(ordinary)
+    @test Y(zero_result)==Y(ordinary)
+    @test !hasproperty(details(ordinary).formulations,:modified)
     @test_throws DimensionMismatch LineParametersProblem(base.system;
         earth_props = base.earth_props, frequencies = base.frequencies, Γ = [0.0])
     design=TestFixtures.coaxial_design()
@@ -573,18 +515,12 @@ end
 
 @testitem "Engine / frequency-dependent earth relation reaches coaxial solve" tags=[:integration] setup=[
     UseEngineSupport,
-    TestFixtures
+    TestFixtures,FormulaContractModels
 ] begin
     problem=TestFixtures.line_parameters_problem(frequencies = [1.0e6])
     static=compute(problem, Formulation())
-    law=(m, f, p, o,
-        w)->LineCableModels.Earth.EarthMaterial(m.rho/(1+f/1e5), m.eps_r, m.mu_r)
-    @eval LineCableModels.computation_options(
-        ::LineCableModels.FormulaMethod{
-            :default, typeof(LineCableModels.Earth.FrequencyDependent.earth_material)},
-        ::$(typeof(law))) = (;)
-    dispersive=compute(problem,
-        Formulation(earth_properties = formula(:default; hooks = (contribution = law,))))
+    law=FormulaContractModels.DispersiveEarth(scale=1e5)
+    dispersive=compute(problem,Formulation(earth_properties=law))
 
     @test all(isfinite, dispersive.Z)
     @test all(isfinite, dispersive.Y)

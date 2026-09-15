@@ -44,6 +44,6 @@
     @test paired.axes === candidates.axes
     labels=artifact.table.formulations.label[artifact.table.formulations.role .== :candidate]
     @test labels[1] != labels[2]
-    @test occursin("default",labels[1])
+    @test occursin("Unified",labels[1])
     @test occursin("Pollaczek",labels[2])
 end

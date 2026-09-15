@@ -210,10 +210,10 @@ end
         earth_admittance=(air=:default,earth=:default,mixed=:default))
     for retained in (physical,IO.deserialize_value(Val(:formulation),NamedTuple(physical)))
         data=ParametricResult(nothing,points[1:1],(problems=[:one],formulations=[retained]),(;))
-        for (request,names) in ((R,("internal Z(inner)=default","internal Z(outer)=default",
-                "internal Z(transfer)=default","earth Z(air)=default",
-                "earth Z(earth)=Pollaczek","earth Z(mixed)=default")),
-                (B,("earth Y(air)=default","earth Y(earth)=default","earth Y(mixed)=default")))
+        for (request,names) in ((R,("internal Z(inner)=Schelkunoff","internal Z(outer)=Schelkunoff",
+                "internal Z(transfer)=Schelkunoff","earth Z(air)=Unified",
+                "earth Z(earth)=Pollaczek","earth Z(mixed)=Unified")),
+                (B,("earth Y(air)=Unified","earth Y(earth)=Unified","earth Y(mixed)=Unified")))
             page=LineCableModels.plot(data;ydata=(request,),options...)
             label=only(values(page.addon_state.labels))
             @test all(occursin(name,label) for name in names)
@@ -253,7 +253,7 @@ end
                 @test length(names) == (family == "Z" ? 6 : 4)
                 @test all(!occursin("earth $other",label) for label in names)
                 @test all(occursin("earth $family",label) for label in names[2:end])
-                @test count(label -> occursin("=default",label),names[2:end]) == 1
+                @test count(label -> occursin("=Unified",label),names[2:end]) == 1
                 curves = filter(plot -> plot isa Makie.Lines,first(page.axes).scene.plots)
                 @test length(curves) == (family == "Z" ? 6 : 4)
                 @test all(curve -> curve[1][] == first(curves)[1][],curves)
@@ -263,10 +263,10 @@ end
         end
         filtered = LineCableModels.plot(source; ydata=(G,),formulations=[4,2,1],options...,extra...)
         names = [filtered.addon_state.labels[group] for group in filtered.addon_state.order]
-        @test names[2:end] == ["earth Y=default","earth Y=Pollaczek"]
+        @test names[2:end] == ["earth Y=Unified","earth Y=Pollaczek"]
         reordered=LineCableModels.plot(source;ydata=(R,),formulations=[3,1],options...,extra...)
         reordered_names=[reordered.addon_state.labels[group] for group in reordered.addon_state.order]
-        @test reordered_names[2:end]==["earth Z=Saad","earth Z=default"]
+        @test reordered_names[2:end]==["earth Z=Saad","earth Z=Unified"]
         override = ("ref","a","b","c","d","e")
         custom = LineCableModels.plot(source; ydata=(R,G),series_labels=override,options...,extra...)
         @test Set(values(first(custom).addon_state.labels)) == Set(override)

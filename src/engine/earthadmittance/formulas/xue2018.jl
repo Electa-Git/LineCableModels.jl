@@ -33,7 +33,6 @@ function description(::Type{<:Formula{:xue2018}}; compact::Bool=false)
     compact ? "Xue" : "Xue homogeneous-earth underground potential coefficient (2018)"
 end
 
-Γ(::Val{:xue2018}, jω, materials, layers) = zero(jω)
 
 raw"""
 Evaluate the Xue et al. underground potential coefficient referred to
@@ -57,7 +56,7 @@ The underground branch uses the infinite-depth reference.
 """
 
 function earth_potential_coefficient(
-        ::Val{:xue2018}, ::Union{Val{:self}, Val{:mutual}}, ::Val{2}, ::Val{2},
+        ::Formula{:xue2018}, ::Union{Val{:self}, Val{:mutual}}, ::Val{2}, ::Val{2},
         functor, pair, workspace
 )
     state = functor.state
@@ -98,27 +97,32 @@ function earth_potential_coefficient(
            (direct + 2 * S12 + 2 * gamma_1^2 * S13)
 end
 
-Formulation(::LineCableModelsCoaxial, selected::Formula{:xue2018}) = selected
 
-function hooks(::FormulaMethod{:xue2018, typeof(earth_potential_coefficient),
-        A}) where {A <: Tuple{Union{Val{:self}, Val{:mutual}}, Val{2}, Val{2}}}
-    return (configurable = (:Γ, :air, :earth, :permeability, :contribution),
-        defaults = (
-            Γ = FormulaMethod(Val(:xue2018), Γ),
-            air = FormulaMethod(Val(:full), propagation),
-            earth = FormulaMethod(Val(:full), propagation),
-            permeability = vacuum_permeability,
-            contribution = nothing))
-end
 
-function computation_options(::FormulaMethod{:xue2018, typeof(earth_potential_coefficient),
+function computation_options(::FormulaMethod{<:Formula{:xue2018}, typeof(earth_potential_coefficient),
         A}) where {A <: Tuple{Union{Val{:self}, Val{:mutual}}, Val{2}, Val{2}}}
     (integration = (method = :quad, options = (;)),)
 end
 
-function validate(binding::FormulaMethod{:xue2018, typeof(earth_potential_coefficient)},
-        ::EquivalentHomogeneous.Formula{:default})
+function validate(binding::FormulaMethod{<:Formula{:xue2018}, typeof(earth_potential_coefficient)},
+        ::EquivalentHomogeneous.Formula{:bottommost})
     binding
+end
+
+"""
+$(TYPEDSIGNATURES)
+
+Evaluate this formulation's medium state: absolute permeability \\[H/m\\]
+and transverse propagation constant \\[1/m\\]. Air retains its prescribed
+permeability; soil follows the selected source's magnetic approximation.
+"""
+function constitutive(::Formula{:xue2018}, ::Val{:air}, jω, μ, σ, ε)
+    return (mu=μ, gamma=propagation(Val(:full), jω, μ, σ, ε))
+end
+
+function constitutive(::Formula{:xue2018}, ::Val{:earth}, jω, μ, σ, ε)
+    permeability = vacuum_permeability(μ)
+    return (mu=permeability, gamma=propagation(Val(:full), jω, permeability, σ, ε))
 end
 
 :xue2018

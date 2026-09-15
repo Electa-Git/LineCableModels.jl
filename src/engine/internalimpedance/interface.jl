@@ -1,198 +1,151 @@
 """
 $(TYPEDEF)
 
-Select an internal-impedance recipe by its registered identifier.
-
-Surface equations receive `(functor, workspace)`. Physical parameters, explicit
-callables and numerical options have separate fields.
+Select cylindrical surface equations and their model and numerical controls.
+The actual conductor geometry determines which surfaces are required.
 
 $(TYPEDFIELDS)
 """
-struct Formula{
-    ID,
-    R <: NamedTuple,
-    A <: NamedTuple,
-    H <: NamedTuple,
-    O <: NamedTuple,
-    C <: Tuple
-} <: InternalImpedanceFormulation
-    "Surface equation bindings; an unimplemented kind has no binding."
-    binding::R
-    "Physical assumptions of the selected recipe."
-    parameters::A
-    "Surface-equation overrides supplied by the user."
-    hooks::H
-    "Numerical sections indexed by surface kind."
+struct Formula{ID, P <: NamedTuple, O <: NamedTuple, C <: Tuple} <: InternalImpedanceFormulation
+    "Resolved physical/model parameters."
+    parameters::P
+    "Normalized numerical sections indexed by surface kind."
     options::O
-    "Explicitly configured numerical section names, checked against actual consumers."
+    "Explicit numerical section names, checked against actual consumers."
     configured_options::C
 end
 
 """
 $(TYPEDEF)
 
-Store the values shared by the leaf interactions of one formula call.
-
-The state has no common physical layout: every formula owns its state and call
-methods.
+Retain a selected formulation and shared state for one conductor and frequency.
+Leaf evaluation uses that selection's equation directly.
 
 $(TYPEDFIELDS)
 """
-struct Functor{ID, B, H, S, O}
-    "Declared equation bindings, or the single bound surface equation."
-    binding::B
-    "Concrete callable overrides retained unchanged from selection."
-    hooks::H
-    "Formula-owned shared numerical state."
+struct Functor{F, S, O}
+    "Selected internal-impedance formulation."
+    selection::F
+    "Shared conductor state at one frequency."
     state::S
-    "Normalized numerical options for the bound kind or surface collection."
+    "Normalized numerical sections for the surfaces or the current leaf."
     options::O
 end
 
-"""
-Return the stable formula identifier of an internal-impedance formula.
-"""
+"""Return the stable identifier of a selected internal-impedance formulation."""
 formula_id(::Formula{ID}) where {ID} = ID
 
-"""
-Evaluate one formula-owned internal-impedance interaction.
-"""
+"""Evaluate a selected cylindrical surface coefficient in Ω/m."""
 function internal_impedance end
 
-"""
-Return the three cylindrical surface impedances supplied by one formula.
-"""
+"""Evaluate required cylindrical surface impedances in Ω/m."""
 function surface_impedances end
 
 """
 $(TYPEDSIGNATURES)
 
-Construct an internal-impedance formula from a registered identifier.
-
-The `hooks` record replaces individual surface equations. Each replacement
-declares its numerical defaults through `computation_options(binding, callable)`.
+Construct an internal-impedance formulation. Numerical controls are projected
+onto its implemented surfaces; unknown or unused sections are rejected.
+Custom formulations subtype `InternalImpedanceFormulation`, supply their
+shared-state constructor, and extend `internal_impedance` on their own type.
 """
 Formula(identifier::Symbol; kwargs...) = Formula(Val(identifier); kwargs...)
 
-function Formula(::Val{ID}; parameters::NamedTuple = (;),
-        hooks::NamedTuple = (;), options::NamedTuple = (;)) where {ID}
-    haskey(hooks, :mutual) && throw(ArgumentError(
-        "internal-impedance hooks use transfer, not mutual"))
-    ID in FORMULAS || throw(ArgumentError("unknown internal-impedance formula :$ID"))
-    isempty(parameters) ||
-        throw(ArgumentError("internal impedance :$ID has no model parameters"))
-    kinds = Tuple(key for (key,_) in pairs(Formula))
-    equations = (inner = FormulaMethod(Val(ID), internal_impedance, Val(:inner)),
-        outer = FormulaMethod(Val(ID), internal_impedance, Val(:outer)),
-        transfer = FormulaMethod(Val(ID), internal_impedance, Val(:transfer)))
-    Bindings = NamedTuple{kinds,
-        Tuple{Union{Nothing, typeof(equations.inner)},
-            Union{Nothing, typeof(equations.outer)}, Union{
-                Nothing, typeof(equations.transfer)}}}
-    defaults::Bindings = Bindings(map(kinds) do kind
-        which(internal_impedance, Tuple{Val{ID}, Val{kind}, Any, Any}) === EQUATION_FALLBACK ?
-        nothing : getproperty(equations, kind)
-    end)
-    all(isnothing, values(defaults)) &&
-        throw(ArgumentError("internal impedance :$ID has no implemented surface equations"))
-    all(kind -> get(defaults, kind, nothing) !== nothing, keys(hooks)) ||
-        throw(ArgumentError("unknown or unimplemented internal-impedance hooks"))
-    any(isnothing, values(hooks)) && throw(ArgumentError("surface hooks must be callable"))
-    declarations = map(keys(defaults)) do kind
-        getproperty(defaults, kind) === nothing && return (;)
-        binding = getproperty(equations, kind)
-        replacement = get(hooks, kind, nothing)
-        replacement === nothing ? computation_options(binding) :
-        computation_options(binding, replacement)
+function Formula(::Val{ID}; parameters::NamedTuple=(;), options::NamedTuple=(;)) where {ID}
+    isempty(parameters) || throw(ArgumentError("internal impedance :$ID has no model parameters"))
+    kinds = (:inner, :outer, :transfer)
+    supplied = keys(options)
+    selected = Formula{ID, typeof(parameters), typeof(options), typeof(supplied)}(
+        parameters, options, supplied)
+    declarations = map(kinds) do kind
+        binding = FormulaMethod(selected, internal_impedance, Val(kind))
+        signature = Tuple{typeof(selected), typeof(Val(kind)), Any, Any}
+        which(internal_impedance, signature) === EQUATION_FALLBACK && return nothing
+        computation_options(binding)
     end
-    admitted = union((keys(value) for value in declarations)...)
-    isempty(setdiff(keys(options), admitted)) ||
-        throw(ArgumentError("unused internal-impedance numerical sections"))
-    normalized = NamedTuple{keys(defaults)}(map(keys(defaults), declarations) do kind,
-    declared
-        names = Tuple(intersect(keys(options), keys(declared)))
-        computation_options(getproperty(equations, kind), declared, options[names])
+    all(isnothing, declarations) && throw(ArgumentError(
+        "internal impedance :$ID has no implemented surface equations"))
+    admitted = union((keys(value) for value in declarations if value !== nothing)...)
+    isempty(setdiff(supplied, admitted)) || throw(ArgumentError(
+        "unused internal-impedance numerical sections"))
+    normalized = NamedTuple{kinds}(map(kinds, declarations) do kind, defaults
+        defaults === nothing && return (;)
+        binding = FormulaMethod(selected, internal_impedance, Val(kind))
+        names = Tuple(intersect(supplied, keys(defaults)))
+        computation_options(binding, defaults, options[names])
     end)
-    return Formula{ID, typeof(defaults), typeof(parameters), typeof(hooks),
-        typeof(normalized), typeof(keys(options))}(
-        defaults, parameters, hooks, normalized, keys(options))
+    return Formula{ID, typeof(parameters), typeof(normalized), typeof(supplied)}(
+        parameters, normalized, supplied)
 end
 
-Formula(selected::Formula) = selected
+Formula(selected::InternalImpedanceFormulation) = selected
 
 function Formula(selection::FormulaDefinition{ID, Order}) where {ID, Order}
     Order === :default || throw(ArgumentError("order applies only to equivalent_earth"))
     selection.equivalent_earth === nothing || throw(ArgumentError(
         "equivalent_earth applies only to external earth formulas"))
-    return Formula(Val(ID); parameters = selection.parameters, hooks = selection.hooks,
-        options = selection.options)
+    return Formula(Val(ID); parameters=selection.parameters, options=selection.options)
 end
 
-function internal_impedance(::Val{ID}, ::Val{Kind}, functor, workspace) where {ID, Kind}
-    throw(ArgumentError("internal_impedance :$ID: formula not implemented for kind :$Kind"))
+function internal_impedance(selected::InternalImpedanceFormulation, ::Val{Kind},
+        functor, workspace) where {Kind}
+    throw(ArgumentError(
+        "internal_impedance :$(formula_id(selected)): formula not implemented for kind :$Kind"))
 end
 
-const EQUATION_FALLBACK = which(internal_impedance, Tuple{Val, Val, Any, Any})
+const EQUATION_FALLBACK = which(internal_impedance,
+    Tuple{InternalImpedanceFormulation, Val, Any, Any})
 
-function validate(binding::FormulaMethod{ID, typeof(internal_impedance), A}) where {ID, A}
-    if which(internal_impedance, Tuple{Val{ID}, A.parameters..., Any, Any}) ===
-       EQUATION_FALLBACK
+function validate(binding::FormulaMethod{S, typeof(internal_impedance), A}) where {S, A}
+    which(internal_impedance, Tuple{S, A.parameters..., Any, Any}) === EQUATION_FALLBACK &&
         binding(nothing, nothing)
-    end
     return binding
 end
 
-function (functor::Functor{ID})(::Val{Kind}, workspace = nothing) where {ID, Kind}
-    binding = FormulaMethod(Val(ID), internal_impedance, Val(Kind))
-    get(functor.binding, Kind, nothing) === nothing && return binding(nothing, workspace)
-    selected = get(functor.hooks, Kind, binding)
+function (functor::Functor)(::Val{Kind}, workspace=nothing) where {Kind}
+    hasproperty(functor.options, Kind) || throw(ArgumentError(
+        "internal surface :$Kind is not implemented by this selection"))
     options = getproperty(functor.options, Kind)
-    case = Functor{
-        ID, typeof(binding), typeof(functor.hooks), typeof(functor.state), typeof(options)}(
-        binding, functor.hooks, functor.state, options)
-    value = selected(case, workspace)
+    leaf = Functor(functor.selection, functor.state, options)
+    value = internal_impedance(functor.selection, Val(Kind), leaf, workspace)
     value isa Number && isfinite(value) || throw(DomainError(value,
         "internal_impedance must return a finite surface coefficient [Ω/m]"))
     return value
 end
 
-(functor::Functor)(kind::Symbol, workspace = nothing) = functor(Val(kind), workspace)
+(functor::Functor)(kind::Symbol, workspace=nothing) = functor(Val(kind), workspace)
 
 """
 $(TYPEDSIGNATURES)
 
-Evaluate cylindrical surface coefficients using a resolved formula, including
-its explicit hooks and numerical options. The returned `(inner, outer, transfer)`
-coefficients have units \\[Ω/m\\]. The wall operator is `[inner transfer; transfer outer]` in the surface-current
-basis `(-enclosed axial current, total axial current including the wall)`.
-Assemblers supply their current-basis transformation; this action performs no
-matrix placement or enclosing-pipe calculation.
+Evaluate cylindrical surface coefficients in Ω/m. The wall operator is
+`[inner transfer; transfer outer]` in the surface-current basis
+`(-enclosed axial current, total axial current including the wall)`.
+Assemblers own basis transformation and matrix placement.
 
 # Arguments
 
-- `formula`: Resolved internal-impedance selection.
+- `formula`: One formulation or complete `inner/outer/transfer` selections.
 - `r_in`, `r_ex`: Inner and outer conductor radii \\[m\\].
 - `rho`: Conductor resistivity \\[Ω·m\\].
 - `mu_r`: Relative permeability \\[dimensionless\\].
 - `jω`: Imaginary angular frequency \\[1/s\\].
-- `workspace`: Optional numerical resources, passed unchanged to every kind.
+- `workspace`: Optional numerical resources passed to each selected equation.
+
+# Returns
+
+- NamedTuple of `inner`, `outer`, and `transfer` coefficients \\[Ω/m\\].
 """
-function surface_impedances(formula::Union{Formula,NamedTuple{(:inner,:outer,:transfer)}},
-        r_in, r_ex, rho, mu_r, jω;
-        workspace = nothing)
+function surface_impedances(formula::Union{InternalImpedanceFormulation,
+        NamedTuple{(:inner,:outer,:transfer)}}, r_in, r_ex, rho, mu_r, jω;
+        workspace=nothing)
     validate(formula, (:inner, :outer, :transfer))
     return surface_impedances(formula, Val((:inner,:outer,:transfer)),
         r_in, r_ex, rho, mu_r, jω; workspace)
 end
 
-"""
-$(TYPEDSIGNATURES)
-
-Evaluate the prevalidated surface kinds in `Kinds`, in their supplied order,
-returning a NamedTuple of coefficients \\[Ω/m\\]. Shared formula state is
-prepared once per distinct complete selection for this conductor and frequency.
-"""
-@inline function surface_impedances(formula::Formula, ::Val{Kinds},
+"""Evaluate prevalidated surfaces, preparing shared state once per conductor and frequency."""
+@inline function surface_impedances(formula::InternalImpedanceFormulation, ::Val{Kinds},
         r_in, r_ex, rho, mu_r, jω; workspace=nothing) where {Kinds}
     functor = formula(r_in, r_ex, rho, mu_r, jω)
     length(Kinds) == 1 && return NamedTuple{Kinds}((functor(Val(Kinds[1]),workspace),))
@@ -217,51 +170,36 @@ end
         second_functor(Val(Kinds[2]),workspace), third_functor(Val(Kinds[3]),workspace)))
 end
 
-"""Validate each required internal surface against its own selected formula and controls."""
+"""Validate each required surface against its own selected formulation and controls."""
 function validate(selected::NamedTuple{(:inner,:outer,:transfer)}, kinds::Tuple)
     for (kind, leaf) in pairs(selected)
         if kind in kinds
             validate(leaf, (kind,))
         else
-            isempty(leaf.hooks) && isempty(leaf.parameters) && isempty(leaf.configured_options) ||
-                throw(ArgumentError("explicit internal $kind controls are unused by this assembly"))
+            isempty(leaf.parameters) && isempty(leaf.configured_options) || throw(ArgumentError(
+                "explicit internal $kind controls are unused by this assembly"))
         end
     end
     return selected
 end
 
-function validate(formula::Formula{ID}, kinds::Tuple) where {ID}
-    :mutual in kinds && throw(ArgumentError("internal-impedance kinds use transfer, not mutual"))
-    foreach(kinds) do kind
-        validate(FormulaMethod(Val(ID), internal_impedance, Val(kind)))
-    end
-    isempty(setdiff(keys(formula.hooks), kinds)) || throw(ArgumentError(
-        "an internal surface override is unused by the required conductor interactions"))
+function validate(formula::InternalImpedanceFormulation, kinds::Tuple)
+    foreach(kind -> validate(FormulaMethod(formula, internal_impedance, Val(kind))), kinds)
     admitted = union((keys(getproperty(formula.options, kind)) for kind in kinds)...)
     isempty(setdiff(formula.configured_options, admitted)) || throw(ArgumentError(
         "an explicitly configured numerical section is unused by the required internal surfaces"))
     return formula
 end
 
-"""
-$(TYPEDSIGNATURES)
+"""Expose the selected identity, model parameters and numerical controls."""
+Base.NamedTuple(value::Formula) = (identifier=formula_id(value),
+    parameters=value.parameters, options=value.options, configured_options=value.configured_options)
 
-Expose the selected equation, physical parameters, callable overrides and numerical
-options as a native record. Callables are retained unchanged.
-"""
-function Base.NamedTuple(value::Formula)
-    return (identifier=formula_id(value), binding=value.binding,
-        parameters=value.parameters, hooks=value.hooks, options=value.options,
-        configured_options=value.configured_options)
-end
-
-# Identity-only dispatch also describes retained selections without constructors.
 import ...Grammar: formulation_options
 description(value::Formula; compact::Bool=false) = description(typeof(value); compact)
-
-"""Iterate the independently selectable child slots admitted by this formula family."""
 Base.pairs(::Type{<:Formula}; quantity=nothing) = pairs((inner=Formula, outer=Formula, transfer=Formula))
 formula_id(::Type{<:Formula{ID}}) where {ID} = ID
-formulation_options(value::Formula) = formulation_options(typeof(value), (parameters=value.parameters, hooks=value.hooks, options=value.options))
+formulation_options(value::Formula) = formulation_options(typeof(value),
+    (parameters=value.parameters, options=value.options))
 formulation_options(::Type{<:Formula}, retained::NamedTuple) =
     formulation_options(FormulaDefinition, retained)

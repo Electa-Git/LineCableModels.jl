@@ -149,10 +149,13 @@ include("lineparameters/base.jl")
 include("lineparameters/publication.jl")
 include("textdisplay.jl")
 
-public hooks, SpectralIntegral, integrate
+public SpectralIntegral, integrate
 public OBSERVABLE_RESOLUTION_REVISION
 public has_uncertainty_type, spectral_magnitude
 public internal_shunt_response
+public InternalImpedanceFormulation, InsulationImpedanceFormulation, PipeImpedanceFormulation,
+    EarthImpedanceFormulation, InsulationAdmittanceFormulation, SemiconAdmittanceFormulation,
+    EarthAdmittanceFormulation, ShuntModelFormulation
 public reduce_primitive_matrices, potential_to_admittance
 public layer_admittance
 public ConsoleVerbosityLogger

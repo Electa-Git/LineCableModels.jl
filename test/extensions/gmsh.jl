@@ -1302,7 +1302,7 @@ end
             @test details(batch).points[index] == details(batch[index])
         end
         default_indices = findall(
-            value -> formula_id(value.methods.insulation_admittance) === :default, selected)
+            value -> formula_id(value.methods.insulation_admittance) === :lossless, selected)
         lossy_indices = findall(
             value -> formula_id(value.methods.insulation_admittance) === :lossy, selected)
         for indices in (default_indices, lossy_indices)

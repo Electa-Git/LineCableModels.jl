@@ -20,17 +20,17 @@ export Formula, formula_id, earth_impedance, assumptions, propagation, formulas,
 using DocStringExtensions: IMPORTS, TYPEDEF, TYPEDFIELDS, TYPEDSIGNATURES
 #! explicit-imports: on
 import ...LineCableModels: validate
-import ..Engine: EarthPair, hooks, earth_parameters
+import ..Engine: EarthPair, earth_parameters
+import ...LineCableModels: constitutive
 import ...Earth: EquivalentHomogeneous
 import ..Engine: EarthImpedanceFormulation, formula_id
 #! explicit-imports: off
-# Formula files are discovered dynamically; their imports are verified by the
-# equation-ownership tests because the static import scanner cannot follow them.
+# Explicitly included equations share these physical and numerical operations.
 import ..Engine: system_earth, unified_entry, retained_earth_features
 import ...LineCableModels: FormulaDefinition, FormulaMethod, nominal
-import ..Engine: Formulation, SpectralIntegral, integrate
+import ..Engine: SpectralIntegral, integrate
 import ..Engine: description, conductivity, media, special_besselk
-import ..Engine: computation_options, LineCableModelsCoaxial
+import ..Engine: computation_options
 #! explicit-imports: on
 
 vacuum_permeability(value) = one(value) * 4 * (one(value) * π) * (one(value) * 10)^(-7)
@@ -40,6 +40,7 @@ include("homogeneous.jl")
 
 #! explicit-imports: off
 const FORMULAS = (
+    include("formulas/unified.jl"),
     include("formulas/ametani2009.jl"),
     include("formulas/carson1926.jl"),
     include("formulas/default.jl"),

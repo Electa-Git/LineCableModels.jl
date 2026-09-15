@@ -10,7 +10,7 @@
         material = Material(kind, 1.0, 100.0; tan_delta = 0.02)
         lossless = owner.Formula(:default)
         lossy = owner.Formula(:lossy)
-        @test formula_id(lossless) === :default
+        @test formula_id(lossless) === :lossless
         for frequency in (0.1, 50.0, 1.0e6)
             ω = 2π * frequency
             actual = @inferred constitutive(lossless, material, frequency, 20.0)

@@ -5,7 +5,7 @@
 | Field | Value |
 | --- | --- |
 | Family | Internal impedance |
-| Formula identifier | `:default` |
+| Formula identifier | `:schelkunoff1934`; `:default` routes to this implementation |
 | Explicit literature identifier | `:schelkunoff1934` |
 | Documentation status | Registered and documented. |
 

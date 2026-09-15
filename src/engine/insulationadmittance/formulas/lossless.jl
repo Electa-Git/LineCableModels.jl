@@ -40,7 +40,7 @@ Evaluate lossless cable-insulation admittivity:
 - Complex lossless admittivity \\[S/m\\].
 """
 @inline function insulation_material(
-        ::Val{:lossless}, material::Material{T}, frequency::T,
+        ::Formula{:lossless}, material::Material{T}, frequency::T,
         temperature::T, values::NamedTuple, options::NamedTuple, workspace
 ) where {T <: Real}
     ε₀ = one(T) * 88541878128 * (one(T) * 10)^(-22)
@@ -48,6 +48,6 @@ Evaluate lossless cable-insulation admittivity:
     return complex(zero(T), ω) * ε₀ * material.eps_r
 end
 
-computation_options(::FormulaMethod{:lossless, typeof(insulation_material)}) = (;)
+computation_options(::FormulaMethod{<:Formula{:lossless}, typeof(insulation_material)}) = (;)
 
 :lossless

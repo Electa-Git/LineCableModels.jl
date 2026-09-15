@@ -11,7 +11,7 @@
     @test details(nominal).shunt_model.effective === :coaxial
     @test details(nominal).shunt_model.solves == 0
     @test isempty(E.flatten(LineCableModelsCoaxial(), design, default).shunt)
-    @test E.formula_id(default.methods.shunt_model) === :default
+    @test E.formula_id(default.methods.shunt_model) === :coaxial
     invalid = (formula(:no_such_model), formula(:coaxial; options = (audit = true,)),
         formula(:boundary; parameters = (fallback = :silent,)),
         formula(:boundary; options = (integration = (rtol = -1.0,),)),
@@ -77,8 +77,8 @@
     @test compute(problem, default) == nominal
     for id in E.ShuntModel.formulas()
         selected = E.ShuntModel.Formula(id)
-        @test occursin("id=" * string(id), sprint(show, selected))
-        @test occursin(string(id), sprint(show, MIME"text/plain"(), selected))
+        @test occursin("id=" * string(formula_id(selected)), sprint(show, selected))
+        @test occursin(string(formula_id(selected)), sprint(show, MIME"text/plain"(), selected))
     end
     @test which(show, (IO, MIME"text/plain", BoundarySolveError)).module === E
     @test occursin("quadrature", sprint(show, MIME"text/plain"(), error))

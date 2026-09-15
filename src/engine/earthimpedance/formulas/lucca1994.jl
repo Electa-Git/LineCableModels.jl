@@ -28,9 +28,6 @@ Compatibility*, 1994. DOI: 10.1049/cp:19940679.
 """
 description(::Type{<:Formula{:lucca1994}}; compact::Bool=false) = compact ? "Lucca" : "Lucca mixed-pair homogeneous-earth impedance (1994)"
 
-function Γ(::Val{:lucca1994}, jω, materials, layers)
-    return zero(jω)
-end
 
 raw"""
 Evaluate Lucca's approximation for the mutual impedance between one overhead
@@ -58,7 +55,7 @@ return," *9th International Conference on Electromagnetic Compatibility*, 1994.
 DOI: 10.1049/cp:19940679.
 """
 function earth_impedance(
-        ::Val{:lucca1994}, ::Val{:mutual}, ::Val{1}, ::Val{2},
+        ::Formula{:lucca1994}, ::Val{:mutual}, ::Val{1}, ::Val{2},
         functor, pair, workspace
 )
     state = functor.state
@@ -78,7 +75,7 @@ function earth_impedance(
 end
 
 function earth_impedance(
-        ::Val{:lucca1994}, ::Val{:mutual}, ::Val{2}, ::Val{1},
+        ::Formula{:lucca1994}, ::Val{:mutual}, ::Val{2}, ::Val{1},
         functor, pair, workspace
 )
     state = functor.state
@@ -97,43 +94,38 @@ function earth_impedance(
     return state.jω * state.mu[1] / (2πT) * (log(S / D) - correction)
 end
 
-Formulation(::LineCableModelsCoaxial, selected::Formula{:lucca1994}) = selected
 
-function hooks(::FormulaMethod{:lucca1994, typeof(earth_impedance),
-        A}) where {A <: Tuple{Val{:mutual}, Val{1}, Val{2}}}
-    return (configurable = (:Γ, :earth, :permeability, :contribution),
-        defaults = (
-            Γ = FormulaMethod(Val(:lucca1994), Γ),
-            air = FormulaMethod(Val(:lossless), propagation),
-            earth = FormulaMethod(Val(:conductive), propagation),
-            permeability = vacuum_permeability,
-            contribution = nothing))
-end
 
-function computation_options(::FormulaMethod{:lucca1994, typeof(earth_impedance),
+function computation_options(::FormulaMethod{<:Formula{:lucca1994}, typeof(earth_impedance),
         A}) where {A <: Tuple{Val{:mutual}, Val{1}, Val{2}}}
     (;)
 end
 
-function hooks(::FormulaMethod{:lucca1994, typeof(earth_impedance),
-        A}) where {A <: Tuple{Val{:mutual}, Val{2}, Val{1}}}
-    return (configurable = (:Γ, :earth, :permeability, :contribution),
-        defaults = (
-            Γ = FormulaMethod(Val(:lucca1994), Γ),
-            air = FormulaMethod(Val(:lossless), propagation),
-            earth = FormulaMethod(Val(:conductive), propagation),
-            permeability = vacuum_permeability,
-            contribution = nothing))
-end
 
-function computation_options(::FormulaMethod{:lucca1994, typeof(earth_impedance),
+function computation_options(::FormulaMethod{<:Formula{:lucca1994}, typeof(earth_impedance),
         A}) where {A <: Tuple{Val{:mutual}, Val{2}, Val{1}}}
     (;)
 end
 
-function validate(binding::FormulaMethod{:lucca1994, typeof(earth_impedance)},
-        ::EquivalentHomogeneous.Formula{:default})
+function validate(binding::FormulaMethod{<:Formula{:lucca1994}, typeof(earth_impedance)},
+        ::EquivalentHomogeneous.Formula{:bottommost})
     binding
+end
+
+"""
+$(TYPEDSIGNATURES)
+
+Evaluate this formulation's medium state: absolute permeability \\[H/m\\]
+and transverse propagation constant \\[1/m\\]. Air retains its prescribed
+permeability; soil follows the selected source's magnetic approximation.
+"""
+function constitutive(::Formula{:lucca1994}, ::Val{:air}, jω, μ, σ, ε)
+    return (mu=μ, gamma=propagation(Val(:lossless), jω, μ, σ, ε))
+end
+
+function constitutive(::Formula{:lucca1994}, ::Val{:earth}, jω, μ, σ, ε)
+    permeability = vacuum_permeability(μ)
+    return (mu=permeability, gamma=propagation(Val(:conductive), jω, permeability, σ, ε))
 end
 
 :lucca1994

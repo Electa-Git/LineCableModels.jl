@@ -1,23 +1,12 @@
-
 """
 $(TYPEDSIGNATURES)
 
-**Identification.** Static earth material.
-
-**Expression.** Preserve the supplied static soil resistivity, relative permittivity, and
-relative permeability at every positive evaluation frequency.
-
-The returned material has no frequency dependence or fitted parameters.
+Route the default selection to the explicit `:constant` implementation.
+No numerical equation is owned by `:default`.
 """
-description(::Type{<:Formula{:default}}; compact::Bool=false) = compact ? "default" : "Static earth material"
+description(::Type{<:Formula{:default}}; compact::Bool=false) =
+    compact ? "Default" : "Default routing to :constant"
 
-function earth_material(
-        ::Val{:default}, material::EarthMaterial, frequency::Real,
-        values::NamedTuple, options::NamedTuple, workspace
-)
-    return material
-end
-
-computation_options(::FormulaMethod{:default, typeof(earth_material)}) = (;)
+Formula(::Val{:default}; kwargs...) = Formula(Val(:constant); kwargs...)
 
 :default

@@ -46,6 +46,27 @@
     ))
 end
 
+@testitem "ImportExport / resolved formulation records survive scientific JSON transport" tags=[:unit] begin
+    using JSON3
+    import LineCableModels.ImportExport as IE
+    selected = Formulation(earth_impedance=formula(:carson1926;
+        options=(integration=(method=:quad, options=(rtol=1e-6,)),)))
+    for formulation in (Formulation(), selected, LinearError(selected),
+            MonteCarlo(selected; trials=2, seed=0x1234), ModalTransformationFormulation())
+        original = NamedTuple(formulation)
+        encoded = IE.serialize_value(original, Val(:scientific))
+        transported = JSON3.read(JSON3.write(encoded), Dict{String,Any})
+        restored = IE.deserialize_value(transported)
+        @test restored == original
+        @test formula_id(IE.deserialize_value(Val(:formulation), restored), Z) ==
+            formula_id(formulation, Z)
+    end
+    for selector in (Val(:homogeneous), Val(:quad), Val(1), Val((:self, 1, 2)))
+        encoded = IE.serialize_value(selector, Val(:scientific))
+        @test IE.deserialize_value(JSON3.read(JSON3.write(encoded), Dict{String,Any})) === selector
+    end
+end
+
 @testitem "ImportExport / physical declarations survive JSON transport" tags=[:unit] begin
     using JSON3
     import LineCableModels.ImportExport as IE

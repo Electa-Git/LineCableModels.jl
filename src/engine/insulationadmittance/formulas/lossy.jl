@@ -59,7 +59,7 @@ reference; the constitutive relation itself is standard frequency-domain
 electromagnetism.
 """
 @inline function insulation_material(
-        ::Val{:lossy},
+        ::Formula{:lossy},
         material::Material{T},
         frequency::T,
         temperature::T,
@@ -72,6 +72,6 @@ electromagnetism.
            displacement
 end
 
-computation_options(::FormulaMethod{:lossy, typeof(insulation_material)}) = (;)
+computation_options(::FormulaMethod{<:Formula{:lossy}, typeof(insulation_material)}) = (;)
 
 :lossy

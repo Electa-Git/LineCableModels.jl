@@ -23,11 +23,6 @@ function description(::Type{<:Formula{:pollaczek1926}}; compact::Bool=false)
     compact ? "Pollaczek" : "Pollaczek underground potential coefficients (1926)"
 end
 
-function Γ(
-        ::Val{:pollaczek1926}, jω, materials, layers
-)
-    zero(jω)
-end
 
 raw"""
 Evaluate Pollaczek's classical homogeneous-earth underground potential
@@ -42,7 +37,7 @@ P_{e,ij}^{11}=\frac{j\omega}{2\pi(\sigma_1+j\omega\varepsilon_1)}
 Earth conductivity remains in the potential-coefficient prefactor.
 """
 function earth_potential_coefficient(
-        ::Val{:pollaczek1926}, ::Union{Val{:self}, Val{:mutual}}, ::Val{2}, ::Val{2},
+        ::Formula{:pollaczek1926}, ::Union{Val{:self}, Val{:mutual}}, ::Val{2}, ::Val{2},
         functor, pair, workspace
 )
     state = functor.state
@@ -54,29 +49,33 @@ function earth_potential_coefficient(
     return state.jω / (2π * kappa_1) * direct
 end
 
-Formulation(::LineCableModelsCoaxial, selected::Formula{:pollaczek1926}) = selected
 
-function hooks(::FormulaMethod{:pollaczek1926, typeof(earth_potential_coefficient),
-        A}) where {A <: Tuple{Union{Val{:self}, Val{:mutual}}, Val{2}, Val{2}}}
-    return (configurable = (:Γ, :earth, :contribution),
-        defaults = (
-            Γ = FormulaMethod(Val(:pollaczek1926), Γ),
-            air = FormulaMethod(Val(:vacuum), propagation),
-            earth = FormulaMethod(Val(:vacuum), propagation),
-            permeability = vacuum_permeability,
-            contribution = nothing))
-end
 
-function computation_options(::FormulaMethod{
-        :pollaczek1926, typeof(earth_potential_coefficient),
+function computation_options(::FormulaMethod{<:Formula{:pollaczek1926}, typeof(earth_potential_coefficient),
         A}) where {A <: Tuple{Union{Val{:self}, Val{:mutual}}, Val{2}, Val{2}}}
     (;)
 end
 
 function validate(
-        binding::FormulaMethod{:pollaczek1926, typeof(earth_potential_coefficient)},
-        ::EquivalentHomogeneous.Formula{:default})
+        binding::FormulaMethod{<:Formula{:pollaczek1926}, typeof(earth_potential_coefficient)},
+        ::EquivalentHomogeneous.Formula{:bottommost})
     binding
+end
+
+"""
+$(TYPEDSIGNATURES)
+
+Evaluate this formulation's medium state: absolute permeability \\[H/m\\]
+and transverse propagation constant \\[1/m\\]. Air retains its prescribed
+permeability; soil follows the selected source's magnetic approximation.
+"""
+function constitutive(::Formula{:pollaczek1926}, ::Val{:air}, jω, μ, σ, ε)
+    return (mu=μ, gamma=propagation(Val(:vacuum), jω, μ, σ, ε))
+end
+
+function constitutive(::Formula{:pollaczek1926}, ::Val{:earth}, jω, μ, σ, ε)
+    permeability = vacuum_permeability(μ)
+    return (mu=permeability, gamma=propagation(Val(:vacuum), jω, permeability, σ, ε))
 end
 
 :pollaczek1926

@@ -59,7 +59,7 @@ semiconducting-screen specialization; the constitutive relation itself is
 standard frequency-domain electromagnetism.
 """
 @inline function semicon_material(
-        ::Val{:lossy},
+        ::Formula{:lossy},
         material::Material{T},
         frequency::T,
         temperature::T,
@@ -72,6 +72,6 @@ standard frequency-domain electromagnetism.
            displacement
 end
 
-computation_options(::FormulaMethod{:lossy, typeof(semicon_material)}) = (;)
+computation_options(::FormulaMethod{<:Formula{:lossy}, typeof(semicon_material)}) = (;)
 
 :lossy

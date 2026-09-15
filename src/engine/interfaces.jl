@@ -40,9 +40,9 @@ function earth_parameters(::Val{ID}, parameters::NamedTuple) where {ID}
     return parameters
 end
 
-function earth_parameters(::Val{:default}, parameters::NamedTuple)
+function earth_parameters(::Val{:unified}, parameters::NamedTuple)
     isempty(setdiff(keys(parameters), (:reference,))) || throw(ArgumentError(
-        "the unified earth default accepts only the physical reference parameter"))
+        "the unified earth formula accepts only the physical reference parameter"))
     reference=get(parameters, :reference, :deep)
     valid=reference in (:deep, :interface, :scalar) ||
           (reference isa Real&&!(reference isa Bool)&&isfinite(reference)&&reference>0)

@@ -9,9 +9,11 @@ admittance matrix.
 ## Frequency-dependent soil relations
 
 Each relation retains its reference resistivity, units, fitted frequency
-range, and source assumptions.
+range, and source assumptions. `:default` is a routing alias for the explicit
+`:constant` pass-through.
 
 - [Default frequency-dependent earth material](earth-properties/frequency-dependent/default.md)
+- [Registered frequency-dependent soil relations](earth-properties/frequency-dependent/formulas.md)
 
 ## Equivalent homogeneous earth
 

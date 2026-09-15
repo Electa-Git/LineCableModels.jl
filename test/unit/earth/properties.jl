@@ -146,7 +146,7 @@ end
     ))
     frequencies=[50.0, 60.0, 1.0e3]
     formulation=LineCableModels.Engine.Formulation()
-    @test formula_id(formulation.methods.earth_properties) === :default
+    @test formula_id(formulation.methods.earth_properties) === :constant
     material=EP.EarthMaterial(model.layers[2])
     @test constitutive(nothing, material, first(frequencies)) === material
     properties=LineCableModels.Engine._earth_data(

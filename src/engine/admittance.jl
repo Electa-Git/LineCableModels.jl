@@ -58,7 +58,7 @@ The lossless dielectric law ignores resistivity and loss tangent.
 Returns complex admittivity in S/m.
 """
 function constitutive(
-        formula::Union{InsulationAdmittance.Formula, SemiconAdmittance.Formula},
+        formula::Union{InsulationAdmittanceFormulation, SemiconAdmittanceFormulation},
         material::Material, frequency::Real, temperature::Real;
         temperature_dependence=TemperatureDependent.Formula(:default))
     rho = constitutive(temperature_dependence, material, temperature)
@@ -108,7 +108,7 @@ end
 function constitutive(relations::Tuple{I, S}, material::RadialDielectric,
         frequency::Real, temperature::Real;
         temperature_dependence=TemperatureDependent.Formula(:default)
-) where {I <: InsulationAdmittance.Formula, S <: SemiconAdmittance.Formula}
+) where {I <: InsulationAdmittanceFormulation, S <: SemiconAdmittanceFormulation}
     evaluated = map(relations) do selected
         (source, f, t) -> constitutive(selected, source, f, t; temperature_dependence)
     end

@@ -1,31 +1,19 @@
-@testitem "Gauntlet / one formulation record writer retains route inputs" tags=[:gauntlet_toolkit] setup=[GauntletSupport] begin
+@testitem "Gauntlet / one formulation record writer retains route inputs" tags=[:gauntlet_toolkit] setup=[GauntletSupport,FormulaContractModels] begin
     using LineCableModels
     using .GauntletSupport.Gauntlet
     ordinary=Formulation(insulation_admittance = :lossy)
     record=formulation_record(ordinary)
     @test record.backend === :coaxial
     @test record.methods.insulation_admittance.identifier === :lossy
-    @test record.methods.insulation_admittance.binding !== nothing
+    @test !hasproperty(record.methods.insulation_admittance,:binding)
     @test record.methods.earth_impedance.equivalent_earth === nothing
     @test record.methods.earth_admittance.equivalent_earth === nothing
     @test basename(String(which(formulation_record, (typeof(ordinary),)).file)) ==
           "records.jl"
-    make_route(scale)=(material,
-        frequency,
-        temperature,
-        assumptions, options,
-        workspace)->scale*constitutive(
-        ordinary.methods.insulation_admittance, material, frequency, temperature)
-    @eval LineCableModels.computation_options(
-        ::LineCableModels.FormulaMethod{:lossy,
-            typeof(LineCableModels.Engine.InsulationAdmittance.insulation_material)},
-        ::$(typeof(make_route(1.0)))) = (;)
-    first_formulation=Formulation(insulation_admittance = formula(
-        :lossy; hooks = (contribution = make_route(1.0),)))
-    second_formulation=Formulation(insulation_admittance = formula(
-        :lossy; hooks = (contribution = make_route(2.0),)))
-    @test typeof(first_formulation.methods.insulation_admittance.hooks.contribution) ===
-          typeof(second_formulation.methods.insulation_admittance.hooks.contribution)
+    first_formulation=Formulation(insulation_admittance=FormulaContractModels.InsulationLaw(scale=1.0))
+    second_formulation=Formulation(insulation_admittance=FormulaContractModels.InsulationLaw(scale=2.0))
+    @test typeof(first_formulation.methods.insulation_admittance) ===
+        typeof(second_formulation.methods.insulation_admittance)
     first_record=formulation_record(first_formulation)
     second_record=formulation_record(second_formulation)
     @test GauntletSupport.Gauntlet.semantic_sha256(first_record) !=

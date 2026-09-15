@@ -4,33 +4,36 @@ LineCableModels separates the physical problem, selected equations, and numerica
 execution. Source equations and bibliography belong in the implementing formula
 file. Backend/formula methods select an implementation through Julia dispatch.
 
-Every family owns a `:default` routing identifier and may expose the concrete
-equations it routes to explicitly. Literature references remain attached to
+Every family owns a `:default` routing identifier and resolves it to an explicit
+implementation before evaluation. Literature references remain attached to
 the equations without determining their software names.
 
 | Family | Registered choices |
 |---|---|
 | Internal impedance | `:default`, `:schelkunoff1934` |
 | Insulation impedance | `:default`, `:ametani1980` |
-| Pipe impedance | `:default` |
+| Pipe impedance | `:default`, `:none` |
 | Insulation admittance, semicon admittance | `:default`, `:lossless`, `:lossy` |
 | Local shunt geometry | `:default` (coaxial), `:coaxial`, `:boundary` |
-| Earth impedance | `:default`, `:carson1926`, `:pollaczek1926`, `:gary1976`, `:wedepohl1973`, `:saad1996`, `:ametani2009`, `:lucca1994`, `:wise1934`, `:xue2018` |
-| Earth admittance | `:default`, `:pollaczek1926`, `:wise1948`, `:xue2018` |
-| Frequency-dependent soil properties | `:default` |
-| Equivalent earth | `:default` |
+| Earth impedance | `:default`, `:unified`, `:carson1926`, `:pollaczek1926`, `:gary1976`, `:wedepohl1973`, `:saad1996`, `:ametani2009`, `:lucca1994`, `:wise1934`, `:xue2018` |
+| Earth admittance | `:default`, `:unified`, `:pollaczek1926`, `:wise1948`, `:xue2018` |
+| Frequency-dependent soil properties | `:default`, `:constant`, `:alipio2014`, `:cigre2019`, `:datsios2019`, `:longmire1975`, `:messier1985`, `:portela1999`, `:scott1967`, `:visacro1987`, `:visacro2012` |
+| Equivalent earth | `:default`, `:bottommost` |
 | Modal transformation | `:default`, `:chrysochos2014` |
+| Temperature-dependent resistivity | `:default`, `:linear` |
 
 The internal default and `:schelkunoff1934` retain Schelkunoff's tubular
 conductor expressions; insulation impedance's default and `:ametani1980`
 retain the annular magnetic term documented by Ametani.
-Both earth defaults implement the supplied circumferentially averaged framework
+Both earth defaults route to `:unified`, which implements the supplied circumferentially averaged framework
 with complete enclosed-current normalization. The former air defaults remain
 available as `:wise1934` for impedance and `:wise1948` for potential coefficients;
 both former buried defaults are `:xue2018`. Dielectric `:default` selections
 route to explicit `:lossless` equations; `:lossy` retains conductivity and the
-material's supplied polarization losses. The FrequencyDependent default
-preserves static properties.
+material's supplied polarization losses. The FrequencyDependent `:default`
+routes to `:constant`, which preserves static properties. Its explicit
+literature relations model measured soil dispersion; their references remain
+attached to the equations without determining their software names.
 EquivalentHomogeneous selects the basement when explicitly requested, and the
 modal default performs Levenberg–Marquardt tracking. The EquivalentHomogeneous
 default is a package-owned policy rather than an author equation.
@@ -75,7 +78,7 @@ own local frames. Overlapping same-terminal faces, interacting courses in
 different hosts, nonconcentric dielectric interfaces and noncircular reference
 shields retain the existing equivalent-coaxial treatment. They are not fed to
 an inapplicable circular Green function. The resolved path currently uses the
-unmodified `:lossless` insulation/semicon laws or their `:default` aliases.
+built-in `:lossless` insulation/semicon laws or their `:default` aliases.
 Lossy or custom constitutive selections are unsupported by `:boundary` and raise `BoundarySolveError` for
 eligible domains. Select `:coaxial` to retain their radial calculation without
 losing conductivity or frequency dependence.
@@ -132,10 +135,8 @@ Set `audit=true` for the independent checks. Unaudited residual fields are
 The integration tolerances control dimensionless logarithmic moments, not
 the error in an individual terminal coupling.
 
-```@docs
-BoundarySolveError
-LineCableModels.Engine.ShuntModel.Formula
-```
+See [`BoundarySolveError`](@ref) and [`LineCableModels.Engine.ShuntModel.Formula`](@ref)
+for the failure and selection contracts.
 
 Strict failure is the default. An explicit `parameters=(fallback=:coaxial,)`
 permits annular replacement only after recognized numerical or unsupported-law
@@ -228,42 +229,59 @@ selected = Formulation(
 result = compute(problem, selected; options=(trace=true,))
 ```
 
-`FormulaDefinition` carries the identifier, explicit physical `parameters`,
-`hooks`, numerical `options`, and optional formula-local `equivalent_earth`.
-The receiving family resolves the selection. A bound `Functor` separates physical
-`state`, concrete callables, interaction `binding`, and normalized numerical
-`options`. Mutable integration storage belongs to the calculation workspace.
+`FormulaDefinition` carries an identifier, physical `parameters`, numerical
+`options`, and an optional formula-local `equivalent_earth`. It is a passive
+request. A family constructor resolves a symbol or declaration to a concrete
+selection; a completed user-owned selection passes through unchanged. Built-in
+catalogues are explicit inventories, not admission registries for user code.
+There is no `hooks` field or callable-override channel.
 
-Numerical requirements are declared by `computation_options(binding::FormulaMethod)`.
-The binding includes the owning equation function, identifier and semantic selectors.
-An empty declaration admits no numerical controls. A missing declaration is an error.
-`Engine.hooks(binding)` declares the external case's physical hook defaults and
-admitted overrides; it does not declare equation availability.
-Special functions, algebraic approximations, spectral integrals and iterative solvers
-therefore share a grammar without a binary “closed/integral” classification.
+A `FormulaMethod(selection, operation, Val(...), ...)` binds the actual selected
+type to the family operation. The first argument of every equation is that
+selection—not its identity symbol. `formula_id` is descriptive metadata; it
+cannot redirect execution to a different implementation. `:default` only
+routes, never implements an equation and never catches a failed calculation.
 
-An override follows one route from `formula(...; hooks=(... ,))` through
-`Formulation`, indexed validation and functor construction to execution. For example:
+For the analytical families, the default routes are:
 
-```julia
-my_Γ(jω, materials, layers) = zero(jω)
-selected = Formulation(earth_impedance=formula(:default; hooks=(Γ=my_Γ,)))
-result = compute(problem, selected)
-```
+| Family | Explicit implementation |
+|---|---|
+| Internal impedance | `:schelkunoff1934` |
+| Insulation impedance | `:ametani1980` |
+| Earth impedance and potential coefficients | `:unified` |
+| Insulation and semicon admittivity | `:lossless` |
+| Frequency-dependent earth properties | `:constant` |
+| Equivalent homogeneous earth | `:bottommost` |
+| Temperature-dependent resistivity | `:linear` |
+| Modal transformation | `:chrysochos2014` |
+| Local shunt geometry | `:coaxial` |
+| Pipe contribution | `:none` |
 
-`Γ(jω, materials, (s,t))` returns one finite scalar [1/m]. Its square is derived
-from that scalar. An explicit problem `Γ` and explicit Γ hook conflict, including
-when both return zero. The new earth defaults accept a common prescribed Γ; all retained author earth
-equations require Γ=0. No propagation-constant root solver is implied. Medium propagation laws have signature
-`air/earth(jω, μ, σ, ε)`, the permeability hook has signature `permeability(μ)`, and
-a complete earth contribution has signature `contribution(functor, pair, workspace)`.
-A hook unused by the selected indexed equation is rejected. Hook arities are not
-guessed or retried. Modified selections are recorded in result details.
+These routes do not expand applicability: `:none` does not implement a pipe
+solver, and `:unified` still requires its supported earth geometry. PSCAD owns
+separate native selections; FEM owns its field equations and accepts supported
+material selections, not analytical impedance equations.
 
-Scalar families expose `hooks=(contribution=my_law,)` with the signature documented
-by their `Formula` constructor. Internal impedance exposes its inner, outer and
-transfer surface callables. Unknown parameters or hooks fail at construction or indexed preflight. External
-hook names and numerical sections are admitted together by the required cases.
+Numerical defaults belong to `computation_options(::FormulaMethod{<:MySelection,
+typeof(operation), ...})`. Empty defaults admit no controls. Unknown or unused
+numerical sections are errors. A declared `integration` section allocates
+numerical resources; it does not select full-system earth physics. That
+requirement belongs to the selected physical formulation.
+
+Custom types implement the existing family operation and expose `parameters`
+and `options` records. Internal selections also expose per-surface options and
+`configured_options`; earth selections expose `assumptions` and
+`equivalent_earth`. Constructors own parameter checking and option normalization.
+Implement `formula_id`, `description`, `NamedTuple`, and `formulation_options`
+for scientific inspection and persistence. A saved declaration is not executable
+code; unknown saved leaf identities remain passive identities.
+
+Longitudinal propagation is prescribed only through `LineParametersProblem(...;
+Γ=...)`: one finite scalar [1/m] per frequency. Its square is derived from that
+scalar. `:unified` supports prescribed Γ; retained author earth equations
+require Γ=0. No propagation-constant root solver is implied. Medium constitutive
+assumptions belong to methods of the selected earth type, independently of
+air/earth/mixed interaction selection.
 
 `EarthPair` carries conductor row/column indices, integer source/target layer indices,
 heights, horizontal separation and an explicit self radius. Self means the same
@@ -274,8 +292,8 @@ needed by a published self expression occurs at equation evaluation.
 The external equation signatures are:
 
 ```julia
-earth_impedance(::Val{ID}, ::Val{Kind}, ::Val{S}, ::Val{T}, functor, pair, workspace)
-earth_potential_coefficient(::Val{ID}, ::Val{Kind}, ::Val{S}, ::Val{T}, functor, pair, workspace)
+earth_impedance(selection::MyEarthImpedance, ::Val{Kind}, ::Val{S}, ::Val{T}, functor, pair, workspace)
+earth_potential_coefficient(selection::MyEarthPotential, ::Val{Kind}, ::Val{S}, ::Val{T}, functor, pair, workspace)
 ```
 
 `Kind` is `:self` or `:mutual`; source `S` is the matrix column, and target `T`
@@ -297,7 +315,7 @@ selected = Formulation(earth_impedance = (
 
 The same syntax applies independently to `earth_admittance`. The labels resolve
 `(1,1)`, `(2,2)` and the two cross-layer directions before the existing indexed
-method dispatch. Each case retains its own formula, hooks, numerical options and
+method dispatch. Each case retains its own formula, numerical options and
 material preparation. There is no combined formula identity. An unused leaf does
 not supply missing cases or execute a kernel. True layered inputs require a scalar
 selection; scalar multilayer and explicit EHEM behavior are unchanged.
@@ -344,10 +362,9 @@ depth below every circumference, or `reference=:scalar` for the distinct scalar
 potential diagnostic. Use the same physical reference for both owners when a
 consistent Ze/Pe pair is required.
 
-Public `compute` prepares the complete system. Calling a default pair callback
-without that context is an error; explicit author formulas retain their pairwise
-signatures. Contribution overrides that declare integration resources receive the
-prepared context at the final-entry stage. Internal conductor and insulation
+Public `compute` prepares the complete system for `:unified`. Calling its pair
+equation without that context is an error. Independent pair equations keep their
+own preparation, even when they use numerical integration. Internal conductor and insulation
 contributions retain the existing cable composition and terminal reductions.
 With `options=(trace=true,)`, `trace.Zg` and `trace.Pg` expose the exterior
 matrices; the returned total line admittance also includes insulation effects.
@@ -377,8 +394,8 @@ in magnetic ground-return impedance for the multilayer soil cases they studied.
 This provides a qualified rationale for the default resistivity. Accuracy depends
 on layer contrasts and frequency; selecting one layer does not implement the
 paper's equivalent-conductivity formula or establish the accuracy of the selected
-permittivity and permeability. Choose another formula or supply a
-`contribution` hook to change the material-selection rule.
+permittivity and permeability. Choose another built-in rule or a user-owned subtype of
+`EquivalentHomogeneous.AbstractRule` implementing `equivalent_material`.
 
 `:after` applies the selected frequency law to physical layers first. `:before` reduces static
 properties and applies that same law to the resulting material. Physical and
@@ -386,26 +403,25 @@ effective pairs remain distinct in the binding, and reductions run for each
 ordered interaction on which they depend. Layerwise evaluated properties are reused
 between consumers when needed; the air material remains static.
 
-A complete contribution override must also declare its numerical defaults:
+For example, the numerical declaration for a user-owned outer surface equation is:
 
 ```julia
 using LineCableModels: FormulaMethod, computation_options
 const II = LineCableModels.Engine.InternalImpedance
-my_outer(functor, workspace) = zero(functor.state.jω)
+# MyConductor is a concrete InternalImpedanceFormulation owned by the user.
 computation_options(
-    ::FormulaMethod{:default,typeof(II.internal_impedance),Tuple{Val{:outer}}},
-    ::typeof(my_outer),
+    ::FormulaMethod{<:MyConductor,typeof(II.internal_impedance),Tuple{Val{:outer}}},
 ) = (;)
 ```
 
-This replaces only an admitted case and receives the trailing runtime arguments shown above.
-An algebraic replacement of an integral rejects unused integration controls;
-an integral replacement declares its own integration section. Small physical
-hooks retain the operation they customize. No callback inherits an unrelated
-formula's numerical options or expands its physical domain.
+The equation is `II.internal_impedance(selected::MyConductor, ::Val{:outer},
+functor, workspace)`. Its state constructor prepares one `II.Functor` per
+conductor and frequency. The same state is shared by all surfaces using that
+selection. An integral equation declares its own integration section; an
+algebraic equation does not inherit another formula's numerical options.
 
 `InternalImpedance.surface_impedances(resolved_formula, r_in, r_ex, rho, mu_r, jω)`
-returns `(inner,outer,transfer)` coefficients in Ω/m, with hooks and per-kind
+returns `(inner,outer,transfer)` coefficients in Ω/m, with per-kind
 numerical options applied. Internal kinds have no earth-layer selectors. Assemblers
 own the current-basis transformation and matrix placement. The deferred pipe
 contribution concerns one contained metal and its enclosing pipe; recursive
@@ -422,10 +438,10 @@ selected = Formulation(internal_impedance=(
 ))
 ```
 
-Each surface can select a different registered formula that implements that
-surface, with its own parameters, hooks and numerical options. A replacement
-for the transfer coefficient belongs to the transfer leaf, as
-`transfer=formula(:default; hooks=(transfer=my_transfer,))`. Identical complete
+Each surface can select a built-in or user-owned formulation that implements that
+surface, with its own parameters and numerical options. A custom transfer
+selection belongs directly in that leaf, as `transfer=my_transfer_model`.
+Identical complete
 selections share their prepared conductor state. Scalar shorthand retains its
 existing numerical behavior. The internal term is called `transfer`; earth
 `self`/`mutual` interaction names are unchanged.
@@ -542,17 +558,18 @@ external cases and each required reduction case. Absence of a selected reduction
 PSCAD extends the same equation generics with a `Val(:pscad)` execution payload:
 
 ```julia
-earth_impedance(::Val{ID}, ::Val{Kind}, ::Val{S}, ::Val{T}, ::Val{:pscad})
-earth_potential_coefficient(::Val{ID}, ::Val{Kind}, ::Val{S}, ::Val{T}, ::Val{:pscad})
-internal_impedance(::Val{ID}, ::Val{Kind}, ::Val{:pscad})
+earth_impedance(selection::PSCAD.NativeFormula, ::Val{Kind}, ::Val{S}, ::Val{T}, ::Val{:pscad})
+earth_potential_coefficient(selection::PSCAD.NativeFormula, ::Val{Kind}, ::Val{S}, ::Val{T}, ::Val{:pscad})
+internal_impedance(selection::PSCAD.NativeFormula, ::Val{Kind}, ::Val{:pscad})
 ```
 
 These methods compile native settings. Every actual ordered pair is validated
 using the Engine's physical geometry. A complete native settings record is used
 for project export, execution, readback and numerical-input fingerprinting.
-Unsupported potential selections fail before export; native `:default` potential
-behavior belongs to PSCAD. Native conductor approximations likewise retain their
-backend-owned `:default` rather than an alias to LCM's exact default.
+Unsupported potential selections fail before export. PSCAD defaults resolve to
+`:direct_lucca` for earth impedance, `:coupled` for potential coefficients, and
+`:cable_coax` for conductor and insulation impedance. These backend-owned
+selections do not pretend to execute the analytical equations.
 
 PSCAD dispatch maps retained equations to native settings. Gary1976 maps to PSCAD's
 `DERISEMLYEN` spelling; this creates no second mathematical registration. Carson1926
@@ -563,10 +580,10 @@ material assumptions or results equal LCM's implementations. The exported ground
 permittivity remains the supplied material value.
 PSCAD's `:default` selects that native setting, or native Lucca for a mixed arrangement.
 Fixed backend calculations are recorded as such. PSCAD rejects analytical
-hook overrides it cannot execute. FEM accepts only its four constitutive
+kernel selections or numerical controls it cannot execute. FEM accepts only its four constitutive
 selections and rejects analytical kernel keywords at construction. It executes
 resolved material contributions without a second author registration. Constitutive
-overrides passed to PSCAD remain subject to its documented export limits.
+selections passed to PSCAD remain subject to its documented export limits.
 
 PSCAD export applies the selected temperature law to the same resolved conductor
 materials used by the analytical engine. It evaluates each physical dielectric
@@ -576,7 +593,7 @@ The native loss-tangent cap is 10;
 the aerial shunt setting uses the component's minimum, `1e-38 S/m`. These native
 limits and the complete exported project accompany the results. Frequency-dependent
 soil laws are rejected until their native parameter convention is verified; a
-Julia constitutive callback is never converted into guessed Portela coefficients.
+Julia material law is never converted into guessed Portela coefficients.
 
 FEM batches reuse a field solve only when effective material, mesh and execution
 inputs agree. Every request retains its metadata and independent result arrays.
@@ -602,7 +619,7 @@ result = compute(problem, selected)
 ```
 
 The Materials-owned `TemperatureDependent` family evaluates electrical
-resistivity. Its own `:default` implements
+resistivity. Its `:default` routes to `:linear`, which implements
 ``\rho(T)=\rho_0[1+\alpha(T-T_0)]`` using each material's reference calibration.
 `temperature_dependence=nothing` retains reference resistivity. The same slot
 is available in `CableConstantsFormulation` and `LineCableModelsFEM`.
@@ -614,25 +631,42 @@ relations receive an ephemeral material with evaluated resistivity before their
 electromagnetic equation; the stored reference material remains unchanged.
 Original radial dielectric constituents are evaluated before aggregation.
 
-A custom temperature contribution has the signature
-`f(material, temperature, parameters, options, workspace) -> rho` in Ω·m.
-Register its numerical defaults using the existing `FormulaMethod` grammar:
+A custom temperature law is a concrete selection, with no function-valued field:
 
 ```julia
 const TD = LineCableModels.Materials.TemperatureDependent
-my_rho(m, t, parameters, options, workspace) = m.rho * exp((t-m.T0)/1000)
+struct ExponentialResistivity{P,O} <: TD.TemperatureDependentFormulation
+    parameters::P
+    options::O
+end
+function ExponentialResistivity(; scale=1000.0)
+    isfinite(scale) && scale > 0 || throw(ArgumentError("scale must be positive [K]"))
+    ExponentialResistivity((scale=scale,), (;))
+end
+TD.temperature_resistivity(::ExponentialResistivity, m, t, p, o, workspace) =
+    m.rho * exp((t-m.T0)/p.scale)
 LineCableModels.computation_options(
-    ::LineCableModels.FormulaMethod{:default,typeof(TD.temperature_resistivity)},
-    ::typeof(my_rho)) = (;)
-selected = Formulation(temperature_dependence=formula(:default;
-    hooks=(contribution=my_rho,)))
+    ::LineCableModels.FormulaMethod{<:ExponentialResistivity,typeof(TD.temperature_resistivity)}) = (;)
+LineCableModels.formula_id(::ExponentialResistivity) = :exponential_resistivity
+LineCableModels.description(::ExponentialResistivity; compact=false) = "Exponential resistivity"
+Base.NamedTuple(law::ExponentialResistivity) =
+    (identifier=formula_id(law), parameters=law.parameters, options=law.options)
+LineCableModels.formulation_options(law::ExponentialResistivity) =
+    formulation_options(LineCableModels.FormulaDefinition, NamedTuple(law))
+selected = Formulation(temperature_dependence=ExponentialResistivity())
 ```
 
-A replacement owns its validity domain; all responses require positive real
-resistivity, finite for conductors. The default approximation also enforces
-``|T-T_0|<150`` K and a positive finite linear factor. The problem itself validates
-finite temperature without imposing an unselected law. Numerical options remain
-owned by the actual equation; the built-in linear law needs no integration.
+The law owns its validity domain; all responses require positive real
+resistivity [Ω·m], finite for conductors. The built-in linear approximation also
+enforces `|T-T₀| < 150` K and a positive finite linear factor. The problem itself
+validates finite temperature without imposing an unselected law.
+
+Scalar equation suffixes are uniform: physical inputs, `parameters`,
+`options`, then `workspace`. Insulation and semicon laws return finite
+admittivity [S/m], normalized to `Complex{T}` for the input scalar type `T`.
+A response requiring a wider scalar type is rejected; precision and measurement
+uncertainty are never silently discarded. Soil laws return `EarthMaterial`;
+their fitted coefficients are checked at construction, before a frequency sweep.
 
 ## Finite formulation selection
 
@@ -921,11 +955,14 @@ inspect formula calculation records.
 
 The retained modal formula is selected by `ModalTransformationFormulation()`.
 Explicit controls use `formula(:default; options=(iteration=(convergence=1e-8,),))`.
-A custom decomposition uses `hooks=(contribution=my_route,)` and returns
-`ModalOperators` through the same application and inverse-transformation code.
+A custom decomposition is a completed formulation implementing
+`Transforms.modal_operators(selected::MyModalModel, parameters, model_parameters,
+options, workspace)`. It returns `ModalOperators` through the same application
+and inverse-transformation code. `ModalTransformationFormulation` retains its
+requested declaration and resolved selection for the common inspection protocol.
 The default tracks eigenpairs with Levenberg–Marquardt iteration, retaining a
 matched conventional eigensolution when iteration fails. Its bibliography stays
-in `src/transforms/formulas/default.jl`.
+in `src/transforms/formulas/chrysochos2014.jl`.
 
 [`ComputationDetails`](@ref) is an alias for `NamedTuple`.
 [`computation_details`](@ref) reads the fixed-key details tuple owned by a
@@ -1250,9 +1287,9 @@ workbook implementation.
 
 Scalar calculation selections are retained in `details(result).formulations`.
 Its `requested` and `methods` fields hold complete requested and resolved records,
-including physical parameters and explicit hooks. Formula identifiers are available
+including physical parameters and numerical controls. Formula identifiers are available
 as `record.requested.earth_admittance.identifier` (or through the corresponding
-`air`, `earth`, `mixed` leaf). The existing `effective`, `modified`, `numerical` and
+`air`, `earth`, `mixed` leaf). The `effective`, `numerical` and
 `equivalent_earth` records retain the applied analytical interaction information.
 Reports use these records directly; they do not infer a selection from numerical
 agreement or collapse different voltage references into the same formula label.

@@ -1,4 +1,4 @@
-@testitem "Earth / explicit reduction and FrequencyDependent order through public compute" tags=[:unit] setup=[TestFixtures] begin
+@testitem "Earth / explicit reduction and FrequencyDependent order through public compute" tags=[:unit] setup=[TestFixtures,FormulaContractModels] begin
     const E=LineCableModels.Engine
     const EP=LineCableModels.Earth
     system=TestFixtures.three_phase_system()
@@ -14,37 +14,15 @@
         system; earth_props = homogeneous(rho = 500.0, eps_r = 20.0), frequencies = [50.0])
     @test reduced.Z.values ≈ compute(homogeneous_problem, Formulation()).Z.values
     events=Symbol[]
-    law=(
-        material, f, p, options,
-        workspace)->begin
-        push!(events, :fd)
-        EP.EarthMaterial(material.rho/2, material.eps_r, material.mu_r)
-    end
-    reduction=(rho, epsilon, mu, model, pair, f,
-        parameters, options, workspace)->begin
-        push!(events, :ehem)
-        @test length(rho)==length(model.layers)==3
-        @test all(layer->layer in 1:3, pair.layers)
-        EP.EarthMaterial(last(rho)^2/100, last(epsilon), last(mu))
-    end
-    @eval LineCableModels.computation_options(
-        ::LineCableModels.FormulaMethod{
-            :default, typeof(EP.FrequencyDependent.earth_material)},
-        ::$(typeof(law))) = (;)
-    @eval LineCableModels.computation_options(
-        ::LineCableModels.FormulaMethod{
-            :default, typeof(EP.EquivalentHomogeneous.equivalent_material)},
-        ::$(typeof(reduction))) = (;)
+    law=FormulaContractModels.DispersiveEarth(scale=50.0,events=events)
+    reduction=FormulaContractModels.SquaredBottomEarth(events)
     for order in (:before, :after)
         empty!(events)
-        selected=Formulation(
-            earth_properties = formula(:default; hooks = (contribution = law,)),
-            earth_impedance = formula(:default;
-                equivalent_earth = formula(:default; order,
-                    hooks = (contribution = reduction,))),
-            earth_admittance = formula(:default;
-                equivalent_earth = formula(:default; order,
-                    hooks = (contribution = reduction,))))
+        sequence=order === :before ? EP.EquivalentHomogeneous.BeforeFD(reduction) :
+            EP.EquivalentHomogeneous.AfterFD(reduction)
+        selected=Formulation(earth_properties=law,
+            earth_impedance=formula(:default;equivalent_earth=sequence),
+            earth_admittance=formula(:default;equivalent_earth=sequence))
         result=compute(problem, selected)
         expected_rho=order===:before ? 1250.0 : 625.0
         expected=compute(
@@ -59,10 +37,9 @@
                vcat(fill(:fd, length(earth.layers)-1), fill(:ehem, pairs)))
         @test details(result).formulations.equivalent_earth.earth_impedance.order === order
         @test details(result).formulations.equivalent_earth.earth_admittance.order === order
-        @test details(result).formulations.effective.earth_properties === :default
+        @test details(result).formulations.effective.earth_properties === :DispersiveEarth
         @test details(result).formulations.equivalent_earth.earth_impedance.identifier ===
-              :default
-        @test details(result).formulations.modified.earth_properties
-        @test details(result).formulations.equivalent_earth.earth_impedance.modified
+              :SquaredBottomEarth
+        @test !hasproperty(details(result).formulations,:modified)
     end
 end

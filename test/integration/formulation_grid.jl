@@ -129,7 +129,7 @@
     @test isconcretetype(eltype(modal_batch))
     @test typeof(modal_batch[1]) === typeof(modal_batch[2])
     @test fieldtype(typeof(modal_batch[1].domain), :formula) ===
-          LineCableModels.Transforms.Formula
+          LineCableModels.AbstractFormulation
     for index in eachindex(modal_batch)
         @test same_parameters(modal_batch[index], modal_scalar[index])
     end

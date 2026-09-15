@@ -86,45 +86,41 @@
     )
 end
 
-@testitem "Engine / dielectric routes retain assumptions and promote physical inputs" tags=[:unit] begin
-    const EN = LineCableModels.Engine
-    # A user-supplied constitutive route receives the same promoted material,
-    # frequency, temperature and assumptions through either owner interface.
-    route = (material, frequency, temperature,
-        values, options,
-        workspace) -> complex(2.0 / material.rho, frequency * material.eps_r + temperature)
-    values = (;)
-    for (owner, kind) in ((EN.InsulationAdmittance, :insulator),
-        (EN.SemiconAdmittance, :semicon))
-        operation = owner === EN.InsulationAdmittance ?
-                    EN.InsulationAdmittance.insulation_material :
-                    EN.SemiconAdmittance.semicon_material
-        @eval LineCableModels.computation_options(
-            ::LineCableModels.FormulaMethod{:lossy, typeof($operation)}, ::$(typeof(route))) = (;)
-        selected = owner.Formula(:lossy; hooks = (contribution = route,))
-        explicit = owner.Formula(Val(:lossy); hooks = (contribution = route,))
-        @test selected == explicit
-        @test formula_id(selected) === :lossy
-        @test selected.parameters === values
-        @test_throws ArgumentError owner.Formula(:lossy; parameters = (unrecognized = true,))
-        material = Material(kind, 100.0f0, 2.3f0, 1.0f0, 20.0f0, 0.0f0)
-        for (frequency, temperature) in ((50.0f0, 20.0f0), (50.0, 20),
-            (50, 20.0f0), (BigFloat(50), 20.0))
-            T = promote_type(eltype(material), typeof(float(frequency)), typeof(float(temperature)))
-            promoted = convert(Material{T}, material)
-            actual = @inferred constitutive(selected, material, frequency, temperature)
-            @test actual ==
-                  route(promoted, T(frequency), T(temperature), values, (;), nothing)
-            @test actual == selected(material, frequency, temperature)
-            @test typeof(actual) ===
-                  typeof(route(
-                promoted, T(frequency), T(temperature), values, (;), nothing))
+@testitem "Engine / dielectric laws promote inputs and enforce composable output" tags=[:unit] setup=[FormulaContractModels] begin
+    using Measurements:measurement,uncertainty
+    const E=LineCableModels.Engine
+    const M=FormulaContractModels
+    for (owner,kind,selected) in ((E.InsulationAdmittance,:insulator,M.InsulationLaw()),
+            (E.SemiconAdmittance,:semicon,M.SemiconLaw()))
+        @test owner.Formula(selected) === selected
+        @test_throws ArgumentError owner.Formula(:lossy;parameters=(unrecognized=true,))
+        material=Material(kind,100.0f0,2.3f0,1.0f0,20.0f0,0.0f0)
+        for (frequency,temperature) in ((50.0f0,20.0f0),(50.0,20),(50,20.0f0),(BigFloat(50),20.0))
+            T=promote_type(eltype(material),typeof(float(frequency)),typeof(float(temperature)))
+            promoted=convert(Material{T},material)
+            actual=@inferred constitutive(selected,material,frequency,temperature)
+            expected=complex(T(2)/promoted.rho,T(frequency)*promoted.eps_r+T(temperature))
+            @test actual==expected
+            @test actual==selected(material,frequency,temperature)
+            @test actual isa Complex{T}
+            @test isfinite(E.potential_coefficient(T(0.005),T(0.01),actual,complex(zero(T),T(2π)*T(frequency))))
         end
-        for frequency in (0.0, -1.0, Inf, NaN)
-            @test_throws DomainError constitutive(selected, material, frequency, 20.0)
+        for frequency in (0.0,-1.0,Inf,NaN)
+            @test_throws DomainError constitutive(selected,material,frequency,20.0)
         end
-        for temperature in (Inf, NaN)
-            @test_throws DomainError constitutive(selected, material, 50.0, temperature)
+        for temperature in (Inf,NaN)
+            @test_throws DomainError constitutive(selected,material,50.0,temperature)
+        end
+        # The boundary is shared by both physical dielectric owners.
+        @test validate(selected,Float64,1+2im) === 1.0+2.0im
+        @test validate(selected,Float64,1.0f0+2.0f0im) === 1.0+2.0im
+        @test_throws ArgumentError validate(selected,Float32,1.0+2.0im)
+        @test_throws ArgumentError validate(selected,Float64,big"1.0"+big"2.0"*im)
+        uncertain=complex(measurement(1.0,0.1),measurement(2.0,0.2))
+        @test_throws ArgumentError validate(selected,Float64,uncertain)
+        @test uncertainty(real(validate(selected,typeof(real(uncertain)),uncertain)))==0.1
+        for invalid in (NaN,Inf,true,[1.0],"bad")
+            @test_throws DomainError validate(selected,Float64,invalid)
         end
         @test material.rho === 100.0f0
         @test material.eps_r === 2.3f0

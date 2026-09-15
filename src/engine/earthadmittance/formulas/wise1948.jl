@@ -29,7 +29,6 @@ function description(::Type{<:Formula{:wise1948}}; compact::Bool=false)
     compact ? "Wise" : "Wise homogeneous-earth overhead potential coefficient (1948)"
 end
 
-Γ(::Val{:wise1948}, jω, materials, layers) = zero(jω)
 
 raw"""
 Evaluate Wise's wideband overhead earth potential coefficient:
@@ -47,7 +46,7 @@ M_{ij}+jN_{ij}=2\int_0^\infty
 ```
 """
 function earth_potential_coefficient(
-        ::Val{:wise1948}, ::Union{Val{:self}, Val{:mutual}}, ::Val{1}, ::Val{1},
+        ::Formula{:wise1948}, ::Union{Val{:self}, Val{:mutual}}, ::Val{1}, ::Val{1},
         functor, pair, workspace
 )
     state = functor.state
@@ -74,28 +73,32 @@ function earth_potential_coefficient(
            (2π * state.epsilon[1])
 end
 
-Formulation(::LineCableModelsCoaxial, selected::Formula{:wise1948}) = selected
 
-function hooks(::FormulaMethod{:wise1948, typeof(earth_potential_coefficient),
-        A}) where {A <: Tuple{Union{Val{:self}, Val{:mutual}}, Val{1}, Val{1}}}
-    return (configurable = (:Γ, :air, :earth, :permeability, :contribution),
-        defaults = (
-            Γ = FormulaMethod(Val(:wise1948), Γ),
-            air = FormulaMethod(Val(:full), propagation),
-            earth = FormulaMethod(Val(:full), propagation),
-            permeability = vacuum_permeability,
-            contribution = nothing))
-end
 
-function computation_options(::FormulaMethod{
-        :wise1948, typeof(earth_potential_coefficient),
+function computation_options(::FormulaMethod{<:Formula{:wise1948}, typeof(earth_potential_coefficient),
         A}) where {A <: Tuple{Union{Val{:self}, Val{:mutual}}, Val{1}, Val{1}}}
     (integration = (method = :quad, options = (;)),)
 end
 
-function validate(binding::FormulaMethod{:wise1948, typeof(earth_potential_coefficient)},
-        ::EquivalentHomogeneous.Formula{:default})
+function validate(binding::FormulaMethod{<:Formula{:wise1948}, typeof(earth_potential_coefficient)},
+        ::EquivalentHomogeneous.Formula{:bottommost})
     binding
+end
+
+"""
+$(TYPEDSIGNATURES)
+
+Evaluate this formulation's medium state: absolute permeability \\[H/m\\]
+and transverse propagation constant \\[1/m\\]. Air retains its prescribed
+permeability; soil follows the selected source's magnetic approximation.
+"""
+function constitutive(::Formula{:wise1948}, ::Val{:air}, jω, μ, σ, ε)
+    return (mu=μ, gamma=propagation(Val(:full), jω, μ, σ, ε))
+end
+
+function constitutive(::Formula{:wise1948}, ::Val{:earth}, jω, μ, σ, ε)
+    permeability = vacuum_permeability(μ)
+    return (mu=permeability, gamma=propagation(Val(:full), jω, permeability, σ, ε))
 end
 
 :wise1948

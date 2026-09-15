@@ -16,7 +16,7 @@ export Formula, formula_id, formulas
 #! explicit-imports: off
 using DocStringExtensions: IMPORTS, TYPEDEF, TYPEDFIELDS, TYPEDSIGNATURES
 #! explicit-imports: on
-import ..Engine: SemiconAdmittanceFormulation, formula_id
+import ..Engine: SemiconAdmittanceFormulation, formula_id, validate
 import ...LineCableModels: FormulaDefinition, FormulaMethod
 using ...Materials: Material
 #! explicit-imports: off
@@ -24,6 +24,8 @@ import ..Engine: description, conductivity
 #! explicit-imports: on
 
 include("interface.jl")
+
+public semicon_material
 
 #! explicit-imports: off
 const FORMULAS = (

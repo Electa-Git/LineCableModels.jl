@@ -7,11 +7,11 @@ function earth!(
     bindings.selection === formula ||
         throw(ArgumentError("workspace is bound to a different earth formula selection"))
     prepared=workspace===nothing ? () : map(workspace.systems) do system
-        prepare_earth_system!(system, jω, Γ, workspace)
+        prepare_earth_system!(system.selection, system, jω, Γ, workspace)
     end
     foreach(bindings.cases) do binding
         resources=workspace
-        if system_earth(binding.selection)&&haskey(binding.declaration.options, :integration)
+        if system_earth(binding.selection)
             index=findfirst(system->system.selection===binding.selection, workspace.systems)
             index===nothing && throw(ArgumentError("missing prepared full earth system"))
             resources=merge(workspace, (
@@ -35,7 +35,7 @@ function earth!(
         rho=@view earth.rho[:, index]
         epsilon=@view earth.epsilon[:, index]
         mu=@view earth.mu[:, index]
-        functor=if system_earth(formula)&&haskey(binding.declaration.options, :integration)
+        functor=if system_earth(formula)
             prepared_earth_functor(formula, workspace.state, pair,
                 binding.declaration, interaction.physical_pair)
         else
@@ -531,7 +531,8 @@ function earth_state_equal(a::NamedTuple, b::NamedTuple)
     keys(a)==keys(b)&&earth_state_equal(values(a), values(b))
 end
 
-function prepare_earth_system!(system, jω, Γ, numerical)
+function prepare_earth_system!(::Union{EarthImpedance.Formula{:unified},
+        EarthAdmittance.Formula{:unified}}, system, jω, Γ, numerical)
     data=system.materials
     for values in (data.rho, data.epsilon, data.mu)
         for column in axes(values, 2), row in axes(values, 1)
@@ -545,13 +546,6 @@ function prepare_earth_system!(system, jω, Γ, numerical)
     functor=system.selection(
         @view(data.rho[:, 1]), @view(data.epsilon[:, 1]), @view(data.mu[:, 1]),
         jω, interaction.pair, declaration; Γ, physical_pair = interaction.physical_pair)
-    if Γ===nothing
-        for pair in system.binding.interactions
-            value=declaration.hooks.Γ(jω, functor.state, pair.pair.layers)
-            earth_state_equal(value, functor.state.Γ) || throw(ArgumentError(
-                "the full-current default requires one common prescribed Γ for the complete system"))
-        end
-    end
     T=eltype(system.response.geometry.radius)
     state=functor.state
     key=(s = Complex{T}(state.jω), Γ = Complex{T}(state.Γ),
@@ -567,27 +561,23 @@ function prepare_earth_system!(system, jω, Γ, numerical)
 end
 
 function prepared_earth_functor(
-        ::EarthImpedance.Formula{ID}, state, pair, selected, physical_pair) where {ID}
+        ::EarthImpedanceFormulation, state, pair, selected, physical_pair)
     binding=(; pair, physical_pair, kind = selected.kind, equation = selected.equation)
-    return EarthImpedance.Functor{ID, typeof(binding), typeof(selected.hooks),
-        typeof(state), typeof(selected.options)}(
-        binding, selected.hooks, state, selected.options)
+    return EarthImpedance.Functor(binding, state, selected.options)
 end
 function prepared_earth_functor(
-        ::EarthAdmittance.Formula{ID}, state, pair, selected, physical_pair) where {ID}
+        ::EarthAdmittanceFormulation, state, pair, selected, physical_pair)
     binding=(; pair, physical_pair, kind = selected.kind, equation = selected.equation)
-    return EarthAdmittance.Functor{ID, typeof(binding), typeof(selected.hooks),
-        typeof(state), typeof(selected.options)}(
-        binding, selected.hooks, state, selected.options)
+    return EarthAdmittance.Functor(binding, state, selected.options)
 end
 
 function unified_entry(::Val{:impedance}, functor, pair, workspace)
     workspace!==nothing&&haskey(workspace, :unified) || throw(ArgumentError(
-        "the default earth formula requires a prepared full-system context; use compute for physical matrices or select an author formula for an isolated pair"))
+        "the unified earth formula requires a prepared full-system context; use compute for physical matrices or select an author formula for an isolated pair"))
     return workspace.unified.Ze[pair.row, pair.column]
 end
 function unified_entry(::Val{:potential}, functor, pair, workspace)
     workspace!==nothing&&haskey(workspace, :unified) || throw(ArgumentError(
-        "the default earth formula requires a prepared full-system context; use compute for physical matrices or select an author formula for an isolated pair"))
+        "the unified earth formula requires a prepared full-system context; use compute for physical matrices or select an author formula for an isolated pair"))
     return workspace.unified.Pe[pair.row, pair.column]
 end

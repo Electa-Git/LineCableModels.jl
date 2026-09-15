@@ -1,6 +1,7 @@
 @testitem "Engine / insulation formulations / analytical limits across precision" tags=[:unit] setup=[
     UseEngineSupport,
-    TestNumerics
+    TestNumerics,
+    FormulaContractModels
 ] begin
 
     impedance_formulation=InsulationImpedance.Formula(:default)
@@ -8,8 +9,8 @@
     @test description(impedance_formulation) ==
           "Ametani coaxial-insulation magnetic impedance (1980)"
     @test occursin("lossless", lowercase(description(admittance_formulation)))
-    @test formula_id(impedance_formulation) === :default
-    @test formula_id(admittance_formulation) === :default
+    @test formula_id(impedance_formulation) === :ametani1980
+    @test formula_id(admittance_formulation) === :lossless
     @test :default in InsulationImpedance.formulas()
     @test all(in(InsulationAdmittance.formulas()), (:lossless, :lossy, :default))
     @test all(in(SemiconAdmittance.formulas()), (:lossless, :lossy, :default))
@@ -62,35 +63,23 @@
         end
     end
 
-    impedance_route=(r_in, r_ex, mu_r, s, values, options, workspace)->2s
-    admittance_route=(material, frequency, temperature,
-        values, options, workspace)->complex(
-        inv(material.rho), 3material.eps_r)
-    @eval LineCableModels.computation_options(
-        ::LineCableModels.FormulaMethod{
-            :default, typeof(InsulationImpedance.insulation_impedance)},
-        ::$(typeof(impedance_route))) = (;)
-    @eval LineCableModels.computation_options(
-        ::LineCableModels.FormulaMethod{
-            :default, typeof(InsulationAdmittance.insulation_material)},
-        ::$(typeof(admittance_route))) = (;)
-    experimental_impedance=InsulationImpedance.Formula(:default; hooks = (contribution = impedance_route,))
-    experimental_admittance=InsulationAdmittance.Formula(:default; hooks = (contribution = admittance_route,))
+    experimental_impedance=FormulaContractModels.InsulationReactance()
+    experimental_admittance=FormulaContractModels.InsulationLaw()
     @test @inferred(experimental_impedance(0.01, 0.02, 1.0, 2.0im)) == 4.0im
     @test_throws DomainError experimental_impedance(-0.01, 0.02, 1.0, 2.0im)
     @test_throws DomainError experimental_impedance(0.01, 0.02, -1.0, 2.0im)
     material=Material(:insulator, 1.0e12, 2.3, 1.0, 20.0, 0.0)
-    @test imag(@inferred(experimental_admittance(material, 50.0, 20.0))) ≈ 6.9
+    @test imag(@inferred(experimental_admittance(material, 50.0, 20.0))) ≈ 135.0
     @test_throws ArgumentError InsulationImpedance.Formula(:default; parameters = (bad = true,))
     @test_throws ArgumentError InsulationAdmittance.Formula(:lossy; parameters = (bad = true,))
 end
 
 @testitem "Engine / internal impedance / passivity and solid-conductor limits" tags=[:unit] setup=[
-    UseEngineSupport
+    UseEngineSupport,FormulaContractModels
 ] begin
     formulation=InternalImpedance.Formula(:default)
     @test occursin("Schelkunoff", description(formulation))
-    @test InternalImpedance.formula_id(formulation) === :default
+    @test InternalImpedance.formula_id(formulation) === :schelkunoff1934
     @test :default in InternalImpedance.formulas()
 
     r_in=0.005
@@ -119,16 +108,12 @@ end
     @test real(solid_outer) > 0
     @test_throws ArgumentError interaction(:unsupported)
 
-    custom_inner=(functor, workspace)->oftype(functor.state.jω, 7)
-    @eval LineCableModels.computation_options(
-        ::LineCableModels.FormulaMethod{
-            :default, typeof(InternalImpedance.internal_impedance), Tuple{Val{:inner}}},
-        ::$(typeof(custom_inner))) = (;)
-    experiment=InternalImpedance.Formula(
-        :default; hooks = (inner = custom_inner,))
-    experimental=@inferred experiment(
-        r_in, r_ex, rho, relative_permeability, s)
-    @test experimental(Val(:inner)) == 7
-    @test experimental(Val(:outer)) == outer
-    @test experimental(Val(:transfer)) == transfer
+    custom_inner=FormulaContractModels.SurfaceLaw(kinds=(:inner,),coefficients=(inner=7+0im,))
+    experiment=(inner=custom_inner,outer=formulation,transfer=formulation)
+    experimental=InternalImpedance.surface_impedances(experiment,
+        r_in,r_ex,rho,relative_permeability,s)
+    @test experimental.inner==7
+    @test experimental.outer==outer
+    @test experimental.transfer==transfer
+
 end

@@ -60,8 +60,9 @@ end
 
     for identifier in keys(descriptions)
         formulation=ModalTransformationFormulation(identifier)
-        @test formula_id(formulation) === identifier
-        @test description(formulation) == descriptions[identifier]
+        @test formula_id(formulation) === :modal
+        @test formula_id(formulation.formula) === :chrysochos2014
+        @test description(formulation.formula) == descriptions[identifier]
         transformed=@inferred compute(
             ModalTransformationProblem(parameters),
             formulation
@@ -190,26 +191,22 @@ end
     @test_throws ArgumentError Engine.merge_bundles!(ones(2, 3), [1, 1])
 end
 
-@testitem "Transforms / independent maps preserve ordered nonreciprocal entries" tags=[:unit] begin
+@testitem "Transforms / independent maps preserve ordered nonreciprocal entries" tags=[:unit] setup=[FormulaContractModels] begin
     const TR = LineCableModels.Transforms
     const FM = LineCableModels.FormulaMethod
     Z = reshape(ComplexF64[2+3im 0.2+0.1im; 0.7+0.3im 4+5im], 2, 2, 1)
     Y = reshape(ComplexF64[2+6im -0.4-0.5im; -0.2-0.1im 3+8im] .* 1e-9, 2, 2, 1)
     A = ComplexF64[1 0.3; 0.1im 2]
     B = ComplexF64[2 0.2im; 0.4 1]
-    replacement = (parameters,
-        physical,
-        options,
-        workspace) -> TR.ModalOperators(reshape(copy(A), 2, 2, 1), reshape(copy(B), 2, 2, 1))
-    @eval LineCableModels.computation_options(
-        ::FM{:default, typeof(TR.modal_operators)}, ::$(typeof(replacement))) = (;)
+    selected=FormulaContractModels.FixedModalMaps(reshape(copy(A),2,2,1),reshape(copy(B),2,2,1))
     phase = LineParameters(PhaseDomain, Z, Y, [50.0])
     modal = compute(ModalTransformationProblem(phase),
-        ModalTransformationFormulation(formula(:default; hooks = (contribution = replacement,)));
+        ModalTransformationFormulation(selected);
         options = (offdiagonal_tolerance = 2.0,))
     @test modal.Z.values[:, :, 1] ≈ A * Z[:, :, 1] / B
     @test modal.Y.values[:, :, 1] ≈ B * Y[:, :, 1] / A
-    @test details(modal).modal.modified
+    @test details(modal).modal.requested.identifier === :FixedModalMaps
+    @test details(modal).modal.effective.identifier === :FixedModalMaps
     @test isempty(details(modal).modal.options)
     rebuilt = compute(ModalTransformationProblem(modal))
     @test rebuilt.Z.values ≈ Z

@@ -26,12 +26,10 @@
             1, 2, (-1.0, -2.0), 1.0, (2, 3)))
         @test_throws DimensionMismatch validate(selected, 3)
         @test validate(selected, 2) === selected
-        override = owner.Formula(:default; hooks = (contribution = (f, p, w)->1.0im,))
-        # An override does not widen an author's source domain.
-        author=owner.Formula(:xue2018; hooks = (contribution = (f, p, w)->1.0im,))
+        author=owner.Formula(:xue2018)
         @test_throws ArgumentError validate(author, mixed)
         @test validate(selected, air).equation isa FM
-        @test typeof(validate(selected, air).equation).parameters[1] === :default
+        @test validate(selected,air).equation.selection === selected
     end
     for id in (:ametani2009, :lucca1994)
         selected = EI.Formula(id)
@@ -42,8 +40,6 @@
     end
     vertical=E.EarthPair(1, 2, (-1.0, -2.0), 0.0, (2, 2))
     @test_throws DomainError validate(EI.Formula(:saad1996), vertical)
-    @test_throws DomainError validate(
-        EI.Formula(:saad1996; hooks = (contribution = (f, p, w)->zero(f.state.jω),)), vertical)
     @test validate(EI.Formula(:saad1996), self).kind === :self
     @test validate(EI.Formula(:wedepohl1973), vertical).kind === :mutual
     @test validate(EI.Formula(:wedepohl1973), self).kind === :self
@@ -75,61 +71,37 @@ end
     end
     coincident = E.EarthPair(1, 2, (-2.0, -2.0), 0.0, (2, 2))
     @test_throws DomainError validate(selected, coincident)
-    overridden = E.EarthImpedance.Formula(:wedepohl1973;
-        hooks = (contribution = (f, p, w) -> zero(f.state.jω),))
-    @test_throws DomainError validate(overridden, coincident)
 end
 
-@testitem "Engine / hooks reach physical state with one scalar Γ contract" tags=[:unit] begin
-    const E = LineCableModels.Engine
-    μ0, ε0 = 4pi*1e-7, 8.8541878128e-12
-    rho, epsilon, mu = [Inf, 100.0], [ε0, 10ε0], [μ0, μ0]
-    jω = complex(0.0, 2pi*50)
-    pair = E.EarthPair(1, 2, (-1.0, -2.0), 0.75, (2, 2))
-    for owner in (E.EarthImpedance, E.EarthAdmittance)
-        seen = Tuple{Int, Int}[]
-        prescription = (s, materials, layers) -> begin
-            push!(seen, layers)
-            @test s == jω
-            @test materials.rho == rho
-            zero(s)
+@testitem "Engine / selected media retain one problem-owned scalar Γ contract" tags=[:unit] begin
+    const E=LineCableModels.Engine
+    μ0,ε0=4pi*1e-7,8.8541878128e-12
+    rho,epsilon,mu=[Inf,100.0],[ε0,10ε0],[μ0,μ0]
+    jω=complex(0.0,2pi*50)
+    pair=E.EarthPair(1,2,(-1.0,-2.0),0.75,(2,2))
+    for owner in (E.EarthImpedance,E.EarthAdmittance)
+        selected=owner.Formula(:default)
+        functor=selected(rho,epsilon,mu,jω,pair)
+        @test functor.binding.equation.selection === selected
+        for name in (:segments,:tolerance,:formula,:gamma_squared)
+            @test !hasproperty(functor.state,name)
         end
-        contribution = (functor, actual,
-            workspace) -> begin
-            @test actual === pair
-            @test functor.hooks.Γ === prescription
-            @test !hasproperty(functor.state, :segments)
-            @test !hasproperty(functor.state, :tolerance)
-            @test !hasproperty(functor.state, :formula)
-            @test !hasproperty(functor.state, :gamma_squared)
-            complex(0.5, 2.0)
+        @test !hasfield(typeof(functor),:hooks)
+        @test owner.Γ(functor)==0
+        prescribed=selected(rho,epsilon,mu,jω,pair;Γ=1e-4im)
+        @test owner.Γ(prescribed)==1e-4im
+        @test prescribed.state.gamma_medium_squared==functor.state.gamma_medium_squared
+        @test prescribed.state.gamma==sqrt.(jω .* mu .* (inv.(rho) .+ jω .* epsilon))
+        for wrong in ([1.0],(Γ=0,squared=9),NaN,()->0)
+            @test_throws ArgumentError selected(rho,epsilon,mu,jω,pair;Γ=wrong)
         end
-        @eval LineCableModels.computation_options(
-            ::LineCableModels.FormulaMethod{:default,
-                typeof($(owner === E.EarthImpedance ? E.EarthImpedance.earth_impedance :
-                         E.EarthAdmittance.earth_potential_coefficient))},
-            ::$(typeof(contribution))) = (;)
-        definition = formula(:default; hooks = (
-            Γ = prescription, contribution = contribution))
-        selected = owner.Formula(definition)
-        functor = selected(rho, epsilon, mu, jω, pair)
-        @test functor() == 0.5+2im
-        @test seen == [(2, 2)]
-        @test owner.Γ(functor) == 0
-        @test_throws ArgumentError selected(rho, epsilon, mu, jω, pair; Γ = zero(jω))
-        for wrong in ((s, m, l)->[1.0], (s, m, l)->(Γ = 0, squared = 9), (s, m, l)->NaN)
-            @test_throws ArgumentError owner.Formula(:default; hooks = (Γ = wrong,))(
-                rho, epsilon, mu, jω, pair)
-        end
-        @test_throws MethodError owner.Formula(:default; hooks = (Γ = ()->0,))(
-            rho, epsilon, mu, jω, pair)
-        unsupported = owner.Formula(:default; hooks = (unknown = identity,))
-        @test_throws ArgumentError validate(unsupported, pair)
-        @test_throws ArgumentError unsupported(rho, epsilon, mu, jω, pair)
-        @test_throws ArgumentError owner.Formula(:default; parameters = (unknown = 1,))
+        @test_throws ArgumentError owner.Formula(:default;parameters=(unknown=1,))
         @test_throws DimensionMismatch selected(
-            [Inf, 100.0, 999.0], [ε0, 10ε0, 20ε0], [μ0, μ0, μ0], jω, pair)
+            [Inf,100.0,999.0],[ε0,10ε0,20ε0],[μ0,μ0,μ0],jω,pair)
     end
+    carson=E.EarthImpedance.Formula(:carson1926)
+    air=E.EarthPair(1,2,(1.0,2.0),1.0,(1,1))
+    @test_throws ArgumentError carson(rho,epsilon,mu,jω,air;Γ=1e-4im)
     @test LineCableModels.ComputationOptions === NamedTuple
 end
 
@@ -154,7 +126,7 @@ end
     absent=E.EarthPair(1, 2, (-2.0, -3.0), 1.0, (3, 4))
     @test_throws ArgumentError validate(selected, absent)
     # A numerical specialization alone cannot admit a missing canonical case.
-    EI.earth_impedance(::Val{:ContractLayers}, ::Val{:mutual}, ::Val{3}, ::Val{4},
+    EI.earth_impedance(::M.LayerImpedance, ::Val{:mutual}, ::Val{3}, ::Val{4},
         f::Float64, pair, workspace) = 0
     @test_throws ArgumentError validate(selected, absent)
     @test isempty(M.calls)
@@ -168,20 +140,19 @@ end
     earth=build(EP.EarthModel, (
         EP.EarthLayer(100.0, 10.0, 1.0, 0.5), EP.EarthLayer(200.0, 20.0, 1.0)))
     problem=LineParametersProblem(system; earth_props = earth, frequencies = [50.0, 500.0])
-    fd_calls=Tuple[]
-    fd=(m, f, p, o, w)->begin
-        push!(fd_calls, (m.rho, f))
-        EP.EarthMaterial(m.rho/2, m.eps_r, m.mu_r)
-    end
-    @eval LineCableModels.computation_options(
-        ::LineCableModels.FormulaMethod{
-            :default, typeof(EP.FrequencyDependent.earth_material)},
-        ::$(typeof(fd))) = (;)
+    fd=M.DispersiveEarth(exponent=0)
+    fd_calls=fd.seen
     formulation=Formulation(earth_impedance = selected, earth_admittance = M.selection(EA),
-        earth_properties = formula(:default; hooks = (contribution = fd,)),
+        earth_properties = fd,
         options = (ideal_transposition = false,))
     result=compute(problem, formulation; options = (trace = true,))
     @test length(fd_calls) == 4
+    execution=computation_options(LineCableModelsCoaxial,(;))
+    T=eltype(problem)
+    blueprints=E.CableBlueprint{T}[E.flatten(LineCableModelsCoaxial(),d,T)
+        for d in problem.system.designs]
+    workspace=E.LineParametersWorkspace(problem,formulation,execution,blueprints)
+    @test !workspace.buffers.uses_earth_systems
     @test length(M.calls) == 36
     for (_, _, row, column, layers, geometry, rho, physical) in M.calls
         @test layers == (column, row)
@@ -209,7 +180,7 @@ end
         empty!(fd_calls)
         hybrid=Formulation(earth_impedance = M.selection(EI),
             earth_admittance = formula(:xue2018; equivalent_earth = formula(:default; order)),
-            earth_properties = formula(:default; hooks = (contribution = fd,)),
+            earth_properties = fd,
             options = (ideal_transposition = false,))
         value=compute(buried_problem, hybrid)
         @test all(isfinite, value.Z.values) && all(isfinite, value.Y.values)
@@ -223,57 +194,34 @@ end
     @test (EI.formulas(), EA.formulas()) === inventories
 end
 
-@testitem "Engine / evaluated medium hooks and integration options reach public compute" tags=[:unit] setup=[TestFixtures] begin
+@testitem "Engine / material laws and numerical options do not change physical routing" tags=[:unit] setup=[TestFixtures,FormulaContractModels] begin
     const E=LineCableModels.Engine
-    base=TestFixtures.line_parameters_problem(frequencies = [50.0, 1e5])
-    fd_calls=Ref(0)
-    fd=(material, frequency, parameters, options, workspace)->begin
-        fd_calls[]+=1
-        material
-    end
-    @eval LineCableModels.computation_options(
-        ::LineCableModels.FormulaMethod{
-            :default, typeof(LineCableModels.Earth.FrequencyDependent.earth_material)},
-        ::$(typeof(fd))) = (;)
+    base=TestFixtures.line_parameters_problem(frequencies=[50.0,1e5])
+    fd=FormulaContractModels.DispersiveEarth(exponent=0)
     @test_throws ArgumentError compute(base,
-        Formulation(earth_impedance = :carson1926,
-            earth_properties = formula(:default; hooks = (contribution = fd,))))
-    @test fd_calls[]==0
-    calls=ComplexF64[]
-    earth_law=(s, mu, sigma, epsilon)->begin
-        push!(calls, s)
-        sqrt(s*mu*(2sigma+s*epsilon))
-    end
-    selected=Formulation(earth_impedance = formula(:default; hooks = (earth = earth_law,)))
-    modified=compute(base, selected)
+        Formulation(earth_impedance=:carson1926,earth_properties=fd))
+    @test isempty(fd.seen)
+    selected=Formulation(earth_properties=fd)
+    changed=compute(base,selected)
     material=base.earth_props.layers[2]
-    equivalent=LineParametersProblem(base.system; temperature = base.temperature,
-        earth_props = homogeneous(rho = material.rho/2, eps_r = material.eps_r, mu_r = material.mu_r),
-        frequencies = base.frequencies)
-    @test modified.Z.values ≈ compute(equivalent).Z.values rtol=1e-10
-    @test Set(calls) == Set(2pi*im .* base.frequencies)
-    @test details(modified).formulations.modified.earth_impedance
+    equivalent=LineParametersProblem(base.system;temperature=base.temperature,
+        earth_props=homogeneous(rho=material.rho/2,eps_r=material.eps_r,mu_r=material.mu_r),
+        frequencies=base.frequencies)
+    expected=compute(equivalent)
+    @test changed.Z.values ≈ expected.Z.values rtol=1e-10
+    @test changed.Y.values ≈ expected.Y.values rtol=1e-10
+    @test Set(record[2] for record in fd.seen)==Set(base.frequencies)
+    @test details(changed).formulations.effective.earth_properties === :DispersiveEarth
     reference=compute(base)
-    for method in (:trapz, :cim)
-        result=compute(base,
-            Formulation(
-                earth_impedance = formula(
-                    :default; options = (integration = (method = method, options = (;)),)),
-                earth_admittance = formula(
-                    :default; options = (integration = (method = method, options = (;)),))))
+    for method in (:trapz,:cim)
+        result=compute(base,Formulation(
+            earth_impedance=formula(:default;options=(integration=(method=method,options=(;)),)),
+            earth_admittance=formula(:default;options=(integration=(method=method,options=(;)),))))
         @test result.Z.values ≈ reference.Z.values rtol=3e-6
         @test result.Y.values ≈ reference.Y.values rtol=3e-6
-        @test all(case -> case.options.integration.method === Val(method),
+        @test all(case->case.options.integration.method === Val(method),
             details(result).formulations.numerical.earth_impedance)
     end
-    @test_throws ArgumentError validate(
-        E.EarthImpedance.Formula(:carson1926;
-            hooks = (air = (s, m, c, e)->zero(s),)),
-        E.EarthPair(1, 2, (1.0, 2.0), 1.0, (1, 1)))
-    @test_throws ArgumentError validate(
-        E.EarthAdmittance.Formula(:default;
-            hooks = (unknown = (s, m, c, e)->zero(s),)),
-        E.EarthPair(1, 2, (-1.0, -2.0), 1.0, (2, 2)))
 end
 
 @testitem "Engine / earth state and quadrature preserve scalar types and uncertainty" tags=[:unit] begin

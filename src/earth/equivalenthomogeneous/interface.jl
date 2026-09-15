@@ -24,11 +24,9 @@ homogeneous material.
 
 $(TYPEDFIELDS)
 """
-struct Formula{ID, A <: NamedTuple, H <: NamedTuple, O <: NamedTuple} <: AbstractRule
+struct Formula{ID, A <: NamedTuple, O <: NamedTuple} <: AbstractRule
     "Explicit model parameters."
     parameters::A
-    "Callable overrides supplied by the user."
-    hooks::H
     "Explicit numerical sections owned by the reduction."
     options::O
 end
@@ -77,26 +75,20 @@ function equivalent_material end
 """
 $(TYPEDSIGNATURES)
 
-Construct a registered formula with separate model parameters and callable
-hooks. `hooks=(contribution=f,)` replaces the complete scalar equation using
-the signature `f(rho, eps_r, mu_r, model, pair, frequency, parameters, options, workspace) → EarthMaterial`. A complete replacement declares its numerical defaults with
-`computation_options(binding, replacement)`. Unknown fields fail immediately.
+Construct an equivalent-earth rule with model parameters and numerical controls.
+Custom rules subtype `AbstractRule` and extend `equivalent_material` on their
+own concrete type. The selected sequence owns its position relative to the
+frequency-dependent material law.
 """
 Formula(identifier::Symbol; kwargs...) = Formula(Val(identifier); kwargs...)
-Formula(selected::Formula) = selected
+Formula(selected::AbstractRule) = selected
 
-function Formula(::Val{ID}; parameters::NamedTuple = (;),
-        hooks::NamedTuple = (;), options::NamedTuple = (;)) where {ID}
-    ID in FORMULAS || throw(ArgumentError("unknown formula :$ID"))
-    isempty(parameters) ||
-        throw(ArgumentError("formula :$ID has no configurable model parameters"))
-    isempty(setdiff(keys(hooks), (:contribution,))) ||
-        throw(ArgumentError("unknown hooks for :$ID"))
-    haskey(hooks, :contribution) && hooks.contribution === nothing &&
-        throw(ArgumentError("a contribution hook must be callable"))
-    return Formula{ID, typeof(parameters), typeof(hooks), typeof(options)}(
-        parameters, hooks, options)
+function Formula(::Val{:bottommost}; parameters::NamedTuple=(;), options::NamedTuple=(;))
+    isempty(parameters) || throw(ArgumentError("bottommost earth has no configurable model parameters"))
+    return Formula{:bottommost, typeof(parameters), typeof(options)}(parameters, options)
 end
+
+Formula(::Val{ID}; kwargs...) where {ID} = throw(ArgumentError("unknown equivalent-earth rule :$ID"))
 
 AfterFD(identifier::Symbol; kwargs...) = AfterFD(Formula(identifier; kwargs...))
 BeforeFD(identifier::Symbol; kwargs...) = BeforeFD(Formula(identifier; kwargs...))
@@ -108,7 +100,7 @@ function description(sequence::BeforeFD;compact::Bool=false)
     "$(description(sequence.rule;compact)) before layerwise FrequencyDependent"
 end
 
-@inline function (formula::Formula)(
+@inline function (formula::AbstractRule)(
         rho::AbstractVector,
         eps_r::AbstractVector,
         mu_r::AbstractVector,
@@ -123,8 +115,7 @@ end
         "EquivalentHomogeneous evaluation frequency must be positive and finite"
     ))
     validate(pair, getproperty.(model.layers, :thickness))
-    selected = get(formula.hooks, :contribution, binding.equation)
-    material = selected(rho, eps_r, mu_r, model, pair, frequency,
+    material = binding.equation(rho, eps_r, mu_r, model, pair, frequency,
         formula.parameters, binding.options, workspace)
     material isa EarthMaterial ||
         throw(ArgumentError("an EquivalentHomogeneous contribution must return EarthMaterial"))
@@ -135,35 +126,35 @@ function Formula(selection::FormulaDefinition{ID, Order}) where {ID, Order}
     Order === :default || throw(ArgumentError("order applies only to equivalent_earth"))
     selection.equivalent_earth === nothing ||
         throw(ArgumentError("a reduction cannot contain another reduction"))
-    return Formula(Val(ID); parameters = selection.parameters, hooks = selection.hooks,
+    return Formula(Val(ID); parameters = selection.parameters,
         options = selection.options)
 end
 
 function AbstractSequence(selection::FormulaDefinition{ID, Order}) where {ID, Order}
     selection.equivalent_earth === nothing ||
         throw(ArgumentError("a reduction cannot contain another reduction"))
-    rule = Formula(Val(ID); parameters = selection.parameters, hooks = selection.hooks,
+    rule = Formula(Val(ID); parameters = selection.parameters,
         options = selection.options)
     return Order === :before ? BeforeFD(rule) : AfterFD(rule)
 end
 
-function equivalent_material(::Val{ID}, ::Val{Kind}, ::Val{S}, ::Val{T},
+function equivalent_material(selected::AbstractRule, ::Val{Kind}, ::Val{S}, ::Val{T},
         rho, eps_r, mu_r, model, pair, frequency, parameters,
         options, workspace
-) where {ID, Kind, S, T}
-    throw(ArgumentError("equivalent_material :$ID ($Kind): formula not implemented for source in layer $S and target in layer $T"))
+) where {Kind, S, T}
+    throw(ArgumentError("equivalent_material :$(formula_id(selected)) ($Kind): formula not implemented for source in layer $S and target in layer $T"))
 end
 
 const EQUATION_FALLBACK = which(equivalent_material,
-    Tuple{Val, Val, Val, Val, Any, Any, Any, Any, Any, Any, Any, Any, Any})
+    Tuple{AbstractRule, Val, Val, Val, Any, Any, Any, Any, Any, Any, Any, Any, Any})
 
-validate(formula::Formula, pair) = only(validate(formula, (pair,)))
+validate(formula::AbstractRule, pair) = only(validate(formula, (pair,)))
 
-function validate(formula::Formula{ID}, pairs::Union{Tuple, AbstractVector}) where {ID}
+function validate(formula::AbstractRule, pairs::Union{Tuple, AbstractVector})
     equations = map(pairs) do pair
         kind = pair.row == pair.column ? :self : :mutual
-        binding = FormulaMethod(Val(ID), equivalent_material, Val(kind), Val.(pair.layers)...)
-        signature = Tuple{Val{ID}, typeof.(binding.arguments)...,
+        binding = FormulaMethod(formula, equivalent_material, Val(kind), Val.(pair.layers)...)
+        signature = Tuple{typeof(formula), typeof.(binding.arguments)...,
             Any, Any, Any, Any, Any, Any, Any, Any, Any}
         which(equivalent_material, signature) === EQUATION_FALLBACK &&
             binding(nothing, nothing, nothing, nothing, nothing,
@@ -172,8 +163,6 @@ function validate(formula::Formula{ID}, pairs::Union{Tuple, AbstractVector}) whe
     end
     identities = unique(equations)
     defaults = map(identities) do binding
-        haskey(formula.hooks, :contribution) ?
-        computation_options(binding, formula.hooks.contribution) :
         computation_options(binding)
     end
     admitted = union((keys(value) for value in defaults)...)
@@ -187,10 +176,10 @@ function validate(formula::Formula{ID}, pairs::Union{Tuple, AbstractVector}) whe
     return map(equation -> resolved[findfirst(==(equation), identities)], equations)
 end
 
-"""Expose the reduction rule, parameters, hooks and numerical options as a native record."""
+"""Expose the reduction rule, model parameters and numerical options as a native record."""
 function Base.NamedTuple(value::Formula)
     return (identifier=formula_id(value), parameters=value.parameters,
-        hooks=value.hooks, options=value.options)
+        options=value.options)
 end
 
 """Expose the order of material evaluation and the selected equivalent-earth rule."""
@@ -205,7 +194,7 @@ description(value::Formula; compact::Bool=false) = description(typeof(value); co
 """Iterate the independently selectable child slots admitted by this formula family."""
 Base.pairs(::Type{<:Formula}; quantity=nothing) = pairs((;))
 formula_id(::Type{<:Formula{ID}}) where {ID} = ID
-formulation_options(value::Formula) = formulation_options(typeof(value), (parameters=value.parameters, hooks=value.hooks, options=value.options))
+formulation_options(value::Formula) = formulation_options(typeof(value), (parameters=value.parameters, options=value.options))
 formulation_options(::Type{<:Formula}, retained::NamedTuple) =
     formulation_options(FormulaDefinition, retained)
 

@@ -1,24 +1,12 @@
 """
 $(TYPEDSIGNATURES)
 
-**Identification.** Default analytical pipe-type treatment.
-
-**Expression.** Ordinary coaxial assemblies require no additional pipe term.
-An eccentric or multicore conductive enclosure requires a pipe formulation:
-the coaxial backend has none yet.
-
-**Reference.** Backend applicability policy; no author-labeled pipe equation
-or numerical approximation is introduced by this selector.
+Route the default selection to the explicit `:none` implementation.
+No numerical equation is owned by `:default`.
 """
-description(::Type{<:Formula{:default}}; compact::Bool=false) = compact ? "default" : "Default analytical pipe-type treatment"
+description(::Type{<:Formula{:default}}; compact::Bool=false) =
+    compact ? "Default" : "Default routing to :none"
 
-function Formulation(::LineCableModelsCoaxial, ::Val{:default}, ::Formula{:default}, ::Val{:coaxial})
-    nothing
-end
-
-function Formulation(::LineCableModelsCoaxial, ::Val{:default}, ::Formula{:default}, ::Val{:pipe})
-    throw(ArgumentError(
-        "Pipe-type cable formulation is not yet implemented for the coaxial backend. No default formulation is available."))
-end
+Formula(::Val{:default}; kwargs...) = Formula(Val(:none); kwargs...)
 
 :default

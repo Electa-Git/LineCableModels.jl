@@ -9,8 +9,6 @@ $(TYPEDFIELDS)
 struct Formula{ID, P <: NamedTuple, O <: NamedTuple} <: ShuntModelFormulation
     "Explicit model fallback policy."
     parameters::P
-    "No callable replacements are declared for this model."
-    hooks::NamedTuple{(), Tuple{}}
     "Boundary discretization, quadrature, and optional audit controls."
     options::O
 end
@@ -24,13 +22,14 @@ const DEFAULT_INTEGRATION = (rtol = 1e-8, atol = 1e-10, maxevals = 100_000)
 formulas() = (:default, :coaxial, :boundary)
 formula_id(::Formula{ID}) where {ID} = ID
 formula_id(::Type{<:Formula{ID}}) where {ID} = ID
-Formula(value::Formula) = value
+Formula(value::ShuntModelFormulation) = value
 Formula(identifier::Symbol; kwargs...) = Formula(Val(identifier); kwargs...)
+Formula(::Val{:default}; kwargs...) = Formula(Val(:coaxial); kwargs...)
 
 function Formula(value::FormulaDefinition{ID, Order}) where {ID, Order}
     Order === :default && value.equivalent_earth === nothing || throw(ArgumentError(
         "shunt_model does not accept equivalent-earth reductions or ordering"))
-    return Formula(Val(ID); parameters = value.parameters, hooks = value.hooks, options = value.options)
+    return Formula(Val(ID); parameters = value.parameters, options = value.options)
 end
 
 """
@@ -44,8 +43,6 @@ domains before frequency evaluation.
 
 - `parameters=(;)`: Boundary `fallback=:error` (default) or explicitly
   `:coaxial` after an unsupported boundary assumption or numerical failure.
-- `hooks=(;)`: Must be empty; partial replacements of the coupled operator are
-  not supported.
 - `options=(;)`: Boundary `resolution=(wire=64, order=32, quadrature=256,
   modes=1024)`, `integration=(rtol=1e-8, atol=1e-10, maxevals=100_000)`, and
   `audit=false`. The audit recomputes an independent boundary grid and checks
@@ -55,18 +52,16 @@ domains before frequency evaluation.
 
 - A concrete shunt model selection.
 """
-function Formula(::Val{ID}; parameters::NamedTuple = (;), hooks::NamedTuple = (;),
+function Formula(::Val{ID}; parameters::NamedTuple = (;),
         options::NamedTuple = (;)) where {ID}
-    ID in (:default, :coaxial) || throw(ArgumentError("unknown shunt model :$ID"))
-    isempty(hooks) || throw(ArgumentError("shunt_model has no callable overrides"))
+    ID === :coaxial || throw(ArgumentError("unknown shunt model :$ID"))
     isempty(parameters) && isempty(options) || throw(ArgumentError(
         "coaxial shunt models accept no parameters or numerical controls"))
-    return Formula{ID, typeof(parameters), typeof(options)}(parameters, (;), options)
+    return Formula{ID, typeof(parameters), typeof(options)}(parameters, options)
 end
 
-function Formula(::Val{:boundary}; parameters::NamedTuple = (;), hooks::NamedTuple = (;),
+function Formula(::Val{:boundary}; parameters::NamedTuple = (;),
         options::NamedTuple = (;))
-    isempty(hooks) || throw(ArgumentError("shunt_model has no callable overrides"))
     isempty(setdiff(keys(parameters), (:fallback,))) || throw(ArgumentError(
         "boundary shunt parameters accept only fallback"))
     fallback = get(parameters, :fallback, :error)
@@ -102,7 +97,7 @@ function Formula(::Val{:boundary}; parameters::NamedTuple = (;), hooks::NamedTup
             atol = Float64(integration.atol), maxevals = Int(integration.maxevals)),
         audit)
     policy = (; fallback)
-    return Formula{:boundary, typeof(policy), typeof(normalized)}(policy, (;), normalized)
+    return Formula{:boundary, typeof(policy), typeof(normalized)}(policy, normalized)
 end
 
 """Describe the equivalent annular local shunt approximation."""
@@ -123,12 +118,12 @@ description(value::Formula; compact::Bool = false) = description(typeof(value); 
 Base.pairs(::Type{<:Formula}; quantity = nothing) = pairs((;))
 function formulation_options(value::Formula)
     formulation_options(typeof(value),
-        (parameters = value.parameters, hooks = value.hooks, options = value.options))
+        (parameters = value.parameters, options = value.options))
 end
 function formulation_options(::Type{<:Formula}, retained::NamedTuple)
     formulation_options(FormulaDefinition, retained)
 end
 function Base.NamedTuple(value::Formula)
     (identifier = formula_id(value),
-        parameters = value.parameters, hooks = value.hooks, options = value.options)
+        parameters = value.parameters, options = value.options)
 end

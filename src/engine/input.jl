@@ -343,7 +343,7 @@ function LineParametersWorkspace(
             end
         end
         # Geometry changes the set of cases, not the public workspace type.
-        # Each case retains its concrete formula, equation and hooks for dispatch.
+        # Each case retains its concrete selection and indexed equation for dispatch.
         Bound = NamedTuple{(:selection, :cases), Tuple{typeof(selected), Tuple}}
         Bound((selected, Tuple(cases)))
     end
@@ -474,23 +474,11 @@ function LineParametersWorkspace(
     return workspace
 end
 
-function same_earth_hook(a, b)
-    return a===b
-end
-function same_earth_hook(a::FormulaMethod{ID}, b::FormulaMethod{ID}) where {ID}
-    a===b && return true
-    a.arguments===b.arguments || return false
-    return (ID===:default&&a.method===EarthImpedance.Γ&&b.method===EarthAdmittance.Γ) ||
-           (ID===:full&&a.method===EarthImpedance.propagation&&b.method===EarthAdmittance.propagation)
-end
-
-function same_earth_configuration(z, p)
+same_earth_configuration(z_selection, p_selection, z, p) = false
+function same_earth_configuration(::EarthImpedance.Formula{:unified},
+        ::EarthAdmittance.Formula{:unified}, z, p)
     earth_state_equal(z.selection.parameters, p.selection.parameters) &&
     isequal(z.selection.equivalent_earth, p.selection.equivalent_earth) || return false
-    zh=first(z.declarations).hooks
-    ph=first(p.declarations).hooks
-    keys(zh)==keys(ph)&&all(pair->same_earth_hook(pair...), zip(values(zh), values(ph))) ||
-        return false
     return isequal(first(z.declarations).options, first(p.declarations).options)
 end
 
@@ -499,7 +487,8 @@ function share_earth_responses(numerical)
     p=numerical.earth_admittance
     (z===nothing||p===nothing) && return numerical
     systems=map(p.systems) do system
-        index=findfirst(candidate->same_earth_configuration(candidate, system), z.systems)
+        index=findfirst(candidate->same_earth_configuration(
+            candidate.selection, system.selection, candidate, system), z.systems)
         index===nothing ? system : merge(system, (response = z.systems[index].response,))
     end
     return merge(numerical, (earth_admittance = merge(p, (; systems)),))
@@ -514,20 +503,15 @@ function earth_system_bindings(
     geometry=EarthReturnGeometry(input.horz[representatives], input.vert[representatives], radii)
     selected=unique([case.selection
                      for case in bindings.cases
-                     if system_earth(case.selection) &&
-        haskey(case.declaration.options, :integration)])
+                     if system_earth(case.selection)])
     isempty(selected) && return ()
     systems=map(selected) do leaf
         pairs=leaf.equivalent_earth===nothing ? physical_pairs : homogeneous_pairs
         declarations=validate(leaf, pairs)
         first_declaration=first(declarations)
         for declaration in declarations
-            isequal(declaration.options, first_declaration.options) &&
-            all(
-                name->isequal(getproperty(declaration.hooks, name),
-                    getproperty(first_declaration.hooks, name)),
-                (:Γ, :air, :earth, :permeability)) ||
-                throw(ArgumentError("the full-current default requires common integration controls and medium hooks across its complete auxiliary system"))
+            isequal(declaration.options, first_declaration.options) ||
+                throw(ArgumentError("a coupled earth formulation requires common numerical controls across its complete auxiliary system"))
         end
         reductions=if leaf.equivalent_earth===nothing
             nothing

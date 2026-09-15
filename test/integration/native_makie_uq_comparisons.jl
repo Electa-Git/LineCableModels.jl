@@ -128,8 +128,10 @@ end
             @test first(lines)[1][]≈last(lines)[1][]
             # Matching curves alone would miss a shared mean/std or coordinate swap.
             @test last.(first(lines)[1][])≈expected[i,j,:]
-            markers=filter(plot -> plot isa Makie.Scatter, panel.axis.scene.plots)
-            @test last(first(markers)[1][])[1]≈last(f)
+            reference_group=first(page.addon_state.order)
+            reference_markers=only(filter(plot -> plot isa Makie.Scatter,
+                panel.groups[reference_group]))
+            @test last(reference_markers[1][])[1]≈last(f)
         end
     end
     @test occursin("mean", first(pages).export_name)
@@ -174,8 +176,8 @@ end
         display_plot=false,controls=false,open_export=false,length_unit=:base,clip=false)
     for (page,request) in zip(composite_pages,requests)
         suffix=request[2]===R ?
-            "internal Z(inner)=default; internal Z(outer)=default; internal Z(transfer)=default; earth Z(air)=default; earth Z(earth)=Pollaczek; earth Z(mixed)=default" :
-            "earth Y(air)=default; earth Y(earth)=default; earth Y(mixed)=default"
+            "internal Z(inner)=Schelkunoff; internal Z(outer)=Schelkunoff; internal Z(transfer)=Schelkunoff; earth Z(air)=Unified; earth Z(earth)=Pollaczek; earth Z(mixed)=Unified" :
+            "earth Y(air)=Unified; earth Y(earth)=Unified; earth Y(mixed)=Unified"
         names=[page.addon_state.labels[group] for group in page.addon_state.order]
         @test names==["Reference · Monte Carlo; "*suffix,"LEP; "*suffix]
         expected=observe(reference,statistics,request[2],request[3],1)

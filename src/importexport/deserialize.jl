@@ -7,9 +7,10 @@ function deserialize_extension end
 $(TYPEDSIGNATURES)
 
 Bind a retained formulation declaration to its scientific owner for inspection.
-Native formulations pass through unchanged. Unknown identities return `missing`;
-errors raised by a supported owner description are not intercepted. No runnable
-formulation, problem, solver configuration or callable override is reconstructed.
+Native formulations pass through unchanged. Unknown leaf identities retain a
+passive `FormulaDefinition` identity; unknown owners return `missing`. Errors
+raised by a supported owner description are not intercepted. No runnable
+formulation, problem, or solver configuration is reconstructed.
 """
 deserialize_value(::Val{:formulation},value::LineCableModels.AbstractFormulation) = value
 deserialize_value(::Val{:formulation},value::Pair{<:Type,<:NamedTuple}) = value
@@ -36,7 +37,8 @@ function deserialize_value(::Val{:formulation},record::NamedTuple)
     owner=backend in (:coaxial,"coaxial") ? Engine.LineParametersFormulation :
         backend in (:cable_constants,"cable_constants") ? Engine.CableConstantsFormulation :
         backend in (:fem,:LineCableModelsFEM,"fem","LineCableModelsFEM") ? Engine.LineCableModelsFEM :
-        backend in (:pscad,:PSCAD,"pscad","PSCAD") ? LineCableModels.PSCAD.PSCADFormulation : nothing
+        backend in (:pscad,:PSCAD,"pscad","PSCAD") ? LineCableModels.PSCAD.PSCADFormulation :
+        backend in (:modal,"modal") ? LineCableModels.Transforms.ModalTransformationFormulation : nothing
     owner===nothing && return missing
     # Child families, order and relevance are supplied by the owner, not a reader catalogue.
     declared=get(record,:requested,nothing)
@@ -79,7 +81,9 @@ function deserialize_value(::Val{:formulation},family::Type,value,definition)
     identifier=value.identifier
     ismissing(identifier) && return (missing,(;))
     selected=family{identifier}
-    applicable(LineCableModels.description,selected) || return (missing,(;))
+    if !applicable(LineCableModels.description,selected)
+        selected=LineCableModels.FormulaDefinition{identifier}
+    end
     definition isa Symbol && (definition=(identifier=definition,))
     settings=definition isa NamedTuple ?
         LineCableModels.formulation_options(LineCableModels.FormulaDefinition,definition) : (;)
@@ -89,7 +93,7 @@ function deserialize_value(::Val{:formulation},family::Type,value,definition)
             # This is a passive declaration; no callback or solver is reconstructed.
             equivalent=LineCableModels.formula(equivalent.identifier;
                 order=get(equivalent,:order,:default),parameters=get(equivalent,:parameters,(;)),
-                hooks=get(equivalent,:hooks,(;)),options=get(equivalent,:options,(;)))
+                options=get(equivalent,:options,(;)))
             settings=merge(settings,(equivalent_earth=equivalent,))
         end
     end
@@ -108,7 +112,7 @@ function deserialize_value(::Val{:formulation},::Type{<:Engine.InternalImpedance
         NamedTuple{Tuple(key===:mutual ? :transfer : key for key in keys(fields))}(values(fields))
     end
     !haskey(record,:identifier) && haskey(record,:mutual) && return rename(record)
-    return (; (key => (key in (:hooks,:options,:binding) && value isa NamedTuple ?
+    return (; (key => (key in (:options,:binding) && value isa NamedTuple ?
         rename(value) : value) for (key,value) in pairs(record))...)
 end
 
@@ -208,6 +212,7 @@ function deserialize_value(value)
         marker in ("Float16", "Float32", "Float64", "BigFloat") &&
             return _decode_float(marker, value)
         marker == "Symbol" && return Symbol(_required(value, "value", marker))
+        marker == "Val" && return Val(deserialize_value(_required(value, "value", marker)))
         marker == "Complex" && return complex(
             deserialize_value(_required(value, "re", marker)),
             deserialize_value(_required(value, "im", marker))

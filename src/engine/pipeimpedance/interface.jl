@@ -12,22 +12,22 @@ formula_id(::Formula{ID}) where {ID} = ID
 """
 $(TYPEDSIGNATURES)
 
-Construct a registered pipe-type selection. Unknown identifiers or customizations
+Construct a registered pipe-type selection. Unknown identifiers or controls
 raise `ArgumentError`; backend applicability is checked against the design.
 """
 Formula(identifier::Symbol; kwargs...) = Formula(Val(identifier); kwargs...)
 
-function Formula(::Val{ID}; parameters::NamedTuple = (;), hooks::NamedTuple = (;)) where {ID}
-    ID in FORMULAS || throw(ArgumentError("unknown pipe-impedance formula :$ID"))
-    isempty(hooks) || throw(ArgumentError("pipe impedance has no configurable hooks"))
-    isempty(parameters) ||
-        throw(ArgumentError("pipe impedance has no configurable parameters"))
-    return Formula{ID}()
+function Formula(::Val{:none}; parameters::NamedTuple = (;), options::NamedTuple = (;))
+    isempty(parameters) && isempty(options) ||
+        throw(ArgumentError("pipe-impedance :none accepts no model parameters or numerical controls"))
+    return Formula{:none}()
 end
 
-Formula(selected::Formula) = selected
+Formula(::Val{ID}; kwargs...) where {ID} = throw(ArgumentError("unknown pipe-impedance formula :$ID"))
 
-function Formulation(backend, selected::Formula, design::CableDesign)
+Formula(selected::PipeImpedanceFormulation) = selected
+
+function Formulation(backend, selected::PipeImpedanceFormulation, design::CableDesign)
     # Compare conductor axes, not wire positions. A concentric sheath remains
     # ordinary coaxial geometry even when declared through pipe(...).
     topology = Val(:coaxial)
@@ -54,13 +54,12 @@ function Formulation(backend, selected::Formula, design::CableDesign)
         end
         topology === Val(:pipe) && break
     end
-    return Formulation(backend, Val(formula_id(selected)), selected, topology)
+    return Formulation(backend, selected, topology)
 end
 
-function Formulation(backend, ::Val{ID}, ::Formula{ID}, ::Val{Topology}) where {
-        ID, Topology}
+function Formulation(backend, selected::PipeImpedanceFormulation, ::Val{Topology}) where {Topology}
     throw(ArgumentError(
-        "pipe-impedance :$ID is not yet implemented for $Topology topology on $(nameof(typeof(backend)))"))
+        "pipe-impedance :$(formula_id(selected)) is not yet implemented for $Topology topology on $(nameof(typeof(backend)))"))
 end
 
 function Formula(selection::FormulaDefinition{ID, Order}) where {ID, Order}
@@ -69,11 +68,11 @@ function Formula(selection::FormulaDefinition{ID, Order}) where {ID, Order}
         throw(ArgumentError("deferred pipe contribution has no numerical options"))
     selection.equivalent_earth === nothing ||
         throw(ArgumentError("pipe contribution cannot consume equivalent_earth"))
-    return Formula(Val(ID); parameters = selection.parameters, hooks = selection.hooks)
+    return Formula(Val(ID); parameters = selection.parameters)
 end
 
 """Expose the selected pipe equation as a native record."""
-Base.NamedTuple(value::Formula) = (identifier=formula_id(value),)
+Base.NamedTuple(value::Formula) = (identifier=formula_id(value),parameters=(;),options=(;))
 
 # Identity-only dispatch also describes retained selections without constructors.
 import ...Grammar: formulation_options

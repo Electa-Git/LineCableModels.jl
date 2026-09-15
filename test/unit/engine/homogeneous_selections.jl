@@ -76,76 +76,45 @@
         @test details(hybrid).trace.Zg[p, q, :]≈details(reference).trace.Zg[p, q, :] rtol=1e-10
     end
 
-    # Different configurations of the same source must not be merged by identity tag.
-    calls=Tuple[]
-    air_hook=(functor, pair,
-        workspace)->begin
-        push!(calls, (:air, pair.layers, pair.row, pair.column))
-        1.0+2.0im
+    # Different parameterizations of one native type remain distinct selections.
+    M=FormulaContractModels
+    empty!(M.calls)
+    native_choices=(air=M.selection(E.EarthImpedance;layers=2:2,scale=1.0),
+        earth=M.selection(E.EarthImpedance;layers=2:2,scale=2.0),
+        mixed=M.selection(E.EarthImpedance;layers=2:2,scale=3.0))
+    custom=compute(problem,Formulation(earth_impedance=native_choices,
+        earth_admittance=potential,options=(ideal_transposition=false,));options=(trace=true,))
+    impedance_calls=filter(record->record[1] === :EarthImpedance,M.calls)
+    @test length(impedance_calls)==32
+    for k in eachindex(problem.frequencies), row in 1:4, column in 1:4
+        s=positions[column][2]>0 ? 1 : 2
+        t=positions[row][2]>0 ? 1 : 2
+        scale=s==t ? Float64(s) : 3.0
+        coefficient=11s+17t+3row+5column+problem.frequencies[k]/100+(row==column ? 101 : 0)
+        @test details(custom).trace.Zg[row,column,k] ≈ scale*coefficient*(1e-4+1e-3im)
     end
-    earth_hook=(functor, pair,
-        workspace)->begin
-        push!(calls, (:earth, pair.layers, pair.row, pair.column))
-        3.0+4.0im
-    end
-    mixed_hook=(functor, pair,
-        workspace)->begin
-        push!(calls, (:mixed, pair.layers, pair.row, pair.column))
-        complex(pair.layers[1], pair.layers[2])
-    end
-    for (id,
-        hook) in ((:default, air_hook), (:default, earth_hook), (:lucca1994, mixed_hook))
-        @eval LineCableModels.computation_options(
-            ::LineCableModels.FormulaMethod{$(QuoteNode(id)),
-                typeof(E.EarthImpedance.earth_impedance)},
-            ::$(typeof(hook))) = (;)
-    end
-    modified=compute(problem,
-        Formulation(
-            earth_impedance = (
-                air = formula(:default; hooks = (contribution = air_hook,)),
-                earth = formula(:default; hooks = (contribution = earth_hook,)),
-                mixed = formula(:lucca1994; hooks = (contribution = mixed_hook,))),
-            earth_admittance = potential, options = (ideal_transposition = false,));
-        options = (trace = true,))
-    @test length(calls) == 32
-    @test all(call -> call[2] == (1, 1), filter(call -> call[1] === :air, calls))
-    @test all(call -> call[2] == (2, 2), filter(call -> call[1] === :earth, calls))
-    @test details(modified).trace.Zg[3, 1, 1] == 1 + 2im
-    @test details(modified).trace.Zg[1, 3, 1] == 2 + 1im
-    @test details(modified).formulations.modified.earth_impedance ==
-          (air = true, earth = true, mixed = true)
+    @test details(custom).formulations.effective.earth_impedance==
+        (air=:LayerImpedance,earth=:LayerImpedance,mixed=:LayerImpedance)
+    @test details(custom).formulations.requested.earth_impedance.earth.parameters.scale==2.0
 
-    # Y has independent selections and hooks under exactly the same grammar.
-    potential_calls=Symbol[]
-    potential_hook=name->(
-        functor, pair, workspace)->begin
-        push!(potential_calls, name)
-        coefficient=pair.row==pair.column ? 100 : 10
-        coefficient+pair.layers[1]+0.1*pair.layers[2]
+    # Potential coefficients use exactly the same air/earth/mixed grammar.
+    empty!(M.calls)
+    potential_choices=(air=M.selection(E.EarthAdmittance;layers=2:2,scale=1.0),
+        earth=M.selection(E.EarthAdmittance;layers=2:2,scale=2.0),
+        mixed=M.selection(E.EarthAdmittance;layers=2:2,scale=3.0))
+    independent_y=compute(problem,Formulation(earth_impedance=choices,
+        earth_admittance=potential_choices,options=(ideal_transposition=false,));options=(trace=true,))
+    potential_calls=filter(record->record[1] === :EarthAdmittance,M.calls)
+    @test count(record->record[5]==(1,1),potential_calls)==8
+    @test count(record->record[5]==(2,2),potential_calls)==8
+    @test count(record->record[5][1]!=record[5][2],potential_calls)==16
+    for row in 1:4, column in 1:4
+        s=positions[column][2]>0 ? 1 : 2
+        t=positions[row][2]>0 ? 1 : 2
+        scale=s==t ? Float64(s) : 3.0
+        @test details(independent_y).trace.Pg[row,column,:] ≈ scale .* details(result).trace.Pg[row,column,:]
     end
-    potential_choices=map((:air, :earth, :mixed)) do name
-        hook=potential_hook(name)
-        @eval LineCableModels.computation_options(
-            ::LineCableModels.FormulaMethod{:ContractLayers,
-                typeof(E.EarthAdmittance.earth_potential_coefficient)},
-            ::$(typeof(hook))) = (;)
-        FormulaContractModels.selection(E.EarthAdmittance;
-            layers = 2:2, hooks = (contribution = hook,))
-    end
-    independent_y=compute(problem,
-        Formulation(earth_impedance = choices,
-            earth_admittance = NamedTuple{(:air, :earth, :mixed)}(potential_choices),
-            options = (ideal_transposition = false,));
-        options = (trace = true,))
-    @test count(==(:air), potential_calls) == 8
-    @test count(==(:earth), potential_calls) == 8
-    @test count(==(:mixed), potential_calls) == 16
-    @test details(independent_y).trace.Pg[3, 1, 1] == 11.2
-    @test details(independent_y).trace.Pg[1, 3, 1] == 12.1
-    @test independent_y.Z.values == result.Z.values
-    @test details(independent_y).formulations.modified.earth_admittance ==
-          (air = true, earth = true, mixed = true)
+    @test independent_y.Z.values==result.Z.values
 end
 
 @testitem "Engine / scalar and homogeneous shorthand preserve numerical and model contracts" tags=[:unit] setup=[TestFixtures] begin

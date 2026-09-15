@@ -5,7 +5,7 @@
 | Field | Value |
 | --- | --- |
 | Family | Insulation impedance |
-| Formula identifier | `:default` |
+| Formula identifier | `:ametani1980`; `:default` routes to this implementation |
 | Explicit literature identifier | `:ametani1980` |
 | Documentation status | Registered and documented. |
 

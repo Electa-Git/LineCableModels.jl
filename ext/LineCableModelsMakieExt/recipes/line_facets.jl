@@ -541,9 +541,10 @@ function _addon_line_pages(
                 same || throw(ArgumentError(
                     "repeated formulation for $(first(page.facets).quantity) has conflicting saved observations; inspect the calculations separately"))
             end
-            defaults = _addon_default_formulations(formulation_sources;quantity=first(quantities))
+            # :default is a declaration route, not a distinct scientific curve.
+            # Style references by role and candidates by their stable series index.
             roles = Tuple(formulation_roles[index] === :reference ? :reference :
-                defaults[index] ? :default : :alternative for index in retained)
+                :alternative for index in retained)
             page_defaults = _addon_comparison_styles(Tuple(series_indices[index] for index in retained),
                 roles,maximum(series_indices))
             page_attributes = Tuple(styles[index] for index in retained)

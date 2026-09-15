@@ -45,7 +45,9 @@ function _forward(
 ) where {T <: Complex, U <: Real, Basis}
     formula = formulation.formula
     workspace = (fallback_frequencies = Int[],)
-    maps = formula(parameters; workspace)
+    maps = modal_operators(formula, parameters, formula.parameters, formula.options, workspace)
+    maps isa ModalOperators || throw(ArgumentError("modal_operators must return ModalOperators"))
+    _check_operators(maps, parameters)
     voltage = maps.voltage
     current = maps.current
     S = promote_type(T, eltype(voltage), eltype(current))
@@ -86,7 +88,7 @@ function _forward(
                 tolerance)
     end
 
-    modal = ModalDomain{typeof(maps), Formula}(maps, formula)
+    modal = ModalDomain{typeof(maps), AbstractFormulation}(maps, formula)
     return LineParameters(
         modal,
         SeriesImpedance{eltype(impedance), Basis}(impedance),
@@ -94,7 +96,8 @@ function _forward(
         parameters.f,
         merge(parameters.details,
             (modal = (identifier = identifier,
-                modified = !isempty(formula.hooks) || !isempty(formula.parameters),
+                requested = NamedTuple(formulation.definition),
+                effective = NamedTuple(formula),
                 options = formula.options, acceptance = execution,
                 fallback_frequencies = copy(workspace.fallback_frequencies)),))
     )

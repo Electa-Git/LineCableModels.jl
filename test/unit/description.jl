@@ -1,4 +1,4 @@
-@testitem "Descriptions / owner dispatch survives composed reports and saved declarations" tags=[:unit] begin
+@testitem "Descriptions / owner dispatch survives composed reports and saved declarations" tags=[:unit] setup=[FormulaContractModels] begin
     using DataFrames, Statistics
     using LineCableModels.ReportBuilder: BenchmarkTableDefinition
     import LineCableModels: description, formula_id, formulation_options
@@ -24,8 +24,13 @@
     for value in (normal,LineCableModelsFEM(),Formulation(:pscad),MonteCarlo(normal),LinearError(normal))
         @test description(typeof(value))==description(value)
     end
-    @test description([MonteCarlo(normal),LinearError(normal)];
-        roles=[:reference,:candidate])==["Reference · Monte Carlo","LEP"]
+    labels=description([MonteCarlo(normal),LinearError(normal)];roles=[:reference,:candidate])
+    @test labels == ["Reference · Monte Carlo", "LEP"]
+    @test all(label->!occursin("earth Z",label),labels)
+    explicit_default=Formulation(earth_impedance=:unified)
+    @test formula_id(normal,R)==formula_id(explicit_default,R)
+    @test description([normal,explicit_default];quantity=R)==["coaxial","coaxial"]
+    @test description([normal];quantity=R)==description([explicit_default];quantity=R)
 
     f=[0.1,50.,100.,1e3,1e6,1e7]
     z=reshape(complex.(collect(1.:24.),collect(101.:124.)),2,2,6)
@@ -42,8 +47,9 @@
     @test count(contains("Test-owned explanation"),result.table.formula_details.selection)==2
     @test length(result.published.candidate.metadata.formulation_sources)==3
     @test result.published.candidate.metadata.formulation_sources[1]===choices[1]
-    @test description(choices[[3,1]];quantity=R)==
-        ["earth Z=default","earth Z=Display-TestAlpha"]
+    labels=description(choices[[3,1]];quantity=R)
+    @test occursin("earth Z=Unified",labels[1]) && occursin("earth Z=Display-TestAlpha",labels[2])
+    @test all(label->!occursin("internal Z",label),labels)
     @test all(feature -> !occursin("earth Y",join(feature.relative.formula)),
         filter(feature -> feature.quantity in (:R,:X),result.table.features))
 
@@ -58,7 +64,7 @@
         (MonteCarlo(normal),LinearError(normal))]
     # Ordinary collection promotion must not erase a retained method's owner.
     @test description(saved_pair;roles=[:reference,:candidate])==
-        ["Reference · Monte Carlo","LEP"]
+        description([MonteCarlo(normal),LinearError(normal)];roles=[:reference,:candidate])
     for order in (:before,:after)
         native=Formulation(earth_impedance=formula(:carson1926;
             equivalent_earth=formula(:default;order)))
@@ -68,15 +74,10 @@
         @test !occursin("FormulaDefinition{",label)
         @test description([saved];quantity=R)==[label]
     end
-    # Describing a hook must never execute it. This same leaf/route composition
-    # is exercised below through real reports, including an outer UQ wrapper.
-    called=Ref(false)
-    hook=(args...)->(called[]=true; error("description executed a scientific hook"))
-    LineCableModels.computation_options(::LineCableModels.FormulaMethod{:default,
-        typeof(LineCableModels.Engine.InternalImpedance.internal_impedance),Tuple{Val{:inner}}},
-        ::typeof(hook))=(;)
+    # Inspection retains a native selection without executing its equation.
+    selected_inner=FormulaContractModels.SurfaceLaw(kinds=(:inner,))
     routed=Formulation(
-        internal_impedance=formula(:default;hooks=(inner=hook,)),
+        internal_impedance=(inner=selected_inner,outer=:default,transfer=:default),
         earth_impedance=(air=:carson1926,earth=:pollaczek1926,mixed=:lucca1994),
         earth_admittance=formula(:default;parameters=(reference=:interface,),options=(integration=(method=:quad,),)))
     for native in (routed,MonteCarlo(routed),LinearError(routed),
@@ -95,21 +96,18 @@
         (reference=ref,candidate=routed_result))
     @test any(contains("earth Z(air)=Carson"),first(routed_report.table.features).relative.formula)
     @test any(contains("inner"),routed_report.table.formula_details.selection)
-    @test !called[]
-    LineCableModels.computation_options(::LineCableModels.FormulaMethod{:default,
-        typeof(LineCableModels.Engine.InsulationAdmittance.insulation_material)},
-        ::typeof(hook))=(;)
-    single=Formulation(insulation_admittance=formula(:default;hooks=(contribution=hook,)))
+    @test isempty(selected_inner.evaluations) && isempty(selected_inner.preparations)
+    single=Formulation(insulation_admittance=FormulaContractModels.InsulationLaw())
     single_data=ParametricResult(nothing,points[1:1],
         (problems=[:one],formulations=[single]),(;))
     single_report=report(BenchmarkTableDefinition((R,B);bands=(:all,)),
         (reference=ref,candidate=single_data))
     single_label=only(last(single_report.table.features).relative.formula)
-    @test occursin("insulation Y=default",single_label) && occursin("contribution",single_label)
+    @test occursin("insulation Y=InsulationLaw",single_label) && occursin("scale",single_label)
     @test !occursin("insulation Y",only(first(single_report.table.features).relative.formula))
     @test description([single];quantity=B)==description([
         IO.deserialize_value(Val(:formulation),NamedTuple(single))];quantity=B)
-    @test !called[]
+    @test isempty(selected_inner.evaluations) && isempty(selected_inner.preparations)
     fem_labels=description([LineCableModelsFEM(),LineCableModelsFEM(options=(physics=:quasi_fw,))];
         roles=[:reference,:reference])
     @test occursin("quasi-tem",first(fem_labels)) && occursin("quasi-fw",last(fem_labels))
@@ -166,7 +164,7 @@
     @test all(leaf->occursin(description(leaf;compact=true),rendered),leaves)
 end
 
-@testitem "Descriptions / quantity identities ignore unrelated slots and retain composite controls" tags=[:unit] begin
+@testitem "Descriptions / quantity identities ignore unrelated slots and retain composite controls" tags=[:unit] setup=[FormulaContractModels] begin
     IO=LineCableModels.ImportExport
     a=Formulation(earth_impedance=:saad1996)
     b=Formulation(earth_impedance=:xue2018)
@@ -183,12 +181,8 @@ end
     other=Formulation(earth_impedance=(air=:default,earth=:default,mixed=:lucca1994))
     @test formula_id(routed,R)!=formula_id(other,R)
     @test formula_id(routed,B)==formula_id(other,B)
-    hook=(args...)->error("inspection must not execute a transfer override")
-    LineCableModels.computation_options(::LineCableModels.FormulaMethod{:default,
-        typeof(LineCableModels.Engine.InternalImpedance.internal_impedance),Tuple{Val{:transfer}}},
-        ::typeof(hook))=(;)
-    internal=Formulation(internal_impedance=(inner=:default,outer=:default,
-        transfer=formula(:default;hooks=(transfer=hook,))))
+    selected_transfer=FormulaContractModels.SurfaceLaw(kinds=(:transfer,))
+    internal=Formulation(internal_impedance=(inner=:default,outer=:default,transfer=selected_transfer))
     @test formula_id(internal,R)!=formula_id(Formulation(),R)
     @test formula_id(internal,Y)==formula_id(Formulation(),Y)
     overridden=Formulation(earth_admittance=formula(:default;parameters=(reference=:interface,)))
@@ -199,5 +193,6 @@ end
     incomplete=IO.deserialize_value(Val(:formulation),
         (backend=:coaxial,requested=(earth_admittance=(identifier=:default,),)))
     @test ismissing(formula_id(incomplete,Y))
-    @test description([Formulation()];quantity=Y)==["default"]
+    @test description([Formulation()];quantity=Y)==[
+        "shunt geometry=coaxial; insulation Y=Lossless; semicon Y=Lossless; earth Y=Unified; soil law=Constant; temperature law=Linear"]
 end

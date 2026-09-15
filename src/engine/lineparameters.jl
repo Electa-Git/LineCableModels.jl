@@ -157,12 +157,13 @@ end
 
 function _retained_details(workspace::LineParametersWorkspace{<:Real, <:NamedTuple, <:NamedTuple,
         <:NamedTuple, Nothing})
-    (shunt_model=workspace.input.cable.shunt_details,)
+    # Local model diagnostics vary with geometry and selection, not the result type.
+    NamedTuple{(:shunt_model,), Tuple{NamedTuple}}((workspace.input.cable.shunt_details,))
 end
 
 function _retained_details(workspace::LineParametersWorkspace)
     capture = workspace.capture
-    shunt = (shunt_model=workspace.input.cable.shunt_details,)
+    shunt = NamedTuple{(:shunt_model,), Tuple{NamedTuple}}((workspace.input.cable.shunt_details,))
     capture === nothing && return shunt
     input = workspace.input
     return merge(shunt, (
@@ -228,16 +229,6 @@ function _compute(
         formula_id(value)
     end
     effective_ids = map(identifier, formulation.methods)
-    modified_fields = filter(!=(:pipe_impedance), fields)
-    Modifications = NamedTuple{modified_fields,
-        NTuple{length(modified_fields), Union{Bool, NamedTuple}}}
-    modified = function (selected)
-        selected === nothing && return false
-        selected isa NamedTuple && return map(modified, selected)
-        !isempty(selected.hooks) || !isempty(selected.parameters)
-    end
-    modifications::Modifications = Modifications(map(modified,
-        formulation.methods[modified_fields]))
     Record = NamedTuple{
         (:formula, :kind, :source, :target, :options), Tuple{
             Symbol, Symbol, Int, Int, NamedTuple}}
@@ -267,8 +258,8 @@ function _compute(
             Vector{Record}, Vector{Record}}}
     numerical::FormulaNumerical = FormulaNumerical((values(local_numerical)...,
         values(external_numerical)...))
-    Equivalent = NamedTuple{(:identifier, :order, :parameters, :numerical, :modified),
-        Tuple{Symbol, Symbol, NamedTuple, Vector{Record}, Bool}}
+    Equivalent = NamedTuple{(:identifier, :order, :parameters, :numerical),
+        Tuple{Symbol, Symbol, NamedTuple, Vector{Record}}}
     HomogeneousEquivalents = NamedTuple{(:air, :earth, :mixed),
         NTuple{3, Union{Nothing, Equivalent}}}
     Equivalents = NamedTuple{(:earth_impedance, :earth_admittance),
@@ -291,18 +282,17 @@ function _compute(
             end
             Equivalent((formula_id(rule),
                 sequence isa EquivalentHomogeneous.BeforeFD ? :before : :after,
-                rule.parameters, unique(records), !isempty(rule.hooks) ||
-                    !isempty(rule.parameters)))
+                rule.parameters, unique(records)))
         end
         bound.selection isa NamedTuple ?
         HomogeneousEquivalents(map(record, bound.selection)) :
         record(bound.selection)
     end)
     SelectionRecord = NamedTuple{
-        (:effective, :modified, :numerical, :equivalent_earth),
-        Tuple{Identifiers, Modifications, FormulaNumerical, Equivalents}}
+        (:effective, :numerical, :equivalent_earth),
+        Tuple{Identifiers, FormulaNumerical, Equivalents}}
     selection_record::SelectionRecord = SelectionRecord((
-        Identifiers(effective_ids), modifications, numerical, equivalents))
+        Identifiers(effective_ids), numerical, equivalents))
     names=["cable:$(terminal.cable):$(terminal.terminal)" for terminal in problem.system.terminal_order]
     permutation=workspace.invariants.permutation
     indices=workspace.invariants.kron_map === nothing ? permutation : permutation[workspace.invariants.keep_indices]
@@ -321,22 +311,16 @@ $(TYPEDSIGNATURES)
 
 Bind the selected source equations to the coaxial backend before numerical work.
 
-Earth defaults retain their `:default` identity and prepare the physical
-assumptions for the overhead or underground expressions. Existing
-explicit choices and FrequencyDependent/EquivalentHomogeneous ordering are retained. Mixed placement requires
-an explicitly supported formula. Resolution takes place before workspace
-initialization and frequency evaluation.
+Defaults have already resolved to explicit selections. Validate geometry,
+earth inventory, prescribed propagation, and equivalent-earth ordering before
+workspace initialization and frequency evaluation.
 """
 function Formulation(
         ::LineCableModelsCoaxial,
         problem::LineParametersProblem,
         requested::LineParametersFormulation
 )
-    methods = merge(requested.methods,
-        (
-            earth_impedance = Formulation(LineCableModelsCoaxial(), requested.methods.earth_impedance),
-            earth_admittance = Formulation(LineCableModelsCoaxial(), requested.methods.earth_admittance)
-        ))
+    methods = requested.methods
     for selection in (methods.earth_impedance, methods.earth_admittance)
         selection isa NamedTuple && validate(selection, problem.earth_props)
         leaves = selection isa NamedTuple ? values(selection) : (selection,)
@@ -348,21 +332,13 @@ function Formulation(
             else
                 validate(selected, problem.earth_props)
             end
-            problem.Γ !== nothing && haskey(selected.hooks, :Γ) &&
-                throw(ArgumentError(
-                    "an explicit problem Γ conflicts with the explicit :$(formula_id(selected)) Γ hook"))
             if problem.Γ !== nothing && selected.assumptions.longitudinal === :zero
                 all(iszero, problem.Γ) ||
                     throw(ArgumentError("formula :$(formula_id(selected)) fixes Γ to zero"))
             end
         end
     end
-    return LineParametersFormulation(methods, requested.options, requested.definitions)
-end
-
-function Formulation(backend::LineCableModelsCoaxial,
-        selected::NamedTuple{(:air, :earth, :mixed)})
-    return map(leaf -> Formulation(backend, leaf), selected)
+    return requested
 end
 
 function _compute(

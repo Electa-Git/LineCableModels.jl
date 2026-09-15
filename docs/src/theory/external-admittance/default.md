@@ -5,7 +5,7 @@
 | Field | Value |
 | --- | --- |
 | Family | External admittance |
-| Formula identifier | `:default` |
+| Formula identifier | `:unified`; `:default` routes to this implementation |
 | Documentation status | Placeholder; formula transcription is intentionally pending. |
 
 **Description.** This page reserves the documentation slot for the registered

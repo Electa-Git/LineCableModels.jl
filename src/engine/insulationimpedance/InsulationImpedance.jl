@@ -27,6 +27,8 @@ import ..Engine: description
 
 include("interface.jl")
 
+public insulation_impedance
+
 #! explicit-imports: off
 const FORMULAS = (
     include("formulas/ametani1980.jl"),

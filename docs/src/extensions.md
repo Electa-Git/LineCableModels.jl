@@ -34,6 +34,51 @@ structure, ordering or quantity relevance. Backend-specific scientific meaning
 belongs to the contextual `description(owner, selection; compact)` method;
 PSCAD's native defaults must not be described as the analytical default equations.
 
+## User-owned equations
+
+Select a concrete type directly in the physical slot, for example
+`Formulation(earth_properties=MySoil(...))`. Built-in `Formula` catalogues do not
+need edits. There is no callback bag or replacement of a built-in identity.
+`FormulaMethod(selected, operation, Val(...), ...)` calls the operation with the
+selected object first; IDs are for inspection only. `:default` resolves to an
+explicit implementation before physical validation or computation.
+
+| Family | User type and owning operation |
+|---|---|
+| Internal impedance | `Engine.InternalImpedanceFormulation`; `InternalImpedance.internal_impedance(selected, Val(kind), functor, workspace)` |
+| Insulation impedance | `Engine.InsulationImpedanceFormulation`; `InsulationImpedance.insulation_impedance(selected, r_in, r_ex, mu_r, s, parameters, options, workspace)` |
+| Insulation / semicon admittivity | Corresponding `Engine.*AdmittanceFormulation`; `insulation_material` / `semicon_material(selected, material, frequency, temperature, parameters, options, workspace)` |
+| Earth impedance / potential | Corresponding `Engine.Earth*Formulation`; `earth_impedance` / `earth_potential_coefficient(selected, Val(kind), Val(source), Val(target), functor, pair, workspace)` |
+| Soil frequency dependence | `Earth.FrequencyDependent.FrequencyDependentFormulation`; `earth_material(selected, material, frequency, parameters, options, workspace)` |
+| Temperature dependence | `Materials.TemperatureDependent.TemperatureDependentFormulation`; `temperature_resistivity(selected, material, temperature, parameters, options, workspace)` |
+| Equivalent earth | `Earth.EquivalentHomogeneous.AbstractRule`; `equivalent_material(selected, Val(kind), Val(source), Val(target), rho, eps_r, mu_r, model, pair, frequency, parameters, options, workspace)` |
+| Modal decomposition | `AbstractFormulation`, selected by `ModalTransformationFormulation`; `Transforms.modal_operators(selected, line_parameters, parameters, options, workspace)` |
+| Local shunt geometry | `Engine.ShuntModelFormulation`; `Engine.internal_shunt_response(selected, domains, material_selections, solutions)` during blueprint construction |
+| Pipe applicability | `Engine.PipeImpedanceFormulation`; `Formulation(backend, selected, Val(topology))`. No analytical pipe equation is supplied. |
+
+`parameters` are model data and `options` are numerical controls, never callable
+implementations. Custom constructors validate and normalize their own records.
+Indexed families declare numerical defaults for the actual selected type and
+case with `computation_options(::FormulaMethod{<:MyType,typeof(operation),...})`.
+No numerical section selects physical preparation. A custom earth type also
+owns `constitutive(selected, Val(:air/:earth), s, mu, sigma, epsilon)` and returns
+`(mu=..., gamma=...)`; this is distinct from air/earth/mixed pair selection.
+The problem is the sole source of longitudinal Γ.
+
+Internal state is prepared once per conductor and frequency through the selected
+type's physical constructor and `InternalImpedance.Functor`. Shunt geometry
+preparation must be frequency independent and returns blueprint blocks and
+diagnostics; it is never repeated in the frequency loop. A consuming earth
+equation explicitly admits a custom equivalent-earth rule using `validate`.
+
+Results use the same family boundary checks for built-ins and custom types.
+Impedances are in Ω/m, material admittivities in S/m, earth potential coefficients
+in m/F, and temperature-law resistivities in Ω·m. Scalar material laws return
+`EarthMaterial` or a finite scalar as appropriate; modal laws return
+`ModalOperators`. Supply `formula_id`, `description`, `NamedTuple` and
+`formulation_options` methods for metadata. Serialized identities and data do
+not reconstruct executable methods. See the [temperature-law example](engine.md#Cable-material-temperature-dependence).
+
 ## Input validation
 
 A materialized input owns one direct `validate(::OwnedType)` method. The method

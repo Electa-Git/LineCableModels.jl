@@ -2,20 +2,18 @@
 $(TYPEDEF)
 
 Own one earth impedance formulation, its indexed equation declarations and explicit
-customizations. `assumptions` contains scientific restrictions; each interaction
+controls. `assumptions` contains scientific restrictions; each interaction
 is selected by its explicit kind/source-layer/target-layer equation signature.
-`parameters` and `hooks` store the user's supplied values and callable overrides.
+`parameters` stores model controls; `options` stores numerical controls.
 
 $(TYPEDFIELDS)
 """
-struct Formula{ID, A <: NamedTuple, P <: NamedTuple, H <: NamedTuple, O <: NamedTuple, E} <:
+struct Formula{ID, A <: NamedTuple, P <: NamedTuple, O <: NamedTuple, E} <:
        EarthImpedanceFormulation
     "Model class, exact medium inventory and longitudinal restriction."
     assumptions::A
     "Explicit physical/model parameters."
     parameters::P
-    "Explicit callable overrides; empty for an unmodified formulation."
-    hooks::H
     "Explicit numerical sections; projected onto required indexed equations at preflight."
     options::O
     "Independent equivalent homogeneous-earth reduction, or nothing."
@@ -26,16 +24,14 @@ end
 $(TYPEDEF)
 
 Bind one indexed interaction to evaluated physical state. Numerical options and
-callable hooks remain separate from physical quantities. Mutable numerical
+physical quantities remain distinct. Mutable numerical
 resources are passed when evaluating the functor.
 
 $(TYPEDFIELDS)
 """
-struct Functor{ID, B, H, S, O}
+struct Functor{B, S, O}
     "Selected equation and its exact source/target geometry."
     binding::B
-    "Resolved callable hooks retained unchanged during evaluation."
-    hooks::H
     "Evaluated physical quantities, including one authoritative Γ [1/m]."
     state::S
     "Normalized computation options."
@@ -43,19 +39,21 @@ struct Functor{ID, B, H, S, O}
 end
 
 formula_id(::Formula{ID}) where {ID} = ID
-assumptions(formula::Formula) = formula.assumptions
-media(formula::Formula) = formula.assumptions.media
+assumptions(formula::EarthImpedanceFormulation) = formula.assumptions
+media(formula::EarthImpedanceFormulation) = formula.assumptions.media
 
 """
 Declare model inventory and physical restrictions, without callable behavior.
 """
 function assumptions end
+
+assumptions(::Val{ID}) where {ID} = throw(ArgumentError("unknown earthimpedance formula :$ID"))
 """
 Evaluate a medium propagation law at jω [1/s], μ [H/m], σ [S/m], ε [F/m].
 """
 function propagation end
 """
-Evaluate the prescribed longitudinal Γ [1/m] from jω, evaluated materials and (s,t).
+Read the evaluated longitudinal propagation constant Γ [1/m].
 """
 function Γ end
 """
@@ -70,20 +68,14 @@ Formula(identifier::Symbol; kwargs...) = Formula(Val(identifier); kwargs...)
 """
 $(TYPEDSIGNATURES)
 
-Resolve a registered formula's parameters and callable hooks once. Permitted
-hooks are `Γ(jω, materials, (s,t))`, medium laws `air/earth(jω, μ, σ, ε)`,
-`permeability(μ)`, and `contribution(functor, pair, workspace)`. A contribution
-override remains subject to the source's declared domain. Built-in equations
-never use another formula's overrides to supply a missing case.
+Resolve a formulation's model parameters and numerical controls. Its concrete
+selection type owns the indexed equation and its medium constitutive state.
+Longitudinal propagation is prescribed by the problem, not by a replacement
+channel. A missing physical case is unsupported.
 """
-function Formula(::Val{ID}; parameters::NamedTuple = (;), hooks::NamedTuple = (;),
+function Formula(::Val{ID}; parameters::NamedTuple = (;),
         options::NamedTuple = (;), equivalent_earth = nothing) where {ID}
-    ID in FORMULAS || throw(ArgumentError("unknown earth-impedance formula :$ID"))
     parameters = earth_parameters(Val(ID), parameters)
-    # Indexed declarations own admitted hook names. Resolve them with the actual
-    # required cases, alongside case-local numerical sections, during preflight.
-    any(isnothing, values(hooks)) &&
-        throw(ArgumentError("an explicit hook must be callable, not nothing"))
     declared_constraints = assumptions(Val(ID))
     constraints = merge(declared_constraints, (media = Val(declared_constraints.media),))
     reduction = if equivalent_earth === nothing
@@ -97,9 +89,9 @@ function Formula(::Val{ID}; parameters::NamedTuple = (;), hooks::NamedTuple = (;
     end
     reduction !== nothing && constraints.media !== Val(:homogeneous) &&
         throw(ArgumentError("a full multilayer formula cannot consume an equivalent homogeneous reduction"))
-    return Formula{ID, typeof(constraints), typeof(parameters), typeof(hooks),
+    return Formula{ID, typeof(constraints), typeof(parameters),
         typeof(options), typeof(reduction)}(
-        constraints, parameters, hooks, options, reduction)
+        constraints, parameters, options, reduction)
 end
 
 """
@@ -120,67 +112,58 @@ mapping are owned by the computation workspace.
 
 # Keywords
 
-- `Γ`: Optional explicit longitudinal constant [1/m]; conflicts with a Γ hook.
+- `Γ`: Optional prescribed longitudinal constant [1/m]; zero when omitted.
 - `thickness`: Aligned layer thicknesses [m] for a stratified model.
 """
-function (formula::Formula{ID})(
+function (formula::EarthImpedanceFormulation)(
         resistivity::AbstractVector{T}, permittivity::AbstractVector{T},
         permeability::AbstractVector{T}, jω::Complex{T}, pair::EarthPair;
         Γ = nothing, thickness = nothing, physical_pair = pair
-) where {ID, T <: Real}
+) where {T <: Real}
     selected = validate(formula, pair)
     return formula(resistivity, permittivity, permeability, jω, pair, selected;
         Γ, thickness, physical_pair)
 end
 
 # Evaluate a declaration already bound by validate() before the frequency loop.
-function (formula::Formula{ID})(
+function (formula::EarthImpedanceFormulation)(
         resistivity::AbstractVector{T}, permittivity::AbstractVector{T},
         permeability::AbstractVector{T}, jω::Complex{T}, pair::EarthPair, selected;
         Γ = nothing, thickness = nothing, physical_pair = pair
-) where {ID, T <: Real}
+) where {T <: Real}
     isfinite(jω) && !iszero(jω) || throw(DomainError(jω, "jω must be finite and nonzero"))
     options = selected.options
     validate(formula, resistivity, permittivity, permeability, thickness)
     thickness === nothing || validate(pair, thickness)
-    Γ !== nothing && haskey(formula.hooks, :Γ) &&
-        throw(ArgumentError(
-            "an explicit problem Γ conflicts with the explicit :$ID Γ hook"))
     layers = media(formula) === Val(:homogeneous) ? (1, 2) : eachindex(permeability)
-    μ = map(layers) do layer
-        layer == 1 ? permeability[layer] : selected.hooks.permeability(permeability[layer])
-    end
     σ = map(layer -> conductivity(resistivity[layer]), layers)
-    γ = map(layers) do layer
-        law = layer == 1 ? selected.hooks.air : selected.hooks.earth
-        law(jω, μ[layer], σ[layer], permittivity[layer])
+    evaluated = map(layers) do layer
+        medium = constitutive(formula, layer == 1 ? Val(:air) : Val(:earth),
+            jω, permeability[layer], σ[layer], permittivity[layer])
+        medium.mu isa Real && isfinite(medium.mu) && medium.mu > 0 ||
+            throw(DomainError(medium.mu, "medium permeability must be positive and finite [H/m]"))
+        medium.gamma isa Number && isfinite(medium.gamma) ||
+            throw(DomainError(medium.gamma, "medium propagation must be finite [1/m]"))
+        (mu=convert(T, medium.mu), gamma=convert(Complex{T}, medium.gamma))
     end
-    all(value -> value isa Number && isfinite(value), γ) ||
-        throw(DomainError(γ, "medium propagation laws must return finite scalars [1/m]"))
-    all(value -> value isa Real && isfinite(value) && value > 0, μ) ||
-        throw(DomainError(μ, "permeability hooks must return positive finite scalars [H/m]"))
+    μ = map(medium -> medium.mu, evaluated)
+    γ = map(medium -> medium.gamma, evaluated)
     materials = (rho = resistivity, epsilon = permittivity, mu = μ, sigma = σ,
         gamma = γ, gamma_medium_squared = γ .^ 2)
-    longitudinal = Γ === nothing ? selected.hooks.Γ(jω, materials, pair.layers) : Γ
+    longitudinal = Γ === nothing ? zero(jω) : Γ
     longitudinal isa Number && isfinite(longitudinal) || throw(ArgumentError(
         "Γ must be one finite scalar [1/m], not a value/square pair"))
     formula.assumptions.longitudinal === :zero && !iszero(longitudinal) &&
-        throw(ArgumentError("earth-impedance :$ID fixes Γ to zero"))
+        throw(ArgumentError("earth-impedance :$(formula_id(formula)) fixes Γ to zero"))
     state = merge(materials, (; jω, Γ = oftype(jω, longitudinal), thickness))
     binding = (pair = pair, physical_pair = physical_pair,
         kind = selected.kind, equation = selected.equation)
-    return Functor{
-        ID, typeof(binding), typeof(selected.hooks), typeof(state), typeof(options)}(
-        binding, selected.hooks, state, options)
+    return Functor(binding, state, options)
 end
 
 function (functor::Functor)(workspace = nothing)
     pair = functor.binding.pair
-    value = if functor.hooks.contribution === nothing
-        functor.binding.equation(functor, pair, workspace)
-    else
-        functor.hooks.contribution(functor, pair, workspace)
-    end
+    value = functor.binding.equation(functor, pair, workspace)
     value isa Number && isfinite(value) || throw(DomainError(value,
         "earth-impedance contribution must be a finite scalar"))
     return oftype(functor.state.jω, value)
@@ -188,27 +171,27 @@ end
 
 function Formula(selection::FormulaDefinition{ID, Order}) where {ID, Order}
     Order === :default || throw(ArgumentError("order applies only to equivalent_earth"))
-    return Formula(Val(ID); parameters = selection.parameters, hooks = selection.hooks,
+    return Formula(Val(ID); parameters = selection.parameters,
         options = selection.options, equivalent_earth = selection.equivalent_earth)
 end
 
-Formula(selected::Formula) = selected
+Formula(selected::EarthImpedanceFormulation) = selected
 
-function FormulaMethod(formula::Formula{ID}, pair::EarthPair) where {ID}
-    return FormulaMethod(Val(ID), earth_impedance,
+function FormulaMethod(formula::EarthImpedanceFormulation, pair::EarthPair)
+    return FormulaMethod(formula, earth_impedance,
         Val(pair.row == pair.column ? :self : :mutual), Val.(pair.layers)...)
 end
 
-function earth_impedance(::Val{ID}, ::Val{Kind}, ::Val{S}, ::Val{T},
-        functor, pair, workspace) where {ID, Kind, S, T}
+function earth_impedance(selected::EarthImpedanceFormulation, ::Val{Kind}, ::Val{S}, ::Val{T},
+        functor, pair, workspace) where {Kind, S, T}
     throw(ArgumentError(
-        "earth_impedance :$ID ($Kind): formula not implemented for source in layer $S and target in layer $T"))
+        "earth_impedance :$(formula_id(selected)) ($Kind): formula not implemented for source in layer $S and target in layer $T"))
 end
 
-const EQUATION_FALLBACK = which(earth_impedance, Tuple{Val, Val, Val, Val, Any, Any, Any})
+const EQUATION_FALLBACK = which(earth_impedance, Tuple{EarthImpedanceFormulation, Val, Val, Val, Any, Any, Any})
 
-function validate(binding::FormulaMethod{ID, typeof(earth_impedance), A}) where {ID, A}
-    signature = Tuple{Val{ID}, A.parameters..., Any, Any, Any}
+function validate(binding::FormulaMethod{S, typeof(earth_impedance), A}) where {S, A}
+    signature = Tuple{S, A.parameters..., Any, Any, Any}
     if which(earth_impedance, signature) === EQUATION_FALLBACK
         # The diagnostic takes no physical inputs and evaluates no numerical kernel.
         binding(nothing, nothing, nothing)
@@ -219,13 +202,12 @@ end
 """
 $(TYPEDSIGNATURES)
 
-Expose the selected equations, scientific restrictions, parameters, hooks,
-numerical options and explicit equivalent-earth reduction as a native record.
-Callables are retained unchanged.
+Expose the selected identity, scientific restrictions, model and numerical
+controls, and explicit equivalent-earth reduction as a native record.
 """
 function Base.NamedTuple(value::Formula)
     return (identifier=formula_id(value), assumptions=value.assumptions,
-        parameters=value.parameters, hooks=value.hooks, options=value.options,
+        parameters=value.parameters, options=value.options,
         equivalent_earth=value.equivalent_earth === nothing ? nothing : NamedTuple(value.equivalent_earth))
 end
 
@@ -236,6 +218,6 @@ description(value::Formula; compact::Bool=false) = description(typeof(value); co
 """Iterate the independently selectable child slots admitted by this formula family."""
 Base.pairs(::Type{<:Formula}; quantity=nothing) = pairs((air=Formula, earth=Formula, mixed=Formula))
 formula_id(::Type{<:Formula{ID}}) where {ID} = ID
-formulation_options(value::Formula) = formulation_options(typeof(value), (parameters=value.parameters, hooks=value.hooks, options=value.options, equivalent_earth=value.equivalent_earth))
+formulation_options(value::Formula) = formulation_options(typeof(value), (parameters=value.parameters, options=value.options, equivalent_earth=value.equivalent_earth))
 formulation_options(::Type{<:Formula}, retained::NamedTuple) =
     formulation_options(FormulaDefinition, retained)

@@ -2,8 +2,8 @@
     using Measurements
     const TD = LineCableModels.Materials.TemperatureDependent
     selected = TD.Formula(formula(:default))
-    @test TD.formulas() == (:default,)
-    @test formula_id(selected) === :default
+    @test Set(TD.formulas()) == Set((:default,:linear))
+    @test formula_id(selected) === :linear
     for T in (Float32, Float64, BigFloat)
         material = Material(:conductor, T(1.72e-8), one(T), one(T), T(20), T(0.004))
         for temperature in T.((20, 60, 80))
@@ -35,39 +35,27 @@
     @test uncertainty(uncertain_material.rho) == 1e-10
 end
 
-@testitem "Materials / temperature law / custom contributions and applicability" tags=[:unit] begin
-    const TD = LineCableModels.Materials.TemperatureDependent
-    const Binding = LineCableModels.FormulaMethod{:default, typeof(TD.temperature_resistivity)}
-    calls = Ref(0)
-    law = (material, temperature, parameters, options, workspace) -> begin
-        calls[] += 1
-        @test isempty(parameters) && isempty(options)
-        @test workspace === nothing
-        material.rho * exp((temperature - material.T0) / 1000)
-    end
-    @test_throws ArgumentError TD.Formula(:default; hooks=(contribution=law,))
-    @eval LineCableModels.computation_options(::$Binding, ::$(typeof(law))) = (;)
-    selected = TD.Formula(formula(:default; hooks=(contribution=law,)))
-    material = Material(:conductor, 1.72e-8, 1, 1, 20, 0.004)
-    @test constitutive(selected, material, 250.0) ≈ material.rho * exp(0.23)
-    @test calls[] == 1
-    @test selected.hooks.contribution === law
+@testitem "Materials / temperature law / custom selections and applicability" tags=[:unit] setup=[FormulaContractModels] begin
+    const TD=LineCableModels.Materials.TemperatureDependent
+    const M=FormulaContractModels
+    selected=M.ConstantResistivity(2e-8)
+    material=Material(:conductor,1.72e-8,1,1,20,0.004)
+    @test TD.Formula(selected) === selected
+    @test constitutive(selected,material,250.0)==2e-8
+    @test only(selected.seen)[2:3]==(250.0,nothing)
     @test_throws ArgumentError TD.Formula(:unknown)
-    @test_throws ArgumentError TD.Formula(:default; parameters=(alpha=0.1,))
-    @test_throws ArgumentError TD.Formula(:default; options=(integration=(method=:quad,),))
-    @test_throws ArgumentError TD.Formula(:default; hooks=(other=law,))
-    @test_throws ArgumentError TD.Formula(formula(:default; equivalent_earth=:default))
-    for value in (0.0, -1.0, NaN, Inf, 1+im, [1.0])
-        bad = (m, t, p, o, w) -> value
-        @eval LineCableModels.computation_options(::$Binding, ::$(typeof(bad))) = (;)
-        invalid = TD.Formula(:default; hooks=(contribution=bad,))
-        @test_throws DomainError constitutive(invalid, material, 80.0)
+    @test_throws ArgumentError TD.Formula(:default;parameters=(alpha=0.1,))
+    @test_throws ArgumentError TD.Formula(:default;options=(integration=(method=:quad,),))
+    @test_throws ArgumentError TD.Formula(formula(:default;equivalent_earth=:default))
+    for value in (0.0,-1.0,NaN,Inf,1+im,[1.0])
+        @test_throws DomainError constitutive(M.ConstantResistivity(value),material,80.0)
     end
-    for constructor in (Formulation, CableConstantsFormulation, LineCableModelsFEM)
+    for constructor in (Formulation,CableConstantsFormulation,LineCableModelsFEM)
         @test constructor(temperature_dependence=nothing).methods.temperature_dependence === nothing
+        @test constructor(temperature_dependence=selected).methods.temperature_dependence === selected
         @test_throws ArgumentError constructor(options=(temperature_correction=true,))
-        grid = constructor(temperature_dependence=Grid((formula(:default), nothing)))
-        @test length(grid) == 2
+        grid=constructor(temperature_dependence=Grid((formula(:default),nothing)))
+        @test length(grid)==2
         @test first(grid).methods.temperature_dependence isa TD.Formula
         @test last(collect(grid)).methods.temperature_dependence === nothing
     end

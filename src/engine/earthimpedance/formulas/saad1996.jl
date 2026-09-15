@@ -22,9 +22,6 @@ Power Delivery*, 11(3), 1536–1545, 1996.
 """
 description(::Type{<:Formula{:saad1996}}; compact::Bool=false) = compact ? "Saad" : "Saad underground closed form (1996)"
 
-function Γ(::Val{:saad1996}, jω, materials, layers)
-    return zero(jω)
-end
 
 raw"""
 Evaluate the Saad et al. underground approximation:
@@ -45,7 +42,7 @@ return impedance of underground cables," *IEEE Transactions on Power
 Delivery*, vol. 11, no. 3, pp. 1536-1545, 1996.
 """
 function earth_impedance(
-        ::Val{:saad1996}, ::Union{Val{:self}, Val{:mutual}}, ::Val{2}, ::Val{2},
+        ::Formula{:saad1996}, ::Union{Val{:self}, Val{:mutual}}, ::Val{2}, ::Val{2},
         functor, pair, workspace
 )
     state = functor.state
@@ -60,34 +57,39 @@ function earth_impedance(
     return state.jω * state.mu[1] / (2πT) * (direct + correction)
 end
 
-function validate(pair::EarthPair, ::FormulaMethod{:saad1996, typeof(earth_impedance)})
+function validate(pair::EarthPair, ::FormulaMethod{<:Formula{:saad1996}, typeof(earth_impedance)})
     pair.row != pair.column && iszero(pair.separation) &&
         throw(DomainError(
             pair.separation, ":saad1996 mutual closed form requires nonzero horizontal cable separation"))
     return pair
 end
 
-Formulation(::LineCableModelsCoaxial, selected::Formula{:saad1996}) = selected
 
-function hooks(::FormulaMethod{:saad1996, typeof(earth_impedance),
-        A}) where {A <: Tuple{Union{Val{:self}, Val{:mutual}}, Val{2}, Val{2}}}
-    return (configurable = (:Γ, :earth, :permeability, :contribution),
-        defaults = (
-            Γ = FormulaMethod(Val(:saad1996), Γ),
-            air = FormulaMethod(Val(:lossless), propagation),
-            earth = FormulaMethod(Val(:conductive), propagation),
-            permeability = vacuum_permeability,
-            contribution = nothing))
-end
 
-function computation_options(::FormulaMethod{:saad1996, typeof(earth_impedance),
+function computation_options(::FormulaMethod{<:Formula{:saad1996}, typeof(earth_impedance),
         A}) where {A <: Tuple{Union{Val{:self}, Val{:mutual}}, Val{2}, Val{2}}}
     (;)
 end
 
-function validate(binding::FormulaMethod{:saad1996, typeof(earth_impedance)},
-        ::EquivalentHomogeneous.Formula{:default})
+function validate(binding::FormulaMethod{<:Formula{:saad1996}, typeof(earth_impedance)},
+        ::EquivalentHomogeneous.Formula{:bottommost})
     binding
+end
+
+"""
+$(TYPEDSIGNATURES)
+
+Evaluate this formulation's medium state: absolute permeability \\[H/m\\]
+and transverse propagation constant \\[1/m\\]. Air retains its prescribed
+permeability; soil follows the selected source's magnetic approximation.
+"""
+function constitutive(::Formula{:saad1996}, ::Val{:air}, jω, μ, σ, ε)
+    return (mu=μ, gamma=propagation(Val(:lossless), jω, μ, σ, ε))
+end
+
+function constitutive(::Formula{:saad1996}, ::Val{:earth}, jω, μ, σ, ε)
+    permeability = vacuum_permeability(μ)
+    return (mu=permeability, gamma=propagation(Val(:conductive), jω, permeability, σ, ε))
 end
 
 :saad1996

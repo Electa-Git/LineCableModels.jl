@@ -1,4 +1,4 @@
-@testitem "ReportBuilder / scalar results retain physical formula choices and hooks" tags=[:integration] begin
+@testitem "ReportBuilder / scalar results retain physical and native formula choices" tags=[:integration] setup=[FormulaContractModels] begin
     using LinearAlgebra, Serialization
     using LineCableModels.ReportBuilder: BenchmarkTableDefinition
     copper=Material(MaterialsLibrary(add_defaults=true),:copper)
@@ -27,13 +27,16 @@
     # Unavailable cells must stay unavailable after serialization; == propagates
     # missing instead of comparing the retained availability mask.
     @test isequal(report(BenchmarkTableDefinition(),(reference=restored[1],candidate=restored[2])).table.formulations,artifact.table.formulations)
-    calls=Ref(0)
-    hook=(s,m,l)->(calls[]+=1;zero(s))
-    hooked=compute(problem,Formulation(earth_impedance=formula(:default;hooks=(Γ=hook,))))
-    @test calls[] > 0
-    @test details(hooked).formulations.requested.earth_impedance.hooks.Γ === hook
-    @test details(hooked).formulations.methods.earth_impedance.hooks.Γ === hook
-    @test typeof(hooked) === typeof(results[1])
+    custom=FormulaContractModels.DispersiveEarth()
+    selected=Formulation(earth_properties=custom)
+    changed=compute(problem,selected)
+    @test !isempty(custom.seen)
+    @test details(changed).formulations.requested.earth_properties==NamedTuple(custom)
+    @test details(changed).formulations.methods.earth_properties==NamedTuple(custom)
+    @test details(changed).formulations.effective.earth_properties === :DispersiveEarth
+    @test typeof(changed) === typeof(results[1])
+    retained=LineCableModels.ImportExport.deserialize_value(Val(:formulation),details(changed).formulations)
+    @test formula_id(retained,nothing)==formula_id(selected,nothing)
     grid=Formulation(earth_impedance=Grid([c.definitions.earth_impedance for c in choices]),
         earth_admittance=Grid([c.definitions.earth_admittance for c in choices]);combine=:zip)
     batch=compute(problem,grid)

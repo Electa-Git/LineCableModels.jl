@@ -5,15 +5,10 @@ Select one insulation-impedance formula by its stable identifier.
 
 $(TYPEDFIELDS)
 """
-struct Formula{ID, R, A <: NamedTuple, H <: NamedTuple, O <: NamedTuple} <:
-       InsulationImpedanceFormulation
-    "Declared series-impedance equation binding."
-    binding::R
-    "Explicit model parameters."
-    parameters::A
-    "Callable overrides supplied by the user."
-    hooks::H
-    "Normalized numerical sections for the selected contribution."
+struct Formula{ID, P <: NamedTuple, O <: NamedTuple} <: InsulationImpedanceFormulation
+    "Resolved physical/model parameters."
+    parameters::P
+    "Normalized numerical sections for this equation."
     options::O
 end
 
@@ -30,33 +25,22 @@ function insulation_impedance end
 """
 $(TYPEDSIGNATURES)
 
-Construct a registered formula with separate model parameters and callable
-hooks. `hooks=(contribution=f,)` replaces the complete scalar equation using
-the signature `f(r_in, r_ex, mu_r, jω, parameters, options, workspace) → complex impedance [Ω/m]`. A complete replacement declares its numerical defaults with
-`computation_options(binding, replacement)`. Unknown fields fail immediately.
+Construct a selected formulation with model parameters and numerical controls.
+Custom formulations extend `insulation_impedance` on their own concrete selection type.
+Unknown controls fail before numerical evaluation.
 """
 Formula(identifier::Symbol; kwargs...) = Formula(Val(identifier); kwargs...)
-Formula(selected::Formula) = selected
+Formula(selected::InsulationImpedanceFormulation) = selected
 
-function Formula(::Val{ID}; parameters::NamedTuple = (;), hooks::NamedTuple = (;),
-        options::NamedTuple = (;)) where {ID}
-    ID in FORMULAS || throw(ArgumentError("unknown formula :$ID"))
-    isempty(parameters) ||
-        throw(ArgumentError("formula :$ID has no configurable model parameters"))
-    isempty(setdiff(keys(hooks), (:contribution,))) ||
-        throw(ArgumentError("unknown hooks for :$ID"))
-    binding = FormulaMethod(Val(ID), insulation_impedance)
-    selected = get(hooks, :contribution, binding)
-    selected === nothing && throw(ArgumentError("a contribution hook must be callable"))
-    defaults = haskey(hooks, :contribution) ? computation_options(binding, selected) :
-               computation_options(binding)
-    normalized = computation_options(binding, defaults, options)
-    return Formula{
-        ID, typeof(binding), typeof(parameters), typeof(hooks), typeof(normalized)}(
-        binding, parameters, hooks, normalized)
+function Formula(::Val{ID}; parameters::NamedTuple=(;), options::NamedTuple=(;)) where {ID}
+    isempty(parameters) || throw(ArgumentError("formula :$ID has no configurable model parameters"))
+    selected = Formula{ID, typeof(parameters), typeof(options)}(parameters, options)
+    binding = FormulaMethod(selected, insulation_impedance)
+    normalized = computation_options(binding, options)
+    return Formula{ID, typeof(parameters), typeof(normalized)}(parameters, normalized)
 end
 
-@inline function (formula::Formula)(
+@inline function (formula::InsulationImpedanceFormulation)(
         r_in::T,
         r_ex::T,
         mu_r::T,
@@ -67,8 +51,8 @@ end
     isfinite(mu_r) && mu_r > zero(T) || throw(DomainError(mu_r,
         "relative insulation permeability must be positive and finite"))
     isfinite(s) || throw(DomainError(s, "jω must be finite"))
-    value = get(formula.hooks, :contribution, formula.binding)(
-        r_in, r_ex, mu_r, s, formula.parameters, formula.options, workspace)
+    value = insulation_impedance(
+        formula, r_in, r_ex, mu_r, s, formula.parameters, formula.options, workspace)
     value isa Number && isfinite(value) || throw(DomainError(value,
         "insulation_impedance must return a finite scalar"))
     return value
@@ -78,19 +62,17 @@ function Formula(selection::FormulaDefinition{ID, Order}) where {ID, Order}
     Order === :default || throw(ArgumentError("order applies only to equivalent_earth"))
     selection.equivalent_earth === nothing || throw(ArgumentError(
         "equivalent_earth applies only to external earth formulas"))
-    return Formula(Val(ID); parameters = selection.parameters, hooks = selection.hooks,
+    return Formula(Val(ID); parameters = selection.parameters,
         options = selection.options)
 end
 
 """
 $(TYPEDSIGNATURES)
 
-Expose the selected equation, physical parameters, callable overrides and numerical
-options as a native record. Callables are retained unchanged.
+Expose the selected identity, model parameters, and numerical options as a native record.
 """
 function Base.NamedTuple(value::Formula)
-    return (identifier=formula_id(value), binding=value.binding,
-        parameters=value.parameters, hooks=value.hooks, options=value.options)
+    return (identifier=formula_id(value), parameters=value.parameters, options=value.options)
 end
 
 # Identity-only dispatch also describes retained selections without constructors.
@@ -100,6 +82,6 @@ description(value::Formula; compact::Bool=false) = description(typeof(value); co
 """Iterate the independently selectable child slots admitted by this formula family."""
 Base.pairs(::Type{<:Formula}; quantity=nothing) = pairs((;))
 formula_id(::Type{<:Formula{ID}}) where {ID} = ID
-formulation_options(value::Formula) = formulation_options(typeof(value), (parameters=value.parameters, hooks=value.hooks, options=value.options))
+formulation_options(value::Formula) = formulation_options(typeof(value), (parameters=value.parameters, options=value.options))
 formulation_options(::Type{<:Formula}, retained::NamedTuple) =
     formulation_options(FormulaDefinition, retained)

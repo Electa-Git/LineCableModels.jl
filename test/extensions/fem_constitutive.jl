@@ -1,4 +1,4 @@
-@testitem "Gmsh FEM / constitutive selection, evaluated state and rejection" tags=[:extension] begin
+@testitem "Gmsh FEM / constitutive selection, evaluated state and rejection" tags=[:extension] setup=[FormulaContractModels] begin
     using Gmsh, Measurements
     const FEM = Base.get_extension(LineCableModels, :LineCableModelsGmshExt)
     const FD = LineCableModels.Earth.FrequencyDependent
@@ -10,31 +10,15 @@
     system = build(LineCableSystem, design, (0.0,-0.1); connections=Dict(:core=>1))
     problem = LineParametersProblem(system; temperature=80.0, frequencies=[50.0,1000.0],
         earth_props=homogeneous(rho=100.0, eps_r=10.0))
-    calls = Float64[]
-    soil_law = (m,f,p,o,w) -> begin
-        push!(calls, f)
-        EarthMaterial(m.rho / (1+f/1000), m.eps_r*(1+f/2000), m.mu_r*(1+f/10000))
-    end
-    temperature_law = (m,t,p,o,w) -> m.rho * exp((t-m.T0)/1000)
-    dielectric_calls = Ref(0)
-    dielectric_law = (m,f,t,p,o,w) -> begin
-        dielectric_calls[] += 1
-        @test m.T0 == t
-        complex(inv(m.rho), 2pi*f*8.8541878128e-12*m.eps_r)
-    end
-    for (method, law) in ((FD.earth_material, soil_law),
-            (TD.temperature_resistivity, temperature_law),
-            (LineCableModels.Engine.InsulationAdmittance.insulation_material, dielectric_law))
-        @eval LineCableModels.computation_options(
-            ::LineCableModels.FormulaMethod{:default, typeof($method)}, ::$(typeof(law))) = (;)
-    end
-    formulation = LineCableModelsFEM(
-        earth_properties=formula(:default; hooks=(contribution=soil_law,)),
-        temperature_dependence=formula(:default; hooks=(contribution=temperature_law,)),
-        insulation_admittance=formula(:default; hooks=(contribution=dielectric_law,)))
+    soil_law=FormulaContractModels.DispersiveSoil()
+    temperature_law=FormulaContractModels.ExponentialResistivity()
+    dielectric_law=FormulaContractModels.OhmicDielectric()
+    formulation=LineCableModelsFEM(earth_properties=soil_law,
+        temperature_dependence=temperature_law,insulation_admittance=dielectric_law)
     model = FEM._resolved_fem_model(problem, formulation)
-    @test calls == problem.frequencies
-    @test dielectric_calls[] == 2
+    @test soil_law.seen == problem.frequencies
+    @test length(dielectric_law.temperatures)==2
+    @test all(pair->pair[1]==pair[2],dielectric_law.temperatures)
     @test keys(formulation.methods) == keys(formulation.definitions) ==
         (:insulation_admittance, :semicon_admittance, :earth_properties, :temperature_dependence)
     metal, passive = model.material_plans
@@ -50,13 +34,13 @@
     end
     record = FEM.formulation_record(formulation)
     @test record.requested == NamedTuple(formulation).requested
-    @test record.methods.temperature_dependence.hooks.contribution === temperature_law
+    @test record.methods.temperature_dependence == NamedTuple(temperature_law)
     @test typeof(record) === typeof(FEM.formulation_record(LineCableModelsFEM()))
 
-    @test record.selections.temperature_dependence.identifier === :default
-    @test !record.selections.temperature_dependence.replayable
-    @test record.selections.temperature_dependence.hooks.contribution.type == string(typeof(temperature_law))
-    @test record.selections.semicon_admittance.replayable
+    @test record.selections.temperature_dependence.identifier === :ExponentialResistivity
+    @test record.selections.temperature_dependence.parameters.scale==1000.0
+    @test !hasproperty(record.selections.temperature_dependence,:replayable)
+    @test record.selections.semicon_admittance.identifier === :lossless
     for name in (:internal_impedance,:insulation_impedance,:earth_impedance,:earth_admittance,:pipe_impedance)
         @test_throws MethodError Formulation(:LineCableModelsFEM; NamedTuple{(name,)}((formula(:default),))...)
     end
@@ -76,7 +60,7 @@
     @test_throws LineCableModelsFEMError FEM._resolved_fem_model(conducting_limit,LineCableModelsFEM())
 end
 
-@testitem "Gmsh FEM / metallic enclosure solves and reduces without a pipe formula" tags=[:extension,:integration,:fem_numerical] begin
+@testitem "Gmsh FEM / metallic enclosure solves and reduces without a pipe formula" tags=[:extension,:integration,:fem_numerical] setup=[FormulaContractModels] begin
     using Gmsh, LinearAlgebra
     copper = Material(:conductor,1.72e-8,1,1,20,0.004)
     dielectric = Material(:insulator,1e14,2.3)
@@ -119,7 +103,7 @@ end
     @test result.Y.values ≈ reference.Y.values rtol=2e-9
 end
 
-@testitem "Gmsh FEM / real constitutive laws match independent static material solves" tags=[:extension,:integration,:fem_numerical] begin
+@testitem "Gmsh FEM / real constitutive laws match independent static material solves" tags=[:extension,:integration,:fem_numerical] setup=[FormulaContractModels] begin
     using Gmsh
     const FEM = Base.get_extension(LineCableModels, :LineCableModelsGmshExt)
     const FD = LineCableModels.Earth.FrequencyDependent
@@ -152,14 +136,11 @@ end
         @test actual.Z.values ≈ reference.Z.values rtol=2e-9
         @test actual.Y.values ≈ reference.Y.values rtol=2e-9
     end
-    soil_law = (m,f,p,o,w) -> EarthMaterial(m.rho/(1+f/1000),
-        m.eps_r*(1+f/2000),m.mu_r*(1+f/10000))
-    @eval LineCableModels.computation_options(
-        ::LineCableModels.FormulaMethod{:default,typeof(FD.earth_material)}, ::$(typeof(soil_law))) = (;)
+    soil_law=FormulaContractModels.DispersiveSoil()
     air = EarthLayer(Inf,1.5,1.2,Inf)
     earth = EarthModel(100.0,10.0,1.0; air_layer=air)
     problem = LineParametersProblem(system; frequencies=[50.0,1000.0],earth_props=earth)
-    selected = LineCableModelsFEM(earth_properties=formula(:default;hooks=(contribution=soil_law,));
+    selected = LineCableModelsFEM(earth_properties=soil_law;
         options)
     selected_controls = execution
     actual = compute(problem,selected; options=merge(selected_controls, (trace=true,)))

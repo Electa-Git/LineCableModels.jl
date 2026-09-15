@@ -154,10 +154,12 @@ end
 
 @testitem "PSCAD / unsupported indexed equations fail without fallback" tags=[:integration] begin
     const P = LineCableModels.PSCAD
-    for equation in (P.earth_impedance, P.earth_potential_coefficient),
+    selected = Formulation(:pscad).methods
+    for (equation, selection) in ((P.earth_impedance, selected.earth_impedance),
+            (P.earth_potential_coefficient, selected.earth_admittance)),
             (kind, s, t) in ((:self, 1, 2), (:mutual, 2, 3), (:self, 3, 3))
         caught = try
-            equation(Val(:default), Val(kind), Val(s), Val(t), Val(:pscad))
+            equation(selection, Val(kind), Val(s), Val(t), Val(:pscad))
             nothing
         catch error
             error
@@ -165,16 +167,16 @@ end
         @test caught isa ArgumentError
         @test occursin("source in layer $s and target in layer $t", sprint(showerror, caught))
     end
-    @test_throws ArgumentError P.internal_impedance(Val(:default), Val(:invalid), Val(:pscad))
-    @test_throws ArgumentError P.insulation_impedance(Val(:not_registered), Val(:pscad))
+    @test_throws ArgumentError P.internal_impedance(selected.internal_impedance, Val(:invalid), Val(:pscad))
+    @test_throws ArgumentError P.NativeFormula{LineCableModels.Engine.InsulationImpedance.Formula}(:not_registered)
     for (s, t) in ((1, 2), (2, 1))
-        @test P.earth_impedance(Val(:ametani2009), Val(:mutual), Val(s), Val(t), Val(:pscad)) ==
+        @test P.earth_impedance(Formulation(:pscad; earth_impedance=:ametani2009).methods.earth_impedance, Val(:mutual), Val(s), Val(t), Val(:pscad)) ==
             (EarthForm3 = (value = 0, readback = "AMETANIL"),)
-        @test P.earth_impedance(Val(:lucca1994), Val(:mutual), Val(s), Val(t), Val(:pscad)) ==
+        @test P.earth_impedance(Formulation(:pscad; earth_impedance=:lucca1994).methods.earth_impedance, Val(:mutual), Val(s), Val(t), Val(:pscad)) ==
             (EarthForm3 = (value = 2, readback = "LUCCA"),)
     end
     const pipe = LineCableModels.Engine.PipeImpedance.Formula(:default)
-    @test_throws ArgumentError Formulation(Val(:pscad), Val(:default), pipe, Val(:pipe))
+    @test_throws ArgumentError Formulation(Val(:pscad), pipe, Val(:pipe))
 end
 
 @testitem "Mixed analytical selections / reciprocity and restricted applicability" tags=[:integration] begin

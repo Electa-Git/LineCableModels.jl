@@ -1,6 +1,97 @@
 import LineCableModels: formula_id
 
 """
+$(TYPEDEF)
+
+Select one PSCAD-owned equation or fixed component calculation. `F` identifies
+the physical family; `ID` identifies its native setting. This selection carries
+no analytical equation, callback, or numerical workspace.
+"""
+struct NativeFormula{F, ID} <: AbstractFormulation end
+
+NativeFormula{F}(selected::NativeFormula{F}) where {F} = selected
+NativeFormula{F}(identifier::Symbol) where {F} = NativeFormula{F}(Val(identifier))
+NativeFormula{InternalImpedance.Formula}(::Val{:default}) =
+    NativeFormula{InternalImpedance.Formula, :cable_coax}()
+NativeFormula{InsulationImpedance.Formula}(::Val{:default}) =
+    NativeFormula{InsulationImpedance.Formula, :cable_coax}()
+NativeFormula{EarthImpedance.Formula}(::Val{:default}) =
+    NativeFormula{EarthImpedance.Formula, :direct_lucca}()
+NativeFormula{EarthAdmittance.Formula}(::Val{:default}) =
+    NativeFormula{EarthAdmittance.Formula, :coupled}()
+NativeFormula{InternalImpedance.Formula}(::Val{:cable_coax}) =
+    NativeFormula{InternalImpedance.Formula, :cable_coax}()
+NativeFormula{InsulationImpedance.Formula}(::Val{:cable_coax}) =
+    NativeFormula{InsulationImpedance.Formula, :cable_coax}()
+NativeFormula{EarthImpedance.Formula}(::Val{:direct_lucca}) =
+    NativeFormula{EarthImpedance.Formula, :direct_lucca}()
+NativeFormula{EarthAdmittance.Formula}(::Val{:coupled}) =
+    NativeFormula{EarthAdmittance.Formula, :coupled}()
+function NativeFormula{F}(::Val{ID}) where {F, ID}
+    F(ID) # Admit a named scientific selection; native case support is checked at preflight.
+    return NativeFormula{F, ID}()
+end
+function NativeFormula{F}(selection::LineCableModels.FormulaDefinition{ID, Order}) where {F, ID, Order}
+    Order === :default && selection.equivalent_earth === nothing || throw(ArgumentError(
+        "PSCAD native equations do not execute equivalent-earth reductions"))
+    isempty(selection.parameters) && isempty(selection.options) ||
+        throw(ArgumentError("PSCAD native equations do not accept analytical parameters or numerical controls"))
+    return NativeFormula{F}(Val(ID))
+end
+
+function NativeFormula{F}(selected::F) where {F}
+    controls = selected isa InternalImpedance.Formula ? selected.configured_options : selected.options
+    isempty(selected.parameters) && isempty(controls) || throw(ArgumentError(
+        "PSCAD native equations do not accept analytical parameters or numerical controls"))
+    if selected isa Union{EarthImpedance.Formula,EarthAdmittance.Formula}
+        selected.equivalent_earth === nothing || throw(ArgumentError(
+            "PSCAD native equations do not execute equivalent-earth reductions"))
+    end
+    return NativeFormula{F}(formula_id(selected))
+end
+
+formula_id(::NativeFormula{F, ID}) where {F, ID} = ID
+formula_id(::Type{<:NativeFormula{F, ID}}) where {F, ID} = ID
+Base.NamedTuple(selected::NativeFormula) =
+    (identifier=formula_id(selected), parameters=(;), options=(;))
+Base.pairs(::Type{<:NativeFormula{F}}; quantity=nothing) where {F} =
+    pairs(map(_ -> NativeFormula{F}, (; pairs(F; quantity)...)))
+formulation_options(::NativeFormula) = (;)
+formulation_options(::Type{<:NativeFormula}, retained::NamedTuple) =
+    formulation_options(LineCableModels.FormulaDefinition, retained)
+description(selected::NativeFormula; compact::Bool=false) = description(typeof(selected); compact)
+description(::Type{<:NativeFormula{F, ID}}; compact::Bool=false) where {F, ID} =
+    "PSCAD " * description(F{ID}; compact)
+description(::Type{<:NativeFormula{InternalImpedance.Formula, :cable_coax}}; compact::Bool=false) =
+    compact ? "Cable_Coax" : "PSCAD Cable_Coax conductor calculation"
+description(::Type{<:NativeFormula{InsulationImpedance.Formula, :cable_coax}}; compact::Bool=false) =
+    compact ? "Cable_Coax" : "PSCAD Cable_Coax magnetic insulation calculation"
+description(::Type{<:NativeFormula{EarthImpedance.Formula, :direct_lucca}}; compact::Bool=false) =
+    compact ? "Direct/Lucca" : "PSCAD direct earth integration with Lucca mixed interactions"
+description(::Type{<:NativeFormula{EarthAdmittance.Formula, :coupled}}; compact::Bool=false) =
+    compact ? "Coupled potential" : "PSCAD potential coefficients coupled to the native ground solver"
+
+Formulation(selected::NativeFormula, ::Val{S}, ::Val{T}) where {S, T} = selected
+function validate(selected::NativeFormula{F, ID}, pair::Engine.EarthPair) where {F, ID}
+    validate(F(ID), pair)
+    return selected
+end
+function validate(selected::Union{
+        NativeFormula{EarthImpedance.Formula, :direct_lucca},
+        NativeFormula{EarthAdmittance.Formula, :coupled}}, pair::Engine.EarthPair)
+    validate(pair)
+    return selected
+end
+function FormulaMethod(selected::NativeFormula{EarthImpedance.Formula}, pair::Engine.EarthPair)
+    FormulaMethod(selected, earth_impedance,
+        Val(pair.row == pair.column ? :self : :mutual), Val.(pair.layers)...)
+end
+function FormulaMethod(selected::NativeFormula{EarthAdmittance.Formula}, pair::Engine.EarthPair)
+    FormulaMethod(selected, earth_potential_coefficient,
+        Val(pair.row == pair.column ? :self : :mutual), Val.(pair.layers)...)
+end
+
+"""
     PSCADFormulation
 
 Store shared formula selections, requested definitions, and physical options
@@ -20,20 +111,17 @@ formula_id(::Type{<:PSCADFormulation}) = :pscad
 formula_id(::PSCADFormulation) = :pscad
 formulation_options(value::PSCADFormulation) = value.options
 formulation_options(::Type{PSCADFormulation},retained::NamedTuple,::Val{:retained}) = retained.options
-Base.pairs(::Type{PSCADFormulation};quantity=nothing) = pairs(LineParametersFormulation;quantity)
+function Base.pairs(::Type{PSCADFormulation}; quantity=nothing)
+    native = (:internal_impedance, :insulation_impedance, :earth_impedance, :earth_admittance)
+    return pairs((; (name => (name in native ? NativeFormula{owner} : owner)
+        for (name, owner) in pairs(LineParametersFormulation; quantity)
+        if name !== :shunt_model)...))
+end
 Base.pairs(value::PSCADFormulation;quantity=nothing) =
     pairs(PSCADFormulation,(methods=value.methods,requested=map(formulation_options,value.definitions),options=value.options);quantity)
 description(::Type{PSCADFormulation},slot::Val) = description(LineParametersFormulation,slot)
 Base.pairs(::Type{PSCADFormulation},retained::NamedTuple;quantity=nothing) =
     pairs(LineParametersFormulation,retained;quantity,owner=PSCADFormulation)
-
-function description(::Type{PSCADFormulation},selected;compact::Bool=false)
-    # Native PSCAD defaults are not the analytical equations with the same ID.
-    text=description(selected;compact=true)
-    return compact ? text : "PSCAD native selection "*text
-end
-description(::Type{PSCADFormulation},selected::Union{Nothing,Missing};compact::Bool=false) =
-    description(selected;compact)
 
 function formulation_options(::Type{PSCADFormulation}, options::NamedTuple)::FormulationOptions
     base_frequency = get(options, :base_frequency, 50.0)
@@ -56,11 +144,12 @@ function _pscad_formulation(internal_impedance, insulation_impedance, earth_impe
         insulation_admittance, semicon_admittance, earth_admittance, earth_properties,
         pipe_impedance, temperature_dependence)
     normalized = formulation_options(PSCADFormulation, options)
-    physical = Formulation(; selections...,
-        options = (;
-            (key => value
-        for (key, value) in pairs(normalized) if key !== :base_frequency)...))
-    return PSCADFormulation(physical.methods, normalized, physical.definitions)
+    methods = (; (name => (selections[name] === nothing && name in (:earth_properties,:temperature_dependence) ? nothing :
+        Formulation(owner, selections[name])) for (name, owner) in pairs(PSCADFormulation))...)
+    definitions = map(selections, methods) do requested, selected
+        requested isa NamedTuple ? NamedTuple{keys(selected)}(requested) : requested
+    end
+    return PSCADFormulation(methods, normalized, definitions)
 end
 
 """
@@ -68,9 +157,10 @@ end
 
 Select PSCAD through the shared formula grammar. All formula slots and options
 accept Grid inputs with product or zip composition. Earth-impedance
-`:default` retains its identity and selects the native direct numerical
-integration setting for overhead or underground placement, or the native Lucca
-setting for mixed placement. Dielectric
+`:default` resolves to the native `:direct_lucca` selection: direct numerical
+integration for overhead or underground placement and Lucca for mixed placement.
+Internal and insulation impedance resolve to native `:cable_coax`, and earth
+potential to `:coupled`. These are not analytical formula aliases. Dielectric
 `:default` routes to `:lossless`. An explicit `:lossy` selection is represented
 by the equivalent capacitance and loss tangent at the export reference
 frequency; PSCAD's native frequency law and loss-tangent cap of ten still apply.
@@ -102,105 +192,105 @@ function Formulation(::Val{:pscad}, problem::LineParametersProblem, requested::P
     return requested
 end
 
-function Formulation(::Val{:pscad}, ::Val{:default}, ::PipeImpedance.Formula{:default}, ::Val{:coaxial})
+function Formulation(::Val{:pscad}, ::PipeImpedance.Formula{:none}, ::Val{:coaxial})
     nothing
 end
-function Formulation(::Val{:pscad}, ::Val{:default}, ::PipeImpedance.Formula{:default}, ::Val{:pipe})
+function Formulation(::Val{:pscad}, ::PipeImpedance.Formula{:none}, ::Val{:pipe})
     throw(ArgumentError("PSCAD Cable_Coax does not support an eccentric or multicore metallic pipe enclosure"))
 end
 
-# FormulaMethod retains exactly the same tag/kind/s/t arguments. Its backend
+# FormulaMethod retains the selected native type and kind/s/t arguments. Its backend
 # payload requests native settings instead of an analytical coefficient.
 function earth_impedance(
-        ::Val{ID}, ::Val{Kind}, ::Val{S}, ::Val{T}, ::Val{:pscad}) where {ID, Kind, S, T}
+        ::NativeFormula{EarthImpedance.Formula, ID}, ::Val{Kind}, ::Val{S}, ::Val{T}, ::Val{:pscad}) where {ID, Kind, S, T}
     throw(ArgumentError("PSCAD earth_impedance :$ID, kind :$Kind: formula not implemented for source in layer $S and target in layer $T"))
 end
 function earth_potential_coefficient(
-        ::Val{ID}, ::Val{Kind}, ::Val{S}, ::Val{T}, ::Val{:pscad}) where {ID, Kind, S, T}
+        ::NativeFormula{EarthAdmittance.Formula, ID}, ::Val{Kind}, ::Val{S}, ::Val{T}, ::Val{:pscad}) where {ID, Kind, S, T}
     throw(ArgumentError("PSCAD earth_potential_coefficient :$ID, kind :$Kind: formula not implemented for source in layer $S and target in layer $T"))
 end
-function internal_impedance(::Val{ID}, ::Val{Kind}, ::Val{:pscad}) where {ID, Kind}
+function internal_impedance(::NativeFormula{InternalImpedance.Formula, ID}, ::Val{Kind}, ::Val{:pscad}) where {ID, Kind}
     throw(ArgumentError("PSCAD internal_impedance :$ID: formula not implemented for kind :$Kind"))
 end
-function insulation_impedance(::Val{ID}, ::Val{:pscad}) where {ID}
+function insulation_impedance(::NativeFormula{InsulationImpedance.Formula, ID}, ::Val{:pscad}) where {ID}
     throw(ArgumentError("PSCAD insulation_impedance :$ID: formula not implemented"))
 end
 
-function earth_impedance(::Val{:default}, ::Union{Val{:self}, Val{:mutual}},
+function earth_impedance(::NativeFormula{EarthImpedance.Formula, :direct_lucca}, ::Union{Val{:self}, Val{:mutual}},
         ::Val{1}, ::Val{1}, ::Val{:pscad})
     (EarthForm2 = (value = 2, readback = "DIRECT_NUMERICAL_INTEGRATION"),)
 end
-function earth_impedance(::Val{:default}, ::Union{Val{:self}, Val{:mutual}},
+function earth_impedance(::NativeFormula{EarthImpedance.Formula, :direct_lucca}, ::Union{Val{:self}, Val{:mutual}},
         ::Val{2}, ::Val{2}, ::Val{:pscad})
     (EarthForm = (value = 2, readback = "DIRECT_NUMERICAL_INTEGRATION"),)
 end
-function earth_impedance(::Val{:default}, ::Val{:mutual}, ::Val{1}, ::Val{2}, ::Val{:pscad})
+function earth_impedance(::NativeFormula{EarthImpedance.Formula, :direct_lucca}, ::Val{:mutual}, ::Val{1}, ::Val{2}, ::Val{:pscad})
     (EarthForm3 = (value = 2, readback = "LUCCA"),)
 end
-function earth_impedance(::Val{:default}, ::Val{:mutual}, ::Val{2}, ::Val{1}, ::Val{:pscad})
+function earth_impedance(::NativeFormula{EarthImpedance.Formula, :direct_lucca}, ::Val{:mutual}, ::Val{2}, ::Val{1}, ::Val{:pscad})
     (EarthForm3 = (value = 2, readback = "LUCCA"),)
 end
-function earth_impedance(::Val{:gary1976}, ::Union{Val{:self}, Val{:mutual}},
+function earth_impedance(::NativeFormula{EarthImpedance.Formula, :gary1976}, ::Union{Val{:self}, Val{:mutual}},
         ::Val{1}, ::Val{1}, ::Val{:pscad})
     (EarthForm2 = (value = 0, readback = "DERISEMLYEN"),)
 end
-function earth_impedance(::Val{:carson1926}, ::Union{Val{:self}, Val{:mutual}},
+function earth_impedance(::NativeFormula{EarthImpedance.Formula, :carson1926}, ::Union{Val{:self}, Val{:mutual}},
         ::Val{1}, ::Val{1}, ::Val{:pscad})
     (EarthForm2 = (value = 2, readback = "DIRECT_NUMERICAL_INTEGRATION"),)
 end
-function earth_impedance(::Val{:pollaczek1926}, ::Union{Val{:self}, Val{:mutual}},
+function earth_impedance(::NativeFormula{EarthImpedance.Formula, :pollaczek1926}, ::Union{Val{:self}, Val{:mutual}},
         ::Val{2}, ::Val{2}, ::Val{:pscad})
     (EarthForm = (value = 2, readback = "DIRECT_NUMERICAL_INTEGRATION"),)
 end
-function earth_impedance(::Val{:wedepohl1973}, ::Union{Val{:self}, Val{:mutual}},
+function earth_impedance(::NativeFormula{EarthImpedance.Formula, :wedepohl1973}, ::Union{Val{:self}, Val{:mutual}},
         ::Val{2}, ::Val{2}, ::Val{:pscad})
     (EarthForm = (value = 0, readback = "WEDEPOHL"),)
 end
-function earth_impedance(::Val{:saad1996}, ::Union{Val{:self}, Val{:mutual}},
+function earth_impedance(::NativeFormula{EarthImpedance.Formula, :saad1996}, ::Union{Val{:self}, Val{:mutual}},
         ::Val{2}, ::Val{2}, ::Val{:pscad})
     (EarthForm = (value = 3, readback = "SAAD"),)
 end
 function earth_impedance(
-        ::Val{:ametani2009}, ::Val{:mutual}, ::Val{1}, ::Val{2}, ::Val{:pscad})
+        ::NativeFormula{EarthImpedance.Formula, :ametani2009}, ::Val{:mutual}, ::Val{1}, ::Val{2}, ::Val{:pscad})
     (EarthForm3 = (value = 0, readback = "AMETANIL"),)
 end
 function earth_impedance(
-        ::Val{:ametani2009}, ::Val{:mutual}, ::Val{2}, ::Val{1}, ::Val{:pscad})
+        ::NativeFormula{EarthImpedance.Formula, :ametani2009}, ::Val{:mutual}, ::Val{2}, ::Val{1}, ::Val{:pscad})
     (EarthForm3 = (value = 0, readback = "AMETANIL"),)
 end
 function earth_impedance(
-        ::Val{:lucca1994}, ::Val{:mutual}, ::Val{1}, ::Val{2}, ::Val{:pscad})
+        ::NativeFormula{EarthImpedance.Formula, :lucca1994}, ::Val{:mutual}, ::Val{1}, ::Val{2}, ::Val{:pscad})
     (EarthForm3 = (value = 2, readback = "LUCCA"),)
 end
 function earth_impedance(
-        ::Val{:lucca1994}, ::Val{:mutual}, ::Val{2}, ::Val{1}, ::Val{:pscad})
+        ::NativeFormula{EarthImpedance.Formula, :lucca1994}, ::Val{:mutual}, ::Val{2}, ::Val{1}, ::Val{:pscad})
     (EarthForm3 = (value = 2, readback = "LUCCA"),)
 end
 
 # The native default potential follows the selected ground solver. There is no
 # independent switch for a Julia potential-coefficient equation.
-function earth_potential_coefficient(::Val{:default}, ::Union{Val{:self}, Val{:mutual}},
+function earth_potential_coefficient(::NativeFormula{EarthAdmittance.Formula, :coupled}, ::Union{Val{:self}, Val{:mutual}},
         ::Val{1}, ::Val{1}, ::Val{:pscad})
     (;)
 end
-function earth_potential_coefficient(::Val{:default}, ::Union{Val{:self}, Val{:mutual}},
+function earth_potential_coefficient(::NativeFormula{EarthAdmittance.Formula, :coupled}, ::Union{Val{:self}, Val{:mutual}},
         ::Val{2}, ::Val{2}, ::Val{:pscad})
     (;)
 end
 function earth_potential_coefficient(
-        ::Val{:default}, ::Val{:mutual}, ::Val{1}, ::Val{2}, ::Val{:pscad})
+        ::NativeFormula{EarthAdmittance.Formula, :coupled}, ::Val{:mutual}, ::Val{1}, ::Val{2}, ::Val{:pscad})
     (;)
 end
 function earth_potential_coefficient(
-        ::Val{:default}, ::Val{:mutual}, ::Val{2}, ::Val{1}, ::Val{:pscad})
+        ::NativeFormula{EarthAdmittance.Formula, :coupled}, ::Val{:mutual}, ::Val{2}, ::Val{1}, ::Val{:pscad})
     (;)
 end
 function internal_impedance(
-        ::Val{:default}, ::Union{
+        ::NativeFormula{InternalImpedance.Formula, :cable_coax}, ::Union{
             Val{:inner}, Val{:outer}, Val{:transfer}}, ::Val{:pscad})
     (;) # Fixed Cable_Coax conductor calculation; no native author/formula switch.
 end
-insulation_impedance(::Val{:default}, ::Val{:pscad}) = (;)
+insulation_impedance(::NativeFormula{InsulationImpedance.Formula, :cable_coax}, ::Val{:pscad}) = (;)
 
 """
     formulas(owner, kind, source, target)
@@ -214,12 +304,12 @@ function formulas(owner::Module, kind::Val, source::Val, target::Val)
                owner === EarthAdmittance ? earth_potential_coefficient :
                throw(ArgumentError(
         "indexed PSCAD formula discovery requires EarthImpedance or EarthAdmittance"))
-    fallback = which(equation, Tuple{Val, Val, Val, Val, Val{:pscad}})
+    fallback = which(equation, Tuple{NativeFormula{owner.Formula}, Val, Val, Val, Val{:pscad}})
     return Tuple(id
-    for id in owner.formulas()
+    for id in (owner === EarthImpedance ? :direct_lucca : :coupled, owner.formulas()...)
     if
     which(equation, Tuple{
-        Val{id}, typeof(kind), typeof(source), typeof(target), Val{:pscad}}) !== fallback)
+        NativeFormula{owner.Formula, id}, typeof(kind), typeof(source), typeof(target), Val{:pscad}}) !== fallback)
 end
 
 """
@@ -236,23 +326,10 @@ function pscad_setting(formulation::PSCADFormulation, problem::LineParametersPro
     (relation === nothing ||
      relation === LineCableModels.Earth.FrequencyDependent.Formula(:default)) ||
         throw(ArgumentError("PSCAD does not implement the selected frequency-dependent soil relation"))
-    for name in
-        (:internal_impedance, :insulation_impedance, :earth_impedance, :earth_admittance)
-        selection = getproperty(formulation.methods, name)
-        leaves = selection isa NamedTuple ? values(selection) : (selection,)
-        for selected in leaves
-            isempty(selected.hooks) && isempty(selected.parameters) &&
-            all(isempty, values(selected.options)) || throw(ArgumentError(
-                "PSCAD cannot evaluate an analytical $name override or integration selection"))
-            if name in (:earth_impedance, :earth_admittance)
-                selected.equivalent_earth === nothing || throw(ArgumentError(
-                    "PSCAD does not execute $name equivalent-earth reductions"))
-            end
-        end
-    end
     for name in (:insulation_admittance, :semicon_admittance)
         selected = getproperty(formulation.methods, name)
-        formula_id(selected) in (:default, :lossless, :lossy) || throw(ArgumentError(
+        selected isa Union{InsulationAdmittance.Formula{:lossless},InsulationAdmittance.Formula{:lossy},
+            SemiconAdmittance.Formula{:lossless},SemiconAdmittance.Formula{:lossy}} || throw(ArgumentError(
             "PSCAD does not implement $name :$(formula_id(selected))"))
     end
     for design in problem.system.designs
@@ -274,7 +351,7 @@ function pscad_setting(formulation::PSCADFormulation, problem::LineParametersPro
             selected = Formulation(selection, Val.(pair.layers)...)
             binding = FormulaMethod(selected, pair)
             # Explicit author choices must also exist in their analytical owner.
-            formula_id(selected) === :default || validate(selected, pair)
+            validate(selected, pair)
             record = (formula = formula_id(selected),
                 kind = pair.row == pair.column ? :self : :mutual,
                 source = pair.layers[1], target = pair.layers[2])
@@ -294,10 +371,10 @@ function pscad_setting(formulation::PSCADFormulation, problem::LineParametersPro
     for kind in kinds
         selection = formulation.methods.internal_impedance
         selected = selection isa NamedTuple ? selection[kind] : selection
-        FormulaMethod(Val(formula_id(selected)),
+        FormulaMethod(selected,
             internal_impedance, Val(kind))(Val(:pscad))
     end
-    FormulaMethod(Val(formula_id(formulation.methods.insulation_impedance)), insulation_impedance)(Val(:pscad))
+    FormulaMethod(formulation.methods.insulation_impedance, insulation_impedance)(Val(:pscad))
     # Unused native slots are set deterministically and retained too; they do not
     # authorize any additional physical case.
     ground = (
@@ -334,7 +411,7 @@ function computation_details(formulation::PSCADFormulation)
         backend = :pscad,
         type = string(parentmodule(typeof(formulation)), ".", nameof(typeof(formulation))),
         raw = Dict{Symbol, Any}(:selections => formulation.definitions),
-        effective = Identifiers(merge(map(identifier, methods), (pipe_impedance = nothing,))),
+        effective = Identifiers(map(identifier, methods)),
         assumptions = (
             internal_impedance = "Fixed PSCAD Cable_Coax conductor approximation; backend-owned default, no source alias or native Bessel switch",
             insulation_impedance = "PSCAD native Cable_Coax magnetic calculation",

@@ -1,4 +1,4 @@
-@testitem "Engine / shared temperature law reaches scalar, Gridspace, constants and export" tags=[:integration] begin
+@testitem "Engine / shared temperature law reaches scalar, Gridspace, constants and export" tags=[:integration] setup=[FormulaContractModels] begin
     copper = Material(:conductor,1.72e-8,1,1,20,0.004)
     dielectric = Material(:insulator,1e7,2.3,1,20,-0.003;tan_delta=0.025)
     function cable_with(metal, passive)
@@ -12,16 +12,7 @@
     design = cable_with(copper,dielectric)
     system = system_with(design)
     problem = LineParametersProblem(system;temperature=80.0,frequencies=[50.0,1000.0],earth_props=homogeneous(rho=100.0))
-    calls = Ref(0)
-    twice = (m,t,p,o,w) -> begin
-        calls[] += 1
-        2m.rho
-    end
-    const TD = LineCableModels.Materials.TemperatureDependent
-    @eval LineCableModels.computation_options(
-        ::LineCableModels.FormulaMethod{:default,typeof(TD.temperature_resistivity)},
-        ::$(typeof(twice))) = (;)
-    declaration = formula(:default;hooks=(contribution=twice,))
+    declaration=FormulaContractModels.ScaledResistivity()
     selected = Formulation(temperature_dependence=declaration,
         insulation_admittance=:lossy,options=(ideal_transposition=false,))
     reference_design = cable_with(
@@ -34,10 +25,10 @@
         insulation_admittance=:lossy,options=selected.options)
     reference = compute(reference_problem,identity)
     actual = compute(problem,selected)
-    @test calls[] > 0
+    @test !isempty(declaration.seen)
     @test actual.Z.values ≈ reference.Z.values rtol=2e-13
     @test actual.Y.values ≈ reference.Y.values rtol=2e-13
-    @test details(actual).formulations.modified.temperature_dependence
+    @test details(actual).formulations.effective.temperature_dependence === :ScaledResistivity
     grid = Formulation(temperature_dependence=Grid((declaration,nothing)),
         insulation_admittance=:lossy,options=selected.options)
     results = compute(problem,grid)

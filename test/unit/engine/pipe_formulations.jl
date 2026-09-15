@@ -16,7 +16,7 @@
         connections = Dict(:a=>1, :b=>2, :pipe=>0))
     problem = LineParametersProblem(system; earth_props = homogeneous(rho = 100.0), frequencies = [50.0])
     selected = @inferred E.PipeImpedance.Formula(Val(:default))
-    expected = "Pipe-type cable formulation is not yet implemented for the coaxial backend. No default formulation is available."
+    expected = "Pipe-type cable formulation is not yet implemented for the coaxial backend. No pipe formulation is available."
     for execute in (() -> compute(problem), () -> compute(CableConstantsProblem(design)))
         failure = try
             execute()

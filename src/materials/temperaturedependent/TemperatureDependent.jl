@@ -28,8 +28,11 @@ import ...LineCableModels: description
 
 include("interface.jl")
 
+public TemperatureDependentFormulation
+
 #! explicit-imports: off
 const FORMULAS = (
+    include("formulas/linear.jl"),
     include("formulas/default.jl"),
 )
 #! explicit-imports: on

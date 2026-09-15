@@ -1,5 +1,8 @@
 # Scientific result records are distinct from executable computation checkpoints.
 serialize_value(value, ::Val{:scientific}) = serialize_value(value)
+function serialize_value(::Val{Value}, ::Val{:scientific}) where {Value}
+    return Dict("__type__"=>"Val", "value"=>serialize_value(Value, Val(:scientific)))
+end
 function serialize_value(value::NamedTuple, ::Val{:scientific})
     return Dict("__type__"=>"NamedTuple", "names"=>string.(collect(keys(value))),
         "values"=>[serialize_value(item, Val(:scientific)) for item in values(value)])

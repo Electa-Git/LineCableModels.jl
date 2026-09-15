@@ -114,12 +114,12 @@ end
 function _addon_comparison_styles(indices, roles, count)
     shapes = (:rect, :diamond, :dtriangle, :cross, :xcross, :pentagon, :hexagon)
     return Tuple((attributes=(;
-            marker=role === :reference ? :circle : role === :default ? :utriangle :
+            marker=role === :reference ? :circle :
                 shapes[mod1(index, length(shapes))],
             markersize=role === :reference ? 11 : 8,
             linestyle=:solid),
         hollow=role === :reference, endpoints=role === :reference, phase=(index, count),
-        priority=role === :default ? 2 : role === :reference ? 1 : 0)
+        priority=role === :reference ? 1 : 0)
         for (index, role) in zip(indices, roles))
 end
 

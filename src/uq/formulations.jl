@@ -57,9 +57,7 @@ function LinearError(
 end
 
 function Base.NamedTuple(value::LinearError)
-    inner=NamedTuple(value.inner)
-    declaration=(; (key=>item for (key, item) in pairs(inner) if key!==:methods)...)
-    return (kind = :linear_error, inner = declaration, options = value.options)
+    return (kind = :linear_error, inner = NamedTuple(value.inner), options = value.options)
 end
 
 """Identify first-order uncertainty propagation without inspecting its inner owner."""
@@ -251,7 +249,5 @@ function MonteCarlo(inner::AbstractFormulation; options::NamedTuple = (;), kwarg
 end
 
 function Base.NamedTuple(value::MonteCarlo)
-    inner=NamedTuple(value.inner)
-    declaration=(; (key=>item for (key, item) in pairs(inner) if key!==:methods)...)
-    return (kind = :monte_carlo, inner = declaration, options = value.options)
+    return (kind = :monte_carlo, inner = NamedTuple(value.inner), options = value.options)
 end

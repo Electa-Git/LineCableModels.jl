@@ -244,9 +244,7 @@ function _shunt_domain_equal(a, b)
 end
 
 _shunt_lossless(::Any) = false
-_shunt_lossless(f::Union{InsulationAdmittance.Formula{:default},
-    InsulationAdmittance.Formula{:lossless}, SemiconAdmittance.Formula{:default},
-    SemiconAdmittance.Formula{:lossless}}) =
-    isempty(f.hooks)
+_shunt_lossless(::Union{InsulationAdmittance.Formula{:lossless},
+    SemiconAdmittance.Formula{:lossless}}) = true
 _shunt_lossless(methods::NamedTuple) =
     _shunt_lossless(methods.insulation_admittance) && _shunt_lossless(methods.semicon_admittance)

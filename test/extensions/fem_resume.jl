@@ -1,4 +1,4 @@
-@testitem "Gmsh FEM / resume requires effective inputs and preserves completed runs" tags=[:extension] begin
+@testitem "Gmsh FEM / resume requires effective inputs and preserves completed runs" tags=[:extension] setup=[FormulaContractModels] begin
     using Gmsh
     using LineCableModels
     extension = Base.get_extension(LineCableModels, :LineCableModelsGmshExt)
@@ -67,16 +67,10 @@
     lossy_inputs = extension._fem_input_record(lossy_model, lossy, computation_options(LineCableModelsFEM, lossy_controls))
     @test extension.JSON3.write(inputs) == extension.JSON3.write(other_inputs)
     @test extension.JSON3.write(inputs) != extension.JSON3.write(lossy_inputs)
-    temperature_law = (m,t,p,o,w) -> m.rho * (1+(t-20)/1000)
-    soil_law = (m,f,p,o,w) -> EarthMaterial(m.rho,2m.eps_r,m.mu_r)
-    for (equation,law) in (
-        (LineCableModels.Materials.TemperatureDependent.temperature_resistivity,temperature_law),
-        (LineCableModels.Earth.FrequencyDependent.earth_material,soil_law))
-        @eval LineCableModels.computation_options(
-            ::LineCableModels.FormulaMethod{:default,typeof($equation)},::$(typeof(law))) = (;)
-    end
+    temperature_law=FormulaContractModels.ScaledResistivity(1.06)
+    soil_law=FormulaContractModels.ScaledSoil(epsilon=2)
     thermal = LineCableModelsFEM(
-        temperature_dependence=formula(:default;hooks=(contribution=temperature_law,)),
+        temperature_dependence=temperature_law,
         options=formulation.options)
     thermal_controls = formulation_controls
     hot_problem = LineParametersProblem(system;temperature=80.0,
@@ -85,7 +79,7 @@
     hot_inputs = extension._fem_input_record(hot_model,thermal, computation_options(LineCableModelsFEM, thermal_controls))
     @test first(hot_inputs.materials).sigma ≈ first(inputs.materials).sigma ./ 1.06
     dispersive = LineCableModelsFEM(
-        earth_properties=formula(:default;hooks=(contribution=soil_law,)),
+        earth_properties=soil_law,
         options=formulation.options)
     dispersive_controls = formulation_controls
     dispersive_model = extension._resolved_fem_model(problem,dispersive)
@@ -113,13 +107,9 @@
     @test extension._fem_input_record(ownership, formulation, computation_options(LineCableModelsFEM, formulation_controls)).mesh_fingerprint !=
           inputs.mesh_fingerprint
     @test_throws ArgumentError compute(problem, LineCableModelsFEM[])
-    law = (m, f, p, o, w) -> EarthMaterial(Inf, m.eps_r, m.mu_r)
-    @eval LineCableModels.computation_options(
-        ::LineCableModels.FormulaMethod{
-            :default, typeof(LineCableModels.Earth.FrequencyDependent.earth_material)},
-        ::$(typeof(law))) = (;)
+    law=FormulaContractModels.ScaledSoil(rho=Inf)
     unsupported = Formulation(:LineCableModelsFEM;
-        earth_properties = formula(:default; hooks = (contribution = law,)),
+        earth_properties = law,
         options = formulation.options)
     unsupported_controls = formulation_controls
     before = Bool(Gmsh.gmsh.is_initialized())

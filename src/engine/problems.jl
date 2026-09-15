@@ -306,7 +306,7 @@ function LineParametersFormulation(;
         shunt_model::ShuntModelFormulation = ShuntModel.Formula(:default),
         earth_properties,
         pipe_impedance::PipeImpedanceFormulation,
-        temperature_dependence::Union{Nothing, TemperatureDependent.Formula} = TemperatureDependent.Formula(:default),
+        temperature_dependence::Union{Nothing, TemperatureDependent.TemperatureDependentFormulation} = TemperatureDependent.Formula(:default),
         options::NamedTuple
 )
     methods = (;
@@ -369,9 +369,9 @@ which select material constitutive laws. Boundary numerical controls and an
 explicit fallback belong to `formula(:boundary; options, parameters)`.
 
 `internal_impedance` accepts one formula or complete `inner`, `outer`, and
-`transfer` selections. Each selected formula owns its callable overrides and
+`transfer` selections. Each selected concrete type owns its equations and
 numerical controls. Only the surface kinds required by the geometry are
-evaluated; unsupported or explicitly unused overrides fail during preflight.
+evaluated; unsupported cases or unused controls fail during preflight.
 
 `earth_impedance` and `earth_admittance` each accept one formula or a NamedTuple
 with exactly `air`, `earth`, and `mixed` selections. For a physical horizontal
@@ -379,7 +379,7 @@ air/soil two-half-space model, these select `(s,t)=(1,1)`, `(2,2)`, and the two
 cross-layer mutual directions. Each required kind/layer case is validated against
 the selected equation. Missing cases have no implicit fallback. The shorthand is
 rejected for layered soil; scalar multilayer and explicit equivalent-earth
-selections retain their own requirements. Formula hooks and numerical options remain
+selections retain their own requirements. Model parameters and numerical options remain
 local to each selected entry.
 
 `temperature_dependence=formula(:default)` selects the Materials-owned linear
@@ -393,8 +393,8 @@ selection or an explicit
 [`Gridspace`](@ref LineCableModels.ParametricBuilder.Gridspace) source. Scalar
 inputs return one [`LineParametersFormulation`](@ref). Varying inputs return a
 `Gridspace{LineParametersFormulation}` whose points contain only completed,
-owner-resolved formula values. Context-dependent `:default` selections remain
-deferred until a scalar problem supplies its geometry and earth context.
+owner-resolved formula values. `:default` routes to an explicit implementation;
+the scalar problem supplies its geometry and earth context for validation.
 
 `combine=:product` forms the Cartesian product among varying fields in this
 formulation. `combine=:zip` aligns equally sized fields and broadcasts
@@ -441,7 +441,7 @@ end
 $(TYPEDSIGNATURES)
 
 Expose complete requested and resolved formula selections and reduction options.
-Formula hooks retain their concrete callables; serialization belongs to the writer.
+Selections retain scientific identity and data; serialization belongs to the writer.
 """
 function Base.NamedTuple(value::LineParametersFormulation)
     record = function (selected)
@@ -451,7 +451,7 @@ function Base.NamedTuple(value::LineParametersFormulation)
         return NamedTuple(selected)
     end
     # Retain complete records without specializing result containers on each
-    # parameter tuple or hook type. The stored values remain unchanged.
+    # parameter tuple or concrete selection type. The stored values remain unchanged.
     Record=NamedTuple{(:backend,:requested,:methods,:options),
         Tuple{Symbol,NamedTuple,NamedTuple,NamedTuple}}
     return Record((:coaxial,map(record,value.definitions),map(record,value.methods),value.options))

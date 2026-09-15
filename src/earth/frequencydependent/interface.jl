@@ -1,24 +1,26 @@
 """
+Interface for a selected frequency-dependent earth-material relation.
+Concrete selections expose model `parameters` and numerical `options` records.
+"""
+abstract type FrequencyDependentFormulation <: AbstractFormulation end
+
+"""
 $(TYPEDEF)
 
 Select one frequency-dependent earth-material relation by its stable formula
 identifier.
 
-Each registered formula implements the scalar signature
-`route(material, frequency, parameters, options, workspace) -> EarthMaterial`. The route and its
-parameters participate in the concrete Julia type.
+Each formula implements
+`earth_material(selected, material, frequency, parameters, options, workspace) -> EarthMaterial`
+on its concrete selection type. `:default` is a routing
+alias for the explicit `:constant` pass-through.
 
 $(TYPEDFIELDS)
 """
-struct Formula{ID, R, A <: NamedTuple, H <: NamedTuple, O <: NamedTuple} <:
-       AbstractFormulation
-    "Declared constitutive equation binding for one soil material."
-    binding::R
-    "Explicit model parameters."
-    parameters::A
-    "Callable overrides supplied by the user."
-    hooks::H
-    "Normalized numerical sections for the selected contribution."
+struct Formula{ID, P <: NamedTuple, O <: NamedTuple} <: FrequencyDependentFormulation
+    "Resolved physical/model parameters."
+    parameters::P
+    "Normalized numerical sections for this equation."
     options::O
 end
 
@@ -28,6 +30,21 @@ Return the stable formula identifier of an earth-property formula.
 formula_id(::Formula{ID}) where {ID} = ID
 
 """
+Return the resolved physical parameters of a frequency-dependent earth formula.
+"""
+assumptions(formula::FrequencyDependentFormulation) = formula.parameters
+
+"""Return the default physical parameters for a registered earth formula."""
+function assumptions end
+
+"""Return the default physical parameters of a formula identifier."""
+assumptions(::Val{ID}) where {ID} = (;)
+
+"Return vacuum permittivity represented in the scalar type of `value` \\[F/m\\]."
+@inline vacuum_permittivity(value) =
+    one(value) * 88541878128 * (one(value) * 10)^(-22)
+
+"""
 Evaluate one formula-owned frequency-dependent earth material relation.
 """
 function earth_material end
@@ -35,47 +52,48 @@ function earth_material end
 """
 $(TYPEDSIGNATURES)
 
-Construct a registered formula with separate model parameters and callable
-hooks. `hooks=(contribution=f,)` replaces the complete scalar equation using
-the signature `f(material, frequency, parameters, options, workspace) → EarthMaterial`. A complete replacement declares its numerical defaults with
-`computation_options(binding, replacement)`. Unknown fields fail immediately.
+Construct a selected formulation with model parameters and numerical controls.
+Custom formulations extend `earth_material` on their own concrete selection type.
+Unknown controls fail before numerical evaluation.
 """
 Formula(identifier::Symbol; kwargs...) = Formula(Val(identifier); kwargs...)
-Formula(selected::Formula) = selected
+Formula(selected::FrequencyDependentFormulation) = selected
 
-function Formula(::Val{ID}; parameters::NamedTuple = (;), hooks::NamedTuple = (;),
-        options::NamedTuple = (;)) where {ID}
-    ID in FORMULAS || throw(ArgumentError("unknown formula :$ID"))
-    isempty(parameters) ||
-        throw(ArgumentError("formula :$ID has no configurable model parameters"))
-    isempty(setdiff(keys(hooks), (:contribution,))) ||
-        throw(ArgumentError("unknown hooks for :$ID"))
-    binding = FormulaMethod(Val(ID), earth_material)
-    selected = get(hooks, :contribution, binding)
-    selected === nothing && throw(ArgumentError("a contribution hook must be callable"))
-    defaults = haskey(hooks, :contribution) ? computation_options(binding, selected) :
-               computation_options(binding)
-    normalized = computation_options(binding, defaults, options)
-    return Formula{
-        ID, typeof(binding), typeof(parameters), typeof(hooks), typeof(normalized)}(
-        binding, parameters, hooks, normalized)
+function Formula(::Val{ID}; parameters::NamedTuple=(;), options::NamedTuple=(;)) where {ID}
+    defaults = assumptions(Val(ID))
+    unknown = setdiff(keys(parameters), keys(defaults))
+    isempty(unknown) || throw(ArgumentError(
+        "unknown parameters for earth-property formula :$ID: $(collect(unknown))"))
+    parameters = merge(defaults, parameters)
+    for (name, value) in pairs(parameters)
+        value isa Real && !(value isa Bool) && isfinite(value) ||
+            throw(ArgumentError("earth-property parameter :$name must be a finite real coefficient"))
+    end
+    selected = Formula{ID, typeof(parameters), typeof(options)}(parameters, options)
+    validate(selected)
+    binding = FormulaMethod(selected, earth_material)
+    normalized = computation_options(binding, options)
+    return Formula{ID, typeof(parameters), typeof(normalized)}(parameters, normalized)
 end
 
-@inline function (formula::Formula)(
+"""Check model-specific coefficient domains before evaluating a material."""
+validate(selected::Formula) = selected
+
+@inline function (formula::FrequencyDependentFormulation)(
         material::EarthMaterial{T}, frequency::T; workspace = nothing
 ) where {T <: Real}
     isfinite(frequency) && frequency > zero(frequency) || throw(DomainError(
         frequency,
         "earth-property evaluation frequency must be positive and finite"
     ))
-    evaluated = get(formula.hooks, :contribution, formula.binding)(
-        material, frequency, formula.parameters, formula.options, workspace)
+    evaluated = earth_material(
+        formula, material, frequency, formula.parameters, formula.options, workspace)
     evaluated isa EarthMaterial ||
-        throw(ArgumentError("an FrequencyDependent contribution must return EarthMaterial"))
+        throw(ArgumentError("a frequency-dependent earth relation must return EarthMaterial"))
     return evaluated
 end
 
-function (formula::Formula)(material::EarthMaterial{T}, frequency::Real; workspace = nothing) where {T <:
+function (formula::FrequencyDependentFormulation)(material::EarthMaterial{T}, frequency::Real; workspace = nothing) where {T <:
                                                                                                      Real}
     U = promote_type(T, typeof(float(frequency)))
     return formula(
@@ -92,7 +110,7 @@ constitutive(::Nothing, material::EarthMaterial, ::Real) = material
 """
 Evaluate one registered frequency-dependent earth constitutive relation.
 """
-function constitutive(formula::Formula, material::EarthMaterial, frequency::Real)
+function constitutive(formula::FrequencyDependentFormulation, material::EarthMaterial, frequency::Real)
     formula(material, frequency)
 end
 
@@ -100,19 +118,17 @@ function Formula(selection::FormulaDefinition{ID, Order}) where {ID, Order}
     Order === :default || throw(ArgumentError("order applies only to equivalent_earth"))
     selection.equivalent_earth === nothing || throw(ArgumentError(
         "equivalent_earth applies only to external earth formulas"))
-    return Formula(Val(ID); parameters = selection.parameters, hooks = selection.hooks,
+    return Formula(Val(ID); parameters = selection.parameters,
         options = selection.options)
 end
 
 """
 $(TYPEDSIGNATURES)
 
-Expose the selected equation, physical parameters, callable overrides and numerical
-options as a native record. Callables are retained unchanged.
+Expose the selected identity, model parameters, and numerical options as a native record.
 """
 function Base.NamedTuple(value::Formula)
-    return (identifier=formula_id(value), binding=value.binding,
-        parameters=value.parameters, hooks=value.hooks, options=value.options)
+    return (identifier=formula_id(value), parameters=value.parameters, options=value.options)
 end
 
 # Identity-only dispatch also describes retained selections without constructors.
@@ -122,6 +138,6 @@ description(value::Formula; compact::Bool=false) = description(typeof(value); co
 """Iterate the independently selectable child slots admitted by this formula family."""
 Base.pairs(::Type{<:Formula}; quantity=nothing) = pairs((;))
 formula_id(::Type{<:Formula{ID}}) where {ID} = ID
-formulation_options(value::Formula) = formulation_options(typeof(value), (parameters=value.parameters, hooks=value.hooks, options=value.options))
+formulation_options(value::Formula) = formulation_options(typeof(value), (parameters=value.parameters, options=value.options))
 formulation_options(::Type{<:Formula}, retained::NamedTuple) =
     formulation_options(FormulaDefinition, retained)
