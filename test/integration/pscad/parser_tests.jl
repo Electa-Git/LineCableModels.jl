@@ -31,6 +31,21 @@
 
     identifiers=(:gary1976, :carson1926, :pollaczek1926, :wedepohl1973,
         :saad1996, :ametani2009, :lucca1994)
+    for identifier in identifiers, compact in (false, true)
+        selected = Formulation(:pscad; earth_impedance=identifier).methods.earth_impedance
+        @test description(selected; compact) ==
+            "PSCAD " * description(EarthImpedance.Formula{identifier}; compact)
+    end
+    # Historical identities are descriptions of retained evidence, not aliases
+    # for a current executable selection.
+    for identifier in (:WedepohlWilcox1973, :unavailable_native_formula)
+        selected, controls = LineCableModels.ImportExport.deserialize_value(
+            Val(:formulation), harness.NativeFormula{EarthImpedance.Formula},
+            (identifier=identifier,), (identifier=identifier,))
+        @test selected === LineCableModels.FormulaDefinition{identifier}
+        @test description(selected) == string(identifier)
+        @test isempty(controls)
+    end
     @test all(
         id -> Formulation(:pscad; earth_impedance = LineCableModels.formula(id)) isa
               harness.PSCADFormulation,

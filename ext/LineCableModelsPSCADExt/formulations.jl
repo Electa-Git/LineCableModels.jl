@@ -58,8 +58,20 @@ Base.pairs(::Type{<:NativeFormula{F}}; quantity=nothing) where {F} =
     pairs(map(_ -> NativeFormula{F}, (; pairs(F; quantity)...)))
 formulation_options(::NativeFormula) = FormulationOptions()
 description(selected::NativeFormula; compact::Bool=false) = description(typeof(selected); compact)
-description(::Type{<:NativeFormula{F, ID}}; compact::Bool=false) where {F, ID} =
-    "PSCAD " * description(F{ID}; compact)
+description(::Type{NativeFormula{EarthImpedance.Formula, :gary1976}}; compact::Bool=false) =
+    "PSCAD " * description(EarthImpedance.Formula{:gary1976}; compact)
+description(::Type{NativeFormula{EarthImpedance.Formula, :carson1926}}; compact::Bool=false) =
+    "PSCAD " * description(EarthImpedance.Formula{:carson1926}; compact)
+description(::Type{NativeFormula{EarthImpedance.Formula, :pollaczek1926}}; compact::Bool=false) =
+    "PSCAD " * description(EarthImpedance.Formula{:pollaczek1926}; compact)
+description(::Type{NativeFormula{EarthImpedance.Formula, :wedepohl1973}}; compact::Bool=false) =
+    "PSCAD " * description(EarthImpedance.Formula{:wedepohl1973}; compact)
+description(::Type{NativeFormula{EarthImpedance.Formula, :saad1996}}; compact::Bool=false) =
+    "PSCAD " * description(EarthImpedance.Formula{:saad1996}; compact)
+description(::Type{NativeFormula{EarthImpedance.Formula, :ametani2009}}; compact::Bool=false) =
+    "PSCAD " * description(EarthImpedance.Formula{:ametani2009}; compact)
+description(::Type{NativeFormula{EarthImpedance.Formula, :lucca1994}}; compact::Bool=false) =
+    "PSCAD " * description(EarthImpedance.Formula{:lucca1994}; compact)
 description(::Type{<:NativeFormula{InternalImpedance.Formula, :cable_coax}}; compact::Bool=false) =
     compact ? "Cable_Coax" : "PSCAD Cable_Coax conductor calculation"
 description(::Type{<:NativeFormula{InsulationImpedance.Formula, :cable_coax}}; compact::Bool=false) =
