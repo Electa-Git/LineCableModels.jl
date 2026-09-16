@@ -86,3 +86,19 @@ function C end
 function resistance end
 function inductance end
 function capacitance end
+
+"""
+Return owned scientific text for a formulation. `compact=true` selects its
+short display name; `formula_id` remains its scientific identity.
+"""
+function description end
+
+"""
+Declare a formula selection for resolution by its receiving formulation owner.
+"""
+function formula end
+
+"""
+Return the stable scientific identifier of a formula selection.
+"""
+function formula_id end

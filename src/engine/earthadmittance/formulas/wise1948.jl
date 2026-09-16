@@ -53,7 +53,7 @@ function earth_potential_coefficient(
     geometry = _geometry(pair)
     gamma_0_squared, gamma_1_squared = state.gamma_medium_squared
     ratio = gamma_1_squared / gamma_0_squared
-    integral = integrate(functor.options.integration.method,
+    integral = integrate(functor.options.data.integration.method,
         SpectralIntegral(Val(:cosine),
             lambda -> begin
                 radial = sqrt(lambda^2 + gamma_1_squared - gamma_0_squared)
@@ -68,16 +68,16 @@ function earth_potential_coefficient(
                 location = sqrt(gamma_1_squared-gamma_0_squared)/ratio),
             angle = min(pi/4, atan(float(nominal(geometry.H / (2geometry.y_ij))))),
             features = retained_earth_features(state, geometry, workspace)),
-        functor.options.integration.options, workspace)
+        functor.options.data.integration.options, workspace)
     return (log(geometry.D_ij / geometry.d_ij) + 2 * integral) /
            (2π * state.epsilon[1])
 end
 
 
 
-function computation_options(::FormulaMethod{<:Formula{:wise1948}, typeof(earth_potential_coefficient),
+function formulation_options(::FormulaMethod{<:Formula{:wise1948}, typeof(earth_potential_coefficient),
         A}) where {A <: Tuple{Union{Val{:self}, Val{:mutual}}, Val{1}, Val{1}}}
-    (integration = (method = :quad, options = (;)),)
+    return FormulationOptions((integration = (method = :quad, options = (;)),))
 end
 
 function validate(binding::FormulaMethod{<:Formula{:wise1948}, typeof(earth_potential_coefficient)},

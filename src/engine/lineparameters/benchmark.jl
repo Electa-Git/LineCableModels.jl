@@ -11,7 +11,7 @@ when only normalization is unavailable.
 
 $(TYPEDFIELDS)
 """
-struct RMSError{T <: Real, D <: NamedTuple}
+struct RMSError{T <: Real, D <: ComputationDetails}
     "Absolute error in the units of the compared quantity."
     absolute::Matrix{Union{Missing, T}}
     "Reference-normalized error [dimensionless]."
@@ -21,14 +21,14 @@ struct RMSError{T <: Real, D <: NamedTuple}
 end
 
 function RMSError{T}(absolute::AbstractMatrix, relative::AbstractMatrix;
-        details::NamedTuple = (;)) where {T <: Real}
+        details::ComputationDetails = ComputationDetails()) where {T <: Real}
     size(absolute) == size(relative) ||
         throw(DimensionMismatch("RMS error matrices must match"))
     return RMSError{T, typeof(details)}(absolute, relative, details)
 end
 
 function RMSError(absolute::AbstractMatrix{T}, relative::AbstractMatrix{S};
-        details::NamedTuple = (;)) where {T <: Real, S <: Real}
+        details::ComputationDetails = ComputationDetails()) where {T <: Real, S <: Real}
     return RMSError{promote_type(T, S)}(absolute, relative; details)
 end
 
@@ -165,7 +165,7 @@ function _rms_arrays(reference, candidate, normalization, tolerance, candidate_t
                 view(candidate, row, column, :), normalization, tolerance, candidate_tolerance)
             for row in axes(reference, 1), column in axes(reference, 2)]
     return RMSError{T}(getproperty.(errors, :absolute), getproperty.(errors, :relative);
-        details = (normalization, atol = tolerance, sample_count = size(reference, 3),
+        details = ComputationDetails(; normalization, atol = tolerance, sample_count = size(reference, 3),
             status = getproperty.(errors, :status), normalization_reason = getproperty.(errors, :reason),
             unresolved_samples = getproperty.(errors, :counts),
             resolution=(revision=OBSERVABLE_RESOLUTION_REVISION, kind=:explicit_floor, unit=nothing)))
@@ -298,8 +298,8 @@ function compare(reference::AbstractCoreResult, candidate::AbstractCoreResult,
         band = :all, fundamental::Real = 50.0, harmonics::Integer = 50,
         atol = nothing, unsupported::NamedTuple = (;))
     validate(compare; normalization, band, fundamental, harmonics, atol, unsupported)
-    left_coordinates=get(details(reference), :coordinates, nothing)
-    right_coordinates=get(details(candidate), :coordinates, nothing)
+    left_coordinates=get(details(reference).data, :coordinates, nothing)
+    right_coordinates=get(details(candidate).data, :coordinates, nothing)
     if left_coordinates !== nothing && right_coordinates !== nothing
         left_coordinates == right_coordinates || throw(ArgumentError("reference and candidate output terminal identities differ"))
     end
@@ -311,8 +311,8 @@ function compare(reference::AbstractCoreResult, candidate::AbstractCoreResult,
     domain(reference) === domain(candidate) || throw(ArgumentError("reference and candidate domains must match"))
     issorted(f) || throw(ArgumentError("frequency-band comparison requires ascending stored frequencies"))
     left, right = observe(reference, quantity), observe(candidate, quantity)
-    declared = merge(get(details(candidate), :comparison_unsupported, (;)),
-        get(details(reference), :comparison_unsupported, (;)), unsupported)
+    declared = merge(get(details(candidate).data, :comparison_unsupported, (;)),
+        get(details(reference).data, :comparison_unsupported, (;)), unsupported)
     return compare(left, right, quantity; frequencies=f, result_basis=basis(reference),
         reference_resolution=observation_resolution(reference, quantity; atol, frequencies=f),
         candidate_resolution=observation_resolution(candidate, quantity; atol, frequencies=f),
@@ -399,9 +399,9 @@ function compare(left::AbstractArray{<:Number,3}, right::AbstractArray{<:Number,
             tolerance, candidate_tolerance)
         absolute .= error.absolute
         relative .= error.relative
-        classifications .= error.details.status
-        normalization_reasons .= error.details.normalization_reason
-        unresolved_samples .= error.details.unresolved_samples
+        classifications .= error.details.data.status
+        normalization_reasons .= error.details.data.normalization_reason
+        unresolved_samples .= error.details.data.unresolved_samples
     end
     bounds = isempty(indices) ? (missing, missing) :
              (f[first(indices)], f[last(indices)])
@@ -419,7 +419,7 @@ function compare(left::AbstractArray{<:Number,3}, right::AbstractArray{<:Number,
         key === :reason ? Union{Nothing,String} : typeof(getproperty(comparison_details,key))
     end
     stable_details=NamedTuple{keys(comparison_details),Tuple{detail_types...}}(values(comparison_details))
-    return RMSError{T}(absolute, relative; details=stable_details)
+    return RMSError{T}(absolute, relative; details=ComputationDetails(stable_details))
 end
 
 """Compare explicitly contextualized detached products without inferring coordinates."""
@@ -449,7 +449,7 @@ function compare(reference::NamedTuple{(:result,:metadata)},candidate::NamedTupl
     semantics=identity isa Tuple ? (statistical_semantics=(revision=1,representation=:retained_products),) : (;)
     return RMSError{Base.nonmissingtype(eltype(observe(error,absolute_error)))}(
         observe(error,absolute_error),observe(error,relative_error);
-        details=merge(details(error),(;request=identity),semantics))
+        details=ComputationDetails(merge(details(error).data,(;request=identity),semantics)))
 end
 
 """

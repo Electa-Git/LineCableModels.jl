@@ -8,7 +8,7 @@
     integral=E.SpectralIntegral(Val(:cosine), λ->amplitude*exp(-rate*λ),
         (height = 0.0, separation = 0.0), 1.0; features = E.SpectralFeatures([0.0, 1.0]))
     for method in (:quad, :trapz)
-        controls=E.computation_options(E.SpectralIntegral, (
+        controls=E.formulation_options(E.SpectralIntegral, (
             method, options = (rtol = 1e-9,)))
         estimate=E.spectral_estimate(controls.method, integral, controls.options, nothing)
         @test estimate.value isa Complex{Measurement{Float64}}
@@ -24,13 +24,13 @@
     zero_mean=E.SpectralIntegral(Val(:cosine), λ->complex(perturbation)*exp(-(2+im)*λ),
         (height = 0.0, separation = 0.0), 1.0; features = E.SpectralFeatures([0.0, 1.0]))
     for method in (:quad, :trapz)
-        controls=E.computation_options(E.SpectralIntegral, (
+        controls=E.formulation_options(E.SpectralIntegral, (
             method, options = (rtol = 1e-8,)))
         actual=E.integrate(controls.method, zero_mean, controls.options, nothing)
         expected=complex(perturbation)/(2+im)
         @test E.spectral_magnitude(actual-expected)<1e-9
     end
-    controls=E.computation_options(E.SpectralIntegral, (method = :cim,))
+    controls=E.formulation_options(E.SpectralIntegral, (method = :cim,))
     @test_throws ArgumentError E.integrate(controls.method, integral, controls.options, nothing)
     uncertain_weight=E.SpectralIntegral(Val(:cosine), λ->complex(exp(-λ)),
         (height = measurement(1.0, 0.01), separation = 0.0), 1.0)

@@ -49,7 +49,7 @@ try
         problem = LineCableModels.ImportExport.serialize_value(problem),
         frequencies = copy(result.f), basis = LineCableModels.basis(result), domain = :PhaseDomain,
         Z = copy(result.Z.values), Y = copy(result.Y.values), port_order = ports,
-        comparison_unsupported = get(details(result), :comparison_unsupported, (;)),
+        comparison_unsupported = get(details(result).data, :comparison_unsupported, (;)),
         retained_files = files, implementation = LEGACY_CHECKPOINT, source_evidence = sources,
         computation_details = (legacy = (
             source_sha256 = digest, checkpoint = LEGACY_CHECKPOINT,

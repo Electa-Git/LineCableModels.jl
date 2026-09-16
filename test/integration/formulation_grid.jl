@@ -46,7 +46,7 @@
     @test all(e->e.total==4 && e.batch==2,scans)
     @test last(events).state===:complete
     @test length(run) == length(problems) * length(formulations)
-    @test length(details(run).points) == length(run)
+    @test length(details(run).data.points) == length(run)
     @test formula_id.(getproperty.(
         getproperty.(run.axes.formulations, :methods),
         :earth_impedance
@@ -93,7 +93,7 @@
         )
     end
 
-    for source in (problem_space, ParametricProblem(problem_space, (; on_result)))
+    for source in (problem_space, ParametricProblem(problem_space, ComputationOptions((; on_result))))
         empty!(completions)
         automatic=source isa ParametricProblem ? compute(source, formulation_space) :
             compute(source, formulation_space; options = (; on_result))

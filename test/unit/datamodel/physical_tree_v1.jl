@@ -512,7 +512,7 @@ end
     @test isconcretetype(typeof(design))
     @test isconcretetype(typeof(system))
     @test isconcretetype(typeof(problem))
-    execution=computation_options(LineCableModelsCoaxial, (;))
+    execution=computation_options(LineCableModelsCoaxial, ComputationOptions((;)))
     blueprints=LineCableModels.Engine.CableBlueprint{eltype(problem)}[LineCableModels.Engine.flatten(
                                                                           LineCableModelsCoaxial(),
                                                                           source,

@@ -14,9 +14,9 @@
         kind=:gauntlet_calculation, status=:complete, backend=:coaxial,
         numerical_reference_approval=:unreviewed,
         problem=LineCableModels.ImportExport.serialize_value(problem),
-        formulation=(definitions=formulation.definitions, options=formulation.options),
+        formulation=(definitions=formulation.definitions, options=formulation.options.data),
         Z=parameters.Z.values, Y=parameters.Y.values, frequencies=problem.frequencies,
-        port_order=copy(details(parameters).coordinates), basis=:pul, domain=:PhaseDomain,
+        port_order=copy(details(parameters).data.coordinates), basis=:pul, domain=:PhaseDomain,
     )
     protected = [joinpath(pkgdir(LineCableModels), "test", "numerical", name)
         for name in ("approved.toml", "Artifacts.toml")]
@@ -35,7 +35,7 @@
         comparison = owner.compare_reference(reference)
         @test all(iszero, comparison.Z.absolute)
         @test all(iszero, comparison.Y.absolute)
-        @test details(reference.parameters).coordinates == document.port_order
+        @test details(reference.parameters).data.coordinates == document.port_order
         # Numerical values cannot rescue different terminal or frequency identities.
         for update in ((port_order=reverse(document.port_order),),
                 (port_order=["invented-west","invented-east"],),
@@ -135,7 +135,7 @@
         kron_reduction=false, ideal_transposition=false))
     actual = compute(quiet_problem, quiet_formulation)
     changed = LineParameters(PhaseDomain, copy(actual.Z.values),
-        actual.Y.values .+ 1e-15, actual.f; details=(coordinates=copy(details(actual).coordinates),))
+        actual.Y.values .+ 1e-15, actual.f; details=ComputationDetails(;coordinates=copy(details(actual).data.coordinates),))
     scientific = LineCableModels.Engine.compare(changed, actual)
     @test all(>(0), scientific.Y.absolute)
     @test all(ismissing, scientific.Y.relative)

@@ -12,7 +12,7 @@
             Val(:cosine), kernel, (height = 1.0, separation = 0.0), 1.0; features = feature)
         expected=amplitude*sqrt(pi)*width*exp(-centre+width^2/4)
         for method in (:quad, :trapz)
-            controls=E.computation_options(E.SpectralIntegral, (
+            controls=E.formulation_options(E.SpectralIntegral, (
                 method, options = (rtol = 1e-7,)))
             actual=E.integrate(controls.method, integral, controls.options, nothing)
             @test actual≈expected rtol=1e-6
@@ -25,20 +25,20 @@
     integral=E.SpectralIntegral(
         Val(:cosine), kernel, (height = 1.0, separation = 0.0), 1.0; features)
     for method in (:quad, :trapz, :cim)
-        controls=E.computation_options(E.SpectralIntegral, (
+        controls=E.formulation_options(E.SpectralIntegral, (
             method, options = (rtol = 1e-6,)))
         actual=E.integrate(controls.method, integral, controls.options, nothing)
         @test actual≈0.25 rtol=1e-5
     end
     invalid=E.SpectralIntegral(Val(:cosine), λ->complex(exp(-λ)),
         (height = 1.0, separation = 0.0), 1.0; features = E.SpectralFeatures([0.0, 1.0]; tail = t->0.0))
-    controls=E.computation_options(E.SpectralIntegral, (method = :cim,))
+    controls=E.formulation_options(E.SpectralIntegral, (method = :cim,))
     @test_throws ErrorException E.cim_true_tail(invalid, 1.0, 1.0, 1e-9, controls.options)
     narrow=E.SpectralIntegral(Val(:cosine), λ->complex(exp(-((λ-9)/1e-4)^2)),
         (height = 1.0, separation = 0.0), 1.0; features = E.SpectralFeatures(9 .+
                                                                              1e-4 .* [
             -8, -1, 0, 1, 8]))
-    limited=E.computation_options(E.SpectralIntegral,
+    limited=E.formulation_options(E.SpectralIntegral,
         (method = :cim,
             options = (samples = 16, max_terms = 8, max_refinements = 1)))
     # A small image budget may fail explicitly; it must not report zero merely
@@ -132,7 +132,7 @@ end
     sigma=[0.0, 0.1]
     epsilon=8.8541878128e-12 .* [1.0, 8.0]
     mu=4pi*1e-7 .* [1.0, 3.0]
-    controls=E.computation_options(E.SpectralIntegral, (
+    controls=E.formulation_options(E.SpectralIntegral, (
         method = :quad, options = (rtol = 1e-9,))).options
     for Γ in (0.0+0.0im, 1e-4+2e-4im, 3e-4+1e-4im)
         state=E.unified_earth_state(
@@ -157,7 +157,7 @@ end
                 Val(:quad), controls, nothing)
             @test rotated.value≈real_axis rtol=1e-7
             if kind===:phi
-                cim=E.computation_options(E.SpectralIntegral,
+                cim=E.formulation_options(E.SpectralIntegral,
                     (method = :cim, options = (rtol = 1e-7,))).options
                 images=E.earth_spectral_term(Val(:phi), Val(P), Val(Q), state,
                     1.0, 1.0, 1.0, 0.0, 0.0, Val(:cim), cim, nothing)

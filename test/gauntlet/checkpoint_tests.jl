@@ -13,7 +13,9 @@
     LineCableModels.formula_id(::CheckpointBackend) = :CheckpointBackend
     LineCableModels.description(::CheckpointBackend;compact=false) = "current checkpoint backend"
     LineCableModels.description(::Type{CheckpointBackend};compact=false) = "current checkpoint backend"
-    function LineCableModels.compute(problem::LineParametersProblem, formulation::CheckpointBackend;options=(;))
+    function LineCableModels.compute(problem::LineParametersProblem, formulation::CheckpointBackend;
+            options::Union{NamedTuple,ComputationOptions}=ComputationOptions())
+        options=options isa NamedTuple ? ComputationOptions(options) : options
         push!(calls,formulation.factor)
         # The declaration is edited while a solver is active, then disappears.
         if isfile(source[])
@@ -23,7 +25,7 @@
         fail[] && formulation.factor==3 && error("interrupted formulation")
         z=fill(complex(formulation.factor),2,2,length(problem.frequencies))
         result=LineParameters(PhaseDomain,z,z,copy(problem.frequencies))
-        haskey(options,:on_result) && options.on_result(problem,1,result)
+        haskey(options.data,:on_result) && options.data.on_result(problem,1,result)
         result
     end
     model=load_case(:two_insulated_wires;variation=ExactOverrides(frequencies=[1.,37.]))
@@ -120,7 +122,8 @@ end
     const calls=Ref(0)
     const fail_at=Ref(typemax(Int))
     struct TimingBackend <: LineCableModels.Grammar.AbstractFormulation end
-    function LineCableModels.compute(problem::LineParametersProblem,::TimingBackend;options=(;))
+    function LineCableModels.compute(problem::LineParametersProblem,::TimingBackend;
+            options::Union{NamedTuple,ComputationOptions}=ComputationOptions())
         calls[]+=1
         calls[]==fail_at[] && error("timing failed")
         z=fill(1.0+1im,2,2,length(problem.frequencies))

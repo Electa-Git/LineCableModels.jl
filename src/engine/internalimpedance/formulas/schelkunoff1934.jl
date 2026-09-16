@@ -207,6 +207,6 @@ end
     )
 end
 
-computation_options(::FormulaMethod{<:Formula{:schelkunoff1934}, typeof(internal_impedance)}) = (;)
+formulation_options(::FormulaMethod{<:Formula{:schelkunoff1934}, typeof(internal_impedance)}) = FormulationOptions()
 
 :schelkunoff1934

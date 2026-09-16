@@ -9,7 +9,7 @@
     LineCableModels.frequencies(result::IndependentResult)=result.f
     LineCableModels.basis(::IndependentResult)=:pul
     LineCableModels.domain(::IndependentResult)=PhaseDomain
-    LineCableModels.details(result::IndependentResult)=(coordinates=result.coordinates,)
+    LineCableModels.details(result::IndependentResult)=ComputationDetails(coordinates=result.coordinates)
     LineCableModels.observables(::Type{IndependentResult})=(Z,)
     function LineCableModels.observe(result::IndependentResult,::typeof(Z))
         observations[]+=1

@@ -10,11 +10,12 @@ raises `MethodError`.
 # Arguments
 
 - `owner`: Formulation-type dispatch token.
-- `options`: Mergeable named tuple supplied by the caller.
+- `options`: `FormulationOptions` supplied to the owning normalizer. Public
+  constructors also accept `options=(...)` shorthand and wrap it at entry.
 
 # Returns
 
-- A formulation-owned [`FormulationOptions`](@ref) named tuple with a fixed set
+- A formulation-owned [`FormulationOptions`](@ref) record with a fixed set
   of keys for the selected owner.
 """
 function formulation_options end
@@ -32,11 +33,12 @@ a Gauntlet case. No broad fallback exists. An unregistered owner raises
 # Arguments
 
 - `owner`: Computation-owner dispatch token.
-- `options`: Mergeable named tuple supplied by the caller.
+- `options`: `ComputationOptions` supplied to the owning normalizer. Public
+  compute calls also accept `options=(...)` shorthand and wrap it at entry.
 
 # Returns
 
-- A computation-owned [`ComputationOptions`](@ref) named tuple with a fixed set
+- A computation-owned [`ComputationOptions`](@ref) record with a fixed set
   of outer keys for the selected owner.
 """
 function computation_options end
@@ -44,10 +46,10 @@ function computation_options end
 """
 $(SIGNATURES)
 
-Normalize supplemental output owned by one core or composite computation.
+Return supplemental output owned by one core or composite computation.
 
 The formulation type defines a method for itself and returns a
-fixed-key [`ComputationDetails`](@ref) named tuple. No broad fallback exists;
+fixed-key [`ComputationDetails`](@ref) record. No broad fallback exists;
 an unregistered formulation raises `MethodError`.
 """
 function computation_details end
@@ -55,7 +57,7 @@ function computation_details end
 """
 $(SIGNATURES)
 
-Return the typed supplemental output retained by a completed higher-order
+Return the typed supplemental output retained by a completed
 result. Result owners define narrow methods beside their result containers.
 """
 function details end

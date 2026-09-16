@@ -42,7 +42,7 @@ for b in bases:
             chmod(executable,0o700)
             form = Formulation(:LineCableModelsFEM; options=(ideal_transposition=false,))
             form_controls = (getdp_executable=executable,frequency_workers=2,solver_threads=1,gmsh_verbosity=0)
-            execution_options = computation_options(LineCableModelsFEM, form_controls)
+            execution_options = computation_options(LineCableModelsFEM, ComputationOptions(form_controls))
             model=E._resolved_fem_model(problem,form)
             inputs=E._fem_input_record(model,form, execution_options)
             execution=inputs.execution
@@ -123,11 +123,11 @@ with open(sys.argv[1],'a+') as f:
             empty!(observations)
             LineCableModels.with_progress(e->push!(observations,e)) do
                 LineCableModels.with_performance_sample() do
-                    E._run_getdp!(serial,model,serial_form, computation_options(LineCableModelsFEM, serial_form_controls),meshes)
+                    E._run_getdp!(serial,model,serial_form, computation_options(LineCableModelsFEM, ComputationOptions(serial_form_controls)),meshes)
                 end
             end
             @test isempty(observations)
-            @test E._parse_scan(serial,model,serial_form, computation_options(LineCableModelsFEM, serial_form_controls)).Z==scan.Z
+            @test E._parse_scan(serial,model,serial_form, computation_options(LineCableModelsFEM, ComputationOptions(serial_form_controls))).Z==scan.Z
             # A failed basis does not get a checkpoint and must be retried.
             broken=fresh();write(config,JSON3.write((delay=0.01,fail=true)))
             @test_throws LineCableModelsFEMError E._run_getdp!(broken,model,form, execution_options,meshes)

@@ -50,9 +50,9 @@ end
 
 
 
-function computation_options(::FormulaMethod{<:Formula{:gary1976}, typeof(earth_impedance),
+function formulation_options(::FormulaMethod{<:Formula{:gary1976}, typeof(earth_impedance),
         A}) where {A <: Tuple{Union{Val{:self}, Val{:mutual}}, Val{1}, Val{1}}}
-    (;)
+    return FormulationOptions((;))
 end
 
 function validate(binding::FormulaMethod{<:Formula{:gary1976}, typeof(earth_impedance)},

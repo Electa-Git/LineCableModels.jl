@@ -110,14 +110,11 @@ description(::LineCableModelsFEM; compact::Bool=false) = description(LineCableMo
 formula_id(::Type{<:LineCableModelsFEM}) = :fem
 formula_id(::LineCableModelsFEM) = :fem
 formulation_options(value::LineCableModelsFEM) = value.options
-function formulation_options(::Type{LineCableModelsFEM}, retained::NamedTuple, ::Val{:retained})
-    retained.options
-end
 function Base.pairs(value::LineCableModelsFEM; quantity = nothing)
     pairs(LineCableModelsFEM,
         (methods = value.methods,
-            requested = map(formulation_options, value.definitions),
-            options = value.options);
+            requested = value.definitions,
+            options = value.options.data);
         quantity)
 end
 
@@ -326,17 +323,18 @@ function validate(formula::Union{EarthImpedanceFormulation, EarthAdmittanceFormu
     end
     identities = unique(equations)
     bindings = map(identities) do equation
-        defaults = computation_options(equation)
+        defaults = formulation_options(equation)
         (equation = equation, kind = typeof(first(equation.arguments)).parameters[1],
             defaults = defaults)
     end
-    admitted = union((keys(binding.defaults) for binding in bindings)...)
-    unknown = setdiff(keys(formula.options), admitted)
+    admitted = union((keys(binding.defaults.data) for binding in bindings)...)
+    unknown = setdiff(keys(formula.options.data), admitted)
     isempty(unknown) || throw(ArgumentError(
         "unused numerical sections $(Tuple(unknown)) for required cases of :$(formula_id(formula))"))
     resolved = map(bindings) do binding
-        names = Tuple(intersect(keys(formula.options), keys(binding.defaults)))
-        options = computation_options(binding.equation, binding.defaults, formula.options[names])
+        names = Tuple(intersect(keys(formula.options.data), keys(binding.defaults.data)))
+        options = formulation_options(binding.equation, binding.defaults,
+            FormulationOptions(formula.options.data[names]))
         (equation = binding.equation, kind = binding.kind, options = options)
     end
     return map(equation -> resolved[findfirst(==(equation), identities)], equations)
@@ -399,7 +397,7 @@ Formulation(backend::Symbol; kwargs...) = Formulation(Val(backend); kwargs...)
 
 function _fem_formulation(
         insulation_admittance, semicon_admittance, earth_properties, temperature_dependence,
-        options::NamedTuple
+        options::FormulationOptions
 )
     methods = (
         insulation_admittance = InsulationAdmittance.Formula(insulation_admittance),
@@ -452,12 +450,12 @@ function Formulation(
         semicon_admittance = formula(:default),
         earth_properties = formula(:default),
         temperature_dependence = formula(:default),
-        options = (;),
+        options = FormulationOptions(),
         combine::Symbol = :product
 )
     return parameterize(
         LineCableModelsFEM,
-        _fem_formulation,
+        (inputs...) -> _fem_formulation(inputs[1:end-1]..., last(inputs) isa NamedTuple ? FormulationOptions(last(inputs)) : last(inputs)),
         (insulation_admittance, semicon_admittance, earth_properties,
             temperature_dependence, options);
         combine
@@ -483,5 +481,5 @@ function Base.NamedTuple(value::LineCableModelsFEM)
     Record=NamedTuple{(:backend, :requested, :methods, :options),
         Tuple{Symbol, NamedTuple, NamedTuple, NamedTuple}}
     return Record((
-        :fem, map(record, value.definitions), map(record, value.methods), value.options))
+        :fem, map(record, value.definitions), map(record, value.methods), value.options.data))
 end

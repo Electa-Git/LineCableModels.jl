@@ -248,7 +248,7 @@ Passing a formulation `Gridspace` directly to `compute` selects default
 ```julia
 run = compute(problem, formulation_space; options=(;))
 run = compute(problem_space, formulation_space; options=(;))
-run = compute(ParametricProblem(problem_space, options), formulation_space)
+run = compute(ParametricProblem(problem_space, ComputationOptions(options)), formulation_space)
 ```
 
 The result is a `ParametricResult` in all three cases. A scalar problem forms
@@ -257,7 +257,7 @@ existing `ParametricProblem` retains its stored options. For traversal settings
 such as retaining supplemental details, select `Combinatorial` explicitly:
 
 ```julia
-run = compute(ParametricProblem(problem_space, options),
+run = compute(ParametricProblem(problem_space, ComputationOptions(options)),
     Combinatorial(formulation_space; options=(retain_details=true,)))
 ```
 

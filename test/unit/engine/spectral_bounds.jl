@@ -100,10 +100,10 @@ end
             features=E.SpectralFeatures([1e-4,1.0,1e5]))
     end
     bounded=@inferred integral(state)
-    q=E.computation_options(E.SpectralIntegral,(method=:quad,options=(rtol=1e-10,))).options
+    q=E.formulation_options(E.SpectralIntegral,(method=:quad,options=(rtol=1e-10,))).options
     reference=E.integrate(Val(:quad),bounded,q,nothing)
     for tolerance in (1e-5,1e-8)
-        controls=E.computation_options(E.SpectralIntegral,(method=:trapz,options=(rtol=tolerance,))).options
+        controls=E.formulation_options(E.SpectralIntegral,(method=:trapz,options=(rtol=tolerance,))).options
         estimate=@inferred E.spectral_estimate(Val(:trapz),bounded,controls,nothing)
         @test estimate.cutoff<1e5
         @test estimate.tail<=estimate.error<=tolerance*abs(estimate.value)
@@ -119,14 +119,14 @@ end
     integral=E.SpectralIntegral(Val(:cosine),x->complex(exp(-x)),
         (height=1.0,separation=1.0),1.0)
     for method in (:trapz,:cim)
-        automatic=E.computation_options(E.SpectralIntegral,(;method))
+        automatic=E.formulation_options(E.SpectralIntegral,(;method))
         @test automatic.options.samples===nothing
-        manual=E.computation_options(E.SpectralIntegral,(;method,options=(samples=4096,)))
+        manual=E.formulation_options(E.SpectralIntegral,(;method,options=(samples=4096,)))
         estimate=E.spectral_estimate(manual.method,integral,manual.options,nothing)
         @test estimate.value≈0.4 rtol=1e-6
         @test 0<estimate.samples<=4096
         @test estimate.evaluations>=estimate.samples
-        limited=E.computation_options(E.SpectralIntegral,(;method,options=(samples=16,)))
+        limited=E.formulation_options(E.SpectralIntegral,(;method,options=(samples=16,)))
         @test_throws ErrorException E.spectral_estimate(limited.method,integral,limited.options,nothing)
     end
 end
@@ -160,7 +160,7 @@ end
         (height=1.0,separation=1.0),1.0;
         features=E.SpectralFeatures([1.0];tail=UnavailableTail()))
     for method in (:trapz,:cim)
-        controls=E.computation_options(E.SpectralIntegral,(;method)).options
+        controls=E.formulation_options(E.SpectralIntegral,(;method)).options
         @test isinf(E.spectral_seed_cutoff(integral,controls))
         estimate=E.spectral_estimate(Val(method),integral,controls,nothing)
         @test estimate.value≈0.4 rtol=1e-6

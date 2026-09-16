@@ -28,7 +28,9 @@ including default branches, in quantity-relevant legends.
 
 Formulation owners expose ordered `(owner, route_tuple) => selection` pairs
 through `pairs(source; quantity)` and `pairs(owner, retained; quantity)`.
-`formulation_options(selection)` retains explicit controls. `description` remains
+Each selected leaf is paired with its passive declaration controls. Formula
+normalizers do not read saved provenance; `formulation_options(selection)` reads
+the live selection's `FormulationOptions`. `description` remains
 a text interface: consumers must not parse its output for identity, child
 structure, ordering or quantity relevance. Backend-specific scientific meaning
 belongs to the contextual `description(owner, selection; compact)` method;
@@ -57,9 +59,11 @@ explicit implementation before physical validation or computation.
 | Pipe applicability | `Engine.PipeImpedanceFormulation`; `Formulation(backend, selected, Val(topology))`. No analytical pipe equation is supplied. |
 
 `parameters` are model data and `options` are numerical controls, never callable
-implementations. Custom constructors validate and normalize their own records.
+implementations. Custom constructors validate and normalize their own `FormulationOptions`.
+Execution controls use `ComputationOptions`; completed supplemental output uses
+`ComputationDetails`. Read their payloads explicitly through `.data`.
 Indexed families declare numerical defaults for the actual selected type and
-case with `computation_options(::FormulaMethod{<:MyType,typeof(operation),...})`.
+case with `formulation_options(::FormulaMethod{<:MyType,typeof(operation),...})`.
 No numerical section selects physical preparation. A custom earth type also
 owns `constitutive(selected, Val(:air/:earth), s, mu, sigma, epsilon)` and returns
 `(mu=..., gamma=...)`; this is distinct from air/earth/mixed pair selection.

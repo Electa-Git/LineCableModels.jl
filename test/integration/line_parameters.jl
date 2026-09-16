@@ -15,12 +15,12 @@
     )
     )
     phase_parameters=compute(problem, formulation; options = (trace = true,))
-    trace=details(phase_parameters).trace
+    trace=details(phase_parameters).data.trace
     parameters=compute(
         ModalTransformationProblem(phase_parameters),
         ModalTransformationFormulation(:default)
     )
-    @test details(parameters).formulations === details(phase_parameters).formulations
+    @test details(parameters).data.formulations === details(phase_parameters).data.formulations
 
     @test domain(parameters) === ModalDomain
     @test size(parameters.Z) == (3, 3, 2)
@@ -65,7 +65,7 @@
             Diagonal(diag(trace.Pg[:, :, frequency_index])))
     end
 
-    execution=computation_options(LineCableModelsCoaxial, (;))
+    execution=computation_options(LineCableModelsCoaxial, ComputationOptions((;)))
     blueprints=LineCableModels.Engine.CableBlueprint{eltype(problem)}[LineCableModels.Engine.flatten(
                                                                           LineCableModelsCoaxial(),
                                                                           design,
@@ -277,7 +277,7 @@ end
         frequencies = [50.0]
     )
     @test problem.system === system
-    execution=computation_options(LineCableModelsCoaxial, (;))
+    execution=computation_options(LineCableModelsCoaxial, ComputationOptions((;)))
     @test_throws ArgumentError LineParametersWorkspace(
         problem,
         Formulation(),
@@ -329,7 +329,7 @@ end
     bare=build(CableDesign, "bare", Group(
         :phase, Region(:bare, Disk(0.01), conductor)
     ))
-    execution=computation_options(LineCableModelsCoaxial, (;))
+    execution=computation_options(LineCableModelsCoaxial, ComputationOptions((;)))
     workspace(problem,
         formulation = Formulation()) = LineParametersWorkspace(
         problem,
@@ -500,7 +500,7 @@ end
     zero_result=compute(zero_problem)
     @test Z(zero_result)==Z(ordinary)
     @test Y(zero_result)==Y(ordinary)
-    @test !hasproperty(details(ordinary).formulations,:modified)
+    @test !hasproperty(details(ordinary).data.formulations,:modified)
     @test_throws DimensionMismatch LineParametersProblem(base.system;
         earth_props = base.earth_props, frequencies = base.frequencies, Γ = [0.0])
     design=TestFixtures.coaxial_design()

@@ -12,7 +12,8 @@
     description(::Type{<:TestEarthLeaf{ID}};compact::Bool=false) where {ID} =
         compact ? "Display-"*string(ID) : "Test-owned explanation shared by distinct equations"
     description(value::TestEarthLeaf;compact::Bool=false) = description(typeof(value);compact)
-    formulation_options(::TestEarthLeaf) = (;)
+    formulation_options(::TestEarthLeaf) = FormulationOptions()
+    Base.NamedTuple(value::TestEarthLeaf) = (identifier=formula_id(value),parameters=(;),options=(;))
     normal=Formulation()
     leaves=(TestEarthLeaf{:TestAlpha}(),TestEarthLeaf{:TestBeta}())
     choices=[E.LineParametersFormulation(merge(normal.methods,(earth_impedance=leaf,)),
@@ -36,9 +37,9 @@
     z=reshape(complex.(collect(1.:24.),collect(101.:124.)),2,2,6)
     y=reshape(complex.(collect(201.:224.),collect(301.:324.)),2,2,6)*1e-6
     ports=["a","b"]
-    ref=LineParameters(z,y,f;details=(coordinates=ports,formulations=NamedTuple(LineCableModelsFEM()),))
-    points=[LineParameters(scale*z,y,f;details=(coordinates=ports,)) for scale in (1.1,1.2,1.3)]
-    candidates=ParametricResult(nothing,points,(problems=[:one],formulations=choices),(;))
+    ref=LineParameters(z,y,f;details=ComputationDetails(;coordinates=ports,formulations=NamedTuple(LineCableModelsFEM()),))
+    points=[LineParameters(scale*z,y,f;details=ComputationDetails(;coordinates=ports,)) for scale in (1.1,1.2,1.3)]
+    candidates=ParametricResult(nothing,points,(problems=[:one],formulations=choices), ComputationDetails((;)))
     source=(reference=ref,candidate=candidates)
     result=report(BenchmarkTableDefinition((R,X,G,B);bands=(:all,:dc,:harmonic,:narrow,:wide)),source)
     @test result.table.formulations.label[1]=="Reference · FEM"
@@ -73,7 +74,20 @@
         @test occursin(string(order)*" FrequencyDependent",label)
         @test !occursin("FormulaDefinition{",label)
         @test description([saved];quantity=R)==[label]
+        @test formula_id(saved,R)==formula_id(native,R)
     end
+    # Historical inspection must not call today's declaration constructor or
+    # reject controls that its current live owner would not admit.
+    historical=NamedTuple(Formulation(earth_impedance=formula(:carson1926;
+        equivalent_earth=formula(:bottommost;order=:before))))
+    historical=merge(historical,(requested=merge(historical.requested,
+        (earth_impedance=merge(historical.requested.earth_impedance,
+            (equivalent_earth=(identifier=:ArchivedRule,order=:archived_order,
+                parameters=(saved_parameter=2,),options=(saved_control=true,)),)),)),))
+    saved=IO.deserialize_value(Val(:formulation),historical)
+    label=only(description([saved];quantity=R))
+    @test occursin("ArchivedRule archived_order FrequencyDependent",label)
+    @test occursin("saved_control",label)
     # Inspection retains a native selection without executing its equation.
     selected_inner=FormulaContractModels.SurfaceLaw(kinds=(:inner,))
     routed=Formulation(
@@ -91,7 +105,7 @@
             [description(scope,value;compact=false) for (scope,value) in pairs(saved...)]
     end
     routed_result=ParametricResult(nothing,points[1:2],
-        (problems=[:one],formulations=[routed,normal]),(;))
+        (problems=[:one],formulations=[routed,normal]), ComputationDetails((;)))
     routed_report=report(BenchmarkTableDefinition((R,B);bands=(:all,)),
         (reference=ref,candidate=routed_result))
     @test any(contains("earth Z(air)=Carson"),first(routed_report.table.features).relative.formula)
@@ -99,7 +113,7 @@
     @test isempty(selected_inner.evaluations) && isempty(selected_inner.preparations)
     single=Formulation(insulation_admittance=FormulaContractModels.InsulationLaw())
     single_data=ParametricResult(nothing,points[1:1],
-        (problems=[:one],formulations=[single]),(;))
+        (problems=[:one],formulations=[single]), ComputationDetails((;)))
     single_report=report(BenchmarkTableDefinition((R,B);bands=(:all,)),
         (reference=ref,candidate=single_data))
     single_label=only(last(single_report.table.features).relative.formula)
@@ -132,10 +146,11 @@
     struct BrokenEarthLeaf <: E.EarthImpedanceFormulation end
     formula_id(::BrokenEarthLeaf)=:BrokenTestLeaf
     description(::BrokenEarthLeaf;compact::Bool=false)=throw(ArgumentError("test-owned description failed"))
-    formulation_options(::BrokenEarthLeaf)=(;)
+    formulation_options(::BrokenEarthLeaf)=FormulationOptions()
+    Base.NamedTuple(value::BrokenEarthLeaf)=(identifier=formula_id(value),parameters=(;),options=(;))
     broken=E.LineParametersFormulation(merge(normal.methods,(earth_impedance=BrokenEarthLeaf(),)),
         normal.options,merge(normal.definitions,(earth_impedance=BrokenEarthLeaf(),)))
-    bad=ParametricResult(nothing,[points[1]],(problems=[:one],formulations=[broken]),(;))
+    bad=ParametricResult(nothing,[points[1]],(problems=[:one],formulations=[broken]), ComputationDetails((;)))
     @test_throws r"test-owned description failed" report(BenchmarkTableDefinition(),(reference=ref,candidate=bad))
 
     # Compare retained values and coordinates, not merely dimensions or file bytes.

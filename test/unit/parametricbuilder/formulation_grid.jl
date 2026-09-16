@@ -104,7 +104,7 @@
         formula(:default; options = (iteration = (convergence = 1e-4,),)),
         formula(:default; options = (iteration = (convergence = 1e-8,),))
     )))
-    @test [value.formula.options.iteration.convergence for value in modal_assumptions] ==
+    @test [value.formula.options.data.iteration.convergence for value in modal_assumptions] ==
           [1e-4, 1e-8]
 
     fem=LineCableModelsFEM(
@@ -154,12 +154,12 @@
     LineCableModels.compute(
         problem::CountedProblem,
         ::CountedFormulation{:first};
-        options::NamedTuple = (;)
+        options::Union{NamedTuple,ComputationOptions} = ComputationOptions()
     )=CountedResult(problem.value)
     LineCableModels.compute(
         problem::CountedProblem,
         ::CountedFormulation{:second};
-        options::NamedTuple = (;)
+        options::Union{NamedTuple,ComputationOptions} = ComputationOptions()
     )=CountedResult(10problem.value)
 
     run=compute(
@@ -220,7 +220,7 @@
     @test collect(automatic) == CountedResult.(Int[1, 2, 10, 20])
     @test automatic.axes.problems === problem_space
     @test automatic.formulation isa Combinatorial
-    @test isempty(details(automatic))
+    @test isempty(details(automatic).data)
     @test collect(compute(scalar, formulation_space)) == CountedResult.(Int[7, 70])
     @test collect(compute(scalar_problem, formulation_space)) == CountedResult.(Int[7, 70])
     @test_throws MethodError compute(scalar, Gridspace{Int}(identity, (Grid((1, 2)),)))

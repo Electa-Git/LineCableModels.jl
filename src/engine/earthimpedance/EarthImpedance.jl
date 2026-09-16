@@ -10,6 +10,7 @@ $(IMPORTS)
 
 """
 module EarthImpedance
+import ...Grammar: FormulationOptions
 
 # Export public API
 export Formula, formula_id, earth_impedance, assumptions, propagation, formulas, Γ
@@ -30,7 +31,7 @@ import ..Engine: system_earth, unified_entry, retained_earth_features
 import ...LineCableModels: FormulaDefinition, FormulaMethod, nominal
 import ..Engine: SpectralIntegral, integrate
 import ..Engine: description, conductivity, media, special_besselk
-import ..Engine: computation_options
+import ..Engine: formulation_options
 #! explicit-imports: on
 
 vacuum_permeability(value) = one(value) * 4 * (one(value) * π) * (one(value) * 10)^(-7)

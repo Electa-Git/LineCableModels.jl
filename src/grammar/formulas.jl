@@ -1,12 +1,12 @@
 """
 Declare numerical defaults for one complete equation binding.
 """
-function computation_options(binding::FormulaMethod)
+function formulation_options(binding::FormulaMethod)
     throw(ArgumentError("missing numerical-default declaration for $binding"))
 end
 
-function computation_options(binding::FormulaMethod, supplied::NamedTuple)
-    return computation_options(binding, computation_options(binding), supplied)
+function formulation_options(binding::FormulaMethod, supplied::FormulationOptions)
+    return formulation_options(binding, formulation_options(binding), supplied)
 end
 
 """
@@ -17,43 +17,29 @@ selected equation. A family with multiple cases projects supplied sections to
 each consuming binding before calling this constructor. Empty defaults admit
 no numerical options; they do not declare equation availability.
 """
-function computation_options(binding::FormulaMethod, defaults::NamedTuple, supplied::NamedTuple)
-    unknown = setdiff(keys(supplied), keys(defaults))
+function formulation_options(binding::FormulaMethod, defaults::FormulationOptions, supplied::FormulationOptions)
+    default_data, supplied_data = defaults.data, supplied.data
+    unknown = filter(name -> !haskey(default_data, name), keys(supplied_data))
     isempty(unknown) || throw(ArgumentError(
         "unused numerical sections $(Tuple(unknown)) for $binding"))
-    sections = map(keys(defaults)) do name
-        default = getproperty(defaults, name)
-        explicit = get(supplied, name, (;))
+    sections = map(keys(default_data)) do name
+        default = getproperty(default_data, name)
+        explicit = get(supplied_data, name, (;))
         default isa NamedTuple && explicit isa NamedTuple || throw(ArgumentError(
             "numerical section :$name must be a NamedTuple"))
-        computation_options(binding, Val(name), default, explicit)
+        formulation_options(binding, Val(name), default, explicit)
     end
-    return NamedTuple{keys(defaults)}(sections)
+    return FormulationOptions(NamedTuple{keys(default_data)}(sections))
 end
 
-function computation_options(binding::FormulaMethod, ::Val{Section}, defaults::NamedTuple,
+function formulation_options(binding::FormulaMethod, ::Val{Section}, defaults::NamedTuple,
         supplied::NamedTuple) where {Section}
     throw(ArgumentError("no numerical constructor for section :$Section of $binding"))
 end
-import ..LineCableModels: FormulaDefinition, description, formula_id
+import ..LineCableModels: description, formula_id
 
-"""Read explicit formula controls without validating or evaluating them."""
-function formulation_options(::Type{FormulaDefinition}, retained::NamedTuple)
-    return (; (key => retained[key] for key in (:parameters,:options,:equivalent_earth)
-        if haskey(retained,key) && retained[key] !== nothing &&
-            !(retained[key] isa NamedTuple && isempty(retained[key])))...)
-end
-formulation_options(::Type{<:FormulaDefinition}, retained::NamedTuple) =
-    formulation_options(FormulaDefinition, retained)
-formulation_options(source::Pair{<:Type,<:NamedTuple}) = formulation_options(first(source),last(source),Val(:retained))
-formulation_options(owner::Type,retained::NamedTuple,::Val{:retained}) = formulation_options(owner,retained)
-formulation_options(source::Pair{<:AbstractFormulation,<:NamedTuple}) = last(source)
-formulation_options(value::FormulaDefinition) = formulation_options(FormulaDefinition,
-    (parameters=value.parameters,options=value.options,equivalent_earth=value.equivalent_earth))
-formulation_options(::Symbol) = (;)
-formulation_options(value::NamedTuple) = map(formulation_options,value)
-formulation_options(::Nothing) = (;)
-formulation_options(::Missing) = (;)
+"""Read a declaration's actual formulation-owned inputs without resolving them."""
+formulation_options(value::FormulaDefinition) = value.options
 formula_id(source::Pair{<:AbstractFormulation,<:NamedTuple}) = formula_id(first(source))
 description(source::Pair{<:AbstractFormulation,<:NamedTuple}; compact::Bool=false) = description(first(source);compact)
 
@@ -66,7 +52,7 @@ formulations use the same owning `pairs` methods; descriptions are not identitie
 Return `missing` if any selected identity is unavailable. No formula is evaluated.
 """
 function formula_id(source::Union{AbstractFormulation,Pair{<:Type,<:NamedTuple}}, quantity)
-    selections = Tuple((scope, formula_id(value), formulation_options(value))
+    selections = Tuple((scope, formula_id(value), value isa Pair ? last(value) : (;))
         for (scope, value) in pairs((source isa Pair ? Tuple(source) : (source,))...; quantity))
     return any(selection -> ismissing(selection[2]), selections) ? missing : selections
 end
@@ -87,7 +73,7 @@ description(scope::Tuple{Type,Tuple},selected;kwargs...) = description(first(sco
 function description(owner::Type,route::Tuple, selected; compact::Bool=true, settings::Bool=false)
     name=isempty(route) ? description(owner;compact) : description(owner,Val(first(route)))
     length(route)>1 && (name *= "("*join(string.(Base.tail(route)),",")*")")
-    controls=formulation_options(selected)
+    controls=selected isa Pair ? last(selected) : (;)
     value=settings ? "" : isempty(route) ? description(selected;compact) : description(owner,selected;compact)
     isempty(controls) || (value *= (isempty(value) ? "" : " ") *
         (isempty(route) ? sprint(show,controls;context=:compact=>compact) :

@@ -52,7 +52,7 @@ import ..LineCableModels: basis, build, R, L, C,
                           resistance, inductance, capacitance
 import ..LineCableModels: nominal
 import ..LineCableModels: constitutive, formula, formula_id,
-                          FormulaMethod
+                          FormulaMethod, FormulaDefinition
 import ..LineCableModels: parameterize
 import ..LineCableModels: performance_sample_active
 #! explicit-imports: off

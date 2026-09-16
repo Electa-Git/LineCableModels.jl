@@ -12,8 +12,8 @@
     records=Gauntlet.formulation_record.(collect(formulations))
     source=TestFixtures.two_conductor_results(frequencies=[1e3])
     points=[LineParameters(Z(source).*index,Y(source),frequencies(source);
-        details=merge(details(source),(formulations=record,))) for (index,record) in enumerate(records)]
-    transported=ParametricResult(nothing,points,(problems=[model.problem],formulations=records),(;))
+        details=ComputationDetails(merge(details(source).data,(formulations=record,)))) for (index,record) in enumerate(records)]
+    transported=ParametricResult(nothing,points,(problems=[model.problem],formulations=records), ComputationDetails((;)))
     table=report(BenchmarkTableDefinition(),(reference=source,candidate=transported)).table
     @test allunique(table.formulations.label[table.formulations.role.===:candidate])
     @test Set(table.comparisons.candidate_point)==Set(eachindex(controls))
@@ -44,12 +44,12 @@
             @test Z(retained)==Z(current)
             @test Y(retained)==Y(current)
             for slot in (:earth_impedance,:earth_admittance)
-                @test getproperty(details(retained).formulations.requested,slot).options.integration==choice
-                for interaction in getproperty(details(current).formulations.numerical,slot)
+                @test getproperty(details(retained).data.formulations.requested,slot).options.integration==choice
+                for interaction in getproperty(details(current).data.formulations.numerical,slot)
                     @test interaction.options.integration.method===Val(choice.method)
                     @test interaction.options.integration.options.samples===choice.options.samples
                 end
-                for interaction in getproperty(details(retained).formulations.numerical,slot)
+                for interaction in getproperty(details(retained).data.formulations.numerical,slot)
                     @test interaction.options.integration.method==(
                         type="Base.Val{$(repr(choice.method))}",fields=(;))
                     @test interaction.options.integration.options.samples===choice.options.samples

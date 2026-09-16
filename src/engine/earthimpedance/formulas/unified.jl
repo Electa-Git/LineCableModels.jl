@@ -41,12 +41,12 @@ function earth_impedance(::Formula{:unified}, ::Union{Val{:self}, Val{:mutual}},
 end
 
 
-function computation_options(::FormulaMethod{<:Formula{:unified},
+function formulation_options(::FormulaMethod{<:Formula{:unified},
         typeof(earth_impedance),
         A}) where {
         A <: Tuple{
         Union{Val{:self}, Val{:mutual}}, Union{Val{1}, Val{2}}, Union{Val{1}, Val{2}}}}
-    return (integration = (method = :quad, options = (;)),)
+    return FormulationOptions((integration = (method = :quad, options = (;)),))
 end
 
 function validate(binding::FormulaMethod{<:Formula{:unified}, typeof(earth_impedance)},

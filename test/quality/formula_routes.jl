@@ -17,6 +17,8 @@
         selected=owner.Formula(identifier)
         @test !hasfield(typeof(selected), :hooks)
         @test !hasfield(typeof(selected), :binding)
+        @test fieldtype(typeof(selected), :options) <: FormulationOptions
+        @test formulation_options(selected) === selected.options
         @test formula_id(selected) !== :default
         @test owner.Formula(selected) === selected
         @test_throws MethodError owner.Formula(identifier; hooks=(;))
@@ -48,7 +50,9 @@
             @test typeof(route).parameters[1] === typeof(selected)
             @test parentmodule(route.method) === owner
             @test all(arg->arg isa Val,route.arguments)
-            @test computation_options(route) isa NamedTuple
+            @test formulation_options(route) isa FormulationOptions
+            @test_throws MethodError computation_options(route)
+            @test_throws MethodError formulation_options(route, ComputationOptions())
         end
     end
     M=FormulaContractModels
@@ -76,8 +80,8 @@ end
     expected=compute(problem,Formulation())
     @test Z(actual)==Z(expected) && Y(actual)==Y(expected)
     @test shunt.preparations[]==length(problem.system.designs)
-    @test details(actual).formulations.effective.shunt_model === :UserCoaxialShunt
-    @test details(actual).formulations.effective.pipe_impedance === :CoaxialPipePolicy
+    @test details(actual).data.formulations.effective.shunt_model === :UserCoaxialShunt
+    @test details(actual).data.formulations.effective.pipe_impedance === :CoaxialPipePolicy
     constants=CableConstantsProblem(first(problem.system.designs);frequency=50.0)
     @test compute(constants,CableConstantsFormulation(shunt_model=shunt,pipe_impedance=M.CoaxialPipePolicy()))==
         compute(constants,CableConstantsFormulation())

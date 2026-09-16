@@ -48,7 +48,7 @@ function export_data(
         formulation::Union{Engine.LineParametersFormulation,
             Engine.CableConstantsFormulation, PSCADFormulation} = Engine.Formulation(),
         base_freq::Real = formulation isa PSCADFormulation ?
-                          formulation.options.base_frequency : 50.0,
+                          formulation.options.data.base_frequency : 50.0,
         temperature::Union{Nothing, Real} = nothing,
         file_name::Union{AbstractString, Nothing} = nothing,
         native_settings::NamedTuple = (;)

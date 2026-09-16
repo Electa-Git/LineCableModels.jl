@@ -72,18 +72,18 @@ end
     sampled = compute(problem,MonteCarlo(inner;trials=12,seed=314,
         distribution=:normal,return_samples=true,retain_details=true))
     @test sampled.trial_counts == [12]
-    @test all(isempty,sampled.details.failures)
-    @test only(sampled.values).details.shunt_model.effective === :boundary
-    @test only(linear.values).details.shunt_model.effective === :boundary
+    @test all(isempty,sampled.details.data.failures)
+    @test only(sampled.values).details.data.shunt_model.effective === :boundary
+    @test only(linear.values).details.data.shunt_model.effective === :boundary
     IE=LineCableModels.ImportExport
     restored=IE.deserialize_value(IE.serialize_value(linear))
     original=only(linear.values)
     saved=only(restored.values)
     @test Measurements.value.(saved.C) == Measurements.value.(original.C)
     @test Measurements.uncertainty.(saved.C) ≈ Measurements.uncertainty.(original.C)
-    @test details(saved).shunt_model.effective === :boundary
+    @test details(saved).data.shunt_model.effective === :boundary
     # One shared uncertain input must remain one source across distinct points.
-    duplicated=LineCableModels.UQ.LinearErrorResult(LinearError(inner),[original,original],(;))
+    duplicated=LineCableModels.UQ.LinearErrorResult(LinearError(inner),[original,original], ComputationDetails((;)))
     copied=IE.deserialize_value(IE.serialize_value(duplicated))
     @test Measurements.uncertainty(copied.values[1].C[1]-copied.values[2].C[1]) == 0
     strict = CableConstantsFormulation(shunt_model=formula(:boundary;

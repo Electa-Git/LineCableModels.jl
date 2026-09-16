@@ -17,7 +17,7 @@ struct Combinatorial{F, O <: ComputationOptions} <: AbstractFormulation
     "Supplemental-output retention options owned by this traversal."
     options::O
 
-    function Combinatorial(inner, options::NamedTuple)
+    function Combinatorial(inner, options::ComputationOptions)
         source = _combinatorial_source(inner)
         normalized = computation_options(Combinatorial, options)
         return new{typeof(source), typeof(normalized)}(source, normalized)
@@ -26,8 +26,9 @@ end
 
 function computation_options(
         ::Type{Combinatorial},
-        options::NamedTuple
+        record::ComputationOptions
 )::ComputationOptions
+    options = record.data
     unknown = filter(key -> key !== :retain_details, keys(options))
     isempty(unknown) || throw(ArgumentError(
         "unknown Combinatorial computation options: $(sort!(collect(unknown)))",
@@ -36,7 +37,7 @@ function computation_options(
     normalized.retain_details isa Bool || throw(ArgumentError(
         "Combinatorial retain_details must be Bool",
     ))
-    return (retain_details = normalized.retain_details,)
+    return ComputationOptions(; retain_details = normalized.retain_details)
 end
 
 function _combinatorial_source(inner::AbstractFormulation)
@@ -69,7 +70,8 @@ function _combinatorial_source(inner)
     ))
 end
 
-function Combinatorial(inner; options::NamedTuple = (;))
+function Combinatorial(inner; options::Union{NamedTuple,ComputationOptions} = ComputationOptions())
+    options = options isa NamedTuple ? ComputationOptions(options) : options
     return Combinatorial(inner, options)
 end
 
@@ -93,12 +95,12 @@ struct ParametricProblem{S, O <: ComputationOptions} <: AbstractProblemDefinitio
     end
 end
 
-function ParametricProblem(problem::AbstractProblemDefinition, options::NamedTuple)
+function ParametricProblem(problem::AbstractProblemDefinition, options::ComputationOptions)
     space = Gridspace{typeof(problem)}(identity, (Grid((problem,)),))
     return ParametricProblem(space, options)
 end
 
-ParametricProblem(space) = ParametricProblem(space, (;))
+ParametricProblem(space) = ParametricProblem(space, ComputationOptions())
 
 function validate(problem::ParametricProblem)
     problem.space isa Union{
@@ -156,11 +158,11 @@ struct ParametricResult{T, F, A <: NamedTuple, D <: ComputationDetails} <:
                     "ParametricResult axes must span every stored core result",
                 ))
         end
-        isempty(details) || keys(details) == (:points,) ||
+        isempty(details.data) || keys(details.data) == (:points,) ||
             throw(ArgumentError(
                 "ParametricResult details must be empty or contain only points",
             ))
-        isempty(details) || length(details.points) == length(values) ||
+        isempty(details.data) || length(details.data.points) == length(values) ||
             throw(DimensionMismatch(
                 "retained details must contain one entry per core result",
             ))
@@ -171,7 +173,7 @@ end
 function ParametricResult(formulation, values, details::ComputationDetails)
     ParametricResult(formulation, values, (;), details)
 end
-ParametricResult(formulation, values) = ParametricResult(formulation, values, (;), (;))
+ParametricResult(formulation, values) = ParametricResult(formulation, values, (;), ComputationDetails())
 
 Base.length(value::ParametricResult) = length(value.values)
 Base.size(value::ParametricResult) = (length(value),)

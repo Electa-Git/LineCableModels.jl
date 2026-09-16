@@ -95,17 +95,12 @@ import Logging
 include("docstrings.jl")
 include("interfaces.jl")
 include("progress.jl")
-include("formulas.jl")
 
 public FormulaDefinition, FormulaMethod
 
 # Submodule `Units`
 include("units/Units.jl")
 using .Units: quantity, native_unit, display_unit, scale_factor, label, symbol
-
-# Package-local bounded text formatting. Domain modules extend Base display
-# methods and call this owner through qualified operations.
-include("textdisplay/TextDisplay.jl")
 
 # Package-local shared calculation grammar.
 include("grammar/Grammar.jl")
@@ -116,6 +111,11 @@ using .Grammar:
                 FormulationOptions, ComputationOptions, ComputationDetails,
                 formulation_options, computation_options, computation_details, details,
                 compute, observe, @observe, observables
+using .Grammar: FormulaDefinition, FormulaMethod
+include("formulas.jl")
+
+# Bounded text formatting consumes the completed shared declaration grammar.
+include("textdisplay/TextDisplay.jl")
 import .Grammar: nominal, uncertainty
 
 # Submodule `InputValidation`

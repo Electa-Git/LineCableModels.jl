@@ -15,7 +15,7 @@
     means=map(array -> mean.(array), summaries)
     core=LineParameters(
         means.R .+ im .* angular .* means.L, means.G .+ im .* angular .* means.C, f;
-        details = (coordinates = ["a", "b"],))
+        details = ComputationDetails(;coordinates = ["a", "b"],))
     histograms=map(trials) do array
         [HistogramDensity(vec(array[i, j, k, :]); bins = 3)
          for i in 1:2, j in 1:2, k in eachindex(f)]
@@ -112,7 +112,7 @@
     independent_frequency=measurement(50.,.25)
     uncertain_sources=map((correlated_frequency,independent_frequency)) do frequency
         LineParameters(fill(1.0+2im,1,1,1),fill(3e-6+4e-6im,1,1,1),[frequency];
-            details=(coordinates=["core"],))
+            details=ComputationDetails(;coordinates=["core"],))
     end
     uncertain_pair=LinearErrorResult(LinearError(Formulation()),collect(uncertain_sources))
     correlated_report=report(BenchmarkTableDefinition(((statistics,R,mean),);

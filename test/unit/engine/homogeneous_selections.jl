@@ -42,11 +42,11 @@
                 (k, frequency) in enumerate(problem.frequencies)
             coefficient = (i, j) -> 1e9 * (11layer + 17layer + 3i + 5j +
                 frequency/100 + (i == j ? 101 : 0))
-            @test details(result).trace.Pg[p, q, k] ≈ coefficient(p, q)
-            @test details(subresult).trace.Pg[row, column, k] ≈ coefficient(row, column)
+            @test details(result).data.trace.Pg[p, q, k] ≈ coefficient(p, q)
+            @test details(subresult).data.trace.Pg[row, column, k] ≈ coefficient(row, column)
         end
     end
-    provenance=details(result).formulations
+    provenance=details(result).data.formulations
     @test provenance.requested.earth_impedance == NamedTuple(selected).requested.earth_impedance
     @test provenance.effective.earth_impedance ==
           map(record -> record.identifier,provenance.requested.earth_impedance)
@@ -73,7 +73,7 @@
     for p in 1:4, q in 1:4
         # A selected default block still solves the complete four-wire system.
         reference=sign(last(positions[p]))==sign(last(positions[q])) ? result : complete
-        @test details(hybrid).trace.Zg[p, q, :]≈details(reference).trace.Zg[p, q, :] rtol=1e-10
+        @test details(hybrid).data.trace.Zg[p, q, :]≈details(reference).data.trace.Zg[p, q, :] rtol=1e-10
     end
 
     # Different parameterizations of one native type remain distinct selections.
@@ -91,11 +91,11 @@
         t=positions[row][2]>0 ? 1 : 2
         scale=s==t ? Float64(s) : 3.0
         coefficient=11s+17t+3row+5column+problem.frequencies[k]/100+(row==column ? 101 : 0)
-        @test details(custom).trace.Zg[row,column,k] ≈ scale*coefficient*(1e-4+1e-3im)
+        @test details(custom).data.trace.Zg[row,column,k] ≈ scale*coefficient*(1e-4+1e-3im)
     end
-    @test details(custom).formulations.effective.earth_impedance==
+    @test details(custom).data.formulations.effective.earth_impedance==
         (air=:LayerImpedance,earth=:LayerImpedance,mixed=:LayerImpedance)
-    @test details(custom).formulations.requested.earth_impedance.earth.parameters.scale==2.0
+    @test details(custom).data.formulations.requested.earth_impedance.earth.parameters.scale==2.0
 
     # Potential coefficients use exactly the same air/earth/mixed grammar.
     empty!(M.calls)
@@ -112,7 +112,7 @@
         s=positions[column][2]>0 ? 1 : 2
         t=positions[row][2]>0 ? 1 : 2
         scale=s==t ? Float64(s) : 3.0
-        @test details(independent_y).trace.Pg[row,column,:] ≈ scale .* details(result).trace.Pg[row,column,:]
+        @test details(independent_y).data.trace.Pg[row,column,:] ≈ scale .* details(result).data.trace.Pg[row,column,:]
     end
     @test independent_y.Z.values==result.Z.values
 end

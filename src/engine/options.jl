@@ -1,7 +1,8 @@
 function formulation_options(
         ::Type{LineParametersFormulation},
-        options::NamedTuple
+        record::FormulationOptions
 )::FormulationOptions
+    options = record.data
     allowed = (
         :reduce_bundle,
         :kron_reduction,
@@ -23,7 +24,7 @@ function formulation_options(
         (:reduce_bundle, :kron_reduction, :ideal_transposition)) || throw(ArgumentError(
         "reduction and transposition options must be Bool",
     ))
-    return (
+    return FormulationOptions(;
         reduce_bundle = normalized.reduce_bundle,
         kron_reduction = normalized.kron_reduction,
         ideal_transposition = normalized.ideal_transposition
@@ -32,8 +33,9 @@ end
 
 function computation_options(
         ::Type{LineCableModelsCoaxial},
-        options::NamedTuple
+        record::ComputationOptions
 )::ComputationOptions
+    options = record.data
     allowed = (:verbosity, :output_basis, :trace, :on_result)
     unknown = filter(key -> key ∉ allowed, keys(options))
     isempty(unknown) || throw(ArgumentError(
@@ -59,7 +61,7 @@ function computation_options(
     ))
     normalized.trace isa Bool || throw(ArgumentError("trace must be Bool"))
     levels = NamedTuple{keys(verbosity_values)}(Int.(values(verbosity_values)))
-    return (
+    return ComputationOptions(;
         verbosity = levels,
         output_basis = Val(basis_value),
         trace = Val(normalized.trace),
@@ -67,14 +69,16 @@ function computation_options(
     )
 end
 
-function verbosity(options::NamedTuple, key::Symbol)
+function verbosity(record::ComputationOptions, key::Symbol)
+    options = record.data
     haskey(options, :verbosity) || throw(ArgumentError(
         "computation options do not define verbosity",
     ))
     return get(options.verbosity, key, options.verbosity.default)
 end
 
-function formulation_options(::Type{LineCableModelsFEM}, options::NamedTuple)::FormulationOptions
+function formulation_options(::Type{LineCableModelsFEM}, record::FormulationOptions)::FormulationOptions
+    options = record.data
     physics = get(options, :physics, :quasi_tem)
     physics isa Union{Symbol, AbstractString} || throw(ArgumentError(
         "physics must be :quasi_tem or :quasi_fw"))
@@ -82,8 +86,8 @@ function formulation_options(::Type{LineCableModelsFEM}, options::NamedTuple)::F
     physics in (Symbol("quasi-tem"), Symbol("quasi-fw")) || throw(ArgumentError(
         "physics must be :quasi_tem or :quasi_fw (also accepted as hyphenated strings or Symbols)"))
     reductions = formulation_options(LineParametersFormulation,
-        (; (key => value for (key, value) in pairs(options) if key !== :physics)...))
-    return (; reductions..., physics)
+        FormulationOptions(; (key => value for (key, value) in pairs(options) if key !== :physics)...))
+    return FormulationOptions(; reductions.data..., physics)
 end
 
 """
@@ -125,7 +129,8 @@ The field model is selected separately by `formulation_options(LineCableModelsFE
 
 - `ArgumentError`: Unknown keys, invalid controls, or empty paths.
 """
-function computation_options(::Type{LineCableModelsFEM}, options::NamedTuple)::ComputationOptions
+function computation_options(::Type{LineCableModelsFEM}, record::ComputationOptions)::ComputationOptions
+    options = record.data
     defaults = (ui=false, plot_field_maps=false, mesh_policy=:reuse,
         mesh_path=nothing, domain_skin_depths=2.0,
         keep_run_directory=false, getdp_executable=nothing,
@@ -136,7 +141,7 @@ function computation_options(::Type{LineCableModelsFEM}, options::NamedTuple)::C
     isempty(unknown) || throw(ArgumentError(
         "unknown LineCableModelsFEM computation options: $(Tuple(unknown))"))
     standard = computation_options(LineCableModelsCoaxial,
-        (; (key => value for (key, value) in pairs(options) if key in standard_keys)...))
+        ComputationOptions(; (key => value for (key, value) in pairs(options) if key in standard_keys)...))
     normalized = merge(defaults,
         (; (key => value for (key, value) in pairs(options) if key in keys(defaults))...))
     for name in (:ui, :plot_field_maps, :keep_run_directory)
@@ -168,7 +173,7 @@ function computation_options(::Type{LineCableModelsFEM}, options::NamedTuple)::C
     resume = normalized.resume_run_directory
     resume === nothing || resume === :latest || resume isa AbstractString && !isempty(resume) ||
         throw(ArgumentError("resume_run_directory must be nothing, :latest, or a nonempty path string"))
-    return (; standard...,
+    return ComputationOptions(; standard.data...,
         ui=normalized.ui, plot_field_maps=normalized.plot_field_maps,
         mesh_policy=normalized.mesh_policy,
         mesh_path=normalized.mesh_path === nothing ? nothing : String(normalized.mesh_path),

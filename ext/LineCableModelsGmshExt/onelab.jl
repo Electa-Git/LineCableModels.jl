@@ -97,7 +97,7 @@ function _publish_transport!(
             _onelab_name("frequency_count"), length(model.problem.frequencies)
         ),
         _number_parameter(
-            _onelab_name("field_maps"), execution.plot_field_maps
+            _onelab_name("field_maps"), execution.data.plot_field_maps
         ),
         _number_parameter(
             _onelab_name("completion_status"), 0),

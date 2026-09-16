@@ -180,8 +180,8 @@ function Base.show(io::IO, ::MIME"text/plain", formulation::LineParametersFormul
         label = string(key, "  ", sprint(show, method; context = :compact => true)),
         noun = "methods",
     ) for (key, method) in pairs(formulation.methods)]
-    isempty(formulation.options) || push!(children, (
-        label = "options  $(length(formulation.options)) entries",
+    isempty(formulation.options.data) || push!(children, (
+        label = "options  $(length(formulation.options.data)) entries",
         noun = "methods",
     ))
     return TextDisplay.tree(io, "Line-parameters formulation", Tuple(children); noun = "methods")

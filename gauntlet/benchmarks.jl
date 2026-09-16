@@ -108,23 +108,23 @@ function formulation_record(formulation::LineCableModels.LinearError)
     return (
         kind = :linear_error,
         inner = formulation_record(formulation.inner),
-        options = formulation.options
+        options = formulation.options.data
     )
 end
 function formulation_record(formulation::LineCableModels.MonteCarlo)
-    distribution = formulation.options.distribution isa Symbol ?
-                   formulation.options.distribution : string(typeof(formulation.options.distribution))
+    distribution = formulation.options.data.distribution isa Symbol ?
+                   formulation.options.data.distribution : string(typeof(formulation.options.data.distribution))
     return (
         kind = :monte_carlo,
         inner = formulation_record(formulation.inner),
-        trials = formulation.options.trials,
-        confidence = formulation.options.confidence,
-        cdf_tolerance = formulation.options.cdf_tol,
+        trials = formulation.options.data.trials,
+        confidence = formulation.options.data.confidence,
+        cdf_tolerance = formulation.options.data.cdf_tol,
         distribution,
-        seed = formulation.options.seed,
-        return_samples = formulation.options.return_samples,
-        return_histograms = formulation.options.return_histograms,
-        bins = formulation.options.bins,
+        seed = formulation.options.data.seed,
+        return_samples = formulation.options.data.return_samples,
+        return_histograms = formulation.options.data.return_histograms,
+        bins = formulation.options.data.bins,
         options = _selection_value(formulation.options)
     )
 end
@@ -202,9 +202,9 @@ function run_benchmark(benchmark::BenchmarkDefinition; directory = nothing,
     reference=reference_execution.result
     candidate=candidate_execution.result
     definition=BenchmarkTableDefinition(;benchmark.comparison_settings...)
-    reference_metadata=(port_order=get(details(reference_execution.result isa ParametricResult ? first(reference_execution.result) : reference_execution.result),:coordinates,benchmark.model.port_order),
+    reference_metadata=(port_order=get(details(reference_execution.result isa ParametricResult ? first(reference_execution.result) : reference_execution.result).data,:coordinates,benchmark.model.port_order),
         formulation=calculation_record(benchmark.reference).formulation, axes=reference isa ParametricResult ? reference.axes : nothing)
-    candidate_metadata=(port_order=get(details(candidate_execution.result isa ParametricResult ? first(candidate_execution.result) : candidate_execution.result),:coordinates,benchmark.model.port_order),
+    candidate_metadata=(port_order=get(details(candidate_execution.result isa ParametricResult ? first(candidate_execution.result) : candidate_execution.result).data,:coordinates,benchmark.model.port_order),
         formulation=calculation_record(benchmark.candidate).formulation, axes=candidate isa ParametricResult ? candidate.axes : nothing)
     performance_path=directory === nothing ? nothing : joinpath(directory,"performance.jld2")
     performance_error=nothing
@@ -332,7 +332,7 @@ owns quantities, bands and comparison controls.
 """
 function benchmark_definition(model::LoadedCase; id::Symbol, source_file::AbstractString,
         reference, formulations, collection::Symbol=:manual,
-        options::NamedTuple=(;), report=BenchmarkTableDefinition(), tolerances=(;))
+        options::Union{NamedTuple,Grammar.ComputationOptions}=Grammar.ComputationOptions(), report=BenchmarkTableDefinition(), tolerances=(;))
     baseline=reference isa BenchmarkCalculation ? reference :
         BenchmarkCalculation(:reference,model.problem,reference)
     candidate=BenchmarkCalculation(:candidate,model.problem,formulations;options)

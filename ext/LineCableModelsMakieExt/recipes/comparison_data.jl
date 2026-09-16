@@ -24,8 +24,8 @@ function _validate_comparison_inputs(parameters::_LineParametersComparison)
         "line-parameter comparison requires at least one frequency",
     ))
     for candidate in Base.tail(parameters)
-        left=get(LineCableModels.details(reference),:coordinates,nothing)
-        right=get(LineCableModels.details(candidate),:coordinates,nothing)
+        left=get(LineCableModels.details(reference).data,:coordinates,nothing)
+        right=get(LineCableModels.details(candidate).data,:coordinates,nothing)
         left === nothing || right === nothing || left == right || throw(ArgumentError(
             "compared line parameters have different output terminal identities"))
         size(Z(reference))[1:2] == size(Z(candidate))[1:2] || throw(DimensionMismatch(

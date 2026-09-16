@@ -18,13 +18,13 @@ function validate_references()
             println((; reference, method = :quad))
             flush(stdout)
             quad=E.unified_earth!(E.EarthReturnWorkspace(geometry), state,
-                E.computation_options(E.SpectralIntegral,
+                E.formulation_options(E.SpectralIntegral,
                     (method = :quad, options = (rtol = 1e-9,))); reference)
             for method in (:trapz, :cim)
                 println((; reference, method))
                 flush(stdout)
                 actual=E.unified_earth!(E.EarthReturnWorkspace(geometry), state,
-                    E.computation_options(E.SpectralIntegral,
+                    E.formulation_options(E.SpectralIntegral,
                         (; method, options = (rtol = 1e-6,))); reference)
                 for (kind, floor) in ((:Ze, 1e-14), (:Pe, 1e-14), (:Ye, 1e-10))
                     for (value, expected) in zip(getproperty(actual, kind),

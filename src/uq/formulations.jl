@@ -27,7 +27,7 @@ struct LinearError{F <: AbstractFormulation, O <: ComputationOptions} <: Abstrac
     "Supplemental-output retention options owned by this propagation."
     options::O
 
-    function LinearError(inner::AbstractFormulation, options::NamedTuple)
+    function LinearError(inner::AbstractFormulation, options::ComputationOptions)
         _validate_shunt_policy(inner)
         normalized = computation_options(LinearError, options)
         return new{typeof(inner), typeof(normalized)}(inner, normalized)
@@ -36,8 +36,9 @@ end
 
 function computation_options(
         ::Type{LinearError},
-        options::NamedTuple
+        record::ComputationOptions
 )::ComputationOptions
+    options = record.data
     unknown = filter(key -> key !== :retain_details, keys(options))
     isempty(unknown) || throw(ArgumentError(
         "unknown LinearError computation options: $(sort!(collect(unknown)))",
@@ -46,18 +47,19 @@ function computation_options(
     normalized.retain_details isa Bool || throw(ArgumentError(
         "LinearError retain_details must be Bool",
     ))
-    return (retain_details = normalized.retain_details,)
+    return ComputationOptions(; retain_details = normalized.retain_details)
 end
 
 function LinearError(
         inner::F;
-        options::NamedTuple = (;)
+        options::Union{NamedTuple,ComputationOptions} = ComputationOptions()
 ) where {F <: AbstractFormulation}
+    options = options isa NamedTuple ? ComputationOptions(options) : options
     return LinearError(inner, options)
 end
 
 function Base.NamedTuple(value::LinearError)
-    return (kind = :linear_error, inner = NamedTuple(value.inner), options = value.options)
+    return (kind = :linear_error, inner = NamedTuple(value.inner), options = value.options.data)
 end
 
 """Identify first-order uncertainty propagation without inspecting its inner owner."""
@@ -65,10 +67,9 @@ description(::Type{<:LinearError}; compact::Bool=false) = "LEP"
 description(::LinearError; compact::Bool=false) = description(LinearError;compact)
 formula_id(::Type{<:LinearError}) = :LinearError
 formula_id(::LinearError) = :LinearError
-formulation_options(value::LinearError) = value.options
-formulation_options(::Type{LinearError}, retained::NamedTuple) = retained.options
+computation_options(value::LinearError) = value.options
 function Base.pairs(value::LinearError; quantity = nothing)
-    pairs(LinearError, (inner = value.inner, options = value.options); quantity)
+    pairs(LinearError, (inner = value.inner, options = value.options.data); quantity)
 end
 
 """
@@ -109,7 +110,7 @@ struct MonteCarlo{F <: AbstractFormulation, O <: ComputationOptions} <:
     "Normalized sampling, error-handling and supplemental-output computation options."
     options::O
 
-    function MonteCarlo(inner::AbstractFormulation, options::NamedTuple)
+    function MonteCarlo(inner::AbstractFormulation, options::ComputationOptions)
         _validate_shunt_policy(inner)
         normalized = computation_options(MonteCarlo, options)
         return new{typeof(inner), typeof(normalized)}(inner, normalized)
@@ -121,13 +122,12 @@ description(::Type{<:MonteCarlo}; compact::Bool=false) = "Monte Carlo"
 description(::MonteCarlo; compact::Bool=false) = description(MonteCarlo;compact)
 formula_id(::Type{<:MonteCarlo}) = :MonteCarlo
 formula_id(::MonteCarlo) = :MonteCarlo
-formulation_options(value::MonteCarlo) = value.options
-formulation_options(::Type{MonteCarlo}, retained::NamedTuple) = retained.options
+computation_options(value::MonteCarlo) = value.options
 function Base.pairs(value::MonteCarlo; quantity = nothing)
-    pairs(MonteCarlo, (inner = value.inner, options = value.options); quantity)
+    pairs(MonteCarlo, (inner = value.inner, options = value.options.data); quantity)
 end
 function Base.pairs(owner::Type{<:Union{MonteCarlo, LinearError}}, retained::NamedTuple; quantity = nothing)
-    entries=Pair{Tuple, Any}[(owner, ()) => (owner => (options = retained.options,))]
+    entries=Pair{Tuple, Any}[(owner, ()) => (owner => retained.options)]
     if ismissing(retained.inner)
         push!(entries, (owner, (:inner,)) => missing)
     else
@@ -140,8 +140,9 @@ description(::Type{<:Union{MonteCarlo, LinearError}}, ::Val{:inner}) = "inner me
 
 function computation_options(
         ::Type{MonteCarlo},
-        options::NamedTuple
+        record::ComputationOptions
 )::ComputationOptions
+    options = record.data
     defaults = (
         trials = nothing, confidence = 0.95, cdf_tol = 0.02,
         distribution = :normal, seed = nothing,
@@ -190,7 +191,7 @@ function computation_options(
             "MonteCarlo on_error=:retry requires retain_details=true",
         ),
         )
-    return (
+    return ComputationOptions(;
         trials = normalized.trials === nothing ? nothing : Int(normalized.trials),
         confidence = Float64(normalized.confidence),
         cdf_tol = Float64(normalized.cdf_tol),
@@ -236,18 +237,19 @@ the same names and are merged into `options` before normalization.
 
 # Returns
 
-- A `MonteCarlo` calculation storing its normalized tuple in `options`.
-  The concrete tuple type retains the sampler type.
+- A `MonteCarlo` calculation storing normalized `ComputationOptions` in `options`.
+  The concrete payload type retains the sampler type.
 """
-function MonteCarlo(inner::AbstractFormulation; options::NamedTuple = (;), kwargs...)
+function MonteCarlo(inner::AbstractFormulation; options::Union{NamedTuple,ComputationOptions} = ComputationOptions(), kwargs...)
+    options = options isa NamedTuple ? ComputationOptions(options) : options
     supplied = (; kwargs...)
-    duplicates = filter(key -> haskey(options, key), keys(supplied))
+    duplicates = filter(key -> haskey(options.data, key), keys(supplied))
     isempty(duplicates) || throw(ArgumentError(
         "MonteCarlo computation options supplied both as keywords and in options: $(collect(duplicates))",
     ))
-    return MonteCarlo(inner, merge(options, supplied))
+    return MonteCarlo(inner, isempty(supplied) ? options : ComputationOptions(merge(options.data, supplied)))
 end
 
 function Base.NamedTuple(value::MonteCarlo)
-    return (kind = :monte_carlo, inner = NamedTuple(value.inner), options = value.options)
+    return (kind = :monte_carlo, inner = NamedTuple(value.inner), options = value.options.data)
 end

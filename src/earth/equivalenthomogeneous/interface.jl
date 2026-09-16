@@ -24,7 +24,7 @@ homogeneous material.
 
 $(TYPEDFIELDS)
 """
-struct Formula{ID, A <: NamedTuple, O <: NamedTuple} <: AbstractRule
+struct Formula{ID, A <: NamedTuple, O <: FormulationOptions} <: AbstractRule
     "Explicit model parameters."
     parameters::A
     "Explicit numerical sections owned by the reduction."
@@ -83,7 +83,8 @@ frequency-dependent material law.
 Formula(identifier::Symbol; kwargs...) = Formula(Val(identifier); kwargs...)
 Formula(selected::AbstractRule) = selected
 
-function Formula(::Val{:bottommost}; parameters::NamedTuple=(;), options::NamedTuple=(;))
+function Formula(::Val{:bottommost}; parameters::NamedTuple=(;), options::Union{NamedTuple, FormulationOptions} = FormulationOptions())
+    options = options isa NamedTuple ? FormulationOptions(options) : options
     isempty(parameters) || throw(ArgumentError("bottommost earth has no configurable model parameters"))
     return Formula{:bottommost, typeof(parameters), typeof(options)}(parameters, options)
 end
@@ -163,15 +164,15 @@ function validate(formula::AbstractRule, pairs::Union{Tuple, AbstractVector})
     end
     identities = unique(equations)
     defaults = map(identities) do binding
-        computation_options(binding)
+        formulation_options(binding)
     end
-    admitted = union((keys(value) for value in defaults)...)
-    isempty(setdiff(keys(formula.options), admitted)) ||
+    admitted = union((keys(value.data) for value in defaults)...)
+    isempty(setdiff(keys(formula.options.data), admitted)) ||
         throw(ArgumentError("unused equivalent-earth numerical sections"))
     resolved = map(identities, defaults) do binding, declared
-        names = Tuple(intersect(keys(formula.options), keys(declared)))
+        names = Tuple(intersect(keys(formula.options.data), keys(declared.data)))
         (equation = binding,
-            options = computation_options(binding, declared, formula.options[names]))
+            options = formulation_options(binding, declared, FormulationOptions(formula.options.data[names])))
     end
     return map(equation -> resolved[findfirst(==(equation), identities)], equations)
 end
@@ -179,7 +180,7 @@ end
 """Expose the reduction rule, model parameters and numerical options as a native record."""
 function Base.NamedTuple(value::Formula)
     return (identifier=formula_id(value), parameters=value.parameters,
-        options=value.options)
+        options=value.options.data)
 end
 
 """Expose the order of material evaluation and the selected equivalent-earth rule."""
@@ -194,15 +195,20 @@ description(value::Formula; compact::Bool=false) = description(typeof(value); co
 """Iterate the independently selectable child slots admitted by this formula family."""
 Base.pairs(::Type{<:Formula}; quantity=nothing) = pairs((;))
 formula_id(::Type{<:Formula{ID}}) where {ID} = ID
-formulation_options(value::Formula) = formulation_options(typeof(value), (parameters=value.parameters, options=value.options))
-formulation_options(::Type{<:Formula}, retained::NamedTuple) =
-    formulation_options(FormulaDefinition, retained)
+formulation_options(value::Formula) = value.options
 
 """Describe an explicit equivalent-earth rule and its requested material-law order."""
-function description(::Val{:equivalent_earth},value::FormulaDefinition{ID,Order};compact::Bool=true) where {ID,Order}
-    text=description(Formula{ID};compact)
-    Order===:default || (text *= " "*string(Order)*" FrequencyDependent")
-    controls=formulation_options(value)
+description(slot::Val{:equivalent_earth},value::FormulaDefinition;compact::Bool=true) =
+    description(slot,NamedTuple(value);compact)
+function description(::Val{:equivalent_earth},value::NamedTuple;compact::Bool=true)
+    record=get(value,:rule,value)
+    selected=Formula{record.identifier}
+    text=applicable(description,selected) ? description(selected;compact) : string(record.identifier)
+    order=get(value,:order,:default)
+    order=order===:BeforeFD ? :before : order===:AfterFD ? :after : order
+    order===:default || (text *= " "*string(order)*" FrequencyDependent")
+    controls=(; (key => record[key] for key in (:parameters, :options)
+        if haskey(record,key) && !isempty(record[key]))...)
     isempty(controls) || (text *= " "*description(FormulaDefinition,controls;compact))
     return text
 end

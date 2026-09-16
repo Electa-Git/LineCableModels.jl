@@ -12,7 +12,7 @@
     @test norm(Y(results[1])-Y(results[2]))/norm(Y(results[1])) > 0.1
     @test typeof(results[1]) === typeof(results[2])
     for (result,selection,reference) in zip(results,choices,(:deep,:interface))
-        record=details(result).formulations
+        record=details(result).data.formulations
         @test record.requested == NamedTuple(selection).requested
         @test record.methods == NamedTuple(selection).methods
         @test record.requested.earth_admittance.parameters.reference === reference
@@ -31,11 +31,11 @@
     selected=Formulation(earth_properties=custom)
     changed=compute(problem,selected)
     @test !isempty(custom.seen)
-    @test details(changed).formulations.requested.earth_properties==NamedTuple(custom)
-    @test details(changed).formulations.methods.earth_properties==NamedTuple(custom)
-    @test details(changed).formulations.effective.earth_properties === :DispersiveEarth
+    @test details(changed).data.formulations.requested.earth_properties==NamedTuple(custom)
+    @test details(changed).data.formulations.methods.earth_properties==NamedTuple(custom)
+    @test details(changed).data.formulations.effective.earth_properties === :DispersiveEarth
     @test typeof(changed) === typeof(results[1])
-    retained=LineCableModels.ImportExport.deserialize_value(Val(:formulation),details(changed).formulations)
+    retained=LineCableModels.ImportExport.deserialize_value(Val(:formulation),details(changed).data.formulations)
     @test formula_id(retained,nothing)==formula_id(selected,nothing)
     grid=Formulation(earth_impedance=Grid([c.definitions.earth_impedance for c in choices]),
         earth_admittance=Grid([c.definitions.earth_admittance for c in choices]);combine=:zip)
@@ -45,6 +45,6 @@
     for i in 1:2
         @test Z(batch[i]) == Z(results[i])
         @test Y(batch[i]) == Y(results[i])
-        @test details(batch[i]).formulations == details(results[i]).formulations
+        @test details(batch[i]).data.formulations == details(results[i]).data.formulations
     end
 end

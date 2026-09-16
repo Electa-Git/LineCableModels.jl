@@ -1,6 +1,9 @@
 const REPOSITORY_ROOT = pkgdir(LineCableModels)
 
 _selection_value(value::Union{Nothing, Bool, Number, AbstractString, Symbol}) = value
+_selection_value(value::Grammar.FormulationOptions) = _selection_value(value.data)
+_selection_value(value::Grammar.ComputationOptions) = _selection_value(value.data)
+_selection_value(value::Grammar.ComputationDetails) = _selection_value(value.data)
 function _selection_value(value::Type)
     sprint(show, value; context = (:module=>nothing, :compact=>false))
 end
@@ -125,8 +128,8 @@ function implementation_record(formulation; external_sources = ())
 end
 
 function calculation_record(calculation::BenchmarkCalculation)
-    options=Base.structdiff(calculation.options, (;
-        on_result = get(calculation.options, :on_result, nothing)))
+    options=Base.structdiff(calculation.options.data, (;
+        on_result = get(calculation.options.data, :on_result, nothing)))
     problem=calculation.problem
     numerical=problem isa LineParametersProblem ? numerical_input_sha256(problem) :
               semantic_sha256(_selection_value(problem))

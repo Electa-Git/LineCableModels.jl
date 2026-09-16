@@ -4,7 +4,7 @@ const FEM_FIELD_QUANTITIES = (
 
 _quasi_full(physics::Symbol) = physics === Symbol("quasi-fw")
 function _fem_physics_code(formulation::LineCableModelsFEM)
-    Int(_quasi_full(formulation.options.physics))
+    Int(_quasi_full(formulation.options.data.physics))
 end
 function _field_quantities(physics::Symbol)
     _quasi_full(physics) ?
@@ -126,7 +126,7 @@ function _artifact_getdp()
 end
 
 function _getdp_selection(execution::ComputationOptions; run_directory = nothing)
-    explicit = execution.getdp_executable
+    explicit = execution.data.getdp_executable
     environment = get(ENV, GETDP_ENVIRONMENT_VARIABLE, nothing)
     selection = if explicit !== nothing
         (path = abspath(explicit), source = :explicit, artifact_hash = nothing)

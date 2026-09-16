@@ -54,11 +54,11 @@ function _cable_summaries(values::AbstractMatrix)
 end
 
 function _sample_shunt_model(value::Union{Engine.LineParameters,Engine.CableConstants})
-    model=get(details(value),:shunt_model,nothing)
-    model===nothing && return (;)
-    return (shunt_model=(requested=model.requested,effective=model.effective,
+    model=get(details(value).data,:shunt_model,nothing)
+    model===nothing && return ComputationDetails()
+    return ComputationDetails(; shunt_model=(requested=model.requested,effective=model.effective,
         domains=[(design=d.design,terminals=collect(d.terminals),effective=d.effective)
-            for d in model.domains]),)
+            for d in model.domains]))
 end
 
 function _aggregate(
@@ -81,17 +81,17 @@ function _aggregate(
         first_result.frequency,
         _sample_shunt_model(first_result)
     )
-    retained = formulation.options.return_samples ? sample_values : nothing
-    hist = formulation.options.return_histograms ?
+    retained = formulation.options.data.return_samples ? sample_values : nothing
+    hist = formulation.options.data.return_histograms ?
            (
         R = [HistogramDensity(collect(@view sample_values.R[assembly, :]);
-                 bins = formulation.options.bins) for assembly in axes(sample_values.R, 1)],
+                 bins = formulation.options.data.bins) for assembly in axes(sample_values.R, 1)],
         L = [HistogramDensity(collect(@view sample_values.L[assembly, :]);
-                 bins = formulation.options.bins) for assembly in axes(sample_values.L, 1)],
+                 bins = formulation.options.data.bins) for assembly in axes(sample_values.L, 1)],
         C = [HistogramDensity(collect(@view sample_values.C[assembly, :]);
-                 bins = formulation.options.bins) for assembly in axes(sample_values.C, 1)],
+                 bins = formulation.options.data.bins) for assembly in axes(sample_values.C, 1)],
         G = [HistogramDensity(collect(@view sample_values.G[assembly, :]);
-                 bins = formulation.options.bins) for assembly in axes(sample_values.G, 1)]
+                 bins = formulation.options.data.bins) for assembly in axes(sample_values.G, 1)]
     ) : nothing
     return (; representation, statistics = summaries, samples = retained, histograms = hist)
 end
@@ -166,15 +166,15 @@ function _aggregate(
         observe(first_result, Engine.frequencies);
         basis = basis(first_result), details = _sample_shunt_model(first_result)
     )
-    hist = formulation.options.return_histograms ?
+    hist = formulation.options.data.return_histograms ?
            NamedTuple{(:R, :L, :C, :G)}(Tuple(
         _map_samples(
-            values -> HistogramDensity(values; bins = formulation.options.bins),
+            values -> HistogramDensity(values; bins = formulation.options.data.bins),
             samples
         )
     for samples in (sample_values.R, sample_values.L, sample_values.C, sample_values.G)
     )) : nothing
-    retained = formulation.options.return_samples ? sample_values : nothing
+    retained = formulation.options.data.return_samples ? sample_values : nothing
     return (; representation, statistics = summaries, samples = retained, histograms = hist)
 end
 
@@ -265,7 +265,7 @@ function _monte_carlo(point, formulation::MonteCarlo, options, seed, details_own
     clearance = point isa Gridpoint{Engine.LineParametersProblem} ?
                 DataModel.prepare_clearance(point) : nothing
     try
-        return with_scan_progress(;total=formulation.options.trials) do receiver
+        return with_scan_progress(;total=formulation.options.data.trials) do receiver
             _monte_carlo(point, formulation, options, seed, details_owner, clearance,receiver)
         end
     finally
@@ -279,7 +279,7 @@ function _monte_carlo(point, formulation::MonteCarlo, options, seed, details_own
     failures = NamedTuple[]
     attempts = 0
     accepted = 0
-    ntrials = formulation.options.trials
+    ntrials = formulation.options.data.trials
     first_result = nothing
     sample_values = nothing
     sample_axis = nothing
@@ -296,7 +296,7 @@ function _monte_carlo(point, formulation::MonteCarlo, options, seed, details_own
         succeeded = false
         try
             realization = DataModel.with_clearance(clearance) do
-                sample = realize_arguments(rng, point, formulation.options.distribution)
+                sample = realize_arguments(rng, point, formulation.options.data.distribution)
                 stage = :build
                 realize(point, sample)
             end
@@ -311,7 +311,7 @@ function _monte_carlo(point, formulation::MonteCarlo, options, seed, details_own
             succeeded = true
         catch exception
             backtrace = catch_backtrace()
-            formulation.options.on_error === :retry && exception isa DomainError ||
+            formulation.options.data.on_error === :retry && exception isa DomainError ||
                 rethrow()
             push!(failures, _failure_record(
                 attempts,
@@ -324,17 +324,17 @@ function _monte_carlo(point, formulation::MonteCarlo, options, seed, details_own
             receiver === nothing || report_progress(receiver,
                 (kind=:scan, stage=:sampling, completed=accepted, total=ntrials,
                     attempts, children_completed=attempts, rejected=length(failures)))
-            length(failures) < formulation.options.max_failures ||
+            length(failures) < formulation.options.data.max_failures ||
                 _retry_limit_error(
                     failures,
                     accepted,
                     attempts,
-                    formulation.options.max_failures
+                    formulation.options.data.max_failures
                 )
         end
         succeeded || continue
 
-        record = formulation.options.retain_details ?
+        record = formulation.options.data.retain_details ?
                  computation_details(details_owner, value) : nothing
         if accepted == 0
             first_result = value
@@ -342,13 +342,13 @@ function _monte_carlo(point, formulation::MonteCarlo, options, seed, details_own
                 ntrials,
                 _dkw_trials(
                     _observable_count(first_result),
-                    formulation.options.confidence,
-                    formulation.options.cdf_tol
+                    formulation.options.data.confidence,
+                    formulation.options.data.cdf_tol
                 )
             )
             sample_values = _sample_storage(first_result, ntrials)
             sample_axis = _sample_axis(first_result)
-            if formulation.options.retain_details
+            if formulation.options.data.retain_details
                 retained = Vector{typeof(record)}(undef, ntrials)
             end
         else
@@ -392,9 +392,9 @@ function compute(problem::ParametricProblem, formulation::MonteCarlo)
     point_count > 0 || throw(ArgumentError(
         "higher-order problem space must contain at least one core problem",
     ))
-    root_seed = formulation.options.seed === nothing ? rand(Random.RandomDevice(), UInt64) :
-                formulation.options.seed
-    details_owner = formulation.options.retain_details ?
+    root_seed = formulation.options.data.seed === nothing ? rand(Random.RandomDevice(), UInt64) :
+                formulation.options.data.seed
+    details_owner = formulation.options.data.retain_details ?
                     typeof(formulation.inner) : nothing
     point_source = points(problem.space)
     first_item = iterate(point_source)
@@ -416,14 +416,14 @@ function compute(problem::ParametricProblem, formulation::MonteCarlo)
 
     values = Vector{typeof(first_aggregate.representation)}(undef, point_count)
     stats_values = Vector{typeof(first_aggregate.statistics)}(undef, point_count)
-    sample_values = formulation.options.return_samples ?
+    sample_values = formulation.options.data.return_samples ?
                     Vector{typeof(first_aggregate.samples)}(undef, point_count) : nothing
-    histogram_values = formulation.options.return_histograms ?
+    histogram_values = formulation.options.data.return_histograms ?
                        Vector{typeof(first_aggregate.histograms)}(undef, point_count) :
                        nothing
     seeds = Vector{UInt64}(undef, point_count)
     trial_counts = Vector{Int}(undef, point_count)
-    retained = formulation.options.retain_details ?
+    retained = formulation.options.data.retain_details ?
                Vector{typeof(first_aggregate.details)}(undef, point_count) : nothing
 
     values[1] = first_aggregate.representation
@@ -501,6 +501,6 @@ function compute(problem::ParametricProblem, formulation::MonteCarlo)
         root_seed,
         seeds,
         trial_counts,
-        retained_details
+        ComputationDetails(retained_details)
     )
 end

@@ -45,7 +45,7 @@ function read_reference(path::AbstractString, expected_sha256::AbstractString)
     all(isfinite, document["Z"]) && all(isfinite, document["Y"]) || throw(ArgumentError(
         "numerical reference contains nonfinite matrix entries: $path"))
     parameters = LineParameters(PhaseDomain, document["Z"], document["Y"], document["frequencies"];
-        basis=:pul, details=(coordinates=String.(document["port_order"]),))
+        basis=:pul, details=ComputationDetails(;coordinates=String.(document["port_order"]),))
     parameters.f == problem.frequencies || throw(ArgumentError(
         "numerical reference frequency samples differ from its stored problem: $path"))
     length(document["port_order"]) == size(parameters.Z, 1) && allunique(document["port_order"]) ||

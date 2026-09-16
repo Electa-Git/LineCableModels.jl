@@ -64,8 +64,8 @@ function internal_shunt_response(selected::ShuntModel.Formula{:boundary},
                 # The admitted lossless laws are independent of frequency and
                 # temperature. Their dielectric descriptors retain UQ sources.
                 result = internal_shunt_response(_shunt_values(domain, methods), domain;
-                    level = selected.options.resolution,
-                    integration = selected.options.integration, audit = selected.options.audit)
+                    level = selected.options.data.resolution,
+                    integration = selected.options.data.integration, audit = selected.options.data.audit)
                 C = Matrix{T}(result.C)
                 P = lu(C) \ Matrix{T}(I, size(C, 1), size(C, 1))
                 diagnostic = result.diagnostic

@@ -2,7 +2,7 @@
     using LinearAlgebra
     const E=LineCableModels.Engine
     options(method;
-        controls...) = E.computation_options(E.SpectralIntegral,
+        controls...) = E.formulation_options(E.SpectralIntegral,
         (method = method, options = (; controls...)))
     using QuadGK
     a,b,h,y=1+im,2+im,0.5,1.0

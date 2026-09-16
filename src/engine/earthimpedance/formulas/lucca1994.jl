@@ -96,15 +96,15 @@ end
 
 
 
-function computation_options(::FormulaMethod{<:Formula{:lucca1994}, typeof(earth_impedance),
+function formulation_options(::FormulaMethod{<:Formula{:lucca1994}, typeof(earth_impedance),
         A}) where {A <: Tuple{Val{:mutual}, Val{1}, Val{2}}}
-    (;)
+    return FormulationOptions((;))
 end
 
 
-function computation_options(::FormulaMethod{<:Formula{:lucca1994}, typeof(earth_impedance),
+function formulation_options(::FormulaMethod{<:Formula{:lucca1994}, typeof(earth_impedance),
         A}) where {A <: Tuple{Val{:mutual}, Val{2}, Val{1}}}
-    (;)
+    return FormulationOptions((;))
 end
 
 function validate(binding::FormulaMethod{<:Formula{:lucca1994}, typeof(earth_impedance)},

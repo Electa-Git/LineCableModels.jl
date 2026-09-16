@@ -45,8 +45,9 @@ type.
 function compute(
         problem::AbstractProblemDefinition,
         formulations::AbstractVector{<:AbstractFormulation};
-        options::NamedTuple = (;)
+        options::Union{NamedTuple,ComputationOptions} = ComputationOptions()
 )
+    options = options isa NamedTuple ? ComputationOptions(options) : options
     isempty(formulations) && throw(ArgumentError(
         "a formulation collection must contain at least one formulation",
     ))
@@ -74,7 +75,7 @@ same problem-index-fastest storage order.
 # Returns
 
 - A named tuple containing `values`, `(problems, formulations)` axes, and
-  either an empty details tuple or `(points=records,)`.
+  `ComputationDetails`, empty or containing `(points=records,)`.
 """
 function traverse(problem::ParametricProblem, formulation)
     return with_scan_progress() do receiver
@@ -122,7 +123,7 @@ function _traverse(problem,formulation,receiver)
         values[1 + (formulation_index - 1) * point_count] = value
     end
 
-    retained = if formulation.options.retain_details
+    retained = if formulation.options.data.retain_details
         first_record = computation_details(
             typeof(first(formulations)),
             first_result
@@ -187,7 +188,7 @@ function _traverse(problem,formulation,receiver)
         (kind=:scan, stage=:computed, completed=point_count*formulation_count, total=point_count*formulation_count,
             batch=formulation_count))
 
-    retained_details = retained === nothing ? (;) : (points = retained,)
+    retained_details = ComputationDetails(retained === nothing ? (;) : (points = retained,))
     axes = (
         problems = problem.space,
         formulations = formulations
@@ -205,8 +206,9 @@ that selected point and never the surrounding finite space.
 function compute(
         point::Gridpoint{Target},
         formulation;
-        options::NamedTuple = (;)
+        options::Union{NamedTuple,ComputationOptions} = ComputationOptions()
 ) where {Target <: AbstractProblemDefinition}
+    options = options isa NamedTuple ? ComputationOptions(options) : options
     problem = materialize(point)::Target
     return compute(problem, formulation; options)
 end
@@ -241,8 +243,9 @@ axis; a problem `Gridspace` forms a Cartesian product with the formulations.
 function compute(
         problem::Union{AbstractProblemDefinition, Gridspace{<:AbstractProblemDefinition}},
         formulations::Gridspace{<:AbstractFormulation};
-        options::NamedTuple = (;)
+        options::Union{NamedTuple,ComputationOptions} = ComputationOptions()
 )
+    options = options isa NamedTuple ? ComputationOptions(options) : options
     return compute(ParametricProblem(problem, options), Combinatorial(formulations))
 end
 

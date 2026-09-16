@@ -6,7 +6,7 @@ by the insulation and semiconductor constitutive selections.
 
 $(TYPEDFIELDS)
 """
-struct Formula{ID, P <: NamedTuple, O <: NamedTuple} <: ShuntModelFormulation
+struct Formula{ID, P <: NamedTuple, O <: FormulationOptions} <: ShuntModelFormulation
     "Explicit model fallback policy."
     parameters::P
     "Boundary discretization, quadrature, and optional audit controls."
@@ -53,24 +53,26 @@ domains before frequency evaluation.
 - A concrete shunt model selection.
 """
 function Formula(::Val{ID}; parameters::NamedTuple = (;),
-        options::NamedTuple = (;)) where {ID}
+        options::Union{NamedTuple, FormulationOptions} = FormulationOptions()) where {ID}
+    options = options isa NamedTuple ? FormulationOptions(options) : options
     ID === :coaxial || throw(ArgumentError("unknown shunt model :$ID"))
-    isempty(parameters) && isempty(options) || throw(ArgumentError(
+    isempty(parameters) && isempty(options.data) || throw(ArgumentError(
         "coaxial shunt models accept no parameters or numerical controls"))
     return Formula{ID, typeof(parameters), typeof(options)}(parameters, options)
 end
 
 function Formula(::Val{:boundary}; parameters::NamedTuple = (;),
-        options::NamedTuple = (;))
+        options::Union{NamedTuple, FormulationOptions} = FormulationOptions())
+    options = options isa NamedTuple ? FormulationOptions(options) : options
     isempty(setdiff(keys(parameters), (:fallback,))) || throw(ArgumentError(
         "boundary shunt parameters accept only fallback"))
     fallback = get(parameters, :fallback, :error)
     fallback in (:error, :coaxial) ||
         throw(ArgumentError("boundary fallback must be :error or :coaxial"))
-    isempty(setdiff(keys(options), (:resolution, :integration, :audit))) ||
+    isempty(setdiff(keys(options.data), (:resolution, :integration, :audit))) ||
         throw(ArgumentError(
             "boundary shunt options accept resolution, integration, and audit"))
-    resolution = get(options, :resolution, (;))
+    resolution = get(options.data, :resolution, (;))
     resolution isa NamedTuple &&
     isempty(setdiff(keys(resolution), keys(DEFAULT_RESOLUTION))) ||
         throw(ArgumentError("unknown boundary resolution controls"))
@@ -79,7 +81,7 @@ function Formula(::Val{:boundary}; parameters::NamedTuple = (;),
         throw(ArgumentError("boundary resolution controls must be positive integers"))
     resolution.quadrature >= resolution.order+1 || throw(ArgumentError(
         "boundary quadrature must contain at least order+1 nodes"))
-    integration = get(options, :integration, (;))
+    integration = get(options.data, :integration, (;))
     integration isa NamedTuple &&
     isempty(setdiff(keys(integration), keys(DEFAULT_INTEGRATION))) ||
         throw(ArgumentError("unknown boundary integration controls"))
@@ -90,9 +92,9 @@ function Formula(::Val{:boundary}; parameters::NamedTuple = (;),
     integration.maxevals isa Integer && !(integration.maxevals isa Bool) &&
     integration.maxevals > 0 ||
         throw(ArgumentError("boundary maxevals must be a positive integer"))
-    audit = get(options, :audit, false)
+    audit = get(options.data, :audit, false)
     audit isa Bool || throw(ArgumentError("boundary audit must be Bool"))
-    normalized = (; resolution,
+    normalized = FormulationOptions(; resolution,
         integration = (rtol = Float64(integration.rtol),
             atol = Float64(integration.atol), maxevals = Int(integration.maxevals)),
         audit)
@@ -116,14 +118,8 @@ function description(::Type{<:Formula{:boundary}}; compact::Bool = false)
 end
 description(value::Formula; compact::Bool = false) = description(typeof(value); compact)
 Base.pairs(::Type{<:Formula}; quantity = nothing) = pairs((;))
-function formulation_options(value::Formula)
-    formulation_options(typeof(value),
-        (parameters = value.parameters, options = value.options))
-end
-function formulation_options(::Type{<:Formula}, retained::NamedTuple)
-    formulation_options(FormulaDefinition, retained)
-end
+formulation_options(value::Formula) = value.options
 function Base.NamedTuple(value::Formula)
     (identifier = formula_id(value),
-        parameters = value.parameters, options = value.options)
+        parameters = value.parameters, options = value.options.data)
 end

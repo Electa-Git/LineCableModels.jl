@@ -5,10 +5,10 @@ Select an owned result and its explicit output identities. External results
 without terminal metadata must be supplied as `(result, metadata)`.
 """
 function select(definition::BenchmarkTableDefinition, result::AbstractCoreResult)
-    coordinates=get(details(result), :coordinates, nothing)
+    coordinates=get(details(result).data, :coordinates, nothing)
     coordinates === nothing && throw(ArgumentError(
         "comparison needs output terminal identities; supply explicit operand metadata.port_order"))
-    metadata=(port_order=coordinates,formulation=get(details(result),:formulations,(;)),axes=nothing)
+    metadata=(port_order=coordinates,formulation=get(details(result).data,:formulations,(;)),axes=nothing)
     validate(definition,result,metadata)
     return select(definition,(;result,metadata))
 end
@@ -98,11 +98,11 @@ function select(definition::BenchmarkTableDefinition, source::NamedTuple)
         if !isempty(selections)
             for request in settings.requests, band in settings.bands, normalization in settings.normalizations, pair in pairs
                 any(row -> (row.reference_index,row.candidate_index)==pair && row.request==request &&
-                    details(row.error).band==band && details(row.error).normalization==normalization,comparisons) ||
+                    details(row.error).data.band==band && details(row.error).data.normalization==normalization,comparisons) ||
                     throw(ArgumentError("requested comparison was not retained; select an analysis or request explicit reanalysis"))
             end
-            comparisons=filter(row -> row.request in settings.requests && details(row.error).band in settings.bands &&
-                details(row.error).normalization in settings.normalizations,comparisons)
+            comparisons=filter(row -> row.request in settings.requests && details(row.error).data.band in settings.bands &&
+                details(row.error).data.normalization in settings.normalizations,comparisons)
         end
     else
         comparisons=reference.result isa ObservationPublication || candidate.result isa ObservationPublication ?
@@ -213,7 +213,7 @@ function tabulate(definition::BenchmarkTableDefinition, source,
     end
     for (analysis,row) in enumerate(published.comparisons)
         error=row.error
-        detail=details(error)
+        detail=details(error).data
         ports=published.candidate.metadata.port_order
         left=select(published.reference.result,row.reference_index)
         right=select(published.candidate.result,row.candidate_index)
@@ -438,7 +438,7 @@ function validate(::BenchmarkTableDefinition,result::AbstractCoreResult,metadata
     ports=metadata.port_order
     size(observe(result,Z))[1:2] == (length(ports),length(ports)) ||
         throw(DimensionMismatch("output terminal identities do not match the matrix dimensions"))
-    get(details(result),:coordinates,ports) == ports || throw(ArgumentError("explicit output terminal identities differ from the result"))
+    get(details(result).data,:coordinates,ports) == ports || throw(ArgumentError("explicit output terminal identities differ from the result"))
     return nothing
 end
 function validate(definition::BenchmarkTableDefinition,result::ParametricResult,metadata::NamedTuple)

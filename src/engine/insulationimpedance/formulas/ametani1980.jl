@@ -59,7 +59,7 @@ Implements Ametani (1980) as reproduced in Ametani, Ohno, and Nagaoka
         r_ex::T,
         mu_r::T,
         s::Complex{T},
-        values::NamedTuple, options::NamedTuple, workspace
+        values::NamedTuple, options::FormulationOptions, workspace
 ) where {T <: Real}
     if isapprox(r_in, zero(T); atol = eps(T)) ||
        isapprox(r_in, r_ex; atol = eps(T))
@@ -69,6 +69,6 @@ Implements Ametani (1980) as reproduced in Ametani, Ohno, and Nagaoka
     return s * μ0 * mu_r / (2 * (one(r_in) * π)) * log(r_ex / r_in)
 end
 
-computation_options(::FormulaMethod{<:Formula{:ametani1980}, typeof(insulation_impedance)}) = (;)
+formulation_options(::FormulaMethod{<:Formula{:ametani1980}, typeof(insulation_impedance)}) = FormulationOptions()
 
 :ametani1980

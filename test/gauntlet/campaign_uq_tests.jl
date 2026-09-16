@@ -31,7 +31,7 @@ end
         frequencies=[0.1,50.,1e7])
     model = declaration.model
     problem = declaration.reference.problem
-    @test declaration.reference.formulation.options.distribution === :uniform
+    @test declaration.reference.formulation.options.data.distribution === :uniform
     @test declaration.candidate.problem === problem
     reference = BenchmarkCalculation(:monte_carlo,problem,MonteCarlo(uq_inner_formulation();
         trials=8,seed=0x1234,distribution=:uniform))

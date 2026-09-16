@@ -17,8 +17,10 @@ raise `ArgumentError`; backend applicability is checked against the design.
 """
 Formula(identifier::Symbol; kwargs...) = Formula(Val(identifier); kwargs...)
 
-function Formula(::Val{:none}; parameters::NamedTuple = (;), options::NamedTuple = (;))
-    isempty(parameters) && isempty(options) ||
+function Formula(::Val{:none}; parameters::NamedTuple = (;),
+        options::Union{NamedTuple, FormulationOptions} = FormulationOptions())
+    options = options isa NamedTuple ? FormulationOptions(options) : options
+    isempty(parameters) && isempty(options.data) ||
         throw(ArgumentError("pipe-impedance :none accepts no model parameters or numerical controls"))
     return Formula{:none}()
 end
@@ -64,7 +66,7 @@ end
 
 function Formula(selection::FormulaDefinition{ID, Order}) where {ID, Order}
     Order === :default || throw(ArgumentError("order applies only to equivalent_earth"))
-    isempty(selection.options) ||
+    isempty(selection.options.data) ||
         throw(ArgumentError("deferred pipe contribution has no numerical options"))
     selection.equivalent_earth === nothing ||
         throw(ArgumentError("pipe contribution cannot consume equivalent_earth"))
@@ -81,6 +83,4 @@ description(value::Formula; compact::Bool=false) = description(typeof(value); co
 """Iterate the independently selectable child slots admitted by this formula family."""
 Base.pairs(::Type{<:Formula}; quantity=nothing) = pairs((;))
 formula_id(::Type{<:Formula{ID}}) where {ID} = ID
-formulation_options(value::Formula) = formulation_options(typeof(value), (;))
-formulation_options(::Type{<:Formula}, retained::NamedTuple) =
-    formulation_options(FormulaDefinition, retained)
+formulation_options(::Formula) = FormulationOptions()

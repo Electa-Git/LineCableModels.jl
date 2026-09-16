@@ -342,7 +342,7 @@ end
     @test size(parameters.Y) == (3, 3, 1)
     @test all(isfinite, parameters.Z)
     @test all(isfinite, parameters.Y)
-    @test details(parameters).trace.cable_map == [1, 2, 3]
+    @test details(parameters).data.trace.cable_map == [1, 2, 3]
 
     encoded=LineCableModels.ImportExport.serialize_value(design)
     @test encoded["origin"]["item"]["item"]["items"][1]["primitive"]["kind"] ==

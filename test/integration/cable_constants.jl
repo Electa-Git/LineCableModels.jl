@@ -244,7 +244,7 @@
         Formulation(options = (ideal_transposition = false,));
         options = (trace = true,)
     )
-    primitive=details(traced).trace
+    primitive=details(traced).data.trace
     for (frequency_index,
         (frequency, expected)) in enumerate((
         (50.0, constants),
@@ -377,7 +377,7 @@
     @test size(multicore_parameters.Y) == (2, 2, 1)
     @test all(isfinite, multicore_parameters.Z)
     @test all(isfinite, multicore_parameters.Y)
-    @test details(multicore_parameters).trace.cable_map == [1, 1, 2, 2]
+    @test details(multicore_parameters).data.trace.cable_map == [1, 1, 2, 2]
 
     function many_conductor_design()
         parts=AbstractCablePart[

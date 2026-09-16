@@ -112,13 +112,13 @@ to cache completed C/P for all operating conditions.
 ### 4.1 Retain through the existing result
 
 Keep `compute`'s ordinary result type and return shape. With `trace=true`, retain
-the completed blueprint collection under `details(result).trace.blueprints`:
+the completed blueprint collection under `details(result).data.trace.blueprints`:
 
 ```julia
 # Proposed API; not currently implemented.
 formulation = Formulation(shunt_model=:boundary)
 result = @time compute(problem, formulation; options=(trace=true,))
-blueprints = details(result).trace.blueprints
+blueprints = details(result).data.trace.blueprints
 
 next_result = @time compute(next_problem, formulation;
     options=(blueprints=blueprints,))
@@ -133,7 +133,7 @@ the same contract uses a one-element collection:
 local_formulation = CableConstantsFormulation(shunt_model=:boundary)
 local_result = @time compute(local_problem, local_formulation;
     options=(trace=true,))
-local_blueprints = details(local_result).trace.blueprints
+local_blueprints = details(local_result).data.trace.blueprints
 
 next_local_result = @time compute(next_local_problem, local_formulation;
     options=(blueprints=local_blueprints,))

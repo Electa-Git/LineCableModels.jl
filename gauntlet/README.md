@@ -202,7 +202,7 @@ spaces require explicit `pairing=[(reference_index, candidate_index), ...]`, wit
 every candidate named once. Equal lengths do not establish correspondence.
 Native results carry actual output terminal identities, including reductions.
 Scalar results also retain complete requested and resolved formula records in
-`details(result).formulations`: `requested` contains the supplied parameters and
+`details(result).data.formulations`: `requested` contains the supplied parameters and
 hooks, and `methods` contains the resolved owner records. This is the same
 `NamedTuple(formulation)` representation used by formulation-space reports.
 Changing a physical reference or hook therefore remains identifiable after
@@ -369,7 +369,7 @@ an explicit adapter limitation; they are never clamped, interpolated or replaced
 The native phase scan exposes [100, 200, 500 or 1000 increments](https://www.pscad.com/webhelp-pscad-v5.1.0-ol/Master_Library_Models/Transmission_Lines_Cables/Distributed_Line_Models/fd_phase_options.htm).
 Passivity sampling is a different control and is not a Z/Y frequency-grid selector.
 
-`details(result).files` enumerates retained backend evidence by relative name,
+`details(result).data.files` enumerates retained backend evidence by relative name,
 original file path and SHA-256. Gauntlet copies those files into the calculation
 bundle; original workstation paths remain calculation records. FEM supplies this evidence
 when its declaration retains its native run directory.

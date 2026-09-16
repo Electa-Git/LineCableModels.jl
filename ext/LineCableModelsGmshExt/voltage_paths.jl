@@ -130,7 +130,7 @@ _voltage_path_file(run::FEMRun, frequency::Int) =
     joinpath(run.path, "input", @sprintf("paths-f%04d.pro", frequency))
 
 function _prepare_voltage_paths!(run, model, formulation, mesh_paths)
-    _quasi_full(formulation.options.physics) || return nothing
+    _quasi_full(formulation.options.data.physics) || return nothing
     @info "Preparing quasi-full voltage paths" frequencies=length(mesh_paths)
     for (mesh, plan) in zip(mesh_paths, model.mesh_plans)
         _write_voltage_paths(_voltage_path_file(run, plan.frequency_index), mesh, plan, model)

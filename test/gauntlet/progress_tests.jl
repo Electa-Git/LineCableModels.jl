@@ -448,13 +448,15 @@ end
     const calls=NamedTuple[]
     const delivered=Ref(0)
     struct TimedProbe<:LineCableModels.Grammar.AbstractFormulation end
-    function LineCableModels.compute(problem::LineParametersProblem, ::TimedProbe; options = (;))
+    function LineCableModels.compute(problem::LineParametersProblem, ::TimedProbe;
+            options::Union{NamedTuple,ComputationOptions}=ComputationOptions())
+        options=options isa NamedTuple ? ComputationOptions(options) : options
         push!(calls,
             (quiet = LineCableModels.performance_sample_active(),
-                receiver = LineCableModels.progress_receiver(), callback = haskey(options, :on_result)))
+                receiver = LineCableModels.progress_receiver(), callback = haskey(options.data, :on_result)))
         value=LineParameters(PhaseDomain, fill(1.0+0im, 2, 2, 2), fill(0.0+1im, 2, 2, 2), [
             1.0, 10.0])
-        haskey(options, :on_result)&&options.on_result(problem, 1, value)
+        haskey(options.data, :on_result)&&options.data.on_result(problem, 1, value)
         return value
     end
     model=Gauntlet.load_case(:two_insulated_wires;

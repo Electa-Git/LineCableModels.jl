@@ -209,8 +209,8 @@ end
     sampled=@test_logs (:warn, r"Sampled cable placements adjusted") compute(
         ParametricProblem(problems), formulation)
     @test sampled.trial_counts == [3]
-    @test isempty(only(sampled.details.failures))
-    @test only(sampled.details.clearance).adjustments == 3
+    @test isempty(only(sampled.details.data.failures))
+    @test only(sampled.details.data.clearance).adjustments == 3
     @test length(constructed) == 4 # one uncertain preparation, three draws
     @test all(system -> nominal(only(fixture.gaps(system))) >= 0.002001, constructed)
     @test DM._CLEARANCE_CONTEXT[] === nothing

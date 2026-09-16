@@ -9,6 +9,7 @@ reference calibration and a selected constitutive equation.
 $(IMPORTS)
 """
 module TemperatureDependent
+import ...Grammar: FormulationOptions
 
 export Formula, formula_id, formulas
 public temperature_resistivity
@@ -18,7 +19,7 @@ using DocStringExtensions: IMPORTS, TYPEDEF, TYPEDFIELDS, TYPEDSIGNATURES
 #! explicit-imports: on
 using ..Materials: Material
 import ...TextDisplay
-import ...Grammar: AbstractFormulation, computation_options
+import ...Grammar: AbstractFormulation, formulation_options
 import ...LineCableModels: FormulaDefinition, FormulaMethod, constitutive,
                           formula_id, validate
 #! explicit-imports: off

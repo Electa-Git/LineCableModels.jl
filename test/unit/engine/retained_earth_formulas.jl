@@ -21,12 +21,12 @@
         pair=E.EarthPair(1,self ? 1 : 2,h,self ? 0.0 : 0.4,layers;radius=self ? 0.005 : nothing)
         selected=owner.Formula(author)
         binding=validate(selected,pair)
-        if haskey(binding.options,:integration)
+        if haskey(binding.options.data,:integration)
             selected=owner.Formula(author;options=(integration=(method=:quad,options=controls(:quad)),))
         end
         expected=selected(rho,epsilon,mu,2pi*im*f,pair)()
         @test isfinite(expected)
-        if haskey(binding.options,:integration)
+        if haskey(binding.options.data,:integration)
             @testset "$method" for method in (:quad,:trapz,:cim)
                 actual=owner.Formula(author;options=(integration=(method,options=controls(method)),))(
                     rho,epsilon,mu,2pi*im*f,pair)()

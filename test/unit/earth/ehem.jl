@@ -35,11 +35,11 @@
         @test pairs > 0
         @test events == (order===:before ? repeat([:ehem, :fd], pairs) :
                vcat(fill(:fd, length(earth.layers)-1), fill(:ehem, pairs)))
-        @test details(result).formulations.equivalent_earth.earth_impedance.order === order
-        @test details(result).formulations.equivalent_earth.earth_admittance.order === order
-        @test details(result).formulations.effective.earth_properties === :DispersiveEarth
-        @test details(result).formulations.equivalent_earth.earth_impedance.identifier ===
+        @test details(result).data.formulations.equivalent_earth.earth_impedance.order === order
+        @test details(result).data.formulations.equivalent_earth.earth_admittance.order === order
+        @test details(result).data.formulations.effective.earth_properties === :DispersiveEarth
+        @test details(result).data.formulations.equivalent_earth.earth_impedance.identifier ===
               :SquaredBottomEarth
-        @test !hasproperty(details(result).formulations,:modified)
+        @test !hasproperty(details(result).data.formulations,:modified)
     end
 end

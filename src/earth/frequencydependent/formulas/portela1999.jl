@@ -33,7 +33,7 @@ end
 
 function earth_material(
         ::Formula{:portela1999}, material::EarthMaterial{T}, frequency::T,
-        values::NamedTuple, options::NamedTuple, workspace
+        values::NamedTuple, options::FormulationOptions, workspace
 ) where {T <: Real}
     beta = convert(T, values.beta)
     exponent = convert(T, values.exponent)
@@ -47,6 +47,6 @@ function earth_material(
     return EarthMaterial{T}(inv(conductivity), relative_permittivity, material.mu_r)
 end
 
-computation_options(::FormulaMethod{<:Formula{:portela1999}, typeof(earth_material)}) = (;)
+formulation_options(::FormulaMethod{<:Formula{:portela1999}, typeof(earth_material)}) = FormulationOptions()
 
 :portela1999

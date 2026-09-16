@@ -5,8 +5,8 @@
     f = [1.0, 1e3, 1e7]
     z = fill(1.0 + im, 1, 1, 3)
     y = fill(1e-13 + 1e-18im, 1, 1, 3)
-    reference = LineParameters(PhaseDomain, z, y, f; details=(coordinates=["a"],))
-    candidate = LineParameters(PhaseDomain, 2z, 2y, f; details=(coordinates=["a"],))
+    reference = LineParameters(PhaseDomain, z, y, f; details=ComputationDetails(;coordinates=["a"],))
+    candidate = LineParameters(PhaseDomain, 2z, 2y, f; details=ComputationDetails(;coordinates=["a"],))
     options = (backend=:cairo, display_plot=false, controls=false,
         length_unit=:base, quantity_units=:base, open_export=false)
     publication = report(BenchmarkTableDefinition(quantities=(G, B, X)),

@@ -247,10 +247,10 @@ function _structural_reduction(
         permutation::Vector{Int},
         bundle_pairs::Vector{Tuple{Int, Int}},
         kron_map,
-        options::NamedTuple
+        options::FormulationOptions
 ) where {T <: Real}
     transformed = matrix[permutation, permutation]
-    options.reduce_bundle && merge_bundles!(transformed, bundle_pairs)
+    options.data.reduce_bundle && merge_bundles!(transformed, bundle_pairs)
     if kron_map !== nothing
         eliminate = findall(==(0), kron_map)
         if !isempty(eliminate)
@@ -281,7 +281,7 @@ function _structural_reduction(
             )
         end
     end
-    options.ideal_transposition && ideal_transposition!(transformed)
+    options.data.ideal_transposition && ideal_transposition!(transformed)
     return transformed
 end
 
@@ -311,7 +311,7 @@ function reduce_primitive_matrices(
         Z_primitive::Array{Complex{T}, 3},
         P_primitive::Array{Complex{T}, 3},
         phase_map::Vector{Int},
-        options::NamedTuple
+        options::FormulationOptions
 ) where {T <: Real}
     size(Z_primitive) == size(P_primitive) || throw(DimensionMismatch(
         "primitive Z and P scans must have identical dimensions",
@@ -320,7 +320,7 @@ function reduce_primitive_matrices(
     size(Z_primitive, 2) == n == length(phase_map) || throw(DimensionMismatch(
         "primitive matrices and phase_map must describe the same terminals",
     ))
-    all(name -> haskey(options, name),
+    all(name -> haskey(options.data, name),
         (:reduce_bundle, :kron_reduction, :ideal_transposition)) ||
         throw(ArgumentError("shared line-parameter options are incomplete"))
 

@@ -27,7 +27,7 @@ end
 
 function earth_material(
         ::Formula{:scott1967}, material::EarthMaterial{T}, frequency::T,
-        values::NamedTuple, options::NamedTuple, workspace
+        values::NamedTuple, options::FormulationOptions, workspace
 ) where {T <: Real}
     thousand = convert(T, 1000)
     conductivity_100hz = thousand / material.rho
@@ -51,6 +51,6 @@ function earth_material(
     return EarthMaterial{T}(thousand / conductivity, relative_permittivity, material.mu_r)
 end
 
-computation_options(::FormulaMethod{<:Formula{:scott1967}, typeof(earth_material)}) = (;)
+formulation_options(::FormulaMethod{<:Formula{:scott1967}, typeof(earth_material)}) = FormulationOptions()
 
 :scott1967

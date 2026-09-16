@@ -97,7 +97,7 @@ end
     records = [NamedTuple(Formulation(earth_impedance=id))
         for id in (:xue2018,:default,:pollaczek1926,:saad1996,:wedepohl1973)]
     result = ParametricResult(nothing,fill(reference,5),
-        (problems=[:one],formulations=records),(;))
+        (problems=[:one],formulations=records), ComputationDetails((;)))
     options = (; backend=:cairo,display_plot=false,controls=true,open_export=false,
         fig_size=(1000,650),length_unit=:base)
     page = LineCableModels.plot(result; ydata=(R,),reference,options...)
@@ -144,7 +144,7 @@ end
         series_attributes=(marker=nothing,),options...)
     @test !any(plot -> plot isa Makie.Scatter,only(plain.axes).scene.plots)
     short_reference = reference[1:2]
-    short_result = ParametricResult(nothing,fill(short_reference,5),result.axes,(;))
+    short_result = ParametricResult(nothing,fill(short_reference,5),result.axes, ComputationDetails((;)))
     short = LineCableModels.plot(short_result; ydata=(R,),reference=short_reference,options...)
     @test all(group -> any(plot -> plot isa Makie.Scatter && !isempty(plot[1][]),group),
         values(short.addon_state.groups))

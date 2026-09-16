@@ -1,7 +1,8 @@
 function computation_options(
         ::Type{PSCADFormulation},
-        options::NamedTuple
+        record::ComputationOptions
 )::ComputationOptions
+    options = record.data
     allowed = (:output_stem, :remote, :verbosity, :output_basis, :on_result,
         :resume_run_directory, :solver_identity, :work_root)
     unknown = filter(key -> key ∉ allowed, keys(options))
@@ -60,7 +61,7 @@ function computation_options(
     work_root = abspath(normalized.work_root)
     first(splitpath(relpath(work_root, options.remote.local_root))) == ".." &&
         throw(ArgumentError("PSCAD work_root must be inside remote.local_root"))
-    return (
+    return ComputationOptions(;
         work_root,
         output_stem,
         remote = options.remote,
@@ -122,7 +123,7 @@ function _stage_pscad_project(
         problem.system,
         problem.earth_props;
         formulation = formulation,
-        base_freq = formulation.options.base_frequency,
+        base_freq = formulation.options.data.base_frequency,
         temperature = problem.temperature,
         native_settings = setting[(:ground, :frequency)],
         file_name = joinpath(root, "generated.pscx")
@@ -133,12 +134,12 @@ function _stage_pscad_project(
     staged = joinpath(root, "generated.pscx")
     project == staged || cp(project, staged; force = true)
     dielectric_losses = map(enumerate(problem.system.designs)) do (cable, design)
-        map(enumerate(_pscad_components(design, formulation.options.base_frequency,
+        map(enumerate(_pscad_components(design, formulation.options.data.base_frequency,
             formulation, problem.temperature))) do (layer, component)
             dielectric = component.dielectric
             requested = iszero(dielectric.shunt_capacitance) ? 0.0 :
                         dielectric.shunt_conductance /
-                        (2pi * formulation.options.base_frequency *
+                        (2pi * formulation.options.data.base_frequency *
                          dielectric.shunt_capacitance)
             exported = parse(Float64, _pscad_value(requested; maximum = 10))
             (; cable, layer, requested, exported, capped = requested > 10)
@@ -149,7 +150,7 @@ end
 
 function _compute_pscad(problem::LineParametersProblem, formulation::PSCADFormulation,
         execution_options, prepared, setting)
-    config = execution_options.remote
+    config = execution_options.data.remote
     root, staged = prepared.root, prepared.staged
     started = time_ns()
     input = Dict{String, Any}(
@@ -162,11 +163,11 @@ function _compute_pscad(problem::LineParametersProblem, formulation::PSCADFormul
                                 for (field, control) in
                                     pairs(getproperty(setting, component)))
         for component in (:ground, :frequency, :configuration)),
-        "solver"=>execution_options.solver_identity,
+        "solver"=>execution_options.data.solver_identity,
         "toolkit"=>Dict(name=>bytes2hex(sha256(source))
         for (name, source) in PSCAD_REMOTE_SOURCES))
     signature = bytes2hex(sha256(sprint(io -> TOML.print(io, input; sorted = true))))
-    resume = execution_options.resume_run_directory
+    resume = execution_options.data.resume_run_directory
     candidates = resume === nothing ? String[] :
                  resume === :latest ?
                  sort!(
@@ -226,7 +227,7 @@ function _compute_pscad(problem::LineParametersProblem, formulation::PSCADFormul
         @info "Computing PSCAD line parameters" system = problem.system.system_id
         execution = run_remote_pscad(config, staged, joinpath(root, "outputs"),
             formulation, problem.frequencies;
-            output_stem = execution_options.output_stem,
+            output_stem = execution_options.data.output_stem,
             verbosity = verbosity(execution_options, :PSCAD))
         TOML.parsefile(joinpath(execution.output_dir, "solver.toml")) == input["solver"] ||
             throw(ArgumentError("PSCAD result has no matching solver attestation: $root"))
@@ -272,7 +273,7 @@ function _compute_pscad(problem::LineParametersProblem, formulation::PSCADFormul
             isfile(temporary) && rm(temporary)
         end
     end
-    parameters = _pscad_basis(parameters, problem, execution_options.output_basis)
+    parameters = _pscad_basis(parameters, problem, execution_options.data.output_basis)
     evidence_root=reused ? source_root : root
     files=[(path = relpath(joinpath(directory, name), evidence_root),
                source = joinpath(directory, name), sha256 = bytes2hex(open(sha256, joinpath(directory, name))))
@@ -280,9 +281,9 @@ function _compute_pscad(problem::LineParametersProblem, formulation::PSCADFormul
     names=["cable:$(terminal.cable):$(terminal.terminal)" for terminal in problem.system.terminal_order]
     coordinates=names[sortperm(problem.system.connection_order)]
     retained = (files, coordinates, requested_frequencies = copy(problem.frequencies),
-        formulations = computation_details(formulation), native_setting = setting,
-        base_frequency = formulation.options.base_frequency, loss_tangent_limit = 10.0, aerial_shunt_conductance = 1e-38,
-        native_readback, native_frequencies = parameters.details.native_frequencies,
+        formulations = computation_details(formulation).data, native_setting = setting,
+        base_frequency = formulation.options.data.base_frequency, loss_tangent_limit = 10.0, aerial_shunt_conductance = 1e-38,
+        native_readback, native_frequencies = parameters.details.data.native_frequencies,
         dielectric_losses = prepared.dielectric_losses,
         exported_project = read(staged, String),
         execution = merge(execution,
@@ -291,19 +292,21 @@ function _compute_pscad(problem::LineParametersProblem, formulation::PSCADFormul
                 source_elapsed_seconds = source_elapsed,
                 source_elapsed_scope = PSCAD_TIMING_SCOPE,
                 wall_seconds = (time_ns() - started) * 1.0e-9,
-                input_sha256 = signature, solver_identity = execution_options.solver_identity)))
+                input_sha256 = signature, solver_identity = execution_options.data.solver_identity)))
     return LineParameters(
-        parameters.domain, parameters.Z, parameters.Y, parameters.f, retained)
+        parameters.domain, parameters.Z, parameters.Y, parameters.f, ComputationDetails(retained))
 end
 
 function compute(problem::LineParametersProblem, formulation::PSCADFormulation;
-        options::NamedTuple = (;))
+        options::Union{NamedTuple,ComputationOptions} = ComputationOptions())
+    options = options isa NamedTuple ? ComputationOptions(options) : options
     return first(compute(problem, [formulation]; options))
 end
 
 function compute(
         problem::LineParametersProblem, formulations::AbstractVector{<:PSCADFormulation};
-        options::NamedTuple = (;))
+        options::Union{NamedTuple,ComputationOptions} = ComputationOptions())
+    options = options isa NamedTuple ? ComputationOptions(options) : options
     isempty(formulations) &&
         throw(ArgumentError("PSCAD formulation collections cannot be empty"))
     settings = [pscad_setting(value, problem) for value in formulations]
@@ -318,12 +321,12 @@ function compute(
 end
 
 function _compute_pscad(problem::LineParametersProblem,
-        formulations::AbstractVector{<:PSCADFormulation}, execution::NamedTuple, settings)
-    observed = identify(execution.remote)
-    execution.solver_identity === nothing || execution.solver_identity == observed ||
+        formulations::AbstractVector{<:PSCADFormulation}, execution::ComputationOptions, settings)
+    observed = identify(execution.data.remote)
+    execution.data.solver_identity === nothing || execution.data.solver_identity == observed ||
         throw(ArgumentError("PSCAD solver installation changed during the campaign; start a new campaign"))
-    execution = merge(execution, (solver_identity = observed,))
-    projects = [_stage_pscad_project(problem, value, setting, execution.work_root)
+    execution = ComputationOptions(merge(execution.data, (solver_identity = observed,)))
+    projects = [_stage_pscad_project(problem, value, setting, execution.data.work_root)
                 for (value, setting) in zip(formulations, settings)]
     # Same problem, frequency vector and execution settings throughout this
     # batch; reuse only byte-identical exported inputs and native solver choices.
@@ -334,7 +337,7 @@ function _compute_pscad(problem::LineParametersProblem,
         problem, first(formulations), execution, first(projects), first(settings))
     values = Vector{typeof(first_result)}(undef, length(formulations))
     values[1] = first_result
-    execution.on_result === nothing || execution.on_result(problem, 1, first_result)
+    execution.data.on_result === nothing || execution.data.on_result(problem, 1, first_result)
     completed = Dict(first(keys)=>1)
     for index in 2:length(formulations)
         previous = get(completed, keys[index], nothing)
@@ -344,19 +347,19 @@ function _compute_pscad(problem::LineParametersProblem,
         else
             source = values[previous]
             @info "PSCAD reuses identical exported inputs" formulation=index source_formulation=previous
-            retained = merge(deepcopy(source.details),
-                (formulations = computation_details(formulations[index]),
+            retained = merge(deepcopy(source.details.data),
+                (formulations = computation_details(formulations[index]).data,
                     native_setting = settings[index],
-                    execution = merge(source.details.execution,
+                    execution = merge(source.details.data.execution,
                         (reused = true, elapsed_seconds = 0.0,
                             elapsed_scope = "identical-input reuse; no solver execution", wall_seconds = 0.0))))
             values[index] = LineParameters(source.domain,
                 SeriesImpedance(copy(source.Z.values); basis = basis(source)),
-                ShuntAdmittance(copy(source.Y.values); basis = basis(source)), copy(source.f), retained)
+                ShuntAdmittance(copy(source.Y.values); basis = basis(source)), copy(source.f), ComputationDetails(retained))
         end
         completed[keys[index]] = index
-        execution.on_result === nothing ||
-            execution.on_result(problem, index, values[index])
+        execution.data.on_result === nothing ||
+            execution.data.on_result(problem, index, values[index])
     end
     return values
 end

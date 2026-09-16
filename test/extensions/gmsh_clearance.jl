@@ -6,7 +6,7 @@
     copper = Material(kind = :conductor, rho = 1.7e-8)
     formulation = Formulation(:LineCableModelsFEM;
         options = (ideal_transposition = false,))
-    execution = computation_options(LineCableModelsFEM, (mesh_policy=:remesh, gmsh_verbosity=0,))
+    execution = computation_options(LineCableModelsFEM, ComputationOptions((mesh_policy=:remesh, gmsh_verbosity=0,)))
     for radius in (0.01, measurement(0.01, 1e-4))
         design = build(CableDesign, "touching-mesh",
             Group(:core, Region(:metal, Disk(radius), copper)))

@@ -19,11 +19,11 @@ struct LinearErrorResult{T, F, D <: ComputationDetails} <: AbstractUncertaintyRe
             details::D
     ) where {T, F, D <: ComputationDetails}
         check_core_result(T)
-        isempty(details) || keys(details) == (:points,) ||
+        isempty(details.data) || keys(details.data) == (:points,) ||
             throw(ArgumentError(
                 "LinearErrorResult details must be empty or contain only points",
             ))
-        isempty(details) || length(details.points) == length(values) ||
+        isempty(details.data) || length(details.data.points) == length(values) ||
             throw(DimensionMismatch(
                 "retained details must contain one entry per core result",
             ))
@@ -31,7 +31,7 @@ struct LinearErrorResult{T, F, D <: ComputationDetails} <: AbstractUncertaintyRe
     end
 end
 
-LinearErrorResult(formulation, values) = LinearErrorResult(formulation, values, (;))
+LinearErrorResult(formulation, values) = LinearErrorResult(formulation, values, ComputationDetails())
 
 _monte_carlo_keys(::Type{<:Engine.CableConstants}) = (:R, :L, :C, :G)
 _monte_carlo_keys(::Type{<:Engine.LineParameters}) = (:R, :L, :C, :G)
@@ -221,22 +221,22 @@ function _validate_failure_summary(summary, failures, accepted::Int)
     return nothing
 end
 
-function _validate_monte_carlo_details(details, values, trial_counts)
-    isempty(details) && return nothing
-    keys(details) in ((:trials, :failures, :failure_summary),
+function _validate_monte_carlo_details(details::ComputationDetails, values, trial_counts)
+    isempty(details.data) && return nothing
+    keys(details.data) in ((:trials, :failures, :failure_summary),
         (:trials, :failures, :failure_summary, :clearance)) || throw(ArgumentError(
         "MonteCarloResult details must contain trials, failures, failure_summary, and optional clearance diagnostics",
     ))
     point_count = length(values)
     all(length(product) == point_count
-    for product in Base.values(details)) ||
+    for product in Base.values(details.data)) ||
         throw(DimensionMismatch(
         "retained Monte Carlo details must contain one entry per Gridspace point",
     ))
     for point in eachindex(values)
-        records = details.trials[point]
-        failures = details.failures[point]
-        summary = details.failure_summary[point]
+        records = details.data.trials[point]
+        failures = details.data.failures[point]
+        summary = details.data.failure_summary[point]
         length(records) == trial_counts[point] || throw(DimensionMismatch(
             "retained details must contain one entry per accepted Monte Carlo trial",
         ))
@@ -245,8 +245,8 @@ function _validate_monte_carlo_details(details, values, trial_counts)
         ))
         foreach(_validate_failure_record, failures)
         _validate_failure_summary(summary, failures, trial_counts[point])
-        if haskey(details, :clearance)
-            clearance = details.clearance[point]
+        if haskey(details.data, :clearance)
+            clearance = details.data.clearance[point]
             keys(clearance) == (:adjustments, :max_displacement_m) &&
                 clearance.adjustments isa Int &&
                 clearance.adjustments >= 0 &&
@@ -374,7 +374,7 @@ function MonteCarloResult(
         root_seed,
         point_seeds,
         trial_counts,
-        (;)
+        ComputationDetails()
     )
 end
 

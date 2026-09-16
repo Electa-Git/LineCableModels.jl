@@ -24,7 +24,7 @@ import LineCableModels.Engine.InsulationImpedance: insulation_impedance
 import LineCableModels.Engine: Formulation,
                                LineParametersProblem,
                                verbosity
-import LineCableModels.Grammar: AbstractFormulation, ComputationOptions,
+import LineCableModels.Grammar: AbstractFormulation, ComputationOptions, ComputationDetails,
                                 FormulationOptions, computation_options, compute,
                                 formulation_options
 using DocStringExtensions: TYPEDSIGNATURES, TYPEDEF, TYPEDFIELDS

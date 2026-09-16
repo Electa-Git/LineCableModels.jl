@@ -82,15 +82,15 @@ end
 
 
 
-function computation_options(::FormulaMethod{<:Formula{:wedepohl1973}, typeof(earth_impedance),
+function formulation_options(::FormulaMethod{<:Formula{:wedepohl1973}, typeof(earth_impedance),
         A}) where {A <: Tuple{Val{:self}, Val{2}, Val{2}}}
-    (;)
+    return FormulationOptions((;))
 end
 
 
-function computation_options(::FormulaMethod{<:Formula{:wedepohl1973}, typeof(earth_impedance),
+function formulation_options(::FormulaMethod{<:Formula{:wedepohl1973}, typeof(earth_impedance),
         A}) where {A <: Tuple{Val{:mutual}, Val{2}, Val{2}}}
-    (;)
+    return FormulationOptions((;))
 end
 
 function validate(binding::FormulaMethod{<:Formula{:wedepohl1973}, typeof(earth_impedance)},

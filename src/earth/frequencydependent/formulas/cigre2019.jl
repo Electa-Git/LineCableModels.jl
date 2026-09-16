@@ -31,7 +31,7 @@ end
 
 function earth_material(
         ::Formula{:cigre2019}, material::EarthMaterial{T}, frequency::T,
-        values::NamedTuple, options::NamedTuple, workspace
+        values::NamedTuple, options::FormulationOptions, workspace
 ) where {T <: Real}
     conductivity_reference = inv(material.rho)
     conductivity_exponent = convert(T, values.epsilon_conductivity_exponent)
@@ -46,6 +46,6 @@ function earth_material(
     return EarthMaterial{T}(inv(conductivity), relative_permittivity, material.mu_r)
 end
 
-computation_options(::FormulaMethod{<:Formula{:cigre2019}, typeof(earth_material)}) = (;)
+formulation_options(::FormulaMethod{<:Formula{:cigre2019}, typeof(earth_material)}) = FormulationOptions()
 
 :cigre2019

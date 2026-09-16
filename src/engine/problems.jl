@@ -198,7 +198,7 @@ Store the physical methods selected for a line-parameter calculation.
 
 $(TYPEDFIELDS)
 """
-struct LineParametersFormulation{M <: NamedTuple, O <: NamedTuple, D <: NamedTuple} <:
+struct LineParametersFormulation{M <: NamedTuple, O <: FormulationOptions, D <: NamedTuple} <:
        AbstractFormulation
     "Owner-resolved physical methods; context-dependent defaults remain deferred."
     methods::M
@@ -257,9 +257,8 @@ description(::Type{LineParametersFormulation},::Val{:temperature_dependence}) = 
 
 """Expose typed children and controls without serializing the formulation."""
 Base.pairs(value::LineParametersFormulation; quantity=nothing) =
-    pairs(LineParametersFormulation,(methods=value.methods,requested=map(formulation_options,value.definitions),options=value.options);quantity)
+    pairs(LineParametersFormulation,(methods=value.methods,requested=value.definitions,options=value.options.data);quantity)
 formulation_options(value::LineParametersFormulation) = value.options
-formulation_options(::Type{LineParametersFormulation},retained::NamedTuple,::Val{:retained}) = retained.options
 
 """
 $(TYPEDSIGNATURES)
@@ -271,7 +270,15 @@ owns child order and relevance. The empty route identifies the owner itself.
 """
 function Base.pairs(::Type{LineParametersFormulation}, retained::NamedTuple;
         quantity=nothing,owner=LineParametersFormulation)
-    entries=Pair{Tuple,Any}[(owner,()) => (owner => (options=retained.options,))]
+    # A selection pair carries passive explicit controls, not an option input.
+    explicit = function (value)
+        record = value isa Union{FormulaDefinition, AbstractFormulation} ? NamedTuple(value) : value
+        record isa NamedTuple || return (;)
+        return (; (key => record[key] for key in (:parameters, :options, :equivalent_earth)
+            if haskey(record, key) && record[key] !== nothing &&
+                !(record[key] isa NamedTuple && isempty(record[key])))...)
+    end
+    entries=Pair{Tuple,Any}[(owner,()) => (owner => retained.options)]
     for (slot,family) in pairs(owner;quantity)
         selected=retained.methods[slot]
         requested=retained.requested[slot]
@@ -281,18 +288,18 @@ function Base.pairs(::Type{LineParametersFormulation}, retained::NamedTuple;
                 "retained $slot selections do not match the owning formula slots"))
             for (route,_) in children
                 value=selected[route]
-                controls=requested[route]
+                controls=explicit(requested isa NamedTuple ? requested[route] : requested)
                 push!(entries,(owner,(slot,route)) => (value===nothing || ismissing(value) ? value : value => controls))
             end
         else
-            controls=requested
+            controls=explicit(requested)
             push!(entries,(owner,(slot,)) => (selected===nothing || ismissing(selected) ? selected : selected => controls))
         end
     end
     return entries
 end
 
-function LineParametersFormulation(methods::NamedTuple, options::NamedTuple)
+function LineParametersFormulation(methods::NamedTuple, options::FormulationOptions)
     LineParametersFormulation(methods, options, methods)
 end
 
@@ -307,7 +314,7 @@ function LineParametersFormulation(;
         earth_properties,
         pipe_impedance::PipeImpedanceFormulation,
         temperature_dependence::Union{Nothing, TemperatureDependent.TemperatureDependentFormulation} = TemperatureDependent.Formula(:default),
-        options::NamedTuple
+        options::FormulationOptions
 )
     methods = (;
         internal_impedance, insulation_impedance, earth_impedance, shunt_model,
@@ -328,7 +335,7 @@ function _line_formulation(
         earth_properties,
         pipe_impedance,
         temperature_dependence,
-        options::NamedTuple
+        options::FormulationOptions
 )
     selected = LineParametersFormulation(;
         internal_impedance = Formulation(InternalImpedance.Formula, internal_impedance),
@@ -413,7 +420,7 @@ function Formulation(;
         earth_properties = formula(:default),
         pipe_impedance = formula(:default),
         temperature_dependence = formula(:default),
-        options = (;),
+        options = FormulationOptions(),
         combine::Symbol = :product
 )
     values = (
@@ -431,7 +438,7 @@ function Formulation(;
     )
     return parameterize(
         LineParametersFormulation,
-        _line_formulation,
+        (inputs...) -> _line_formulation(inputs[1:end-1]..., last(inputs) isa NamedTuple ? FormulationOptions(last(inputs)) : last(inputs)),
         values;
         combine
     )
@@ -454,5 +461,5 @@ function Base.NamedTuple(value::LineParametersFormulation)
     # parameter tuple or concrete selection type. The stored values remain unchanged.
     Record=NamedTuple{(:backend,:requested,:methods,:options),
         Tuple{Symbol,NamedTuple,NamedTuple,NamedTuple}}
-    return Record((:coaxial,map(record,value.definitions),map(record,value.methods),value.options))
+    return Record((:coaxial,map(record,value.definitions),map(record,value.methods),value.options.data))
 end

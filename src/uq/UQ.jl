@@ -6,7 +6,6 @@ statistics, and uncertainty-result presentation.
 """
 module UQ
 import ..LineCableModels: description, formula_id
-import ..Grammar: formulation_options
 
 export LinearError, MonteCarlo, LinearErrorResult, MonteCarloResult
 export SampleSummary, HistogramDensity

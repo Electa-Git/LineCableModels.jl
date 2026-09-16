@@ -2,8 +2,8 @@ function record_calculation(result::AbstractCoreResult, model)
     domain(result) === PhaseDomain || throw(ArgumentError("only phase-domain calculations can be retained"))
     return (kind=:gauntlet_calculation, frequencies=copy(frequencies(result)), basis=basis(result),
         domain=:PhaseDomain, Z=copy(observe(result, Z)), Y=copy(observe(result, Y)),
-        comparison_unsupported=get(details(result), :comparison_unsupported, (;)),
-        data_sha256=semantic_sha256(result, (; port_order=get(details(result),:coordinates,model.port_order))), computation_details=_selection_value(details(result)))
+        comparison_unsupported=get(details(result).data, :comparison_unsupported, (;)),
+        data_sha256=semantic_sha256(result, (; port_order=get(details(result).data,:coordinates,model.port_order))), computation_details=_selection_value(details(result).data))
 end
 
 function record_calculation(result::LineCableModels.AbstractUncertaintyResult, model)
@@ -15,10 +15,10 @@ function record_calculation(result::LineCableModels.AbstractUncertaintyResult, m
         trial_counts = [LineCableModels.trial_count(result,i) for i in eachindex(result)], distribution = LineCableModels.sampling_distribution(result)) :
                nothing
     return (kind = :gauntlet_uncertainty, scientific_result, frequencies = copy(frequencies(core)),
-        basis = basis(core), domain = nameof(domain(core)), data_sha256 = semantic_sha256((scientific=scientific_result,port_order=get(details(core),:coordinates,model.port_order))),
+        basis = basis(core), domain = nameof(domain(core)), data_sha256 = semantic_sha256((scientific=scientific_result,port_order=get(details(core).data,:coordinates,model.port_order))),
         parameter_manifest = parameter_manifest(model), applied_variation = variation_record(model.variation),
         correlation = correlation_record(model), propagation, sampling,
-        computation_details = _selection_value(LineCableModels.details(result)))
+        computation_details = _selection_value(LineCableModels.details(result).data))
 end
 
 function record_calculation(result::ParametricResult, model)
@@ -32,7 +32,7 @@ function record_calculation(result::ParametricResult, model)
                         for formulation in NamedTuple(result).axes.formulations])
     return (kind = :gauntlet_result_space, points, axes,
         frequencies = getproperty.(points, :frequencies), basis = getproperty.(points, :basis),
-        domain = getproperty.(points, :domain), data_sha256 = semantic_sha256(result, (; port_order=get(details(first(result)),:coordinates,model.port_order), axes)))
+        domain = getproperty.(points, :domain), data_sha256 = semantic_sha256(result, (; port_order=get(details(first(result)).data,:coordinates,model.port_order), axes)))
 end
 
 _numerical_record(record) = Base.structdiff(record, (; id=record.id))
@@ -308,9 +308,9 @@ function _execute(calculation::BenchmarkCalculation; directory = nothing, model 
                 scan_receiver === nothing || LineCableModels.report_progress(scan_receiver,(kind=:scan,stage=:computing,
                     completed=index-1,total=length(formulations),formulation=index))
                 options=calculation.options
-                if haskey(options,:on_result) && options.on_result !== nothing
-                    callback=options.on_result
-                    options=merge(options,(on_result=(problem,_,result)->callback(problem,index,result),))
+                if haskey(options.data,:on_result) && options.data.on_result !== nothing
+                    callback=options.data.on_result
+                    options=Grammar.ComputationOptions(merge(options.data,(on_result=(problem,_,result)->callback(problem,index,result),)))
                 end
                 point=BenchmarkCalculation(calculation.id,calculation.problem,formulations[index];
                     options)
@@ -330,11 +330,11 @@ function _execute(calculation::BenchmarkCalculation; directory = nothing, model 
               end
             end
             ParametricResult(LineCableModels.Combinatorial(calculation.formulation),values,
-                (problems=[calculation.problem],formulations), (;))
+                (problems=[calculation.problem],formulations), Grammar.ComputationDetails())
         else
             options=calculation.options
             if recover_solvers && calculation.formulation isa Union{Engine.LineCableModelsFEM,PSCAD.PSCADFormulation}
-                options=merge((resume_run_directory=:latest,),options)
+                options=Grammar.ComputationOptions(merge((resume_run_directory=:latest,),options.data))
             end
             began=time_ns()
             value=_compute_calculation(calculation;options)
@@ -352,8 +352,8 @@ function _execute(calculation::BenchmarkCalculation; directory = nothing, model 
         retained_files=NamedTuple[]
         evidence=result isa ParametricResult ?
                  [(point = index, file) for (index, value) in enumerate(result)
-                  for file in get(details(value), :files, ())] :
-                 [(point = 0, file) for file in get(details(result), :files, ())]
+                  for file in get(details(value).data, :files, ())] :
+                 [(point = 0, file) for file in get(details(result).data, :files, ())]
         for (point, file) in evidence
             isabspath(file.path) &&
                 throw(ArgumentError("backend evidence paths must be relative"))
@@ -371,7 +371,7 @@ function _execute(calculation::BenchmarkCalculation; directory = nothing, model 
                     sha256 = file.sha256, original_source = file.source))
         end
         payload = record_calculation(result, model)
-        output_coordinates=get(details(result isa ParametricResult ? first(result) : result),:coordinates,model.port_order)
+        output_coordinates=get(details(result isa ParametricResult ? first(result) : result).data,:coordinates,model.port_order)
         JLD2.jldsave(temporary; schema_version = 3, status = :complete,
             result_bytes=_execution_bytes(result),payload...,
             retained_files, computation_signature = signature,
@@ -792,7 +792,7 @@ end
 function _calculation_progress(calculation)
     jobs=_calculation_jobs(calculation)
     form=calculation.formulation
-    total=form isa MonteCarlo ? (form.options.trials === nothing ? -1 : jobs*form.options.trials) : jobs
+    total=form isa MonteCarlo ? (form.options.data.trials === nothing ? -1 : jobs*form.options.data.trials) : jobs
     batch=calculation.problem isa ParametricProblem && form isa Union{LinearError,LineCableModels.Combinatorial} &&
         form.inner isa Union{Gridspace,AbstractVector} ? length(form.inner) : 1
     return (backend=_execution_backend(form),mode=_execution_mode(form),total,batch,

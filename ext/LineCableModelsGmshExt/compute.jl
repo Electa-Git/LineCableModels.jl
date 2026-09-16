@@ -366,7 +366,7 @@ function _headless_solve!(
         run, model, model_data_path, last(mesh_paths), formulation, execution
     )
     _transition!(run, running, "GetDP frequency batches running")
-    @info "Starting isolated GetDP frequency batches" workers=execution.frequency_workers
+    @info "Starting isolated GetDP frequency batches" workers=execution.data.frequency_workers
     _run_getdp!(run, model, formulation, execution, mesh_paths)
     receiver=LineCableModels.progress_receiver()
     receiver === nothing || LineCableModels.report_progress(receiver,(stage=:validating,backend=:fem))
@@ -467,7 +467,7 @@ function _ui_solve!(
             end)
             scan = _parse_scan(run, model, formulation, execution)
             _write_scan_checksums(run, scan)
-            execution.plot_field_maps && _merge_maps!(scan.map_paths)
+            execution.data.plot_field_maps && _merge_maps!(scan.map_paths)
             gmsh.onelab.set_number(_onelab_name("completion_status"), [1.0])
             gmsh.onelab.set_number(_onelab_name("ui/completed_frequencies"), [run.completed_frequencies])
             gmsh.onelab.set_number(_onelab_name("ui/completed_columns"), [run.completed_columns])
@@ -503,7 +503,7 @@ function _compute_fem(
     runtime_root = _runtime_root()
     inputs = _fem_input_record(model, formulation, execution)
     run = _resume_run(
-        runtime_root, execution.resume_run_directory, model, inputs
+        runtime_root, execution.data.resume_run_directory, model, inputs
     )
     if run.state === completed
         # Read-only reuse: no Gmsh session, scratch reset, log append, state
@@ -536,7 +536,7 @@ function _compute_fem(
     finally
         _release_run(ownership)
     end
-    if !execution.keep_run_directory
+    if !execution.data.keep_run_directory
         expected_parent = realpath(joinpath(runtime_root, "runs"))
         realpath(dirname(run.path)) == expected_parent || error(
             "refusing to remove FEM run outside the runtime root")
@@ -550,8 +550,8 @@ function _compute_owned_fem(problem, formulation, execution, model, run, runtime
     session = nothing
     try
         session = _start_gmsh(LineCableModels.performance_sample_active() ? 0 :
-            execution.gmsh_verbosity)
-        parameters = execution.ui ?
+            execution.data.gmsh_verbosity)
+        parameters = execution.data.ui ?
                      _ui_solve!(run, model, formulation, execution, runtime_root, inputs) :
                      _headless_solve!(run, model, formulation, execution, runtime_root, inputs)
         return parameters
@@ -589,7 +589,7 @@ function _fem_input_record(model::FEMResolvedModel, formulation::LineCableModels
     selection = _getdp_selection(execution)
     getdp_identity = _getdp_identity(selection.path)
     getdp_provenance = selection
-    mesh_path = execution.mesh_path
+    mesh_path = execution.data.mesh_path
     return (
         schema_version = 7,
         solver_protocol = 3,
@@ -605,8 +605,8 @@ function _fem_input_record(model::FEMResolvedModel, formulation::LineCableModels
         region_mesh_sizes = getproperty.(model.region_plans, :mesh_size),
         cable_outer_mesh_sizes = model.cable_outer_mesh_sizes,
         mesh_growth_factor = model.mesh_growth_factor,
-        options = formulation.options,
-        execution = (; (key => value for (key, value) in pairs(execution)
+        options = formulation.options.data,
+        execution = (; (key => value for (key, value) in pairs(execution.data)
             if key ∉ (:verbosity, :output_basis, :trace, :on_result, :log_file,
                 :resume_run_directory))...),
         supplied_mesh = mesh_path === nothing || !isfile(mesh_path) ? nothing :
@@ -625,8 +625,9 @@ end
 function compute(
         problem::LineParametersProblem,
         formulation::Union{LineCableModelsFEM, AbstractVector{<:LineCableModelsFEM}};
-        options::NamedTuple = (;)
+        options::Union{NamedTuple,ComputationOptions} = ComputationOptions()
 )
+    options = options isa NamedTuple ? ComputationOptions(options) : options
     return lock(FEM_SESSION_LOCK) do
         _compute_request(problem, formulation; options)
     end
@@ -638,14 +639,14 @@ function _compute_request(problem, formulation; options)
     # Scalar and collection calls share completion notification and reuse rules.
     formulations = formulation isa LineCableModelsFEM ? [formulation] : formulation
     console = ConsoleLogger(stderr, Logging.Debug)
-    logger = Engine.ConsoleVerbosityLogger(console, execution.verbosity)
-    values = if execution.log_file === nothing || LineCableModels.performance_sample_active()
+    logger = Engine.ConsoleVerbosityLogger(console, execution.data.verbosity)
+    values = if execution.data.log_file === nothing || LineCableModels.performance_sample_active()
         with_logger(logger) do
             _compute_fem(problem, formulations, execution)
         end
     else
-        mkpath(dirname(abspath(execution.log_file)))
-        open(execution.log_file, "a") do io
+        mkpath(dirname(abspath(execution.data.log_file)))
+        open(execution.data.log_file, "a") do io
             file_logger = SimpleLogger(io, Logging.Debug)
             with_logger(FEMTeeLogger(logger, file_logger)) do
                 _compute_fem(problem, formulations, execution)
@@ -671,21 +672,21 @@ function _compute_fem(
     first_result = _compute_fem(problem, first(formulations), execution, first(models))
     values = Vector{typeof(first_result)}(undef, length(formulations))
     values[1] = first_result
-    execution.on_result === nothing || execution.on_result(problem, 1, first_result)
+    execution.data.on_result === nothing || execution.data.on_result(problem, 1, first_result)
     completed = Dict(first(keys) => 1)
     for index in 2:length(formulations)
         formulation = formulations[index]
         previous = get(completed, keys[index], nothing)
-        value = if previous === nothing || execution.ui ||
-                   execution.mesh_policy === :remesh
+        value = if previous === nothing || execution.data.ui ||
+                   execution.data.mesh_policy === :remesh
             _compute_fem(problem, formulation, execution, models[index])
         else
             source = values[previous]
             @info "FEM reuses identical resolved inputs" formulation=index source_formulation=previous
             # Results remain independently mutable and each request keeps its own
             # selection record. The shared run record identifies the actual solve.
-            metadata = merge(deepcopy(source.details),
-                (formulations=formulation_record(formulation),))
+            metadata = ComputationDetails(merge(deepcopy(source.details.data),
+                (formulations=formulation_record(formulation),)))
             LineParameters(PhaseDomain,
                 SeriesImpedance(copy(source.Z.values); basis=Engine.basis(source)),
                 ShuntAdmittance(copy(source.Y.values); basis=Engine.basis(source)),
@@ -695,7 +696,7 @@ function _compute_fem(
             "FEM formulations produced inconsistent result types"))
         values[index] = value
         completed[keys[index]] = index
-        execution.on_result === nothing || execution.on_result(problem, index, value)
+        execution.data.on_result === nothing || execution.data.on_result(problem, index, value)
     end
     return values
 end

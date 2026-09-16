@@ -27,8 +27,8 @@
     @test_throws ArgumentError compute(ModalTransformationProblem(modal);
         options = (offdiagonal_tolerance = 1e-6,))
     inverse_problem = ModalTransformationProblem(modal)
-    @test (@inferred computation_options(typeof(inverse_problem), (;))) == (;)
-    @test_throws ArgumentError computation_options(typeof(inverse_problem), (unknown=true,))
+    @test (@inferred computation_options(typeof(inverse_problem), ComputationOptions((;)))) == ComputationOptions()
+    @test_throws ArgumentError computation_options(typeof(inverse_problem), ComputationOptions((unknown=true,)))
     rebuilt=@inferred compute(inverse_problem)
 
     @test eltype(modal) === Complex{Measurement{Float64}}
@@ -205,9 +205,9 @@ end
         options = (offdiagonal_tolerance = 2.0,))
     @test modal.Z.values[:, :, 1] ≈ A * Z[:, :, 1] / B
     @test modal.Y.values[:, :, 1] ≈ B * Y[:, :, 1] / A
-    @test details(modal).modal.requested.identifier === :FixedModalMaps
-    @test details(modal).modal.effective.identifier === :FixedModalMaps
-    @test isempty(details(modal).modal.options)
+    @test details(modal).data.modal.requested.identifier === :FixedModalMaps
+    @test details(modal).data.modal.effective.identifier === :FixedModalMaps
+    @test isempty(details(modal).data.modal.options)
     rebuilt = compute(ModalTransformationProblem(modal))
     @test rebuilt.Z.values ≈ Z
     @test rebuilt.Y.values ≈ Y
@@ -233,12 +233,12 @@ end
             expected=inv(currents[1:2,:])
             @test kronify(matrix,[1,2,0]) ≈ expected rtol=1e-10 atol=0
         end
-        options=(reduce_bundle=false,kron_reduction=true,ideal_transposition=false)
+        options=FormulationOptions(reduce_bundle=false,kron_reduction=true,ideal_transposition=false)
         reduced=E.reduce_primitive_matrices(reshape(z,3,3,1),reshape(p,3,3,1),[1,2,0],options)
         @test reduced.Z[:,:,1] ≈ inv((z\Matrix{ComplexF64}(I,3,3)[:,1:2])[1:2,:]) rtol=1e-10
         @test s*inv(reduced.P[:,:,1]) ≈ s*((p\Matrix{ComplexF64}(I,3,3)[:,1:2])[1:2,:]) rtol=1e-10
         bundled=E.reduce_primitive_matrices(reshape(z,3,3,1),reshape(p,3,3,1),[1,1,2],
-            (reduce_bundle=true,kron_reduction=true,ideal_transposition=false))
+            FormulationOptions(reduce_bundle=true,kron_reduction=true,ideal_transposition=false))
         equal_potentials=[1.0 0;1 0;0 1]
         @test bundled.Z[:,:,1] ≈ inv(transpose(equal_potentials)*(z\equal_potentials)) rtol=1e-10
         @test bundled.P[:,:,1] ≈ inv(transpose(equal_potentials)*(p\equal_potentials)) rtol=1e-10

@@ -156,8 +156,8 @@ After loading a Makie package, `Makie.hist`, `Makie.stairs`, `Makie.ecdfplot`,
 `Makie.lines`, and `Makie.qqplot` display retained distribution information.
 
 Higher-order calculations keep supplemental computation output separate from
-their scientific products. `details(result)` returns the empty named tuple by
-default. Construct `Combinatorial`, `LinearError`, or `MonteCarlo` with
+their scientific products. `details(result)` returns an empty `ComputationDetails` by
+default; its payload is available through `.data`. Construct `Combinatorial`, `LinearError`, or `MonteCarlo` with
 `options=(retain_details=true,)` only when the core computation owner has
 registered a `computation_details` method and those records are needed.
 Monte Carlo uses strict failure propagation by default. Physically unsupported

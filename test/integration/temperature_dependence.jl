@@ -28,7 +28,7 @@
     @test !isempty(declaration.seen)
     @test actual.Z.values ≈ reference.Z.values rtol=2e-13
     @test actual.Y.values ≈ reference.Y.values rtol=2e-13
-    @test details(actual).formulations.effective.temperature_dependence === :ScaledResistivity
+    @test details(actual).data.formulations.effective.temperature_dependence === :ScaledResistivity
     grid = Formulation(temperature_dependence=Grid((declaration,nothing)),
         insulation_admittance=:lossy,options=selected.options)
     results = compute(problem,grid)
@@ -70,7 +70,7 @@ end
         distribution=:uniform,return_samples=true,return_histograms=true,retain_details=true))
     @test sampled.trial_counts==[N,N]
     @test length(unique(sampled.point_seeds))==2
-    @test all(isempty,sampled.details.failures)
+    @test all(isempty,sampled.details.data.failures)
     # Rebuild each retained draw through scalar compute; statistics below are
     # arithmetic checks on these samples, not distribution-accuracy claims.
     for (index,point) in enumerate(LineCableModels.points(space))

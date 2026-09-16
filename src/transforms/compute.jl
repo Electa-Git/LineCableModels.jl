@@ -20,28 +20,29 @@ end
 
 function computation_options(
         ::Type{LineCableModelsModal},
-        options::NamedTuple
+        record::ComputationOptions
 )::ComputationOptions
+    options = record.data
     isempty(setdiff(keys(options), (:offdiagonal_tolerance,))) || throw(ArgumentError(
         "unknown modal action options: $(Tuple(keys(options)))"))
     tolerance = get(options, :offdiagonal_tolerance, 1e-6)
     tolerance isa Real && isfinite(tolerance) && tolerance >= 0 || throw(ArgumentError(
         "offdiagonal_tolerance must be finite and nonnegative"))
-    return (offdiagonal_tolerance = tolerance,)
+    return ComputationOptions(; offdiagonal_tolerance = tolerance)
 end
 
 function computation_options(
-        ::Type{<:ModalTransformationProblem{P}}, options::NamedTuple
+        ::Type{<:ModalTransformationProblem{P}}, options::ComputationOptions
 )::ComputationOptions where {T, U, D <: ModalDomain, P <: LineParameters{T, U, D}}
-    isempty(options) || throw(ArgumentError(
+    isempty(options.data) || throw(ArgumentError(
         "inverse modal transformation uses the stored operators and accepts no action options"))
-    return (;)
+    return ComputationOptions()
 end
 
 function _forward(
         parameters::LineParameters{T, U, PhaseDomain, Basis},
         formulation::ModalTransformationFormulation,
-        execution::NamedTuple
+        execution::ComputationOptions
 ) where {T <: Complex, U <: Real, Basis}
     formula = formulation.formula
     workspace = (fallback_frequencies = Int[],)
@@ -58,7 +59,7 @@ function _forward(
     source = Matrix{S}(undef, n, n)
     product = similar(source)
     factor = similar(source)
-    tolerance = execution.offdiagonal_tolerance
+    tolerance = execution.data.offdiagonal_tolerance
     identifier = formula_id(formula)
 
     @inbounds for frequency in axes(impedance, 3)
@@ -94,12 +95,12 @@ function _forward(
         SeriesImpedance{eltype(impedance), Basis}(impedance),
         ShuntAdmittance{eltype(admittance), Basis}(admittance),
         parameters.f,
-        merge(parameters.details,
+        ComputationDetails(merge(parameters.details.data,
             (modal = (identifier = identifier,
                 requested = NamedTuple(formulation.definition),
                 effective = NamedTuple(formula),
-                options = formula.options, acceptance = execution,
-                fallback_frequencies = copy(workspace.fallback_frequencies)),))
+                options = formula.options.data, acceptance = execution.data,
+                fallback_frequencies = copy(workspace.fallback_frequencies)),)))
     )
 end
 
@@ -147,8 +148,9 @@ end
 function compute(
         problem::ModalTransformationProblem{P},
         formulation::ModalTransformationFormulation;
-        options::NamedTuple = (;)
+        options::Union{NamedTuple,ComputationOptions} = ComputationOptions()
 ) where {T, U, P <: LineParameters{T, U, PhaseDomain}}
+    options = options isa NamedTuple ? ComputationOptions(options) : options
     return compute(LineCableModelsModal(), problem, formulation; options)
 end
 
@@ -156,8 +158,9 @@ function compute(
         ::LineCableModelsModal,
         problem::ModalTransformationProblem{P},
         formulation::ModalTransformationFormulation;
-        options::NamedTuple = (;)
+        options::Union{NamedTuple,ComputationOptions} = ComputationOptions()
 ) where {T, U, P <: LineParameters{T, U, PhaseDomain}}
+    options = options isa NamedTuple ? ComputationOptions(options) : options
     execution = computation_options(LineCableModelsModal, options)
     validate(problem)
     return _forward(problem.parameters, formulation, execution)
@@ -165,16 +168,18 @@ end
 
 function compute(
         problem::ModalTransformationProblem{P};
-        options::NamedTuple = (;)
+        options::Union{NamedTuple,ComputationOptions} = ComputationOptions()
 ) where {T, U, D <: ModalDomain, P <: LineParameters{T, U, D}}
+    options = options isa NamedTuple ? ComputationOptions(options) : options
     return compute(LineCableModelsModal(), problem; options)
 end
 
 function compute(
         ::LineCableModelsModal,
         problem::ModalTransformationProblem{P};
-        options::NamedTuple = (;)
+        options::Union{NamedTuple,ComputationOptions} = ComputationOptions()
 ) where {T, U, D <: ModalDomain, P <: LineParameters{T, U, D}}
+    options = options isa NamedTuple ? ComputationOptions(options) : options
     computation_options(typeof(problem), options)
     validate(problem)
     return _inverse(problem.parameters)

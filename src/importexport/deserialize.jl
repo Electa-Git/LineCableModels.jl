@@ -86,17 +86,9 @@ function deserialize_value(::Val{:formulation},family::Type,value,definition)
     end
     definition isa Symbol && (definition=(identifier=definition,))
     settings=definition isa NamedTuple ?
-        LineCableModels.formulation_options(LineCableModels.FormulaDefinition,definition) : (;)
-    if haskey(settings,:equivalent_earth)
-        equivalent=settings.equivalent_earth
-        if equivalent isa NamedTuple && haskey(equivalent,:identifier)
-            # This is a passive declaration; no callback or solver is reconstructed.
-            equivalent=LineCableModels.formula(equivalent.identifier;
-                order=get(equivalent,:order,:default),parameters=get(equivalent,:parameters,(;)),
-                options=get(equivalent,:options,(;)))
-            settings=merge(settings,(equivalent_earth=equivalent,))
-        end
-    end
+        (; (key => definition[key] for key in (:parameters, :options, :equivalent_earth)
+            if haskey(definition, key) && definition[key] !== nothing &&
+                !(definition[key] isa NamedTuple && isempty(definition[key])))...) : (;)
     return (selected,settings)
 end
 
@@ -230,7 +222,8 @@ function deserialize_value(value)
         marker == "NamedTuple" && return NamedTuple{Tuple(Symbol.(value["names"]))}(
             Tuple(deserialize_value(item) for item in value["values"]))
         marker in ("Observable", "Quantile", "LineParameters", "CableConstants", "MonteCarloResult",
-            "LinearErrorResult", "MeasurementLinearErrorResult", "SampleSummary", "HistogramDensity", "Distribution") &&
+            "LinearErrorResult", "MeasurementLinearErrorResult", "SampleSummary", "HistogramDensity", "Distribution",
+            "FormulationOptions", "ComputationOptions", "ComputationDetails") &&
             return deserialize_extension(Val(Symbol(marker)),value)
         if marker == "Measurement"
             applicable(deserialize_extension, Val(:Measurement), value) || throw(

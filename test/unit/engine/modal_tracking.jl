@@ -85,8 +85,8 @@ end
                 identifier; options = (iteration = (max_iterations = 1,),))
             modal = @test_logs (:warn, r"retained matched eigensolutions") match_mode=:any compute(
                 ModalTransformationProblem(phase), formulation)
-            @test !isempty(details(modal).modal.fallback_frequencies)
-            @test details(modal).modal.options.iteration.fallback === :matched
+            @test !isempty(details(modal).data.modal.fallback_frequencies)
+            @test details(modal).data.modal.options.iteration.fallback === :matched
             @test_throws ErrorException compute(ModalTransformationProblem(phase),
                 ModalTransformationFormulation(identifier;
                     options =

@@ -8,8 +8,8 @@
     coaxial = CableConstantsFormulation(shunt_model = :coaxial)
     nominal = @inferred compute(problem, default)
     @test nominal == compute(problem, coaxial)
-    @test details(nominal).shunt_model.effective === :coaxial
-    @test details(nominal).shunt_model.solves == 0
+    @test details(nominal).data.shunt_model.effective === :coaxial
+    @test details(nominal).data.shunt_model.solves == 0
     @test isempty(E.flatten(LineCableModelsCoaxial(), design, default).shunt)
     @test E.formula_id(default.methods.shunt_model) === :coaxial
     invalid = (formula(:no_such_model), formula(:coaxial; options = (audit = true,)),
@@ -28,7 +28,7 @@
     fallback = CableConstantsFormulation(shunt_model = formula(:boundary;
         parameters = (fallback = :coaxial,), options = budget))
     result = @test_logs (:warn, r"replaced by coaxial") compute(problem, fallback)
-    report = details(result).shunt_model
+    report = details(result).data.shunt_model
     @test result == nominal
     @test report.requested === :boundary && report.effective === :coaxial
     @test only(report.domains).reason === :budget
@@ -66,8 +66,8 @@
     workspace = E.CableConstantsWorkspace(problem, boundary, blueprint)
     @test workspace.cable.shunt[1].C === blueprint.shunt[1].C
     @test E._solve!(workspace, problem, boundary) == first_result
-    @test details(first_result).shunt_model.effective === :boundary
-    @test only(details(first_result).shunt_model.diagnostics).boundary_residual === nothing
+    @test details(first_result).data.shunt_model.effective === :boundary
+    @test only(details(first_result).data.shunt_model.diagnostics).boundary_residual === nothing
     @test typeof(first_result) === typeof(nominal)
     @test compute(problem, boundary) == first_result
     @test compute(CableConstantsProblem(design; frequency = 60), boundary).C ==
@@ -91,9 +91,9 @@
     for source in (first_result, result)
         restored=IE.deserialize_value(IE.serialize_value(source))
         @test restored == source
-        @test details(restored).shunt_model.effective ===
-              details(source).shunt_model.effective
-        @test only(details(restored).shunt_model.domains).reason ===
-              only(details(source).shunt_model.domains).reason
+        @test details(restored).data.shunt_model.effective ===
+              details(source).data.shunt_model.effective
+        @test only(details(restored).data.shunt_model.domains).reason ===
+              only(details(source).data.shunt_model.domains).reason
     end
 end

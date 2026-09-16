@@ -6,13 +6,15 @@
     struct SpyBackend <: LineCableModels.Grammar.AbstractFormulation
         factor::Float64
     end
-    function LineCableModels.compute(problem::LineParametersProblem, formulation::SpyBackend;options=(;))
+    function LineCableModels.compute(problem::LineParametersProblem, formulation::SpyBackend;
+            options::Union{NamedTuple,ComputationOptions}=ComputationOptions())
+        options=options isa NamedTuple ? ComputationOptions(options) : options
         push!(calls,(;problem,formulation,options))
         fail_candidate[] && formulation.factor == 10 && error("deliberate interrupted operand")
         z=fill(complex(formulation.factor),2,2,length(problem.frequencies))
         y=fill(complex(formulation.factor-1,formulation.factor),2,2,length(problem.frequencies))
         result=LineParameters(PhaseDomain,z,y,copy(problem.frequencies))
-        haskey(options,:on_result) && options.on_result(problem,1,result)
+        haskey(options.data,:on_result) && options.data.on_result(problem,1,result)
         return result
     end
     model=load_case(:two_insulated_wires;variation=ExactOverrides(frequencies=[.01,3.,17.,400.],temperature=73.))
@@ -42,7 +44,7 @@
         @test only(campaign_status(directory)).state === :failed
         failed_progress=TOML.parsefile(joinpath(directory,"sessions",state["session"]*".progress.toml"))
         @test failed_progress["counts"]["failed"]==1
-        @test all(row -> row.problem === problem && row.options === options,calls)
+        @test all(row -> row.problem === problem && row.options.data === options,calls)
         @test all(row -> row.problem.temperature == 73. && row.problem.frequencies == [.01,3.,17.,400.],calls)
         fail_candidate[]=false
         completed=resume_campaign(directory)
@@ -62,8 +64,8 @@
         @test value.timings.execution.reference.reused
         @test value.timings.execution.candidate.compute.seconds>=0
         @test !hasproperty(value,:passes)
-        @test all(==(9),only(row.error.relative for row in value.comparison if row.quantity === :Z && row.error.details.band === :all))
-        conductance=only(row.error for row in value.comparison if row.quantity === :G && row.error.details.band === :all)
+        @test all(==(9),only(row.error.relative for row in value.comparison if row.quantity === :Z && row.error.details.data.band === :all))
+        conductance=only(row.error for row in value.comparison if row.quantity === :G && row.error.details.data.band === :all)
         @test all(==(9),conductance.absolute)
         @test all(ismissing,conductance.relative)
         @test only(campaign_status(directory)).state === :complete
@@ -123,7 +125,7 @@ end
     definition=benchmark_definition(:changing,model.id,:fixture,@__FILE__,model,first,second,(;),(;))
     mktempdir() do directory
         outcome=run_benchmark(definition;directory)
-        @test all(iszero,only(row.error.absolute for row in outcome.comparison if row.quantity === :Z && row.error.details.band === :all))
+        @test all(iszero,only(row.error.absolute for row in outcome.comparison if row.quantity === :Z && row.error.details.data.band === :all))
         changed=deepcopy(problem); changed.frequencies[2]=4.
         altered=benchmark_definition(:changing,model.id,:fixture,@__FILE__,model,
             BenchmarkCalculation(:a,changed,formulation),second,(;),(;))
@@ -138,6 +140,6 @@ end
         end
         @test_throws ArgumentError run_benchmark(definition;directory)
         write(joinpath(directory,"candidate","calculation.jld2"),original)
-        @test all(iszero,only(row.error.absolute for row in run_benchmark(definition;directory).comparison if row.quantity === :Z && row.error.details.band === :all))
+        @test all(iszero,only(row.error.absolute for row in run_benchmark(definition;directory).comparison if row.quantity === :Z && row.error.details.data.band === :all))
     end
 end

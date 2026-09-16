@@ -25,7 +25,7 @@
     # The selected owner supplies descriptions through current computation
     # details; a removed consumer-local label helper is not a contract.
     @test !isempty(string(computation_details(overhead)))
-    @test overhead.options == (reduce_bundle = false, kron_reduction = false,
+    @test overhead.options.data == (reduce_bundle = false, kron_reduction = false,
         ideal_transposition = false,base_frequency=50.0)
     @test_throws ArgumentError Formulation(:pscad; options = (output_stem = "invalid",))
 
@@ -93,20 +93,19 @@
         timeout_seconds = 60
     )
     owner=harness.PSCADFormulation
-    @test LineCableModels.formulation_options(owner, (;)) == overhead.options
+    @test LineCableModels.formulation_options(owner, FormulationOptions()) == overhead.options
     @test_throws ArgumentError LineCableModels.formulation_options(
         owner,
-        (output_stem = "case",)
+        FormulationOptions(output_stem = "case")
     )
-    @test_throws ArgumentError LineCableModels.computation_options(owner, (;))
-    execution=LineCableModels.computation_options(owner,
-        (
+    @test_throws ArgumentError LineCableModels.computation_options(owner, ComputationOptions((;)))
+    execution=LineCableModels.computation_options(owner, ComputationOptions((
             output_stem = "case",
             remote = config,
             verbosity = (default = 0, PSCAD = 2),
             output_basis = :total
-        ))
-    @test execution == (
+        )))
+    @test execution.data == (
         work_root=config.local_root,
         output_stem = "case",
         remote = config,
@@ -117,14 +116,12 @@
         solver_identity = nothing
     )
     @test_throws ArgumentError LineCableModels.computation_options(
-        owner, (
+        owner, ComputationOptions((
             output_stem = "benchmark_525kV_1600mm2_bipole_pscad",
             remote = config
-        ))
+        )))
     @test_throws MethodError LineCableModels.computation_options(
-        Val(:pscad),
-        (remote = config,)
-    )
+        Val(:pscad), ComputationOptions((remote = config,)))
     powershell="[IO.Directory]::CreateDirectory('C:\\gauntlet') | Out-Null"
     command=harness.remote_command(config, powershell)
     @test command.exec[1] == "ssh"
@@ -138,8 +135,8 @@
     @test harness._remote_project_name(raw"C:\gauntlet\case\generated.pscx") ==
           "generated"
     root=config.local_root
-    @test LineCableModels.computation_options(owner,(remote=config,work_root=joinpath(root,"any","depth"))).work_root == joinpath(root,"any","depth")
-    @test_throws ArgumentError LineCableModels.computation_options(owner,(remote=config,work_root=dirname(root)))
+    @test LineCableModels.computation_options(owner, ComputationOptions((remote=config,work_root=joinpath(root,"any","depth")))).data.work_root == joinpath(root,"any","depth")
+    @test_throws ArgumentError LineCableModels.computation_options(owner, ComputationOptions((remote=config,work_root=dirname(root))))
     @test_throws ArgumentError harness.RemoteConfig(
         "host", "shared", "remote", "julia", "python"; local_root=mktempdir(), timeout_seconds = 0
     )

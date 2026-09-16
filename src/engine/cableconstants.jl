@@ -10,7 +10,7 @@ S/m respectively.
 
 $(TYPEDFIELDS)
 """
-struct CableConstants{T <: Real} <: AbstractCoreResult
+struct CableConstants{T <: Real, D <: ComputationDetails} <: AbstractCoreResult
     "Innermost active terminal of each concentric assembly."
     cores::Vector{Symbol}
     "Series resistance per unit length [Ω/m]."
@@ -25,7 +25,7 @@ struct CableConstants{T <: Real} <: AbstractCoreResult
     frequency::T
 
     "Selected/effective shunt model and blueprint construction diagnostics."
-    details::NamedTuple
+    details::D
 
     function CableConstants{T}(
             cores::Vector{Symbol},
@@ -34,7 +34,7 @@ struct CableConstants{T <: Real} <: AbstractCoreResult
             C::Vector{T},
             G::Vector{T},
             frequency::T,
-            details::NamedTuple = (;)
+            details::ComputationDetails = ComputationDetails()
     ) where {T <: Real}
         count = length(cores)
         iszero(count) && throw(ArgumentError(
@@ -55,7 +55,7 @@ struct CableConstants{T <: Real} <: AbstractCoreResult
             (R, L, C, G),
             "cable constants must be finite"
         ))
-        return new{T}(cores, R, L, C, G, frequency, details)
+        return new{T, typeof(details)}(cores, R, L, C, G, frequency, details)
     end
 end
 
@@ -66,7 +66,7 @@ function CableConstants(
         C::AbstractVector{<:Real},
         G::AbstractVector{<:Real},
         frequency::Real,
-        details::NamedTuple = (;)
+        details::ComputationDetails = ComputationDetails()
 )
     T = promote_type(
         eltype(R), eltype(L), eltype(C), eltype(G), typeof(float(frequency))
@@ -263,7 +263,7 @@ $(TYPEDFIELDS)
 """
 struct CableConstantsFormulation{
     M <: NamedTuple,
-    O <: NamedTuple,
+    O <: FormulationOptions,
     D <: NamedTuple
 } <: AbstractFormulation
     "Registered physical formula selections."
@@ -276,11 +276,11 @@ end
 
 function formulation_options(
         ::Type{CableConstantsFormulation},
-        options::NamedTuple
+        options::FormulationOptions
 )::FormulationOptions
-    isempty(options) || throw(ArgumentError(
-        "unknown cable-constant formulation options: $(keys(options))"))
-    return (;)
+    isempty(options.data) || throw(ArgumentError(
+        "unknown cable-constant formulation options: $(keys(options.data))"))
+    return FormulationOptions()
 end
 
 description(::Type{<:CableConstantsFormulation};compact::Bool=false) = "Cable constants"
@@ -288,14 +288,13 @@ description(::CableConstantsFormulation;compact::Bool=false) = description(Cable
 formula_id(::Type{<:CableConstantsFormulation}) = :cable_constants
 formula_id(::CableConstantsFormulation) = :cable_constants
 formulation_options(value::CableConstantsFormulation) = value.options
-formulation_options(::Type{CableConstantsFormulation},retained::NamedTuple,::Val{:retained}) = retained.options
 function Base.pairs(::Type{CableConstantsFormulation};quantity=nothing)
     return pairs((; (key=>family for (key,family) in pairs(LineParametersFormulation;quantity)
         if key ∉ (:earth_impedance,:earth_admittance,:earth_properties))...))
 end
 description(::Type{CableConstantsFormulation},slot::Val) = description(LineParametersFormulation,slot)
 Base.pairs(value::CableConstantsFormulation;quantity=nothing) = pairs(CableConstantsFormulation,
-    (methods=value.methods,requested=map(formulation_options,value.definitions),options=value.options);quantity)
+    (methods=value.methods,requested=value.definitions,options=value.options.data);quantity)
 Base.pairs(::Type{CableConstantsFormulation},retained::NamedTuple;quantity=nothing) =
     pairs(LineParametersFormulation,retained;quantity,owner=CableConstantsFormulation)
 
@@ -308,7 +307,7 @@ function Base.NamedTuple(value::CableConstantsFormulation)
         return NamedTuple(selected)
     end
     return (backend=:cable_constants,requested=map(record,value.definitions),
-        methods=map(record,value.methods),options=value.options)
+        methods=map(record,value.methods),options=value.options.data)
 end
 
 function _constants_formulation(
@@ -319,7 +318,7 @@ function _constants_formulation(
         semicon_admittance,
         pipe_impedance,
         temperature_dependence,
-        options::NamedTuple
+        options::FormulationOptions
 )
     methods = (
         internal_impedance = Formulation(InternalImpedance.Formula, internal_impedance),
@@ -375,7 +374,7 @@ function CableConstantsFormulation(;
         semicon_admittance = formula(:default),
         pipe_impedance = formula(:default),
         temperature_dependence = formula(:default),
-        options = (;),
+        options = FormulationOptions(),
         combine::Symbol = :product
 )
     values = (
@@ -390,7 +389,7 @@ function CableConstantsFormulation(;
     )
     return parameterize(
         CableConstantsFormulation,
-        _constants_formulation,
+        (inputs...) -> _constants_formulation(inputs[1:end-1]..., last(inputs) isa NamedTuple ? FormulationOptions(last(inputs)) : last(inputs)),
         values;
         combine
     )
@@ -398,12 +397,12 @@ end
 
 function computation_options(
         ::Type{CableConstantsProblem},
-        options::NamedTuple
+        options::ComputationOptions
 )::ComputationOptions
-    isempty(options) || throw(ArgumentError(
+    isempty(options.data) || throw(ArgumentError(
         "CableConstants compute does not accept computation options",
     ))
-    return (;)
+    return ComputationOptions()
 end
 
 """
@@ -535,7 +534,7 @@ function _solve!(
         buffers.C,
         buffers.G,
         problem.frequency,
-        (shunt_model=workspace.cable.shunt_details,)
+        ComputationDetails(NamedTuple{(:shunt_model,), Tuple{NamedTuple}}((workspace.cable.shunt_details,)))
     )
 end
 
@@ -546,8 +545,9 @@ Compute earth-free cable constants with the default coaxial formulation.
 """
 function compute(
         problem::CableConstantsProblem;
-        options::NamedTuple = (;)
+        options::Union{NamedTuple, ComputationOptions} = ComputationOptions()
 )
+    options = options isa NamedTuple ? ComputationOptions(options) : options
     return compute(
         LineCableModelsCoaxial(),
         problem,
@@ -564,16 +564,18 @@ Compute earth-free cable constants with an explicit formula bundle.
 function compute(
         problem::CableConstantsProblem,
         formulation::CableConstantsFormulation;
-        options::NamedTuple = (;)
+        options::Union{NamedTuple, ComputationOptions} = ComputationOptions()
 )
+    options = options isa NamedTuple ? ComputationOptions(options) : options
     return compute(LineCableModelsCoaxial(), problem, formulation; options)
 end
 
 function compute(
         problem::CableConstantsProblem,
         formulations::AbstractVector{<:CableConstantsFormulation};
-        options::NamedTuple = (;)
+        options::Union{NamedTuple, ComputationOptions} = ComputationOptions()
 )
+    options = options isa NamedTuple ? ComputationOptions(options) : options
     return compute(LineCableModelsCoaxial(), problem, formulations; options)
 end
 
@@ -586,8 +588,9 @@ function compute(
         engine::LineCableModelsCoaxial,
         problem::CableConstantsProblem,
         formulation::CableConstantsFormulation = CableConstantsFormulation();
-        options::NamedTuple = (;)
+        options::Union{NamedTuple, ComputationOptions} = ComputationOptions()
 )
+    options = options isa NamedTuple ? ComputationOptions(options) : options
     values = compute(
         engine,
         problem,
@@ -601,8 +604,9 @@ function compute(
         engine::LineCableModelsCoaxial,
         problem::CableConstantsProblem,
         formulations::AbstractVector{<:CableConstantsFormulation};
-        options::NamedTuple = (;)
+        options::Union{NamedTuple, ComputationOptions} = ComputationOptions()
 )
+    options = options isa NamedTuple ? ComputationOptions(options) : options
     computation_options(CableConstantsProblem, options)
     isempty(formulations) && throw(ArgumentError(
         "cable-constant formulation collections cannot be empty",
@@ -648,7 +652,7 @@ function CableConstants(
         temperature::Real = 20,
         frequency::Real = 50,
         formulation::CableConstantsFormulation = CableConstantsFormulation(),
-        options::NamedTuple = (;)
+        options::Union{NamedTuple, ComputationOptions} = ComputationOptions()
 )
     problem = CableConstantsProblem(design; temperature, frequency)
     return compute(problem, formulation; options)

@@ -33,17 +33,17 @@ end
 
 function retain(name, input, result)
     JLD2.jldsave(joinpath(OUTPUT, name * ".jld2"); problem = input, result)
-    println(name, ": ", details(result).execution.source_run,
-        " (reused=", details(result).execution.reused, ")")
+    println(name, ": ", details(result).data.execution.source_run,
+        " (reused=", details(result).data.execution.reused, ")")
     flush(stdout)
     @test size(result.Z) == size(result.Y) == (4, 4, 101)
     @test all(isfinite, result.Z.values) && all(isfinite, result.Y.values)
     @test result.f == input.frequencies
-    settings = details(result).native_setting
+    settings = details(result).data.native_setting
     expected = Dict(string(component) => Dict(string(field) => control.readback
         for (field, control) in pairs(getproperty(settings, component)))
         for component in (:ground, :frequency, :configuration))
-    @test details(result).native_readback == expected
+    @test details(result).data.native_readback == expected
     return result
 end
 
@@ -67,16 +67,16 @@ flush(stdout)
         (on_result = (input, index, value) -> retain(labels[index], input, value),)))
     hot = first(results)
     cases = Set((row.kind, row.source, row.target)
-        for row in details(hot).native_setting.interactions.earth_impedance)
+        for row in details(hot).data.native_setting.interactions.earth_impedance)
     @test cases == Set(((:self, 1, 1), (:mutual, 1, 1), (:self, 2, 2),
         (:mutual, 2, 2), (:mutual, 1, 2), (:mutual, 2, 1)))
     for index in (2, 3)
-        @test details(results[index]).execution.reused
+        @test details(results[index]).data.execution.reused
         @test results[index].Z.values == hot.Z.values
         @test results[index].Z.values !== hot.Z.values
         @test results[index].Y.values == hot.Y.values
-        @test details(results[index]).formulations.requested.earth_impedance ==
-            LineCableModels.computation_details(selections[index]).requested.earth_impedance
+        @test details(results[index]).data.formulations.requested.earth_impedance ==
+            LineCableModels.computation_details(selections[index]).data.requested.earth_impedance
     end
 
     lossy_selection = Formulation(:pscad; insulation_admittance = :lossy)
@@ -84,8 +84,8 @@ flush(stdout)
     conductance = E.compare(hot, lossy, G)
     admittance = E.compare(hot, lossy, Y)
     @test all(ismissing, conductance.relative)
-    @test all(==(:reference_below_tolerance), conductance.details.status)
-    @test conductance.absolute[3, 3] > maximum(conductance.details.atol)
+    @test all(==(:reference_below_tolerance), conductance.details.data.status)
+    @test conductance.absolute[3, 3] > maximum(conductance.details.data.atol)
     @test all(!ismissing(admittance.relative[index, index]) for index in 1:4)
     @test all(ismissing, admittance.relative[1:2, 3:4])
     @test all(ismissing, admittance.relative[3:4, 1:2])
@@ -97,11 +97,11 @@ flush(stdout)
         options = merge(OPTIONS, (on_result = (input, index, value) ->
             retain(screen_labels[index], input, value),)))
     screen_conductance = E.compare(screens[1], screens[2], G)
-    @test screen_conductance.absolute[3, 3] > maximum(screen_conductance.details.atol)
+    @test screen_conductance.absolute[3, 3] > maximum(screen_conductance.details.data.atol)
     # Lossless constitutive inputs do not promise exactly zero native matrix G.
     # Preserve small native terms; numerical-zero treatment belongs to compare.
     for result in (hot, screens[1])
-        document = EzXML.parsexml(details(result).exported_project)
+        document = EzXML.parsexml(details(result).data.exported_project)
         tangents = EzXML.findall("//User[@defn='master:Cable_Coax']/paramlist/param[@name='LT1']", document)
         @test length(tangents) == 4
         @test all(node -> iszero(parse(Float64, node["value"])), tangents)
@@ -117,14 +117,14 @@ flush(stdout)
     equivalent = retain("equivalent-resistivity", equivalent_problem,
         compute(equivalent_problem, first(selections);
             options = merge(OPTIONS, (resume_run_directory = nothing,))))
-    @test details(equivalent).exported_project == details(hot).exported_project
+    @test details(equivalent).data.exported_project == details(hot).data.exported_project
     @test equivalent.Z.values ≈ hot.Z.values rtol = 1e-10 atol = 0
     @test equivalent.Y.values ≈ hot.Y.values rtol = 1e-10 atol = 0
 
     recovered = retain("recovered", hot_problem,
         compute(hot_problem, first(selections); options = merge(OPTIONS,
-            (resume_run_directory = details(hot).execution.source_run,))))
-    @test details(recovered).execution.reused
+            (resume_run_directory = details(hot).data.execution.source_run,))))
+    @test details(recovered).data.execution.reused
     @test recovered.Z.values == hot.Z.values && recovered.Y.values == hot.Y.values
 
     # Different native formulations and loss laws are observations, not accuracy gates.

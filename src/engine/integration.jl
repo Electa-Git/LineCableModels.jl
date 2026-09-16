@@ -119,7 +119,7 @@ end
 $(TYPEDSIGNATURES)
 
 Evaluate one declared spectral integral with the selected numerical algorithm.
-Controls come from `computation_options`; mutable samples and image coefficients
+Controls come from `formulation_options`; mutable samples and image coefficients
 belong to the supplied computation workspace. Nonconvergence raises an error.
 The reported algorithm always produces the returned value.
 """
@@ -483,7 +483,7 @@ method is `:quad`, `:trapz`, or `:cim`. Controls belong to that method; changing
 methods does not inherit controls from the previous method. CIM samples the
 spectral variable at fixed physical frequency.
 """
-function computation_options(::Type{SpectralIntegral}, values::NamedTuple)
+function formulation_options(::Type{SpectralIntegral}, values::NamedTuple)
     isempty(setdiff(keys(values), (:method, :options))) ||
         throw(ArgumentError("integration accepts only method and options"))
     method = get(values, :method, :quad)
@@ -523,7 +523,7 @@ function computation_options(::Type{SpectralIntegral}, values::NamedTuple)
     return (method = Val(method), options = controls)
 end
 
-function computation_options(::FormulaMethod, ::Val{:integration}, defaults::NamedTuple,
+function formulation_options(::FormulaMethod, ::Val{:integration}, defaults::NamedTuple,
         supplied::NamedTuple)
     isempty(setdiff(keys(supplied), (:method, :options))) ||
         throw(ArgumentError("integration accepts only method and options"))
@@ -533,5 +533,5 @@ function computation_options(::FormulaMethod, ::Val{:integration}, defaults::Nam
     controls = method === defaults.method ?
                merge(defaults.options, get(supplied, :options, (;))) :
                get(supplied, :options, (;))
-    return computation_options(SpectralIntegral, (; method, options = controls))
+    return formulation_options(SpectralIntegral, (; method, options = controls))
 end

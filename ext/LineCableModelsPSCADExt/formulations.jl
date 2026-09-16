@@ -34,13 +34,13 @@ end
 function NativeFormula{F}(selection::LineCableModels.FormulaDefinition{ID, Order}) where {F, ID, Order}
     Order === :default && selection.equivalent_earth === nothing || throw(ArgumentError(
         "PSCAD native equations do not execute equivalent-earth reductions"))
-    isempty(selection.parameters) && isempty(selection.options) ||
+    isempty(selection.parameters) && isempty(selection.options.data) ||
         throw(ArgumentError("PSCAD native equations do not accept analytical parameters or numerical controls"))
     return NativeFormula{F}(Val(ID))
 end
 
 function NativeFormula{F}(selected::F) where {F}
-    controls = selected isa InternalImpedance.Formula ? selected.configured_options : selected.options
+    controls = selected isa InternalImpedance.Formula ? selected.configured_options : selected.options.data
     isempty(selected.parameters) && isempty(controls) || throw(ArgumentError(
         "PSCAD native equations do not accept analytical parameters or numerical controls"))
     if selected isa Union{EarthImpedance.Formula,EarthAdmittance.Formula}
@@ -56,9 +56,7 @@ Base.NamedTuple(selected::NativeFormula) =
     (identifier=formula_id(selected), parameters=(;), options=(;))
 Base.pairs(::Type{<:NativeFormula{F}}; quantity=nothing) where {F} =
     pairs(map(_ -> NativeFormula{F}, (; pairs(F; quantity)...)))
-formulation_options(::NativeFormula) = (;)
-formulation_options(::Type{<:NativeFormula}, retained::NamedTuple) =
-    formulation_options(LineCableModels.FormulaDefinition, retained)
+formulation_options(::NativeFormula) = FormulationOptions()
 description(selected::NativeFormula; compact::Bool=false) = description(typeof(selected); compact)
 description(::Type{<:NativeFormula{F, ID}}; compact::Bool=false) where {F, ID} =
     "PSCAD " * description(F{ID}; compact)
@@ -97,7 +95,7 @@ end
 Store shared formula selections, requested definitions, and physical options
 for PSCAD. Backend execution settings remain computation options.
 """
-struct PSCADFormulation{M <: NamedTuple, O <: NamedTuple, D <: NamedTuple} <:
+struct PSCADFormulation{M <: NamedTuple, O <: FormulationOptions, D <: NamedTuple} <:
        AbstractFormulation
     methods::M
     options::O
@@ -110,7 +108,6 @@ description(::PSCADFormulation; compact::Bool=false) = description(PSCADFormulat
 formula_id(::Type{<:PSCADFormulation}) = :pscad
 formula_id(::PSCADFormulation) = :pscad
 formulation_options(value::PSCADFormulation) = value.options
-formulation_options(::Type{PSCADFormulation},retained::NamedTuple,::Val{:retained}) = retained.options
 function Base.pairs(::Type{PSCADFormulation}; quantity=nothing)
     native = (:internal_impedance, :insulation_impedance, :earth_impedance, :earth_admittance)
     return pairs((; (name => (name in native ? NativeFormula{owner} : owner)
@@ -118,28 +115,29 @@ function Base.pairs(::Type{PSCADFormulation}; quantity=nothing)
         if name !== :shunt_model)...))
 end
 Base.pairs(value::PSCADFormulation;quantity=nothing) =
-    pairs(PSCADFormulation,(methods=value.methods,requested=map(formulation_options,value.definitions),options=value.options);quantity)
+    pairs(PSCADFormulation,(methods=value.methods,requested=value.definitions,options=value.options.data);quantity)
 description(::Type{PSCADFormulation},slot::Val) = description(LineParametersFormulation,slot)
 Base.pairs(::Type{PSCADFormulation},retained::NamedTuple;quantity=nothing) =
     pairs(LineParametersFormulation,retained;quantity,owner=PSCADFormulation)
 
-function formulation_options(::Type{PSCADFormulation}, options::NamedTuple)::FormulationOptions
+function formulation_options(::Type{PSCADFormulation}, record::FormulationOptions)::FormulationOptions
+    options = record.data
     base_frequency = get(options, :base_frequency, 50.0)
     isfinite(base_frequency) && base_frequency >= 0.1 || throw(DomainError(
         base_frequency, "PSCAD base frequency must be finite and at least 0.1 Hz"))
     physical = (;
         (key => value for (key, value) in pairs(options) if key !== :base_frequency)...)
     normalized = formulation_options(LineParametersFormulation,
-        merge((reduce_bundle = false, kron_reduction = false, ideal_transposition = false), physical))
-    any((normalized.reduce_bundle, normalized.kron_reduction,
-        normalized.ideal_transposition)) &&
+        FormulationOptions(merge((reduce_bundle = false, kron_reduction = false, ideal_transposition = false), physical)))
+    any((normalized.data.reduce_bundle, normalized.data.kron_reduction,
+        normalized.data.ideal_transposition)) &&
         throw(ArgumentError("PSCAD currently requires unreduced, untransposed terminal matrices"))
-    return merge(normalized, (; base_frequency))
+    return FormulationOptions(merge(normalized.data, (; base_frequency)))
 end
 
 function _pscad_formulation(internal_impedance, insulation_impedance, earth_impedance,
         insulation_admittance, semicon_admittance, earth_admittance, earth_properties,
-        pipe_impedance, temperature_dependence, options::NamedTuple)
+        pipe_impedance, temperature_dependence, options::FormulationOptions)
     selections = (; internal_impedance, insulation_impedance, earth_impedance,
         insulation_admittance, semicon_admittance, earth_admittance, earth_properties,
         pipe_impedance, temperature_dependence)
@@ -180,11 +178,13 @@ function Formulation(::Val{:pscad};
         earth_properties = formula(:default),
         pipe_impedance = formula(:default),
         temperature_dependence = formula(:default),
-        options = (;), combine::Symbol = :product)
+        options = FormulationOptions(), combine::Symbol = :product)
     selections = (internal_impedance, insulation_impedance, earth_impedance,
         insulation_admittance, semicon_admittance, earth_admittance, earth_properties,
         pipe_impedance, temperature_dependence)
-    return parameterize(PSCADFormulation, _pscad_formulation, (selections..., options); combine)
+    return parameterize(PSCADFormulation, (inputs...) -> _pscad_formulation(inputs[1:end-1]...,
+        last(inputs) isa NamedTuple ? FormulationOptions(last(inputs)) : last(inputs)),
+        (selections..., options); combine)
 end
 
 function Formulation(::Val{:pscad}, problem::LineParametersProblem, requested::PSCADFormulation)
@@ -391,12 +391,12 @@ function pscad_setting(formulation::PSCADFormulation, problem::LineParametersPro
                 readback = Float64(last(problem.frequencies))),
             Numf = (value = length(problem.frequencies)-1,
                 readback = length(problem.frequencies)-1)),
-        configuration = (Freq = (value = Float64(formulation.options.base_frequency),
-            readback = Float64(formulation.options.base_frequency)),), interactions = interactions)
+        configuration = (Freq = (value = Float64(formulation.options.data.base_frequency),
+            readback = Float64(formulation.options.data.base_frequency)),), interactions = interactions)
 end
 
 """Record consumed PSCAD identifiers and fixed native assumptions with bounded field types."""
-function computation_details(formulation::PSCADFormulation)
+function computation_details(formulation::PSCADFormulation)::ComputationDetails
     identifier = function (definition)
         definition === nothing && return nothing
         definition isa NamedTuple && return map(identifier, definition)
@@ -406,7 +406,7 @@ function computation_details(formulation::PSCADFormulation)
     Identifiers = NamedTuple{fields,
         NTuple{length(fields), Union{Nothing, Symbol, NamedTuple}}}
     methods = formulation.methods
-    return merge((
+    return ComputationDetails(merge((
         schema_version = 3,
         backend = :pscad,
         type = string(parentmodule(typeof(formulation)), ".", nameof(typeof(formulation))),
@@ -421,7 +421,7 @@ function computation_details(formulation::PSCADFormulation)
             dielectric_equivalence = "Reference-frequency equivalent capacitance and loss tangent; native PSCAD frequency law; loss tangent capped at 10",
             earth = "One homogeneous earth layer; no FrequencyDependent relation",
             pipe_impedance = "Cable_Coax only; shared eccentric metallic enclosure unsupported"),
-        options = formulation.options),NamedTuple(formulation))
+        options = formulation.options.data),NamedTuple(formulation)))
 end
 
 function computation_details(::Type{<:PSCADFormulation}, result::LineParameters)::ComputationDetails
@@ -438,5 +438,5 @@ function Base.NamedTuple(value::PSCADFormulation)
     end
     Record=NamedTuple{(:backend,:requested,:methods,:options),
         Tuple{Symbol,NamedTuple,NamedTuple,NamedTuple}}
-    return Record((:pscad,map(record,value.definitions),map(record,value.methods),value.options))
+    return Record((:pscad,map(record,value.definitions),map(record,value.methods),value.options.data))
 end

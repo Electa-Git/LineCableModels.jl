@@ -70,7 +70,7 @@ files are captured with each run so later edits cannot change an active scan.
 The former `fem_options` keyword and `LineCableModelsFEMOptions` struct have been
 removed. Move their execution keys into `compute` options and `physics` into
 formulation options. Benchmark calls use `reference_options` for FEM execution
-controls. Supplemental run metadata is a named tuple under `details(result).fem.run`.
+controls. Supplemental run metadata is a named tuple under `details(result).data.fem.run`.
 
 ## Physics selection
 

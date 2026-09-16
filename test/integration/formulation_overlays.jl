@@ -9,9 +9,9 @@
     common=(backend=:coaxial,options=(reduce_bundle=false,),)
     selections=[merge(common,(requested=(earth_impedance=(air=NamedTuple(formula(:carson1926)),
         earth=NamedTuple(formula(id)),mixed=NamedTuple(formula(:lucca1994))),),)) for id in (:default,:pollaczek1926)]
-    reference=LineParameters(PhaseDomain,copy(z),copy(y),copy(f);details=(coordinates=["a","b"],))
-    points=[LineParameters(PhaseDomain,factor*z,y,copy(f);details=(coordinates=["a","b"],)) for factor in (2,3)]
-    candidates=ParametricResult(nothing,points,(problems=[:one],formulations=selections),(;))
+    reference=LineParameters(PhaseDomain,copy(z),copy(y),copy(f);details=ComputationDetails(;coordinates=["a","b"],))
+    points=[LineParameters(PhaseDomain,factor*z,y,copy(f);details=ComputationDetails(;coordinates=["a","b"],)) for factor in (2,3)]
+    candidates=ParametricResult(nothing,points,(problems=[:one],formulations=selections), ComputationDetails((;)))
     baseline=(result=reference,metadata=(port_order=["a","b"],formulation=selections[1],axes=nothing))
     publication=report(BenchmarkTableDefinition(),(reference=baseline,candidate=candidates,
         context=(id=:benchmark_title_probe,case_id=:title_probe,collection=:test)))
@@ -62,26 +62,26 @@
         ydata=(R,),series_labels=("reference","candidate"),options...)
     @test length(keyword_ydata.axes)==4
     @test keyword_ydata.export_name == "Series resistance"
-    foreign=LineParameters(PhaseDomain,z,y,f;details=(coordinates=["a","b"],
+    foreign=LineParameters(PhaseDomain,z,y,f;details=ComputationDetails(;coordinates=["a","b"],
         formulations=(schema_version=3,selections=(constitutive=(identifier=:default,),),
             assumptions=(equations=repeat("field equations ",100),))))
     foreign_plot=LineCableModels.plot(candidates,(R,);reference=foreign,options...)
     @test "Reference · method unavailable" in values(foreign_plot.addon_state.labels)
     @test all(label -> !occursin("field equations",label),values(foreign_plot.addon_state.labels))
-    @test foreign_plot.addon_state.formulations.reference === details(foreign)
+    @test foreign_plot.addon_state.formulations.reference === details(foreign).data
 
     @test_throws r"explicitly saved" LineCableModels.plot(publication,(R,);pair=(2,1),options...)
     @test_throws r"not retained" LineCableModels.plot(publication,(R,);band=(100.,200.),options...)
     @test_throws r"no retained samples" LineCableModels.plot(publication,(R,);band=:wide,options...)
-    duplicated=ParametricResult(nothing,[points[1],points[1]],candidates.axes,(;))
+    duplicated=ParametricResult(nothing,[points[1],points[1]],candidates.axes, ComputationDetails((;)))
     overlay=LineCableModels.plot(duplicated,(R,);reference,options...)
     @test all(length(filter(item -> item isa Makie.Lines,axis.scene.plots))==3 for axis in overlay.axes)
     multi=ParametricResult(nothing,[points[1],points[1],points[2],points[2]],
-        (problems=[:one,:two],formulations=selections),(;))
+        (problems=[:one,:two],formulations=selections), ComputationDetails((;)))
     @test_throws r"select problem" LineCableModels.plot(multi,(R,);options...)
     chosen=LineCableModels.plot(multi,(R,);problem=2,options...)
     @test chosen.addon_state.formulations.problem==2
-    references=ParametricResult(nothing,[reference,reference],(problems=[:one,:two],formulations=selections[1:1]),(;))
+    references=ParametricResult(nothing,[reference,reference],(problems=[:one,:two],formulations=selections[1:1]), ComputationDetails((;)))
     paired=report(BenchmarkTableDefinition(pairing=[(1,1),(2,2),(1,3),(2,4)]),
         (reference=references,candidate=multi))
     a=LineCableModels.plot(paired,(R,);problem=1,options...)
@@ -108,12 +108,12 @@ end
     tensor=reshape([1.,2.,3.],1,1,:)
     parameters=map((0.1,0.1,0.4)) do spread
         LineParameters(complex.(measurement.(tensor,spread),tensor),1e-6im.*tensor,
-            measurement.([1.,10.,100.],0.01);details=(coordinates=["a"],))
+            measurement.([1.,10.,100.],0.01);details=ComputationDetails(;coordinates=["a"],))
     end
     options=(backend=:cairo,display_plot=false,controls=false,open_export=false)
     choices=(problems=[:one],formulations=[Formulation(),Formulation()])
     for index in (2,3)
-        candidates=ParametricResult(nothing,[parameters[1],parameters[index]],choices,(;))
+        candidates=ParametricResult(nothing,[parameters[1],parameters[index]],choices, ComputationDetails((;)))
         if index==2
             artifact=report(BenchmarkTableDefinition((R,);bands=(:all,)),
                 (reference=parameters[1],candidate=candidates))
@@ -147,8 +147,7 @@ end
     formula_id(value::TestFormula)=formula_id(typeof(value))
     description(::Type{<:TestFormula};compact::Bool=false)=compact ? "Shared display" : "Test-owned scientific explanation"
     description(value::TestFormula;compact::Bool=false)=description(typeof(value);compact)
-    formulation_options(::TestFormula)=(;)
-    formulation_options(::Type{<:TestFormula},record::NamedTuple)=(;)
+    formulation_options(::TestFormula)=FormulationOptions()
     Base.NamedTuple(value::TestFormula)=(identifier=formula_id(value),)
     Base.pairs(::Type{<:TestFormula};quantity=nothing)=pairs((east=TestFormula,west=TestFormula))
     struct TestOwner{T} <: AbstractFormulation
@@ -158,14 +157,13 @@ end
     description(value::TestOwner;compact::Bool=false)=description(typeof(value);compact)
     formula_id(::Type{<:TestOwner})=:test_owner
     formula_id(::TestOwner)=:test_owner
-    formulation_options(::TestOwner)=(;)
-    formulation_options(::Type{TestOwner},record::NamedTuple)=record.options
+    formulation_options(::TestOwner)=FormulationOptions()
     description(::Type{TestOwner},::Val{:channel})="channel"
     Base.pairs(::Type{TestOwner};quantity=nothing)=pairs((channel=TestFormula,))
     Base.pairs(::Type{TestOwner},record::NamedTuple;quantity=nothing)=
         pairs(E.LineParametersFormulation,record;quantity,owner=TestOwner)
     Base.pairs(value::TestOwner;quantity=nothing)=pairs(TestOwner,
-        (methods=(channel=value.selection,),requested=(channel=map(formulation_options,value.selection),),options=(;));quantity)
+        (methods=(channel=value.selection,),requested=(channel=map(NamedTuple,value.selection),),options=(;));quantity)
 
     a=Formulation(TestFormula,(west=:right,east=:left))
     b=Formulation(TestFormula,(east=:right,west=:left))
@@ -180,10 +178,10 @@ end
     f=[1.,10.,100.]
     z=reshape(complex.(1.:12.,21.:32.),2,2,3)
     y=reshape(complex.(101.:112.,201.:212.),2,2,3)*1e-6
-    reference=LineParameters(z,y,f;details=(coordinates=["a","b"],formulations=NamedTuple(LineCableModelsFEM()),))
-    points=[LineParameters(k*z,k*y,f;details=(coordinates=["a","b"],)) for k in (1.,2.,1.)]
+    reference=LineParameters(z,y,f;details=ComputationDetails(;coordinates=["a","b"],formulations=NamedTuple(LineCableModelsFEM()),))
+    points=[LineParameters(k*z,k*y,f;details=ComputationDetails(;coordinates=["a","b"],)) for k in (1.,2.,1.)]
     choices=[TestOwner(a),TestOwner(b),saved]
-    candidates=ParametricResult(nothing,points,(problems=[:one],formulations=choices),(;))
+    candidates=ParametricResult(nothing,points,(problems=[:one],formulations=choices), ComputationDetails((;)))
     artifact=report(BenchmarkTableDefinition((R,B);bands=(:all,)),(reference=reference,candidate=candidates))
     options=(backend=:cairo,display_plot=false,controls=false,open_export=false,length_unit=:base)
     for source in (candidates,artifact)
@@ -209,7 +207,7 @@ end
     physical=Formulation(internal_impedance=internal,earth_impedance=earth,
         earth_admittance=(air=:default,earth=:default,mixed=:default))
     for retained in (physical,IO.deserialize_value(Val(:formulation),NamedTuple(physical)))
-        data=ParametricResult(nothing,points[1:1],(problems=[:one],formulations=[retained]),(;))
+        data=ParametricResult(nothing,points[1:1],(problems=[:one],formulations=[retained]), ComputationDetails((;)))
         for (request,names) in ((R,("internal Z(inner)=Schelkunoff","internal Z(outer)=Schelkunoff",
                 "internal Z(transfer)=Schelkunoff","earth Z(air)=Unified",
                 "earth Z(earth)=Pollaczek","earth Z(mixed)=Unified")),
@@ -229,14 +227,14 @@ end
     f = [1.0, 10.0, 100.0]
     tensor = fill(1.0+2im, 1, 1, 3)
     reference = LineParameters(PhaseDomain, tensor, 1e-6tensor, f;
-        details=(coordinates=["a"],))
+        details=ComputationDetails(;coordinates=["a"],))
     ids = ((:default,:default), (:pollaczek1926,:pollaczek1926),
         (:saad1996,:default), (:wedepohl1973,:default), (:xue2018,:xue2018))
     records = [NamedTuple(Formulation(earth_impedance=z,earth_admittance=y,
         options=(reduce_bundle=false,))) for (z,y) in ids]
     original = deepcopy(records)
     candidates = ParametricResult(nothing,fill(reference,5),
-        (problems=[:one],formulations=records),(;))
+        (problems=[:one],formulations=records), ComputationDetails((;)))
     baseline = (result=reference,metadata=(port_order=["a"],formulation=records[1],axes=nothing))
     artifact = report(BenchmarkTableDefinition(),(reference=baseline,candidate=candidates))
     options = (;backend=:cairo,display_plot=false,controls=false,open_export=false,
@@ -279,13 +277,13 @@ end
     # Reports and plots must reject contradictory data under an equal relevant
     # selection, not average it, silently discard it, or add a numeric label.
     broken_points=collect(candidates)
-    broken_points[3]=LineParameters(PhaseDomain,tensor,2e-6tensor,f;details=(coordinates=["a"],))
-    broken=ParametricResult(nothing,broken_points,candidates.axes,(;))
+    broken_points[3]=LineParameters(PhaseDomain,tensor,2e-6tensor,f;details=ComputationDetails(;coordinates=["a"],))
+    broken=ParametricResult(nothing,broken_points,candidates.axes, ComputationDetails((;)))
     @test_throws r"conflicting saved observations" report(BenchmarkTableDefinition((B,)),
         (reference=baseline,candidate=broken))
     @test_throws r"conflicting saved observations" LineCableModels.plot(broken;ydata=(B,),options...)
     unknown=ParametricResult(nothing,[reference,reference],
-        (problems=[:one],formulations=[missing,missing]),(;))
+        (problems=[:one],formulations=[missing,missing]), ComputationDetails((;)))
     page=LineCableModels.plot(unknown;ydata=(B,),options...)
     @test length(filter(item -> item isa Makie.Lines,first(page.axes).scene.plots))==2
     @test records == original

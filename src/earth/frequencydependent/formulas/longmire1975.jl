@@ -44,7 +44,7 @@ end
 
 function earth_material(
         ::Formula{:longmire1975}, material::EarthMaterial{T}, frequency::T,
-        values::NamedTuple, options::NamedTuple, workspace
+        values::NamedTuple, options::FormulationOptions, workspace
 ) where {T <: Real}
     conductivity_reference = inv(material.rho)
     corner = (convert(T, values.corner_scale) * conductivity_reference)^convert(T, values.corner_exponent)
@@ -68,6 +68,6 @@ function earth_material(
     return EarthMaterial{T}(inv(conductivity), relative_permittivity, material.mu_r)
 end
 
-computation_options(::FormulaMethod{<:Formula{:longmire1975}, typeof(earth_material)}) = (;)
+formulation_options(::FormulaMethod{<:Formula{:longmire1975}, typeof(earth_material)}) = FormulationOptions()
 
 :longmire1975

@@ -23,7 +23,7 @@
     @test keys(composite.methods.internal_impedance)==(:inner,:outer,:transfer)
     @test P.pscad_setting(composite,underground)==P.pscad_setting(Formulation(:pscad),underground)
     @test Formulation(Val(:pscad),underground,composite)===composite
-    @test LineCableModels.computation_details(composite).effective.internal_impedance==
+    @test LineCableModels.computation_details(composite).data.effective.internal_impedance==
         (inner=:cable_coax,outer=:cable_coax,transfer=:cable_coax)
     rejected=Formulation(:pscad;internal_impedance=(inner=:default,
         outer=:schelkunoff1934,transfer=:default))
@@ -89,7 +89,7 @@
         earth_impedance = formula(:default; equivalent_earth = formula(:default)))
     @test typeof(baseline) === typeof(alternative)
     result=LineParameters(PhaseDomain, zeros(ComplexF64, 1, 1, 1),
-        zeros(ComplexF64, 1, 1, 1), [50.0]; details = (formulations = baseline,))
+        zeros(ComplexF64, 1, 1, 1), [50.0]; details = ComputationDetails(;formulations = baseline.data,))
     @test computation_details(typeof(Formulation(:pscad)), result) === details(result)
 end
 

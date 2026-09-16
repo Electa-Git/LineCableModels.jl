@@ -13,9 +13,9 @@
             model=load_case(case_id;variation=ExactOverrides(frequencies=[50.0,1e4]))
             problem=model.problem
             elapsed=@elapsed actual=compute(problem,selected;options=controls)
-            record=details(actual).fem
+            record=details(actual).data.fem
             @test frequencies(actual)==problem.frequencies
-            @test details(actual).coordinates==model.port_order
+            @test details(actual).data.coordinates==model.port_order
             @test basis(actual)===:pul
             @test domain(actual)===PhaseDomain
             @test size(Z(actual))==size(Y(actual))==(2,2,2)

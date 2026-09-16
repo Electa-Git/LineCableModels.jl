@@ -18,7 +18,7 @@ problem = LineParametersProblem(system; frequencies,
     earth_props=homogeneous(rho=0.1, eps_r=1.0, mu_r=1.0))
 formulation = Formulation(:LineCableModelsFEM;
     options=(physics=:quasi_fw, reduce_bundle=false, kron_reduction=false, ideal_transposition=false))
-execution = computation_options(LineCableModelsFEM, (mesh_policy=:remesh, gmsh_verbosity=2, getdp_verbosity=3,
+execution = computation_options(LineCableModelsFEM, ComputationOptions(;mesh_policy=:remesh, gmsh_verbosity=2, getdp_verbosity=3,
         plot_field_maps=false, solver_threads=1, keep_run_directory=true))
 
 # Reuse the package's material resolver and mesher. No production FEM solve is
@@ -29,7 +29,7 @@ manual_run = FEM._create_run(runtime_root)
 run_directory = manual_run.path
 path_files = String[]
 lock(FEM.FEM_SESSION_LOCK) do
-    session = FEM._start_gmsh(execution.gmsh_verbosity)
+    session = FEM._start_gmsh(execution.data.gmsh_verbosity)
     try
         geometry = FEM._build_geometry!(model, "quasi-full-$(basename(run_directory))")
         global mesh_paths = FEM._select_meshes!(manual_run, model, geometry,
@@ -61,9 +61,9 @@ for (index, plan) in enumerate(model.mesh_plans)
     mkpath(job)
     mesh, paths = mesh_paths[index], path_files[index]
     prefix = joinpath(job, "solver")
-    maps = Int(execution.plot_field_maps)
+    maps = Int(execution.data.plot_field_maps)
     command = `$getdp $pro_file -solve LineCableModelsFEMScan
-        -msh $mesh -name $prefix -v $(execution.getdp_verbosity)
+        -msh $mesh -name $prefix -v $(execution.data.getdp_verbosity)
         -setstring ModelDataPath $model_data -setstring RunDirectory $job
         -setstring BasisListPath $basis_file -setstring PathDataPath $paths
         -setnumber FrequencyIndex $index -setnumber FrequencyHz $(plan.frequency)

@@ -30,7 +30,7 @@ end
 
 function earth_material(
         ::Formula{:visacro2012}, material::EarthMaterial{T}, frequency::T,
-        values::NamedTuple, options::NamedTuple, workspace
+        values::NamedTuple, options::FormulationOptions, workspace
 ) where {T <: Real}
     frequency_boundary = convert(T, values.frequency_boundary)
     evaluated_frequency = frequency < frequency_boundary ?
@@ -44,6 +44,6 @@ function earth_material(
     return EarthMaterial{T}(inv(conductivity), relative_permittivity, material.mu_r)
 end
 
-computation_options(::FormulaMethod{<:Formula{:visacro2012}, typeof(earth_material)}) = (;)
+formulation_options(::FormulaMethod{<:Formula{:visacro2012}, typeof(earth_material)}) = FormulationOptions()
 
 :visacro2012

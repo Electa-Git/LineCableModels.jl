@@ -9,7 +9,8 @@ $(IMPORTS)
 
 """
 module SemiconAdmittance
-import ...Grammar: computation_options
+import ...Grammar: FormulationOptions
+import ...Grammar: formulation_options
 
 export Formula, formula_id, formulas
 

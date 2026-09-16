@@ -113,10 +113,12 @@ function _catalogue_fem_benchmark(
         case_id::Symbol,
         source_file::AbstractString;
         frequencies = nothing,
-        reference_options::NamedTuple = (;),
-        candidate_options::NamedTuple = (;),
+        reference_options::Union{NamedTuple,Grammar.ComputationOptions} = Grammar.ComputationOptions(),
+        candidate_options::Union{NamedTuple,Grammar.ComputationOptions} = Grammar.ComputationOptions(),
         variation::AbstractCaseVariation = NoVariation()
 )
+    reference_options = reference_options isa NamedTuple ? Grammar.ComputationOptions(reference_options) : reference_options
+    candidate_options = candidate_options isa NamedTuple ? Grammar.ComputationOptions(candidate_options) : candidate_options
     model = load_case(case_id;
         variation = _catalogue_variation(frequencies, variation))
     execution = merge(
@@ -128,7 +130,7 @@ function _catalogue_fem_benchmark(
             frequency_workers = 2,
             solver_threads = 1
         ),
-        reference_options)
+        reference_options.data)
     reference = BenchmarkCalculation(
         :fem,
         model.problem,
@@ -161,10 +163,12 @@ function _catalogue_pscad_benchmark(
         case_id::Symbol,
         source_file::AbstractString;
         frequencies = nothing,
-        reference_options::NamedTuple = (;),
-        candidate_options::NamedTuple = (;),
+        reference_options::Union{NamedTuple,Grammar.ComputationOptions} = Grammar.ComputationOptions(),
+        candidate_options::Union{NamedTuple,Grammar.ComputationOptions} = Grammar.ComputationOptions(),
         variation::AbstractCaseVariation = NoVariation()
 )
+    reference_options = reference_options isa NamedTuple ? Grammar.ComputationOptions(reference_options) : reference_options
+    candidate_options = candidate_options isa NamedTuple ? Grammar.ComputationOptions(candidate_options) : candidate_options
     case_id === :two_bare_wires && throw(ArgumentError(
         "the two-bare-wire case is intentionally excluded from PSCAD campaigns",
     ))
@@ -174,7 +178,7 @@ function _catalogue_pscad_benchmark(
         :pscad,
         model.problem,
         Formulation(:pscad; earth_impedance = :wedepohl1973);
-        options = merge((verbosity = (default = 0, PSCAD = 0),), reference_options)
+        options = merge((verbosity = (default = 0, PSCAD = 0),), reference_options.data)
     )
     return benchmark_definition(
         _catalogue_benchmark_id(case_id, :pscad),
@@ -316,10 +320,12 @@ function _catalogue_uq_benchmark(
         case_id::Symbol,
         source_file::AbstractString;
         frequencies = nothing,
-        reference_options::NamedTuple = (;),
-        candidate_options::NamedTuple = (;),
+        reference_options::Union{NamedTuple,Grammar.ComputationOptions} = Grammar.ComputationOptions(),
+        candidate_options::Union{NamedTuple,Grammar.ComputationOptions} = Grammar.ComputationOptions(),
         variation::AbstractCaseVariation = NoVariation()
 )
+    reference_options = reference_options isa NamedTuple ? Grammar.ComputationOptions(reference_options) : reference_options
+    candidate_options = candidate_options isa NamedTuple ? Grammar.ComputationOptions(candidate_options) : candidate_options
     definition = Base.include(@__MODULE__, case_index()[case_id])
     selected_variation = _catalogue_geometry_variation(definition,
         _catalogue_variation(frequencies, variation))

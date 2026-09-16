@@ -41,7 +41,7 @@ end
 
 function earth_material(
         ::Formula{:alipio2014}, material::EarthMaterial{T}, frequency::T,
-        values::NamedTuple, options::NamedTuple, workspace
+        values::NamedTuple, options::FormulationOptions, workspace
 ) where {T <: Real}
     gamma = convert(T, values.exponent)
     epsilon_infinity = convert(T, values.epsilon_infinity)
@@ -63,6 +63,6 @@ function earth_material(
     return EarthMaterial{T}(thousand / conductivity, relative_permittivity, material.mu_r)
 end
 
-computation_options(::FormulaMethod{<:Formula{:alipio2014}, typeof(earth_material)}) = (;)
+formulation_options(::FormulaMethod{<:Formula{:alipio2014}, typeof(earth_material)}) = FormulationOptions()
 
 :alipio2014

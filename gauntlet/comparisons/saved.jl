@@ -68,28 +68,35 @@ function read_calculation(path::AbstractString; sha256_expected = nothing, evide
     result = if kind === :gauntlet_calculation
         document["domain"] === :PhaseDomain ||
             throw(ArgumentError("only phase-domain calculations are supported"))
+        retained=get(document,"computation_details",(;))
+        haskey(retained,:shunt_model) && (retained=merge(retained,
+            NamedTuple{(:shunt_model,),Tuple{NamedTuple}}((retained.shunt_model,))))
         LineParameters(LineCableModels.PhaseDomain, document["Z"], document["Y"],
             document["frequencies"]; basis = document["basis"],
-            details = merge(get(document, "computation_details", (;)),
+            details = Grammar.ComputationDetails(merge(retained,
                 (comparison_unsupported = get(document, "comparison_unsupported", (;)),
                     files = [(path = file.path,
                                  source = joinpath(dirname(path), file.path),
                                  sha256 = file.sha256)
-                             for file in get(document, "retained_files", ())])))
+                             for file in get(document, "retained_files", ())]))))
     elseif kind === :gauntlet_result_space
-        values=[LineParameters(
+        values=map(enumerate(document["points"])) do (index,point)
+            retained=point.computation_details
+            haskey(retained,:shunt_model) && (retained=merge(retained,
+                NamedTuple{(:shunt_model,),Tuple{NamedTuple}}((retained.shunt_model,))))
+            LineParameters(
                     PhaseDomain, point.Z, point.Y, point.frequencies; basis = point.basis,
-                    details = merge(point.computation_details,
+                    details = Grammar.ComputationDetails(merge(retained,
                         (files = [(path = file.path,
                                       source = joinpath(dirname(path), file.path), sha256 = file.sha256)
                                   for file in get(document, "retained_files", ())
-                                  if file.point == index],)))
-                for (index, point) in enumerate(document["points"])]
+                                  if file.point == index],))))
+        end
         for (point, value) in zip(document["points"], values)
             semantic_sha256(value, (; port_order=document["port_order"])) == point.data_sha256 ||
                 throw(ArgumentError("result-space point data changed"))
         end
-        ParametricResult(nothing, values, document["axes"], (;))
+        ParametricResult(nothing, values, document["axes"], Grammar.ComputationDetails())
     elseif kind === :gauntlet_moments
         read_calculation(document["moments"])
     elseif kind === :gauntlet_uncertainty
@@ -142,7 +149,7 @@ function read_calculation(path::AbstractString; sha256_expected = nothing, evide
             frequencies(core)==document["frequencies"] && basis(core)==document["basis"] &&
                 nameof(domain(core))==document["domain"] ||
                 throw(ArgumentError("native UQ checkpoint differs from saved coordinates"))
-            get(details(core),:coordinates,ports)==ports ||
+            get(details(core).data,:coordinates,ports)==ports ||
                 throw(ArgumentError("native UQ checkpoint differs from saved terminal identities"))
             for (name,selector) in pairs((R=LineCableModels.R,L=LineCableModels.L,C=LineCableModels.C,G=LineCableModels.G)),
                     (statistic,transform) in ((:mean,Statistics.mean),(:std,Statistics.std))
@@ -230,9 +237,9 @@ function record_benchmark(benchmark::BenchmarkDefinition, publication::ReportArt
     comparisons = [(request=ImportExport.serialize_value(row.request,Val(:scientific)),quantity = row.quantity, statistic = row.statistic,
                        reference_index = row.reference_index, candidate_index = row.candidate_index,
                        absolute = observe(row.error,absolute_error), relative = observe(row.error,relative_error),
-                       details = (; (key=>value for (key,value) in pairs(details(row.error)) if key !== :request)...)) for row in errors]
+                       details = (; (key=>value for (key,value) in pairs(details(row.error).data) if key !== :request)...)) for row in errors]
     for error in errors
-        all(name -> haskey(details(error.error), name),
+        all(name -> haskey(details(error.error).data, name),
             (:band, :normalization, :actual_bounds, :sample_count, :indices, :status)) ||
             throw(ArgumentError("completed comparisons must retain their actual settings and sample coordinates"))
     end

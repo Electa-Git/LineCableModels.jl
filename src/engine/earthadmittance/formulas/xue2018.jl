@@ -63,7 +63,7 @@ function earth_potential_coefficient(
     geometry = _geometry(pair)
     gamma_0_squared, gamma_1_squared = state.gamma_medium_squared
     ratio = gamma_0_squared / gamma_1_squared
-    S12 = integrate(functor.options.integration.method,
+    S12 = integrate(functor.options.data.integration.method,
         SpectralIntegral(Val(:cosine),
             lambda -> begin
                 u_0 = sqrt(lambda^2 + gamma_0_squared)
@@ -75,8 +75,8 @@ function earth_potential_coefficient(
             float(nominal(abs(state.gamma[2])));
             angle = min(pi/4, atan(float(nominal(geometry.H / (2geometry.y_ij))))),
             features = retained_earth_features(state, geometry, workspace)),
-        functor.options.integration.options, workspace)
-    S13 = integrate(functor.options.integration.method,
+        functor.options.data.integration.options, workspace)
+    S13 = integrate(functor.options.data.integration.method,
         SpectralIntegral(Val(:cosine),
             lambda -> begin
                 u_0 = sqrt(lambda^2 + gamma_0_squared)
@@ -88,7 +88,7 @@ function earth_potential_coefficient(
             float(nominal(abs(state.gamma[2])));
             angle = min(pi/4, atan(float(nominal(geometry.H / (2geometry.y_ij))))),
             features = retained_earth_features(state, geometry, workspace)),
-        functor.options.integration.options, workspace)
+        functor.options.data.integration.options, workspace)
     gamma_1 = state.gamma[2]
     direct = special_besselk(0, gamma_1 * geometry.d_ij) -
              special_besselk(0, gamma_1 * geometry.D_ij)
@@ -99,9 +99,9 @@ end
 
 
 
-function computation_options(::FormulaMethod{<:Formula{:xue2018}, typeof(earth_potential_coefficient),
+function formulation_options(::FormulaMethod{<:Formula{:xue2018}, typeof(earth_potential_coefficient),
         A}) where {A <: Tuple{Union{Val{:self}, Val{:mutual}}, Val{2}, Val{2}}}
-    (integration = (method = :quad, options = (;)),)
+    return FormulationOptions((integration = (method = :quad, options = (;)),))
 end
 
 function validate(binding::FormulaMethod{<:Formula{:xue2018}, typeof(earth_potential_coefficient)},

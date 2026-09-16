@@ -18,7 +18,7 @@ export operators, formula_id, formulas, gamma, modal_quantities
 using DocStringExtensions: IMPORTS, TYPEDEF, TYPEDFIELDS, TYPEDSIGNATURES
 import ..LineCableModels: FormulaMethod, nominal, FormulaDefinition, formula, parameterize, validate
 import ..Grammar: AbstractProblemDefinition, AbstractFormulation,
-                  ComputationOptions, ComputationDetails,
+                  FormulationOptions, ComputationOptions, ComputationDetails,
                   compute, computation_options, computation_details, formulation_options, details
 import ..Engine: LineParameters, LineParametersFormulation, PhaseDomain, ModalDomain,
                  SeriesImpedance, ShuntAdmittance,

@@ -3,9 +3,9 @@
     using DataFrames
     f=[0.1,10.,50.,1e3,1e6,1e7]
     reference=LineParameters(fill(1.0+1im,1,1,6),zeros(ComplexF64,1,1,6),f;
-        details=(coordinates=["core"],))
+        details=ComputationDetails(;coordinates=["core"],))
     candidate=LineParameters(fill(1.2+1im,1,1,6),zeros(ComplexF64,1,1,6),f;
-        details=(coordinates=["core"],))
+        details=ComputationDetails(;coordinates=["core"],))
     artifact=report(BenchmarkTableDefinition((R,G)),(;reference,candidate))
     before=deepcopy(artifact.table)
     errors=deepcopy(artifact.published.comparisons)

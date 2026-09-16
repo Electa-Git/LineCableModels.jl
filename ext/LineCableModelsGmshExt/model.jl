@@ -585,7 +585,7 @@ _coalesce(shape, ::Any, ::Any) = shape
 function _resolved_fem_model(
         problem::LineParametersProblem{T},
         formulation::LineCableModelsFEM,
-        options::ComputationOptions = computation_options(LineCableModelsFEM, (;))
+        options::ComputationOptions = computation_options(LineCableModelsFEM, ComputationOptions())
 ) where {T <: Real}
     try
         LineCableModels.validate(problem)
@@ -841,7 +841,7 @@ function _resolved_fem_model(
         layout_radius,
         cable_outer_mesh_sizes,
         mesh_growth_factor,
-        options.domain_skin_depths
+        options.data.domain_skin_depths
     )
     display_plan = last(mesh_plans)
     domain_radius = display_plan.domain_radius

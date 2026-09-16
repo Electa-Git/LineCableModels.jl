@@ -134,7 +134,7 @@ function Base.show(io::IO, ::MIME"text/plain", problem::ParametricProblem)
     get(io, :compact, false) && return show(io, problem)
     return TextDisplay.tree(io, "ParametricProblem", (
         (label = "space    $(sprint(show, problem.space; context = :compact => true))", noun = "fields"),
-        (label = "options  $(length(problem.options)) entries", noun = "fields"),
+        (label = "options  $(length(problem.options.data)) entries", noun = "fields"),
     ))
 end
 
@@ -150,7 +150,7 @@ function Base.show(io::IO, ::MIME"text/plain", result::ParametricResult)
     value_type = isempty(result.values) ? "none" : _semantic_target(eltype(result.values))
     return TextDisplay.tree(io, "ParametricResult · $(length(result)) values", (
         (label = "result type  $value_type", noun = "fields"),
-        (label = "details      $(length(result.details)) entries", noun = "fields"),
+        (label = "details      $(length(result.details.data)) entries", noun = "fields"),
     ))
 end
 

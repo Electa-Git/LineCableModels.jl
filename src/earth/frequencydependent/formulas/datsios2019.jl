@@ -29,7 +29,7 @@ end
 
 function earth_material(
         ::Formula{:datsios2019}, material::EarthMaterial{T}, frequency::T,
-        values::NamedTuple, options::NamedTuple, workspace
+        values::NamedTuple, options::FormulationOptions, workspace
 ) where {T <: Real}
     conductivity_low = convert(T, 1e4) / material.rho
     frequency_low = convert(T, 42)
@@ -60,6 +60,6 @@ function earth_material(
     return EarthMaterial{T}(inv(conductivity), relative_permittivity, material.mu_r)
 end
 
-computation_options(::FormulaMethod{<:Formula{:datsios2019}, typeof(earth_material)}) = (;)
+formulation_options(::FormulaMethod{<:Formula{:datsios2019}, typeof(earth_material)}) = FormulationOptions()
 
 :datsios2019

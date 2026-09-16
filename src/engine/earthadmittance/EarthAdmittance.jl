@@ -10,6 +10,7 @@ $(IMPORTS)
 
 """
 module EarthAdmittance
+import ...Grammar: FormulationOptions
 
 # Export public API
 export Formula, formula_id, earth_potential_coefficient, assumptions, propagation, formulas,
@@ -31,7 +32,7 @@ import ..Engine: system_earth, unified_entry, retained_earth_features
 import ...LineCableModels: FormulaDefinition, FormulaMethod, nominal
 import ..Engine: SpectralIntegral, integrate
 import ..Engine: description, conductivity, media, special_besselk
-import ..Engine: computation_options
+import ..Engine: formulation_options
 #! explicit-imports: on
 
 vacuum_permittivity(value) = one(value) * 88541878128 * (one(value) * 10)^(-22)

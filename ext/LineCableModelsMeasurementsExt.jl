@@ -187,11 +187,13 @@ function serialize_value(value::UQ.LinearErrorResult{<:Engine.LineParameters{<:C
         end
         (Z=matrices[1],Y=matrices[2],frequencies=LineCableModels.frequencies(core),
             basis=LineCableModels.basis(core),domain=:PhaseDomain,
-            coordinates=get(LineCableModels.details(core),:coordinates,nothing),
-            shunt_model=get(LineCableModels.details(core),:shunt_model,nothing))
+            coordinates=get(LineCableModels.details(core).data,:coordinates,nothing),
+            shunt_model=get(LineCableModels.details(core).data,:shunt_model,nothing))
     end
     formulation=record.formulation isa NamedTuple ? record.formulation : NamedTuple(record.formulation)
-    payload=(formulation,points,sources=[(nominal=source[1],sigma=source[2]) for source in sources],details=record.details)
+    retained = record.details.data
+    portable_details = isempty(retained) ? retained : (points=map(point -> point.data, retained.points),)
+    payload=(formulation,points,sources=[(nominal=source[1],sigma=source[2]) for source in sources],details=portable_details)
     return Dict("__type__"=>"MeasurementLinearErrorResult","version"=>1,
         "payload"=>serialize_value(payload,Val(:scientific)))
 end
@@ -214,11 +216,13 @@ function serialize_value(value::UQ.LinearErrorResult{<:Engine.CableConstants{<:M
     points=map(value) do core
         (kind=:cable_constants,cores=core.cores,R=encode.(core.R),L=encode.(core.L),
             C=encode.(core.C),G=encode.(core.G),frequency=encode(core.frequency),
-            shunt_model=get(LineCableModels.details(core),:shunt_model,nothing))
+            shunt_model=get(LineCableModels.details(core).data,:shunt_model,nothing))
     end
     record=NamedTuple(value)
     formulation=record.formulation isa NamedTuple ? record.formulation : NamedTuple(record.formulation)
-    payload=(formulation,points,sources=[(nominal=source[1],sigma=source[2]) for source in sources],details=record.details)
+    retained = record.details.data
+    portable_details = isempty(retained) ? retained : (points=map(point -> point.data, retained.points),)
+    payload=(formulation,points,sources=[(nominal=source[1],sigma=source[2]) for source in sources],details=portable_details)
     return Dict("__type__"=>"MeasurementLinearErrorResult","version"=>1,
         "payload"=>serialize_value(payload,Val(:scientific)))
 end
@@ -239,10 +243,10 @@ function deserialize_extension(::Val{:MeasurementLinearErrorResult},record)
     end
     points=map(payload.points) do point
         model=get(point,:shunt_model,nothing)
-        detail=model===nothing ? (;) : (shunt_model=model,)
+        detail=model===nothing ? (;) : NamedTuple{(:shunt_model,),Tuple{NamedTuple}}((model,))
         if get(point,:kind,nothing)===:cable_constants
             return Engine.CableConstants(point.cores,restore.(point.R),restore.(point.L),
-                restore.(point.C),restore.(point.G),restore(point.frequency),detail)
+                restore.(point.C),restore.(point.G),restore(point.frequency),LineCableModels.ComputationDetails(detail))
         end
         matrices=map((point.Z,point.Y)) do matrix
             parts=map((matrix.real,matrix.imaginary)) do components
@@ -252,9 +256,20 @@ function deserialize_extension(::Val{:MeasurementLinearErrorResult},record)
         end
         point.domain === :PhaseDomain || throw(ArgumentError("unsupported LEP result domain"))
         point.coordinates === nothing || (detail=merge(detail,(coordinates=point.coordinates,)))
-        Engine.LineParameters(matrices...,point.frequencies;basis=point.basis,details=detail)
+        Engine.LineParameters(matrices...,point.frequencies;basis=point.basis,details=LineCableModels.ComputationDetails(detail))
     end
-    return UQ.LinearErrorResult(payload.formulation,points,payload.details)
+    retained = payload.details
+    restored_details = if isempty(retained)
+        LineCableModels.ComputationDetails()
+    else
+        records=map(retained.points) do detail
+            haskey(detail,:shunt_model) && (detail=merge(detail,
+                NamedTuple{(:shunt_model,),Tuple{NamedTuple}}((detail.shunt_model,))))
+            LineCableModels.ComputationDetails(detail)
+        end
+        LineCableModels.ComputationDetails(points=records)
+    end
+    return UQ.LinearErrorResult(payload.formulation,points,restored_details)
 end
 function encode_cell(
         ::ReportBuilder.XLSXReportDefinition,

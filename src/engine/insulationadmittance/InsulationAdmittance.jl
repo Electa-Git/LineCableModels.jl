@@ -12,7 +12,8 @@ $(IMPORTS)
 
 """
 module InsulationAdmittance
-import ...Grammar: computation_options
+import ...Grammar: FormulationOptions
+import ...Grammar: formulation_options
 
 # Export public API
 export Formula, formula_id, formulas

@@ -56,7 +56,7 @@ module CurrentScenarios
         omega=reshape(2pi.*f,1,1,:)
         return LineParameters(channels.R .+ im.*omega.*channels.L,
             channels.G .+ im.*omega.*channels.C, f; basis=:pul,
-            details=(coordinates=["west","east"],))
+            details=ComputationDetails(;coordinates=["west","east"],))
     end
 
     # Independent arrays and histogram storage for each observable. This object

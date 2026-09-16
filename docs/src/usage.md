@@ -188,7 +188,7 @@ MonteCarlo(
 ```
 
 Only `DomainError` is retryable. Rejected values do not enter samples or
-statistics. `details(result).failure_summary` reports attempts, accepted and
+statistics. `details(result).data.failure_summary` reports attempts, accepted and
 failed counts, acceptance rate, and failure counts by error type and stage.
 The resulting distribution is conditional on successful problem construction
 and calculation.

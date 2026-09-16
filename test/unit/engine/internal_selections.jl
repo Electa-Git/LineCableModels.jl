@@ -69,14 +69,14 @@
     original=compute(problem,Formulation())
     composed=compute(problem,Formulation(internal_impedance=same))
     @test Z(composed)==Z(original) && Y(composed)==Y(original)
-    @test details(composed).formulations.effective.internal_impedance==
+    @test details(composed).data.formulations.effective.internal_impedance==
         (inner=:schelkunoff1934,outer=:schelkunoff1934,transfer=:schelkunoff1934)
     cable_problem=CableConstantsProblem(first(problem.system.designs);frequency=50.)
     @test compute(cable_problem,CableConstantsFormulation())==
         compute(cable_problem,CableConstantsFormulation(internal_impedance=same))
     custom=compute(problem,Formulation(internal_impedance=distinct))
     @test Z(custom)!=Z(original) && Y(custom)==Y(original)
-    @test details(custom).formulations.effective.internal_impedance.transfer === :SurfaceLaw
+    @test details(custom).data.formulations.effective.internal_impedance.transfer === :SurfaceLaw
     candidates=Formulation(internal_impedance=Grid((formula(:default),customized));combine=:zip)
     @test length(candidates)==2
     @test collect(candidates)[2].methods.internal_impedance.transfer === customized.transfer

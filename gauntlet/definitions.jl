@@ -99,7 +99,8 @@ function benchmark_definition(
     )
 end
 
-function BenchmarkCalculation(id::Symbol, problem, formulation; options::NamedTuple = (;))
+function BenchmarkCalculation(id::Symbol, problem, formulation; options::Union{NamedTuple,Grammar.ComputationOptions} = Grammar.ComputationOptions())
+    options = options isa NamedTuple ? Grammar.ComputationOptions(options) : options
     BenchmarkCalculation(id, problem, formulation, options)
 end
 

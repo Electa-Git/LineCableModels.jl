@@ -75,7 +75,7 @@ struct LineParameters{
     U <: Real,
     D <: LineParamsDomain,
     Basis,
-    Q <: NamedTuple
+    Q <: ComputationDetails
 } <: AbstractCoreResult
     "Frequency-dependent series impedance \\[Ω/m\\] or \\[Ω\\]."
     Z::SeriesImpedance{T, Basis}
@@ -93,13 +93,13 @@ struct LineParameters{
             Z::SeriesImpedance{T, Basis},
             Y::ShuntAdmittance{T, Basis},
             f::AbstractVector{U},
-            details::Q = (;)
+            details::Q = ComputationDetails()
     ) where {
             D <: LineParamsDomain,
             T <: Complex,
             U <: Real,
             Basis,
-            Q <: NamedTuple
+            Q <: ComputationDetails
     }
         return validate(new{T, U, D, Basis, Q}(
             Z,
@@ -141,8 +141,8 @@ function LineParameters(
         Z::SeriesImpedance{T, Basis},
         Y::ShuntAdmittance{T, Basis},
         f::AbstractVector{U},
-        details::Q = (;)
-) where {T <: Complex, U <: Real, Basis, Q <: NamedTuple}
+        details::Q = ComputationDetails()
+) where {T <: Complex, U <: Real, Basis, Q <: ComputationDetails}
     return LineParameters(PhaseDomain(), Z, Y, f, details)
 end
 
@@ -183,7 +183,7 @@ function LineParameters(
         Y::AbstractArray{TY, 3},
         f::AbstractVector{U};
         basis::Symbol = :pul,
-        details::NamedTuple = (;)
+        details::ComputationDetails = ComputationDetails()
 ) where {
         D <: LineParamsDomain,
         TZ <: Complex,
@@ -207,7 +207,7 @@ function LineParameters(
         Y::AbstractArray{TY, 3},
         f::AbstractVector{U};
         basis::Symbol = :pul,
-        details::NamedTuple = (;)
+        details::ComputationDetails = ComputationDetails()
 ) where {TZ <: Complex, TY <: Complex, U <: Real}
     return LineParameters(PhaseDomain(), Z, Y, f; basis, details)
 end
@@ -217,7 +217,7 @@ function LineParameters(
         Y::AbstractArray{TY, 3},
         f::AbstractVector{U};
         basis::Symbol = :pul,
-        details::NamedTuple = (;)
+        details::ComputationDetails = ComputationDetails()
 ) where {
         TZ <: Complex,
         TY <: Complex,

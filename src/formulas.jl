@@ -1,81 +1,4 @@
 """
-Return owned scientific text for a registered formula or formulation.
-`compact=true` selects its short display name; `formula_id` remains its identity.
-"""
-function description end
-
-"""
-$(TYPEDEF)
-
-Store one declarative formula selection until its owning formulation resolves
-the identifier and controls into a concrete formula type.
-
-`FormulaDefinition` is produced by [`formula`](@ref). It does not participate in a
-numerical loop.
-
-$(TYPEDFIELDS)
-"""
-struct FormulaDefinition{ID, Order, P <: NamedTuple, O <: NamedTuple, E}
-    "Explicit formula parameters, without evaluated physical state."
-    parameters::P
-    "Explicit numerical sections owned by the consuming equation."
-    options::O
-    "Optional equivalent homogeneous-earth selection owned by this formula."
-    equivalent_earth::E
-end
-
-"""
-$(TYPEDEF)
-
-Bind one selected formulation and optional semantic selectors to a domain method.
-
-Calling the bound method passes the selected formulation before the stored
-selectors and runtime arguments. Built-in and user-owned formulations use
-the same domain-method dispatch; identities are descriptive, not a second
-implementation registry.
-
-$(TYPEDFIELDS)
-"""
-struct FormulaMethod{S, F, A <: Tuple}
-    "Selected formulation whose concrete type owns equation dispatch."
-    selection::S
-    "Owner-local domain method selected by the formula."
-    method::F
-    "Semantic `Val` selectors inserted before runtime arguments."
-    arguments::A
-end
-
-"""
-$(TYPEDSIGNATURES)
-
-Bind a selected formulation and optional semantic selectors to a domain method.
-
-# Arguments
-
-- `selection`: Built-in or user-owned formulation.
-- `method`: Owner-local domain method accepting that formulation first.
-- `arguments`: Optional semantic selectors inserted before runtime arguments.
-
-# Returns
-
-- A callable [`FormulaMethod`](@ref).
-
-# Errors
-
-- Throws `ArgumentError` when a stored semantic selector is not a `Val`.
-"""
-function FormulaMethod(selection::S, method::F, arguments...) where {S, F}
-    all(argument->argument isa Val, arguments) || throw(ArgumentError(
-        "FormulaMethod semantic selectors must be Val instances"
-    ))
-    return FormulaMethod{S, F, typeof(arguments)}(selection, method, arguments)
-end
-
-@inline function (bound::FormulaMethod)(arguments...)
-    return bound.method(bound.selection, bound.arguments..., arguments...)
-end
-
-"""
 $(TYPEDSIGNATURES)
 
 Select a registered formula without exposing its owner module or concrete
@@ -116,7 +39,8 @@ equivalent = formula(:default; order=:before)
 """
 function formula(identifier::Symbol; order::Symbol = :default,
         parameters::NamedTuple = (;),
-        options::NamedTuple = (;), equivalent_earth = nothing)
+        options::Union{NamedTuple, FormulationOptions} = FormulationOptions(), equivalent_earth = nothing)
+    options = options isa NamedTuple ? FormulationOptions(options) : options
     order in (:default, :before, :after) || throw(ArgumentError(
         "formula order must be :default, :before, or :after"
     ))
@@ -124,11 +48,6 @@ function formula(identifier::Symbol; order::Symbol = :default,
         typeof(options), typeof(equivalent_earth)}(
         parameters, options, equivalent_earth)
 end
-
-"""
-Return the stable formula identifier of a formula value.
-"""
-function formula_id end
 
 "Return the selected formulation's identifier without evaluating its equation."
 formula_id(bound::FormulaMethod) = formula_id(bound.selection)
@@ -142,7 +61,7 @@ description(::Type{<:FormulaDefinition{ID}}; compact::Bool=false) where {ID} = s
 """Expose a requested formula identifier and its explicit model and numerical controls."""
 function Base.NamedTuple(value::FormulaDefinition{ID,Order}) where {ID,Order}
     return (identifier=ID, order=Order, parameters=value.parameters,
-        options=value.options, equivalent_earth=value.equivalent_earth === nothing ? nothing : NamedTuple(value.equivalent_earth))
+        options=value.options.data, equivalent_earth=value.equivalent_earth === nothing ? nothing : NamedTuple(value.equivalent_earth))
 end
 
 """
@@ -184,7 +103,7 @@ Label ordered formulation selections without interpreting their representation.
 
 Owners expose native children through `pairs(source; quantity)` and retained
 children through `pairs(owner, record; quantity)`, scoped
-identity through `formula_id`, controls through `formulation_options`, and
+identity through `formula_id`, explicit controls in those selection pairs, and
 text through `description`. This formatter only decides common-field omission
 and reference prefixes. Unsupported owner methods are not caught.
 """
@@ -196,6 +115,7 @@ function description(sources::AbstractVector;
     all(in((:reference,:candidate,:none)),roles) ||
         throw(ArgumentError("description roles must be reference, candidate, or none"))
     isempty(sources) && return String[]
+    retained(value) = value isa Pair ? last(value) : (;)
     selections=[ismissing(source) ? Pair[] : collect(pairs((source isa Pair ? Tuple(source) : (source,))...; quantity)) for source in sources]
     complete=[ismissing(source) ? Pair[] : collect(pairs((source isa Pair ? Tuple(source) : (source,))...)) for source in sources]
     candidates=findall(!=(:reference),roles)
@@ -203,7 +123,7 @@ function description(sources::AbstractVector;
     scopes=unique([scope for index in candidates for (scope,_) in complete[index]
         if !isempty(last(scope))])
     varying=filter(scopes) do scope
-        values=[[(formula_id(value),formulation_options(value)) for (key,value) in complete[index]
+        values=[[(formula_id(value),retained(value)) for (key,value) in complete[index]
             if key==scope] for index in candidates]
         !all(value -> isequal(value,first(values)),values)
     end
@@ -220,21 +140,21 @@ function description(sources::AbstractVector;
                     (roles[index]!==:candidate || length(identities[index])>1 || length(candidate_owners)>1) :
                     length(inner_owners)>1
                 show_identity && push!(parts,description(value;compact))
-                controls=formulation_options(value)
+                controls=retained(value)
                 peer=[other for entries in selections for (key,other) in entries if key==scope]
-                if !isempty(controls) && any(other -> !isequal(formulation_options(other),controls),peer)
+                if !isempty(controls) && any(other -> !isequal(retained(other),controls),peer)
                     push!(parts,description(scope,value;compact,settings=true))
                 end
             else
                 peer=[other for entries in selections for (key,other) in entries if key==scope]
-                changed=any(other -> !isequal((formula_id(other),formulation_options(other)),
-                    (formula_id(value),formulation_options(value))),peer)
+                changed=any(other -> !isequal((formula_id(other),retained(other)),
+                    (formula_id(value),retained(value))),peer)
                 standalone=length(sources)==1 && !ismissing(formula_id(value)) &&
                     formula_id(value)!==:none
                 # Common scalar choices are omitted independently of their IDs.
                 # Branch structure and controls remain visible in comparisons;
                 # a standalone description shows its concrete selections.
-                (length(last(scope))>1 || !isempty(formulation_options(value)) ||
+                (length(last(scope))>1 || !isempty(retained(value)) ||
                     scope in varying || changed || standalone) &&
                     push!(parts,description(scope,value;compact))
             end

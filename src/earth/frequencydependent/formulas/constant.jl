@@ -37,11 +37,11 @@ Preserve the supplied static earth properties at the requested frequency.
 """
 function earth_material(
         ::Formula{:constant}, material::EarthMaterial, frequency::Real,
-        values::NamedTuple, options::NamedTuple, workspace
+        values::NamedTuple, options::FormulationOptions, workspace
 )
     material
 end
 
-computation_options(::FormulaMethod{<:Formula{:constant}, typeof(earth_material)}) = (;)
+formulation_options(::FormulaMethod{<:Formula{:constant}, typeof(earth_material)}) = FormulationOptions()
 
 :constant

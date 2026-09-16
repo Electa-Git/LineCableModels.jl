@@ -38,7 +38,7 @@ function plot(results::LineCableModels.ParametricResult, selection=nothing;
             reference isa LineCableModels.LineParameters || throw(ArgumentError("reference must be a scalar LineParameters result"))
             sources=(reference,sources...)
             reference_record=ImportExport.deserialize_value(Val(:formulation),
-                get(LineCableModels.details(reference),:formulations,(;)))
+                get(LineCableModels.details(reference).data,:formulations,(;)))
             all_sources=Any[reference_record;records]
             label_roles=[:reference;fill(:candidate,length(records))]
             all_labels=LineCableModels.description(all_sources;roles=label_roles)
@@ -59,7 +59,7 @@ function plot(results::LineCableModels.ParametricResult, selection=nothing;
             legend_position,legend_overflow,legend_attributes,
             signed_ylog=true,kwargs...)
         for page in (pages isa LineCableModels.UIPlot ? (pages,) : pages)
-            page.addon_state=merge(page.addon_state,(formulations=(problem=p,indices=copy(indices),records=records[indices],reference=reference === nothing ? nothing : LineCableModels.details(reference)),))
+            page.addon_state=merge(page.addon_state,(formulations=(problem=p,indices=copy(indices),records=records[indices],reference=reference === nothing ? nothing : LineCableModels.details(reference).data),))
             push!(built,page)
         end
     end
@@ -81,7 +81,7 @@ function plot(published::NamedTuple{(:reference,:candidate,:context,:settings,:c
         legend_position=:bottom,legend_overflow=:show_all,legend_attributes=(;),kwargs...)
     selected_ydata=_plot_ydata(selection,ydata,
         (LineCableModels.Z,LineCableModels.Y))
-    current_resolution = all(row -> get(get(LineCableModels.details(row.error),:resolution,(;)),:revision,0) ==
+    current_resolution = all(row -> get(get(LineCableModels.details(row.error).data,:resolution,(;)),:revision,0) ==
         Engine.OBSERVABLE_RESOLUTION_REVISION, published.comparisons)
     current_resolution || @warn "Historical comparison semantics: curves use current observation resolution; retained RMS is unchanged. Request explicit reanalysis for a current report."
     isequal(atol,published.settings.atol) || @warn "Plot resolution override differs from retained comparison controls; retained RMS is unchanged." atol
@@ -151,12 +151,12 @@ function plot(published::NamedTuple{(:reference,:candidate,:context,:settings,:c
         if band !== nothing && !statistical_view
             sources=map(sources, vcat([(:reference,i) for i in refs],[(:candidate,i) for i in candidates])) do value,entry
                 role,index=entry
-                rows=filter(row -> LineCableModels.details(row.error).band == band &&
+                rows=filter(row -> LineCableModels.details(row.error).data.band == band &&
                     (role === :reference ? row.reference_index : row.candidate_index)==index,published.comparisons)
                 isempty(rows) && throw(ArgumentError("band was not retained; request explicit reanalysis before plotting it"))
-                samples=LineCableModels.details(first(rows).error).indices
+                samples=LineCableModels.details(first(rows).error).data.indices
                 isempty(samples) && throw(ArgumentError("the selected band has no retained samples"))
-                all(row -> LineCableModels.details(row.error).indices == samples,rows) || throw(ArgumentError("selected band has conflicting retained sample coordinates"))
+                all(row -> LineCableModels.details(row.error).data.indices == samples,rows) || throw(ArgumentError("selected band has conflicting retained sample coordinates"))
                 value[samples]
             end |> Tuple
         end
@@ -168,10 +168,10 @@ function plot(published::NamedTuple{(:reference,:candidate,:context,:settings,:c
                 request_identity(item)==request)
             isempty(requests) && throw(ArgumentError("no retained statistical requests match ydata"))
             allunique(requests) || throw(ArgumentError("duplicate statistical plot requests"))
-            rows=filter(row -> LineCableModels.details(row.error).band==band,published.comparisons)
+            rows=filter(row -> LineCableModels.details(row.error).data.band==band,published.comparisons)
             band===nothing || !isempty(rows) || throw(ArgumentError("band was not retained; request explicit reanalysis before plotting it"))
-            samples=band===nothing ? nothing : LineCableModels.details(first(rows).error).indices
-            band===nothing || all(row -> LineCableModels.details(row.error).indices==samples,rows) ||
+            samples=band===nothing ? nothing : LineCableModels.details(first(rows).error).data.indices
+            band===nothing || all(row -> LineCableModels.details(row.error).data.indices==samples,rows) ||
                 throw(ArgumentError("selected band has conflicting retained sample coordinates"))
             options=(; (key=>value for (key,value) in kwargs if key in (:freq_unit,:length_unit,:quantity_units))...)
             prepared=Tuple(vcat([_prepare_line_observations(reference;point=i,ydata=requests,sample_indices=samples,clip,atol,options...) for i in refs],

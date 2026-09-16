@@ -41,13 +41,13 @@ Evaluate lossless semiconducting-screen admittivity:
 """
 @inline function semicon_material(
         ::Formula{:lossless}, material::Material{T}, frequency::T,
-        temperature::T, values::NamedTuple, options::NamedTuple, workspace
+        temperature::T, values::NamedTuple, options::FormulationOptions, workspace
 ) where {T <: Real}
     ε₀ = one(T) * 88541878128 * (one(T) * 10)^(-22)
     ω = 2 * (one(T) * π) * frequency
     return complex(zero(T), ω) * ε₀ * material.eps_r
 end
 
-computation_options(::FormulaMethod{<:Formula{:lossless}, typeof(semicon_material)}) = (;)
+formulation_options(::FormulaMethod{<:Formula{:lossless}, typeof(semicon_material)}) = FormulationOptions()
 
 :lossless

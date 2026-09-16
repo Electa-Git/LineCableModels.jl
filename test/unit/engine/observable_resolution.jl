@@ -26,11 +26,11 @@
     @test_throws ArgumentError observables(source, request; atol=(oops=0.0,))
     for quantity in (R, X, L, G, B, C, Z, Y)
         error = compare(source, source, quantity)
-        @test error.details.resolution.revision == LineCableModels.Engine.OBSERVABLE_RESOLUTION_REVISION
-        @test error.details.resolution.unit == LineCableModels.Units.native_unit(quantity, :pul)
+        @test error.details.data.resolution.revision == LineCableModels.Engine.OBSERVABLE_RESOLUTION_REVISION
+        @test error.details.data.resolution.unit == LineCableModels.Units.native_unit(quantity, :pul)
     end
-    @test compare(source, source, B).details.atol ≈ 2π .* f .* compare(source, source, C).details.atol
-    @test compare(source, source, X).details.atol ≈ 2π .* f .* compare(source, source, L).details.atol
+    @test compare(source, source, B).details.data.atol ≈ 2π .* f .* compare(source, source, C).details.data.atol
+    @test compare(source, source, X).details.data.atol ≈ 2π .* f .* compare(source, source, L).details.data.atol
     @test (z, y, f) == original
 end
 
@@ -57,9 +57,9 @@ end
             @test ismissing(only(error.relative))
             @test only(error.absolute) ≈ norm(vec(g)) / sqrt(T(3))
             @test Base.nonmissingtype(eltype(error.absolute)) === T
-            @test only(error.details.unresolved_samples).reference > 0
-            @test only(error.details.unresolved_samples).candidate > 0
-            @test occursin("no samples were omitted", only(error.details.normalization_reason))
+            @test only(error.details.data.unresolved_samples).reference > 0
+            @test only(error.details.data.unresolved_samples).candidate > 0
+            @test occursin("no samples were omitted", only(error.details.data.normalization_reason))
         end
         @test !ismissing(only(compare(a, b, G; band=:wide, atol=cutoff).relative))
         @test only(observables(a, ((G, 1, 1, 3:3),); length_unit=:base, atol=cutoff)).values == base[3:3]

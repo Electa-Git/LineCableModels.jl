@@ -36,7 +36,7 @@
     end
     @test nrow(report(definition,artifact.published).table.summary)==10
     damaged=deepcopy(candidates)
-    reverse!(damaged[1].details.coordinates)
+    reverse!(damaged[1].details.data.coordinates)
     @test_throws ArgumentError report(definition,(;reference,candidate=damaged))
     @test_throws ArgumentError compare(candidates,candidates,Z)
     paired=compare(candidates,candidates,Z;pairing=[(1,1),(2,2)])

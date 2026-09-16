@@ -19,14 +19,14 @@ end
 @testitem "Gmsh FEM / physics selection, native maps, and resume isolation" tags=[:extension, :integration, :fem_numerical] begin
     using LineCableModels, Gmsh, LinearAlgebra, JSON3
     FEM = Base.get_extension(LineCableModels, :LineCableModelsGmshExt)
-    @test formulation_options(LineCableModelsFEM, (;)).physics === Symbol("quasi-tem")
+    @test formulation_options(LineCableModelsFEM, FormulationOptions()).data.physics === Symbol("quasi-tem")
     for value in (:quasi_tem, "quasi-tem", Symbol("quasi-tem"))
-        @test formulation_options(LineCableModelsFEM, (;physics=value)).physics === Symbol("quasi-tem")
+        @test formulation_options(LineCableModelsFEM, FormulationOptions(physics=value)).data.physics === Symbol("quasi-tem")
     end
     for value in (:quasi_fw, "quasi-fw", Symbol("quasi-fw"))
-        @test formulation_options(LineCableModelsFEM, (;physics=value)).physics === Symbol("quasi-fw")
+        @test formulation_options(LineCableModelsFEM, FormulationOptions(physics=value)).data.physics === Symbol("quasi-fw")
     end
-    @test_throws ArgumentError formulation_options(LineCableModelsFEM, (;physics=:fullwave))
+    @test_throws ArgumentError formulation_options(LineCableModelsFEM, FormulationOptions(physics=:fullwave))
     wire = build(CableDesign, "physics-selection", terminal(:core,
         core(Material(kind=:conductor, rho=2e-8); r=0.005)))
     system = build(LineCableSystem, [wire,wire], [(0.,1.), (.4,1.5)];
@@ -40,18 +40,18 @@ end
     results = compute(problem, formulations; options=(;controls...,trace=true))
     tem, fw = results
     @test all(isfinite,Z(fw)) # No cross-formulation numerical authority.
-    @test tem.details.fem.inputs.options.physics !== fw.details.fem.inputs.options.physics
+    @test tem.details.data.fem.inputs.options.physics !== fw.details.data.fem.inputs.options.physics
     @test all(isfinite, Y(fw))
-    @test fw.details.fem.inputs.options.physics === Symbol("quasi-fw")
-    @test fw.details.fem.run.run_directory != tem.details.fem.run.run_directory
-    @test details(fw).fem.run isa NamedTuple
-    @test fw.details.fem.run.getdp_invocations == 1
-    @test fw.details.fem.run.completed_columns == 2
-    @test fw.details.fem.timing.factorized_columns == 1
-    @test length(fw.details.fem.run.map_paths) == 24
-    @test length(tem.details.fem.run.map_paths) == 18
-    @test occursin("Coupled", fw.details.formulations.assumptions.admittance)
-    path = fw.details.fem.run.run_directory
+    @test fw.details.data.fem.inputs.options.physics === Symbol("quasi-fw")
+    @test fw.details.data.fem.run.run_directory != tem.details.data.fem.run.run_directory
+    @test details(fw).data.fem.run isa NamedTuple
+    @test fw.details.data.fem.run.getdp_invocations == 1
+    @test fw.details.data.fem.run.completed_columns == 2
+    @test fw.details.data.fem.timing.factorized_columns == 1
+    @test length(fw.details.data.fem.run.map_paths) == 24
+    @test length(tem.details.data.fem.run.map_paths) == 18
+    @test occursin("Coupled", fw.details.data.formulations.assumptions.admittance)
+    path = fw.details.data.fem.run.run_directory
     @test isfile(joinpath(path,"raw/jobs/getdp-f0001-b0001-Pscalar.tsv"))
     @test isfile(joinpath(path,"input/paths-f0001.pro"))
     checkpoint = JSON3.read(read(joinpath(path,"raw/jobs/getdp-f0001-b0001.json"),String))
@@ -59,7 +59,7 @@ end
     @test length(checkpoint.checksums) == 16 # Z/P, timing, twelve maps, scalar diagnostic
     repeated = compute(problem, last(formulations); options=(;controls...,resume_run_directory=path))
     @test Y(repeated) == Y(fw)
-    @test repeated.details.fem.timing.reused
+    @test repeated.details.data.fem.timing.reused
     @test_throws ArgumentError compute(problem, first(formulations);
         options=(;controls...,resume_run_directory=path))
     # Both physics use the same named ONELAB selector and resolution.
@@ -68,7 +68,7 @@ end
         model = FEM._resolved_fem_model(FEM._preflight_fem_problem(problem), last(formulations))
         run = FEM.FEMRun(path,FEM.completed,"test",:none,"")
         FEM._publish_transport!(run,model,joinpath(path,"input/model_data.pro"),
-            joinpath(path,"mesh/model.msh"),last(formulations), computation_options(LineCableModelsFEM, controls))
+            joinpath(path,"mesh/model.msh"),last(formulations), computation_options(LineCableModelsFEM, ComputationOptions(controls)))
         @test gmsh.onelab.get_number("LineCableModels/FEM/physics") == [1.0]
     finally
         FEM._finish_gmsh(session)
@@ -96,7 +96,7 @@ end
             session = FEM._start_gmsh(0)
             try
                 geometry = FEM._build_geometry!(model, "quasi-full-test")
-                mesh = only(FEM._select_meshes!(info, model, geometry, computation_options(LineCableModelsFEM, fem_controls), root))
+                mesh = only(FEM._select_meshes!(info, model, geometry, computation_options(LineCableModelsFEM, ComputationOptions(fem_controls)), root))
                 # Exercise a caller model whose name collides with the mesh
                 # basename; path preparation must preserve both its identity
                 # and its contents rather than opening another "model".

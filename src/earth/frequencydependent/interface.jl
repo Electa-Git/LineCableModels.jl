@@ -17,7 +17,7 @@ alias for the explicit `:constant` pass-through.
 
 $(TYPEDFIELDS)
 """
-struct Formula{ID, P <: NamedTuple, O <: NamedTuple} <: FrequencyDependentFormulation
+struct Formula{ID, P <: NamedTuple, O <: FormulationOptions} <: FrequencyDependentFormulation
     "Resolved physical/model parameters."
     parameters::P
     "Normalized numerical sections for this equation."
@@ -59,7 +59,8 @@ Unknown controls fail before numerical evaluation.
 Formula(identifier::Symbol; kwargs...) = Formula(Val(identifier); kwargs...)
 Formula(selected::FrequencyDependentFormulation) = selected
 
-function Formula(::Val{ID}; parameters::NamedTuple=(;), options::NamedTuple=(;)) where {ID}
+function Formula(::Val{ID}; parameters::NamedTuple=(;), options::Union{NamedTuple, FormulationOptions} = FormulationOptions()) where {ID}
+    options = options isa NamedTuple ? FormulationOptions(options) : options
     defaults = assumptions(Val(ID))
     unknown = setdiff(keys(parameters), keys(defaults))
     isempty(unknown) || throw(ArgumentError(
@@ -72,7 +73,7 @@ function Formula(::Val{ID}; parameters::NamedTuple=(;), options::NamedTuple=(;))
     selected = Formula{ID, typeof(parameters), typeof(options)}(parameters, options)
     validate(selected)
     binding = FormulaMethod(selected, earth_material)
-    normalized = computation_options(binding, options)
+    normalized = formulation_options(binding, options)
     return Formula{ID, typeof(parameters), typeof(normalized)}(parameters, normalized)
 end
 
@@ -128,7 +129,7 @@ $(TYPEDSIGNATURES)
 Expose the selected identity, model parameters, and numerical options as a native record.
 """
 function Base.NamedTuple(value::Formula)
-    return (identifier=formula_id(value), parameters=value.parameters, options=value.options)
+    return (identifier=formula_id(value), parameters=value.parameters, options=value.options.data)
 end
 
 # Identity-only dispatch also describes retained selections without constructors.
@@ -138,6 +139,4 @@ description(value::Formula; compact::Bool=false) = description(typeof(value); co
 """Iterate the independently selectable child slots admitted by this formula family."""
 Base.pairs(::Type{<:Formula}; quantity=nothing) = pairs((;))
 formula_id(::Type{<:Formula{ID}}) where {ID} = ID
-formulation_options(value::Formula) = formulation_options(typeof(value), (parameters=value.parameters, options=value.options))
-formulation_options(::Type{<:Formula}, retained::NamedTuple) =
-    formulation_options(FormulaDefinition, retained)
+formulation_options(value::Formula) = value.options

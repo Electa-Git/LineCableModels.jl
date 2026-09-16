@@ -46,8 +46,8 @@ function _reduction_map(phase_map, formulation)
             push!(seen, phase)
         end
     end
-    kron_map = if formulation.options.reduce_bundle
-        if formulation.options.kron_reduction
+    kron_map = if formulation.options.data.reduce_bundle
+        if formulation.options.data.kron_reduction
             reduced
         else
             map(eachindex(reduced)) do index
@@ -55,7 +55,7 @@ function _reduction_map(phase_map, formulation)
             end
         end
     else
-        formulation.options.kron_reduction ? reordered : nothing
+        formulation.options.data.kron_reduction ? reordered : nothing
     end
     return permutation, reordered, kron_map
 end
@@ -102,19 +102,19 @@ function _solve!(
         )
         _reorder_into!(Zbuffer, Zprimitive, permutation)
         _reorder_into!(Pbuffer, Pprimitive, permutation)
-        if formulation.options.reduce_bundle
+        if formulation.options.data.reduce_bundle
             merge_bundles!(Zbuffer, bundle_pairs)
             merge_bundles!(Pbuffer, bundle_pairs)
         end
 
         if kron_map === nothing
-            formulation.options.ideal_transposition && ideal_transposition!(Zbuffer)
+            formulation.options.data.ideal_transposition && ideal_transposition!(Zbuffer)
             @views Zout[:, :, frequency] .= Zbuffer
 
             factorization = lu!(Pbuffer)
             ldiv!(Pinverse, factorization, buffers.identity_full)
             Pinverse .*= input.jω[frequency]
-            formulation.options.ideal_transposition && ideal_transposition!(Pinverse)
+            formulation.options.data.ideal_transposition && ideal_transposition!(Pinverse)
             @views Yout[:, :, frequency] .= Pinverse
         else
             kronify!(
@@ -126,7 +126,7 @@ function _solve!(
                 kron_coupling,
                 kron_rhs
             )
-            formulation.options.ideal_transposition && ideal_transposition!(reduced)
+            formulation.options.data.ideal_transposition && ideal_transposition!(reduced)
             @views Zout[:, :, frequency] .= reduced
 
             kronify!(
@@ -141,7 +141,7 @@ function _solve!(
             factorization = lu!(reduced)
             ldiv!(reduced_inverse, factorization, buffers.identity_reduced)
             reduced_inverse .*= input.jω[frequency]
-            formulation.options.ideal_transposition &&
+            formulation.options.data.ideal_transposition &&
                 ideal_transposition!(reduced_inverse)
             @views Yout[:, :, frequency] .= reduced_inverse
         end
@@ -158,15 +158,15 @@ end
 function _retained_details(workspace::LineParametersWorkspace{<:Real, <:NamedTuple, <:NamedTuple,
         <:NamedTuple, Nothing})
     # Local model diagnostics vary with geometry and selection, not the result type.
-    NamedTuple{(:shunt_model,), Tuple{NamedTuple}}((workspace.input.cable.shunt_details,))
+    ComputationDetails(NamedTuple{(:shunt_model,), Tuple{NamedTuple}}((workspace.input.cable.shunt_details,)))
 end
 
 function _retained_details(workspace::LineParametersWorkspace)
     capture = workspace.capture
     shunt = NamedTuple{(:shunt_model,), Tuple{NamedTuple}}((workspace.input.cable.shunt_details,))
-    capture === nothing && return shunt
+    capture === nothing && return ComputationDetails(shunt)
     input = workspace.input
-    return merge(shunt, (
+    return ComputationDetails(merge(shunt, (
         trace = (
         phase_map = input.phase_map,
         cable_map = input.cable_map,
@@ -177,16 +177,16 @@ function _retained_details(workspace::LineParametersWorkspace)
         Z = capture.Z,
         P = capture.P
     ),
-    ))
+    )))
 end
 
 function _finish(
         parameters::LineParameters,
         workspace::LineParametersWorkspace,
         formulation::LineParametersFormulation,
-        execution::NamedTuple
+        execution::ComputationOptions
 )
-    parameters = _basis_result(parameters, workspace, execution.output_basis)
+    parameters = _basis_result(parameters, workspace, execution.data.output_basis)
     retained = _retained_details(workspace)
     @info "Line parameters computation completed successfully"
     return LineParameters(
@@ -202,7 +202,7 @@ function _compute(
         engine::LineCableModelsCoaxial,
         problem::LineParametersProblem,
         formulation::LineParametersFormulation,
-        execution::NamedTuple,
+        execution::ComputationOptions,
         input::NamedTuple
 )
     requested = formulation
@@ -237,21 +237,21 @@ function _compute(
     external_numerical::Numerical = Numerical(map(workspace.invariants.earth_bindings) do bound
         Record[(formula_id(case.selection), case.declaration.kind,
                    first(case.interactions).pair.layers...,
-                   case.declaration.options) for case in bound.cases]
+                   case.declaration.options.data) for case in bound.cases]
     end)
     local_fields = (:internal_impedance, :insulation_impedance, :shunt_model,
         :insulation_admittance, :semicon_admittance, :earth_properties, :temperature_dependence)
     LocalNumerical = NamedTuple{local_fields, NTuple{length(local_fields), NamedTuple}}
-    local_numerical::LocalNumerical = LocalNumerical(map(local_fields) do name
-        selected = getproperty(formulation.methods, name)
+    local_numerical::LocalNumerical = LocalNumerical(map(local_fields,
+            values(formulation.methods[local_fields])) do name, selected
         selected === nothing && return (;)
         if name === :internal_impedance
             kinds = any(indices -> length(indices) > 1, workspace.invariants.cable_indices) ?
                     (:inner, :outer, :transfer) : (:outer,)
             return selected isa NamedTuple ? NamedTuple{kinds}(map(
-                kind -> selected[kind].options[kind], kinds)) : selected.options[kinds]
+                kind -> selected[kind].options.data[kind], kinds)) : selected.options.data[kinds]
         end
-        selected.options
+        selected.options.data
     end)
     FormulaNumerical = NamedTuple{(local_fields..., :earth_impedance, :earth_admittance),
         Tuple{NamedTuple, NamedTuple, NamedTuple, NamedTuple, NamedTuple, NamedTuple, NamedTuple,
@@ -277,7 +277,7 @@ function _compute(
                         Record((formula_id(rule),
                             reduction.equation.arguments[1] === Val(:self) ? :self :
                             :mutual,
-                            interaction.physical_pair.layers..., reduction.options)))
+                            interaction.physical_pair.layers..., reduction.options.data)))
                 end
             end
             Equivalent((formula_id(rule),
@@ -299,11 +299,11 @@ function _compute(
     coordinates=map(indices) do index
         phase=problem.system.connection_order[index]
         members=findall(==(phase),problem.system.connection_order)
-        formulation.options.reduce_bundle && phase > 0 && length(members) > 1 ?
+        formulation.options.data.reduce_bundle && phase > 0 && length(members) > 1 ?
             "bundle:[" * join(names[members],",") * "]" : names[index]
     end
     return LineParameters(result.domain, result.Z, result.Y, result.f,
-        merge(details(result), (; formulations=merge(selection_record,NamedTuple(formulation)), coordinates)))
+        ComputationDetails(merge(details(result).data, (; formulations=merge(selection_record,NamedTuple(formulation)), coordinates))))
 end
 
 """
@@ -345,7 +345,7 @@ function _compute(
         engine::LineCableModelsCoaxial,
         problem::LineParametersProblem,
         formulation::LineParametersFormulation,
-        execution::NamedTuple
+        execution::ComputationOptions
 )
     values = _compute(
         engine,
@@ -360,7 +360,7 @@ function _compute(
         engine::LineCableModelsCoaxial,
         problem::LineParametersProblem,
         formulations::AbstractVector{<:LineParametersFormulation},
-        execution::NamedTuple
+        execution::ComputationOptions
 )
     isempty(formulations) && throw(ArgumentError(
         "line-parameter formulation collections cannot be empty",
@@ -389,7 +389,7 @@ function _compute(
     )
     values = Vector{typeof(first_result)}(undef, length(formulations))
     values[1] = first_result
-    execution.on_result === nothing || execution.on_result(problem, 1, first_result)
+    execution.data.on_result === nothing || execution.data.on_result(problem, 1, first_result)
     for index in 2:length(formulations)
         value = _compute(
             engine,
@@ -402,7 +402,7 @@ function _compute(
             "line-parameter formulations produced inconsistent result types",
         ))
         values[index] = value
-        execution.on_result === nothing || execution.on_result(problem, index, value)
+        execution.data.on_result === nothing || execution.data.on_result(problem, index, value)
     end
     return values
 end
@@ -426,8 +426,9 @@ Compute line parameters with the coaxial backend and default formulation.
 """
 function compute(
         problem::LineParametersProblem;
-        options::NamedTuple = (;)
+        options::Union{NamedTuple, ComputationOptions} = ComputationOptions()
 )
+    options = options isa NamedTuple ? ComputationOptions(options) : options
     return compute(LineCableModelsCoaxial(), problem, Formulation(); options)
 end
 
@@ -443,7 +444,7 @@ open wire/tape domains retain their physical geometry for the explicitly selecte
 physical system is normalized once into a backend-owned
 workspace, and all reusable numerical storage is allocated before the frequency
 loop. `trace=true` retains completed
-intermediate matrices under `details(result).trace`; it does not change the
+intermediate matrices under `details(result).data.trace`; it does not change the
 result type.
 
 # Arguments
@@ -469,16 +470,18 @@ result type.
 function compute(
         problem::LineParametersProblem,
         formulation::LineParametersFormulation;
-        options::NamedTuple = (;)
+        options::Union{NamedTuple, ComputationOptions} = ComputationOptions()
 )
+    options = options isa NamedTuple ? ComputationOptions(options) : options
     return compute(LineCableModelsCoaxial(), problem, formulation; options)
 end
 
 function compute(
         problem::LineParametersProblem,
         formulations::AbstractVector{<:LineParametersFormulation};
-        options::NamedTuple = (;)
+        options::Union{NamedTuple, ComputationOptions} = ComputationOptions()
 )
+    options = options isa NamedTuple ? ComputationOptions(options) : options
     return compute(LineCableModelsCoaxial(), problem, formulations; options)
 end
 
@@ -495,11 +498,12 @@ function compute(
         engine::LineCableModelsCoaxial,
         problem::LineParametersProblem,
         formulation::LineParametersFormulation = Formulation();
-        options::NamedTuple = (;)
+        options::Union{NamedTuple, ComputationOptions} = ComputationOptions()
 )
+    options = options isa NamedTuple ? ComputationOptions(options) : options
     execution = computation_options(LineCableModelsCoaxial, options)
     console = ConsoleLogger(stderr, Logging.Debug)
-    logger = ConsoleVerbosityLogger(console, execution.verbosity)
+    logger = ConsoleVerbosityLogger(console, execution.data.verbosity)
     return with_logger(logger) do
         _compute(engine, problem, formulation, execution)
     end
@@ -509,11 +513,12 @@ function compute(
         engine::LineCableModelsCoaxial,
         problem::LineParametersProblem,
         formulations::AbstractVector{<:LineParametersFormulation};
-        options::NamedTuple = (;)
+        options::Union{NamedTuple, ComputationOptions} = ComputationOptions()
 )
+    options = options isa NamedTuple ? ComputationOptions(options) : options
     execution = computation_options(LineCableModelsCoaxial, options)
     console = ConsoleLogger(stderr, Logging.Debug)
-    logger = ConsoleVerbosityLogger(console, execution.verbosity)
+    logger = ConsoleVerbosityLogger(console, execution.data.verbosity)
     return with_logger(logger) do
         _compute(engine, problem, formulations, execution)
     end

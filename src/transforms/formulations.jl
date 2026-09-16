@@ -6,7 +6,7 @@ controls. The selected concrete type owns `modal_operators`.
 
 $(TYPEDFIELDS)
 """
-struct Formula{ID, P <: NamedTuple, O <: NamedTuple} <: AbstractFormulation
+struct Formula{ID, P <: NamedTuple, O <: FormulationOptions} <: AbstractFormulation
     "Resolved model parameters."
     parameters::P
     "Normalized numerical sections for the modal algorithm."
@@ -30,10 +30,11 @@ Custom formulations implement `modal_operators` on their own concrete type.
 Formula(identifier::Symbol; kwargs...) = Formula(Val(identifier); kwargs...)
 Formula(selected::Formula) = selected
 
-function Formula(::Val{ID}; parameters::NamedTuple=(;), options::NamedTuple=(;)) where {ID}
+function Formula(::Val{ID}; parameters::NamedTuple=(;), options::Union{NamedTuple, FormulationOptions} = FormulationOptions()) where {ID}
+    options = options isa NamedTuple ? FormulationOptions(options) : options
     isempty(parameters) || throw(ArgumentError("modal :$ID has no physical parameters"))
     selected = Formula{ID, typeof(parameters), typeof(options)}(parameters, options)
-    normalized = computation_options(FormulaMethod(selected, modal_operators), options)
+    normalized = formulation_options(FormulaMethod(selected, modal_operators), options)
     return Formula{ID, typeof(parameters), typeof(normalized)}(parameters, normalized)
 end
 
@@ -52,10 +53,8 @@ end
 
 """Expose a selected modal equation and its model and numerical controls."""
 Base.NamedTuple(value::Formula) = (identifier=formula_id(value),
-    parameters=value.parameters, options=value.options)
-formulation_options(value::Formula) = formulation_options(FormulaDefinition, NamedTuple(value))
-formulation_options(::Type{<:Formula}, retained::NamedTuple) =
-    formulation_options(FormulaDefinition, retained)
+    parameters=value.parameters, options=value.options.data)
+formulation_options(value::Formula) = value.options
 
 """
 $(TYPEDEF)
@@ -110,13 +109,12 @@ description(::Type{<:ModalTransformationFormulation}; compact::Bool=false) = "mo
 description(::ModalTransformationFormulation; compact::Bool=false) = "modal"
 description(::Type{ModalTransformationFormulation}, ::Val{:transformation}) = "modal operators"
 Base.pairs(::Type{ModalTransformationFormulation}; quantity=nothing) = pairs((transformation=Formula,))
-formulation_options(::ModalTransformationFormulation) = (;)
-formulation_options(::Type{ModalTransformationFormulation}, retained::NamedTuple, ::Val{:retained}) = retained.options
+formulation_options(::ModalTransformationFormulation) = FormulationOptions()
 
 function Base.pairs(value::ModalTransformationFormulation; quantity=nothing)
     return pairs(ModalTransformationFormulation,
         (methods=(transformation=value.formula,),
-         requested=(transformation=formulation_options(value.definition),), options=(;)); quantity)
+         requested=(transformation=value.definition,), options=(;)); quantity)
 end
 
 function Base.pairs(::Type{ModalTransformationFormulation}, retained::NamedTuple; quantity=nothing)

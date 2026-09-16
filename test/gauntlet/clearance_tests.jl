@@ -15,9 +15,9 @@
     sampled=compute(ParametricProblem(space),MonteCarlo(inner;trials=8,seed=103,
         distribution=:uniform,return_samples=true,retain_details=true))
     @test sampled.trial_counts==[8]
-    @test isempty(only(sampled.details.failures))
+    @test isempty(only(sampled.details.data.failures))
     @test length(built)==9
-    @test only(sampled.details.clearance).adjustments>0
+    @test only(sampled.details.data.clearance).adjustments>0
     for system in built
         centres=[centroid(resolve(pose,boundary(design.geometry))) for (pose,design) in zip(system.positions,system.designs)]
         radii=[outer_radius(design) for design in system.designs]

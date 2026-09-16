@@ -9,35 +9,35 @@ function Base.show(io::IO, ::MIME"text/plain", formulation::LinearError)
     get(io, :compact, false) && return show(io, formulation)
     return TextDisplay.tree(io, "Linear uncertainty propagation", (
         (label = "inner    $(_uq_compact(formulation.inner))", noun = "fields"),
-        (label = "details  $(formulation.options.retain_details ? "retained" : "not retained")", noun = "fields"),
+        (label = "details  $(formulation.options.data.retain_details ? "retained" : "not retained")", noun = "fields"),
     ))
 end
 
 TextDisplay.name(::Type{<:MonteCarlo}) = "MonteCarlo"
 Base.summary(io::IO, formulation::MonteCarlo) = print(io, "Monte Carlo propagation")
 function Base.show(io::IO, formulation::MonteCarlo)
-    trials = formulation.options.trials === nothing ? "DKW-sized" : string(formulation.options.trials)
+    trials = formulation.options.data.trials === nothing ? "DKW-sized" : string(formulation.options.data.trials)
     print(io, "MonteCarlo(trials=", trials,
-        "; samples=", formulation.options.return_samples,
-        ", histograms=", formulation.options.return_histograms, ")")
+        "; samples=", formulation.options.data.return_samples,
+        ", histograms=", formulation.options.data.return_histograms, ")")
 end
 function Base.show(io::IO, ::MIME"text/plain", formulation::MonteCarlo)
     get(io, :compact, false) && return show(io, formulation)
-    trials = formulation.options.trials === nothing ? "DKW-sized" : string(formulation.options.trials)
-    distribution = formulation.options.distribution isa Symbol ?
-                   ":$(formulation.options.distribution)" : _uq_compact(formulation.options.distribution)
+    trials = formulation.options.data.trials === nothing ? "DKW-sized" : string(formulation.options.data.trials)
+    distribution = formulation.options.data.distribution isa Symbol ?
+                   ":$(formulation.options.data.distribution)" : _uq_compact(formulation.options.data.distribution)
     children = Any[
         (label = "inner        $(_uq_compact(formulation.inner))", noun = "fields"),
         (label = "trials       $trials", noun = "fields"),
-        (label = "confidence   $(TextDisplay.value(formulation.options.confidence))", noun = "fields"),
-        (label = "CDF tol      $(TextDisplay.value(formulation.options.cdf_tol))", noun = "fields"),
+        (label = "confidence   $(TextDisplay.value(formulation.options.data.confidence))", noun = "fields"),
+        (label = "CDF tol      $(TextDisplay.value(formulation.options.data.cdf_tol))", noun = "fields"),
         (label = "distribution $distribution", noun = "fields"),
     ]
-    formulation.options.seed === nothing || push!(children,
-        (label = "seed         $(formulation.options.seed)", noun = "fields"))
-    formulation.options.return_samples && push!(children,
+    formulation.options.data.seed === nothing || push!(children,
+        (label = "seed         $(formulation.options.data.seed)", noun = "fields"))
+    formulation.options.data.return_samples && push!(children,
         (label = "samples      retained", noun = "fields"))
-    formulation.options.return_histograms && push!(children,
+    formulation.options.data.return_histograms && push!(children,
         (label = "histograms   retained", noun = "fields"))
     return TextDisplay.tree(io, "Monte Carlo propagation", Tuple(children))
 end
@@ -81,7 +81,7 @@ function Base.show(io::IO, ::MIME"text/plain", result::LinearErrorResult)
     kind = isempty(result.values) ? "none" : String(nameof(eltype(result.values)))
     return TextDisplay.tree(io, "Linear-error result · $(length(result)) values", (
         (label = "result type  $kind", noun = "fields"),
-        (label = "details      $(length(result.details)) entries", noun = "fields"),
+        (label = "details      $(length(result.details.data)) entries", noun = "fields"),
     ))
 end
 
@@ -110,7 +110,7 @@ function Base.show(io::IO, ::MIME"text/plain", result::MonteCarloResult)
         (label = "samples      retained", noun = "fields"))
     result.histogram_values === nothing || push!(children,
         (label = "histograms   retained", noun = "fields"))
-    isempty(result.details) || push!(children,
-        (label = "details      $(length(result.details)) entries", noun = "fields"))
+    isempty(result.details.data) || push!(children,
+        (label = "details      $(length(result.details.data)) entries", noun = "fields"))
     return TextDisplay.tree(io, "Monte Carlo result · $(length(result)) points", Tuple(children))
 end

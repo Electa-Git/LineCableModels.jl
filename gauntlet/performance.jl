@@ -29,20 +29,20 @@ function _performance_identity()
     )
 end
 
-function _compute_calculation(calculation; options=calculation.options)
+function _compute_calculation(calculation; options::Grammar.ComputationOptions=calculation.options)
     problem=calculation.problem
     if problem isa LineCableModels.ParametricProblem
-        isempty(options) || (problem=LineCableModels.ParametricProblem(
-            problem.space,merge(problem.options,options)))
+        isempty(options.data) || (problem=LineCableModels.ParametricProblem(
+            problem.space,Grammar.ComputationOptions(merge(problem.options.data,options.data))))
         return compute(problem,calculation.formulation)
     end
-    return isempty(options) ? compute(problem,calculation.formulation) :
+    return isempty(options.data) ? compute(problem,calculation.formulation) :
         compute(problem,calculation.formulation;options)
 end
 
 function _source_timings(result)
     result isa ParametricResult && return (points=map(_source_timings,collect(result)),)
-    retained=details(result)
+    retained=details(result).data
     if haskey(retained,:execution) && haskey(retained.execution,:source_elapsed_seconds)
         source=retained.execution
         return (backend=:pscad,scope=source.source_elapsed_scope,
@@ -56,7 +56,7 @@ end
 
 function _result_reused(result; partial=true)
     result isa ParametricResult && return any(value->_result_reused(value;partial),result)
-    retained=details(result)
+    retained=details(result).data
     haskey(retained,:execution) && get(retained.execution,:reused,false) && return true
     return haskey(retained,:fem) && haskey(retained.fem,:timing) &&
         (get(retained.fem.timing,:reused,false) ||
@@ -72,13 +72,13 @@ function _external_formulation(formulation)
 end
 
 function _performance_calculation(calculation)
-    without_callback(options)=Base.structdiff(options,
-        (;on_result=get(options,:on_result,nothing)))
+    without_callback(options)=Base.structdiff(options.data,
+        (;on_result=get(options.data,:on_result,nothing)))
     options=without_callback(calculation.options)
     problem=calculation.problem
     if problem isa LineCableModels.ParametricProblem
         problem=LineCableModels.ParametricProblem(problem.space,
-            merge(without_callback(problem.options),options))
+            Grammar.ComputationOptions(merge(without_callback(problem.options),options)))
         options=(;)
     end
     return BenchmarkCalculation(calculation.id,problem,calculation.formulation;options)
@@ -86,7 +86,7 @@ end
 
 function benchmark_local(
         case;
-        options::NamedTuple = (;),
+        options::Union{NamedTuple,Grammar.ComputationOptions} = Grammar.ComputationOptions(),
         samples::Int = 10,
         seconds::Real = 10
 )

@@ -24,10 +24,10 @@ function benchmark()
       s=2pi*c.f*im
       sigma=[0.,1/c.rho]; epsilon=8.8541878128e-12.*[1.,c.er]; mu=4pi*1e-7.*[1.,c.mr]
       state=(jω=s,Γ=c.Γ,sigma,epsilon,mu,gamma_medium_squared=s.*mu.*(sigma.+s.*epsilon))
-      reference=E.unified_earth!(E.EarthReturnWorkspace(geometry),state,E.computation_options(E.SpectralIntegral,(method=:quad,options=(rtol=1e-10,)));reference=c.reference)
+      reference=E.unified_earth!(E.EarthReturnWorkspace(geometry),state,E.formulation_options(E.SpectralIntegral,(method=:quad,options=(rtol=1e-10,)));reference=c.reference)
       for method in (:quad,:trapz,:cim)
         workspace=E.EarthReturnWorkspace(geometry)
-        controls=E.computation_options(E.SpectralIntegral,(;method,options=(rtol=method==:quad ? 1e-9 : 1e-6,)))
+        controls=E.formulation_options(E.SpectralIntegral,(;method,options=(rtol=method==:quad ? 1e-9 : 1e-6,)))
         print((;case=c.name,f=c.f,reference=c.reference,method));flush(stdout)
         try
           E.unified_earth!(workspace,state,controls;reference=c.reference)

@@ -74,8 +74,8 @@
                 @test isempty(gmsh.view.get_tags())
                 if action===:complete
                     @test result isa LineParameters
-                    @test length(result.details.fem.run.map_paths)==36
-                    @test all(isfile,result.details.fem.run.map_paths)
+                    @test length(result.details.data.fem.run.map_paths)==36
+                    @test all(isfile,result.details.data.fem.run.map_paths)
                 else
                     @test result isa LineCableModelsFEMError
                     @test result.category== (action===:during_solve ? :cancelled : :not_executed)

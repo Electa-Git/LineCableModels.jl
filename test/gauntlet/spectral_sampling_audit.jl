@@ -20,7 +20,7 @@ for method in (:quad,:trapz,:cim)
     kernel(x) = (push!(samples,complex(x)); complex(raw(x)))
     integral = E.SpectralIntegral(Val(:cosine),kernel,
         (height=height,separation=0.0),1.0)
-    controls = E.computation_options(E.SpectralIntegral,
+    controls = E.formulation_options(E.SpectralIntegral,
         (method=method,options=(rtol=1e-6,atol=1e-12)))
     result = try
         value = E.integrate(controls.method,integral,controls.options,nothing)

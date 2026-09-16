@@ -24,27 +24,23 @@
         )
     end
 
-    options = computation_options(LineCableModelsFEM, (;mesh_policy = :remesh,
+    options = computation_options(LineCableModelsFEM, ComputationOptions((;mesh_policy = :remesh,
         keep_run_directory = true,
         gmsh_verbosity = 0,
-        getdp_verbosity = 5))
-    @test options.mesh_policy === :remesh
-    @test options.keep_run_directory
-    @test options.getdp_verbosity == 5
-    @test options.frequency_workers == 2
-    @test options.solver_threads == 1
-    @test_throws ArgumentError computation_options(LineCableModelsFEM, (;frequency_workers = 0))
-    @test_throws ArgumentError computation_options(LineCableModelsFEM, (;solver_threads = -1))
-    @test_throws ArgumentError computation_options(LineCableModelsFEM, (;mesh_policy = :invalid))
-    @test_throws ArgumentError computation_options(LineCableModelsFEM, (;getdp_verbosity = 6))
-    resume_options = computation_options(LineCableModelsFEM,
-        (trace = true, resume_run_directory = :latest)
-    )
-    @test resume_options.trace === Val(true)
-    @test resume_options.resume_run_directory === :latest
-    @test_throws ArgumentError computation_options(LineCableModelsFEM,
-        (resume_run_directory = :invalid,)
-    )
+        getdp_verbosity = 5)))
+    @test options.data.mesh_policy === :remesh
+    @test options.data.keep_run_directory
+    @test options.data.getdp_verbosity == 5
+    @test options.data.frequency_workers == 2
+    @test options.data.solver_threads == 1
+    @test_throws ArgumentError computation_options(LineCableModelsFEM, ComputationOptions((;frequency_workers = 0)))
+    @test_throws ArgumentError computation_options(LineCableModelsFEM, ComputationOptions((;solver_threads = -1)))
+    @test_throws ArgumentError computation_options(LineCableModelsFEM, ComputationOptions((;mesh_policy = :invalid)))
+    @test_throws ArgumentError computation_options(LineCableModelsFEM, ComputationOptions((;getdp_verbosity = 6)))
+    resume_options = computation_options(LineCableModelsFEM, ComputationOptions((trace = true, resume_run_directory = :latest)))
+    @test resume_options.data.trace === Val(true)
+    @test resume_options.data.resume_run_directory === :latest
+    @test_throws ArgumentError computation_options(LineCableModelsFEM, ComputationOptions((resume_run_directory = :invalid,)))
     @test extension_module._resume_value_matches(
         Dict("first" => 1, "second" => [2.0, 3.0]),
         Dict("second" => [2.0, 3.0], "first" => 1)
@@ -54,7 +50,7 @@
         :LineCableModelsFEM;
         options = (ideal_transposition = false,))
     @test formulation isa LineCableModels.LineCableModelsFEM
-    @test !formulation.options.ideal_transposition
+    @test !formulation.options.data.ideal_transposition
     @test !hasproperty(formulation, :execution)
 
     transition = extension_module._ui_transition
@@ -327,7 +323,7 @@ end
     )
     ]
     smaller_model = extension_module._resolved_fem_model(problem, formulation,
-        computation_options(LineCableModelsFEM, (;domain_skin_depths=1.5)))
+        computation_options(LineCableModelsFEM, ComputationOptions((;domain_skin_depths=1.5))))
     smaller, larger = only(smaller_model.mesh_plans), only(model.mesh_plans)
     @test smaller.domain_radius ≈ 1.5skin_depth
     @test smaller.shell_outer_radius ≈ 1.25smaller.domain_radius
@@ -786,7 +782,7 @@ end
                 first_run = extension_module._create_run(runtime_root)
                 first_geometry = extension_module._build_geometry!(model, "fem-mesh-first")
                 first_mesh = extension_module._select_mesh!(
-                    first_run, model, first_geometry, computation_options(LineCableModelsFEM, formulation_controls), runtime_root
+                    first_run, model, first_geometry, computation_options(LineCableModelsFEM, ComputationOptions(formulation_controls)), runtime_root
                 )
                 @test isfile(first_mesh)
                 @test first_run.mesh_source === :generated
@@ -807,7 +803,7 @@ end
                 second_run = extension_module._create_run(runtime_root)
                 second_geometry = extension_module._build_geometry!(model, "fem-mesh-second")
                 second_mesh = extension_module._select_mesh!(
-                    second_run, model, second_geometry, computation_options(LineCableModelsFEM, formulation_controls), runtime_root
+                    second_run, model, second_geometry, computation_options(LineCableModelsFEM, ComputationOptions(formulation_controls)), runtime_root
                 )
                 @test isfile(second_mesh)
                 @test second_run.mesh_source === :cache
@@ -820,7 +816,7 @@ end
                 third_run = extension_module._create_run(runtime_root)
                 third_geometry = extension_module._build_geometry!(model, "fem-mesh-third")
                 third_mesh = extension_module._select_mesh!(
-                    third_run, model, third_geometry, computation_options(LineCableModelsFEM, remesh_controls), runtime_root
+                    third_run, model, third_geometry, computation_options(LineCableModelsFEM, ComputationOptions(remesh_controls)), runtime_root
                 )
                 @test isfile(third_mesh)
                 @test third_run.mesh_source === :generated
@@ -849,12 +845,12 @@ end
                     extension_module._prepare_run_inputs!(failure_run, model)
                     extension_module._write_json_atomic(
                         joinpath(failure_run.path, "input", "computation.json"),
-                        extension_module._fem_input_record(model, failing_formulation, computation_options(LineCableModelsFEM, failing_formulation_controls)))
+                        extension_module._fem_input_record(model, failing_formulation, computation_options(LineCableModelsFEM, ComputationOptions(failing_formulation_controls))))
                     failure = try
                         extension_module._run_getdp!(
                             failure_run,
                             model,
-                            failing_formulation, computation_options(LineCableModelsFEM, failing_formulation_controls),
+                            failing_formulation, computation_options(LineCableModelsFEM, ComputationOptions(failing_formulation_controls)),
                             first_mesh
                         )
                         nothing
@@ -1283,23 +1279,23 @@ end
         selected = collect(formulation_space)
         completions = Tuple[]
         on_result = (resolved, index, result) -> push!(completions, (index, result))
-        batch = compute(ParametricProblem(problem, (;formulation_controls..., trace = true, on_result = on_result)),
+        batch = compute(ParametricProblem(problem, ComputationOptions((;formulation_controls..., trace = true, on_result = on_result))),
             Combinatorial(formulation_space; options = (retain_details = true,)))
         @test length(batch) == 4
         @test first.(completions) == collect(eachindex(selected))
         @test all(index -> completions[index][2].Z.values == batch[index].Z.values,
             eachindex(selected))
-        run_directories = [value.details.fem.run.run_directory for value in batch]
+        run_directories = [value.details.data.fem.run.run_directory for value in batch]
         @test length(unique(run_directories)) == 2
         for index in eachindex(selected)
-            files = details(batch[index]).files
+            files = details(batch[index]).data.files
             @test any(file -> file.path == "run.json", files)
             @test all(file -> bytes2hex(open(sha256, file.source)) == file.sha256, files)
-            soil = batch[index].details.formulations.selections.earth_properties
+            soil = batch[index].details.data.formulations.selections.earth_properties
             @test soil === nothing ? selected[index].methods.earth_properties === nothing :
                   soil.identifier === formula_id(selected[index].methods.earth_properties)
-            @test keys(batch[index].details.formulations.selections) == keys(selected[index].methods)
-            @test details(batch).points[index] == details(batch[index])
+            @test keys(batch[index].details.data.formulations.selections) == keys(selected[index].methods)
+            @test details(batch).data.points[index] == details(batch[index])
         end
         default_indices = findall(
             value -> formula_id(value.methods.insulation_admittance) === :lossless, selected)
@@ -1311,12 +1307,12 @@ end
             @test first_result.Y.values == second_result.Y.values
             @test first_result.Z.values !== second_result.Z.values
             @test first_result.Y.values !== second_result.Y.values
-            @test first_result.details.fem.primitive.Z_primitive !==
-                  second_result.details.fem.primitive.Z_primitive
+            @test first_result.details.data.fem.primitive.Z_primitive !==
+                  second_result.details.data.fem.primitive.Z_primitive
             @test run_directories[indices[1]] == run_directories[indices[2]]
         end
         result = batch[first(default_indices)]
-        run_directory = result.details.fem.run.run_directory
+        run_directory = result.details.data.fem.run.run_directory
         @test size(result.Z) == (1, 1, 2)
         @test size(result.Y) == (1, 1, 2)
         @test all(isfinite, result.Z)
@@ -1329,17 +1325,17 @@ end
             isapprox(value, expected_capacitance; rtol = 0.02)
         for value in fem_capacitance
         )
-        @test result.details.fem.run.state === Base.get_extension(
+        @test result.details.data.fem.run.state === Base.get_extension(
             LineCableModels, :LineCableModelsGmshExt
         ).completed
-        @test result.details.fem.run.getdp_invocations ==
+        @test result.details.data.fem.run.getdp_invocations ==
               length(problem.frequencies)
-        @test result.details.fem.run.completed_columns ==
-              length(problem.frequencies) * length(result.details.fem.terminal_ids)
+        @test result.details.data.fem.run.completed_columns ==
+              length(problem.frequencies) * length(result.details.data.fem.terminal_ids)
         @test run_directory !== nothing
-        timing=result.details.fem.timing
+        timing=result.details.data.fem.timing
         @test timing.backend == "getdp"
-        @test timing.columns == result.details.fem.run.completed_columns
+        @test timing.columns == result.details.data.fem.run.completed_columns
         @test timing.recovered_columns == 0
         @test !timing.reused
         @test timing.worker_wall_seconds >= 0
@@ -1347,13 +1343,13 @@ end
         native=[extension._column_timing(extension._column_paths(
                 run_directory,frequency,basis,false).timing,frequency,basis)
             for frequency in eachindex(problem.frequencies)
-            for basis in eachindex(result.details.fem.terminal_ids)]
+            for basis in eachindex(result.details.data.fem.terminal_ids)]
         for phase in (:constraint_seconds,:assembly_seconds,:solve_seconds,:output_seconds)
             @test getproperty(timing,phase) ≈ sum(getproperty(row,phase) for row in native)
         end
         expected_rows = 1 +
                         length(problem.frequencies) *
-                        length(result.details.fem.terminal_ids)^2
+                        length(result.details.data.fem.terminal_ids)^2
         for filename in ("Z.tsv", "P.tsv")
             content = read(joinpath(run_directory, "raw", filename), String)
             @test !occursin("\n\n", content)
@@ -1387,11 +1383,11 @@ end
             options = (;formulation_controls..., trace = true, resume_run_directory = run_directory))
         @test repeated.Z.values == result.Z.values
         @test repeated.Y.values == result.Y.values
-        @test repeated.details.formulations.selections.earth_properties === nothing
-        @test repeated.details.fem.run.run_directory == run_directory
-        @test repeated.details.fem.timing.reused
-        @test repeated.details.fem.timing.solve_seconds == timing.solve_seconds
-        @test repeated.details.fem.inputs.getdp_identity.sha256 != ""
+        @test repeated.details.data.formulations.selections.earth_properties === nothing
+        @test repeated.details.data.fem.run.run_directory == run_directory
+        @test repeated.details.data.fem.timing.reused
+        @test repeated.details.data.fem.timing.solve_seconds == timing.solve_seconds
+        @test repeated.details.data.fem.inputs.getdp_identity.sha256 != ""
         @test !Bool(Gmsh.gmsh.is_initialized())
         @test snapshot_files(run_directory) == before_reuse
         mktempdir() do temporary
@@ -1409,7 +1405,7 @@ end
                 result = compute(problem, formulation; options=merge(formulation_controls, (trace=true, resume_run_directory=path)))
                 Z, Y = deserialize(expected)
                 @assert result.Z.values == Z && result.Y.values == Y
-                @assert result.details.fem.run.run_directory == path
+                @assert result.details.data.fem.run.run_directory == path
                 @assert !Bool(Gmsh.gmsh.is_initialized())
                 println("completed-run reuse verified in fresh Julia")
                 """
@@ -1417,7 +1413,7 @@ end
             @test occursin("completed-run reuse verified in fresh Julia", read(command, String))
             @test snapshot_files(run_directory) == before_reuse
         end
-        rm(lossy.details.fem.run.run_directory; recursive = true, force = true)
+        rm(lossy.details.data.fem.run.run_directory; recursive = true, force = true)
 
         # The display lifecycle belongs to fem_ui.jl and its isolated children.
         rm(run_directory; recursive = true, force = true)

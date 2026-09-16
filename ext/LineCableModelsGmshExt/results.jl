@@ -279,8 +279,8 @@ function _parse_scan(
         run,
         frequency_count,
         terminal_count,
-        execution.plot_field_maps;
-        physics=formulation.options.physics
+        execution.data.plot_field_maps;
+        physics=formulation.options.data.physics
     )
     return FEMScan(Z, P, maps)
 end
@@ -332,12 +332,12 @@ function _line_parameters(
     Z = reduced.Z
     Y = inversion.Y
     basis = :pul
-    if execution.output_basis === Val(:total)
+    if execution.data.output_basis === Val(:total)
         Z = Z .* model.problem.system.line_length
         Y = Y .* model.problem.system.line_length
         basis = :total
     end
-    keep_run = execution.keep_run_directory
+    keep_run = execution.data.keep_run_directory
     record = (
         state=completed,
         run_directory=keep_run ? run.path : nothing,
@@ -348,7 +348,7 @@ function _line_parameters(
         completed_columns=run.completed_columns,
         completed_frequencies=run.completed_frequencies
     )
-    trace = execution.trace === Val(true) ?
+    trace = execution.data.trace === Val(true) ?
             (
         Z_primitive = scan.Z,
         P_primitive = scan.P,
@@ -361,14 +361,14 @@ function _line_parameters(
     coordinates=map(reduced.indices) do index
         phase=model.problem.system.connection_order[index]
         members=findall(==(phase),model.problem.system.connection_order)
-        formulation.options.reduce_bundle && phase > 0 && length(members) > 1 ?
+        formulation.options.data.reduce_bundle && phase > 0 && length(members) > 1 ?
             "bundle:[" * join(names[members],",") * "]" : names[index]
     end
     timing_path=joinpath(run.path,"timing-summary.json")
     timing=isfile(timing_path) ? JSON3.read(read(timing_path,String),NamedTuple) :
         (backend="getdp",scope="legacy native timing files",recovered_columns=0)
     timing=merge(timing,(;reused))
-    details = (
+    details = ComputationDetails(;
         files, coordinates,
         formulations = formulation_record(formulation),
         fem = (

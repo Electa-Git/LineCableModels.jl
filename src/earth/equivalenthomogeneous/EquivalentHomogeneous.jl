@@ -13,7 +13,8 @@ order through dispatch.
 $(IMPORTS)
 """
 module EquivalentHomogeneous
-import ...Grammar: computation_options
+import ...Grammar: FormulationOptions
+import ...Grammar: formulation_options
 import ...LineCableModels: validate
 
 export Formula, AfterFD, BeforeFD

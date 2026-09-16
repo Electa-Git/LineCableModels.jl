@@ -35,8 +35,8 @@ function Engine.compare(reference::Union{MonteCarloResult, LinearErrorResult},
             throw(ArgumentError("UQ point basis or domain differs"))
         frequencies(left) == frequencies(right) ||
             throw(ArgumentError("UQ point frequencies differ"))
-        left_ports = get(details(left), :coordinates, nothing)
-        right_ports = get(details(right), :coordinates, nothing)
+        left_ports = get(details(left).data, :coordinates, nothing)
+        right_ports = get(details(right).data, :coordinates, nothing)
         left_ports === nothing || right_ports === nothing || left_ports == right_ports ||
             throw(ArgumentError("UQ point output terminals differ"))
     end
@@ -48,9 +48,9 @@ function Engine.compare(reference::Union{MonteCarloResult, LinearErrorResult},
             result_basis = basis(left), kwargs...)
         return Engine.RMSError{Base.nonmissingtype(eltype(observe(error, Engine.absolute_error)))}(
             observe(error, Engine.absolute_error), observe(error, Engine.relative_error);
-            details = merge(details(error), (; request = identity,
+            details = ComputationDetails(merge(details(error).data, (; request = identity,
                 statistical_semantics=(revision=1,
                     reference=reference isa MonteCarloResult ? :empirical : :first_order,
-                    candidate=candidate isa MonteCarloResult ? :empirical : :first_order))))
+                    candidate=candidate isa MonteCarloResult ? :empirical : :first_order)))))
     end
 end

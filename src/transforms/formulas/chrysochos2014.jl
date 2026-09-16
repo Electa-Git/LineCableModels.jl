@@ -268,9 +268,9 @@ Using the Levenberg–Marquardt Method*, IEEE Transactions on Power Delivery,
 function modal_operators(
         ::Formula{:chrysochos2014},
         lp::LineParameters{Tc, U, PhaseDomain, Basis},
-        parameters::NamedTuple, options::NamedTuple, workspace
+        parameters::NamedTuple, options::FormulationOptions, workspace
 ) where {Tc <: Complex, U <: Real, Basis}
-    values = options.iteration
+    values = options.data.iteration
     impedance, admittance, frequencies = _input(lp)
     n, _, nfrequencies = size(impedance)
     T = float(promote_type(eltype(impedance), eltype(admittance)))
@@ -390,12 +390,12 @@ function modal_operators(
     return _maps(current)
 end
 
-function computation_options(::FormulaMethod{<:Formula{:chrysochos2014}, typeof(modal_operators)})
-    (iteration = (
-        convergence = 1e-8, max_iterations = 100, damping = 1e-3, fallback = :matched),)
+function formulation_options(::FormulaMethod{<:Formula{:chrysochos2014}, typeof(modal_operators)})
+    return FormulationOptions((iteration = (
+        convergence = 1e-8, max_iterations = 100, damping = 1e-3, fallback = :matched),))
 end
 
-function computation_options(::FormulaMethod{<:Formula{:chrysochos2014}, typeof(modal_operators)},
+function formulation_options(::FormulaMethod{<:Formula{:chrysochos2014}, typeof(modal_operators)},
         ::Val{:iteration}, defaults::NamedTuple, supplied::NamedTuple)
     isempty(setdiff(keys(supplied), keys(defaults))) ||
         throw(ArgumentError("unknown modal iteration controls"))

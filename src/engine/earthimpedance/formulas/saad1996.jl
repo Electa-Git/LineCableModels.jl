@@ -66,9 +66,9 @@ end
 
 
 
-function computation_options(::FormulaMethod{<:Formula{:saad1996}, typeof(earth_impedance),
+function formulation_options(::FormulaMethod{<:Formula{:saad1996}, typeof(earth_impedance),
         A}) where {A <: Tuple{Union{Val{:self}, Val{:mutual}}, Val{2}, Val{2}}}
-    (;)
+    return FormulationOptions((;))
 end
 
 function validate(binding::FormulaMethod{<:Formula{:saad1996}, typeof(earth_impedance)},

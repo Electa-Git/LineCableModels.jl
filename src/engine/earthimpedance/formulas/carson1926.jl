@@ -52,7 +52,7 @@ function earth_impedance(
     state = functor.state
     geometry = _geometry(pair)
     gamma_squared = state.gamma_medium_squared[2]
-    integral = integrate(functor.options.integration.method,
+    integral = integrate(functor.options.data.integration.method,
         SpectralIntegral(
             Val(:cosine), lambda -> begin
                 attenuation = sqrt(lambda^2 + gamma_squared)
@@ -61,7 +61,7 @@ function earth_impedance(
             end,
             (height = geometry.H, separation = geometry.y_ij),
             float(nominal(abs(state.gamma[2])))),
-        functor.options.integration.options, workspace)
+        functor.options.data.integration.options, workspace)
     πT = one(geometry.H) * π
     return state.jω * state.mu[1] / (2πT) *
            (log(geometry.D_ij / geometry.d_ij) + 2 * integral)
@@ -69,9 +69,9 @@ end
 
 
 
-function computation_options(::FormulaMethod{<:Formula{:carson1926}, typeof(earth_impedance),
+function formulation_options(::FormulaMethod{<:Formula{:carson1926}, typeof(earth_impedance),
         A}) where {A <: Tuple{Union{Val{:self}, Val{:mutual}}, Val{1}, Val{1}}}
-    (integration = (method = :quad, options = (;)),)
+    return FormulationOptions((integration = (method = :quad, options = (;)),))
 end
 
 function validate(binding::FormulaMethod{<:Formula{:carson1926}, typeof(earth_impedance)},

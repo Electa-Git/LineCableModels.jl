@@ -9,7 +9,7 @@ function compare(reference::Grammar.AbstractCoreResult, candidate::ParametricRes
         quantity; kwargs...)
     isempty(candidate.axes) && throw(ArgumentError("comparison requires retained problem/formulation axes"))
     errors=[compare(reference, value, quantity; kwargs...) for value in candidate]
-    return ParametricResult(candidate.formulation, errors, candidate.axes, (;))
+    return ParametricResult(candidate.formulation, errors, candidate.axes, ComputationDetails())
 end
 
 """
@@ -31,5 +31,5 @@ function compare(reference::ParametricResult, candidate::ParametricResult,
         throw(ArgumentError("pairing contains an invalid reference/candidate index"))
     ordered=sort(collect(pairing); by=last)
     errors=[compare(reference[i], candidate[j], quantity; kwargs...) for (i,j) in ordered]
-    return ParametricResult(candidate.formulation, errors, candidate.axes, (;))
+    return ParametricResult(candidate.formulation, errors, candidate.axes, ComputationDetails())
 end

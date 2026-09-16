@@ -117,6 +117,6 @@ function read_pscad_result(
         admittance,
         frequencies_value;
         basis = :pul,
-        details = (native_frequencies = copy(observed_frequencies),)
+        details = ComputationDetails(; native_frequencies = copy(observed_frequencies))
     )
 end

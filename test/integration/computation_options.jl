@@ -4,8 +4,8 @@
     space = Gridspace{CableConstantsProblem}(identity, (Grid((problem,)),))
     point = first(LineCableModels.points(space))
     invalid = (unsupported=true,)
-    pending = ParametricProblem(space, invalid)
-    @test pending.options === invalid
+    pending = ParametricProblem(space, ComputationOptions(invalid))
+    @test pending.options.data === invalid
     @test_throws ArgumentError compute(point, inner; options=invalid)
     @test_throws ArgumentError compute(problem, [inner, inner]; options=invalid)
     formulas = Gridspace{CableConstantsFormulation}(identity, (Grid((inner,)),))
@@ -13,7 +13,7 @@
     for outer in (Combinatorial(inner), LinearError(inner),
             MonteCarlo(inner; options=(trials=1, seed=1)))
         @test_throws ArgumentError compute(pending, outer)
-        @test isempty(details(compute(ParametricProblem(space), outer)))
+        @test isempty(details(compute(ParametricProblem(space), outer)).data)
     end
 end
 
@@ -26,10 +26,10 @@ end
     options = (output_basis=:total, on_result=callback)
     # The selected basis is represented by Val, so a runtime Symbol determines
     # that field's type; the normalized record must still retain concrete fields.
-    execution = LineCableModels.computation_options(LineCableModelsCoaxial, options)
+    execution = LineCableModels.computation_options(LineCableModelsCoaxial, ComputationOptions(options))
     @test isconcretetype(typeof(execution))
-    @test execution.on_result === callback
-    @test fieldtype(typeof(execution), :on_result) === typeof(callback)
+    @test execution.data.on_result === callback
+    @test fieldtype(typeof(execution.data), :on_result) === typeof(callback)
     batch = compute(problem, [inner, inner]; options)
     @test calls == [1, 2]
     @test all(value -> basis(value) === :total, batch)
@@ -40,7 +40,7 @@ end
     for (outer, count) in ((Combinatorial(inner), 1), (LinearError(inner), 1),
             (MonteCarlo(inner; options=(trials=2, seed=1)), 2))
         empty!(calls)
-        result = compute(ParametricProblem(space, options), outer)
+        result = compute(ParametricProblem(space, ComputationOptions(options)), outer)
         @test calls == fill(1, count)
         @test basis(first(result)) === :total
     end
@@ -59,14 +59,14 @@ end
     options = (trials=4, seed=71, distribution=Normal(10, 3),
         return_samples=true, return_histograms=true, bins=2, retain_details=true)
     formulation = @inferred MonteCarlo(inner; options)
-    @test formulation.options.distribution === options.distribution
+    @test formulation.options.data.distribution === options.distribution
     sampled = compute(problem, formulation)
     replay = compute(problem, MonteCarlo(inner; options...))
     @test samples(sampled) == samples(replay)
     @test statistics(sampled) == statistics(replay)
     @test sampled.point_seeds == replay.point_seeds
     @test sampled.trial_counts == replay.trial_counts == [4, 4]
-    @test length.(sampled.details.trials) == [4, 4]
+    @test length.(sampled.details.data.trials) == [4, 4]
     @test LineCableModels.sampling_distribution(sampled) === options.distribution
     for quantity in (R, L, C, G), point in 1:2
         a = only(observe(sampled, histograms, quantity, point))

@@ -5,7 +5,8 @@
     struct SelectiveBackend <: LineCableModels.Grammar.AbstractFormulation
         factor::Float64
     end
-    function LineCableModels.compute(problem::LineParametersProblem, f::SelectiveBackend;options=(;))
+    function LineCableModels.compute(problem::LineParametersProblem, f::SelectiveBackend;
+            options::Union{NamedTuple,ComputationOptions}=ComputationOptions())
         push!(calls,f.factor)
         z=fill(complex(f.factor),2,2,length(problem.frequencies))
         return LineParameters(PhaseDomain,z,z,copy(problem.frequencies))
@@ -149,7 +150,8 @@ end
     LineCableModels.formula_id(::SweepReuseBackend) = :SweepReuseBackend
     LineCableModels.description(::SweepReuseBackend;compact=false) = "sweep reuse backend"
     LineCableModels.description(::Type{SweepReuseBackend};compact=false) = "sweep reuse backend"
-    function LineCableModels.compute(problem::LineParametersProblem,f::SweepReuseBackend;options=(;))
+    function LineCableModels.compute(problem::LineParametersProblem,f::SweepReuseBackend;
+            options::Union{NamedTuple,ComputationOptions}=ComputationOptions())
         push!(calls,f.factor)
         z=fill(complex(f.factor),2,2,length(problem.frequencies))
         LineParameters(PhaseDomain,z,z,copy(problem.frequencies))

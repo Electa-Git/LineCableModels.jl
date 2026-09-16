@@ -78,21 +78,21 @@ $(TYPEDSIGNATURES)
 
 Return the simultaneous empirical-CDF confidence of a Monte Carlo calculation.
 """
-confidence(value::MonteCarloResult) = value.formulation.options.confidence
+confidence(value::MonteCarloResult) = (value.formulation isa NamedTuple ? value.formulation.options : value.formulation.options.data).confidence
 
 """
 $(TYPEDSIGNATURES)
 
 Return the empirical-CDF tolerance used to size a Monte Carlo calculation.
 """
-cdf_tolerance(value::MonteCarloResult) = value.formulation.options.cdf_tol
+cdf_tolerance(value::MonteCarloResult) = (value.formulation isa NamedTuple ? value.formulation.options : value.formulation.options.data).cdf_tol
 
 """
 $(TYPEDSIGNATURES)
 
 Return the sampling distribution of a Monte Carlo calculation.
 """
-sampling_distribution(value::MonteCarloResult) = value.formulation.options.distribution
+sampling_distribution(value::MonteCarloResult) = (value.formulation isa NamedTuple ? value.formulation.options : value.formulation.options.data).distribution
 
 """
 $(TYPEDSIGNATURES)
@@ -107,7 +107,7 @@ function confidence(value::MonteCarloResult, point::Integer)
     count = sum(length, values(value.stats[point]))
     trials = trial_count(value,point)
     bound = sqrt(log(2count / (1-confidence(value))) / (2trials))
-    retained=details(value)
+    retained=details(value).data
     diagnostics = isempty(retained) ? nothing :
         (failures=retained.failures[point],failure_summary=retained.failure_summary[point],
             clearance=haskey(retained,:clearance) ? retained.clearance[point] : nothing)
@@ -118,7 +118,7 @@ function confidence(value::MonteCarloResult, point::Integer)
         target_cdf=cdf_tolerance(value), cdf_bound=min(1.0,bound),
         target_supported=bound <= cdf_tolerance(value), scope=:point_all_retained_marginals,
         assumption=:iid, distribution=sampling_distribution(value),
-        conditioning=value.formulation.options.on_error === :retry ? :successful_realizations : :none,
+        conditioning=(value.formulation isa NamedTuple ? value.formulation.options : value.formulation.options.data).on_error === :retry ? :successful_realizations : :none,
         diagnostics, mean_standard_error, root_seed=root_seed(value), point_seed=point_seed(value,point),
         samples_retained=samples(value) !== nothing, histograms_retained=histograms(value) !== nothing)
 end

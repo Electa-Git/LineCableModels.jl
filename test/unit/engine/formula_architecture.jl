@@ -91,7 +91,7 @@ end
         prescribed=selected(rho,epsilon,mu,jω,pair;Γ=1e-4im)
         @test owner.Γ(prescribed)==1e-4im
         @test prescribed.state.gamma_medium_squared==functor.state.gamma_medium_squared
-        @test prescribed.state.gamma==sqrt.(jω .* mu .* (inv.(rho) .+ jω .* epsilon))
+        @test prescribed.state.gamma==Tuple(sqrt.(jω .* mu .* (inv.(rho) .+ jω .* epsilon)))
         for wrong in ([1.0],(Γ=0,squared=9),NaN,()->0)
             @test_throws ArgumentError selected(rho,epsilon,mu,jω,pair;Γ=wrong)
         end
@@ -102,7 +102,8 @@ end
     carson=E.EarthImpedance.Formula(:carson1926)
     air=E.EarthPair(1,2,(1.0,2.0),1.0,(1,1))
     @test_throws ArgumentError carson(rho,epsilon,mu,jω,air;Γ=1e-4im)
-    @test LineCableModels.ComputationOptions === NamedTuple
+    @test LineCableModels.ComputationOptions === LineCableModels.Grammar.ComputationOptions
+    @test !(ComputationOptions() isa NamedTuple)
 end
 
 @testitem "Engine / indexed finite-layer methods determine admission and ordered assembly" tags=[:unit] setup=[FormulaContractModels] begin
@@ -120,8 +121,8 @@ end
                (s, t); radius = s==t ? 0.01 : nothing) for s in 1:3 for t in 1:3]
     bound=validate(selected, pairs)
     @test isempty(M.calls) # Structural preflight executes no kernels.
-    @test count(case -> haskey(case.options, :integration), bound) == 1
-    @test bound[1].options.integration.method === Val(:trapz)
+    @test count(case -> haskey(case.options.data, :integration), bound) == 1
+    @test bound[1].options.data.integration.method === Val(:trapz)
     @test_throws ArgumentError validate(selected, pairs[2:end]) # Unconsumed integral controls.
     absent=E.EarthPair(1, 2, (-2.0, -3.0), 1.0, (3, 4))
     @test_throws ArgumentError validate(selected, absent)
@@ -147,7 +148,7 @@ end
         options = (ideal_transposition = false,))
     result=compute(problem, formulation; options = (trace = true,))
     @test length(fd_calls) == 4
-    execution=computation_options(LineCableModelsCoaxial,(;))
+    execution=computation_options(LineCableModelsCoaxial, ComputationOptions((;)))
     T=eltype(problem)
     blueprints=E.CableBlueprint{T}[E.flatten(LineCableModelsCoaxial(),d,T)
         for d in problem.system.designs]
@@ -163,12 +164,12 @@ end
     for k in eachindex(problem.frequencies), t in 1:3, s in 1:3
         # Declared manufactured rule, evaluated independently of the probe method.
         coefficient=11s+17t+3t+5s+problem.frequencies[k]/100+(s==t ? 101 : 0)
-        @test details(result).trace.Zg[t,s,k] ≈ coefficient*(1e-4+1e-3im) rtol=3e-6
-        @test details(result).trace.Pg[t,s,k] ≈ coefficient*1e9
+        @test details(result).data.trace.Zg[t,s,k] ≈ coefficient*(1e-4+1e-3im) rtol=3e-6
+        @test details(result).data.trace.Pg[t,s,k] ≈ coefficient*1e9
     end
     @test result.Z.values[1,2,1] ≈ (11*2+17+3+5*2+.5)*(1e-4+1e-3im)
     @test result.Z.values[2,1,1] ≈ (11+17*2+3*2+5+.5)*(1e-4+1e-3im)
-    @test result.Y.values[:, :, 1] ≈ 2pi * 50im * inv(details(result).trace.P[:, :, 1])
+    @test result.Y.values[:, :, 1] ≈ 2pi * 50im * inv(details(result).data.trace.P[:, :, 1])
     # A full-layer impedance and a separately reduced homogeneous potential
     # consume different material inventories in the same solve.
     buried=build(LineCableSystem, fill(design, 3),
@@ -188,8 +189,8 @@ end
         @test all(record -> length(record[7]) == 3, M.calls)
         @test Set(record[5] for record in M.calls) == Set(((2, 2), (2, 3), (3, 2), (3, 3)))
         @test length(fd_calls) == (order === :before ? 11 : 2)
-        @test details(value).formulations.equivalent_earth.earth_impedance === nothing
-        @test details(value).formulations.equivalent_earth.earth_admittance.order === order
+        @test details(value).data.formulations.equivalent_earth.earth_impedance === nothing
+        @test details(value).data.formulations.equivalent_earth.earth_admittance.order === order
     end
     @test (EI.formulas(), EA.formulas()) === inventories
 end
@@ -211,7 +212,7 @@ end
     @test changed.Z.values ≈ expected.Z.values rtol=1e-10
     @test changed.Y.values ≈ expected.Y.values rtol=1e-10
     @test Set(record[2] for record in fd.seen)==Set(base.frequencies)
-    @test details(changed).formulations.effective.earth_properties === :DispersiveEarth
+    @test details(changed).data.formulations.effective.earth_properties === :DispersiveEarth
     reference=compute(base)
     for method in (:trapz,:cim)
         result=compute(base,Formulation(
@@ -220,7 +221,7 @@ end
         @test result.Z.values ≈ reference.Z.values rtol=3e-6
         @test result.Y.values ≈ reference.Y.values rtol=3e-6
         @test all(case->case.options.integration.method === Val(method),
-            details(result).formulations.numerical.earth_impedance)
+            details(result).data.formulations.numerical.earth_impedance)
     end
 end
 

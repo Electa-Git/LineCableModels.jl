@@ -6,7 +6,7 @@ The actual conductor geometry determines which surfaces are required.
 
 $(TYPEDFIELDS)
 """
-struct Formula{ID, P <: NamedTuple, O <: NamedTuple, C <: Tuple} <: InternalImpedanceFormulation
+struct Formula{ID, P <: NamedTuple, O <: FormulationOptions, C <: Tuple} <: InternalImpedanceFormulation
     "Resolved physical/model parameters."
     parameters::P
     "Normalized numerical sections indexed by surface kind."
@@ -23,7 +23,7 @@ Leaf evaluation uses that selection's equation directly.
 
 $(TYPEDFIELDS)
 """
-struct Functor{F, S, O}
+struct Functor{F, S, O <: FormulationOptions}
     "Selected internal-impedance formulation."
     selection::F
     "Shared conductor state at one frequency."
@@ -51,29 +51,30 @@ shared-state constructor, and extend `internal_impedance` on their own type.
 """
 Formula(identifier::Symbol; kwargs...) = Formula(Val(identifier); kwargs...)
 
-function Formula(::Val{ID}; parameters::NamedTuple=(;), options::NamedTuple=(;)) where {ID}
+function Formula(::Val{ID}; parameters::NamedTuple=(;), options::Union{NamedTuple, FormulationOptions} = FormulationOptions()) where {ID}
+    options = options isa NamedTuple ? FormulationOptions(options) : options
     isempty(parameters) || throw(ArgumentError("internal impedance :$ID has no model parameters"))
     kinds = (:inner, :outer, :transfer)
-    supplied = keys(options)
+    supplied = keys(options.data)
     selected = Formula{ID, typeof(parameters), typeof(options), typeof(supplied)}(
         parameters, options, supplied)
     declarations = map(kinds) do kind
         binding = FormulaMethod(selected, internal_impedance, Val(kind))
         signature = Tuple{typeof(selected), typeof(Val(kind)), Any, Any}
         which(internal_impedance, signature) === EQUATION_FALLBACK && return nothing
-        computation_options(binding)
+        formulation_options(binding)
     end
     all(isnothing, declarations) && throw(ArgumentError(
         "internal impedance :$ID has no implemented surface equations"))
-    admitted = union((keys(value) for value in declarations if value !== nothing)...)
+    admitted = union((keys(value.data) for value in declarations if value !== nothing)...)
     isempty(setdiff(supplied, admitted)) || throw(ArgumentError(
         "unused internal-impedance numerical sections"))
-    normalized = NamedTuple{kinds}(map(kinds, declarations) do kind, defaults
+    normalized = FormulationOptions(NamedTuple{kinds}(map(kinds, declarations) do kind, defaults
         defaults === nothing && return (;)
         binding = FormulaMethod(selected, internal_impedance, Val(kind))
-        names = Tuple(intersect(supplied, keys(defaults)))
-        computation_options(binding, defaults, options[names])
-    end)
+        names = Tuple(intersect(supplied, keys(defaults.data)))
+        formulation_options(binding, defaults, FormulationOptions(options.data[names])).data
+    end))
     return Formula{ID, typeof(parameters), typeof(normalized), typeof(supplied)}(
         parameters, normalized, supplied)
 end
@@ -103,10 +104,10 @@ function validate(binding::FormulaMethod{S, typeof(internal_impedance), A}) wher
 end
 
 function (functor::Functor)(::Val{Kind}, workspace=nothing) where {Kind}
-    hasproperty(functor.options, Kind) || throw(ArgumentError(
+    hasproperty(functor.options.data, Kind) || throw(ArgumentError(
         "internal surface :$Kind is not implemented by this selection"))
-    options = getproperty(functor.options, Kind)
-    leaf = Functor(functor.selection, functor.state, options)
+    options = getproperty(functor.options.data, Kind)
+    leaf = Functor(functor.selection, functor.state, FormulationOptions(options))
     value = internal_impedance(functor.selection, Val(Kind), leaf, workspace)
     value isa Number && isfinite(value) || throw(DomainError(value,
         "internal_impedance must return a finite surface coefficient [Ω/m]"))
@@ -185,7 +186,7 @@ end
 
 function validate(formula::InternalImpedanceFormulation, kinds::Tuple)
     foreach(kind -> validate(FormulaMethod(formula, internal_impedance, Val(kind))), kinds)
-    admitted = union((keys(getproperty(formula.options, kind)) for kind in kinds)...)
+    admitted = union((keys(getproperty(formula.options.data, kind)) for kind in kinds)...)
     isempty(setdiff(formula.configured_options, admitted)) || throw(ArgumentError(
         "an explicitly configured numerical section is unused by the required internal surfaces"))
     return formula
@@ -193,13 +194,10 @@ end
 
 """Expose the selected identity, model parameters and numerical controls."""
 Base.NamedTuple(value::Formula) = (identifier=formula_id(value),
-    parameters=value.parameters, options=value.options, configured_options=value.configured_options)
+    parameters=value.parameters, options=value.options.data, configured_options=value.configured_options)
 
 import ...Grammar: formulation_options
 description(value::Formula; compact::Bool=false) = description(typeof(value); compact)
 Base.pairs(::Type{<:Formula}; quantity=nothing) = pairs((inner=Formula, outer=Formula, transfer=Formula))
 formula_id(::Type{<:Formula{ID}}) where {ID} = ID
-formulation_options(value::Formula) = formulation_options(typeof(value),
-    (parameters=value.parameters, options=value.options))
-formulation_options(::Type{<:Formula}, retained::NamedTuple) =
-    formulation_options(FormulaDefinition, retained)
+formulation_options(value::Formula) = value.options

@@ -6,17 +6,17 @@
     const M=FormulaContractModels
     internal=FM(II.Formula(:default),II.internal_impedance,Val(:outer))
     external=FM(EI.Formula(:default),EI.earth_impedance,Val(:self),Val(1),Val(1))
-    @test computation_options(internal)==(;)
-    @test computation_options(external).integration.method === :quad
-    @test_throws ArgumentError computation_options(internal,(integration=(method=:quad,),))
-    @test_throws ArgumentError computation_options(LineCableModelsCoaxial,(integration_method=:quad,))
+    @test formulation_options(internal)==FormulationOptions()
+    @test formulation_options(external).data.integration.method === :quad
+    @test_throws ArgumentError formulation_options(internal,FormulationOptions(integration=(method=:quad,)))
+    @test_throws ArgumentError computation_options(LineCableModelsCoaxial, ComputationOptions((integration_method=:quad,)))
     # The custom selection uses existing admission and equation generics. It is
     # not a changed implementation of the built-in's claimed scientific identity.
     custom=M.selection(EI;layers=2:2)
     pair=E.EarthPair(1,2,(-1.0,-1.0),1.0,(2,2))
     bound=validate(custom,pair)
     @test bound.equation.selection === custom
-    @test isempty(bound.options)
+    @test isempty(bound.options.data)
     @test_throws ArgumentError validate(M.selection(EI;layers=2:2,
         options=(integration=(method=:quad,),)),pair)
     rho=[Inf,100.0]
@@ -25,7 +25,7 @@
     value=custom(rho,epsilon,mu,100.0im,pair;thickness=[Inf,Inf])()
     @test isfinite(value)
     @test formula_id(custom) !== formula_id(external.selection)
-    @test computation_options(external).integration.method === :quad
+    @test formulation_options(external).data.integration.method === :quad
 end
 
 @testitem "Engine / public internal surfaces consume spectral options and retained resources" tags=[:unit] setup=[TestFixtures,FormulaContractModels] begin
@@ -117,7 +117,7 @@ end
     problem=LineParametersProblem(system;frequencies=[50.0],earth_props=homogeneous(rho=100.0))
     result=compute(problem,Formulation(internal_impedance=selected))
     @test all(isfinite,result.Z.values)
-    @test keys(details(result).formulations.numerical.internal_impedance)==(:outer,)
+    @test keys(details(result).data.formulations.numerical.internal_impedance)==(:outer,)
     @test length(selected.preparations)==1
     @test only(selected.evaluations)[2] === Val(:outer)
 end

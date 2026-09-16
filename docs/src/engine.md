@@ -83,7 +83,7 @@ Lossy or custom constitutive selections are unsupported by `:boundary` and raise
 eligible domains. Select `:coaxial` to retain their radial calculation without
 losing conductivity or frequency dependence.
 
-Inspect `details(result).shunt_model` for requested/effective model, domain
+Inspect `details(result).data.shunt_model` for requested/effective model, domain
 terminal ranges, solve counts, and diagnostics. Boundary-resolved domains
 coexist with ordinary radial intervals outside their coverage. `effective`
 describes the qualifying domains; `:mixed` indicates explicit fallback in some
@@ -262,7 +262,7 @@ solver, and `:unified` still requires its supported earth geometry. PSCAD owns
 separate native selections; FEM owns its field equations and accepts supported
 material selections, not analytical impedance equations.
 
-Numerical defaults belong to `computation_options(::FormulaMethod{<:MySelection,
+Numerical defaults belong to `formulation_options(::FormulaMethod{<:MySelection,
 typeof(operation), ...})`. Empty defaults admit no controls. Unknown or unused
 numerical sections are errors. A declared `integration` section allocates
 numerical resources; it does not select full-system earth physics. That
@@ -406,12 +406,12 @@ between consumers when needed; the air material remains static.
 For example, the numerical declaration for a user-owned outer surface equation is:
 
 ```julia
-using LineCableModels: FormulaMethod, computation_options
+using LineCableModels: FormulaMethod, formulation_options, FormulationOptions
 const II = LineCableModels.Engine.InternalImpedance
 # MyConductor is a concrete InternalImpedanceFormulation owned by the user.
-computation_options(
+formulation_options(
     ::FormulaMethod{<:MyConductor,typeof(II.internal_impedance),Tuple{Val{:outer}}},
-) = (;)
+) = FormulationOptions()
 ```
 
 The equation is `II.internal_impedance(selected::MyConductor, ::Val{:outer},
@@ -446,8 +446,8 @@ selections share their prepared conductor state. Scalar shorthand retains its
 existing numerical behavior. The internal term is called `transfer`; earth
 `self`/`mutual` interaction names are unchanged.
 
-`ComputationOptions` remains an alias for `NamedTuple`. The existing
-`computation_options` constructor validates and normalizes execution controls once:
+Equation numerical sections belong to `FormulationOptions`. The existing
+`formulation_options` methods validate and normalize them at the owning stage:
 
 | `integration.method` | Numerical operation |
 |---|---|
@@ -635,24 +635,24 @@ A custom temperature law is a concrete selection, with no function-valued field:
 
 ```julia
 const TD = LineCableModels.Materials.TemperatureDependent
-struct ExponentialResistivity{P,O} <: TD.TemperatureDependentFormulation
+struct ExponentialResistivity{P,O<:FormulationOptions} <: TD.TemperatureDependentFormulation
     parameters::P
     options::O
 end
 function ExponentialResistivity(; scale=1000.0)
     isfinite(scale) && scale > 0 || throw(ArgumentError("scale must be positive [K]"))
-    ExponentialResistivity((scale=scale,), (;))
+    ExponentialResistivity((scale=scale,), FormulationOptions())
 end
 TD.temperature_resistivity(::ExponentialResistivity, m, t, p, o, workspace) =
     m.rho * exp((t-m.T0)/p.scale)
-LineCableModels.computation_options(
-    ::LineCableModels.FormulaMethod{<:ExponentialResistivity,typeof(TD.temperature_resistivity)}) = (;)
+LineCableModels.formulation_options(
+    ::LineCableModels.FormulaMethod{<:ExponentialResistivity,typeof(TD.temperature_resistivity)}) = FormulationOptions()
 LineCableModels.formula_id(::ExponentialResistivity) = :exponential_resistivity
 LineCableModels.description(::ExponentialResistivity; compact=false) = "Exponential resistivity"
 Base.NamedTuple(law::ExponentialResistivity) =
-    (identifier=formula_id(law), parameters=law.parameters, options=law.options)
+    (identifier=formula_id(law), parameters=law.parameters, options=law.options.data)
 LineCableModels.formulation_options(law::ExponentialResistivity) =
-    formulation_options(LineCableModels.FormulaDefinition, NamedTuple(law))
+    law.options
 selected = Formulation(temperature_dependence=ExponentialResistivity())
 ```
 
@@ -918,7 +918,7 @@ The workspace separates four owned concerns:
 
 The ordinary result is always `LineParameters`. Requesting
 `options=(trace=true,)` retains completed diagnostic arrays under
-`details(parameters).trace`; it does not select another result type.
+`details(parameters).data.trace`; it does not select another result type.
 
 ## Modal transformations
 
@@ -964,16 +964,18 @@ The default tracks eigenpairs with Levenberg–Marquardt iteration, retaining a
 matched conventional eigensolution when iteration fails. Its bibliography stays
 in `src/transforms/formulas/chrysochos2014.jl`.
 
-[`ComputationDetails`](@ref) is an alias for `NamedTuple`.
-[`computation_details`](@ref) reads the fixed-key details tuple owned by a
+[`ComputationDetails`](@ref) is an immutable, nominal record parameterized by its
+named-tuple payload. Access its fields through `.data`; it is not a tuple and
+cannot be used as either kind of options.
+[`computation_details`](@ref) returns the fixed-key details record owned by a
 registered formulation type. There is no general method: an unregistered
 formulation raises `MethodError`. Higher-order calculations dispatch directly
 on `typeof(formulation)` while collecting retained records; no owner registry
 or wrapper token intervenes.
 
 [`ParametricResult`](@ref), [`LinearErrorResult`](@ref), and
-[`MonteCarloResult`](@ref) store the concrete details tuple type. Retention is
-disabled by default, so `details(result) === (;)`. The higher-order formulation
+[`MonteCarloResult`](@ref) store the concrete details record type. Retention is
+disabled by default, so `details(result) == ComputationDetails()`. The higher-order formulation
 owns the retention option:
 
 ```julia
@@ -982,7 +984,7 @@ LinearError(formulation; options=(retain_details=true,))
 MonteCarlo(formulation; trials=100, options=(retain_details=true,))
 ```
 
-Parametric and linear calculations retain `(points=records,)`, with one record
+Parametric and linear calculations retain `ComputationDetails(points=records)`, with one record
 per core result. Monte Carlo retains `trials`, `failures`, and
 `failure_summary`, each aligned by Gridspace point. `trials` contains one inner
 computation record per accepted trial. Each failure record contains the
@@ -997,7 +999,7 @@ calculation represented by a formulation. Dispatch uses the formulation owner
 type rather than the public construction selector:
 
 ```julia
-formulation_options(LineParametersFormulation, options)
+formulation_options(LineParametersFormulation, FormulationOptions(reduce_bundle=false))
 ```
 
 The default line-parameter formulation owns:
@@ -1005,7 +1007,8 @@ The default line-parameter formulation owns:
 - bundle and Kron reduction.
 - ideal transposition.
 
-The normalized named tuple is stored in `LineParametersFormulation.options`.
+The normalized `FormulationOptions` record is stored in
+`LineParametersFormulation.options`; read its payload through `.data`.
 `PSCADFormulation` uses the shared physical options and currently requires
 unreduced, untransposed matrices.
 
@@ -1028,14 +1031,22 @@ used. The stored voltage/current operators are retained for inverse transformati
 ## Computation options
 
 [`computation_options`](@ref) validates values belonging to one execution.
-Formula numerical options select how the owning equation is evaluated. Backend
-execution options govern output, tracing, logging and callbacks.
+Selected equation controls belong to `FormulationOptions`, even when they set
+quadrature or iteration tolerances. Backend execution options govern output,
+tracing, logging and callbacks.
 
-Callers supply ordinary named tuples; `ComputationOptions` is an alias for
-`NamedTuple`, not a separate type to construct or cast to. The owning
-`computation_options(Owner, options)` method checks supported keys, fills
-defaults and validates values. Its concrete returned tuple retains the types
-of callbacks and other supplied values.
+Public `options=(...)` keywords accept ordinary named tuples or the appropriate
+owned record. They wrap tuples once before passing them to the owner. Direct
+`computation_options(Owner, options)` calls require `ComputationOptions`; direct
+`formulation_options` calls require `FormulationOptions`. The owner checks keys,
+fills defaults and validates values. Constructing a wrapper alone does none of
+that. Normalized controls are forwarded without reapplying normalization.
+
+The three record types preserve the exact payload type, including callback
+and sampler types. Access payload fields through `.data`. They provide no
+implicit conversions or tuple forwarding. Immutability is shallow: contained
+arrays are not copied or frozen. Nested numerical groups, physical parameters,
+scientific products, axes and plotting attributes remain ordinary named tuples.
 
 `Combinatorial`, `LinearError` and `MonteCarlo` normalize their own execution
 options inside their constructors, including positional construction.
@@ -1051,12 +1062,12 @@ These two calls are equivalent. Supplying the same key both as a keyword and
 inside `options` raises `ArgumentError`. Unknown keys and invalid values also
 raise `ArgumentError`.
 
-`ParametricProblem(space, options)` stores options for the **inner computation**.
-Grid, batch, combinatorial and uncertainty traversal forward that tuple to the
+`ParametricProblem(space, ComputationOptions(...))` stores options for the **inner computation**.
+Grid, batch, combinatorial and uncertainty traversal forward that record to the
 selected core solver, whose `computation_options` method validates it. The
 problem cannot normalize it at construction because the solver has not yet
 been selected. Traversal retention and Monte Carlo sampling controls belong to
-the higher-order formulation's own `options` tuple.
+the higher-order formulation's own `ComputationOptions` record.
 
 The coaxial backend accepts:
 
@@ -1070,7 +1081,7 @@ The coaxial backend accepts:
 ```
 
 `trace=true` preallocates diagnostic capture with the workspace and attaches
-the retained matrices to `details(result).trace` after computation.
+the retained matrices to `details(result).data.trace` after computation.
 
 Coaxial, FEM, and PSCAD computations accept an optional callable
 `on_result(problem, index, result)`. It runs synchronously after each completed
@@ -1160,35 +1171,43 @@ import LineCableModels:
 
 struct ExternalEngine end
 
-struct ExternalFormulation{O <: NamedTuple} <: AbstractFormulation
+struct ExternalFormulation{O <: FormulationOptions} <: AbstractFormulation
     options::O
 end
 
 function formulation_options(
     ::Type{ExternalFormulation},
-    options::NamedTuple,
+    options::FormulationOptions,
 )::FormulationOptions
-    isempty(options) || throw(ArgumentError("unsupported formulation option"))
-    return (;)
+    isempty(options.data) || throw(ArgumentError("unsupported formulation option"))
+    return FormulationOptions()
+end
+
+function ExternalFormulation(;
+    options::Union{NamedTuple,FormulationOptions} = FormulationOptions(),
+)
+    options = options isa NamedTuple ? FormulationOptions(options) : options
+    return ExternalFormulation(formulation_options(ExternalFormulation, options))
 end
 
 function computation_options(
     ::Type{ExternalEngine},
-    options::NamedTuple,
+    options::ComputationOptions,
 )::ComputationOptions
-    unknown = filter(key -> key != :tolerance, keys(options))
+    unknown = filter(key -> key != :tolerance, keys(options.data))
     isempty(unknown) || throw(ArgumentError("unsupported computation option"))
-    normalized = merge((tolerance = 1.0e-8,), options)
+    normalized = merge((tolerance = 1.0e-8,), options.data)
     normalized.tolerance > 0 || throw(ArgumentError("tolerance must be positive"))
-    return (tolerance = Float64(normalized.tolerance),)
+    return ComputationOptions(tolerance = Float64(normalized.tolerance))
 end
 
 function compute(
     ::ExternalEngine,
     problem,
     formulation::ExternalFormulation;
-    options::NamedTuple = (;),
+    options::Union{NamedTuple,ComputationOptions} = ComputationOptions(),
 )
+    options = options isa NamedTuple ? ComputationOptions(options) : options
     execution = computation_options(ExternalEngine, options)
     # Use `problem`, `formulation`, and `execution` here.
 end
@@ -1214,7 +1233,7 @@ function computation_details(
     ::Type{<:ExternalFormulation},
     output::ExternalResult,
 )::ComputationDetails
-    return (
+    return ComputationDetails(;
         diagnostics=output.diagnostics,
         raw=output.raw,
     )
@@ -1285,7 +1304,7 @@ convenience call that returns the same path. ImportExport owns no second
 workbook implementation.
 
 
-Scalar calculation selections are retained in `details(result).formulations`.
+Scalar calculation selections are retained in `details(result).data.formulations`.
 Its `requested` and `methods` fields hold complete requested and resolved records,
 including physical parameters and numerical controls. Formula identifiers are available
 as `record.requested.earth_admittance.identifier` (or through the corresponding

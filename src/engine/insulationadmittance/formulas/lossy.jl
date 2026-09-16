@@ -63,7 +63,7 @@ electromagnetism.
         material::Material{T},
         frequency::T,
         temperature::T,
-        values::NamedTuple, options::NamedTuple, workspace
+        values::NamedTuple, options::FormulationOptions, workspace
 ) where {T <: Real}
     ε₀ = one(T) * 88541878128 * (one(T) * 10)^(-22)
     ω = 2 * (one(T) * π) * frequency
@@ -72,6 +72,6 @@ electromagnetism.
            displacement
 end
 
-computation_options(::FormulaMethod{<:Formula{:lossy}, typeof(insulation_material)}) = (;)
+formulation_options(::FormulaMethod{<:Formula{:lossy}, typeof(insulation_material)}) = FormulationOptions()
 
 :lossy

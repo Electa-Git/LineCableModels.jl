@@ -31,9 +31,9 @@
     @test !hasproperty(fem.reference.formulation, :execution)
     @test fem.reference.options isa ComputationOptions
     execution = computation_options(LineCableModelsFEM, fem.reference.options)
-    @test execution.frequency_workers == 1
-    @test execution.mesh_policy === :reuse
-    @test execution.trace === Val(true)
-    @test execution.keep_run_directory
+    @test execution.data.frequency_workers == 1
+    @test execution.data.mesh_policy === :reuse
+    @test execution.data.trace === Val(true)
+    @test execution.data.keep_run_directory
 
 end

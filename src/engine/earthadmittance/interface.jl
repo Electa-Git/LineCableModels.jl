@@ -8,7 +8,7 @@ is selected by its explicit kind/source-layer/target-layer equation signature.
 
 $(TYPEDFIELDS)
 """
-struct Formula{ID, A <: NamedTuple, P <: NamedTuple, O <: NamedTuple, E} <:
+struct Formula{ID, A <: NamedTuple, P <: NamedTuple, O <: FormulationOptions, E} <:
        EarthAdmittanceFormulation
     "Model class, exact medium inventory and longitudinal restriction."
     assumptions::A
@@ -29,12 +29,12 @@ resources are passed when evaluating the functor.
 
 $(TYPEDFIELDS)
 """
-struct Functor{B, S, O}
+struct Functor{B, S, O <: FormulationOptions}
     "Selected equation and its exact source/target geometry."
     binding::B
     "Evaluated physical quantities, including one authoritative Γ [1/m]."
     state::S
-    "Normalized computation options."
+    "Normalized numerical controls of the selected equation."
     options::O
 end
 
@@ -74,7 +74,8 @@ Longitudinal propagation is prescribed by the problem, not by a replacement
 channel. A missing physical case is unsupported.
 """
 function Formula(::Val{ID}; parameters::NamedTuple = (;),
-        options::NamedTuple = (;), equivalent_earth = nothing) where {ID}
+        options::Union{NamedTuple, FormulationOptions} = FormulationOptions(), equivalent_earth = nothing) where {ID}
+    options = options isa NamedTuple ? FormulationOptions(options) : options
     parameters = earth_parameters(Val(ID), parameters)
     declared_constraints = assumptions(Val(ID))
     constraints = merge(declared_constraints, (media = Val(declared_constraints.media),))
@@ -209,7 +210,7 @@ controls, and explicit equivalent-earth reduction as a native record.
 """
 function Base.NamedTuple(value::Formula)
     return (identifier=formula_id(value), assumptions=value.assumptions,
-        parameters=value.parameters, options=value.options,
+        parameters=value.parameters, options=value.options.data,
         equivalent_earth=value.equivalent_earth === nothing ? nothing : NamedTuple(value.equivalent_earth))
 end
 
@@ -220,6 +221,4 @@ description(value::Formula; compact::Bool=false) = description(typeof(value); co
 """Iterate the independently selectable child slots admitted by this formula family."""
 Base.pairs(::Type{<:Formula}; quantity=nothing) = pairs((air=Formula, earth=Formula, mixed=Formula))
 formula_id(::Type{<:Formula{ID}}) where {ID} = ID
-formulation_options(value::Formula) = formulation_options(typeof(value), (parameters=value.parameters, options=value.options, equivalent_earth=value.equivalent_earth))
-formulation_options(::Type{<:Formula}, retained::NamedTuple) =
-    formulation_options(FormulaDefinition, retained)
+formulation_options(value::Formula) = value.options

@@ -16,7 +16,7 @@ not a thermal-rating or material operating-temperature limit.
 description(::Type{<:Formula{:linear}}; compact::Bool=false) = compact ? "Linear" : "Linear electrical-resistivity temperature dependence"
 
 function temperature_resistivity(::Formula{:linear}, material::Material, temperature::Real,
-        parameters::NamedTuple, options::NamedTuple, workspace)
+        parameters::NamedTuple, options::FormulationOptions, workspace)
     difference = temperature - material.T0
     abs(difference) < oftype(difference, 150) || throw(DomainError(temperature,
         "temperature is outside the linear resistivity model range relative to $(material.T0) °C"))
@@ -26,6 +26,6 @@ function temperature_resistivity(::Formula{:linear}, material::Material, tempera
     return isinf(material.rho) ? material.rho : material.rho * factor
 end
 
-computation_options(::FormulaMethod{<:Formula{:linear}, typeof(temperature_resistivity)}) = (;)
+formulation_options(::FormulaMethod{<:Formula{:linear}, typeof(temperature_resistivity)}) = FormulationOptions()
 
 :linear

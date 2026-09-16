@@ -276,7 +276,7 @@ end
 function LineParametersWorkspace(
         problem::LineParametersProblem{T},
         formulation::LineParametersFormulation,
-        execution::NamedTuple,
+        execution::ComputationOptions,
         blueprints::Vector{CableBlueprint{T}}
 ) where {T <: Real}
     return LineParametersWorkspace(
@@ -290,7 +290,7 @@ end
 function LineParametersWorkspace(
         problem::LineParametersProblem{T},
         formulation::LineParametersFormulation,
-        execution::NamedTuple,
+        execution::ComputationOptions,
         input::NamedTuple
 ) where {T <: Real}
     cable = input.cable
@@ -417,7 +417,7 @@ function LineParametersWorkspace(
         Tuple{Union{Nothing, NamedTuple}, Union{Nothing, NamedTuple}}}
     earth_numerical::NumericalStorage = NumericalStorage(map(
         earth_bindings, earth_materials) do binding, materials
-        any(case -> haskey(case.declaration.options, :integration), binding.cases) ||
+        any(case -> haskey(case.declaration.options.data, :integration), binding.cases) ||
             return nothing
         (
             segments = alloc_segbuf(integration_type, Complex{T}, integration_type; size = 128),
@@ -463,7 +463,7 @@ function LineParametersWorkspace(
         coefficients,
         tails
     )
-    capture = _capture_buffers(T, input, execution.trace)
+    capture = _capture_buffers(T, input, execution.data.trace)
     workspace = LineParametersWorkspace{
         T,
         typeof(input),

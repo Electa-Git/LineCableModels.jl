@@ -13,7 +13,8 @@ registered identifiers implement literature-based frequency-dispersive laws.
 $(IMPORTS)
 """
 module FrequencyDependent
-import ...Grammar: computation_options
+import ...Grammar: FormulationOptions
+import ...Grammar: formulation_options
 import ...LineCableModels: FormulaDefinition
 
 export Formula, formula_id, formulas, assumptions

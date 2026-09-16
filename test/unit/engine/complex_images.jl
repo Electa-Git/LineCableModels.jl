@@ -15,8 +15,8 @@
             angle = 0.3, features)
     end
     workspace=(cim = E.CIMWorkspace(), images = ComplexF64[], exponents = ComplexF64[])
-    controls=E.computation_options(E.SpectralIntegral, (method = :cim,)).options
-    quad=E.computation_options(E.SpectralIntegral, (method = :quad, options = (rtol = 1e-10,))).options
+    controls=E.formulation_options(E.SpectralIntegral, (method = :cim,)).options
+    quad=E.formulation_options(E.SpectralIntegral, (method = :quad, options = (rtol = 1e-10,))).options
     distant=integral(state, 2.0, 2.0)
     first=E.spectral_estimate(Val(:cim), distant, controls, workspace)
     @test E.spectral_bounded(distant)
@@ -76,7 +76,7 @@ end
     sigma=[0.0,10.0];epsilon=fill(8.8541878128e-12,2);mu=fill(4pi*1e-7,2)
     state=(jω=s,Γ=zero(s),sigma,epsilon,mu,
         gamma_medium_squared=s.*mu.*(sigma.+s.*epsilon))
-    controls=E.computation_options(E.SpectralIntegral,(method=:cim,))
+    controls=E.formulation_options(E.SpectralIntegral,(method=:cim,))
     workspace=E.EarthReturnWorkspace(geometry)
     E.unified_earth!(workspace,state,controls)
     expected=(copy(workspace.Ze),copy(workspace.Pe),copy(workspace.Ye))
@@ -95,10 +95,10 @@ end
     sigma=[0.0,0.1];epsilon=8.8541878128e-12.*[1.0,8.0];mu=4pi*1e-7.*[1.0,3.0]
     state=(jω=s,Γ=1e-4+2e-4im,sigma,epsilon,mu,
         gamma_medium_squared=s.*mu.*(sigma.+s.*epsilon))
-    controls=E.computation_options(E.SpectralIntegral,(method=:cim,))
+    controls=E.formulation_options(E.SpectralIntegral,(method=:cim,))
     workspace=E.EarthReturnWorkspace(geometry)
     reference=E.unified_earth!(E.EarthReturnWorkspace(geometry),state,
-        E.computation_options(E.SpectralIntegral,(method=:quad,options=(rtol=1e-10,)));
+        E.formulation_options(E.SpectralIntegral,(method=:quad,options=(rtol=1e-10,)));
         reference=:interface)
     for repetition in 1:2
         E.unified_earth!(workspace,state,controls;reference=:interface)
@@ -116,7 +116,7 @@ end
 
 @testitem "Engine / local trapezoid resolution retains oscillations and cancellation" tags=[:unit] begin
     const E=LineCableModels.Engine
-    controls=E.computation_options(E.SpectralIntegral,
+    controls=E.formulation_options(E.SpectralIntegral,
         (method = :trapz, options = (rtol = 1e-7,))).options
     make(y)=E.SpectralIntegral(Val(:cosine), x->complex(1.0),
         (height = 1.0, separation = y), 1.0)

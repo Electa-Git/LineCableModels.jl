@@ -51,9 +51,9 @@ end
 
 
 
-function computation_options(::FormulaMethod{<:Formula{:pollaczek1926}, typeof(earth_potential_coefficient),
+function formulation_options(::FormulaMethod{<:Formula{:pollaczek1926}, typeof(earth_potential_coefficient),
         A}) where {A <: Tuple{Union{Val{:self}, Val{:mutual}}, Val{2}, Val{2}}}
-    (;)
+    return FormulationOptions((;))
 end
 
 function validate(

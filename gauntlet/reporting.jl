@@ -25,7 +25,7 @@ function select(definition::BenchmarkTableDefinition,
         snapshot=get(record,"analysis_id",semantic_sha256(record["comparison_settings"]))
         for row in record["reference_comparison"]
             T=Base.nonmissingtype(eltype(row.absolute))
-            error=RMSError{T}(row.absolute,row.relative;details=row.details)
+            error=RMSError{T}(row.absolute,row.relative;details=Grammar.ComputationDetails(row.details))
             push!(comparisons,(snapshot,request=row.request,quantity=row.quantity,statistic=row.statistic,
                 reference_index=row.reference_index,candidate_index=row.candidate_index,error))
         end

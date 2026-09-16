@@ -80,10 +80,10 @@ end
     selected = LineCableModelsFEM(options=(ideal_transposition=false,))
     selected_controls = (gmsh_verbosity=0,getdp_verbosity=0)
     result = compute(problem,selected; options=merge(selected_controls, (trace=true,)))
-    primitive = result.details.fem.primitive
+    primitive = result.details.data.fem.primitive
     @test primitive.phase_map == [1,2,0]
     @test size(primitive.Z_primitive) == (3,3,1)
-    @test result.details.fem.reduced_phase_map == [1,2]
+    @test result.details.data.fem.reduced_phase_map == [1,2]
     @test all(isfinite,result.Z.values) && all(isfinite,result.Y.values)
     z = primitive.Z_primitive[:,:,1]
     p = primitive.P_primitive[:,:,1]
@@ -99,7 +99,7 @@ end
         temperature=80.0,frequencies=[50.0],earth_props=problem.earth_props)
     reference = compute(reference_problem,LineCableModelsFEM(temperature_dependence=nothing,
         options=selected.options);options=(trace=true,))
-    @test z ≈ reference.details.fem.primitive.Z_primitive[:,:,1] rtol=2e-9
+    @test z ≈ reference.details.data.fem.primitive.Z_primitive[:,:,1] rtol=2e-9
     @test result.Y.values ≈ reference.Y.values rtol=2e-9
 end
 
@@ -152,8 +152,8 @@ end
             options);options=(;execution...,trace=true))
         @test actual.Z.values[:,:,index] ≈ reference.Z.values[:,:,1] rtol=2e-9
         @test actual.Y.values[:,:,index] ≈ reference.Y.values[:,:,1] rtol=2e-9
-        @test actual.details.fem.inputs.mesh_plans[index].domain_radius ==
-            only(reference.details.fem.inputs.mesh_plans).domain_radius
+        @test actual.details.data.fem.inputs.mesh_plans[index].domain_radius ==
+            only(reference.details.data.fem.inputs.mesh_plans).domain_radius
     end
     vacuum = LineParametersProblem(system;frequencies=problem.frequencies,
         earth_props=homogeneous(rho=100.0,eps_r=10.0))

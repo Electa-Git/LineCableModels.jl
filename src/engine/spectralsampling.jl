@@ -283,11 +283,11 @@ function spectral_de_rule(::Type{R}, controls, workspace) where {R}
 end
 
 function spectral_rule_bindings(bindings, ::Type{R}) where {R}
-    controls=unique([case.declaration.options.integration.options
+    controls=unique([case.declaration.options.data.integration.options
                      for case in bindings.cases
-                     if haskey(case.declaration.options,
+                     if haskey(case.declaration.options.data,
         :integration) &&
-        case.declaration.options.integration.method===Val(:trapz)])
+        case.declaration.options.data.integration.method===Val(:trapz)])
     return Tuple(map(controls) do options
         (controls = options, precision = precision(R),
             rule = spectral_de_rule(R, options, nothing))

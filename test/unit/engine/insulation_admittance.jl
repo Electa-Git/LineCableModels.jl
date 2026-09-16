@@ -200,7 +200,7 @@ end
         )
     )
     problem=two_terminal_problem()
-    execution=computation_options(LineCableModelsCoaxial, (;))
+    execution=computation_options(LineCableModelsCoaxial, ComputationOptions((;)))
     blueprints=LineCableModels.Engine.CableBlueprint{eltype(problem)}[LineCableModels.Engine.flatten(
                                                                           LineCableModelsCoaxial(),
                                                                           design,
@@ -227,7 +227,7 @@ end
         input.jω[1]
     )) === workspace.buffers.layer_coefficients
     parameters=compute(problem, formulation; options = (trace = true,))
-    trace=details(parameters).trace
+    trace=details(parameters).data.trace
     public_parameters=compute(problem, formulation)
     @test public_parameters.Z.values == parameters.Z.values
     @test public_parameters.Y.values == parameters.Y.values
@@ -425,7 +425,7 @@ end
     end
 
     total=compute(
-        ParametricProblem(problem, (output_basis = :total,)),
+        ParametricProblem(problem, ComputationOptions((output_basis = :total,))),
         policy
     )
     @test basis(only(sampled)) === :pul

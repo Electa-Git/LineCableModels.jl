@@ -17,7 +17,7 @@
     LineCableModels.frequencies(value::AlternativeResult)=value.samples
     LineCableModels.basis(::AlternativeResult)=:pul
     LineCableModels.domain(::AlternativeResult)=PhaseDomain
-    LineCableModels.details(::AlternativeResult)=(;)
+    LineCableModels.details(::AlternativeResult)=ComputationDetails()
     LineCableModels.observables(::Type{AlternativeResult})=(Z,Y,frequencies)
     function LineCableModels.Engine.compare(a::AlternativeResult, b::AlternativeResult, quantity::typeof(Z); kwargs...)
         push!(comparisons, (quantity, kwargs[:band], kwargs[:normalization]))
@@ -26,7 +26,8 @@
     struct AuditFormulation <: LineCableModels.Grammar.AbstractFormulation
         candidate::Bool
     end
-    function LineCableModels.compute(problem::LineParametersProblem, formula::AuditFormulation; options=(;))
+    function LineCableModels.compute(problem::LineParametersProblem, formula::AuditFormulation;
+            options::Union{NamedTuple,ComputationOptions}=ComputationOptions())
         push!(executions, formula.candidate)
         z=ones(ComplexF64,2,2,length(problem.frequencies))
         y=fill(1im,2,2,length(problem.frequencies))

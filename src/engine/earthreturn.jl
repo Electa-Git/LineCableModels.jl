@@ -42,7 +42,7 @@ function earth!(
             formula(rho, epsilon, mu, jω, pair, binding.declaration; Γ,
                 thickness, physical_pair = interaction.physical_pair)
         end
-        resources = haskey(binding.declaration.options, :integration) ? workspace : nothing
+        resources = haskey(binding.declaration.options.data, :integration) ? workspace : nothing
         destination[pair.row, pair.column]=functor(resources)
     end
     return destination
@@ -552,7 +552,7 @@ function prepare_earth_system!(::Union{EarthImpedance.Formula{:unified},
         sigma = ntuple(i->T(state.sigma[i]), 2), epsilon = ntuple(i->T(state.epsilon[i]), 2),
         mu = ntuple(i->T(state.mu[i]), 2), gamma2 = ntuple(i->Complex{T}(state.gamma_medium_squared[i]), 2))
     if !system.response.prepared[]||!earth_state_equal(system.response.cache_key[], key)
-        unified_earth!(system.response, state, declaration.options.integration;
+        unified_earth!(system.response, state, declaration.options.data.integration;
             reference = get(system.selection.parameters, :reference, :deep), numerical)
         system.response.cache_key[]=key
         system.response.prepared[]=true

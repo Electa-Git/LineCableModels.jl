@@ -17,13 +17,13 @@
     benchmark=EN.compare(parameters, parameters)
     constants=CableConstants(1e-4, 2e-7, 3e-10, 4e-12)
     backend=LineCableModelsFEM(options = (physics = :quasi_fw,))
-    backend_options=computation_options(LineCableModelsFEM, (mesh_policy=:remesh,))
+    backend_options=computation_options(LineCableModelsFEM, ComputationOptions((mesh_policy=:remesh,)))
     blueprints=EN.CableBlueprint{eltype(line_problem)}[EN.flatten(LineCableModelsCoaxial(),
                                                            design, eltype(line_problem))
                                                        for design in line_problem.system.designs]
     workspaces=map((false, true)) do trace
-        execution=LineCableModels.Grammar.computation_options(LineCableModelsCoaxial, (;
-            trace))
+        execution=LineCableModels.Grammar.computation_options(LineCableModelsCoaxial, ComputationOptions((;
+            trace)))
         EN.LineParametersWorkspace(line_problem, formulation, execution, blueprints)
     end
     for workspace in workspaces

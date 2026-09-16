@@ -23,9 +23,9 @@
     @test length(unique(sampled.point_seeds)) == 2
     @test all(isconcretetype, (eltype(sampled.values), eltype(sampled.stats),
         eltype(sampled.sample_values), eltype(sampled.histogram_values)))
-    @test length.(sampled.details.trials) == [4, 4]
-    @test length.(sampled.details.failures) == [2, 0]
-    first_summary, second_summary = sampled.details.failure_summary
+    @test length.(sampled.details.data.trials) == [4, 4]
+    @test length.(sampled.details.data.failures) == [2, 0]
+    first_summary, second_summary = sampled.details.data.failure_summary
     @test first_summary.attempts == 6
     @test first_summary.accepted == 4
     @test first_summary.failed == 2
@@ -34,7 +34,7 @@
     @test first_summary.by_stage == [(stage=:build, count=2)]
     @test second_summary.attempts == second_summary.accepted == 4
     @test second_summary.failed == 0
-    for (index, failure) in enumerate(first(sampled.details.failures))
+    for (index, failure) in enumerate(first(sampled.details.data.failures))
         @test failure.attempt == index
         @test failure.target_trial == 1
         @test failure.stage === :build
@@ -63,7 +63,7 @@
     @test attempted_temperatures == recorded
     @test samples(replay) == samples(sampled)
     @test replay.point_seeds == sampled.point_seeds
-    @test replay.details.failure_summary == sampled.details.failure_summary
+    @test replay.details.data.failure_summary == sampled.details.data.failure_summary
     trial_events = filter(event -> get(event, :kind, nothing) === :scan, progress_events)
     @test maximum(event.rejected for event in trial_events) == 2
     @test last(trial_events).completed == 4
@@ -152,7 +152,7 @@ end
         on_error=:retry,max_failures=3,retain_details=true,return_samples=true))
     @test sampled.trial_counts==[2]
     @test attempts==[-.005,.005,-.005,.005]
-    @test length(only(sampled.details.failures))==2
-    @test only(sampled.details.failure_summary).accepted==2
-    @test only(sampled.details.failure_summary).failed==2
+    @test length(only(sampled.details.data.failures))==2
+    @test only(sampled.details.data.failure_summary).accepted==2
+    @test only(sampled.details.data.failure_summary).failed==2
 end

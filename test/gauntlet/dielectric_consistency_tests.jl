@@ -23,7 +23,7 @@
             semicon_admittance=identifier)
         a, b = map(design -> compute(CableConstantsProblem(design), constants), (source, reduced))
         @test a.C ≈ b.C rtol=1e-12
-        @test details(a).shunt_model.solves == 0
+        @test details(a).data.shunt_model.solves == 0
         if identifier === :default
             # Physical wire/tape gaps intentionally differ from homogenized
             # annuli; resolving them must not invent a dielectric loss law.
@@ -33,7 +33,7 @@
             @test !isapprox(resolved.C,b.C;rtol=1e-3)
             @test resolved.G == a.G
             @test resolved.R == a.R && resolved.L == a.L
-            @test details(resolved).shunt_model.effective === :boundary
+            @test details(resolved).data.shunt_model.effective === :boundary
         end
         @test a.G ≈ b.G rtol=1e-12
         @test a.R ≈ b.R rtol=1e-10

@@ -18,13 +18,13 @@
             kron_reduction=true,ideal_transposition=false))
     results = compute(problem,[first_formula,other_formula,reduced_formula];options=(trace=true,))
     first_result = first(results)
-    shunt = details(first_result).shunt_model
+    shunt = details(first_result).data.shunt_model
     @test shunt.effective === :boundary
     @test shunt.solves == 1
     @test length(shunt.domains) == 2
-    @test details(results[2]).trace.Pin == details(first_result).trace.Pin
+    @test details(results[2]).data.trace.Pin == details(first_result).data.trace.Pin
     @test typeof(results[1]) == typeof(results[2])
-    trace = details(first_result).trace
+    trace = details(first_result).data.trace
     reduced = E.reduce_primitive_matrices(trace.Z,trace.P,
         problem.system.connection_order,reduced_formula.options)
     @test observe(results[3],Z) ≈ reduced.Z
@@ -32,7 +32,7 @@
         @test observe(results[3],Y)[:,:,k] ≈
             (2pi*im*problem.frequencies[k]).*inv(reduced.P[:,:,k]) rtol=1e-10
     end
-    @test details(results[3]).shunt_model.solves == 1
+    @test details(results[3]).data.shunt_model.solves == 1
     constants = @inferred CableConstants(design;frequency=50.0,
         formulation=CableConstantsFormulation(shunt_model=boundary))
     local_domain,blueprint = internal_shunt_test_domain(design)
@@ -45,8 +45,8 @@
     mixed = compute(problem,[first_formula,lossy])
     @test length(mixed) == 2
     @test typeof(mixed[1]) == typeof(mixed[2])
-    @test details(mixed[2]).shunt_model.effective === :coaxial
-    @test details(mixed[2]).shunt_model.solves == 0
+    @test details(mixed[2]).data.shunt_model.effective === :coaxial
+    @test details(mixed[2]).data.shunt_model.solves == 0
     reference_temperature = Formulation(shunt_model=boundary,
         temperature_dependence=nothing, earth_impedance=:pollaczek1926,
         earth_admittance=:pollaczek1926;options=physical)
@@ -60,7 +60,7 @@
     @test input.cable.shunt[1].terminals == 1:3
     @test input.cable.shunt[2].terminals == 4:6
     @test input.cable.shunt[2].C === blueprints[1][2].shunt[1].C
-    execution = computation_options(LineCableModelsCoaxial, (;))
+    execution = computation_options(LineCableModelsCoaxial, ComputationOptions((;)))
     @test observe(E._compute(LineCableModelsCoaxial(), problem, other_formula, execution, input), Y) == observe(results[2], Y)
     # The same physical API supports independent translated assemblies inside
     # one design; their local operators must be scattered into distinct ports.

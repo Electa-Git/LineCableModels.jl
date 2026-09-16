@@ -32,7 +32,7 @@ end
 
 function earth_material(
         ::Formula{:messier1985}, material::EarthMaterial{T}, frequency::T,
-        values::NamedTuple, options::NamedTuple, workspace
+        values::NamedTuple, options::FormulationOptions, workspace
 ) where {T <: Real}
     conductivity_reference = inv(material.rho)
     epsilon_infinity = convert(T, values.epsilon_infinity)
@@ -47,6 +47,6 @@ function earth_material(
     return EarthMaterial{T}(inv(conductivity), relative_permittivity, material.mu_r)
 end
 
-computation_options(::FormulaMethod{<:Formula{:messier1985}, typeof(earth_material)}) = (;)
+formulation_options(::FormulaMethod{<:Formula{:messier1985}, typeof(earth_material)}) = FormulationOptions()
 
 :messier1985

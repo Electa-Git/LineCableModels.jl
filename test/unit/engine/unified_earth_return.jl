@@ -16,7 +16,7 @@
                 # cap. Adaptive construction and explicit exhaustion have
                 # separate contracts under the spectral owner.
                 limits=method===:trapz ? (;max_refinements=14) : (;maxevals=10^6)
-                controls=E.computation_options(E.SpectralIntegral,(method,options=merge((rtol=1e-9,),limits)))
+                controls=E.formulation_options(E.SpectralIntegral,(method,options=merge((rtol=1e-9,),limits)))
                 w=E.unified_earth!(E.EarthReturnWorkspace(geometry),state,controls)
                 # Normalized backward errors use independent operand norms.
                 for (lhs,rhs,scale) in ((w.Pe*w.L,w.H,norm(w.Pe)*norm(w.L)+norm(w.H)),
@@ -43,7 +43,7 @@ end
     mu=4pi*1e-7 .* [1.0, 3.0]
     state=(jω = s, Γ, sigma, epsilon, mu,
         gamma_medium_squared = s .* mu .* (sigma .+ s .* epsilon))
-    integration=E.computation_options(E.SpectralIntegral, (
+    integration=E.formulation_options(E.SpectralIntegral, (
         method = :quad, options = (rtol = 1e-9,)))
     deep=E.unified_earth!(E.EarthReturnWorkspace(geometry), state, integration)
     for reference in (:interface, 3.0, :scalar)
@@ -87,7 +87,7 @@ end
     H=s/(2pi*u.sh[1])*direct
     L=inv(u.A[1])-u.F[1]*K
     for method in (:quad, :trapz)
-        integration=E.computation_options(E.SpectralIntegral, (
+        integration=E.formulation_options(E.SpectralIntegral, (
             method, options = (rtol = 1e-8,)))
         actual=E.unified_earth!(E.EarthReturnWorkspace(single), state, integration)
         @test actual.Ze[1, 1]≈K/L rtol=1e-8
@@ -117,7 +117,7 @@ end
             method, options = (rtol = 1e-8,)),))
         selected=Formulation(earth_impedance = definition, earth_admittance = definition,
             options = (ideal_transposition = false,))
-        execution=computation_options(LineCableModelsCoaxial, (trace = true,))
+        execution=computation_options(LineCableModelsCoaxial, ComputationOptions((trace = true,)))
         T=eltype(problem)
         blueprints=E.CableBlueprint{T}[E.flatten(LineCableModelsCoaxial(), d, T)
                                        for d in problem.system.designs]
@@ -159,7 +159,7 @@ end
         mu=fill(4pi*1e-7, 2)
         state=(jω = s, Γ = zero(s), sigma, epsilon, mu,
             gamma_medium_squared = s .* mu .* (sigma .+ s .* epsilon))
-        integration=E.computation_options(E.SpectralIntegral, (
+        integration=E.formulation_options(E.SpectralIntegral, (
             method = :quad, options = (rtol = 1e-10,)))
         w=E.unified_earth!(E.EarthReturnWorkspace(geometry), state, integration)
         return w.Ze, w.Pe, w.Ye
@@ -199,7 +199,7 @@ end
             reference=nothing
             for method in methods
                 tolerance=T===Float32 ? 2e-4 : 1e-6
-                integration=E.computation_options(E.SpectralIntegral, (method,
+                integration=E.formulation_options(E.SpectralIntegral, (method,
                     options = (rtol = tolerance,)))
                 workspace=E.unified_earth!(E.EarthReturnWorkspace(geometry), state, integration)
                 @test eltype(workspace.Ze)===Complex{T}
@@ -240,11 +240,11 @@ end
     Γ=sqrt(gamma2[1])
     gamma2[1]=Γ^2
     state=(jω = s, Γ, sigma, epsilon, mu, gamma_medium_squared = gamma2)
-    quad=E.computation_options(E.SpectralIntegral, (
+    quad=E.formulation_options(E.SpectralIntegral, (
         method = :quad, options = (rtol = 1e-9,)))
     reference=E.unified_earth!(E.EarthReturnWorkspace(geometry), state, quad)
     for method in (:trapz, :cim)
-        integration=E.computation_options(E.SpectralIntegral, (
+        integration=E.formulation_options(E.SpectralIntegral, (
             method, options = (rtol = 1e-6,)))
         actual=E.unified_earth!(E.EarthReturnWorkspace(geometry), state, integration)
         for (value, expected) in zip(
@@ -318,7 +318,7 @@ end
         geometry=E.EarthReturnGeometry(first.(positions),last.(positions),radii)
         s=2pi*im*f; sigma=fill(.01,2);epsilon=fill(3*8.8541878128e-12,2);mu=fill(4pi*1e-7,2)
         state=(jω=s,Γ=zero(s),sigma,epsilon,mu,gamma_medium_squared=s.*mu.*(sigma.+s.*epsilon))
-        controls=E.computation_options(E.SpectralIntegral,(method=:quad,options=(rtol=1e-10,maxevals=10^6)))
+        controls=E.formulation_options(E.SpectralIntegral,(method=:quad,options=(rtol=1e-10,maxevals=10^6)))
         w=E.unified_earth!(E.EarthReturnWorkspace(geometry),state,controls)
         column_scale=reshape(exp.(abs.(real.(expected.k.*radii))),1,:)
         for quantity in (:K,:H,:L,:Ze,:Pe,:Ye)

@@ -25,13 +25,14 @@ export formulation_options, computation_options, computation_details, details
 export compute, observe, @observe, observables
 export nominal, uncertainty
 
-using DocStringExtensions: SIGNATURES, TYPEDSIGNATURES, TYPEDEF
-import ..LineCableModels: basis, FormulaMethod
+using DocStringExtensions: SIGNATURES, TYPEDSIGNATURES, TYPEDEF, TYPEDFIELDS
+import ..LineCableModels: basis
 import Tables
 import ..Units
 using ..Units: UnitExpr, quantity, native_unit, display_unit, scale_factor
 
 include("types.jl")
+include("base.jl")
 include("results.jl")
 include("interfaces.jl")
 include("formulas.jl")
@@ -39,6 +40,7 @@ include("observables.jl")
 include("uncertainty.jl")
 
 public check_core_result
+public FormulaDefinition, FormulaMethod
 public validate_observables, unit_targets, detach
 public observation_request, observation_indices, materialize_observation
 public observation_resolution

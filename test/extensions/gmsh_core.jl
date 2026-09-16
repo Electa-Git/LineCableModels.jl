@@ -12,9 +12,9 @@
     formulation = LineCableModels.Formulation(
         :LineCableModelsFEM;
         options = (ideal_transposition = false,))
-    execution = computation_options(LineCableModelsFEM, (ui=false,))
+    execution = computation_options(LineCableModelsFEM, ComputationOptions((ui=false,)))
     @test execution isa ComputationOptions
-    @test !execution.ui
+    @test !execution.data.ui
     @test formulation isa LineCableModels.LineCableModelsFEM
     @test Base.get_extension(LineCableModels, :LineCableModelsGmshExt) === nothing
 end
