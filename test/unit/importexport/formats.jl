@@ -50,10 +50,11 @@
     end
 end
 
-@testitem "ImportExport / MaterialsLibrary / versioned and atomic JSON" tags=[:integration] setup=[
+@testitem "ImportExport / MaterialsLibrary / versioned JSON and trusted JLS" tags=[:integration] setup=[
     UseImportExportSupport
 ] begin
     using JSON3
+    using Serialization
     import LineCableModels.ImportExport as IE
 
     library=MaterialsLibrary(add_defaults = false)
@@ -61,14 +62,19 @@ end
     add!(library, "copper", copper)
 
     mktempdir() do directory
-        saved=save(library; file_name = joinpath(directory, "materials.json"))
-        @test saved == joinpath(directory, "materials.json")
-        @test isfile(saved)
-
         restored=MaterialsLibrary(add_defaults = false)
-        @test load!(restored; file_name = saved) === restored
-        @test collect(keys(restored)) == ["copper"]
-        @test restored["copper"] == copper
+        for extension in ("json", "jls")
+            destination=joinpath(directory, "materials.$extension")
+            saved=save(library; file_name = destination)
+            @test saved == destination
+            @test isfile(saved)
+            @test filesize(saved) > 0
+
+            empty!(restored)
+            @test load!(restored; file_name = saved) === restored
+            @test collect(keys(restored)) == ["copper"]
+            @test restored["copper"] == copper
+        end
 
         @test_throws ArgumentError save(
             library; file_name = joinpath(directory, "materials.dat")
@@ -79,6 +85,19 @@ end
         @test_throws ArgumentError load!(restored; file_name = unsupported)
         @test restored.data === before
         @test haskey(restored, "copper")
+
+        for (name, payload) in (
+                ("not-a-dictionary", 42),
+                ("invalid-material", Dict("copper"=>42))
+        )
+            invalid_jls=joinpath(directory, "$name.jls")
+            serialize(invalid_jls, payload)
+            before=restored.data
+            @test_throws ArgumentError load!(restored; file_name = invalid_jls)
+            @test restored.data === before
+            @test haskey(restored, "copper")
+        end
+
         @test_throws ArgumentError load!(
             restored;
             file_name = joinpath(directory, "missing.json")
