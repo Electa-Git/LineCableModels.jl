@@ -255,6 +255,7 @@ end
 
 @testitem "UQ / result products / statistical invariants" tags=[:unit] setup=[
     UseEngineSupport, TestNumerics, TestFixtures] begin
+    using Measurements
     using Distributions
     using Random
     using Statistics
@@ -317,8 +318,8 @@ end
     complete=MonteCarloResult(
         MonteCarlo(Formulation(); trials=4, seed=2027,
             return_samples=true, return_histograms=true),
-        [CableConstants(mean(raw_samples.R), mean(raw_samples.L),
-            mean(raw_samples.C), mean(raw_samples.G))],
+        [LineCableModels.materialize(CableConstants(mean(raw_samples.R), mean(raw_samples.L),
+            mean(raw_samples.C), mean(raw_samples.G)),map(x->[SampleSummary(vec(x))],raw_samples))],
         [map(x->[SampleSummary(vec(x))], raw_samples)],
         [raw_samples], [map(x->[HistogramDensity(vec(x); bins=2)], raw_samples)],
         UInt64(2027), UInt64[2039], [4])
@@ -371,7 +372,7 @@ end
         (samples, R), (samples, L), (samples, C), (samples, G),
         (histograms, R), (histograms, L), (histograms, C), (histograms, G)
     ))
-    @test only(@inferred(observe(complete, R, 1))) == retained_mean
+    @test nominal(only(@inferred(observe(complete, R, 1)))) == retained_mean
     @test only(@inferred(observe(complete, statistics, R, mean, 1))) == retained_mean
     @test only(@inferred(observe(complete, statistics, R, std, 1))) ≈ retained_std
     retained_histogram=observe(complete, histograms, R, 1, 1)
@@ -467,7 +468,7 @@ end
         C = line_histogram, G = line_histogram)
     line_result=MonteCarloResult(
         complete.formulation,
-        [parameters],
+        [LineCableModels.materialize(parameters,line_statistics)],
         [line_statistics],
         [storage],
         [line_histograms],
@@ -488,7 +489,7 @@ end
         C = storage.C, G = storage.G)
     @test_throws DimensionMismatch MonteCarloResult(
         complete.formulation,
-        [parameters],
+        line_result.values,
         [line_statistics],
         [malformed_samples],
         [line_histograms],

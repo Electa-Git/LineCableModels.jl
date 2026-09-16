@@ -40,17 +40,12 @@ basis(value::LinearErrorResult) = basis(first(value.values))
 $(TYPEDSIGNATURES)
 
 Return uncertainty-bearing core results, in configuration order, or the core
-result at `point`. Monte Carlo reconstruction requires Measurements.jl and
-preserves retained marginal means and standard deviations, not joint output
-correlations. An indexed Monte Carlo read reconstructs only the selected point.
+result at `point`. Monte Carlo stores its marginal mean and standard deviation
+representation during computation, without joint output correlations. Access
+returns the stored values and preserves their uncertainty-source identities.
 """
-uncertain(value::LinearErrorResult) = value.values
+uncertain(value::Union{LinearErrorResult,MonteCarloResult}) = value.values
 uncertain(value::AbstractUncertaintyResult, point::Integer) = uncertain(value)[point]
-
-function uncertain(value::MonteCarloResult)
-    throw(ArgumentError("uncertain requires a reconstruction for this Monte Carlo result; " *
-        "load Measurements.jl for built-in cable and line results"))
-end
 
 """
 $(TYPEDSIGNATURES)
@@ -358,6 +353,51 @@ function _monte_carlo_observables(selectors::Tuple)
               Base.Fix2(Statistics.quantile, 1.0))))
     complex_samples=Tuple((samples,selector) for selector in selectors if selector in (Engine.Z,Engine.Y))
     return (selectors..., products..., selected..., complex_samples...)
+end
+
+"""
+$(TYPEDSIGNATURES)
+
+Resolve retained X/B statistics, or their exact frequency-scaled L/C statistic
+when only that product was saved. This linear unit-bearing transformation does
+not infer a distribution, covariance, or missing statistical estimator.
+"""
+function observation_request(publication::ObservationPublication,
+        request::Tuple{typeof(statistics),Union{typeof(Engine.X),typeof(Engine.B)},Vararg})
+    identity=request_identity(request)
+    retained=any(contract -> any(stored -> request_identity(stored)==identity,
+        get(contract,:requests,())),values(publication.metadata.observation_columns))
+    retained && return invoke(observation_request,Tuple{ObservationPublication,Any},publication,request)
+    base=request[2] === Engine.X ? L : C
+    resolved=observation_request(publication,(statistics,base,Base.tail(Base.tail(request))...))
+    return (;identity,quantity=request_quantity(request),indices=resolved.indices)
+end
+
+function observe(publication::ObservationPublication, ::typeof(statistics),
+        selector::Union{typeof(Engine.X),typeof(Engine.B)}, transform::_StatisticSelector,
+        point::Integer=1, indices...)
+    identity=(statistics,selector,transform)
+    retained=any(contract -> any(stored -> request_identity(stored)==identity,
+        get(contract,:requests,())),values(publication.metadata.observation_columns))
+    retained && return invoke(observe,Tuple{ObservationPublication,Vararg{Any}},
+        publication,statistics,selector,transform,point,indices...)
+    base=selector === Engine.X ? L : C
+    observed=observe(publication,statistics,base,transform,point,indices...)
+    f=unique(publication.columns.frequency)
+    contract=get(publication.metadata.observation_columns,:frequency,nothing)
+    contract===nothing || (f=f.*Units.scale_factor(contract.unit,Units.units(:base,:hertz)))
+    all(value -> iszero(uncertainty(value)) && nominal(value)>=0,f) ||
+        throw(ArgumentError("deriving X/B statistics from retained L/C requires deterministic nonnegative frequencies; retain the target statistic directly for uncertain frequencies"))
+    f=nominal.(f)
+    sample=length(indices)==3 ? last(indices) : Colon()
+    angular=2π .* f[sample]
+    factor=angular isa AbstractArray ? reshape(angular,ntuple(_ -> 1,ndims(observed)-1)...,:) : angular
+    return observed .* factor
+end
+
+function observe(publication::ObservationPublication,
+        request::Tuple{typeof(statistics),Union{typeof(Engine.X),typeof(Engine.B)},_StatisticSelector,Vararg})
+    return observe(publication,request...)
 end
 
 function observables(

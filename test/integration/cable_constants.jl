@@ -3,6 +3,7 @@
     TestFixtures,
     TestNumerics
 ] begin
+    using Measurements
     design=TestFixtures.coaxial_design()
     constants=CableConstants(design)
     row=only(constants)
@@ -464,6 +465,7 @@ end
 @testitem "Fixtures / factories / mutable state is never shared" tags=[:integration] setup=[
     TestFixtures,
 ] begin
+    using Measurements
     first_design=TestFixtures.coaxial_design()
     second_design=TestFixtures.coaxial_design()
     @test first_design !== second_design

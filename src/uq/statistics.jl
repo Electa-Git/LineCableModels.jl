@@ -71,6 +71,16 @@ end
 
 Statistics.mean(summary::SampleSummary) = summary.mean
 Statistics.std(summary::SampleSummary) = summary.std
+
+"""
+$(TYPEDSIGNATURES)
+
+Materialize an empirical marginal as its mean and sample standard deviation in
+the observation's native units. Requires the Measurements extension. This is
+output spread, not the standard error of the estimated mean; no joint output
+covariance is inferred.
+"""
+materialize(summary::SampleSummary) = materialize(UncertainValue(summary.mean, summary.std))
 Statistics.median(summary::SampleSummary) = summary.median
 Base.minimum(summary::SampleSummary) = summary.min
 Base.maximum(summary::SampleSummary) = summary.max

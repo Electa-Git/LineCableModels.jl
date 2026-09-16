@@ -52,84 +52,12 @@ function LineCableModels.materialize(value::ParametricBuilder.UncertainValue{<:R
     Measurements.measurement(value.nominal, value.sigma)
 end
 
-function _measurement(summary::UQ.SampleSummary)
-    Measurements.measurement(summary.mean, summary.std)
-end
-
-function _measurement_result(
-        source::UQ.MonteCarloResult{<:Engine.CableConstants},
-        point::Integer
-)
-    representative = source.values[point]
-    summary = source.stats[point]
-    return Engine.CableConstants(
-        representative.cores,
-        _measurement.(summary.R),
-        _measurement.(summary.L),
-        _measurement.(summary.C),
-        _measurement.(summary.G),
-        representative.frequency,
-        representative.details
-    )
-end
-
-function _measurement_result(
-        source::UQ.MonteCarloResult{<:Engine.LineParameters{T, U, D, Basis}},
-        point::Integer
-) where {T, U, D, Basis}
-    representative = source.values[point]
-    summary = source.stats[point]
-    resistance = _measurement.(summary.R)
-    inductance = _measurement.(summary.L)
-    capacitance = _measurement.(summary.C)
-    conductance = _measurement.(summary.G)
-    angular = reshape(2π .* representative.f, 1, 1, :)
-    impedance = complex.(resistance, inductance .* angular)
-    admittance = complex.(conductance, capacitance .* angular)
-    element_type = promote_type(eltype(impedance), eltype(admittance))
-    return Engine.LineParameters(
-        representative.domain,
-        Engine.SeriesImpedance{element_type, Basis}(convert(Array{element_type, 3}, impedance)),
-        Engine.ShuntAdmittance{element_type, Basis}(convert(Array{element_type, 3}, admittance)),
-        representative.f,
-        representative.details
-    )
-end
-
-function UQ.uncertain(source::UQ.MonteCarloResult{T}, point::Integer) where {
-        T <: Union{Engine.CableConstants, Engine.LineParameters}}
-    checkbounds(source.values, point)
-    return _measurement_result(source, point)
-end
-
-function UQ.uncertain(
-        source::UQ.MonteCarloResult{T}
-) where {
-        T <: Union{Engine.CableConstants, Engine.LineParameters}
-}
-    first_value = UQ.uncertain(source, firstindex(source))
-    values = Vector{typeof(first_value)}(undef, length(source))
-    values[1] = first_value
-    for point in 2:length(source)
-        value = UQ.uncertain(source, point)
-        typeof(value) === eltype(values) || throw(ArgumentError(
-            "Monte Carlo statistics reconstructed inconsistent result types",
-        ))
-        values[point] = value
-    end
-    return values
-end
-
-function ParametricBuilder.Gridspace{Target}(source::UQ.MonteCarloResult{T}) where {
-        Target, T <: Union{Engine.CableConstants, Engine.LineParameters}}
-    return ParametricBuilder.Gridspace{Target}(Target, (ParametricBuilder.Grid(UQ.uncertain(source)),))
-end
-
 function has_uncertainty_type(
         ::Type{Complex{T}},
 ) where {T <: Measurements.Measurement}
     true
 end
+has_uncertainty_type(::Type{<:Measurements.Measurement}) = true
 function detach(value::Measurements.Measurement, factor, clip::Bool)
     return value * factor
 end
@@ -156,92 +84,81 @@ function deserialize_extension(::Val{:Measurement}, value)
 end
 
 """
-Encode one LEP result with shared independent-source identities and sparse signed
+Encode one UQ result with shared independent-source identities and sparse signed
 sensitivities. Source IDs are local to this record; separate outputs are never
 reconstructed as independent measurements.
 """
-function serialize_value(value::UQ.LinearErrorResult{<:Engine.LineParameters{<:Complex{<:Measurements.Measurement}}})
-    record=NamedTuple(value)
-    isempty(value) && throw(ArgumentError("cannot encode an empty LEP result"))
-    initial=real(first(LineCableModels.observe(first(value),LineCableModels.Z)))
+function serialize_value(value::Union{UQ.LinearErrorResult{T},UQ.MonteCarloResult{T}}) where {
+        T<:Union{Engine.LineParameters{<:Complex{<:Measurements.Measurement}},
+            Engine.CableConstants{<:Measurements.Measurement}}}
+    isempty(value) && throw(ArgumentError("cannot encode an empty UQ result"))
+    initial=first(LineCableModels.observe(first(value),LineCableModels.R))
     source_set=Set(keys(uncertainty_components(initial)))
-    for point_result in value, selector in (LineCableModels.Z,LineCableModels.Y),
-            z in LineCableModels.observe(point_result,selector), component in (real(z),imag(z))
-        union!(source_set,keys(uncertainty_components(component)))
-    end
-    sources=sort!(collect(source_set);by=last)
-    indices=Dict(source=>index for (index,source) in enumerate(sources))
-    points=map(value) do core
-        matrices=map((LineCableModels.Z,LineCableModels.Y)) do selector
-            values=LineCableModels.observe(core,selector)
-            components=map((real,imag)) do component_part
-                [begin
-                    component=component_part(z)
-                    contributions=[(source=indices[source],sensitivity=derivative(component,source))
-                        for source in keys(uncertainty_components(component))]
-                    sort!(contributions;by=entry -> entry.source)
-                    (nominal=nominal(component),uncertainty=uncertainty(component),contributions)
-                end for z in values]
-            end
-            (shape=size(values),real=vec(components[1]),imaginary=vec(components[2]))
+    for core in value
+        components = core isa Engine.LineParameters ?
+            (real.(LineCableModels.observe(core,LineCableModels.Z)),
+             imag.(LineCableModels.observe(core,LineCableModels.Z)),
+             real.(LineCableModels.observe(core,LineCableModels.Y)),
+             imag.(LineCableModels.observe(core,LineCableModels.Y)),core.f) :
+            (core.R,core.L,core.C,core.G,(core.frequency,))
+        for component in Iterators.flatten(components)
+            component isa Measurements.Measurement || continue
+            union!(source_set,keys(uncertainty_components(component)))
         end
-        (Z=matrices[1],Y=matrices[2],frequencies=LineCableModels.frequencies(core),
-            basis=LineCableModels.basis(core),domain=:PhaseDomain,
-            coordinates=get(LineCableModels.details(core).data,:coordinates,nothing),
-            shunt_model=get(LineCableModels.details(core).data,:shunt_model,nothing))
-    end
-    formulation=record.formulation isa NamedTuple ? record.formulation : NamedTuple(record.formulation)
-    retained = record.details.data
-    portable_details = isempty(retained) ? retained : (points=map(point -> point.data, retained.points),)
-    payload=(formulation,points,sources=[(nominal=source[1],sigma=source[2]) for source in sources],details=portable_details)
-    return Dict("__type__"=>"MeasurementLinearErrorResult","version"=>1,
-        "payload"=>serialize_value(payload,Val(:scientific)))
-end
-
-function serialize_value(value::UQ.LinearErrorResult{<:Engine.CableConstants{<:Measurements.Measurement}})
-    isempty(value) && throw(ArgumentError("cannot encode an empty LEP result"))
-    initial=first(first(value).R)
-    source_set=Set(keys(uncertainty_components(initial)))
-    for core in value, component in Iterators.flatten((core.R,core.L,core.C,core.G,(core.frequency,)))
-        union!(source_set,keys(uncertainty_components(component)))
     end
     sources=sort!(collect(source_set);by=last)
     indices=Dict(source=>index for (index,source) in enumerate(sources))
     encode = component -> begin
-        contributions=[(source=indices[source],sensitivity=derivative(component,source))
-            for source in keys(uncertainty_components(component))]
+        contributions=component isa Measurements.Measurement ?
+            [(source=indices[source],sensitivity=derivative(component,source))
+                for source in keys(uncertainty_components(component))] :
+            @NamedTuple{source::Int,sensitivity::typeof(nominal(component))}[]
         sort!(contributions;by=entry->entry.source)
-        (nominal=nominal(component),uncertainty=uncertainty(component),contributions)
+        (nominal=nominal(component),uncertainty=uncertainty(component),
+            measured=component isa Measurements.Measurement,contributions)
     end
     points=map(value) do core
-        (kind=:cable_constants,cores=core.cores,R=encode.(core.R),L=encode.(core.L),
-            C=encode.(core.C),G=encode.(core.G),frequency=encode(core.frequency),
+        if core isa Engine.CableConstants
+            return (kind=:cable_constants,cores=core.cores,
+                R=encode.(core.R),L=encode.(core.L),C=encode.(core.C),G=encode.(core.G),
+                frequency=encode(core.frequency),
+                shunt_model=get(LineCableModels.details(core).data,:shunt_model,nothing))
+        end
+        LineCableModels.domain(core) === LineCableModels.PhaseDomain ||
+            throw(ArgumentError("unsupported scientific UQ result domain"))
+        matrices=map((LineCableModels.Z,LineCableModels.Y)) do selector
+            values=LineCableModels.observe(core,selector)
+            components=map((real,imag)) do component_part
+                encode.(component_part.(values))
+            end
+            (shape=size(values),real=vec(components[1]),imaginary=vec(components[2]))
+        end
+        (Z=matrices[1],Y=matrices[2],frequencies=encode.(LineCableModels.frequencies(core)),
+            basis=LineCableModels.basis(core),domain=:PhaseDomain,
+            coordinates=get(LineCableModels.details(core).data,:coordinates,nothing),
+            comparison_unsupported=get(LineCableModels.details(core).data,:comparison_unsupported,(;)),
             shunt_model=get(LineCableModels.details(core).data,:shunt_model,nothing))
     end
-    record=NamedTuple(value)
-    formulation=record.formulation isa NamedTuple ? record.formulation : NamedTuple(record.formulation)
-    retained = record.details.data
-    portable_details = isempty(retained) ? retained : (points=map(point -> point.data, retained.points),)
-    payload=(formulation,points,sources=[(nominal=source[1],sigma=source[2]) for source in sources],details=portable_details)
-    return Dict("__type__"=>"MeasurementLinearErrorResult","version"=>1,
-        "payload"=>serialize_value(payload,Val(:scientific)))
+    return serialize_value(value, [serialize_value(point,Val(:scientific)) for point in points],
+        [(nominal=source[1],sigma=source[2]) for source in sources])
 end
 
-function deserialize_extension(::Val{:MeasurementLinearErrorResult},record)
-    record["version"] == 1 || throw(ArgumentError("unsupported shared-source LEP record"))
-    payload=deserialize_value(record["payload"])
-    sources=[Measurements.measurement(source.nominal,source.sigma) for source in payload.sources]
+function deserialize_extension(::Val{:MeasurementPoints},record)
+    sources=[Measurements.measurement(source.nominal,source.sigma)
+        for source in deserialize_value(record["sources"])]
     restore = component -> begin
+        get(component,:measured,true) || return component.nominal
         value=Measurements.measurement(component.nominal,zero(component.nominal))
         for entry in component.contributions
             source=sources[entry.source]
             value += entry.sensitivity*(source-nominal(source))
         end
         isapprox(uncertainty(value),component.uncertainty;rtol=1e-12,atol=0) ||
-            throw(ArgumentError("restored LEP sensitivity record changes propagated uncertainty"))
+            throw(ArgumentError("restored UQ sensitivity record changes propagated uncertainty"))
         value
     end
-    points=map(payload.points) do point
+    return map(record["points"]) do encoded
+        point=deserialize_value(encoded)
         model=get(point,:shunt_model,nothing)
         detail=model===nothing ? (;) : NamedTuple{(:shunt_model,),Tuple{NamedTuple}}((model,))
         if get(point,:kind,nothing)===:cable_constants
@@ -254,10 +171,19 @@ function deserialize_extension(::Val{:MeasurementLinearErrorResult},record)
             end
             reshape(complex.(parts...),matrix.shape)
         end
-        point.domain === :PhaseDomain || throw(ArgumentError("unsupported LEP result domain"))
+        point.domain === :PhaseDomain || throw(ArgumentError("unsupported UQ result domain"))
         point.coordinates === nothing || (detail=merge(detail,(coordinates=point.coordinates,)))
-        Engine.LineParameters(matrices...,point.frequencies;basis=point.basis,details=LineCableModels.ComputationDetails(detail))
+        detail=merge(detail,(comparison_unsupported=get(point,:comparison_unsupported,(;)),))
+        f = record["version"] == 1 ? point.frequencies : restore.(point.frequencies)
+        Engine.LineParameters(matrices...,f;basis=point.basis,details=LineCableModels.ComputationDetails(detail))
     end
+end
+
+function deserialize_extension(::Val{:MeasurementLinearErrorResult},record)
+    record["version"] == 1 || throw(ArgumentError("unsupported shared-source LEP record"))
+    payload=deserialize_value(record["payload"])
+    points=deserialize_extension(Val(:MeasurementPoints),Dict("version"=>1,
+        "points"=>payload.points,"sources"=>payload.sources))
     retained = payload.details
     restored_details = if isempty(retained)
         LineCableModels.ComputationDetails()

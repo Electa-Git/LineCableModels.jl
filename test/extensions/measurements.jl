@@ -28,6 +28,15 @@
     @test materialization_error isa ArgumentError
     @test occursin("using Measurements", sprint(showerror, materialization_error))
 
+    attempts = Ref(0)
+    space = LineCableModels.Gridspace{LineCableModels.CableConstantsProblem}(
+        _ -> (attempts[] += 1; error("must fail before realization")),
+        (LineCableModels.Grid(1.0),))
+    @test_throws r"using Measurements" LineCableModels.compute(
+        LineCableModels.ParametricProblem(space),
+        LineCableModels.MonteCarlo(LineCableModels.CableConstantsFormulation();trials=2,seed=1))
+    @test attempts[] == 0
+
     encoded_measurement=Dict(
         "__type__"=>"Measurement",
         "value"=>Dict("__type__"=>"Float", "value"=>1.0),
@@ -36,6 +45,8 @@
     @test_throws ArgumentError LineCableModels.ImportExport.deserialize_value(
         encoded_measurement
     )
+    @test_throws ArgumentError LineCableModels.ImportExport.deserialize_value(
+        Dict("__type__"=>"MeasurementLinearErrorResult","version"=>1))
     """
     project=dirname(Base.active_project())
     process=run(`$(Base.julia_cmd()) --startup-file=no --project=$project -e $program`;wait=false)
@@ -46,6 +57,59 @@
     wait(process)
     @test status===:ok
     @test success(process)
+end
+
+@testitem "Measurements / scientific UQ records preserve signed shared sources" tags=[:extension] begin
+    using Measurements, JSON3, Statistics
+    IE=LineCableModels.ImportExport
+    q=measurement(2.0,0.25)
+    f=[measurement(50.0,0.1),measurement(1000.0,0.2)]
+    z=reshape([complex(q,2q),complex(3q,-q)],1,1,2)
+    y=reshape([complex(4q,-2q),complex(-q,5q)],1,1,2)
+    line=LineParameters(PhaseDomain,z,y,f)
+    cable=CableConstants([:core],[q],[2q],[-q],[3q],f[1],ComputationDetails())
+    for core in (line,cable)
+        summaries=map((R=R(core),L=L(core),C=C(core),G=G(core))) do values
+            map(values) do x
+                mu,sigma=nominal(x),uncertainty(x)
+                SampleSummary([mu-sigma,mu,mu+sigma])
+            end
+        end
+        for result in (LinearErrorResult(LinearError(Formulation()),[core,core]),
+                MonteCarloResult(MonteCarlo(Formulation();trials=3,seed=7),
+                    [core,core],[summaries,summaries],nothing,nothing,UInt64(7),UInt64[8,9],[3,3]))
+            record=IE.serialize_value(result)
+            restored=IE.deserialize_value(JSON3.read(JSON3.write(record),Dict{String,Any}))
+            @test (restored isa MonteCarloResult) == (result isa MonteCarloResult)
+            for quantity in (R,L,C,G)
+                before=observe(first(result),quantity)
+                after=observe(first(restored),quantity)
+                @test nominal.(after) ≈ nominal.(before)
+                @test uncertainty.(after) ≈ uncertainty.(before)
+                @test all(iszero,uncertainty.(after.-observe(last(restored),quantity)))
+            end
+            @test Measurements.cov(first(R(restored[1])),first(G(restored[1]))) ≈
+                Measurements.cov(first(R(core)),first(G(core)))
+            if core isa LineParameters
+                @test uncertainty.(frequencies(restored[1])) ≈ uncertainty.(f)
+                @test all(iszero,uncertainty.(frequencies(restored[1]).-frequencies(restored[2])))
+            else
+                @test uncertainty(restored[1].frequency-restored[2].frequency)==0
+            end
+            if core isa LineParameters && result isa LinearErrorResult
+                legacy_points=map(record["points"]) do point
+                    merge(IE.deserialize_value(point),(frequencies=nominal.(f),))
+                end
+                payload=(formulation=NamedTuple(result.formulation),points=legacy_points,
+                    sources=IE.deserialize_value(record["sources"]),details=(;))
+                legacy=Dict("__type__"=>"MeasurementLinearErrorResult","version"=>1,
+                    "payload"=>IE.serialize_value(payload,Val(:scientific)))
+                recovered=IE.deserialize_value(JSON3.read(JSON3.write(legacy),Dict{String,Any}))
+                @test uncertainty(first(R(recovered[1]))-first(R(recovered[2])))==0
+                @test uncertainty(first(G(recovered[1]))-4first(R(recovered[1])))==0
+            end
+        end
+    end
 end
 
 @testitem "Measurements / natural promotion preserves covariance" tags=[:extension] setup=[
@@ -254,7 +318,7 @@ end
     end
 end
 
-@testitem "Measurements / Monte Carlo / explicit Gridspace reconstruction" tags=[:extension] setup=[
+@testitem "Measurements / Monte Carlo / stored values and Gridspace transport" tags=[:extension] setup=[
     UseEngineSupport, TestNumerics] begin
     using Measurements
     using Statistics
@@ -274,7 +338,7 @@ end
         G = zeros(1, 3)
     )]
     completed=MonteCarloResult(
-        formulation, values, stats, sample_values, nothing,
+        formulation, map(LineCableModels.materialize,values,stats), stats, sample_values, nothing,
         UInt64(9), UInt64[9], [3]
     )
 
@@ -322,7 +386,7 @@ end
     )]
     line_completed=MonteCarloResult(
         formulation,
-        [parameters],
+        [LineCableModels.materialize(parameters,only(line_stats))],
         line_stats,
         nothing,
         nothing,
@@ -350,7 +414,8 @@ end
         end
     end
     two_points = MonteCarloResult(
-        formulation, [parameters, second_parameters],
+        formulation, [LineCableModels.materialize(parameters,only(line_stats)),
+            LineCableModels.materialize(second_parameters,second_stats)],
         [only(line_stats), second_stats], nothing, nothing,
         UInt64(9), UInt64[9, 10], [3, 3]
     )
@@ -361,6 +426,10 @@ end
     selected_core = @inferred uncertain(two_points,2)
     all_cores = @inferred uncertain(two_points)
     @test length(all_cores) == 2
+    @test all_cores === two_points.values
+    @test selected_core === two_points[2]
+    @test all_cores[2] === selected_core
+    @test iszero(uncertainty(real(first(Z(selected_core))) - real(first(Z(uncertain(two_points,2))))))
     @test nominal.(Z(selected_core)) == nominal.(Z(all_cores[2]))
     @test uncertainty.(real.(Z(selected_core))) == uncertainty.(real.(Z(all_cores[2])))
     @test_throws BoundsError uncertain(two_points,3)
@@ -381,15 +450,6 @@ end
         real(first(modal_problems[1].parameters.Z.values)),
         real(first(modal_problems[2].parameters.Z.values))
     ))
-    # An indexed read must not reconstruct another configuration. Make that
-    # other product unreadable AFTER construction, leaving the selected one valid.
-    previous = two_points.stats[1]
-    try
-        two_points.stats[1] = map(a -> similar(a,0,0,0), previous)
-        selected = @inferred uncertain(two_points,2)
-        @test nominal.(Z(selected)) == nominal.(Z(selected_core))
-        @test_throws DimensionMismatch uncertain(two_points)
-    finally
-        two_points.stats[1] = previous
-    end
+    @test transported_points.grids === (two_points,)
+    @test modal_problems[2].parameters === selected_core
 end

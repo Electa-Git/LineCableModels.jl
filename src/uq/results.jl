@@ -123,6 +123,8 @@ function _validate_monte_carlo_products(
         histogram_products,
         trial_counts
 ) where {T <: Union{Engine.CableConstants, Engine.LineParameters}}
+    Engine.has_uncertainty_type(eltype(observe(first(values),R))) || throw(ArgumentError(
+        "MonteCarloResult requires stored uncertainty-bearing cores; materialize the empirical summaries before construction"))
     expected_keys = _monte_carlo_keys(T)
     for point in eachindex(values)
         trials = trial_counts[point]
@@ -261,7 +263,9 @@ end
 """
 $(TYPEDEF)
 
-Store core results reconstructed from sample means and Monte Carlo summaries.
+Store uncertainty-bearing core results and their empirical Monte Carlo products.
+The marginal representation is materialized during computation and retained;
+reading the result does not reconstruct independent uncertainty sources.
 
 $(TYPEDFIELDS)
 """
@@ -269,7 +273,7 @@ struct MonteCarloResult{T, F, ST <: AbstractVector, S, H, D <: ComputationDetail
        AbstractUncertaintyResult{T}
     "Higher-order formulation used for the calculation."
     formulation::F
-    "Core results assembled from sample means in Gridspace traversal order."
+    "Stored mean ± sample standard deviation core results in Gridspace traversal order."
     values::Vector{T}
     "Per-observable sample summaries."
     stats::ST
@@ -410,9 +414,40 @@ function ParametricBuilder.Gridspace{Target}(
     target_name = nameof(Target)
     throw(ArgumentError(
         "Gridspace transport from MonteCarloResult to problem $target_name requires " *
-        "a reconstruction for result type $T. For built-in cable and line results, " *
-        "load Measurements.jl with `using Measurements`. See `?Gridspace` and " *
+        "a transport for result type $T. See `?Gridspace` and " *
         "https://electa-git.github.io/LineCableModels.jl/dev/gridspace/" *
         "#Transporting-completed-result-spaces",
     ))
+end
+
+function ParametricBuilder.Gridspace{Target}(
+        source::MonteCarloResult{<:Union{Engine.CableConstants,Engine.LineParameters}}
+) where {Target}
+    return ParametricBuilder.Gridspace{Target}(Target, (source,))
+end
+
+"""
+$(TYPEDSIGNATURES)
+
+Materialize retained R/L/C/G marginal summaries as an uncertainty-bearing core
+result using `source`'s physical axes. The summaries carry native units and
+their standard deviations describe output spread, not uncertainty of the mean.
+`details` defaults to the source's supplemental output; MC computation selects
+only its point-wide metadata. Neither histogram bins nor sample retention
+participate in this construction.
+"""
+function materialize(source::Engine.CableConstants,
+        summaries::NamedTuple{(:R,:L,:C,:G)}; details::ComputationDetails=source.details)
+    return Engine.CableConstants(source.cores,
+        materialize.(summaries.R), materialize.(summaries.L),
+        materialize.(summaries.C), materialize.(summaries.G), source.frequency, details)
+end
+
+function materialize(source::Engine.LineParameters,
+        summaries::NamedTuple{(:R,:L,:C,:G)}; details::ComputationDetails=source.details)
+    angular = reshape(2π .* frequencies(source), 1, 1, :)
+    return Engine.LineParameters(source.domain,
+        complex.(materialize.(summaries.R), materialize.(summaries.L) .* angular),
+        complex.(materialize.(summaries.G), materialize.(summaries.C) .* angular),
+        frequencies(source); basis=basis(source), details)
 end

@@ -63,7 +63,7 @@
         exception
     end
     @test monte_error isa ArgumentError
-    @test occursin("requires a reconstruction for result type", sprint(showerror,
+    @test occursin("requires a transport for result type", sprint(showerror,
         monte_error))
 
 end

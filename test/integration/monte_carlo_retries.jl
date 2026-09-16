@@ -51,7 +51,8 @@
         for quantity in (R, L, C, G)
             retained = observe(sampled, samples, quantity, point)
             @test retained == hcat((observe(value, quantity) for value in expected)...)
-            @test observe(sampled.values[point], quantity) ≈ vec(mean(retained; dims=2))
+            @test nominal.(observe(sampled.values[point], quantity)) ≈ vec(mean(retained; dims=2))
+            @test uncertainty.(observe(sampled.values[point], quantity)) ≈ vec(std(retained; dims=2))
         end
     end
     recorded = copy(attempted_temperatures)
@@ -74,6 +75,7 @@
 end
 
 @testitem "UQ / retries do not hide non-domain errors or run past their limit" tags=[:integration] begin
+    using Measurements
     inner = CableConstantsFormulation()
     for (injected, policy, expected_attempts) in (
         (DomainError(-1, "invalid input marker"), :fail, 1),
@@ -111,6 +113,7 @@ end
 end
 
 @testitem "UQ / negative physical radius / failure and retry provenance" tags=[:integration] begin
+    using Measurements
     attempts=Float64[]
     function physical_problem(radius)
         push!(attempts,radius)

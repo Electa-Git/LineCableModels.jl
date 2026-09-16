@@ -84,6 +84,13 @@ number of successful trials is obtained or `max_failures` is reached. Retry
 mode requires `retain_details=true` and estimates the output distribution
 conditional on successful problem construction and computation.
 
+Load `Measurements` before computation. Aggregation stores marginal
+uncertainty-bearing cores from accepted sample means and sample standard
+deviations, not histogram bins or standard errors of the mean. Sampling and
+histogram retention do not change this payload. Joint output correlations are
+not retained by the marginal surrogate. Access and transport reuse the stored
+uncertainty-source identities.
+
 Line-system construction enforces exterior clearance on every realization.
 When Measurements is loaded, the propagated clearance reserve is prepared
 before sampling and retained for every draw. Adjusted placements therefore

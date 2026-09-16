@@ -399,7 +399,7 @@ campaign-wide. Fixed trials need not certify the configured target. Its
 one trial cannot establish population spread. No LEP distribution is inferred
 from two moments, and no report initiates sampling or physical computation.
 
-Portable scientific records preserve all retained MC products and shared LEP
+Portable scientific records preserve all retained MC products and shared MC/LEP
 Measurement sources, including signed sensitivities. Built-in `:normal` and
 `:uniform` law choices are retained directly; Distributions.jl `Normal` and
 `Uniform` records retain their actual parameters. Other custom input laws or
@@ -410,8 +410,9 @@ All completed result spaces are one-dimensional finite Julia collections.
 Iteration and indexing return one stored core result per calculation. A
 `ParametricResult` with several formulations contains the Cartesian
 problem/formulation cardinality in its documented storage order. Monte Carlo
-iteration returns the representative
-core result reconstructed from each point's sample means; individual trials
+iteration returns the stored uncertainty-bearing
+core result constructed during aggregation from each point's sample means and
+sample standard deviations; individual trials
 remain available only through `samples`. Standard `first`, `last`, `only`,
 `collect`, `map`, and `zip` operations apply. `only` asserts singleton
 cardinality and performs no statistical selection or result transport.
@@ -432,11 +433,15 @@ method explicitly documents another operation. It produces a target-bearing
 problem space, never a nested result envelope.
 
 `ParametricResult` transports its completed combinatorial results directly.
-`LinearErrorResult` transports its uncertainty-bearing results directly. With
-Measurements loaded, `MonteCarloResult` reconstructs one uncertainty-bearing
-core result per deterministic point from each scalar sample mean and standard
-deviation before constructing the downstream problems. This marginal
-reconstruction does not recover covariance between observables.
+`LinearErrorResult` and `MonteCarloResult` transport their stored
+uncertainty-bearing results directly. Load `Measurements` before MC computation;
+the extension is required before sampling starts. Aggregation constructs each
+marginal from the accepted raw samples, independently of histogram bins and
+sample-retention options. The uncertainty is the output sample standard
+deviation, not the standard error of its mean. This marginal surrogate does not
+recover covariance between observables. Repeated indexing, `uncertain`, and
+transport reuse its existing uncertainty-source identities without rebuilding
+Measurements.
 
 Only result families with defined semantics are admitted. An unsupported
 source/target pair raises an error naming both types and directs the caller to
@@ -446,7 +451,7 @@ source/target pair raises an error naming both types and directs the caller to
 import LineCableModels: Gridspace
 
 function Gridspace{Target}(source::OwnedResultSpace)
-    # Expose or reconstruct completed source values, then return Gridspace{Target}.
+    # Expose stored source values, then return Gridspace{Target}.
 end
 ```
 

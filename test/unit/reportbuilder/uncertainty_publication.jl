@@ -14,8 +14,9 @@
     summaries = map(quantities) do values
         map(value -> UQ.SampleSummary([0.5value, 1.5value]), values)
     end
+    sampled_parameters = LineCableModels.materialize(parameters,summaries)
     source = MonteCarloResult(MonteCarlo(Formulation(); trials=2, seed=7),
-        [parameters], [summaries], nothing, nothing, UInt64(7), UInt64[11], [2])
+        [sampled_parameters], [summaries], nothing, nothing, UInt64(7), UInt64[11], [2])
     statistics_order = (:mean, :std, :min, :q05, :median, :q95, :max)
 
     for indices in ((), (Colon(), Colon(), Colon()), (2, Colon(), Colon()),
@@ -69,6 +70,21 @@
     @test frame.R[1:2] ≈ [mean(summaries.R[1]), std(summaries.R[1])]
     @test length(selected.metadata.observation_columns.R.resolution) == 2
     @test observe(source, statistics, B, mean, 1) ≈ quantities.C .* omega
+    for (base,derived) in ((L,X),(C,B))
+        moments=observables(source,((statistics,base,mean,1),(statistics,base,std,1));
+            length_unit=:kilo,clip=false)
+        for statistic in (mean,std)
+            expected=observe(source,statistics,derived,statistic,1)
+            @test observe(moments,statistics,derived,statistic) ≈ expected
+            @test observe(moments,(statistics,derived,statistic,1)) ≈ expected
+            @test observe(moments,statistics,derived,statistic,1,1,1,:) ≈ expected[1,1,:]
+        end
+        @test_throws ArgumentError observe(moments,statistics,derived,median)
+        uncertain_axis=LineCableModels.Grammar.ObservationPublication(moments.observations,
+            merge(moments.columns,(frequency=measurement.(moments.columns.frequency,1e-3),)),
+            moments.metadata)
+        @test_throws r"deterministic" observe(uncertain_axis,statistics,derived,std)
+    end
     @test observe(source, statistics, Z, std, 1) ≈
         hypot.(std.(summaries.R), omega .* std.(summaries.L))
     q05 = Base.Fix2(quantile, 0.05)
@@ -76,7 +92,7 @@
     @test DataFrame(observables(source, ((statistics, R, q05, 1),);
         length_unit=:base)).statistic == fill(:q05, 8)
     @test_throws ArgumentError quantile(first(summaries.R), 0.1)
-    @test only(source) === parameters
+    @test only(source) === sampled_parameters
 
     uncertain_z = measurement.(real.(parameters.Z), 1e-6) .+
         im .* measurement.(imag.(parameters.Z), 2e-6)

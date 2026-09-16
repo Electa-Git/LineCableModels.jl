@@ -72,15 +72,7 @@ function _aggregate(
         C = _cable_summaries(sample_values.C),
         G = _cable_summaries(sample_values.G)
     )
-    representation = Engine.CableConstants(
-        first_result.cores,
-        Statistics.mean.(summaries.R),
-        Statistics.mean.(summaries.L),
-        Statistics.mean.(summaries.C),
-        Statistics.mean.(summaries.G),
-        first_result.frequency,
-        _sample_shunt_model(first_result)
-    )
+    representation = materialize(first_result, summaries; details=_sample_shunt_model(first_result))
     retained = formulation.options.data.return_samples ? sample_values : nothing
     hist = formulation.options.data.return_histograms ?
            (
@@ -152,20 +144,13 @@ function _aggregate(
     for values in (sample_values.R, sample_values.L, sample_values.C, sample_values.G)
     )
     summaries = NamedTuple{(:R, :L, :C, :G)}(summary_values)
-    means = (
-        R = Statistics.mean.(summaries.R),
-        L = Statistics.mean.(summaries.L),
-        C = Statistics.mean.(summaries.C),
-        G = Statistics.mean.(summaries.G)
-    )
-    angular = reshape(2π .* observe(first_result, Engine.frequencies), 1, 1, :)
-    representation = Engine.LineParameters(
-        first_result.domain,
-        complex.(means.R, means.L .* angular),
-        complex.(means.G, means.C .* angular),
-        observe(first_result, Engine.frequencies);
-        basis = basis(first_result), details = _sample_shunt_model(first_result)
-    )
+    retained_details=_sample_shunt_model(first_result)
+    source_details=details(first_result).data
+    haskey(source_details,:coordinates) && (retained_details=ComputationDetails(
+        merge(retained_details.data,(coordinates=source_details.coordinates,))))
+    haskey(source_details,:comparison_unsupported) && (retained_details=ComputationDetails(
+        merge(retained_details.data,(comparison_unsupported=source_details.comparison_unsupported,))))
+    representation = materialize(first_result, summaries; details=retained_details)
     hist = formulation.options.data.return_histograms ?
            NamedTuple{(:R, :L, :C, :G)}(Tuple(
         _map_samples(
@@ -388,6 +373,9 @@ function _monte_carlo(point, formulation::MonteCarlo, options, seed, details_own
 end
 
 function compute(problem::ParametricProblem, formulation::MonteCarlo)
+    Base.get_extension(LineCableModels, :LineCableModelsMeasurementsExt) === nothing &&
+        throw(ArgumentError("MonteCarlo requires the Measurements extension to construct its result; " *
+            "load it with `using Measurements` before compute"))
     point_count = length(problem.space)
     point_count > 0 || throw(ArgumentError(
         "higher-order problem space must contain at least one core problem",

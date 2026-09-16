@@ -65,6 +65,11 @@ end
         encoded = IE.serialize_value(selector, Val(:scientific))
         @test IE.deserialize_value(JSON3.read(JSON3.write(encoded), Dict{String,Any})) === selector
     end
+    for seed in (UInt64(0),UInt64(1)<<63,typemax(UInt64))
+        original=NamedTuple(MonteCarlo(selected;trials=2,seed))
+        encoded=IE.serialize_value(original,Val(:scientific))
+        @test IE.deserialize_value(JSON3.read(JSON3.write(encoded),Dict{String,Any})) == original
+    end
 end
 
 @testitem "ImportExport / physical declarations survive JSON transport" tags=[:unit] begin

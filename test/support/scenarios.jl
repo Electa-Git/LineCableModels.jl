@@ -70,6 +70,7 @@ module CurrentScenarios
         histograms=map(x->[HistogramDensity(vec(x);bins=2)],samples)
         representation=CableConstants(mean(samples.R),mean(samples.L),
             mean(samples.C),mean(samples.G))
+        representation=LineCableModels.materialize(representation,statistics)
         formulation=MonteCarlo(Formulation();trials=4,seed=2027,
             return_samples=true,return_histograms=true)
         return MonteCarloResult(formulation,[representation],[statistics],

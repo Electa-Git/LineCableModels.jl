@@ -1,5 +1,5 @@
 @testitem "Quality / report orchestration / concrete protocol calls" tags=[:quality] setup=[TestFixtures] begin
-    using RequiredInterfaces
+    using RequiredInterfaces, Measurements
     const RB=LineCableModels.ReportBuilder
     @test RequiredInterfaces.isInterface(RB.AbstractReportDefinition)
     @test Set(RequiredInterfaces.functions(RequiredInterfaces.getInterface(RB.AbstractReportDefinition))) ==

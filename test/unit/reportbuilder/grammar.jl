@@ -337,7 +337,7 @@ end
 @testitem "ReportBuilder / adapters / completed results delegate" tags=[:unit] setup=[
     TestFixtures
 ] begin
-    using DataFrames
+    using DataFrames, Measurements
 
     const RB=LineCableModels.ReportBuilder
     constants=LineCableModels.CableConstants(1.0, 2.0, 3.0)

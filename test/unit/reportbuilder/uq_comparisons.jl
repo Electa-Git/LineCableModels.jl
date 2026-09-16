@@ -16,6 +16,7 @@
     core=LineParameters(
         means.R .+ im .* angular .* means.L, means.G .+ im .* angular .* means.C, f;
         details = ComputationDetails(;coordinates = ["a", "b"],))
+    core=LineCableModels.materialize(core,summaries)
     histograms=map(trials) do array
         [HistogramDensity(vec(array[i, j, k, :]); bins = 3)
          for i in 1:2, j in 1:2, k in eachindex(f)]

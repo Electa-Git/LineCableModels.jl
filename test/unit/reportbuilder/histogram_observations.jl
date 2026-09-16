@@ -1,4 +1,5 @@
 @testitem "UQ / histogram observations / explicit binning and retention" tags=[:unit] setup=[TestFixtures] begin
+    using Measurements
     cable = TestFixtures.cable_monte_carlo_result()
     frequency = [50.0, 1000.0]
     scale = reshape(collect(1.0:8.0), 2, 2, 2)
@@ -15,6 +16,7 @@
     omega = reshape(2pi .* frequency, 1, 1, :)
     line = LineParameters(2.5e-4 .* scale .+ im .* omega .* 2.5e-7 .* scale,
         2.5e-9 .* scale .+ im .* omega .* 2.5e-10 .* scale, frequency)
+    line = LineCableModels.materialize(line,summaries)
     matrix = MonteCarloResult(cable.formulation, [line], [summaries], [sample_arrays],
         [models], cable.root_seed, cable.point_seeds, cable.trial_counts)
 
@@ -60,7 +62,8 @@
 
     constant_samples = map(_ -> fill(2.0, 1, 4), only(cable.sample_values))
     constant_stats = map(_ -> [SampleSummary(fill(2.0, 4))], only(cable.stats))
-    constant = MonteCarloResult(cable.formulation, [CableConstants(2.0, 2.0, 2.0, 2.0)],
+    constant = MonteCarloResult(cable.formulation,
+        [LineCableModels.materialize(CableConstants(2.0, 2.0, 2.0, 2.0),constant_stats)],
         [constant_stats], [constant_samples], nothing, cable.root_seed,
         cable.point_seeds, cable.trial_counts)
     for bins in (nothing, 1, 4)

@@ -19,7 +19,7 @@ import Statistics
 import ..LineCableModels
 using DocStringExtensions: TYPEDEF, TYPEDFIELDS, TYPEDSIGNATURES
 import ..LineCableModels: basis, frequencies, R, L, C, nominal, uncertainty
-import ..LineCableModels: points, realize, realize_arguments, Gridpoint
+import ..LineCableModels: points, realize, realize_arguments, Gridpoint, materialize, UncertainValue
 import ..LineCableModels: report_progress, with_progress_scope, with_scan_progress
 import ..DataModel
 import ..Engine
@@ -27,6 +27,7 @@ import ..Grammar: compute, computation_options, computation_details, details,
                   observe, observables, check_core_result,
                   detach, publication_table, request_identity, request_indices,
                   observation_indices, observation_resolution, observation_request
+using ..Grammar: ObservationPublication, request_quantity
 import ..ParametricBuilder
 import ..ParametricBuilder: traverse
 import ..Units

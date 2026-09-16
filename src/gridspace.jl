@@ -272,7 +272,7 @@ function materialize(value::UncertainValue)
     throw(ArgumentError(
         "direct materialisation of an uncertainty-bearing Gridspace requires " *
         "Measurements.jl; load it with `using Measurements` before " *
-        "iteration, or use stochastic realisation through MonteCarlo",
+        "iteration or MonteCarlo computation",
     ))
 end
 

@@ -3,7 +3,7 @@
 ] begin
     get(ENV, "LINECABLEMODELS_TEST_PLOTTING", "false")=="true"||
     error("set LINECABLEMODELS_TEST_PLOTTING=true to run the visual contract")
-    using CairoMakie
+    using CairoMakie, Measurements
 
     result=TestFixtures.cable_monte_carlo_result()
     plots=(
@@ -41,7 +41,7 @@
 end
 
 @testitem "Makie addons / histogram bin requests reach the retained marginal" tags=[:visual] setup=[TestFixtures] begin
-    using CairoMakie
+    using CairoMakie, Measurements
     result = TestFixtures.cable_monte_carlo_result()
     retained = observe(result, histograms, R, 1, 1)
     expected = HistogramDensity(observe(result, samples, R, 1, 1, :); bins=3)

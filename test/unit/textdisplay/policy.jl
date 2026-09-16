@@ -119,6 +119,7 @@ end
 @testitem "TextDisplay / bounded structural families" tags=[:unit] setup=[
     TestFixtures
 ] begin
+    using Measurements
     const EP=LineCableModels.Earth
 
     conductor=Material(:conductor, 1.7241e-8)

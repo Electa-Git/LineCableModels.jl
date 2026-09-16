@@ -1,5 +1,10 @@
 # Scientific result records are distinct from executable computation checkpoints.
 serialize_value(value, ::Val{:scientific}) = serialize_value(value)
+# JSON number readers need not preserve UInt64 values above typemax(Int64).
+# Scientific seeds must retain all 64 bits, including within formulation records.
+serialize_value(value::UInt64, ::Val{:scientific}) =
+    Dict("__type__"=>"UInt64", "value"=>string(value))
+deserialize_extension(::Val{:UInt64},record) = parse(UInt64,record["value"])
 function serialize_value(value::FormulationOptions)
     return Dict("__type__"=>"FormulationOptions", "value"=>serialize_value(value.data, Val(:scientific)))
 end
@@ -122,9 +127,22 @@ $(TYPEDSIGNATURES)
 
 Encode retained MC products or first-order results without solving a model.
 The versioned record retains scientific data, not executable formulations.
-Measurement-bearing LEP results use the extension's shared-source codec.
+Measurement-bearing MC and LEP results use the extension's shared-source codec.
 """
 function serialize_value(value::Union{UQ.MonteCarloResult, UQ.LinearErrorResult})
+    return serialize_value(value, map(serialize_value, value.values), nothing)
+end
+
+"""
+$(TYPEDSIGNATURES)
+
+Encode a UQ result envelope with already encoded core `points`. Optional
+`sources` are shared Measurement source records supplied by the Measurements
+extension; their point records retain signed sensitivities. This boundary keeps
+empirical products, provenance and details under the scientific result codec.
+"""
+function serialize_value(value::Union{UQ.MonteCarloResult,UQ.LinearErrorResult},
+        points::AbstractVector, sources)
     record=NamedTuple(value)
     formulation=record.formulation isa NamedTuple ? record.formulation :
                 NamedTuple(record.formulation)
@@ -139,24 +157,31 @@ function serialize_value(value::Union{UQ.MonteCarloResult, UQ.LinearErrorResult}
     return Dict(
         "__type__"=>value isa UQ.MonteCarloResult ? "MonteCarloResult" :
                     "LinearErrorResult",
-        "version"=>1, "formulation"=>serialize_value(formulation, Val(:scientific)),
-        "points"=>map(serialize_value, record.values), "details"=>serialize_value(
+        "version"=>2, "formulation"=>serialize_value(formulation, Val(:scientific)),
+        "points"=>points, "sources"=>serialize_value(sources,Val(:scientific)), "details"=>serialize_value(
             portable_details, Val(:scientific)),
         "statistics"=>serialize_value(get(record, :statistics, nothing), Val(:scientific)),
         "samples"=>serialize_value(get(record, :samples, nothing), Val(:scientific)),
         "histograms"=>serialize_value(get(record, :histograms, nothing), Val(:scientific)),
-        "root_seed"=>get(record, :root_seed, nothing), "point_seeds"=>get(record, :point_seeds, nothing),
+        "root_seed"=>serialize_value(get(record, :root_seed, nothing),Val(:scientific)),
+        "point_seeds"=>serialize_value(get(record, :point_seeds, nothing),Val(:scientific)),
         "trial_counts"=>get(record, :trial_counts, nothing))
 end
 
 function deserialize_extension(kind::Union{Val{:MonteCarloResult}, Val{:LinearErrorResult}}, record)
-    record["version"] == 1 ||
+    record["version"] in (1,2) ||
         throw(ArgumentError("unsupported scientific UQ record version"))
     decoded=deserialize_value(record["formulation"])
     formulation=(; (Symbol(k)=>v for (k, v) in pairs(decoded))...)
     options=(; (Symbol(k)=>v for (k, v) in pairs(formulation.options))...)
     formulation=merge(formulation, (; options))
-    points=map(deserialize_value, record["points"])
+    points=if get(record,"sources",nothing) === nothing
+        map(deserialize_value, record["points"])
+    else
+        Base.get_extension(LineCableModels,:LineCableModelsMeasurementsExt) === nothing &&
+            throw(ArgumentError("restoring uncertainty-bearing results requires `using Measurements`"))
+        deserialize_extension(Val(:MeasurementPoints),record)
+    end
     details=deserialize_value(record["details"])
     retained=(; (Symbol(k)=>v for (k, v) in pairs(details))...)
     if !isempty(retained)
@@ -188,7 +213,18 @@ function deserialize_extension(kind::Union{Val{:MonteCarloResult}, Val{:LinearEr
         values === nothing && return nothing
         [(; (Symbol(k)=>v for (k, v) in pairs(point))...) for point in values]
     end
+    root_seed=deserialize_value(record["root_seed"])
+    point_seeds=deserialize_value(record["point_seeds"])
+    root_seed isa Integer && !(root_seed isa Bool) &&
+        all(seed -> seed isa Integer && !(seed isa Bool),point_seeds) ||
+        throw(ArgumentError("scientific Monte Carlo seeds require exact integers; floating-point JSON seeds cannot preserve provenance"))
+    if record["version"] == 1
+        # Supported portable MC v1 records retained full empirical summaries
+        # but only mean-valued cores. Restore their documented marginal result
+        # through the UQ-owned materialization, never through native checkpoints.
+        points=map(LineCableModels.materialize,points,first(products))
+    end
     return UQ.MonteCarloResult(
-        formulation, points, products..., UInt64(record["root_seed"]),
-        UInt64.(record["point_seeds"]), Int.(record["trial_counts"]), details)
+        formulation, points, products..., UInt64(root_seed),
+        UInt64.(point_seeds), Int.(record["trial_counts"]), details)
 end

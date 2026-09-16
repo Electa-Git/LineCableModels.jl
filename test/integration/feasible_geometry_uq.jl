@@ -56,10 +56,72 @@
             values=cat((getproperty(value,channel) for value in expected)...;dims=4)
             @test getproperty(sampled.sample_values[index],channel)==values
             average=dropdims(sum(values;dims=4)./N;dims=4)
-            @test getproperty(LineCableModels,channel)(sampled.values[index]) ≈ average rtol=1e-10 atol=0
+            observed = getproperty(LineCableModels,channel)(sampled.values[index])
+            @test eltype(observed) <: Measurement
+            @test nominal.(observed) ≈ average rtol=1e-10 atol=0
+            @test uncertainty.(observed) ≈ dropdims(std(values;dims=4);dims=4)
         end
     end
     @test_throws DomainError problem(-.1,.2)
+end
+
+@testitem "UQ / Monte Carlo / computed marginal ownership and scientific transport" tags=[:integration,:extension] setup=[TestFixtures] begin
+    using Measurements, Statistics, JSON3
+    IE=LineCableModels.ImportExport
+    design=TestFixtures.coaxial_design()
+    space=Gridspace{CableConstantsProblem}(
+        temperature -> CableConstantsProblem(design;temperature),
+        (Grid((20.0,40.0),AbsoluteError(1.0)),))
+    problem=ParametricProblem(space)
+    inner=CableConstantsFormulation()
+    baseline=compute(problem,MonteCarlo(inner;trials=4,seed=2029,distribution=:uniform,return_samples=true))
+    for samples_retained in (false,true), histograms_retained in (false,true), bins in (1,3)
+        result=compute(problem,MonteCarlo(inner;trials=4,seed=2029,distribution=:uniform,
+            return_samples=samples_retained,return_histograms=histograms_retained,bins))
+        @test uncertain(result) === result.values
+        @test isempty(details(result).data)
+        @test (samples(result) !== nothing) == samples_retained
+        @test (histograms(result) !== nothing) == histograms_retained
+        @test statistics(result) == statistics(baseline)
+        for point in eachindex(result), quantity in (R,L,C,G)
+            output=observe(uncertain(result,point),quantity)
+            draws=observe(baseline,samples,quantity,point)
+            @test eltype(output) <: Measurement
+            @test nominal.(output) ≈ vec(mean(draws;dims=2))
+            @test uncertainty.(output) ≈ vec(std(draws;dims=2))
+            @test all(iszero,uncertainty.(output .- observe(result[point],quantity)))
+        end
+        record=IE.serialize_value(result)
+        @test record["version"] == 2
+        restored=IE.deserialize_value(JSON3.read(JSON3.write(record),Dict{String,Any}))
+        @test statistics(restored) == statistics(result)
+        @test restored.point_seeds == result.point_seeds
+        @test restored.trial_counts == result.trial_counts
+        for point in eachindex(result), quantity in (R,L,C,G)
+            @test nominal.(observe(restored[point],quantity)) == nominal.(observe(result[point],quantity))
+            @test uncertainty.(observe(restored[point],quantity)) ≈ uncertainty.(observe(result[point],quantity))
+        end
+    end
+    # V1 is a supported full scientific record, unlike a moments-only publication.
+    old=IE.serialize_value(baseline)
+    old["version"]=1
+    delete!(old,"sources")
+    old["points"]=[IE.serialize_value(CableConstants(value.cores,
+        nominal.(value.R),nominal.(value.L),nominal.(value.C),nominal.(value.G),
+        nominal(value.frequency),value.details)) for value in baseline]
+    restored=IE.deserialize_value(JSON3.read(JSON3.write(old),Dict{String,Any}))
+    @test statistics(restored) == statistics(baseline)
+    @test uncertainty.(first(restored).R) ≈ uncertainty.(first(baseline).R)
+    @test uncertain(restored,1) === first(restored)
+    rounded=deepcopy(old)
+    rounded["point_seeds"]=[1.0,1.0]
+    @test_throws r"exact integers" IE.deserialize_value(rounded)
+
+    singleton=compute(problem,MonteCarlo(inner;trials=1,seed=2029,return_samples=true))
+    for core in singleton, quantity in (R,L,C,G)
+        @test eltype(observe(core,quantity)) <: Measurement
+        @test all(iszero,uncertainty.(observe(core,quantity)))
+    end
 end
 
 @testitem "UQ / linear propagation / affine means variances and covariance" tags=[:integration,:extension] begin

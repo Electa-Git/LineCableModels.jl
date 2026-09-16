@@ -221,15 +221,15 @@ function deserialize_value(value)
         end
         marker == "NamedTuple" && return NamedTuple{Tuple(Symbol.(value["names"]))}(
             Tuple(deserialize_value(item) for item in value["values"]))
-        marker in ("Observable", "Quantile", "LineParameters", "CableConstants", "MonteCarloResult",
-            "LinearErrorResult", "MeasurementLinearErrorResult", "SampleSummary", "HistogramDensity", "Distribution",
+        marker in ("UInt64", "Observable", "Quantile", "LineParameters", "CableConstants", "MonteCarloResult",
+            "LinearErrorResult", "SampleSummary", "HistogramDensity", "Distribution",
             "FormulationOptions", "ComputationOptions", "ComputationDetails") &&
             return deserialize_extension(Val(Symbol(marker)),value)
-        if marker == "Measurement"
-            applicable(deserialize_extension, Val(:Measurement), value) || throw(
+        if marker in ("Measurement", "MeasurementLinearErrorResult")
+            applicable(deserialize_extension, Val(Symbol(marker)), value) || throw(
                 ArgumentError("deserialising Measurement values requires Measurements.jl")
             )
-            return deserialize_extension(Val(:Measurement), value)
+            return deserialize_extension(Val(Symbol(marker)), value)
         end
         throw(ArgumentError("unsupported serialised scalar tag '$marker'"))
     end

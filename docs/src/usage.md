@@ -258,7 +258,10 @@ Each non-mutating managed plotting call returns [`UIPlot`](@ref). Use
 ## Optional uncertainty packages
 
 The core `Grid`/`Gridspace` grammar does not load Measurements.jl or
-Distributions.jl. Loading Measurements enables `LinearError`. Loading
+Distributions.jl. Load Measurements before `LinearError` or `MonteCarlo`
+computation. MC constructs and stores marginal Measurements from accepted raw
+sample means and standard deviations; `uncertain` returns those stored cores.
+It does not recover joint output correlations. Loading
 Distributions enables supported univariate distributions as Monte Carlo
 samplers and `pdf`/`cdf` evaluation for [`HistogramDensity`](@ref).
 
