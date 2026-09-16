@@ -1,0 +1,79 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+lcm_launcher=$(readlink -f -- "${BASH_SOURCE[0]}")
+lcm_root=$(cd -- "$(dirname -- "$lcm_launcher")/.." && pwd -P)
+lcm_applications=${LCM_APPLICATIONS_DIR:-${XDG_CONFIG_HOME:-$HOME/.config}/lcm/applications}
+lcm_command=${1---help}
+
+if [[ "$lcm_command" == help && $# == 2 ]]; then
+    set -- "$2" --help
+    lcm_command=$1
+fi
+
+case "$lcm_command" in
+    --help|-h|help|--paths|--version)
+        if (( $# > 1 )); then
+            printf 'lcm: %s does not accept additional arguments\n' "$lcm_command" >&2
+            exit 2
+        fi
+        if [[ "$lcm_command" == --version ]]; then
+            sed -n 's/^version *= *"\([^"]*\)".*/lcm \1/p' "$lcm_root/Project.toml"
+            exit 0
+        fi
+        if [[ "$lcm_command" != --paths ]]; then
+            cat <<'EOF'
+Usage: lcm <application> [arguments]
+
+  --help       Show this help without starting an application
+  --version    Show the package version
+  --paths      Show the package and resolved application directories
+  help <app>   Show application help
+
+Applications available to this launcher:
+EOF
+        else
+            printf 'Package: %s\n' "$lcm_root"
+        fi
+        for lcm_directory in "$lcm_root"/* "$lcm_applications"/*; do
+            lcm_name=${lcm_directory##*/}
+            [[ "$lcm_name" =~ ^[a-z][a-z0-9_-]*$ ]] || continue
+            [[ "$lcm_name" != cli && "$lcm_name" != help ]] || continue
+            [[ -x "$lcm_directory/lcm" && ! -d "$lcm_directory/lcm" ]] || continue
+            # A checkout's own application takes precedence over a configured one.
+            if [[ "$lcm_directory" == "$lcm_applications/"* && -x "$lcm_root/$lcm_name/lcm" ]]; then
+                continue
+            fi
+            printf '  %-14s %s\n' "$lcm_name" "$(readlink -f -- "$lcm_directory")"
+            if [[ "$lcm_name" == playground ]]; then
+                printf '    Also supplies: runtime, worker, presentation, nats, container, demo\n'
+            fi
+        done
+        if [[ "$lcm_command" != --paths ]]; then
+            printf '\nRun `lcm <application> --help` for its commands.\n'
+            printf 'Applications in other checkouts: cli/install.sh --application NAME DIRECTORY\n'
+        fi
+        exit 0
+        ;;
+esac
+
+if [[ ! "$lcm_command" =~ ^[a-z][a-z0-9_-]*$ || "$lcm_command" == cli ]]; then
+    printf 'lcm: invalid application name: %s\n' "$lcm_command" >&2
+    exit 2
+fi
+case "$lcm_command" in
+    runtime|worker|presentation|nats|container|demo) lcm_application=playground ;;
+    *) lcm_application=$lcm_command ;;
+esac
+lcm_directory="$lcm_root/$lcm_application"
+if [[ ! -x "$lcm_directory/lcm" ]]; then
+    lcm_directory="$lcm_applications/$lcm_application"
+fi
+if [[ ! -x "$lcm_directory/lcm" || -d "$lcm_directory/lcm" ]]; then
+    printf 'lcm: unknown or unavailable application: %s\n' "$lcm_command" >&2
+    printf 'Run `lcm --paths` to inspect application locations.\n' >&2
+    exit 2
+fi
+
+# Application launchers receive the complete command, including its namespace.
+exec "$lcm_directory/lcm" "$@"

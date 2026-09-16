@@ -1,0 +1,42 @@
+@testitem "Gauntlet / 18 kV shunt geometry does not select dielectric losses" tags=[:gauntlet_toolkit] setup=[GauntletSupport] begin
+    using LinearAlgebra
+    using LineCableModels.Engine
+    using .GauntletSupport.Gauntlet
+    const E = LineCableModels.Engine
+    model = GauntletSupport.load_case(:cable_18kv_1000mm2_trefoil)
+    source = first(model.nominal_problem.system.designs)
+    reduced = homogenize(source)
+    inputs = map(design -> E.LocalCableData(E.flatten(LineCableModelsCoaxial(), design)),
+        (source, reduced))
+    for identifier in (:default, :lossy)
+        formulation = Formulation(insulation_admittance=identifier, semicon_admittance=identifier)
+        for frequency in model.nominal_problem.frequencies
+            matrices = map(inputs) do input
+                y = zeros(ComplexF64, length(input.terminals), length(input.terminals))
+                E.cable_admittance!(y, input, formulation.methods, frequency,
+                    model.nominal_problem.temperature, complex(0.0, 2π*frequency),
+                    zeros(ComplexF64, length(input.dielectric_materials)))
+            end
+            @test matrices[1] ≈ matrices[2] rtol=1e-12
+        end
+        constants = CableConstantsFormulation(insulation_admittance=identifier,
+            semicon_admittance=identifier)
+        a, b = map(design -> compute(CableConstantsProblem(design), constants), (source, reduced))
+        @test a.C ≈ b.C rtol=1e-12
+        @test details(a).data.shunt_model.solves == 0
+        if identifier === :default
+            # Physical wire/tape gaps intentionally differ from homogenized
+            # annuli; resolving them must not invent a dielectric loss law.
+            @test all(>(0),a.C)
+            resolved = compute(CableConstantsProblem(source),
+                CableConstantsFormulation(shunt_model=:boundary))
+            @test !isapprox(resolved.C,b.C;rtol=1e-3)
+            @test resolved.G == a.G
+            @test resolved.R == a.R && resolved.L == a.L
+            @test details(resolved).data.shunt_model.effective === :boundary
+        end
+        @test a.G ≈ b.G rtol=1e-12
+        @test a.R ≈ b.R rtol=1e-10
+        @test a.L ≈ b.L rtol=1e-10
+    end
+end

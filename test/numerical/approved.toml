@@ -1,0 +1,4 @@
+# Empty until the numerical results, assumptions and tolerances are reviewed.
+# Publishing a Gauntlet collection does not populate this manifest.
+schema_version = 1
+references = []

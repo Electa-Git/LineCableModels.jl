@@ -1,0 +1,50 @@
+@testitem "ReportBuilder / scalar results retain physical and native formula choices" tags=[:integration] setup=[FormulaContractModels] begin
+    using LinearAlgebra, Serialization
+    using LineCableModels.ReportBuilder: BenchmarkTableDefinition
+    copper=Material(MaterialsLibrary(add_defaults=true),:copper)
+    design=build(CableDesign,"scalar-records",terminal(:core,solid(copper,Disk(0.0425))))
+    system=build(LineCableSystem,[design,design],[Pose2(0,-1),Pose2(1,-1)];
+        connections=[Dict(:core=>1),Dict(:core=>2)])
+    problem=LineParametersProblem(system;earth_props=homogeneous(rho=0.1),frequencies=[1e3])
+    choices=[Formulation(earth_impedance=formula(:default;parameters=(;reference)),
+        earth_admittance=formula(:default;parameters=(;reference))) for reference in (:deep,:interface)]
+    results=compute.(Ref(problem),choices)
+    @test norm(Y(results[1])-Y(results[2]))/norm(Y(results[1])) > 0.1
+    @test typeof(results[1]) === typeof(results[2])
+    for (result,selection,reference) in zip(results,choices,(:deep,:interface))
+        record=details(result).data.formulations
+        @test record.requested == NamedTuple(selection).requested
+        @test record.methods == NamedTuple(selection).methods
+        @test record.requested.earth_admittance.parameters.reference === reference
+        @test record.methods.earth_admittance.parameters.reference === reference
+    end
+    artifact=report(BenchmarkTableDefinition(),(reference=results[1],candidate=results[2]))
+    @test artifact.published.reference.metadata.formulation != artifact.published.candidate.metadata.formulation
+    @test occursin("deep",artifact.table.formulations.label[1])
+    @test occursin("interface",artifact.table.formulations.label[2])
+    io=IOBuffer();serialize(io,results);seekstart(io)
+    restored=deserialize(io)
+    # Unavailable cells must stay unavailable after serialization; == propagates
+    # missing instead of comparing the retained availability mask.
+    @test isequal(report(BenchmarkTableDefinition(),(reference=restored[1],candidate=restored[2])).table.formulations,artifact.table.formulations)
+    custom=FormulaContractModels.DispersiveEarth()
+    selected=Formulation(earth_properties=custom)
+    changed=compute(problem,selected)
+    @test !isempty(custom.seen)
+    @test details(changed).data.formulations.requested.earth_properties==NamedTuple(custom)
+    @test details(changed).data.formulations.methods.earth_properties==NamedTuple(custom)
+    @test details(changed).data.formulations.effective.earth_properties === :DispersiveEarth
+    @test typeof(changed) === typeof(results[1])
+    retained=LineCableModels.ImportExport.deserialize_value(Val(:formulation),details(changed).data.formulations)
+    @test formula_id(retained,nothing)==formula_id(selected,nothing)
+    grid=Formulation(earth_impedance=Grid([c.definitions.earth_impedance for c in choices]),
+        earth_admittance=Grid([c.definitions.earth_admittance for c in choices]);combine=:zip)
+    batch=compute(problem,grid)
+    @test isconcretetype(eltype(batch))
+    @test length(batch)==2
+    for i in 1:2
+        @test Z(batch[i]) == Z(results[i])
+        @test Y(batch[i]) == Y(results[i])
+        @test details(batch[i]).data.formulations == details(results[i]).data.formulations
+    end
+end

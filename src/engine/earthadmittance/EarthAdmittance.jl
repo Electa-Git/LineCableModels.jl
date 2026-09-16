@@ -1,28 +1,59 @@
 """
-	LineCableModels.Engine.EarthAdmittance
+    LineCableModels.Engine.EarthAdmittance
+
+Define earth-return admittance recipes, numerical primitives, and
+formula-owned frequency functors.
 
 # Dependencies
 
 $(IMPORTS)
 
-# Exports
-
-$(EXPORTS)
 """
 module EarthAdmittance
+import ...Grammar: FormulationOptions
 
 # Export public API
-export Papadopoulos
+export Formula, formula_id, earth_potential_coefficient, assumptions, propagation, formulas,
+       Γ
 
 # Module-specific dependencies
-using ...Commons
-import ...Commons: get_description
-import ..Engine: EarthAdmittanceFormulation
-using Measurements: Measurement, value
-using QuadGK: quadgk
-using ...Utils: _to_σ, _bessel_diff, to_nominal
+#! explicit-imports: off
+# These abbreviations are expanded in this module docstring and included files.
+using DocStringExtensions: IMPORTS, TYPEDEF, TYPEDFIELDS, TYPEDSIGNATURES
+#! explicit-imports: on
+import ...LineCableModels: validate
+import ..Engine: EarthPair, earth_parameters
+import ...LineCableModels: constitutive
+import ...Earth: EquivalentHomogeneous
+import ..Engine: EarthAdmittanceFormulation, formula_id
+#! explicit-imports: off
+# Explicitly included equations share these physical and numerical operations.
+import ..Engine: system_earth, unified_entry, retained_earth_features
+import ...LineCableModels: FormulaDefinition, FormulaMethod, nominal
+import ..Engine: SpectralIntegral, integrate
+import ..Engine: description, conductivity, media, special_besselk
+import ..Engine: formulation_options
+#! explicit-imports: on
 
+vacuum_permittivity(value) = one(value) * 88541878128 * (one(value) * 10)^(-22)
+vacuum_permeability(value) = one(value) * 4 * (one(value) * π) * (one(value) * 10)^(-7)
+
+include("interface.jl")
 include("homogeneous.jl")
-include("base.jl")
+
+#! explicit-imports: off
+const FORMULAS = (
+    include("formulas/unified.jl"),
+    include("formulas/default.jl"),
+    include("formulas/pollaczek1926.jl"),
+    include("formulas/wise1948.jl"),
+    include("formulas/xue2018.jl"),
+)
+#! explicit-imports: on
+
+"""
+Return numerical earth-admittance identifiers.
+"""
+formulas() = FORMULAS
 
 end # module EarthAdmittance

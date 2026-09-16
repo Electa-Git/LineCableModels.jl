@@ -1,0 +1,230 @@
+"""
+$(TYPEDSIGNATURES)
+
+Create a compact native Makie plot for a supported result or observation
+publication. The optional Makie extension infers distinct physical quantities
+from the selected ordinate data; `layout` controls only where those inferred
+axes are placed.
+
+# Keywords
+
+- `ydata`: Selected physical observables and optional original matrix indices.
+- `blocks=nothing`: One complete matrix dashboard per quantity. A tuple
+  `(rows, columns)` partitions matrix dashboards into blocks of at most that
+  many rows and columns. Residual pages retain the full block footprint and
+  equal axis sizes at equal figure dimensions. Empty selected blocks are omitted.
+- `fig_size=nothing`: Figure dimensions in logical pixels for matrix recipes.
+  Width is expanded when necessary to retain a landscape aspect of at least 4:3.
+- `series_attributes=nothing`: Native per-series overrides. Comparison recipes
+  supply solid lines and sparse, staggered markers automatically. Explicit
+  references default to black curves and hollow circles; deterministic references
+  mark both endpoints. `marker=nothing` disables markers. An explicit marker
+  retains native all-sample placement.
+- `errorbar_sampling`: `:staggered` by default for explicit comparisons, `:all`
+  otherwise. Staggered intervals and automatic markers use separate retained
+  sample positions; full curves and full-data axis limits are unchanged. With
+  `:all`, every interval is drawn and automatic markers on uncertain series are
+  omitted. Intervals take priority in short series; reference identity remains
+  in the legend. This controls display only, not uncertainty or numerical sampling.
+- Native Axis keywords such as `xticks`, `ytickformat` and `limits` are forwarded
+  to each axis. Other native plot attributes, such as `linewidth`, apply to
+  compatible series. `axis=(...)` and `figure=(...)` explicitly target native
+  constructors; explicit groups and per-series overrides take precedence over
+  shared keywords. Native scale functions are accepted as well as symbol presets.
+- `clip=true`: Publish line quantities with negligible nominal values and
+  standard uncertainties independently set to zero before unit conversion.
+  Meaningful uncertainty around zero remains visible. `clip=false` retains raw
+  detached values; `atol` overrides cutoffs in native quantity units.
+
+# Returns
+
+- A [`UIPlot`](@ref), or a vector of handles when multiple pages are produced.
+  Block titles and export names include one-based block coordinates; subplot
+  titles and panel controls retain original matrix coordinates.
+
+# Notes
+
+Top/bottom legends automatically fit a row-major grid unless native
+`legend_attributes.orientation` or `legend_attributes.nbanks` is specified.
+Long labels wrap; formulation labels omit equation choices belonging only to the
+other plotted family, without merging repeated entries. Matrix pagination performs
+no calculation, comparison, interpolation, or symmetry reduction.
+
+Numeric axes share size-aware ticks and engineering power-of-ten multipliers.
+Log views spanning less than two decades show decimal values at logarithmic
+positions with one multiplier when needed; broader views show integer powers
+of ten. Tick spacing is checked in rendered coordinates on both axes.
+Native tick positions, labelled ticks and custom formatters on `plot.axes`
+override automatic presentation. Reset preserves explicit native limits;
+changing a scale refits only its automatic dimension and preserves the other
+dimension's current view. Neither operation changes the published values or units.
+Automatic near-constant ranges receive ±5% padding around a nonzero linear
+baseline, or multiplicative bounds `c/1.05` to `c*1.05` on positive log axes,
+enlarged for visible uncertainty; exact zeros use a neutral range.
+This view rule does not round data or restrict explicit zooms. Signed logarithmic
+axes use cancellation-safe `log1p`/`expm1` transforms near zero. Already prepared
+observation publications are rendered as supplied, without another clipping pass.
+
+On UQ benchmarks, ordinary quantities such as `ydata=(R,L,G,C)` overlay the
+owner-published means with ±1 standard deviation, including retained moment-only
+publications. Plotting constructs no uncertainty-bearing result. Explicit
+requests such as `(statistics,L,std)` select statistic-only plots. Use separate
+calls for these two products. Monte Carlo marginal surrogates do not recover
+joint correlations or imply reliable uncertainty for arbitrary nonlinear transforms.
+
+# Errors
+
+`blocks` must contain two positive integers and cannot be combined with a
+conflicting individual or paired `layout`. With blocks, positional `panel_titles`
+must cover all selected facets; dictionary keys use original matrix coordinates.
+
+# Examples
+
+```julia
+pages = plot(results; ydata=(R, L, G, C), blocks=(2, 3))
+```
+"""
+function plot end
+
+function plot(args...; kwargs...)
+    throw(ArgumentError(
+        "Plotting is optional. Load CairoMakie, GLMakie, or WGLMakie before calling plot.",
+    ))
+end
+
+"""
+    preview(source; kwargs...)
+
+Preview a cable design, a collection of cable designs, or a cable system with
+a loaded Makie backend.
+
+# Keywords
+
+- `display_dielectric_pattern=true`: Fill insulating regions with sparse
+  diagonal marks over their material color. Applies to all three preview routes.
+- `earth_model=nothing`: Static earth model for a system preview. Horizontal
+  strata retain their physical depths while their visible coverage follows the
+  axis view. Vertical strata are not rendered.
+- `display_surface_gradient=true`: For a system with horizontal earth, add a
+  light blue sky strongest at the upper axis limit, fading toward the white
+  or transparent background at the surface `z=0` \\[m\\]. The fade stretches
+  with the view and is hidden when the view lies entirely underground. This
+  decoration does not encode a material property.
+- `zoom_factor=nothing`: Initial system-view span multiplier. The reset
+  control restores that initial view.
+
+# Returns
+
+- A [`UIPlot`](@ref) containing the caller-owned Makie figure and axes.
+
+# Notes
+
+Material colors retain nominal physical properties. Magnetic tint progresses
+from indigo to magenta on a logarithmic relative-permeability range; earth uses
+its own logarithmic resistivity palette. Dielectric marks use native Makie
+pattern tiles, including in SVG/PDF exports.
+"""
+function preview end
+
+function preview(args...; kwargs...)
+    throw(ArgumentError(
+        "Plotting is optional. Load CairoMakie, GLMakie, or WGLMakie before calling preview.",
+    ))
+end
+
+"""
+    show_material_scale(; kwargs...)
+
+Display the three independently defined material color schemes as a compact
+reference figure. Use [`materialscale!`](@ref) to place any one scheme in a
+caller-owned Makie layout.
+"""
+function show_material_scale end
+
+function show_material_scale(args...; kwargs...)
+    throw(ArgumentError(
+        "Plotting is optional. Load CairoMakie, GLMakie, or WGLMakie before calling show_material_scale.",
+    ))
+end
+
+"""
+    export_svg(plot::UIPlot; path=nothing, theme=nothing, open_file=nothing)
+
+Save the current live Makie figure in `plot` as SVG through CairoMakie and
+return the absolute output path. `theme` may be `:default` or `:publication`.
+The SVG retains the current zoom and pan without resetting the interactive view.
+
+Load CairoMakie explicitly before exporting. For an interactive GLMakie window
+with SVG export, import both backends and select `backend=:gl` when plotting.
+The SVG button is created only when CairoMakie is already loaded. Loading it
+later enables this function on existing plots; recreate a plot to add its button.
+Export does not activate a backend and restores the live figure state. The toolbar
+reports file errors in the window's status row; direct calls throw the
+corresponding exception. An unloaded CairoMakie renderer raises `ArgumentError`
+before filesystem or figure changes.
+"""
+function export_svg end
+
+"""
+    figurelegend!(plot::UIPlot; position=:right, anchor=:rt, kwargs...)
+
+Create or replace the figure-scoped native Makie legend from the semantic
+groups retained by the shell. All remaining keywords are forwarded to Makie's
+`Legend`.
+"""
+function figurelegend! end
+
+"""
+    panellegend!(plot::UIPlot, panel; kwargs...)
+
+Create or replace a native Makie legend scoped to one logical plot panel.
+`panel` may be the stable panel identity returned by a recipe or its compatible
+grid position.
+"""
+function panellegend! end
+
+"""
+    figuretitle!(plot::UIPlot, title; kwargs...)
+
+Create, replace, or remove the figure-wide native Makie title. Pass `nothing`
+to remove it.
+"""
+function figuretitle! end
+
+"""
+    paneltitle!(plot::UIPlot, panel, title)
+
+Set the native axis title for one logical plot panel. Pass `nothing` to clear
+it.
+"""
+function paneltitle! end
+
+"""
+    plotwindow(callback; title, figure_title=nothing, size=(800, 400), kwargs...)
+
+Build the standard Makie shell, pass its caller-owned content `GridLayout` to
+`callback`, and return a [`UIPlot`](@ref). The callback uses ordinary Makie and
+is not constrained by a renderer-independent plot specification.
+Numeric axes share scale, reset and export controls. Native `axis=(...)`
+attributes explicitly override callback-created axes; otherwise their native
+construction settings are retained. Shared series and `figure=(...)` attributes
+follow the same rules as [`plot`](@ref).
+"""
+function plotwindow end
+
+"""
+    materialcolors(property, [range]; alpha=1.0)
+
+Construct one reusable material color scheme. Palette selection is separate
+from [`materialscale!`](@ref), which only renders a supplied scheme.
+"""
+function materialcolors end
+
+"""
+    materialscale!(position, scheme; kwargs...)
+
+Place one native Makie color scale at `position`. `scheme` supplies one label,
+colormap, limits, and tick definition. The primitive never chooses or combines
+material properties.
+"""
+function materialscale! end
