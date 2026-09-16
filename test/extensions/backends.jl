@@ -18,8 +18,31 @@
             makie_extension=Base.get_extension(LineCableModels, :LineCableModelsMakieExt)
             @test extension !== nothing
             @test makie_extension !== nothing
-            @test Base.invokelatest(extension.activate!) === backend
-            @test Base.invokelatest(makie_extension.current_backend_symbol) === backend
+            # Exercise the consumer boundary, not only the activation symbol.
+            # The GL-only CI environment does not install CairoMakie.
+            Base.invokelatest() do
+                @test extension.activate!() === backend
+                @test makie_extension.current_backend_symbol() === backend
+                parameters = LineCableModels.LineParameters(
+                    reshape(ComplexF64[1+im, 2+im], 1, 1, 2),
+                    reshape(ComplexF64[1+im, 2+im], 1, 1, 2) .* 1e-6,
+                    [1.0, 10.0])
+                page = LineCableModels.plot(parameters, (LineCableModels.R,);
+                    backend, display_plot=false, open_export=false)
+                available = Base.get_extension(LineCableModels, :LineCableModelsCairoMakieExt) !== nothing
+                @test haskey(page.controls, :export_svg) == available
+                mktempdir() do directory
+                    path = joinpath(directory, "export", "backend.svg")
+                    if available
+                        @test LineCableModels.export_svg(page; path, open_file=false) == path
+                        @test occursin("<svg", read(path, String))
+                    else
+                        @test_throws r"import CairoMakie" LineCableModels.export_svg(page; path)
+                        @test isempty(readdir(directory))
+                    end
+                end
+                @test makie_extension.current_backend_symbol() === backend
+            end
         end
     end
 end

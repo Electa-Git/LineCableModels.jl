@@ -110,7 +110,8 @@ end
     @test all(curve -> curve[1][] == first(curves)[1][],curves)
     @test allunique([curve.color[] for curve in curves])
     @test first(markers).marker[] == Makie.to_spritemarker(:circle)
-    @test markers[3].marker[] == Makie.to_spritemarker(:utriangle) # default is not the first candidate
+    @test Makie.to_color(first(curves).color[]) == Makie.to_color(:black)
+    @test allunique([marker.marker[] for marker in markers[2:end]])
     @test Makie.alpha(first(markers).color[]) == 0
     @test all(marker -> 1 <= length(marker[1][]) < length(frequency),markers)
     @test all(marker -> all(point -> point in first(curves)[1][],marker[1][]),markers)
@@ -118,13 +119,6 @@ end
     @test first(first(markers)[1][]) == first(first(curves)[1][])
     @test last(first(markers)[1][]) == last(first(curves)[1][])
     @test allunique(first(markers)[1][])
-    extension = Base.get_extension(LineCableModels,:LineCableModelsMakieExt)
-    other_reference = extension._addon_marker_coordinates(first(curves),(3,10);endpoints=true)
-    @test first(other_reference[]) == first(first(curves)[1][])
-    @test last(other_reference[]) == last(first(curves)[1][])
-    @test allunique(other_reference[])
-    @test maximum(findall(plot -> plot isa Makie.Lines,axis.scene.plots)) <
-        minimum(findall(plot -> plot isa Makie.Scatter,axis.scene.plots))
     entries = last(only(page.legend.entrygroups[]))
     @test length(entries) == 6
     @test page.legend.nbanks[] > 1
@@ -140,6 +134,7 @@ end
         for group in filtered.addon_state.order]
     @test [curve.color[] for curve in filtered_curves] == [curves[i].color[] for i in [1,6,3]]
     @test [marker.marker[] for marker in filtered_markers] == [markers[i].marker[] for i in [1,6,3]]
+    @test [marker[1][] for marker in filtered_markers] == [markers[i][1][] for i in [1,6,3]]
     plain = LineCableModels.plot(result; ydata=(R,),reference,
         series_attributes=(marker=nothing,),options...)
     @test !any(plot -> plot isa Makie.Scatter,only(plain.axes).scene.plots)
@@ -148,7 +143,6 @@ end
     short = LineCableModels.plot(short_result; ydata=(R,),reference=short_reference,options...)
     @test all(group -> any(plot -> plot isa Makie.Scatter && !isempty(plot[1][]),group),
         values(short.addon_state.groups))
-    @test last(only(short.axes).scene.plots).marker[] == Makie.to_spritemarker(:utriangle)
     short_markers = only(filter(plot -> plot isa Makie.Scatter,
         short.addon_state.groups[first(short.addon_state.order)]))
     @test length(short_markers[1][]) == 2

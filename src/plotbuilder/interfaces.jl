@@ -16,9 +16,16 @@ axes are placed.
 - `fig_size=nothing`: Figure dimensions in logical pixels for matrix recipes.
   Width is expanded when necessary to retain a landscape aspect of at least 4:3.
 - `series_attributes=nothing`: Native per-series overrides. Comparison recipes
-  supply solid lines and sparse, staggered markers automatically; `marker=nothing`
-  disables markers. References mark both endpoints. An explicit marker retains
-  native all-sample placement.
+  supply solid lines and sparse, staggered markers automatically. Explicit
+  references default to black curves and hollow circles; deterministic references
+  mark both endpoints. `marker=nothing` disables markers. An explicit marker
+  retains native all-sample placement.
+- `errorbar_sampling`: `:staggered` by default for explicit comparisons, `:all`
+  otherwise. Staggered intervals and automatic markers use separate retained
+  sample positions; full curves and full-data axis limits are unchanged. With
+  `:all`, every interval is drawn and automatic markers on uncertain series are
+  omitted. Intervals take priority in short series; reference identity remains
+  in the legend. This controls display only, not uncertainty or numerical sampling.
 - Native Axis keywords such as `xticks`, `ytickformat` and `limits` are forwarded
   to each axis. Other native plot attributes, such as `linewidth`, apply to
   compatible series. `axis=(...)` and `figure=(...)` explicitly target native
@@ -59,9 +66,10 @@ axes use cancellation-safe `log1p`/`expm1` transforms near zero. Already prepare
 observation publications are rendered as supplied, without another clipping pass.
 
 On UQ benchmarks, ordinary quantities such as `ydata=(R,L,G,C)` overlay the
-uncertainty-bearing core results as means with ±1 standard deviation. Explicit
+owner-published means with ±1 standard deviation, including retained moment-only
+publications. Plotting constructs no uncertainty-bearing result. Explicit
 requests such as `(statistics,L,std)` select statistic-only plots. Use separate
-calls for these two products. Monte Carlo marginal surrogates do not reconstruct
+calls for these two products. Monte Carlo marginal surrogates do not recover
 joint correlations or imply reliable uncertainty for arbitrary nonlinear transforms.
 
 # Errors
@@ -146,11 +154,14 @@ Save the current live Makie figure in `plot` as SVG through CairoMakie and
 return the absolute output path. `theme` may be `:default` or `:publication`.
 The SVG retains the current zoom and pan without resetting the interactive view.
 
-The SVG renderer loads automatically on first export, including from GLMakie
-and WGLMakie windows. No separate backend import is required. Export preserves
-the active display backend and restores the live figure state. The toolbar
+Load CairoMakie explicitly before exporting. For an interactive GLMakie window
+with SVG export, import both backends and select `backend=:gl` when plotting.
+The SVG button is created only when CairoMakie is already loaded. Loading it
+later enables this function on existing plots; recreate a plot to add its button.
+Export does not activate a backend and restores the live figure state. The toolbar
 reports file errors in the window's status row; direct calls throw the
-corresponding exception.
+corresponding exception. An unloaded CairoMakie renderer raises `ArgumentError`
+before filesystem or figure changes.
 """
 function export_svg end
 

@@ -171,15 +171,13 @@ function _prepare_line_observations(
         clip,
         atol
     )
-    published = _publish_line_source(object, input, ydata)
-    length(published.frequency.values) <= 1 &&
-        @warn "Frequency vector has $(length(published.frequency.values)) sample(s); nothing to plot."
-    return published
+    return _publish_line_source(object, input, ydata)
 end
 
 function _prepare_line_observations(source::Union{LineCableModels.AbstractUncertaintyResult,ObservationPublication};
         point::Integer,ydata,freq_unit=:base,length_unit=:kilo,quantity_units=nothing,
-        clip::Bool=true,atol=nothing,frequencies=nothing,sample_indices=nothing)
+        clip::Bool=true,atol=nothing,frequencies=nothing,sample_indices=nothing,
+        uncertainty::Bool=false)
     retained=source isa ObservationPublication
     retained && point!=1 && throw(ArgumentError("a retained publication contains one selected point"))
     dimensions=retained ? size(first(source).values) : size(observe(source[point],Z))
@@ -202,10 +200,23 @@ function _prepare_line_observations(source::Union{LineCableModels.AbstractUncert
     targets=unit_targets(ydata,basis(source);length_prefix=length_unit,overrides=quantity_units)
     publications=map(ydata,targets,coordinates) do request,target,indices
         identity=request_identity(request)
-        identity isa Tuple && length(identity)==3 && first(identity)===LineCableModels.statistics ||
-            throw(ArgumentError("UQ matrix plots require an explicit selected statistic"))
-        publication=observables(source,((identity...,point,indices...),);units=(target,),clip,atol)
+        if uncertainty
+            identity isa Function || throw(ArgumentError(
+                "mean ± std requires real-valued quantities; nonlinear transforms require retained statistics"))
+        else
+            identity isa Tuple && length(identity)==3 && first(identity)===LineCableModels.statistics ||
+                throw(ArgumentError("UQ matrix plots require an explicit selected statistic"))
+        end
+        request = uncertainty ? (LineCableModels.statistics, identity, Statistics.mean, point, indices...) :
+            (identity..., point, indices...)
+        publication=observables(source,(request,);units=(target,),clip,atol)
         observation=only(publication)
+        if uncertainty
+            spread=only(observables(source,
+                ((LineCableModels.statistics, identity, Statistics.std, point, indices...),);
+                units=(target,),clip,atol))
+            observation=merge(observation,(errors=spread.values,))
+        end
         eltype(observation.values) <: Real || throw(ArgumentError(
             "complex statistical plots require explicit real-valued quantities, such as R/X or G/B"))
         contract=getproperty(publication.metadata.observation_columns,Symbol(Units.symbol(observation.quantity)))

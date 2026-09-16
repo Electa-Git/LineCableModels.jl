@@ -1,6 +1,11 @@
 using Test
-using LineCableModels
-using GLMakie
+if "--backends-first" in ARGS
+    using GLMakie
+    using LineCableModels
+else
+    using LineCableModels
+    using GLMakie
+end
 
 const ARTIFACT_DIRECTORY = abspath(get(
     ENV,
@@ -30,9 +35,30 @@ plots = Makie.plot(
     open_export = false
 )
 handle = first(plots)
+empty_shell = LineCableModels.plotwindow(; title="Text-only shell", backend=:gl,
+        display_plot=false, open_export=false) do canvas
+    Label(canvas[1,1], "Publication without axes")
+end
 
-@testset "manual GL plotting gate / first SVG loads its renderer" begin
+@testset "manual GL plotting gate / no unloaded SVG action" begin
     @test Base.get_extension(LineCableModels, :LineCableModelsCairoMakieExt) === nothing
+    @test !haskey(handle.controls, :export_svg)
+    @test isempty(empty_shell.controls)
+    @test sort!(collect(keys(handle.controls))) == [:reset, :xlog, :ylog]
+    mktempdir() do directory
+        path = joinpath(directory, "not-created", "unavailable.svg")
+        @test_throws r"import CairoMakie" export_svg(handle; path, open_file=false)
+        @test isempty(readdir(directory))
+    end
+end
+
+# Loading a renderer does not retrofit existing toolbars. Explicitly select GL
+# again because importing CairoMakie itself activates the upstream backend.
+import CairoMakie
+GLMakie.activate!()
+
+@testset "manual GL plotting gate / late-loaded renderer preserves the live view" begin
+    @test !haskey(handle.controls, :export_svg)
     @test Base.get_extension(
         LineCableModels, :LineCableModelsMakieExt
     ).current_backend_symbol() === :gl
@@ -53,11 +79,9 @@ handle = first(plots)
     rows_before = copy(handle.figure.layout.rowsizes)
     mktempdir() do directory
         cd(directory) do
-            handle.controls[:export_svg].clicks[] += 1
-            path = joinpath(directory, only(readdir(directory)))
+            path = export_svg(handle; open_file=false)
             @test filesize(path) > 100
             @test occursin("<svg", read(path, String))
-            @test handle.addon_state.shell.status[] == "Saved SVG to $path"
             cp(path, joinpath(ARTIFACT_DIRECTORY, "first-gl-export.svg"); force = true)
         end
     end
@@ -68,7 +92,25 @@ handle = first(plots)
     @test [axis.finallimits[] for axis in handle.axes] == views_before
     @test handle.figure.scene.backgroundcolor[] == background_before
     @test handle.figure.layout.rowsizes == rows_before
+    # An empty toolbar is still interactive chrome. Its status row must not
+    # leak into publication output when Cairo was loaded after construction.
+    status_label = only(filter(block -> block isa Label && block.text[] == "Ready",
+        empty_shell.figure.content))
+    rendered_status = Bool[]
+    observer = on(empty_shell.figure.scene, Makie.events(empty_shell.figure).tick) do tick
+        tick.state === Makie.OneTimeRenderTick && push!(rendered_status, status_label.blockscene.visible[])
+    end
+    mktempdir() do directory
+        export_svg(empty_shell; path=joinpath(directory, "text-only.svg"), open_file=false)
+    end
+    off(observer)
+    @test !isempty(rendered_status) && !any(rendered_status)
+    @test status_label.blockscene.visible[]
 end
+
+plots = Makie.plot(parameters, (R, L, G, C); backend=:gl,
+    display_plot=true, open_export=false)
+handle = first(plots)
 
 @testset "manual GL plotting gate" begin
     @test plots isa Vector{UIPlot}
@@ -108,10 +150,10 @@ end
         display_plot = false
     ))
     susceptance.controls[:ylog].active[] = true
+    Makie.colorbuffer(susceptance.figure)
     susceptance_axis = last(susceptance.axes)
     @test susceptance_axis.yscale[] === Makie.log10
-    @test susceptance_axis.ytickformat[] === Makie.automatic
-    @test susceptance_axis.ylabel[] == "Shunt susceptance [S/km]"
+    @test occursin("Shunt susceptance [S/km]", string(susceptance_axis.ylabel[]))
     limits = susceptance_axis.finallimits[]
     ymin = limits.origin[2]
     ymax = ymin + limits.widths[2]
@@ -122,10 +164,12 @@ end
         ymin,
         ymax
     )
-    @test length(tick_values) in 1:4
-    @test all(isinteger, log10.(tick_values))
-    @test all(isone, round.(diff(log10.(tick_values)); digits = 8))
-    @test all(label -> label isa Makie.RichText, tick_labels)
+    # Short logarithmic spans use readable mantissas, not necessarily decade
+    # powers. Check the rendered scale/labels, not a superseded formatter type.
+    @test length(tick_values) == length(tick_labels) >= 2
+    @test issorted(tick_values) && allunique(tick_values)
+    @test all(value -> isfinite(value) && value > 0, tick_values)
+    @test allunique(string.(tick_labels))
 end
 
 GLMakie.closeall()

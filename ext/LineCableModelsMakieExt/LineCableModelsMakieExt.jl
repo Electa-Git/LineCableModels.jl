@@ -24,6 +24,7 @@ using Printf: @sprintf
 using Colors: HSV, Oklab, RGB, RGBA, blue, green, red
 import Dates
 using Statistics: mean
+import Statistics
 
 import LineCableModels.Units
 import LineCableModels.Engine
@@ -91,9 +92,8 @@ function _is_line_observation_request(source, value)
 end
 
 function _expand_line_observation_request(source, request)
-    resolved = Grammar.observation_request(source, request)
-    identity = resolved.identity
-    indices = resolved.indices
+    identity = request_identity(request)
+    indices = request_indices(request)
     if identity === LineCableModels.Z
         return ((LineCableModels.R, indices...), (LineCableModels.X, indices...))
     elseif identity === LineCableModels.Y
@@ -119,12 +119,13 @@ end
 _full_diagonal_request(selector::Function) = (selector, diag, Colon(), Colon())
 
 function _domain_line_request(source, selector::Function)
-    LineCableModels.domain(source) === LineCableModels.ModalDomain &&
+    source isa LineCableModels.LineParameters &&
+        LineCableModels.domain(source) === LineCableModels.ModalDomain &&
         return _full_diagonal_request(selector)
     return _full_line_request(selector)
 end
 
-function _line_selector_requests(source::LineCableModels.LineParameters, selector::Function)
+function _line_selector_requests(source::Union{LineCableModels.LineParameters,ObservationPublication}, selector::Function)
     selector === LineCableModels.Z &&
         return (_domain_line_request(source, LineCableModels.R),
             _domain_line_request(source, LineCableModels.X))
@@ -162,7 +163,7 @@ function _line_selector_requests(::LineCableModels.ShuntAdmittance, selector::Fu
     return (_full_line_request(selector),)
 end
 
-function _default_line_selection(::LineCableModels.LineParameters)
+function _default_line_selection(::Union{LineCableModels.LineParameters,ObservationPublication})
     (
         LineCableModels.R, LineCableModels.X, LineCableModels.G, LineCableModels.B)
 end
@@ -173,7 +174,16 @@ function _default_line_selection(::LineCableModels.ShuntAdmittance)
     (LineCableModels.G, LineCableModels.B)
 end
 
-function _line_plot_ydata(source::_LineSource, ydata)
+function _is_line_observation_request(::ObservationPublication, value)
+    value isa Tuple || return false
+    !isempty(value) && first(value) isa Function || return false
+    identity = request_identity(value)
+    return identity in (LineCableModels.R, LineCableModels.L, LineCableModels.X,
+        LineCableModels.G, LineCableModels.C, LineCableModels.B, LineCableModels.Z, LineCableModels.Y) &&
+        length(request_indices(value)) == 3 && all(_is_line_index_selector, request_indices(value))
+end
+
+function _line_plot_ydata(source::Union{_LineSource,ObservationPublication}, ydata)
     selected = ydata === nothing || ydata == () ?
                _default_line_selection(source) : ydata
     _is_line_observation_request(source, selected) &&

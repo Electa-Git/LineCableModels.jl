@@ -234,6 +234,8 @@ function _addon_semantic_line_page(
         page,
         mode;
         series_indices,
+        series_count,
+        errorbar_sampling,
         series_defaults,
         series_attributes,
         title,
@@ -275,15 +277,19 @@ function _addon_semantic_line_page(
         end
     end
     axes = Any[]
+    axis_series = Vector{NamedTuple}[]
     panels = Any[]
     resets = Function[]
     requested_scales = NamedTuple[]
     groups = Dict{Symbol, Vector{Any}}()
     dependent_plots = Pair{Makie.Plot,Makie.Plot}[]
+    marker_coordinates = Dict{Makie.Plot,Any}()
     group_order = Symbol[]
     group_labels = Dict{Symbol, String}()
     panel_group_labels = Any[]
-    colors = Tuple(_addon_comparison_color(index) for index in series_indices)
+    colors = Tuple(series_defaults === nothing ? _addon_comparison_color(index) :
+        series_defaults[i].attributes.color
+        for (i, index) in enumerate(series_indices))
 
     for (panel_index, (facet, position)) in enumerate(zip(page.facets, page.positions))
         observation = first(published).observations[facet.request_index]
@@ -301,7 +307,7 @@ function _addon_semantic_line_page(
             _addon_panel!(shell, position)
         end
         row, column = position
-        bottom_row = blocked ? maximum(first, page.positions) : page.dimensions[1]
+        bottom_row = maximum(first, page.positions)
         attributes = (;
             xlabelvisible = row == bottom_row,
             xticklabelsvisible = row == bottom_row,
@@ -338,6 +344,9 @@ function _addon_semantic_line_page(
                 facet.local_column,
                 :
             ))
+            errors = get(source.observations[facet.request_index], :errors, nothing)
+            yerror = errors === nothing ? nothing :
+                collect(view(errors, facet.local_row, facet.local_column, :))
             group = Symbol("result_$source_index")
             source_label = source_labels[source_index]
             plots = _addon_line!(
@@ -346,7 +355,12 @@ function _addon_semantic_line_page(
                 curve;
                 dependent_plots,
                 label = source_label,
-                color = colors[source_index]
+                color = colors[source_index],
+                phase = series_defaults === nothing ? (series_indices[source_index], series_count) :
+                    series_defaults[source_index].phase,
+                endpoints = series_defaults !== nothing && series_defaults[source_index].endpoints,
+                marker_coordinates = series_defaults === nothing ? nothing : marker_coordinates,
+                errorbar_sampling, yerror
             )
             if !haskey(groups, group)
                 groups[group] = Any[]
@@ -358,11 +372,14 @@ function _addon_semantic_line_page(
             push!(series, (;
                 xdata = source.frequency.values,
                 ydata = curve,
+                yerror,
+                sampled_intervals = errorbar_sampling === :staggered,
                 plots
             ))
         end
         reset! = _addon_reset!(axis, series)
         push!(axes, axis)
+        push!(axis_series, series)
         push!(panels, panel)
         push!(panel_group_labels, scoped_labels)
         push!(resets, reset!)
@@ -379,10 +396,11 @@ function _addon_semantic_line_page(
     end
     built = _addon_finish!(
         shell, axes, resets, groups, group_order, group_labels;
-        requested_scales, signed_ylog,
+        requested_scales, signed_ylog, axis_series,
         dependent_plots,
         series_attributes,
         series_defaults,
+        marker_coordinates,
         title,
         figure_title,
         title_attributes,
@@ -416,9 +434,11 @@ function _addon_line_pages(
         ydata,
         series_labels = nothing,
         series_indices = collect(eachindex(sources)),
+        series_count = maximum(series_indices),
         series_family_labels = nothing,
         formulation_sources = nothing,
         formulation_roles = nothing,
+        errorbar_sampling = formulation_roles === nothing ? :all : :staggered,
         series_attributes = nothing,
         series_defaults = nothing,
         title = nothing,
@@ -450,6 +470,8 @@ function _addon_line_pages(
         open_export::Bool = true,
         kwargs...
 )
+    errorbar_sampling in (:staggered, :all) || throw(ArgumentError(
+        "errorbar_sampling must be :staggered or :all"))
     _addon_activate_backend(backend)
     legend_overflow in (:ellipsis, :show_all) || throw(ArgumentError(
         "legend_overflow must be :ellipsis or :show_all",
@@ -488,8 +510,11 @@ function _addon_line_pages(
             frequencies
         ).published
     end
-    any(source -> length(source.frequency.values) <= 1, published) &&
+    if any(source -> isempty(source.frequency.values) ||
+            formulation_roles === nothing && length(source.frequency.values) == 1, published)
+        @warn "Selected frequency vectors have insufficient samples; nothing to plot."
         return LineCableModels.UIPlot[]
+    end
 
     facets = _semantic_line_facets(first(published), ydata)
     mode, pages = _semantic_line_pages(first(sources), facets, layout, blocks)
@@ -531,6 +556,8 @@ function _addon_line_pages(
                 same = isequal(left.frequency.values,right.frequency.values)
                 for request in unique(facet.request_index for facet in page.facets)
                     a,b = left.observations[request].values,right.observations[request].values
+                    same &= isequal(get(left.observations[request], :errors, nothing),
+                        get(right.observations[request], :errors, nothing))
                     same &= isequal(left.coordinates[request],right.coordinates[request]) && size(a)==size(b) &&
                         all(zip(a,b)) do (a,b)
                             isequal(a,b) || a isa Number && b isa Number &&
@@ -543,10 +570,9 @@ function _addon_line_pages(
             end
             # :default is a declaration route, not a distinct scientific curve.
             # Style references by role and candidates by their stable series index.
-            roles = Tuple(formulation_roles[index] === :reference ? :reference :
-                :alternative for index in retained)
+            roles = Tuple(formulation_roles[index] for index in retained)
             page_defaults = _addon_comparison_styles(Tuple(series_indices[index] for index in retained),
-                roles,maximum(series_indices))
+                roles,series_count)
             page_attributes = Tuple(styles[index] for index in retained)
         end
         automatic_title = _semantic_page_title(first(sources), page, mode)
@@ -563,6 +589,8 @@ function _addon_line_pages(
                     first(sources), Tuple(published[index] for index in retained),
                     Tuple(page_labels[index] for index in retained), page, mode;
                     series_indices=Tuple(series_indices[index] for index in retained),
+                    series_count,
+                    errorbar_sampling,
                     series_defaults=page_defaults,
                     series_attributes=page_attributes,
                     title = page_title,

@@ -283,7 +283,8 @@ end
     deterministic = report(BenchmarkTableDefinition((R,); bands=(:all,)),
         (reference=(result=core, metadata=metadata), candidate=(result=core, metadata=metadata)))
     summaries = map(a -> map(x -> SampleSummary([0.9x, 1.1x]), a), v)
-    mc = MonteCarloResult(MonteCarlo(Formulation(); trials=2, seed=7), [core],
+    mc = MonteCarloResult(MonteCarlo(Formulation(); trials=2, seed=7),
+        [LineCableModels.materialize(core,summaries)],
         [summaries], nothing, nothing, UInt64(7), UInt64[8], [2])
     m = map(a -> measurement.(a, sqrt(2) * 0.1 .* a), v)
     lep = LinearErrorResult(LinearError(Formulation()), [LineParameters(
@@ -614,7 +615,7 @@ end
 end
 
 @testitem "Makie addons / previews and statistical plots share live multipliers" tags=[:visual] setup=[TestFixtures] begin
-    using CairoMakie
+    using CairoMakie, Measurements
     copper = Material(kind=:conductor, rho=1.7241e-8)
     design = @cable "axis-preview" begin
         @terminal :core begin

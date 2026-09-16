@@ -7,14 +7,20 @@ display, layout, resizing, or callbacks also require a real-display GL check.
 Instantiate the development environment once:
 
 ```sh
-julia --project=dev/plotting -e 'using Pkg; Pkg.instantiate()'
+julia --project=dev/plotting -e 'using Pkg; Pkg.resolve(); Pkg.instantiate()'
 ```
 
 Run the automated GL and SVG gate under a real display or Xvfb:
 
 ```sh
 julia --project=dev/plotting dev/plotting/manual_gl.jl
+julia --project=dev/plotting dev/plotting/manual_gl.jl --backends-first
 ```
+
+Both runs begin with CairoMakie installed but unloaded: GL controls work and
+SVG controls are absent. They then explicitly import CairoMakie, export the old
+window through the API, and recreate a GL window with a working SVG button.
+Export preserves the live view and does not switch display backends.
 
 Run the complete interactive gallery under a real display:
 
@@ -52,7 +58,8 @@ and back to a short window. Confirm that:
 - `(...)` appears when entries overflow and disappears when they fit;
 - all three material colorbars stay inside the side dock;
 - the toolbar and status row retain their positions;
-- reset, log toggles, visibility toggles, and SVG export remain functional.
+- reset, log toggles, and visibility toggles remain functional;
+- SVG export is available when CairoMakie was loaded before plot construction.
 
 For the comparison grid, run:
 

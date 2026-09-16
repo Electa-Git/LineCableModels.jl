@@ -11,7 +11,8 @@
     second_core = LineParameters(1.2.*Z(core),1.2.*Y(core),f)
     second_summaries = map(a -> map(x -> SampleSummary(1.2.*[0.9x,x,1.1x]),a),parts)
     mc = MonteCarloResult(MonteCarlo(Formulation();trials=3,seed=1),
-        [core,second_core],[summaries,second_summaries],nothing,nothing,UInt64(1),UInt64[1,2],[3,3])
+        [LineCableModels.materialize(core,summaries),LineCableModels.materialize(second_core,second_summaries)],
+        [summaries,second_summaries],nothing,nothing,UInt64(1),UInt64[1,2],[3,3])
     measured = map(a -> measurement.(1.05.*a,0.03.*a),parts)
     candidate = LineParameters(complex.(measured.R,omega.*measured.L),
         complex.(measured.G,omega.*measured.C),f)
@@ -28,19 +29,28 @@
         backend=:cairo,display_plot=false,open_export=false,length_unit=:base,
         axis=(limits=((2.0,8.0),(.0005,.0030)),),linewidth=3)
     axis = only(page.axes)
+    @test axis.xlabelvisible[]
+    @test axis.xticklabelsvisible[]
     lines = filter(p -> p isa Makie.Lines,axis.scene.plots)
     bars = filter(p -> p isa Makie.Errorbars,axis.scene.plots)
     @test length(lines)==length(bars)==2
     @test page.export_name == "benchmark_uq_title_probe — Series resistance"
-    # Data markers must not compete with the uncertainty glyphs. Native
-    # Errorbars still own their cap geometry (which can itself use Scatter).
-    @test !any(p -> p isa Makie.Scatter,axis.scene.plots)
+    markers = filter(p -> p isa Makie.Scatter, axis.scene.plots)
+    @test length(markers) == 2
+    @test Makie.to_color(first(lines).color[]) == Makie.to_color(:black)
+    @test only(filter(p -> p isa Makie.Scatter,
+        page.addon_state.groups[first(page.addon_state.order)])).marker[] ==
+        Makie.to_spritemarker(:circle)
     @test bars[1].whiskerwidth[] > bars[2].whiskerwidth[] > 0
     for (line,bar,source) in zip(lines,bars,(uncertain(mc,2),uncertain(lep,2)))
         @test last.(line[1][]) ≈ nominal.(R(source)[2,1,:])
         # Errorbars encode x,y,negative error,positive error in native Point4.
-        @test getindex.(bar[1][],2) ≈ nominal.(R(source)[2,1,:])
-        @test getindex.(bar[1][],3) ≈ uncertainty.(R(source)[2,1,:])
+        indices = [findfirst(==(point[1]), f) for point in bar[1][]]
+        @test getindex.(bar[1][],2) ≈ nominal.(R(source)[2,1,indices])
+        @test getindex.(bar[1][],3) ≈ uncertainty.(R(source)[2,1,indices])
+        group = only(filter(handles -> line in handles, collect(values(page.addon_state.groups))))
+        marker = only(filter(p -> p isa Makie.Scatter, group))
+        @test isdisjoint(first.(marker[1][]), first.(bar[1][]))
         @test line.linewidth[] == 3
         @test bar.linewidth[] == 3 # Explicit native style wins over nested defaults.
     end
@@ -53,28 +63,70 @@
 
     # A new result owner must enter the real comparison renderer without adding
     # a PlotBuilder type/name branch. Reuse retained comparisons, not new physics.
-    struct PlotOwnerProbe{T,F} <: AbstractUncertaintyResult{T}
-        values::Vector{T}
-        formulation::F
+    struct PlotOwnerProbe{T,S<:AbstractUncertaintyResult{T}} <: AbstractUncertaintyResult{T}
+        source::S
     end
-    Base.NamedTuple(x::PlotOwnerProbe) = (values=x.values,formulation=NamedTuple(x.formulation),details=(;))
-    Base.length(x::PlotOwnerProbe) = length(x.values)
-    Base.getindex(x::PlotOwnerProbe,i::Integer) = x.values[i]
-    LineCableModels.uncertain(x::PlotOwnerProbe) = x.values
-    probe = PlotOwnerProbe([candidate,second_candidate],LinearError(Formulation()))
+    Base.NamedTuple(x::PlotOwnerProbe) = NamedTuple(x.source)
+    Base.length(x::PlotOwnerProbe) = length(x.source)
+    Base.getindex(x::PlotOwnerProbe,i::Integer) = x.source[i]
+    LineCableModels.basis(x::PlotOwnerProbe) = basis(x.source)
+    LineCableModels.observe(x::PlotOwnerProbe,args...) = observe(x.source,args...)
+    LineCableModels.Grammar.observation_request(x::PlotOwnerProbe,args...) =
+        LineCableModels.Grammar.observation_request(x.source,args...)
+    LineCableModels.Grammar.observation_resolution(x::PlotOwnerProbe,args...;kwargs...) =
+        LineCableModels.Grammar.observation_resolution(x.source,args...;kwargs...)
+    LineCableModels.Grammar.publication_table(x::PlotOwnerProbe,requests::Tuple,observations::Tuple,options::NamedTuple) =
+        LineCableModels.Grammar.publication_table(x.source,requests,observations,options)
+    probe = PlotOwnerProbe(lep)
     retained = merge(artifact.published,(candidate=merge(artifact.published.candidate,(result=probe,)),))
-    # Use the owned saved-report path; the test result provides native cores via
-    # the existing result/uncertain contracts, not a bespoke recipe.
+    # The renderer consumes public observations. This owner deliberately offers
+    # no uncertain accessor and requires no dedicated recipe.
     other = LineCableModels.plot(retained;ydata=((R,2,1,:),),problem=2,
         backend=:cairo,display_plot=false,open_export=false,length_unit=:base)
     other_lines = filter(p -> p isa Makie.Lines,only(other.axes).scene.plots)
     other_bars = filter(p -> p isa Makie.Errorbars,only(other.axes).scene.plots)
-    @test !any(p -> p isa Makie.Scatter,only(other.axes).scene.plots)
+    @test count(p -> p isa Makie.Scatter,only(other.axes).scene.plots) == 2
     @test other_bars[1].linewidth[] > other_bars[2].linewidth[] > 0
     @test last.(last(other_lines)[1][]) ≈ nominal.(R(second_candidate)[2,1,:])
     @test isequal(before,(Z(candidate),Y(candidate),frequencies(candidate)))
+    full = LineCableModels.plot(artifact; ydata=((R,2,1,:),), problem=2,
+        backend=:cairo, display_plot=false, open_export=false, length_unit=:base,
+        errorbar_sampling=:all)
+    for (key, source) in zip(full.addon_state.order, (uncertain(mc,2), uncertain(lep,2)))
+        group = full.addon_state.groups[key]
+        bar = only(filter(p -> p isa Makie.Errorbars, group))
+        @test length(bar[1][]) == length(f)
+        @test getindex.(bar[1][],3) ≈ uncertainty.(R(source)[2,1,:])
+        @test isempty(only(filter(p -> p isa Makie.Scatter, group))[1][])
+    end
     @test_throws ArgumentError LineCableModels.plot(artifact;problem=2,
         ydata=(R,(statistics,R,std)),backend=:cairo,display_plot=false)
+    # Detached moments have sufficient data for intervals, without claiming a
+    # native MC/LEP result or constructing an uncertainty-bearing surrogate.
+    requests = ((statistics,R,mean,1), (statistics,R,std,1))
+    reference_publication = observables(mc,requests;length_unit=:base,clip=false)
+    candidate_publication = observables(lep,requests;length_unit=:base,clip=false)
+    saved = merge(artifact.published,(
+        reference=merge(artifact.published.reference,(result=reference_publication,)),
+        candidate=merge(artifact.published.candidate,(result=candidate_publication,))))
+    for sampling in (:all,:staggered)
+        retained_page = LineCableModels.plot(saved;ydata=((R,2,1,:),),
+            backend=:cairo,display_plot=false,open_export=false,length_unit=:base,
+            errorbar_sampling=sampling)
+        Makie.colorbuffer(retained_page.figure)
+        retained_axis = only(retained_page.axes)
+        @test retained_axis.xlabelvisible[]
+        @test retained_axis.xticklabelsvisible[]
+        retained_lines = filter(p -> p isa Makie.Lines,retained_axis.scene.plots)
+        retained_bars = filter(p -> p isa Makie.Errorbars,retained_axis.scene.plots)
+        @test length(retained_lines) == length(retained_bars) == 2
+        @test Makie.to_color(first(retained_lines).color[]) == Makie.to_color(:black)
+        for (line,bar,source) in zip(retained_lines,retained_bars,(mc,lep))
+            indices = [findfirst(==(point[1]), f) for point in bar[1][]]
+            @test last.(line[1][]) ≈ observe(source,statistics,R,mean,1,2,1,:)
+            @test getindex.(bar[1][],3) ≈ observe(source,statistics,R,std,1,2,1,indices)
+        end
+    end
 end
 
 @testitem "Makie addons / UQ comparisons use native statistics and matrix pages" tags=[:visual] begin
@@ -93,7 +145,8 @@ end
         values.R .+ im .* omega .* values.L, values.G .+
                                              im .* omega .* values.C, f)
     reference=MonteCarloResult(
-        MonteCarlo(Formulation(); trials = 2, seed = 7), [core], [stats], nothing, nothing,
+        MonteCarlo(Formulation(); trials = 2, seed = 7),
+        [LineCableModels.materialize(core,stats)], [stats], nothing, nothing,
         UInt64(7), UInt64[8], [2])
     measured=map(values) do array
         measurement.(array, sqrt(2)*0.1 .* array)
@@ -167,7 +220,7 @@ end
         earth_impedance=(air=:default,earth=:pollaczek1926,mixed=:default),
         earth_admittance=(air=:default,earth=:default,mixed=:default))
     composite_reference=MonteCarloResult(MonteCarlo(inner;trials=2,seed=7),
-        [core],[stats],nothing,nothing,UInt64(7),UInt64[8],[2])
+        reference.values,[stats],nothing,nothing,UInt64(7),UInt64[8],[2])
     composite_candidate=LinearErrorResult(LinearError(inner),collect(candidate))
     composite_report=report(BenchmarkTableDefinition(requests;bands=(:all,)),
         (reference=(result=composite_reference,metadata=(port_order=["a","b","c"],)),
@@ -202,8 +255,8 @@ end
         display_plot = false, controls = false, open_export = false, length_unit = :base, fig_size = (
             1100, 750))
     @test length(selected)==8
-    @test_throws r"uncertainty-bearing core" LineCableModels.plot(detached_report;
-        backend=:cairo,ydata=(R,),display_plot=false)
+    @test LineCableModels.plot(detached_report;
+        backend=:cairo,ydata=(R,),display_plot=false) isa UIPlot
     for page in selected
         @test !isempty(Makie.colorbuffer(page.figure))
         for panel in Base.values(page.addon_state.panel_data)

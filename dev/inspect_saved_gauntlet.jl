@@ -25,6 +25,8 @@ plot_band = nothing
 rms_metric = :relative            # Or :absolute.
 make_plots = true
 plot_backend = :gl                # Use :cairo for headless/inline plots.
+enable_svg_export = false         # Also load CairoMakie for the SVG toolbar button.
+errorbar_sampling = :staggered     # Or :all to inspect every retained interval.
 display_plot = true
 fig_size = (1400, 1000)
 
@@ -113,6 +115,9 @@ end
 benchmark_plots = if make_plots
     plotting_environment=joinpath(@__DIR__, "plotting")
     plotting_environment in LOAD_PATH || push!(LOAD_PATH, plotting_environment)
+    if enable_svg_export
+        @eval import CairoMakie
+    end
     if plot_backend===:cairo
         @eval import CairoMakie
     elseif plot_backend===:gl
@@ -122,7 +127,7 @@ benchmark_plots = if make_plots
     end
     LineCableModels.plot(benchmark_report, ydata; problem = problem_index,
         band = plot_band, blocks, backend = plot_backend, display_plot, fig_size,
-        xscale = :log10, legend_position = :bottom)
+        xscale = :log10, legend_position = :bottom, errorbar_sampling)
 else
     nothing
 end

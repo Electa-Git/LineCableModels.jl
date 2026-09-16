@@ -76,6 +76,12 @@ Statistical comparisons select ordinary requests such as
 `BenchmarkTableDefinition(((statistics, R, mean), (statistics, R, std)); bands=(:all, :dc, :harmonic, :narrow, :wide))`.
 The `quantities`/`statistics` shorthand remains accepted and is expanded once.
 MC and LEP retain their native results; each outer point remains a separate population.
+
+Saved inspection reads portable scientific records, independently of native
+execution checkpoints. Historical mean/std-only records remain observation
+publications: their error bars are drawn from those retained products, without
+constructing Measurements or inventing a distribution. Native checkpoint
+restoration remains part of execution recovery, not inspection.
 Mean and standard-deviation comparisons use the same physical cutoffs, bands and
 normalizations as deterministic quantities. Retained MC percentiles remain available
 without inventing a LEP output distribution.
@@ -280,7 +286,11 @@ DataFrame metadata for the existing saved-summary writer, not reconstructed
 from display strings. Descriptions use retained consumed selections when present;
 a declaration alone does not establish which geometry-dependent routes executed.
 
-The existing unit controls, legends, zoom and SVG export remain available.
+The existing unit controls, legends and zoom remain available. Load CairoMakie
+before plot construction to include SVG export controls; for GL interactivity
+with export, load both backends and select `backend=:gl`. Explicit comparisons
+use black circular reference markers and staggered candidate/uncertainty glyphs.
+Use `errorbar_sampling=:all` to inspect every retained interval.
 Benchmark plots also retain the log-y toggle for signed matrix entries, using a
 sign-preserving pseudo-log scale on those panels. Use
 `length_unit=:base` to display native per-meter quantities. `band=:dc` uses saved

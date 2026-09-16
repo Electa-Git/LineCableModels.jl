@@ -1,6 +1,7 @@
 # Apply styles to the native semantic handles before constructing legends and
 # visibility controls. Every recipe uses this through the common plot shell.
-function _addon_series_styles!(groups, order, attributes; defaults=nothing, shared=(;))
+function _addon_series_styles!(groups, order, attributes; defaults=nothing, shared=(;),
+        marker_coordinates=nothing)
     dependents = Pair{Makie.Plot,Makie.Plot}[]
     # Nest coincident intervals in insertion order, without moving or sampling
     # their coordinates. Stroke widths stay in screen units on logarithmic axes.
@@ -29,9 +30,6 @@ function _addon_series_styles!(groups, order, attributes; defaults=nothing, shar
         group, overrides = order[index], merge(shared,styles[index])
         automatic = defaults === nothing ? nothing : defaults[index]
         automatic_attributes = automatic === nothing ? (;) : automatic.attributes
-        # Error bars supply the glyphs for an uncertainty overlay, regardless of
-        # result owner. Explicit native marker overrides remain intentional.
-        isempty(error_groups) || (automatic_attributes = merge(automatic_attributes, (marker=nothing,)))
         style = merge(automatic_attributes, overrides)
         isempty(style) && continue
         handles = groups[group]
@@ -54,8 +52,7 @@ function _addon_series_styles!(groups, order, attributes; defaults=nothing, shar
                 coordinates = if automatic === nothing || haskey(overrides, :marker)
                     handle[1]
                 else
-                    _addon_marker_coordinates(handle, automatic.phase;
-                        endpoints=automatic.endpoints)
+                    marker_coordinates[handle]
                 end
                 hollow = automatic !== nothing && automatic.hollow &&
                     !haskey(overrides, :marker)
@@ -89,31 +86,49 @@ function _addon_series_styles!(groups, order, attributes; defaults=nothing, shar
     return dependents
 end
 
-# The mask selects saved points only. Stable catalogue slots, rather than the
-# current visible-series count, keep phases unchanged when formulas are hidden.
-function _addon_marker_coordinates(handle, phase; endpoints=false)
+# Select retained sample indices for both glyph kinds. Stable catalogue slots,
+# rather than visible-series count, preserve phases when formulas are filtered.
+# Interval positions have priority; short series may have no marker positions.
+function _addon_glyph_indices(n, width, phase; endpoints=false, uncertain_indices=Int[],
+        errorbar_sampling=:staggered)
     slot, count = phase
-    axis_scene = handle.parent
-    return lift(handle[1], axis_scene.viewport) do points, viewport
-        n = length(points)
-        n == 0 && return points
-        width = max(1.0, Float64(viewport.widths[1]))
-        cycles = clamp(floor(Int, width / max(80, 14count)), 1, 8)
-        stride = max(count, cld(n, cycles))
-        offset = floor(Int, (slot - 1) * stride / count)
-        indices = collect((1 + offset):stride:n)
-        isempty(indices) && push!(indices, 1 + mod(slot - 1, n))
-        if endpoints
-            first(indices) == 1 || pushfirst!(indices, 1)
-            last(indices) == n || push!(indices, n)
-        end
-        return points[indices]
+    n == 0 && return (markers=Int[], intervals=Int[])
+    cycles = clamp(floor(Int, max(1, width) / max(80, 14count)), 1, 8)
+    stride = max(isempty(uncertain_indices) ? count : 2count, cld(n, cycles))
+    offset = floor(Int, (slot - 1) * stride / count)
+    markers = collect((1 + offset):stride:n)
+    isempty(markers) && push!(markers, 1 + mod(slot - 1, n))
+    if endpoints
+        push!(markers, 1, n)
+        sort!(unique!(markers))
     end
+    isempty(uncertain_indices) && return (markers=markers, intervals=Int[])
+    errorbar_sampling === :all && return (markers=Int[], intervals=collect(1:n))
+
+    # Interleave interval slots halfway between marker slots in each cycle.
+    interval_offset = floor(Int, (slot - 0.5) * stride / count)
+    intervals = collect((1 + interval_offset):stride:n)
+    filter!(index -> index in uncertain_indices, intervals)
+    if isempty(intervals)
+        target = 1 + mod(interval_offset, n)
+        push!(intervals, uncertain_indices[argmin(abs.(uncertain_indices .- target))])
+    end
+    filter!(index -> index ∉ intervals, markers)
+    if isempty(markers) && n > length(intervals)
+        for index in 1:n
+            if index ∉ intervals
+                push!(markers, index)
+                break
+            end
+        end
+    end
+    return (; markers, intervals)
 end
 
 function _addon_comparison_styles(indices, roles, count)
     shapes = (:rect, :diamond, :dtriangle, :cross, :xcross, :pentagon, :hexagon)
     return Tuple((attributes=(;
+            color=role === :reference ? RGB(0.0, 0.0, 0.0) : _addon_comparison_color(index),
             marker=role === :reference ? :circle :
                 shapes[mod1(index, length(shapes))],
             markersize=role === :reference ? 11 : 8,

@@ -218,17 +218,18 @@ explicitly. All mechanical ownership/import checks remain active. Its exact
 consumer/owner/name exceptions recognize documented upstream interfaces that
 lack Julia `public` annotations; they grant no package-private access.
 
-The 13 previously reported external accesses have these dispositions:
+The inspected external accesses have these dispositions:
 
 | Access | Contract and disposition |
 | --- | --- |
 | `CairoMakie.activate!` | Documented [backend activation](https://docs.makie.org/stable/explanations/backends/cairomakie.html); Cairo adapter only. |
 | `Base.IOError` | Native I/O exception, including [filesystem errors](https://docs.julialang.org/en/v1/base/file/); renderer export error handling only. |
-| `Base.require` | Documented [module loading](https://docs.julialang.org/en/v1/base/base/#Base.require); lazy backend loading only. |
+| `Base.require` | Removed from the renderer. `Base.get_extension` identifies the loaded Cairo extension, whose public `CairoMakie` binding supplies the native save backend. Export never loads packages. |
 | `Makie.automatic` | Documented [native attribute default](https://docs.makie.org/stable/api); renderer only. |
 | `Makie.current_backend` | Documented [backend-dependent API default](https://docs.makie.org/stable/api); renderer only. |
 | `Makie.get_ticks`, `Makie.get_tickvalues` | Documented [axis extension hooks](https://docs.makie.org/stable/reference/blocks/axis.html); renderer only. |
 | `Makie.pseudolog10` | Documented [axis scale](https://docs.makie.org/stable/reference/blocks/axis.html); renderer only. |
+| `Makie.inverse_transform` | Documented [custom axis scale contract](https://docs.makie.org/stable/reference/blocks/axis.html#xscale); the renderer applies axis margins to full uncertainty bounds in the selected scale, then maps them back without a second inverse-scale registry. |
 | `Makie.attribute_names` | Removed. Axis uses its `propertynames` interface plus the native `palette` keyword; Scatter uses the exported [`default_theme`](https://docs.makie.org/v0.24/explanations/recipes) contract. |
 | `Makie.get_plots` | Removed. Legend glyphs use the `plots` vector required by the [LegendElement extension contract](https://github.com/MakieOrg/Makie.jl/blob/v0.24.13/Makie/src/makielayout/types.jl). This is the documented source association, not arbitrary private-field inspection. |
 | `Makie.get_plot_visibilities` | Removed. Native `on`/`off` and the documented [`ObserverFunction.observable`](https://juliagizmos.github.io/Observables.jl/stable/#Observables.ObserverFunction) supply the notification target without changing visibility. |

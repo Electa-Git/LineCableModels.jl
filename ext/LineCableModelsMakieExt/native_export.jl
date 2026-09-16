@@ -92,8 +92,10 @@ function _native_hide_layout_content!(snapshot, content)
 end
 
 function _native_hide_interactive_chrome!(snapshot, plot)
-    haskey(plot.controls,:export_svg) || return nothing
+    plot.addon_state === nothing && return nothing
+    haskey(plot.addon_state, :shell) || return nothing
     root = plot.figure.layout
+    any(entry -> entry.content === plot.addon_state.shell.toolbar, root.content) || return nothing
     row_sizes = copy(root.rowsizes)
     row_gap = root.default_rowgap
     for entry in root.content
@@ -174,20 +176,17 @@ function _native_restore_snapshot!(snapshot)
     return nothing
 end
 
-function _native_restore_backend!(backend)
-    Makie.current_backend() === backend && return nothing
-    backend isa Module || return nothing
-    isdefined(backend, :activate!) || return nothing
-    Base.invokelatest(getproperty(backend, :activate!))
-    return nothing
-end
-
 function LineCableModels.export_svg(
         plot::LineCableModels.UIPlot;
         path::Union{Nothing, AbstractString} = nothing,
         theme::Union{Nothing, Symbol} = nothing,
         open_file::Union{Nothing, Bool} = nothing
 )
+    cairo = Base.get_extension(LineCableModels, :LineCableModelsCairoMakieExt)
+    cairo === nothing && throw(ArgumentError(
+        "SVG export requires CairoMakie to be loaded; run `import CairoMakie` first. " *
+        "For interactive plots, select backend=:gl after importing both backends.",
+    ))
     output = path === nothing ? _native_available_path(plot) : abspath(String(path))
     export_theme = theme === nothing ? plot.export_theme : theme
     should_open = open_file === nothing ? plot.open_export : open_file
@@ -198,17 +197,12 @@ function LineCableModels.export_svg(
         "refusing to overwrite existing file: $output",
     ))
     mkpath(dirname(output))
-    previous_backend = Makie.current_backend()
     snapshot = Pair{Any, Any}[]
     layout_snapshot = nothing
     matrix_layout = plot.addon_state === nothing ? nothing : get(plot.addon_state, :matrix_layout, nothing)
+    suspended = matrix_layout === nothing ? nothing : matrix_layout.suspended[]
     matrix_layout === nothing || (matrix_layout.suspended[] = true)
     try
-        # Cairo is an installed dependency, loaded only when SVG is requested.
-        # Its initialization activates it globally; restore the live backend
-        # immediately and select the renderer on the save call itself.
-        cairo = Base.require(LineCableModels, :CairoMakie)
-        _native_restore_backend!(previous_backend)
         layout_snapshot = _native_publication_snapshot!(
             snapshot,
             plot,
@@ -219,14 +213,12 @@ function LineCableModels.export_svg(
             export_theme = export_theme
         )) do
             # Preserve the live zoom/pan: Makie's display update resets axes.
-            # A click callback may predate the newly loaded renderer's methods.
-            Base.invokelatest(Makie.save, output, plot.figure; backend = cairo, update = false)
+            Makie.save(output, plot.figure; backend = cairo.CairoMakie, update = false)
         end
     finally
         _native_restore_interactive_chrome!(layout_snapshot)
         _native_restore_snapshot!(snapshot)
-        matrix_layout === nothing || (matrix_layout.suspended[] = false)
-        _native_restore_backend!(previous_backend)
+        matrix_layout === nothing || (matrix_layout.suspended[] = suspended)
     end
     opened = should_open && _native_open_export(output)
     message = if opened

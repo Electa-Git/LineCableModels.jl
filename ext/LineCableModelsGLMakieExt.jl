@@ -5,8 +5,7 @@ Activate GLMakie and create interactive plot screens for LineCableModels.
 """
 module LineCableModelsGLMakieExt
 
-using GLMakie
-using LineCableModels
+import GLMakie
 
 activate!() = (GLMakie.activate!(); :gl)
 function make_screen(
@@ -26,11 +25,6 @@ function make_screen(
     GLMakie.GLFW.SetWindowAspectRatio(screen.glscreen,
         aspect_size[1] ÷ divisor, aspect_size[2] ÷ divisor)
     return screen
-end
-
-function __init__()
-    activate!()
-    return nothing
 end
 
 end # module LineCableModelsGLMakieExt

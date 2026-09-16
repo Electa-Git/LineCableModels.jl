@@ -66,6 +66,97 @@
     @test isequal(before,(Z(source),Y(source),frequencies(source)))
 end
 
+@testitem "Makie addons / staggered comparisons retain complete uncertainty bounds" tags=[:visual] begin
+    using CairoMakie, Measurements
+
+    f = collect(1.0:101.0)
+    resistance = 1 .+ f ./ 100
+    errors = fill(0.05, length(f))
+    errors[1] = 3.0 # An endpoint interval, not a sparse interior glyph.
+    z = reshape(complex.(measurement.(resistance, errors), 0.1), 1, 1, :)
+    reference = LineParameters(z, z .* 1e-6, measurement.(f, 0.01))
+    other_z = reshape(complex.(measurement.(1.05 .* resistance, 0.02), 0.1), 1, 1, :)
+    candidate = LineParameters(other_z, other_z .* 1e-6, measurement.(f, 0.02))
+    axes = (problems=[:one], formulations=[NamedTuple(Formulation())])
+    result = ParametricResult(nothing, [candidate], axes, ComputationDetails((;)))
+    before = deepcopy((Z(reference), Y(reference), frequencies(reference), Z(candidate)))
+    options = (; backend=:cairo, display_plot=false, open_export=false,
+        ydata=((R,1,1,:),), reference, length_unit=:base, quantity_units=:base,
+        freq_unit=:base, clip=false, fig_size=(1000,650))
+    page = LineCableModels.plot(result; options...)
+    axis = only(page.axes)
+    for (key, source) in zip(page.addon_state.order, (reference, candidate))
+        group = page.addon_state.groups[key]
+        line = only(filter(p -> p isa Makie.Lines, group))
+        marker = only(filter(p -> p isa Makie.Scatter, group))
+        bars = filter(p -> p isa Makie.Errorbars, group)
+        @test length(line[1][]) == length(f)
+        @test length(bars) == 2
+        @test 0 < length(first(bars)[1][]) < length(f)
+        @test first.(bars[1][1][]) == first.(bars[2][1][])
+        for bar in bars
+            indices = [findfirst(==(p[1]), f) for p in bar[1][]]
+            expected = bar.direction[] === :x ? frequencies(source)[indices] : R(source)[1,1,indices]
+            @test getindex.(bar[1][],3) ≈ uncertainty.(expected)
+            @test isdisjoint(first.(marker[1][]), first.(bar[1][]))
+        end
+        @test all(p -> p in line[1][], marker[1][])
+        @test all(bar -> Makie.to_color(bar.color[]) == Makie.to_color(line.color[]), bars)
+    end
+    reference_group = page.addon_state.groups[first(page.addon_state.order)]
+    reference_bar = only(filter(p -> p isa Makie.Errorbars && p.direction[] === :y, reference_group))
+    @test first(f) ∉ first.(reference_bar[1][])
+    @test axis.finallimits[].origin[2] <= resistance[1] - errors[1]
+    @test sum((axis.finallimits[].origin[2], axis.finallimits[].widths[2])) >= resistance[1] + errors[1]
+    # A hidden negative interval still rules out an ordinary logarithmic axis.
+    page.controls[:ylog].active[] = true
+    @test axis.yscale[] !== log10
+    page.controls[:ylog].active[] = false
+    entry = first(last(only(page.legend.entrygroups[])))
+    Makie.toggle_visibility!(entry)
+    @test all(!p.visible[] for p in reference_group)
+    @test sum((axis.finallimits[].origin[2], axis.finallimits[].widths[2])) < 4.0
+    Makie.toggle_visibility!(entry, true)
+    for size in ((460,400), (1200,750))
+        resize!(page.figure, size...)
+        @test !isempty(Makie.colorbuffer(page.figure))
+        @test axis.finallimits[].origin[2] <= resistance[1] - errors[1]
+        @test sum((axis.finallimits[].origin[2], axis.finallimits[].widths[2])) >= resistance[1] + errors[1]
+    end
+    view = Makie.Rect2d(20.0, 1.2, 30.0, 0.5)
+    axis.targetlimits[] = view
+    resize!(page.figure, 900, 650)
+    @test axis.targetlimits[] == view
+    page.controls[:reset].clicks[] += 1
+    mktempdir() do directory
+        @test isfile(export_svg(page; path=joinpath(directory, "staggered.svg"), open_file=false))
+    end
+
+    for n in (1, 2)
+        short = ParametricResult(nothing, [candidate[1:n]], axes, ComputationDetails((;)))
+        plot = LineCableModels.plot(short; options..., reference=reference[1:n])
+        for group in values(plot.addon_state.groups)
+            marker = only(filter(p -> p isa Makie.Scatter, group))
+            bars = filter(p -> p isa Makie.Errorbars, group)
+            @test all(!isempty(bar[1][]) for bar in bars)
+            @test all(isdisjoint(first.(marker[1][]), first.(bar[1][])) for bar in bars)
+        end
+        @test any(element -> element isa Makie.MarkerElement,
+            first(last(only(plot.legend.entrygroups[]))).elements)
+    end
+    overridden = LineCableModels.plot(result; options..., errorbar_sampling=:all,
+        series_attributes=(marker=:diamond, color=:magenta, whiskerwidth=12))
+    for group in values(overridden.addon_state.groups)
+        marker = only(filter(p -> p isa Makie.Scatter, group))
+        @test length(marker[1][]) == length(f)
+        @test marker.marker[] == Makie.to_spritemarker(:diamond)
+        @test all(p -> Makie.to_color(p.color[]) == Makie.to_color(:magenta), group)
+        @test all(p.whiskerwidth[] == 12 for p in group if p isa Makie.Errorbars)
+    end
+    @test_throws r"errorbar_sampling" LineCableModels.plot(result; options..., errorbar_sampling=:invalid)
+    @test isequal(before, (Z(reference), Y(reference), frequencies(reference), Z(candidate)))
+end
+
 @testitem "Makie addons / uncertainty legend actions preserve complete series" tags=[:visual] begin
     using CairoMakie, Measurements
 

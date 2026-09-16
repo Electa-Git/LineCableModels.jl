@@ -131,11 +131,15 @@ end
                 case_id = "uq_case", backend = :coaxial, problem = (physical = "same",),
                 selection = Dict("propagation"=>id), formulation = (
                     definitions = (;), options = (;)),
-                frequencies = f, basis = :pul, domain = :PhaseDomain, port_order = ["core"], moments)
+                frequencies = f, basis = :pul, domain = :PhaseDomain, port_order = ["core"], moments,
+                result_bytes=UInt8[0xff, 0x00, 0x7f])
             write(path*".sha256", bytes2hex(open(sha256, path)))
             push!(paths, path)
         end
         reference, candidate=read_calculation.(paths)
+        @test reference.metadata.recovery === :retained_mean_std_only
+        @test candidate.metadata.recovery === :retained_mean_std_only
+        @test reference.result isa LineCableModels.Grammar.ObservationPublication
         source=joinpath(root, "definition.toml")
         write(source, "# fixture")
         benchmark=benchmark_definition(:uq_fixture, :uq_case, :uq, source,

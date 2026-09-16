@@ -95,7 +95,7 @@ self_impedance = plot(line_parameters, @observe Z[1, 1, :])
 ```
 
 `GLMakie` and `WGLMakie` are supported in the same way. Load the backend you want
-for display; SVG export loads its own renderer on demand. The optional
+for display and also `import CairoMakie` if SVG export is needed. The optional
 `backend=:cairo`, `:gl`, or `:wgl` keyword selects a backend for one call. Observation requests determine
 physical quantity/coordinate axes; `layout` only groups those facets into
 figures. Singular recipes return a `UIPlot`; calls that produce several figures
@@ -106,9 +106,11 @@ Matrix coordinates belong in semantic axis titles, never legend entries.
 Legends accept outer docks or
 `legend_position=:inside` with an anchor such as `:rt`; `figurelegend!`,
 `panellegend!`, `figuretitle!`, and `paneltitle!` can change those native blocks
-after construction. The Export SVG control saves their current live state,
-loads CairoMakie automatically when first needed, and preserves the active
-display backend.
+after construction. The Export SVG control appears only when CairoMakie is loaded
+before plot construction. It saves the current live state without switching
+display backends. For GL interactivity with export, import both backends and
+select `backend=:gl`. After loading CairoMakie later, `export_svg` also works on
+existing plots; recreate the plot to add its button.
 
 ## Result access
 
@@ -133,7 +135,10 @@ calculation forms the Cartesian product of problem and formulation points and
 retains both axes for `result(run, problem_index, formulation_index)` lookup.
 Conditional Monte Carlo propagation returns
 `MonteCarloResult{T}`. Use `statistics`, `samples`, `histograms`, and
-`uncertain` to inspect stored calculation data. Result order is
+`uncertain` to inspect stored calculation data. Load `Measurements` before
+computation: MC stores marginal Measurements built from accepted sample means
+and sample standard deviations, without joint output correlations. `uncertain`
+and downstream transport reuse those stored values. Result order is
 problem-index-fastest within formulation order. Unresolved traversal state is
 not copied into completed results. Parametric, linear-error, and Monte Carlo results are ordinary finite
 collections: indexing and iteration return stored core results, and Base

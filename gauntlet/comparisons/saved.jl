@@ -129,40 +129,8 @@ function read_calculation(path::AbstractString; sha256_expected = nothing, evide
     if formulation isa NamedTuple && all(key -> haskey(formulation,key),(:id,:input_sha256,:formulation,:options))
         formulation=formulation.formulation
     end
-    recovery=:portable
-    if kind === :gauntlet_moments
-        native=jldopen(path,"r") do file
-            if haskey(file,"result_bytes")
-                try
-                    Serialization.deserialize(IOBuffer(file["result_bytes"]))
-                catch error
-                    @warn "Native UQ checkpoint could not be restored; retained mean/std remain available" path exception=error
-                    nothing
-                end
-            else
-                nothing
-            end
-        end
-        if native !== nothing
-            native isa AbstractUncertaintyResult && length(native)==1 || throw(ArgumentError("invalid native UQ checkpoint"))
-            core=only(native)
-            frequencies(core)==document["frequencies"] && basis(core)==document["basis"] &&
-                nameof(domain(core))==document["domain"] ||
-                throw(ArgumentError("native UQ checkpoint differs from saved coordinates"))
-            get(details(core).data,:coordinates,ports)==ports ||
-                throw(ArgumentError("native UQ checkpoint differs from saved terminal identities"))
-            for (name,selector) in pairs((R=LineCableModels.R,L=LineCableModels.L,C=LineCableModels.C,G=LineCableModels.G)),
-                    (statistic,transform) in ((:mean,Statistics.mean),(:std,Statistics.std))
-                isequal(Float64.(observe(native,LineCableModels.statistics,selector,transform,1)),
-                    getproperty(getproperty(document["moments"].values,name),statistic)) ||
-                    throw(ArgumentError("native UQ checkpoint differs from saved moment products"))
-            end
-            result=native
-            recovery=:native_checkpoint
-        else
-            recovery=:retained_mean_std_only
-        end
-    end
+    # Executable checkpoints belong to execution reuse, never passive inspection.
+    recovery=kind === :gauntlet_moments ? :retained_mean_std_only : :portable
     metadata = (path, sha256 = digest, data_sha256 = data_digest,
         loaded_data_sha256=result isa AbstractUncertaintyResult ? data_digest : semantic_sha256(result,coordinates), recovery, evidence_issues,
         report_data_sha256=result isa AbstractUncertaintyResult ? semantic_sha256(result,coordinates,report) : nothing,

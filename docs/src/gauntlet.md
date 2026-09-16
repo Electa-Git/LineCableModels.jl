@@ -255,9 +255,10 @@ The six-row display counts selected terminal benchmarks and accepted complete
 frequency scans. MC retains its accepted-trial counter when a child FEM call supplies
 optional validated-frequency detail. Unknown scan totals use `?`. Validation,
 persistence, reports, and declared performance work remain unfinished after the
-last scan. Failed comparison verdicts count as Failed without changing saved-result
-recovery or timing eligibility. Exhausting selected execution shows `ETA done`, even
-with failed verdicts; early abort shows `ETA stopped`.
+last scan. `Complete` means that work finished; `Failed` means an execution error.
+Numerical differences, unavailable relative RMS and timing ratios remain reported
+observations, without acceptance verdicts. Exhausting selected execution shows
+`ETA done`, including when jobs failed; early abort shows `ETA stopped`.
 
 One approximate campaign ETA combines remaining operation, overhead, and declared
 performance budgets. Scope-correct observations and explicitly provisional fallback

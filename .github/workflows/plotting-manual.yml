@@ -27,8 +27,11 @@ jobs:
           Pkg.activate(joinpath(pwd(), ".manual-gl-env"))
           Pkg.develop(PackageSpec(path = pwd()))
           Pkg.add(PackageSpec(name = "GLMakie", version = "0.13"))
+          Pkg.add(PackageSpec(name = "CairoMakie", version = "0.15"))
       - name: Exercise the GL UI and one-click SVG export
         run: xvfb-run --auto-servernum julia --startup-file=no --project=.manual-gl-env dev/plotting/manual_gl.jl
+      - name: Exercise backend-first imports in a fresh consumer process
+        run: xvfb-run --auto-servernum julia --startup-file=no --project=.manual-gl-env dev/plotting/manual_gl.jl --backends-first
       - name: Upload visual evidence
         uses: actions/upload-artifact@v4
         with:

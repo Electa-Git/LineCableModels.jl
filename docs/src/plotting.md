@@ -109,24 +109,29 @@ At equal `fig_size`, full and residual pages retain equal axis rectangles and
 common decoration margins. Native SVG export preserves the block geometry.
 Figures are landscape (at least 4:3); physical cross-section axes remain square.
 
-Deterministic comparison plots use solid lines with sparse, staggered markers on saved sample
-points: hollow circles for references and filled shapes for candidates.
+Explicit comparison plots use solid lines with sparse, staggered markers on saved
+sample points: black curves and hollow circles for references, colored curves
+and filled shapes for candidates. References may themselves carry uncertainty.
 Default routes and explicit implementations have the same styling semantics.
-References always mark both endpoints.
+Deterministic references mark both endpoints.
 Colors and marker identities remain stable
 when formulations are filtered. No curves are merged because they agree.
 Use `series_attributes=(marker=nothing,)` for lines only, or an explicit native
 `marker` for all-sample placement. References remain comparison operands, not
 declarations of physical truth.
 
-Uncertainty overlays use solid mean lines and error bars at every retained
-sample, without automatic point markers. Across overlaid series, cap widths
-decrease from 10 to 4 screen units and stem widths from 2 to 1, in drawing
-order. This exposes earlier coincident intervals without moving frequencies,
-changing uncertainties, or changing the mean-line widths. The same policy
-applies to x and y uncertainty, including ordinary `LineParameters` overlays.
-Styling stays fixed when a series is hidden or scales are toggled. Native
-`whiskerwidth`, `linewidth`, or explicit `marker` overrides still take priority.
+In explicit comparisons, `errorbar_sampling=:staggered` selects sparse error
+bars at retained samples separately from automatic markers. Both references
+and candidates retain their full mean curves. Coordinates, uncertainties,
+comparison calculations, and full-data axis limits are unchanged. X and Y
+intervals use the same indices. When very few samples are available, intervals
+take priority over conflicting automatic markers; the legend retains identity.
+Use `errorbar_sampling=:all` to inspect every interval, with automatic markers
+omitted on uncertain series. Ordinary overlays without explicit comparison
+roles retain this full-interval default. Explicit native markers still use
+all samples. Native `whiskerwidth` and `linewidth` overrides take priority.
+Sparse glyphs are an overview: use full intervals or separate standard-deviation
+curves to inspect uncertainty variation. Mean ± std is not mean ± standard error.
 Many exactly coincident methods cannot all remain distinguishable at finite
 screen resolution; use legend visibility to inspect them separately.
 
@@ -209,37 +214,24 @@ cable_system = build(
 nothing #hide
 ````
 
-Monte Carlo plots consume retained result products. The documentation fixture
-therefore contains samples, their summary, and a normalized histogram model;
-none of the plotting calls below reruns a simulation.
+Compute once. The result owns its Measurements surrogate, empirical summaries,
+samples and histograms; all plotting calls below only read these products.
 
 ````@example plotting
-sample_values = collect(range(1.0, 5.0; length = 81));
-sample_summary = SampleSummary(sample_values);
-sample_model = HistogramDensity(
-    collect(range(1.0, 5.0; length = 9)),
-    fill(0.25, 8)
+mc_space = Gridspace{CableConstantsProblem}(
+    temperature -> CableConstantsProblem(mv_design; temperature),
+    (Grid(20.0, AbsoluteError(1.0)),)
 );
 mc_formulation = MonteCarlo(
-    Formulation();
-    trials = length(sample_values),
+    CableConstantsFormulation(shunt_model=:coaxial);
+    trials = 32,
     seed = 41,
+    distribution = :uniform,
     return_samples = true,
-    return_histograms = true
+    return_histograms = true,
+    bins = 8
 );
-mc_result = MonteCarloResult(
-    mc_formulation,
-    [CableConstants(3.0, 3.0, 3.0, 3.0)],
-    [(R = [sample_summary], L = [sample_summary], C = [sample_summary],
-        G = [sample_summary])],
-    [(R = reshape(sample_values, 1, :), L = reshape(sample_values, 1, :),
-        C = reshape(sample_values, 1, :), G = reshape(sample_values, 1, :))],
-    [(R = [sample_model], L = [sample_model], C = [sample_model],
-        G = [sample_model])],
-    UInt64(41),
-    UInt64[41],
-    [length(sample_values)]
-);
+mc_result = compute(ParametricProblem(mc_space), mc_formulation);
 nothing #hide
 ````
 
@@ -1098,11 +1090,12 @@ For names shared by Axis and a plot, the unqualified form targets Axis.
 An explicit native `figure.size` overrides the managed landscape default.
 
 UQ benchmark plots with ordinary `ydata=(R,L,G,C)` overlay mean ±1 standard
-deviation through the same line-result renderer. Explicit `(statistics,L,std)`
+deviation from owner-published moments, including historical mean/std-only
+publications. No uncertain result is constructed to draw error bars. Explicit `(statistics,L,std)`
 requests retain statistic-only plots; request these two products in separate
-calls. `uncertain(result, configuration)` reads one uncertainty-bearing core
-result; for MC it reconstructs only that configuration's marginal means/stds,
-without inferring joint correlations.
+calls. `uncertain(result, configuration)` returns the stored uncertainty-bearing
+core without reconstruction. MC constructs this marginal representation during
+aggregation, without inferring joint correlations.
 Benchmark overlays retain the y toggle when matrix entries include zero or
 negative values; those panels use a sign-preserving pseudo-log transform with
 `log1p`/`expm1` evaluation to retain tiny signed values near zero.
@@ -1190,15 +1183,17 @@ legend/colorbar docks next to it, and center the resulting group.
 
 ### Current-state SVG export
 
-Click Save in any supported preview or plot window to export SVG. The renderer
-loads automatically on the first export; a GLMakie or WGLMakie session needs
-no separate CairoMakie import or backend reactivation. The toolbar reports
+Load CairoMakie before creating a plot to include its Save button. For GL
+interactivity and SVG export, import both CairoMakie and GLMakie, then select
+`backend=:gl`. Installed but unloaded CairoMakie does not enable the button.
+Loading CairoMakie later enables direct export of an existing plot; recreate
+the plot to add its button. Export never loads packages. The toolbar reports
 file errors in the status row; direct `export_svg` calls throw them to the caller.
 
 [`export_svg`](@ref) saves the current live figure through CairoMakie. For a
 publication export it temporarily hides the toolbar and status row, switches
 the figure's font roles to Makie's LaTeX font theme, uses a white background,
-and then restores every changed observable and the previously active backend.
+and then restores every changed observable. Saving does not activate a backend.
 Caller-added plots, visibility, scales, limits, and annotations are saved
 because export does not reconstruct an earlier specification.
 Interactive zoom and pan are retained in both the SVG and the live window.

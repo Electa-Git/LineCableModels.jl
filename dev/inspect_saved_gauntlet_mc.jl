@@ -28,6 +28,8 @@ plot_band = nothing
 rms_metric = :relative            # Or :absolute.
 make_plots = true
 plot_backend = :gl                # Use :cairo for headless/inline plots.
+enable_svg_export = false         # Also load CairoMakie for the SVG toolbar button.
+errorbar_sampling = :staggered     # Or :all to inspect every retained interval.
 display_plot = true
 fig_size = (1400, 1000)
 
@@ -243,6 +245,9 @@ statistic_plots = nothing
 benchmark_plots = if make_plots
     plotting_environment=joinpath(@__DIR__, "plotting")
     plotting_environment in LOAD_PATH || push!(LOAD_PATH, plotting_environment)
+    if enable_svg_export
+        @eval import CairoMakie
+    end
     if plot_backend===:cairo
         @eval import CairoMakie
     elseif plot_backend===:gl
@@ -252,18 +257,18 @@ benchmark_plots = if make_plots
     end
     all(quantity -> quantity in (R, X, L, G, B, C), ydata) || throw(ArgumentError(
         "Use R/X/L and G/B/C for marginal mean ± std plots; complex-magnitude uncertainty requires joint statistics"))
-    # The benchmark recipe uses the same uncertainty-bearing core overlay as
-    # plot(LineParameters), with owner labels, case titles and band selection.
+    # The benchmark recipe reads mean/std publications directly, including
+    # historical moment-only records; it does not construct uncertain results.
     println("\nPlotting both methods: frequency on x, mean on y, error bars ±1 std (not standard error).")
     mean_std_plots = LineCableModels.plot(benchmark_report; ydata,
         problem = problem_index, band = plot_band, blocks,
         backend = plot_backend, display_plot, fig_size,
-        xscale = :log10, legend_position = :bottom)
+        xscale = :log10, legend_position = :bottom, errorbar_sampling)
     if make_statistic_plots
         statistic_plots = LineCableModels.plot(
             benchmark_report, requests; problem = problem_index,
             band = plot_band, blocks, backend = plot_backend, display_plot, fig_size,
-            xscale = :log10, legend_position = :bottom)
+            xscale = :log10, legend_position = :bottom, errorbar_sampling)
     end
     mean_std_plots
 else

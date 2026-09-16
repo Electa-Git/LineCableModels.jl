@@ -361,7 +361,7 @@ function _addon_set_axis!(entries::AbstractVector, dim::Symbol, scale=nothing)
         bounds = requested[index] === nothing ? () : requested[index]
         all(value -> value === nothing || isfinite(value), bounds) ||
             throw(DomainError(bounds, "$context requires finite explicit limits"))
-        values = _addon_visible_values(entry.axis, dim)
+        values = _addon_visible_values(entry.axis, dim, entry.series)
         if target === Base.log10 && entry.signed && !isempty(values) && !all(>(0),values)
             target = _addon_scale(:pseudolog10)
         end
@@ -406,36 +406,50 @@ function _addon_numeric_values(values)
     return nominal_values, any(error -> !iszero(error), errors) ? errors : nothing
 end
 
-function _addon_line!(axis, xdata, ydata; dependent_plots, label, color = nothing, visible = true)
+function _addon_line!(axis, xdata, ydata; dependent_plots, label, color = nothing,
+        visible = true, phase=(1, 1), endpoints=false, marker_coordinates=nothing,
+        errorbar_sampling=:all, yerror=nothing)
     x, xerror = _addon_numeric_values(xdata)
-    y, yerror = _addon_numeric_values(ydata)
+    y, inferred_error = _addon_numeric_values(ydata)
+    yerror = yerror === nothing ? inferred_error :
+        (all(iszero, yerror) ? nothing : Float64.(yerror))
     attributes = color === nothing ? (; linewidth = 2) : (; linewidth = 2, color)
     plots = Any[lines!(axis, x, y; label, visible, attributes...)]
+    line = first(plots)
+    glyphs = if marker_coordinates !== nothing || errorbar_sampling === :staggered
+        uncertain_indices = findall(eachindex(x)) do index
+            isfinite(x[index]) && isfinite(y[index]) &&
+                any(error -> error !== nothing && isfinite(error[index]) &&
+                    !iszero(error[index]), (xerror, yerror))
+        end
+        lift(line[1], axis.scene.viewport) do points, viewport
+            _addon_glyph_indices(length(points), viewport.widths[1], phase;
+                endpoints, uncertain_indices, errorbar_sampling)
+        end
+    else
+        nothing
+    end
+    if marker_coordinates !== nothing
+        marker_coordinates[line] = lift(line[1], glyphs) do points, indices
+            points[indices.markers]
+        end
+    end
     error_color = color === nothing ? :black : color
-    yerror === nothing || push!(plots,
-        errorbars!(
-            axis,
-            x,
-            y,
-            yerror;
-            color = error_color,
-            direction = :y,
-            whiskerwidth = 3,
-            linewidth = 1,
-            visible
-        ))
-    xerror === nothing || push!(plots,
-        errorbars!(
-            axis,
-            x,
-            y,
-            xerror;
-            color = error_color,
-            direction = :x,
-            whiskerwidth = 3,
-            linewidth = 1,
-            visible
-        ))
+    for (direction, error) in ((:y, yerror), (:x, xerror))
+        error === nothing && continue
+        values = only(Makie.convert_arguments(Makie.Errorbars, x, y, error))
+        coordinates = if errorbar_sampling === :staggered
+            lift(indices -> values[indices.intervals], glyphs)
+        else
+            values
+        end
+        bars = errorbars!(axis, coordinates; color=error_color, direction,
+            whiskerwidth=3, linewidth=1, visible)
+        on(axis.scene, line.color) do value
+            bars.color[] = value
+        end
+        push!(plots, bars)
+    end
     append!(dependent_plots, (plot => first(plots) for plot in Iterators.drop(plots, 1)))
     return plots
 end
@@ -446,12 +460,14 @@ function _addon_visible_values(series, dim::Symbol; include_uncertainty::Bool = 
         first(item.plots).visible[] || continue
         data = dim === :x ? item.xdata : item.ydata
         data === nothing && continue
-        for sample in data
+        errors = get(item, dim === :x ? :xerror : :yerror, nothing)
+        for (index, sample) in enumerate(data)
             nominal_value = LineCableModels.nominal(sample)
             nominal_value isa Real || continue
             numeric = Float64(nominal_value)
             isfinite(numeric) || continue
-            interval = abs(Float64(LineCableModels.uncertainty(sample)))
+            interval = abs(Float64(errors === nothing ?
+                LineCableModels.uncertainty(sample) : errors[index]))
             if include_uncertainty && isfinite(interval) && !iszero(interval)
                 push!(values, numeric - interval, numeric + interval)
             else
@@ -462,14 +478,24 @@ function _addon_visible_values(series, dim::Symbol; include_uncertainty::Bool = 
     return values
 end
 
-function _addon_visible_values(axis::Axis, dim::Symbol)
+function _addon_visible_values(axis::Axis, dim::Symbol, series=())
     index = dim === :x ? 1 : 2
     bounds = Makie.data_limits(axis.scene, plot ->
         !to_value(get(plot, :visible, true)) ||
         !to_value(get(plot, Symbol(dim, :autolimits), true)) ||
         to_value(get(plot, :space, :data)) !== :data)
     lower, upper = bounds.origin[index], bounds.origin[index] + bounds.widths[index]
-    return isfinite(lower) && isfinite(upper) ? [lower, upper] : Float64[]
+    values = isfinite(lower) && isfinite(upper) ? [lower, upper] : Float64[]
+    for item in series
+        get(item, :sampled_intervals, false) || continue
+        # Undrawn intervals still constrain scientific axes. Independently hidden
+        # bars, disabled autolimits and caller-added native plots remain respected.
+        any(plot -> plot isa Makie.Errorbars && plot.direction[] === dim &&
+            plot.visible[] && to_value(get(plot, Symbol(dim, :autolimits), true)),
+            item.plots) || continue
+        append!(values, _addon_visible_values((item,), dim; include_uncertainty=true))
+    end
+    return isempty(values) ? values : collect(extrema(values))
 end
 
 function LineCableModels.plotwindow(
@@ -821,8 +847,9 @@ function _addon_reset!(axis, series=())
     _addon_axis_format!(axis)
     fitting = Ref(false)
     corrections = Any[nothing, nothing]
-    function reset!(; xauto::Bool=true, yauto::Bool=true)
+    function reset!(; xauto::Bool=true, yauto::Bool=true, preserve_view::Bool=false)
         fitting[] && return axis
+        view = preserve_view ? axis.targetlimits[] : nothing
         fitting[] = true
         try
             reset_limits!(axis; xauto, yauto)
@@ -833,12 +860,14 @@ function _addon_reset!(axis, series=())
                 corrections[index] = nothing
                 explicit = requested[index] === nothing ? (nothing, nothing) : requested[index]
                 all(value -> value !== nothing, explicit) && continue
-                interval_values = _addon_visible_values(axis, dim)
+                rendered = _addon_visible_values(axis, dim)
+                interval_values = _addon_visible_values(axis, dim, series)
                 isempty(interval_values) && continue
                 values = isempty(series) ? interval_values : _addon_visible_values(series, dim)
                 isempty(values) && continue
-                isapprox(extrema(values)...; rtol=sqrt(eps(Float64)), atol=0) || continue
-                if !isempty(series)
+                constant = isapprox(extrema(values)...; rtol=sqrt(eps(Float64)), atol=0)
+                constant || interval_values != rendered || continue
+                if constant && !isempty(series)
                     expected = _addon_visible_values(series, dim; include_uncertainty=true)
                     # Native extra plots or independently hidden error bars own
                     # their actual extents, not the original observation array.
@@ -851,7 +880,15 @@ function _addon_reset!(axis, series=())
                     any(j -> plot.model[][index, j] != (index == j), 1:4),
                     axis.scene.plots) && continue
                 scale = getproperty(axis, Symbol(dim, :scale))[]
-                limits = _addon_constant_limits(values, interval_values, scale === Base.log10)
+                limits = if constant
+                    _addon_constant_limits(values, interval_values, scale === Base.log10)
+                else
+                    lower, upper = scale.(extrema(interval_values))
+                    low_margin, high_margin = getproperty(axis, Symbol(dim, :autolimitmargin))[]
+                    span = upper - lower
+                    Makie.inverse_transform(scale).((lower - low_margin * span,
+                        upper + high_margin * span))
+                end
                 lower = something(explicit[1], limits[1])
                 upper = something(explicit[2], limits[2])
                 origin, widths = collect(axis.targetlimits[].origin), collect(axis.targetlimits[].widths)
@@ -862,7 +899,11 @@ function _addon_reset!(axis, series=())
                 axis.targetlimits[] = Makie.Rect2d(origin..., widths...)
             end
         finally
-            fitting[] = false
+            try
+                view === nothing || (axis.targetlimits[] = view)
+            finally
+                fitting[] = false
+            end
         end
         return axis
     end
@@ -901,6 +942,13 @@ function _addon_reset!(axis, series=())
         return nothing
     end
     on(_ -> reset!(), axis.scene, axis.limits; priority=-3)
+    if any(item -> get(item, :sampled_intervals, false) &&
+            any(plot -> plot isa Makie.Errorbars, item.plots), series)
+        # A resize changes the drawn interval subset. Refresh the cached native
+        # auto-fit after glyph/layout updates, without replacing the user's view.
+        # A subsequent native display fit then still restores complete bounds.
+        on(_ -> reset!(; preserve_view=true), axis.scene, axis.scene.viewport; priority=-4)
+    end
     reset!()
     return reset!
 end
@@ -1910,19 +1958,21 @@ function _addon_controls!(
             return nothing
         end
     end
-    save = _addon_button!(shell.toolbar, column, _ADDON_SAVE_ICON)
-    column += 1
-    widgets[:export_svg] = save
-    on(shell.figure.scene, save.clicks) do _
-        plot_reference[] === nothing && return nothing
-        try
-            output = LineCableModels.export_svg(plot_reference[])
-            shell.status[] = "Saved SVG to $output"
-        catch exception
-            exception isa Union{ArgumentError, SystemError, Base.IOError} || rethrow()
-            shell.status[] = sprint(showerror, exception)
+    if Base.get_extension(LineCableModels, :LineCableModelsCairoMakieExt) !== nothing
+        save = _addon_button!(shell.toolbar, column, _ADDON_SAVE_ICON)
+        column += 1
+        widgets[:export_svg] = save
+        on(shell.figure.scene, save.clicks) do _
+            plot_reference[] === nothing && return nothing
+            try
+                output = LineCableModels.export_svg(plot_reference[])
+                shell.status[] = "Saved SVG to $output"
+            catch exception
+                exception isa Union{ArgumentError, SystemError, Base.IOError} || rethrow()
+                shell.status[] = sprint(showerror, exception)
+            end
+            return nothing
         end
-        return nothing
     end
     for (dim, setters) in ((:x, xsetters), (:y, ysetters))
         isempty(setters) && continue
@@ -1998,12 +2048,14 @@ function _addon_finish!(
         scale_controls::Bool=true,
         signed_ylog::Bool=false,
         requested_scales=nothing,
+        axis_series=nothing,
         dependent_plots = Pair{Makie.Plot,Makie.Plot}[],
         title,
         figure_title = nothing,
         title_attributes = (;),
         series_attributes = nothing,
         series_defaults = nothing,
+        marker_coordinates = nothing,
         legend_position,
         legend_attributes,
         legend_overflow = :ellipsis,
@@ -2027,9 +2079,10 @@ function _addon_finish!(
     isempty(axes) && !isempty(shell.axis_attributes) && throw(ArgumentError(
         "native Axis attributes require a figure containing an Axis"))
     append!(dependent_plots, _addon_series_styles!(groups, order, series_attributes;
-        defaults=series_defaults, shared=shell.series_attributes))
+        defaults=series_defaults, shared=shell.series_attributes, marker_coordinates))
     setters = map(enumerate((:x,:y))) do (index,dim)
-        entries = [(;axis,reset,signed=index==2 && signed_ylog) for (axis,reset) in zip(axes,resets)]
+        entries = [(;axis,reset,series=axis_series === nothing ? () : axis_series[i],
+            signed=index==2 && signed_ylog) for (i,(axis,reset)) in enumerate(zip(axes,resets))]
         if requested_scales !== nothing
             _addon_set_axis!([merge(entry,(scale=getproperty(scales,dim),))
                 for (entry,scales) in zip(entries,requested_scales)],dim)
@@ -2039,7 +2092,7 @@ function _addon_finish!(
             getproperty(entry.axis,Symbol(:dim,index,:_conversion))[] === nothing &&
                 getproperty(entry.axis,Symbol(dim,:scale))[] in
                     (identity,log10,_addon_scale(:pseudolog10)) &&
-                !isempty(_addon_visible_values(entry.axis,dim))
+                !isempty(_addon_visible_values(entry.axis,dim,entry.series))
         end
     end
     xsetters,ysetters = setters
