@@ -18,9 +18,14 @@
         end
     end
     homogeneous = homogenize(source)
+    independently_homogeneous = homogenize(source)
     @test length(homogeneous.geometry.regions) == 2
     material = last(homogeneous.geometry.regions).source.material
     @test material isa RadialDielectric{Float64}
+    @test homogeneous == independently_homogeneous
+    @test isequal(homogeneous, independently_homogeneous)
+    @test Set((last(homogeneous.geometry.regions).source,
+        last(independently_homogeneous.geometry.regions).source)) |> length == 1
     @test getproperty.(material.materials, :kind) == [:semicon, :insulator, :semicon]
     @test !hasproperty(material, :tan_delta)
     @test !hasproperty(material, :frequency)

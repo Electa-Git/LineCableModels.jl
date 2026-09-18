@@ -26,6 +26,19 @@ struct Region{P, M} <: AbstractCablePart
     end
 end
 
+Base.:(==)(left::Region, right::Region) =
+    left.tag == right.tag &&
+    left.primitive == right.primitive &&
+    left.material == right.material
+
+Base.isequal(left::Region, right::Region) =
+    isequal(left.tag, right.tag) &&
+    isequal(left.primitive, right.primitive) &&
+    isequal(left.material, right.material)
+
+Base.hash(region::Region, h::UInt) =
+    hash((:Region, region.tag, region.primitive, region.material), h)
+
 """
 $(TYPEDEF)
 
