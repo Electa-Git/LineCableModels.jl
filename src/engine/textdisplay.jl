@@ -14,10 +14,7 @@ TextDisplay.@showfields EarthPair "EarthPair" pair -> (
 )
 
 TextDisplay.@showfields SpectralIntegral "SpectralIntegral" integral -> (
-    weight = integral.weight,
-    scale = integral.scale,
-    angle = integral.angle,
-    pole = integral.pole
+    callable = typeof(integral.f),
 )
 
 TextDisplay.@showfields BlueprintConductor "BlueprintConductor" row -> (

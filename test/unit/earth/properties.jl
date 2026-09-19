@@ -149,8 +149,9 @@ end
     @test formula_id(formulation.methods.earth_properties) === :constant
     material=EP.EarthMaterial(model.layers[2])
     @test constitutive(nothing, material, first(frequencies)) === material
-    properties=LineCableModels.Engine._earth_data(
-        nothing, formulation.methods.earth_properties, model, frequencies
+    properties=LineCableModels.Engine.materials!(
+        (rho = zeros(3, 3), eps_r = zeros(3, 3), mu_r = zeros(3, 3)),
+        formulation.methods.earth_properties, model, frequencies
     )
     static_rho=repeat(collect(getproperty.(model.layers, :rho)), 1, length(frequencies))
     static_eps_r=repeat(
@@ -171,8 +172,10 @@ end
     @test properties.mu_r == static_mu_r
 
     model32=EP.EarthModel(100.0f0, 10.0f0, 1.0f0)
-    properties32=LineCableModels.Engine._earth_data(
-        nothing, formulation.methods.earth_properties, model32, Float32[50, 60]
+    properties32=LineCableModels.Engine.materials!(
+        (rho = zeros(Float32, 2, 2), eps_r = zeros(Float32, 2, 2),
+            mu_r = zeros(Float32, 2, 2)),
+        formulation.methods.earth_properties, model32, Float32[50, 60]
     )
     @test eltype(properties32.rho) === Float32
     @test eltype(properties32.eps_r) === Float32
@@ -182,8 +185,11 @@ end
         measurement(100.0, 2.0), measurement(10.0, 0.5), measurement(1.0, 0.01)
     )
     uncertain_frequency=measurement.([50.0, 60.0], 0.0)
-    uncertain=LineCableModels.Engine._earth_data(
-        nothing, formulation.methods.earth_properties, uncertain_model, uncertain_frequency
+    uncertain=LineCableModels.Engine.materials!(
+        (rho = zeros(Measurement{Float64}, 2, 2),
+            eps_r = zeros(Measurement{Float64}, 2, 2),
+            mu_r = zeros(Measurement{Float64}, 2, 2)),
+        formulation.methods.earth_properties, uncertain_model, uncertain_frequency
     )
     @test eltype(uncertain.rho) === Measurement{Float64}
     @test value(uncertain.rho[2, 1]) == 100.0

@@ -241,8 +241,7 @@ function _serialize_object(value::Engine.LineParametersProblem)
         "system" => serialize_value(value.system),
         "temperature" => serialize_value(value.temperature),
         "earth_props" => serialize_value(value.earth_props),
-        "frequencies" => serialize_value(value.frequencies),
-        "Gamma" => serialize_value(value.Γ)
+        "frequencies" => serialize_value(value.frequencies)
     )
 end
 

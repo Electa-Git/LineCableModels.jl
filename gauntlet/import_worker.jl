@@ -24,7 +24,6 @@ normalized = LineCableModels.Engine.LineParametersProblem(
     normalized_system;
     temperature = problem.temperature,
     earth_props = problem.earth_props,
-    frequencies = problem.frequencies,
-    Γ = problem.Γ
+    frequencies = problem.frequencies
 )
 LineCableModels.export_data(:json, normalized; file_name = output)

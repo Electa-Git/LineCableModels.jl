@@ -68,47 +68,6 @@ function _catalogue_variation(frequencies, variation::AbstractCaseVariation)
     return compose_variations(variation, ExactOverrides(; frequencies))
 end
 
-function _catalogue_candidate_formulations(model::LoadedCase)
-    positions = model.nominal_problem.system.positions
-    saad_applicable = all(
-        left == right || !iszero(positions[left].x - positions[right].x)
-    for left in eachindex(positions), right in eachindex(positions)
-    )
-    earth_impedance = saad_applicable ?
-                      (
-        :default,
-        :pollaczek1926,
-        :saad1996,
-        :wedepohl1973,
-        :xue2018
-    ) : (
-        :default,
-        :pollaczek1926,
-        :wedepohl1973,
-        :xue2018
-    )
-    earth_admittance = saad_applicable ?
-                       (
-        :default,
-        :pollaczek1926,
-        :default,
-        :default,
-        :xue2018
-    ) : (
-        :default,
-        :pollaczek1926,
-        :default,
-        :xue2018
-    )
-    return Formulation(
-        earth_impedance = Grid(earth_impedance),
-        earth_admittance = Grid(earth_admittance),
-        insulation_admittance = formula(:default);
-        combine = :zip,
-        options = _CATALOGUE_PHYSICAL_OPTIONS
-    )
-end
-
 function _catalogue_fem_benchmark(
         case_id::Symbol,
         source_file::AbstractString;
@@ -151,7 +110,7 @@ function _catalogue_fem_benchmark(
         BenchmarkCalculation(
             :lcm,
             model.problem,
-            _catalogue_candidate_formulations(model);
+            Formulation(; options = _CATALOGUE_PHYSICAL_OPTIONS);
             options = candidate_options
         ),
         _CATALOGUE_LINE_REPORT,
@@ -190,7 +149,7 @@ function _catalogue_pscad_benchmark(
         BenchmarkCalculation(
             :lcm,
             model.problem,
-            _catalogue_candidate_formulations(model);
+            Formulation(; options = _CATALOGUE_PHYSICAL_OPTIONS);
             options = candidate_options
         ),
         _CATALOGUE_LINE_REPORT,

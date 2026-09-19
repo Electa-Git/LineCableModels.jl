@@ -31,9 +31,10 @@
                     kind === :self ? 0.0 : 1.0,(source,target);
                     radius=kind === :self ? 0.01 : nothing)
                 binding=FM(selected,pair)
-                signature=Tuple{typeof(selected),typeof.(binding.arguments)...,Any,Any,Any}
-                which(binding.method,signature) === owner.EQUATION_FALLBACK && continue
-                push!(bindings,validate(selected,pair).equation)
+                # Registration and indexed binding do not claim an implemented
+                # equation. Actual supported/stub/unsupported calls are covered
+                # by the execution contract tests, not a reflected coverage list.
+                push!(bindings,binding)
             end
             @test !isempty(bindings)
             bindings
@@ -80,8 +81,8 @@ end
     expected=compute(problem,Formulation())
     @test Z(actual)==Z(expected) && Y(actual)==Y(expected)
     @test shunt.preparations[]==length(problem.system.designs)
-    @test details(actual).data.formulations.effective.shunt_model === :UserCoaxialShunt
-    @test details(actual).data.formulations.effective.pipe_impedance === :CoaxialPipePolicy
+    @test details(actual).data.formulations.methods.shunt_model.identifier === :UserCoaxialShunt
+    @test details(actual).data.formulations.methods.pipe_impedance.identifier === :CoaxialPipePolicy
     constants=CableConstantsProblem(first(problem.system.designs);frequency=50.0)
     @test compute(constants,CableConstantsFormulation(shunt_model=shunt,pipe_impedance=M.CoaxialPipePolicy()))==
         compute(constants,CableConstantsFormulation())

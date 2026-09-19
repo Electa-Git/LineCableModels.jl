@@ -8,11 +8,11 @@
     options=(reduce_bundle=false,kron_reduction=false,ideal_transposition=false)
     formulation=Formulation(;options)
     definition=benchmark_definition(model;id=:accepted,source_file=@__FILE__,reference=formulation,
-        formulations=Formulation(earth_impedance=Grid((:default,:pollaczek1926));options),collection=:fixture)
+        formulations=Formulation(earth_properties=Grid((nothing,:default));options),collection=:fixture)
     sibling=benchmark_definition(model;id=:sibling,source_file=@__FILE__,reference=formulation,
         formulations=formulation,collection=:fixture)
     many_reference=benchmark_definition(model;id=:many_reference,source_file=@__FILE__,
-        reference=Formulation(earth_impedance=Grid((:default,:pollaczek1926));options),formulations=formulation)
+        reference=Formulation(earth_properties=Grid((nothing,:default));options),formulations=formulation)
     @test_throws r"before execution" run_benchmark(many_reference)
     mktempdir() do root
         campaign=joinpath(root,"staging")

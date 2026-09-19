@@ -29,25 +29,101 @@ Return reference-normalized numerical errors from an owned comparison result.
 function relative_error end
 
 """
-Identify formulas whose physical current constraint requires the complete exterior system.
+Return electrical conductivity \\[S/m\\] from resistivity \\[Ω·m\\], including
+the open-circuit limit.
 """
-system_earth(::Any) = false
-function unified_entry end
+@inline conductivity(rho) = isinf(rho) ? zero(rho) : inv(rho)
+
+"""
+Return a real scalar magnitude for numerical error estimates and physical-state
+comparisons. Deterministic values use absolute magnitude. Uncertainty extensions
+also account for uncertain contributions with zero nominal value; this operation
+does not discard correlations from the evaluated physical quantities.
+"""
+@inline numerical_magnitude(z) = abs(complex(nominal(real(z)), nominal(imag(z))))
+
+# Equality of physical state includes correlation, not just nominal values.
+same_physical_state(a, b) = isequal(a, b)
+function same_physical_state(a::Number, b::Number)
+    a === b || (isequal(a, b) && iszero(numerical_magnitude(a-b)))
+end
+function same_physical_state(a::Tuple, b::Tuple)
+    length(a) == length(b) && all(pair -> same_physical_state(pair...), zip(a, b))
+end
+function same_physical_state(a::NamedTuple, b::NamedTuple)
+    keys(a) == keys(b) && same_physical_state(values(a), values(b))
+end
+function same_physical_state(a::AbstractArray, b::AbstractArray)
+    axes(a) == axes(b) && all(pair -> same_physical_state(pair...), zip(a, b))
+end
+
+"""
+$(TYPEDSIGNATURES)
+
+Bind selected earth equations to their required material interactions and output
+entries. Coupled equations may require the complete physical system, even when
+only a subset of its output entries is selected. Joint methods resolve paired
+impedance/potential consumers during initialization; `nothing` means separate
+calculations are required.
+"""
+function earth_bindings end
+
+"""
+Resolve a placed conductor's earth-layer index from the problem and coordinates
+[m], or read `(source, target)` indices from an initialized `EarthPair`. Air is
+layer 1; subsequent indices retain the physical earth model's layer order.
+"""
+function layer_index end
+
+"""
+Resolve the real scalar representation needed by an active formulation before
+allocating numerical storage. Formula-owned arguments may widen `T`; omitted
+or unused selections do not participate. Frequency-aligned arguments are
+validated by their scientific owner against `frequencies`.
+"""
+computation_type(::Type{T}, ::AbstractFormulation, frequencies) where {T <: Real} = T
+
+"""
+$(TYPEDSIGNATURES)
+
+Allocate a selected formula's reusable arrays during computation initialization.
+The arguments are the resolved selection, scalar type, completed numerical input,
+fixed index/geometry invariants, and existing buffer record. Return the extended
+record without replacing another owner's storage. Array blocks contain no copied
+geometry, material model, selection or validity state. The default requires no
+additional storage. No material law or integrand is evaluated here.
+"""
+function initialize_buffers end
+
+"""Identify the local formula selections that determine blueprint coefficients."""
+function blueprint_dependencies end
+
+"""Calculate the selected local shunt response while constructing a blueprint."""
+function internal_shunt_response end
+"""
+$(TYPEDSIGNATURES)
+
+Calculate both selected earth contributions for a frequency from completed
+material inputs. Ordinary methods evaluate indexed equations; a coupled formula
+may fill both destinations in one calculation. Matrix rows are receivers and
+columns are sources. Impedance
+contributions are \\[Ω/m\\]; potential-coefficient contributions are \\[m/F\\].
+"""
+function earth! end
+function homogenize! end
+
+"""
+$(TYPEDSIGNATURES)
+
+Evaluate the material quantities required by a coaxial calculation into its
+allocated buffers. Material-law methods receive the original material values;
+field equations consume these completed quantities without reevaluating them.
+"""
+function materials! end
 
 function earth_parameters(::Val{ID}, parameters::NamedTuple) where {ID}
     isempty(parameters) ||
         throw(ArgumentError("earth formula :$ID has no configurable physical parameters"))
-    return parameters
-end
-
-function earth_parameters(::Val{:unified}, parameters::NamedTuple)
-    isempty(setdiff(keys(parameters), (:reference,))) || throw(ArgumentError(
-        "the unified earth formula accepts only the physical reference parameter"))
-    reference=get(parameters, :reference, :deep)
-    valid=reference in (:deep, :interface, :scalar) ||
-          (reference isa Real&&!(reference isa Bool)&&isfinite(reference)&&reference>0)
-    valid ||
-        throw(ArgumentError("earth reference must be :deep, :interface, :scalar, or a positive finite depth [m]"))
     return parameters
 end
 

@@ -195,13 +195,11 @@ function _preflight_fem_problem(problem::LineParametersProblem)
         temperature = ImportExport.deserialize_value(document["temperature"])
         earth_props = ImportExport.deserialize_value(document["earth_props"])
         frequencies = ImportExport.deserialize_value(document["frequencies"])
-        propagation = ImportExport.deserialize_value(document["Gamma"])
         LineParametersProblem(
             system;
             temperature,
             earth_props,
-            frequencies,
-            Γ = propagation
+            frequencies
         )
     catch exception
         _fem_error(
@@ -597,13 +595,6 @@ function _resolved_fem_model(
             sprint(showerror, exception)
         )
     end
-    problem.Γ === nothing || _fem_error(
-        :unsupported,
-        problem.system.system_id,
-        :Γ,
-        "LineCableModelsFEM uses a backend-owned Gamma -> 0 reduction; " *
-        "problem-level propagation constants are unsupported"
-    )
     earth = problem.earth_props
     earth.vertical_layers && _fem_error(
         :unsupported,

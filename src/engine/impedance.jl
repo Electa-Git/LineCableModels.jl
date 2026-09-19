@@ -25,7 +25,7 @@ function cable_impedance!(
         input::LocalCableData{T},
         rho_cond::AbstractVector{T},
         methods::NamedTuple,
-        s::Complex{T}
+        s::Complex{T}; workspace = nothing
 ) where {T <: Real}
     fill!(destination, zero(Complex{T}))
     @inbounds for conductors in input.assemblies
@@ -34,12 +34,12 @@ function cable_impedance!(
         for position in count:-1:1
             index = conductors[position]
             surfaces = InternalImpedance.surface_impedances(methods.internal_impedance,
-                position > 1 ? Val((:outer,:transfer,:inner)) : Val((:outer,)),
+                input.r_in[index] > 0 ? Val((:outer, :transfer, :inner)) : Val((:outer,)),
                 input.r_in[index],
                 input.r_ext[index],
                 rho_cond[index],
                 input.mu_cond[index],
-                s
+                s; workspace
             )
             outside = surfaces.outer
             transfer = position > 1 ? surfaces.transfer : zero(outside)
@@ -47,7 +47,7 @@ function cable_impedance!(
                 input.r_ext[index],
                 input.r_ins_ext[index],
                 input.mu_ins[index],
-                s
+                s; workspace
             )
             loop = outside + inside + insulation
             if position > 1
@@ -69,36 +69,22 @@ function cable_impedance!(
     return destination
 end
 
+"""
+$(TYPEDSIGNATURES)
+
+Add the already calculated exterior impedance to the cable-local primitive
+matrix \\[Ω/m\\] and retain its optional trace at `frequency`. No equation or
+material law is evaluated here. Return the mutated `destination`.
+"""
 function impedance!(
         destination::AbstractMatrix{Complex{T}},
         workspace::LineParametersWorkspace{T},
-        frequency::Int,
-        formulation::LineParametersFormulation
+        frequency::Int
 ) where {T <: Real}
     input = workspace.input
-    rho_cond = workspace.invariants.rho_cond
     indices = workspace.invariants.cable_indices
-    earth_matrix = workspace.buffers.earth_matrix
-    earth_media = workspace.buffers.earth_materials.earth_impedance
+    earth_matrix = workspace.buffers.Zearth
     capture = workspace.capture
-    s = input.jω[frequency]
-    cable_impedance!(
-        destination,
-        input.cable,
-        rho_cond,
-        formulation.methods,
-        s
-    )
-    _stash!(_capture_target(capture, :Zin), frequency, destination)
-
-    earth!(
-        earth_matrix, workspace.invariants.earth_bindings.earth_impedance, earth_media, s,
-        formulation.methods.earth_impedance,
-        _gamma(input.Γ, frequency),
-        workspace.buffers.earth_numerical.earth_impedance,
-        get(earth_media, :thickness, nothing)
-    )
-    _stash!(_capture_target(capture, :Zg), frequency, earth_matrix)
 
     @inbounds for cable in 1:input.n_cables
         conductors = indices[cable]

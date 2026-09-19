@@ -36,14 +36,12 @@ direct linear uncertainty propagation. `MonteCarlo` samples independent
 realizations within each selected point.
 
 Any final formulation slot can be an explicit finite source. The constructor
-then returns a target-bearing formulation space. For homogeneous buried cases:
+then returns a target-bearing formulation space. For example, compare constant
+earth properties with Portela's frequency-dependent material law:
 
 ```julia
 formulations = Formulation(
-    earth_impedance = Grid((
-        :pollaczek1926,
-        :saad1996,
-    )),
+    earth_properties = Grid((:constant, :portela1999)),
 )
 
 run = compute(

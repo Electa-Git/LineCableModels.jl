@@ -10,6 +10,7 @@ using Logging: AbstractLogger, ConsoleLogger, SimpleLogger, @debug, @info,
                @warn, with_logger
 using Printf: @sprintf
 using SHA: sha256
+using LinearAlgebra: I, cond, lu, norm
 
 import LineCableModels
 import LineCableModels: compute

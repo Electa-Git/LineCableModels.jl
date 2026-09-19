@@ -1,5 +1,5 @@
 function assumptions(::Val{:lucca1994})
-    (media = :homogeneous, layers = 2:2, longitudinal = :zero, permittivity = :positive)
+    (media = :homogeneous, layers = 2:2, permittivity = :positive)
 end
 
 """
@@ -7,6 +7,9 @@ $(TYPEDSIGNATURES)
 
 **Identification.** Homogeneous-earth mixed-pair model with a corrected
 complex-depth approximation for mixed overhead-underground coupling.
+
+**Availability.** Registered scientific identity; the coaxial implementation is
+not yet implemented. No numerical fallback is provided.
 
 **Expression.** Its distinctive mixed term is
 
@@ -26,106 +29,25 @@ D=\\sqrt{(h_a+h_g)^2+y_{ij}^2}.
 Line with Earth Return,” *9th International Conference on Electromagnetic
 Compatibility*, 1994. DOI: 10.1049/cp:19940679.
 """
-description(::Type{<:Formula{:lucca1994}}; compact::Bool=false) = compact ? "Lucca" : "Lucca mixed-pair homogeneous-earth impedance (1994)"
-
-
-raw"""
-Evaluate Lucca's approximation for the mutual impedance between one overhead
-and one buried conductor:
-
-```math
-Z_{e,ij}^{01}=\frac{j\omega\mu_0}{2\pi}\left[
-\ln\frac{S}{D}-\frac23\left(\frac{h_e}{S^2}\right)^3
-H(H^2-3y_{ij}^2)\right],
-```
-
-```math
-h_e=\frac1{\sqrt{j\omega\mu_0\sigma_g}},\qquad
-H=h_a+h_g+2h_e,\qquad
-S=\sqrt{H^2+y_{ij}^2},\qquad
-D=\sqrt{(h_a+h_g)^2+y_{ij}^2}.
-```
-
-Only the published mixed interaction is registered.
-
-# Reference
-
-G. Lucca, "Mutual impedance between an overhead and a buried line with earth
-return," *9th International Conference on Electromagnetic Compatibility*, 1994.
-DOI: 10.1049/cp:19940679.
-"""
-function earth_impedance(
-        ::Formula{:lucca1994}, ::Val{:mutual}, ::Val{1}, ::Val{2},
-        functor, pair, workspace
-)
-    state = functor.state
-    air = pair.layers[1] == 1 ? 1 : 2
-    earth = air == 1 ? 2 : 1
-    h_a = abs(pair.heights[air])
-    h_g = abs(pair.heights[earth])
-    h_e = inv(state.gamma[2])
-    H = h_a + h_g + 2h_e
-    S_squared = H^2 + pair.separation^2
-    S = sqrt(S_squared)
-    D = hypot(pair.separation, h_a + h_g)
-    correction = (2 * one(h_a) / 3) * (h_e / S_squared)^3 *
-                 H * (H^2 - 3 * pair.separation^2)
-    πT = one(h_a) * π
-    return state.jω * state.mu[1] / (2πT) * (log(S / D) - correction)
+function description(::Type{<:Formula{:lucca1994}}; compact::Bool = false)
+    compact ? "Lucca" : "Lucca mixed-pair homogeneous-earth impedance (1994) — not yet implemented"
 end
 
 function earth_impedance(
-        ::Formula{:lucca1994}, ::Val{:mutual}, ::Val{2}, ::Val{1},
+        ::Formula{:lucca1994}, kind::Val{:mutual}, ::Val{1}, ::Val{2},
         functor, pair, workspace
 )
-    state = functor.state
-    air = pair.layers[1] == 1 ? 1 : 2
-    earth = air == 1 ? 2 : 1
-    h_a = abs(pair.heights[air])
-    h_g = abs(pair.heights[earth])
-    h_e = inv(state.gamma[2])
-    H = h_a + h_g + 2h_e
-    S_squared = H^2 + pair.separation^2
-    S = sqrt(S_squared)
-    D = hypot(pair.separation, h_a + h_g)
-    correction = (2 * one(h_a) / 3) * (h_e / S_squared)^3 *
-                 H * (H^2 - 3 * pair.separation^2)
-    πT = one(h_a) * π
-    return state.jω * state.mu[1] / (2πT) * (log(S / D) - correction)
+    throw(ArgumentError("earth_impedance :lucca1994 ($kind), source layer 1, target layer 2: not yet implemented for the coaxial backend"))
 end
 
-
-
-function formulation_options(::FormulaMethod{<:Formula{:lucca1994}, typeof(earth_impedance),
-        A}) where {A <: Tuple{Val{:mutual}, Val{1}, Val{2}}}
-    return FormulationOptions((;))
+function earth_impedance(
+        ::Formula{:lucca1994}, kind::Val{:mutual}, ::Val{2}, ::Val{1},
+        functor, pair, workspace
+)
+    throw(ArgumentError("earth_impedance :lucca1994 ($kind), source layer 2, target layer 1: not yet implemented for the coaxial backend"))
 end
 
-
-function formulation_options(::FormulaMethod{<:Formula{:lucca1994}, typeof(earth_impedance),
-        A}) where {A <: Tuple{Val{:mutual}, Val{2}, Val{1}}}
-    return FormulationOptions((;))
-end
-
-function validate(binding::FormulaMethod{<:Formula{:lucca1994}, typeof(earth_impedance)},
-        ::EquivalentHomogeneous.Formula{:bottommost})
-    binding
-end
-
-"""
-$(TYPEDSIGNATURES)
-
-Evaluate this formulation's medium state: absolute permeability \\[H/m\\]
-and transverse propagation constant \\[1/m\\]. Air retains its prescribed
-permeability; soil follows the selected source's magnetic approximation.
-"""
-function constitutive(::Formula{:lucca1994}, ::Val{:air}, jω, μ, σ, ε)
-    return (mu=μ, gamma=propagation(Val(:lossless), jω, μ, σ, ε))
-end
-
-function constitutive(::Formula{:lucca1994}, ::Val{:earth}, jω, μ, σ, ε)
-    permeability = vacuum_permeability(μ)
-    return (mu=permeability, gamma=propagation(Val(:conductive), jω, permeability, σ, ε))
-end
+formulation_options(::FormulaMethod{<:Formula{:lucca1994}, typeof(earth_impedance)}) =
+    FormulationOptions()
 
 :lucca1994

@@ -106,12 +106,9 @@ The ATP file selection took 41 s. Core-only preparation plus six checks took
 about 25 minutes each. These include compilation and are not isolated CI timing
 predictions.
 
-The complete Julia 1.13.0-rc4 ordinary run executed 295 items / 125 files in
-84.8 minutes and reported two CIM error-budget rejections: the nonzero-Γ mixed
-layout at 50 Hz and 10 kHz (`unit/engine/unified_earth_return`). No matrices were
-returned for those requests. They remain visible; no accuracy target or algorithm
-was changed to force a pass. The Julia 1.12 full run reached its 90-minute limit;
-Gauntlet also has unresolved full-run execution within its 30-minute allocation.
+The archived runs describe an earlier solver inventory and are not validation
+of the current QuadGK-only spectral path. The Julia 1.12 full run reached its
+90-minute limit; Gauntlet also has unresolved full-run execution within its 30-minute allocation.
 Final coverage is **19,609/20,582 production lines (95.27%)**, passing the unchanged
 95% gate. Three earth-return items remain unfinished on Julia 1.12; they completed
 on 1.13.0-rc4. Gauntlet's fixed-seed MC item also reached its focused 10-minute

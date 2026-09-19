@@ -82,7 +82,8 @@ does not claim a universal source analysis of every method or forwarding wrapper
 
 Integration tests also count actual blueprint lowering calls: one per selected
 design point, shared across its formulation alternatives and frequency sweep.
-They check local-before-earth assembly order at each frequency and explicit
+They check material evaluation before local calculations, paired exterior
+calculation before assembly/reduction at each frequency, and explicit
 phase-to-modal result transport without another geometry lowering. The visual
 suite applies the ownership checks to the loaded Makie extensions and verifies
 that material colors consume `Material` or `EarthLayer` objects directly.
@@ -101,7 +102,7 @@ execution environments.
 
 ## Developer paths
 
-- [Extension API](extensions.md) lists the hooks and definition types omitted
+- [Extension API](extensions.md) lists the equation methods and definition types omitted
   from the user API reference.
 - [Computational engine](engine.md) covers formulations, options, supplemental
   calculation output, and external implementations.
@@ -224,6 +225,7 @@ The inspected external accesses have these dispositions:
 | --- | --- |
 | `CairoMakie.activate!` | Documented [backend activation](https://docs.makie.org/stable/explanations/backends/cairomakie.html); Cairo adapter only. |
 | `Base.IOError` | Native I/O exception, including [filesystem errors](https://docs.julialang.org/en/v1/base/file/); renderer export error handling only. |
+| `Base.unalias` | Documented native preventative-copy operation in Julia 1.12's `base/abstractarray.jl`. Used only by Engine's allocating Kron entry point to preserve source/destination aliasing; the workspace path uses separate preallocated buffers. |
 | `Base.require` | Removed from the renderer. `Base.get_extension` identifies the loaded Cairo extension, whose public `CairoMakie` binding supplies the native save backend. Export never loads packages. |
 | `Makie.automatic` | Documented [native attribute default](https://docs.makie.org/stable/api); renderer only. |
 | `Makie.current_backend` | Documented [backend-dependent API default](https://docs.makie.org/stable/api); renderer only. |

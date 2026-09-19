@@ -1,5 +1,5 @@
 function assumptions(::Val{:wise1934})
-    (media = :homogeneous, layers = 2:2, longitudinal = :zero, permittivity = :positive)
+    (media = :homogeneous, layers = 2:2, permittivity = :positive)
 end
 
 """
@@ -7,6 +7,9 @@ $(TYPEDSIGNATURES)
 
 **Identification.** Homogeneous-earth wideband overhead integral retaining
 earth displacement current and magnetic permeability.
+
+**Availability.** Registered scientific identity; the coaxial implementation is
+not yet implemented. No numerical fallback is provided.
 
 **Expression.**
 
@@ -22,72 +25,18 @@ Z_{e,ij}=\\frac{j\\omega\\mu_0}{2\\pi}\\left[
 Return Circuits,” *Proceedings of the Institute of Radio Engineers*, 22,
 522–527, 1934.
 """
-description(::Type{<:Formula{:wise1934}}; compact::Bool=false) = compact ? "Wise" : "Wise homogeneous-earth overhead impedance (1934)"
+function description(::Type{<:Formula{:wise1934}}; compact::Bool = false)
+    compact ? "Wise" : "Wise homogeneous-earth overhead impedance (1934) — not yet implemented"
+end
 
-
-raw"""
-Evaluate Wise's homogeneous-earth overhead impedance:
-
-```math
-Z_{e,ij}=\frac{j\omega\mu_0}{2\pi}\left[\ln\frac{D_{ij}}{d_{ij}}+
-2\int_0^\infty F_{ij}^{W}(\lambda)\cos(y_{ij}\lambda)\,d\lambda\right],
-```
-
-```math
-F_{ij}^{W}=\frac{\mu_1e^{-\lambda(h_i+h_j)}}
-{\lambda\mu_1+a_1\mu_0},\qquad
-a_1=\sqrt{\lambda^2+\gamma_1^2-\gamma_0^2}.
-```
-"""
 function earth_impedance(
-        ::Formula{:wise1934}, ::Union{Val{:self}, Val{:mutual}}, ::Val{1}, ::Val{1},
+        ::Formula{:wise1934}, kind::Union{Val{:self}, Val{:mutual}}, ::Val{1}, ::Val{1},
         functor, pair, workspace
 )
-    state = functor.state
-    geometry = _geometry(pair)
-    contrast = state.gamma_medium_squared[2] - state.gamma_medium_squared[1]
-    integral = integrate(functor.options.data.integration.method,
-        SpectralIntegral(Val(:cosine),
-            lambda -> begin
-                a_1 = sqrt(lambda^2 + contrast)
-                state.mu[2] /
-                (lambda * state.mu[2] + a_1 * state.mu[1])
-            end,
-            (height = geometry.H, separation = geometry.y_ij),
-            float(nominal(abs(state.gamma[2])));
-            angle = min(pi/4, atan(float(nominal(geometry.H / (2geometry.y_ij))))),
-            features = retained_earth_features(state, geometry, workspace)),
-        functor.options.data.integration.options, workspace)
-    return state.jω * state.mu[1] / (2π) *
-           (log(geometry.D_ij / geometry.d_ij) + 2 * integral)
+    throw(ArgumentError("earth_impedance :wise1934 ($kind), source layer 1, target layer 1: not yet implemented for the coaxial backend"))
 end
 
-
-
-function formulation_options(::FormulaMethod{<:Formula{:wise1934}, typeof(earth_impedance),
-        A}) where {A <: Tuple{Union{Val{:self}, Val{:mutual}}, Val{1}, Val{1}}}
-    return FormulationOptions((integration = (method = :quad, options = (;)),))
-end
-
-function validate(binding::FormulaMethod{<:Formula{:wise1934}, typeof(earth_impedance)},
-        ::EquivalentHomogeneous.Formula{:bottommost})
-    binding
-end
-
-"""
-$(TYPEDSIGNATURES)
-
-Evaluate this formulation's medium state: absolute permeability \\[H/m\\]
-and transverse propagation constant \\[1/m\\]. Air retains its prescribed
-permeability; soil follows the selected source's magnetic approximation.
-"""
-function constitutive(::Formula{:wise1934}, ::Val{:air}, jω, μ, σ, ε)
-    return (mu=μ, gamma=propagation(Val(:full), jω, μ, σ, ε))
-end
-
-function constitutive(::Formula{:wise1934}, ::Val{:earth}, jω, μ, σ, ε)
-    permeability = μ
-    return (mu=permeability, gamma=propagation(Val(:full), jω, permeability, σ, ε))
-end
+formulation_options(::FormulaMethod{<:Formula{:wise1934}, typeof(earth_impedance)}) =
+    FormulationOptions()
 
 :wise1934

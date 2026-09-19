@@ -179,25 +179,16 @@ end
     @test_throws ArgumentError Formulation(Val(:pscad), pipe, Val(:pipe))
 end
 
-@testitem "Mixed analytical selections / reciprocity and restricted applicability" tags=[:integration] begin
+@testitem "PSCAD / mixed native equations survive coaxial author withdrawal" tags=[:integration] begin
     const E = LineCableModels.Engine
-    rho = [Inf, 100.0]
-    epsilon = 8.8541878128e-12 .* [1, 10]
-    mu = fill(4pi * 1e-7, 2)
+    const P = LineCableModels.PSCAD
     selected = E.EarthImpedance.Formula(:ametani2009)
     @test occursin("mixed", description(selected))
-    forward = E.EarthPair(1, 2, (2.0, -1.0), 0.75, (1, 2))
-    reverse = E.EarthPair(2, 1, (-1.0, 2.0), 0.75, (2, 1))
-    for frequency in (0.1, 50.0, 1e5)
-        jω = complex(0.0, 2pi * frequency)
-        z = selected(rho, epsilon, mu, jω, forward)()
-        reversed = selected(rho, epsilon, mu, jω, reverse)()
-        @test isfinite(z) && !iszero(z)
-        @test z ≈ reversed rtol = 5eps(Float64)
-    end
-    for pair in (E.EarthPair(1, 1, (2.0, 2.0), 0.0, (1, 1); radius = 0.01),
-            E.EarthPair(1, 2, (-1.0, -2.0), 0.75, (2, 2)))
-        @test_throws ArgumentError validate(selected, pair)
+    native = Formulation(:pscad; earth_impedance=:ametani2009).methods.earth_impedance
+    for (s,t) in ((1,2), (2,1))
+        @test_throws r"not yet implemented" E.EarthImpedance.earth_impedance(
+            selected, Val(:mutual), Val(s), Val(t), nothing, nothing, nothing)
+        @test P.earth_impedance(native, Val(:mutual), Val(s), Val(t), Val(:pscad)).EarthForm3.readback == "AMETANIL"
     end
     copper = Material(:conductor, 1.72e-8, 1.0)
     design = build(CableDesign, "mixed-order", terminal(:core,
@@ -209,13 +200,7 @@ end
             connections = [Dict(:core => 1), Dict(:core => 2)])
         LineParametersProblem(system; earth_props = homogeneous(rho = 100.0), frequencies = [50.0])
     end
-    # The complete default Y supports both indexed mixed directions. A restricted
-    # author selection still rejects those interactions independently of Z.
     for poses in ([Pose2(0, 2), Pose2(0.75, -1)], [Pose2(0.75, -1), Pose2(0, 2)])
-        result=compute(problem(poses),configuration)
-        @test all(isfinite,result.Z) && all(isfinite,result.Y)
-        @test !iszero(result.Y[1,2,1]) && !iszero(result.Y[2,1,1])
-        @test_throws ArgumentError compute(problem(poses),
-            Formulation(earth_impedance=choices,earth_admittance=:pollaczek1926))
+        @test_throws r"not yet implemented" compute(problem(poses),configuration)
     end
 end

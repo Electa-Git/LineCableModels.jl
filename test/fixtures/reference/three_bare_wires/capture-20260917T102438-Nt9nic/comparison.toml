@@ -1,0 +1,112 @@
+near_zero_rule = "abs(component) <= eps(Float64)*maximum(abs, FEM channel); relative error is NaN there"
+status = "differences only; no acceptance verdict"
+
+["three_bare_wires_air_1/Y"]
+absolute_at_worst_relative_entry = 8.21753789586833e-6
+max_absolute_error = 0.1258665684345085
+max_relative_error = 1367.0158584768271
+near_zero_threshold = 2.173476446050181e-14
+reference_magnitude_at_worst_absolute_entry = 45.37729467327596
+reference_magnitude_at_worst_relative_entry = 6.011296683144974e-9
+relative_at_worst_absolute_entry = 0.002773778589948313
+worst_absolute_entry = "1000000,cable:2:core,cable:2:core"
+worst_relative_entry = "1000000,cable:1:core,cable:3:core"
+
+["three_bare_wires_air_1/Z"]
+absolute_at_worst_relative_entry = 2.447964046819071e-9
+max_absolute_error = 1.8723151853984727
+max_relative_error = 0.6589980316379983
+near_zero_threshold = 1.0696584042954152e-14
+reference_magnitude_at_worst_absolute_entry = 48.173131909985514
+reference_magnitude_at_worst_relative_entry = 3.714675809781159e-9
+relative_at_worst_absolute_entry = 0.038866378646441546
+worst_absolute_entry = "10000000,cable:1:core,cable:1:core"
+worst_relative_entry = "10000000,cable:2:core,cable:1:core"
+
+["three_bare_wires_air_2/Y"]
+absolute_at_worst_relative_entry = 5.508319762379648e-10
+max_absolute_error = 0.12511124689781913
+max_relative_error = 971.0245927478688
+near_zero_threshold = 2.1734709781339032e-14
+reference_magnitude_at_worst_absolute_entry = 45.37761481912594
+reference_magnitude_at_worst_relative_entry = 5.672688213582567e-13
+relative_at_worst_absolute_entry = 0.002757113775074109
+worst_absolute_entry = "1000000,cable:1:core,cable:1:core"
+worst_relative_entry = "10000000,cable:2:core,cable:3:core"
+
+["three_bare_wires_air_2/Z"]
+absolute_at_worst_relative_entry = 6.637328439257838e-13
+max_absolute_error = 1.707148753384576
+max_relative_error = 0.9999798443213148
+near_zero_threshold = 1.1398436278542267e-14
+reference_magnitude_at_worst_absolute_entry = 51.333993376649296
+reference_magnitude_at_worst_relative_entry = 6.637462221813666e-13
+relative_at_worst_absolute_entry = 0.033255716944887444
+worst_absolute_entry = "10000000,cable:2:core,cable:2:core"
+worst_relative_entry = "10000000,cable:1:core,cable:3:core"
+
+["three_bare_wires_air_3/Y"]
+absolute_at_worst_relative_entry = 8.217553136847389e-6
+max_absolute_error = 0.1256026262798634
+max_relative_error = 1363.548140415765
+near_zero_threshold = 2.1734722713276887e-14
+reference_magnitude_at_worst_absolute_entry = 45.37804086122362
+reference_magnitude_at_worst_relative_entry = 6.026595536510902e-9
+relative_at_worst_absolute_entry = 0.0027679164612677935
+worst_absolute_entry = "1000000,cable:1:core,cable:1:core"
+worst_relative_entry = "1000000,cable:3:core,cable:1:core"
+
+["three_bare_wires_air_3/Z"]
+absolute_at_worst_relative_entry = 3.6038560694105644e-9
+max_absolute_error = 2.130821524209557
+max_relative_error = 0.7224401579316764
+near_zero_threshold = 1.063272582215814e-14
+reference_magnitude_at_worst_absolute_entry = 47.88554005060405
+reference_magnitude_at_worst_relative_entry = 4.9884492574835425e-9
+relative_at_worst_absolute_entry = 0.044498224765926554
+worst_absolute_entry = "10000000,cable:3:core,cable:3:core"
+worst_relative_entry = "10000000,cable:2:core,cable:3:core"
+
+["three_bare_wires_all_air/Y"]
+absolute_at_worst_relative_entry = 1.2609467382028214e-5
+max_absolute_error = 1.2609467382028214e-5
+max_relative_error = 0.21068315503871385
+near_zero_threshold = 2.167476027322301e-19
+reference_magnitude_at_worst_absolute_entry = 5.985038234172625e-5
+reference_magnitude_at_worst_relative_entry = 5.985038234172625e-5
+relative_at_worst_absolute_entry = 0.21068315503871385
+worst_absolute_entry = "10000000,cable:1:core,cable:3:core"
+worst_relative_entry = "10000000,cable:1:core,cable:3:core"
+
+["three_bare_wires_all_air/Z"]
+absolute_at_worst_relative_entry = 1.9323038886674555
+max_absolute_error = 1.948507230227846
+max_relative_error = 0.2766608979472721
+near_zero_threshold = 1.1405953677907427e-14
+reference_magnitude_at_worst_absolute_entry = 13.077777389784018
+reference_magnitude_at_worst_relative_entry = 6.984376552684099
+relative_at_worst_absolute_entry = 0.1489937603426377
+worst_absolute_entry = "10000000,cable:2:core,cable:1:core"
+worst_relative_entry = "10000000,cable:3:core,cable:1:core"
+
+["three_bare_wires_all_earth/Y"]
+absolute_at_worst_relative_entry = 2.800418985726602e-7
+max_absolute_error = 0.12638102356686592
+max_relative_error = 0.6585051417903717
+near_zero_threshold = 2.173466689249507e-14
+reference_magnitude_at_worst_absolute_entry = 45.37840039881675
+reference_magnitude_at_worst_relative_entry = 4.252691145452113e-7
+relative_at_worst_absolute_entry = 0.002785048006455541
+worst_absolute_entry = "1000000,cable:1:core,cable:1:core"
+worst_relative_entry = "10000000,cable:3:core,cable:2:core"
+
+["three_bare_wires_all_earth/Z"]
+absolute_at_worst_relative_entry = 2.3084447437255037e-8
+max_absolute_error = 0.01110243513586638
+max_relative_error = 0.65870223072826
+near_zero_threshold = 1.7911055519184423e-15
+reference_magnitude_at_worst_absolute_entry = 8.066422296201123
+reference_magnitude_at_worst_relative_entry = 3.504534577290397e-8
+relative_at_worst_absolute_entry = 0.0013763766299583725
+worst_absolute_entry = "10000000,cable:3:core,cable:3:core"
+worst_relative_entry = "10000000,cable:2:core,cable:3:core"

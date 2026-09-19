@@ -20,7 +20,8 @@
         ModalTransformationProblem(phase_parameters),
         ModalTransformationFormulation(:default)
     )
-    @test details(parameters).data.formulations === details(phase_parameters).data.formulations
+    @test details(parameters).data.formulations ===
+          details(phase_parameters).data.formulations
 
     @test domain(parameters) === ModalDomain
     @test size(parameters.Z) == (3, 3, 2)
@@ -79,56 +80,50 @@
     @test workspace.invariants.cable_indices ==
           [findall(entry -> entry.cable == cable, problem.system.terminal_order)
            for cable in 1:ncables(problem.system)]
-    capture_allocations(input) = @allocated LineCableModels.Engine._capture_buffers(
+    capture_allocations(input)=@allocated LineCableModels.Engine._capture_buffers(
         Float64, input, Val(false))
     capture_allocations(workspace.input)
     @test capture_allocations(workspace.input) <= 1024
     @test LineCableModels.Engine._capture_buffers(Float64, workspace.input, Val(false)) ===
           nothing
 
-    allocation_formulation=Formulation(
-        earth_impedance = :pollaczek1926,
-        earth_admittance = :xue2018,
-        options = (
-            reduce_bundle = true,
-            kron_reduction = true,
-            ideal_transposition = false
-        )
-    )
-    allocation_workspace=LineParametersWorkspace(
-        problem,
-        allocation_formulation,
-        execution,
-        blueprints
-    )
     function solve_without_logging(workspace, formulation)
         return with_logger(NullLogger()) do
             LineCableModels.Engine._solve!(workspace, formulation)
         end
     end
-    @test @inferred(LineCableModels.Engine._solve!(
-        allocation_workspace,
-        allocation_formulation
-    )) isa LineParameters
-    solve_without_logging(allocation_workspace, allocation_formulation)
-    allocations=@allocated solve_without_logging(
-        allocation_workspace,
-        allocation_formulation
-    )
-    @test allocations <= 4_096
-
-    # The complete current closure has a separate, bounded workspace cost.
-    # Keep the original author-path ceiling above unchanged.
+    # The author-specific allocation check was withdrawn with its numerical
+    # implementation. Preserve Unified's independent ceiling, not a relabelled
+    # comparison with that old workload.
     complete_formulation=Formulation(options = (reduce_bundle = true,
         kron_reduction = true, ideal_transposition = false))
     complete_workspace=LineParametersWorkspace(problem, complete_formulation,
         execution, blueprints)
+    @test @inferred(LineCableModels.Engine._solve!(complete_workspace,
+        complete_formulation)) === complete_workspace
     solve_without_logging(complete_workspace, complete_formulation)
     solve_without_logging(complete_workspace, complete_formulation)
     @test (@allocated solve_without_logging(complete_workspace, complete_formulation))<=32_768
-    numerical=complete_workspace.buffers.earth_numerical
-    @test only(numerical.earth_impedance.systems).response ===
-          only(numerical.earth_admittance.systems).response
+    @test only(complete_workspace.invariants.earth_bindings.earth_impedance.cases).partner ==
+          1
+    @test only(complete_workspace.buffers.earth_materials.earth_impedance) ===
+          only(complete_workspace.buffers.earth_materials.earth_admittance)
+    # Distinct configurations use separate calculations and material tables;
+    # the main numerical arrays are reused after publishing selected entries.
+    distinct_formulation=Formulation(
+        earth_admittance = formula(
+            :default; options = (integration = (method = :quad, options = (rtol = 1e-9,)),)),
+        options = (
+            reduce_bundle = true, kron_reduction = true, ideal_transposition = false))
+    distinct_workspace=LineParametersWorkspace(problem, distinct_formulation, execution, blueprints)
+    @test only(distinct_workspace.invariants.earth_bindings.earth_impedance.cases).partner ==
+          0
+    @test only(distinct_workspace.buffers.earth_materials.earth_impedance) !==
+          only(distinct_workspace.buffers.earth_materials.earth_admittance)
+    @test distinct_workspace.buffers.quadrature.segments !==
+          complete_workspace.buffers.quadrature.segments
+    @test distinct_workspace.buffers.unified.K !==
+          complete_workspace.buffers.unified.K
 end
 
 @testitem "Engine / Gridpoint / selected line problem reaches scalar compute" tags=[:integration] setup=[
@@ -155,9 +150,9 @@ end
     @test size(result.Y) == (3, 3, 1)
 end
 
-@testitem "Engine / coaxial choreography / local formulas precede earth formulas" tags=[:integration] setup=[
+@testitem "Engine / coaxial choreography / material evaluation precedes local and earth calculations" tags=[:integration] setup=[
     UseEngineSupport,
-    TestFixtures,FormulaContractModels
+    TestFixtures, FormulaContractModels
 ] begin
     const EN=LineCableModels.Engine
     const II=EN.InsulationImpedance
@@ -168,12 +163,12 @@ end
 
     events=Symbol[]
     M=FormulaContractModels
-    formulation=Formulation(insulation_impedance=M.CountedInsulationZ(events),
-        insulation_admittance=M.CountedInsulationY(events),
-        semicon_admittance=M.CountedSemiconY(events),
-        earth_impedance=M.CountedEarthZ(events),
-        earth_admittance=M.CountedEarthP(events),
-        options=(ideal_transposition=false,))
+    formulation=Formulation(insulation_impedance = M.CountedInsulationZ(events),
+        insulation_admittance = M.CountedInsulationY(events),
+        semicon_admittance = M.CountedSemiconY(events),
+        earth_impedance = M.CountedEarthZ(events),
+        earth_admittance = M.CountedEarthP(events),
+        options = (ideal_transposition = false,))
     result=compute(
         TestFixtures.line_parameters_problem(frequencies = [50.0]),
         formulation
@@ -184,9 +179,16 @@ end
     local_y_calls=findall(==(:local_y), events)
     earth_y_calls=findall(==(:earth_y), events)
     @test all(!isempty, (local_z_calls, earth_z_calls, local_y_calls, earth_y_calls))
+    @test maximum(local_y_calls) < minimum(local_z_calls)
     @test maximum(local_z_calls) < minimum(earth_z_calls)
-    @test maximum(earth_z_calls) < minimum(local_y_calls)
-    @test maximum(local_y_calls) < minimum(earth_y_calls)
+    @test maximum(earth_z_calls) < minimum(earth_y_calls)
+    laws=formulation.methods[(
+        :insulation_impedance, :insulation_admittance, :semicon_admittance)]
+    workspace=first(laws.insulation_admittance.workspaces)
+    @test workspace isa EN.LineParametersWorkspace
+    for law in laws
+        @test all(w -> w === workspace, law.workspaces)
+    end
     @test all(isfinite, result.Z)
     @test all(isfinite, result.Y)
     single_frequency_events=copy(events)
@@ -286,7 +288,8 @@ end
                                                                    LineCableModelsCoaxial(), source,
                                                                    eltype(problem)
                                                                )
-                                                               for source in problem.system.designs]
+                                                               for source in
+                                                                   problem.system.designs]
     )
     @test_throws ArgumentError compute(problem, Formulation())
     @test_throws ArgumentError CableConstants(design)
@@ -331,7 +334,7 @@ end
     ))
     execution=computation_options(LineCableModelsCoaxial, ComputationOptions((;)))
     workspace(problem,
-        formulation = Formulation()) = LineParametersWorkspace(
+        formulation = Formulation())=LineParametersWorkspace(
         problem,
         formulation,
         execution,
@@ -455,8 +458,9 @@ end
     singleton_design=build(
         CableDesign,
         "single-component",
-        Stack(terminal(:core,Region(:metal,Disk(.005),TestFixtures.conductor_material())),
-            Region(:cover,Shell(.005),Material(kind=:insulator,rho=1e8,eps_r=3.)))
+        Stack(
+            terminal(:core, Region(:metal, Disk(0.005), TestFixtures.conductor_material())),
+            Region(:cover, Shell(0.005), Material(kind = :insulator, rho = 1e8, eps_r = 3.0)))
     )
     singleton_system=build(
         LineCableSystem,
@@ -485,26 +489,24 @@ end
     @test imag(singleton_result.Y[1, 1, 1]) > 0
 end
 
-@testitem "Engine / indexed restrictions and problem-owned Γ reach public compute" tags=[:integration] setup=[
+@testitem "Engine / indexed restrictions and formula-owned Γ reach public compute" tags=[:integration] setup=[
     UseEngineSupport, TestFixtures
 ] begin
     base=TestFixtures.line_parameters_problem(frequencies = [50.0, 500.0])
-    explicit=LineParametersProblem(base.system; earth_props = base.earth_props,
-        frequencies = base.frequencies, Γ = [1e-5im, 2e-5im])
-    prescribed=compute(explicit, Formulation())
+    selection= formula(:unified; parameters=(Γ=[1e-5im, 2e-5im],))
+    prescribed=compute(base, Formulation(earth_impedance=selection, earth_admittance=selection))
     @test all(isfinite, prescribed.Z)&&all(isfinite, prescribed.Y)
-    @test_throws ArgumentError compute(explicit, Formulation(earth_impedance = :xue2018))
+    @test_throws ArgumentError compute(base, Formulation(earth_impedance = :xue2018))
     ordinary=compute(base)
-    zero_problem=LineParametersProblem(base.system;earth_props=base.earth_props,
-        frequencies=base.frequencies,Γ=zeros(ComplexF64,2))
-    zero_result=compute(zero_problem)
+    zero_selection=formula(:unified; parameters=(Γ=zeros(ComplexF64, 2),))
+    zero_result=compute(base, Formulation(earth_impedance=zero_selection, earth_admittance=zero_selection))
     @test Z(zero_result)==Z(ordinary)
     @test Y(zero_result)==Y(ordinary)
-    @test !hasproperty(details(ordinary).data.formulations,:modified)
-    @test_throws DimensionMismatch LineParametersProblem(base.system;
-        earth_props = base.earth_props, frequencies = base.frequencies, Γ = [0.0])
+    @test !hasproperty(details(ordinary).data.formulations, :modified)
+    @test_throws DimensionMismatch compute(base, Formulation(
+        earth_impedance=formula(:unified; parameters=(Γ=[0.0],))))
     design=TestFixtures.coaxial_design()
-    connections(phase) = Dict("core"=>phase, "sheath"=>0)
+    connections(phase)=Dict("core"=>phase, "sheath"=>0)
     mixed=build(LineCableSystem, [design, design], [Pose2(0.0, 1.0), Pose2(1.0, -1.0)];
         connections = [connections(1), connections(2)])
     problem=LineParametersProblem(mixed; earth_props = EarthModel(100.0), frequencies = [50.0])
@@ -515,12 +517,12 @@ end
 
 @testitem "Engine / frequency-dependent earth relation reaches coaxial solve" tags=[:integration] setup=[
     UseEngineSupport,
-    TestFixtures,FormulaContractModels
+    TestFixtures, FormulaContractModels
 ] begin
     problem=TestFixtures.line_parameters_problem(frequencies = [1.0e6])
     static=compute(problem, Formulation())
-    law=FormulaContractModels.DispersiveEarth(scale=1e5)
-    dispersive=compute(problem,Formulation(earth_properties=law))
+    law=FormulaContractModels.DispersiveEarth(scale = 1e5)
+    dispersive=compute(problem, Formulation(earth_properties = law))
 
     @test all(isfinite, dispersive.Z)
     @test all(isfinite, dispersive.Y)

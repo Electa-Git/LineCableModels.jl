@@ -1,3 +1,74 @@
+"""
+Invert each reduced quasi-TEM potential-coefficient slice to obtain shunt
+admittance directly:
+
+```math
+Y(f) = P(f)^{-1}.
+```
+
+No additional ``j\\omega`` factor is applied. Each solve is checked with the
+infinity-norm residual ``\\lVert P Y-I\\rVert_\\infty`` and its matrix condition
+number.
+
+# Arguments
+
+- `P`: Reduced inverse-admittance scan \\[m/S\\], with dimensions
+  `(terminal, terminal, frequency)`.
+
+This FEM coefficient differs from the analytical engine's charge-based
+coefficient ``p=sY^{-1}`` in m/F. For the same admittance and reference,
+``p=sP``, where ``s=jω`` in sinusoidal evaluation.
+
+# Keywords
+
+- `diagnostics=false`: Also return residuals and condition numbers.
+
+# Returns
+
+- The shunt-admittance scan \\[S/m\\], or a named tuple containing `Y`,
+  `residuals`, and `condition_numbers` when diagnostics are requested.
+
+# Errors
+
+- `ArgumentError`: A physical input or computed admittance contains nonfinite
+  values. Actual factorization/solve failures propagate. An unavailable condition
+  estimate or unmet inversion-residual target produces a warning, not rejection
+  or a replacement solve.
+"""
+function potential_to_admittance(
+        P::Array{Complex{T}, 3};
+        diagnostics::Bool = false
+) where {T <: Real}
+    n = size(P, 1)
+    size(P, 2) == n || throw(DimensionMismatch("P must be square"))
+    identity_matrix = Matrix{Complex{T}}(I, n, n)
+    Y = similar(P)
+    residuals = Vector{T}(undef, size(P, 3))
+    condition_numbers = similar(residuals)
+    for frequency in axes(P, 3)
+        coefficient = Matrix(@view P[:, :, frequency])
+        all(isfinite, coefficient) || throw(ArgumentError(
+            "P contains non-finite values at frequency index $frequency",
+        ))
+        condition_number = cond(coefficient)
+        isfinite(condition_number) || @warn "FEM inverse-admittance condition estimate is not finite" frequency condition_number
+        inverse = lu(coefficient) \ identity_matrix
+        all(isfinite, inverse) || throw(ArgumentError(
+            "computed Y contains non-finite values at frequency index $frequency"))
+        residual = convert(T, norm(coefficient * inverse - identity_matrix, Inf))
+        tolerance = max(
+            sqrt(eps(T)),
+            convert(T, 32n * eps(T) * max(one(T), condition_number))
+        )
+        isfinite(residual) && residual <= tolerance ||
+            @warn "FEM inverse-admittance residual target was not met" frequency residual tolerance condition_number
+        @views Y[:, :, frequency] .= inverse
+        residuals[frequency] = residual
+        condition_numbers[frequency] = condition_number
+    end
+    return diagnostics ? (; Y, residuals, condition_numbers) : Y
+end
+
 const FEM_RAW_HEADER = [
     "frequency_index",
     "frequency_hz",
@@ -328,7 +399,7 @@ function _line_parameters(
         model.problem.system.connection_order,
         formulation.options
     )
-    inversion = Engine.potential_to_admittance(reduced.P; diagnostics = true)
+    inversion = potential_to_admittance(reduced.P; diagnostics = true)
     Z = reduced.Z
     Y = inversion.Y
     basis = :pul

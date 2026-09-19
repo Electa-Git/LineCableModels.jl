@@ -233,9 +233,13 @@ end
         system;
         temperature = 35.0,
         earth_props = earth,
-        frequencies = [0.1, 50.0, 1.0e6],
-        Γ = ComplexF64[0.0, 1.0e-5im, 2.0e-4 + 3.0e-4im]
+        frequencies = [0.1, 50.0, 1.0e6]
     )
+    obsolete = IE.serialize_value(problem)
+    obsolete["Gamma"] = IE.serialize_value(ComplexF64[0, 1e-5im, 2e-4+3e-4im])
+    @test_throws ArgumentError IE.deserialize_value(obsolete)
+    obsolete["Gamma"] = nothing
+    @test_throws ArgumentError IE.deserialize_value(obsolete)
     mktempdir() do directory
         path=joinpath(directory, "problem.json")
         @test export_data(:json, problem; file_name = path) == abspath(path)

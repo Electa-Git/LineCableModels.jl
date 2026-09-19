@@ -1,9 +1,10 @@
-@testitem "Gauntlet / spectral construction choices survive grids and retained reports" tags=[:gauntlet_toolkit] setup=[GauntletSupport,TestFixtures] begin
+@testitem "Gauntlet / spectral quadrature controls survive grids and retained reports" tags=[:gauntlet_toolkit] setup=[GauntletSupport,TestFixtures] begin
     using .GauntletSupport.Gauntlet
     using LineCableModels.ReportBuilder: BenchmarkTableDefinition
     model=load_case(:two_insulated_wires;variation=ExactOverrides(frequencies=[1e3]))
     physical=(reduce_bundle=false,kron_reduction=false,ideal_transposition=false)
-    controls=[(method,options=(;samples)) for method in (:trapz,:cim) for samples in (nothing,100_000)]
+    controls=[(method=:quad,options=(;rtol,maxevals))
+        for rtol in (1e-7,1e-9) for maxevals in (10^6,10^7)]
     selections=[formula(:default;options=(integration=choice,)) for choice in controls]
     formulations=Formulation(earth_impedance=Grid(selections),earth_admittance=Grid(selections);
         combine=:zip,options=physical)
@@ -21,9 +22,8 @@
         @test getproperty(records[index].requested,slot).options.integration==choice
     end
 
-    # Two adaptive constructions keep the actual compute/persist/report path.
-    # Fixed 100,000-sample work does not belong to a metadata assertion.
-    controls=filter(choice->choice.options.samples===nothing,controls)
+    # Keep both tolerance choices on the actual compute/persist/report path.
+    controls=filter(choice->choice.options.maxevals==10^6,controls)
     selections=[formula(:default;options=(integration=choice,)) for choice in controls]
     formulations=Formulation(earth_impedance=Grid(selections),earth_admittance=Grid(selections);
         combine=:zip,options=physical)
@@ -45,14 +45,10 @@
             @test Y(retained)==Y(current)
             for slot in (:earth_impedance,:earth_admittance)
                 @test getproperty(details(retained).data.formulations.requested,slot).options.integration==choice
-                for interaction in getproperty(details(current).data.formulations.numerical,slot)
-                    @test interaction.options.integration.method===Val(choice.method)
-                    @test interaction.options.integration.options.samples===choice.options.samples
-                end
-                for interaction in getproperty(details(retained).data.formulations.numerical,slot)
-                    @test interaction.options.integration.method==(
-                        type="Base.Val{$(repr(choice.method))}",fields=(;))
-                    @test interaction.options.integration.options.samples===choice.options.samples
+                for result in (current, retained)
+                    selected=getproperty(details(result).data.formulations.methods,slot)
+                    @test selected.identifier === :unified
+                    @test selected.options.integration == choice
                 end
             end
         end

@@ -38,19 +38,24 @@ model = load_case(:two_insulated_wires;
     variation=ExactOverrides(frequencies=[1.0, 10.0, 37.0, 1e3], temperature=60.0))
 problem = model.problem # nominal_problem retains the original case baseline.
 reference = Formulation()
-formulations = Formulation(earth_impedance=Grid((:default, :pollaczek1926)))
+formulations = Formulation(earth_properties=Grid((:constant, :portela1999)))
 definition = benchmark_definition(model; id=:soil_comparison,
     source_file=@__FILE__, reference, formulations, collection=:manual,
     report=BenchmarkTableDefinition())
 result = run_benchmark(definition; directory="/path/to/calculation")
 ```
 
-Spectral controls remain on each formula selection, including when it is an
-entry in a formulation Gridspace. For trapz and CIM, `samples=nothing` selects
-adaptive construction; an integer caps construction kernel evaluations per scalar
-integral. These are separate from the problem's frequency samples and timing
-repetitions. Saving and reporting retain the requested budget and the normalized
-per-interaction controls. An exhausted budget fails explicitly.
+Spectral quadrature controls remain on each formula selection, including entries
+in a formulation Gridspace. `integration=(method=:quad, options=(rtol=1e-8,
+atol=0.0, maxevals=10^7))` selects QuadGK tolerances and its evaluation budget.
+These are separate from the problem's frequency samples and timing repetitions.
+Saving and reporting retain requested and normalized per-interaction controls.
+
+The current coaxial catalogue candidate uses Unified (`:default`) for both earth
+families. The other registered author equations are deliberately unimplemented;
+the former multi-author candidate sweep is no longer an executable workload.
+Previously saved results are historical evidence, not rerouted calculations.
+PSCAD's independent native author selections remain available.
 
 Use a real declaration file for `source_file` (the `@__FILE__` argument above).
 For a REPL, pass the path of the file that declares the benchmark. An explicit
@@ -187,7 +192,7 @@ The shared report works with live results independently of Gauntlet:
 using LineCableModels
 using LineCableModels.ReportBuilder: BenchmarkTableDefinition
 
-selected = Formulation(earth_impedance=Grid((:default, :pollaczek1926)))
+selected = Formulation(earth_properties=Grid((:constant, :portela1999)))
 reference = compute(problem, Formulation())
 candidates = compute(problem, selected)
 artifact = report(BenchmarkTableDefinition(), (; reference, candidate=candidates))

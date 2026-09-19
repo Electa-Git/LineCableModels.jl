@@ -173,7 +173,7 @@ The same report and plot APIs accept live completed results without Gauntlet:
 
 ```julia
 reference = compute(problem, Formulation())
-candidates = compute(problem, Formulation(earth_impedance=Grid((:default, :pollaczek1926))))
+candidates = compute(problem, Formulation(earth_properties=Grid((:constant, :longmire1975))))
 artifact = report(BenchmarkTableDefinition(), (; reference, candidate=candidates))
 ```
 

@@ -60,15 +60,15 @@ Returns complex admittivity in S/m.
 function constitutive(
         formula::Union{InsulationAdmittanceFormulation, SemiconAdmittanceFormulation},
         material::Material, frequency::Real, temperature::Real;
-        temperature_dependence=TemperatureDependent.Formula(:default))
-    rho = constitutive(temperature_dependence, material, temperature)
+        temperature_dependence = TemperatureDependent.Formula(:default), workspace = nothing)
+    rho = constitutive(temperature_dependence, material, temperature; workspace)
     if rho != material.rho
         material = Material(material.kind, rho, material.eps_r, material.mu_r,
-            temperature, material.alpha; rho_thermal=material.rho_thermal,
-            theta_max=material.theta_max, tan_delta=material.tan_delta,
-            sigma_solar=material.sigma_solar)
+            temperature, material.alpha; rho_thermal = material.rho_thermal,
+            theta_max = material.theta_max, tan_delta = material.tan_delta,
+            sigma_solar = material.sigma_solar)
     end
-    return formula(material, frequency, temperature)
+    return formula(material, frequency, temperature; workspace)
 end
 
 @inline function radial_coefficient(coefficients, layers::UnitRange{Int})
@@ -107,10 +107,11 @@ end
 
 function constitutive(relations::Tuple{I, S}, material::RadialDielectric,
         frequency::Real, temperature::Real;
-        temperature_dependence=TemperatureDependent.Formula(:default)
+        temperature_dependence = TemperatureDependent.Formula(:default), workspace = nothing
 ) where {I <: InsulationAdmittanceFormulation, S <: SemiconAdmittanceFormulation}
     evaluated = map(relations) do selected
-        (source, f, t) -> constitutive(selected, source, f, t; temperature_dependence)
+        (source, f,
+            t) -> constitutive(selected, source, f, t; temperature_dependence, workspace)
     end
     return constitutive(evaluated, material, frequency, temperature)
 end
@@ -118,50 +119,39 @@ end
 """
 $(TYPEDSIGNATURES)
 
-Evaluate the registered insulation and semicon constitutive relations and
-store the potential coefficient of every physical dielectric layer.
+Evaluate the registered insulation and semicon constitutive relations for
+every physical dielectric layer, without applying radial geometry.
 
 # Returns
 
-- `coefficients`, overwritten in physical radial-layer order \\[m/F\\].
+- `admittivity`, overwritten in physical radial-layer order \\[S/m\\].
 """
 function dielectric!(
-        coefficients::AbstractVector{Complex{T}},
+        admittivity::AbstractVector{Complex{T}},
         input::LocalCableData{T},
         methods::NamedTuple,
         frequency::T,
-        temperature::T,
-        s::Complex{T}
+        temperature::T; workspace = nothing
 ) where {T <: Real}
     @inbounds for layer in input.insulation_indices
         κ = constitutive(
             methods.insulation_admittance,
             input.dielectric_materials[layer],
             frequency,
-            temperature; temperature_dependence=methods.temperature_dependence
+            temperature; temperature_dependence = methods.temperature_dependence, workspace
         )
-        coefficients[layer] = potential_coefficient(
-            input.r_layer_in[layer],
-            input.r_layer_ext[layer],
-            κ,
-            s
-        )
+        admittivity[layer] = κ
     end
     @inbounds for layer in input.semicon_indices
         κ = constitutive(
             methods.semicon_admittance,
             input.dielectric_materials[layer],
             frequency,
-            temperature; temperature_dependence=methods.temperature_dependence
+            temperature; temperature_dependence = methods.temperature_dependence, workspace
         )
-        coefficients[layer] = potential_coefficient(
-            input.r_layer_in[layer],
-            input.r_layer_ext[layer],
-            κ,
-            s
-        )
+        admittivity[layer] = κ
     end
-    return coefficients
+    return admittivity
 end
 
 """
@@ -177,21 +167,20 @@ series sum of physical radial dielectric layers.
 function cable_potential!(
         destination::AbstractMatrix{Complex{T}},
         input::LocalCableData{T},
-        methods::NamedTuple,
-        frequency::T,
-        temperature::T,
+        admittivity::AbstractVector{Complex{T}},
         s::Complex{T},
         layer_coefficients::AbstractVector{Complex{T}},
         coefficients::AbstractVector{Complex{T}},
         tails::AbstractVector{Complex{T}}
 ) where {T <: Real}
     fill!(destination, zero(Complex{T}))
-    dielectric!(layer_coefficients, input, methods, frequency,
-        temperature, s)
+    @. layer_coefficients = potential_coefficient(
+        input.r_layer_in, input.r_layer_ext, admittivity, s)
     @inbounds for conductors in input.assemblies
         count = length(conductors)
         for component in 1:count
-            coefficients[component] = input.shunt_covered[conductors[component]] ? zero(s) : radial_coefficient(
+            coefficients[component] = input.shunt_covered[conductors[component]] ? zero(s) :
+                                      radial_coefficient(
                 layer_coefficients,
                 input.dielectric_ranges[conductors[component]]
             )
@@ -205,7 +194,7 @@ function cable_potential!(
             destination[conductors[row], conductors[column]] += tails[max(row, column)]
         end
     end
-    return _shunt_potential!(destination,input.shunt)
+    return _shunt_potential!(destination, input.shunt)
 end
 
 """
@@ -226,15 +215,13 @@ external reference.
 function cable_admittance!(
         destination::AbstractMatrix{Complex{T}},
         input::LocalCableData{T},
-        methods::NamedTuple,
-        frequency::T,
-        temperature::T,
+        admittivity::AbstractVector{Complex{T}},
         s::Complex{T},
         layer_coefficients::AbstractVector{Complex{T}}
 ) where {T <: Real}
     fill!(destination, zero(Complex{T}))
-    dielectric!(layer_coefficients, input, methods, frequency,
-        temperature, s)
+    @. layer_coefficients = potential_coefficient(
+        input.r_layer_in, input.r_layer_ext, admittivity, s)
     @inbounds for conductors in input.assemblies
         count = length(conductors)
         for position in 1:count
@@ -255,46 +242,26 @@ function cable_admittance!(
             end
         end
     end
-    return _shunt_admittance!(destination,input.shunt,s)
+    return _shunt_admittance!(destination, input.shunt, s)
 end
 
+"""
+$(TYPEDSIGNATURES)
+
+Add the already calculated exterior potential coefficients to the cable-local
+primitive potential matrix \\[m/F\\] and retain its optional trace at `frequency`.
+The caller subsequently forms admittance from this matrix. No equation or
+material law is evaluated here. Return the mutated `destination`.
+"""
 function admittance!(
         destination::AbstractMatrix{Complex{T}},
         workspace::LineParametersWorkspace{T},
-        frequency::Int,
-        formulation::LineParametersFormulation
+        frequency::Int
 ) where {T <: Real}
     input = workspace.input
     indices = workspace.invariants.cable_indices
-    earth_matrix = workspace.buffers.earth_matrix
-    earth_media = workspace.buffers.earth_materials.earth_admittance
-    coefficients = workspace.buffers.coefficients
-    tails = workspace.buffers.tails
-    layer_coefficients = workspace.buffers.layer_coefficients
+    earth_matrix = workspace.buffers.Pearth
     capture = workspace.capture
-    s = input.jω[frequency]
-    cable_potential!(
-        destination,
-        input.cable,
-        formulation.methods,
-        input.freq[frequency],
-        input.temperature,
-        s,
-        layer_coefficients,
-        coefficients,
-        tails
-    )
-    _stash!(_capture_target(capture, :Pin), frequency, destination)
-
-    earth!(
-        earth_matrix, workspace.invariants.earth_bindings.earth_admittance,
-        earth_media, s,
-        formulation.methods.earth_admittance,
-        _gamma(input.Γ, frequency),
-        workspace.buffers.earth_numerical.earth_admittance,
-        get(earth_media, :thickness, nothing)
-    )
-    _stash!(_capture_target(capture, :Pg), frequency, earth_matrix)
 
     @inbounds for cable in 1:input.n_cables
         self = earth_matrix[cable, cable]

@@ -42,7 +42,7 @@ z_{ab}=\\frac{s\\mu_0\\mu_i}{2\\pi}\\ln\\frac{b}{a}.
 - `s`: Complex angular frequency ``s=j\\omega`` \\[rad/s\\].
 - `values`: Explicit physical/model parameters.
 - `options`: Normalized numerical sections for this contribution.
-- `workspace`: Optional execution resources.
+- `workspace`: Optional computation workspace supplying reusable numerical buffers.
 
 # Returns
 

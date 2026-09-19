@@ -13,7 +13,7 @@ module EarthImpedance
 import ...Grammar: FormulationOptions
 
 # Export public API
-export Formula, formula_id, earth_impedance, assumptions, propagation, formulas, Γ
+export Formula, formula_id, earth_impedance, assumptions, formulas
 
 # Module-specific dependencies
 #! explicit-imports: off
@@ -21,23 +21,23 @@ export Formula, formula_id, earth_impedance, assumptions, propagation, formulas,
 using DocStringExtensions: IMPORTS, TYPEDEF, TYPEDFIELDS, TYPEDSIGNATURES
 #! explicit-imports: on
 import ...LineCableModels: validate
-import ..Engine: EarthPair, earth_parameters
-import ...LineCableModels: constitutive
+import ..Engine: EarthPair, earth_parameters, layer_index
 import ...Earth: EquivalentHomogeneous
 import ..Engine: EarthImpedanceFormulation, formula_id
 #! explicit-imports: off
 # Explicitly included equations share these physical and numerical operations.
-import ..Engine: system_earth, unified_entry, retained_earth_features
+import ..Engine: earth_bindings, initialize_buffers, earth!,
+                 same_physical_state, numerical_magnitude,
+                 special_besselix, special_besselkx,
+                 special_besseljx
+using LinearAlgebra: lu!, ldiv!
 import ...LineCableModels: FormulaDefinition, FormulaMethod, nominal
 import ..Engine: SpectralIntegral, integrate
 import ..Engine: description, conductivity, media, special_besselk
 import ..Engine: formulation_options
 #! explicit-imports: on
 
-vacuum_permeability(value) = one(value) * 4 * (one(value) * π) * (one(value) * 10)^(-7)
-
 include("interface.jl")
-include("homogeneous.jl")
 
 #! explicit-imports: off
 const FORMULAS = (
@@ -51,12 +51,12 @@ const FORMULAS = (
     include("formulas/saad1996.jl"),
     include("formulas/wedepohl1973.jl"),
     include("formulas/wise1934.jl"),
-    include("formulas/xue2018.jl"),
+    include("formulas/xue2018.jl")
 )
 #! explicit-imports: on
 
 """
-Return numerical earth-impedance identifiers.
+Return registered earth-impedance identities, including unimplemented equations.
 """
 formulas() = FORMULAS
 

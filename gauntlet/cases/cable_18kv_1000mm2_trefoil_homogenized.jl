@@ -15,8 +15,7 @@ function build_case(::Val{:cable_18kv_1000mm2_trefoil_homogenized}, p)
         system;
         temperature = problem.temperature,
         earth_props = problem.earth_props,
-        frequencies = problem.frequencies,
-        Γ = problem.Γ
+        frequencies = problem.frequencies
     )
 end
 

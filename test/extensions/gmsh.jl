@@ -143,13 +143,27 @@
     potential = Array{ComplexF64, 3}(undef, 2, 2, 2)
     potential[:, :, 1] = [2.0 0.25; 0.25 1.5]
     potential[:, :, 2] = [3.0 + 0.1im 0.5; 0.5 2.0 + 0.2im]
-    inversion = LineCableModels.Engine.potential_to_admittance(
+    inversion = extension_module.potential_to_admittance(
         potential; diagnostics = true
     )
     for frequency in axes(potential, 3)
         @test potential[:, :, frequency] * inversion.Y[:, :, frequency] ≈ I
         @test inversion.residuals[frequency] ≤ 100eps(Float64)
     end
+    # An overflowing condition estimate is not a failed solve. The physical
+    # inverse is finite and remains the result of the original LU operation.
+    ill_conditioned = reshape(ComplexF64[1e-200 0; 0 1e200], 2, 2, 1)
+    warned = @test_logs (:warn, r"condition estimate is not finite") begin
+        extension_module.potential_to_admittance(ill_conditioned; diagnostics = true)
+    end
+    @test all(isfinite, warned.Y)
+    @test warned.Y[:, :, 1] == inv(ill_conditioned[:, :, 1])
+    @test isinf(only(warned.condition_numbers))
+    @test only(warned.residuals) ≤ 100eps(Float64)
+    @test_throws ArgumentError extension_module.potential_to_admittance(
+        fill(ComplexF64(NaN), 2, 2, 1))
+    @test_throws SingularException extension_module.potential_to_admittance(
+        zeros(ComplexF64, 2, 2, 1))
 end
 
 @testitem "Gmsh FEM / nominal Float64 preflight" tags=[:extension] begin
@@ -236,27 +250,13 @@ end
     @test only(promoted.system.designs).geometry.regions[1].primitive.r ===
           Float64(0.005f0)
 
-    unsupported_problem = LineParametersProblem(
+    @test_throws MethodError LineParametersProblem(
         system;
         temperature = measurement(35.0, 0.5),
         earth_props = LineCableModels.Earth.EarthModel(100.0, 10.0, 1.0),
         frequencies = [measurement(50.0, 0.25)],
         Γ = [complex(measurement(0.0, 0.0), measurement(1.0e-12, 1.0e-14))]
     )
-    formulation = Formulation(
-        :LineCableModelsFEM;
-        options = (ideal_transposition = false,))
-    formulation_controls = (gmsh_verbosity = 0,)
-    exception = try
-        compute(unsupported_problem, formulation; options=formulation_controls)
-        nothing
-    catch caught
-        caught
-    end
-    @test exception isa LineCableModelsFEMError
-    @test exception.category === :unsupported
-    @test exception.field === :Γ
-    @test exception.run_directory === nothing
     @test !Bool(gmsh.is_initialized())
     @test (isdir(runs) ? sort(readdir(runs)) : nothing) == before
 end
@@ -537,21 +537,12 @@ end
     @test partition_error.category === :adaptation
     @test partition_error.field === :material_partition
 
-    gamma_problem = LineParametersProblem(
+    @test_throws MethodError LineParametersProblem(
         system;
         earth_props = LineCableModels.Earth.EarthModel(100.0, 10.0, 1.0),
         frequencies = [50.0],
         Γ = [1.0e-12im]
     )
-    gamma_error = try
-        extension_module._resolved_fem_model(gamma_problem, formulation)
-        nothing
-    catch exception
-        exception
-    end
-    @test gamma_error isa LineCableModelsFEMError
-    @test gamma_error.category === :unsupported
-    @test gamma_error.field === :Γ
 
     vertical_problem = LineParametersProblem(
         system;
@@ -1291,10 +1282,10 @@ end
             files = details(batch[index]).data.files
             @test any(file -> file.path == "run.json", files)
             @test all(file -> bytes2hex(open(sha256, file.source)) == file.sha256, files)
-            soil = batch[index].details.data.formulations.selections.earth_properties
+            soil = batch[index].details.data.formulations.methods.earth_properties
             @test soil === nothing ? selected[index].methods.earth_properties === nothing :
                   soil.identifier === formula_id(selected[index].methods.earth_properties)
-            @test keys(batch[index].details.data.formulations.selections) == keys(selected[index].methods)
+            @test keys(batch[index].details.data.formulations.methods) == keys(selected[index].methods)
             @test details(batch).data.points[index] == details(batch[index])
         end
         default_indices = findall(
@@ -1383,7 +1374,7 @@ end
             options = (;formulation_controls..., trace = true, resume_run_directory = run_directory))
         @test repeated.Z.values == result.Z.values
         @test repeated.Y.values == result.Y.values
-        @test repeated.details.data.formulations.selections.earth_properties === nothing
+        @test repeated.details.data.formulations.methods.earth_properties === nothing
         @test repeated.details.data.fem.run.run_directory == run_directory
         @test repeated.details.data.fem.timing.reused
         @test repeated.details.data.fem.timing.solve_seconds == timing.solve_seconds

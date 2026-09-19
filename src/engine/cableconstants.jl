@@ -24,7 +24,7 @@ struct CableConstants{T <: Real, D <: ComputationDetails} <: AbstractCoreResult
     "Evaluation frequency [Hz]."
     frequency::T
 
-    "Selected/effective shunt model and blueprint construction diagnostics."
+    "Requested/resolved formulas and blueprint construction diagnostics."
     details::D
 
     function CableConstants{T}(
@@ -283,31 +283,43 @@ function formulation_options(
     return FormulationOptions()
 end
 
-description(::Type{<:CableConstantsFormulation};compact::Bool=false) = "Cable constants"
-description(::CableConstantsFormulation;compact::Bool=false) = description(CableConstantsFormulation;compact)
+description(::Type{<:CableConstantsFormulation}; compact::Bool = false) = "Cable constants"
+function description(::CableConstantsFormulation; compact::Bool = false)
+    description(CableConstantsFormulation; compact)
+end
 formula_id(::Type{<:CableConstantsFormulation}) = :cable_constants
 formula_id(::CableConstantsFormulation) = :cable_constants
 formulation_options(value::CableConstantsFormulation) = value.options
-function Base.pairs(::Type{CableConstantsFormulation};quantity=nothing)
-    return pairs((; (key=>family for (key,family) in pairs(LineParametersFormulation;quantity)
-        if key ∉ (:earth_impedance,:earth_admittance,:earth_properties))...))
+function Base.pairs(::Type{CableConstantsFormulation}; quantity = nothing)
+    return pairs((;
+        (key=>family
+    for (key, family) in pairs(LineParametersFormulation; quantity)
+    if key ∉ (:earth_impedance, :earth_admittance, :earth_properties))...))
 end
-description(::Type{CableConstantsFormulation},slot::Val) = description(LineParametersFormulation,slot)
-Base.pairs(value::CableConstantsFormulation;quantity=nothing) = pairs(CableConstantsFormulation,
-    (methods=value.methods,requested=value.definitions,options=value.options.data);quantity)
-Base.pairs(::Type{CableConstantsFormulation},retained::NamedTuple;quantity=nothing) =
-    pairs(LineParametersFormulation,retained;quantity,owner=CableConstantsFormulation)
+function description(::Type{CableConstantsFormulation}, slot::Val)
+    description(LineParametersFormulation, slot)
+end
+function Base.pairs(value::CableConstantsFormulation; quantity = nothing)
+    pairs(CableConstantsFormulation,
+        (methods = value.methods, requested = value.definitions,
+            options = value.options.data); quantity)
+end
+function Base.pairs(::Type{CableConstantsFormulation}, retained::NamedTuple; quantity = nothing)
+    pairs(LineParametersFormulation, retained; quantity, owner = CableConstantsFormulation)
+end
 
 """Expose requested and resolved local formulas for passive scientific records."""
 function Base.NamedTuple(value::CableConstantsFormulation)
     record = function (selected)
         selected === nothing && return nothing
         selected isa Symbol && return NamedTuple(formula(selected))
-        selected isa NamedTuple && return map(record,selected)
+        selected isa NamedTuple && return map(record, selected)
         return NamedTuple(selected)
     end
-    return (backend=:cable_constants,requested=map(record,value.definitions),
-        methods=map(record,value.methods),options=value.options.data)
+    Record = NamedTuple{(:backend, :requested, :methods, :options),
+        Tuple{Symbol, NamedTuple, NamedTuple, NamedTuple}}
+    return Record((:cable_constants, map(record, value.definitions),
+        map(record, value.methods), value.options.data))
 end
 
 function _constants_formulation(
@@ -389,14 +401,15 @@ function CableConstantsFormulation(;
     )
     return parameterize(
         CableConstantsFormulation,
-        (inputs...) -> _constants_formulation(inputs[1:end-1]..., last(inputs) isa NamedTuple ? FormulationOptions(last(inputs)) : last(inputs)),
+        (inputs...) -> _constants_formulation(inputs[1:(end - 1)]...,
+            last(inputs) isa NamedTuple ? FormulationOptions(last(inputs)) : last(inputs)),
         values;
         combine
     )
 end
 
 function computation_options(
-        ::Type{CableConstantsProblem},
+        ::Type{<:CableConstantsFormulation},
         options::ComputationOptions
 )::ComputationOptions
     isempty(options.data) || throw(ArgumentError(
@@ -446,12 +459,9 @@ function CableConstantsWorkspace(
         ))
     end
     count = length(cable.terminals)
-    rho = T[constitutive(formulation.methods.temperature_dependence, material,
-        problem.temperature) for material in cable.conductor_materials]
+    rho = Vector{T}(undef, length(cable.conductor_materials))
 
     maximum_size = maximum(length, cable.assemblies)
-    validate(formulation.methods.internal_impedance,
-        maximum_size > 1 ? (:inner, :outer, :transfer) : (:outer,))
     removed = maximum_size - 1
     buffers = (
         Z = Matrix{Complex{T}}(undef, count, count),
@@ -464,11 +474,23 @@ function CableConstantsWorkspace(
         layer_coefficients = Vector{Complex{T}}(
             undef, length(cable.dielectric_materials)
         ),
+        dielectric_admittivity = Vector{Complex{T}}(undef, length(cable.dielectric_materials)),
         R = Vector{T}(undef, length(cable.assemblies)),
         L = Vector{T}(undef, length(cable.assemblies)),
         C = Vector{T}(undef, length(cable.assemblies)),
-        G = Vector{T}(undef, length(cable.assemblies))
+        G = Vector{T}(undef, length(cable.assemblies)),
+        quadrature = integration_workspace(typeof(float(nominal(one(T)))), Complex{T}; size = 0),
+        observations = nothing
     )
+    selected_internal = formulation.methods.internal_impedance
+    internal = if selected_internal isa NamedTuple
+        kinds = any(>(0), cable.r_in) ? (:inner, :outer, :transfer) : (:outer,)
+        Tuple(unique(Formulation(selected_internal, Val(kind)) for kind in kinds))
+    else
+        selected_internal
+    end
+    buffers = initialize_buffers(merge(formulation.methods, (internal_impedance = internal,)),
+        T, cable, (;), buffers)
     return CableConstantsWorkspace{T, typeof(cable), typeof(buffers)}(
         cable, rho, buffers
     )
@@ -482,19 +504,23 @@ function _solve!(
     buffers = workspace.buffers
     ω = 2 * (one(T) * π) * problem.frequency
     s = complex(zero(T), ω)
+    for (index, material) in pairs(workspace.cable.conductor_materials)
+        workspace.rho[index] = constitutive(formulation.methods.temperature_dependence,
+            material, problem.temperature; workspace)
+    end
+    dielectric!(buffers.dielectric_admittivity, workspace.cable, formulation.methods,
+        problem.frequency, problem.temperature; workspace)
     cable_impedance!(
         buffers.Z,
         workspace.cable,
         workspace.rho,
         formulation.methods,
-        s
+        s; workspace
     )
     cable_admittance!(
         buffers.Y,
         workspace.cable,
-        formulation.methods,
-        problem.frequency,
-        problem.temperature,
+        buffers.dielectric_admittivity,
         s,
         buffers.layer_coefficients
     )
@@ -534,7 +560,8 @@ function _solve!(
         buffers.C,
         buffers.G,
         problem.frequency,
-        ComputationDetails(NamedTuple{(:shunt_model,), Tuple{NamedTuple}}((workspace.cable.shunt_details,)))
+        ComputationDetails(NamedTuple{(:shunt_model, :formulations),
+            Tuple{NamedTuple, NamedTuple}}((workspace.cable.shunt_details, NamedTuple(formulation))))
     )
 end
 
@@ -607,7 +634,7 @@ function compute(
         options::Union{NamedTuple, ComputationOptions} = ComputationOptions()
 )
     options = options isa NamedTuple ? ComputationOptions(options) : options
-    computation_options(CableConstantsProblem, options)
+    computation_options(CableConstantsFormulation, options)
     isempty(formulations) && throw(ArgumentError(
         "cable-constant formulation collections cannot be empty",
     ))
@@ -619,27 +646,13 @@ function compute(
     cables = [LocalCableData(first(blueprints))]
     for index in 2:length(blueprints)
         previous = findfirst(other -> other === blueprints[index], blueprints)
-        push!(cables, previous < index ? cables[previous] : LocalCableData(blueprints[index]))
+        push!(cables, previous < index ? cables[previous] :
+                      LocalCableData(blueprints[index]))
     end
-    first_formulation = first(formulations)
-    first_workspace = CableConstantsWorkspace(
-        problem,
-        first_formulation,
-        first(cables)
-    )
-    first_result = _solve!(first_workspace, problem, first_formulation)
-    values = Vector{typeof(first_result)}(undef, length(formulations))
-    values[1] = first_result
-    for index in 2:length(formulations)
-        formulation = formulations[index]
-        workspace = CableConstantsWorkspace(problem, formulation, cables[index])
-        value = _solve!(workspace, problem, formulation)
-        typeof(value) === eltype(values) || throw(ArgumentError(
-            "cable-constant formulations produced inconsistent result types",
-        ))
-        values[index] = value
+    return map(formulations, cables) do formulation, cable
+        workspace = CableConstantsWorkspace(problem, formulation, cable)
+        _solve!(workspace, problem, formulation)
     end
-    return values
 end
 
 """

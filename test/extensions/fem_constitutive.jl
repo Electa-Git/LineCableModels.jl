@@ -37,10 +37,10 @@
     @test record.methods.temperature_dependence == NamedTuple(temperature_law)
     @test typeof(record) === typeof(FEM.formulation_record(LineCableModelsFEM()))
 
-    @test record.selections.temperature_dependence.identifier === :ExponentialResistivity
-    @test record.selections.temperature_dependence.parameters.scale==1000.0
-    @test !hasproperty(record.selections.temperature_dependence,:replayable)
-    @test record.selections.semicon_admittance.identifier === :lossless
+    @test record.methods.temperature_dependence.identifier === :ExponentialResistivity
+    @test record.methods.temperature_dependence.parameters.scale==1000.0
+    @test !hasproperty(record.methods.temperature_dependence,:replayable)
+    @test record.methods.semicon_admittance.identifier === :lossless
     for name in (:internal_impedance,:insulation_impedance,:earth_impedance,:earth_admittance,:pipe_impedance)
         @test_throws MethodError Formulation(:LineCableModelsFEM; NamedTuple{(name,)}((formula(:default),))...)
     end

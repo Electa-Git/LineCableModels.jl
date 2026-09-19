@@ -7,11 +7,13 @@ calculation.
 The constructor adapts a completed physical system once, validates the aligned
 numerical representation, constructs cable and reduction indices, and
 allocates every matrix used by the frequency loop. Each `compute` call owns one
-workspace; no mutable state is shared between calculations.
+workspace; no mutable state is shared between calculations. Constant fields fix
+its input and buffer bindings; reference identity avoids copying this large
+record when dispatching heterogeneous equation groups.
 
 $(TYPEDFIELDS)
 """
-struct LineParametersWorkspace{
+mutable struct LineParametersWorkspace{
     T <: Real,
     N <: NamedTuple,
     P <: NamedTuple,
@@ -19,13 +21,13 @@ struct LineParametersWorkspace{
     C
 }
     "Immutable numerical input derived from the problem and formulation."
-    input::N
+    const input::N
     "Physical values and index maps invariant across the frequency loop."
-    invariants::P
+    const invariants::P
     "Mutable numerical storage allocated once for the calculation."
-    buffers::B
+    const buffers::B
     "Optional retained diagnostic arrays, or `nothing`."
-    capture::C
+    const capture::C
 
     function LineParametersWorkspace{T, N, P, B, C}(
             input::N,
@@ -45,52 +47,6 @@ end
 Base.eltype(::LineParametersWorkspace{T}) where {T} = T
 Base.eltype(::Type{<:LineParametersWorkspace{T}}) where {T} = T
 
-"""
-$(TYPEDSIGNATURES)
-
-Check resolved earth-formula selections against a prepared coaxial workspace.
-This is shared by numerical execution and manual catalog preflight. It checks
-the physical earth model and actual assembly interactions without evaluating
-formula kernels or changing any workspace buffers.
-
-# Arguments
-
-- `workspace`: Prepared geometry, layer inventory and numerical storage.
-- `formulation`: Context-resolved coaxial formulation; resolve `:default` first.
-
-# Returns
-
-- The same `workspace`.
-"""
-function validate(workspace::LineParametersWorkspace, formulation::LineParametersFormulation)
-    earth = workspace.input.earth
-    for name in (:earth_impedance, :earth_admittance)
-        selected = getproperty(formulation.methods, name)
-        selected isa NamedTuple && validate(selected, earth)
-        bound = getproperty(workspace.invariants.earth_bindings, name)
-        bound.selection === selected ||
-            throw(ArgumentError("workspace is bound to another formula selection"))
-        for case in bound.cases
-            method = case.selection
-            stratified = media(method) === Val(:stratified)
-            if stratified || method.equivalent_earth === nothing
-                validate(method, earth)
-            else
-                validate(method, 2)
-            end
-            for interaction in case.interactions
-                Formulation(selected, Val.(interaction.physical_pair.layers)...) ===
-                method ||
-                    throw(ArgumentError("workspace interaction is bound to another formula"))
-                stratified &&
-                    validate(interaction.pair, getproperty.(earth.layers, :thickness))
-                validate(interaction.pair, case.declaration.equation)
-            end
-        end
-    end
-    return workspace
-end
-
 @inline _capture_buffers(::Type, ::Any, ::Val{false}) = nothing
 
 function _capture_buffers(
@@ -107,7 +63,8 @@ function _capture_buffers(
         Zg = Array{Complex{T}, 3}(undef, nc, nc, nf),
         Pg = Array{Complex{T}, 3}(undef, nc, nc, nf),
         Z = Array{Complex{T}, 3}(undef, n, n, nf),
-        P = Array{Complex{T}, 3}(undef, n, n, nf)
+        P = Array{Complex{T}, 3}(undef, n, n, nf),
+        integrals = NamedTuple[]
     )
 end
 
@@ -118,10 +75,6 @@ function validate(workspace::LineParametersWorkspace)
     input.n_frequencies == length(input.freq) || throw(DimensionMismatch(
         "frequency count differs from the frequency vector"
     ))
-    input.Γ !== nothing && length(input.Γ) != input.n_frequencies &&
-        throw(DimensionMismatch(
-            "longitudinal propagation constants must align with frequencies"
-        ))
     input.n_cables == maximum(input.cable_map) || throw(DimensionMismatch(
         "cable count differs from the cable map"
     ))
@@ -157,14 +110,6 @@ function validate(workspace::LineParametersWorkspace)
     length(workspace.invariants.cable_indices) == input.n_cables || throw(
         DimensionMismatch("cable indices must align with the cable count")
     )
-    length(workspace.invariants.earth_pairs) ==
-    input.n_cables^2 || throw(DimensionMismatch(
-        "earth pairs must contain every ordered cable interaction"
-    ))
-    length(workspace.invariants.homogeneous_pairs) ==
-    length(workspace.invariants.earth_pairs) || throw(DimensionMismatch(
-        "physical and homogeneous earth pairs must align"
-    ))
     all(!isempty, workspace.invariants.cable_indices) || throw(ArgumentError(
         "every cable must contain one retained primitive conductor"
     ))
@@ -187,7 +132,7 @@ The selected designs have already been flattened into frequency-independent
 blueprints. This step constructs local cable arrays, physical geometry,
 terminal indices, and frequency coordinates once. It does not apply
 temperature correction, earth-property/EquivalentHomogeneous formulas, reduction policy, or
-allocate formula-owned mutable workspaces.
+allocate formula-specific buffers.
 
 # Arguments
 
@@ -216,7 +161,6 @@ function lineinput(
     n_cables = length(cable.assemblies)
 
     freq = copy(problem.frequencies)
-    Γ = problem.Γ === nothing ? nothing : copy(problem.Γ)
     jω = Complex{T}.(im .* (2 * (one(first(freq)) * π) .* freq))
     horz = Vector{T}(undef, n_phases)
     horz_sep = Matrix{T}(undef, n_phases, n_phases)
@@ -255,7 +199,6 @@ function lineinput(
     )
     return (
         freq,
-        Γ,
         jω,
         horz,
         horz_sep,
@@ -271,6 +214,17 @@ function lineinput(
         n_phases,
         n_cables
     )
+end
+
+function lineinput(::Type{T}, input::NamedTuple) where {T <: Real}
+    T === eltype(input.freq) && return input
+    return merge(input, (
+        freq = T.(input.freq), jω = Complex{T}.(input.jω),
+        horz = T.(input.horz), vert = T.(input.vert), horz_sep = T.(input.horz_sep),
+        cable = convert(LocalCableData{T}, input.cable),
+        earth = convert(EarthModel{T}, input.earth),
+        temperature = convert(T, input.temperature),
+        line_length = convert(T, input.line_length)))
 end
 
 function LineParametersWorkspace(
@@ -294,16 +248,10 @@ function LineParametersWorkspace(
         input::NamedTuple
 ) where {T <: Real}
     cable = input.cable
-    n_frequencies = input.n_frequencies
-    n_phases = input.n_phases
-    n_cables = input.n_cables
-    n_layers = length(cable.dielectric_materials)
     horz = input.horz
     horz_sep = input.horz_sep
     vert = input.vert
     phase_map = input.phase_map
-    rho_cond = T[constitutive(formulation.methods.temperature_dependence, material,
-                     problem.temperature) for material in cable.conductor_materials]
     cable_indices = [collect(indices) for indices in cable.assemblies]
     cable_representatives = first.(cable_indices)
     physical_pairs = earth_pairs(
@@ -314,77 +262,82 @@ function LineParametersWorkspace(
         problem.earth_props
     )
     homogeneous_pairs = _homogeneous_pairs(physical_pairs)
-    earth_bindings = map(formulation.methods[(
-        :earth_impedance, :earth_admittance)]) do selected
-        leaves = [Formulation(selected, Val.(pair.layers)...) for pair in physical_pairs]
+    bindings = map(formulation.methods[(:earth_impedance, :earth_admittance)]) do selected
+        leaves = [Formulation(selected, Val.(layer_index(pair))...) for pair in physical_pairs]
         cases = NamedTuple[]
         for leaf in unique(leaves)
+            # Validate the selected material inventory while binding it, not
+            # by reconstructing selections in a later workspace preflight.
+            validate(leaf, leaf.equivalent_earth === nothing ? problem.earth_props : 2)
             indices = findall(value -> value === leaf, leaves)
-            pairs = leaf.equivalent_earth === nothing ? physical_pairs[indices] :
-                    homogeneous_pairs[indices]
-            declarations = validate(leaf, pairs)
-            reductions = if leaf.equivalent_earth === nothing
-                nothing
-            else
-                rule = EquivalentHomogeneous.rule(leaf.equivalent_earth)
-                foreach(declaration -> validate(declaration.equation, rule), declarations)
-                validate(rule, physical_pairs[indices])
-            end
-            for declaration in unique(declarations)
-                positions = findall(==(declaration), declarations)
-                interactions = [(index = indices[position], pair = pairs[position],
-                                    physical_pair = physical_pairs[indices[position]])
-                                for position in positions]
-                push!(cases,
-                    (selection = leaf, declaration = declaration,
-                        interactions = interactions,
-                        reductions = reductions === nothing ? nothing :
-                                     reductions[positions]))
-            end
+            push!(cases, earth_bindings(leaf, physical_pairs, homogeneous_pairs, indices))
         end
-        # Geometry changes the set of cases, not the public workspace type.
-        # Each case retains its concrete selection and indexed equation for dispatch.
-        Bound = NamedTuple{(:selection, :cases), Tuple{typeof(selected), Tuple}}
-        Bound((selected, Tuple(cases)))
+        (selection = selected, cases = cases)
     end
-    validate(formulation.methods.internal_impedance,
-        any(indices -> length(indices) > 1, cable_indices) ? (:inner, :outer, :transfer) :
-        (:outer,))
-    earth = _earth_data(formulation, input, earth_bindings)
+    for (zi, z) in pairs(bindings.earth_impedance.cases)
+        for (pi, p) in pairs(bindings.earth_admittance.cases)
+            p.partner == 0 || continue
+            paired = earth_bindings(z.selection, p.selection, z, p)
+            paired === nothing && continue
+            bindings.earth_impedance.cases[zi] = merge(paired.impedance, (partner = pi,))
+            bindings.earth_admittance.cases[pi] = merge(paired.admittance, (partner = zi,))
+            break
+        end
+    end
     permutation, reordered_map, kron_map = _reduction_map(phase_map, formulation)
     bundle_pairs = bundle_operations(reordered_map)
     keep_indices = kron_map === nothing ? Int[] : findall(!=(0), kron_map)
     eliminate_indices = kron_map === nothing ? Int[] : findall(==(0), kron_map)
-    nkeep = kron_map === nothing ? n_phases : count(!=(0), kron_map)
     Invariants = NamedTuple{
-        (:rho_cond, :earth, :cable_indices, :cable_representatives, :earth_pairs,
-            :homogeneous_pairs,
-            :permutation, :reordered_map, :bundle_pairs, :kron_map,
-            :keep_indices, :eliminate_indices, :nkeep),
+        (:cable_indices, :permutation, :reordered_map, :bundle_pairs, :kron_map,
+            :keep_indices, :eliminate_indices),
         Tuple{
-            Vector{T}, typeof(earth), Vector{Vector{Int}}, Vector{Int},
-            Vector{EarthPair{T}}, Vector{EarthPair{T}},
+            Vector{Vector{Int}},
             Vector{Int}, Vector{Int}, Vector{Tuple{Int, Int}},
-            Union{Nothing, Vector{Int}}, Vector{Int}, Vector{Int}, Int
+            Union{Nothing, Vector{Int}}, Vector{Int}, Vector{Int}
         }
     }
     invariants = Invariants((
-        rho_cond,
-        earth,
         cable_indices,
-        cable_representatives,
-        physical_pairs,
-        homogeneous_pairs,
         permutation,
         reordered_map,
         bundle_pairs,
         kron_map,
         keep_indices,
-        eliminate_indices,
-        nkeep
+        eliminate_indices
     ))
 
-    invariants = merge(invariants, (; earth_bindings))
+    scalar = foldl(values(bindings); init = T) do current, bound
+        bound.selection isa NamedTuple ||
+            return computation_type(current, bound.selection, input.freq)
+        foldl(bound.cases; init = current) do representation, call
+            computation_type(representation, call.selection, input.freq)
+        end
+    end
+    return LineParametersWorkspace{scalar}(problem, formulation, execution,
+        lineinput(scalar, input), merge(invariants, (earth_bindings = bindings,)))
+end
+
+function LineParametersWorkspace{T}(
+        problem::LineParametersProblem,
+        formulation::LineParametersFormulation,
+        execution::ComputationOptions,
+        input::NamedTuple,
+        invariants::NamedTuple
+) where {T <: Real}
+    cable = input.cable
+    n_phases, n_cables, n_frequencies = input.n_phases, input.n_cables, input.n_frequencies
+    n_layers = length(cable.dielectric_materials)
+    cable_indices = invariants.cable_indices
+    representatives = first.(cable_indices)
+    eliminate_indices = invariants.eliminate_indices
+    nkeep = invariants.kron_map === nothing ? n_phases : length(invariants.keep_indices)
+    bindings = invariants.earth_bindings
+    geometry = (horizontal = input.horz[representatives], height = input.vert[representatives],
+        radius = _outer_radii(input.cable_map, cable.r_ext, cable.r_ins_ext))
+    invariants = merge(invariants, (; geometry))
+    rho_cond = Vector{T}(undef, length(cable.conductor_materials))
+    earth = _earth_data(input, bindings)
 
     Zbuffer = Matrix{Complex{T}}(undef, n_phases, n_phases)
     Pbuffer = similar(Zbuffer)
@@ -401,44 +354,41 @@ function LineParametersWorkspace(
     identity_reduced = Matrix{Complex{T}}(I, nkeep, nkeep)
     Zout = Array{Complex{T}, 3}(undef, nkeep, nkeep, n_frequencies)
     Yout = similar(Zout)
-    earth_matrix = Matrix{Complex{T}}(undef, n_cables, n_cables)
-    pair_count = length(physical_pairs)
+    Zearth = Matrix{Complex{T}}(undef, n_cables, n_cables)
+    Pearth = similar(Zearth)
     MaterialStorage = NamedTuple{(:rho, :epsilon, :mu, :thickness),
         Tuple{Matrix{T}, Matrix{T}, Matrix{T}, Union{Nothing, Vector{T}}}}
-    earth_materials = map(earth_bindings) do bound
-        stratified = any(case -> media(case.selection) === Val(:stratified), bound.cases)
-        count = stratified ? length(problem.earth_props.layers) : 2
-        MaterialStorage((Matrix{T}(undef, count, pair_count),
-            Matrix{T}(undef, count, pair_count), Matrix{T}(undef, count, pair_count),
-            stratified ? Vector{T}(undef, count) : nothing))
+    earth_materials = map(_ -> MaterialStorage[], bindings)
+    for (family, bound) in pairs(bindings)
+        values = getproperty(earth_materials, family)
+        for binding in bound.cases
+            if family === :earth_admittance && binding.partner != 0
+                push!(values, earth_materials.earth_impedance[binding.partner])
+                continue
+            end
+            stratified = media(binding.selection) === Val(:stratified)
+            count = stratified ? length(problem.earth_props.layers) : 2
+            columns = length(binding.interactions)
+            push!(values,
+                MaterialStorage((Matrix{T}(undef, count, columns),
+                    Matrix{T}(undef, count, columns), Matrix{T}(undef, count, columns),
+                    stratified ? Vector{T}(undef, count) : nothing)))
+        end
     end
-    integration_type = typeof(float(nominal(one(T))))
-    NumericalStorage = NamedTuple{(:earth_impedance, :earth_admittance),
-        Tuple{Union{Nothing, NamedTuple}, Union{Nothing, NamedTuple}}}
-    earth_numerical::NumericalStorage = NumericalStorage(map(
-        earth_bindings, earth_materials) do binding, materials
-        any(case -> haskey(case.declaration.options.data, :integration), binding.cases) ||
-            return nothing
-        (
-            segments = alloc_segbuf(integration_type, Complex{T}, integration_type; size = 128),
-            seeds = alloc_segbuf(integration_type, Complex{T}, integration_type; size = 128),
-            seed = alloc_segbuf(integration_type, Complex{T}, integration_type; size = 1),
-            images = Complex{T}[], exponents = Complex{T}[],
-            rules = spectral_rule_bindings(binding, integration_type),
-            spectral = spectral_scratch(integration_type),
-            cim = CIMWorkspace(),
-            resolution = (phase = Ref(zero(integration_type)),
-                envelope = Ref(zero(integration_type)), panels = Ref(0)),
-            statistics = (evaluations = Ref(0), cutoff = Ref(zero(integration_type))),
-            systems = earth_system_bindings(
-                binding, input, physical_pairs, homogeneous_pairs, materials))
-    end)
-    earth_numerical=share_earth_responses(earth_numerical)
+    capture = _capture_buffers(T, input, execution.data.trace)
+    observations = capture === nothing ? nothing : capture.integrals
+    R = typeof(float(nominal(one(T))))
+    # Concrete formulas provision numerical storage, never option-key inspection.
+    quadrature = integration_workspace(R, Complex{T}; size = 0)
     largest_cable = maximum(length, cable_indices)
     coefficients = Vector{Complex{T}}(undef, largest_cable)
     tails = similar(coefficients)
     layer_coefficients = Vector{Complex{T}}(undef, n_layers)
+    dielectric_admittivity = similar(layer_coefficients)
     buffers = (;
+        rho_cond,
+        earth,
+        dielectric_admittivity,
         Zbuffer,
         Pbuffer,
         Zprimitive,
@@ -453,17 +403,30 @@ function LineParametersWorkspace(
         identity_reduced,
         Zout,
         Yout,
-        earth_matrix,
+        Zearth,
+        Pearth,
         earth_materials,
-        earth_numerical,
-        uses_earth_systems = any(
-            numerical->numerical!==nothing&&!isempty(numerical.systems), values(earth_numerical))::Bool,
-        execution,
+        quadrature,
+        observations,
         layer_coefficients,
         coefficients,
         tails
     )
-    capture = _capture_buffers(T, input, execution.data.trace)
+    # Allocation consumes the same active selections as indexed execution.
+    # Unused declarations impose no storage requirement.
+    external = map(bindings) do bound
+        bound.selection isa NamedTuple ? Tuple(call.selection for call in bound.cases) :
+        bound.selection
+    end
+    selected_internal = formulation.methods.internal_impedance
+    internal = if selected_internal isa NamedTuple
+        kinds = any(>(0), cable.r_in) ? (:inner, :outer, :transfer) : (:outer,)
+        Tuple(unique(Formulation(selected_internal, Val(kind)) for kind in kinds))
+    else
+        selected_internal
+    end
+    allocations = merge(formulation.methods, external, (internal_impedance = internal,))
+    buffers = initialize_buffers(allocations, T, input, invariants, buffers)
     workspace = LineParametersWorkspace{
         T,
         typeof(input),
@@ -474,74 +437,86 @@ function LineParametersWorkspace(
     return workspace
 end
 
-same_earth_configuration(z_selection, p_selection, z, p) = false
-function same_earth_configuration(::EarthImpedance.Formula{:unified},
-        ::EarthAdmittance.Formula{:unified}, z, p)
-    earth_state_equal(z.selection.parameters, p.selection.parameters) &&
-    isequal(z.selection.equivalent_earth, p.selection.equivalent_earth) || return false
-    return isequal(first(z.declarations).options, first(p.declarations).options)
-end
-
-function share_earth_responses(numerical)
-    z=numerical.earth_impedance
-    p=numerical.earth_admittance
-    (z===nothing||p===nothing) && return numerical
-    systems=map(p.systems) do system
-        index=findfirst(candidate->same_earth_configuration(
-            candidate.selection, system.selection, candidate, system), z.systems)
-        index===nothing ? system : merge(system, (response = z.systems[index].response,))
+function earth_bindings(
+        selected::Union{EarthImpedanceFormulation, EarthAdmittanceFormulation},
+        physical::AbstractVector{<:EarthPair}, homogeneous, indices)
+    pairs = selected.equivalent_earth === nothing ? physical[indices] : homogeneous[indices]
+    declarations = validate(selected, pairs)
+    reductions = if selected.equivalent_earth === nothing
+        nothing
+    else
+        rule = EquivalentHomogeneous.rule(selected.equivalent_earth)
+        foreach(declaration -> validate(declaration.equation, rule), declarations)
+        validate(rule, physical[indices])
     end
-    return merge(numerical, (earth_admittance = merge(p, (; systems)),))
+    interactions = [(index = position, pair = pairs[position],
+                        physical_pair = physical[index])
+                    for (position, index) in enumerate(indices)]
+    equations = [(declaration = declaration,
+                     indices = findall(==(declaration), declarations))
+                 for declaration in unique(declarations)]
+    return (selection = selected, equations, interactions, reductions, partner = 0)
 end
 
-function earth_system_bindings(
-        bindings, input, physical_pairs, homogeneous_pairs, owner_materials)
-    any(case->system_earth(case.selection), bindings.cases) || return ()
-    T=eltype(input.vert)
-    representatives=first.(input.cable.assemblies)
-    radii=_outer_radii(input.cable_map, input.cable.r_ext, input.cable.r_ins_ext)
-    geometry=EarthReturnGeometry(input.horz[representatives], input.vert[representatives], radii)
-    selected=unique([case.selection
-                     for case in bindings.cases
-                     if system_earth(case.selection)])
-    isempty(selected) && return ()
-    systems=map(selected) do leaf
-        pairs=leaf.equivalent_earth===nothing ? physical_pairs : homogeneous_pairs
-        declarations=validate(leaf, pairs)
-        first_declaration=first(declarations)
-        for declaration in declarations
-            isequal(declaration.options, first_declaration.options) ||
-                throw(ArgumentError("a coupled earth formulation requires common numerical controls across its complete auxiliary system"))
+earth_bindings(::EarthImpedanceFormulation, ::EarthAdmittanceFormulation, z, p) = nothing
+function initialize_buffers(
+        ::Union{AbstractFormulation, Nothing}, ::Type, input, invariants, buffers)
+    buffers
+end
+
+function initialize_buffers(
+        selected::Union{EarthImpedanceFormulation, EarthAdmittanceFormulation},
+        ::Type{T}, input, invariants, buffers) where {T}
+    return initialize_buffers(selected.equivalent_earth, T, input, invariants, buffers)
+end
+
+function initialize_buffers(selected::EquivalentHomogeneous.AbstractSequence,
+        ::Type{T}, input, invariants, buffers) where {T}
+    return initialize_buffers(
+        EquivalentHomogeneous.rule(selected), T, input, invariants, buffers)
+end
+
+function initialize_buffers(
+        selections::Union{NamedTuple, Tuple}, ::Type{T}, input, invariants, buffers) where {T}
+    return foldl(values(selections); init = buffers) do accumulated, selected
+        initialized = initialize_buffers(selected, T, input, invariants, accumulated)
+        # Extension methods may append arrays but cannot replace another owner's
+        # storage. Only initially empty QuadGK capacity may be provisioned.
+        provision = haskey(accumulated, :quadrature) &&
+                    isempty(accumulated.quadrature.segments)
+        retained = map(keys(accumulated), values(accumulated),
+            values(initialized[keys(accumulated)])) do name, before, after
+            (name === :quadrature && provision) || before === after
         end
-        reductions=if leaf.equivalent_earth===nothing
-            nothing
-        else
-            rule=EquivalentHomogeneous.rule(leaf.equivalent_earth)
-            foreach(declaration->validate(declaration.equation, rule), declarations)
-            validate(rule, physical_pairs)
-        end
-        interactions=[(index = i, pair = pairs[i], physical_pair = physical_pairs[i])
-                      for i in eachindex(pairs)]
-        binding=(selection = leaf, declaration = nothing, interactions, reductions)
-        n=length(pairs)
-        shared_materials=all(case->case.selection===leaf, bindings.cases)
-        materials=shared_materials ? owner_materials :
-                  (rho = zeros(T, 2, n), epsilon = zeros(T, 2, n),
-            mu = zeros(T, 2, n), thickness = nothing)
-        reference=get(leaf.parameters, :reference, :deep)
-        if reference isa Real
-            reference>maximum(-geometry.height .+ geometry.radius) ||
-                throw(DomainError(reference,
-                    "finite earth reference must lie below every exterior circumference"))
-        end
-        (selection = leaf, binding, declarations = Tuple(declarations),
-            materials, shared_materials,
-            response = EarthReturnWorkspace(geometry))
+        all(retained) || throw(ArgumentError(
+            "buffer initialization replaced existing storage :$(keys(accumulated)[findfirst(!, retained)])"))
+        initialized
     end
-    return Tuple(systems)
 end
 
-function _earth_layer(model::EarthModel, horizontal, vertical)
+function _earth_data(input::NamedTuple, bindings::NamedTuple)
+    static = (rho = collect(getproperty.(input.earth.layers, :rho)),
+        eps_r = collect(getproperty.(input.earth.layers, :eps_r)),
+        mu_r = collect(getproperty.(input.earth.layers, :mu_r)))
+    needed = any(
+        bound -> any(
+            case -> !(case.selection.equivalent_earth isa EquivalentHomogeneous.BeforeFD), bound.cases),
+        bindings)
+    evaluated = needed ?
+                map(
+        _ -> Matrix{eltype(input.freq)}(undef,
+            length(input.earth.layers), input.n_frequencies), static) : nothing
+    Evaluated = NamedTuple{(:rho, :eps_r, :mu_r), NTuple{3, Matrix{eltype(input.freq)}}}
+    State = NamedTuple{
+        (:static, :evaluated), Tuple{typeof(static), Union{Nothing, Evaluated}}}
+    return State((static, evaluated))
+end
+
+layer_index(problem::LineParametersProblem, horizontal, vertical) =
+    layer_index(problem.earth_props, horizontal, vertical)
+layer_index(pair::EarthPair) = pair.layers
+
+function layer_index(model::EarthModel, horizontal, vertical)
     vertical > zero(vertical) && return 1
     iszero(vertical) && throw(ArgumentError(
         "a conductor on the air-earth interface has no physical layer"
@@ -573,7 +548,7 @@ and `separation` are aligned coordinates/distances in meters. Diagonal
 separations supply the external self radius. Layer assignment uses `earth`'s
 physical interfaces and rejects conductors on the air/earth interface.
 
-Return a vector of validated-geometry payloads for formula preflight. No formula
+Return ordered geometry payloads for indexed formula dispatch. No formula
 selection or equivalent-earth reduction is performed here.
 """
 function earth_pairs(
@@ -586,14 +561,12 @@ function earth_pairs(
     T = eltype(vertical)
     pairs = EarthPair{T}[]
     sizehint!(pairs, length(cables)^2)
+    placed_layers = [layer_index(earth, horizontal[index], vertical[index]) for index in cables]
     @inbounds for column in eachindex(cables), row in eachindex(cables)
 
         source = cables[column]
         target = cables[row]
-        layers = (
-            _earth_layer(earth, horizontal[source], vertical[source]),
-            _earth_layer(earth, horizontal[target], vertical[target])
-        )
+        layers = (placed_layers[column], placed_layers[row])
         push!(pairs,
             EarthPair(
                 row,

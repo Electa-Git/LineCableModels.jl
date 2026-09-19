@@ -28,7 +28,7 @@
     @test !isempty(declaration.seen)
     @test actual.Z.values ≈ reference.Z.values rtol=2e-13
     @test actual.Y.values ≈ reference.Y.values rtol=2e-13
-    @test details(actual).data.formulations.effective.temperature_dependence === :ScaledResistivity
+    @test details(actual).data.formulations.methods.temperature_dependence.identifier === :ScaledResistivity
     grid = Formulation(temperature_dependence=Grid((declaration,nothing)),
         insulation_admittance=:lossy,options=selected.options)
     results = compute(problem,grid)

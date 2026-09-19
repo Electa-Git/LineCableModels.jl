@@ -209,7 +209,7 @@ end
         )
     )
     inner=Formulation(
-        earth_impedance = :pollaczek1926,
+        earth_impedance = :default,
         earth_admittance = :default,
         insulation_admittance = formula(:default),
         options = (
@@ -252,14 +252,14 @@ end
             :two_insulated_wires;
             variation = ExactOverrides(frequencies = [50.0])
         )
-        pollaczek=Formulation(
-            earth_impedance = :pollaczek1926,
+        constant=Formulation(
+            earth_properties = :constant,
             earth_admittance = :default,
             insulation_admittance = formula(:default),
             options = (kron_reduction = false, reduce_bundle = false)
         )
-        saad=Formulation(
-            earth_impedance = :saad1996,
+        unchanged=Formulation(
+            earth_properties = nothing,
             earth_admittance = :default,
             insulation_admittance = formula(:default),
             options = (kron_reduction = false, reduce_bundle = false)
@@ -271,10 +271,10 @@ end
             @__FILE__,
             model,
             BenchmarkCalculation(
-                :pollaczek, model.problem, pollaczek
+                :constant, model.problem, constant
             ),
             BenchmarkCalculation(
-                :saad, model.problem, saad
+                :unchanged, model.problem, unchanged
             ),
             (;),
             (;)
@@ -283,8 +283,8 @@ end
         @test outcome.reference isa LineParameters
         @test outcome.candidate isa LineParameters
         @test !hasproperty(outcome,:passes)
-        @test outcome.metadata.calculations.reference.id === :pollaczek
-        @test outcome.metadata.calculations.candidate.id === :saad
+        @test outcome.metadata.calculations.reference.id === :constant
+        @test outcome.metadata.calculations.candidate.id === :unchanged
         @test size(Z(outcome.reference)) == (2, 2, 1)
     finally
         previous_mode===nothing ?

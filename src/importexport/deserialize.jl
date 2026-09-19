@@ -43,7 +43,7 @@ function deserialize_value(::Val{:formulation},record::NamedTuple)
     # Child families, order and relevance are supplied by the owner, not a reader catalogue.
     declared=get(record,:requested,nothing)
     declared===nothing && return missing
-    selected_fields=get(record,:effective,get(record,:methods,declared))
+    selected_fields=get(record,:methods,declared)
     children=Pair{Symbol,Any}[]
     controls=Pair{Symbol,Any}[]
     for (slot,family) in pairs(owner)
@@ -67,13 +67,13 @@ function deserialize_value(::Val{:formulation},family::Type,value,definition)
     value isa NamedTuple || return (missing,(;))
     if !haskey(value,:identifier)
         children=(; pairs(family)...)
-        names=keys(children)
-        isempty(names) && return (missing,(;))
-        Set(keys(value))==Set(names) || throw(ArgumentError(
-            "retained $family selections require exactly $(join(names, ", "))"))
+        isempty(children) && return (missing,(;))
+        all(in(keys(children)), keys(value)) || throw(ArgumentError(
+            "retained $family selections admit only $(join(keys(children), ", "))"))
+        names=filter(in(keys(value)), keys(children))
         definitions=definition isa NamedTuple && Set(keys(definition))==Set(names) ?
             NamedTuple{names}(definition) : NamedTuple{names}(ntuple(_->definition,length(names)))
-        decoded=map(children,NamedTuple{names}(value),definitions) do child,leaf,declared
+        decoded=map(children[names],NamedTuple{names}(value),definitions) do child,leaf,declared
             deserialize_value(Val(:formulation),child,leaf,declared)
         end
         return (map(first,decoded),map(last,decoded))
@@ -561,6 +561,8 @@ function _decode_node(::Val{:line_cable_system}, value)
 end
 
 function _decode_node(::Val{:line_parameters_problem}, value)
+    haskey(value, "Gamma") && throw(ArgumentError(
+        "obsolete problem-level Gamma input; prescribe Γ in unified formula parameters"))
     system = _field(value, "system")
     system isa LineCableSystem || throw(ArgumentError(
         "line_parameters_problem system must decode as LineCableSystem"
@@ -573,8 +575,7 @@ function _decode_node(::Val{:line_parameters_problem}, value)
         system;
         temperature = _field(value, "temperature"),
         earth_props = earth,
-        frequencies = _field(value, "frequencies"),
-        Γ = _optional(value, "Gamma")
+        frequencies = _field(value, "frequencies")
     )
 end
 

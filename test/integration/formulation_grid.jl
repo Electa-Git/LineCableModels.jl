@@ -1,6 +1,6 @@
 @testitem "Engine / formulation grids / exact batched calculations" tags=[:integration] setup=[
     UseEngineSupport,
-    TestFixtures
+    TestFixtures, FormulaContractModels
 ] begin
     function same_parameters(left, right)
         same_domain=if domain(left)===ModalDomain
@@ -28,7 +28,9 @@
         frequencies = [50.0]
     )
     formulation_space=Formulation(
-        earth_impedance = Grid((:pollaczek1926, :saad1996)),
+        earth_impedance = Grid(Tuple(FormulaContractModels.selection(
+            LineCableModels.Engine.EarthImpedance; layers=2:2, scale)
+            for scale in (1.0, 2.0))),
     )
     problems=collect(problem_space)
     formulations=collect(formulation_space)
@@ -50,7 +52,8 @@
     @test formula_id.(getproperty.(
         getproperty.(run.axes.formulations, :methods),
         :earth_impedance
-    )) == [:pollaczek1926, :saad1996]
+    )) == [:LayerImpedance, :LayerImpedance]
+    @test [f.methods.earth_impedance.parameters.scale for f in run.axes.formulations] == [1.0, 2.0]
     for index in eachindex(expected)
         @test same_parameters(run[index], expected[index])
     end
@@ -182,7 +185,9 @@ end
         connections = (core = 1, sheath = 0))
     problems=LineParametersProblem(system, homogeneous(rho = Grid((10.0, 100.0)));
         frequencies = [1.0, 50.0, 1000.0])
-    formulations=Formulation(earth_impedance = Grid((:pollaczek1926, :saad1996)))
+    formulations=Formulation(earth_impedance = Grid((
+        formula(:unified; parameters=(Γ=0,)),
+        formula(:unified; parameters=(Γ=1e-4im,)))))
     @test counter.calls[] == 0
 
     phase=compute(ParametricProblem(problems), Combinatorial(formulations))

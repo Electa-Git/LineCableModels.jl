@@ -299,7 +299,7 @@ rejected. Analytical scalar and uncertainty propagation remain unchanged.
 | Earth material | `LineParametersProblem.earth_props` | Declared air plus one horizontal soil half-space; the soil law is evaluated per frequency |
 | Optional environment declaration | `LineCableSystem.environment` | `nothing` and `EarthModel` are accepted; other declarations produce a typed unsupported-feature error |
 | Line length and output basis | `LineCableSystem.line_length` and shared `compute` options | Per-unit-length is the default; total basis scales Z and Y by line length |
-| Propagation constant | backend-owned ``\Gamma\to0`` limit, with independent or first-order coupled fields selected by formulation `options.physics` | A non-`nothing` problem-level `Γ` is rejected rather than silently reinterpreted |
+| Propagation constant | backend-owned ``\Gamma\to0`` limit, with independent or first-order coupled fields selected by formulation `options.physics` | Problem-level `Γ` is not a current input; obsolete serialized `Gamma` fields are rejected |
 | Mesh resolution | local characteristic lengths derived from each resolved solid, tube, strand, foil, and passive region; per-frequency earth skin depth controls the exterior domain, and air/soil propagation scales constrain surrounding-medium resolution | Thin internal features remain local and cannot refine unrelated layers or the earth domain |
 
 Disks, ellipses, and cable sectors retain exact Gmsh circle/ellipse arcs;

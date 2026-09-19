@@ -8,7 +8,7 @@
     reference=BenchmarkCalculation(:reference, model.problem, Formulation(;
         options = physical))
     for combine in (:product, :zip)
-        space=Formulation(earth_impedance = Grid((:default, :pollaczek1926)),
+        space=Formulation(earth_properties = Grid((nothing, :default)),
             insulation_admittance = Grid((:default, :lossy)); options = physical, combine)
         observed=Int[]
         callback=(problem, index, result)->push!(observed, index)

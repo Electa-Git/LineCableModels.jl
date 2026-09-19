@@ -44,8 +44,7 @@ export ShuntModel, BoundarySolveError
 export compute
 
 # Module-specific dependencies
-using LinearAlgebra: svd, svd!, eigvals!, Diagonal, I, checksquare, cond, diag, ldiv!, lu, lu!,
-                     mul!, qr, qr!, ColumnNorm, eigen, SymTridiagonal, UpperTriangular
+using LinearAlgebra: I, checksquare, diag, ldiv!, lu!, mul!
 import LinearAlgebra: norm
 using DocStringExtensions: IMPORTS, TYPEDEF, TYPEDFIELDS, TYPEDSIGNATURES
 import ..LineCableModels: basis, build, R, L, C,
@@ -64,7 +63,8 @@ import ..Grammar: AbstractProblemDefinition, AbstractFormulation,
                   ComputationDetails,
                   formulation_options, computation_options, computation_details, details,
                   compute, observe, observables,
-                  observation_request, observation_indices, observation_resolution, uncertainty,
+                  observation_request, observation_indices, observation_resolution,
+                  uncertainty,
                   request_identity, request_indices,
                   publication_table
 
@@ -81,20 +81,16 @@ import ..LineCableModels: validate
 import Logging
 using Logging: AbstractLogger, ConsoleLogger, with_logger
 import SpecialFunctions
-using QuadGK: alloc_segbuf, quadgk, quadgk!
-using DoubleExponentialFormulas: QuadDE
+using QuadGK: alloc_segbuf, quadgk
 
 include("interfaces.jl")
 include("formulations.jl")
-include("earthkernels.jl")
+include("specialfunctions.jl")
 
 # Problem and coaxial formulation definitions
 include("problems.jl")
 include("options.jl")
 include("integration.jl")
-include("spectralsampling.jl")
-include("earthbounds.jl")
-include("compleximages.jl")
 
 # Line-parameter results and their protocols
 include("lineparameters/lineparameters.jl")
@@ -130,10 +126,9 @@ include("earthadmittance/EarthAdmittance.jl")
 using .EarthAdmittance: EarthAdmittance
 
 # Native workspace and numerical action
-include("shuntmodel/ShuntModel.jl")
 include("blueprint.jl")
-include("shunt_geometry.jl")
-include("internalshunt.jl")
+include("shuntmodel/ShuntModel.jl")
+using .ShuntModel: BoundarySolveError
 include("blueprint_shunt.jl")
 include("input.jl")
 include("logging.jl")
@@ -149,14 +144,18 @@ include("lineparameters/base.jl")
 include("lineparameters/publication.jl")
 include("textdisplay.jl")
 
-public SpectralIntegral, integrate
+public SpectralIntegral, integrate, integration_workspace
+public earth_bindings, initialize_buffers, earth!, materials!, homogenize!,
+       same_physical_state, layer_index, computation_type
 public OBSERVABLE_RESOLUTION_REVISION
-public has_uncertainty_type, spectral_magnitude
-public internal_shunt_response
-public InternalImpedanceFormulation, InsulationImpedanceFormulation, PipeImpedanceFormulation,
-    EarthImpedanceFormulation, InsulationAdmittanceFormulation, SemiconAdmittanceFormulation,
-    EarthAdmittanceFormulation, ShuntModelFormulation
-public reduce_primitive_matrices, potential_to_admittance
+public has_uncertainty_type, numerical_magnitude
+public internal_shunt_response, blueprint_dependencies
+public InternalImpedanceFormulation, InsulationImpedanceFormulation,
+       PipeImpedanceFormulation,
+       EarthImpedanceFormulation, InsulationAdmittanceFormulation,
+       SemiconAdmittanceFormulation,
+       EarthAdmittanceFormulation, ShuntModelFormulation
+public reduce_primitive_matrices
 public layer_admittance
 public ConsoleVerbosityLogger
 public CableBlueprint, BlueprintConductor, BlueprintDielectric, flatten, lineinput,

@@ -1,3 +1,18 @@
+function offdiagonal_ratio(matrix::AbstractMatrix)
+    n = checksquare(matrix)
+    first_value = nominal(matrix[1, 1])
+    matrix_norm_squared = zero(real(abs2(first_value)))
+    offdiagonal_norm_squared = zero(matrix_norm_squared)
+    @inbounds for column in 1:n, row in 1:n
+        squared = abs2(nominal(matrix[row, column]))
+        matrix_norm_squared += squared
+        row == column || (offdiagonal_norm_squared += squared)
+    end
+    matrix_norm = sqrt(matrix_norm_squared)
+    offdiagonal_norm = sqrt(offdiagonal_norm_squared)
+    return offdiagonal_norm / max(matrix_norm, eps(float(real(matrix_norm))))
+end
+
 @inline function _check_operators(
         maps::ModalOperators,
         parameters::LineParameters

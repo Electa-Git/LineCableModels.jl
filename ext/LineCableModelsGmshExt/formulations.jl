@@ -2,19 +2,8 @@
 Record the consumed FEM material laws and selected field assumptions.
 """
 function formulation_record(formulation::LineCableModelsFEM)
-    # Retained scientific declarations are descriptive, not executable code.
-    Selection = NamedTuple{(:identifier, :parameters, :options),
-        Tuple{Symbol, NamedTuple, NamedTuple}}
-    Selections = NamedTuple{keys(formulation.methods),
-        NTuple{length(formulation.methods), Union{Nothing, Selection}}}
-    selections = Selections(map(formulation.methods) do selected
-        selected === nothing && return nothing
-        Selection((identifier=LineCableModels.formula_id(selected),
-            parameters=selected.parameters, options=selected.options.data))
-    end)
     return merge((
-        schema_version = 4,
-        selections,
+        schema_version = 5,
         assumptions = (
             impedance = "Axial current-driven A_z/u_r finite-element equations",
             admittance = _quasi_full(formulation.options.data.physics) ?

@@ -1,4 +1,5 @@
 @testitem "Engine / shunt model / selection, fallback and blueprint coefficients" tags=[:integration] begin
+    using Logging
     E = LineCableModels.Engine
     IE = LineCableModels.ImportExport
     include(joinpath(pkgdir(LineCableModels), "test", "support", "internal_shunt.jl"))
@@ -10,6 +11,10 @@
     @test nominal == compute(problem, coaxial)
     @test details(nominal).data.shunt_model.effective === :coaxial
     @test details(nominal).data.shunt_model.solves == 0
+    @test isempty(details(nominal).data.shunt_model.diagnostics)
+    @test only(details(nominal).data.shunt_model.domains).terminals == 1:3
+    @test occursin("no boundary extraction or audit",
+        only(details(nominal).data.shunt_model.domains).message)
     @test isempty(E.flatten(LineCableModelsCoaxial(), design, default).shunt)
     @test E.formula_id(default.methods.shunt_model) === :coaxial
     invalid = (formula(:no_such_model), formula(:coaxial; options = (audit = true,)),
@@ -38,17 +43,26 @@
     quadrature = CableConstantsFormulation(shunt_model = formula(:boundary;
         options = (resolution = (wire = 16, order = 8, quadrature = 64, modes = 128),
             integration = (rtol = 1e-15, atol = 0.0, maxevals = 1))))
-    error = try
+    logger = Test.TestLogger(; min_level = Logging.Warn)
+    approximate = with_logger(logger) do
         compute(problem, quadrature)
-    catch exception
-        exception
     end
-    @test error isa BoundarySolveError
-    @test error.category === :quadrature
-    @test error.context.stage === :assembly
-    @test error.context.design == 1
-    @test error.context.evaluations > 0
-    @test error.context.estimate > error.context.tolerance
+    warnings = filter(log -> occursin("logarithmic quadrature target", log.message), logger.logs)
+    @test !isempty(warnings)
+    @test all(log -> log.kwargs[:context].evaluations > 0 &&
+        log.kwargs[:context].estimate > log.kwargs[:context].tolerance, warnings)
+    @test all(isfinite, approximate.C)
+    @test details(approximate).data.shunt_model.effective === :boundary
+    @test details(approximate).data.shunt_model.solves == 1
+    permitted_fallback = CableConstantsFormulation(shunt_model = formula(:boundary;
+        parameters = (fallback = :coaxial,), options = quadrature.definitions.shunt_model.options))
+    fallback_logger = Test.TestLogger(; min_level = Logging.Warn)
+    unchanged = with_logger(fallback_logger) do
+        compute(problem, permitted_fallback)
+    end
+    @test unchanged.C == approximate.C
+    @test details(unchanged).data.shunt_model.effective === :boundary
+    @test all(log -> !occursin("replaced by coaxial", log.message), fallback_logger.logs)
     lossy = CableConstantsFormulation(shunt_model = :boundary, insulation_admittance = :lossy)
     @test_throws BoundarySolveError compute(problem, lossy)
     boundary = CableConstantsFormulation(shunt_model = formula(:boundary;
@@ -67,7 +81,8 @@
     @test workspace.cable.shunt[1].C === blueprint.shunt[1].C
     @test E._solve!(workspace, problem, boundary) == first_result
     @test details(first_result).data.shunt_model.effective === :boundary
-    @test only(details(first_result).data.shunt_model.diagnostics).boundary_residual === nothing
+    @test only(details(first_result).data.shunt_model.diagnostics).boundary_residual ===
+          nothing
     @test typeof(first_result) === typeof(nominal)
     @test compute(problem, boundary) == first_result
     @test compute(CableConstantsProblem(design; frequency = 60), boundary).C ==
@@ -80,8 +95,9 @@
         @test occursin("id=" * string(formula_id(selected)), sprint(show, selected))
         @test occursin(string(formula_id(selected)), sprint(show, MIME"text/plain"(), selected))
     end
-    @test which(show, (IO, MIME"text/plain", BoundarySolveError)).module === E
-    @test occursin("quadrature", sprint(show, MIME"text/plain"(), error))
+    @test E.BoundarySolveError === E.ShuntModel.BoundarySolveError
+    @test which(show, (IO, MIME"text/plain", BoundarySolveError)).module === E.ShuntModel
+    @test occursin("budget", only(report.domains).message)
     for formulation in
         (boundary, Formulation(shunt_model = boundary.definitions.shunt_model))
         record=IE.deserialize_value(Val(:formulation), NamedTuple(formulation))
@@ -93,6 +109,7 @@
         @test restored == source
         @test details(restored).data.shunt_model.effective ===
               details(source).data.shunt_model.effective
+        @test details(restored).data.formulations == details(source).data.formulations
         @test only(details(restored).data.shunt_model.domains).reason ===
               only(details(source).data.shunt_model.domains).reason
     end

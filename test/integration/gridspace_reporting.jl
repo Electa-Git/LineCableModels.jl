@@ -1,10 +1,11 @@
-@testitem "ReportBuilder / formulation axes, five bands and unavailable relative RMS" tags=[:integration] setup=[TestFixtures] begin
+@testitem "ReportBuilder / formulation axes, five bands and unavailable relative RMS" tags=[:integration] setup=[TestFixtures, FormulaContractModels] begin
     using LineCableModels.Engine: compare
     using LineCableModels.ReportBuilder
     using DataFrames
     system=TestFixtures.three_phase_system()
     problem=LineParametersProblem(system;earth_props=EarthModel(100.,10.,1.),frequencies=[0.1,1.,10.,100.,1e3,1e4,1e5,1e6,1e7])
-    space=Formulation(earth_impedance=Grid((:default,:pollaczek1926)))
+    space=Formulation(earth_impedance=Grid((formula(:default),
+        FormulaContractModels.selection(LineCableModels.Engine.EarthImpedance; layers=2:2))))
     reference=compute(problem,Formulation())
     candidates=compute(problem,space)
     errors=compare(reference,candidates,Z)
@@ -45,5 +46,5 @@
     labels=artifact.table.formulations.label[artifact.table.formulations.role .== :candidate]
     @test labels[1] != labels[2]
     @test occursin("Unified",labels[1])
-    @test occursin("Pollaczek",labels[2])
+    @test occursin("LayerImpedance",labels[2])
 end

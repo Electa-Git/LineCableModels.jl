@@ -39,6 +39,8 @@
     # workaround is explicitly recommended by its upstream maintainer; it is
     # not a general permission to consume Makie or package-owned internals.
     function external_contract(consumer, owner, name)
+        consumer === LineCableModels.Engine && owner === Base && name === :unalias &&
+            Base.Docs.hasdoc(Base, :unalias) && return true
         consumer === cairo && owner === CairoMakie && name === :activate! && return true
         consumer === renderer && owner === CairoMakie.Makie && name in (
             :automatic, :current_backend, :get_ticks, :get_tickvalues,
@@ -71,6 +73,8 @@
     @test !documented_fem_access(JSON3, :StructTypes)
     @test external_contract(renderer, CairoMakie.Makie, :get_ticks)
     @test external_contract(renderer, CairoMakie.Makie, :inverse_transform)
+    @test external_contract(LineCableModels.Engine, Base, :unalias)
+    @test !external_contract(renderer, Base, :unalias)
     @test !external_contract(LineCableModels.Engine, CairoMakie.Makie, :inverse_transform)
     @test !external_contract(LineCableModels.Engine, CairoMakie.Makie, :get_ticks)
     @test !external_contract(renderer, CairoMakie.Makie, :get_plot_visibilities)

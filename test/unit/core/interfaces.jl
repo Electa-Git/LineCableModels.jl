@@ -30,31 +30,22 @@ end
     @test !occursin(pkgdir(LineCableModels), rendered)
 end
 
-@testitem "Core / owner-local numerics / transforms and earth kernels" tags=[:unit] begin
+@testitem "Core / owner-local numerics / transforms and conductivity" tags=[:unit] begin
     using LinearAlgebra
     const Engine=LineCableModels.Engine
     const MatrixOps=Engine
 
     matrix=[Float64(2i+3j+i*j) for i in 1:3, j in 1:3]
-    symmetrized=MatrixOps.reciprocity(matrix)
-    @test symmetrized == transpose(symmetrized)
-    @test diag(symmetrized) == diag(matrix)
-    destination=copy(matrix)
-    @test MatrixOps.reciprocity!(destination) === destination
-    @test destination == symmetrized
-
     circulant=copy(matrix)
     @test MatrixOps.ideal_transposition!(circulant) === circulant
     @test all(circulant[i, j] == circulant[mod1(i + 1, 3), mod1(j + 1, 3)]
     for i in 1:3, j in 1:3)
     @test sum(circulant) ≈ sum(matrix)
     @test_throws DimensionMismatch MatrixOps.ideal_transposition!(ones(2, 3))
-    @test MatrixOps.offdiagonal_ratio(Diagonal([1.0, 2.0])) == 0.0
-    @test_throws DimensionMismatch MatrixOps.offdiagonal_ratio(zeros(2, 3))
+    @test LineCableModels.Transforms.offdiagonal_ratio(Diagonal([1.0, 2.0])) == 0.0
+    @test_throws DimensionMismatch LineCableModels.Transforms.offdiagonal_ratio(zeros(2, 3))
 
     @test Engine.conductivity(Inf) == 0.0
     @test isinf(Engine.conductivity(0.0))
     @test Engine.conductivity(4.0) == 0.25
-    @test Engine.bessel_difference(0.0 + 0.0im, 2.0, 4.0) ≈ log(2.0)
-    @test isfinite(Engine.bessel_difference(1.0 + 1.0im, 2.0, 4.0))
 end

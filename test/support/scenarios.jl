@@ -2,9 +2,55 @@
 # numerical snapshots. Scientific expectations belong beside the relevant test.
 module CurrentScenarios
     export conductor_material, coaxial_design, three_phase_system, two_wire_system,
-        line_parameters_problem, channel_value, two_conductor_results, cable_monte_carlo_result
+        line_parameters_problem, channel_value, two_conductor_results, cable_monte_carlo_result,
+        three_bare_wires_problem, three_bare_wires_layouts
     using LineCableModels
+    using LineCableModels.DocStringExtensions: TYPEDSIGNATURES
     using Statistics: mean
+
+    "Signed wire heights \\[m\\] for the five three-wire interface placements."
+    const three_bare_wires_layouts = (
+        all_air=(1.0, 1.0, 1.0), all_earth=(-1.0, -1.0, -1.0),
+        air_1=(1.0, -1.0, -1.0), air_2=(-1.0, 1.0, -1.0),
+        air_3=(-1.0, -1.0, 1.0))
+
+    """
+    $(TYPEDSIGNATURES)
+
+    Construct three identical bare copper wires with separate left-to-right
+    terminals. This physical fixture selects no analytical or FEM formulation.
+
+    # Keywords
+
+    - `heights`, `horizontal`: Three signed vertical and horizontal coordinates \\[m\\].
+    - `radius`: Wire radius \\[m\\].
+    - `copper`: Conductor material; defaults to the materials library's copper.
+    - `rho`: Soil resistivity \\[Ω·m\\].
+    - `eps_r`, `mu_r`: Soil relative permittivity and permeability \\[dimensionless\\].
+    - `temperature`: Operating temperature \\[°C\\].
+    - `line_length`: Line length \\[m\\].
+    - `frequencies`: Analysis frequencies \\[Hz\\].
+    - `name`: Physical system identifier.
+
+    # Returns
+
+    - A `LineParametersProblem` with no prescribed longitudinal propagation constant.
+    """
+    function three_bare_wires_problem(; heights=(1.0, 1.0, 1.0),
+            horizontal=(0.0, 1.0, 2.0), radius=0.0425,
+            copper=Material(MaterialsLibrary(add_defaults=true), :copper),
+            rho=0.1, eps_r=1.0, mu_r=1.0, temperature=20.0,
+            line_length=1.0, frequencies=10.0 .^ (-1:7), name="three_bare_wires")
+        length(heights) == length(horizontal) == 3 ||
+            throw(ArgumentError("three wire coordinates are required"))
+        design = build(CableDesign, name, Stack(
+            Group(:core, Region(:core_metal, Disk(radius), copper))))
+        system = build(LineCableSystem, fill(design, 3),
+            [Pose2(horizontal[i], heights[i]) for i in 1:3];
+            connections=[Dict(:core=>i) for i in 1:3], system_id=name, line_length)
+        return LineParametersProblem(system; temperature, frequencies,
+            earth_props=homogeneous(; rho, eps_r, mu_r))
+    end
 
     conductor_material() = Material(kind=:conductor, rho=2e-8, eps_r=1.0,
         mu_r=1.0, T0=20.0, alpha=0.004)

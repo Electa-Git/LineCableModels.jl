@@ -71,6 +71,11 @@ struct InternalShuntBlock{T <: Real}
     P::Matrix{T}
 end
 
+function Base.convert(::Type{InternalShuntBlock{T}}, block::InternalShuntBlock) where {T <: Real}
+    InternalShuntBlock{T}(block.assembly, block.terminals, block.C, block.P)
+end
+Base.convert(::Type{InternalShuntBlock{T}}, block::InternalShuntBlock{T}) where {T <: Real} = block
+
 """
 $(TYPEDEF)
 
@@ -343,8 +348,8 @@ function flatten(
         dielectric_ranges[index] = first_layer:layer_index
     end
     geometry = (; conductors, assembly_ranges = ranges)
-    domains = internal_shunt_domains(design, geometry, T; design_index)
-    response = internal_shunt_response(methods.shunt_model, domains, methods, solutions)
+    response = internal_shunt_response(methods.shunt_model, design, geometry, T,
+        methods, solutions, design_index)
     return CableBlueprint{T}(
         design.cable_id,
         conductors,
@@ -416,6 +421,14 @@ struct LocalCableData{T <: Real}
     shunt_details::NamedTuple
 end
 
+# Completed blueprint coefficients do not depend on external formula arguments.
+# Widen their representation without recalculating the blueprint or detaching
+# correlated material values. Native field conversion retains unchanged indices.
+function Base.convert(::Type{LocalCableData{T}}, cable::LocalCableData) where {T <: Real}
+    LocalCableData{T}(map(name -> getfield(cable, name), fieldnames(typeof(cable)))...)
+end
+Base.convert(::Type{LocalCableData{T}}, cable::LocalCableData{T}) where {T <: Real} = cable
+
 function LocalCableData(blueprints::AbstractVector{<:CableBlueprint{T}}) where {T <: Real}
     isempty(blueprints) && throw(ArgumentError(
         "local cable data require at least one blueprint",
@@ -445,8 +458,8 @@ function LocalCableData(blueprints::AbstractVector{<:CableBlueprint{T}}) where {
     sizehint!(semicon_indices, layer_count)
     shunt = InternalShuntBlock{T}[]
     shunt_covered = falses(conductor_count)
-    reports = ShuntDomainReport[]
-    diagnostics = InternalShuntDiagnostic[]
+    reports = similar(first(blueprints).shunt_details.domains, 0)
+    diagnostics = similar(first(blueprints).shunt_details.diagnostics, 0)
     solved = Base.IdSet{Matrix{T}}()
     requested = first(blueprints).shunt_details.requested
 

@@ -1,5 +1,6 @@
 @testitem "Execution options / inner owner validation through traversal" tags=[:integration] setup=[TestFixtures] begin
     inner = CableConstantsFormulation()
+    @test isempty(computation_options(CableConstantsFormulation, ComputationOptions()).data)
     problem = CableConstantsProblem(TestFixtures.coaxial_design())
     space = Gridspace{CableConstantsProblem}(identity, (Grid((problem,)),))
     point = first(LineCableModels.points(space))
@@ -22,7 +23,13 @@ end
     inner = Formulation()
     space = Gridspace{LineParametersProblem}(identity, (Grid((problem,)),))
     calls = Int[]
-    callback = (problem, index, result) -> push!(calls, index)
+    callback = function (problem, index, result)
+        @test basis(result) === :total
+        @test haskey(details(result).data, :coordinates)
+        @test length(details(result).data.coordinates) == size(result.Z, 1)
+        @test details(result).data.formulations.methods.earth_impedance.identifier === :unified
+        push!(calls, index)
+    end
     options = (output_basis=:total, on_result=callback)
     # The selected basis is represented by Val, so a runtime Symbol determines
     # that field's type; the normalized record must still retain concrete fields.

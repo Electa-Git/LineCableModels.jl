@@ -13,9 +13,11 @@
         for frequency in model.nominal_problem.frequencies
             matrices = map(inputs) do input
                 y = zeros(ComplexF64, length(input.terminals), length(input.terminals))
-                E.cable_admittance!(y, input, formulation.methods, frequency,
-                    model.nominal_problem.temperature, complex(0.0, 2π*frequency),
-                    zeros(ComplexF64, length(input.dielectric_materials)))
+                admittivity = zeros(ComplexF64, length(input.dielectric_materials))
+                E.dielectric!(admittivity, input, formulation.methods, frequency,
+                    model.nominal_problem.temperature)
+                E.cable_admittance!(y, input, admittivity, complex(0.0, 2π*frequency),
+                    similar(admittivity))
             end
             @test matrices[1] ≈ matrices[2] rtol=1e-12
         end

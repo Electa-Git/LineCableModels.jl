@@ -20,7 +20,7 @@ export Formula, formula_id, formulas, internal_impedance, surface_impedances
 # These abbreviations are expanded in this module docstring and included files.
 using DocStringExtensions: IMPORTS, TYPEDEF, TYPEDFIELDS, TYPEDSIGNATURES
 #! explicit-imports: on
-import ..Engine: InternalImpedanceFormulation, formula_id, formulation_options, validate
+import ..Engine: InternalImpedanceFormulation, Formulation, formula_id, formulation_options
 #! explicit-imports: off
 import ...LineCableModels: FormulaDefinition, FormulaMethod
 import ..Engine: description, conductivity

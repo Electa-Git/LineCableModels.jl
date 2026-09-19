@@ -80,8 +80,8 @@ function validate_campaign(name, method)
             ref_reduced=LineCableModels.Engine.reduce_primitive_matrices(
                 reshape(zr, n, n, 1), reshape(pr, n, n, 1),
                 problem.system.connection_order, form.options)
-            inversion=LineCableModels.Engine.potential_to_admittance(reduced.P; diagnostics = true)
-            ref_inversion=LineCableModels.Engine.potential_to_admittance(ref_reduced.P; diagnostics = true)
+            inversion=E.potential_to_admittance(reduced.P; diagnostics = true)
+            ref_inversion=E.potential_to_admittance(ref_reduced.P; diagnostics = true)
             for (key, a, b) in (("Z_reduced", reduced.Z, ref_reduced.Z),
                 ("P_reduced", reduced.P, ref_reduced.P),
                 ("Y_reduced", inversion.Y, ref_inversion.Y))

@@ -33,7 +33,7 @@ Evaluate lossless semiconducting-screen admittivity:
 - `temperature`: Operating temperature \\[°C\\].
 - `values`: Explicit physical/model parameters.
 - `options`: Normalized numerical sections for this contribution.
-- `workspace`: Optional execution resources.
+- `workspace`: Optional computation workspace supplying reusable numerical buffers.
 
 # Returns
 

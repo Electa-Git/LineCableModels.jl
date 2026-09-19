@@ -48,6 +48,7 @@ showcase/bonito/build/
 # Internal files
 dev/*
 !dev/run_quasi_full.jl
+!dev/run_three_bare_wires_baseline.jl
 !dev/quasi_full_paths.jl
 !dev/verify_getdp_artifact.jl
 !dev/plotting/

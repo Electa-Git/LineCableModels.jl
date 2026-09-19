@@ -2,7 +2,7 @@
 
 This page lists the public calculation API by its defining module. Within each
 module, Documenter orders constants, types, functions and methods, then macros.
-Convenience functions and extension hooks have separate references.
+Convenience functions and extension interfaces have separate references.
 
 ## Calculation grammar
 

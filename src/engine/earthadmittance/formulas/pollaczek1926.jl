@@ -1,11 +1,14 @@
 function assumptions(::Val{:pollaczek1926})
-    (media = :homogeneous, layers = 2:2, longitudinal = :zero, permittivity = :positive)
+    (media = :homogeneous, layers = 2:2, permittivity = :positive)
 end
 
 """
 $(TYPEDSIGNATURES)
 
 **Identification.** Classical homogeneous-earth underground potential coefficient.
+
+**Availability.** Registered scientific identity; the coaxial implementation is
+not yet implemented. No numerical fallback is provided.
 
 **Expression.**
 
@@ -19,63 +22,18 @@ wechselstromdurchflossenen Einfachleitung,” *Elektrische Nachrichtentechnik*,
 3, 339–360, 1926; potential-coefficient transcription follows Ametani et al.,
 IET, 2021.
 """
-function description(::Type{<:Formula{:pollaczek1926}}; compact::Bool=false)
-    compact ? "Pollaczek" : "Pollaczek underground potential coefficients (1926)"
+function description(::Type{<:Formula{:pollaczek1926}}; compact::Bool = false)
+    compact ? "Pollaczek" : "Pollaczek underground potential coefficients (1926) — not yet implemented"
 end
 
-
-raw"""
-Evaluate Pollaczek's classical homogeneous-earth underground potential
-coefficient:
-
-```math
-P_{e,ij}^{11}=\frac{j\omega}{2\pi(\sigma_1+j\omega\varepsilon_1)}
-\left[K_0(\gamma_0d_{ij})-K_0(\gamma_0D_{ij})\right],
-\qquad \gamma_0=j\omega\sqrt{\mu_0\varepsilon_0}.
-```
-
-Earth conductivity remains in the potential-coefficient prefactor.
-"""
 function earth_potential_coefficient(
-        ::Formula{:pollaczek1926}, ::Union{Val{:self}, Val{:mutual}}, ::Val{2}, ::Val{2},
+        ::Formula{:pollaczek1926}, kind::Union{Val{:self}, Val{:mutual}}, ::Val{2}, ::Val{2},
         functor, pair, workspace
 )
-    state = functor.state
-    geometry = _geometry(pair)
-    gamma_0 = state.gamma[2]
-    direct = special_besselk(0, gamma_0 * geometry.d_ij) -
-             special_besselk(0, gamma_0 * geometry.D_ij)
-    kappa_1 = state.sigma[2] + state.jω * state.epsilon[2]
-    return state.jω / (2π * kappa_1) * direct
+    throw(ArgumentError("earth_potential_coefficient :pollaczek1926 ($kind), source layer 2, target layer 2: not yet implemented for the coaxial backend"))
 end
 
-
-
-function formulation_options(::FormulaMethod{<:Formula{:pollaczek1926}, typeof(earth_potential_coefficient),
-        A}) where {A <: Tuple{Union{Val{:self}, Val{:mutual}}, Val{2}, Val{2}}}
-    return FormulationOptions((;))
-end
-
-function validate(
-        binding::FormulaMethod{<:Formula{:pollaczek1926}, typeof(earth_potential_coefficient)},
-        ::EquivalentHomogeneous.Formula{:bottommost})
-    binding
-end
-
-"""
-$(TYPEDSIGNATURES)
-
-Evaluate this formulation's medium state: absolute permeability \\[H/m\\]
-and transverse propagation constant \\[1/m\\]. Air retains its prescribed
-permeability; soil follows the selected source's magnetic approximation.
-"""
-function constitutive(::Formula{:pollaczek1926}, ::Val{:air}, jω, μ, σ, ε)
-    return (mu=μ, gamma=propagation(Val(:vacuum), jω, μ, σ, ε))
-end
-
-function constitutive(::Formula{:pollaczek1926}, ::Val{:earth}, jω, μ, σ, ε)
-    permeability = vacuum_permeability(μ)
-    return (mu=permeability, gamma=propagation(Val(:vacuum), jω, permeability, σ, ε))
-end
+formulation_options(::FormulaMethod{<:Formula{:pollaczek1926}, typeof(earth_potential_coefficient)}) =
+    FormulationOptions()
 
 :pollaczek1926

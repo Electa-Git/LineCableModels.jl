@@ -1,21 +1,4 @@
 # LineParameters computation remains independent from CableConstants.
-_basis_result(parameters, ::LineParametersWorkspace, ::Val{:pul}) = parameters
-
-function _basis_result(
-        parameters::LineParameters{T, U, D},
-        workspace::LineParametersWorkspace,
-        ::Val{:total}
-) where {T, U, D}
-    line_length = workspace.input.line_length
-    impedance = parameters.Z.values .* line_length
-    admittance = parameters.Y.values .* line_length
-    return LineParameters(
-        parameters.domain,
-        SeriesImpedance{eltype(impedance), :total}(impedance),
-        ShuntAdmittance{eltype(admittance), :total}(admittance),
-        parameters.f
-    )
-end
 
 @inline function _stash!(destination, frequency::Int, source::AbstractMatrix)
     destination === nothing && return nothing
@@ -67,6 +50,7 @@ function _solve!(
     input = workspace.input
     invariants = workspace.invariants
     buffers = workspace.buffers
+    workspace.capture===nothing || empty!(workspace.capture.integrals)
     Zbuffer = buffers.Zbuffer
     Pbuffer = buffers.Pbuffer
     Zprimitive = buffers.Zprimitive
@@ -85,21 +69,21 @@ function _solve!(
     keep_indices = invariants.keep_indices
     eliminate_indices = invariants.eliminate_indices
 
+    materials!(workspace, formulation)
     @info "Starting line parameters computation"
     for frequency in 1:input.n_frequencies
-        homogenize!(workspace, frequency, formulation)
-        impedance!(
-            Zprimitive,
-            workspace,
-            frequency,
-            formulation
-        )
-        admittance!(
-            Pprimitive,
-            workspace,
-            frequency,
-            formulation
-        )
+        materials!(workspace, formulation, frequency)
+        cable_impedance!(Zprimitive, input.cable, buffers.rho_cond,
+            formulation.methods, input.jω[frequency]; workspace)
+        cable_potential!(Pprimitive, input.cable, buffers.dielectric_admittivity,
+            input.jω[frequency], buffers.layer_coefficients, buffers.coefficients, buffers.tails)
+        _stash!(_capture_target(workspace.capture, :Zin), frequency, Zprimitive)
+        _stash!(_capture_target(workspace.capture, :Pin), frequency, Pprimitive)
+        earth!(workspace, frequency)
+        _stash!(_capture_target(workspace.capture, :Zg), frequency, buffers.Zearth)
+        _stash!(_capture_target(workspace.capture, :Pg), frequency, buffers.Pearth)
+        impedance!(Zprimitive, workspace, frequency)
+        admittance!(Pprimitive, workspace, frequency)
         _reorder_into!(Zbuffer, Zprimitive, permutation)
         _reorder_into!(Pbuffer, Pprimitive, permutation)
         if formulation.options.data.reduce_bundle
@@ -147,15 +131,11 @@ function _solve!(
         end
     end
 
-    return LineParameters(
-        PhaseDomain,
-        SeriesImpedance{Complex{T}, :pul}(Zout),
-        ShuntAdmittance{Complex{T}, :pul}(Yout),
-        input.freq
-    )
+    return workspace
 end
 
-function _retained_details(workspace::LineParametersWorkspace{<:Real, <:NamedTuple, <:NamedTuple,
+function _retained_details(workspace::LineParametersWorkspace{
+        <:Real, <:NamedTuple, <:NamedTuple,
         <:NamedTuple, Nothing})
     # Local model diagnostics vary with geometry and selection, not the result type.
     ComputationDetails(NamedTuple{(:shunt_model,), Tuple{NamedTuple}}((workspace.input.cable.shunt_details,)))
@@ -166,36 +146,55 @@ function _retained_details(workspace::LineParametersWorkspace)
     shunt = NamedTuple{(:shunt_model,), Tuple{NamedTuple}}((workspace.input.cable.shunt_details,))
     capture === nothing && return ComputationDetails(shunt)
     input = workspace.input
-    return ComputationDetails(merge(shunt, (
-        trace = (
-        phase_map = input.phase_map,
-        cable_map = input.cable_map,
-        Zin = capture.Zin,
-        Pin = capture.Pin,
-        Zg = capture.Zg,
-        Pg = capture.Pg,
-        Z = capture.Z,
-        P = capture.P
-    ),
-    )))
+    return ComputationDetails(merge(shunt,
+        (
+            trace = (
+            phase_map = copy(input.phase_map),
+            cable_map = copy(input.cable_map),
+            Zin = copy(capture.Zin),
+            Pin = copy(capture.Pin),
+            Zg = copy(capture.Zg),
+            Pg = copy(capture.Pg),
+            Z = copy(capture.Z),
+            P = copy(capture.P),
+            integrals = copy(capture.integrals)
+        ),
+        )))
 end
 
 function _finish(
-        parameters::LineParameters,
         workspace::LineParametersWorkspace,
+        problem::LineParametersProblem,
         formulation::LineParametersFormulation,
-        execution::ComputationOptions
-)
-    parameters = _basis_result(parameters, workspace, execution.data.output_basis)
+        ::Val{Basis}
+) where {Basis}
+    impedance = copy(workspace.buffers.Zout)
+    admittance = copy(workspace.buffers.Yout)
+    if Basis === :total
+        impedance .*= workspace.input.line_length
+        admittance .*= workspace.input.line_length
+    end
     retained = _retained_details(workspace)
+    names=["cable:$(terminal.cable):$(terminal.terminal)"
+           for terminal in problem.system.terminal_order]
+    permutation=workspace.invariants.permutation
+    indices=workspace.invariants.kron_map === nothing ? permutation :
+            permutation[workspace.invariants.keep_indices]
+    coordinates=map(indices) do index
+        phase=problem.system.connection_order[index]
+        members=findall(==(phase), problem.system.connection_order)
+        formulation.options.data.reduce_bundle && phase > 0 && length(members) > 1 ?
+        "bundle:[" * join(names[members], ",") * "]" : names[index]
+    end
+    result = LineParameters(PhaseDomain,
+        SeriesImpedance{eltype(impedance), Basis}(impedance),
+        ShuntAdmittance{eltype(admittance), Basis}(admittance),
+        workspace.input.freq,
+        ComputationDetails(merge(retained.data,
+            (; formulations = NamedTuple(formulation),
+                coordinates))))
     @info "Line parameters computation completed successfully"
-    return LineParameters(
-        parameters.domain,
-        parameters.Z,
-        parameters.Y,
-        parameters.f,
-        retained
-    )
+    return result
 end
 
 function _compute(
@@ -205,140 +204,9 @@ function _compute(
         execution::ComputationOptions,
         input::NamedTuple
 )
-    requested = formulation
-    formulation = Formulation(engine, problem, requested)
-    workspace = LineParametersWorkspace(
-        problem,
-        formulation,
-        execution,
-        input
-    )
-    validate(workspace, formulation)
-    parameters = _solve!(workspace, formulation)
-    result = _finish(parameters, workspace, formulation, execution)
-    fields = keys(formulation.methods)
-    # Scalar and homogeneous selections keep a bounded metadata type across grids.
-    Identifiers = NamedTuple{fields,
-        NTuple{length(fields), Union{Nothing, Symbol, NamedTuple}}}
-    identifier = function (value)
-        value === nothing && return nothing
-        value isa Symbol && return value
-        value isa NamedTuple && return map(identifier, value)
-        value isa EquivalentHomogeneous.AbstractSequence &&
-            return formula_id(EquivalentHomogeneous.rule(value))
-        formula_id(value)
-    end
-    effective_ids = map(identifier, formulation.methods)
-    Record = NamedTuple{
-        (:formula, :kind, :source, :target, :options), Tuple{
-            Symbol, Symbol, Int, Int, NamedTuple}}
-    Numerical = NamedTuple{
-        (:earth_impedance, :earth_admittance), Tuple{Vector{Record}, Vector{Record}}}
-    external_numerical::Numerical = Numerical(map(workspace.invariants.earth_bindings) do bound
-        Record[(formula_id(case.selection), case.declaration.kind,
-                   first(case.interactions).pair.layers...,
-                   case.declaration.options.data) for case in bound.cases]
-    end)
-    local_fields = (:internal_impedance, :insulation_impedance, :shunt_model,
-        :insulation_admittance, :semicon_admittance, :earth_properties, :temperature_dependence)
-    LocalNumerical = NamedTuple{local_fields, NTuple{length(local_fields), NamedTuple}}
-    local_numerical::LocalNumerical = LocalNumerical(map(local_fields,
-            values(formulation.methods[local_fields])) do name, selected
-        selected === nothing && return (;)
-        if name === :internal_impedance
-            kinds = any(indices -> length(indices) > 1, workspace.invariants.cable_indices) ?
-                    (:inner, :outer, :transfer) : (:outer,)
-            return selected isa NamedTuple ? NamedTuple{kinds}(map(
-                kind -> selected[kind].options.data[kind], kinds)) : selected.options.data[kinds]
-        end
-        selected.options.data
-    end)
-    FormulaNumerical = NamedTuple{(local_fields..., :earth_impedance, :earth_admittance),
-        Tuple{NamedTuple, NamedTuple, NamedTuple, NamedTuple, NamedTuple, NamedTuple, NamedTuple,
-            Vector{Record}, Vector{Record}}}
-    numerical::FormulaNumerical = FormulaNumerical((values(local_numerical)...,
-        values(external_numerical)...))
-    Equivalent = NamedTuple{(:identifier, :order, :parameters, :numerical),
-        Tuple{Symbol, Symbol, NamedTuple, Vector{Record}}}
-    HomogeneousEquivalents = NamedTuple{(:air, :earth, :mixed),
-        NTuple{3, Union{Nothing, Equivalent}}}
-    Equivalents = NamedTuple{(:earth_impedance, :earth_admittance),
-        NTuple{2, Union{Nothing, Equivalent, HomogeneousEquivalents}}}
-    equivalents::Equivalents = Equivalents(map(workspace.invariants.earth_bindings) do bound
-        record = function (selected)
-            sequence = selected.equivalent_earth
-            sequence === nothing && return nothing
-            rule = EquivalentHomogeneous.rule(sequence)
-            records = Record[]
-            for case in bound.cases
-                case.selection === selected || continue
-                for (reduction, interaction) in zip(case.reductions, case.interactions)
-                    push!(records,
-                        Record((formula_id(rule),
-                            reduction.equation.arguments[1] === Val(:self) ? :self :
-                            :mutual,
-                            interaction.physical_pair.layers..., reduction.options.data)))
-                end
-            end
-            Equivalent((formula_id(rule),
-                sequence isa EquivalentHomogeneous.BeforeFD ? :before : :after,
-                rule.parameters, unique(records)))
-        end
-        bound.selection isa NamedTuple ?
-        HomogeneousEquivalents(map(record, bound.selection)) :
-        record(bound.selection)
-    end)
-    SelectionRecord = NamedTuple{
-        (:effective, :numerical, :equivalent_earth),
-        Tuple{Identifiers, FormulaNumerical, Equivalents}}
-    selection_record::SelectionRecord = SelectionRecord((
-        Identifiers(effective_ids), numerical, equivalents))
-    names=["cable:$(terminal.cable):$(terminal.terminal)" for terminal in problem.system.terminal_order]
-    permutation=workspace.invariants.permutation
-    indices=workspace.invariants.kron_map === nothing ? permutation : permutation[workspace.invariants.keep_indices]
-    coordinates=map(indices) do index
-        phase=problem.system.connection_order[index]
-        members=findall(==(phase),problem.system.connection_order)
-        formulation.options.data.reduce_bundle && phase > 0 && length(members) > 1 ?
-            "bundle:[" * join(names[members],",") * "]" : names[index]
-    end
-    return LineParameters(result.domain, result.Z, result.Y, result.f,
-        ComputationDetails(merge(details(result).data, (; formulations=merge(selection_record,NamedTuple(formulation)), coordinates))))
-end
-
-"""
-$(TYPEDSIGNATURES)
-
-Bind the selected source equations to the coaxial backend before numerical work.
-
-Defaults have already resolved to explicit selections. Validate geometry,
-earth inventory, prescribed propagation, and equivalent-earth ordering before
-workspace initialization and frequency evaluation.
-"""
-function Formulation(
-        ::LineCableModelsCoaxial,
-        problem::LineParametersProblem,
-        requested::LineParametersFormulation
-)
-    methods = requested.methods
-    for selection in (methods.earth_impedance, methods.earth_admittance)
-        selection isa NamedTuple && validate(selection, problem.earth_props)
-        leaves = selection isa NamedTuple ? values(selection) : (selection,)
-        for selected in leaves
-            if media(selected) === Val(:homogeneous) &&
-               selected.equivalent_earth !== nothing
-                validate(problem.earth_props)
-                validate(selected, 2)
-            else
-                validate(selected, problem.earth_props)
-            end
-            if problem.Γ !== nothing && selected.assumptions.longitudinal === :zero
-                all(iszero, problem.Γ) ||
-                    throw(ArgumentError("formula :$(formula_id(selected)) fixes Γ to zero"))
-            end
-        end
-    end
-    return requested
+    workspace = LineParametersWorkspace(problem, formulation, execution, input)
+    _solve!(workspace, formulation)
+    return _finish(workspace, problem, formulation, execution.data.output_basis)
 end
 
 function _compute(
@@ -378,33 +246,21 @@ function _compute(
     inputs = [lineinput(problem, first(blueprints))]
     for index in 2:length(blueprints)
         previous = findfirst(other -> other === blueprints[index], blueprints)
-        push!(inputs, previous < index ? inputs[previous] : lineinput(problem, blueprints[index]))
+        push!(inputs, previous < index ? inputs[previous] :
+                      lineinput(problem, blueprints[index]))
     end
-    first_result = _compute(
-        engine,
-        problem,
-        first(formulations),
-        execution,
-        first(inputs)
-    )
-    values = Vector{typeof(first_result)}(undef, length(formulations))
-    values[1] = first_result
-    execution.data.on_result === nothing || execution.data.on_result(problem, 1, first_result)
-    for index in 2:length(formulations)
+    return map(formulations, inputs, eachindex(formulations)) do formulation, input, index
         value = _compute(
             engine,
             problem,
-            formulations[index],
+            formulation,
             execution,
-            inputs[index]
+            input
         )
-        typeof(value) === eltype(values) || throw(ArgumentError(
-            "line-parameter formulations produced inconsistent result types",
-        ))
-        values[index] = value
-        execution.data.on_result === nothing || execution.data.on_result(problem, index, value)
+        execution.data.on_result === nothing ||
+            execution.data.on_result(problem, index, value)
+        value
     end
-    return values
 end
 
 """
@@ -456,7 +312,7 @@ result type.
 
 - `options`: Named tuple containing `verbosity`, `output_basis`, `trace`, and
   `on_result`. The optional callable `on_result(problem, index, result)` runs
-  synchronously after each completed formulation, including reused results, and
+  synchronously after each completed formulation and
   before the next calculation. `index` is local to the formulation collection
   (`1` for a scalar call). Its return value is ignored; exceptions propagate.
   The callback must not mutate the problem or result. The default is `nothing`.
@@ -538,49 +394,45 @@ function computation_details(
     return details(result)
 end
 
-function _earth_data(
-        formulation::LineParametersFormulation,
-        input::NamedTuple,
-        bindings::NamedTuple
-)
-    static = (rho = collect(getproperty.(input.earth.layers, :rho)),
-        eps_r = collect(getproperty.(input.earth.layers, :eps_r)),
-        mu_r = collect(getproperty.(input.earth.layers, :mu_r)))
-    needed = any(
-        bound -> any(
-            case -> !(case.selection.equivalent_earth isa EquivalentHomogeneous.BeforeFD), bound.cases),
-        bindings)
-    evaluated = needed ?
-                _earth_data(nothing, formulation.methods.earth_properties, input.earth, input.freq) :
-                nothing
-    Evaluated = NamedTuple{(:rho, :eps_r, :mu_r), NTuple{3, Matrix{eltype(input.freq)}}}
-    State = NamedTuple{
-        (:static, :evaluated), Tuple{typeof(static), Union{Nothing, Evaluated}}}
-    return State((static, evaluated))
-end
-
-function _earth_data(
-        sequence::Union{Nothing, EquivalentHomogeneous.AfterFD},
+function materials!(
+        destination::NamedTuple,
         relation,
         model::EarthModel{T},
-        frequencies::AbstractVector{T}
+        frequencies::AbstractVector{T}; workspace = nothing
 ) where {T <: Real}
-    nlayer = length(model.layers)
-    nfrequency = length(frequencies)
-    rho = Matrix{T}(undef, nlayer, nfrequency)
-    eps_r = Matrix{T}(undef, nlayer, nfrequency)
-    mu_r = Matrix{T}(undef, nlayer, nfrequency)
+    rho, eps_r, mu_r = destination.rho, destination.eps_r, destination.mu_r
     @inbounds for row in eachindex(model.layers)
         static = EarthMaterial(model.layers[row])
         for column in eachindex(frequencies)
             material = row == firstindex(model.layers) ?
-                       static : constitutive(relation, static, frequencies[column])
+                       static :
+                       constitutive(relation, static, frequencies[column]; workspace)
             rho[row, column] = material.rho
             eps_r[row, column] = material.eps_r
             mu_r[row, column] = material.mu_r
         end
     end
-    return (; rho, eps_r, mu_r)
+    return destination
+end
+
+function materials!(workspace::LineParametersWorkspace, formulation::LineParametersFormulation)
+    input, buffers = workspace.input, workspace.buffers
+    for (index, material) in pairs(input.cable.conductor_materials)
+        buffers.rho_cond[index] = constitutive(formulation.methods.temperature_dependence,
+            material, input.temperature; workspace)
+    end
+    buffers.earth.evaluated === nothing || materials!(buffers.earth.evaluated,
+        formulation.methods.earth_properties, input.earth, input.freq; workspace)
+    return workspace
+end
+
+function materials!(
+        workspace::LineParametersWorkspace, formulation::LineParametersFormulation,
+        frequency::Int)
+    homogenize!(workspace, frequency, formulation)
+    dielectric!(workspace.buffers.dielectric_admittivity, workspace.input.cable,
+        formulation.methods, workspace.input.freq[frequency], workspace.input.temperature; workspace)
+    return workspace
 end
 
 @inline function _media!(destination, column::Int, air, earth)
@@ -601,44 +453,24 @@ function homogenize!(
         frequency::Int,
         formulation::LineParametersFormulation
 )
-    input = workspace.input
-    foreach(values(workspace.invariants.earth_bindings),
-        values(workspace.buffers.earth_materials)) do bindings, destination
-        homogenize!(destination, bindings, workspace.invariants.earth, input.earth,
-            input.freq[frequency], frequency, formulation.methods.earth_properties)
-    end
-    if workspace.buffers.uses_earth_systems
-        foreach(values(workspace.buffers.earth_numerical)) do numerical
-            prepare_earth_materials!(numerical, workspace.invariants.earth, input,
-                frequency, formulation.methods.earth_properties)
+    for (family, cases) in
+        pairs(map(bound -> bound.cases, workspace.invariants.earth_bindings))
+        destinations = getproperty(workspace.buffers.earth_materials, family)
+        for (index, binding) in pairs(cases)
+            family === :earth_admittance && binding.partner != 0 && continue
+            homogenize!(destinations[index], binding, workspace, frequency,
+                formulation.methods.earth_properties)
         end
     end
     return workspace.buffers.earth_materials
 end
 
-prepare_earth_materials!(::Nothing, state, input, frequency, relation) = nothing
-function prepare_earth_materials!(numerical, state, input, frequency, relation)
-    for system in numerical.systems
-        system.response.prepared[]=false
-        system.shared_materials && continue
-        homogenize!(system.materials, system.binding, state, input.earth,
-            input.freq[frequency], frequency, relation)
-    end
-    return nothing
-end
-
-function homogenize!(destination, bindings::NamedTuple{(:selection, :cases)},
-        state::NamedTuple, model::EarthModel, frequency, frequency_index::Int, relation)
-    foreach(bindings.cases) do binding
-        homogenize!(
-            destination, binding, state, model, frequency, frequency_index, relation)
-    end
-    return destination
-end
-
 function homogenize!(destination,
-        binding::NamedTuple{(:selection, :declaration, :interactions, :reductions)},
-        state::NamedTuple, model::EarthModel, frequency, frequency_index::Int, relation)
+        binding::NamedTuple,
+        workspace::LineParametersWorkspace, frequency_index::Int, relation)
+    state = workspace.buffers.earth
+    model = workspace.input.earth
+    frequency = workspace.input.freq[frequency_index]
     selected = binding.selection
     if media(selected) === Val(:stratified)
         layers!(destination, state.evaluated, model, frequency_index, binding.interactions)
@@ -646,7 +478,7 @@ function homogenize!(destination,
         data = selected.equivalent_earth isa EquivalentHomogeneous.BeforeFD ?
                state.static : state.evaluated
         homogenize!(destination, selected.equivalent_earth, relation, data, model,
-            binding.interactions, frequency, frequency_index, binding.reductions)
+            binding.interactions, frequency, frequency_index, binding.reductions; workspace)
     end
     return destination
 end
@@ -678,7 +510,7 @@ function homogenize!(
         interactions,
         frequency,
         frequency_index::Int,
-        bindings
+        bindings; workspace = nothing
 )
     rho = @view evaluated.rho[:, frequency_index]
     eps_r = @view evaluated.eps_r[:, frequency_index]
@@ -687,7 +519,7 @@ function homogenize!(
     @inbounds for (index, interaction) in enumerate(interactions)
         pair = interaction.physical_pair
         earth = sequence.rule(
-            rho, eps_r, mu_r, model, pair, frequency; binding = bindings[index]
+            rho, eps_r, mu_r, model, pair, frequency; binding = bindings[index], workspace
         )
         _media!(destination, interaction.index, air, earth)
     end
@@ -703,16 +535,16 @@ function homogenize!(
         interactions,
         frequency,
         frequency_index::Int,
-        bindings
+        bindings; workspace = nothing
 )
     air = EarthMaterial(static.rho[1], static.eps_r[1], static.mu_r[1])
     @inbounds for (index, interaction) in enumerate(interactions)
         pair = interaction.physical_pair
         reconstructed = sequence.rule(
             static.rho, static.eps_r, static.mu_r,
-            model, pair, frequency; binding = bindings[index]
+            model, pair, frequency; binding = bindings[index], workspace
         )
-        earth = constitutive(relation, reconstructed, frequency)
+        earth = constitutive(relation, reconstructed, frequency; workspace)
         _media!(destination, interaction.index, air, earth)
     end
     return destination
@@ -727,7 +559,7 @@ function homogenize!(
         interactions,
         frequency,
         frequency_index::Int,
-        bindings
+        bindings; workspace = nothing
 )
     rho = @view evaluated.rho[:, frequency_index]
     eps_r = @view evaluated.eps_r[:, frequency_index]

@@ -24,7 +24,7 @@
     # checks the execution path; solving every cable adds no frequency contract.
     basic = benchmark_definition(:benchmark_two_bare_wires_fem;
         frequencies=[.1,1.,7.,100.]).candidate
-    @test frequencies(compute(basic.problem,first(basic.formulation);options=basic.options)) ==
+    @test frequencies(compute(basic.problem,basic.formulation;options=basic.options)) ==
         [.1,1.,7.,100.]
     fem = benchmark_definition(:benchmark_two_bare_wires_fem;
         frequencies=[50.0], reference_options=(frequency_workers=1, mesh_policy=:reuse,))

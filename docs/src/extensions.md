@@ -55,7 +55,7 @@ explicit implementation before physical validation or computation.
 | Temperature dependence | `Materials.TemperatureDependent.TemperatureDependentFormulation`; `temperature_resistivity(selected, material, temperature, parameters, options, workspace)` |
 | Equivalent earth | `Earth.EquivalentHomogeneous.AbstractRule`; `equivalent_material(selected, Val(kind), Val(source), Val(target), rho, eps_r, mu_r, model, pair, frequency, parameters, options, workspace)` |
 | Modal decomposition | `AbstractFormulation`, selected by `ModalTransformationFormulation`; `Transforms.modal_operators(selected, line_parameters, parameters, options, workspace)` |
-| Local shunt geometry | `Engine.ShuntModelFormulation`; `Engine.internal_shunt_response(selected, domains, material_selections, solutions)` during blueprint construction |
+| Local shunt geometry | `Engine.ShuntModelFormulation`; `Engine.internal_shunt_response(selected, design, geometry, T, material_selections, solutions, design_index)` during blueprint construction |
 | Pipe applicability | `Engine.PipeImpedanceFormulation`; `Formulation(backend, selected, Val(topology))`. No analytical pipe equation is supplied. |
 
 `parameters` are model data and `options` are numerical controls, never callable
@@ -64,10 +64,50 @@ Execution controls use `ComputationOptions`; completed supplemental output uses
 `ComputationDetails`. Read their payloads explicitly through `.data`.
 Indexed families declare numerical defaults for the actual selected type and
 case with `formulation_options(::FormulaMethod{<:MyType,typeof(operation),...})`.
-No numerical section selects physical preparation. A custom earth type also
-owns `constitutive(selected, Val(:air/:earth), s, mu, sigma, epsilon)` and returns
-`(mu=..., gamma=...)`; this is distinct from air/earth/mixed pair selection.
-The problem is the sole source of longitudinal Γ.
+No numerical section selects physical preparation. Earth field equations consume
+evaluated material properties. Their wave numbers and field approximations are
+local to the equation, not material constitutive laws. `constitutive` requires a
+valid material argument and is implemented by material-law families, not earth
+impedance or potential-coefficient formulas.
+An explicit Γ belongs to Unified's formula parameters, not the problem or shared
+earth functor. It may be a scalar or a frequency-aligned vector; its precision
+and uncertainty participate in allocation of the calculation's numerical storage.
+
+Coaxial equations and material laws receive the owning computation workspace,
+or `nothing` for a standalone evaluation that does not require it. Numerical arrays are in
+`workspace.buffers`; the workspace input and bindings remain the authority for
+geometry and material mappings. An algebraic equation needs no allocation method.
+An equation needing scratch extends
+`Engine.initialize_buffers(selected, T, input, invariants, buffers)` to return
+the record extended with owned arrays only. Only selections reached by the
+required indexed calls participate in initialization, before evaluating materials
+or equations; unused recipe branches allocate nothing.
+The default requires no extra storage. Existing arrays may not be replaced.
+Numerical formulas provision the common quadrature storage through
+`Engine.initialize_buffers(Val(:quad), T, input, invariants, buffers)`; an
+integration option is not a capability declaration. Cable constants uses this
+same contract with its local numerical input and no earth invariants.
+
+Each formula owns its complete integrand, transformations, Jacobians, branch
+choices and physical subdivision hints. `SpectralIntegral` contains only that
+callable. `integrate` accepts opaque numeric subdivision points; it neither
+discovers physical features nor samples a kernel before handing it to QuadGK.
+There is no shared spectral sampler. Repeated short physical expressions can
+remain local to their formulas.
+
+`ShuntModel` owns boundary-domain extraction, numerical coefficients and fallback
+policy. Its `blueprint_dependencies` methods identify the actual local selections
+that affect those coefficients; Engine uses that dependency record for reuse
+within one blueprint construction. Only completed coefficient blocks survive
+that construction, not the boundary factorization or another workspace.
+
+The existing `Engine.earth_bindings` constructor binds material interactions and
+output entries. A coupled formula can extend its selected-type method to require
+the complete system and its two-selection method to bind compatible Z/P consumers.
+`Engine.earth!` then performs the actual calculation from completed material
+inputs and writes the selected destinations. Unpaired selections use its ordinary
+indexed implementation. New equations do not change the Engine frequency sequence
+or create a second workspace, validity flag, reset method or material-law callback.
 
 Internal state is prepared once per conductor and frequency through the selected
 type's physical constructor and `InternalImpedance.Functor`. Shunt geometry

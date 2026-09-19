@@ -14,8 +14,10 @@ equivalent-coaxial treatment.
 struct LineCableModelsCoaxial end
 
 """Identify the coaxial backend without executing or configuring a calculation."""
-description(::Type{LineCableModelsCoaxial}; compact::Bool=false) = "coaxial"
-description(::LineCableModelsCoaxial; compact::Bool=false) = description(LineCableModelsCoaxial;compact)
+description(::Type{LineCableModelsCoaxial}; compact::Bool = false) = "coaxial"
+function description(::LineCableModelsCoaxial; compact::Bool = false)
+    description(LineCableModelsCoaxial; compact)
+end
 formula_id(::Type{LineCableModelsCoaxial}) = :coaxial
 formula_id(::LineCableModelsCoaxial) = :coaxial
 
@@ -105,8 +107,10 @@ struct LineCableModelsFEM{M <: NamedTuple, O <: FormulationOptions, D <: NamedTu
 end
 
 """Identify the FEM backend without loading meshing or solver packages."""
-description(::Type{<:LineCableModelsFEM}; compact::Bool=false) = "FEM"
-description(::LineCableModelsFEM; compact::Bool=false) = description(LineCableModelsFEM;compact)
+description(::Type{<:LineCableModelsFEM}; compact::Bool = false) = "FEM"
+function description(::LineCableModelsFEM; compact::Bool = false)
+    description(LineCableModelsFEM; compact)
+end
 formula_id(::Type{<:LineCableModelsFEM}) = :fem
 formula_id(::LineCableModelsFEM) = :fem
 formulation_options(value::LineCableModelsFEM) = value.options
@@ -208,7 +212,7 @@ implement `InsulationImpedance.insulation_impedance` on their selected type.
 abstract type InsulationImpedanceFormulation <: AbstractImpedanceFormulation end
 """
 Select earth-return impedance equations [Ω/m]. Concrete subtypes implement
-`EarthImpedance.constitutive` and indexed `EarthImpedance.earth_impedance` methods.
+indexed `EarthImpedance.earth_impedance` methods on evaluated material inputs.
 Air, earth, and mixed selections refer to conductor locations.
 """
 abstract type EarthImpedanceFormulation <: AbstractImpedanceFormulation end
@@ -232,8 +236,8 @@ Select semiconducting-layer admittivity [S/m]. Concrete subtypes implement
 abstract type SemiconAdmittanceFormulation <: AbstractAdmittanceFormulation end
 """
 Select earth potential-coefficient equations [m/F]. Concrete subtypes implement
-`EarthAdmittance.constitutive` and indexed
-`EarthAdmittance.earth_potential_coefficient` methods. Matrix assembly converts
+indexed `EarthAdmittance.earth_potential_coefficient` methods on evaluated
+material inputs. Matrix assembly converts
 the potential coefficients to shunt admittance [S/m].
 """
 abstract type EarthAdmittanceFormulation <: AbstractAdmittanceFormulation end
@@ -269,10 +273,27 @@ end
 function Formulation(::Type{F},
         selected::NamedTuple) where {F <: AbstractFormulation}
     children = (; pairs(F)...)
-    names = keys(children)
-    !isempty(names) && length(selected) == length(names) && all(in(keys(selected)), names) ||
-        throw(ArgumentError("$F selections require exactly $(join(names, ", "))"))
-    return map((family, value) -> family(value), children, NamedTuple{names}(selected))
+    all(in(keys(children)), keys(selected)) || throw(ArgumentError(
+        "$F selections admit only $(join(keys(children), ", "))"))
+    names = filter(in(keys(selected)), keys(children))
+    # An explicit recipe stays explicit: a missing or `nothing` leaf supplies
+    # no equation. Only omission of the whole family chooses its default.
+    return NamedTuple{names}(map(names) do name
+        value = selected[name]
+        value === nothing ? nothing : children[name](value)
+    end)
+end
+
+function Formulation(::Type{F}, ::Nothing) where {
+        F <: Union{EarthImpedanceFormulation, EarthAdmittanceFormulation,
+            InternalImpedanceFormulation}}
+    return F(:default)
+end
+
+function Formulation(selected::NamedTuple, ::Val{Kind}) where {Kind}
+    value = get(selected, Kind, nothing)
+    value === nothing && throw(ArgumentError("explicit equation recipe has no requested :$Kind case"))
+    return value
 end
 
 """
@@ -284,27 +305,24 @@ function Formulation(
     selected
 end
 
-Formulation(selected::NamedTuple{(:air, :earth, :mixed)}, ::Val{1}, ::Val{1}) = selected.air
-function Formulation(selected::NamedTuple{(:air, :earth, :mixed)}, ::Val{2}, ::Val{2})
-    selected.earth
+Formulation(selected::NamedTuple, ::Val{1}, ::Val{1}) = Formulation(selected, Val(:air))
+function Formulation(selected::NamedTuple, ::Val{2}, ::Val{2})
+    Formulation(selected, Val(:earth))
 end
-function Formulation(selected::NamedTuple{(:air, :earth, :mixed)}, ::Val{1}, ::Val{2})
-    selected.mixed
+function Formulation(selected::NamedTuple, ::Val{1}, ::Val{2})
+    Formulation(selected, Val(:mixed))
 end
-function Formulation(selected::NamedTuple{(:air, :earth, :mixed)}, ::Val{2}, ::Val{1})
-    selected.mixed
+function Formulation(selected::NamedTuple, ::Val{2}, ::Val{1})
+    Formulation(selected, Val(:mixed))
 end
 
-function Formulation(::NamedTuple{(:air, :earth, :mixed)}, ::Val{S}, ::Val{T}) where {S, T}
+function Formulation(::NamedTuple, ::Val{S}, ::Val{T}) where {S, T}
     throw(ArgumentError(
         "homogeneous selection is not defined for source in layer $S and target in layer $T"))
 end
 
-function validate(selected::NamedTuple{(:air, :earth, :mixed)}, earth::EarthModel)
+function validate(selected::NamedTuple, earth::EarthModel)
     validate(earth)
-    !earth.vertical_layers && length(earth.layers) == 2 &&
-    all(layer -> isinf(layer.thickness), earth.layers) || throw(ArgumentError(
-        "air/earth/mixed selections require physical air and one homogeneous soil half-space; use a scalar formulation for a layered model"))
     return selected
 end
 
@@ -317,7 +335,7 @@ function validate(formula::Union{EarthImpedanceFormulation, EarthAdmittanceFormu
         pairs::Union{Tuple, AbstractVector{<:EarthPair}})
     equations = map(pairs) do pair
         validate(pair)
-        equation = validate(FormulaMethod(formula, pair))
+        equation = FormulaMethod(formula, pair)
         validate(pair, equation)
         equation
     end
@@ -455,7 +473,8 @@ function Formulation(
 )
     return parameterize(
         LineCableModelsFEM,
-        (inputs...) -> _fem_formulation(inputs[1:end-1]..., last(inputs) isa NamedTuple ? FormulationOptions(last(inputs)) : last(inputs)),
+        (inputs...) -> _fem_formulation(inputs[1:(end - 1)]...,
+            last(inputs) isa NamedTuple ? FormulationOptions(last(inputs)) : last(inputs)),
         (insulation_admittance, semicon_admittance, earth_properties,
             temperature_dependence, options);
         combine

@@ -93,7 +93,7 @@
     routed=Formulation(
         internal_impedance=(inner=selected_inner,outer=:default,transfer=:default),
         earth_impedance=(air=:carson1926,earth=:pollaczek1926,mixed=:lucca1994),
-        earth_admittance=formula(:default;parameters=(reference=:interface,),options=(integration=(method=:quad,),)))
+        earth_admittance=formula(:default;options=(integration=(method=:quad,options=(rtol=1e-9,)),)))
     for native in (routed,MonteCarlo(routed),LinearError(routed),
             LineCableModelsFEM(options=(physics=:quasi_fw,)),
             Formulation(:pscad;options=(base_frequency=60.0,)))
@@ -135,8 +135,9 @@
     # Read retained consumed IDs when present; never advertise a saved inactive
     # route as used, or replace an explicit unknown selection with today's default.
     declared=NamedTuple(normal)
-    consumed=merge(declared,(effective=merge(map(_ -> :default,declared.requested),
-        (earth_impedance=:saad1996,pipe_impedance=nothing)),))
+    consumed=merge(declared,(methods=merge(declared.methods,
+        (earth_impedance=NamedTuple(E.EarthImpedance.Formula(:saad1996)),
+            pipe_impedance=nothing)),))
     decoded=IO.deserialize_value(Val(:formulation),consumed)
     @test occursin("earth Z=Saad",only(description([decoded];quantity=R)))
     @test any(last(scope)==(:pipe_impedance,) && value===nothing for (scope,value) in pairs(decoded...))
@@ -200,7 +201,8 @@ end
     internal=Formulation(internal_impedance=(inner=:default,outer=:default,transfer=selected_transfer))
     @test formula_id(internal,R)!=formula_id(Formulation(),R)
     @test formula_id(internal,Y)==formula_id(Formulation(),Y)
-    overridden=Formulation(earth_admittance=formula(:default;parameters=(reference=:interface,)))
+    overridden=Formulation(earth_admittance=formula(:default;
+        options=(integration=(method=:quad,options=(rtol=1e-9,)),)))
     @test formula_id(overridden,Y)!=formula_id(Formulation(),Y)
     @test formula_id(overridden,Z)==formula_id(Formulation(),Z)
     @test formula_id(MonteCarlo(a),Y)!=formula_id(LinearError(a),Y)

@@ -43,6 +43,7 @@ domains before frequency evaluation.
 
 - `parameters=(;)`: Boundary `fallback=:error` (default) or explicitly
   `:coaxial` after an unsupported boundary assumption or numerical failure.
+  A finite result's quality warning never triggers this fallback.
 - `options=(;)`: Boundary `resolution=(wire=64, order=32, quadrature=256,
   modes=1024)`, `integration=(rtol=1e-8, atol=1e-10, maxevals=100_000)`, and
   `audit=false`. The audit recomputes an independent boundary grid and checks

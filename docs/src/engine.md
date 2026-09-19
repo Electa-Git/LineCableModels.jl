@@ -26,9 +26,11 @@ The internal default and `:schelkunoff1934` retain Schelkunoff's tubular
 conductor expressions; insulation impedance's default and `:ametani1980`
 retain the annular magnetic term documented by Ametani.
 Both earth defaults route to `:unified`, which implements the supplied circumferentially averaged framework
-with complete enclosed-current normalization. The former air defaults remain
-available as `:wise1934` for impedance and `:wise1948` for potential coefficients;
-both former buried defaults are `:xue2018`. Dielectric `:default` selections
+with complete enclosed-current normalization. Only `:default` and `:unified`
+execute in the two built-in coaxial earth families. Other registered identities
+throw "not yet implemented" when requested; they never substitute Unified.
+Independent external-backend and consumer-defined implementations are unaffected.
+Dielectric `:default` selections
 route to explicit `:lossless` equations; `:lossy` retains conductivity and the
 material's supplied polarization losses. The FrequencyDependent `:default`
 routes to `:constant`, which preserves static properties. Its explicit
@@ -37,6 +39,43 @@ attached to the equations without determining their software names.
 EquivalentHomogeneous selects the basement when explicitly requested, and the
 modal default performs Levenberg–Marquardt tracking. The EquivalentHomogeneous
 default is a package-owned policy rather than an author equation.
+
+## Coaxial computation
+
+The workflow is design, system, problem, formulation, then `compute`. Initialization
+flattens the selected designs into blueprint tables, binds equations to their
+required inputs and selected output entries, and allocates one
+`LineParametersWorkspace`.
+
+The calculation evaluates fixed-temperature conductor properties and required
+frequency-dependent earth tables, then follows this order at each frequency:
+
+1. Complete equivalent-earth evaluation and dielectric material admittivities.
+2. Calculate cable-local impedance and potential coefficients.
+3. Calculate the selected exterior impedance and potential coefficients together
+   through `earth!`.
+4. Assemble primitive matrices, apply the selected reductions and store Z/Y.
+
+`BeforeFD` and `AfterFD` retain their distinct ordering. Material-law calls receive
+valid material objects. Field formulas receive completed material properties;
+their wave numbers and mathematical approximations do not replace those values.
+Boundary-shunt coefficients remain blueprint-time quantities.
+
+The workspace input/invariants retain geometric tables and equation/input/output
+bindings. Its buffers retain evaluated material tables, local coefficients,
+separate exterior Z/P destinations, primitive/reduction matrices, QuadGK storage
+and any numerical scratch arrays required by the selected equations. Trace
+storage is optional. Independent computations share no mutable calculation
+buffers.
+
+Ordinary earth equations evaluate their indexed cases. A coupled equation may
+require full-system inputs even when only some of its entries are selected.
+Those inputs and compatible Z/P consumers are bound during initialization.
+Compatible consumers calculate one response per frequency; different
+configurations calculate separately and publish their selected entries before
+reusing scratch. The binding records the fixed correspondence, not the validity
+of a previously calculated response. Every call calculates anew: there is no
+subordinate workspace or readiness/reset lifecycle.
 
 ## Internal shunt geometry
 
@@ -108,16 +147,20 @@ result = @time compute(problem, formulation)
 ```
 
 There is no separate preparation object or execution option. Default coaxial
-blueprints contain no boundary blocks and evaluate no boundary material law.
+blueprints contain no boundary blocks, extract no boundary domains, and evaluate
+no boundary material law. Their reports describe the concentric assembly ranges;
+no boundary audit is implied.
 Boundary coefficients are independent of the frequency grid and external earth
 model. They are reused across the frequency sweep, but a fresh `compute` call
 constructs fresh blueprints: there is no process-global or cross-call cache.
 Changed geometry and Monte Carlo realizations therefore receive new coefficients.
 Do not mutate coefficient arrays shared by completed blueprints.
 
-Production retains quadrature convergence, dense-storage budget, rank,
-finite-value, reciprocity and positive terminal-capacitance checks. The
-independent validation grid and derivative step-refinement are opt-in:
+Production reports unmet quadrature targets, estimated rank, reciprocity and
+positive-capacitance concerns as warnings. The computed finite result is retained
+without retry, repair or substitution. Dense-storage limits, degenerate columns,
+actual solve failure and nonfinite physical results remain errors. The independent
+validation grid and derivative step-refinement are opt-in:
 
 ```julia
 boundary = formula(:boundary;
@@ -131,16 +174,18 @@ formulation = Formulation(shunt_model=boundary)
 ```
 
 Set `audit=true` for the independent checks. Unaudited residual fields are
-`nothing`, not zero. The audit does not alter the accepted terminal matrix.
+`nothing`, not zero. The audit warns on unmet criteria and does not alter the
+computed terminal matrix.
 The integration tolerances control dimensionless logarithmic moments, not
 the error in an individual terminal coupling.
 
 See [`BoundarySolveError`](@ref) and [`LineCableModels.Engine.ShuntModel.Formula`](@ref)
 for the failure and selection contracts.
 
-Strict failure is the default. An explicit `parameters=(fallback=:coaxial,)`
+Actual failures propagate by default. An explicit `parameters=(fallback=:coaxial,)`
 permits annular replacement only after recognized numerical or unsupported-law
-failures, with a warning and recorded reason. Invalid inputs and unexpected
+failures, with a warning and recorded reason. Finite-result quality warnings do
+not trigger that fallback. Invalid inputs and unexpected
 exceptions propagate. UQ wrappers reject automatic fallback; choose strict
 `:boundary` or `:coaxial` for the whole study. Monte Carlo also checks that
 shunt-model coverage stays fixed across realizations and never retries a
@@ -209,12 +254,12 @@ remain package-specific choices, not accuracy guarantees supplied by these
 references.
 
 ```@docs
-LineCableModels.Engine._shunt_load
-LineCableModels.Engine._shunt_kernel_coefficients
-LineCableModels.Engine._shunt_junction_exponent
-LineCableModels.Engine._shunt_tape_faces
-LineCableModels.Engine._shunt_log_moments
-LineCableModels.Engine._shunt_capacitance
+LineCableModels.Engine.ShuntModel._shunt_load
+LineCableModels.Engine.ShuntModel._shunt_kernel_coefficients
+LineCableModels.Engine.ShuntModel._shunt_junction_exponent
+LineCableModels.Engine.ShuntModel._shunt_tape_faces
+LineCableModels.Engine.ShuntModel._shunt_log_moments
+LineCableModels.Engine.ShuntModel._shunt_capacitance
 ```
 
 ## Formula selection
@@ -264,24 +309,28 @@ material selections, not analytical impedance equations.
 
 Numerical defaults belong to `formulation_options(::FormulaMethod{<:MySelection,
 typeof(operation), ...})`. Empty defaults admit no controls. Unknown or unused
-numerical sections are errors. A declared `integration` section allocates
-numerical resources; it does not select full-system earth physics. That
-requirement belongs to the selected physical formulation.
+numerical sections are errors. The selected formula provisions QuadGK storage
+through `initialize_buffers` when its required indexed consumers need integration;
+option-key presence is not an allocation policy. Full-system earth physics also
+belongs to the selected physical formulation.
 
 Custom types implement the existing family operation and expose `parameters`
-and `options` records. Internal selections also expose per-surface options and
-`configured_options`; earth selections expose `assumptions` and
+and `options` records. Internal selections expose per-surface options;
+earth selections expose `assumptions` and
 `equivalent_earth`. Constructors own parameter checking and option normalization.
 Implement `formula_id`, `description`, `NamedTuple`, and `formulation_options`
 for scientific inspection and persistence. A saved declaration is not executable
 code; unknown saved leaf identities remain passive identities.
 
-Longitudinal propagation is prescribed only through `LineParametersProblem(...;
-Γ=...)`: one finite scalar [1/m] per frequency. Its square is derived from that
-scalar. `:unified` supports prescribed Γ; retained author earth equations
-require Γ=0. No propagation-constant root solver is implied. Medium constitutive
-assumptions belong to methods of the selected earth type, independently of
-air/earth/mixed interaction selection.
+Unified accepts a prescribed longitudinal argument [1/m] through
+`formula(:unified; parameters=(Γ=value,))`. A finite scalar applies to every
+sample; a finite vector aligns one-to-one with the problem's frequency vector,
+without sorting or interpolation. Zero is the default. This parameter is not a
+problem field or a common earth-formula requirement. No propagation-constant
+root solver is implied. Material constitutive
+laws evaluate valid material objects before field calculations. Selected earth
+equations consume those properties and calculate their own wave numbers and
+field approximations without redefining the material values.
 
 `EarthPair` carries conductor row/column indices, integer source/target layer indices,
 heights, horizontal separation and an explicit self radius. Self means the same
@@ -297,33 +346,35 @@ earth_potential_coefficient(selection::MyEarthPotential, ::Val{Kind}, ::Val{S}, 
 ```
 
 `Kind` is `:self` or `:mutual`; source `S` is the matrix column, and target `T`
-is the row. Layer 1 is air; soils occupy layers 2 through N. The shared `validate`
-uses native method selection on this required signature and excludes the throwing
-fallback. Domain-defining methods accept the three runtime payloads without extra
+is the row. Layer 1 is air; soils occupy layers 2 through N. Required methods
+are invoked through indexed dispatch; unsupported cases reach the throwing
+fallback. There is no reflected equation-coverage preflight. Domain-defining
+methods accept the three runtime payloads without extra
 subtype constraints. Numerical specializations can optimize an admitted case.
 Julia method availability determines which equations can be selected.
 
-Each earth slot also accepts a NamedTuple for a physical air/soil two-half-space model:
+Each earth slot also accepts an explicit NamedTuple recipe:
 
 ```julia
 selected = Formulation(earth_impedance = (
-    air = formula(:carson1926),
-    earth = formula(:pollaczek1926),
-    mixed = formula(:lucca1994),
+    earth = formula(:unified),
 ))
 ```
 
 The same syntax applies independently to `earth_admittance`. The labels resolve
 `(1,1)`, `(2,2)` and the two cross-layer directions before the existing indexed
 method dispatch. Each case retains its own formula, numerical options and
-material preparation. There is no combined formula identity. An unused leaf does
-not supply missing cases or execute a kernel. True layered inputs require a scalar
+material inputs. There is no combined formula identity. The example covers an
+all-buried problem, not an overhead or mixed problem. Whole-family omission or
+`nothing` routes to `:default`; an explicit recipe receives no implicit completion.
+An unused leaf does not allocate numerical buffers, supply missing cases or
+execute a kernel. True layered inputs require a scalar
 selection; scalar multilayer and explicit EHEM behavior are unchanged.
 
 The default potential formulation supplies both mixed directions. Selecting a
 default leaf for only part of a matrix still assembles its complete auxiliary
-system and then selects the requested final entries. Retained author entries
-never become inputs to its K/H kernels.
+system and then selects the requested final entries. Other selected output
+equations never become inputs to its K/H kernels.
 
 The workspace binds every required ordered pair before frequency evaluation.
 Geometry and layer indices follow the same order. Both directions are evaluated;
@@ -337,14 +388,17 @@ its cases; arbitrary-layer Green-function generation remains deferred. Buried
 placement in a vertical multilayer earth is rejected because its physical layer
 indexing has no defined origin in the present geometry definition.
 
-Carson admits only `(1,1)`. Both Pollaczek families admit only `(2,2)` and reject
-air or mixed pairs. Ametani2009 and Lucca1994 remain mixed-only equations and cannot
-assemble a complete native matrix by themselves. Their missing self terms are
-never filled by another source. The defaults supply air/air, earth/earth and both mixed directions with
+Only `:unified` and explicit `:default → :unified` routing are executable built-in
+coaxial earth implementations, in both impedance and potential families. Other
+author identifiers remain registered scientific identities with explicit
+"not yet implemented" methods for their indexed cases. They never fall back to
+Unified. Independent external-backend and consumer-defined methods are unaffected.
+The defaults supply air/air, earth/earth and both mixed directions with
 independent medium permeabilities. Every circumference must lie wholly in its
 half-space and exterior circles must not overlap. The default requires homogeneous
-earth or an explicitly globally consistent equivalent earth. Pair-dependent
-reductions remain available through author selections.
+earth or an explicitly globally consistent equivalent earth. Indexed dispatch
+for arbitrary layer numbers is an extension contract, not an implementation of
+new multilayer Unified equations.
 
 The complete earth source kernels satisfy
 
@@ -356,18 +410,22 @@ P_eL=H,\quad Z_eL=K+\Gamma^2H/s,\quad Y_eH=sL.
 
 Here `s=jω`, Ze is in Ω/m, Pe in m/F and Ye in S/m. Matrices are solved on the
 right, with source columns and receiver rows. Pe and Ye retain the direction of
-the voltage path; they are not symmetrized. The default reference is common deep
-earth. Select `parameters=(reference=:interface,)`, a positive finite reference
-depth below every circumference, or `reference=:scalar` for the distinct scalar
-potential diagnostic. Use the same physical reference for both owners when a
-consistent Ze/Pe pair is required.
+the voltage path; they are not symmetrized. Air receivers use the interface
+voltage; earth receivers use deep-earth voltage. These references are fixed by
+the receiving layer, not selectable parameters.
 
-Public `compute` prepares the complete system for `:unified`. Calling its pair
-equation without that context is an error. Independent pair equations keep their
-own preparation, even when they use numerical integration. Internal conductor and insulation
+Each formula owns its equations. Unified assembles its
+complete current system once per frequency and shares compatible impedance and
+potential calculations. Its indexed methods return physical self/mutual entries
+from that coupled system; an isolated-pair call cannot supply it. Engine uses
+the same explicit material and earth-calculation stages for every formula and does not know these
+physical equations. Internal conductor and insulation
 contributions retain the existing cable composition and terminal reductions.
 With `options=(trace=true,)`, `trace.Zg` and `trace.Pg` expose the exterior
 matrices; the returned total line admittance also includes insulation effects.
+`trace.integrals` retains the native integral values and QuadGK error estimates,
+with formula, frequency, receiver/source and term identifiers. These estimates
+are not final-matrix error bounds. Trace-off computations retain no such history.
 
 Select an equivalent homogeneous earth on each consuming formula:
 
@@ -449,111 +507,51 @@ existing numerical behavior. The internal term is called `transfer`; earth
 Equation numerical sections belong to `FormulationOptions`. The existing
 `formulation_options` methods validate and normalize them at the owning stage:
 
-| `integration.method` | Numerical operation |
-|---|---|
-| `:quad` | Adaptive QuadGK on an admissible contour with explicit physical feature breakpoints and error estimates. |
-| `:trapz` | Double-exponential transformed trapezoids from DoubleExponentialFormulas, with independently verified local subdomains. |
-| `:cim` | Matrix-pencil/GPOF exponential fit along the spectral coordinate at fixed physical frequency; analytic image integration. |
-
-`SpectralIntegral` exposes the kernel, analytic weight, spectral scale and admissible
-contour. Cosine and radial Sommerfeld weights use different analytic image identities.
-The overhead potential kernel additionally declares an exact simple-pole contribution;
-CIM fits only its rationalized remainder. Cases without a declared integral receive
-no integration section or integration scratch.
-
-CIM fits spectral λ (or the explicitly declared radial spectral coordinate), never
-physical frequency. Built-in earth kernels retain up to 64 image representations
-in the computation workspace. Reuse requires an exact copied material/frequency/Γ
-identity, the same kernel and transformation, and an error certificate meeting
-the requested tolerance. Material-only radial responses can share fits across
-depths, separations and scalar source normalizations. Geometry-dependent kernels
-retain those parameters in their identity. Arbitrary callbacks are not cached.
-Uniform local pencil regions generate a global exponential representation;
-construction starts with a compact region set and expands it when verification
-requires more work. Candidate image orders reuse each window's projected Hankel
-factorization before requesting more samples. Rectangular pencils use all samples
-while limiting their row count by the candidate image order. Sample and Hankel
-buffers are reused.
-Amplitude fitting uses the integration contour and analytic tail penalties;
-an independent integral of the absolute weighted residual checks its complete
-continuation. With an analytic tail bound, this integral uses a finite interval
-and adds bounds on both the true-kernel and image-expansion remainders. Quadrature
-verifies the image sum and never supplies a value
-labeled `:cim`. Geometry certificates integrate an absolute residual envelope
-over the complete contour, including the tail. They apply to greater weight
-heights and smaller separation-plus-radius on that contour. New geometries
-outside the certified range require another certificate or fit; valid cache hits
-evaluate the images without quadrature or refitting. One kernel prototype
-evaluation still checks the physical scalar requirements. Reported certificates
-remain numerical estimates.
-Before caching a fit, continuation bounds are tightened to the measured finite
-fit-error scale. Reuse selects the strongest applicable certificate, so a loose
-tail estimate does not repeatedly force matrix-level refinements of the same fit.
-The assembler can retain a certified expansion of an insignificant correction
-even when that correction misses its local relative tolerance. Subsequent reuse
-still requires its certificate to meet the newly requested absolute error budget.
-An unresolved value-only integral raises an error. The complete
-earth assembler instead consumes the numerical estimate, propagates prefactors
-and right-solve sensitivity, and tightens the influential interactions until
-individual Ze/Pe/Ye entries meet their budgets. A small correction can therefore
-receive a larger integral tolerance without relaxing final-matrix accuracy.
-
-CIM accepts Float32/Float64 physical inputs. Its fits and residual verification
-use Float64 arithmetic, with output rounding included in the error estimate.
-BigFloat and Measurements inputs use quadrature or trapz; CIM rejects them
-explicitly. Trapz retains correlated physical uncertainty while its numerical
-norm and sampling coordinates are nominal. A zero nominal value with nonzero
-uncertainty remains visible to refinement.
-
-The generalized half-space kernels provide typed absolute remainder envelopes
-for overhead, underground and ordered mixed interactions, including voltage
-reference paths and radial transformations. The shared planner finds a cutoff
-from the requested `rtol`/`atol` budget and rechecks it against the computed value.
-Only features inside this justified range seed finite panels and image fits.
-There is no universal maximum wavenumber. Kernels without a usable analytic
-envelope retain verification over the infinite interval; uncertain physical
-inputs also retain that path because nominal envelopes do not bound derivatives.
-
-For both trapz and CIM, `samples=nothing` (the default) selects adaptive
-construction. An integer `samples=N`, with `N≥16`, caps **construction kernel
-evaluations per scalar integral**. Trapz counts evaluations performed by the DE
-rule; CIM counts coverage probes, pencil samples and amplitude-fitting samples.
-Repeated evaluations count again. Prototype, pilot and independent verification
-evaluations are outside this budget. An accepted cached image fit requires no
-construction samples. The budget never grows silently: insufficient samples
-raise an explicit error. This intentionally replaces the former starting-density
-meaning of `samples`; an old explicit value such as `128` may need increasing.
-Numerical tolerance remains a separate requirement:
+Spectral integration uses adaptive Gauss–Kronrod quadrature (`method=:quad`)
+over the full spectral interval. Its controls are:
 
 ```julia
-integration = (method = :trapz, options = (rtol = 1e-6, atol = 0.0, samples = nothing))
-integration = (method = :cim, options = (rtol = 1e-6, samples = 8192))
+integration = (method = :quad, options = (rtol = 1e-8, atol = 0.0, maxevals = 10^7))
 ```
 
-`SpectralEstimate.samples` reports construction evaluations and
-`evaluations-samples` reports verification and pilot evaluations. Earth workspace
-diagnostics aggregate both counters across integral solves and matrix refinements.
+`SpectralIntegral(f)` stores only the complete callable integrated over
+`[0, Inf)`. A formula includes its weights, any admissible contour and the
+coordinate Jacobian in `f`, and supplies numerical subdivision points to
+`integrate`. Engine knows none of those physical choices. Its half-line map
+has no finite cutoff. Algebraic cases make no integration call and declare no
+integration controls; they still receive the same computation workspace.
 
-For trapz, `max_refinements` limits DE levels and `max_tail_refinements` limits
-cutoff searches and independently verified subdomain refinements. Local phase
-and envelope variation guide initial subdivision. Independent panel
-quadrature references supply normalization and verification in one pass; their
-absolute errors cannot cancel across panels. Successful panels are retained;
-the DE package reuses nested samples within each panel. Rule tables are reused for identical
-level limits and precision. Mathematical feature metadata is required to guard
-against known narrow structures; finite black-box samples cannot certify the
-absence of an undeclared feature. Reported errors remain estimates unless the
-contributing regularity and tail information supplies bounds.
+QuadGK retains physical scalar types, including BigFloat and correlated
+Measurements inputs. Numerical error norms and sampling coordinates are nominal;
+physical values and derivatives are not replaced by nominal values.
 
-Formula discovery includes sorted `formulas/*.jl` files, each returning one unique
-identifier. `FormulaMethod` binds that identifier to the family-owned equation generic.
+Quadrature returns its native `(value, estimated_error)`. An unmet requested
+target produces a warning and returns the finite value without an outer retry,
+tolerance tightening or matrix-error rejection. Invalid inputs, nonfinite values
+and singular physical solves remain errors. The human judges accuracy; meaningful
+matrix-accuracy assertions belong in tests.
+
+Selected numerical formulas within one calculation share reusable segment storage.
+The main workspace holds formula-owned subdivision and coupled-response arrays.
+`initialize_buffers` is the single allocation extension point for both earth and
+local formulas; numerical options do not determine allocation by key inspection.
+Each formula supplies the complete callable and its own numeric subdivision hints.
+Engine contains no physical feature finder or spectral sampler. Compatible
+unified consumers share one current calculation per frequency and publish the
+completed entries directly; independent calculations never share mutable buffers.
+
+Each family explicitly includes its supported formula files, each returning one
+identifier. `FormulaMethod` binds a selected formulation and its indexed case to
+the family-owned equation generic.
 The hot loop has no lookup registry. Later unchanged reproductions of an equation
 receive no entry; distinct contributions require their own verified equations.
 
-Analytical result details retain requested and effective identities for every formulation
-slot, explicit modification flags, independent equivalent-earth selections and
-orders, and normalized numerical options for internal surfaces, scalar material laws,
-external cases and each required reduction case. Absence of a selected reduction remains `nothing` in these calculation records.
+Result details retain one requested/resolved formulation record. Its `requested`
+field preserves the declaration; `methods` records the selected identities,
+physical parameters and owner-held numerical controls, including each explicit
+equivalent-earth choice and order. Unspecified numerical defaults remain owned by
+the selected equation rather than a second retained inventory of indexed calls.
+Absence of an equivalent-earth selection remains `nothing`.
 
 PSCAD extends the same equation generics with a `Val(:pscad)` execution payload:
 
@@ -680,9 +678,9 @@ formulations = Formulation(
         :lossy,
         :default,
     )),
-    earth_impedance = Grid((
-        :pollaczek1926,
-        :saad1996,
+    earth_properties = Grid((
+        :constant,
+        :longmire1975,
     )),
     combine = :product,
 )
@@ -901,9 +899,10 @@ effects, and reduction; it does not redefine cable-design equivalence or modal
 coordinates.
 
 `LineParametersWorkspace` is the coaxial backend's per-computation working
-state. Its constructor adapts a completed physical system once, evaluates
-earth data, constructs cable and reduction indices, and allocates the matrices
-and adaptive-quadrature segment storage used by the frequency loop. The
+state. Its constructor adapts a completed physical system once, binds equations,
+constructs cable and reduction indices, and allocates numerical buffers. Material
+evaluation is an explicit calculation stage, not a constructor side effect.
+QuadGK arrays remain empty when no selected equation requires integration. The
 workspace is not a result, public data model, or alternate cable
 representation. Its shunt solvers consume DataModel's ordered physical
 dielectric layers directly, so the analysis is independent of the frequency
@@ -1264,7 +1263,7 @@ For formulation comparisons, ReportBuilder retains unformatted data in
 ```julia
 using LineCableModels.ReportBuilder: BenchmarkTableDefinition
 
-candidates = compute(problem, Formulation(earth_impedance=Grid((:default, :pollaczek1926))))
+candidates = compute(problem, Formulation(earth_properties=Grid((:constant, :longmire1975))))
 reference = compute(problem, Formulation())
 artifact = report(BenchmarkTableDefinition(), (; reference, candidate=candidates))
 artifact.table.summary
@@ -1308,7 +1307,10 @@ Scalar calculation selections are retained in `details(result).data.formulations
 Its `requested` and `methods` fields hold complete requested and resolved records,
 including physical parameters and numerical controls. Formula identifiers are available
 as `record.requested.earth_admittance.identifier` (or through the corresponding
-`air`, `earth`, `mixed` leaf). The `effective`, `numerical` and
-`equivalent_earth` records retain the applied analytical interaction information.
+`air`, `earth`, `mixed` leaf). Resolved identities are under `methods`; a leaf's
+`equivalent_earth` field contains its reduction choice and order. Realized local
+shunt outcomes, including explicit fallback, remain in `details(result).data.shunt_model`.
+There are no parallel `effective` or `numerical` inventories. Optional `trace`
+contains detached evaluation data, not another formulation authority.
 Reports use these records directly; they do not infer a selection from numerical
 agreement or collapse different voltage references into the same formula label.

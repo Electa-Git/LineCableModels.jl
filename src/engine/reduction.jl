@@ -47,14 +47,6 @@ function reorder_indices(map::AbstractVector{<:Integer})
     return perm
 end
 
-# Non-mutating reorder (2D)
-function reorder_M(M::AbstractMatrix, map::AbstractVector{<:Integer})
-    n = size(M, 1)
-    n == size(M, 2) == length(map) || throw(ArgumentError("shape mismatch"))
-    perm = reorder_indices(map)
-    return M[perm, perm], map[perm]
-end
-
 """
 $(TYPEDSIGNATURES)
 
@@ -81,15 +73,10 @@ function kronify(
         M::Matrix{Complex{T}},
         phase_map::Vector{Int}
 ) where {T <: Real}
-    keep = findall(!=(0), phase_map)
-    eliminate = findall(==(0), phase_map)
-
-    M11 = M[keep, keep]
-    M12 = M[keep, eliminate]
-    M21 = M[eliminate, keep]
-    M22 = M[eliminate, eliminate]
-
-    return M11 - (M12 * inv(M22)) * M21
+    retained = count(!=(0), phase_map)
+    reduced = similar(M, retained, retained)
+    kronify!(M, phase_map, reduced)
+    return reduced
 end
 
 """
@@ -113,17 +100,22 @@ function kronify!(
         phase_map::Vector{Int},
         Mred::Matrix{Complex{T}}
 ) where {T <: Real}
+    checksquare(M) == length(phase_map) || throw(DimensionMismatch(
+        "phase map must contain one entry per matrix row"))
     keep = findall(!=(0), phase_map)
     eliminate = findall(==(0), phase_map)
-
-    M11 = M[keep, keep]
-    M12 = M[keep, eliminate]
-    M21 = M[eliminate, keep]
-    M22 = M[eliminate, eliminate]
-    @views @inbounds Mred .= M11 - (M12 * inv(M22)) * M21
+    # This entry point also permits Mred to alias M. The reusable-buffer entry
+    # point below requires independent scratch, as in the computation workspace.
+    source = Base.unalias(Mred, M)
+    kronify!(source, keep, eliminate, Mred,
+        similar(M, length(eliminate), length(eliminate)),
+        similar(M, length(keep), length(eliminate)),
+        similar(M, length(eliminate), length(keep)))
     return nothing
 end
 
+# The destination and three scratch blocks must not alias the source or one
+# another. Callers with aliased storage use the phase-map entry point above.
 function kronify!(
         matrix::AbstractMatrix{Complex{T}},
         keep::AbstractVector{Int},
@@ -351,77 +343,4 @@ function reduce_primitive_matrices(
     end
     return (; Z, P, phase_map = retained_map,
         indices = kron_map === nothing ? permutation : permutation[findall(!=(0), kron_map)])
-end
-
-"""
-$(TYPEDSIGNATURES)
-
-Invert each reduced quasi-TEM potential-coefficient slice to obtain shunt
-admittance directly:
-
-```math
-Y(f) = P(f)^{-1}.
-```
-
-No additional ``j\\omega`` factor is applied. Each solve is checked with the
-infinity-norm residual ``\\lVert P Y-I\\rVert_\\infty`` and its matrix condition
-number.
-
-# Arguments
-
-- `P`: Reduced inverse-admittance scan \\[m/S\\], with dimensions
-  `(terminal, terminal, frequency)`.
-
-This FEM coefficient differs from the analytical engine's charge-based
-coefficient ``p=sY^{-1}`` in m/F. For the same admittance and reference,
-``p=sP``, where ``s=jω`` in sinusoidal evaluation.
-
-# Keywords
-
-- `diagnostics=false`: Also return residuals and condition numbers.
-
-# Returns
-
-- The shunt-admittance scan \\[S/m\\], or a named tuple containing `Y`,
-  `residuals`, and `condition_numbers` when diagnostics are requested.
-
-# Errors
-
-- `ArgumentError`: A slice is singular, non-finite, or fails the
-  condition-aware inversion residual.
-"""
-function potential_to_admittance(
-        P::Array{Complex{T}, 3};
-        diagnostics::Bool = false
-) where {T <: Real}
-    n = size(P, 1)
-    size(P, 2) == n || throw(DimensionMismatch("P must be square"))
-    identity_matrix = Matrix{Complex{T}}(I, n, n)
-    Y = similar(P)
-    residuals = Vector{T}(undef, size(P, 3))
-    condition_numbers = similar(residuals)
-    for frequency in axes(P, 3)
-        coefficient = Matrix(@view P[:, :, frequency])
-        all(isfinite, coefficient) || throw(ArgumentError(
-            "P contains non-finite values at frequency index $frequency",
-        ))
-        condition_number = cond(coefficient)
-        isfinite(condition_number) || throw(ArgumentError(
-            "P is singular at frequency index $frequency",
-        ))
-        inverse = lu(coefficient) \ identity_matrix
-        residual = convert(T, norm(coefficient * inverse - identity_matrix, Inf))
-        tolerance = max(
-            sqrt(eps(T)),
-            convert(T, 32n * eps(T) * max(one(T), condition_number))
-        )
-        isfinite(residual) && residual <= tolerance || throw(ArgumentError(
-            "P inversion residual $residual exceeds $tolerance at " *
-            "frequency index $frequency (condition number $condition_number)",
-        ))
-        @views Y[:, :, frequency] .= inverse
-        residuals[frequency] = residual
-        condition_numbers[frequency] = condition_number
-    end
-    return diagnostics ? (; Y, residuals, condition_numbers) : Y
 end

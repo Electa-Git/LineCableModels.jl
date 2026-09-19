@@ -40,8 +40,9 @@ function NativeFormula{F}(selection::LineCableModels.FormulaDefinition{ID, Order
 end
 
 function NativeFormula{F}(selected::F) where {F}
-    controls = selected isa InternalImpedance.Formula ? selected.configured_options : selected.options.data
-    isempty(selected.parameters) && isempty(controls) || throw(ArgumentError(
+    empty_controls = selected isa InternalImpedance.Formula ?
+        all(isempty, values(selected.options.data)) : isempty(selected.options.data)
+    isempty(selected.parameters) && empty_controls || throw(ArgumentError(
         "PSCAD native equations do not accept analytical parameters or numerical controls"))
     if selected isa Union{EarthImpedance.Formula,EarthAdmittance.Formula}
         selected.equivalent_earth === nothing || throw(ArgumentError(
@@ -331,9 +332,6 @@ function pscad_setting(formulation::PSCADFormulation, problem::LineParametersPro
     validate(problem)
     model = problem.earth_props
     validate(model, Val(:pscad))
-    problem.Γ === nothing || all(iszero, problem.Γ) ||
-        throw(ArgumentError(
-            "PSCAD does not accept an explicit nonzero longitudinal propagation constant"))
     relation = formulation.methods.earth_properties
     (relation === nothing ||
      relation === LineCableModels.Earth.FrequencyDependent.Formula(:default)) ||
@@ -409,21 +407,9 @@ end
 
 """Record consumed PSCAD identifiers and fixed native assumptions with bounded field types."""
 function computation_details(formulation::PSCADFormulation)::ComputationDetails
-    identifier = function (definition)
-        definition === nothing && return nothing
-        definition isa NamedTuple && return map(identifier, definition)
-        definition isa Symbol ? definition : formula_id(definition)
-    end
-    fields = keys(formulation.definitions)
-    Identifiers = NamedTuple{fields,
-        NTuple{length(fields), Union{Nothing, Symbol, NamedTuple}}}
     methods = formulation.methods
     return ComputationDetails(merge((
-        schema_version = 3,
-        backend = :pscad,
-        type = string(parentmodule(typeof(formulation)), ".", nameof(typeof(formulation))),
-        raw = Dict{Symbol, Any}(:selections => formulation.definitions),
-        effective = Identifiers(map(identifier, methods)),
+        schema_version = 4,
         assumptions = (
             internal_impedance = "Fixed PSCAD Cable_Coax conductor approximation; backend-owned default, no source alias or native Bessel switch",
             insulation_impedance = "PSCAD native Cable_Coax magnetic calculation",
@@ -433,7 +419,7 @@ function computation_details(formulation::PSCADFormulation)::ComputationDetails
             dielectric_equivalence = "Reference-frequency equivalent capacitance and loss tangent; native PSCAD frequency law; loss tangent capped at 10",
             earth = "One homogeneous earth layer; no FrequencyDependent relation",
             pipe_impedance = "Cable_Coax only; shared eccentric metallic enclosure unsupported"),
-        options = formulation.options.data),NamedTuple(formulation)))
+        ),NamedTuple(formulation)))
 end
 
 function computation_details(::Type{<:PSCADFormulation}, result::LineParameters)::ComputationDetails

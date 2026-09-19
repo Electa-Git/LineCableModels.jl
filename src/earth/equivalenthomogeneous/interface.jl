@@ -146,21 +146,12 @@ function equivalent_material(selected::AbstractRule, ::Val{Kind}, ::Val{S}, ::Va
     throw(ArgumentError("equivalent_material :$(formula_id(selected)) ($Kind): formula not implemented for source in layer $S and target in layer $T"))
 end
 
-const EQUATION_FALLBACK = which(equivalent_material,
-    Tuple{AbstractRule, Val, Val, Val, Any, Any, Any, Any, Any, Any, Any, Any, Any})
-
 validate(formula::AbstractRule, pair) = only(validate(formula, (pair,)))
 
 function validate(formula::AbstractRule, pairs::Union{Tuple, AbstractVector})
     equations = map(pairs) do pair
         kind = pair.row == pair.column ? :self : :mutual
-        binding = FormulaMethod(formula, equivalent_material, Val(kind), Val.(pair.layers)...)
-        signature = Tuple{typeof(formula), typeof.(binding.arguments)...,
-            Any, Any, Any, Any, Any, Any, Any, Any, Any}
-        which(equivalent_material, signature) === EQUATION_FALLBACK &&
-            binding(nothing, nothing, nothing, nothing, nothing,
-                nothing, nothing, nothing, nothing)
-        binding
+        FormulaMethod(formula, equivalent_material, Val(kind), Val.(pair.layers)...)
     end
     identities = unique(equations)
     defaults = map(identities) do binding

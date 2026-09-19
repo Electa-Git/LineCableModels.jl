@@ -9,7 +9,6 @@ $(TYPEDFIELDS)
 struct LineParametersProblem{
     T <: Real,
     S <: LineCableSystem{T},
-    P <: Union{Nothing, Vector{Complex{T}}},
     E <: EarthModel{T}
 } <: AbstractProblemDefinition
     "Physical cable system."
@@ -20,27 +19,22 @@ struct LineParametersProblem{
     earth_props::E
     "Strictly positive, sorted analysis frequencies \\[Hz\\]."
     frequencies::Vector{T}
-    "Optional longitudinal propagation constants aligned with frequency \\[1/m\\]."
-    Γ::P
 
-    function LineParametersProblem{T, S, P, E}(
+    function LineParametersProblem{T, S, E}(
             system::S,
             temperature::T,
             earth_props::E,
-            frequencies::Vector{T},
-            Γ::P
+            frequencies::Vector{T}
     ) where {
             T <: Real,
             S <: LineCableSystem{T},
-            P <: Union{Nothing, Vector{Complex{T}}},
             E <: EarthModel{T}
     }
-        return validate(new{T, S, P, E}(
+        return validate(new{T, S, E}(
             system,
             temperature,
             earth_props,
-            frequencies,
-            Γ
+            frequencies
         ))
     end
 end
@@ -70,17 +64,6 @@ function validate(problem::LineParametersProblem)
             problem.frequencies, "frequencies must be positive and finite"
         ))
     issorted(problem.frequencies) || throw(ArgumentError("frequencies must be sorted"))
-    if problem.Γ !== nothing
-        length(problem.Γ) == length(problem.frequencies) ||
-            throw(DimensionMismatch(
-                "longitudinal propagation constants must align with frequencies"
-            ))
-        all(value -> isfinite(real(value)) && isfinite(imag(value)), problem.Γ) ||
-            throw(DomainError(
-                problem.Γ,
-                "longitudinal propagation constants must be finite"
-            ))
-    end
     return problem
 end
 
@@ -88,7 +71,7 @@ end
 $(TYPEDSIGNATURES)
 
 Construct a problem after promoting the system, operating temperature, static
-earth model, frequencies, and optional propagation constants to one real scalar
+earth model and frequencies to one real scalar
 type.
 
 # Keywords
@@ -96,42 +79,29 @@ type.
 - `temperature`: Operating temperature \\[°C\\].
 - `earth_props`: Static earth model.
 - `frequencies`: Positive sorted analysis frequencies \\[Hz\\].
-- `Γ`: Optional longitudinal propagation constants aligned with `frequencies`
-  \\[1/m\\]. A formula that fixes Γ to zero rejects nonzero values.
 """
 function LineParametersProblem(
         system::LineCableSystem;
         temperature::Real = oftype(float(system.line_length), 20),
         earth_props::EarthModel,
-        frequencies::AbstractVector{<:Real} = [oftype(float(system.line_length), 50)],
-        Γ::Union{Nothing, AbstractVector{<:Number}} = nothing
+        frequencies::AbstractVector{<:Real} = [oftype(float(system.line_length), 50)]
 )
     isempty(frequencies) && throw(ArgumentError("frequencies cannot be empty"))
-    Γ !== nothing && isempty(Γ) && throw(ArgumentError("Γ cannot be empty"))
-    propagation_type = Γ === nothing ? typeof(float(first(frequencies))) :
-                       promote_type(
-        typeof(float(real(first(Γ)))),
-        typeof(float(imag(first(Γ))))
-    )
     T = promote_type(
         eltype(system), typeof(float(temperature)), eltype(earth_props),
-        typeof(float(first(frequencies))), propagation_type
+        typeof(float(first(frequencies)))
     )
     converted_system = DataModel.interface_clearance(convert(LineCableSystem{T}, system))
     converted_earth = convert(EarthModel{T}, earth_props)
-    propagation = Γ === nothing ? nothing :
-                  Complex{T}[convert(Complex{T}, value) for value in Γ]
     return LineParametersProblem{
         T,
         typeof(converted_system),
-        typeof(propagation),
         typeof(converted_earth)
     }(
         converted_system,
         convert(T, float(temperature)),
         converted_earth,
-        T[convert(T, float(value)) for value in frequencies],
-        propagation
+        T[convert(T, float(value)) for value in frequencies]
     )
 end
 
@@ -156,8 +126,6 @@ placements.
 - `temperature`: Operating temperature in °C.
 - `earth_props`: Static earth model.
 - `frequencies`: Positive sorted analysis frequencies in Hz.
-- `Γ`: Optional longitudinal propagation constants aligned with `frequencies`
-  in inverse meters.
 - `combine`: Rule used to combine designs and placements.
 
 # Returns
@@ -175,7 +143,6 @@ function LineParametersProblem(
         temperature::Real,
         earth_props::EarthModel,
         frequencies::AbstractVector{<:Real};
-        Γ::Union{Nothing, AbstractVector{<:Number}} = nothing,
         combine::Symbol = :product
 )
     system = build(
@@ -188,7 +155,7 @@ function LineParametersProblem(
         line_length,
         combine
     )
-    return LineParametersProblem(system; temperature, earth_props, frequencies, Γ)
+    return LineParametersProblem(system; temperature, earth_props, frequencies)
 end
 
 """
@@ -375,16 +342,16 @@ This choice is independent of `insulation_admittance` and `semicon_admittance`,
 which select material constitutive laws. Boundary numerical controls and an
 explicit fallback belong to `formula(:boundary; options, parameters)`.
 
-`internal_impedance` accepts one formula or complete `inner`, `outer`, and
-`transfer` selections. Each selected concrete type owns its equations and
-numerical controls. Only the surface kinds required by the geometry are
-evaluated; unsupported cases or unused controls fail during preflight.
+`internal_impedance` accepts one formula or an explicit recipe with `inner`,
+`outer`, and `transfer` selections. A solid primitive requests only `outer`;
+a tubular primitive requests all three. Required missing cases fail without
+implicit completion. Unused selections are not initialized or evaluated.
 
 `earth_impedance` and `earth_admittance` each accept one formula or a NamedTuple
-with exactly `air`, `earth`, and `mixed` selections. For a physical horizontal
+with the required subset of `air`, `earth`, and `mixed` selections. For a physical horizontal
 air/soil two-half-space model, these select `(s,t)=(1,1)`, `(2,2)`, and the two
-cross-layer mutual directions. Each required kind/layer case is validated against
-the selected equation. Missing cases have no implicit fallback. The shorthand is
+cross-layer mutual directions. Actual kind/source/target method dispatch governs
+equation applicability. Missing cases have no implicit fallback. The shorthand is
 rejected for layered soil; scalar multilayer and explicit equivalent-earth
 selections retain their own requirements. Model parameters and numerical options remain
 local to each selected entry.

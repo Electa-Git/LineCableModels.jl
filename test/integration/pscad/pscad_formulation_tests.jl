@@ -23,7 +23,8 @@
     @test keys(composite.methods.internal_impedance)==(:inner,:outer,:transfer)
     @test P.pscad_setting(composite,underground)==P.pscad_setting(Formulation(:pscad),underground)
     @test Formulation(Val(:pscad),underground,composite)===composite
-    @test LineCableModels.computation_details(composite).data.effective.internal_impedance==
+    @test map(value -> value.identifier,
+        LineCableModels.computation_details(composite).data.methods.internal_impedance)==
         (inner=:cable_coax,outer=:cable_coax,transfer=:cable_coax)
     rejected=Formulation(:pscad;internal_impedance=(inner=:default,
         outer=:schelkunoff1934,transfer=:default))
@@ -43,7 +44,9 @@
         Formulation(:pscad; earth_impedance = :carson1926))
     @test_throws ArgumentError Formulation(Val(:pscad), underground,
         Formulation(:pscad; earth_properties = :cigre2019))
-    @test all(isfinite, compute(underground, Formulation(earth_impedance = :pollaczek1926)).Z)
+    @test_throws r"not yet implemented" compute(underground, Formulation(earth_impedance = :pollaczek1926))
+    @test P.pscad_setting(Formulation(:pscad; earth_impedance=:pollaczek1926), underground).ground ==
+          P.pscad_setting(Formulation(:pscad), underground).ground
     for key in keys(Formulation(:pscad).definitions)
         selection=NamedTuple{(key,)}((Grid((formula(:default), formula(:default))),))
         space=Formulation(:pscad; selection...)

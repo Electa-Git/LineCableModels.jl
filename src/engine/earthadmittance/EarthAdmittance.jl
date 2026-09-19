@@ -13,8 +13,7 @@ module EarthAdmittance
 import ...Grammar: FormulationOptions
 
 # Export public API
-export Formula, formula_id, earth_potential_coefficient, assumptions, propagation, formulas,
-       Γ
+export Formula, formula_id, earth_potential_coefficient, assumptions, formulas
 
 # Module-specific dependencies
 #! explicit-imports: off
@@ -22,24 +21,20 @@ export Formula, formula_id, earth_potential_coefficient, assumptions, propagatio
 using DocStringExtensions: IMPORTS, TYPEDEF, TYPEDFIELDS, TYPEDSIGNATURES
 #! explicit-imports: on
 import ...LineCableModels: validate
-import ..Engine: EarthPair, earth_parameters
-import ...LineCableModels: constitutive
+import ..Engine: EarthPair, earth_parameters, layer_index
 import ...Earth: EquivalentHomogeneous
 import ..Engine: EarthAdmittanceFormulation, formula_id
 #! explicit-imports: off
 # Explicitly included equations share these physical and numerical operations.
-import ..Engine: system_earth, unified_entry, retained_earth_features
+import ..Engine: earth_bindings, initialize_buffers, earth!, same_physical_state
+import ..Engine: computation_type
+import ..EarthImpedance
 import ...LineCableModels: FormulaDefinition, FormulaMethod, nominal
-import ..Engine: SpectralIntegral, integrate
-import ..Engine: description, conductivity, media, special_besselk
+import ..Engine: description, conductivity, media
 import ..Engine: formulation_options
 #! explicit-imports: on
 
-vacuum_permittivity(value) = one(value) * 88541878128 * (one(value) * 10)^(-22)
-vacuum_permeability(value) = one(value) * 4 * (one(value) * π) * (one(value) * 10)^(-7)
-
 include("interface.jl")
-include("homogeneous.jl")
 
 #! explicit-imports: off
 const FORMULAS = (
@@ -47,12 +42,12 @@ const FORMULAS = (
     include("formulas/default.jl"),
     include("formulas/pollaczek1926.jl"),
     include("formulas/wise1948.jl"),
-    include("formulas/xue2018.jl"),
+    include("formulas/xue2018.jl")
 )
 #! explicit-imports: on
 
 """
-Return numerical earth-admittance identifiers.
+Return registered earth-admittance identities, including unimplemented equations.
 """
 formulas() = FORMULAS
 

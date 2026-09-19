@@ -23,20 +23,21 @@
     @test changed.transfer==31+32im
     @test only(selections.transfer.evaluations)[2] === Val(:transfer)
     @test_throws ArgumentError Formulation(II.Formula,(inner=:default,outer=:default,mutual=:default))
-    @test_throws ArgumentError Formulation(II.Formula,(outer=:default,))
-    @test_throws ArgumentError validate(merge(same,(outer=selections.inner,)),(:outer,))
-    @test_throws ArgumentError validate(selections,(:outer,))
-    @test validate(same,(:outer,)) === same
+    partial=Formulation(II.Formula,(outer=:default,))
+    @test keys(partial)==(:outer,)
+    @test_throws ArgumentError II.surface_impedances(partial,args...)
+    @test_throws ArgumentError II.surface_impedances(
+        merge(same,(outer=selections.inner,)),Val((:outer,)),args...)
+    @test II.surface_impedances(selections,Val((:outer,)),args...).outer==coefficients.outer
     @test keys(II.surface_impedances(same,Val((:outer,)),args...))==(:outer,)
 
-    struct ObservedSurfaces{F,P,O,C} <: LineCableModels.Engine.InternalImpedanceFormulation
+    struct ObservedSurfaces{F,P,O} <: LineCableModels.Engine.InternalImpedanceFormulation
         base::F
         parameters::P
         options::O
-        configured_options::C
         observations::Vector{Tuple}
     end
-    observed=ObservedSurfaces(scalar,(;),scalar.options,(),Tuple[])
+    observed=ObservedSurfaces(scalar,(;),scalar.options,Tuple[])
     function (leaf::ObservedSurfaces)(args...)
         prepared=leaf.base(args...)
         II.Functor(leaf,prepared.state,leaf.options)
@@ -59,24 +60,23 @@
 
     alternative=M.SurfaceLaw(kinds=(:transfer,),coefficients=(transfer=41+42im,))
     distinct=merge(same,(transfer=alternative,))
-    @test validate(distinct,(:inner,:outer,:transfer)) === distinct
     values=II.surface_impedances(distinct,args...)
     @test values.inner==reference.inner && values.outer==reference.outer
     @test values.transfer==41+42im && length(alternative.preparations)==1
-    @test_throws ArgumentError validate(merge(same,(inner=alternative,)),(:inner,:outer,:transfer))
+    @test_throws ArgumentError II.surface_impedances(merge(same,(inner=alternative,)),args...)
 
     problem=TestFixtures.line_parameters_problem(frequencies=[50.,500.])
     original=compute(problem,Formulation())
     composed=compute(problem,Formulation(internal_impedance=same))
     @test Z(composed)==Z(original) && Y(composed)==Y(original)
-    @test details(composed).data.formulations.effective.internal_impedance==
+    @test map(value -> value.identifier, details(composed).data.formulations.methods.internal_impedance)==
         (inner=:schelkunoff1934,outer=:schelkunoff1934,transfer=:schelkunoff1934)
     cable_problem=CableConstantsProblem(first(problem.system.designs);frequency=50.)
     @test compute(cable_problem,CableConstantsFormulation())==
         compute(cable_problem,CableConstantsFormulation(internal_impedance=same))
     custom=compute(problem,Formulation(internal_impedance=distinct))
     @test Z(custom)!=Z(original) && Y(custom)==Y(original)
-    @test details(custom).data.formulations.effective.internal_impedance.transfer === :SurfaceLaw
+    @test details(custom).data.formulations.methods.internal_impedance.transfer.identifier === :SurfaceLaw
     candidates=Formulation(internal_impedance=Grid((formula(:default),customized));combine=:zip)
     @test length(candidates)==2
     @test collect(candidates)[2].methods.internal_impedance.transfer === customized.transfer

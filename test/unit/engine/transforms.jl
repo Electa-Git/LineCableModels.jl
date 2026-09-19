@@ -156,12 +156,6 @@ end
 
     phase_map=[2, 0, 1, 2, 0, 1]
     @test Engine.reorder_indices(phase_map) == [1, 3, 4, 6, 2, 5]
-    source=reshape(ComplexF64.(1:36), 6, 6)
-    reordered, reordered_map=Engine.reorder_M(source, phase_map)
-    @test reordered_map == [2, 1, 2, 1, 0, 0]
-    @test reordered == source[[1, 3, 4, 6, 2, 5], [1, 3, 4, 6, 2, 5]]
-    @test_throws ArgumentError Engine.reorder_M(ones(2, 3), [1, 2])
-
     matrix=ComplexF64[4 1 2; 1 5 3; 2 3 8]
     reduction_map=[1, 2, 0]
     expected=matrix[1:2, 1:2]-matrix[1:2, 3:3]*
@@ -170,6 +164,29 @@ end
     destination=zeros(ComplexF64, 2, 2)
     @test Engine.kronify!(matrix, reduction_map, destination) === nothing
     @test TestNumerics.isapprox_scaled(destination, expected)
+
+    # Complex asymmetric entries and ordered, noncontiguous indices expose
+    # accidental conjugation, symmetry assumptions, and reordered terminals.
+    for T in (Float32, Float64, BigFloat)
+        ordered = Complex{T}[8+im 1-2im 2+im 3; 2+3im 9-im 1 2im;
+                            1 3+im 10+2im 2; 4im 1-im 3+im 11]
+        keep, eliminate = [4, 1], [3, 2]
+        reduced = zeros(Complex{T}, 2, 2)
+        actual = Engine.kronify!(ordered, keep, eliminate, reduced,
+            similar(reduced), similar(reduced), similar(reduced))
+        expected_ordered = ordered[keep, keep] - ordered[keep, eliminate] *
+            (ordered[eliminate, eliminate] \ ordered[eliminate, keep])
+        @test actual === reduced
+        @test actual ≈ expected_ordered
+        @test kronify(ordered, [2, 0, 3, 0]) ≈ ordered[[1, 3], [1, 3]] -
+            ordered[[1, 3], [2, 4]] * (ordered[[2, 4], [2, 4]] \ ordered[[2, 4], [1, 3]])
+        @test kronify(ordered, [1, 2, 3, 4]) == ordered
+        aliased = copy(ordered)
+        @test Engine.kronify!(aliased, [1, 2, 3, 4], aliased) === nothing
+        @test aliased == ordered
+    end
+    @test_throws SingularException kronify(ComplexF64[1 2; 3 0], [1, 0])
+    @test_throws DimensionMismatch kronify(matrix, [1, 0])
 
     bundled, merged_map=Engine.merge_bundles!(copy(matrix), [1, 1, 0])
     @test merged_map == [1, 0, 0]

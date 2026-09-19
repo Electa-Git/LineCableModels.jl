@@ -19,8 +19,25 @@ using DocStringExtensions: IMPORTS
 import ..Engine: ShuntModelFormulation
 import ...LineCableModels: FormulaDefinition, formula_id, description
 import ...Grammar: formulation_options
+import ...Materials: Material
+import ...DataModel: CableDesign
+import ...DataModel
+import ...TextDisplay
+import ..Engine: CableBlueprint, InternalShuntBlock, internal_shunt_response,
+                 blueprint_dependencies, same_physical_state, numerical_magnitude
+import ..Engine: InsulationAdmittance, SemiconAdmittance
+import ...LineCableModels: nominal
+using LinearAlgebra: eigvals!, norm, I, lu, mul!, qr!, ColumnNorm, eigen,
+                     SymTridiagonal, UpperTriangular
+using QuadGK: alloc_segbuf, quadgk!
+import SpecialFunctions
 
 export Formula, formulas
 
 include("interface.jl")
+include("geometry.jl")
+include("boundary.jl")
+include("blueprint.jl")
+
+public BoundarySolveError
 end

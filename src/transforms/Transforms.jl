@@ -22,8 +22,7 @@ import ..Grammar: AbstractProblemDefinition, AbstractFormulation,
                   compute, computation_options, computation_details, formulation_options, details
 import ..Engine: LineParameters, LineParametersFormulation, PhaseDomain, ModalDomain,
                  SeriesImpedance, ShuntAdmittance,
-                 description, formula_id, selectdomain,
-                 offdiagonal_ratio
+                 description, formula_id, selectdomain
 using LinearAlgebra: Diagonal, I, checksquare, cond, diag, dot, eigen,
                      issuccess, ldiv!, lu!, mul!, norm, rdiv!
 #! explicit-imports: on
