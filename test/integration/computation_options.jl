@@ -1,4 +1,5 @@
 @testitem "Execution options / inner owner validation through traversal" tags=[:integration] setup=[TestFixtures] begin
+    using Measurements
     inner = CableConstantsFormulation()
     @test isempty(computation_options(CableConstantsFormulation, ComputationOptions()).data)
     problem = CableConstantsProblem(TestFixtures.coaxial_design())
@@ -19,6 +20,7 @@
 end
 
 @testitem "Execution options / callbacks and output basis survive all traversal paths" tags=[:integration] setup=[TestFixtures] begin
+    using Measurements
     problem = TestFixtures.line_parameters_problem()
     inner = Formulation()
     space = Gridspace{LineParametersProblem}(identity, (Grid((problem,)),))
@@ -50,6 +52,68 @@ end
         result = compute(ParametricProblem(space, ComputationOptions(options)), outer)
         @test calls == fill(1, count)
         @test basis(first(result)) === :total
+    end
+end
+
+@testitem "Execution options / completed tensors and callback precede success notification" tags=[:integration] setup=[TestFixtures] begin
+    E = LineCableModels.Engine
+    problem = TestFixtures.three_bare_wires_problem(frequencies=[1e7], line_length=floatmax(Float64))
+    selected = Formulation(options=(reduce_bundle=false, kron_reduction=false, ideal_transposition=false))
+    calls = Int[]
+    callback = (problem, index, result) -> push!(calls, index)
+    pul = compute(problem, selected)
+    @test all(isfinite, Z(pul)) && all(isfinite, Y(pul))
+    mktemp() do path, stream
+        redirect_stderr(stream) do
+            @test_throws DomainError compute(problem, selected;
+                options=(output_basis=:total, on_result=callback, verbosity=(default=1,)))
+        end
+        seekstart(stream)
+        @test !occursin("completed successfully", read(stream, String))
+    end
+    @test isempty(calls)
+    ordinary = TestFixtures.three_bare_wires_problem(frequencies=[50.])
+    failed_callback = function (_, index, result)
+        push!(calls, index)
+        @test haskey(details(result).data, :formulations)
+        error("injected callback failure")
+    end
+    for choice in (selected, [selected, selected])
+        empty!(calls)
+        mktemp() do path, stream
+            redirect_stderr(stream) do
+                @test_throws ErrorException compute(ordinary, choice;
+                    options=(on_result=failed_callback, verbosity=(default=1,)))
+            end
+            seekstart(stream)
+            @test !occursin("completed successfully", read(stream, String))
+        end
+        @test calls == [1]
+    end
+    completed_callback = (_, index, result) -> (@info "callback completed" index)
+    mktemp() do path, stream
+        redirect_stderr(stream) do
+            result = compute(ordinary, [selected, selected];
+                options=(on_result=completed_callback, verbosity=(default=1,)))
+            @test length(result) == 2
+        end
+        seekstart(stream)
+        lines = filter(line -> occursin("callback completed", line) ||
+            occursin("computation completed successfully", line), readlines(stream))
+        @test length(lines) == 4
+        @test all(i -> occursin(isodd(i) ? "callback completed" : "completed successfully", lines[i]), 1:4)
+    end
+    # Exercise both completed tensor checks independently at their numerical boundary.
+    execution = computation_options(LineCableModelsCoaxial, ComputationOptions())
+    blueprints = only(E.flatten(LineCableModelsCoaxial(), ordinary.system.designs, Float64, [selected]))
+    workspace = E.LineParametersWorkspace(ordinary, selected, execution, blueprints)
+    E._solve!(workspace, selected)
+    for field in (:Zout, :Yout)
+        buffer = getproperty(workspace.buffers, field)
+        saved = buffer[1]
+        buffer[1] = complex(Inf)
+        @test_throws DomainError E._finish(workspace, ordinary, selected, Val(:pul))
+        buffer[1] = saved
     end
 end
 

@@ -174,6 +174,10 @@ function _finish(
         impedance .*= workspace.input.line_length
         admittance .*= workspace.input.line_length
     end
+    all(isfinite, impedance) || throw(DomainError(impedance,
+        "completed series impedance must contain only finite entries"))
+    all(isfinite, admittance) || throw(DomainError(admittance,
+        "completed shunt admittance must contain only finite entries"))
     retained = _retained_details(workspace)
     names=["cable:$(terminal.cable):$(terminal.terminal)"
            for terminal in problem.system.terminal_order]
@@ -193,7 +197,6 @@ function _finish(
         ComputationDetails(merge(retained.data,
             (; formulations = NamedTuple(formulation),
                 coordinates))))
-    @info "Line parameters computation completed successfully"
     return result
 end
 
@@ -259,6 +262,7 @@ function _compute(
         )
         execution.data.on_result === nothing ||
             execution.data.on_result(problem, index, value)
+        @info "Line parameters computation completed successfully"
         value
     end
 end

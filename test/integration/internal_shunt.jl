@@ -14,7 +14,7 @@
             wire = 32, order = 16, quadrature = 128, modes = 256),))
     first_formula = Formulation(shunt_model = boundary; options = physical)
     other_formula = Formulation(shunt_model = boundary,
-        earth_impedance = formula(:unified; parameters=(Γ=1e-4im,)); options = physical)
+        earth_impedance = formula(:unified; options=(Γ=1e-4im,)); options = physical)
     reduced_formula = Formulation(shunt_model = boundary; options = (reduce_bundle = true,
             kron_reduction = true, ideal_transposition = false))
     results = compute(problem, [first_formula, other_formula, reduced_formula]; options = (trace = true,))

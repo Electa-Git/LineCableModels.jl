@@ -23,7 +23,7 @@ jobs:
   core:
     name: Ordinary contracts / Julia ${{ matrix.julia }}
     runs-on: ubuntu-latest
-    timeout-minutes: 90
+    timeout-minutes: 120
     strategy:
       fail-fast: false
       matrix:
@@ -37,6 +37,7 @@ jobs:
         with:
           cache-compiled: ${{ matrix.julia != 'pre' }}
           save-always: "false"
+          delete-old-caches: "false"
       - uses: julia-actions/julia-buildpkg@v1
       - uses: julia-actions/julia-runtest@v1
 
@@ -52,11 +53,12 @@ jobs:
         with:
           version: "1.12"
       - uses: julia-actions/cache@v3
+        with:
+          delete-old-caches: "false"
       - name: Run FEM execution contracts (headless)
         run: |
+          julia --project=test --startup-file=no --compiled-modules=no --code-coverage=@. --color=yes -e 'using Pkg; Pkg.instantiate()'
           julia --project=test --startup-file=no --compiled-modules=no --code-coverage=@. --color=yes -e '
-            using Pkg
-            Pkg.instantiate()
             push!(ARGS, "tag:fem_numerical")
             include("test/runtests.jl")
           '
@@ -94,11 +96,12 @@ jobs:
         with:
           version: "1.12"
       - uses: julia-actions/cache@v3
+        with:
+          delete-old-caches: "false"
       - name: Enforce package and architecture contracts
         run: |
+          julia --project=test --color=yes -e 'using Pkg; Pkg.instantiate()'
           julia --project=test --color=yes -e '
-            using Pkg
-            Pkg.instantiate()
             push!(ARGS, "tag:quality")
             include("test/runtests.jl")
           '
@@ -106,20 +109,19 @@ jobs:
   toolkit:
     name: Gauntlet toolkit / no external solvers
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@v6
       - uses: julia-actions/setup-julia@v3
         with:
           version: "1.12"
       - uses: julia-actions/cache@v3
+        with:
+          delete-old-caches: "false"
       - name: Test case import, catalogue, fingerprints, and comparison utilities
         run: |
-          julia --project=gauntlet --startup-file=no --code-coverage=@. --color=yes -e '
-            using Pkg
-            Pkg.instantiate()
-            include("test/gauntlet/runtests.jl")
-          '
+          julia --project=gauntlet --startup-file=no --code-coverage=@. --color=yes -e 'using Pkg; Pkg.instantiate()'
+          julia --project=gauntlet --startup-file=no --code-coverage=@. --color=yes test/gauntlet/runtests.jl
       - name: Name toolkit coverage traces independently of runner process IDs
         if: ${{ !cancelled() }}
         shell: julia --startup-file=no {0}
@@ -146,9 +148,8 @@ jobs:
   coverage:
     name: Merged production coverage
     needs: [fem-numerical, toolkit]
-    if: ${{ !cancelled() }}
     runs-on: ubuntu-latest
-    timeout-minutes: 120
+    timeout-minutes: 180
     env:
       LINECABLEMODELS_TEST_PLOTTING: "true"
     steps:
@@ -157,6 +158,8 @@ jobs:
         with:
           version: "1.12"
       - uses: julia-actions/cache@v3
+        with:
+          delete-old-caches: "false"
       - name: Instantiate coverage tools
         run: julia --project=test/coverage --color=yes -e 'using Pkg; Pkg.instantiate()'
       - name: Remove stale coverage traces
@@ -174,18 +177,16 @@ jobs:
       - name: Collect core-only boundary coverage
         if: ${{ !cancelled() }}
         run: |
+          julia --project=test/core --code-coverage=@. --color=yes -e 'using Pkg; Pkg.instantiate()'
           julia --project=test/core --code-coverage=@. --color=yes -e '
-            using Pkg
-            Pkg.instantiate()
             push!(ARGS, "tag:core_only")
             include("test/runtests.jl")
           '
       - name: Collect Cairo and visual coverage
         if: ${{ !cancelled() }}
         run: |
+          julia --project=test/visual --compiled-modules=no --code-coverage=@. --color=yes -e 'using Pkg; Pkg.instantiate()'
           julia --project=test/visual --compiled-modules=no --code-coverage=@. --color=yes -e '
-            using Pkg
-            Pkg.instantiate()
             push!(ARGS, "tag:visual")
             include("test/runtests.jl")
           '
@@ -262,6 +263,8 @@ jobs:
         with:
           version: "1.12"
       - uses: julia-actions/cache@v3
+        with:
+          delete-old-caches: "false"
       - name: Run Aqua independently
         shell: julia --color=yes {0}
         run: |
@@ -270,7 +273,7 @@ jobs:
           Pkg.develop(PackageSpec(path = pwd()))
           Pkg.add(["Aqua", "TestItemRunner"])
           push!(ARGS, "tag:aqua")
-          include("test/runtests.jl")
+          include(joinpath(pwd(), "test", "runtests.jl"))
 
   clean-install:
     name: Clean installation
@@ -317,6 +320,7 @@ jobs:
         with:
           cache-compiled: "false"
           save-always: "false"
+          delete-old-caches: "false"
       - name: Instantiate documentation
         run: julia --project=docs --color=yes docs/instantiate.jl
       - name: Generate package-server usage map

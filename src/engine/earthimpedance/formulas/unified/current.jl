@@ -120,7 +120,7 @@ function _unified_current!(workspace, materials, binding, frequency)
     selected=binding.selection
     s=workspace.input.jω[frequency]
     isfinite(s) && !iszero(s) || throw(DomainError(s, "jω must be finite and nonzero"))
-    prescribed = selected.parameters.Γ
+    prescribed = first(binding.equations).declaration.options.data.Γ
     longitudinal = prescribed isa Number ? prescribed : prescribed[frequency]
     longitudinal isa Number && isfinite(longitudinal) ||
         throw(ArgumentError("Γ must be one finite scalar [1/m]"))

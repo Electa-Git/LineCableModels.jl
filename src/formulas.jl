@@ -22,7 +22,8 @@ keyword slot in which the selection appears.
   applies EquivalentHomogeneous after FrequencyDependent, and `:default` selects the receiving formulation's
   default. Non-EquivalentHomogeneous formula slots accept only `:default`.
 - `parameters=(;)`: Explicit model parameters accepted by the owning formula.
-- `options=(;)`: Numerical operation sections, such as `integration=(method=:quad, options=(;))`.
+- `options=(;)`: Formulation-owned physical choices and numerical controls, such
+  as Unified's `Γ` \\[1/m\\] and `integration=(method=:quad, options=(;))`.
 - `equivalent_earth=nothing`: Explicit reduction for a compatible external formula.
 
 # Returns

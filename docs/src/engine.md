@@ -323,14 +323,23 @@ for scientific inspection and persistence. A saved declaration is not executable
 code; unknown saved leaf identities remain passive identities.
 
 Unified accepts a prescribed longitudinal argument [1/m] through
-`formula(:unified; parameters=(Γ=value,))`. A finite scalar applies to every
+`formula(:unified; options=(Γ=value,))`. A finite scalar applies to every
 sample; a finite vector aligns one-to-one with the problem's frequency vector,
-without sorting or interpolation. Zero is the default. This parameter is not a
+without sorting or interpolation. Zero is the default. This formulation option is not a
 problem field or a common earth-formula requirement. No propagation-constant
 root solver is implied. Material constitutive
 laws evaluate valid material objects before field calculations. Selected earth
 equations consume those properties and calculate their own wave numbers and
 field approximations without redefining the material values.
+
+The implemented equations use `s=jω` and the positive-time `exp(jωt)` phasor
+convention. For the same real field expressed as `F̂₋ exp(Γ₋ x-jωt)`, the
+positive-time representation has `F̂₊=conj(F̂₋)` and `Γ₊=conj(Γ₋)`; complex
+material coefficients and response phasors must use that convention consistently.
+The API accepts Γ verbatim and does not silently perform this conversion.
+Γ is a prescribed longitudinal wavenumber, not an independent UQ input or a
+request for modal iterations. Ordinary uncertainty in physical materials retains
+its existing treatment.
 
 `EarthPair` carries conductor row/column indices, integer source/target layer indices,
 heights, horizontal separation and an explicit self radius. Self means the same

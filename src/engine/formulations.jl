@@ -348,7 +348,7 @@ function validate(formula::Union{EarthImpedanceFormulation, EarthAdmittanceFormu
     admitted = union((keys(binding.defaults.data) for binding in bindings)...)
     unknown = setdiff(keys(formula.options.data), admitted)
     isempty(unknown) || throw(ArgumentError(
-        "unused numerical sections $(Tuple(unknown)) for required cases of :$(formula_id(formula))"))
+        "unused formulation options $(Tuple(unknown)) for required cases of :$(formula_id(formula))"))
     resolved = map(bindings) do binding
         names = Tuple(intersect(keys(formula.options.data), keys(binding.defaults.data)))
         options = formulation_options(binding.equation, binding.defaults,

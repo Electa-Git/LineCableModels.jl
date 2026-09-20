@@ -6,24 +6,6 @@ function assumptions(::Val{:unified})
 end
 
 """
-Normalize Unified's prescribed longitudinal argument Γ [1/m]. A scalar applies
-at every frequency; a vector follows the computation's frequency order exactly.
-This is a prescribed argument, not a solved propagation mode.
-"""
-function earth_parameters(::Val{:unified}, parameters::NamedTuple)
-    all(==(:Γ), keys(parameters)) || throw(ArgumentError(
-        "unified admits only the physical parameter Γ [1/m]"))
-    argument = get(parameters, :Γ, 0)
-    values = argument isa Number ? (argument,) : argument
-    values isa Union{Tuple, AbstractVector} && !isempty(values) &&
-    all(value -> value isa Number && !(value isa Bool) && isfinite(value), values) ||
-        throw(ArgumentError("unified Γ must be a finite scalar or nonempty finite vector [1/m]"))
-    argument isa Union{Number, AbstractVector} || throw(ArgumentError(
-        "unified Γ must be a scalar or frequency-aligned vector [1/m]"))
-    return (; Γ = argument isa AbstractVector ? copy(argument) : argument)
-end
-
-"""
 $(TYPEDSIGNATURES)
 
 **Identification.** Circumferentially averaged, two-half-space earth return
@@ -38,10 +20,19 @@ P_e L=H,\\qquad Z_e L=K+\\Gamma^2 H/s,\\qquad Y_e H=sL,
 \\quad L=A_r^{-1}-F_rK,\\quad K=\\mathcal Z-\\Gamma^2\\mathcal P_\\phi/s.
 ```
 
-Here s=jω, Ze has units \\[Ω/m\\], Pe has units \\[m/F\\], and Ye has units
+Here s=jω uses the ``e^{+j\\omega t}`` phasor convention, Ze has units \\[Ω/m\\], Pe has units \\[m/F\\], and Ye has units
 \\[S/m\\]. The shared implementation forms physical matrices before selecting
 entries. Air receivers use the interface voltage; earth receivers use deep-earth
 voltage. These references are fixed by receiving layer, not selectable parameters.
+
+Prescribe Γ \\[1/m\\] through `formula(:unified; options=(Γ=value,))`.
+In the convention ``\\widehat F_- e^{\\Gamma_- x-j\\omega t}``, the same real
+field has positive-time phasor ``\\widehat F_+=\\overline{\\widehat F_-}`` and
+``\\Gamma_+=\\overline{\\Gamma_-}``. Consistent convention conversion also
+conjugates complex material coefficients and impedance/admittance phasors.
+This evaluator uses the supplied Γ verbatim in its positive-time convention;
+it performs no automatic conjugation, sign change or modal iteration. Γ=0
+removes longitudinal dependence, not frequency dependence.
 
 **Reference.** User-supplied manuscript, *Unified circumferentially averaged
 framework for overhead, buried, and mixed conductor systems*. Current closure, reference conventions and the
@@ -122,7 +113,7 @@ function formulation_options(::FormulaMethod{<:Formula{:unified},
         A}) where {
         A <: Tuple{
         Union{Val{:self}, Val{:mutual}}, Union{Val{1}, Val{2}}, Union{Val{1}, Val{2}}}}
-    return FormulationOptions((integration = (method = :quad, options = (;)),))
+    return FormulationOptions((Γ = 0, integration = (method = :quad, options = (;))))
 end
 
 function validate(binding::FormulaMethod{<:Formula{:unified}, typeof(earth_impedance)},

@@ -51,15 +51,15 @@ end
     end
 end
 
-@testitem "Engine / prescribed propagation is a unified formula argument" tags=[:unit] setup=[TestFixtures] begin
+@testitem "Engine / prescribed propagation is a unified formulation option" tags=[:unit] setup=[TestFixtures] begin
     const E = LineCableModels.Engine
     problem = TestFixtures.three_bare_wires_problem(frequencies=[50.0, 500.0])
     @test_throws MethodError LineParametersProblem(problem.system;
         earth_props=problem.earth_props, frequencies=problem.frequencies, Γ=[0im,0im])
     options = (reduce_bundle=false, kron_reduction=false, ideal_transposition=false)
     make(gamma) = Formulation(
-        earth_impedance=formula(:unified; parameters=(Γ=gamma,)),
-        earth_admittance=formula(:unified; parameters=(Γ=gamma,)); options)
+        earth_impedance=formula(:unified; options=(Γ=gamma,)),
+        earth_admittance=formula(:unified; options=(Γ=gamma,)); options)
     implicit = compute(problem, Formulation(;options))
     zero_gamma = compute(problem, make(0.0im))
     @test Z(zero_gamma) == Z(implicit)
@@ -71,16 +71,29 @@ end
     @test_throws DimensionMismatch compute(problem, make([1e-4im]))
     @test_throws ArgumentError make(NaN)
     @test_throws ArgumentError make([0im,complex(Inf)])
+    for invalid in (true, [], (0, 1), "0", [0, NaN])
+        @test_throws ArgumentError make(invalid)
+    end
+    @test_throws ArgumentError Formulation(
+        earth_impedance=formula(:unified; parameters=(Γ=1e-4im,)))
+    method = LineCableModels.FormulaMethod(make(0).methods.earth_impedance,
+        E.EarthImpedance.earth_impedance, Val(:self), Val(1), Val(1))
+    @test formulation_options(method).data.Γ == 0
+    @test formulation_options(method, FormulationOptions(Γ=2e-4im)).data.Γ == 2e-4im
+    @test_throws ArgumentError formulation_options(method, FormulationOptions(Γ=NaN))
+    @test_throws ArgumentError formulation_options(method, FormulationOptions(integration=1))
     using Measurements
-    gamma = measurement(1e-4, 1e-6) * im
-    uncertain = compute(problem, make(gamma))
+    rho = measurement(0.1, 0.001)
+    material_problem = TestFixtures.three_bare_wires_problem(; rho,
+        radius=oftype(rho, 0.0425), frequencies=[50.0, 500.0])
+    uncertain = compute(material_problem, make(1e-4im))
     @test eltype(Z(uncertain)) === Complex{Measurement{Float64}}
     @test any(>(0), uncertainty.(real.(Z(uncertain))))
-    @test E.same_physical_state([gamma], [gamma])
-    @test !E.same_physical_state([gamma], [measurement(1e-4, 1e-6)*im])
+    @test E.same_physical_state([rho], [rho])
+    @test !E.same_physical_state([rho], [measurement(0.1, 0.001)])
     record = LineCableModels.ImportExport.serialize_value(aligned)
     restored = LineCableModels.ImportExport.deserialize_value(record)
-    @test details(restored).data.formulations.methods.earth_impedance.parameters.Γ == fill(1e-4im, 2)
+    @test details(restored).data.formulations.methods.earth_impedance.options.Γ == fill(1e-4im, 2)
     prescribed = [1e-4im, 2e-4im]
     sweep = compute(problem, make(prescribed))
     # Run scalar samples in reverse call order. Prescriptions follow the
@@ -99,6 +112,84 @@ end
         @test eltype(Z(mixed_precision[2])) === Complex{BigFloat}
         @test Z(mixed_precision[2]) == Z(compute(problem, make(big"0.0001"*im)))
     end
+end
+
+@testitem "Engine / completed prescriptions are detached without replacing uncertainty sources" tags=[:unit] setup=[TestFixtures, FormulaContractModels] begin
+    using Measurements
+    E, IE = LineCableModels.Engine, LineCableModels.ImportExport
+    problem = TestFixtures.three_bare_wires_problem(frequencies=[50., 500.])
+    original = [1e-4+2e-4im, 3e-4-1e-4im]
+    supplied = copy(original)
+    selection = formula(:unified; options=(Γ=supplied,))
+    formulation = Formulation(earth_impedance=selection, earth_admittance=selection)
+    first_result = compute(problem, formulation)
+    first_Z, first_Y = copy(Z(first_result)), copy(Y(first_result))
+    record = details(first_result).data.formulations
+    for family in (:earth_impedance, :earth_admittance)
+        @test getproperty(record.methods, family).options.Γ == original
+        @test getproperty(record.requested, family).options.Γ == original
+        @test getproperty(record.methods, family).options.Γ !==
+              getproperty(formulation.methods, family).options.data.Γ
+    end
+    for family in (:earth_impedance, :earth_admittance)
+        getproperty(formulation.methods, family).options.data.Γ[2] = 7e-4im
+    end
+    supplied[2] = 7e-4im
+    second_result = compute(problem, formulation)
+    @test Z(first_result) == first_Z && Y(first_result) == first_Y
+    @test Z(second_result) != first_Z || Y(second_result) != first_Y
+    restored = IE.deserialize_value(IE.serialize_value(first_result))
+    for retained in (first_result, restored), family in (:earth_impedance, :earth_admittance)
+        data = details(retained).data.formulations
+        @test getproperty(data.methods, family).options.Γ == original
+        @test getproperty(data.requested, family).options.Γ == original
+        @test Z(retained) == first_Z && Y(retained) == first_Y
+    end
+    rho = measurement(1.0, 0.01)
+    custom = FormulaContractModels.selection(E.EarthImpedance; layers=2:2, scale=rho)
+    retained = NamedTuple(Formulation(earth_impedance=custom))
+    @test retained.methods.earth_impedance.parameters.scale === rho
+    @test uncertainty(retained.methods.earth_impedance.parameters.scale-rho) == 0
+end
+
+@testitem "Engine / prescribed options govern coupled sharing without entering physical UQ" tags=[:unit] setup=[TestFixtures] begin
+    using Measurements
+    E = LineCableModels.Engine
+    prescribed = [1e-4+2e-4im, 3e-4-1e-4im]
+    problem = TestFixtures.three_bare_wires_problem(frequencies=[50., 500.])
+    select(gamma; controls=(;)) = formula(:unified;
+        options=(Γ=gamma, integration=(method=:quad, options=controls)))
+    form(z, p) = Formulation(earth_impedance=z, earth_admittance=p;
+        options=(reduce_bundle=false, kron_reduction=false, ideal_transposition=false))
+    joined = compute(problem, form(select(prescribed), select(copy(prescribed)));
+        options=(trace=true,))
+    changed = prescribed .* 2
+    separate = compute(problem, form(select(prescribed), select(changed)); options=(trace=true,))
+    other = compute(problem, form(select(changed), select(changed)); options=(trace=true,))
+    @test length(details(separate).data.trace.integrals) ==
+          2length(details(joined).data.trace.integrals)
+    @test Z(separate) == Z(joined)
+    @test Y(separate) == Y(other)
+    controls = compute(problem, form(select(prescribed), select(prescribed; controls=(rtol=1e-9,)));
+        options=(trace=true,))
+    @test length(details(controls).data.trace.integrals) ==
+          2length(details(joined).data.trace.integrals)
+    selected = form(select(prescribed), select(prescribed))
+    space = Gridspace{LineParametersProblem}(
+        rho -> TestFixtures.three_bare_wires_problem(; rho,
+            radius=oftype(rho, 0.0425), frequencies=[50., 500.]),
+        (Grid(0.1, AbsoluteError(0.001)),))
+    sampled = compute(ParametricProblem(space),
+        MonteCarlo(selected; trials=3, seed=314, distribution=:normal,
+            return_samples=true, retain_details=true))
+    @test sampled.trial_counts == [3]
+    @test all(isempty, details(sampled).data.failures)
+    for trial in only(details(sampled).data.trials), family in (:earth_impedance, :earth_admittance)
+        @test getproperty(trial.data.formulations.methods, family).options.Γ == prescribed
+    end
+    linear = compute(ParametricProblem(space), LinearError(selected))
+    @test any(>(0), uncertainty.(real.(Z(first(linear)))))
+    @test selected.methods.earth_impedance.options.data.Γ == prescribed
 end
 
 @testitem "Engine / numerical declarations follow selected types and indexed equations" tags=[:unit] setup=[FormulaContractModels] begin

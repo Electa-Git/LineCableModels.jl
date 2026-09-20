@@ -186,8 +186,8 @@ end
     problems=LineParametersProblem(system, homogeneous(rho = Grid((10.0, 100.0)));
         frequencies = [1.0, 50.0, 1000.0])
     formulations=Formulation(earth_impedance = Grid((
-        formula(:unified; parameters=(Γ=0,)),
-        formula(:unified; parameters=(Γ=1e-4im,)))))
+        formula(:unified; options=(Γ=0,)),
+        formula(:unified; options=(Γ=1e-4im,)))))
     @test counter.calls[] == 0
 
     phase=compute(ParametricProblem(problems), Combinatorial(formulations))

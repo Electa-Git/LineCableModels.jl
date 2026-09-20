@@ -493,18 +493,18 @@ end
     UseEngineSupport, TestFixtures
 ] begin
     base=TestFixtures.line_parameters_problem(frequencies = [50.0, 500.0])
-    selection= formula(:unified; parameters=(Γ=[1e-5im, 2e-5im],))
+    selection= formula(:unified; options=(Γ=[1e-5im, 2e-5im],))
     prescribed=compute(base, Formulation(earth_impedance=selection, earth_admittance=selection))
     @test all(isfinite, prescribed.Z)&&all(isfinite, prescribed.Y)
     @test_throws ArgumentError compute(base, Formulation(earth_impedance = :xue2018))
     ordinary=compute(base)
-    zero_selection=formula(:unified; parameters=(Γ=zeros(ComplexF64, 2),))
+    zero_selection=formula(:unified; options=(Γ=zeros(ComplexF64, 2),))
     zero_result=compute(base, Formulation(earth_impedance=zero_selection, earth_admittance=zero_selection))
     @test Z(zero_result)==Z(ordinary)
     @test Y(zero_result)==Y(ordinary)
     @test !hasproperty(details(ordinary).data.formulations, :modified)
     @test_throws DimensionMismatch compute(base, Formulation(
-        earth_impedance=formula(:unified; parameters=(Γ=[0.0],))))
+        earth_impedance=formula(:unified; options=(Γ=[0.0],))))
     design=TestFixtures.coaxial_design()
     connections(phase)=Dict("core"=>phase, "sheath"=>0)
     mixed=build(LineCableSystem, [design, design], [Pose2(0.0, 1.0), Pose2(1.0, -1.0)];

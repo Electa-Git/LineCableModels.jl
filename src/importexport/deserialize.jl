@@ -562,7 +562,7 @@ end
 
 function _decode_node(::Val{:line_parameters_problem}, value)
     haskey(value, "Gamma") && throw(ArgumentError(
-        "obsolete problem-level Gamma input; prescribe Γ in unified formula parameters"))
+        "obsolete problem-level Gamma input; prescribe Γ in unified formula options"))
     system = _field(value, "system")
     system isa LineCableSystem || throw(ArgumentError(
         "line_parameters_problem system must decode as LineCableSystem"

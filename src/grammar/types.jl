@@ -121,14 +121,14 @@ ComputationDetails(; kwargs...) = ComputationDetails((; kwargs...))
 $(TYPEDEF)
 
 Store one passive formula selection until its owning formulation resolves the
-identifier, model parameters, and formulation-owned numerical controls.
+identifier, model parameters, and formulation-owned physical and numerical options.
 
 $(TYPEDFIELDS)
 """
 struct FormulaDefinition{ID, Order, P <: NamedTuple, O <: FormulationOptions, E}
     "Explicit model parameters without evaluated physical state."
     parameters::P
-    "Explicit numerical controls owned by the selected equation."
+    "Explicit physical choices and numerical controls owned by the selected equation."
     options::O
     "Optional equivalent homogeneous-earth selection."
     equivalent_earth::E

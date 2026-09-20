@@ -1,8 +1,8 @@
 """
-Declare numerical defaults for one complete equation binding.
+Declare formulation-option defaults for one complete equation binding.
 """
 function formulation_options(binding::FormulaMethod)
-    throw(ArgumentError("missing numerical-default declaration for $binding"))
+    throw(ArgumentError("missing formulation-option defaults for $binding"))
 end
 
 function formulation_options(binding::FormulaMethod, supplied::FormulationOptions)
@@ -12,29 +12,29 @@ end
 """
 $(TYPEDSIGNATURES)
 
-Normalize supplied numerical sections against defaults declared by the actual
-selected equation. A family with multiple cases projects supplied sections to
+Normalize supplied formulation options against defaults declared by the actual
+selected equation. A family with multiple cases projects supplied options to
 each consuming binding before calling this constructor. Empty defaults admit
-no numerical options; they do not declare equation availability.
+no options; they do not declare equation availability. Each option's dispatched
+normalizer owns its value type, including scalar physical choices and structured
+numerical controls.
 """
 function formulation_options(binding::FormulaMethod, defaults::FormulationOptions, supplied::FormulationOptions)
     default_data, supplied_data = defaults.data, supplied.data
     unknown = filter(name -> !haskey(default_data, name), keys(supplied_data))
     isempty(unknown) || throw(ArgumentError(
-        "unused numerical sections $(Tuple(unknown)) for $binding"))
+        "unused formulation options $(Tuple(unknown)) for $binding"))
     sections = map(keys(default_data)) do name
         default = getproperty(default_data, name)
-        explicit = get(supplied_data, name, (;))
-        default isa NamedTuple && explicit isa NamedTuple || throw(ArgumentError(
-            "numerical section :$name must be a NamedTuple"))
+        explicit = get(supplied_data, name, default isa NamedTuple ? (;) : default)
         formulation_options(binding, Val(name), default, explicit)
     end
     return FormulationOptions(NamedTuple{keys(default_data)}(sections))
 end
 
-function formulation_options(binding::FormulaMethod, ::Val{Section}, defaults::NamedTuple,
-        supplied::NamedTuple) where {Section}
-    throw(ArgumentError("no numerical constructor for section :$Section of $binding"))
+function formulation_options(binding::FormulaMethod, ::Val{Section}, defaults,
+        supplied) where {Section}
+    throw(ArgumentError("no formulation-option constructor for :$Section of $binding with $(typeof(supplied))"))
 end
 import ..LineCableModels: description, formula_id
 

@@ -26,18 +26,21 @@ struct Region{P, M} <: AbstractCablePart
     end
 end
 
-Base.:(==)(left::Region, right::Region) =
+function Base.:(==)(left::Region, right::Region)
     left.tag == right.tag &&
-    left.primitive == right.primitive &&
-    left.material == right.material
+        left.primitive == right.primitive &&
+        left.material == right.material
+end
 
-Base.isequal(left::Region, right::Region) =
+function Base.isequal(left::Region, right::Region)
     isequal(left.tag, right.tag) &&
-    isequal(left.primitive, right.primitive) &&
-    isequal(left.material, right.material)
+        isequal(left.primitive, right.primitive) &&
+        isequal(left.material, right.material)
+end
 
-Base.hash(region::Region, h::UInt) =
+function Base.hash(region::Region, h::UInt)
     hash((:Region, region.tag, region.primitive, region.material), h)
+end
 
 """
 $(TYPEDEF)
@@ -53,10 +56,10 @@ Member indices, placement poses and longitudinal paths remain unchanged.
 $(TYPEDFIELDS)
 """
 struct PlacedRegion{
-        R <: Region,
-        S <: AbstractShape,
-        P <: NamedTuple,
-        H <: Tuple
+    R <: Region,
+    S <: AbstractShape,
+    P <: NamedTuple,
+    H <: Tuple
 }
     "Authoritative homogeneous physical region."
     source::R
@@ -81,9 +84,10 @@ struct PlacedRegion{
             P <: NamedTuple,
             H <: Tuple
     }
-        terminal === nothing || !isempty(String(terminal)) || throw(
-            ArgumentError("placed-region terminal cannot be empty")
-        )
+        terminal === nothing || !isempty(String(terminal)) ||
+            throw(
+                ArgumentError("placed-region terminal cannot be empty")
+            )
         keys(placement) == (:patterns,) || throw(ArgumentError(
             "placed-region placement must contain patterns"
         ))
@@ -108,10 +112,11 @@ struct PlacedRegion{
     end
 end
 
-Base.:(==)(left::PlacedRegion, right::PlacedRegion) =
+function Base.:(==)(left::PlacedRegion, right::PlacedRegion)
     left.source == right.source && left.primitive == right.primitive &&
-    left.terminal == right.terminal && left.placement == right.placement &&
-    left.paths == right.paths
+        left.terminal == right.terminal && left.placement == right.placement &&
+        left.paths == right.paths
+end
 
 function PlacedRegion(source::Region, primitive::AbstractShape)
     return PlacedRegion(

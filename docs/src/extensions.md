@@ -58,7 +58,8 @@ explicit implementation before physical validation or computation.
 | Local shunt geometry | `Engine.ShuntModelFormulation`; `Engine.internal_shunt_response(selected, design, geometry, T, material_selections, solutions, design_index)` during blueprint construction |
 | Pipe applicability | `Engine.PipeImpedanceFormulation`; `Formulation(backend, selected, Val(topology))`. No analytical pipe equation is supplied. |
 
-`parameters` are model data and `options` are numerical controls, never callable
+`parameters` are model data and `options` are formulation-owned physical choices
+and numerical controls, never callable
 implementations. Custom constructors validate and normalize their own `FormulationOptions`.
 Execution controls use `ComputationOptions`; completed supplemental output uses
 `ComputationDetails`. Read their payloads explicitly through `.data`.
@@ -69,9 +70,12 @@ evaluated material properties. Their wave numbers and field approximations are
 local to the equation, not material constitutive laws. `constitutive` requires a
 valid material argument and is implemented by material-law families, not earth
 impedance or potential-coefficient formulas.
-An explicit Γ belongs to Unified's formula parameters, not the problem or shared
+An explicit Γ belongs to Unified's formulation options, not the problem or shared
 earth functor. It may be a scalar or a frequency-aligned vector; its precision
-and uncertainty participate in allocation of the calculation's numerical storage.
+participates in allocation of the calculation's numerical storage. It prescribes
+longitudinal dependence; it is not an independent UQ sampling input. The existing
+positive-time convention and any explicit convention conversion are documented
+with the Unified equations.
 
 Coaxial equations and material laws receive the owning computation workspace,
 or `nothing` for a standalone evaluation that does not require it. Numerical arrays are in

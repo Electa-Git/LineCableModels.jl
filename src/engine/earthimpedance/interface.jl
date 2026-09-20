@@ -4,7 +4,7 @@ $(TYPEDEF)
 Own one earth impedance formulation, its indexed equation declarations and explicit
 controls. `assumptions` contains scientific restrictions; each interaction
 is selected by its explicit kind/source-layer/target-layer equation signature.
-`parameters` stores model controls; `options` stores numerical controls.
+`parameters` stores model data; `options` stores formulation choices and numerical controls.
 
 $(TYPEDFIELDS)
 """
@@ -14,7 +14,7 @@ struct Formula{ID, A <: NamedTuple, P <: NamedTuple, O <: FormulationOptions, E}
     assumptions::A
     "Explicit physical/model parameters."
     parameters::P
-    "Explicit numerical sections; projected onto required indexed equations during initialization."
+    "Formulation options; projected onto required indexed equations during initialization."
     options::O
     "Independent equivalent homogeneous-earth reduction, or nothing."
     equivalent_earth::E
@@ -23,8 +23,8 @@ end
 """
 $(TYPEDEF)
 
-Bind one indexed interaction to evaluated physical state. Numerical options and
-physical quantities remain distinct. The main computation workspace is passed
+Bind one indexed interaction to evaluated physical state. Formulation options and
+evaluated material quantities remain distinct. The main computation workspace is passed
 when evaluating an equation that needs reusable numerical buffers.
 
 $(TYPEDFIELDS)
@@ -34,7 +34,7 @@ struct Functor{B, S, O <: FormulationOptions}
     binding::B
     "Evaluated material quantities and angular frequency."
     state::S
-    "Normalized numerical controls of the selected equation."
+    "Normalized formulation options of the selected equation."
     options::O
 end
 
@@ -63,12 +63,13 @@ $(TYPEDSIGNATURES)
 Resolve a formulation's model parameters and numerical controls. Its concrete
 selection type owns the indexed equation; material properties are evaluated
 before equation execution.
-Formula-specific arguments belong to the selected formula's parameters.
+Formula-specific arguments are normalized by their selected owner.
 A missing physical case is unsupported.
 """
 function Formula(::Val{ID}; parameters::NamedTuple = (;),
         options::Union{NamedTuple, FormulationOptions} = FormulationOptions(), equivalent_earth = nothing) where {ID}
     options = options isa NamedTuple ? FormulationOptions(options) : options
+    options = formulation_options(Formula{ID}, options)
     parameters = earth_parameters(Val(ID), parameters)
     declared_constraints = assumptions(Val(ID))
     constraints = merge(declared_constraints, (media = Val(declared_constraints.media),))
@@ -190,3 +191,6 @@ function Base.pairs(::Type{<:Formula}; quantity = nothing)
 end
 formula_id(::Type{<:Formula{ID}}) where {ID} = ID
 formulation_options(value::Formula) = value.options
+
+# Indexed numerical controls remain deferred to their consuming equations.
+formulation_options(::Type{<:Formula}, options::FormulationOptions) = options

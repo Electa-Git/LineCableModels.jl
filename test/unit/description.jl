@@ -1,3 +1,32 @@
+@testitem "Descriptions / partial recipes retain only declared ordered children" tags=[:unit] begin
+    E = LineCableModels.Engine
+    IE = LineCableModels.ImportExport
+    for selected in (
+            Formulation(earth_impedance=(earth=:unified,)),
+            Formulation(earth_admittance=(mixed=:unified, air=:unified)),
+            Formulation(internal_impedance=(outer=:default,)),
+            Formulation(earth_impedance=(;), internal_impedance=(outer=nothing,)))
+        record = NamedTuple(selected)
+        saved = IE.deserialize_value(Val(:formulation), record)
+        for quantity in (nothing, Z, Y)
+            @test formula_id(selected, quantity) == formula_id(saved, quantity)
+            @test description(selected, quantity) == description(saved, quantity)
+        end
+        for slot in (:earth_impedance, :earth_admittance, :internal_impedance)
+            children = getproperty(selected.methods, slot)
+            children isa NamedTuple || continue
+            routes = [last(scope)[2] for (scope, _) in pairs(selected)
+                if length(last(scope)) == 2 && first(last(scope)) == slot]
+            @test Tuple(routes) == keys(children)
+            @test keys(getproperty(record.methods, slot)) == keys(children)
+        end
+    end
+    record = NamedTuple(Formulation(earth_impedance=(earth=:unified,)))
+    malformed = merge(record, (methods=merge(record.methods,
+        (earth_impedance=(ocean=record.methods.earth_impedance.earth,),)),))
+    @test_throws ArgumentError pairs(LineParametersFormulation, malformed)
+end
+
 @testitem "Descriptions / owner dispatch survives composed reports and saved declarations" tags=[:unit] setup=[FormulaContractModels] begin
     using DataFrames, Statistics
     using LineCableModels.ReportBuilder: BenchmarkTableDefinition
