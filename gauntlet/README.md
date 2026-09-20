@@ -91,7 +91,7 @@ Mean and standard-deviation comparisons use the same physical cutoffs, bands and
 normalizations as deterministic quantities. Retained MC percentiles remain available
 without inventing a LEP output distribution.
 
-`artifact.table.features` contains numeric formula-by-band absolute and relative
+`artifact.tables.features` contains numeric formula-by-band absolute and relative
 DataFrames. `statistics` and `sampling` expose retained UQ summaries and sampling
 precision. `execution`, `source_timings`, `performance`, `performance_samples`,
 `performance_environment` and `performance_policy` describe recorded measurements;
@@ -197,9 +197,9 @@ reference = compute(problem, Formulation())
 candidates = compute(problem, selected)
 artifact = report(BenchmarkTableDefinition(), (; reference, candidate=candidates))
 display(artifact)
-artifact.table.formulations
-artifact.table.maxima
-artifact.table.terms
+artifact.tables.formulations
+artifact.tables.maxima
+artifact.tables.terms
 
 using GLMakie
 plots = LineCableModels.plot(artifact; ydata=(Z, Y))
@@ -234,7 +234,7 @@ benchmark = read_benchmark("/path/to/staging/benchmark_id")
 # One particular analysis:
 # benchmark = read_benchmark("/path/to/snapshot.jld2"; load_results=true)
 artifact = report(BenchmarkTableDefinition(), benchmark)
-tables = artifact.table
+tables = artifact.tables
 
 tables.features     # Per-quantity/statistic DataFrames: unique formulas × bands
 tables.overview     # Compact coverage, timing and MC sampling tables
@@ -307,11 +307,10 @@ ReportBuilder owns the default order: entire range, near DC (0.1–100 Hz), harm
 range (50–2500 Hz by default), narrowband (1 kHz–1 MHz), wideband (>1 MHz). Groups
 overlap. Ordinary endpoints use the engine's existing nearest-sample selection.
 Tables retain requested/actual bounds and sample indices; no interpolation occurs.
-`clip=false` is the default. Numerical-zero G retains absolute RMS and unavailable
-relative RMS with its reason. UQ statistics use the same selectable bands and
+`clip=false` is the default. An ineligible G operand makes both RMS metrics missing with its reason. UQ statistics use the same selectable bands and
 two-sided relative eligibility, without pooling populations or matrix terms.
 
-`artifact.published` holds the unformatted scientific products. Ordinary display
+`artifact.observed` holds the unformatted scientific products. Ordinary display
 shows the compact summary. No figure is constructed unless requested by `plot`
 or `BenchmarkTableDefinition(illustration=true, plot_options=(...))`.
 
@@ -325,7 +324,7 @@ deviation have separate tables. Cells show maximum eligible per-term relative RM
 absolute errors, winning pairs and unavailable-term counts remain in detailed
 `features`, `maxima` and `terms` tables. References are comparison methods, not truth.
 
-`artifact.table.overview` owns compact frequency coverage, recorded whole-workload
+`artifact.tables.overview` owns compact frequency coverage, recorded whole-workload
 timings, controlled median seconds, timed-call counts, cumulative Julia allocations
 in MiB, and the recorded reference/candidate time ratio with its comparability flag.
 MC trial counts, input distribution and CDF precision are separate tables: the CDF

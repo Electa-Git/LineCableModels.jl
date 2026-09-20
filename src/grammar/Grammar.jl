@@ -27,7 +27,8 @@ export nominal, uncertainty
 
 using DocStringExtensions: SIGNATURES, TYPEDSIGNATURES, TYPEDEF, TYPEDFIELDS
 import ..LineCableModels: basis
-import Tables
+import UUIDs
+import Random
 import ..Units
 using ..Units: UnitExpr, quantity, native_unit, display_unit, scale_factor
 
@@ -38,12 +39,16 @@ include("interfaces.jl")
 include("formulas.jl")
 include("observables.jl")
 include("uncertainty.jl")
+include("gridpoint.jl")
+include("observedresult.jl")
 
 public check_core_result
 public FormulaDefinition, FormulaMethod
 public validate_observables, unit_targets, detach
 public observation_request, observation_indices, materialize_observation
 public observation_resolution
+public observation_gridpoint, observation_requests, observation_quantity
+export ObservedResult
+public observation_groups, observation_labels, observation_product, gridpoint_id
 public request_identity, request_quantity, request_indices
-public ObservationPublication, publication_table
 end # module Grammar

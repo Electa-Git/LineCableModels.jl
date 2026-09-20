@@ -1,6 +1,6 @@
 @testitem "Gauntlet / product and zip result spaces preserve every matrix and axis" tags=[:gauntlet_toolkit] setup=[GauntletSupport] begin
     using .GauntletSupport.Gauntlet
-    using LineCableModels
+    using LineCableModels, DataFrames
     using LineCableModels.ReportBuilder: BenchmarkTableDefinition
     model=load_case(:two_insulated_wires; variation = ExactOverrides(frequencies = [
         1.0, 37.0]))
@@ -30,22 +30,21 @@
             end
             saved=read_calculation(joinpath(directory, "candidate", "calculation.jld2"))
             @test length(saved.result)==expected
-            @test saved.result.axes.problems[1].terminal_order==model.problem.system.terminal_order
+            @test saved.result.axes.problems[1].system.terminal_order==model.problem.system.terminal_order
             for index in 1:expected, quantity in (Z,Y)
                 @test quantity(saved.result[index]) == quantity(value.candidate_result[index])
             end
             @test length(only(read_benchmark(directory).analyses)["reference_comparison"])==15expected
             retained=read_benchmark(directory)
             artifact=report(BenchmarkTableDefinition(false),retained)
-            tables=artifact.table
+            tables=artifact.tables
             @test length(tables.comparisons.quantity)==15expected
             @test Set(tables.comparisons.candidate_point)==Set(1:expected)
-            # Published operands retain full axes; the summary exposes scalar
-            # counts and comparison rows retain each candidate point's identity.
-            @test artifact.published.candidate.result.axes==saved.result.axes
-            candidate_summary=only(eachrow(filter(row->row.role===:candidate,tables.calculations)))
-            @test candidate_summary.points==candidate_summary.formulations==expected
-            @test candidate_summary.terminals==length(model.port_order)
+            @test artifact.observed isa Vector{ObservedResult}
+            @test length(artifact.observed)==expected
+            @test getproperty.(getproperty.(artifact.observed,:gridpoint),:id) ==
+                [observation.id for observation in LineCableModels.Grammar.observation_gridpoint.(saved.result)]
+            @test nrow(filter(row->row.role===:candidate,tables.calculations))==expected
             @test report(BenchmarkTableDefinition(),retained).illustration === nothing
             @test_throws r"Plotting is optional" LineCableModels.plot(retained, (R,))
             previous=length(observed)

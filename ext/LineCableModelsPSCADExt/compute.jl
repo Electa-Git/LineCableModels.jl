@@ -322,6 +322,8 @@ end
 
 function _compute_pscad(problem::LineParametersProblem,
         formulations::AbstractVector{<:PSCADFormulation}, execution::ComputationOptions, settings)
+    physical_inputs=Engine.completed_inputs(problem)
+    source_id=LineCableModels.Grammar.gridpoint_id().source_id
     observed = identify(execution.data.remote)
     execution.data.solver_identity === nothing || execution.data.solver_identity == observed ||
         throw(ArgumentError("PSCAD solver installation changed during the campaign; start a new campaign"))
@@ -333,16 +335,17 @@ function _compute_pscad(problem::LineParametersProblem,
     keys = [(project = read(project.staged, String),
                 setting = setting[(:ground, :frequency)])
             for (project, setting) in zip(projects, settings)]
-    first_result = _compute_pscad(
-        problem, first(formulations), execution, first(projects), first(settings))
+    first_result = Engine.retain_gridpoint(_compute_pscad(
+        problem, first(formulations), execution, first(projects), first(settings)),
+        LineCableModels.Grammar.gridpoint_id(;source_id);fields=merge(Engine.completed_formulation(first(formulations)),(inputs=physical_inputs,)))
     values = Vector{typeof(first_result)}(undef, length(formulations))
     values[1] = first_result
     execution.data.on_result === nothing || execution.data.on_result(problem, 1, first_result)
     completed = Dict(first(keys)=>1)
     for index in 2:length(formulations)
         previous = get(completed, keys[index], nothing)
-        if previous === nothing
-            values[index] = _compute_pscad(
+        value = if previous === nothing
+            _compute_pscad(
                 problem, formulations[index], execution, projects[index], settings[index])
         else
             source = values[previous]
@@ -353,10 +356,13 @@ function _compute_pscad(problem::LineParametersProblem,
                     execution = merge(source.details.data.execution,
                         (reused = true, elapsed_seconds = 0.0,
                             elapsed_scope = "identical-input reuse; no solver execution", wall_seconds = 0.0))))
-            values[index] = LineParameters(source.domain,
+            LineParameters(source.domain,
                 SeriesImpedance(copy(source.Z.values); basis = basis(source)),
                 ShuntAdmittance(copy(source.Y.values); basis = basis(source)), copy(source.f), ComputationDetails(retained))
         end
+        values[index]=Engine.retain_gridpoint(value,
+            LineCableModels.Grammar.gridpoint_id(;source_id,formulation_index=index);
+            fields=merge(Engine.completed_formulation(formulations[index]),(inputs=physical_inputs,)))
         completed[keys[index]] = index
         execution.data.on_result === nothing ||
             execution.data.on_result(problem, index, values[index])

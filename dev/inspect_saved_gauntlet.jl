@@ -16,11 +16,11 @@ benchmark_id = :benchmark_220kv_milliken_1x2500_252_trefoil_pscad
 analysis_snapshot = nothing       # Optional explicit snapshot.jld2 path.
 ydata = (R, X, G, B)
 
-bands = (:all, :dc, :harmonic, :narrow, :wide)
+bands = (:all,)
 detail_bands = ()                  # Optional worst-pair detail, e.g. (:all,); all bands remain in the IDE.
 show_native_timings = false
 blocks = nothing
-problem_index = nothing          # Required when the result has several outer points.
+problem_index = nothing          # Optional original physical-point index.
 plot_band = nothing
 rms_metric = :relative            # Or :absolute.
 make_plots = true
@@ -36,14 +36,9 @@ path = analysis_snapshot === nothing ? joinpath(campaign_directory, string(bench
 benchmark = Gauntlet.read_benchmark(path; load_results = true, evidence = :numerical)
 println("Building tables from retained results...")
 requests = ydata
-definition = BenchmarkTableDefinition(requests; bands)
-benchmark_report = report(definition,
-    (reference = benchmark.reference, candidate = benchmark.candidate,
-        context = (
-            id = benchmark.id, case_id = Symbol(first(benchmark.analyses)["case_id"]),
-            collection = :manual),
-        measurements = benchmark.measurements))
-inspection_tables = benchmark_report.table
+definition = BenchmarkTableDefinition(; bands)
+benchmark_report = report(definition, benchmark)
+inspection_tables = benchmark_report.tables
 
 # These variables are ordinary DataFrames/collections available in the REPL and IDE.
 feature_tables = filter(

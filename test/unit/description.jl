@@ -67,21 +67,29 @@ end
     y=reshape(complex.(collect(201.:224.),collect(301.:324.)),2,2,6)*1e-6
     ports=["a","b"]
     ref=LineParameters(z,y,f;details=ComputationDetails(;coordinates=ports,formulations=NamedTuple(LineCableModelsFEM()),))
-    points=[LineParameters(scale*z,y,f;details=ComputationDetails(;coordinates=ports,)) for scale in (1.1,1.2,1.3)]
+    source_id=LineCableModels.Grammar.gridpoint_id().source_id
+    completed(value,selection,index)=E.retain_gridpoint(value,
+        LineCableModels.Grammar.gridpoint_id(;source_id,formulation_index=index);
+        fields=E.completed_formulation(selection))
+    points=[completed(LineParameters(scale*z,y,f;details=ComputationDetails(;coordinates=ports,)),choices[index],index)
+        for (index,scale) in enumerate((1.1,1.2,1.3))]
     candidates=ParametricResult(nothing,points,(problems=[:one],formulations=choices), ComputationDetails((;)))
     source=(reference=ref,candidate=candidates)
     result=report(BenchmarkTableDefinition((R,X,G,B);bands=(:all,:dc,:harmonic,:narrow,:wide)),source)
-    @test result.table.formulations.label[1]=="Reference · FEM"
-    @test any(contains("TestAlpha"),result.table.formulations.label)
-    @test any(contains("TestBeta"),result.table.formulations.label)
-    @test count(contains("Test-owned explanation"),result.table.formula_details.selection)==2
-    @test length(result.published.candidate.metadata.formulation_sources)==3
-    @test result.published.candidate.metadata.formulation_sources[1]===choices[1]
+    @test any(contains("TestAlpha"),result.tables.formulations.label)
+    @test any(contains("TestBeta"),result.tables.formulations.label)
+    observed_labels=LineCableModels.Grammar.observation_labels(result.observed;request=R)
+    @test occursin("earth Z=Display-TestAlpha",observed_labels[1])
+    @test all(label -> !occursin("internal Z",label),observed_labels)
+    @test length(observed_labels)==length(result.observed)
+    @test length(result.observed)==3
+    @test result.observed[1].gridpoint.formulations==NamedTuple(choices[1])
+    @test all(leaf -> occursin("Test-owned explanation",description(leaf;compact=false)),leaves)
     labels=description(choices[[3,1]];quantity=R)
     @test occursin("earth Z=Unified",labels[1]) && occursin("earth Z=Display-TestAlpha",labels[2])
     @test all(label->!occursin("internal Z",label),labels)
     @test all(feature -> !occursin("earth Y",join(feature.relative.formula)),
-        filter(feature -> feature.quantity in (:R,:X),result.table.features))
+        filter(feature -> feature.quantity in (:R,:X),result.tables.features))
 
     for native in (normal,Formulation(earth_impedance=:saad1996),LineCableModelsFEM(),
             Formulation(:pscad),MonteCarlo(normal),LinearError(normal))
@@ -133,21 +141,21 @@ end
         @test [description(scope,value;compact=false) for (scope,value) in pairs(native)]==
             [description(scope,value;compact=false) for (scope,value) in pairs(saved...)]
     end
-    routed_result=ParametricResult(nothing,points[1:2],
+    routed_result=ParametricResult(nothing,[completed(points[1],routed,1),completed(points[2],normal,2)],
         (problems=[:one],formulations=[routed,normal]), ComputationDetails((;)))
     routed_report=report(BenchmarkTableDefinition((R,B);bands=(:all,)),
         (reference=ref,candidate=routed_result))
-    @test any(contains("earth Z(air)=Carson"),first(routed_report.table.features).relative.formula)
-    @test any(contains("inner"),routed_report.table.formula_details.selection)
+    @test any(contains("earth Z(air)=Carson"),first(routed_report.tables.features).relative.formula)
+    @test haskey(first(routed_report.observed).gridpoint.formulations.methods.internal_impedance,:inner)
     @test isempty(selected_inner.evaluations) && isempty(selected_inner.preparations)
     single=Formulation(insulation_admittance=FormulaContractModels.InsulationLaw())
-    single_data=ParametricResult(nothing,points[1:1],
+    single_data=ParametricResult(nothing,[completed(points[1],single,1)],
         (problems=[:one],formulations=[single]), ComputationDetails((;)))
     single_report=report(BenchmarkTableDefinition((R,B);bands=(:all,)),
         (reference=ref,candidate=single_data))
-    single_label=only(last(single_report.table.features).relative.formula)
+    single_label=only(last(single_report.tables.features).relative.formula)
     @test occursin("insulation Y=InsulationLaw",single_label) && occursin("scale",single_label)
-    @test !occursin("insulation Y",only(first(single_report.table.features).relative.formula))
+    @test !occursin("insulation Y",only(first(single_report.tables.features).relative.formula))
     @test description([single];quantity=B)==description([
         IO.deserialize_value(Val(:formulation),NamedTuple(single))];quantity=B)
     @test isempty(selected_inner.evaluations) && isempty(selected_inner.preparations)
@@ -181,25 +189,22 @@ end
     broken=E.LineParametersFormulation(merge(normal.methods,(earth_impedance=BrokenEarthLeaf(),)),
         normal.options,merge(normal.definitions,(earth_impedance=BrokenEarthLeaf(),)))
     bad=ParametricResult(nothing,[points[1]],(problems=[:one],formulations=[broken]), ComputationDetails((;)))
-    @test_throws r"test-owned description failed" report(BenchmarkTableDefinition(),(reference=ref,candidate=bad))
+    @test_throws r"test-owned description failed" E.completed_formulation(broken)
+    @test only(report(BenchmarkTableDefinition(),(reference=ref,candidate=bad)).observed).gridpoint.formulations==NamedTuple(choices[1])
 
     # Compare retained values and coordinates, not merely dimensions or file bytes.
-    for row in result.published.comparisons
-        selected=filter(term -> term.analysis==findfirst(==(row),result.published.comparisons),eachrow(result.table.terms))
-        absolute=observe(row.error,E.absolute_error)
-        relative=observe(row.error,E.relative_error)
+    for point in result.observed,row in point.errors
+        selected=filter(term -> term.candidate_id==row.candidate_id && term.request==row.request &&
+            term.band==row.band && term.normalization==row.normalization,eachrow(result.tables.terms))
         for term in selected
             @test term.response==ports[term.row] && term.excitation==ports[term.column]
-            @test isequal(term.absolute_rms,absolute[term.row,term.column])
-            @test isequal(term.relative_rms_percent,100relative[term.row,term.column])
+            @test isequal(term.absolute_rms,row.absolute[term.row,term.column])
+            @test isequal(term.relative_rms_percent,100row.relative[term.row,term.column])
         end
     end
     @test Z(ref)==z && Y(ref)==y && frequencies(ref)==f
-    for frame in (result.table.terms,result.table.maxima,result.table.summary),column in eachcol(frame),value in column
-        @test value isa Union{Number,Symbol,AbstractString,Missing}
-    end
-    for row in eachrow(result.table.maxima)
-        evidence=filter(term -> term.analysis==row.analysis,eachrow(result.table.terms))
+    for row in eachrow(result.tables.maxima)
+        evidence=filter(term -> term.candidate_id==row.candidate_id && term.request==row.request && term.band==row.band && term.normalization==row.normalization,eachrow(result.tables.terms))
         largest=only(filter(term -> term.response==row.absolute_term_response &&
             term.excitation==row.absolute_term_excitation,evidence))
         @test row.maximum_absolute_rms==largest.absolute_rms

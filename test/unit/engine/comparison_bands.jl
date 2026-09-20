@@ -63,21 +63,21 @@
     quiet = LineParameters(PhaseDomain, tiny, tiny, f)
     noisy = LineParameters(PhaseDomain, signal, signal, f)
     @test ismissing(only(compare(quiet, noisy; band = :dc).Y.relative))
-    @test only(compare(quiet, noisy; band = :dc).Y.details.data.status) === :reference_below_tolerance
+    @test only(compare(quiet, noisy; band = :dc).Y.details.data.status) === :reference_sample_below_tolerance
     @test ismissing(only(compare(quiet, noisy).Y.relative))
-    @test only(compare(quiet, noisy).Y.absolute) > 0.1
-    @test only(compare(quiet, noisy; band = :dc, atol = 0.0).Y.details.data.status) === :compared
+    @test ismissing(only(compare(quiet, noisy).Y.absolute))
+    @test only(compare(quiet, noisy; band = :dc, atol = (R=0,X=0,G=0,B=0)).Y.details.data.status) === :compared
     zero = LineParameters(
         PhaseDomain, zeros(ComplexF64, 1, 1, length(f)), zeros(ComplexF64, 1, 1, length(f)), f)
     @test ismissing(only(compare(zero, noisy).Y.relative))
     tiny_capacitance = reshape(complex.(zeros(length(f)), 2π .* f .* 1e-17), 1, 1, :)
     negligible = LineParameters(PhaseDomain, z, tiny_capacitance, f)
     @test ismissing(only(compare(zero, negligible).Y.relative))
-    @test only(compare(zero, negligible).Y.absolute) > 0
+    @test ismissing(only(compare(zero, negligible).Y.absolute))
     @test ismissing(only(compare(zero, negligible, C).relative))
     @test only(compare(zero, negligible; atol = (C = 1e-18, G = 0.0)).Y.details.data.status) ===
           :reference_below_tolerance
-    @test only(compare(quiet, noisy; band = :dc, atol = (Y = 1e-16,)).Y.details.data.status) ===
+    @test only(compare(quiet, noisy; band = :dc, atol = (G = 1e-16, B = 1e-16,)).Y.details.data.status) ===
           :compared
     for quantity in (R, L, C, G)
         result = compare(a, b, quantity; band = :harmonic)
@@ -105,7 +105,7 @@ end
     for normalization in (:reference_rms, :pointwise)
         @test only(compare(parameters([im, 2im]), parameters([-im, -2im]); normalization).Y.relative) ≈
               2
-        @test ismissing(only(compare(parameters([0, 0]), parameters([0, 0]); normalization, atol = 0).Y.relative))
+        @test ismissing(only(compare(parameters([0, 0]), parameters([0, 0]); normalization, atol = (R=0,X=0,G=0,B=0)).Y.relative))
         @test ismissing(only(compare(parameters([0, 0]), parameters([0, 1]); normalization).Y.relative))
         @test ismissing(only(compare(a, b; normalization, band = :wide).Y.relative))
         @test ismissing(only(compare(a, b; normalization, unsupported = (Y = "unavailable",)).Y.relative))
@@ -117,7 +117,7 @@ end
     @test_throws ArgumentError compare(a, b; normalization = :unknown)
 end
 
-@testitem "Engine / relative RMS requires two significant operands at every selected sample" tags=[:unit] begin
+@testitem "Engine / both RMS metrics require two significant operands at every selected sample" tags=[:unit] begin
     using LineCableModels.Engine: compare
     tensor(values) = reshape(ComplexF64.(values), 1, 1, :)
     signal = tensor([2.0, -3.0, 4im])
@@ -132,7 +132,7 @@ end
         for (reference, candidate, role) in ((signal, quiet, :candidate), (quiet, signal, :reference))
             error = compare(reference, candidate; normalization, atol=tolerance)
             @test ismissing(only(error.relative))
-            @test only(error.absolute) ≈ sqrt(sum(abs2, signal .- quiet)/3)
+            @test ismissing(only(error.absolute))
             @test only(error.details.data.status) === Symbol(role, :_, suffix)
             @test occursin("no samples were omitted", only(error.details.data.normalization_reason))
             @test error.details.data.sample_count == 3
@@ -166,7 +166,7 @@ end
             error = compare(reference, mixed, Y; band, normalization)
             @test ismissing(only(error.relative))
             @test only(error.details.data.status) === :candidate_sample_below_tolerance
-            @test only(error.absolute) > 0
+            @test ismissing(only(error.absolute))
         end
         for band in (:harmonic, :narrow, :wide)
             error = compare(reference, mixed, Y; band, normalization)
@@ -188,10 +188,11 @@ end
     candidate = LineParameters(PhaseDomain, z, y .+ 1e-14, frequencies)
     conductance = compare(reference, candidate, G)
     @test ismissing(conductance.relative[1, 1])
-    @test conductance.absolute[1, 1] ≈ 1e-14
+    @test ismissing(conductance.absolute[1, 1])
     @test conductance.details.data.status[1, 1] === :reference_below_tolerance
     @test conductance.details.data.normalization_reason[1, 1] isa String
     @test conductance.relative[2, 2] ≈ 1e-8
+    @test conductance.absolute[2, 2] ≈ 1e-14
     @test conductance.details.data.normalization_reason[2, 2] === nothing
     @test all(!ismissing, compare(reference, candidate).Y.relative)
     @test reference.Y.values == y

@@ -166,7 +166,9 @@ function _finish(
         workspace::LineParametersWorkspace,
         problem::LineParametersProblem,
         formulation::LineParametersFormulation,
-        ::Val{Basis}
+        ::Val{Basis};
+        physical_inputs=completed_inputs(problem),
+        gridpoint=Grammar.gridpoint_id()
 ) where {Basis}
     impedance = copy(workspace.buffers.Zout)
     admittance = copy(workspace.buffers.Yout)
@@ -194,9 +196,10 @@ function _finish(
         SeriesImpedance{eltype(impedance), Basis}(impedance),
         ShuntAdmittance{eltype(admittance), Basis}(admittance),
         workspace.input.freq,
-        ComputationDetails(merge(retained.data,
-            (; formulations = NamedTuple(formulation),
-                coordinates))))
+        completion_details(merge(retained.data,
+            completed_formulation(formulation),
+            NamedTuple{(:inputs,:gridpoint,:coordinates),Tuple{NamedTuple,NamedTuple,Vector{String}}}(
+                (physical_inputs,gridpoint,coordinates)))))
     return result
 end
 
@@ -205,11 +208,14 @@ function _compute(
         problem::LineParametersProblem,
         formulation::LineParametersFormulation,
         execution::ComputationOptions,
-        input::NamedTuple
+        input::NamedTuple,
+        physical_inputs::NamedTuple,
+        gridpoint::NamedTuple
 )
     workspace = LineParametersWorkspace(problem, formulation, execution, input)
     _solve!(workspace, formulation)
-    return _finish(workspace, problem, formulation, execution.data.output_basis)
+    return _finish(workspace, problem, formulation, execution.data.output_basis;
+        physical_inputs, gridpoint)
 end
 
 function _compute(
@@ -244,6 +250,8 @@ function _compute(
     maximum(problem.frequencies) > oftype(first(problem.frequencies), 1e8) &&
         @warn("Frequencies above 100 MHz exceed the quasi-TEM validity range.",
             max_frequency=maximum(problem.frequencies),)
+    physical_inputs = completed_inputs(problem)
+    source_id = Grammar.gridpoint_id().source_id
     T = eltype(problem)
     blueprints = flatten(engine, problem.system.designs, T, formulations)
     inputs = [lineinput(problem, first(blueprints))]
@@ -258,7 +266,9 @@ function _compute(
             problem,
             formulation,
             execution,
-            input
+            input,
+            physical_inputs,
+            Grammar.gridpoint_id(; source_id, formulation_index=index)
         )
         execution.data.on_result === nothing ||
             execution.data.on_result(problem, index, value)

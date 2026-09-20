@@ -6,9 +6,9 @@ formulation axes. The returned ParametricResult contains per-term RMSError
 values in the same order as the candidate results. No formulation is evaluated.
 """
 function compare(reference::Grammar.AbstractCoreResult, candidate::ParametricResult,
-        quantity; kwargs...)
+        quantity::Union{Function,Tuple}; kwargs...)
     isempty(candidate.axes) && throw(ArgumentError("comparison requires retained problem/formulation axes"))
-    errors=[compare(reference, value, quantity; kwargs...) for value in candidate]
+    errors=[compare(reference, value, quantity::Union{Function,Tuple}; kwargs...) for value in candidate]
     return ParametricResult(candidate.formulation, errors, candidate.axes, ComputationDetails())
 end
 
@@ -20,7 +20,7 @@ candidate point. `pairing` is a vector of `(reference_index, candidate_index)`
 pairs; each candidate must occur exactly once. Equal lengths do not imply pairing.
 """
 function compare(reference::ParametricResult, candidate::ParametricResult,
-        quantity; pairing=nothing, kwargs...)
+        quantity::Union{Function,Tuple}; pairing=nothing, kwargs...)
     pairing === nothing && throw(ArgumentError("two result spaces require explicit pairing"))
     length(pairing) == length(candidate) &&
         sort(last.(pairing)) == collect(eachindex(candidate.values)) ||
@@ -30,6 +30,6 @@ function compare(reference::ParametricResult, candidate::ParametricResult,
         1 <= first(pair) <= length(reference), pairing) ||
         throw(ArgumentError("pairing contains an invalid reference/candidate index"))
     ordered=sort(collect(pairing); by=last)
-    errors=[compare(reference[i], candidate[j], quantity; kwargs...) for (i,j) in ordered]
+    errors=[compare(reference[i], candidate[j], quantity::Union{Function,Tuple}; kwargs...) for (i,j) in ordered]
     return ParametricResult(candidate.formulation, errors, candidate.axes, ComputationDetails())
 end

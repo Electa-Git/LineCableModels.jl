@@ -94,9 +94,15 @@ end
     frequency = 10.0 .^ range(-1,7; length=101)
     z = reshape(complex.(1 .+ log10.(frequency.+1), frequency.*1e-4),1,1,:)
     reference = LineParameters(z,z.*1e-6,frequency)
-    records = [NamedTuple(Formulation(earth_impedance=id))
+    records = [Formulation(earth_impedance=id)
         for id in (:xue2018,:default,:pollaczek1926,:saad1996,:wedepohl1973)]
-    result = ParametricResult(nothing,fill(reference,5),
+    source_id = LineCableModels.Grammar.gridpoint_id().source_id
+    completed = [LineCableModels.Engine.retain_gridpoint(reference,
+        LineCableModels.Grammar.gridpoint_id(;source_id,formulation_index=index);
+        fields=merge(LineCableModels.Engine.completed_formulation(formula),
+            (inputs=(resistivity=100.,),coordinates=["core"])))
+        for (index,formula) in enumerate(records)]
+    result = ParametricResult(nothing,completed,
         (problems=[:one],formulations=records), ComputationDetails((;)))
     options = (; backend=:cairo,display_plot=false,controls=true,open_export=false,
         fig_size=(1000,650),length_unit=:base)
@@ -109,16 +115,16 @@ end
     @test all(curve -> curve.linestyle[] == Makie.to_linestyle(:solid),curves)
     @test all(curve -> curve[1][] == first(curves)[1][],curves)
     @test allunique([curve.color[] for curve in curves])
-    @test first(markers).marker[] == Makie.to_spritemarker(:circle)
-    @test Makie.to_color(first(curves).color[]) == Makie.to_color(:black)
-    @test allunique([marker.marker[] for marker in markers[2:end]])
-    @test Makie.alpha(first(markers).color[]) == 0
+    @test last(markers).marker[] == Makie.to_spritemarker(:circle)
+    @test Makie.to_color(last(curves).color[]) == Makie.to_color(:black)
+    @test allunique([marker.marker[] for marker in markers[1:end-1]])
+    @test Makie.alpha(last(markers).color[]) == 0
     @test all(marker -> 1 <= length(marker[1][]) < length(frequency),markers)
     @test all(marker -> all(point -> point in first(curves)[1][],marker[1][]),markers)
     @test allunique([first(marker[1][]) for marker in markers])
-    @test first(first(markers)[1][]) == first(first(curves)[1][])
-    @test last(first(markers)[1][]) == last(first(curves)[1][])
-    @test allunique(first(markers)[1][])
+    @test first(last(markers)[1][]) == first(first(curves)[1][])
+    @test last(last(markers)[1][]) == last(first(curves)[1][])
+    @test allunique(last(markers)[1][])
     entries = last(only(page.legend.entrygroups[]))
     @test length(entries) == 6
     @test page.legend.nbanks[] > 1
@@ -132,19 +138,19 @@ end
     filtered_curves = filter(plot -> plot isa Makie.Lines,only(filtered.axes).scene.plots)
     filtered_markers = [only(filter(plot -> plot isa Makie.Scatter,filtered.addon_state.groups[group]))
         for group in filtered.addon_state.order]
-    @test [curve.color[] for curve in filtered_curves] == [curves[i].color[] for i in [1,6,3]]
-    @test [marker.marker[] for marker in filtered_markers] == [markers[i].marker[] for i in [1,6,3]]
-    @test [marker[1][] for marker in filtered_markers] == [markers[i][1][] for i in [1,6,3]]
+    @test [curve.color[] for curve in filtered_curves] == [curves[i].color[] for i in [5,2,6]]
+    @test [marker.marker[] for marker in filtered_markers] == [markers[i].marker[] for i in [5,2,6]]
+    @test [marker[1][] for marker in filtered_markers] == [markers[i][1][] for i in [5,2,6]]
     plain = LineCableModels.plot(result; ydata=(R,),reference,
         series_attributes=(marker=nothing,),options...)
     @test !any(plot -> plot isa Makie.Scatter,only(plain.axes).scene.plots)
     short_reference = reference[1:2]
-    short_result = ParametricResult(nothing,fill(short_reference,5),result.axes, ComputationDetails((;)))
+    short_result = ParametricResult(nothing,[point[1:2] for point in completed],result.axes, ComputationDetails((;)))
     short = LineCableModels.plot(short_result; ydata=(R,),reference=short_reference,options...)
     @test all(group -> any(plot -> plot isa Makie.Scatter && !isempty(plot[1][]),group),
         values(short.addon_state.groups))
     short_markers = only(filter(plot -> plot isa Makie.Scatter,
-        short.addon_state.groups[first(short.addon_state.order)]))
+        short.addon_state.groups[last(short.addon_state.order)]))
     @test length(short_markers[1][]) == 2
     moved = figurelegend!(page;position=:top,overflow=:show_all)
     Makie.toggle_visibility!(first(last(only(moved.entrygroups[]))))
@@ -165,8 +171,8 @@ end
         @test !isempty(Makie.colorbuffer(page.figure))
         @test page.legend.layoutobservables.autosize[][1] <= size[1]
         @test length(last(only(page.legend.entrygroups[]))) == 6
-        @test last(first(markers)[1][]) == last(first(curves)[1][])
-        @test allunique(first(markers)[1][])
+        @test last(last(markers)[1][]) == last(first(curves)[1][])
+        @test allunique(last(markers)[1][])
     end
     mktempdir() do directory
         @test isfile(export_svg(page;path=joinpath(directory,"overlap.svg"),open_file=false))

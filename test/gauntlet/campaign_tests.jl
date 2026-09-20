@@ -64,9 +64,9 @@
         @test value.timings.execution.reference.reused
         @test value.timings.execution.candidate.compute.seconds>=0
         @test !hasproperty(value,:passes)
-        @test all(==(9),only(row.error.relative for row in value.comparison if row.quantity === :Z && row.error.details.data.band === :all))
-        conductance=only(row.error for row in value.comparison if row.quantity === :G && row.error.details.data.band === :all)
-        @test all(==(9),conductance.absolute)
+        @test all(==(9),only(row.relative for row in value.comparison if row.quantity == quantity(Z) && row.band === :all))
+        conductance=only(row for row in value.comparison if row.quantity == quantity(G) && row.band === :all)
+        @test all(ismissing,conductance.absolute)
         @test all(ismissing,conductance.relative)
         @test only(campaign_status(directory)).state === :complete
         old_attempt=attempt
@@ -97,7 +97,7 @@
         @test length(calls) == count
         @test read(joinpath(attempt,"reference","calculation.jld2")) == before
         reported=report(LineCableModels.ReportBuilder.BenchmarkTableDefinition(),read_benchmark(joinpath(directory,"authority")))
-        @test length(unique(reported.table.maxima.snapshot))==2
+        @test Set(reported.tables.maxima.band)==Set(((3.,17.),))
         @test length(only(campaign_status(directory)).identity)==64
         bundle=lock_campaign(directory,joinpath(parent,"bundle"))
         moved=joinpath(parent,"elsewhere");mv(bundle.path,moved)
@@ -125,7 +125,7 @@ end
     definition=benchmark_definition(:changing,model.id,:fixture,@__FILE__,model,first,second,(;),(;))
     mktempdir() do directory
         outcome=run_benchmark(definition;directory)
-        @test all(iszero,only(row.error.absolute for row in outcome.comparison if row.quantity === :Z && row.error.details.data.band === :all))
+        @test all(iszero,only(row.absolute for row in outcome.comparison if row.quantity == quantity(Z) && row.band === :all))
         changed=deepcopy(problem); changed.frequencies[2]=4.
         altered=benchmark_definition(:changing,model.id,:fixture,@__FILE__,model,
             BenchmarkCalculation(:a,changed,formulation),second,(;),(;))
@@ -140,6 +140,6 @@ end
         end
         @test_throws ArgumentError run_benchmark(definition;directory)
         write(joinpath(directory,"candidate","calculation.jld2"),original)
-        @test all(iszero,only(row.error.absolute for row in run_benchmark(definition;directory).comparison if row.quantity === :Z && row.error.details.data.band === :all))
+        @test all(iszero,only(row.absolute for row in run_benchmark(definition;directory).comparison if row.quantity == quantity(Z) && row.band === :all))
     end
 end

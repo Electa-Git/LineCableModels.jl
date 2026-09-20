@@ -1,8 +1,8 @@
 """
 $(TYPEDEF)
 
-Publish an [`Engine.CableConstants`](@ref) result as one R/L/C/G table with
-one row per concentric assembly.
+Publish an [`Engine.CableConstants`](@ref) result as separate R/L/C/G tables,
+each with one row per concentric assembly.
 
 $(TYPEDFIELDS)
 """
@@ -15,13 +15,13 @@ CableConstantsTableDefinition() = CableConstantsTableDefinition(true)
 """
 $(TYPEDEF)
 
-Define the observable requests and display units for one wide line-parameter
-table.
+Define requests and display units for separate line-parameter quantity tables.
+Each full matrix table has one frequency column and every ordered coefficient.
 
 $(TYPEDFIELDS)
 """
 struct LineParametersTableDefinition{Q <: Tuple, U} <: AbstractReportDefinition
-    "Explicit observable requests in output-column order."
+    "Explicit observable requests in quantity-table order."
     requests::Q
     "SI prefix used to display frequency."
     frequency_unit::Symbol
@@ -60,8 +60,8 @@ $(TYPEDSIGNATURES)
 Request per-term comparisons grouped by formulation and frequency band.
 Quantities use the observation grammar. The default bands are the entire range,
 near DC, harmonic, narrowband and wideband. `fundamental` is in Hz. No figure is
-created unless `illustration` is explicitly supplied. `pairing` maps each candidate
-point to an explicit reference point when both operands are result spaces.
+created unless `illustration` is explicitly supplied. A benchmark report retains one scalar reference separately from its candidates.
+The explicit comparison operation also supports declared collection pairings.
 """
 function BenchmarkTableDefinition(; clip::Bool=false, illustration=nothing, plot_options=(;), kwargs...)
     haskey(kwargs,:requests) && any(key -> haskey(kwargs,key),(:quantities,:statistics)) &&
@@ -145,76 +145,130 @@ function validate(definition::BenchmarkTableDefinition)
     return definition
 end
 
-function select(definition::CableConstantsTableDefinition, source::Engine.CableConstants)
-    return observables(source, (R, L, C, G); clip = definition.clip)
+
+LineParametersTableDefinition(requests::Tuple=();frequency_unit::Symbol=:base,
+    length_unit::Symbol=:kilo,quantity_units=nothing,clip::Bool=true) =
+    LineParametersTableDefinition(requests,frequency_unit,length_unit,quantity_units,clip)
+
+_quantity_name(product) = begin
+    identity=request_identity(product.request)
+    identity isa Function ? nameof(identity) : Symbol(join([entry isa Base.Fix2 ? string(product.statistic) : string(nameof(entry)) for entry in identity],"_"))
 end
 
-function tabulate(
-        ::CableConstantsTableDefinition,
-        source,
-        published::ObservationPublication
-)
-    return DataFrame(published)
+function _quantity_table(product)
+    coordinates=product.coordinates
+    values=product.values
+    scalar=values isa Number || ismissing(values)
+    if coordinates.kind in (:matrix,:diagonal)
+        diagonal=coordinates.kind===:diagonal
+        dimensions=diagonal ? (length(coordinates.rows),length(coordinates.samples)) :
+            (length(coordinates.rows),length(coordinates.columns),length(coordinates.samples))
+        shaped=reshape(scalar ? [values] : values,dimensions...)
+        f=coordinates.frequencies
+        table=f===nothing ? DataFrame(sample=coordinates.samples) : DataFrame(frequency=f)
+        columns=Pair{Symbol,Any}[]
+        if diagonal
+            for (i,row) in enumerate(coordinates.rows)
+                name=Symbol("[",row,",",row,"]")
+                table[!,name]=copy(shaped[i,:])
+                push!(columns,name=>(quantity=product.quantity,unit=product.unit,row,column=row))
+            end
+        else
+            # Full matrices are deliberately row-major, including both off-diagonals.
+            for (i,row) in enumerate(coordinates.rows), (j,column) in enumerate(coordinates.columns)
+                name=Symbol("[",row,",",column,"]")
+                table[!,name]=copy(shaped[i,j,:])
+                push!(columns,name=>(quantity=product.quantity,unit=product.unit,row,column))
+            end
+        end
+        first_column=f===nothing ? (:sample=>(quantity=nothing,unit=nothing)) :
+            (:frequency=>(quantity=Units.Quantity{:frequency}(),unit=coordinates.frequency_unit))
+        metadata!(table,"observation_columns",(; (first_column,columns...)...);style=:note)
+    elseif coordinates.kind===:assemblies
+        table=DataFrame(assembly=coordinates.assemblies,value=vec(scalar ? [values] : values))
+        metadata!(table,"observation_columns",(value=(quantity=product.quantity,unit=product.unit),);style=:note)
+    elseif coordinates.kind===:samples
+        if haskey(coordinates,:rows)
+            dims=(length(coordinates.rows),length(coordinates.columns),length(coordinates.samples),length(coordinates.trials))
+            shaped=reshape(scalar ? [values] : values,dims...)
+            table=DataFrame([(frequency=coordinates.frequencies[k],row=coordinates.rows[i],column=coordinates.columns[j],
+                trial=coordinates.trials[t],value=shaped[i,j,k,t]) for t in 1:dims[4] for k in 1:dims[3] for i in 1:dims[1] for j in 1:dims[2]])
+        else
+            shaped=reshape(scalar ? [values] : values,length(coordinates.assemblies),length(coordinates.trials))
+            table=DataFrame([(assembly=coordinates.assemblies[i],trial=coordinates.trials[t],value=shaped[i,t])
+                for t in eachindex(coordinates.trials) for i in eachindex(coordinates.assemblies)])
+        end
+        metadata!(table,"observation_columns",(value=(quantity=product.quantity,unit=product.unit),);style=:note)
+    elseif values isa NamedTuple
+        table=DataFrame(values)
+        metadata!(table,"observation_columns",(;);style=:note)
+    else
+        vector=vec(scalar ? [values] : values)
+        table=DataFrame(index=collect(eachindex(vector)),value=copy(vector))
+        metadata!(table,"observation_columns",(value=(quantity=product.quantity,unit=product.unit),);style=:note)
+    end
+    coordinate_columns=coordinates.kind===:samples ? Tuple(filter(!=(:value),propertynames(table))) :
+        coordinates.kind in (:matrix,:diagonal,:assemblies,:array) ? (first(propertynames(table)),) : ()
+    metadata!(table,"coordinate_columns",coordinate_columns;style=:note)
+    metadata!(table,"coordinates",Grammar.detach(coordinates);style=:note)
+    metadata!(table,"quantity",product.quantity;style=:note)
+    metadata!(table,"unit",product.unit;style=:note)
+    metadata!(table,"basis",product.basis;style=:note)
+    metadata!(table,"missing_reason",Grammar.detach(product.missing_reason);style=:note)
+    return table
 end
 
-function _line_definition(
-        requests::Tuple,
-        frequency_unit::Symbol,
-        length_unit::Symbol,
-        quantity_units,
-        clip::Bool
-)
-    isempty(requests) && throw(ArgumentError(
-        "line tables require at least one explicit observable request",
-    ))
-    all(request -> request isa Tuple, requests) || throw(ArgumentError(
-        "line tables require requests constructed with @observe",
-    ))
-    return LineParametersTableDefinition(
-        requests,
-        frequency_unit,
-        length_unit,
-        quantity_units,
-        clip
-    )
+"""
+$(TYPEDSIGNATURES)
+
+Build one table per retained quantity, grouped by the owning physical family.
+Full matrices retain every coefficient in row-major order. Each row represents
+one retained frequency or sample coordinate.
+"""
+function tabulate(observed::ObservedResult)
+    families=unique(q.family for q in observed.quantities)
+    return (;(family=>(;(_quantity_name(q)=>_quantity_table(q) for q in observed.quantities if q.family==family)...)
+        for family in families)...)
 end
 
-function select(definition::LineParametersTableDefinition, source::Engine.LineParameters)
-    return observables(
-        source,
-        definition.requests;
-        frequency_unit = definition.frequency_unit,
-        length_unit = definition.length_unit,
-        quantity_units = definition.quantity_units,
-        clip = definition.clip
-    )
+"""Build one table from a retained quantity request."""
+tabulate(observed::ObservedResult,request) = _quantity_table(_selected_quantity(observed,request))
+tabulate(observed::AbstractVector{<:ObservedResult}) = map(tabulate,observed)
+
+function tabulate(definition::TableReportDefinition,observed;reference=nothing)
+    function selected(point)
+        isempty(definition.requests) && return tabulate(point)
+        return (;(_quantity_name(product)=>_quantity_table(product) for product in select(definition,point))...)
+    end
+    return observed isa ObservedResult ? selected(observed) : map(selected,observed)
+end
+function tabulate(::Union{CableConstantsTableDefinition,LineParametersTableDefinition},observed;reference=nothing)
+    return tabulate(observed)
+end
+function report(definition::CableConstantsTableDefinition,source::Engine.CableConstants;kwargs...)
+    return report(definition,ObservedResult(source;clip=definition.clip,kwargs...))
+end
+function report(definition::LineParametersTableDefinition,source::Engine.LineParameters;kwargs...)
+    return report(definition,ObservedResult(source,definition.requests;clip=definition.clip,
+        frequency_unit=definition.frequency_unit,length_unit=definition.length_unit,
+        quantity_units=definition.quantity_units,kwargs...))
 end
 
-function tabulate(
-        ::LineParametersTableDefinition,
-        source,
-        published::ObservationPublication
-)
-    return DataFrame(published)
-end
+"""
+$(TYPEDSIGNATURES)
 
-function select(
-        definition::BenchmarkTableDefinition,
-        comparison::Engine.LineParametersBenchmark
-)
-    requests = (
-        (Z, Engine.absolute_error),
-        (Z, Engine.relative_error),
-        (Y, Engine.absolute_error),
-        (Y, Engine.relative_error)
-    )
-    return observables(comparison, requests; clip = definition.clip)
-end
-
-function tabulate(
-        ::BenchmarkTableDefinition,
-        source,
-        published::ObservationPublication
-)
-    return DataFrame(published)
+Materialize a diagnostic long table of retained values. This explicit conversion
+is separate from the quantity tables used by reports and exports.
+"""
+function DataFrame(observed::ObservedResult)
+    records=NamedTuple[]
+    for product in observed.quantities
+        values=product.values
+        values isa NamedTuple && continue
+        for (index,value) in enumerate(values isa Number || ismissing(values) ? (values,) : values)
+            push!(records,(gridpoint=observed.gridpoint.id,quantity=_quantity_name(product),
+                index,value,unit=Units.label(product.unit)))
+        end
+    end
+    return DataFrame(records)
 end

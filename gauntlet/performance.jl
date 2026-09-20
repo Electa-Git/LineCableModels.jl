@@ -36,8 +36,13 @@ function _compute_calculation(calculation; options::Grammar.ComputationOptions=c
             problem.space,Grammar.ComputationOptions(merge(problem.options.data,options.data))))
         return compute(problem,calculation.formulation)
     end
-    return isempty(options.data) ? compute(problem,calculation.formulation) :
+    result=isempty(options.data) ? compute(problem,calculation.formulation) :
         compute(problem,calculation.formulation;options)
+    if result isa AbstractCoreResult && problem isa LineParametersProblem && Grammar.observation_gridpoint(result).inputs===nothing
+        result=Engine.retain_gridpoint(result,Grammar.gridpoint_id();fields=(
+            inputs=Engine.completed_inputs(problem),formulations=formulation_record(calculation.formulation)))
+    end
+    return result
 end
 
 function _source_timings(result)

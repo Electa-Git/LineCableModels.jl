@@ -23,10 +23,10 @@
     end
     artifact=report(BenchmarkTableDefinition(), (
         reference = results[1], candidate = results[2]))
-    @test artifact.published.reference.metadata.formulation !=
-          artifact.published.candidate.metadata.formulation
-    @test artifact.table.formulations.label[1] != artifact.table.formulations.label[2]
-    @test all(!isempty, artifact.table.formulations.label)
+    @test artifact.reference.gridpoint.formulations !=
+          artifact.observed.gridpoint.formulations
+    @test artifact.tables.formulations.label[1] != artifact.tables.formulations.label[2]
+    @test all(!isempty, artifact.tables.formulations.label)
     io=IOBuffer();
     serialize(io, results);
     seekstart(io)
@@ -35,8 +35,8 @@
     # missing instead of comparing the retained availability mask.
     @test isequal(
         report(BenchmarkTableDefinition(), (
-            reference = restored[1], candidate = restored[2])).table.formulations,
-        artifact.table.formulations)
+            reference = restored[1], candidate = restored[2])).tables.formulations,
+        artifact.tables.formulations)
     custom=FormulaContractModels.DispersiveEarth()
     selected=Formulation(earth_properties = custom)
     changed=compute(problem, selected)

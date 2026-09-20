@@ -611,13 +611,11 @@ comparison_plot.figure #hide
 # Change line styling after construction through the native plot objects in each
 # axis; change source identity through `series_labels` or named-tuple keys.
 
-# ### Generic observation publication
+# ### Detached observed results
 
-# The generic publication plot is the fallback for detached scientific
-# observations. Each distinct published quantity becomes one axis. A published
-# frequency column is the abscissa, while row/column coordinates define series;
-# only publications with no domain coordinate fall back to sample index. This is
-# also the path used by report illustrations.
+# `ObservedResult` retains complete primary representations and their original
+# matrix coordinates. The existing matrix renderer selects these records for
+# display. Report illustrations use the same observed-input plotting method.
 
 publication = observables(
     parameters,
@@ -625,6 +623,7 @@ publication = observables(
 );
 publication_plot = Makie.plot(
     publication;
+    ydata=(resistance_request,inductance_request),
     title = "Published diagonal observations",
     figure_title = "Published diagonal observations",
     panel_titles = ("R[1,1]", "L[1,1]"),
@@ -633,18 +632,17 @@ publication_plot = Makie.plot(
     controls = false,
     layout = (1, 2),
     fig_size = (900, 480),
-    display_legend = true,
-    legend_title = "Published quantity",
+    legend_title = "Observed result",
     ## R and L share the same Z[1,1] coordinate group across both panels.
-    legend_labels = ("self impedance",),
+    series_labels = ("self impedance",),
     legend_position = :bottom,
     legend_attributes = (; orientation = :horizontal),
     legend_overflow = :show_all
 )
 publication_plot.figure #hide
 
-# Add an owner-specific recipe only when a publication needs visual semantics
-# beyond its declared quantity and coordinate columns.
+# A new primary result owner supplies observation methods; the same retained
+# quantity records reuse table and plot consumption.
 
 # ## Geometry preview recipes
 

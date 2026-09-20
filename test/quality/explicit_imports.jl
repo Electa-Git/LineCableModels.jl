@@ -61,6 +61,7 @@
             row.self_qualified && continue # Covered by the existing separate check.
             row.accessing_from === Base && Base.ispublic(Core, row.name) && continue
             row.accessing_from === Logging && documented_fem_access(Logging, row.name) && continue
+            consumer === LineCableModels.ImportExport && row.accessing_from === JSON3 && documented_fem_access(JSON3, row.name) && continue
             consumer === extension && documented_fem_access(row.accessing_from, row.name) && continue
             external_contract(consumer, row.accessing_from, row.name) && continue
             push!(unexpected, "$(row.accessing_from).$(row.name) at $(row.location)")

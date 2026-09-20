@@ -30,6 +30,9 @@ using DocStringExtensions: IMPORTS
 using DocStringExtensions: TYPEDSIGNATURES, METHODLIST
 import ..LineCableModels: build, validate, nominal, parameterize
 import ..LineCableModels
+import ..Grammar
+import ..Units
+import UUIDs
 import ..Grammar: observe, FormulationOptions, ComputationOptions, ComputationDetails
 import ..ReportBuilder
 using ..Materials: AbstractMaterial, Material, RadialDielectric, MaterialsLibrary
@@ -55,6 +58,7 @@ import JSON3
 import Serialization
 import Statistics
 import ..UQ
+import LinearAlgebra
 using LinearAlgebra: tril
 
 include("interfaces.jl")
@@ -62,12 +66,14 @@ include("paths.jl")
 include("serialize.jl")
 include("deserialize.jl")
 include("uncertainty.jl")
+include("observed.jl")
 include("problem.jl")
 include("cableslibrary.jl")
 include("materialslibrary.jl")
 include("atp.jl")
 include("tralin.jl")
 
+public encode_observation, decode_observation_measurement, observation_sources
 public serialize_value, deserialize_value, deserialize_extension
 
 end # module ImportExport

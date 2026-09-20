@@ -17,82 +17,49 @@
     sampled_parameters = LineCableModels.materialize(parameters,summaries)
     source = MonteCarloResult(MonteCarlo(Formulation(); trials=2, seed=7),
         [sampled_parameters], [summaries], nothing, nothing, UInt64(7), UInt64[11], [2])
-    statistics_order = (:mean, :std, :min, :q05, :median, :q95, :max)
-
-    for indices in ((), (Colon(), Colon(), Colon()), (2, Colon(), Colon()),
-            (Colon(), 1, Colon()), (Colon(), Colon(), 2),
-            (2, 1, 2), ([2, 1], [2], [2, 1]))
-        selected = isempty(indices) ? ([1, 2], [1, 2], [1, 2]) :
-            map(index -> index isa Colon ? [1, 2] :
-                index isa Integer ? [index] : collect(index), indices)
-        publication = observables(source,
-            ((statistics, R, 1, indices...), (statistics, C, 1, indices...));
-            frequency_unit=:kilo, length_unit=:base,
-            quantity_units=Dict((statistics, C)=>:nano), clip=false)
-        frame = DataFrame(publication)
-        expected_keys = [(1, frequencies[f] / 1000, row, column, statistic)
-            for f in selected[3] for row in selected[1] for column in selected[2]
-            for statistic in statistics_order]
-        @test collect(zip(frame.point, frame.frequency, frame.row, frame.column,
-            frame.statistic)) == expected_keys
-        @test frame.R ≈ [getproperty(summaries.R[row, column, f], statistic)
-            for f in selected[3] for row in selected[1] for column in selected[2]
-            for statistic in statistics_order]
-        @test frame.C ≈ [1e9 * getproperty(summaries.C[row, column, f], statistic)
-            for f in selected[3] for row in selected[1] for column in selected[2]
-            for statistic in statistics_order]
-        @test all(==(2), frame.trials)
-        @test all(==(UInt64(11)), frame.point_seed)
-        @test publication.metadata.row_order == (:point, :frequency, :row, :column, :statistic)
-        @test U.label(publication.metadata.observation_columns.frequency.unit) == "kHz"
-        @test U.label(publication.metadata.observation_columns.R.unit) == "Ω/m"
-        @test U.label(publication.metadata.observation_columns.C.unit) == "nF/m"
-        frame.R[1] = -1.0
-        @test all(>(0), quantities.R)
-        @test source.stats[1].R[1].mean == 1e-4
-    end
-    @test_throws DimensionMismatch observables(source,
-        ((statistics, R, 1, [1], [1], [1]), (statistics, C, 1, [2], [1], [1])))
-    @test_throws ArgumentError observables(source,
-        ((statistics, R, 1), (statistics, R, 1)))
-
-    request = @observe (statistics, R, mean)[1, :, :, :]
-    @test (@observe source (statistics,R,mean)[1,:,:,:])==observe(source,statistics,R,mean,1,:,:,:)
-    @test (@observe parameters R[:,:,:])==observe(parameters,R,:,:,:)
-    @test (@observe parameters (Y,abs)[:,:,:])==observe(parameters,Y,abs,:,:,:)
-    @test request == (statistics, R, mean, 1, Colon(), Colon(), Colon())
-    @test LineCableModels.Grammar.request_identity(request) == (statistics, R, mean)
-    @test LineCableModels.Grammar.request_indices(request) == (1, Colon(), Colon(), Colon())
-    selected = observables(source,
-        (request, (statistics, R, std, 1)); length_unit=:base, clip=false)
-    frame = DataFrame(selected)
-    @test unique(frame.statistic) == [:mean, :std]
-    @test frame.R[1:2] ≈ [mean(summaries.R[1]), std(summaries.R[1])]
-    @test length(selected.metadata.observation_columns.R.resolution) == 2
-    @test observe(source, statistics, B, mean, 1) ≈ quantities.C .* omega
-    for (base,derived) in ((L,X),(C,B))
-        moments=observables(source,((statistics,base,mean,1),(statistics,base,std,1));
-            length_unit=:kilo,clip=false)
-        for statistic in (mean,std)
-            expected=observe(source,statistics,derived,statistic,1)
-            @test observe(moments,statistics,derived,statistic) ≈ expected
-            @test observe(moments,(statistics,derived,statistic,1)) ≈ expected
-            @test observe(moments,statistics,derived,statistic,1,1,1,:) ≈ expected[1,1,:]
+    RB=LineCableModels.ReportBuilder
+    for indices in ((),(:,:,:),(2,:,:),(:,1,:),(:,:,2),(2,1,2),([2,1],[2],[2,1]))
+        selected=isempty(indices) ? ([1,2],[1,2],[1,2]) :
+            map(index -> index isa Colon ? [1,2] : index isa Integer ? [index] : collect(index),indices)
+        observed=ObservedResult(source,1,((statistics,R,indices...),(statistics,C,indices...));
+            frequency_unit=:kilo,length_unit=:base,quantity_units=Dict((statistics,C)=>:nano))
+        @test length(observed.quantities)==14
+        for q in observed.quantities
+            @test q.coordinates.rows==selected[1]
+            @test q.coordinates.columns==selected[2]
+            @test q.coordinates.samples==selected[3]
+            @test q.coordinates.frequencies==frequencies[selected[3]]./1000
+            @test U.label(q.coordinates.frequency_unit)=="kHz"
+            selector=LineCableModels.Grammar.request_identity(q.request)[2]
+            transform=LineCableModels.Grammar.request_identity(q.request)[3]
+            expected=observe(source,statistics,selector,transform,1,indices...)
+            factor=selector===C ? 1e9 : 1.
+            @test q.values≈factor.*expected
+            table=RB.tabulate(observed,q.request)
+            @test size(table)==(length(selected[3]),1+length(selected[1])*length(selected[2]))
+            table[1,2]=-1.
+            @test first(source.stats[1].R).mean==1e-4
         end
-        @test_throws ArgumentError observe(moments,statistics,derived,median)
-        uncertain_axis=LineCableModels.Grammar.ObservationPublication(moments.observations,
-            merge(moments.columns,(frequency=measurement.(moments.columns.frequency,1e-3),)),
-            moments.metadata)
-        @test_throws r"deterministic" observe(uncertain_axis,statistics,derived,std)
+        @test observed.gridpoint.sampling.trials==2
+        @test observed.gridpoint.sampling.point_seed==UInt64(11)
     end
-    @test observe(source, statistics, Z, std, 1) ≈
-        hypot.(std.(summaries.R), omega .* std.(summaries.L))
-    q05 = Base.Fix2(quantile, 0.05)
-    @test observe(source, statistics, R, q05, 1) == getproperty.(summaries.R, :q05)
-    @test DataFrame(observables(source, ((statistics, R, q05, 1),);
-        length_unit=:base)).statistic == fill(:q05, 8)
-    @test_throws ArgumentError quantile(first(summaries.R), 0.1)
-    @test only(source) === sampled_parameters
+    request=@observe (statistics,R,mean)[:,:,:]
+    @test request==(statistics,R,mean,Colon(),Colon(),Colon())
+    @test (@observe source (statistics,R,mean)[1,:,:,:])==observe(source,statistics,R,mean,1,:,:,:)
+    @test (@observe parameters (Y,abs)[:,:,:])==observe(parameters,Y,abs,:,:,:)
+    selected=ObservedResult(source,1,(request,(statistics,R,std));length_unit=:base)
+    @test observe(selected,statistics,R,mean)==quantities.R
+    @test observe(selected,statistics,R,std)==std.(summaries.R)
+    @test_throws ArgumentError observe(selected,statistics,X,mean)
+    for (base,derived) in ((L,X),(C,B)), transform in (mean,std)
+        @test observe(source,statistics,derived,transform,1)≈omega.*observe(source,statistics,base,transform,1)
+        acquired=ObservedResult(source,1,((statistics,derived,transform),);length_unit=:base,quantity_units=:base)
+        @test observe(acquired,statistics,derived,transform)≈observe(source,statistics,derived,transform,1)
+    end
+    q05=Base.Fix2(quantile,.05)
+    @test observe(source,statistics,R,q05,1)==getproperty.(summaries.R,:q05)
+    @test_throws ArgumentError quantile(first(summaries.R),.1)
+    @test only(source)===sampled_parameters
 
     uncertain_z = measurement.(real.(parameters.Z), 1e-6) .+
         im .* measurement.(imag.(parameters.Z), 2e-6)
@@ -102,9 +69,10 @@
     @test observe(lep, statistics, R, mean, 1) == quantities.R
     @test observe(lep, statistics, R, std, 1) == fill(1e-6, 2, 2, 2)
     @test observe(lep, statistics, Z, std, 1) ≈ fill(hypot(1e-6, 2e-6), 2, 2, 2)
-    @test DataFrame(observables(lep, (request, (statistics, R, std, 1));
-        length_unit=:base, clip=false)).R[1:2] == [quantities.R[1], 1e-6]
-    @test_throws ArgumentError observables(lep, ((statistics, R, median, 1),))
+    lep_observed=ObservedResult(lep,1,(request,(statistics,R,std));length_unit=:base)
+    @test observe(lep_observed,statistics,R,mean)==quantities.R
+    @test observe(lep_observed,statistics,R,std)==fill(1e-6,2,2,2)
+    @test_throws ArgumentError ObservedResult(lep,1,((statistics,R,median),))
     IE=LineCableModels.ImportExport
     restored_mc=IE.deserialize_value(IE.serialize_value(source))
     @test observe(restored_mc,statistics,R,mean,1) == observe(source,statistics,R,mean,1)
@@ -118,24 +86,20 @@
     @test uncertainty(real(only(restored).Z[1])-real(only(restored).Z[2])) == 0
     @test uncertainty(real(only(restored).Y[1])-2real(only(restored).Z[1])) == 0
 
-    RB=LineCableModels.ReportBuilder
-    metadata=(port_order=["one","two"],formulation=(equation=:fixture,),axes=nothing)
-    definition=RB.BenchmarkTableDefinition(((statistics,R,mean),(statistics,R,std),(statistics,B,mean)))
-    artifact=RB.report(definition,(reference=(result=source,metadata=metadata),candidate=(result=source,metadata=metadata)))
-    @test length(artifact.table.features) == 3
-    @test names(first(artifact.table.features).relative) == ["formula","all","dc","harmonic","narrow","wide"]
-    @test size(artifact.table.sampling,1) == 2
-    @test all(iszero,skipmissing(artifact.table.terms.relative_rms_percent))
-    # Coordinate-specific precision must select std, not mean or another entry.
-    # Distinct values above make any transpose/statistic swap observable.
-    quantities_by_name=Dict(:R=>R,:B=>B)
-    for row in eachrow(artifact.table.mean_sampling_precision)
-        k=only(findall(==(row.frequency_Hz),frequencies))
-        expected=observe(source,statistics,quantities_by_name[row.quantity],std,row.point)
-        @test row.mean_standard_error≈expected[row.row,row.column,k]/sqrt(2)
-        @test row.response==metadata.port_order[row.row]
-        @test row.excitation==metadata.port_order[row.column]
+    definition=RB.BenchmarkTableDefinition(((statistics,R,mean),(statistics,R,std),(statistics,B,mean));bands=(:all,))
+    artifact=RB.report(definition,(reference=source,candidate=source))
+    @test length(artifact.tables.features)==3
+    @test names(first(artifact.tables.features).relative)==["formula","all"]
+    @test size(artifact.tables.sampling,1)==2
+    @test all(iszero,skipmissing(artifact.tables.terms.relative_rms_percent))
+    for row in eachrow(artifact.tables.mean_sampling_precision)
+        selector=getproperty(LineCableModels,row.quantity)
+        expected=observe(source,statistics,selector,std,1)
+        @test row.standard_error≈expected[row.index...]/sqrt(2)
+        @test row.row==row.index[1] && row.column==row.index[2]
+        @test row.frequency_Hz==frequencies[row.index[3]]
+        @test row.unit==LineCableModels.Units.label(LineCableModels.Units.native_unit(
+            LineCableModels.Units.quantity(selector),:pul))
     end
-    @test all(ismissing,artifact.table.sampling.std_sampling_precision)
-    @test Set(artifact.table.sampling.method)==Set(artifact.table.formulations.label)
+    @test all(==(:empirical),[point.gridpoint.uncertainty.estimator for point in artifact.observed])
 end

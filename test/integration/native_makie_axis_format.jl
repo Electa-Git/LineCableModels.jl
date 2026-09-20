@@ -200,9 +200,9 @@ end
         @test axis.ytickformat[]([-1e-8, 0.0, 1e-8]) == ticks
     end
     @test Y(parameters) == complex.(zero.(susceptance), susceptance)
-    publication = observables(parameters, ((@observe B[1, 1, :]),);
+    publication = observables(parameters, ((@observe B[1, 1, :]),);complete_pairs=true,
         length_unit=:base, quantity_units=:base, clip=false)
-    published_plot = Makie.plot(publication; backend=:cairo, display_plot=false,
+    published_plot = Makie.plot(publication;ydata=(B,), backend=:cairo, display_plot=false,
         controls=false)
     published_axis = only(published_plot.axes)
     ylims!(published_axis, -2e-9, 2e-9)
@@ -281,7 +281,7 @@ end
     core = LineParameters(v.R .+ im .* omega .* v.L, v.G .+ im .* omega .* v.C, f)
     metadata = (port_order=["a", "b"], formulation=NamedTuple(Formulation()), axes=nothing)
     deterministic = report(BenchmarkTableDefinition((R,); bands=(:all,)),
-        (reference=(result=core, metadata=metadata), candidate=(result=core, metadata=metadata)))
+        (reference=(result=core, metadata=metadata), candidate=(result=core, metadata=metadata));observation_options=(length_unit=:base,))
     summaries = map(a -> map(x -> SampleSummary([0.9x, 1.1x]), a), v)
     mc = MonteCarloResult(MonteCarlo(Formulation(); trials=2, seed=7),
         [LineCableModels.materialize(core,summaries)],
@@ -290,13 +290,12 @@ end
     lep = LinearErrorResult(LinearError(Formulation()), [LineParameters(
         m.R .+ im .* omega .* m.L, m.G .+ im .* omega .* m.C, measurement.(f, 0.0))])
     uq = report(BenchmarkTableDefinition(((statistics, R, mean), (statistics, R, std)); bands=(:all,)),
-        (reference=(result=mc, metadata=metadata), candidate=(result=lep, metadata=metadata)))
+        (reference=(result=mc, metadata=metadata), candidate=(result=lep, metadata=metadata));observation_options=(length_unit=:base,))
     for (artifact, request, expected) in ((deterministic, (R,), r),
             (uq, ((statistics, R, mean),), r),
             (uq, ((statistics, R, std),), sqrt(2) * 0.1 .* r))
         page = LineCableModels.plot(artifact; ydata=request, backend=:cairo,
-            display_plot=false, controls=true, open_export=false, clip=false,
-            length_unit=:base, quantity_units=:base, fig_size=(1100, 750))
+            display_plot=false, controls=true, open_export=false, fig_size=(1100, 750))
         Makie.colorbuffer(page.figure)
         axis = last(page.axes)
         @test length(axis.xaxis.tickvalues[]) >= 8

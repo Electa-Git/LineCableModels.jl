@@ -7,17 +7,18 @@ Computations use LineCableModels.compute and retain their declared inputs.
 module Gauntlet
 using LineCableModels
 using LineCableModels.Engine
-using LineCableModels: PSCAD, AbstractCoreResult, AbstractFormulation, AbstractGrid,
+using LineCableModels: ObservedResult, PSCAD, AbstractCoreResult, AbstractFormulation, AbstractGrid,
     AbstractParametricResult, AbstractUncertaintyResult, Formulation, Grid, Gridspace,
     LineParametersProblem, LinearError, MonteCarlo, ParametricProblem,
     ParametricResult, PhaseDomain, build, description, details,
     formula, nominal
-using LineCableModels.Engine: Engine
+using LineCableModels.Engine: Engine, R, L, G, C
 import LineCableModels.Grammar
 import LineCableModels.ImportExport
-import LineCableModels.ReportBuilder: BenchmarkTableDefinition, ReportArtifact, select, report
+import LineCableModels.ReportBuilder: BenchmarkTableDefinition, ReportArtifact, report
 import LineCableModels.Units
 import Pkg
+import UUIDs
 import Serialization
 import Logging
 import Pkg.PlatformEngines: unpack

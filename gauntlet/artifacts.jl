@@ -3,7 +3,7 @@ import TOML
 using JLD2: JLD2, jldopen
 import LineCableModels
 using LineCableModels: basis, domain, observe
-using LineCableModels.Engine: LineParameters, LineParametersBenchmark, RMSError,
+using LineCableModels.Engine: LineParameters, LineParametersBenchmark,
                               absolute_error, frequencies,
                               relative_error, Z, Y
 using Pkg.Artifacts: Artifacts, archive_artifact, bind_artifact!, create_artifact

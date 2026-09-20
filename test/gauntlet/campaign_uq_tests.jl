@@ -20,6 +20,18 @@
         raw=Gauntlet._read_execution(retained.metadata.path,"result")
         @test statistics(raw) == statistics(result.candidate_result)
         @test retained.metadata.sampling.root_seed == 0x1234
+        saved=read_campaign(directory)[1]
+        artifact=report(LineCableModels.ReportBuilder.BenchmarkTableDefinition(),saved)
+        @test artifact.reference isa ObservedResult
+        @test all(q -> any(product -> LineCableModels.Grammar.request_identity(product.request)===q,only(artifact.observed).quantities),(R,L,G,C))
+        @test artifact.reference.gridpoint.uncertainty.estimator===:first_order
+        @test only(artifact.observed).gridpoint.uncertainty.estimator===:empirical
+        precision=artifact.tables.mean_sampling_precision
+        @test Set(precision.frequency_Hz)==Set([1.,37.])
+        @test all(row -> row.row==row.index[1] && row.column==row.index[2],eachrow(precision))
+        terms=deepcopy(artifact.tables.terms)
+        Z(only(saved.candidate.result)).=NaN
+        @test isequal(report(LineCableModels.ReportBuilder.BenchmarkTableDefinition(),saved).tables.terms,terms)
     end
 end
 

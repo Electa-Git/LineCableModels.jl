@@ -2,7 +2,7 @@ module NumericalReferences
 
 using JLD2
 using LineCableModels
-using LineCableModels.Engine: compare
+using LinearAlgebra: norm
 using Pkg.Artifacts
 using SHA
 using TOML
@@ -53,11 +53,28 @@ function read_reference(path::AbstractString, expected_sha256::AbstractString)
     return (; problem, formulation, parameters)
 end
 
+# CI checks raw numerical differences against reviewed tolerances. Reporting
+# eligibility must neither hide drift nor reject matching exact-zero fixtures.
+function reference_errors(expected,actual)
+    axes(expected)==axes(actual) || throw(DimensionMismatch("reference tensor axes differ"))
+    absolute=[norm(expected[i,j,:].-actual[i,j,:])/sqrt(size(expected,3))
+        for i in axes(expected,1),j in axes(expected,2)]
+    relative=[begin
+        denominator=norm(expected[i,j,:])
+        iszero(denominator) ? missing : norm(expected[i,j,:].-actual[i,j,:])/denominator
+    end for i in axes(expected,1),j in axes(expected,2)]
+    return (;absolute,relative)
+end
+
 function compare_reference(reference)
     actual = @inferred compute(reference.problem, reference.formulation)
-    # Scientific comparison's negligible-signal policy is not CI acceptance.
-    # Only the explicitly reviewed manifest tolerances may accept a difference.
-    return compare(reference.parameters, actual; atol=0.0)
+    expected=reference.parameters
+    frequencies(expected)==frequencies(actual) || throw(ArgumentError("reference frequencies differ"))
+    basis(expected)===basis(actual) || throw(ArgumentError("reference basis differs"))
+    domain(expected)===domain(actual) || throw(ArgumentError("reference domain differs"))
+    details(expected).data.coordinates==details(actual).data.coordinates ||
+        throw(ArgumentError("reference terminal identities differ"))
+    return (Z=reference_errors(Z(expected),Z(actual)),Y=reference_errors(Y(expected),Y(actual)))
 end
 
 function check(manifest::AbstractString=joinpath(@__DIR__, "approved.toml");

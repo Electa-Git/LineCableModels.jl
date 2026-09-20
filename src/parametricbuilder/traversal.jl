@@ -84,6 +84,7 @@ function traverse(problem::ParametricProblem, formulation)
 end
 
 function _traverse(problem,formulation,receiver)
+    source_id = Grammar.gridpoint_id().source_id
     point_count = length(problem.space)
     point_count > 0 || throw(ArgumentError(
         "higher-order problem space must contain at least one core problem",
@@ -105,7 +106,9 @@ function _traverse(problem,formulation,receiver)
     receiver === nothing || report_progress(receiver,
         (kind=:scan, stage=:computing, completed=0, total=point_count*formulation_count,
             point=1, batch=formulation_count))
-    first_batch = compute(first_problem, formulations; options = problem.options)
+    first_batch = [Engine.retain_gridpoint(value,
+        Grammar.gridpoint_id(;source_id,problem_index=1,formulation_index=index))
+        for (index,value) in enumerate(compute(first_problem, formulations; options = problem.options))]
     length(first_batch) == formulation_count || throw(DimensionMismatch(
         "batched computation did not return one result per formulation",
     ))
@@ -157,7 +160,9 @@ function _traverse(problem,formulation,receiver)
         ))
         point, state = item
         resolved_problem = materialize(point)
-        batch = compute(resolved_problem, formulations; options = problem.options)
+        batch = [Engine.retain_gridpoint(value,
+            Grammar.gridpoint_id(;source_id,problem_index=index,formulation_index=fi))
+            for (fi,value) in enumerate(compute(resolved_problem, formulations; options = problem.options))]
         length(batch) == formulation_count || throw(DimensionMismatch(
             "batched computation did not return one result per formulation",
         ))

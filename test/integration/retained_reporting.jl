@@ -9,14 +9,14 @@
     reference=LineParameters(PhaseDomain,z,y,samples;details=ComputationDetails(;coordinates=["a","b"],))
     candidate=LineParameters(PhaseDomain,2z,2y,samples;details=ComputationDetails(;coordinates=["a","b"],))
     artifact=report(BenchmarkTableDefinition(quantities=(Z,G),bands=(:all,)),(;reference,candidate))
-    @test nrow(report(BenchmarkTableDefinition(quantities=(G,)),artifact.published).table.maxima)==1
-    @test_throws r"reanalysis" report(BenchmarkTableDefinition(bands=(:wide,)),artifact.published)
-    @test_throws r"reanalysis" report(BenchmarkTableDefinition(atol=(G=1f-8,)),artifact.published)
+    @test nrow(report(BenchmarkTableDefinition(quantities=(G,)),artifact.observed).tables.maxima)==1
+    @test_throws ArgumentError report(BenchmarkTableDefinition(bands=(:wide,)),artifact.observed)
+    @test_throws ArgumentError report(BenchmarkTableDefinition(atol=(G=1f-8,)),artifact.observed)
     @test_throws r"unknown" BenchmarkTableDefinition(no_such_control=true)
     @test_throws r"pairing" BenchmarkTableDefinition(pairing=[(1,1),(2,1)])
     @test_throws r"scalar reference" report(BenchmarkTableDefinition(pairing=[(2,1)]),(;reference,candidate))
-    @test all(ismissing,filter(row -> row.quantity === :G,artifact.table.terms).relative_rms_percent)
-    @test all(iszero,filter(row -> row.quantity === :G,artifact.table.terms).absolute_rms)
+    @test all(ismissing,filter(row -> row.quantity === :G,artifact.tables.terms).relative_rms_percent)
+    @test all(ismissing,filter(row -> row.quantity === :G,artifact.tables.terms).absolute_rms)
     far=LineParameters(PhaseDomain,z,y,Float32[1e7,2e7];details=ComputationDetails(;coordinates=["a","b"],))
     space=ParametricResult(nothing,[reference,far],(problems=[:near,:far],formulations=records[1:1]), ComputationDetails((;)))
     errors=compare(space,space,Z;pairing=[(1,1),(2,2)],band=:wide)
@@ -41,21 +41,19 @@ end
         details=ComputationDetails(;coordinates=["a"],))
     definition = BenchmarkTableDefinition(quantities=(G,Y),bands=(:all,))
     artifact = report(definition,(;reference,candidate))
-    g = only(eachrow(filter(row -> row.quantity === :G,artifact.table.terms)))
+    g = only(eachrow(filter(row -> row.quantity === :G,artifact.tables.terms)))
     @test ismissing(g.relative_rms_percent)
     @test g.status === :candidate_below_tolerance
-    @test g.absolute_rms ≈ 1e-6-1e-14
-    @test only(filter(row -> row.quantity === :G,artifact.table.maxima).unavailable) == 1
-    @test !ismissing(only(filter(row -> row.quantity === :Y,artifact.table.terms).relative_rms_percent))
-    # Retained errors are read as recorded; current policy is applied explicitly
-    # to saved numerical operands, without any computation/solver invocation.
-    original = first(artifact.published.comparisons)
-    recorded = merge(original,(error=RMSError{Float64}(original.error.absolute,fill(1.0,1,1);
-        details=original.error.details),))
-    retained = merge(artifact.published,(comparisons=[recorded],))
-    @test only(report(BenchmarkTableDefinition(),retained).table.terms.relative_rms_percent) == 100
-    refreshed = report(BenchmarkTableDefinition(;retained.settings...),
-        (reference=retained.reference,candidate=retained.candidate,context=retained.context))
-    @test ismissing(only(filter(row -> row.quantity === :G,refreshed.table.terms).relative_rms_percent))
-    @test only(first(retained.comparisons).error.relative) == 1
+    @test ismissing(g.absolute_rms)
+    @test only(filter(row -> row.quantity === :G,artifact.tables.maxima).unavailable) == 1
+    @test !ismissing(only(filter(row -> row.quantity === :Y,artifact.tables.terms).relative_rms_percent))
+    # Reading recorded errors never reruns comparison. Explicit fresh comparison
+    # operates on the raw operands and leaves the earlier observation unchanged.
+    original=first(artifact.observed.errors)
+    recorded=merge(original,(relative=fill(1.,1,1),))
+    retained=ObservedResult(artifact.observed.gridpoint,artifact.observed.quantities,[recorded],artifact.observed.timings)
+    @test only(report(BenchmarkTableDefinition(),retained).tables.terms.relative_rms_percent)==100
+    refreshed=report(definition,(;reference,candidate))
+    @test ismissing(only(filter(row -> row.quantity===:G,refreshed.tables.terms).relative_rms_percent))
+    @test only(first(retained.errors).relative)==1
 end

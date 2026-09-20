@@ -11,6 +11,8 @@ function _addon_series_styles!(groups, order, attributes; defaults=nothing, shar
         any(handle -> handle isa Makie.Lines, groups[group]) &&
             any(handle -> handle isa Makie.Errorbars, groups[group])
     end
+    defaults === nothing || sort!(error_groups;
+        by=group -> -defaults[findfirst(==(group),order)].priority)
     if length(error_groups) > 1
         for (index, group) in enumerate(error_groups)
             width = (length(error_groups) - index) / (length(error_groups) - 1)

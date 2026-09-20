@@ -158,78 +158,124 @@ across files merely to make each stage visually separate.
 
 ## Scientific reads, tables, and plots
 
-An owned result exposes numerical meaning through `observe`. A consumer asks
-for explicit requests through `observables` before tabulation or drawing:
+`observe` reads native scientific values. `ObservedResult` captures detached
+products for one completed gridpoint. Ordinary collections lift that constructor.
+Reports, tables, plots, exports, and saved report inspection consume observations.
 
 ```text
-scientific request
-→ observe / observables
-→ detached values + Quantity + UnitExpr
-→ DataFrame, report, or plot
+completed numerical result + completed comparisons + recorded timings
+→ ObservedResult(gridpoint, quantities, errors, timings)
+→ retained selection → tables / existing Makie renderers / persistence
 ```
 
-Apply these rules:
+The result owner implements `observation_quantity` and declares its requests.
+`Grammar.observation_gridpoint` reads the description captured in completed result
+storage. Completion captures actual physical inputs, formulation selections and
+controls, coordinates, and original point identity. Basic descriptions are always
+retained. Observation and presentation never reconstruct a problem from lazy axes.
 
-1. Construct scientific requests with `@observe` and retain their tuple form.
-2. Define quantity identity, units, labels, and symbols in `Units`.
-3. Let the result owner implement `observe` and declare supported requests.
-4. Publish once before a table or report consumes values; plotting helpers must
-   use the same public observation protocol rather than Engine internals.
-5. Keep scientific tables wide: coordinates identify rows and each observed
-   quantity owns one column.
-6. Select statistical drawing primitives with Makie function identity itself.
-7. Create ordinary Makie axes directly or through `plotwindow`; do not
-   introduce renderer-independent axis or subscription aggregates.
-8. Add physical preview geometry beside the DataModel type that owns the cable
-   part, and add colors or legend grouping only in the Makie extension.
+The complete primary pairs are R/X, magnitude/angle of Z, or R/L for Z, and G/B,
+magnitude/angle of Y, or G/C for Y. Defaults are R/X and G/B. The strict constructor
+rejects an incomplete pair. Raw plotting conveniences use the same request
+normalizer with `complete_pairs=true`; `plot(line; ydata=(R,))` retains R/X and G/B
+and displays R. `plot(observed; ydata=(R,))` selects retained R only. Different
+representations require a new explicit construction. No consumer derives an
+absent quantity, repeats clipping, or acquires a raw source.
 
-Do not inspect UQ storage fields from plotting or reporting code. `samples`,
-`statistics`, and `histograms` select stored products; the scientific selector
-still identifies the physical quantity.
+UQ acquisition belongs to the UQ owner: `ObservedResult(uq, point, requests)` joins
+that point's primary values and requested statistics, samples, or histograms.
+Product requests omit the point index. Mean/std estimates and precomputed
+histogram/CDF/Q–Q coordinates remain ordinary records in `quantities`; sampling
+information belongs to `gridpoint.sampling`. Uncertain primary values in an ordinary
+collection use the primary owner and preserve their dependencies.
+
+```julia
+observed = ObservedResult(parameters, (R, L, G, C))
+tables = ReportBuilder.tabulate(observed)  # tables.Z.R, tables.Z.L, tables.Y.G, tables.Y.C
+plot(observed; ydata=(R,))
+```
+
+Every quantity has its own table. A full n×n matrix on m frequencies has m rows and
+1+n² columns, in row-major coefficient order; both off-diagonals remain present.
+Sparse and diagonal requests preserve original indices and matrix extent.
+`DataFrame(observed)` is a diagnostic long view. `ObservedResult` is not a
+Tables.jl table. XLSX writes one numeric values/std workbook per point and quantity;
+native observation persistence preserves precision and uncertainty dependencies
+across the complete candidate/reference archive.
+
+Explicit benchmark comparison precedes construction:
+
+```julia
+completed = compare(reference, candidates, [R, L]; bands=(:all,))
+points = observables(candidates; comparisons=completed, timings=recorded_timings)
+reference_point = ObservedResult(reference)
+artifact = report(BenchmarkTableDefinition(), points; reference=reference_point)
+plot(artifact; ydata=(R,))
+```
+
+Comparison records join by original candidate identities. A reference remains
+outside the candidate collection. External data needs explicit retained identity
+for a benchmark; absent physical descriptions remain explicitly absent. Arithmetic
+checks cover coordinates, dimensions, units, basis, and frequency agreement.
+Scientific comparability is the caller's responsibility; no interpolation occurs.
+`ReportArtifact.observed` and `.reference` contain only observations; `.tables`
+contains the organized tables. Raw conveniences construct and delegate once.
+
+`observation_groups` is the shared grouping owner. Eligibility requires the same
+physical point, relevant selected formulas and controls, quantity/statistical
+meaning, units, uncertainty interpretation, and coordinates. Exact numerical and
+dependency agreement verifies that eligibility. It does not discover equivalence.
+All group identities, original observations, tables, and files remain available.
+
+## Numerical reporting and current behavior
+
+An available scalar is engineering zero precisely when
+`abs(nominal(value)) <= cutoff`. Nonfinite and unavailable values are separate.
+Defaults per meter are R=1e-10 Ω/m, L=1e-15 H/m, G=1e-12 S/m, C=1e-16 F/m;
+X and B use 2πf times their L and C cutoffs. Total quantities scale by a retained
+physical length or require explicit cutoffs. L/C are unavailable at DC. No inferred
+`eps`, matrix-norm, largest-coefficient, or uncertainty contribution is added.
+Complex zero requires both Cartesian components to be zero. Polar products come
+from the original complex values. Recentring preserves uncertainty dependencies
+and every spread. Undefined first-order magnitude retains its components and zero
+nominal magnitude with an explicit reason; its value and phase remain missing.
+
+Comparison classifies original operands first. Any ineligible sample makes both
+RMS metrics missing for that coefficient/band. Otherwise existing RMS mathematics
+applies to original values. Small and zero errors remain valid; operand cutoffs
+are never applied to errors. Actual cutoffs, units, selections, settings, and
+missing reasons are retained.
+
+Recorded timings remain associated with the original candidate and separate
+reference in report tables. Equal elapsed times do not identify a shared event.
+A measurement for a whole calculation retains that scope when several observed
+points carry it; reporting does not invent per-point timings.
+
+Intentional changes replace current internal behavior. Persistence and consumer
+dependencies do not require generations of that behavior. Do not introduce a
+renamed policy counter, code fingerprint, compatibility branch, or maintenance
+instruction to recreate that obligation. File checksums and source revisions
+retain their actual integrity and source-identification meanings.
+
+| Removed owned representation | Scientific meaning and current owner |
+| --- | --- |
+| `ObservationPublication`, `publication_table`, parallel flattened columns | One `ObservedResult` per point; `ReportBuilder.tabulate` creates quantity tables on demand |
+| Publication `contract` and column contracts | Explicit quantity, basis, units, coordinates, cutoffs, availability, and reasons in each quantity record |
+| Publication `provenance` and raw source references | Captured inputs, formulations, original identities, sampling information, and completed measurements in the four observation sections |
+| `getdp_provenance` | `getdp_selection` in FEM completion, retained details, recovery, and their tests |
+| Resolution revision and policy-generation checks | Deleted; actual applied numerical settings are retained |
+| `ReportArtifact.published` / `.table` | `.observed`, separate `.reference`, and `.tables`; no compatibility getters |
+| Raw result-specific report/renderer preparation | Constructor conveniences delegate to the common observed workflow |
 
 ## Text display and table boundaries
 
-Human inspection, scientific extraction, and tabulation are separate actions:
-
-```text
-show             bounded semantic inspection
-preview          geometric inspection
-observables      detached scientific publication
-DataFrame/report tabulation of that publication
-JSON             persistence
-```
-
-Each public owned type defines `summary`, two-argument `show`, and
-`show(::MIME"text/plain", ...)`. The two-argument form is one line. Rich output
-honors `:compact`, `:limit`, and `displaysize(io)`, reports truncation, uses
-engineering notation, and omits inactive fields. Libraries sort their keys.
-Result displays summarize dimensions and ranges; numerical values remain
-available through `observe` and `observables`.
-
-Display reads stored state only. A display method must not call `build`,
-`resolve`, `compute`, `observables`, construct a `DataFrame`, materialize a
-`Gridspace`, tessellate geometry, or load a plotting backend.
-
-Domain objects do not implement Tables.jl and do not receive direct
-`DataFrame(domain_object)` adapters. The qualified
-`Grammar.ObservationPublication` is the table boundary:
-
-```julia
-published = observables(
-    parameters,
-    (
-        @observe(R[:, :, :]),
-        @observe(L[:, :, :]),
-    );
-    length_unit = :kilo,
-)
-
-table = DataFrame(published)
-```
-
-Coordinates identify rows, while each scientific quantity occupies one
-column. ReportBuilder consumes the same publication rather than reopening the
-result or maintaining another conversion path.
+Human inspection (`show`), scientific extraction (`observe`), detached acquisition
+(`ObservedResult`/`observables`), and tabulation (`tabulate`) are separate actions.
+Each public owned type defines `summary`, two-argument `show`, and text/plain
+`show`. Display reads stored state only; it must not run builders, comparisons,
+solvers, or lazy-grid materialization. Ordinary report display renders retained
+tables and never constructs a figure implicitly. Existing Makie axes and the
+plot window own drawing, controls, layout, and backend behavior.
 
 ## Docstrings
 

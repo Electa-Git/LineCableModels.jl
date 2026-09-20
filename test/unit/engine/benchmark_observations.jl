@@ -8,6 +8,6 @@
     @test basis(result) === :pul
     @test observe(result, Z, absolute_error, 2, 1) == 2.0
     @test observe(result, Z, relative_error, 2, 1) == 1.0
-    @test observe(result, Y, absolute_error, 2, 1) == 0.0
+    @test ismissing(observe(result, Y, absolute_error, 2, 1))
     @test ismissing(observe(result, Y, relative_error, 2, 1))
 end

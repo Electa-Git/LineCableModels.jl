@@ -6,9 +6,9 @@ and no files are opened. Allocated bytes are Julia allocations, not peak memory.
 Native backend timing scopes are preserved rather than relabelled as wall time.
 
 The optional `labels` are supplied by the same formulation descriptions used
-by the comparison report. Raw workload/session records stay in its publication.
+by the comparison report. Full workload/session records remain in the observation.
 """
-function tabulate(::BenchmarkTableDefinition, measurements::Union{Nothing, NamedTuple};
+function _timing_tables(measurements::Union{Nothing, NamedTuple};
         labels=(reference="Reference",candidate="Candidate"))
     execution=DataFrame()
     source_timings=DataFrame()
@@ -88,4 +88,38 @@ function tabulate(::BenchmarkTableDefinition, measurements::Union{Nothing, Named
     end
     return (;execution,source_timings,performance,performance_samples,
         performance_environment,performance_policy,performance_comparison)
+end
+
+# Associate retained evidence with every candidate that owns it. A batch-scoped
+# measurement keeps that scope even when several observations refer to it.
+# Equal numbers never establish that two measurements are the same event.
+function _timing_tables(points::AbstractVector,reference)
+    reference_id=reference===nothing ? nothing : reference.gridpoint.id
+    reference_label=reference===nothing ? "Reference" : only(Grammar.observation_labels([reference]))
+    labels=Grammar.observation_labels(points)
+    combined=_timing_tables(nothing)
+    for (index,point) in enumerate(points)
+        record=point.timings
+        tables=_timing_tables(get(record,:measurements,nothing);
+            labels=(reference=reference_label,candidate=labels[index]))
+        if haskey(record,:seconds)
+            push!(tables.execution,(role=:candidate,method=labels[index],
+                point=point.gridpoint.id.problem_index,scope=get(record,:scope,missing),
+                seconds=record.seconds);cols=:union)
+        end
+        for (destination,table) in zip(combined,tables)
+            isempty(table) && continue
+            candidate_id=point.gridpoint.id
+            bindings=(candidate_source=string(candidate_id.source_id),
+                candidate_point=candidate_id.problem_index,candidate_formulation=candidate_id.formulation_index,
+                reference_source=reference_id===nothing ? missing : string(reference_id.source_id),
+                reference_point=reference_id===nothing ? missing : reference_id.problem_index,
+                reference_formulation=reference_id===nothing ? missing : reference_id.formulation_index)
+            for (name,value) in pairs(bindings)
+                table[!,name]=fill(value,size(table,1))
+            end
+            append!(destination,table;cols=:union)
+        end
+    end
+    return combined
 end

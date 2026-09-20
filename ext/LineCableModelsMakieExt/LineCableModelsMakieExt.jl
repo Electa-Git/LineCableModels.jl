@@ -6,17 +6,16 @@ Add compact high-level LineCableModels plotting methods to native Makie.
 module LineCableModelsMakieExt
 
 import LineCableModels
-using LineCableModels: C, EarthLayer, L, LineParameters, Material, RadialDielectric,
-    SeriesImpedance, ShuntAdmittance, Y, Z, assembly, basis,
-    domain, frequencies, label, nconductors, nfrequencies, nominal,
-    observables, observe, outer_radius, quantity, samples
+using LineCableModels: EarthLayer, LineParameters, Material, RadialDielectric,
+    SeriesImpedance, ShuntAdmittance, Y, Z, label, nominal,
+    observables, outer_radius
 import Makie
 using Makie: Auto, Axis, Button, Colorbar, DataAspect, Figure,
     Fixed, GridLayout, Label, Legend, LineElement, Mixed,
     Observable, Outside, Rect2f, Relative, Theme, Toggle,
-    colgap!, colsize!, content, ecdfplot!, errorbars!, height,
-    hist!, hlines!, hspan!, left, lift, lines!,
-    off, on, onany, poly!, reset_limits!, right, rowgap!,
+    colgap!, colsize!, content, errorbars!, height,
+    hlines!, hspan!, lift, lines!,
+    off, on, onany, poly!, reset_limits!, rowgap!,
     rowsize!, scatter!, stairs!, text!, to_value, translate!,
     update!, width, widths, with_theme
 using LinearAlgebra: diag
@@ -34,10 +33,9 @@ import LineCableModels.ImportExport
 import LineCableModels.UQ
 import Makie.GridLayoutBase
 import LineCableModels.Grammar:
-                                ObservationPublication,
-                                observation_indices, observation_request, request_identity,
+                                request_identity,
                                 request_indices,
-                                request_quantity, unit_targets, validate_observables
+                                request_quantity
 
 function current_backend_symbol()
     backend = Makie.current_backend()
@@ -59,350 +57,122 @@ include("series_styles.jl")
 include("shell.jl")
 include("recipes/line_facets.jl")
 include("recipes/preview_render.jl")
-include("recipes/publication_render.jl")
 include("montecarlo.jl")
 include("native_export.jl")
 
 import LineCableModels.PlotBuilder: plot, preview, show_material_scale
 include("recipes/formulation_comparisons.jl")
 
-const _LineSource = Union{
-    LineCableModels.LineParameters,
-    LineCableModels.SeriesImpedance,
-    LineCableModels.ShuntAdmittance
-}
+const _LineSource = Union{LineCableModels.LineParameters,LineCableModels.SeriesImpedance,LineCableModels.ShuntAdmittance}
 
-function _is_line_index_selector(value)
-    value isa Integer || value isa AbstractRange ||
-        value isa AbstractVector{<:Integer} ||
-        value isa Colon
-end
-
-function _is_line_observation_request(source, value)
-    value isa Tuple || return false
-    resolved = try
-        Grammar.observation_request(source, value)
-    catch error
-        error isa ArgumentError || rethrow()
-        return false
-    end
-    expected = resolved.identity isa Tuple && last(resolved.identity) === diag ? 2 : 3
-    return length(resolved.indices) == expected &&
-           all(_is_line_index_selector, resolved.indices)
-end
-
-function _expand_line_observation_request(source, request)
-    identity = request_identity(request)
-    indices = request_indices(request)
-    if identity === LineCableModels.Z
-        return ((LineCableModels.R, indices...), (LineCableModels.X, indices...))
-    elseif identity === LineCableModels.Y
-        return ((LineCableModels.G, indices...), (LineCableModels.B, indices...))
-    elseif identity == (LineCableModels.Z, diag)
-        return (
-            (LineCableModels.R, diag, indices...),
-            (LineCableModels.X, diag, indices...)
-        )
-    elseif identity == (LineCableModels.Y, diag)
-        return (
-            (LineCableModels.G, diag, indices...),
-            (LineCableModels.B, diag, indices...)
-        )
-    end
-    return (request,)
-end
-
-_full_line_request(selector::Function) = (selector, Colon(), Colon(), Colon())
-function _full_line_request(selector::Function, transform::Function)
-    (selector, transform, Colon(), Colon(), Colon())
-end
-_full_diagonal_request(selector::Function) = (selector, diag, Colon(), Colon())
-
-function _domain_line_request(source, selector::Function)
-    source isa LineCableModels.LineParameters &&
-        LineCableModels.domain(source) === LineCableModels.ModalDomain &&
-        return _full_diagonal_request(selector)
-    return _full_line_request(selector)
-end
-
-function _line_selector_requests(source::Union{LineCableModels.LineParameters,ObservationPublication}, selector::Function)
-    selector === LineCableModels.Z &&
-        return (_domain_line_request(source, LineCableModels.R),
-            _domain_line_request(source, LineCableModels.X))
-    selector === LineCableModels.Y &&
-        return (_domain_line_request(source, LineCableModels.G),
-            _domain_line_request(source, LineCableModels.B))
-    selector === real && return (_domain_line_request(source, LineCableModels.R),
-        _domain_line_request(source, LineCableModels.G))
-    selector === imag && return (_domain_line_request(source, LineCableModels.X),
-        _domain_line_request(source, LineCableModels.B))
-    selector === abs && return (_full_line_request(LineCableModels.Z, abs),
-        _full_line_request(LineCableModels.Y, abs))
-    selector === angle && return (_full_line_request(LineCableModels.Z, angle),
-        _full_line_request(LineCableModels.Y, angle))
-    return (_domain_line_request(source, selector),)
-end
-
-function _line_selector_requests(::LineCableModels.SeriesImpedance, selector::Function)
-    selector === LineCableModels.Z && return (_full_line_request(LineCableModels.R),
-        _full_line_request(LineCableModels.X))
-    selector === real && return (_full_line_request(LineCableModels.R),)
-    selector === imag && return (_full_line_request(LineCableModels.X),)
-    selector === abs && return (_full_line_request(LineCableModels.Z, abs),)
-    selector === angle && return (_full_line_request(LineCableModels.Z, angle),)
-    return (_full_line_request(selector),)
-end
-
-function _line_selector_requests(::LineCableModels.ShuntAdmittance, selector::Function)
-    selector === LineCableModels.Y && return (_full_line_request(LineCableModels.G),
-        _full_line_request(LineCableModels.B))
-    selector === real && return (_full_line_request(LineCableModels.G),)
-    selector === imag && return (_full_line_request(LineCableModels.B),)
-    selector === abs && return (_full_line_request(LineCableModels.Y, abs),)
-    selector === angle && return (_full_line_request(LineCableModels.Y, angle),)
-    return (_full_line_request(selector),)
-end
-
-function _default_line_selection(::Union{LineCableModels.LineParameters,ObservationPublication})
-    (
-        LineCableModels.R, LineCableModels.X, LineCableModels.G, LineCableModels.B)
-end
-function _default_line_selection(::LineCableModels.SeriesImpedance)
-    (LineCableModels.R, LineCableModels.X)
-end
-function _default_line_selection(::LineCableModels.ShuntAdmittance)
-    (LineCableModels.G, LineCableModels.B)
-end
-
-function _is_line_observation_request(::ObservationPublication, value)
-    value isa Tuple || return false
-    !isempty(value) && first(value) isa Function || return false
-    identity = request_identity(value)
-    return identity in (LineCableModels.R, LineCableModels.L, LineCableModels.X,
-        LineCableModels.G, LineCableModels.C, LineCableModels.B, LineCableModels.Z, LineCableModels.Y) &&
-        length(request_indices(value)) == 3 && all(_is_line_index_selector, request_indices(value))
-end
-
-function _line_plot_ydata(source::Union{_LineSource,ObservationPublication}, ydata)
-    selected = ydata === nothing || ydata == () ?
-               _default_line_selection(source) : ydata
-    _is_line_observation_request(source, selected) &&
-        return _expand_line_observation_request(source, selected)
-    selected isa Function && return _line_selector_requests(source, selected)
-    selected isa Tuple || throw(ArgumentError(
-        "line selection must be a selector, observable request, or tuple of them",
-    ))
-    return Tuple(request
-    for item in selected
-    for request in (_is_line_observation_request(source, item) ?
-         _expand_line_observation_request(source, item) :
-         item isa Function ? _line_selector_requests(source, item) :
-         throw(ArgumentError("unsupported line selection $(repr(item))"))))
-end
-
-function _plot_ydata(positional, keyword, default)
-    keyword === nothing && return positional === nothing ? default : positional
-    positional === nothing || throw(ArgumentError(
-        "use either positional ydata or the ydata keyword, not both",
-    ))
+function _plot_ydata(positional,keyword,default)
+    keyword===nothing && return positional===nothing ? default : positional
+    positional===nothing || throw(ArgumentError("use positional ydata or the ydata keyword"))
     return keyword
 end
-
-function plot(
-        object::LineCableModels.SeriesImpedance,
-        frequencies,
-        selection = nothing;
-        ydata = nothing,
-        backend = nothing,
-        display_plot::Bool = true,
-        controls::Bool = true,
-        xscale = :linear,
-        yscale = :linear,
-        kwargs...
-)
-    return _addon_semantic_line_plots(
-        object;
-        frequencies,
-        ydata = _line_plot_ydata(object, _plot_ydata(selection,ydata,())),
-        xscale = xscale,
-        yscale = yscale,
-        backend,
-        display_plot,
-        controls,
-        kwargs...
-    )
+function _plot_requests(source,selection)
+    selection===nothing && return ()
+    selection isa Function && return (selection,)
+    selection isa Tuple || throw(ArgumentError("ydata must be a selector or tuple of requests"))
+    isempty(selection) && return ()
+    if first(selection) isa Function
+        identity=request_identity(selection)
+        declared=source isa Grammar.ObservedResult ? Tuple(request_identity(q.request) for q in source.quantities) : observables(typeof(source))
+        identity in declared && (identity isa Tuple || !isempty(request_indices(selection))) && return (selection,)
+    end
+    return selection
 end
 
-function Makie.plot(
-        object::LineCableModels.SeriesImpedance,
-        frequencies,
-        selection = nothing;
-        kwargs...
-)
-    plot(object, frequencies, selection; kwargs...)
+function plot(source::_LineSource,selection=nothing;ydata=nothing,frequencies=nothing,
+        freq_unit=:base,length_unit=:kilo,quantity_units=nothing,clip::Bool=true,atol=nothing,kwargs...)
+    requests=_plot_requests(source,_plot_ydata(selection,ydata,()))
+    normalized=Grammar.observation_requests(source,requests;complete_pairs=true)
+    observed=Grammar.ObservedResult(source,requests;complete_pairs=true,frequencies,
+        frequency_unit=freq_unit,length_unit,quantity_units,clip,atol)
+    return plot(observed;ydata=normalized.displayed,kwargs...)
 end
-
-function plot(
-        object::LineCableModels.ShuntAdmittance,
-        frequencies,
-        selection = nothing;
-        ydata = nothing,
-        backend = nothing,
-        display_plot::Bool = true,
-        controls::Bool = true,
-        xscale = :linear,
-        yscale = :linear,
-        kwargs...
-)
-    return _addon_semantic_line_plots(
-        object;
-        frequencies,
-        ydata = _line_plot_ydata(object, _plot_ydata(selection,ydata,())),
-        xscale = xscale,
-        yscale = yscale,
-        backend,
-        display_plot,
-        controls,
-        kwargs...
-    )
+function plot(source::Union{SeriesImpedance,ShuntAdmittance},f::AbstractVector,selection=nothing;kwargs...)
+    return plot(source,selection;frequencies=f,kwargs...)
 end
+Makie.plot(source::_LineSource,args...;kwargs...) = plot(source,args...;kwargs...)
 
-function Makie.plot(
-        object::LineCableModels.ShuntAdmittance,
-        frequencies,
-        selection = nothing;
-        kwargs...
-)
-    plot(object, frequencies, selection; kwargs...)
+function plot(observed::Grammar.ObservedResult,selection=nothing;ydata=nothing,reference=nothing,kwargs...)
+    return plot([observed],selection;ydata,reference,kwargs...)
 end
-
-function plot(
-        parameters::LineCableModels.LineParameters,
-        selection = nothing;
-        ydata = nothing,
-        backend = nothing,
-        display_plot::Bool = true,
-        controls::Bool = true,
-        xscale = :linear,
-        yscale = :linear,
-        kwargs...
-)
-    return _addon_semantic_line_plots(
-        parameters;
-        ydata = _line_plot_ydata(parameters, _plot_ydata(selection,ydata,())),
-        xscale = xscale,
-        yscale = yscale,
-        backend,
-        display_plot,
-        controls,
-        kwargs...
-    )
-end
-
-function Makie.plot(
-        parameters::LineCableModels.LineParameters,
-        selection = nothing;
-        kwargs...
-)
-    plot(parameters, selection; kwargs...)
-end
-
-function plot(
-        first::LineCableModels.LineParameters,
-        second::LineCableModels.LineParameters,
-        rest...;
-        series_labels = nothing,
-        ydata = (),
-        backend = nothing,
-        display_plot::Bool = true,
-        controls::Bool = true,
-        xscale = :linear,
-        yscale = :linear,
-        kwargs...
-)
-    sources = LineCableModels.LineParameters[first, second]
-    trailing_selection = nothing
-    for item in rest
-        if item isa LineCableModels.LineParameters && trailing_selection === nothing
-            push!(sources, item)
-        elseif trailing_selection === nothing
-            trailing_selection = item
-        else
-            throw(ArgumentError(
-                "a line comparison accepts sources followed by at most one observation selection",
-            ))
+function plot(observed::AbstractVector{<:Grammar.ObservedResult},selection=nothing;
+        ydata=nothing,reference::Union{Nothing,Grammar.ObservedResult}=nothing,
+        series_labels=nothing,series_attributes=nothing,problem=nothing,formulations=nothing,band=nothing,kwargs...)
+    isempty(observed) && throw(ArgumentError("plot requires at least one observed point"))
+    for key in (:clip,:atol,:freq_unit,:length_unit,:quantity_units,:frequencies)
+        haskey(kwargs,key) && throw(ArgumentError("$key belongs to observation construction; this plot selects retained products"))
+    end
+    selected=findall(observed) do point
+        id=get(point.gridpoint,:id,nothing)
+        (problem===nothing || id!==nothing && id.problem_index in (problem isa Integer ? (problem,) : problem)) &&
+            (formulations===nothing || id!==nothing && id.formulation_index in (formulations isa Integer ? (formulations,) : formulations))
+    end
+    isempty(selected) && throw(ArgumentError("no retained observations match the original point selection"))
+    if formulations isa Union{AbstractVector,Tuple}
+        sort!(selected;by=index -> findfirst(==(observed[index].gridpoint.id.formulation_index),formulations))
+    end
+    candidates=observed[selected]
+    requests=_plot_requests(first(candidates),_plot_ydata(selection,ydata,()))
+    requests=Grammar.observation_requests(first(candidates),requests).displayed
+    if band!==nothing
+        records=filter(error -> isequal(error.band,band),first(candidates).errors)
+        isempty(records) && throw(ArgumentError("the requested comparison band was not retained"))
+        samples=first(records).settings.indices
+        all(error -> error.settings.indices==samples,records) || throw(ArgumentError("retained comparisons disagree on band coordinates"))
+        requests=map(requests) do request
+            product=Grammar.observation_product(first(candidates),request)
+            c=product.coordinates
+            selected_samples=intersect(c.samples,samples)
+            isempty(selected_samples) && throw(ArgumentError("the requested band contains no retained samples"))
+            identity=Grammar.request_identity(request)
+            prefix=identity isa Tuple ? identity : (identity,)
+            indices=c.kind===:matrix ? (c.rows,c.columns,selected_samples) : (c.rows,selected_samples)
+            (prefix...,indices...)
         end
     end
-    ydata == () || trailing_selection === nothing ||
-        throw(ArgumentError(
-            "use either a trailing observation selection or the ydata keyword, not both",
-        ))
-    labels = series_labels
-    labels === nothing && (labels = Tuple("Result $index" for index in eachindex(sources)))
-    selection = trailing_selection === nothing ? ydata : trailing_selection
-    normalized = _line_plot_ydata(first, selection)
-    return _addon_line_pages(
-        Tuple(sources);
-        series_labels = labels,
-        ydata = normalized,
-        xscale = xscale,
-        yscale = yscale,
-        backend,
-        display_plot,
-        controls,
-        kwargs...
-    )
+    points=reference===nothing ? Tuple(candidates) : (Tuple(candidates)...,reference)
+    count=length(observed)+(reference===nothing ? 0 : 1)
+    displayed=reference===nothing ? selected : [selected;count]
+    labels=series_labels===nothing ? nothing :
+        Tuple(_comparison_labels(series_labels,count)[index] for index in displayed)
+    attributes=series_attributes isa Union{Tuple,AbstractVector} ?
+        Tuple(_series_attributes(series_attributes,count)[index] for index in displayed) : series_attributes
+    roles=reference===nothing ? nothing : [fill(:candidate,length(candidates));:reference]
+    indices=reference===nothing ? selected : [selected.+1;1]
+    return _addon_line_pages(points;ydata=requests,series_labels=labels,formulation_roles=roles,
+        series_indices=indices,series_count=count,series_attributes=attributes,kwargs...)
 end
+Makie.plot(source::Union{Grammar.ObservedResult,AbstractVector{<:Grammar.ObservedResult}},args...;kwargs...) = plot(source,args...;kwargs...)
 
-function plot(
-        sources::NamedTuple,
-        selection = nothing;
-        ydata = nothing,
-        series_labels = nothing,
-        backend = nothing,
-        display_plot::Bool = true,
-        controls::Bool = true,
-        xscale = :linear,
-        yscale = :linear,
-        kwargs...
-)
-    parameters = Tuple(values(sources))
-    length(parameters) >= 2 || throw(ArgumentError(
-        "line comparison requires at least two named sources",
-    ))
-    all(parameter -> parameter isa LineCableModels.LineParameters, parameters) ||
-        throw(ArgumentError("all comparison sources must be LineParameters"))
-    labels = if series_labels !== nothing
-        series_labels
-    else
-        Tuple(String(key) for key in keys(sources))
+function plot(first::LineParameters,second::LineParameters,rest...;ydata=nothing,freq_unit=:base,length_unit=:kilo,quantity_units=nothing,clip=true,atol=nothing,kwargs...)
+    sources=LineParameters[first,second]
+    selection=nothing
+    for item in rest
+        item isa LineParameters && selection===nothing ? push!(sources,item) :
+            selection===nothing ? (selection=item) : throw(ArgumentError("one trailing ydata selection is accepted"))
     end
-    return _addon_line_pages(
-        parameters;
-        series_labels = labels,
-        ydata = _line_plot_ydata(first(parameters),
-            _plot_ydata(selection,ydata,())),
-        xscale = xscale,
-        yscale = yscale,
-        backend,
-        display_plot,
-        controls,
-        kwargs...
-    )
+    requests=_plot_requests(first,_plot_ydata(selection,ydata,()))
+    normalized=Grammar.observation_requests(first,requests;complete_pairs=true)
+    observed=observables(sources,requests;complete_pairs=true,frequency_unit=freq_unit,length_unit,quantity_units,clip,atol)
+    return plot(observed;ydata=normalized.displayed,kwargs...)
 end
+Makie.plot(first::LineParameters,second::LineParameters,rest...;kwargs...) = plot(first,second,rest...;kwargs...)
 
-function Makie.plot(sources::NamedTuple, selection = nothing; kwargs...)
-    plot(sources, selection; kwargs...)
+function plot(sources::NamedTuple,selection=nothing;ydata=nothing,series_labels=nothing,
+        freq_unit=:base,length_unit=:kilo,quantity_units=nothing,clip=true,atol=nothing,kwargs...)
+    raw=collect(values(sources))
+    isempty(raw) && throw(ArgumentError("plot requires at least one result"))
+    requests=_plot_requests(first(raw),_plot_ydata(selection,ydata,()))
+    normalized=Grammar.observation_requests(first(raw),requests;complete_pairs=true)
+    observed=observables(raw,requests;complete_pairs=true,frequency_unit=freq_unit,length_unit,quantity_units,clip,atol)
+    labels=series_labels===nothing ? Tuple(string.(keys(sources))) : series_labels
+    return plot(observed;ydata=normalized.displayed,series_labels=labels,kwargs...)
 end
-
-function Makie.plot(
-        first::LineCableModels.LineParameters,
-        second::LineCableModels.LineParameters,
-        rest...;
-        kwargs...
-)
-    return plot(first, second, rest...; kwargs...)
-end
+Makie.plot(sources::NamedTuple,args...;kwargs...) = plot(sources,args...;kwargs...)
 
 function preview(
         design::DataModel.CableDesign;
@@ -467,17 +237,6 @@ function show_material_scale(
         controls,
         kwargs...
     )
-end
-
-function plot(
-        publication::Grammar.ObservationPublication;
-        kwargs...
-)
-    return _addon_publication_plot(publication; kwargs...)
-end
-
-function Makie.plot(publication::Grammar.ObservationPublication; kwargs...)
-    plot(publication; kwargs...)
 end
 
 end # module LineCableModelsMakieExt

@@ -55,7 +55,9 @@ struct CableConstants{T <: Real, D <: ComputationDetails} <: AbstractCoreResult
             (R, L, C, G),
             "cable constants must be finite"
         ))
-        return new{T, typeof(details)}(cores, R, L, C, G, frequency, details)
+        retained=haskey(details.data,:gridpoint) ? details :
+            completion_details(merge(details.data,(gridpoint=Grammar.gridpoint_id(),)))
+        return new{T, typeof(retained)}(cores, R, L, C, G, frequency, retained)
     end
 end
 
@@ -150,30 +152,6 @@ capacitance(constants::CableConstants) = observe(constants, C)
 conductance(constants::CableConstants) = observe(constants, G)
 observables(::Type{<:CableConstants}) = (R, L, C, G)
 
-function publication_table(
-        source::CableConstants,
-        requests::Tuple,
-        observations::Tuple,
-        ::NamedTuple
-)
-    names = map(payload -> Symbol(Units.symbol(payload.quantity)), observations)
-    length(unique(names)) == length(names) || throw(ArgumentError(
-        "cable-constant publication quantities must be distinct",
-    ))
-    all(payload -> length(payload.values) == length(source), observations) ||
-        throw(DimensionMismatch(
-            "cable-constant observations must align with the assembly count",
-        ))
-    values = NamedTuple{names}(map(payload -> collect(payload.values), observations))
-    contract = NamedTuple{names}(map(observations) do payload
-        (; quantity = payload.quantity, unit = payload.unit)
-    end)
-    return (
-        columns = merge((core = copy(source.cores),), values),
-        row_order = (:core, names...),
-        observation_columns = contract
-    )
-end
 
 """
 $(TYPEDEF)
@@ -499,7 +477,8 @@ end
 function _solve!(
         workspace::CableConstantsWorkspace{T},
         problem::CableConstantsProblem{T},
-        formulation::CableConstantsFormulation
+        formulation::CableConstantsFormulation;
+        physical_inputs=completed_inputs(problem), gridpoint=Grammar.gridpoint_id()
 ) where {T <: Real}
     buffers = workspace.buffers
     ω = 2 * (one(T) * π) * problem.frequency
@@ -560,8 +539,10 @@ function _solve!(
         buffers.C,
         buffers.G,
         problem.frequency,
-        ComputationDetails(NamedTuple{(:shunt_model, :formulations),
-            Tuple{NamedTuple, NamedTuple}}((workspace.cable.shunt_details, NamedTuple(formulation))))
+        ComputationDetails(NamedTuple{
+            (:formulations,:selections,:formulation_labels,:shunt_model,:inputs,:gridpoint),
+            NTuple{6,NamedTuple}}((values(completed_formulation(formulation))...,
+            workspace.cable.shunt_details,physical_inputs,gridpoint)))
     )
 end
 
@@ -649,9 +630,12 @@ function compute(
         push!(cables, previous < index ? cables[previous] :
                       LocalCableData(blueprints[index]))
     end
-    return map(formulations, cables) do formulation, cable
+    physical_inputs = completed_inputs(problem)
+    source_id = Grammar.gridpoint_id().source_id
+    return map(formulations, cables, eachindex(formulations)) do formulation, cable, index
         workspace = CableConstantsWorkspace(problem, formulation, cable)
-        _solve!(workspace, problem, formulation)
+        _solve!(workspace, problem, formulation; physical_inputs,
+            gridpoint=Grammar.gridpoint_id(;source_id,formulation_index=index))
     end
 end
 

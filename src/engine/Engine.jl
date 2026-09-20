@@ -18,7 +18,6 @@ $(IMPORTS)
 
 """
 module Engine
-import ..Grammar: ObservationPublication
 
 # Export public API
 export LineParametersProblem, CableConstantsProblem,
@@ -63,10 +62,9 @@ import ..Grammar: AbstractProblemDefinition, AbstractFormulation,
                   ComputationDetails,
                   formulation_options, computation_options, computation_details, details,
                   compute, observe, observables,
-                  observation_request, observation_indices, observation_resolution,
+                  observation_indices, observation_resolution,
                   uncertainty,
-                  request_identity, request_indices,
-                  publication_table
+                  request_identity, request_indices
 
 using ..Units
 import ..Grammar
@@ -138,16 +136,17 @@ include("admittance.jl")
 include("lineparameters.jl")
 include("reduction.jl")
 include("cableconstants.jl")
+include("observed_inputs.jl")
+include("lineparameters/observations.jl")
 
 # Line-parameter protocols and observation publication
 include("lineparameters/base.jl")
-include("lineparameters/publication.jl")
 include("textdisplay.jl")
 
+public completion_details, completed_inputs, completed_formulation, retain_gridpoint
 public SpectralIntegral, integrate, integration_workspace
 public earth_bindings, initialize_buffers, earth!, materials!, homogenize!,
        same_physical_state, layer_index, computation_type
-public OBSERVABLE_RESOLUTION_REVISION
 public has_uncertainty_type, numerical_magnitude
 public internal_shunt_response, blueprint_dependencies
 public InternalImpedanceFormulation, InsulationImpedanceFormulation,

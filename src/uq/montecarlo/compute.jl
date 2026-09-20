@@ -246,13 +246,45 @@ function realize(rng::Random.AbstractRNG, point::Gridpoint{Engine.LineParameters
     return DataModel.realize_clearance(rng, point, distribution)
 end
 
+function _uncertain_arguments(point::Gridpoint)
+    records=NamedTuple[]
+    function collect!(value,path)
+        if value isa UncertainValue
+            push!(records,(argument_path=path,nominal=value.nominal,standard_deviation=value.sigma))
+        elseif value isa Gridpoint
+            for (index,argument) in enumerate(value.args)
+                collect!(argument,(path...,index))
+            end
+        elseif value isa Union{Tuple,AbstractArray}
+            for (index,argument) in enumerate(value)
+                collect!(argument,(path...,index))
+            end
+        end
+    end
+    collect!(point,())
+    return records
+end
+
 function _monte_carlo(point, formulation::MonteCarlo, options, seed, details_owner)
     clearance = point isa Gridpoint{Engine.LineParametersProblem} ?
                 DataModel.prepare_clearance(point) : nothing
+    physical_inputs=clearance===nothing ? nothing : Engine.completed_inputs(clearance.declaration[])
+    clearance===nothing || (clearance.declaration[]=nothing)
     try
-        return with_scan_progress(;total=formulation.options.data.trials) do receiver
+        aggregate = with_scan_progress(;total=formulation.options.data.trials) do receiver
             _monte_carlo(point, formulation, options, seed, details_owner, clearance,receiver)
         end
+        if physical_inputs===nothing
+            # Capture the nominal physical declaration once after successful
+            # sampling. A Monte Carlo builder need not accept first-order numbers.
+            declaration=realize(Random.Xoshiro(0),point,(_rng,mean,_sigma) -> mean)
+            physical_inputs=merge(Engine.completed_inputs(declaration),(interpretation=:nominal_declaration,))
+        end
+        physical_inputs=merge(physical_inputs,(uncertain_arguments=_uncertain_arguments(point),))
+        representation=Engine.retain_gridpoint(aggregate.representation,Grammar.gridpoint_id();
+            fields=merge(Engine.completed_formulation(formulation.inner),(inputs=physical_inputs,
+                uncertainty=(estimator=:empirical,representation=:marginal_mean_std))))
+        return merge(aggregate,(;representation))
     finally
         DataModel.warn_clearance_summary(clearance)
     end
@@ -373,6 +405,7 @@ function _monte_carlo(point, formulation::MonteCarlo, options, seed, details_own
 end
 
 function compute(problem::ParametricProblem, formulation::MonteCarlo)
+    source_id=Grammar.gridpoint_id().source_id
     Base.get_extension(LineCableModels, :LineCableModelsMeasurementsExt) === nothing &&
         throw(ArgumentError("MonteCarlo requires the Measurements extension to construct its result; " *
             "load it with `using Measurements` before compute"))
@@ -414,7 +447,7 @@ function compute(problem::ParametricProblem, formulation::MonteCarlo)
     retained = formulation.options.data.retain_details ?
                Vector{typeof(first_aggregate.details)}(undef, point_count) : nothing
 
-    values[1] = first_aggregate.representation
+    values[1] = Engine.retain_gridpoint(first_aggregate.representation,Grammar.gridpoint_id(;source_id))
     stats_values[1] = first_aggregate.statistics
     sample_values === nothing || (sample_values[1] = first_aggregate.samples)
     histogram_values === nothing ||
@@ -445,7 +478,8 @@ function compute(problem::ParametricProblem, formulation::MonteCarlo)
         typeof(aggregate.statistics) === eltype(stats_values) || throw(ArgumentError(
             "Monte Carlo points produced incompatible statistics product types",
         ))
-        values[index] = aggregate.representation
+        values[index] = Engine.retain_gridpoint(aggregate.representation,
+            Grammar.gridpoint_id(;source_id,problem_index=index))
         stats_values[index] = aggregate.statistics
         if sample_values !== nothing
             typeof(aggregate.samples) === eltype(sample_values) || throw(ArgumentError(

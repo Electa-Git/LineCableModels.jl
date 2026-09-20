@@ -17,9 +17,17 @@
     end
 
     constants=CableConstants(design)
-    base=DataFrame(observables(constants, (R, L, C, G)))
-    @test nrow(base) == 1
-    @test names(base) == ["core", "R", "L", "C", "G"]
+    observed=observables(constants,(R,L,C,G))
+    tables=LineCableModels.ReportBuilder.tabulate(observed).constants
+    @test keys(tables)==(:R,:L,:C,:G)
+    for (quantity,table) in zip((R,L,C,G),tables)
+        @test nrow(table)==1
+        @test names(table)==["assembly","value"]
+        @test table.value==observe(observed,quantity)
+    end
+    diagnostic=DataFrame(observed)
+    @test nrow(diagnostic)==4
+    @test names(diagnostic)==["gridpoint","quantity","index","value","unit"]
 
     design_display=sprint(show, MIME("text/plain"), design)
     @test contains(design_display, design.cable_id)

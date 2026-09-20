@@ -68,11 +68,11 @@ function render_gauntlet_report(source)
         selected=merge(record,(analyses=[analysis],))
         artifact=LCM.ReportBuilder.report(LCM.ReportBuilder.BenchmarkTableDefinition(),selected)
         println(io,"## ",record.id,"\n")
-        println(io,"Analysis: `",only(unique(feature.snapshot for feature in artifact.table.features)),"`.\n")
+        println(io,"Retained observations: ",length(artifact.observed isa LCM.ObservedResult ? [artifact.observed] : artifact.observed),".\n")
         println(io,"```@raw html")
         show(io,MIME"text/html"(),artifact)
         println(io,"\n```\n")
     end
-    println(io,"Historical RMS is rendered unchanged. For current comparisons, explicitly report the saved reference and candidate operands with a new definition. This requires no solver run.\n")
+    println(io,"Retained RMS is rendered without recalculation. Explicit comparison of the saved numerical operands creates a new analysis record without running a solver.\n")
     return String(take!(io))
 end

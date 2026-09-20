@@ -101,12 +101,14 @@ struct LineParameters{
             Basis,
             Q <: ComputationDetails
     }
-        return validate(new{T, U, D, Basis, Q}(
+        retained=haskey(details.data,:gridpoint) ? details :
+            completion_details(merge(details.data,(gridpoint=Grammar.gridpoint_id(),)))
+        return validate(new{T, U, D, Basis, typeof(retained)}(
             Z,
             Y,
             Vector{U}(f),
             domain,
-            details
+            retained
         ))
     end
 end

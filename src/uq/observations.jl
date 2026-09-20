@@ -355,51 +355,6 @@ function _monte_carlo_observables(selectors::Tuple)
     return (selectors..., products..., selected..., complex_samples...)
 end
 
-"""
-$(TYPEDSIGNATURES)
-
-Resolve retained X/B statistics, or their exact frequency-scaled L/C statistic
-when only that product was saved. This linear unit-bearing transformation does
-not infer a distribution, covariance, or missing statistical estimator.
-"""
-function observation_request(publication::ObservationPublication,
-        request::Tuple{typeof(statistics),Union{typeof(Engine.X),typeof(Engine.B)},Vararg})
-    identity=request_identity(request)
-    retained=any(contract -> any(stored -> request_identity(stored)==identity,
-        get(contract,:requests,())),values(publication.metadata.observation_columns))
-    retained && return invoke(observation_request,Tuple{ObservationPublication,Any},publication,request)
-    base=request[2] === Engine.X ? L : C
-    resolved=observation_request(publication,(statistics,base,Base.tail(Base.tail(request))...))
-    return (;identity,quantity=request_quantity(request),indices=resolved.indices)
-end
-
-function observe(publication::ObservationPublication, ::typeof(statistics),
-        selector::Union{typeof(Engine.X),typeof(Engine.B)}, transform::_StatisticSelector,
-        point::Integer=1, indices...)
-    identity=(statistics,selector,transform)
-    retained=any(contract -> any(stored -> request_identity(stored)==identity,
-        get(contract,:requests,())),values(publication.metadata.observation_columns))
-    retained && return invoke(observe,Tuple{ObservationPublication,Vararg{Any}},
-        publication,statistics,selector,transform,point,indices...)
-    base=selector === Engine.X ? L : C
-    observed=observe(publication,statistics,base,transform,point,indices...)
-    f=unique(publication.columns.frequency)
-    contract=get(publication.metadata.observation_columns,:frequency,nothing)
-    contract===nothing || (f=f.*Units.scale_factor(contract.unit,Units.units(:base,:hertz)))
-    all(value -> iszero(uncertainty(value)) && nominal(value)>=0,f) ||
-        throw(ArgumentError("deriving X/B statistics from retained L/C requires deterministic nonnegative frequencies; retain the target statistic directly for uncertain frequencies"))
-    f=nominal.(f)
-    sample=length(indices)==3 ? last(indices) : Colon()
-    angular=2π .* f[sample]
-    factor=angular isa AbstractArray ? reshape(angular,ntuple(_ -> 1,ndims(observed)-1)...,:) : angular
-    return observed .* factor
-end
-
-function observe(publication::ObservationPublication,
-        request::Tuple{typeof(statistics),Union{typeof(Engine.X),typeof(Engine.B)},_StatisticSelector,Vararg})
-    return observe(publication,request...)
-end
-
 function observables(
         ::Type{<:MonteCarloResult{T}}
 ) where {T <: Engine.CableConstants}
@@ -455,7 +410,9 @@ function observation_resolution(source::Union{MonteCarloResult,LinearErrorResult
     if !(identity isa Tuple && length(identity) == 3 && first(identity) === statistics)
         return observation_resolution(nothing, request; atol, frequencies)
     end
-    point, indices = _statistics_point(request)
+    indices = request_indices(request)
+    isempty(indices) && throw(ArgumentError("a UQ resolution request requires an explicit point index"))
+    point,indices=first(indices),Base.tail(indices)
     core = source[point]
     core isa Engine.LineParameters || return observation_resolution(nothing, request; atol, frequencies)
     f = observe(source, LineCableModels.frequencies, point)
@@ -489,23 +446,11 @@ function detach(summary::SampleSummary, factor)
     )
 end
 
-function detach(summary::SampleSummary, factor, clip::Bool)
-    return detach(summary, factor)
-end
-
 function detach(
         summaries::AbstractArray{<:SampleSummary},
         factor
 )
     return map(summary -> detach(summary, factor), summaries)
-end
-
-function detach(
-        summaries::AbstractArray{<:SampleSummary},
-        factor,
-        clip::Bool
-)
-    return map(summary -> detach(summary, factor, clip), summaries)
 end
 
 function detach(histogram::HistogramDensity, factor)

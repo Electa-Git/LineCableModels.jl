@@ -16,6 +16,7 @@ import LineCableModels
 import LineCableModels: compute
 import LineCableModels.DataModel
 import LineCableModels.Earth
+import LineCableModels.Grammar
 import LineCableModels.Engine
 import LineCableModels.ImportExport
 using LineCableModels.Grammar: computation_options, ComputationOptions, ComputationDetails

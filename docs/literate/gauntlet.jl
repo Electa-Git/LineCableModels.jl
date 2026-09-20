@@ -56,29 +56,28 @@
 # \mathrm{RMS}_{\mathrm{pointwise}}=100\sqrt{\frac1N\sum_k\left|\frac{B_k-A_k}{A_k}\right|^2}.
 # ```
 #
-# Absolute RMS retains the measured difference. No denominator floor is applied.
-# Both operands must exceed the reporting resolution at every selected sample.
-# Otherwise relative RMS is missing for either normalization, with a per-term
-# reason and absolute RMS; samples are never silently omitted.
+# Both RMS metrics use the original operands only when every selected sample is
+# available and passes the shared engineering-zero classifier. Otherwise both
+# metrics are missing with a per-term reason; samples are never silently omitted.
+# No denominator floor is applied.
 # Defaults are 1e-10 Ω/m for R, 1e-15 H/m for L, 1e-12 S/m for G and 1e-16 F/m
-# for C. X/B thresholds follow 2πfL/2πfC; Z/Y follow R + 2πfL and G + 2πfC. Explicit `atol` overrides
-# belong to the comparison request. Empty bands and unsupported quantities retain
-# their separate reasons. No error threshold is imposed by artifact acceptance.
+# for C. X/B thresholds follow 2πf times the L/C cutoffs. Z/Y are engineering zero
+# only when both Cartesian components satisfy their respective cutoffs; no summed
+# complex cutoff is used. Explicit `atol` overrides belong to the comparison
+# request. Empty bands and unsupported quantities retain their separate reasons.
+# No error threshold is imposed by artifact acceptance.
 #
-# These are native-unit reporting cutoffs, not certified floating-point forward-error
-# bounds. The corresponding `:total` defaults use Ω, H, S and F; they do not infer a
-# line length. Equivalent per-length/total comparisons require correspondingly
-# scaled explicit cutoffs. Absolute RMS uses unchanged raw values even when relative
-# RMS is missing. A missing whole-band KPI does not remove a significant part of
-# that band's plotted curve.
+# These are reporting cutoffs, not certified forward-error bounds. Total-unit
+# defaults scale by the retained physical length; otherwise explicit cutoffs are
+# required. One ineligible operand sample makes both RMS metrics missing for that
+# coefficient and band. Eligible small and zero RMS errors remain valid. A missing
+# whole-band metric does not remove significant samples from a plotted curve.
 #
-# New analyses retain their resolution revision, effective cutoffs and per-operand
-# unresolved-sample counts. The existing analysis identity includes these semantics,
-# without changing any calculation identity. Historical/unversioned RMS remains
-# readable as recorded; `compare_saved` explicitly creates current analysis from
-# saved operands without a solver run. Reading or plotting never silently rewrites
-# old errors. Report tables expose the revision; plots warn when historical RMS and
-# current observation resolution differ.
+# Observations retain actual cutoffs, units, original identities, missing reasons,
+# and completed comparison settings. Explicit `compare_saved` calls create fresh
+# records from saved numerical operands without a solver run. Inspection reads
+# retained observations. There are no policy generations or historical-policy
+# compatibility branches.
 #
 # Report bands overlap: near DC is 0.1–100 Hz, the default harmonic range is
 # 50–2500 Hz, narrowband is 1 kHz–1 MHz, and wideband is strictly above 1 MHz.
@@ -98,11 +97,11 @@
 # # benchmark = only(read_campaign("/path/to/vault/accepted"))
 # artifact = report(BenchmarkTableDefinition(), benchmark)
 # display(artifact)             # Compact published-summary layout in the REPL
-# artifact.table.features      # Quantity/statistic DataFrames, bands side by side
-# artifact.table.overview      # Compact coverage, performance and sampling tables
-# artifact.table.formulations
-# artifact.table.maxima
-# artifact.table.terms
+# artifact.tables.features      # Quantity/statistic DataFrames, bands side by side
+# artifact.tables.overview      # Compact coverage, performance and sampling tables
+# artifact.tables.formulations
+# artifact.tables.maxima
+# artifact.tables.terms
 #
 # using GLMakie
 # plots = LineCableModels.plot(artifact; ydata=(Z, Y))
@@ -116,7 +115,7 @@
 # Multiple problem points require an explicit `problem` selection. Equal numerical
 # curves remain separate formulation choices. UQ mean/std errors remain separate
 # statistics, with the same selectable frequency bands and physical resolution as
-# deterministic quantities. `artifact.table.features` contains numeric formula-by-band
+# deterministic quantities. `artifact.tables.features` contains numeric formula-by-band
 # absolute/relative DataFrames; `statistics` retains available UQ summaries and
 # `sampling` records finite-sample precision separately from physical spread.
 # Execution/native timings and controlled performance samples are available in
@@ -175,7 +174,7 @@
 # metadata when they lack it. Different constitutive laws and formulations are
 # legitimate comparisons. Two result spaces need explicit reference/candidate pairing.
 #
-# `artifact.published` retains unformatted scientific products. Report display and
+# `artifact.observed` retains unformatted scientific products. Report display and
 # the standard page show compact summaries; complete RMS matrices and per-term data
 # remain in the detailed tables. Selecting saved products does not recalculate RMS.
 # An unrecorded band or changed tolerance requires explicit reanalysis of raw operands.

@@ -2,7 +2,7 @@
     using LineCableModels.ReportBuilder: BenchmarkTableDefinition, tabulate
     using DataFrames
     definition=BenchmarkTableDefinition()
-    @test all(isempty, values(tabulate(definition, nothing)))
+    @test all(isempty, values(LineCableModels.ReportBuilder._timing_tables(nothing)))
     source=(backend = :pscad, scope = :compile_call, seconds = 0.0328,
         excludes = (:output_readiness, :transfer), reused = false)
     execution=(
@@ -26,7 +26,7 @@
                 calculation = (input = "candidate workload", trials = 0))),
         speedup = 10.0, comparable = false,
         settings = (samples = 3, seconds = 20.0))
-    tables=tabulate(definition,
+    tables=LineCableModels.ReportBuilder._timing_tables(
         (execution = execution, performance = performance,
             checksum_verified=missing,workload_verified=true,session=(id="original",)))
     @test tables.execution.reused[1]===true
@@ -44,11 +44,6 @@
     @test !only(tables.performance_comparison.comparable)
     @test propertynames(tables.performance_comparison)==
         [:reference_over_candidate,:comparable,:requested_samples,:time_budget_seconds]
-    # Historical verdict fields remain readable but add no acceptance columns.
-    legacy=merge(performance,(passes=false,
-        settings=merge(performance.settings,(minimum_speedup=20.0,))))
-    @test isequal(tabulate(definition,(performance=legacy,)).performance_comparison,
-        tables.performance_comparison)
     @test only(tables.performance_comparison.requested_samples)==3
     @test size(tables.performance_samples, 1)==2
     # Counts retain their measurement meaning: timed repetitions, not MC trials.
@@ -62,9 +57,9 @@
     artifact=report(BenchmarkTableDefinition((R,);bands=(:all,:dc)),
         (reference=parameters,candidate=parameters,
             measurements=(;execution,performance)))
-    overview=artifact.table.overview
+    overview=artifact.tables.overview
     @test overview.performance.median_seconds==[10.,1.]
-    @test overview.performance.timed_calls==[1,1]
+    @test overview.performance.samples==[1,1]
     @test overview.execution.seconds==[12.,4.]
     @test overview.execution.reused[1]===true
     @test only(overview.timing_ratio.reference_over_candidate)==10.

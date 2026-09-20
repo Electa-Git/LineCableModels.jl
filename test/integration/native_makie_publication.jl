@@ -53,17 +53,23 @@
 
     @test_throws ArgumentError Makie.plot(parameters, (R, 1, 1, :);
         frequencies=frequency .* 2, options...)
-    @test_throws DimensionMismatch Makie.plot(parameters,
+    @test_throws ArgumentError Makie.plot(parameters,
         ((R, 1, 1, 1:2), (R, 2, 2, 2:3)); options...)
     @test_throws BoundsError Makie.plot(parameters, (R, 3, 1, :); options...)
     @test_throws DimensionMismatch Makie.plot(SeriesImpedance(impedance),
         frequency[1:2], R; options...)
     @test_throws ArgumentError Makie.plot(ShuntAdmittance(admittance),
         [10.0, 100.0, Inf, 10_000.0], G; options...)
-    @test_throws DomainError Makie.plot(SeriesImpedance(impedance),
-        [0.0, 100.0, 1000.0, 10_000.0], L; options...)
-    @test_throws DomainError Makie.plot(ShuntAdmittance(admittance),
-        [0.0, 100.0, 1000.0, 10_000.0], C; options...)
+    for (source,selector) in ((SeriesImpedance(impedance),L),(ShuntAdmittance(admittance),C))
+        page=Makie.plot(source,[0.0,100.0,1000.0,10_000.0],selector;options...)
+        retained=observe(only(page.addon_state.observed),selector)
+        @test all(ismissing,retained[:,:,1])
+        @test all(isfinite,retained[:,:,2:end])
+        for axis in page.axes
+            curve=only(filter(item -> item isa Makie.Lines,axis.scene.plots))
+            @test isnan(last(first(curve[1][])))
+        end
+    end
 
     residue = fill(complex(eps(Float64) / 2, 1.0), 1, 1, 4)
     source = SeriesImpedance(residue)

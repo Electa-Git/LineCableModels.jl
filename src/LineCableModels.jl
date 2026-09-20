@@ -21,6 +21,7 @@ export AbstractParametricResult, AbstractUncertaintyResult
 export FormulationOptions, ComputationOptions, ComputationDetails
 export formulation_options, computation_options, computation_details, details
 export compute, observe, @observe, observables
+export ObservedResult
 export quantity, native_unit, display_unit, scale_factor, label, symbol
 export basis, domain, frequencies, nconductors, nfrequencies, ncables, nphases
 export Z, Y, R, X, L, G, B, C
@@ -110,7 +111,7 @@ using .Grammar:
                 AbstractParametricResult, AbstractUncertaintyResult,
                 FormulationOptions, ComputationOptions, ComputationDetails,
                 formulation_options, computation_options, computation_details, details,
-                compute, observe, @observe, observables
+                compute, observe, @observe, observables, ObservedResult
 using .Grammar: FormulaDefinition, FormulaMethod
 include("formulas.jl")
 

@@ -25,9 +25,9 @@
     model = extension._resolved_fem_model(problem, formulation)
     inputs = extension._fem_input_record(model, formulation, computation_options(LineCableModelsFEM, ComputationOptions(formulation_controls)))
     @test inputs.schema_version == 7
-    @test inputs.getdp_provenance.source === :explicit
-    @test inputs.getdp_provenance.artifact_hash === nothing
-    @test isfile(inputs.getdp_provenance.path)
+    @test inputs.getdp_selection.source === :explicit
+    @test inputs.getdp_selection.artifact_hash === nothing
+    @test isfile(inputs.getdp_selection.path)
     @test !hasproperty(inputs.getdp_identity, :path)
     @test occursin(r"Version\s*:\s*3\.5\.0", inputs.getdp_identity.info)
     @test occursin("PETSc", inputs.getdp_identity.info)
@@ -197,8 +197,8 @@
             first_record = extension._fem_input_record(model, configured, computation_options(LineCableModelsFEM, ComputationOptions(configured_controls)))
             write(executable, "#!/bin/sh\necho 'GetDP Version 3.6.0 fixture B'\n")
             second_record = extension._fem_input_record(model, configured, computation_options(LineCableModelsFEM, ComputationOptions(configured_controls)))
-            @test first_record.getdp_provenance.path == second_record.getdp_provenance.path
-            @test first_record.getdp_provenance.source === :explicit
+            @test first_record.getdp_selection.path == second_record.getdp_selection.path
+            @test first_record.getdp_selection.source === :explicit
             @test first_record.getdp_identity.sha256 != second_record.getdp_identity.sha256
             @test first_record.getdp_identity.info != second_record.getdp_identity.info
 
@@ -209,7 +209,7 @@
             relocated_controls = (getdp_executable=environment, gmsh_verbosity=0,)
             relocated_inputs = extension._fem_input_record(model, relocated, computation_options(LineCableModelsFEM, ComputationOptions(relocated_controls)))
             @test relocated_inputs.getdp_identity == second_record.getdp_identity
-            @test relocated_inputs.getdp_provenance.path != second_record.getdp_provenance.path
+            @test relocated_inputs.getdp_selection.path != second_record.getdp_selection.path
             relocation_run = extension._create_run(root)
             extension._prepare_run_inputs!(relocation_run, model)
             extension._write_json_atomic(

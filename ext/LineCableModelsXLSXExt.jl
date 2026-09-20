@@ -11,10 +11,6 @@ import XLSX
 
 function ReportBuilder.write(
         ::ReportBuilder.XLSXReportDefinition,
-        ::Engine.LineParameters,
-        ::Any,
-        ::Any,
-        ::Nothing,
         encoded::ReportBuilder.XLSXWorkbook
 )
     XLSX.openxlsx(encoded.destination, mode = "w") do workbook
@@ -28,11 +24,15 @@ function ReportBuilder.write(
             end
             for cell in CartesianIndices(sheet.cells)
                 value = sheet.cells[cell]
-                isempty(value) || (worksheet[cell[1], cell[2]] = value)
+                ismissing(value) || (worksheet[cell[1], cell[2]] = value)
             end
         end
     end
     return encoded.destination
+end
+
+function ReportBuilder.write(definition::ReportBuilder.XLSXReportDefinition, books::AbstractVector{<:ReportBuilder.XLSXWorkbook})
+    return [ReportBuilder.write(definition,book) for book in books]
 end
 
 end # module LineCableModelsXLSXExt

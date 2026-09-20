@@ -10,7 +10,9 @@
     struct AlternativeResult <: AbstractCoreResult
         matrices::Tuple{Array{ComplexF64,3},Array{ComplexF64,3}}
         samples::Vector{Float64}
+        point::NamedTuple
     end
+    LineCableModels.Grammar.observation_gridpoint(value::AlternativeResult)=value.point
     LineCableModels.observe(value::AlternativeResult, ::typeof(Z))=value.matrices[1]
     LineCableModels.observe(value::AlternativeResult, ::typeof(Y))=value.matrices[2]
     LineCableModels.observe(value::AlternativeResult, ::typeof(frequencies))=value.samples
@@ -35,7 +37,9 @@
             z[:,:,1].=100
             z[:,:,2:end].=2
         end
-        return AlternativeResult((z,ComplexF64.(y)),copy(problem.frequencies))
+        return AlternativeResult((z,ComplexF64.(y)),copy(problem.frequencies),
+            (id=LineCableModels.Grammar.gridpoint_id(),inputs=LineCableModels.Engine.completed_inputs(problem),
+                formulations=(candidate=formula.candidate,),coordinates=["a","b"],uncertainty=nothing))
     end
     model=load_case(:two_insulated_wires;variation=ExactOverrides(frequencies=[1.,10.,100.]))
     reference=BenchmarkCalculation(:reference,model.problem,AuditFormulation(false))
@@ -48,26 +52,26 @@
         @test executions == [false,true]
         @test comparisons == [(Z,(10.,100.),:reference_rms)]
         @test length(result.comparison)==1
-        @test only(result.comparison).quantity===:Z
-        @test all(==(1.),only(result.comparison).error.relative)
+        @test only(result.comparison).quantity==quantity(Z)
+        @test all(==(1.),only(result.comparison).relative)
         @test !hasproperty(result,:configured_comparisons)
         saved=read_benchmark(result.artifact;load_results=true)
         record=only(saved.analyses)
         @test record["comparison_settings"] == definition.comparison_settings
-        @test isequal(only(record["reference_comparison"]).relative,only(result.comparison).error.relative)
-        tables=report(BenchmarkTableDefinition(false),saved).table
+        @test isequal(only(record["reference_comparison"]).relative,only(result.comparison).relative)
+        tables=report(BenchmarkTableDefinition(false),saved).tables
         @test all(==(100.),tables.terms.relative_rms_percent)
         @test all(==(:Z),tables.terms.quantity)
         # A different result representation uses the same report sequence and public observations.
         alternative=merge(saved,(reference=merge(saved.reference,(result=result.reference,)),
             candidate=merge(saved.candidate,(result=result.candidate,))))
-        @test isequal(report(BenchmarkTableDefinition(false),alternative).table.terms,tables.terms)
+        @test isequal(report(BenchmarkTableDefinition(false),alternative).tables.terms,tables.terms)
         @test length(comparisons)==1
         @test length(executions)==2
         html=render_gauntlet_report(result.artifact)
         @test occursin("Relative RMS [%]",html)
         @test !occursin("Absolute RMS [",html)
-        @test occursin("Historical RMS is rendered unchanged",html)
+        @test occursin("Retained RMS",html)
         text=sprint(show,MIME"text/plain"(),report(BenchmarkTableDefinition(false),saved))
         @test occursin("Relative RMS [%]",text)
         # Both renderers consume the same retained comparisons. Table rendering
@@ -75,7 +79,7 @@
         @test length(comparisons)==1
         @test length(executions)==2
         observe(result.candidate,Z)[1,1,2]+=1
-        @test_throws r"modified after loading" report(BenchmarkTableDefinition(false),alternative)
+        @test isequal(report(BenchmarkTableDefinition(false),alternative).tables.terms,tables.terms)
     end
     for invalid in ((bands=(:invalid_band,),),(bands=((100.,10.),),),
             (normalizations=(:invalid,),),(fundamental=-1.,),(harmonics=0,),

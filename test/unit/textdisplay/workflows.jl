@@ -211,7 +211,7 @@ end
     using DataFrames
     const RB = LineCableModels.ReportBuilder
     calls = Ref(0)
-    illustration = published -> begin
+    illustration = observed -> begin
         calls[] += 1
         :illustration
     end
@@ -222,8 +222,9 @@ end
     mc = RB.MonteCarloTableDefinition(:kilo, nothing, false)
     table = DataFrame(R = [1.0, 2.0], L = [3.0, 4.0])
     original = copy(table)
-    artifact = ReportArtifact(:published, table, nothing, nothing)
-    illustrated_artifact = ReportArtifact(:published, table, :illustration, :destination)
+    observed=ObservedResult(LineParameters(fill(1.0+2im,1,1,2),fill(3.0+4im,1,1,2),[1.,2.]))
+    artifact=ReportArtifact(observed,nothing,table,nothing,nothing)
+    illustrated_artifact=ReportArtifact(observed,nothing,table,:illustration,:destination)
 
     mktempdir() do directory
         destination = joinpath(directory, "not-written.xlsx")

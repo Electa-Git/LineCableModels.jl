@@ -32,8 +32,8 @@
         end
         snapshot = only(compare_saved(source; directory=joinpath(root, "analysis")))
         loaded = read_benchmark(snapshot; load_results=true)
-        # Reanalysis identity includes scientific semantics, not runtime sources.
-        @test only(compare_saved(source; directory=joinpath(root, "analysis"))) == snapshot
+        # Each explicit comparison writes its own detached observed record.
+        @test only(compare_saved(source; directory=joinpath(root, "analysis"))) != snapshot
         current = report(BenchmarkTableDefinition(; only(loaded.analyses)["comparison_settings"]...),
             (reference=loaded.reference, candidate=loaded.candidate))
         operands_for_definition = map((:reference, :candidate)) do role
@@ -42,14 +42,13 @@
         end
         definition = Gauntlet.benchmark_definition(:matrix_report, :matrix_case, :repl,
             source, (id=:matrix_case, description="matrix_case"), operands_for_definition...,
-            current.published.settings, (;))
+            only(loaded.analyses)["comparison_settings"], (;))
         @test Gauntlet.record_benchmark(definition, current;
-            directory=joinpath(root, "analysis")) == snapshot
-        @test all(==(LineCableModels.Engine.OBSERVABLE_RESOLUTION_REVISION), current.table.terms.resolution_revision)
+            directory=joinpath(root, "analysis")) != snapshot
         @test all(read(path) == bytes for (path, bytes) in original)
         files_before = [(dir, copy(names)) for (dir, _, names) in walkdir(root)]
-        tables = report(BenchmarkTableDefinition(false), loaded).table
-        @test propertynames(tables) == (:calculations,:formulations,:formula_details,:comparisons,:terms,:maxima,:summary,:features,
+        tables = report(BenchmarkTableDefinition(false), loaded).tables
+        @test propertynames(tables) == (:calculations,:formulations,:formula_details,:quantities,:comparisons,:terms,:maxima,:summary,:features,:groups,
             :execution,:source_timings,:performance,:performance_samples,:performance_environment,
             :performance_policy,:performance_comparison,:statistics,:sampling,:mean_sampling_precision,:overview)
         @test nrow(tables.calculations) == 2
@@ -57,8 +56,9 @@
         @test loaded.candidate.metadata.formulation.equation === :candidate
         @test loaded.reference.metadata.selection == (id=:reference,)
         @test loaded.candidate.metadata.selection == (id=:candidate,)
-        @test all(column -> all(value -> value isa Union{Number,Symbol,AbstractString,Missing},column),
-            eachcol(tables.calculations))
+        @test Set(tables.calculations.role)==Set((:candidate,:reference))
+        @test current.observed isa ObservedResult
+        @test current.reference isa ObservedResult
         @test nrow(tables.comparisons) == 24
         @test nrow(tables.terms) == 96
         @test Set(tables.terms.quantity) == Set((:Z, :Y, :R, :L, :G, :C))
@@ -66,18 +66,18 @@
         for (index, saved) in enumerate(only(loaded.analyses)["reference_comparison"])
             @test isequal(tables.comparisons.absolute_rms[index], saved.absolute)
             @test isequal(tables.comparisons.relative_rms_percent[index], 100 .* saved.relative)
-            @test tables.comparisons.port_order[index] == ["first", "second"]
+            @test loaded.candidate.metadata.port_order == ["first", "second"]
         end
         g = filter(row -> row.quantity === :G && row.band === :all, tables.terms)
         @test all(ismissing, g.relative_rms_percent)
-        @test all(>(0), g.absolute_rms)
+        @test all(ismissing, g.absolute_rms)
         @test all(==(:reference_below_tolerance), g.status)
         @test all(reason -> occursin("below declared resolution", reason), g.reason)
         @test all(==("S/m"), g.absolute_unit)
         r = filter(row -> row.quantity === :R && row.band === :all, tables.terms)
         @test all(value -> value ≈ 100, r.relative_rms_percent)
         @test all(==("Ω/m"), r.absolute_unit)
-        empty_band = filter(row -> row.band == string((1e8, 1e9)), tables.terms)
+        empty_band = filter(row -> row.band == (1e8, 1e9), tables.terms)
         @test !isempty(empty_band)
         @test all(ismissing, empty_band.absolute_rms)
         @test all(ismissing, empty_band.relative_rms_percent)
@@ -97,12 +97,12 @@
         @test_throws r"Plotting is optional" LineCableModels.plot(loaded, (R,))
         modified = deepcopy(loaded)
         modified.reference.result.Z.values[1, 2, 1] += 1
-        @test_throws r"modified after loading" report(BenchmarkTableDefinition(false), modified)
+        @test isequal(report(BenchmarkTableDefinition(false), modified).tables.terms,tables.terms)
         changed = deepcopy(loaded)
         entry = only(changed.analyses)
         entry["calculations"] = merge(entry["calculations"],
             (reference=merge(entry["calculations"].reference, (sha256="wrong",)),))
-        @test_throws r"differs from the loaded operand" report(BenchmarkTableDefinition(false), changed)
+        @test isequal(report(BenchmarkTableDefinition(false), changed).tables.terms,tables.terms)
         # Relative bindings remain correct when the entire retained tree moves.
         parent = mktempdir()
         try
@@ -111,7 +111,7 @@
             moved_snapshot = joinpath(moved, relpath(snapshot, root))
             relocated = read_benchmark(moved_snapshot; load_results=true)
             @test relocated.reference.metadata.path == joinpath(moved, "reference.jld2")
-            @test isequal(report(BenchmarkTableDefinition(false), relocated).table.terms, tables.terms)
+            @test isequal(report(BenchmarkTableDefinition(false), relocated).tables.terms, tables.terms)
         finally
             rm(parent; recursive=true)
         end

@@ -45,7 +45,7 @@ function serialize_value(selector::Function)
     selector in (
         Engine.Z, Engine.Y, Engine.R, Engine.X, Engine.L, Engine.G, Engine.B, Engine.C,
         frequencies, UQ.statistics, UQ.samples, UQ.histograms, Statistics.mean, Statistics.std,
-        Statistics.median, minimum, maximum, abs, angle) || throw(ArgumentError(
+        Statistics.median, minimum, maximum, abs, angle, LinearAlgebra.diag) || throw(ArgumentError(
         "no portable scientific selector codec for $selector"))
     return Dict("__type__"=>"Observable", "name"=>string(nameof(selector)))
 end
@@ -57,7 +57,7 @@ function deserialize_extension(::Val{:Observable}, record)
     selectors=(
         Engine.Z, Engine.Y, Engine.R, Engine.X, Engine.L, Engine.G, Engine.B, Engine.C,
         frequencies, UQ.statistics, UQ.samples, UQ.histograms, Statistics.mean, Statistics.std,
-        Statistics.median, minimum, maximum, abs, angle)
+        Statistics.median, minimum, maximum, abs, angle, LinearAlgebra.diag)
     selected=filter(selector -> string(nameof(selector)) == record["name"], selectors)
     length(selected)==1 || throw(ArgumentError("unknown saved scientific selector"))
     return only(selected)
@@ -90,10 +90,12 @@ function serialize_value(value::LineParameters)
         "coordinates"=>serialize_value(get(retained, :coordinates, nothing)),
         "formulations"=>serialize_value(get(retained, :formulations, nothing), Val(:scientific)),
         "shunt_model"=>serialize_value(get(retained, :shunt_model, nothing),Val(:scientific)),
-        "comparison_unsupported"=>serialize_value(get(retained, :comparison_unsupported, (;))))
+        "comparison_unsupported"=>serialize_value(get(retained, :comparison_unsupported, (;))),
+        "gridpoint_description"=>serialize_value((; (key=>retained[key] for key in
+            (:inputs,:gridpoint,:selections,:formulation_labels,:uncertainty,:modal) if haskey(retained,key))...),Val(:scientific)))
 end
 function deserialize_extension(::Val{:LineParameters}, record)
-    record["domain"] == "PhaseDomain" ||
+    record["domain"] in ("PhaseDomain","ModalDomain") ||
         throw(ArgumentError("unsupported saved result domain"))
     coordinates=deserialize_value(get(record, "coordinates", nothing))
     unsupported=deserialize_value(get(record, "comparison_unsupported", Dict()))
@@ -105,9 +107,11 @@ function deserialize_extension(::Val{:LineParameters}, record)
     shunt_model=deserialize_value(get(record,"shunt_model",nothing))
     shunt_model === nothing || (detail=merge(detail,
         NamedTuple{(:shunt_model,),Tuple{NamedTuple}}((shunt_model,))))
+    retained_description=deserialize_value(get(record,"gridpoint_description",serialize_value((;),Val(:scientific))))
+    detail=merge(detail,retained_description)
     return LineParameters(
-        Engine.PhaseDomain, deserialize_value(record["Z"]), deserialize_value(record["Y"]),
-        deserialize_value(record["frequencies"]); basis = Symbol(record["basis"]), details = LineCableModels.ComputationDetails(detail))
+        getfield(Engine,Symbol(record["domain"])), deserialize_value(record["Z"]), deserialize_value(record["Y"]),
+        deserialize_value(record["frequencies"]); basis = Symbol(record["basis"]), details = Engine.completion_details(detail))
 end
 
 function serialize_value(value::Engine.CableConstants)
@@ -119,13 +123,9 @@ function serialize_value(value::Engine.CableConstants)
 end
 function deserialize_extension(::Val{:CableConstants},record)
     retained=deserialize_value(record["details"])
-    haskey(retained,:shunt_model) && (retained=merge(retained,
-        NamedTuple{(:shunt_model,),Tuple{NamedTuple}}((retained.shunt_model,))))
-    haskey(retained,:formulations) && (retained=merge(retained,
-        NamedTuple{(:formulations,),Tuple{NamedTuple}}((retained.formulations,))))
     return Engine.CableConstants(Symbol.(deserialize_value(record["cores"])),
         (deserialize_value(record[key]) for key in ("R","L","C","G","frequency"))...,
-        ComputationDetails(retained))
+        Engine.completion_details(retained))
 end
 
 """
@@ -193,19 +193,15 @@ function deserialize_extension(kind::Union{Val{:MonteCarloResult}, Val{:LinearEr
     if !isempty(retained)
         if kind isa Val{:LinearErrorResult}
             records=map(retained.points,points) do detail,point
-                if point isa Union{Engine.CableConstants,LineParameters} && haskey(detail,:shunt_model)
-                    detail=merge(detail,NamedTuple{(:shunt_model,),Tuple{NamedTuple}}((detail.shunt_model,)))
-                end
-                ComputationDetails(detail)
+                point isa Union{Engine.CableConstants,LineParameters} ?
+                    Engine.completion_details(detail) : ComputationDetails(detail)
             end
             retained=(points=records,)
         else
             records=map(retained.trials,points) do trials,point
                 map(trials) do detail
-                    if point isa Union{Engine.CableConstants,LineParameters} && haskey(detail,:shunt_model)
-                        detail=merge(detail,NamedTuple{(:shunt_model,),Tuple{NamedTuple}}((detail.shunt_model,)))
-                    end
-                    ComputationDetails(detail)
+                    point isa Union{Engine.CableConstants,LineParameters} ?
+                        Engine.completion_details(detail) : ComputationDetails(detail)
                 end
             end
             retained=merge(retained,(trials=records,))

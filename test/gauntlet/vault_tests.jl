@@ -22,8 +22,8 @@
         @test read(joinpath(campaign,"sibling","state.toml"))==sibling_state
         @test !rerun.result.timings.execution.reference.reused
         retained_draft=read_benchmark(joinpath(campaign,"accepted"))
-        restored_labels=report(BenchmarkTableDefinition(),retained_draft).table.formulations.label
-        @test restored_labels==rerun.result.report.table.formulations.label
+        restored_labels=report(BenchmarkTableDefinition(),retained_draft).tables.formulations.label
+        @test restored_labels==rerun.result.report.tables.formulations.label
         @test retained_draft.reference.metadata.repository.commit == repository_revision().commit
         @test retained_draft.reference.metadata.active_project == Base.active_project()
         @test isempty(retained_draft.reference.metadata.implementation)
@@ -93,7 +93,7 @@
         @test read(bindings)==before
         rm(campaign;recursive=true)
         restored=only(read_campaign(bundle.path))
-        @test length(report(BenchmarkTableDefinition(),restored).published.comparisons)==60
+        @test size(report(BenchmarkTableDefinition(),restored).tables.comparisons,1)==60
         extra=joinpath(bundle.path,"unexpected");Base.write(extra,"unexpected")
         @test_throws r"unexpected" read_campaign(bundle.path)
         rm(extra)

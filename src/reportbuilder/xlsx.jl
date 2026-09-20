@@ -1,211 +1,108 @@
 """
 $(TYPEDEF)
 
-Write the human-facing line-parameter workbook produced by [`report`](@ref).
-
-`file_name` follows the established XLSX export path rules. When
-`cable_system` is supplied, its system identifier prefixes the output name.
+Write one workbook per gridpoint and retained quantity. `file_name` supplies a
+path prefix. Numeric values and standard deviations occupy separate sheets.
 
 $(TYPEDFIELDS)
 """
-struct XLSXReportDefinition{
-    F <: Union{Nothing, String}, C <: Union{Nothing, DataModel.LineCableSystem}} <:
-       AbstractReportDefinition
-    "Requested workbook path, or `nothing` for the default path."
-    file_name::F
-    "Optional cable system used to prefix the workbook name."
-    cable_system::C
-    "Whether detached display residue is replaced with exact zero."
+struct XLSXReportDefinition <: AbstractReportDefinition
+    "Requested output path prefix, or nothing for observed.xlsx."
+    file_name::Union{Nothing,String}
+    "Optional system name used only when constructing output filenames."
+    system_id::Union{Nothing,String}
+    "Engineering recentering for raw-input construction."
     clip::Bool
 end
-
-function XLSXReportDefinition(;
-        file_name::Union{Nothing, AbstractString} = nothing,
-        cable_system::Union{Nothing, DataModel.LineCableSystem} = nothing,
-        clip::Bool = true
-)
-    path = file_name === nothing ? nothing : String(file_name)
-    return XLSXReportDefinition(path, cable_system, clip)
+function XLSXReportDefinition(;file_name=nothing,cable_system=nothing,clip::Bool=true)
+    return XLSXReportDefinition(file_name===nothing ? nothing : String(file_name),
+        cable_system===nothing ? nothing : String(cable_system.system_id),clip)
 end
 
 """
 $(TYPEDEF)
 
-Hold the name and fully encoded cell grid for one workbook sheet.
+An encoded sheet with numeric cells and textual headings.
 
 $(TYPEDFIELDS)
 """
 struct XLSXSheet
-    "Workbook sheet name."
+    "Worksheet name."
     name::String
-    "Encoded cells indexed by worksheet row and column."
-    cells::Matrix{String}
+    "Numeric cells, textual metadata, or missing cells."
+    cells::Matrix{Any}
 end
-
 """
 $(TYPEDEF)
 
-Describe one XLSX workbook without depending on XLSX.jl.
+A workbook ready for the XLSX writer.
 
 $(TYPEDFIELDS)
 """
 struct XLSXWorkbook
-    "Absolute caller-owned output path."
+    "Absolute output path."
     destination::String
-    "Sheets in workbook order."
+    "Sheets in output order."
     sheets::Vector{XLSXSheet}
-end
-
-function select(definition::XLSXReportDefinition, source::Engine.LineParameters)
-    line_definition = _line_definition(
-        (
-            @observe(R[:, :, :]),
-            @observe(X[:, :, :]),
-            @observe(G[:, :, :]),
-            @observe(B[:, :, :])
-        ),
-        :base,
-        :kilo,
-        nothing,
-        definition.clip
-    )
-    return select(line_definition, source)
-end
-function tabulate(::XLSXReportDefinition, source::Engine.LineParameters, selected)
-    return DataFrame(selected)
-end
-function _family_columns(table::DataFrame, family::Val)
-    contract = observation_columns(table)
-    return Tuple(name
-    for (name, entry) in pairs(contract)
-    if applicable(Units.family, entry.quantity) &&
-       Units.family(entry.quantity) === family)
-end
-
-function _is_diagonal(table::DataFrame, quantity_columns::Tuple)
-    isempty(quantity_columns) && throw(ArgumentError(
-        "workbook family has no observed quantity columns",
-    ))
-    off_diagonal = table.row .!= table.column
-    return all(quantity_columns) do quantity
-        all(iszero, table[off_diagonal, quantity])
-    end
 end
 
 """
 $(TYPEDSIGNATURES)
 
-Encode one value for a cell in an [`XLSXWorkbook`](@ref).
-
-External value owners may add narrow methods for their scalar types.
+Convert a spreadsheet number to Float64. Reject nonfinite values, overflow, and
+nonzero underflow. Native persistence retains original precision and uncertainty
+dependencies; spreadsheets contain nominal values and standard deviations.
 """
-encode_cell(::XLSXReportDefinition, value) = string(value)
-encode_cell(::XLSXReportDefinition, ::Missing) = ""
-encode_cell(::XLSXReportDefinition, value::Real) = @sprintf("%.12g", float(value))
+function encode_cell(::XLSXReportDefinition,value::Real)
+    number=Float64(value)
+    isfinite(number) && (iszero(number) ? iszero(value) : true) ||
+        throw(ArgumentError("value cannot be represented as a finite non-underflowing XLSX number"))
+    return number
+end
+encode_cell(::XLSXReportDefinition,value::Complex) = throw(ArgumentError("XLSX quantities require retained real components; select real-valued primary or statistical products"))
+encode_cell(::XLSXReportDefinition,::Missing) = missing
+encode_cell(::XLSXReportDefinition,value::AbstractString) = String(value)
+encode_cell(::XLSXReportDefinition,value) = string(value)
 
-function _encoded_sheet(
-        definition::XLSXReportDefinition,
-        table::DataFrame,
-        name::String,
-        quantity_columns::Tuple,
-        row::Int,
-        column::Int
-)
-    selected = table[
-    (table.row .== row) .& (table.column .== column),
-    :
-]
-    isempty(selected) && throw(ArgumentError(
-        "workbook sheet $name has no line-parameter rows",
-    ))
-    frequency_values = unique(selected.frequency)
-    contract = observation_columns(table)
-    unit_rows = Pair{String, String}[
-    "frequency" => Units.label(contract.frequency.unit),
-]
-    for quantity in quantity_columns
-        push!(unit_rows, String(quantity) => Units.label(contract[quantity].unit))
+function _numeric_sheet(definition,table,name,transform)
+    cells=Matrix{Any}(missing,size(table,1)+1,size(table,2))
+    cells[1,:]=names(table)
+    coordinate_columns=DataFrames.metadata(table,"coordinate_columns",())
+    for j in 1:size(table,2),i in 1:size(table,1)
+        value=table[i,j]
+        cells[i+1,j]=ismissing(value) ? missing : encode_cell(definition,propertynames(table)[j] in coordinate_columns ? Grammar.nominal(value) : transform(value))
     end
+    return XLSXSheet(name,cells)
+end
 
-    heading_row = length(unit_rows) + 2
-    cells = fill(
-        "",
-        heading_row + length(frequency_values),
-        max(2, length(quantity_columns) + 1)
-    )
-    for (unit_row, entry) in enumerate(unit_rows)
-        cells[unit_row, 1] = first(entry)
-        cells[unit_row, 2] = last(entry)
-    end
-    cells[heading_row, 1] = "frequency"
-    for (quantity_column, quantity) in enumerate(quantity_columns)
-        cells[heading_row, quantity_column + 1] = String(quantity)
-    end
-    for (frequency_index, frequency) in enumerate(frequency_values)
-        data_row = heading_row + frequency_index
-        cells[data_row, 1] = encode_cell(definition, frequency)
-        for (quantity_column, quantity) in enumerate(quantity_columns)
-            cells[data_row, quantity_column + 1] = encode_cell(
-                definition,
-                selected[frequency_index, quantity]
-            )
+function tabulate(::XLSXReportDefinition,observed;reference=nothing)
+    return tabulate(observed)
+end
+function report(definition::XLSXReportDefinition,source::Engine.LineParameters;kwargs...)
+    return report(definition,ObservedResult(source;clip=definition.clip,kwargs...))
+end
+function encode(definition::XLSXReportDefinition,observed,tables,illustration;reference=nothing)
+    workbooks=XLSXWorkbook[]
+    requested=abspath(something(definition.file_name,"observed.xlsx"))
+    stem=splitext(basename(requested))[1]
+    definition.system_id===nothing || (stem=definition.system_id*"_"*stem)
+    for (point_index,point) in enumerate(_observed_points(observed)), product in point.quantities
+        table=_quantity_table(product)
+        name=replace(string(_quantity_name(product)),r"[^A-Za-z0-9_-]"=>"_")
+        id=get(point.gridpoint,:id,nothing)
+        index=id===nothing ? string(point_index) : string(id.source_id,"_",id.problem_index,"_",id.formulation_index)
+        destination=joinpath(dirname(requested),stem*"_"*index*"_"*name*".xlsx")
+        any(book -> book.destination==destination,workbooks) && throw(ArgumentError("duplicate workbook destination"))
+        entries=(quantity=string(product.quantity),unit=Units.label(product.unit),basis=string(product.basis),
+            coordinates=repr(product.coordinates),gridpoint=repr(point.gridpoint),
+            cutoffs=repr(product.thresholds),missing_reason=repr(product.missing_reason))
+        cells=Matrix{Any}(undef,length(entries),2)
+        for (i,(key,value)) in enumerate(pairs(entries))
+            cells[i,1]=string(key); cells[i,2]=value
         end
+        sheets=[_numeric_sheet(definition,table,"values",Grammar.nominal),
+            _numeric_sheet(definition,table,"std",Grammar.uncertainty),XLSXSheet("metadata",cells)]
+        push!(workbooks,XLSXWorkbook(destination,sheets))
     end
-    return XLSXSheet(name, cells)
-end
-
-function _encoded_sheets(
-        definition::XLSXReportDefinition,
-        prefix::String,
-        table::DataFrame,
-        quantity_columns::Tuple,
-        diagonal::Bool
-)
-    rows = maximum(table.row)
-    columns = maximum(table.column)
-    indices = diagonal ? ((index, index) for index in 1:min(rows, columns)) :
-              ((row, column) for row in 1:rows for column in 1:columns)
-    return [_encoded_sheet(
-                definition,
-                table,
-                "$prefix($row,$column)",
-                quantity_columns,
-                row,
-                column
-            )
-            for (row, column) in indices]
-end
-
-function encode(
-        definition::XLSXReportDefinition,
-        ::Engine.LineParameters,
-        published,
-        table,
-        ::Nothing
-)
-    isempty(table) && throw(ArgumentError(
-        "XLSX reports require at least one frequency sample",
-    ))
-    series_columns = _family_columns(table, Val(:series))
-    shunt_columns = _family_columns(table, Val(:shunt))
-    series_diagonal = _is_diagonal(table, series_columns)
-    shunt_diagonal = _is_diagonal(table, shunt_columns)
-    series_diagonal &&
-        @warn("Z is diagonal throughout the published frequency sweep. Exporting Z[i,i] and omitting zero off-diagonal elements.")
-    shunt_diagonal &&
-        @warn("Y is diagonal throughout the published frequency sweep. Exporting Y[i,i] and omitting zero off-diagonal elements.")
-    sheets = vcat(
-        _encoded_sheets(definition, "Z", table, series_columns, series_diagonal),
-        _encoded_sheets(definition, "Y", table, shunt_columns, shunt_diagonal)
-    )
-    requested = abspath(something(definition.file_name, "ZY_export.xlsx"))
-    destination = if definition.cable_system === nothing
-        requested
-    else
-        joinpath(
-            dirname(requested),
-            "$(definition.cable_system.system_id)_$(basename(requested))"
-        )
-    end
-    return XLSXWorkbook(String(destination), sheets)
+    return workbooks
 end

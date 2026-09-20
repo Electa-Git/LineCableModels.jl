@@ -111,8 +111,8 @@ function _line_snapshot(path::AbstractString, collection::Symbol)
 end
 
 function _validate_moment_records(snapshot, path)
-    reference = read_calculation(snapshot["accepted_reference"])
-    candidate = read_calculation(snapshot["accepted_candidate"])
+    reference = snapshot["accepted_reference"]
+    candidate = snapshot["accepted_candidate"]
     for record in (snapshot["accepted_reference"],snapshot["accepted_candidate"])
         record.frequencies == snapshot["frequencies"] || throw(ArgumentError(
             "UQ moment snapshot $path has inconsistent frequencies",

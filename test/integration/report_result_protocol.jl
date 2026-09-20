@@ -1,33 +1,36 @@
-@testitem "ReportBuilder / an independent result uses observation and coordinate grammar" tags=[:integration] begin
-    using LineCableModels.ReportBuilder: BenchmarkTableDefinition
-    const observations=Ref(0)
-    struct IndependentResult <: LineCableModels.AbstractCoreResult
-        values::Array{ComplexF64,3}
-        f::Vector{Float64}
-        coordinates::Vector{String}
+@testitem "ObservedResult / independent primary owner reuses tables and plotting" tags=[:integration] begin
+    using CairoMakie, DataFrames
+    using LineCableModels.Grammar: observation_quantity
+    const reads=Ref(0)
+    struct IndependentResult
+        values::Array{Float64,3}
+        frequencies::Vector{Float64}
     end
-    LineCableModels.frequencies(result::IndependentResult)=result.f
     LineCableModels.basis(::IndependentResult)=:pul
-    LineCableModels.domain(::IndependentResult)=PhaseDomain
-    LineCableModels.details(result::IndependentResult)=ComputationDetails(coordinates=result.coordinates)
-    LineCableModels.observables(::Type{IndependentResult})=(Z,)
-    function LineCableModels.observe(result::IndependentResult,::typeof(Z))
-        observations[]+=1
-        return result.values
+    LineCableModels.observables(::Type{IndependentResult})=(R,)
+    function LineCableModels.Grammar.observation_quantity(result::IndependentResult,request;
+            unit=nothing,clip=true,atol=nothing,frequencies=nothing)
+        reads[]+=1
+        n,m,k=size(result.values)
+        target=something(unit,LineCableModels.Units.native_unit(R,:pul))
+        native=LineCableModels.Units.native_unit(R,:pul)
+        factor=LineCableModels.Units.scale_factor(native,target)
+        return (request,quantity=LineCableModels.Units.quantity(R),family=:independent,statistic=:value,
+            values=copy(result.values).*factor,unit=target,basis=:pul,
+            coordinates=(kind=:matrix,indices=(:,:, :),rows=collect(1:n),columns=collect(1:m),
+                samples=collect(1:k),frequencies=copy(result.frequencies),frequency_unit=LineCableModels.Units.units(:base,:hertz),
+                extent=(n,m,k),labels=string.(1:n),domain=:PhaseDomain),
+            thresholds=nothing,available=trues(n,m,k),engineering_zero=falses(n,m,k),clipped=false,missing_reason=nothing)
     end
-    z=reshape(complex.(1.:12.,21.:32.),2,2,3)
-    reference=IndependentResult(z,[1.,10.,100.],["a","b"])
-    candidate=IndependentResult(2z,[1.,10.,100.],["a","b"])
-    definition=BenchmarkTableDefinition(quantities=(Z,),bands=(:all,))
-    artifact=report(definition,(;reference,candidate))
-    @test all(==(1),only(artifact.published.comparisons).error.relative)
-    @test length(artifact.table.terms.row)==4
-    before=observations[]
-    repeated=report(definition,artifact.published)
-    # Retained selection observes each operand once to check dimensions. Another
-    # RMS calculation would observe both operands a second time.
-    @test observations[]-before == 2
-    @test repeated.published.comparisons === artifact.published.comparisons ||
-        only(repeated.published.comparisons).error === only(artifact.published.comparisons).error
-    @test all(==(100),repeated.table.terms.relative_rms_percent)
+    source=IndependentResult(reshape(collect(1.:12.),2,2,3),[1.,10.,100.])
+    observed=ObservedResult(source)
+    @test reads[]==1
+    source.values .= NaN
+    artifact=report(TableReportDefinition(),observed)
+    @test size(artifact.tables.independent.R)==(3,5)
+    @test artifact.tables.independent.R[1,Symbol("[1,2]")]==3000
+    rendered=LineCableModels.plot(observed;backend=:cairo,display_plot=false,controls=false)
+    @test length(rendered.axes)==4
+    @test reads[]==1
+    @test all(isfinite,observe(observed,R))
 end

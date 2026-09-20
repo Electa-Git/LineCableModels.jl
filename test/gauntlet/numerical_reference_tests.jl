@@ -4,6 +4,9 @@
     using Pkg.Artifacts
     include(joinpath(pkgdir(LineCableModels), "test", "numerical", "references.jl"))
     owner = NumericalReferences
+    exact_zero=owner.reference_errors(zeros(ComplexF64,2,2,3),zeros(ComplexF64,2,2,3))
+    @test all(iszero,exact_zero.absolute)
+    @test all(ismissing,exact_zero.relative)
     problem = TestFixtures.line_parameters_problem(TestFixtures.two_wire_system(); frequencies=[10.0,100.0,1000.0])
     formulation = Formulation(insulation_admittance=:lossy,
         options=(reduce_bundle=false, kron_reduction=false, ideal_transposition=false))
@@ -136,10 +139,16 @@
     actual = compute(quiet_problem, quiet_formulation)
     changed = LineParameters(PhaseDomain, copy(actual.Z.values),
         actual.Y.values .+ 1e-15, actual.f; details=ComputationDetails(;coordinates=copy(details(actual).data.coordinates),))
-    scientific = LineCableModels.Engine.compare(changed, actual)
-    @test all(>(0), scientific.Y.absolute)
-    @test all(ismissing, scientific.Y.relative)
+    default_comparison=LineCableModels.Engine.compare(changed,actual)
+    # Linked B/C cutoffs retain self capacitance; the mutual terms are unresolved.
+    @test default_comparison.Y.absolute[[1,4]]≈[1e-15,1e-15]
+    @test all(isfinite,default_comparison.Y.relative[[1,4]])
+    @test ismissing.(default_comparison.Y.absolute)==Bool[0 1;1 0]
+    @test ismissing.(default_comparison.Y.relative)==Bool[0 1;1 0]
+    scientific=LineCableModels.Engine.compare(changed,actual;atol=(G=1e-12,B=1e-12))
+    @test all(ismissing,scientific.Y.absolute)
+    @test all(ismissing,scientific.Y.relative)
     strict = owner.compare_reference((problem=quiet_problem,
         formulation=quiet_formulation, parameters=changed))
-    @test all(>(0), strict.Y.absolute)
+    @test strict.Y.absolute≈fill(1e-15,2,2)
 end

@@ -85,7 +85,7 @@ end
         freq_unit=:base, clip=false, fig_size=(1000,650))
     page = LineCableModels.plot(result; options...)
     axis = only(page.axes)
-    for (key, source) in zip(page.addon_state.order, (reference, candidate))
+    for (key, source) in zip(page.addon_state.order, (candidate, reference))
         group = page.addon_state.groups[key]
         line = only(filter(p -> p isa Makie.Lines, group))
         marker = only(filter(p -> p isa Makie.Scatter, group))
@@ -103,7 +103,7 @@ end
         @test all(p -> p in line[1][], marker[1][])
         @test all(bar -> Makie.to_color(bar.color[]) == Makie.to_color(line.color[]), bars)
     end
-    reference_group = page.addon_state.groups[first(page.addon_state.order)]
+    reference_group = page.addon_state.groups[last(page.addon_state.order)]
     reference_bar = only(filter(p -> p isa Makie.Errorbars && p.direction[] === :y, reference_group))
     @test first(f) ∉ first.(reference_bar[1][])
     @test axis.finallimits[].origin[2] <= resistance[1] - errors[1]
@@ -112,7 +112,7 @@ end
     page.controls[:ylog].active[] = true
     @test axis.yscale[] !== log10
     page.controls[:ylog].active[] = false
-    entry = first(last(only(page.legend.entrygroups[])))
+    entry = last(last(only(page.legend.entrygroups[])))
     Makie.toggle_visibility!(entry)
     @test all(!p.visible[] for p in reference_group)
     @test sum((axis.finallimits[].origin[2], axis.finallimits[].widths[2])) < 4.0
@@ -283,10 +283,10 @@ end
         options...,series_labels=("uncertain",),legend_position=:bottom))
     # This exercises the publication renderer, not the matrix renderer used by
     # the benchmark inspector. Both must honour the same uncertainty contract.
-    artifact = report(TableReportDefinition(((R,:,:,:),); illustration=true,
+    artifact = report(TableReportDefinition(((R,1,1,:),); illustration=true,
         clip=false,
         plot_options=(backend=:cairo,display_plot=false,controls=true,open_export=false,
-            fig_size=(1000,700),display_legend=true,legend_position=:bottom)),parameters)
+            fig_size=(1000,700),series_labels=("uncertain",),legend_position=:bottom)),parameters)
     push!(pages,artifact.illustration)
     single = Makie.plot(parameters.Y,frequencies(parameters),(G,1,1,:);options...)
     @test single.legend === nothing

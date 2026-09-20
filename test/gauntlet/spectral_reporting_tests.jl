@@ -12,10 +12,13 @@
     # numerical payload is distinguishable test data, not a spectral calculation.
     records=Gauntlet.formulation_record.(collect(formulations))
     source=TestFixtures.two_conductor_results(frequencies=[1e3])
+    source_id=LineCableModels.Grammar.gridpoint_id().source_id
     points=[LineParameters(Z(source).*index,Y(source),frequencies(source);
-        details=ComputationDetails(merge(details(source).data,(formulations=record,)))) for (index,record) in enumerate(records)]
+        details=ComputationDetails(merge(details(source).data,(formulations=record,
+            gridpoint=LineCableModels.Grammar.gridpoint_id(;source_id,formulation_index=index),
+            selections=(Z=formula_id(collect(formulations)[index],Z),Y=formula_id(collect(formulations)[index],Y)))))) for (index,record) in enumerate(records)]
     transported=ParametricResult(nothing,points,(problems=[model.problem],formulations=records), ComputationDetails((;)))
-    table=report(BenchmarkTableDefinition(),(reference=source,candidate=transported)).table
+    table=report(BenchmarkTableDefinition(),(reference=source,candidate=transported)).tables
     @test allunique(table.formulations.label[table.formulations.role.===:candidate])
     @test Set(table.comparisons.candidate_point)==Set(eachindex(controls))
     for (index,choice) in enumerate(controls), slot in (:earth_impedance,:earth_admittance)
@@ -35,9 +38,9 @@
         saved=read_benchmark(directory)
         @test isconcretetype(eltype(saved.candidate.result))
         artifact=report(BenchmarkTableDefinition(),saved)
-        rows=filter(row->row.role===:candidate,artifact.table.formulations)
+        rows=filter(row->row.role===:candidate,artifact.tables.formulations)
         @test allunique(rows.label)
-        @test Set(artifact.table.comparisons.candidate_point)==Set(eachindex(controls))
+        @test Set(artifact.tables.comparisons.candidate_point)==Set(eachindex(controls))
         for (index,choice) in enumerate(controls)
             current=value.candidate_result[index]
             retained=saved.candidate.result[index]

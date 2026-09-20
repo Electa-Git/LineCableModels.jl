@@ -62,7 +62,8 @@
     execution = computation_options(LineCableModelsCoaxial, ComputationOptions((;)))
     @test observe(
         E._compute(
-            LineCableModelsCoaxial(), problem, other_formula, execution, input), Y) ==
+            LineCableModelsCoaxial(), problem, other_formula, execution, input,
+            E.completed_inputs(problem),LineCableModels.Grammar.gridpoint_id()), Y) ==
           observe(results[2], Y)
     # The same physical API supports independent translated assemblies inside
     # one design; their local operators must be scattered into distinct ports.

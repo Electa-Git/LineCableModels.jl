@@ -40,8 +40,7 @@ function _semantic_line_layout_mode(object, facets, layout)
         dimensions = Tuple(Int.(layout))
         dimensions == (1, 1) && return :individual
         dimensions in ((1, 2), (2, 1)) && return :paired
-        matrix_size = size(object isa LineParameters ? Z(object) :
-            object isa ObservationPublication ? first(object).values : object, 1)
+        matrix_size = first(first(object.quantities).coordinates.extent)
         dimensions == (matrix_size, matrix_size) && return :matrix
         throw(ArgumentError(
             "line layout must be (1, 1), (1, 2), (2, 1), " *
@@ -59,8 +58,7 @@ function _semantic_line_pages(object, facets, layout, blocks=nothing)
         blocks isa Tuple && length(blocks) == 2 &&
             all(value -> value isa Integer && !(value isa Bool) && value > 0, blocks) ||
             throw(ArgumentError("blocks must be a tuple of two positive integers or nothing"))
-        matrix_size = size(object isa LineParameters ? Z(object) :
-            object isa ObservationPublication ? first(object).values : object, 1)
+        matrix_size = first(first(object.quantities).coordinates.extent)
         layout === nothing || layout == (matrix_size, matrix_size) ||
             throw(ArgumentError("blocks requires matrix layout; omit layout or use the full matrix dimensions"))
     end
@@ -87,8 +85,7 @@ function _semantic_line_pages(object, facets, layout, blocks=nothing)
         end
     end
 
-    matrix_size = size(object isa LineParameters ? Z(object) :
-        object isa ObservationPublication ? first(object).values : object, 1)
+    matrix_size = first(first(object.quantities).coordinates.extent)
     pages = NamedTuple[]
     for page_facets in grouped
         positions,
@@ -130,6 +127,8 @@ function _semantic_coordinate_name(::LineCableModels.LineParameters{
         T, U, D <: LineCableModels.ModalDomain}
     "mode"
 end
+_semantic_coordinate_name(object::Grammar.ObservedResult) =
+    get(first(object.quantities).coordinates,:domain,:unspecified)===:ModalDomain ? "mode" : "conductor"
 _semantic_coordinate_name(_) = "conductor"
 
 function _semantic_quantity_title(object, facet)
@@ -320,7 +319,7 @@ function _addon_semantic_line_page(
         if all(source -> source.resolutions[facet.request_index].clip &&
                 source.resolutions[facet.request_index].kind === :declared_floor, published)
             if all(ismissing, yvalues)
-                attributes = merge(attributes, (subtitle="Undefined phase",))
+                attributes = merge(attributes, (subtitle=facet.identity isa Tuple && angle in facet.identity ? "Undefined phase" : "Unavailable quantity",))
             end
         end
         axis,scales = _addon_axis!(
@@ -429,14 +428,10 @@ end
 
 function _addon_line_pages(
         sources::Tuple;
-        publications = nothing,
-        frequencies = nothing,
         ydata,
         series_labels = nothing,
         series_indices = collect(eachindex(sources)),
         series_count = maximum(series_indices),
-        series_family_labels = nothing,
-        formulation_sources = nothing,
         formulation_roles = nothing,
         errorbar_sampling = formulation_roles === nothing ? :all : :staggered,
         series_attributes = nothing,
@@ -446,21 +441,16 @@ function _addon_line_pages(
         figure_title = nothing,
         title_attributes::NamedTuple = (;),
         panel_titles = nothing,
-        freq_unit = :base,
-        length_unit = :kilo,
-        quantity_units = nothing,
-        clip::Bool = true,
-        atol = nothing,
         fig_size = nothing,
         layout = nothing,
         blocks = nothing,
-        xscale = :linear,
+        xscale = formulation_roles === nothing ? :linear : :log10,
         yscale = :linear,
-        legend_position = :right,
+        legend_position = formulation_roles === nothing ? :right : :bottom,
         legend_anchor = :rt,
         legend_title = nothing,
         legend_attributes::NamedTuple = (;),
-        legend_overflow::Symbol = :ellipsis,
+        legend_overflow::Symbol = formulation_roles === nothing ? :ellipsis : :show_all,
         panel_legends = (),
         signed_ylog::Bool = false,
         backend = nothing,
@@ -483,33 +473,8 @@ function _addon_line_pages(
     source_labels = explicit_source_labels ?
                     _comparison_labels(series_labels, length(sources)) :
                     Tuple("Result $index" for index in eachindex(sources))
-    published = if publications !== nothing
-        length(publications)==length(sources) || throw(DimensionMismatch("one publication is required per source"))
-        publications
-    elseif length(sources) == 1
-        (_prepare_line_observations(
-            only(sources);
-            frequencies,
-            ydata,
-            freq_unit,
-            length_unit,
-            quantity_units,
-            clip,
-            atol
-        ),)
-    else
-        _prepare_line_comparison(
-            sources;
-            ydata,
-            series_labels = source_labels,
-            freq_unit,
-            length_unit,
-            quantity_units,
-            clip,
-            atol,
-            frequencies
-        ).published
-    end
+    all(source -> source isa Grammar.ObservedResult,sources) || throw(ArgumentError("line renderers require observations"))
+    published=map(source -> _prepare_line_observations(source;ydata),sources)
     if any(source -> isempty(source.frequency.values) ||
             formulation_roles === nothing && length(source.frequency.values) == 1, published)
         @warn "Selected frequency vectors have insufficient samples; nothing to plot."
@@ -533,48 +498,31 @@ function _addon_line_pages(
     effective_legend_position = length(sources) > 1 || explicit_source_labels ?
                                 legend_position : nothing
     built = LineCableModels.UIPlot[]
-    styles = formulation_sources === nothing ? nothing :
-        _series_attributes(series_attributes,length(sources))
     for (page_index, page) in enumerate(pages)
-        page_labels = series_family_labels === nothing ? source_labels :
-            _comparison_labels(series_family_labels[first(page.facets).family],length(sources))
+        page_labels = source_labels
         retained = collect(eachindex(sources))
         page_defaults = series_defaults
         page_attributes = series_attributes
-        if formulation_sources !== nothing
-            quantities = unique(facet.quantity for facet in page.facets)
-            identities = [Tuple(LineCableModels.formula_id(source,quantity) for quantity in quantities)
-                for source in formulation_sources]
-            retained = unique(eachindex(sources)) do index
-                formulation_roles[index] === :reference || any(ismissing,identities[index]) ?
-                    index : identities[index]
-            end
-            for index in setdiff(eachindex(sources),retained)
-                representative = only(filter(other -> formulation_roles[other] !== :reference &&
-                    isequal(identities[other],identities[index]),retained))
-                left,right = published[representative],published[index]
-                same = isequal(left.frequency.values,right.frequency.values)
-                for request in unique(facet.request_index for facet in page.facets)
-                    a,b = left.observations[request].values,right.observations[request].values
-                    same &= isequal(get(left.observations[request], :errors, nothing),
-                        get(right.observations[request], :errors, nothing))
-                    same &= isequal(left.coordinates[request],right.coordinates[request]) && size(a)==size(b) &&
-                        all(zip(a,b)) do (a,b)
-                            isequal(a,b) || a isa Number && b isa Number &&
-                                isapprox(LineCableModels.nominal(a),LineCableModels.nominal(b)) &&
-                                isapprox(LineCableModels.uncertainty(a),LineCableModels.uncertainty(b))
-                        end
+        selected_requests=unique(facet.request_index for facet in page.facets)
+        if !explicit_source_labels
+            page_labels=Grammar.observation_labels(sources;request=length(selected_requests)==1 ? ydata[only(selected_requests)] : nothing)
+            if formulation_roles!==nothing
+                for index in findall(==(:reference),formulation_roles)
+                    page_labels[index]="Reference · "*page_labels[index]
                 end
-                same || throw(ArgumentError(
-                    "repeated formulation for $(first(page.facets).quantity) has conflicting saved observations; inspect the calculations separately"))
             end
-            # :default is a declaration route, not a distinct scientific curve.
-            # Style references by role and candidates by their stable series index.
-            roles = Tuple(formulation_roles[index] for index in retained)
-            page_defaults = _addon_comparison_styles(Tuple(series_indices[index] for index in retained),
-                roles,series_count)
-            page_attributes = Tuple(styles[index] for index in retained)
         end
+        # A page may display several quantities. Keep a member whenever any
+        # selected quantity requires it to remain separate.
+        candidate_indices=formulation_roles===nothing ? collect(eachindex(sources)) : findall(!=(:reference),formulation_roles)
+        display_groups=[Grammar.observation_groups(Tuple(sources[i] for i in candidate_indices);request=ydata[index]) for index in selected_requests]
+        retained=sort(unique(vcat(([candidate_indices[group.representative] for group in groups] for groups in display_groups)...)))
+        formulation_roles===nothing || append!(retained,findall(==(:reference),formulation_roles))
+        page_defaults=series_defaults===nothing ? formulation_roles===nothing ? nothing :
+            _addon_comparison_styles(Tuple(series_indices[i] for i in retained),
+                Tuple(formulation_roles[i] for i in retained),series_count) : Tuple(series_defaults[i] for i in retained)
+        page_attributes=series_attributes isa Union{Tuple,AbstractVector} ?
+            Tuple(series_attributes[i] for i in retained) : series_attributes
         automatic_title = _semantic_page_title(first(sources), page, mode)
         page_title = title === nothing ? automatic_title : String(title)
         (length(pages) > 1 || blocks !== nothing) && title !== nothing &&
@@ -614,6 +562,9 @@ function _addon_line_pages(
                     kwargs...
                 )
             end)
+        last(built).addon_state=merge(last(built).addon_state,(observed=sources,
+            display_groups=Tuple((request=ydata[index],groups=groups) for (index,groups) in zip(selected_requests,display_groups)),
+            displayed_indices=retained))
     end
     blocks === nothing || _addon_equal_matrix_cells!(built)
     if display_plot
@@ -622,20 +573,4 @@ function _addon_line_pages(
         end
     end
     return length(built) == 1 ? only(built) : built
-end
-
-function _addon_semantic_line_plots(
-        object;
-        frequencies = nothing,
-        ydata,
-        series_labels = nothing,
-        kwargs...
-)
-    return _addon_line_pages(
-        (object,);
-        frequencies,
-        ydata,
-        series_labels,
-        kwargs...
-    )
 end

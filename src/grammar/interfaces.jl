@@ -143,10 +143,10 @@ Publish explicitly requested scientific values for presentation or reporting.
 
 `observables(::Type{T})` declares the selectors supported by `T`.
 `observables(source, requests; units, length_unit, frequency_unit,
-quantity_units, clip, atol, frequencies)` returns one [`ObservationPublication`](@ref). Iteration
-and indexing expose one detached `values`/`quantity`/`unit` payload for each
-positional request. Its Tables.jl view adds owner-defined scientific
-coordinates without retaining or reopening the source. `units` is empty or
+quantity_units, clip, atol, frequencies)` returns one [`ObservedResult`](@ref),
+or an ordinary vector for a result collection. Its four sections retain gridpoint
+descriptions, quantities, completed errors, and recorded timings. Quantity-wise
+tables are materialized by `ReportBuilder.tabulate` from these detached records. `units` is empty or
 positionally aligned with `requests`. With `clip=true` (default), the result
 owner's declared native-unit reporting resolution is applied before conversion.
 `atol` optionally overrides that resolution; multiple quantities require keyed

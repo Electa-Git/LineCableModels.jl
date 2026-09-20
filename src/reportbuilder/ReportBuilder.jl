@@ -13,28 +13,22 @@ export MonteCarloTableDefinition, XLSXReportDefinition, report
 export select, tabulate, illustrate, encode, write
 
 using DocStringExtensions: TYPEDEF, TYPEDFIELDS, TYPEDSIGNATURES
-using Printf: @sprintf
 import Statistics
 import DataFrames
-using RequiredInterfaces: @required
-import DataFrames: DataFrame, metadata, metadata!, select!, Not
+import DataFrames: DataFrame, metadata, metadata!, Not
 import ..Grammar: observables
-import ..Grammar: ObservationPublication
-using ..Grammar: @observe
+import ..Grammar: ObservedResult
+import ..Grammar
 import ..Units
 import ..DataModel
 import ..Engine
-import ..Engine: domain
-import ..ParametricBuilder: ParametricResult
-import ..Grammar: AbstractCoreResult, AbstractUncertaintyResult, details, observe, detach,
-                  request_identity, request_quantity, request_indices, observation_request,
-                  materialize_observation
-import ..LineCableModels: validate, description, formula_id
+import ..Grammar: AbstractUncertaintyResult, request_identity, request_quantity, request_indices
+import ..LineCableModels: validate, description
 import ..LineCableModels
 import ..PlotBuilder
 import ..UQ
 import ..TextDisplay
-import ..LineCableModels: basis, Z, Y, R, X, L, G, B, C
+import ..LineCableModels: Z, Y, R, X, L, G, B, C
 
 include("grammar.jl")
 include("tables.jl")

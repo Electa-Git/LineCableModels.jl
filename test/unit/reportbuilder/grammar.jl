@@ -1,393 +1,114 @@
-@testitem "ReportBuilder / grammar / publication and stage order" tags=[:unit] begin
-    using DataFrames, RequiredInterfaces
-
-    const RB = LineCableModels.ReportBuilder
-    const U = LineCableModels.Units
-
-    struct ReportProfile
-        values::Vector{Float64}
-    end
-    profile_response(source::ReportProfile) = source.values
-    const report_observation_calls = Ref(0)
-
-    LineCableModels.basis(::ReportProfile) = :total
-    LineCableModels.observe(
-        source::ReportProfile,
-        ::typeof(profile_response),
-        indices...
-    ) = begin
-        report_observation_calls[] += 1
-        isempty(indices) ? source.values : getindex(source.values, indices...)
-    end
-    LineCableModels.observables(::Type{<:ReportProfile}) = (profile_response,)
-    U.quantity(::typeof(profile_response)) = U.Quantity{:report_response}()
-    U.native_unit(::U.Quantity{:report_response}) = U.units(:base, :ohm)
-    U.display_unit(::U.Quantity{:report_response}) = U.units(:milli, :ohm)
-    U.label(::U.Quantity{:report_response}) = "Response"
-    U.symbol(::U.Quantity{:report_response}) = "u"
-
-    const illustrated_publication = Ref{Any}(nothing)
-    function report_profile_plot(published; marker)
-        illustrated_publication[] = published
-        return (; kind = :report_profile, marker)
-    end
-
-    source = ReportProfile([0.125, 0.375])
-    definition = TableReportDefinition(
-        (profile_response,);
-        illustration = report_profile_plot,
-        plot_options = (; marker = :report)
-    )
-    artifact = report(definition, source)
-
-    @test report_observation_calls[] == 1
-    @test artifact isa ReportArtifact
-    @test parentmodule(typeof(artifact)) === RB
-    @test artifact.table.u == source.values .* 1000
-    columns=RB.observation_columns(artifact.table)
-    @test U.label(columns.u.unit) == "mΩ"
-    @test U.label(columns.u.quantity, columns.u.unit) == "Response [mΩ]"
-    @test artifact.illustration == (; kind = :report_profile, marker = :report)
-    @test only(illustrated_publication[]).values == artifact.table.u
-    @test artifact.output === nothing
-    artifact.table.u[1] = 0.0
-    @test source.values == [0.125, 0.375]
-    @test_throws ArgumentError report(
-        TableReportDefinition((identity,)),
-        source
-    )
-    @test_throws MethodError report(
-        TableReportDefinition((identity,)),
-        :unsupported
-    )
-    # Each stage consumes the actual predecessor. A wrong argument position or
-    # replay of an earlier stage cannot pass by merely recording the call name.
+@testitem "ReportBuilder / observations and fixed stage order" tags=[:unit] begin
+    const RB=LineCableModels.ReportBuilder
+    source=LineParameters(fill(1.0+2im,1,1,2),fill(3.0+4im,1,1,2),[1.,2.])
+    observed=ObservedResult(source)
+    const stages=Symbol[]
     struct StageReport <: RB.AbstractReportDefinition end
-    struct StageSource
-        token::Vector{Int}
-    end
-    struct Published
-        source::StageSource
-    end
     struct Tabulated
-        published::Published
+        observed::ObservedResult
     end
     struct Illustrated
-        table::Tabulated
+        tables::Tabulated
     end
     struct Encoded
         illustration::Illustrated
     end
-    struct Written
-        encoded::Encoded
+    RB.tabulate(::StageReport,point::ObservedResult;reference=nothing) = begin
+        push!(stages,:tabulate); Tabulated(point)
     end
-    RB.select(::StageReport, source::StageSource)=Published(source)
-    function RB.tabulate(::StageReport, source::StageSource, p::Published)
-        @test p.source === source
-        return Tabulated(p)
+    RB.illustrate(::StageReport,point,tables::Tabulated;reference=nothing) = begin
+        @test tables.observed===point
+        push!(stages,:illustrate); Illustrated(tables)
     end
-    function RB.illustrate(::StageReport, source::StageSource, p::Published, t::Tabulated)
-        @test t.published === p && p.source === source
-        return Illustrated(t)
+    RB.encode(::StageReport,point,tables,illustration::Illustrated;reference=nothing) = begin
+        @test illustration.tables===tables && tables.observed===point
+        push!(stages,:encode); Encoded(illustration)
     end
-    function RB.encode(::StageReport, source::StageSource, p::Published, t::Tabulated, i::Illustrated)
-        @test i.table === t && t.published === p && p.source === source
-        return Encoded(i)
+    RB.write(::StageReport,encoded::Encoded) = begin
+        push!(stages,:write);encoded
     end
-    function RB.write(::StageReport, source::StageSource, p::Published, t::Tabulated,
-            i::Illustrated, e::Encoded)
-        @test e.illustration === i && i.table === t && t.published === p && p.source === source
-        return Written(e)
-    end
-    stage_source=StageSource([17,31])
-    completed=report(StageReport(),stage_source)
-    @test completed.published.source === stage_source
-    @test completed.table.published === completed.published
-    @test completed.illustration.table === completed.table
-    @test completed.output.encoded.illustration === completed.illustration
-    @test_throws MethodError RB.write(StageReport(),stage_source,completed.published,
-        completed.table,completed.illustration,completed.table)
-    @test_throws RequiredInterfaces.NotImplementedError RB.tabulate(StageReport(),stage_source,completed.table)
-
-    struct MinimalReport <: RB.AbstractReportDefinition end
-    RB.select(::MinimalReport, source) = :published
-    RB.tabulate(::MinimalReport, source, published) = :table
-    minimal = report(MinimalReport(), :source)
-    @test minimal == ReportArtifact(:published, :table, nothing, nothing)
+    artifact=report(StageReport(),observed)
+    @test stages==[:tabulate,:illustrate,:encode,:write]
+    @test artifact.observed===observed
+    @test artifact.reference===nothing
+    @test artifact.tables.observed===observed
+    @test artifact.output.illustration===artifact.illustration
+    @test fieldnames(typeof(artifact))==(:observed,:reference,:tables,:illustration,:output)
+    @test_throws TypeError report(TableReportDefinition(),observed;reference=source)
+    @test_throws MethodError report(StageReport(),source)
+    illustrated=Ref{Any}(nothing)
+    definition=TableReportDefinition((R,);illustration=(point;ydata) -> (illustrated[]=point))
+    artifact=report(definition,observed)
+    @test illustrated[]===observed
+    @test artifact.tables.R[!,2]==[1000.,1000.]
+    @test report(TableReportDefinition(),source).observed isa ObservedResult
 end
 
-@testitem "ReportBuilder / XLSX / workbook pipeline and delegation" tags=[:integration] setup=[
-    UseEngineSupport,
-    TestFixtures
-] begin
-    using LinearAlgebra
-    using Measurements
-    using XLSX
-
+@testitem "ReportBuilder / XLSX numeric quantities and complete matrices" tags=[:integration] begin
+    using XLSX, Measurements, LinearAlgebra
     const RB=LineCableModels.ReportBuilder
-    const IE=LineCableModels.ImportExport
-    xlsx_extension=Base.get_extension(LineCableModels, :LineCableModelsXLSXExt)
-    @test xlsx_extension !== nothing
-    @test any(method -> method.module === xlsx_extension, methods(RB.write))
-
-    parameters=TestFixtures.two_conductor_results()
-    frequency=parameters.f
-
+    impedance=reshape(ComplexF64.(1:8),2,2,2)
+    impedance[1,2,2]=0.25+0.05im
+    impedance[2,1,2]=0.5+0.1im
+    parameters=LineParameters(impedance,fill(3e-6+4e-6im,2,2,2),[50.,500.])
     mktempdir() do directory
-        path=joinpath(directory, "full.xlsx")
-        artifact=report(XLSXReportDefinition(; file_name = path), parameters)
-        @test artifact isa ReportArtifact
-        @test fieldnames(typeof(artifact)) == (:published, :table, :illustration, :output)
-        @test artifact.illustration === nothing
-        @test artifact.output == path
-        @test isfile(artifact.output)
-        @test artifact.table isa DataFrame
-        @test names(artifact.table) == [
-            "frequency", "row", "column", "R", "X", "G", "B"
-        ]
-        XLSX.openxlsx(path) do workbook
-            @test XLSX.sheetnames(workbook) == [
-                "Z(1,1)", "Z(1,2)", "Z(2,1)", "Z(2,2)",
-                "Y(1,1)", "Y(1,2)", "Y(2,1)", "Y(2,2)"
-            ]
-            worksheet=workbook["Z(1,1)"]
-            @test worksheet["A1"] == "frequency"
-            @test worksheet["B1"] == "Hz"
-            @test worksheet["A2"] == "R"
-            @test worksheet["B2"] == "Ω/km"
-            @test worksheet["A5"] == "frequency"
-            @test worksheet["B5"] == "R"
-            @test worksheet["C5"] == "X"
-            @test parse(Float64,worksheet["A6"]) == first(frequency)
-            @test parse(Float64,worksheet["B6"]) ≈ TestFixtures.channel_value(Val(:R),1,1,1)*1000
-            @test parse(Float64,worksheet["C6"]) ≈ 2pi*first(frequency)*TestFixtures.channel_value(Val(:L),1,1,1)*1000 rtol=1e-6
+        artifact=report(XLSXReportDefinition(file_name=joinpath(directory,"full.xlsx")),parameters)
+        @test length(artifact.output)==4
+        @test all(isfile,artifact.output)
+        resistance=only(filter(path -> endswith(path,"_R.xlsx"),artifact.output))
+        XLSX.openxlsx(resistance) do workbook
+            @test XLSX.sheetnames(workbook)==["values","std","metadata"]
+            sheet=workbook["values"]
+            @test sheet["A1"]=="frequency"
+            @test sheet["C1"]=="[1,2]"
+            @test sheet["D1"]=="[2,1]"
+            @test sheet["A2"]==50.0
+            @test sheet["C3"]==250.0
+            @test sheet["D3"]==500.0
+            @test sheet["C3"] isa Number
         end
-
-        delegated=export_data(
-            :xlsx,
-            parameters;
-            file_name = joinpath(directory, "delegated.xlsx")
-        )
-        @test delegated == joinpath(directory, "delegated.xlsx")
-        @test isfile(delegated)
-        @test parentmodule(which(
-            IE.export_data,
-            (Val{:xlsx}, typeof(parameters))
-        )) === IE
-
-        cable_system=TestFixtures.three_phase_system()
-        prefixed=report(
-            XLSXReportDefinition(
-                file_name = joinpath(directory, "named.xlsx"),
-                cable_system = cable_system
-            ),
-            parameters
-        )
-        @test basename(prefixed.output) == "$(cable_system.system_id)_named.xlsx"
-
-        default_artifact=cd(directory) do
-            report(XLSXReportDefinition(), parameters)
-        end
-        @test default_artifact.output == joinpath(directory, "ZY_export.xlsx")
-        @test isfile(default_artifact.output)
-        @test !startswith(default_artifact.output, dirname(pathof(LineCableModels)))
-
-        relative_artifact=cd(directory) do
-            report(
-                XLSXReportDefinition(file_name = "relative.xlsx"),
-                parameters
-            )
-        end
-        @test relative_artifact.output == joinpath(directory, "relative.xlsx")
-        @test isfile(relative_artifact.output)
-
-        diagonal=LineParameters(
-            cat(Diagonal([1.0+2.0im, 2.0+3.0im]); dims = 3),
-            cat(Diagonal([3.0+4.0im, 4.0+5.0im]); dims = 3),
-            [50.0]
-        )
-        diagonal_artifact=@test_logs (:warn, r"Z is diagonal") (:warn, r"Y is diagonal") report(
-            XLSXReportDefinition(file_name = joinpath(directory, "diagonal.xlsx")),
-            diagonal
-        )
-        XLSX.openxlsx(diagonal_artifact.output) do workbook
-            @test Set(XLSX.sheetnames(workbook)) ==
-                  Set(["Z(1,1)", "Z(2,2)", "Y(1,1)", "Y(2,2)"])
-        end
-
-        uncertain=LineParameters(
-            reshape([complex(measurement(1.0e-4, 1.0e-5), 2.0e-4)], 1, 1, 1),
-            reshape([complex(measurement(3.0e-8, 1.0e-9), 4.0e-8)], 1, 1, 1),
-            [50.0]
-        )
-        uncertain_artifact=@test_logs (:warn, r"Z is diagonal") (:warn, r"Y is diagonal") report(
-            XLSXReportDefinition(file_name = joinpath(directory, "uncertain.xlsx")),
-            uncertain
-        )
-        XLSX.openxlsx(uncertain_artifact.output) do workbook
-            @test occursin("±", workbook["Z(1,1)"]["B6"])
-        end
-
-        @test_throws Exception report(
-            XLSXReportDefinition(file_name = directory),
-            parameters
-        )
+        @test length(export_data(:xlsx,parameters;file_name=joinpath(directory,"delegated.xlsx")))==4
+        diagonal=LineParameters(cat(Diagonal([1.0+2im,2.0+3im]);dims=3),
+            cat(Diagonal([3.0+4im,4.0+5im]);dims=3),[50.])
+        result=report(XLSXReportDefinition(file_name=joinpath(directory,"diagonal.xlsx")),diagonal)
+        workbook=XLSX.readxlsx(only(filter(path -> endswith(path,"_R.xlsx"),result.output)))
+        @test workbook["values"]["C2"]==0
+        @test workbook["values"]["D2"]==0
+        shared=measurement(1e-4,1e-5)
+        uncertain=LineParameters(fill(complex(shared,2shared),1,1,2),fill(3e-6+4e-6im,1,1,2),[50.,500.])
+        result=report(XLSXReportDefinition(file_name=joinpath(directory,"uncertain.xlsx")),uncertain)
+        workbook=XLSX.readxlsx(only(filter(path -> endswith(path,"_R.xlsx"),result.output)))
+        @test workbook["values"]["B2"]≈0.1
+        @test workbook["std"]["B2"]≈0.01
+        @test workbook["std"]["B2"] isa Number
+        @test impedance==Z(parameters)
     end
-
-    @test Base.ispublic(RB, :XLSXSheet)
-    @test Base.ispublic(RB, :XLSXWorkbook)
+    definition=XLSXReportDefinition()
+    @test_throws ArgumentError RB.encode_cell(definition,big"1e400")
+    @test_throws ArgumentError RB.encode_cell(definition,big"1e-400")
+    @test RB.encode_cell(definition,1/3)==1/3
+    @test ismissing(RB.encode_cell(definition,missing))
+    @test Base.ispublic(RB,:XLSXSheet)
+    @test Base.ispublic(RB,:XLSXWorkbook)
 end
 
-@testitem "ReportBuilder / XLSX / mutual sheets preserve the whole sweep" tags=[:integration] begin
-    using XLSX
-
-    frequencies=[50.0, 500.0]
-    mktempdir() do directory
-        # The first sample alone cannot establish diagonality. Exercise each
-        # family separately, and retain entries smaller than the former cutoff.
-        for family in (:Z, :Y), coupling in (0.25 + 0.05im, 1e-18 + 2e-18im)
-            impedance=zeros(ComplexF64, 2, 2, 2)
-            admittance=zeros(ComplexF64, 2, 2, 2)
-            for index in 1:2, conductor in 1:2
-                impedance[conductor, conductor, index]=1.0 + 2.0im
-                admittance[conductor, conductor, index]=3e-6 + 4e-6im
-            end
-            values=family === :Z ? impedance : admittance
-            values[1, 2, 2]=values[2, 1, 2]=coupling
-            parameters=LineParameters(impedance, admittance, frequencies)
-            path=joinpath(directory, "$(family)-$(real(coupling)).xlsx")
-            report(XLSXReportDefinition(file_name=path, clip=false), parameters)
-            XLSX.openxlsx(path) do workbook
-                other=family === :Z ? :Y : :Z
-                @test "$(other)(1,2)" ∉ XLSX.sheetnames(workbook)
-                for pair in ("1,2", "2,1")
-                    sheet=workbook["$(family)($pair)"]
-                    @test parse(Float64, sheet["A6"]) == 50.0
-                    @test parse(Float64, sheet["A7"]) == 500.0
-                    @test parse(Float64, sheet["B6"]) == 0.0
-                    @test parse(Float64, sheet["C6"]) == 0.0
-                    @test parse(Float64, sheet["B7"]) ≈ 1000real(coupling)
-                    @test parse(Float64, sheet["C7"]) ≈ 1000imag(coupling)
-                end
-            end
-            @test parameters.Z.values == impedance
-            @test parameters.Y.values == admittance
-        end
-
-        # Both families must also retain mutual sheets in the same workbook.
-        impedance=zeros(ComplexF64, 2, 2, 2)
-        admittance=copy(impedance)
-        impedance[1, 2, 2]=0.25 + 0.05im
-        admittance[2, 1, 2]=3e-6 + 4e-6im
-        parameters=LineParameters(impedance, admittance, frequencies)
-        path=joinpath(directory, "both-families.xlsx")
-        report(XLSXReportDefinition(file_name=path), parameters)
-        XLSX.openxlsx(path) do workbook
-            @test length(XLSX.sheetnames(workbook)) == 8
-            @test parse(Float64, workbook["Z(1,2)"]["B7"]) == 250.0
-            @test parse(Float64, workbook["Y(2,1)"]["C7"]) ≈ 4e-3
-        end
-    end
-end
-
-@testitem "ReportBuilder / line and comparison reports preserve numeric observations" tags=[:unit] begin
-    using DataFrames
-    const RB = LineCableModels.ReportBuilder
-    const EN = LineCableModels.Engine
-    const U = LineCableModels.Units
-    frequency = [0.1, 50.0, 1e6]
-    values = reshape(collect(1.0:12.0), 2, 2, 3)
-    impedance = values .* (1e-4 + 2e-4im)
-    admittance = values .* (1e-9 + 3e-9im)
-    reference = LineParameters(impedance, admittance, frequency)
-    requests = (@observe(R[:, :, :]), @observe((Y, abs)[:, :, :]))
-    definition = RB.LineParametersTableDefinition(requests, :kilo, :base, :base, false)
-    artifact = report(definition, reference)
-    @test artifact.table == DataFrame(observables(reference, requests;
-        frequency_unit=:kilo, length_unit=:base, quantity_units=:base, clip=false))
-    @test artifact.illustration === nothing
-    @test artifact.output === nothing
-    @test artifact.table.frequency == repeat(frequency ./ 1000; inner=4)
-    @test artifact.table.R ≈ [real(impedance[i, j, k]) for k in 1:3 for i in 1:2 for j in 1:2]
-    artifact.table.R[1] = -1.0
-    @test Z(reference) == impedance
-    @test Y(reference) == admittance
-
-    candidate = LineParameters(1.2 .* impedance, 0.9 .* admittance, frequency)
-    comparison = EN.compare(reference, candidate)
-    for definition in (RB.BenchmarkTableDefinition(), RB.BenchmarkTableDefinition(false))
-        table = report(definition, comparison).table
-        @test names(table) == ["row", "column", "ΔZ", "εZ", "ΔY", "εY"]
-        @test collect(zip(table.row, table.column)) == [(1, 1), (1, 2), (2, 1), (2, 2)]
-        @test table.ΔZ ≈ [1000sqrt(sum(abs2, 0.2 .* impedance[i, j, :]) / 3)
-            for i in 1:2 for j in 1:2]
-        @test table.ΔY ≈ [1000sqrt(sum(abs2, 0.1 .* admittance[i, j, :]) / 3)
-            for i in 1:2 for j in 1:2]
-        @test table.εZ ≈ fill(0.2, 4)
-        @test table.εY ≈ fill(0.1, 4)
-        metadata = RB.observation_columns(table)
-        @test U.label(metadata.ΔZ.unit) == "Ω/km"
-        @test U.label(metadata.ΔY.unit) == "S/km"
-        @test U.label(metadata.εZ.unit) == U.label(metadata.εY.unit) == ""
-        table.εZ[1] = 99.0
-        @test observe(comparison, Z, EN.relative_error, 1, 1) ≈ 0.2
-    end
-end
-
-@testitem "ReportBuilder / adapters / completed results delegate" tags=[:unit] setup=[
-    TestFixtures
-] begin
-    using DataFrames, Measurements
-
+@testitem "ReportBuilder / completed result conveniences use observations" tags=[:unit] setup=[TestFixtures] begin
+    using DataFrames, Measurements, Tables
     const RB=LineCableModels.ReportBuilder
-    constants=LineCableModels.CableConstants(1.0, 2.0, 3.0)
-    expected=report(RB.CableConstantsTableDefinition(), constants).table
-    publication=observables(constants, (R, L, C, G))
-    actual=DataFrame(publication)
-
-    @test actual == expected
-    @test parentmodule(which(DataFrame, (typeof(publication),))) === RB
-    @test parentmodule(which(DataFrame, (typeof(constants),))) !== RB
-    @test names(actual) == ["core", "R", "L", "C", "G"]
-    @test actual.R == publication[1].values
-    @test actual.L == publication[2].values
-    @test actual.C == publication[3].values
-    @test actual.G == publication[4].values
-    @test keys(RB.observation_columns(actual)) == (:R, :L, :C, :G)
-
-    monte_carlo=TestFixtures.cable_monte_carlo_result()
-    @test parentmodule(which(DataFrame, (typeof(monte_carlo),))) !==
-          LineCableModels.ReportBuilder
-    @test !LineCableModels.Grammar.Tables.istable(typeof(monte_carlo))
-    @test report(
-        RB.MonteCarloTableDefinition(:kilo, nothing),
-        monte_carlo
-    ).table isa DataFrame
-    @test parentmodule(which(DataFrame, (typeof(monte_carlo),))) !== RB
-
-    target=only(LineCableModels.Grammar.unit_targets(
-        (R,),
-        basis(monte_carlo);
-        length_prefix = :kilo,
-        overrides = :milli
-    ))
-    selected=RB.select(
-        RB.MonteCarloTableDefinition(:kilo, :milli),
-        monte_carlo
-    )
-    @test first(only(selected)).unit == target
-    @test first(only(selected)).quantity ==
-          LineCableModels.Units.quantity(R)
-
-    for name in (
-        :TableReportDefinition,
-        :CableConstantsTableDefinition,
-        :LineParametersTableDefinition,
-        :BenchmarkTableDefinition,
-        :MonteCarloTableDefinition,
-        :XLSXReportDefinition
-    )
-        @test isdefined(RB, name)
-        @test parentmodule(getproperty(RB, name)) === RB
+    constants=CableConstants(1.,2.,3.)
+    artifact=report(RB.CableConstantsTableDefinition(),constants)
+    @test artifact.observed isa ObservedResult
+    @test artifact.tables.constants.R.value==[1000.]
+    @test !Tables.istable(typeof(artifact.observed))
+    @test parentmodule(which(DataFrame,(ObservedResult,)))===RB
+    mc=TestFixtures.cable_monte_carlo_result()
+    artifact=report(RB.MonteCarloTableDefinition(),mc)
+    @test artifact.observed isa Vector{ObservedResult}
+    @test length(artifact.tables)==length(mc)
+    @test length(first(artifact.observed).quantities)==8
+    @test !Tables.istable(typeof(mc))
+    for name in (:TableReportDefinition,:CableConstantsTableDefinition,:LineParametersTableDefinition,
+            :BenchmarkTableDefinition,:MonteCarloTableDefinition,:XLSXReportDefinition)
+        @test parentmodule(getproperty(RB,name))===RB
     end
 end

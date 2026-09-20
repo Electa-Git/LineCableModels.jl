@@ -1,6 +1,6 @@
 
 @testitem "Gauntlet / explicit saved benchmarks own comparison direction" tags=[:gauntlet_toolkit] setup=[GauntletSupport] begin
-    using JLD2, SHA, TOML
+    using JLD2, SHA, TOML, Measurements
     using LineCableModels.Engine
     using .GauntletSupport: Gauntlet
     include(joinpath(pkgdir(LineCableModels), "docs", "gauntlet_report.jl"))
@@ -64,14 +64,14 @@
         before = [(directory, copy(names)) for (directory, _, names) in walkdir(root)]
         summary = render_gauntlet_report(output)
         @test occursin("3 complete benchmarks",summary)
-        @test occursin("Entire range",summary) && occursin("Near DC",summary) && occursin("Wideband",summary)
+        @test all(band -> occursin(band,summary),("all","dc","wide"))
         @test !occursin("<svg",summary) && !occursin("data:image",summary)
         @test !occursin("<img",summary) && !occursin("![",summary)
         @test !occursin("Absolute RMS [",summary)
         @test !occursin("Worst terms and comparison counts",summary)
         @test !occursin("Scientific formula descriptions",summary)
         @test !isdefined(@__MODULE__,:gauntlet_table)
-        tables=[report(LineCableModels.ReportBuilder.BenchmarkTableDefinition(),read_benchmark(path;load_results=true)).table for path in paths]
+        tables=[report(LineCableModels.ReportBuilder.BenchmarkTableDefinition(),read_benchmark(path;load_results=true)).tables for path in paths]
         row=only(filter(row -> row.quantity===:Z && row.band===:all && row.normalization===:reference_rms,tables[1].maxima))
         @test row.maximum_relative_rms_percent ≈ 100sqrt(1/10001)
         reverse_row=only(filter(row -> row.quantity===:Z && row.band===:all && row.normalization===:reference_rms,tables[2].maxima))
@@ -96,7 +96,7 @@
         @test [(directory, copy(names)) for (directory, _, names) in walkdir(root)]==before
         @test render_gauntlet_report(join((output, output), Sys.iswindows() ? ';' :
                                                             ':'))==summary
-        @test compare_saved(source; directory = output) == paths
+        @test all(a != b for (a,b) in zip(compare_saved(source; directory = output),paths))
         delete!(entries[1], "reference")
         open(io->TOML.print(io, plan), source, "w")
         @test_throws r"explicit reference" compare_saved(source; directory = joinpath(root, "invalid"))
@@ -112,40 +112,38 @@ end
 
 
 @testitem "Gauntlet / saved UQ comparisons retain distinct means and deviations" tags=[:gauntlet_toolkit] setup=[GauntletSupport] begin
-    using JLD2, SHA, TOML
+    using JLD2, SHA, TOML, Measurements
     using .GauntletSupport: Gauntlet
     include(joinpath(pkgdir(LineCableModels), "docs", "gauntlet_report.jl"))
     using .GauntletSupport.Gauntlet
     mktempdir() do root
         f=[1.0, 100.0]
         paths=String[]
-        for (id, factor) in (("lep", 1.0), ("monte_carlo", 2.0))
-            values=(;
-                (quantity=>(mean = fill(factor, 1, 1, 2), std = fill(0.1factor^2, 1, 1, 2))
-            for quantity in (:R, :L, :C, :G))...)
-            moments=(values = values, frequencies = f, basis = :pul,
-                domain = :PhaseDomain, port_order = ["core"])
-            path=joinpath(root, "$id.jld2")
-            JLD2.jldsave(
-                path; schema_version = 1, kind = :gauntlet_moments, status = :complete,
-                case_id = "uq_case", backend = :coaxial, problem = (physical = "same",),
-                selection = Dict("propagation"=>id), formulation = (
-                    definitions = (;), options = (;)),
-                frequencies = f, basis = :pul, domain = :PhaseDomain, port_order = ["core"], moments,
-                result_bytes=UInt8[0xff, 0x00, 0x7f])
-            write(path*".sha256", bytes2hex(open(sha256, path)))
-            push!(paths, path)
+        for (id,factor) in (("reference",1.),("candidate",2.))
+            value=measurement(factor,.1factor^2)
+            omega=reshape(2pi.*f,1,1,:)
+            core=LineParameters(fill(value,1,1,2).+im.*omega.*value,
+                fill(value,1,1,2).+im.*omega.*value,f)
+            result=LinearErrorResult(LinearError(Formulation()),[core])
+            path=joinpath(root,"$id.jld2")
+            JLD2.jldsave(path;schema_version=3,kind=:gauntlet_uncertainty,status=:complete,
+                case_id="uq_case",backend=:coaxial,problem=(physical="same",),
+                selection=(propagation=:linear_error,),formulation=NamedTuple(result).formulation,
+                frequencies=f,basis=:pul,domain=:PhaseDomain,port_order=["core"],
+                scientific_result=LineCableModels.ImportExport.serialize_value(result))
+            write(path*".sha256",bytes2hex(open(sha256,path)))
+            push!(paths,path)
         end
-        reference, candidate=read_calculation.(paths)
-        @test reference.metadata.recovery === :retained_mean_std_only
-        @test candidate.metadata.recovery === :retained_mean_std_only
-        @test reference.result isa LineCableModels.Grammar.ObservationPublication
+        reference,candidate=read_calculation.(paths)
+        @test reference.metadata.recovery===:portable
+        @test candidate.metadata.recovery===:portable
+        @test reference.result isa LinearErrorResult
         source=joinpath(root, "definition.toml")
         write(source, "# fixture")
         benchmark=benchmark_definition(:uq_fixture, :uq_case, :uq, source,
             (id = :uq_case, description = "Mean and standard deviation"),
-            BenchmarkCalculation(:lep, reference, reference.metadata.formulation),
-            BenchmarkCalculation(:mc, candidate, candidate.metadata.formulation), (quantities=(:R, :L, :C, :G), statistics=(:mean, :std)), (;))
+            BenchmarkCalculation(:reference, reference, reference.metadata.formulation),
+            BenchmarkCalculation(:candidate, candidate, candidate.metadata.formulation), (quantities=(:R, :L, :C, :G), statistics=(:mean, :std)), (;))
         result=compare_saved(benchmark; directory = joinpath(root, "output"))
         record=read_benchmark(result)
         @test length(record["comparison_settings"].requests)==8
@@ -156,7 +154,7 @@ end
         @test all(r->only(r.relative)≈(r.statistic===:mean ? 1.0 : 3.0),
             filter(row -> row.details.band===:all,record["reference_comparison"]))
         loaded=read_benchmark(result;load_results=true)
-        tables=report(LineCableModels.ReportBuilder.BenchmarkTableDefinition(false),loaded).table
+        tables=report(LineCableModels.ReportBuilder.BenchmarkTableDefinition(false),loaded).tables
         @test Set(tables.comparisons.statistic)==Set((:mean,:std))
         @test length(tables.comparisons.quantity)==40
         @test all(row -> only(row.relative_rms_percent)≈(row.statistic===:mean ? 100 : 300),
@@ -173,7 +171,7 @@ end
         @test !occursin("Retained UQ statistics",summary)
         @test !occursin("mean_standard_error",summary)
         @test !occursin("configuration 1",summary)
-        # Historical moments without sampling evidence must not acquire an MC
+        # First-order results without sampling evidence must not acquire an MC
         # trial count or a fabricated CDF bound simply because they are reported.
         @test !occursin("MC sampling workload",summary)
         @test !occursin("CDF precision",summary)

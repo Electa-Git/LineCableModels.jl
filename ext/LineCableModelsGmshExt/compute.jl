@@ -208,7 +208,7 @@ function _resume_inputs_match(path::String, model::FEMResolvedModel, inputs::Nam
         pop!(execution, "frequency_workers", nothing)
         pop!(execution, "getdp_executable", nothing)
         record["execution"] = execution
-        pop!(record, "getdp_provenance", nothing)
+        pop!(record, "getdp_selection", nothing)
     end
     return _resume_value_matches(existing, expected) &&
         _resume_value_matches(comparable, requested)
@@ -588,7 +588,7 @@ function _fem_input_record(model::FEMResolvedModel, formulation::LineCableModels
         execution::ComputationOptions)
     selection = _getdp_selection(execution)
     getdp_identity = _getdp_identity(selection.path)
-    getdp_provenance = selection
+    getdp_selection = selection
     mesh_path = execution.data.mesh_path
     return (
         schema_version = 7,
@@ -613,7 +613,7 @@ function _fem_input_record(model::FEMResolvedModel, formulation::LineCableModels
             bytes2hex(open(sha256, mesh_path)),
         owned_gmsh = !Bool(gmsh.is_initialized()),
         getdp_identity,
-        getdp_provenance,
+        getdp_selection,
         gmsh_version = gmsh.GMSH_API_VERSION,
         gmsh_library = String(gmsh.lib),
         julia_version = string(VERSION),
@@ -663,13 +663,18 @@ function _compute_fem(
 )
     isempty(formulations) && throw(ArgumentError(
         "FEM formulation collections cannot be empty"))
+    physical_inputs=Engine.completed_inputs(problem)
+    source_id=Grammar.gridpoint_id().source_id
     # Resolve and validate all requests before opening Gmsh or starting GetDP.
     models = [_resolved_fem_model(problem, formulation, execution) for formulation in formulations]
     # The problem and loaded solver source are common to this batch. Only actual
     # material/mesh inputs and execution settings distinguish its calculations.
     keys = [JSON3.write(_fem_input_record(model, formulation, execution))
         for (model, formulation) in zip(models, formulations)]
-    first_result = _compute_fem(problem, first(formulations), execution, first(models))
+    first_result = Engine.retain_gridpoint(
+        _compute_fem(problem, first(formulations), execution, first(models)),
+        Grammar.gridpoint_id(;source_id);
+        fields=merge(Engine.completed_formulation(first(formulations)),(inputs=physical_inputs,)))
     values = Vector{typeof(first_result)}(undef, length(formulations))
     values[1] = first_result
     execution.data.on_result === nothing || execution.data.on_result(problem, 1, first_result)
@@ -692,6 +697,9 @@ function _compute_fem(
                 ShuntAdmittance(copy(source.Y.values); basis=Engine.basis(source)),
                 copy(source.f), metadata)
         end
+        value=Engine.retain_gridpoint(value,
+            Grammar.gridpoint_id(;source_id,formulation_index=index);
+            fields=merge(Engine.completed_formulation(formulations[index]),(inputs=physical_inputs,)))
         typeof(value) === eltype(values) || throw(ArgumentError(
             "FEM formulations produced inconsistent result types"))
         values[index] = value

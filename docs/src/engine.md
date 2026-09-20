@@ -800,44 +800,35 @@ The request tuple is an implementation representation, not a second selector
 type. `quantity(Z, abs)` and `quantity(Z, angle)` remain the transformed
 scientific identities.
 
-[`observables`](@ref) publishes only explicitly requested values:
+[`ObservedResult`](@ref) detaches the selected scientific representation of one
+completed gridpoint. `observables` lifts the same construction over collections:
 
 ```julia
-published = observables(
-    parameters,
-    (
-        (frequencies, Colon()),
-        @observe(R[1, 1, :]),
-    );
-    units = (
-        LineCableModels.Units.units(:base, :hertz),
-        LineCableModels.Units.units(
-            :base,
-            :ohm;
-            per = (:kilo, :meter),
-        ),
-    ),
-)
+observed = ObservedResult(parameters, (R, L, G, C); length_unit=:kilo)
+resistance = observe(observed, R)
+quantity_tables = LineCableModels.ReportBuilder.tabulate(observed)
+quantity_tables.Z.R
+plot(observed; ydata=(R,))
 ```
 
-Every positional payload contains only `values`, `quantity`, and `unit`.
-Publication converts and detaches `values`; it does not attach labels, result
-objects, execution options, Gridspace points, or Monte Carlo context.
+The four sections are `gridpoint`, `quantities`, `errors`, and `timings`.
+Coordinates, units, cutoffs, availability reasons, and uncertainty dependencies
+belong to the detached records. No raw result, lazy builder, or parent collection
+is retained. Physical inputs and actual formulation descriptions are captured
+when the calculation completes, independently of optional tracing.
 
-Line plotting accepts explicit observable requests. Its public convenience
-forms expand selectors such as `Z`, `real`, and `angle` once, at the optional
-Makie API, then use the same observation requests. The plotting extension groups completed
-observations with the qualified `Units.family(::Quantity)` metadata. Series and
-shunt identities return `Val(:series)` and `Val(:shunt)` respectively. Neither
-the plotting extension nor ReportBuilder owns another quantity or family map.
+`Grammar.observation_requests` owns request normalization. Primary line results
+retain one complete representation per available family: R/X, magnitude/angle of
+Z, or R/L; and G/B, magnitude/angle of Y, or G/C. An atomic request for R alone
+fails. Raw plotting and table conveniences complete the pair through that same
+operation and display the requested selection. Observed-input methods only select
+retained quantities. Frequency is a coordinate of each product.
 
-The qualified `Grammar.validate_observables` method is the single request
-validation used by direct publication and generic reports. It validates the source
-declaration, request identities, and positional unit alignment.
-`Grammar.unit_targets` resolves a tuple of requests to aligned `UnitExpr`
-values. A unit override may be `nothing`, a metric-prefix `Symbol`, an explicit
-`UnitExpr`, or a quantity-keyed collection used by an entry-point normalizer.
-Line plots, Monte Carlo plots, and reports all use this path.
+`Grammar.observation_quantity` owns acquisition, unit conversion, and resolution.
+`Grammar.observation_groups` establishes display groups from the original
+physical identity, relevant formulation controls, statistical meaning, output
+coordinates, and uncertainty dependencies. Both reporting and plotting consume
+that decision; all individual observations and quantity tables remain available.
 
 `LineCableModels.Units` owns `Unit`, `UnitExpr`, `Quantity`, `units`,
 `quantity`, `native_unit`, `display_unit`, `scale_factor`, `label`, and
@@ -1260,14 +1251,14 @@ the fields.
 
 ## Reports and XLSX output
 
-[`report`](@ref) executes `select`, `tabulate`, `illustrate`, `encode`, and
-`write`, then constructs a `ReportArtifact`. `select` and `tabulate` are
-required. Optional stages inherit the abstract-root no-op and in-memory reports
-return `ReportArtifact.output === nothing`.
+[`report`](@ref) executes `tabulate`, `illustrate`, `encode`, and `write`, then
+constructs a `ReportArtifact`. A report definition implements tabulation; the
+other stages have optional defaults. In-memory reports have `output === nothing`.
+Raw conveniences construct observations before entering this sequence.
 
 For formulation comparisons, ReportBuilder retains unformatted data in
-`artifact.published` and exposes `summary`, `maxima`, `formulations`, `calculations`,
-`comparisons` and `terms` through `artifact.table`:
+`artifact.observed` and exposes `summary`, `maxima`, `formulations`, `calculations`,
+`comparisons` and `terms` through `artifact.tables`:
 
 ```julia
 using LineCableModels.ReportBuilder: BenchmarkTableDefinition
@@ -1275,17 +1266,19 @@ using LineCableModels.ReportBuilder: BenchmarkTableDefinition
 candidates = compute(problem, Formulation(earth_properties=Grid((:constant, :longmire1975))))
 reference = compute(problem, Formulation())
 artifact = report(BenchmarkTableDefinition(), (; reference, candidate=candidates))
-artifact.table.summary
-artifact.table.terms
+artifact.tables.summary
+artifact.tables.terms
 # After loading a Makie backend:
 plot(artifact, (Z, Y))
 ```
 
 The default request compares all Z/Y/R/L/G/C matrix terms in five bands. It creates
-no figure. A retained publication is selected without recalculating RMS; new
-numerical settings require explicit reanalysis. Native output terminal identities
-must agree. Multiple problems require an explicit plot selection; a single
-reference is overlaid once alongside all selected formulations. The
+no figure. Completed comparisons are joined to their candidate identities before
+observation construction. `artifact.reference` is a separate atomic observation.
+Retained reports never recalculate RMS; changed numerical settings require explicit
+comparison. Arithmetic dimensions, coordinates, and units must be usable; scientific
+comparability remains the caller's responsibility. A single reference is overlaid
+once alongside all selected study points. The
 [Gauntlet guide](gauntlet.md) explains saved results, summaries and publication.
 
 [`XLSXReportDefinition`](@ref) owns the human-facing line-parameter workbook:
@@ -1300,16 +1293,18 @@ artifact = report(
 artifact.output
 ```
 
-ReportBuilder selects values through `observables`, builds one wide table with
-coordinate columns followed by one column per observed quantity, and encodes a complete
-[`LineCableModels.ReportBuilder.XLSXWorkbook`](@ref) containing the destination,
-ordered sheet names, and final cell strings. Loading XLSX activates the package
-extension that writes only this encoded description and records its path in
-[`ReportArtifact`](@ref). Relative and default paths resolve from the caller's
-current working directory; the package source tree is never the implicit
-destination. `export_data(:xlsx, parameters; ...)` remains a thin ImportExport
-convenience call that returns the same path. ImportExport owns no second
-workbook implementation.
+ReportBuilder creates one table and XLSX file per gridpoint and quantity. A full
+matrix table has one frequency row and all n² coefficient columns, including both
+off-diagonals. Each workbook contains numeric `values` and `std` sheets plus
+metadata for coordinates, units, applied cutoffs, and missing-value reasons.
+Loading XLSX activates the writer for these encoded tables. `artifact.output` is
+the list of written paths; `export_data(:xlsx, parameters; ...)` delegates to the
+same workflow. Relative paths resolve from the caller's working directory.
+
+For persistence of uncertainty dependencies and scalar precision, use
+`save(artifact, "observed.jls")` or JSON and `import_data(:observed, path)`.
+The restored observations can be reported or plotted without original sources.
+
 
 
 Scalar calculation selections are retained in `details(result).data.formulations`.

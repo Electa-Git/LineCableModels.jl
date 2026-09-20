@@ -35,18 +35,18 @@
             (Y, relative_error)
         )
     )
-    @test comparison_observables isa LineCableModels.Grammar.ObservationPublication
-    @test comparison_observables[1].values ==
+    @test comparison_observables isa ObservedResult
+    @test comparison_observables.quantities[1].values ==
           1_000comparison.Z.absolute
-    @test comparison_observables[2].values ==
+    @test comparison_observables.quantities[2].values ==
           comparison.Z.relative
-    @test comparison_observables[3].values ==
+    @test comparison_observables.quantities[3].values ==
           1_000comparison.Y.absolute
-    @test comparison_observables[4].values ==
+    @test comparison_observables.quantities[4].values ==
           comparison.Y.relative
-    @test comparison_observables[1].values !==
+    @test comparison_observables.quantities[1].values !==
           comparison.Z.absolute
-    @test comparison_observables[4].values !==
+    @test comparison_observables.quantities[4].values !==
           comparison.Y.relative
     @test comparison.Z.absolute ≈ [1.0 3.0; 2.0 4.0]
     @test comparison.Z.relative[1, 1] ≈
@@ -106,17 +106,21 @@
         (Y, absolute_error),
         (Y, relative_error)
     )
-    table=DataFrame(observables(displayed, requests))
-    @test names(table) == ["row", "column", "ΔZ", "εZ", "ΔY", "εY"]
-    z_noise=only(eachrow(table[(table.row .== 1) .& (table.column .== 1), :]))
-    y_signal=only(eachrow(table[(table.row .== 1) .& (table.column .== 2), :]))
-    @test z_noise.ΔZ ≈ 2.0e-17
-    @test z_noise.εZ == 0.5
-    @test y_signal.εY == 0.001
-    @test displayed.Z.relative[1, 1] == 0.5
-    @test DataFrame(observables(displayed, requests; clip = false)).ΔZ[1] ≈ 2.0e-17
-    observed=LineCableModels.ReportBuilder.observation_columns(table)
-    @test keys(observed) == (:ΔZ, :εZ, :ΔY, :εY)
-    @test LineCableModels.Units.label(observed.ΔZ.unit) == "Ω/km"
-    @test LineCableModels.Units.label(observed.εZ.unit) == ""
+    retained=observables(displayed,requests)
+    table=LineCableModels.ReportBuilder.tabulate(retained,(Z,absolute_error))
+    @test names(table)==["index","value"]
+    @test size(observe(retained,Z,absolute_error))==(2,2)
+    @test observe(retained,Z,absolute_error)[1,1]≈2.0e-17
+    @test observe(retained,Z,relative_error)[1,1]==0.5
+    @test observe(retained,Y,relative_error)[1,2]==0.001
+    @test displayed.Z.relative[1,1]==0.5
+    @test first(table.value)≈2.0e-17
+    @test nrow(DataFrame(retained))==16
+    unclipped=observables(displayed,requests;clip=false)
+    @test observe(unclipped,Z,absolute_error)[1,1]≈2.0e-17
+    columns=LineCableModels.ReportBuilder.observation_columns(table)
+    @test keys(columns)==(:value,)
+    @test LineCableModels.Units.label(columns.value.unit)=="Ω/km"
+    relative=LineCableModels.ReportBuilder.tabulate(retained,(Z,relative_error))
+    @test LineCableModels.Units.label(LineCableModels.ReportBuilder.observation_columns(relative).value.unit)==""
 end

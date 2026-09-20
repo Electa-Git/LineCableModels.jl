@@ -1,18 +1,9 @@
 @inline _dimension(name::Symbol) = name in (:radian, :degree) ? :angle : name
-@inline _unit_scale(unit::Unit) = 10.0^_prefix_exponent(unit.prefix) *
-                                  (unit.name === :degree ? π / 180 : 1.0)
-
 function _dimensions(expression::UnitExpr)
     return (
         map(unit -> _dimension(unit.name), expression.numerator),
         map(unit -> _dimension(unit.name), expression.denominator)
     )
-end
-
-function _expression_scale(expression::UnitExpr)
-    numerator = prod(_unit_scale, expression.numerator; init = 1.0)
-    denominator = prod(_unit_scale, expression.denominator; init = 1.0)
-    return numerator / denominator
 end
 
 """
@@ -26,10 +17,25 @@ expressions.
 - Throws `ArgumentError` when the expressions represent different dimensions.
 """
 function scale_factor(from::UnitExpr, to::UnitExpr)
+    return scale_factor(from,to,Float64)
+end
+
+"""
+$(TYPEDSIGNATURES)
+
+Convert compatible units using constants evaluated in scalar precision `T`.
+In particular, degree/radian conversion does not round π through Float64.
+"""
+function scale_factor(from::UnitExpr,to::UnitExpr,::Type{T}) where {T<:AbstractFloat}
     _dimensions(from) == _dimensions(to) || throw(
         ArgumentError("cannot convert $(label(from)) to incompatible unit $(label(to))"),
     )
-    return _expression_scale(from) / _expression_scale(to)
+    exponent(expression)=sum(unit -> _prefix_exponent(unit.prefix),expression.numerator;init=0) -
+        sum(unit -> _prefix_exponent(unit.prefix),expression.denominator;init=0)
+    degrees(expression)=count(unit -> unit.name===:degree,expression.numerator) -
+        count(unit -> unit.name===:degree,expression.denominator)
+    return T(10)^(exponent(from)-exponent(to)) *
+        (T(π)/T(180))^(degrees(from)-degrees(to))
 end
 
 function _with_basis(expression::UnitExpr, basis::Symbol; length_prefix::Symbol = :base)

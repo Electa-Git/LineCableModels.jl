@@ -588,9 +588,9 @@ end
         parameters
     ).illustration
     @test report_plot isa UIPlot
-    @test length(report_plot.axes) == 1
-    @test occursin("Frequency", sprint(show, only(report_plot.axes).xlabel[]))
-    @test length(report_plot.addon_state.groups) == 4
+    @test length(report_plot.axes) == 4
+    @test occursin("Frequency", sprint(show, last(report_plot.axes).xlabel[]))
+    @test length(report_plot.addon_state.groups) == 1
 
     extension=Base.get_extension(LineCableModels, :LineCableModelsMakieExt)
     publication_snapshot=Pair{Any, Any}[]

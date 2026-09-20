@@ -209,15 +209,6 @@ end
 
     extension_module=Base.get_extension(LineCableModels, :LineCableModelsMeasurementsExt)
     @test extension_module !== nothing
-    @test any(
-        method -> method.module === extension_module,
-        methods(LineCableModels.Grammar.detach)
-    )
-    @test any(
-        method -> method.module === extension_module,
-        methods(LineCableModels.ReportBuilder.encode_cell)
-    )
-
     uncertain=measurement(-20.0, 1.0)
     @test value(uncertain) == -20.0
     @test uncertainty(uncertain) == 1.0
@@ -226,22 +217,19 @@ end
 
     clipped=LineCableModels.Grammar.detach(
         measurement(eps(Float64)/2, eps(Float64)/4),
-        1.0,
-        true
+        1.0
     )
     @test value(clipped) == eps(Float64)/2
     @test uncertainty(clipped) == eps(Float64)/4
     clipped_array=LineCableModels.Grammar.detach(
         [measurement(eps(Float64)/2, eps(Float64)/4)],
-        1.0,
-        true
+        1.0
     )
     @test value(only(clipped_array)) == eps(Float64)/2
     @test uncertainty(only(clipped_array)) == eps(Float64)/4
     retained=LineCableModels.Grammar.detach(
         measurement(2.0, 0.25),
-        1.0,
-        true
+        1.0
     )
     @test value(retained) == 2.0
     @test uncertainty(retained) == 0.25
@@ -253,8 +241,8 @@ end
     @test uncertainty(decoded) == uncertainty(uncertain)
     @test LineCableModels.ReportBuilder.encode_cell(
         LineCableModels.ReportBuilder.XLSXReportDefinition(),
-        uncertain
-    ) == "-20 ± 1"
+        LineCableModels.nominal(uncertain)
+    ) == -20.0
 
     argument=complex(measurement(1.25, 0.01), measurement(0.5, 0.02))
     nominal=complex(1.25, 0.5)

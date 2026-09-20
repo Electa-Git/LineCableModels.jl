@@ -7,7 +7,6 @@ through numerical kernels, display, and data exchange.
 module LineCableModelsMeasurementsExt
 
 import Measurements
-import Printf
 import SpecialFunctions
 using LinearAlgebra: svd
 #! explicit-imports: off
@@ -23,15 +22,13 @@ import LineCableModels
 import LineCableModels.ParametricBuilder
 import LineCableModels.Engine
 import LineCableModels.UQ
-import LineCableModels.ReportBuilder
+import LineCableModels.ImportExport
 
 import LineCableModels: nominal, uncertainty
 import LineCableModels.Engine: has_uncertainty_type
 import LineCableModels.ImportExport:
                                      serialize_value, deserialize_extension,
                                      deserialize_value
-import LineCableModels.Grammar: detach
-import LineCableModels.ReportBuilder: encode_cell
 
 # Numeric presentation hooks.
 nominal(value::Measurements.Measurement) = measured_value(value)
@@ -58,18 +55,6 @@ function has_uncertainty_type(
     true
 end
 has_uncertainty_type(::Type{<:Measurements.Measurement}) = true
-function detach(value::Measurements.Measurement, factor, clip::Bool)
-    return value * factor
-end
-
-function detach(
-        values::AbstractArray{<:Measurements.Measurement},
-        factor,
-        clip::Bool
-)
-    return map(value -> detach(value, factor, clip), values)
-end
-
 function serialize_value(value::Measurements.Measurement)
     return Dict(
         "__type__" => "Measurement",
@@ -124,7 +109,9 @@ function serialize_value(value::Union{UQ.LinearErrorResult{T},
             return (kind = :cable_constants, cores = core.cores,
                 R = encode.(core.R), L = encode.(core.L), C = encode.(core.C), G = encode.(core.G),
                 frequency = encode(core.frequency),
-                shunt_model = get(LineCableModels.details(core).data, :shunt_model, nothing))
+                shunt_model = get(LineCableModels.details(core).data, :shunt_model, nothing),
+                gridpoint_description=(; (key=>LineCableModels.details(core).data[key] for key in
+                    (:inputs,:gridpoint,:selections,:formulation_labels,:uncertainty,:formulations) if haskey(LineCableModels.details(core).data,key))...))
         end
         LineCableModels.domain(core) === LineCableModels.PhaseDomain ||
             throw(ArgumentError("unsupported scientific UQ result domain"))
@@ -141,7 +128,9 @@ function serialize_value(value::Union{UQ.LinearErrorResult{T},
             basis = LineCableModels.basis(core), domain = :PhaseDomain,
             coordinates = get(LineCableModels.details(core).data, :coordinates, nothing),
             comparison_unsupported = get(LineCableModels.details(core).data, :comparison_unsupported, (;)),
-            shunt_model = get(LineCableModels.details(core).data, :shunt_model, nothing))
+            shunt_model = get(LineCableModels.details(core).data, :shunt_model, nothing),
+                gridpoint_description=(; (key=>LineCableModels.details(core).data[key] for key in
+                    (:inputs,:gridpoint,:selections,:formulation_labels,:uncertainty,:formulations) if haskey(LineCableModels.details(core).data,key))...))
     end
     return serialize_value(
         value, [serialize_value(point, Val(:scientific)) for point in points],
@@ -167,6 +156,7 @@ function deserialize_extension(::Val{:MeasurementPoints}, record)
         model=get(point, :shunt_model, nothing)
         detail=model===nothing ? (;) :
                NamedTuple{(:shunt_model,), Tuple{NamedTuple}}((model,))
+        detail=merge(detail,get(point,:gridpoint_description,(;)))
         if get(point, :kind, nothing)===:cable_constants
             return Engine.CableConstants(point.cores, restore.(point.R), restore.(point.L),
                 restore.(point.C), restore.(point.G), restore(point.frequency),
@@ -208,15 +198,6 @@ function deserialize_extension(::Val{:MeasurementLinearErrorResult}, record)
     end
     return UQ.LinearErrorResult(payload.formulation, points, restored_details)
 end
-function encode_cell(
-        ::ReportBuilder.XLSXReportDefinition,
-        value::Measurements.Measurement
-)
-    Printf.@sprintf("%.12g ± %.6g",
-        measured_value(value),
-        measured_uncertainty(value),)
-end
-
 # Uncertainty-aware SpecialFunctions methods used by the numerical kernels.
 function _lift_complex(function_value, order, value::Complex{<:Measurements.Measurement})
     z = measured_value(value)
@@ -325,4 +306,36 @@ function Engine.internal_shunt_response(selected::Engine.ShuntModel.Formula{:bou
     return (; C = reshape(lifted, size(result.C)),
         diagnostic = result.diagnostic, state = nothing)
 end
+# The archive context spans all atomic points and a separate report reference.
+function ImportExport.encode_observation(value::Measurements.Measurement,context)
+    contributions=NamedTuple[]
+    for source in keys(uncertainty_components(value))
+        index=get!(context.indices,source) do
+            push!(context.sources,(nominal=source[1],sigma=source[2]))
+            length(context.sources)
+        end
+        push!(contributions,(source=index,sensitivity=derivative(value,source)))
+    end
+    sort!(contributions;by=entry -> entry.source)
+    return Dict("__type__"=>"ObservedMeasurement",
+        "nominal"=>serialize_value(nominal(value)),
+        "uncertainty"=>serialize_value(uncertainty(value)),
+        "contributions"=>serialize_value(contributions,Val(:scientific)))
+end
+function ImportExport.observation_sources(records::AbstractVector,::Val{:measurements})
+    return [Measurements.measurement(record.nominal,record.sigma) for record in records]
+end
+function ImportExport.decode_observation_measurement(record,context)
+    center=deserialize_value(record["nominal"])
+    value=Measurements.measurement(center,zero(center))
+    for entry in deserialize_value(record["contributions"])
+        source=context[entry.source]
+        value+=entry.sensitivity*(source-nominal(source))
+    end
+    expected=deserialize_value(record["uncertainty"])
+    isapprox(uncertainty(value),expected;rtol=1e-12,atol=0) ||
+        throw(ArgumentError("saved uncertainty sensitivities do not reproduce the retained standard deviation"))
+    return value
+end
+
 end

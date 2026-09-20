@@ -1,290 +1,140 @@
-@testitem "Makie addons / complete formulation overlays preserve labels, cells and exports" tags=[:visual] begin
+@testitem "Makie addons / completed overlays preserve matrices, identities and exports" tags=[:visual] begin
     using CairoMakie
+    using LineCableModels.Engine: retain_gridpoint, completed_formulation
+    using LineCableModels.Grammar: gridpoint_id, observation_labels
     using LineCableModels.ReportBuilder: BenchmarkTableDefinition
     f=[1.,10.,100.]
     z=reshape(complex.(collect(1.:12.),collect(21.:32.)),2,2,3)
     y=1e-6im .* z
-    options=(backend=:cairo,display_plot=false,controls=false,length_unit=:base,
-        quantity_units=:base,freq_unit=:base,open_export=false)
-    common=(backend=:coaxial,options=(reduce_bundle=false,),)
-    selections=[merge(common,(requested=(earth_impedance=(air=NamedTuple(formula(:carson1926)),
-        earth=NamedTuple(formula(id)),mixed=NamedTuple(formula(:lucca1994))),),)) for id in (:default,:pollaczek1926)]
-    reference=LineParameters(PhaseDomain,copy(z),copy(y),copy(f);details=ComputationDetails(;coordinates=["a","b"],))
-    points=[LineParameters(PhaseDomain,factor*z,y,copy(f);details=ComputationDetails(;coordinates=["a","b"],)) for factor in (2,3)]
-    candidates=ParametricResult(nothing,points,(problems=[:one],formulations=selections), ComputationDetails((;)))
-    baseline=(result=reference,metadata=(port_order=["a","b"],formulation=selections[1],axes=nothing))
-    publication=report(BenchmarkTableDefinition(),(reference=baseline,candidate=candidates,
-        context=(id=:benchmark_title_probe,case_id=:title_probe,collection=:test)))
-    series_attributes=((marker=:circle, markersize=8), (marker=nothing,),
-        (linestyle=:dash, marker=nothing))
-    plots=LineCableModels.plot(publication,(Z,);options...,series_attributes)
-    @test length(plots)==2
-    @test getproperty.(plots,:export_name) == [
-        "benchmark_title_probe — Series resistance", "benchmark_title_probe — Series reactance"]
-    @test sum(length(page.axes) for page in plots)==8
-    expected_labels=publication.table.formulations.label
-    for (q,page) in zip((real,imag),plots)
-        @test Set(values(page.addon_state.labels))==Set(expected_labels)
+    source_id=gridpoint_id().source_id
+    choices=[Formulation(earth_impedance=:saad1996),Formulation(earth_impedance=:xue2018)]
+    points=[retain_gridpoint(LineParameters(k*z,k*y,f),gridpoint_id(;source_id,formulation_index=index);
+        fields=merge(completed_formulation(choices[index]),(inputs=(radius=.01,resistivity=100.),coordinates=["a","b"])))
+        for (index,k) in enumerate((2,3))]
+    reference=LineParameters(z,y,f)
+    candidates=ParametricResult(nothing,points,(problems=[:unavailable],formulations=choices),ComputationDetails())
+    completed=LineCableModels.Engine.compare(reference,candidates,[Z,Y,R,L,G,C];bands=(:all,:wide))
+    timings=[(candidate_id=point.details.data.gridpoint,seconds=Float64(index),scope=:compute_call_wall,
+        context=(id=:benchmark_title_probe,)) for (index,point) in enumerate(points)]
+    observed=observables(candidates;comparisons=completed,timings,length_unit=:base,clip=false)
+    observed_reference=ObservedResult(reference;length_unit=:base,clip=false)
+    artifact=report(BenchmarkTableDefinition(bands=(:all,:wide)),observed;reference=observed_reference)
+    @test artifact.tables.execution.seconds==[1.,2.]
+    @test artifact.tables.execution.candidate_formulation==[1,2]
+    @test length.(getproperty.(observed,:errors))==[12,12]
+    @test all(error -> error.reference_id==observed_reference.gridpoint.id,Iterators.flatten(getproperty.(observed,:errors)))
+    options=(backend=:cairo,display_plot=false,controls=false,open_export=false)
+    pages=LineCableModels.plot(artifact,(Z,);options...)
+    @test length(pages)==2
+    @test getproperty.(pages,:export_name)==["benchmark_title_probe — Series resistance","benchmark_title_probe — Series reactance"]
+    @test sum(length(page.axes) for page in pages)==8
+    for (transform,page) in zip((real,imag),pages)
+        @test length(page.addon_state.observed)==3
+        @test any(startswith("Reference"),values(page.addon_state.labels))
         for ((i,j),panel) in page.addon_state.panel_data
             curves=filter(item -> item isa Makie.Lines,panel.axis.scene.plots)
             @test length(curves)==3
-            markers=only(filter(item -> item isa Makie.Scatter,panel.axis.scene.plots))
-            @test markers[1][] == first(curves)[1][]
-            @test last(curves).linestyle[] == Makie.to_linestyle(:dash)
-            for (factor,curve) in zip((1,2,3),curves)
-                @test first.(curve[1][]) ≈ f
-                @test last.(curve[1][]) ≈ factor .* q.(z[i,j,:])
+            @test Makie.to_color(last(curves).color[])==Makie.to_color(:black)
+            for (factor,curve) in zip((2,3,1),curves)
+                @test first.(curve[1][])≈f
+                @test last.(curve[1][])≈factor.*transform.(z[i,j,:])
             end
         end
-        @test length(page.addon_state.formulations.records)==length(selections)
     end
-    filtered=LineCableModels.plot(publication,(R,);formulations=2,options...)
-    @test filtered.export_name == "benchmark_title_probe — Series resistance"
-    blocked=LineCableModels.plot(publication,(R,);blocks=(1,2),options...)
-    @test getproperty.(blocked,:export_name) == [
-        "benchmark_title_probe — Series resistance (1,1)",
-        "benchmark_title_probe — Series resistance (2,1)"]
-    custom=LineCableModels.plot(publication,(R,);title="My comparison",options...)
-    @test custom.export_name == "My comparison"
-    for (all_axis,filtered_axis) in zip(first(plots).axes,filtered.axes)
+    filtered=LineCableModels.plot(artifact,(R,);formulations=2,options...)
+    @test first(filtered.addon_state.observed).gridpoint.id.formulation_index==2
+    @test first(filtered.addon_state.observed).timings.seconds==2.
+    @test all(error -> error.candidate_id.formulation_index==2,first(filtered.addon_state.observed).errors)
+    for (all_axis,selected_axis) in zip(first(pages).axes,filtered.axes)
         all_curves=filter(item -> item isa Makie.Lines,all_axis.scene.plots)
-        selected=filter(item -> item isa Makie.Lines,filtered_axis.scene.plots)
+        selected=filter(item -> item isa Makie.Lines,selected_axis.scene.plots)
         @test length(selected)==2
-        @test selected[2].color[] == all_curves[3].color[]
+        @test selected[1].color[]==all_curves[2].color[]
     end
-    @test Set(values(filtered.addon_state.labels))==Set(expected_labels[[1,3]])
-    signed=LineCableModels.plot(publication;ydata=(G,),options...,controls=true)
-    @test haskey(signed.controls,:ylog)
+    blocked=LineCableModels.plot(artifact,(R,);blocks=(1,2),options...)
+    @test length(blocked)==2
+    @test all(length(page.axes)==2 for page in blocked)
+    @test LineCableModels.plot(artifact,(R,);title="My comparison",options...).export_name=="My comparison"
+    signed=LineCableModels.plot(artifact;ydata=(G,),options...,controls=true)
     signed.controls[:ylog].active[]=true
-    @test all(axis -> axis.yscale[](1e-18) > 0 &&
-        axis.yscale[](-1e-18) < 0,signed.axes)
-    keyword_ydata=LineCableModels.plot(reference,points[1];
-        ydata=(R,),series_labels=("reference","candidate"),options...)
-    @test length(keyword_ydata.axes)==4
-    @test keyword_ydata.export_name == "Series resistance"
-    foreign=LineParameters(PhaseDomain,z,y,f;details=ComputationDetails(;coordinates=["a","b"],
-        formulations=(schema_version=3,selections=(constitutive=(identifier=:default,),),
-            assumptions=(equations=repeat("field equations ",100),))))
-    foreign_plot=LineCableModels.plot(candidates,(R,);reference=foreign,options...)
-    @test "Reference · method unavailable" in values(foreign_plot.addon_state.labels)
-    @test all(label -> !occursin("field equations",label),values(foreign_plot.addon_state.labels))
-    @test foreign_plot.addon_state.formulations.reference === details(foreign).data
-
-    @test_throws r"explicitly saved" LineCableModels.plot(publication,(R,);pair=(2,1),options...)
-    @test_throws r"not retained" LineCableModels.plot(publication,(R,);band=(100.,200.),options...)
-    @test_throws r"no retained samples" LineCableModels.plot(publication,(R,);band=:wide,options...)
-    duplicated=ParametricResult(nothing,[points[1],points[1]],candidates.axes, ComputationDetails((;)))
-    overlay=LineCableModels.plot(duplicated,(R,);reference,options...)
-    @test all(length(filter(item -> item isa Makie.Lines,axis.scene.plots))==3 for axis in overlay.axes)
-    multi=ParametricResult(nothing,[points[1],points[1],points[2],points[2]],
-        (problems=[:one,:two],formulations=selections), ComputationDetails((;)))
-    @test_throws r"select problem" LineCableModels.plot(multi,(R,);options...)
-    chosen=LineCableModels.plot(multi,(R,);problem=2,options...)
-    @test chosen.addon_state.formulations.problem==2
-    references=ParametricResult(nothing,[reference,reference],(problems=[:one,:two],formulations=selections[1:1]), ComputationDetails((;)))
-    paired=report(BenchmarkTableDefinition(pairing=[(1,1),(2,2),(1,3),(2,4)]),
-        (reference=references,candidate=multi))
-    a=LineCableModels.plot(paired,(R,);problem=1,options...)
-    b=LineCableModels.plot(paired,(R,);problem=2,options...)
-    @test first(first(a.axes).scene.plots).color[] == first(first(b.axes).scene.plots).color[]
-    mktempdir() do root
+    @test all(axis -> axis.yscale[](1e-18)>0 && axis.yscale[](-1e-18)<0,signed.axes)
+    @test_throws ArgumentError LineCableModels.plot(artifact,(R,);band=(100.,200.),options...)
+    @test_throws ArgumentError LineCableModels.plot(artifact,(R,);band=:wide,options...)
+    raw_page=LineCableModels.plot(candidates;ydata=(R,),reference,length_unit=:base,options...)
+    @test length(raw_page.axes)==4
+    @test length(first(raw_page.addon_state.observed).quantities)==4
+    # Rendering and exporting must not consult either poisoned numerical source.
+    Z(reference).=NaN;Z(points[1]).=NaN
+    rebuilt=report(BenchmarkTableDefinition(),artifact.observed;reference=artifact.reference)
+    @test isequal(rebuilt.tables.terms,artifact.tables.terms)
+    @test rebuilt.tables.execution.seconds==[1.,2.]
+    mktempdir() do directory
         for controls in (false,true)
-            page=LineCableModels.plot(publication,(R,);options...,controls,series_attributes)
-            xlims!(first(page.axes),2,70)
-            ylims!(first(page.axes),0,25)
+            page=LineCableModels.plot(artifact,(R,);options...,controls)
+            xlims!(first(page.axes),2,70);ylims!(first(page.axes),0,25)
             limits=[axis.finallimits[] for axis in page.axes]
-            exported=export_svg(page;path=joinpath(root,"grid-$controls.svg"),open_file=false)
-            @test isfile(exported)
-            @test occursin("<svg",read(exported,String))
+            path=export_svg(page;path=joinpath(directory,"grid-$controls.svg"),open_file=false)
+            @test occursin("<svg",read(path,String))
             @test [axis.finallimits[] for axis in page.axes]==limits
-            @test Z(reference)==z
         end
     end
 end
 
-@testitem "Makie addons / repeated formulas preserve uncertainty marginals" tags=[:visual] begin
-    using CairoMakie, Measurements
-    using LineCableModels.ReportBuilder: BenchmarkTableDefinition
-    tensor=reshape([1.,2.,3.],1,1,:)
-    parameters=map((0.1,0.1,0.4)) do spread
-        LineParameters(complex.(measurement.(tensor,spread),tensor),1e-6im.*tensor,
-            measurement.([1.,10.,100.],0.01);details=ComputationDetails(;coordinates=["a"],))
-    end
-    options=(backend=:cairo,display_plot=false,controls=false,open_export=false)
-    choices=(problems=[:one],formulations=[Formulation(),Formulation()])
-    for index in (2,3)
-        candidates=ParametricResult(nothing,[parameters[1],parameters[index]],choices, ComputationDetails((;)))
-        if index==2
-            artifact=report(BenchmarkTableDefinition((R,);bands=(:all,)),
-                (reference=parameters[1],candidate=candidates))
-            @test size(only(artifact.table.features).relative,1)==1
-            for source in (candidates,artifact)
-                page=LineCableModels.plot(source;ydata=(R,),options...)
-                expected=source===candidates ? 1 : 2
-                @test count(item -> item isa Makie.Lines,first(page.axes).scene.plots)==expected
-                @test count(item -> item isa Makie.Errorbars,first(page.axes).scene.plots)==2expected
-            end
-        else
-            # Same means do not make differing uncertainty bars interchangeable.
-            @test_throws r"conflicting saved observations" report(
-                BenchmarkTableDefinition((R,);bands=(:all,)),
-                (reference=parameters[1],candidate=candidates))
-            @test_throws r"conflicting saved observations" LineCableModels.plot(
-                candidates;ydata=(R,),options...)
-        end
-    end
+@testitem "Makie addons / grouping retains independent uncertainty interpretations" tags=[:visual] begin
+    using CairoMakie,Measurements
+    using LineCableModels.Engine: retain_gridpoint,completed_formulation
+    using LineCableModels.Grammar: gridpoint_id,observation_groups
+    source_id=gridpoint_id().source_id
+    shared=measurement(1.,.1)
+    values=(shared,shared,measurement(1.,.1),measurement(1.,.4))
+    points=[retain_gridpoint(LineParameters(fill(complex(value,2value),1,1,3),fill(1e-6im,1,1,3),[1.,10.,100.]),
+        gridpoint_id(;source_id,formulation_index=index);fields=completed_formulation(Formulation()))
+        for (index,value) in enumerate(values)]
+    observed=observables(points)
+    groups=observation_groups(observed;request=R)
+    @test getproperty.(groups,:members)==[[1,2],[3],[4]]
+    page=LineCableModels.plot(observed;ydata=(R,),backend=:cairo,display_plot=false,controls=false,open_export=false)
+    @test length(page.addon_state.observed)==4
+    @test page.addon_state.displayed_indices==[1,3,4]
+    @test count(item -> item isa Makie.Lines,only(page.axes).scene.plots)==3
+    @test count(item -> item isa Makie.Errorbars,only(page.axes).scene.plots)==3
 end
 
-@testitem "Makie addons / owner-defined composite slots survive real reports and legends" tags=[:visual] begin
+@testitem "Makie addons / quantity assumptions share report and plot grouping" tags=[:visual] begin
     using CairoMakie
+    using LineCableModels.Engine: retain_gridpoint,completed_formulation
+    using LineCableModels.Grammar: gridpoint_id,observation_groups
     using LineCableModels.ReportBuilder: BenchmarkTableDefinition
-    import LineCableModels: description, formula_id, formulation_options
-    const E=LineCableModels.Engine
-    const IO=LineCableModels.ImportExport
-    struct TestFormula{ID} <: AbstractFormulation end
-    TestFormula(id::Symbol)=TestFormula{id}()
-    formula_id(::Type{<:TestFormula{ID}}) where {ID}=ID
-    formula_id(value::TestFormula)=formula_id(typeof(value))
-    description(::Type{<:TestFormula};compact::Bool=false)=compact ? "Shared display" : "Test-owned scientific explanation"
-    description(value::TestFormula;compact::Bool=false)=description(typeof(value);compact)
-    formulation_options(::TestFormula)=FormulationOptions()
-    Base.NamedTuple(value::TestFormula)=(identifier=formula_id(value),)
-    Base.pairs(::Type{<:TestFormula};quantity=nothing)=pairs((east=TestFormula,west=TestFormula))
-    struct TestOwner{T} <: AbstractFormulation
-        selection::T
+    source_id=gridpoint_id().source_id
+    choices=[Formulation(earth_impedance=z,earth_admittance=y) for (z,y) in
+        ((:unified,:unified),(:pollaczek1926,:pollaczek1926),(:saad1996,:unified),(:wedepohl1973,:unified),(:xue2018,:xue2018))]
+    f=[1.,50.,1e3,1e7]
+    base=LineParameters(fill(1.0+2im,1,1,4),fill(3e-6+4e-6im,1,1,4),f)
+    points=[retain_gridpoint(base,gridpoint_id(;source_id,formulation_index=index);
+        fields=merge(completed_formulation(choice),(inputs=(radius=.01,resistivity=100.),)))
+        for (index,choice) in enumerate(choices)]
+    artifact=report(BenchmarkTableDefinition(),(reference=LineParameters(Z(base),Y(base),f),candidate=points))
+    for (request,count) in ((R,5),(X,5),(G,3),(B,3))
+        @test length(observation_groups(artifact.observed;request))==count
+        page=LineCableModels.plot(artifact;ydata=(request,),backend=:cairo,display_plot=false,controls=false,open_export=false)
+        @test length(page.addon_state.displayed_indices)==count+1
+        labels=collect(values(page.addon_state.labels))
+        other=request in (R,X) ? "earth Y" : "earth Z"
+        @test all(!occursin(other,label) for label in labels)
     end
-    description(::Type{<:TestOwner};compact::Bool=false)="Test owner"
-    description(value::TestOwner;compact::Bool=false)=description(typeof(value);compact)
-    formula_id(::Type{<:TestOwner})=:test_owner
-    formula_id(::TestOwner)=:test_owner
-    formulation_options(::TestOwner)=FormulationOptions()
-    description(::Type{TestOwner},::Val{:channel})="channel"
-    Base.pairs(::Type{TestOwner};quantity=nothing)=pairs((channel=TestFormula,))
-    Base.pairs(::Type{TestOwner},record::NamedTuple;quantity=nothing)=
-        pairs(E.LineParametersFormulation,record;quantity,owner=TestOwner)
-    Base.pairs(value::TestOwner;quantity=nothing)=pairs(TestOwner,
-        (methods=(channel=value.selection,),requested=(channel=map(NamedTuple,value.selection),),options=(;));quantity)
-
-    a=Formulation(TestFormula,(west=:right,east=:left))
-    b=Formulation(TestFormula,(east=:right,west=:left))
-    @test keys(a)==(:east,:west)
-    @test formula_id(a.east)!=formula_id(b.east)
-    @test description(a.east;compact=true)==description(b.east;compact=true)
-    selected,controls=IO.deserialize_value(Val(:formulation),TestFormula,map(NamedTuple,a),map(NamedTuple,a))
-    saved=TestOwner=>(methods=(channel=selected,),requested=(channel=controls,),options=(;))
-    for compact in (false,true)
-        @test description([TestOwner(a)];compact)==description([saved];compact)
+    for feature in artifact.tables.features
+        @test size(feature.relative,1)==(feature.quantity in (:Z,:R,:L,:X) ? 5 : 3)
     end
-    f=[1.,10.,100.]
-    z=reshape(complex.(1.:12.,21.:32.),2,2,3)
-    y=reshape(complex.(101.:112.,201.:212.),2,2,3)*1e-6
-    reference=LineParameters(z,y,f;details=ComputationDetails(;coordinates=["a","b"],formulations=NamedTuple(LineCableModelsFEM()),))
-    points=[LineParameters(k*z,k*y,f;details=ComputationDetails(;coordinates=["a","b"],)) for k in (1.,2.,1.)]
-    choices=[TestOwner(a),TestOwner(b),saved]
-    candidates=ParametricResult(nothing,points,(problems=[:one],formulations=choices), ComputationDetails((;)))
-    artifact=report(BenchmarkTableDefinition((R,B);bands=(:all,)),(reference=reference,candidate=candidates))
-    options=(backend=:cairo,display_plot=false,controls=false,open_export=false,length_unit=:base)
-    for source in (candidates,artifact)
-        page=LineCableModels.plot(source;ydata=(R,),formulations=[3,1],options...)
-        names=[page.addon_state.labels[group] for group in page.addon_state.order]
-        candidate_names=source===artifact ? names[2:end] : names
-        @test candidate_names==["channel(east)=Shared display; channel(west)=Shared display"]
-        curves=filter(item->item isa Makie.Lines,first(page.axes).scene.plots)
-        @test length(curves)==(source===artifact ? 2 : 1)
-        @test last.(curves[end][1][])≈real.(z[1,1,:])
-        # Equal descriptions are legitimate for distinct test-owned equations;
-        # neither formatter text nor the selected position defines equivalence.
-        distinct=LineCableModels.plot(source;ydata=(R,),formulations=[2,1],options...)
-        distinct_curves=filter(item -> item isa Makie.Lines,first(distinct.axes).scene.plots)
-        @test length(distinct_curves)==(source===artifact ? 3 : 2)
-        @test last.(distinct_curves[end-1][1][])≈2real.(z[1,1,:])
-        @test last.(distinct_curves[end][1][])≈real.(z[1,1,:])
-    end
-    # This checks literal route completeness, not table==plot: both consumers
-    # used to agree while silently dropping unchanged/default branches.
-    internal=(inner=:default,outer=:default,transfer=:default)
-    earth=(air=:default,earth=:pollaczek1926,mixed=:default)
-    physical=Formulation(internal_impedance=internal,earth_impedance=earth,
+    @test length(artifact.tables.quantities)==5
+    # Composite branches survive captured owner descriptions, including defaults.
+    physical=Formulation(internal_impedance=(inner=:default,outer=:default,transfer=:default),
+        earth_impedance=(air=:default,earth=:pollaczek1926,mixed=:default),
         earth_admittance=(air=:default,earth=:default,mixed=:default))
-    for retained in (physical,IO.deserialize_value(Val(:formulation),NamedTuple(physical)))
-        data=ParametricResult(nothing,points[1:1],(problems=[:one],formulations=[retained]), ComputationDetails((;)))
-        for (request,names) in ((R,("internal Z(inner)=Schelkunoff","internal Z(outer)=Schelkunoff",
-                "internal Z(transfer)=Schelkunoff","earth Z(air)=Unified",
-                "earth Z(earth)=Pollaczek","earth Z(mixed)=Unified")),
-                (B,("earth Y(air)=Unified","earth Y(earth)=Unified","earth Y(mixed)=Unified")))
-            page=LineCableModels.plot(data;ydata=(request,),options...)
-            label=only(values(page.addon_state.labels))
-            @test all(occursin(name,label) for name in names)
-            @test !occursin(request===R ? "earth Y" : "internal Z",label)
-        end
+    observed=ObservedResult(retain_gridpoint(base,gridpoint_id();fields=completed_formulation(physical)))
+    for (request,labels) in ((R,("internal Z(inner)=Schelkunoff","internal Z(outer)=Schelkunoff",
+        "internal Z(transfer)=Schelkunoff","earth Z(air)=Unified","earth Z(earth)=Pollaczek","earth Z(mixed)=Unified")),
+        (B,("earth Y(air)=Unified","earth Y(earth)=Unified","earth Y(mixed)=Unified")))
+        page=LineCableModels.plot(observed;ydata=(request,),backend=:cairo,display_plot=false,controls=false,open_export=false)
+        @test all(occursin(label,only(values(page.addon_state.labels))) for label in labels)
     end
-    @test Z(reference)==z && Y(reference)==y
-end
-
-@testitem "Makie addons / quantity-specific formulas remove redundant curves and rows" tags=[:visual] begin
-    using CairoMakie
-    using LineCableModels.ReportBuilder: BenchmarkTableDefinition
-    f = [1.0, 10.0, 100.0]
-    tensor = fill(1.0+2im, 1, 1, 3)
-    reference = LineParameters(PhaseDomain, tensor, 1e-6tensor, f;
-        details=ComputationDetails(;coordinates=["a"],))
-    ids = ((:default,:default), (:pollaczek1926,:pollaczek1926),
-        (:saad1996,:default), (:wedepohl1973,:default), (:xue2018,:xue2018))
-    records = [NamedTuple(Formulation(earth_impedance=z,earth_admittance=y,
-        options=(reduce_bundle=false,))) for (z,y) in ids]
-    original = deepcopy(records)
-    candidates = ParametricResult(nothing,fill(reference,5),
-        (problems=[:one],formulations=records), ComputationDetails((;)))
-    baseline = (result=reference,metadata=(port_order=["a"],formulation=records[1],axes=nothing))
-    artifact = report(BenchmarkTableDefinition(),(reference=baseline,candidate=candidates))
-    options = (;backend=:cairo,display_plot=false,controls=false,open_export=false,
-        length_unit=:base)
-    for source in (candidates,artifact)
-        extra = source === candidates ? (;reference) : (;)
-        for quantity in (R,L,X,Z,G,C,B,Y)
-            built = LineCableModels.plot(source; ydata=(quantity,),options...,extra...)
-            pages = built isa UIPlot ? (built,) : built
-            family = quantity in (R,L,X,Z) ? "Z" : "Y"
-            for page in pages
-                other = family == "Z" ? "Y" : "Z"
-                names = [page.addon_state.labels[group] for group in page.addon_state.order]
-                @test length(names) == (family == "Z" ? 6 : 4)
-                @test all(!occursin("earth $other",label) for label in names)
-                @test all(occursin("earth $family",label) for label in names[2:end])
-                @test count(label -> occursin("=Unified",label),names[2:end]) == 1
-                curves = filter(plot -> plot isa Makie.Lines,first(page.axes).scene.plots)
-                @test length(curves) == (family == "Z" ? 6 : 4)
-                @test all(curve -> curve[1][] == first(curves)[1][],curves)
-                @test allunique([curve.color[] for curve in curves])
-                @test length(last(only(page.legend.entrygroups[]))) == length(curves)
-            end
-        end
-        filtered = LineCableModels.plot(source; ydata=(G,),formulations=[4,2,1],options...,extra...)
-        names = [filtered.addon_state.labels[group] for group in filtered.addon_state.order]
-        @test names[2:end] == ["earth Y=Unified","earth Y=Pollaczek"]
-        reordered=LineCableModels.plot(source;ydata=(R,),formulations=[3,1],options...,extra...)
-        reordered_names=[reordered.addon_state.labels[group] for group in reordered.addon_state.order]
-        @test reordered_names[2:end]==["earth Z=Saad","earth Z=Unified"]
-        override = ("ref","a","b","c","d","e")
-        custom = LineCableModels.plot(source; ydata=(R,G),series_labels=override,options...,extra...)
-        @test Set(values(first(custom).addon_state.labels)) == Set(override)
-        @test Set(values(last(custom).addon_state.labels)) == Set(override[[1,2,3,6]])
-    end
-    for feature in artifact.table.features
-        @test String.(propertynames(feature.relative)) == ["formula","all","dc","harmonic","narrow","wide"]
-        @test size(feature.relative,1) == (feature.quantity in (:Z,:R,:L,:X) ? 5 : 3)
-    end
-    # Reports and plots must reject contradictory data under an equal relevant
-    # selection, not average it, silently discard it, or add a numeric label.
-    broken_points=collect(candidates)
-    broken_points[3]=LineParameters(PhaseDomain,tensor,2e-6tensor,f;details=ComputationDetails(;coordinates=["a"],))
-    broken=ParametricResult(nothing,broken_points,candidates.axes, ComputationDetails((;)))
-    @test_throws r"conflicting saved observations" report(BenchmarkTableDefinition((B,)),
-        (reference=baseline,candidate=broken))
-    @test_throws r"conflicting saved observations" LineCableModels.plot(broken;ydata=(B,),options...)
-    unknown=ParametricResult(nothing,[reference,reference],
-        (problems=[:one],formulations=[missing,missing]), ComputationDetails((;)))
-    page=LineCableModels.plot(unknown;ydata=(B,),options...)
-    @test length(filter(item -> item isa Makie.Lines,first(page.axes).scene.plots))==2
-    @test records == original
 end

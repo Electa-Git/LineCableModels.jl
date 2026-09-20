@@ -14,7 +14,8 @@ function serialize_value(value::AbstractFloat)
     tag = _scalar_tag(typeof(value))
     payload = value isa BigFloat ? string(value) : value
     if isfinite(value)
-        return Dict("__type__" => tag, "value" => payload)
+        return value isa BigFloat ? Dict("__type__"=>tag,"value"=>payload,"precision"=>precision(value)) :
+            Dict("__type__" => tag, "value" => payload)
     end
     special = isnan(value) ? "NaN" : signbit(value) ? "-Inf" : "Inf"
     return Dict("__type__" => tag, "special" => special)

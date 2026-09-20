@@ -19,7 +19,8 @@
     sampled = compute(ParametricProblem(space), formulation)
     @test length(sampled) == 2
     @test sampled.trial_counts == [4, 4]
-    @test length(attempted_temperatures) == 10
+    @test length(attempted_temperatures) == 12
+    @test attempted_temperatures[[7,12]] == [20.,40.]
     @test length(unique(sampled.point_seeds)) == 2
     @test all(isconcretetype, (eltype(sampled.values), eltype(sampled.stats),
         eltype(sampled.sample_values), eltype(sampled.histogram_values)))
@@ -45,7 +46,7 @@
         @test all(frame -> frame.line > 0 && !isempty(frame.function_name), failure.error.stack)
     end
     for point in 1:2
-        accepted_temperatures = attempted_temperatures[(4point-1):(4point+2)]
+        accepted_temperatures = attempted_temperatures[point==1 ? (3:6) : (8:11)]
         expected = [compute(CableConstantsProblem(design; temperature), inner)
                     for temperature in accepted_temperatures]
         for quantity in (R, L, C, G)
@@ -55,6 +56,11 @@
             @test uncertainty.(observe(sampled.values[point], quantity)) ≈ vec(std(retained; dims=2))
         end
     end
+    before_observation=length(attempted_temperatures)
+    observed=observables(sampled)
+    @test length(attempted_temperatures)==before_observation
+    @test observed[1].gridpoint.sampling.diagnostics.failure_summary==first_summary
+    @test observed[1].gridpoint.sampling.diagnostics.failures[1].sample==sampled.details.data.failures[1][1].sample
     recorded = copy(attempted_temperatures)
     empty!(attempted_temperatures)
     progress_events = NamedTuple[]
@@ -154,7 +160,9 @@ end
     sampled=compute(problem,MonteCarlo(inner;trials=2,seed=103,distribution=alternating,
         on_error=:retry,max_failures=3,retain_details=true,return_samples=true))
     @test sampled.trial_counts==[2]
-    @test attempts==[-.005,.005,-.005,.005]
+    @test attempts==[-.005,.005,-.005,.005,.005]
+    @test only(sampled.values).details.data.inputs.interpretation===:nominal_declaration
+    @test only(only(sampled.values).details.data.inputs.uncertain_arguments).standard_deviation==.001
     @test length(only(sampled.details.data.failures))==2
     @test only(sampled.details.data.failure_summary).accepted==2
     @test only(sampled.details.data.failure_summary).failed==2

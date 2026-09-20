@@ -1,6 +1,7 @@
 const REPOSITORY_ROOT = pkgdir(LineCableModels)
 
 _selection_value(value::Union{Nothing, Bool, Number, AbstractString, Symbol}) = value
+_selection_value(value::UUIDs.UUID) = value
 _selection_value(value::Grammar.FormulationOptions) = _selection_value(value.data)
 _selection_value(value::Grammar.ComputationOptions) = _selection_value(value.data)
 _selection_value(value::Grammar.ComputationDetails) = _selection_value(value.data)

@@ -49,7 +49,7 @@ function Engine.compare(reference::Union{MonteCarloResult, LinearErrorResult},
         return Engine.RMSError{Base.nonmissingtype(eltype(observe(error, Engine.absolute_error)))}(
             observe(error, Engine.absolute_error), observe(error, Engine.relative_error);
             details = ComputationDetails(merge(details(error).data, (; request = identity,
-                statistical_semantics=(revision=1,
+                estimators=(
                     reference=reference isa MonteCarloResult ? :empirical : :first_order,
                     candidate=candidate isa MonteCarloResult ? :empirical : :first_order)))))
     end

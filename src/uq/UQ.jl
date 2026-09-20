@@ -23,11 +23,12 @@ import ..LineCableModels: points, realize, realize_arguments, Gridpoint, materia
 import ..LineCableModels: report_progress, with_progress_scope, with_scan_progress
 import ..DataModel
 import ..Engine
+import ..Grammar
 import ..Grammar: compute, computation_options, computation_details, details,
                   observe, observables, check_core_result,
-                  detach, publication_table, request_identity, request_indices,
+                  detach, request_identity, request_indices,
                   observation_indices, observation_resolution, observation_request
-using ..Grammar: ObservationPublication, request_quantity
+using ..Grammar: request_quantity
 import ..ParametricBuilder
 import ..ParametricBuilder: traverse
 import ..Units
@@ -43,7 +44,7 @@ include("statistics.jl")
 include("results.jl")
 include("base.jl")
 include("observations.jl")
-include("publication.jl")
+include("observedresult.jl")
 include("comparisons.jl")
 include("linearerror.jl")
 include("montecarlo/compute.jl")

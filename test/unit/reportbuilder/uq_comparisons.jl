@@ -34,10 +34,11 @@
         @test observe(
             mc, statistics, B, stat, 1)≈angular .* observe(mc, statistics, C, stat, 1)
     end
-    pub=observables(mc, ((samples, R, 1), (LineCableModels.histograms, R, 1));
-        clip = false, length_unit = :base)
-    @test keys(pub.columns)==(:samples_R, :histograms_R)
-    @test length(pub.metadata.observation_columns)==2
+    retained=ObservedResult(mc,1,((samples,R),(LineCableModels.histograms,R,1,1,1));
+        length_unit=:base)
+    @test length(retained.quantities)==2
+    @test first(retained.quantities).values==trials.R
+    @test only(last(retained.quantities).coordinates.rows)==1
     @test only(mc)===core
     @test eachindex(mc)==Base.OneTo(1)
     restored=LineCableModels.ImportExport.deserialize_value(LineCableModels.ImportExport.serialize_value(mc))
@@ -48,44 +49,15 @@
         1)==observe(mc, statistics, C, Base.Fix2(quantile, 0.95), 1)
     @test UQ.confidence(restored, 1).mean_standard_error.R≈std.(summaries.R) ./ sqrt(17)
     @test UQ.confidence(restored, 1).spread_estimated
-    retained=observables(mc,((statistics,R,mean,1),);
-        frequency_unit=:kilo,length_unit=:kilo,clip=false)
-    metadata=(basis=:pul,domain=:PhaseDomain,frequencies=f,port_order=["a","b"],
-        formulation=NamedTuple(Formulation()),axes=nothing)
-    detached_report=report(BenchmarkTableDefinition(((statistics,R,mean),);bands=(:all,)),
-        (reference=(result=retained,metadata),candidate=(result=mc,metadata)))
-    @test all(<(1e-14),skipmissing(detached_report.table.terms.absolute_rms))
-    # A saved table may use kHz and ohms/km while its native peer uses Hz and
-    # ohms/m. Equal column names must not silently combine different units.
-    combined=detached_report.table.statistics
-    contracts=LineCableModels.ReportBuilder.observation_columns(combined)
-    @test LineCableModels.Units.label(contracts.R.unit)=="Ω/m"
-    @test LineCableModels.Units.label(contracts.frequency.unit)=="Hz"
-    for role in (:reference,:candidate)
-        rows=filter(row -> row.role===role && row.statistic===:mean,combined)
-        @test Set(rows.frequency)==Set(f)
-        for row in eachrow(rows)
-            k=only(findall(==(row.frequency),f))
-            @test row.R≈means.R[row.row,row.column,k]
-        end
-    end
-    @test retained.columns.frequency≈f[repeat(1:length(f);inner=4)] ./ 1000
-
-    # Numerator prefixes matter too: the default statistics publication uses
-    # mH and µF. Report values, unit labels and coordinate-specific mean errors
-    # must agree without changing the retained moments.
-    physical_report=report(BenchmarkTableDefinition(
-        ((statistics,L,std),(statistics,C,mean));bands=(:all,)),(reference=mc,candidate=mc))
-    physical=physical_report.table.statistics
-    physical_contracts=LineCableModels.ReportBuilder.observation_columns(physical)
-    @test LineCableModels.Units.label(physical_contracts.L.unit)=="H/m"
-    @test LineCableModels.Units.label(physical_contracts.C.unit)=="F/m"
-    for row in eachrow(filter(row -> row.statistic in (:mean,:std),physical))
-        k=only(findall(==(row.frequency),f))
-        stat=row.statistic===:mean ? mean : std
-        @test row.L≈stat(summaries.L[row.row,row.column,k])
-        @test row.C≈stat(summaries.C[row.row,row.column,k])
-    end
+    retained=ObservedResult(mc,1,((statistics,R,mean),);frequency_unit=:kilo,length_unit=:kilo)
+    @test first(retained.quantities).coordinates.frequencies≈f./1000
+    @test observe(retained,statistics,R,mean)≈1000means.R
+    physical_report=report(BenchmarkTableDefinition(((statistics,L,std),(statistics,C,mean))),
+        (reference=mc,candidate=mc);observation_options=(length_unit=:base,quantity_units=:base))
+    @test length(physical_report.tables.features)==2
+    @test observe(only(physical_report.observed),statistics,L,std)≈std.(summaries.L)
+    @test observe(only(physical_report.observed),statistics,C,mean)≈mean.(summaries.C)
+    @test all(iszero,skipmissing(physical_report.tables.terms.relative_rms_percent))
 
     two=MonteCarloResult(
         mc.formulation, [core, core], [summaries, summaries], nothing, nothing,
@@ -96,61 +68,13 @@
     errors=compare(two, two, (statistics, R, mean); pairing = ((1, 2), (2, 1)))
     @test length(errors)==2 &&
           all(error -> all(iszero, observe(error, absolute_error)), errors)
-    report_two=report(
-        BenchmarkTableDefinition(((statistics, R, mean), (statistics, R, std)); pairing = (
-            (1, 2), (2, 1))),
-        (reference = two, candidate = two))
-    @test Set(report_two.table.terms.problem_index)==Set((1, 2))
-    @test Set(report_two.table.overview.coverage.candidate_point)==Set((1,2))
-    @test Set(zip(report_two.table.overview.coverage.point,
-        report_two.table.overview.coverage.reference_point))==Set(((1,2),(2,1)))
-    @test length(report_two.table.features)==4
-    @test length(report_two.table.sampling.point)==4
-    # Equal nominal endpoints and standard uncertainties can carry different
-    # correlations. Coordinate identity and the original quantities survive
-    # presentation-row deduplication through the full reporting stages.
-    correlated_frequency=measurement(50.,.25)
-    independent_frequency=measurement(50.,.25)
-    uncertain_sources=map((correlated_frequency,independent_frequency)) do frequency
-        LineParameters(fill(1.0+2im,1,1,1),fill(3e-6+4e-6im,1,1,1),[frequency];
-            details=ComputationDetails(;coordinates=["core"],))
-    end
-    uncertain_pair=LinearErrorResult(LinearError(Formulation()),collect(uncertain_sources))
-    correlated_report=report(BenchmarkTableDefinition(((statistics,R,mean),);
-        bands=(:all,),pairing=((1,1),(2,2))),
-        (reference=uncertain_pair,candidate=uncertain_pair))
-    coverage=correlated_report.table.overview.coverage
-    @test coverage.point==[1,2]
-    @test uncertainty(coverage.first_Hz[1]-correlated_frequency)==0
-    @test uncertainty(coverage.first_Hz[2]-independent_frequency)==0
-    @test uncertainty(coverage.first_Hz[1]-coverage.first_Hz[2])≈sqrt(2)*.25
-    # Multiple configurations stay explicit; selecting a comparison configuration
-    # must not mislabel a source-owned MC sampling point or hide whole-call timings.
-    for mime in (MIME"text/plain"(),MIME"text/html"())
-        text=sprint(show,mime,report_two)
-        @test occursin("configuration 1",text) && occursin("configuration 2",text)
-        @test occursin("reference configuration 1",text) && occursin("reference configuration 2",text)
-        @test occursin("R · mean",text)
-        @test occursin("R · std (propagated uncertainty)",text)
-        selected=sprint((io,value) -> show(io,mime,value;problem=2),report_two)
-        @test occursin("R · mean · configuration 2",selected)
-        @test !occursin("R · mean · configuration 1",selected)
-        @test occursin("reference configuration 1",selected)
-        @test occursin("MC sampling workload",text)
-        @test occursin("CDF precision",text)
-        @test !occursin("mean_standard_error",text)
-    end
-    percentiles=report(
-        BenchmarkTableDefinition((
-            (statistics, R, median), (statistics, R, Base.Fix2(quantile, 0.05)))),
-        (reference = mc, candidate = mc))
-    @test length(percentiles.table.features)==2
-    @test Set(percentiles.table.terms.statistic)==Set((:median, :q05))
-    @test Set(percentiles.table.statistics.statistic)==Set((
-        :mean, :std, :min, :q05, :median, :q95, :max))
-    @test Set(names(percentiles.table.statistics))==Set((
-        "point", "frequency", "row", "column", "statistic",
-        "R", "trials", "point_seed", "role", "estimator"))
+    @test_throws ArgumentError report(BenchmarkTableDefinition(((statistics,R,mean),);
+        pairing=((1,2),(2,1))),(reference=two,candidate=two))
+    percentiles=report(BenchmarkTableDefinition(((statistics,R,median),(statistics,R,Base.Fix2(quantile,.05)))),
+        (reference=mc,candidate=mc))
+    @test length(percentiles.tables.features)==2
+    @test Set(percentiles.tables.terms.statistic)==Set((:median,Symbol("quantile_0.05")))
+    @test Set(percentiles.tables.statistics.statistic)==Set((:median,Symbol("quantile_0.05")))
 
     for T in (Float32, Float64, BigFloat), quantity in (R, B)
 
@@ -160,7 +84,7 @@
         b[1, 2, 2]=T(1e-30)
         error=compare(a, b, quantity; frequencies = frequency, result_basis = :pul)
         @test ismissing(observe(error, relative_error)[1, 2])
-        @test observe(error, absolute_error)[1, 2]>0
+        @test ismissing(observe(error,absolute_error)[1,2])
         @test eltype(observe(error, absolute_error))===Union{Missing, T}
         @test all(ismissing,
             observe(

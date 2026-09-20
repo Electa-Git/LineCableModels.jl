@@ -19,11 +19,11 @@ plot_statistics = (std, mean)      # Statistics compared in the RMS tables.
 make_statistic_plots = false      # Optional separate mean-only/std-only plots, in addition to mean ± std.
 inspection_term = (1, 1)          # Row/column for a small table of retained statistics.
 inspection_frequency_Hz = 50.0    # Preview uses the nearest saved frequency, never interpolation.
-bands = (:all, :dc, :harmonic, :narrow, :wide)
+bands = (:all,)
 detail_bands = ()                  # Optional worst-pair detail, e.g. (:all,); all bands remain in the IDE.
 show_native_timings = false
 blocks = nothing
-problem_index = nothing          # Required when the result has several outer points.
+problem_index = nothing          # Optional original physical-point index.
 plot_band = nothing
 rms_metric = :relative            # Or :absolute.
 make_plots = true
@@ -40,13 +40,8 @@ benchmark = Gauntlet.read_benchmark(path; load_results = true, evidence = :numer
 println("Building tables from retained results...")
 requests = Tuple((statistics, q, statistic) for statistic in plot_statistics for q in ydata)
 definition = BenchmarkTableDefinition(requests; bands)
-benchmark_report = report(definition,
-    (reference = benchmark.reference, candidate = benchmark.candidate,
-        context = (
-            id = benchmark.id, case_id = Symbol(first(benchmark.analyses)["case_id"]),
-            collection = :manual),
-        measurements = benchmark.measurements))
-inspection_tables = benchmark_report.table
+benchmark_report = report(definition, benchmark)
+inspection_tables = benchmark_report.tables
 
 # These variables are ordinary DataFrames/collections available in the REPL and IDE.
 feature_tables = filter(
@@ -91,12 +86,7 @@ performance_display_df = overview_tables.performance
 timing_ratio_df = overview_tables.timing_ratio
 execution_display_df = overview_tables.execution
 source_timing_values_df = overview_tables.source_timings
-# This manual overlay selects one method per role; use its owned label unchanged.
-timing_labels = Dict(role => only(formulations_df.label[formulations_df.role .=== role])
-for role in (:reference, :candidate))
 
-# Keep separate winners: the largest absolute error need not be at the largest
-# relative error's terminal pair. Never put the two maxima beside a shared pair.
 worst_relative_df = select(maxima_df,
     :method => :candidate,
     :quantity, :statistic, :problem_index => :point, :band,
@@ -110,7 +100,7 @@ worst_absolute_df = select(maxima_df,
 band_coverage_df = overview_tables.coverage
 
 println("\n", benchmark.id, " — saved calculations, current report")
-# Preview existing scalar publications at one explicit matrix coordinate.
+# Preview retained statistical products at one explicit matrix coordinate.
 sampling_display_df = overview_tables.sampling
 cdf_precision_df = overview_tables.cdf_precision
 statistics_values_df = DataFrame()
@@ -120,84 +110,53 @@ std_values_df = DataFrame()
 comparison_dataframes = Dict{Symbol, DataFrame}()
 mean_precision_preview_df = DataFrame()
 if !isempty(statistics_df)
-    preview_point = configuration_index
-    point_statistics = filter(
-        row -> row.point == preview_point &&
-               (row.row, row.column) == inspection_term,
-        statistics_df)
-    isempty(point_statistics) &&
-        throw(ArgumentError("No retained statistics for the selected point/term"))
-    saved_frequencies = unique(point_statistics.frequency)
-    preview_frequency_Hz = nominal(saved_frequencies[argmin(abs.(saved_frequencies .-
-                                                                 inspection_frequency_Hz))])
-    quantity_columns = unique(feature.quantity for feature in feature_tables)
-    # Publications can use mH or µF even with a per-metre length basis. Convert
-    # with their owned unit metadata so the preview and mean standard errors
-    # use the same units; do not relabel display-scaled values as native values.
-    column_contracts = LineCableModels.ReportBuilder.observation_columns(statistics_df)
-    native_units = Dict(quantity => LineCableModels.Units.native_unit(
-                            column_contracts[quantity].quantity, metadata(statistics_df, "basis"))
-    for quantity in quantity_columns)
-    statistics_values_df = select(statistics_df,
-        :role => ByRow(role -> timing_labels[role]) => :method,
-        :point, :frequency =>
-            ByRow(value -> iszero(uncertainty(value)) ? nominal(value) : value) =>
-                :frequency_Hz,
-        :row, :column, :statistic,
-        (quantity =>
-             (values -> values .* LineCableModels.Units.scale_factor(
-                 column_contracts[quantity].unit, native_units[quantity])) =>
-                 Symbol(string(quantity, " [", LineCableModels.Units.label(native_units[quantity]), "]"))
-        for quantity in quantity_columns)...)
-    statistics_preview_df = filter(
-        row -> row.point == preview_point &&
-               (row.row, row.column) == inspection_term &&
-               row.frequency_Hz == preview_frequency_Hz,
-        statistics_values_df)
-    multiple_configurations || select!(statistics_preview_df, Not(:point))
-    mean_values_df = select(filter(:statistic => ==(:mean), statistics_preview_df), Not(:statistic))
-    std_values_df = select(filter(:statistic => ==(:std), statistics_preview_df), Not(:statistic))
-    # One row per frequency, both methods side by side. No frequency aggregation
-    # or statistical estimation is done here: this only pivots the owned table.
-    selected_moments = filter(
-        row -> row.point == preview_point &&
-               (row.row, row.column) == inspection_term && row.statistic in (:mean, :std),
-        statistics_values_df)
+    observed_points=benchmark_report.observed isa ObservedResult ? [benchmark_report.observed] : benchmark_report.observed
+    operands=[(:candidate,point) for point in observed_points]
+    benchmark_report.reference===nothing || push!(operands,(:reference,benchmark_report.reference))
+    labels=LineCableModels.Grammar.observation_labels(last.(operands))
+    rows=NamedTuple[]
+    for (operand,(role,point)) in enumerate(operands),product in point.quantities
+        product.family===:statistics || continue
+        coordinates=product.coordinates
+        coordinates.kind===:matrix || continue
+        table=LineCableModels.ReportBuilder.tabulate(point,product.request)
+        quantity=Symbol(LineCableModels.Units.symbol(product.quantity))
+        for (fi,frequency) in enumerate(coordinates.frequencies),row in coordinates.rows,column in coordinates.columns
+            push!(rows,(role,method=string(role," · ",labels[operand]),point=point.gridpoint.id.problem_index,
+                frequency_Hz=nominal(frequency),row,column,quantity,statistic=product.statistic,
+                value=table[fi,Symbol("[$row,$column]")],unit=LineCableModels.Units.label(product.unit)))
+        end
+    end
+    statistics_values_df=DataFrame(rows)
+    point_statistics=filter(row -> (row.role===:reference || row.point==configuration_index) &&
+        (row.row,row.column)==inspection_term,statistics_values_df)
+    isempty(point_statistics) && throw(ArgumentError("No retained statistics for the selected point/term"))
+    saved_frequencies=unique(point_statistics.frequency_Hz)
+    preview_frequency_Hz=saved_frequencies[argmin(abs.(saved_frequencies .- inspection_frequency_Hz))]
+    statistics_preview_df=filter(:frequency_Hz => ==(preview_frequency_Hz),point_statistics)
+    mean_values_df=filter(:statistic => ==(:mean),statistics_preview_df)
+    std_values_df=filter(:statistic => ==(:std),statistics_preview_df)
+    quantity_columns=unique(point_statistics.quantity)
     for quantity in quantity_columns
-        unit = LineCableModels.Units.label(native_units[quantity])
-        column = Symbol(string(quantity, " [", unit, "]"))
-        frame = select(selected_moments, :frequency_Hz, :row, :column,
-            [:method, :statistic] =>
-                ByRow((method, stat) -> string(method, " · ", stat, " [", unit, "]")) =>
-                    :series,
-            column => :value)
-        comparison_dataframes[quantity] = sort(
-            unstack(frame,
-                [:frequency_Hz, :row, :column], :series, :value), :frequency_Hz)
+        selected=filter(row -> row.quantity===quantity && row.statistic in (:mean,:std),point_statistics)
+        frame=select(selected,:frequency_Hz,:row,:column,
+            [:method,:statistic,:unit] => ByRow((method,stat,unit) -> "$method · $stat [$unit]") => :series,:value)
+        comparison_dataframes[quantity]=sort(unstack(frame,[:frequency_Hz,:row,:column],:series,:value),:frequency_Hz)
     end
     if !isempty(mean_sampling_precision_df)
-        mean_precision_preview_df = select(
-            filter(
-                row -> row.point == preview_point &&
-                       (row.row, row.column) == inspection_term &&
-                       row.frequency_Hz == preview_frequency_Hz,
-                mean_sampling_precision_df),
-            :method, :frequency_Hz, :row, :column, :quantity, :mean_standard_error, :unit)
+        mean_precision_preview_df=select(filter(row -> (row.role===:reference || row.point==configuration_index) &&
+            (row.row,row.column)==inspection_term && row.frequency_Hz==preview_frequency_Hz,
+            mean_sampling_precision_df),:method,:point,:frequency_Hz,:row,:column,:quantity,:standard_error,:unit)
     end
-    println("\nRetained statistics",
-        multiple_configurations ? " — configuration $preview_point" : "",
-        " — matrix entry ", inspection_term, ", ", preview_frequency_Hz,
-        " Hz (requested ", inspection_frequency_Hz, " Hz)")
+    println("\nRetained statistics — point ",configuration_index," — matrix entry ",inspection_term,
+        ", ",preview_frequency_Hz," Hz (requested ",inspection_frequency_Hz," Hz)")
     println("These are values at this frequency, not maxima or band averages.")
-    for (label, frame) in ("Mean — mean_values_df" => mean_values_df, "Std — std_values_df" =>
-        std_values_df)
-        println("\n", label)
-        show(
-            stdout, MIME"text/plain"(), frame; allrows = true, allcols = true, truncate = 0)
+    for (label,frame) in ("Mean — mean_values_df"=>mean_values_df,"Std — std_values_df"=>std_values_df)
+        println("\n",label)
+        show(stdout,MIME"text/plain"(),frame;allrows=true,allcols=true,truncate=0)
         println()
     end
-    println("\nFull-frequency comparisons for entry ", inspection_term,
-        ": comparison_dataframes, keyed by ", join(string.(quantity_columns), ", "), ".")
+    println("\nFull-frequency comparisons: comparison_dataframes, keyed by ",join(string.(quantity_columns),", "),".")
 end
 # Direct IDE table bindings; unselected quantities are nothing.
 R_values_df = get(comparison_dataframes, :R, nothing)
@@ -257,8 +216,8 @@ benchmark_plots = if make_plots
     end
     all(quantity -> quantity in (R, X, L, G, B, C), ydata) || throw(ArgumentError(
         "Use R/X/L and G/B/C for marginal mean ± std plots; complex-magnitude uncertainty requires joint statistics"))
-    # The benchmark recipe reads mean/std publications directly, including
-    # historical moment-only records; it does not construct uncertain results.
+    # The saved benchmark retains primary uncertainty-bearing curves separately
+    # from statistical products; plotting only selects those retained values.
     println("\nPlotting both methods: frequency on x, mean on y, error bars ±1 std (not standard error).")
     mean_std_plots = LineCableModels.plot(benchmark_report; ydata,
         problem = problem_index, band = plot_band, blocks,

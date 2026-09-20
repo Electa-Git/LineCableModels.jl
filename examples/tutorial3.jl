@@ -210,7 +210,7 @@ constants
 published_constants = observables(constants, (R, L, C));
 
 # Construct a table from the explicit detached publication:
-constants_table = DataFrame(published_constants)
+constants_table = LineCableModels.ReportBuilder.tabulate(published_constants)
 
 # Request the homogeneous design explicitly when an equivalent
 # cable, rather than a solver input, is the desired result:
@@ -340,9 +340,9 @@ formulation = Formulation()
 # Inspect the native floating-point residual without display clipping:
 conductance_residual = extrema(@observe line_parameters G[1, 1, :])
 
-# Obtain one wide table. Frequency and matrix coordinates come from the result;
-# each observable request adds its own quantity column:
-rlgc_table = DataFrame(observables(
+# Retain complete R/L and G/C representations and tabulate each quantity.
+# Frequency rows and every matrix coefficient keep their original ordering:
+rlgc_table = LineCableModels.ReportBuilder.tabulate(observables(
     line_parameters,
     (
         @observe(R[:, :, :]),
@@ -354,11 +354,7 @@ rlgc_table = DataFrame(observables(
 ));
 
 # Select the first matrix term with ordinary DataFrames transformations:
-first_term_table = subset(
-    rlgc_table,
-    :row => ByRow(==(1)),
-    :column => ByRow(==(1))
-)
+first_term_table = select(rlgc_table.Z.R, :frequency, Symbol("[1,1]"))
 first(first_term_table, 12)
 
 # Plot the R/L and G/C frequency responses on logarithmic frequency axes. Each
@@ -415,7 +411,7 @@ modal_impedance = @observe modal_parameters Z[1, 1, :]
 modal_admittance = @observe modal_parameters Y[1, 1, :]
 
 # Publish and tabulate the complete transformed quantities:
-modal_table = DataFrame(observables(
+modal_table = LineCableModels.ReportBuilder.tabulate(observables(
     modal_parameters,
     (
         @observe(R[:, :, :]),
@@ -427,11 +423,7 @@ modal_table = DataFrame(observables(
 ));
 
 # Display a compact slice with ordinary DataFrames transformations:
-first_modal_term = subset(
-    modal_table,
-    :row => ByRow(==(1)),
-    :column => ByRow(==(1))
-)
+first_modal_term = select(modal_table.Z.R, :frequency, Symbol("[1,1]"))
 first(first_modal_term, 12)
 
 # Plot the modal R/L and G/C responses. Diagonal observation is explicit and

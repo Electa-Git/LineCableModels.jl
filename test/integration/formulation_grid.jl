@@ -14,7 +14,7 @@
                left.Z.values==right.Z.values&&
                left.Y.values==right.Y.values&&
                left.f==right.f&&
-               left.details==right.details
+               Base.structdiff(left.details.data,(gridpoint=left.details.data.gridpoint,))==Base.structdiff(right.details.data,(gridpoint=right.details.data.gridpoint,))
     end
 
     system=TestFixtures.three_phase_system()

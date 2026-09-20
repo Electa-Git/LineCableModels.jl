@@ -43,6 +43,6 @@
         collect(methods(DataFrame)))
     @test length(report_methods) == 1
     signature=Base.unwrap_unionall(only(report_methods).sig)
-    @test signature.parameters[2] <: LineCableModels.Grammar.ObservationPublication
+    @test signature.parameters[2] <: LineCableModels.ObservedResult
 
 end

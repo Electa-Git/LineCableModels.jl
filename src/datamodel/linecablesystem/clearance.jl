@@ -241,8 +241,8 @@ and adjustment counters; do not consume the sampling RNG.
 function prepare_clearance(point)
     context = (records = Any[], references = IdDict{Any, Any}(),
         cursor = Ref(0), sampling = Ref(false),
-        adjustments = Ref(0), max_displacement = Ref(0.0))
-    Base.ScopedValues.with(_CLEARANCE_CONTEXT => context) do
+        adjustments = Ref(0), max_displacement = Ref(0.0), declaration=Ref{Any}(nothing))
+    context.declaration[] = Base.ScopedValues.with(_CLEARANCE_CONTEXT => context) do
         if Base.get_extension(parentmodule(@__MODULE__), :LineCableModelsMeasurementsExt) === nothing
             # Monte Carlo remains usable without Measurements. The geometric
             # constraint still applies to every draw; propagated uncertainty

@@ -8,193 +8,110 @@ abstract type AbstractReportDefinition end
 """
 $(TYPEDEF)
 
-Hold unformatted scientific products, tables, an optional plot and written output produced by
-[`report`](@ref).
+Retain the observed inputs, separate observed reference, tables, illustration,
+and written destinations of one completed report.
 
 $(TYPEDFIELDS)
 """
-struct ReportArtifact{P, T, I, O}
-    "Unformatted scientific data selected by the report."
-    published::P
-    "Human-facing table or structured collection of tables."
-    table::T
-    "Optional backend-neutral plot artifact."
+struct ReportArtifact{T,I,O}
+    "One atomic observation or an ordinary vector of observations."
+    observed::Union{ObservedResult,Vector{ObservedResult}}
+    "Separate observed reference, if this is a comparison report."
+    reference::Union{Nothing,ObservedResult}
+    "Quantity-wise tables and other retained scientific summaries."
+    tables::T
+    "Optional rendered illustration."
     illustration::I
-    "Written destination or handle, or `nothing` for an in-memory report."
+    "Written destinations, or nothing for an in-memory report."
     output::O
 end
 
 """
 $(TYPEDEF)
 
-Request one generic wide table from a completed scientific source.
-
-The request and unit tuples follow [`observables`](@ref). Set `illustration =
-true` to plot the resulting [`ObservationPublication`](@ref), or provide a
-callable that accepts it. `plot_options` are forwarded as keywords.
+Select retained quantities for separate tables. Raw-input conveniences first
+construct [`ObservedResult`](@ref). Illustrations consume those same observations.
 
 $(TYPEDFIELDS)
 """
-struct TableReportDefinition{R <: Tuple, U <: Tuple, P, O <: NamedTuple} <:
-       AbstractReportDefinition
-    "Positional scientific observation requests."
+struct TableReportDefinition{R<:Tuple,U<:Tuple,P,O<:NamedTuple} <: AbstractReportDefinition
+    "Quantity requests; an empty tuple selects all retained quantities."
     requests::R
-    "Optional display-unit overrides aligned with `requests`."
+    "Display units used only when constructing a raw-input observation."
     units::U
-    "`true`, a publication-plotting callable, or `nothing` for table only."
+    "True, a plotting callable, or nothing."
     illustration::P
-    "Keyword options passed to the illustration call."
+    "Options passed to the illustration call."
     plot_options::O
-    "Whether detached display residue is replaced with exact zero."
+    "Engineering recentering used only when constructing a raw-input observation."
     clip::Bool
 end
+TableReportDefinition(requests::Tuple=();units::Tuple=(),illustration=nothing,
+    plot_options::NamedTuple=(;),clip::Bool=true) =
+    TableReportDefinition(requests,units,illustration,plot_options,clip)
 
-function TableReportDefinition(
-        requests::Tuple;
-        units::Tuple = (),
-        illustration = nothing,
-        plot_options::NamedTuple = (;),
-        clip::Bool = true
-)
-    return TableReportDefinition(requests, units, illustration, plot_options, clip)
-end
-
-"""
-Publish the observations required by a report definition.
-"""
+"""Select retained products without extracting or recomputing numerical values."""
 function select end
-
-"""
-Construct the report-owned table representation.
-"""
+"""Build quantity-wise tables from detached observations."""
 function tabulate end
-
-"""
-Construct an optional plot from the published observations.
-"""
+"""Render an optional illustration from detached observations."""
 function illustrate end
-
-"""
-Encode a supported report representation.
-"""
+"""Encode observed tables for a requested output format."""
 function encode end
-
-"""
-Write an encoded report when the definition requests an external artifact.
-"""
+"""Write already encoded report output."""
 function write end
 
-@required AbstractReportDefinition begin
-    select(::AbstractReportDefinition, source)
-    tabulate(::AbstractReportDefinition, source, published)
+_observed_points(observed::ObservedResult) = (observed,)
+_observed_points(observed::AbstractVector{<:ObservedResult}) = observed
+
+function select(definition::TableReportDefinition,observed::ObservedResult)
+    isempty(definition.requests) && return observed.quantities
+    return [_selected_quantity(observed,request) for request in definition.requests]
 end
 
-illustrate(::AbstractReportDefinition, source, published, table) = nothing
-encode(::AbstractReportDefinition, source, published, table, illustration) = nothing
-function write(
-        ::AbstractReportDefinition, source, published, table, illustration, ::Nothing)
-    nothing
-end
+_selected_quantity(observed::ObservedResult,request) = Grammar.observation_product(observed,request)
 
-function select(definition::TableReportDefinition, source)
-    return observables(
-        source,
-        definition.requests;
-        units = definition.units,
-        clip = definition.clip
-    )
-end
+illustrate(::AbstractReportDefinition,observed,tables;reference=nothing) = nothing
+encode(::AbstractReportDefinition,observed,tables,illustration;reference=nothing) = nothing
+write(::AbstractReportDefinition,::Nothing) = nothing
 
-function _observation_columns!(table::DataFrame, published::ObservationPublication)
-    metadata!(
-        table,
-        "observation_columns",
-        published.metadata.observation_columns,
-        style = :note
-    )
-    metadata!(table, "basis", published.metadata.basis, style = :note)
-    metadata!(table, "row_order", published.metadata.row_order, style = :note)
-    return table
+function illustrate(definition::TableReportDefinition,observed,tables;reference=nothing)
+    illustration=definition.illustration
+    (illustration===nothing || illustration===false) && return nothing
+    options=merge(definition.plot_options,isempty(definition.requests) ? (;) : (ydata=definition.requests,))
+    callable=illustration===true ? PlotBuilder.plot : illustration
+    return reference===nothing ? callable(observed;options...) : callable(observed;reference,options...)
 end
 
 """
 $(TYPEDSIGNATURES)
 
-Construct one DataFrame from an explicit detached observation publication.
+Build tables, an optional illustration, encoded output, and written artifacts,
+in that order. Only observations cross this boundary. `reference` is an atomic
+observation kept outside the candidate collection.
 """
-function DataFrame(published::ObservationPublication)
-    return _observation_columns!(DataFrame(published.columns), published)
+function report(definition::AbstractReportDefinition,
+        observed::Union{ObservedResult,AbstractVector{<:ObservedResult}};
+        reference::Union{Nothing,ObservedResult}=nothing)
+    tables=tabulate(definition,observed;reference)
+    illustration=illustrate(definition,observed,tables;reference)
+    encoded=encode(definition,observed,tables,illustration;reference)
+    written=write(definition,encoded)
+    points=observed isa ObservedResult ? observed : collect(ObservedResult,observed)
+    return ReportArtifact(points,reference,tables,illustration,written)
 end
 
-"""
-$(TYPEDSIGNATURES)
-
-Return the scientific quantity and display unit owned by every observed column
-of `table`.
-
-# Returns
-
-- A named tuple keyed by DataFrame column name. Each value contains `quantity`
-  and `unit`.
-
-# Errors
-
-- Throws when `table` was not constructed from an owned observation
-  publication.
-"""
-function observation_columns(table::DataFrame)
-    return metadata(table, "observation_columns")
+function report(definition::TableReportDefinition,source;kwargs...)
+    observed=observables(source,definition.requests;units=definition.units,clip=definition.clip,complete_pairs=true,kwargs...)
+    return report(definition,observed)
 end
 
-function tabulate(::TableReportDefinition, source, published::ObservationPublication)
-    return DataFrame(published)
-end
+"""Return the quantity and unit metadata of an observed table's columns."""
+observation_columns(table::DataFrame) = metadata(table,"observation_columns")
 
-function illustrate(definition::TableReportDefinition, source, published, table)
-    illustration = definition.illustration
-    (illustration === nothing || illustration === false) && return nothing
-    illustration === true && return PlotBuilder.plot(published; definition.plot_options...)
-    applicable(illustration, published) || throw(ArgumentError(
-        "illustration must be true, a callable accepting the publication, or nothing",
-    ))
-    return illustration(published; definition.plot_options...)
-end
-
-"""
-$(TYPEDSIGNATURES)
-
-Build a report through `select`, `tabulate`, optional `illustrate`, optional
-`encode`, and optional `write`, in that order.
-
-# Arguments
-
-- `definition`: Report selection and requested output.
-- `source`: Completed scientific result or published-product owner.
-
-# Returns
-
-- A [`ReportArtifact`](@ref).
-
-# Errors
-
-- Throws when the definition does not accept the source or requests an
-  unsupported observation.
-"""
-function report(
-        definition::AbstractReportDefinition,
-        source
-)
-    published = select(definition, source)
-    table = tabulate(definition, source, published)
-    illustration = illustrate(definition, source, published, table)
-    encoded = encode(definition, source, published, table, illustration)
-    written = write(
-        definition,
-        source,
-        published,
-        table,
-        illustration,
-        encoded
-    )
-    return ReportArtifact(published, table, illustration, written)
+# Resolve the Julia dispatch intersection between a generic raw convenience and
+# the common observed workflow without adding a second execution path.
+function report(definition::TableReportDefinition,
+        observed::Union{ObservedResult,AbstractVector{<:ObservedResult}};reference=nothing)
+    return invoke(report,Tuple{AbstractReportDefinition,typeof(observed)},definition,observed;reference)
 end

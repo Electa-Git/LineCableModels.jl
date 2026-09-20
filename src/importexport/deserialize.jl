@@ -152,7 +152,7 @@ function _decode_float(type_name::AbstractString, value::AbstractDict)
         throw(ArgumentError("unknown special floating-point value '$special'"))
     end
     payload = _required(value, "value", type_name)
-    return T === BigFloat ? parse(BigFloat, String(payload)) : convert(T, payload)
+    return T === BigFloat ? parse(BigFloat, String(payload);precision=get(value,"precision",precision(BigFloat))) : convert(T, payload)
 end
 
 function _decode_material_record(value)
@@ -223,7 +223,8 @@ function deserialize_value(value)
             Tuple(deserialize_value(item) for item in value["values"]))
         marker in ("UInt64", "Observable", "Quantile", "LineParameters", "CableConstants", "MonteCarloResult",
             "LinearErrorResult", "SampleSummary", "HistogramDensity", "Distribution",
-            "FormulationOptions", "ComputationOptions", "ComputationDetails") &&
+            "FormulationOptions", "ComputationOptions", "ComputationDetails", "ObservedArchive",
+            "UUID", "Colon", "Quantity", "Unit", "UnitExpr", "ScientificType") &&
             return deserialize_extension(Val(Symbol(marker)),value)
         if marker in ("Measurement", "MeasurementLinearErrorResult")
             applicable(deserialize_extension, Val(Symbol(marker)), value) || throw(

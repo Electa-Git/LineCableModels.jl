@@ -77,20 +77,6 @@ end
 function semantic_sha256(result::AbstractUncertaintyResult, coordinates::NamedTuple)
     return semantic_sha256((scientific=ImportExport.serialize_value(result),port_order=coordinates.port_order))
 end
-function semantic_sha256(result::Grammar.ObservationPublication,coordinates::NamedTuple)
-    return semantic_sha256((products=Tuple((values=payload.values,unit=Units.label(payload.unit))
-        for payload in result),columns=result.columns,port_order=coordinates.port_order))
-end
-
-# Reporting validates its available scalar statistical products, not an unused
-# retained trial cloud. The file checksum still binds every persisted byte.
-function semantic_sha256(result::AbstractUncertaintyResult,coordinates::NamedTuple,::typeof(report))
-    requests=filter(request -> request isa Tuple && length(request)==3 &&
-        first(request)===LineCableModels.statistics,LineCableModels.observables(typeof(result)))
-    return semantic_sha256((points=[(frequencies=frequencies(point_result),basis=basis(point_result),
-        products=Tuple((request,observe(result,request...,point)) for request in requests))
-        for (point,point_result) in enumerate(result)],port_order=coordinates.port_order))
-end
 
 function semantic_sha256(result::AbstractParametricResult, coordinates::NamedTuple)
     return semantic_sha256((points=[semantic_sha256(point, coordinates) for point in result],

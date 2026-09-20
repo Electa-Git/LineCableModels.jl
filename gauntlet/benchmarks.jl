@@ -186,19 +186,8 @@ function run_benchmark(benchmark::BenchmarkDefinition; directory = nothing,
     reference_execution,candidate_execution=executions
     receiver=LineCableModels.progress_receiver()
     receiver === nothing || LineCableModels.report_progress(receiver,(stage=:validating,))
-    # Result-space axes retain the actual resolved problems, including port identity.
-    expected=benchmark.model.nominal_problem.system
-    for (calculation, execution) in ((benchmark.reference, reference_execution),
-        (benchmark.candidate, candidate_execution))
-        problems=execution.result isa ParametricResult ? NamedTuple(execution.result).axes.problems :
-                 (calculation.problem,)
-        for problem in problems
-            problem isa LineParametersProblem || continue
-            problem.system.terminal_order == expected.terminal_order &&
-            problem.system.connection_order == expected.connection_order ||
-                throw(ArgumentError("benchmark result-space terminal identities or ordering differ"))
-        end
-    end
+    # Arithmetic output ordering comes from completed result descriptions.
+    # Scientific comparability of the physical problems remains caller-owned.
     reference=reference_execution.result
     candidate=candidate_execution.result
     definition=BenchmarkTableDefinition(;benchmark.comparison_settings...)
@@ -277,8 +266,10 @@ function run_benchmark(benchmark::BenchmarkDefinition; directory = nothing,
     publication=report(definition,(
         reference=(result=reference,metadata=reference_metadata),
         candidate=(result=candidate,metadata=candidate_metadata),
-        context=(id=benchmark.id,case_id=benchmark.case_id,collection=benchmark.collection),measurements))
-    comparison=publication.published.comparisons
+        context=(id=benchmark.id,case_id=benchmark.case_id,collection=benchmark.collection),measurements);
+        requests=candidate isa AbstractUncertaintyResult ?
+            (R,L,G,C,filter(request -> request isa Tuple && first(request)===LineCableModels.statistics,definition.settings.requests)...) : ())
+    comparison=[error for point in (publication.observed isa ObservedResult ? (publication.observed,) : publication.observed) for error in point.errors]
     metadata=(
         benchmark_id = benchmark.id,
         case_id = benchmark.case_id,

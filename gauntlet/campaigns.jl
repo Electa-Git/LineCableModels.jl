@@ -23,13 +23,9 @@ end
 
 function record_calculation(result::ParametricResult, model)
     points=[record_calculation(value, model) for value in result]
-    axes=(
-        problems = [(terminal_order = copy(problem.system.terminal_order),
-                        connection_order = copy(problem.system.connection_order),
-                        declaration = ImportExport.serialize_value(problem))
-                    for problem in NamedTuple(result).axes.problems],
-        formulations = [_selection_value(formulation)
-                        for formulation in NamedTuple(result).axes.formulations])
+    count=length(result.axes.problems)
+    axes=(problems=[Grammar.observation_gridpoint(result[index]).inputs for index in 1:count],
+        formulations=[_selection_value(formulation) for formulation in result.axes.formulations])
     return (kind = :gauntlet_result_space, points, axes,
         frequencies = getproperty.(points, :frequencies), basis = getproperty.(points, :basis),
         domain = getproperty.(points, :domain), data_sha256 = semantic_sha256(result, (; port_order=get(details(first(result)).data,:coordinates,model.port_order), axes)))
@@ -329,6 +325,10 @@ function _execute(calculation::BenchmarkCalculation; directory = nothing, model 
                 value.result
               end
             end
+            source_id=Grammar.gridpoint_id().source_id
+            captured=Grammar.observation_gridpoint(first(values)).inputs
+            values=[Engine.retain_gridpoint(value,Grammar.gridpoint_id(;source_id,formulation_index=index);
+                fields=(inputs=captured,)) for (index,value) in enumerate(values)]
             ParametricResult(LineCableModels.Combinatorial(calculation.formulation),values,
                 (problems=[calculation.problem],formulations), Grammar.ComputationDetails())
         else

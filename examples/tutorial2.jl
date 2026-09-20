@@ -274,7 +274,7 @@ constants = CableConstants(cable_design);
 constants
 
 # Select R, L, and C and convert them to a table:
-constants_table = DataFrame(observables(constants, (R, L, C)))
+constants_table = LineCableModels.ReportBuilder.tabulate(observables(constants, (R, L, C)))
 
 # Construct the homogeneous equivalent cable design:
 equivalent_design = homogenize(cable_design; new_id = cable_id * "_equivalent")
@@ -285,11 +285,11 @@ equivalent_summary = equivalent_design
 published_constants = observables(constants, (R, L, C));
 datasheet_comparison = DataFrame(
     source = ("calculated", "datasheet"),
-    R = (published_constants[1].values, datasheet_info.resistance),
-    L = (published_constants[2].values, datasheet_info.inductance),
-    C = (published_constants[3].values, datasheet_info.capacitance)
+    R = (observe(published_constants,R), datasheet_info.resistance),
+    L = (observe(published_constants,L), datasheet_info.inductance),
+    C = (observe(published_constants,C), datasheet_info.capacitance)
 )
-comparison_units = map(payload -> payload.unit, published_constants);
+comparison_units = map(payload -> payload.unit, published_constants.quantities);
 
 # Inspect the completed physical design through its bounded Base display:
 cable_design
