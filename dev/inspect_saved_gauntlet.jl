@@ -1,5 +1,8 @@
 # Disposable manual inspector. Include from the REPL or IDE; the active project is unchanged.
-# All comparisons below use saved numerical results; nothing is sampled or solved.
+# Recompare saved numerical operands explicitly; nothing is sampled or solved.
+# Before: report construction mixed reading and comparison. Now the raw-operand
+# report convenience completes comparison, constructs ObservedResult, then tabulates.
+# Existing current snapshots can instead be selected with analysis_snapshot.
 gauntlet_environment = normpath(joinpath(@__DIR__, "..", "gauntlet"))
 gauntlet_environment in LOAD_PATH || push!(LOAD_PATH, gauntlet_environment)
 using LineCableModels, DataFrames, Statistics, Measurements
@@ -9,17 +12,24 @@ if !isdefined(@__MODULE__, :Gauntlet) || !isdefined(Gauntlet, :read_benchmark)
     include(joinpath(gauntlet_environment, "Gauntlet.jl"))
 end
 
+include(joinpath(@__DIR__, "inspect_saved_gauntlet_inputs.jl"))
+
 # Edit these and re-include.
 campaign_directory = normpath(joinpath(
     @__DIR__, "..", "gauntlet", ".work", "all-references"))
 benchmark_id = :benchmark_220kv_milliken_1x2500_252_trefoil_pscad
-analysis_snapshot = nothing       # Optional explicit snapshot.jld2 path.
+analysis_snapshot = nothing       # Optional CURRENT observed snapshot.jld2.
+use_previous_complete = false    # Explicitly opt into an older completed attempt.
 ydata = (R, X, G, B)
 
 bands = (:all,)
 detail_bands = ()                  # Optional worst-pair detail, e.g. (:all,); all bands remain in the IDE.
 show_native_timings = false
-blocks = nothing
+show_full_report = false          # Full-width scientific descriptions can be very long.
+series_labels = nothing           # Optional candidate labels, then the reference label.
+# Before: blocks controlled pagination. Now layout is the sole panel capacity;
+# each requested quantity/statistic produces its own figure family.
+layout = nothing
 problem_index = nothing          # Optional original physical-point index.
 plot_band = nothing
 rms_metric = :relative            # Or :absolute.
@@ -31,14 +41,38 @@ display_plot = true
 fig_size = (1400, 1000)
 
 println("\nLoading saved benchmark: ", benchmark_id, " (no solver or MC run)")
-path = analysis_snapshot === nothing ? joinpath(campaign_directory, string(benchmark_id)) :
-       analysis_snapshot
-benchmark = Gauntlet.read_benchmark(path; load_results = true, evidence = :numerical)
-println("Building tables from retained results...")
+benchmark = analysis_snapshot === nothing ?
+    read_inspection_operands(campaign_directory,benchmark_id;previous=use_previous_complete) :
+    Gauntlet.read_benchmark(analysis_snapshot;load_results=true,evidence=:numerical)
+println(analysis_snapshot===nothing ? "Comparing saved operands and constructing current observations..." : "Tabulating retained observations...")
 requests = ydata
-definition = BenchmarkTableDefinition(; bands)
-benchmark_report = report(definition, benchmark)
+definition = BenchmarkTableDefinition(requests; bands)
+benchmark_report = if analysis_snapshot===nothing
+    # Fresh comparisons/observations from checksummed numerical inputs; no saved
+    # analysis is modified and no old comparison-generation adapter is installed.
+    report(definition,(reference=benchmark.reference,candidate=benchmark.candidate,
+        measurements=benchmark.measurements,context=(id=benchmark_id,));
+        requests=Tuple(unique((ydata...,requests...))))
+else
+    report(definition,benchmark)
+end
 inspection_tables = benchmark_report.tables
+
+# Before: historical metadata expanded every numerical setting into plot legends.
+# Use explicit input identities for this manual view; the complete owner-provided
+# descriptions and their label mapping remain in plot_series_df for inspection.
+plot_points = benchmark_report.observed isa ObservedResult ? [benchmark_report.observed] : collect(benchmark_report.observed)
+plot_labels = ["Candidate $index" for index in eachindex(plot_points)]
+if benchmark_report.reference !== nothing
+    push!(plot_points, benchmark_report.reference)
+    push!(plot_labels, "Reference")
+end
+series_labels === nothing || (plot_labels = collect(series_labels))
+plot_series_df = DataFrame(label=plot_labels,
+    description=LineCableModels.Grammar.observation_labels(plot_points))
+println("Plot labels and complete scientific descriptions: plot_series_df.")
+show(stdout, MIME"text/plain"(), plot_series_df; allrows=true, truncate=100)
+println()
 
 # These variables are ordinary DataFrames/collections available in the REPL and IDE.
 feature_tables = filter(
@@ -88,9 +122,11 @@ worst_absolute_df = select(maxima_df,
 band_coverage_df = overview_tables.coverage
 
 println("\n", benchmark.id, " — saved calculations, current report")
-show(stdout, MIME"text/plain"(), benchmark_report;
-    metric = rms_metric, problem = problem_index, native_timings = show_native_timings)
-println()
+if show_full_report
+    show(stdout, MIME"text/plain"(), benchmark_report;
+        metric = rms_metric, problem = problem_index, native_timings = show_native_timings)
+    println()
+end
 for (label, frame) in (
     "Worst relative terms and counts" => worst_relative_df,
     "Worst absolute terms (independent maxima)" => worst_absolute_df)
@@ -121,8 +157,8 @@ benchmark_plots = if make_plots
         throw(ArgumentError("plot_backend must be :gl or :cairo"))
     end
     LineCableModels.plot(benchmark_report, ydata; problem = problem_index,
-        band = plot_band, blocks, backend = plot_backend, display_plot, fig_size,
-        xscale = :log10, legend_position = :bottom, errorbar_sampling)
+        band = plot_band, layout, backend = plot_backend, display_plot, fig_size,
+        xscale = :log10, legend_position = :bottom, series_labels=plot_labels, errorbar_sampling)
 else
     nothing
 end

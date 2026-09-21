@@ -17,7 +17,7 @@
             legend_title = "Distribution",
             legend_labels = ("observations",),
             legend_position = :inside,
-            legend_anchor = :lt
+            legend_attributes=(halign=:left,valign=:top)
         ),
         Makie.stairs(result, R; backend = :cairo, display_plot = false),
         Makie.ecdfplot(result, R; backend = :cairo, display_plot = false),

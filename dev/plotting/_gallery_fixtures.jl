@@ -2,7 +2,7 @@
 using LineCableModels
 include(joinpath(@__DIR__,"../../test/support/scenarios.jl"))
 using .CurrentScenarios
-function build_manual_plot_gallery(backend=:gl;display_plot=true,export_theme=:current)
+function build_manual_plot_gallery(backend=:gl;display_plot=true,export_theme=:default)
     options=(;backend,display_plot,export_theme)
     parameters=two_conductor_results()
     gallery=Pair{String,UIPlot}[]

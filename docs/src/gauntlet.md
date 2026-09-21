@@ -86,6 +86,17 @@ records from saved numerical operands without a solver run. Inspection reads
 retained observations. There are no policy generations or historical-policy
 compatibility branches.
 
+Before `ObservedResult`, analysis snapshots stored comparison tables without
+the detached scientific observations. Those snapshots must be regenerated
+through `compare_saved`; this does not itself require new solver calculations.
+The manual `dev/inspect_saved_gauntlet.jl` and `dev/inspect_saved_gauntlet_mc.jl`
+scripts can explicitly compare saved numerical operands in memory without
+changing their archives. Files with the removed `gauntlet_moments` kind contain
+only marginal mean/std arrays: regenerate those UQ calculations to retain a
+current scientific result. Do not manufacture uncertainty dependencies from
+those marginal arrays. Current `gauntlet_uncertainty` files remain readable
+with `Measurements` loaded. See `dev/README.md` for the local archive audit.
+
 Report bands overlap: near DC is 0.1–100 Hz, the default harmonic range is
 50–2500 Hz, narrowband is 1 kHz–1 MHz, and wideband is strictly above 1 MHz.
 Ordinary endpoints retain the engine's nearest-sample selection. Requested and
@@ -103,7 +114,7 @@ benchmark = read_benchmark("/path/to/staging/benchmark_id")
 # A vault can be moved and read independently of its original staging folder:
 # benchmark = only(read_campaign("/path/to/vault/accepted"))
 artifact = report(BenchmarkTableDefinition(), benchmark)
-display(artifact)             # Compact published-summary layout in the REPL
+display(artifact)             # Tables of retained comparison results in the REPL
 artifact.tables.features      # Quantity/statistic DataFrames, bands side by side
 artifact.tables.overview      # Compact coverage, performance and sampling tables
 artifact.tables.formulations
@@ -111,16 +122,21 @@ artifact.tables.maxima
 artifact.tables.terms
 
 using GLMakie
-plots = LineCableModels.plot(artifact; ydata=(Z, Y))
-# Optional: plot(artifact, (R, L); problem=1, formulations=[2], band=:dc)
+# Before: plotting could prepare report data. Now it selects retained products;
+# layout is coefficient capacity, with separate figures for R/X/G/B.
+plots = LineCableModels.plot(artifact; ydata=(R, X, G, B), backend=:gl)
+# Select only quantities retained by this artifact, for example:
+# plot(artifact, (R, X); problem=1, formulations=[2], band=:dc)
+using CairoMakie # SVG requires explicit loading; export does not load Cairo.
 export_svg(first(plots); path="impedance.svg", open_file=false)
 ```
 
 The reference and unique quantity-relevant candidates appear in each matrix
 cell, including both off-diagonals. Z gives R/X pages; Y gives G/B pages.
 Complete saved selections and source colors survive filtering and reload.
-Multiple problem points require an explicit `problem` selection. Equal numerical
-curves remain separate formulation choices. UQ mean/std errors remain separate
+Multiple problem points add traces; `problem` optionally filters original points.
+Observation-owned equivalence groups determine formulation display; numerical
+coincidence alone never groups different study points. UQ mean/std errors remain separate
 statistics, with the same selectable frequency bands and physical resolution as
 deterministic quantities. `artifact.tables.features` contains numeric formula-by-band
 absolute/relative DataFrames; `statistics` retains available UQ summaries and

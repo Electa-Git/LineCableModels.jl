@@ -2,8 +2,6 @@ const _ADDON_BUTTON_SIZE = 32
 const _ADDON_BUTTON_BACKGROUND = Makie.RGBf(0.94, 0.94, 0.94)
 const _ADDON_ICON_COLOR = Makie.RGBAf(0.15, 0.15, 0.15, 1.0)
 const _ADDON_COLORBAR_DOCK_LENGTH = 140
-const _ADDON_MIN_AXIS_CELL_WIDTH = 240
-const _ADDON_MIN_AXIS_CELL_HEIGHT = 220
 const _ADDON_MIN_WINDOW_SIZE = (600, 320)
 const _ADDON_REFRESH_ICON = "\uE5D5"
 const _ADDON_SAVE_ICON = "\uE161"
@@ -15,13 +13,12 @@ const _ADDON_ICON_FONT = joinpath(
     "MaterialIcons-Regular.ttf"
 )
 
-function _addon_theme(; export_mode::Bool = false, export_theme::Symbol = :default)
+function _addon_theme(; export_theme::Symbol = :default)
     export_theme in (:default, :publication) || throw(ArgumentError(
         "export_theme must be :default or :publication",
     ))
-    base = export_mode && export_theme === :publication ? Makie.theme_latexfonts() : Theme()
-    custom = Theme(
-        backgroundcolor = export_mode ? :white : :grey90,
+    return Theme(
+        backgroundcolor = :grey90,
         fonts = (; icons = _ADDON_ICON_FONT),
         Axis = (;
             titlesize = 15,
@@ -38,7 +35,6 @@ function _addon_theme(; export_mode::Bool = false, export_theme::Symbol = :defau
         Legend = (; fontsize = 14, labelsize = 14),
         Colorbar = (; labelsize = 14, ticklabelsize = 14)
     )
-    return merge(base, custom)
 end
 
 function _addon_activate_backend(backend)
@@ -82,8 +78,7 @@ function _addon_display!(figure, title::AbstractString)
         screen = Base.invokelatest(
             extension.make_screen,
             String(title);
-            minimum_size,
-            aspect_size=Tuple(Int.(viewport.widths))
+            minimum_size
         )
         Base.display(screen, figure)
     else
@@ -92,19 +87,15 @@ function _addon_display!(figure, title::AbstractString)
     return figure
 end
 
-function _addon_landscape_size(size)
-    size isa Tuple{Int, Int} && all(>(0), size) || throw(ArgumentError(
-        "fig_size must be a tuple of two positive integers",
-    ))
-    width, height = size
-    return (max(width, cld(4height, 3)), height)
-end
-
-function _addon_shell(; size, controls::Bool, axis::NamedTuple=(;), figure::NamedTuple=(;), kwargs...)
+function _addon_shell(; size, controls::Bool, axis::NamedTuple=(;), figure::NamedTuple=(;), widgets=(), guide_gap=8,
+        colorbar_position=_omitted,colorbar_attributes=(;),colorbar_group_attributes=(;),kwargs...)
+    guide_gap=_addon_guide_gap(guide_gap)
+    _addon_guide_attributes(colorbar_group_attributes)
     axis_keys = (propertynames(Axis)..., :palette)
     axis_attributes = merge((; (key=>value for (key,value) in kwargs if key in axis_keys)...), axis)
     series_attributes = (; (key=>value for (key,value) in kwargs if key ∉ axis_keys)...)
-    size = _addon_landscape_size(size)
+    size isa Tuple{Int,Int} && all(>(0),size) ||
+        throw(ArgumentError("figure size must be a tuple of two positive integers"))
     figure = Figure(; merge((; size, figure_padding=(12,12,12,12)), figure)...)
     root = figure.layout
     root.default_rowgap = Fixed(4)
@@ -127,13 +118,15 @@ function _addon_shell(; size, controls::Bool, axis::NamedTuple=(;), figure::Name
     toolbar.default_colgap = Fixed(4)
     colgap!(toolbar, 4)
     status = Observable("Ready")
+    chrome=Any[]
     if controls
         root[2, 1] = body
         root[1, 1] = toolbar
-        Label(root[3, 1], status; halign = :left, fontsize = 11)
-        rowsize!(root, 1, Fixed(32))
+        status_label=Label(root[3, 1], status; halign = :left, fontsize = 11)
+        append!(chrome,(toolbar,status_label))
+        rowsize!(root, 1, Auto(true))
         rowsize!(root, 2, Auto(false, 1))
-        rowsize!(root, 3, Fixed(16))
+        rowsize!(root, 3, Auto(true))
     else
         root[1, 1] = body
         rowsize!(root, 1, Auto(false, 1))
@@ -145,7 +138,8 @@ function _addon_shell(; size, controls::Bool, axis::NamedTuple=(;), figure::Name
     colsize!(body, 1, Fixed(0))
     colsize!(body, 2, Auto(false, 1))
     colsize!(body, 3, Fixed(0))
-    return (; figure, root, body, canvas, toolbar, status, axis_attributes, series_attributes)
+    return (; figure, root, body, canvas, toolbar, status, chrome, axis_attributes, series_attributes, widgets, guide_gap,
+        colorbar_position,colorbar_attributes,colorbar_group_attributes)
 end
 
 function _addon_icon(value)
@@ -156,108 +150,6 @@ function _addon_icon(value)
         color = _ADDON_ICON_COLOR,
         offset = (0, -0.18)
     )
-end
-
-# Full and residual matrix cells share a decoration budget. Their outer grids
-# absorb protrusions, while blank positions remain ordinary layout tracks.
-# Native layout updates are guarded; exports temporarily retain this budget.
-function _addon_equal_matrix_cells!(pages)
-    axes = [axis for page in pages for axis in page.axes]
-    isempty(axes) && return nothing
-    budget = zeros(Float32, 13) # axis, figure docks, panel docks, figure title
-    updating = Ref(false)
-    suspended = Ref(false)
-    sides = (:left, :right, :bottom, :top)
-    extent(legend, position, side) = legend === nothing || position != side ? 0f0 :
-        something(legend.layoutobservables.autosize[][side in (:left,:right) ? 1 : 2], 0f0)
-    function reserve!(grid, sizes)
-        for (side, size) in zip(sides, sizes)
-            size > 0 || continue
-            _addon_activate_dock_tracks!(grid, side)
-            if side in (:left,:right)
-                colsize!(grid, side === :left ? 1 : 3, Fixed(size))
-            else
-                rowsize!(grid, side === :top ? 1 : 3, Fixed(size))
-            end
-        end
-    end
-    function fit!()
-        (updating[] || suspended[]) && return nothing
-        desired = [maximum(getfield(axis.layoutobservables.protrusions[], side)
-            for axis in axes) for side in sides]
-        append!(desired, [maximum(extent(page.legend,
-            page.addon_state.figure_legend_position[], side) for page in pages) for side in sides])
-        append!(desired, [maximum((extent(legend,
-            page.addon_state.panel_legend_positions[key], side)
-            for page in pages for (key,legend) in page.panel_legends); init=0f0) for side in sides])
-        push!(desired, maximum(page.title === nothing ? 0f0 :
-            something(page.title.layoutobservables.autosize[][2], 0f0) for page in pages))
-        all(desired .<= budget) && return nothing
-        updating[] = true
-        try
-            budget .= max.(budget, ceil.(desired))
-            P = GridLayoutBase.Protrusion
-            alignment = Mixed(left=P(budget[1]), right=P(budget[2]),
-                bottom=P(budget[3]), top=P(budget[4]))
-            for axis in axes
-                axis.alignmode[] = alignment
-            end
-            for page in pages
-                shell = page.addon_state.shell
-                reserve!(shell.body, budget[5:8])
-                for cell in page.addon_state.matrix_block.cells
-                    reserve!(cell.layout, budget[9:12])
-                end
-                if budget[13] > 0
-                    page.title === nothing && (shell.root[0,1] = GridLayout())
-                    rowsize!(shell.root, 0, Fixed(budget[13]))
-                end
-            end
-        finally
-            updating[] = false
-        end
-        return nothing
-    end
-    for page in pages, axis in page.axes
-        on(page.figure.scene, axis.layoutobservables.protrusions) do _
-            fit!()
-        end
-    end
-    for page in pages
-        for block in (page.title, page.legend, values(page.panel_legends)...)
-            block === nothing && continue
-            on(page.figure.scene, block.layoutobservables.autosize) do _
-                fit!()
-            end
-        end
-        page.addon_state = merge(page.addon_state,
-            (matrix_layout=(; suspended, refit=fit!),))
-    end
-    fit!()
-    return nothing
-end
-
-function _addon_button!(toolbar, column::Int, icon)
-    return Button(
-        toolbar[1, column];
-        label = _addon_icon(icon),
-        width = _ADDON_BUTTON_SIZE,
-        height = _ADDON_BUTTON_SIZE,
-        buttoncolor = _ADDON_BUTTON_BACKGROUND
-    )
-end
-
-function _addon_refit_matrix_block!(plot, block)
-    data = plot.addon_state
-    haskey(data, :matrix_layout) || return nothing
-    fit! = data.matrix_layout.refit
-    if block !== nothing
-        on(block.blockscene, block.layoutobservables.autosize) do _
-            fit!()
-        end
-    end
-    fit!()
-    return nothing
 end
 
 function _addon_scale(symbol::Symbol)
@@ -354,7 +246,8 @@ function _addon_set_axis!(entries::AbstractVector, dim::Symbol, scale=nothing)
     # Resolve and validate the complete page before any native observable changes.
     # These are native axis bindings, not another interpretation of result data.
     targets = map(entries) do entry
-        target = _addon_scale(scale === nothing ? entry.scale : scale)
+        requested_scale = scale === nothing ? entry.scale : scale
+        target = _addon_scale(requested_scale)
         context = "axis :$dim ($(repr(entry.axis.title[])))"
         requested = entry.axis.limits[]
         requested = length(requested) == 4 ? (requested[1:2], requested[3:4]) : requested
@@ -362,13 +255,23 @@ function _addon_set_axis!(entries::AbstractVector, dim::Symbol, scale=nothing)
         all(value -> value === nothing || isfinite(value), bounds) ||
             throw(DomainError(bounds, "$context requires finite explicit limits"))
         values = _addon_visible_values(entry.axis, dim, entry.series)
-        if target === Base.log10 && entry.signed && !isempty(values) && !all(>(0),values)
+        if requested_scale === :log10 &&
+                (any(<=(0),values) || any(value -> value!==nothing && value<=0,bounds))
             target = _addon_scale(:pseudolog10)
         end
         if target === Base.log10
             all(>(0), values) && all(value -> value === nothing || value > 0, bounds) ||
                 throw(DomainError(bounds, "logarithmic $context requires positive visible data, uncertainty bounds and explicit limits"))
         end
+        inverse=Makie.inverse_transform(target)
+        inverse===nothing && throw(ArgumentError("$context requires a native scale with an inverse"))
+        for value in bounds
+            value===nothing && continue
+            transformed=target(value)
+            isfinite(transformed) && isfinite(inverse(transformed)) || throw(DomainError(
+                value,"$context requires finite transformed explicit bounds and inverse values"))
+        end
+        empty_bounds=isempty(values) ? Makie.defaultlimits(requested[index],target) : nothing
         if !isempty(values)
             lower, upper = extrema(values)
             if isapprox(lower, upper; rtol=sqrt(eps(Float64)), atol=0)
@@ -380,26 +283,53 @@ function _addon_set_axis!(entries::AbstractVector, dim::Symbol, scale=nothing)
             all(isfinite, transformed) && transformed[1] < transformed[2] ||
                 throw(DomainError((lower, upper), "$context requires distinct finite transformed limits"))
         end
-        target
+        if empty_bounds!==nothing
+            transformed=target.(empty_bounds)
+            all(isfinite,transformed) && transformed[1]<transformed[2] &&
+                all(isfinite,inverse.(transformed)) || throw(DomainError(empty_bounds,
+                    "$context requires finite distinct native default limits"))
+        end
+        (;scale=target,empty_bounds)
     end
-    for (entry, target) in zip(entries, targets)
-        axis = entry.axis
-        previous = axis.targetlimits[]
-        getproperty(axis, Symbol(dim, :scale))[] = target
-        entry.reset(; xauto=dim === :x, yauto=dim === :y)
-        # Makie refits both dimensions on transform changes. Restore the unrelated
-        # view without turning its interactive limits into a caller request.
-        other = 3 - index
-        current = axis.targetlimits[]
-        origin, widths = collect(current.origin), collect(current.widths)
-        origin[other], widths[other] = previous.origin[other], previous.widths[other]
-        axis.targetlimits[] = Makie.Rect2d(origin..., widths...)
+    previous=[(scale=getproperty(entry.axis,Symbol(dim,:scale))[],view=entry.axis.targetlimits[])
+        for entry in entries]
+    try
+        for (entry,target,saved) in zip(entries,targets,previous)
+            axis=entry.axis
+            if target.empty_bounds!==nothing
+                # Native empty-data fitting keeps the previous target limits.
+                # Seed its own scale defaults through a linear transition so an
+                # empty log axis never inherits the linear interval [0,10].
+                getproperty(axis,Symbol(dim,:scale))[]=identity
+                current=axis.targetlimits[]
+                origin,widths=collect(current.origin),collect(current.widths)
+                origin[index]=target.empty_bounds[1]
+                widths[index]=target.empty_bounds[2]-target.empty_bounds[1]
+                axis.targetlimits[]=Makie.Rect2d(origin...,widths...)
+            end
+            getproperty(axis,Symbol(dim,:scale))[]=target.scale
+            entry.reset(;xauto=dim===:x,yauto=dim===:y)
+            # Scale application preserves the orthogonal interactive view.
+            other=3-index
+            current=axis.targetlimits[]
+            origin,widths=collect(current.origin),collect(current.widths)
+            origin[other],widths[other]=saved.view.origin[other],saved.view.widths[other]
+            axis.targetlimits[]=Makie.Rect2d(origin...,widths...)
+        end
+    catch
+        for (entry,saved) in zip(entries,previous)
+            getproperty(entry.axis,Symbol(dim,:scale))[]=identity
+            entry.axis.targetlimits[]=saved.view
+            getproperty(entry.axis,Symbol(dim,:scale))[]=saved.scale
+            entry.axis.targetlimits[]=saved.view
+        end
+        rethrow()
     end
     return entries
 end
 
 function _addon_numeric_values(values)
-    # Undefined observations remain missing in publications. Makie's numeric
+    # Undefined observations remain missing in retained products. Makie's numeric
     # line boundary uses NaN gaps, including an entirely undefined phase trace.
     nominal_values = map(value -> ismissing(value) ? NaN : LineCableModels.nominal(value), values)
     errors = LineCableModels.uncertainty.(values)
@@ -408,7 +338,7 @@ end
 
 function _addon_line!(axis, xdata, ydata; dependent_plots, label, color = nothing,
         visible = true, phase=(1, 1), endpoints=false, marker_coordinates=nothing,
-        errorbar_sampling=:all, yerror=nothing)
+        errorbar_sampling=:all, yerror=nothing, interval_support=nothing)
     x, xerror = _addon_numeric_values(xdata)
     y, inferred_error = _addon_numeric_values(ydata)
     yerror = yerror === nothing ? inferred_error :
@@ -416,15 +346,15 @@ function _addon_line!(axis, xdata, ydata; dependent_plots, label, color = nothin
     attributes = color === nothing ? (; linewidth = 2) : (; linewidth = 2, color)
     plots = Any[lines!(axis, x, y; label, visible, attributes...)]
     line = first(plots)
+    uncertain_indices = findall(eachindex(x)) do index
+        isfinite(x[index]) && isfinite(y[index]) &&
+            any(error -> error !== nothing && isfinite(error[index]) &&
+                !iszero(error[index]), (xerror, yerror))
+    end
     glyphs = if marker_coordinates !== nothing || errorbar_sampling === :staggered
-        uncertain_indices = findall(eachindex(x)) do index
-            isfinite(x[index]) && isfinite(y[index]) &&
-                any(error -> error !== nothing && isfinite(error[index]) &&
-                    !iszero(error[index]), (xerror, yerror))
-        end
         lift(line[1], axis.scene.viewport) do points, viewport
             _addon_glyph_indices(length(points), viewport.widths[1], phase;
-                endpoints, uncertain_indices, errorbar_sampling)
+                endpoints, uncertain_indices=filter(<=(length(points)),uncertain_indices), errorbar_sampling)
         end
     else
         nothing
@@ -439,12 +369,18 @@ function _addon_line!(axis, xdata, ydata; dependent_plots, label, color = nothin
         error === nothing && continue
         values = only(Makie.convert_arguments(Makie.Errorbars, x, y, error))
         coordinates = if errorbar_sampling === :staggered
-            lift(indices -> values[indices.intervals], glyphs)
+            # A native line edit does not rewrite independent uncertainty bars.
+            lift(axis.scene.viewport) do viewport
+                indices=_addon_glyph_indices(length(values),viewport.widths[1],phase;
+                    endpoints,uncertain_indices,errorbar_sampling)
+                values[indices.intervals]
+            end
         else
             values
         end
         bars = errorbars!(axis, coordinates; color=error_color, direction,
             whiskerwidth=3, linewidth=1, visible)
+        interval_support===nothing || (interval_support[bars]=coordinates)
         on(axis.scene, line.color) do value
             bars.color[] = value
         end
@@ -460,6 +396,17 @@ function _addon_visible_values(series, dim::Symbol; include_uncertainty::Bool = 
         first(item.plots).visible[] || continue
         data = dim === :x ? item.xdata : item.ydata
         data === nothing && continue
+        if !include_uncertainty
+            bounds=Makie.data_limits(first(item.plots))
+            index=dim===:x ? 1 : 2
+            lower=bounds.origin[index]
+            upper=lower+bounds.widths[index]
+            isfinite(lower) && isfinite(upper) && append!(values,(lower,upper))
+            continue
+        elseif haskey(item,:full_support)
+            append!(values,getproperty(item.full_support,dim))
+            continue
+        end
         errors = get(item, dim === :x ? :xerror : :yerror, nothing)
         for (index, sample) in enumerate(data)
             nominal_value = LineCableModels.nominal(sample)
@@ -468,7 +415,7 @@ function _addon_visible_values(series, dim::Symbol; include_uncertainty::Bool = 
             isfinite(numeric) || continue
             interval = abs(Float64(errors === nothing ?
                 LineCableModels.uncertainty(sample) : errors[index]))
-            if include_uncertainty && isfinite(interval) && !iszero(interval)
+            if isfinite(interval) && !iszero(interval)
                 push!(values, numeric - interval, numeric + interval)
             else
                 push!(values, numeric)
@@ -476,6 +423,27 @@ function _addon_visible_values(series, dim::Symbol; include_uncertainty::Bool = 
         end
     end
     return values
+end
+
+# Primary categorical and element-index points are all data samples, never
+# decorative curve glyphs. Native conversion owns categorical coordinates.
+function _addon_points!(axis,xdata,ydata;dependent_plots,label,color=nothing,
+        visible=true,phase=(1,1),endpoints=false,marker_coordinates=nothing,
+        errorbar_sampling=:all,yerror=nothing,interval_support=nothing)
+    y,inferred=_addon_numeric_values(ydata)
+    errors=yerror===nothing ? inferred : yerror
+    attributes=color===nothing ? (;) : (;color)
+    points=scatter!(axis,xdata,y;label,visible,attributes...)
+    plots=Any[points]
+    if errors!==nothing && !all(iszero,errors)
+        bars=errorbars!(axis,xdata,y,errors;visible,color=something(color,:black))
+        on(axis.scene,points.color) do value
+            bars.color[]=value
+        end
+        push!(plots,bars)
+        push!(dependent_plots,bars=>points)
+    end
+    return plots
 end
 
 function _addon_visible_values(axis::Axis, dim::Symbol, series=())
@@ -490,8 +458,10 @@ function _addon_visible_values(axis::Axis, dim::Symbol, series=())
         get(item, :sampled_intervals, false) || continue
         # Undrawn intervals still constrain scientific axes. Independently hidden
         # bars, disabled autolimits and caller-added native plots remain respected.
+        support=get(item,:interval_support,nothing)
         any(plot -> plot isa Makie.Errorbars && plot.direction[] === dim &&
-            plot.visible[] && to_value(get(plot, Symbol(dim, :autolimits), true)),
+            plot.visible[] && to_value(get(plot, Symbol(dim, :autolimits), true)) &&
+            (support===nothing || !haskey(support,plot) || isequal(plot[1][],to_value(support[plot]))),
             item.plots) || continue
         append!(values, _addon_visible_values((item,), dim; include_uncertainty=true))
     end
@@ -505,7 +475,6 @@ function LineCableModels.plotwindow(
         title_attributes::NamedTuple = (;),
         series_attributes = nothing,
         size::Tuple{Int, Int} = (800, 400),
-        layout = nothing,
         backend = nothing,
         display_plot::Bool = true,
         controls::Bool = true,
@@ -517,18 +486,7 @@ function LineCableModels.plotwindow(
     _addon_activate_backend(backend)
     return with_theme(_addon_theme(export_theme = export_theme)) do
         shell = _addon_shell(; size, controls, kwargs...)
-        dimensions = layout === nothing ? nothing :
-                     _native_preview_layout(1, layout)
         callback(shell.canvas)
-        if dimensions !== nothing
-            rows, columns = dimensions
-            for row in 1:rows
-                rowsize!(shell.canvas, row, Relative(1 / rows))
-            end
-            for column in 1:columns
-                colsize!(shell.canvas, column, Relative(1 / columns))
-            end
-        end
         axes = Any[content for content in shell.figure.content if content isa Axis]
         # Only caller-supplied overrides apply to caller-constructed axes. Keep
         # native defaults/conversions intact; scale changes use common preflight.
@@ -539,8 +497,7 @@ function LineCableModels.plotwindow(
             [(x=get(shell.axis_attributes,:xscale,axis.xscale[]),
                 y=get(shell.axis_attributes,:yscale,axis.yscale[])) for axis in axes]
         resets = Function[_addon_reset!(axis) for axis in axes]
-        native = series_attributes === nothing && isempty(shell.series_attributes) ? Any[] :
-            Any[handle for axis in axes for handle in axis.scene.plots]
+        native = Any[handle for axis in axes for handle in axis.scene.plots]
         order = [Symbol("series_$index") for index in eachindex(native)]
         groups = Dict(group => Any[handle] for (group, handle) in zip(order, native))
         _addon_finish!(
@@ -549,7 +506,7 @@ function LineCableModels.plotwindow(
             resets,
             groups,
             order,
-            Dict(group => string(group) for group in order);
+            Dict(group => something(to_value(get(handle,:label,nothing)),string(group)) for (group,handle) in zip(order,native));
             requested_scales,
             series_attributes,
             title = String(title),
@@ -582,7 +539,6 @@ function _addon_statistical_plot(
         export_theme,
         open_export,
         legend_position = :right,
-        legend_anchor = :rt,
         legend_title = nothing,
         legend_labels = nothing,
         legend_attributes = (;),
@@ -614,7 +570,7 @@ function _addon_statistical_plot(
         )
         groups = Dict{Symbol, Vector{Any}}()
         order = Symbol[]
-        labels = Dict{Symbol, String}()
+        labels = Dict{Symbol, Any}()
         series = NamedTuple[]
         draw(axis, groups, order, labels, series)
         _addon_relabel_legend!(labels, groups, order, legend_labels)
@@ -627,12 +583,12 @@ function _addon_statistical_plot(
             order,
             labels;
             requested_scales=(scales,),
+            axis_series=(series,),
             series_attributes,
             title,
             figure_title,
             title_attributes,
             legend_position,
-            legend_anchor,
             legend_title,
             legend_attributes,
             legend_overflow,
@@ -967,55 +923,40 @@ function _addon_axis!(
 )
     xaxis_label = xlabel === nothing ?
                   Units.label(xobservation.quantity, xobservation.unit) :
-                  String(xlabel)
+                  xlabel
     yaxis_label = ylabel === nothing ?
                   Units.label(yobservation.quantity, yobservation.unit) :
-                  String(ylabel)
+                  ylabel
     options = merge(
         (;
             title,
             tellwidth = false,
             tellheight = false,
-            xscale = _addon_scale(xscale),
-            yscale = _addon_scale(yscale),
+            xscale,
+            yscale,
             xlabel = xaxis_label,
             ylabel = yaxis_label
         ),
         attributes, native_attributes)
-    scales = (x=_addon_scale(options.xscale),y=_addon_scale(options.yscale))
+    scales = (x=options.xscale,y=options.yscale)
     # Draw on safe axes, then validate complete native extents in the common
     # finish before applying requested transforms to any axis on the page.
     axis = Axis(position; merge(options,(xscale=identity,yscale=identity))...)
     return axis,scales
 end
 
-function _addon_positions(count::Int, layout)
-    if layout === nothing
-        columns = max(1, ceil(Int, sqrt(count)))
-        rows = cld(count, columns)
-    else
-        layout isa Tuple && length(layout) == 2 &&
-        all(value -> value isa Integer && !(value isa Bool) && value > 0, layout) ||
-            throw(ArgumentError("layout must be a tuple of two positive integers or nothing"))
-        rows, columns = Int.(layout)
-        rows * columns >= count || throw(DimensionMismatch(
-            "layout provides $(rows * columns) slots for $count plots",
-        ))
-    end
-    positions = Tuple((cld(index, columns), mod1(index, columns)) for index in 1:count)
-    return positions, (rows, columns)
-end
-
-function _addon_panel_titles(panel_titles, expected::Int)
+function _addon_panel_titles(panel_titles, expected::Int; defaults=nothing)
     panel_titles === nothing && return nothing
+    panel_titles isa Function && return Tuple(panel_titles(i) for i in 1:expected)
+    panel_titles isa AbstractDict && return Tuple(get(panel_titles,i,defaults===nothing ? nothing : defaults[i]) for i in 1:expected)
     panel_titles isa Tuple || panel_titles isa AbstractVector ||
         throw(ArgumentError(
-            "panel_titles must be a tuple, vector, or nothing",
+            "panel_titles must be a tuple, vector, dictionary, function, or nothing",
         ))
     length(panel_titles) == expected || throw(DimensionMismatch(
         "panel_titles must contain one entry per logical plot panel",
     ))
-    return Tuple(String(value) for value in panel_titles)
+    return Tuple(panel_titles)
 end
 
 function _addon_panel!(shell, position::Tuple{Int, Int})
@@ -1043,139 +984,6 @@ function _addon_panel!(shell, position::Tuple{Int, Int})
     return (; logical_position = position, layout, content = layout[2, 2])
 end
 
-function _addon_responsive_axis_grid!(
-        figure,
-        grid,
-        panels,
-        axes,
-        dimensions;
-        hide_inner_y::Bool = false
-)
-    isempty(axes) && return axes
-    length(panels) == length(axes) || throw(DimensionMismatch(
-        "responsive plot panels must align with their axes",
-    ))
-    maximum_columns = dimensions[2]
-    maximum_columns == 1 && return axes
-    current_columns = Ref(0)
-    updating = Ref(false)
-
-    function reflow!(bounding_box)
-        updating[] && return nothing
-        width = Float64(bounding_box.widths[1])
-        height = Float64(bounding_box.widths[2])
-        width_columns = clamp(
-            floor(Int, width / _ADDON_MIN_AXIS_CELL_WIDTH),
-            1,
-            maximum_columns
-        )
-        available_rows = max(1, floor(Int, height / _ADDON_MIN_AXIS_CELL_HEIGHT))
-        height_columns = clamp(cld(length(axes), available_rows), 1, maximum_columns)
-        # Pick the arrangement whose cell aspect best follows the available
-        # canvas, while respecting the minimum usable cell dimensions.  This
-        # keeps a short landscape window in columns and lets a tall window
-        # reflow the same logical panels into rows.
-        aspect_columns = round(Int, sqrt(length(axes) * width / max(height, 1.0)))
-        columns = clamp(aspect_columns, height_columns, width_columns)
-        columns == current_columns[] && return nothing
-        updating[] = true
-        try
-            rows = cld(length(axes), columns)
-            maximum_rows = cld(length(axes), 1)
-            for column in 1:maximum_columns
-                colsize!(
-                    grid,
-                    column,
-                    column <= columns ? Auto(false, 1) : Fixed(0)
-                )
-            end
-            for (index, (panel, axis)) in enumerate(zip(panels, axes))
-                row = cld(index, columns)
-                column = mod1(index, columns)
-                grid[row, column] = panel.layout
-                bottom_row = row == rows
-                axis.xlabelvisible[] = bottom_row
-                axis.xticklabelsvisible[] = bottom_row
-                axis.xticksvisible[] = bottom_row
-                if hide_inner_y
-                    left_column = column == 1
-                    axis.ylabelvisible[] = left_column
-                    axis.yticklabelsvisible[] = left_column
-                    axis.yticksvisible[] = left_column
-                end
-            end
-            managed_rows = current_columns[] == 0 ? rows : maximum_rows
-            for row in 1:managed_rows
-                rowsize!(
-                    grid,
-                    row,
-                    row <= rows ? Auto(false, 1) : Fixed(0)
-                )
-            end
-            current_columns[] = columns
-        finally
-            updating[] = false
-        end
-        return nothing
-    end
-
-    on(figure.scene, grid.layoutobservables.computedbbox) do bounding_box
-        reflow!(bounding_box)
-    end
-    reflow!(grid.layoutobservables.computedbbox[])
-    return axes
-end
-
-function _addon_center_aspect_canvas!(shell)
-    viewport = shell.figure.scene.viewport[]
-    initial_width = max(1.0, Float64(minimum(viewport.widths)))
-    shell.canvas.width = initial_width
-    shell.canvas.tellwidth = true
-    colsize!(shell.body, 2, Auto(true))
-    shell.body.width = Auto()
-    shell.body.tellwidth = true
-    shell.body.halign = :center
-    updating = Ref(false)
-
-    function fit!(canvas_box)
-        updating[] && return nothing
-        suggested = shell.body.layoutobservables.suggestedbbox[]
-        body_box = shell.body.layoutobservables.computedbbox[]
-        all(isfinite, (
-            canvas_box.widths...,
-            suggested.widths...,
-            body_box.widths...
-        )) || return nothing
-        noncanvas_width = max(
-            0.0,
-            Float64(body_box.widths[1]) - Float64(canvas_box.widths[1])
-        )
-        available_width = max(1.0, Float64(suggested.widths[1]) - noncanvas_width)
-        target = min(Float64(canvas_box.widths[2]), available_width)
-        current = shell.canvas.width
-        current isa Real && isapprox(current, target; atol = 0.5) && return nothing
-        updating[] = true
-        try
-            shell.canvas.width = target
-        finally
-            updating[] = false
-        end
-        return nothing
-    end
-
-    on(shell.figure.scene, shell.canvas.layoutobservables.computedbbox) do bounding_box
-        fit!(bounding_box)
-    end
-    # A legend or colorbar can be added or moved after construction. Refit the
-    # square canvas when the surrounding body changes, even if the canvas box
-    # itself has not emitted yet.
-    on(shell.figure.scene, shell.body.layoutobservables.computedbbox) do _
-        fit!(shell.canvas.layoutobservables.computedbbox[])
-    end
-    fit!(shell.canvas.layoutobservables.computedbbox[])
-    return shell
-end
-
 function _addon_legend_slot(body, position)
     position === :right && return body[2, 3], :vertical
     position === :left && return body[2, 1], :vertical
@@ -1200,36 +1008,6 @@ function _addon_dock_indices(position)
     position === :bottom && return (3, 2)
     position isa Tuple && return Int.(position)
     return nothing
-end
-
-function _addon_activate_dock_tracks!(body, position)
-    indices = _addon_dock_indices(position)
-    indices === nothing && return body
-    row, column = indices
-    if row != 2
-        rowsize!(body, row, Auto(true, 0))
-        rowgap!(body, row < 2 ? row : row - 1, 8)
-    end
-    if column != 2
-        colsize!(body, column, Auto(true, 0))
-        colgap!(body, column < 2 ? column : column - 1, 8)
-    end
-    return body
-end
-
-function _addon_deactivate_dock_tracks!(body, position)
-    indices = _addon_dock_indices(position)
-    indices === nothing && return body
-    row, column = indices
-    if row != 2
-        rowsize!(body, row, Fixed(0))
-        rowgap!(body, row < 2 ? row : row - 1, 0)
-    end
-    if column != 2
-        colsize!(body, column, Fixed(0))
-        colgap!(body, column < 2 ? column : column - 1, 0)
-    end
-    return body
 end
 
 function _addon_remove_legend!(legend)
@@ -1310,7 +1088,7 @@ function _addon_set_legend_capacity!(legend, title, entries, ellipsis, capacity,
     capacity == state[] && return legend
     displayed = copy(entries[1:capacity])
     capacity < total && push!(displayed, ellipsis)
-    legend.entrygroups[] = [(title, displayed)]
+    legend.entrygroups[] = [(first(only(legend.entrygroups[])), displayed)]
     state[] = capacity
     return legend
 end
@@ -1368,37 +1146,15 @@ function _addon_responsive_legend!(figure, bounding_box, legend)
 
     _addon_set_legend_capacity!(
         legend, title, complete_entries, ellipsis, length(complete_entries), capacity)
-    on(figure.scene, bounding_box) do bounds
+    on(legend.blockscene, bounding_box) do bounds
         fit!(bounds)
     end
-    on(figure.scene, legend.orientation) do _
+    on(legend.blockscene, legend.orientation) do _
         empty!(extents)
         fit!(bounding_box[])
     end
     fit!(bounding_box[])
     return legend
-end
-
-function _addon_inside_aligns(anchor)
-    if anchor isa Symbol
-        value = String(anchor)
-        length(value) == 2 || throw(ArgumentError(
-            "inside legend anchors must contain a horizontal and vertical letter",
-        ))
-        horizontal = Dict('l' => :left, 'c' => :center, 'r' => :right)
-        vertical = Dict('b' => :bottom, 'c' => :center, 't' => :top)
-        haskey(horizontal, value[1]) || throw(ArgumentError(
-            "inside legend anchors must begin with l, c, or r",
-        ))
-        haskey(vertical, value[2]) || throw(ArgumentError(
-            "inside legend anchors must end with b, c, or t",
-        ))
-        return (; halign = horizontal[value[1]], valign = vertical[value[2]])
-    end
-    anchor isa Tuple && length(anchor) == 2 || throw(ArgumentError(
-        "inside legend anchors must be symbols such as :rt or two-element tuples",
-    ))
-    return (; halign = anchor[1], valign = anchor[2])
 end
 
 function _addon_wrap_legend_label(label, width, measure)
@@ -1429,39 +1185,43 @@ end
 
 # Native Legend already owns the row-major grid, text rendering and click
 # targets. Only its bank count and (when necessary) label line breaks change.
-function _addon_grid_legend!(figure, bounds, legend)
+function _addon_grid_legend!(bounds, legend, position; automatic=true, fitting_geometry)
     entries = last(only(legend.entrygroups[]))
-    originals = [String(entry.label[]) for entry in entries]
+    originals = Any[entry.label[] for entry in entries]
     fitting = Ref(false)
+    managed = Ref(automatic)
     previous_metrics = Ref{Any}(nothing)
     # Match native Label: glyphs and positions must share data space for the
     # bounding box to include font extents rather than just the anchor point.
     probe = text!(legend.blockscene, 0, 0; text="", markerspace=:data,
         visible=false, inspectable=false)
     function fit!()
-        fitting[] && return nothing
+        (fitting[] || !managed[]) && return nothing
+        horizontal = position[] in (:top,:bottom)
         available = Float64(bounds[].widths[1]) - sum(legend.margin[][1:2]) -
             sum(legend.padding[][1:2]) - 4
         available > 0 || return nothing
         fitting[] = true
+        previous_geometry=fitting_geometry[]
+        fitting_geometry[]=true
         try
             widths = Float64[]
             for (entry, original) in zip(entries, originals)
                 probe.font[] = entry.labelfont[]
                 probe.fontsize[] = entry.labelsize[]
-                measured = Dict{String,Float64}()
+                measured = Dict{Any,Float64}()
                 measure = text -> get!(measured, text) do
                     probe.text[] = text
                     Float64(Makie.boundingbox(probe, :data).widths[1])
                 end
                 patch = Float64(entry.patchsize[][1]) + legend.patchlabelgap[]
-                wrapped = measure(original) <= available-patch ? original :
+                wrapped = !horizontal || !(original isa String) || measure(original) <= available-patch ? original :
                     _addon_wrap_legend_label(original, max(1.0, available-patch), measure)
                 entry.label[] == wrapped || (entry.label[] = wrapped)
                 push!(widths, patch + measure(wrapped))
             end
             columns = 1
-            for count in length(entries):-1:1
+            for count in (horizontal ? (length(entries):-1:1) : (1:-1:1))
                 required = sum(maximum(widths[column:count:end]) for column in 1:count) +
                     (count-1)*legend.colgap[]
                 if required <= available
@@ -1471,6 +1231,7 @@ function _addon_grid_legend!(figure, bounds, legend)
             end
             metrics = (Tuple(widths), Tuple(entry.label[] for entry in entries),
                 Tuple((entry.labelsize[],entry.labelfont[]) for entry in entries))
+            legend.orientation[]===:vertical || (legend.orientation[]=:vertical)
             if legend.nbanks[] != columns
                 legend.nbanks[] = columns
             elseif previous_metrics[] != metrics
@@ -1480,6 +1241,7 @@ function _addon_grid_legend!(figure, bounds, legend)
             end
             previous_metrics[] = metrics
         finally
+            fitting_geometry[]=previous_geometry
             fitting[] = false
         end
         return nothing
@@ -1492,23 +1254,42 @@ function _addon_grid_legend!(figure, bounds, legend)
     for (index, entry) in enumerate(entries)
         on(legend.blockscene, entry.label) do label
             fitting[] && return
-            originals[index] = String(label)
+            originals[index] = label
             fit!()
         end
     end
+    for setting in (legend.nbanks,legend.orientation)
+        on(legend.blockscene,setting;priority=1) do _
+            fitting[] || (managed[]=false)
+        end
+    end
     fit!()
-    return legend
+    return fit!
 end
 
-function _addon_axes_viewport(axes, fallback)
+function _addon_axes_viewport(axes,fallback;panels=(),cells=())
     isempty(axes) && return fallback
-    viewports = Tuple(axis.scene.viewport for axis in axes)
-    return lift(viewports...) do bounds...
-        left = minimum(bound.origin[1] for bound in bounds)
-        bottom = minimum(bound.origin[2] for bound in bounds)
-        right = maximum(bound.origin[1] + bound.widths[1] for bound in bounds)
-        top = maximum(bound.origin[2] + bound.widths[2] for bound in bounds)
-        Rect2f((left, bottom), (right - left, top - bottom))
+    viewports=Tuple(axis.scene.viewport for axis in axes)
+    if isempty(cells)
+        return lift(viewports...) do bounds...
+            left=minimum(bound.origin[1] for bound in bounds)
+            bottom=minimum(bound.origin[2] for bound in bounds)
+            right=maximum(bound.origin[1]+bound.widths[1] for bound in bounds)
+            top=maximum(bound.origin[2]+bound.widths[2] for bound in bounds)
+            Rect2f((left,bottom),(right-left,top-bottom))
+        end
+    end
+    panel_boxes=Tuple(panel.layout.layoutobservables.computedbbox for panel in panels)
+    cell_boxes=Tuple(cell.layout.layoutobservables.computedbbox for cell in cells)
+    return lift(viewports...,panel_boxes...,cell_boxes...) do values...
+        n=length(axes)
+        frames=values[1:n];selected=values[n+1:2n];domain=values[2n+1:end]
+        lower=ntuple(d -> minimum(frame.origin[d]-panel.origin[d] for (frame,panel) in zip(frames,selected)),2)
+        upper=ntuple(d -> minimum(panel.origin[d]+panel.widths[d]-frame.origin[d]-frame.widths[d]
+            for (frame,panel) in zip(frames,selected)),2)
+        origin=ntuple(d -> minimum(box.origin[d] for box in domain)+lower[d],2)
+        stop=ntuple(d -> maximum(box.origin[d]+box.widths[d] for box in domain)-upper[d],2)
+        Rect2f(origin,stop.-origin)
     end
 end
 
@@ -1526,7 +1307,7 @@ function _addon_relabel_legend!(labels, groups, order, requested)
             else
                 continue
             end
-            labels[group] = String(replacement)
+            labels[group] = replacement
         end
         return labels
     end
@@ -1538,7 +1319,7 @@ function _addon_relabel_legend!(labels, groups, order, requested)
         "legend_labels must contain one entry for each displayed legend group",
     ))
     for (group, replacement) in zip(displayed, requested)
-        labels[group] = String(replacement)
+        labels[group] = replacement
     end
     return labels
 end
@@ -1554,7 +1335,6 @@ function _addon_legend!(
         attributes,
         overflow::Symbol,
         title = nothing,
-        anchor = :rt,
         inside_bbox = nothing,
         target = nothing,
         target_orientation = nothing
@@ -1566,7 +1346,7 @@ function _addon_legend!(
         "legend_overflow must be :ellipsis or :show_all",
     ))
     entries = Any[]
-    displayed = String[]
+    displayed = Any[]
     for group in order
         haskey(labels, group) || continue
         push!(entries, groups[group])
@@ -1581,7 +1361,7 @@ function _addon_legend!(
             (;
                 bbox = inside_bbox,
                 orientation = :vertical,
-                _addon_inside_aligns(anchor)...,
+                halign=:right,valign=:top,
                 margin = (10, 10, 10, 10),
                 tellwidth = false,
                 tellheight = false
@@ -1614,10 +1394,8 @@ function _addon_legend!(
             legend
         )
     end
-    slot, resolved_orientation = _addon_legend_slot(body, position)
-    target === nothing || (slot = target)
-    default_orientation = target_orientation === nothing ?
-                          resolved_orientation : target_orientation
+    target===nothing && throw(ArgumentError("native legends require an assigned guide slot"))
+    default_orientation=target_orientation
     options = merge(
         (;
             orientation = default_orientation,
@@ -1627,26 +1405,13 @@ function _addon_legend!(
             tellheight = position in (:top, :bottom) || position isa Tuple
         ),
         attributes)
-    legend_grid = GridLayout()
-    slot[] = legend_grid
-    target === nothing && _addon_activate_dock_tracks!(body, position)
-    if position in (:top, :bottom) &&
-            !haskey(attributes, :orientation) && !haskey(attributes, :nbanks)
-        # In Makie, vertical orientation with nbanks columns fills row first.
-        # The legend's dock still determines tellheight/tellwidth, not this
-        # native storage orientation.
-        options = merge(options, (; orientation=:vertical, halign=:center))
-        legend = Legend(legend_grid[1, 1], entries, displayed, title; options...)
-        _addon_legend_sources!(legend, groups, dependent_plots)
-        return _addon_grid_legend!(figure, legend_grid.layoutobservables.computedbbox, legend)
-    end
     if overflow === :show_all
-        legend = Legend(legend_grid[1, 1], entries, displayed, title; options...)
+        legend = Legend(target, entries, displayed, title; options...)
         return _addon_legend_sources!(legend, groups, dependent_plots)
     end
     ellipsis = LineElement(color = :transparent)
     legend = Legend(
-        legend_grid[1, 1],
+        target,
         Any[entries..., ellipsis],
         [displayed; "(...)"],
         title;
@@ -1655,7 +1420,7 @@ function _addon_legend!(
     _addon_legend_sources!(legend, groups, dependent_plots)
     return _addon_responsive_legend!(
         figure,
-        legend_grid.layoutobservables.computedbbox,
+        inside_bbox,
         legend
     )
 end
@@ -1688,7 +1453,7 @@ function _addon_panel_legend_data(
         throw(
             DimensionMismatch("panel legend titles must align with their axes"),
         )
-    result = Dict{Tuple{Int, Int}, Any}()
+    result = Dict{Any,Any}()
     for (index, (panel, axis)) in enumerate(zip(panels, axes))
         scoped = Dict{Any, Vector{Any}}()
         scoped_order = Any[]
@@ -1724,16 +1489,17 @@ function _addon_panel_legend_pairs(value)
     ))
 end
 
-function _addon_positive_panel_position(value)
+function _addon_panel_identity(value)
+    value isa Integer && !(value isa Bool) && value>0 && return Int(value)
     value isa Tuple && length(value) == 2 &&
     all(index -> index isa Integer && !(index isa Bool) && index > 0, value) ||
-        throw(ArgumentError("panel legend keys must be positive `(row, column)` tuples"))
+        throw(ArgumentError("panel identities must be positive indices or original `(row, column)` tuples"))
     return (Int(value[1]), Int(value[2]))
 end
 
 function _addon_without_legend_controls(options::NamedTuple)
     names = Tuple(filter(
-        name -> name ∉ (:position, :overflow, :title, :anchor, :legend_labels),
+        name -> name ∉ (:position, :overflow, :title, :legend_labels),
         keys(options)
     ))
     return NamedTuple{names}(Tuple(getproperty(options, name) for name in names))
@@ -1742,9 +1508,8 @@ end
 function _addon_legend_configuration(value; default_position, default_title = nothing)
     value isa Symbol && return (;
         position = value,
-        overflow = :ellipsis,
+        overflow = :show_all,
         title = default_title,
-        anchor = :rt,
         legend_labels = nothing,
         attributes = (;)
     )
@@ -1752,58 +1517,12 @@ function _addon_legend_configuration(value; default_position, default_title = no
         "a legend configuration must be a dock symbol or NamedTuple",
     ))
     position = get(value, :position, default_position)
-    overflow = get(value, :overflow, :ellipsis)
+    overflow = get(value, :overflow, :show_all)
     title = get(value, :title, default_title)
-    anchor = get(value, :anchor, :rt)
+    haskey(value,:anchor) && throw(ArgumentError("anchor was removed; use native halign and valign"))
     legend_labels = get(value, :legend_labels, nothing)
     attributes = _addon_without_legend_controls(value)
-    return (; position, overflow, title, anchor, legend_labels, attributes)
-end
-
-function _addon_panel_legends!(figure, panel_data, requested, dependent_plots)
-    built = Dict{Tuple{Int, Int}, Any}()
-    positions = Dict{Tuple{Int, Int}, Any}()
-    for pair in _addon_panel_legend_pairs(requested)
-        logical_position = _addon_positive_panel_position(first(pair))
-        haskey(panel_data, logical_position) || throw(BoundsError(
-            collect(keys(panel_data)), logical_position
-        ))
-        value = last(pair)
-        (value === nothing || value === false) && continue
-        data = panel_data[logical_position]
-        configuration = _addon_legend_configuration(
-            value;
-            default_position = :right,
-            default_title = data.title[]
-        )
-        value isa NamedTuple && haskey(value, :title) &&
-            (data.title[] = configuration.title)
-        _addon_relabel_legend!(
-            data.labels,
-            data.groups,
-            data.order,
-            configuration.legend_labels
-        )
-        legend = _addon_legend!(
-            figure,
-            data.panel.layout,
-            data.groups,
-            data.order,
-            data.labels;
-            dependent_plots,
-            position = configuration.position,
-            attributes = configuration.attributes,
-            overflow = configuration.overflow,
-            title = configuration.title,
-            anchor = configuration.anchor,
-            inside_bbox = data.axis.scene.viewport
-        )
-        if legend !== nothing
-            built[logical_position] = legend
-            positions[logical_position] = configuration.position
-        end
-    end
-    return (; legends = built, positions)
+    return (; position, overflow, title, legend_labels, attributes)
 end
 
 function _addon_colorbar!(position, scale; attributes)
@@ -1828,10 +1547,10 @@ function _addon_colorbar!(position, scale; attributes)
         # extending beyond its endpoints. Include the rendered text extents in
         # the native layout, independently of the bar's position or length.
         labels = colorbar.axis.elements[:ticklabels]
-        onany(colorbar.blockscene, labels.text, labels.fontsize, labels.font,
-            labels.rotation, labels.align, labels.offset, colorbar.vertical,
-            colorbar.ticklabelsvisible; update = true) do _, _, _, _, _, _, vertical, visible
-            boxes = Makie.fast_string_boundingboxes(labels)
+        managed=Ref{Any}(colorbar.alignmode[])
+        onany(colorbar.blockscene, Makie.fast_string_boundingboxes_obs(labels),
+            colorbar.vertical,colorbar.ticklabelsvisible; update=true) do boxes,vertical,visible
+            colorbar.alignmode[]==managed[] || return nothing
             dimension = vertical ? 2 : 1
             finite_boxes = filter(
                 box -> isfinite(box.origin[dimension]) &&
@@ -1846,9 +1565,8 @@ function _addon_colorbar!(position, scale; attributes)
                 box -> box.origin[dimension] + box.widths[dimension],
                 finite_boxes; init = 0.0
             )) : 0.0
-            colorbar.alignmode[] = vertical ?
-                                   Mixed(bottom = before, top = after) :
-                                   Mixed(left = before, right = after)
+            managed[] = vertical ? Mixed(bottom=before,top=after) : Mixed(left=before,right=after)
+            colorbar.alignmode[]=managed[]
         end
     end
     return colorbar
@@ -1858,55 +1576,27 @@ function LineCableModels.materialscale!(position, scheme; kwargs...)
     return _addon_colorbar!(position, scheme; attributes = (; kwargs...))
 end
 
-function _addon_colorbars!(
-        body,
-        scales;
-        position,
-        attributes,
-        target = nothing,
-        target_orientation = nothing
-)
-    isempty(scales) && return (; colorbars = (), layout = nothing)
-    position === nothing && return (; colorbars = (), layout = nothing)
-    attributes isa NamedTuple || throw(ArgumentError(
-        "colorbar_attributes must be a NamedTuple",
-    ))
-    slot, resolved_orientation = _addon_legend_slot(body, position)
-    target === nothing || (slot = target)
-    default_orientation = target_orientation === nothing ?
-                          resolved_orientation : target_orientation
+function _addon_colorbars!(slot,scales;attributes,orientation)
+    isempty(scales) && return (;colorbars=(),layout=nothing)
+    attributes isa NamedTuple || throw(ArgumentError("colorbar_attributes must be a NamedTuple"))
+    default_orientation=orientation
     vertical = get(attributes, :vertical, default_orientation === :vertical)
-    perpendicular_length = if vertical && default_orientation === :horizontal
-        (; height = _ADDON_COLORBAR_DOCK_LENGTH)
-    elseif !vertical && default_orientation === :vertical
-        (; width = _ADDON_COLORBAR_DOCK_LENGTH)
-    else
-        (;)
-    end
-    options = merge((; vertical), perpendicular_length, attributes)
-    grid = GridLayout()
+    # A complete default scale has a finite native length even before a parent
+    # assigns free space. Caller-provided width/height (including Auto) wins.
+    length_attributes=vertical ? (;height=_ADDON_COLORBAR_DOCK_LENGTH) :
+        (;width=_ADDON_COLORBAR_DOCK_LENGTH)
+    options = merge((; vertical), length_attributes, attributes)
+    grid = GridLayout(;alignmode=Outside())
     grid.default_rowgap = Fixed(10)
     grid.default_colgap = Fixed(8)
     slot[] = grid
-    target === nothing && _addon_activate_dock_tracks!(body, position)
     compact_side_dock = !vertical && default_orientation === :vertical
     colorbars = map(enumerate(scales)) do (index, scale)
         if compact_side_dock
-            Label(
-                grid[index, 1],
-                scale.label;
-                halign = :right,
-                valign = :center,
-                fontsize = 14
-            )
-            compact_options = merge(
-                options,
-                (;
-                    label = "",
-                    labelvisible = false
-                )
-            )
-            _addon_colorbar!(grid[index, 2], scale; attributes = compact_options)
+            bar=_addon_colorbar!(grid[index,2],scale;attributes=merge(options,(labelvisible=false,)))
+            Label(grid[index,1],bar.label;halign=:right,valign=:center,
+                fontsize=bar.labelsize,font=bar.labelfont,color=bar.labelcolor)
+            bar
         else
             colorbar_position = vertical ? grid[1, index] : grid[index, 1]
             _addon_colorbar!(colorbar_position, scale; attributes = options)
@@ -1935,97 +1625,6 @@ function _addon_bind_visibility!(figure, axes, resets, groups, status)
     return groups
 end
 
-function _addon_controls!(
-        shell,
-        axes,
-        resets,
-        xsetters,
-        ysetters,
-        legend,
-        plot_reference;
-        controls::Bool
-)
-    widgets = Dict{Symbol, Any}()
-    controls || return widgets
-    column = 1
-    if !isempty(axes)
-        reset = _addon_button!(shell.toolbar, column, _ADDON_REFRESH_ICON)
-        column += 1
-        widgets[:reset] = reset
-        on(shell.figure.scene, reset.clicks) do _
-            foreach(callback -> callback(), resets)
-            shell.status[] = "Axis limits reset"
-            return nothing
-        end
-    end
-    if Base.get_extension(LineCableModels, :LineCableModelsCairoMakieExt) !== nothing
-        save = _addon_button!(shell.toolbar, column, _ADDON_SAVE_ICON)
-        column += 1
-        widgets[:export_svg] = save
-        on(shell.figure.scene, save.clicks) do _
-            plot_reference[] === nothing && return nothing
-            try
-                output = LineCableModels.export_svg(plot_reference[])
-                shell.status[] = "Saved SVG to $output"
-            catch exception
-                exception isa Union{ArgumentError, SystemError, Base.IOError} || rethrow()
-                shell.status[] = sprint(showerror, exception)
-            end
-            return nothing
-        end
-    end
-    for (dim, setters) in ((:x, xsetters), (:y, ysetters))
-        isempty(setters) && continue
-        active = all(entry -> getproperty(entry.axis, Symbol(dim, :scale))[] in
-            (Base.log10, _addon_scale(:pseudolog10)), setters)
-        toggle = Toggle(shell.toolbar[1, column]; active)
-        column += 1
-        caption = Label(shell.toolbar[1, column], "log $dim")
-        column += 1
-        widgets[Symbol(dim, :log)] = toggle
-        changing = Ref(false)
-        for entry in setters
-            on(shell.figure.scene,getproperty(entry.axis,Symbol(dim,:scale));update=true) do _
-                kinds = unique(getproperty(item.axis,Symbol(dim,:scale))[] === log10 ?
-                    "log" : getproperty(item.axis,Symbol(dim,:scale))[] === identity ?
-                    "linear" : getproperty(item.axis,Symbol(dim,:scale))[] === _addon_scale(:pseudolog10) ?
-                    "signed log" : "custom" for item in setters)
-                mode = length(kinds)==1 ? only(kinds) : "mixed log"
-                caption.text[] = mode == "linear" ? "log $dim" : "$mode $dim"
-                if !changing[]
-                    changing[] = true
-                    try
-                        active = all(kind -> kind in ("log","signed log"),kinds)
-                        toggle.active[] == active || (toggle.active[] = active)
-                    finally
-                        changing[] = false
-                    end
-                end
-            end
-        end
-        on(shell.figure.scene, toggle.active) do enabled
-            changing[] && return nothing
-            changing[] = true
-            try
-                _addon_set_axis!(setters, dim, enabled ? :log10 : :linear)
-                shell.status[] = enabled ? "Axis scale set to $(caption.text[])" : "$dim-axis scale set to linear"
-            catch exception
-                if exception isa Union{ArgumentError, DomainError}
-                    toggle.active[] = !enabled
-                    shell.status[] = sprint(showerror, exception)
-                    return nothing
-                end
-                rethrow()
-            finally
-                changing[] = false
-            end
-            return nothing
-        end
-    end
-    legend === nothing || (widgets[:legend] = legend)
-    return widgets
-end
-
 function _addon_figure_title!(shell, title, attributes)
     title === nothing && return nothing
     attributes isa NamedTuple || throw(ArgumentError(
@@ -2035,7 +1634,7 @@ function _addon_figure_title!(shell, title, attributes)
         (; tellwidth = false, halign = :center, font = :bold, fontsize = 18),
         attributes
     )
-    return Label(shell.root[0, 1], String(title); options...)
+    return Label(shell.root[0, 1], title; options...)
 end
 
 function _addon_finish!(
@@ -2045,8 +1644,6 @@ function _addon_finish!(
         groups,
         order,
         group_labels;
-        scale_controls::Bool=true,
-        signed_ylog::Bool=false,
         requested_scales=nothing,
         axis_series=nothing,
         dependent_plots = Pair{Makie.Plot,Makie.Plot}[],
@@ -2060,16 +1657,14 @@ function _addon_finish!(
         legend_attributes,
         legend_overflow = :ellipsis,
         legend_title = nothing,
-        legend_anchor = :rt,
         panels = (),
+        frame_cells = (),
         panel_legends = (),
         panel_group_labels = nothing,
         panel_legend_titles = nothing,
         color_scales = (),
         colorbar_position = nothing,
         colorbar_attributes = (;),
-        colorbar_target = nothing,
-        colorbar_target_orientation = nothing,
         controls,
         display_plot,
         export_name,
@@ -2080,16 +1675,15 @@ function _addon_finish!(
         "native Axis attributes require a figure containing an Axis"))
     append!(dependent_plots, _addon_series_styles!(groups, order, series_attributes;
         defaults=series_defaults, shared=shell.series_attributes, marker_coordinates))
+    entries = [(;axis,reset,series=axis_series === nothing ? () : axis_series[i])
+        for (i,(axis,reset)) in enumerate(zip(axes,resets))]
     setters = map(enumerate((:x,:y))) do (index,dim)
-        entries = [(;axis,reset,series=axis_series === nothing ? () : axis_series[i],
-            signed=index==2 && signed_ylog) for (i,(axis,reset)) in enumerate(zip(axes,resets))]
         if requested_scales !== nothing
             _addon_set_axis!([merge(entry,(scale=getproperty(scales,dim),))
                 for (entry,scales) in zip(entries,requested_scales)],dim)
         end
-        scale_controls || return NamedTuple[]
         filter(entries) do entry
-            getproperty(entry.axis,Symbol(:dim,index,:_conversion))[] === nothing &&
+            _addon_numeric_axis(entry.axis,dim) &&
                 getproperty(entry.axis,Symbol(dim,:scale))[] in
                     (identity,log10,_addon_scale(:pseudolog10)) &&
                 !isempty(_addon_visible_values(entry.axis,dim,entry.series))
@@ -2110,267 +1704,95 @@ function _addon_finish!(
     title_block = _addon_figure_title!(shell, figure_title, title_attributes)
     inside_bbox = _addon_axes_viewport(
         axes,
-        shell.canvas.layoutobservables.computedbbox
+        shell.canvas.layoutobservables.computedbbox;
+        panels,cells=frame_cells
     )
-    legend_target = nothing
-    dock_targets = Dict{Any, Any}()
-    resolved_colorbar_target = colorbar_target
-    resolved_colorbar_orientation = colorbar_target_orientation
-    shared_orientation = nothing
-    if legend_position !== nothing && legend_position !== :inside &&
-       legend_position == colorbar_position &&
-       !isempty(color_scales) && colorbar_target === nothing
-        slot, shared_orientation = _addon_legend_slot(shell.body, legend_position)
-        dock = shared_orientation === :vertical ?
-               GridLayout(2, 1; height = Relative(1)) :
-               GridLayout(1, 2; width = Relative(1))
-        slot[] = dock
-        _addon_activate_dock_tracks!(shell.body, legend_position)
-        if shared_orientation === :vertical
-            legend_target = dock[1, 1]
-            resolved_colorbar_target = dock[2, 1]
-            rowsize!(dock, 1, Auto(false, 1))
-            # A length that is not intrinsic must share the available space,
-            # not collapse to zero when the legend occupies the same dock.
-            rowsize!(dock, 2, Auto(true, 1))
-        else
-            legend_target = dock[1, 1]
-            resolved_colorbar_target = dock[1, 2]
-            colsize!(dock, 1, Auto(false, 1))
-            colsize!(dock, 2, Auto(true, 1))
-        end
-        resolved_colorbar_orientation = shared_orientation
-        dock_targets[legend_position] = (;
-            target = legend_target,
-            orientation = shared_orientation
-        )
+    panel_data = if isempty(panels)
+        Dict{Any,Any}(i => begin
+            selected=Dict{Any,Vector{Any}}(key=>filter(plot -> plot in axis.scene.plots,plots)
+                for (key,plots) in groups if any(plot -> plot in axis.scene.plots,plots))
+            (;axis,panel=(logical_position=i,layout=nothing),groups=selected,
+                order=filter(key -> haskey(selected,key),order),labels=copy(group_labels),title=Ref{Any}(nothing))
+        end for (i,axis) in enumerate(axes))
+    else
+        _addon_panel_legend_data(panels,axes,groups,order,group_labels;
+            panel_labels=panel_group_labels,panel_titles=panel_legend_titles)
     end
-    legend = _addon_legend!(
-        shell.figure,
-        shell.body,
-        groups,
-        order,
-        group_labels;
-        dependent_plots,
-        position = legend_position,
-        attributes = legend_attributes,
-        overflow = legend_overflow,
-        title = legend_title,
-        anchor = legend_anchor,
-        inside_bbox,
-        target = legend_target,
-        target_orientation = shared_orientation
-    )
-    panel_data = isempty(panels) ? Dict{Tuple{Int, Int}, Any}() :
-                 _addon_panel_legend_data(
-        panels,
-        axes,
-        groups,
-        order,
-        group_labels;
-        panel_labels = panel_group_labels,
-        panel_titles = panel_legend_titles
-    )
-    panel_legend_result = _addon_panel_legends!(
-        shell.figure,
-        panel_data,
-        panel_legends,
-        dependent_plots
-    )
-    colorbar_result = _addon_colorbars!(
-        shell.body,
-        color_scales;
-        position = colorbar_position,
-        attributes = colorbar_attributes,
-        target = resolved_colorbar_target,
-        target_orientation = resolved_colorbar_orientation
-    )
     _addon_bind_visibility!(shell.figure, axes, resets, groups, shell.status)
-    reference = Ref{Any}(nothing)
-    widgets = _addon_controls!(
-        shell,
-        axes,
-        resets,
-        xsetters,
-        ysetters,
-        legend,
-        reference;
-        controls
-    )
     built = LineCableModels.UIPlot(
         shell.figure,
         Tuple(axes);
         title = title_block,
-        controls = widgets,
-        legend,
-        panel_legends = panel_legend_result.legends,
-        colorbars = colorbar_result.colorbars,
+        status=shell.status,
         addon_state = (;
             shell,
+            axis_bindings=entries,controls_enabled=controls,
+            widget_bindings=Dict{Symbol,Any}(),widget_order=Symbol[],
             groups,
             dependent_plots,
             order,
             labels = group_labels,
-            title = Ref{Any}(legend_title),
             panel_data,
-            figure_legend_position = Ref{Any}(legend_position),
-            panel_legend_positions = panel_legend_result.positions,
-            legend_position,
-            legend_attributes,
-            legend_overflow,
-            legend_anchor,
             inside_bbox,
-            legend_target,
-            shared_orientation,
-            dock_targets,
-            colorbar_position,
-            colorbar_target,
-            colorbar_layout = colorbar_result.layout
+            guides=Dict{Any,Any}(),guide_order=Any[],guide_docks=Any[],
+            composing_guides=Ref(false),guide_gap=shell.guide_gap,
+            fitting_geometry=Ref(false),frame_padding=IdDict{Any,Any}(),presentation_ready=Ref(false),
+            panel_page=isempty(panels) ? nothing : (index=(1,1),dimensions=size(shell.canvas),coordinates=Tuple(panel.logical_position for panel in panels)),
+            color_scales,
+            colorbar_group_attributes=Ref{Any}(shell.colorbar_group_attributes)
         ),
         export_name,
         export_theme,
         open_export
     )
-    reference[] = built
+    figure_guide=_addon_guide_state(:legend,nothing,legend_position,legend_attributes;
+        overflow=legend_overflow,title=legend_title)
+    built.addon_state.guides[(:legend,nothing)]=figure_guide
+    push!(built.addon_state.guide_order,(:legend,nothing))
+    for (identity,value) in _addon_panel_legend_pairs(panel_legends)
+        identity=_addon_panel_identity(identity)
+        haskey(panel_data,identity) || throw(ArgumentError("panel $(repr(identity)) is absent from this figure"))
+        value===nothing || value===false || begin
+            config=_addon_legend_configuration(value;default_position=:right,default_title=nothing)
+            _addon_relabel_legend!(panel_data[identity].labels,panel_data[identity].groups,
+                panel_data[identity].order,config.legend_labels)
+            key=(:legend,identity)
+            built.addon_state.guides[key]=_addon_guide_state(:legend,identity,config.position,config.attributes;
+                overflow=config.overflow,title=config.title)
+            push!(built.addon_state.guide_order,key)
+        end
+    end
+    resolved_position=shell.colorbar_position===_omitted ? colorbar_position : shell.colorbar_position
+    bars=_addon_guide_state(:colorbars,nothing,resolved_position,merge(colorbar_attributes,shell.colorbar_attributes))
+    built.addon_state.guides[(:colorbars,nothing)]=bars
+    push!(built.addon_state.guide_order,(:colorbars,nothing))
+    _addon_compose_guides!(built)
+    on(shell.figure.scene,shell.figure.scene.viewport) do _
+        if !built.addon_state.fitting_geometry[] && !isempty(axes) &&
+                all(axis -> !(axis.aspect[] isa DataAspect),axes)
+            shell.canvas.width[]=Auto()
+            shell.canvas.height[]=Auto()
+        end
+        _addon_fit_panel_aspects!(built)
+        _addon_compose_guides!(built)
+        nothing
+    end
+    _addon_controls!(built,xsetters,ysetters)
+    if controls
+        for widget in shell.widgets
+            widget(built)
+        end
+    end
+    _addon_fit_panel_aspects!(built)
+    _addon_compose_guides!(built)
+    for axis in axes
+        _addon_watch_presentation!(built,axis,(:title,:titlesize,:titlefont,:subtitle,:subtitlesize,
+            :xlabelsize,:ylabelsize,:xticklabelsize,:yticklabelsize))
+    end
+    title_block===nothing || _addon_watch_presentation!(built,title_block,(:text,:fontsize,:font))
+    built.addon_state.presentation_ready[]=true
     display_plot && _addon_display!(shell.figure, title)
     return built
-end
-
-function _addon_figure_legend_target!(data, position)
-    position in (nothing, :inside) &&
-        return (; target = nothing, orientation = nothing)
-    if haskey(data.dock_targets, position)
-        return data.dock_targets[position]
-    end
-    shares_colorbar = position == data.colorbar_position &&
-                      data.colorbar_target === nothing &&
-                      data.colorbar_layout !== nothing
-    shares_colorbar || return (; target = nothing, orientation = nothing)
-
-    slot, orientation = _addon_legend_slot(data.shell.body, position)
-    dock = orientation === :vertical ?
-           GridLayout(2, 1; height = Relative(1)) :
-           GridLayout(1, 2; width = Relative(1))
-    slot[] = dock
-    _addon_activate_dock_tracks!(data.shell.body, position)
-    if orientation === :vertical
-        legend_target = dock[1, 1]
-        colorbar_target = dock[2, 1]
-        rowsize!(dock, 1, Auto(false, 1))
-        rowsize!(dock, 2, Auto(true, 1))
-    else
-        legend_target = dock[1, 1]
-        colorbar_target = dock[1, 2]
-        colsize!(dock, 1, Auto(false, 1))
-        colsize!(dock, 2, Auto(true, 1))
-    end
-    colorbar_target[] = data.colorbar_layout
-    target = (; target = legend_target, orientation)
-    data.dock_targets[position] = target
-    return target
-end
-
-function LineCableModels.figurelegend!(
-        plot::LineCableModels.UIPlot;
-        position = :right,
-        overflow::Symbol = :ellipsis,
-        title = missing,
-        anchor = :rt,
-        legend_labels = nothing,
-        kwargs...
-)
-    data = plot.addon_state
-    data === nothing && throw(ArgumentError(
-        "this plot does not retain controlled legend groups",
-    ))
-    previous_position = data.figure_legend_position[]
-    _addon_remove_legend!(plot.legend)
-    if previous_position !== nothing && previous_position !== :inside &&
-       previous_position != position &&
-       previous_position != data.colorbar_position
-        _addon_deactivate_dock_tracks!(data.shell.body, previous_position)
-    end
-    _addon_relabel_legend!(data.labels, data.groups, data.order, legend_labels)
-    ismissing(title) || (data.title[] = title)
-    resolved_title = ismissing(title) ? data.title[] : title
-    dock = _addon_figure_legend_target!(data, position)
-    legend = _addon_legend!(
-        data.shell.figure,
-        data.shell.body,
-        data.groups,
-        data.order,
-        data.labels;
-        dependent_plots = data.dependent_plots,
-        position,
-        attributes = (; kwargs...),
-        overflow,
-        title = resolved_title,
-        anchor,
-        inside_bbox = data.inside_bbox,
-        target = dock.target,
-        target_orientation = dock.orientation
-    )
-    plot.legend = legend
-    data.figure_legend_position[] = legend === nothing ? nothing : position
-    _addon_refit_matrix_block!(plot, legend)
-    if plot.controls isa AbstractDict
-        legend === nothing ? delete!(plot.controls, :legend) :
-        (plot.controls[:legend] = legend)
-    end
-    return legend
-end
-
-function LineCableModels.panellegend!(
-        plot::LineCableModels.UIPlot,
-        logical_position::Tuple{Int, Int};
-        position = :right,
-        overflow::Symbol = :ellipsis,
-        title = missing,
-        anchor = :rt,
-        legend_labels = nothing,
-        kwargs...
-)
-    data = plot.addon_state
-    data === nothing && throw(ArgumentError(
-        "this plot does not retain controlled legend groups",
-    ))
-    haskey(data.panel_data, logical_position) || throw(BoundsError(
-        collect(keys(data.panel_data)), logical_position
-    ))
-    panel = data.panel_data[logical_position]
-    previous_position = get(data.panel_legend_positions, logical_position, nothing)
-    existing = get(plot.panel_legends, logical_position, nothing)
-    _addon_remove_legend!(existing)
-    if previous_position !== nothing && previous_position !== :inside &&
-       previous_position != position
-        _addon_deactivate_dock_tracks!(panel.panel.layout, previous_position)
-    end
-    _addon_relabel_legend!(panel.labels, panel.groups, panel.order, legend_labels)
-    ismissing(title) || (panel.title[] = title)
-    resolved_title = ismissing(title) ? panel.title[] : title
-    legend = _addon_legend!(
-        data.shell.figure,
-        panel.panel.layout,
-        panel.groups,
-        panel.order,
-        panel.labels;
-        dependent_plots = data.dependent_plots,
-        position,
-        attributes = (; kwargs...),
-        overflow,
-        title = resolved_title,
-        anchor,
-        inside_bbox = panel.axis.scene.viewport
-    )
-    if legend === nothing
-        delete!(plot.panel_legends, logical_position)
-        delete!(data.panel_legend_positions, logical_position)
-    else
-        plot.panel_legends[logical_position] = legend
-        data.panel_legend_positions[logical_position] = position
-    end
-    _addon_refit_matrix_block!(plot, legend)
-    return legend
 end
 
 function LineCableModels.figuretitle!(
@@ -2382,26 +1804,30 @@ function LineCableModels.figuretitle!(
     data === nothing && throw(ArgumentError(
         "this plot does not retain an addon figure shell",
     ))
+    return _addon_edit_presentation!(plot) do
     plot.title === nothing || delete!(plot.title)
     plot.title = title === nothing ? nothing :
                  _addon_figure_title!(data.shell, title, (; kwargs...))
-    _addon_refit_matrix_block!(plot, plot.title)
+    plot.title===nothing || _addon_watch_presentation!(plot,plot.title,(:text,:fontsize,:font))
+    _addon_compose_guides!(plot)
     return plot.title
+    end
 end
 
 function LineCableModels.paneltitle!(
         plot::LineCableModels.UIPlot,
-        logical_position::Tuple{Int, Int},
+        logical_position,
         title
 )
     data = plot.addon_state
     data === nothing && throw(ArgumentError(
         "this plot does not retain logical plot panels",
     ))
-    haskey(data.panel_data, logical_position) || throw(BoundsError(
-        collect(keys(data.panel_data)), logical_position
-    ))
+    logical_position=_addon_panel_identity(logical_position)
+    haskey(data.panel_data,logical_position) || throw(ArgumentError("panel $(repr(logical_position)) is absent from this figure"))
+    return _addon_edit_presentation!(plot) do
     axis = data.panel_data[logical_position].axis
-    axis.title[] = title === nothing ? "" : String(title)
+    axis.title[] = title === nothing ? "" : title
     return axis
+    end
 end

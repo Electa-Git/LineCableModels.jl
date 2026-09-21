@@ -117,6 +117,11 @@ LineCableModels.plot
 LineCableModels.preview
 LineCableModels.show_material_scale
 LineCableModels.export_svg
+LineCableModels.figurecolorbars!
+LineCableModels.axisscale!
+LineCableModels.resetview!
+LineCableModels.addwidget!
+LineCableModels.removewidget!
 LineCableModels.figurelegend!
 LineCableModels.panellegend!
 LineCableModels.figuretitle!

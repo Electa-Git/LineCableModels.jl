@@ -11,6 +11,7 @@ using DocStringExtensions: TYPEDEF, TYPEDFIELDS, TYPEDSIGNATURES
 
 export UIPlot, plot, preview, show_material_scale, export_svg
 export figurelegend!, panellegend!, figuretitle!, paneltitle!
+export figurecolorbars!, axisscale!, resetview!, addwidget!, removewidget!
 export plotwindow, materialcolors, materialscale!
 
 include("handle.jl")

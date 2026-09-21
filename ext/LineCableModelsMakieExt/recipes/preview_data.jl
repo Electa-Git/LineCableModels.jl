@@ -118,28 +118,6 @@ function _native_design_shapes(
     return polygons
 end
 
-function _native_preview_layout(count::Int, layout)
-    count > 0 || throw(ArgumentError(
-        "a cable collection preview requires at least one design",
-    ))
-    if layout === nothing
-        columns = ceil(Int, sqrt(count))
-        return cld(count, columns), columns
-    end
-    layout isa Tuple && length(layout) == 2 &&
-    all(value -> value isa Integer && !(value isa Bool), layout) || throw(
-        ArgumentError("layout must be a tuple of two positive integers or nothing"),
-    )
-    rows, columns = Int.(layout)
-    rows > 0 && columns > 0 || throw(ArgumentError(
-        "layout dimensions must be positive",
-    ))
-    rows * columns >= count || throw(DimensionMismatch(
-        "layout provides $(rows * columns) slots for $count cable designs",
-    ))
-    return rows, columns
-end
-
 function _native_system_limits(system, zoom_factor)
     if zoom_factor !== nothing
         zoom_factor isa Real || throw(ArgumentError(

@@ -8,14 +8,14 @@
     before = deepcopy((Z(source),Y(source),frequencies(source)))
     options = (backend=:cairo,display_plot=false,open_export=false,
         length_unit=:base,quantity_units=:base,freq_unit=:base,clip=false)
-    pages = LineCableModels.plot(source,source,source;options...,ydata=(R,),blocks=(1,2),
+    pages = LineCableModels.plot(source,source,source;options...,ydata=(R,),layout=(1,2),errorbar_sampling=:all,
         series_labels=("first","second","third"),legend_position=:bottom)
     for page in pages
         for axis in page.axes
             curves = filter(p -> p isa Makie.Lines,axis.scene.plots)
             bars = filter(p -> p isa Makie.Errorbars,axis.scene.plots)
             @test length(curves)==3 && length(bars)==6
-            @test !any(p -> p isa Makie.Scatter,axis.scene.plots)
+            @test all(isempty(p[1][]) for p in axis.scene.plots if p isa Makie.Scatter)
             @test all(line -> line.linewidth[] == 2,curves)
             @test all(line -> line[1][] == first(curves)[1][],curves)
             for direction in (:x,:y)
@@ -209,7 +209,7 @@ end
         end
         originals = map(p -> (copy(Z(p)),copy(Y(p)),copy(frequencies(p))),sources)
         attributes = markers ? ((marker=:circle,), (marker=:utriangle,)) : nothing
-        page = LineCableModels.plot(sources...; options..., ydata=(R,),
+        page = LineCableModels.plot(sources...; options..., ydata=(R,),errorbar_sampling=:all,
             series_labels=("first","second"), series_attributes=attributes,
             legend_position=:bottom, panel_legends=(1,1)=>:right)
         for (index,axis) in enumerate(page.axes)
@@ -275,10 +275,10 @@ end
     parameters = LineParameters(z,z.*1e-6,measurement.(f,0.01f))
     options = (backend=:cairo,display_plot=false,controls=true,open_export=false,
         length_unit=:base,quantity_units=:base,clip=false,fig_size=(1000,700))
-    pages = LineCableModels.plot(parameters; options...,ydata=(R,),blocks=(2,2),
+    pages = LineCableModels.plot(parameters; options...,ydata=(R,),layout=(2,2),
         series_labels=("uncertain",),series_attributes=(marker=:circle,),legend_position=:bottom)
     @test length.(getproperty.(pages,:axes)) == [4,2,2,1]
-    pages = copy(pages) # The block-layout owner retains the original page set.
+    pages = copy(pages)
     push!(pages,Makie.plot(parameters.Z,frequencies(parameters),(R,1,1,:);
         options...,series_labels=("uncertain",),legend_position=:bottom))
     # This exercises the publication renderer, not the matrix renderer used by
@@ -380,7 +380,7 @@ end
     legend_bounds = Observable(Rect2f(0,0,300,100))
     page = LineCableModels.plot(sources...;ydata=(R,),backend=:cairo,display_plot=false,
         controls=false,open_export=false,fig_size=(620,340),legend_position=:inside,
-        legend_attributes=(bbox=legend_bounds,),
+        legend_attributes=(bbox=legend_bounds,),legend_overflow=:ellipsis,
         series_labels=Tuple("Uncertain result $i" for i in 1:24))
     Makie.colorbuffer(page.figure)
     entries = last(only(page.legend.entrygroups[]))
@@ -399,4 +399,35 @@ end
     @test first(filter(p->p isa Makie.Lines,axis.scene.plots)).visible[]
     Makie.toggle_visibility!(last(entries),true)
     @test all(p.visible[] for p in axis.scene.plots if p isa Union{Makie.Lines,Makie.Errorbars})
+end
+
+@testitem "Makie / native data edits invalidate display support without source acquisition" tags=[:visual] begin
+    using CairoMakie,Measurements
+    frequency=collect(1.:20.)
+    values=measurement.(fill(2.,20),[fill(.1,19);20.])
+    raw=LineParameters(reshape(complex.(values,values),1,1,:),fill(1+2im,1,1,20),frequency)
+    observed=ObservedResult(raw,(R,X);clip=false,length_unit=:base)
+    p=LineCableModels.plot(observed;ydata=(R,),errorbar_sampling=:staggered,
+        backend=:cairo,display_plot=false,open_export=false)
+    axis=only(p.axes)
+    curve=only(filter(plot -> plot isa Makie.Lines,axis.scene.plots))
+    bars=only(filter(plot -> plot isa Makie.Errorbars,axis.scene.plots))
+    count=length(axis.scene.plots)
+    saved=deepcopy(observed.quantities)
+    native_intervals=copy(bars[1][])
+    Makie.update!(curve,[1.,2.,3.],[10.,20.,30.])
+    @test length(curve[1][])==3
+    @test bars[1][]==native_intervals
+    resetview!(p)
+    @test sum((axis.targetlimits[].origin[2],axis.targetlimits[].widths[2]))>=30.
+    bars.visible[]=false
+    resetview!(p)
+    @test axis.targetlimits[].origin[2]>0
+    for _ in 1:3
+        Makie.resize!(p.figure,850,650)
+        Makie.resize!(p.figure,900,700)
+    end
+    @test !bars.visible[]
+    @test length(axis.scene.plots)==count
+    @test isequal(observed.quantities,saved)
 end

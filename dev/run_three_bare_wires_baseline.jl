@@ -116,8 +116,9 @@ function run_three_bare_wires_baseline(; analytical = true, fem = true)
     flush(stdout)
     write(joinpath(attempt, "source.patch"), read(`git -C $repository diff HEAD --binary`, String))
     write(joinpath(attempt, "source-status.txt"), read(`git -C $repository status --short`, String))
-    for source in ("test/support/scenarios.jl", "dev/run_three_bare_wires_baseline.jl",
-        "local/coaxial-orchestration-repair-plan.md")
+    # Before: capture required an unrelated historical local plan. Now retain
+    # the executable fixture and runner; source.patch records the actual code.
+    for source in ("test/support/scenarios.jl", "dev/run_three_bare_wires_baseline.jl")
         target = joinpath(attempt, "sources", source)
         mkpath(dirname(target))
         cp(joinpath(repository, source), target)

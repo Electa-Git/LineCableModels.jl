@@ -86,10 +86,10 @@ end
     artifact=report(BenchmarkTableDefinition(requests;bands=(:all,:wide)),
         (reference,candidate,context=(id=:benchmark_uq_statistics,));observation_options=(length_unit=:base,))
     options=(backend=:cairo,display_plot=false,controls=false,open_export=false)
-    pages=LineCableModels.plot(artifact;ydata=requests,blocks=(2,2),options...,fig_size=(1100,750))
+    pages=LineCableModels.plot(artifact;ydata=requests,layout=(2,2),options...,fig_size=(1100,750))
     @test length(pages)==12
     @test [length(page.axes) for page in pages]==repeat([4,2,2,1],3)
-    @test first(pages).export_name=="benchmark_uq_statistics — Series resistance · mean (1,1)"
+    @test first(pages).export_name=="benchmark_uq_statistics — Series resistance · mean"
     @test occursin("std",pages[5].export_name)
     for (index,page) in enumerate(pages)
         @test !isempty(Makie.colorbuffer(page.figure))
@@ -116,7 +116,7 @@ end
     @test_throws ArgumentError LineCableModels.plot(artifact;ydata=(R,),options...)
     @test any(label -> occursin("empirical",label),values(first(pages).addon_state.labels))
     @test any(label -> occursin("first_order",label),values(first(pages).addon_state.labels))
-    selected=LineCableModels.plot(artifact;ydata=requests[1:2],blocks=(2,2),band=:wide,options...)
+    selected=LineCableModels.plot(artifact;ydata=requests[1:2],layout=(2,2),band=:wide,options...)
     @test length(selected)==8
     for page in selected,panel in values(page.addon_state.panel_data),curve in filter(p -> p isa Makie.Lines,panel.axis.scene.plots)
         @test all(>(1e6),first.(curve[1][]))

@@ -14,13 +14,13 @@ The remaining fields are private addon state and export defaults.
 
 $(TYPEDFIELDS)
 """
-mutable struct UIPlot{F, A, C, B}
+mutable struct UIPlot{F, C}
     "Native Makie figure owned by the caller."
     figure::F
     "Figure-wide native Makie title label, or `nothing`."
     title::Any
     "Native Makie axes in display order."
-    axes::A
+    axes::Vector{Any}
     "Native Makie controls keyed by their public purpose."
     controls::C
     "Native Makie legend, or `nothing`."
@@ -28,8 +28,10 @@ mutable struct UIPlot{F, A, C, B}
     "Panel-scoped native Makie legends keyed by logical panel identity."
     panel_legends::Dict{Any, Any}
     "Native Makie colorbars in display order."
-    colorbars::B
-    "Private addon registry consumed by the optional Makie extension."
+    colorbars::Vector{Any}
+    "Status observable shared with the native shell and managed callbacks."
+    status::Any
+    "Private native lifecycle and presentation state owned by the Makie extension."
     addon_state::Any
     "Default base filename used by [`export_svg`](@ref)."
     export_name::String
@@ -47,6 +49,7 @@ function UIPlot(
         legend = nothing,
         panel_legends = Dict{Any, Any}(),
         colorbars = (),
+        status = nothing,
         addon_state = nothing,
         export_name::AbstractString = "linecablemodels_plot",
         export_theme::Symbol = :default,
@@ -62,11 +65,12 @@ function UIPlot(
     return UIPlot(
         figure,
         title,
-        axes,
+        Any[axes...],
         controls,
         legend,
         Dict{Any, Any}(panel_legends),
-        colorbars,
+        Any[colorbars...],
+        status,
         addon_state,
         String(export_name),
         export_theme,

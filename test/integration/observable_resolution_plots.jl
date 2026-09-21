@@ -31,6 +31,13 @@
     phase = LineCableModels.plot(reference; ydata=((Y, angle, 1, 1, :),), options...)
     @test all(isnan, only(ordinates(phase)))
     @test only(phase.axes).subtitle[] == "Undefined phase"
+    axisscale!(phase,:x,log10)
+    axisscale!(phase,:y,log10)
+    @test only(phase.axes).xscale[]===log10
+    @test only(phase.axes).yscale[]===log10
+    @test all(>(0),only(phase.axes).targetlimits[].origin)
+    resetview!(phase)
+    @test all(isfinite,only(phase.axes).targetlimits[].widths)
     standalone = LineCableModels.plot(ShuntAdmittance(y), f;
         ydata=((C, diag, :, :),), options...)
     @test all(iszero, only(ordinates(standalone)))
@@ -42,7 +49,7 @@ end
     omega = reshape(2pi .* f, 1, 1, :)
     options = (backend=:cairo, display_plot=false, controls=true,
         length_unit=:base, quantity_units=:base, open_export=false,
-        signed_ylog=true,errorbar_sampling=:all,fig_size=(900,500))
+        errorbar_sampling=:all,fig_size=(900,500))
     # Independent means/spreads reproduce the noisy-zero and finite-baseline
     # failures. Real uncertainty at zero must still produce correctly centred bars.
     for (means, spreads, clean_means, clean_spreads) in (

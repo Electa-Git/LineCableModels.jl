@@ -1,10 +1,9 @@
 # Run from the REPL: include("dev/run_quasi_full.jl")
 # Edit the inputs below, then include again. Every run gets a fresh directory.
-import Pkg
-Base.active_project() == normpath(joinpath(@__DIR__, "..", "gauntlet", "Project.toml")) ||
-    Pkg.activate(joinpath(@__DIR__, "..", "gauntlet"))
+# Before: this include activated Gauntlet. Now preserve the IDE's active project.
+gauntlet_project = normpath(joinpath(@__DIR__, "..", "gauntlet"))
+gauntlet_project in LOAD_PATH || push!(LOAD_PATH, gauntlet_project)
 using LineCableModels, Gmsh, LinearAlgebra, Printf
-include(joinpath(@__DIR__, "quasi_full_paths.jl"))
 FEM = Base.get_extension(LineCableModels, :LineCableModelsGmshExt)
 
 frequencies = 10.0 .^ (-1:6)                    # Hz
@@ -37,7 +36,10 @@ lock(FEM.FEM_SESSION_LOCK) do
         FEM._prepare_run_inputs!(manual_run, model)
         for (mesh, plan) in zip(mesh_paths, model.mesh_plans)
             path = joinpath(run_directory, "input", @sprintf("paths-f%04d.pro", plan.frequency_index))
-            write_quasi_full_paths(path, mesh, plan, model, positions, radius)
+            # Before: quasi_full_paths.jl forwarded to the extension. The extension
+            # now owns this voltage-path operation directly; no adapter is needed.
+            FEM._write_voltage_paths(path, mesh, plan, model;
+                endpoints=[(x,y-radius) for (x,y) in positions])
             push!(path_files, path)
         end
     finally

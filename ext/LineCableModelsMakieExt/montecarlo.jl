@@ -1,9 +1,9 @@
 function _observed_distribution(result::LineCableModels.MonteCarloResult,request;
-        point::Integer=1,bins=nothing,length_unit=:kilo,quantity_units=nothing,clip=true)
+        point::Integer=1,bins=nothing,kwargs...)
     selector=request isa Function ? request : first(request)
     indices=request isa Function ? (1,) : Base.tail(request)
     retained=(LineCableModels.histograms,selector,indices...,bins)
-    return Grammar.ObservedResult(result,point,(retained,);length_unit,quantity_units,clip)
+    return Grammar.ObservedResult(result,point,(retained,);kwargs...)
 end
 
 function _distribution_product(observed,request)
@@ -19,6 +19,9 @@ end
 function _distribution_plot(observed::Grammar.ObservedResult,request,kind;
         normalization=:none,qqline=:identity,title=nothing,fig_size=(800,400),
         backend=nothing,display_plot=true,controls=true,export_theme=:default,open_export=true,kwargs...)
+    for key in (:point,:bins,:clip,:atol,:units,:length_unit,:quantity_units,:frequency_unit,:freq_unit,:frequencies,:complete_pairs)
+        haskey(kwargs,key) && throw(ArgumentError("$key belongs to observation construction; this statistical view consumes retained products"))
+    end
     product=_distribution_product(observed,request)
     distribution=product.distribution
     if kind===:qq
@@ -79,27 +82,32 @@ Makie.lines(observed::Grammar.ObservedResult,request=nothing;kwargs...) = _distr
 Makie.qqplot(observed::Grammar.ObservedResult,request=nothing;kwargs...) = _distribution_plot(observed,request,:qq;kwargs...)
 
 function Makie.hist(source::LineCableModels.MonteCarloResult,request=LineCableModels.R;
-        point=1,bins=nothing,length_unit=:kilo,quantity_units=nothing,clip=true,kwargs...)
-    observed=_observed_distribution(source,request;point,bins,length_unit,quantity_units,clip)
-    return Makie.hist(observed;kwargs...)
+        point=1,bins=nothing,kwargs...)
+    acquisition,presentation=_plot_observation_options(kwargs)
+    observed=_observed_distribution(source,request;point,bins,acquisition...)
+    return Makie.hist(observed;presentation...)
 end
 function Makie.stairs(source::LineCableModels.MonteCarloResult,request=LineCableModels.R;
-        point=1,bins=nothing,length_unit=:kilo,quantity_units=nothing,clip=true,kwargs...)
-    observed=_observed_distribution(source,request;point,bins,length_unit,quantity_units,clip)
-    return Makie.stairs(observed;kwargs...)
+        point=1,bins=nothing,kwargs...)
+    acquisition,presentation=_plot_observation_options(kwargs)
+    observed=_observed_distribution(source,request;point,bins,acquisition...)
+    return Makie.stairs(observed;presentation...)
 end
 function Makie.ecdfplot(source::LineCableModels.MonteCarloResult,request=LineCableModels.R;
-        point=1,bins=nothing,length_unit=:kilo,quantity_units=nothing,clip=true,kwargs...)
-    observed=_observed_distribution(source,request;point,bins,length_unit,quantity_units,clip)
-    return Makie.ecdfplot(observed;kwargs...)
+        point=1,bins=nothing,kwargs...)
+    acquisition,presentation=_plot_observation_options(kwargs)
+    observed=_observed_distribution(source,request;point,bins,acquisition...)
+    return Makie.ecdfplot(observed;presentation...)
 end
 function Makie.lines(source::LineCableModels.MonteCarloResult,request=LineCableModels.R;
-        point=1,bins=nothing,length_unit=:kilo,quantity_units=nothing,clip=true,kwargs...)
-    observed=_observed_distribution(source,request;point,bins,length_unit,quantity_units,clip)
-    return Makie.lines(observed;kwargs...)
+        point=1,bins=nothing,kwargs...)
+    acquisition,presentation=_plot_observation_options(kwargs)
+    observed=_observed_distribution(source,request;point,bins,acquisition...)
+    return Makie.lines(observed;presentation...)
 end
 function Makie.qqplot(source::LineCableModels.MonteCarloResult,request=LineCableModels.R;
-        point=1,bins=nothing,length_unit=:kilo,quantity_units=nothing,clip=true,kwargs...)
-    observed=_observed_distribution(source,request;point,bins,length_unit,quantity_units,clip)
-    return Makie.qqplot(observed;kwargs...)
+        point=1,bins=nothing,kwargs...)
+    acquisition,presentation=_plot_observation_options(kwargs)
+    observed=_observed_distribution(source,request;point,bins,acquisition...)
+    return Makie.qqplot(observed;presentation...)
 end

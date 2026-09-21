@@ -97,7 +97,9 @@ function _addon_glyph_indices(n, width, phase; endpoints=false, uncertain_indice
     n == 0 && return (markers=Int[], intervals=Int[])
     cycles = clamp(floor(Int, max(1, width) / max(80, 14count)), 1, 8)
     stride = max(isempty(uncertain_indices) ? count : 2count, cld(n, cycles))
-    offset = floor(Int, (slot - 1) * stride / count)
+    # Candidate markers start inside each slot, leaving deterministic endpoints
+    # available to the independent reference role without shifting candidate slots.
+    offset = floor(Int, (slot - 0.5) * stride / count)
     markers = collect((1 + offset):stride:n)
     isempty(markers) && push!(markers, 1 + mod(slot - 1, n))
     if endpoints
@@ -107,8 +109,8 @@ function _addon_glyph_indices(n, width, phase; endpoints=false, uncertain_indice
     isempty(uncertain_indices) && return (markers=markers, intervals=Int[])
     errorbar_sampling === :all && return (markers=Int[], intervals=collect(1:n))
 
-    # Interleave interval slots halfway between marker slots in each cycle.
-    interval_offset = floor(Int, (slot - 0.5) * stride / count)
+    # Interval slots precede marker slots by half a slot in each cycle.
+    interval_offset = floor(Int, (slot - (endpoints ? 0.5 : 1)) * stride / count)
     intervals = collect((1 + interval_offset):stride:n)
     filter!(index -> index in uncertain_indices, intervals)
     if isempty(intervals)
@@ -135,7 +137,8 @@ function _addon_comparison_styles(indices, roles, count)
                 shapes[mod1(index, length(shapes))],
             markersize=role === :reference ? 11 : 8,
             linestyle=:solid),
-        hollow=role === :reference, endpoints=role === :reference, phase=(index, count),
+        hollow=role === :reference, endpoints=role === :reference,
+        phase=role === :reference ? (1,1) : (index,count),
         priority=role === :reference ? 1 : 0)
         for (index, role) in zip(indices, roles))
 end

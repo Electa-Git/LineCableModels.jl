@@ -136,8 +136,10 @@ include("plotbuilder/PlotBuilder.jl")
 using .PlotBuilder:
                     UIPlot, plot, preview, show_material_scale, export_svg,
                     figurelegend!, panellegend!, figuretitle!, paneltitle!,
+                    figurecolorbars!, axisscale!, resetview!, addwidget!, removewidget!,
                     plotwindow, materialcolors, materialscale!
 export UIPlot, export_svg, figurelegend!, panellegend!, figuretitle!, paneltitle!
+export figurecolorbars!, axisscale!, resetview!, addwidget!, removewidget!
 export materialcolors, materialscale!
 public PlotBuilder, plot, plotwindow
 

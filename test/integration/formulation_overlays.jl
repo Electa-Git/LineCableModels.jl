@@ -52,7 +52,7 @@
         @test length(selected)==2
         @test selected[1].color[]==all_curves[2].color[]
     end
-    blocked=LineCableModels.plot(artifact,(R,);blocks=(1,2),options...)
+    blocked=LineCableModels.plot(artifact,(R,);layout=(1,2),options...)
     @test length(blocked)==2
     @test all(length(page.axes)==2 for page in blocked)
     @test LineCableModels.plot(artifact,(R,);title="My comparison",options...).export_name=="My comparison"

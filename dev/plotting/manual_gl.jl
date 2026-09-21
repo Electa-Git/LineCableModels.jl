@@ -37,7 +37,7 @@ plots = Makie.plot(
 handle = first(plots)
 empty_shell = LineCableModels.plotwindow(; title="Text-only shell", backend=:gl,
         display_plot=false, open_export=false) do canvas
-    Label(canvas[1,1], "Publication without axes")
+    Label(canvas[1,1], "Native canvas without axes")
 end
 
 @testset "manual GL plotting gate / no unloaded SVG action" begin
@@ -170,6 +170,25 @@ handle = first(plots)
     @test issorted(tick_values) && allunique(tick_values)
     @test all(value -> isfinite(value) && value > 0, tick_values)
     @test allunique(string.(tick_labels))
+end
+
+@testset "manual GL retained figure survives screen closure" begin
+    clicks=Ref(0)
+    control=addwidget!((p,slot) -> Button(slot;label="Count"),handle,:count;
+        event=button -> button.clicks,callback=(p,_) -> (clicks[]+=1))
+    screen=Makie.getscreen(handle.figure.scene)
+    @test screen!==nothing
+    close(screen)
+    control.clicks[]+=1
+    @test clicks[]==1
+    figuretitle!(handle,"Retained after closure")
+    mktempdir() do directory
+        @test isfile(export_svg(handle;path=joinpath(directory,"closed.svg"),open_file=false))
+    end
+    display(handle.figure)
+    control.clicks[]+=1
+    @test clicks[]==2
+    removewidget!(handle,:count)
 end
 
 GLMakie.closeall()

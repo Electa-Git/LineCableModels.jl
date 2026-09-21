@@ -113,12 +113,16 @@ end
     axis = only(page.axes)
     @test haskey(page.controls,:xlog) && haskey(page.controls,:ylog)
     previous = axis.targetlimits[]
-    page.controls[:ylog].active[] = true
-    @test !page.controls[:ylog].active[]
+    @test_throws DomainError axisscale!(page,:y,log10)
     @test axis.yscale[] === identity
     @test axis.targetlimits[] == previous
-    @test occursin(repr(axis.title[]),page.addon_state.shell.status[])
+    page.controls[:ylog].active[] = true
+    @test page.controls[:ylog].active[]
+    @test axis.yscale[] isa Makie.ReversibleScale
+    @test axis.targetlimits[].origin[1] == previous.origin[1]
+    @test axis.targetlimits[].widths[1] == previous.widths[1]
     last(axis.scene.plots).visible[] = false
+    page.controls[:ylog].active[] = false
     page.controls[:ylog].active[] = true
     Makie.colorbuffer(page.figure)
     @test axis.yscale[] === log10
@@ -214,7 +218,7 @@ end
 @testitem "Makie addons / near-constant views and stable signed scales share the lifecycle" tags=[:visual] begin
     using CairoMakie, Logging
     options = (backend=:cairo, display_plot=false, controls=true, open_export=false,
-        length_unit=:base, quantity_units=:base, clip=false, signed_ylog=true)
+        length_unit=:base, quantity_units=:base, clip=false)
     f = [1.0, nextfloat(1.0), nextfloat(nextfloat(1.0))]
     response = [-3.592027795269888e-10, -3.592027795269885e-10, -3.592027795269883e-10]
     source = LineParameters(reshape(response .+ im, 1, 1, :), ones(ComplexF64, 1, 1, 3), f)
@@ -394,11 +398,15 @@ end
     old_views = [axis.targetlimits[] for axis in page.axes]
     # The invalid request is on the LAST axis: validating only while applying
     # changes would leave the earlier axes switched when the exception is raised.
-    page.controls[:xlog].active[] = true
-    @test occursin("positive",page.addon_state.shell.status[])
+    @test_throws DomainError axisscale!(page,:x,log10)
     @test !page.controls[:xlog].active[]
     @test all(axis -> axis.xscale[] === identity, page.axes)
     @test [axis.targetlimits[] for axis in page.axes] == old_views
+    page.controls[:xlog].active[] = true
+    @test all(axis -> axis.xscale[]===log10,page.axes[1:end-1])
+    @test last_axis.xscale[] isa Makie.ReversibleScale
+    @test last_axis.limits[][1]==(-1.0,100.0)
+    page.controls[:xlog].active[] = false
     autolimits!(last_axis)
     page.controls[:xlog].active[] = true
     page.controls[:xlog].active[] = false

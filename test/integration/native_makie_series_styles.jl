@@ -10,7 +10,7 @@
         series_labels=("FEM", "Proposed", "Xue"),
         series_attributes=((marker=:circle, markersize=8), (;), (linestyle=:dash,)))
     fem, markers = page.addon_state.groups[:result_1]
-    xue = only(page.addon_state.groups[:result_3])
+    xue = only(filter(p -> p isa Makie.Lines,page.addon_state.groups[:result_3]))
     @test fem isa Makie.Lines
     @test markers isa Makie.Scatter
     @test markers.marker[] == Makie.to_spritemarker(:circle)

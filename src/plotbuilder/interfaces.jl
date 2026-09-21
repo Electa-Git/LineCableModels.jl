@@ -1,88 +1,115 @@
 """
-$(TYPEDSIGNATURES)
+    plot(observed::ObservedResult, selection=nothing; ydata=nothing, kwargs...)
+    plot(observed::AbstractVector{<:ObservedResult}, selection=nothing; ydata=nothing, kwargs...)
+    plot(completed_result, selection=nothing; ydata=nothing, kwargs...)
 
-Create a compact native Makie plot for a supported result or observation
-publication. The optional Makie extension infers distinct physical quantities
-from the selected ordinate data; `layout` controls only where those inferred
-axes are placed.
+Present retained scientific quantities with a loaded Makie backend. Completed
+numerical results are conveniences: they construct `ObservedResult` objects and
+call the same public observed-input method. `PlotBuilder.plot` and
+`LineCableModels.plot` are the same function.
 
-# Keywords
+`selection` and `ydata` are alternative spellings of the same request; supplying
+both is an error. Requests retain `@observe` syntax and original coordinates.
+An existing observation supplies values, units, descriptions, uncertainty, and
+scientific groups. Rendering does not reacquire a result or run a comparison.
 
-- `ydata`: Selected physical observables and optional original matrix indices.
-- `blocks=nothing`: One complete matrix dashboard per quantity. A tuple
-  `(rows, columns)` partitions matrix dashboards into blocks of at most that
-  many rows and columns. Residual pages retain the full block footprint and
-  equal axis sizes at equal figure dimensions. Empty selected blocks are omitted.
-- `fig_size=nothing`: Figure dimensions in logical pixels for matrix recipes.
-  Width is expanded when necessary to retain a landscape aspect of at least 4:3.
-- `series_attributes=nothing`: Native per-series overrides. Comparison recipes
-  supply solid lines and sparse, staggered markers automatically. Explicit
-  references default to black curves and hollow circles; deterministic references
-  mark both endpoints. `marker=nothing` disables markers. An explicit marker
-  retains native all-sample placement.
-- `errorbar_sampling`: `:staggered` by default for explicit comparisons, `:all`
-  otherwise. Staggered intervals and automatic markers use separate retained
-  sample positions; full curves and full-data axis limits are unchanged. With
-  `:all`, every interval is drawn and automatic markers on uncertain series are
-  omitted. Intervals take priority in short series; reference identity remains
-  in the legend. This controls display only, not uncertainty or numerical sampling.
-- Native Axis keywords such as `xticks`, `ytickformat` and `limits` are forwarded
-  to each axis. Other native plot attributes, such as `linewidth`, apply to
-  compatible series. `axis=(...)` and `figure=(...)` explicitly target native
-  constructors; explicit groups and per-series overrides take precedence over
-  shared keywords. Native scale functions are accepted as well as symbol presets.
-- `clip=true`: Publish line quantities with negligible nominal values and
-  standard uncertainties independently set to zero before unit conversion.
-  Meaningful uncertainty around zero remains visible. `clip=false` retains raw
-  detached values; `atol` overrides cutoffs in native quantity units.
+# Selection and acquisition
+
+Raw conveniences accept line, series, shunt, cable-constant, parametric, and UQ
+results, ordinary supported tuples/vectors, named collections, and report
+artifacts. Standalone series/shunt inputs also accept a frequency vector before
+the selection. Raw references become separate atomic observations. Report
+artifacts forward their observed candidates and their observed reference.
+
+Raw-only acquisition keywords are `clip`, `atol`, `units`, `length_unit`,
+`quantity_units`, `frequency_unit`, and `frequencies`. `freq_unit` is a spelling
+of `frequency_unit`; supplying both is an error. Single primary requests use the
+observation owner's pair completion. Statistical products do not trigger that
+completion. Observed-input plotting rejects acquisition keywords: explicitly
+re-express an observation with `ObservedResult(existing; ...)` before plotting.
+
+`problem` and `formulations` select original recorded identities. `band` selects
+saved comparison samples through the observation owner, retaining each trace's
+own coordinates and reference association. It does not calculate new errors.
+
+# Layout and native presentation
+
+- `layout=nothing` resolves the nominal panel capacity from selected products:
+  the largest declared matrix extent, or a near-square flow arrangement.
+  An explicit `(rows, columns)` supplies a positive nominal capacity.
+- Each quantity/statistical meaning has separate figure families. A full 3×3
+  matrix at `layout=(2,2)` has four pages with extents `(2,2)`, `(2,1)`, `(1,2)`,
+  `(1,1)` per quantity. `layout=(1,1)` produces nine pages per quantity.
+  Explicit diagonal products paginate compactly with original `(i,i)` identities.
+- `fig_size` describes the complete nominal capacity. `figure=(size=...,)` wins.
+  Residual pages fit their occupied tracks with the same initial data frames;
+  there is no forced landscape orientation or permanent sibling synchronization.
+- Assembly products use categorical points and uncertainty intervals, with a
+  first-seen union of recorded assembly names. Scalars/vectors without physical
+  coordinates use honest element-index views. Full modal matrices retain every
+  selected coefficient, including zero and residual off-diagonals.
+- `series_labels`, `reference`, and `series_attributes` control trace identity and
+  native appearance. Attributes accept one NamedTuple or an aligned tuple/vector.
+  Candidate slots are assigned before filtering; a separate reference does not
+  shift them. References default to black solid curves and hollow circles.
+- `errorbar_sampling` defaults to `:staggered` for multiple displayed series and
+  `:all` for one. Full uncertainty support still controls limits. Explicit curve
+  markers use every original sample; categorical/scalar points are never thinned.
+- `xscale`, `yscale`, `xlabel`, `ylabel`, native limits/ticks/formatters, `axis=(;)`,
+  and `figure=(;)` configure native objects. Constructor groups beat shared
+  attributes; per-series overrides beat shared series settings. Later native
+  edits retain authority. Unknown attributes fail with a diagnostic.
+- Frequency X defaults to adaptive `:log10`; other numeric dimensions default
+  to linear. Adaptive log uses stable signed log when visible support or bounds
+  contain zero/negative values. The native `log10` function remains strict.
+  Categorical axes retain native conversion and have no X-log toggle.
+- Titles use `title`, `title_prefix`, `figure_title`, `title_attributes`, and
+  `panel_titles`. Positional panel titles bind before pagination; dictionary and
+  function selections retain original panel identities.
+- Legends use `legend_position`, `legend_title`, `legend_attributes`,
+  `legend_overflow`, and `panel_legends`. Multiple/explicitly labelled result
+  series default to a bottom legend with `:show_all`; one unlabelled series has
+  none. Measured wrapping preserves labels and native interaction targets.
+- `colorbar_position`, `colorbar_group_attributes`, `colorbar_attributes`, and
+  `guide_gap=8` place existing scale content; they do not fabricate scales.
+  Native `halign`/`valign` supply symbolic or fractional alignment.
+- `backend`, `display_plot=true`, `controls=true`, `widgets=()`,
+  `export_theme=:default`, and `open_export=true` control display and UI behavior.
+  Widget callables receive the final live handle once per figure. Hiding controls
+  does not disable [`axisscale!`](@ref) or [`resetview!`](@ref).
+
+Numerical axes share size-aware ticks, engineering multipliers, and relative
+near-constant padding. Scale changes preflight the complete page and preserve
+orthogonal views and configured bounds. Observation owns clipping and uncertainty
+meaning; the shell never clips, rounds, or recalculates scientific eligibility.
+Guide/title/widget changes refit the affected outer window around its current
+frames. Closing a display window leaves its retained handle reusable.
 
 # Returns
 
-- A [`UIPlot`](@ref), or a vector of handles when multiple pages are produced.
-  Block titles and export names include one-based block coordinates; subplot
-  titles and panel controls retain original matrix coordinates.
-
-# Notes
-
-Top/bottom legends automatically fit a row-major grid unless native
-`legend_attributes.orientation` or `legend_attributes.nbanks` is specified.
-Long labels wrap; formulation labels omit equation choices belonging only to the
-other plotted family, without merging repeated entries. Matrix pagination performs
-no calculation, comparison, interpolation, or symmetry reduction.
-
-Numeric axes share size-aware ticks and engineering power-of-ten multipliers.
-Log views spanning less than two decades show decimal values at logarithmic
-positions with one multiplier when needed; broader views show integer powers
-of ten. Tick spacing is checked in rendered coordinates on both axes.
-Native tick positions, labelled ticks and custom formatters on `plot.axes`
-override automatic presentation. Reset preserves explicit native limits;
-changing a scale refits only its automatic dimension and preserves the other
-dimension's current view. Neither operation changes the published values or units.
-Automatic near-constant ranges receive ±5% padding around a nonzero linear
-baseline, or multiplicative bounds `c/1.05` to `c*1.05` on positive log axes,
-enlarged for visible uncertainty; exact zeros use a neutral range.
-This view rule does not round data or restrict explicit zooms. Signed logarithmic
-axes use cancellation-safe `log1p`/`expm1` transforms near zero. Already prepared
-observation publications are rendered as supplied, without another clipping pass.
-
-On UQ benchmarks, ordinary quantities such as `ydata=(R,L,G,C)` overlay the
-owner-published means with ±1 standard deviation, including retained moment-only
-publications. Plotting constructs no uncertainty-bearing result. Explicit
-requests such as `(statistics,L,std)` select statistic-only plots. Use separate
-calls for these two products. Monte Carlo marginal surrogates do not recover
-joint correlations or imply reliable uncertainty for arbitrary nonlinear transforms.
-
-# Errors
-
-`blocks` must contain two positive integers and cannot be combined with a
-conflicting individual or paired `layout`. With blocks, positional `panel_titles`
-must cover all selected facets; dictionary keys use original matrix coordinates.
+One [`UIPlot`](@ref), or an ordinary `Vector{UIPlot}` for multiple figures. Its
+figure, axes, guides, controls, and status remain live native objects.
 
 # Examples
 
 ```julia
-pages = plot(results; ydata=(R, L, G, C), blocks=(2, 3))
+using LineCableModels
+using LineCableModels: plot
+using CairoMakie
+frequency = [1.0, 10.0, 100.0]
+impedance = reshape(complex.([1.0, 2.0, 3.0], [2.0, 3.0, 4.0]), 1, 1, :)
+raw = LineParameters(impedance, impedance .* 1e-6, frequency)
+r_request = @observe R[:, :, :]
+pair = (@observe(R[:, :, :]), @observe(L[:, :, :]))
+a = plot(raw; ydata=(r_request,), clip=true, length_unit=:kilo)
+o = ObservedResult(raw, (r_request,); complete_pairs=true,
+    clip=true, length_unit=:kilo)
+b = plot(o; ydata=(r_request,))
+c = plot(raw; ydata=pair, layout=(1,1))
+d = plot(ObservedResult(raw, pair); ydata=pair, layout=(1,1))
 ```
+
+`c` and `d` each contain separate R and L figures.
 """
 function plot end
 
@@ -115,7 +142,9 @@ a loaded Makie backend.
 
 # Returns
 
-- A [`UIPlot`](@ref) containing the caller-owned Makie figure and axes.
+- One [`UIPlot`](@ref), or an ordinary vector when a collection exceeds `layout`
+  capacity. Collection panels retain original integer indices; material ranges
+  are shared across pages. `size` supplies the nominal figure dimensions.
 
 # Notes
 
@@ -166,11 +195,12 @@ before filesystem or figure changes.
 function export_svg end
 
 """
-    figurelegend!(plot::UIPlot; position=:right, anchor=:rt, kwargs...)
+    figurelegend!(plot::UIPlot; position, title, overflow, legend_labels, kwargs...)
 
-Create or replace the figure-scoped native Makie legend from the semantic
-groups retained by the shell. All remaining keywords are forwarded to Makie's
-`Legend`.
+Update the figure legend from the shell's native series groups. Omitted options
+preserve current state; `position=nothing` detaches and hides the guide. Native
+`halign`, `valign`, margins, and style attributes remain editable. Removal and
+restoration retain native styles and series visibility.
 """
 function figurelegend! end
 
@@ -228,3 +258,55 @@ colormap, limits, and tick definition. The primitive never chooses or combines
 material properties.
 """
 function materialscale! end
+
+"""
+    axisscale!(p::UIPlot, dimension::Symbol, scale; panel=nothing)
+
+Set one displayed coordinate scale on all eligible numeric axes, or on the
+original identity selected by `panel`. `:linear` selects the identity scale;
+`:log10` adapts to signed support, while the native `log10` function requires
+strictly positive support. `:pseudolog10` explicitly selects stable signed log.
+Preflight covers the complete selection before mutation and preserves the
+orthogonal view and configured limits. Return `p`.
+"""
+function axisscale! end
+
+"""
+    resetview!(p::UIPlot; panel=nothing, x::Bool=true, y::Bool=true)
+
+Refit selected automatic view dimensions to current visible support, including
+full enabled uncertainty intervals. Preserve configured full or partial limits.
+`panel=nothing` selects every panel; another value selects its original identity.
+The Boolean keywords `x=true` and `y=true` select dimensions. Return `p`.
+"""
+function resetview! end
+
+"""
+    addwidget!(builder, p::UIPlot, key::Symbol; event=nothing, callback=nothing, success=nothing)
+
+Construct one custom native control with `builder(p, slot)` and register it
+under a unique nonstandard Symbol `key`. Supply both `event` and `callback`, or
+neither. `event(control)` returns the event observable; actual notifications call
+`callback(p, value)` once and may set `success` on `p.status`. Return the native
+control. Figures constructed with `controls=false` reject widget additions.
+"""
+function addwidget! end
+
+"""
+    removewidget!(p::UIPlot, key::Symbol)
+
+Remove a custom widget, its native subtree, and its owned event subscriptions.
+Release and repack its toolbar slot without changing other controls. Standard
+and unknown keys are rejected. Return `p`.
+"""
+function removewidget! end
+
+"""
+    figurecolorbars!(p::UIPlot; position, group_attributes, native_bar_attributes...)
+
+Update the placement and native attributes of the figure's retained color scales.
+Omitted arguments preserve current state; `position=nothing` removes displayed
+scales. `group_attributes` controls group presentation. Return the current native
+colorbar collection. This operation does not fabricate scales for line results.
+"""
+function figurecolorbars! end

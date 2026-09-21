@@ -129,10 +129,10 @@ end
     @test all(page -> length(page.axes) == 4, automatic)
     @test all(page -> page.legend === nothing, automatic)
     @test [first(page.axes).title[] for page in automatic] == [
-        "Self- series resistance, conductor 1",
-        "Self- series reactance, conductor 1",
-        "Self- shunt conductance, conductor 1",
-        "Self- shunt susceptance, conductor 1"
+        "Series resistance, conductor 1",
+        "Series reactance, conductor 1",
+        "Shunt conductance, conductor 1",
+        "Shunt susceptance, conductor 1"
     ]
     automatic_page=first(automatic)
     @test automatic_page.figure isa Makie.Figure
@@ -148,12 +148,13 @@ end
         display_plot = false,
         controls = false
     )
-    @test side_by_side isa UIPlot
-    @test [axis.title[] for axis in side_by_side.axes] == [
-        "Self- series resistance, conductor 1",
-        "Self- series reactance, conductor 1"
+    @test side_by_side isa Vector{UIPlot}
+    @test all(length(page.axes)==1 for page in side_by_side)
+    @test [only(page.axes).title[] for page in side_by_side] == [
+        "Series resistance, conductor 1",
+        "Series reactance, conductor 1"
     ]
-    @test side_by_side.legend === nothing
+    @test all(page.legend===nothing for page in side_by_side)
 
     stacked_complex=Makie.plot(
         parameters,
@@ -164,11 +165,10 @@ end
         layout = (2, 1),
         panel_titles = ("Self resistance", "Self reactance")
     )
-    @test stacked_complex isa UIPlot
-    @test [axis.title[] for axis in stacked_complex.axes] ==
+    @test stacked_complex isa Vector{UIPlot}
+    @test [only(page.axes).title[] for page in stacked_complex] ==
           ["Self resistance", "Self reactance"]
-    @test Set(keys(stacked_complex.addon_state.panel_data)) ==
-          Set(((1, 1), (2, 1)))
+    @test all(Set(keys(page.addon_state.panel_data))==Set(((1,1),)) for page in stacked_complex)
 
     individual=Makie.plot(
         parameters,
@@ -182,15 +182,15 @@ end
     @test length(individual) == 2
     @test all(page -> length(page.axes) == 1, individual)
 
-    paired_all=Makie.plot(
+    horizontal_pages=Makie.plot(
         parameters;
         backend = :cairo,
         display_plot = false,
         controls = false,
         layout = (1, 2)
     )
-    @test length(paired_all) == 8
-    @test all(page -> length(page.axes) == 2, paired_all)
+    @test length(horizontal_pages) == 8
+    @test all(page -> length(page.axes) == 2, horizontal_pages)
 
     stacked_all=Makie.plot(
         parameters;
@@ -200,9 +200,8 @@ end
         layout = (2, 1)
     )
     @test length(stacked_all) == 8
-    @test all(
-        page -> Set(keys(page.addon_state.panel_data)) ==
-                Set(((1, 1), (2, 1))), stacked_all)
+    @test all(Set(keys(page.addon_state.panel_data))==Set(((1,mod1(index,2)),(2,mod1(index,2))))
+        for (index,page) in enumerate(stacked_all))
 
     one_quantity=Makie.plot(
         parameters,
@@ -237,10 +236,11 @@ end
         display_plot = false,
         controls = false
     )
-    @test compared_self isa UIPlot
-    @test length(compared_self.axes) == 2
-    @test legend_labels(compared_self.legend) == ["reference", "candidate"]
-    @test Set(keys(compared_self.addon_state.groups)) == Set((:result_1, :result_2))
+    @test compared_self isa Vector{UIPlot}
+    @test length(compared_self) == 2
+    @test all(length(page.axes) == 1 for page in compared_self)
+    @test all(legend_labels(page.legend) == ["reference", "candidate"] for page in compared_self)
+    @test all(Set(keys(page.addon_state.groups)) == Set((:result_1, :result_2)) for page in compared_self)
 
     three_sources=Makie.plot(
         parameters,
@@ -252,8 +252,8 @@ end
         display_plot = false,
         controls = false
     )
-    @test legend_labels(three_sources.legend) ==
-          ["reference", "candidate A", "candidate B"]
+    @test all(legend_labels(page.legend) ==
+          ["reference", "candidate A", "candidate B"] for page in three_sources)
 
     different_frequency=TestFixtures.two_conductor_results(
         ;
@@ -267,8 +267,8 @@ end
         display_plot = false,
         controls = false
     )
-    @test asynchronous isa UIPlot
-    @test legend_labels(asynchronous.legend) == ["three samples", "four samples"]
+    @test asynchronous isa Vector{UIPlot}
+    @test all(legend_labels(page.legend) == ["three samples", "four samples"] for page in asynchronous)
 
     combined=Makie.plot(
         (; reference = parameters, candidate = parameters),
@@ -309,22 +309,22 @@ end
     titled_inside=Makie.plot(
         parameters,
         parameters,
-        self_impedance_request;
+        ((R,1,1:2,:),);
         series_labels = ("reference", "candidate"),
         backend = :cairo,
         display_plot = false,
         controls = false,
         figure_title = "Cable impedance",
-        panel_titles = ("Resistance", "Reactance"),
+        panel_titles = ("Resistance", "Mutual resistance"),
         legend_position = :inside,
-        legend_anchor = :lt,
+        legend_attributes=(halign=:left,valign=:top),
         legend_title = "Result set",
         legend_overflow = :show_all
     )
     Makie.colorbuffer(titled_inside.figure)
     @test titled_inside.title.text[] == "Cable impedance"
     @test [axis.title[] for axis in titled_inside.axes] ==
-          ["Resistance", "Reactance"]
+          ["Resistance", "Mutual resistance"]
     @test first(only(titled_inside.legend.entrygroups[])) == "Result set"
     @test titled_inside.legend.halign[] == :left
     @test titled_inside.legend.valign[] == :top
@@ -339,10 +339,10 @@ end
           canvas_bounds.origin[2] + canvas_bounds.widths[2]
 
     figuretitle!(titled_inside, "Updated impedance"; fontsize = 20)
-    paneltitle!(titled_inside, (1, 2), "Updated reactance")
+    paneltitle!(titled_inside, (1, 2), "Updated mutual resistance")
     @test titled_inside.title.text[] == "Updated impedance"
     @test titled_inside.title.fontsize[] == 20
-    @test titled_inside.axes[2].title[] == "Updated reactance"
+    @test titled_inside.axes[2].title[] == "Updated mutual resistance"
 
     figurelegend!(
         titled_inside;
@@ -356,7 +356,7 @@ end
     figurelegend!(
         titled_inside;
         position = :inside,
-        anchor = :rb,
+        halign=:right,valign=:bottom,
         overflow = :show_all
     )
     @test titled_inside.legend.halign[] == :right
@@ -366,7 +366,7 @@ end
         titled_inside,
         (1, 1);
         position = :inside,
-        anchor = :lb,
+        halign=:left,valign=:bottom,
         title = "Resistance results",
         legend_labels = ("base R", "candidate R"),
         overflow = :show_all
@@ -410,13 +410,9 @@ end
         display_plot = false,
         panel_titles = ("only one",)
     )
-    @test_throws ArgumentError Makie.plot(
-        parameters,
-        (R,);
-        backend = :cairo,
-        display_plot = false,
-        layout = (1, 3)
-    )
+    small_capacity=Makie.plot(parameters,(R,);backend=:cairo,display_plot=false,layout=(1,3))
+    @test length(small_capacity)==2
+    @test all(length(page.axes)==2 for page in small_capacity)
 
     compared=Makie.plot(
         (; reference = parameters, candidate = parameters),
@@ -561,7 +557,7 @@ end
     @test scale.title.text[] == "Material schemes"
 
     native_grid=LineCableModels.plotwindow(
-        ; title = "native 2x2", size = (700, 500), layout = (2, 2),
+        ; title = "native 2x2", size = (700, 500),
         figure_title = "Native dashboard",
         backend = :cairo, display_plot = false, open_export = false
     ) do grid
@@ -593,31 +589,16 @@ end
     @test length(report_plot.addon_state.groups) == 1
 
     extension=Base.get_extension(LineCableModels, :LineCableModelsMakieExt)
-    publication_snapshot=Pair{Any, Any}[]
-    publication_layout=Ref{Any}(nothing)
     root=combined.figure.layout
     row_sizes_before=copy(root.rowsizes)
     row_gap_before=root.default_rowgap
     background_before=combined.figure.scene.backgroundcolor[]
     font_before=combined.figure.scene.theme[:fonts][:regular][]
     reset_visible_before=combined.controls[:reset].blockscene.visible[]
-    try
-        publication_layout[]=extension._native_publication_snapshot!(
-            publication_snapshot,
-            combined,
-            :publication
-        )
-        @test root.rowsizes[1] == Makie.Fixed(0)
-        @test root.rowsizes[3] == Makie.Fixed(0)
+    extension._addon_export_presentation!(combined,:publication) do
         @test !combined.controls[:reset].blockscene.visible[]
-        publication_font=Makie.to_font(
-            combined.figure.scene.theme[:fonts],
-            :regular
-        )
-        @test occursin("NewComputerModern", sprint(show, publication_font))
-    finally
-        extension._native_restore_interactive_chrome!(publication_layout[])
-        extension._native_restore_snapshot!(publication_snapshot)
+        publication_font=Makie.to_font(combined.figure.scene.theme[:fonts],:regular)
+        @test occursin("NewComputerModern",sprint(show,publication_font))
     end
     @test root.rowsizes == row_sizes_before
     @test root.default_rowgap == row_gap_before

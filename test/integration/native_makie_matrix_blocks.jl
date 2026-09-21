@@ -1,4 +1,4 @@
-@testitem "Makie addons / matrix blocks retain coordinates and residual axis dimensions" tags=[:visual] begin
+@testitem "Makie addons / matrix pages retain coordinates and residual axis dimensions" tags=[:visual] begin
     using CairoMakie
     using LineCableModels
 
@@ -8,17 +8,17 @@
     parameters = LineParameters(z, z.*1e-6, frequency)
     options = (; backend=:cairo, display_plot=false, controls=true,
         open_export=false, length_unit=:base, fig_size=(1200,800))
-    pages = LineCableModels.plot(parameters; ydata=(R,), blocks=(2,3), options...,
+    pages = LineCableModels.plot(parameters; ydata=(R,), layout=(2,3), options...,
         panel_legends=(5,5)=>(position=:inside, overflow=:show_all))
     @test length(pages) == 6
     @test [length(page.axes) for page in pages] == [6,4,6,4,3,2]
-    @test [page.addon_state.matrix_block.index for page in pages] ==
+    @test [page.addon_state.panel_page.index for page in pages] ==
         [(1,1),(1,2),(2,1),(2,2),(3,1),(3,2)]
     seen = Tuple{Int,Int}[]
     for page in pages
-        @test page.addon_state.matrix_block.dimensions == (2,3)
+        @test page.addon_state.nominal_capacity == (2,3)
         @test count(block -> block isa Makie.Axis, page.figure.content) == length(page.axes)
-        @test page.figure.scene.viewport[].widths[1] > page.figure.scene.viewport[].widths[2]
+        @test all(>(0),page.figure.scene.viewport[].widths)
         for (coordinate, panel) in page.addon_state.panel_data
             push!(seen, coordinate)
             i,j = coordinate
@@ -48,23 +48,23 @@
 
     # Selections retain their original slots, not a packed/renumbered submatrix.
     sparse = LineCableModels.plot(parameters; ydata=((R,[1,5],[2,5],:),),
-        blocks=(2,3), options...)
-    @test [page.addon_state.matrix_block.index for page in sparse] == [(1,1),(1,2),(3,1),(3,2)]
+        layout=(2,3), options...)
+    @test [page.addon_state.panel_page.index for page in sparse] == [(1,1),(1,2),(3,1),(3,2)]
     @test Set(coordinate for page in sparse for coordinate in keys(page.addon_state.panel_data)) ==
         Set(((1,2),(1,5),(5,2),(5,5)))
     small = LineParameters(z[1:2,1:2,:], z[1:2,1:2,:].*1e-6, frequency)
     full = LineCableModels.plot(small; ydata=(R,), options...)
     @test full isa UIPlot && length(full.axes) == 4
-    @test !haskey(full.addon_state,:matrix_block)
-    one = LineCableModels.plot(small; ydata=(R,), blocks=(3,4), title="Example", options...)
+    @test full.addon_state.panel_page.dimensions==(2,2)
+    one = LineCableModels.plot(small; ydata=(R,), layout=(3,4), title="Example", options...)
     @test one isa UIPlot && length(one.axes) == 4
-    @test endswith(one.export_name,"Series resistance (1,1)")
-    for blocks in ((0,2),(-1,2),(true,2),(2.0,2),(2,),[2,2])
-        @test_throws ArgumentError LineCableModels.plot(small; ydata=(R,), blocks, options...)
+    @test one.export_name=="Example"
+    for layout in ((0,2),(-1,2),(true,2),(2.0,2),(2,),[2,2])
+        @test_throws ArgumentError LineCableModels.plot(small; ydata=(R,), layout, options...)
     end
     @test_throws ArgumentError LineCableModels.plot(small; ydata=(R,), blocks=(2,2),
         layout=(1,2), options...)
-    family = LineCableModels.plot(small; ydata=(R,G), blocks=(1,2), options...,
+    family = LineCableModels.plot(small; ydata=(R,G), layout=(1,2), options...,
         figure_title=("One line", "Two\nlines", "One line", "One line"),
         series_labels=("Saved curve",), legend_position=:bottom,
         panel_legends=(2,2)=>(position=:right, overflow=:show_all))
@@ -80,7 +80,10 @@
             end
             export_svg(page;path=joinpath(directory,"block-$index-$theme.svg"),theme,open_file=false)
             off(observer)
-            @test !isempty(rendered) && all(==(before),rendered)
+            # Export reclaims chrome, so frame origins may move. Data-frame
+            # dimensions remain equal within native pixel rounding.
+            @test !isempty(rendered) && all(all(all(isapprox.(actual.widths,expected.widths;atol=1))
+                for (actual,expected) in zip(rectangles,before)) for rectangles in rendered)
             @test [axis.layoutobservables.computedbbox[] for axis in page.axes] == before
         end
     end
@@ -178,4 +181,54 @@ end
         @test isfile(export_svg(page;path=joinpath(directory,"overlap.svg"),open_file=false))
     end
     @test Z(reference) == z
+end
+
+@testitem "Makie addons / nominal capacity calibrates frames and compact residuals" tags=[:visual] setup=[TestFixtures] begin
+    using CairoMakie
+    f=[1.,10.,100.]
+    z=[complex(i+j+k,i-j+k) for i in 1:3,j in 1:3,k in 1:3]
+    raw=LineParameters(z,z.*1e-6,f)
+    pages=LineCableModels.plot(raw;ydata=(R,L),layout=(2,2),fig_size=(1000,700),
+        controls=false,display_plot=false,backend=:cairo,clip=false)
+    @test length(pages)==8
+    @test [length(p.axes) for p in pages]==[4,2,2,1,4,2,2,1]
+    @test [p.addon_state.panel_page.dimensions for p in pages[1:4]]==[(2,2),(2,1),(1,2),(1,1)]
+    frames=[Tuple(axis.layoutobservables.computedbbox[].widths) for p in pages for axis in p.axes]
+    @test all(frame -> all(isapprox.(frame,first(frames);atol=1)),frames)
+    sizes=[Tuple(p.figure.scene.viewport[].widths) for p in pages]
+    @test sizes[2][1]<sizes[1][1]
+    @test sizes[3][2]<sizes[1][2]
+    @test all(sizes[4].<sizes[1])
+    @test all(count(block -> block isa Makie.Axis,p.figure.content)==length(p.axes) for p in pages)
+    sibling=[(Tuple(p.figure.scene.viewport[].widths),[axis.targetlimits[] for axis in p.axes]) for p in pages[2:end]]
+    p=first(pages)
+    before=[Tuple(axis.layoutobservables.computedbbox[].widths) for axis in p.axes]
+    views=[axis.targetlimits[] for axis in p.axes]
+    figuretitle!(p,"A new title\nwith two lines")
+    figurelegend!(p;position=:bottom)
+    @test all(all(isapprox.(Tuple(axis.layoutobservables.computedbbox[].widths),size;atol=1)) for (axis,size) in zip(p.axes,before))
+    @test [axis.targetlimits[] for axis in p.axes]==views
+    @test [(Tuple(p.figure.scene.viewport[].widths),[axis.targetlimits[] for axis in p.axes]) for p in pages[2:end]]==sibling
+    oldsize=Tuple(p.figure.scene.viewport[].widths)
+    Makie.resize!(p.figure,oldsize[1]+150,oldsize[2]-100)
+    @test length(p.axes)==4
+    @test p.addon_state.panel_page.dimensions==(2,2)
+    @test [axis.targetlimits[] for axis in p.axes]==views
+    @test_throws ArgumentError LineCableModels.plot(raw;ydata=(R,),blocks=(2,2),display_plot=false)
+
+    design=TestFixtures.coaxial_design()
+    previews=preview(fill(design,4);layout=(1,2),size=(1000,600),
+        display_plot=false,backend=:cairo,controls=false,panel_titles=("one","two","three","four"))
+    @test length(previews)==2
+    @test [length(p.axes) for p in previews]==[2,2]
+    @test Set(keys(previews[1].addon_state.panel_data))==Set((1,2))
+    @test Set(keys(previews[2].addon_state.panel_data))==Set((3,4))
+    @test [axis.title[] for p in previews for axis in p.axes]==["one","two","three","four"]
+    @test all(length(p.colorbars)==3 for p in previews)
+    strip=preview(fill(design,4);layout=(1,4),size=(1200,600),
+        display_plot=false,backend=:cairo,controls=false)
+    @test strip isa UIPlot
+    @test length(strip.axes)==4
+    @test all(isapprox(axis.scene.viewport[].widths[1],axis.scene.viewport[].widths[2];atol=1) for axis in strip.axes)
+    @test all(axis.scene.viewport[].widths[1]>60 for axis in strip.axes)
 end

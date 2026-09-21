@@ -100,20 +100,26 @@ end
 """
 $(TYPEDSIGNATURES)
 
-Interpret a retained matrix request across observations. Convert compatible
+Interpret a retained request across observations. Convert compatible
 quantity and frequency units to the first product's units (or explicit targets),
 and order coefficients by the first product's original coordinates. Every trace
 keeps its own samples. Missing coefficients and incompatible units fail without
 interpolation, numerical acquisition, or changes to scientific eligibility.
+With `band`, select original sample identities from completed comparison
+records. `reference_id` disambiguates the recorded reference; a separately
+included reference uses the same unambiguous saved selection. Missing or
+conflicting records fail before returning any products.
 """
 function observation_product(points::Union{Tuple,AbstractVector{<:ObservedResult}},request;
-        unit=nothing,frequency_unit=nothing)
+        unit=nothing,frequency_unit=nothing,band=nothing,reference_id=nothing)
     isempty(points) && throw(ArgumentError("at least one observation is required"))
     first_product=observation_product(first(points),request)
     target=something(unit,first_product.unit)
     coordinate=first_product.coordinates
     frequency_target=frequency_unit===nothing ? get(coordinate,:frequency_unit,nothing) : frequency_unit
-    return map(points) do point
+    selections=band===nothing ? nothing : _retained_band_samples(points,request,band,reference_id)
+    products=map(eachindex(points)) do index
+        point=points[index]
         product=observation_product(point,request)
         c=product.coordinates
         c.kind==coordinate.kind || throw(ArgumentError("overlaid products require the same coordinate kind"))
@@ -127,7 +133,52 @@ function observation_product(points::Union{Tuple,AbstractVector{<:ObservedResult
                 product=_selected_product(product,(prefix...,indices...),indices)
             end
         end
+        if selections!==nothing
+            c=product.coordinates
+            c.kind in (:matrix,:diagonal) || throw(ArgumentError(
+                "retained band selection requires frequency matrix or diagonal coordinates"))
+            samples=filter(in(selections[index]),c.samples)
+            identity=request_identity(product.request)
+            prefix=identity isa Tuple ? identity : (identity,)
+            indices=c.kind===:matrix ? (c.rows,c.columns,samples) : (c.rows,samples)
+            product=_selected_product(product,(prefix...,indices...),indices)
+        end
         detach(_reexpress_product(product;unit=target,frequency_unit=frequency_target))
+    end
+    selections===nothing || any(p -> !isempty(p.coordinates.samples),products) ||
+        throw(ArgumentError("comparison band $(repr(band)) contains no retained samples in the supplied observations"))
+    return products
+end
+
+# Comparison records, not plotting-side frequency rules, define a retained band.
+function _retained_band_samples(points,request,band,reference_id)
+    matching=map(points) do point
+        id=get(point.gridpoint,:id,nothing)
+        filter(point.errors) do row
+            isequal(row.candidate_id,id) && isequal(row.band,band) &&
+                request_identity(row.request)==request_identity(request) &&
+                (reference_id===nothing || isequal(row.reference_id,reference_id))
+        end
+    end
+    records=collect(Iterators.flatten(matching))
+    isempty(records) && throw(ArgumentError("no completed comparison retains band $(repr(band)) for this request and reference"))
+    references=unique(row.reference_id for row in records)
+    length(references)==1 || throw(ArgumentError("retained band has multiple references; supply reference_id"))
+    retained_reference=only(references)
+    definition(row)=(;
+        indices=row.settings.indices,
+        requested_bounds=get(row.settings,:requested_bounds,nothing),
+        actual_bounds=get(row.settings,:actual_bounds,nothing),
+        fundamental=get(row.settings,:fundamental,nothing),
+        harmonics=get(row.settings,:harmonics,nothing))
+    first_definition=definition(first(records))
+    all(row -> isequal(definition(row),first_definition),records) || throw(ArgumentError(
+        "completed comparisons disagree on the saved definition or sample selection of band $(repr(band))"))
+    return map(eachindex(points)) do index
+        id=get(points[index].gridpoint,:id,nothing)
+        !isempty(matching[index]) || isequal(id,retained_reference) || throw(ArgumentError(
+            "observation $(repr(id)) has no completed comparison for band $(repr(band)) and the selected reference"))
+        copy(first_definition.indices)
     end
 end
 

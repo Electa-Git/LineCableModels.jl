@@ -19,7 +19,6 @@ function _native_export_directory()
     package = abspath(pkgdir(LineCableModels))
     _native_path_within(current, package) || return current
     fallback = joinpath(tempdir(), "linecablemodels-exports")
-    mkpath(fallback)
     return fallback
 end
 
@@ -64,118 +63,6 @@ function _native_open_export(path::AbstractString)
     end
 end
 
-function _native_observable_snapshot!(snapshot, object, names)
-    for name in names
-        hasproperty(object, name) || continue
-        value = getproperty(object, name)
-        value isa Observable || continue
-        push!(snapshot, value => value[])
-    end
-    return snapshot
-end
-
-function _native_set_observable!(snapshot, observable, value)
-    push!(snapshot, observable => observable[])
-    observable[] = value
-    return observable
-end
-
-function _native_hide_layout_content!(snapshot, content)
-    if content isa GridLayout
-        for entry in content.content
-            _native_hide_layout_content!(snapshot, entry.content)
-        end
-    elseif hasproperty(content, :blockscene)
-        _native_set_observable!(snapshot, content.blockscene.visible, false)
-    end
-    return snapshot
-end
-
-function _native_hide_interactive_chrome!(snapshot, plot)
-    plot.addon_state === nothing && return nothing
-    haskey(plot.addon_state, :shell) || return nothing
-    root = plot.figure.layout
-    any(entry -> entry.content === plot.addon_state.shell.toolbar, root.content) || return nothing
-    row_sizes = copy(root.rowsizes)
-    row_gap = root.default_rowgap
-    for entry in root.content
-        rows = entry.span.rows
-        if rows == 1:1 || rows == 3:3
-            _native_hide_layout_content!(snapshot, entry.content)
-        end
-    end
-    # Block publications retain the same axis rectangles as the live pages.
-    # Hide controls without reclaiming their space and enlarging residual cells.
-    haskey(plot.addon_state, :matrix_block) && return nothing
-    rowsize!(root, 1, Fixed(0))
-    rowsize!(root, 3, Fixed(0))
-    root.default_rowgap = Fixed(0)
-    return (; root, row_sizes, row_gap)
-end
-
-function _native_restore_interactive_chrome!(layout_snapshot)
-    layout_snapshot === nothing && return nothing
-    for (index, size) in pairs(layout_snapshot.row_sizes)
-        rowsize!(layout_snapshot.root, index, size)
-    end
-    layout_snapshot.root.default_rowgap = layout_snapshot.row_gap
-    return nothing
-end
-
-function _native_publication_snapshot!(snapshot, plot::LineCableModels.UIPlot, theme::Symbol)
-    theme in (:default, :publication) || throw(ArgumentError(
-        "theme must be :default or :publication",
-    ))
-    _native_observable_snapshot!(snapshot, plot.figure.scene, (:backgroundcolor,))
-    plot.figure.scene.backgroundcolor[] = Makie.to_color(:white)
-    layout_snapshot = _native_hide_interactive_chrome!(snapshot, plot)
-    theme === :default && return layout_snapshot
-
-    latex_fonts = Makie.theme_latexfonts().attributes[:fonts][]
-    figure_fonts = plot.figure.scene.theme[:fonts]
-    for role in (:regular, :italic, :bold)
-        _native_set_observable!(snapshot, figure_fonts[role], latex_fonts[role][])
-    end
-    regular = :regular
-    bold = :bold
-    for block in plot.figure.content
-        if block isa Axis
-            _native_observable_snapshot!(snapshot, block,
-                (
-                    :titlefont,
-                    :xlabelfont,
-                    :ylabelfont,
-                    :xticklabelfont,
-                    :yticklabelfont
-                ))
-            block.titlefont[] = bold
-            block.xlabelfont[] = regular
-            block.ylabelfont[] = regular
-            block.xticklabelfont[] = regular
-            block.yticklabelfont[] = regular
-        elseif block isa Legend
-            _native_observable_snapshot!(snapshot, block, (:labelfont, :titlefont))
-            block.labelfont[] = regular
-            block.titlefont[] = bold
-        elseif block isa Colorbar
-            _native_observable_snapshot!(snapshot, block, (:labelfont, :ticklabelfont))
-            block.labelfont[] = regular
-            block.ticklabelfont[] = regular
-        elseif block isa Label
-            _native_observable_snapshot!(snapshot, block, (:font,))
-            block.font[] = block === plot.title ? bold : regular
-        end
-    end
-    return layout_snapshot
-end
-
-function _native_restore_snapshot!(snapshot)
-    for (observable, value) in Iterators.reverse(snapshot)
-        observable[] = value
-    end
-    return nothing
-end
-
 function LineCableModels.export_svg(
         plot::LineCableModels.UIPlot;
         path::Union{Nothing, AbstractString} = nothing,
@@ -187,8 +74,9 @@ function LineCableModels.export_svg(
         "SVG export requires CairoMakie to be loaded; run `import CairoMakie` first. " *
         "For interactive plots, select backend=:gl after importing both backends.",
     ))
-    output = path === nothing ? _native_available_path(plot) : abspath(String(path))
     export_theme = theme === nothing ? plot.export_theme : theme
+    export_theme in (:default,:publication) || throw(ArgumentError("theme must be :default or :publication"))
+    output = path === nothing ? _native_available_path(plot) : abspath(String(path))
     should_open = open_file === nothing ? plot.open_export : open_file
     lowercase(splitext(output)[2]) == ".svg" || throw(ArgumentError(
         "SVG export paths must use the .svg extension",
@@ -197,28 +85,10 @@ function LineCableModels.export_svg(
         "refusing to overwrite existing file: $output",
     ))
     mkpath(dirname(output))
-    snapshot = Pair{Any, Any}[]
-    layout_snapshot = nothing
-    matrix_layout = plot.addon_state === nothing ? nothing : get(plot.addon_state, :matrix_layout, nothing)
-    suspended = matrix_layout === nothing ? nothing : matrix_layout.suspended[]
-    matrix_layout === nothing || (matrix_layout.suspended[] = true)
-    try
-        layout_snapshot = _native_publication_snapshot!(
-            snapshot,
-            plot,
-            export_theme
-        )
-        with_theme(_addon_theme(
-            export_mode = true,
-            export_theme = export_theme
-        )) do
-            # Preserve the live zoom/pan: Makie's display update resets axes.
-            Makie.save(output, plot.figure; backend = cairo.CairoMakie, update = false)
-        end
-    finally
-        _native_restore_interactive_chrome!(layout_snapshot)
-        _native_restore_snapshot!(snapshot)
-        matrix_layout === nothing || (matrix_layout.suspended[] = suspended)
+    _addon_export_presentation!(plot,export_theme) do
+        # Preserve the current figure and view. Saving must not run the native
+        # display preparation that resets automatic axes.
+        Makie.save(output,plot.figure;backend=cairo.CairoMakie,update=false)
     end
     opened = should_open && _native_open_export(output)
     message = if opened

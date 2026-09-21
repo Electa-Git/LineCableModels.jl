@@ -206,11 +206,12 @@ available. SVG export always includes the complete legend.
 constants = CableConstants(cable_design);
 constants
 
-# Publish detached scientific observations without reaching into result fields:
-published_constants = observables(constants, (R, L, C));
+# Before: examples described extracted values as a flat publication. Now one
+# ObservedResult retains this cable's quantities, units and assembly coordinates.
+observed_constants = ObservedResult(constants, (R, L, C));
 
-# Construct a table from the explicit detached publication:
-constants_table = LineCableModels.ReportBuilder.tabulate(published_constants)
+# Tabulate the retained quantities separately:
+constants_table = LineCableModels.ReportBuilder.tabulate(observed_constants)
 
 # Request the homogeneous design explicitly when an equivalent
 # cable, rather than a solver input, is the desired result:
@@ -359,6 +360,8 @@ first(first_term_table, 12)
 
 # Plot the R/L and G/C frequency responses on logarithmic frequency axes. Each
 # requested physical quantity receives its own matrix-dashboard page:
+# Before: layout could pair different quantities. Now layout is panel capacity
+# within each quantity; a smaller layout paginates the matrix coefficients.
 rlcg_plots = CairoMakie.plot(
     line_parameters,
     (
@@ -410,7 +413,7 @@ Tv = operators(modal_parameters).voltage;
 modal_impedance = @observe modal_parameters Z[1, 1, :]
 modal_admittance = @observe modal_parameters Y[1, 1, :]
 
-# Publish and tabulate the complete transformed quantities:
+# Retain and tabulate the complete transformed quantities:
 modal_table = LineCableModels.ReportBuilder.tabulate(observables(
     modal_parameters,
     (

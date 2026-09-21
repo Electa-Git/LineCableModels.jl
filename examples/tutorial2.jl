@@ -280,16 +280,17 @@ constants_table = LineCableModels.ReportBuilder.tabulate(observables(constants, 
 equivalent_design = homogenize(cable_design; new_id = cable_id * "_equivalent")
 equivalent_summary = equivalent_design
 
-# `observables` publishes detached values in the units conventionally used by
-# cable manufacturers. Compare the calculated and datasheet values:
-published_constants = observables(constants, (R, L, C));
+# Before: extracted values were described as a flat publication. Now one
+# ObservedResult retains this cable's quantities, units and assembly coordinates;
+# tabulation keeps different quantities in separate tables.
+observed_constants = ObservedResult(constants, (R, L, C));
 datasheet_comparison = DataFrame(
     source = ("calculated", "datasheet"),
-    R = (observe(published_constants,R), datasheet_info.resistance),
-    L = (observe(published_constants,L), datasheet_info.inductance),
-    C = (observe(published_constants,C), datasheet_info.capacitance)
+    R = (observe(observed_constants,R), datasheet_info.resistance),
+    L = (observe(observed_constants,L), datasheet_info.inductance),
+    C = (observe(observed_constants,C), datasheet_info.capacitance)
 )
-comparison_units = map(payload -> payload.unit, published_constants.quantities);
+comparison_units = map(payload -> payload.unit, observed_constants.quantities);
 
 # Inspect the completed physical design through its bounded Base display:
 cable_design

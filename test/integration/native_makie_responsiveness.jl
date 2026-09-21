@@ -9,7 +9,7 @@
     parameters=TestFixtures.two_conductor_results(; frequencies = frequency)
     compact=Makie.plot(
         parameters, parameters, parameters, parameters,
-        @observe Z[1, 1, :];
+        @observe R[1, 1, :];
         series_labels = ("one", "two", "three", "four"),
         backend = :cairo,
         display_plot = false,
@@ -25,7 +25,7 @@
 
     complete=Makie.plot(
         parameters, parameters, parameters, parameters,
-        @observe Z[1, 1, :];
+        @observe R[1, 1, :];
         series_labels = ("one", "two", "three", "four"),
         backend = :cairo,
         display_plot = false,
@@ -68,11 +68,11 @@
         display_plot = false,
         fig_size = (600, 320)
     )
-    Makie.colorbuffer(narrow.figure)
-    narrow_bounds=[axis.layoutobservables.computedbbox[] for axis in narrow.axes]
-    @test isapprox(narrow_bounds[1].origin[2], narrow_bounds[2].origin[2]; atol = 1)
-    @test all(bounds -> bounds.widths[1] > 150, narrow_bounds)
-    @test all(axis -> axis.xlabelvisible[], narrow.axes)
+    @test length(narrow)==2
+    foreach(p -> Makie.colorbuffer(p.figure),narrow)
+    narrow_bounds=[only(p.axes).layoutobservables.computedbbox[] for p in narrow]
+    @test all(bounds -> bounds.widths[1]>150,narrow_bounds)
+    @test all(p -> only(p.axes).xlabelvisible[],narrow)
 
     tall=Makie.plot(
         parameters,
@@ -81,13 +81,13 @@
         display_plot = false,
         fig_size = (600, 700)
     )
-    Makie.colorbuffer(tall.figure)
-    tall_bounds=[axis.layoutobservables.computedbbox[] for axis in tall.axes]
-    @test tall.figure.scene.viewport[].widths[1] > tall.figure.scene.viewport[].widths[2]
-    @test isapprox(tall_bounds[1].origin[2], tall_bounds[2].origin[2]; atol=1)
-    @test all(bounds -> bounds.widths[1] > 350, tall_bounds)
-    @test all(bounds -> bounds.widths[2] > 220, tall_bounds)
-    @test [axis.xlabelvisible[] for axis in tall.axes] == [true, true]
+    @test length(tall)==2
+    foreach(p -> Makie.colorbuffer(p.figure),tall)
+    tall_bounds=[only(p.axes).layoutobservables.computedbbox[] for p in tall]
+    @test all(p -> p.figure.scene.viewport[].widths[1]<p.figure.scene.viewport[].widths[2],tall)
+    @test all(bounds -> bounds.widths[1]>150,tall_bounds)
+    @test all(bounds -> bounds.widths[2]>220,tall_bounds)
+    @test all(p -> only(p.axes).xlabelvisible[],tall)
 end
 
 @testitem "Makie addons / compact preview and material scheme geometry" tags=[:visual] setup=[
@@ -192,4 +192,52 @@ end
     vertical_positions=[colorbar.layoutobservables.computedbbox[].origin[2]
                         for colorbar in reference.colorbars]
     @test length(unique(vertical_positions)) == 3
+end
+
+@testitem "Makie / local native edits and flow identities preserve frames" tags=[:visual] setup=[TestFixtures] begin
+    using CairoMakie
+    options=(backend=:cairo,display_plot=false,open_export=false)
+    raw=TestFixtures.two_conductor_results()
+    p=LineCableModels.plot(raw;options...,ydata=(R,),layout=(1,1),series_labels=("one",)) |> first
+    frame=only(p.axes).layoutobservables.computedbbox[].widths
+    view=only(p.axes).targetlimits[]
+    before=p.figure.scene.viewport[].widths
+    p.legend.labelsize[]=30
+    @test all(isapprox.(only(p.axes).layoutobservables.computedbbox[].widths,frame;atol=1))
+    @test only(p.axes).targetlimits[]==view
+    @test p.figure.scene.viewport[].widths[2]>before[2]
+    widget=addwidget!((p,cell) -> Button(cell;label=repeat("Wide control ",30)),p,:wide)
+    @test p.figure.scene.viewport[].widths[1]>=widget.layoutobservables.computedbbox[].widths[1]
+    @test all(isapprox.(only(p.axes).layoutobservables.computedbbox[].widths,frame;atol=1))
+    removewidget!(p,:wide)
+    @test only(p.axes).targetlimits[]==view
+
+    design=TestFixtures.coaxial_design()
+    pages=preview(fill(design,4);options...,controls=false,layout=(1,2),
+        panel_titles=Dict(1=>"First",4=>"Fourth"))
+    @test first(pages).axes[1].title[]=="First"
+    @test last(pages).axes[2].title[]=="Fourth"
+    @test first(pages).axes[2].title[]==design.cable_id
+    auto=preview(fill(design,3);options...,controls=false,panel_titles=i -> "Cable $i")
+    identities=auto.addon_state.panel_page.coordinates
+    resize!(auto.figure,1800,450)
+    @test auto.addon_state.panel_page.coordinates==identities
+    @test auto.addon_state.panel_page.dimensions==(1,3)
+    resize!(auto.figure,450,1800)
+    @test auto.addon_state.panel_page.dimensions==(3,1)
+    @test [auto.addon_state.panel_data[i].axis.title[] for i in identities]==["Cable $i" for i in identities]
+
+    canvas=LineCableModels.plotwindow(;title="Nested",options...,controls=false) do grid
+        nested=GridLayout(grid[1,1])
+        lines!(Axis(nested[1,1]),[1.,2.],[2.,4.];label="A")
+        lines!(Axis(nested[2,1]),[1.,2.],[3.,6.];label="B")
+    end
+    plots=[copy(axis.scene.plots) for axis in canvas.axes]
+    parent=[Makie.GridLayoutBase.gridcontent(axis).parent for axis in canvas.axes]
+    for (id,label) in ((1,"A"),(2,"B"))
+        legend=panellegend!(canvas,id;position=:right)
+        @test only(last(only(legend.entrygroups[]))).label[]==label
+    end
+    @test [axis.scene.plots for axis in canvas.axes]==plots
+    @test [Makie.GridLayoutBase.gridcontent(axis).parent for axis in canvas.axes]==parent
 end
