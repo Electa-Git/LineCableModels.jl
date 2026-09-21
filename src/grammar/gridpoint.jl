@@ -42,3 +42,13 @@ Collection owners share `source_id` and supply the original one-based indices.
 gridpoint_id(; source_id=UUIDs.uuid4(Random.RandomDevice()),
     problem_index::Integer=1, formulation_index::Integer=1) =
     (; source_id, problem_index=Int(problem_index), formulation_index=Int(formulation_index))
+
+"""
+$(TYPEDSIGNATURES)
+
+Return owner-defined physical field names and units for captured inputs.
+Each entry is `(name, unit)`; unregistered fields retain their explicit field
+names without an inferred physical unit. Completion stores this passive metadata
+beside the original values for source-free description formatting.
+"""
+input_fields(::Type) = (;)

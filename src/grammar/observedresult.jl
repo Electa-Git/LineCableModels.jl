@@ -19,15 +19,19 @@ struct ObservedResult
 
     function ObservedResult(gridpoint::NamedTuple,quantities::AbstractVector,
             errors::AbstractVector,timings::NamedTuple)
-        all(q -> q isa NamedTuple && all(key -> haskey(q,key),
-            (:request,:quantity,:values,:unit,:basis,:coordinates)),quantities) ||
-            throw(ArgumentError("observed quantities require requests, values, units, basis, and coordinates"))
-        id=get(gridpoint,:id,nothing)
+        foreach(_validate_observed_quantity,quantities)
+        allunique(q.request for q in quantities) || throw(ArgumentError("retained requests must be distinct"))
+        _observed_fields(gridpoint,(:id,),"gridpoint")
+        id=gridpoint.id
+        id===nothing || _validate_observed_id(id)
         haskey(timings,:candidate_id) && timings.candidate_id!=id &&
             throw(ArgumentError("recorded timings must identify this candidate"))
         all(row -> row isa NamedTuple && haskey(row,:candidate_id) &&
             haskey(row,:reference_id) && id!==nothing && row.candidate_id==id,errors) ||
             throw(ArgumentError("completed comparisons must identify this candidate and a separate reference"))
+        foreach(_validate_observed_comparison,errors)
+        allunique((row.reference_id,row.request,row.band,row.normalization) for row in errors) ||
+            throw(ArgumentError("completed comparisons must be distinct"))
         return new(detach(gridpoint),NamedTuple[detach(q) for q in quantities],
             NamedTuple[detach(row) for row in errors],detach(timings))
     end
@@ -48,7 +52,9 @@ function observation_requests(source,requests::Tuple;complete_pairs::Bool=false)
 end
 
 function observation_requests(source::ObservedResult,requests::Tuple;complete_pairs::Bool=false)
-    selected=isempty(requests) ? Tuple(product.request for product in source.quantities) : requests
+    identities=request_identity.(getproperty.(source.quantities,:request))
+    selected=isempty(requests) ? Tuple(count(==(identity),identities)==1 ? identity : product.request
+        for (identity,product) in zip(identities,source.quantities)) : requests
     displayed=Any[]
     for request in selected
         identity=request_identity(request)
@@ -56,14 +62,16 @@ function observation_requests(source::ObservedResult,requests::Tuple;complete_pa
         products=filter(product -> get(product,:family,nothing)===family &&
             get(product,:statistic,nothing)===:value,source.quantities)
         if isempty(products)
-            push!(displayed,observation_product(source,request).request)
+            observation_product(source,request)
+            push!(displayed,request)
         else
             for product in products
                 indices=request_indices(request)
                 prefix=request_identity(product.request)
                 selector=prefix isa Tuple ? prefix : (prefix,)
-                selection=isempty(indices) ? product.request : (selector...,indices...)
-                push!(displayed,observation_product(source,selection).request)
+                selection=isempty(indices) ? prefix : (selector...,indices...)
+                observation_product(source,selection)
+                push!(displayed,selection)
             end
         end
     end
@@ -178,11 +186,12 @@ point timings are joined by original identities before detachment, so filtering
 and reordering cannot associate a candidate with another point's evidence.
 """
 function observables(sources::Union{AbstractVector,Tuple,AbstractResultSpace},requests::Tuple=();
-        comparisons=(),timings=(;),kwargs...)
+        comparisons=nothing,timings=nothing,kwargs...)
     return map(collect(sources)) do source
         id=get(observation_gridpoint(source),:id,nothing)
-        errors=filter(record -> record.candidate_id==id,comparisons)
-        recorded=timings isa NamedTuple ? timings : begin
+        errors=comparisons===nothing ? (source isa ObservedResult ? source.errors : ()) :
+            filter(record -> record.candidate_id==id,comparisons)
+        recorded=timings===nothing ? (source isa ObservedResult ? source.timings : (;)) : timings isa NamedTuple ? timings : begin
             matches=filter(record -> record.candidate_id==id,timings)
             length(matches)<=1 || throw(ArgumentError("multiple timing records for one candidate identity"))
             isempty(matches) ? (;) : only(matches)
@@ -197,20 +206,25 @@ $(TYPEDSIGNATURES)
 Select a retained quantity record and optional original coordinates. Missing or
 ambiguous requests fail; this operation never extracts or derives a quantity.
 """
-function observation_product(observed::ObservedResult,request)
+function observation_product(observed::ObservedResult,request;unit=nothing,frequency_unit=nothing)
     matches=filter(q -> request_identity(q.request)==request_identity(request),observed.quantities)
     length(matches)>1 && (matches=filter(q -> q.request==request,matches))
     length(matches)==1 || throw(ArgumentError("requested retained product is absent or ambiguous"))
     product=only(matches)
     indices=request_indices(request)
-    isempty(indices) || request==product.request || return _selected_product(product,request,indices)
-    return product
+    isempty(indices) || request==product.request || (product=_selected_product(product,request,indices))
+    return _reexpress_product(product;unit,frequency_unit)
 end
 
 function _selected_product(product,request,indices)
     c=product.coordinates
-    c.kind in (:matrix,:diagonal) || throw(ArgumentError("select this retained product by its complete request"))
-    dimensions=c.kind===:matrix ? (c.rows,c.columns,c.samples) : (c.rows,c.samples)
+    c.kind in (:matrix,:diagonal,:assemblies,:samples) || throw(ArgumentError("select this retained product by its complete request"))
+    matrix=haskey(c,:rows)
+    dimensions=matrix ? c.kind===:diagonal ? (c.rows,c.samples) : (c.rows,c.columns,c.samples) : (c.assemblies,)
+    if c.kind===:samples
+        dimensions=(dimensions...,c.trials)
+        length(indices)==length(dimensions)-1 && (indices=(indices...,Colon()))
+    end
     length(indices)==length(dimensions) || throw(DimensionMismatch("request rank differs from retained coordinates"))
     positions=map(indices,dimensions) do requested,retained
         wanted=requested isa Colon ? retained : requested isa Integer ? [requested] : collect(requested)
@@ -225,12 +239,21 @@ function _selected_product(product,request,indices)
         position isa Integer ? [dimension[position]] : dimension[position]
     end
     select_values(value)=value isa AbstractArray ? reshape(value,length.(dimensions)...)[positions...] : value
-    f=c.frequencies===nothing ? nothing : c.frequencies[last(positions) isa Integer ? [last(positions)] : last(positions)]
-    coordinate=merge(c,(indices,rows=first(selected_dimensions),
-        columns=c.kind===:matrix ? selected_dimensions[2] : first(selected_dimensions),samples=last(selected_dimensions),frequencies=f))
+    sample_axis=matrix ? (c.kind===:diagonal ? 2 : 3) : nothing
+    f=if c.frequencies===nothing || sample_axis===nothing
+        c.frequencies
+    else
+        selected_samples=positions[sample_axis]
+        c.frequencies[selected_samples isa Integer ? [selected_samples] : selected_samples]
+    end
+    coordinate=matrix ? merge(c,(indices,rows=first(selected_dimensions),
+        columns=c.kind===:diagonal ? first(selected_dimensions) : selected_dimensions[2],
+        samples=selected_dimensions[sample_axis],frequencies=f)) :
+        merge(c,(indices,assemblies=first(selected_dimensions)))
+    c.kind===:samples && (coordinate=merge(coordinate,(trials=last(selected_dimensions),)))
     thresholds=product.thresholds
-    if thresholds!==nothing
-        select_cutoff(cutoff::AbstractVector)=cutoff[last(positions)]
+    if thresholds!==nothing && sample_axis!==nothing
+        select_cutoff(cutoff::AbstractVector)=cutoff[positions[sample_axis]]
         select_cutoff(cutoff::NamedTuple)=map(select_cutoff,cutoff)
         select_cutoff(cutoff)=cutoff
         thresholds=merge(thresholds,(values=select_cutoff(thresholds.values),))
@@ -253,6 +276,11 @@ _same_observed_values(a::AbstractArray,b::AbstractArray) = size(a)==size(b) && a
 _same_observed_values(a::Tuple,b::Tuple) = length(a)==length(b) && all(_same_observed_values(x,y) for (x,y) in zip(a,b))
 _same_observed_values(a::NamedTuple,b::NamedTuple) = keys(a)==keys(b) && all(_same_observed_values(x,y) for (x,y) in zip(values(a),values(b)))
 _same_observed_values(a,b) = _same_observed_number(a,b)
+
+_same_observed_dependencies(a::Number,b::Number) = iszero(uncertainty(a-b))
+_same_observed_dependencies(a::AbstractArray,b::AbstractArray) = size(a)==size(b) && all(_same_observed_dependencies.(a,b))
+_same_observed_dependencies(a::NamedTuple,b::NamedTuple) = keys(a)==keys(b) && all(_same_observed_dependencies(x,y) for (x,y) in zip(values(a),values(b)))
+_same_observed_dependencies(a,b) = true
 
 """
 $(TYPEDSIGNATURES)
@@ -288,10 +316,18 @@ function observation_groups(observed;request,band=nothing,normalization=nothing,
         physical=id===nothing ? nothing : (id.source_id,id.problem_index)
         key=(physical,assumptions,product.quantity,product.statistic,
             get(point.gridpoint,:uncertainty,nothing),product.coordinates,product.basis,
-            product.unit,product.thresholds,product.available,product.engineering_zero,
+            product.unit,product.thresholds,
             band,normalization,reference,get(product,:interpretation,nothing))
-        matched=physical===nothing || assumptions===nothing || ismissing(assumptions) ? nothing :
-            findfirst(i -> _same_observed_values(keys[i],key) && _same_observed_values(products[i].values,product.values),eachindex(keys))
+        semantic=physical===nothing || assumptions===nothing || ismissing(assumptions) ? Int[] :
+            findall(i -> _same_observed_values(keys[i],key),eachindex(keys))
+        # The uncertainty interpretation includes the actual dependency graph.
+        # Equal scalar means alone do not establish that interpretation.
+        same_interpretation=filter(i -> _same_observed_dependencies(products[i].values,product.values),semantic)
+        for i in same_interpretation
+            _same_observed_values(products[i].values,product.values) || throw(ArgumentError(
+                "semantically equivalent observations have conflicting numerical values"))
+        end
+        matched=isempty(same_interpretation) ? nothing : first(same_interpretation)
         if matched===nothing
             push!(keys,key);push!(products,product)
             push!(groups,(representative=index,members=[index],identities=[id]))
@@ -303,53 +339,68 @@ function observation_groups(observed;request,band=nothing,normalization=nothing,
     return groups
 end
 
-function _description_values!(output,path,value)
+function _description_values!(output,path,value;name=path,unit="")
     if value isa NamedTuple
+        descriptions=get(value,:field_descriptions,(;))
         for (key,child) in pairs(value)
-            key in (:frequencies,) && continue
-            _description_values!(output,isempty(path) ? string(key) : path*"."*string(key),child)
+            key in (:frequencies,:field_descriptions) && continue
+            child_path=isempty(path) ? string(key) : path*"."*string(key)
+            field=get(descriptions,key,nothing)
+            child_name=field===nothing ? child_path : (isempty(path) ? "" : path*" · ")*field.name
+            _description_values!(output,child_path,child;name=child_name,unit=field===nothing ? unit : field.unit)
         end
     elseif value isa Union{AbstractArray,Tuple}
         for (index,child) in enumerate(value)
-            _description_values!(output,path*"["*string(index)*"]",child)
+            suffix="["*string(index)*"]"
+            _description_values!(output,path*suffix,child;name=name*suffix,unit)
         end
     elseif value isa Union{Number,AbstractString,Symbol}
-        output[path]=value
+        output[path]=(;value,name,unit)
     end
     return output
 end
 
-"""Describe original point identities and varying captured physical inputs."""
+"""Describe varying captured physical inputs and structured formulation selections."""
 function observation_labels(observed;request=nothing)
     points=observed isa ObservedResult ? [observed] : observed
+    isempty(points) && return String[]
     descriptions=[begin
         values=_description_values!(Dict{String,Any}(),"",get(point.gridpoint,:inputs,nothing))
         _description_values!(values,"uncertainty",get(point.gridpoint,:uncertainty,nothing))
-        isempty(get(point.gridpoint,:formulation_labels,(;))) &&
+        isempty(get(point.gridpoint,:formulation_fields,(;))) &&
             _description_values!(values,"formulations",get(point.gridpoint,:formulations,nothing))
         values
     end for point in points]
     paths=sort(unique(collect(Iterators.flatten(keys(record) for record in descriptions))))
     varying=filter(path -> !all(isequal(get(first(descriptions),path,nothing)),
         (get(record,path,nothing) for record in descriptions)),paths)
-    formulation_text=map(points) do point
-        labels=get(point.gridpoint,:formulation_labels,(;))
-        family=request===nothing || isempty(labels) ? :all : Units.family(request_quantity(request))===Val(:series) ? :Z : :Y
-        get(labels,family,nothing)
+    fields=map(points) do point
+        retained=get(point.gridpoint,:formulation_fields,(;))
+        family=request===nothing || isempty(retained) ? :all : Units.family(request_quantity(request))===Val(:series) ? :Z : :Y
+        get(retained,family,())
     end
-    # Omit literal common clauses only from display text. Scientific grouping
-    # uses retained identities and assumptions independently of these strings.
-    clauses=[split(label,"; ") for label in formulation_text if label!==nothing]
-    common=length(clauses)>1 ? reduce(intersect,clauses) : String[]
+    known_fields=filter(!isempty,fields)
     return map(eachindex(points)) do index
         id=get(points[index].gridpoint,:id,nothing)
         identity=id===nothing ? "Result $index" : "Point $(id.problem_index), formulation $(id.formulation_index)"
-        label=formulation_text[index]
-        if label!==nothing
-            selected=filter(part -> part ∉ common,split(label,"; "))
-            isempty(selected) || (identity=identity*" · "*join(selected,"; "))
+        parts=String[]
+        for field in fields[index]
+            common=length(known_fields)>1 && all(entries -> any(other -> other.scope==field.scope &&
+                isequal(other.selection,field.selection),entries),known_fields)
+            common && continue
+            text=isempty(field.name) ? field.value : field.name*"="*field.value
+            controls=field.selection.controls
+            if !isempty(controls)
+                text *= " "*(isempty(last(field.scope)) ? sprint(show,controls;context=:compact=>true) :
+                    description(FormulaDefinition,controls;compact=true))
+            end
+            push!(parts,text)
         end
-        values=[path*"="*string(descriptions[index][path]) for path in varying if haskey(descriptions[index],path)]
-        isempty(values) ? identity : identity*" · "*join(values,", ")
+        for path in varying
+            haskey(descriptions[index],path) || continue
+            field=descriptions[index][path]
+            push!(parts,field.name*"="*string(field.value)*(isempty(field.unit) ? "" : " "*field.unit))
+        end
+        isempty(parts) ? identity : identity*" · "*join(parts,", ")
     end
 end

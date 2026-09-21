@@ -85,7 +85,12 @@ function Grammar.observation_quantity(source::Union{MonteCarloResult,LinearError
             assumptions=nothing,distribution,ordinate_units=(density=Units.UnitExpr(target.denominator,target.numerator),
                 probability=Units.units(:base,:dimensionless),count=Units.units(:base,:dimensionless)))
     end
-    values=observe(source,identity...,point,indices...)
+    acquisition_indices=indices
+    if product===samples && !isempty(indices)
+        rank=core isa Engine.LineParameters ? 3 : 1
+        length(indices)==rank && (acquisition_indices=(indices...,Colon()))
+    end
+    values=observe(source,identity...,point,acquisition_indices...)
     T=typeof(float(real(nominal(zero(eltype(values))))))
     factor=Units.scale_factor(Units.native_unit(q,basis(core)),target,T)
     coordinate_indices=product===samples && !isempty(indices) ? indices[1:(core isa Engine.LineParameters ? 3 : 1)] : indices
@@ -93,7 +98,7 @@ function Grammar.observation_quantity(source::Union{MonteCarloResult,LinearError
     if product===samples
         rank=core isa Engine.LineParameters ? 3 : 1
         trial_index=length(indices)>rank ? indices[rank+1] : Colon()
-        coordinates=merge(coordinates,(kind=:samples,trials=observation_indices(trial_index,trial_count(source,point))))
+        coordinates=merge(coordinates,(kind=:samples,indices=(coordinates.indices...,trial_index),trials=observation_indices(trial_index,trial_count(source,point))))
     end
     # These are selected estimators or individual trials, not replacements for
     # primary uncertain numbers. In particular, a retained std is never clipped.

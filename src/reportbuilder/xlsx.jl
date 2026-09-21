@@ -13,10 +13,12 @@ struct XLSXReportDefinition <: AbstractReportDefinition
     system_id::Union{Nothing,String}
     "Engineering recentering for raw-input construction."
     clip::Bool
+    "Allow replacing existing destination files after complete preflight."
+    overwrite::Bool
 end
-function XLSXReportDefinition(;file_name=nothing,cable_system=nothing,clip::Bool=true)
+function XLSXReportDefinition(;file_name=nothing,cable_system=nothing,clip::Bool=true,overwrite::Bool=false)
     return XLSXReportDefinition(file_name===nothing ? nothing : String(file_name),
-        cable_system===nothing ? nothing : String(cable_system.system_id),clip)
+        cable_system===nothing ? nothing : String(cable_system.system_id),clip,overwrite)
 end
 
 """
@@ -65,6 +67,7 @@ encode_cell(::XLSXReportDefinition,value::AbstractString) = String(value)
 encode_cell(::XLSXReportDefinition,value) = string(value)
 
 function _numeric_sheet(definition,table,name,transform)
+    _xlsx_sheet_size(size(table,1)+1,size(table,2))
     cells=Matrix{Any}(missing,size(table,1)+1,size(table,2))
     cells[1,:]=names(table)
     coordinate_columns=DataFrames.metadata(table,"coordinate_columns",())
@@ -104,5 +107,26 @@ function encode(definition::XLSXReportDefinition,observed,tables,illustration;re
             _numeric_sheet(definition,table,"std",Grammar.uncertainty),XLSXSheet("metadata",cells)]
         push!(workbooks,XLSXWorkbook(destination,sheets))
     end
+    validate(definition,workbooks)
     return workbooks
+end
+
+function _xlsx_sheet_size(rows,columns)
+    rows<=1_048_576 && columns<=16_384 || throw(DimensionMismatch(
+        "XLSX worksheets support at most 1048576 rows and 16384 columns, including headings"))
+    return nothing
+end
+
+function validate(definition::XLSXReportDefinition,workbooks::AbstractVector{<:XLSXWorkbook})
+    destinations=[abspath(book.destination) for book in workbooks]
+    allunique(destinations) || throw(ArgumentError("duplicate workbook destination"))
+    for book in workbooks
+        ispath(book.destination) && (!definition.overwrite || !isfile(book.destination)) &&
+            throw(ArgumentError("XLSX destination already exists: $(book.destination); use overwrite=true to replace files"))
+        isdir(dirname(book.destination)) || throw(ArgumentError("XLSX destination directory does not exist"))
+        for sheet in book.sheets
+            _xlsx_sheet_size(size(sheet.cells)...)
+        end
+    end
+    return nothing
 end

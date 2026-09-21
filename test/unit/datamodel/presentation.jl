@@ -22,12 +22,11 @@
     @test keys(tables)==(:R,:L,:C,:G)
     for (quantity,table) in zip((R,L,C,G),tables)
         @test nrow(table)==1
-        @test names(table)==["assembly","value"]
-        @test table.value==observe(observed,quantity)
+        @test names(table)==["frequency";string.(constants.cores)]
+        @test table.frequency==[constants.frequency]
+        @test collect(table[1,2:end])==observe(observed,quantity)
     end
-    diagnostic=DataFrame(observed)
-    @test nrow(diagnostic)==4
-    @test names(diagnostic)==["gridpoint","quantity","index","value","unit"]
+    @test_throws r"tabulate" DataFrame(observed)
 
     design_display=sprint(show, MIME("text/plain"), design)
     @test contains(design_display, design.cable_id)

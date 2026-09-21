@@ -292,13 +292,13 @@ function _addon_semantic_line_page(
 
     for (panel_index, (facet, position)) in enumerate(zip(page.facets, page.positions))
         observation = first(published).observations[facet.request_index]
-        xvalues = collect(Iterators.flatten(source.frequency.values
+        xvalues = collect(Iterators.flatten(source.frequencies[facet.request_index].values
         for source in published))
         yvalues = collect(Iterators.flatten(
             view(source.observations[facet.request_index].values,
                 facet.local_row, facet.local_column, :) for source in published
         ))
-        xobservation = merge(first(published).frequency, (; values = xvalues))
+        xobservation = merge(first(published).frequencies[facet.request_index], (; values = xvalues))
         yobservation = merge(observation, (; values = yvalues))
         panel = if blocked
             merge(cells[position], (; logical_position=(facet.row, facet.column)))
@@ -350,7 +350,7 @@ function _addon_semantic_line_page(
             source_label = source_labels[source_index]
             plots = _addon_line!(
                 axis,
-                source.frequency.values,
+                source.frequencies[facet.request_index].values,
                 curve;
                 dependent_plots,
                 label = source_label,
@@ -369,7 +369,7 @@ function _addon_semantic_line_page(
             append!(groups[group], plots)
             scoped_labels[group] = source_label
             push!(series, (;
-                xdata = source.frequency.values,
+                xdata = source.frequencies[facet.request_index].values,
                 ydata = curve,
                 yerror,
                 sampled_intervals = errorbar_sampling === :staggered,
@@ -474,9 +474,12 @@ function _addon_line_pages(
                     _comparison_labels(series_labels, length(sources)) :
                     Tuple("Result $index" for index in eachindex(sources))
     all(source -> source isa Grammar.ObservedResult,sources) || throw(ArgumentError("line renderers require observations"))
-    published=map(source -> _prepare_line_observations(source;ydata),sources)
-    if any(source -> isempty(source.frequency.values) ||
-            formulation_roles === nothing && length(source.frequency.values) == 1, published)
+    products=map(request -> Grammar.observation_product(sources,request),ydata)
+    published=map(eachindex(sources)) do index
+        _prepare_line_observations(Tuple(records[index] for records in products))
+    end
+    if any(source -> any(f -> isempty(f.values) ||
+            formulation_roles === nothing && length(f.values)==1,source.frequencies),published)
         @warn "Selected frequency vectors have insufficient samples; nothing to plot."
         return LineCableModels.UIPlot[]
     end

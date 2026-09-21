@@ -2,7 +2,7 @@
 $(TYPEDEF)
 
 Publish an [`Engine.CableConstants`](@ref) result as separate R/L/C/G tables,
-each with one row per concentric assembly.
+each with one operating-frequency row and a named column per assembly.
 
 $(TYPEDFIELDS)
 """
@@ -185,8 +185,15 @@ function _quantity_table(product)
             (:frequency=>(quantity=Units.Quantity{:frequency}(),unit=coordinates.frequency_unit))
         metadata!(table,"observation_columns",(; (first_column,columns...)...);style=:note)
     elseif coordinates.kind===:assemblies
-        table=DataFrame(assembly=coordinates.assemblies,value=vec(scalar ? [values] : values))
-        metadata!(table,"observation_columns",(value=(quantity=product.quantity,unit=product.unit),);style=:note)
+        table=DataFrame(frequency=coordinates.frequencies)
+        columns=Pair{Symbol,Any}[:frequency=>(quantity=Units.Quantity{:frequency}(),unit=coordinates.frequency_unit)]
+        for (index,assembly) in enumerate(coordinates.assemblies)
+            name=Symbol(coordinates.labels[assembly])
+            name===:frequency && throw(ArgumentError("assembly name conflicts with the frequency column"))
+            table[!,name]=[scalar ? values : values[index]]
+            push!(columns,name=>(quantity=product.quantity,unit=product.unit,assembly))
+        end
+        metadata!(table,"observation_columns",(;columns...);style=:note)
     elseif coordinates.kind===:samples
         if haskey(coordinates,:rows)
             dims=(length(coordinates.rows),length(coordinates.columns),length(coordinates.samples),length(coordinates.trials))
@@ -225,11 +232,14 @@ Build one table per retained quantity, grouped by the owning physical family.
 Full matrices retain every coefficient in row-major order. Each row represents
 one retained frequency or sample coordinate.
 """
-function tabulate(observed::ObservedResult)
-    families=unique(q.family for q in observed.quantities)
-    return (;(family=>(;(_quantity_name(q)=>_quantity_table(q) for q in observed.quantities if q.family==family)...)
+function _quantity_tables(products)
+    allunique((q.family,_quantity_name(q)) for q in products) || throw(ArgumentError(
+        "multiple retained products share a quantity name; select a complete request with tabulate(observed, request)"))
+    families=unique(q.family for q in products)
+    return (;(family=>(;(_quantity_name(q)=>_quantity_table(q) for q in products if q.family==family)...)
         for family in families)...)
 end
+tabulate(observed::ObservedResult) = _quantity_tables(observed.quantities)
 
 """Build one table from a retained quantity request."""
 tabulate(observed::ObservedResult,request) = _quantity_table(_selected_quantity(observed,request))
@@ -238,18 +248,21 @@ tabulate(observed::AbstractVector{<:ObservedResult}) = map(tabulate,observed)
 function tabulate(definition::TableReportDefinition,observed;reference=nothing)
     function selected(point)
         isempty(definition.requests) && return tabulate(point)
-        return (;(_quantity_name(product)=>_quantity_table(product) for product in select(definition,point))...)
+        return _quantity_tables(select(definition,point))
     end
     return observed isa ObservedResult ? selected(observed) : map(selected,observed)
 end
-function tabulate(::Union{CableConstantsTableDefinition,LineParametersTableDefinition},observed;reference=nothing)
-    return tabulate(observed)
+tabulate(::CableConstantsTableDefinition,observed;reference=nothing) = tabulate(observed)
+function tabulate(definition::LineParametersTableDefinition,observed;reference=nothing)
+    selected(point)=_quantity_tables([Grammar.observation_product(point,request)
+        for request in Grammar.observation_requests(point,definition.requests).retained])
+    return observed isa ObservedResult ? selected(observed) : map(selected,observed)
 end
 function report(definition::CableConstantsTableDefinition,source::Engine.CableConstants;kwargs...)
     return report(definition,ObservedResult(source;clip=definition.clip,kwargs...))
 end
 function report(definition::LineParametersTableDefinition,source::Engine.LineParameters;kwargs...)
-    return report(definition,ObservedResult(source,definition.requests;clip=definition.clip,
+    return report(definition,ObservedResult(source,definition.requests;complete_pairs=true,clip=definition.clip,
         frequency_unit=definition.frequency_unit,length_unit=definition.length_unit,
         quantity_units=definition.quantity_units,kwargs...))
 end
@@ -257,18 +270,10 @@ end
 """
 $(TYPEDSIGNATURES)
 
-Materialize a diagnostic long table of retained values. This explicit conversion
-is separate from the quantity tables used by reports and exports.
+Reject aggregate conversion because an observation contains separate physical
+quantities. Select a quantity table with `ReportBuilder.tabulate(observed, R)`
+or a leaf such as `ReportBuilder.tabulate(observed).Z.R`.
 """
-function DataFrame(observed::ObservedResult)
-    records=NamedTuple[]
-    for product in observed.quantities
-        values=product.values
-        values isa NamedTuple && continue
-        for (index,value) in enumerate(values isa Number || ismissing(values) ? (values,) : values)
-            push!(records,(gridpoint=observed.gridpoint.id,quantity=_quantity_name(product),
-                index,value,unit=Units.label(product.unit)))
-        end
-    end
-    return DataFrame(records)
+function DataFrame(::ObservedResult)
+    throw(ArgumentError("ObservedResult contains separate quantity tables; use ReportBuilder.tabulate(observed, R) or ReportBuilder.tabulate(observed).Z.R"))
 end

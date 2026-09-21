@@ -14,7 +14,7 @@ function _input_record(value::Union{DataModel.AbstractCablePart,DataModel.Abstra
         Materials.AbstractMaterial,Earth.AbstractEarthModel,Earth.AbstractEarthLayer,
         Earth.AbstractEarthMaterial})
     fields = fieldnames(typeof(value))
-    return merge((kind=nameof(typeof(value)),),
+    return merge((kind=nameof(typeof(value)),field_descriptions=Grammar.input_fields(typeof(value))),
         NamedTuple{fields}(map(name -> _input_record(getfield(value,name)), fields)))
 end
 
@@ -23,7 +23,7 @@ _input_record(design::CableDesign) = (cable_id=design.cable_id,
     terminal_order=copy(design.terminal_order))
 
 function _input_record(system::LineCableSystem)
-    return (system_id=system.system_id, line_length=system.line_length,
+    return (system_id=system.system_id, field_descriptions=Grammar.input_fields(typeof(system)), line_length=system.line_length,
         designs=_input_record(system.designs), positions=_input_record(system.positions),
         input_positions=_input_record(system.input_positions), clearances=copy(system.clearances),
         connections=_input_record(system.connections), environment=_input_record(system.environment),
@@ -38,30 +38,42 @@ returned record in result details at completion, once per physical point; later
 observation reads that record without evaluating problem builders.
 """
 function completed_inputs(problem::LineParametersProblem)
-    return NamedTuple{(:system,:temperature,:earth_props,:frequencies),
-        Tuple{NamedTuple,typeof(problem.temperature),NamedTuple,typeof(problem.frequencies)}}((
-        _input_record(problem.system),problem.temperature,_input_record(problem.earth_props),copy(problem.frequencies)))
+    Record=NamedTuple{(:system,:temperature,:earth_props,:frequencies,:field_descriptions),
+        Tuple{NamedTuple,typeof(problem.temperature),NamedTuple,typeof(problem.frequencies),NamedTuple}}
+    return Record((_input_record(problem.system),problem.temperature,_input_record(problem.earth_props),
+        copy(problem.frequencies),(temperature=(name="temperature",unit="°C"),)))
 end
 function completed_inputs(problem::CableConstantsProblem)
-    return NamedTuple{(:design,:temperature,:frequency),
-        Tuple{NamedTuple,typeof(problem.temperature),typeof(problem.frequency)}}((
-        _input_record(problem.design),problem.temperature,problem.frequency))
+    Record=NamedTuple{(:design,:temperature,:frequency,:field_descriptions),
+        Tuple{NamedTuple,typeof(problem.temperature),typeof(problem.frequency),NamedTuple}}
+    return Record((_input_record(problem.design),problem.temperature,problem.frequency,
+        (temperature=(name="temperature",unit="°C"),frequency=(name="frequency",unit="Hz"))))
 end
 
-# Capture human descriptions while the actual selected owner objects exist.
-# Consumers read these strings and never reconstruct a live formulation.
+# Capture owner-scoped meanings and names while the selected objects exist.
+# Common-field omission later compares selections, never punctuation.
 """
 $(TYPEDSIGNATURES)
 
-Capture the actual formulation selections, controls, and owned human descriptions
-when a result completes. The returned values contain no live formulation objects.
+Capture actual formulation selections, controls, and structured description
+fields when a result completes. No live formulation objects are retained.
 """
 function completed_formulation(formulation)
-    return NamedTuple{(:formulations,:selections,:formulation_labels),
+    function fields(quantity)
+        map(collect(pairs(formulation;quantity))) do (scope,selected)
+            owner,route=scope
+            name=isempty(route) ? "" : description(owner,Val(first(route)))
+            length(route)>1 && (name *= "("*join(string.(Base.tail(route)),",")*")")
+            controls=selected isa Pair ? Grammar.detach(last(selected)) : (;)
+            owner_name=(Base.fullname(parentmodule(owner))...,nameof(owner))
+            (scope=(owner_name,route),selection=(identifier=formula_id(selected),controls),
+                name,value=isempty(route) ? description(selected;compact=true) : description(owner,selected;compact=true))
+        end
+    end
+    return NamedTuple{(:formulations,:selections,:formulation_fields),
         Tuple{NamedTuple,NamedTuple,NamedTuple}}((NamedTuple(formulation),
         (Z=formula_id(formulation,Z),Y=formula_id(formulation,Y)),
-        (all=description(formulation,nothing),
-            Z=description(formulation,Z),Y=description(formulation,Y))))
+        (all=fields(nothing),Z=fields(Z),Y=fields(Y))))
 end
 
 # Description contents and runtime geometry do not specialize the result type.
@@ -80,7 +92,7 @@ function Grammar.observation_gridpoint(source::Union{LineParameters,CableConstan
     retained=details(source).data
     inputs=get(retained,:inputs,nothing)
     return Grammar.detach((id=get(retained,:gridpoint,nothing), inputs,
-        formulations=get(retained,:formulations,nothing),formulation_labels=get(retained,:formulation_labels,(;)),
+        formulations=get(retained,:formulations,nothing),formulation_fields=get(retained,:formulation_fields,(;)),
         coordinates=get(retained,:coordinates,source isa CableConstants ? source.cores : nothing),
         uncertainty=get(retained,:uncertainty,nothing),
         transformation=get(retained,:modal,nothing),

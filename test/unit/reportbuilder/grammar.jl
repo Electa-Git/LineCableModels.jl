@@ -40,7 +40,7 @@
     definition=TableReportDefinition((R,);illustration=(point;ydata) -> (illustrated[]=point))
     artifact=report(definition,observed)
     @test illustrated[]===observed
-    @test artifact.tables.R[!,2]==[1000.,1000.]
+    @test artifact.tables.Z.R[!,2]==[1000.,1000.]
     @test report(TableReportDefinition(),source).observed isa ObservedResult
 end
 
@@ -98,7 +98,7 @@ end
     constants=CableConstants(1.,2.,3.)
     artifact=report(RB.CableConstantsTableDefinition(),constants)
     @test artifact.observed isa ObservedResult
-    @test artifact.tables.constants.R.value==[1000.]
+    @test artifact.tables.constants.R[!,2]==[1000.]
     @test !Tables.istable(typeof(artifact.observed))
     @test parentmodule(which(DataFrame,(ObservedResult,)))===RB
     mc=TestFixtures.cable_monte_carlo_result()
@@ -110,5 +110,33 @@ end
     for name in (:TableReportDefinition,:CableConstantsTableDefinition,:LineParametersTableDefinition,
             :BenchmarkTableDefinition,:MonteCarloTableDefinition,:XLSXReportDefinition)
         @test parentmodule(getproperty(RB,name))===RB
+    end
+end
+
+@testitem "ReportBuilder / XLSX destinations are preflighted before writes" tags=[:integration] begin
+    using XLSX
+    RB=LineCableModels.ReportBuilder
+    observed=ObservedResult(LineParameters(fill(1.0+2im,1,1,2),fill(3.0+4im,1,1,2),[1.,2.]))
+    mktempdir() do directory
+        definition=XLSXReportDefinition(file_name=joinpath(directory,"safe.xlsx"))
+        books=RB.encode(definition,observed,RB.tabulate(observed),nothing)
+        open(last(books).destination,"w") do io
+            write(io,"retained destination")
+        end
+        @test_throws r"already exists" RB.write(definition,books)
+        @test !ispath(first(books).destination)
+        @test read(last(books).destination,String)=="retained destination"
+        @test_throws r"already exists" report(definition,observed)
+        @test length(readdir(directory))==1
+        overwrite=XLSXReportDefinition(file_name=definition.file_name,overwrite=true)
+        written=report(overwrite,observed).output
+        @test length(written)==4
+        @test XLSX.readxlsx(first(written))["values"]["B2"]==1000.
+        @test length(export_data(:xlsx,observed;file_name=definition.file_name,overwrite=true))==4
+        bad=RB.XLSXWorkbook(joinpath(directory,"oversized.xlsx"),[RB.XLSXSheet("values",Matrix{Any}(undef,0,16385))])
+        @test_throws DimensionMismatch RB.write(definition,[RB.XLSXWorkbook(joinpath(directory,"first.xlsx"),first(books).sheets),bad])
+        @test !ispath(joinpath(directory,"first.xlsx"))
+        @test !ispath(bad.destination)
+        @test_throws ArgumentError RB.write(overwrite,[first(books),first(books)])
     end
 end

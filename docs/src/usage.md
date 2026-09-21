@@ -199,25 +199,27 @@ it does not bound the mean error or the joint distribution.
 
 ## Tables and reports
 
-An observation publication is a Tables.jl source. Coordinates identify rows
-and each requested quantity occupies one column:
+An `ObservedResult` retains detached quantities for one gridpoint. Each quantity
+has its own table: line matrices have one frequency row per sample and named
+columns for every ordered coefficient. CableConstants tables have one operating-
+frequency row and named assembly columns. `DataFrame(observed)` rejects aggregate
+conversion and directs the caller to a quantity leaf.
 
 ```julia
-using DataFrames
+using Statistics
+using LineCableModels.ReportBuilder: tabulate
 
-table = DataFrame(observables(
-    parameters,
-    (@observe(R[:, :, :]), @observe(L[:, :, :])),
-))
-summary = DataFrame(observables(
-    sampled,
-    ((statistics, R, 1), (statistics, L, 1),
-     (statistics, G, 1), (statistics, C, 1)),
-))
+observed = ObservedResult(parameters, (R, L, G, C))
+resistance = tabulate(observed, R)
+
+point = ObservedResult(sampled, 1, ((statistics, R, mean), (statistics, R, std)))
+mean_resistance = tabulate(point, (statistics, R, mean))
+std_resistance = tabulate(point, (statistics, R, std))
 ```
 
-[`report`](@ref) creates an in-memory table or a written report from explicit
-requests. Loading XLSX activates workbook output:
+[`report`](@ref) creates separate quantity tables or written reports from explicit
+requests. Loading XLSX activates one workbook per gridpoint and quantity. All
+destinations are checked before writing; replacing files requires `overwrite=true`:
 
 ```julia
 using XLSX

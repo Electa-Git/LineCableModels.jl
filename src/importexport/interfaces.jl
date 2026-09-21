@@ -28,10 +28,11 @@ function export_data(
         ::Val{:xlsx},
         line_parameters::Union{LineParameters,Grammar.ObservedResult,AbstractVector{<:Grammar.ObservedResult}};
         file_name::Union{String, Nothing} = nothing,
-        cable_system::Union{LineCableSystem, Nothing} = nothing
+        cable_system::Union{LineCableSystem, Nothing} = nothing,
+        overwrite::Bool = false
 )
     artifact = ReportBuilder.report(
-        ReportBuilder.XLSXReportDefinition(; file_name, cable_system),
+        ReportBuilder.XLSXReportDefinition(; file_name, cable_system, overwrite),
         line_parameters
     )
     return artifact.output

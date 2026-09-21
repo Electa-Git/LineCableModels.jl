@@ -58,7 +58,7 @@ Base.show(io::IO, ::MIME"text/plain", definition::MonteCarloTableDefinition) =
 Base.summary(io::IO, ::XLSXReportDefinition) = print(io, "XLSX report definition")
 function Base.show(io::IO, definition::XLSXReportDefinition)
     destination = definition.file_name === nothing ? "default path" : repr(definition.file_name)
-    print(io, "XLSXReportDefinition(", destination, "; clip=", definition.clip, ")")
+    print(io, "XLSXReportDefinition(", destination, "; clip=", definition.clip, ", overwrite=", definition.overwrite, ")")
 end
 Base.show(io::IO, ::MIME"text/plain", definition::XLSXReportDefinition) =
     show(io, definition)

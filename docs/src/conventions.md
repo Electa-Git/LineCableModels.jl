@@ -182,6 +182,17 @@ and displays R. `plot(observed; ydata=(R,))` selects retained R only. Different
 representations require a new explicit construction. No consumer derives an
 absent quantity, repeats clipping, or acquires a raw source.
 
+Re-observation selects retained products and preserves their recorded units by
+default. Explicit unit changes convert from those recorded units; they never
+reapply native-unit scaling or clipping. Comparison and timing associations
+survive selection. The atomic constructor validates coordinates, dimensions,
+units, masks, and completed-comparison records, including during archive loading.
+
+The shared `Grammar.observation_product(points, request)` operation aligns matrix
+coefficients by original indices and converts compatible units for overlays.
+Each trace keeps its own frequency samples; no interpolation occurs. Z and Y
+products may retain different frequency selections.
+
 UQ acquisition belongs to the UQ owner: `ObservedResult(uq, point, requests)` joins
 that point's primary values and requested statistics, samples, or histograms.
 Product requests omit the point index. Mean/std estimates and precomputed
@@ -198,10 +209,13 @@ plot(observed; ydata=(R,))
 Every quantity has its own table. A full n×n matrix on m frequencies has m rows and
 1+n² columns, in row-major coefficient order; both off-diagonals remain present.
 Sparse and diagonal requests preserve original indices and matrix extent.
-`DataFrame(observed)` is a diagnostic long view. `ObservedResult` is not a
-Tables.jl table. XLSX writes one numeric values/std workbook per point and quantity;
+`DataFrame(observed)` rejects aggregate conversion and directs the caller to a
+quantity leaf such as `ReportBuilder.tabulate(observed, R)`. `ObservedResult` is
+not a Tables.jl table. CableConstants quantity tables have one operating-frequency
+row and a named column per assembly. XLSX writes one numeric values/std workbook per point and quantity;
 native observation persistence preserves precision and uncertainty dependencies
-across the complete candidate/reference archive.
+across the complete candidate/reference archive. XLSX preflights all destinations
+and worksheet sizes before writing; existing files require `overwrite=true`.
 
 Explicit benchmark comparison precedes construction:
 
@@ -225,6 +239,10 @@ contains the organized tables. Raw conveniences construct and delegate once.
 physical point, relevant selected formulas and controls, quantity/statistical
 meaning, units, uncertainty interpretation, and coordinates. Exact numerical and
 dependency agreement verifies that eligibility. It does not discover equivalence.
+Conflicting numerical values under the same semantics and uncertainty dependencies
+raise a consistency diagnostic. Captured physical fields carry owner-defined
+names and units; common formulation fields are compared structurally before
+labels are formatted.
 All group identities, original observations, tables, and files remain available.
 
 ## Numerical reporting and current behavior

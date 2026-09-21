@@ -28,6 +28,7 @@ using RequiredInterfaces: @required
 import ..LineCableModels: build, validate
 import ..LineCableModels: parameterize
 using ..Materials: AbstractMaterial
+import ..Grammar
 import ..TextDisplay
 
 """

@@ -489,7 +489,7 @@ function compare(reference,candidate,requests::AbstractVector;
             candidate_id===nothing && throw(ArgumentError("the candidate needs an explicit retained gridpoint identity"))
             absolute=observe(error,absolute_error)
             relative=observe(error,relative_error)
-            information=merge(details(error).data,(requested_atol=get(kwargs,:atol,nothing),unsupported=get(kwargs,:unsupported,(;))))
+            information=merge(details(error).data,(basis=basis(right),requested_atol=get(kwargs,:atol,nothing),unsupported=get(kwargs,:unsupported,(;))))
             identity=request_identity(request)
             statistic=identity isa Tuple && first(identity)!==Z && first(identity)!==Y ?
                 (last(identity) isa Base.Fix2 ? Symbol("quantile_",last(identity).x) : nameof(last(identity))) : :value

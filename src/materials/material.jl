@@ -164,3 +164,9 @@ function validate(material::Material)
         ))
     return material
 end
+
+Grammar.input_fields(::Type{<:Material}) = (rho=(name="electrical resistivity",unit="Ω·m"),
+    eps_r=(name="relative permittivity",unit=""),mu_r=(name="relative permeability",unit=""),
+    T0=(name="reference temperature",unit="°C"),alpha=(name="temperature coefficient",unit="1/°C"),
+    rho_thermal=(name="thermal resistivity",unit="K·m/W"),theta_max=(name="maximum temperature",unit="°C"),
+    tan_delta=(name="loss tangent",unit=""),sigma_solar=(name="solar absorption coefficient",unit=""))

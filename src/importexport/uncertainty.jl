@@ -92,7 +92,7 @@ function serialize_value(value::LineParameters)
         "shunt_model"=>serialize_value(get(retained, :shunt_model, nothing),Val(:scientific)),
         "comparison_unsupported"=>serialize_value(get(retained, :comparison_unsupported, (;))),
         "gridpoint_description"=>serialize_value((; (key=>retained[key] for key in
-            (:inputs,:gridpoint,:selections,:formulation_labels,:uncertainty,:modal) if haskey(retained,key))...),Val(:scientific)))
+            (:inputs,:gridpoint,:selections,:formulation_fields,:uncertainty,:modal) if haskey(retained,key))...),Val(:scientific)))
 end
 function deserialize_extension(::Val{:LineParameters}, record)
     record["domain"] in ("PhaseDomain","ModalDomain") ||

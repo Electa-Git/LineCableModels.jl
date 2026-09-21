@@ -96,12 +96,31 @@ end
     @test observe(product,statistics,R,mean)≈mean.(summaries.R).*1000
     @test observe(product,statistics,R,std)≈std.(summaries.R).*1000
     @test product.gridpoint.sampling.mean_standard_error.R≈std.(summaries.R)./sqrt(5)
+    sampled=ObservedResult(mc,1,((samples,R),);length_unit=:base)
+    selected_samples=ObservedResult(sampled,((samples,R,2,1,[3,1],[5,2]),))
+    sample_product=only(selected_samples.quantities)
+    @test sample_product.values==trials.R[2,1,[3,1],[5,2]]
+    @test sample_product.coordinates.samples==[3,1]
+    @test sample_product.coordinates.trials==[5,2]
+    @test sample_product.coordinates.frequencies==[3.,1.]
+    all_trials=ObservedResult(mc,1,((samples,R,2,1,[3,1]),);length_unit=:base)
+    @test only(all_trials.quantities).values==trials.R[2,1,[3,1],:]
+    retained_trials=ObservedResult(sampled,((samples,R,2,1,[3,1]),))
+    @test only(retained_trials.quantities).values==only(all_trials.quantities).values
+    @test size(tabulate(selected_samples,only(selected_samples.quantities).request),1)==4
     histogram=ObservedResult(mc,1,((histograms,R,1,2,3,3),))
     @test length(histogram.quantities)==1
     distribution=only(histogram.quantities)
     @test sum(distribution.values.count)==5
     @test sum(distribution.values.probability)≈1
     @test distribution.distribution.qq!==nothing
+    converted=only(ObservedResult(histogram;length_unit=:base).quantities)
+    @test converted.values.lower≈distribution.values.lower./1000
+    @test converted.values.density≈distribution.values.density.*1000
+    @test converted.values.probability==distribution.values.probability
+    @test converted.values.count==distribution.values.count
+    @test converted.distribution.qq.sample≈distribution.distribution.qq.sample./1000
+    @test converted.distribution.model_cdf.y==distribution.distribution.model_cdf.y
     @test size(tabulate(histogram,distribution.request),1)==3
     trials.R .= -1
     @test all(>(0),distribution.distribution.qq.sample)

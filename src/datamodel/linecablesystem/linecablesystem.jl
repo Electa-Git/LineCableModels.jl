@@ -451,3 +451,7 @@ function build(
     _record_clearance_adjustment(identifier, displacement)
     return system
 end
+
+Grammar.input_fields(::Type{<:LineCableSystem}) = (line_length=(name="line length",unit="m"),
+    positions=(name="position",unit="m"),input_positions=(name="input position",unit="m"),
+    clearances=(name="clearance",unit="m"))

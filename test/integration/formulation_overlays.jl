@@ -7,7 +7,8 @@
     z=reshape(complex.(collect(1.:12.),collect(21.:32.)),2,2,3)
     y=1e-6im .* z
     source_id=gridpoint_id().source_id
-    choices=[Formulation(earth_impedance=:saad1996),Formulation(earth_impedance=:xue2018)]
+    choices=[Formulation(earth_impedance=:saad1996,earth_admittance=:unified),
+        Formulation(earth_impedance=:xue2018,earth_admittance=:xue2018)]
     points=[retain_gridpoint(LineParameters(k*z,k*y,f),gridpoint_id(;source_id,formulation_index=index);
         fields=merge(completed_formulation(choices[index]),(inputs=(radius=.01,resistivity=100.),coordinates=["a","b"])))
         for (index,k) in enumerate((2,3))]

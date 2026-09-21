@@ -540,7 +540,7 @@ function _solve!(
         buffers.G,
         problem.frequency,
         ComputationDetails(NamedTuple{
-            (:formulations,:selections,:formulation_labels,:shunt_model,:inputs,:gridpoint),
+            (:formulations,:selections,:formulation_fields,:shunt_model,:inputs,:gridpoint),
             NTuple{6,NamedTuple}}((values(completed_formulation(formulation))...,
             workspace.cable.shunt_details,physical_inputs,gridpoint)))
     )

@@ -49,7 +49,10 @@ end
     @test !ismissing(only(filter(row -> row.quantity === :Y,artifact.tables.terms).relative_rms_percent))
     # Reading recorded errors never reruns comparison. Explicit fresh comparison
     # operates on the raw operands and leaves the earlier observation unchanged.
-    original=first(artifact.observed.errors)
+    ineligible=first(artifact.observed.errors)
+    malformed=merge(ineligible,(relative=fill(1.,1,1),))
+    @test_throws ArgumentError ObservedResult(artifact.observed.gridpoint,artifact.observed.quantities,[malformed],artifact.observed.timings)
+    original=only(filter(row -> row.quantity==quantity(Y),artifact.observed.errors))
     recorded=merge(original,(relative=fill(1.,1,1),))
     retained=ObservedResult(artifact.observed.gridpoint,artifact.observed.quantities,[recorded],artifact.observed.timings)
     @test only(report(BenchmarkTableDefinition(),retained).tables.terms.relative_rms_percent)==100

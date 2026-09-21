@@ -44,7 +44,7 @@
 end
 
 @testitem "ObservedResult / declared inputs survive completion without tracing" tags=[:unit] setup=[TestFixtures] begin
-    using LineCableModels.Grammar: observation_gridpoint
+    using LineCableModels.Grammar: observation_gridpoint,observation_labels
     problem=TestFixtures.line_parameters_problem()
     scalar=compute(problem)
     retained=observation_gridpoint(scalar)
@@ -69,6 +69,22 @@ end
     descriptions[1].inputs.system.connection_order[1]=-100
     @test results[1].details.data.inputs.system.connection_order[1] != -100
     @test observation_gridpoint(results[2]).inputs.earth_props.layers[2].rho==200.
+    labels=observation_labels(observables(results);request=R)
+    @test occursin("electrical resistivity=100.0 Ω·m",labels[1])
+    @test occursin("electrical resistivity=200.0 Ω·m",labels[2])
+    @test calls[]==2
+    radius_calls=Ref(0)
+    radius_space=Gridspace{CableConstantsProblem}(scale -> begin
+        radius_calls[]+=1
+        CableConstantsProblem(TestFixtures.coaxial_design(;scale))
+    end,(Grid([1.,2.]),))
+    radius_results=compute(ParametricProblem(radius_space),Combinatorial(CableConstantsFormulation()))
+    radius_points=observables(radius_results)
+    radius_labels=observation_labels(radius_points;request=R)
+    @test occursin("radius=0.005 m",radius_labels[1])
+    @test occursin("radius=0.01 m",radius_labels[2])
+    @test radius_calls[]==2
+    @test getproperty.(getproperty.(getproperty.(radius_points,:gridpoint),:id),:problem_index)==[1,2]
     constants=compute(CableConstantsProblem(problem.system.designs[1]))
     @test observation_gridpoint(constants).inputs.design.origin.items[1].item.items[1].primitive.r==0.005
 end

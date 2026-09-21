@@ -40,14 +40,16 @@ include("formulas.jl")
 include("observables.jl")
 include("uncertainty.jl")
 include("gridpoint.jl")
+include("observed_validation.jl")
 include("observedresult.jl")
+include("retained_products.jl")
 
 public check_core_result
 public FormulaDefinition, FormulaMethod
 public validate_observables, unit_targets, detach
 public observation_request, observation_indices, materialize_observation
 public observation_resolution
-public observation_gridpoint, observation_requests, observation_quantity
+public input_fields, observation_gridpoint, observation_requests, observation_quantity
 export ObservedResult
 public observation_groups, observation_labels, observation_product, gridpoint_id
 public request_identity, request_quantity, request_indices

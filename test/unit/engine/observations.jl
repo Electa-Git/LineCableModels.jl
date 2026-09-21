@@ -103,14 +103,14 @@ end
     @test !Tables.istable(typeof(observed))
     @test !hasproperty(observed,:columns)
     @test length(observed.quantities)==4
-    @test tabulate(observed,R).value==constants.R
-    @test tabulate(observed,L).value==constants.L
-    @test tabulate(observed,R).assembly==[1,2]
+    @test collect(tabulate(observed,R)[1,2:end])==constants.R
+    @test collect(tabulate(observed,L)[1,2:end])==constants.L
+    @test names(tabulate(observed,R))==["frequency","a","b"]
     table=tabulate(observed,R)
-    table.value[1]=99
+    table[1,:a]=99
     @test constants.R==[1e-4,2e-4]
     @test observe(observed,R)==constants.R
-    @test size(DataFrame(observed),1)==8
+    @test_throws r"tabulate" DataFrame(observed)
     @test sprint(show,MIME"text/plain"(),observed)==sprint(show,observed)
     @test occursin("4 quantities",sprint(show,observed))
     @test_throws MethodError iterate(observed)

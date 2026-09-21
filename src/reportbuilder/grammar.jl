@@ -66,7 +66,8 @@ _observed_points(observed::AbstractVector{<:ObservedResult}) = observed
 
 function select(definition::TableReportDefinition,observed::ObservedResult)
     isempty(definition.requests) && return observed.quantities
-    return [_selected_quantity(observed,request) for request in definition.requests]
+    return [_selected_quantity(observed,request)
+        for request in Grammar.observation_requests(observed,definition.requests).retained]
 end
 
 _selected_quantity(observed::ObservedResult,request) = Grammar.observation_product(observed,request)
