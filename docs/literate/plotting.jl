@@ -132,19 +132,22 @@ using Statistics: mean
 # Many exactly coincident methods cannot all remain distinguishable at finite
 # screen resolution; use legend visibility to inspect them separately.
 #
-# Formulation legends and formula-by-band tables retain one candidate per unique
-# quantity-relevant selection: impedance choices on Z/R/L/X pages, admittance
-# choices on Y/G/C/B pages. Different Z selections paired with the same Y selection
-# therefore share one Y candidate. Every relevant composite route and its controls
-# participates in this comparison; equal curves or equal descriptions alone never
-# merge different selections. Conflicting observations under the same selection
-# raise an error instead of silently discarding data. Saved results remain intact.
-# Names come from the same owner-dispatched `description` methods as report tables:
-# `Reference · FEM`, `Reference · PSCAD`, `Reference · Monte Carlo`, and candidates
+# Within one identified physical point, observation-owned groups may share a trace
+# for equivalent quantity-relevant selections: impedance choices on Z/R/L/X pages,
+# admittance choices on Y/G/C/B pages. Every relevant composite route, control,
+# coordinate and uncertainty meaning participates; equal curves or descriptions
+# alone never merge cases. Different physical points remain separate. Conflicting
+# observations under the same selection raise an error. Saved results remain intact.
+# Default labels show only relevant differences across candidates and reference,
+# omitting common physical inputs and individual controls. Names are captured from
+# owner-dispatched `description(...; compact=true)` methods used by report tables:
+# `FEM (reference)`, `PSCAD (reference)`, `Monte Carlo (reference)`, and candidates
 # such as `LEP` or `earth Z=Saad`, without candidate numbering.
 # `formulations=[3,1]` selects recorded original formulation identities, preserving
 # order and colors. Explicit `series_labels` and styles follow the retained source;
-# they do not create new formula identities. Shared coaxial identity is omitted.
+# they do not create new formula identities. When nothing varies, labels use the
+# applicable compact owner description. Automatic candidates are chromatic;
+# the separate reference is black and does not change candidate colors.
 # Full scientific explanations and common settings remain in `formula_details`.
 #
 # Top/bottom legends fit a measured row-major grid and wrap long labels without
@@ -555,8 +558,10 @@ modal_inductance.figure #hide
 # without discarding their uncertainty dependencies. Phase unavailability and
 # linked X/L or B/C thresholds are observation concerns. Plotting applies no
 # further clipping and never applies an operand floor to retained RMS errors.
-# `clip=false` and `atol` are raw acquisition options; use explicit observation
-# construction to re-express already-retained values.
+# `clip=false` and `atol` are raw acquisition options. Compatible display units
+# also work directly on retained inputs: `plot(observed; length_unit=:base)`.
+# Plotting delegates re-expression to ObservedResult; it preserves recorded
+# clipping decisions and does not rerun comparison or change saved RMS units.
 
 # Legend actions hide or restore the nominal line, its markers, and its x/y
 # error bars together. Figure legends act across the figure; panel legends act

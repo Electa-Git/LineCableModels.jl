@@ -70,6 +70,11 @@ function description(::Type{<:Formula{:unified}}; compact::Bool = false)
     "Unified circumferential earth potential with full current closure"
 end
 
+description(::Type{<:Formula{:unified}},::Val{:Γ},value::Number;compact::Bool=false) =
+    "Γ="*string(value)*" m⁻¹"
+description(::Type{<:Formula{:unified}},::Val{:Γ},value::AbstractVector;compact::Bool=false) =
+    "Γ=["*join(value,", ")*"] m⁻¹ (frequency order)"
+
 function earth_bindings(selected::Formula{:unified},
         physical::AbstractVector{<:EarthPair}, homogeneous, indices)
     binding = invoke(earth_bindings,

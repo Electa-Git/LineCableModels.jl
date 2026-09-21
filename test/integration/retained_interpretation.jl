@@ -144,3 +144,97 @@ end
         @test length(p.axes)==1
     end
 end
+
+@testitem "Makie / public conveniences re-express retained display units" tags=[:visual] begin
+    using CairoMakie, Measurements
+    using LineCableModels.Engine: retain_gridpoint,completed_formulation,compare
+    using LineCableModels.Grammar: gridpoint_id,observation_product
+    using LineCableModels.ReportBuilder: ReportArtifact,BenchmarkTableDefinition
+    U=LineCableModels.Units
+    options=(backend=:cairo,display_plot=false,controls=false,open_export=false)
+    source_id=gridpoint_id().source_id
+    z=reshape(complex.(1.:12.,21.:32.),2,2,3)
+    f=[10.,100.,1000.]
+    point(index;values=z,frequency=f)=retain_gridpoint(LineParameters(copy(values),values.*1e-6,frequency),
+        gridpoint_id(;source_id,problem_index=index,formulation_index=index);fields=completed_formulation(Formulation()))
+    a,b=point(1),point(2;values=2z)
+    reference=point(3;values=.5z)
+    request=@observe R[:,:,:]
+    curves(p)=filter(item -> item isa Makie.Lines,first(p.axes).scene.plots)
+    data(p)=[copy(c[1][]) for c in curves(p)]
+    raw=LineCableModels.plot(a;ydata=(request,),length_unit=:base,options...)
+    retained=ObservedResult(a,(request,);complete_pairs=true,length_unit=:base)
+    explicit=LineCableModels.plot(retained;ydata=(request,),options...)
+    @test data(raw)==data(explicit)
+    @test keys(raw.addon_state.panel_data)==keys(explicit.addon_state.panel_data)
+    for inputs in ([a,b],(a,b),ParametricResult(nothing,[a,b],(problems=[:unused],formulations=[:a,:b]),ComputationDetails()))
+        p=LineCableModels.plot(inputs;ydata=(request,),length_unit=:base,reference,options...)
+        @test last.(curves(p)[1][1][])≈real.(z[1,1,:])
+        @test last.(curves(p)[2][1][])≈2real.(z[1,1,:])
+        @test last.(curves(p)[3][1][])≈.5real.(z[1,1,:])
+        @test all(o -> observation_product(o,request).unit==U.units(:base,:ohm;per=(:base,:meter)),p.addon_state.observed)
+    end
+    positional=LineCableModels.plot(a,b,(request,);length_unit=:base,options...)
+    @test length(curves(positional))==2
+    native=Makie.plot(a;ydata=(request,),length_unit=:base,options...)
+    @test data(native)==data(raw)
+    named=LineCableModels.plot((first_case=a,second_case=b);ydata=(request,),reference,length_unit=:base,options...)
+    @test Set(values(named.addon_state.labels))==Set(("first_case","second_case",description(Formulation().methods.earth_impedance;compact=true)*" (reference)"))
+    rich_labels=(rich("First",font=:bold),rich("Second",font=:italic))
+    rich_page=LineCableModels.plot((a,b);ydata=(request,),reference,series_labels=rich_labels,options...)
+    @test rich_page.addon_state.labels[:result_1]===rich_labels[1]
+    @test endswith(rich_page.addon_state.labels[:result_3]," (reference)")
+    kilo=ObservedResult(a;length_unit=:kilo)
+    original=deepcopy(kilo)
+    for (units,scale) in ((nothing,1000.),(:kilo,1000.),(:base,1.))
+        p=units===nothing ? LineCableModels.plot(kilo;ydata=(R,),options...) :
+            LineCableModels.plot(kilo;ydata=(R,),length_unit=units,options...)
+        @test last.(only(curves(p))[1][])≈scale.*real.(z[1,1,:])
+        repeated=LineCableModels.plot(first(p.addon_state.observed);ydata=(R,),length_unit=:base,options...)
+        @test data(repeated)==data(raw)
+    end
+    single=ObservedResult(kilo,(R,);length_unit=:base)
+    @test length(single.quantities)==1
+    @test data(LineCableModels.plot(single;ydata=(R,),length_unit=:base,options...))==data(raw)
+    freq=LineCableModels.plot(single;ydata=(R,),freq_unit=:kilo,options...)
+    @test first.(only(curves(freq))[1][])≈f./1000
+    @test first.(only(curves(LineCableModels.plot(first(freq.addon_state.observed);frequency_unit=:base,options...)))[1][])≈f
+    @test data(LineCableModels.plot(kilo;ydata=(R,),units=(U.units(:base,:ohm;per=(:base,:meter)),),options...))==data(raw)
+    @test last.(only(curves(LineCableModels.plot(single;ydata=(R,),quantity_units=:milli,options...)))[1][])≈1000real.(z[1,1,:])
+    mixed=LineCableModels.plot((kilo,b);ydata=(R,),length_unit=:base,options...)
+    @test last.(curves(mixed)[1][1][])≈real.(z[1,1,:])
+    mixed_omitted=LineCableModels.plot((kilo,b);ydata=(R,),options...)
+    @test last.(curves(mixed_omitted)[1][1][])≈1000real.(z[1,1,:])
+
+    comparisons=compare(reference,a,[R];bands=(:all,))
+    observed=ObservedResult(a;comparisons,length_unit=:kilo,timings=(seconds=.1,))
+    ref=ObservedResult(reference;length_unit=:kilo)
+    artifact=report(BenchmarkTableDefinition(),[observed];reference=ref)
+    saved_tables=deepcopy(artifact.tables)
+    # Reopening these raw sources after detachment would return invalid data.
+    Z(a).=NaN;Z(reference).=NaN
+    for candidates in (observed,[observed])
+        report_handle=ReportArtifact(candidates,ref,artifact.tables,nothing,nothing)
+        p=LineCableModels.plot(report_handle;ydata=(R,),length_unit=:base,options...)
+        @test last.(curves(p)[1][1][])≈real.(z[1,1,:])
+        @test last.(curves(p)[2][1][])≈.5real.(z[1,1,:])
+        @test first(p.addon_state.observed).errors==observed.errors
+        @test first(p.addon_state.observed).timings==observed.timings
+        axisscale!(p,:y,:log10);resetview!(p)
+        mktempdir() do directory
+            @test isfile(export_svg(p;path=joinpath(directory,"retained.svg"),open_file=false))
+        end
+        @test length(curves(LineCableModels.plot(report_handle;ydata=(R,),reference=nothing,length_unit=:base,options...)))==1
+        @test length(curves(LineCableModels.plot(report_handle;ydata=(R,),reference=single,length_unit=:base,options...)))==2
+    end
+    @test isequal(artifact.tables,saved_tables)
+    @test isequal(kilo.quantities,original.quantities)
+    @test kilo.gridpoint==original.gridpoint
+    for kwargs in ((clip=false,),(atol=0.,),(frequencies=[1.,2.,3.],),
+            (freq_unit=:kilo,frequency_unit=:base,), (units=(U.units(:base,:farad),),))
+        @test_throws ArgumentError LineCableModels.plot(single;ydata=(R,),kwargs...,options...)
+    end
+    @test_throws ArgumentError LineCableModels.plot(single;ydata=(X,),options...)
+    @test_throws ArgumentError LineCableModels.plot(single,(R,);ydata=(R,),options...)
+    @test_throws ArgumentError LineCableModels.plot(b;ydata=(R,),freq_unit=:base,frequency_unit=:kilo,options...)
+end

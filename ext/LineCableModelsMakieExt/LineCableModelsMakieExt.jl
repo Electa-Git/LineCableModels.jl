@@ -88,10 +88,15 @@ function _plot_requests(source,selection)
 end
 
 # Split only public keyword ownership. Scientific normalization stays in Grammar.
-function _plot_observation_options(kwargs)
+function _plot_observation_options(kwargs; retained=false)
     haskey(kwargs,:complete_pairs) && throw(ArgumentError("complete_pairs is owned by observation construction"))
     haskey(kwargs,:freq_unit) && haskey(kwargs,:frequency_unit) && throw(ArgumentError("use frequency_unit or freq_unit, not both"))
     keys=(:clip,:atol,:units,:length_unit,:quantity_units,:frequency_unit,:frequencies,:freq_unit)
+    if retained
+        for key in (:clip,:atol,:frequencies)
+            haskey(kwargs,key) && throw(ArgumentError("$key requires primary observation construction; retained plotting only selects or re-expresses recorded values"))
+        end
+    end
     acquisition=(; (key===:freq_unit ? :frequency_unit=>value : key=>value for (key,value) in kwargs if key in keys)...)
     presentation=(; (key=>value for (key,value) in kwargs if key ∉ keys)...)
     return acquisition,presentation
@@ -127,9 +132,7 @@ function plot(observed::AbstractVector{<:Grammar.ObservedResult},selection=nothi
         backend=nothing,display_plot::Bool=true,controls::Bool=true,
         export_theme::Symbol=:default,open_export::Bool=true,kwargs...)
     isempty(observed) && throw(ArgumentError("plot requires at least one observed point"))
-    for key in (:clip,:atol,:units,:freq_unit,:frequency_unit,:length_unit,:quantity_units,:frequencies,:complete_pairs)
-        haskey(kwargs,key) && throw(ArgumentError("$key belongs to observation construction; this plot selects retained products"))
-    end
+    display_units,kwargs=_plot_observation_options(kwargs;retained=true)
     for key in (:blocks,:series_defaults,:series_count,:series_indices,:formulation_roles,
             :dependent_plots,:marker_coordinates,:signed_ylog,:anchor,:legend_anchor)
         haskey(kwargs,key) && throw(ArgumentError("unsupported plotting keyword $key"))
@@ -149,16 +152,18 @@ function plot(observed::AbstractVector{<:Grammar.ObservedResult},selection=nothi
     if reference!==nothing && !(reference isa Grammar.ObservedResult)
         reference isa _PrimarySource || throw(ArgumentError("construct an atomic ObservedResult for a reference collection"))
         reference=Grammar.ObservedResult(reference,requests;complete_pairs=true)
-        return plot(observed; ydata=requests,reference,series_labels,series_attributes,problem,formulations,band,
-            errorbar_sampling,title,title_prefix,figure_title,title_attributes,panel_titles,fig_size,layout,
-            xscale,yscale,legend_position,legend_title,legend_attributes,legend_overflow,panel_legends,
-            backend,display_plot,controls,export_theme,open_export,kwargs...)
+    end
+    if !isempty(display_units)
+        candidates=[Grammar.ObservedResult(point,requests;display_units...) for point in candidates]
+        reference===nothing || (reference=Grammar.ObservedResult(reference,requests;display_units...))
     end
     sources=reference===nothing ? Tuple(candidates) : (Tuple(candidates)...,reference)
     count=length(observed)+(reference===nothing ? 0 : 1)
     displayed=reference===nothing ? selected : [selected;count]
     explicit_labels=series_labels!==nothing
-    labels=explicit_labels ? Tuple(_comparison_labels(series_labels,count)[i] for i in displayed) : nothing
+    candidate_labels=explicit_labels && reference!==nothing && length(series_labels)==length(observed)
+    labels=explicit_labels ? Tuple(_comparison_labels(series_labels,candidate_labels ? count-1 : count)[i]
+        for i in (candidate_labels ? selected : displayed)) : nothing
     attributes=Tuple(_series_attributes(series_attributes,count)[i] for i in displayed)
     roles=reference===nothing ? fill(:candidate,length(candidates)) : [fill(:candidate,length(candidates));:reference]
     slots=reference===nothing ? selected : [selected;0]
@@ -182,8 +187,9 @@ function plot(observed::AbstractVector{<:Grammar.ObservedResult},selection=nothi
     # Resolve descriptions and scientific groups once per request, before pages.
     groups=map(request -> Grammar.observation_groups(candidates;request),requests)
     request_labels=map(requests) do request
-        result=explicit_labels ? collect(labels) : Grammar.observation_labels(sources;request)
-        !explicit_labels && reference!==nothing && (result[end]="Reference · "*result[end])
+        result=explicit_labels ? Any[labels...] : Grammar.observation_labels(sources;request)
+        candidate_labels && push!(result,last(Grammar.observation_labels(sources;request)))
+        (!explicit_labels || candidate_labels) && reference!==nothing && (result[end]*=" (reference)")
         result
     end
     legend_overflow in (:ellipsis,:show_all) || throw(ArgumentError("legend_overflow must be :ellipsis or :show_all"))
@@ -240,7 +246,10 @@ function plot(sources::Union{AbstractVector{<:_PlotSource},Tuple{Vararg{_PlotSou
     acquisition,presentation=_plot_observation_options(kwargs)
     requests=_plot_requests(first(sources),_plot_ydata(selection,ydata,()))
     normalized=Grammar.observation_requests(first(sources),requests;complete_pairs=true)
-    observed=Grammar.ObservedResult[source isa Grammar.ObservedResult ? source :
+    retained_units=(; (key=>value for (key,value) in pairs(acquisition) if key in
+        (:units,:length_unit,:quantity_units,:frequency_unit))...)
+    observed=Grammar.ObservedResult[source isa Grammar.ObservedResult ?
+        (isempty(retained_units) ? source : Grammar.ObservedResult(source,normalized.displayed;retained_units...)) :
         Grammar.ObservedResult(source,requests;complete_pairs=true,acquisition...) for source in sources]
     if reference!==nothing && !(reference isa Grammar.ObservedResult)
         reference isa _PrimarySource || throw(ArgumentError("construct an atomic ObservedResult for a reference collection"))

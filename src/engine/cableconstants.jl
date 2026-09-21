@@ -274,8 +274,8 @@ function Base.pairs(::Type{CableConstantsFormulation}; quantity = nothing)
     for (key, family) in pairs(LineParametersFormulation; quantity)
     if key ∉ (:earth_impedance, :earth_admittance, :earth_properties))...))
 end
-function description(::Type{CableConstantsFormulation}, slot::Val)
-    description(LineParametersFormulation, slot)
+function description(::Type{CableConstantsFormulation}, slot::Val; compact::Bool=false)
+    description(LineParametersFormulation, slot; compact)
 end
 function Base.pairs(value::CableConstantsFormulation; quantity = nothing)
     pairs(CableConstantsFormulation,

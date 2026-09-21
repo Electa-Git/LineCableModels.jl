@@ -92,7 +92,7 @@ function serialize_value(value::LineParameters)
         "shunt_model"=>serialize_value(get(retained, :shunt_model, nothing),Val(:scientific)),
         "comparison_unsupported"=>serialize_value(get(retained, :comparison_unsupported, (;))),
         "gridpoint_description"=>serialize_value((; (key=>retained[key] for key in
-            (:inputs,:gridpoint,:selections,:formulation_fields,:uncertainty,:modal) if haskey(retained,key))...),Val(:scientific)))
+            (:inputs,:gridpoint,:selections,:formulation_fields,:uncertainty,:uncertainty_descriptions,:modal) if haskey(retained,key))...),Val(:scientific)))
 end
 function deserialize_extension(::Val{:LineParameters}, record)
     record["domain"] in ("PhaseDomain","ModalDomain") ||
@@ -109,6 +109,13 @@ function deserialize_extension(::Val{:LineParameters}, record)
         NamedTuple{(:shunt_model,),Tuple{NamedTuple}}((shunt_model,))))
     retained_description=deserialize_value(get(record,"gridpoint_description",serialize_value((;),Val(:scientific))))
     detail=merge(detail,retained_description)
+    # Reading a primary result binds its passive selections to their owners.
+    # Capture current compact descriptions here, before any observation exists;
+    # retained ObservedResult loading and plotting never reopen this path.
+    if formulations !== nothing
+        selected=deserialize_value(Val(:formulation),formulations)
+        ismissing(selected) || (detail=merge(detail,Engine.completed_formulation(selected,formulations)))
+    end
     return LineParameters(
         getfield(Engine,Symbol(record["domain"])), deserialize_value(record["Z"]), deserialize_value(record["Y"]),
         deserialize_value(record["frequencies"]); basis = Symbol(record["basis"]), details = Engine.completion_details(detail))

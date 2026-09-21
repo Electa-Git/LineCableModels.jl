@@ -38,6 +38,9 @@ function read_calculation(path::AbstractString; sha256_expected = nothing, evide
         document["domain"] === :PhaseDomain ||
             throw(ArgumentError("only phase-domain calculations are supported"))
         retained=get(document,"computation_details",(;))
+        declaration=get(retained,:formulations,document["formulation"])
+        selected=ImportExport.deserialize_value(Val(:formulation),declaration)
+        ismissing(selected) || (retained=merge(retained,Engine.completed_formulation(selected,declaration)))
         haskey(retained,:shunt_model) && (retained=merge(retained,
             NamedTuple{(:shunt_model,),Tuple{NamedTuple}}((retained.shunt_model,))))
         LineParameters(LineCableModels.PhaseDomain, document["Z"], document["Y"],
@@ -54,6 +57,9 @@ function read_calculation(path::AbstractString; sha256_expected = nothing, evide
     elseif kind === :gauntlet_result_space
         values=map(enumerate(document["points"])) do (index,point)
             retained=point.computation_details
+            declaration=retained.formulations
+            selected=ImportExport.deserialize_value(Val(:formulation),declaration)
+            ismissing(selected) || (retained=merge(retained,Engine.completed_formulation(selected,declaration)))
             haskey(retained,:shunt_model) && (retained=merge(retained,
                 NamedTuple{(:shunt_model,),Tuple{NamedTuple}}((retained.shunt_model,))))
             LineParameters(

@@ -28,8 +28,7 @@ function _selected_errors(definition,point,reference)
     return rows
 end
 
-function _point_information(points,role)
-    labels=Grammar.observation_labels(points)
+function _point_information(points,role,labels=Grammar.observation_labels(points))
     calculations=NamedTuple[]
     formulations=NamedTuple[]
     formula_details=NamedTuple[]
@@ -55,7 +54,8 @@ comparison, sampling estimate, or timing measurement occurs here.
 function tabulate(definition::BenchmarkTableDefinition,
         observed::Union{ObservedResult,AbstractVector{<:ObservedResult}};reference=nothing)
     points=collect(_observed_points(observed))
-    labels=Grammar.observation_labels(points)
+    population=reference===nothing ? points : [points;reference]
+    labels=Grammar.observation_labels(population)
     rows=NamedTuple[];terms=NamedTuple[];maxima=NamedTuple[]
     for (index,point) in enumerate(points),error in _selected_errors(definition,point,reference)
         id=point.gridpoint.id
@@ -98,7 +98,7 @@ function tabulate(definition::BenchmarkTableDefinition,
         display_groups=[Grammar.observation_groups(points[active];request,band,normalization,reference=reference_id) for band in bands]
         representatives=sort(unique(vcat(([active[group.representative] for group in entries] for entries in display_groups)...)))
         push!(groups,(request,normalization,reference_id,bands,groups=display_groups,points=active))
-        quantity_labels=Grammar.observation_labels(points;request)
+        quantity_labels=Grammar.observation_labels(population;request)
         absolute=DataFrame(formula=quantity_labels[representatives]);relative=copy(absolute)
         for band in bands
             name=band isa Symbol ? band : Symbol(string(band))
@@ -112,9 +112,9 @@ function tabulate(definition::BenchmarkTableDefinition,
         push!(features,(request,quantity=first(selected).quantity,statistic=first(selected).statistic,
             normalization,reference_id,problem_index,absolute_unit=first(selected).absolute_unit,absolute,relative))
     end
-    candidate_info=_point_information(points,:candidate)
+    candidate_info=_point_information(points,:candidate,labels)
     reference_info=reference===nothing ? (calculations=NamedTuple[],formulations=NamedTuple[],formula_details=NamedTuple[]) :
-        _point_information([reference],:reference)
+        _point_information([reference],:reference,[last(labels)])
     info=map((a,b) -> DataFrame(vcat(a,b)),candidate_info,reference_info)
     timing=_timing_tables(points,reference)
     sampling=_sampling_tables(points,reference)

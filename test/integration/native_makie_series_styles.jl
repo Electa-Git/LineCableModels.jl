@@ -102,3 +102,80 @@ end
         filter(handle -> handle isa Union{Makie.Lines, Makie.Scatter}, handles))
     @test !isempty(Makie.colorbuffer(page.figure))
 end
+
+@testitem "Makie addons / automatic difference labels and chromatic candidate prefix" tags=[:visual] begin
+    using CairoMakie
+    using LineCableModels.Engine: retain_gridpoint,completed_formulation
+    using LineCableModels.Grammar: gridpoint_id,observation_labels
+    ext=Base.get_extension(LineCableModels,:LineCableModelsMakieExt)
+    options=(backend=:cairo,display_plot=false,controls=false,open_export=false)
+    source_id=gridpoint_id().source_id
+    analytical=Formulation(earth_impedance=:unified,earth_admittance=:unified)
+    fem=Formulation(:LineCableModelsFEM)
+    z=reshape(complex.(1.:12.,21.:32.),2,2,3)
+    function point(formulation,index;rho=100.,problem=1)
+        inputs=(rho=rho,radius=.0425,field_descriptions=(rho=(name="electrical resistivity",unit="Ω·m"),radius=(name="radius",unit="m")))
+        retain_gridpoint(LineParameters(copy(z),z.*1e-6,[1.,10.,100.]),
+            gridpoint_id(;source_id,problem_index=problem,formulation_index=index);
+            fields=merge(completed_formulation(formulation),(inputs=inputs,)))
+    end
+    a=point(analytical,1)
+    # Synthetic numerical fixture retains a FEM identity; no FEM solve is claimed.
+    reference=point(fem,2)
+    pages=LineCableModels.plot(a;ydata=(R,X,G,B),reference,length_unit=:base,options...)
+    @test length(pages)==4
+    candidates=LineCableModels.plot(a;ydata=(R,X,G,B),length_unit=:base,options...)
+    native_lines(axis)=filter(item -> item isa Makie.Lines,axis.scene.plots)
+    expected_reference=description(fem;compact=true)*" (reference)"
+    for (page,solo,request) in zip(pages,candidates,(R,X,G,B))
+        method=request in (R,X) ? analytical.methods.earth_impedance : analytical.methods.earth_admittance
+        @test Set(values(page.addon_state.labels))==Set((description(method;compact=true),expected_reference))
+        for (axis,solo_axis) in zip(page.axes,solo.axes)
+            curves=native_lines(axis)
+            @test Makie.to_color(curves[1].color[])==Makie.to_color(ext._addon_comparison_color(1))
+            @test curves[1].color[]==only(native_lines(solo_axis)).color[]
+            @test Makie.to_color(curves[2].color[])==Makie.to_color(:black)
+        end
+    end
+    prefix=[ext._addon_comparison_color(i) for i in 1:2]
+    palette=[ext._addon_comparison_color(i) for i in 1:12]
+    @test palette[1:2]==prefix
+    @test length(unique(palette))==12
+    @test all(ext._addon_candidate_color,palette)
+    labs=ext.Oklab.(palette)
+    distances=[sqrt(ext._addon_color_distance(labs[i],labs[j])) for i in 1:12 for j in i+1:12]
+    @test minimum(distances)>.08 # measured engineering separation for this finite prefix
+    population=[point(analytical,i;rho=100.0i,problem=i) for i in 1:12]
+    p=LineCableModels.plot(population;ydata=(@observe(R[1,1,:]),),length_unit=:base,options...)
+    @test [Makie.to_color(c.color[]) for c in native_lines(only(p.axes))]==Makie.to_color.(palette)
+    @test all(label -> occursin("Ω·m",label) && !occursin("radius",label),values(p.addon_state.labels))
+    small=LineCableModels.plot(population[1:2];ydata=(@observe(R[1,1,:]),),length_unit=:base,options...)
+    @test [c.color[] for c in native_lines(only(small.axes))]==[c.color[] for c in native_lines(only(p.axes))[1:2]]
+    filtered=LineCableModels.plot(population;ydata=(R,X,G,B),reference,problem=[2,5],layout=(1,2),length_unit=:base,options...)
+    @test length(filtered)==8
+    for page in filtered, axis in page.axes
+        @test [Makie.to_color(c.color[]) for c in native_lines(axis)]==Makie.to_color.([palette[2],palette[5],ext.RGB(0.,0.,0.)])
+    end
+    # Rebuilding native guides, changing views and exporting use detached data.
+    observed=pages[1].addon_state.observed
+    Z(a).=NaN;Z(reference).=NaN
+    p=LineCableModels.plot(observed[1];reference=observed[2],ydata=(R,),options...,controls=true)
+    labels=copy(p.addon_state.labels)
+    colors=[c.color[] for c in native_lines(first(p.axes))]
+    owner=first(native_lines(first(p.axes)))
+    owner.visible[]=false
+    figurelegend!(p;position=:right)
+    figurelegend!(p;position=:bottom)
+    @test !owner.visible[]
+    @test p.addon_state.labels==labels
+    owner.visible[]=true
+    axisscale!(p,:y,:log10);resetview!(p)
+    resize!(p.figure.scene,(1100,800))
+    view=[axis.finallimits[] for axis in p.axes]
+    mktempdir() do directory
+        export_svg(p;path=joinpath(directory,"automatic.svg"),theme=:publication,open_file=false)
+        @test [axis.finallimits[] for axis in p.axes]==view
+    end
+    @test [c.color[] for c in native_lines(first(p.axes))]==colors
+    @test p.addon_state.labels==labels
+end

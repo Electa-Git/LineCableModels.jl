@@ -123,7 +123,15 @@ function _addon_compose_guides!(p)
         end
         empty!(state.guide_docks)
         bodies=Any[state.shell.body]
-        append!(bodies,[data.panel.layout for data in values(state.panel_data) if data.panel.layout!==nothing])
+        # Panels start with empty, zero-sized docks. Only a panel that owns a
+        # guide needs recomposition, including when that guide is now hidden.
+        # Resetting every other panel repeatedly propagates full native layout
+        # and text measurements through large matrix figures.
+        for guide in values(state.guides)
+            guide.scope===nothing && continue
+            body=state.panel_data[guide.scope].panel.layout
+            body===nothing || any(existing -> existing===body,bodies) || push!(bodies,body)
+        end
         for body in bodies
             # Keep the reserved 3×3 content scaffold; remove abandoned extension tracks.
             for row in size(body)[1]:-1:4

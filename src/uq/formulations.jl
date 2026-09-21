@@ -127,6 +127,18 @@ end
 """Identify Monte Carlo propagation without sampling or configuring a solver."""
 description(::Type{<:MonteCarlo}; compact::Bool=false) = "Monte Carlo"
 description(::MonteCarlo; compact::Bool=false) = description(MonteCarlo;compact)
+description(::Type{<:LinearError},::Val{:representation};compact::Bool=false) =
+    "dependency-preserving uncertainty"
+description(::Type{<:MonteCarlo},::Val{:representation};compact::Bool=false) =
+    "marginal mean ± std"
+
+# Capture display annotations separately from the estimator/representation IDs
+# used by scientific grouping. Both names remain supplied by their UQ owner.
+function _uncertainty_descriptions(owner)
+    return (estimator=(name="uncertainty estimator",unit="",text=description(owner;compact=true)),
+        representation=(name="uncertainty representation",unit="",
+            text=description(owner,Val(:representation);compact=true)))
+end
 formula_id(::Type{<:MonteCarlo}) = :MonteCarlo
 formula_id(::MonteCarlo) = :MonteCarlo
 computation_options(value::MonteCarlo) = value.options
@@ -143,7 +155,7 @@ function Base.pairs(owner::Type{<:Union{MonteCarlo, LinearError}}, retained::Nam
     end
     return entries
 end
-description(::Type{<:Union{MonteCarlo, LinearError}}, ::Val{:inner}) = "inner method"
+description(::Type{<:Union{MonteCarlo, LinearError}}, ::Val{:inner}; compact::Bool=false) = "inner method"
 
 function computation_options(
         ::Type{MonteCarlo},

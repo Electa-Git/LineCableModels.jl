@@ -283,7 +283,8 @@ function _monte_carlo(point, formulation::MonteCarlo, options, seed, details_own
         physical_inputs=merge(physical_inputs,(uncertain_arguments=_uncertain_arguments(point),))
         representation=Engine.retain_gridpoint(aggregate.representation,Grammar.gridpoint_id();
             fields=merge(Engine.completed_formulation(formulation.inner),(inputs=physical_inputs,
-                uncertainty=(estimator=:empirical,representation=:marginal_mean_std))))
+                uncertainty=(estimator=:empirical,representation=:marginal_mean_std),
+                uncertainty_descriptions=_uncertainty_descriptions(MonteCarlo))))
         return merge(aggregate,(;representation))
     finally
         DataModel.warn_clearance_summary(clearance)

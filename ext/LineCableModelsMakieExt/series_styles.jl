@@ -146,18 +146,28 @@ end
 # A deterministic farthest-point palette in perceptual space. Candidate RGB
 # colors are in gamut and avoid very light strokes on the white axis background.
 # The prefix is stable: requesting more colors never changes existing identities.
-const _ADDON_CURVE_COLORS = RGB{Float64}[RGB(0.18, 0.18, 0.18), RGB(0.0, 0.36, 0.68)]
+# Oklab display criteria: L in [0.38,0.72], chroma >= 0.10, distance
+# from white >= 0.30 and from black >= 0.40. These are finite-palette
+# engineering choices, not a guarantee for arbitrarily many simultaneous curves.
+_addon_color_distance(a,b) = (a.l-b.l)^2 + (a.a-b.a)^2 + (a.b-b.b)^2
+function _addon_candidate_color(color)
+    lab=convert(Oklab,color)
+    return 0.38 <= lab.l <= 0.72 && hypot(lab.a,lab.b)>=0.10 &&
+        _addon_color_distance(lab,convert(Oklab,RGB(1.,1.,1.)))>=0.30^2 &&
+        _addon_color_distance(lab,convert(Oklab,RGB(0.,0.,0.)))>=0.40^2
+end
+const _ADDON_CURVE_COLORS = filter(_addon_candidate_color,RGB{Float64}[RGB(0.0,0.36,0.68)])
 function _addon_comparison_color(index::Int)
     index > 0 || throw(ArgumentError("series color indices must be positive"))
     if index > length(_ADDON_CURVE_COLORS)
         candidates = [RGB{Float64}(HSV(hue, saturation, value))
             for hue in 0:5:355 for saturation in (0.55, 0.75, 0.95)
             for value in (0.55, 0.7, 0.85)]
-        filter!(color -> 0.38 <= convert(Oklab, color).l <= 0.72, candidates)
+        filter!(_addon_candidate_color,candidates)
         coordinates = map(color -> convert(Oklab, color), candidates)
-        distance(a, b) = (a.l-b.l)^2 + (a.a-b.a)^2 + (a.b-b.b)^2
+        distance(a,b) = _addon_color_distance(a,b)
         distances = [minimum(distance(color, convert(Oklab, selected))
-            for selected in _ADDON_CURVE_COLORS) for color in coordinates]
+            for selected in (RGB(0.,0.,0.),_ADDON_CURVE_COLORS...)) for color in coordinates]
         while length(_ADDON_CURVE_COLORS) < index
             next = argmax(distances)
             distances[next] > 0 || throw(ArgumentError("too many series for the distinct curve palette"))

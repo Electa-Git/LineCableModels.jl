@@ -129,7 +129,12 @@ function Base.pairs(::Type{PSCADFormulation}; quantity=nothing)
 end
 Base.pairs(value::PSCADFormulation;quantity=nothing) =
     pairs(PSCADFormulation,(methods=value.methods,requested=value.definitions,options=value.options.data);quantity)
-description(::Type{PSCADFormulation},slot::Val) = description(LineParametersFormulation,slot)
+description(::Type{PSCADFormulation},slot::Val;compact::Bool=false) =
+    description(LineParametersFormulation,slot;compact)
+description(::Type{PSCADFormulation},slot::Union{Val{:reduce_bundle},Val{:kron_reduction},Val{:ideal_transposition}},
+    value::Bool;compact::Bool=false) = description(LineParametersFormulation,slot,value;compact)
+description(::Type{PSCADFormulation},::Val{:base_frequency},value::Real;compact::Bool=false) =
+    "base frequency="*string(value)*" Hz"
 Base.pairs(::Type{PSCADFormulation},retained::NamedTuple;quantity=nothing) =
     pairs(LineParametersFormulation,retained;quantity,owner=PSCADFormulation)
 

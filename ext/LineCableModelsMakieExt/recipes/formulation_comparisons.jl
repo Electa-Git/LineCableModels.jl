@@ -28,10 +28,10 @@ function plot(results::LineCableModels.AbstractUncertaintyResult,selection=nothi
 end
 
 """Render a report's retained candidates and separate observed reference."""
-function plot(artifact::ReportArtifact,selection=nothing;ydata=nothing,title_prefix=nothing,kwargs...)
+function plot(artifact::ReportArtifact,selection=nothing;ydata=nothing,title_prefix=nothing,reference=artifact.reference,kwargs...)
     point=artifact.observed isa Grammar.ObservedResult ? artifact.observed : first(artifact.observed)
     prefix=title_prefix===nothing ? get(get(point.timings,:context,(;)),:id,nothing) : title_prefix
-    return plot(artifact.observed,selection;ydata,reference=artifact.reference,title_prefix=prefix,kwargs...)
+    return plot(artifact.observed,selection;ydata,reference,title_prefix=prefix,kwargs...)
 end
 Makie.plot(artifact::ReportArtifact,args...;kwargs...) = plot(artifact,args...;kwargs...)
 Makie.plot(results::LineCableModels.AbstractResultSpace,args...;kwargs...) = plot(results,args...;kwargs...)

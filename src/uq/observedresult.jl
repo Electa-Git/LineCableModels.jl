@@ -131,7 +131,9 @@ function Grammar.ObservedResult(source::Union{MonteCarloResult,LinearErrorResult
     sampling=source isa MonteCarloResult ? merge(confidence(source,point),
         (frequencies=source[point] isa Engine.LineParameters ? detach(Engine.frequencies(source[point])) :
             [source[point].frequency],basis=basis(source))) : nothing
-    description=merge(description,(sampling,uncertainty=(estimator=source isa MonteCarloResult ? :empirical : :first_order,
+    description=merge(description,(sampling,
+        uncertainty_descriptions=_uncertainty_descriptions(source isa MonteCarloResult ? MonteCarlo : LinearError),
+        uncertainty=(estimator=source isa MonteCarloResult ? :empirical : :first_order,
         representation=source isa MonteCarloResult ? :marginal_mean_std : :dependency_preserving)))
     quantities=map(eachindex(selected)) do index
         request=selected[index]

@@ -28,6 +28,14 @@
     axis=only(page.axes)
     @test axis.xlabelvisible[] && axis.xticklabelsvisible[]
     @test page.export_name=="benchmark_uq_title_probe — Series resistance"
+    @test any(label -> occursin(description(LinearError;compact=true),label),values(page.addon_state.labels))
+    @test any(label -> occursin(description(MonteCarlo;compact=true),label),values(page.addon_state.labels))
+    @test any(label -> occursin(description(MonteCarlo,Val(:representation);compact=true),label),values(page.addon_state.labels))
+    @test all(label -> !occursin("marginal_mean_std",label),values(page.addon_state.labels))
+    recorded=first(artifact.observed)
+    undescribed=ObservedResult(merge(recorded.gridpoint,(uncertainty_descriptions=nothing,)),
+        recorded.quantities,recorded.errors,recorded.timings)
+    @test_throws ArgumentError LineCableModels.Grammar.observation_labels([undescribed];request=R)
     curves=filter(p -> p isa Makie.Lines,axis.scene.plots)
     bars=filter(p -> p isa Makie.Errorbars,axis.scene.plots)
     @test length(curves)==length(bars)==2
@@ -60,6 +68,7 @@
         for point in candidates;Z(point).=NaN;end
         reloaded=report(BenchmarkTableDefinition(),restored.observed;reference=restored.reference)
         other=LineCableModels.plot(reloaded;ydata=((R,2,1,:),),problem=2,options...)
+        @test other.addon_state.labels==page.addon_state.labels
         other_curves=filter(p -> p isa Makie.Lines,only(other.axes).scene.plots)
         for (left,right) in zip(curves,other_curves)
             @test left[1][]==right[1][]
@@ -114,8 +123,8 @@ end
         @test first.(curve[1][])≈f[2:2:12]
     end
     @test_throws ArgumentError LineCableModels.plot(artifact;ydata=(R,),options...)
-    @test any(label -> occursin("empirical",label),values(first(pages).addon_state.labels))
-    @test any(label -> occursin("first_order",label),values(first(pages).addon_state.labels))
+    @test any(label -> occursin(description(MonteCarlo;compact=true),label),values(first(pages).addon_state.labels))
+    @test any(label -> occursin(description(LinearError;compact=true),label),values(first(pages).addon_state.labels))
     selected=LineCableModels.plot(artifact;ydata=requests[1:2],layout=(2,2),band=:wide,options...)
     @test length(selected)==8
     for page in selected,panel in values(page.addon_state.panel_data),curve in filter(p -> p isa Makie.Lines,panel.axis.scene.plots)

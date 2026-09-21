@@ -65,22 +65,6 @@ else
 end
 inspection_tables = benchmark_report.tables
 
-# Before: historical metadata expanded every numerical setting into plot legends.
-# Use explicit input identities for this manual view; the complete owner-provided
-# descriptions and their label mapping remain in plot_series_df for inspection.
-plot_points = benchmark_report.observed isa ObservedResult ? [benchmark_report.observed] : collect(benchmark_report.observed)
-plot_labels = ["Candidate $index" for index in eachindex(plot_points)]
-if benchmark_report.reference !== nothing
-    push!(plot_points, benchmark_report.reference)
-    push!(plot_labels, "Reference")
-end
-series_labels === nothing || (plot_labels = collect(series_labels))
-plot_series_df = DataFrame(label=plot_labels,
-    description=LineCableModels.Grammar.observation_labels(plot_points))
-println("Plot labels and complete scientific descriptions: plot_series_df.")
-show(stdout, MIME"text/plain"(), plot_series_df; allrows=true, truncate=100)
-println()
-
 # These variables are ordinary DataFrames/collections available in the REPL and IDE.
 feature_tables = filter(
     feature -> problem_index === nothing ||
@@ -262,12 +246,12 @@ benchmark_plots = if make_plots
     mean_std_plots = LineCableModels.plot(benchmark_report; ydata,
         problem = problem_index, band = plot_band, layout,
         backend = plot_backend, display_plot, fig_size,
-        xscale = :log10, legend_position = :bottom, series_labels=plot_labels, errorbar_sampling)
+        xscale = :log10, legend_position = :bottom, series_labels, errorbar_sampling)
     if make_statistic_plots
         statistic_plots = LineCableModels.plot(
             benchmark_report, requests; problem = problem_index,
             band = plot_band, layout, backend = plot_backend, display_plot, fig_size,
-            xscale = :log10, legend_position = :bottom, series_labels=plot_labels, errorbar_sampling)
+            xscale = :log10, legend_position = :bottom, series_labels, errorbar_sampling)
     end
     mean_std_plots
 else

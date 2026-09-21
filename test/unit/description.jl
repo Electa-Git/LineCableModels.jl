@@ -51,6 +51,15 @@ end
     @test description(LineCableModelsCoaxial())==description(LineCableModelsCoaxial)=="coaxial"
     @test description(LineCableModelsFEM())==description(LineCableModelsFEM)=="FEM"
     @test description(Formulation(:pscad))==description(PSCAD.PSCADFormulation)=="PSCAD"
+    pscad=Formulation(:pscad;options=(base_frequency=60.0,))
+    pscad_capture=E.completed_formulation(pscad)
+    pscad_saved=IO.deserialize_value(Val(:formulation),NamedTuple(pscad))
+    @test E.completed_formulation(pscad_saved,NamedTuple(pscad)).formulation_fields==pscad_capture.formulation_fields
+    @test first(pscad_capture.formulation_fields.Z).value==description(PSCAD.PSCADFormulation;compact=true)
+    @test any(control -> control.text==description(PSCAD.PSCADFormulation,Val(:base_frequency),60.0;compact=true),
+        first(pscad_capture.formulation_fields.Z).control_fields)
+    @test description(PSCAD.PSCADFormulation,Val(:reduce_bundle),false;compact=true)==
+        description(LineParametersFormulation,Val(:reduce_bundle),false;compact=true)
     for value in (normal,LineCableModelsFEM(),Formulation(:pscad),MonteCarlo(normal),LinearError(normal))
         @test description(typeof(value))==description(value)
     end
@@ -66,7 +75,7 @@ end
     z=reshape(complex.(collect(1.:24.),collect(101.:124.)),2,2,6)
     y=reshape(complex.(collect(201.:224.),collect(301.:324.)),2,2,6)*1e-6
     ports=["a","b"]
-    ref=LineParameters(z,y,f;details=ComputationDetails(;coordinates=ports,formulations=NamedTuple(LineCableModelsFEM()),))
+    ref=LineParameters(z,y,f;details=ComputationDetails(;coordinates=ports,E.completed_formulation(LineCableModelsFEM())...,))
     source_id=LineCableModels.Grammar.gridpoint_id().source_id
     completed(value,selection,index)=E.retain_gridpoint(value,
         LineCableModels.Grammar.gridpoint_id(;source_id,formulation_index=index);
@@ -79,7 +88,7 @@ end
     @test any(contains("TestAlpha"),result.tables.formulations.label)
     @test any(contains("TestBeta"),result.tables.formulations.label)
     observed_labels=LineCableModels.Grammar.observation_labels(result.observed;request=R)
-    @test occursin("earth Z=Display-TestAlpha",observed_labels[1])
+    @test occursin(description(leaves[1];compact=true),observed_labels[1])
     @test all(label -> !occursin("internal Z",label),observed_labels)
     @test length(observed_labels)==length(result.observed)
     @test length(result.observed)==3
@@ -154,7 +163,10 @@ end
     single_report=report(BenchmarkTableDefinition((R,B);bands=(:all,)),
         (reference=ref,candidate=single_data))
     single_label=only(last(single_report.tables.features).relative.formula)
-    @test occursin("insulation Y=InsulationLaw",single_label) && occursin("scale",single_label)
+    @test occursin(description(single.methods.insulation_admittance;compact=true),single_label)
+    @test !occursin("scale",single_label) # a constant control is not a legend difference
+    insulation=only(filter(field -> field.meaning==(:insulation_admittance,),only(single_report.observed).gridpoint.formulation_fields.Y))
+    @test any(control -> last(control.scope)===:scale,insulation.control_fields)
     @test !occursin("insulation Y",only(first(single_report.tables.features).relative.formula))
     @test description([single];quantity=B)==description([
         IO.deserialize_value(Val(:formulation),NamedTuple(single))];quantity=B)
@@ -246,4 +258,87 @@ end
     @test ismissing(formula_id(incomplete,Y))
     @test description([Formulation()];quantity=Y)==[
         "shunt geometry=coaxial; insulation Y=Lossless; semicon Y=Lossless; earth Y=Unified; soil law=Constant; temperature law=Linear"]
+end
+
+@testitem "Descriptions / detached differences use compact owner dispatch" tags=[:unit] begin
+    import LineCableModels: description,formula_id,formulation_options
+    using LineCableModels.Engine: completed_formulation,retain_gridpoint
+    using LineCableModels.Grammar: gridpoint_id,observation_labels,observation_groups
+    E=LineCableModels.Engine
+    IO=LineCableModels.ImportExport
+    raw=LineParameters(fill(1.0+2im,1,1,3),fill(3e-6+4e-6im,1,1,3),[1.,10.,100.])
+    source_id=gridpoint_id().source_id
+    function point(selection,index;rho=100.,problem=1)
+        fields=merge(completed_formulation(selection),(inputs=(radius=.01,rho=rho,
+            field_descriptions=(radius=(name="radius",unit="m"),rho=(name="electrical resistivity",unit="Ω·m"))),))
+        ObservedResult(retain_gridpoint(raw,gridpoint_id(;source_id,problem_index=problem,formulation_index=index);fields))
+    end
+    a=Formulation(earth_impedance=:unified,earth_admittance=:unified)
+    fem=Formulation(:LineCableModelsFEM)
+    points=[point(a,1),point(fem,2)]
+    for request in (R,X,G,B)
+        method=request in (R,X) ? a.methods.earth_impedance : a.methods.earth_admittance
+        @test observation_labels(points;request)==[description(method;compact=true),description(fem;compact=true)]
+    end
+    @test all(field -> field.meaning ∉ ((:earth_impedance,),(:earth_admittance,)),points[2].gridpoint.formulation_fields.all)
+    physical=[point(a,1),point(a,1;rho=500.,problem=2)]
+    @test observation_labels(physical;request=R)==["electrical resistivity=100.0 Ω·m","electrical resistivity=500.0 Ω·m"]
+    @test length(observation_groups(physical;request=R))==2
+    other=Formulation(earth_impedance=:pollaczek1926)
+    mixed=[physical[1],point(other,2;rho=500.,problem=2)]
+    labels=observation_labels(mixed;request=R)
+    @test occursin(description(other.methods.earth_impedance;compact=true),labels[2])
+    @test occursin("500.0 Ω·m",labels[2])
+    reductions=[point(Formulation(options=(kron_reduction=choice,)),i) for (i,choice) in enumerate((false,true))]
+    @test observation_labels(reductions;request=R)==[
+        description(LineParametersFormulation,Val(:kron_reduction),v;compact=true) for v in (false,true)]
+    physics=[Formulation(:LineCableModelsFEM;options=(physics=choice,)) for choice in (:quasi_tem,:quasi_fw)]
+    @test observation_labels([point(f,i) for (i,f) in enumerate(physics)];request=B)==[
+        description(LineCableModelsFEM,Val(:physics),f.options.data.physics;compact=true) for f in physics]
+    reordered=Formulation(options=(ideal_transposition=true,kron_reduction=true,reduce_bundle=true))
+    @test observation_labels([point(a,1),point(reordered,2)];request=R)==fill(description(a.methods.earth_impedance;compact=true),2)
+
+    layer(rho)=(rho=rho,field_descriptions=(rho=(name="electrical resistivity",unit="Ω·m"),))
+    layered=[ObservedResult(merge(p.gridpoint,(inputs=(layers=[layer(100.),layer(rho)],),)),p.quantities,p.errors,p.timings)
+        for (p,rho) in zip(physical,(200.,300.))]
+    @test observation_labels(layered;request=R)==["electrical resistivity[2]=200.0 Ω·m","electrical resistivity[2]=300.0 Ω·m"]
+
+    gamma=Formulation(earth_impedance=formula(:unified;options=(Γ=1.0,)))
+    gamma_labels=observation_labels([point(a,1),point(gamma,2)];request=R)
+    @test all(occursin("Γ=",label) for label in gamma_labels)
+    @test occursin(description(typeof(gamma.methods.earth_impedance),Val(:Γ),1.0;compact=true),gamma_labels[2])
+    gamma_samples=[0.1,0.2,0.3]
+    gamma_vector=Formulation(earth_impedance=formula(:unified;options=(Γ=gamma_samples,)),
+        earth_admittance=formula(:unified;options=(Γ=gamma_samples,)))
+    for request in (R,B)
+        gamma_vector_labels=observation_labels([point(a,1),point(gamma_vector,2)];request)
+        selected=request===R ? gamma_vector.methods.earth_impedance : gamma_vector.methods.earth_admittance
+        @test occursin(description(typeof(selected),Val(:Γ),gamma_samples;compact=true),last(gamma_vector_labels))
+    end
+    @test description(E.EarthImpedance.Formula{:default};compact=true)==description(a.methods.earth_impedance;compact=true)
+    @test description(E.EarthAdmittance.Formula{:default};compact=true)==description(a.methods.earth_admittance;compact=true)
+
+    # New scientific owner, deliberately unrelated identifier and compact text.
+    const compact_calls=Bool[]
+    const poison=Ref(false)
+    struct DetachedNamingLeaf <: E.EarthImpedanceFormulation end
+    formula_id(::DetachedNamingLeaf)=:fixture_unrelated_identifier
+    function description(::DetachedNamingLeaf;compact::Bool=false)
+        poison[] && error("live description reopened")
+        push!(compact_calls,compact)
+        compact ? "Independent field solution" : "Verbose explanation for this fixture"
+    end
+    formulation_options(::DetachedNamingLeaf)=FormulationOptions()
+    Base.NamedTuple(::DetachedNamingLeaf)=(identifier=:fixture_unrelated_identifier,parameters=(;),options=(;))
+    f=E.LineParametersFormulation(merge(a.methods,(earth_impedance=DetachedNamingLeaf(),)),a.options,
+        merge(a.definitions,(earth_impedance=DetachedNamingLeaf(),)))
+    extended=point(f,3)
+    @test !isempty(compact_calls) && all(compact_calls)
+    poison[]=true
+    Z(raw) .= NaN
+    expected=[description(a.methods.earth_impedance;compact=true),"Independent field solution"]
+    @test observation_labels([points[1],extended];request=R)==expected
+    restored=IO.deserialize_value(IO.serialize_value(extended))
+    @test observation_labels([points[1],restored];request=R)==expected
+    @test restored.gridpoint==extended.gridpoint
 end

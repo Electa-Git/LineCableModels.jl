@@ -129,8 +129,8 @@ function Base.pairs(::Type{LineCableModelsFEM}; quantity = nothing)
         earth_properties = Earth.FrequencyDependent.Formula,
         temperature_dependence = TemperatureDependent.Formula))
 end
-function description(::Type{LineCableModelsFEM}, slot::Val)
-    description(LineParametersFormulation, slot)
+function description(::Type{LineCableModelsFEM}, slot::Val; compact::Bool=false)
+    description(LineParametersFormulation, slot; compact)
 end
 function Base.pairs(::Type{LineCableModelsFEM}, retained::NamedTuple; quantity = nothing)
     pairs(LineParametersFormulation, retained; quantity, owner = LineCableModelsFEM)

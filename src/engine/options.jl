@@ -77,6 +77,21 @@ function verbosity(record::ComputationOptions, key::Symbol)
     return get(options.verbosity, key, options.verbosity.default)
 end
 
+description(::Type{<:Union{LineParametersFormulation,LineCableModelsFEM}},
+    ::Val{:reduce_bundle},value::Bool;compact::Bool=false) = "bundle reduction="*string(value)
+description(::Type{<:Union{LineParametersFormulation,LineCableModelsFEM}},
+    ::Val{:kron_reduction},value::Bool;compact::Bool=false) = "Kron reduction="*string(value)
+description(::Type{<:Union{LineParametersFormulation,LineCableModelsFEM}},
+    ::Val{:ideal_transposition},value::Bool;compact::Bool=false) = "ideal transposition="*string(value)
+
+"""Describe the active FEM field equations without executing a field solve."""
+description(::Type{LineCableModelsFEM},::Val{:physics},value::Symbol;compact::Bool=false) =
+    description(LineCableModelsFEM,Val(:physics),Val(value);compact)
+description(::Type{LineCableModelsFEM},::Val{:physics},::Val{Symbol("quasi-tem")};compact::Bool=false) =
+    "quasi-TEM"
+description(::Type{LineCableModelsFEM},::Val{:physics},::Val{Symbol("quasi-fw")};compact::Bool=false) =
+    "quasi-full-wave"
+
 function formulation_options(::Type{LineCableModelsFEM}, record::FormulationOptions)::FormulationOptions
     options = record.data
     physics = get(options, :physics, :quasi_tem)

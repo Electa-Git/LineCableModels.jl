@@ -65,7 +65,7 @@ description(source::Pair{<:Type,<:NamedTuple},request;compact::Bool=true) =
     only(description([source];roles=[:none],quantity=request,compact))
 
 """Describe a selection in its consuming owner's scientific context."""
-description(owner::Type,selected;compact::Bool=false) = description(selected;compact)
+description(owner::Type,selected;compact::Bool=false,quantity=nothing) = description(selected;compact)
 
 
 """Describe an owner-scoped route using the selected leaf's own description."""

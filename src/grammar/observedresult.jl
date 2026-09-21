@@ -339,68 +339,104 @@ function observation_groups(observed;request,band=nothing,normalization=nothing,
     return groups
 end
 
-function _description_values!(output,path,value;name=path,unit="")
+function _description_values!(output,path,value;name=path,unit="",indices=(),text=nothing)
     if value isa NamedTuple
         descriptions=get(value,:field_descriptions,(;))
         for (key,child) in pairs(value)
-            key in (:frequencies,:field_descriptions) && continue
+            key in (:frequencies,:field_descriptions,:kind,:system_id,:cable_id) && continue
             child_path=isempty(path) ? string(key) : path*"."*string(key)
             field=get(descriptions,key,nothing)
-            child_name=field===nothing ? child_path : (isempty(path) ? "" : path*" · ")*field.name
-            _description_values!(output,child_path,child;name=child_name,unit=field===nothing ? unit : field.unit)
+            child_name=(field===nothing ? string(key) : field.name)*join("[$i]" for i in indices)
+            _description_values!(output,child_path,child;name=child_name,
+                unit=field===nothing ? unit : field.unit,indices,
+                text=field===nothing ? nothing : get(field,:text,nothing))
         end
     elseif value isa Union{AbstractArray,Tuple}
         for (index,child) in enumerate(value)
             suffix="["*string(index)*"]"
-            _description_values!(output,path*suffix,child;name=name*suffix,unit)
+            _description_values!(output,path*suffix,child;name=name*suffix,unit,indices=(indices...,index),text)
         end
     elseif value isa Union{Number,AbstractString,Symbol}
-        output[path]=(;value,name,unit)
+        output[path]=(;value,name,unit,text)
     end
     return output
 end
 
-"""Describe varying captured physical inputs and structured formulation selections."""
+"""
+Describe differences in captured physical inputs, active methods, and individual
+controls. Scientific text comes from completion-time owner descriptions; no
+formula or problem is reconstructed. Administrative gridpoint IDs are retained
+in the observations but do not form automatic legend prefixes.
+"""
 function observation_labels(observed;request=nothing)
     points=observed isa ObservedResult ? [observed] : observed
     isempty(points) && return String[]
     descriptions=[begin
         values=_description_values!(Dict{String,Any}(),"",get(point.gridpoint,:inputs,nothing))
-        _description_values!(values,"uncertainty",get(point.gridpoint,:uncertainty,nothing))
-        isempty(get(point.gridpoint,:formulation_fields,(;))) &&
-            _description_values!(values,"formulations",get(point.gridpoint,:formulations,nothing))
+        uncertainty=get(point.gridpoint,:uncertainty,nothing)
+        annotations=get(point.gridpoint,:uncertainty_descriptions,nothing)
+        if uncertainty isa NamedTuple && !isempty(uncertainty)
+            annotations!==nothing && all(key -> haskey(annotations,key),keys(uncertainty)) ||
+                throw(ArgumentError("retained uncertainty descriptions are absent; construct observations through the current UQ owner before plotting"))
+            uncertainty=merge(uncertainty,(field_descriptions=annotations,))
+        end
+        _description_values!(values,"uncertainty",uncertainty)
         values
     end for point in points]
     paths=sort(unique(collect(Iterators.flatten(keys(record) for record in descriptions))))
-    varying=filter(path -> !all(isequal(get(first(descriptions),path,nothing)),
-        (get(record,path,nothing) for record in descriptions)),paths)
+    varying=filter(paths) do path
+        haskey(first(descriptions),path) || return true
+        original=first(descriptions)[path]
+        any(record -> !haskey(record,path) ||
+            !isequal(record[path].value,original.value) || record[path].unit!=original.unit,descriptions)
+    end
     fields=map(points) do point
         retained=get(point.gridpoint,:formulation_fields,(;))
         family=request===nothing || isempty(retained) ? :all : Units.family(request_quantity(request))===Val(:series) ? :Z : :Y
-        get(retained,family,())
+        entries=get(retained,family,())
+        all(field -> haskey(field,:meaning) && haskey(field,:control_fields),entries) ||
+            throw(ArgumentError("retained formulation descriptions lack individual control meanings; capture descriptions with the current completion owner before plotting"))
+        entries
     end
-    known_fields=filter(!isempty,fields)
+    # Only active peers establish a varying selection. A missing backend slot
+    # is not an equal selection: the backend summary identifies that difference.
+    peers(field)=[other for entries in fields for other in entries if other.meaning==field.meaning]
+    varies(field)=any(other -> !isequal(other.selection.identifier,field.selection.identifier),peers(field))
     return map(eachindex(points)) do index
-        id=get(points[index].gridpoint,:id,nothing)
-        identity=id===nothing ? "Result $index" : "Point $(id.problem_index), formulation $(id.formulation_index)"
         parts=String[]
-        for field in fields[index]
-            common=length(known_fields)>1 && all(entries -> any(other -> other.scope==field.scope &&
-                isequal(other.selection,field.selection),entries),known_fields)
-            common && continue
-            text=isempty(field.name) ? field.value : field.name*"="*field.value
-            controls=field.selection.controls
-            if !isempty(controls)
-                text *= " "*(isempty(last(field.scope)) ? sprint(show,controls;context=:compact=>true) :
-                    description(FormulaDefinition,controls;compact=true))
+        methods=filter(varies,fields[index])
+        for field in methods
+            # When differing child methods already name the calculation, use
+            # the backend itself instead of repeating its method summary.
+            text=isempty(field.meaning) && all(other -> isempty(other.meaning),methods) ? field.summary : field.value
+            if !isempty(field.name) && count(other -> !isempty(other.meaning),methods)>1
+                text=field.name*"="*text
             end
+            push!(parts,text)
+        end
+        for field in fields[index], control in field.control_fields
+            active=[other for peer in peers(field) for other in peer.control_fields
+                if other.scope==control.scope]
+            any(other -> !isequal(other.value,control.value),active) || continue
+            text=control.text
+            isempty(field.name) || (text=field.name*": "*text)
             push!(parts,text)
         end
         for path in varying
             haskey(descriptions[index],path) || continue
             field=descriptions[index][path]
-            push!(parts,field.name*"="*string(field.value)*(isempty(field.unit) ? "" : " "*field.unit))
+            push!(parts,field.text===nothing ?
+                field.name*"="*string(field.value)*(isempty(field.unit) ? "" : " "*field.unit) : field.text)
         end
-        isempty(parts) ? identity : identity*" · "*join(parts,", ")
+        if isempty(parts)
+            roots=filter(field -> isempty(field.meaning),fields[index])
+            if !isempty(roots)
+                append!(parts,(field.summary for field in roots))
+            else
+                source_name=get(points[index].gridpoint,:name,nothing)
+                push!(parts,source_name===nothing ? "Result $index" : string(source_name))
+            end
+        end
+        join(parts,", ")
     end
 end

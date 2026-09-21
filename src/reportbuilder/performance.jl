@@ -95,8 +95,8 @@ end
 # Equal numbers never establish that two measurements are the same event.
 function _timing_tables(points::AbstractVector,reference)
     reference_id=reference===nothing ? nothing : reference.gridpoint.id
-    reference_label=reference===nothing ? "Reference" : only(Grammar.observation_labels([reference]))
-    labels=Grammar.observation_labels(points)
+    labels=Grammar.observation_labels(reference===nothing ? points : [points;reference])
+    reference_label=reference===nothing ? "Reference" : last(labels)
     combined=_timing_tables(nothing)
     for (index,point) in enumerate(points)
         record=point.timings

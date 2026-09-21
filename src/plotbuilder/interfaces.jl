@@ -21,12 +21,18 @@ artifacts. Standalone series/shunt inputs also accept a frequency vector before
 the selection. Raw references become separate atomic observations. Report
 artifacts forward their observed candidates and their observed reference.
 
-Raw-only acquisition keywords are `clip`, `atol`, `units`, `length_unit`,
-`quantity_units`, `frequency_unit`, and `frequencies`. `freq_unit` is a spelling
-of `frequency_unit`; supplying both is an error. Single primary requests use the
-observation owner's pair completion. Statistical products do not trigger that
-completion. Observed-input plotting rejects acquisition keywords: explicitly
-re-express an observation with `ObservedResult(existing; ...)` before plotting.
+Raw-only acquisition keywords are `clip`, `atol`, and `frequencies`. Single
+primary requests use the observation owner's pair completion; statistical
+products do not trigger it. Observed inputs reject new clipping decisions,
+thresholds, or replacement sample coordinates.
+
+`units`, `length_unit`, `quantity_units`, and `frequency_unit` also apply to
+retained inputs, including reports. The existing `ObservedResult(existing; ...)`
+operation re-expresses compatible units once before drawing; omitted options
+preserve recorded units, masks, errors, timings, and uncertainty dependencies.
+`freq_unit` is a spelling of `frequency_unit`; supplying both is an error.
+For example, `plot(report; ydata=(R,), length_unit=:base)` displays its retained
+candidate and reference curves per meter without rebuilding the report.
 
 `problem` and `formulations` select original recorded identities. `band` selects
 saved comparison samples through the observation owner, retaining each trace's
@@ -104,7 +110,7 @@ pair = (@observe(R[:, :, :]), @observe(L[:, :, :]))
 a = plot(raw; ydata=(r_request,), clip=true, length_unit=:kilo)
 o = ObservedResult(raw, (r_request,); complete_pairs=true,
     clip=true, length_unit=:kilo)
-b = plot(o; ydata=(r_request,))
+b = plot(o; ydata=(r_request,), length_unit=:base)
 c = plot(raw; ydata=pair, layout=(1,1))
 d = plot(ObservedResult(raw, pair); ydata=pair, layout=(1,1))
 ```

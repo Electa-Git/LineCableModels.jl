@@ -76,6 +76,10 @@ formula_id(source::Pair{<:Type,<:NamedTuple}) = formula_id(first(source))
 
 description(::Missing; compact::Bool=false) = "method unavailable"
 description(::Nothing; compact::Bool=false) = "none"
+
+"""Describe a scalar, explicitly selected control at its owning formula."""
+description(::Type, ::Val{key}, value::Union{Number,Symbol,AbstractString};
+    compact::Bool=false) where {key} = string(key,"=",value)
 formula_id(::Missing) = missing
 formula_id(::Nothing) = :none
 

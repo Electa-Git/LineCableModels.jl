@@ -458,6 +458,20 @@ end
     axis.xticklabelsize[] = 20
     Makie.colorbuffer(page.figure)
     @test allunique(axis.xaxis.ticklabels[])
+    # Unchanged native layout notifications must not restart automatic density
+    # fitting and propagate temporary tick/protrusion changes to peer axes.
+    notify(axis.scene.viewport)
+    tick_updates=Ref(0)
+    binding=on(axis.xticks) do _
+        tick_updates[]+=1
+    end
+    native_ticks=axis.xticks[]
+    for _ in 1:8
+        notify(axis.scene.viewport)
+    end
+    @test tick_updates[]==0
+    @test axis.xticks[]===native_ticks
+    off(binding)
     before = (axis.limits[], axis.targetlimits[], repr(axis.xlabel[]), copy(axis.xaxis.ticklabels[]))
     mktempdir() do directory
         for theme in (:default, :publication)

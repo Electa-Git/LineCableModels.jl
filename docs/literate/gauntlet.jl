@@ -115,9 +115,9 @@
 # artifact.tables.terms
 #
 # using GLMakie
-# # Before: plotting could prepare report data. Now it selects retained products;
+# # Plot retained curves directly in compatible display units.
 # # layout is coefficient capacity, with separate figures for R/X/G/B.
-# plots = LineCableModels.plot(artifact; ydata=(R, X, G, B), backend=:gl)
+# plots = LineCableModels.plot(artifact; ydata=(R, X, G, B), length_unit=:base, backend=:gl)
 # # Select only quantities retained by this artifact, for example:
 # # plot(artifact, (R, X); problem=1, formulations=[2], band=:dc)
 # using CairoMakie # SVG requires explicit loading; export does not load Cairo.
@@ -145,19 +145,21 @@
 # reanalyse saved operands using their selected bands; publication uses saved RMS.
 #
 # Backend and method names come from owned `description` methods. References are
-# labelled `Reference · FEM`, `Reference · PSCAD`, or `Reference · Monte Carlo`;
-# candidate labels are unnumbered, for example `LEP`. Common coaxial
-# identity is omitted. Quantity-specific legends show the applicable equation
-# choices; `formulations` lists labels and `formula_details` supplies scientific
+# labelled `FEM (reference)`, `PSCAD (reference)`, or `Monte Carlo (reference)`;
+# candidate labels are unnumbered, for example `LEP`. Quantity-specific legends
+# show relevant differences across candidates and reference, including varying
+# physical inputs and individual controls. Common fields are omitted;
+# `formulations` lists labels and `formula_details` supplies scientific
 # explanations. Complete declarations remain in the published operand metadata.
-# `formulations=[3,1]` selects stored array positions before deduplication.
-# Repeated quantity-relevant selections share one curve and feature-table row;
+# `formulations=[3,1]` selects original formulation identities before grouping.
+# Equivalent quantity-relevant selections within one physical point may share a
+# curve and feature-table row;
 # every relevant route and control participates in equality, not the label or
 # numerical curve. Conflicting repeated observations raise an error.
-# Explicit composite selections retain every named branch in the relevant legend,
-# even when branches are unchanged or default. Internal selections use
+# Composite selections retain every named branch in their scientific records;
+# default legends name the branches that differ. Internal selections use
 # `inner`/`outer`/`transfer`, and earth selections use `air`/`earth`/`mixed`.
-# Formula-local overrides also remain visible when shared by every candidate.
+# Formula-local overrides remain in the detailed records when common to every case.
 # Short and detailed names both use the owning formula's `description` method;
 # identifiers and calculation-reuse decisions do not depend on that text.
 #

@@ -58,20 +58,52 @@ $(TYPEDSIGNATURES)
 Capture actual formulation selections, controls, and structured description
 fields when a result completes. No live formulation objects are retained.
 """
-function completed_formulation(formulation)
+function completed_formulation(formulation, declaration::NamedTuple=NamedTuple(formulation))
+    function control_fields(owner, controls, path=())
+        captured=NamedTuple[]
+        for (key,value) in pairs(controls)
+            route=(path...,key)
+            if value isa NamedTuple && key !== :equivalent_earth
+                append!(captured,control_fields(owner,value,route))
+            else
+                text=key === :equivalent_earth ? description(Val(key),value;compact=true) :
+                    description(owner,Val(key),value;compact=true)
+                push!(captured,(scope=route,value=Grammar.detach(value),text))
+            end
+        end
+        return captured
+    end
     function fields(quantity)
-        map(collect(pairs(formulation;quantity))) do (scope,selected)
+        selections=formulation isa Pair ? pairs(formulation...;quantity) : pairs(formulation;quantity)
+        map(collect(selections)) do (scope,selected)
             owner,route=scope
-            name=isempty(route) ? "" : description(owner,Val(first(route)))
+            name=isempty(route) ? "" : description(owner,Val(first(route));compact=true)
             length(route)>1 && (name *= "("*join(string.(Base.tail(route)),",")*")")
             controls=selected isa Pair ? Grammar.detach(last(selected)) : (;)
+            # The description compares applied controls, including defaults.
+            # Keep the original selection identity used by scientific grouping.
+            effective=get(declaration,:methods,nothing)
+            for key in route
+                effective=effective isa NamedTuple ? get(effective,key,nothing) : nothing
+            end
+            applied=isempty(route) || !(effective isa NamedTuple) ? controls : merge(controls,
+                (; (key=>effective[key] for key in (:parameters,:options,:equivalent_earth)
+                    if haskey(effective,key) && effective[key]!==nothing)...))
             owner_name=(Base.fullname(parentmodule(owner))...,nameof(owner))
-            (scope=(owner_name,route),selection=(identifier=formula_id(selected),controls),
-                name,value=isempty(route) ? description(selected;compact=true) : description(owner,selected;compact=true))
+            leaf=selected isa Pair ? first(selected) : selected
+            control_owner=isempty(route) ? owner : leaf isa Type ? leaf : typeof(leaf)
+            # Routes are the scientific slots declared by pairs(owner), shared
+            # by backends using the same constitutive meaning. Storage owners
+            # remain recorded separately; they are not a commonness criterion.
+            (scope=(owner_name,route),meaning=route,
+                selection=(identifier=formula_id(selected),controls),name,
+                value=isempty(route) ? description(selected;compact=true) : description(owner,selected;compact=true),
+                summary=isempty(route) ? description(owner,formulation;quantity,compact=true) : nothing,
+                control_fields=control_fields(control_owner,applied))
         end
     end
     return NamedTuple{(:formulations,:selections,:formulation_fields),
-        Tuple{NamedTuple,NamedTuple,NamedTuple}}((NamedTuple(formulation),
+        Tuple{NamedTuple,NamedTuple,NamedTuple}}((declaration,
         (Z=formula_id(formulation,Z),Y=formula_id(formulation,Y)),
         (all=fields(nothing),Z=fields(Z),Y=fields(Y))))
 end
@@ -95,6 +127,7 @@ function Grammar.observation_gridpoint(source::Union{LineParameters,CableConstan
         formulations=get(retained,:formulations,nothing),formulation_fields=get(retained,:formulation_fields,(;)),
         coordinates=get(retained,:coordinates,source isa CableConstants ? source.cores : nothing),
         uncertainty=get(retained,:uncertainty,nothing),
+        uncertainty_descriptions=get(retained,:uncertainty_descriptions,nothing),
         transformation=get(retained,:modal,nothing),
         missing_reason=inputs===nothing ? :physical_inputs_not_supplied : nothing))
 end

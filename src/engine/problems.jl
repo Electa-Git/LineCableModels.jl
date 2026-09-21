@@ -184,6 +184,29 @@ formula_id(::LineParametersFormulation) = :coaxial
 """
 $(TYPEDSIGNATURES)
 
+Describe the selected earth-return methods relevant to `quantity`. This compact
+summary identifies the analytical calculation when compared with another
+backend; individual constitutive selections remain separately described.
+"""
+function description(::Type{LineParametersFormulation}, source::Union{LineParametersFormulation,Pair{<:Type,<:NamedTuple{(:methods,:requested,:options)}}};
+        quantity=nothing, compact::Bool=false)
+    entries=source isa Pair ? pairs(source...;quantity) : pairs(source;quantity)
+    selected=[(route,value) for ((_,route),value) in entries
+        if !isempty(route) && first(route) in (:earth_impedance,:earth_admittance) &&
+            value !== nothing && !ismissing(value)]
+    isempty(selected) && return description(source;compact)
+    length(unique(formula_id(value) for (_,value) in selected))==1 &&
+        return description(last(first(selected));compact)
+    return join(map(selected) do (route,value)
+        name=description(LineParametersFormulation,Val(first(route));compact)
+        length(route)>1 && (name *= "("*join(string.(Base.tail(route)),",")*")")
+        name*"="*description(value;compact)
+    end," / ")
+end
+
+"""
+$(TYPEDSIGNATURES)
+
 Iterate ordered formula-slot owners relevant to a physical quantity. With
 `quantity=nothing`, retain every declared slot. This is a declaration read,
 not problem-dependent formula resolution.
@@ -211,16 +234,16 @@ function Base.pairs(::Type{LineParametersFormulation}; quantity=nothing)
     return pairs((; (key=>value for (key,value) in pairs(selected) if key ∉ omitted)...))
 end
 
-description(::Type{LineParametersFormulation},::Val{:internal_impedance}) = "internal Z"
-description(::Type{LineParametersFormulation},::Val{:insulation_impedance}) = "insulation Z"
-description(::Type{LineParametersFormulation},::Val{:earth_impedance}) = "earth Z"
-description(::Type{LineParametersFormulation},::Val{:shunt_model}) = "shunt geometry"
-description(::Type{LineParametersFormulation},::Val{:insulation_admittance}) = "insulation Y"
-description(::Type{LineParametersFormulation},::Val{:semicon_admittance}) = "semicon Y"
-description(::Type{LineParametersFormulation},::Val{:earth_admittance}) = "earth Y"
-description(::Type{LineParametersFormulation},::Val{:earth_properties}) = "soil law"
-description(::Type{LineParametersFormulation},::Val{:pipe_impedance}) = "pipe Z"
-description(::Type{LineParametersFormulation},::Val{:temperature_dependence}) = "temperature law"
+description(::Type{LineParametersFormulation},::Val{:internal_impedance}; compact::Bool=false) = "internal Z"
+description(::Type{LineParametersFormulation},::Val{:insulation_impedance}; compact::Bool=false) = "insulation Z"
+description(::Type{LineParametersFormulation},::Val{:earth_impedance}; compact::Bool=false) = "earth Z"
+description(::Type{LineParametersFormulation},::Val{:shunt_model}; compact::Bool=false) = "shunt geometry"
+description(::Type{LineParametersFormulation},::Val{:insulation_admittance}; compact::Bool=false) = "insulation Y"
+description(::Type{LineParametersFormulation},::Val{:semicon_admittance}; compact::Bool=false) = "semicon Y"
+description(::Type{LineParametersFormulation},::Val{:earth_admittance}; compact::Bool=false) = "earth Y"
+description(::Type{LineParametersFormulation},::Val{:earth_properties}; compact::Bool=false) = "soil law"
+description(::Type{LineParametersFormulation},::Val{:pipe_impedance}; compact::Bool=false) = "pipe Z"
+description(::Type{LineParametersFormulation},::Val{:temperature_dependence}; compact::Bool=false) = "temperature law"
 
 """Expose typed children and controls without serializing the formulation."""
 Base.pairs(value::LineParametersFormulation; quantity=nothing) =

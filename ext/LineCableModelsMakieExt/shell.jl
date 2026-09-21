@@ -641,6 +641,7 @@ function _addon_axis_format!(axis)
         installed_ticks = Ref{Any}(Makie.automatic)
         installed_format = Ref{Any}(Makie.automatic)
         installed_mode = Ref{Any}(nothing)
+        previous_inputs = Ref{Any}(nothing)
         updating = Ref(false)
         # Reuse one native text measurement per dimension, outside the data
         # scene. Font changes and long, precise labels affect available density.
@@ -662,6 +663,15 @@ function _addon_axis_format!(axis)
                 owned_format = current_format === installed_format[] || current_format === Makie.automatic
                 numeric = conversion[] === nothing
                 lower, upper = limits.origin[index], limits.origin[index] + limits.widths[index]
+                inputs=(lower,upper,current_scale,axis.scene.viewport[].widths[index],
+                    labelsize[],labelfont[],rotation[],conversion[],current_label)
+                # Native layout can notify every peer axis without changing
+                # these inputs. Restarting density fitting then briefly installs
+                # denser ticks and recursively changes all peer protrusions.
+                # Explicit native overrides/automatic resets still run below.
+                owned_ticks && owned_format && !label_changed &&
+                    current_ticks===installed_ticks[] && current_format===installed_format[] &&
+                    isequal(inputs,previous_inputs[]) && return nothing
                 decades = current_scale === Base.log10 && 0 < lower < upper &&
                     log10(upper) - log10(lower) >= 2
                 exponent = something(_addon_scientific_exponent((lower, upper)), 0)
@@ -779,6 +789,7 @@ function _addon_axis_format!(axis)
                         count = fitted
                     end
                 end
+                previous_inputs[]=inputs
             finally
                 updating[] = false
             end

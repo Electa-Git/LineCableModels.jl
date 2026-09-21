@@ -31,7 +31,7 @@
     @test sum(length(page.axes) for page in pages)==8
     for (transform,page) in zip((real,imag),pages)
         @test length(page.addon_state.observed)==3
-        @test any(startswith("Reference"),values(page.addon_state.labels))
+        @test any(endswith(" (reference)"),values(page.addon_state.labels))
         for ((i,j),panel) in page.addon_state.panel_data
             curves=filter(item -> item isa Makie.Lines,panel.axis.scene.plots)
             @test length(curves)==3
@@ -127,7 +127,8 @@ end
         @test size(feature.relative,1)==(feature.quantity in (:Z,:R,:L,:X) ? 5 : 3)
     end
     @test length(artifact.tables.quantities)==5
-    # Composite branches survive captured owner descriptions, including defaults.
+    # Full composite descriptions remain captured; a standalone legend uses
+    # the compact owner summary rather than dumping all constant branches.
     physical=Formulation(internal_impedance=(inner=:default,outer=:default,transfer=:default),
         earth_impedance=(air=:default,earth=:pollaczek1926,mixed=:default),
         earth_admittance=(air=:default,earth=:default,mixed=:default))
@@ -136,6 +137,8 @@ end
         "internal Z(transfer)=Schelkunoff","earth Z(air)=Unified","earth Z(earth)=Pollaczek","earth Z(mixed)=Unified")),
         (B,("earth Y(air)=Unified","earth Y(earth)=Unified","earth Y(mixed)=Unified")))
         page=LineCableModels.plot(observed;ydata=(request,),backend=:cairo,display_plot=false,controls=false,open_export=false)
-        @test all(occursin(label,only(values(page.addon_state.labels))) for label in labels)
+        fields=getproperty(observed.gridpoint.formulation_fields,request===R ? :Z : :Y)
+        @test all(label in [field.name*"="*field.value for field in fields] for label in labels)
+        @test only(values(page.addon_state.labels))==description(LineParametersFormulation,physical;quantity=request,compact=true)
     end
 end

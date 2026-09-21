@@ -19,16 +19,16 @@ julia --project=. --startup-file=no dev/inspect_saved_gauntlet.jl
 The inspectors expose `plot_backend=:gl` / `:cairo`, `make_plots`, and
 `display_plot` near the top. GL needs a display. `enable_svg_export=true` explicitly
 loads Cairo. `show_full_report=true` prints the full-width report; all tables are
-available in the IDE regardless of this display setting. `plot_series_df` maps
-compact input labels to complete scientific descriptions. `series_labels` can
-supply explicit candidate labels followed by the separate reference label.
+available in the IDE regardless of this display setting. Default legends show
+owner-described differences; `series_labels` remains an optional explicit override.
 
 Before/now comments accompany changed calls. In particular:
 
 - Result plots use `fig_size`; previews and `plotwindow` keep `size`.
 - `layout` is the sole panel capacity. Quantities have separate figure families.
-- Retained reports/observations only select retained data during plotting.
-  Re-express units explicitly with `ObservedResult(existing; length_unit=...)`.
+- Retained reports/observations support compatible display-unit changes directly:
+  `plot(report; ydata=(R,X,G,B), length_unit=:base)`. The observation owner
+  re-expresses retained curves; clipping decisions and recorded RMS units remain fixed.
 - Raw numerical conveniences construct observations and delegate to observed plotting.
 - Results carry `ComputationDetails`, not a plain details NamedTuple.
 - XLSX exports return one filename per quantity; append those paths to a flat list.
@@ -38,14 +38,28 @@ Several personal runners remain Git-ignored as before and were repaired in place
 The shared inspector reader and this inventory are explicitly unignored so the
 tracked inspectors do not acquire an omitted dependency.
 
+The direct compute-to-plot example needs only the package and GLMakie. In the
+installed checkout, this invocation keeps a REPL open with its plot windows:
+
+```bash
+JULIA_DEPOT_PATH=/tmp/observed-plan-depot:/home/amartins/.julia \
+JULIA_LOAD_PATH='@:/home/amartins/Documents/KUL/LineCableModels/dev/plotting:@stdlib' \
+julia --project=. --startup-file=no -i dev/run_two_bare_wires.jl
+```
+
+The same file can be included in an IDE session that already provides those
+dependencies. Its declarations, computation, four quantity figures, controls,
+and close/edit/redisplay were executed on GL; it leaves the active project and
+`LOAD_PATH` unchanged. It does not read saved runs or execute a FEM/MC campaign.
+
 ## File disposition
 
 | File under `dev/` | Current operation and check |
 | --- | --- |
-| `inspect_saved_gauntlet.jl` | Reads saved numerical operands; explicitly builds current comparisons/observations/tables. Default PSCAD archive produced 1,620 term rows without solver execution; retained two-quantity/four-coefficient plotting, scale and reset checks passed. |
-| `inspect_saved_gauntlet_mc.jl` | Same path for full UQ results. Default now uses the readable 320 kV armoured DC case; the previous 30 kV default requires regeneration. Retained statistics (58,176 values), comparisons (288 rows), and two-quantity/four-coefficient plot/scale/reset checks passed. |
+| `inspect_saved_gauntlet.jl` | Reads saved numerical operands; explicitly builds current comparisons/observations/tables. Default PSCAD archive produced 1,620 term rows without solver execution. The full 81-panel R view passes with automatic scientific labels; earlier two-quantity/four-coefficient scale/reset checks also pass. |
+| `inspect_saved_gauntlet_mc.jl` | Same path for full UQ results. Default uses the readable 320 kV armoured DC case; the previous 30 kV default requires regeneration. The full 36-panel R view passes with owner-supplied LEP/Monte Carlo labels. Retained statistics (58,176 values), comparisons (288 rows), and two-quantity/four-coefficient scale/reset checks also pass. |
 | `inspect_saved_gauntlet_inputs.jl` | Shared checksummed numerical reader and saved timing handoff. Rejects missing attempts and removed marginal-only records; previous attempts require explicit selection. |
-| `run_two_bare_wires.jl` | Current catalogue benchmark and live `.report` return retained. Unit changes moved before observed plotting; fixed reference-first labels removed. New FEM execution was not run. |
+| `run_two_bare_wires.jl` | Direct declaration → `compute(problem, formulations)` → `plot(results; length_unit=:base)`. Two buried bare copper wires with constant versus Longmire soil properties; automatic labels/colors, no Gauntlet/FEM or environment mutation. |
 | `run_two_bare_wires_fem.jl` | Current parametric constructors; flattened per-quantity XLSX filenames. Constructors, full CSV writes and four actual XLSX workbooks checked with retained fixtures. New FEM sweeps were not run. |
 | `run_18kv_trefoil_fem.jl` | Preserves active project; current case/formulation/options constructed. New FEM solve was not run. |
 | `run_quasi_full.jl` | Calls the current FEM voltage-path owner directly. Problem/model/mesh-plan construction checked. Meshing and GetDP execution were not run. |

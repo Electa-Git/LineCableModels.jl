@@ -107,7 +107,7 @@ formula_id(::Type{<:ModalTransformationFormulation}) = :modal
 formula_id(::ModalTransformationFormulation) = :modal
 description(::Type{<:ModalTransformationFormulation}; compact::Bool=false) = "modal"
 description(::ModalTransformationFormulation; compact::Bool=false) = "modal"
-description(::Type{ModalTransformationFormulation}, ::Val{:transformation}) = "modal operators"
+description(::Type{ModalTransformationFormulation}, ::Val{:transformation}; compact::Bool=false) = "modal operators"
 Base.pairs(::Type{ModalTransformationFormulation}; quantity=nothing) = pairs((transformation=Formula,))
 formulation_options(::ModalTransformationFormulation) = FormulationOptions()
 
