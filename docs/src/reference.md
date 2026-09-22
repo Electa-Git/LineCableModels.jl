@@ -135,6 +135,44 @@ LineCableModels.ReportBuilder.XLSXReportDefinition
 LineCableModels.report
 ```
 
+### Reporting selections and units
+
+Ordinary reporting accepts `report(source; values=nothing, ...)` or
+`report(source, selection; ...)`. Sources include completed cable constants,
+line parameters, standalone Z/Y results with `frequencies` context, result
+collections, parametric studies, UQ results, and retained observations.
+
+```julia
+report(constants)
+report(constants; values=(R, L, G, C), length_unit=:kilo,
+    quantity_units=(R=:base, L=:milli, G=:micro, C=:micro))
+report(line_parameters; values=@observe(R[1, 1, 1:12]))
+```
+
+Omitted `values`, `nothing`, and `()` select the source owner's defaults or all
+retained products. Complete line results default to R/X and G/B; selecting
+R/L/G/C requests those four quantities instead. A single selector such as `R`
+produces only that quantity's table. Positional and keyword selections cannot
+be supplied together. Reporting uses `values`; plotting uses `ydata`.
+
+`units`, `length_unit`, `quantity_units`, and `frequency_unit` express display
+units through the observation owner. `freq_unit` is an alternative spelling of
+`frequency_unit`; supplying both is an error. Retained observations preserve
+recorded units when these options are omitted. Raw-only `clip`, `atol`, and
+`frequencies` cannot be supplied for retained inputs.
+
+A separate atomic `reference` is retained without computing comparisons.
+`illustration=true` or a callable explicitly requests a plot; its options belong
+in `plot_options`, and its `ydata` selection must agree with the report's `values`.
+The illustration receives the prepared observations. Default reporting returns
+in-memory tables without loading a plotting backend or writing files.
+
+Explicit snapshots are useful for saving detached scientific products. Report
+definitions remain useful for specialized operations: `BenchmarkTableDefinition`
+organizes comparisons, and `XLSXReportDefinition` requests file output.
+`TableReportDefinition` selects retained products within the definition-based
+extension workflow; ordinary quantity tables need only `report(source)`.
+
 ## Index
 
 ```@index

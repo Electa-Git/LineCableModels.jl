@@ -74,18 +74,6 @@ function _plot_ydata(positional,keyword,default)
     positional===nothing || throw(ArgumentError("use positional ydata or the ydata keyword"))
     return keyword
 end
-function _plot_requests(source,selection)
-    selection===nothing && return ()
-    selection isa Function && return (selection,)
-    selection isa Tuple || throw(ArgumentError("ydata must be a selector or tuple of requests"))
-    isempty(selection) && return ()
-    if first(selection) isa Function
-        identity=request_identity(selection)
-        declared=source isa Grammar.ObservedResult ? Tuple(request_identity(q.request) for q in source.quantities) : observables(typeof(source))
-        identity in declared && (identity isa Tuple || !isempty(request_indices(selection))) && return (selection,)
-    end
-    return selection
-end
 
 # Split only public keyword ownership. Scientific normalization stays in Grammar.
 function _plot_observation_options(kwargs; retained=false)
@@ -104,7 +92,7 @@ end
 
 function plot(source::_PrimarySource,selection=nothing;ydata=nothing,reference=nothing,kwargs...)
     acquisition,presentation=_plot_observation_options(kwargs)
-    requests=_plot_requests(source,_plot_ydata(selection,ydata,()))
+    requests=Grammar.observation_selection(source,_plot_ydata(selection,ydata,()))
     normalized=Grammar.observation_requests(source,requests;complete_pairs=true)
     observed=Grammar.ObservedResult(source,requests;complete_pairs=true,acquisition...)
     if reference!==nothing && !(reference isa Grammar.ObservedResult)
@@ -147,7 +135,7 @@ function plot(observed::AbstractVector{<:Grammar.ObservedResult},selection=nothi
         sort!(selected;by=index -> findfirst(==(observed[index].gridpoint.id.formulation_index),formulations))
     end
     candidates=observed[selected]
-    requests=_plot_requests(first(candidates),_plot_ydata(selection,ydata,()))
+    requests=Grammar.observation_selection(first(candidates),_plot_ydata(selection,ydata,()))
     requests=Grammar.observation_requests(first(candidates),requests).displayed
     if reference!==nothing && !(reference isa Grammar.ObservedResult)
         reference isa _PrimarySource || throw(ArgumentError("construct an atomic ObservedResult for a reference collection"))
@@ -244,7 +232,7 @@ function plot(sources::Union{AbstractVector{<:_PlotSource},Tuple{Vararg{_PlotSou
         return plot(Grammar.ObservedResult[sources...],selection;ydata,reference,kwargs...)
     end
     acquisition,presentation=_plot_observation_options(kwargs)
-    requests=_plot_requests(first(sources),_plot_ydata(selection,ydata,()))
+    requests=Grammar.observation_selection(first(sources),_plot_ydata(selection,ydata,()))
     normalized=Grammar.observation_requests(first(sources),requests;complete_pairs=true)
     retained_units=(; (key=>value for (key,value) in pairs(acquisition) if key in
         (:units,:length_unit,:quantity_units,:frequency_unit))...)

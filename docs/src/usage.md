@@ -199,26 +199,38 @@ it does not bound the mean error or the joint distribution.
 
 ## Tables and reports
 
-An `ObservedResult` retains detached quantities for one gridpoint. Each quantity
-has its own table: line matrices have one frequency row per sample and named
-columns for every ordered coefficient. CableConstants tables have one operating-
-frequency row and named assembly columns. `DataFrame(observed)` rejects aggregate
-conversion and directs the caller to a quantity leaf.
+Pass a completed result directly to [`report`](@ref). `values` accepts the same
+scientific requests that plotting names `ydata`. Omit it to use the result's
+available quantities and default display units:
+
+```julia
+constants_report = report(constants)
+phase_report = report(parameters; values=(R, L, G, C), length_unit=:kilo)
+first_term_report = report(parameters; values=@observe(R[1, 1, 1:12]))
+resistance = phase_report.tables.Z.R
+```
+
+Each quantity has its own DataFrame: full line matrices have one frequency row
+per sample and columns for every ordered coefficient, including both
+off-diagonals. Cable constants have one operating-frequency row and named
+assembly columns under `tables.constants`. Collections retain separate tables
+for each gridpoint in its original order. Default reporting creates no figure
+and writes no files.
+
+For statistical products, select the statistic explicitly:
 
 ```julia
 using Statistics
-using LineCableModels.ReportBuilder: tabulate
-
-observed = ObservedResult(parameters, (R, L, G, C))
-resistance = tabulate(observed, R)
-
-point = ObservedResult(sampled, 1, ((statistics, R, mean), (statistics, R, std)))
-mean_resistance = tabulate(point, (statistics, R, mean))
-std_resistance = tabulate(point, (statistics, R, std))
+statistics_report = report(sampled; values=((statistics, R, mean), (statistics, R, std)))
 ```
 
-[`report`](@ref) creates separate quantity tables or written reports from explicit
-requests. Loading XLSX activates one workbook per gridpoint and quantity. All
+Explicit `ObservedResult` snapshots are useful when retaining selected scientific
+products independently of their source. Reporting a snapshot preserves its
+recorded units; supplied compatible unit options re-express the retained values.
+It cannot revise prior clipping or recover discarded samples. `DataFrame(observed)`
+is not an aggregate conversion; inspect the report's quantity tables instead.
+
+Loading XLSX activates one workbook per gridpoint and quantity. All
 destinations are checked before writing; replacing files requires `overwrite=true`:
 
 ```julia

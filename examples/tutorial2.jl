@@ -269,16 +269,14 @@ produces four separate quantity tables. Each table contains the operating
 frequency and a named column for each assembly; these are not mutual-coupling
 matrices between different cables.
 
-The observation owner performs unit conversion and reporting-resolution
-handling before tabulation. Choose Ω/km, mH/km, μS/km, and μF/km explicitly so
-the R/L/C units match the catalogue entries used below.
+`report(constants)` uses the available quantities and default display units.
+Choose Ω/km, mH/km, μS/km, and μF/km explicitly so the R/L/C units match the
+catalogue entries used below.
 =#
 
-rlgc = (R, L, G, C)
-
 constants_report = report(
-    TableReportDefinition(rlgc),
     constants;
+    values = (R, L, G, C),
     length_unit = :kilo,
     quantity_units = (R = :base, L = :milli, G = :micro, C = :micro)
 )
@@ -295,10 +293,9 @@ assembly, state that intent with `@observe` in the report request. The example
 has one concentric assembly, named `:core`.
 =#
 
-core_resistance_request = @observe R[1]
 core_resistance_report = report(
-    TableReportDefinition((core_resistance_request,)),
     constants;
+    values = @observe(R[1]),
     length_unit = :kilo,
     quantity_units = (R = :base,)
 )

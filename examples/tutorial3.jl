@@ -208,11 +208,10 @@ cable_preview.figure #hide
 #=
 ## Cable constants and equivalent design
 
-Calculate the cable constants and pass the completed result directly to
-`report`. `TableReportDefinition` selects the quantities to tabulate.
-The reporting convenience constructs the detached observation internally.
+Calculate the cable constants and select R/L and G/C with `values`.
+`report(constants)` uses the available quantities and default display units.
 
-The R/L and G/C pairs produce four separate tables, grouped under Z and Y.
+The four separate quantity tables are grouped under `constants`.
 Each cable-constant table contains the operating frequency and named assembly
 columns; quantities with different units are not combined into one table.
 =#
@@ -220,7 +219,7 @@ columns; quantities with different units are not combined into one table.
 constants = CableConstants(cable_design);
 rlgc = (R, L, G, C)
 
-constants_report = report(TableReportDefinition(rlgc), constants)
+constants_report = report(constants; values = rlgc)
 
 # The report exposes the grouped ordinary DataFrames:
 constants_report.tables
@@ -372,31 +371,29 @@ conductance_residual = extrema(@observe line_parameters G[1, 1, :])
 ### Quantity tables
 
 Use the same R/L and G/C selection declared for the cable constants. The report
-builds one detached observation for this result and four separate quantity
-tables. Each full matrix table has one frequency column followed by all ordered
-matrix coefficients, including both off-diagonals.
+contains four separate quantity tables. Each full matrix table has one frequency
+column followed by all ordered matrix coefficients, including both off-diagonals.
 
 `length_unit=:kilo` selects per-kilometre reporting units. It does not change
 the numerical result or the physical system length.
 =#
 
 phase_report = report(
-    TableReportDefinition(rlgc),
     line_parameters;
+    values = rlgc,
     length_unit = :kilo
 )
 
 #=
 To tabulate a particular coefficient or frequency subset, express that request
-with `@observe` before constructing the report. The following selects the first
+with `@observe` in `values`. The following selects the first
 self-resistance coefficient at the first twelve frequencies. No knowledge of
 the generated DataFrame column names is needed to make the selection.
 =#
 
-first_term_request = @observe R[1, 1, 1:12]
 first_term_report = report(
-    TableReportDefinition((first_term_request,)),
     line_parameters;
+    values = @observe(R[1, 1, 1:12]),
     length_unit = :kilo
 );
 
@@ -406,10 +403,8 @@ first_term_report.tables.Z.R
 #=
 ### R/L and G/C plots
 
-Pass the computed result directly to `LineCableModels.plot`. The plotting
-convenience performs observation construction and delegates to the observed-input
-plotting method. Explicit construction of an `ObservedResult` is not required
-for this workflow.
+Pass the computed result directly to `LineCableModels.plot`. Plotting uses
+`ydata` for the same quantity selection that reporting names `values`.
 
 Each requested quantity has its own matrix dashboard. Matrix coordinates
 identify subplots; each trace follows that coefficient over frequency. The
@@ -496,15 +491,15 @@ the matrix indices, not the organization of the quantity tables.
 =#
 
 modal_report = report(
-    TableReportDefinition(rlgc),
     modal_parameters;
+    values = rlgc,
     length_unit = :kilo
 )
 
 # Apply the same coefficient and sample selection used for the phase result:
 first_modal_term_report = report(
-    TableReportDefinition((first_term_request,)),
     modal_parameters;
+    values = @observe(R[1, 1, 1:12]),
     length_unit = :kilo
 );
 first_modal_term_report.tables.Z.R

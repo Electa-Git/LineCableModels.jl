@@ -3,11 +3,12 @@
 _is_uq_product(request) = request_identity(request) isa Tuple &&
     first(request_identity(request)) in (statistics,samples,histograms)
 
-function _uq_requests(source,point,requests;complete_pairs=false)
+function Grammar.observation_requests(source::Union{MonteCarloResult,LinearErrorResult},
+        requests::Tuple;point::Integer=firstindex(source),complete_pairs::Bool=false)
     primary=Tuple(filter(!_is_uq_product,requests))
     products=Tuple(filter(_is_uq_product,requests))
-    retained=isempty(requests) || !isempty(primary) ?
-        Grammar.observation_requests(source[point],primary;complete_pairs).retained : ()
+    normalized=isempty(requests) || !isempty(primary) ?
+        Grammar.observation_requests(source[point],primary;complete_pairs) : (retained=(),displayed=())
     expanded=Tuple[]
     for request in products
         identity=request_identity(request)
@@ -22,9 +23,9 @@ function _uq_requests(source,point,requests;complete_pairs=false)
             push!(expanded,request)
         end
     end
-    selected=(retained...,expanded...)
+    selected=(normalized.retained...,expanded...)
     allunique(selected) || throw(ArgumentError("observation requests must be distinct"))
-    return selected
+    return (retained=selected,displayed=(normalized.displayed...,expanded...))
 end
 
 function _uq_coordinates(core::Engine.LineParameters,selector,indices)
@@ -125,7 +126,7 @@ function Grammar.ObservedResult(source::Union{MonteCarloResult,LinearErrorResult
         requests::Tuple=();comparisons=(),timings=(;),gridpoint=nothing,clip::Bool=true,
         atol=nothing,units::Tuple=(),length_unit::Symbol=:kilo,frequency_unit::Symbol=:base,
         quantity_units=nothing,frequencies=nothing,complete_pairs::Bool=false)
-    selected=_uq_requests(source,point,requests;complete_pairs)
+    selected=Grammar.observation_requests(source,requests;point,complete_pairs).retained
     isempty(units) || length(units)==length(selected) || throw(DimensionMismatch("units must align with retained requests"))
     description=gridpoint===nothing ? Grammar.observation_gridpoint(source[point]) : gridpoint
     sampling=source isa MonteCarloResult ? merge(confidence(source,point),

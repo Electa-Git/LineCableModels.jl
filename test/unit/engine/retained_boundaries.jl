@@ -39,6 +39,11 @@
         @test isequal(getproperty(only(restored.quantities),field),getproperty(original,field))
     end
     @test restored.errors==comparisons && restored.timings==timings
+    reported=report(observed;values=@observe(R[[2,1],[2,1],[3,1]]),length_unit=:base,frequency_unit=:kilo)
+    @test reported.observed.errors==comparisons && reported.observed.timings==timings
+    @test reported.observed.gridpoint==observed.gridpoint
+    @test only(reported.observed.quantities).coordinates==product.coordinates
+    @test uncertainty(observe(reported.observed,R)[1]-product.values[1])==0
     @test uncertainty(only(restored.quantities).values[1]-observe(observed,R)[1])==0
     @test uncertainty(only(restored.quantities).values[1])>0
     @test_throws ArgumentError ObservedResult(observed;atol=0)

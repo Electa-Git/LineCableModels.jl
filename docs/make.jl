@@ -19,14 +19,6 @@ const PLOTTING_SOURCE = joinpath(@__DIR__, "literate", "plotting.jl")
 
 const CONVENIENCE_API_OBJECTS = ()
 
-const BENCHMARK_API_OBJECTS = (
-    LineCableModels.Engine.RMSError,
-    LineCableModels.Engine.LineParametersBenchmark,
-    LineCableModels.Engine.compare,
-    LineCableModels.Engine.absolute_error,
-    LineCableModels.Engine.relative_error
-)
-
 const EXTENSION_API_OBJECTS = (
     LineCableModels.InputValidation,
     LineCableModels.InputValidation.validate,
@@ -90,7 +82,6 @@ const EXTENSION_API_OBJECTS = (
 _contains_identity(collection, object) = any(candidate -> candidate === object, collection)
 function api_reference_entry(object)
     !_contains_identity(CONVENIENCE_API_OBJECTS, object) &&
-        !_contains_identity(BENCHMARK_API_OBJECTS, object) &&
         !_contains_identity(EXTENSION_API_OBJECTS, object)
 end
 developer_reference_entry(object) = _contains_identity(EXTENSION_API_OBJECTS, object)

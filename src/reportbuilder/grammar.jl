@@ -16,7 +16,7 @@ $(TYPEDFIELDS)
 struct ReportArtifact{T,I,O}
     "One atomic observation or an ordinary vector of observations."
     observed::Union{ObservedResult,Vector{ObservedResult}}
-    "Separate observed reference, if this is a comparison report."
+    "Separate observed reference, when supplied."
     reference::Union{Nothing,ObservedResult}
     "Quantity-wise tables and other retained scientific summaries."
     tables::T
@@ -103,8 +103,8 @@ function report(definition::AbstractReportDefinition,
 end
 
 function report(definition::TableReportDefinition,source;kwargs...)
-    observed=observables(source,definition.requests;units=definition.units,clip=definition.clip,complete_pairs=true,kwargs...)
-    return report(definition,observed)
+    return report(source;values=definition.requests,units=definition.units,clip=definition.clip,
+        illustration=definition.illustration,plot_options=definition.plot_options,kwargs...)
 end
 
 """Return the quantity and unit metadata of an observed table's columns."""
@@ -115,4 +115,156 @@ observation_columns(table::DataFrame) = metadata(table,"observation_columns")
 function report(definition::TableReportDefinition,
         observed::Union{ObservedResult,AbstractVector{<:ObservedResult}};reference=nothing)
     return invoke(report,Tuple{AbstractReportDefinition,typeof(observed)},definition,observed;reference)
+end
+
+# These are acquisition keywords, not a second set of observation defaults.
+function _report_observation_options(options; retained = false)
+    for key in keys(options)
+        key in (:ydata, :rdata, :requests, :quantities) && throw(ArgumentError(
+            "use values to select report quantities; $key is not a reporting keyword"))
+        key in (:units, :length_unit, :quantity_units, :frequency_unit, :freq_unit,
+            :clip, :atol, :frequencies) || throw(ArgumentError(
+            "unknown reporting keyword $key; illustration options belong in plot_options"))
+        retained && key in (:clip, :atol, :frequencies) &&
+            throw(ArgumentError(
+                "$key requires a raw result; retained reports only select or re-express recorded values"))
+    end
+    haskey(options, :frequency_unit) && haskey(options, :freq_unit) &&
+        throw(ArgumentError(
+            "use frequency_unit or freq_unit, not both"))
+    return (;
+        (key===:freq_unit ? :frequency_unit=>value : key=>value
+    for (key, value) in options)...)
+end
+
+function _report_plot_options(source, requests, illustration, options::NamedTuple)
+    isempty(options) || !(illustration===nothing || illustration===false) ||
+        throw(ArgumentError(
+            "plot_options requires an explicit illustration"))
+    for key in (:values, :rdata, :requests, :quantities)
+        haskey(options, key) &&
+            throw(ArgumentError("select report and illustration quantities with values"))
+    end
+    if haskey(options, :ydata)
+        selected=Grammar.observation_selection(source, options.ydata)
+        expected=Grammar.observation_requests(source, requests; complete_pairs = true).displayed
+        Grammar.observation_requests(source, selected; complete_pairs = true).displayed==expected ||
+            throw(ArgumentError("plot_options.ydata conflicts with the report's values selection"))
+    end
+    return (; (key=>value for (key, value) in pairs(options) if key!==:ydata)...)
+end
+
+"""
+$(TYPEDSIGNATURES)
+
+Build separate in-memory quantity tables from a completed result or collection.
+The same scientific selection used by plotting's `ydata` is named `values` here.
+Raw results are observed first; retained observations preserve their recorded
+units and numerical eligibility unless compatible display units are requested.
+
+# Arguments
+
+- `source`: A completed primary result, standalone Z/Y tensor, result space,
+  ordinary collection, or retained observation.
+- `selection`: Optional positional alternative to `values`; do not supply both.
+
+# Keywords
+
+- `values=nothing`: A selector, one `@observe` request, or a tuple of requests.
+  `nothing` and `()` use the source owner's defaults, or all retained products.
+- `units`, `length_unit`, `quantity_units`, `frequency_unit`: Observation unit
+  options. Raw defaults belong to the observation owner; omitted retained
+  options preserve recorded units. `freq_unit` is an alternative spelling of
+  `frequency_unit`; supplying both is an error.
+- `clip`, `atol`, `frequencies`: Raw observation options. Cutoffs use native
+  units; standalone tensor frequency context is in \\[Hz\\]. These keywords
+  cannot be supplied for retained inputs.
+- `reference=nothing`: A separate atomic raw or observed reference. It does not
+  trigger a numerical comparison or become another candidate.
+- `illustration=nothing`: `true` or a plotting callable requests an illustration
+  of the prepared observations with the matching `ydata` selection.
+- `plot_options=(;)`: Options for an explicitly requested illustration.
+
+# Returns
+
+- A [`ReportArtifact`](@ref) containing observed inputs and separate quantity
+  DataFrames. Default reporting creates no figure and writes no files.
+
+# Errors
+
+Unknown options, competing selection keywords, conflicting illustration
+selections, and acquisition options on retained inputs raise `ArgumentError`.
+Specialized definitions remain available through `report(definition, observed)`.
+
+# Examples
+
+```julia
+report(constants)
+report(constants; values=(R, L, G, C), length_unit=:kilo,
+    quantity_units=(R=:base, L=:milli, G=:micro, C=:micro))
+report(line_parameters; values=@observe(R[1, 1, 1:12]))
+```
+"""
+function report(
+        source::Union{Grammar.AbstractCoreResult, Grammar.AbstractResultSpace,
+            Engine.SeriesImpedance, Engine.ShuntAdmittance, AbstractVector, Tuple};
+        values = nothing, reference = nothing, illustration = nothing,
+        plot_options::NamedTuple = (;), kwargs...)
+    collection=source isa Union{AbstractVector, Tuple, Grammar.AbstractParametricResult}
+    collection && isempty(source) &&
+        throw(ArgumentError("report requires at least one result"))
+    acquisition=_report_observation_options(kwargs;
+        retained = collection && any(point -> point isa ObservedResult, source))
+    point=collection ? first(source) : source
+    requests=Grammar.observation_selection(point, values)
+    displayed=isempty(requests) ? () :
+              Grammar.observation_requests(point, requests; complete_pairs = true).displayed
+    options=_report_plot_options(point, displayed, illustration, plot_options)
+    reference===nothing ||
+        reference isa Union{ObservedResult, Grammar.AbstractCoreResult,
+            Engine.SeriesImpedance, Engine.ShuntAdmittance} ||
+        throw(ArgumentError(
+            "reference must be an atomic result or ObservedResult"))
+    observed=observables(source, requests; complete_pairs = true, acquisition...)
+    if reference isa ObservedResult
+        display_units=(;
+            (key=>value
+        for (key, value) in pairs(acquisition)
+        if key in (:units, :length_unit, :quantity_units, :frequency_unit))...)
+        isempty(display_units) || (reference=ObservedResult(reference; display_units...))
+    elseif reference!==nothing
+        reference=ObservedResult(reference, requests; complete_pairs = true, acquisition...)
+    end
+    return report(
+        observed; values = displayed, reference, illustration, plot_options = options)
+end
+
+function report(observed::Union{ObservedResult, AbstractVector{<:ObservedResult}};
+        values = nothing, reference::Union{Nothing, ObservedResult} = nothing,
+        illustration = nothing, plot_options::NamedTuple = (;), kwargs...)
+    display_units=_report_observation_options(kwargs; retained = true)
+    observed isa AbstractVector && isempty(observed) &&
+        throw(ArgumentError("report requires at least one observation"))
+    point=observed isa ObservedResult ? observed : first(observed)
+    requests=Grammar.observation_selection(point, values)
+    displayed=Grammar.observation_requests(point, requests).displayed
+    options=_report_plot_options(point, displayed, illustration, plot_options)
+    if !isempty(display_units)
+        observed=observables(observed, requests; display_units...)
+        reference===nothing ||
+            (reference=ObservedResult(reference, requests; display_units...))
+    end
+    definition=TableReportDefinition(requests; illustration,
+        plot_options = illustration===nothing || illustration===false ? options :
+                       merge(options, (ydata = displayed,)))
+    return report(definition, observed; reference)
+end
+
+function report(
+        source::Union{Grammar.AbstractCoreResult, Grammar.AbstractResultSpace,
+            Engine.SeriesImpedance, Engine.ShuntAdmittance, ObservedResult, AbstractVector, Tuple},
+        selection; kwargs...)
+    haskey(kwargs, :values) &&
+        throw(ArgumentError("use positional selection or values, not both"))
+    return report(source; values = selection, kwargs...)
 end

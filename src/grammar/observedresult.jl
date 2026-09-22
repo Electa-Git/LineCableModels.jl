@@ -40,6 +40,26 @@ end
 """
 $(TYPEDSIGNATURES)
 
+Distinguish a bare selector or one composed/indexed request from a tuple of
+requests using the source's declared observable identities. This operation
+only resolves syntax; [`observation_requests`](@ref) resolves scientific meaning.
+"""
+function observation_selection(source,selection)
+    selection===nothing && return ()
+    selection isa Function && return (selection,)
+    selection isa Tuple || throw(ArgumentError("selection must be a selector or tuple of requests"))
+    isempty(selection) && return ()
+    if first(selection) isa Function
+        identity=request_identity(selection)
+        declared=source isa ObservedResult ? Tuple(request_identity(q.request) for q in source.quantities) : observables(typeof(source))
+        identity in declared && (identity isa Tuple || !isempty(request_indices(selection))) && return (selection,)
+    end
+    return selection
+end
+
+"""
+$(TYPEDSIGNATURES)
+
 Normalize retained requests at the observation boundary. Concrete scientific
 owners enforce their complete representations. `complete_pairs=true` is used
 by raw display conveniences; an observed-input consumer only selects retained

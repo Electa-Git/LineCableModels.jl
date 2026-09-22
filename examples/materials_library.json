@@ -1,0 +1,904 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "format": "linecablemodels.materials",
+    "materials": {
+        "aluminum_corrected": {
+            "kind": "conductor",
+            "rho_thermal": {
+                "value": 0,
+                "__type__": "Float64"
+            },
+            "T0": {
+                "value": 20,
+                "__type__": "Float64"
+            },
+            "theta_max": {
+                "value": 90,
+                "__type__": "Float64"
+            },
+            "alpha": {
+                "value": 0.00403,
+                "__type__": "Float64"
+            },
+            "eps_r": {
+                "value": 1,
+                "__type__": "Float64"
+            },
+            "mu_r": {
+                "value": 0.999994,
+                "__type__": "Float64"
+            },
+            "tan_delta": {
+                "value": 0,
+                "__type__": "Float64"
+            },
+            "sigma_solar": {
+                "value": 0,
+                "__type__": "Float64"
+            },
+            "rho": {
+                "value": 3.03e-8,
+                "__type__": "Float64"
+            }
+        },
+        "pe": {
+            "kind": "insulator",
+            "rho_thermal": {
+                "value": 0,
+                "__type__": "Float64"
+            },
+            "T0": {
+                "value": 20,
+                "__type__": "Float64"
+            },
+            "theta_max": {
+                "value": 90,
+                "__type__": "Float64"
+            },
+            "alpha": {
+                "value": 0,
+                "__type__": "Float64"
+            },
+            "eps_r": {
+                "value": 2.3,
+                "__type__": "Float64"
+            },
+            "mu_r": {
+                "value": 1,
+                "__type__": "Float64"
+            },
+            "tan_delta": {
+                "value": 0,
+                "__type__": "Float64"
+            },
+            "sigma_solar": {
+                "value": 0,
+                "__type__": "Float64"
+            },
+            "rho": {
+                "value": 197000000000000,
+                "__type__": "Float64"
+            }
+        },
+        "bronze": {
+            "kind": "conductor",
+            "rho_thermal": {
+                "value": 0,
+                "__type__": "Float64"
+            },
+            "T0": {
+                "value": 20,
+                "__type__": "Float64"
+            },
+            "theta_max": {
+                "value": 90,
+                "__type__": "Float64"
+            },
+            "alpha": {
+                "value": 0.003,
+                "__type__": "Float64"
+            },
+            "eps_r": {
+                "value": 1,
+                "__type__": "Float64"
+            },
+            "mu_r": {
+                "value": 1,
+                "__type__": "Float64"
+            },
+            "tan_delta": {
+                "value": 0,
+                "__type__": "Float64"
+            },
+            "sigma_solar": {
+                "value": 0,
+                "__type__": "Float64"
+            },
+            "rho": {
+                "value": 3.5e-8,
+                "__type__": "Float64"
+            }
+        },
+        "copper": {
+            "kind": "conductor",
+            "rho_thermal": {
+                "value": 0,
+                "__type__": "Float64"
+            },
+            "T0": {
+                "value": 20,
+                "__type__": "Float64"
+            },
+            "theta_max": {
+                "value": 90,
+                "__type__": "Float64"
+            },
+            "alpha": {
+                "value": 0.00393,
+                "__type__": "Float64"
+            },
+            "eps_r": {
+                "value": 1,
+                "__type__": "Float64"
+            },
+            "mu_r": {
+                "value": 0.999994,
+                "__type__": "Float64"
+            },
+            "tan_delta": {
+                "value": 0,
+                "__type__": "Float64"
+            },
+            "sigma_solar": {
+                "value": 0,
+                "__type__": "Float64"
+            },
+            "rho": {
+                "value": 1.7241e-8,
+                "__type__": "Float64"
+            }
+        },
+        "pec": {
+            "kind": "conductor",
+            "rho_thermal": {
+                "value": 0,
+                "__type__": "Float64"
+            },
+            "T0": {
+                "value": 20,
+                "__type__": "Float64"
+            },
+            "theta_max": {
+                "value": 90,
+                "__type__": "Float64"
+            },
+            "alpha": {
+                "value": 0,
+                "__type__": "Float64"
+            },
+            "eps_r": {
+                "value": 1,
+                "__type__": "Float64"
+            },
+            "mu_r": {
+                "value": 1,
+                "__type__": "Float64"
+            },
+            "tan_delta": {
+                "value": 0,
+                "__type__": "Float64"
+            },
+            "sigma_solar": {
+                "value": 0,
+                "__type__": "Float64"
+            },
+            "rho": {
+                "value": 2.220446049250313e-16,
+                "__type__": "Float64"
+            }
+        },
+        "conductive_paper": {
+            "kind": "semicon",
+            "rho_thermal": {
+                "value": 0,
+                "__type__": "Float64"
+            },
+            "T0": {
+                "value": 20,
+                "__type__": "Float64"
+            },
+            "theta_max": {
+                "value": 90,
+                "__type__": "Float64"
+            },
+            "alpha": {
+                "value": 0,
+                "__type__": "Float64"
+            },
+            "eps_r": {
+                "value": 8.6,
+                "__type__": "Float64"
+            },
+            "mu_r": {
+                "value": 1,
+                "__type__": "Float64"
+            },
+            "tan_delta": {
+                "value": 0,
+                "__type__": "Float64"
+            },
+            "sigma_solar": {
+                "value": 0,
+                "__type__": "Float64"
+            },
+            "rho": {
+                "value": 18.5,
+                "__type__": "Float64"
+            }
+        },
+        "laminated_paper": {
+            "kind": "insulator",
+            "rho_thermal": {
+                "value": 0,
+                "__type__": "Float64"
+            },
+            "T0": {
+                "value": 20,
+                "__type__": "Float64"
+            },
+            "theta_max": {
+                "value": 90,
+                "__type__": "Float64"
+            },
+            "alpha": {
+                "value": 0,
+                "__type__": "Float64"
+            },
+            "eps_r": {
+                "value": 2.8,
+                "__type__": "Float64"
+            },
+            "mu_r": {
+                "value": 1,
+                "__type__": "Float64"
+            },
+            "tan_delta": {
+                "value": 0,
+                "__type__": "Float64"
+            },
+            "sigma_solar": {
+                "value": 0,
+                "__type__": "Float64"
+            },
+            "rho": {
+                "value": 1000000000000000,
+                "__type__": "Float64"
+            }
+        },
+        "polyacrylate": {
+            "kind": "semicon",
+            "rho_thermal": {
+                "value": 0,
+                "__type__": "Float64"
+            },
+            "T0": {
+                "value": 20,
+                "__type__": "Float64"
+            },
+            "theta_max": {
+                "value": 90,
+                "__type__": "Float64"
+            },
+            "alpha": {
+                "value": 0,
+                "__type__": "Float64"
+            },
+            "eps_r": {
+                "value": 32.3,
+                "__type__": "Float64"
+            },
+            "mu_r": {
+                "value": 1,
+                "__type__": "Float64"
+            },
+            "tan_delta": {
+                "value": 0,
+                "__type__": "Float64"
+            },
+            "sigma_solar": {
+                "value": 0,
+                "__type__": "Float64"
+            },
+            "rho": {
+                "value": 5300,
+                "__type__": "Float64"
+            }
+        },
+        "semicon1": {
+            "kind": "semicon",
+            "rho_thermal": {
+                "value": 0,
+                "__type__": "Float64"
+            },
+            "T0": {
+                "value": 20,
+                "__type__": "Float64"
+            },
+            "theta_max": {
+                "value": 90,
+                "__type__": "Float64"
+            },
+            "alpha": {
+                "value": 0,
+                "__type__": "Float64"
+            },
+            "eps_r": {
+                "value": 1000,
+                "__type__": "Float64"
+            },
+            "mu_r": {
+                "value": 1,
+                "__type__": "Float64"
+            },
+            "tan_delta": {
+                "value": 0,
+                "__type__": "Float64"
+            },
+            "sigma_solar": {
+                "value": 0,
+                "__type__": "Float64"
+            },
+            "rho": {
+                "value": 1000,
+                "__type__": "Float64"
+            }
+        },
+        "xlpe": {
+            "kind": "insulator",
+            "rho_thermal": {
+                "value": 0,
+                "__type__": "Float64"
+            },
+            "T0": {
+                "value": 20,
+                "__type__": "Float64"
+            },
+            "theta_max": {
+                "value": 90,
+                "__type__": "Float64"
+            },
+            "alpha": {
+                "value": 0,
+                "__type__": "Float64"
+            },
+            "eps_r": {
+                "value": 2.5,
+                "__type__": "Float64"
+            },
+            "mu_r": {
+                "value": 1,
+                "__type__": "Float64"
+            },
+            "tan_delta": {
+                "value": 0,
+                "__type__": "Float64"
+            },
+            "sigma_solar": {
+                "value": 0,
+                "__type__": "Float64"
+            },
+            "rho": {
+                "value": 197000000000000,
+                "__type__": "Float64"
+            }
+        },
+        "semicon2": {
+            "kind": "semicon",
+            "rho_thermal": {
+                "value": 0,
+                "__type__": "Float64"
+            },
+            "T0": {
+                "value": 20,
+                "__type__": "Float64"
+            },
+            "theta_max": {
+                "value": 90,
+                "__type__": "Float64"
+            },
+            "alpha": {
+                "value": 0,
+                "__type__": "Float64"
+            },
+            "eps_r": {
+                "value": 1000,
+                "__type__": "Float64"
+            },
+            "mu_r": {
+                "value": 1,
+                "__type__": "Float64"
+            },
+            "tan_delta": {
+                "value": 0,
+                "__type__": "Float64"
+            },
+            "sigma_solar": {
+                "value": 0,
+                "__type__": "Float64"
+            },
+            "rho": {
+                "value": 500,
+                "__type__": "Float64"
+            }
+        },
+        "aluminum": {
+            "kind": "conductor",
+            "rho_thermal": {
+                "value": 0,
+                "__type__": "Float64"
+            },
+            "T0": {
+                "value": 20,
+                "__type__": "Float64"
+            },
+            "theta_max": {
+                "value": 90,
+                "__type__": "Float64"
+            },
+            "alpha": {
+                "value": 0.00429,
+                "__type__": "Float64"
+            },
+            "eps_r": {
+                "value": 1,
+                "__type__": "Float64"
+            },
+            "mu_r": {
+                "value": 1.000022,
+                "__type__": "Float64"
+            },
+            "tan_delta": {
+                "value": 0,
+                "__type__": "Float64"
+            },
+            "sigma_solar": {
+                "value": 0,
+                "__type__": "Float64"
+            },
+            "rho": {
+                "value": 2.8264e-8,
+                "__type__": "Float64"
+            }
+        },
+        "carbon_pe": {
+            "kind": "semicon",
+            "rho_thermal": {
+                "value": 0,
+                "__type__": "Float64"
+            },
+            "T0": {
+                "value": 20,
+                "__type__": "Float64"
+            },
+            "theta_max": {
+                "value": 90,
+                "__type__": "Float64"
+            },
+            "alpha": {
+                "value": 0,
+                "__type__": "Float64"
+            },
+            "eps_r": {
+                "value": 1000,
+                "__type__": "Float64"
+            },
+            "mu_r": {
+                "value": 1,
+                "__type__": "Float64"
+            },
+            "tan_delta": {
+                "value": 0,
+                "__type__": "Float64"
+            },
+            "sigma_solar": {
+                "value": 0,
+                "__type__": "Float64"
+            },
+            "rho": {
+                "value": 0.06,
+                "__type__": "Float64"
+            }
+        },
+        "lead": {
+            "kind": "conductor",
+            "rho_thermal": {
+                "value": 0,
+                "__type__": "Float64"
+            },
+            "T0": {
+                "value": 20,
+                "__type__": "Float64"
+            },
+            "theta_max": {
+                "value": 90,
+                "__type__": "Float64"
+            },
+            "alpha": {
+                "value": 0.004,
+                "__type__": "Float64"
+            },
+            "eps_r": {
+                "value": 1,
+                "__type__": "Float64"
+            },
+            "mu_r": {
+                "value": 0.999983,
+                "__type__": "Float64"
+            },
+            "tan_delta": {
+                "value": 0,
+                "__type__": "Float64"
+            },
+            "sigma_solar": {
+                "value": 0,
+                "__type__": "Float64"
+            },
+            "rho": {
+                "value": 2.14e-7,
+                "__type__": "Float64"
+            }
+        },
+        "copper_corrected": {
+            "kind": "conductor",
+            "rho_thermal": {
+                "value": 0,
+                "__type__": "Float64"
+            },
+            "T0": {
+                "value": 20,
+                "__type__": "Float64"
+            },
+            "theta_max": {
+                "value": 90,
+                "__type__": "Float64"
+            },
+            "alpha": {
+                "value": 0.00393,
+                "__type__": "Float64"
+            },
+            "eps_r": {
+                "value": 1,
+                "__type__": "Float64"
+            },
+            "mu_r": {
+                "value": 0.999994,
+                "__type__": "Float64"
+            },
+            "tan_delta": {
+                "value": 0,
+                "__type__": "Float64"
+            },
+            "sigma_solar": {
+                "value": 0,
+                "__type__": "Float64"
+            },
+            "rho": {
+                "value": 1.835e-8,
+                "__type__": "Float64"
+            }
+        },
+        "steel_reference": {
+            "kind": "conductor",
+            "rho_thermal": {
+                "value": 0,
+                "__type__": "Float64"
+            },
+            "T0": {
+                "value": 20,
+                "__type__": "Float64"
+            },
+            "theta_max": {
+                "value": 90,
+                "__type__": "Float64"
+            },
+            "alpha": {
+                "value": 0.0045,
+                "__type__": "Float64"
+            },
+            "eps_r": {
+                "value": 1,
+                "__type__": "Float64"
+            },
+            "mu_r": {
+                "value": 300,
+                "__type__": "Float64"
+            },
+            "tan_delta": {
+                "value": 0,
+                "__type__": "Float64"
+            },
+            "sigma_solar": {
+                "value": 0,
+                "__type__": "Float64"
+            },
+            "rho": {
+                "value": 1.38e-7,
+                "__type__": "Float64"
+            }
+        },
+        "air": {
+            "kind": "insulator",
+            "rho_thermal": {
+                "value": 0,
+                "__type__": "Float64"
+            },
+            "T0": {
+                "value": 20,
+                "__type__": "Float64"
+            },
+            "theta_max": {
+                "value": 90,
+                "__type__": "Float64"
+            },
+            "alpha": {
+                "value": 0,
+                "__type__": "Float64"
+            },
+            "eps_r": {
+                "value": 1,
+                "__type__": "Float64"
+            },
+            "mu_r": {
+                "value": 1,
+                "__type__": "Float64"
+            },
+            "tan_delta": {
+                "value": 0,
+                "__type__": "Float64"
+            },
+            "sigma_solar": {
+                "value": 0,
+                "__type__": "Float64"
+            },
+            "rho": {
+                "special": "Inf",
+                "__type__": "Float64"
+            }
+        },
+        "epr": {
+            "kind": "insulator",
+            "rho_thermal": {
+                "value": 0,
+                "__type__": "Float64"
+            },
+            "T0": {
+                "value": 20,
+                "__type__": "Float64"
+            },
+            "theta_max": {
+                "value": 90,
+                "__type__": "Float64"
+            },
+            "alpha": {
+                "value": 0.005,
+                "__type__": "Float64"
+            },
+            "eps_r": {
+                "value": 3,
+                "__type__": "Float64"
+            },
+            "mu_r": {
+                "value": 1,
+                "__type__": "Float64"
+            },
+            "tan_delta": {
+                "value": 0,
+                "__type__": "Float64"
+            },
+            "sigma_solar": {
+                "value": 0,
+                "__type__": "Float64"
+            },
+            "rho": {
+                "value": 1000000000000000,
+                "__type__": "Float64"
+            }
+        },
+        "pvc": {
+            "kind": "insulator",
+            "rho_thermal": {
+                "value": 0,
+                "__type__": "Float64"
+            },
+            "T0": {
+                "value": 20,
+                "__type__": "Float64"
+            },
+            "theta_max": {
+                "value": 90,
+                "__type__": "Float64"
+            },
+            "alpha": {
+                "value": 0.1,
+                "__type__": "Float64"
+            },
+            "eps_r": {
+                "value": 8,
+                "__type__": "Float64"
+            },
+            "mu_r": {
+                "value": 1,
+                "__type__": "Float64"
+            },
+            "tan_delta": {
+                "value": 0,
+                "__type__": "Float64"
+            },
+            "sigma_solar": {
+                "value": 0,
+                "__type__": "Float64"
+            },
+            "rho": {
+                "value": 1000000000000000,
+                "__type__": "Float64"
+            }
+        },
+        "pp": {
+            "kind": "insulator",
+            "rho_thermal": {
+                "value": 0,
+                "__type__": "Float64"
+            },
+            "T0": {
+                "value": 20,
+                "__type__": "Float64"
+            },
+            "theta_max": {
+                "value": 90,
+                "__type__": "Float64"
+            },
+            "alpha": {
+                "value": 0,
+                "__type__": "Float64"
+            },
+            "eps_r": {
+                "value": 2.8,
+                "__type__": "Float64"
+            },
+            "mu_r": {
+                "value": 1,
+                "__type__": "Float64"
+            },
+            "tan_delta": {
+                "value": 0,
+                "__type__": "Float64"
+            },
+            "sigma_solar": {
+                "value": 0,
+                "__type__": "Float64"
+            },
+            "rho": {
+                "value": 1000000000000000,
+                "__type__": "Float64"
+            }
+        },
+        "lead_reference": {
+            "kind": "conductor",
+            "rho_thermal": {
+                "value": 0,
+                "__type__": "Float64"
+            },
+            "T0": {
+                "value": 20,
+                "__type__": "Float64"
+            },
+            "theta_max": {
+                "value": 90,
+                "__type__": "Float64"
+            },
+            "alpha": {
+                "value": 0.004,
+                "__type__": "Float64"
+            },
+            "eps_r": {
+                "value": 1,
+                "__type__": "Float64"
+            },
+            "mu_r": {
+                "value": 0.999983,
+                "__type__": "Float64"
+            },
+            "tan_delta": {
+                "value": 0,
+                "__type__": "Float64"
+            },
+            "sigma_solar": {
+                "value": 0,
+                "__type__": "Float64"
+            },
+            "rho": {
+                "value": 2.14e-7,
+                "__type__": "Float64"
+            }
+        },
+        "stainless_steel": {
+            "kind": "conductor",
+            "rho_thermal": {
+                "value": 0,
+                "__type__": "Float64"
+            },
+            "T0": {
+                "value": 20,
+                "__type__": "Float64"
+            },
+            "theta_max": {
+                "value": 90,
+                "__type__": "Float64"
+            },
+            "alpha": {
+                "value": 0,
+                "__type__": "Float64"
+            },
+            "eps_r": {
+                "value": 1,
+                "__type__": "Float64"
+            },
+            "mu_r": {
+                "value": 500,
+                "__type__": "Float64"
+            },
+            "tan_delta": {
+                "value": 0,
+                "__type__": "Float64"
+            },
+            "sigma_solar": {
+                "value": 0,
+                "__type__": "Float64"
+            },
+            "rho": {
+                "value": 7.0e-7,
+                "__type__": "Float64"
+            }
+        },
+        "steel": {
+            "kind": "conductor",
+            "rho_thermal": {
+                "value": 0,
+                "__type__": "Float64"
+            },
+            "T0": {
+                "value": 20,
+                "__type__": "Float64"
+            },
+            "theta_max": {
+                "value": 90,
+                "__type__": "Float64"
+            },
+            "alpha": {
+                "value": 0.0045,
+                "__type__": "Float64"
+            },
+            "eps_r": {
+                "value": 1,
+                "__type__": "Float64"
+            },
+            "mu_r": {
+                "value": 300,
+                "__type__": "Float64"
+            },
+            "tan_delta": {
+                "value": 0,
+                "__type__": "Float64"
+            },
+            "sigma_solar": {
+                "value": 0,
+                "__type__": "Float64"
+            },
+            "rho": {
+                "value": 1.38e-7,
+                "__type__": "Float64"
+            }
+        }
+    },
+    "version": "1.0.0"
+}

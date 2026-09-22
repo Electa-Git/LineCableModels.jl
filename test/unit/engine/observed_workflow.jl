@@ -126,11 +126,15 @@ end
     @test all(>(0),distribution.distribution.qq.sample)
     shared=measurement(1.,.2)
     uncertain=LineParameters(fill(complex(shared,2shared),2,2,3),fill(complex(3shared,4shared),2,2,3),f)
-    observed=only(observables([uncertain]))
+    ordinary=report(uncertain)
+    @test ordinary.observed isa ObservedResult
+    observed=ordinary.observed
+    lep=LinearErrorResult(LinearError(Formulation()),[uncertain])
+    @test only(report(lep;values=R).tables).Z.R==report(uncertain;values=R).tables.Z.R
     @test length(observed.quantities)==4
     @test all(q -> q.statistic===:value,observed.quantities)
     @test !haskey(observed.gridpoint,:sampling)
-    artifact=report(TableReportDefinition(),[observed];reference=observed)
+    artifact=report([observed];reference=observed)
     mktempdir() do directory
         for suffix in (".json",".jls")
             path=LineCableModels.save(artifact,joinpath(directory,"shared"*suffix))

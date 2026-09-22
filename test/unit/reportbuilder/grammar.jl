@@ -140,3 +140,164 @@ end
         @test_throws ArgumentError RB.write(overwrite,[first(books),first(books)])
     end
 end
+
+@testitem "ReportBuilder / source-first quantity tables" tags=[:unit] setup=[TestFixtures] begin
+    using DataFrames, Statistics, Measurements
+    using LineCableModels.Grammar: observation_product, observation_gridpoint, gridpoint_id
+    using LineCableModels.Engine: retain_gridpoint
+    RB=LineCableModels.ReportBuilder
+    @test LineCableModels.report===RB.report
+    @test isempty(Test.detect_ambiguities(RB; recursive = true))
+    constants=CableConstants(1.0, 2.0, 3.0)
+    line=TestFixtures.two_conductor_results()
+    for selection in (nothing, ())
+        @test keys(report(constants; values = selection).tables.constants)==(:R, :L, :G, :C)
+        tables=report(line; values = selection).tables
+        @test keys(tables.Z)==(:R, :X)
+        @test keys(tables.Y)==(:G, :B)
+    end
+    @test report(constants).tables==report(constants; values = nothing).tables
+    @test report(line).tables==report(line; values = ()).tables
+    units=(length_unit = :kilo,
+        quantity_units = (R = :base, L = :milli, G = :micro, C = :micro))
+    requested=(R, L, G, C)
+    artifact=report(constants; values = requested, units...)
+    @test artifact.tables.constants.R[!, 2]==[1000.0]
+    @test keys(artifact.tables)==(:constants,)
+    @test names(artifact.tables.constants.R)==["frequency", string.(constants.cores)...]
+    @test artifact.tables.constants.R.frequency==[constants.frequency]
+    @test report(constants; values = @observe(R[1]), units...).tables.constants.R==artifact.tables.constants.R
+    @test report(line, requested).tables==report(line; values = requested).tables
+    @test keys(report(line; values = R).tables.Z)==(:R,)
+    @test keys(report(line; values = R).tables)==(:Z,)
+    @test report(line; values = ((Z, real),)).tables==report(line; values = R).tables
+    @test keys(report(line; values = Z).tables.Z)==(:R, :X)
+    full=report(line; values = requested)
+    @test names(full.tables.Z.R)==["frequency", "[1,1]", "[1,2]", "[2,1]", "[2,2]"]
+    @test full.tables.Z.R[!, 3]≈1000 .* observe(line, R)[1, 2, :]
+    @test full.tables.Z.R[!, 4]≈1000 .* observe(line, R)[2, 1, :]
+    @test full.tables.Z.R[!, 3]!=full.tables.Z.R[!, 4]
+    selected=report(line; values = @observe(R[[2, 1], [2], [3, 1]]))
+    @test names(selected.tables.Z.R)==["frequency", "[2,2]", "[1,2]"]
+    @test selected.tables.Z.R.frequency==[1000.0, 10.0]
+    @test selected.tables.Z.R[!, 2]≈1000 .* observe(line, R)[2, 2, [3, 1]]
+    @test report(line.Z; values = R, frequencies = frequencies(line)).tables.Z.R==full.tables.Z.R
+    @test report(line.Y; values = C, frequencies = frequencies(line)).tables.Y.C==full.tables.Y.C
+    for bad in (:ydata, :rdata, :requests, :quantities)
+        @test_throws r"values" report(line; NamedTuple{(bad,)}((requested,))...)
+    end
+    for source in (line, ObservedResult(line), [ObservedResult(line)])
+        @test_throws r"values" report(source, R; values = R)
+        @test_throws r"values" report(source, R; values = nothing)
+        @test_throws ArgumentError report(source; frequency_unit = :base, freq_unit = :base)
+        @test_throws ArgumentError report(source; backend = :cairo)
+        @test_throws ArgumentError report(source; controls = false)
+        @test_throws ArgumentError report(source; layout = (1, 1))
+    end
+    @test_throws MethodError report(42)
+    @test_throws ArgumentError report(line; reference = [line])
+    @test_throws ArgumentError report(ObservedResult[])
+    source_id=gridpoint_id().source_id
+    points=[retain_gridpoint(line, gridpoint_id(; source_id, problem_index = i))
+            for i in (3, 1)]
+    for collection in (points, Tuple(points))
+        result=report(collection; values = R)
+        @test getproperty.(getproperty.(result.observed, :gridpoint),
+            :id)==[observation_gridpoint(point).id for point in points]
+        @test [point.gridpoint.id.problem_index for point in result.observed]==[3, 1]
+        @test length(result.tables)==2
+        @test result.tables[1].Z.R==result.tables[2].Z.R
+    end
+    study=ParametricResult(
+        nothing, points, (problems = [:one, :two], formulations = [:default]),
+        ComputationDetails())
+    @test report(study; values = R).tables==report(points; values = R).tables
+    @test [point.gridpoint.id.problem_index for point in report(study).observed]==[3, 1]
+    @test length(report(points[1:1]).observed)==1
+    mixed=report((constants, line))
+    @test keys(mixed.tables[1])==(:constants,)
+    @test keys(mixed.tables[2])==(:Z, :Y)
+    mc=TestFixtures.cable_monte_carlo_result()
+    @test length(report(mc).tables)==length(mc)
+    statistics_report=report(mc; values = @observe((statistics, R, mean)[1]))
+    @test length(only(statistics_report.observed).quantities)==1
+    @test only(statistics_report.tables).statistics.statistics_R_mean[!, 2]≈1000 .* observe(
+        mc, statistics, R, mean, 1)
+    @test length(only(report(mc; values = (statistics, R)).observed).quantities)==7
+    @test report(mc; values = R).tables[1].constants.R==report(mc).tables[1].constants.R
+    @test_throws ArgumentError DataFrame(artifact.observed)
+end
+
+@testitem "ReportBuilder / source-first retained units and illustration" tags=[:unit] setup=[TestFixtures] begin
+    using DataFrames
+    using LineCableModels.Grammar: observation_product
+    line=TestFixtures.two_conductor_results()
+    quantities=(R, L, G, C)
+    unit_options=(length_unit = :base, quantity_units = :base, frequency_unit = :kilo)
+    observed=ObservedResult(line, quantities; unit_options...)
+    raw=report(line; values = quantities, unit_options...)
+    retained=report(observed)
+    @test retained.observed===observed
+    @test raw.tables==retained.tables
+    for selector in quantities
+        a=observation_product(raw.observed, selector)
+        b=observation_product(retained.observed, selector)
+        @test a.values==b.values
+        @test a.unit==b.unit
+        @test a.coordinates==b.coordinates
+    end
+    @test report(observed; unit_options...).tables==retained.tables
+    converted=report(observed; length_unit = :kilo, freq_unit = :base)
+    roundtrip=report(converted.observed; length_unit = :base, frequency_unit = :kilo)
+    for selector in quantities
+        a=observation_product(roundtrip.observed, selector)
+        b=observation_product(observed, selector)
+        @test a.values≈b.values
+        @test a.unit==b.unit && a.coordinates==b.coordinates
+        @test a.available==b.available && a.engineering_zero==b.engineering_zero
+    end
+    @test report(observed; values = R).tables.Z.R==retained.tables.Z.R
+    @test report(observed, R).tables==report(observed; values = R).tables
+    @test only(report([observed], R).tables).Z.R==retained.tables.Z.R
+    for source in (observed, [observed], (observed,)),
+        options in (
+            (clip = true,), (clip = nothing,), (atol = nothing,), (frequencies = nothing,))
+
+        @test_throws ArgumentError report(source; options...)
+    end
+    recorded=Ref{Any}(nothing)
+    renderer=(points; ydata, reference = nothing,
+        kwargs...)->(recorded[]=(; points, ydata, reference, options = (; kwargs...)))
+    @test report(line).illustration===nothing
+    @test report(line).output===nothing
+    @test recorded[]===nothing
+    @test_throws ArgumentError report(line; illustration = renderer, unknown = true)
+    @test_throws ArgumentError report(line; values = R, illustration = renderer, plot_options = (ydata = (L,),))
+    @test_throws ArgumentError report(line; plot_options = (backend = :cairo,))
+    @test recorded[]===nothing
+    reference=ObservedResult(line; length_unit = :base)
+    artifact=report(line; values = R, reference, illustration = renderer,
+        plot_options = (ydata = (R,), backend = :cairo))
+    @test recorded[].points===artifact.observed
+    @test recorded[].reference===reference
+    @test recorded[].ydata==((R, :, :, :),)
+    @test recorded[].options==(backend = :cairo,)
+    @test artifact.reference===reference
+    @test isempty(artifact.observed.errors)
+    @test isempty(artifact.reference.errors)
+    @test observation_product(reference, R).unit!=observation_product(artifact.observed, R).unit
+    converted_reference=report(line; values = R, reference, length_unit = :kilo)
+    @test observation_product(converted_reference.reference,
+        R).unit==observation_product(converted_reference.observed, R).unit
+    @test observation_product(reference, R).unit!=observation_product(converted_reference.reference, R).unit
+    @test report(line; values = R, reference = line).reference isa ObservedResult
+    report(observed; values = R, illustration = renderer, length_unit = :kilo)
+    @test recorded[].points isa ObservedResult
+    @test recorded[].ydata==(R,)
+    report(observed; illustration = renderer)
+    @test recorded[].ydata==quantities
+    @test raw.tables==retained.tables
+    @test report(TableReportDefinition(quantities), line).tables==report(line; values = quantities).tables
+    @test report(LineCableModels.ReportBuilder.LineParametersTableDefinition(quantities),
+        line).tables==report(line; values = quantities).tables
+end
