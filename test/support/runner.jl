@@ -5,7 +5,7 @@ using TestItemRunner, TOML, Test
 # Tags describe purpose or environment, never the observed outcome. Explicit
 # selectors can reach every item, including those excluded from ordinary runs.
 const ORDINARY_EXCLUDED_TAGS = Set((:quality, :aqua, :visual, :core_only,
-    :fem_numerical, :gauntlet, :gauntlet_toolkit))
+    :fem_numerical, :pscad_native))
 
 function selection(arguments, directory; excluded=ORDINARY_EXCLUDED_TAGS)
     queries = filter(!=("--list"), arguments)
@@ -17,6 +17,8 @@ function selection(arguments, directory; excluded=ORDINARY_EXCLUDED_TAGS)
     prefix = abspath(directory) * Base.Filesystem.path_separator
     return item -> begin
         startswith(abspath(item.filename), prefix) || return false
+        # A filename/name search must not accidentally launch a live station.
+        :pscad_native in item.tags && :pscad_native ∉ tags && return false
         isempty(queries) && return isempty(intersect(excluded, item.tags))
         tag_match = isempty(tags) || any(in(item.tags), tags)
         name_match = isempty(names) || any(names) do query

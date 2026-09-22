@@ -147,7 +147,7 @@ function Write-NewLines {
 }
 
 if (-not (Test-Path -LiteralPath $SharedCase -PathType Container)) {
-    throw "VirtioFS case directory is unavailable: $SharedCase"
+    throw "PSCAD exchange directory is unavailable: $SharedCase"
 }
 if (-not (Test-Path -LiteralPath $Julia -PathType Leaf)) {
     throw "Julia executable is unavailable: $Julia"
@@ -156,6 +156,12 @@ if (-not (Test-Path -LiteralPath $Python -PathType Leaf)) {
     throw "Python executable is unavailable: $Python"
 }
 
+$sharedFull = [IO.Path]::GetFullPath($SharedCase).TrimEnd('\') + '\'
+$localFull = [IO.Path]::GetFullPath($LocalCase).TrimEnd('\') + '\'
+if ($sharedFull.StartsWith($localFull, [StringComparison]::OrdinalIgnoreCase) -or
+    $localFull.StartsWith($sharedFull, [StringComparison]::OrdinalIgnoreCase)) {
+    throw "PSCAD exchange and scratch directories must not overlap"
+}
 $ownerPath = Join-Path $LocalCase "owner.txt"
 Stop-OwnedRunner -OwnerPath $ownerPath -OwnedRoot $LocalCase
 if (Test-Path -LiteralPath $LocalCase) {
@@ -225,9 +231,9 @@ $invokeLines = @(
     "set LCM_TRACK_PROGRESS=$([int][bool]$TrackProgress)",
     "set `"JULIA_PYTHONCALL_EXE=$Python`"",
     "`"$Julia`" $($runnerArguments -join ' ') 1>`"$stdoutPath`" 2>`"$stderrPath`"",
-    "set `"GAUNTLET_EXIT=%ERRORLEVEL%`"",
-    ">`"$exitPath`" echo %GAUNTLET_EXIT%",
-    "exit /b %GAUNTLET_EXIT%"
+    "set `"PSCAD_EXIT=%ERRORLEVEL%`"",
+    ">`"$exitPath`" echo %PSCAD_EXIT%",
+    "exit /b %PSCAD_EXIT%"
 )
 [IO.File]::WriteAllLines($invokePath, $invokeLines, [Text.Encoding]::ASCII)
 

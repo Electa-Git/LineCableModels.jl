@@ -25,14 +25,15 @@
     @test Formulation(Val(:pscad),underground,composite)===composite
     @test map(value -> value.identifier,
         LineCableModels.computation_details(composite).data.methods.internal_impedance)==
-        (inner=:cable_coax,outer=:cable_coax,transfer=:cable_coax)
+        (inner=:wedepohl1973,outer=:wedepohl1973,transfer=:wedepohl1973)
     rejected=Formulation(:pscad;internal_impedance=(inner=:default,
         outer=:schelkunoff1934,transfer=:default))
     @test_throws ArgumentError Formulation(Val(:pscad),underground,rejected)
     @test_throws MethodError LineCableModelsFEM(internal_impedance=(inner=:default,outer=:default,transfer=:default))
     for selected_problem in (overhead, underground)
         resolved=Formulation(Val(:pscad), selected_problem, Formulation(:pscad))
-        @test formula_id(resolved.methods.earth_impedance) === :direct_lucca
+        @test map(formula_id, resolved.methods.earth_impedance) ==
+            (air=:carson1926, earth=:pollaczek1926, mixed=:lucca1994)
         @test formula_id(resolved.definitions.earth_impedance) === :default
         @test all(control -> control.value == 2, P.pscad_setting(resolved, selected_problem).ground)
     end
@@ -69,7 +70,7 @@
         Formulation(:pscad; insulation_admittance = :lossy))
     resolved=map(value->Formulation(Val(:pscad), underground, value), requested)
     root=mktempdir()
-    prepared=[P._stage_pscad_project(underground, value,P.pscad_setting(value,underground),root) for value in resolved]
+    prepared=[P._stage_pscad_project(P._prepare_pscad(underground, value, P._pscad_blueprints(underground.system)), root) for value in resolved]
     try
         @test length(unique(getproperty.(prepared, :root))) == 3
         @test all(project -> dirname(project.root) == root,prepared)
@@ -84,7 +85,7 @@
         foreach(value->rm(value.root; recursive = true), prepared)
     end
 
-    @test NamedTuple(Formulation(:pscad)).methods.internal_impedance.identifier === :cable_coax
+    @test NamedTuple(Formulation(:pscad)).methods.internal_impedance.identifier === :wedepohl1973
     baseline=LineCableModels.computation_details(Formulation(:pscad))
     alternative=LineCableModels.computation_details(Formulation(:pscad;
         earth_impedance = :saad1996, insulation_admittance = :lossy))
@@ -101,16 +102,17 @@ end
     const EI=LineCableModels.Engine.EarthImpedance
     for owner in (EI, LineCableModels.Engine.EarthAdmittance)
         equation = owner === EI ? P.earth_impedance : P.earth_potential_coefficient
-        fallback = which(equation, Tuple{P.NativeFormula{owner.Formula}, Val, Val, Val, Val{:pscad}})
+        fallback = which(equation, Tuple{owner.Formula, Val, Val, Val, Val{:pscad}})
         for (kind, source, target) in ((:self, 1, 1), (:mutual, 1, 1),
                 (:self, 2, 2), (:mutual, 2, 2), (:mutual, 1, 2), (:mutual, 2, 1))
             identifiers = P.formulas(owner, Val(kind), Val(source), Val(target))
             @test allunique(identifiers)
-            @test (owner === EI ? :direct_lucca : :coupled) in identifiers
+            @test all(in(owner.formulas()), identifiers)
+            owner === EI || @test identifiers == (:ideal,)
             @test :default ∉ identifiers
             for identifier in owner.formulas()
                 @test (identifier in identifiers) == (which(equation,
-                    Tuple{P.NativeFormula{owner.Formula,identifier}, Val{kind}, Val{source}, Val{target}, Val{:pscad}}) !== fallback)
+                    Tuple{owner.Formula{identifier}, Val{kind}, Val{source}, Val{target}, Val{:pscad}}) !== fallback)
             end
         end
         @test isempty(P.formulas(owner, Val(:self), Val(1), Val(2)))
@@ -153,7 +155,7 @@ end
         Formulation(:pscad; earth_impedance = (
             air = formula(:gary1976; options = (integration = (method = :quad,),)),
             earth = :saad1996, mixed = :lucca1994)))
-    staged = P._stage_pscad_project(problem, selected, setting, mktempdir())
+    staged = P._stage_pscad_project(P._prepare_pscad(problem, selected, P._pscad_blueprints(problem.system)), mktempdir())
     try
         document = EzXML.readxml(staged.staged)
         ground = only(EzXML.findall("//User[@defn='master:Line_Ground']", document))
@@ -172,7 +174,7 @@ end
     end
     record = NamedTuple(selected)
     @test map(value -> value.identifier,record.requested.earth_impedance) == choices
-    @test record.methods.earth_admittance.identifier === :coupled
+    @test record.methods.earth_admittance.identifier === :ideal
     @test record.requested.earth_impedance.air.identifier === :gary1976
     vertical = LineParametersProblem(build(LineCableSystem, [design, design],
         [Pose2(0, -1), Pose2(0, -2)]; connections = [Dict(:core => 1), Dict(:core => 2)]);

@@ -5,6 +5,7 @@ Check the physical earth inventory accepted by PSCAD model export and execution.
 The supported model consists of air and one infinite horizontal soil half-space.
 """
 function validate(model::EarthModel, ::Val{:pscad})
+    _pscad_deterministic(eltype(model))
     validate(model)
     !model.vertical_layers && length(model.layers) == 2 &&
     all(layer -> isinf(layer.thickness), model.layers) || throw(ArgumentError(
@@ -12,7 +13,21 @@ function validate(model::EarthModel, ::Val{:pscad})
     return model
 end
 
+function _pscad_deterministic(types::Type...)
+    any(Engine.has_uncertainty_type, types) && throw(ArgumentError(
+        "PSCAD does not support Measurement values. Supply deterministic inputs."))
+    return nothing
+end
+
+function _pscad_blueprints(system::LineCableSystem)
+    _pscad_deterministic(eltype(system))
+    T = eltype(system)
+    return Engine.CableBlueprint{T}[
+        Engine.flatten(LineCableModelsCoaxial(), design, T) for design in system.designs]
+end
+
 function _validate_frequencies(values::AbstractVector)
+    _pscad_deterministic(eltype(values))
     isempty(values) && throw(ArgumentError("PSCAD requires calculation frequencies"))
     invalid = findall(value -> !isfinite(value) || value < 0.1, values)
     isempty(invalid) || throw(DomainError(values[invalid],
@@ -30,8 +45,9 @@ function _validate_frequencies(values::AbstractVector)
 end
 
 function validate(problem::LineParametersProblem, formulation::PSCADFormulation)
-    pscad_setting(formulation, problem)
+    _pscad_deterministic(eltype(problem), typeof(formulation.options.data.base_frequency))
     _validate_frequencies(problem.frequencies)
     _pscad_size(problem)
+    _prepare_pscad(problem, formulation, _pscad_blueprints(problem.system))
     return problem
 end

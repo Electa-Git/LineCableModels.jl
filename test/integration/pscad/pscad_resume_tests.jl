@@ -3,6 +3,7 @@
     using TOML, SHA, Logging
     const P=LineCableModels.PSCAD
     const launches=Ref(0)
+    const identifications=Ref(0)
     const mismatched_readback=Ref(false)
     const incomplete_matrix=Ref(false)
     const station_identity=Dict("schema"=>"1", "version"=>"5.1.0",
@@ -18,6 +19,8 @@
               using TOML
               root = $(repr(root))
               input = TOML.parsefile(joinpath(root, "computation.toml"))
+              identity = TOML.parse($(repr(sprint(TOML.print, station_identity))))
+              get(input, "expected_solver", identity) == identity || error("unexpected solver identity")
               output = joinpath(root, "outputs")
               for (name, value) in (("zm", 2.0), ("zp", 30.0), ("ym", 0.001), ("yp", 75.0))
                   open(joinpath(output, "result_" * name * ".out"), "w") do io
@@ -37,10 +40,11 @@
               write(joinpath(output, "timing.txt"), "3.25")
               write(joinpath(output, "pscad-console.txt"), "protocol fixture")
               open(joinpath(output, "solver.toml"), "w") do io
-                  TOML.print(io, input["solver"])
+                  TOML.print(io, identity)
               end
               """
         else
+            occursin("identify.py", command) && (identifications[] += 1)
             script="print("*repr(sprint(TOML.print, station_identity))*")"
         end
         return `$(Base.julia_cmd()) --startup-file=no --project=@stdlib -e $script`
@@ -73,6 +77,7 @@
         @test isempty(quiet_log.logs)
         @test launches[] == 1
         @test !details(first_result).data.execution.reused
+        @test identifications[] == 0
         @test details(first_result).data.execution.elapsed_scope == P.PSCAD_TIMING_SCOPE
         source=details(first_result).data.execution.source_run
         files=[joinpath(root, file) for (root, _, names) in walkdir(source)
@@ -84,7 +89,7 @@
             compute(problem, Formulation(:pscad; earth_impedance = :pollaczek1926);
                 options=(; options..., verbosity=(default=0, PSCAD=1)))
         end
-        @test any(record->record.message == "Exporting PSCAD computation project", verbose_log.logs)
+        @test identifications[] == 1
         @test any(record->record.message == "PSCAD reuses a verified completed run", verbose_log.logs)
         @test launches[] == 1
         @test Z(reused) == Z(first_result)

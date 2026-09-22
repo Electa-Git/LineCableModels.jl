@@ -308,8 +308,7 @@ function _empty_pscad_part(index::Int)
     return parameters
 end
 
-function _pscad_components(design, frequency, formulation, temperature)
-    blueprint = Engine.flatten(Engine.LineCableModelsCoaxial(), design)
+function _pscad_components(blueprint::Engine.CableBlueprint, frequency, formulation, temperature)
     T = eltype(blueprint)
     omega = 2 * (one(T) * pi) * convert(T, frequency)
     epsilon0 = one(T) * 88541878128 * (one(T) * 10)^(-22)
@@ -352,17 +351,12 @@ end
 
 function _pscad_cable_parameters(
         design,
+        components,
         position,
         connections,
         index::Int,
-        base_frequency;
-        formulation = Engine.Formulation(),
-        temperature = nothing
+        base_frequency
 )
-    # PSCAD owns this explicit homogenization choice. Its Cable_Coax record
-    # requires concentric equivalent layers, so flattening happens here rather
-    # than becoming stored CableDesign state.
-    components = _pscad_components(design, base_frequency, formulation, temperature)
     length(components) <= 4 || throw(ArgumentError(
         "PSCAD Cable_Coax supports at most four concentric components",
     ))
@@ -408,7 +402,8 @@ function _pscad_cable_parameters(
         if component_index > 1
             elimination = "elim$(component_index - 1)"
             parameter_index = findlast(pair -> first(pair) == elimination, parameters)
-            parameters[parameter_index] = elimination => (connections[component_index] ==
+            terminal_index = only(findall(==(component.name), design.terminal_order))
+            parameters[parameter_index] = elimination => (connections[terminal_index] ==
                                                           0 ? "1" : "0")
         end
     end
@@ -418,8 +413,8 @@ function _pscad_cable_parameters(
     return parameters
 end
 
-function _pscad_project(system::LineCableSystem, earth::EarthModel, base_frequency;
-        formulation = Engine.Formulation(), temperature = nothing, native_settings::NamedTuple = (;))
+function _pscad_project(system::LineCableSystem, earth::EarthModel, base_frequency, components;
+        native_settings::NamedTuple = (;))
     isempty(setdiff(keys(native_settings), (:ground, :frequency))) || throw(ArgumentError(
         "PSCAD native settings require ground and frequency fields"))
     document = XMLDocument()
@@ -488,11 +483,11 @@ function _pscad_project(system::LineCableSystem, earth::EarthModel, base_frequen
             _PSCAD_CABLE_BINDING,
             _pscad_cable_parameters(
                 design,
+                components[index],
                 position,
                 connections,
                 index,
-                base_frequency;
-                formulation, temperature
+                base_frequency
             );
             x = 234 + (index - 1) * 400,
             y = 612

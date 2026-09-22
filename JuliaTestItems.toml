@@ -6,6 +6,4 @@ exclude = [
     "test/jl_*/**",
     "test/tools/**",
     "test/fixtures/**",
-    "test/gauntlet/fixtures/**",
-    "test/gauntlet/local.jl",
 ]

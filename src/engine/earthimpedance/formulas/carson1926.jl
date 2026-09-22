@@ -25,7 +25,7 @@ Z_{e,ij}=\\frac{j\\omega\\mu_0}{2\\pi}\\left[
 Return,” *Bell System Technical Journal*, 5, 539–554, 1926.
 """
 function description(::Type{<:Formula{:carson1926}}; compact::Bool = false)
-    compact ? "Carson" : "Carson homogeneous-earth overhead impedance (1926) — not yet implemented"
+    compact ? "Carson" : "Carson homogeneous-earth overhead impedance (1926)"
 end
 
 function earth_impedance(

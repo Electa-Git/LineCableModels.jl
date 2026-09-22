@@ -35,6 +35,7 @@ include("interface.jl")
 const FORMULAS = (
     include("formulas/default.jl"),
     include("formulas/schelkunoff1934.jl"),
+    include("formulas/wedepohl1973.jl"),
 )
 #! explicit-imports: on
 

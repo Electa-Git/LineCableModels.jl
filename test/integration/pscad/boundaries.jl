@@ -155,7 +155,7 @@ end
 @testitem "PSCAD / unsupported indexed equations fail without fallback" tags=[:integration] begin
     const P = LineCableModels.PSCAD
     selected = Formulation(:pscad).methods
-    for (equation, selection) in ((P.earth_impedance, selected.earth_impedance),
+    for (equation, selection) in ((P.earth_impedance, selected.earth_impedance.air),
             (P.earth_potential_coefficient, selected.earth_admittance)),
             (kind, s, t) in ((:self, 1, 2), (:mutual, 2, 3), (:self, 3, 3))
         caught = try
@@ -168,7 +168,7 @@ end
         @test occursin("source in layer $s and target in layer $t", sprint(showerror, caught))
     end
     @test_throws ArgumentError P.internal_impedance(selected.internal_impedance, Val(:invalid), Val(:pscad))
-    @test_throws ArgumentError P.NativeFormula{LineCableModels.Engine.InsulationImpedance.Formula}(:not_registered)
+    @test_throws ArgumentError Formulation(:pscad; insulation_impedance=:not_registered)
     for (s, t) in ((1, 2), (2, 1))
         @test P.earth_impedance(Formulation(:pscad; earth_impedance=:ametani2009).methods.earth_impedance, Val(:mutual), Val(s), Val(t), Val(:pscad)) ==
             (EarthForm3 = (value = 0, readback = "AMETANIL"),)

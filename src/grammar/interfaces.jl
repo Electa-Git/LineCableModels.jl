@@ -26,9 +26,8 @@ $(SIGNATURES)
 Validate and normalize the options owned by one computation.
 
 The implementation that owns `OwnerType` defines a method for the type itself.
-`OwnerType` may identify a core solver or a composite calculation such as
-a Gauntlet case. No broad fallback exists. An unregistered owner raises
-`MethodError`.
+`OwnerType` may identify a core solver or another composite calculation owner.
+No broad fallback exists. An unregistered owner raises `MethodError`.
 
 # Arguments
 

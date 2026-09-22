@@ -46,8 +46,8 @@
         @test request(constants) ≈ request(reference_constants) rtol=2e-13
     end
     const IE = LineCableModels.ImportExport
-    exported = only(LineCableModels.PSCAD._pscad_components(design,50.0,selected,80.0))
-    expected = only(LineCableModels.PSCAD._pscad_components(reference_design,50.0,identity,80.0))
+    exported = only(LineCableModels.PSCAD._pscad_components(LineCableModels.Engine.flatten(LineCableModelsCoaxial(), design),50.0,selected,80.0))
+    expected = only(LineCableModels.PSCAD._pscad_components(LineCableModels.Engine.flatten(LineCableModelsCoaxial(), reference_design),50.0,identity,80.0))
     @test exported.conductor.material.rho == expected.conductor.material.rho
     @test exported.dielectric.shunt_conductance ≈ expected.dielectric.shunt_conductance
     @test exported.dielectric.shunt_capacitance ≈ expected.dielectric.shunt_capacitance

@@ -11,7 +11,6 @@
     @test overhead isa harness.PSCADFormulation
     @test underground isa harness.PSCADFormulation
     @test hasmethod(compute, Tuple{LineParametersProblem, harness.PSCADFormulation})
-    @test !isdefined(harness,:Gauntlet)
     @test harness.earth_impedance(Formulation(:pscad; earth_impedance=:gary1976).methods.earth_impedance, Val(:mutual), Val(1), Val(1), Val(:pscad)) ==
           (EarthForm2 = (value = 0, readback = "DERISEMLYEN"),)
     @test harness.earth_impedance(Formulation(:pscad; earth_impedance=:wedepohl1973).methods.earth_impedance, Val(:mutual), Val(2), Val(2), Val(:pscad)) ==
@@ -19,7 +18,7 @@
     @test EarthImpedance.formula_id(overhead.methods.earth_impedance) === :gary1976
     @test EarthImpedance.formula_id(underground.methods.earth_impedance) ===
           :wedepohl1973
-    @test LineCableModels.formula_id(overhead.methods.earth_admittance) === :coupled
+    @test LineCableModels.formula_id(overhead.methods.earth_admittance) === :ideal
     @test LineCableModels.formula_id(overhead.methods.insulation_admittance) === :lossless
     @test occursin("lossless", lowercase(description(overhead.methods.insulation_admittance)))
     # The selected owner supplies descriptions through current computation
@@ -34,13 +33,13 @@
     for identifier in identifiers, compact in (false, true)
         selected = Formulation(:pscad; earth_impedance=identifier).methods.earth_impedance
         @test description(selected; compact) ==
-            "PSCAD " * description(EarthImpedance.Formula{identifier}; compact)
+            description(EarthImpedance.Formula{identifier}; compact)
     end
     # Historical identities are descriptions of retained evidence, not aliases
     # for a current executable selection.
     for identifier in (:WedepohlWilcox1973, :unavailable_native_formula)
         selected, controls = LineCableModels.ImportExport.deserialize_value(
-            Val(:formulation), harness.NativeFormula{EarthImpedance.Formula},
+            Val(:formulation), EarthImpedance.Formula,
             (identifier=identifier,), (identifier=identifier,))
         @test selected === LineCableModels.FormulaDefinition{identifier}
         @test description(selected) == string(identifier)
@@ -100,8 +99,8 @@
 
     config=harness.RemoteConfig(
         "host",
-        raw"Z:\gauntlet\benchmarks\.work",
-        raw"C:\gauntlet",
+        raw"Z:\pscad\benchmarks\.work",
+        raw"C:\pscad",
         "julia",
         "python"; local_root=mktempdir(),
         transport = :ssh,
@@ -137,7 +136,7 @@
         )))
     @test_throws MethodError LineCableModels.computation_options(
         Val(:pscad), ComputationOptions((remote = config,)))
-    powershell="[IO.Directory]::CreateDirectory('C:\\gauntlet') | Out-Null"
+    powershell="[IO.Directory]::CreateDirectory('C:\\pscad') | Out-Null"
     command=harness.remote_command(config, powershell)
     @test command.exec[1] == "ssh"
     @test "host" in command.exec
@@ -147,7 +146,7 @@
     decoded=transcode(String, ltoh.(collect(reinterpret(UInt16, bytes))))
     @test decoded == "\$ProgressPreference='SilentlyContinue'; $powershell"
     @test !occursin("Out-Null", encoded)
-    @test harness._remote_project_name(raw"C:\gauntlet\case\generated.pscx") ==
+    @test harness._remote_project_name(raw"C:\pscad\case\generated.pscx") ==
           "generated"
     root=config.local_root
     @test LineCableModels.computation_options(owner, ComputationOptions((remote=config,work_root=joinpath(root,"any","depth")))).data.work_root == joinpath(root,"any","depth")
@@ -167,12 +166,12 @@
     @test occursin("options=(verbosity=", sprint(showerror, verbosity_error))
     @test_throws ArgumentError harness._supervisor_command(
         config,
-        raw"Z:\gauntlet\benchmarks\.work\case\current",
-        raw"C:\gauntlet\case\current",
+        raw"Z:\pscad\benchmarks\.work\case\current",
+        raw"C:\pscad\case\current",
         "case",
         overhead,
         [1.0, 3.0, 10.0];
-        output_stem = "gauntlet",
+        output_stem = "pscad",
         verbosity = 2
     )
     @test_throws ArgumentError harness._validate_frequencies(
@@ -188,45 +187,45 @@
     )
     supervisor_command=harness._supervisor_command(
         config,
-        raw"Z:\gauntlet\benchmarks\.work\case\current",
-        raw"C:\gauntlet\case\current",
+        raw"Z:\pscad\benchmarks\.work\case\current",
+        raw"C:\pscad\case\current",
         "generated",
         overhead,
         frequency_probe;
-        output_stem = "gauntlet",
+        output_stem = "pscad",
         verbosity = 2
     )
     @test occursin("supervisor.ps1", supervisor_command)
-    @test occursin(raw"Z:\gauntlet\benchmarks\.work\case\current", supervisor_command)
-    @test occursin(raw"C:\gauntlet\case\current", supervisor_command)
-    @test occursin("-OutputStem 'gauntlet'", supervisor_command)
+    @test occursin(raw"Z:\pscad\benchmarks\.work\case\current", supervisor_command)
+    @test occursin(raw"C:\pscad\case\current", supervisor_command)
+    @test occursin("-OutputStem 'pscad'", supervisor_command)
     @test occursin("-Verbosity '2'", supervisor_command)
     @test occursin("-TimeoutSeconds '60'", supervisor_command)
     @test !occursin("-EarthField", supervisor_command)
     @test !occursin("OpenStandardInput", supervisor_command)
     saad_command=harness._supervisor_command(
         config,
-        raw"Z:\gauntlet\benchmarks\.work\case\current",
-        raw"C:\gauntlet\case\current",
+        raw"Z:\pscad\benchmarks\.work\case\current",
+        raw"C:\pscad\case\current",
         "generated",
         Formulation(:pscad; earth_impedance = :saad1996),
         frequency_probe;
         output_stem = "saad",
         verbosity = 0
     )
-    cancel_command=harness._cancel_command(raw"C:\gauntlet\case\current")
+    cancel_command=harness._cancel_command(raw"C:\pscad\case\current")
     @test occursin("owner.txt", cancel_command)
     @test occursin("taskkill.exe /PID", cancel_command)
     @test occursin("CommandLine.IndexOf", cancel_command)
 
     mktempdir() do directory
-        variant=joinpath(directory, "case", "current")
-        output=joinpath(variant, "outputs")
-        project=joinpath(variant, "generated.pscx")
-        mkpath(variant)
+        run_directory=joinpath(directory, "case", "current")
+        output=joinpath(run_directory, "outputs")
+        project=joinpath(run_directory, "generated.pscx")
+        mkpath(run_directory)
         write(project, "fixture")
         staged=harness._stage_toolkit(project, output)
-        @test staged == joinpath(variant, "toolkit")
+        @test staged == joinpath(run_directory, "toolkit")
         @test sort(readdir(staged)) == [
             "Manifest.toml",
             "Project.toml",
@@ -303,7 +302,7 @@
         end
     )
     failed_config=harness.RemoteConfig(
-        "host", "shared", raw"C:\gauntlet", "julia", "python"; local_root=mktempdir(),
+        "host", "shared", raw"C:\pscad", "julia", "python"; local_root=mktempdir(),
         transport = :fixture_fail
     )
     mktempdir() do directory
@@ -317,7 +316,7 @@
     end
     mktempdir() do directory
         logs_config=harness.RemoteConfig(
-            "host", "shared", raw"C:\gauntlet", "julia", "python"; local_root=mktempdir(),
+            "host", "shared", raw"C:\pscad", "julia", "python"; local_root=mktempdir(),
             transport = :fixture_logs
         )
         stdout_path=joinpath(directory, "stdout.txt")

@@ -24,7 +24,7 @@ for Ground Return Impedance of Underground Cables,” *IEEE Transactions on
 Power Delivery*, 11(3), 1536–1545, 1996.
 """
 function description(::Type{<:Formula{:saad1996}}; compact::Bool = false)
-    compact ? "Saad" : "Saad underground closed form (1996) — not yet implemented"
+    compact ? "Saad" : "Saad underground closed form (1996)"
 end
 
 function earth_impedance(

@@ -16,7 +16,6 @@ in geometry and material data.
 - [API reference](reference.md) lists the line and cable calculation API.
 - [Conveniences](conveniences.md) covers estimates, scalar formulas, and VDE
   designation parsing.
-- [Benchmarks](gauntlet.md) publishes the Gauntlet validation results and plots.
 - [Developers](developers.md) records grammar invariants, CI checks, extension
   APIs, and project conventions.
 

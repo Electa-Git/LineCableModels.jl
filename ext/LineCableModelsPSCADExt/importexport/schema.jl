@@ -126,7 +126,8 @@ function _pscad_canvas_params!(canvas; user::Bool = false)
 end
 
 function _pscad_value(value; sigdigits::Integer = 6, minimum = -Inf, maximum = Inf)
-    scalar = clamp(round(nominal(value); sigdigits), minimum, maximum)
+    _pscad_deterministic(typeof(value))
+    scalar = clamp(round(value; sigdigits), minimum, maximum)
     iszero(scalar) && return "0.0"
     return string(scalar)
 end

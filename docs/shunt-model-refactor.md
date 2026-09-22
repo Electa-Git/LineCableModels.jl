@@ -43,7 +43,7 @@ API refactor, not a compatibility repair or a scientific certification.
    default performs no boundary solve and preserves the ordinary annular model;
    verify audit invariance, explicit correction, fallback and reuse.
 5. Measure warm 18 kV/132 kV calls and boundary resolution/tolerance behavior.
-   Run focused ordinary, quality, serialization, UQ and Gauntlet checks, reporting
+   Run focused ordinary, quality, serialization and UQ checks, reporting
    actual outcomes and limitations.
 
 ## Numerical evidence to preserve
@@ -113,8 +113,6 @@ stage. Its retained previous completed attempt must not be overwritten.
   now rejects the `Base.Multimedia` fallback while accepting the package's shared
   display implementations. Shunt formulas show their ID, and `BoundarySolveError`
   owns its rich display.
-- Gauntlet `records_tests dielectric_consistency_tests`: 235 assertions,
-  3 items, 76 s; all passed. No campaign or retained attempt was written.
 - `docs/doctest.jl`: the package doctest passed. The complete documentation
   generator was not run because it rewrites unrelated generated pages already
   modified in this worktree.
@@ -208,10 +206,6 @@ Successful focused runs:
 - `tag:aqua`: 11 checks, 43 s. All passed. Its temporary-environment check
   required access to Julia's cache/logs and was rerun offline outside the
   read-only sandbox; no consumer environment was changed.
-- Gauntlet `records_tests dielectric_consistency_tests`: 235 assertions,
-  3 items, 71 s. Updated the automatic-boundary assumption to test default
-  annular and explicitly selected boundary calculations separately.
-
 The new files use the SciML formatter. Julia docstring conventions informed
 the separation of physical units, material assumptions, numerical controls and
 error guarantees in the API documentation. Concurrent lowercase literature-ID

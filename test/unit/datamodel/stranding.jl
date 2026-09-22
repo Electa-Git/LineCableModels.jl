@@ -15,7 +15,7 @@
         end
     end
 
-    # The 320/380 kV gauntlet cases have exactly enough copper for 127 wires.
+    # The 320/380 kV cable examples have exactly enough copper for 127 wires.
     # Before the fix, the inverse returned 5.999999999999999 and lost 36 wires.
     radius = 3.66e-3 / 2
     wire = Disk(radius)

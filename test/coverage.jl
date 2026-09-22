@@ -9,8 +9,6 @@ end
 
 const REPOSITORY_ROOT = normpath(joinpath(@__DIR__, ".."))
 const SOURCE_DIRECTORIES = ("src", "ext")
-const GAUNTLET_DIRECTORY = joinpath(REPOSITORY_ROOT, "gauntlet")
-const GAUNTLET_CASE_DIRECTORY = joinpath(GAUNTLET_DIRECTORY, "cases")
 const DEFAULT_MINIMUM = 0.95
 
 function source_files()
@@ -26,7 +24,7 @@ end
 
 function clean_traces!(; report::Bool=true)
     removed = String[]
-    for relative_directory in (SOURCE_DIRECTORIES..., "gauntlet", "test", "docs")
+    for relative_directory in (SOURCE_DIRECTORIES..., "test", "docs")
         directory = joinpath(REPOSITORY_ROOT, relative_directory)
         for (root, _, names) in walkdir(directory)
             for name in names
@@ -56,15 +54,6 @@ function collect_coverage()
     return coverage
 end
 
-function collect_gauntlet_coverage()
-    isdir(GAUNTLET_DIRECTORY) || return CoverageTools.FileCoverage[]
-    coverage = CoverageTools.process_folder(GAUNTLET_DIRECTORY)
-    return filter(coverage) do record
-        path = normpath(record.filename)
-        !startswith(path, GAUNTLET_CASE_DIRECTORY * Base.Filesystem.path_separator)
-    end
-end
-
 function assert_complete_inventory(coverage)
     represented = Set(normpath(record.filename) for record in coverage)
     missing = setdiff(Set(source_files()), represented)
@@ -80,8 +69,7 @@ function check_coverage(; minimum = DEFAULT_MINIMUM, output = "lcov.info")
     covered, total = CoverageTools.get_summary(coverage)
     ratio = total == 0 ? 0.0 : covered / total
     @printf("Production line coverage: %d/%d (%.2f%%)\n", covered, total, 100ratio)
-    published = vcat(coverage, collect_gauntlet_coverage())
-    CoverageTools.LCOV.writefile(joinpath(REPOSITORY_ROOT, output), published)
+    CoverageTools.LCOV.writefile(joinpath(REPOSITORY_ROOT, output), coverage)
     ratio >= minimum || error(
         @sprintf("Production line coverage %.2f%% is below the required %.2f%%",
         100ratio,

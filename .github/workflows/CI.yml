@@ -90,8 +90,6 @@ jobs:
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v6
-      - name: Check package CLI routing and installation
-        run: python3 -m unittest discover -s test/cli -v
       - uses: julia-actions/setup-julia@v3
         with:
           version: "1.12"
@@ -106,48 +104,9 @@ jobs:
             include("test/runtests.jl")
           '
 
-  toolkit:
-    name: Gauntlet toolkit / no external solvers
-    runs-on: ubuntu-latest
-    timeout-minutes: 45
-    steps:
-      - uses: actions/checkout@v6
-      - uses: julia-actions/setup-julia@v3
-        with:
-          version: "1.12"
-      - uses: julia-actions/cache@v3
-        with:
-          delete-old-caches: "false"
-      - name: Test case import, catalogue, fingerprints, and comparison utilities
-        run: |
-          julia --project=gauntlet --startup-file=no --code-coverage=@. --color=yes -e 'using Pkg; Pkg.instantiate()'
-          julia --project=gauntlet --startup-file=no --code-coverage=@. --color=yes test/gauntlet/runtests.jl
-      - name: Name toolkit coverage traces independently of runner process IDs
-        if: ${{ !cancelled() }}
-        shell: julia --startup-file=no {0}
-        run: |
-          for directory in ("src", "ext", "gauntlet")
-            for (root, _, files) in walkdir(directory), file in files
-              endswith(file, ".cov") || continue
-              mv(joinpath(root, file), joinpath(root, replace(file, r"\.cov$" => ".toolkit.cov")))
-            end
-          end
-      - uses: actions/upload-artifact@v4
-        if: ${{ !cancelled() }}
-        with:
-          name: toolkit-coverage
-          path: |
-            src/**/*.toolkit.cov
-            ext/**/*.toolkit.cov
-            gauntlet/**/*.toolkit.cov
-          if-no-files-found: error
-      - name: Remove coverage traces after workers and uploads finish
-        if: always()
-        run: julia --startup-file=no test/coverage.jl traces
-
   coverage:
     name: Merged production coverage
-    needs: [fem-numerical, toolkit]
+    needs: [fem-numerical]
     runs-on: ubuntu-latest
     timeout-minutes: 180
     env:
@@ -166,14 +125,6 @@ jobs:
         run: julia --project=test/coverage --color=yes test/coverage.jl clean
       - name: Collect core and non-graphical extension coverage
         run: julia --project=. --color=yes -e 'using Pkg; Pkg.test(coverage = true)'
-      - name: Collect PSCAD worker protocol coverage without a native installation
-        if: ${{ !cancelled() }}
-        env:
-          JULIA_CONDAPKG_BACKEND: "Null"
-          JULIA_PYTHONCALL_EXE: "python3"
-        run: |
-          julia --project=ext/LineCableModelsPSCADExt/remote --startup-file=no -e 'using Pkg; Pkg.instantiate()'
-          julia --project=ext/LineCableModelsPSCADExt/remote --startup-file=no --code-coverage=@. test/integration/pscad/worker.jl
       - name: Collect core-only boundary coverage
         if: ${{ !cancelled() }}
         run: |
@@ -227,11 +178,6 @@ jobs:
         if: ${{ !cancelled() }}
         with:
           name: fem-production-coverage
-          path: .
-      - uses: actions/download-artifact@v4
-        if: ${{ !cancelled() }}
-        with:
-          name: toolkit-coverage
           path: .
       - name: Enforce source-amended 95% coverage
         if: ${{ !cancelled() }}

@@ -96,7 +96,7 @@ behavioral tests do not establish that every method body has been inspected.
 The native FEM environment uses pinned GetDP 3.5.0. Keep tests of its actual
 execution, extraction, terminal identity, material/option transport and resume
 behavior. Physical cross-backend accuracy and domain-convergence acceptance
-belong to explicit Gauntlet/research work under the testing policy below. See the
+belong to explicit research work under the testing policy below. See the
 [test commands](https://github.com/Electa-Git/LineCableModels.jl/blob/main/test/README.md) for the implementation checks and their
 execution environments.
 
@@ -157,10 +157,10 @@ does not create an accuracy guarantee.
 
 Scientific validity, comparison of physical approximations, broad accuracy
 claims, convergence research and scientific acceptance are outside the test
-harness. Gauntlet executes calculations and reports comparisons and timings;
-scientific acceptance belongs to the researcher's interpretation, not its runner.
-Such research is not a required CI job, and unfinished scientific evidence is not a failing code
-contract. Apply this boundary to passing and failing experiments alike.
+harness. Scientific acceptance belongs to the researcher's interpretation, not
+the test runner. Such research is not a required CI job, and unfinished scientific
+evidence is not a failing code contract. Apply this boundary to passing and failing
+experiments alike.
 
 A fabricated failure is as unacceptable as a fabricated success. Verify an
 assertion's premise before treating its outcome as a product defect. Correct or
@@ -191,26 +191,6 @@ stand. Do not repeat the reset, restore legacy expected output, or turn complete
 calibration into a recurring obligation. Prior completion does not justify a
 test or numerical change whose requirement was unsupported, including the
 accuracy-driven Float32 surface-evaluation change.
-
-### Numerical snapshots after stable publication
-
-Numerical snapshot testing is deferred until after the first stable publication.
-The user will choose a small number of Gauntlet artifacts. Do not select, create,
-refresh or approve numerical baselines, add a snapshot dependency, or activate a
-snapshot CI job before then. The existing inactive provision is sufficient now;
-its empty reference list is not a prerelease failure or missing approval task.
-
-The future check compares each selected backend with its own retained output
-across revisions. It records case/settings identity, frequencies, terminal order,
-units/basis, relevant returned quantities and execution provenance. Compare
-individual meaningful components with explicit continuity tolerances; an RMS
-summary alone must not hide a local change. Do not snapshot private workspaces,
-internal layouts or incidental paths. Keep a designated reference fixed until
-an explicit user-approved update; no automatic refresh after a passing push.
-
-These snapshots detect behavioral change, not scientific validity. They do not
-replace architectural tests or create a new scientific approval process. Reuse
-existing storage and test owners when the user activates this later work.
 
 ## External interface contracts
 

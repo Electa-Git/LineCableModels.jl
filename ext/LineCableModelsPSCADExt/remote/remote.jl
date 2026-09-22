@@ -12,6 +12,15 @@ function remote_command(::Val{:ssh}, config::RemoteConfig, powershell::AbstractS
     return Cmd(vcat(["ssh", config.host], _powershell_argv(powershell)))
 end
 
+function remote_command(::Val{:local}, ::RemoteConfig, powershell::AbstractString)
+    return Cmd(_powershell_argv(powershell))
+end
+
+function remote_command(::Val{:command}, config::RemoteConfig, powershell::AbstractString)
+    arguments = [value == "{host}" ? config.host : value for value in config.command]
+    return Cmd(vcat(arguments, _powershell_argv(powershell)))
+end
+
 function remote_command(config::RemoteConfig, powershell::AbstractString)
     # A caller may supply a transport method after the package was compiled.
     return Base.invokelatest(
@@ -41,8 +50,11 @@ function _run_remote(
         stdout_path::Union{Nothing, AbstractString} = nothing,
         stderr_path::Union{Nothing, AbstractString} = nothing,
         stream::Bool = false,
-        on_interrupt::Function = () -> nothing
+        on_interrupt::Function = () -> nothing,
+        timeout_seconds::Real = config.timeout_seconds
 )
+    isfinite(timeout_seconds) && timeout_seconds > 0 || throw(ArgumentError(
+        "PSCAD transport timeout must be positive and finite"))
     receiver=LineCableModels.progress_receiver()
     stdout_path === nothing || mkpath(dirname(stdout_path))
     stderr_path === nothing || mkpath(dirname(stderr_path))
@@ -80,10 +92,16 @@ function _run_remote(
     end
     interrupted = nothing
     try
+        finished = timedwait(() -> process_exited(process) && istaskdone(output_task) && istaskdone(error_task),
+            timeout_seconds; pollint = min(0.1, timeout_seconds / 10))
+        finished === :ok || throw(ErrorException(
+            "PSCAD transport exceeded its timeout of $timeout_seconds seconds"))
         wait(process)
     catch error
         interrupted = error
-        process_running(process) && kill(process)
+        # SIGKILL (9): a transport must not keep the caller waiting in its own
+        # signal handler after timeout or interruption.
+        process_running(process) && kill(process, 9)
         if error isa InterruptException
             try
                 on_interrupt()
@@ -198,12 +216,13 @@ function _cancel_remote(
         remote_case::AbstractString;
         verbosity::Integer = 0
 )
-    _run_remote(config, _cancel_command(remote_case); stream = verbosity >= 2)
+    _run_remote(config, _cancel_command(remote_case); stream = verbosity >= 2,
+        timeout_seconds = min(config.timeout_seconds, 30))
     return nothing
 end
 
 # Keep remotely executed code paired with the loaded Julia adapter. Later
-# invocations in a long campaign must not pick up working-tree edits mid-run.
+# invocations must not pick up working-tree edits mid-run.
 const PSCAD_REMOTE_SOURCES = Dict(name => let
                                       path = joinpath(@__DIR__, name)
                                       Base.include_dependency(path)
@@ -213,7 +232,7 @@ for name in ("Project.toml", "Manifest.toml", "files.jl",
     "runner.jl", "supervisor.ps1", "identity.py"))
 
 """
-    identify(config::RemoteConfig)
+$(TYPEDSIGNATURES)
 
 Read the remote PSCAD installation identity without launching a simulation.
 
@@ -230,9 +249,9 @@ Read the remote PSCAD installation identity without launching a simulation.
 
 # Notes
 
-Passing this record as the `solver_identity` computation option pins a campaign
-to that installation. Each computation verifies the station again; supplying a
-record does not bypass the check.
+Passing this record as the `solver_identity` computation option requires that
+installation. Fresh computations verify identity inside their own application
+instance; completed-run reuse verifies the current station before acceptance.
 """
 function identify(config::RemoteConfig)
     code = PSCAD_REMOTE_SOURCES["identity.py"] * "\nimport json\n" *
@@ -250,6 +269,12 @@ function identify(config::RemoteConfig)
     finally
         rm(directory; recursive = true)
     end
+    return _validate_solver_identity(result, config)
+end
+
+function _validate_solver_identity(result::AbstractDict, config::RemoteConfig)
+    all(pair -> first(pair) isa AbstractString && last(pair) isa AbstractString, result) ||
+        throw(ArgumentError("PSCAD solver identity must contain string fields"))
     get(result, "version", nothing) == config.pscad_version || throw(ArgumentError(
         "PSCAD station did not return the requested solver identity"))
     get(result, "schema", nothing) == "1" &&
@@ -263,12 +288,12 @@ function _stage_toolkit(local_project::AbstractString, local_output::AbstractStr
     isfile(local_project) || throw(ArgumentError(
         "local PSCAD input is missing: $local_project",
     ))
-    variant_root = dirname(local_output)
-    expected_project = joinpath(variant_root, "generated.pscx")
+    run_directory = dirname(local_output)
+    expected_project = joinpath(run_directory, "generated.pscx")
     abspath(local_project) == abspath(expected_project) || throw(ArgumentError(
         "PSCAD project must be staged as $expected_project",
     ))
-    toolkit_stage = joinpath(variant_root, "toolkit")
+    toolkit_stage = joinpath(run_directory, "toolkit")
     isdir(toolkit_stage) && rm(toolkit_stage; recursive = true)
     mkpath(toolkit_stage)
     for (name, source) in PSCAD_REMOTE_SOURCES
@@ -306,7 +331,7 @@ function run_remote_pscad(
     work_parts = splitpath(relative)
     first(work_parts) == ".." && throw(ArgumentError(
         "PSCAD native run directory must be inside remote.local_root"))
-    variant = last(work_parts)
+    run_id = last(work_parts)
     _stage_toolkit(local_project, local_output)
     shared_case = _remote_path(config.shared_root, work_parts...)
     remote_case = _remote_path(config.remote_root, work_parts..., output_stem)
@@ -324,7 +349,7 @@ function run_remote_pscad(
         output_stem,
         verbosity
     )
-    verbosity >= 1 && @info "Executing PSCAD frequency scan" host=config.host variant formulation=only(description([formulation];roles=[:none])) frequencies=length(frequencies_value) timeout_seconds=config.timeout_seconds
+    verbosity >= 1 && @info "Executing PSCAD frequency scan" host=config.host run_id formulation=only(description([formulation];roles=[:none])) frequencies=length(frequencies_value) timeout_seconds=config.timeout_seconds
     execution_error = try
         _run_remote(
             config,
@@ -332,6 +357,7 @@ function run_remote_pscad(
             stdout_path = transport_stdout,
             stderr_path = transport_stderr,
             stream = verbosity >= 2,
+            timeout_seconds = config.timeout_seconds + 60,
             on_interrupt = () -> _cancel_remote(config, remote_case; verbosity)
         )
         nothing
@@ -340,7 +366,7 @@ function run_remote_pscad(
             try
                 _cancel_remote(config, remote_case; verbosity)
             catch cancellation_error
-                @warn "Remote PSCAD cancellation could not be confirmed" host=config.host variant exception=(
+                @warn "Remote PSCAD cancellation could not be confirmed" host=config.host run_id exception=(
                     cancellation_error, catch_backtrace())
             end
         end
@@ -364,7 +390,7 @@ function run_remote_pscad(
             "\nRemote scratch: $remote_case",
         ))
     end
-    verbosity >= 1 && @info "Checking PSCAD outputs" host=config.host variant destination=local_output
+    verbosity >= 1 && @info "Checking PSCAD outputs" host=config.host run_id destination=local_output
     receiver=LineCableModels.progress_receiver()
     receiver === nothing || LineCableModels.report_progress(receiver,(backend=:pscad,stage=:validating))
     required = (
@@ -377,7 +403,7 @@ function run_remote_pscad(
         filesize(path) > 0 || throw(ArgumentError("required PSCAD output is empty: $path"))
     end
     elapsed = parse(Float64, strip(read(joinpath(local_output, "timing.txt"), String)))
-    verbosity >= 1 && @info "PSCAD frequency scan completed" host=config.host variant compile_call_seconds=elapsed timing_scope=PSCAD_TIMING_SCOPE
+    verbosity >= 1 && @info "PSCAD frequency scan completed" host=config.host run_id compile_call_seconds=elapsed timing_scope=PSCAD_TIMING_SCOPE
     return (
         elapsed_seconds = elapsed,
         elapsed_scope = PSCAD_TIMING_SCOPE,

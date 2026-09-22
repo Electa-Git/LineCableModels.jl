@@ -30,7 +30,7 @@ Line with Earth Return,” *9th International Conference on Electromagnetic
 Compatibility*, 1994. DOI: 10.1049/cp:19940679.
 """
 function description(::Type{<:Formula{:lucca1994}}; compact::Bool = false)
-    compact ? "Lucca" : "Lucca mixed-pair homogeneous-earth impedance (1994) — not yet implemented"
+    compact ? "Lucca" : "Lucca mixed-pair homogeneous-earth impedance (1994)"
 end
 
 function earth_impedance(

@@ -53,6 +53,7 @@ function export_data(
         file_name::Union{AbstractString, Nothing} = nothing,
         native_settings::NamedTuple = (;)
 )
+    _pscad_deterministic(eltype(system), eltype(earth), typeof(base_freq), typeof(temperature))
     isfinite(base_freq) && base_freq > zero(base_freq) || throw(DomainError(
         base_freq, "PSCAD base frequency must be positive and finite"
     ))
@@ -69,8 +70,10 @@ function export_data(
         0
     ))
     #! explicit-imports: on
-    document = _pscad_project(
-        system, earth, base_freq; formulation, temperature, native_settings)
+    blueprints = _pscad_blueprints(system)
+    components = [_pscad_components(blueprint, base_freq, formulation, temperature)
+                  for blueprint in blueprints]
+    document = _pscad_project(system, earth, base_freq, components; native_settings)
     write(path, document)
     return path
 end

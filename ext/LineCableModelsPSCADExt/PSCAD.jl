@@ -38,7 +38,7 @@ using EzXML: ElementNode, XMLDocument, addelement!, nodename,
 
 export PSCADFormulation, RemoteConfig,
        read_pscad_result, remote_command, run_remote_pscad, formulas, identify
-public pscad_setting, NativeFormula
+public pscad_setting
 
 include("formulations.jl")
 include("importexport/pscad.jl")

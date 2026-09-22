@@ -1,8 +1,5 @@
 # Run from the REPL: include("dev/run_quasi_full.jl")
 # Edit the inputs below, then include again. Every run gets a fresh directory.
-# Before: this include activated Gauntlet. Now preserve the IDE's active project.
-gauntlet_project = normpath(joinpath(@__DIR__, "..", "gauntlet"))
-gauntlet_project in LOAD_PATH || push!(LOAD_PATH, gauntlet_project)
 using LineCableModels, Gmsh, LinearAlgebra, Printf
 FEM = Base.get_extension(LineCableModels, :LineCableModelsGmshExt)
 

@@ -1,9 +1,10 @@
 #=
 # Tutorial 2 - Building a cable design
 
-Build an 18/30 kV single-core cable with a 1000 mm² aluminum conductor and
-a 35 mm² copper screen, calculate its cable constants, and place three cables
-in a line system.
+Build an 18/30 kV single-core cable with a nominal 1000 mm² aluminum conductor
+and a 35 mm² copper screen. Inspect its geometry, calculate and report its
+cable constants, save the design, and arrange three cables in a buried trefoil
+system for external-tool export.
 =#
 
 #=
@@ -20,49 +21,55 @@ Depth = 2:3
 ## Introduction
 
 The cable consists of concentric conductive, semiconducting, and insulating
-regions. Their dimensions and material properties determine the resistance,
-inductance, and capacitance calculated below. `CableConstants` evaluates
-these quantities at a specified frequency and temperature; its resistance
-is not necessarily the DC resistance.
+regions. Their dimensions and material properties determine the cable
+constants calculated below.
 
-This tutorial covers:
+[`CableConstants`](@ref) evaluates earth-free resistance, inductance,
+conductance, and capacitance for each independent concentric assembly at a
+specified frequency and temperature. These local quantities are distinct from
+the frequency-dependent matrices of an installed cable system, which are the
+subject of Tutorial 3. In particular, a resistance evaluated at 50 Hz is not
+the same measurement as a datasheet DC resistance.
 
-1. Building a [`CableDesign`](@ref) from physical regions and placement rules.
-2. Examining the resolved geometry and the retained electrical terminals.
-3. Calculating the cable's resistance, inductance, and capacitance.
-4. Saving the design to a [`CablesLibrary`](@ref) for future use.
-5. Placing designs in a [`LineCableSystem`](@ref) and exporting the system for EMT analysis.
+The main operations in this tutorial are physical construction, preview,
+calculation, reporting, library persistence, and system export. The completed
+numerical result is passed directly to `report`; the reporting convenience
+constructs its detached observation internally.
 =#
 
 #=
 ## Getting started
+
+Load the public modeling and reporting API, CairoMakie for the documentation
+figures, and DataFrames for the construction-dimensions table.
 =#
 
-# Load the public modeling API and the packages used for presentation:
 using LineCableModels
 import LineCableModels: homogenize
 import CairoMakie
-using DataFrames
+using DataFrames: DataFrame
+
 fullfile(filename) = joinpath(@__DIR__, filename); #hide
 
-# Initialize materials library with default values:
+# Initialize and inspect the material library:
 materials = MaterialsLibrary(add_defaults = true)
 materials
 
 #=
+The material library saved in Tutorial 1 can also be loaded:
+
 ```julia
-# Alternatively, it can be loaded from the example file built in the previous tutorial:
-load!(materials, file_name = "materials_library.json")
+load!(materials; file_name = "materials_library.json")
 ```
 =#
 
 #=
 ## Cable dimensions
 
-The 18/30 kV cable has a stranded aluminum conductor, XLPE insulation,
-concentric copper wire screen, water-blocking tape, and PE jacket.
-Its designation describes these construction features under HD 620 10C
-[CENELEC_HD620_S3_2023](@cite) and DIN VDE 0276-620
+The reference construction is an 18/30 kV cable with a stranded aluminum
+conductor, XLPE insulation, a concentric copper wire screen, water-blocking
+layers, an aluminum moisture barrier, and a PE jacket. Its designation is
+associated with HD 620 10C [CENELEC_HD620_S3_2023](@cite) and DIN VDE 0276-620
 [VDE_DIN_VDE_0276_620_2024](@cite):
 
 ```
@@ -75,29 +82,36 @@ NA2XS(FL)2Y
 │ └── 2XS: XLPE insulation with screen of copper wires
 └── NA: Aluminum conductor
 ```
+
+The numerical example uses the library's `:pe` material for the main
+insulation as well as the outer PE layers. It also uses `:polyacrylate` for the
+tapes identified below as semiconductive and water-blocking tapes. These are
+the material assignments used by this example; the construction labels do
+not substitute different material properties.
+
+All dimensions in the declarations below are in metres.
 =#
 
-# The example uses the following dimensions:
-num_sc_wires = 49  # number of screen wires
-d_core = 38.1e-3   # nominal core overall diameter
-d_w = 4.7e-3       # nominal strand diameter of the core
-t_sc_in = 0.6e-3   # nominal internal semicon thickness
-t_ins = 8e-3       # nominal main insulation thickness
-t_sc_out = 0.3e-3  # nominal external semicon thickness
-d_ws = .95e-3      # nominal wire screen diameter
-t_cut = 0.1e-3     # nominal thickness of the copper tape (around wire screens)
-w_cut = 10e-3      # nominal width of copper tape
-t_wbt = .3e-3      # nominal thickness of the water blocking tape
-t_sct = .3e-3      # nominal thickness of the semiconductive tape
-t_alt = .15e-3     # nominal thickness of the aluminum tape
-t_pet = .05e-3     # nominal thickness of the pe face in the aluminum tape
-t_jac = 2.4e-3;    # nominal PE jacket thickness
+num_sc_wires = 49  # Number of copper screen wires.
+d_core = 38.1e-3   # Finished overall core diameter.
+d_w = 4.7e-3       # Source strand diameter.
+t_sc_in = 0.6e-3   # Inner semiconductor thickness.
+t_ins = 8e-3       # Main insulation thickness.
+t_sc_out = 0.3e-3  # Outer semiconductor thickness.
+d_ws = 0.95e-3     # Screen-wire diameter.
+t_cut = 0.1e-3     # Copper tape thickness.
+w_cut = 10e-3      # Copper tape width.
+t_wbt = 0.3e-3     # Water-blocking tape thickness.
+t_sct = 0.3e-3     # Semiconductive tape thickness.
+t_alt = 0.15e-3    # Aluminum tape thickness.
+t_pet = 0.05e-3    # PE facing thickness over the aluminum tape.
+t_jac = 2.4e-3;    # Outer PE jacket thickness.
 
 layer_names = ( #hide
     "Conductor", "Inner semiconductive tape", "Inner semiconductor", #hide
     "Main insulation", "Outer semiconductor", "Outer semiconductive tape", #hide
     "Wire screen", "Copper tape", "Water-blocking tape", "Aluminum tape", #hide
-    "PE with aluminum face", "PE jacket" #hide
+    "PE facing", "PE jacket" #hide
 ) #hide
 layer_thicknesses = ( #hide
     missing, t_sct, t_sc_in, t_ins, t_sc_out, t_sct, d_ws, t_cut, t_wbt, #hide
@@ -109,7 +123,8 @@ radial_increments = ( #hide
 ) #hide
 layer_diameters = d_core .+ 2 .* cumsum(radial_increments) #hide
 
-# The cable structure is summarized in a row-wise table with dimensions in millimeters:
+# Summarize the nominal radial schedule in millimetres. The cable constructor
+# resolves the detailed strand and tape geometry from the declarations below.
 cable_dimensions = DataFrame(
     "layer" => collect(layer_names),
     "thickness [mm]" => [ismissing(t) ? missing : round(1000t, sigdigits = 2)
@@ -118,22 +133,19 @@ cable_dimensions = DataFrame(
 )
 
 #=
-## Describing the cable
+## Cable construction
 
-Declare the regions in order from the cable center outward.
-[`@terminal`](@ref) groups conductive regions into an electrical terminal;
-[`@cable`](@ref) constructs the cable design.
+Declare regions from the center outward. [`@cable`](@ref) completes the physical
+design, while [`@terminal`](@ref) marks its electrical terminal groups.
+
+### Materials and stranded core
+
+The wire diameter and the 38.1 mm finished boundary define the stranded core.
+The four successive outer strand layers use the lay ratios specified below.
+Compaction retains the area of each source wire rather than changing its
+conductive area to fill the boundary.
 =#
 
-#=
-## Core and main insulation
-
-The wire diameter and 38.1 mm finished core diameter determine how many
-complete strand layers fit. Compaction preserves each wire's area. Four outer
-layers fit, with `6k` wires in layer `k` and the lay ratios specified below.
-=#
-
-# Select reusable materials from the library:
 aluminum = Material(materials, :aluminum)
 copper = Material(materials, :copper)
 polyacrylate = Material(materials, :polyacrylate)
@@ -141,7 +153,6 @@ semicon1 = Material(materials, :semicon1)
 semicon2 = Material(materials, :semicon2)
 pe = Material(materials, :pe);
 
-# Specify the wire shape, lay ratios, and finished core diameter:
 stranded_core = stranded(
     aluminum;
     shape = Disk(d_w / 2),
@@ -151,73 +162,40 @@ stranded_core = stranded(
 );
 
 #=
-### Inner semiconductor
+### Insulation, screen, and jacket
 
-The inner semiconducting layer smooths the conductor–insulation interface
-and reduces electric-field concentrations around individual strands.
-Semiconducting tape covers the stranded core beneath this layer.
+The inner semiconducting layer provides the conductor-to-insulation interface;
+a tape lies between it and the stranded conductor. The main insulation is
+followed by the outer semiconductor and a second tape. The metallic screen
+provides shielding and a fault-current path. Outside the screen, the
+water-blocking layer, aluminum barrier, PE facing, and outer jacket complete
+the construction.
+
+[`screen`](@ref), [`insulation`](@ref), [`sheath`](@ref), and [`jacket`](@ref)
+can state their thickness relative to the preceding outward boundary. The
+wire screen instead needs the physical radius of its wire-center locus. The
+copper tape retains its rectangular width and thickness when placed around
+the preceding boundary.
 =#
 
-#=
-!!! tip "Physical order"
-    [`insulation`](@ref), [`screen`](@ref), [`sheath`](@ref), and
-    [`jacket`](@ref) state their physical thickness. Construction resolves each
-    one against the preceding outward boundary.
-=#
-
-#=
-### Main insulation
-
-The main insulation separates the conductor from the outer semiconducting
-layer. This example assigns the library's PE material to that region.
-=#
-
-#=
-### Outer semiconductor
-
-Similar to the inner semiconductor, the outer semiconductor provides a uniform
-transition from insulation to the metallic screen.
-=#
-
-#=
-### Wire screens
-
-The metallic screen (typically copper) serves multiple purposes:
-- Provides a return path for fault currents.
-- Ensures radial symmetry of the electric field.
-- Acts as electrical shielding.
-- Provides mechanical protection.
-=#
-
-#=
-### Outer jacket regions
-
-Modern cables often include an aluminum tape as moisture barrier
-and PE (polyethylene) outer jacket for mechanical protection.
-=#
-
-# The wire screen needs its physical center locus. The copper tape retains its
-# measured rectangular width and thickness; placement bends it around the
-# preceding cable boundary without changing its cross-sectional area.
 conductor_outer = d_core / 2
 screen_wire_locus = conductor_outer + t_sct + t_sc_in + t_ins +
                     t_sc_out + t_sct + d_ws / 2
 
-# Keep catalog data beside the physical model rather than inside it:
+# Catalogue information is associated with the library entry. It does not
+# replace the physical geometry or the selected numerical material properties.
 cable_id = "18kV_1000mm2"
 datasheet_info = DatasheetInfo(
     designation_code = "NA2XS(FL)2Y",
-    U0 = 18.0,                        # Phase-to-ground voltage [kV]
-    U = 30.0,                         # Phase-to-phase voltage [kV]
-    conductor_cross_section = 1000.0, # [mm²]
-    screen_cross_section = 35.0,      # [mm²]
-    resistance = 0.0291,              # DC resistance [Ω/km]
-    capacitance = 0.39,               # Capacitance [μF/km]
-    inductance = 0.3                  # Inductance in trefoil [mH/km]
+    U0 = 18.0,                        # Phase-to-ground voltage [kV].
+    U = 30.0,                         # Phase-to-phase voltage [kV].
+    conductor_cross_section = 1000.0, # [mm²].
+    screen_cross_section = 35.0,      # [mm²].
+    resistance = 0.0291,              # DC resistance [Ω/km].
+    capacitance = 0.39,               # Capacitance [μF/km].
+    inductance = 0.3                  # Inductance in trefoil [mH/km].
 )
 
-# Declare and complete the cable in one outward block. `@terminal` is used only
-# where the enclosed conductive regions form one electrical terminal.
 cable_design = @cable cable_id begin
     @terminal :core begin
         stranded_core
@@ -251,104 +229,192 @@ cable_design = @cable cable_id begin
     jacket(pe; t = t_pet)
     jacket(pe; t = t_jac)
 end;
-cable_library = CablesLibrary()
-add!(cable_library, cable_design; catalogue = datasheet_info);
 
-# Inspect the one completed physical design:
-cable_plot = preview(
-    cable_design,
+#=
+The retained terminal names are `:core`, `:sheath`, and `:jacket`. In this
+example, `:sheath` groups the copper screen wires and copper tape, while
+`:jacket` identifies the conductive aluminum barrier. The outer PE jacket is
+an insulating region, not an additional electrical terminal.
+=#
+
+# Inspect the completed design and its cross-section:
+cable_design
+
+cable_preview = preview(
+    cable_design;
+    backend = :cairo,
+    legend_overflow = :show_all,
     display_plot = false, #hide
     controls = false #hide
 )
-cable_plot.figure #hide
+cable_preview.figure #hide
 
 #=
-## Examining the cable parameters (RLC)
+## Cable constants
 
-Calculate resistance, inductance, and capacitance, then compare them with the
-datasheet values.
+Calculate the local cable constants at the defaults of 50 Hz and 20 °C.
+The cable-constant calculation treats the innermost terminal of each concentric
+assembly as active and the outward terminals as grounded. It does not yet
+calculate the three-cable installation introduced later.
 =#
 
-# Calculate the cable constants at the defaults of 50 Hz and 20 °C:
 constants = CableConstants(cable_design);
 constants
 
-# Select R, L, and C and convert them to a table:
-constants_table = LineCableModels.ReportBuilder.tabulate(observables(constants, (R, L, C)))
+#=
+### Quantity tables
 
-# Construct the homogeneous equivalent cable design:
-equivalent_design = homogenize(cable_design; new_id = cable_id * "_equivalent")
-equivalent_summary = equivalent_design
+Pass the numerical result directly to `report`. The R/L and G/C selection
+produces four separate quantity tables. Each table contains the operating
+frequency and a named column for each assembly; these are not mutual-coupling
+matrices between different cables.
 
-# Before: extracted values were described as a flat publication. Now one
-# ObservedResult retains this cable's quantities, units and assembly coordinates;
-# tabulation keeps different quantities in separate tables.
-observed_constants = ObservedResult(constants, (R, L, C));
-datasheet_comparison = DataFrame(
-    source = ("calculated", "datasheet"),
-    R = (observe(observed_constants,R), datasheet_info.resistance),
-    L = (observe(observed_constants,L), datasheet_info.inductance),
-    C = (observe(observed_constants,C), datasheet_info.capacitance)
+The observation owner performs unit conversion and reporting-resolution
+handling before tabulation. Choose Ω/km, mH/km, μS/km, and μF/km explicitly so
+the R/L/C units match the catalogue entries used below.
+=#
+
+rlgc = (R, L, G, C)
+
+constants_report = report(
+    TableReportDefinition(rlgc),
+    constants;
+    length_unit = :kilo,
+    quantity_units = (R = :base, L = :milli, G = :micro, C = :micro)
 )
-comparison_units = map(payload -> payload.unit, observed_constants.quantities);
 
-# Inspect the completed physical design through its bounded Base display:
-cable_design
+# The report exposes the separate ordinary DataFrames for these cable constants:
+constants_report.tables
+
+#=
+### Assembly selection
+
+For cable constants, an observation index selects an assembly, not a matrix
+coefficient or a frequency sample. To report only the resistance of the first
+assembly, state that intent with `@observe` in the report request. The example
+has one concentric assembly, named `:core`.
+=#
+
+core_resistance_request = @observe R[1]
+core_resistance_report = report(
+    TableReportDefinition((core_resistance_request,)),
+    constants;
+    length_unit = :kilo,
+    quantity_units = (R = :base,)
+)
+
+#=
+### Catalogue comparison
+
+The following displays keep the three quantities separate. They inspect the
+DataFrames already produced by the report; they do not read numerical result
+fields or repeat unit conversion.
+
+The catalogue resistance is a DC value, whereas the calculated resistance is
+at 50 Hz. Compare their magnitudes with those different conditions in mind:
+this is not an equal-condition error calculation.
+=#
+
+# Catalogue DC resistance [Ω/km]:
+datasheet_info.resistance
+
+# Calculated resistance [Ω/km]; the frequency column records 50 Hz:
+constants_report.tables.constants.R
+
+#=
+The catalogue inductance is specified for trefoil. `CableConstants` supplies
+the earth-free concentric-assembly value, not a calculation of that trefoil
+installation. The two are reference values with different stated scopes, not
+a benchmark pair.
+=#
+
+# Catalogue trefoil inductance [mH/km]:
+datasheet_info.inductance
+
+# Calculated local inductance [mH/km]:
+constants_report.tables.constants.L
+
+#=
+Inspect the catalogue capacitance alongside the calculated capacitance in the
+same displayed units. The supplied catalogue record does not include a
+capacitance test frequency or temperature; no such conditions are inferred.
+The main insulation in this numerical model uses `:pe` as stated above.
+=#
+
+# Catalogue capacitance [μF/km]:
+datasheet_info.capacitance
+
+# Calculated local capacitance [μF/km]:
+constants_report.tables.constants.C
+
+# The conductance table remains a separate result; no catalogue G is supplied:
+constants_report.tables.constants.G
+
+#=
+## Homogeneous equivalent design
+
+A homogeneous equivalent is a separate physical design, not a report or an
+observation of the cable constants. Request it explicitly when that geometry
+is needed; the detailed design remains available for inspection and reuse.
+=#
+
+equivalent_design = homogenize(cable_design; new_id = cable_id * "_equivalent")
 
 #=
 ## Saving the cable design
 
-!!! note "Cables library"
-    Designs can be saved to a library for future use. The [`CablesLibrary`](@ref)
-    stores multiple cable designs and is managed through [`add!`](@ref),
-    ordinary collection operations, and
-    [`save`](@ref LineCableModels.ImportExport.save).
+A [`CablesLibrary`](@ref) stores designs for reuse. Add the physical design and
+its associated catalogue information, then save the library. Load it into a
+fresh library object to retrieve the design by its identifier.
 =#
 
-# Store the cable design and inspect the library contents:
 library = CablesLibrary()
-add!(library, cable_design);
+add!(library, cable_design; catalogue = datasheet_info);
 library
 
-# Save to file for later use:
-output_file = fullfile("cables_library.json")
-save(library, file_name = output_file);
+library_file = fullfile("cables_library.json")
+save(library; file_name = library_file);
 
-# Load the saved design into a fresh library and retrieve it by identifier:
 loaded_library = CablesLibrary()
-load!(loaded_library, file_name = output_file)
+load!(loaded_library; file_name = library_file)
 loaded_design = loaded_library[cable_id];
 loaded_library
 
 #=
-### Defining a cable system
+## Defining a cable system
 
-!!! note "Cable systems"
-    [`LineParametersProblem`](@ref LineCableModels.Engine.LineParametersProblem)
-    accepts completed designs and their placements directly. It builds the
-    corresponding `LineCableSystem` once, then adds operating temperature,
-    earth properties, and analysis frequencies.
-=#
+The installed arrangement is represented by [`LineCableSystem`](@ref). A
+[`LineParametersProblem`](@ref LineCableModels.Engine.LineParametersProblem)
+adds the operating temperature, earth properties, and analysis frequencies to
+that completed physical system. This tutorial prepares the problem and exports
+the system; it does not execute a frequency-dependent line-parameter scan.
 
-#=
 ### Earth model
 
-The earth return path significantly affects cable impedance calculations and needs to be properly modeled. In this tutorial, only a basic model with typical soil properties is defined. This will be further elaborated in the subsequent tutorials.
+Use homogeneous earth with resistivity 100 Ω·m, relative permittivity 10, and
+relative permeability 1. The declared frequency scan contains ten
+logarithmically spaced samples from 1 Hz to 1 MHz. The soil declaration is
+independent of the frequency grid.
 =#
 
-# Define a frequency scan and typical homogeneous-soil properties:
-f = collect(10.0 .^ range(0, stop = 6, length = 10)) # 1 Hz to 1 MHz
+f = collect(10.0 .^ range(0, stop = 6, length = 10))
 earth = homogeneous(rho = 100.0, eps_r = 10.0, mu_r = 1.0);
 
 #=
-### Three-phase system in trefoil configuration
+### Three-phase trefoil
 
-This section ilustrates the construction of a cable system with three identical cables arranged in a trefoil formation.
+Place three copies of the saved design with 70 mm center-to-center spacing
+and the trefoil center at `(0, -1)` m. The declared spacing is retained
+explicitly; it is not inferred from the nominal cable diameter.
+
+Core assignments `1`, `2`, and `3` identify the three phases. The copper-screen
+and aluminum-barrier terminals are assigned `0`, marking them for grounded
+terminal reduction when requested by the calculation. The system length is
+1000 m.
 =#
 
-# Describe three cables touching in trefoil at 1 m burial depth. The connection
-# schedules assign one core phase per cable and ground the metallic screens:
 placements = @trefoil loaded_design spacing=70e-3 center=(0.0, -1.0) core=(1, 2, 3) sheath=0 jacket=0
+
 cable_system = build(
     LineCableSystem,
     placements;
@@ -356,6 +422,7 @@ cable_system = build(
     system_id = "18kV_1000mm2_trefoil",
     line_length = 1000.0
 )
+
 problem = LineParametersProblem(
     cable_system;
     temperature = 20.0,
@@ -364,47 +431,52 @@ problem = LineParametersProblem(
 )
 earth_params = problem.earth_props;
 
-# Inspect the static earth declaration:
+# Inspect the earth parameters retained by the problem:
 earth_params
 
 #=
-!!! note "Phase mapping"
-    Each connection mapping uses retained terminal names from `terminal_order`.
-    Core assignments `1`, `2`, and `3` select phases A, B, and C. A zero
-    assignment marks a terminal for grounded/eliminated-conductor reduction.
-    Reusing one active assignment bundles terminals.
-=#
+!!! note "Terminal mapping"
+    Connection schedules use the terminal names retained by the design.
+    Reusing a nonzero assignment groups terminals for bundle reduction;
+    zero assignments identify terminals for grounded-conductor reduction.
+    The mapping declares those relationships rather than replacing the
+    physical cable regions.
 
-#=
 ### Cable system preview
 
-In this section the complete three-phase cable system is examined.
+Inspect the completed three-phase system and its cross-section. The earth
+model supplies the background, and `zoom_factor` controls the initial view.
 =#
 
-# Display system details:
 cable_system
 
-# Visualize the cross-section of the three-phase system:
-plt4 = preview(
-    cable_system,
+system_preview = preview(
+    cable_system;
     earth_model = earth_params,
     zoom_factor = 2.0,
+    backend = :cairo,
+    legend_overflow = :show_all,
     display_plot = false, #hide
     controls = false #hide
 )
-plt4.figure #hide
+system_preview.figure #hide
 
 #=
-## PSCAD & ATPDraw export
+## PSCAD and ATPDraw export
 
-Export the cable system for electromagnetic transient simulations in PSCAD
-and ATPDraw.
+Export the physical system and earth parameters through the public exporters.
+These calls write input files for electromagnetic-transient analysis; they do
+not launch PSCAD or ATPDraw and do not compute the line-parameter frequency
+scan. Tutorial 3 covers the frequency-dependent calculation and its reports
+and plots.
 =#
 
-# Export to PSCAD input file:
-output_file = fullfile("pscad_export.pscx")
-export_file = export_data(:pscad, cable_system, earth_params, file_name = output_file);
+pscad_file = export_data(
+    :pscad, cable_system, earth_params;
+    file_name = fullfile("pscad_export.pscx")
+);
 
-# Export to ATPDraw project file (XML):
-output_file = fullfile("atp_export.xml")
-export_file = export_data(:atp, cable_system, earth_params, file_name = output_file);
+atp_file = export_data(
+    :atp, cable_system, earth_params;
+    file_name = fullfile("atp_export.xml")
+);

@@ -34,7 +34,7 @@ Characteristics,” *Proceedings of the IEE*, 120, 253–260, 1973, Eqs. (7)–(
 DOI: 10.1049/piee.1973.0056.
 """
 function description(::Type{<:Formula{:wedepohl1973}}; compact::Bool = false)
-    compact ? "Wedepohl" : "Wedepohl-Wilcox low-frequency underground approximation (1973) — not yet implemented"
+    compact ? "Wedepohl" : "Wedepohl-Wilcox low-frequency underground approximation (1973)"
 end
 
 function earth_impedance(

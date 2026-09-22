@@ -40,6 +40,7 @@ include("interface.jl")
 const FORMULAS = (
     include("formulas/unified.jl"),
     include("formulas/default.jl"),
+    include("formulas/ideal.jl"),
     include("formulas/pollaczek1926.jl"),
     include("formulas/wise1948.jl"),
     include("formulas/xue2018.jl")

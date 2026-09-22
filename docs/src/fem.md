@@ -462,21 +462,4 @@ The extension finalizes only Gmsh sessions it owns. A caller-owned initialized
 session retains its current model, unrelated models and views, Gmsh verbosity
 options, and pre-existing `LineCableModels/FEM/` ONELAB parameters.
 
-## Basic execution verification
-
-Run `julia --project=test test/runtests.jl extensions/fem_electrodynamics.jl`
-for the basic cases, or select `tag:fem_numerical` for all native FEM contracts.
-The basic test reuses the Gauntlet `two_bare_wires` and `two_insulated_wires`
-declarations at 50 Hz and 10 kHz through the unchanged production quasi-TEM
-programs. It checks terminal/frequency identity, per-unit-length basis, completed
-native solves, every retained primitive entry, and the extraction of returned
-`Z` and `Y`. The other FEM owners cover material laws, reductions, affine-path
-integration, session handling, failure and resume.
-
-Physical comparisons between FEM and analytical approximations and domain or
-mesh-convergence studies belong to Gauntlet/research workflows. The former 1%
-comparison and domain-stability targets are not code-contract gates. Their
-observed differences remain in the existing dated evidence; no solver or
-quadrature repair is implied by this test-system handoff. See the
-[test README](https://github.com/Electa-Git/LineCableModels.jl/blob/main/test/README.md) for commands and measured execution limits.
 The backend has no Python dependency.

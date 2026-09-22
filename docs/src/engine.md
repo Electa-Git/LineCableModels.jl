@@ -10,13 +10,13 @@ the equations without determining their software names.
 
 | Family | Registered choices |
 |---|---|
-| Internal impedance | `:default`, `:schelkunoff1934` |
+| Internal impedance | `:default`, `:schelkunoff1934`, `:wedepohl1973` |
 | Insulation impedance | `:default`, `:ametani1980` |
 | Pipe impedance | `:default`, `:none` |
 | Insulation admittance, semicon admittance | `:default`, `:lossless`, `:lossy` |
 | Local shunt geometry | `:default` (coaxial), `:coaxial`, `:boundary` |
 | Earth impedance | `:default`, `:unified`, `:carson1926`, `:pollaczek1926`, `:gary1976`, `:wedepohl1973`, `:saad1996`, `:ametani2009`, `:lucca1994`, `:wise1934`, `:xue2018` |
-| Earth admittance | `:default`, `:unified`, `:pollaczek1926`, `:wise1948`, `:xue2018` |
+| Earth admittance | `:default`, `:unified`, `:ideal`, `:pollaczek1926`, `:wise1948`, `:xue2018` |
 | Frequency-dependent soil properties | `:default`, `:constant`, `:alipio2014`, `:cigre2019`, `:datsios2019`, `:longmire1975`, `:messier1985`, `:portela1999`, `:scott1967`, `:visacro1987`, `:visacro2012` |
 | Equivalent earth | `:default`, `:bottommost` |
 | Modal transformation | `:default`, `:chrysochos2014` |
@@ -565,18 +565,56 @@ Absence of an equivalent-earth selection remains `nothing`.
 PSCAD extends the same equation generics with a `Val(:pscad)` execution payload:
 
 ```julia
-earth_impedance(selection::PSCAD.NativeFormula, ::Val{Kind}, ::Val{S}, ::Val{T}, ::Val{:pscad})
-earth_potential_coefficient(selection::PSCAD.NativeFormula, ::Val{Kind}, ::Val{S}, ::Val{T}, ::Val{:pscad})
-internal_impedance(selection::PSCAD.NativeFormula, ::Val{Kind}, ::Val{:pscad})
+earth_impedance(selection::EarthImpedance.Formula, ::Val{Kind}, ::Val{S}, ::Val{T}, ::Val{:pscad})
+earth_potential_coefficient(selection::EarthAdmittance.Formula, ::Val{Kind}, ::Val{S}, ::Val{T}, ::Val{:pscad})
+internal_impedance(selection::InternalImpedance.Formula, ::Val{Kind}, ::Val{:pscad})
 ```
 
 These methods compile native settings. Every actual ordered pair is validated
 using the Engine's physical geometry. A complete native settings record is used
 for project export, execution, readback and numerical-input fingerprinting.
-Unsupported potential selections fail before export. PSCAD defaults resolve to
-`:direct_lucca` for earth impedance, `:coupled` for potential coefficients, and
-`:cable_coax` for conductor and insulation impedance. These backend-owned
-selections do not pretend to execute the analytical equations.
+Unsupported selections fail before export. All selected formula types and scientific
+identifiers belong to the Engine, including equations awaiting an owned numerical
+implementation. PSCAD's defaults resolve explicitly to:
+
+```julia
+internal_impedance = :wedepohl1973
+insulation_impedance = :ametani1980
+earth_impedance = (air=:carson1926, earth=:pollaczek1926, mixed=:lucca1994)
+earth_admittance = :ideal
+```
+
+The earth-impedance composition is retained and described by its `air`, `earth`,
+and `mixed` branches. Ametani and Lucca select only mixed mutual impedance;
+the reverse ordered pair uses the same reciprocal model. `:ametani2009` retains
+the journal publication year; PSCAD's help incorrectly dates that article as 2005.
+Layer 1 is air and layer 2 is soil: Carson/Gary apply to `(1,1)`, and Pollaczek/Wedepohl/Saad to `(2,2)`.
+
+The `:ideal` external potential model uses Maxwell's electrostatic image
+coefficients for aerial conductors, with zero external coefficients for buried
+self/mutual and air–buried interactions. Cable insulation contributes its separate
+potential coefficients. In this mathematical model, lossless admittance is purely
+imaginary, while capacitance is real.
+
+PSCAD has no independent potential-model selector. Real PSCAD 5.1 calculations
+with lossless insulation and direct earth-return integration showed a small
+aerial conductance: at 1 kHz, one diagonal entry had
+`real(Y) = 5.4551e-13 S/m` and `imag(Y) = 5.3337e-8 S/m`, with a raw phase of
+`89.999414°`. The Gary/Wedepohl calculation gave `90°` and agreed with the ideal
+image-potential reference. Buried and mixed mutual entries were zero in both.
+These observations do not establish a general error bound or its internal cause.
+The adapter retains `:ideal` as the requested scientific identity, documents this
+native deviation in result assumptions, and preserves the complete native complex
+matrices without zeroing conductance or substituting another equation.
+
+Conductor inner, outer, and transfer impedances use the registered
+`:wedepohl1973` analytical approximations. Magnetic insulation impedance uses the
+registered `:ametani1980` annular expression. PSCAD's native component name is
+only an XML binding and does not identify an equation. These distinctions follow
+PSCAD's [matrix derivation](https://www.pscad.com/webhelp-pscad-v5.1.0-ol/EMTDC/Transmission_Lines/Deriving_System_Y_and_Z_Matrices.htm)
+and [external potential matrix](https://www.pscad.com/webhelp-pscad-v5.1.0-ol/EMTDC/Transmission_Lines/Mutual_Impedance_with_Earth_Return.htm).
+The new `:ideal` and internal `:wedepohl1973` registrations deliberately report
+"not yet implemented" on the owned coaxial evaluation path; PSCAD dispatch is available.
 
 PSCAD dispatch maps retained equations to native settings. Gary1976 maps to PSCAD's
 `DERISEMLYEN` spelling; this creates no second mathematical registration. Carson1926
@@ -585,8 +623,7 @@ These names follow PSCAD's [documented earth-return selections](https://www.psca
 They identify the requested native controls, not a guarantee that native equations,
 material assumptions or results equal LCM's implementations. The exported ground
 permittivity remains the supplied material value.
-PSCAD's `:default` selects that native setting, or native Lucca for a mixed arrangement.
-Fixed backend calculations are recorded as such. PSCAD rejects analytical
+PSCAD's earth-impedance `:default` retains the explicit three-branch composition above. PSCAD rejects analytical
 kernel selections or numerical controls it cannot execute. FEM accepts only its four constitutive
 selections and rejects analytical kernel keywords at construction. It executes
 resolved material contributions without a second author registration. Constitutive
@@ -1106,6 +1143,41 @@ The PSCAD backend accepts:
 `remote` must be a `PSCAD.RemoteConfig`. `output_stem` names files
 created by that execution. Neither value belongs to `PSCADFormulation`.
 
+Construct a station from a user-selected TOML filename:
+
+```julia
+station = PSCAD.RemoteConfig(ENV["LINECABLEMODELS_PSCAD_CONFIG"])
+result = compute(problem, Formulation(:pscad); options=(remote=station,))
+```
+
+The caller reads the environment variable in this example. The backend does not
+search for configuration files, read implicit environment configuration, or create
+directories while loading the TOML file. Keep machine settings outside version
+control; a sanitized template is provided in `examples/pscad/remote.example.toml`.
+Relative `local_root` paths are resolved against the configuration file's directory.
+`local_root` and `shared_root` expose the same files on caller and station;
+`remote_root` is separate station scratch storage. Executable and station paths
+are supplied by the user.
+
+The default `transport="ssh"` supports ordinary SSH aliases, tunnels, and network
+addresses. `transport="local"` invokes PowerShell directly from a Windows caller.
+For a custom wrapper, use `transport="command"` and an argument array such as
+`command=["ts", "ssh", "{host}", "--direct", "--"]`. Exact `{host}` arguments are
+replaced by the configured host; encoded PowerShell arguments are appended without
+shell evaluation. Caller-defined `remote_command` methods remain supported.
+
+Fresh calls execute PSCAD once per distinct native request. Explicit
+`resume_run_directory=:latest` or a completed-run path requests verified native
+reuse; `solver_identity` optionally pins the installation. Reuse checks the current
+station, exported project, complete native settings, worker sources, and outputs.
+The version-4 completion protocol requires fresh native runs after this repair.
+`work_root` defaults to the configured `local_root`. These are computation options.
+
+PSCAD requires deterministic inputs, including base frequency, and rejects
+measurement objects even when their standard deviation is zero. It returns normal
+phase-domain `LineParameters`, with both matrices permuted to the requested terminal
+order. Stored native outputs retain their original ordering.
+
 Both option sets are ordinary `NamedTuple`s, aliased as
 [`FormulationOptions`](@ref) and [`ComputationOptions`](@ref). Callers can
 compose them with `merge`. Each owner rejects unknown keys and returns a
@@ -1118,37 +1190,6 @@ the default and rethrows every exception. `on_error=:retry` requires
 `retain_details=true` and rejects only `DomainError` realizations until the
 requested accepted-trial count is reached or `max_failures` is exhausted.
 Other exception types always propagate immediately.
-
-## Gauntlet routing
-
-`BenchmarkDefinition` coordinates two computations but does not own either backend's
-keys. Its computation options form an outer tuple:
-
-```julia
-(
-    output_basis = :pul,
-    reference = (
-        output_stem = "case_name",
-        remote = remote_config,
-        verbosity = (default = 0, PSCAD = 2),
-    ),
-    candidate = (
-        verbosity = (default = 0,),
-    ),
-    benchmark = (
-        samples = 10,
-        seconds = 10.0,
-    ),
-)
-```
-
-The runner validates only this outer shape. The runner passes `reference` and
-`candidate` to the corresponding `computation_options` methods and forces the same
-`output_basis` into both so their results are comparable. Live and record runs
-load a configured remote endpoint only when `reference.remote` is absent.
-Snapshot runs never load remote configuration. Run mode, snapshot writing,
-comparison tolerances, expected dimensions, and port ordering are not
-computation options.
 
 ## Extending the engine
 
@@ -1278,8 +1319,7 @@ observation construction. `artifact.reference` is a separate atomic observation.
 Retained reports never recalculate RMS; changed numerical settings require explicit
 comparison. Arithmetic dimensions, coordinates, and units must be usable; scientific
 comparability remains the caller's responsibility. A single reference is overlaid
-once alongside all selected study points. The
-[Gauntlet guide](gauntlet.md) explains saved results, summaries and publication.
+once alongside all selected study points.
 
 [`XLSXReportDefinition`](@ref) owns the human-facing line-parameter workbook:
 

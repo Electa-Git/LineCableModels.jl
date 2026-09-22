@@ -25,7 +25,7 @@ Direction des Études et Recherches*, série B, 1976; formula as reproduced in
 Ametani et al., IET, 2021.
 """
 function description(::Type{<:Formula{:gary1976}}; compact::Bool = false)
-    compact ? "Gary" : "Gary complex-depth approximation (1976) — not yet implemented"
+    compact ? "Gary" : "Gary complex-depth approximation (1976)"
 end
 
 function earth_impedance(

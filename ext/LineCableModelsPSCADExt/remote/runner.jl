@@ -151,8 +151,8 @@ function main(arguments)
     phase = "initialization"
     input_path = joinpath(dirname(project_path), "computation.toml")
     input = TOML.parsefile(input_path)
-    get(input, "schema_version", nothing) == 3 || throw(ArgumentError(
-        "PSCAD runner requires the complete version-3 numerical input record"))
+    get(input, "schema_version", nothing) == 4 || throw(ArgumentError(
+        "PSCAD runner requires the complete version-4 numerical input record"))
     identify = pyimport("runpy").run_path(joinpath(@__DIR__, "identity.py"))["identify"]
     console = open(joinpath(output, "pscad-console.txt"), "w")
     try
@@ -178,8 +178,10 @@ function main(arguments)
         pyconvert(Bool, app.licensed()) || error("PSCAD refused the configured license")
         _string(app.version) == pscad_version ||
             error("PSCAD launched an unexpected version")
-        pyconvert(Dict{String, String}, identify(pscad_version, app)) == input["solver"] ||
-            error("PSCAD installation changed after input preparation; start a new run")
+        initial_identity = pyconvert(Dict{String, String}, identify(pscad_version, app))
+        expected_identity = get(input, "expected_solver", nothing)
+        expected_identity === nothing || initial_identity == expected_identity ||
+            error("PSCAD installation does not match the expected solver identity")
         phase = "project load"
         _progress("loading")
         _report(console, verbosity, 1, "Loading generated project $project_name")
@@ -277,7 +279,7 @@ function main(arguments)
         end
         _report(console, verbosity, 1, "Collected detailed PSCAD Z and Y outputs")
         observed = pyconvert(Dict{String, String}, identify(pscad_version, app))
-        observed == input["solver"] ||
+        observed == initial_identity ||
             error("PSCAD installation changed during calculation")
         open(joinpath(output, "solver.toml"), "w") do io
             TOML.print(io, observed; sorted = true)

@@ -25,7 +25,7 @@ wechselstromdurchflossenen Einfachleitung,” *Elektrische Nachrichtentechnik*,
 3, 339–360, 1926.
 """
 function description(::Type{<:Formula{:pollaczek1926}}; compact::Bool = false)
-    compact ? "Pollaczek" : "Pollaczek homogeneous-earth underground impedance (1926) — not yet implemented"
+    compact ? "Pollaczek" : "Pollaczek homogeneous-earth underground impedance (1926)"
 end
 
 function earth_impedance(

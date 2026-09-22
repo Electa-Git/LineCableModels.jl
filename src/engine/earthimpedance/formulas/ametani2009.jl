@@ -27,9 +27,11 @@ Investigation of Earth-Return Impedance Between Overhead and Underground
 Conductors and Its Approximation,” *IEEE Transactions on Electromagnetic
 Compatibility*, 51, 860–867, 2009.
 DOI: 10.1109/TEMC.2009.2019953.
+PSCAD's help lists this journal article with a 2005 date; its journal volume
+and DOI identify the 2009 publication used by this registration.
 """
 function description(::Type{<:Formula{:ametani2009}}; compact::Bool = false)
-    compact ? "Ametani" : "Ametani mixed-pair homogeneous-earth impedance (2009) — not yet implemented"
+    compact ? "Ametani" : "Ametani mixed-pair homogeneous-earth impedance (2009)"
 end
 
 function earth_impedance(
