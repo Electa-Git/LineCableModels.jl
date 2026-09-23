@@ -28,7 +28,7 @@ function _semantic_line_facets(published, ydata)
     return facets
 end
 
-function _semantic_line_pages(facets, capacity;automatic=false)
+function _semantic_line_pages(facets, capacity; automatic = false)
     pages=NamedTuple[]
     for request_index in unique(facet.request_index for facet in facets)
         selected=filter(facet -> facet.request_index==request_index, facets)
@@ -37,11 +37,12 @@ function _semantic_line_pages(facets, capacity;automatic=false)
             append!(pages, _addon_flow_pages(selected, capacity))
             continue
         end
-        positions=[(f.row,f.column) for f in selected]
-        origin=automatic ? _addon_panel_footprint(positions).origin : (1,1)
-        for page in _addon_matrix_pages(positions,first_facet.extent,capacity;origin)
-            push!(pages,(;facets=selected[page.members],positions=page.positions,
-                dimensions=page.dimensions,origin=page.origin,index=page.index))
+        positions=[(f.row, f.column) for f in selected]
+        origin=automatic ? _addon_panel_footprint(positions).origin : (1, 1)
+        for page in _addon_matrix_pages(positions, first_facet.extent, capacity; origin)
+            push!(pages,
+                (; facets = selected[page.members], positions = page.positions,
+                    dimensions = page.dimensions, origin = page.origin, index = page.index))
         end
     end
     return pages
@@ -110,7 +111,6 @@ function _semantic_panel_title(
     ))
     return panel_titles[panel_index]
 end
-
 
 function _addon_semantic_line_page(
         object,
@@ -312,7 +312,7 @@ function _addon_semantic_line_page(
     built.addon_state=merge(built.addon_state,
         (
             panel_page = (;
-                index = page.index, dimensions = page.dimensions, origin=get(page,:origin,nothing),
+                index = page.index, dimensions = page.dimensions, origin = get(page, :origin, nothing),
                 coordinates = Tuple((f.row, f.column) for f in page.facets)),
             page_cells = cells))
     return built

@@ -87,17 +87,21 @@ function _addon_display!(figure, title::AbstractString)
     return figure
 end
 
-function _addon_shell(; size, controls::Bool, axis::NamedTuple=(;), figure::NamedTuple=(;), widgets=(), guide_gap=8,guide_spacing=(;),
-        colorbar_position=_omitted,colorbar_attributes=(;),colorbar_group_attributes=(;),kwargs...)
+function _addon_shell(;
+        size, controls::Bool, axis::NamedTuple = (;), figure::NamedTuple = (;),
+        widgets = (), guide_gap = 8, guide_spacing = (;),
+        colorbar_position = _omitted, colorbar_attributes = (;), colorbar_group_attributes = (;), kwargs...)
     guide_gap=_addon_guide_gap(guide_gap)
     guide_spacing=_addon_guide_spacing(guide_spacing)
     _addon_colorbar_group_attributes(colorbar_group_attributes)
     axis_keys = (propertynames(Axis)..., :palette)
-    axis_attributes = merge((; (key=>value for (key,value) in kwargs if key in axis_keys)...), axis)
-    series_attributes = (; (key=>value for (key,value) in kwargs if key ∉ axis_keys)...)
-    size isa Tuple{Int,Int} && all(>(0),size) ||
+    axis_attributes = merge(
+        (;
+            (key=>value for (key, value) in kwargs if key in axis_keys)...), axis)
+    series_attributes = (; (key=>value for (key, value) in kwargs if key ∉ axis_keys)...)
+    size isa Tuple{Int, Int} && all(>(0), size) ||
         throw(ArgumentError("figure size must be a tuple of two positive integers"))
-    figure = Figure(; merge((; size, figure_padding=(12,12,12,12)), figure)...)
+    figure = Figure(; merge((; size, figure_padding = (12, 12, 12, 12)), figure)...)
     root = figure.layout
     root.default_rowgap = Fixed(4)
     rowgap!(root, 4)
@@ -124,7 +128,7 @@ function _addon_shell(; size, controls::Bool, axis::NamedTuple=(;), figure::Name
         root[2, 1] = body
         root[1, 1] = toolbar
         status_label=Label(root[3, 1], status; halign = :left, fontsize = 11)
-        append!(chrome,(toolbar,status_label))
+        append!(chrome, (toolbar, status_label))
         rowsize!(root, 1, Auto(true))
         rowsize!(root, 2, Auto(false, 1))
         rowsize!(root, 3, Auto(true))
@@ -139,8 +143,10 @@ function _addon_shell(; size, controls::Bool, axis::NamedTuple=(;), figure::Name
     colsize!(body, 1, Fixed(0))
     colsize!(body, 2, Auto(false, 1))
     colsize!(body, 3, Fixed(0))
-    return (; figure, reference_size=Tuple(figure.scene.viewport[].widths), root, body, canvas, toolbar, status, chrome, axis_attributes, series_attributes, widgets, guide_gap,guide_spacing,
-        colorbar_position,colorbar_attributes,colorbar_group_attributes)
+    return (; figure, reference_size = Tuple(figure.scene.viewport[].widths),
+        root, body, canvas, toolbar, status, chrome, axis_attributes,
+        series_attributes, widgets, guide_gap, guide_spacing,
+        colorbar_position, colorbar_attributes, colorbar_group_attributes)
 end
 
 function _addon_icon(value)
@@ -160,7 +166,7 @@ function _addon_scale(symbol::Symbol)
     symbol === :pseudolog10 && return Makie.ReversibleScale(
         x -> sign(x) * log1p(abs(x)) / log(10),
         x -> sign(x) * expm1(abs(x) * log(10));
-        limits=(0.0f0, 3.0f0), name=:pseudolog10)
+        limits = (0.0f0, 3.0f0), name = :pseudolog10)
     throw(ArgumentError("unsupported axis scale :$symbol"))
 end
 _addon_scale(scale) = scale
@@ -186,7 +192,7 @@ function _addon_linear_tickformat(exponent::Int)
         # Signed zeros are the same tick. A range transition can temporarily
         # underflow values through the preceding exponent before it is replaced.
         finite = sort!(unique(iszero(value) ? 0.0 : value
-            for value in mantissas if isfinite(value)))
+        for value in mantissas if isfinite(value)))
         isempty(finite) && return string.(mantissas)
         magnitude = maximum(abs, finite)
         digits = iszero(magnitude) ? 0 : max(0, 3 - floor(Int, log10(magnitude)))
@@ -208,20 +214,22 @@ function _addon_decade_ticks(vmin, vmax, count::Int)
     isfinite(vmin) && isfinite(vmax) && 0 < vmin <= vmax || return Float64[]
     span = log10(vmax)-log10(vmin)
     if span < 2
-        isapprox(vmin,vmax;rtol=sqrt(eps(Float64)),atol=0) && return unique([vmin,vmax])
+        isapprox(vmin, vmax; rtol = sqrt(eps(Float64)), atol = 0) &&
+            return unique([vmin, vmax])
         ticks = Float64[]
-        for exponent in floor(Int,log10(vmin)):floor(Int,log10(vmax))
-            lower,upper = max(vmin,10.0^exponent),min(vmax,10.0^(exponent+1))
+        for exponent in floor(Int, log10(vmin)):floor(Int, log10(vmax))
+            lower, upper = max(vmin, 10.0^exponent), min(vmax, 10.0^(exponent+1))
             lower < upper || continue
-            budget = max(2,ceil(Int,count*(log10(upper)-log10(lower))/span)+1)
+            budget = max(2, ceil(Int, count*(log10(upper)-log10(lower))/span)+1)
             # Locator arithmetic is local to one decade, including extreme SI
             # magnitudes. Only the returned positions use the published units.
-            factor = 10.0^clamp(exponent,-307,307)
-            values = Makie.get_tickvalues(Makie.LinearTicks(budget),lower/factor,upper/factor)
-            append!(ticks,filter(x -> isfinite(x) && lower <= x <= upper,values.*factor))
-            vmin <= 10.0^exponent <= vmax && push!(ticks,10.0^exponent)
+            factor = 10.0^clamp(exponent, -307, 307)
+            values = Makie.get_tickvalues(Makie.LinearTicks(budget), lower/factor, upper/factor)
+            append!(ticks, filter(x -> isfinite(x) && lower <= x <= upper, values .*
+                                                                           factor))
+            vmin <= 10.0^exponent <= vmax && push!(ticks, 10.0^exponent)
         end
-        isempty(ticks) && append!(ticks,(vmin,vmax))
+        isempty(ticks) && append!(ticks, (vmin, vmax))
         return sort!(unique!(ticks))
     end
     first_exponent = ceil(Int, log10(vmin))
@@ -241,7 +249,7 @@ function _addon_axis_label(label, exponent::Int, scale::Symbol)
     )
 end
 
-function _addon_set_axis!(entries::AbstractVector, dim::Symbol, scale=nothing)
+function _addon_set_axis!(entries::AbstractVector, dim::Symbol, scale = nothing)
     dim in (:x, :y) || throw(ArgumentError("axis dimension must be :x or :y"))
     index = dim === :x ? 1 : 2
     # Resolve and validate the complete page before any native observable changes.
@@ -257,25 +265,27 @@ function _addon_set_axis!(entries::AbstractVector, dim::Symbol, scale=nothing)
             throw(DomainError(bounds, "$context requires finite explicit limits"))
         values = _addon_visible_values(entry.axis, dim, entry.series)
         if requested_scale === :log10 &&
-                (any(<=(0),values) || any(value -> value!==nothing && value<=0,bounds))
+           (any(<=(0), values) || any(value -> value!==nothing && value<=0, bounds))
             target = _addon_scale(:pseudolog10)
         end
         if target === Base.log10
             all(>(0), values) && all(value -> value === nothing || value > 0, bounds) ||
-                throw(DomainError(bounds, "logarithmic $context requires positive visible data, uncertainty bounds and explicit limits"))
+                throw(DomainError(bounds,
+                    "logarithmic $context requires positive visible data, uncertainty bounds and explicit limits"))
         end
         inverse=Makie.inverse_transform(target)
-        inverse===nothing && throw(ArgumentError("$context requires a native scale with an inverse"))
+        inverse===nothing &&
+            throw(ArgumentError("$context requires a native scale with an inverse"))
         for value in bounds
             value===nothing && continue
             transformed=target(value)
             isfinite(transformed) && isfinite(inverse(transformed)) || throw(DomainError(
-                value,"$context requires finite transformed explicit bounds and inverse values"))
+                value, "$context requires finite transformed explicit bounds and inverse values"))
         end
-        empty_bounds=isempty(values) ? defaultlimits(requested[index],target) : nothing
+        empty_bounds=isempty(values) ? defaultlimits(requested[index], target) : nothing
         if !isempty(values)
             lower, upper = extrema(values)
-            if isapprox(lower, upper; rtol=sqrt(eps(Float64)), atol=0)
+            if isapprox(lower, upper; rtol = sqrt(eps(Float64)), atol = 0)
                 lower, upper = _addon_constant_limits(values, values, target === Base.log10)
             end
             explicit = isempty(bounds) ? (nothing, nothing) : bounds
@@ -286,42 +296,43 @@ function _addon_set_axis!(entries::AbstractVector, dim::Symbol, scale=nothing)
         end
         if empty_bounds!==nothing
             transformed=target.(empty_bounds)
-            all(isfinite,transformed) && transformed[1]<transformed[2] &&
-                all(isfinite,inverse.(transformed)) || throw(DomainError(empty_bounds,
-                    "$context requires finite distinct native default limits"))
+            all(isfinite, transformed) && transformed[1]<transformed[2] &&
+            all(isfinite, inverse.(transformed)) || throw(DomainError(empty_bounds,
+                "$context requires finite distinct native default limits"))
         end
-        (;scale=target,empty_bounds)
+        (; scale = target, empty_bounds)
     end
-    previous=[(scale=getproperty(entry.axis,Symbol(dim,:scale))[],view=entry.axis.targetlimits[])
-        for entry in entries]
+    previous=[(scale = getproperty(entry.axis, Symbol(dim, :scale))[],
+                  view = entry.axis.targetlimits[])
+              for entry in entries]
     try
-        for (entry,target,saved) in zip(entries,targets,previous)
+        for (entry, target, saved) in zip(entries, targets, previous)
             axis=entry.axis
             if target.empty_bounds!==nothing
                 # Native empty-data fitting keeps the previous target limits.
                 # Seed its own scale defaults through a linear transition so an
                 # empty log axis never inherits the linear interval [0,10].
-                getproperty(axis,Symbol(dim,:scale))[]=identity
+                getproperty(axis, Symbol(dim, :scale))[]=identity
                 current=axis.targetlimits[]
-                origin,widths=collect(current.origin),collect(current.widths)
+                origin, widths=collect(current.origin), collect(current.widths)
                 origin[index]=target.empty_bounds[1]
                 widths[index]=target.empty_bounds[2]-target.empty_bounds[1]
-                axis.targetlimits[]=Makie.Rect2d(origin...,widths...)
+                axis.targetlimits[]=Makie.Rect2d(origin..., widths...)
             end
-            getproperty(axis,Symbol(dim,:scale))[]=target.scale
-            entry.reset(;xauto=dim===:x,yauto=dim===:y)
+            getproperty(axis, Symbol(dim, :scale))[]=target.scale
+            entry.reset(; xauto = dim===:x, yauto = dim===:y)
             # Scale application preserves the orthogonal interactive view.
             other=3-index
             current=axis.targetlimits[]
-            origin,widths=collect(current.origin),collect(current.widths)
-            origin[other],widths[other]=saved.view.origin[other],saved.view.widths[other]
-            axis.targetlimits[]=Makie.Rect2d(origin...,widths...)
+            origin, widths=collect(current.origin), collect(current.widths)
+            origin[other], widths[other]=saved.view.origin[other], saved.view.widths[other]
+            axis.targetlimits[]=Makie.Rect2d(origin..., widths...)
         end
     catch
-        for (entry,saved) in zip(entries,previous)
-            getproperty(entry.axis,Symbol(dim,:scale))[]=identity
+        for (entry, saved) in zip(entries, previous)
+            getproperty(entry.axis, Symbol(dim, :scale))[]=identity
             entry.axis.targetlimits[]=saved.view
-            getproperty(entry.axis,Symbol(dim,:scale))[]=saved.scale
+            getproperty(entry.axis, Symbol(dim, :scale))[]=saved.scale
             entry.axis.targetlimits[]=saved.view
         end
         rethrow()
@@ -338,24 +349,26 @@ function _addon_numeric_values(values)
 end
 
 function _addon_line!(axis, xdata, ydata; dependent_plots, label, color = nothing,
-        visible = true, phase=(1, 1), endpoints=false, marker_coordinates=nothing,
-        errorbar_sampling=:all, yerror=nothing, interval_support=nothing)
+        visible = true, phase = (1, 1), endpoints = false, marker_coordinates = nothing,
+        errorbar_sampling = :all, yerror = nothing, interval_support = nothing)
     x, xerror = _addon_numeric_values(xdata)
     y, inferred_error = _addon_numeric_values(ydata)
     yerror = yerror === nothing ? inferred_error :
-        (all(iszero, yerror) ? nothing : Float64.(yerror))
+             (all(iszero, yerror) ? nothing : Float64.(yerror))
     attributes = color === nothing ? (; linewidth = 2) : (; linewidth = 2, color)
     plots = Any[lines!(axis, x, y; label, visible, attributes...)]
     line = first(plots)
     uncertain_indices = findall(eachindex(x)) do index
         isfinite(x[index]) && isfinite(y[index]) &&
-            any(error -> error !== nothing && isfinite(error[index]) &&
-                !iszero(error[index]), (xerror, yerror))
+            any(
+                error -> error !== nothing && isfinite(error[index]) &&
+                         !iszero(error[index]), (xerror, yerror))
     end
     glyphs = if marker_coordinates !== nothing || errorbar_sampling === :staggered
         lift(line[1], axis.scene.viewport) do points, viewport
             _addon_glyph_indices(length(points), viewport.widths[1], phase;
-                endpoints, uncertain_indices=filter(<=(length(points)),uncertain_indices), errorbar_sampling)
+                endpoints, uncertain_indices = filter(<=(length(points)), uncertain_indices),
+                errorbar_sampling)
         end
     else
         nothing
@@ -372,15 +385,15 @@ function _addon_line!(axis, xdata, ydata; dependent_plots, label, color = nothin
         coordinates = if errorbar_sampling === :staggered
             # A native line edit does not rewrite independent uncertainty bars.
             lift(axis.scene.viewport) do viewport
-                indices=_addon_glyph_indices(length(values),viewport.widths[1],phase;
-                    endpoints,uncertain_indices,errorbar_sampling)
+                indices=_addon_glyph_indices(length(values), viewport.widths[1], phase;
+                    endpoints, uncertain_indices, errorbar_sampling)
                 values[indices.intervals]
             end
         else
             values
         end
-        bars = errorbars!(axis, coordinates; color=error_color, direction,
-            whiskerwidth=3, linewidth=1, visible)
+        bars = errorbars!(axis, coordinates; color = error_color, direction,
+            whiskerwidth = 3, linewidth = 1, visible)
         interval_support===nothing || (interval_support[bars]=coordinates)
         on(axis.scene, line.color) do value
             bars.color[] = value
@@ -402,10 +415,10 @@ function _addon_visible_values(series, dim::Symbol; include_uncertainty::Bool = 
             index=dim===:x ? 1 : 2
             lower=bounds.origin[index]
             upper=lower+bounds.widths[index]
-            isfinite(lower) && isfinite(upper) && append!(values,(lower,upper))
+            isfinite(lower) && isfinite(upper) && append!(values, (lower, upper))
             continue
-        elseif haskey(item,:full_support)
-            append!(values,getproperty(item.full_support,dim))
+        elseif haskey(item, :full_support)
+            append!(values, getproperty(item.full_support, dim))
             continue
         end
         errors = get(item, dim === :x ? :xerror : :yerror, nothing)
@@ -415,7 +428,7 @@ function _addon_visible_values(series, dim::Symbol; include_uncertainty::Bool = 
             numeric = Float64(nominal_value)
             isfinite(numeric) || continue
             interval = abs(Float64(errors === nothing ?
-                LineCableModels.uncertainty(sample) : errors[index]))
+                                   LineCableModels.uncertainty(sample) : errors[index]))
             if isfinite(interval) && !iszero(interval)
                 push!(values, numeric - interval, numeric + interval)
             else
@@ -428,43 +441,45 @@ end
 
 # Primary categorical and element-index points are all data samples, never
 # decorative curve glyphs. Native conversion owns categorical coordinates.
-function _addon_points!(axis,xdata,ydata;dependent_plots,label,color=nothing,
-        visible=true,phase=(1,1),endpoints=false,marker_coordinates=nothing,
-        errorbar_sampling=:all,yerror=nothing,interval_support=nothing)
-    y,inferred=_addon_numeric_values(ydata)
+function _addon_points!(axis, xdata, ydata; dependent_plots, label, color = nothing,
+        visible = true, phase = (1, 1), endpoints = false, marker_coordinates = nothing,
+        errorbar_sampling = :all, yerror = nothing, interval_support = nothing)
+    y, inferred=_addon_numeric_values(ydata)
     errors=yerror===nothing ? inferred : yerror
-    attributes=color===nothing ? (;) : (;color)
-    points=scatter!(axis,xdata,y;label,visible,attributes...)
+    attributes=color===nothing ? (;) : (; color)
+    points=scatter!(axis, xdata, y; label, visible, attributes...)
     plots=Any[points]
-    if errors!==nothing && !all(iszero,errors)
-        bars=errorbars!(axis,xdata,y,errors;visible,color=something(color,:black))
-        on(axis.scene,points.color) do value
+    if errors!==nothing && !all(iszero, errors)
+        bars=errorbars!(axis, xdata, y, errors; visible, color = something(color, :black))
+        on(axis.scene, points.color) do value
             bars.color[]=value
         end
-        push!(plots,bars)
-        push!(dependent_plots,bars=>points)
+        push!(plots, bars)
+        push!(dependent_plots, bars=>points)
     end
     return plots
 end
 
-function _addon_visible_values(axis::Axis, dim::Symbol, series=())
+function _addon_visible_values(axis::Axis, dim::Symbol, series = ())
     index = dim === :x ? 1 : 2
-    bounds = Makie.data_limits(axis.scene, plot ->
-        !to_value(get(plot, :visible, true)) ||
-        !to_value(get(plot, Symbol(dim, :autolimits), true)) ||
-        to_value(get(plot, :space, :data)) !== :data)
+    bounds = Makie.data_limits(axis.scene,
+        plot -> !to_value(get(plot, :visible, true)) ||
+                !to_value(get(plot, Symbol(dim, :autolimits), true)) ||
+                to_value(get(plot, :space, :data)) !== :data)
     lower, upper = bounds.origin[index], bounds.origin[index] + bounds.widths[index]
     values = isfinite(lower) && isfinite(upper) ? [lower, upper] : Float64[]
     for item in series
         get(item, :sampled_intervals, false) || continue
         # Undrawn intervals still constrain scientific axes. Independently hidden
         # bars, disabled autolimits and caller-added native plots remain respected.
-        support=get(item,:interval_support,nothing)
-        any(plot -> plot isa Makie.Errorbars && plot.direction[] === dim &&
-            plot.visible[] && to_value(get(plot, Symbol(dim, :autolimits), true)) &&
-            (support===nothing || !haskey(support,plot) || isequal(plot[1][],to_value(support[plot]))),
+        support=get(item, :interval_support, nothing)
+        any(
+            plot -> plot isa Makie.Errorbars && plot.direction[] === dim &&
+                    plot.visible[] && to_value(get(plot, Symbol(dim, :autolimits), true)) &&
+                    (support===nothing || !haskey(support, plot) ||
+                     isequal(plot[1][], to_value(support[plot]))),
             item.plots) || continue
-        append!(values, _addon_visible_values((item,), dim; include_uncertainty=true))
+        append!(values, _addon_visible_values((item,), dim; include_uncertainty = true))
     end
     return isempty(values) ? values : collect(extrema(values))
 end
@@ -491,12 +506,15 @@ function LineCableModels.plotwindow(
         axes = Any[content for content in shell.figure.content if content isa Axis]
         # Only caller-supplied overrides apply to caller-constructed axes. Keep
         # native defaults/conversions intact; scale changes use common preflight.
-        for axis in axes, (key,value) in pairs(shell.axis_attributes)
-            key in (:xscale,:yscale) || setproperty!(axis,key,value)
+        for axis in axes, (key, value) in pairs(shell.axis_attributes)
+
+            key in (:xscale, :yscale) || setproperty!(axis, key, value)
         end
-        requested_scales = !any(key -> key in (:xscale,:yscale), keys(shell.axis_attributes)) ? nothing :
-            [(x=get(shell.axis_attributes,:xscale,axis.xscale[]),
-                y=get(shell.axis_attributes,:yscale,axis.yscale[])) for axis in axes]
+        requested_scales = !any(key -> key in (:xscale, :yscale), keys(shell.axis_attributes)) ?
+                           nothing :
+                           [(x = get(shell.axis_attributes, :xscale, axis.xscale[]),
+                                y = get(shell.axis_attributes, :yscale, axis.yscale[]))
+                            for axis in axes]
         resets = Function[_addon_reset!(axis) for axis in axes]
         native = Any[handle for axis in axes for handle in axis.scene.plots]
         order = [Symbol("series_$index") for index in eachindex(native)]
@@ -507,7 +525,8 @@ function LineCableModels.plotwindow(
             resets,
             groups,
             order,
-            Dict(group => something(to_value(get(handle,:label,nothing)),string(group)) for (group,handle) in zip(order,native));
+            Dict(group => something(to_value(get(handle, :label, nothing)), string(group))
+            for (group, handle) in zip(order, native));
             requested_scales,
             series_attributes,
             title = String(title),
@@ -558,7 +577,7 @@ function _addon_statistical_plot(
     return with_theme(_addon_theme(export_theme = export_theme)) do
         shell = _addon_shell(; size = fig_size, controls, kwargs...)
         panel = _addon_panel!(shell, (1, 1))
-        axis,scales = _addon_axis!(
+        axis, scales = _addon_axis!(
             panel.content,
             xobservation,
             yobservation;
@@ -567,7 +586,7 @@ function _addon_statistical_plot(
             yscale,
             xlabel,
             ylabel,
-            native_attributes=shell.axis_attributes
+            native_attributes = shell.axis_attributes
         )
         groups = Dict{Symbol, Vector{Any}}()
         order = Symbol[]
@@ -583,8 +602,8 @@ function _addon_statistical_plot(
             groups,
             order,
             labels;
-            requested_scales=(scales,),
-            axis_series=(series,),
+            requested_scales = (scales,),
+            axis_series = (series,),
             series_attributes,
             title,
             figure_title,
@@ -611,11 +630,11 @@ function _addon_constant_limits(values, interval_values, logarithmic::Bool)
             "logarithmic axes require strictly positive data"
         ))
         center = sum(log, extrema(values))/2
-        halfspan = max(log(1.05),2maximum(value -> abs(log(value)-center),interval_values))
-        lower,upper = exp(center-halfspan),exp(center+halfspan)
+        halfspan = max(log(1.05), 2maximum(value -> abs(log(value)-center), interval_values))
+        lower, upper = exp(center-halfspan), exp(center+halfspan)
         isfinite(upper) && 0 < lower < upper && log10(lower) < log10(upper) ||
-            throw(DomainError((lower,upper),"automatic logarithmic bounds are not representable"))
-        return lower,upper
+            throw(DomainError((lower, upper), "automatic logarithmic bounds are not representable"))
+        return lower, upper
     end
     all(iszero, interval_values) && return (-1.0, 1.0)
     lower, upper = extrema(values)
@@ -646,8 +665,8 @@ function _addon_axis_format!(axis)
         updating = Ref(false)
         # Reuse one native text measurement per dimension, outside the data
         # scene. Font changes and long, precise labels affect available density.
-        probe = text!(axis.blockscene, 0, 0; text="", markerspace=:data,
-            visible=false, inspectable=false)
+        probe = text!(axis.blockscene, 0, 0; text = "", markerspace = :data,
+            visible = false, inspectable = false)
         function update!()
             updating[] && return nothing
             updating[] = true
@@ -660,29 +679,33 @@ function _addon_axis_format!(axis)
                 current_scale === Base.log10 && limits.origin[index] <= 0 && return nothing
                 label_changed = current_label !== rendered_label[]
                 label_changed && (raw_label[] = current_label)
-                owned_ticks = current_ticks === installed_ticks[] || current_ticks === Makie.automatic
-                owned_format = current_format === installed_format[] || current_format === Makie.automatic
+                owned_ticks = current_ticks === installed_ticks[] ||
+                              current_ticks === Makie.automatic
+                owned_format = current_format === installed_format[] ||
+                               current_format === Makie.automatic
                 numeric = conversion[] === nothing
-                lower, upper = limits.origin[index], limits.origin[index] + limits.widths[index]
-                inputs=(lower,upper,current_scale,axis.scene.viewport[].widths[index],
-                    labelsize[],labelfont[],rotation[],conversion[],current_label)
+                lower, upper = limits.origin[index],
+                limits.origin[index] + limits.widths[index]
+                inputs=(lower, upper, current_scale, axis.scene.viewport[].widths[index],
+                    labelsize[], labelfont[], rotation[], conversion[], current_label)
                 # Native layout can notify every peer axis without changing
                 # these inputs. Restarting density fitting then briefly installs
                 # denser ticks and recursively changes all peer protrusions.
                 # Explicit native overrides/automatic resets still run below.
                 owned_ticks && owned_format && !label_changed &&
-                    current_ticks===installed_ticks[] && current_format===installed_format[] &&
-                    isequal(inputs,previous_inputs[]) && return nothing
+                    current_ticks===installed_ticks[] &&
+                    current_format===installed_format[] &&
+                    isequal(inputs, previous_inputs[]) && return nothing
                 decades = current_scale === Base.log10 && 0 < lower < upper &&
-                    log10(upper) - log10(lower) >= 2
+                          log10(upper) - log10(lower) >= 2
                 exponent = something(_addon_scientific_exponent((lower, upper)), 0)
                 signed_linear = current_scale === _addon_scale(:pseudolog10) &&
-                    max(abs(lower), abs(upper)) < 1
+                                max(abs(lower), abs(upper)) < 1
                 mode = if numeric && (current_scale === Base.identity || signed_linear) &&
-                        (owned_ticks || current_ticks isa AbstractVector{<:Real})
+                          (owned_ticks || current_ticks isa AbstractVector{<:Real})
                     (:linear, exponent)
                 elseif numeric && current_scale === Base.log10 &&
-                        (owned_ticks || current_ticks isa AbstractVector{<:Real})
+                       (owned_ticks || current_ticks isa AbstractVector{<:Real})
                     owned_ticks && decades ? (:log10, 0) : (:linear, exponent)
                 else
                     nothing
@@ -697,23 +720,28 @@ function _addon_axis_format!(axis)
                             # Native LineAxis may still hold its previous limits
                             # during a scale notification. Its temporary zero tick
                             # must not throw before the positive locator replaces it.
-                            values -> [value <= 0 ? string(value) : Makie.rich("10", Makie.superscript(
-                                replace(string(round(Int, log10(value))), "-" => "−");
-                                offset=Makie.Vec2f(0.1, 0.0))) for value in values]
+                            values -> [value <= 0 ? string(value) :
+                                       Makie.rich("10",
+                                           Makie.superscript(
+                                               replace(string(round(Int, log10(value))), "-" => "−");
+                                               offset = Makie.Vec2f(0.1, 0.0)))
+                                       for value in values]
                         end
                         installed_mode[] = mode
-                        tickformat[] === installed_format[] || (tickformat[] = installed_format[])
+                        tickformat[] === installed_format[] ||
+                            (tickformat[] = installed_format[])
                     end
                 end
                 formatted = owned_format && mode !== nothing && first(mode) === :linear ?
-                    _addon_axis_label(raw_label[], exponent, :linear) : raw_label[]
+                            _addon_axis_label(raw_label[], exponent, :linear) : raw_label[]
                 if label_changed || !isequal(formatted, current_label)
                     rendered_label[] = formatted
                     label[] = formatted
                 end
                 if owned_ticks
                     pixels = axis.scene.viewport[].widths[index]
-                    spacing = (index == 1 && current_scale === Base.identity ? 5.5 : 3.0) * labelsize[]
+                    spacing = (index == 1 && current_scale === Base.identity ? 5.5 : 3.0) *
+                              labelsize[]
                     count = clamp(floor(Int, pixels / max(1, spacing)), 3, 10)
                     probe.font[] = labelfont[]
                     probe.fontsize[] = labelsize[]
@@ -729,8 +757,9 @@ function _addon_axis_format!(axis)
                             # Preserve explicit narrow zooms too, without asking
                             # LinearTicks to subdivide an unrepresentable interval.
                             let count=count
-                                (lo, hi) -> isapprox(lo, hi; rtol=sqrt(eps(Float64)), atol=0) ?
-                                    unique([lo, hi]) : Makie.get_tickvalues(Makie.LinearTicks(count), lo, hi)
+                                (lo, hi) -> isapprox(lo, hi; rtol = sqrt(eps(Float64)), atol = 0) ?
+                                            unique([lo, hi]) :
+                                            Makie.get_tickvalues(Makie.LinearTicks(count), lo, hi)
                             end
                         elseif current_scale === Base.log10
                             _addon_decade_ticks(lower, upper, count)
@@ -738,10 +767,11 @@ function _addon_axis_format!(axis)
                             # Native PseudologTicks dispatches on Makie's scale
                             # instance. Reuse its placement, not its cancelling
                             # transform, and pass numeric positions to this axis.
-                            if isapprox(lower, upper; rtol=sqrt(eps(Float64)), atol=0)
+                            if isapprox(lower, upper; rtol = sqrt(eps(Float64)), atol = 0)
                                 unique([lower, upper])
                             else
-                                locator = signed_linear ? Makie.LinearTicks(count) : Makie.PseudologTicks(count)
+                                locator = signed_linear ? Makie.LinearTicks(count) :
+                                          Makie.PseudologTicks(count)
                                 first(Makie.get_ticks(locator, Makie.pseudolog10,
                                     Makie.automatic, lower, upper))
                             end
@@ -758,22 +788,23 @@ function _addon_axis_format!(axis)
                             # screen. Fit adjacent rendered labels, not count/width.
                             positions = Float64[]
                             extents = Float64[]
-                            for (value,text) in zip(selected,lineaxis.ticklabels[])
+                            for (value, text) in zip(selected, lineaxis.ticklabels[])
                                 value > 0 || continue
                                 probe.text[] = text
-                                push!(positions,pixels*(log10(value)-log10(lower))/(log10(upper)-log10(lower)))
-                                push!(extents,Makie.boundingbox(probe,:data).widths[index])
+                                push!(positions, pixels*(log10(value)-log10(lower))/(log10(upper)-log10(lower)))
+                                push!(extents, Makie.boundingbox(probe, :data).widths[index])
                             end
                             if length(positions) == length(selected)
                                 retained = Int[]
                                 for i in eachindex(positions)
-                                    if isempty(retained) || positions[i]-positions[last(retained)] >=
-                                            (extents[i]+extents[last(retained)])/2+labelsize[]/2
-                                        push!(retained,i)
+                                    if isempty(retained) ||
+                                       positions[i]-positions[last(retained)] >=
+                                       (extents[i]+extents[last(retained)])/2+labelsize[]/2
+                                        push!(retained, i)
                                     end
                                 end
                                 fitted_ticks = selected[retained]
-                                if !isequal(ticks[],fitted_ticks)
+                                if !isequal(ticks[], fitted_ticks)
                                     installed_ticks[] = fitted_ticks
                                     ticks[] = fitted_ticks
                                 end
@@ -785,7 +816,8 @@ function _addon_axis_format!(axis)
                             probe.text[] = text
                             extent = max(extent, Makie.boundingbox(probe, :data).widths[index])
                         end
-                        fitted = max(2, floor(Int, pixels / max(spacing, extent + labelsize[])))
+                        fitted = max(2, floor(Int, pixels /
+                                                   max(spacing, extent + labelsize[])))
                         fitted >= count && break
                         count = fitted
                     end
@@ -798,54 +830,59 @@ function _addon_axis_format!(axis)
         end
         # Run before native tick conversion: a newly assigned labelled tuple
         # cannot be consumed with the previously installed numeric formatter.
-        onany((_...) -> update!(), axis.scene, ticks, tickformat; priority=1)
+        onany((_...) -> update!(), axis.scene, ticks, tickformat; priority = 1)
         # Range/transform updates must instead follow native LineAxis propagation;
         # changing its formatter while it still has the old limits is unsafe.
         onany((_...) -> update!(), axis.scene, axis.finallimits, scale, label,
             axis.scene.viewport, labelsize, labelfont, rotation, conversion;
-            priority=-3, update=true)
+            priority = -3, update = true)
     end
     return axis
 end
 
 # Bind the native limit lifecycle once and return this axis's reset action.
-function _addon_reset!(axis, series=())
+function _addon_reset!(axis, series = ())
     # Own numeric ticks before the first data fit, including its synchronous
     # native callbacks. Every recipe and caller-owned plotwindow uses this bind.
     _addon_axis_format!(axis)
     fitting = Ref(false)
     corrections = Any[nothing, nothing]
-    function reset!(; xauto::Bool=true, yauto::Bool=true, preserve_view::Bool=false)
+    function reset!(; xauto::Bool = true, yauto::Bool = true, preserve_view::Bool = false)
         fitting[] && return axis
         view = preserve_view ? axis.targetlimits[] : nothing
         fitting[] = true
         try
             reset_limits!(axis; xauto, yauto)
             requested = axis.limits[]
-            requested = length(requested) == 4 ? (requested[1:2], requested[3:4]) : requested
+            requested = length(requested) == 4 ? (requested[1:2], requested[3:4]) :
+                        requested
             for (index, dim) in enumerate((:x, :y))
                 (index == 1 ? xauto : yauto) || continue
                 corrections[index] = nothing
-                explicit = requested[index] === nothing ? (nothing, nothing) : requested[index]
+                explicit = requested[index] === nothing ? (nothing, nothing) :
+                           requested[index]
                 all(value -> value !== nothing, explicit) && continue
                 rendered = _addon_visible_values(axis, dim)
                 interval_values = _addon_visible_values(axis, dim, series)
                 isempty(interval_values) && continue
-                values = isempty(series) ? interval_values : _addon_visible_values(series, dim)
+                values = isempty(series) ? interval_values :
+                         _addon_visible_values(series, dim)
                 isempty(values) && continue
-                constant = isapprox(extrema(values)...; rtol=sqrt(eps(Float64)), atol=0)
+                constant = isapprox(extrema(values)...; rtol = sqrt(eps(Float64)), atol = 0)
                 constant || interval_values != rendered || continue
                 if constant && !isempty(series)
-                    expected = _addon_visible_values(series, dim; include_uncertainty=true)
+                    expected = _addon_visible_values(series, dim; include_uncertainty = true)
                     # Native extra plots or independently hidden error bars own
                     # their actual extents, not the original observation array.
                     if !all(isapprox.(interval_values, collect(extrema(expected))))
-                        isapprox(extrema(interval_values)...; rtol=sqrt(eps(Float64)), atol=0) || continue
+                        isapprox(extrema(interval_values)...; rtol = sqrt(eps(Float64)), atol = 0) ||
+                            continue
                         values = interval_values
                     end
                 end
-                any(plot -> haskey(plot, :model) &&
-                    any(j -> plot.model[][index, j] != (index == j), 1:4),
+                any(
+                    plot -> haskey(plot, :model) &&
+                            any(j -> plot.model[][index, j] != (index == j), 1:4),
                     axis.scene.plots) && continue
                 scale = getproperty(axis, Symbol(dim, :scale))[]
                 limits = if constant
@@ -859,11 +896,12 @@ function _addon_reset!(axis, series=())
                 end
                 lower = something(explicit[1], limits[1])
                 upper = something(explicit[2], limits[2])
-                origin, widths = collect(axis.targetlimits[].origin), collect(axis.targetlimits[].widths)
+                origin, widths = collect(axis.targetlimits[].origin),
+                collect(axis.targetlimits[].widths)
                 original = (origin[index], widths[index])
                 origin[index], widths[index] = lower, upper - lower
-                corrections[index] = (; requested=requested[index], scale, original,
-                    fitted=(origin[index], widths[index]))
+                corrections[index] = (; requested = requested[index], scale, original,
+                    fitted = (origin[index], widths[index]))
                 axis.targetlimits[] = Makie.Rect2d(origin..., widths...)
             end
         finally
@@ -879,7 +917,7 @@ function _addon_reset!(axis, series=())
     # padding without storing automatic limits as user requests. Only the exact
     # native auto-fit for the same scale/request is corrected; zooms are untouched.
     # This callback uses two cached bounds, not a data scan on every view update.
-    on(axis.scene, axis.targetlimits; priority=1) do view
+    on(axis.scene, axis.targetlimits; priority = 1) do view
         requested = axis.limits[]
         requested = length(requested) == 4 ? (requested[1:2], requested[3:4]) : requested
         origin, widths = collect(view.origin), collect(view.widths)
@@ -890,18 +928,19 @@ function _addon_reset!(axis, series=())
             # scaling runs, including during the transform-triggered first fit.
             # This uses only the view bounds, never a new data scan on zoom.
             if iszero(widths[index]) && any(isnothing, explicit) &&
-                    getproperty(axis, Symbol(:dim, index, :_conversion))[] === nothing
+               getproperty(axis, Symbol(:dim, index, :_conversion))[] === nothing
                 bounds = _addon_constant_limits((origin[index],), (origin[index],),
                     getproperty(axis, Symbol(dim, :scale))[] === Base.log10)
-                lower, upper = something(explicit[1], bounds[1]), something(explicit[2], bounds[2])
+                lower, upper = something(explicit[1], bounds[1]),
+                something(explicit[2], bounds[2])
                 origin[index], widths[index] = lower, upper-lower
             end
             fitting[] && continue
             correction = corrections[index]
             correction === nothing && continue
             if isequal(requested[index], correction.requested) &&
-                    getproperty(axis, Symbol(dim, :scale))[] === correction.scale &&
-                    (origin[index], widths[index]) == correction.original
+               getproperty(axis, Symbol(dim, :scale))[] === correction.scale &&
+               (origin[index], widths[index]) == correction.original
                 origin[index], widths[index] = correction.fitted
             end
         end
@@ -909,13 +948,15 @@ function _addon_reset!(axis, series=())
         fitted == view || (axis.targetlimits[] = fitted)
         return nothing
     end
-    on(_ -> reset!(), axis.scene, axis.limits; priority=-3)
-    if any(item -> get(item, :sampled_intervals, false) &&
-            any(plot -> plot isa Makie.Errorbars, item.plots), series)
+    on(_ -> reset!(), axis.scene, axis.limits; priority = -3)
+    if any(
+        item -> get(item, :sampled_intervals, false) &&
+                any(plot -> plot isa Makie.Errorbars, item.plots),
+        series)
         # A resize changes the drawn interval subset. Refresh the cached native
         # auto-fit after glyph/layout updates, without replacing the user's view.
         # A subsequent native display fit then still restores complete bounds.
-        on(_ -> reset!(; preserve_view=true), axis.scene, axis.scene.viewport; priority=-4)
+        on(_ -> reset!(; preserve_view = true), axis.scene, axis.scene.viewport; priority = -4)
     end
     reset!()
     return reset!
@@ -950,17 +991,19 @@ function _addon_axis!(
             ylabel = yaxis_label
         ),
         attributes, native_attributes)
-    scales = (x=options.xscale,y=options.yscale)
+    scales = (x = options.xscale, y = options.yscale)
     # Draw on safe axes, then validate complete native extents in the common
     # finish before applying requested transforms to any axis on the page.
-    axis = Axis(position; merge(options,(xscale=identity,yscale=identity))...)
-    return axis,scales
+    axis = Axis(position; merge(options, (xscale = identity, yscale = identity))...)
+    return axis, scales
 end
 
-function _addon_panel_titles(panel_titles, expected::Int; defaults=nothing)
+function _addon_panel_titles(panel_titles, expected::Int; defaults = nothing)
     panel_titles === nothing && return nothing
     panel_titles isa Function && return Tuple(panel_titles(i) for i in 1:expected)
-    panel_titles isa AbstractDict && return Tuple(get(panel_titles,i,defaults===nothing ? nothing : defaults[i]) for i in 1:expected)
+    panel_titles isa AbstractDict &&
+        return Tuple(get(panel_titles, i, defaults===nothing ? nothing : defaults[i])
+        for i in 1:expected)
     panel_titles isa Tuple || panel_titles isa AbstractVector ||
         throw(ArgumentError(
             "panel_titles must be a tuple, vector, dictionary, function, or nothing",
@@ -1037,14 +1080,16 @@ end
 
 function _addon_legend_sources!(legend, groups, dependents)
     legend === nothing && return nothing
-    owners = IdDict{Any,Any}(dependents)
+    owners = IdDict{Any, Any}(dependents)
     for handles in values(groups), handle in handles
+
         get!(owners, handle, handle)
     end
     # Preserve Makie's glyphs, but target the registered owning plots. Composite
     # glyphs may refer to derived child attributes that are not writable inputs.
     # Deduplicate across the entire entry: several glyphs still mean one action.
     for (_, entries) in legend.entrygroups[], entry in entries
+
         seen = Base.IdSet{Any}()
         for element in entry.elements
             # Cairo's LineSegments renderer adds joinstyle=nothing to the
@@ -1087,7 +1132,7 @@ function _addon_legend_sources!(legend, groups, dependents)
         off(subscription)
         observable
     end
-    on(legend.blockscene, legend.entrygroups; priority=-1) do _
+    on(legend.blockscene, legend.entrygroups; priority = -1) do _
         foreach(notify, visibilities)
     end
     notify(legend.entrygroups)
@@ -1171,7 +1216,7 @@ end
 
 function _addon_wrap_legend_label(label, width, measure)
     lines = String[]
-    for paragraph in split(label, '\n'; keepempty=true)
+    for paragraph in split(label, '\n'; keepempty = true)
         current = ""
         for word in split(paragraph)
             candidate = isempty(current) ? String(word) : "$current $word"
@@ -1197,7 +1242,7 @@ end
 
 # Native Legend already owns the row-major grid, text rendering and click
 # targets. Only its bank count and (when necessary) label line breaks change.
-function _addon_grid_legend!(bounds, legend, position; automatic=true, fitting_geometry)
+function _addon_grid_legend!(bounds, legend, position; automatic = true, fitting_geometry)
     entries = last(only(legend.entrygroups[]))
     originals = Any[entry.label[] for entry in entries]
     fitting = Ref(false)
@@ -1205,13 +1250,13 @@ function _addon_grid_legend!(bounds, legend, position; automatic=true, fitting_g
     previous_metrics = Ref{Any}(nothing)
     # Match native Label: glyphs and positions must share data space for the
     # bounding box to include font extents rather than just the anchor point.
-    probe = text!(legend.blockscene, 0, 0; text="", markerspace=:data,
-        visible=false, inspectable=false)
+    probe = text!(legend.blockscene, 0, 0; text = "", markerspace = :data,
+        visible = false, inspectable = false)
     function fit!()
         (fitting[] || !managed[]) && return nothing
-        horizontal = position[] in (:top,:bottom)
+        horizontal = position[] in (:top, :bottom)
         available = Float64(bounds[].widths[1]) - sum(legend.margin[][1:2]) -
-            sum(legend.padding[][1:2]) - 4
+                    sum(legend.padding[][1:2]) - 4
         available > 0 || return nothing
         fitting[] = true
         previous_geometry=fitting_geometry[]
@@ -1221,28 +1266,29 @@ function _addon_grid_legend!(bounds, legend, position; automatic=true, fitting_g
             for (entry, original) in zip(entries, originals)
                 probe.font[] = entry.labelfont[]
                 probe.fontsize[] = entry.labelsize[]
-                measured = Dict{Any,Float64}()
+                measured = Dict{Any, Float64}()
                 measure = text -> get!(measured, text) do
                     probe.text[] = text
                     Float64(Makie.boundingbox(probe, :data).widths[1])
                 end
                 patch = Float64(entry.patchsize[][1]) + legend.patchlabelgap[]
-                wrapped = !horizontal || !(original isa String) || measure(original) <= available-patch ? original :
-                    _addon_wrap_legend_label(original, max(1.0, available-patch), measure)
+                wrapped = !horizontal || !(original isa String) ||
+                          measure(original) <= available-patch ? original :
+                          _addon_wrap_legend_label(original, max(1.0, available-patch), measure)
                 entry.label[] == wrapped || (entry.label[] = wrapped)
                 push!(widths, patch + measure(wrapped))
             end
             columns = 1
             for count in (horizontal ? (length(entries):-1:1) : (1:-1:1))
                 required = sum(maximum(widths[column:count:end]) for column in 1:count) +
-                    (count-1)*legend.colgap[]
+                           (count-1)*legend.colgap[]
                 if required <= available
                     columns = count
                     break
                 end
             end
             metrics = (Tuple(widths), Tuple(entry.label[] for entry in entries),
-                Tuple((entry.labelsize[],entry.labelfont[]) for entry in entries))
+                Tuple((entry.labelsize[], entry.labelfont[]) for entry in entries))
             legend.orientation[]===:vertical || (legend.orientation[]=:vertical)
             if legend.nbanks[] != columns
                 legend.nbanks[] = columns
@@ -1270,8 +1316,8 @@ function _addon_grid_legend!(bounds, legend, position; automatic=true, fitting_g
             fit!()
         end
     end
-    for setting in (legend.nbanks,legend.orientation)
-        on(legend.blockscene,setting;priority=1) do _
+    for setting in (legend.nbanks, legend.orientation)
+        on(legend.blockscene, setting; priority = 1) do _
             fitting[] || (managed[]=false)
         end
     end
@@ -1279,7 +1325,7 @@ function _addon_grid_legend!(bounds, legend, position; automatic=true, fitting_g
     return fit!
 end
 
-function _addon_axes_viewport(axes,fallback;panels=(),cells=())
+function _addon_axes_viewport(axes, fallback; panels = (), cells = ())
     isempty(axes) && return fallback
     viewports=Tuple(axis.scene.viewport for axis in axes)
     if isempty(cells)
@@ -1288,20 +1334,27 @@ function _addon_axes_viewport(axes,fallback;panels=(),cells=())
             bottom=minimum(bound.origin[2] for bound in bounds)
             right=maximum(bound.origin[1]+bound.widths[1] for bound in bounds)
             top=maximum(bound.origin[2]+bound.widths[2] for bound in bounds)
-            Rect2f((left,bottom),(right-left,top-bottom))
+            Rect2f((left, bottom), (right-left, top-bottom))
         end
     end
     panel_boxes=Tuple(panel.layout.layoutobservables.computedbbox for panel in panels)
     cell_boxes=Tuple(cell.layout.layoutobservables.computedbbox for cell in cells)
-    return lift(viewports...,panel_boxes...,cell_boxes...) do values...
+    return lift(viewports..., panel_boxes..., cell_boxes...) do values...
         n=length(axes)
-        frames=values[1:n];selected=values[n+1:2n];domain=values[2n+1:end]
-        lower=ntuple(d -> minimum(frame.origin[d]-panel.origin[d] for (frame,panel) in zip(frames,selected)),2)
-        upper=ntuple(d -> minimum(panel.origin[d]+panel.widths[d]-frame.origin[d]-frame.widths[d]
-            for (frame,panel) in zip(frames,selected)),2)
-        origin=ntuple(d -> minimum(box.origin[d] for box in domain)+lower[d],2)
-        stop=ntuple(d -> maximum(box.origin[d]+box.widths[d] for box in domain)-upper[d],2)
-        Rect2f(origin,stop.-origin)
+        frames=values[1:n]
+        selected=values[(n + 1):2n]
+        domain=values[(2n + 1):end]
+        lower=ntuple(
+            d -> minimum(frame.origin[d]-panel.origin[d]
+            for (frame, panel) in zip(frames, selected)),
+            2)
+        upper=ntuple(
+            d -> minimum(panel.origin[d]+panel.widths[d]-frame.origin[d]-frame.widths[d]
+            for (frame, panel) in zip(frames, selected)),
+            2)
+        origin=ntuple(d -> minimum(box.origin[d] for box in domain)+lower[d], 2)
+        stop=ntuple(d -> maximum(box.origin[d]+box.widths[d] for box in domain)-upper[d], 2)
+        Rect2f(origin, stop .- origin)
     end
 end
 
@@ -1373,7 +1426,7 @@ function _addon_legend!(
             (;
                 bbox = inside_bbox,
                 orientation = :vertical,
-                halign=:right,valign=:top,
+                halign = :right, valign = :top,
                 margin = (10, 10, 10, 10),
                 tellwidth = false,
                 tellheight = false
@@ -1406,7 +1459,8 @@ function _addon_legend!(
             legend
         )
     end
-    target===nothing && throw(ArgumentError("native legends require an assigned guide slot"))
+    target===nothing &&
+        throw(ArgumentError("native legends require an assigned guide slot"))
     default_orientation=target_orientation
     options = merge(
         (;
@@ -1465,7 +1519,7 @@ function _addon_panel_legend_data(
         throw(
             DimensionMismatch("panel legend titles must align with their axes"),
         )
-    result = Dict{Any,Any}()
+    result = Dict{Any, Any}()
     for (index, (panel, axis)) in enumerate(zip(panels, axes))
         scoped = Dict{Any, Vector{Any}}()
         scoped_order = Any[]
@@ -1531,7 +1585,8 @@ function _addon_legend_configuration(value; default_position, default_title = no
     position = get(value, :position, default_position)
     overflow = get(value, :overflow, :show_all)
     title = get(value, :title, default_title)
-    haskey(value,:anchor) && throw(ArgumentError("anchor was removed; use native halign and valign"))
+    haskey(value, :anchor) &&
+        throw(ArgumentError("anchor was removed; use native halign and valign"))
     legend_labels = get(value, :legend_labels, nothing)
     attributes = _addon_without_legend_controls(value)
     return (; position, overflow, title, legend_labels, attributes)
@@ -1562,9 +1617,10 @@ function _addon_colorbar!(position, scale; attributes)
         caption = colorbar.axis.elements[:labeltext]
         managed=Ref{Any}(colorbar.alignmode[])
         onany(colorbar.blockscene, fast_string_boundingboxes_obs(labels),
-            fast_string_boundingboxes_obs(caption),colorbar.vertical,colorbar.ticklabelsvisible,
-            colorbar.labelvisible,colorbar.layoutobservables.computedbbox,colorbar.spinewidth,
-            colorbar.layoutobservables.protrusions; update=true) do boxes,captions,vertical,visible,labelvisible,bounds,stroke,protrusions
+            fast_string_boundingboxes_obs(caption), colorbar.vertical, colorbar.ticklabelsvisible,
+            colorbar.labelvisible, colorbar.layoutobservables.computedbbox, colorbar.spinewidth,
+            colorbar.layoutobservables.protrusions; update = true) do boxes,
+        captions, vertical, visible, labelvisible, bounds, stroke, protrusions
             colorbar.alignmode[]==managed[] || return nothing
             dimension = vertical ? 2 : 1
             finite_boxes = filter(
@@ -1585,21 +1641,26 @@ function _addon_colorbar!(position, scale; attributes)
                 # belongs to this item's footprint, just like endpoint ticks.
                 half_length=bounds.widths[dimension]/2
                 for box in captions
-                    isfinite(box.origin[dimension]) && isfinite(box.widths[dimension]) || continue
-                    before=max(before,ceil(-box.origin[dimension]-half_length))
-                    after=max(after,ceil(box.origin[dimension]+box.widths[dimension]-half_length))
+                    isfinite(box.origin[dimension]) && isfinite(box.widths[dimension]) ||
+                        continue
+                    before=max(before, ceil(-box.origin[dimension]-half_length))
+                    after=max(after, ceil(box.origin[dimension]+box.widths[dimension]-half_length))
                 end
             end
-            border=max(0.,Float64(stroke)/2)
-            before=max(before,border);after=max(after,border)
+            border=max(0.0, Float64(stroke)/2)
+            before=max(before, border)
+            after=max(after, border)
             # Enclose the visible border as well as native perpendicular text.
             # These are measured protrusions, not sibling-spacing margins.
             # Native LineAxis places text beyond a full spine width, while
             # its reported text protrusion omits that offset.
-            side(name)=GridLayoutBase.Protrusion(max(getproperty(protrusions,name)+
-                (getproperty(protrusions,name)>0 ? max(0.,stroke) : 0.),border))
-            managed[] = vertical ? Mixed(bottom=before,top=after,left=side(:left),right=side(:right)) :
-                Mixed(left=before,right=after,bottom=side(:bottom),top=side(:top))
+            side(name) = GridLayoutBase.Protrusion(max(
+                getproperty(protrusions, name) +
+                (getproperty(protrusions, name)>0 ? max(0.0, stroke) : 0.0),
+                border))
+            managed[] = vertical ?
+                        Mixed(bottom = before, top = after, left = side(:left), right = side(:right)) :
+                        Mixed(left = before, right = after, bottom = side(:bottom), top = side(:top))
             colorbar.alignmode[]==managed[] || (colorbar.alignmode[]=managed[])
         end
     end
@@ -1610,41 +1671,43 @@ function LineCableModels.materialscale!(position, scheme; kwargs...)
     return _addon_colorbar!(position, scheme; attributes = (; kwargs...))
 end
 
-function _addon_colorbars!(slot,scales;attributes,orientation,main=false)
-    attributes isa NamedTuple || throw(ArgumentError("colorbar_attributes must be a NamedTuple"))
-    vertical=get(attributes,:vertical,orientation===:vertical)
+function _addon_colorbars!(slot, scales; attributes, orientation, main = false)
+    attributes isa NamedTuple ||
+        throw(ArgumentError("colorbar_attributes must be a NamedTuple"))
+    vertical=get(attributes, :vertical, orientation===:vertical)
     length=main ? Auto() : _ADDON_COLORBAR_DOCK_LENGTH
-    defaults=vertical ? (;vertical,height=length) : (;vertical,width=length)
-    grid=GridLayout(;alignmode=Outside())
+    defaults=vertical ? (; vertical, height = length) : (; vertical, width = length)
+    grid=GridLayout(; alignmode = Outside())
     slot[]=grid
     scene=GridLayoutBase.top_parent(grid).scene
     previous_scenes=copy(scene.children)
     items=try
-        map(enumerate(scales)) do (index,scale)
-            item=GridLayout(;alignmode=Outside())
-            grid[index,1]=item
-            bar=_addon_colorbar!(item[1,1],scale;attributes=merge(defaults,attributes))
-            companion=Label(item[1,2],bar.label;halign=:right,valign=:center,
-                fontsize=bar.labelsize,font=bar.labelfont,color=bar.labelcolor)
-            (;layout=item,bar,companion,visible=Ref(bar.blockscene.visible[]),
-                labelvisible=Ref(bar.labelvisible[]),
-                managed=(vertical=Ref(!haskey(attributes,:vertical)),
-                    width=Ref(!haskey(attributes,:width)),height=Ref(!haskey(attributes,:height))))
+        map(enumerate(scales)) do (index, scale)
+            item=GridLayout(; alignmode = Outside())
+            grid[index, 1]=item
+            bar=_addon_colorbar!(item[1, 1], scale; attributes = merge(defaults, attributes))
+            companion=Label(item[1, 2], bar.label; halign = :right, valign = :center,
+                fontsize = bar.labelsize, font = bar.labelfont, color = bar.labelcolor)
+            (; layout = item, bar, companion, visible = Ref(bar.blockscene.visible[]),
+                labelvisible = Ref(bar.labelvisible[]),
+                managed = (vertical = Ref(!haskey(attributes, :vertical)),
+                    width = Ref(!haskey(attributes, :width)), height = Ref(!haskey(attributes, :height))))
         end
     catch
         _addon_delete_subtree!(grid)
         # A native constructor can fail before registering its block in the
         # grid. Release that incomplete scene and its owned subscriptions too.
         for child in copy(scene.children)
-            any(previous -> previous===child,previous_scenes) || empty!(child)
+            any(previous -> previous===child, previous_scenes) || empty!(child)
         end
         rethrow()
     end
-    return (;colorbars=Tuple(item.bar for item in items),layout=grid,items)
+    return (; colorbars = Tuple(item.bar for item in items), layout = grid, items)
 end
 
 function _addon_bind_visibility!(figure, axes, resets, groups, status)
     for plots in values(groups), plot in plots
+
         previous = Ref(plot.visible[])
         on(figure.scene, plot.visible) do visible
             # A legend rebuild can notify without changing visibility. Keep
@@ -1678,9 +1741,9 @@ function _addon_finish!(
         groups,
         order,
         group_labels;
-        requested_scales=nothing,
-        axis_series=nothing,
-        dependent_plots = Pair{Makie.Plot,Makie.Plot}[],
+        requested_scales = nothing,
+        axis_series = nothing,
+        dependent_plots = Pair{Makie.Plot, Makie.Plot}[],
         title,
         figure_title = nothing,
         title_attributes = (;),
@@ -1705,27 +1768,31 @@ function _addon_finish!(
         export_theme,
         open_export
 )
-    _addon_colorbar_group_attributes(shell.colorbar_group_attributes,length(color_scales))
-    _addon_validate_native_guide(Colorbar,merge(colorbar_attributes,shell.colorbar_attributes))
-    isempty(axes) && !isempty(shell.axis_attributes) && throw(ArgumentError(
-        "native Axis attributes require a figure containing an Axis"))
-    append!(dependent_plots, _addon_series_styles!(groups, order, series_attributes;
-        defaults=series_defaults, shared=shell.series_attributes, marker_coordinates))
-    entries = [(;axis,reset,series=axis_series === nothing ? () : axis_series[i])
-        for (i,(axis,reset)) in enumerate(zip(axes,resets))]
-    setters = map(enumerate((:x,:y))) do (index,dim)
+    _addon_colorbar_group_attributes(shell.colorbar_group_attributes, length(color_scales))
+    _addon_validate_native_guide(Colorbar, merge(colorbar_attributes, shell.colorbar_attributes))
+    isempty(axes) && !isempty(shell.axis_attributes) &&
+        throw(ArgumentError(
+            "native Axis attributes require a figure containing an Axis"))
+    append!(dependent_plots,
+        _addon_series_styles!(groups, order, series_attributes;
+            defaults = series_defaults, shared = shell.series_attributes, marker_coordinates))
+    entries = [(; axis, reset, series = axis_series === nothing ? () : axis_series[i])
+               for (i, (axis, reset)) in enumerate(zip(axes, resets))]
+    setters = map(enumerate((:x, :y))) do (index, dim)
         if requested_scales !== nothing
-            _addon_set_axis!([merge(entry,(scale=getproperty(scales,dim),))
-                for (entry,scales) in zip(entries,requested_scales)],dim)
+            _addon_set_axis!(
+                [merge(entry, (scale = getproperty(scales, dim),))
+                 for (entry, scales) in zip(entries, requested_scales)],
+                dim)
         end
         filter(entries) do entry
-            _addon_numeric_axis(entry.axis,dim) &&
-                getproperty(entry.axis,Symbol(dim,:scale))[] in
-                    (identity,log10,_addon_scale(:pseudolog10)) &&
-                !isempty(_addon_visible_values(entry.axis,dim,entry.series))
+            _addon_numeric_axis(entry.axis, dim) &&
+                getproperty(entry.axis, Symbol(dim, :scale))[] in
+                (identity, log10, _addon_scale(:pseudolog10)) &&
+                !isempty(_addon_visible_values(entry.axis, dim, entry.series))
         end
     end
-    xsetters,ysetters = setters
+    xsetters, ysetters = setters
     for (dependent, owner) in dependent_plots
         dependent.visible[] = owner.visible[]
         previous = Ref(owner.visible[])
@@ -1741,69 +1808,82 @@ function _addon_finish!(
     inside_bbox = _addon_axes_viewport(
         axes,
         shell.canvas.layoutobservables.computedbbox;
-        panels,cells=frame_cells
+        panels, cells = frame_cells
     )
     panel_data = if isempty(panels)
-        Dict{Any,Any}(i => begin
-            selected=Dict{Any,Vector{Any}}(key=>filter(plot -> plot in axis.scene.plots,plots)
-                for (key,plots) in groups if any(plot -> plot in axis.scene.plots,plots))
-            (;axis,panel=(logical_position=i,layout=nothing),groups=selected,
-                order=filter(key -> haskey(selected,key),order),labels=copy(group_labels),title=Ref{Any}(nothing))
-        end for (i,axis) in enumerate(axes))
+        Dict{Any, Any}(i => begin
+                           selected=Dict{Any, Vector{Any}}(key=>filter(
+                                                               plot -> plot in
+                                                                       axis.scene.plots,
+                                                               plots)
+                           for (key, plots) in groups
+                           if any(plot -> plot in axis.scene.plots, plots))
+                           (; axis, panel = (logical_position = i, layout = nothing),
+                               groups = selected,
+                               order = filter(key -> haskey(selected, key), order), labels = copy(group_labels), title = Ref{Any}(nothing))
+                       end for (i, axis) in enumerate(axes))
     else
-        _addon_panel_legend_data(panels,axes,groups,order,group_labels;
-            panel_labels=panel_group_labels,panel_titles=panel_legend_titles)
+        _addon_panel_legend_data(panels, axes, groups, order, group_labels;
+            panel_labels = panel_group_labels, panel_titles = panel_legend_titles)
     end
     _addon_bind_visibility!(shell.figure, axes, resets, groups, shell.status)
     built = LineCableModels.UIPlot(
         shell.figure,
         Tuple(axes);
         title = title_block,
-        status=shell.status,
+        status = shell.status,
         addon_state = (;
             shell,
-            axis_bindings=entries,controls_enabled=controls,
-            widget_bindings=Dict{Symbol,Any}(),widget_order=Symbol[],
+            axis_bindings = entries, controls_enabled = controls,
+            widget_bindings = Dict{Symbol, Any}(), widget_order = Symbol[],
             groups,
             dependent_plots,
             order,
             labels = group_labels,
             panel_data,
             inside_bbox,
-            guides=Dict{Any,Any}(),guide_order=Any[],guide_docks=Any[],
-            composing_guides=Ref(false),guide_gap=shell.guide_gap,guide_spacing=Ref(shell.guide_spacing),
-            fitting_geometry=Ref(false),frame_padding=IdDict{Any,Any}(),presentation_ready=Ref(false),
-            panel_page=isempty(panels) ? nothing : (index=(1,1),dimensions=size(shell.canvas),coordinates=Tuple(panel.logical_position for panel in panels)),
+            guides = Dict{Any, Any}(), guide_order = Any[], guide_docks = Any[],
+            composing_guides = Ref(false), guide_gap = shell.guide_gap, guide_spacing = Ref(shell.guide_spacing),
+            fitting_geometry = Ref(false), frame_padding = IdDict{Any, Any}(), presentation_ready = Ref(false),
+            panel_page = isempty(panels) ? nothing :
+                         (index = (1, 1), dimensions = size(shell.canvas),
+                coordinates = Tuple(panel.logical_position for panel in panels)),
             color_scales,
-            colorbar_group_attributes=Ref{Any}(shell.colorbar_group_attributes)
+            colorbar_group_attributes = Ref{Any}(shell.colorbar_group_attributes)
         ),
         export_name,
         export_theme,
         open_export
     )
-    figure_guide=_addon_guide_state(:legend,nothing,legend_position,legend_attributes;
-        overflow=legend_overflow,title=legend_title)
-    built.addon_state.guides[(:legend,nothing)]=figure_guide
-    push!(built.addon_state.guide_order,(:legend,nothing))
-    for (identity,value) in _addon_panel_legend_pairs(panel_legends)
+    figure_guide=_addon_guide_state(:legend, nothing, legend_position, legend_attributes;
+        overflow = legend_overflow, title = legend_title)
+    built.addon_state.guides[(:legend, nothing)]=figure_guide
+    push!(built.addon_state.guide_order, (:legend, nothing))
+    for (identity, value) in _addon_panel_legend_pairs(panel_legends)
         identity=_addon_panel_identity(identity)
-        haskey(panel_data,identity) || throw(ArgumentError("panel $(repr(identity)) is absent from this figure"))
-        value===nothing || value===false || begin
-            config=_addon_legend_configuration(value;default_position=:right,default_title=nothing)
-            _addon_relabel_legend!(panel_data[identity].labels,panel_data[identity].groups,
-                panel_data[identity].order,config.legend_labels)
-            key=(:legend,identity)
-            built.addon_state.guides[key]=_addon_guide_state(:legend,identity,config.position,config.attributes;
-                overflow=config.overflow,title=config.title)
-            push!(built.addon_state.guide_order,key)
-        end
+        haskey(panel_data, identity) ||
+            throw(ArgumentError("panel $(repr(identity)) is absent from this figure"))
+        value===nothing || value===false ||
+            begin
+                config=_addon_legend_configuration(value; default_position = :right, default_title = nothing)
+                _addon_relabel_legend!(
+                    panel_data[identity].labels, panel_data[identity].groups,
+                    panel_data[identity].order, config.legend_labels)
+                key=(:legend, identity)
+                built.addon_state.guides[key]=_addon_guide_state(
+                    :legend, identity, config.position, config.attributes;
+                    overflow = config.overflow, title = config.title)
+                push!(built.addon_state.guide_order, key)
+            end
     end
-    resolved_position=shell.colorbar_position===_omitted ? colorbar_position : shell.colorbar_position
-    bars=_addon_guide_state(:colorbars,nothing,resolved_position,merge(colorbar_attributes,shell.colorbar_attributes))
-    built.addon_state.guides[(:colorbars,nothing)]=bars
-    push!(built.addon_state.guide_order,(:colorbars,nothing))
+    resolved_position=shell.colorbar_position===_omitted ? colorbar_position :
+                      shell.colorbar_position
+    bars=_addon_guide_state(:colorbars, nothing, resolved_position,
+        merge(colorbar_attributes, shell.colorbar_attributes))
+    built.addon_state.guides[(:colorbars, nothing)]=bars
+    push!(built.addon_state.guide_order, (:colorbars, nothing))
     _addon_compose_guides!(built)
-    on(shell.figure.scene,shell.figure.scene.viewport) do _
+    on(shell.figure.scene, shell.figure.scene.viewport) do _
         if !built.addon_state.fitting_geometry[]
             _addon_release_frames!(built)
             _addon_fit_panel_aspects!(built)
@@ -1811,7 +1891,7 @@ function _addon_finish!(
         _addon_compose_guides!(built)
         nothing
     end
-    _addon_controls!(built,xsetters,ysetters)
+    _addon_controls!(built, xsetters, ysetters)
     if controls
         for widget in shell.widgets
             widget(built)
@@ -1820,12 +1900,15 @@ function _addon_finish!(
     _addon_fit_panel_aspects!(built)
     _addon_compose_guides!(built)
     for axis in axes
-        _addon_watch_presentation!(built,axis,(:title,:titlesize,:titlefont,:subtitle,:subtitlesize,
-            :xlabelsize,:ylabelsize,:xticklabelsize,:yticklabelsize))
+        _addon_watch_presentation!(built,
+            axis,
+            (:title, :titlesize, :titlefont, :subtitle, :subtitlesize,
+                :xlabelsize, :ylabelsize, :xticklabelsize, :yticklabelsize))
     end
-    title_block===nothing || _addon_watch_presentation!(built,title_block,(:text,:fontsize,:font))
+    title_block===nothing ||
+        _addon_watch_presentation!(built, title_block, (:text, :fontsize, :font))
     built.addon_state.presentation_ready[]=true
-    _addon_edit_presentation!(() -> nothing,built)
+    _addon_edit_presentation!(() -> nothing, built)
     display_plot && _addon_display!(shell.figure, title)
     return built
 end
@@ -1840,12 +1923,13 @@ function LineCableModels.figuretitle!(
         "this plot does not retain an addon figure shell",
     ))
     return _addon_edit_presentation!(plot) do
-    plot.title === nothing || delete!(plot.title)
-    plot.title = title === nothing ? nothing :
-                 _addon_figure_title!(data.shell, title, (; kwargs...))
-    plot.title===nothing || _addon_watch_presentation!(plot,plot.title,(:text,:fontsize,:font))
-    _addon_compose_guides!(plot)
-    return plot.title
+        plot.title === nothing || delete!(plot.title)
+        plot.title = title === nothing ? nothing :
+                     _addon_figure_title!(data.shell, title, (; kwargs...))
+        plot.title===nothing ||
+            _addon_watch_presentation!(plot, plot.title, (:text, :fontsize, :font))
+        _addon_compose_guides!(plot)
+        return plot.title
     end
 end
 
@@ -1859,10 +1943,11 @@ function LineCableModels.paneltitle!(
         "this plot does not retain logical plot panels",
     ))
     logical_position=_addon_panel_identity(logical_position)
-    haskey(data.panel_data,logical_position) || throw(ArgumentError("panel $(repr(logical_position)) is absent from this figure"))
+    haskey(data.panel_data, logical_position) ||
+        throw(ArgumentError("panel $(repr(logical_position)) is absent from this figure"))
     return _addon_edit_presentation!(plot) do
-    axis = data.panel_data[logical_position].axis
-    axis.title[] = title === nothing ? "" : title
-    return axis
+        axis = data.panel_data[logical_position].axis
+        axis.title[] = title === nothing ? "" : title
+        return axis
     end
 end

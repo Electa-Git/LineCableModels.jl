@@ -69,7 +69,7 @@ function _claim_run(run::FEMRun)
         close(io)
         _fem_error(:execution, "FEM run", :ownership,
             "another coordinator owns this run, or the filesystem cannot lock it";
-            run_directory=run.path)
+            run_directory = run.path)
     end
     return io
 end
@@ -197,21 +197,22 @@ function _resume_inputs_match(path::String, model::FEMResolvedModel, inputs::Nam
         isfile(joinpath(path, "raw", "checksums.json")) || return false
     end
     expected = ImportExport.serialize_value(model.problem)
-    comparable = Dict(String(key)=>value for (key,value) in pairs(recorded))
-    requested = Dict(String(key)=>value for (key,value) in pairs(JSON3.read(JSON3.write(inputs))))
+    comparable = Dict(String(key)=>value for (key, value) in pairs(recorded))
+    requested = Dict(String(key)=>value
+    for (key, value) in pairs(JSON3.read(JSON3.write(inputs))))
     # A solver-input schema change is an intentional restart boundary.
     get(comparable, "schema_version", 0) == inputs.schema_version == 7 || return false
     get(comparable, "solver_protocol", 0) == inputs.solver_protocol == 3 || return false
     # Scheduling and executable location do not change the numerical problem.
     for record in (comparable, requested)
-        execution = Dict(String(key)=>value for (key,value) in pairs(record["execution"]))
+        execution = Dict(String(key)=>value for (key, value) in pairs(record["execution"]))
         pop!(execution, "frequency_workers", nothing)
         pop!(execution, "getdp_executable", nothing)
         record["execution"] = execution
         pop!(record, "getdp_selection", nothing)
     end
     return _resume_value_matches(existing, expected) &&
-        _resume_value_matches(comparable, requested)
+           _resume_value_matches(comparable, requested)
 end
 
 function _resume_run(
@@ -291,8 +292,9 @@ function _transition!(run::FEMRun, state::FEMRunState, message::AbstractString)
     run.state = state
     run.message = String(message)
     receiver=LineCableModels.progress_receiver()
-    receiver === nothing || state === running || LineCableModels.report_progress(receiver,
-        (stage=Symbol(string(state)),backend=:fem))
+    receiver === nothing || state === running ||
+        LineCableModels.report_progress(receiver,
+            (stage = Symbol(string(state)), backend = :fem))
     _write_json_atomic(joinpath(run.path, "run.json"),
         (
             schema = "LineCableModels.FEMRun",
@@ -354,7 +356,8 @@ function _headless_solve!(
     _transition!(run, geometry_ready, "geometry ready")
     @info "FEM geometry ready" run_directory=run.path
     receiver=LineCableModels.progress_receiver()
-    receiver === nothing || LineCableModels.report_progress(receiver,(stage=:meshing,backend=:fem))
+    receiver === nothing ||
+        LineCableModels.report_progress(receiver, (stage = :meshing, backend = :fem))
     mesh_paths = _select_meshes!(
         run, model, geometry, execution, runtime_root
     )
@@ -369,7 +372,8 @@ function _headless_solve!(
     @info "Starting isolated GetDP frequency batches" workers=execution.data.frequency_workers
     _run_getdp!(run, model, formulation, execution, mesh_paths)
     receiver=LineCableModels.progress_receiver()
-    receiver === nothing || LineCableModels.report_progress(receiver,(stage=:validating,backend=:fem))
+    receiver === nothing ||
+        LineCableModels.report_progress(receiver, (stage = :validating, backend = :fem))
     scan = _parse_scan(run, model, formulation, execution)
     _write_scan_checksums(run, scan)
     gmsh.onelab.set_number(_onelab_name("completion_status"), [1.0])
@@ -453,18 +457,23 @@ function _ui_solve!(
             state = _set_ui_status(:running)
             _transition!(run, running, "GetDP frequency batches running")
             progress = (-1, -1)
-            _run_getdp!(run, model, formulation, execution, mesh_paths; pump=() -> begin
-                # fltk.wait can initialize a GUI again after it was closed.
-                Bool(gmsh.fltk.is_available()) || return false
-                current = (run.completed_frequencies, run.completed_columns)
-                if current != progress
-                    gmsh.onelab.set_number(_onelab_name("ui/completed_frequencies"), [current[1]])
-                    gmsh.onelab.set_number(_onelab_name("ui/completed_columns"), [current[2]])
-                    progress = current
-                end
-                gmsh.fltk.wait(0.01)
-                Bool(gmsh.fltk.is_available())
-            end)
+            _run_getdp!(run,
+                model,
+                formulation,
+                execution,
+                mesh_paths;
+                pump = () -> begin
+                    # fltk.wait can initialize a GUI again after it was closed.
+                    Bool(gmsh.fltk.is_available()) || return false
+                    current = (run.completed_frequencies, run.completed_columns)
+                    if current != progress
+                        gmsh.onelab.set_number(_onelab_name("ui/completed_frequencies"), [current[1]])
+                        gmsh.onelab.set_number(_onelab_name("ui/completed_columns"), [current[2]])
+                        progress = current
+                    end
+                    gmsh.fltk.wait(0.01)
+                    Bool(gmsh.fltk.is_available())
+                end)
             scan = _parse_scan(run, model, formulation, execution)
             _write_scan_checksums(run, scan)
             execution.data.plot_field_maps && _merge_maps!(scan.map_paths)
@@ -512,8 +521,10 @@ function _compute_fem(
         _check_scan_checksums(run, scan)
         @info "FEM reuses completed resolved inputs" run_directory=run.path
         receiver=LineCableModels.progress_receiver()
-        receiver === nothing || LineCableModels.report_progress(receiver,(stage=:validating,partial_recovery=true,recovered=true))
-        return _line_parameters(run, model, formulation, execution, scan, inputs;reused=true)
+        receiver === nothing || LineCableModels.report_progress(
+            receiver, (stage = :validating, partial_recovery = true, recovered = true))
+        return _line_parameters(
+            run, model, formulation, execution, scan, inputs; reused = true)
     end
     ownership = _claim_run(run)
     parameters = try
@@ -521,18 +532,21 @@ function _compute_fem(
         # lock acquisition. Refresh counters/state while holding ownership,
         # and preserve a now-completed run as a read-only result.
         if isfile(joinpath(run.path, "input", "computation.json")) &&
-                isfile(joinpath(run.path, "input", "problem.json"))
+           isfile(joinpath(run.path, "input", "problem.json"))
             run = _resume_run(runtime_root, run.path, model, inputs)
             if run.state === completed
                 scan = _parse_scan(run, model, formulation, execution)
                 _check_scan_checksums(run, scan)
                 receiver=LineCableModels.progress_receiver()
-                receiver === nothing || LineCableModels.report_progress(receiver,(stage=:validating,partial_recovery=true,recovered=true))
-                return _line_parameters(run, model, formulation, execution, scan, inputs;reused=true)
+                receiver === nothing || LineCableModels.report_progress(receiver,
+                    (stage = :validating, partial_recovery = true, recovered = true))
+                return _line_parameters(
+                    run, model, formulation, execution, scan, inputs; reused = true)
             end
         end
         _assert_no_live_attempts(run)
-        _compute_owned_fem(problem, formulation, execution, model, run, runtime_root, inputs)
+        _compute_owned_fem(
+            problem, formulation, execution, model, run, runtime_root, inputs)
     finally
         _release_run(ownership)
     end
@@ -540,20 +554,22 @@ function _compute_fem(
         expected_parent = realpath(joinpath(runtime_root, "runs"))
         realpath(dirname(run.path)) == expected_parent || error(
             "refusing to remove FEM run outside the runtime root")
-        rm(run.path; recursive=true, force=true)
+        rm(run.path; recursive = true, force = true)
     end
     return parameters
 end
 
-function _compute_owned_fem(problem, formulation, execution, model, run, runtime_root, inputs)
+function _compute_owned_fem(
+        problem, formulation, execution, model, run, runtime_root, inputs)
     _write_json_atomic(joinpath(run.path, "input", "computation.json"), inputs)
     session = nothing
     try
         session = _start_gmsh(LineCableModels.performance_sample_active() ? 0 :
-            execution.data.gmsh_verbosity)
+                              execution.data.gmsh_verbosity)
         parameters = execution.data.ui ?
                      _ui_solve!(run, model, formulation, execution, runtime_root, inputs) :
-                     _headless_solve!(run, model, formulation, execution, runtime_root, inputs)
+                     _headless_solve!(
+            run, model, formulation, execution, runtime_root, inputs)
         return parameters
     catch exception
         if run.state ∉ (not_executed, cancelled)
@@ -594,23 +610,26 @@ function _fem_input_record(model::FEMResolvedModel, formulation::LineCableModels
         schema_version = 7,
         solver_protocol = 3,
         mesh_fingerprint = _mesh_fingerprint(model, gmsh.GMSH_API_VERSION),
-        materials = [(kind=material.kind, tag=material.physical_tag,
-            mu_r=material.mu_r, sigma=real.(material.admittivity),
-            omega_epsilon=imag.(material.admittivity)) for material in model.material_plans],
-        earth_materials = [(rho=state.rho, eps_r=state.eps_r, mu_r=state.mu_r)
-            for state in model.earth_materials],
-        air = (eps_r=model.problem.earth_props.layers[1].eps_r,
-            mu_r=model.problem.earth_props.layers[1].mu_r),
+        materials = [(kind = material.kind, tag = material.physical_tag,
+                         mu_r = material.mu_r, sigma = real.(material.admittivity),
+                         omega_epsilon = imag.(material.admittivity))
+                     for material in model.material_plans],
+        earth_materials = [(rho = state.rho, eps_r = state.eps_r, mu_r = state.mu_r)
+                           for state in model.earth_materials],
+        air = (eps_r = model.problem.earth_props.layers[1].eps_r,
+            mu_r = model.problem.earth_props.layers[1].mu_r),
         mesh_plans = model.mesh_plans,
         region_mesh_sizes = getproperty.(model.region_plans, :mesh_size),
         cable_outer_mesh_sizes = model.cable_outer_mesh_sizes,
         mesh_growth_factor = model.mesh_growth_factor,
         options = formulation.options.data,
-        execution = (; (key => value for (key, value) in pairs(execution.data)
-            if key ∉ (:verbosity, :output_basis, :trace, :on_result, :log_file,
-                :resume_run_directory))...),
+        execution = (;
+            (key => value
+        for (key, value) in pairs(execution.data)
+        if key ∉ (:verbosity, :output_basis, :trace, :on_result, :log_file,
+            :resume_run_directory))...),
         supplied_mesh = mesh_path === nothing || !isfile(mesh_path) ? nothing :
-            bytes2hex(open(sha256, mesh_path)),
+                        bytes2hex(open(sha256, mesh_path)),
         owned_gmsh = !Bool(gmsh.is_initialized()),
         getdp_identity,
         getdp_selection,
@@ -625,7 +644,7 @@ end
 function compute(
         problem::LineParametersProblem,
         formulation::Union{LineCableModelsFEM, AbstractVector{<:LineCableModelsFEM}};
-        options::Union{NamedTuple,ComputationOptions} = ComputationOptions()
+        options::Union{NamedTuple, ComputationOptions} = ComputationOptions()
 )
     options = options isa NamedTuple ? ComputationOptions(options) : options
     return lock(FEM_SESSION_LOCK) do
@@ -640,7 +659,8 @@ function _compute_request(problem, formulation; options)
     formulations = formulation isa LineCableModelsFEM ? [formulation] : formulation
     console = ConsoleLogger(stderr, Logging.Debug)
     logger = Engine.ConsoleVerbosityLogger(console, execution.data.verbosity)
-    values = if execution.data.log_file === nothing || LineCableModels.performance_sample_active()
+    values = if execution.data.log_file === nothing ||
+                LineCableModels.performance_sample_active()
         with_logger(logger) do
             _compute_fem(problem, formulations, execution)
         end
@@ -666,25 +686,28 @@ function _compute_fem(
     physical_inputs=Engine.completed_inputs(problem)
     source_id=Grammar.gridpoint_id().source_id
     # Resolve and validate all requests before opening Gmsh or starting GetDP.
-    models = [_resolved_fem_model(problem, formulation, execution) for formulation in formulations]
+    models = [_resolved_fem_model(problem, formulation, execution)
+              for formulation in formulations]
     # The problem and loaded solver source are common to this batch. Only actual
     # material/mesh inputs and execution settings distinguish its calculations.
     keys = [JSON3.write(_fem_input_record(model, formulation, execution))
-        for (model, formulation) in zip(models, formulations)]
+            for (model, formulation) in zip(models, formulations)]
     function completion_fields(formulation)
         completion = Engine.completed_formulation(formulation)
-        return merge(completion, (
-            formulations = merge(formulation_record(formulation), completion.formulations),
-            inputs = physical_inputs,
-        ))
+        return merge(completion,
+            (
+                formulations = merge(formulation_record(formulation), completion.formulations),
+                inputs = physical_inputs
+            ))
     end
     first_result = Engine.retain_gridpoint(
         _compute_fem(problem, first(formulations), execution, first(models)),
-        Grammar.gridpoint_id(;source_id);
-        fields=completion_fields(first(formulations)))
+        Grammar.gridpoint_id(; source_id);
+        fields = completion_fields(first(formulations)))
     values = Vector{typeof(first_result)}(undef, length(formulations))
     values[1] = first_result
-    execution.data.on_result === nothing || execution.data.on_result(problem, 1, first_result)
+    execution.data.on_result === nothing ||
+        execution.data.on_result(problem, 1, first_result)
     completed = Dict(first(keys) => 1)
     for index in 2:length(formulations)
         formulation = formulations[index]
@@ -698,20 +721,21 @@ function _compute_fem(
             # Results remain independently mutable and each request keeps its own
             # selection record. The shared run record identifies the actual solve.
             metadata = ComputationDetails(merge(deepcopy(source.details.data),
-                (formulations=formulation_record(formulation),)))
+                (formulations = formulation_record(formulation),)))
             LineParameters(PhaseDomain,
-                SeriesImpedance(copy(source.Z.values); basis=Engine.basis(source)),
-                ShuntAdmittance(copy(source.Y.values); basis=Engine.basis(source)),
+                SeriesImpedance(copy(source.Z.values); basis = Engine.basis(source)),
+                ShuntAdmittance(copy(source.Y.values); basis = Engine.basis(source)),
                 copy(source.f), metadata)
         end
         value=Engine.retain_gridpoint(value,
-            Grammar.gridpoint_id(;source_id,formulation_index=index);
-            fields=completion_fields(formulations[index]))
+            Grammar.gridpoint_id(; source_id, formulation_index = index);
+            fields = completion_fields(formulations[index]))
         typeof(value) === eltype(values) || throw(ArgumentError(
             "FEM formulations produced inconsistent result types"))
         values[index] = value
         completed[keys[index]] = index
-        execution.data.on_result === nothing || execution.data.on_result(problem, index, value)
+        execution.data.on_result === nothing ||
+            execution.data.on_result(problem, index, value)
     end
     return values
 end

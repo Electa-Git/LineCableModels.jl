@@ -35,8 +35,9 @@ function _addon_publication_snapshot!(snapshot, plot::LineCableModels.UIPlot, th
 
     latex_fonts = Makie.theme_latexfonts().attributes[:fonts][]
     figure_fonts = plot.figure.scene.theme[:fonts]
-    for (role,latex_role) in ((:regular,:regular),(:italic,:italic),(:bold,:bold),(:bold_italic,:bolditalic))
-        _addon_set_observable!(snapshot,figure_fonts[role],latex_fonts[latex_role][])
+    for (role, latex_role) in ((:regular, :regular), (:italic, :italic),
+        (:bold, :bold), (:bold_italic, :bolditalic))
+        _addon_set_observable!(snapshot, figure_fonts[role], latex_fonts[latex_role][])
     end
     regular = :regular
     bold = :bold
@@ -78,77 +79,82 @@ function _addon_restore_snapshot!(snapshot)
     return nothing
 end
 
-
-function _addon_hide_chrome!(snapshot,p)
+function _addon_hide_chrome!(snapshot, p)
     shell=p.addon_state.shell
     root=shell.root
-    saved=(rows=copy(root.rowsizes),gaps=copy(root.addedrowgaps),offset=firstrow(root))
+    saved=(
+        rows = copy(root.rowsizes), gaps = copy(root.addedrowgaps), offset = firstrow(root))
     occupied=Set{Int}()
     for object in shell.chrome
         gc=GridLayoutBase.gridcontent(object)
         gc===nothing && continue
-        _addon_hide_layout_content!(snapshot,object)
-        union!(occupied,gc.span.rows)
+        _addon_hide_layout_content!(snapshot, object)
+        union!(occupied, gc.span.rows)
     end
     for row in occupied
-        rowsize!(root,row,Fixed(0))
+        rowsize!(root, row, Fixed(0))
         # Release only gaps adjacent to registered chrome, wherever it lives.
-        row>firstrow(root) && rowgap!(root,row-1,Fixed(0))
-        row<lastrow(root) && rowgap!(root,row,Fixed(0))
+        row>firstrow(root) && rowgap!(root, row-1, Fixed(0))
+        row<lastrow(root) && rowgap!(root, row, Fixed(0))
     end
     return saved
 end
 
-function _addon_export_presentation!(write,p,theme)
+function _addon_export_presentation!(write, p, theme)
     state=p.addon_state
     state===nothing && throw(ArgumentError("SVG presentation requires a managed UIPlot"))
     size=Tuple(p.figure.scene.viewport[].widths)
-    (;frames,canvas,views)=_addon_frame_snapshot(p)
-    grids=Any[state.shell.root,state.shell.body,state.shell.canvas]
-    append!(grids,[data.panel.layout for data in values(state.panel_data) if data.panel.layout!==nothing])
-    tracks=[(;grid,rows=copy(grid.rowsizes),columns=copy(grid.colsizes),
-        row_offset=firstrow(grid),column_offset=GridLayoutBase.firstcol(grid)) for grid in grids]
+    (; frames, canvas, views)=_addon_frame_snapshot(p)
+    grids=Any[state.shell.root, state.shell.body, state.shell.canvas]
+    append!(grids, [data.panel.layout
+                    for data in values(state.panel_data) if data.panel.layout!==nothing])
+    tracks=[(; grid, rows = copy(grid.rowsizes), columns = copy(grid.colsizes),
+                row_offset = firstrow(grid), column_offset = GridLayoutBase.firstcol(grid))
+            for grid in grids]
     padding=copy(state.frame_padding)
     alignments=[axis.alignmode[] for axis in p.axes]
-    snapshot=Pair{Any,Any}[]
+    snapshot=Pair{Any, Any}[]
     for grid in grids
-        _addon_observable_snapshot!(snapshot,grid,(:width,:height,:tellwidth,:tellheight))
+        _addon_observable_snapshot!(snapshot, grid, (
+            :width, :height, :tellwidth, :tellheight))
     end
     chrome=nothing
     previous_guard=state.fitting_geometry[]
     state.fitting_geometry[]=true
     try
-        chrome=_addon_hide_chrome!(snapshot,p)
-        _addon_publication_snapshot!(snapshot,p,theme)
+        chrome=_addon_hide_chrome!(snapshot, p)
+        _addon_publication_snapshot!(snapshot, p, theme)
         _addon_compose_guides!(p)
-        all(axis -> axis.aspect[]===nothing,p.axes) && state.panel_page!==nothing && _addon_panel_padding!(p)
-        _addon_fit_frames!(p,frames;canvas)
+        all(axis -> axis.aspect[]===nothing, p.axes) && state.panel_page!==nothing &&
+            _addon_panel_padding!(p)
+        _addon_fit_frames!(p, frames; canvas)
         return write()
     finally
         _addon_restore_snapshot!(snapshot)
         if chrome!==nothing
-            for (row,value) in enumerate(chrome.rows)
-                rowsize!(state.shell.root,row+chrome.offset-1,value)
+            for (row, value) in enumerate(chrome.rows)
+                rowsize!(state.shell.root, row+chrome.offset-1, value)
             end
-            for (row,value) in enumerate(chrome.gaps)
-                rowgap!(state.shell.root,row+chrome.offset-1,value)
+            for (row, value) in enumerate(chrome.gaps)
+                rowgap!(state.shell.root, row+chrome.offset-1, value)
             end
         end
-        for (axis,alignment,view) in zip(p.axes,alignments,views)
+        for (axis, alignment, view) in zip(p.axes, alignments, views)
             axis.alignmode[]=alignment
             axis.targetlimits[]==view || (axis.targetlimits[]=view)
         end
-        empty!(state.frame_padding);merge!(state.frame_padding,padding)
+        empty!(state.frame_padding)
+        merge!(state.frame_padding, padding)
         for record in tracks
-            for (i,value) in enumerate(record.rows)
-                rowsize!(record.grid,i+record.row_offset-1,value)
+            for (i, value) in enumerate(record.rows)
+                rowsize!(record.grid, i+record.row_offset-1, value)
             end
-            for (i,value) in enumerate(record.columns)
-                colsize!(record.grid,i+record.column_offset-1,value)
+            for (i, value) in enumerate(record.columns)
+                colsize!(record.grid, i+record.column_offset-1, value)
             end
         end
         try
-            _addon_resize_preserving_views!(p,size)
+            _addon_resize_preserving_views!(p, size)
         finally
             state.fitting_geometry[]=previous_guard
         end

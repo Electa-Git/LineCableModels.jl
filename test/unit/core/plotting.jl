@@ -9,7 +9,6 @@
     @test parentmodule(LineCableModels.show_material_scale) ===
           LineCableModels.PlotBuilder
 
-
     figure=Ref(:native_figure)
     axes=(:axis_1, :axis_2)
     controls=Dict{Symbol, Any}(:reset=>:native_button)
@@ -67,5 +66,4 @@
     ranges=LineCableModels.DataModel.material_property_ranges(design)
     @test keys(ranges) == (:rho, :mu_r, :eps_r)
     @test all(range -> range isa Tuple{<:Real, <:Real}, values(ranges))
-
 end

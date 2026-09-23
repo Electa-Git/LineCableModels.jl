@@ -65,10 +65,11 @@
     function E.initialize_buffers(
             selected::LayerImpedance, ::Type{T}, input, invariants, buffers) where {T}
         layers = [E.layer_index(interaction.pair)
-            for call in invariants.earth_bindings.earth_impedance.cases
-            if call.selection === selected for interaction in call.interactions]
-        initialized = (1,1) in layers ?
-            E.initialize_buffers(Val(:quad), T, input, invariants, buffers) : buffers
+                  for call in invariants.earth_bindings.earth_impedance.cases
+                  if call.selection === selected for interaction in call.interactions]
+        initialized = (1, 1) in layers ?
+                      E.initialize_buffers(Val(:quad), T, input, invariants, buffers) :
+                      buffers
         push!(selected.initialized, (layers, initialized.quadrature))
         return initialized
     end
@@ -92,7 +93,7 @@
         equivalent_earth::Nothing
         solves::Vector{ComplexF64}
     end
-    CoupledImpedance()=CoupledImpedance(
+    CoupledImpedance() = CoupledImpedance(
         (media = Val(:homogeneous), layers = 2:2,
             permittivity = :positive),
         (;), FormulationOptions(), nothing, ComplexF64[])
@@ -393,11 +394,11 @@
     # package method or attaching executable values to a selection record.
     for (name, parent, owner, operation, id, event) in (
         (:CountedInsulationZ, E.InsulationImpedanceFormulation, E.InsulationImpedance,
-            E.InsulationImpedance.insulation_impedance, :ametani1980, :local_z),
+        E.InsulationImpedance.insulation_impedance, :ametani1980, :local_z),
         (:CountedInsulationY, E.InsulationAdmittanceFormulation,
-            IA, IA.insulation_material, :lossy, :local_y),
+        IA, IA.insulation_material, :lossy, :local_y),
         (:CountedSemiconY, E.SemiconAdmittanceFormulation,
-            SA, SA.semicon_material, :lossy, :local_y))
+        SA, SA.semicon_material, :lossy, :local_y))
         @eval struct $name{F, P, O} <: $parent
             base::F
             parameters::P
@@ -432,7 +433,7 @@
     for (name, parent, owner, operation, event) in (
         (:CountedEarthZ, E.EarthImpedanceFormulation, EI, EI.earth_impedance, :earth_z),
         (:CountedEarthP, E.EarthAdmittanceFormulation,
-            EA, EA.earth_potential_coefficient, :earth_y))
+        EA, EA.earth_potential_coefficient, :earth_y))
         @eval struct $name{A, P, O} <: $parent
             assumptions::A
             parameters::P
@@ -441,7 +442,7 @@
             events::Vector{Symbol}
         end
         @eval function $name(events)
-            $name((media=Val(:homogeneous), layers=2:2, permittivity=:positive),
+            $name((media = Val(:homogeneous), layers = 2:2, permittivity = :positive),
                 (;), FormulationOptions(), nothing, events)
         end
         op=GlobalRef(owner, nameof(operation))
@@ -452,14 +453,13 @@
             # Manufactured diagonal-dominant coefficients test stage order,
             # independently of any built-in author's numerical implementation.
             return $(owner === EI ? :(1e-4 + 1e-3im) : :(1e9)) *
-                (pair.row == pair.column ? 10 : 1)
+                   (pair.row == pair.column ? 10 : 1)
         end
         @eval LineCableModels.formulation_options(::FM{
             <:$name, typeof($operation)}) = FormulationOptions()
     end
 
-    for selected_type in
-        (LayerImpedance, LayerPotential, CoupledImpedance, SurfaceLaw, SpectralSurface,
+    for selected_type in (LayerImpedance, LayerPotential, CoupledImpedance, SurfaceLaw, SpectralSurface,
         DispersiveEarth, InsulationReactance, ConstantResistivity, ScaledResistivity,
         ExponentialResistivity, DispersiveSoil, ScaledSoil, OhmicDielectric, InsulationLaw, SemiconLaw,
         MeanEarth, SquaredBottomEarth, FixedModalMaps, UserCoaxialShunt, CoaxialPipePolicy,
@@ -480,7 +480,8 @@
                 equivalent_earth = selected.equivalent_earth === nothing ? nothing :
                                    NamedTuple(selected.equivalent_earth))
         else
-            @eval Base.NamedTuple(selected::$selected_type) = (identifier = formula_id(selected),
+            @eval Base.NamedTuple(selected::$selected_type) = (
+                identifier = formula_id(selected),
                 parameters = selected.parameters, options = selected.options.data)
         end
     end
