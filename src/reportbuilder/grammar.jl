@@ -11,6 +11,11 @@ $(TYPEDEF)
 Retain the observed inputs, separate observed reference, tables, illustration,
 and written destinations of one completed report.
 
+Plain and HTML display show the completed quantity tables. `artifact[R]`
+retrieves the reported resistance DataFrame, or an ordered vector of DataFrames
+for a collection. `artifact[i, R]` retrieves the table for result position `i`.
+Lookup and display use completed tables without further observation or calculation.
+
 $(TYPEDFIELDS)
 """
 struct ReportArtifact{T,I,O}
@@ -24,6 +29,101 @@ struct ReportArtifact{T,I,O}
     illustration::I
     "Written destinations, or nothing for an in-memory report."
     output::O
+end
+
+# Only ordinary report containers are traversed; DataFrame cells are leaves.
+_reported_leaves(table::DataFrame) = (table,)
+_reported_leaves(tables::Union{NamedTuple,Tuple,AbstractVector}) =
+    Iterators.flatten(_reported_leaves(child) for child in tables)
+_reported_leaves(_) = ()
+
+function _reported_tables(artifact::ReportArtifact)
+    output=artifact.tables
+    benchmark=output isa NamedTuple && haskey(output,:features)
+    benchmark && (output=output.quantities)
+    collection=artifact.observed isa AbstractVector
+    # A specialized definition may return one aggregate table. Its display is
+    # still native, but a collection does not associate it with one gridpoint.
+    output isa DataFrame && return [(point_index=collection ? nothing : 1,tables=[output])]
+    return map(eachindex(_observed_points(artifact.observed))) do index
+        tables=benchmark || collection ? output[index] : output
+        (point_index=index,tables=collect(DataFrame,_reported_leaves(tables)))
+    end
+end
+
+function _reported_table(artifact,groups,request,index)
+    identity=request_identity(request)
+    indices=request_indices(request)
+    tables=collect(DataFrame,Iterators.flatten(group.tables for group in groups
+        if group.point_index==index))
+    matches=filter(tables) do table
+        retained=metadata(table,"request",nothing)
+        retained===nothing && return false
+        isequal(request_identity(retained),identity) &&
+            (isempty(indices) || isequal(request_indices(retained),indices))
+    end
+    length(matches)==1 && return only(matches)
+    unassociated=any(group -> group.point_index===nothing,groups)
+    available_tables=unassociated ? Iterators.flatten(group.tables for group in groups) : tables
+    available=join((repr(metadata(table,"request",nothing)) for table in available_tables),", ")
+    problem=isempty(matches) ? "absent" : "ambiguous"
+    unassociated && (problem="not associated with a gridpoint")
+    id=_observed_points(artifact.observed)[index].gridpoint.id
+    location="reported result $index"*(id===nothing ? "" : " (gridpoint $(repr(id)))")
+    throw(ArgumentError("reported request $(repr(request)) is $problem for $location; " *
+        "available reported requests: [$available] (nothing means absent quantity descriptors). " *
+        "Use report(...; values=...) for a different selection."))
+end
+
+"""
+$(TYPEDSIGNATURES)
+
+Retrieve an already-produced quantity DataFrame using an observation request.
+An atomic report returns one DataFrame; a collection returns an ordered vector,
+including for one result. `artifact[i, request]` returns the table for result
+position `i`, independently of its recorded scientific gridpoint identifier.
+
+An unindexed request returns the product with its reported selection intact.
+An indexed request must match that original selection exactly. Complete
+transformation and statistical identities remain distinct. Lookup never
+acquires, slices, converts, or tabulates quantities.
+
+# Arguments
+
+- `artifact`: A completed report.
+- `request`: A quantity selector or complete observation request.
+
+# Returns
+
+The stored DataFrame itself, or a vector of those DataFrames. Use `copy` for an
+independent table; editing a returned table does not edit retained observations.
+
+# Errors
+
+Absent or ambiguous products, missing descriptors, and Boolean point indices
+raise `ArgumentError`. Invalid result positions raise `BoundsError`.
+
+# Examples
+
+```julia
+resistance = constants_report[R]
+resistance_tables = collection_report[R]
+second_resistance = collection_report[2, R]
+```
+"""
+function Base.getindex(artifact::ReportArtifact,request)
+    groups=_reported_tables(artifact)
+    tables=map(eachindex(_observed_points(artifact.observed))) do index
+        _reported_table(artifact,groups,request,index)
+    end
+    return artifact.observed isa ObservedResult ? only(tables) : tables
+end
+
+function Base.getindex(artifact::ReportArtifact,index::Integer,request)
+    index isa Bool && throw(ArgumentError("result position must be an integer, not Bool"))
+    points=_observed_points(artifact.observed)
+    index in eachindex(points) || throw(BoundsError(artifact,(index,request)))
+    return _reported_table(artifact,_reported_tables(artifact),request,index)
 end
 
 """
@@ -89,7 +189,7 @@ $(TYPEDSIGNATURES)
 
 Build tables, an optional illustration, encoded output, and written artifacts,
 in that order. Only observations cross this boundary. `reference` is an atomic
-observation kept outside the candidate collection.
+observation kept outside the reported-result collection.
 """
 function report(definition::AbstractReportDefinition,
         observed::Union{ObservedResult,AbstractVector{<:ObservedResult}};
@@ -180,7 +280,7 @@ units and numerical eligibility unless compatible display units are requested.
   units; standalone tensor frequency context is in \\[Hz\\]. These keywords
   cannot be supplied for retained inputs.
 - `reference=nothing`: A separate atomic raw or observed reference. It does not
-  trigger a numerical comparison or become another candidate.
+  trigger a numerical comparison or become another reported result.
 - `illustration=nothing`: `true` or a plotting callable requests an illustration
   of the prepared observations with the matching `ydata` selection.
 - `plot_options=(;)`: Options for an explicitly requested illustration.

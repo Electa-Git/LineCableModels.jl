@@ -301,3 +301,84 @@ end
     @test report(LineCableModels.ReportBuilder.LineParametersTableDefinition(quantities),
         line).tables==report(line; values = quantities).tables
 end
+
+@testitem "ReportBuilder / direct reported quantity access" tags=[:unit] setup=[TestFixtures] begin
+    using DataFrames, Statistics, Measurements
+    using LineCableModels.Grammar: gridpoint_id
+    const RB=LineCableModels.ReportBuilder
+    constants=CableConstants(1e-4,2e-7,3e-10,4e-12;frequency=50)
+    r=report(constants;values=(R,L,G,C),length_unit=:kilo,
+        quantity_units=(R=:base,L=:milli,G=:micro,C=:micro))
+    for (request,expected) in zip((R,L,G,C),(0.1,0.2,0.004,0.3))
+        table=r[request]
+        @test table isa DataFrame
+        @test table===getproperty(r.tables.constants,nameof(request))
+        @test r[1,request]===table
+        @test r[Int32(1),request]===table
+        @test r[big(1),request]===table
+        @test size(table)==(1,2)
+        @test table.frequency==[50.]
+        @test table[1,2]≈expected
+        @test all(T -> T<:Number,eltype.(eachcol(table)))
+        @test metadata(table,"request")===request
+        @test metadata(table,"statistic")===:value
+    end
+    @test_throws BoundsError r[0,R]
+    @test_throws BoundsError r[2,R]
+    @test_throws ArgumentError r[true,R]
+    @test_throws ArgumentError r[:R]
+    @test_throws ArgumentError r["R"]
+    @test_throws ArgumentError r[@observe(R[1])]
+
+    selected=report(constants;values=@observe(R[1]))
+    @test selected[R]===selected[@observe(R[1])]
+    @test_throws ArgumentError selected[L]
+    @test_throws ArgumentError selected[@observe(R[:])]
+    @test_throws ArgumentError selected[@observe(R[2])]
+
+    z=reshape(complex.(1.:8.,9.:16.),2,2,2)
+    source=LineParameters(z,fill(3e-6+4e-6im,2,2,2),[50.,500.])
+    full=report(source;values=(R,L,G,C))
+    @test propertynames(full[R])==[:frequency,Symbol("[1,1]"),Symbol("[1,2]"),Symbol("[2,1]"),Symbol("[2,2]")]
+    @test full[R][!,3]!=full[R][!,4]
+    partial=report(source;values=@observe(R[2,1,2:2]))
+    @test partial[R]===partial[@observe(R[2,1,2:2])]
+    @test partial[R].frequency==[500.]
+    @test metadata(partial[R],"coordinates").rows==[2]
+    @test_throws ArgumentError partial[L]
+    @test_throws ArgumentError partial[@observe(R[1,1,2:2])]
+
+    points=[ObservedResult(constants;gridpoint=(id=gridpoint_id(problem_index=i),)) for i in (9,3)]
+    collection=report(points;values=(R,L))
+    tables=collection[R]
+    @test tables isa Vector{DataFrame}
+    @test all(tables[i]===collection[i,R] for i in 1:2)
+    @test [metadata(table,"gridpoint_id").problem_index for table in tables]==[9,3]
+    @test report(points[1:1];values=R)[R] isa Vector{DataFrame}
+    @test report((constants,);values=R)[R] isa Vector{DataFrame}
+    @test_throws BoundsError collection[9,R]
+    incomplete=ReportArtifact(points,nothing,[collection.tables[1],(;L=collection[2,L])],nothing,nothing)
+    @test_throws r"reported result 2.*problem_index = 3.*available reported requests" incomplete[R]
+    diagnostic=try incomplete[R]; catch error; sprint(showerror,error); end
+    @test occursin(repr(points[2].gridpoint.id),diagnostic)
+    @test !occursin("candidate",diagnostic)
+    ambiguous=ReportArtifact(r.observed,nothing,(a=r[R],b=copy(r[R])),nothing,nothing)
+    @test_throws r"ambiguous.*reported result 1" ambiguous[R]
+    undescribed=ReportArtifact(r.observed,nothing,DataFrame(R=[1.]),nothing,nothing)
+    @test_throws r"absent quantity descriptors" undescribed[R]
+    missing_table=copy(r[R]); allowmissing!(missing_table); missing_table[1,2]=missing
+    missing_report=ReportArtifact(r.observed,nothing,missing_table,nothing,nothing)
+    @test missing_report[R]===missing_table
+
+    uq=report(TestFixtures.cable_monte_carlo_result();values=((statistics,R,mean),(statistics,R,std)))
+    @test uq[1,(statistics,R,mean)]!==uq[1,(statistics,R,std)]
+    @test metadata(uq[1,(statistics,R,mean)],"statistic")===:mean
+    @test_throws ArgumentError uq[R]
+    @test_throws ArgumentError uq[(statistics,L,mean)]
+
+    original=deepcopy(r.observed.quantities)
+    r[R][1,2]=42.
+    @test isequal(r.observed.quantities,original)
+    @test observe(constants,R)==[1e-4]
+    @test r[R][1,2]==42.
+end

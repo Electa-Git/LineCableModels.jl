@@ -31,10 +31,9 @@ steel wire armor for mechanical protection and tensile strength. A reference
 525 kV design is available in the
 [manufacturer's datasheet](https://nkt.widen.net/content/pnwgwjfudf/pdf/Extruded_DC_525kV_DS_EN_DEHV_HV_DS_DE-EN.pdf).
 
-The reference construction is described with XLPE main insulation. The numerical
-example supplied with this tutorial uses the library material `:pe` for the main
-insulation and the PE inner sheath. That material choice is retained below; the
-reference's XLPE designation does not change the properties selected by the code.
+The reference construction is described with XLPE main insulation. This calculation uses
+the library material `:pe` for the main insulation and the PE inner sheath;
+the reference's XLPE designation describes a different material choice.
 =#
 
 #=
@@ -211,7 +210,7 @@ cable_preview.figure #hide
 Calculate the cable constants and select R/L and G/C with `values`.
 `report(constants)` uses the available quantities and default display units.
 
-The four separate quantity tables are grouped under `constants`.
+The report displays four separate quantity tables.
 Each cable-constant table contains the operating frequency and named assembly
 columns; quantities with different units are not combined into one table.
 =#
@@ -220,9 +219,6 @@ constants = CableConstants(cable_design);
 rlgc = (R, L, G, C)
 
 constants_report = report(constants; values = rlgc)
-
-# The report exposes the grouped ordinary DataFrames:
-constants_report.tables
 
 #=
 An equivalent physical design is a separate operation from either computation
@@ -395,10 +391,7 @@ first_term_report = report(
     line_parameters;
     values = @observe(R[1, 1, 1:12]),
     length_unit = :kilo
-);
-
-# Retrieve the already-selected resistance DataFrame from the report:
-first_term_report.tables.Z.R
+)
 
 #=
 ### R/L and G/C plots
@@ -501,8 +494,7 @@ first_modal_term_report = report(
     modal_parameters;
     values = @observe(R[1, 1, 1:12]),
     length_unit = :kilo
-);
-first_modal_term_report.tables.Z.R
+)
 
 #=
 ### Full modal matrix plots

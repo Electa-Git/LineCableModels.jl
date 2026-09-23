@@ -29,6 +29,15 @@
     artifact=report(TableReportDefinition(),observed)
     @test size(artifact.tables.independent.R)==(3,5)
     @test artifact.tables.independent.R[1,Symbol("[1,2]")]==3000
+    table=artifact[R]
+    before=copy(table)
+    for _ in 1:2, mime in (MIME"text/plain"(),MIME"text/html"())
+        @test !isempty(sprint(show,mime,artifact))
+        @test artifact[R]===table
+        @test artifact[1,R]===table
+    end
+    @test isequal(table,before)
+    @test reads[]==1
     rendered=LineCableModels.plot(observed;backend=:cairo,display_plot=false,controls=false)
     @test length(rendered.axes)==4
     @test reads[]==1

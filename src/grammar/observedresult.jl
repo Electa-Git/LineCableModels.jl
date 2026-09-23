@@ -387,8 +387,10 @@ Describe differences in captured physical inputs, active methods, and individual
 controls. Scientific text comes from completion-time owner descriptions; no
 formula or problem is reconstructed. Administrative gridpoint IDs are retained
 in the observations but do not form automatic legend prefixes.
+`fallback` supplies text when no captured description or varying field is
+available; `nothing` retains the default positional result label.
 """
-function observation_labels(observed;request=nothing)
+function observation_labels(observed;request=nothing,fallback=nothing)
     points=observed isa ObservedResult ? [observed] : observed
     isempty(points) && return String[]
     descriptions=[begin
@@ -454,7 +456,8 @@ function observation_labels(observed;request=nothing)
                 append!(parts,(field.summary for field in roots))
             else
                 source_name=get(points[index].gridpoint,:name,nothing)
-                push!(parts,source_name===nothing ? "Result $index" : string(source_name))
+                push!(parts,source_name===nothing ?
+                    (fallback===nothing ? "Result $index" : string(fallback)) : string(source_name))
             end
         end
         join(parts,", ")

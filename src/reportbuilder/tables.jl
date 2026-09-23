@@ -155,7 +155,7 @@ _quantity_name(product) = begin
     identity isa Function ? nameof(identity) : Symbol(join([entry isa Base.Fix2 ? string(product.statistic) : string(nameof(entry)) for entry in identity],"_"))
 end
 
-function _quantity_table(product)
+function _quantity_table(product; gridpoint_id=nothing)
     coordinates=product.coordinates
     values=product.values
     scalar=values isa Number || ismissing(values)
@@ -219,9 +219,13 @@ function _quantity_table(product)
     metadata!(table,"coordinate_columns",coordinate_columns;style=:note)
     metadata!(table,"coordinates",Grammar.detach(coordinates);style=:note)
     metadata!(table,"quantity",product.quantity;style=:note)
+    metadata!(table,"request",Grammar.detach(product.request);style=:note)
+    metadata!(table,"statistic",Grammar.detach(product.statistic);style=:note)
+    metadata!(table,"family",product.family;style=:note)
     metadata!(table,"unit",product.unit;style=:note)
     metadata!(table,"basis",product.basis;style=:note)
     metadata!(table,"missing_reason",Grammar.detach(product.missing_reason);style=:note)
+    gridpoint_id===nothing || metadata!(table,"gridpoint_id",gridpoint_id;style=:note)
     return table
 end
 
@@ -232,30 +236,30 @@ Build one table per retained quantity, grouped by the owning physical family.
 Full matrices retain every coefficient in row-major order. Each row represents
 one retained frequency or sample coordinate.
 """
-function _quantity_tables(products)
+function _quantity_tables(products; gridpoint_id=nothing)
     allunique((q.family,_quantity_name(q)) for q in products) || throw(ArgumentError(
         "multiple retained products share a quantity name; select a complete request with tabulate(observed, request)"))
     families=unique(q.family for q in products)
-    return (;(family=>(;(_quantity_name(q)=>_quantity_table(q) for q in products if q.family==family)...)
+    return (;(family=>(;(_quantity_name(q)=>_quantity_table(q;gridpoint_id) for q in products if q.family==family)...)
         for family in families)...)
 end
-tabulate(observed::ObservedResult) = _quantity_tables(observed.quantities)
+tabulate(observed::ObservedResult) = _quantity_tables(observed.quantities;gridpoint_id=observed.gridpoint.id)
 
 """Build one table from a retained quantity request."""
-tabulate(observed::ObservedResult,request) = _quantity_table(_selected_quantity(observed,request))
+tabulate(observed::ObservedResult,request) = _quantity_table(_selected_quantity(observed,request);gridpoint_id=observed.gridpoint.id)
 tabulate(observed::AbstractVector{<:ObservedResult}) = map(tabulate,observed)
 
 function tabulate(definition::TableReportDefinition,observed;reference=nothing)
     function selected(point)
         isempty(definition.requests) && return tabulate(point)
-        return _quantity_tables(select(definition,point))
+        return _quantity_tables(select(definition,point);gridpoint_id=point.gridpoint.id)
     end
     return observed isa ObservedResult ? selected(observed) : map(selected,observed)
 end
 tabulate(::CableConstantsTableDefinition,observed;reference=nothing) = tabulate(observed)
 function tabulate(definition::LineParametersTableDefinition,observed;reference=nothing)
     selected(point)=_quantity_tables([Grammar.observation_product(point,request)
-        for request in Grammar.observation_requests(point,definition.requests).retained])
+        for request in Grammar.observation_requests(point,definition.requests).retained];gridpoint_id=point.gridpoint.id)
     return observed isa ObservedResult ? selected(observed) : map(selected,observed)
 end
 function report(definition::CableConstantsTableDefinition,source::Engine.CableConstants;kwargs...)

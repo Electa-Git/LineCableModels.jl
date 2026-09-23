@@ -207,21 +207,35 @@ available quantities and default display units:
 constants_report = report(constants)
 phase_report = report(parameters; values=(R, L, G, C), length_unit=:kilo)
 first_term_report = report(parameters; values=@observe(R[1, 1, 1:12]))
-resistance = phase_report.tables.Z.R
+resistance = phase_report[R]
 ```
 
 Each quantity has its own DataFrame: full line matrices have one frequency row
 per sample and columns for every ordered coefficient, including both
 off-diagonals. Cable constants have one operating-frequency row and named
-assembly columns under `tables.constants`. Collections retain separate tables
+assembly columns. Displaying the report shows these labelled tables in text or
+HTML. Collections retain separate tables
 for each gridpoint in its original order. Default reporting creates no figure
 and writes no files.
+
+`phase_report[R]` returns the resistance DataFrame already produced by the
+report, including any requested coefficient or sample subset. For a collection,
+`study_report[R]` returns an ordered vector of DataFrames and `study_report[2, R]`
+returns the second result's table. The index is a position in the ordered
+observed-result collection, not its original gridpoint identifier. A one-result
+collection still returns a vector.
+Use `copy(phase_report[R])` when edits should leave the report unchanged.
+
+Lookup does not perform further selection or calculation. An indexed request
+must match the reported selection; absent or ambiguous products raise an error.
+Select different scientific contents with `report(...; values=...)`.
 
 For statistical products, select the statistic explicitly:
 
 ```julia
 using Statistics
 statistics_report = report(sampled; values=((statistics, R, mean), (statistics, R, std)))
+mean_resistance = statistics_report[1, (statistics, R, mean)]
 ```
 
 Explicit `ObservedResult` snapshots are useful when retaining selected scientific

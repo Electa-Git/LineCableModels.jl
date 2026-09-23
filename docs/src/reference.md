@@ -173,6 +173,26 @@ organizes comparisons, and `XLSXReportDefinition` requests file output.
 `TableReportDefinition` selects retained products within the definition-based
 extension workflow; ordinary quantity tables need only `report(source)`.
 
+### Display and quantity-table access
+
+Ordinary quantity reports display their completed tables, with recorded units
+and owner-provided gridpoint descriptions. Plain and HTML output provide bounded
+previews; an IO context with `:limit => false` shows all reported rows, columns,
+and gridpoints. Compact display remains a single-line summary.
+
+`artifact[R]` returns the stored resistance DataFrame for an atomic report, or a
+vector in reported-result order for a collection. `artifact[i, R]` returns the
+table for result position `i`. Complete transformation and statistical requests
+retain their own identities. Lookup preserves the selection made by `values`,
+requires an exact match for indexed requests, and performs no new observation or tabulation.
+Returned tables are shared with the report; use `copy` for independent edits.
+The `.tables` field remains available for inspection of the underlying grouped
+tables and specialized summaries.
+
+```@docs
+Base.getindex(::LineCableModels.ReportBuilder.ReportArtifact, ::Any)
+```
+
 ## Index
 
 ```@index

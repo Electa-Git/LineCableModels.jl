@@ -281,9 +281,6 @@ constants_report = report(
     quantity_units = (R = :base, L = :milli, G = :micro, C = :micro)
 )
 
-# The report exposes the separate ordinary DataFrames for these cable constants:
-constants_report.tables
-
 #=
 ### Assembly selection
 
@@ -316,7 +313,7 @@ this is not an equal-condition error calculation.
 datasheet_info.resistance
 
 # Calculated resistance [Ω/km]; the frequency column records 50 Hz:
-constants_report.tables.constants.R
+constants_report[R]
 
 #=
 The catalogue inductance is specified for trefoil. `CableConstants` supplies
@@ -329,7 +326,7 @@ a benchmark pair.
 datasheet_info.inductance
 
 # Calculated local inductance [mH/km]:
-constants_report.tables.constants.L
+constants_report[L]
 
 #=
 Inspect the catalogue capacitance alongside the calculated capacitance in the
@@ -342,10 +339,10 @@ The main insulation in this numerical model uses `:pe` as stated above.
 datasheet_info.capacitance
 
 # Calculated local capacitance [μF/km]:
-constants_report.tables.constants.C
+constants_report[C]
 
 # The conductance table remains a separate result; no catalogue G is supplied:
-constants_report.tables.constants.G
+constants_report[G]
 
 #=
 ## Homogeneous equivalent design

@@ -263,9 +263,9 @@ end
     @test occursin("kilo", sprint(show, line))
     @test occursin("false", sprint(show, mc))
     @test occursin("default path", sprint(show, XLSXReportDefinition()))
-    @test occursin("table=2×2", sprint(show, artifact))
-    @test occursin("illustration=none", sprint(show, artifact))
-    @test occursin("output=none", sprint(show, artifact))
+    @test occursin("tables=1", sprint(show, artifact))
+    @test !occursin("illustration", sprint(show, artifact))
+    @test !occursin("output", sprint(show, artifact))
     @test occursin("illustration=present", sprint(show, illustrated_artifact))
     @test occursin("output=present", sprint(show, illustrated_artifact))
 end
