@@ -10,11 +10,13 @@ function Logging.min_enabled_level(logger::FEMTeeLogger)
     )
 end
 function Logging.catch_exceptions(logger::FEMTeeLogger)
-    Logging.catch_exceptions(logger.first) || Logging.catch_exceptions(logger.second)
+    Logging.catch_exceptions(logger.first) && Logging.catch_exceptions(logger.second)
 end
 function Logging.shouldlog(logger::FEMTeeLogger, level, module_, group, id)
-    return Logging.shouldlog(logger.first, level, module_, group, id) ||
-           Logging.shouldlog(logger.second, level, module_, group, id)
+    return (level >= Logging.min_enabled_level(logger.first) &&
+            Logging.shouldlog(logger.first, level, module_, group, id)) ||
+           (level >= Logging.min_enabled_level(logger.second) &&
+            Logging.shouldlog(logger.second, level, module_, group, id))
 end
 function Logging.handle_message(
         logger::FEMTeeLogger,
@@ -27,12 +29,14 @@ function Logging.handle_message(
         line;
         kwargs...
 )
-    if Logging.shouldlog(logger.first, level, module_, group, id)
+    if level >= Logging.min_enabled_level(logger.first) &&
+            Logging.shouldlog(logger.first, level, module_, group, id)
         Logging.handle_message(
             logger.first, level, message, module_, group, id, file, line; kwargs...
         )
     end
-    if Logging.shouldlog(logger.second, level, module_, group, id)
+    if level >= Logging.min_enabled_level(logger.second) &&
+            Logging.shouldlog(logger.second, level, module_, group, id)
         Logging.handle_message(
             logger.second, level, message, module_, group, id, file, line; kwargs...
         )
@@ -284,17 +288,13 @@ function _resume_run(
             return run
         end
     end
-    @info "Resuming compatible FEM run" run_directory=path
+    @debug "Resuming compatible FEM run" run_directory=path
     return run
 end
 
 function _transition!(run::FEMRun, state::FEMRunState, message::AbstractString)
     run.state = state
     run.message = String(message)
-    receiver=LineCableModels.progress_receiver()
-    receiver === nothing || state === running ||
-        LineCableModels.report_progress(receiver,
-            (stage = Symbol(string(state)), backend = :fem))
     _write_json_atomic(joinpath(run.path, "run.json"),
         (
             schema = "LineCableModels.FEMRun",
@@ -354,32 +354,25 @@ function _headless_solve!(
         model, "LineCableModelsFEM-$(basename(run.path))"
     )
     _transition!(run, geometry_ready, "geometry ready")
-    @info "FEM geometry ready" run_directory=run.path
-    receiver=LineCableModels.progress_receiver()
-    receiver === nothing ||
-        LineCableModels.report_progress(receiver, (stage = :meshing, backend = :fem))
+    @debug "FEM geometry ready" run_directory=run.path
     mesh_paths = _select_meshes!(
         run, model, geometry, execution, runtime_root
     )
     _transition!(run, mesh_ready, "mesh ready")
-    @info "FEM mesh ready" source=run.mesh_source fingerprint=run.mesh_fingerprint
+    @debug "FEM mesh ready" source=run.mesh_source fingerprint=run.mesh_fingerprint
     model_data_path = _prepare_run_inputs!(run, model)
     _prepare_voltage_paths!(run, model, formulation, mesh_paths)
     _publish_transport!(
         run, model, model_data_path, last(mesh_paths), formulation, execution
     )
     _transition!(run, running, "GetDP frequency batches running")
-    @info "Starting isolated GetDP frequency batches" workers=execution.data.frequency_workers
+    @debug "Starting isolated GetDP frequency batches" workers=execution.data.frequency_workers
     _run_getdp!(run, model, formulation, execution, mesh_paths)
-    receiver=LineCableModels.progress_receiver()
-    receiver === nothing ||
-        LineCableModels.report_progress(receiver, (stage = :validating, backend = :fem))
     scan = _parse_scan(run, model, formulation, execution)
     _write_scan_checksums(run, scan)
     gmsh.onelab.set_number(_onelab_name("completion_status"), [1.0])
     _transition!(run, completed, "results validated")
     parameters = _line_parameters(run, model, formulation, execution, scan, inputs)
-    @info "FEM scan completed successfully"
     return parameters
 end
 
@@ -519,10 +512,7 @@ function _compute_fem(
         # transition, or successful-run cleanup may touch historical evidence.
         scan = _parse_scan(run, model, formulation, execution)
         _check_scan_checksums(run, scan)
-        @info "FEM reuses completed resolved inputs" run_directory=run.path
-        receiver=LineCableModels.progress_receiver()
-        receiver === nothing || LineCableModels.report_progress(
-            receiver, (stage = :validating, partial_recovery = true, recovered = true))
+        @debug "FEM reuses completed resolved inputs" run_directory=run.path
         return _line_parameters(
             run, model, formulation, execution, scan, inputs; reused = true)
     end
@@ -537,9 +527,6 @@ function _compute_fem(
             if run.state === completed
                 scan = _parse_scan(run, model, formulation, execution)
                 _check_scan_checksums(run, scan)
-                receiver=LineCableModels.progress_receiver()
-                receiver === nothing || LineCableModels.report_progress(receiver,
-                    (stage = :validating, partial_recovery = true, recovered = true))
                 return _line_parameters(
                     run, model, formulation, execution, scan, inputs; reused = true)
             end
@@ -564,14 +551,15 @@ function _compute_owned_fem(
     _write_json_atomic(joinpath(run.path, "input", "computation.json"), inputs)
     session = nothing
     try
-        session = _start_gmsh(LineCableModels.performance_sample_active() ? 0 :
-                              execution.data.gmsh_verbosity)
+        session = _start_gmsh(execution.data.gmsh_verbosity)
         parameters = execution.data.ui ?
                      _ui_solve!(run, model, formulation, execution, runtime_root, inputs) :
                      _headless_solve!(
             run, model, formulation, execution, runtime_root, inputs)
         return parameters
     catch exception
+        LineCableModels.verbosity(execution, :progress) > 0 &&
+            @info "FEM computation failed" _group=:progress run_directory=run.path exception
         if run.state ∉ (not_executed, cancelled)
             _transition!(run, failed, sprint(showerror, exception))
         end
@@ -626,7 +614,7 @@ function _fem_input_record(model::FEMResolvedModel, formulation::LineCableModels
         execution = (;
             (key => value
         for (key, value) in pairs(execution.data)
-        if key ∉ (:verbosity, :output_basis, :trace, :on_result, :log_file,
+        if key ∉ (:verbosity, :output_basis, :trace, :on_result, :log_file, :timing,
             :resume_run_directory))...),
         supplied_mesh = mesh_path === nothing || !isfile(mesh_path) ? nothing :
                         bytes2hex(open(sha256, mesh_path)),
@@ -657,10 +645,8 @@ function _compute_request(problem, formulation; options)
     execution = computation_options(LineCableModelsFEM, options)
     # Scalar and collection calls share completion notification and reuse rules.
     formulations = formulation isa LineCableModelsFEM ? [formulation] : formulation
-    console = ConsoleLogger(stderr, Logging.Debug)
-    logger = Engine.ConsoleVerbosityLogger(console, execution.data.verbosity)
-    values = if execution.data.log_file === nothing ||
-                LineCableModels.performance_sample_active()
+    logger = LineCableModels.VerbosityLogger(Logging.current_logger(), execution.data.verbosity)
+    values = if execution.data.log_file === nothing
         with_logger(logger) do
             _compute_fem(problem, formulations, execution)
         end
@@ -683,6 +669,12 @@ function _compute_fem(
 )
     isempty(formulations) && throw(ArgumentError(
         "FEM formulation collections cannot be empty"))
+    progress = LineCableModels.verbosity(execution, :progress) > 0
+    started = progress ? time_ns() : UInt64(0)
+    last_log = started
+    previous_completion = started
+    average_seconds = 0.0
+    progress && @info "FEM computation started" _group=:progress total=length(formulations)
     physical_inputs=Engine.completed_inputs(problem)
     source_id=Grammar.gridpoint_id().source_id
     # Resolve and validate all requests before opening Gmsh or starting GetDP.
@@ -700,28 +692,49 @@ function _compute_fem(
                 inputs = physical_inputs
             ))
     end
+    # Caller wall time covers native execution and completed result construction;
+    # native worker durations remain separate, never Julia allocation estimates.
+    scan_started = execution.data.timing ? time_ns() : UInt64(0)
     first_result = Engine.retain_gridpoint(
         _compute_fem(problem, first(formulations), execution, first(models)),
         Grammar.gridpoint_id(; source_id);
         fields = completion_fields(first(formulations)))
+    if execution.data.timing && !isempty(first_result.details.data.timing)
+        wall_seconds = (time_ns() - scan_started) * 1e-9
+        first_result = Engine.retain_gridpoint(first_result, first_result.details.data.gridpoint;
+            fields=(timing=merge((; wall_seconds), first_result.details.data.timing),))
+    end
     values = Vector{typeof(first_result)}(undef, length(formulations))
     values[1] = first_result
     execution.data.on_result === nothing ||
         execution.data.on_result(problem, 1, first_result)
+    if progress
+        now = time_ns()
+        average_seconds = (now - previous_completion) * 1e-9
+        previous_completion = now
+        if now - last_log >= 5_000_000_000
+            @info "FEM progress" _group=:progress completed=1 total=length(formulations) elapsed_seconds=(now-started)*1e-9 eta_hours=(length(formulations)-1)*average_seconds/3600
+            last_log = now
+        end
+    end
     completed = Dict(first(keys) => 1)
     for index in 2:length(formulations)
         formulation = formulations[index]
         previous = get(completed, keys[index], nothing)
+        scan_started = execution.data.timing ? time_ns() : UInt64(0)
         value = if previous === nothing || execution.data.ui ||
                    execution.data.mesh_policy === :remesh
             _compute_fem(problem, formulation, execution, models[index])
         else
             source = values[previous]
-            @info "FEM reuses identical resolved inputs" formulation=index source_formulation=previous
+            @debug "FEM reuses identical resolved inputs" formulation=index source_formulation=previous
             # Results remain independently mutable and each request keeps its own
             # selection record. The shared run record identifies the actual solve.
-            metadata = ComputationDetails(merge(deepcopy(source.details.data),
-                (formulations = formulation_record(formulation),)))
+            retained = deepcopy(source.details.data)
+            retained = merge(retained, (formulations = formulation_record(formulation),
+                fem=merge(retained.fem, (run=merge(retained.fem.run, (reused=true,)),))))
+            execution.data.timing && (retained=merge(retained, (timing=(;),)))
+            metadata = Engine.completion_details(retained)
             LineParameters(PhaseDomain,
                 SeriesImpedance(copy(source.Z.values); basis = Engine.basis(source)),
                 ShuntAdmittance(copy(source.Y.values); basis = Engine.basis(source)),
@@ -730,12 +743,28 @@ function _compute_fem(
         value=Engine.retain_gridpoint(value,
             Grammar.gridpoint_id(; source_id, formulation_index = index);
             fields = completion_fields(formulations[index]))
+        if execution.data.timing && !isempty(value.details.data.timing)
+            wall_seconds = (time_ns() - scan_started) * 1e-9
+            value = Engine.retain_gridpoint(value, value.details.data.gridpoint;
+                fields=(timing=merge((; wall_seconds), value.details.data.timing),))
+        end
         typeof(value) === eltype(values) || throw(ArgumentError(
             "FEM formulations produced inconsistent result types"))
         values[index] = value
         completed[keys[index]] = index
         execution.data.on_result === nothing ||
             execution.data.on_result(problem, index, value)
+        if progress
+            now = time_ns()
+            interval = (now - previous_completion) * 1e-9
+            average_seconds = 0.2 * interval + 0.8 * average_seconds
+            previous_completion = now
+            if now - last_log >= 5_000_000_000
+                @info "FEM progress" _group=:progress completed=index total=length(formulations) elapsed_seconds=(now-started)*1e-9 eta_hours=(length(formulations)-index)*average_seconds/3600
+                last_log = now
+            end
+        end
     end
+    progress && @info "FEM computation completed successfully" _group=:progress completed=length(values) total=length(formulations) elapsed_seconds=(time_ns()-started)*1e-9
     return values
 end

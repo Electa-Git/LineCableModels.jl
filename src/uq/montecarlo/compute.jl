@@ -265,15 +265,13 @@ function _uncertain_arguments(point::Gridpoint)
     return records
 end
 
-function _monte_carlo(point, formulation::MonteCarlo, options, seed, details_owner)
+function _monte_carlo(point, formulation::MonteCarlo, options, seed, details_owner, child_options)
     clearance = point isa Gridpoint{Engine.LineParametersProblem} ?
                 DataModel.prepare_clearance(point) : nothing
     physical_inputs=clearance===nothing ? nothing : Engine.completed_inputs(clearance.declaration[])
     clearance===nothing || (clearance.declaration[]=nothing)
     try
-        aggregate = with_scan_progress(;total=formulation.options.data.trials) do receiver
-            _monte_carlo(point, formulation, options, seed, details_owner, clearance,receiver)
-        end
+        aggregate = _monte_carlo(point, formulation, options, seed, details_owner, child_options, clearance)
         if physical_inputs===nothing
             # Capture the nominal physical declaration once after successful
             # sampling. A Monte Carlo builder need not accept first-order numbers.
@@ -291,8 +289,7 @@ function _monte_carlo(point, formulation::MonteCarlo, options, seed, details_own
     end
 end
 
-function _monte_carlo(point, formulation::MonteCarlo, options, seed, details_owner, clearance,
-        receiver)
+function _monte_carlo(point, formulation::MonteCarlo, options, seed, details_owner, child_options, clearance)
     rng = Random.Xoshiro(seed)
     failures = NamedTuple[]
     attempts = 0
@@ -302,8 +299,14 @@ function _monte_carlo(point, formulation::MonteCarlo, options, seed, details_own
     sample_values = nothing
     sample_axis = nothing
     retained = nothing
-    receiver === nothing || report_progress(receiver,
-        (kind=:scan, stage=:sampling, completed=0, total=ntrials, attempts=0, rejected=0))
+    timing = get(options.data, :timing, false)
+    timing isa Bool || throw(ArgumentError("timing must be Bool"))
+    trial_timings = timing ? NamedTuple[] : nothing
+    progress = point isa Gridpoint{<:Engine.LineParametersProblem} && verbosity(options, :progress) > 0
+    started = progress ? time_ns() : UInt64(0)
+    previous = started
+    last_log = started
+    average_seconds = 0.0
 
     while ntrials === nothing || accepted < ntrials
         attempts += 1
@@ -319,13 +322,7 @@ function _monte_carlo(point, formulation::MonteCarlo, options, seed, details_own
                 realize(point, sample)
             end
             stage = :compute
-            value = if receiver === nothing
-                compute(realization, formulation.inner; options)
-            else
-                with_progress_scope(child=attempts) do
-                    compute(realization, formulation.inner; options)
-                end
-            end
+            value = compute(realization, formulation.inner; options=child_options)
             succeeded = true
         catch exception
             backtrace = catch_backtrace()
@@ -339,9 +336,6 @@ function _monte_carlo(point, formulation::MonteCarlo, options, seed, details_own
                 exception,
                 backtrace
             ))
-            receiver === nothing || report_progress(receiver,
-                (kind=:scan, stage=:sampling, completed=accepted, total=ntrials,
-                    attempts, children_completed=attempts, rejected=length(failures)))
             length(failures) < formulation.options.data.max_failures ||
                 _retry_limit_error(
                     failures,
@@ -385,9 +379,17 @@ function _monte_carlo(point, formulation::MonteCarlo, options, seed, details_own
         accepted = target_trial
         _record_sample!(sample_values, value, accepted, sample_axis)
         retained === nothing || (retained[accepted] = record)
-        receiver === nothing || report_progress(receiver,
-            (kind=:scan, stage=:sampling, completed=accepted, total=ntrials,
-                attempts, children_completed=attempts, rejected=length(failures)))
+        timing && push!(trial_timings, details(value).data.timing)
+        if progress
+            now = time_ns()
+            interval = (now - previous) * 1e-9
+            average_seconds = accepted == 1 ? interval : 0.2 * interval + 0.8 * average_seconds
+            previous = now
+            if now - last_log >= 5_000_000_000
+                @info "Monte Carlo sampling progress" _group=:progress accepted trials=ntrials attempts rejected=length(failures) elapsed_seconds=(now-started)*1e-9 eta_hours=(ntrials-accepted)*average_seconds/3600
+                last_log = now
+            end
+        end
     end
 
     failure_summary = _failure_summary(failures, accepted, attempts)
@@ -398,14 +400,29 @@ function _monte_carlo(point, formulation::MonteCarlo, options, seed, details_own
         failure_summary,
         clearance = DataModel.clearance_summary(clearance)
     )
-    receiver === nothing || report_progress(receiver, (stage=:aggregating,))
-    return merge(
-        _aggregate(sample_values, first_result, formulation),
-        (; trials = ntrials, seed, details = retained_details)
-    )
+    aggregation_started = progress ? time_ns() : UInt64(0)
+    aggregate = _aggregate(sample_values, first_result, formulation)
+    if progress
+        now = time_ns()
+        if now - last_log >= 5_000_000_000
+            @info "Monte Carlo aggregation completed" _group=:progress accepted trials=ntrials attempts rejected=length(failures) aggregation_seconds=(now-aggregation_started)*1e-9 elapsed_seconds=(now-started)*1e-9
+        end
+    end
+    return merge(aggregate,
+        (; trials = ntrials, seed, details = retained_details, timing=trial_timings))
 end
 
 function compute(problem::ParametricProblem, formulation::MonteCarlo)
+    levels = verbosity(get(problem.options.data, :verbosity, (default=0,)))
+    progress = problem.space isa LineCableModels.Gridspace{<:Engine.LineParametersProblem} && get(levels, :progress, levels.default) > 0
+    child_options = progress ? ComputationOptions(merge(problem.options.data,
+        (verbosity=merge(problem.options.data.verbosity, (progress=0,)),))) : problem.options
+    logger = haskey(problem.options.data, :verbosity) ? VerbosityLogger(Logging.current_logger(), levels) : Logging.current_logger()
+    return Logging.with_logger(logger) do
+    started = progress ? time_ns() : UInt64(0)
+    previous = started
+    last_log = started
+    average_seconds = 0.0
     source_id=Grammar.gridpoint_id().source_id
     Base.get_extension(LineCableModels, :LineCableModelsMeasurementsExt) === nothing &&
         throw(ArgumentError("MonteCarlo requires the Measurements extension to construct its result; " *
@@ -414,6 +431,7 @@ function compute(problem::ParametricProblem, formulation::MonteCarlo)
     point_count > 0 || throw(ArgumentError(
         "higher-order problem space must contain at least one core problem",
     ))
+    progress && @info "Monte Carlo computation started" _group=:progress populations=point_count trials=formulation.options.data.trials
     root_seed = formulation.options.data.seed === nothing ? rand(Random.RandomDevice(), UInt64) :
                 formulation.options.data.seed
     details_owner = formulation.options.data.retain_details ?
@@ -425,15 +443,14 @@ function compute(problem::ParametricProblem, formulation::MonteCarlo)
     ))
     first_point, state = first_item
     first_seed = root_seed
-    first_aggregate = with_progress_scope(point=1, points=point_count) do
-        _monte_carlo(
+    first_aggregate = _monte_carlo(
         first_point,
         formulation,
         problem.options,
         first_seed,
-        details_owner
-        )
-    end
+        details_owner,
+        child_options
+    )
     check_core_result(typeof(first_aggregate.representation))
 
     values = Vector{typeof(first_aggregate.representation)}(undef, point_count)
@@ -456,6 +473,18 @@ function compute(problem::ParametricProblem, formulation::MonteCarlo)
     seeds[1] = first_aggregate.seed
     trial_counts[1] = first_aggregate.trials
     retained === nothing || (retained[1] = first_aggregate.details)
+    timing = get(problem.options.data, :timing, false)
+    population_timings = timing ? Vector{Vector{NamedTuple}}(undef, point_count) : nothing
+    timing && (population_timings[1]=first_aggregate.timing)
+    if progress
+        now = time_ns()
+        average_seconds = (now - previous) * 1e-9
+        previous = now
+        if now - last_log >= 5_000_000_000
+            @info "Monte Carlo population progress" _group=:progress completed=1 populations=point_count elapsed_seconds=(now-started)*1e-9 eta_hours=(point_count-1)*average_seconds/3600
+            last_log = now
+        end
+    end
 
     for index in 2:point_count
         item = iterate(point_source, state)
@@ -464,15 +493,14 @@ function compute(problem::ParametricProblem, formulation::MonteCarlo)
         ))
         point, state = item
         point_seed = root_seed ⊻ (UInt64(index - 1) * 0x9e3779b97f4a7c15)
-        aggregate = with_progress_scope(point=index, points=point_count) do
-            _monte_carlo(
+        aggregate = _monte_carlo(
             point,
             formulation,
             problem.options,
             point_seed,
-            details_owner
-            )
-        end
+            details_owner,
+            child_options
+        )
         typeof(aggregate.representation) === eltype(values) || throw(ArgumentError(
             "Monte Carlo points produced incompatible core result types",
         ))
@@ -503,6 +531,17 @@ function compute(problem::ParametricProblem, formulation::MonteCarlo)
             ))
             retained[index] = aggregate.details
         end
+        timing && (population_timings[index]=aggregate.timing)
+        if progress
+            now = time_ns()
+            interval = (now - previous) * 1e-9
+            average_seconds = 0.2 * interval + 0.8 * average_seconds
+            previous = now
+            if now - last_log >= 5_000_000_000
+                @info "Monte Carlo population progress" _group=:progress completed=index populations=point_count elapsed_seconds=(now-started)*1e-9 eta_hours=(point_count-index)*average_seconds/3600
+                last_log = now
+            end
+        end
     end
     iterate(point_source, state) === nothing || throw(DimensionMismatch(
         "problem-space iteration exceeded its declared cardinality",
@@ -515,7 +554,8 @@ function compute(problem::ParametricProblem, formulation::MonteCarlo)
         failure_summary = getproperty.(retained, :failure_summary),
         clearance = getproperty.(retained, :clearance)
     )
-    return MonteCarloResult(
+    timing && (retained_details=merge(retained_details, (timing=population_timings,)))
+    result = MonteCarloResult(
         formulation,
         values,
         stats_values,
@@ -526,4 +566,7 @@ function compute(problem::ParametricProblem, formulation::MonteCarlo)
         trial_counts,
         ComputationDetails(retained_details)
     )
+    progress && @info "Monte Carlo computation completed successfully" _group=:progress completed=point_count populations=point_count elapsed_seconds=(time_ns()-started)*1e-9
+    result
+    end
 end

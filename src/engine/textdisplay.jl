@@ -41,11 +41,6 @@ TextDisplay.@showfields CableBlueprint "CableBlueprint" blueprint -> (
     boundary_blocks = length(blueprint.shunt)
 )
 
-TextDisplay.@showfields ConsoleVerbosityLogger "ConsoleVerbosityLogger" logger -> (
-    sink = String(nameof(typeof(logger.console))),
-    levels = logger.levels
-)
-
 TextDisplay.@showfields LineCableModelsFEMError "LineCableModelsFEMError" error -> (
     category = error.category,
     object = error.object_id,

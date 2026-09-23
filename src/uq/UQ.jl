@@ -20,7 +20,8 @@ import ..LineCableModels
 using DocStringExtensions: TYPEDEF, TYPEDFIELDS, TYPEDSIGNATURES
 import ..LineCableModels: basis, frequencies, R, L, C, nominal, uncertainty
 import ..LineCableModels: points, realize, realize_arguments, Gridpoint, materialize, UncertainValue
-import ..LineCableModels: report_progress, with_progress_scope, with_scan_progress
+import ..LineCableModels: verbosity, VerbosityLogger
+import Logging
 import ..DataModel
 import ..Engine
 import ..Grammar

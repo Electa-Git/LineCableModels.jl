@@ -1105,6 +1105,99 @@ problem cannot normalize it at construction because the solver has not yet
 been selected. Traversal retention and Monte Carlo sampling controls belong to
 the higher-order formulation's own `ComputationOptions` record.
 
+### Scan timing and progress
+
+Line-parameter computations accept `timing::Bool=false` independently of logging:
+
+```julia
+execution = ComputationOptions(timing=true, verbosity=(default=0, progress=1))
+result = compute(problem, formulation; options=execution)
+scan = details(result).data.timing
+```
+
+For a higher-order calculation, keep these controls in
+`ParametricProblem(problem_space, execution)`. Cable-constant computations and
+modal actions retain their existing options contracts.
+
+One measurement describes one materialized problem and formulation over the
+complete requested frequency vector. The owned backend uses `Base.@timed` around
+its existing workspace construction, solve, and validated result construction.
+Batch-shared input preparation, timing attachment, `on_result`, and subsequent
+progress logging lie outside this boundary. Three executed formulations produce
+three measurements; shared preparation is neither duplicated nor apportioned.
+Compilation that occurs before the measured expression begins is not included.
+
+| Backend | Fields in `details(result).data.timing` |
+|---|---|
+| Owned | `wall_seconds`, `bytes`, `gc_seconds`, `compile_seconds`, `recompile_seconds` |
+| FEM | `wall_seconds`, `constraint_seconds`, `assembly_seconds`, `solve_seconds`, `output_seconds`, `worker_wall_seconds` |
+| PSCAD | `wall_seconds`, `compile_call_seconds` |
+
+All durations are in seconds. `bytes` is Julia allocation volume, not retained
+size or peak memory. Native `wall_seconds` covers caller-side execution and
+completed result construction after shared preparation. FEM phase durations sum
+the existing native column measurements; `worker_wall_seconds` sums newly
+executed process durations, not elapsed scan time. PSCAD `compile_call_seconds`
+measures the worker's `line.compile()` call and excludes output-readiness waiting.
+Neither native backend reports caller Julia allocations as native memory use.
+
+Fully reused, partially recovered, and within-batch reused results have empty
+timing records `(;)`. A fresh complete scan retains available measurements and
+uses `nothing` for unavailable optional native metrics. With `timing=false`, the
+field is absent. Required native timing files and recovery checks remain active.
+FEM reuse/recovery and factorization facts are retained in `details(result).data.fem.run`;
+PSCAD execution facts remain in `details(result).data.execution`.
+
+Parametric and linear-error results keep measurements in their scalar values.
+Monte Carlo retains one record per accepted and stored trial at
+`details(result).data.timing[population_index][accepted_trial_index]`, independently
+of `retain_details`, `return_samples`, and histogram retention. Failed attempts
+are not successful measurements, and aggregate mean/std values receive no scan
+timing. Supported scientific serialization preserves optional timing, including
+through the Measurements extension; records without timing remain readable.
+
+Progress uses ordinary structured Julia `@info` messages with `_group=:progress`.
+The effective level is `get(verbosity, :progress, verbosity.default)`. Other
+messages use the nearest explicitly configured module ancestor, then `default`.
+Levels 0, 1, and 2 permit warnings, information, and debug messages respectively.
+The caller's current logger still controls acceptance and output: verbosity does
+not override a `NullLogger`, parent threshold, or custom filter. Explicit FEM file
+logging and native Gmsh/GetDP/PSCAD diagnostic settings retain their own behavior.
+
+An outer traversal suppresses child progress while preserving other options and
+backend diagnostics. It logs start and successful completion and checks for
+intermediate publication at existing completion boundaries, at most every five
+seconds per traversal. It creates no periodic timer or remote heartbeat.
+ETA uses an exponential moving average with weight 0.2 on the newest completed
+interval. Parametric intervals are divided by the returned batch's result count;
+MC intervals between accepted trials include rejected attempts. MC resets the
+sampling estimate for each population and estimates overall remaining time only
+after a population completes. Estimates use no historical timing records.
+Successful completion is reported after result construction and callbacks.
+
+For bounded repetition, use [`LineCableModels.benchmark`](@ref):
+
+```julia
+measurement = LineCableModels.benchmark(; samples=3, warmup=1) do
+    compute(problem, formulation;
+        options=(timing=true, verbosity=(default=0,)))
+end
+result, timings = measurement
+```
+
+The defaults are one measured repetition and no warmup. Positive measured counts
+and nonnegative warmup counts must be integers other than `Bool`. The function
+returns `(; result, timings)` with the final scientific result and detached small
+measurements for each repetition. Scalar records stay scalar; ordinary batches
+retain formulation order; parametric results retain problem-index-fastest value
+order; linear-error results retain value order; MC retains population/trial order.
+Missing requested timing raises an error; empty reuse records remain empty.
+
+The callable defines options, seeds, callbacks, and reuse. Repetition adds no
+outer stopwatch, quiet mode, forced GC, automatic warmup, retry, adaptive budget,
+or speedup calculation. Earlier large results are released after projection.
+These payloads do not automatically populate the existing reporting tables.
+
 The coaxial backend accepts:
 
 ```julia
@@ -1112,6 +1205,7 @@ The coaxial backend accepts:
     verbosity = (default = 0,),
     output_basis = :pul,
     trace = false,
+    timing = false,
     on_result = nothing,
 )
 ```

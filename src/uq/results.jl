@@ -225,16 +225,32 @@ end
 
 function _validate_monte_carlo_details(details::ComputationDetails, values, trial_counts)
     isempty(details.data) && return nothing
-    keys(details.data) in ((:trials, :failures, :failure_summary),
+    fields = Tuple(key for key in keys(details.data) if key !== :timing)
+    fields in ((), (:trials, :failures, :failure_summary),
         (:trials, :failures, :failure_summary, :clearance)) || throw(ArgumentError(
-        "MonteCarloResult details must contain trials, failures, failure_summary, and optional clearance diagnostics",
+        "MonteCarloResult details must contain timing, the full trial/failure bundle, or both",
     ))
     point_count = length(values)
+    if haskey(details.data, :timing)
+        details.data.timing isa AbstractVector || throw(ArgumentError(
+            "Monte Carlo timing must be a vector of population vectors"))
+    end
     all(length(product) == point_count
     for product in Base.values(details.data)) ||
         throw(DimensionMismatch(
         "retained Monte Carlo details must contain one entry per Gridspace point",
     ))
+    if haskey(details.data, :timing)
+        timing = details.data.timing
+        for point in eachindex(values)
+            records = timing[point]
+            records isa AbstractVector && all(record -> record isa NamedTuple, records) ||
+                throw(ArgumentError("Monte Carlo timing must contain vectors of named tuples"))
+            length(records) == trial_counts[point] || throw(DimensionMismatch(
+                "Monte Carlo timing must contain one record per accepted trial"))
+        end
+    end
+    isempty(fields) && return nothing
     for point in eachindex(values)
         records = details.data.trials[point]
         failures = details.data.failures[point]

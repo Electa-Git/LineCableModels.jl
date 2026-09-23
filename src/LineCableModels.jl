@@ -95,7 +95,6 @@ import Logging
 
 include("docstrings.jl")
 include("interfaces.jl")
-include("progress.jl")
 
 public FormulaDefinition, FormulaMethod
 
@@ -113,6 +112,7 @@ using .Grammar:
                 formulation_options, computation_options, computation_details, details,
                 compute, observe, @observe, observables, ObservedResult
 using .Grammar: FormulaDefinition, FormulaMethod
+include("logging.jl")
 include("formulas.jl")
 
 # Bounded text formatting consumes the completed shared declaration grammar.
@@ -216,6 +216,10 @@ using .UQ:
            statistics, samples, histograms, uncertain,
            root_seed, point_seed, trial_count,
            confidence, cdf_tolerance, sampling_distribution
+
+# Completed-result measurement projections.
+include("performance.jl")
+public benchmark
 
 # Submodule `ReportBuilder`
 include("reportbuilder/ReportBuilder.jl")

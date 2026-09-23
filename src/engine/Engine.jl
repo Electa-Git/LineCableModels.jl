@@ -52,7 +52,7 @@ import ..LineCableModels: nominal
 import ..LineCableModels: constitutive, formula, formula_id,
                           FormulaMethod, FormulaDefinition
 import ..LineCableModels: parameterize
-import ..LineCableModels: performance_sample_active
+import ..LineCableModels: verbosity, VerbosityLogger
 #! explicit-imports: off
 import ..LineCableModels: description
 #! explicit-imports: on
@@ -77,7 +77,7 @@ import ..DataModel
 import ..TextDisplay
 import ..LineCableModels: validate
 import Logging
-using Logging: AbstractLogger, ConsoleLogger, with_logger
+using Logging: with_logger
 import SpecialFunctions
 using QuadGK: alloc_segbuf, quadgk
 
@@ -129,7 +129,6 @@ include("shuntmodel/ShuntModel.jl")
 using .ShuntModel: BoundarySolveError
 include("blueprint_shunt.jl")
 include("input.jl")
-include("logging.jl")
 include("earthreturn.jl")
 include("impedance.jl")
 include("admittance.jl")
@@ -156,7 +155,6 @@ public InternalImpedanceFormulation, InsulationImpedanceFormulation,
        EarthAdmittanceFormulation, ShuntModelFormulation
 public reduce_primitive_matrices
 public layer_admittance
-public ConsoleVerbosityLogger
 public CableBlueprint, BlueprintConductor, BlueprintDielectric, flatten, lineinput,
        earth_pairs
 

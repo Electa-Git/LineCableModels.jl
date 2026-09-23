@@ -16,7 +16,7 @@
             temperature=60.0,frequencies=10.0 .^ range(log10(50.0),log10(1000.0);length=101))
     end
     problem = native_problem([1,2,3,4])
-    options = (remote=remote,verbosity=(default=0,PSCAD=1))
+    options = (timing=true, remote=remote,verbosity=(default=0,PSCAD=1))
     selected = Formulation(:pscad)
     first_timing = @timed compute(problem,selected;options)
     first_result = first_timing.value
@@ -51,12 +51,18 @@
         @test iszero(Y(first_result)[3,4,k])
         @test iszero(Y(first_result)[1,3,k])
     end
+    for result in (first_result, next_result)
+        @test keys(details(result).data.timing) == (:wall_seconds, :compile_call_seconds)
+        @test all(>=(0), values(details(result).data.timing))
+        @test !haskey(details(result).data.execution, :elapsed_seconds)
+    end
     source = details(first_result).data.execution.source_run
     source_hash = bytes2hex(open(sha256,joinpath(source,"outputs","result_zm.out")))
     reuse_timing = @timed compute(native_problem([3,1,4,2]),selected;
         options=(;options...,resume_run_directory=source))
     reordered = reuse_timing.value
     @test details(reordered).data.execution.reused
+    @test isempty(details(reordered).data.timing)
     @test Z(reordered) == Z(first_result)[[2,4,1,3],[2,4,1,3],:]
     @test Y(reordered) == Y(first_result)[[2,4,1,3],[2,4,1,3],:]
     @test bytes2hex(open(sha256,joinpath(source,"outputs","result_zm.out"))) == source_hash
@@ -71,6 +77,8 @@
     # The first two selections share native settings. Distinct settings require
     # separate native outputs, which :latest may reuse from an earlier test run.
     @test callbacks == collect(1:length(selections))
+    @test isempty(details(batch[2]).data.timing)
+    @test all(result -> typeof(result) === typeof(first(batch)), batch)
     @test Z(batch[1]) == Z(batch[2])
     @test Z(batch[1]) !== Z(batch[2])
     # The Gary/Wedepohl case agrees with strict ideal images. Direct integration
@@ -94,6 +102,10 @@
     total = compute(problem,selected;options=(;options...,resume_run_directory=source,output_basis=:total))
     @test Z(total) == 42 .* Z(first_result)
     @test Y(total) == 42 .* Y(first_result)
+    untimed = compute(problem,selected;options=(;options...,timing=false,resume_run_directory=source))
+    @test !haskey(details(untimed).data, :timing)
+    @test details(untimed).data.execution.input_sha256 == details(first_result).data.execution.input_sha256
+    @test Z(untimed) == Z(first_result) && Y(untimed) == Y(first_result)
     observed = ObservedResult(first_result)
     artifact = report(BenchmarkTableDefinition(),(reference=first_result,candidate=last(batch)))
     @test !isempty(artifact.tables.formulations.label)
@@ -106,8 +118,8 @@
     evidence = Dict("transport"=>string(remote.transport), "source_run"=>source,
         "first_compute_seconds"=>first_timing.time,"next_compute_seconds"=>next_timing.time,
         "reuse_seconds"=>reuse_timing.time,
-        "first_compile_seconds"=>details(first_result).data.execution.elapsed_seconds,
-        "next_compile_seconds"=>details(next_result).data.execution.elapsed_seconds,
+        "first_compile_seconds"=>details(first_result).data.timing.compile_call_seconds,
+        "next_compile_seconds"=>details(next_result).data.timing.compile_call_seconds,
         "runs"=>[details(result).data.execution.source_run for result in batch],
         "ideal_deviation"=>Dict(
             "frequency_hz"=>problem.frequencies[end],
@@ -137,7 +149,7 @@ end
         frequencies=10.0 .^ range(0,3;length=101))
     work_root = mktempdir(mkpath(remote.local_root);prefix="identity-rejection-",cleanup=false)
     @test_throws r"does not match the expected solver identity" compute(problem,Formulation(:pscad);
-        options=(;remote,work_root,solver_identity=expected))
+        options=(;timing=true,remote,work_root,solver_identity=expected))
     run_directory = only(readdir(work_root;join=true))
     @test !isfile(joinpath(run_directory,"complete.toml"))
     console = read(joinpath(run_directory,"outputs","pscad-console.txt"),String)

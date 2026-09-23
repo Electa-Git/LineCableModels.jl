@@ -70,7 +70,7 @@ function _solve!(
     eliminate_indices = invariants.eliminate_indices
 
     materials!(workspace, formulation)
-    @info "Starting line parameters computation"
+    @debug "Starting line parameters computation"
     for frequency in 1:input.n_frequencies
         materials!(workspace, formulation, frequency)
         cable_impedance!(Zprimitive, input.cable, buffers.rho_cond,
@@ -222,13 +222,15 @@ function _compute(
         engine::LineCableModelsCoaxial,
         problem::LineParametersProblem,
         formulation::LineParametersFormulation,
-        execution::ComputationOptions
+        execution::ComputationOptions,
+        timing::Val
 )
     values = _compute(
         engine,
         problem,
         typeof(formulation)[formulation],
-        execution
+        execution,
+        timing
     )
     return first(values)
 end
@@ -237,11 +239,18 @@ function _compute(
         engine::LineCableModelsCoaxial,
         problem::LineParametersProblem,
         formulations::AbstractVector{<:LineParametersFormulation},
-        execution::ComputationOptions
+        execution::ComputationOptions,
+        timing::Val
 )
     isempty(formulations) && throw(ArgumentError(
         "line-parameter formulation collections cannot be empty",
     ))
+    progress = verbosity(execution, :progress) > 0
+    started = progress ? time_ns() : UInt64(0)
+    last_log = started
+    previous_completion = started
+    average_seconds = 0.0
+    progress && @info "Line parameters computation started" _group=:progress total=length(formulations)
     validate(problem)
     for design in problem.system.designs, formulation in formulations
 
@@ -260,21 +269,44 @@ function _compute(
         push!(inputs, previous < index ? inputs[previous] :
                       lineinput(problem, blueprints[index]))
     end
-    return map(formulations, inputs, eachindex(formulations)) do formulation, input, index
-        value = _compute(
+    values = map(formulations, inputs, eachindex(formulations)) do formulation, input, index
+        gridpoint = Grammar.gridpoint_id(; source_id, formulation_index=index)
+        # One full scan: workspace, solve, and validated result construction.
+        # Shared preparation, attachment, callback, and progress are excluded.
+        value = if timing isa Val{true}
+            measured = Base.@timed _compute(engine, problem, formulation, execution,
+                input, physical_inputs, gridpoint)
+            retain_gridpoint(measured.value, gridpoint; fields=(timing=(
+                wall_seconds=measured.time, bytes=measured.bytes,
+                gc_seconds=measured.gctime, compile_seconds=measured.compile_time,
+                recompile_seconds=measured.recompile_time),))
+        else
+            _compute(
             engine,
             problem,
             formulation,
             execution,
             input,
             physical_inputs,
-            Grammar.gridpoint_id(; source_id, formulation_index=index)
+            gridpoint
         )
+        end
         execution.data.on_result === nothing ||
             execution.data.on_result(problem, index, value)
-        @info "Line parameters computation completed successfully"
+        if progress
+            now = time_ns()
+            interval = (now - previous_completion) * 1e-9
+            average_seconds = index == 1 ? interval : 0.2 * interval + 0.8 * average_seconds
+            previous_completion = now
+            if now - last_log >= 5_000_000_000
+                @info "Line parameters progress" _group=:progress completed=index total=length(formulations) elapsed_seconds=(now-started)*1e-9 eta_hours=(length(formulations)-index)*average_seconds/3600
+                last_log = now
+            end
+        end
         value
     end
+    progress && @info "Line parameters computation completed successfully" _group=:progress completed=length(values) total=length(formulations) elapsed_seconds=(time_ns()-started)*1e-9
+    return values
 end
 
 """
@@ -372,10 +404,12 @@ function compute(
 )
     options = options isa NamedTuple ? ComputationOptions(options) : options
     execution = computation_options(LineCableModelsCoaxial, options)
-    console = ConsoleLogger(stderr, Logging.Debug)
-    logger = ConsoleVerbosityLogger(console, execution.data.verbosity)
+    # Timing changes the retained detail schema. Carry this finite choice through
+    # the caller's dynamically typed logger without widening the default result.
+    timing = Val(execution.data.timing)
+    logger = VerbosityLogger(Logging.current_logger(), execution.data.verbosity)
     return with_logger(logger) do
-        _compute(engine, problem, formulation, execution)
+        _compute(engine, problem, formulation, execution, timing)
     end
 end
 
@@ -387,10 +421,10 @@ function compute(
 )
     options = options isa NamedTuple ? ComputationOptions(options) : options
     execution = computation_options(LineCableModelsCoaxial, options)
-    console = ConsoleLogger(stderr, Logging.Debug)
-    logger = ConsoleVerbosityLogger(console, execution.data.verbosity)
+    timing = Val(execution.data.timing)
+    logger = VerbosityLogger(Logging.current_logger(), execution.data.verbosity)
     return with_logger(logger) do
-        _compute(engine, problem, formulations, execution)
+        _compute(engine, problem, formulations, execution, timing)
     end
 end
 

@@ -26,8 +26,7 @@ param(
     [int] $Verbosity,
     [Parameter(Mandatory = $true)]
     [ValidateRange(1, 2147483647)]
-    [int] $TimeoutSeconds,
-    [switch] $TrackProgress
+    [int] $TimeoutSeconds
 )
 
 $ErrorActionPreference = "Stop"
@@ -228,7 +227,6 @@ $runnerArguments = @(
 $invokeLines = @(
     "@echo off",
     "setlocal",
-    "set LCM_TRACK_PROGRESS=$([int][bool]$TrackProgress)",
     "set `"JULIA_PYTHONCALL_EXE=$Python`"",
     "`"$Julia`" $($runnerArguments -join ' ') 1>`"$stdoutPath`" 2>`"$stderrPath`"",
     "set `"PSCAD_EXIT=%ERRORLEVEL%`"",
@@ -242,7 +240,6 @@ $exitCode = 1
 $timedOut = $false
 $stdoutCount = 0
 $stderrCount = 0
-$progressHeartbeat = -1
 try {
     $process = Start-Process `
         -FilePath $env:ComSpec `
@@ -256,13 +253,9 @@ try {
 
     $stopwatch = [Diagnostics.Stopwatch]::StartNew()
     while (-not $process.HasExited) {
-        if ($Verbosity -ge 2 -or $TrackProgress) {
+        if ($Verbosity -ge 2) {
             Write-NewLines -Path $stdoutPath -Count ([ref] $stdoutCount) -ErrorStream $false
             Write-NewLines -Path $stderrPath -Count ([ref] $stderrCount) -ErrorStream $true
-        }
-        if ($TrackProgress -and $stopwatch.Elapsed.TotalSeconds -ge $progressHeartbeat + 1) {
-            [Console]::Out.WriteLine("LCM_PROGRESS_V1`theartbeat`t1")
-            $progressHeartbeat = $stopwatch.Elapsed.TotalSeconds
         }
         if ($stopwatch.Elapsed.TotalSeconds -ge $TimeoutSeconds) {
             $timedOut = $true
@@ -299,7 +292,7 @@ try {
         }
     }
 
-    if ($Verbosity -ge 2 -or $TrackProgress) {
+    if ($Verbosity -ge 2) {
         Write-NewLines -Path $stdoutPath -Count ([ref] $stdoutCount) -ErrorStream $false
         Write-NewLines -Path $stderrPath -Count ([ref] $stderrCount) -ErrorStream $true
     }
@@ -310,9 +303,6 @@ try {
     }
     $exitCode = 1
 } finally {
-    if ($TrackProgress) {
-        [Console]::Out.WriteLine("LCM_PROGRESS_V1`tstage`ttransferring")
-    }
     Copy-Result -Source $result -Destination $sharedOutput
     Remove-Item -LiteralPath $ownerPath -Force -ErrorAction SilentlyContinue
 }

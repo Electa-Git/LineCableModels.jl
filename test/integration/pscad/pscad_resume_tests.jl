@@ -64,7 +64,7 @@
         remote=P.RemoteConfig(
             "fixture", directory, "unused", "julia", "python";
             local_root=directory, transport = :completed_run_fixture)
-        options=(; remote, resume_run_directory = :latest)
+        options=(; remote, resume_run_directory = :latest, timing=true)
         for value in (:invalid, "", 1)
             @test_throws ArgumentError computation_options(P.PSCADFormulation, ComputationOptions((; remote, resume_run_directory = value)))
         end
@@ -78,16 +78,16 @@
         @test launches[] == 1
         @test !details(first_result).data.execution.reused
         @test identifications[] == 0
-        @test details(first_result).data.execution.elapsed_scope == P.PSCAD_TIMING_SCOPE
+        @test !haskey(details(first_result).data.execution, :elapsed_scope)
         source=details(first_result).data.execution.source_run
         files=[joinpath(root, file) for (root, _, names) in walkdir(source)
                for file in names]
         original=Dict(path=>(bytes2hex(open(sha256, path)), mtime(path)) for path in files)
         @test isfile(joinpath(source, "complete.toml"))
-        verbose_log=Test.TestLogger()
+        verbose_log=Test.TestLogger(min_level=Logging.Debug)
         reused=with_logger(verbose_log) do
             compute(problem, Formulation(:pscad; earth_impedance = :pollaczek1926);
-                options=(; options..., verbosity=(default=0, PSCAD=1)))
+                options=(; options..., verbosity=(default=0, PSCAD=2)))
         end
         @test identifications[] == 1
         @test any(record->record.message == "PSCAD reuses a verified completed run", verbose_log.logs)
@@ -95,17 +95,15 @@
         @test Z(reused) == Z(first_result)
         @test Y(reused) == Y(first_result)
         @test details(reused).data.execution.reused
-        @test details(reused).data.execution.elapsed_seconds == 0
-        @test details(reused).data.execution.source_elapsed_seconds == 3.25
-        @test details(reused).data.execution.source_elapsed_scope == P.PSCAD_TIMING_SCOPE
-        @test occursin("no solver execution", details(reused).data.execution.elapsed_scope)
+        @test isempty(details(reused).data.timing)
+        @test details(first_result).data.timing.compile_call_seconds == 3.25
+        @test details(first_result).data.timing.wall_seconds >= 0
+        @test !haskey(details(reused).data.execution, :elapsed_seconds)
         @test details(reused).data.formulations.requested.earth_impedance.identifier === :pollaczek1926
         sample_log=Test.TestLogger()
         total=with_logger(sample_log) do
-            LineCableModels.with_performance_sample() do
-                compute(problem, Formulation(:pscad); options = (;
-                    options..., output_basis = :total, verbosity=(default=0, PSCAD=2)))
-            end
+            compute(problem, Formulation(:pscad); options = (;
+                options..., output_basis = :total, verbosity=(default=0,)))
         end
         @test isempty(sample_log.logs)
         @test launches[] == 1
@@ -135,7 +133,7 @@
             details(batch[2]).data.native_setting.interactions.earth_impedance)
         @test Z(batch[1]) == Z(batch[2])
         @test Z(batch[1]) !== Z(batch[2])
-        @test occursin("no solver execution", details(batch[2]).data.execution.elapsed_scope)
+        @test isempty(details(batch[2]).data.timing)
         homogeneous_choices = (air = :default, earth = :default, mixed = :default)
         represented = compute(problem,
             [Formulation(:pscad), Formulation(:pscad; earth_impedance = homogeneous_choices)]; options)
@@ -202,6 +200,18 @@
         @test !details(heterogeneous[2]).data.execution.reused
         @test details(heterogeneous[1]).data.native_setting.ground !=
             details(heterogeneous[2]).data.native_setting.ground
+        # The first cache entry may be reused while a later selection is fresh.
+        before = launches[]
+        source_root = dirname(details(first(heterogeneous)).data.execution.source_run)
+        mixed = compute(problem, [Formulation(:pscad),
+            Formulation(:pscad; options=(base_frequency=55.0,))]; options=(;
+                remote, work_root=source_root, timing=true, resume_run_directory=:latest))
+        @test launches[] == before + 1
+        @test details(first(mixed)).data.execution.reused
+        @test isempty(details(first(mixed)).data.timing)
+        @test !details(last(mixed)).data.execution.reused
+        @test details(last(mixed)).data.timing.compile_call_seconds == 3.25
+        @test typeof(first(mixed)) === typeof(last(mixed))
     finally
         rm(directory; recursive = true)
     end

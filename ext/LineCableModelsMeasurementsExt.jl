@@ -111,7 +111,7 @@ function serialize_value(value::Union{UQ.LinearErrorResult{T},
                 frequency = encode(core.frequency),
                 shunt_model = get(LineCableModels.details(core).data, :shunt_model, nothing),
                 gridpoint_description=(; (key=>LineCableModels.details(core).data[key] for key in
-                    (:inputs,:gridpoint,:selections,:formulation_fields,:uncertainty,:formulations) if haskey(LineCableModels.details(core).data,key))...))
+                    (:inputs,:gridpoint,:selections,:formulation_fields,:uncertainty,:formulations,:timing) if haskey(LineCableModels.details(core).data,key))...))
         end
         LineCableModels.domain(core) === LineCableModels.PhaseDomain ||
             throw(ArgumentError("unsupported scientific UQ result domain"))
@@ -130,7 +130,7 @@ function serialize_value(value::Union{UQ.LinearErrorResult{T},
             comparison_unsupported = get(LineCableModels.details(core).data, :comparison_unsupported, (;)),
             shunt_model = get(LineCableModels.details(core).data, :shunt_model, nothing),
                 gridpoint_description=(; (key=>LineCableModels.details(core).data[key] for key in
-                    (:inputs,:gridpoint,:selections,:formulation_fields,:uncertainty,:formulations) if haskey(LineCableModels.details(core).data,key))...))
+                    (:inputs,:gridpoint,:selections,:formulation_fields,:uncertainty,:formulations,:timing) if haskey(LineCableModels.details(core).data,key))...))
     end
     return serialize_value(
         value, [serialize_value(point, Val(:scientific)) for point in points],

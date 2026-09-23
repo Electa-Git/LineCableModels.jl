@@ -1229,7 +1229,7 @@ end
     using LineCableModels
     using Gmsh
     using SHA
-    using Serialization
+    using Serialization, JSON3, Logging
 
         copper = Material(kind = :conductor, rho = 1 / 5.8e7)
         dielectric = Material(kind = :insulator, rho = 1.0e8, eps_r = 2.3,
@@ -1261,7 +1261,7 @@ end
         formulation_controls = (
                 getdp_verbosity = 0,
                 gmsh_verbosity = 0,
-                keep_run_directory = true
+                keep_run_directory = true, timing = true
             )
         formulation_space = Formulation(:LineCableModelsFEM;
             earth_properties = Grid((formula(:default), nothing)),
@@ -1301,6 +1301,10 @@ end
             @test first_result.details.data.fem.primitive.Z_primitive !==
                   second_result.details.data.fem.primitive.Z_primitive
             @test run_directories[indices[1]] == run_directories[indices[2]]
+            @test !isempty(details(first_result).data.timing)
+            @test isempty(details(second_result).data.timing)
+            @test details(second_result).data.fem.run.reused
+            @test typeof(first_result) === typeof(second_result)
         end
         result = batch[first(default_indices)]
         run_directory = result.details.data.fem.run.run_directory
@@ -1324,12 +1328,15 @@ end
         @test result.details.data.fem.run.completed_columns ==
               length(problem.frequencies) * length(result.details.data.fem.terminal_ids)
         @test run_directory !== nothing
-        timing=result.details.data.fem.timing
-        @test timing.backend == "getdp"
-        @test timing.columns == result.details.data.fem.run.completed_columns
-        @test timing.recovered_columns == 0
-        @test !timing.reused
+        timing=result.details.data.timing
+        @test result.details.data.fem.run.columns == result.details.data.fem.run.completed_columns
+        @test result.details.data.fem.run.recovered_columns == 0
+        @test !result.details.data.fem.run.reused
+        @test keys(timing) == (:wall_seconds, :constraint_seconds, :assembly_seconds,
+            :solve_seconds, :output_seconds, :worker_wall_seconds)
+        @test timing.wall_seconds >= 0
         @test timing.worker_wall_seconds >= 0
+        @test !haskey(result.details.data.fem, :timing)
         extension=Base.get_extension(LineCableModels,:LineCableModelsGmshExt)
         native=[extension._column_timing(extension._column_paths(
                 run_directory,frequency,basis,false).timing,frequency,basis)
@@ -1376,10 +1383,21 @@ end
         @test repeated.Y.values == result.Y.values
         @test repeated.details.data.formulations.methods.earth_properties === nothing
         @test repeated.details.data.fem.run.run_directory == run_directory
-        @test repeated.details.data.fem.timing.reused
-        @test repeated.details.data.fem.timing.solve_seconds == timing.solve_seconds
+        @test repeated.details.data.fem.run.reused
+        @test isempty(repeated.details.data.timing)
         @test repeated.details.data.fem.inputs.getdp_identity.sha256 != ""
         @test !Bool(Gmsh.gmsh.is_initialized())
+        @test snapshot_files(run_directory) == before_reuse
+        batch_log = Test.TestLogger()
+        reused_batch = with_logger(batch_log) do
+            compute(problem, fill(selected[last(default_indices)], 3); options=(;
+                formulation_controls..., trace=true, resume_run_directory=run_directory,
+                verbosity=(default=0, progress=1)))
+        end
+        @test all(value->isempty(details(value).data.timing), reused_batch)
+        @test all(value->Z(value) == Z(result) && Y(value) == Y(result), reused_batch)
+        @test last(batch_log.logs).message == "FEM computation completed successfully"
+        @test last(batch_log.logs).kwargs[:completed] == 3
         @test snapshot_files(run_directory) == before_reuse
         mktempdir() do temporary
             expected = joinpath(temporary, "expected.bin")
@@ -1404,6 +1422,32 @@ end
             @test occursin("completed-run reuse verified in fresh Julia", read(command, String))
             @test snapshot_files(run_directory) == before_reuse
         end
+        # Timing does not alter native compatibility, including completed reuse.
+        untimed = compute(problem, selected[last(default_indices)]; options=(;
+            formulation_controls..., timing=false, trace=true, resume_run_directory=run_directory))
+        @test !haskey(details(untimed).data, :timing)
+        @test JSON3.write(details(untimed).data.fem.inputs) == JSON3.write(details(repeated).data.fem.inputs)
+        @test Z(untimed) == Z(result) && Y(untimed) == Y(result)
+        @test snapshot_files(run_directory) == before_reuse
+        # Reopen this test-owned run with one missing column. The remaining
+        # completed work must be recovered without becoming a fresh timing sample.
+        state = JSON3.read(read(joinpath(run_directory, "run.json"), String), Dict{String,Any})
+        state["state"] = "failed"
+        write(joinpath(run_directory, "run.json"), JSON3.write(state))
+        paths = extension._column_paths(run_directory, 1, 1, false)
+        rm(paths.checkpoint)
+        rm(paths.marker; force=true)
+        for attempt in readdir(joinpath(run_directory, "attempts"); join=true)
+            marker = extension._column_paths(attempt, 1, 1, false).marker
+            rm(marker; force=true)
+        end
+        recovered = compute(problem, selected[last(default_indices)]; options=(;
+            formulation_controls..., trace=true, resume_run_directory=run_directory))
+        @test isempty(details(recovered).data.timing)
+        @test details(recovered).data.fem.run.recovered_columns > 0
+        @test details(recovered).data.fem.run.getdp_invocations ==
+            details(result).data.fem.run.getdp_invocations + 1
+        @test Z(recovered) == Z(result) && Y(recovered) == Y(result)
         rm(lossy.details.data.fem.run.run_directory; recursive = true, force = true)
 
         # The display lifecycle belongs to fem_ui.jl and its isolated children.

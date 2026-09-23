@@ -119,11 +119,16 @@
             verbosity = (default = 0, PSCAD = 2),
             output_basis = :total
         )))
+    for timing in (0, 1, nothing, :yes)
+        @test_throws ArgumentError LineCableModels.computation_options(owner,
+            ComputationOptions(; remote=config, timing))
+    end
     @test execution.data == (
         work_root=config.local_root,
         output_stem = "case",
         remote = config,
         verbosity = (default = 0, PSCAD = 2),
+        timing = false,
         output_basis = Val(:total),
         on_result = nothing,
         resume_run_directory = nothing,

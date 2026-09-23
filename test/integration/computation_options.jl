@@ -56,6 +56,7 @@ end
 end
 
 @testitem "Execution options / completed tensors and callback precede success notification" tags=[:integration] setup=[TestFixtures] begin
+    using Logging
     E = LineCableModels.Engine
     problem = TestFixtures.three_bare_wires_problem(frequencies=[1e7], line_length=floatmax(Float64))
     selected = Formulation(options=(reduce_bundle=false, kron_reduction=false, ideal_transposition=false))
@@ -63,46 +64,39 @@ end
     callback = (problem, index, result) -> push!(calls, index)
     pul = compute(problem, selected)
     @test all(isfinite, Z(pul)) && all(isfinite, Y(pul))
-    mktemp() do path, stream
-        redirect_stderr(stream) do
-            @test_throws DomainError compute(problem, selected;
-                options=(output_basis=:total, on_result=callback, verbosity=(default=1,)))
-        end
-        seekstart(stream)
-        @test !occursin("completed successfully", read(stream, String))
+    failure_log = Test.TestLogger()
+    with_logger(failure_log) do
+        @test_throws DomainError compute(problem, selected;
+            options=(timing=true, output_basis=:total, on_result=callback, verbosity=(default=1,)))
     end
+    @test !any(record -> occursin("completed successfully", string(record.message)), failure_log.logs)
     @test isempty(calls)
     ordinary = TestFixtures.three_bare_wires_problem(frequencies=[50.])
     failed_callback = function (_, index, result)
         push!(calls, index)
         @test haskey(details(result).data, :formulations)
+        @test haskey(details(result).data, :timing)
         error("injected callback failure")
     end
     for choice in (selected, [selected, selected])
         empty!(calls)
-        mktemp() do path, stream
-            redirect_stderr(stream) do
-                @test_throws ErrorException compute(ordinary, choice;
-                    options=(on_result=failed_callback, verbosity=(default=1,)))
-            end
-            seekstart(stream)
-            @test !occursin("completed successfully", read(stream, String))
+        empty!(failure_log.logs)
+        with_logger(failure_log) do
+            @test_throws ErrorException compute(ordinary, choice;
+                options=(timing=true, on_result=failed_callback, verbosity=(default=1,)))
         end
+        @test !any(record -> occursin("completed successfully", string(record.message)), failure_log.logs)
         @test calls == [1]
     end
     completed_callback = (_, index, result) -> (@info "callback completed" index)
-    mktemp() do path, stream
-        redirect_stderr(stream) do
-            result = compute(ordinary, [selected, selected];
-                options=(on_result=completed_callback, verbosity=(default=1,)))
-            @test length(result) == 2
-        end
-        seekstart(stream)
-        lines = filter(line -> occursin("callback completed", line) ||
-            occursin("computation completed successfully", line), readlines(stream))
-        @test length(lines) == 4
-        @test all(i -> occursin(isodd(i) ? "callback completed" : "completed successfully", lines[i]), 1:4)
+    log = Test.TestLogger()
+    with_logger(log) do
+        result = compute(ordinary, [selected, selected];
+            options=(on_result=completed_callback, verbosity=(default=1,)))
+        @test length(result) == 2
     end
+    lines = filter(record -> record.message in ("callback completed", "Line parameters computation completed successfully"), log.logs)
+    @test getproperty.(lines, :message) == ["callback completed", "callback completed", "Line parameters computation completed successfully"]
     # Exercise both completed tensor checks independently at their numerical boundary.
     execution = computation_options(LineCableModelsCoaxial, ComputationOptions())
     blueprints = only(E.flatten(LineCableModelsCoaxial(), ordinary.system.designs, Float64, [selected]))

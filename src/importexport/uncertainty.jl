@@ -84,7 +84,7 @@ end
 
 function serialize_value(value::LineParameters)
     retained=LineCableModels.details(value).data
-    return Dict("__type__"=>"LineParameters", "Z"=>serialize_value(observe(value, Z)),
+    record = Dict("__type__"=>"LineParameters", "Z"=>serialize_value(observe(value, Z)),
         "Y"=>serialize_value(observe(value, Y)), "frequencies"=>serialize_value(frequencies(value)),
         "basis"=>string(LineCableModels.basis(value)), "domain"=>string(nameof(Engine.domain(value))),
         "coordinates"=>serialize_value(get(retained, :coordinates, nothing)),
@@ -93,6 +93,8 @@ function serialize_value(value::LineParameters)
         "comparison_unsupported"=>serialize_value(get(retained, :comparison_unsupported, (;))),
         "gridpoint_description"=>serialize_value((; (key=>retained[key] for key in
             (:inputs,:gridpoint,:selections,:formulation_fields,:uncertainty,:uncertainty_descriptions,:modal) if haskey(retained,key))...),Val(:scientific)))
+    haskey(retained, :timing) && (record["timing"]=serialize_value(retained.timing, Val(:scientific)))
+    return record
 end
 function deserialize_extension(::Val{:LineParameters}, record)
     record["domain"] in ("PhaseDomain","ModalDomain") ||
@@ -109,6 +111,7 @@ function deserialize_extension(::Val{:LineParameters}, record)
         NamedTuple{(:shunt_model,),Tuple{NamedTuple}}((shunt_model,))))
     retained_description=deserialize_value(get(record,"gridpoint_description",serialize_value((;),Val(:scientific))))
     detail=merge(detail,retained_description)
+    haskey(record, "timing") && (detail=merge(detail, (timing=deserialize_value(record["timing"]),)))
     # Reading a primary result binds its passive selections to their owners.
     # Capture current compact descriptions here, before any observation exists;
     # retained ObservedResult loading and plotting never reopen this path.
@@ -164,8 +167,10 @@ function serialize_value(value::Union{UQ.MonteCarloResult,UQ.LinearErrorResult},
         retained
     elseif value isa UQ.LinearErrorResult
         (points=map(point -> point.data, retained.points),)
-    else
+    elseif haskey(retained, :trials)
         merge(retained, (trials=map(trials -> map(trial -> trial.data, trials), retained.trials),))
+    else
+        retained
     end
     return Dict(
         "__type__"=>value isa UQ.MonteCarloResult ? "MonteCarloResult" :
@@ -204,7 +209,7 @@ function deserialize_extension(kind::Union{Val{:MonteCarloResult}, Val{:LinearEr
                     Engine.completion_details(detail) : ComputationDetails(detail)
             end
             retained=(points=records,)
-        else
+        elseif haskey(retained, :trials)
             records=map(retained.trials,points) do trials,point
                 map(trials) do detail
                     point isa Union{Engine.CableConstants,LineParameters} ?

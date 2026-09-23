@@ -95,13 +95,6 @@ function _report(console::IO, verbosity::Int, level::Int, message::AbstractStrin
     return nothing
 end
 
-function _progress(stage)
-    get(ENV,"LCM_TRACK_PROGRESS","0")=="1" || return nothing
-    println(stdout,"LCM_PROGRESS_V1\tstage\t",stage)
-    flush(stdout)
-    return nothing
-end
-
 function _project_diagnostics(project)
     parts=String["PSCAD messages:\n$(strip(_messages(project)))"]
     try
@@ -163,7 +156,6 @@ function main(arguments)
         ))
         pscad = pyimport("mhi.pscad")
         phase = "PSCAD launch"
-        _progress("launching")
         _report(console, verbosity, 1, "Launching PSCAD 5.1.0")
         app = cd(abspath(output)) do
             pscad.launch(;
@@ -183,7 +175,6 @@ function main(arguments)
         expected_identity === nothing || initial_identity == expected_identity ||
             error("PSCAD installation does not match the expected solver identity")
         phase = "project load"
-        _progress("loading")
         _report(console, verbosity, 1, "Loading generated project $project_name")
         app.load(abspath(project_path))
         project = app.project(project_name)
@@ -235,14 +226,12 @@ function main(arguments)
             2,
             "Applied frequency range $fs Hz to $fe Hz and formulation $formulation"
         )
-        _progress("configuring")
         _verify_retained_ports(components)
         _report(console, verbosity, 2, "Verified that all cable terminals are retained")
         project.save()
         _record_diagnostics(console, project, verbosity, "PSCAD diagnostics before calculation")
         phase = "line-constants calculation"
         _report(console, verbosity, 1, "Starting PSCAD line-constants calculation")
-        _progress("compiling")
         started = time_ns()
         line.compile()
         elapsed = (time_ns() - started)*1e-9
@@ -260,7 +249,6 @@ function main(arguments)
             abspath(_string(project.temp_folder))
         ]
         phase = "detailed-output completion"
-        _progress("waiting_outputs")
         expected_rows=parse(Int, numf) + 1
         _report(
             console,

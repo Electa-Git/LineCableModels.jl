@@ -16,14 +16,13 @@ using LineCableModels.Earth: EarthModel
 using LineCableModels.Engine
 using LineCableModels.ImportExport
 import LineCableModels: description, parameterize, computation_details, validate,
-                        FormulaMethod
+                        FormulaMethod, verbosity
 import LineCableModels.Engine.EarthImpedance: earth_impedance
 import LineCableModels.Engine.EarthAdmittance: earth_potential_coefficient
 import LineCableModels.Engine.InternalImpedance: internal_impedance
 import LineCableModels.Engine.InsulationImpedance: insulation_impedance
 import LineCableModels.Engine: Formulation,
-                               LineParametersProblem,
-                               verbosity
+                               LineParametersProblem
 import LineCableModels.Grammar: AbstractFormulation, ComputationOptions, ComputationDetails,
                                 FormulationOptions, computation_options, compute,
                                 formulation_options

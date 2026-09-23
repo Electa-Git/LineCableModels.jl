@@ -153,7 +153,7 @@ function _getdp_command(executable, model_path, mesh_path, run, formulation, exe
         bases, directory; reuse_factorization = true)
     basis_path = joinpath(directory, "bases.pro")
     write(basis_path, "RequestedBases() = $(_pro_array(bases));\n")
-    verbosity = LineCableModels.performance_sample_active() ? 0 : execution.data.getdp_verbosity
+    verbosity = execution.data.getdp_verbosity
     arguments = [executable, model_path, "-solve", "LineCableModelsFEMScan",
         "-setnumber", "Physics", string(_fem_physics_code(formulation)),
         "-msh", abspath(mesh_path), "-name", joinpath(directory, "solver"),
@@ -421,7 +421,6 @@ function _run_getdp!(run::FEMRun, model::FEMResolvedModel, formulation::LineCabl
     valid = _recover_columns!(run, model, execution.data.plot_field_maps, mesh_digests;
         physics=formulation.options.data.physics)
     recovered_columns=count(valid)
-    receiver=LineCableModels.progress_receiver()
     pending = Tuple{Int, Vector{Int}}[]
     for frequency in axes(valid, 2)
         bases = findall(!, valid[:, frequency])
@@ -435,12 +434,12 @@ function _run_getdp!(run::FEMRun, model::FEMResolvedModel, formulation::LineCabl
     active = FEMActiveWorker[]
     next_job = 1
     worker_wall_seconds=0.0
-    previous_progress=nothing
-    receiver === nothing || LineCableModels.report_progress(receiver,
-        (stage=:solving, frequencies_completed=count(all,eachcol(valid)),
-            frequencies_total=size(valid,2), workers=0,
-            capacity=(execution.data.frequency_workers,execution.data.solver_threads),
-            partial_recovery=recovered_columns>0))
+    progress = LineCableModels.verbosity(execution, :progress) > 0
+    started = progress ? time_ns() : UInt64(0)
+    previous = started
+    last_log = started
+    previous_columns = recovered_columns
+    average_seconds = 0.0
     try
         while next_job <= length(pending) || !isempty(active)
             pump() || _fem_error(:cancelled, "GetDP", :ui,
@@ -478,13 +477,16 @@ function _run_getdp!(run::FEMRun, model::FEMResolvedModel, formulation::LineCabl
                         "Attempt: $(worker.job.directory)\nGetDP log tail:\n$tail"; run_directory = run.path)
                 end
             end
-            if receiver !== nothing
-                current=(next_job,length(active),run.completed_columns)
-                if current != previous_progress
-                    LineCableModels.report_progress(receiver,
-                        (stage=:solving, frequencies_completed=count(all,eachcol(valid)),
-                            frequencies_total=size(valid,2), workers=length(active)))
-                    previous_progress=current
+            if progress && run.completed_columns > previous_columns
+                now = time_ns()
+                interval = (now - previous) * 1e-9 / (run.completed_columns - previous_columns)
+                average_seconds = previous_columns == recovered_columns ? interval :
+                    0.2 * interval + 0.8 * average_seconds
+                previous = now
+                previous_columns = run.completed_columns
+                if now - last_log >= 5_000_000_000
+                    @info "FEM frequency sweep progress" _group=:progress completed_columns=run.completed_columns total_columns=length(valid) completed_frequencies=run.completed_frequencies total_frequencies=size(valid,2) elapsed_seconds=(now-started)*1e-9 eta_hours=(length(valid)-run.completed_columns)*average_seconds/3600
+                    last_log = now
                 end
             end
             isempty(active) || sleep(0.02)

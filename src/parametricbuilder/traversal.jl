@@ -78,12 +78,13 @@ same problem-index-fastest storage order.
   `ComputationDetails`, empty or containing `(points=records,)`.
 """
 function traverse(problem::ParametricProblem, formulation)
-    return with_scan_progress() do receiver
-        _traverse(problem,formulation,receiver)
-    end
-end
-
-function _traverse(problem,formulation,receiver)
+    progress = problem.space isa Gridspace{<:Engine.LineParametersProblem} && verbosity(problem.options, :progress) > 0
+    started = progress ? time_ns() : UInt64(0)
+    previous = started
+    last_log = started
+    average_seconds = 0.0
+    child_options = progress ? ComputationOptions(merge(problem.options.data,
+        (verbosity=merge(problem.options.data.verbosity, (progress=0,)),))) : problem.options
     source_id = Grammar.gridpoint_id().source_id
     point_count = length(problem.space)
     point_count > 0 || throw(ArgumentError(
@@ -103,12 +104,9 @@ function _traverse(problem,formulation,receiver)
     ))
     first_point, state = first_item
     first_problem = materialize(first_point)
-    receiver === nothing || report_progress(receiver,
-        (kind=:scan, stage=:computing, completed=0, total=point_count*formulation_count,
-            point=1, batch=formulation_count))
     first_batch = [Engine.retain_gridpoint(value,
         Grammar.gridpoint_id(;source_id,problem_index=1,formulation_index=index))
-        for (index,value) in enumerate(compute(first_problem, formulations; options = problem.options))]
+        for (index,value) in enumerate(compute(first_problem, formulations; options = child_options))]
     length(first_batch) == formulation_count || throw(DimensionMismatch(
         "batched computation did not return one result per formulation",
     ))
@@ -150,10 +148,17 @@ function _traverse(problem,formulation,receiver)
         nothing
     end
 
+    if progress
+        now = time_ns()
+        average_seconds = (now - previous) * 1e-9 / formulation_count
+        previous = now
+        if now - last_log >= 5_000_000_000
+            @info "Parametric progress" _group=:progress problems_completed=1 problems=point_count completed=formulation_count total=point_count*formulation_count elapsed_seconds=(now-started)*1e-9 eta_hours=(point_count-1)*formulation_count*average_seconds/3600
+            last_log = now
+        end
+    end
+
     for index in 2:point_count
-        receiver === nothing || report_progress(receiver,
-            (kind=:scan, stage=:computing, completed=(index-1)*formulation_count, total=point_count*formulation_count,
-                point=index, batch=formulation_count))
         item = iterate(point_source, state)
         item === nothing && throw(DimensionMismatch(
             "problem-space iteration ended before its declared cardinality",
@@ -162,7 +167,7 @@ function _traverse(problem,formulation,receiver)
         resolved_problem = materialize(point)
         batch = [Engine.retain_gridpoint(value,
             Grammar.gridpoint_id(;source_id,problem_index=index,formulation_index=fi))
-            for (fi,value) in enumerate(compute(resolved_problem, formulations; options = problem.options))]
+            for (fi,value) in enumerate(compute(resolved_problem, formulations; options = child_options))]
         length(batch) == formulation_count || throw(DimensionMismatch(
             "batched computation did not return one result per formulation",
         ))
@@ -185,13 +190,20 @@ function _traverse(problem,formulation,receiver)
                 retained[result_index] = record
             end
         end
+        if progress
+            now = time_ns()
+            interval = (now - previous) * 1e-9 / formulation_count
+            average_seconds = 0.2 * interval + 0.8 * average_seconds
+            previous = now
+            if now - last_log >= 5_000_000_000
+                @info "Parametric progress" _group=:progress problems_completed=index problems=point_count completed=index*formulation_count total=point_count*formulation_count elapsed_seconds=(now-started)*1e-9 eta_hours=(point_count-index)*formulation_count*average_seconds/3600
+                last_log = now
+            end
+        end
     end
     iterate(point_source, state) === nothing || throw(DimensionMismatch(
         "problem-space iteration exceeded its declared cardinality",
     ))
-    receiver === nothing || report_progress(receiver,
-        (kind=:scan, stage=:computed, completed=point_count*formulation_count, total=point_count*formulation_count,
-            batch=formulation_count))
 
     retained_details = ComputationDetails(retained === nothing ? (;) : (points = retained,))
     axes = (
@@ -219,13 +231,17 @@ function compute(
 end
 
 function compute(problem::ParametricProblem, formulation::Combinatorial)
-    traversed = traverse(problem, formulation)
-    return ParametricResult(
-        formulation,
-        traversed.values,
-        traversed.axes,
-        traversed.details
-    )
+    levels = verbosity(get(problem.options.data, :verbosity, (default=0,)))
+    progress = problem.space isa Gridspace{<:Engine.LineParametersProblem} && get(levels, :progress, levels.default) > 0
+    logger = haskey(problem.options.data, :verbosity) ? VerbosityLogger(Logging.current_logger(), levels) : Logging.current_logger()
+    return Logging.with_logger(logger) do
+        started = progress ? time_ns() : UInt64(0)
+        progress && @info "Parametric computation started" _group=:progress problems=length(problem.space)
+        traversed = traverse(problem, formulation)
+        result = ParametricResult(formulation, traversed.values, traversed.axes, traversed.details)
+        progress && @info "Parametric computation completed successfully" _group=:progress completed=length(result) total=length(result) elapsed_seconds=(time_ns()-started)*1e-9
+        result
+    end
 end
 
 """

@@ -63,21 +63,12 @@
     @test observed[1].gridpoint.sampling.diagnostics.failures[1].sample==sampled.details.data.failures[1][1].sample
     recorded = copy(attempted_temperatures)
     empty!(attempted_temperatures)
-    progress_events = NamedTuple[]
-    replay = LineCableModels.with_progress(event -> push!(progress_events, event)) do
-        compute(ParametricProblem(space), formulation)
-    end
+    replay = compute(ParametricProblem(space), formulation)
     @test attempted_temperatures == recorded
     @test samples(replay) == samples(sampled)
     @test replay.point_seeds == sampled.point_seeds
     @test replay.details.data.failure_summary == sampled.details.data.failure_summary
-    trial_events = filter(event -> get(event, :kind, nothing) === :scan, progress_events)
-    @test maximum(event.rejected for event in trial_events) == 2
-    @test last(trial_events).completed == 4
-    @test last(trial_events).attempts == 4
-    @test all(event -> event.completed <= event.attempts, trial_events)
-    @test count(event -> get(event, :kind, nothing) === :scan_end, progress_events) == 2
-    @test all(event -> get(event, :state, :complete) === :complete, progress_events)
+
 end
 
 @testitem "UQ / retries do not hide non-domain errors or run past their limit" tags=[:integration] begin

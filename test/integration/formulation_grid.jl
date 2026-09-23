@@ -38,15 +38,8 @@
               for formulation in formulations
               for problem in problems]
 
-    events=NamedTuple[]
-    run=LineCableModels.with_progress(e->push!(events,e)) do
-        compute(ParametricProblem(problem_space),
-            Combinatorial(formulation_space; options = (retain_details = true,)))
-    end
-    scans=filter(e->get(e,:kind,nothing)===:scan,events)
-    @test getproperty.(scans,:completed)==[0,2,4]
-    @test all(e->e.total==4 && e.batch==2,scans)
-    @test last(events).state===:complete
+    run=compute(ParametricProblem(problem_space),
+        Combinatorial(formulation_space; options=(retain_details=true,)))
     @test length(run) == length(problems) * length(formulations)
     @test length(details(run).data.points) == length(run)
     @test formula_id.(getproperty.(

@@ -36,46 +36,32 @@ function computation_options(
         record::ComputationOptions
 )::ComputationOptions
     options = record.data
-    allowed = (:verbosity, :output_basis, :trace, :on_result)
+    allowed = (:verbosity, :output_basis, :trace, :on_result, :timing)
     unknown = filter(key -> key ∉ allowed, keys(options))
     isempty(unknown) || throw(ArgumentError(
         "unknown LineCableModelsCoaxial computation options: $(sort!(collect(unknown)))",
     ))
     normalized = merge(
         (verbosity = (default = 0,), output_basis = :pul,
-            trace = false, on_result = nothing),
+            trace = false, on_result = nothing, timing = false),
         options
     )
-    verbosity_values = normalized.verbosity
-    verbosity_values isa NamedTuple || throw(ArgumentError(
-        "verbosity must be a named tuple",
-    ))
-    haskey(verbosity_values, :default) || throw(ArgumentError(
-        "verbosity must define a default level",
-    ))
-    all(value -> value isa Integer && value in 0:2, values(verbosity_values)) ||
-        throw(ArgumentError("verbosity levels must be integers from 0 to 2"))
+    levels = verbosity(normalized.verbosity)
     basis_value = normalized.output_basis
     basis_value in (:pul, :total) || throw(ArgumentError(
         "output_basis must be :pul or :total; got $(repr(basis_value))",
     ))
     normalized.trace isa Bool || throw(ArgumentError("trace must be Bool"))
-    levels = NamedTuple{keys(verbosity_values)}(Int.(values(verbosity_values)))
+    normalized.timing isa Bool || throw(ArgumentError("timing must be Bool"))
     return ComputationOptions(;
         verbosity = levels,
         output_basis = Val(basis_value),
         trace = Val(normalized.trace),
-        on_result = normalized.on_result
+        on_result = normalized.on_result,
+        timing = normalized.timing
     )
 end
 
-function verbosity(record::ComputationOptions, key::Symbol)
-    options = record.data
-    haskey(options, :verbosity) || throw(ArgumentError(
-        "computation options do not define verbosity",
-    ))
-    return get(options.verbosity, key, options.verbosity.default)
-end
 
 description(::Type{<:Union{LineParametersFormulation,LineCableModelsFEM}},
     ::Val{:reduce_bundle},value::Bool;compact::Bool=false) = "bundle reduction="*string(value)
@@ -131,6 +117,7 @@ The field model is selected separately by `formulation_options(LineCableModelsFE
   - `verbosity=(default=0,)`: Julia logging levels from 0 through 2.
   - `output_basis=:pul`: Per-unit-length matrices; `:total` scales by line length.
   - `trace=false`: Retain primitive matrices.
+  - `timing=false`: Retain fresh complete-scan measurements in result details.
   - `on_result=nothing`: Optional callback `(problem, index, result)`.
   - `log_file=nothing`: Optional Julia log path.
   - `resume_run_directory=nothing`: Resume a compatible path or `:latest`.
@@ -151,7 +138,7 @@ function computation_options(::Type{LineCableModelsFEM}, record::ComputationOpti
         keep_run_directory=false, getdp_executable=nothing,
         gmsh_verbosity=2, getdp_verbosity=2, frequency_workers=2, solver_threads=1,
         log_file=nothing, resume_run_directory=nothing)
-    standard_keys = (:verbosity, :output_basis, :trace, :on_result)
+    standard_keys = (:verbosity, :output_basis, :trace, :on_result, :timing)
     unknown = setdiff(keys(options), (keys(defaults)..., standard_keys...))
     isempty(unknown) || throw(ArgumentError(
         "unknown LineCableModelsFEM computation options: $(Tuple(unknown))"))

@@ -52,7 +52,7 @@
                 cancelled[] = true
                 callback_fails && error("synthetic cancellation diagnostic")
             end
-            log = Test.TestLogger()
+            log = Test.TestLogger(min_level=Logging.Debug)
             task = with_logger(log) do
                 @async try
                     P._run_remote(config, "ignored";
@@ -75,41 +75,6 @@
     end
 end
 
-@testitem "PSCAD / progress protocol is independent of diagnostic verbosity" tags=[:integration] begin
-    const P = LineCableModels.PSCAD
-    events=NamedTuple[]
-    function P.remote_command(::Val{:local_progress_probe}, config::P.RemoteConfig, command::AbstractString)
-        script="println(\"LCM_PROGRESS_V1\\tstage\\tcompiling\"); println(\"LCM_PROGRESS_V1\\theartbeat\\t1\"); println(\"human diagnostics\")"
-        return `$(Base.julia_cmd()) --startup-file=no --project=@stdlib -e $script`
-    end
-    mktempdir() do root
-        config=P.RemoteConfig("fixture",root,"scratch","julia","python";
-            local_root=root,transport=:local_progress_probe)
-        command()=P._supervisor_command(config,root,"scratch","fixture",
-            Formulation(:pscad),10.0.^range(-1,7;length=101);output_stem="fixture",verbosity=0)
-        @test !occursin("-TrackProgress",command())
-        LineCableModels.with_progress(event->push!(events,event)) do
-            @test occursin("-TrackProgress",command())
-            P._run_remote(config,"ignored";stream=false,
-                stdout_path=joinpath(root,"transport.txt"))
-            @test only(filter(e->haskey(e,:stage),events)).stage === :compiling
-            @test any(e->haskey(e,:heartbeat_unix_seconds),events)
-            @test all(e->!haskey(e,:completed),events)
-            count=length(events)
-            @test P._remote_progress(LineCableModels.progress_receiver(),"LCM_PROGRESS_V1\tstage\tunknown")
-            @test !P._remote_progress(LineCableModels.progress_receiver(),"compiling 50 Hz")
-            @test length(events)==count
-            LineCableModels.with_performance_sample() do
-                @test !occursin("-TrackProgress",command())
-                P._remote_progress(LineCableModels.progress_receiver(),"LCM_PROGRESS_V1\tstage\tcompiling")
-            end
-            @test length(events)==count
-        end
-        @test occursin("human diagnostics",read(joinpath(root,"transport.txt"),String))
-        @test !occursin("LCM_PROGRESS_V1",read(joinpath(root,"transport.txt"),String))
-    end
-end
-
 @testitem "PSCAD / completion verbosity and compile-call timing scope" tags=[:integration] begin
     using Logging
     const P = LineCableModels.PSCAD
@@ -127,20 +92,16 @@ end
             directory = mkpath(joinpath(root, "case"))
             project = joinpath(directory, "generated.pscx")
             write(project, "protocol fixture")
-            log = Test.TestLogger()
-            events = NamedTuple[]
+            log = Test.TestLogger(min_level=Logging.Debug)
             result = with_logger(log) do
-                LineCableModels.with_progress(e->push!(events, e)) do
-                    P.run_remote_pscad(config, project, joinpath(directory, "outputs"),
+                P.run_remote_pscad(config, project, joinpath(directory, "outputs"),
                         Formulation(:pscad), 10.0.^range(-1, 7; length=101);
-                        output_stem="fixture", verbosity=level)
-                end
+                    output_stem="fixture", verbosity=level)
             end
             @test result.elapsed_seconds ≈ 0.0328471
             @test result.elapsed_scope == P.PSCAD_TIMING_SCOPE
-            @test any(e->get(e, :stage, nothing) === :validating, events)
             completions = filter(record->record.message == "PSCAD frequency scan completed", log.logs)
-            if level == 0
+            if level < 2
                 @test isempty(log.logs)
             else
                 record = only(completions)

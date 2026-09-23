@@ -57,7 +57,7 @@ end
     @test details(fw).data.fem.run isa NamedTuple
     @test fw.details.data.fem.run.getdp_invocations == 1
     @test fw.details.data.fem.run.completed_columns == 2
-    @test fw.details.data.fem.timing.factorized_columns == 1
+    @test fw.details.data.fem.run.factorized_columns == 1
     @test length(fw.details.data.fem.run.map_paths) == 24
     @test length(tem.details.data.fem.run.map_paths) == 18
     @test occursin("Coupled", fw.details.data.formulations.assumptions.admittance)
@@ -70,7 +70,7 @@ end
     repeated = compute(problem, last(formulations); options = (;
         controls..., resume_run_directory = path))
     @test Y(repeated) == Y(fw)
-    @test repeated.details.data.fem.timing.reused
+    @test repeated.details.data.fem.run.reused
     @test_throws ArgumentError compute(problem, first(formulations);
         options = (; controls..., resume_run_directory = path))
     # Both physics use the same named ONELAB selector and resolution.
