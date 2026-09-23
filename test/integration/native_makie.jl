@@ -85,9 +85,24 @@ end
         colorbar.ticklabelsize[] = 20
         colorbar.ticklabelrotation[] = pi / 8
         @test ticklabels_fit(plot)
-        # Narrow the window while retaining height for three enlarged scales.
+        # A manual resize is an explicit local allocation, even below the
+        # complete guide stack's minimum width. It must not snap back or
+        # silently shrink/reflow the requested scale arrangement.
         resize!(plot.figure, 700, 650)
-        @test ticklabels_fit(plot)
+        @test Tuple(plot.figure.scene.viewport[].widths)==(700,650)
+        if position in (:top,:bottom) && !vertical
+            group=plot.addon_state.guides[(:colorbars,nothing)].layout[]
+            @test group.layoutobservables.autosize[][1]>700
+            @test colorbar.ticklabelsize[]==20
+            @test colorbar.ticklabelrotation[]≈pi/8
+            extension=Base.get_extension(LineCableModels,:LineCableModelsMakieExt)
+            extension._addon_export_presentation!(plot,:default) do
+                @test ticklabels_fit(plot) # temporary fit includes complete content
+            end
+            @test Tuple(plot.figure.scene.viewport[].widths)==(700,650)
+        else
+            @test ticklabels_fit(plot)
+        end
     end
 
     late = preview(design; backend=:cairo, display_plot=false, controls=false,

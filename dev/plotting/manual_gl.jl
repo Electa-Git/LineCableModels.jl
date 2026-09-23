@@ -191,4 +191,54 @@ end
     removewidget!(handle,:count)
 end
 
+@testset "manual GL independent guide arrangement and resize" begin
+    include(joinpath(@__DIR__, "../../test/support/scenarios.jl"))
+    # Previously scales defaulted to a right column. Previews now default to a
+    # bottom strip with left-side property labels and 24-pixel plot clearance.
+    # Explicit group layout still owns cells independently of bar orientation.
+    p=preview(CurrentScenarios.coaxial_design();backend=:gl,display_plot=true,
+        size=(1200,900),legend_position=:right,
+        legend_attributes=(halign=:left,valign=:top),
+        colorbar_attributes=(vertical=false,width=160,height=14),
+        colorbar_group_attributes=(layout=(1,3),colgap=16,halign=:center),
+        guide_spacing=(rowgap=14,colgap=16))
+    guide=p.addon_state.guides[(:colorbars,nothing)]
+    bars=copy(p.colorbars)
+    axis=only(p.axes)
+    limits!(axis,-.024,.032,-.028,.028)
+    view=axis.targetlimits[]
+    data=copy(axis.scene.plots)
+    callbacks=length(guide.subscriptions)
+    clicks=Ref(0)
+    button=addwidget!((p,slot) -> Button(slot;label="Count"),p,:guide_count;
+        event=button -> button.clicks,callback=(p,_) -> (clicks[]+=1))
+    GLMakie.save(joinpath(ARTIFACT_DIRECTORY,"guide-bottom.png"),p.figure)
+    @test size(guide.layout[])==(1,3)
+    # Complete item bounds reserve spacing; bar frames share a baseline/edge
+    # independently of the unequal property labels inside those items.
+    frames=[bar.layoutobservables.computedbbox[] for bar in bars]
+    @test maximum(frame.origin[2] for frame in frames)-minimum(frame.origin[2] for frame in frames)<=1
+    @test maximum(frame.origin[2]+frame.widths[2] for frame in frames)-minimum(frame.origin[2]+frame.widths[2] for frame in frames)<=1
+    figurecolorbars!(p;position=:right,
+        group_attributes=(layout=(3,1),rowgap=12,valign=:bottom),vertical=false)
+    figurelegend!(p;position=:right,valign=:top,guide_spacing=14)
+    resize!(p.figure,1000,800)
+    GLMakie.colorbuffer(p.figure)
+    frames=[bar.layoutobservables.computedbbox[] for bar in bars]
+    @test maximum(frame.origin[1] for frame in frames)-minimum(frame.origin[1] for frame in frames)<=1
+    @test maximum(frame.origin[1]+frame.widths[1] for frame in frames)-minimum(frame.origin[1]+frame.widths[1] for frame in frames)<=1
+    legend=p.legend.layoutobservables.computedbbox[]
+    scales=guide.layout[].layoutobservables.computedbbox[]
+    @test legend.origin[2]-(scales.origin[2]+scales.widths[2])>=13
+    @test size(guide.layout[])==(3,1)
+    @test all(a===b for (a,b) in zip(bars,p.colorbars))
+    @test axis.targetlimits[]==view
+    @test axis.scene.plots==data
+    @test p.controls[:guide_count]===button
+    @test length(guide.subscriptions)==callbacks
+    button.clicks[]+=1
+    @test clicks[]==1
+    GLMakie.save(joinpath(ARTIFACT_DIRECTORY,"guide-right.png"),p.figure)
+end
+
 GLMakie.closeall()

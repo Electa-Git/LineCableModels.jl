@@ -41,15 +41,19 @@ own coordinates and reference association. It does not calculate new errors.
 # Layout and native presentation
 
 - `layout=nothing` resolves the nominal panel capacity from selected products:
-  the largest declared matrix extent, or a near-square flow arrangement.
-  An explicit `(rows, columns)` supplies a positive nominal capacity.
+  the largest selected matrix row/column span, or a near-square flow arrangement.
+  Automatic matrix pages start at their selected minimum coordinate. An explicit
+  `(rows, columns)` supplies a positive nominal capacity with block membership
+  anchored at original coordinate `(1,1)`. Empty exterior tracks are removed;
+  internal selection holes and original coefficient identities remain.
 - Each quantity/statistical meaning has separate figure families. A full 3×3
   matrix at `layout=(2,2)` has four pages with extents `(2,2)`, `(2,1)`, `(1,2)`,
   `(1,1)` per quantity. `layout=(1,1)` produces nine pages per quantity.
   Explicit diagonal products paginate compactly with original `(i,i)` identities.
-- `fig_size` describes the complete nominal capacity. `figure=(size=...,)` wins.
-  Residual pages fit their occupied tracks with the same initial data frames;
-  there is no forced landscape orientation or permanent sibling synchronization.
+- `fig_size` is the initial reference size of the complete nominal capacity;
+  `figure=(size=...,)` takes precedence. Managed figures fit their decorated
+  occupied content. Residual pages retain the same initial data-frame dimensions,
+  including when no full-capacity page is emitted. Native resizing remains local.
 - Assembly products use categorical points and uncertainty intervals, with a
   first-seen union of recorded assembly names. Scalars/vectors without physical
   coordinates use honest element-index views. Full modal matrices retain every
@@ -79,6 +83,16 @@ own coordinates and reference association. It does not calculate new errors.
 - `colorbar_position`, `colorbar_group_attributes`, `colorbar_attributes`, and
   `guide_gap=8` place existing scale content; they do not fabricate scales.
   Native `halign`/`valign` supply symbolic or fractional alignment.
+- `guide_spacing=12` sets minimum spacing between neighboring complete guides
+  in logical pixels. A `(rowgap=..., colgap=...)` NamedTuple controls each
+  direction; omitted constructor components default to 12. This is independent
+  of plot-to-guide `guide_gap`, figure padding, and legend-entry spacing.
+- `colorbar_group_attributes=(layout=nothing, rowgap=nothing, colgap=nothing)`
+  controls the scale group's cells and minimum internal gaps. Explicit positive
+  integer capacity fills row-major; unused tracks are omitted. Automatic layout
+  is one row at top/bottom and one column at left/right, explicit guide slots,
+  or standalone main content. Gaps inherit `guide_spacing` when omitted or
+  `nothing`. `colorbar_attributes.vertical` orients each bar independently.
 - `backend`, `display_plot=true`, `controls=true`, `widgets=()`,
   `export_theme=:default`, and `open_export=true` control display and UI behavior.
   Widget callables receive the final live handle once per figure. Hiding controls
@@ -145,12 +159,24 @@ a loaded Makie backend.
   decoration does not encode a material property.
 - `zoom_factor=nothing`: Initial system-view span multiplier. The reset
   control restores that initial view.
+- `colorbar_position=:bottom`: Place the material scales in one horizontal
+  strip below the preview. Horizontal bars keep their property labels on the
+  left, independently of group placement.
+- `guide_gap=(8,8,24,8)`: Clearance in logical pixels between plot decorations
+  and guides, ordered left, right, bottom, top. A scalar sets all four sides.
+- `colorbar_group_attributes`: Group `layout`, `rowgap`, and `colgap`, with
+  native group alignment and explicit outer `margin`. Bar orientation and
+  dimensions belong to `colorbar_attributes`. See [`plot`](@ref) for the shared
+  placement rules and sibling spacing through `guide_spacing=12`.
 
 # Returns
 
 - One [`UIPlot`](@ref), or an ordinary vector when a collection exceeds `layout`
   capacity. Collection panels retain original integer indices; material ranges
-  are shared across pages. `size` supplies the nominal figure dimensions.
+  are shared across pages. `size` supplies the initial reference dimensions;
+  `figure.size` takes precedence. The finished window fits the decorated panels
+  while preserving physical aspect, limits, and each panel's established frame.
+  Heterogeneous panels may retain necessary internal row/column space.
 
 # Notes
 
@@ -172,7 +198,9 @@ end
 
 Display the three independently defined material color schemes as a compact
 reference figure. Use [`materialscale!`](@ref) to place any one scheme in a
-caller-owned Makie layout.
+caller-owned Makie layout. Main-content placement defaults to one column,
+independently of bar orientation. The shared `colorbar_group_attributes` and
+`guide_spacing` options also apply here.
 """
 function show_material_scale end
 
@@ -207,6 +235,11 @@ Update the figure legend from the shell's native series groups. Omitted options
 preserve current state; `position=nothing` detaches and hides the guide. Native
 `halign`, `valign`, margins, and style attributes remain editable. Removal and
 restoration retain native styles and series visibility.
+
+`guide_spacing` updates the shared figure-wide minimum sibling spacing. A scalar
+sets both directions; a partial `(rowgap=..., colgap=...)` update preserves the
+other current component. Values are finite, nonnegative, non-Boolean real
+numbers in logical pixels. Existing panel legends inherit this setting.
 """
 function figurelegend! end
 
@@ -215,7 +248,8 @@ function figurelegend! end
 
 Create or replace a native Makie legend scoped to one logical plot panel.
 `panel` may be the stable panel identity returned by a recipe or its compatible
-grid position.
+grid position. It inherits figure-wide `guide_spacing`; no per-panel spacing
+override is accepted.
 """
 function panellegend! end
 
@@ -312,7 +346,21 @@ function removewidget! end
 
 Update the placement and native attributes of the figure's retained color scales.
 Omitted arguments preserve current state; `position=nothing` removes displayed
-scales. `group_attributes` controls group presentation. Return the current native
-colorbar collection. This operation does not fabricate scales for line results.
+scales while retaining their configuration. `group_attributes` merges by field
+with current settings: `layout=(rows,columns)` fills complete scale items
+row-major, and `layout=nothing` restores placement-based arrangement. Explicit
+layout survives side and bar-orientation changes. `rowgap`/`colgap` are minimum
+separations between complete item rows/columns; `nothing` restores inheritance
+from the shared `guide_spacing`. Alignment and explicit outer margins retain
+their native meanings. No gap is added outside a single item.
+
+`guide_spacing` updates the same figure-wide setting as [`figurelegend!`](@ref).
+Native `vertical`, `width`, `height`, labels and ticks configure individual bars.
+Layout changes retain the native Colorbar objects and edits; hidden items retain
+their handles and supplied order without reserving empty group tracks. Invalid
+prospective settings fail before changing the displayed arrangement.
+
+Return the current native colorbar collection. This operation does not fabricate
+scales for line results.
 """
 function figurecolorbars! end

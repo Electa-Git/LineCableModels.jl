@@ -671,10 +671,17 @@ function _compute_fem(
     # material/mesh inputs and execution settings distinguish its calculations.
     keys = [JSON3.write(_fem_input_record(model, formulation, execution))
         for (model, formulation) in zip(models, formulations)]
+    function completion_fields(formulation)
+        completion = Engine.completed_formulation(formulation)
+        return merge(completion, (
+            formulations = merge(formulation_record(formulation), completion.formulations),
+            inputs = physical_inputs,
+        ))
+    end
     first_result = Engine.retain_gridpoint(
         _compute_fem(problem, first(formulations), execution, first(models)),
         Grammar.gridpoint_id(;source_id);
-        fields=merge(Engine.completed_formulation(first(formulations)),(inputs=physical_inputs,)))
+        fields=completion_fields(first(formulations)))
     values = Vector{typeof(first_result)}(undef, length(formulations))
     values[1] = first_result
     execution.data.on_result === nothing || execution.data.on_result(problem, 1, first_result)
@@ -699,7 +706,7 @@ function _compute_fem(
         end
         value=Engine.retain_gridpoint(value,
             Grammar.gridpoint_id(;source_id,formulation_index=index);
-            fields=merge(Engine.completed_formulation(formulations[index]),(inputs=physical_inputs,)))
+            fields=completion_fields(formulations[index]))
         typeof(value) === eltype(values) || throw(ArgumentError(
             "FEM formulations produced inconsistent result types"))
         values[index] = value

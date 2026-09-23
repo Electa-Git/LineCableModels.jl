@@ -82,7 +82,7 @@ end
 function _addon_hide_chrome!(snapshot,p)
     shell=p.addon_state.shell
     root=shell.root
-    saved=(rows=copy(root.rowsizes),gaps=copy(root.addedrowgaps),offset=GridLayoutBase.firstrow(root))
+    saved=(rows=copy(root.rowsizes),gaps=copy(root.addedrowgaps),offset=firstrow(root))
     occupied=Set{Int}()
     for object in shell.chrome
         gc=GridLayoutBase.gridcontent(object)
@@ -93,8 +93,8 @@ function _addon_hide_chrome!(snapshot,p)
     for row in occupied
         rowsize!(root,row,Fixed(0))
         # Release only gaps adjacent to registered chrome, wherever it lives.
-        row>GridLayoutBase.firstrow(root) && rowgap!(root,row-1,Fixed(0))
-        row<GridLayoutBase.lastrow(root) && rowgap!(root,row,Fixed(0))
+        row>firstrow(root) && rowgap!(root,row-1,Fixed(0))
+        row<lastrow(root) && rowgap!(root,row,Fixed(0))
     end
     return saved
 end
@@ -103,14 +103,17 @@ function _addon_export_presentation!(write,p,theme)
     state=p.addon_state
     state===nothing && throw(ArgumentError("SVG presentation requires a managed UIPlot"))
     size=Tuple(p.figure.scene.viewport[].widths)
-    views=[axis.targetlimits[] for axis in p.axes]
-    frames=isempty(p.axes) ? nothing : ntuple(i ->
-        minimum(axis -> Float64(axis.layoutobservables.computedbbox[].widths[i]),p.axes),2)
-    canvas=Tuple(state.shell.canvas.layoutobservables.computedbbox[].widths)
-    canvas_size=(state.shell.canvas.width[],state.shell.canvas.height[])
+    (;frames,canvas,views)=_addon_frame_snapshot(p)
+    grids=Any[state.shell.root,state.shell.body,state.shell.canvas]
+    append!(grids,[data.panel.layout for data in values(state.panel_data) if data.panel.layout!==nothing])
+    tracks=[(;grid,rows=copy(grid.rowsizes),columns=copy(grid.colsizes),
+        row_offset=firstrow(grid),column_offset=GridLayoutBase.firstcol(grid)) for grid in grids]
     padding=copy(state.frame_padding)
     alignments=[axis.alignmode[] for axis in p.axes]
     snapshot=Pair{Any,Any}[]
+    for grid in grids
+        _addon_observable_snapshot!(snapshot,grid,(:width,:height,:tellwidth,:tellheight))
+    end
     chrome=nothing
     previous_guard=state.fitting_geometry[]
     state.fitting_geometry[]=true
@@ -118,15 +121,8 @@ function _addon_export_presentation!(write,p,theme)
         chrome=_addon_hide_chrome!(snapshot,p)
         _addon_publication_snapshot!(snapshot,p,theme)
         _addon_compose_guides!(p)
-        if frames!==nothing && state.panel_page!==nothing
-            _addon_panel_padding!(p)
-            _addon_fit_frames!(p,frames)
-        else
-            body=state.shell.body.layoutobservables
-            outside=Float64.(p.figure.scene.viewport[].widths-body.suggestedbbox[].widths+
-                body.computedbbox[].widths-state.shell.canvas.layoutobservables.computedbbox[].widths)
-            _addon_resize_preserving_views!(p,canvas.+outside)
-        end
+        all(axis -> axis.aspect[]===nothing,p.axes) && state.panel_page!==nothing && _addon_panel_padding!(p)
+        _addon_fit_frames!(p,frames;canvas)
         return write()
     finally
         _addon_restore_snapshot!(snapshot)
@@ -143,8 +139,14 @@ function _addon_export_presentation!(write,p,theme)
             axis.targetlimits[]==view || (axis.targetlimits[]=view)
         end
         empty!(state.frame_padding);merge!(state.frame_padding,padding)
-        state.shell.canvas.width[]=canvas_size[1]
-        state.shell.canvas.height[]=canvas_size[2]
+        for record in tracks
+            for (i,value) in enumerate(record.rows)
+                rowsize!(record.grid,i+record.row_offset-1,value)
+            end
+            for (i,value) in enumerate(record.columns)
+                colsize!(record.grid,i+record.column_offset-1,value)
+            end
+        end
         try
             _addon_resize_preserving_views!(p,size)
         finally

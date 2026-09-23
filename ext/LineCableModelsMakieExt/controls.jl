@@ -82,11 +82,11 @@ function _addon_widget!(builder,p,key;event=nothing,callback=nothing,success=not
     subscriptions=Any[]
     try
         control=builder(p,slot[1,1])
-        control isa Union{Makie.Block,GridLayout} || throw(ArgumentError("widget builders must return a native block or GridLayout"))
+        control isa Union{Block,GridLayout} || throw(ArgumentError("widget builders must return a native block or GridLayout"))
         _addon_belongs_to_slot(control,slot) || throw(ArgumentError("widget content must belong to its allocated slot"))
         if event!==nothing
             observable=event(control)
-            owner=control isa Makie.Block ? control : nothing
+            owner=control isa Block ? control : nothing
             if owner===nothing
                 owner=findfirst(p.figure.content) do block
                     _addon_belongs_to_slot(block,slot) && any(propertynames(typeof(block))) do name

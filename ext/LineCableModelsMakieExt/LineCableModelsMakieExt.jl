@@ -6,21 +6,21 @@ Add compact high-level LineCableModels plotting methods to native Makie.
 module LineCableModelsMakieExt
 
 import LineCableModels
-using LineCableModels: EarthLayer, LineParameters, Material, RadialDielectric,
-    SeriesImpedance, ShuntAdmittance, Y, Z, label, nominal,
+using LineCableModels: EarthLayer, Material, RadialDielectric,
+    SeriesImpedance, ShuntAdmittance, label, nominal,
     observables, outer_radius
 import Makie
 using Makie: Auto, Axis, Button, Colorbar, DataAspect, Figure,
-    Fixed, GridLayout, Label, Legend, LineElement, Mixed,
-    Observable, Outside, Rect2f, Relative, Theme, Toggle,
-    colgap!, colsize!, content, errorbars!, height,
+    Block, CategoricalConversion, Fixed, GridLayout, Label, Legend, LineElement, Mixed,
+    Observable, Outside, Rect2f, Relative, RichText, Theme, Toggle,
+    colgap!, colsize!, content, defaultlimits, errorbars!, fast_string_boundingboxes_obs,
     hlines!, hspan!, lift, lines!,
     off, on, onany, poly!, reset_limits!, rowgap!,
-    rowsize!, scatter!, stairs!, text!, to_value, translate!,
-    update!, width, widths, with_theme
+    rowsize!, scatter!, stairs!, text!, to_value, translate!, update!, widths, with_theme
 using Printf: @sprintf
 using Colors: HSV, Oklab, RGB, RGBA, blue, green, red
 import Dates
+import Base: resize!
 using Statistics: mean
 
 import LineCableModels.Units
@@ -30,10 +30,9 @@ import LineCableModels.Grammar
 import LineCableModels.ImportExport
 import LineCableModels.UQ
 import Makie.GridLayoutBase
+using Makie.GridLayoutBase: HorizontalAlignment, VerticalAlignment, firstrow, lastrow
 import LineCableModels.Grammar:
-                                request_identity,
-                                request_indices,
-                                request_quantity
+                                request_identity
 
 function current_backend_symbol()
     backend = Makie.current_backend()
@@ -161,10 +160,13 @@ function plot(observed::AbstractVector{<:Grammar.ObservedResult},selection=nothi
         _prepare_line_observations(Tuple(records[index] for records in products))
     end
     facets=_semantic_line_facets(published,requests)
-    matrix_extents=[Tuple(f.extent[1:2]) for f in facets if f.kind===:matrix]
+    matrix_positions=[[(f.row,f.column) for f in facets if f.kind===:matrix && f.request_index==i]
+        for i in eachindex(requests)]
+    filter!(!isempty,matrix_positions)
     flow_counts=[Base.count(f -> f.request_index==i,facets) for i in eachindex(requests)]
-    capacity=_addon_capacity(layout,matrix_extents,flow_counts)
-    pages=_semantic_line_pages(facets,capacity)
+    capacity=_addon_capacity(layout,matrix_positions,flow_counts)
+    reference_size=_addon_figure_size(fig_size,capacity)
+    pages=_semantic_line_pages(facets,capacity;automatic=layout===nothing)
     if panel_titles isa Union{Tuple,AbstractVector}
         length(panel_titles)==length(facets) || throw(DimensionMismatch("panel_titles must contain one title per selected panel before pagination"))
         panel_titles=Dict((f.identity,f.row,f.column)=>label for (f,label) in zip(facets,panel_titles))
@@ -203,7 +205,7 @@ function plot(observed::AbstractVector{<:Grammar.ObservedResult},selection=nothi
                 errorbar_sampling=sampling,series_defaults=styles,
                 series_attributes=Tuple(attributes[i] for i in retained),title=page_title,
                 figure_title=visible_title,title_attributes,panel_titles,
-                fig_size=_semantic_figure_size(fig_size,capacity),xscale,yscale,
+                fig_size=reference_size,xscale,yscale,
                 legend_position=position,legend_title,legend_attributes,legend_overflow,panel_legends,
                 controls,display_plot=false,export_theme,open_export,kwargs...)
         end)

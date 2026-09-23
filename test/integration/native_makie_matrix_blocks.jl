@@ -196,6 +196,15 @@ end
     frames=[Tuple(axis.layoutobservables.computedbbox[].widths) for p in pages for axis in p.axes]
     @test all(frame -> all(isapprox.(frame,first(frames);atol=1)),frames)
     sizes=[Tuple(p.figure.scene.viewport[].widths) for p in pages]
+    @test all(abs.(first(sizes).- (1000,700)).<=1)
+    ext=Base.get_extension(LineCableModels,:LineCableModelsMakieExt)
+    for p in pages[1:2]
+        before=Tuple(p.figure.scene.viewport[].widths)
+        for _ in 1:3
+            ext._addon_edit_presentation!(() -> nothing,p)
+            @test Tuple(p.figure.scene.viewport[].widths)==before
+        end
+    end
     @test sizes[2][1]<sizes[1][1]
     @test sizes[3][2]<sizes[1][2]
     @test all(sizes[4].<sizes[1])
@@ -231,4 +240,63 @@ end
     @test length(strip.axes)==4
     @test all(isapprox(axis.scene.viewport[].widths[1],axis.scene.viewport[].widths[2];atol=1) for axis in strip.axes)
     @test all(axis.scene.viewport[].widths[1]>60 for axis in strip.axes)
+end
+
+@testitem "Makie addons / selected matrix footprints preserve original coordinates" tags=[:visual] begin
+    using CairoMakie
+    using LineCableModels
+    ext=Base.get_extension(LineCableModels,:LineCableModelsMakieExt)
+    f=[1.,10.,100.]
+    z=[complex(10i+j+k,i-j+k) for i in 1:4,j in 1:4,k in 1:3]
+    raw=LineParameters(z,z.*1e-6,f)
+    options=(;controls=false,display_plot=false,backend=:cairo,clip=false,fig_size=(1000,650))
+    for coordinate in ((1,1),(2,2))
+        i,j=coordinate
+        pages=LineCableModels.plot(raw,(Z,i,j,:);options...,series_labels=("retained",),
+            legend_position=:inside,legend_attributes=(halign=:right,valign=:bottom))
+        @test length(pages)==2 # quantities remain separate families
+        for p in pages
+            @test p.addon_state.nominal_capacity==(1,1)
+            @test p.addon_state.panel_page.dimensions==(1,1)
+            @test p.addon_state.panel_page.origin==coordinate
+            @test Set(keys(p.addon_state.page_cells))==Set([(1,1)])
+            @test Set(keys(p.addon_state.panel_data))==Set([coordinate])
+            axis=only(p.axes)
+            frame=axis.scene.viewport[]
+            legend=p.legend.layoutobservables.computedbbox[]
+            @test all(legend.origin .>= frame.origin .- 1)
+            @test all(legend.origin+legend.widths .<= frame.origin+frame.widths .+ 1)
+        end
+        curve=only(filter(x -> x isa Makie.Lines,only(first(pages).axes).scene.plots))
+        @test last.(curve[1][])≈real.(z[i,j,:]).*1000
+    end
+    selected=LineCableModels.plot(raw,(R,2,2:3,:);options...)
+    @test selected isa UIPlot
+    @test selected.addon_state.nominal_capacity==(1,2)
+    @test selected.addon_state.panel_page.origin==(2,2)
+    @test selected.addon_state.panel_page.dimensions==(1,2)
+    split=LineCableModels.plot(raw,(R,2,2:3,:);options...,layout=(1,2))
+    @test [p.addon_state.panel_page.index for p in split]==[(2,1),(2,2)]
+    @test all(p -> p.addon_state.panel_page.dimensions==(1,1),split)
+    @test [p.addon_state.panel_page.origin for p in split]==[(2,2),(2,3)]
+    sparse=LineCableModels.plot(raw,(R,[1,3],[1,3],:);options...)
+    @test length(sparse.axes)==4
+    @test sparse.addon_state.panel_page.dimensions==(3,3)
+    @test length(sparse.addon_state.page_cells)==9 # internal holes are intentional
+    geometry=only(ext._addon_matrix_pages([(1,1),(3,3)],(3,4),(3,4)))
+    @test geometry.dimensions==(3,3)
+    @test geometry.positions==((1,1),(3,3))
+    explicit=LineCableModels.plot(raw,(R,2,2,:);options...,layout=(1,2))
+    full=LineCableModels.plot(raw,(R,2,1:2,:);options...,layout=(1,2))
+    @test explicit.addon_state.panel_page.index==(2,1)
+    @test explicit.addon_state.panel_page.origin==(2,2)
+    @test explicit.addon_state.panel_page.dimensions==(1,1)
+    @test all(isapprox.(only(explicit.axes).scene.viewport[].widths,
+        first(full.axes).scene.viewport[].widths;atol=1))
+    @test explicit.figure.scene.viewport[].widths[1]<full.figure.scene.viewport[].widths[1]
+    cells=copy(explicit.addon_state.page_cells)
+    for group in values(explicit.addon_state.groups), primitive in group
+        primitive.visible[]=false
+    end
+    @test explicit.addon_state.page_cells==cells
 end

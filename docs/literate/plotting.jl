@@ -81,7 +81,7 @@ using Statistics: mean
 #
 # | `layout` | Page grouping |
 # |:--|:--|
-# | `nothing` | Full declared matrix extent, or a near-square flow capacity |
+# | `nothing` | Largest selected matrix span, or a near-square flow capacity |
 # | `(1, 1)` | One selected coefficient per figure, per quantity |
 # | `(1, 2)` | Up to two matrix columns or two flow panels per page |
 # | `(2, 1)` | Up to two matrix rows or two flow panels per page |
@@ -98,11 +98,18 @@ using Statistics: mean
 # coefficient identities remain the addresses for titles, legends, scales, and reset.
 # Positional `panel_titles` bind to the complete selected population before paging.
 #
-# Residual pages contain only actual domain tracks. In-domain selection holes
-# remain part of the matrix frame region. Native decoration measurements establish
-# equal initial data frames; residual outer windows fit compactly around them.
-# `fig_size` describes nominal capacity and `figure.size` takes precedence. Later
-# manual resizing affects only that page. There is no window aspect lock.
+# Automatic matrix pages cover the selected original-coordinate rectangle. For
+# example, selecting columns 2 and 3 gives a two-column overview without splitting
+# at the original block boundary. Explicit capacities keep blocks anchored at
+# original coordinate (1,1). Both remove unselected exterior tracks and retain
+# internal holes: selecting (1,1) and (1,3) still spans three columns.
+#
+# Native decoration measurements establish equal initial data frames. `fig_size`
+# is the reference size for the nominal capacity; `figure.size` takes precedence.
+# Each finished window fits its actual occupied panels, titles, guides, and
+# enabled controls. A singleton with explicit `layout=(1,2)` retains the smaller
+# frame from that two-column reference, without allocating an empty second cell.
+# Later manual resizing affects only that page. There is no window aspect lock.
 # Explicit diagonal observations and preview collections use the same capacity,
 # preserving their source order and original identities in compact flow pages.
 #
@@ -243,7 +250,7 @@ default_line_pages = Makie.plot(
     display_plot = false,      # Documenter owns display; interactive use may omit this
     controls = false,          # omit toolbar chrome from this static gallery
     xscale = :log10,           # initial scale; interactive controls may change it
-    fig_size = (900, 680)      # size of each generated page
+    fig_size = (900, 680)      # reference size of the nominal capacity
 )
 default_line_pages[1].figure #hide
 default_line_pages[2].figure #hide
@@ -486,7 +493,6 @@ selected_response = Makie.plot(
     display_plot = false,
     controls = false,
     xscale = :log10,
-    layout = (1, 2),
     fig_size = (900, 420),
     legend_overflow = :show_all
 )
@@ -494,12 +500,25 @@ selected_response[1].figure #hide
 #-
 selected_response[2].figure #hide
 
+# ### An explicit capacity for one selected coefficient
+#
+# The previous call uses an automatic 1×1 reference for each quantity. This call
+# intentionally uses a two-column reference. Its one selected panel keeps the
+# corresponding cell size; the returned figure fits around that panel.
+
+capacity_example = Makie.plot(
+    parameters, resistance_request;
+    backend=:cairo, display_plot=false, controls=false,
+    layout=(1,2), fig_size=(900,420)
+)
+capacity_example.figure #hide
+
 # ### Family requests and a vertical capacity
 
 # The observation owner expands `Z[1,1,:]` into retained R and X products.
 # `layout=(2,1)` gives each quantity its own nominal two-row capacity; it never
 # puts different quantities into the same figure. Only selected original panels
-# are drawn, and no out-of-domain row is allocated.
+# are drawn, and unselected exterior rows are not allocated.
 
 self_impedance_request = @observe Z[1, 1, :];
 stacked_self_impedance = Makie.plot(
@@ -674,11 +693,16 @@ observed_plot[2].figure #hide
 # material and construction tag. The Makie preview adapter derives optional
 # presentation groups and `_addon_preview_axis!` draws the polygons with native
 # `poly!`, locks the axis to `DataAspect`, and computes
-# geometry limits. The aspect canvas and its dock are centered as one responsive
-# group.
+# geometry limits. Preview `size` is an initial reference allocation. The shared
+# shell preserves physical frame sizes and view limits, then fits the window
+# around the panels and their complete decorations. A circle/sector row can
+# retain necessary space beside its shorter panel; a row of circles need not
+# retain unused vertical allocation. The same fitted native `.figure` is returned
+# for interactive display and documentation.
 
 ## `display_id=true` promotes the design identifier into the panel title.
-## Legend and colorbars share the right dock without replacing one another.
+## Previously scales shared the right dock with the legend. Preview now defaults
+## to a horizontal strip below the plot, with each property label on the left.
 cable_preview = preview(
     mv_design;
     backend = :cairo,
@@ -692,9 +716,7 @@ cable_preview = preview(
                              :stranded_core : region.source.tag,
     legend_labels = Dict(:stranded_core => "Stranded core"),
     legend_position = :right,
-    legend_attributes = (; nbanks = 2),
-    colorbar_position = :right,
-    colorbar_attributes = (; vertical = false)
+    legend_attributes = (; nbanks = 2)
 )
 cable_preview.figure #hide
 
@@ -703,6 +725,58 @@ cable_preview.figure #hide
 # to text. This keeps display grouping independent of physical tags. For detailed
 # annotation, mutate `cable_preview.axes[1]` and add ordinary Makie plots. Each
 # object in `cable_preview.colorbars` is a native `Colorbar`.
+# All preview routes use `guide_gap=(8,8,24,8)` in left, right, bottom, top order.
+# The 24-pixel bottom clearance separates the axis label from the scale strip;
+# pass a scalar or four-sided `guide_gap` to change that clearance.
+
+# ### Independent scale arrangement and guide spacing
+
+# Bar orientation, group cells, and placement are independent. This uses the
+# `mv_design` constructed above; no physical property or material range changes.
+# The three horizontal bars form one row below the preview directly.
+
+design = mv_design
+scale_arrangement = preview(
+    design;
+    backend = :cairo, display_plot = false, controls = false,
+    size = (1200, 900),
+    legend_position = :right,
+    legend_attributes = (halign=:left, valign=:top),
+    colorbar_position = :bottom,
+    colorbar_attributes = (vertical=false, width=160, height=14),
+    colorbar_group_attributes = (layout=(1,3), colgap=16, halign=:center),
+    guide_spacing = (rowgap=14, colgap=16),
+)
+scale_arrangement.figure #hide
+
+# Move the same native objects to a column on the right. The legend-to-group
+# minimum of 14 logical pixels differs from the 12-pixel internal row gap.
+
+figurecolorbars!(scale_arrangement;
+    position=:right,
+    group_attributes=(layout=(3,1), rowgap=12, valign=:bottom),
+    vertical=false,
+)
+figurelegend!(scale_arrangement; position=:right, valign=:top, guide_spacing=14)
+scale_arrangement.figure #hide
+
+# Gaps separate complete visible siblings, including labels and endpoint ticks.
+# Bars in a column share their left/right edges; bars in a row share their
+# baseline. Different label widths and fonts change the reserved decoration
+# space, not those alignments. `halign` moves the complete group once.
+# They do not change figure padding, plot clearance (`guide_gap`), legend-entry
+# spacing, or bar dimensions. Hidden scales remove their complete items from
+# packing and keep their native handles for restoration.
+#
+# Omitted group settings survive live updates. `layout=nothing` restores one
+# row at top/bottom or one column at left/right and explicit side-grid slots.
+# Standalone scales in main content default to one column. Explicit capacity
+# fills row-major and omits unoccupied tracks; it never changes matrix panels.
+# `rowgap=nothing` and `colgap=nothing` restore inheritance from `guide_spacing`.
+# A partial live `guide_spacing=(rowgap=18,)` preserves the current column gap;
+# omitted constructor components use 12. Fractions and zero are valid, while
+# negative, nonfinite and Boolean gaps are rejected. Spacing is counted only
+# between neighbors, so a single guide gains no exterior padding.
 
 # ### Cable-design collection
 
@@ -722,9 +796,7 @@ design_collection = preview(
     controls = false,
     size = (1000, 850),
     figure_title = "Cable design family",
-    panel_titles = ("MV option A", "HV option A", "HV option B", "MV option B"),
-    colorbar_position = :bottom,
-    colorbar_attributes = (; vertical = false)
+    panel_titles = ("MV option A", "HV option A", "HV option B", "MV option B")
 )
 design_collection.figure #hide
 
@@ -752,9 +824,7 @@ system_preview = preview(
     controls = false,
     display_id = true,
     size = (1000, 700),
-    legend_position = :right,
-    colorbar_position = :right,
-    colorbar_attributes = (; vertical = false)
+    legend_position = :right
 )
 system_preview.figure #hide
 
@@ -1109,7 +1179,9 @@ custom_dashboard.figure #hide
 # ### Colorbars
 
 # `colorbar_position` and `colorbar_attributes` mirror the legend placement
-# rules. A preview can request several schemes, but
+# rules. `colorbar_group_attributes.layout` determines the independent group
+# arrangement; `guide_spacing` supplies minimum sibling gaps unless group
+# `rowgap`/`colgap` overrides them. A preview supplies several schemes, but
 # `_addon_colorbar!` always consumes one scheme and creates one native
 # `Colorbar`. The reusable public atom remains
 # `materialcolors(property, range)` plus `materialscale!(position, scheme)`.

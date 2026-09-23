@@ -186,6 +186,8 @@
             workspace===nothing ? nothing : workspace.buffers.quadrature)
         return value*1e-4
     end
+    LineCableModels.description(::Type{<:SpectralSurface}, ::Val{:method},
+        ::Val{:quad}; compact::Bool = false) = "quad"
 
     struct DispersiveEarth{P, O} <: FD.FrequencyDependentFormulation
         parameters::P

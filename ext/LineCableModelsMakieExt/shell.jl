@@ -87,10 +87,11 @@ function _addon_display!(figure, title::AbstractString)
     return figure
 end
 
-function _addon_shell(; size, controls::Bool, axis::NamedTuple=(;), figure::NamedTuple=(;), widgets=(), guide_gap=8,
+function _addon_shell(; size, controls::Bool, axis::NamedTuple=(;), figure::NamedTuple=(;), widgets=(), guide_gap=8,guide_spacing=(;),
         colorbar_position=_omitted,colorbar_attributes=(;),colorbar_group_attributes=(;),kwargs...)
     guide_gap=_addon_guide_gap(guide_gap)
-    _addon_guide_attributes(colorbar_group_attributes)
+    guide_spacing=_addon_guide_spacing(guide_spacing)
+    _addon_colorbar_group_attributes(colorbar_group_attributes)
     axis_keys = (propertynames(Axis)..., :palette)
     axis_attributes = merge((; (key=>value for (key,value) in kwargs if key in axis_keys)...), axis)
     series_attributes = (; (key=>value for (key,value) in kwargs if key ∉ axis_keys)...)
@@ -138,7 +139,7 @@ function _addon_shell(; size, controls::Bool, axis::NamedTuple=(;), figure::Name
     colsize!(body, 1, Fixed(0))
     colsize!(body, 2, Auto(false, 1))
     colsize!(body, 3, Fixed(0))
-    return (; figure, root, body, canvas, toolbar, status, chrome, axis_attributes, series_attributes, widgets, guide_gap,
+    return (; figure, reference_size=Tuple(figure.scene.viewport[].widths), root, body, canvas, toolbar, status, chrome, axis_attributes, series_attributes, widgets, guide_gap,guide_spacing,
         colorbar_position,colorbar_attributes,colorbar_group_attributes)
 end
 
@@ -271,7 +272,7 @@ function _addon_set_axis!(entries::AbstractVector, dim::Symbol, scale=nothing)
             isfinite(transformed) && isfinite(inverse(transformed)) || throw(DomainError(
                 value,"$context requires finite transformed explicit bounds and inverse values"))
         end
-        empty_bounds=isempty(values) ? Makie.defaultlimits(requested[index],target) : nothing
+        empty_bounds=isempty(values) ? defaultlimits(requested[index],target) : nothing
         if !isempty(values)
             lower, upper = extrema(values)
             if isapprox(lower, upper; rtol=sqrt(eps(Float64)), atol=0)
@@ -1558,9 +1559,12 @@ function _addon_colorbar!(position, scale; attributes)
         # extending beyond its endpoints. Include the rendered text extents in
         # the native layout, independently of the bar's position or length.
         labels = colorbar.axis.elements[:ticklabels]
+        caption = colorbar.axis.elements[:labeltext]
         managed=Ref{Any}(colorbar.alignmode[])
-        onany(colorbar.blockscene, Makie.fast_string_boundingboxes_obs(labels),
-            colorbar.vertical,colorbar.ticklabelsvisible; update=true) do boxes,vertical,visible
+        onany(colorbar.blockscene, fast_string_boundingboxes_obs(labels),
+            fast_string_boundingboxes_obs(caption),colorbar.vertical,colorbar.ticklabelsvisible,
+            colorbar.labelvisible,colorbar.layoutobservables.computedbbox,colorbar.spinewidth,
+            colorbar.layoutobservables.protrusions; update=true) do boxes,captions,vertical,visible,labelvisible,bounds,stroke,protrusions
             colorbar.alignmode[]==managed[] || return nothing
             dimension = vertical ? 2 : 1
             finite_boxes = filter(
@@ -1576,8 +1580,27 @@ function _addon_colorbar!(position, scale; attributes)
                 box -> box.origin[dimension] + box.widths[dimension],
                 finite_boxes; init = 0.0
             )) : 0.0
-            managed[] = vertical ? Mixed(bottom=before,top=after) : Mixed(left=before,right=after)
-            colorbar.alignmode[]=managed[]
+            if labelvisible
+                # The property caption is centered along the bar. Its overhang
+                # belongs to this item's footprint, just like endpoint ticks.
+                half_length=bounds.widths[dimension]/2
+                for box in captions
+                    isfinite(box.origin[dimension]) && isfinite(box.widths[dimension]) || continue
+                    before=max(before,ceil(-box.origin[dimension]-half_length))
+                    after=max(after,ceil(box.origin[dimension]+box.widths[dimension]-half_length))
+                end
+            end
+            border=max(0.,Float64(stroke)/2)
+            before=max(before,border);after=max(after,border)
+            # Enclose the visible border as well as native perpendicular text.
+            # These are measured protrusions, not sibling-spacing margins.
+            # Native LineAxis places text beyond a full spine width, while
+            # its reported text protrusion omits that offset.
+            side(name)=GridLayoutBase.Protrusion(max(getproperty(protrusions,name)+
+                (getproperty(protrusions,name)>0 ? max(0.,stroke) : 0.),border))
+            managed[] = vertical ? Mixed(bottom=before,top=after,left=side(:left),right=side(:right)) :
+                Mixed(left=before,right=after,bottom=side(:bottom),top=side(:top))
+            colorbar.alignmode[]==managed[] || (colorbar.alignmode[]=managed[])
         end
     end
     return colorbar
@@ -1587,37 +1610,37 @@ function LineCableModels.materialscale!(position, scheme; kwargs...)
     return _addon_colorbar!(position, scheme; attributes = (; kwargs...))
 end
 
-function _addon_colorbars!(slot,scales;attributes,orientation)
-    isempty(scales) && return (;colorbars=(),layout=nothing)
+function _addon_colorbars!(slot,scales;attributes,orientation,main=false)
     attributes isa NamedTuple || throw(ArgumentError("colorbar_attributes must be a NamedTuple"))
-    default_orientation=orientation
-    vertical = get(attributes, :vertical, default_orientation === :vertical)
-    # A complete default scale has a finite native length even before a parent
-    # assigns free space. Caller-provided width/height (including Auto) wins.
-    length_attributes=vertical ? (;height=_ADDON_COLORBAR_DOCK_LENGTH) :
-        (;width=_ADDON_COLORBAR_DOCK_LENGTH)
-    options = merge((; vertical), length_attributes, attributes)
-    grid = GridLayout(;alignmode=Outside())
-    grid.default_rowgap = Fixed(10)
-    grid.default_colgap = Fixed(8)
-    slot[] = grid
-    compact_side_dock = !vertical && default_orientation === :vertical
-    colorbars = map(enumerate(scales)) do (index, scale)
-        if compact_side_dock
-            bar=_addon_colorbar!(grid[index,2],scale;attributes=merge(options,(labelvisible=false,)))
-            Label(grid[index,1],bar.label;halign=:right,valign=:center,
+    vertical=get(attributes,:vertical,orientation===:vertical)
+    length=main ? Auto() : _ADDON_COLORBAR_DOCK_LENGTH
+    defaults=vertical ? (;vertical,height=length) : (;vertical,width=length)
+    grid=GridLayout(;alignmode=Outside())
+    slot[]=grid
+    scene=GridLayoutBase.top_parent(grid).scene
+    previous_scenes=copy(scene.children)
+    items=try
+        map(enumerate(scales)) do (index,scale)
+            item=GridLayout(;alignmode=Outside())
+            grid[index,1]=item
+            bar=_addon_colorbar!(item[1,1],scale;attributes=merge(defaults,attributes))
+            companion=Label(item[1,2],bar.label;halign=:right,valign=:center,
                 fontsize=bar.labelsize,font=bar.labelfont,color=bar.labelcolor)
-            bar
-        else
-            colorbar_position = vertical ? grid[1, index] : grid[index, 1]
-            _addon_colorbar!(colorbar_position, scale; attributes = options)
+            (;layout=item,bar,companion,visible=Ref(bar.blockscene.visible[]),
+                labelvisible=Ref(bar.labelvisible[]),
+                managed=(vertical=Ref(!haskey(attributes,:vertical)),
+                    width=Ref(!haskey(attributes,:width)),height=Ref(!haskey(attributes,:height))))
         end
+    catch
+        _addon_delete_subtree!(grid)
+        # A native constructor can fail before registering its block in the
+        # grid. Release that incomplete scene and its owned subscriptions too.
+        for child in copy(scene.children)
+            any(previous -> previous===child,previous_scenes) || empty!(child)
+        end
+        rethrow()
     end
-    if compact_side_dock
-        colsize!(grid, 1, Auto(true))
-        colsize!(grid, 2, Auto(true))
-    end
-    return (; colorbars = Tuple(colorbars), layout = grid)
+    return (;colorbars=Tuple(item.bar for item in items),layout=grid,items)
 end
 
 function _addon_bind_visibility!(figure, axes, resets, groups, status)
@@ -1642,7 +1665,7 @@ function _addon_figure_title!(shell, title, attributes)
         "title_attributes must be a NamedTuple",
     ))
     options = merge(
-        (; tellwidth = false, halign = :center, font = :bold, fontsize = 18),
+        (; tellwidth = true, halign = :center, font = :bold, fontsize = 18),
         attributes
     )
     return Label(shell.root[0, 1], title; options...)
@@ -1682,6 +1705,8 @@ function _addon_finish!(
         export_theme,
         open_export
 )
+    _addon_colorbar_group_attributes(shell.colorbar_group_attributes,length(color_scales))
+    _addon_validate_native_guide(Colorbar,merge(colorbar_attributes,shell.colorbar_attributes))
     isempty(axes) && !isempty(shell.axis_attributes) && throw(ArgumentError(
         "native Axis attributes require a figure containing an Axis"))
     append!(dependent_plots, _addon_series_styles!(groups, order, series_attributes;
@@ -1746,7 +1771,7 @@ function _addon_finish!(
             panel_data,
             inside_bbox,
             guides=Dict{Any,Any}(),guide_order=Any[],guide_docks=Any[],
-            composing_guides=Ref(false),guide_gap=shell.guide_gap,
+            composing_guides=Ref(false),guide_gap=shell.guide_gap,guide_spacing=Ref(shell.guide_spacing),
             fitting_geometry=Ref(false),frame_padding=IdDict{Any,Any}(),presentation_ready=Ref(false),
             panel_page=isempty(panels) ? nothing : (index=(1,1),dimensions=size(shell.canvas),coordinates=Tuple(panel.logical_position for panel in panels)),
             color_scales,
@@ -1779,12 +1804,10 @@ function _addon_finish!(
     push!(built.addon_state.guide_order,(:colorbars,nothing))
     _addon_compose_guides!(built)
     on(shell.figure.scene,shell.figure.scene.viewport) do _
-        if !built.addon_state.fitting_geometry[] && !isempty(axes) &&
-                all(axis -> !(axis.aspect[] isa DataAspect),axes)
-            shell.canvas.width[]=Auto()
-            shell.canvas.height[]=Auto()
+        if !built.addon_state.fitting_geometry[]
+            _addon_release_frames!(built)
+            _addon_fit_panel_aspects!(built)
         end
-        _addon_fit_panel_aspects!(built)
         _addon_compose_guides!(built)
         nothing
     end
@@ -1802,6 +1825,7 @@ function _addon_finish!(
     end
     title_block===nothing || _addon_watch_presentation!(built,title_block,(:text,:fontsize,:font))
     built.addon_state.presentation_ready[]=true
+    _addon_edit_presentation!(() -> nothing,built)
     display_plot && _addon_display!(shell.figure, title)
     return built
 end

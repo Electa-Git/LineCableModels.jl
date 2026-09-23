@@ -193,8 +193,9 @@ function _addon_preview(
         panel_legends = (),
         legend_group = nothing,
         legend_labels = nothing,
-        colorbar_position = :right,
+        colorbar_position = :bottom,
         colorbar_attributes::NamedTuple = (; vertical = false),
+        guide_gap = (8, 8, 24, 8),
         backend = nothing,
         display_plot::Bool = true,
         controls::Bool = true,
@@ -225,7 +226,7 @@ function _addon_preview(
     )
     color_scales = _material_schemes(DataModel.material_property_ranges(design))
     return with_theme(_addon_theme(export_theme = export_theme)) do
-        shell = _addon_shell(; size, controls, kwargs...)
+        shell = _addon_shell(; size, controls, guide_gap, kwargs...)
         groups = Dict{Symbol, Vector{Any}}()
         order = Symbol[]
         labels = Dict{Symbol, Any}()
@@ -287,8 +288,9 @@ function _addon_preview(
         legend_attributes::NamedTuple = (;),
         legend_overflow::Symbol = :show_all,
         size::Tuple{Int, Int} = (1200, 900),
-        colorbar_position = :right,
+        colorbar_position = :bottom,
         colorbar_attributes::NamedTuple = (; vertical = false),
+        guide_gap = (8, 8, 24, 8),
         panel_legends = (),
         legend_group = nothing,
         legend_labels = nothing,
@@ -314,7 +316,7 @@ function _addon_preview(
     for page in pages
       rendered=with_theme(_addon_theme(export_theme = export_theme)) do
         rows,columns=page.dimensions
-        shell = _addon_shell(; size, controls, kwargs...)
+        shell = _addon_shell(; size, controls, guide_gap, kwargs...)
         axes = Any[]
         panels = Any[]
         resets = Function[]
@@ -416,8 +418,9 @@ function _addon_preview(
         panel_legends = (),
         legend_group = nothing,
         legend_labels = nothing,
-        colorbar_position = :right,
+        colorbar_position = :bottom,
         colorbar_attributes::NamedTuple = (; vertical = false),
+        guide_gap = (8, 8, 24, 8),
         backend = nothing,
         display_plot::Bool = true,
         controls::Bool = true,
@@ -443,7 +446,7 @@ function _addon_preview(
     panel_title = resolved_panel_titles === nothing ?
                   display_title : only(resolved_panel_titles)
     return with_theme(_addon_theme(export_theme = export_theme)) do
-        shell = _addon_shell(; size, controls, kwargs...)
+        shell = _addon_shell(; size, controls, guide_gap, kwargs...)
         groups = Dict{Symbol, Vector{Any}}()
         order = Symbol[]
         labels = Dict{Symbol, Any}()

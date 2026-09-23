@@ -511,6 +511,7 @@ preview(
     backend=:cairo,
     display_plot=false,
     controls=false,
+    # Previously an explicit override; the bottom material strip is now default.
 ).figure
 ```
 
@@ -942,6 +943,7 @@ preview(
     backend=:cairo,
     display_plot=false,
     controls=false,
+    # Previously an explicit override; the bottom material strip is now default.
 ).figure
 ```
 
@@ -1015,5 +1017,6 @@ preview(
     backend=:cairo,
     display_plot=false,
     controls=false,
+    # Previously an explicit override; the bottom material strip is now default.
 ).figure
 ```

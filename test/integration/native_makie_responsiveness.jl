@@ -112,10 +112,17 @@ end
         backend = :cairo,
         display_plot = false,
         open_export = false,
+        # Keep the compact right-column case explicit now that previews default
+        # to a bottom strip.
+        colorbar_position = :right,
         size = (900, 350)
     )
     Makie.colorbuffer(compact.figure)
     viewport=compact.figure.scene.viewport[]
+    # size is the reference allocation; the physical frame and complete
+    # right-side guides determine the fitted width.
+    @test 0<viewport.widths[1]<900
+    @test viewport.widths[2]>=350
     axis=only(compact.axes)
     axis_bounds=axis.layoutobservables.computedbbox[]
     @test axis_bounds.widths[1] >= 160
@@ -130,6 +137,13 @@ end
         colorbar -> colorbar.layoutobservables.computedbbox[].widths[1] >= 135,
         compact.colorbars
     )
+
+    strip=preview(design;backend=:cairo,display_plot=false,open_export=false,size=(900,350))
+    Makie.colorbuffer(strip.figure)
+    strip_viewport=strip.figure.scene.viewport[]
+    @test all(colorbar -> inside(strip_viewport,colorbar),strip.colorbars)
+    @test inside(strip_viewport,only(strip.axes))
+    @test strip.addon_state.guides[(:colorbars,nothing)].position[]===:bottom
 
     collection=preview(
         fill(design, 4);
@@ -155,6 +169,15 @@ end
     @test maximum(
         bounds.origin[2] + bounds.widths[2] for bounds in collection_bounds
     ) > 0.75collection_viewport.widths[2]
+
+    pages=preview(fill(design,3);backend=:cairo,display_plot=false,controls=false,layout=(1,2))
+    foreach(p -> Makie.colorbuffer(p.figure),pages)
+    frames=[axis.layoutobservables.computedbbox[].widths for p in pages for axis in p.axes]
+    @test all(frame -> isapprox(frame,first(frames);atol=2),frames)
+    for p in pages
+        viewport=p.figure.scene.viewport[]
+        @test all(object -> inside(viewport,object),(p.axes...,p.colorbars...))
+    end
 
     wide=preview(
         design;
@@ -240,4 +263,73 @@ end
     end
     @test [axis.scene.plots for axis in canvas.axes]==plots
     @test [Makie.GridLayoutBase.gridcontent(axis).parent for axis in canvas.axes]==parent
+end
+
+@testitem "Makie addons / fitting preserves physical frames and native resize allocations" tags=[:visual] setup=[TestFixtures] begin
+    using CairoMakie
+    ext=Base.get_extension(LineCableModels,:LineCableModelsMakieExt)
+    design=TestFixtures.coaxial_design()
+    p=preview(fill(design,2);controls=false,display_plot=false,backend=:cairo,size=(1200,900))
+    @test p.figure.scene.viewport[].widths[2]<800
+    @test p.addon_state.guide_gap==(8.,8.,24.,8.)
+    frames=[axis.scene.viewport[] for axis in p.axes]
+    @test all(frame -> isapprox(frame.widths[1],frame.widths[2];atol=1),frames)
+    @test all(all(isapprox.(axis.layoutobservables.computedbbox[].widths,axis.scene.viewport[].widths;atol=1)) for axis in p.axes)
+    views=[axis.targetlimits[] for axis in p.axes]
+    counts=[length(axis.scene.plots) for axis in p.axes]
+    listeners=length(p.figure.scene.viewport.listeners)
+    dimensions=Tuple(p.figure.scene.viewport[].widths)
+    for _ in 1:5
+        ext._addon_edit_presentation!(() -> nothing,p)
+        @test Tuple(p.figure.scene.viewport[].widths)==dimensions
+        @test all(all(isapprox.(axis.scene.viewport[].widths,frame.widths;atol=1)) for (axis,frame) in zip(p.axes,frames))
+    end
+    @test [axis.targetlimits[] for axis in p.axes]==views
+    @test [length(axis.scene.plots) for axis in p.axes]==counts
+    @test length(p.figure.scene.viewport.listeners)==listeners
+    resize!(p.figure,1000,800)
+    @test Tuple(p.figure.scene.viewport[].widths)==(1000,800)
+    resized=[axis.scene.viewport[] for axis in p.axes]
+    figuretitle!(p,"A title\nwith two lines")
+    @test all(all(isapprox.(axis.scene.viewport[].widths,frame.widths;atol=1)) for (axis,frame) in zip(p.axes,resized))
+    @test [axis.targetlimits[] for axis in p.axes]==views
+    dimensions=Tuple(p.figure.scene.viewport[].widths)
+    mktempdir() do directory
+        for theme in (:default,:publication)
+            @test isfile(export_svg(p;path=joinpath(directory,"$theme.svg"),theme,open_file=false))
+            @test Tuple(p.figure.scene.viewport[].widths)==dimensions
+            @test all(all(isapprox.(axis.scene.viewport[].widths,frame.widths;atol=1)) for (axis,frame) in zip(p.axes,resized))
+        end
+    end
+    @test_throws ErrorException ext._addon_export_presentation!(p,:publication) do
+        error("failing native writer")
+    end
+    @test Tuple(p.figure.scene.viewport[].widths)==dimensions
+    @test [axis.targetlimits[] for axis in p.axes]==views
+    @test all(all(isapprox.(axis.scene.viewport[].widths,frame.widths;atol=1)) for (axis,frame) in zip(p.axes,resized))
+end
+
+@testitem "Makie addons / native axis sizing constraints survive content fitting" tags=[:visual] begin
+    using CairoMakie
+    using LineCableModels
+    ext=Base.get_extension(LineCableModels,:LineCableModelsMakieExt)
+    f=[1.,10.,100.];z=reshape(complex.([1.,2.,3.],[2.,3.,4.]),1,1,:)
+    raw=LineParameters(z,z.*1e-6,f)
+    for attributes in ((width=700.,height=250.),
+            (width=Relative(.5),height=Relative(.5)),(alignmode=Outside(10),))
+        p=LineCableModels.plot(raw; ydata=(R,),axis=attributes,layout=(1,2),
+            fig_size=(800,500),controls=false,display_plot=false,backend=:cairo)
+        axis=only(p.axes)
+        initial=axis.scene.viewport[]
+        size=Tuple(p.figure.scene.viewport[].widths)
+        @test all(initial.origin.>=0)
+        @test all(initial.origin+initial.widths .<= size)
+        haskey(attributes,:width) && attributes.width isa Real &&
+            @test Tuple(initial.widths)==(700,250)
+        for _ in 1:3
+            ext._addon_edit_presentation!(() -> nothing,p)
+            @test all(isapprox.(axis.scene.viewport[].widths,initial.widths;atol=1))
+            @test Tuple(p.figure.scene.viewport[].widths)==size
+        end
+    end
 end

@@ -28,11 +28,11 @@
     )
     @test plot_handle.figure === figure
     @test plot_handle.title === nothing
-    @test plot_handle.axes === axes
+    @test plot_handle.axes == Any[axes...]
     @test plot_handle.controls === controls
     @test plot_handle.legend === legend
     @test isempty(plot_handle.panel_legends)
-    @test plot_handle.colorbars === colorbars
+    @test only(plot_handle.colorbars) === only(colorbars)
     @test plot_handle.addon_state === addon_state
 
     design=TestFixtures.coaxial_design()
