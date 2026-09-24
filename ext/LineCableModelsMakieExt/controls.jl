@@ -93,13 +93,14 @@ function _addon_widget!(builder, p, key; event = nothing, callback = nothing,
     subscriptions=Any[]
     try
         control=builder(p, slot[1, 1])
-        control isa Union{Block, GridLayout} ||
+        native_block=!(control isa GridLayout) && hasproperty(control,:blockscene)
+        (native_block || control isa GridLayout) ||
             throw(ArgumentError("widget builders must return a native block or GridLayout"))
         _addon_belongs_to_slot(control, slot) ||
             throw(ArgumentError("widget content must belong to its allocated slot"))
         if event!==nothing
             observable=event(control)
-            owner=control isa Block ? control : nothing
+            owner=native_block ? control : nothing
             if owner===nothing
                 owner=findfirst(p.figure.content) do block
                     _addon_belongs_to_slot(block, slot) &&

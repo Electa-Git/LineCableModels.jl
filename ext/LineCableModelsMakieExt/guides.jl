@@ -197,7 +197,7 @@ function _addon_guide_extent(state,dimension)
 end
 
 function _addon_alignment(value,dimension)
-    value isa Union{GridLayoutBase.HorizontalAlignment,GridLayoutBase.VerticalAlignment} && return Float64(value.x)
+    hasproperty(value,:x) && getproperty(value,:x) isa Real && return Float64(value.x)
     value isa Real && return Float64(value)
     value in (:left,:bottom) && return 0.0
     value in (:right,:top) && return 1.0
@@ -521,17 +521,18 @@ function _addon_reflow_colorbars!(p,guide)
                 item.layout[1,1]=bar
             end
         end
-        GridLayoutBase.trim!(item.layout)
-        rowgap!(item.layout,0);colgap!(item.layout,8)
-        colsize!(item.layout,1,Auto())
-        # Outside grids consume raw child protrusions. Include only the extra
-        # measured border/text offset; folding all text into the bar's inner
-        # size would count native perpendicular decorations twice here.
-        raw=bar.layoutobservables.protrusions[]
-        complete=bar.layoutobservables.reporteddimensions[].outer
-        padding=ntuple(i -> max(0.,getfield(complete,i)-getfield(raw,i)),4)
-        item.layout.alignmode[]=Outside(padding...)
-        GridLayoutBase.update!(item.layout)
+        with_updates_suspended(item.layout) do
+            GridLayoutBase.trim!(item.layout)
+            rowgap!(item.layout,0);colgap!(item.layout,8)
+            colsize!(item.layout,1,Auto())
+            # Outside grids consume raw child protrusions. Include only the extra
+            # measured border/text offset; folding all text into the bar's inner
+            # size would count native perpendicular decorations twice here.
+            raw=bar.layoutobservables.protrusions[]
+            complete=bar.layoutobservables.reporteddimensions[].outer
+            padding=ntuple(i -> max(0.,getfield(complete,i)-getfield(raw,i)),4)
+            item.layout.alignmode[]=Outside(padding...)
+        end
         # A detached GridContent retains its parentless placement object.
         # Settle its current native sizes before measuring local bar offsets.
         item.layout.layoutobservables.suggestedbbox[]=item.layout.layoutobservables.suggestedbbox[]
@@ -569,9 +570,10 @@ function _addon_reflow_colorbars!(p,guide)
                 if side<=2 ? mod1(j,columns)==column : cld(j,columns)==row)
         end
         padding=item.layout.alignmode[].padding
-        item.layout.alignmode[]=Outside(ntuple(side ->
-            getfield(padding,side)+max(0.,shared[side]-insets[index][side]),4)...)
-        GridLayoutBase.update!(item.layout)
+        with_updates_suspended(item.layout) do
+            item.layout.alignmode[]=Outside(ntuple(side ->
+                getfield(padding,side)+max(0.,shared[side]-insets[index][side]),4)...)
+        end
         grid[row,column]=item.layout
     end
     GridLayoutBase.trim!(grid)
@@ -590,7 +592,8 @@ function _addon_place_colorbars!(p,guide,target,orientation)
     if guide.object[]===nothing
         _addon_colorbar_group_attributes(p.addon_state.colorbar_group_attributes[],length(p.addon_state.color_scales))
         result=_addon_colorbars!(target,p.addon_state.color_scales;
-            attributes=guide.attributes[],orientation,main=guide.position[]===Val(:content))
+            attributes=guide.attributes[],orientation,main=guide.position[]===Val(:content),
+            scene=p.figure.scene)
         guide.object[]=result.colorbars
         guide.layout[]=result.layout
         append!(guide.items,result.items)

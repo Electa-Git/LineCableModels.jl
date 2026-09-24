@@ -11,11 +11,10 @@ using LineCableModels: EarthLayer, Material, RadialDielectric,
                        observables, outer_radius
 import Makie
 using Makie: Auto, Axis, Button, Colorbar, DataAspect, Figure,
-             Block, CategoricalConversion, Fixed, GridLayout, Label, Legend, LineElement,
+             Fixed, GridLayout, Label, Legend, LineElement,
              Mixed,
-             Observable, Outside, Rect2f, Relative, RichText, Theme, Toggle,
-             colgap!, colsize!, content, defaultlimits, errorbars!,
-             fast_string_boundingboxes_obs,
+             Observable, Outside, Rect2f, Relative, Theme, Toggle,
+             colgap!, colsize!, content, errorbars!,
              hlines!, hspan!, lift, lines!,
              off, on, onany, poly!, reset_limits!, rowgap!,
              rowsize!, scatter!, stairs!, text!, to_value, translate!, update!, widths,
@@ -33,7 +32,7 @@ import LineCableModels.Grammar
 import LineCableModels.ImportExport
 import LineCableModels.UQ
 import Makie.GridLayoutBase
-using Makie.GridLayoutBase: HorizontalAlignment, VerticalAlignment, firstrow, lastrow
+using Makie.GridLayoutBase: nrows, offsets, with_updates_suspended
 import LineCableModels.Grammar:
                                 request_identity
 

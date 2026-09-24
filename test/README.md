@@ -52,13 +52,16 @@ elapsed time and completion/failure. A started item is not necessarily completed
 | `julia --project=test test/runtests.jl tag:pscad_native` | Real PSCAD acceptance. Set `LINECABLEMODELS_PSCAD_CONFIG` to your private TOML filename; requires the configured live station. |
 | `julia --project=test test/runtests.jl tag:aqua` | Aqua in a fresh Julia process. |
 | `julia --project=docs docs/doctest.jl` and `julia --project=docs docs/make.jl` | Docstrings and documentation build; instantiate with `docs/instantiate.jl`. |
+| `julia --project=ext/LineCableModelsPSCADExt/remote test/integration/pscad/remote_runner_boundary.jl` | Remote-runner protocol against a mocked Python automation boundary; does not execute PSCAD or validate solver numerics. |
 
 Ordinary exclusions are `quality`, `aqua`, `visual`, `core_only`, `fem_numerical` and `pscad_native`.
 These tags describe purpose/environment, never outcome.
 PSCAD native tests require the explicit `tag:pscad_native` selector; a file/name
-search alone cannot launch a station. Local PSCAD tests use Julia protocol fixtures,
-not an imitation of the vendor automation platform. Native coverage gaps remain
-visible in the unchanged production coverage inventory and 95% gate.
+search alone cannot launch a station. Ordinary local PSCAD tests use Julia protocol
+fixtures. The dedicated remote-runner boundary test mocks only the Python automation
+surface needed to verify runner orchestration; it does not imitate PSCAD numerics.
+Native coverage gaps remain visible in the unchanged production coverage inventory
+and 95% gate.
 There is no required scientific-study job or `scientific` selection.
 
 ## Coverage and release verification

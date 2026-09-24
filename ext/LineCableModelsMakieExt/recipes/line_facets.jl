@@ -214,7 +214,7 @@ function _addon_semantic_line_page(
             yscale,
             xlabel = get(xobservation, :label, nothing),
             attributes = facet.kind===:assemblies ?
-                         merge(attributes, (dim1_conversion = CategoricalConversion(),)) :
+                         merge(attributes, (dim1_conversion = Makie.CategoricalConversion(),)) :
                          attributes,
             native_attributes = shell.axis_attributes
         )

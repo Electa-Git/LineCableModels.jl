@@ -7,7 +7,7 @@ function _comparison_labels(labels, count::Int)
         "series_labels must contain one label for each LineParameters result",
     ))
     all(
-        label -> label isa RichText ||
+        label -> label isa typeof(Makie.rich("")) ||
                  label isa AbstractString && !isempty(strip(label)), labels) || throw(
         ArgumentError("series labels must be nonempty strings"),
     )

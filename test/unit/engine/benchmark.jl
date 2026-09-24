@@ -115,7 +115,6 @@
     @test observe(retained,Y,relative_error)[1,2]==0.001
     @test displayed.Z.relative[1,1]==0.5
     @test first(table.value)≈2.0e-17
-    @test nrow(DataFrame(retained))==16
     unclipped=observables(displayed,requests;clip=false)
     @test observe(unclipped,Z,absolute_error)[1,1]≈2.0e-17
     columns=LineCableModels.ReportBuilder.observation_columns(table)

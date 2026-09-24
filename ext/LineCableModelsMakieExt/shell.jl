@@ -282,7 +282,7 @@ function _addon_set_axis!(entries::AbstractVector, dim::Symbol, scale = nothing)
             isfinite(transformed) && isfinite(inverse(transformed)) || throw(DomainError(
                 value, "$context requires finite transformed explicit bounds and inverse values"))
         end
-        empty_bounds=isempty(values) ? defaultlimits(requested[index], target) : nothing
+        empty_bounds=isempty(values) ? Makie.defaultlimits(requested[index], target) : nothing
         if !isempty(values)
             lower, upper = extrema(values)
             if isapprox(lower, upper; rtol = sqrt(eps(Float64)), atol = 0)
@@ -1616,12 +1616,19 @@ function _addon_colorbar!(position, scale; attributes)
         labels = colorbar.axis.elements[:ticklabels]
         caption = colorbar.axis.elements[:labeltext]
         managed=Ref{Any}(colorbar.alignmode[])
-        onany(colorbar.blockscene, fast_string_boundingboxes_obs(labels),
-            fast_string_boundingboxes_obs(caption), colorbar.vertical, colorbar.ticklabelsvisible,
-            colorbar.labelvisible, colorbar.layoutobservables.computedbbox, colorbar.spinewidth,
-            colorbar.layoutobservables.protrusions; update = true) do boxes,
-        captions, vertical, visible, labelvisible, bounds, stroke, protrusions
+        onany(colorbar.blockscene,
+            labels.text, labels.fontsize, labels.font, labels.rotation, labels.align, labels.offset,
+            caption.text, caption.fontsize, caption.font, caption.rotation, caption.align, caption.offset,
+            colorbar.vertical, colorbar.ticklabelsvisible, colorbar.labelvisible,
+            colorbar.layoutobservables.computedbbox, colorbar.spinewidth,
+            colorbar.layoutobservables.protrusions; update = true) do _labels_text,
+        _labels_fontsize, _labels_font, _labels_rotation, _labels_align,
+        _labels_offset, _caption_text, _caption_fontsize, _caption_font,
+        _caption_rotation, _caption_align, _caption_offset, vertical, visible,
+        labelvisible, bounds, stroke, protrusions
             colorbar.alignmode[]==managed[] || return nothing
+            boxes=Makie.fast_string_boundingboxes(labels)
+            captions=Makie.fast_string_boundingboxes(caption)
             dimension = vertical ? 2 : 1
             finite_boxes = filter(
                 box -> isfinite(box.origin[dimension]) &&
@@ -1671,7 +1678,7 @@ function LineCableModels.materialscale!(position, scheme; kwargs...)
     return _addon_colorbar!(position, scheme; attributes = (; kwargs...))
 end
 
-function _addon_colorbars!(slot, scales; attributes, orientation, main = false)
+function _addon_colorbars!(slot, scales; attributes, orientation, main = false, scene)
     attributes isa NamedTuple ||
         throw(ArgumentError("colorbar_attributes must be a NamedTuple"))
     vertical=get(attributes, :vertical, orientation===:vertical)
@@ -1679,7 +1686,6 @@ function _addon_colorbars!(slot, scales; attributes, orientation, main = false)
     defaults=vertical ? (; vertical, height = length) : (; vertical, width = length)
     grid=GridLayout(; alignmode = Outside())
     slot[]=grid
-    scene=GridLayoutBase.top_parent(grid).scene
     previous_scenes=copy(scene.children)
     items=try
         map(enumerate(scales)) do (index, scale)

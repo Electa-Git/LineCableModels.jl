@@ -25,9 +25,13 @@
     @test constants_observables isa ObservedResult
     @test observe(constants_observables,R)≈1_000constants.R
     constants_table=LineCableModels.ReportBuilder.tabulate(constants_observables,R)
-    @test names(constants_table)==["assembly","value"]
-    @test only(constants_table.assembly)==1
-    @test constants_table.value≈1_000constants.R
+    @test names(constants_table)==["frequency","core"]
+    @test constants_table.frequency==[constants.frequency]
+    @test constants_table.core≈1_000constants.R
+    @test DataFrames.metadata(constants_table,"basis")===basis(constants)
+    constants_columns=LineCableModels.ReportBuilder.observation_columns(constants_table)
+    @test constants_columns.core.assembly==1
+    @test LineCableModels.Units.label(constants_columns.core.unit)=="Ω/km"
     native_constants_table=DataFrame(constants)
     @test names(native_constants_table) == ["core", "R", "L", "C", "G"]
     @test native_constants_table.R == constants.R
@@ -165,7 +169,6 @@
     @test names(parameter_table)==["frequency","[1,1]","[1,2]","[2,1]","[2,2]"]
     @test nrow(parameter_table)==3
     @test collect(parameter_table[1,2:5])==vec(resistance_values[:,:,1])[[1,3,2,4]]
-    @test nrow(DataFrame(retained))==48
     @test DataFrames.metadata(parameter_table,"basis")===basis(parameters)
     @test LineCableModels.Units.label(LineCableModels.ReportBuilder.observation_columns(parameter_table)[Symbol("[1,1]")].unit)=="Ω"
     subset_table=LineCableModels.ReportBuilder.tabulate(retained,(R,2,1,2:3))

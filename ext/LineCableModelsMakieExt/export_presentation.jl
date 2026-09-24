@@ -82,8 +82,10 @@ end
 function _addon_hide_chrome!(snapshot, p)
     shell=p.addon_state.shell
     root=shell.root
+    first_row=1+offsets(root)[1]
+    last_row=nrows(root)+offsets(root)[1]
     saved=(
-        rows = copy(root.rowsizes), gaps = copy(root.addedrowgaps), offset = firstrow(root))
+        rows = copy(root.rowsizes), gaps = copy(root.addedrowgaps), offset = first_row)
     occupied=Set{Int}()
     for object in shell.chrome
         gc=GridLayoutBase.gridcontent(object)
@@ -94,8 +96,9 @@ function _addon_hide_chrome!(snapshot, p)
     for row in occupied
         rowsize!(root, row, Fixed(0))
         # Release only gaps adjacent to registered chrome, wherever it lives.
-        row>firstrow(root) && rowgap!(root, row-1, Fixed(0))
-        row<lastrow(root) && rowgap!(root, row, Fixed(0))
+        gap_after=row-first_row+1
+        row>first_row && rowgap!(root, gap_after-1, Fixed(0))
+        row<last_row && rowgap!(root, gap_after, Fixed(0))
     end
     return saved
 end
@@ -109,7 +112,7 @@ function _addon_export_presentation!(write, p, theme)
     append!(grids, [data.panel.layout
                     for data in values(state.panel_data) if data.panel.layout!==nothing])
     tracks=[(; grid, rows = copy(grid.rowsizes), columns = copy(grid.colsizes),
-                row_offset = firstrow(grid), column_offset = GridLayoutBase.firstcol(grid))
+                row_offset = 1+offsets(grid)[1], column_offset = 1+offsets(grid)[2])
             for grid in grids]
     padding=copy(state.frame_padding)
     alignments=[axis.alignmode[] for axis in p.axes]
@@ -136,7 +139,7 @@ function _addon_export_presentation!(write, p, theme)
                 rowsize!(state.shell.root, row+chrome.offset-1, value)
             end
             for (row, value) in enumerate(chrome.gaps)
-                rowgap!(state.shell.root, row+chrome.offset-1, value)
+                rowgap!(state.shell.root, row, value)
             end
         end
         for (axis, alignment, view) in zip(p.axes, alignments, views)

@@ -303,6 +303,13 @@ end
         for (p,rho) in zip(physical,(200.,300.))]
     @test observation_labels(layered;request=R)==["electrical resistivity[2]=200.0 Ω·m","electrical resistivity[2]=300.0 Ω·m"]
 
+    nested_radius=[ObservedResult(merge(p.gridpoint,(inputs=(designs=[(regions=[(
+            r=radius,field_descriptions=(r=(name="radius",unit="m"),))],)],),)),
+            p.quantities,p.errors,p.timings)
+        for (p,radius) in zip(physical,(0.005,0.01))]
+    @test observation_labels(nested_radius;request=R)==
+        ["radius[1][1]=0.005 m","radius[1][1]=0.01 m"]
+
     gamma=Formulation(earth_impedance=formula(:unified;options=(Γ=1.0,)))
     gamma_labels=observation_labels([point(a,1),point(gamma,2)];request=R)
     @test all(occursin("Γ=",label) for label in gamma_labels)

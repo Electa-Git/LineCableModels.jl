@@ -44,7 +44,8 @@
         consumer === cairo && owner === CairoMakie && name === :activate! && return true
         consumer === renderer && owner === CairoMakie.Makie && name in (
             :automatic, :current_backend, :get_ticks, :get_tickvalues,
-            :pseudolog10, :inverse_transform, :fast_string_boundingboxes) && return true
+            :pseudolog10, :inverse_transform, :CategoricalConversion,
+            :defaultlimits, :fast_string_boundingboxes) && return true
         consumer === renderer && owner === CairoMakie.Makie.GridLayoutBase &&
             name === :remove_from_gridlayout! && return true
         consumer === renderer && owner === Base && name === :IOError && return true
@@ -74,6 +75,8 @@
     @test !documented_fem_access(JSON3, :StructTypes)
     @test external_contract(renderer, CairoMakie.Makie, :get_ticks)
     @test external_contract(renderer, CairoMakie.Makie, :inverse_transform)
+    @test external_contract(renderer, CairoMakie.Makie, :CategoricalConversion)
+    @test external_contract(renderer, CairoMakie.Makie, :defaultlimits)
     @test external_contract(LineCableModels.Engine, Base, :unalias)
     @test !external_contract(renderer, Base, :unalias)
     @test !external_contract(LineCableModels.Engine, CairoMakie.Makie, :inverse_transform)
