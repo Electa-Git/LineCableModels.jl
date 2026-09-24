@@ -1,4 +1,5 @@
-# Load in the IDE or run with julia --startup-file=no dev/run_three_bare_wires_baseline.jl.
+# Load in the IDE or run with
+# julia --startup-file=no test/manual/fem/run_three_bare_wires_baseline.jl.
 # Uses the active environment, without activating/installing anything. Every run
 # creates a new attempt; retained results are never replaced. No plotting needed.
 using LineCableModels
@@ -6,14 +7,15 @@ using Gmsh
 using Printf, TOML, SHA, Dates, Logging, Pkg
 
 isdefined(@__MODULE__, :CurrentScenarios) ||
-    include(joinpath(@__DIR__, "..", "test", "support", "scenarios.jl"))
+    include(joinpath(@__DIR__, "..", "..", "..", "test", "support", "scenarios.jl"))
 
 function baseline_toml(path, record)
     open(io -> TOML.print(io, record; sorted = true), path, "w")
 end
 
 function baseline_checksums(directory)
-    return Dict(relpath(joinpath(root, file), directory) => open(bytes2hex ∘ sha256, joinpath(root, file))
+    return Dict(relpath(joinpath(root, file), directory) =>
+                    open(bytes2hex ∘ sha256, joinpath(root, file))
     for (root, _, files) in walkdir(directory) for file in files)
 end
 
@@ -39,8 +41,8 @@ function baseline_write_result(directory, result, expected_frequencies)
         # Check every stored entry and its coordinates, not only the dimensions.
         rows = readlines(path)[2:end]
         @assert length(rows) == 81
-        for (row, (k, i, j)) in
-            zip(rows, ((k, i, j) for k in eachindex(f) for i in 1:3 for j in 1:3))
+        for (row, (k, i, j)) in zip(rows, ((k, i, j) for k in eachindex(f) for i in 1:3
+        for j in 1:3))
             fs, li, lj, re, im = split(row, ',')
             @assert parse(Float64, fs) == f[k] && li == labels[i] && lj == labels[j]
             @assert complex(parse(Float64, re), parse(Float64, im)) == values[i, j, k]
@@ -108,8 +110,9 @@ function compare_three_bare_wires_baseline(attempt)
 end
 
 function run_three_bare_wires_baseline(; analytical = true, fem = true)
-    repository = normpath(joinpath(@__DIR__, ".."))
-    root = joinpath(repository, "test", "fixtures", "reference", "three_bare_wires")
+    repository = normpath(joinpath(@__DIR__, "..", "..", ".."))
+    root = joinpath(get(ENV, "LINECABLEMODELS_MANUAL_OUTPUT",
+        joinpath(tempdir(), "linecablemodels-manual")), "three-bare-wires-baseline")
     mkpath(root)
     attempt = mktempdir(root; prefix = "capture-$(Dates.format(now(UTC), "yyyymmddTHHMMSS"))-", cleanup = false)
     println("Baseline directory: ", attempt)
@@ -118,7 +121,8 @@ function run_three_bare_wires_baseline(; analytical = true, fem = true)
     write(joinpath(attempt, "source-status.txt"), read(`git -C $repository status --short`, String))
     # Before: capture required an unrelated historical local plan. Now retain
     # the executable fixture and runner; source.patch records the actual code.
-    for source in ("test/support/scenarios.jl", "dev/run_three_bare_wires_baseline.jl")
+    for source in ("test/support/scenarios.jl",
+        "test/manual/fem/run_three_bare_wires_baseline.jl")
         target = joinpath(attempt, "sources", source)
         mkpath(dirname(target))
         cp(joinpath(repository, source), target)
@@ -143,7 +147,7 @@ function run_three_bare_wires_baseline(; analytical = true, fem = true)
     fem && push!(selections,
         "fem" => (
             Formulation(:LineCableModelsFEM;
-                options = merge((physics = :quasi_tem,), reductions)),
+                options = merge((physics = :quasi_fw,), reductions)),
             (ui = false, mesh_policy = :remesh, resume_run_directory = nothing,
                 keep_run_directory = true, trace = true, output_basis = :pul,
                 verbosity = (default = 1,), gmsh_verbosity = 2, getdp_verbosity = 4,

@@ -10,7 +10,8 @@ end
 const ARTIFACT_DIRECTORY = abspath(get(
     ENV,
     "LINECABLEMODELS_GL_ARTIFACTS",
-    joinpath(pwd(), "manual-gl-artifacts")
+    joinpath(get(ENV, "LINECABLEMODELS_MANUAL_OUTPUT",
+        joinpath(tempdir(), "linecablemodels-manual")), "plotting", "gl")
 ))
 mkpath(ARTIFACT_DIRECTORY)
 
@@ -192,7 +193,7 @@ end
 end
 
 @testset "manual GL independent guide arrangement and resize" begin
-    include(joinpath(@__DIR__, "../../test/support/scenarios.jl"))
+    include(joinpath(@__DIR__, "../../../test/support/scenarios.jl"))
     # Previously scales defaulted to a right column. Previews now default to a
     # bottom strip with left-side property labels and 24-pixel plot clearance.
     # Explicit group layout still owns cells independently of bar orientation.

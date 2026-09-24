@@ -1,5 +1,5 @@
 using Test,LineCableModels,GLMakie
-include(joinpath(@__DIR__,"../../test/support/scenarios.jl"))
+include(joinpath(@__DIR__,"../../../test/support/scenarios.jl"))
 using .CurrentScenarios
 reference=two_conductor_results()
 omega=reshape(2pi.*frequencies(reference),1,1,:)

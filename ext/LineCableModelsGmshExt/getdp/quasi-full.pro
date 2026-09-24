@@ -20,7 +20,7 @@ Jacobian { { Name Plain; Case { { Region All; Jacobian Vol; } } } }
 // reference at earth infinity to each electrode. Jacobian Plain evaluates
 // the pulled-back 1-form: its circulation equals the physical circulation,
 // including in the infinite-element shell. The backend generates these paths
-// from the mesh; dev/run_quasi_full.jl also exposes a manual PEC CLI experiment.
+// from the mesh; test/manual/fem/run_quasi_full.jl also exposes a manual PEC CLI experiment.
 // Raw P has units ohm m (inverse admittance); analytical Pe = j omega P.
 //
 // Reference: G. Ciuprina and R. V. Sabriego, "Electric circuit element boundary

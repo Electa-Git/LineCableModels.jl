@@ -1,20 +1,21 @@
-# Plotting smoke checks
+# Manual plotting checks
 
 The automated Cairo suite covers deterministic rendering, responsive docks,
 callbacks, and live-state SVG export. Changes to interactive window creation,
 display, layout, resizing, or callbacks also require a real-display GL check.
 
-Use the installed development dependencies without replacing the active project:
+These checks are deliberately absent from CI. Use the installed development
+dependencies without replacing the active project:
 
 ```sh
-export JULIA_LOAD_PATH="@:$PWD/test/visual:$PWD/dev/plotting:@v1.12:@stdlib"
+export JULIA_LOAD_PATH="@:$PWD/test/visual:$PWD/test/manual/plotting:@v1.12:@stdlib"
 ```
 
-Run the automated GL and SVG gate under a real display or Xvfb:
+Run the GL and SVG inspection under a real display:
 
 ```sh
-julia --project=. dev/plotting/manual_gl.jl
-julia --project=. dev/plotting/manual_gl.jl --backends-first
+julia --project=. test/manual/plotting/manual_gl.jl
+julia --project=. test/manual/plotting/manual_gl.jl --backends-first
 ```
 
 Both runs begin with CairoMakie installed but unloaded: GL controls work and
@@ -25,13 +26,13 @@ Export preserves the live view and does not switch display backends.
 Run the complete interactive gallery under a real display:
 
 ```sh
-julia --project=. dev/plotting/manual_gl_gallery.jl
+julia --project=. test/manual/plotting/manual_gl_gallery.jl
 ```
 
 Run the focused cable-collection preview gallery:
 
 ```sh
-julia --project=. dev/plotting/manual_gl_cable_collection.jl
+julia --project=. test/manual/plotting/manual_gl_cable_collection.jl
 ```
 
 It opens an automatically arranged 2×3 canvas and an explicit 1×4 canvas.
@@ -41,7 +42,7 @@ legend, and each window has one shared set of three material colorbars.
 Run the focused Monte Carlo distribution gallery:
 
 ```sh
-julia --project=. dev/plotting/manual_gl_monte_carlo.jl
+julia --project=. test/manual/plotting/manual_gl_monte_carlo.jl
 ```
 
 It opens five native Makie views: histogram, density, empirical CDF, model CDF,
@@ -61,7 +62,7 @@ Confirm that:
 For the comparison grid, run:
 
 ```sh
-julia --project=. dev/plotting/manual_gl_comparison.jl
+julia --project=. test/manual/plotting/manual_gl_comparison.jl
 ```
 
 Resize each window and confirm that the matrix grid and responsive legend fit

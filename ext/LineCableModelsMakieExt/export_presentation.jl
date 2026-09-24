@@ -93,12 +93,16 @@ function _addon_hide_chrome!(snapshot, p)
         _addon_hide_layout_content!(snapshot, object)
         union!(occupied, gc.span.rows)
     end
-    for row in occupied
-        rowsize!(root, row, Fixed(0))
-        # Release only gaps adjacent to registered chrome, wherever it lives.
-        gap_after=row-first_row+1
-        row>first_row && rowgap!(root, gap_after-1, Fixed(0))
-        row<last_row && rowgap!(root, gap_after, Fixed(0))
+    with_updates_suspended(root) do
+        for row in occupied
+            rowsize!(root, row, Fixed(0))
+            # GridLayoutBase 0.11.2 and 0.11.3 assign different meanings to
+            # indexed rowgap! calls for offset grids. The stored gaps retain
+            # one stable order, so change only the entries adjacent to chrome.
+            gap_after=row-first_row+1
+            row>first_row && (root.addedrowgaps[gap_after-1]=Fixed(0))
+            row<last_row && (root.addedrowgaps[gap_after]=Fixed(0))
+        end
     end
     return saved
 end
@@ -135,11 +139,11 @@ function _addon_export_presentation!(write, p, theme)
     finally
         _addon_restore_snapshot!(snapshot)
         if chrome!==nothing
-            for (row, value) in enumerate(chrome.rows)
-                rowsize!(state.shell.root, row+chrome.offset-1, value)
-            end
-            for (row, value) in enumerate(chrome.gaps)
-                rowgap!(state.shell.root, row, value)
+            with_updates_suspended(state.shell.root) do
+                for (row, value) in enumerate(chrome.rows)
+                    rowsize!(state.shell.root, row+chrome.offset-1, value)
+                end
+                state.shell.root.addedrowgaps .= chrome.gaps
             end
         end
         for (axis, alignment, view) in zip(p.axes, alignments, views)

@@ -1,4 +1,4 @@
-# Run from the REPL: include("dev/run_quasi_full.jl")
+# Run from the REPL: include("test/manual/fem/run_quasi_full.jl")
 # Edit the inputs below, then include again. Every run gets a fresh directory.
 using LineCableModels, Gmsh, LinearAlgebra, Printf
 FEM = Base.get_extension(LineCableModels, :LineCableModelsGmshExt)
@@ -20,7 +20,8 @@ execution = computation_options(LineCableModelsFEM, ComputationOptions(;mesh_pol
 # Reuse the package's material resolver and mesher. No production FEM solve is
 # called: the only equations executed below are the new quasi-full.pro.
 model = FEM._resolved_fem_model(FEM._preflight_fem_problem(problem), formulation)
-runtime_root = joinpath(pkgdir(LineCableModels), ".linecablemodels", "quasi-full")
+runtime_root = joinpath(get(ENV, "LINECABLEMODELS_MANUAL_OUTPUT",
+    joinpath(tempdir(), "linecablemodels-manual")), "quasi-full")
 manual_run = FEM._create_run(runtime_root)
 run_directory = manual_run.path
 path_files = String[]

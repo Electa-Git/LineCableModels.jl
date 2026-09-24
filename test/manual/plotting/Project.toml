@@ -10,7 +10,7 @@ Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
 WGLMakie = "276b4fcb-3e11-5398-bf8b-a0c2d153d008"
 
 [sources]
-LineCableModels = {path = "../.."}
+LineCableModels = {path = "../../.."}
 
 [compat]
 CairoMakie = "0.15"

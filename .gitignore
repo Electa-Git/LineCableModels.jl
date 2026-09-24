@@ -40,16 +40,8 @@ docs/notes/
 !examples/*.jl
 showcase/bonito/build/
 
-# Internal files
-dev/*
-!dev/README.md
-!dev/run_pscad.jl
-!dev/run_quasi_full.jl
-!dev/run_three_bare_wires_baseline.jl
-!dev/verify_getdp_artifact.jl
-!dev/plotting/
-!dev/plotting/Project.toml
-!dev/plotting/*.jl
+# Private manual-test configuration
+test/manual/pscad/local-pscad.toml
 bibliography/
 presentations/
 projects/

@@ -17,7 +17,8 @@ const WGL_SMOKE_ONLY = lowercase(get(ENV, "LINECABLEMODELS_WGL_SMOKE", "false"))
 const WGL_ARTIFACT_DIRECTORY = abspath(get(
     ENV,
     "LINECABLEMODELS_WGL_ARTIFACTS",
-    "/tmp/linecablemodels-wgl-artifacts"
+    joinpath(get(ENV, "LINECABLEMODELS_MANUAL_OUTPUT",
+        joinpath(tempdir(), "linecablemodels-manual")), "plotting", "wgl")
 ))
 
 mkpath(WGL_ARTIFACT_DIRECTORY)

@@ -17,4 +17,4 @@ The upstream binary archives bound by `Artifacts.toml` include `LICENSE.txt`,
 program; GetDP is not incorporated into the LineCableModels library.
 
 Maintainers can revalidate every supported archive, tree hash, executable and
-license file with `julia dev/verify_getdp_artifact.jl`.
+license file with `julia test/manual/verification/verify_getdp_artifact.jl`.

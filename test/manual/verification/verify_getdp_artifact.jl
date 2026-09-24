@@ -3,7 +3,7 @@ using Pkg
 using SHA
 using TOML
 
-const ROOT = normpath(joinpath(@__DIR__, ".."))
+const ROOT = normpath(joinpath(@__DIR__, "..", "..", ".."))
 const ARTIFACTS = TOML.parsefile(joinpath(ROOT, "Artifacts.toml"))["getdp"]
 const REQUIRED_FILES = Dict(
     "linux" => (

@@ -8,7 +8,7 @@ const CABLE_COLLECTION_GALLERY_SMOKE_ONLY = lowercase(
 ) == "true"
 
 # Current construction inputs; no serialized historical model is loaded.
-include(joinpath(@__DIR__,"../../test/support/scenarios.jl"))
+include(joinpath(@__DIR__,"../../../test/support/scenarios.jl"))
 designs=[CurrentScenarios.coaxial_design(;scale=1+index/10,name="Cable $index") for index in 1:5]
 display_plot = !CABLE_COLLECTION_GALLERY_SMOKE_ONLY
 

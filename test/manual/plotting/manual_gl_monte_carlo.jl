@@ -1,5 +1,5 @@
 using Test,LineCableModels,GLMakie,Measurements
-include(joinpath(@__DIR__,"../../test/support/scenarios.jl"))
+include(joinpath(@__DIR__,"../../../test/support/scenarios.jl"))
 using .CurrentScenarios
 smoke=lowercase(get(ENV,"LINECABLEMODELS_GL_GALLERY_SMOKE","false"))=="true"
 # Synthetic completed storage exercises presentation without a new sampling run.

@@ -1,6 +1,7 @@
 config-version = 1
 include = ["test/**"]
 exclude = [
+    "test/manual/**",
     "test/**/.work/**",
     "test/**/.artifacts/**",
     "test/jl_*/**",

@@ -8,7 +8,8 @@ const GL_GALLERY_SMOKE_ONLY = lowercase(
 const GL_GALLERY_ARTIFACT_DIRECTORY = abspath(get(
     ENV,
     "LINECABLEMODELS_GL_ARTIFACTS",
-    joinpath(tempdir(), "linecablemodels-gl-artifacts")
+    joinpath(get(ENV, "LINECABLEMODELS_MANUAL_OUTPUT",
+        joinpath(tempdir(), "linecablemodels-manual")), "plotting", "gl-gallery")
 ))
 
 mkpath(GL_GALLERY_ARTIFACT_DIRECTORY)
