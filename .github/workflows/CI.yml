@@ -21,7 +21,7 @@ env:
 
 jobs:
   core:
-    name: Ordinary contracts / Julia ${{ matrix.julia }}
+    name: Ordinary tests / Julia ${{ matrix.julia }}
     runs-on: ubuntu-latest
     timeout-minutes: 120
     strategy:
@@ -42,7 +42,7 @@ jobs:
       - uses: julia-actions/julia-runtest@v1
 
   fem-numerical:
-    name: Native FEM execution and contracts / GetDP 3.5.0
+    name: Native FEM execution and tests / GetDP 3.5.0
     runs-on: ubuntu-24.04
     timeout-minutes: 45
     env:
@@ -55,7 +55,7 @@ jobs:
       - uses: julia-actions/cache@v3
         with:
           delete-old-caches: "false"
-      - name: Run FEM execution contracts (headless)
+      - name: Run FEM execution tests (headless)
         run: |
           julia --project=test --startup-file=no --compiled-modules=no --code-coverage=@. --color=yes -e 'using Pkg; Pkg.instantiate()'
           julia --project=test --startup-file=no --compiled-modules=no --code-coverage=@. --color=yes -e '
@@ -85,7 +85,7 @@ jobs:
         run: julia --startup-file=no test/coverage.jl traces
 
   quality:
-    name: Quality contracts
+    name: Quality tests
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
@@ -96,7 +96,7 @@ jobs:
       - uses: julia-actions/cache@v3
         with:
           delete-old-caches: "false"
-      - name: Enforce package and architecture contracts
+      - name: Enforce package and architecture tests
         run: |
           julia --project=test --color=yes -e 'using Pkg; Pkg.instantiate()'
           julia --project=test --color=yes -e '
