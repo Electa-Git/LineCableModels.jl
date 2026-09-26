@@ -198,7 +198,7 @@ cable_design
 cable_preview = preview(
     cable_design;
     backend = :cairo,
-    legend_overflow = :show_all,
+    legend_cap = 0.5,
     display_plot = false, #hide
     controls = false #hide
 )
@@ -311,7 +311,7 @@ system_preview = preview(
     earth_model = earth_params,
     zoom_factor = 2.0,
     backend = :cairo,
-    legend_overflow = :show_all,
+    legend_cap = 0.5,
     display_plot = false, #hide
     controls = false #hide
 )
@@ -464,12 +464,12 @@ operators for numerical inspection.
 =#
 
 modal_parameters = compute(
-    ModalTransformationProblem(line_parameters),
-    ModalTransformationFormulation(:default);
+    ModalAnalysisProblem(line_parameters),
+    ModalAnalysisFormulation(:default);
     options = (offdiagonal_tolerance = 1e-5,)
 );
 
-Tv = operators(modal_parameters).voltage;
+modal_voltage_basis = Tv(modal_parameters);
 
 # Read transformed coefficients through the same immediate observation API:
 modal_impedance = @observe modal_parameters Z[1, 1, :]

@@ -1,12 +1,13 @@
 @testitem "Engine / formulation grids / exact batched calculations" tags=[:integration] setup=[
     UseEngineSupport,
-    TestFixtures, FormulaContractModels
+    TestFixtures, FormulaFixtures
 ] begin
     function same_parameters(left, right)
         same_domain=if domain(left)===ModalDomain
-            formula_id(left.domain.formula)==formula_id(right.domain.formula)&&
-                operators(left).voltage==operators(right).voltage&&
-                operators(left).current==operators(right).current
+            details(left).data.modal.identifier==details(right).data.modal.identifier&&
+                operators(left).Tv==operators(right).Tv&&
+                operators(left).Ti==operators(right).Ti&&
+                gamma(left)==gamma(right)
         else
             left.domain==right.domain
         end
@@ -28,7 +29,7 @@
         frequencies = [50.0]
     )
     formulation_space=Formulation(
-        earth_impedance = Grid(Tuple(FormulaContractModels.selection(
+        earth_impedance = Grid(Tuple(FormulaFixtures.selection(
             LineCableModels.Engine.EarthImpedance; layers=2:2, scale)
             for scale in (1.0, 2.0))),
     )
@@ -112,8 +113,8 @@
     @test collect(compute(constants_problem, constants_space)) == constants_batch
 
     phase=first(expected)
-    modal_problem=ModalTransformationProblem(phase)
-    modal_space=ModalTransformationFormulation(
+    modal_problem=ModalAnalysisProblem(phase)
+    modal_space=ModalAnalysisFormulation(
         Grid((:default, :default)),
     )
     modal_formulations=collect(modal_space)
@@ -124,27 +125,60 @@
     @test all(same_parameters.(collect(compute(modal_problem, modal_space)), modal_batch))
     @test isconcretetype(eltype(modal_batch))
     @test typeof(modal_batch[1]) === typeof(modal_batch[2])
-    @test fieldtype(typeof(modal_batch[1].domain), :formula) ===
-          LineCableModels.AbstractFormulation
+    @test size(modal_batch[1].domain.gamma)==(size(phase.Z,1),length(phase.f))
     for index in eachindex(modal_batch)
         @test same_parameters(modal_batch[index], modal_scalar[index])
     end
 
-    transported=Gridspace{ModalTransformationProblem}(run)
+    stages=Symbol[]
+    composed=compute(first(problems),formulations;
+        options=(on_result=(problem,index,value)->begin
+            @test domain(value)===PhaseDomain
+            push!(stages,:phase)
+        end,),
+        modal=ModalAnalysisFormulation(:default),
+        modal_options=(on_result=(problem,index,value)->begin
+            @test domain(value)===ModalDomain
+            push!(stages,:modal)
+        end,))
+    @test stages==[:phase,:phase,:modal,:modal]
+    @test composed isa AbstractVector{<:LineParameters}
+    @test length(composed)==length(formulations)
+    @test all(index -> Z(composed[index])≈Z(compute(
+        ModalAnalysisProblem(direct[index]),ModalAnalysisFormulation(:default))),
+        eachindex(composed))
+    @test_throws ArgumentError compute(first(problems),first(formulations);
+        modal_options=(timing=true,))
+    completed_modal_grid=Grid(Tuple(modal_formulations))
+    composed_grid=compute(first(problems),first(formulations);
+        modal=completed_modal_grid)
+    @test length(composed_grid)==2
+    @test all(value -> value isa LineParameters,composed_grid)
+    @test all(index -> Z(composed_grid[index])≈Z(compute(
+        ModalAnalysisProblem(direct[1]),modal_formulations[index])),1:2)
+
+    transported=Gridspace{ModalAnalysisProblem}(run)
     @test length(transported) == length(run)
     @test transported.grids === (run,)
     modal_run=compute(
         ParametricProblem(transported),
         Combinatorial(modal_space)
     )
-    expected_modal=[compute(ModalTransformationProblem(parameters), formulation)
+    expected_modal=[compute(ModalAnalysisProblem(parameters), formulation)
                     for formulation in modal_formulations
                     for parameters in run]
     @test length(modal_run) == length(run) * length(modal_formulations)
+    @test isconcretetype(eltype(modal_run))
     @test all(
         same_parameters(modal_run[index], expected_modal[index])
     for index in eachindex(expected_modal)
     )
+    for formulation_index in eachindex(modal_formulations), source_index in 1:length(run)
+        downstream=modal_run[source_index,formulation_index]
+        @test details(downstream).data.source_gridpoint==details(run[source_index]).data.gridpoint
+        @test frequencies(downstream)==frequencies(run[source_index])
+    end
+    @test size.(gamma.(modal_run))==fill((size(phase.Z,1),length(phase.f)),length(modal_run))
 end
 
 @testitem "Engine / formulation grids / one lowering per selected design" tags=[:integration] begin
@@ -204,8 +238,8 @@ end
     @test counter.calls[] == 1
 
     counter.calls[]=0
-    modal_problems=Gridspace{ModalTransformationProblem}(phase)
-    modal_formulations=ModalTransformationFormulation(
+    modal_problems=Gridspace{ModalAnalysisProblem}(phase)
+    modal_formulations=ModalAnalysisFormulation(
         Grid((:default, :default)))
     modal=compute(ParametricProblem(modal_problems), Combinatorial(modal_formulations))
     @test length(modal) == 8

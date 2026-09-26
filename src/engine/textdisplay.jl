@@ -90,9 +90,18 @@ Base.show(io::IO, ::PhaseDomain) = print(io, "PhaseDomain()")
 Base.show(io::IO, ::MIME"text/plain", value::PhaseDomain) = show(io, value)
 
 TextDisplay.name(::Type{<:ModalDomain}) = "Modal domain"
-Base.summary(io::IO, ::ModalDomain) = print(io, "Modal domain")
-Base.show(io::IO, ::ModalDomain) = print(io, "ModalDomain()")
-Base.show(io::IO, ::MIME"text/plain", value::ModalDomain) = show(io, value)
+Base.summary(io::IO, value::ModalDomain) =
+    print(io, "Modal domain, ", size(value.gamma,1), " modes")
+Base.show(io::IO, value::ModalDomain) =
+    print(io, "ModalDomain(", join(size(value.gamma),'×'), " roots)")
+function Base.show(io::IO, ::MIME"text/plain", value::ModalDomain)
+    get(io,:compact,false) && return show(io,value)
+    return TextDisplay.tree(io,"Modal domain",(
+        (label="Tv  $(join(size(value.operators.Tv),'×'))",noun="fields"),
+        (label="Ti  $(join(size(value.operators.Ti),'×'))",noun="fields"),
+        (label="roots  $(join(size(value.gamma),'×'))",noun="fields"),
+    ))
+end
 
 function Base.summary(io::IO, formulation::AbstractFormulation)
     print(io, _engine_type_name(formulation), " formulation")
@@ -251,6 +260,18 @@ function Base.show(io::IO, ::MIME"text/plain", parameters::LineParameters)
         (label = "Z  $shape · $zunit", noun = "fields"),
         (label = "Y  $shape · $yunit", noun = "fields"),
     )
+    if parameters.domain isa ModalDomain
+        state=parameters.domain
+        children=(children...,
+            (label="Tv/Ti  $(join(size(state.operators.Tv),'×'))",noun="fields"),
+            (label="roots  $(join(size(state.gamma),'×'))",noun="fields"))
+        if haskey(parameters.details.data,:modal) &&
+                haskey(parameters.details.data.modal,:diagnostics)
+            diagnostics=parameters.details.data.modal.diagnostics
+            children=(children...,
+                (label="numerical targets  $(length(diagnostics.missed_frequencies)) missed, $(length(diagnostics.fallback_frequencies)) matched fallback",noun="fields"))
+        end
+    end
     return TextDisplay.tree(io, "LineParameters · $(_domain_name(domain(parameters)))", children)
 end
 

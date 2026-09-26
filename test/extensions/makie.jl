@@ -1,4 +1,4 @@
-@testitem "Extensions / Makie boundary / unavailable graphics fail explicitly" tags=[
+@testitem "Extensions / Makie / unavailable graphics fail explicitly" tags=[
     :extension,
     :core_only
 ] begin

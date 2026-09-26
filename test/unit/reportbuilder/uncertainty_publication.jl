@@ -44,6 +44,14 @@
         @test observed.gridpoint.sampling.point_seed==UInt64(11)
     end
     request=@observe (statistics,R,mean)[:,:,:]
+    capacitance_request=@observe (statistics,C,mean)[[2,1],[2],[2,1]]
+    overridden=ObservedResult(source,1,(capacitance_request,);length_unit=:base,
+        quantity_units=Dict(capacitance_request=>:nano,(statistics,C)=>:pico))
+    @test only(overridden.quantities).values≈quantities.C[[2,1],[2],[2,1]].*1e9
+    explicit=ObservedResult(source,1,(capacitance_request,);length_unit=:base,
+        units=(:pico,),quantity_units=Dict(capacitance_request=>:nano))
+    @test only(explicit.quantities).values≈quantities.C[[2,1],[2],[2,1]].*1e12
+    @test only(explicit.quantities).coordinates==only(overridden.quantities).coordinates
     @test request==(statistics,R,mean,Colon(),Colon(),Colon())
     @test (@observe source (statistics,R,mean)[1,:,:,:])==observe(source,statistics,R,mean,1,:,:,:)
     @test (@observe parameters (Y,abs)[:,:,:])==observe(parameters,Y,abs,:,:,:)

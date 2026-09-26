@@ -317,7 +317,7 @@ Iteration and stochastic realization return completed ordinary designs. Raw
 tuples, vectors, polygon points, course schedules, and frequency vectors remain
 atomic unless wrapped in `Grid`.
 
-## Formulation boundary
+## Formulation support
 
 A physically valid design may build even when a formulation does not support
 its geometry. `DataModel.flatten(design, frequency)` performs only local scalar circuit reductions:
@@ -356,7 +356,7 @@ assembly.
 
 JSON records authoritative materials, physical declarations, patterns, paths,
 compaction laws, poses, terminal names, tags, and explicit Grid declarations.
-Decoding invokes the same construction boundary. Resolved geometry, terminal
+Decoding invokes the same constructors. Resolved geometry, terminal
 maps, engine workspaces, and solver results are not serialized.
 
 Model declarations use their bounded `text/plain` displays. Electrical tables

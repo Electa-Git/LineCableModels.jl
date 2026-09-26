@@ -50,7 +50,7 @@ end
 @testitem "Engine / internal impedance / Float32 input compatibility" tags=[:unit] begin
     const II=LineCableModels.Engine.InternalImpedance
     selected=II.Formula(:default)
-    # Float32 is an input compatibility contract, with no extra accuracy target.
+    # Float32 is an supported input type, with no extra accuracy target.
     for inner in (0f0,.003f0)
         evaluator=selected(inner,.005f0,2f-8,1f0,20Float32(pi)*im)
         for kind in (:inner,:outer,:transfer)

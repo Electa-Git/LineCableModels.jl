@@ -359,4 +359,4 @@ end
 end
 
 # Historical sector outputs are retired. Current equivalent-area and shell
-# contracts above use directly established geometry and constitutive identities.
+# checks above use directly established geometry and constitutive identities.

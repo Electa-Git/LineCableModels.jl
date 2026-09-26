@@ -32,7 +32,7 @@ function _uq_coordinates(core::Engine.LineParameters,selector,indices)
     rank=3
     selected=isempty(indices) ? ntuple(_ -> Colon(),rank) : indices
     length(selected)==rank || throw(DimensionMismatch("statistical products require row, column and sample indices"))
-    return Engine._line_coordinates(core,(selector,selected...),nothing)
+    return Engine.line_coordinates(core,(selector,selected...),nothing)
 end
 function _uq_coordinates(core::Engine.CableConstants,selector,indices)
     length(indices)<=1 || throw(DimensionMismatch("cable statistics select assembly indices"))
@@ -103,7 +103,7 @@ function Grammar.observation_quantity(source::Union{MonteCarloResult,LinearError
     end
     # These are selected estimators or individual trials, not replacements for
     # primary uncertain numbers. In particular, a retained std is never clipped.
-    available=Engine._resolution_available.(values)
+    available=Engine.resolution_available.(values)
     retained=map((value,valid) -> valid ? value : missing,values,available)
     statistic=product===samples ? :samples : last(identity) isa Base.Fix2 ?
         Symbol("quantile_",last(identity).x) : nameof(last(identity))
@@ -128,6 +128,15 @@ function Grammar.ObservedResult(source::Union{MonteCarloResult,LinearErrorResult
         quantity_units=nothing,frequencies=nothing,complete_pairs::Bool=false)
     selected=Grammar.observation_requests(source,requests;point,complete_pairs).retained
     isempty(units) || length(units)==length(selected) || throw(DimensionMismatch("units must align with retained requests"))
+    targets = if isempty(units)
+        Grammar.unit_targets(selected, basis(source);
+            length_prefix=length_unit, overrides=quantity_units)
+    else
+        map(selected, units) do request, unit
+            Units.display_unit(request_quantity(request), basis(source), unit;
+                length_prefix=length_unit)
+        end
+    end
     description=gridpoint===nothing ? Grammar.observation_gridpoint(source[point]) : gridpoint
     sampling=source isa MonteCarloResult ? merge(confidence(source,point),
         (frequencies=source[point] isa Engine.LineParameters ? detach(Engine.frequencies(source[point])) :
@@ -138,8 +147,7 @@ function Grammar.ObservedResult(source::Union{MonteCarloResult,LinearErrorResult
         representation=source isa MonteCarloResult ? :marginal_mean_std : :dependency_preserving)))
     quantities=map(eachindex(selected)) do index
         request=selected[index]
-        unit=isempty(units) ? Units.display_unit(request_quantity(request),basis(source),
-            Grammar._unit_override(quantity_units,request);length_prefix=length_unit) : Units.display_unit(request_quantity(request),basis(source),units[index];length_prefix=length_unit)
+        unit=targets[index]
         record=Grammar.observation_quantity(source,point,request;unit,clip,atol,frequencies)
         if record.coordinates.frequencies!==nothing
             f=record.coordinates.frequencies

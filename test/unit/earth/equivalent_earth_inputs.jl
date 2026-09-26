@@ -1,4 +1,4 @@
-@testitem "Earth / explicit reduction validates inputs and admits a user-owned rule" tags=[:unit] setup=[FormulaContractModels] begin
+@testitem "Earth / explicit reduction validates inputs and admits a user-owned rule" tags=[:unit] setup=[FormulaFixtures] begin
     const EP = LineCableModels.Earth
     const EH = EP.EquivalentHomogeneous
     const E = LineCableModels.Engine
@@ -24,7 +24,7 @@
         @test_throws DomainError rule(rho, epsilon, mu, model, pair, frequency)
     end
     original = (copy(rho), copy(epsilon), copy(mu))
-    selected=FormulaContractModels.MeanEarth()
+    selected=FormulaFixtures.MeanEarth()
     @test EH.Formula(selected) === selected
     material = selected(rho, epsilon, mu, model, pair, 50.0)
     @test length(selected.seen) == 1

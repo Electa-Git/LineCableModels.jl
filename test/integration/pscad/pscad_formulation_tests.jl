@@ -128,7 +128,7 @@ end
     const P = LineCableModels.PSCAD
     const E = LineCableModels.Engine
     copper = Material(:conductor, 1.72e-8, 1, 1, 20, 0.004)
-    design = build(CableDesign, "mixed-native-contract", terminal(:core,
+    design = build(CableDesign, "mixed-native-fixture", terminal(:core,
         solid(copper, Disk(0.004)), insulation(Material(:insulator, 1e14, 2.3); t = 0.002)))
     system = build(LineCableSystem, [design, design], [Pose2(0, 2), Pose2(1, -1)];
         connections = [Dict(:core => 1), Dict(:core => 2)])

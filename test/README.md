@@ -47,18 +47,18 @@ elapsed time and completion/failure. A started item is not necessarily completed
 | --- | --- |
 | `DISPLAY= julia --project=test --compiled-modules=no test/runtests.jl tag:fem_numerical` | Native GetDP/Gmsh execution, extraction, material transport, reductions, failure and resume. The UI item is skipped here. |
 | `julia --project=test test/runtests.jl extensions/fem_ui.jl` | Four UI lifecycle scenarios in fresh processes; requires an accessible `DISPLAY`. CI uses `xvfb-run -a`. |
-| `julia --project=test/core test/runtests.jl tag:core_only` | Optional-extension boundaries with core dependencies only. |
-| `LINECABLEMODELS_TEST_PLOTTING=true julia --project=test/visual --compiled-modules=no test/runtests.jl tag:visual` | Existing rendering, plot lifecycle, layout and output contracts; no new calibration. |
+| `julia --project=test/core test/runtests.jl tag:core_only` | Optional-extension behavior with core dependencies only. |
+| `LINECABLEMODELS_TEST_PLOTTING=true julia --project=test/visual --compiled-modules=no test/runtests.jl tag:visual` | Existing rendering, plot lifecycle, layout and output checks; no new calibration. |
 | `julia --project=test test/runtests.jl tag:pscad_native` | Real PSCAD acceptance. Set `LINECABLEMODELS_PSCAD_CONFIG` to your private TOML filename; requires the configured live station. |
 | `julia --project=test test/runtests.jl tag:aqua` | Aqua in a fresh Julia process. |
 | `julia --project=docs docs/doctest.jl` and `julia --project=docs docs/make.jl` | Docstrings and documentation build; instantiate with `docs/instantiate.jl`. |
-| `julia --project=ext/LineCableModelsPSCADExt/remote test/integration/pscad/remote_runner_boundary.jl` | Remote-runner protocol against a mocked Python automation boundary; does not execute PSCAD or validate solver numerics. |
+| `julia --project=ext/LineCableModelsPSCADExt/remote test/integration/pscad/remote_runner_protocol.jl` | Remote-runner protocol against a mocked Python automation interface; does not execute PSCAD or validate solver numerics. |
 
 Ordinary exclusions are `quality`, `aqua`, `visual`, `core_only`, `fem_numerical` and `pscad_native`.
 These tags describe purpose/environment, never outcome.
 PSCAD native tests require the explicit `tag:pscad_native` selector; a file/name
 search alone cannot launch a station. Ordinary local PSCAD tests use Julia protocol
-fixtures. The dedicated remote-runner boundary test mocks only the Python automation
+fixtures. The dedicated remote-runner protocol test mocks only the Python automation
 surface needed to verify runner orchestration; it does not imitate PSCAD numerics.
 Native coverage gaps remain visible in the unchanged production coverage inventory
 and 95% gate.

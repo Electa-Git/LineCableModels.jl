@@ -20,6 +20,10 @@ that `plotting/` has an explicit environment for its optional backends.
 
 The filename states the runnable experiment. In particular:
 
+Run `calculations/modal_analysis.jl` with the existing
+`test/manual/plotting` project when the active REPL project does not already
+provide GLMakie.
+
 | Script | Manual purpose |
 | --- | --- |
 | `performance/benchmark_local_shunt.jl` | Inspect local-shunt preparation, allocation, and selected saved references. |
@@ -28,6 +32,7 @@ The filename states the runnable experiment. In particular:
 | `calculations/run_line_parameters.jl` | Run one editable catalogue case through the analytical or FEM backend and export PSCAD input. |
 | `calculations/run_two_bare_wires.jl` | Compare two analytical earth-property formulations interactively. |
 | `calculations/run_two_bare_wires_fem.jl` | Sweep the two-wire FEM case and inspect CSV/XLSX/plot output. |
+| `calculations/modal_analysis.jl` | Direct REPL study of nine-terminal armored cables through phase, modal, segment, observation, report, and interactive GLMakie APIs. |
 | `fem/run_18kv_trefoil_fem.jl` | Run the current 18 kV catalogue case through quasi-TEM FEM. |
 | `fem/run_quasi_full.jl` | Exercise the disposable quasi-full GetDP formulation directly. |
 | `fem/run_three_bare_wires_baseline.jl` | Capture analytical/FEM baseline data for human comparison. |

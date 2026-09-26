@@ -31,7 +31,7 @@ mutable struct UIPlot{F, C}
     colorbars::Vector{Any}
     "Status observable shared with the native shell and managed callbacks."
     status::Any
-    "Private native lifecycle and presentation state owned by the Makie extension."
+    "Private Makie objects, callback subscriptions, and presentation state."
     addon_state::Any
     "Default base filename used by [`export_svg`](@ref)."
     export_name::String

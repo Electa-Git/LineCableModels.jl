@@ -9,7 +9,7 @@
     options = (; backend=:cairo, display_plot=false, controls=true,
         open_export=false, length_unit=:base, fig_size=(1200,800))
     pages = LineCableModels.plot(parameters; ydata=(R,), layout=(2,3), options...,
-        panel_legends=(5,5)=>(position=:inside, overflow=:show_all))
+        panel_legends=(5,5)=>(position=:inside, max_fraction=0.5))
     @test length(pages) == 6
     @test [length(page.axes) for page in pages] == [6,4,6,4,3,2]
     @test [page.addon_state.panel_page.index for page in pages] ==
@@ -67,7 +67,7 @@
     family = LineCableModels.plot(small; ydata=(R,G), layout=(1,2), options...,
         figure_title=("One line", "Two\nlines", "One line", "One line"),
         series_labels=("Saved curve",), legend_position=:bottom,
-        panel_legends=(2,2)=>(position=:right, overflow=:show_all))
+        panel_legends=(2,2)=>(position=:right, max_fraction=0.5))
     rectangles = [axis.layoutobservables.computedbbox[] for page in family for axis in page.axes]
     @test all(rectangle -> all(isapprox.(rectangle.widths,first(rectangles).widths;atol=1)),rectangles)
     mktempdir() do directory
@@ -155,7 +155,7 @@ end
     short_markers = only(filter(plot -> plot isa Makie.Scatter,
         short.addon_state.groups[last(short.addon_state.order)]))
     @test length(short_markers[1][]) == 2
-    moved = figurelegend!(page;position=:top,overflow=:show_all)
+    moved = figurelegend!(page;position=:top,max_fraction=0.5)
     Makie.toggle_visibility!(first(last(only(moved.entrygroups[]))))
     @test !first(curves).visible[] && !first(markers).visible[]
     Makie.toggle_visibility!(first(last(only(moved.entrygroups[]))))
@@ -166,7 +166,11 @@ end
     long = LineCableModels.plot(result; ydata=(R,),reference,series_labels=long_labels,options...)
     @test !isempty(Makie.colorbuffer(long.figure))
     @test long.legend.nbanks[] == 1
-    @test all(occursin('\n',entry.label[]) for entry in last(only(long.legend.entrygroups[])))
+    long_entries = last(only(long.legend.entrygroups[]))
+    @test last(long_entries).label[] == "(...)"
+    @test length(long_entries)>1
+    @test all(occursin('\n',entry.label[]) for entry in long_entries[1:(end-1)])
+    @test long.legend.layoutobservables.autosize[][2] <= 0.5only(long.axes).scene.viewport[].widths[2]+1
     @test long.legend.layoutobservables.autosize[][1] <= long.figure.scene.viewport[].widths[1]
     @test Set(values(long.addon_state.labels)) == Set(long_labels)
     for size in ((700,500),(1400,900),(1000,650))

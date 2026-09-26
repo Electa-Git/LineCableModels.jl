@@ -18,10 +18,24 @@ end
 """
 $(TYPEDSIGNATURES)
 
+Normalize a selector prefix to the retained component selector used for lookup.
+The input excludes positional indices; [`request_identity`](@ref) extracts that
+prefix from a complete request. Scientific owners may extend this method for
+accessor aliases. The default leaves selectors unchanged. `Val` selector names
+also support keyed display-unit overrides such as `:alpha` and `:beta`.
+"""
+normalize_observation_selector(selector) = selector
+
+"""
+$(TYPEDSIGNATURES)
+
 Return the [`LineCableModels.Units.Quantity`](@ref) encoded by a scientific
 request.
 """
-request_quantity(request) = _quantity(request_identity(request))
+function request_quantity(request)
+    identity=request_identity(request)
+    return identity isa Tuple ? quantity(identity...) : quantity(identity)
+end
 
 """
 $(TYPEDSIGNATURES)
@@ -70,7 +84,7 @@ function observation_request(source, request)
     ))
     selector_count = identity isa Tuple ? length(identity) : 1
     indices = request isa Function ? () : request[(selector_count + 1):end]
-    return (; identity, quantity = _quantity(identity), indices)
+    return (; identity, quantity = request_quantity(request), indices)
 end
 
 """
@@ -157,22 +171,26 @@ end
 _observe_request(source, request::Function) = observe(source, request)
 _observe_request(source, request::Tuple) = observe(source, request...)
 
-_quantity(request::Function) = quantity(request)
-
-function _quantity(request::Tuple)
+function _override_candidates(request, overrides)
     identity = request_identity(request)
-    return identity isa Tuple ? quantity(identity...) : quantity(identity)
-end
-
-function _override_candidates(request)
-    identity = request_identity(request)
-    names = identity isa Function ? (nameof(identity),) :
-            identity isa Tuple && first(identity) isa Function ?
-            (nameof(first(identity)),) : ()
+    indices=request_indices(request)
+    selector=identity isa Tuple ? first(identity) : identity
+    names=selector isa Base.Fix2 ? () : selector isa Function ? (nameof(selector),) : ()
     prefix = identity isa Tuple && length(identity) > 2 ? (identity[1:2],) : ()
+    component_selector=normalize_observation_selector(identity)
+    indexed_aliases=isempty(indices) ? () : Tuple(key for key in keys(overrides) if
+        key isa Tuple && !isempty(key) && first(key) isa Function &&
+        isequal(normalize_observation_selector(request_identity(key)),component_selector) &&
+        isequal(request_indices(key),indices) && !isequal(key,request))
+    function_aliases=Tuple(key for key in keys(overrides) if key isa Function &&
+        isequal(normalize_observation_selector(key),component_selector) && !isequal(key,identity))
+    name_aliases=Tuple(key for key in keys(overrides) if key isa Symbol &&
+        isequal(normalize_observation_selector(Val(key)),component_selector))
+    bound=selector isa Base.Fix2 ? (selector,selector.f,nameof(selector.f)) : ()
     physical=identity isa Tuple && length(identity)>1 && identity[2] isa Function &&
         applicable(quantity,identity[2]) ? (identity[2],nameof(identity[2])) : ()
-    return (request, identity, prefix..., names...,physical...)
+    return (request,indexed_aliases...,identity, prefix..., bound...,function_aliases...,name_aliases...,
+        names...,physical...)
 end
 
 function _unit_override(overrides, request)
@@ -181,7 +199,7 @@ function _unit_override(overrides, request)
     overrides isa Union{NamedTuple, AbstractDict} || throw(ArgumentError(
         "unit overrides must be a prefix, UnitExpr, keyed collection, or nothing",
     ))
-    for candidate in _override_candidates(request)
+    for candidate in _override_candidates(request,overrides)
         if overrides isa NamedTuple
             candidate isa Symbol && haskey(overrides, candidate) &&
                 return overrides[candidate]
@@ -220,7 +238,7 @@ function unit_targets(
 )
     return map(requests) do request
         display_unit(
-            _quantity(request),
+            request_quantity(request),
             result_basis,
             _unit_override(overrides, request);
             length_prefix
@@ -267,18 +285,6 @@ Result owners extend this operation; the fallback makes no precision claim.
 function observation_resolution(source, request; atol=nothing, frequencies=nothing)
     return (kind=:unassessed, atol=nothing, unit=nothing,
         unresolved=nothing, available=nothing)
-end
-
-_resolved_observation(value, ::Nothing, available, phase) = available === false ? missing : value
-function _resolved_observation(value, unresolved::Bool, available::Bool, ::Val{false})
-    available || return missing
-    return unresolved ? value - nominal(value) : value
-end
-_resolved_observation(value, unresolved::Bool, available::Bool, ::Val{true}) =
-    !available || unresolved ? missing : value
-function _resolved_observation(values::AbstractArray, unresolved::AbstractArray, available::AbstractArray, phase)
-    return map((value, masked, valid) -> _resolved_observation(value, masked, valid, phase),
-        values, unresolved, available)
 end
 
 """

@@ -1,4 +1,4 @@
-@testitem "Plotting / core boundary / shell handles and domain geometry" tags=[:unit] setup=[
+@testitem "Plotting / core loading / shell handles and domain geometry" tags=[:unit] setup=[
     TestFixtures
 ] begin
     using LineCableModels

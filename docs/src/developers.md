@@ -151,7 +151,7 @@ without type-induced crashes. It carries no additional numerical accuracy
 promise. Do not impose a high-precision reference target on Float32 and then
 change owned numerical code to meet it. No Float32-specific widening, compensated
 arithmetic or precision infrastructure is justified by such a test. Preserve
-existing dispatch, hook, uncertainty and type contracts; keep boundary conversions
+existing dispatch, hooks, uncertainty and supported types; keep API conversions
 when an actual API or dependency interface requires them. A requested tolerance
 does not create an accuracy guarantee.
 
@@ -159,7 +159,7 @@ Scientific validity, comparison of physical approximations, broad accuracy
 claims, convergence research and scientific acceptance are outside the test
 harness. Scientific acceptance belongs to the researcher's interpretation, not
 the test runner. Such research is not a required CI job, and unfinished scientific
-evidence is not a failing code contract. Apply this boundary to passing and failing
+evidence is not a failing software check. Apply this distinction to passing and failing
 experiments alike.
 
 A fabricated failure is as unacceptable as a fabricated success. Verify an
@@ -173,7 +173,7 @@ failures from execution errors or unavailable verification.
 
 Architectural tests protect current responsibilities through real behavior and
 native method/interface checks: owner-local dispatch, fixed report stages,
-observation and table boundaries, validated inputs, optional integrations and
+observation and table owners, validated inputs, optional integrations and
 caller-owned state. A conforming new leaf must work through the actual composed
 consumer. Unrelated old helper names, private storage layouts and incidental
 source expressions are not substitutes for these checks. Keep the standards
@@ -192,7 +192,7 @@ calibration into a recurring obligation. Prior completion does not justify a
 test or numerical change whose requirement was unsupported, including the
 accuracy-driven Float32 surface-evaluation change.
 
-## External interface contracts
+## External interface methods
 
 `test/quality/explicit_imports.jl` loads the numerical, XLSX and Cairo adapters
 explicitly. All mechanical ownership/import checks remain active. Its exact
@@ -201,7 +201,7 @@ lack Julia `public` annotations; they grant no package-private access.
 
 The inspected external accesses have these dispositions:
 
-| Access | Contract and disposition |
+| Access | Supported use |
 | --- | --- |
 | `CairoMakie.activate!` | Documented [backend activation](https://docs.makie.org/stable/explanations/backends/cairomakie.html); Cairo adapter only. |
 | `Base.IOError` | Native I/O exception, including [filesystem errors](https://docs.julialang.org/en/v1/base/file/); renderer export error handling only. |
@@ -211,16 +211,16 @@ The inspected external accesses have these dispositions:
 | `Makie.current_backend` | Documented [backend-dependent API default](https://docs.makie.org/stable/api); renderer only. |
 | `Makie.get_ticks`, `Makie.get_tickvalues` | Documented [axis extension hooks](https://docs.makie.org/stable/reference/blocks/axis.html); renderer only. |
 | `Makie.pseudolog10` | Documented [axis scale](https://docs.makie.org/stable/reference/blocks/axis.html); renderer only. |
-| `Makie.inverse_transform` | Documented [custom axis scale contract](https://docs.makie.org/stable/reference/blocks/axis.html#xscale); the renderer applies axis margins to full uncertainty bounds in the selected scale, then maps them back without a second inverse-scale registry. |
+| `Makie.inverse_transform` | Documented [custom axis scale interface](https://docs.makie.org/stable/reference/blocks/axis.html#xscale); the renderer applies axis margins to full uncertainty bounds in the selected scale, then maps them back without a second inverse-scale registry. |
 | `Makie.CategoricalConversion` | Documented [categorical axis conversion](https://docs.makie.org/stable/reference/generic/dimensional/); renderer assembly axes only. |
-| `Makie.defaultlimits` | The documented native scale-default hook named by Makie's Axis attribute contract; the renderer queries it only when an empty axis changes scale, so the native scale supplies its valid interval. |
-| `Makie.attribute_names` | Removed. Axis uses its `propertynames` interface plus the native `palette` keyword; Scatter uses the exported [`default_theme`](https://docs.makie.org/v0.24/explanations/recipes) contract. |
-| `Makie.get_plots` | Removed. Legend glyphs use the `plots` vector required by the [LegendElement extension contract](https://github.com/MakieOrg/Makie.jl/blob/v0.24.13/Makie/src/makielayout/types.jl). This is the documented source association, not arbitrary private-field inspection. |
+| `Makie.defaultlimits` | The documented native scale-default hook named by Makie's Axis attributes; the renderer queries it only when an empty axis changes scale, so the native scale supplies its valid interval. |
+| `Makie.attribute_names` | Removed. Axis uses its `propertynames` interface plus the native `palette` keyword; Scatter uses the exported [`default_theme`](https://docs.makie.org/v0.24/explanations/recipes) method. |
+| `Makie.get_plots` | Removed. Legend glyphs use the `plots` vector required by the [LegendElement extension interface](https://github.com/MakieOrg/Makie.jl/blob/v0.24.13/Makie/src/makielayout/types.jl). This is the documented source association, not arbitrary private-field inspection. |
 | `Makie.get_plot_visibilities` | Removed. Native `on`/`off` and the documented [`ObserverFunction.observable`](https://juliagizmos.github.io/Observables.jl/stable/#Observables.ObserverFunction) supply the notification target without changing visibility. |
 | `Makie.fast_string_boundingboxes_obs` | Removed. Public attribute subscriptions query the documented [`fast_string_boundingboxes(Text)`](https://github.com/MakieOrg/Makie.jl/blob/v0.24.13/Makie/src/basic_recipes/text.jl) result, preserving marker-space extents without the internal observable helper. The exact documented query is allowed for the renderer. |
 | `GridLayoutBase.remove_from_gridlayout!` | Retained as the [maintainer-prescribed nested-layout removal](https://discourse.julialang.org/t/makie-removing-gridlayouts/103935) workaround. It is not an exported stable API. Only this renderer call is admitted; existing legend recreation/layout tests protect it. |
 
-These integration contracts are scoped to the supported Makie 0.24 family.
+These integration methods are scoped to the supported Makie 0.24 family.
 The layout workaround needs review when that compatibility range changes.
 The owned legend, uncertainty visibility, series style and colorbar endpoint tests
 exercise the actual affected paths. Source declarations alone do not establish

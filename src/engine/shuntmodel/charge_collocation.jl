@@ -657,7 +657,7 @@ function _shunt_values(domain::InternalShuntDomain{T}, methods) where {T}
     return values
 end
 
-# The flat values vector is also the narrow differentiation boundary. It keeps
+# The flat values vector is also the differentiation input. It keeps
 # correlated scalar graphs out of dense factorizations without discarding them.
 function _shunt_data(values::AbstractVector{T}, domain) where {T}
     a, b, epsilon = values[1:3]

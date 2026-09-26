@@ -13,7 +13,7 @@
     )
     cable_formulation=CableConstantsFormulation(insulation_admittance = :lossy)
     parameters=TestFixtures.two_conductor_results()
-    modal=compute(ModalTransformationProblem(parameters), ModalTransformationFormulation())
+    modal=compute(ModalAnalysisProblem(parameters), ModalAnalysisFormulation())
     benchmark=EN.compare(parameters, parameters)
     constants=CableConstants(1e-4, 2e-7, 3e-10, 4e-12)
     backend=LineCableModelsFEM(options = (physics = :quasi_fw,))

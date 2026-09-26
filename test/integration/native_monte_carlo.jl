@@ -2,7 +2,7 @@
     UseNativePlotSupport, TestFixtures
 ] begin
     get(ENV, "LINECABLEMODELS_TEST_PLOTTING", "false")=="true"||
-    error("set LINECABLEMODELS_TEST_PLOTTING=true to run the visual contract")
+    error("set LINECABLEMODELS_TEST_PLOTTING=true to run the visual test")
     using CairoMakie, Measurements
 
     result=TestFixtures.cable_monte_carlo_result()

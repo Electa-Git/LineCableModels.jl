@@ -1,4 +1,4 @@
-@testitem "Engine / shared temperature law reaches scalar, Gridspace, constants and export" tags=[:integration] setup=[FormulaContractModels] begin
+@testitem "Engine / shared temperature law reaches scalar, Gridspace, constants and export" tags=[:integration] setup=[FormulaFixtures] begin
     copper = Material(:conductor,1.72e-8,1,1,20,0.004)
     dielectric = Material(:insulator,1e7,2.3,1,20,-0.003;tan_delta=0.025)
     function cable_with(metal, passive)
@@ -12,7 +12,7 @@
     design = cable_with(copper,dielectric)
     system = system_with(design)
     problem = LineParametersProblem(system;temperature=80.0,frequencies=[50.0,1000.0],earth_props=homogeneous(rho=100.0))
-    declaration=FormulaContractModels.ScaledResistivity()
+    declaration=FormulaFixtures.ScaledResistivity()
     selected = Formulation(temperature_dependence=declaration,
         insulation_admittance=:lossy,options=(ideal_transposition=false,))
     reference_design = cable_with(

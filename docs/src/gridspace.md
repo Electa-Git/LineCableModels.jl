@@ -160,7 +160,7 @@ collect(outer)
 #  ((1, 10), :b), ((2, 20), :b)]
 ```
 
-## Public construction boundary
+## Public constructors
 
 Gridspace delays finite selection. Each lifted public action applies one rule:
 
@@ -190,7 +190,7 @@ The current behavior is:
 | `CableConstants` | `Engine.CableConstants` | `Gridspace{Engine.CableConstants}` |
 | `Formulation` | `Engine.LineParametersFormulation` | `Gridspace{Engine.LineParametersFormulation}` |
 | `CableConstantsFormulation` | `Engine.CableConstantsFormulation` | `Gridspace{Engine.CableConstantsFormulation}` |
-| `ModalTransformationFormulation` | `Transforms.ModalTransformationFormulation` | `Gridspace{Transforms.ModalTransformationFormulation}` |
+| `ModalAnalysisFormulation` | `ModalAnalysis.ModalAnalysisFormulation` | `Gridspace{ModalAnalysis.ModalAnalysisFormulation}` |
 | backend formulation constructor | completed backend formulation | target-bearing formulation `Gridspace` |
 | `@gridspace` keyword constructor | strict struct | `Gridspace{Target}` |
 
@@ -423,8 +423,51 @@ A completed result space enters another scalar calculation through the target
 `Gridspace` constructor:
 
 ```julia
-modal_problems = Gridspace{ModalTransformationProblem}(phase_results)
+modal_problems = Gridspace{ModalAnalysisProblem}(phase_results)
 ```
+
+For example, starting with two completed phase scans and a completed line
+formulation, the full modal and finite chain uses public collection constructors
+and compute methods throughout:
+
+```julia
+# phase_a and phase_b are completed phase LineParameters with declared lengths.
+phase_results = ParametricResult(Combinatorial(line_formulation),
+    [phase_a, phase_b])
+modal_formulation = ModalAnalysisFormulation(:default)
+
+# One scalar action and direct target-bearing Gridspace action.
+scalar_modal = compute(ModalAnalysisProblem(phase_a), modal_formulation)
+modal_problems = Gridspace{ModalAnalysisProblem}(phase_results)
+modal_results = compute(modal_problems, modal_formulation)
+length(modal_results) == 2                 # N → N, original source order
+
+# Explicit Combinatorial uses the same finite traversal.
+explicit_results = compute(ParametricProblem(modal_problems),
+    Combinatorial(modal_formulation))
+length(explicit_results) == 2
+
+two_formulations = ModalAnalysisFormulation(
+    Grid((modal_formulation, modal_formulation)))
+product_results = compute(modal_problems, two_formulations)
+length(product_results) == 4               # N × M, source index varies fastest
+
+segments = collect(Gridspace{PropagationParameters}(modal_results))
+short_segments = PropagationParameters(scalar_modal;
+    line_length=Grid((150.0, 300.0)))
+roots = gamma.(modal_results)              # each element is a mode × frequency array
+voltage_bases = Tv.(modal_results)          # each element is a phase × mode × frequency array
+responses = H.(segments)                   # each element is a mode × frequency array
+```
+
+`modal_results` and `product_results` store concrete scalar `LineParameters`
+elements; `segments` stores concrete scalar `PropagationParameters` elements.
+The first axis of each completed result space follows the source order; for
+the product, the linear index is `source_index + (formulation_index-1)*N`.
+The quantity arrays
+remain single outer elements under ordinary Julia broadcast. A completed
+formulation `Grid` can be used directly; it is never wrapped as a second
+modal formulation.
 
 The dispatched method `Gridspace{Target}(source::SourceResult)` defines how the
 source result family supplies arguments to the target problem constructor. The
@@ -456,7 +499,7 @@ end
 ```
 
 This keeps every scientific calculation scalar. Finite composition recurses
-through the same typed boundary:
+through the same typed result-to-problem conversion:
 
 ```text
 ResultSpace{A} → Gridspace{ProblemB} → ResultSpace{B}
@@ -523,7 +566,7 @@ Lengths are in meters. Here the common scale has mean 1, standard deviation
 clearance is positive; shared positive scaling preserves that sign and the
 68-wire inventory throughout this support. The annulus thickness is derived
 from the same diameter, and its independent coordinate retains its own
-uncertainty. For a complete stack, derive successive boundaries from positive
+uncertainty. For a complete stack, derive successive layer radii from positive
 thicknesses inside the same builder. Nest the resulting source once in the
 `LineParametersProblem` builder, then use it with `ParametricProblem` and
 either `LinearError` or `MonteCarlo`.
@@ -579,14 +622,17 @@ construction, and the absence of a random-access Gridspace API.
 
 The implementation is split across:
 
-- `src/parametricbuilder/grid.jl`: finite values and uncertainty descriptors.
-- `src/parametricbuilder/gridspace.jl`: composition, point selection, recursive
+- `src/grid.jl`: finite values and uncertainty descriptors.
+- `src/gridspace.jl`: composition, point selection, recursive
   materialization, and realization.
 - `src/parametricbuilder/macros.jl`: strict scalar construction and explicit
   Gridspace lifting for `@gridspace`.
 - material, cable, position, and system files: scalar construction and lifting
   rules and concrete callable algorithms.
-- `src/parametricbuilder/compute.jl`: combinatorial traversal.
+- `src/parametricbuilder/traversal.jl`: combinatorial traversal.
+- `src/modalanalysis/delegation.jl`: public phase-to-modal composition;
+  `src/modalanalysis/problems.jl`, `compute.jl`, and `propagation.jl` own
+  modal scalar computation and finite segment binding.
 - `src/uq/linearerror.jl` and `src/uq/montecarlo/compute.jl`: direct and
   repeated stochastic traversal.
 - Measurements and Distributions extensions: dependency-specific uncertainty

@@ -26,10 +26,10 @@ using Statistics: mean
 # |:--|:--|
 # | `figure_title` | One visible title above the whole native figure |
 # | `title_attributes` | Native Makie `Label` attributes for `figure_title` |
-# | `panel_titles` | Axis-title overrides, positionally or by semantic key |
+# | `panel_titles` | Axis-title overrides by position, request, or panel identifier |
 # | `legend_title` | Heading of the controlled figure legend |
-# | `series_labels` | Names of overlaid result containers; these are the legend entries |
-# | `series_attributes` | Native Makie attributes for all legend groups, or one named tuple per group in legend order |
+# | `series_labels` | Names of the overlaid gridpoints or physical coordinates; these are the legend entries |
+# | `series_attributes` | Native Makie attributes for all overlaid curves, or one named tuple per curve |
 # | `legend_position` | `:inside`, a named outer dock, or a positive dock grid position |
 # | `legend_attributes` | Native `halign`/`valign`, orientation, banks, fonts, and padding |
 #
@@ -53,7 +53,7 @@ using Statistics: mean
 #
 # The same scopes are mutable after construction. `figuretitle!` and
 # `paneltitle!` replace titles. `figurelegend!` and `panellegend!` rebuild a
-# native legend from the retained semantic plot handles, so relabeling does not
+# native legend from the retained native plots in each visibility group, so relabeling does not
 # destroy grouped visibility behavior.
 
 # ### Observation, facet, page, and legend semantics
@@ -67,28 +67,61 @@ using Statistics: mean
 # The plot-facing name for this ordinate selection is `ydata`; it may be passed
 # positionally or as a keyword, for example `plot(result; ydata=(R, L))`.
 #
-# Every `(quantity, row, column)` is one facet and therefore one axis. Its
-# default title comes from the unit registry plus the coordinate relation, for
+# With matrix gridpoint overlays, every `(quantity, row, column)` has one axis.
+# Its default title uses `Units.label` and the retained coordinate labels, for
 # example `Self series resistance — conductor 1` or
-# `Mutual series reactance — conductor 1 → 2`. Coordinates never
-# become legend entries. A legend exists to distinguish overlaid result sets;
-# a single unlabeled result therefore has no legend by default.
+# `Mutual series reactance — conductor 1 → 2`. With gridpoint overlays,
+# coordinates identify panels and legends distinguish result sets. With
+# coordinate overlays, each selected coordinate is a labelled curve. A single
+# unlabeled curve has no legend by default.
 #
 # `layout` is the sole nominal panel capacity. Every selected quantity or
-# statistical meaning has its own figure family; multiple observations add traces.
+# statistical meaning has its own figure family. Omitted layout chooses capacity
+# independently for each family; an explicit `(rows, columns)` sets the same
+# nominal capacity for all families.
 # Before: `blocks` paginated matrices and `layout` could pair quantities. Now
 # `layout` alone sets capacity within each quantity; `blocks` has been removed.
 #
 # | `layout` | Page grouping |
 # |:--|:--|
-# | `nothing` | Largest selected matrix span, or a near-square flow capacity |
-# | `(1, 1)` | One selected coefficient per figure, per quantity |
-# | `(1, 2)` | Up to two matrix columns or two flow panels per page |
-# | `(2, 1)` | Up to two matrix rows or two flow panels per page |
-# | `(N, N)` | One full matrix page per quantity for an `N×N` result |
+# | `nothing` | Each family's selected matrix span, or a near-square flow capacity |
+# | `(1, 1)` | One selected panel per figure, per quantity |
+# | `(1, 2)` | Up to two panels in one row per page |
+# | `(2, 1)` | Up to two panels in one column per page |
+# | `(N, N)` | Up to `N²` panels per figure, per quantity |
 #
-# Layout follows observation selection. It cannot add an excluded coefficient,
-# merge different quantities, or turn coordinates into series labels.
+# Layout follows observation selection. It cannot add an excluded coefficient or
+# merge different quantities. `overlay` controls the panel and curve dimensions:
+#
+# | `overlay` | Panels | Curves |
+# |:--|:--|:--|
+# | `:auto` | Mode panels for several gridpoints or a larger explicit layout; matrix coefficient panels otherwise | Gridpoints |
+# | `:auto` for one modal vector with omitted layout or `(1,1)` | One panel per component | Selected modes |
+# | `:gridpoints` | Selected coordinates | Gridpoints |
+# | `:coordinates` | Selected gridpoints | Selected coordinates |
+# | `:rows` (matrices) | Selected columns, with separate figures per gridpoint | Selected rows |
+#
+# Filtering occurs before this choice. An explicit reference counts as another
+# gridpoint. Gridpoint overlays retain equivalent-result grouping; coordinate
+# overlays retain a panel for every selected point. Tuple/vector labels and styles
+# address the overlaid dimension, so incompatible mixed families need separate
+# calls. A shared style NamedTuple applies to every curve.
+#
+# `overlay=:rows` also retains every selected point, including equivalent results
+# and a reference, in its own figure sequence. For Tv/Ti, columns are modes and
+# rows are conductors: each panel title identifies its mode and its legend lists
+# conductors. Figure titles use compact gridpoint descriptions. Other matrices
+# use the same operation with their own physical row and column labels.
+#
+# Row-overlay panels follow selected column order, left to right and then top to
+# bottom. `layout=(r,c)` applies the same block capacity to each point; pagination
+# restarts at each point, even when the previous page has empty cells. Automatic
+# capacity uses the selected column count per point. Panel titles and controls
+# accept `(original_point_position, original_column)` addresses; an explicit
+# reference uses its appended input position. Row colors and markers remain
+# consistent across columns, points, references and reordered selections.
+# Positional `series_labels` and `series_attributes` follow selected row order.
+# Use separate calls for matrix and vector quantities with this explicit option.
 
 # ### Matrix pagination and overlays
 #
@@ -106,6 +139,9 @@ using Statistics: mean
 #
 # Native decoration measurements establish equal initial data frames. `fig_size`
 # is the reference size for the nominal capacity; `figure.size` takes precedence.
+# Legends use at most the fraction specified by `legend_cap=0.5`
+# of their associated data area. Extra entries become `(...)`; legend length
+# does not enlarge the initial window. All curves remain plotted.
 # Each finished window fits its actual occupied panels, titles, guides, and
 # enabled controls. A singleton with explicit `layout=(1,2)` retains the smaller
 # frame from that two-column reference, without allocating an empty second cell.
@@ -219,20 +255,20 @@ cable_system = build(
 # below. It does not run a Monte Carlo campaign or claim a physical cable study.
 # Moments, samples, and histograms belong to the UQ owner before plotting begins.
 retained_samples = (
-    R=reshape([2.,3.,5.,8.].*1e-4,1,:),
-    L=reshape([11.,13.,17.,19.].*1e-7,1,:),
-    C=reshape([23.,29.,31.,37.].*1e-11,1,:),
-    G=reshape([41.,43.,47.,53.].*1e-10,1,:),
+    R = reshape([2.0, 3.0, 5.0, 8.0] .* 1e-4, 1, :),
+    L = reshape([11.0, 13.0, 17.0, 19.0] .* 1e-7, 1, :),
+    C = reshape([23.0, 29.0, 31.0, 37.0] .* 1e-11, 1, :),
+    G = reshape([41.0, 43.0, 47.0, 53.0] .* 1e-10, 1, :)
 );
 retained_statistics = map(x -> [SampleSummary(vec(x))], retained_samples);
-retained_histograms = map(x -> [HistogramDensity(vec(x);bins=2)], retained_samples);
-retained_core = CableConstants(mean(retained_samples.R),mean(retained_samples.L),
-    mean(retained_samples.C),mean(retained_samples.G));
-retained_core = LineCableModels.materialize(retained_core,retained_statistics);
-mc_formulation = MonteCarlo(Formulation();trials=4,seed=41,
-    return_samples=true,return_histograms=true);
-mc_result = MonteCarloResult(mc_formulation,[retained_core],[retained_statistics],
-    [retained_samples],[retained_histograms],UInt64(41),UInt64[42],[4]);
+retained_histograms = map(x -> [HistogramDensity(vec(x); bins = 2)], retained_samples);
+retained_core = CableConstants(mean(retained_samples.R), mean(retained_samples.L),
+    mean(retained_samples.C), mean(retained_samples.G));
+retained_core = LineCableModels.materialize(retained_core, retained_statistics);
+mc_formulation = MonteCarlo(Formulation(); trials = 4, seed = 41,
+    return_samples = true, return_histograms = true);
+mc_result = MonteCarloResult(mc_formulation, [retained_core], [retained_statistics],
+    [retained_samples], [retained_histograms], UInt64(41), UInt64[42], [4]);
 
 # ## Line-parameter recipes
 
@@ -264,7 +300,7 @@ default_line_pages[4].figure #hide
 # ### Cartesian series impedance
 
 # This exact observation asks for the self impedance of conductor 1 over the
-# full frequency range. The observation layer expands ``Z`` into resistance and
+# full frequency range. `ObservedResult` construction expands ``Z`` into resistance and
 # reactance. They remain separate quantity figures, even with a multi-panel layout.
 
 ## `xscale=:log10` is an initial state; the live toolbar can still change it.
@@ -284,8 +320,9 @@ series_cartesian = Makie.plot(
     legend_title = "Result set",
     series_labels = ("reference",),
     legend_position = :inside,
-    legend_attributes = (; halign=:right,valign=:bottom,backgroundcolor=(:white,0.92)),
-    legend_overflow = :show_all
+    legend_attributes = (;
+        halign = :right, valign = :bottom, backgroundcolor = (:white, 0.92)),
+    legend_cap = 0.5
 )
 series_cartesian[1].figure #hide
 #-
@@ -356,18 +393,18 @@ figurelegend!(
     ),
     orientation = :horizontal,
     nbanks = 2,
-    overflow = :show_all
+    max_fraction = 0.5
 )
 # Logical position `(1, 1)` is the resistance panel.
 panellegend!(
     legend_scope_demo,
     (1, 1);
     position = :inside,
-    halign=:left,valign=:bottom,
+    halign = :left, valign = :bottom,
     title = "Resistance result",
     legend_labels = ("base R", "alternative R"),
     backgroundcolor = (:white, 0.92),
-    overflow = :show_all
+    max_fraction = 0.5
 )
 # Titles use the same logical panel address as panel legends.
 figuretitle!(legend_scope_demo, "Resistance dashboard"; fontsize = 20)
@@ -451,7 +488,7 @@ standalone_impedance = Makie.plot(
     controls = false,
     xscale = :log10,
     fig_size = (900, 440),
-    legend_overflow = :show_all
+    legend_cap = 0.5
 )
 standalone_impedance[1].figure #hide
 #-
@@ -471,7 +508,7 @@ standalone_admittance = Makie.plot(
     controls = false,
     xscale = :log10,
     fig_size = (900, 440),
-    legend_overflow = :show_all
+    legend_cap = 0.5
 )
 standalone_admittance[1].figure #hide
 #-
@@ -494,7 +531,7 @@ selected_response = Makie.plot(
     controls = false,
     xscale = :log10,
     fig_size = (900, 420),
-    legend_overflow = :show_all
+    legend_cap = 0.5
 )
 selected_response[1].figure #hide
 #-
@@ -508,8 +545,8 @@ selected_response[2].figure #hide
 
 capacity_example = Makie.plot(
     parameters, resistance_request;
-    backend=:cairo, display_plot=false, controls=false,
-    layout=(1,2), fig_size=(900,420)
+    backend = :cairo, display_plot = false, controls = false,
+    layout = (1, 2), fig_size = (900, 420)
 )
 capacity_example.figure #hide
 
@@ -531,26 +568,28 @@ stacked_self_impedance = Makie.plot(
     layout = (2, 1),              # two-row nominal capacity per quantity
     panel_titles = ("Self resistance", "Self reactance"),
     legend_position = :inside,    # native overlay; use any outer dock instead
-    legend_attributes=(halign=:right,valign=:top),
+    legend_attributes = (halign = :right, valign = :top),
     legend_title = "Result set",
     series_labels = ("solution",), # explicitly opt into a one-source legend
-    legend_overflow = :show_all,
+    legend_cap = 0.5,
     fig_size = (720, 720)
 )
 stacked_self_impedance[1].figure #hide
 #-
 stacked_self_impedance[2].figure #hide
 
-# Select more coordinates to add panels, or more quantities to add figure families. Overlaying curves means passing more result containers, not
-# smuggling matrix coordinates into a legend. No layout changes request meaning.
+# With the default matrix arrangement, select more coordinates to add panels,
+# more result containers to add curves, or more quantities to add figure
+# families. `overlay=:coordinates` instead makes selected coordinates the
+# curves and selected gridpoints the panels. No layout changes request meaning.
 
 # Modal results retain their physical domain. A diagonal request is therefore
 # explicit rather than being smuggled through an `i`, `j`, or plotting adapter
 # keyword.
 
 modal_parameters = compute(
-    ModalTransformationProblem(parameters),
-    ModalTransformationFormulation(:default);
+    ModalAnalysisProblem(parameters),
+    ModalAnalysisFormulation(:default);
     options = (offdiagonal_tolerance = 1.0,)
 );
 modal_inductance = Makie.plot(
@@ -561,7 +600,7 @@ modal_inductance = Makie.plot(
     controls = false,
     xscale = :log10,
     fig_size = (820, 430),
-    legend_overflow = :show_all
+    legend_cap = 0.5
 )
 modal_inductance.figure #hide
 
@@ -609,7 +648,7 @@ uncertainty_plot = Makie.plot(
     controls = false,
     xscale = :log10,
     fig_size = (900, 440),
-    legend_overflow = :show_all
+    legend_cap = 0.5
 )
 uncertainty_plot[1].figure #hide
 #-
@@ -640,7 +679,7 @@ comparison_plot = Makie.plot(
     fig_size = (900, 700),
     legend_position = :top,
     legend_attributes = (; orientation = :horizontal),
-    legend_overflow = :show_all
+    legend_cap = 0.5
 )
 comparison_plot.figure #hide
 
@@ -662,7 +701,7 @@ observed = ObservedResult(
 );
 observed_plot = Makie.plot(
     observed;
-    ydata=(resistance_request,inductance_request),
+    ydata = (resistance_request, inductance_request),
     title = "Retained coefficient observations",
     figure_title = "Retained coefficient observations",
     panel_titles = ("R[1,1]", "L[1,1]"),
@@ -676,7 +715,7 @@ observed_plot = Makie.plot(
     series_labels = ("self impedance",),
     legend_position = :bottom,
     legend_attributes = (; orientation = :horizontal),
-    legend_overflow = :show_all
+    legend_cap = 0.5
 )
 observed_plot[1].figure #hide
 #-
@@ -741,11 +780,11 @@ scale_arrangement = preview(
     backend = :cairo, display_plot = false, controls = false,
     size = (1200, 900),
     legend_position = :right,
-    legend_attributes = (halign=:left, valign=:top),
+    legend_attributes = (halign = :left, valign = :top),
     colorbar_position = :bottom,
-    colorbar_attributes = (vertical=false, width=160, height=14),
-    colorbar_group_attributes = (layout=(1,3), colgap=16, halign=:center),
-    guide_spacing = (rowgap=14, colgap=16),
+    colorbar_attributes = (vertical = false, width = 160, height = 14),
+    colorbar_group_attributes = (layout = (1, 3), colgap = 16, halign = :center),
+    guide_spacing = (rowgap = 14, colgap = 16)
 )
 scale_arrangement.figure #hide
 
@@ -753,11 +792,11 @@ scale_arrangement.figure #hide
 # minimum of 14 logical pixels differs from the 12-pixel internal row gap.
 
 figurecolorbars!(scale_arrangement;
-    position=:right,
-    group_attributes=(layout=(3,1), rowgap=12, valign=:bottom),
-    vertical=false,
+    position = :right,
+    group_attributes = (layout = (3, 1), rowgap = 12, valign = :bottom),
+    vertical = false
 )
-figurelegend!(scale_arrangement; position=:right, valign=:top, guide_spacing=14)
+figurelegend!(scale_arrangement; position = :right, valign = :top, guide_spacing = 14)
 scale_arrangement.figure #hide
 
 # Gaps separate complete visible siblings, including labels and endpoint ticks.
@@ -916,7 +955,7 @@ sample_histogram = Makie.hist(
     controls = false,
     fig_size = (820, 400),
     figure_title = "Retained Monte Carlo samples",
-    legend_overflow = :show_all,
+    legend_cap = 0.5,
     color = :steelblue
 )
 sample_histogram.figure #hide
@@ -937,7 +976,7 @@ model_density = Makie.stairs(
     display_plot = false,
     controls = false,
     fig_size = (820, 400),
-    legend_overflow = :show_all,
+    legend_cap = 0.5,
     color = :darkorange,
     linewidth = 3
 )
@@ -963,7 +1002,7 @@ empirical_cdf = Makie.ecdfplot(
     display_plot = false,
     controls = false,
     fig_size = (820, 400),
-    legend_overflow = :show_all,
+    legend_cap = 0.5,
     color = :seagreen,
     linewidth = 3
 )
@@ -984,7 +1023,7 @@ model_cdf = Makie.lines(
     display_plot = false,
     controls = false,
     fig_size = (820, 400),
-    legend_overflow = :show_all,
+    legend_cap = 0.5,
     color = :firebrick,
     linewidth = 3
 )
@@ -1011,8 +1050,8 @@ quantile_plot = Makie.qqplot(
     legend_title = "Q–Q elements",
     legend_labels = ("sample quantiles", "identity reference"),
     legend_position = :inside,
-    legend_attributes = (; halign=:left,valign=:top,backgroundcolor=(:white,0.92)),
-    legend_overflow = :show_all,
+    legend_attributes = (; halign = :left, valign = :top, backgroundcolor = (:white, 0.92)),
+    legend_cap = 0.5,
     color = :purple,
     markersize = 10
 )
@@ -1029,14 +1068,14 @@ quantile_plot.figure #hide
 # leaves the retained handle editable, exportable, and redisplayable.
 
 function add_reset_y!(p)
-    addwidget!((plot,cell) -> Button(cell;label="Reset Y"),p,:reset_y;
-        event=button -> button.clicks,
-        callback=(plot,_) -> resetview!(plot;x=false,y=true),
-        success="Y view reset")
+    addwidget!((plot, cell) -> Button(cell; label = "Reset Y"), p, :reset_y;
+        event = button -> button.clicks,
+        callback = (plot, _) -> resetview!(plot; x = false, y = true),
+        success = "Y view reset")
     nothing
 end
-widget_plot=Makie.plot(parameters; ydata=((R,1,1,:),),layout=(1,1),
-    backend=:cairo,display_plot=false,widgets=(add_reset_y!,));
+widget_plot=Makie.plot(parameters; ydata = ((R, 1, 1, :),), layout = (1, 1),
+    backend = :cairo, display_plot = false, widgets = (add_reset_y!,));
 widget_plot.figure #hide
 
 # CableConstants supply categorical assembly coordinates. The first-seen union
@@ -1044,12 +1083,12 @@ widget_plot.figure #hide
 # Their intervals retain their original uncertainty meaning. Categorical points
 # are primary data, so decorative-marker sampling does not remove them.
 
-assembly_a=CableConstants([:core,:sheath],[1.,2.].*1e-4,[2.,3.].*1e-7,
-    [3.,4.].*1e-10,[1.,2.].*1e-9,50.);
-assembly_b=CableConstants([:core,:screen],[1.1,2.2].*1e-4,[2.1,3.1].*1e-7,
-    [3.1,4.1].*1e-10,[1.1,2.1].*1e-9,50.);
-assembly_plot=Makie.plot((first=assembly_a,second=assembly_b);ydata=(R,),
-    backend=:cairo,display_plot=false,controls=false);
+assembly_a=CableConstants([:core, :sheath], [1.0, 2.0] .* 1e-4, [2.0, 3.0] .* 1e-7,
+    [3.0, 4.0] .* 1e-10, [1.0, 2.0] .* 1e-9, 50.0);
+assembly_b=CableConstants([:core, :screen], [1.1, 2.2] .* 1e-4, [2.1, 3.1] .* 1e-7,
+    [3.1, 4.1] .* 1e-10, [1.1, 2.1] .* 1e-9, 50.0);
+assembly_plot=Makie.plot((first = assembly_a, second = assembly_b); ydata = (R,),
+    backend = :cairo, display_plot = false, controls = false);
 assembly_plot.figure #hide
 
 # ## Composing figures with `plotwindow`
@@ -1117,7 +1156,7 @@ custom_dashboard.figure #hide
 # Logarithmic views spanning less than two decades show decimal values at
 # logarithmic positions, with one engineering multiplier when needed. Broader
 # views show integer powers of ten without another multiplier. Both x and y
-# use the same policy, fitting actual label spacing after the coordinate transform.
+# use the same tick-spacing rule, fitting actual label spacing after the coordinate transform.
 # The x/y toggles validate current visible data and uncertainty bounds before
 # changing the page. Native numeric `plotwindow` axes share these controls.
 # Automatic near-constant positive log ranges use modest multiplicative padding
@@ -1138,7 +1177,18 @@ custom_dashboard.figure #hide
 # aggregation, without inferring joint correlations.
 # Every eligible numeric route retains log controls for zero or negative support;
 # adaptive logarithmic panels use a sign-preserving pseudo-log transform with
-# `log1p`/`expm1` evaluation to retain tiny signed values near zero.
+# `log1p`/`expm1` evaluation: `sign(v)*log10(1+abs(v)/s)`. The reference `s` is
+# the smallest finite nonzero magnitude among eligible visible samples,
+# enabled uncertainty endpoints and explicit limits, in the displayed units.
+# If no nonzero value exists, `s=1`. Ticks retain physical values and units.
+# Thus small signed conductances span decades instead of appearing linear.
+# Reapply `axisscale!(page, :y, :log10)` or switch log off/on to select the
+# reference from current data. Zooming and resetting limits keep it fixed.
+# Explicit `:pseudolog10` retains a reference of 1 in displayed units.
+# Switching log off selects a linear axis; it does not change observation
+# clipping. Use `clip=false` or component cutoffs such as `atol=(G=0., B=0.)`
+# when acquiring observations to preserve nonzero components. Retained
+# observations must be reconstructed from their primary result to undo clipping.
 #
 # Limits are calculated from finite visible data, including measurement error
 # bounds. Constant and near-constant series receive at least ±5% padding around
@@ -1163,11 +1213,18 @@ custom_dashboard.figure #hide
 # native `halign`/`valign` select corner, center, or fractional alignment. Side-grid slots
 # remain outside the plot area. `legend_attributes` is merged into the native
 # `Legend` constructor, so orientation, bank count, padding, background,
-# alignment, and other Makie options remain available. `legend_overflow` is the
-# one addon settings: `:ellipsis` fits entries to the current bounding box and
-# restores them when space returns; `:show_all` always retains all entries.
+# alignment, and other Makie options remain available. `legend_cap=0.5`
+# is a finite, non-Boolean real number in `(0,1]`. It caps top/bottom legend
+# height or side legend width relative to the associated data area; the other
+# dimension must also fit. Inside legends use the height cap. Figure legends
+# use the combined panel footprint; panel legends use their own data area.
+# Entries that exceed the cap are replaced by `(...)` and return when resizing
+# provides room. If the title and ellipsis cannot fit, the legend remains hidden
+# until space returns. The cap includes padding and margins, and never removes
+# plotted curves. Use `max_fraction` with `figurelegend!`, `panellegend!`, or a
+# `panel_legends` configuration. Symbolic overflow choices are no longer accepted.
 # `figurelegend!` and `panellegend!` move retained native objects. Label changes
-# retain their source bindings, so placement, title, and semantic labels can be
+# retain their source bindings, so placement, title, and legend labels can be
 # changed after construction. Clicking/toggling a grouped Makie legend entry
 # continues to affect every plot handle in that group.
 #
@@ -1206,7 +1263,7 @@ owned_plot = Makie.plot(
     controls = false,
     xscale = :log10,
     fig_size = (820, 400),
-    legend_overflow = :show_all
+    legend_cap = 0.5
 );
 owned_axis = only(owned_plot.axes);
 owned_axis.title[] = "Caller-owned resistance";
@@ -1248,7 +1305,7 @@ export_svg(
 
 # ## Adding or changing a managed recipe
 
-# A new high-level recipe should preserve the same ownership boundary:
+# A new high-level recipe should keep these responsibilities with their owners:
 #
 # 1. Expose numerical observations or physical geometry through the owning
 #    module's existing public protocol. Do not add plot preparation, labels,
@@ -1256,7 +1313,7 @@ export_svg(
 # 2. Add request normalization and the narrow public dispatch method in
 #    `LineCableModelsMakieExt`, then call
 #    native Makie constructors or primitives there.
-# 3. Reuse only the addon services the recipe needs: `_addon_shell`,
+# 3. Reuse only the shared Makie functions the recipe needs: `_addon_shell`,
 #    `_addon_axis!`, `_addon_finish!`, or `plotwindow`. Do not create a second
 #    plot specification or an optional adapter hierarchy.
 # 4. Return `UIPlot` with the actual native objects and leave further mutation to

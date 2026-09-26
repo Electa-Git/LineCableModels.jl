@@ -17,8 +17,8 @@
     phase_parameters=compute(problem, formulation; options = (trace = true,))
     trace=details(phase_parameters).data.trace
     parameters=compute(
-        ModalTransformationProblem(phase_parameters),
-        ModalTransformationFormulation(:default)
+        ModalAnalysisProblem(phase_parameters),
+        ModalAnalysisFormulation(:default)
     )
     @test details(parameters).data.formulations ===
           details(phase_parameters).data.formulations
@@ -37,10 +37,10 @@
     @test size(trace.Pg) == (3, 3, 2)
     for identifier in (:default,)
         tracked=@inferred compute(
-            ModalTransformationProblem(phase_parameters),
-            ModalTransformationFormulation(identifier)
+            ModalAnalysisProblem(phase_parameters),
+            ModalAnalysisFormulation(identifier)
         )
-        rebuilt=@inferred compute(ModalTransformationProblem(tracked))
+        rebuilt=LineCableModels.ModalAnalysis.transform(PhaseDomain,tracked)
         @test TestNumerics.isapprox_scaled(Z(rebuilt), Z(phase_parameters))
         @test TestNumerics.isapprox_scaled(Y(rebuilt), Y(phase_parameters))
         for matrix in (tracked.Z.values, tracked.Y.values), frequency in 1:2
@@ -152,7 +152,7 @@ end
 
 @testitem "Engine / coaxial choreography / material evaluation precedes local and earth calculations" tags=[:integration] setup=[
     UseEngineSupport,
-    TestFixtures, FormulaContractModels
+    TestFixtures, FormulaFixtures
 ] begin
     const EN=LineCableModels.Engine
     const II=EN.InsulationImpedance
@@ -162,7 +162,7 @@ end
     const EY=EN.EarthAdmittance
 
     events=Symbol[]
-    M=FormulaContractModels
+    M=FormulaFixtures
     formulation=Formulation(insulation_impedance = M.CountedInsulationZ(events),
         insulation_admittance = M.CountedInsulationY(events),
         semicon_admittance = M.CountedSemiconY(events),
@@ -241,8 +241,8 @@ end
     end
 
     modal=compute(
-        ModalTransformationProblem(parameters),
-        ModalTransformationFormulation(:default); options = (offdiagonal_tolerance = 1e-10,)
+        ModalAnalysisProblem(parameters),
+        ModalAnalysisFormulation(:default); options = (offdiagonal_tolerance = 1e-10,)
     )
     @test domain(modal) === ModalDomain
     for matrix in (Z(modal), Y(modal)), frequency in 1:2
@@ -256,7 +256,7 @@ end
     @test size(@observe(modal, (C, diag)[:, :])) == (2, 2)
 end
 
-@testitem "Engine / formulation boundary / physical geometry precedes backend support" tags=[:integration] setup=[
+@testitem "Engine / formulation support / physical geometry precedes backend support" tags=[:integration] setup=[
     UseEngineSupport
 ] begin
     conductor=Material(kind = :conductor, rho = 1.7241e-8)
@@ -517,11 +517,11 @@ end
 
 @testitem "Engine / frequency-dependent earth relation reaches coaxial solve" tags=[:integration] setup=[
     UseEngineSupport,
-    TestFixtures, FormulaContractModels
+    TestFixtures, FormulaFixtures
 ] begin
     problem=TestFixtures.line_parameters_problem(frequencies = [1.0e6])
     static=compute(problem, Formulation())
-    law=FormulaContractModels.DispersiveEarth(scale = 1e5)
+    law=FormulaFixtures.DispersiveEarth(scale = 1e5)
     dispersive=compute(problem, Formulation(earth_properties = law))
 
     @test all(isfinite, dispersive.Z)

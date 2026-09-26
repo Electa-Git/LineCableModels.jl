@@ -58,7 +58,7 @@ outer problem/formulation relation is always Cartesian. Formula-owned numerical
 controls also vary as complete selections; for example, modal iteration convergence:
 
 ```julia
-modal_formulations = ModalTransformationFormulation(Grid((
+modal_formulations = ModalAnalysisFormulation(Grid((
     formula(:default; options=(iteration=(convergence=1e-4,),)),
     formula(:default; options=(iteration=(convergence=1e-8,),)),
 )))

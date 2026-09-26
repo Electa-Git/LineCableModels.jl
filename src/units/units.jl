@@ -15,7 +15,7 @@ const _METRIC_PREFIX_SYMBOL = (
 const _UNIT_SYMBOL = (
     dimensionless = "", ohm = "Ω", henry = "H", farad = "F",
     siemens = "S", meter = "m", hertz = "Hz", second = "s",
-    radian = "rad", degree = "°"
+    radian = "rad", degree = "°", neper = "Np"
 )
 
 @inline function _prefix_exponent(prefix::Symbol)
@@ -53,7 +53,7 @@ struct Unit
     function Unit(name::Symbol, prefix::Symbol)
         _unit_symbol(name)
         _prefix_exponent(prefix)
-        name in (:dimensionless, :radian, :degree) && prefix !== :base && throw(
+        name in (:dimensionless, :radian, :degree, :neper) && prefix !== :base && throw(
             ArgumentError("unit :$name does not accept metric prefix :$prefix"),
         )
         return new(name, prefix)

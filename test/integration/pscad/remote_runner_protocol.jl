@@ -138,7 +138,7 @@ function runner_arguments(directory,output;verbosity="0")
         "5.1.0",verbosity]
 end
 
-@testset "Remote PSCAD runner boundary without PSCAD" begin
+@testset "Remote PSCAD runner protocol without PSCAD" begin
     pyexec(PYTHON_AUTOMATION_FIXTURE,Main)
 
     @test _same_value(1,1.0)

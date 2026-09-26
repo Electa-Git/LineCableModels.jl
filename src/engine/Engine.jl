@@ -18,6 +18,7 @@ $(IMPORTS)
 
 """
 module Engine
+import ..LineCableModels
 
 # Export public API
 export LineParametersProblem, CableConstantsProblem,
@@ -46,7 +47,7 @@ export compute
 using LinearAlgebra: I, checksquare, diag, ldiv!, lu!, mul!
 import LinearAlgebra: norm
 using DocStringExtensions: IMPORTS, TYPEDEF, TYPEDFIELDS, TYPEDSIGNATURES
-import ..LineCableModels: basis, build, R, L, C,
+import ..LineCableModels: basis, line_length, build, R, L, C,
                           resistance, inductance, capacitance
 import ..LineCableModels: nominal
 import ..LineCableModels: constitutive, formula, formula_id,
@@ -143,10 +144,15 @@ include("lineparameters/base.jl")
 include("textdisplay.jl")
 
 public completion_details, completed_inputs, completed_formulation, retain_gridpoint
+public selectdetails
+public validate_modal_operators
 public SpectralIntegral, integrate, integration_workspace
 public earth_bindings, initialize_buffers, earth!, materials!, homogenize!,
        same_physical_state, layer_index, computation_type
 public has_uncertainty_type, numerical_magnitude
+public resolution_available
+public observation_assumptions
+public domain, LineParamsDomain, PhaseDomain, ModalDomain, line_coordinates
 public internal_shunt_response, blueprint_dependencies
 public InternalImpedanceFormulation, InsulationImpedanceFormulation,
        PipeImpedanceFormulation,

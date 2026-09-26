@@ -56,7 +56,7 @@ Modules = [
     LineCableModels.Engine.InternalImpedance,
     LineCableModels.Engine.PipeImpedance,
     LineCableModels.Engine.ShuntModel,
-    LineCableModels.Transforms,
+    LineCableModels.ModalAnalysis,
 ]
 Order = [:module, :constant, :type, :function, :macro]
 Filter = api_reference_entry

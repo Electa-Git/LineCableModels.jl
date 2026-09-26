@@ -1,8 +1,8 @@
 @testitem "ParametricBuilder / formulation grids / construction and traversal" tags=[:unit] setup=[
-    UseEngineSupport,FormulaContractModels,
+    UseEngineSupport,FormulaFixtures,
 ] begin
-    internal=FormulaContractModels.SurfaceLaw()
-    insulation=FormulaContractModels.InsulationReactance(0)
+    internal=FormulaFixtures.SurfaceLaw()
+    insulation=FormulaFixtures.InsulationReactance(0)
     selections=(
         internal_impedance = Grid((
             :default, internal)),
@@ -94,13 +94,13 @@
     @test constants isa Gridspace{CableConstantsFormulation}
     @test length(constants) == 2
 
-    modal=ModalTransformationFormulation(
+    modal=ModalAnalysisFormulation(
         Grid((:default, :default)),
     )
-    @test modal isa Gridspace{ModalTransformationFormulation}
+    @test modal isa Gridspace{ModalAnalysisFormulation}
     @test formula_id.(collect(modal)) == [:modal, :modal]
 
-    modal_assumptions=ModalTransformationFormulation(Grid((
+    modal_assumptions=ModalAnalysisFormulation(Grid((
         formula(:default; options = (iteration = (convergence = 1e-4,),)),
         formula(:default; options = (iteration = (convergence = 1e-8,),))
     )))

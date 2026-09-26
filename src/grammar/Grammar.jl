@@ -54,4 +54,5 @@ export ObservedResult
 public observation_groups, observation_labels, observation_product, gridpoint_id
 public observation_selection
 public request_identity, request_quantity, request_indices
+public normalize_observation_selector
 end # module Grammar

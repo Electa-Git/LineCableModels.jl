@@ -1,5 +1,4 @@
-# These checks describe the ordinary records consumed by tables, plots, and
-# archives. There is no registry or second product representation.
+# Validate retained quantity records consumed by tables, plots, and archives.
 function _observed_fields(record,fields,what)
     record isa NamedTuple && all(key -> haskey(record,key),fields) ||
         throw(ArgumentError("$what requires fields $(fields)"))
@@ -30,13 +29,32 @@ function _validate_observed_quantity(product)
         length(declared)>=length(c.indices) && declared[1:length(c.indices)]==c.indices ||
             throw(ArgumentError("request selectors disagree with retained coordinate selectors"))
     end
-    dims=if c.kind in (:matrix,:diagonal) || c.kind in (:samples,:histogram) && haskey(c,:rows)
+    dims=if c.kind===:vector
+        _observed_fields(c,(:axis,:axis_label,:positions,:samples,:frequencies,:frequency_unit,:labels,:domain),"vector coordinates")
+        length(c.extent)==2 || throw(DimensionMismatch("vector extent requires coordinate and frequency axes"))
+        c.axis isa Symbol && c.axis_label isa AbstractString && c.domain isa Symbol ||
+            throw(ArgumentError("vector axis requires physical labels and a domain"))
+        _observed_indices(c.positions,c.extent[1],"positions")
+        _observed_indices(c.samples,c.extent[2],"samples")
+        c.labels isa AbstractVector && length(c.labels)==c.extent[1] ||
+            throw(DimensionMismatch("vector labels do not cover the original extent"))
+        c.frequencies===nothing || length(c.frequencies)==length(c.samples) ||
+            throw(DimensionMismatch("frequency and sample counts differ"))
+        (length(c.positions),length(c.samples))
+    elseif c.kind in (:matrix,:diagonal) || c.kind in (:samples,:histogram) && haskey(c,:rows)
         _observed_fields(c,(:rows,:columns,:samples,:frequencies,:frequency_unit,:labels,:domain),"matrix coordinates")
         length(c.extent)==3 || throw(DimensionMismatch("matrix extent requires three axes"))
         _observed_indices(c.rows,c.extent[1],"rows")
         _observed_indices(c.columns,c.extent[2],"columns")
         _observed_indices(c.samples,c.extent[3],"samples")
         length(c.labels)>=max(c.extent[1],c.extent[2]) || throw(DimensionMismatch("matrix labels do not cover the extent"))
+        if haskey(c,:column_labels) || haskey(c,:column_domain)
+            _observed_fields(c,(:column_labels,:column_domain),"mixed matrix coordinates")
+            c.kind===:matrix || throw(ArgumentError("mixed labels require matrix coordinates"))
+            c.column_labels isa AbstractVector && length(c.column_labels)>=c.extent[2] ||
+                throw(DimensionMismatch("column labels do not cover the extent"))
+            c.column_domain isa Symbol || throw(ArgumentError("column domain must be a symbol"))
+        end
         c.kind===:diagonal && c.rows!=c.columns && throw(ArgumentError("diagonal coordinates must agree"))
         c.frequencies===nothing || length(c.frequencies)==length(c.samples) || throw(DimensionMismatch("frequency and sample counts differ"))
         c.kind===:diagonal ? (length(c.rows),length(c.samples)) : (length(c.rows),length(c.columns),length(c.samples))

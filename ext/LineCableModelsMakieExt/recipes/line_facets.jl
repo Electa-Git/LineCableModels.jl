@@ -1,60 +1,53 @@
-# Semantic line faceting -----------------------------------------------------
+# Line faceting --------------------------------------------------------------
 #
-# Matrix coordinates identify axes. Result containers identify series. These
-# helpers deliberately normalize only the data needed to construct native Makie
-# blocks; they are not a second plot-specification model.
-
-function _semantic_line_facets(published, ydata)
-    facets = NamedTuple[]
-    for request_index in eachindex(ydata)
-        product = first(published).observations[request_index]
-        c = product.coordinates
-        rows, columns, _ = first(published).coordinates[request_index]
-        extent=c.kind===:matrix ?
-               ntuple(
-            d -> maximum(source.observations[request_index].coordinates.extent[d]
-            for source in published),
-            length(c.extent)) : c.extent
-        for (local_row, row) in enumerate(rows),
-            (local_column, column) in enumerate(columns)
-
-            push!(facets,
-                (; request_index, local_row, local_column, row,
-                    column = c.kind===:diagonal ? row : column,
-                    kind = c.kind, extent, domain = get(c, :domain, :unspecified),
-                    quantity = product.quantity, identity = request_identity(ydata[request_index])))
-        end
+# The recipe supplies physical coordinate descriptions. Shared plotting chooses
+# panel and curve identities before native blocks are constructed.
+function _coordinate_labels(product, coordinates, orientation)
+    c=product.coordinates
+    rows, columns, _=coordinates
+    if orientation===:rows
+        name=get(c,:domain,nothing)===:ModalDomain ? "Mode" :
+             get(c,:domain,nothing)===:PhaseDomain ? "Conductor" : "Row"
+        return ["$name $(c.labels[row])" for row in rows]
+    elseif c.kind===:vector
+        return ["$(c.axis_label) $(c.labels[row])" for row in rows]
+    elseif c.kind===:matrix && get(c, :column_domain, nothing)===:ModalDomain
+        return ["Conductor $(c.labels[row]), Mode $(c.column_labels[column])"
+                for row in rows for column in columns]
+    elseif c.kind===:matrix
+        return ["$(c.labels[row]) → $(c.labels[column])"
+                for row in rows for column in columns]
+    elseif c.kind===:diagonal
+        return ["Conductor $(c.labels[row])" for row in rows]
+    elseif c.kind===:assemblies
+        return string.(c.labels[c.assemblies])
     end
-    return facets
+    return string.(1:(length(rows) * length(columns)))
 end
 
-function _semantic_line_pages(facets, capacity; automatic = false)
-    pages=NamedTuple[]
-    for request_index in unique(facet.request_index for facet in facets)
-        selected=filter(facet -> facet.request_index==request_index, facets)
-        first_facet=first(selected)
-        if first_facet.kind!==:matrix
-            append!(pages, _addon_flow_pages(selected, capacity))
-            continue
-        end
-        positions=[(f.row, f.column) for f in selected]
-        origin=automatic ? _addon_panel_footprint(positions).origin : (1, 1)
-        for page in _addon_matrix_pages(positions, first_facet.extent, capacity; origin)
-            push!(pages,
-                (; facets = selected[page.members], positions = page.positions,
-                    dimensions = page.dimensions, origin = page.origin, index = page.index))
-        end
-    end
-    return pages
-end
-
-function _semantic_quantity_title(object, facet)
+function _quantity_panel_title(facet)
     label=Units.label(facet.quantity)
     facet.identity isa Tuple && first(facet.identity)===LineCableModels.statistics &&
         (label *= " · " * string(last(facet.identity)))
-    facet.kind in (:matrix, :diagonal) || return label
+    if facet.orientation===:rows
+        domain=facet.column_domain===nothing ? facet.domain : facet.column_domain
+        coordinate=domain===:ModalDomain ? "Mode" : domain===:PhaseDomain ? "Conductor" : "Column"
+        panel_label=facet.column_domain===:ModalDomain ? Units.symbol(facet.quantity) : label
+        return "$panel_label, $coordinate $(facet.column_label)"
+    end
+    if facet.orientation===:coordinates
+        panel_label=facet.column_domain===:ModalDomain ? Units.symbol(facet.quantity) :
+                    label
+        return isempty(facet.source_label) ? panel_label :
+               "$panel_label · $(facet.source_label)"
+    end
+    facet.kind in (:matrix, :diagonal, :vector) || return label
+    facet.column_domain===:ModalDomain &&
+        return "$(Units.symbol(facet.quantity)), mode $(facet.column_label) → $(facet.row_label)"
     is_modal = facet.domain === :ModalDomain
     coordinate = is_modal ? "mode" : "conductor"
+
+    facet.kind===:vector && return "$label, $coordinate $(facet.row_label)"
 
     if facet.row == facet.column
         return "$label, $coordinate $(facet.row)"
@@ -65,32 +58,24 @@ function _semantic_quantity_title(object, facet)
     end
 end
 
-function _semantic_page_title(object, page)
+function _quantity_page_title(page)
     facet=first(page.facets)
     label=Units.label(facet.quantity)
     facet.identity isa Tuple && first(facet.identity)===LineCableModels.statistics &&
         (label *= " · " * string(last(facet.identity)))
+    facet.orientation===:rows && !isempty(facet.source_label) &&
+        (label *= " · " * facet.source_label)
     return page.index==(1, 1) ? label : "$label ($(page.index[1]),$(page.index[2]))"
 end
 
-function _semantic_page_option(value, page_index::Int, page_count::Int, name::AbstractString)
-    value === nothing && return nothing
-    if value isa Tuple || value isa AbstractVector
-        length(value) == page_count || throw(DimensionMismatch(
-            "$name must contain one entry per generated figure",
-        ))
-        return value[page_index]
-    end
-    return value
-end
-
-function _semantic_panel_title(
-        panel_titles, object, facet, panel_index::Int, panel_count::Int)
-    panel_titles === nothing && return _semantic_quantity_title(object, facet)
+function _panel_title(panel_titles, facet)
+    panel_titles === nothing && return _quantity_panel_title(facet)
     panel_titles isa Function && return panel_titles(facet)
     if panel_titles isa AbstractDict
         quantity_symbol = Symbol(Units.symbol(facet.quantity))
         candidates = (
+            (facet.identity, facet.panel_identity),
+            facet.panel_identity,
             (facet.identity, facet.row, facet.column),
             (quantity_symbol, facet.row, facet.column),
             (facet.row, facet.column),
@@ -100,26 +85,16 @@ function _semantic_panel_title(
         for candidate in candidates
             haskey(panel_titles, candidate) && return panel_titles[candidate]
         end
-        return _semantic_quantity_title(object, facet)
+        return _quantity_panel_title(facet)
     end
-    panel_titles isa Tuple || panel_titles isa AbstractVector ||
-        throw(ArgumentError(
-            "panel_titles must be a tuple, vector, dictionary, function, or nothing",
-        ))
-    length(panel_titles) == panel_count || throw(DimensionMismatch(
-        "panel_titles must contain one entry per subplot on each generated figure",
-    ))
-    return panel_titles[panel_index]
+    throw(ArgumentError("panel_titles must be a dictionary, function, or nothing"))
 end
 
-function _addon_semantic_line_page(
-        object,
+function _addon_line_page(
         published,
-        source_labels,
         page,
         ;
         series_indices,
-        series_count,
         errorbar_sampling,
         series_defaults,
         series_attributes,
@@ -133,7 +108,7 @@ function _addon_semantic_line_page(
         legend_position,
         legend_title,
         legend_attributes,
-        legend_overflow,
+        legend_cap,
         panel_legends,
         controls,
         display_plot,
@@ -166,22 +141,28 @@ function _addon_semantic_line_page(
     group_order = Symbol[]
     group_labels = Dict{Symbol, Any}()
     panel_group_labels = Any[]
-    colors = Tuple(series_defaults === nothing ? _addon_comparison_color(index) :
-                   series_defaults[i].attributes.color
-    for (i, index) in enumerate(series_indices))
 
-    for (panel_index, (facet, position)) in enumerate(zip(page.facets, page.positions))
+    for (facet, position) in zip(page.facets, page.positions)
         observation = first(published).observations[facet.request_index]
-        xvalues = collect(Iterators.flatten(source.frequencies[facet.request_index].values
-        for source in published))
-        yvalues = collect(Iterators.flatten(
-            view(source.observations[facet.request_index].values,
-                facet.local_row, facet.local_column, :) for source in published
-        ))
-        xobservation = merge(first(published).frequencies[facet.request_index], (;
+        curve_records=map(facet.curves) do curve
+            source=published[curve.source_index]
+            selected=curve.local_sample===nothing ? Colon() :
+                     curve.local_sample:curve.local_sample
+            x=source.xdata[facet.request_index].values[selected]
+            y=collect(view(source.observations[facet.request_index].values,
+                curve.local_row, curve.local_column, selected))
+            errors=get(source.observations[facet.request_index], :errors, nothing)
+            yerror=errors===nothing ? nothing :
+                   collect(view(errors, curve.local_row, curve.local_column, selected))
+            (; x, y, yerror)
+        end
+        xvalues = collect(Iterators.flatten(
+            record.x for record in curve_records))
+        yvalues = collect(Iterators.flatten(record.y for record in curve_records))
+        xobservation = merge(first(published).xdata[facet.request_index], (;
             values = xvalues))
         yobservation = merge(observation, (; values = yvalues))
-        panel=merge(cells[position], (; logical_position = (facet.row, facet.column)))
+        panel=merge(cells[position], (; logical_position = facet.panel_identity))
         row, column = position
         bottom_row = maximum(first, page.positions)
         attributes = (;
@@ -194,9 +175,10 @@ function _addon_semantic_line_page(
             yticksvisible = true
         )
         if all(
-            source -> source.resolutions[facet.request_index].clip &&
-                      source.resolutions[facet.request_index].kind === :declared_floor,
-            published)
+            curve -> begin
+                resolution=published[curve.source_index].resolutions[facet.request_index]
+                resolution.clip && resolution.kind===:declared_floor
+            end, facet.curves)
             if all(ismissing, yvalues)
                 attributes = merge(attributes,
                     (subtitle = facet.identity isa Tuple && angle in facet.identity ?
@@ -207,12 +189,16 @@ function _addon_semantic_line_page(
             panel.content,
             xobservation,
             yobservation;
-            title = _semantic_panel_title(
-                panel_titles, object, facet, panel_index, length(page.facets)),
+            title = _panel_title(panel_titles, facet),
             xscale = xscale===nothing ?
-                     (facet.kind in (:matrix, :diagonal) ? :log10 : :linear) : xscale,
+                     (facet.kind in (:matrix, :diagonal, :vector) ? :log10 : :linear) :
+                     xscale,
             yscale,
             xlabel = get(xobservation, :label, nothing),
+            ylabel = facet.column_domain===:ModalDomain ?
+                     string(Units.symbol(facet.quantity),
+                isempty(Units.label(yobservation.unit)) ? "" :
+                " [$(Units.label(yobservation.unit))]") : nothing,
             attributes = facet.kind===:assemblies ?
                          merge(attributes, (dim1_conversion = Makie.CategoricalConversion(),)) :
                          attributes,
@@ -220,51 +206,40 @@ function _addon_semantic_line_page(
         )
         series = NamedTuple[]
         scoped_labels = Dict{Symbol, Any}()
-        for source_index in eachindex(published)
-            source = published[source_index]
-            curve = collect(view(
-                source.observations[facet.request_index].values,
-                facet.local_row,
-                facet.local_column,
-                :
-            ))
-            errors = get(source.observations[facet.request_index], :errors, nothing)
-            yerror = errors === nothing ? nothing :
-                     collect(view(errors, facet.local_row, facet.local_column, :))
-            group = Symbol("result_$source_index")
-            source_label = source_labels[source_index]
+        for (curve_identity, record) in zip(facet.curves, curve_records)
+            style_index=findfirst(==(curve_identity.slot), series_indices)
+            curve = record.y
+            yerror = record.yerror
+            group = curve_identity.group
+            curve_label = curve_identity.label
             interval_support=Dict{Makie.Plot, Any}()
             draw! = facet.kind in (:assemblies, :array) ? _addon_points! : _addon_line!
             plots = draw!(
                 axis,
-                source.frequencies[facet.request_index].values,
+                record.x,
                 curve;
                 dependent_plots,
-                label = source_label,
-                color = colors[source_index],
-                phase = series_defaults === nothing ?
-                        (series_indices[source_index], series_count) :
-                        series_defaults[source_index].phase,
-                endpoints = series_defaults !== nothing &&
-                            series_defaults[source_index].endpoints,
-                marker_coordinates = series_defaults === nothing ? nothing :
-                                     marker_coordinates,
+                label = curve_label,
+                color = series_defaults[style_index].attributes.color,
+                phase = series_defaults[style_index].phase,
+                endpoints = series_defaults[style_index].endpoints,
+                marker_coordinates,
                 errorbar_sampling, yerror, interval_support
             )
             if !haskey(groups, group)
                 groups[group] = Any[]
                 push!(group_order, group)
-                group_labels[group] = source_label
+                group_labels[group] = curve_label
             end
             append!(groups[group], plots)
-            scoped_labels[group] = source_label
+            scoped_labels[group] = curve_label
             binding=(;
                 xdata = facet.kind===:assemblies ? nothing :
-                        source.frequencies[facet.request_index].values,
+                        record.x,
                 ydata = curve,
                 yerror,
                 interval_support,
-                sampled_intervals = facet.kind in (:matrix, :diagonal) &&
+                sampled_intervals = facet.kind in (:matrix, :diagonal, :vector) &&
                                     errorbar_sampling === :staggered,
                 plots
             )
@@ -283,7 +258,7 @@ function _addon_semantic_line_page(
         push!(resets, reset!)
         push!(requested_scales, scales)
     end
-    selected=Set((facet.row, facet.column) for facet in page.facets)
+    selected=Set(facet.panel_identity for facet in page.facets)
     local_panel_legends=Tuple(pair
     for pair in _addon_panel_legend_pairs(panel_legends) if first(pair) in selected)
     built = _addon_finish!(
@@ -298,7 +273,7 @@ function _addon_semantic_line_page(
         title_attributes,
         legend_position,
         legend_attributes,
-        legend_overflow,
+        legend_cap,
         legend_title,
         panels, frame_cells = Tuple(values(cells)),
         panel_legends = local_panel_legends,
@@ -313,7 +288,7 @@ function _addon_semantic_line_page(
         (
             panel_page = (;
                 index = page.index, dimensions = page.dimensions, origin = get(page, :origin, nothing),
-                coordinates = Tuple((f.row, f.column) for f in page.facets)),
+                coordinates = Tuple(f.panel_identity for f in page.facets)),
             page_cells = cells))
     return built
 end

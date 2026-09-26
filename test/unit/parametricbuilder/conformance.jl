@@ -139,7 +139,7 @@ end
     @test iszero(Measurements.cov(reused_values...))
 end
 
-@testitem "ParametricBuilder / Gridspace / inference and allocation contracts" tags=[:unit] setup=[
+@testitem "ParametricBuilder / Gridspace / inference and allocation checks" tags=[:unit] setup=[
     UseEngineSupport] begin
     using Random
     import LineCableModels.ParametricBuilder as PB

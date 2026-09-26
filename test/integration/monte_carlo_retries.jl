@@ -1,4 +1,4 @@
-@testitem "UQ / retries preserve accepted trials, provenance and seeded replay" tags=[:integration] setup=[TestFixtures] begin
+@testitem "UQ / retries preserve accepted trials, source identities and seeded replay" tags=[:integration] setup=[TestFixtures] begin
     using Measurements
     using Statistics
     design = TestFixtures.coaxial_design()
@@ -109,7 +109,7 @@ end
     @test_throws ArgumentError MonteCarlo(inner; options=(on_error=:retry,))
 end
 
-@testitem "UQ / negative physical radius / failure and retry provenance" tags=[:integration] begin
+@testitem "UQ / negative physical radius / failure and retry records" tags=[:integration] begin
     using Measurements
     attempts=Float64[]
     function physical_problem(radius)
@@ -140,7 +140,7 @@ end
     @test failure isa ErrorException
     @test occursin("3 attempts (0 accepted)",sprint(showerror,failure))
     @test occursin("physical radius must be positive",sprint(showerror,failure))
-    # This deterministic control tests conditioning/provenance only; no claim
+    # This deterministic control tests conditioning and source records only; no claim
     # is made that accepted retries follow an unconditioned input law.
     calls=Ref(0)
     alternating=(_rng,mean,_sigma)->begin

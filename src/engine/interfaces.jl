@@ -261,17 +261,37 @@ consume it numerically. The owning transform module may use one formula-family
 parameter to record the selected formula, so different concrete formula identities can
 share one concrete result-space element type.
 """
-struct ModalDomain{O, F} <: LineParamsDomain
-    "Frequency-dependent phase-to-modal voltage and current operators."
+struct ModalDomain{O, G} <: LineParamsDomain
+    "Frequency-dependent modal-to-phase voltage and current bases."
     operators::O
-    "Formula that resolved mode order, scaling, and phase convention."
-    formula::F
+    "Aligned propagation roots in the coefficient basis."
+    gamma::G
+
+    function ModalDomain(operators::O, gamma::G) where {O,G}
+        gamma isa AbstractMatrix || throw(DimensionMismatch(
+            "modal roots must be a mode×frequency matrix"))
+        dimensions=validate_modal_operators(operators)
+        size(gamma)==(dimensions[2],dimensions[3]) || throw(DimensionMismatch(
+            "modal roots must align with operator modes and frequency samples"))
+        return new{O,G}(operators,gamma)
+    end
+end
+
+validate_modal_operators(_) = throw(ArgumentError(
+    "modal domain requires a validated ModalOperators value"))
+
+validate_domain(::LineParamsDomain, _) = nothing
+function validate_domain(domain::ModalDomain, dimensions)
+    validate_modal_operators(domain.operators)==dimensions || throw(DimensionMismatch(
+        "modal operators must align with line-parameter coefficients"))
+    return nothing
 end
 
 """
 Return a domain value restricted to selected frequency samples.
 """
 selectdomain(domain::LineParamsDomain, _) = domain
+selectdetails(details, ::LineParamsDomain, _) = details
 
 @inline domain(::Type{PhaseDomain}) = PhaseDomain
 @inline domain(::Type{<:ModalDomain}) = ModalDomain

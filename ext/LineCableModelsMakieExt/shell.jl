@@ -88,7 +88,8 @@ function _addon_display!(figure, title::AbstractString)
 end
 
 function _addon_shell(;
-        size, controls::Bool, axis::NamedTuple = (;), figure::NamedTuple = (;),
+        size, controls::Bool,
+        axis::NamedTuple = (;), figure::NamedTuple = (;),
         widgets = (), guide_gap = 8, guide_spacing = (;),
         colorbar_position = _omitted, colorbar_attributes = (;), colorbar_group_attributes = (;), kwargs...)
     guide_gap=_addon_guide_gap(guide_gap)
@@ -159,13 +160,33 @@ function _addon_icon(value)
     )
 end
 
-function _addon_scale(symbol::Symbol)
+"""Smooth, sign-preserving base-10 logarithm for a native axis."""
+struct _SignedLog10 <: Function
+    "Positive reference magnitude in displayed axis units."
+    reference::Float64
+end
+
+function (scale::_SignedLog10)(value)
+    magnitude, reference = abs(value), scale.reference
+    return sign(value) * (magnitude <= reference ? log1p(magnitude / reference) / log(10) :
+            log10(magnitude) - log10(reference) + log1p(reference / magnitude) / log(10))
+end
+
+function Makie.inverse_transform(scale::_SignedLog10)
+    reference = scale.reference
+    return value -> begin
+        exponent = abs(value) * log(10)
+        sign(value) * (abs(value) <= log10(2) ? reference * expm1(exponent) :
+         exp(log(reference) + exponent + log(-expm1(-exponent))))
+    end
+end
+
+function _addon_scale(symbol::Symbol, reference::Real = 1.0)
     symbol === :linear && return Base.identity
     symbol === :log10 && return Base.log10
-    # Same signed-log scale, with no cancellation in its linear neighbourhood.
+    # Keep the reference with the transform; ticks and controls use this same scale.
     symbol === :pseudolog10 && return Makie.ReversibleScale(
-        x -> sign(x) * log1p(abs(x)) / log(10),
-        x -> sign(x) * expm1(abs(x) * log(10));
+        _SignedLog10(reference);
         limits = (0.0f0, 3.0f0), name = :pseudolog10)
     throw(ArgumentError("unsupported axis scale :$symbol"))
 end
@@ -263,10 +284,16 @@ function _addon_set_axis!(entries::AbstractVector, dim::Symbol, scale = nothing)
         bounds = requested[index] === nothing ? () : requested[index]
         all(value -> value === nothing || isfinite(value), bounds) ||
             throw(DomainError(bounds, "$context requires finite explicit limits"))
-        values = _addon_visible_values(entry.axis, dim, entry.series)
+        values = _addon_visible_values(entry.axis, dim, entry.series;
+            all_samples = requested_scale === :log10)
         if requested_scale === :log10 &&
            (any(<=(0), values) || any(value -> value!==nothing && value<=0, bounds))
-            target = _addon_scale(:pseudolog10)
+            reference = minimum(
+                (abs(value)
+                for value in Iterators.flatten((values, bounds))
+                if value !== nothing && isfinite(value) && !iszero(value));
+                init = Inf)
+            target = _addon_scale(:pseudolog10, isfinite(reference) ? reference : 1.0)
         end
         if target === Base.log10
             all(>(0), values) && all(value -> value === nothing || value > 0, bounds) ||
@@ -282,7 +309,8 @@ function _addon_set_axis!(entries::AbstractVector, dim::Symbol, scale = nothing)
             isfinite(transformed) && isfinite(inverse(transformed)) || throw(DomainError(
                 value, "$context requires finite transformed explicit bounds and inverse values"))
         end
-        empty_bounds=isempty(values) ? Makie.defaultlimits(requested[index], target) : nothing
+        empty_bounds=isempty(values) ? Makie.defaultlimits(requested[index], target) :
+                     nothing
         if !isempty(values)
             lower, upper = extrema(values)
             if isapprox(lower, upper; rtol = sqrt(eps(Float64)), atol = 0)
@@ -342,7 +370,7 @@ end
 
 function _addon_numeric_values(values)
     # Undefined observations remain missing in retained products. Makie's numeric
-    # line boundary uses NaN gaps, including an entirely undefined phase trace.
+    # line data uses NaN gaps, including an entirely undefined phase trace.
     nominal_values = map(value -> ismissing(value) ? NaN : LineCableModels.nominal(value), values)
     errors = LineCableModels.uncertainty.(values)
     return nominal_values, any(error -> !iszero(error), errors) ? errors : nothing
@@ -404,7 +432,8 @@ function _addon_line!(axis, xdata, ydata; dependent_plots, label, color = nothin
     return plots
 end
 
-function _addon_visible_values(series, dim::Symbol; include_uncertainty::Bool = false)
+function _addon_visible_values(series, dim::Symbol; include_uncertainty::Bool = false,
+        all_samples::Bool = false)
     values = Float64[]
     for item in series
         first(item.plots).visible[] || continue
@@ -417,7 +446,7 @@ function _addon_visible_values(series, dim::Symbol; include_uncertainty::Bool = 
             upper=lower+bounds.widths[index]
             isfinite(lower) && isfinite(upper) && append!(values, (lower, upper))
             continue
-        elseif haskey(item, :full_support)
+        elseif !all_samples && haskey(item, :full_support)
             append!(values, getproperty(item.full_support, dim))
             continue
         end
@@ -460,14 +489,30 @@ function _addon_points!(axis, xdata, ydata; dependent_plots, label, color = noth
     return plots
 end
 
-function _addon_visible_values(axis::Axis, dim::Symbol, series = ())
+function _addon_visible_values(axis::Axis, dim::Symbol, series = (); all_samples::Bool = false)
     index = dim === :x ? 1 : 2
-    bounds = Makie.data_limits(axis.scene,
-        plot -> !to_value(get(plot, :visible, true)) ||
-                !to_value(get(plot, Symbol(dim, :autolimits), true)) ||
-                to_value(get(plot, :space, :data)) !== :data)
+    exclude_plot = plot -> !to_value(get(plot, :visible, true)) ||
+                           !to_value(get(plot, Symbol(dim, :autolimits), true)) ||
+                           to_value(get(plot, :space, :data)) !== :data
+    bounds = Makie.data_limits(axis.scene, exclude_plot)
     lower, upper = bounds.origin[index], bounds.origin[index] + bounds.widths[index]
     values = isfinite(lower) && isfinite(upper) ? [lower, upper] : Float64[]
+    if all_samples
+        # Extrema omit interior samples near zero and can lose a small endpoint
+        # in origin + width. Native child positions also include error-bar ends.
+        function append_samples!(plot)
+            exclude_plot(plot) && return nothing
+            if plot isa Union{Makie.Lines, Makie.Scatter, Makie.LineSegments}
+                for point in plot[1][]
+                    all(isfinite, point) && push!(values, point[index])
+                end
+            else
+                foreach(append_samples!, plot.plots)
+            end
+            return nothing
+        end
+        foreach(append_samples!, axis.scene.plots)
+    end
     for item in series
         get(item, :sampled_intervals, false) || continue
         # Undrawn intervals still constrain scientific axes. Independently hidden
@@ -479,9 +524,9 @@ function _addon_visible_values(axis::Axis, dim::Symbol, series = ())
                     (support===nothing || !haskey(support, plot) ||
                      isequal(plot[1][], to_value(support[plot]))),
             item.plots) || continue
-        append!(values, _addon_visible_values((item,), dim; include_uncertainty = true))
+        append!(values, _addon_visible_values((item,), dim; include_uncertainty = true, all_samples))
     end
-    return isempty(values) ? values : collect(extrema(values))
+    return all_samples || isempty(values) ? values : collect(extrema(values))
 end
 
 function LineCableModels.plotwindow(
@@ -562,7 +607,7 @@ function _addon_statistical_plot(
         legend_title = nothing,
         legend_labels = nothing,
         legend_attributes = (;),
-        legend_overflow = :ellipsis,
+        legend_cap = 0.5,
         panel_legends = (),
         xlabel = nothing,
         ylabel = nothing,
@@ -611,7 +656,7 @@ function _addon_statistical_plot(
             legend_position,
             legend_title,
             legend_attributes,
-            legend_overflow,
+            legend_cap,
             panels = (panel,),
             panel_legends,
             controls,
@@ -699,14 +744,19 @@ function _addon_axis_format!(axis)
                 decades = current_scale === Base.log10 && 0 < lower < upper &&
                           log10(upper) - log10(lower) >= 2
                 exponent = something(_addon_scientific_exponent((lower, upper)), 0)
-                signed_linear = current_scale === _addon_scale(:pseudolog10) &&
-                                max(abs(lower), abs(upper)) < 1
+                signed = current_scale isa Makie.ReversibleScale{_SignedLog10}
+                signed_linear = signed &&
+                                max(abs(lower), abs(upper)) <
+                                current_scale.forward.reference
                 mode = if numeric && (current_scale === Base.identity || signed_linear) &&
                           (owned_ticks || current_ticks isa AbstractVector{<:Real})
                     (:linear, exponent)
                 elseif numeric && current_scale === Base.log10 &&
                        (owned_ticks || current_ticks isa AbstractVector{<:Real})
                     owned_ticks && decades ? (:log10, 0) : (:linear, exponent)
+                elseif numeric && signed &&
+                       (owned_ticks || current_ticks isa AbstractVector{<:Real})
+                    (:signed, 0)
                 else
                     nothing
                 end
@@ -716,6 +766,19 @@ function _addon_axis_format!(axis)
                             Makie.automatic
                         elseif first(mode) === :linear
                             _addon_linear_tickformat(exponent)
+                        elseif first(mode) === :signed
+                            # One fixed decimal precision can print small signed
+                            # ticks as zero when the view spans many decades.
+                            values -> begin
+                                labels = String[]
+                                for digits in 3:17
+                                    labels = [iszero(value) ? "0" :
+                                              @sprintf("%.*g", digits, value)
+                                              for value in values]
+                                    allunique(labels) && break
+                                end
+                                labels
+                            end
                         else
                             # Native LineAxis may still hold its previous limits
                             # during a scale notification. Its temporary zero tick
@@ -763,7 +826,7 @@ function _addon_axis_format!(axis)
                             end
                         elseif current_scale === Base.log10
                             _addon_decade_ticks(lower, upper, count)
-                        elseif current_scale === _addon_scale(:pseudolog10)
+                        elseif signed
                             # Native PseudologTicks dispatches on Makie's scale
                             # instance. Reuse its placement, not its cancelling
                             # transform, and pass numeric positions to this axis.
@@ -772,8 +835,22 @@ function _addon_axis_format!(axis)
                             else
                                 locator = signed_linear ? Makie.LinearTicks(count) :
                                           Makie.PseudologTicks(count)
-                                first(Makie.get_ticks(locator, Makie.pseudolog10,
-                                    Makie.automatic, lower, upper))
+                                reference = current_scale.forward.reference
+                                normalized = (lower / reference, upper / reference)
+                                if all(isfinite, normalized)
+                                    first(Makie.get_ticks(locator, Makie.pseudolog10,
+                                        Makie.automatic, normalized...)) .* reference
+                                else
+                                    # Physical decade positions remain representable
+                                    # even when their ratio to the reference overflows.
+                                    values = Float64[]
+                                    lower <= 0 <= upper && push!(values, 0)
+                                    lower < 0 && append!(values,
+                                        -_addon_decade_ticks(max(-upper, reference), -lower, count))
+                                    upper > 0 && append!(values,
+                                        _addon_decade_ticks(max(lower, reference), upper, count))
+                                    sort!(values)
+                                end
                             end
                         else
                             Makie.automatic
@@ -840,7 +917,7 @@ function _addon_axis_format!(axis)
     return axis
 end
 
-# Bind the native limit lifecycle once and return this axis's reset action.
+# Bind native axis-limit callbacks once and return this axis's reset action.
 function _addon_reset!(axis, series = ())
     # Own numeric ticks before the first data fit, including its synchronous
     # native callbacks. Every recipe and caller-owned plotwindow uses this bind.
@@ -1078,8 +1155,7 @@ function _addon_remove_legend!(legend)
     return nothing
 end
 
-function _addon_legend_sources!(legend, groups, dependents)
-    legend === nothing && return nothing
+function _addon_legend_sources!(legend, entries, groups, dependents)
     owners = IdDict{Any, Any}(dependents)
     for handles in values(groups), handle in handles
 
@@ -1088,18 +1164,18 @@ function _addon_legend_sources!(legend, groups, dependents)
     # Preserve Makie's glyphs, but target the registered owning plots. Composite
     # glyphs may refer to derived child attributes that are not writable inputs.
     # Deduplicate across the entire entry: several glyphs still mean one action.
-    for (_, entries) in legend.entrygroups[], entry in entries
-
+    for entry in entries
         seen = Base.IdSet{Any}()
         for element in entry.elements
             # Cairo's LineSegments renderer adds joinstyle=nothing to the
             # source graph. Native legend extraction then mistakes that cache
             # for a line style on recreation. Keep the fallback in the glyph,
             # without modifying the source graph or overriding a real style.
-            if element isa LineElement && to_value(element.joinstyle) === nothing
+            if element isa LineElement &&
+               to_value(get(element.attributes, :joinstyle, nothing)) === nothing
                 element.attributes[:joinstyle] = legend.joinstyle
             end
-            # Makie's LegendElement extension contract requires this mutable
+            # Makie's LegendElement interface requires this mutable
             # vector to identify the plots represented by a glyph.
             targets = element.plots
             resolved = Makie.Plot[]
@@ -1121,8 +1197,8 @@ function _addon_legend_sources!(legend, groups, dependents)
             append!(targets, resolved)
         end
     end
-    # Rebuild native listeners after changing targets. Also initialise their
-    # shades when a hidden entry is recreated or reappears after overflow.
+    # Targets are assigned before native listeners are constructed. Initialise
+    # shades after publication, including entries restored after truncation.
     visibilities = map(collect(keys(owners))) do plot
         # on returns an ObserverFunction with a documented `observable` field.
         # Release the temporary subscription; native legend listeners own the
@@ -1135,82 +1211,31 @@ function _addon_legend_sources!(legend, groups, dependents)
     on(legend.blockscene, legend.entrygroups; priority = -1) do _
         foreach(notify, visibilities)
     end
-    notify(legend.entrygroups)
     return legend
 end
 
-function _addon_set_legend_capacity!(legend, title, entries, ellipsis, capacity, state)
+function _addon_legend_entries!(legend, title, entries)
+    # Native entry creation changes many grid cells. Publish the completed set
+    # with one layout update, restoring suspension even if a listener fails.
+    blocked = legend.grid.block_updates
+    try
+        with_updates_suspended(legend.grid) do
+            legend.entrygroups[] = [(title, entries)]
+        end
+    finally
+        legend.grid.block_updates = blocked
+    end
+    return legend
+end
+
+function _addon_set_legend_capacity!(legend, entries, ellipsis, capacity, state)
     total = length(entries)
     0 <= capacity <= total || throw(BoundsError(entries, capacity))
     capacity == state[] && return legend
     displayed = copy(entries[1:capacity])
     capacity < total && push!(displayed, ellipsis)
-    legend.entrygroups[] = [(first(only(legend.entrygroups[])), displayed)]
+    _addon_legend_entries!(legend, first(only(legend.entrygroups[])), displayed)
     state[] = capacity
-    return legend
-end
-
-function _addon_responsive_legend!(figure, bounding_box, legend)
-    title, built_entries = only(legend.entrygroups[])
-    complete_entries = copy(built_entries[1:(end - 1)])
-    ellipsis = last(built_entries)
-    capacity = Ref(-1)
-    fitting = Ref(false)
-    extents = Dict{Tuple{Symbol, Int}, Float64}()
-
-    function entry_extent(count::Int, orientation::Symbol)
-        return get!(extents, (orientation, count)) do
-            _addon_set_legend_capacity!(
-                legend, title, complete_entries, ellipsis, count, capacity)
-            dimension = orientation === :vertical ? 2 : 1
-            value = legend.layoutobservables.autosize[][dimension]
-            value === nothing ? 0.0 : Float64(value)
-        end
-    end
-    function fit!(bounding_box)
-        fitting[] && return nothing
-        fitting[] = true
-        try
-            orientation = legend.orientation[]
-            orientation in (:vertical, :horizontal) || return nothing
-            dimension = orientation === :vertical ? 2 : 1
-            available = max(0.0, Float64(bounding_box.widths[dimension]) - 2.0)
-            total = length(complete_entries)
-            if entry_extent(total, orientation) <= available
-                _addon_set_legend_capacity!(
-                    legend, title, complete_entries, ellipsis, total, capacity)
-                return nothing
-            end
-            lower = 0
-            upper = max(0, total - 1)
-            best = 0
-            while lower <= upper
-                middle = (lower + upper) ÷ 2
-                if entry_extent(middle, orientation) <= available
-                    best = middle
-                    lower = middle + 1
-                else
-                    upper = middle - 1
-                end
-            end
-            _addon_set_legend_capacity!(
-                legend, title, complete_entries, ellipsis, best, capacity)
-        finally
-            fitting[] = false
-        end
-        return nothing
-    end
-
-    _addon_set_legend_capacity!(
-        legend, title, complete_entries, ellipsis, length(complete_entries), capacity)
-    on(legend.blockscene, bounding_box) do bounds
-        fit!(bounds)
-    end
-    on(legend.blockscene, legend.orientation) do _
-        empty!(extents)
-        fit!(bounding_box[])
-    end
-    fit!(bounding_box[])
     return legend
 end
 
@@ -1240,86 +1265,235 @@ function _addon_wrap_legend_label(label, width, measure)
     return join(lines, '\n')
 end
 
-# Native Legend already owns the row-major grid, text rendering and click
-# targets. Only its bank count and (when necessary) label line breaks change.
-function _addon_grid_legend!(bounds, legend, position; automatic = true, fitting_geometry)
-    entries = last(only(legend.entrygroups[]))
+function _addon_legend_fraction(value)
+    value isa Real && !(value isa Bool) && isfinite(value) && 0<value<=1 ||
+        throw(ArgumentError("legend maximum fraction must be a finite real number in (0, 1]"))
+    return Float64(value)
+end
+
+# Measure labels before publishing entries. Native Legend owns the graphics,
+# glyphs, layout and visibility actions; this owner selects their visible prefix.
+function _addon_fit_legend!(legend, entries, ellipsis, bounds, position, max_fraction;
+        automatic, fitting_geometry, bbox = nothing)
+    for entry in Iterators.flatten((entries, (ellipsis,))),
+        key in (:patchsize, :labelfont, :labelsize)
+
+        get!(entry.attributes, key, getproperty(legend, key))
+    end
     originals = Any[entry.label[] for entry in entries]
     fitting = Ref(false)
     managed = Ref(automatic)
+    capacity = Ref(-1)
+    fitted_size = Ref{Any}(nothing)
     previous_metrics = Ref{Any}(nothing)
-    # Match native Label: glyphs and positions must share data space for the
-    # bounding box to include font extents rather than just the anchor point.
+    shown = Ref(legend.blockscene.visible[])
+    previous_visibility = Ref(shown[])
+    requested_size = Any[legend.width[], legend.height[]]
     probe = text!(legend.blockscene, 0, 0; text = "", markerspace = :data,
         visible = false, inspectable = false)
-    function fit!()
-        (fitting[] || !managed[]) && return nothing
-        horizontal = position[] in (:top, :bottom)
-        available = Float64(bounds[].widths[1]) - sum(legend.margin[][1:2]) -
-                    sum(legend.padding[][1:2]) - 4
-        available > 0 || return nothing
-        fitting[] = true
-        previous_geometry=fitting_geometry[]
-        fitting_geometry[]=true
-        try
-            widths = Float64[]
-            for (entry, original) in zip(entries, originals)
-                probe.font[] = entry.labelfont[]
-                probe.fontsize[] = entry.labelsize[]
-                measured = Dict{Any, Float64}()
-                measure = text -> get!(measured, text) do
-                    probe.text[] = text
-                    Float64(Makie.boundingbox(probe, :data).widths[1])
-                end
-                patch = Float64(entry.patchsize[][1]) + legend.patchlabelgap[]
-                wrapped = !horizontal || !(original isa String) ||
-                          measure(original) <= available-patch ? original :
-                          _addon_wrap_legend_label(original, max(1.0, available-patch), measure)
-                entry.label[] == wrapped || (entry.label[] = wrapped)
-                push!(widths, patch + measure(wrapped))
+    measurements = Dict{Any, Tuple{Float64, Float64}}()
+    Base.@noinline function measure(label, font, fontsize)
+        return get!(measurements, (label, font, fontsize)) do
+            probe.font[] = font
+            probe.fontsize[] = fontsize
+            probe.text[] = label
+            Tuple(Float64.(Makie.boundingbox(probe, :data).widths[1:2]))
+        end
+    end
+    Base.@noinline function fit!(; force = false)
+        (fitting[] || position[]===nothing) && return nothing
+        side = position[] in (:left, :right)
+        inside = position[]===:inside
+        dimension = side ? 1 : 2
+        data_size = Float64.(bounds[].widths)
+        fraction = max_fraction[]
+        current = legend.layoutobservables.computedbbox[].widths
+        # A dock and its data frame share the available span. Solve
+        # legend <= fraction * data before assigning that span to either.
+        limit = ntuple(2) do d
+            if d==dimension
+                inside ? fraction*data_size[d] :
+                fraction/(1+fraction)*(data_size[d]+(capacity[]<0 ? 0.0 :
+                                                     something(current[d], 0.0)))
+            else
+                data_size[d]
             end
-            columns = 1
-            for count in (horizontal ? (length(entries):-1:1) : (1:-1:1))
-                required = sum(maximum(widths[column:count:end]) for column in 1:count) +
-                           (count-1)*legend.colgap[]
-                if required <= available
-                    columns = count
+        end
+        limits = ntuple(2) do d
+            available = bbox===nothing ? limit[d] : min(limit[d], to_value(bbox).widths[d])
+            max(0.0, available-2)
+        end
+        input = (limits, position[], fraction)
+        !force && input==fitted_size[] && return nothing
+        fitted_size[] = input
+        fitting[] = true
+        previous_geometry = fitting_geometry[]
+        fitting_geometry[] = true
+        try
+            padding = (sum(legend.padding[][1:2])+sum(legend.margin[][1:2]),
+                sum(legend.padding[][3:4])+sum(legend.margin[][3:4]))
+            title = first(only(legend.entrygroups[]))
+            title_size = title===nothing || !legend.titlevisible[] ? (0.0, 0.0) :
+                         measure(title, legend.titlefont[], legend.titlesize[])
+            title_gap = title_size==(0.0, 0.0) ? 0.0 : legend.titlegap[]
+            text_width = limits[1]-padding[1] -
+                         (legend.titleposition[]===:left ? title_size[1]+title_gap : 0.0)
+            sizes = NTuple{4, Float64}[]
+            for (index, entry) in enumerate(Iterators.flatten((entries, (ellipsis,))))
+                original = index<=length(entries) ? originals[index] : "(...)"
+                patch = entry.patchsize[]
+                available = max(1.0, text_width-patch[1]-legend.patchlabelgap[])
+                width = measure(original, entry.labelfont[], entry.labelsize[])[1]
+                label = original isa String && width>available ?
+                        _addon_wrap_legend_label(original, available,
+                    text -> measure(text, entry.labelfont[], entry.labelsize[])[1]) :
+                        original
+                entry.label[]==label || (entry.label[]=label)
+                w, h = measure(label, entry.labelfont[], entry.labelsize[])
+                push!(sizes, (Float64(patch[1]), Float64(patch[2]), w, h))
+            end
+            orientation = managed[] ? :vertical : legend.orientation[]
+            Base.@noinline function extent(count, banks)
+                n = count+(count<length(entries))
+                n==0 && return padding
+                rows, cols = orientation===:vertical ? (cld(n, banks), min(n, banks)) :
+                             (min(n, banks), cld(n, banks))
+                patches = zeros(cols)
+                labels = zeros(cols)
+                heights = zeros(rows)
+                for i in 1:n
+                    size = sizes[i<=count ? i : end]
+                    row, col = orientation===:vertical ? (cld(i, banks), mod1(i, banks)) :
+                               (mod1(i, banks), cld(i, banks))
+                    patches[col] = max(patches[col], size[1])
+                    labels[col] = max(labels[col], size[3])
+                    heights[row] = max(heights[row], size[2], size[4])
+                end
+                w = sum(patches)+sum(labels)+cols*legend.patchlabelgap[]+(cols-1)*legend.colgap[]
+                h = sum(heights)+(rows-1)*legend.rowgap[]
+                legend.titleposition[]===:left ?
+                (w+title_size[1]+title_gap+padding[1], max(h, title_size[2])+padding[2]) :
+                (max(w, title_size[1])+padding[1], h+title_size[2]+title_gap+padding[2])
+            end
+            # Search measured records, not successively constructed native legends.
+            total = length(entries)
+            banks = legend.nbanks[]
+            best = -1
+            narrowest = minimum(size -> size[1]+size[3]+legend.patchlabelgap[], sizes)
+            step = narrowest+legend.colgap[]
+            max_banks = managed[] && position[] in (:top, :bottom) ?
+                        (step>0 ?
+                         clamp(floor(Int, (text_width+legend.colgap[])/step), 1, total+1) :
+                         total+1) :
+                        managed[] ? 1 : banks
+            for candidate in (managed[] ? (max_banks:-1:1) : (banks:banks))
+                if all(extent(total, candidate) .<= limits)
+                    best=total
+                    banks=candidate
                     break
                 end
+                lower, upper = 0, total-1
+                while lower<=upper
+                    middle = (lower+upper)÷2
+                    if all(extent(middle, candidate) .<= limits)
+                        if middle>best
+                            best=middle
+                            banks=candidate
+                        end
+                        lower=middle+1
+                    else
+                        upper=middle-1
+                    end
+                end
+                best==total && break
             end
-            metrics = (Tuple(widths), Tuple(entry.label[] for entry in entries),
-                Tuple((entry.labelsize[], entry.labelfont[]) for entry in entries))
-            legend.orientation[]===:vertical || (legend.orientation[]=:vertical)
-            if legend.nbanks[] != columns
-                legend.nbanks[] = columns
-            elseif previous_metrics[] != metrics
-                # Native Legend relayout is triggered by bank/layout controls,
-                # not by changed label extents alone.
-                notify(legend.nbanks)
+            best=max(0, best)
+            metrics=(sizes, title_size, padding, legend.rowgap[],
+                legend.colgap[], legend.patchlabelgap[])
+            blocked = legend.grid.block_updates
+            try
+                with_updates_suspended(legend.grid) do
+                    legend.orientation[]===orientation || (legend.orientation[]=orientation)
+                    if legend.nbanks[]!=banks
+                        legend.nbanks[]=banks
+                    elseif metrics!=previous_metrics[]
+                        notify(legend.nbanks)
+                    end
+                    _addon_set_legend_capacity!(legend, entries, ellipsis, best, capacity)
+                end
+            finally
+                legend.grid.block_updates=blocked
             end
-            previous_metrics[] = metrics
+            previous_metrics[]=metrics
+            for (d, attribute) in enumerate((legend.width, legend.height))
+                requested = requested_size[d]
+                span = requested isa Real ? Float64(requested) :
+                       requested isa Relative ?
+                       requested.x*legend.layoutobservables.suggestedbbox[].widths[d] :
+                       nothing
+                if span!==nothing
+                    bounded = min(span, limits[d])
+                    attribute[]==bounded || (attribute[]=bounded)
+                end
+            end
+            # Native font/layout measurements settle the final capacity. This
+            # also accounts for native attributes outside the text measurement.
+            while capacity[]>0 &&
+                  any(d -> something(legend.layoutobservables.autosize[][d], 0.0)>limits[d], 1:2)
+                _addon_set_legend_capacity!(
+                    legend, entries, ellipsis, capacity[]-1, capacity)
+            end
+            fits = all(d -> something(legend.layoutobservables.autosize[][d], 0.0)<=limits[d], 1:2)
+            visible = shown[] && fits
+            legend.blockscene.visible[]==visible || (legend.blockscene.visible[]=visible)
         finally
             fitting_geometry[]=previous_geometry
-            fitting[] = false
+            fitting[]=false
         end
         return nothing
     end
     on(legend.blockscene, bounds) do _
         fit!()
     end
-    onany((_...) -> fit!(), legend.blockscene, legend.labelsize, legend.labelfont,
-        legend.padding, legend.margin, legend.colgap, legend.patchlabelgap, legend.patchsize)
+    if bbox isa Observable
+        on(_ -> fit!(), legend.blockscene, bbox)
+    end
+    on(legend.blockscene, legend.entrygroups) do _
+        fitting[] || fit!(force = true)
+    end
+    # Native labels must finish measuring before fitting; shared frame fitting
+    # follows at priority -100.
+    onany(
+        (_...) -> fit!(force = true), legend.blockscene, legend.labelsize, legend.labelfont,
+        legend.titlesize, legend.titlefont, legend.titleposition, legend.titlevisible,
+        legend.padding, legend.margin, legend.colgap, legend.rowgap, legend.titlegap,
+        legend.patchlabelgap, legend.patchsize; priority = -50)
     for (index, entry) in enumerate(entries)
         on(legend.blockscene, entry.label) do label
             fitting[] && return
-            originals[index] = label
-            fit!()
+            originals[index]=label
+            fit!(force = true)
         end
     end
     for setting in (legend.nbanks, legend.orientation)
         on(legend.blockscene, setting; priority = 1) do _
-            fitting[] || (managed[]=false)
+            fitting[] && return
+            managed[]=false
+            fit!(force = true)
         end
+    end
+    for (d, attribute) in enumerate((legend.width, legend.height))
+        on(legend.blockscene, attribute) do value
+            fitting[] && return
+            requested_size[d]=value
+            fit!(force = true)
+        end
+    end
+    on(legend.blockscene, legend.blockscene.visible) do visible
+        if !fitting[] && position[]!==nothing && visible!=previous_visibility[]
+            shown[]=visible
+        end
+        previous_visibility[]=visible
     end
     fit!()
     return fit!
@@ -1391,25 +1565,21 @@ end
 
 function _addon_legend!(
         figure,
-        body,
         groups,
         order,
         labels;
         dependent_plots,
         position,
         attributes,
-        overflow::Symbol,
+        max_fraction, fitting_geometry,
         title = nothing,
         inside_bbox = nothing,
         target = nothing,
         target_orientation = nothing
 )
-    position === nothing && return nothing
+    position[] === nothing && return nothing
     attributes isa NamedTuple ||
         throw(ArgumentError("legend_attributes must be a NamedTuple"))
-    overflow in (:ellipsis, :show_all) || throw(ArgumentError(
-        "legend_overflow must be :ellipsis or :show_all",
-    ))
     entries = Any[]
     displayed = Any[]
     for group in order
@@ -1418,13 +1588,13 @@ function _addon_legend!(
         push!(displayed, labels[group])
     end
     isempty(entries) && return nothing
-    if position === :inside
+    if position[] === :inside
         inside_bbox === nothing && throw(ArgumentError(
             "inside legends require a figure or panel plot-area bounding box",
         ))
         options = merge(
             (;
-                bbox = inside_bbox,
+                bbox = inside_bbox[],
                 orientation = :vertical,
                 halign = :right, valign = :top,
                 margin = (10, 10, 10, 10),
@@ -1433,62 +1603,32 @@ function _addon_legend!(
             ),
             attributes
         )
-        if overflow === :show_all
-            legend = Legend(
-                figure,
-                entries,
-                displayed,
-                title;
-                options...
-            )
-            return _addon_legend_sources!(legend, groups, dependent_plots)
-        end
-        ellipsis = LineElement(color = :transparent)
-        legend = Legend(
-            figure,
-            Any[entries..., ellipsis],
-            [displayed; "(...)"],
-            title;
-            options...
-        )
-        _addon_legend_sources!(legend, groups, dependent_plots)
-        return _addon_responsive_legend!(
-            figure,
-            # Available space, not the legend's content-dependent size.
-            legend.layoutobservables.suggestedbbox,
-            legend
-        )
+        target = figure
+    else
+        target===nothing &&
+            throw(ArgumentError("native legends require an assigned guide slot"))
+        options = merge(
+            (;
+                orientation = target_orientation,
+                halign = target_orientation === :vertical ? :left : :center,
+                valign = target_orientation === :vertical ? :top : :center,
+                tellwidth = position[] in (:left, :right) || position[] isa Tuple,
+                tellheight = position[] in (:top, :bottom) || position[] isa Tuple
+            ),
+            attributes)
     end
-    target===nothing &&
-        throw(ArgumentError("native legends require an assigned guide slot"))
-    default_orientation=target_orientation
-    options = merge(
-        (;
-            orientation = default_orientation,
-            halign = default_orientation === :vertical ? :left : :center,
-            valign = default_orientation === :vertical ? :top : :center,
-            tellwidth = position in (:left, :right) || position isa Tuple,
-            tellheight = position in (:top, :bottom) || position isa Tuple
-        ),
-        attributes)
-    if overflow === :show_all
-        legend = Legend(target, entries, displayed, title; options...)
-        return _addon_legend_sources!(legend, groups, dependent_plots)
-    end
-    ellipsis = LineElement(color = :transparent)
-    legend = Legend(
-        target,
-        Any[entries..., ellipsis],
-        [displayed; "(...)"],
-        title;
-        options...
-    )
-    _addon_legend_sources!(legend, groups, dependent_plots)
-    return _addon_responsive_legend!(
-        figure,
-        inside_bbox,
-        legend
-    )
+    legend = Legend(target, Any[], String[], title; options...)
+    native_attributes = Makie.Attributes([key=>getproperty(legend, key)
+                                          for key in propertynames(typeof(legend))])
+    native_entries = [Makie.LegendEntry(label, handles, native_attributes)
+                      for (handles, label) in zip(entries, displayed)]
+    ellipsis = Makie.LegendEntry("(...)", LineElement(color = :transparent), native_attributes)
+    _addon_legend_sources!(legend, [native_entries; ellipsis], groups, dependent_plots)
+    fit = _addon_fit_legend!(
+        legend, native_entries, ellipsis, inside_bbox, position, max_fraction;
+        automatic = !haskey(attributes, :orientation) && !haskey(attributes, :nbanks), fitting_geometry,
+        bbox = get(attributes, :bbox, nothing))
+    return legend, fit
 end
 
 function _addon_plot_belongs_to_axis(plot, axis)
@@ -1565,7 +1705,7 @@ end
 
 function _addon_without_legend_controls(options::NamedTuple)
     names = Tuple(filter(
-        name -> name ∉ (:position, :overflow, :title, :legend_labels),
+        name -> name ∉ (:position, :max_fraction, :title, :legend_labels),
         keys(options)
     ))
     return NamedTuple{names}(Tuple(getproperty(options, name) for name in names))
@@ -1574,7 +1714,7 @@ end
 function _addon_legend_configuration(value; default_position, default_title = nothing)
     value isa Symbol && return (;
         position = value,
-        overflow = :show_all,
+        max_fraction = 0.5,
         title = default_title,
         legend_labels = nothing,
         attributes = (;)
@@ -1583,13 +1723,13 @@ function _addon_legend_configuration(value; default_position, default_title = no
         "a legend configuration must be a dock symbol or NamedTuple",
     ))
     position = get(value, :position, default_position)
-    overflow = get(value, :overflow, :show_all)
+    max_fraction = _addon_legend_fraction(get(value, :max_fraction, 0.5))
     title = get(value, :title, default_title)
     haskey(value, :anchor) &&
         throw(ArgumentError("anchor was removed; use native halign and valign"))
     legend_labels = get(value, :legend_labels, nothing)
     attributes = _addon_without_legend_controls(value)
-    return (; position, overflow, title, legend_labels, attributes)
+    return (; position, max_fraction, title, legend_labels, attributes)
 end
 
 function _addon_colorbar!(position, scale; attributes)
@@ -1618,7 +1758,8 @@ function _addon_colorbar!(position, scale; attributes)
         managed=Ref{Any}(colorbar.alignmode[])
         onany(colorbar.blockscene,
             labels.text, labels.fontsize, labels.font, labels.rotation, labels.align, labels.offset,
-            caption.text, caption.fontsize, caption.font, caption.rotation, caption.align, caption.offset,
+            caption.text, caption.fontsize, caption.font,
+            caption.rotation, caption.align, caption.offset,
             colorbar.vertical, colorbar.ticklabelsvisible, colorbar.labelvisible,
             colorbar.layoutobservables.computedbbox, colorbar.spinewidth,
             colorbar.layoutobservables.protrusions; update = true) do _labels_text,
@@ -1758,7 +1899,7 @@ function _addon_finish!(
         marker_coordinates = nothing,
         legend_position,
         legend_attributes,
-        legend_overflow = :ellipsis,
+        legend_cap = 0.5,
         legend_title = nothing,
         panels = (),
         frame_cells = (),
@@ -1793,8 +1934,9 @@ function _addon_finish!(
         end
         filter(entries) do entry
             _addon_numeric_axis(entry.axis, dim) &&
-                getproperty(entry.axis, Symbol(dim, :scale))[] in
-                (identity, log10, _addon_scale(:pseudolog10)) &&
+                (getproperty(entry.axis, Symbol(dim, :scale))[] in (identity, log10) ||
+                 getproperty(entry.axis, Symbol(dim, :scale))[] isa
+                 Makie.ReversibleScale{_SignedLog10}) &&
                 !isempty(_addon_visible_values(entry.axis, dim, entry.series))
         end
     end
@@ -1862,7 +2004,7 @@ function _addon_finish!(
         open_export
     )
     figure_guide=_addon_guide_state(:legend, nothing, legend_position, legend_attributes;
-        overflow = legend_overflow, title = legend_title)
+        max_fraction = legend_cap, title = legend_title)
     built.addon_state.guides[(:legend, nothing)]=figure_guide
     push!(built.addon_state.guide_order, (:legend, nothing))
     for (identity, value) in _addon_panel_legend_pairs(panel_legends)
@@ -1878,7 +2020,7 @@ function _addon_finish!(
                 key=(:legend, identity)
                 built.addon_state.guides[key]=_addon_guide_state(
                     :legend, identity, config.position, config.attributes;
-                    overflow = config.overflow, title = config.title)
+                    max_fraction = config.max_fraction, title = config.title)
                 push!(built.addon_state.guide_order, key)
             end
     end

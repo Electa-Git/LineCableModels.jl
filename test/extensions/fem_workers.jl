@@ -4,7 +4,7 @@
     python = Sys.which("python3")
     if Sys.isunix() && python !== nothing
         copper = Material(kind=:conductor, rho=1.72e-8)
-        design = build(CableDesign, "worker-contract", terminal(:core, core(copper; r=0.005)))
+        design = build(CableDesign, "worker-fixture", terminal(:core, core(copper; r=0.005)))
         system = build(LineCableSystem, [design,design], [(0.0,-0.1),(0.1,-0.1)];
             connections=[Dict(:core=>1),Dict(:core=>2)])
         problem = LineParametersProblem(system; frequencies=[50.0,1000.0],
@@ -106,7 +106,7 @@ with open(sys.argv[1],'a+') as f:
             attempts=filter(isfile,[joinpath(d,"observed.json") for d in readdir(joinpath(run.path,"attempts");join=true)])
             @test any(p->JSON3.read(read(p,String)).bases==[2],attempts)
             @test E._parse_scan(run,model,form, execution_options).Z==scan.Z
-            # Concurrency is scheduling metadata; thread count is numerical provenance.
+            # Concurrency is scheduling metadata; thread count records numerical execution.
             one=merge(inputs,(execution=merge(execution,(frequency_workers=1,)),))
             threads=merge(inputs,(execution=merge(execution,(solver_threads=2,)),))
             @test E._resume_inputs_match(run.path,model,one)

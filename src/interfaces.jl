@@ -79,6 +79,7 @@ function constitutive end
 Return the physical storage basis of a result.
 """
 function basis end
+function line_length end
 
 function R end
 function L end

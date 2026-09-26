@@ -16,6 +16,7 @@ Construct finite parameter spaces and materialize cable problems from explicit
 - Estimate stranded-conductor and wire-screen patterns.
 """
 module ParametricBuilder
+import ..LineCableModels
 
 export Grid, AbsoluteError, DeterministicGrid, RelativeGrid, AbsoluteGrid
 export AbstractGrid, AbstractUncertainGrid, UncertainValue

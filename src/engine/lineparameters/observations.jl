@@ -3,6 +3,12 @@ _line_families(::LineParameters) = (Z,Y)
 _line_families(::SeriesImpedance) = (Z,)
 _line_families(::ShuntAdmittance) = (Y,)
 _primary_family(selector) = selector in (Z,R,X,L) ? Z : selector in (Y,G,B,C) ? Y : nothing
+observation_assumptions(::Union{SeriesImpedance,ShuntAdmittance},selector) = nothing
+function observation_assumptions(source::AbstractCoreResult,selector)
+    family=_primary_family(selector)
+    family===nothing && return nothing
+    return get(get(details(source).data,:selections,(;)),Symbol(nameof(family)),nothing)
+end
 _primary_key(identity) = identity isa Function ? nameof(identity) :
     first(identity) in (Z,Y) && any(in((abs,angle)),Base.tail(identity)) ?
     Symbol(nameof(first(identity)),last(filter(in((abs,angle)),Base.tail(identity)))===abs ? :_abs : :_angle) : nameof(first(identity))
@@ -38,7 +44,7 @@ function _line_request(source,request)
     return (prefix...,indices...)
 end
 
-function Grammar.observation_requests(source::_ObservedLineSource,requests::Tuple;complete_pairs::Bool=false)
+function _line_observation_requests(source::_ObservedLineSource,requests::Tuple;complete_pairs::Bool=false)
     selected=isempty(requests) ? Tuple(_line_families(source)) : requests
     expanded=Tuple[]
     for item in selected
@@ -91,8 +97,31 @@ function Grammar.observation_requests(source::_ObservedLineSource,requests::Tupl
     end
     return (retained=Tuple(retained),displayed=Tuple(expanded))
 end
+Grammar.observation_requests(source::LineParameters,requests::Tuple;complete_pairs::Bool=false) =
+    _line_observation_requests(source,requests;complete_pairs)
+Grammar.observation_requests(source::Union{SeriesImpedance,ShuntAdmittance},requests::Tuple;complete_pairs::Bool=false) =
+    _line_observation_requests(source,requests;complete_pairs)
 
-function _line_coordinates(source,request,frequencies)
+"""
+$(TYPEDSIGNATURES)
+
+Select physical matrix coordinates for an indexed line-parameter observation.
+
+# Arguments
+
+- `source`: Line parameters, series impedance, or shunt admittance tensor.
+- `request`: Normalized observable request with row/column/sample indices, or
+  diagonal/sample indices for a diagonal request.
+- `frequencies`: Supplied frequency samples \\[Hz\\], or `nothing`. Line parameters
+  use their stored frequencies and reject a differing supplied vector.
+
+# Returns
+
+- A named tuple retaining the original indices, selected row/column/sample
+  positions, frequencies \\[Hz\\], coordinate labels, full tensor extent, domain,
+  and `:matrix` or `:diagonal` representation. Selection order is preserved.
+"""
+function line_coordinates(source,request,frequencies)
     identity=request_identity(request)
     diagonal=identity isa Tuple && diag in identity
     dimensions=size(source isa LineParameters ? source.Z : source)
@@ -115,13 +144,13 @@ _scaled_thresholds(value::Nothing,factor) = nothing
 _scaled_thresholds(value::NamedTuple,factor) = map(x -> _scaled_thresholds(x,factor),value)
 _scaled_thresholds(value,factor) = Grammar.detach(value,factor)
 
-function Grammar.observation_quantity(source::_ObservedLineSource,request;
+function _line_observation_quantity(source::_ObservedLineSource,request;
         unit=nothing,clip=true,atol=nothing,frequencies=nothing)
     identity=request_identity(request)
     prefix=identity isa Tuple ? identity : (identity,)
     selector=first(prefix)
     indices=request_indices(request)
-    coordinates=_line_coordinates(source,request,frequencies)
+    coordinates=line_coordinates(source,request,frequencies)
     f=_resolution_frequencies(source,frequencies)
     sampled_f=f===nothing ? nothing : f[last(indices)]
     polar=any(in((abs,angle)),prefix)
@@ -130,9 +159,9 @@ function Grammar.observation_quantity(source::_ObservedLineSource,request;
     original=polar ? (diagonal ? observe(source,selector,diag,indices...) : observe(source,selector,indices...)) :
         _line_observation_values(source,request;frequencies=f)
     resolution=observation_resolution(original,selector;atol,frequencies=sampled_f,
-        result_basis=basis(source),line_length=_resolution_length(source))
+        result_basis=basis(source),line_length=line_length(source))
     values=polar ? (phase ? angle.(original) : abs.(original)) : original
-    available=resolution.available .& _resolution_available.(values)
+    available=resolution.available .& resolution_available.(values)
     exact_origin=polar ? iszero.(nominal.(original)) : false
     phase && (available=available .& .!exact_origin)
     mask=resolution.unresolved===nothing ? false : resolution.unresolved
@@ -161,11 +190,15 @@ function Grammar.observation_quantity(source::_ObservedLineSource,request;
         unit=Units.native_unit(selector,basis(source))) : nothing
     return (request,quantity=q,family=Symbol(nameof(_primary_family(selector))),statistic=:value,
         values=Grammar.detach(resolved isa AbstractArray && ndims(resolved)==0 ? only(resolved) : resolved,factor),unit=target,basis=basis(source),coordinates,
-        assumptions=source isa LineParameters ? get(get(details(source).data,:selections,(;)),Symbol(nameof(_primary_family(selector))),nothing) : nothing,
+        assumptions=observation_assumptions(source,selector),
         thresholds=(kind=resolution.kind,values=_scaled_thresholds(resolution.atol,threshold_factor),
             unit=phase ? threshold_unit : target),available,engineering_zero=mask,clipped=clip,
         missing_reason=reasons,unavailable_components=components)
 end
+Grammar.observation_quantity(source::LineParameters,request;kwargs...) =
+    _line_observation_quantity(source,request;kwargs...)
+Grammar.observation_quantity(source::Union{SeriesImpedance,ShuntAdmittance},request;kwargs...) =
+    _line_observation_quantity(source,request;kwargs...)
 
 function Grammar.observation_requests(source::CableConstants,requests::Tuple;complete_pairs::Bool=false)
     selected=isempty(requests) ? (R,L,G,C) : requests
@@ -183,7 +216,16 @@ function Grammar.observation_quantity(source::CableConstants,request;
     selector=request_identity(request)
     values=getindex(observe(source,selector),index)
     resolution=observation_resolution(values,selector;atol,result_basis=:pul)
-    resolved=clip ? Grammar._resolved_observation(values,resolution.unresolved,resolution.available,Val(false)) : values
+    resolved = if !clip
+        values
+    elseif resolution.unresolved === nothing
+        resolution.available === false ? missing : values
+    else
+        broadcast(values, resolution.unresolved, resolution.available) do value, unresolved, available
+            available || return missing
+            return unresolved ? value - nominal(value) : value
+        end
+    end
     q=Units.quantity(selector)
     target=unit===nothing ? Units.display_unit(q,:pul) : unit
     T=typeof(float(nominal(zero(eltype(values)))))

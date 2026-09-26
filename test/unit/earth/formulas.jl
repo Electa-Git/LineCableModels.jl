@@ -1,4 +1,4 @@
-@testitem "Earth / static and user-owned frequency-dependent relations" tags=[:unit] setup=[FormulaContractModels] begin
+@testitem "Earth / static and user-owned frequency-dependent relations" tags=[:unit] setup=[FormulaFixtures] begin
     using Measurements: measurement,uncertainty
     const EP=LineCableModels.Earth
     relation=EP.FrequencyDependent.Formula(:default)
@@ -8,7 +8,7 @@
     end
     material=EP.EarthMaterial(measurement(100.0,2.0),measurement(10.0,0.2),measurement(1.0,0.01))
     @test uncertainty(relation(material,50.0).rho)==2.0
-    selected=FormulaContractModels.DispersiveEarth()
+    selected=FormulaFixtures.DispersiveEarth()
     @test EP.FrequencyDependent.Formula(selected) === selected
     @test selected(EP.EarthMaterial(100.0,10.0,1.0),100.0).rho==50.0
     @test only(selected.seen)[2]==100.0

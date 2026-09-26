@@ -124,25 +124,25 @@ function levenberg_marquardt_step!(
         ::Val{:chrysochos2014},
         vector::AbstractVector{T},
         value::T,
-        values::NamedTuple,
+        iteration_options::NamedTuple,
         work
 ) where {T <: Complex}
     n = length(vector)
     R = typeof(real(zero(T)))
-    requested_tolerance = convert(R, values.convergence)
+    requested_tolerance = convert(R, iteration_options.convergence)
     tolerance = max(R(100) * eps(R), requested_tolerance^2)
-    iterations = values.max_iterations
+    iterations = iteration_options.max_iterations
     iterations isa Integer && iterations > 0 || throw(DomainError(
         iterations,
         "max_iterations must be a positive integer"
     ))
-    damping = convert(R, values.damping)
+    damping = convert(R, iteration_options.damping)
     isfinite(damping) && damping > zero(R) || throw(DomainError(
         damping,
         "damping must be finite and positive"
     ))
 
-    _transpose!(vector) || _unit!(vector) || return value, false
+    normalize_bilinear!(vector) || _unit!(vector) || return value, false, 0
     @inbounds for index in 1:n
         work.x[index] = real(vector[index])
         work.x[n + index] = imag(vector[index])
@@ -151,8 +151,10 @@ function levenberg_marquardt_step!(
     work.x[2n + 2] = imag(value)
 
     converged = false
+    performed = 0
     maximum_damping = inv(eps(R))
-    for _ in 1:iterations
+    for iteration in 1:iterations
+        performed=iteration
         levenberg_marquardt_residual!(
             Val(:chrysochos2014),
             work.residual,
@@ -191,9 +193,9 @@ function levenberg_marquardt_step!(
         copyto!(work.step, work.gradient)
         work.step .*= -one(R)
         factorization = lu!(work.system; check = false)
-        issuccess(factorization) || return value, false
+        issuccess(factorization) || return value, false, performed
         ldiv!(factorization, work.step)
-        all(isfinite, work.step) || return value, false
+        all(isfinite, work.step) || return value, false, performed
         work.candidate .= work.x .+ work.step
         levenberg_marquardt_residual!(
             Val(:chrysochos2014),
@@ -214,15 +216,15 @@ function levenberg_marquardt_step!(
             end
         else
             damping *= R(10)
-            damping <= maximum_damping || return value, false
+            damping <= maximum_damping || return value, false, performed
         end
     end
 
     @inbounds for index in 1:n
         vector[index] = complex(work.x[index], work.x[n + index])
     end
-    _unit!(vector) || return value, false
-    return complex(work.x[2n + 1], work.x[2n + 2]), converged
+    _unit!(vector) || return value, false, performed
+    return complex(work.x[2n + 1], work.x[2n + 2]), converged, performed
 end
 
 """
@@ -265,137 +267,138 @@ Calculation of Frequency-Dependent Transmission-Line Transformation Matrices
 Using the Levenberg–Marquardt Method*, IEEE Transactions on Power Delivery,
 29(4), 2014. DOI: 10.1109/TPWRD.2013.2284504.
 """
-function modal_operators(
-        ::Formula{:chrysochos2014},
-        lp::LineParameters{Tc, U, PhaseDomain, Basis},
-        parameters::NamedTuple, options::FormulationOptions, workspace
-) where {Tc <: Complex, U <: Real, Basis}
-    values = options.data.iteration
-    impedance, admittance, frequencies = _input(lp)
-    n, _, nfrequencies = size(impedance)
-    T = float(promote_type(eltype(impedance), eltype(admittance)))
+function initialize_buffers(::Val{:chrysochos2014}, ::Type{T}, input,
+        invariants, buffers) where {T <: Complex}
+    n = invariants.n
     R = typeof(real(zero(T)))
-    convergence = convert(R, values.convergence)
-    isfinite(convergence) && convergence > zero(R) || throw(DomainError(
-        values.convergence,
-        "convergence must be finite and positive"
-    ))
-    iterations = values.max_iterations
-    iterations isa Integer && iterations > 0 || throw(DomainError(
-        iterations,
-        "max_iterations must be a positive integer"
-    ))
-    damping = convert(R, values.damping)
-    isfinite(damping) && damping > zero(R) || throw(DomainError(
-        values.damping,
-        "damping must be finite and positive"
-    ))
-    current = Array{T, 3}(undef, n, n, nfrequencies)
-    product = Matrix{T}(undef, n, n)
-    normalized = similar(product)
-    work = levenberg_marquardt_workspace(Val(:chrysochos2014), R, n)
+    return merge(buffers,(
+        normalized_shifted_eigenproblem=Matrix{T}(undef,n,n),
+        least_squares=levenberg_marquardt_workspace(Val(:chrysochos2014),R,n),
+        eigenpair_assignment=_assignment_workspace(T,n)))
+end
 
-    previous_values = Vector{T}(undef, n)
-    previous_vectors = Matrix{T}(undef, n, n)
-    current_values = similar(previous_values)
-    physical_values = similar(previous_values)
-    current_vectors = similar(previous_vectors)
-    fallback_count = 0
-    first_fallback = 0
-    validation_tolerance = max(
-        R(100) * eps(R),
-        convergence^2
-    )
+function decompose!(::Val{:chrysochos2014}, workspace::ModalAnalysisWorkspace,
+        parameters::NamedTuple, options::FormulationOptions)
+    iteration_options = options.data.iteration
+    impedance = workspace.input.Z
+    admittance = workspace.input.Y
+    frequencies = workspace.input.f
+    n, _, nfrequencies = size(impedance)
+    T = eltype(workspace.Ti)
+    R = typeof(real(zero(T)))
+    work = workspace.buffers
+    admittance_impedance_product = work.admittance_impedance_product
+    normalized_shifted_eigenproblem = work.normalized_shifted_eigenproblem
+    least_squares = work.least_squares
+    previous_eigenvalues = work.previous_eigenvalues
+    previous_eigenvectors = work.previous_eigenvectors
+    eigenvalues = work.eigenvalues
+    eigenvectors = work.eigenvectors
+    propagation_eigenvalues = work.propagation_eigenvalues
+    convergence = convert(R, iteration_options.convergence)
+    validation_tolerance = max(R(100)*eps(R), convergence^2)
+    missed = workspace.diagnostics.missed_frequencies
+    fallback = workspace.diagnostics.fallback_frequencies
 
     @inbounds for frequency_index in 1:nfrequencies
+        copyto!(workspace.buffers.Zslice,@view(impedance[:,:,frequency_index]))
+        copyto!(workspace.buffers.Yslice,@view(admittance[:,:,frequency_index]))
+        workspace.buffers.Zslice ./= workspace.input.root_scale
+        workspace.buffers.Yslice ./= workspace.input.root_scale
+        Zslice=workspace.buffers.Zslice
+        Yslice=workspace.buffers.Yslice
         frequency = convert(R, frequencies[frequency_index])
-        frequency > zero(R) || throw(DomainError(
-            frequency,
-            "default modal transformation requires positive frequencies"
-        ))
-        _product!(product, admittance, impedance, frequency_index)
+        frequency > zero(R) || throw(DomainError(frequency,
+            "Chrysochos modal analysis requires positive frequencies"))
+        mul!(admittance_impedance_product,Yslice,Zslice)
         unit = one(frequency)
-        omega = 2 * (unit * π) * frequency
-        epsilon0 = unit * 88541878128 * (unit * 10)^(-22)
-        mu0 = unit * 4 * (unit * π) * (unit * 10)^(-7)
-        scale = -(omega^2) * epsilon0 * mu0
-        normalized .= product ./ scale
+        omega = 2*(unit*π)*frequency
+        epsilon0 = unit*88541878128*(unit*10)^(-22)
+        mu0 = unit*4*(unit*π)*(unit*10)^(-7)
+        scale = -(omega^2)*epsilon0*mu0
+        normalized_shifted_eigenproblem .= admittance_impedance_product ./ scale
         for mode in 1:n
-            normalized[mode, mode] -= one(T)
+            normalized_shifted_eigenproblem[mode,mode] -= one(T)
         end
-        for index in eachindex(normalized)
-            work.real_matrix[index] = real(normalized[index])
-            work.imaginary_matrix[index] = imag(normalized[index])
+        for index in eachindex(normalized_shifted_eigenproblem)
+            least_squares.real_matrix[index] = real(normalized_shifted_eigenproblem[index])
+            least_squares.imaginary_matrix[index] = imag(normalized_shifted_eigenproblem[index])
         end
-
         if frequency_index == 1
-            seed_values, seed_vectors = _seed(normalized)
-            copyto!(previous_values, seed_values)
-            copyto!(previous_vectors, seed_vectors)
+            seed_values, seed_vectors = _seed(normalized_shifted_eigenproblem)
+            copyto!(previous_eigenvalues, seed_values)
+            copyto!(previous_eigenvectors, seed_vectors)
         else
-            copyto!(current_values, previous_values)
-            copyto!(current_vectors, previous_vectors)
+            copyto!(eigenvalues, previous_eigenvalues)
+            copyto!(eigenvectors, previous_eigenvectors)
             failed_mode = 0
             for mode in 1:n
-                reference = @view previous_vectors[:, mode]
-                value,
-                converged = levenberg_marquardt_step!(
-                    Val(:chrysochos2014),
-                    @view(current_vectors[:, mode]),
-                    previous_values[mode],
-                    values,
-                    work
-                )
-                current_values[mode] = value
-                _align!(@view(current_vectors[:, mode]), reference)
+                reference = @view previous_eigenvectors[:,mode]
+                value, converged, iterations = levenberg_marquardt_step!(
+                    Val(:chrysochos2014), @view(eigenvectors[:,mode]),
+                    previous_eigenvalues[mode], iteration_options, least_squares)
+                workspace.diagnostics.iterations[mode,frequency_index]=iterations
+                workspace.diagnostics.converged[mode,frequency_index]=converged
+                eigenvalues[mode] = value
+                _align!(@view(eigenvectors[:,mode]), reference)
                 if !converged
                     failed_mode = mode
                     break
                 end
             end
             for mode in 1:n
-                physical_values[mode] = (current_values[mode] + one(T)) * scale
+                propagation_eigenvalues[mode] = (eigenvalues[mode]+one(T))*scale
             end
-            if failed_mode != 0 ||
-               !_valid(
-                product,
-                physical_values,
-                current_vectors,
-                validation_tolerance
-            )
-                values.fallback === :matched || throw(ErrorException(
-                    "modal LM did not converge at frequency index $frequency_index; matched eigensolution fallback is disabled"))
-                push!(workspace.fallback_frequencies, frequency_index)
-                fallback_values,
-                fallback_vectors = _fallback(
-                    product,
-                    previous_values,
-                    previous_vectors
-                )
-                for mode in 1:n
-                    current_values[mode] = fallback_values[mode] / scale - one(T)
+            if failed_mode != 0 || !check_eigenpairs!(admittance_impedance_product,
+                    propagation_eigenvalues,eigenvectors,validation_tolerance,
+                    work.eigenpair_assignment.residual)
+                push!(missed, frequency_index)
+                if iteration_options.fallback === :matched
+                    push!(fallback, frequency_index)
+                    fallback_values, fallback_vectors = recompute_matched_eigenpairs!(
+                        admittance_impedance_product,previous_eigenvalues,
+                        previous_eigenvectors,work.eigenpair_assignment)
+                    for mode in 1:n
+                        eigenvalues[mode] = fallback_values[mode]/scale-one(T)
+                    end
+                    copyto!(eigenvectors, fallback_vectors)
                 end
-                copyto!(current_vectors, fallback_vectors)
-                fallback_count += 1
-                iszero(first_fallback) && (first_fallback = frequency_index)
             end
-            copyto!(previous_values, current_values)
-            copyto!(previous_vectors, current_vectors)
+            copyto!(previous_eigenvalues, eigenvalues)
+            copyto!(previous_eigenvectors, eigenvectors)
         end
-        copyto!(@view(current[:, :, frequency_index]), previous_vectors)
+        copyto!(@view(workspace.Ti[:,:,frequency_index]),previous_eigenvectors)
+        for mode in 1:n
+            vector = @view workspace.Ti[:,mode,frequency_index]
+            _unit!(vector) || throw(ArgumentError("current eigenvector has zero norm"))
+            mul!(work.voltage_vector,Zslice,vector)
+            divisor = norm(work.voltage_vector)
+            isfinite(divisor) && !iszero(divisor) ||
+                throw(ArgumentError("voltage eigenvector has zero or undefined norm"))
+            @views workspace.Tv[:,mode,frequency_index] .= work.voltage_vector ./ divisor
+            root = sqrt((previous_eigenvalues[mode]+one(T))*scale)
+            (real(root)<0 || (iszero(real(root)) && imag(root)<0)) && (root=-root)
+            workspace.roots[mode,frequency_index] = root*workspace.input.root_scale
+            eigenvalue=(previous_eigenvalues[mode]+one(T))*scale
+            mul!(work.eigenpair_assignment.residual,admittance_impedance_product,vector)
+            work.eigenpair_assignment.residual .-= eigenvalue .* vector
+            denominator=(norm(admittance_impedance_product,Inf)+abs(eigenvalue))*norm(vector,Inf)
+            numerator=norm(work.eigenpair_assignment.residual,Inf)
+            workspace.diagnostics.eigen_residual[mode,frequency_index]=
+                iszero(denominator) ? (iszero(numerator) ? zero(R) : R(Inf)) :
+                numerator/denominator
+        end
     end
-    if fallback_count > 0
-        @warn ":chrysochos2014 retained matched eigensolutions where LM lost relative accuracy" fallback_count first_fallback
-    end
-    return _maps(current)
+    isempty(missed) || @warn ":chrysochos2014 missed numerical targets" count=length(missed) frequencies=copy(missed) fallback_count=length(fallback)
+    return workspace
 end
 
-function formulation_options(::FormulaMethod{<:Formula{:chrysochos2014}, typeof(modal_operators)})
+function formulation_options(::FormulaMethod{<:Formula{:chrysochos2014}, typeof(decompose!)})
     return FormulationOptions((iteration = (
         convergence = 1e-8, max_iterations = 100, damping = 1e-3, fallback = :matched),))
 end
 
-function formulation_options(::FormulaMethod{<:Formula{:chrysochos2014}, typeof(modal_operators)},
+function formulation_options(::FormulaMethod{<:Formula{:chrysochos2014}, typeof(decompose!)},
         ::Val{:iteration}, defaults::NamedTuple, supplied::NamedTuple)
     isempty(setdiff(keys(supplied), keys(defaults))) ||
         throw(ArgumentError("unknown modal iteration controls"))
@@ -408,8 +411,8 @@ function formulation_options(::FormulaMethod{<:Formula{:chrysochos2014}, typeof(
     options.max_iterations isa Integer && !(options.max_iterations isa Bool) &&
     options.max_iterations > 0 ||
         throw(ArgumentError("max_iterations must be a positive integer"))
-    options.fallback in (:matched, :error) ||
-        throw(ArgumentError("fallback must be :matched or :error"))
+    options.fallback in (:matched, :none) ||
+        throw(ArgumentError("fallback must be :matched or :none"))
     return options
 end
 

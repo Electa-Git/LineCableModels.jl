@@ -108,7 +108,7 @@ function _rms_series(reference::AbstractVector, candidate::AbstractVector,
     unresolved_candidate = candidate_unresolved===nothing ? count(_resolution_unresolved.(candidate,candidate_tolerance)) : count(candidate_unresolved)
     counts = (; reference=unresolved_reference, candidate=unresolved_candidate)
     for (operand,values) in ((:reference,reference),(:candidate,candidate))
-        if any(value -> !_resolution_available(value),values)
+        if any(value -> !resolution_available(value),values)
             return (absolute=missing,relative=missing,status=Symbol(operand,:_unavailable),
                 reason="$(operand) contains unavailable or nonfinite samples; no samples were omitted",counts)
         end
@@ -498,7 +498,7 @@ function compare(reference,candidate,requests::AbstractVector;
                 quantity=Grammar.request_quantity(request),statistic,band,normalization,
                 absolute,relative,absolute_unit=unit,relative_unit=Units.units(:base,:dimensionless),
                 coordinates=get(details(right).data,:coordinates,string.(1:size(absolute,1))),
-                assumptions=get(get(details(right).data,:selections,(;)),Symbol(nameof(_primary_family(identity isa Function ? identity : identity[2]))),nothing),
+                assumptions=observation_assumptions(right,identity isa Function ? identity : identity[2]),
                 settings=information,maxima=(absolute=_comparison_maximum(absolute),relative=_comparison_maximum(relative)))))
         end
     end

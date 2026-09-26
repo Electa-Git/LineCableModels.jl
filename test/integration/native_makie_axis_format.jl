@@ -131,6 +131,145 @@ end
     @test 1.8 < low < 2 < high < 2.2
 end
 
+@testitem "Makie addons / signed log separates small conductances in displayed units" tags=[:visual] begin
+    using CairoMakie
+    f = 10.0 .^ range(-1, 6; length=8)
+    conductance = -10.0 .^ range(-27, -6; length=8)
+    # Use the exact Float64 cutoff for the separate default-clipping check.
+    conductance[6] = -1e-12
+    admittance = reshape(complex.(conductance, 1e-8), 1, 1, :)
+    source = LineParameters(ones(ComplexF64, 1, 1, 8), admittance, f)
+    positions = Vector{Float64}[]
+    for (length_unit, clip) in ((:base, false), (:kilo, true))
+        factor = length_unit === :base ? 1.0 : 1000.0
+        expected = factor .* conductance
+        page = LineCableModels.plot(source; ydata=(G,), backend=:cairo,
+            display_plot=false, open_export=false, length_unit, clip, atol=(G=0., B=0.),
+            xscale=:log10, yscale=:log10)
+        axis = only(page.axes)
+        line = only(filter(p -> p isa Makie.Lines, axis.scene.plots))
+        for _ in 1:2
+            Makie.colorbuffer(page.figure)
+            @test all(!iszero, last.(line[1][]))
+            @test all(isapprox.(last.(line[1][]), expected; rtol=1e-14, atol=0))
+            pixels = last.(Makie.transform_and_project(line, :data, :pixel, Makie.Point2d.(line[1][])))
+            normalized = (pixels .- first(pixels)) ./ (last(pixels) - first(pixels))
+            # Compare rendered geometry with an independent high-precision evaluation.
+            transformed = Float64.(-log10.(1 .+ abs.(BigFloat.(expected)) ./ minimum(abs, BigFloat.(expected))))
+            @test normalized ≈ (transformed .- first(transformed)) ./ (last(transformed) - first(transformed)) atol=2e-6
+            @test all(>(0.1), diff(normalized))
+            push!(positions, normalized)
+            inverse = Makie.inverse_transform(axis.yscale[])
+            @test all(isapprox.(inverse.(axis.yscale[].(expected)), expected; rtol=1e-13, atol=0))
+            @test any(t -> 0 < abs(t) < factor * 1e-18, axis.yaxis.tickvalues[])
+            @test allunique(axis.yaxis.ticklabels[])
+            # Labels have at least three significant digits. Check their displayed
+            # precision with zero absolute tolerance, so false zeros always fail.
+            @test all(isapprox.(parse.(Float64, axis.yaxis.ticklabels[]), axis.yaxis.tickvalues[];
+                rtol=0.005, atol=0))
+            @test page.controls[:ylog].active[]
+            page.controls[:ylog].active[] = false
+            @test axis.yscale[] === identity
+            @test all(isapprox.(last.(line[1][]), expected; rtol=1e-14, atol=0))
+            page.controls[:ylog].active[] = true
+        end
+        scale = axis.yscale[]
+        page.controls[:reset].clicks[] += 1
+        resize!(page.figure, 900, 600)
+        @test axis.yscale[] === scale
+        axis.yticks[] = (factor .* [-1e-24, -1e-12], ["small", "large"])
+        Makie.colorbuffer(page.figure)
+        @test axis.yaxis.ticklabels[] == ["small", "large"]
+        mktempdir() do directory
+            @test isfile(export_svg(page; path=joinpath(directory, "conductance.svg"), open_file=false))
+            @test axis.yaxis.ticklabels[] == ["small", "large"]
+        end
+    end
+    @test all(values -> values ≈ first(positions), positions)
+    clipped = LineCableModels.plot(source; ydata=(G,), backend=:cairo,
+        display_plot=false, controls=false, length_unit=:base)
+    line = only(filter(p -> p isa Makie.Lines, only(clipped.axes).scene.plots))
+    @test last.(line[1][])[1:6] == zeros(6)
+    @test last.(line[1][])[7:8] ≈ conductance[7:8]
+    @test Y(source) == admittance
+end
+
+@testitem "Makie addons / signed reference follows native samples and interval endpoints" tags=[:visual] begin
+    using CairoMakie
+    magnitude = 1e-6
+    endpoint = magnitude - prevfloat(magnitude)
+    page = LineCableModels.plotwindow(; title="Signed intervals", backend=:cairo,
+        display_plot=false, open_export=false, axis=(yscale=:log10,)) do grid
+        axis = Axis(grid[1, 1])
+        lines!(axis, [1., 2., 3.], [-magnitude, magnitude, magnitude])
+        errorbars!(axis, [2.], [magnitude], [prevfloat(magnitude)]; yautolimits=true)
+    end
+    axis = only(page.axes)
+    line = only(filter(p -> p isa Makie.Lines, axis.scene.plots))
+    bars = only(filter(p -> p isa Makie.Errorbars, axis.scene.plots))
+    @test axis.yscale[](endpoint) ≈ log10(2) rtol=1e-14
+    @test axis.yscale[](-endpoint) ≈ -log10(2) rtol=1e-14
+    Makie.colorbuffer(page.figure)
+    @test all(point -> all(isfinite, point), axis.yaxis.tickpositions[])
+    for attribute in (:visible, :yautolimits)
+        getproperty(bars, attribute)[] = false
+        axisscale!(page, :y, :log10)
+        @test axis.yscale[](magnitude) ≈ log10(2) rtol=1e-14
+        getproperty(bars, attribute)[] = true
+        axisscale!(page, :y, :log10)
+        @test axis.yscale[](endpoint) ≈ log10(2) rtol=1e-14
+    end
+    # The nearest sample is interior, and current native points own later edits.
+    line[1][] = Makie.Point2d[(1., -magnitude), (2., 1e-26), (3., magnitude)]
+    axisscale!(page, :y, :log10)
+    @test axis.yscale[](1e-26) ≈ log10(2) rtol=1e-14
+    upper_bound = big"1e-28"
+    ylims!(axis, nothing, upper_bound)
+    axisscale!(page, :y, :log10)
+    @test axis.yscale[](upper_bound) ≈ log10(2) rtol=1e-14
+    @test axis.limits[][2] == (nothing, upper_bound)
+    autolimits!(axis)
+    bars.visible[] = false
+    line[1][] = Makie.Point2d[(1., -1e-300), (2., 0.), (3., 1e-6)]
+    axisscale!(page, :y, :log10)
+    inverse = Makie.inverse_transform(axis.yscale[])
+    # The ratio overflows in a naive implementation although these values are finite.
+    for value in (-1e100, -1e-300, 0., 1e-300, 1e100)
+        @test isfinite(axis.yscale[](value))
+        @test inverse(axis.yscale[](value)) ≈ value rtol=2e-13 atol=0
+    end
+    axisscale!(page, :y, :pseudolog10)
+    @test axis.yscale[](1.) ≈ log10(2)
+end
+
+@testitem "Makie addons / signed reference includes undrawn uncertainty endpoints" tags=[:visual] begin
+    using CairoMakie, Measurements
+    f = collect(1.:101.)
+    conductance = fill(1e-6, length(f))
+    conductance[1] = -1e-6
+    errors = fill(1e-8, length(f))
+    errors[2] = prevfloat(1e-6)
+    endpoint = conductance[2] - errors[2]
+    admittance = reshape(complex.(measurement.(conductance, errors), 1e-8), 1, 1, :)
+    source = LineParameters(ones(ComplexF64, 1, 1, length(f)), admittance, f)
+    page = LineCableModels.plot(source; ydata=(G,), backend=:cairo, display_plot=false,
+        open_export=false, length_unit=:base, clip=false, errorbar_sampling=:staggered,
+        yscale=:log10)
+    axis = only(page.axes)
+    bars = only(filter(p -> p isa Makie.Errorbars, axis.scene.plots))
+    @test f[2] ∉ first.(bars[1][])
+    @test axis.yscale[](endpoint) ≈ log10(2) rtol=1e-14
+    bars.visible[] = false
+    axisscale!(page, :y, :log10)
+    @test axis.yscale[](1e-6) ≈ log10(2) rtol=1e-14
+    bars.visible[] = true
+    # An independently edited native interval replaces its original full support.
+    bars[1][] = Makie.Vec4d[(1., -1e-6, 1e-8, 1e-8)]
+    axisscale!(page, :y, :log10)
+    @test axis.yscale[](0.99e-6) ≈ log10(2) rtol=1e-14
+    @test isequal(Y(source), admittance)
+end
+
 @testitem "Makie addons / native override precedence and custom transforms" tags=[:visual] begin
     using CairoMakie
     source = LineParameters(reshape(ComplexF64[2,4,8],1,1,:),ones(ComplexF64,1,1,3),[2.0,4.0,8.0])
@@ -251,7 +390,7 @@ end
             scale = axis.yscale[]
             inverse = Makie.inverse_transform(scale)
             # Numerical behavior, not identity of a dependency's unstable scale,
-            # is the contract. It must work both near zero and over large decades.
+            # is the required scale behavior. It must work both near zero and over large decades.
             for value in (-1e100, -1.0, -1e-18, 0.0, 1e-18, 1.0, 1e100)
                 @test inverse(scale(value)) ≈ value rtol=1e-13
                 @test sign(scale(value)) == sign(value)

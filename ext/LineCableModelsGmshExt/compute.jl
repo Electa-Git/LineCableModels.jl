@@ -204,7 +204,7 @@ function _resume_inputs_match(path::String, model::FEMResolvedModel, inputs::Nam
     comparable = Dict(String(key)=>value for (key, value) in pairs(recorded))
     requested = Dict(String(key)=>value
     for (key, value) in pairs(JSON3.read(JSON3.write(inputs))))
-    # A solver-input schema change is an intentional restart boundary.
+    # A solver-input schema change requires a fresh run.
     get(comparable, "schema_version", 0) == inputs.schema_version == 7 || return false
     get(comparable, "solver_protocol", 0) == inputs.solver_protocol == 3 || return false
     # Scheduling and executable location do not change the numerical problem.
@@ -632,9 +632,14 @@ end
 function compute(
         problem::LineParametersProblem,
         formulation::Union{LineCableModelsFEM, AbstractVector{<:LineCableModelsFEM}};
-        options::Union{NamedTuple, ComputationOptions} = ComputationOptions()
+        options::Union{NamedTuple, ComputationOptions} = ComputationOptions(),
+        modal=nothing, modal_options::Union{NamedTuple, ComputationOptions}=ComputationOptions()
 )
     options = options isa NamedTuple ? ComputationOptions(options) : options
+    modal===nothing || return compute(problem,formulation,
+        LineCableModels.ModalAnalysisFormulation(modal);options,modal_options)
+    isempty(modal_options isa NamedTuple ? modal_options : modal_options.data) ||
+        throw(ArgumentError("modal_options require a modal formulation"))
     return lock(FEM_SESSION_LOCK) do
         _compute_request(problem, formulation; options)
     end

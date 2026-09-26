@@ -48,7 +48,7 @@
     @test retained.data.values[1] == 7.0
 end
 
-@testitem "Grammar / owned records / real option owner boundaries" tags=[:unit] begin
+@testitem "Grammar / owned records / owner-specific option normalization" tags=[:unit] begin
     using LineCableModels.Grammar: formulation_options, computation_options
     resolved = @inferred formulation_options(LineParametersFormulation, FormulationOptions())
     @test resolved isa FormulationOptions

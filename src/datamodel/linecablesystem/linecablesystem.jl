@@ -85,6 +85,8 @@ struct LineCableSystem{
     end
 end
 
+line_length(system::LineCableSystem) = system.line_length
+
 """
 $(TYPEDSIGNATURES)
 

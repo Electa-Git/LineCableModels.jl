@@ -109,9 +109,9 @@ end
     @test epsilon == 8.8541878128e-12 .* [1.5, 10.0]
 end
 
-@testitem "Engine / indexed finite-layer methods determine admission and ordered assembly" tags=[:unit] setup=[FormulaContractModels] begin
+@testitem "Engine / indexed finite-layer methods determine admission and ordered assembly" tags=[:unit] setup=[FormulaFixtures] begin
     using LinearAlgebra
-    const M=FormulaContractModels
+    const M=FormulaFixtures
     const E=M.E
     const EI=M.EI
     const EA=M.EA
@@ -136,7 +136,7 @@ end
     @test isempty(M.calls)
 
     material=Material(kind = :conductor, rho = 1.7241e-8)
-    design=build(CableDesign, "indexed-contract",
+    design=build(CableDesign, "indexed-fixture",
         Stack(Group(:phase, Region(:core, Disk(0.01), material))))
     system=build(LineCableSystem, fill(design, 3),
         [(Float64(i), h) for (i, h) in enumerate(heights)];
@@ -202,9 +202,9 @@ end
 end
 
 @testitem "Engine / unrelated coupled formula calculates in the main workspace without quadrature" tags=[:unit] setup=[
-    TestFixtures, FormulaContractModels] begin
+    TestFixtures, FormulaFixtures] begin
     const E=LineCableModels.Engine
-    const M=FormulaContractModels
+    const M=FormulaFixtures
     problem=TestFixtures.three_bare_wires_problem(heights = (-1.0, -1.0, -1.0),
         frequencies = [50.0, 50.0, 500.0])
     selected=Formulation(earth_impedance = M.CoupledImpedance(),
@@ -345,9 +345,9 @@ end
 end
 
 @testitem "Engine / fixed material evaluation follows allocation and repeats per solve" tags=[:unit] setup=[
-    TestFixtures, FormulaContractModels] begin
+    TestFixtures, FormulaFixtures] begin
     const E=LineCableModels.Engine
-    const M=FormulaContractModels
+    const M=FormulaFixtures
     td, fd=M.ScaledResistivity(), M.DispersiveEarth(exponent = 0)
     problem=TestFixtures.three_bare_wires_problem(frequencies = [50.0, 500.0])
     selected=Formulation(temperature_dependence = td, earth_properties = fd)
@@ -366,13 +366,13 @@ end
 end
 
 @testitem "Engine / material laws and numerical options do not change physical routing" tags=[:unit] setup=[
-    TestFixtures, FormulaContractModels] begin
+    TestFixtures, FormulaFixtures] begin
     const E=LineCableModels.Engine
     base=TestFixtures.line_parameters_problem(frequencies = [50.0, 1e5])
-    fd=FormulaContractModels.DispersiveEarth(exponent = 0)
+    fd=FormulaFixtures.DispersiveEarth(exponent = 0)
     @test_throws ArgumentError compute(base,
         Formulation(earth_impedance = :carson1926, earth_properties = fd))
-    # Unsupported equation fails at its invoked boundary, after legitimate material stages.
+    # Unsupported equation fails when invoked, after legitimate material stages.
     empty!(fd.seen)
     selected=Formulation(earth_properties = fd)
     changed=compute(base, selected)
@@ -403,7 +403,7 @@ end
     end
 end
 
-@testitem "Engine / consumer earth state preserves scalar types and uncertainty" tags=[:unit] setup=[FormulaContractModels] begin
+@testitem "Engine / consumer earth state preserves scalar types and uncertainty" tags=[:unit] setup=[FormulaFixtures] begin
     using Measurements
     const E=LineCableModels.Engine
     for T in (Float32, Float64, BigFloat)
@@ -414,7 +414,7 @@ end
         s=complex(zero(T), T(2)*T(pi)*T(50))
         for owner in (E.EarthImpedance, E.EarthAdmittance), method in (:quad,)
 
-            selected=FormulaContractModels.selection(owner; layers=2:2, scale=one(T))
+            selected=FormulaFixtures.selection(owner; layers=2:2, scale=one(T))
             functor=selected(rho, epsilon, mu, s, pair)
             @test functor.state.jω isa Complex{T}
             result=functor()
@@ -428,7 +428,7 @@ end
     s=complex(measurement(0.0, 0.0), measurement(2pi*50, 0.0))
     pair=E.EarthPair(1, 2, (-1.0, -2.0), 0.75, (2, 2))
     for owner in (E.EarthImpedance, E.EarthAdmittance)
-        value=FormulaContractModels.selection(owner; layers=2:2, scale=rho[2])(
+        value=FormulaFixtures.selection(owner; layers=2:2, scale=rho[2])(
             rho, epsilon, mu, s, pair)()
         @test value isa Complex{Measurement{Float64}}
         @test isfinite(value)

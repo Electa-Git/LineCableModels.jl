@@ -39,6 +39,50 @@
     end
 end
 
+@testitem "Makie addons / large style sets retain original slots and palette" tags=[:visual] begin
+    using CairoMakie
+    ext=Base.get_extension(LineCableModels,:LineCableModelsMakieExt)
+    prefix=copy(ext._ADDON_CURVE_COLORS)
+    styles=ext._addon_comparison_styles(collect(1:324),fill(:candidate,324),324)
+    @test length(styles)==324
+    @test ext._ADDON_CURVE_COLORS[eachindex(prefix)]==prefix
+    # Values recorded from the pre-change palette, including distant slots.
+    expected=(1=>(0.0,0.36,0.68),
+        2=>(0.85,0.5808333333333333,0.04250000000000004),
+        3=>(0.85,0.04250000000000004,0.85),
+        18=>(0.85,0.3789583333333334,0.04250000000000004),
+        81=>(0.31499999999999995,0.7,0.4112499999999999),
+        162=>(0.4604166666666667,0.38249999999999995,0.85),
+        324=>(0.5716666666666667,0.31499999999999995,0.7))
+    for (slot,rgb) in expected
+        color=styles[slot].attributes.color
+        @test [color.r,color.g,color.b]≈collect(rgb) rtol=1e-14 atol=0
+        @test styles[slot].phase==(slot,324)
+    end
+    sparse=ext._addon_comparison_styles([324,0,2,324],
+        [:candidate,:reference,:candidate,:candidate],324)
+    @test sparse[[1,3,4]]==styles[[324,2,324]]
+    @test sparse[2].attributes.color==ext.RGB(0.,0.,0.)
+    @test sparse[2].attributes.marker===:circle
+    @test sparse[2].hollow && sparse[2].endpoints
+    @test sparse[2].phase==(1,1) && sparse[2].priority==1
+    @test only(ext._addon_comparison_styles([0],[:reference],0))==sparse[2]
+    @test isempty(ext._addon_comparison_styles(Int[],Symbol[],0))
+    @test_throws ArgumentError ext._addon_comparison_styles([0],[:candidate],1)
+    @test ext._addon_comparison_styles([2,1],[:candidate,:candidate],324)==styles[[2,1]]
+
+    for attributes in (nothing,(color=:red,),
+            Tuple((linewidth=i,) for i in 1:324),[(linewidth=i,) for i in 1:324])
+        normalized=ext._series_attributes(attributes,324)
+        @test length(normalized)==324
+        for slot in (1,18,324)
+            expected_attributes=attributes===nothing ? (;) : attributes isa NamedTuple ? attributes : attributes[slot]
+            @test normalized[slot]==expected_attributes
+        end
+    end
+    @test_throws ArgumentError ext._series_attributes(((color=:red,),),324)
+end
+
 @testitem "Makie addons / shared series attributes cover every plot family" tags=[:visual] setup=[TestFixtures] begin
     using CairoMakie
     using LineCableModels

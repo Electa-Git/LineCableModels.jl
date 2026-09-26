@@ -89,16 +89,30 @@ end
 
 @testitem "ObservedResult / nominal recentering retains uncertainty dependencies" tags=[:unit] begin
     using Measurements, Calculus
-    using LineCableModels.Grammar: observation_resolution
     shared=Measurements.measurement(5e-13,1e-20)
-    x=reshape([shared,2shared],1,1,2)
-    resolution=observation_resolution(x,G;frequencies=[1.,2.])
-    shifted=LineCableModels.Grammar._resolved_observation(x,resolution.unresolved,resolution.available,Val(false))
-    @test Measurements.value.(shifted)==zeros(1,1,2)
+    x=[shared,2shared]
+    constants=CableConstants([:first,:second],ones(2),ones(2),ones(2),x,50.)
+    observed=ObservedResult(constants,(G,);length_unit=:base)
+    shifted=observe(observed,G)
+    @test Measurements.value.(shifted)==zeros(2)
     @test Measurements.uncertainty.(shifted)==Measurements.uncertainty.(x)
     @test Measurements.uncertainty(shifted[2]-2shifted[1])==0
     @test Measurements.uncertainty(shifted[1]-shared)==0
+    untrimmed=ObservedResult(constants,(G,);length_unit=:base,clip=false)
+    @test observe(untrimmed,G)==x
+    @test all(only(observed.quantities).available)
+    @test all(only(observed.quantities).engineering_zero)
+    scalar=ObservedResult(constants,((G,1),);length_unit=:base)
+    @test iszero(Measurements.value(observe(scalar,G)))
+    @test Measurements.uncertainty(observe(scalar,G)-shared)==0
+    unassessed=ObservedResult(constants,(L,);length_unit=:base,quantity_units=:base,
+        atol=(X=1e-6,))
+    @test only(unassessed.quantities).thresholds.kind===:unassessed
+    @test observe(unassessed,L)==ones(2)
     # Native Measurements.isfinite checks the nominal value, not its spread.
     undefined=abs(complex(Measurements.measurement(0.,1.),Measurements.measurement(0.,2.)))
-    @test !LineCableModels.Engine._resolution_available(undefined)
+    @test !LineCableModels.Engine.resolution_available(undefined)
+    unavailable=ObservedResult(CableConstants(1.,1.,1.,undefined),(G,))
+    @test ismissing(only(observe(unavailable,G)))
+    @test !only(only(unavailable.quantities).available)
 end

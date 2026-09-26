@@ -63,11 +63,12 @@ function _line_resolution_tolerance(quantity, ::Type{T}, f, atol;
     return component(quantity)
 end
 
-_resolution_available(value) = false
-_resolution_available(value::Real) = isfinite(nominal(value)) && isfinite(uncertainty(value))
-_resolution_available(value::Complex) = _resolution_available(real(value)) && _resolution_available(imag(value))
+"""Return whether a scalar has finite nominal and first-order uncertainty values."""
+resolution_available(value) = false
+resolution_available(value::Real) = isfinite(nominal(value)) && isfinite(uncertainty(value))
+resolution_available(value::Complex) = resolution_available(real(value)) && resolution_available(imag(value))
 _resolution_unresolved(value::Number, tolerance::Real) =
-    _resolution_available(value) && abs(nominal(value)) <= tolerance
+    resolution_available(value) && abs(nominal(value)) <= tolerance
 _resolution_unresolved(value, tolerance) = false
 
 _aligned_cutoff(tolerance::Real, values) = tolerance
@@ -115,7 +116,7 @@ function observation_resolution(values::Union{Number,AbstractArray}, selector::F
     T=typeof(float(real(nominal(zero(Base.nonmissingtype(eltype(values)))))))
     tolerance=_line_resolution_tolerance(selector,T,frequencies,atol;result_basis,line_length)
     assessed = tolerance !== nothing && (!(tolerance isa NamedTuple) || all(!isnothing,Base.values(tolerance)))
-    available=_resolution_available.(values)
+    available=resolution_available.(values)
     if selector in (L,C) && frequencies!==nothing
         available = available .& (.!iszero.(_aligned_cutoff(frequencies,values)))
     end
@@ -204,5 +205,5 @@ function observation_resolution(source::Union{AbstractCoreResult,SeriesImpedance
     end
     sample=length(indices)==(diagonal ? 2 : 3) ? last(indices) : Colon()
     return observation_resolution(values,selector;atol,frequencies=f===nothing ? nothing : f[sample],
-        result_basis=basis(source),line_length=_resolution_length(source))
+        result_basis=basis(source),line_length=line_length(source))
 end

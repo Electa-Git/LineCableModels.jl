@@ -16,12 +16,14 @@ function _addon_preview_axis!(
     panel = _addon_panel!(shell, position)
     axis = Axis(
         panel.content;
-        merge((; title,
-        xlabel = "y [$unit_label]",
-        ylabel = "z [$unit_label]",
-        aspect = DataAspect(),
-        tellwidth = false,
-        tellheight = false),shell.axis_attributes)...
+        merge(
+            (; title,
+                xlabel = "y [$unit_label]",
+                ylabel = "z [$unit_label]",
+                aspect = DataAspect(),
+                tellwidth = false,
+                tellheight = false),
+            shell.axis_attributes)...
     )
     earth_spans = NamedTuple[]
     surface_gradient = nothing
@@ -86,7 +88,7 @@ function _addon_preview_axis!(
         push!(groups[polygon.group], plot)
         polygon.label === nothing || (group_labels[polygon.group] = polygon.label)
     end
-    limits === nothing || haskey(shell.axis_attributes,:limits) || (axis.limits[] = limits)
+    limits === nothing || haskey(shell.axis_attributes, :limits) || (axis.limits[] = limits)
     reset! = _addon_reset!(axis)
     if !isempty(earth_spans)
         # HSpan owns full-width coverage. This scene-owned callback clips only
@@ -133,7 +135,7 @@ function _addon_preview_finish!(
         legend_position,
         legend_title,
         legend_attributes,
-        legend_overflow,
+        legend_cap,
         color_scales,
         colorbar_position,
         colorbar_attributes,
@@ -157,7 +159,7 @@ function _addon_preview_finish!(
         legend_position = display_legend ? legend_position : nothing,
         legend_title,
         legend_attributes,
-        legend_overflow,
+        legend_cap,
         panels,
         panel_legends,
         panel_legend_titles,
@@ -189,7 +191,7 @@ function _addon_preview(
         legend_position = :right,
         legend_title = nothing,
         legend_attributes::NamedTuple = (; nbanks = 1),
-        legend_overflow::Symbol = :ellipsis,
+        legend_cap = 0.5,
         panel_legends = (),
         legend_group = nothing,
         legend_labels = nothing,
@@ -210,7 +212,7 @@ function _addon_preview(
     display_title = title === nothing ?
                     _native_cable_title(display_id, design) :
                     String(title)
-    resolved_panel_titles = _addon_panel_titles(panel_titles, 1;defaults=(display_title,))
+    resolved_panel_titles = _addon_panel_titles(panel_titles, 1; defaults = (display_title,))
     panel_title = resolved_panel_titles === nothing ?
                   display_title : only(resolved_panel_titles)
     polygons = _native_design_shapes(
@@ -256,9 +258,9 @@ function _addon_preview(
             panel_legends,
             display_legend,
             legend_position,
-                legend_title,
+            legend_title,
             legend_attributes,
-            legend_overflow,
+            legend_cap,
             color_scales,
             colorbar_position = display_colorbars ? colorbar_position : nothing,
             colorbar_attributes,
@@ -286,7 +288,7 @@ function _addon_preview(
         legend_position = _omitted,
         legend_title = nothing,
         legend_attributes::NamedTuple = (;),
-        legend_overflow::Symbol = :show_all,
+        legend_cap = 0.5,
         size::Tuple{Int, Int} = (1200, 900),
         colorbar_position = :bottom,
         colorbar_attributes::NamedTuple = (; vertical = false),
@@ -302,97 +304,107 @@ function _addon_preview(
         kwargs...
 )
     _addon_activate_backend(backend)
-    isempty(designs) && throw(ArgumentError("a cable collection preview requires at least one design"))
-    capacity=_addon_capacity(layout,(),(length(designs),))
-    pages=_addon_flow_pages(collect(eachindex(designs)),capacity)
-    for (identity,_) in _addon_panel_legend_pairs(panel_legends)
+    isempty(designs) &&
+        throw(ArgumentError("a cable collection preview requires at least one design"))
+    capacity=_addon_capacity(layout, (), (length(designs),))
+    pages=_addon_flow_pages(collect(eachindex(designs)), capacity)
+    for (identity, _) in _addon_panel_legend_pairs(panel_legends)
         identity isa Integer && !(identity isa Bool) && identity in eachindex(designs) ||
             throw(ArgumentError("preview panel identities are original collection indices"))
     end
     color_scales = _material_schemes(DataModel.material_property_ranges(designs))
     display_title = title === nothing ? "Cable design previews" : String(title)
-    resolved_panel_titles = _addon_panel_titles(panel_titles, length(designs);defaults=[design.cable_id for design in designs])
+    resolved_panel_titles = _addon_panel_titles(
+        panel_titles, length(designs); defaults = [design.cable_id for design in designs])
     built=LineCableModels.UIPlot[]
     for page in pages
-      rendered=with_theme(_addon_theme(export_theme = export_theme)) do
-        rows,columns=page.dimensions
-        shell = _addon_shell(; size, controls, guide_gap, kwargs...)
-        axes = Any[]
-        panels = Any[]
-        resets = Function[]
-        groups = Dict{Symbol, Vector{Any}}()
-        order = Symbol[]
-        labels = Dict{Symbol, Any}()
-        for (index,position) in zip(page.facets,page.positions)
-            design=designs[index]
-            polygons = _native_design_shapes(
-                design,
-                0.0,
-                0.0;
-                display_legend = true,
-                display_dielectric_pattern,
-                legend_group,
-                legend_labels
-            )
-            axis, reset!,
-            panel = _addon_preview_axis!(
+        rendered=with_theme(_addon_theme(export_theme = export_theme)) do
+            rows, columns=page.dimensions
+            shell = _addon_shell(; size,
+                controls, guide_gap, kwargs...)
+            axes = Any[]
+            panels = Any[]
+            resets = Function[]
+            groups = Dict{Symbol, Vector{Any}}()
+            order = Symbol[]
+            labels = Dict{Symbol, Any}()
+            for (index, position) in zip(page.facets, page.positions)
+                design=designs[index]
+                polygons = _native_design_shapes(
+                    design,
+                    0.0,
+                    0.0;
+                    display_legend = true,
+                    display_dielectric_pattern,
+                    legend_group,
+                    legend_labels
+                )
+                axis, reset!,
+                panel = _addon_preview_axis!(
+                    shell,
+                    position,
+                    resolved_panel_titles === nothing ?
+                    design.cable_id : resolved_panel_titles[index],
+                    polygons,
+                    (),
+                    nothing,
+                    groups,
+                    order,
+                    labels
+                )
+                push!(axes, axis)
+                push!(panels, merge(panel, (logical_position = index,)))
+                push!(resets, reset!)
+            end
+            for row in 1:rows
+                rowsize!(shell.canvas, row, Relative(1 / rows))
+            end
+            for column in 1:columns
+                colsize!(shell.canvas, column, Relative(1 / columns))
+            end
+            _addon_preview_finish!(
                 shell,
-                position,
-                resolved_panel_titles === nothing ?
-                design.cable_id : resolved_panel_titles[index],
-                polygons,
-                (),
-                nothing,
+                axes,
+                resets,
                 groups,
                 order,
-                labels
+                labels;
+                title = display_title,
+                figure_title,
+                title_attributes,
+                panels,
+                panel_legends = Tuple(pair
+                for pair in _addon_panel_legend_pairs(panel_legends)
+                if first(pair) in page.facets),
+                display_legend = display_legend ||
+                                 (legend_position!==_omitted && legend_position!==nothing),
+                legend_position = legend_position===_omitted ? :right : legend_position,
+                legend_title,
+                legend_attributes,
+                legend_cap,
+                color_scales,
+                colorbar_position = display_colorbars ? colorbar_position : nothing,
+                colorbar_attributes,
+                controls,
+                display_plot = false,
+                export_name = length(pages)==1 ? "cable_design_previews" :
+                              "cable_design_previews_$(page.index[1])",
+                series_attributes,
+                export_theme,
+                open_export
             )
-            push!(axes, axis)
-            push!(panels,merge(panel,(logical_position=index,)))
-            push!(resets, reset!)
         end
-        for row in 1:rows
-            rowsize!(shell.canvas, row, Relative(1 / rows))
-        end
-        for column in 1:columns
-            colsize!(shell.canvas, column, Relative(1 / columns))
-        end
-        _addon_preview_finish!(
-            shell,
-            axes,
-            resets,
-            groups,
-            order,
-            labels;
-            title = display_title,
-            figure_title,
-            title_attributes,
-            panels,
-            panel_legends=Tuple(pair for pair in _addon_panel_legend_pairs(panel_legends) if first(pair) in page.facets),
-            display_legend=display_legend || (legend_position!==_omitted && legend_position!==nothing),
-            legend_position=legend_position===_omitted ? :right : legend_position,
-            legend_title,
-            legend_attributes,
-            legend_overflow,
-            color_scales,
-            colorbar_position = display_colorbars ? colorbar_position : nothing,
-            colorbar_attributes,
-            controls,
-            display_plot=false,
-            export_name = length(pages)==1 ? "cable_design_previews" : "cable_design_previews_$(page.index[1])",
-            series_attributes,
-            export_theme,
-            open_export
-        )
-      end
-      rendered.addon_state=merge(rendered.addon_state,(nominal_capacity=capacity,
-          panel_page=(index=page.index,dimensions=page.dimensions,coordinates=Tuple(page.facets)),))
-      push!(built,rendered)
+        rendered.addon_state=merge(rendered.addon_state,
+            (nominal_capacity = capacity,
+                panel_page = (index = page.index, dimensions = page.dimensions,
+                    coordinates = Tuple(page.facets))))
+        push!(built, rendered)
+        _addon_frame_budget(rendered, capacity)
     end
     # Material meaning is computed once above and shared by every actual page.
-    _addon_calibrate_frames!(built,capacity)
-    layout===nothing && foreach(_addon_responsive_axis_grid!,built)
-    display_plot && foreach(p -> _addon_display!(p.figure,display_title),built)
+    _addon_calibrate_frames!(built, capacity)
+    layout===nothing && foreach(_addon_responsive_axis_grid!, built)
+    display_plot && foreach(p -> _addon_display!(p.figure, display_title), built)
     return length(built)==1 ? only(built) : built
 end
 
@@ -414,7 +426,7 @@ function _addon_preview(
         legend_position = :right,
         legend_title = nothing,
         legend_attributes::NamedTuple = (;),
-        legend_overflow::Symbol = :ellipsis,
+        legend_cap = 0.5,
         panel_legends = (),
         legend_group = nothing,
         legend_labels = nothing,
@@ -442,7 +454,7 @@ function _addon_preview(
     display_title = title === nothing ?
                     _native_system_title(display_id, system) :
                     String(title)
-    resolved_panel_titles = _addon_panel_titles(panel_titles, 1;defaults=(display_title,))
+    resolved_panel_titles = _addon_panel_titles(panel_titles, 1; defaults = (display_title,))
     panel_title = resolved_panel_titles === nothing ?
                   display_title : only(resolved_panel_titles)
     return with_theme(_addon_theme(export_theme = export_theme)) do
@@ -478,9 +490,9 @@ function _addon_preview(
             panel_legends,
             display_legend,
             legend_position,
-                legend_title,
+            legend_title,
             legend_attributes,
-            legend_overflow,
+            legend_cap,
             color_scales,
             colorbar_position = display_colorbars ? colorbar_position : nothing,
             colorbar_attributes,
@@ -518,16 +530,17 @@ function _addon_material_scale(;
             Dict{Symbol, Vector{Any}}(),
             Symbol[],
             Dict{Symbol, Any}();
-                title,
+            title,
             figure_title,
             title_attributes,
             legend_position = nothing,
             legend_attributes = (;),
-            legend_overflow = :show_all,
+            legend_cap = 0.5,
             color_scales = _material_schemes(
                 DataModel.material_property_ranges()
             ),
-            colorbar_position = colorbar_position===_omitted ? Val(:content) : colorbar_position,
+            colorbar_position = colorbar_position===_omitted ? Val(:content) :
+                                colorbar_position,
             colorbar_attributes,
             controls,
             display_plot,

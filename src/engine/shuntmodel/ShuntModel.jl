@@ -36,7 +36,7 @@ export Formula, formulas
 
 include("interface.jl")
 include("geometry.jl")
-include("boundary.jl")
+include("charge_collocation.jl")
 include("blueprint.jl")
 
 public BoundarySolveError

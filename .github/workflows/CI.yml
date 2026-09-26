@@ -178,7 +178,7 @@ jobs:
         if: ${{ !cancelled() }}
         run: |
           julia --project=ext/LineCableModelsPSCADExt/remote --code-coverage=@. --color=yes -e 'using Pkg; Pkg.instantiate()'
-          julia --project=ext/LineCableModelsPSCADExt/remote --code-coverage=@. --color=yes test/integration/pscad/remote_runner_boundary.jl
+          julia --project=ext/LineCableModelsPSCADExt/remote --code-coverage=@. --color=yes test/integration/pscad/remote_runner_protocol.jl
       - uses: actions/download-artifact@v4
         if: ${{ !cancelled() }}
         with:

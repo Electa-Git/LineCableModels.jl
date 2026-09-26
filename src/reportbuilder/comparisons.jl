@@ -51,13 +51,17 @@ recorded performance evidence. Every candidate remains represented. Display
 features consume the same observation-side groups as plots; no source access,
 comparison, sampling estimate, or timing measurement occurs here.
 """
+select(definition::BenchmarkTableDefinition,observed::ObservedResult;reference=nothing) =
+    _selected_errors(definition,observed,reference)
+
 function tabulate(definition::BenchmarkTableDefinition,
-        observed::Union{ObservedResult,AbstractVector{<:ObservedResult}};reference=nothing)
+        observed::Union{ObservedResult,AbstractVector{<:ObservedResult}},selected;reference=nothing)
     points=collect(_observed_points(observed))
     population=reference===nothing ? points : [points;reference]
     labels=Grammar.observation_labels(population)
     rows=NamedTuple[];terms=NamedTuple[];maxima=NamedTuple[]
-    for (index,point) in enumerate(points),error in _selected_errors(definition,point,reference)
+    selected_errors=observed isa ObservedResult ? (selected,) : selected
+    for (index,point) in enumerate(points),error in selected_errors[index]
         id=point.gridpoint.id
         settings=error.settings
         identity=(candidate_id=error.candidate_id,reference_id=error.reference_id,

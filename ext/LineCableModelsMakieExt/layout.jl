@@ -63,6 +63,131 @@ function _addon_flow_pages(items, capacity)
     return pages
 end
 
+# Assign retained coordinates and gridpoints to panels and curves, then paginate.
+function _addon_observation_facets(published, ydata, orientations, retained, slots, reference_position, labels,
+        coordinate_labels, coordinate_identities; explicit_labels=false)
+    facets = NamedTuple[]
+    for request_index in eachindex(ydata)
+        product = first(published).observations[request_index]
+        c = product.coordinates
+        rows, columns, _ = first(published).coordinates[request_index]
+        extent=c.kind===:matrix ?
+               ntuple(
+            d -> maximum(source.observations[request_index].coordinates.extent[d]
+            for source in published),
+            length(c.extent)) : c.extent
+        orientation=orientations[request_index]
+        if orientation===:rows
+            for index in retained[request_index]
+                source_product=published[index].observations[request_index]
+                source_coordinates=source_product.coordinates
+                row_labels=index==1 || explicit_labels ? coordinate_labels[request_index] :
+                    _coordinate_labels(source_product,published[index].coordinates[request_index],orientation)
+                point=slots[index]==0 ? reference_position : slots[index]
+                for (local_column, column) in enumerate(columns)
+                    curves=[(source_index=index, local_row, local_column, local_sample=nothing,
+                        slot=row, role=:candidate,
+                        group=Symbol("row_", row), label=row_labels[local_row],
+                        position=local_row) for (local_row, row) in enumerate(rows)]
+                    push!(facets, (;request_index, local_row=1, local_column,
+                        row=point, column, row_label="",
+                        column_label=get(source_coordinates,:column_labels,source_coordinates.labels)[column],
+                        panel_identity=(point, column), curves, orientation, kind=c.kind, extent,
+                        domain=get(source_coordinates,:domain,:unspecified),
+                        column_domain=get(source_coordinates,:column_domain,nothing),
+                        quantity=product.quantity, identity=request_identity(ydata[request_index]),
+                        source_index=index, source_label=labels[request_index][index]))
+                end
+            end
+            continue
+        end
+        coordinates=[(local_row=local_row,local_column=local_column,local_sample=nothing,row,
+            column=c.kind===:diagonal ? row : column,
+            row_label=hasproperty(c,:labels) ? c.labels[row] : string(row),
+            column_label=haskey(c,:column_labels) ? c.column_labels[column] : string(column),
+            style_slot=c.kind===:matrix ? (row-1)*c.extent[2]+column :
+                c.kind in (:vector,:diagonal) ? row : ordinal,
+            position=ordinal)
+            for (ordinal,(local_row,local_column,row,column)) in enumerate(
+                (local_row,local_column,row,column) for (local_row,row) in enumerate(rows)
+                for (local_column,column) in enumerate(columns))]
+        if orientation===:gridpoints
+            for coordinate in coordinates
+                curves=[(source_index=index,local_row=coordinate.local_row,
+                    local_column=coordinate.local_column,local_sample=coordinate.local_sample,slot=slots[index],
+                    role=slots[index]==0 ? :reference : :candidate,
+                    group=Symbol("result_",index),label=labels[request_index][index])
+                    for index in retained[request_index]]
+                panel_identity=c.kind in (:matrix,:diagonal) ?
+                    (coordinate.row,coordinate.column) :
+                    c.kind===:vector ? coordinate.row : coordinate.position
+                push!(facets,(;request_index,coordinate.local_row,coordinate.local_column,
+                    coordinate.row,coordinate.column,coordinate.row_label,coordinate.column_label,
+                    panel_identity,curves,orientation,kind=c.kind,extent,
+                    domain=get(c,:domain,:unspecified),column_domain=get(c,:column_domain,nothing),
+                    quantity=product.quantity,identity=request_identity(ydata[request_index])))
+            end
+        else
+            for index in retained[request_index]
+                source_coordinates=published[index].observations[request_index].coordinates
+                panel_coordinates=c.kind===:assemblies ?
+                    [begin
+                        slot=findfirst(isequal(source_coordinates.labels[assembly]),
+                            coordinate_identities[request_index])
+                        (local_row=1,local_column=1,local_sample=ordinal,
+                            style_slot=slot,position=slot)
+                    end
+                        for (ordinal,assembly) in enumerate(source_coordinates.assemblies)] : coordinates
+                curves=[(source_index=index,local_row=coordinate.local_row,
+                    local_column=coordinate.local_column,local_sample=coordinate.local_sample,
+                    slot=coordinate.style_slot,
+                    role=:candidate,group=Symbol("coordinate_",coordinate.style_slot),
+                    label=coordinate_labels[request_index][coordinate.position],
+                    position=coordinate.position)
+                    for coordinate in panel_coordinates]
+                push!(facets,(;request_index,local_row=1,local_column=1,
+                    row=slots[index]==0 ? reference_position : slots[index],column=1,
+                    row_label="",column_label="",panel_identity=slots[index]==0 ?
+                        reference_position : slots[index],curves,orientation,
+                    kind=c.kind,extent,domain=get(c,:domain,:unspecified),
+                    column_domain=get(c,:column_domain,nothing),quantity=product.quantity,
+                    identity=request_identity(ydata[request_index]),
+                    source_label=labels[request_index][index]))
+            end
+        end
+    end
+    return facets
+end
+
+function _addon_observation_pages(facets, capacities; automatic = false)
+    pages=NamedTuple[]
+    for request_index in unique(facet.request_index for facet in facets)
+        selected=filter(facet -> facet.request_index==request_index, facets)
+        first_facet=first(selected)
+        capacity=capacities[request_index]
+        if first_facet.orientation===:rows
+            for index in unique(f.source_index for f in selected)
+                point_panels=filter(f -> f.source_index==index, selected)
+                append!(pages, (merge(page,(;capacity))
+                    for page in _addon_flow_pages(point_panels, capacity)))
+            end
+            continue
+        end
+        if first_facet.kind!==:matrix || first_facet.orientation===:coordinates
+            append!(pages, (merge(page,(;capacity)) for page in _addon_flow_pages(selected, capacity)))
+            continue
+        end
+        positions=[(f.row, f.column) for f in selected]
+        origin=automatic ? _addon_panel_footprint(positions).origin : (1, 1)
+        for page in _addon_matrix_pages(positions, first_facet.extent, capacity; origin)
+            push!(pages,
+                (; facets = selected[page.members], positions = page.positions,capacity,
+                    dimensions = page.dimensions, origin = page.origin, index = page.index))
+        end
+    end
+    return pages
+end
+
 # Equalize actual native panel frames at construction. Native protrusions keep
 # their scientific labels/ticks; only the space allocated around them changes.
 # The original alignmode remains available for fresh local measurements after a
@@ -305,6 +430,17 @@ function _addon_release_frames!(p)
     return p
 end
 
+function _addon_frame_budget(p, capacity)
+    br, bc=capacity
+    shell=p.addon_state.shell
+    measured=_addon_frame_measurements(p)
+    frames=((shell.reference_size[1]-measured.outer[1]-(bc-1)*measured.gaps[1])/bc-measured.decoration[1],
+        (shell.reference_size[2]-measured.outer[2]-(br-1)*measured.gaps[2])/br-measured.decoration[2])
+    all(x -> isfinite(x) && x>1, frames) || throw(ArgumentError(
+        "the nominal figure size cannot fit layout=$capacity and its measured decorations; increase the figure size or reduce layout"))
+    return frames
+end
+
 function _addon_calibrate_frames!(pages, capacity)
     isempty(pages) && return pages
     if all(p -> all(axis -> axis.aspect[]===nothing, p.axes), pages)
@@ -315,16 +451,8 @@ function _addon_calibrate_frames!(pages, capacity)
             _addon_fit_frames!(p, _addon_frame_snapshot(p).frames)
         end
     end
-    br, bc=capacity
-    candidates=map(pages) do p
-        m=_addon_frame_measurements(p)
-        nominal=p.addon_state.shell.reference_size
-        ((nominal[1]-m.outer[1]-(bc-1)*m.gaps[1])/bc-m.decoration[1],
-            (nominal[2]-m.outer[2]-(br-1)*m.gaps[2])/br-m.decoration[2])
-    end
+    candidates=map(p -> _addon_frame_budget(p, capacity), pages)
     frames=ntuple(i -> minimum(x -> x[i], candidates), 2)
-    all(x -> isfinite(x) && x>1, frames) || throw(ArgumentError(
-        "the nominal figure size cannot fit layout=$capacity and its measured decorations; increase the figure size or reduce layout"))
     for p in pages
         physical=IdDict{Any, Tuple{Float64, Float64}}()
         for axis in p.axes
@@ -410,7 +538,7 @@ function _addon_frame_snapshot(p)
     return (; frames, canvas, views, protrusions)
 end
 
-function _addon_edit_presentation!(action, p; before = nothing)
+Base.@noinline function _addon_edit_presentation!(action, p; before = nothing)
     state=p.addon_state
     state.presentation_ready[] || return action()
     state.fitting_geometry[] && return action()

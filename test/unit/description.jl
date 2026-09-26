@@ -27,7 +27,7 @@
     @test_throws ArgumentError pairs(LineParametersFormulation, malformed)
 end
 
-@testitem "Descriptions / owner dispatch survives composed reports and saved declarations" tags=[:unit] setup=[FormulaContractModels] begin
+@testitem "Descriptions / owner dispatch survives composed reports and saved declarations" tags=[:unit] setup=[FormulaFixtures] begin
     using DataFrames, Statistics
     using LineCableModels.ReportBuilder: BenchmarkTableDefinition
     import LineCableModels: description, formula_id, formulation_options
@@ -135,7 +135,7 @@ end
     @test occursin("ArchivedRule archived_order FrequencyDependent",label)
     @test occursin("saved_control",label)
     # Inspection retains a native selection without executing its equation.
-    selected_inner=FormulaContractModels.SurfaceLaw(kinds=(:inner,))
+    selected_inner=FormulaFixtures.SurfaceLaw(kinds=(:inner,))
     routed=Formulation(
         internal_impedance=(inner=selected_inner,outer=:default,transfer=:default),
         earth_impedance=(air=:carson1926,earth=:pollaczek1926,mixed=:lucca1994),
@@ -157,7 +157,7 @@ end
     @test any(contains("earth Z(air)=Carson"),first(routed_report.tables.features).relative.formula)
     @test haskey(first(routed_report.observed).gridpoint.formulations.methods.internal_impedance,:inner)
     @test isempty(selected_inner.evaluations) && isempty(selected_inner.preparations)
-    single=Formulation(insulation_admittance=FormulaContractModels.InsulationLaw())
+    single=Formulation(insulation_admittance=FormulaFixtures.InsulationLaw())
     single_data=ParametricResult(nothing,[completed(points[1],single,1)],
         (problems=[:one],formulations=[single]), ComputationDetails((;)))
     single_report=report(BenchmarkTableDefinition((R,B);bands=(:all,)),
@@ -226,7 +226,7 @@ end
     @test all(leaf->occursin(description(leaf;compact=true),rendered),leaves)
 end
 
-@testitem "Descriptions / quantity identities ignore unrelated slots and retain composite controls" tags=[:unit] setup=[FormulaContractModels] begin
+@testitem "Descriptions / quantity identities ignore unrelated slots and retain composite controls" tags=[:unit] setup=[FormulaFixtures] begin
     IO=LineCableModels.ImportExport
     a=Formulation(earth_impedance=:saad1996)
     b=Formulation(earth_impedance=:xue2018)
@@ -243,7 +243,7 @@ end
     other=Formulation(earth_impedance=(air=:default,earth=:default,mixed=:lucca1994))
     @test formula_id(routed,R)!=formula_id(other,R)
     @test formula_id(routed,B)==formula_id(other,B)
-    selected_transfer=FormulaContractModels.SurfaceLaw(kinds=(:transfer,))
+    selected_transfer=FormulaFixtures.SurfaceLaw(kinds=(:transfer,))
     internal=Formulation(internal_impedance=(inner=:default,outer=:default,transfer=selected_transfer))
     @test formula_id(internal,R)!=formula_id(Formulation(),R)
     @test formula_id(internal,Y)==formula_id(Formulation(),Y)

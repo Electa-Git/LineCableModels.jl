@@ -180,7 +180,7 @@ The integration tolerances control dimensionless logarithmic moments, not
 the error in an individual terminal coupling.
 
 See [`BoundarySolveError`](@ref) and [`LineCableModels.Engine.ShuntModel.Formula`](@ref)
-for the failure and selection contracts.
+for the failure categories and formula selections.
 
 Actual failures propagate by default. An explicit `parameters=(fallback=:coaxial,)`
 permits annular replacement only after recognized numerical or unsupported-law
@@ -406,7 +406,7 @@ The defaults supply air/air, earth/earth and both mixed directions with
 independent medium permeabilities. Every circumference must lie wholly in its
 half-space and exterior circles must not overlap. The default requires homogeneous
 earth or an explicitly globally consistent equivalent earth. Indexed dispatch
-for arbitrary layer numbers is an extension contract, not an implementation of
+for arbitrary layer numbers is an extension method requirement, not an implementation of
 new multilayer Unified equations.
 
 The complete earth source kernels satisfy
@@ -739,7 +739,7 @@ broadcasts singleton fields. This local composition is separate from
 `Combinatorial`, which always evaluates the Cartesian product of problem and
 formulation points.
 
-`CableConstantsFormulation`, `ModalTransformationFormulation`, and backend
+`CableConstantsFormulation`, `ModalAnalysisFormulation`, and backend
 formulation constructors follow the same rule. A deterministic `Grid` of
 already completed, potentially external formulations is also accepted by
 `Combinatorial`.
@@ -885,7 +885,7 @@ display_unit(Z, abs, :total)
 
 The selector methods delegate through `quantity`; they do not contain a second
 label or unit map. An external selector adds its identity and metadata at the
-Units boundary:
+Units API:
 
 ```julia
 function profile_response end
@@ -959,46 +959,46 @@ The ordinary result is always `LineParameters`. Requesting
 ## Modal transformations
 
 Modal decomposition is independent of the backend that produced fully coupled
-phase-domain matrices. `LineCableModels.Transforms` owns its own problem,
+phase-domain matrices. `LineCableModels.ModalAnalysis` owns its own problem,
 formulation, registered formula files, and default backend:
 
 ```julia
 phase = compute(line_problem, line_formulation)
 modal = compute(
-    ModalTransformationProblem(phase),
-    ModalTransformationFormulation(
+    ModalAnalysisProblem(phase),
+    ModalAnalysisFormulation(
         formula(:default; options=(iteration=(convergence=1e-8,),)),
     ),
 )
-rebuilt = compute(ModalTransformationProblem(modal))
+rebuilt = transform(PhaseDomain, modal)
 ```
 
 `LineCableModelsModal` is the default backend for this workflow. Each formula
-has one route and returns a `ModalOperators` value containing the complete
-frequency-dependent phase-to-modal voltage and current tensors. The shared
-backend applies those operators to both `Z` and `Y`.
+has one selected `initialize_buffers` and `decompose!` route. It fills the
+modal-to-phase `Tv` and `Ti` bases and the retained propagation roots. The
+common calculation changes coordinates with `Tv \ (Z * Ti)` and
+`Ti \ (Y * Tv)`.
 
-The modal `LineParameters` result carries `ModalDomain(operators, formula)` as
-its domain value. The stored operators preserve the resolved mode
+The modal `LineParameters` result carries `ModalDomain(operators, gamma)` as
+its domain value. The stored bases preserve the resolved mode
 order, scaling, and complex phase convention and make the transformation
 bidirectional without rerunning the decomposition. An operator-less modal
 result cannot be constructed through the admitted `LineParameters` interface.
-The formula value is retained through one formula-family storage parameter; its
-specific author identity does not parameterize the domain. Modal results from
-different registered routes therefore remain one concrete result-space element
-type. Numerical inverse dispatch uses the concrete operator tensor and does not
-inspect formula calculation records.
+The formula selection and numerical diagnostics live in computation details;
+the domain holds numerical state. Inverse conversion uses that state without
+rerunning the decomposition.
 
-The retained modal formula is selected by `ModalTransformationFormulation()`.
+The retained modal formula is selected by `ModalAnalysisFormulation()`.
 Explicit controls use `formula(:default; options=(iteration=(convergence=1e-8,),))`.
 A custom decomposition is a completed formulation implementing
-`Transforms.modal_operators(selected::MyModalModel, parameters, model_parameters,
-options, workspace)`. It returns `ModalOperators` through the same application
-and inverse-transformation code. `ModalTransformationFormulation` retains its
+`Engine.initialize_buffers(selected, T, input, invariants, common)` and
+`ModalAnalysis.decompose!(selected, workspace, parameters, options)`.
+The latter fills `workspace.Tv`, `workspace.Ti`, and `workspace.roots`.
+`ModalAnalysisFormulation` retains its
 requested declaration and resolved selection for the common inspection protocol.
 The default tracks eigenpairs with Levenberg–Marquardt iteration, retaining a
 matched conventional eigensolution when iteration fails. Its bibliography stays
-in `src/transforms/formulas/chrysochos2014.jl`.
+in `src/modalanalysis/formulas/chrysochos2014.jl`.
 
 [`ComputationDetails`](@ref) is an immutable, nominal record parameterized by its
 named-tuple payload. Access its fields through `.data`; it is not a tuple and
@@ -1059,7 +1059,7 @@ remain available for external backends, but there is no
 `:line_cable_models` or legacy `:analytical` selector.
 
 Modal formulas carry an `iteration` section containing convergence, iteration
-count, damping and the `:matched` or `:error` fallback settings. The computation action
+count, damping and the `:matched` or `:none` fallback settings. The computation action
 accepts `offdiagonal_tolerance` separately. Frequency continuation belongs to one
 run; result details record the frequency indices where matched eigensolutions were
 used. The stored voltage/current operators are retained for inverse transformation.
@@ -1117,13 +1117,13 @@ scan = details(result).data.timing
 
 For a higher-order calculation, keep these controls in
 `ParametricProblem(problem_space, execution)`. Cable-constant computations and
-modal actions retain their existing options contracts.
+modal actions retain their existing option handling.
 
 One measurement describes one materialized problem and formulation over the
 complete requested frequency vector. The owned backend uses `Base.@timed` around
 its existing workspace construction, solve, and validated result construction.
 Batch-shared input preparation, timing attachment, `on_result`, and subsequent
-progress logging lie outside this boundary. Three executed formulations produce
+progress logging lie outside the measured expression. Three executed formulations produce
 three measurements; shared preparation is neither duplicated nor apportioned.
 Compilation that occurs before the measured expression begins is not included.
 
@@ -1166,7 +1166,7 @@ logging and native Gmsh/GetDP/PSCAD diagnostic settings retain their own behavio
 
 An outer traversal suppresses child progress while preserving other options and
 backend diagnostics. It logs start and successful completion and checks for
-intermediate publication at existing completion boundaries, at most every five
+intermediate publication at existing completion points, at most every five
 seconds per traversal. It creates no periodic timer or remote heartbeat.
 ETA uses an exponential moving average with weight 0.2 on the newest completed
 interval. Parametric intervals are divided by the returned batch's result count;

@@ -23,7 +23,7 @@ to this equation.
 ## Scope
 
 The same explicit equation is available in the insulation and semicon
-admittance boundaries. The selected boundary still determines which material
+admittance formulations. The selected formulation still determines which material
 layers receive it.
 
 [Back to insulation parameters](../insulation_parameters.md)

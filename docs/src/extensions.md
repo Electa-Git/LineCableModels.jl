@@ -29,7 +29,8 @@ including default branches, in quantity-relevant legends.
 Formulation owners expose ordered `(owner, route_tuple) => selection` pairs
 through `pairs(source; quantity)` and `pairs(owner, retained; quantity)`.
 Each selected leaf is paired with its passive declaration controls. Formula
-normalizers do not read saved provenance; `formulation_options(selection)` reads
+normalizers do not read retained formula selections and controls;
+`formulation_options(selection)` reads
 the live selection's `FormulationOptions`. `description` remains
 a text interface: consumers must not parse its output for identity, child
 structure, ordering or quantity relevance. Backend-specific scientific meaning
@@ -54,7 +55,7 @@ explicit implementation before physical validation or computation.
 | Soil frequency dependence | `Earth.FrequencyDependent.FrequencyDependentFormulation`; `earth_material(selected, material, frequency, parameters, options, workspace)` |
 | Temperature dependence | `Materials.TemperatureDependent.TemperatureDependentFormulation`; `temperature_resistivity(selected, material, temperature, parameters, options, workspace)` |
 | Equivalent earth | `Earth.EquivalentHomogeneous.AbstractRule`; `equivalent_material(selected, Val(kind), Val(source), Val(target), rho, eps_r, mu_r, model, pair, frequency, parameters, options, workspace)` |
-| Modal decomposition | `AbstractFormulation`, selected by `ModalTransformationFormulation`; `Transforms.modal_operators(selected, line_parameters, parameters, options, workspace)` |
+| Modal decomposition | `AbstractFormulation`, selected by `ModalAnalysisFormulation`; `Engine.initialize_buffers(selected, T, input, invariants, common)` and `ModalAnalysis.decompose!(selected, workspace, parameters, options)` |
 | Local shunt geometry | `Engine.ShuntModelFormulation`; `Engine.internal_shunt_response(selected, design, geometry, T, material_selections, solutions, design_index)` during blueprint construction |
 | Pipe applicability | `Engine.PipeImpedanceFormulation`; `Formulation(backend, selected, Val(topology))`. No analytical pipe equation is supplied. |
 
@@ -90,7 +91,7 @@ The default requires no extra storage. Existing arrays may not be replaced.
 Numerical formulas provision the common quadrature storage through
 `Engine.initialize_buffers(Val(:quad), T, input, invariants, buffers)`; an
 integration option is not a capability declaration. Cable constants uses this
-same contract with its local numerical input and no earth invariants.
+same buffer-initialization method with its local numerical input and no earth invariants.
 
 Each formula owns its complete integrand, transformations, Jacobians, branch
 choices and physical subdivision hints. `SpectralIntegral` contains only that
@@ -99,11 +100,11 @@ discovers physical features nor samples a kernel before handing it to QuadGK.
 There is no shared spectral sampler. Repeated short physical expressions can
 remain local to their formulas.
 
-`ShuntModel` owns boundary-domain extraction, numerical coefficients and fallback
+`ShuntModel` owns conductor and dielectric geometry extraction, numerical coefficients and fallback
 policy. Its `blueprint_dependencies` methods identify the actual local selections
 that affect those coefficients; Engine uses that dependency record for reuse
 within one blueprint construction. Only completed coefficient blocks survive
-that construction, not the boundary factorization or another workspace.
+that construction; the charge-system factorization and workspace are reused there.
 
 The existing `Engine.earth_bindings` constructor binds material interactions and
 output entries. A coupled formula can extend its selected-type method to require
@@ -119,13 +120,77 @@ preparation must be frequency independent and returns blueprint blocks and
 diagnostics; it is never repeated in the frequency loop. A consuming earth
 equation explicitly admits a custom equivalent-earth rule using `validate`.
 
-Results use the same family boundary checks for built-ins and custom types.
+Results use result-type and unit checks for each formula family, including custom types.
 Impedances are in Ω/m, material admittivities in S/m, earth potential coefficients
 in m/F, and temperature-law resistivities in Ω·m. Scalar material laws return
-`EarthMaterial` or a finite scalar as appropriate; modal laws return
-`ModalOperators`. Supply `formula_id`, `description`, `NamedTuple` and
+`EarthMaterial` or a finite scalar as appropriate. Modal equations write
+`workspace.Tv`, `workspace.Ti`, and `workspace.roots`; the owner constructs
+`ModalOperators` and intrinsic coefficients after decomposition. Supply
+`formula_id`, `description`, `NamedTuple` and
 `formulation_options` methods for metadata. Serialized identities and data do
 not reconstruct executable methods. See the [temperature-law example](engine.md#Cable-material-temperature-dependence).
+
+### A Val-dispatched modal equation
+
+The following complete one-mode example implements a custom modal equation.
+The modal workspace supplies common slices, coordinate conversion scratch, the
+admittance–impedance product, eigenpair history and voltage-vector scratch.
+`initialize_buffers` extends that record only for additional numerical work.
+It assumes a completed one-mode phase scan named `phase`, with nonzero
+diagonal coefficients and known source length. The example is algebraic; it
+does not replace a broadband modal model.
+
+```julia
+using LineCableModels
+import LineCableModels.Engine: initialize_buffers, description
+import LineCableModels.Grammar: formulation_options, FormulationOptions
+import LineCableModels.ModalAnalysis: decompose!, Formula
+import LineCableModels: FormulaMethod
+
+description(::Type{<:Formula{:diagonal_example}}; compact=false) =
+    compact ? "diagonal example" : "one-mode diagonal example"
+formulation_options(::FormulaMethod{<:Formula{:diagonal_example},typeof(decompose!)}) =
+    FormulationOptions()
+
+function initialize_buffers(::Val{:diagonal_example}, ::Type{T}, input,
+        invariants, common) where {T<:Complex}
+    invariants.n == 1 || throw(DimensionMismatch("diagonal example requires one mode"))
+    return merge(common, (diagonal_product=Vector{T}(undef,invariants.nf),))
+end
+
+function decompose!(::Val{:diagonal_example}, workspace,
+        parameters::NamedTuple, options::FormulationOptions)
+    scratch=workspace.buffers.diagonal_product
+    for k in eachindex(scratch)
+        z=workspace.input.Z[1,1,k]/workspace.input.root_scale
+        y=workspace.input.Y[1,1,k]/workspace.input.root_scale
+        scratch[k]=z*y
+        root=sqrt(scratch[k])
+        (real(root)<0 || (iszero(real(root)) && imag(root)<0)) && (root=-root)
+        workspace.roots[1,k]=root*workspace.input.root_scale
+        workspace.Tv[1,1,k]=one(root)
+        workspace.Ti[1,1,k]=one(root)
+        workspace.diagnostics.eigen_residual[1,k]=zero(real(root))
+        workspace.diagnostics.iterations[1,k]=0
+        workspace.diagnostics.converged[1,k]=true
+    end
+    return workspace
+end
+
+selected=ModalAnalysisFormulation(Formula(Val(:diagonal_example)))
+modal=compute(ModalAnalysisProblem(phase),selected)
+segment=PropagationParameters(modal)
+size(gamma(modal)) == (1,length(frequencies(phase)))
+size(H(segment)) == size(gamma(modal))
+```
+
+Only the selected equation's `initialize_buffers` method runs. The common
+workspace supplies per-frequency normalization and coordinate scratch; the
+equation owns `diagonal_product`. It writes phase-row by mode-column bases
+and mode-by-frequency roots. The owner checks structural shape and finite
+arithmetic, computes the intrinsic coefficients, copies returned arrays, and
+records diagnostics. Numerical targets are reported as warnings and facts,
+without becoming result-admission rules.
 
 ## Input validation
 

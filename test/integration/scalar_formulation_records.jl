@@ -1,4 +1,4 @@
-@testitem "ReportBuilder / scalar results retain physical and native formula choices" tags=[:integration] setup=[FormulaContractModels] begin
+@testitem "ReportBuilder / scalar results retain physical and native formula choices" tags=[:integration] setup=[FormulaFixtures] begin
     using LinearAlgebra, Serialization
     using LineCableModels.ReportBuilder: BenchmarkTableDefinition
     copper=Material(MaterialsLibrary(add_defaults = true), :copper)
@@ -37,7 +37,7 @@
         report(BenchmarkTableDefinition(), (
             reference = restored[1], candidate = restored[2])).tables.formulations,
         artifact.tables.formulations)
-    custom=FormulaContractModels.DispersiveEarth()
+    custom=FormulaFixtures.DispersiveEarth()
     selected=Formulation(earth_properties = custom)
     changed=compute(problem, selected)
     @test !isempty(custom.seen)

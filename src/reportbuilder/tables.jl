@@ -150,24 +150,41 @@ LineParametersTableDefinition(requests::Tuple=();frequency_unit::Symbol=:base,
     length_unit::Symbol=:kilo,quantity_units=nothing,clip::Bool=true) =
     LineParametersTableDefinition(requests,frequency_unit,length_unit,quantity_units,clip)
 
+_bound_name(selector::Base.Fix2,statistic) =
+    selector.f in (LineCableModels.ModalAnalysis.H,LineCableModels.ModalAnalysis.Zc,
+        LineCableModels.ModalAnalysis.Yc) ?
+        string(nameof(selector.f),"_phase",
+            selector.f===LineCableModels.ModalAnalysis.H ? "_$(selector.x.field)" : "") :
+        string(statistic)
+
 _quantity_name(product) = begin
     identity=request_identity(product.request)
-    identity isa Function ? nameof(identity) : Symbol(join([entry isa Base.Fix2 ? string(product.statistic) : string(nameof(entry)) for entry in identity],"_"))
+    identity isa Function ? (identity isa Base.Fix2 ? Symbol(_bound_name(identity,product.statistic)) : nameof(identity)) :
+        Symbol(join([entry isa Base.Fix2 ? _bound_name(entry,product.statistic) : string(nameof(entry)) for entry in identity],"_"))
 end
 
 function _quantity_table(product; gridpoint_id=nothing)
     coordinates=product.coordinates
     values=product.values
     scalar=values isa Number || ismissing(values)
-    if coordinates.kind in (:matrix,:diagonal)
+    if coordinates.kind in (:matrix,:diagonal,:vector)
         diagonal=coordinates.kind===:diagonal
-        dimensions=diagonal ? (length(coordinates.rows),length(coordinates.samples)) :
+        vector=coordinates.kind===:vector
+        dimensions=vector ? (length(coordinates.positions),length(coordinates.samples)) :
+            diagonal ? (length(coordinates.rows),length(coordinates.samples)) :
             (length(coordinates.rows),length(coordinates.columns),length(coordinates.samples))
         shaped=reshape(scalar ? [values] : values,dimensions...)
         f=coordinates.frequencies
         table=f===nothing ? DataFrame(sample=coordinates.samples) : DataFrame(frequency=f)
         columns=Pair{Symbol,Any}[]
-        if diagonal
+        if vector
+            for (i,position) in enumerate(coordinates.positions)
+                name=Symbol(coordinates.axis_label," ",coordinates.labels[position])
+                table[!,name]=copy(shaped[i,:])
+                push!(columns,name=>(quantity=product.quantity,unit=product.unit,
+                    axis=coordinates.axis,position,label=coordinates.labels[position]))
+            end
+        elseif diagonal
             for (i,row) in enumerate(coordinates.rows)
                 name=Symbol("[",row,",",row,"]")
                 table[!,name]=copy(shaped[i,:])
@@ -176,9 +193,13 @@ function _quantity_table(product; gridpoint_id=nothing)
         else
             # Full matrices are deliberately row-major, including both off-diagonals.
             for (i,row) in enumerate(coordinates.rows), (j,column) in enumerate(coordinates.columns)
-                name=Symbol("[",row,",",column,"]")
+                name=get(coordinates,:column_domain,nothing)===:ModalDomain ?
+                    Symbol("Conductor ",coordinates.labels[row],", Mode ",coordinates.column_labels[column]) :
+                    Symbol("[",row,",",column,"]")
                 table[!,name]=copy(shaped[i,j,:])
-                push!(columns,name=>(quantity=product.quantity,unit=product.unit,row,column))
+                push!(columns,name=>(quantity=product.quantity,unit=product.unit,row,column,
+                    row_label=coordinates.labels[row],
+                    column_label=get(coordinates,:column_labels,coordinates.labels)[column]))
             end
         end
         first_column=f===nothing ? (:sample=>(quantity=nothing,unit=nothing)) :
@@ -215,7 +236,7 @@ function _quantity_table(product; gridpoint_id=nothing)
         metadata!(table,"observation_columns",(value=(quantity=product.quantity,unit=product.unit),);style=:note)
     end
     coordinate_columns=coordinates.kind===:samples ? Tuple(filter(!=(:value),propertynames(table))) :
-        coordinates.kind in (:matrix,:diagonal,:assemblies,:array) ? (first(propertynames(table)),) : ()
+        coordinates.kind in (:matrix,:diagonal,:vector,:assemblies,:array) ? (first(propertynames(table)),) : ()
     metadata!(table,"coordinate_columns",coordinate_columns;style=:note)
     metadata!(table,"coordinates",Grammar.detach(coordinates);style=:note)
     metadata!(table,"quantity",product.quantity;style=:note)
@@ -246,21 +267,19 @@ end
 tabulate(observed::ObservedResult) = _quantity_tables(observed.quantities;gridpoint_id=observed.gridpoint.id)
 
 """Build one table from a retained quantity request."""
-tabulate(observed::ObservedResult,request) = _quantity_table(_selected_quantity(observed,request);gridpoint_id=observed.gridpoint.id)
+tabulate(observed::ObservedResult,request) = _quantity_table(Grammar.observation_product(observed,request);gridpoint_id=observed.gridpoint.id)
 tabulate(observed::AbstractVector{<:ObservedResult}) = map(tabulate,observed)
 
-function tabulate(definition::TableReportDefinition,observed;reference=nothing)
-    function selected(point)
-        isempty(definition.requests) && return tabulate(point)
-        return _quantity_tables(select(definition,point);gridpoint_id=point.gridpoint.id)
-    end
-    return observed isa ObservedResult ? selected(observed) : map(selected,observed)
+select(::CableConstantsTableDefinition,observed::ObservedResult;reference=nothing) = observed.quantities
+function select(definition::LineParametersTableDefinition,observed::ObservedResult;reference=nothing)
+    return [Grammar.observation_product(observed,request)
+        for request in Grammar.observation_requests(observed,definition.requests).retained]
 end
-tabulate(::CableConstantsTableDefinition,observed;reference=nothing) = tabulate(observed)
-function tabulate(definition::LineParametersTableDefinition,observed;reference=nothing)
-    selected(point)=_quantity_tables([Grammar.observation_product(point,request)
-        for request in Grammar.observation_requests(point,definition.requests).retained];gridpoint_id=point.gridpoint.id)
-    return observed isa ObservedResult ? selected(observed) : map(selected,observed)
+function tabulate(::Union{TableReportDefinition,CableConstantsTableDefinition,LineParametersTableDefinition},
+        observed,selected;reference=nothing)
+    observed isa ObservedResult && return _quantity_tables(selected;gridpoint_id=observed.gridpoint.id)
+    return map((point,products) -> _quantity_tables(products;gridpoint_id=point.gridpoint.id),
+        observed,selected)
 end
 function report(definition::CableConstantsTableDefinition,source::Engine.CableConstants;kwargs...)
     return report(definition,ObservedResult(source;clip=definition.clip,kwargs...))

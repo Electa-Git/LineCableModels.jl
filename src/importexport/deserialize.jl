@@ -38,7 +38,7 @@ function deserialize_value(::Val{:formulation},record::NamedTuple)
         backend in (:cable_constants,"cable_constants") ? Engine.CableConstantsFormulation :
         backend in (:fem,:LineCableModelsFEM,"fem","LineCableModelsFEM") ? Engine.LineCableModelsFEM :
         backend in (:pscad,:PSCAD,"pscad","PSCAD") ? LineCableModels.PSCAD.PSCADFormulation :
-        backend in (:modal,"modal") ? LineCableModels.Transforms.ModalTransformationFormulation : nothing
+        backend in (:modal,"modal") ? LineCableModels.ModalAnalysis.ModalAnalysisFormulation : nothing
     owner===nothing && return missing
     # Child families, order and relevance are supplied by the owner, not a reader catalogue.
     declared=get(record,:requested,nothing)
@@ -92,7 +92,7 @@ function deserialize_value(::Val{:formulation},family::Type,value,definition)
     return (selected,settings)
 end
 
-"""Retain current owner records unchanged at the historical decoding boundary."""
+"""Retain current owner records unchanged when decoding historical selections."""
 deserialize_value(::Val{:formulation},owner::Type,record,::Val{:historical})=record
 
 """Read historical internal surface names without changing earth interactions or saved files."""
@@ -221,7 +221,7 @@ function deserialize_value(value)
         end
         marker == "NamedTuple" && return NamedTuple{Tuple(Symbol.(value["names"]))}(
             Tuple(deserialize_value(item) for item in value["values"]))
-        marker in ("UInt64", "Observable", "Quantile", "LineParameters", "CableConstants", "MonteCarloResult",
+        marker in ("UInt64", "Observable", "Quantile", "ModalRepresentation", "LineParameters", "CableConstants", "MonteCarloResult",
             "LinearErrorResult", "SampleSummary", "HistogramDensity", "Distribution",
             "FormulationOptions", "ComputationOptions", "ComputationDetails", "ObservedArchive",
             "UUID", "Colon", "Quantity", "Unit", "UnitExpr", "ScientificType") &&
@@ -496,7 +496,7 @@ function _decode_design_resolved(value, materials)
     get(value, "kind", nothing) == "cable_design" || throw(ArgumentError(
         "cable declaration must have kind 'cable_design'"
     ))
-    # Historical records used "root"; only the import boundary accepts that key.
+    # Historical records used "root"; only this decoder accepts that key.
     # Never silently choose between two competing physical declarations.
     haskey(value, "origin") && haskey(value, "root") && throw(ArgumentError(
         "cable_design must not contain both 'origin' and legacy 'root'"

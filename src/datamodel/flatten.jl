@@ -712,6 +712,13 @@ function nested_conductor_zone(
     )
 end
 
+"""
+$(TYPEDSIGNATURES)
+
+Return the transverse position \\[m\\] used for a radial shape or placed region.
+Disks and annuli use their stored center; sectors use their centroid, and sector
+shells use the inner sector's centroid. A placed region uses its primitive.
+"""
 radial_position(shape::Union{Disk, Annulus}) = (shape.at.x, shape.at.y)
 radial_position(shape::SectorShape) = centroid(shape)
 function radial_position(
@@ -725,6 +732,14 @@ function radial_position(
 end
 radial_position(region::PlacedRegion) = radial_position(region.primitive)
 
+"""
+$(TYPEDSIGNATURES)
+
+Return the transverse center \\[m\\] of a nonempty collection of resolved
+conductor regions. Use a shared bounded-placement or group center when present;
+otherwise use the primitive centroid for one region or the area-weighted
+centroid for several regions.
+"""
 function conductor_zone_position(sources)
     isempty(sources) && throw(ArgumentError(
         "a conductor zone requires at least one resolved region"
@@ -775,6 +790,14 @@ function conductor_zone_position(sources)
     )
 end
 
+"""
+$(TYPEDSIGNATURES)
+
+Compare two transverse coordinate pairs \\[m\\] using the existing radial
+position tolerance. After promotion to floating type `T`, the Euclidean distance
+must not exceed `sqrt(eps(T))` times the larger of one meter and the greatest
+absolute coordinate. Return whether the positions satisfy this tolerance.
+"""
 function same_radial_position(left, right)
     coordinates = promote(
         float(left[1]),

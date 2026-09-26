@@ -192,8 +192,8 @@ function _addon_controls!(p, xsetters, ysetters)
                 changing[]=true
                 try
                     eligible=filter(
-                        entry -> getproperty(entry.axis, Symbol(dimension, :scale))[] in
-                                 (identity, log10, _addon_scale(:pseudolog10)),
+                        entry -> getproperty(entry.axis, Symbol(dimension, :scale))[] in (identity, log10) ||
+                                 getproperty(entry.axis, Symbol(dimension, :scale))[] isa Makie.ReversibleScale{_SignedLog10},
                         entries)
                     _addon_set_axis!(eligible, dimension, enabled ? :log10 : :linear)
                     p.status[]=enabled ? "$dimension-axis logarithmic view" :
@@ -219,7 +219,7 @@ function _addon_controls!(p, xsetters, ysetters)
                              "log" :
                              getproperty(item.axis, Symbol(dimension, :scale))[]===identity ?
                              "linear" :
-                             getproperty(item.axis, Symbol(dimension, :scale))[]===_addon_scale(:pseudolog10) ?
+                             getproperty(item.axis, Symbol(dimension, :scale))[] isa Makie.ReversibleScale{_SignedLog10} ?
                              "signed log" : "custom" for item in entries)
                 mode=length(kinds)==1 ? only(kinds) : "mixed"
                 caption[].text[]=mode=="linear" ? "log $dimension" : "$mode $dimension"

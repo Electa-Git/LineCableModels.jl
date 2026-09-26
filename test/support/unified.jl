@@ -2,7 +2,7 @@
     using LineCableModels
     const E=LineCableModels.Engine
 
-    # Tests use the production allocation contract, not a second formula allocator.
+    # Tests use the production buffer-initialization method, not a second formula allocator.
     function buffers(geometry)
         T=eltype(geometry.radius)
         R=typeof(float(LineCableModels.nominal(one(T))))

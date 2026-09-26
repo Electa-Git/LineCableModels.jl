@@ -1,4 +1,4 @@
-@testitem "DataModel / v1 geometry / primitive and resolved contracts" tags=[:unit] begin
+@testitem "DataModel / v1 geometry / primitive and resolved geometry" tags=[:unit] begin
     const DM=LineCableModels.DataModel
 
     @test DM.Disk(2) isa DM.AbstractPrimitive{Float64}

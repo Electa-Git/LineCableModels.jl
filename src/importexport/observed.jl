@@ -84,8 +84,12 @@ serialize_value(value::UUIDs.UUID) = Dict("__type__"=>"UUID","value"=>string(val
 deserialize_extension(::Val{:UUID},record) = UUIDs.UUID(record["value"])
 serialize_value(::Colon) = Dict("__type__"=>"Colon")
 deserialize_extension(::Val{:Colon},record) = Colon()
-serialize_value(value::Units.Quantity{Q}) where {Q} = Dict("__type__"=>"Quantity","name"=>string(Q))
-deserialize_extension(::Val{:Quantity},record) = Units.Quantity{Symbol(record["name"])}()
+serialize_value(value::Units.Quantity{Q}) where {Q} = Q isa Tuple ?
+    Dict("__type__"=>"Quantity","parts"=>string.(collect(Q))) :
+    Dict("__type__"=>"Quantity","name"=>string(Q))
+deserialize_extension(::Val{:Quantity},record) = haskey(record,"parts") ?
+    Units.Quantity{Tuple(Symbol.(record["parts"]))}() :
+    Units.Quantity{Symbol(record["name"])}()
 serialize_value(value::Units.Unit) = Dict("__type__"=>"Unit","name"=>string(value.name),"prefix"=>string(value.prefix))
 deserialize_extension(::Val{:Unit},record) = Units.Unit(Symbol(record["name"]),Symbol(record["prefix"]))
 serialize_value(value::Units.UnitExpr) = Dict("__type__"=>"UnitExpr",

@@ -63,7 +63,7 @@ function _addon_series_styles!(groups, order, attributes; defaults=nothing, shar
                 points = scatter!(handle.parent, coordinates;
                     color=hollow ? :transparent : handle.color[],
                     visible=handle.visible[], marker_attributes...)
-                # Visibility follows the same owner contract as uncertainty
+                # Visibility follows the same owner visibility rule as uncertainty
                 # bars; the shared shell binds it once for the complete series.
                 push!(dependents, points => handle)
                 on(handle.parent, handle.color) do value
@@ -130,8 +130,12 @@ function _addon_glyph_indices(n, width, phase; endpoints=false, uncertain_indice
 end
 
 function _addon_comparison_styles(indices, roles, count)
+    last_slot = maximum((index for (index, role) in zip(indices, roles)
+                         if role !== :reference); init = 0)
+    # Extend once for the selected original slots, including gaps from filtering.
+    last_slot > 0 && _addon_comparison_color(last_slot)
     shapes = (:rect, :diamond, :dtriangle, :cross, :xcross, :pentagon, :hexagon)
-    return Tuple((attributes=(;
+    return [(attributes=(;
             color=role === :reference ? RGB(0.0, 0.0, 0.0) : _addon_comparison_color(index),
             marker=role === :reference ? :circle :
                 shapes[mod1(index, length(shapes))],
@@ -140,7 +144,7 @@ function _addon_comparison_styles(indices, roles, count)
         hollow=role === :reference, endpoints=role === :reference,
         phase=role === :reference ? (1,1) : (index,count),
         priority=role === :reference ? 1 : 0)
-        for (index, role) in zip(indices, roles))
+        for (index, role) in zip(indices, roles)]
 end
 
 # A deterministic farthest-point palette in perceptual space. Candidate RGB
@@ -166,8 +170,10 @@ function _addon_comparison_color(index::Int)
         filter!(_addon_candidate_color,candidates)
         coordinates = map(color -> convert(Oklab, color), candidates)
         distance(a,b) = _addon_color_distance(a,b)
-        distances = [minimum(distance(color, convert(Oklab, selected))
-            for selected in (RGB(0.,0.,0.),_ADDON_CURVE_COLORS...)) for color in coordinates]
+        black = convert(Oklab, RGB(0.,0.,0.))
+        distances = [minimum((distance(color, convert(Oklab, selected))
+            for selected in _ADDON_CURVE_COLORS); init = distance(color, black))
+            for color in coordinates]
         while length(_ADDON_CURVE_COLORS) < index
             next = argmax(distances)
             distances[next] > 0 || throw(ArgumentError("too many series for the distinct curve palette"))

@@ -156,7 +156,14 @@ function quantity(
     return _append_unit(value(converted; sigdigits), unit)
 end
 
-function _fit(text::AbstractString, width::Integer)
+"""
+    truncate_text(text::AbstractString, width::Integer)
+
+Return text occupying at most `width` display columns, appending an ellipsis
+when truncated. Nonpositive widths return an empty string. Character widths
+follow `textwidth`; the ellipsis occupies one column.
+"""
+function truncate_text(text::AbstractString, width::Integer)
     width <= 0 && return ""
     textwidth(text) <= width && return String(text)
     width == 1 && return "…"
@@ -202,7 +209,7 @@ function fields(
     for pair in Iterators.take(retained, visible_count)
         key = String(first(pair))
         print(
-            io, '\n', "  ", rpad(key, key_width), "  ", _fit(string(last(pair)), available))
+            io, '\n', "  ", rpad(key, key_width), "  ", truncate_text(string(last(pair)), available))
     end
     omitted = length(retained) - visible_count
     omitted > 0 && print(io, '\n', "  ⋮ $omitted more fields")
@@ -232,7 +239,7 @@ _tree_noun(node) = "items"
 
 function _write_tree_line(io::IO, prefix, connector, label)
     available = max(_display_width(io) - textwidth(prefix) - 3, 1)
-    print(io, '\n', prefix, connector, _fit(label, available))
+    print(io, '\n', prefix, connector, truncate_text(label, available))
     return nothing
 end
 
@@ -301,7 +308,7 @@ function tree(
         children;
         noun::AbstractString = "items"
 )
-    print(io, _fit(header, _display_width(io)))
+    print(io, truncate_text(header, _display_width(io)))
     get(io, :compact, false) && return nothing
     entries = collect(children)
     isempty(entries) && return nothing
@@ -358,6 +365,7 @@ macro showfields(type_expression, semantic_name, mapping)
 end
 
 public name, value, engineering, angle, quantity, fields, tree
+public truncate_text, @showfields
 
 Base.summary(io::IO, unit::Units.Unit) = print(io, "Physical unit ", Units.label(unit))
 Base.show(io::IO, unit::Units.Unit) = print(io, Units.label(unit))

@@ -1,4 +1,4 @@
-@testitem "Gmsh FEM / resume requires effective inputs and preserves completed runs" tags=[:extension] setup=[FormulaContractModels] begin
+@testitem "Gmsh FEM / resume requires effective inputs and preserves completed runs" tags=[:extension] setup=[FormulaFixtures] begin
     using Gmsh
     using LineCableModels
     extension = Base.get_extension(LineCableModels, :LineCableModelsGmshExt)
@@ -65,8 +65,8 @@
     lossy_inputs = extension._fem_input_record(lossy_model, lossy, computation_options(LineCableModelsFEM, ComputationOptions(lossy_controls)))
     @test extension.JSON3.write(inputs) == extension.JSON3.write(other_inputs)
     @test extension.JSON3.write(inputs) != extension.JSON3.write(lossy_inputs)
-    temperature_law=FormulaContractModels.ScaledResistivity(1.06)
-    soil_law=FormulaContractModels.ScaledSoil(epsilon=2)
+    temperature_law=FormulaFixtures.ScaledResistivity(1.06)
+    soil_law=FormulaFixtures.ScaledSoil(epsilon=2)
     thermal = LineCableModelsFEM(
         temperature_dependence=temperature_law,
         options=formulation.options)
@@ -105,7 +105,7 @@
     @test extension._fem_input_record(ownership, formulation, computation_options(LineCableModelsFEM, ComputationOptions(formulation_controls))).mesh_fingerprint !=
           inputs.mesh_fingerprint
     @test_throws ArgumentError compute(problem, LineCableModelsFEM[])
-    law=FormulaContractModels.ScaledSoil(rho=Inf)
+    law=FormulaFixtures.ScaledSoil(rho=Inf)
     unsupported = Formulation(:LineCableModelsFEM;
         earth_properties = law,
         options = formulation.options)

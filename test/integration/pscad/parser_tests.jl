@@ -22,7 +22,7 @@
     @test LineCableModels.formula_id(overhead.methods.insulation_admittance) === :lossless
     @test occursin("lossless", lowercase(description(overhead.methods.insulation_admittance)))
     # The selected owner supplies descriptions through current computation
-    # details; a removed consumer-local label helper is not a contract.
+    # details; a removed consumer-local label helper is not an asserted requirement.
     @test !isempty(string(computation_details(overhead)))
     @test overhead.options.data == (reduce_bundle = false, kron_reduction = false,
         ideal_transposition = false,base_frequency=50.0)

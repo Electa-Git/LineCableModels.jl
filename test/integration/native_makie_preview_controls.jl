@@ -21,15 +21,15 @@
     docked = preview(design; options..., display_legend=false, colorbar_position=:top)
     @test docked.legend === nothing
     geometry_plots = [copy(axis.scene.plots) for axis in docked.axes]
-    figurelegend!(docked; position=:top, orientation=:horizontal, overflow=:show_all)
+    figurelegend!(docked; position=:top, orientation=:horizontal, max_fraction=0.5)
     Makie.colorbuffer(docked.figure)
     @test docked.legend.orientation[] == :horizontal
     bounds = docked.legend.layoutobservables.computedbbox[]
     scale_bounds = [bar.layoutobservables.computedbbox[] for bar in docked.colorbars]
     @test bounds.origin[1] + bounds.widths[1] <=
         minimum(box.origin[1] for box in scale_bounds) + 1
-    figurelegend!(docked; position=:right, overflow=:show_all)
-    figurelegend!(docked; position=:top, orientation=:horizontal, overflow=:show_all)
+    figurelegend!(docked; position=:right, max_fraction=0.5)
+    figurelegend!(docked; position=:top, orientation=:horizontal, max_fraction=0.5)
     Makie.colorbuffer(docked.figure)
     @test [axis.scene.plots for axis in docked.axes] == geometry_plots
     @test length(docked.colorbars) == 3

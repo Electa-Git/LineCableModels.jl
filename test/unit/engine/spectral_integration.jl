@@ -1,4 +1,4 @@
-@testitem "Engine / callable-only QuadGK integration and scalar contracts" tags=[:unit] begin
+@testitem "Engine / callable-only QuadGK integration and scalar behavior" tags=[:unit] begin
     const E=LineCableModels.Engine
     options(;
         controls...)=E.formulation_options(E.SpectralIntegral,

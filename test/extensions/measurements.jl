@@ -1,4 +1,4 @@
-@testitem "Extensions / Measurements boundary / unloaded uncertainty APIs fail explicitly" tags=[
+@testitem "Extensions / Measurements / unloaded uncertainty APIs fail explicitly" tags=[
     :extension,
     :core_only
 ] begin
@@ -200,7 +200,7 @@ end
     @test derivative(assembled_radius, semicon_thickness) ≈ 1.0
 end
 
-@testitem "Measurements / external boundaries and numerical kernels" tags=[:extension] setup=[
+@testitem "Measurements / retained values and numerical kernels" tags=[:extension] setup=[
     UseEngineSupport, TestNumerics] begin
     using Measurements
     using Statistics
@@ -382,9 +382,9 @@ end
         UInt64[9],
         [3]
     )
-    modal_space=Gridspace{ModalTransformationProblem}(line_completed)
+    modal_space=Gridspace{ModalAnalysisProblem}(line_completed)
     modal_problem=only(modal_space)
-    @test modal_problem isa ModalTransformationProblem
+    @test modal_problem isa ModalAnalysisProblem
     @test isconcretetype(eltype(modal_space))
     @test value(real(modal_problem.parameters.Z.values[1])) == 2.0
     @test uncertainty(real(modal_problem.parameters.Z.values[1])) == 1.0
@@ -407,7 +407,7 @@ end
         [only(line_stats), second_stats], nothing, nothing,
         UInt64(9), UInt64[9, 10], [3, 3]
     )
-    transported_points = Gridspace{ModalTransformationProblem}(two_points)
+    transported_points = Gridspace{ModalAnalysisProblem}(two_points)
     @test length(transported_points) == 2
     @test isconcretetype(eltype(transported_points))
     modal_problems = collect(transported_points)

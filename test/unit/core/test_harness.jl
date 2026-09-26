@@ -3,8 +3,8 @@
     include(helper)
     directory = joinpath(pkgdir(LineCableModels), "test")
     item(file, name, tags) = (; filename=joinpath(directory, file), name, tags)
-    ordinary = item("unit/current.jl", "unresolved current contract", [:unit])
-    sampling = item("integration/sampling.jl", "current sampling contract", [:integration])
+    ordinary = item("unit/current.jl", "unresolved current item", [:unit])
+    sampling = item("integration/sampling.jl", "current sampling item", [:integration])
     native = item("extensions/study.jl", "unresolved native study", [:extension, :fem_numerical])
     select(args) = ValidationTestRunner.selection(args, directory)
     @test select(String[])(ordinary)
@@ -54,7 +54,7 @@
             @testmodule ChosenSetup begin
                 const answer = :current
             end
-            @testitem "included contract" setup=[ChosenSetup] begin
+            @testitem "included item" setup=[ChosenSetup] begin
                 write($(repr(body_marker)), "executed")
                 @test ChosenSetup.answer === :current
             end
@@ -74,7 +74,7 @@
         @test occursin("run completed", output)
         @test occursin("s elapsed", output)
 
-        write(active, "@testitem \"failed contract\" begin\n@test false\nend\n")
+        write(active, "@testitem \"failed item\" begin\n@test false\nend\n")
         ok, output = invoke(root)
         @test !ok
         @test occursin("Selected 1 maintained test items in 1 files; run failed", output)

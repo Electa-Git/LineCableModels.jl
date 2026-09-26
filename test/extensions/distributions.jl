@@ -1,4 +1,4 @@
-@testitem "Extensions / Distributions boundary / unloaded sampler fails explicitly" tags=[
+@testitem "Extensions / Distributions / unloaded sampler fails explicitly" tags=[
     :extension,
     :core_only
 ] begin

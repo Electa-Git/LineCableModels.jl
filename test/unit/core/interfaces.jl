@@ -13,7 +13,7 @@
     @test_throws MethodError validate(value)
 end
 
-@testitem "Core / docstrings / sanitized method-list provenance" tags=[:unit] begin
+@testitem "Core / docstrings / sanitized method-list origins" tags=[:unit] begin
     using DocStringExtensions
 
     method=which(LineCableModels.domain, (Int,))
@@ -42,8 +42,8 @@ end
     for i in 1:3, j in 1:3)
     @test sum(circulant) ≈ sum(matrix)
     @test_throws DimensionMismatch MatrixOps.ideal_transposition!(ones(2, 3))
-    @test LineCableModels.Transforms.offdiagonal_ratio(Diagonal([1.0, 2.0])) == 0.0
-    @test_throws DimensionMismatch LineCableModels.Transforms.offdiagonal_ratio(zeros(2, 3))
+    @test LineCableModels.ModalAnalysis.offdiagonal_ratio(Diagonal([1.0, 2.0])) == 0.0
+    @test_throws DimensionMismatch LineCableModels.ModalAnalysis.offdiagonal_ratio(zeros(2, 3))
 
     @test Engine.conductivity(Inf) == 0.0
     @test isinf(Engine.conductivity(0.0))

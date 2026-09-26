@@ -1,67 +1,5 @@
 # Shared numerical operations for frequency-tracked eigensystems.
 
-function _input(
-        lp::LineParameters{Tc, U, PhaseDomain, Basis}
-) where {Tc <: Complex, U <: Real, Basis}
-    n, columns, nfrequencies = size(lp.Z.values)
-    n == columns || throw(DimensionMismatch("Z must be square"))
-    size(lp.Y.values) == (n, n, nfrequencies) || throw(
-        DimensionMismatch("Y must be n×n×nfreq")
-    )
-    length(lp.f) == nfrequencies || throw(
-        DimensionMismatch("f must contain one value per frequency slice")
-    )
-    nfrequencies > 0 || throw(ArgumentError(
-        "modal transformation requires at least one frequency"
-    ))
-    impedance = nominal(lp.Z.values)
-    admittance = nominal(lp.Y.values)
-    frequencies = nominal(lp.f)
-    all(isfinite, impedance) || throw(DomainError(
-        impedance,
-        "phase-domain impedance must be finite"
-    ))
-    all(isfinite, admittance) || throw(DomainError(
-        admittance,
-        "phase-domain admittance must be finite"
-    ))
-    all(isfinite, frequencies) || throw(DomainError(
-        frequencies,
-        "frequencies must be finite"
-    ))
-    return impedance, admittance, frequencies
-end
-
-@inline function _product!(destination, admittance, impedance, frequency::Integer)
-    mul!(
-        destination,
-        @view(admittance[:, :, frequency]),
-        @view(impedance[:, :, frequency])
-    )
-    return destination
-end
-
-function _maps(current::AbstractArray{T, 3}) where {T <: Complex}
-    n, columns, nfrequencies = size(current)
-    n == columns || throw(DimensionMismatch(
-        "current eigenvectors must be an n×n×nfreq tensor"
-    ))
-    voltage = similar(current)
-    inverse = similar(current)
-    factor = Matrix{T}(undef, n, n)
-    identity = Matrix{T}(I, n, n)
-    @inbounds for frequency in 1:nfrequencies
-        copyto!(
-            @view(voltage[:, :, frequency]),
-            transpose(@view(current[:, :, frequency]))
-        )
-        copyto!(factor, @view(current[:, :, frequency]))
-        copyto!(@view(inverse[:, :, frequency]), identity)
-        ldiv!(lu!(factor), @view(inverse[:, :, frequency]))
-    end
-    return ModalOperators(voltage, inverse)
-end
-
 @inline function _unit!(vector::AbstractVector)
     scale = norm(vector)
     isfinite(scale) && !iszero(scale) || return false
@@ -96,7 +34,7 @@ function _align!(vector::AbstractVector, reference::AbstractVector)
     return _orient!(vector)
 end
 
-function _transpose!(vector::AbstractVector{T}) where {T <: Complex}
+function normalize_bilinear!(vector::AbstractVector{T}) where {T <: Complex}
     squared = zero(T)
     magnitude = zero(typeof(real(zero(T))))
     @inbounds for value in vector
@@ -122,15 +60,22 @@ function _seed(matrix::AbstractMatrix{T}) where {T <: Complex}
 end
 
 # Minimum-cost square assignment by the O(n³) Hungarian algorithm.
-function _hungarian(cost::AbstractMatrix{R}) where {R <: Real}
+function _assignment_workspace(::Type{T},n) where {T<:Complex}
+    R=typeof(real(zero(T)))
+    return (cost=Matrix{R}(undef,n,n),u=zeros(R,n+1),v=zeros(R,n+1),
+        matching=zeros(Int,n+1),way=zeros(Int,n+1),minimums=Vector{R}(undef,n+1),
+        used=falses(n+1),assignment=Vector{Int}(undef,n),
+        ordered_values=Vector{T}(undef,n),ordered_vectors=Matrix{T}(undef,n,n),
+        residual=Vector{T}(undef,n))
+end
+
+function hungarian_assignment!(cost::AbstractMatrix{R},work) where {R <: Real}
     n = checksquare(cost)
     n == 0 && return Int[]
-    u = zeros(R, n + 1)
-    v = zeros(R, n + 1)
-    matching = zeros(Int, n + 1)
-    way = zeros(Int, n + 1)
-    minimums = Vector{R}(undef, n + 1)
-    used = falses(n + 1)
+    u,v,matching,way,minimums,used=work.u,work.v,work.matching,
+        work.way,work.minimums,work.used
+    fill!(u,zero(R));fill!(v,zero(R))
+    fill!(matching,0);fill!(way,0)
 
     @inbounds for row in 1:n
         matching[1] = row
@@ -177,18 +122,17 @@ function _hungarian(cost::AbstractMatrix{R}) where {R <: Real}
         end
     end
 
-    assignment = Vector{Int}(undef, n)
+    assignment = work.assignment
     @inbounds for column in 1:n
         assignment[matching[column + 1]] = column
     end
     return assignment
 end
-
 function _match!(
         values::AbstractVector{T},
         vectors::AbstractMatrix{T},
         previous_values::AbstractVector{T},
-        previous_vectors::AbstractMatrix{T}
+        previous_vectors::AbstractMatrix{T},work
 ) where {T <: Complex}
     n = length(values)
     length(previous_values) == n || throw(DimensionMismatch(
@@ -198,7 +142,7 @@ function _match!(
         DimensionMismatch("eigenvector matrices must be n×n")
     )
     R = typeof(real(zero(T)))
-    cost = Matrix{R}(undef, n, n)
+    cost = work.cost
     @inbounds for previous in 1:n, current in 1:n
         denominator = norm(@view(previous_vectors[:, previous])) *
                       norm(@view(vectors[:, current]))
@@ -209,9 +153,11 @@ function _match!(
         )) / denominator
         cost[previous, current] = one(R) - overlap
     end
-    assignment = _hungarian(cost)
-    ordered_values = copy(values)
-    ordered_vectors = copy(vectors)
+    assignment = hungarian_assignment!(cost,work)
+    ordered_values = work.ordered_values
+    ordered_vectors = work.ordered_vectors
+    copyto!(ordered_values,values)
+    copyto!(ordered_vectors,vectors)
     @inbounds for mode in 1:n
         source = assignment[mode]
         values[mode] = ordered_values[source]
@@ -219,12 +165,11 @@ function _match!(
     end
     return assignment
 end
-
-function _valid(
+function check_eigenpairs!(
         matrix::AbstractMatrix{T},
         values::AbstractVector{T},
         vectors::AbstractMatrix{T},
-        tolerance::Real
+        tolerance::Real,residual::AbstractVector{T}
 ) where {T <: Complex}
     all(isfinite, values) && all(isfinite, vectors) || return false
     R = typeof(real(zero(T)))
@@ -232,7 +177,6 @@ function _valid(
     isfinite(condition) && condition <= inv(sqrt(eps(R))) || return false
     scale = max(norm(matrix, Inf), eps(R))
     limit = max(convert(R, tolerance), sqrt(eps(R))) * scale
-    residual = Vector{T}(undef, size(matrix, 1))
     @inbounds for mode in eachindex(values)
         mul!(residual, matrix, @view(vectors[:, mode]))
         residual .-= values[mode] .* @view(vectors[:, mode])
@@ -240,14 +184,13 @@ function _valid(
     end
     return true
 end
-
-function _fallback(
+function recompute_matched_eigenpairs!(
         matrix::AbstractMatrix{T},
         previous_values::AbstractVector{T},
-        previous_vectors::AbstractMatrix{T}
+        previous_vectors::AbstractMatrix{T},work
 ) where {T <: Complex}
     values, vectors = _seed(matrix)
-    _match!(values, vectors, previous_values, previous_vectors)
+    _match!(values, vectors, previous_values, previous_vectors,work)
     @inbounds for mode in eachindex(values)
         _align!(@view(vectors[:, mode]), @view(previous_vectors[:, mode]))
     end

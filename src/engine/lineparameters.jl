@@ -328,9 +328,14 @@ Compute line parameters with the coaxial backend and default formulation.
 """
 function compute(
         problem::LineParametersProblem;
-        options::Union{NamedTuple, ComputationOptions} = ComputationOptions()
+        options::Union{NamedTuple, ComputationOptions} = ComputationOptions(),
+        modal=nothing, modal_options::Union{NamedTuple, ComputationOptions}=ComputationOptions()
 )
     options = options isa NamedTuple ? ComputationOptions(options) : options
+    modal===nothing || return compute(problem,Formulation(),
+        LineCableModels.ModalAnalysisFormulation(modal);options,modal_options)
+    isempty(modal_options isa NamedTuple ? modal_options : modal_options.data) ||
+        throw(ArgumentError("modal_options require a modal formulation"))
     return compute(LineCableModelsCoaxial(), problem, Formulation(); options)
 end
 
@@ -372,18 +377,28 @@ result type.
 function compute(
         problem::LineParametersProblem,
         formulation::LineParametersFormulation;
-        options::Union{NamedTuple, ComputationOptions} = ComputationOptions()
+        options::Union{NamedTuple, ComputationOptions} = ComputationOptions(),
+        modal=nothing, modal_options::Union{NamedTuple, ComputationOptions}=ComputationOptions()
 )
     options = options isa NamedTuple ? ComputationOptions(options) : options
+    modal===nothing || return compute(problem,formulation,
+        LineCableModels.ModalAnalysisFormulation(modal);options,modal_options)
+    isempty(modal_options isa NamedTuple ? modal_options : modal_options.data) ||
+        throw(ArgumentError("modal_options require a modal formulation"))
     return compute(LineCableModelsCoaxial(), problem, formulation; options)
 end
 
 function compute(
         problem::LineParametersProblem,
         formulations::AbstractVector{<:LineParametersFormulation};
-        options::Union{NamedTuple, ComputationOptions} = ComputationOptions()
+        options::Union{NamedTuple, ComputationOptions} = ComputationOptions(),
+        modal=nothing, modal_options::Union{NamedTuple, ComputationOptions}=ComputationOptions()
 )
     options = options isa NamedTuple ? ComputationOptions(options) : options
+    modal===nothing || return compute(problem,formulations,
+        LineCableModels.ModalAnalysisFormulation(modal);options,modal_options)
+    isempty(modal_options isa NamedTuple ? modal_options : modal_options.data) ||
+        throw(ArgumentError("modal_options require a modal formulation"))
     return compute(LineCableModelsCoaxial(), problem, formulations; options)
 end
 

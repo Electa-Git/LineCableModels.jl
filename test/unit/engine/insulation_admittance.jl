@@ -85,10 +85,10 @@
     )
 end
 
-@testitem "Engine / dielectric laws promote inputs and enforce composable output" tags=[:unit] setup=[FormulaContractModels] begin
+@testitem "Engine / dielectric laws promote inputs and enforce composable output" tags=[:unit] setup=[FormulaFixtures] begin
     using Measurements: measurement, uncertainty
     const E=LineCableModels.Engine
-    const M=FormulaContractModels
+    const M=FormulaFixtures
     for (owner,
         kind,
         selected) in ((E.InsulationAdmittance, :insulator, M.InsulationLaw()),

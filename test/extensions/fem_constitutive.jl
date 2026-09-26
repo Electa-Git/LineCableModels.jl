@@ -1,4 +1,4 @@
-@testitem "Gmsh FEM / constitutive selection, evaluated state and rejection" tags=[:extension] setup=[FormulaContractModels] begin
+@testitem "Gmsh FEM / constitutive selection, evaluated state and rejection" tags=[:extension] setup=[FormulaFixtures] begin
     using Gmsh, Measurements
     const FEM = Base.get_extension(LineCableModels, :LineCableModelsGmshExt)
     const FD = LineCableModels.Earth.FrequencyDependent
@@ -10,9 +10,9 @@
     system = build(LineCableSystem, design, (0.0,-0.1); connections=Dict(:core=>1))
     problem = LineParametersProblem(system; temperature=80.0, frequencies=[50.0,1000.0],
         earth_props=homogeneous(rho=100.0, eps_r=10.0))
-    soil_law=FormulaContractModels.DispersiveSoil()
-    temperature_law=FormulaContractModels.ExponentialResistivity()
-    dielectric_law=FormulaContractModels.OhmicDielectric()
+    soil_law=FormulaFixtures.DispersiveSoil()
+    temperature_law=FormulaFixtures.ExponentialResistivity()
+    dielectric_law=FormulaFixtures.OhmicDielectric()
     formulation=LineCableModelsFEM(earth_properties=soil_law,
         temperature_dependence=temperature_law,insulation_admittance=dielectric_law)
     model = FEM._resolved_fem_model(problem, formulation)
@@ -60,7 +60,7 @@
     @test_throws LineCableModelsFEMError FEM._resolved_fem_model(conducting_limit,LineCableModelsFEM())
 end
 
-@testitem "Gmsh FEM / metallic enclosure solves and reduces without a pipe formula" tags=[:extension,:integration,:fem_numerical] setup=[FormulaContractModels] begin
+@testitem "Gmsh FEM / metallic enclosure solves and reduces without a pipe formula" tags=[:extension,:integration,:fem_numerical] setup=[FormulaFixtures] begin
     using Gmsh, LinearAlgebra
     copper = Material(:conductor,1.72e-8,1,1,20,0.004)
     dielectric = Material(:insulator,1e14,2.3)
@@ -103,7 +103,7 @@ end
     @test result.Y.values ≈ reference.Y.values rtol=2e-9
 end
 
-@testitem "Gmsh FEM / real constitutive laws match independent static material solves" tags=[:extension,:integration,:fem_numerical] setup=[FormulaContractModels] begin
+@testitem "Gmsh FEM / real constitutive laws match independent static material solves" tags=[:extension,:integration,:fem_numerical] setup=[FormulaFixtures] begin
     using Gmsh
     const FEM = Base.get_extension(LineCableModels, :LineCableModelsGmshExt)
     const FD = LineCableModels.Earth.FrequencyDependent
@@ -136,7 +136,7 @@ end
         @test actual.Z.values ≈ reference.Z.values rtol=2e-9
         @test actual.Y.values ≈ reference.Y.values rtol=2e-9
     end
-    soil_law=FormulaContractModels.DispersiveSoil()
+    soil_law=FormulaFixtures.DispersiveSoil()
     air = EarthLayer(Inf,1.5,1.2,Inf)
     earth = EarthModel(100.0,10.0,1.0; air_layer=air)
     problem = LineParametersProblem(system; frequencies=[50.0,1000.0],earth_props=earth)

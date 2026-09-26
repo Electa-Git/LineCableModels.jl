@@ -1,4 +1,4 @@
-@testitem "Engine / option grammar / owner dispatch contract" tags=[:unit] setup=[
+@testitem "Engine / option grammar / owner dispatch" tags=[:unit] setup=[
     UseEngineSupport
 ] begin
     const Grammar=LineCableModels.Grammar

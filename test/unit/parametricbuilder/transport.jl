@@ -69,4 +69,4 @@
 end
 
 # Current result-family transport is exercised above. Retired terminology,
-# filenames and exact consumer-method inventories are not API contracts.
+# filenames and exact consumer-method inventories do not define the API.

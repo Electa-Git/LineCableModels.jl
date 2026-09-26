@@ -123,24 +123,30 @@ function observation_product(points::Union{Tuple,AbstractVector{<:ObservedResult
         product=observation_product(point,request)
         c=product.coordinates
         c.kind==coordinate.kind || throw(ArgumentError("overlaid products require the same coordinate kind"))
-        if c.kind in (:matrix,:diagonal)
-            Set(c.rows)==Set(coordinate.rows) && Set(c.columns)==Set(coordinate.columns) ||
+        if c.kind in (:matrix,:diagonal,:vector)
+            aligned=c.kind===:vector ? Set(c.positions)==Set(coordinate.positions) :
+                Set(c.rows)==Set(coordinate.rows) && Set(c.columns)==Set(coordinate.columns)
+            aligned ||
                 throw(DimensionMismatch("overlaid products must retain the requested original coefficients"))
-            if c.rows!=coordinate.rows || c.columns!=coordinate.columns
+            reordered=c.kind===:vector ? c.positions!=coordinate.positions :
+                c.rows!=coordinate.rows || c.columns!=coordinate.columns
+            if reordered
                 identity=request_identity(product.request)
                 prefix=identity isa Tuple ? identity : (identity,)
-                indices=c.kind===:matrix ? (coordinate.rows,coordinate.columns,Colon()) : (coordinate.rows,Colon())
+                indices=c.kind===:matrix ? (coordinate.rows,coordinate.columns,Colon()) :
+                    c.kind===:vector ? (coordinate.positions,Colon()) : (coordinate.rows,Colon())
                 product=_selected_product(product,(prefix...,indices...),indices)
             end
         end
         if selections!==nothing
             c=product.coordinates
-            c.kind in (:matrix,:diagonal) || throw(ArgumentError(
-                "retained band selection requires frequency matrix or diagonal coordinates"))
+            c.kind in (:matrix,:diagonal,:vector) || throw(ArgumentError(
+                "retained band selection requires frequency coordinates"))
             samples=filter(in(selections[index]),c.samples)
             identity=request_identity(product.request)
             prefix=identity isa Tuple ? identity : (identity,)
-            indices=c.kind===:matrix ? (c.rows,c.columns,samples) : (c.rows,samples)
+            indices=c.kind===:matrix ? (c.rows,c.columns,samples) :
+                c.kind===:vector ? (c.positions,samples) : (c.rows,samples)
             product=_selected_product(product,(prefix...,indices...),indices)
         end
         detach(_reexpress_product(product;unit=target,frequency_unit=frequency_target))
@@ -182,7 +188,7 @@ function _retained_band_samples(points,request,band,reference_id)
     end
 end
 
-# Direct owner dispatch obeys the same retained-input boundary as construction.
+# Direct owner dispatch obeys the same retained-input requirements as construction.
 function observation_quantity(source::ObservedResult,request;unit=nothing,clip=nothing,atol=nothing,frequencies=nothing)
     atol===nothing && frequencies===nothing || throw(ArgumentError("retained quantities cannot apply new cutoffs or samples"))
     product=observation_product(source,request;unit)

@@ -4,6 +4,9 @@
     observed=ObservedResult(source)
     const stages=Symbol[]
     struct StageReport <: RB.AbstractReportDefinition end
+    struct Selected
+        observed::ObservedResult
+    end
     struct Tabulated
         observed::ObservedResult
     end
@@ -13,7 +16,11 @@
     struct Encoded
         illustration::Illustrated
     end
-    RB.tabulate(::StageReport,point::ObservedResult;reference=nothing) = begin
+    RB.select(::StageReport,point::ObservedResult;reference=nothing) = begin
+        push!(stages,:select); Selected(point)
+    end
+    RB.tabulate(::StageReport,point::ObservedResult,selected::Selected;reference=nothing) = begin
+        @test selected.observed===point
         push!(stages,:tabulate); Tabulated(point)
     end
     RB.illustrate(::StageReport,point,tables::Tabulated;reference=nothing) = begin
@@ -28,7 +35,10 @@
         push!(stages,:write);encoded
     end
     artifact=report(StageReport(),observed)
-    @test stages==[:tabulate,:illustrate,:encode,:write]
+    @test stages==[:select,:tabulate,:illustrate,:encode,:write]
+    empty!(stages)
+    @test RB.tabulate(StageReport(),observed).observed===observed
+    @test stages==[:select,:tabulate]
     @test artifact.observed===observed
     @test artifact.reference===nothing
     @test artifact.tables.observed===observed
@@ -41,6 +51,7 @@
     artifact=report(definition,observed)
     @test illustrated[]===observed
     @test artifact.tables.Z.R[!,2]==[1000.,1000.]
+    @test RB.tabulate(definition,observed)==artifact.tables
     @test report(TableReportDefinition(),source).observed isa ObservedResult
 end
 

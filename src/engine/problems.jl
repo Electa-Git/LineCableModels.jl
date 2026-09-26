@@ -41,6 +41,7 @@ end
 
 Base.eltype(::LineParametersProblem{T}) where {T} = T
 Base.eltype(::Type{LineParametersProblem{T}}) where {T} = T
+line_length(problem::LineParametersProblem) = line_length(problem.system)
 
 function validate(problem::LineParametersProblem)
     validate(problem.system)

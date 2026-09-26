@@ -34,11 +34,11 @@
             (value isa Function && Base.Docs.hasdoc(parentmodule(value), nameof(value)))
     end
 
-    # Exact external contracts, classified in docs/src/developers.md. Public
+    # Exact external methods, classified in docs/src/developers.md. Public
     # annotations alone miss documented qualified APIs. The one layout removal
     # workaround is explicitly recommended by its upstream maintainer; it is
     # not a general permission to consume Makie or package-owned internals.
-    function external_contract(consumer, owner, name)
+    function supported_external_access(consumer, owner, name)
         consumer === LineCableModels.Engine && owner === Base && name === :unalias &&
             Base.Docs.hasdoc(Base, :unalias) && return true
         consumer === cairo && owner === CairoMakie && name === :activate! && return true
@@ -56,7 +56,8 @@
     test_explicit_imports(LineCableModels; all_qualified_accesses_are_public=false)
     extension = Base.get_extension(LineCableModels, :LineCableModelsGmshExt)
     unexpected = String[]
-    for (consumer, accesses) in improper_qualified_accesses(LineCableModels; skip=())
+    for (consumer, accesses) in improper_qualified_accesses(
+            LineCableModels; skip=(), allow_internal_accesses=false)
         for row in accesses
             row.public_access && continue
             row.self_qualified && continue # Covered by the existing separate check.
@@ -64,24 +65,47 @@
             row.accessing_from === Logging && documented_fem_access(Logging, row.name) && continue
             consumer === LineCableModels.ImportExport && row.accessing_from === JSON3 && documented_fem_access(JSON3, row.name) && continue
             consumer === extension && documented_fem_access(row.accessing_from, row.name) && continue
-            external_contract(consumer, row.accessing_from, row.name) && continue
+            supported_external_access(consumer, row.accessing_from, row.name) && continue
             push!(unexpected, "$(row.accessing_from).$(row.name) at $(row.location)")
         end
     end
     @test unexpected == String[]
+    mktempdir() do directory
+        path=joinpath(directory,"OwnershipProbe.jl")
+        write(path,"""module OwnershipProbe
+module Owner
+    private_value() = 1
+end
+module Consumer
+    using ..Owner
+    value() = Owner.private_value()
+end
+end
+""")
+        probe=Base.include(Main,path)
+        omitted=Base.invokelatest(improper_qualified_accesses,probe,path;
+            skip=(),allow_internal_accesses=true)
+        @test all(isempty(accesses) for (_,accesses) in omitted)
+        checked=Base.invokelatest(improper_qualified_accesses,probe,path;
+            skip=(),allow_internal_accesses=false)
+        owner=Base.invokelatest(getfield,probe,:Owner)
+        @test any(row -> row.accessing_from===owner &&
+            row.name===:private_value && !row.public_access,
+            Iterators.flatten(accesses for (_,accesses) in checked))
+    end
     @test documented_fem_access(Gmsh.gmsh.model, :add_physical_group)
     @test !documented_fem_access(Gmsh.gmsh.model, :_unregistered_helper)
     @test !documented_fem_access(LineCableModels.Engine, :compute)
     @test !documented_fem_access(JSON3, :StructTypes)
-    @test external_contract(renderer, CairoMakie.Makie, :get_ticks)
-    @test external_contract(renderer, CairoMakie.Makie, :inverse_transform)
-    @test external_contract(renderer, CairoMakie.Makie, :CategoricalConversion)
-    @test external_contract(renderer, CairoMakie.Makie, :defaultlimits)
-    @test external_contract(LineCableModels.Engine, Base, :unalias)
-    @test !external_contract(renderer, Base, :unalias)
-    @test !external_contract(LineCableModels.Engine, CairoMakie.Makie, :inverse_transform)
-    @test !external_contract(LineCableModels.Engine, CairoMakie.Makie, :get_ticks)
-    @test !external_contract(renderer, CairoMakie.Makie, :get_plot_visibilities)
-    @test !external_contract(renderer, CairoMakie.Makie, :fast_string_boundingboxes_obs)
-    @test !external_contract(renderer, LineCableModels.Engine, :compute)
+    @test supported_external_access(renderer, CairoMakie.Makie, :get_ticks)
+    @test supported_external_access(renderer, CairoMakie.Makie, :inverse_transform)
+    @test supported_external_access(renderer, CairoMakie.Makie, :CategoricalConversion)
+    @test supported_external_access(renderer, CairoMakie.Makie, :defaultlimits)
+    @test supported_external_access(LineCableModels.Engine, Base, :unalias)
+    @test !supported_external_access(renderer, Base, :unalias)
+    @test !supported_external_access(LineCableModels.Engine, CairoMakie.Makie, :inverse_transform)
+    @test !supported_external_access(LineCableModels.Engine, CairoMakie.Makie, :get_ticks)
+    @test !supported_external_access(renderer, CairoMakie.Makie, :get_plot_visibilities)
+    @test !supported_external_access(renderer, CairoMakie.Makie, :fast_string_boundingboxes_obs)
+    @test !supported_external_access(renderer, LineCableModels.Engine, :compute)
 end

@@ -41,6 +41,8 @@ export ncables, nphases
 
 public AssemblyMember, AssemblyShape, BentStrip, BoundedPlacement, EnclosureBoundary
 public geometry_tolerance
+public equivalent_dielectric_permeability, radial_components, radial_position,
+       conductor_zone_position, same_radial_position, bounded_members
 public DifferenceShape, EllipseOffset, ShellShape, SectorShape
 
 # Module-specific dependencies
@@ -53,6 +55,7 @@ import ..Units
 import ..Grammar
 import ..TextDisplay
 import ..LineCableModels: add!, build, homogenize, validate, nominal, uncertainty
+import ..LineCableModels: line_length
 import ..LineCableModels: parameterize
 import ..LineCableModels: Gridpoint, materialize, realize, realize_arguments
 import Random

@@ -1,7 +1,7 @@
 # Ownership is checked on actual loaded bindings by quality/explicit_imports.jl.
 # Lowering and reuse counts run through compute in integration/formulation_grid.jl
 # and integration/line_parameters.jl. Source spelling, directory layout and
-# absence of superseded helpers are not current architectural contracts.
+# absence of superseded helpers are not current architecture requirements.
 @testitem "Core / architecture / earth models are immutable values" tags=[:unit] begin
     earth=@earth begin
         layer(rho = 100.0, thickness = 5.0)

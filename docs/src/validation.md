@@ -24,7 +24,7 @@ materializes, and computation entry points check their complete problem again.
 ## Validation failures
 
 Construction and mutation check complete values before returning or changing
-them. Rechecking at a numerical boundary detects changes to mutable vectors or
+them. Rechecking at computation entry points detects changes to mutable vectors or
 dictionaries retained by an otherwise immutable object.
 
 The failure type communicates the category:

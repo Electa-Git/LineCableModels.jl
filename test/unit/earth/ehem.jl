@@ -1,5 +1,5 @@
 @testitem "Earth / explicit reduction and FrequencyDependent order through public compute" tags=[:unit] setup=[
-    TestFixtures, FormulaContractModels] begin
+    TestFixtures, FormulaFixtures] begin
     const E=LineCableModels.Engine
     const EP=LineCableModels.Earth
     system=TestFixtures.three_phase_system()
@@ -15,8 +15,8 @@
         system; earth_props = homogeneous(rho = 500.0, eps_r = 20.0), frequencies = [50.0])
     @test reduced.Z.values ≈ compute(homogeneous_problem, Formulation()).Z.values
     events=Symbol[]
-    law=FormulaContractModels.DispersiveEarth(scale = 50.0, events = events)
-    reduction=FormulaContractModels.SquaredBottomEarth(events)
+    law=FormulaFixtures.DispersiveEarth(scale = 50.0, events = events)
+    reduction=FormulaFixtures.SquaredBottomEarth(events)
     for order in (:before, :after)
         empty!(events)
         empty!(reduction.workspaces)

@@ -1,7 +1,7 @@
 @testitem "Engine / insulation formulations / analytical limits across precision" tags=[:unit] setup=[
     UseEngineSupport,
     TestNumerics,
-    FormulaContractModels
+    FormulaFixtures
 ] begin
 
     impedance_formulation=InsulationImpedance.Formula(:default)
@@ -63,8 +63,8 @@
         end
     end
 
-    experimental_impedance=FormulaContractModels.InsulationReactance()
-    experimental_admittance=FormulaContractModels.InsulationLaw()
+    experimental_impedance=FormulaFixtures.InsulationReactance()
+    experimental_admittance=FormulaFixtures.InsulationLaw()
     @test @inferred(experimental_impedance(0.01, 0.02, 1.0, 2.0im)) == 4.0im
     @test_throws DomainError experimental_impedance(-0.01, 0.02, 1.0, 2.0im)
     @test_throws DomainError experimental_impedance(0.01, 0.02, -1.0, 2.0im)
@@ -75,7 +75,7 @@
 end
 
 @testitem "Engine / internal impedance / passivity and solid-conductor limits" tags=[:unit] setup=[
-    UseEngineSupport,FormulaContractModels
+    UseEngineSupport,FormulaFixtures
 ] begin
     formulation=InternalImpedance.Formula(:default)
     @test occursin("Schelkunoff", description(formulation))
@@ -108,7 +108,7 @@ end
     @test real(solid_outer) > 0
     @test_throws ArgumentError interaction(:unsupported)
 
-    custom_inner=FormulaContractModels.SurfaceLaw(kinds=(:inner,),coefficients=(inner=7+0im,))
+    custom_inner=FormulaFixtures.SurfaceLaw(kinds=(:inner,),coefficients=(inner=7+0im,))
     experiment=(inner=custom_inner,outer=formulation,transfer=formulation)
     experimental=InternalImpedance.surface_impedances(experiment,
         r_in,r_ex,rho,relative_permeability,s)

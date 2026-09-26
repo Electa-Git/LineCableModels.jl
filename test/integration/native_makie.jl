@@ -5,14 +5,15 @@
 
     extension=Base.get_extension(LineCableModels, :LineCableModelsMakieExt)
     for material in (
-        Material(kind=:conductor, rho=1.7241e-8),
-        Material(kind=:insulator, rho=1e14, eps_r=3.5),
-        RadialDielectric([Material(:insulator, 1e14, 3.5),
+        Material(kind = :conductor, rho = 1.7241e-8),
+        Material(kind = :insulator, rho = 1e14, eps_r = 3.5),
+        RadialDielectric(
+        [Material(:insulator, 1e14, 3.5),
             Material(:semicon, 1e5, 1000.0)], [0.6, 0.1]),
-        Material(kind=:semicon, rho=0.06, eps_r=1000.0),
-        Material(kind=:conductor, rho=1e-7, mu_r=100.0),
-        layer(rho=100.0, eps_r=10.0),
-        layer(rho=100.0, eps_r=10.0, mu_r=2.0),
+        Material(kind = :semicon, rho = 0.06, eps_r = 1000.0),
+        Material(kind = :conductor, rho = 1e-7, mu_r = 100.0),
+        layer(rho = 100.0, eps_r = 10.0),
+        layer(rho = 100.0, eps_r = 10.0, mu_r = 2.0)
     )
         base=if material isa EarthLayer
             extension._earth_color(material.rho)
@@ -24,25 +25,26 @@
             extension._semicon_color(material.rho)
         end
         expected=extension._magnetic_overlay(base, material.mu_r)
-        actual=extension._material_color(material; alpha=0.25)
+        actual=extension._material_color(material; alpha = 0.25)
         @test actual == extension.RGBA(expected, 0.25)
         @test actual.alpha == 0.25
     end
-    uncertain=Material(kind=:conductor, rho=measurement(1.7241e-8, 1e-10))
+    uncertain=Material(kind = :conductor, rho = measurement(1.7241e-8, 1e-10))
     @test extension._material_color(uncertain) == extension._material_color(
-        Material(kind=:conductor, rho=1.7241e-8))
-    uncertain_earth=layer(rho=measurement(100.0, 1.0), eps_r=10.0)
+        Material(kind = :conductor, rho = 1.7241e-8))
+    uncertain_earth=layer(rho = measurement(100.0, 1.0), eps_r = 10.0)
     @test extension._material_color(uncertain_earth) == extension._material_color(
-        layer(rho=100.0, eps_r=10.0))
-    @test_throws MethodError extension._material_color((rho=100.0, eps_r=10.0, mu_r=1.0))
+        layer(rho = 100.0, eps_r = 10.0))
+    @test_throws MethodError extension._material_color((
+        rho = 100.0, eps_r = 10.0, mu_r = 1.0))
     source = @cable "homogeneous-preview" begin
         @terminal :core begin
             solid(Material(:conductor, 1.72e-8), Disk(0.01))
-            screen(Material(:semicon, 1e5, 1000.0); t=0.001)
-            insulation(Material(:insulator, 1e14, 3.5); t=0.005)
+            screen(Material(:semicon, 1e5, 1000.0); t = 0.001)
+            insulation(Material(:insulator, 1e14, 3.5); t = 0.005)
         end
     end
-    plot = preview(homogenize(source); backend=:cairo, display_plot=false, controls=false)
+    plot = preview(homogenize(source); backend = :cairo, display_plot = false, controls = false)
     @test !isempty(Makie.colorbuffer(plot.figure))
     @test length(plot.axes) == 1
 end
@@ -52,32 +54,34 @@ end
 ] begin
     using CairoMakie
 
-    copper = Material(kind=:conductor, rho=1.7241e-8)
-    insulation_material = Material(kind=:insulator, rho=1e14, eps_r=3.5)
-    design = @cable "colorbar-endpoints" begin
+    copper=Material(kind = :conductor, rho = 1.7241e-8)
+    insulation_material=Material(kind = :insulator, rho = 1e14, eps_r = 3.5)
+    design=@cable "colorbar-endpoints" begin
         @terminal :core begin
-            core(copper; r=3e-3)
-            insulation(insulation_material; t=1e-3)
+            core(copper; r = 3e-3)
+            insulation(insulation_material; t = 1e-3)
         end
     end
 
     function ticklabels_fit(plot)
         Makie.colorbuffer(plot.figure)
-        viewport = plot.figure.scene.viewport[]
+        viewport=plot.figure.scene.viewport[]
         return all(plot.colorbars) do colorbar
-            bounds = Makie.boundingbox(colorbar.axis.elements[:ticklabels], :data)
-            all(>(0), colorbar.layoutobservables.computedbbox[].widths) && all(1:2) do dimension
-                bounds.origin[dimension] >= viewport.origin[dimension] - 0.5 &&
-                    bounds.origin[dimension] + bounds.widths[dimension] <=
-                    viewport.origin[dimension] + viewport.widths[dimension] + 0.5
+            bounds=Makie.boundingbox(colorbar.axis.elements[:ticklabels], :data)
+            all(>(0), colorbar.layoutobservables.computedbbox[].widths)&&all(1:2) do dimension
+                bounds.origin[dimension]>=viewport.origin[dimension]-0.5&&
+                bounds.origin[dimension]+bounds.widths[dimension]<=
+                viewport.origin[dimension]+viewport.widths[dimension]+0.5
             end
         end
     end
 
-    @testset "$position / vertical=$vertical" for position in (:left, :right, :top, :bottom), vertical in (false, true)
-        plot = preview(design; backend=:cairo, display_plot=false, controls=false,
-            size=(850, 650), legend_position=position, colorbar_position=position,
-            colorbar_attributes=(; vertical))
+    @testset "$position / vertical=$vertical" for position in (:left, :right, :top, :bottom),
+        vertical in (false, true)
+
+        plot = preview(design; backend = :cairo, display_plot = false, controls = false,
+            size = (850, 650), legend_position = position, colorbar_position = position,
+            colorbar_attributes = (; vertical))
         @test ticklabels_fit(plot)
         colorbar = first(plot.colorbars)
         colorbar.ticks[] = (collect(colorbar.limits[]),
@@ -89,31 +93,31 @@ end
         # complete guide stack's minimum width. It must not snap back or
         # silently shrink/reflow the requested scale arrangement.
         resize!(plot.figure, 700, 650)
-        @test Tuple(plot.figure.scene.viewport[].widths)==(700,650)
-        if position in (:top,:bottom) && !vertical
-            group=plot.addon_state.guides[(:colorbars,nothing)].layout[]
+        @test Tuple(plot.figure.scene.viewport[].widths)==(700, 650)
+        if position in (:top, :bottom) && !vertical
+            group=plot.addon_state.guides[(:colorbars, nothing)].layout[]
             @test group.layoutobservables.autosize[][1]>700
             @test colorbar.ticklabelsize[]==20
             @test colorbar.ticklabelrotation[]≈pi/8
-            extension=Base.get_extension(LineCableModels,:LineCableModelsMakieExt)
-            extension._addon_export_presentation!(plot,:default) do
+            extension=Base.get_extension(LineCableModels, :LineCableModelsMakieExt)
+            extension._addon_export_presentation!(plot, :default) do
                 @test ticklabels_fit(plot) # temporary fit includes complete content
             end
-            @test Tuple(plot.figure.scene.viewport[].widths)==(700,650)
+            @test Tuple(plot.figure.scene.viewport[].widths)==(700, 650)
         else
             @test ticklabels_fit(plot)
         end
     end
 
-    late = preview(design; backend=:cairo, display_plot=false, controls=false,
-        display_legend=false, colorbar_attributes=(; vertical=true))
+    late=preview(design; backend = :cairo, display_plot = false, controls = false,
+        display_legend = false, colorbar_attributes = (; vertical = true))
     @test ticklabels_fit(late)
-    figurelegend!(late; position=:right, overflow=:show_all)
+    figurelegend!(late; position = :right, max_fraction = 0.5)
     @test ticklabels_fit(late)
 
-    figure = Figure(size=(500, 300))
-    scheme = materialcolors(:rho, (1.7241e-8, 2.5e-7))
-    scale = materialscale!(figure[1, 1], scheme; vertical=false, alignmode=Inside())
+    figure=Figure(size = (500, 300))
+    scheme=materialcolors(:rho, (1.7241e-8, 2.5e-7))
+    scale=materialscale!(figure[1, 1], scheme; vertical = false, alignmode = Inside())
     @test scale.alignmode[] isa Inside
 end
 
@@ -123,10 +127,10 @@ end
     get(ENV,
         "LINECABLEMODELS_TEST_PLOTTING",
         "false")=="true"||
-    error("set LINECABLEMODELS_TEST_PLOTTING=true to run the visual contract")
+    error("set LINECABLEMODELS_TEST_PLOTTING=true to run the visual test")
     using CairoMakie
 
-    legend_labels(legend)=[entry.label[] for entry in last(first(legend.entrygroups[]))]
+    legend_labels(legend) = [entry.label[] for entry in last(first(legend.entrygroups[]))]
 
     frequency=[50.0, 100.0, 500.0]
     parameters=TestFixtures.two_conductor_results(; frequencies = frequency)
@@ -183,7 +187,8 @@ end
     @test stacked_complex isa Vector{UIPlot}
     @test [only(page.axes).title[] for page in stacked_complex] ==
           ["Self resistance", "Self reactance"]
-    @test all(Set(keys(page.addon_state.panel_data))==Set(((1,1),)) for page in stacked_complex)
+    @test all(Set(keys(page.addon_state.panel_data))==Set(((1, 1),))
+    for page in stacked_complex)
 
     individual=Makie.plot(
         parameters,
@@ -215,8 +220,9 @@ end
         layout = (2, 1)
     )
     @test length(stacked_all) == 8
-    @test all(Set(keys(page.addon_state.panel_data))==Set(((1,mod1(index,2)),(2,mod1(index,2))))
-        for (index,page) in enumerate(stacked_all))
+    @test all(Set(keys(page.addon_state.panel_data))==Set((
+                  (1, mod1(index, 2)), (2, mod1(index, 2))))
+    for (index, page) in enumerate(stacked_all))
 
     one_quantity=Makie.plot(
         parameters,
@@ -254,8 +260,10 @@ end
     @test compared_self isa Vector{UIPlot}
     @test length(compared_self) == 2
     @test all(length(page.axes) == 1 for page in compared_self)
-    @test all(legend_labels(page.legend) == ["reference", "candidate"] for page in compared_self)
-    @test all(Set(keys(page.addon_state.groups)) == Set((:result_1, :result_2)) for page in compared_self)
+    @test all(legend_labels(page.legend) == ["reference", "candidate"]
+    for page in compared_self)
+    @test all(Set(keys(page.addon_state.groups)) == Set((:result_1, :result_2))
+    for page in compared_self)
 
     three_sources=Makie.plot(
         parameters,
@@ -268,7 +276,7 @@ end
         controls = false
     )
     @test all(legend_labels(page.legend) ==
-          ["reference", "candidate A", "candidate B"] for page in three_sources)
+              ["reference", "candidate A", "candidate B"] for page in three_sources)
 
     different_frequency=TestFixtures.two_conductor_results(
         ;
@@ -283,7 +291,8 @@ end
         controls = false
     )
     @test asynchronous isa Vector{UIPlot}
-    @test all(legend_labels(page.legend) == ["three samples", "four samples"] for page in asynchronous)
+    @test all(legend_labels(page.legend) == ["three samples", "four samples"]
+    for page in asynchronous)
 
     combined=Makie.plot(
         (; reference = parameters, candidate = parameters),
@@ -293,11 +302,13 @@ end
         layout = (2, 2),
         legend_position = :bottom,
         legend_attributes = (; orientation = :horizontal),
-        legend_overflow = :show_all
+        legend_cap = 0.5
     )
     @test combined isa UIPlot
     @test length(combined.axes) == 4
-    @test all(axis -> axis.yticklabelsvisible[] && axis.yticksvisible[] && axis.ylabelvisible[], combined.axes)
+    @test all(
+        axis -> axis.yticklabelsvisible[] && axis.yticksvisible[] &&
+                axis.ylabelvisible[], combined.axes)
     @test combined.legend.orientation[] == :horizontal
     @test legend_labels(combined.legend) == ["reference", "candidate"]
 
@@ -316,7 +327,7 @@ end
             display_plot = false,
             legend_position = position,
             legend_attributes = (; orientation),
-            legend_overflow = :show_all
+            legend_cap = 0.5
         )
         @test placed.legend.orientation[] == orientation
     end
@@ -324,7 +335,7 @@ end
     titled_inside=Makie.plot(
         parameters,
         parameters,
-        ((R,1,1:2,:),);
+        ((R, 1, 1:2, :),);
         series_labels = ("reference", "candidate"),
         backend = :cairo,
         display_plot = false,
@@ -332,9 +343,9 @@ end
         figure_title = "Cable impedance",
         panel_titles = ("Resistance", "Mutual resistance"),
         legend_position = :inside,
-        legend_attributes=(halign=:left,valign=:top),
+        legend_attributes = (halign = :left, valign = :top),
         legend_title = "Result set",
-        legend_overflow = :show_all
+        legend_cap = 0.5
     )
     Makie.colorbuffer(titled_inside.figure)
     @test titled_inside.title.text[] == "Cable impedance"
@@ -364,15 +375,15 @@ end
         position = :right,
         title = "Renamed results",
         legend_labels = Dict(:result_1=>"baseline"),
-        overflow = :show_all
+        max_fraction = 0.5
     )
     @test first(only(titled_inside.legend.entrygroups[])) == "Renamed results"
     @test legend_labels(titled_inside.legend) == ["baseline", "candidate"]
     figurelegend!(
         titled_inside;
         position = :inside,
-        halign=:right,valign=:bottom,
-        overflow = :show_all
+        halign = :right, valign = :bottom,
+        max_fraction = 0.5
     )
     @test titled_inside.legend.halign[] == :right
     @test titled_inside.legend.valign[] == :bottom
@@ -381,10 +392,10 @@ end
         titled_inside,
         (1, 1);
         position = :inside,
-        halign=:left,valign=:bottom,
+        halign = :left, valign = :bottom,
         title = "Resistance results",
         legend_labels = ("base R", "candidate R"),
-        overflow = :show_all
+        max_fraction = 0.5
     )
     Makie.colorbuffer(titled_inside.figure)
     panel_inside=titled_inside.panel_legends[(1, 1)]
@@ -399,7 +410,7 @@ end
     @test titled_inside.addon_state.shell.status[] ==
           "Axis limits fitted to visible series"
     Makie.toggle_visibility!(first_panel_entry)
-    panellegend!(titled_inside, (1, 1); position = :right, overflow = :show_all)
+    panellegend!(titled_inside, (1, 1); position = :right, max_fraction = 0.5)
     @test titled_inside.panel_legends[(1, 1)].orientation[] == :vertical
 
     paneltitle!(titled_inside, (1, 2), nothing)
@@ -417,6 +428,9 @@ end
     )
     @test [page.title.text[] for page in per_page_titles] ==
           ["Resistance dashboard", "Reactance dashboard"]
+    @test_throws DimensionMismatch Makie.plot(parameters, (R, X);
+        backend = :cairo, display_plot = false, controls = false,
+        figure_title = ("only one title",))
 
     @test_throws DimensionMismatch Makie.plot(
         parameters,
@@ -425,7 +439,8 @@ end
         display_plot = false,
         panel_titles = ("only one",)
     )
-    small_capacity=Makie.plot(parameters,(R,);backend=:cairo,display_plot=false,layout=(1,3))
+    small_capacity=Makie.plot(
+        parameters, (R,); backend = :cairo, display_plot = false, layout = (1, 3))
     @test length(small_capacity)==2
     @test all(length(page.axes)==2 for page in small_capacity)
 
@@ -452,7 +467,7 @@ end
     @test all(axis -> axis.xscale[] === Makie.identity, automatic_page.axes)
     @test occursin("10", sprint(show, first_axis.ylabel[]))
 
-    include(joinpath(pkgdir(LineCableModels),"test/support/scenarios.jl"))
+    include(joinpath(pkgdir(LineCableModels), "test/support/scenarios.jl"))
     design=CurrentScenarios.coaxial_design()
 
     cable=preview(
@@ -491,7 +506,7 @@ end
         display_legend = false
     )
     @test late_legend_cable.legend === nothing
-    figurelegend!(late_legend_cable; position = :right, overflow = :show_all)
+    figurelegend!(late_legend_cable; position = :right, max_fraction = 0.5)
     Makie.colorbuffer(late_legend_cable.figure)
     late_legend_bounds=late_legend_cable.legend.layoutobservables.computedbbox[]
     late_colorbar_bounds=[colorbar.layoutobservables.computedbbox[]
@@ -503,7 +518,7 @@ end
         late_legend_cable;
         position = :top,
         orientation = :horizontal,
-        overflow = :show_all
+        max_fraction = 0.5
     )
     Makie.colorbuffer(late_legend_cable.figure)
     @test late_legend_cable.legend.orientation[] == :horizontal
@@ -610,10 +625,10 @@ end
     background_before=combined.figure.scene.backgroundcolor[]
     font_before=combined.figure.scene.theme[:fonts][:regular][]
     reset_visible_before=combined.controls[:reset].blockscene.visible[]
-    extension._addon_export_presentation!(combined,:publication) do
+    extension._addon_export_presentation!(combined, :publication) do
         @test !combined.controls[:reset].blockscene.visible[]
-        publication_font=Makie.to_font(combined.figure.scene.theme[:fonts],:regular)
-        @test occursin("NewComputerModern",sprint(show,publication_font))
+        publication_font=Makie.to_font(combined.figure.scene.theme[:fonts], :regular)
+        @test occursin("NewComputerModern", sprint(show, publication_font))
     end
     @test root.rowsizes == row_sizes_before
     @test root.default_rowgap == row_gap_before

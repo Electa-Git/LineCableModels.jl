@@ -32,7 +32,7 @@ import ...LineCableModels: description
 
 include("interface.jl")
 
-public equivalent_material, AbstractRule
+public equivalent_material, AbstractRule, AbstractSequence
 
 #! explicit-imports: off
 const FORMULAS = (

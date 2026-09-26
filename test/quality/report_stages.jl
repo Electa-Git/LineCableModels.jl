@@ -1,4 +1,4 @@
-@testitem "Quality / report orchestration / observed protocol calls" tags=[:quality] setup=[TestFixtures] begin
+@testitem "Quality / report stage order / observed protocol calls" tags=[:quality] setup=[TestFixtures] begin
     using Measurements, Statistics
     const RB=LineCableModels.ReportBuilder
     line=TestFixtures.two_conductor_results()
@@ -10,13 +10,15 @@
         (XLSXReportDefinition(),ObservedResult(line)),
         (TableReportDefinition((R,)),ObservedResult(cable)))
     for (definition,observed) in cases
+        @test applicable(RB.select,definition,observed)
         @test applicable(RB.tabulate,definition,observed)
+        @test RB.select(definition,observed) !== nothing
         @test RB.tabulate(definition,observed) !== nothing
         @test which(report,(typeof(definition),typeof(observed))).module === RB
     end
     benchmark=report(RB.BenchmarkTableDefinition(bands=(:all,)),(reference=line,candidate=line))
     @test RB.tabulate(RB.BenchmarkTableDefinition(bands=(:all,)),benchmark.observed;reference=benchmark.reference) !== nothing
-    # Only tabulation is required; the remaining stages have explicit defaults.
+    # Selection and tabulation are required; the remaining stages have explicit defaults.
     struct UnimplementedReport <: RB.AbstractReportDefinition end
     @test_throws MethodError report(UnimplementedReport(),ObservedResult(line))
     @test_throws MethodError report(UnimplementedReport(),line)

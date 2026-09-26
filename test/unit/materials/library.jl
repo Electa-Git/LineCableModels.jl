@@ -32,7 +32,7 @@
     @test_throws ArgumentError Material(Symbol(""), 1.0)
 end
 
-@testitem "Materials / MaterialsLibrary / dictionary and presentation contracts" tags=[:unit] setup=[
+@testitem "Materials / MaterialsLibrary / dictionary and presentation behavior" tags=[:unit] setup=[
     UseDataModelSupport
 ] begin
     empty_library=MaterialsLibrary(add_defaults = false)

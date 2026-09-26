@@ -50,9 +50,12 @@ function observation_selection(source,selection)
     selection isa Tuple || throw(ArgumentError("selection must be a selector or tuple of requests"))
     isempty(selection) && return ()
     if first(selection) isa Function
+        any(item -> item isa Tuple && !isempty(item) && first(item) isa Function,
+            selection[2:end]) && return selection
         identity=request_identity(selection)
         declared=source isa ObservedResult ? Tuple(request_identity(q.request) for q in source.quantities) : observables(typeof(source))
-        identity in declared && (identity isa Tuple || !isempty(request_indices(selection))) && return (selection,)
+        normalize_observation_selector(identity) in normalize_observation_selector.(declared) &&
+            (identity isa Tuple || !isempty(request_indices(selection))) && return (selection,)
     end
     return selection
 end
@@ -60,7 +63,7 @@ end
 """
 $(TYPEDSIGNATURES)
 
-Normalize retained requests at the observation boundary. Concrete scientific
+Normalize requests for retained observations. Concrete scientific
 owners enforce their complete representations. `complete_pairs=true` is used
 by raw display conveniences; an observed-input consumer only selects retained
 products. The return record separates `retained` from `displayed` requests.
@@ -78,9 +81,24 @@ function observation_requests(source::ObservedResult,requests::Tuple;complete_pa
     displayed=Any[]
     for request in selected
         identity=request_identity(request)
-        family=identity isa Function ? nameof(identity) : nothing
-        products=filter(product -> get(product,:family,nothing)===family &&
-            get(product,:statistic,nothing)===:value,source.quantities)
+        component_selector=normalize_observation_selector(identity)
+        if !isequal(component_selector,identity)
+            prefix=component_selector isa Tuple ? component_selector : (component_selector,)
+            selection=(prefix...,request_indices(request)...)
+            observation_product(source,selection)
+            push!(displayed,selection)
+            continue
+        end
+        selector=identity isa Base.Fix2 ? identity.f : identity
+        family=identity isa Function ? nameof(selector) : nothing
+        products=filter(source.quantities) do product
+            prefix=request_identity(product.request)
+            retained_selector=prefix isa Tuple ? first(prefix) : prefix
+            get(product,:family,nothing)===family &&
+                get(product,:statistic,nothing)===:value &&
+                (identity isa Base.Fix2 ? isequal(retained_selector,identity) :
+                    !(retained_selector isa Base.Fix2))
+        end
         if isempty(products)
             observation_product(source,request)
             push!(displayed,request)
@@ -96,6 +114,7 @@ function observation_requests(source::ObservedResult,requests::Tuple;complete_pa
         end
     end
     result=Tuple(displayed)
+    allunique(result) || throw(ArgumentError("observation requests must be distinct"))
     return (retained=result,displayed=result)
 end
 
@@ -169,7 +188,8 @@ end
 
 function observation_request(observed::ObservedResult,request)
     identity=request_identity(request)
-    any(q -> request_identity(q.request)==identity,observed.quantities) ||
+    any(q -> isequal(normalize_observation_selector(request_identity(q.request)),
+        normalize_observation_selector(identity)),observed.quantities) ||
         throw(ArgumentError("the requested quantity was not retained"))
     return (;identity,quantity=request_quantity(request),indices=request_indices(request))
 end
@@ -227,7 +247,9 @@ Select a retained quantity record and optional original coordinates. Missing or
 ambiguous requests fail; this operation never extracts or derives a quantity.
 """
 function observation_product(observed::ObservedResult,request;unit=nothing,frequency_unit=nothing)
-    matches=filter(q -> request_identity(q.request)==request_identity(request),observed.quantities)
+    identity=normalize_observation_selector(request_identity(request))
+    matches=filter(q -> isequal(normalize_observation_selector(request_identity(q.request)),identity),
+        observed.quantities)
     length(matches)>1 && (matches=filter(q -> q.request==request,matches))
     length(matches)==1 || throw(ArgumentError("requested retained product is absent or ambiguous"))
     product=only(matches)
@@ -238,9 +260,10 @@ end
 
 function _selected_product(product,request,indices)
     c=product.coordinates
-    c.kind in (:matrix,:diagonal,:assemblies,:samples) || throw(ArgumentError("select this retained product by its complete request"))
+    c.kind in (:matrix,:diagonal,:vector,:assemblies,:samples) || throw(ArgumentError("select this retained product by its complete request"))
     matrix=haskey(c,:rows)
-    dimensions=matrix ? c.kind===:diagonal ? (c.rows,c.samples) : (c.rows,c.columns,c.samples) : (c.assemblies,)
+    dimensions=c.kind===:vector ? (c.positions,c.samples) :
+        matrix ? c.kind===:diagonal ? (c.rows,c.samples) : (c.rows,c.columns,c.samples) : (c.assemblies,)
     if c.kind===:samples
         dimensions=(dimensions...,c.trials)
         length(indices)==length(dimensions)-1 && (indices=(indices...,Colon()))
@@ -259,14 +282,16 @@ function _selected_product(product,request,indices)
         position isa Integer ? [dimension[position]] : dimension[position]
     end
     select_values(value)=value isa AbstractArray ? reshape(value,length.(dimensions)...)[positions...] : value
-    sample_axis=matrix ? (c.kind===:diagonal ? 2 : 3) : nothing
+    sample_axis=c.kind===:vector || c.kind===:diagonal ? 2 : matrix ? 3 : nothing
     f=if c.frequencies===nothing || sample_axis===nothing
         c.frequencies
     else
         selected_samples=positions[sample_axis]
         c.frequencies[selected_samples isa Integer ? [selected_samples] : selected_samples]
     end
-    coordinate=matrix ? merge(c,(indices,rows=first(selected_dimensions),
+    coordinate=c.kind===:vector ? merge(c,(indices,positions=first(selected_dimensions),
+        samples=last(selected_dimensions),frequencies=f)) :
+        matrix ? merge(c,(indices,rows=first(selected_dimensions),
         columns=c.kind===:diagonal ? first(selected_dimensions) : selected_dimensions[2],
         samples=selected_dimensions[sample_axis],frequencies=f)) :
         merge(c,(indices,assemblies=first(selected_dimensions)))
@@ -334,7 +359,10 @@ function observation_groups(observed;request,band=nothing,normalization=nothing,
         id=get(point.gridpoint,:id,nothing)
         assumptions=get(product,:assumptions,nothing)
         physical=id===nothing ? nothing : (id.source_id,id.problem_index)
-        key=(physical,assumptions,product.quantity,product.statistic,
+        identity=band===nothing ? request_identity(product.request) : request_identity(request)
+        selector=identity isa Tuple ? first(identity) : identity
+        key=(physical,assumptions,selector isa Base.Fix2 ? identity : nothing,
+            product.quantity,product.statistic,
             get(point.gridpoint,:uncertainty,nothing),product.coordinates,product.basis,
             product.unit,product.thresholds,
             band,normalization,reference,get(product,:interpretation,nothing))
@@ -414,7 +442,9 @@ function observation_labels(observed;request=nothing,fallback=nothing)
     end
     fields=map(points) do point
         retained=get(point.gridpoint,:formulation_fields,(;))
-        family=request===nothing || isempty(retained) ? :all : Units.family(request_quantity(request))===Val(:series) ? :Z : :Y
+        quantity=request===nothing ? nothing : request_quantity(request)
+        family=quantity===nothing || isempty(retained) || !applicable(Units.family,quantity) ?
+            :all : Units.family(quantity)===Val(:series) ? :Z : :Y
         entries=get(retained,family,())
         all(field -> haskey(field,:meaning) && haskey(field,:control_fields),entries) ||
             throw(ArgumentError("retained formulation descriptions lack individual control meanings; capture descriptions with the current completion owner before plotting"))

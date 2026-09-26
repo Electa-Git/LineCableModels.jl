@@ -1,4 +1,4 @@
-# Current API gallery inputs shared with maintained contract tests.
+# Current API gallery inputs shared with maintained rendering tests.
 using LineCableModels
 include(joinpath(@__DIR__,"../../../test/support/scenarios.jl"))
 using .CurrentScenarios

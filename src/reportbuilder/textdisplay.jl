@@ -88,7 +88,7 @@ _report_escape(value)=replace(string(value),'&'=>"&amp;",'<'=>"&lt;",'>'=>"&gt;"
 function _report_line(io,::MIME"text/plain",text;level=0,first=false)
     first || print(io,'\n')
     line=replace(string(text),'\n'=>' ','\r'=>' ')
-    print(io,get(io,:limit,true) ? TextDisplay._fit(line,max(displaysize(io)[2],0)) : line)
+    print(io,get(io,:limit,true) ? TextDisplay.truncate_text(line,max(displaysize(io)[2],0)) : line)
 end
 function _report_line(io,::MIME"text/html",text;level=0,first=false)
     tag=level==0 ? "p" : "h$(level)"

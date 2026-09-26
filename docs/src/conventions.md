@@ -209,6 +209,12 @@ plot(observed; ydata=(R,))
 Every quantity has its own table. A full n×n matrix on m frequencies has m rows and
 1+n² columns, in row-major coefficient order; both off-diagonals remain present.
 Sparse and diagonal requests preserve original indices and matrix extent.
+Modal vectors use one `:vector` mode axis with original mode positions and
+retained frequency samples. Bare complex modal requests acquire Cartesian
+component pairs; explicit components display only the selected product.
+`alpha` and `beta` share the physical identities of the real and imaginary
+parts of `gamma`, and `velocity` is a separate real quantity. Modal archives
+written before these coordinate and identity changes must be reacquired.
 `DataFrame(observed)` rejects aggregate conversion and directs the caller to a
 quantity leaf such as `ReportBuilder.tabulate(observed, R)`. `ObservedResult` is
 not a Tables.jl table. CableConstants quantity tables have one operating-frequency
@@ -278,14 +284,14 @@ retain their actual integrity and source-identification meanings.
 | Removed owned representation | Scientific meaning and current owner |
 | --- | --- |
 | `ObservationPublication`, `publication_table`, parallel flattened columns | One `ObservedResult` per point; `ReportBuilder.tabulate` creates quantity tables on demand |
-| Publication `contract` and column contracts | Explicit quantity, basis, units, coordinates, cutoffs, availability, and reasons in each quantity record |
-| Publication `provenance` and raw source references | Captured inputs, formulations, original identities, sampling information, and completed measurements in the four observation sections |
-| `getdp_provenance` | `getdp_selection` in FEM completion, retained details, recovery, and their tests |
+| Flattened publication columns | Explicit quantity, basis, units, coordinates, cutoffs, availability, and reasons in each quantity record |
+| Raw source references in observation records | Captured inputs, formulations, original identities, sampling information, and completed measurements in the four observation sections |
+| GetDP source metadata | `getdp_selection` in FEM completion, retained details, recovery, and their tests |
 | Resolution revision and policy-generation checks | Deleted; actual applied numerical settings are retained |
 | `ReportArtifact.published` / `.table` | `.observed`, separate `.reference`, and `.tables`; no compatibility getters |
 | Raw result-specific report/renderer preparation | Constructor conveniences delegate to the common observed workflow |
 
-## Text display and table boundaries
+## Text display and tables
 
 Human inspection (`show`), scientific extraction (`observe`), detached acquisition
 (`ObservedResult`/`observables`), and tabulation (`tabulate`) are separate actions.
@@ -436,7 +442,7 @@ unit.
 ## Repository practice
 
 After the first stable publication, versions follow [Semantic Versioning](https://semver.org/).
-The current 0.2.0 candidate establishes the initial intended contract; development API
+The current 0.2.0 candidate establishes the initial intended API; development API
 renames are not regressions merely because an earlier spelling existed.
 
 Commit subjects use scoped Conventional Commits, begin with a lowercase

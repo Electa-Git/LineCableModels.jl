@@ -6,7 +6,7 @@ end
 
 # `DataModel.Region(::Symbol, primitive, material)` is deliberately permissive
 # for scalar declaration types, so explicit finite inputs need narrower methods
-# to reach the common construction boundary instead of that scalar constructor.
+# to use the collection constructor instead of that scalar constructor.
 const _FiniteRegionInput = Union{AbstractGrid, Gridspace}
 
 function Region(tag::_FiniteRegionInput, primitive, material; combine::Symbol = :product)

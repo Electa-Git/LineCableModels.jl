@@ -124,6 +124,7 @@ function Grammar.observation_gridpoint(source::Union{LineParameters,CableConstan
     retained=details(source).data
     inputs=get(retained,:inputs,nothing)
     return Grammar.detach((id=get(retained,:gridpoint,nothing), inputs,
+        source_gridpoint=get(retained,:source_gridpoint,nothing),
         formulations=get(retained,:formulations,nothing),formulation_fields=get(retained,:formulation_fields,(;)),
         coordinates=get(retained,:coordinates,source isa CableConstants ? source.cores : nothing),
         uncertainty=get(retained,:uncertainty,nothing),
@@ -151,10 +152,10 @@ function retain_gridpoint(source::CableConstants, id; fields=(;))
     return CableConstants(source.cores,source.R,source.L,source.C,source.G,source.frequency,retained)
 end
 
-function _resolution_length(source::AbstractCoreResult)
+function line_length(source::AbstractCoreResult)
     inputs=get(details(source).data,:inputs,nothing)
     inputs===nothing && return nothing
     system=get(inputs,:system,nothing)
     return system===nothing ? nothing : system.line_length
 end
-_resolution_length(source) = nothing
+line_length(source) = nothing

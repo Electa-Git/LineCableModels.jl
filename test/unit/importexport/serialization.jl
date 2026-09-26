@@ -52,7 +52,7 @@ end
     selected = Formulation(earth_impedance=formula(:carson1926;
         options=(integration=(method=:quad, options=(rtol=1e-6,)),)))
     for formulation in (Formulation(), selected, LinearError(selected),
-            MonteCarlo(selected; trials=2, seed=0x1234), ModalTransformationFormulation())
+            MonteCarlo(selected; trials=2, seed=0x1234), ModalAnalysisFormulation())
         original = NamedTuple(formulation)
         encoded = IE.serialize_value(original, Val(:scientific))
         transported = JSON3.read(JSON3.write(encoded), Dict{String,Any})

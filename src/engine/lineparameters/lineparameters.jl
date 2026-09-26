@@ -131,6 +131,7 @@ function validate(parameters::LineParameters{T, U, D, Basis}) where {T, U, D, Ba
         "LineParameters.f must contain one value per matrix frequency plane; " *
         "received $(length(parameters.f)) values for $(size(parameters.Z, 3)) planes"
     ))
+    validate_domain(parameters.domain,size(parameters.Z.values))
     all(isfinite, parameters.f) || throw(ArgumentError(
         "LineParameters.f must contain only finite frequencies; received " *
         repr(parameters.f)

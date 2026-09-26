@@ -1,16 +1,16 @@
-@testitem "Quality / native equation bindings and closed built-in catalogues" tags=[:quality] setup=[FormulaContractModels] begin
+@testitem "Quality / native equation bindings and closed built-in catalogues" tags=[:quality] setup=[FormulaFixtures] begin
     const E=LineCableModels.Engine
     const EP=LineCableModels.Earth
     const FM=LineCableModels.FormulaMethod
     owners=(E.InternalImpedance,E.InsulationImpedance,E.EarthImpedance,
         E.InsulationAdmittance,E.SemiconAdmittance,E.EarthAdmittance,
-        EP.FrequencyDependent,EP.EquivalentHomogeneous,LineCableModels.Transforms,
+        EP.FrequencyDependent,EP.EquivalentHomogeneous,LineCableModels.ModalAnalysis,
         LineCableModels.Materials.TemperatureDependent)
     scalar_operations=(E.InsulationImpedance=>E.InsulationImpedance.insulation_impedance,
         E.InsulationAdmittance=>E.InsulationAdmittance.insulation_material,
         E.SemiconAdmittance=>E.SemiconAdmittance.semicon_material,
         EP.FrequencyDependent=>EP.FrequencyDependent.earth_material,
-        LineCableModels.Transforms=>LineCableModels.Transforms.modal_operators,
+        LineCableModels.ModalAnalysis=>LineCableModels.ModalAnalysis.decompose!,
         LineCableModels.Materials.TemperatureDependent=>
             LineCableModels.Materials.TemperatureDependent.temperature_resistivity)
     for owner in owners, identifier in owner.formulas()
@@ -33,7 +33,7 @@
                 binding=FM(selected,pair)
                 # Registration and indexed binding do not claim an implemented
                 # equation. Actual supported/stub/unsupported calls are covered
-                # by the execution contract tests, not a reflected coverage list.
+                # by the execution tests, not a reflected coverage list.
                 push!(bindings,binding)
             end
             @test !isempty(bindings)
@@ -56,7 +56,7 @@
             @test_throws MethodError formulation_options(route, ComputationOptions())
         end
     end
-    M=FormulaContractModels
+    M=FormulaFixtures
     for (owner,custom) in ((E.InternalImpedance,M.SurfaceLaw()),
             (E.InsulationImpedance,M.InsulationReactance()),
             (E.InsulationAdmittance,M.InsulationLaw()),(E.SemiconAdmittance,M.SemiconLaw()),
@@ -72,8 +72,8 @@
     @test_throws MethodError formula(:default;hooks=(;))
 end
 
-@testitem "Quality / user-owned shunt and pipe selections reach blueprint and compute" tags=[:quality] setup=[TestFixtures,FormulaContractModels] begin
-    M=FormulaContractModels
+@testitem "Quality / user-owned shunt and pipe selections reach blueprint and compute" tags=[:quality] setup=[TestFixtures,FormulaFixtures] begin
+    M=FormulaFixtures
     shunt=M.UserCoaxialShunt()
     selected=Formulation(shunt_model=shunt,pipe_impedance=M.CoaxialPipePolicy())
     problem=TestFixtures.line_parameters_problem(frequencies=[50.0,500.0])
@@ -88,10 +88,10 @@ end
         compute(constants,CableConstantsFormulation())
     source=TestFixtures.two_conductor_results()
     # Modal selections are admitted through the modal action, not a callback bag.
-    maps=operators(compute(ModalTransformationProblem(source),ModalTransformationFormulation()))
-    custom=M.FixedModalMaps(maps.voltage,maps.current)
-    action=ModalTransformationFormulation(custom)
+    maps=operators(compute(ModalAnalysisProblem(source),ModalAnalysisFormulation()))
+    custom=M.FixedModalMaps(maps.Tv,maps.Ti)
+    action=ModalAnalysisFormulation(custom)
     @test action.formula === custom
     @test action.definition === custom
-    @test all(isfinite,Z(compute(ModalTransformationProblem(source),action)))
+    @test all(isfinite,Z(compute(ModalAnalysisProblem(source),action)))
 end

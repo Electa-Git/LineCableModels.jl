@@ -55,9 +55,9 @@
             default = :default
         ),
         (
-            module_owner = LineCableModels.Transforms,
-            registry = LineCableModels.Transforms.formulas(),
-            path = ("transforms", "formulas"),
+            module_owner = LineCableModels.ModalAnalysis,
+            registry = LineCableModels.ModalAnalysis.formulas(),
+            path = ("modalanalysis", "formulas"),
             default = :default
         ),
         (

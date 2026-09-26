@@ -284,7 +284,7 @@ rebuilds continuous problem data as `Float64`; when a
 `Measurements.Measurement` scalar is present, only its nominal value is
 retained. Discrete topology such as terminal assignments, material tags, and
 pattern counts remains integral. The caller-owned problem is not mutated. Evaluated material-law outputs pass the
-same checked nominal `Float64` boundary before transport; finite overflow is
+same checked conversion to nominal `Float64` before transport; finite overflow is
 rejected. Analytical scalar and uncertainty propagation remain unchanged.
 
 | FEM datum | Authoritative LineCableModels property | Handling |

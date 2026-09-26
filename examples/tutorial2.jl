@@ -243,7 +243,7 @@ cable_design
 cable_preview = preview(
     cable_design;
     backend = :cairo,
-    legend_overflow = :show_all,
+    legend_cap = 0.5,
     display_plot = false, #hide
     controls = false #hide
 )
@@ -449,7 +449,7 @@ system_preview = preview(
     earth_model = earth_params,
     zoom_factor = 2.0,
     backend = :cairo,
-    legend_overflow = :show_all,
+    legend_cap = 0.5,
     display_plot = false, #hide
     controls = false #hide
 )

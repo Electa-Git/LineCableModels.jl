@@ -1,4 +1,4 @@
-@testitem "Quality / TextDisplay / ownership and side-effect boundaries" tags=[:quality] begin
+@testitem "Quality / TextDisplay / ownership and side effects" tags=[:quality] begin
     using DataFrames
 
     # Current show/summary methods are owned by the domain. Observable

@@ -23,7 +23,7 @@ export formulation_options, computation_options, computation_details, details
 export compute, observe, @observe, observables
 export ObservedResult
 export quantity, native_unit, display_unit, scale_factor, label, symbol
-export basis, domain, frequencies, nconductors, nfrequencies, ncables, nphases
+export basis, line_length, domain, frequencies, nconductors, nfrequencies, ncables, nphases
 export Z, Y, R, X, L, G, B, C
 export series_impedance, shunt_admittance,
        resistance, reactance, inductance,
@@ -80,9 +80,10 @@ export Formulation, LineParametersFormulation, CableConstantsFormulation,
        LineCableModelsFEM, LineCableModelsFEMError, BoundarySolveError,
        SeriesImpedance, ShuntAdmittance, kronify,
        LineParameters, PhaseDomain, ModalDomain
-export ModalTransformationProblem, ModalTransformationFormulation,
-       LineCableModelsModal, ModalOperators, operators
-export Transforms
+export ModalAnalysisProblem, ModalAnalysisFormulation,
+       LineCableModelsModal, ModalOperators, operators, Tv, Ti, gamma, alpha, beta, velocity, Zc, Yc,
+       PropagationParameters, H, transform
+export ModalAnalysis
 
 # Import/Export:
 export export_data, import_data, save, load!
@@ -110,7 +111,8 @@ using .Grammar:
                 AbstractParametricResult, AbstractUncertaintyResult,
                 FormulationOptions, ComputationOptions, ComputationDetails,
                 formulation_options, computation_options, computation_details, details,
-                compute, observe, @observe, observables, ObservedResult
+                observe, @observe, observables, ObservedResult
+import .Grammar: compute
 using .Grammar: FormulaDefinition, FormulaMethod
 include("logging.jl")
 include("formulas.jl")
@@ -187,10 +189,11 @@ using .Engine: LineParameters, LineParametersProblem, CableConstants,
 
 public LineParamsDomain
 
-# Submodule `Transforms`
-include("transforms/Transforms.jl")
-using .Transforms: ModalTransformationProblem, ModalTransformationFormulation,
-                   LineCableModelsModal, ModalOperators, operators
+# Submodule `ModalAnalysis`
+include("modalanalysis/ModalAnalysis.jl")
+using .ModalAnalysis: ModalAnalysisProblem, ModalAnalysisFormulation,
+                   LineCableModelsModal, ModalOperators, operators,
+                   Tv, Ti, gamma, alpha, beta, velocity, Zc, Yc, PropagationParameters, H, transform
 
 # Submodule `ParametricBuilder`
 include("parametricbuilder/ParametricBuilder.jl")
@@ -207,6 +210,8 @@ using .ParametricBuilder:
 using .ParametricBuilder: Semiconductor
 using .ParametricBuilder: @cable, @system, @earth, @terminal, @assembly, @pipe,
                           @duct, @at, @hflat, @vflat, @trefoil, @distribute
+
+include("modalanalysis/delegation.jl")
 
 # Submodule `UQ`
 include("uq/UQ.jl")

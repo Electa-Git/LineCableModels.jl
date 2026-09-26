@@ -1,11 +1,11 @@
-@testitem "Engine / homogeneous selections retain each indexed formula through assembly" tags=[:unit] setup=[FormulaContractModels] begin
+@testitem "Engine / homogeneous selections retain each indexed formula through assembly" tags=[:unit] setup=[FormulaFixtures] begin
     const E=LineCableModels.Engine
     # Manufactured potential coefficients isolate the selection-routing check.
-    potential=FormulaContractModels.selection(E.EarthAdmittance; layers = 2:2)
+    potential=FormulaFixtures.selection(E.EarthAdmittance; layers = 2:2)
     material=Material(kind = :conductor, rho = 1.7241e-8)
     dielectric=Material(kind = :insulator, rho = 1e14, eps_r = 2.3)
     design=build(CableDesign,
-        "selection-contract",
+        "selection-fixture",
         Stack(Group(:phase,
                 Region(:core, Disk(0.01), material)),
             Region(:insulation, Annulus(0.01, 0.012), dielectric)))
@@ -15,7 +15,7 @@
     problem=LineParametersProblem(system; earth_props = homogeneous(rho = 100.0), frequencies = [
         50.0, 500.0])
     # Different parameterizations of one native type remain distinct selections.
-    M=FormulaContractModels
+    M=FormulaFixtures
     empty!(M.calls)
     native_choices=(air=M.selection(E.EarthImpedance;layers=2:2,scale=1.0),
         earth=M.selection(E.EarthImpedance;layers=2:2,scale=2.0),
@@ -70,7 +70,7 @@
     @test independent_y.Z.values==custom.Z.values
 end
 
-@testitem "Engine / scalar and homogeneous shorthand preserve numerical and model contracts" tags=[:unit] setup=[TestFixtures] begin
+@testitem "Engine / scalar and homogeneous shorthand preserve numerical values and model selections" tags=[:unit] setup=[TestFixtures] begin
     const E=LineCableModels.Engine
     problem=TestFixtures.line_parameters_problem(frequencies = [50.0, 500.0])
     scalar=compute(problem, Formulation())

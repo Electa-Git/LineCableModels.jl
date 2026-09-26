@@ -312,14 +312,24 @@ function _pscad_result(problem, formulation, options, prepared, native; batch_re
 end
 
 function compute(problem::LineParametersProblem, formulation::PSCADFormulation;
-        options::Union{NamedTuple, ComputationOptions} = ComputationOptions())
+        options::Union{NamedTuple, ComputationOptions} = ComputationOptions(),
+        modal=nothing, modal_options::Union{NamedTuple, ComputationOptions}=ComputationOptions())
+    modal===nothing || return compute(problem,formulation,
+        LineCableModels.ModalAnalysisFormulation(modal);options,modal_options)
+    isempty(modal_options isa NamedTuple ? modal_options : modal_options.data) ||
+        throw(ArgumentError("modal_options require a modal formulation"))
     return first(compute(problem, [formulation]; options))
 end
 
 function compute(problem::LineParametersProblem, formulations::AbstractVector{<:PSCADFormulation};
-        options::Union{NamedTuple, ComputationOptions} = ComputationOptions())
+        options::Union{NamedTuple, ComputationOptions} = ComputationOptions(),
+        modal=nothing, modal_options::Union{NamedTuple, ComputationOptions}=ComputationOptions())
     isempty(formulations) && throw(ArgumentError("PSCAD formulation collections cannot be empty"))
     options = options isa NamedTuple ? ComputationOptions(options) : options
+    modal===nothing || return compute(problem,formulations,
+        LineCableModels.ModalAnalysisFormulation(modal);options,modal_options)
+    isempty(modal_options isa NamedTuple ? modal_options : modal_options.data) ||
+        throw(ArgumentError("modal_options require a modal formulation"))
     execution = computation_options(PSCADFormulation, options)
     _pscad_deterministic(eltype(problem))
     _validate_frequencies(problem.frequencies)
@@ -341,7 +351,7 @@ function _compute_pscad(problem::LineParametersProblem,
     average_seconds = 0.0
     progress && @info "PSCAD computation started" _group=:progress total=length(formulations)
     physical_inputs = Engine.completed_inputs(problem)
-    source_id = LineCableModels.Grammar.gridpoint_id().source_id
+    source_id = gridpoint_id().source_id
     keys = [(project = value.project, setting = value.setting[(:ground, :frequency, :configuration)])
             for value in prepared]
     # Include native execution, readback, and final result construction, but
@@ -350,7 +360,7 @@ function _compute_pscad(problem::LineParametersProblem,
     native = _compute_pscad(problem, first(formulations), execution, first(prepared))
     execution = ComputationOptions(merge(execution.data, (solver_identity = native.execution.solver_identity,)))
     first_result = Engine.retain_gridpoint(_pscad_result(problem, first(formulations), execution,
-        first(prepared), native), LineCableModels.Grammar.gridpoint_id(; source_id);
+        first(prepared), native), gridpoint_id(; source_id);
         fields = merge(Engine.completed_formulation(first(formulations)), (inputs = physical_inputs,)))
     if execution.data.timing && !isempty(first_result.details.data.timing)
         wall_seconds = (time_ns() - scan_started) * 1e-9
@@ -381,7 +391,7 @@ function _compute_pscad(problem::LineParametersProblem,
         end
         value = _pscad_result(problem, formulations[index], execution, prepared[index], native; batch_reuse = shared)
         value = Engine.retain_gridpoint(value,
-            LineCableModels.Grammar.gridpoint_id(; source_id, formulation_index = index);
+            gridpoint_id(; source_id, formulation_index = index);
             fields = merge(Engine.completed_formulation(formulations[index]), (inputs = physical_inputs,)))
         if execution.data.timing && !isempty(value.details.data.timing)
             wall_seconds = (time_ns() - scan_started) * 1e-9

@@ -17,6 +17,12 @@
     @test TD.value(Inf) == "∞"
     @test TD.value(-Inf) == "−∞"
     @test TD.angle(2π) == "2π"
+    @test TD.truncate_text("abcdef", 4) == "abc…"
+    @test TD.truncate_text("界面", 3) == "界…"
+    @test TD.truncate_text("界面", 4) == "界面"
+    @test TD.truncate_text("abcdef", 1) == "…"
+    @test TD.truncate_text("abcdef", 0) == ""
+    @test TD.truncate_text("abcdef", -1) == ""
 
     @test sprint(show, copper) ==
           "Material(:conductor; ρ=17.241 nΩ·m, εᵣ=1, μᵣ=0.999994)"

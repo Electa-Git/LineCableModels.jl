@@ -83,6 +83,52 @@ end
     @test first.(points[2][1][])==[1.,3.]
     @test last.(points[2][1][])==[3.,4.]
     @test last.(axis.dim1_conversion[].int_to_category)==["core","sheath","screen"]
+    assembly_overlay=LineCableModels.plot(a;ydata=R,overlay=:coordinates,
+        series_labels=("core","sheath"),
+        series_attributes=((color=:red,),(color=:blue,)),options...)
+    assembly_curves=filter(p -> p isa Makie.Scatter,only(assembly_overlay.axes).scene.plots)
+    @test length(assembly_curves)==2
+    @test first.(assembly_curves[1][1][])==[1.]
+    @test first.(assembly_curves[2][1][])==[2.]
+    @test last.(assembly_curves[1][1][])==[1000.]
+    @test last.(assembly_curves[2][1][])==[2000.]
+    @test assembly_curves[1].color[]==Makie.to_color(:red)
+    @test assembly_curves[2].color[]==Makie.to_color(:blue)
+    @test Set(values(assembly_overlay.addon_state.labels))==Set(("core","sheath"))
+    reversed=CableConstants([:sheath,:core],[20.,10.],[.2,.1],[.02,.01],[.002,.001],60.)
+    singleton=CableConstants([:sheath],[30.],[.3],[.03],[.003],70.)
+    varied=LineCableModels.plot((a,reversed,singleton);ydata=R,overlay=:coordinates,
+        series_labels=("Core","Sheath"),
+        series_attributes=((color=:red,),(color=:blue,)),options...)
+    @test varied.addon_state.labels[:coordinate_1]=="Core"
+    @test varied.addon_state.labels[:coordinate_2]=="Sheath"
+    varied_curves=[filter(p -> p isa Makie.Scatter,axis.scene.plots) for axis in varied.axes]
+    @test length.(varied_curves)==[2,2,1]
+    @test [last.(curve[1][]) for curve in varied_curves[1]]==[[1000.],[2000.]]
+    @test [last.(curve[1][]) for curve in varied_curves[2]]==[[20000.],[10000.]]
+    @test last.(only(varied_curves[3])[1][])==[30000.]
+    @test Tuple(curve.color[] for curve in varied_curves[1])==Makie.to_color.((:red,:blue))
+    @test Tuple(curve.color[] for curve in varied_curves[2])==Makie.to_color.((:blue,:red))
+    @test only(varied_curves[3]).color[]==Makie.to_color(:blue)
+    @test [string.(last.(axis.dim1_conversion[].int_to_category)) for axis in varied.axes]==
+        [["core","sheath"],["sheath","core"],["sheath"]]
+    core_group=varied.addon_state.groups[:coordinate_1]
+    sheath_group=varied.addon_state.groups[:coordinate_2]
+    @test varied_curves[2][2] in core_group
+    @test varied_curves[2][1] in sheath_group
+    @test only(varied_curves[3]) in sheath_group
+    foreach(plot -> plot.visible[]=false,core_group)
+    @test !varied_curves[2][2].visible[]
+    @test varied_curves[2][1].visible[]
+    foreach(plot -> plot.visible[]=true,core_group)
+    @test varied_curves[2][2].visible[]
+    sparse_first=LineCableModels.plot((singleton,a);ydata=R,overlay=:coordinates,
+        series_labels=("Sheath","Core"),
+        series_attributes=((color=:blue,),(color=:red,)),options...)
+    @test Set(values(sparse_first.addon_state.labels))==Set(("Sheath","Core"))
+    @test [count(p -> p isa Makie.Scatter,axis.scene.plots) for axis in sparse_first.axes]==[1,2]
+    @test Tuple(plot.color[] for axis in sparse_first.axes for plot in axis.scene.plots
+        if plot isa Makie.Scatter)==Makie.to_color.((:blue,:red,:blue))
     raw=LineCableModels.plot((a,b);ydata=(R,),length_unit=:base,options...)
     @test length(raw.axes)==1
     template=first(first(observed).quantities)

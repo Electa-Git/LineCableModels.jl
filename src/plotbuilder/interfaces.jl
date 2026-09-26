@@ -38,18 +38,42 @@ candidate and reference curves per meter without rebuilding the report.
 saved comparison samples through the observation owner, retaining each trace's
 own coordinates and reference association. It does not calculate new errors.
 
+`overlay=:auto` chooses the overlaid dimension after filtering and before
+equivalent-result grouping. A lone modal vector uses selected modes as curves
+when `layout` is omitted or `(1,1)`; a larger explicit layout or several
+gridpoints uses mode panels and gridpoint curves. Matrices use coefficient
+panels and gridpoint curves. `overlay=:gridpoints` always uses selected
+coordinates as panels. `overlay=:coordinates` uses one panel per selected
+gridpoint, with physical coordinates as curves. `overlay=:rows` requires matrix
+quantities: selected columns become panels and selected rows become curves.
+For Tv/Ti, panel titles identify modes and legends identify conductors. Each
+gridpoint, including a reference or an equivalent result, gets separate figures;
+columns flow left to right, then top to bottom, restarting pagination for each
+point. Figure titles use compact gridpoint descriptions. A reference counts as a
+selected gridpoint. Positional `series_labels` and `series_attributes` address
+the overlaid dimension; mixed figure families with incompatible positional
+lengths require separate calls.
+
 # Layout and native presentation
 
-- `layout=nothing` resolves the nominal panel capacity from selected products:
-  the largest selected matrix row/column span, or a near-square flow arrangement.
-  Automatic matrix pages start at their selected minimum coordinate. An explicit
-  `(rows, columns)` supplies a positive nominal capacity with block membership
-  anchored at original coordinate `(1,1)`. Empty exterior tracks are removed;
-  internal selection holes and original coefficient identities remain.
-- Each quantity/statistical meaning has separate figure families. A full 3×3
-  matrix at `layout=(2,2)` has four pages with extents `(2,2)`, `(2,1)`, `(1,2)`,
-  `(1,1)` per quantity. `layout=(1,1)` produces nine pages per quantity.
+- `layout=nothing` resolves nominal panel capacity for each figure family:
+  its selected matrix row/column span, or a near-square flow arrangement.
+  An explicit `(rows, columns)` supplies a positive nominal capacity. With matrix
+  gridpoint overlays, automatic pages start at their selected minimum coordinate;
+  explicit layouts anchor block membership at original coordinate `(1,1)`.
+  Empty exterior tracks are removed; internal selection holes and original
+  coefficient identities remain.
+- Each quantity/statistical meaning has separate figure families. With matrix
+  gridpoint overlays, a full 3×3 matrix at `layout=(2,2)` has four pages with
+  extents `(2,2)`, `(2,1)`, `(1,2)`, `(1,1)` per quantity. `layout=(1,1)` produces
+  nine pages per quantity.
   Explicit diagonal products paginate compactly with original `(i,i)` identities.
+  With `overlay=:rows`, automatic capacity uses the selected column count per
+  gridpoint. An explicit layout is the shared block capacity for every point;
+  partially filled pages never include another point's columns. Panel addresses
+  are `(original_point_position, original_column)`, with a reference appended
+  after the input points. Row styles retain original row identities across pages
+  and points; positional labels and attributes follow the selected row order.
 - `fig_size` is the initial reference size of the complete nominal capacity;
   `figure=(size=...,)` takes precedence. Managed figures fit their decorated
   occupied content. Residual pages retain the same initial data-frame dimensions,
@@ -58,8 +82,9 @@ own coordinates and reference association. It does not calculate new errors.
   first-seen union of recorded assembly names. Scalars/vectors without physical
   coordinates use honest element-index views. Full modal matrices retain every
   selected coefficient, including zero and residual off-diagonals.
-- `series_labels`, `reference`, and `series_attributes` control trace identity and
-  native appearance. Attributes accept one NamedTuple or an aligned tuple/vector.
+- `series_labels`, `reference`, and `series_attributes` control the overlaid
+  trace identity and native appearance. Attributes accept one NamedTuple or an
+  aligned tuple/vector.
   Candidate slots are assigned before filtering; a separate reference does not
   shift them. References default to black solid curves and hollow circles.
 - `errorbar_sampling` defaults to `:staggered` for multiple displayed series and
@@ -71,15 +96,24 @@ own coordinates and reference association. It does not calculate new errors.
   edits retain authority. Unknown attributes fail with a diagnostic.
 - Frequency X defaults to adaptive `:log10`; other numeric dimensions default
   to linear. Adaptive log uses stable signed log when visible support or bounds
-  contain zero/negative values. The native `log10` function remains strict.
+  contain zero/negative values. Its reference magnitude is the smallest finite
+  nonzero magnitude in eligible samples, enabled uncertainty endpoints and
+  explicit bounds, in displayed units (1 if none exist). The reference stays
+  fixed during zooming; reapplying `:log10` selects it from current data.
+  The native `log10` function remains strict.
   Categorical axes retain native conversion and have no X-log toggle.
 - Titles use `title`, `title_prefix`, `figure_title`, `title_attributes`, and
   `panel_titles`. Positional panel titles bind before pagination; dictionary and
   function selections retain original panel identities.
 - Legends use `legend_position`, `legend_title`, `legend_attributes`,
-  `legend_overflow`, and `panel_legends`. Multiple/explicitly labelled result
-  series default to a bottom legend with `:show_all`; one unlabelled series has
-  none. Measured wrapping preserves labels and native interaction targets.
+  `legend_cap`, and `panel_legends`. Multiple/explicitly labelled result
+  series default to a bottom legend; one unlabelled series has none.
+  `legend_cap=0.5` accepts a finite, non-Boolean real value in `(0,1]`.
+  It caps top/bottom legend height or side legend width relative to the
+  associated data area. The other dimension also fits within that area.
+  An inside legend uses the height cap. Excess entries are replaced by `(...)`
+  and restored when space returns; every curve remains plotted. If even the
+  ellipsis and title cannot fit, the legend is hidden until space returns.
 - `colorbar_position`, `colorbar_group_attributes`, `colorbar_attributes`, and
   `guide_gap=8` place existing scale content; they do not fabricate scales.
   Native `halign`/`valign` supply symbolic or fractional alignment.
@@ -229,12 +263,14 @@ before filesystem or figure changes.
 function export_svg end
 
 """
-    figurelegend!(plot::UIPlot; position, title, overflow, legend_labels, kwargs...)
+    figurelegend!(plot::UIPlot; position, title, max_fraction, legend_labels, kwargs...)
 
 Update the figure legend from the shell's native series groups. Omitted options
 preserve current state; `position=nothing` detaches and hides the guide. Native
 `halign`, `valign`, margins, and style attributes remain editable. Removal and
-restoration retain native styles and series visibility.
+restoration retain native styles and series visibility. `max_fraction` uses
+the same `(0,1]` size limit as `plot(...; legend_cap=0.5)` and defaults
+to `0.5` when creating a guide. Figure legends use the combined panel footprint.
 
 `guide_spacing` updates the shared figure-wide minimum sibling spacing. A scalar
 sets both directions; a partial `(rowgap=..., colgap=...)` update preserves the
@@ -248,7 +284,8 @@ function figurelegend! end
 
 Create or replace a native Makie legend scoped to one logical plot panel.
 `panel` may be the stable panel identity returned by a recipe or its compatible
-grid position. It inherits figure-wide `guide_spacing`; no per-panel spacing
+grid position. `max_fraction` bounds this legend against its own panel data
+area. It inherits figure-wide `guide_spacing`; no per-panel spacing
 override is accepted.
 """
 function panellegend! end
@@ -306,6 +343,13 @@ Set one displayed coordinate scale on all eligible numeric axes, or on the
 original identity selected by `panel`. `:linear` selects the identity scale;
 `:log10` adapts to signed support, while the native `log10` function requires
 strictly positive support. `:pseudolog10` explicitly selects stable signed log.
+Adaptive signed log maps `v` to `sign(v)*log10(1+abs(v)/s)`, where `s` is the
+smallest finite nonzero magnitude in eligible visible samples, enabled
+uncertainty endpoints and explicit bounds, in displayed units; `s=1` when
+none exist. Explicit `:pseudolog10` retains `s=1`. Tick labels remain physical
+values. Reapplying `:log10` updates `s`; zooming and resetting limits retain it.
+Selecting `:linear` restores the identity mapping without changing data or
+observation clipping.
 Preflight covers the complete selection before mutation and preserves the
 orthogonal view and configured limits. Return `p`.
 """

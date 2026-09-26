@@ -97,12 +97,12 @@ function _addon_legend_owner(p,panel)
     return (body=something(data.panel.layout,p.addon_state.shell.body),groups=data.groups,order=data.order,labels=data.labels,bounds=data.axis.scene.viewport)
 end
 
-function _addon_guide_state(kind,scope,position,attributes;overflow=:show_all,title=nothing)
+function _addon_guide_state(kind,scope,position,attributes;max_fraction=0.5,title=nothing)
     _addon_guide_position(position;legend=kind===:legend,main=kind===:colorbars)
     _addon_guide_attributes(attributes)
     return (;kind,scope,position=Ref{Any}(position),attributes=Ref{Any}(attributes),
-        overflow=Ref(overflow),title=Ref{Any}(title),placed=Ref{Any}(_omitted),object=Ref{Any}(nothing),
-        layout=Ref{Any}(nothing),items=Any[],wrapping=Ref{Any}(nothing),subscriptions=Any[],hidden=Ref(false),visibility=IdDict{Any,Bool}())
+        max_fraction=Ref(_addon_legend_fraction(max_fraction)),title=Ref{Any}(title),placed=Ref{Any}(_omitted),object=Ref{Any}(nothing),
+        layout=Ref{Any}(nothing),items=Any[],fit=Ref{Any}(nothing),subscriptions=Any[],hidden=Ref(false),visibility=IdDict{Any,Bool}())
 end
 
 function _addon_native_guide_attributes!(object,attributes)
@@ -406,24 +406,16 @@ end
 function _addon_place_legend!(p,guide,owner,target;orientation=:vertical)
     position=guide.position[]
     if guide.object[]===nothing
-        if position===:inside
-            guide.object[]=_addon_legend!(p.figure,owner.body,owner.groups,owner.order,owner.labels;
-                dependent_plots=p.addon_state.dependent_plots,position=:inside,
-                attributes=guide.attributes[],overflow=guide.overflow[],title=guide.title[],inside_bbox=owner.bounds[])
-        else
+        if position!==:inside
             guide.layout[]=GridLayout()
             target[]=guide.layout[]
-            guide.object[]=_addon_legend!(p.figure,owner.body,owner.groups,owner.order,owner.labels;
-                dependent_plots=p.addon_state.dependent_plots,position,
-                attributes=guide.attributes[],overflow=guide.overflow[],title=guide.title[],
-                inside_bbox=owner.bounds,target=guide.layout[][1,1],target_orientation=orientation)
         end
-        guide.object[]===nothing && return nothing
+        guide.object[],guide.fit[]=_addon_legend!(p.figure,owner.groups,owner.order,owner.labels;
+            dependent_plots=p.addon_state.dependent_plots,position=guide.position,
+            attributes=guide.attributes[],max_fraction=guide.max_fraction,title=guide.title[],
+            inside_bbox=owner.bounds,target=position===:inside ? nothing : guide.layout[][1,1],
+            target_orientation=orientation,fitting_geometry=p.addon_state.fitting_geometry)
         _addon_watch_guide!(p,guide,guide.object[])
-        if guide.overflow[]===:show_all
-            guide.wrapping[]=_addon_grid_legend!(owner.bounds,guide.object[],guide.position;
-                fitting_geometry=p.addon_state.fitting_geometry,automatic=!haskey(guide.attributes[],:orientation) && !haskey(guide.attributes[],:nbanks))
-        end
     end
     legend=guide.object[]
     _addon_restore_guide!(guide)
@@ -447,7 +439,7 @@ function _addon_place_legend!(p,guide,owner,target;orientation=:vertical)
         end
     end
     guide.placed[]=position
-    guide.wrapping[]===nothing || guide.wrapping[]()
+    guide.fit[]===nothing || guide.fit[]()
     if guide.scope===nothing
         p.legend=legend
         p.addon_state.controls_enabled && (p.controls[:legend]=legend)
@@ -623,14 +615,13 @@ function _addon_native_guide_group!(grid,attributes)
     return grid
 end
 
-function _addon_update_legend!(p,panel;position=_omitted,title=_omitted,overflow=_omitted,legend_labels=nothing,kwargs...)
+function _addon_update_legend!(p,panel;position=_omitted,title=_omitted,max_fraction=_omitted,legend_labels=nothing,kwargs...)
     owner=_addon_legend_owner(p,panel)
     key=(:legend,panel)
     guide=get(p.addon_state.guides,key,nothing)
     resolved=position===_omitted ? (guide===nothing ? :right : guide.position[]) : position
     _addon_guide_position(resolved;legend=true)
-    mode=overflow===_omitted ? (guide===nothing ? :show_all : guide.overflow[]) : overflow
-    mode in (:show_all,:ellipsis) || throw(ArgumentError("legend overflow must be :show_all or :ellipsis"))
+    fraction=_addon_legend_fraction(max_fraction===_omitted ? (guide===nothing ? 0.5 : guide.max_fraction[]) : max_fraction)
     attributes=_addon_validate_native_guide(Legend,(;kwargs...))
     haskey(attributes,:anchor) && throw(ArgumentError("anchor was removed; use native halign and valign"))
     previous_guard=p.addon_state.composing_guides[]
@@ -638,10 +629,10 @@ function _addon_update_legend!(p,panel;position=_omitted,title=_omitted,overflow
     try
         _addon_relabel_legend!(owner.labels,owner.groups,owner.order,legend_labels)
         if guide===nothing
-            guide=_addon_guide_state(:legend,panel,resolved,attributes;overflow=mode,title=title===_omitted ? nothing : title)
+            guide=_addon_guide_state(:legend,panel,resolved,attributes;max_fraction=fraction,title=title===_omitted ? nothing : title)
             p.addon_state.guides[key]=guide
             push!(p.addon_state.guide_order,key)
-        elseif guide.object[]!==nothing && (mode!=guide.overflow[] || legend_labels!==nothing || haskey(attributes,:bbox))
+        elseif guide.object[]!==nothing && (legend_labels!==nothing || haskey(attributes,:bbox))
             current_title,current_entries=only(guide.object[].entrygroups[])
             guide.title[]=current_title
             if legend_labels===nothing
@@ -655,23 +646,24 @@ function _addon_update_legend!(p,panel;position=_omitted,title=_omitted,overflow
             foreach(off,guide.subscriptions);empty!(guide.subscriptions)
             _addon_remove_legend!(guide.object[])
             guide.layout[]===nothing || _addon_delete_subtree!(guide.layout[])
-            guide.object[]=nothing;guide.layout[]=nothing;guide.wrapping[]=nothing
+            guide.object[]=nothing;guide.layout[]=nothing;guide.fit[]=nothing
             empty!(guide.visibility);guide.hidden[]=false
         elseif guide.object[]!==nothing
             _addon_native_guide_attributes!(guide.object[],attributes)
         end
         guide.attributes[]=merge(guide.attributes[],attributes)
-        guide.position[]=resolved;guide.overflow[]=mode
+        guide.position[]=resolved;guide.max_fraction[]=fraction
         if title!==_omitted
             guide.title[]=title
             if guide.object[]!==nothing
                 entries=last(only(guide.object[].entrygroups[]))
-                guide.object[].entrygroups[]=[(title,entries)]
+                _addon_legend_entries!(guide.object[],title,entries)
             end
         end
     finally
         p.addon_state.composing_guides[]=previous_guard
     end
+    guide.fit[]===nothing || guide.fit[]()
     _addon_compose_guides!(p)
     if resolved===nothing
         panel===nothing ? (p.legend=nothing;delete!(p.controls,:legend)) : delete!(p.panel_legends,panel)
@@ -683,11 +675,10 @@ function LineCableModels.figurelegend!(p::LineCableModels.UIPlot;guide_spacing=_
     state=p.addon_state
     spacing=guide_spacing===_omitted ? state.guide_spacing[] : _addon_guide_spacing(guide_spacing,state.guide_spacing[])
     # Validate native options and placement before changing the shared setting.
-    native=(; (key=>value for (key,value) in kwargs if key ∉ (:position,:title,:overflow,:legend_labels))...)
+    native=(; (key=>value for (key,value) in kwargs if key ∉ (:position,:title,:max_fraction,:legend_labels))...)
     _addon_validate_native_guide(Legend,native)
     haskey(kwargs,:position) && _addon_guide_position(kwargs[:position];legend=true)
-    haskey(kwargs,:overflow) && kwargs[:overflow] ∉ (:show_all,:ellipsis) &&
-        throw(ArgumentError("legend overflow must be :show_all or :ellipsis"))
+    haskey(kwargs,:max_fraction) && _addon_legend_fraction(kwargs[:max_fraction])
     previous=state.guide_spacing[]
     try
         return _addon_edit_presentation!(p) do

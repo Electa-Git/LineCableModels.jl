@@ -114,7 +114,7 @@ end
     end
 end
 
-@testitem "Engine / completed prescriptions are detached without replacing uncertainty sources" tags=[:unit] setup=[TestFixtures, FormulaContractModels] begin
+@testitem "Engine / completed prescriptions are detached without replacing uncertainty sources" tags=[:unit] setup=[TestFixtures, FormulaFixtures] begin
     using Measurements
     E, IE = LineCableModels.Engine, LineCableModels.ImportExport
     problem = TestFixtures.three_bare_wires_problem(frequencies=[50., 500.])
@@ -146,7 +146,7 @@ end
         @test Z(retained) == first_Z && Y(retained) == first_Y
     end
     rho = measurement(1.0, 0.01)
-    custom = FormulaContractModels.selection(E.EarthImpedance; layers=2:2, scale=rho)
+    custom = FormulaFixtures.selection(E.EarthImpedance; layers=2:2, scale=rho)
     retained = NamedTuple(Formulation(earth_impedance=custom))
     @test retained.methods.earth_impedance.parameters.scale === rho
     @test uncertainty(retained.methods.earth_impedance.parameters.scale-rho) == 0
@@ -192,12 +192,12 @@ end
     @test selected.methods.earth_impedance.options.data.Γ == prescribed
 end
 
-@testitem "Engine / numerical declarations follow selected types and indexed equations" tags=[:unit] setup=[FormulaContractModels] begin
+@testitem "Engine / numerical declarations follow selected types and indexed equations" tags=[:unit] setup=[FormulaFixtures] begin
     const E=LineCableModels.Engine
     const II=E.InternalImpedance
     const EI=E.EarthImpedance
     const FM=LineCableModels.FormulaMethod
-    const M=FormulaContractModels
+    const M=FormulaFixtures
     internal=FM(II.Formula(:default), II.internal_impedance, Val(:outer))
     external=FM(EI.Formula(:default), EI.earth_impedance, Val(:self), Val(1), Val(1))
     @test formulation_options(internal)==FormulationOptions()
@@ -225,9 +225,9 @@ end
     @test formulation_options(external).data.integration.method === :quad
 end
 
-@testitem "Engine / required indexed consumers alone initialize formula storage" tags=[:unit] setup=[TestFixtures, FormulaContractModels] begin
+@testitem "Engine / required indexed consumers alone initialize formula storage" tags=[:unit] setup=[TestFixtures, FormulaFixtures] begin
     const E=LineCableModels.Engine
-    const M=FormulaContractModels
+    const M=FormulaFixtures
     buried=TestFixtures.three_bare_wires_problem(heights=(-1.,-1.,-1.), frequencies=[50.])
     active=M.selection(E.EarthImpedance;layers=2:2)
     unused=M.selection(E.EarthImpedance;layers=3:3,
@@ -253,21 +253,21 @@ end
     @test !isempty(numerical.segments)
 end
 
-@testitem "Engine / formula initialization preserves another owner's buffer identity" tags=[:unit] setup=[FormulaContractModels] begin
+@testitem "Engine / formula initialization preserves another owner's buffer identity" tags=[:unit] setup=[FormulaFixtures] begin
     const E=LineCableModels.Engine
     buffers=(destination = zeros(ComplexF64, 2, 2),)
     @test E.initialize_buffers((nothing,), Float64, (;), (;), buffers) === buffers
     @test_throws ArgumentError E.initialize_buffers(
-        (FormulaContractModels.BufferReplacement(),),
+        (FormulaFixtures.BufferReplacement(),),
         Float64, (;), (;), buffers)
 end
 
 @testitem "Engine / public internal surfaces consume spectral options and initialized workspace" tags=[:unit] setup=[
-    TestFixtures, FormulaContractModels] begin
+    TestFixtures, FormulaFixtures] begin
     using QuadGK
     const E=LineCableModels.Engine
     const II=E.InternalImpedance
-    const M=FormulaContractModels
+    const M=FormulaFixtures
     @test_throws ArgumentError II.Formula(:default; options = (integration = (method = :quad,),))
     standalone_workspace=(buffers = (quadrature = E.integration_workspace(Float64, ComplexF64),),)
     base=II.Formula(:default)
@@ -339,8 +339,8 @@ end
     end
 end
 
-@testitem "Earth / artificial material values are distinct from source restrictions" tags=[:unit] setup=[FormulaContractModels] begin
-    const M=FormulaContractModels
+@testitem "Earth / artificial material values are distinct from source restrictions" tags=[:unit] setup=[FormulaFixtures] begin
+    const M=FormulaFixtures
     material=M.EP.EarthMaterial(100.0, -10.0, 1.0)
     @test material.eps_r == -10
     @test M.EP.EarthLayer <: M.EP.AbstractEarthLayer <: M.EP.AbstractEarthModel
@@ -357,9 +357,9 @@ end
         M.E.EarthPair(1, 2, (-0.25, -1.5), 1.0, (2, 2)))
 end
 
-@testitem "Engine / internal consumers request only their actual surface kinds" tags=[:unit] setup=[FormulaContractModels] begin
+@testitem "Engine / internal consumers request only their actual surface kinds" tags=[:unit] setup=[FormulaFixtures] begin
     const II=LineCableModels.Engine.InternalImpedance
-    selected=FormulaContractModels.SurfaceLaw(kinds = (:outer,))
+    selected=FormulaFixtures.SurfaceLaw(kinds = (:outer,))
     @test keys(II.surface_impedances(
         selected, 0.0, 0.01, 1.7e-8, 1.0, 100im)) == (:outer,)
     @test_throws ArgumentError II.surface_impedances(
@@ -380,8 +380,8 @@ end
 end
 
 @testitem "Engine / each metal prepares shared surface state once per frequency" tags=[:unit] setup=[
-    TestFixtures, FormulaContractModels] begin
-    selected=FormulaContractModels.SurfaceLaw()
+    TestFixtures, FormulaFixtures] begin
+    selected=FormulaFixtures.SurfaceLaw()
     problem=TestFixtures.line_parameters_problem(frequencies = [50.0, 100.0])
     result=compute(problem, Formulation(internal_impedance = selected))
     expected=sum(length(design.terminal_order)
@@ -402,8 +402,8 @@ end
     @test Z(composite)==Z(result) && Y(composite)==Y(result)
 end
 
-@testitem "Engine / first tubular primitive requests all surfaces without extra assembly terms" tags=[:unit] setup=[FormulaContractModels] begin
-    M = FormulaContractModels
+@testitem "Engine / first tubular primitive requests all surfaces without extra assembly terms" tags=[:unit] setup=[FormulaFixtures] begin
+    M = FormulaFixtures
     copper = Material(kind=:conductor, rho=1.7e-8)
     dielectric = Material(kind=:insulator, rho=Inf, eps_r=2.3)
     design = build(CableDesign, "single-hollow-wall",
@@ -423,8 +423,8 @@ end
         CableConstantsFormulation(internal_impedance=(outer=M.SurfaceLaw(kinds=(:outer,)),)))
 end
 
-@testitem "Engine / unused tubular surface declarations allocate and evaluate nothing" tags=[:unit] setup=[FormulaContractModels] begin
-    M = FormulaContractModels
+@testitem "Engine / unused tubular surface declarations allocate and evaluate nothing" tags=[:unit] setup=[FormulaFixtures] begin
+    M = FormulaFixtures
     copper = Material(kind=:conductor, rho=1.7e-8)
     dielectric = Material(kind=:insulator, rho=Inf, eps_r=2.3)
     design = build(CableDesign, "solid-with-excess-recipe",

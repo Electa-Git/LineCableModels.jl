@@ -44,26 +44,53 @@ end
 function serialize_value(selector::Function)
     selector in (
         Engine.Z, Engine.Y, Engine.R, Engine.X, Engine.L, Engine.G, Engine.B, Engine.C,
+        ModalAnalysis.gamma, ModalAnalysis.alpha, ModalAnalysis.beta, ModalAnalysis.velocity,
+        ModalAnalysis.Zc, ModalAnalysis.Yc, ModalAnalysis.H,
+        ModalAnalysis.Tv, ModalAnalysis.Ti,
         frequencies, UQ.statistics, UQ.samples, UQ.histograms, Statistics.mean, Statistics.std,
-        Statistics.median, minimum, maximum, abs, angle, LinearAlgebra.diag) || throw(ArgumentError(
+        Statistics.median, minimum, maximum, abs, angle, real, imag,
+        LinearAlgebra.diag) || throw(ArgumentError(
         "no portable scientific selector codec for $selector"))
     return Dict("__type__"=>"Observable", "name"=>string(nameof(selector)))
 end
 function serialize_value(selector::Base.Fix2{typeof(Statistics.quantile)})
     Dict("__type__"=>"Quantile", "probability"=>serialize_value(selector.x))
 end
+function serialize_value(selector::Base.Fix2{F}) where {F<:Union{typeof(ModalAnalysis.Zc),
+        typeof(ModalAnalysis.Yc),typeof(ModalAnalysis.H)}}
+    selector in Grammar.observables(ModalAnalysis.PropagationParameters) ||
+        throw(ArgumentError("unsupported modal representation selector"))
+    return Dict("__type__"=>"ModalRepresentation",
+        "selector"=>string(nameof(selector.f)),
+        "field"=>selector.f===ModalAnalysis.H ? string(selector.x.field) : nothing)
+end
 
 function deserialize_extension(::Val{:Observable}, record)
     selectors=(
         Engine.Z, Engine.Y, Engine.R, Engine.X, Engine.L, Engine.G, Engine.B, Engine.C,
+        ModalAnalysis.gamma, ModalAnalysis.alpha, ModalAnalysis.beta, ModalAnalysis.velocity,
+        ModalAnalysis.Zc, ModalAnalysis.Yc, ModalAnalysis.H,
+        ModalAnalysis.Tv, ModalAnalysis.Ti,
         frequencies, UQ.statistics, UQ.samples, UQ.histograms, Statistics.mean, Statistics.std,
-        Statistics.median, minimum, maximum, abs, angle, LinearAlgebra.diag)
+        Statistics.median, minimum, maximum, abs, angle, real, imag,
+        LinearAlgebra.diag)
     selected=filter(selector -> string(nameof(selector)) == record["name"], selectors)
     length(selected)==1 || throw(ArgumentError("unknown saved scientific selector"))
     return only(selected)
 end
 function deserialize_extension(::Val{:Quantile}, record)
     Base.Fix2(Statistics.quantile, deserialize_value(record["probability"]))
+end
+function deserialize_extension(::Val{:ModalRepresentation},record)
+    name=record["selector"]
+    field=get(record,"field",nothing)
+    if name=="H" && field in ("voltage","current")
+        return Base.Fix2(ModalAnalysis.H,(domain=Engine.PhaseDomain,field=Symbol(field)))
+    elseif name in ("Zc","Yc") && field===nothing
+        selector=name=="Zc" ? ModalAnalysis.Zc : ModalAnalysis.Yc
+        return Base.Fix2(selector,(domain=Engine.PhaseDomain,))
+    end
+    throw(ArgumentError("unknown saved modal representation"))
 end
 
 function serialize_value(value::UQ.SampleSummary)
@@ -83,6 +110,8 @@ function deserialize_extension(::Val{:HistogramDensity}, record)
 end
 
 function serialize_value(value::LineParameters)
+    Engine.domain(value) === Engine.ModalDomain && throw(ArgumentError(
+        "modal LineParameters require Julia Serialization for numerical state"))
     retained=LineCableModels.details(value).data
     record = Dict("__type__"=>"LineParameters", "Z"=>serialize_value(observe(value, Z)),
         "Y"=>serialize_value(observe(value, Y)), "frequencies"=>serialize_value(frequencies(value)),
@@ -154,8 +183,8 @@ $(TYPEDSIGNATURES)
 
 Encode a UQ result envelope with already encoded core `points`. Optional
 `sources` are shared Measurement source records supplied by the Measurements
-extension; their point records retain signed sensitivities. This boundary keeps
-empirical products, provenance and details under the scientific result codec.
+extension; their point records retain signed sensitivities. This codec keeps
+empirical products, source identities and details under the scientific result codec.
 """
 function serialize_value(value::Union{UQ.MonteCarloResult,UQ.LinearErrorResult},
         points::AbstractVector, sources)
@@ -231,7 +260,7 @@ function deserialize_extension(kind::Union{Val{:MonteCarloResult}, Val{:LinearEr
     point_seeds=deserialize_value(record["point_seeds"])
     root_seed isa Integer && !(root_seed isa Bool) &&
         all(seed -> seed isa Integer && !(seed isa Bool),point_seeds) ||
-        throw(ArgumentError("scientific Monte Carlo seeds require exact integers; floating-point JSON seeds cannot preserve provenance"))
+        throw(ArgumentError("scientific Monte Carlo seeds require exact integers; floating-point JSON seeds cannot preserve seeded replay"))
     if record["version"] == 1
         # Supported portable MC v1 records retained full empirical summaries
         # but only mean-valued cores. Restore their documented marginal result

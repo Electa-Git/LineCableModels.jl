@@ -86,7 +86,7 @@ end
     encoded=LineCableModels.ImportExport.serialize_value(source)
     restored=LineCableModels.ImportExport.deserialize_value(encoded)
     @test tabulate(restored).Z.R==tabulate(source).Z.R
-    # Restoration has the same validation boundary as native construction.
+    # Restoration applies the same validation as native construction.
     fields=encoded["payload"]["fields"]["values"]
     record=fields[2]["values"][1]
     coordinate=record["values"][findfirst(==("coordinates"),record["names"])]

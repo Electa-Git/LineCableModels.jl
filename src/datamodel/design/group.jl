@@ -236,6 +236,14 @@ function rectangular_members(boundary_shape::Disk, parts, compact::Bool)
     return members, primitives
 end
 
+"""
+$(TYPEDSIGNATURES)
+
+Construct the members and placed primitives of a bounded wire formation from
+its physical boundary, ordered part declarations, and compaction selection.
+Coordinates and dimensions are in meters. Return `(members, primitives)` in
+construction order.
+"""
 function bounded_members(boundary_shape::Disk, parts, compact::Bool)
     outer = last(parts).item.primitive
     return outer isa Disk ?
@@ -246,6 +254,14 @@ end
 bounded_members(boundary_shape::SectorShape, parts, ::Nothing) =
     sector_members(boundary_shape, parts)
 
+"""
+$(TYPEDSIGNATURES)
+
+Resolve a bounded wire group into `(boundary_shape, members, primitives)`.
+The returned boundary follows the group's pose and the occupied rectangular
+courses when present. Coordinates and dimensions are in meters; member and
+primitive order follows construction. An empty formation raises `ArgumentError`.
+"""
 function bounded_members(group::Group)
     boundary_shape = resolve(group.at, group.boundary)
     parts = bounded_declarations(group)

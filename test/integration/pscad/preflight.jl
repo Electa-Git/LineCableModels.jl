@@ -1,4 +1,4 @@
-@testitem "PSCAD / deterministic numeric boundary precedes staging and transport" tags=[:integration] begin
+@testitem "PSCAD / deterministic numeric validation precedes staging and transport" tags=[:integration] begin
     using Measurements, Calculus, Serialization
     const P = LineCableModels.PSCAD
     const contacts = Ref(0)
@@ -9,9 +9,9 @@
     function model(; radius=0.004, rho=1.72e-8, soil=100.0, temperature=20.0,
             frequency=10.0 .^ range(-1, 5; length=101))
         # Materialize the system at the problem's numeric type; this test targets
-        # the PSCAD boundary, not the shared constructor's conversion methods.
+        # PSCAD numeric preparation, not the shared constructor's conversion methods.
         T = promote_type(typeof(radius), typeof(rho), typeof(soil), typeof(temperature), eltype(frequency))
-        design = build(CableDesign, "numeric-boundary", terminal(:core,
+        design = build(CableDesign, "numeric-preflight", terminal(:core,
             solid(Material(:conductor, convert(T,rho), 1.0), Disk(convert(T,radius))),
             insulation(Material(:insulator, 1e14, 2.3); t=0.002)))
         system = build(LineCableSystem, [design], [Pose2(zero(T), -one(T))]; connections=[Dict(:core=>1)])

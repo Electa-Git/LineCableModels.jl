@@ -120,7 +120,7 @@ end
     end
 end
 
-@testitem "ImportExport / TRALIN / export and parser contracts" tags=[:integration] setup=[
+@testitem "ImportExport / TRALIN / export and parser behavior" tags=[:integration] setup=[
     UseImportExportSupport,
     TestFixtures
 ] begin

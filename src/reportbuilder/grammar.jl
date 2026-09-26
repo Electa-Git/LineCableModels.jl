@@ -52,14 +52,14 @@ function _reported_tables(artifact::ReportArtifact)
 end
 
 function _reported_table(artifact,groups,request,index)
-    identity=request_identity(request)
+    identity=Grammar.normalize_observation_selector(request_identity(request))
     indices=request_indices(request)
     tables=collect(DataFrame,Iterators.flatten(group.tables for group in groups
         if group.point_index==index))
     matches=filter(tables) do table
         retained=metadata(table,"request",nothing)
         retained===nothing && return false
-        isequal(request_identity(retained),identity) &&
+        isequal(Grammar.normalize_observation_selector(request_identity(retained)),identity) &&
             (isempty(indices) || isequal(request_indices(retained),indices))
     end
     length(matches)==1 && return only(matches)
@@ -164,13 +164,17 @@ function write end
 _observed_points(observed::ObservedResult) = (observed,)
 _observed_points(observed::AbstractVector{<:ObservedResult}) = observed
 
-function select(definition::TableReportDefinition,observed::ObservedResult)
+select(definition::AbstractReportDefinition,observed::AbstractVector{<:ObservedResult};reference=nothing) =
+    map(point -> select(definition,point;reference),observed)
+
+function select(definition::TableReportDefinition,observed::ObservedResult;reference=nothing)
     isempty(definition.requests) && return observed.quantities
-    return [_selected_quantity(observed,request)
+    return [Grammar.observation_product(observed,request)
         for request in Grammar.observation_requests(observed,definition.requests).retained]
 end
 
-_selected_quantity(observed::ObservedResult,request) = Grammar.observation_product(observed,request)
+tabulate(definition::AbstractReportDefinition,observed;reference=nothing) =
+    tabulate(definition,observed,select(definition,observed;reference);reference)
 
 illustrate(::AbstractReportDefinition,observed,tables;reference=nothing) = nothing
 encode(::AbstractReportDefinition,observed,tables,illustration;reference=nothing) = nothing
@@ -187,14 +191,16 @@ end
 """
 $(TYPEDSIGNATURES)
 
-Build tables, an optional illustration, encoded output, and written artifacts,
-in that order. Only observations cross this boundary. `reference` is an atomic
+Select retained products, build tables, render an optional illustration, encode
+output, and write artifacts, in that order. Only observations enter these report
+stages. `reference` is an atomic
 observation kept outside the reported-result collection.
 """
 function report(definition::AbstractReportDefinition,
         observed::Union{ObservedResult,AbstractVector{<:ObservedResult}};
         reference::Union{Nothing,ObservedResult}=nothing)
-    tables=tabulate(definition,observed;reference)
+    selected=select(definition,observed;reference)
+    tables=tabulate(definition,observed,selected;reference)
     illustration=illustrate(definition,observed,tables;reference)
     encoded=encode(definition,observed,tables,illustration;reference)
     written=write(definition,encoded)

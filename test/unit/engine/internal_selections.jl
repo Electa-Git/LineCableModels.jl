@@ -1,6 +1,6 @@
-@testitem "Engine / internal selections preserve native transfer dispatch and scalar assembly" tags=[:unit] setup=[TestFixtures,FormulaContractModels] begin
+@testitem "Engine / internal selections preserve native transfer dispatch and scalar assembly" tags=[:unit] setup=[TestFixtures,FormulaFixtures] begin
     const II=LineCableModels.Engine.InternalImpedance
-    const M=FormulaContractModels
+    const M=FormulaFixtures
     const IO=LineCableModels.ImportExport
     args=(0.008,0.01,1.7241e-8,1.,100.0im)
     scalar=II.Formula(:default)

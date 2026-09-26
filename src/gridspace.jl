@@ -195,6 +195,7 @@ function _combinations(space::Gridspace{<:Any, <:Any, <:Any, Val{:zip}, <:Any})
 end
 
 _indexed_source(::AbstractGrid) = Val(false)
+_indexed_source(::AbstractResultSpace) = Val(true)
 _indexed_source(::DeterministicGrid) = Val(true)
 _indexed_source(::RelativeGrid) = Val(true)
 _indexed_source(::AbsoluteGrid) = Val(true)
@@ -208,6 +209,7 @@ _indexed_sources(::Val{false}, ::Tuple) = Val(false)
 _indexed_sources(::Val{true}, sources::Tuple) = _indexed_sources(sources)
 
 _source_point(source::AbstractGrid, index::Int) = source[index]
+_source_point(source::AbstractResultSpace, index::Int) = source[index]
 function _source_point(space::Gridspace{Target}, index::Int) where {Target}
     return Gridpoint{Target}(space.build, _arguments_at(space, index))
 end

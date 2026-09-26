@@ -132,5 +132,5 @@ function pixel_error(a,b)
     size(a)==size(b) || return Inf
     return maximum(abs.(Int16.(a).-Int16.(b)))
 end
-include("rendering_contracts.jl")
+include("rendering_checks.jl")
 end

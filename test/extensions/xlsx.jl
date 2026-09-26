@@ -1,4 +1,4 @@
-@testitem "Extensions / XLSX boundary / unloaded writer is absent" tags=[:extension,:core_only] begin
+@testitem "Extensions / XLSX / unloaded writer is absent" tags=[:extension,:core_only] begin
     const RB=LineCableModels.ReportBuilder
     @test Base.get_extension(LineCableModels,:LineCableModelsXLSXExt)===nothing
     observed=ObservedResult(LineParameters(fill(1.0+2im,2,2,1),fill(3.0+4im,2,2,1),[50.]))
@@ -8,6 +8,9 @@
     @test length(encoded)==4
     @test all(book -> book isa RB.XLSXWorkbook,encoded)
     @test first(encoded).sheets[1].cells[2,2]==1000
+    tables.Z.R[1,2]=12345
+    supplied=RB.encode(definition,observed,tables,nothing)
+    @test only(filter(book -> endswith(book.destination,"_R.xlsx"),supplied)).sheets[1].cells[2,2]==12345
     @test getproperty.(first(encoded).sheets,:name)==["values","std","metadata"]
     @test !applicable(RB.write,definition,encoded)
     @test_throws MethodError report(definition,observed)

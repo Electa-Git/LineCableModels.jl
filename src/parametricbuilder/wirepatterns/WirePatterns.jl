@@ -16,6 +16,7 @@ Return the maximum wire count admitted by one estimate geometry.
 function maxfill end
 
 export WireEstimate, make_stranded, make_screened
+public HexaPattern, ScreenPattern
 
 include("types.jl")
 include("gauges.jl")

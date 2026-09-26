@@ -91,8 +91,8 @@
         frequencies_value
     )
     modal=compute(
-        ModalTransformationProblem(modal_source),
-        ModalTransformationFormulation(:default)
+        ModalAnalysisProblem(modal_source),
+        ModalAnalysisFormulation(:default)
     )
     @test_throws ArgumentError compare(reference, modal)
 

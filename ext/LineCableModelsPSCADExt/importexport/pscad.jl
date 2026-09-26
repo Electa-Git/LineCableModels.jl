@@ -61,7 +61,7 @@ function export_data(
     path = _pscad_output_path(system, file_name)
     #! explicit-imports: off
     # EzXML does not mark XMLError public, but this exporter preserves the
-    # established exception contract for invalid XML output destinations.
+    # established IOError behavior for invalid XML output destinations.
     isdir(path) && throw(EzXML.XMLError(
         8,
         0,

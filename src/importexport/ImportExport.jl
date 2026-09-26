@@ -49,6 +49,7 @@ using ..DataModel: CablesLibrary, DatasheetInfo, CableDesign, LineCableSystem,
 using ..ParametricBuilder: AbstractGrid, DeterministicGrid, RelativeGrid,
                            AbsoluteGrid, Grid, Gridspace, AbsoluteError
 import ..Engine
+import ..ModalAnalysis
 import ..Engine: LineParameters, SeriesImpedance, ShuntAdmittance,
                  frequencies, Z, Y, C
 import EzXML
