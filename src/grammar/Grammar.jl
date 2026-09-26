@@ -1,0 +1,58 @@
+"""
+    LineCableModels.Grammar
+
+Define calculation supertypes and functions shared by Engine,
+ParametricBuilder, UQ, and external implementations.
+
+# Public actions
+
+- `formulation_options` and `computation_options` normalize owner-specific options.
+- `computation_details` normalizes supplemental output from a registered
+  computation owner, and `details` reads retained supplemental output.
+- `compute` evaluates a problem through a selected formulation.
+- `observe` and `@observe` read native numerical values from completed results.
+- `observables` publishes explicitly requested scientific values.
+- `validate_observables` and `unit_targets` align publication requests and
+  display units for presentation consumers.
+"""
+module Grammar
+
+export AbstractProblemDefinition, AbstractFormulation, AbstractProblemResult
+export AbstractCoreResult, AbstractResultSpace
+export AbstractParametricResult, AbstractUncertaintyResult
+export FormulationOptions, ComputationOptions, ComputationDetails
+export formulation_options, computation_options, computation_details, details
+export compute, observe, @observe, observables
+export nominal, uncertainty
+
+using DocStringExtensions: SIGNATURES, TYPEDSIGNATURES, TYPEDEF, TYPEDFIELDS
+import ..LineCableModels: basis
+import UUIDs
+import Random
+import ..Units
+using ..Units: UnitExpr, quantity, native_unit, display_unit, scale_factor
+
+include("types.jl")
+include("base.jl")
+include("results.jl")
+include("interfaces.jl")
+include("formulas.jl")
+include("observables.jl")
+include("uncertainty.jl")
+include("gridpoint.jl")
+include("observed_validation.jl")
+include("observedresult.jl")
+include("retained_products.jl")
+
+public check_core_result
+public FormulaDefinition, FormulaMethod
+public validate_observables, unit_targets, detach
+public observation_request, observation_indices, materialize_observation
+public observation_resolution
+public input_fields, observation_gridpoint, observation_requests, observation_quantity
+export ObservedResult
+public observation_groups, observation_labels, observation_product, gridpoint_id
+public observation_selection
+public request_identity, request_quantity, request_indices
+public normalize_observation_selector
+end # module Grammar

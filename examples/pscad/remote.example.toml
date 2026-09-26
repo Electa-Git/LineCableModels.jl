@@ -1,0 +1,20 @@
+# Copy to a private filename of your choice and edit the station paths.
+# local_root and shared_root must expose the same exchanged files.
+host = "pscad-host"
+local_root = "exchange"
+shared_root = 'Z:\shared\exchange'
+remote_root = 'C:\LCM\scratch'
+julia_executable = 'C:\Julia\bin\julia.exe'
+python_executable = 'C:\Python\python.exe'
+pscad_version = "5.1.0"
+timeout_seconds = 1800
+transport = "ssh"
+
+# For direct Windows execution, use transport = "local", host = "localhost",
+# and the same absolute Windows folder for local_root and shared_root.
+# remote_root must be separate scratch storage.
+
+# For a custom wrapper, replace transport above with "command" and supply:
+# command = ["ts", "ssh", "{host}", "--direct", "-o", "ServerAliveInterval=15", "-o", "ServerAliveCountMax=3", "--"]
+# Remove "--direct" to use that wrapper's Tailscale network route.
+# Ordinary SSH can instead use a user-configured SSH alias/tunnel.

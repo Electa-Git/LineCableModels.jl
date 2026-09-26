@@ -1,0 +1,248 @@
+@testitem "Engine / formulation grids / exact batched calculations" tags=[:integration] setup=[
+    UseEngineSupport,
+    TestFixtures, FormulaFixtures
+] begin
+    function same_parameters(left, right)
+        same_domain=if domain(left)===ModalDomain
+            details(left).data.modal.identifier==details(right).data.modal.identifier&&
+                operators(left).Tv==operators(right).Tv&&
+                operators(left).Ti==operators(right).Ti&&
+                gamma(left)==gamma(right)
+        else
+            left.domain==right.domain
+        end
+        return same_domain&&
+               left.Z.values==right.Z.values&&
+               left.Y.values==right.Y.values&&
+               left.f==right.f&&
+               Base.structdiff(left.details.data,(gridpoint=left.details.data.gridpoint,))==Base.structdiff(right.details.data,(gridpoint=right.details.data.gridpoint,))
+    end
+
+    system=TestFixtures.three_phase_system()
+    earth=Grid((
+        EarthModel(10.0, 10.0, 1.0),
+        EarthModel(100.0, 10.0, 1.0)
+    ))
+    problem_space=LineParametersProblem(
+        system,
+        earth;
+        frequencies = [50.0]
+    )
+    formulation_space=Formulation(
+        earth_impedance = Grid(Tuple(FormulaFixtures.selection(
+            LineCableModels.Engine.EarthImpedance; layers=2:2, scale)
+            for scale in (1.0, 2.0))),
+    )
+    problems=collect(problem_space)
+    formulations=collect(formulation_space)
+    expected=[compute(problem, formulation)
+              for formulation in formulations
+              for problem in problems]
+
+    run=compute(ParametricProblem(problem_space),
+        Combinatorial(formulation_space; options=(retain_details=true,)))
+    @test length(run) == length(problems) * length(formulations)
+    @test length(details(run).data.points) == length(run)
+    @test formula_id.(getproperty.(
+        getproperty.(run.axes.formulations, :methods),
+        :earth_impedance
+    )) == [:LayerImpedance, :LayerImpedance]
+    @test [f.methods.earth_impedance.parameters.scale for f in run.axes.formulations] == [1.0, 2.0]
+    for index in eachindex(expected)
+        @test same_parameters(run[index], expected[index])
+    end
+    for formulation_index in eachindex(formulations)
+        for problem_index in eachindex(problems)
+            index=problem_index+
+            (formulation_index-1)*length(problems)
+            @test same_parameters(
+                run[problem_index, formulation_index],
+                expected[index]
+            )
+        end
+    end
+
+    direct=compute(first(problems), formulations)
+    @test length(direct) == length(formulations)
+    completions=Tuple[]
+    on_result=(problem, index, result)->push!(completions, (problem, index, result))
+    observed=compute(first(problems), formulations; options = (; on_result))
+    @test getindex.(completions, 2) == collect(eachindex(formulations))
+    @test all(item -> item[1] === first(problems), completions)
+    @test all(index -> same_parameters(completions[index][3], observed[index]), eachindex(observed))
+    empty!(completions)
+    compute(first(problems), first(formulations); options = (; on_result))
+    @test length(completions) == 1
+    @test completions[1][2] == 1
+    empty!(completions)
+    failure=ErrorException("checkpoint write failed")
+    stop_after_first=(problem, index, result)->begin
+        on_result(problem, index, result)
+        throw(failure)
+    end
+    @test_throws failure compute(first(problems), formulations; options = (on_result = stop_after_first,))
+    @test length(completions) == 1
+    @test same_parameters(completions[1][3], direct[1])
+    for formulation_index in eachindex(formulations)
+        @test same_parameters(
+            direct[formulation_index],
+            compute(first(problems), formulations[formulation_index])
+        )
+    end
+
+    for source in (problem_space, ParametricProblem(problem_space, ComputationOptions((; on_result))))
+        empty!(completions)
+        automatic=source isa ParametricProblem ? compute(source, formulation_space) :
+            compute(source, formulation_space; options = (; on_result))
+        @test all(same_parameters.(collect(automatic), expected))
+        @test length(completions) == length(expected)
+        @test getindex.(completions, 2) == [1, 2, 1, 2]
+    end
+    automatic_scalar=compute(first(problems), formulation_space)
+    @test all(same_parameters.(collect(automatic_scalar), direct))
+
+    design=TestFixtures.coaxial_design()
+    constants_problem=CableConstantsProblem(design; frequency = 50.0)
+    constants_space=CableConstantsFormulation(
+        insulation_admittance = Grid((:lossy, :default)),
+    )
+    constants_formulations=collect(constants_space)
+    constants_batch=compute(constants_problem, constants_formulations)
+    @test constants_batch == [compute(constants_problem, formulation)
+           for formulation in constants_formulations]
+    @test collect(compute(constants_problem, constants_space)) == constants_batch
+
+    phase=first(expected)
+    modal_problem=ModalAnalysisProblem(phase)
+    modal_space=ModalAnalysisFormulation(
+        Grid((:default, :default)),
+    )
+    modal_formulations=collect(modal_space)
+    modal_batch=compute(modal_problem, modal_formulations)
+    modal_scalar=[compute(modal_problem, formulation)
+                  for formulation in modal_formulations]
+    @test length(modal_batch) == 2
+    @test all(same_parameters.(collect(compute(modal_problem, modal_space)), modal_batch))
+    @test isconcretetype(eltype(modal_batch))
+    @test typeof(modal_batch[1]) === typeof(modal_batch[2])
+    @test size(modal_batch[1].domain.gamma)==(size(phase.Z,1),length(phase.f))
+    for index in eachindex(modal_batch)
+        @test same_parameters(modal_batch[index], modal_scalar[index])
+    end
+
+    stages=Symbol[]
+    composed=compute(first(problems),formulations;
+        options=(on_result=(problem,index,value)->begin
+            @test domain(value)===PhaseDomain
+            push!(stages,:phase)
+        end,),
+        modal=ModalAnalysisFormulation(:default),
+        modal_options=(on_result=(problem,index,value)->begin
+            @test domain(value)===ModalDomain
+            push!(stages,:modal)
+        end,))
+    @test stages==[:phase,:phase,:modal,:modal]
+    @test composed isa AbstractVector{<:LineParameters}
+    @test length(composed)==length(formulations)
+    @test all(index -> Z(composed[index])≈Z(compute(
+        ModalAnalysisProblem(direct[index]),ModalAnalysisFormulation(:default))),
+        eachindex(composed))
+    @test_throws ArgumentError compute(first(problems),first(formulations);
+        modal_options=(timing=true,))
+    completed_modal_grid=Grid(Tuple(modal_formulations))
+    composed_grid=compute(first(problems),first(formulations);
+        modal=completed_modal_grid)
+    @test length(composed_grid)==2
+    @test all(value -> value isa LineParameters,composed_grid)
+    @test all(index -> Z(composed_grid[index])≈Z(compute(
+        ModalAnalysisProblem(direct[1]),modal_formulations[index])),1:2)
+
+    transported=Gridspace{ModalAnalysisProblem}(run)
+    @test length(transported) == length(run)
+    @test transported.grids === (run,)
+    modal_run=compute(
+        ParametricProblem(transported),
+        Combinatorial(modal_space)
+    )
+    expected_modal=[compute(ModalAnalysisProblem(parameters), formulation)
+                    for formulation in modal_formulations
+                    for parameters in run]
+    @test length(modal_run) == length(run) * length(modal_formulations)
+    @test isconcretetype(eltype(modal_run))
+    @test all(
+        same_parameters(modal_run[index], expected_modal[index])
+    for index in eachindex(expected_modal)
+    )
+    for formulation_index in eachindex(modal_formulations), source_index in 1:length(run)
+        downstream=modal_run[source_index,formulation_index]
+        @test details(downstream).data.source_gridpoint==details(run[source_index]).data.gridpoint
+        @test frequencies(downstream)==frequencies(run[source_index])
+    end
+    @test size.(gamma.(modal_run))==fill((size(phase.Z,1),length(phase.f)),length(modal_run))
+end
+
+@testitem "Engine / formulation grids / one lowering per selected design" tags=[:integration] begin
+    import LineCableModels.Engine as EN
+
+    # Specialize only designs bearing a test-owned nominal-data type. invoke
+    # then runs the unmodified production lowering; no global method is replaced.
+    struct LoweringCounter
+        calls::Base.RefValue{Int}
+    end
+    function EN.flatten(engine::LineCableModelsCoaxial,
+            design::CableDesign{T, R, G, NamedTuple{(:counter,), Tuple{LoweringCounter}}},
+            ::Type{S}, methods::NamedTuple, solutions::Vector, design_index::Int) where {
+            T <: Real, R <: AbstractCablePart,
+            G <: LineCableModels.DataModel.CableGeometry, S <: Real
+    }
+        design.nominal_data.counter.calls[]+=1
+        return invoke(EN.flatten,
+            Tuple{LineCableModelsCoaxial, CableDesign, Type{S}, NamedTuple, Vector, Int},
+            engine, design, S, methods, solutions, design_index)
+    end
+
+    counter=LoweringCounter(Ref(0))
+    copper=Material(kind = :conductor, rho = 1.7241e-8)
+    dielectric=Material(kind = :insulator, rho = 1e14, eps_r = 2.3)
+    design=build(CableDesign, "counted-lowering",
+        terminal(:core, core(copper; r = 5e-3), insulation(dielectric; t = 2e-3)),
+        terminal(:sheath, sheath(copper; t = 0.5e-3));
+        nominal_data = (; counter))
+    system=build(LineCableSystem, design, Pose2(0.0, -1.0);
+        connections = (core = 1, sheath = 0))
+    problems=LineParametersProblem(system, homogeneous(rho = Grid((10.0, 100.0)));
+        frequencies = [1.0, 50.0, 1000.0])
+    formulations=Formulation(earth_impedance = Grid((
+        formula(:unified; options=(Γ=0,)),
+        formula(:unified; options=(Γ=1e-4im,)))))
+    @test counter.calls[] == 0
+
+    phase=compute(ParametricProblem(problems), Combinatorial(formulations))
+    @test length(phase) == 4
+    @test counter.calls[] == 2
+    @test all(parameters -> domain(parameters) === PhaseDomain, phase)
+    @test all(parameters -> size(parameters.Z) == (1, 1, 3), phase)
+
+    counter.calls[]=0
+    scalar=compute(first(problems), first(formulations))
+    @test counter.calls[] == 1
+    @test scalar.Z.values == first(phase).Z.values
+    @test scalar.Y.values == first(phase).Y.values
+
+    counter.calls[]=0
+    constants_problem=CableConstantsProblem(design; frequency = 50.0)
+    constants_formulations=collect(CableConstantsFormulation(
+        insulation_admittance = Grid((:lossy, :default))))
+    constants=compute(constants_problem, constants_formulations)
+    @test length(constants) == 2
+    @test counter.calls[] == 1
+
+    counter.calls[]=0
+    modal_problems=Gridspace{ModalAnalysisProblem}(phase)
+    modal_formulations=ModalAnalysisFormulation(
+        Grid((:default, :default)))
+    modal=compute(ParametricProblem(modal_problems), Combinatorial(modal_formulations))
+    @test length(modal) == 8
+    @test all(parameters -> domain(parameters) === ModalDomain, modal)
+    @test counter.calls[] == 0
+end

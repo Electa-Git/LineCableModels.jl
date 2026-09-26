@@ -1,0 +1,19 @@
+schema_version = 1
+profile = "linecablemodels"
+
+native_configurations = [
+  "Project.toml",
+  ".JuliaFormatter.toml",
+  "test/runtests.jl",
+  "test/quality/aqua.jl",
+]
+
+protected_paths = ["src", "ext", "test", "docs"]
+
+[vocabulary]
+additions = []
+allowances = []
+
+[work]
+state_directory = ".git/qat/work"
+require_allowed_paths = true

@@ -1,244 +1,468 @@
-# Package conventions
+# Conventions
 
----
+## Documentation language
 
-## Function and method names
+Use US English in docstrings and project documentation. Preserve API identifiers,
+file paths, quoted titles, and proper names. State what a calculation does,
+define its physical inputs and units, and distinguish implemented behavior from
+approximations and literature results. Omit promotional claims and process
+terminology when a concrete description suffices.
 
-### Multi-dispatch resolution pattern
-
-The codebase employs a consistent three-tier resolution pattern for handling user input processing through multi-dispatch. This standardized approach allows for predictable code organization and improved maintainability.
-
-#### Resolution pattern naming structure
-
-```julia
-_resolve_<entity>           # Primary resolution function
-├─ _parse_inputs_<entity>   # Type conversion & normalization 
-└─ _do_resolve_<entity>     # Core implementation logic
-```
-
-The naming pattern has been carefully selected to reflect the purpose of each dispatch layer:
-
-1. **`_resolve_<entity>`**: The primary entry point that coordinates the resolution process. The term "resolve" indicates that the function must determine an appropriate course of action based on input types that are not known in advance. This function validates inputs and delegates to specialized implementations.
-
-2. **`_parse_inputs_<entity>`**: The intermediate layer responsible for converting diverse input types into standardized forms that can be processed by the implementation layer. This function normalizes inputs through type-specific conversions.
-
-3. **`_do_resolve_<entity>`**: The implementation layer that performs the actual computations or transformations once inputs have been standardized. This function contains the core logic specific to each component type.
-
-#### Function scope and visibility
-
-All functions in this pattern are prefixed with an underscore (`_`) to indicate they are internal implementation details not intended for direct use by the package consumers.
-
-### Calculation vs. computation pattern
-
-The codebase distinguishes between calculation and computation methods through a clear naming convention:
-
-#### Calculation methods (`calc_`)
-
-Functions prefixed with `calc_` handle intermediate steps within a broader computational framework. These methods:
-
-- Perform specific mathematical operations on well-defined inputs.
-- Typically represent a single conceptual step in a larger process.
-- Return intermediate results that will be used by higher-level functions.
-- Are often associated with specific physical or mathematical formulations.
-
-#### Computation methods (`comp_`)
-
-Functions prefixed with `comp_` represent higher-level operations that perform multiple calculation steps to achieve a complete analysis. These methods:
-
-- Coordinate multiple calculation steps toward a final result.
-- Often work with complex objects rather than primitive types.
-- Represent the primary technical capabilities of the toolbox.
-- May store results in appropriate data structures for further processing.
-
-This distinction reflects the hierarchical nature of the [`LineCableModels.jl`](@ref) package, where individual calculations support the broader computational objectives of modeling transmission lines and cables.
-
-### Library management pattern
-
-The codebase implements a consistent pattern for managing libraries of models and components through standardized naming conventions. This pattern facilitates the storage, retrieval, and management of reusable objects within the framework.
-
-#### Library operations naming structure
+LineCableModels follows the SciML formatter style. Run:
 
 ```julia
-store_<library>!       # Add or update an object in a library
-remove_<library>!      # Remove an object from a library
-save_<library>         # Writes the entire library contents to a file
-list_<library>         # Display contents of a library
+using JuliaFormatter
+format(".")
 ```
 
-Each library operation follows a predictable naming convention:
+before committing Julia source.
 
-1. **`store_<library>!`**: Adds or updates objects in the specified library. The exclamation mark indicates that this operation modifies the library state.
+## Native-first semantic economy
 
-2. **`remove_<library>!`**: Removes an object from the specified library. The exclamation mark indicates that this operation modifies the library state.
+Use Julia's existing meanings before adding package vocabulary. Check, in
+order, whether the operation is already expressed by Core, Base, a standard
+library, a direct dependency, or an existing package generic.
 
-3. **`save_<library>`**: Persists the current state of the library to external storage, typically a file. This operation does not modify the library itself.
+A new name must identify a domain action, an invariant, a numerical method, an
+external format, or real state. A name that only forwards arguments, reads one
+field, repacks a tuple, or merges defaults does not add meaning.
 
-4. **`list_<library>`**: Displays the contents of the library for inspection without modifying its state.
+| Prefer | Avoid |
+|:--|:--|
+| `Base.length`, iteration, indexing, `show`, and `showerror` | package copies of collection and display operations |
+| constructors, `promote`, and `convert` | a second conversion vocabulary |
+| another method on an owned generic | a synonym that forwards to that generic |
+| dispatch on a scientific type | a symbol switch or dictionary that repeats dispatch |
+| a local method beside its owner | a global `helpers` or `utils` bucket |
 
-### Object modification pattern
-
-For operations that modify components within larger structures (e.g., [`AbstractConductorPart`](@ref) within a parent [`ConductorGroup`](@ref)), the codebase employs the `addto_` prefix:
+For example, a result that is a finite collection implements Julia's collection
+methods:
 
 ```julia
-addto_<entity>!        # Add or modify a subcomponent within a larger component
+Base.length(result::MyResult) = length(result.values)
+Base.getindex(result::MyResult, index::Integer) = result.values[index]
+Base.iterate(result::MyResult, state...) = iterate(result.values, state...)
 ```
 
-The `addto_<entity>!` pattern:
+It does not add `get_results`, `result_count`, and `iterate_results` as parallel
+names.
 
-- Indicates that a subcomponent is being added to or modified within a parent component.
-- Always includes an exclamation mark to denote state modification.
-- Typically invokes `calc_` methods to update derived properties.
+Small methods are appropriate when each method owns a dispatch choice or an
+invariant. Tiny forwarding helpers that only rename another operation are not.
+Do not add speculative compatibility shims, runtime `eval`, exception-driven
+feature tests, or lookup tables that duplicate Julia methods.
 
-This pattern allows for hierarchical composition of components while maintaining a clear distinction from library management operations.
+Mutating functions use `!` only when the operation can mutate an argument or
+externally visible state.
 
-### DataFrame view pattern
+## Dispatch-driven fixed actions
 
-The codebase implements a consistent pattern for generating `DataFrame` views of complex objects through a standardized naming convention:
+Use one public action when an operation has one required stage order. The
+action method shows the complete sequence, and concrete definition types add
+methods for the stages they own.
 
 ```julia
-<entity>_todf        # Convert entity to a `DataFrame` representation
+function process(definition::AbstractDefinition, source)
+    selected = select(definition, source)
+    product = build(definition, selected)
+    return Product(product)
+end
 ```
 
-This pattern:
-
-- Takes an entity object as input and creates a `DataFrame` visualization.
-- Uses the suffix `_todf` to clearly indicate the conversion operation.
-- Produces non-mutating transformations (no exclamation mark needed).
-- Facilitates analysis, visualization, and reporting of complex data structures.
-
-The `_todf` suffix provides a concise and immediately recognizable identifier for functions that expose object data in tabular format.
-
----
-
-## Module organization
-
-### Exports and visibility
-
-- Public API functions have no underscore prefix and are explicitly exported.
-- Internal functions use leading underscore prefix (`_function_name`) and are not exported.
-- Modules use `@reexport` to propagate exports from submodules to parent modules.
-- Exports are placed at the top of each module for visibility.
-
-### Module structure
-
-- Main module (`LineCableModels`) reexports from submodules.
-- Submodules (`DataModel`, `Materials`, etc.) handle their own exports.
-- Maximum nesting depth is 3 levels (parent → child → grandchild).
-- Documentation is maintained at all levels using `DocStringExtensions`.
-
-### Code navigation
-
-- Module docstrings should list key exported functions and types.
-- All exported items require docstrings.
-- Internal implementation details use minimal documentation.
-
----
-
-## Framework design pattern
-
-### Core architecture
-
-The `LineCableModels.jl` package implements a consistent framework pattern across all modules, designed to provide flexibility while maintaining type stability and performance. The architecture is built around three key components:
-
-1. **Problem definition**: Defines the physics/mathematical approach
-2. **Solver**: Controls execution parameters
-3. **Workspace**: Centralizes all state during computation
-
-This pattern separates *what* is being calculated (problem definition, formulation) from *how* calculations are executed (engine used, solver) and *where* data is stored (workspace).
-
-### The workspace pattern
-
-At the core of the framework is the Workspace pattern, exemplified by `FEMWorkspace` in the `FEMTools` module. This pattern can be replicated across other modules (e.g., `EMTWorkspace`).
-
-A workspace:
-
-- Acts as a centralized state container.
-- Stores all intermediate computation data.
-- Manages entity tracking and lookup tables.
-- Provides consistent interfaces for data access.
-- Maintains configuration and results.
-
-### Type hierarchy
-
-Each module follows a consistent type hierarchy:
+Good definition types are concrete and passive: their fields state scientific
+choices or completed configuration. Runtime work belongs to stage methods.
 
 ```julia
-AbstractProblemFormulation
-  ├── FEMFormulation :> {Darwin, Electrodynamics, ...}
-  ├── AbstractFDEMFormulation :> {CPEarth, CIGRE, ...}
-  ├── AbstractEHEMFormulation :> {EnforceLayer, EquivalentSigma, ...}
-  ├── ...
-  └── [Other specialized formulations, concrete or abstract]
+struct FrequencyReport <: AbstractReportDefinition
+    requests::Tuple
+end
 
-AbstractWorkspace
-  ├── FEMWorkspace
-  ├── EMTWorkspace
-  ├── ...
-  └── [Other specialized workspaces]
-
-AbstractEntityData
-  └── [Domain-specific entity types]
+select(definition::FrequencyReport, source) =
+    observables(source, definition.requests)
 ```
 
-This hierarchy enables both specialization and shared interfaces.
+Do not replace type-directed stages with a generic `mode`, `style`, or options
+dictionary interpreted by one large switch. Normalize public symbols once at
+the owner's entry point when symbols are part of the public syntax, then use
+the existing `Val` method family:
 
-### Data flow
+```julia
+owned_action(selector::Symbol, args...; kwargs...) =
+    owned_action(Val(selector), args...; kwargs...)
 
-Data flows through the system in a consistent pattern:
+owned_action(::Val{:example}, args...; kwargs...) = ...
+```
 
-1. System definition (LineCableSystem instance).
-2. Problem definition (physics parameters, formulations to employ).
-3. Solver configuration (execution parameters).
-4. Workspace initialization (state container).
-5. Execution (multi-phase processing).
-6. Result extraction (from workspace).
+Use an explicit no-op method only when doing nothing is a valid stage result.
+Reject unsupported definition/source pairs through required stage dispatch
+before partial work. Introduce a mutable context only when several stages
+genuinely share buffers, resources, or evolving state. CI checks the fixed
+actions listed in [Grammar invariants](developers.md) directly; runtime
+metadata that merely repeats their method definitions is not part of the
+grammar.
 
-This pattern applies regardless of the specific module or calculation type.
+## Ownership-centered recursive module layout
 
-### Multi-phase processing
+Place code first by the owner that defines when it changes, then by its precise
+responsibility. Files, directories, and Julia modules solve different
+problems:
 
-All modules implement a multi-phase execution pattern with clear separation between phases. For example, the `FEMTools` module follows this pattern:
+- a file separates one responsibility within an owner;
+- a directory groups several responsibilities that still belong to one owner;
+- a submodule supplies a separate namespace, dependency set, or stated
+  interface;
+- a package is warranted only when the code has independent users and releases.
 
-1. **Initialization phase**: Setup workspace, load configurations.
-2. **Construction phase**: Create entities based on system definition (may include specific preliminary tasks, e.g. fragments/synchronization steps FEM simulations).
-3. **Processing phase**: Execute main computation loops, store raw results in workspace container.
-4. **Post processing phase**: Assign properties to processed entities.
-5. **Result phase**: Extract and format results.
+Grow code recursively:
 
-This pattern ensures clean separation of concerns, making the code more maintainable.
+```text
+single responsibility in owner file
+└─ several responsibilities in owner directory, same module
+   └─ separate namespace or dependency set in child module
+      └─ independent package only when independently consumed
+```
 
-### State management
+A module entry file is an index. It contains the module description, explicit
+imports, public names, includes in dependency order, and deliberate child
+reexports. Constructors, algorithms, validation, plotting descriptions, and
+format translations belong in focused files selected by the owner.
 
-State is managed exclusively through the Workspace, which contains:
+Place a method according to the reason it changes. A method that exposes an
+Engine result through `observe` belongs with that result. A method that draws a
+native figure with Makie belongs in the Makie extension. Scientific
+observations and physical preview geometry remain with their owner; plot
+request normalization, presentation groups, palettes, Makie blocks, layouts,
+widgets, callbacks, and backend activation do not. A method that parses an
+external file belongs with the format owner.
 
-1. **Configuration state**: Original system, formulation, and opts.
-2. **Entity state**: Collections of typed entities.
-3. **Lookup maps**: Efficient mappings between entities and properties.
-4. **Processing state**: Temporary calculation state.
-5. **Result state**: Final calculation outputs.
+Optional dependencies remain in package extensions. Core source may define
+package-neutral requests and completed values, but it does not import Makie,
+XLSX, Measurements, or Distributions.
 
-This centralized approach eliminates global state and ensures thread safety.
+Prefer conceptual groupings such as:
 
-### Implementation example: FEMTools.jl
+```text
+Owner
+├─ types
+├─ interfaces
+├─ constructors
+├─ action
+├─ Base protocols
+└─ owned optional translations
+```
 
-The FEMTools module exemplifies this pattern:
+Avoid global mechanism-first trees such as `types/services/managers/handlers`,
+one module per file or per type, empty directory scaffolds, and a common base
+file that accumulates unrelated methods. Do not split a fixed call sequence
+across files merely to make each stage visually separate.
 
-- `FEMFormulation`: Physics parameters for FEM simulation.
-- `FEMSolver`: Execution parameters for meshing and solving.
-- `FEMWorkspace`: Central state container for all FEM operations.
-- Entity types: Typed data containers for different geometric elements.
-- Multi-phase workflow: Creation → Fragmentation → Identification → Assignment → Meshing → Solving → Post-processing.
+## Scientific reads, tables, and plots
 
-### Extension to new modules
+`observe` reads native scientific values. `ObservedResult` captures detached
+products for one completed gridpoint. Ordinary collections lift that constructor.
+Reports, tables, plots, exports, and saved report inspection consume observations.
 
-When creating new modules, the following patterns should be followed:
+```text
+completed numerical result + completed comparisons + recorded timings
+→ ObservedResult(gridpoint, quantities, errors, timings)
+→ retained selection → tables / existing Makie renderers / persistence
+```
 
-1. Define problem & formulation type (physics parameters).
-2. Define solver type (execution parameters).
-3. Define workspace type (state container).
-4. Implement entity types specific to the domain.
-5. Implement multi-phase workflow with clear separation.
-6. Use the workspace pattern for state management.
-7. Follow the standard data flow.
+The result owner implements `observation_quantity` and declares its requests.
+`Grammar.observation_gridpoint` reads the description captured in completed result
+storage. Completion captures actual physical inputs, formulation selections and
+controls, coordinates, and original point identity. Basic descriptions are always
+retained. Observation and presentation never reconstruct a problem from lazy axes.
 
-This framework ensures consistency, maintainability, and performance across all modules within the package.
+The complete primary pairs are R/X, magnitude/angle of Z, or R/L for Z, and G/B,
+magnitude/angle of Y, or G/C for Y. Defaults are R/X and G/B. The strict constructor
+rejects an incomplete pair. Raw plotting conveniences use the same request
+normalizer with `complete_pairs=true`; `plot(line; ydata=(R,))` retains R/X and G/B
+and displays R. `plot(observed; ydata=(R,))` selects retained R only. Different
+representations require a new explicit construction. No consumer derives an
+absent quantity, repeats clipping, or acquires a raw source.
+
+Re-observation selects retained products and preserves their recorded units by
+default. Explicit unit changes convert from those recorded units; they never
+reapply native-unit scaling or clipping. Comparison and timing associations
+survive selection. The atomic constructor validates coordinates, dimensions,
+units, masks, and completed-comparison records, including during archive loading.
+
+The shared `Grammar.observation_product(points, request)` operation aligns matrix
+coefficients by original indices and converts compatible units for overlays.
+Each trace keeps its own frequency samples; no interpolation occurs. Z and Y
+products may retain different frequency selections.
+
+UQ acquisition belongs to the UQ owner: `ObservedResult(uq, point, requests)` joins
+that point's primary values and requested statistics, samples, or histograms.
+Product requests omit the point index. Mean/std estimates and precomputed
+histogram/CDF/Q–Q coordinates remain ordinary records in `quantities`; sampling
+information belongs to `gridpoint.sampling`. Uncertain primary values in an ordinary
+collection use the primary owner and preserve their dependencies.
+
+```julia
+observed = ObservedResult(parameters, (R, L, G, C))
+tables = ReportBuilder.tabulate(observed)  # tables.Z.R, tables.Z.L, tables.Y.G, tables.Y.C
+plot(observed; ydata=(R,))
+```
+
+Every quantity has its own table. A full n×n matrix on m frequencies has m rows and
+1+n² columns, in row-major coefficient order; both off-diagonals remain present.
+Sparse and diagonal requests preserve original indices and matrix extent.
+Modal vectors use one `:vector` mode axis with original mode positions and
+retained frequency samples. Bare complex modal requests acquire Cartesian
+component pairs; explicit components display only the selected product.
+`alpha` and `beta` share the physical identities of the real and imaginary
+parts of `gamma`, and `velocity` is a separate real quantity. Modal archives
+written before these coordinate and identity changes must be reacquired.
+`DataFrame(observed)` rejects aggregate conversion and directs the caller to a
+quantity leaf such as `ReportBuilder.tabulate(observed, R)`. `ObservedResult` is
+not a Tables.jl table. CableConstants quantity tables have one operating-frequency
+row and a named column per assembly. XLSX writes one numeric values/std workbook per point and quantity;
+native observation persistence preserves precision and uncertainty dependencies
+across the complete candidate/reference archive. XLSX preflights all destinations
+and worksheet sizes before writing; existing files require `overwrite=true`.
+
+Explicit benchmark comparison precedes construction:
+
+```julia
+completed = compare(reference, candidates, [R, L]; bands=(:all,))
+points = observables(candidates; comparisons=completed, timings=recorded_timings)
+reference_point = ObservedResult(reference)
+artifact = report(BenchmarkTableDefinition(), points; reference=reference_point)
+plot(artifact; ydata=(R,))
+```
+
+Comparison records join by original candidate identities. A reference remains
+outside the candidate collection. External data needs explicit retained identity
+for a benchmark; absent physical descriptions remain explicitly absent. Arithmetic
+checks cover coordinates, dimensions, units, basis, and frequency agreement.
+Scientific comparability is the caller's responsibility; no interpolation occurs.
+`ReportArtifact.observed` and `.reference` contain only observations; `.tables`
+contains the organized tables. Raw conveniences construct and delegate once.
+
+`observation_groups` is the shared grouping owner. Eligibility requires the same
+physical point, relevant selected formulas and controls, quantity/statistical
+meaning, units, uncertainty interpretation, and coordinates. Exact numerical and
+dependency agreement verifies that eligibility. It does not discover equivalence.
+Conflicting numerical values under the same semantics and uncertainty dependencies
+raise a consistency diagnostic. Captured physical fields carry owner-defined
+names and units; common formulation fields are compared structurally before
+labels are formatted.
+All group identities, original observations, tables, and files remain available.
+
+## Numerical reporting and current behavior
+
+An available scalar is engineering zero precisely when
+`abs(nominal(value)) <= cutoff`. Nonfinite and unavailable values are separate.
+Defaults per meter are R=1e-10 Ω/m, L=1e-15 H/m, G=1e-12 S/m, C=1e-16 F/m;
+X and B use 2πf times their L and C cutoffs. Total quantities scale by a retained
+physical length or require explicit cutoffs. L/C are unavailable at DC. No inferred
+`eps`, matrix-norm, largest-coefficient, or uncertainty contribution is added.
+Complex zero requires both Cartesian components to be zero. Polar products come
+from the original complex values. Recentring preserves uncertainty dependencies
+and every spread. Undefined first-order magnitude retains its components and zero
+nominal magnitude with an explicit reason; its value and phase remain missing.
+
+Comparison classifies original operands first. Any ineligible sample makes both
+RMS metrics missing for that coefficient/band. Otherwise existing RMS mathematics
+applies to original values. Small and zero errors remain valid; operand cutoffs
+are never applied to errors. Actual cutoffs, units, selections, settings, and
+missing reasons are retained.
+
+Recorded timings remain associated with the original candidate and separate
+reference in report tables. Equal elapsed times do not identify a shared event.
+A measurement for a whole calculation retains that scope when several observed
+points carry it; reporting does not invent per-point timings.
+
+Intentional changes replace current internal behavior. Persistence and consumer
+dependencies do not require generations of that behavior. Do not introduce a
+renamed policy counter, code fingerprint, compatibility branch, or maintenance
+instruction to recreate that obligation. File checksums and source revisions
+retain their actual integrity and source-identification meanings.
+
+| Removed owned representation | Scientific meaning and current owner |
+| --- | --- |
+| `ObservationPublication`, `publication_table`, parallel flattened columns | One `ObservedResult` per point; `ReportBuilder.tabulate` creates quantity tables on demand |
+| Flattened publication columns | Explicit quantity, basis, units, coordinates, cutoffs, availability, and reasons in each quantity record |
+| Raw source references in observation records | Captured inputs, formulations, original identities, sampling information, and completed measurements in the four observation sections |
+| GetDP source metadata | `getdp_selection` in FEM completion, retained details, recovery, and their tests |
+| Resolution revision and policy-generation checks | Deleted; actual applied numerical settings are retained |
+| `ReportArtifact.published` / `.table` | `.observed`, separate `.reference`, and `.tables`; no compatibility getters |
+| Raw result-specific report/renderer preparation | Constructor conveniences delegate to the common observed workflow |
+
+## Text display and tables
+
+Human inspection (`show`), scientific extraction (`observe`), detached acquisition
+(`ObservedResult`/`observables`), and tabulation (`tabulate`) are separate actions.
+Each public owned type defines `summary`, two-argument `show`, and text/plain
+`show`. Display reads stored state only; it must not run builders, comparisons,
+solvers, or lazy-grid materialization. Ordinary report display renders retained
+tables and never constructs a figure implicitly. Existing Makie axes and the
+plot window own drawing, controls, layout, and backend behavior.
+
+## Docstrings
+
+Docstrings use DocStringExtensions abbreviations so declarations remain aligned
+with the implementation.
+
+### Placement and content
+
+- Place a docstring immediately before the documented module, type,
+  constructor, function, or constant.
+- Use triple double quotes, except for concise field and constant docstrings.
+- Describe implemented behavior. Do not infer equations, units, or defaults
+  from a name.
+- State each fact once.
+- Link related local bindings inline when the relationship helps the reader.
+
+Use `@doc` for an inner constructor written inside a `struct`. An outer
+constructor at module scope uses an ordinary preceding docstring.
+
+### Physical quantities and equations
+
+State the SI unit for every physical argument, return value, field, and
+constant. In Julia docstring source, escape square brackets and LaTeX commands:
+
+```julia
+"Series resistance `\\[Ω/m\\]`."
+"Relative permeability `\\[dimensionless\\]`."
+```
+
+Comments inside Julia examples use ordinary brackets, such as `# [m]`.
+
+When code directly evaluates a physical law, approximation, or reduction that
+matters to the method's meaning, include the equation and define its symbols:
+
+````julia
+"""
+$(TYPEDSIGNATURES)
+
+Return the series impedance:
+
+```math
+Z(f) = R + \\mathrm{j} 2 \\pi f L,
+```
+
+where ``R`` is resistance, ``L`` is inductance, and ``f`` is frequency.
+"""
+````
+
+Accessors, forwarding methods, and bookkeeping functions do not need a
+mathematical section unless they evaluate the documented expression.
+
+### DocStringExtensions abbreviations
+
+- `$(TYPEDSIGNATURES)` is the default opening for functions and constructors.
+- `$(SIGNATURES)` is suitable when typed signatures obscure the public call.
+- `$(FUNCTIONNAME)` keeps executable examples aligned with renames.
+- `$(TYPEDEF)` inserts a type declaration.
+- `$(TYPEDFIELDS)` inserts fields, declared types, and field docstrings.
+- `$(FIELDS)` omits declared field types when they would distract from the
+  public meaning.
+- `$(METHODLIST)` is reserved for a multi-method interface whose purpose is to
+  list implementations.
+- `$(IMPORTS)` and `$(EXPORTS)` maintain a module inventory.
+
+Do not repeat generated text by hand.
+
+### Function structure
+
+Use this section order, omitting sections that add no information:
+
+1. description and any implemented equation;
+2. `# Arguments`;
+3. `# Keywords`;
+4. `# Returns`;
+5. `# Notes` for assumptions or limitations;
+6. `# Errors` for deliberate exceptions;
+7. `# Examples`.
+
+````julia
+"""
+$(TYPEDSIGNATURES)
+
+Describe the implemented operation.
+
+# Arguments
+
+- `value`: Physical input `\\[unit\\]`.
+
+# Keywords
+
+- `basis`: `:pul` or `:total`. Default: `:pul`.
+
+# Returns
+
+- Completed value in `\\[unit\\]`.
+
+# Errors
+
+- Throws `ArgumentError` when `basis` is unsupported.
+
+# Examples
+
+```jldoctest
+result = $(FUNCTIONNAME)(1.0; basis=:pul) # [unit]
+@assert isfinite(result)
+# output
+```
+"""
+````
+
+List arguments in declaration order and document each returned tuple member.
+Prefer `jldoctest` for a self-contained public example. Examples requiring an
+external executable, graphical interaction, network access, or repository
+fixtures belong in the developer guides.
+
+### Type and module structure
+
+Use `$(TYPEDEF)` and `$(TYPEDFIELDS)` for a type. Put a concise docstring above
+each field:
+
+````julia
+"""
+$(TYPEDEF)
+
+Represent a cable section.
+
+$(TYPEDFIELDS)
+"""
+struct CableSection{T <: Real}
+    "Section thickness `\\[m\\]`."
+    thickness::T
+end
+````
+
+A module docstring begins with the indented module name, states its purpose,
+then uses `$(IMPORTS)` and `$(EXPORTS)` when those lists aid the reader. A
+physical constant uses a concise single-line docstring with its symbol and SI
+unit.
+
+## Repository practice
+
+After the first stable publication, versions follow [Semantic Versioning](https://semver.org/).
+The current 0.2.0 candidate establishes the initial intended API; development API
+renames are not regressions merely because an earlier spelling existed.
+
+Commit subjects use scoped Conventional Commits, begin with a lowercase
+description, and stay within 72 characters:
+
+```text
+fix(engine): reject unsupported formulation options
+```
+
+Every change includes tests at the closest relevant scope. Core tests do not
+load optional packages. Rendering activation and dependency installation are distinct. CairoMakie is a current
+package dependency; its rendering extensions activate when loaded. Rendering and other
+extension paths also run in their dedicated test environments. Public examples should be executable and self-contained.
+
+## Testing policy
+
+The [developer testing policy](developers.md#testing-policy) is authoritative for
+release status, regression terminology, test scope, architecture and the unchanged
+95% coverage gate. Everything currently on `main`, including `0.1.0`, is unreleased.
+The harness checks implementation correctness and architectural conformance;
+scientific acceptance is outside it. User-selected numerical snapshots are
+deferred until after the first stable publication. Do not duplicate that policy
+as a separate validation or baseline-approval scheme.

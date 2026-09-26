@@ -1,15 +1,17 @@
 #=
 # Tutorial 2 - Building a cable design
 
-This tutorial demonstrates how to model a typical medium-voltage single-core power cable 
-using the [`LineCableModels.jl`](@ref) package. The objective is to build a complete representation of a single-core 18/30 kV cable with a 1000 mm² aluminum conductor and 35 mm² copper screen.
+Build an 18/30 kV single-core cable with a nominal 1000 mm² aluminum conductor
+and a 35 mm² copper screen. Inspect its geometry, calculate and report its
+cable constants, save the design, and arrange three cables in a buried trefoil
+system for external-tool export.
 =#
 
 #=
 **Tutorial outline**
 ```@contents
 Pages = [
-	"tutorial2.md",
+    "tutorial2.md",
 ]
 Depth = 2:3
 ```
@@ -18,44 +20,57 @@ Depth = 2:3
 #=
 ## Introduction
 
-Single-core power cables have a complex structure consisting of multiple concentric layers, each with specific geometric and material properties -- for example, a cable of type NA2XS(FL)2Y 18/30 [is shown here](https://www.google.com/search?udm=2&q=%22NA2XS(FL)2Y%2018/30%20kV%20cable%22). Prior to building actual transmission line models that incorporate cables as part of the transmission system, e.g. for EMT simulations, power flow, harmonics, protection studies etc., it is necessary to determine the base (or DC) electrical parameters of the cable itself.
+The cable consists of concentric conductive, semiconducting, and insulating
+regions. Their dimensions and material properties determine the cable
+constants calculated below.
 
-This tutorial covers:
+[`CableConstants`](@ref) evaluates earth-free resistance, inductance,
+conductance, and capacitance for each independent concentric assembly at a
+specified frequency and temperature. These local quantities are distinct from
+the frequency-dependent matrices of an installed cable system, which are the
+subject of Tutorial 3. In particular, a resistance evaluated at 50 Hz is not
+the same measurement as a datasheet DC resistance.
 
-1. Creating a detailed [`CableDesign`](@ref) with all its components.
-2. Examining the main electrical parameters (R, L, C) of the cable core [`ConductorGroup`](@ref) and main [`InsulatorGroup`](@ref).
-3. Examining the equivalent electromagnetic properties of every [`CableComponent`](@ref) (core, sheath, jacket).
-4. Saving the cable design to a [`CablesLibrary`](@ref) for future use.
-4. Assigning [`CableDesign`](@ref) objects to a [`LineCableSystem`](@ref) and exporting the model to PSCAD for EMT analysis.
+The main operations in this tutorial are physical construction, preview,
+calculation, reporting, library persistence, and system export. The completed
+numerical result is passed directly to `report`; the reporting convenience
+constructs its detached observation internally.
 =#
 
 #=
 ## Getting started
+
+Load the public modeling and reporting API, CairoMakie for the documentation
+figures, and DataFrames for the construction-dimensions table.
 =#
 
-# Load the package and set up the environment:
 using LineCableModels
-using DataFrames
-import LineCableModels.PlotBuilder.BackendHandler: renderfig #hide
-fullfile(filename) = joinpath(@__DIR__, filename); #hide
-set_verbosity!(0); #hide
-set_backend!(:gl); #hide
+import LineCableModels: homogenize
+import CairoMakie
+using DataFrames: DataFrame
 
-# Initialize materials library with default values:
+fullfile(filename) = joinpath(@__DIR__, filename); #hide
+
+# Initialize and inspect the material library:
 materials = MaterialsLibrary(add_defaults = true)
-materials_df = DataFrame(materials)
+materials
 
 #=
+The material library saved in Tutorial 1 can also be loaded:
+
 ```julia
-# Alternatively, it can be loaded from the example file built in the previous tutorial:
-load!(materials, file_name = "materials_library.json")
+load!(materials; file_name = "materials_library.json")
 ```
 =#
 
 #=
 ## Cable dimensions
 
-The cable under consideration is a medium-voltage, stranded aluminum conductor cable with XLPE insulation, copper wire concentric screens, water-blocking tape, and PE jacket that is rated for 18/30 kV systems. This information is typically found in the cable datasheet and is fully described in the code type under standards HD 620 10C [CENELEC_HD620_S3_2023](@cite) or DIN VDE 0276-620 [VDE_DIN_VDE_0276_620_2024](@cite):
+The reference construction is an 18/30 kV cable with a stranded aluminum
+conductor, XLPE insulation, a concentric copper wire screen, water-blocking
+layers, an aluminum moisture barrier, and a PE jacket. Its designation is
+associated with HD 620 10C [CENELEC_HD620_S3_2023](@cite) and DIN VDE 0276-620
+[VDE_DIN_VDE_0276_620_2024](@cite):
 
 ```
 NA2XS(FL)2Y
@@ -63,401 +78,399 @@ NA2XS(FL)2Y
 │ │   │  │
 │ │   │  └── 2Y: Outer sheath of polyethylene (PE)
 │ │   └── (FL): Longitudinal watertight protection
-│ │      
+│ │
 │ └── 2XS: XLPE insulation with screen of copper wires
 └── NA: Aluminum conductor
 ```
+
+The numerical example uses the library's `:pe` material for the main
+insulation as well as the outer PE layers. It also uses `:polyacrylate` for the
+tapes identified below as semiconductive and water-blocking tapes. These are
+the material assignments used by this example; the construction labels do
+not substitute different material properties.
+
+All dimensions in the declarations below are in metres.
 =#
 
-# After some research, it is found that a typical cable of this type has the following configuration:
-num_co_wires = 61  # number of core wires
-num_sc_wires = 49  # number of screen wires
-d_core = 38.1e-3   # nominal core overall diameter
-d_w = 4.7e-3       # nominal strand diameter of the core
-t_sc_in = 0.6e-3   # nominal internal semicon thickness
-t_ins = 8e-3       # nominal main insulation thickness
-t_sc_out = 0.3e-3  # nominal external semicon thickness
-d_ws = .95e-3      # nominal wire screen diameter
-t_cut = 0.1e-3     # nominal thickness of the copper tape (around wire screens)
-w_cut = 10e-3      # nominal width of copper tape
-t_wbt = .3e-3      # nominal thickness of the water blocking tape
-t_sct = .3e-3      # nominal thickness of the semiconductive tape
-t_alt = .15e-3     # nominal thickness of the aluminum tape
-t_pet = .05e-3     # nominal thickness of the pe face in the aluminum tape
-t_jac = 2.4e-3     # nominal PE jacket thickness
+num_sc_wires = 49  # Number of copper screen wires.
+d_core = 38.1e-3   # Finished overall core diameter.
+d_w = 4.7e-3       # Source strand diameter.
+t_sc_in = 0.6e-3   # Inner semiconductor thickness.
+t_ins = 8e-3       # Main insulation thickness.
+t_sc_out = 0.3e-3  # Outer semiconductor thickness.
+d_ws = 0.95e-3     # Screen-wire diameter.
+t_cut = 0.1e-3     # Copper tape thickness.
+w_cut = 10e-3      # Copper tape width.
+t_wbt = 0.3e-3     # Water-blocking tape thickness.
+t_sct = 0.3e-3     # Semiconductive tape thickness.
+t_alt = 0.15e-3    # Aluminum tape thickness.
+t_pet = 0.05e-3    # PE facing thickness over the aluminum tape.
+t_jac = 2.4e-3;    # Outer PE jacket thickness.
 
-d_overall = d_core #hide
-layers = [] #hide
-push!(layers, ("Conductor", missing, d_overall * 1000)) #hide
-d_overall += 2 * t_sct #hide
-push!(layers, ("Inner semiconductive tape", t_sct * 1000, d_overall * 1000)) #hide
-d_overall += 2 * t_sc_in #hide
-push!(layers, ("Inner semiconductor", t_sc_in * 1000, d_overall * 1000)) #hide
-d_overall += 2 * t_ins #hide
-push!(layers, ("Main insulation", t_ins * 1000, d_overall * 1000)) #hide
-d_overall += 2 * t_sc_out #hide
-push!(layers, ("Outer semiconductor", t_sc_out * 1000, d_overall * 1000)) #hide
-d_overall += 2 * t_sct #hide
-push!(layers, ("Outer semiconductive tape", t_sct * 1000, d_overall * 1000)) #hide
-d_overall += 2 * d_ws #hide
-push!(layers, ("Wire screen", d_ws * 1000, d_overall * 1000)) #hide
-d_overall += 2 * t_cut #hide
-push!(layers, ("Copper tape", t_cut * 1000, d_overall * 1000)) #hide
-d_overall += 2 * t_wbt #hide
-push!(layers, ("Water-blocking tape", t_wbt * 1000, d_overall * 1000)) #hide
-d_overall += 2 * t_alt #hide
-push!(layers, ("Aluminum tape", t_alt * 1000, d_overall * 1000)) #hide
-d_overall += 2 * t_pet #hide
-push!(layers, ("PE with aluminum face", t_pet * 1000, d_overall * 1000)) #hide
-d_overall += 2 * t_jac #hide
-push!(layers, ("PE jacket", t_jac * 1000, d_overall * 1000)); #hide
-
-# The cable structure is summarized in a table for better visualization, with dimensions in milimiters:
-df = DataFrame( #hide
-	layer = first.(layers), #hide
-	thickness = [ #hide
-		ismissing(t) ? "-" : round(t, sigdigits = 2) for t in getindex.(layers, 2) #hide
-	], #hide
-	diameter = [round(d, digits = 2) for d in getindex.(layers, 3)], #hide
+layer_names = ( #hide
+    "Conductor", "Inner semiconductive tape", "Inner semiconductor", #hide
+    "Main insulation", "Outer semiconductor", "Outer semiconductive tape", #hide
+    "Wire screen", "Copper tape", "Water-blocking tape", "Aluminum tape", #hide
+    "PE facing", "PE jacket" #hide
 ) #hide
+layer_thicknesses = ( #hide
+    missing, t_sct, t_sc_in, t_ins, t_sc_out, t_sct, d_ws, t_cut, t_wbt, #hide
+    t_alt, t_pet, t_jac #hide
+) #hide
+radial_increments = ( #hide
+    0.0, t_sct, t_sc_in, t_ins, t_sc_out, t_sct, d_ws, t_cut, t_wbt, #hide
+    t_alt, t_pet, t_jac #hide
+) #hide
+layer_diameters = d_core .+ 2 .* cumsum(radial_increments) #hide
 
-#=
-## Using the cable constructors
-
-!!! note "Object hierarchy"
-	The [`LineCableModels.DataModel`](@ref) module implements a carefully designed component hierarchy that mirrors the physical construction of power cables while maintaining the mathematical relationships required for accurate electrical modeling.
-
-```
-CableDesign
-├── CableComponent
-│   ├── conductor_group::ConductorGroup <: AbstractConductorPart
-│   │   ├── conductor_props::Material
-│   │   └── layers::Vector{AbstractConductorPart}
-│   │       ├── CircStrands
-│   │       ├── Tubular
-│   │       ├── Strip
-│   │       └── …
-│   └── insulator_group::InsulatorGroup <: AbstractInsulatorPart
-│       ├── insulator_props::Material
-│       └── layers::Vector{AbstractInsulatorPart}
-│           ├── Insulator
-│           ├── Semicon
-│           └── …
-⋮
-├── CableComponent
-│   ├── …
-⋮   ⋮
-```
-
-### Cable designs
-
-The [`CableDesign`](@ref) object is the main container for all cable components. It encapsulates the entire cable structure and provides methods for calculating global cable properties.
-
-### Cable components
-
-Each [`CableComponent`](@ref) represents a functional group of the cable (core, sheath, armor, outer), organized into a conductor group and an insulator group with their respective effective material properties. This structure is designed to provide precise calculation of electromagnetic parameters.
-
-### Conductor groups
-
-The [`ConductorGroup`](@ref) object serves as a specialized container for organizing [`AbstractConductorPart`](@ref) elements in layers. It calculates equivalent resistance (R) and inductance (L) values for all contained conductive elements, handling the complexity of different geometrical arrangements.
-
-#### AbstractConductorPart implementations
-
-- The [`CircStrands`](@ref) object models stranded cores and screens with helical patterns and circular cross-sections.
-- The [`Tubular`](@ref) object represents simple tubular conductors with straightforward parameter calculations.
-- The [`Strip`](@ref) object models conductor tapes following helical patterns with rectangular cross-sections.
-
-### Insulator groups
-
-The [`InsulatorGroup`](@ref) object organizes [`AbstractInsulatorPart`](@ref) elements in concentric layers, calculating the equivalent capacitance (C) and conductance (G) parameters.
-
-#### AbstractInsulatorPart implementations
-
-- The [`Insulator`](@ref) object represents dielectric layers with very high resistivity.
-- The [`Semicon`](@ref) object models semiconducting layers with intermediate resistivity and high permittivity.
-
-!!! note "Equivalent circuit parameters"
-	The  hierarchical structure enables accurate calculation of equivalent circuit parameters by:
-
-	1. Computing geometry-specific parameters at the [`AbstractConductorPart`](@ref) and [`AbstractInsulatorPart`](@ref) levels.
-	2. Aggregating these into equivalent parameters within [`ConductorGroup`](@ref) and [`InsulatorGroup`](@ref).
-	3. Converting the composite structure into an equivalent coaxial model by matching lumped circuit quantities (R, L, C, G) to effective electromagnetic properties (ρ, ε, µ) at the [`CableComponent`](@ref) level. The effective properties are stored in dedicated [`Material`](@ref) objects.
-=#
-
-
-#=
-## Core and main insulation
-
-The core consists of a 4-layer AAAC stranded conductor with 61 wires arranged in (1/6/12/18/24) pattern, with respective lay ratios of (15/13.5/12.5/11) [CENELEC50182](@cite). Stranded conductors are modeled using the [`CircStrands`](@ref) object, which handles the helical pattern and twisting effects via the [`calc_helical_params`](@ref) method.
-=#
-
-# Initialize the conductor object and assign the central wire:
-material = get(materials, "aluminum")
-core = ConductorGroup(CircStrands(0.0, Diameter(d_w), 1, 0.0, material))
-
-#=
-!!! tip "Convenience methods"
-	The [`add!`](@ref) method internally passes the `r_ex` of the existing object to the `r_in` argument of the new conductor. This enables easy stacking of multiple layers without redundancy. Moreover, the [`Diameter`](@ref) method is a convenience function that converts the diameter to radius at the constructor level. This maintains alignment with manufacturer specifications while enabling internal calculations to use radius values directly. This approach eliminates repetitive unit conversions and potential sources of implementation error.
-=#
-
-# Add the subsequent layers of wires and inspect the object:
-add!(core, CircStrands, Diameter(d_w), 6, 15.0, material)
-add!(core, CircStrands, Diameter(d_w), 12, 13.5, material)
-add!(core, CircStrands, Diameter(d_w), 18, 12.5, material)
-add!(core, CircStrands, Diameter(d_w), 24, 11.0, material)
-
-#=
-### Inner semiconductor
-
-The inner semiconductor layer ensures uniform electric field distribution between
-the conductor and insulation, eliminating air gaps and reducing field concentrations. An optional semiconductive tape is often used to ensure core uniformity and enhanced adherence.
-=#
-
-#=
-!!! tip "Convenience methods"
-	The [`Thickness`](@ref) type is a convenience wrapper that simplifies layer construction. When used in a constructor, it automatically calculates the outer radius by adding the thickness to the inner radius (which is inherited from the previous layer's outer radius).
-=#
-
-# Inner semiconductive tape:
-material = get(materials, "polyacrylate")
-main_insu = InsulatorGroup(Semicon(core, Thickness(t_sct), material))
-
-# Inner semiconductor (1000 Ω.m as per IEC 840):
-material = get(materials, "semicon1")
-add!(main_insu, Semicon, Thickness(t_sc_in), material)
-
-#=
-### Main insulation
-
-XLPE (cross-linked polyethylene) is the standard insulation material for modern
-medium and high voltage cables due to its excellent dielectric properties.
-=#
-
-# Add the insulation layer:
-material = get(materials, "pe")
-add!(main_insu, Insulator, Thickness(t_ins), material)
-
-#=
-### Outer semiconductor
-
-Similar to the inner semiconductor, the outer semiconductor provides a uniform
-transition from insulation to the metallic screen.
-=#
-
-# Outer semiconductor (500 Ω.m as per IEC 840):
-material = get(materials, "semicon2")
-add!(main_insu, Semicon, Thickness(t_sc_out), material)
-
-# Outer semiconductive tape:
-material = get(materials, "polyacrylate")
-add!(main_insu, Semicon, Thickness(t_sct), material)
-
-# Group core-related components:
-core_cc = CableComponent("core", core, main_insu)
-
-#=
-With the core parts properly defined, the [`CableDesign`](@ref) object is initialized with nominal data from the datasheet. This includes voltage ratings and reference electrical parameters that will be used to benchmark the design.
-=#
-
-# Define the nominal values and instantiate the `CableDesign` with the `core_cc` component:
-cable_id = "18kV_1000mm2"
-datasheet_info = NominalData(
-	designation_code = "NA2XS(FL)2Y",
-	U0 = 18.0,                        # Phase-to-ground voltage [kV]
-	U = 30.0,                         # Phase-to-phase voltage [kV]
-	conductor_cross_section = 1000.0, # [mm²]
-	screen_cross_section = 35.0,      # [mm²]
-	resistance = 0.0291,              # DC resistance [Ω/km]
-	capacitance = 0.39,               # Capacitance [μF/km]
-	inductance = 0.3,                 # Inductance in trifoil [mH/km]
+# Summarize the nominal radial schedule in millimetres. The cable constructor
+# resolves the detailed strand and tape geometry from the declarations below.
+cable_dimensions = DataFrame(
+    "layer" => collect(layer_names),
+    "thickness [mm]" => [ismissing(t) ? missing : round(1000t, sigdigits = 2)
+     for t in layer_thicknesses],
+    "diameter [mm]" => collect(round.(1000 .* layer_diameters, digits = 2))
 )
-cable_design = CableDesign(cable_id, core_cc, nominal_data = datasheet_info)
-
-# At this point, it becomes possible to preview the cable design:
-plt1, _ = preview(cable_design)
-plt1 #hide
 
 #=
-### Wire screens
+## Cable construction
 
-The metallic screen (typically copper) serves multiple purposes:
-- Provides a return path for fault currents.
-- Ensures radial symmetry of the electric field.
-- Acts as electrical shielding.
-- Provides mechanical protection.
+Declare regions from the center outward. [`@cable`](@ref) completes the physical
+design, while [`@terminal`](@ref) marks its electrical terminal groups.
+
+### Materials and stranded core
+
+The wire diameter and the 38.1 mm finished boundary define the stranded core.
+The four successive outer strand layers use the lay ratios specified below.
+Compaction retains the area of each source wire rather than changing its
+conductive area to fill the boundary.
 =#
 
-# Build the wire screens on top of the previous layer:
-lay_ratio = 10.0 # typical value for wire screens
-material = get(materials, "copper")
-screen_con =
-	ConductorGroup(
-		CircStrands(main_insu, Diameter(d_ws), num_sc_wires, lay_ratio, material),
-	)
+aluminum = Material(materials, :aluminum)
+copper = Material(materials, :copper)
+polyacrylate = Material(materials, :polyacrylate)
+semicon1 = Material(materials, :semicon1)
+semicon2 = Material(materials, :semicon2)
+pe = Material(materials, :pe);
 
-# Add the equalizing copper tape wrapping the wire screen:
-add!(screen_con, Strip, Thickness(t_cut), w_cut, lay_ratio, material)
-
-# Water blocking tape over screen:
-material = get(materials, "polyacrylate")
-screen_insu = InsulatorGroup(Semicon(screen_con, Thickness(t_wbt), material))
-
-# Group sheath components and assign to design:
-sheath_cc = CableComponent("sheath", screen_con, screen_insu)
-add!(cable_design, sheath_cc)
-
-# Examine the newly added components:
-plt2, _ = preview(cable_design)
-plt2 #hide
+stranded_core = stranded(
+    aluminum;
+    shape = Disk(d_w / 2),
+    lay = LayRatio(15.0, 13.5, 12.5, 11.0),
+    compact = true,
+    boundary = Disk(d_core / 2)
+);
 
 #=
-### Outer jacket components
+### Insulation, screen, and jacket
 
-Modern cables often include an aluminum tape as moisture barrier
-and PE (polyethylene) outer jacket for mechanical protection.
+The inner semiconducting layer provides the conductor-to-insulation interface;
+a tape lies between it and the stranded conductor. The main insulation is
+followed by the outer semiconductor and a second tape. The metallic screen
+provides shielding and a fault-current path. Outside the screen, the
+water-blocking layer, aluminum barrier, PE facing, and outer jacket complete
+the construction.
+
+[`screen`](@ref), [`insulation`](@ref), [`sheath`](@ref), and [`jacket`](@ref)
+can state their thickness relative to the preceding outward boundary. The
+wire screen instead needs the physical radius of its wire-center locus. The
+copper tape retains its rectangular width and thickness when placed around
+the preceding boundary.
 =#
 
-# Add the aluminum foil (moisture barrier):
-material = get(materials, "aluminum")
-jacket_con = ConductorGroup(Tubular(screen_insu, Thickness(t_alt), material))
+conductor_outer = d_core / 2
+screen_wire_locus = conductor_outer + t_sct + t_sc_in + t_ins +
+                    t_sc_out + t_sct + d_ws / 2
 
-# PE layer after aluminum foil:
-material = get(materials, "pe")
-jacket_insu = InsulatorGroup(Insulator(jacket_con, Thickness(t_pet), material))
+# Catalogue information is associated with the library entry. It does not
+# replace the physical geometry or the selected numerical material properties.
+cable_id = "18kV_1000mm2"
+datasheet_info = DatasheetInfo(
+    designation_code = "NA2XS(FL)2Y",
+    U0 = 18.0,                        # Phase-to-ground voltage [kV].
+    U = 30.0,                         # Phase-to-phase voltage [kV].
+    conductor_cross_section = 1000.0, # [mm²].
+    screen_cross_section = 35.0,      # [mm²].
+    resistance = 0.0291,              # DC resistance [Ω/km].
+    capacitance = 0.39,               # Capacitance [μF/km].
+    inductance = 0.3                  # Inductance in trefoil [mH/km].
+)
 
-# PE jacket (outer mechanical protection):
-material = get(materials, "pe")
-add!(jacket_insu, Insulator, Thickness(t_jac), material)
+cable_design = @cable cable_id begin
+    @terminal :core begin
+        stranded_core
+        screen(polyacrylate; t = t_sct)
+        screen(semicon1; t = t_sc_in)
+        insulation(pe; t = t_ins)
+        screen(semicon2; t = t_sc_out)
+        screen(polyacrylate; t = t_sct)
+    end
+    @terminal :sheath begin
+        wires(
+            copper;
+            shape = Disk(d_ws / 2),
+            n = num_sc_wires,
+            r = screen_wire_locus,
+            lay = LayRatio(10),
+            tag = :screen_wire
+        )
+        tape(
+            copper;
+            section = Rectangle(w_cut, t_cut),
+            n = 1,
+            lay = LayRatio(10),
+            tag = :copper_tape
+        )
+    end
+    screen(polyacrylate; t = t_wbt)
+    @terminal :jacket begin
+        sheath(aluminum; t = t_alt)
+    end
+    jacket(pe; t = t_pet)
+    jacket(pe; t = t_jac)
+end;
 
 #=
-!!! tip "Convenience methods"
-	To facilitate data entry, it is possible to call the [`add!`](@ref) method directly on the [`ConductorGroup`](@ref) and [`InsulatorGroup`](@ref) constituents of the component to include, without instantiating the [`CableComponent`](@ref) first.
+The retained terminal names are `:core`, `:sheath`, and `:jacket`. In this
+example, `:sheath` groups the copper screen wires and copper tape, while
+`:jacket` identifies the conductive aluminum barrier. The outer PE jacket is
+an insulating region, not an additional electrical terminal.
 =#
 
-# Assign the jacket parts directly to the design:
-add!(cable_design, "jacket", jacket_con, jacket_insu)
+# Inspect the completed design and its cross-section:
+cable_design
 
-# Inspect the finished cable design:
-plt3, _ = preview(cable_design)
-plt3 #hide
+cable_preview = preview(
+    cable_design;
+    backend = :cairo,
+    legend_cap = 0.5,
+    display_plot = false, #hide
+    controls = false #hide
+)
+cable_preview.figure #hide
 
 #=
-## Examining the cable parameters (RLC)
+## Cable constants
 
-In this section, the cable design is examined and the calculated parameters are compared with datasheet values. [`LineCableModels.jl`](@ref) provides methods to analyze the design in different levels of detail.
+Calculate the local cable constants at the defaults of 50 Hz and 20 °C.
+The cable-constant calculation treats the innermost terminal of each concentric
+assembly as active and the outward terminals as grounded. It does not yet
+calculate the three-cable installation introduced later.
 =#
 
-# Compare with datasheet information (R, L, C values):
-core_df = DataFrame(cable_design, :baseparams)
+constants = CableConstants(cable_design);
+constants
 
-# Obtain the equivalent electromagnetic properties of the cable:
-components_df = DataFrame(cable_design, :components)
+#=
+### Quantity tables
 
-# Get detailed description of all cable parts:
-detailed_df = DataFrame(cable_design, :detailed)
+Pass the numerical result directly to `report`. The R/L and G/C selection
+produces four separate quantity tables. Each table contains the operating
+frequency and a named column for each assembly; these are not mutual-coupling
+matrices between different cables.
+
+`report(constants)` uses the available quantities and default display units.
+Choose Ω/km, mH/km, μS/km, and μF/km explicitly so the R/L/C units match the
+catalogue entries used below.
+=#
+
+constants_report = report(
+    constants;
+    values = (R, L, G, C),
+    length_unit = :kilo,
+    quantity_units = (R = :base, L = :milli, G = :micro, C = :micro)
+)
+
+#=
+### Assembly selection
+
+For cable constants, an observation index selects an assembly, not a matrix
+coefficient or a frequency sample. To report only the resistance of the first
+assembly, state that intent with `@observe` in the report request. The example
+has one concentric assembly, named `:core`.
+=#
+
+core_resistance_report = report(
+    constants;
+    values = @observe(R[1]),
+    length_unit = :kilo,
+    quantity_units = (R = :base,)
+)
+
+#=
+### Catalogue comparison
+
+The following displays keep the three quantities separate. They inspect the
+DataFrames already produced by the report; they do not read numerical result
+fields or repeat unit conversion.
+
+The catalogue resistance is a DC value, whereas the calculated resistance is
+at 50 Hz. Compare their magnitudes with those different conditions in mind:
+this is not an equal-condition error calculation.
+=#
+
+# Catalogue DC resistance [Ω/km]:
+datasheet_info.resistance
+
+# Calculated resistance [Ω/km]; the frequency column records 50 Hz:
+constants_report[R]
+
+#=
+The catalogue inductance is specified for trefoil. `CableConstants` supplies
+the earth-free concentric-assembly value, not a calculation of that trefoil
+installation. The two are reference values with different stated scopes, not
+a benchmark pair.
+=#
+
+# Catalogue trefoil inductance [mH/km]:
+datasheet_info.inductance
+
+# Calculated local inductance [mH/km]:
+constants_report[L]
+
+#=
+Inspect the catalogue capacitance alongside the calculated capacitance in the
+same displayed units. The supplied catalogue record does not include a
+capacitance test frequency or temperature; no such conditions are inferred.
+The main insulation in this numerical model uses `:pe` as stated above.
+=#
+
+# Catalogue capacitance [μF/km]:
+datasheet_info.capacitance
+
+# Calculated local capacitance [μF/km]:
+constants_report[C]
+
+# The conductance table remains a separate result; no catalogue G is supplied:
+constants_report[G]
+
+#=
+## Homogeneous equivalent design
+
+A homogeneous equivalent is a separate physical design, not a report or an
+observation of the cable constants. Request it explicitly when that geometry
+is needed; the detailed design remains available for inspection and reuse.
+=#
+
+equivalent_design = homogenize(cable_design; new_id = cable_id * "_equivalent")
 
 #=
 ## Saving the cable design
 
-!!! note "Cables library"
-	Designs can be saved to a library for future use. The [`CablesLibrary`](@ref) is a container for storing multiple cable designs, allowing for easy access and reuse in different projects.  Library management is performed using the [`DataFrame`](@ref), [`add!`](@ref), and [`save`](@ref) functions.
+A [`CablesLibrary`](@ref) stores designs for reuse. Add the physical design and
+its associated catalogue information, then save the library. Load it into a
+fresh library object to retrieve the design by its identifier.
 =#
 
-# Store the cable design and inspect the library contents:
 library = CablesLibrary()
-add!(library, cable_design)
-library_df = DataFrame(library)
+add!(library, cable_design; catalogue = datasheet_info);
+library
 
-# Save to file for later use:
-output_file = fullfile("cables_library.json")
-save(library, file_name = output_file);
+library_file = fullfile("cables_library.json")
+save(library; file_name = library_file);
 
+loaded_library = CablesLibrary()
+load!(loaded_library; file_name = library_file)
+loaded_design = loaded_library[cable_id];
+loaded_library
 
 #=
-### Defining a cable system
+## Defining a cable system
 
-!!! note "Cable systems"
-	A cable system is a collection of cables with defined positions, length and environmental characteristics. The [`LineCableSystem`](@ref) object is the main container for all cable systems, and it allows the definition of multiple cables in different configurations (e.g., trifoil, flat etc.). This object is the entry point for all system-related calculations and analyses.
+The installed arrangement is represented by [`LineCableSystem`](@ref). A
+[`LineParametersProblem`](@ref LineCableModels.Engine.LineParametersProblem)
+adds the operating temperature, earth properties, and analysis frequencies to
+that completed physical system. This tutorial prepares the problem and exports
+the system; it does not execute a frequency-dependent line-parameter scan.
+
+### Earth model
+
+Use homogeneous earth with resistivity 100 Ω·m, relative permittivity 10, and
+relative permeability 1. The declared frequency scan contains ten
+logarithmically spaced samples from 1 Hz to 1 MHz. The soil declaration is
+independent of the frequency grid.
 =#
 
-#=
-### Earth model 
+f = collect(10.0 .^ range(0, stop = 6, length = 10))
+earth = homogeneous(rho = 100.0, eps_r = 10.0, mu_r = 1.0);
 
-The earth return path significantly affects cable impedance calculations and needs to be properly modeled. In this tutorial, only a basic model with typical soil properties is defined. This will be further elaborated in the subsequent tutorials.
+#=
+### Three-phase trefoil
+
+Place three copies of the saved design with 70 mm center-to-center spacing
+and the trefoil center at `(0, -1)` m. The declared spacing is retained
+explicitly; it is not inferred from the nominal cable diameter.
+
+Core assignments `1`, `2`, and `3` identify the three phases. The copper-screen
+and aluminum-barrier terminals are assigned `0`, marking them for grounded
+terminal reduction when requested by the calculation. The system length is
+1000 m.
 =#
 
-# Define a frequency-dependent earth model (1 Hz to 1 MHz):
-f = 10.0 .^ range(0, stop = 6, length = 10)  # Frequency range
-earth_params = EarthModel(f, 100.0, 10.0, 1.0)  # 100 Ω·m resistivity, εr=10, μr=1
+placements = @trefoil loaded_design spacing=70e-3 center=(0.0, -1.0) core=(1, 2, 3) sheath=0 jacket=0
 
-# Earth model base (DC) properties:
-earthmodel_df = DataFrame(earth_params)
+cable_system = build(
+    LineCableSystem,
+    placements;
+    environment = earth,
+    system_id = "18kV_1000mm2_trefoil",
+    line_length = 1000.0
+)
 
-#=
-### Three-phase system in trifoil configuration
+problem = LineParametersProblem(
+    cable_system;
+    temperature = 20.0,
+    earth_props = earth,
+    frequencies = f
+)
+earth_params = problem.earth_props;
 
-This section ilustrates the construction of a cable system with three identical cables arranged in a trifoil formation.
-=#
-
-
-# Define system center point (underground at 1 m depth) and the trifoil positions
-x0, y0 = 0.0, -1.0
-xa, ya, xb, yb, xc, yc = trifoil_formation(x0, y0, 0.035);
-
-# Initialize the `LineCableSystem` with the first cable (phase A):
-cablepos = CablePosition(cable_design, xa, ya,
-	Dict("core" => 1, "sheath" => 0, "jacket" => 0))
-cable_system = LineCableSystem("18kV_1000mm2_trifoil", 1000.0, cablepos)
-
-# Add remaining cables (phases B and C):
-add!(cable_system, cable_design, xb, yb,
-	Dict("core" => 2, "sheath" => 0, "jacket" => 0))
-add!(cable_system, cable_design, xc, yc,
-	Dict("core" => 3, "sheath" => 0, "jacket" => 0))
+# Inspect the earth parameters retained by the problem:
+earth_params
 
 #=
-!!! note "Phase mapping"
-	The [`add!`](@ref) function allows the specification of phase mapping for each cable. The `Dict` argument maps the cable components to their respective phases, where `core` is the conductor, `sheath` is the screen, and `jacket` is the outer jacket. The values (1, 2, 3) represent the phase numbers (A, B, C) in this case. Components mapped to phase 0 will be Kron-eliminated (grounded). Components set to the same phase will be bundled into an equivalent phase.
-=#
+!!! note "Terminal mapping"
+    Connection schedules use the terminal names retained by the design.
+    Reusing a nonzero assignment groups terminals for bundle reduction;
+    zero assignments identify terminals for grounded-conductor reduction.
+    The mapping declares those relationships rather than replacing the
+    physical cable regions.
 
-#=
 ### Cable system preview
 
-In this section the complete three-phase cable system is examined.
+Inspect the completed three-phase system and its cross-section. The earth
+model supplies the background, and `zoom_factor` controls the initial view.
 =#
 
-# Display system details:
-system_df = DataFrame(cable_system)
+cable_system
 
-# Visualize the cross-section of the three-phase system:
-plt4, _ = preview(cable_system, earth_model = earth_params, zoom_factor = 2.0)
-plt4 #hide
+system_preview = preview(
+    cable_system;
+    earth_model = earth_params,
+    zoom_factor = 2.0,
+    backend = :cairo,
+    legend_cap = 0.5,
+    display_plot = false, #hide
+    controls = false #hide
+)
+system_preview.figure #hide
 
 #=
-## PSCAD & ATPDraw export
+## PSCAD and ATPDraw export
 
-The final step showcases how to export the model for electromagnetic transient simulations in EMT-type software.
+Export the physical system and earth parameters through the public exporters.
+These calls write input files for electromagnetic-transient analysis; they do
+not launch PSCAD or ATPDraw and do not compute the line-parameter frequency
+scan. Tutorial 3 covers the frequency-dependent calculation and its reports
+and plots.
 =#
 
-# Export to PSCAD input file:
-output_file = fullfile("pscad_export.pscx")
-export_file = export_data(:pscad, cable_system, earth_params, file_name = output_file);
+pscad_file = export_data(
+    :pscad, cable_system, earth_params;
+    file_name = fullfile("pscad_export.pscx")
+);
 
-# Export to ATPDraw project file (XML):
-output_file = fullfile("atp_export.xml")
-export_file = export_data(:atp, cable_system, earth_params, file_name = output_file);
-
-#=
-## Conclusion
-
-This tutorial has demonstrated how to:
-
-1. Create a detailed model of a complex power cable with multiple concentric layers.
-2. Calculate and analyze the cable base parameters (R, L, C).
-3. Design a three-phase cable system in trifoil arrangement.
-4. Export the model for further analysis in specialized software.
-
-[`LineCableModels.jl`](@ref) provides a powerful framework for accurate power cable modeling
-with a physically meaningful representation of all cable components. This approach
-ensures that electromagnetic parameters are calculated with high precision. Now you can go ahead and run these cable simulations like a boss! 
-=#
+atp_file = export_data(
+    :atp, cable_system, earth_params;
+    file_name = fullfile("atp_export.xml")
+);
