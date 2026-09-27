@@ -188,6 +188,10 @@ end
     # The sky tint grows from transparency near z=0 to blue at the top.
     flat_axis = only(flat.axes)
     for candidate in (axis, flat_axis)
+        # Equal fractional widths at different layout origins can round to
+        # different pixel widths. Match integer-sized frames for pixel checks.
+        candidate.width[] = 500
+        candidate.height[] = 500
         limits!(candidate, -1, 1, -1, 1)
         hidedecorations!(candidate)
     end

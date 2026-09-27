@@ -107,17 +107,19 @@ plot_options = (overlay = :coordinates, backend = :gl,
 plots = (
     cartesian = LineCableModels.plot(observed;
         ydata = ((Zc, real), (Zc, imag), (Yc, real), (Yc, imag)), plot_options...),
-    polar = LineCableModels.plot(observed;
-        ydata = ((Zc, abs), (Zc, angle), (Yc, abs), (Yc, angle)), plot_options...),
     propagation = LineCableModels.plot(observed;
         ydata = (alpha, beta, velocity), plot_options...)
-)
+);
 
 transform_matrices = observables(line,
     ((Tv, abs), (Tv, angle), (Ti, abs), (Ti, angle)))
 
 display(report(transform_matrices))
-LineCableModels.plot(transform_matrices; plot_options...)
+LineCableModels.plot(transform_matrices;
+    plot_options...,
+    overlay = :rows,
+    layout = (3, 3),
+)
 
 # Numerical quality is for inspection, not an acceptance threshold.
 voltage_condition = [cond(@view voltage_basis[:, :, k]) for k in eachindex(frequency_grid)]
