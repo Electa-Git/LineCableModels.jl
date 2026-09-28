@@ -1,4 +1,4 @@
-# Modal analysis and finite segments
+# Modal analysis and line segments
 
 `ModalAnalysisProblem` consumes one completed phase-domain `LineParameters`.
 `ModalAnalysisFormulation` selects the decomposition. The returned
@@ -59,7 +59,7 @@ normalized eigenproblem, Hungarian assignment work and Levenberg–Marquardt
 least-squares work through `initialize_buffers`. Its arithmetic remains in
 `decompose!(::Val{:chrysochos2014}, ...)`. `Tv`
 and `Ti` map modal coordinates to phase coordinates. Total source coefficients
-are normalized by their declared source length before the finite segment is
+are normalized by their declared source length before the line segment is
 bound.
 
 ## Alternative complex LM implementation
@@ -172,14 +172,14 @@ coordinate choice. No values are clipped or set to zero by this operation.
 
 `PropagationParameters` binds a modal scan to one physical segment. A source
 with total coefficients retains its positive source normalization length;
-the finite segment may have another length. For an external scan without a
+the line segment may have another length. For an external scan without a
 known source length, supply the target length explicitly.
 
 ```julia
 segment = PropagationParameters(modal; line_length=150.0)
 next_segment = PropagationParameters(segment; line_length=300.0)
 length_space = PropagationParameters(modal;
-    line_length=Grid((150.0, 300.0))) # lazy finite segment Gridspace
+    line_length=Grid((150.0, 300.0))) # lazy line segment Gridspace
 
 H(segment)                              # mode × frequency
 alpha(segment)                          # attenuation constant, Np/m
@@ -213,7 +213,7 @@ and `H.(segment_results)`; each tensor remains one value.
 
 `ObservedResult` retains detached quantities and the existing four sections:
 gridpoint, quantities, errors, and timings. Requests can mix phase coefficients
-with `gamma`, `Zc`, `Yc`, `Tv`, and `Ti`. A finite segment also offers `H`,
+with `gamma`, `Zc`, `Yc`, `Tv`, and `Ti`. A line segment also offers `H`,
 `alpha`, `beta`, and `velocity`. Bare complex requests acquire complete real and
 imaginary pairs; a raw plotting convenience also completes a single component
 while displaying only that component. An observed-input plot selects retained
@@ -283,7 +283,7 @@ selectors identify retained data and are never evaluated.
 Reacquire old modal observations to obtain the corrected component identities
 and vector coordinates; existing non-modal archives remain supported.
 
-`H` binds to a finite segment only. There is no distance option on `H` for a
+`H` binds to a line segment only. There is no distance option on `H` for a
 modal scan. A phase `H` selector binds both `domain=PhaseDomain` and
 `field=:voltage` or `:current`. A phase `Zc` or `Yc` selector binds
 `domain=PhaseDomain`. Exact request unit overrides take precedence over

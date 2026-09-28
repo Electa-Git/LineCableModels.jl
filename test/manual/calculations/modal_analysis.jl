@@ -10,7 +10,6 @@ using LineCableModels, GLMakie, LinearAlgebra
 frequency_grid = 10.0 .^ range(-1, 8; length = 321)
 source_length = 2_000.0
 phase_options = (output_basis = :pul, verbosity = (default = 0,))
-modal_formulation = ModalAnalysisFormulation(:chrysochos2014)
 
 # Table IV radii are measured from the cable center. The table does not give
 # dielectric bulk resistivity or conductor temperature coefficients; infinite
@@ -64,7 +63,11 @@ geometry_plot = preview(system; earth_model = earth, backend = :gl,
 
 # Two public calculations, followed by the finite line from Table IV.
 phase = @time compute(problem, formulation; options = phase_options)
-modal = @time compute(ModalAnalysisProblem(phase), modal_formulation)
+modal = @time compute(
+    ModalAnalysisProblem(phase),
+    ModalAnalysisFormulation(:wedehpol1996);
+    options = (rotate = true,)
+)
 restored_phase = transform(PhaseDomain, modal)
 line = PropagationParameters(modal)
 display(phase)
@@ -118,7 +121,7 @@ display(report(transform_matrices))
 LineCableModels.plot(transform_matrices;
     plot_options...,
     overlay = :rows,
-    layout = (3, 3),
+    layout = (3, 3)
 )
 
 # Numerical quality is for inspection, not an acceptance threshold.
@@ -129,22 +132,30 @@ eigen_residual = [begin
                       isempty(assessed) ? NaN : maximum(assessed)
                   end
                   for column in eachcol(diagnostics.eigen_residual)]
-diagnostic_figure = Figure(size = (1200, 800))
-z_axis = Axis(diagnostic_figure[1, 1]; title = "Z modal coupling", xscale = log10,
-    xlabel = "Frequency (Hz)")
-y_axis = Axis(diagnostic_figure[1, 2]; title = "Y modal coupling", xscale = log10,
-    xlabel = "Frequency (Hz)")
-residual_axis = Axis(diagnostic_figure[2, 1]; title = "Largest returned eigen-residual",
-    xscale = log10, xlabel = "Frequency (Hz)")
-condition_axis = Axis(diagnostic_figure[2, 2]; title = "Basis conditioning",
-    xscale = log10, xlabel = "Frequency (Hz)")
-lines!(z_axis, frequency_grid, diagnostics.z_coupling)
-lines!(y_axis, frequency_grid, diagnostics.y_coupling)
-lines!(residual_axis, frequency_grid, eigen_residual)
-lines!(condition_axis, frequency_grid, voltage_condition; label = "Tv")
-lines!(condition_axis, frequency_grid, current_condition; label = "Ti")
-axislegend(condition_axis)
-display(diagnostic_figure)
+
+diagnostic_plot = LineCableModels.plotwindow(
+    title = "Modal diagnostics",
+    size = (1200, 800),
+    backend = :gl,
+    axis = (
+        xlabel = "Frequency [Hz]",
+        xscale = :log10,
+        yscale = :linear
+    )
+) do grid
+    z_axis = Axis(grid[1, 1]; title = "Z modal coupling", ylabel = "Coupling")
+    y_axis = Axis(grid[1, 2]; title = "Y modal coupling", ylabel = "Coupling")
+    residual_axis = Axis(grid[2, 1];
+        title = "Largest returned eigen-residual", ylabel = "Eigen-residual")
+    condition_axis = Axis(grid[2, 2]; title = "Basis conditioning", ylabel = "Condition number")
+
+    lines!(z_axis, frequency_grid, diagnostics.z_coupling)
+    lines!(y_axis, frequency_grid, diagnostics.y_coupling)
+    lines!(residual_axis, frequency_grid, eigen_residual)
+    lines!(condition_axis, frequency_grid, voltage_condition; label = "Tv")
+    lines!(condition_axis, frequency_grid, current_condition; label = "Ti")
+    axislegend(condition_axis)
+end
 
 println("Case 3: 9 cables, 18 modes, ", length(frequency_grid),
     " samples, 2 km cable length")

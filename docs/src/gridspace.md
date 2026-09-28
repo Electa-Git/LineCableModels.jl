@@ -632,7 +632,7 @@ The implementation is split across:
 - `src/parametricbuilder/traversal.jl`: combinatorial traversal.
 - `src/modalanalysis/delegation.jl`: public phase-to-modal composition;
   `src/modalanalysis/problems.jl`, `compute.jl`, and `propagation.jl` own
-  modal scalar computation and finite segment binding.
+  modal scalar computation and line segment binding.
 - `src/uq/linearerror.jl` and `src/uq/montecarlo/compute.jl`: direct and
   repeated stochastic traversal.
 - Measurements and Distributions extensions: dependency-specific uncertainty
