@@ -231,6 +231,30 @@ function _addon_linear_tickformat(exponent::Int)
     end
 end
 
+function _addon_scientific_tickformat(values)
+    # Keep distinct physical ticks distinct, including nondecade multiples of
+    # the signed-log reference. Decimal conversion also handles subnormals.
+    labels = String[]
+    distinct = length(unique(iszero(value) ? 0.0 : value for value in values))
+    for digits in 2:16
+        labels = [iszero(value) ? "0" : @sprintf("%.*e", digits, value)
+                  for value in values]
+        length(unique(labels)) == distinct && break
+    end
+    return map(labels) do label
+        label == "0" && return label
+        parts = split(label, 'e')
+        length(parts) == 2 || return label
+        coefficient = rstrip(rstrip(first(parts), '0'), '.')
+        prefix = coefficient == "1" ? "" :
+                 coefficient == "-1" ? "−" :
+                 replace(coefficient, "-" => "−") * "×"
+        exponent = replace(string(parse(Int, last(parts))), "-" => "−")
+        Makie.rich(prefix * "10",
+            Makie.superscript(exponent; offset = Makie.Vec2f(0.1, 0.0)))
+    end
+end
+
 function _addon_decade_ticks(vmin, vmax, count::Int)
     isfinite(vmin) && isfinite(vmax) && 0 < vmin <= vmax || return Float64[]
     span = log10(vmax)-log10(vmin)
@@ -741,22 +765,16 @@ function _addon_axis_format!(axis)
                     current_ticks===installed_ticks[] &&
                     current_format===installed_format[] &&
                     isequal(inputs, previous_inputs[]) && return nothing
-                decades = current_scale === Base.log10 && 0 < lower < upper &&
-                          log10(upper) - log10(lower) >= 2
-                exponent = something(_addon_scientific_exponent((lower, upper)), 0)
                 signed = current_scale isa Makie.ReversibleScale{_SignedLog10}
+                logarithmic = current_scale === Base.log10 || signed
+                decades = logarithmic && current_scale(upper) - current_scale(lower) >= 2
+                exponent = something(_addon_scientific_exponent((lower, upper)), 0)
                 signed_linear = signed &&
                                 max(abs(lower), abs(upper)) <
                                 current_scale.forward.reference
-                mode = if numeric && (current_scale === Base.identity || signed_linear) &&
+                mode = if numeric && (current_scale === Base.identity || logarithmic) &&
                           (owned_ticks || current_ticks isa AbstractVector{<:Real})
-                    (:linear, exponent)
-                elseif numeric && current_scale === Base.log10 &&
-                       (owned_ticks || current_ticks isa AbstractVector{<:Real})
-                    owned_ticks && decades ? (:log10, 0) : (:linear, exponent)
-                elseif numeric && signed &&
-                       (owned_ticks || current_ticks isa AbstractVector{<:Real})
-                    (:signed, 0)
+                    decades ? (:scientific, 0) : (:linear, exponent)
                 else
                     nothing
                 end
@@ -766,29 +784,8 @@ function _addon_axis_format!(axis)
                             Makie.automatic
                         elseif first(mode) === :linear
                             _addon_linear_tickformat(exponent)
-                        elseif first(mode) === :signed
-                            # One fixed decimal precision can print small signed
-                            # ticks as zero when the view spans many decades.
-                            values -> begin
-                                labels = String[]
-                                for digits in 3:17
-                                    labels = [iszero(value) ? "0" :
-                                              @sprintf("%.*g", digits, value)
-                                              for value in values]
-                                    allunique(labels) && break
-                                end
-                                labels
-                            end
                         else
-                            # Native LineAxis may still hold its previous limits
-                            # during a scale notification. Its temporary zero tick
-                            # must not throw before the positive locator replaces it.
-                            values -> [value <= 0 ? string(value) :
-                                       Makie.rich("10",
-                                           Makie.superscript(
-                                               replace(string(round(Int, log10(value))), "-" => "−");
-                                               offset = Makie.Vec2f(0.1, 0.0)))
-                                       for value in values]
+                            _addon_scientific_tickformat
                         end
                         installed_mode[] = mode
                         tickformat[] === installed_format[] ||
@@ -860,15 +857,15 @@ function _addon_axis_format!(axis)
                             ticks[] = selected
                         end
                         selected === Makie.automatic && break
-                        if current_scale === Base.log10 && !decades
-                            # Physical-value log ticks are NOT equally spaced on
-                            # screen. Fit adjacent rendered labels, not count/width.
+                        if logarithmic
+                            # Fit labels at their transformed physical positions,
+                            # including the central interval of signed-log views.
                             positions = Float64[]
                             extents = Float64[]
                             for (value, text) in zip(selected, lineaxis.ticklabels[])
-                                value > 0 || continue
+                                current_scale === Base.log10 && value <= 0 && continue
                                 probe.text[] = text
-                                push!(positions, pixels*(log10(value)-log10(lower))/(log10(upper)-log10(lower)))
+                                push!(positions, pixels*(current_scale(value)-current_scale(lower))/(current_scale(upper)-current_scale(lower)))
                                 push!(extents, Makie.boundingbox(probe, :data).widths[index])
                             end
                             if length(positions) == length(selected)

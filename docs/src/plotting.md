@@ -1257,10 +1257,13 @@ and custom locator objects retain native formatting; resetting the tick
 attribute to `Makie.automatic` restores the shared locator.
 Date/category axes and other native transforms retain Makie's own presentation.
 These defaults use the native tick locators in Makie 0.24.11 or newer.
-Logarithmic views spanning less than two decades show decimal values at
-logarithmic positions, with one engineering multiplier when needed. Broader
-views show integer powers of ten without another multiplier. Both x and y
-use the same tick-spacing rule, fitting actual label spacing after the coordinate transform.
+Positive and signed logarithmic views spanning less than two base-10 units
+after transformation show decimal mantissas, with one engineering multiplier
+when needed. Broader views show scientific tick labels without another axis
+multiplier. Those labels retain the physical sign and any nonunit coefficient;
+zero is displayed as `0`. The signed-log reference determines the transform,
+not the displayed units or the engineering multiplier. Both x and y use the
+same tick-spacing rule, fitting actual label spacing after the coordinate transform.
 The x/y toggles validate current visible data and uncertainty bounds before
 changing the page. Native numeric `plotwindow` axes share these controls.
 Automatic near-constant positive log ranges use modest multiplicative padding

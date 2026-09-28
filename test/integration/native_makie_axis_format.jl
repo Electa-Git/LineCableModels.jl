@@ -1,3 +1,16 @@
+@testmodule ScientificTickLabels begin
+    # Reconstruct physical values from the displayed notation, independently of
+    # the formatter. A zero absolute tolerance detects tiny ticks printed as zero.
+    function value(label)
+        text = replace(String(label), "−" => "-")
+        label isa AbstractString && return parse(Float64, text)
+        parts = match(r"^(?:(-?\d+(?:\.\d+)?)×|(-?))10(-?\d+)$", text)
+        parts === nothing && error("Not a scientific tick label: $text")
+        coefficient = parts[1] === nothing ? (parts[2] == "-" ? "-1" : "1") : parts[1]
+        return parse(Float64, coefficient * "e" * parts[3])
+    end
+end
+
 @testitem "Makie addons / narrow log values and native constructors share the shell" tags=[:visual] begin
     using CairoMakie, Measurements, Logging
     f = collect(range(2.0,8.0;length=9))
@@ -131,7 +144,7 @@ end
     @test 1.8 < low < 2 < high < 2.2
 end
 
-@testitem "Makie addons / signed log separates small conductances in displayed units" tags=[:visual] begin
+@testitem "Makie addons / signed log separates small conductances in displayed units" tags=[:visual] setup=[ScientificTickLabels] begin
     using CairoMakie
     f = 10.0 .^ range(-1, 6; length=8)
     conductance = -10.0 .^ range(-27, -6; length=8)
@@ -165,7 +178,7 @@ end
             @test allunique(axis.yaxis.ticklabels[])
             # Labels have at least three significant digits. Check their displayed
             # precision with zero absolute tolerance, so false zeros always fail.
-            @test all(isapprox.(parse.(Float64, axis.yaxis.ticklabels[]), axis.yaxis.tickvalues[];
+            @test all(isapprox.(ScientificTickLabels.value.(axis.yaxis.ticklabels[]), axis.yaxis.tickvalues[];
                 rtol=0.005, atol=0))
             @test page.controls[:ylog].active[]
             page.controls[:ylog].active[] = false
@@ -192,6 +205,107 @@ end
     @test last.(line[1][])[1:6] == zeros(6)
     @test last.(line[1][])[7:8] ≈ conductance[7:8]
     @test Y(source) == admittance
+end
+
+@testitem "Makie addons / signed and positive axes share scientific notation" tags=[:visual] setup=[ScientificTickLabels] begin
+    using CairoMakie
+    samples=([1.0, 1.5, 2.0] .* 1e-6, [-1.0, -1.5, -2.0] .* 1e-6,
+        [-3.7e-6, -3.7e-10, 0.0, 3.7e-10, 3.7e-6], [3.7e-10, 3.7e-6])
+    page=LineCableModels.plotwindow(; title = "Signed and positive axes",
+        backend = :cairo, display_plot = false,
+        open_export = false, size = (1200, 800), axis = (xscale = :log10, yscale = :log10)) do grid
+        for (i, values) in enumerate(samples)
+            axis=Axis(grid[cld(i, 2), mod1(i, 2)]; xlabel = "Input", ylabel = "Output")
+            lines!(axis, values, values)
+        end
+    end
+    for action in (:construction, :toggles, :direct, :reset, :resize)
+        if action===:toggles
+            for dim in (:x, :y)
+                control=page.controls[Symbol(dim, :log)]
+                control.active[]=false
+                control.active[]=true
+            end
+        elseif action===:direct
+            for dim in (:x, :y)
+                axisscale!(page, dim, :linear)
+                axisscale!(page, dim, :log10)
+            end
+        elseif action===:reset
+            page.controls[:reset].clicks[]+=1
+        elseif action===:resize
+            resize!(page.figure, 1000, 700)
+        end
+        Makie.colorbuffer(page.figure)
+        for (i, axis) in enumerate(page.axes), dim in (:x, :y)
+
+            native=getproperty(axis, Symbol(dim, :axis))
+            labels=native.ticklabels[]
+            @test length(labels) >= 2
+            @test allunique(String.(labels))
+            displayed=ScientificTickLabels.value.(labels)
+            if i<=2
+                @test all(label -> label isa AbstractString, labels)
+                @test count("× 10", String(getproperty(axis, Symbol(dim, :label))[])) == 1
+                @test occursin("−6", String(getproperty(axis, Symbol(dim, :label))[]))
+                @test all(label -> !occursin(r"[eE]", label), String.(labels))
+                displayed.*=1e-6
+            else
+                @test !occursin("× 10", String(getproperty(axis, Symbol(dim, :label))[]))
+                @test all(
+                    label -> label == "0" ||
+                             (label isa Makie.RichText &&
+                              last(label.children).type === :sup),
+                    labels)
+            end
+            @test all(isapprox.(displayed, native.tickvalues[]; rtol = 0.005, atol = 0))
+            line=only(filter(plot->plot isa Makie.Lines, axis.scene.plots))
+            @test first.(line[1][]) ≈ samples[i]
+            @test last.(line[1][]) ≈ samples[i]
+            # Inspect spacing in rendered coordinates, for both signs and axes.
+            dimension=dim===:x ? 1 : 2
+            fontsize=getproperty(axis, Symbol(dim, :ticklabelsize))[]
+            probe=text!(axis.blockscene, 0, 0; visible = false, fontsize,
+                font = getproperty(axis, Symbol(dim, :ticklabelfont))[],
+                rotation = getproperty(axis, Symbol(dim, :ticklabelrotation))[])
+            extents=map(labels) do label
+                probe.text[]=label
+                Makie.boundingbox(probe, :data).widths[dimension]
+            end
+            @test all(diff(getindex.(native.tickpositions[], dimension)) .>=
+                      (extents[1:(end - 1)] .+ extents[2:end]) ./ 2 .+ fontsize / 2 .- 1)
+            delete!(axis.blockscene, probe)
+        end
+    end
+    signed_axis=page.axes[3]
+    # The signed reference is 3.7e-10, not a power of ten. Labels must include
+    # its coefficient, rather than rounding physical positions to whole decades.
+    labels=signed_axis.ytickformat[]([-3.7e-7, -0.0, 3.7e-7])
+    @test String.(labels) == ["−3.7×10−7", "0", "3.7×10−7"]
+    @test ScientificTickLabels.value.(labels) == [-3.7e-7, 0.0, 3.7e-7]
+    # Zoom changes notation using the displayed transformed span, without
+    # replacing the signed reference or changing the underlying data.
+    scale=signed_axis.yscale[]
+    ylims!(signed_axis, -2e-10, 2e-10)
+    Makie.colorbuffer(page.figure)
+    @test signed_axis.yscale[] === scale
+    @test occursin("× 10−12", String(signed_axis.ylabel[]))
+    @test signed_axis.ytickformat[]([-2e-10, 0.0, 2e-10]) == ["-200", "0", "200"]
+    custom=values->fill("custom", length(values))
+    signed_axis.ytickformat[]=custom
+    axisscale!(page, :y, :linear)
+    axisscale!(page, :y, :log10)
+    @test signed_axis.ytickformat[] === custom
+    @test signed_axis.ylabel[] == "Output"
+    signed_axis.ytickformat[]=Makie.automatic
+    signed_axis.yticks[]=([-2e-10, 2e-10], ["low", "high"])
+    Makie.colorbuffer(page.figure)
+    @test signed_axis.yaxis.ticklabels[] == ["low", "high"]
+    @test signed_axis.ylabel[] == "Output"
+    mktempdir() do directory
+        @test isfile(export_svg(page; path = joinpath(directory, "signed.svg"), open_file = false))
+        @test signed_axis.yaxis.ticklabels[] == ["low", "high"]
+    end
 end
 
 @testitem "Makie addons / signed reference follows native samples and interval endpoints" tags=[:visual] begin
