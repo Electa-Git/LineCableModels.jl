@@ -25,7 +25,7 @@ end
 
 function computation_options(::Type{LineCableModelsModal}, record::ComputationOptions)::ComputationOptions
     options = record.data
-    isempty(setdiff(keys(options), (:offdiagonal_tolerance, :on_result, :timing, :verbosity))) ||
+    isempty(setdiff(keys(options), (:rotate, :offdiagonal_tolerance, :on_result, :timing, :verbosity))) ||
         throw(ArgumentError("unknown modal action options: $(Tuple(keys(options)))"))
     tolerance = get(options, :offdiagonal_tolerance, 1e-6)
     tolerance isa Real && isfinite(tolerance) && tolerance >= 0 ||
@@ -35,8 +35,10 @@ function computation_options(::Type{LineCableModelsModal}, record::ComputationOp
         throw(ArgumentError("on_result must be a callable function or nothing"))
     timing = get(options, :timing, false)
     timing isa Bool || throw(ArgumentError("timing must be Bool"))
+    rotate = get(options, :rotate, true)
+    rotate isa Bool || throw(ArgumentError("rotate must be Bool"))
     return ComputationOptions(; offdiagonal_tolerance=tolerance, on_result=callback,
-        timing, verbosity=get(options, :verbosity, 0))
+        timing, rotate, verbosity=get(options, :verbosity, 0))
 end
 
 """Store one scalar modal calculation's results, common arrays, selected work, and diagnostics."""
@@ -166,7 +168,7 @@ end
     return :(ComputationDetails($output(($(entries...),))))
 end
 
-Base.@constprop :aggressive function _modal_completion(parameters, formulation, selected, diagnostics)
+Base.@constprop :aggressive function _modal_completion(parameters, formulation, selected, diagnostics, execution)
     source_record=parameters.details.data
     source_fields=get(source_record,:formulation_fields,(;))
     modal_descriptions=Engine.completed_formulation(formulation).formulation_fields.all
@@ -180,7 +182,7 @@ Base.@constprop :aggressive function _modal_completion(parameters, formulation, 
          get(parameters.details.data, :coordinates, nothing),
          string.(1:size(parameters.Z,1)),
          (identifier=formula_id(selected), requested=NamedTuple(formulation.definition),
-            effective=NamedTuple(selected), diagnostics=diagnostics),
+            effective=NamedTuple(selected), rotate=execution.data.rotate, diagnostics=diagnostics),
          fields))
     return _modal_detail_merge(source_record,added)
 end
@@ -193,13 +195,15 @@ function compute(::LineCableModelsModal,
     workspace = ModalAnalysisWorkspace(parameters, selected)
     decompose!(allocation_selector(selected), workspace, formula_parameters(selected),
         formulation_options(selected))
-    maps = _check_operators(ModalOperators(copy(workspace.Tv), copy(workspace.Ti)), parameters)
+    _check_operators(ModalOperators(workspace.Tv, workspace.Ti), parameters)
+    orient_modes!(workspace.Tv, workspace.Ti, execution.data.rotate)
+    maps = ModalOperators(copy(workspace.Tv), copy(workspace.Ti))
     _coordinate_algebra!(workspace, execution)
     roots = _dependent_roots(workspace)
     all(isfinite, roots) || throw(DomainError(roots, "modal roots must be finite"))
     modal = ModalDomain(maps, roots)
     diagnostics = map(copy,workspace.diagnostics)
-    retained = _modal_completion(parameters, formulation, selected, diagnostics)
+    retained = _modal_completion(parameters, formulation, selected, diagnostics, execution)
     return LineParameters(modal,
         SeriesImpedance{eltype(workspace.Zm),Basis}(copy(workspace.Zm)),
         ShuntAdmittance{eltype(workspace.Ym),Basis}(copy(workspace.Ym)),

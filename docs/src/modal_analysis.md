@@ -62,6 +62,112 @@ and `Ti` map modal coordinates to phase coordinates. Total source coefficients
 are normalized by their declared source length before the finite segment is
 bound.
 
+## Alternative complex LM implementation
+
+Select `:vieira2026` for the complex Levenberg–Marquardt implementation adapted
+from the supplied Vieira tracker, based on Chrysochos et al. (2014):
+
+```julia
+selected = ModalAnalysisFormulation(:vieira2026)
+modal = compute(ModalAnalysisProblem(phase), selected)
+
+# The convenience call performs the same two computations.
+modal = compute(line_problem, line_formulation; modal=:vieira2026)
+```
+
+The method consumes the completed matrices at the stored frequencies. It uses
+a two-sample predictor, SVD minimum-norm steps, greedy eigenvalue assignment and
+clustered eigenvector refinement. When tracking misses its matching or predictor
+target, it uses a correlation-matched eigensolution at that same frequency.
+There is no interpolation, adaptive frequency insertion or physical reevaluation.
+The default formula remains `:chrysochos2014`.
+
+Numerical controls belong to the selected formula:
+
+```julia
+selected = ModalAnalysisFormulation(:vieira2026; options=(
+    iteration=(convergence=1e-13, max_iterations=100),
+    tracking=(predictor_tolerance=0.25, eigenvalue_tolerance=1e-5,
+        cluster_tolerance=1e-3, order_by_velocity=true),
+))
+```
+
+`convergence` is the Euclidean norm target for the complex eigenpair residual,
+including its bilinear normalization constraint. It is not the differently
+interpreted convergence control of `:chrysochos2014`, nor an accuracy guarantee.
+Matching compares eigenvalue distances against `eigenvalue_tolerance` times the
+larger of one and the largest normalized eigenvalue magnitude. Clusters connect
+normalized eigenvalues whose gap is below `cluster_tolerance` times the larger
+of their shifted magnitudes and `1e-3`. `predictor_tolerance` bounds relative
+eigenvalue and isolated-vector changes from the predictor. These decisions select
+the numerical tracking route; finite results are retained with warning diagnostics.
+
+Tracking history uses `transpose(t)*t = 1`. Published current bases have unit
+Euclidean column norms; voltage bases are the normalized paired `Z*Ti` columns.
+With `order_by_velocity=true`, decreasing phase constant at the final frequency
+sets one mode order for the entire scan, including its diagnostics. Disable this
+option to retain the seed's tracked order. The first frequency is obtained by
+direct eigendecomposition and has no LM iteration count or convergence flag.
+Subsequent flags describe LM convergence even when a conventional eigensolution
+is ultimately returned. The reported eigen-residual describes that returned pair.
+
+This adaptation uses `s=j2πf` and the package's vacuum permittivity
+`8.8541878128e-12 F/m`; the supplied `EigTrack.jl` used `8.854187817e-12 F/m` and
+also supported complex-frequency reevaluation. The formula allocates its complex
+least-squares, predictor and assignment work through the existing allocator and
+reuses common modal storage. The detailed method attribution is attached to its
+formula description.
+
+## Newton–Raphson implementation
+
+Select `:wedehpol1996` for the Newton–Raphson eigenpair continuation adapted
+from `eig_newton` in the supplied UniversalLineModel implementation of
+Wedepohl, Nguyen and Irwin (1996), DOI: 10.1109/59.535695:
+
+```julia
+selected = ModalAnalysisFormulation(:wedehpol1996; options=(
+    iteration=(convergence=1e-9, max_iterations=60),))
+modal = compute(ModalAnalysisProblem(phase), selected)
+```
+
+The seed modes are ordered by decreasing attenuation. Subsequent samples use
+the previous eigenpairs in Newton corrections of `YZ / opnorm(YZ, 2)` (the matrix
+spectral norm), with the bilinear constraint `transpose(t)*t = 1`. The
+convergence target bounds the largest absolute correction in this normalized
+problem. A singular iteration, missed target or duplicate eigenpair causes
+same-frequency direct eigendecomposition and greedy correlation matching.
+These events remain warning diagnostics; no physical samples are reevaluated.
+The identifier is spelled `:wedehpol1996` as selected for this package; the
+bibliographic author is Wedepohl.
+
+## Shared basis rotation and sign continuity
+
+All modal formulations, including user-defined formulations, use
+`options=(rotate=true,)` by default. After decomposition and before computing
+modal Z/Y, each Ti column is multiplied by a unit complex factor that minimizes
+its squared imaginary norm. The same factor multiplies its Tv column, preserving
+the voltage/current pairing. This does not independently minimize the imaginary
+part of Tv. The remaining 180-degree ambiguity is resolved by requiring a
+nonnegative real overlap with the previous frequency's Ti column. Mode order
+and the decomposition's tracking history are unchanged.
+
+```julia
+modal = compute(ModalAnalysisProblem(phase), selected; options=(rotate=false,))
+modal = compute(line_problem, line_formulation; modal=:wedehpol1996,
+    modal_options=(rotate=false,))
+```
+
+`rotate=false` retains the formula's complex column phases apart from fixing
+180-degree flips. It does not disable the formula's internal normalization or
+tracking. The choice is retained at `details(modal).data.modal.rotate` and in
+observation assumptions. Rotated and unrotated observations remain distinct
+when grouped.
+
+The paired operation preserves column norms, diagonal modal Z/Y/Zc/Yc,
+propagation constants, and reconstructed phase quantities, including H. Residual
+off-diagonal modal entries retain their magnitudes but can change phase with the
+coordinate choice. No values are clipped or set to zero by this operation.
+
 ## Finite segments and source length
 
 `PropagationParameters` binds a modal scan to one physical segment. A source

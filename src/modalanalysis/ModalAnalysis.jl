@@ -28,7 +28,7 @@ import ..Engine: LineParameters, LineParametersFormulation, PhaseDomain, ModalDo
                  SeriesImpedance, ShuntAdmittance, basis, frequencies,
                  description, formula_id, selectdomain, selectdetails, initialize_buffers
 using LinearAlgebra: Diagonal, I, checksquare, cond, diag, dot, eigen,
-                     issuccess, ldiv!, lu!, mul!, norm, rdiv!
+                     eigen!, issuccess, ldiv!, lu!, mul!, norm, rdiv!, svd!, svdvals!
 import ..Grammar: AbstractCoreResult
 import ..Engine
 import ..Grammar
@@ -47,6 +47,8 @@ include("compute.jl")
 #! explicit-imports: off
 const FORMULAS = (
     include("formulas/chrysochos2014.jl"),
+    include("formulas/vieira2026.jl"),
+    include("formulas/wedehpol1996.jl"),
     include("formulas/default.jl"),
 )
 #! explicit-imports: on

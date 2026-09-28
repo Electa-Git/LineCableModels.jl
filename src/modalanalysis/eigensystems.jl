@@ -1,5 +1,44 @@
 # Shared numerical operations for frequency-tracked eigensystems.
 
+# Minimize the current column's imaginary norm, preserve the voltage/current
+# pairing, then resolve the remaining sign against the previous frequency.
+function orient_modes!(voltage::AbstractArray{T, 3}, current::AbstractArray{T, 3},
+        rotate::Bool) where {T <: Complex}
+    R=typeof(real(zero(T)))
+    for frequency in axes(current, 3), mode in axes(current, 2)
+
+        vector=@view current[:, mode, frequency]
+        phase=one(T)
+        scale=maximum(value -> max(abs(real(value)), abs(imag(value))), vector)
+        if rotate && !iszero(scale)
+            real_sum=zero(R)
+            imaginary_sum=zero(R)
+            for value in vector
+                scaled=value/scale
+                real_sum += real(scaled)^2-imag(scaled)^2
+                imaginary_sum += 2real(scaled)*imag(scaled)
+            end
+            phase=cis(-atan(imaginary_sum, real_sum)/2)
+        end
+        if frequency>firstindex(current, 3) && !iszero(scale)
+            previous=@view current[:, mode, frequency - 1]
+            previous_scale=maximum(value -> max(abs(real(value)), abs(imag(value))), previous)
+            if !iszero(previous_scale)
+                overlap=zero(T)
+                for row in eachindex(vector)
+                    overlap += conj(previous[row]/previous_scale)*(vector[row]/scale)
+                end
+                real(overlap*phase)<zero(R) && (phase=-phase)
+            end
+        end
+        if phase!=one(T)
+            vector .*= phase
+            @views voltage[:, mode, frequency] .*= phase
+        end
+    end
+    return nothing
+end
+
 @inline function _unit!(vector::AbstractVector)
     scale = norm(vector)
     isfinite(scale) && !iszero(scale) || return false
@@ -195,4 +234,41 @@ function recompute_matched_eigenpairs!(
         _align!(@view(vectors[:, mode]), @view(previous_vectors[:, mode]))
     end
     return values, vectors
+end
+
+# Complex eigenpair equations with the bilinear normalization tᵀt = 1.
+function eigenpair_residual!(residual, x, matrix)
+    n = size(matrix, 1)
+    vector = @view x[1:n]
+    mul!(@view(residual[1:n]), matrix, vector)
+    constraint = -one(eltype(x))
+    @inbounds for row in 1:n
+        residual[row] -= x[end] * vector[row]
+        constraint += vector[row] * vector[row]
+    end
+    residual[end] = constraint
+    return residual
+end
+
+function eigenpair_jacobian!(jacobian, x, matrix)
+    n = size(matrix, 1)
+    copyto!(@view(jacobian[1:n, 1:n]), matrix)
+    @inbounds for row in 1:n
+        jacobian[row, row] -= x[end]
+        jacobian[row, end] = -x[row]
+        jacobian[end, row] = 2x[row]
+    end
+    jacobian[end, end] = zero(eltype(jacobian))
+    return jacobian
+end
+
+# Greedy square assignment: choose the smallest remaining entry.
+function greedy_assignment!(assignment, cost)
+    for _ in eachindex(assignment)
+        entry = argmin(cost)
+        assignment[entry[1]] = entry[2]
+        @views cost[entry[1], :] .= Inf
+        @views cost[:, entry[2]] .= Inf
+    end
+    return assignment
 end

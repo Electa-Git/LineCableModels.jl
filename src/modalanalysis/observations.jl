@@ -377,7 +377,7 @@ function Engine.observation_assumptions(
     modal=get(retained,:modal,nothing)
     return upstream===nothing || modal===nothing ? nothing :
         (upstream=(Z=get(upstream,:Z,nothing),Y=get(upstream,:Y,nothing)),
-         modal=get(modal,:effective,nothing))
+         modal=get(modal,:effective,nothing),rotate=get(modal,:rotate,nothing))
 end
 
 function Grammar.observation_quantity(source::_ModalLineParameters,request;kwargs...)

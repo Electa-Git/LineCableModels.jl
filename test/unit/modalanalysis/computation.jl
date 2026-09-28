@@ -49,7 +49,7 @@
     selected=FixedModal(reshape(Tv0,2,2,1),reshape(Ti0,2,2,1),
         reshape(roots,2,1),Ref(0),Ref(0))
     mf=ModalAnalysisFormulation(selected)
-    modal=compute(ModalAnalysisProblem(phase),mf)
+    modal=compute(ModalAnalysisProblem(phase),mf;options=(rotate=false,))
     @test selected.allocations[]==1
     @test selected.calculations[]==1
     @test Tv(modal)[:,:,1]==Tv0
