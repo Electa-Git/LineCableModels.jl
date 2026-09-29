@@ -26,9 +26,10 @@ The internal default and `:schelkunoff1934` retain Schelkunoff's tubular
 conductor expressions; insulation impedance's default and `:ametani1980`
 retain the annular magnetic term documented by Ametani.
 Both earth defaults route to `:unified`, which implements the supplied circumferentially averaged framework
-with complete enclosed-current normalization. Only `:default` and `:unified`
-execute in the two built-in coaxial earth families. Other registered identities
-throw "not yet implemented" when requested; they never substitute Unified.
+with complete enclosed-current normalization. The coaxial backend also evaluates
+`:gary1976` aerial impedance, `:saad1996` and `:wedepohl1973` buried impedance,
+`:lucca1994` mixed impedance, and `:ideal` external potential coefficients.
+Other registered earth identities throw "not yet implemented"; they never substitute Unified.
 Independent external-backend and consumer-defined implementations are unaffected.
 Dielectric `:default` selections
 route to explicit `:lossless` equations; `:lossy` retains conductivity and the
@@ -383,12 +384,36 @@ selection; scalar multilayer and explicit EHEM behavior are unchanged.
 The default potential formulation supplies both mixed directions. Selecting a
 default leaf for only part of a matrix still assembles its complete auxiliary
 system and then selects the requested final entries. Other selected output
-equations never become inputs to its K/H kernels.
+equations never become inputs to its axial-field or source-potential coefficients.
 
 The workspace binds every required ordered pair before frequency evaluation.
-Geometry and layer indices follow the same order. Both directions are evaluated;
-assembly, reduction and modal transformation preserve the returned ordered entries.
+Geometry and layer indices follow the same order. Each direction retains its
+inputs and output position; assembly, reduction and modal transformation preserve
+the returned ordered entries.
 No implicit reciprocity operation supplies a missing equation or averages its result.
+
+Compatible impedance and potential selections share one prepared calculation
+with explicit output indices for each quantity. Distinct controls retain separate
+calculations and material arrays. The prepared calculations and their equation
+groups are concrete tuples; conductor interactions and numerical storage remain
+arrays. The complete scan specializes on those tuples before entering its
+frequency loop, while the workspace type remains independent of conductor layout.
+
+Repeated numerical interactions use the shared `Engine.earth!` traversal of
+bound indexed equations. During workspace preparation,
+`earth_bindings(selection, binding, geometry)` supplies the complete invariant
+arithmetic inputs for comparison. The default includes destination indices;
+a formula omits them only when its arithmetic does not use them. These inputs
+serve reuse alone: equations consume the existing `EarthPair` and evaluated
+material data, without a second pair representation or callback interface.
+
+Candidates belong to the same bound equation and resolved controls. At each
+frequency, Engine compares their current material values using
+`same_physical_state`, evaluates each distinct interaction, and distributes
+its scalar or tuple of coefficients. Equal nominal values with independent
+uncertainty sources remain distinct. Each invocation overwrites representative
+indices and diagnostic ranges; no prior-frequency result is reused. Geometry
+changes require a new workspace. Numerical types and tolerances are preserved.
 
 The medium inventory is a separate physical restriction. A homogeneous formula
 consumes exactly air and one soil half-space. A finite-layer model consumes its
@@ -397,11 +422,25 @@ its cases; arbitrary-layer Green-function generation remains deferred. Buried
 placement in a vertical multilayer earth is rejected because its physical layer
 indexing has no defined origin in the present geometry definition.
 
-Only `:unified` and explicit `:default → :unified` routing are executable built-in
-coaxial earth implementations, in both impedance and potential families. Other
-author identifiers remain registered scientific identities with explicit
-"not yet implemented" methods for their indexed cases. They never fall back to
-Unified. Independent external-backend and consumer-defined methods are unaffected.
+The analytical impedance selections execute direct indexed equations: `:gary1976`
+for aerial self/mutual, `:saad1996` or `:wedepohl1973` for buried self/mutual,
+and `:lucca1994` for both mixed directions. The `:ideal` potential selection
+uses electrostatic images for aerial pairs and zero external potential whenever
+either conductor is buried; insulation contributions remain in the total matrix.
+These methods require no earth-kernel quadrature or extra scratch. For example:
+
+```julia
+selection = Formulation(
+    earth_impedance = (air=:gary1976, earth=:saad1996, mixed=:lucca1994),
+    earth_admittance = :ideal,
+)
+phase = compute(problem, selection; options=phase_options)
+```
+
+The numerical-method docstrings state each formula's material approximations.
+The formulas consume the material values supplied by the frequency loop; they do not reevaluate laws or
+change the defaults. Other registered identities retain explicit unimplemented
+methods without numerical fallback. External-backend methods are unaffected.
 The defaults supply air/air, earth/earth and both mixed directions with
 independent medium permeabilities. Every circumference must lie wholly in its
 half-space and exterior circles must not overlap. The default requires homogeneous
@@ -409,32 +448,34 @@ earth or an explicitly globally consistent equivalent earth. Indexed dispatch
 for arbitrary layer numbers is an extension method requirement, not an implementation of
 new multilayer Unified equations.
 
-The complete earth source kernels satisfy
+Unified binds the [averaged axial-field coefficient](@ref LineCableModels.Engine.EarthImpedance.axial_field_coefficient(::Union{LineCableModels.Engine.EarthImpedance.Formula{:unified}, Val{:unified}}, ::Union{Val{:self}, Val{:mutual}}, ::Val, ::Val, ::Any, ::Any, ::Any))
+and the [referenced source-potential coefficient](@ref LineCableModels.Engine.EarthAdmittance.source_potential_coefficient(::Union{LineCableModels.Engine.EarthAdmittance.Formula{:unified}, Val{:unified}}, ::Union{Val{:self}, Val{:mutual}}, ::Val, ::Val, ::Any, ::Any, ::Any)).
+These actual numerical methods use the same indexed traversal as ordinary
+impedance and potential equations. Both coefficients are required by either
+selected physical output; their calculation does not add another user selection.
 
-```math
-K=\mathcal Z-\Gamma^2\mathcal P_\phi/s,\qquad
-L=A_r^{-1}-F_rK,\qquad
-P_eL=H,\quad Z_eL=K+\Gamma^2H/s,\quad Y_eH=sL.
-```
+The [complete-current matrix calculation](@ref LineCableModels.Engine.earth!(::Union{LineCableModels.Engine.EarthImpedance.Formula{:unified}, LineCableModels.Engine.EarthAdmittance.Formula{:unified}}, ::Any, ::Any))
+converts the source coefficients into physical exterior matrices before Engine
+copies selected entries. Compatible impedance and potential selections share
+one calculation and factorization; incompatible controls or equivalent-media
+selections retain separate calculations. Internal conductor and insulation
+contributions retain the existing composition and terminal reductions.
 
-Here `s=jω`, Ze is in Ω/m, Pe in m/F and Ye in S/m. Matrices are solved on the
-right, with source columns and receiver rows. Pe and Ye retain the direction of
-the voltage path; they are not symmetrized. Air receivers use the interface
-voltage; earth receivers use deep-earth voltage. These references are fixed by
-the receiving layer, not selectable parameters.
+`axial_field`, `source_potential`, and `current_map` are physical work-array
+names. Their documented exponential source-column scaling cancels from the
+right solves. Per-conductor factors use Engine-resolved layers and radii;
+geometry validation remains with the problem and system. The shared spectral
+kernels own contour and cancellation treatment. Generic integration consumes
+the complete integrand without selecting a physical field or voltage reference.
 
-Each formula owns its equations. Unified assembles its
-complete current system once per frequency and shares compatible impedance and
-potential calculations. Its indexed methods return physical self/mutual entries
-from that coupled system; an isolated-pair call cannot supply it. Engine uses
-the same explicit material and earth-calculation stages for every formula and does not know these
-physical equations. Internal conductor and insulation
-contributions retain the existing cable composition and terminal reductions.
 With `options=(trace=true,)`, `trace.Zg` and `trace.Pg` expose the exterior
 matrices; the returned total line admittance also includes insulation effects.
 `trace.integrals` retains the native integral values and QuadGK error estimates,
 with formula, frequency, receiver/source and term identifiers. These estimates
 are not final-matrix error bounds. Trace-off computations retain no such history.
+For repeated inputs, each logical receiver/source retains the evaluated integral
+and its error estimate with that position's context. Warnings retain the same
+requested controls and affected positions without repeating quadrature.
 
 Select an equivalent homogeneous earth on each consuming formula:
 
@@ -613,8 +654,9 @@ registered `:ametani1980` annular expression. PSCAD's native component name is
 only an XML binding and does not identify an equation. These distinctions follow
 PSCAD's [matrix derivation](https://www.pscad.com/webhelp-pscad-v5.1.0-ol/EMTDC/Transmission_Lines/Deriving_System_Y_and_Z_Matrices.htm)
 and [external potential matrix](https://www.pscad.com/webhelp-pscad-v5.1.0-ol/EMTDC/Transmission_Lines/Mutual_Impedance_with_Earth_Return.htm).
-The new `:ideal` and internal `:wedepohl1973` registrations deliberately report
-"not yet implemented" on the owned coaxial evaluation path; PSCAD dispatch is available.
+The coaxial backend implements `:ideal` potential coefficients. Internal
+impedance `:wedepohl1973` remains unimplemented on that backend; its PSCAD
+dispatch is available.
 
 PSCAD dispatch maps retained equations to native settings. Gary1976 maps to PSCAD's
 `DERISEMLYEN` spelling; this creates no second mathematical registration. Carson1926

@@ -17,6 +17,12 @@ TextDisplay.@showfields SpectralIntegral "SpectralIntegral" integral -> (
     callable = typeof(integral.f),
 )
 
+TextDisplay.@showfields AirVoltageSpectrum "AirVoltageSpectrum" kernel -> (
+    target_interface_distance = TextDisplay.engineering(kernel.geometry.hp, :meter),
+    source_interface_distance = TextDisplay.engineering(kernel.geometry.hq, :meter),
+    radius = TextDisplay.engineering(kernel.geometry.radius, :meter)
+)
+
 TextDisplay.@showfields BlueprintConductor "BlueprintConductor" row -> (
     terminal = row.terminal,
     assembly = row.assembly,

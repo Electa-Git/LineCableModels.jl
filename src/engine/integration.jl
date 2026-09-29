@@ -28,7 +28,8 @@ function integration_workspace(::Type{R}, ::Type{V} = Complex{R};
         seed = alloc_segbuf(R, V, R; size = min(size, 1)),
         prototype = zero(V),
         points = sizehint!(R[], size),
-        mapped = sizehint!(R[], size))
+        mapped = sizehint!(R[], size),
+        warnings = nothing)
 end
 
 function initialize_buffers(::Val{:quad}, ::Type{T}, input, invariants, buffers) where {T}
@@ -101,13 +102,22 @@ and actual quadrature failures remain errors.
             eval_segbuf = seeds, norm = numerical_magnitude)
     end
     isfinite(value) || throw(DomainError(value, "QuadGK returned a nonfinite integral"))
-    observations===nothing ||
+    record_integral!(observations, workspace === nothing ? nothing : workspace.warnings,
+        value, error, controls, context)
+    return value, error
+end
+
+# Actual and reused integrals report the same estimates and requested controls.
+function record_integral!(observations, warnings, value, error, controls, context)
+    observations === nothing ||
         push!(observations, (; context, value, estimated_error = error))
     target=max(controls.atol, controls.rtol*numerical_magnitude(value))
     if !isfinite(error) || error>target
+        warnings === nothing ||
+            push!(warnings, (; context, value, estimated_error = error, controls))
         @warn "QuadGK returned an estimated error above the requested target" value estimated_error=error target rtol=controls.rtol atol=controls.atol maxevals=controls.maxevals context
     end
-    return value, error
+    return nothing
 end
 
 """

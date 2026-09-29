@@ -1,44 +1,48 @@
 @testitem "Engine / explicit equation recipes are complete only for required cases" tags=[:unit] setup=[TestFixtures] begin
-    const E = LineCableModels.Engine
-    omitted = Formulation()
-    absent = Formulation(earth_impedance=nothing, earth_admittance=nothing,
-        internal_impedance=nothing)
+    const E=LineCableModels.Engine
+    omitted=Formulation()
+    absent=Formulation(earth_impedance = nothing, earth_admittance = nothing,
+        internal_impedance = nothing)
     for slot in (:earth_impedance, :earth_admittance, :internal_impedance)
         @test formula_id(getproperty(absent.methods, slot)) ==
               formula_id(getproperty(omitted.methods, slot))
     end
-    buried = TestFixtures.three_bare_wires_problem(heights=(-1.0,-1.0,-1.0), frequencies=[50.0])
-    overhead = TestFixtures.three_bare_wires_problem(frequencies=[50.0])
-    options = (reduce_bundle=false, kron_reduction=false, ideal_transposition=false)
-    partial = Formulation(earth_impedance=(earth=formula(:unified),),
-        earth_admittance=(earth=formula(:unified),),
-        internal_impedance=(outer=formula(:default),); options)
-    expected = compute(buried, Formulation(;options))
-    actual = compute(buried, partial)
+    buried=TestFixtures.three_bare_wires_problem(heights = (-1.0, -1.0, -1.0), frequencies = [50.0])
+    overhead=TestFixtures.three_bare_wires_problem(frequencies = [50.0])
+    options=(reduce_bundle = false, kron_reduction = false, ideal_transposition = false)
+    partial=Formulation(earth_impedance = (earth = formula(:unified),),
+        earth_admittance = (earth = formula(:unified),),
+        internal_impedance = (outer = formula(:default),); options)
+    expected=compute(buried, Formulation(; options))
+    actual=compute(buried, partial)
     @test Z(actual) == Z(expected)
     @test Y(actual) == Y(expected)
     @test_throws ArgumentError compute(overhead, partial)
-    @test_throws ArgumentError compute(buried, Formulation(earth_impedance=(;)))
+    @test_throws ArgumentError compute(buried, Formulation(earth_impedance = (;)))
     @test_throws ArgumentError compute(buried,
-        Formulation(earth_impedance=(earth=nothing,)))
-    excess = Formulation(
-        earth_impedance=(air=formula(:carson1926), earth=formula(:unified)),
-        earth_admittance=(air=formula(:wise1948), earth=formula(:unified)); options)
+        Formulation(earth_impedance = (earth = nothing,)))
+    excess=Formulation(
+        earth_impedance = (air = formula(:carson1926), earth = formula(:unified)),
+        earth_admittance = (air = formula(:wise1948), earth = formula(:unified)); options)
     @test Z(compute(buried, excess)) == Z(expected)
     @test Y(compute(buried, excess)) == Y(expected)
-    @test_throws ArgumentError Formulation(earth_impedance=(soil=formula(:unified),))
-    @test_throws ArgumentError Formulation(earth_admittance=formula(:unknown))
-    disabled = Formulation(earth_properties=nothing, temperature_dependence=nothing)
+    @test_throws ArgumentError Formulation(earth_impedance = (soil = formula(:unified),))
+    @test_throws ArgumentError Formulation(earth_admittance = formula(:unknown))
+    disabled=Formulation(earth_properties = nothing, temperature_dependence = nothing)
     @test disabled.methods.earth_properties === nothing
     @test disabled.methods.temperature_dependence === nothing
 end
 
-@testitem "Engine / registered author earth equations are explicit numerical stubs" tags=[:unit] begin
+@testitem "Engine / unimplemented earth equations are explicit numerical stubs" tags=[:unit] begin
     const E = LineCableModels.Engine
     for (owner, operation) in ((E.EarthImpedance, E.EarthImpedance.earth_impedance),
-                              (E.EarthAdmittance, E.EarthAdmittance.earth_potential_coefficient))
+        (E.EarthAdmittance, E.EarthAdmittance.earth_potential_coefficient))
         @test formula_id(owner.Formula(:default)) === :unified
-        for identifier in setdiff(owner.formulas(), (:default, :unified))
+        implemented = owner === E.EarthImpedance ?
+                      (
+            :default, :unified, :saad1996, :wedepohl1973, :gary1976, :lucca1994) :
+                      (:default, :unified, :ideal)
+        for identifier in setdiff(owner.formulas(), implemented)
             selected = owner.Formula(identifier)
             @test formula_id(selected) === identifier
             @test !isempty(description(selected))
@@ -52,79 +56,82 @@ end
 end
 
 @testitem "Engine / prescribed propagation is a unified formulation option" tags=[:unit] setup=[TestFixtures] begin
-    const E = LineCableModels.Engine
-    problem = TestFixtures.three_bare_wires_problem(frequencies=[50.0, 500.0])
+    const E=LineCableModels.Engine
+    problem=TestFixtures.three_bare_wires_problem(frequencies = [50.0, 500.0])
     @test_throws MethodError LineParametersProblem(problem.system;
-        earth_props=problem.earth_props, frequencies=problem.frequencies, Γ=[0im,0im])
-    options = (reduce_bundle=false, kron_reduction=false, ideal_transposition=false)
-    make(gamma) = Formulation(
-        earth_impedance=formula(:unified; options=(Γ=gamma,)),
-        earth_admittance=formula(:unified; options=(Γ=gamma,)); options)
-    implicit = compute(problem, Formulation(;options))
-    zero_gamma = compute(problem, make(0.0im))
+        earth_props = problem.earth_props, frequencies = problem.frequencies, Γ = [
+            0im, 0im])
+    options=(reduce_bundle = false, kron_reduction = false, ideal_transposition = false)
+    make(gamma)=Formulation(
+        earth_impedance = formula(:unified; options = (Γ = gamma,)),
+        earth_admittance = formula(:unified; options = (Γ = gamma,)); options)
+    implicit=compute(problem, Formulation(; options))
+    zero_gamma=compute(problem, make(0.0im))
     @test Z(zero_gamma) == Z(implicit)
     @test Y(zero_gamma) == Y(implicit)
-    scalar = compute(problem, make(1e-4im))
-    aligned = compute(problem, make(fill(1e-4im, 2)))
+    scalar=compute(problem, make(1e-4im))
+    aligned=compute(problem, make(fill(1e-4im, 2)))
     @test Z(scalar) == Z(aligned)
     @test Y(scalar) == Y(aligned)
     @test_throws DimensionMismatch compute(problem, make([1e-4im]))
     @test_throws ArgumentError make(NaN)
-    @test_throws ArgumentError make([0im,complex(Inf)])
+    @test_throws ArgumentError make([0im, complex(Inf)])
     for invalid in (true, [], (0, 1), "0", [0, NaN])
         @test_throws ArgumentError make(invalid)
     end
     @test_throws ArgumentError Formulation(
-        earth_impedance=formula(:unified; parameters=(Γ=1e-4im,)))
-    method = LineCableModels.FormulaMethod(make(0).methods.earth_impedance,
-        E.EarthImpedance.earth_impedance, Val(:self), Val(1), Val(1))
+        earth_impedance = formula(:unified; parameters = (Γ = 1e-4im,)))
+    method=LineCableModels.FormulaMethod(make(0).methods.earth_impedance,
+        E.EarthImpedance.axial_field_coefficient, Val(:self), Val(1), Val(1))
     @test formulation_options(method).data.Γ == 0
-    @test formulation_options(method, FormulationOptions(Γ=2e-4im)).data.Γ == 2e-4im
-    @test_throws ArgumentError formulation_options(method, FormulationOptions(Γ=NaN))
-    @test_throws ArgumentError formulation_options(method, FormulationOptions(integration=1))
+    @test formulation_options(method, FormulationOptions(Γ = 2e-4im)).data.Γ == 2e-4im
+    @test_throws ArgumentError formulation_options(method, FormulationOptions(Γ = NaN))
+    @test_throws ArgumentError formulation_options(method, FormulationOptions(integration = 1))
     using Measurements
-    rho = measurement(0.1, 0.001)
-    material_problem = TestFixtures.three_bare_wires_problem(; rho,
-        radius=oftype(rho, 0.0425), frequencies=[50.0, 500.0])
-    uncertain = compute(material_problem, make(1e-4im))
+    rho=measurement(0.1, 0.001)
+    material_problem=TestFixtures.three_bare_wires_problem(; rho,
+        radius = oftype(rho, 0.0425), frequencies = [50.0, 500.0])
+    uncertain=compute(material_problem, make(1e-4im))
     @test eltype(Z(uncertain)) === Complex{Measurement{Float64}}
     @test any(>(0), uncertainty.(real.(Z(uncertain))))
     @test E.same_physical_state([rho], [rho])
     @test !E.same_physical_state([rho], [measurement(0.1, 0.001)])
-    record = LineCableModels.ImportExport.serialize_value(aligned)
-    restored = LineCableModels.ImportExport.deserialize_value(record)
-    @test details(restored).data.formulations.methods.earth_impedance.options.Γ == fill(1e-4im, 2)
-    prescribed = [1e-4im, 2e-4im]
-    sweep = compute(problem, make(prescribed))
+    record=LineCableModels.ImportExport.serialize_value(aligned)
+    restored=LineCableModels.ImportExport.deserialize_value(record)
+    @test details(restored).data.formulations.methods.earth_impedance.options.Γ ==
+          fill(1e-4im, 2)
+    prescribed=[1e-4im, 2e-4im]
+    sweep=compute(problem, make(prescribed))
     # Run scalar samples in reverse call order. Prescriptions follow the
     # existing frequency coordinates; neither side is sorted independently.
     for index in reverse(eachindex(problem.frequencies))
-        single = LineParametersProblem(problem.system; earth_props=problem.earth_props,
-            temperature=problem.temperature, frequencies=[problem.frequencies[index]])
-        result = compute(single, make(prescribed[index]))
+        single=LineParametersProblem(problem.system; earth_props = problem.earth_props,
+            temperature = problem.temperature, frequencies = [problem.frequencies[index]])
+        result=compute(single, make(prescribed[index]))
         @test Z(result)[:, :, 1] == Z(sweep)[:, :, index]
         @test Y(result)[:, :, 1] == Y(sweep)[:, :, index]
     end
-    setprecision(BigFloat,128) do
-        mixed_precision = compute(problem, LineParametersFormulation[
-            make(1e-4im), make(big"0.0001"*im)])
+    setprecision(BigFloat, 128) do
+        mixed_precision=compute(problem, LineParametersFormulation[
+        make(1e-4im), make(big"0.0001"*im)])
         @test eltype(Z(mixed_precision[1])) === ComplexF64
         @test eltype(Z(mixed_precision[2])) === Complex{BigFloat}
         @test Z(mixed_precision[2]) == Z(compute(problem, make(big"0.0001"*im)))
     end
 end
 
-@testitem "Engine / completed prescriptions are detached without replacing uncertainty sources" tags=[:unit] setup=[TestFixtures, FormulaFixtures] begin
+@testitem "Engine / completed prescriptions are detached without replacing uncertainty sources" tags=[:unit] setup=[
+    TestFixtures, FormulaFixtures] begin
     using Measurements
-    E, IE = LineCableModels.Engine, LineCableModels.ImportExport
-    problem = TestFixtures.three_bare_wires_problem(frequencies=[50., 500.])
-    original = [1e-4+2e-4im, 3e-4-1e-4im]
-    supplied = copy(original)
-    selection = formula(:unified; options=(Γ=supplied,))
-    formulation = Formulation(earth_impedance=selection, earth_admittance=selection)
-    first_result = compute(problem, formulation)
-    first_Z, first_Y = copy(Z(first_result)), copy(Y(first_result))
-    record = details(first_result).data.formulations
+    E, IE=LineCableModels.Engine, LineCableModels.ImportExport
+    problem=TestFixtures.three_bare_wires_problem(frequencies = [50.0, 500.0])
+    original=[1e-4+2e-4im, 3e-4-1e-4im]
+    supplied=copy(original)
+    selection=formula(:unified; options = (Γ = supplied,))
+    formulation=Formulation(earth_impedance = selection, earth_admittance = selection)
+    first_result=compute(problem, formulation)
+    first_Z, first_Y=copy(Z(first_result)), copy(Y(first_result))
+    record=details(first_result).data.formulations
     for family in (:earth_impedance, :earth_admittance)
         @test getproperty(record.methods, family).options.Γ == original
         @test getproperty(record.requested, family).options.Γ == original
@@ -132,62 +139,70 @@ end
               getproperty(formulation.methods, family).options.data.Γ
     end
     for family in (:earth_impedance, :earth_admittance)
-        getproperty(formulation.methods, family).options.data.Γ[2] = 7e-4im
+        getproperty(formulation.methods, family).options.data.Γ[2]=7e-4im
     end
-    supplied[2] = 7e-4im
-    second_result = compute(problem, formulation)
+    supplied[2]=7e-4im
+    second_result=compute(problem, formulation)
     @test Z(first_result) == first_Z && Y(first_result) == first_Y
     @test Z(second_result) != first_Z || Y(second_result) != first_Y
-    restored = IE.deserialize_value(IE.serialize_value(first_result))
-    for retained in (first_result, restored), family in (:earth_impedance, :earth_admittance)
-        data = details(retained).data.formulations
+    restored=IE.deserialize_value(IE.serialize_value(first_result))
+    for retained in (first_result, restored),
+        family in (:earth_impedance, :earth_admittance)
+
+        data=details(retained).data.formulations
         @test getproperty(data.methods, family).options.Γ == original
         @test getproperty(data.requested, family).options.Γ == original
         @test Z(retained) == first_Z && Y(retained) == first_Y
     end
-    rho = measurement(1.0, 0.01)
-    custom = FormulaFixtures.selection(E.EarthImpedance; layers=2:2, scale=rho)
-    retained = NamedTuple(Formulation(earth_impedance=custom))
+    rho=measurement(1.0, 0.01)
+    custom=FormulaFixtures.selection(E.EarthImpedance; layers = 2:2, scale = rho)
+    retained=NamedTuple(Formulation(earth_impedance = custom))
     @test retained.methods.earth_impedance.parameters.scale === rho
     @test uncertainty(retained.methods.earth_impedance.parameters.scale-rho) == 0
 end
 
 @testitem "Engine / prescribed options govern coupled sharing without entering physical UQ" tags=[:unit] setup=[TestFixtures] begin
     using Measurements
-    E = LineCableModels.Engine
-    prescribed = [1e-4+2e-4im, 3e-4-1e-4im]
-    problem = TestFixtures.three_bare_wires_problem(frequencies=[50., 500.])
-    select(gamma; controls=(;)) = formula(:unified;
-        options=(Γ=gamma, integration=(method=:quad, options=controls)))
-    form(z, p) = Formulation(earth_impedance=z, earth_admittance=p;
-        options=(reduce_bundle=false, kron_reduction=false, ideal_transposition=false))
-    joined = compute(problem, form(select(prescribed), select(copy(prescribed)));
-        options=(trace=true,))
-    changed = prescribed .* 2
-    separate = compute(problem, form(select(prescribed), select(changed)); options=(trace=true,))
-    other = compute(problem, form(select(changed), select(changed)); options=(trace=true,))
+    E=LineCableModels.Engine
+    prescribed=[1e-4+2e-4im, 3e-4-1e-4im]
+    problem=TestFixtures.three_bare_wires_problem(frequencies = [50.0, 500.0])
+    select(gamma;
+        controls = (;))=formula(:unified;
+        options = (Γ = gamma, integration = (method = :quad, options = controls)))
+    form(z,
+        p)=Formulation(earth_impedance = z, earth_admittance = p;
+        options = (
+            reduce_bundle = false, kron_reduction = false, ideal_transposition = false))
+    joined=compute(problem, form(select(prescribed), select(copy(prescribed)));
+        options = (trace = true,))
+    changed=prescribed .* 2
+    separate=compute(problem, form(select(prescribed), select(changed)); options = (trace = true,))
+    other=compute(problem, form(select(changed), select(changed)); options = (trace = true,))
     @test length(details(separate).data.trace.integrals) ==
           2length(details(joined).data.trace.integrals)
     @test Z(separate) == Z(joined)
     @test Y(separate) == Y(other)
-    controls = compute(problem, form(select(prescribed), select(prescribed; controls=(rtol=1e-9,)));
-        options=(trace=true,))
+    controls=compute(
+        problem, form(select(prescribed), select(prescribed; controls = (rtol = 1e-9,)));
+        options = (trace = true,))
     @test length(details(controls).data.trace.integrals) ==
           2length(details(joined).data.trace.integrals)
-    selected = form(select(prescribed), select(prescribed))
-    space = Gridspace{LineParametersProblem}(
-        rho -> TestFixtures.three_bare_wires_problem(; rho,
-            radius=oftype(rho, 0.0425), frequencies=[50., 500.]),
+    selected=form(select(prescribed), select(prescribed))
+    space=Gridspace{LineParametersProblem}(
+        rho->TestFixtures.three_bare_wires_problem(; rho,
+            radius = oftype(rho, 0.0425), frequencies = [50.0, 500.0]),
         (Grid(0.1, AbsoluteError(0.001)),))
-    sampled = compute(ParametricProblem(space),
-        MonteCarlo(selected; trials=3, seed=314, distribution=:normal,
-            return_samples=true, retain_details=true))
+    sampled=compute(ParametricProblem(space),
+        MonteCarlo(selected; trials = 3, seed = 314, distribution = :normal,
+            return_samples = true, retain_details = true))
     @test sampled.trial_counts == [3]
     @test all(isempty, details(sampled).data.failures)
-    for trial in only(details(sampled).data.trials), family in (:earth_impedance, :earth_admittance)
+    for trial in only(details(sampled).data.trials),
+        family in (:earth_impedance, :earth_admittance)
+
         @test getproperty(trial.data.formulations.methods, family).options.Γ == prescribed
     end
-    linear = compute(ParametricProblem(space), LinearError(selected))
+    linear=compute(ParametricProblem(space), LinearError(selected))
     @test any(>(0), uncertainty.(real.(Z(first(linear)))))
     @test selected.methods.earth_impedance.options.data.Γ == prescribed
 end
@@ -199,7 +214,8 @@ end
     const FM=LineCableModels.FormulaMethod
     const M=FormulaFixtures
     internal=FM(II.Formula(:default), II.internal_impedance, Val(:outer))
-    external=FM(EI.Formula(:default), EI.earth_impedance, Val(:self), Val(1), Val(1))
+    external=FM(
+        EI.Formula(:default), EI.axial_field_coefficient, Val(:self), Val(1), Val(1))
     @test formulation_options(internal)==FormulationOptions()
     @test formulation_options(external).data.integration.method === :quad
     @test_throws ArgumentError formulation_options(
@@ -225,31 +241,32 @@ end
     @test formulation_options(external).data.integration.method === :quad
 end
 
-@testitem "Engine / required indexed consumers alone initialize formula storage" tags=[:unit] setup=[TestFixtures, FormulaFixtures] begin
+@testitem "Engine / required indexed consumers alone initialize formula storage" tags=[:unit] setup=[
+    TestFixtures, FormulaFixtures] begin
     const E=LineCableModels.Engine
     const M=FormulaFixtures
-    buried=TestFixtures.three_bare_wires_problem(heights=(-1.,-1.,-1.), frequencies=[50.])
-    active=M.selection(E.EarthImpedance;layers=2:2)
-    unused=M.selection(E.EarthImpedance;layers=3:3,
-        options=(integration=(method=:quad,),))
-    potential=M.selection(E.EarthAdmittance;layers=2:2)
-    selected=Formulation(earth_impedance=(air=unused,earth=active),earth_admittance=potential)
-    first_result=compute(buried,selected)
+    buried=TestFixtures.three_bare_wires_problem(heights = (-1.0, -1.0, -1.0), frequencies = [50.0])
+    active=M.selection(E.EarthImpedance; layers = 2:2)
+    unused=M.selection(E.EarthImpedance; layers = 3:3,
+        options = (integration = (method = :quad,),))
+    potential=M.selection(E.EarthAdmittance; layers = 2:2)
+    selected=Formulation(earth_impedance = (air = unused, earth = active), earth_admittance = potential)
+    first_result=compute(buried, selected)
     @test isempty(unused.initialized)
     required, numerical=only(active.initialized)
-    @test required == fill((2,2),9)
+    @test required == fill((2, 2), 9)
     @test isempty(numerical.segments)
     saved=copy(Z(first_result))
-    second_result=compute(buried,selected)
+    second_result=compute(buried, selected)
     @test Z(first_result) == saved == Z(second_result)
     @test length(active.initialized)==2
     @test active.initialized[2][2].segments !== numerical.segments
     @test isempty(unused.initialized)
     # The same concrete formula needs numerical storage for its (1,1) equation.
-    overhead=TestFixtures.three_bare_wires_problem(frequencies=[50.])
-    compute(overhead,Formulation(earth_impedance=active,earth_admittance=potential))
+    overhead=TestFixtures.three_bare_wires_problem(frequencies = [50.0])
+    compute(overhead, Formulation(earth_impedance = active, earth_admittance = potential))
     required, numerical=last(active.initialized)
-    @test required == fill((1,1),9)
+    @test required == fill((1, 1), 9)
     @test !isempty(numerical.segments)
 end
 
@@ -403,42 +420,43 @@ end
 end
 
 @testitem "Engine / first tubular primitive requests all surfaces without extra assembly terms" tags=[:unit] setup=[FormulaFixtures] begin
-    M = FormulaFixtures
-    copper = Material(kind=:conductor, rho=1.7e-8)
-    dielectric = Material(kind=:insulator, rho=Inf, eps_r=2.3)
-    design = build(CableDesign, "single-hollow-wall",
+    M=FormulaFixtures
+    copper=Material(kind = :conductor, rho = 1.7e-8)
+    dielectric=Material(kind = :insulator, rho = Inf, eps_r = 2.3)
+    design=build(CableDesign, "single-hollow-wall",
         Group(:wall, Region(:metal, Annulus(0.008, 0.01), copper)),
         Region(:insulation, Annulus(0.01, 0.012), dielectric))
-    problem = CableConstantsProblem(design)
-    first = M.SurfaceLaw()
-    result = compute(problem, CableConstantsFormulation(internal_impedance=first))
+    problem=CableConstantsProblem(design)
+    first=M.SurfaceLaw()
+    result=compute(problem, CableConstantsFormulation(internal_impedance = first))
     @test length(first.preparations) == 1
     @test Set(last.(first.evaluations)) == Set((Val(:inner), Val(:outer), Val(:transfer)))
     @test only(first.preparations)[1] == 0.008
-    changed = M.SurfaceLaw(coefficients=(inner=100+20im, outer=2+1im, transfer=40+30im))
-    other = compute(problem, CableConstantsFormulation(internal_impedance=changed))
+    changed=M.SurfaceLaw(coefficients = (
+        inner = 100+20im, outer = 2+1im, transfer = 40+30im))
+    other=compute(problem, CableConstantsFormulation(internal_impedance = changed))
     @test other.R == result.R
     @test other.L == result.L
     @test_throws ArgumentError compute(problem,
-        CableConstantsFormulation(internal_impedance=(outer=M.SurfaceLaw(kinds=(:outer,)),)))
+        CableConstantsFormulation(internal_impedance = (outer = M.SurfaceLaw(kinds = (:outer,)),)))
 end
 
 @testitem "Engine / unused tubular surface declarations allocate and evaluate nothing" tags=[:unit] setup=[FormulaFixtures] begin
-    M = FormulaFixtures
-    copper = Material(kind=:conductor, rho=1.7e-8)
-    dielectric = Material(kind=:insulator, rho=Inf, eps_r=2.3)
-    design = build(CableDesign, "solid-with-excess-recipe",
+    M=FormulaFixtures
+    copper=Material(kind = :conductor, rho = 1.7e-8)
+    dielectric=Material(kind = :insulator, rho = Inf, eps_r = 2.3)
+    design=build(CableDesign, "solid-with-excess-recipe",
         Group(:core, Region(:metal, Disk(0.01), copper)),
         Region(:insulation, Annulus(0.01, 0.012), dielectric))
-    unused = M.SpectralSurface()
-    outer = M.SurfaceLaw(kinds=(:outer,))
-    selected = (inner=unused, outer=outer, transfer=unused)
-    local_result = compute(CableConstantsProblem(design),
-        CableConstantsFormulation(internal_impedance=selected))
+    unused=M.SpectralSurface()
+    outer=M.SurfaceLaw(kinds = (:outer,))
+    selected=(inner = unused, outer = outer, transfer = unused)
+    local_result=compute(CableConstantsProblem(design),
+        CableConstantsFormulation(internal_impedance = selected))
     @test isempty(unused.seen)
-    system = build(LineCableSystem, design, Pose2(0.0, -1.0); connections=(core=1,))
-    problem = LineParametersProblem(system; earth_props=homogeneous(rho=100.), frequencies=[50.])
-    result = compute(problem, Formulation(internal_impedance=selected))
+    system=build(LineCableSystem, design, Pose2(0.0, -1.0); connections = (core = 1,))
+    problem=LineParametersProblem(system; earth_props = homogeneous(rho = 100.0), frequencies = [50.0])
+    result=compute(problem, Formulation(internal_impedance = selected))
     @test isempty(unused.seen)
     @test all(isfinite, result.Z)
     @test all(isfinite, local_result.R)

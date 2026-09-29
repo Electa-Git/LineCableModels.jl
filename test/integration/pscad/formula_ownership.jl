@@ -65,8 +65,6 @@ end
         for row in settings.interactions.earth_admittance
             @test P.earth_potential_coefficient(selected.methods.earth_admittance,
                 Val(row.kind),Val(row.source),Val(row.target),Val(:pscad)) == (;)
-            @test_throws r"not yet implemented" E.EarthAdmittance.earth_potential_coefficient(
-                selected.methods.earth_admittance,Val(row.kind),Val(row.source),Val(row.target),nothing,nothing,nothing)
         end
     end
     ideal = E.EarthAdmittance.Formula(:ideal)

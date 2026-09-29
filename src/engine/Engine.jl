@@ -90,6 +90,7 @@ include("specialfunctions.jl")
 include("problems.jl")
 include("options.jl")
 include("integration.jl")
+include("earthkernels.jl")
 
 # Line-parameter results and their protocols
 include("lineparameters/lineparameters.jl")
@@ -147,6 +148,9 @@ public completion_details, completed_inputs, completed_formulation, retain_gridp
 public selectdetails
 public validate_modal_operators
 public SpectralIntegral, integrate, integration_workspace
+public AirVoltageSpectrum, earth_spectral_term, earth_spectral_value,
+       earth_spectral_points!, earth_contour_angle, earth_direct,
+       outgoing_root, bessel_i0m1, bessel_current_ratio, special_besselix
 public earth_bindings, initialize_buffers, earth!, materials!, homogenize!,
        same_physical_state, layer_index, computation_type
 public has_uncertainty_type, numerical_magnitude

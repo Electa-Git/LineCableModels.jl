@@ -141,10 +141,32 @@ end
 
 function (functor::Functor)(workspace = nothing)
     pair = functor.binding.pair
-    value = functor.binding.equation(functor, pair, workspace)
-    value isa Number && isfinite(value) || throw(DomainError(value,
-        "earth-impedance contribution must be a finite scalar"))
-    return oftype(functor.state.jω, value)
+    equation = functor.binding.equation
+    values = equation isa Tuple ?
+             map(method -> method(functor, pair, workspace), equation) :
+             (equation(functor, pair, workspace),)
+    all(value -> value isa Number && isfinite(value), values) || throw(DomainError(values,
+        "earth coefficients must be finite scalars"))
+    converted = map(value -> oftype(functor.state.jω, value), values)
+    return equation isa Tuple ? converted : only(converted)
+end
+
+function (selected::EarthImpedanceFormulation)(materials, binding, workspace, frequency::Int)
+    state = (jω = workspace.input.jω[frequency], materials,
+        thickness = media(selected) === Val(:stratified) ? materials.thickness : nothing)
+    return (coefficients = (workspace.buffers.Zearth,), state)
+end
+
+function (selected::EarthImpedanceFormulation)(state::NamedTuple, interaction::NamedTuple, declaration)
+    index = interaction.index
+    return selected(@view(state.materials.rho[:, index]),
+        @view(state.materials.epsilon[:, index]), @view(state.materials.mu[:, index]),
+        state.jω, interaction.pair, declaration; thickness = state.thickness,
+        physical_pair = interaction.physical_pair)
+end
+
+function earth!(::EarthImpedanceFormulation, calculation, workspace)
+    (impedance = only(calculation.coefficients),)
 end
 
 function Formula(selection::FormulaDefinition{ID, Order}) where {ID, Order}
@@ -166,7 +188,6 @@ function earth_impedance(
     throw(ArgumentError(
         "earth_impedance :$(formula_id(selected)) ($Kind): formula not implemented for source in layer $S and target in layer $T"))
 end
-
 
 """
 $(TYPEDSIGNATURES)

@@ -11,6 +11,10 @@ workspace; no mutable state is shared between calculations. Constant fields fix
 its input and buffer bindings; reference identity avoids copying this large
 record when dispatching heterogeneous equation groups.
 
+Prepared earth calculations and their material arrays are stored as tuples.
+The complete scan specializes on their concrete types once, before frequency
+traversal; the workspace type itself does not depend on conductor layout.
+
 $(TYPEDFIELDS)
 """
 mutable struct LineParametersWorkspace{
@@ -174,8 +178,8 @@ function lineinput(
     end
 
     @inbounds for index in eachindex(cable.terminals)
-        canonical = system.terminal_order[index]
-        canonical.terminal === cable.terminals[index] || throw(DimensionMismatch(
+        terminal = system.terminal_order[index]
+        terminal.terminal === cable.terminals[index] || throw(DimensionMismatch(
             "DataModel terminal order is not aligned with the cable blueprint"
         ))
         design_index = design_map[index]
@@ -218,13 +222,14 @@ end
 
 function lineinput(::Type{T}, input::NamedTuple) where {T <: Real}
     T === eltype(input.freq) && return input
-    return merge(input, (
-        freq = T.(input.freq), jω = Complex{T}.(input.jω),
-        horz = T.(input.horz), vert = T.(input.vert), horz_sep = T.(input.horz_sep),
-        cable = convert(LocalCableData{T}, input.cable),
-        earth = convert(EarthModel{T}, input.earth),
-        temperature = convert(T, input.temperature),
-        line_length = convert(T, input.line_length)))
+    return merge(input,
+        (
+            freq = T.(input.freq), jω = Complex{T}.(input.jω),
+            horz = T.(input.horz), vert = T.(input.vert), horz_sep = T.(input.horz_sep),
+            cable = convert(LocalCableData{T}, input.cable),
+            earth = convert(EarthModel{T}, input.earth),
+            temperature = convert(T, input.temperature),
+            line_length = convert(T, input.line_length)))
 end
 
 function LineParametersWorkspace(
@@ -263,7 +268,8 @@ function LineParametersWorkspace(
     )
     homogeneous_pairs = _homogeneous_pairs(physical_pairs)
     bindings = map(formulation.methods[(:earth_impedance, :earth_admittance)]) do selected
-        leaves = [Formulation(selected, Val.(layer_index(pair))...) for pair in physical_pairs]
+        leaves = [Formulation(selected, Val.(layer_index(pair))...)
+                  for pair in physical_pairs]
         cases = NamedTuple[]
         for leaf in unique(leaves)
             # Validate the selected material inventory while binding it, not
@@ -273,16 +279,6 @@ function LineParametersWorkspace(
             push!(cases, earth_bindings(leaf, physical_pairs, homogeneous_pairs, indices))
         end
         (selection = selected, cases = cases)
-    end
-    for (zi, z) in pairs(bindings.earth_impedance.cases)
-        for (pi, p) in pairs(bindings.earth_admittance.cases)
-            p.partner == 0 || continue
-            paired = earth_bindings(z.selection, p.selection, z, p)
-            paired === nothing && continue
-            bindings.earth_impedance.cases[zi] = merge(paired.impedance, (partner = pi,))
-            bindings.earth_admittance.cases[pi] = merge(paired.admittance, (partner = zi,))
-            break
-        end
     end
     permutation, reordered_map, kron_map = _reduction_map(phase_map, formulation)
     bundle_pairs = bundle_operations(reordered_map)
@@ -314,8 +310,11 @@ function LineParametersWorkspace(
             computation_type(representation, call.selection, input.freq)
         end
     end
+    geometry = (layers = [layer_index(pair)[1]
+                          for pair in physical_pairs
+                          if pair.row == pair.column],)
     return LineParametersWorkspace{scalar}(problem, formulation, execution,
-        lineinput(scalar, input), merge(invariants, (earth_bindings = bindings,)))
+        lineinput(scalar, input), merge(invariants, (; geometry)), bindings)
 end
 
 function LineParametersWorkspace{T}(
@@ -323,19 +322,64 @@ function LineParametersWorkspace{T}(
         formulation::LineParametersFormulation,
         execution::ComputationOptions,
         input::NamedTuple,
-        invariants::NamedTuple
+        invariants::NamedTuple,
+        bindings::NamedTuple
 ) where {T <: Real}
     cable = input.cable
     n_phases, n_cables, n_frequencies = input.n_phases, input.n_cables, input.n_frequencies
     n_layers = length(cable.dielectric_materials)
     cable_indices = invariants.cable_indices
-    representatives = first.(cable_indices)
     eliminate_indices = invariants.eliminate_indices
     nkeep = invariants.kron_map === nothing ? n_phases : length(invariants.keep_indices)
-    bindings = invariants.earth_bindings
-    geometry = (horizontal = input.horz[representatives], height = input.vert[representatives],
-        radius = _outer_radii(input.cable_map, cable.r_ext, cable.r_ins_ext))
-    invariants = merge(invariants, (; geometry))
+    geometry = (
+        radius = _outer_radii(input.cable_map, cable.r_ext, cable.r_ins_ext),
+        layers = invariants.geometry.layers)
+    # Resolve shared physical outputs once. These temporary lists are not used
+    # by the frequency loop; each completed calculation has its concrete type.
+    calculations = NamedTuple[]
+    remaining_potential = copy(bindings.earth_admittance.cases)
+    for impedance in bindings.earth_impedance.cases
+        potential_indices = Int[]
+        for (index, potential) in pairs(remaining_potential)
+            shared = earth_bindings(impedance.selection, potential.selection,
+                impedance, potential)
+            shared === nothing && continue
+            impedance = shared.impedance
+            potential_indices = shared.admittance.output_indices
+            deleteat!(remaining_potential, index)
+            break
+        end
+        push!(calculations, merge(impedance[filter(!=(:output_indices), keys(impedance))],
+            (impedance_indices = impedance.output_indices, potential_indices)))
+    end
+    for potential in remaining_potential
+        push!(calculations, merge(potential[filter(!=(:output_indices), keys(potential))],
+            (impedance_indices = Int[], potential_indices = potential.output_indices)))
+    end
+    earth_calculations = map(Tuple(calculations)) do calculation
+        prepared = earth_bindings(calculation.selection, calculation, geometry)
+        previous = zeros(Int, length(prepared.interactions))
+        for group in prepared.equations
+            for (ordinal, position) in pairs(group.indices)
+                for earlier in (ordinal - 1):-1:1
+                    candidate = group.indices[earlier]
+                    if same_physical_state(prepared.reuse_inputs[position],
+                        prepared.reuse_inputs[candidate])
+                        previous[position] = candidate
+                        break
+                    end
+                end
+            end
+        end
+        layers = calculation.selection.equivalent_earth === nothing ? geometry.layers :
+                 [layer == 1 ? 1 : 2 for layer in geometry.layers]
+        merge(prepared, (equations = Tuple(prepared.equations), previous, layers))
+    end
+    # The workspace layout is independent of the required layer signatures.
+    # _solve! specializes once on these concrete tuples before its frequency loop.
+    invariants = merge(invariants,
+        NamedTuple{(:earth_calculations, :geometry), Tuple{Tuple, typeof(geometry)}}(
+            (earth_calculations, geometry)))
     rho_cond = Vector{T}(undef, length(cable.conductor_materials))
     earth = _earth_data(input, bindings)
 
@@ -358,22 +402,13 @@ function LineParametersWorkspace{T}(
     Pearth = similar(Zearth)
     MaterialStorage = NamedTuple{(:rho, :epsilon, :mu, :thickness),
         Tuple{Matrix{T}, Matrix{T}, Matrix{T}, Union{Nothing, Vector{T}}}}
-    earth_materials = map(_ -> MaterialStorage[], bindings)
-    for (family, bound) in pairs(bindings)
-        values = getproperty(earth_materials, family)
-        for binding in bound.cases
-            if family === :earth_admittance && binding.partner != 0
-                push!(values, earth_materials.earth_impedance[binding.partner])
-                continue
-            end
-            stratified = media(binding.selection) === Val(:stratified)
-            count = stratified ? length(problem.earth_props.layers) : 2
-            columns = length(binding.interactions)
-            push!(values,
-                MaterialStorage((Matrix{T}(undef, count, columns),
-                    Matrix{T}(undef, count, columns), Matrix{T}(undef, count, columns),
-                    stratified ? Vector{T}(undef, count) : nothing)))
-        end
+    earth_materials = map(earth_calculations) do calculation
+        stratified = media(calculation.selection) === Val(:stratified)
+        count = stratified ? length(problem.earth_props.layers) : 2
+        columns = length(calculation.interactions)
+        MaterialStorage((Matrix{T}(undef, count, columns),
+            Matrix{T}(undef, count, columns), Matrix{T}(undef, count, columns),
+            stratified ? Vector{T}(undef, count) : nothing))
     end
     capture = _capture_buffers(T, input, execution.data.trace)
     observations = capture === nothing ? nothing : capture.integrals
@@ -405,13 +440,15 @@ function LineParametersWorkspace{T}(
         Yout,
         Zearth,
         Pearth,
-        earth_materials,
+        earth_interactions = initialize_buffers(earth!, n_cables^2),
         quadrature,
         observations,
         layer_coefficients,
         coefficients,
         tails
     )
+    buffers = merge(buffers,
+        NamedTuple{(:earth_materials,), Tuple{Tuple}}((earth_materials,)))
     # Allocation consumes the same active selections as indexed execution.
     # Unused declarations impose no storage requirement.
     external = map(bindings) do bound
@@ -427,6 +464,10 @@ function LineParametersWorkspace{T}(
     end
     allocations = merge(formulation.methods, external, (internal_impedance = internal,))
     buffers = initialize_buffers(allocations, T, input, invariants, buffers)
+    # Earth traversal clears this shared warning scratch before and after each use.
+    buffers = merge(buffers,
+        (quadrature = merge(buffers.quadrature,
+            (warnings = buffers.earth_interactions.warnings,)),))
     workspace = LineParametersWorkspace{
         T,
         typeof(input),
@@ -455,10 +496,19 @@ function earth_bindings(
     equations = [(declaration = declaration,
                      indices = findall(==(declaration), declarations))
                  for declaration in unique(declarations)]
-    return (selection = selected, equations, interactions, reductions, partner = 0)
+    return (selection = selected, equations, interactions, reductions,
+        output_indices = collect(eachindex(interactions)))
 end
 
 earth_bindings(::EarthImpedanceFormulation, ::EarthAdmittanceFormulation, z, p) = nothing
+
+# Indices remain arithmetic inputs unless the selected equation declares otherwise.
+function earth_bindings(::Union{EarthImpedanceFormulation, EarthAdmittanceFormulation},
+        binding::NamedTuple, geometry::NamedTuple)
+    inputs = [(interaction.pair.row, interaction.pair.column)
+              for interaction in binding.interactions]
+    return merge(binding, (reuse_inputs = inputs,))
+end
 function initialize_buffers(
         ::Union{AbstractFormulation, Nothing}, ::Type, input, invariants, buffers)
     buffers
@@ -512,8 +562,9 @@ function _earth_data(input::NamedTuple, bindings::NamedTuple)
     return State((static, evaluated))
 end
 
-layer_index(problem::LineParametersProblem, horizontal, vertical) =
+function layer_index(problem::LineParametersProblem, horizontal, vertical)
     layer_index(problem.earth_props, horizontal, vertical)
+end
 layer_index(pair::EarthPair) = pair.layers
 
 function layer_index(model::EarthModel, horizontal, vertical)
@@ -561,7 +612,8 @@ function earth_pairs(
     T = eltype(vertical)
     pairs = EarthPair{T}[]
     sizehint!(pairs, length(cables)^2)
-    placed_layers = [layer_index(earth, horizontal[index], vertical[index]) for index in cables]
+    placed_layers = [layer_index(earth, horizontal[index], vertical[index])
+                     for index in cables]
     @inbounds for column in eachindex(cables), row in eachindex(cables)
 
         source = cables[column]

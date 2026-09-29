@@ -39,7 +39,7 @@
         @test_throws ArgumentError FM(selected, self)(nothing, self, nothing)
     end
     vertical=E.EarthPair(1, 2, (-1.0, -2.0), 0.0, (2, 2))
-    @test_throws ArgumentError FM(EI.Formula(:saad1996), vertical)(nothing, vertical, nothing)
+    @test validate(EI.Formula(:saad1996), vertical).kind === :mutual
     @test validate(EI.Formula(:saad1996), self).kind === :self
     @test validate(EI.Formula(:wedepohl1973), vertical).kind === :mutual
     @test validate(EI.Formula(:wedepohl1973), self).kind === :self
@@ -194,7 +194,8 @@ end
         @test all(record -> length(record[7]) == 3, M.calls)
         @test Set(record[5] for record in M.calls) == Set(((2, 2), (2, 3), (3, 2), (3, 3)))
         @test length(fd_calls) == (order === :before ? 11 : 2)
-        @test details(value).data.formulations.methods.earth_impedance.equivalent_earth === nothing
+        @test details(value).data.formulations.methods.earth_impedance.equivalent_earth ===
+              nothing
         @test details(value).data.formulations.methods.earth_admittance.equivalent_earth.order ===
               (order === :before ? :BeforeFD : :AfterFD)
     end
@@ -240,8 +241,10 @@ end
     execution=computation_options(LineCableModelsCoaxial, ComputationOptions(trace = true))
     layouts=((1.0, 1.0, 1.0), (-1.0, -1.0, -1.0), (1.0, -1.0, -1.0),
         (-1.0, 1.0, -1.0), (-1.0, -1.0, 1.0))
-    problems=map(heights -> TestFixtures.three_bare_wires_problem(;
-        heights, frequencies = [50.0, 50.0, 500.0]), layouts)
+    problems=map(
+        heights->TestFixtures.three_bare_wires_problem(;
+            heights, frequencies = [50.0, 50.0, 500.0]),
+        layouts)
     workspaces=map(problems) do problem
         blueprints=only(E.flatten(LineCableModelsCoaxial(), problem.system.designs,
             Float64, [selection]))
@@ -256,22 +259,23 @@ end
         execution, two_wire_blueprints)
     @test typeof(two_wire_workspace) === typeof(first(workspaces))
     for (w, problem) in zip(workspaces, problems)
-        @test only(w.buffers.earth_materials.earth_impedance) ===
-              only(w.buffers.earth_materials.earth_admittance)
+        @test length(w.buffers.earth_materials) == 1
+        calculation=only(w.invariants.earth_calculations)
+        @test calculation.impedance_indices == calculation.potential_indices
         # Poison only numerical buffers; identity matrices and geometry are inputs.
         for array in (w.buffers.Zearth, w.buffers.Pearth, w.buffers.Zprimitive,
             w.buffers.Pprimitive, w.buffers.rho_cond, w.buffers.dielectric_admittivity,
             w.buffers.earth.evaluated...)
             fill!(array, NaN)
         end
-        for array in values(w.buffers.unified)
-            if array isa NamedTuple
-                foreach(a->fill!(a, NaN), array)
-            else
-                fill!(array, NaN)
-            end
+        for array in (
+            w.buffers.axial_field, w.buffers.source_potential, w.buffers.current_map,
+            w.buffers.enclosed_impedance, w.buffers.enclosed_potential, w.buffers.current_factor,
+            w.buffers.current_rhs, w.buffers.radial_argument, w.buffers.source_logscale,
+            w.buffers.circumference_average, w.buffers.radial_current, w.buffers.earth_spectrum...)
+            fill!(array, NaN)
         end
-        for materials in w.buffers.earth_materials.earth_impedance
+        for materials in w.buffers.earth_materials
             foreach(a->fill!(a, NaN), (materials.rho, materials.epsilon, materials.mu))
         end
         E._solve!(w, selection)
@@ -304,7 +308,7 @@ end
     for field in (:Zearth, :Pearth, :Zprimitive, :Pprimitive)
         @test getproperty(first.buffers, field) !== getproperty(second.buffers, field)
     end
-    @test first.buffers.unified.K !== second.buffers.unified.K
+    @test first.buffers.axial_field !== second.buffers.axial_field
     @test first.buffers.quadrature.segments !== second.buffers.quadrature.segments
 end
 
@@ -317,12 +321,12 @@ end
     w=E.LineParametersWorkspace(problem, selected, execution, blueprints)
     E.materials!(w, selected)
     E.materials!(w, selected, 1)
-    fill!(w.buffers.unified.K, NaN)
-    materials=only(w.buffers.earth_materials.earth_impedance)
+    fill!(w.buffers.axial_field, NaN)
+    materials=only(w.buffers.earth_materials)
     materials.rho[2, 1]=-1
     @test_throws DomainError E.earth!(w, 1)
     @test isempty(w.capture.integrals)
-    @test all(isnan, w.buffers.unified.K)
+    @test all(isnan, w.buffers.axial_field)
 end
 
 @testitem "Engine / distinct coupled controls perform separate complete calculations" tags=[:unit] setup=[TestFixtures] begin
@@ -384,7 +388,8 @@ end
     @test changed.Z.values ≈ expected.Z.values rtol=1e-10
     @test changed.Y.values ≈ expected.Y.values rtol=1e-10
     @test Set(record[2] for record in fd.seen)==Set(base.frequencies)
-    @test details(changed).data.formulations.methods.earth_properties.identifier === :DispersiveEarth
+    @test details(changed).data.formulations.methods.earth_properties.identifier ===
+          :DispersiveEarth
     reference=compute(base)
     for rtol in (1e-7, 1e-9)
         result=compute(base,
@@ -397,7 +402,7 @@ end
                         method = :quad, options = (; rtol)),))))
         @test result.Z.values ≈ reference.Z.values rtol=3e-6
         @test result.Y.values ≈ reference.Y.values rtol=3e-6
-        controls = details(result).data.formulations.methods.earth_impedance.options.integration
+        controls=details(result).data.formulations.methods.earth_impedance.options.integration
         @test controls.method === :quad
         @test controls.options.rtol === rtol
     end
@@ -414,7 +419,7 @@ end
         s=complex(zero(T), T(2)*T(pi)*T(50))
         for owner in (E.EarthImpedance, E.EarthAdmittance), method in (:quad,)
 
-            selected=FormulaFixtures.selection(owner; layers=2:2, scale=one(T))
+            selected=FormulaFixtures.selection(owner; layers = 2:2, scale = one(T))
             functor=selected(rho, epsilon, mu, s, pair)
             @test functor.state.jω isa Complex{T}
             result=functor()
@@ -428,7 +433,7 @@ end
     s=complex(measurement(0.0, 0.0), measurement(2pi*50, 0.0))
     pair=E.EarthPair(1, 2, (-1.0, -2.0), 0.75, (2, 2))
     for owner in (E.EarthImpedance, E.EarthAdmittance)
-        value=FormulaFixtures.selection(owner; layers=2:2, scale=rho[2])(
+        value=FormulaFixtures.selection(owner; layers = 2:2, scale = rho[2])(
             rho, epsilon, mu, s, pair)()
         @test value isa Complex{Measurement{Float64}}
         @test isfinite(value)

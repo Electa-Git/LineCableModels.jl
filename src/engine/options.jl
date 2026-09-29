@@ -53,13 +53,12 @@ function computation_options(
     ))
     normalized.trace isa Bool || throw(ArgumentError("trace must be Bool"))
     normalized.timing isa Bool || throw(ArgumentError("timing must be Bool"))
-    return ComputationOptions(;
-        verbosity = levels,
-        output_basis = Val(basis_value),
-        trace = Val(normalized.trace),
-        on_result = normalized.on_result,
-        timing = normalized.timing
-    )
+    basis = basis_value === :pul ? (output_basis = Val(:pul),) :
+            (output_basis = Val(:total),)
+    execution = merge((verbosity = levels,), basis,
+        (trace = Val(false), on_result = normalized.on_result, timing = normalized.timing))
+    normalized.trace && return ComputationOptions(merge(execution, (trace = Val(true),)))
+    return ComputationOptions(execution)
 end
 
 

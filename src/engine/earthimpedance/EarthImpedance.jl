@@ -26,16 +26,14 @@ import ...Earth: EquivalentHomogeneous
 import ..Engine: EarthImpedanceFormulation, formula_id
 #! explicit-imports: off
 # Explicitly included equations share these physical and numerical operations.
-import ..Engine: earth_bindings, initialize_buffers, earth!,
-                 same_physical_state, numerical_magnitude,
-                 special_besselix, special_besselkx,
-                 special_besseljx
-using LinearAlgebra: lu!, ldiv!
-import ...LineCableModels: FormulaDefinition, FormulaMethod, nominal
-import ..Engine: SpectralIntegral, integrate
+import ..Engine: earth!
+import ...LineCableModels: FormulaDefinition, FormulaMethod
 import ..Engine: description, conductivity, media, special_besselk
 import ..Engine: formulation_options
+import ..Engine: earth_spectral_term, earth_direct
 #! explicit-imports: on
+
+public Functor, axial_field_coefficient
 
 include("interface.jl")
 

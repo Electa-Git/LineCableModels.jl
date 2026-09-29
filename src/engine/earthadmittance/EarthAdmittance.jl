@@ -27,12 +27,19 @@ import ..Engine: EarthAdmittanceFormulation, formula_id
 #! explicit-imports: off
 # Explicitly included equations share these physical and numerical operations.
 import ..Engine: earth_bindings, initialize_buffers, earth!, same_physical_state
-import ..Engine: computation_type
+import ..Engine: computation_type, EarthImpedanceFormulation, special_besselix,
+                 SpectralIntegral, integrate
+using LinearAlgebra: lu!, ldiv!
 import ..EarthImpedance
 import ...LineCableModels: FormulaDefinition, FormulaMethod, nominal
 import ..Engine: description, conductivity, media
 import ..Engine: formulation_options
+import ..Engine: AirVoltageSpectrum, earth_spectral_term, earth_spectral_value,
+                 earth_spectral_points!, earth_contour_angle, earth_direct,
+                 outgoing_root, bessel_i0m1, bessel_current_ratio
 #! explicit-imports: on
+
+public Functor, source_potential_coefficient, earth!
 
 include("interface.jl")
 

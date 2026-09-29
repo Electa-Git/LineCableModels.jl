@@ -40,7 +40,7 @@
             ModalAnalysisProblem(phase_parameters),
             ModalAnalysisFormulation(identifier)
         )
-        rebuilt=LineCableModels.ModalAnalysis.transform(PhaseDomain,tracked)
+        rebuilt=LineCableModels.ModalAnalysis.transform(PhaseDomain, tracked)
         @test TestNumerics.isapprox_scaled(Z(rebuilt), Z(phase_parameters))
         @test TestNumerics.isapprox_scaled(Y(rebuilt), Y(phase_parameters))
         for matrix in (tracked.Z.values, tracked.Y.values), frequency in 1:2
@@ -104,10 +104,10 @@
     solve_without_logging(complete_workspace, complete_formulation)
     solve_without_logging(complete_workspace, complete_formulation)
     @test (@allocated solve_without_logging(complete_workspace, complete_formulation))<=32_768
-    @test only(complete_workspace.invariants.earth_bindings.earth_impedance.cases).partner ==
-          1
-    @test only(complete_workspace.buffers.earth_materials.earth_impedance) ===
-          only(complete_workspace.buffers.earth_materials.earth_admittance)
+    shared=only(complete_workspace.invariants.earth_calculations)
+    @test shared.impedance_indices == shared.potential_indices
+    @test !isempty(shared.impedance_indices)
+    @test length(complete_workspace.buffers.earth_materials) == 1
     # Distinct configurations use separate calculations and material tables;
     # the main numerical arrays are reused after publishing selected entries.
     distinct_formulation=Formulation(
@@ -116,14 +116,15 @@
         options = (
             reduce_bundle = true, kron_reduction = true, ideal_transposition = false))
     distinct_workspace=LineParametersWorkspace(problem, distinct_formulation, execution, blueprints)
-    @test only(distinct_workspace.invariants.earth_bindings.earth_impedance.cases).partner ==
-          0
-    @test only(distinct_workspace.buffers.earth_materials.earth_impedance) !==
-          only(distinct_workspace.buffers.earth_materials.earth_admittance)
+    impedance, potential=distinct_workspace.invariants.earth_calculations
+    @test !isempty(impedance.impedance_indices) && isempty(impedance.potential_indices)
+    @test isempty(potential.impedance_indices) && !isempty(potential.potential_indices)
+    @test distinct_workspace.buffers.earth_materials[1].rho !==
+          distinct_workspace.buffers.earth_materials[2].rho
     @test distinct_workspace.buffers.quadrature.segments !==
           complete_workspace.buffers.quadrature.segments
-    @test distinct_workspace.buffers.unified.K !==
-          complete_workspace.buffers.unified.K
+    @test distinct_workspace.buffers.axial_field !==
+          complete_workspace.buffers.axial_field
 end
 
 @testitem "Engine / Gridpoint / selected line problem reaches scalar compute" tags=[:integration] setup=[
@@ -451,6 +452,15 @@ end
         )
     )
     duplicate_result=@inferred compute(duplicate_problem, bundle_only)
+    # Passing the options as an argument keeps output_basis a runtime Symbol.
+    # Basis and optional details may vary, but the public result must not widen to Any.
+    calculate(problem, formulation, options)=compute(problem, formulation; options)
+    runtime_options=(output_basis = :pul, verbosity = (default = 0,))
+    inferred=only(Base.return_types(calculate,
+        Tuple{typeof(duplicate_problem), typeof(bundle_only), typeof(runtime_options)}))
+    @test inferred <: LineParameters
+    @test Z(calculate(duplicate_problem, bundle_only, runtime_options)) ==
+          Z(duplicate_result)
     @test size(duplicate_result.Z) == (1, 1, 1)
     @test all(isfinite, duplicate_result.Z)
     @test all(isfinite, duplicate_result.Y)
@@ -493,18 +503,19 @@ end
     UseEngineSupport, TestFixtures
 ] begin
     base=TestFixtures.line_parameters_problem(frequencies = [50.0, 500.0])
-    selection= formula(:unified; options=(Γ=[1e-5im, 2e-5im],))
-    prescribed=compute(base, Formulation(earth_impedance=selection, earth_admittance=selection))
+    selection=formula(:unified; options = (Γ = [1e-5im, 2e-5im],))
+    prescribed=compute(base, Formulation(earth_impedance = selection, earth_admittance = selection))
     @test all(isfinite, prescribed.Z)&&all(isfinite, prescribed.Y)
     @test_throws ArgumentError compute(base, Formulation(earth_impedance = :xue2018))
     ordinary=compute(base)
-    zero_selection=formula(:unified; options=(Γ=zeros(ComplexF64, 2),))
-    zero_result=compute(base, Formulation(earth_impedance=zero_selection, earth_admittance=zero_selection))
+    zero_selection=formula(:unified; options = (Γ = zeros(ComplexF64, 2),))
+    zero_result=compute(base, Formulation(earth_impedance = zero_selection, earth_admittance = zero_selection))
     @test Z(zero_result)==Z(ordinary)
     @test Y(zero_result)==Y(ordinary)
     @test !hasproperty(details(ordinary).data.formulations, :modified)
-    @test_throws DimensionMismatch compute(base, Formulation(
-        earth_impedance=formula(:unified; options=(Γ=[0.0],))))
+    @test_throws DimensionMismatch compute(
+        base, Formulation(
+            earth_impedance = formula(:unified; options = (Γ = [0.0],))))
     design=TestFixtures.coaxial_design()
     connections(phase)=Dict("core"=>phase, "sheath"=>0)
     mixed=build(LineCableSystem, [design, design], [Pose2(0.0, 1.0), Pose2(1.0, -1.0)];

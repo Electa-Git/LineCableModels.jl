@@ -66,7 +66,7 @@ function earth_weighted_spectrum(kernel::AirVoltageSpectrum{Q},
     a0=outgoing_root(λ^2+u.k2[1])
     ag=outgoing_root(λ^2+u.k2[2])
     ap=a0
-    aq=Q==1 ? a0 : ag
+    aq=(a0, ag)[Q]
     decay=exp(g.logscale-g.hq*root_difference(u.k2[Q], aq, λ)+logweight)
     difference=if iszero(ap)
         argument=g.radius*λ
@@ -102,36 +102,6 @@ Evaluate the removable I₁(z)/(z I₀(z)) limit.
     return special_besselix(1, z)/(z*special_besselix(0, z))
 end
 
-"""
-$(TYPEDSIGNATURES)
-
-Prepare the manuscript medium roots and boundary-current factors at fixed
-frequency. Source columns are scaled by exp(abs(real(κ r))) before assembly;
-this common scaling cancels from the final matrix solves and prevents overflow
-in products of growing I₀ and decaying exterior fields.
-
-# Returns
-
-- Typed medium data and per-conductor factors for K, H and L.
-"""
-function _unified_state!(arrays, state, geometry)
-    s=state.jω
-    sh=ntuple(m->state.sigma[m]+s*state.epsilon[m], 2)
-    mu=ntuple(m->state.mu[m], 2)
-    gamma=ntuple(m->sqrt(s*mu[m]*sh[m]), 2)
-    k2=ntuple(m->gamma[m]^2-state.Γ^2, 2)
-    k=map(outgoing_root, k2)
-    x, scaling, A, F=arrays.x, arrays.scaling, arrays.A, arrays.F
-    for p in eachindex(x)
-        medium=geometry.height[p]>0 ? 1 : 2
-        x[p]=k[medium]*geometry.radius[p]
-        scaling[p]=abs(real(x[p]))
-        A[p]=special_besselix(0, x[p])
-        F[p]=2*(one(s)*π)*sh[medium]*geometry.radius[p]^2*bessel_current_ratio(x[p])
-    end
-    return (; s, Γ = state.Γ, sh, mu, k2, k, x, scaling, A, F)
-end
-
 # Each term excludes exp(-height*λ), cos(yλ), and optional J₀(rλ).
 # Kind and the two ordered media dispatch outside the spectral loop.
 struct EarthSpectrum{Kind, Receiver, Source, S, G}
@@ -139,9 +109,25 @@ struct EarthSpectrum{Kind, Receiver, Source, S, G}
     geometry::G
 end
 
-@inline function earth_weighted_spectrum(
-        kernel::EarthSpectrum{
-            Kind, P, Q}, λ, logweight) where {Kind, P, Q}
+function EarthSpectrum{Kind, P, Q}(state::S, geometry::G) where {Kind, P, Q, S, G}
+    EarthSpectrum{Kind, P, Q, S, G}(state, geometry)
+end
+
+@inline function earth_weighted_spectrum(kernel::EarthSpectrum{:Z, P, Q}, λ, logweight) where {
+        P, Q}
+    u=kernel.state
+    g=kernel.geometry
+    a0=outgoing_root(λ^2+u.k2[1])
+    ag=outgoing_root(λ^2+u.k2[2])
+    a=(a0, ag)
+    dm=u.mu[2]*a0+u.mu[1]*ag
+    decay=exp(g.logscale-g.hp*root_difference(u.k2[P], a[P], λ) -
+              g.hq*root_difference(u.k2[Q], a[Q], λ)+logweight)
+    return decay*u.mu[1]*u.mu[2]/dm
+end
+
+@inline function earth_weighted_spectrum(kernel::EarthSpectrum{:phi, P, Q}, λ, logweight) where {
+        P, Q}
     u=kernel.state
     g=kernel.geometry
     a0=outgoing_root(λ^2+u.k2[1])
@@ -149,19 +135,47 @@ end
     a=(a0, ag)
     dm=u.mu[2]*a0+u.mu[1]*ag
     ds=u.sh[2]*a0+u.sh[1]*ag
-    # Rationalized root differences preserve the large-λ exponential.
     decay=exp(g.logscale-g.hp*root_difference(u.k2[P], a[P], λ) -
               g.hq*root_difference(u.k2[Q], a[Q], λ)+logweight)
-    if Kind === :Z
-        return decay*u.mu[1]*u.mu[2]/dm
-    elseif Kind === :phi
-        return decay*(u.mu[1]*a0+u.mu[2]*ag)/(dm*ds)
-    elseif Kind === :voltage
-        return decay*(P==2 ? a0/ag : ag/a0)/ds
-    elseif Kind === :air_reference
-        return -decay*ag/(a0*ds)
-    end
-    throw(ArgumentError("unknown earth spectral kernel"))
+    return decay*(u.mu[1]*a0+u.mu[2]*ag)/(dm*ds)
+end
+
+@inline function earth_weighted_spectrum(kernel::EarthSpectrum{:voltage, 1, Q}, λ, logweight) where {Q}
+    u=kernel.state
+    g=kernel.geometry
+    a0=outgoing_root(λ^2+u.k2[1])
+    ag=outgoing_root(λ^2+u.k2[2])
+    a=(a0, ag)
+    ds=u.sh[2]*a0+u.sh[1]*ag
+    decay=exp(g.logscale-g.hp*root_difference(u.k2[1], a[1], λ) -
+              g.hq*root_difference(u.k2[Q], a[Q], λ)+logweight)
+    return decay*(ag/a0)/ds
+end
+
+@inline function earth_weighted_spectrum(kernel::EarthSpectrum{:voltage, 2, Q}, λ, logweight) where {Q}
+    u=kernel.state
+    g=kernel.geometry
+    a0=outgoing_root(λ^2+u.k2[1])
+    ag=outgoing_root(λ^2+u.k2[2])
+    a=(a0, ag)
+    ds=u.sh[2]*a0+u.sh[1]*ag
+    decay=exp(g.logscale-g.hp*root_difference(u.k2[2], a[2], λ) -
+              g.hq*root_difference(u.k2[Q], a[Q], λ)+logweight)
+    return decay*(a0/ag)/ds
+end
+
+@inline function earth_weighted_spectrum(
+        kernel::EarthSpectrum{
+            :air_reference, 1, Q}, λ, logweight) where {Q}
+    u=kernel.state
+    g=kernel.geometry
+    a0=outgoing_root(λ^2+u.k2[1])
+    ag=outgoing_root(λ^2+u.k2[2])
+    a=(a0, ag)
+    ds=u.sh[2]*a0+u.sh[1]*ag
+    decay=exp(g.logscale-g.hp*root_difference(u.k2[1], a[1], λ) -
+              g.hq*root_difference(u.k2[Q], a[Q], λ)+logweight)
+    return -decay*ag/(a0*ds)
 end
 
 @inline (kernel::EarthSpectrum)(λ) = earth_weighted_spectrum(kernel, λ, zero(λ))
@@ -170,40 +184,44 @@ function earth_combined_weight(kernel::EarthSpectrum)
     return nominal(g.logscale+(g.hp+g.hq)*maximum(abs, kernel.state.k))>300
 end
 
-function earth_spectrum(
-        ::Val{Kind}, ::Val{P}, ::Val{Q}, state, hp, hq, logscale) where {Kind, P, Q}
-    g=(; hp, hq, logscale)
-    return EarthSpectrum{Kind, P, Q, typeof(state), typeof(g)}(state, g)
+# Evaluate the averaged direct-image term with the source-column scaling.
+function earth_direct(::Union{Val{:self}, Val{:mutual}}, ::Val{1}, ::Val{2}, state,
+        pair, radius, average, argument, target_scale, source_scale)
+    zero(state.jω)
+end
+function earth_direct(::Union{Val{:self}, Val{:mutual}}, ::Val{2}, ::Val{1}, state,
+        pair, radius, average, argument, target_scale, source_scale)
+    zero(state.jω)
 end
 
-# Evaluate the averaged direct-image term with the source-column scaling.
-function earth_direct(state, geometry, p, q, medium)
-    u=state
-    r=geometry.radius[p]
-    h=abs(geometry.height[p])+abs(geometry.height[q])
-    d=hypot(geometry.horizontal[p]-geometry.horizontal[q], h)
-    D=p==q ? r :
-      hypot(geometry.horizontal[p]-geometry.horizontal[q],
-        geometry.height[p]-geometry.height[q])
-    k=u.k[medium]
-    xp=u.x[p]
-    sp=u.scaling[p]
-    sq=u.scaling[q]
+function earth_direct(::Val{:self}, ::Val{M}, ::Val{M}, u,
+        pair::EarthPair, r, average, xp, sp, sq) where {M}
+    h=abs(pair.heights[2])+abs(pair.heights[1])
+    d=hypot(pair.separation, h)
+    D=r
+    k=u.k[M]
     if abs(nominal(k*d)) < 0.5
         difference=iszero(k) ? log(d/D) : special_besselk(0, k*D)-special_besselk(0, k*d)
-        if p==q
-            correction=iszero(k) ? zero(k) : bessel_i0m1(xp)*special_besselk(0, k*d)
-            return exp(sq)*(difference-correction)
-        end
-        return u.A[p]*exp(sp+sq)*difference
+        correction=iszero(k) ? zero(k) : bessel_i0m1(xp)*special_besselk(0, k*d)
+        return exp(sq)*(difference-correction)
     end
-    if p==q
-        direct=special_besselkx(0, k*r)*exp(sq-k*r)
-        image=u.A[p]*special_besselkx(0, k*d)*exp(sp+sq-k*d)
-        return direct-image
+    direct=special_besselkx(0, k*r)*exp(sq-k*r)
+    image=average*special_besselkx(0, k*d)*exp(sp+sq-k*d)
+    return direct-image
+end
+
+function earth_direct(::Val{:mutual}, ::Val{M}, ::Val{M}, u,
+        pair::EarthPair, r, average, xp, sp, sq) where {M}
+    h=abs(pair.heights[2])+abs(pair.heights[1])
+    d=hypot(pair.separation, h)
+    D=hypot(pair.separation, pair.heights[2]-pair.heights[1])
+    k=u.k[M]
+    if abs(nominal(k*d)) < 0.5
+        difference=iszero(k) ? log(d/D) : special_besselk(0, k*D)-special_besselk(0, k*d)
+        return average*exp(sp+sq)*difference
     end
-    return u.A[p]*(special_besselkx(0, k*D)*exp(sp+sq-k*D) -
-                   special_besselkx(0, k*d)*exp(sp+sq-k*d))
+    return average*(special_besselkx(0, k*D)*exp(sp+sq-k*D) -
+                    special_besselkx(0, k*d)*exp(sp+sq-k*d))
 end
 
 # Subdivision decisions use nominal branch positions, including degenerate
@@ -225,8 +243,8 @@ end
 
 # The medium and denominator scales are independent; retain both, even when
 # their ratio spans many decades. Bridge them without prescribing a fixed grid.
-function _unified_points!(arrays, state, height, separation, radius, angle)
-    R=typeof(float(nominal(real(state.s))))
+function earth_spectral_points!(arrays, state, height, separation, radius, angle)
+    R=typeof(float(nominal(real(state.jω))))
     scales=empty!(arrays.scales)
     for k in state.k
         iszero(nominal(k)) || push!(scales, R(abs(nominal(k))))
@@ -248,13 +266,13 @@ function _unified_points!(arrays, state, height, separation, radius, angle)
     rotation=cis(angle)
     for k in state.k, sign in (-1, 1)
 
-        _unified_neighbourhood!(points, nominal(sign*im*k)/rotation)
+        earth_spectral_neighbourhood!(points, nominal(sign*im*k)/rotation)
     end
     pole=earth_denominator_pole(state)
     if pole!==nothing
         for candidate in (pole, -pole)
             earth_valid_pole(state, candidate, R) || continue
-            _unified_neighbourhood!(points, nominal(candidate)/rotation)
+            earth_spectral_neighbourhood!(points, nominal(candidate)/rotation)
         end
     end
     unique!(sort!(points; alg = Base.Sort.QuickSort))
@@ -271,7 +289,7 @@ function _unified_points!(arrays, state, height, separation, radius, angle)
     return points
 end
 
-function _unified_neighbourhood!(points::Vector{R}, location) where {R}
+function earth_spectral_neighbourhood!(points::Vector{R}, location) where {R}
     centre=R(real(location))
     width=R(abs(imag(location)))
     centre>0 || return points
@@ -304,4 +322,28 @@ function earth_contour_angle(state, proposed)
         end
     end
     return typeof(proposed)(result)
+end
+
+function earth_spectral_term(
+        kind::Val{Kind}, ::Val{P}, ::Val{Q}, state, hp, hq, y, radius, logscale,
+        method, controls, numerical; context = (;)) where {Kind, P, Q}
+    R=typeof(float(nominal(real(state.jω))))
+    h=hp+hq
+    angle=min(R(π)/6, atan(R(nominal(h))/(2max(R(nominal(y+radius)), eps(R)))))
+    angle=earth_contour_angle(state, angle)
+    points=earth_spectral_points!(numerical.earth_spectrum, state, h, y, radius, angle)
+    scale=max(R(abs(nominal(state.k[1]))), R(abs(nominal(state.k[2]))), inv(R(nominal(h))))
+    g=(; hp, hq, logscale)
+    kernel=EarthSpectrum{Kind, P, Q, typeof(state), typeof(g)}(state, g)
+    contour=scale*cis(angle)
+    integral=SpectralIntegral(t->contour*earth_spectral_value(
+        kernel, contour*t, h, y, radius))
+    points ./= scale
+    push!(points, one(scale))
+    value,
+    _ = integrate(method, integral, controls,
+        numerical.quadrature;
+        points = points, coordinate_type = R, context = merge(context, (term = Kind,)),
+        observations = numerical.observations)
+    return value
 end

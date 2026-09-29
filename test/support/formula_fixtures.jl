@@ -65,7 +65,7 @@
     function E.initialize_buffers(
             selected::LayerImpedance, ::Type{T}, input, invariants, buffers) where {T}
         layers = [E.layer_index(interaction.pair)
-                  for call in invariants.earth_bindings.earth_impedance.cases
+                  for call in invariants.earth_calculations
                   if call.selection === selected for interaction in call.interactions]
         initialized = (1, 1) in layers ?
                       E.initialize_buffers(Val(:quad), T, input, invariants, buffers) :
@@ -106,23 +106,25 @@
             (coupled = Matrix{Complex{T}}(undef,
                 length(geometry.radius), length(geometry.radius)),))
     end
-    function E.earth!(Z, P, selected::CoupledImpedance, ::Nothing,
-            binding, ::Nothing, materials, workspace, frequency)
-        values = workspace.buffers.coupled
-        s = workspace.input.jω[frequency]
-        n = size(values, 1)
-        for p in 1:n, q in 1:n
-
-            values[p, q] = s*1e-6*(sum(1:n)+p+2q+(p==q ? n : 0))
-        end
-        push!(selected.solves, s)
-        return E.earth!(Z, selected, binding, materials, s, workspace, nothing)
+    function (selected::CoupledImpedance)(materials, binding, workspace, frequency::Int)
+        state=(jω = workspace.input.jω[frequency], materials, thickness = nothing)
+        return (coefficients = (workspace.buffers.coupled,), state)
+    end
+    function E.earth!(selected::CoupledImpedance, calculation, workspace)
+        values=only(calculation.coefficients)
+        # Complete-system coupling adds the sum over all source conductors.
+        values .+= calculation.state.jω*1e-6*sum(axes(values, 2))
+        push!(selected.solves, calculation.state.jω)
+        return (impedance = values,)
     end
     for source in 1:2, target in 1:2,
         kind in (source==target ? (:self, :mutual) : (:mutual,))
-        @eval EI.earth_impedance(::CoupledImpedance, ::Val{$(QuoteNode(kind))},
-            ::Val{$source}, ::Val{$target}, functor, pair,
-            workspace) = workspace.buffers.coupled[pair.row, pair.column]
+        @eval function EI.earth_impedance(::CoupledImpedance, ::Val{$(QuoteNode(kind))},
+                ::Val{$source}, ::Val{$target}, functor, pair, workspace)
+            n=length(workspace.invariants.geometry.radius)
+            return functor.state.jω*1e-6*(pair.row+2pair.column+(pair.row==pair.column ? n :
+                                                                 0))
+        end
     end
 
     struct SurfaceLaw{Kinds, P, O} <: E.InternalImpedanceFormulation
@@ -364,19 +366,24 @@
         (voltage = voltage, current = current), FormulationOptions())
     LineCableModels.formulation_options(::FixedModalMaps) = FormulationOptions()
     LineCableModels.formula_id(::FixedModalMaps) = :FixedModalMaps
-    Base.NamedTuple(::FixedModalMaps) = (identifier=:FixedModalMaps,)
-    LineCableModels.description(::Type{<:FixedModalMaps},::Val{:voltage},value::AbstractArray;
-        compact::Bool=false) = "voltage map="*sprint(show,value)
-    LineCableModels.description(::Type{<:FixedModalMaps},::Val{:current},value::AbstractArray;
-        compact::Bool=false) = "current map="*sprint(show,value)
-    LineCableModels.Engine.initialize_buffers(::FixedModalMaps,::Type,input,invariants,buffers) = buffers
+    Base.NamedTuple(::FixedModalMaps) = (identifier = :FixedModalMaps,)
+    LineCableModels.description(
+        ::Type{<:FixedModalMaps}, ::Val{:voltage}, value::AbstractArray;
+        compact::Bool = false) = "voltage map="*sprint(show, value)
+    LineCableModels.description(
+        ::Type{<:FixedModalMaps}, ::Val{:current}, value::AbstractArray;
+        compact::Bool = false) = "current map="*sprint(show, value)
+    LineCableModels.Engine.initialize_buffers(
+        ::FixedModalMaps, ::Type, input, invariants, buffers) = buffers
     function LineCableModels.ModalAnalysis.decompose!(selected::FixedModalMaps,
-            workspace,parameters,options)
-        copyto!(workspace.Tv,selected.parameters.voltage)
-        copyto!(workspace.Ti,selected.parameters.current)
-        for frequency in axes(workspace.roots,2),mode in axes(workspace.roots,1)
-            workspace.roots[mode,frequency] = sqrt((workspace.input.Y[:,:,frequency]*
-                workspace.input.Z[:,:,frequency])[mode,mode])*workspace.input.root_scale
+            workspace, parameters, options)
+        copyto!(workspace.Tv, selected.parameters.voltage)
+        copyto!(workspace.Ti, selected.parameters.current)
+        for frequency in axes(workspace.roots, 2), mode in axes(workspace.roots, 1)
+
+            workspace.roots[mode, frequency] = sqrt((workspace.input.Y[
+                :, :, frequency] * workspace.input.Z[:, :, frequency])[
+                mode, mode])*workspace.input.root_scale
         end
         return workspace
     end
@@ -406,11 +413,11 @@
     # package method or attaching executable values to a selection record.
     for (name, parent, owner, operation, id, event) in (
         (:CountedInsulationZ, E.InsulationImpedanceFormulation, E.InsulationImpedance,
-        E.InsulationImpedance.insulation_impedance, :ametani1980, :local_z),
+            E.InsulationImpedance.insulation_impedance, :ametani1980, :local_z),
         (:CountedInsulationY, E.InsulationAdmittanceFormulation,
-        IA, IA.insulation_material, :lossy, :local_y),
+            IA, IA.insulation_material, :lossy, :local_y),
         (:CountedSemiconY, E.SemiconAdmittanceFormulation,
-        SA, SA.semicon_material, :lossy, :local_y))
+            SA, SA.semicon_material, :lossy, :local_y))
         @eval struct $name{F, P, O} <: $parent
             base::F
             parameters::P
@@ -445,7 +452,7 @@
     for (name, parent, owner, operation, event) in (
         (:CountedEarthZ, E.EarthImpedanceFormulation, EI, EI.earth_impedance, :earth_z),
         (:CountedEarthP, E.EarthAdmittanceFormulation,
-        EA, EA.earth_potential_coefficient, :earth_y))
+            EA, EA.earth_potential_coefficient, :earth_y))
         @eval struct $name{A, P, O} <: $parent
             assumptions::A
             parameters::P
@@ -471,7 +478,8 @@
             <:$name, typeof($operation)}) = FormulationOptions()
     end
 
-    for selected_type in (LayerImpedance, LayerPotential, CoupledImpedance, SurfaceLaw, SpectralSurface,
+    for selected_type in
+        (LayerImpedance, LayerPotential, CoupledImpedance, SurfaceLaw, SpectralSurface,
         DispersiveEarth, InsulationReactance, ConstantResistivity, ScaledResistivity,
         ExponentialResistivity, DispersiveSoil, ScaledSoil, OhmicDielectric, InsulationLaw, SemiconLaw,
         MeanEarth, SquaredBottomEarth, FixedModalMaps, UserCoaxialShunt, CoaxialPipePolicy,

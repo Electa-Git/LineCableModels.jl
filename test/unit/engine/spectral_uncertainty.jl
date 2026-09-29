@@ -39,13 +39,11 @@
     mu=fill(4pi*1e-7, 2)
     geometry=(horizontal = measurement.([0.0, 1.0]),
         height = measurement.([1.0, -1.0]), radius = measurement.([0.02, 0.03]))
-    state=E.EarthImpedance._unified_state!(
-        UnifiedFormulaFixtures.buffers(geometry).unified.current,
-        (jω = s, Γ = zero(s), sigma, epsilon, mu),
-        geometry)
-    @test E.EarthImpedance.earth_denominator_pole(state)===nothing
-    angle=E.EarthImpedance.earth_contour_angle(state, pi/6)
+    state=UnifiedFormulaFixtures.field_state(geometry, (
+        jω = s, Γ = zero(s), sigma, epsilon, mu))
+    @test E.earth_denominator_pole(state)===nothing
+    angle=E.earth_contour_angle(state, pi/6)
     @test all(isfinite,
-        E.EarthImpedance._unified_points!(UnifiedFormulaFixtures.buffers(geometry).unified,
+        E.earth_spectral_points!(UnifiedFormulaFixtures.buffers(geometry).earth_spectrum,
             state, 2.0, 1.0, 0.0, angle))
 end

@@ -44,11 +44,13 @@ does not discard correlations from the evaluated physical quantities.
 
 # Equality of physical state includes correlation, not just nominal values.
 same_physical_state(a, b) = isequal(a, b)
+same_physical_state(a::BigFloat, b::BigFloat) = isequal(a, b)
 function same_physical_state(a::Number, b::Number)
     a === b || (isequal(a, b) && iszero(numerical_magnitude(a-b)))
 end
 function same_physical_state(a::Tuple, b::Tuple)
-    length(a) == length(b) && all(pair -> same_physical_state(pair...), zip(a, b))
+    # Tuple map preserves each field's type in heterogeneous physical records.
+    length(a) == length(b) && all(map(same_physical_state, a, b))
 end
 function same_physical_state(a::NamedTuple, b::NamedTuple)
     keys(a) == keys(b) && same_physical_state(values(a), values(b))
@@ -62,9 +64,17 @@ $(TYPEDSIGNATURES)
 
 Bind selected earth equations to their required material interactions and output
 entries. Coupled equations may require the complete physical system, even when
-only a subset of its output entries is selected. Joint methods resolve paired
-impedance/potential consumers during initialization; `nothing` means separate
-calculations are required.
+only a subset of its output entries is selected. Joint methods determine whether
+impedance and potential selections can use one calculation; `nothing` requires
+separate calculations. Engine records each calculation once with explicit
+impedance and potential output indices. Its material preparation and indexed
+equation traversal execute once per frequency.
+
+After scalar promotion and geometry preparation, `earth_bindings(selection,
+binding, geometry)` declares the invariant arithmetic inputs used for exact reuse.
+All selections execute their bound indexed equations through the same traversal.
+The default includes destination indices; an equation may omit those only when
+they do not participate in its arithmetic.
 """
 function earth_bindings end
 
@@ -144,7 +154,7 @@ struct EarthPair{T <: Real}
     row::Int
     "Destination column."
     column::Int
-    "Conductor heights relative to the air-earth interface \\[m\\]."
+    "Source and target heights, in that order, relative to the air-earth interface \\[m\\]."
     heights::Tuple{T, T}
     "Horizontal distance between conductor centers \\[m\\]."
     separation::T
@@ -267,18 +277,20 @@ struct ModalDomain{O, G} <: LineParamsDomain
     "Aligned propagation roots in the coefficient basis."
     gamma::G
 
-    function ModalDomain(operators::O, gamma::G) where {O,G}
+    function ModalDomain(operators::O, gamma::G) where {O, G}
         gamma isa AbstractMatrix || throw(DimensionMismatch(
             "modal roots must be a mode×frequency matrix"))
         dimensions=validate_modal_operators(operators)
-        size(gamma)==(dimensions[2],dimensions[3]) || throw(DimensionMismatch(
+        size(gamma)==(dimensions[2], dimensions[3]) || throw(DimensionMismatch(
             "modal roots must align with operator modes and frequency samples"))
-        return new{O,G}(operators,gamma)
+        return new{O, G}(operators, gamma)
     end
 end
 
-validate_modal_operators(_) = throw(ArgumentError(
-    "modal domain requires a validated ModalOperators value"))
+function validate_modal_operators(_)
+    throw(ArgumentError(
+        "modal domain requires a validated ModalOperators value"))
+end
 
 validate_domain(::LineParamsDomain, _) = nothing
 function validate_domain(domain::ModalDomain, dimensions)

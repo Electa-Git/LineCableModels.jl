@@ -45,7 +45,9 @@ end
 
 function _solve!(
         workspace::LineParametersWorkspace{T},
-        formulation::LineParametersFormulation
+        formulation::LineParametersFormulation,
+        earth_calculations::Tuple = workspace.invariants.earth_calculations,
+        earth_materials::Tuple = workspace.buffers.earth_materials
 ) where {T <: Real}
     input = workspace.input
     invariants = workspace.invariants
@@ -72,14 +74,14 @@ function _solve!(
     materials!(workspace, formulation)
     @debug "Starting line parameters computation"
     for frequency in 1:input.n_frequencies
-        materials!(workspace, formulation, frequency)
+        materials!(workspace, formulation, frequency, earth_calculations, earth_materials)
         cable_impedance!(Zprimitive, input.cable, buffers.rho_cond,
             formulation.methods, input.jω[frequency]; workspace)
         cable_potential!(Pprimitive, input.cable, buffers.dielectric_admittivity,
             input.jω[frequency], buffers.layer_coefficients, buffers.coefficients, buffers.tails)
         _stash!(_capture_target(workspace.capture, :Zin), frequency, Zprimitive)
         _stash!(_capture_target(workspace.capture, :Pin), frequency, Pprimitive)
-        earth!(workspace, frequency)
+        earth!(workspace, frequency, earth_calculations, earth_materials)
         _stash!(_capture_target(workspace.capture, :Zg), frequency, buffers.Zearth)
         _stash!(_capture_target(workspace.capture, :Pg), frequency, buffers.Pearth)
         impedance!(Zprimitive, workspace, frequency)
@@ -326,7 +328,7 @@ Compute line parameters with the coaxial backend and default formulation.
 
 - One [`LineParameters`](@ref) result.
 """
-function compute(
+Base.@constprop :aggressive function compute(
         problem::LineParametersProblem;
         options::Union{NamedTuple, ComputationOptions} = ComputationOptions(),
         modal=nothing, modal_options::Union{NamedTuple, ComputationOptions}=ComputationOptions()
@@ -374,7 +376,7 @@ result type.
 
 - One [`LineParameters`](@ref) result.
 """
-function compute(
+Base.@constprop :aggressive function compute(
         problem::LineParametersProblem,
         formulation::LineParametersFormulation;
         options::Union{NamedTuple, ComputationOptions} = ComputationOptions(),
@@ -411,7 +413,7 @@ The tag owns execution dispatch while `formulation.methods` retains the
 selected physical recipes. Ordinary callers can omit the tag and use the
 two-argument `compute` method.
 """
-function compute(
+Base.@constprop :aggressive function compute(
         engine::LineCableModelsCoaxial,
         problem::LineParametersProblem,
         formulation::LineParametersFormulation = Formulation();
@@ -421,14 +423,14 @@ function compute(
     execution = computation_options(LineCableModelsCoaxial, options)
     # Timing changes the retained detail schema. Carry this finite choice through
     # the caller's dynamically typed logger without widening the default result.
-    timing = Val(execution.data.timing)
+    timing = execution.data.timing ? Val(true) : Val(false)
     logger = VerbosityLogger(Logging.current_logger(), execution.data.verbosity)
     return with_logger(logger) do
         _compute(engine, problem, formulation, execution, timing)
     end
 end
 
-function compute(
+Base.@constprop :aggressive function compute(
         engine::LineCableModelsCoaxial,
         problem::LineParametersProblem,
         formulations::AbstractVector{<:LineParametersFormulation};
@@ -436,7 +438,7 @@ function compute(
 )
     options = options isa NamedTuple ? ComputationOptions(options) : options
     execution = computation_options(LineCableModelsCoaxial, options)
-    timing = Val(execution.data.timing)
+    timing = execution.data.timing ? Val(true) : Val(false)
     logger = VerbosityLogger(Logging.current_logger(), execution.data.verbosity)
     return with_logger(logger) do
         _compute(engine, problem, formulations, execution, timing)
@@ -491,8 +493,10 @@ end
 
 function materials!(
         workspace::LineParametersWorkspace, formulation::LineParametersFormulation,
-        frequency::Int)
-    homogenize!(workspace, frequency, formulation)
+        frequency::Int,
+        earth_calculations::Tuple = workspace.invariants.earth_calculations,
+        earth_materials::Tuple = workspace.buffers.earth_materials)
+    homogenize!(workspace, frequency, formulation, earth_calculations, earth_materials)
     dielectric!(workspace.buffers.dielectric_admittivity, workspace.input.cable,
         formulation.methods, workspace.input.freq[frequency], workspace.input.temperature; workspace)
     return workspace
@@ -514,18 +518,15 @@ end
 function homogenize!(
         workspace::LineParametersWorkspace,
         frequency::Int,
-        formulation::LineParametersFormulation
+        formulation::LineParametersFormulation,
+        calculations::Tuple = workspace.invariants.earth_calculations,
+        materials::Tuple = workspace.buffers.earth_materials
 )
-    for (family, cases) in
-        pairs(map(bound -> bound.cases, workspace.invariants.earth_bindings))
-        destinations = getproperty(workspace.buffers.earth_materials, family)
-        for (index, binding) in pairs(cases)
-            family === :earth_admittance && binding.partner != 0 && continue
-            homogenize!(destinations[index], binding, workspace, frequency,
-                formulation.methods.earth_properties)
-        end
+    foreach(calculations, materials) do calculation, destination
+        homogenize!(destination, calculation, workspace, frequency,
+            formulation.methods.earth_properties)
     end
-    return workspace.buffers.earth_materials
+    return materials
 end
 
 function homogenize!(destination,
