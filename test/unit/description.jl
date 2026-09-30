@@ -171,9 +171,9 @@ end
     @test description([single];quantity=B)==description([
         IO.deserialize_value(Val(:formulation),NamedTuple(single))];quantity=B)
     @test isempty(selected_inner.evaluations) && isempty(selected_inner.preparations)
-    fem_labels=description([LineCableModelsFEM(),LineCableModelsFEM(options=(physics=:quasi_fw,))];
+    fem_labels=description([LineCableModelsFEM(),LineCableModelsFEM(options=(Γ=.01im,))];
         roles=[:reference,:reference])
-    @test occursin("quasi-tem",first(fem_labels)) && occursin("quasi-fw",last(fem_labels))
+    @test all(label -> occursin("quasi-fw",label) && occursin("Γ",label),fem_labels) && occursin("0.01",last(fem_labels))
     @test ismissing(IO.deserialize_value(Val(:formulation),(backend=:unknown,)))
     @test description([missing];roles=[:reference])==["Reference · method unavailable"]
     unknown_inner=IO.deserialize_value(Val(:formulation),
@@ -292,9 +292,9 @@ end
     reductions=[point(Formulation(options=(kron_reduction=choice,)),i) for (i,choice) in enumerate((false,true))]
     @test observation_labels(reductions;request=R)==[
         description(LineParametersFormulation,Val(:kron_reduction),v;compact=true) for v in (false,true)]
-    physics=[Formulation(:LineCableModelsFEM;options=(physics=choice,)) for choice in (:quasi_tem,:quasi_fw)]
-    @test observation_labels([point(f,i) for (i,f) in enumerate(physics)];request=B)==[
-        description(LineCableModelsFEM,Val(:physics),f.options.data.physics;compact=true) for f in physics]
+    propagation=[Formulation(:LineCableModelsFEM;options=(Γ=value,)) for value in (0.,.01im)]
+    @test observation_labels([point(f,i) for (i,f) in enumerate(propagation)];request=B)==[
+        description(LineCableModelsFEM,Val(:Γ),f.options.data.Γ;compact=true) for f in propagation]
     reordered=Formulation(options=(ideal_transposition=true,kron_reduction=true,reduce_bundle=true))
     @test observation_labels([point(a,1),point(reordered,2)];request=R)==fill(description(a.methods.earth_impedance;compact=true),2)
 

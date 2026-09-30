@@ -29,7 +29,7 @@
     for (index,f) in pairs(problem.frequencies)
         earth = model.earth_materials[index]
         @test (earth.rho,earth.eps_r,earth.mu_r) == (100/(1+f/1000),10*(1+f/2000),1+f/10000)
-        @test model.mesh_plans[index].domain_radius ≈ max(5.0,
+        @test model.mesh_plans[index].domain_halfwidth ≈ max(5.0,
             2sqrt(earth.rho/(pi*f*earth.mu_r*4pi*1e-7)))
     end
     record = FEM.formulation_record(formulation)
@@ -152,8 +152,8 @@ end
             options);options=(;execution...,trace=true))
         @test actual.Z.values[:,:,index] ≈ reference.Z.values[:,:,1] rtol=2e-9
         @test actual.Y.values[:,:,index] ≈ reference.Y.values[:,:,1] rtol=2e-9
-        @test actual.details.data.fem.inputs.mesh_plans[index].domain_radius ==
-            only(reference.details.data.fem.inputs.mesh_plans).domain_radius
+        @test actual.details.data.fem.inputs.mesh_plans[index].domain_halfwidth ==
+            only(reference.details.data.fem.inputs.mesh_plans).domain_halfwidth
     end
     vacuum = LineParametersProblem(system;frequencies=problem.frequencies,
         earth_props=homogeneous(rho=100.0,eps_r=10.0))

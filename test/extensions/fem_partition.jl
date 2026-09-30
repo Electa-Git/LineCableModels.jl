@@ -76,17 +76,17 @@ end
             FEM._update_exterior_mesh!(model, geometry, plan)
             @test length(gmsh.model.get_entities()) == length(entities)
             @test [gmsh.model.get_value(dim, tag, Float64[]) for (dim,tag) in points] == coordinates
-            for (curves, radius) in ((geometry.inner_shell_curves,plan.domain_radius),
-                                    (geometry.outer_curves,plan.shell_outer_radius))
+            for (curves, halfwidth) in ((geometry.pml_inner_curves,plan.domain_halfwidth),
+                                       (geometry.outer_curves,plan.domain_halfwidth+plan.pml_thickness[1]))
                 vertices = unique(gmsh.model.get_boundary([(1,c) for c in curves],false,false,true))
                 @test all(vertices) do (dim,tag)
                     p = gmsh.model.get_value(dim,tag,Float64[])
-                    hypot(p[1]-model.centre[1],p[2]) ≈ radius
+                    max(abs(p[1]-model.centre[1]),abs(p[2])) ≈ halfwidth
                 end
                 @test all(curves) do curve
                     lower, upper = gmsh.model.get_parametrization_bounds(1, curve)
                     p = gmsh.model.get_value(1, curve, (lower + upper) / 2)
-                    hypot(p[1]-model.centre[1],p[2]) ≈ radius
+                    max(abs(p[1]-model.centre[1]),abs(p[2])) ≈ halfwidth
                 end
             end
             FEM._configure_mesh!(model, geometry, plan)

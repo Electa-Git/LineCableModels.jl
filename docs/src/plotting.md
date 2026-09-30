@@ -1243,6 +1243,9 @@ aggregation, without inferring joint correlations.
 Every eligible numeric route retains log controls for zero or negative support;
 adaptive logarithmic panels use a sign-preserving pseudo-log transform with
 `log1p`/`expm1` evaluation to retain tiny signed values near zero.
+Its linear reference follows the smallest nonzero visible sample or bound,
+so small SI quantities remain logarithmically separated. This changes only
+the axis transform; `clip` and `atol` control observation values separately.
 
 Limits are calculated from finite visible data, including measurement error
 bounds. Constant and near-constant series receive at least ±5% padding around
@@ -1400,3 +1403,11 @@ series. PlotBuilder adds labels, controls, and SVG export.
 | `ext/LineCableModelsMakieExt/export_presentation.jl` | Temporary native export presentation and restoration |
 | `ext/LineCableModelsMakieExt/montecarlo.jl` | Statistical plots |
 | `ext/LineCableModelsMakieExt/native_export.jl` | SVG export |
+
+## Saved FEM meshes and field maps
+
+The same plotting shell accepts detached `FEMMesh` and `FEMFieldMap` values,
+and `.msh`/`.pos` filenames with Gmsh loaded. File inspection does not invoke
+GetDP or start a computation. A system preview accepts `mesh=...` to draw a
+saved mesh under its existing geometry. See [FEM saved-file inspection](fem.md#Headless-computation-and-saved-file-inspection)
+for coordinate conventions, complex fields, overlays and examples.

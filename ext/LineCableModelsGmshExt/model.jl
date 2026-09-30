@@ -6,7 +6,6 @@
     completed
     failed
     cancelled
-    not_executed
 end
 
 mutable struct FEMRun
@@ -46,16 +45,47 @@ struct FEMRegionPlan{T <: Real, S}
     mesh_size::T
 end
 
+"""
+$(TYPEDEF)
+
+One native geometric strip normal to a Cartesian PML. Endpoints are measured
+outward from the physical interface and normalized by that PML's thickness.
+
+$(TYPEDFIELDS)
+"""
+struct FEMPMLStrip{T <: Real}
+    "Normalized inner coordinate \\[dimensionless\\]."
+    start::T
+    "Normalized outer coordinate \\[dimensionless\\]."
+    stop::T
+    "Number of native intervals in the strip."
+    count::Int
+    "Successive native interval-size ratio \\[dimensionless\\]."
+    ratio::T
+end
+
 struct FEMMeshPlan{T <: Real}
     frequency_index::Int
     frequency::T
-    domain_radius::T
-    shell_outer_radius::T
+    Γ::Complex{T}
+    domain_halfwidth::T
+    pml_thickness::NTuple{3, T}
+    pml_strength::NTuple{3, T}
+    pml_slope::T
+    pml_layers::NTuple{3, Int}
+    pml_grading::Union{Nothing, NTuple{3, T}}
+    pml_strips::NTuple{3, Vector{FEMPMLStrip{T}}}
+    volume_quadrature::Int
+    physical_volume_quadrature::Union{Nothing, Int}
+    pml_element_family::Symbol
+    pml_quadrature::Int
     domain_mesh_size::T
-    infinite_mesh_size::T
+    exterior_mesh_sizes::NTuple{2, T}
+    exterior_start_radius::T
     interface_mesh_size::T
     cable_interface_mesh_sizes::Vector{T}
     wave_mesh_sizes::NTuple{2, T}
+    wave_size_limits::NTuple{2, T}
     wave_decay_radii::NTuple{2, T}
 end
 
@@ -70,14 +100,26 @@ struct FEMResolvedModel{T <: Real, P <: LineParametersProblem}
     cable_hosts::Vector{Symbol}
     tags::NamedTuple
     centre::Tuple{T, T}
-    domain_radius::T
-    shell_outer_radius::T
+    domain_halfwidth::T
+    pml_thickness::NTuple{3, T}
     fine_mesh_size::T
     coarse_mesh_size::T
     maximum_frequency::T
     cable_outer_mesh_sizes::Vector{T}
     mesh_growth_factor::T
+    interface_refinement_factor::T
+    conductor_mesh::@NamedTuple{geometry_tolerance::T, skin_depth_elements::T,
+        growth::T, skin_depths::T, thickness_elements::Int}
     mesh_plans::Vector{FEMMeshPlan{T}}
+end
+
+# Native topology of the graded strips and small core inside one sector.
+struct FEMSectorPartition
+    core::Int
+    curve_pairs::Vector{Tuple{Int, Int, Float64, Float64}} # outer, inner, length, turn
+    spokes::Vector{Int} # oriented from the physical contour towards the core
+    depth::Float64
+    patches::Dict{Int, NTuple{4, Int}}
 end
 
 struct FEMGeometry
@@ -85,17 +127,59 @@ struct FEMGeometry
     terminal_surfaces::Vector{Vector{Int}}
     terminal_curves::Vector{Vector{Int}}
     material_surfaces::Vector{Vector{Int}}
+    region_surfaces::Vector{Vector{Int}}
     cable_curves::Vector{Vector{Int}}
     air_surfaces::Vector{Int}
     earth_surfaces::Vector{Int}
-    infinite_surfaces::Vector{Int}
+    pml_surfaces::Vector{Int}
     outer_curves::Vector{Int}
     outer_air_curves::Vector{Int}
     outer_earth_curves::Vector{Int}
-    inner_shell_curves::Vector{Int}
+    pml_inner_curves::Vector{Int}
     interface_curves::Vector{Int}
     cable_loops::Vector{Vector{Int}}
+    exterior_curves::Vector{Int}
     exterior_points::Vector{Int}
+    transfinite_curves::Dict{Int, Tuple{Int, Float64}}
+    transfinite_surfaces::Dict{Int, Tuple{String, NTuple{4, Int}}}
+    conductor_fields::Dict{Int, Tuple{Int, Int}}
+    sector_partitions::Dict{Int, FEMSectorPartition}
+end
+
+# Intrinsic section dimensions, independent of placement or terminal grouping.
+_conductor_section(shape) = nothing
+_conductor_section(shape::DataModel.Disk) = (; width=shape.r, fraction=0.8, divisions=5)
+_conductor_section(shape::DataModel.Annulus) = (; width=shape.ro-shape.ri, fraction=0.45, divisions=0)
+_conductor_section(shape::DataModel.SectorShape) =
+    (; width=shape.primitive.r_back, fraction=0.9, divisions=5)
+
+function _conductor_mesh_sizes(model, region, plan)
+    section = _conductor_section(region.shape)
+    section === nothing && return nothing
+    material = model.material_plans[region.material_index]
+    material.kind === :conductor || return nothing
+    controls = model.conductor_mesh
+    q = sqrt(im * (2π * plan.frequency) * (4π * 1e-7 * material.mu_r) *
+        material.admittivity[plan.frequency_index])
+    delta = iszero(real(q)) ? Inf : inv(real(q))
+    divisions = iszero(section.divisions) ? controls.thickness_elements : section.divisions
+    cap = section.width / divisions
+    # Weakly attenuating conducting media also need bulk phase resolution.
+    phase_cap = real(q) * section.width <= controls.skin_depths ?
+        (iszero(imag(q)) ? Inf : 2π / (12abs(imag(q)))) : Inf
+    bulk = min(region.mesh_size, cap, phase_cap)
+    extent = min(controls.skin_depths * delta, section.fraction * section.width)
+    first_size = min(delta / controls.skin_depth_elements, cap)
+    # Sector strips reach a homothetic core. Their common radial count is
+    # prescribed from the longest spoke, rather than a boundary-layer extent.
+    region.shape isa DataModel.SectorShape && return (;
+        delta, first_size, extent, bulk=min(bulk,section.width/30), active=true)
+    growth = controls.growth
+    layers = growth == 1 ? ceil(Int, extent / first_size) :
+        ceil(Int, log1p((growth-1)*extent/first_size) / log(growth))
+    first_size = growth == 1 ? extent / layers :
+        extent * (growth-1) / expm1(layers * log(growth))
+    return (; delta, first_size, extent, bulk, active=delta < section.width)
 end
 
 struct FEMScan{T <: Real}
@@ -369,10 +453,15 @@ function _fem_mesh_plans(
         layout_radius::T,
         cable_outer_mesh_sizes::Vector{T},
         growth_factor::T,
-        domain_skin_depths::Real
+        controls::NamedTuple,
+        prescribed
 ) where {T <: Real}
     plans = FEMMeshPlan{T}[]
+    occupied = maximum(zip(problem.system.designs,problem.system.positions)) do (design,position)
+        max(abs(position.x-centre_x),abs(position.y))+LineCableModels.outer_radius(design)
+    end
     for (frequency_index, frequency) in enumerate(problem.frequencies)
+        Γ = prescribed[frequency_index]
         earth = earth_materials[frequency_index]
         earth_skin_depth = sqrt(
             earth.rho /
@@ -381,13 +470,17 @@ function _fem_mesh_plans(
         isfinite(earth_skin_depth) && earth_skin_depth > zero(T) || _fem_error(
             :unsupported, problem.system.system_id, :earth_properties,
             "evaluated soil at $frequency Hz requires a finite positive conductive skin depth")
-        domain_radius = max(layout_radius, convert(T, domain_skin_depths) * earth_skin_depth)
-        shell_outer_radius = convert(T, 1.25) * domain_radius
+        domain_halfwidth = max(layout_radius, convert(T, controls.domain_skin_depths) * earth_skin_depth)
+        pml_thickness = controls.pml_thickness === nothing ?
+            ntuple(_ -> domain_halfwidth, 3) : convert(NTuple{3,T}, controls.pml_thickness)
+        pml_thickness = map(t -> t * convert(T, controls.pml_thickness_factor), pml_thickness)
+        all(t -> isfinite(t) && t > zero(T), pml_thickness) || _fem_error(
+            :unsupported, problem.system.system_id, :pml_thickness,
+            "resolved PML thickness must be finite and positive")
         # Domain enlargement must not also coarsen the surrounding-medium mesh.
         # Keep the physical resolution scale independent of the chosen radius.
         resolution_radius = max(layout_radius, earth_skin_depth)
-        domain_mesh_size = resolution_radius / 20
-        infinite_mesh_size = 2domain_mesh_size
+        domain_mesh_size = controls.mesh_size_factor * resolution_radius / 20
         # Resolve both attenuation and phase in each surrounding medium.
         # A skin-depth-sized outer domain alone does not resolve mutual fields
         # when the layout sets a much larger domain at high frequency.
@@ -399,8 +492,63 @@ function _fem_mesh_plans(
                 (eps_r * convert(T, 8.8541878128e-12)),
                 omega * (mu_r * convert(T, 4π * 1e-7)) * sigma))
         end
-        wave_mesh_sizes = map(q -> min(domain_mesh_size, inv(8abs(q))), wave_numbers)
+        zero_gamma_numbers = wave_numbers
+        if !iszero(Γ)
+            wave_numbers = map(q -> sqrt(q^2 - Γ^2), wave_numbers)
+            # The principal root has nonnegative decay. On the imaginary axis
+            # use the outgoing positive-time root, also used by Unified.
+            wave_numbers = map(q -> iszero(real(q)) && imag(q) < 0 ? -q : q,
+                wave_numbers)
+        end
+        attenuation = -log(convert(T, controls.pml_reflection)) / 2
+        pml_slope = one(T)
+        air_phase = imag(first(zero_gamma_numbers))
+        earth_phase = imag(last(zero_gamma_numbers))
+        side_phase = air_phase
+        if !iszero(Γ)
+            # A common ray preserves the air/earth interface match. When a
+            # prescribed Gamma gives Im(q)<0, a -45 degree ray can amplify it.
+            for q in wave_numbers
+                imag(q) < 0 && (pml_slope = min(pml_slope, real(q)/(2abs(imag(q)))))
+            end
+            rates = map(wave_numbers, zero_gamma_numbers) do q, q0
+                # At transverse cutoff the exterior mode is algebraic. Keep
+                # the finite base stretch; exponential attenuation has no
+                # meaning for that mode, whose truncation needs refinement.
+                iszero(q) ? imag(q0) :
+                    (real(q)+pml_slope*imag(q))*imag(q0)/(real(q0)+imag(q0))
+            end
+            air_phase, earth_phase = rates
+            side_phase = min(air_phase, earth_phase)
+        end
+        pml_strength = (4attenuation / (side_phase * pml_thickness[1]),
+            4attenuation / (air_phase * pml_thickness[2]),
+            4attenuation / (earth_phase * pml_thickness[3]))
+        all(isfinite, pml_strength) || _fem_error(:unsupported,
+            problem.system.system_id, :pml_strength, "PML coefficients overflow at $frequency Hz")
+        pml_strips = ntuple(3) do direction
+            if controls.pml_resolution === nothing
+                count, grading = controls.pml_layers[direction], controls.pml_grading[direction]
+                ratio = count == 1 ? one(T) : exp(grading/count)
+                return [FEMPMLStrip(zero(T),one(T),count,convert(T,ratio))]
+            end
+            domain_halfwidth > occupied || _fem_error(:geometry,
+                problem.system.system_id,:domain_skin_depths,
+                "physical PML mesh construction needs positive conductor-to-PML clearance; increase domain_skin_depths")
+            _physical_pml_strips(wave_numbers,pml_thickness[direction],pml_strength[direction],
+                domain_halfwidth-occupied,direction,controls.pml_resolution;slope=pml_slope)
+        end
+        wave_limits = map(q -> controls.mesh_size_factor / (8abs(q)), wave_numbers)
+        wave_mesh_sizes = map(h -> min(domain_mesh_size, h), wave_limits)
         wave_decay_radii = map(q -> min(2resolution_radius, 6 / real(q)), wave_numbers)
+        exterior_start_radius = 2resolution_radius
+        exterior_size = min(controls.exterior_mesh_size_factor * domain_mesh_size,
+            domain_mesh_size + (growth_factor - one(T)) *
+            max(zero(T), domain_halfwidth - exterior_start_radius))
+        # Keep the air wave bound throughout the remote buffer, including the
+        # nonattenuating Gamma=0 case. Soil retains its near-interface field.
+        exterior_mesh_sizes = (controls.exterior_mesh_size_factor == 1 ?
+            domain_mesh_size : min(exterior_size, first(wave_limits)), exterior_size)
         cable_interface_mesh_sizes = T[]
         for (cable_index, (design, position)) in enumerate(zip(
             problem.system.designs, problem.system.positions
@@ -420,13 +568,25 @@ function _fem_mesh_plans(
             FEMMeshPlan(
                 frequency_index,
                 frequency,
-                domain_radius,
-                shell_outer_radius,
+                Γ,
+                domain_halfwidth,
+                pml_thickness,
+                pml_strength,
+                pml_slope,
+                map(strips -> sum(s.count for s in strips),pml_strips),
+                controls.pml_grading === nothing ? nothing : T.(controls.pml_grading),
+                pml_strips,
+                controls.volume_quadrature,
+                controls.physical_volume_quadrature,
+                controls.pml_element_family,
+                controls.pml_quadrature,
                 domain_mesh_size,
-                infinite_mesh_size,
+                exterior_mesh_sizes,
+                exterior_start_radius,
                 interface_mesh_size,
                 cable_interface_mesh_sizes,
                 wave_mesh_sizes,
+                wave_limits,
                 wave_decay_radii
             ))
     end
@@ -585,6 +745,12 @@ function _resolved_fem_model(
         formulation::LineCableModelsFEM,
         options::ComputationOptions = computation_options(LineCableModelsFEM, ComputationOptions())
 ) where {T <: Real}
+    supplied = formulation.options.data.Γ
+    supplied isa AbstractVector && length(supplied) != length(problem.frequencies) &&
+        throw(DimensionMismatch("FEM Γ must contain one value per frequency sample"))
+    prescribed = supplied isa Number ? fill(Complex{T}(supplied), length(problem.frequencies)) :
+        Complex{T}.(supplied)
+    all(isfinite, prescribed) || throw(ArgumentError("FEM Γ must be finite in the solver precision"))
     try
         LineCableModels.validate(problem)
     catch exception
@@ -762,7 +928,7 @@ function _resolved_fem_model(
                     terminal_index,
                     material_index,
                     shape,
-                    convert(T, mesh_size)
+                    convert(T, mesh_size * options.data.mesh_size_factor)
                 ))
         end
     end
@@ -832,11 +998,12 @@ function _resolved_fem_model(
         layout_radius,
         cable_outer_mesh_sizes,
         mesh_growth_factor,
-        options.data.domain_skin_depths
+        options.data,
+        prescribed
     )
     display_plan = last(mesh_plans)
-    domain_radius = display_plan.domain_radius
-    shell_outer_radius = display_plan.shell_outer_radius
+    domain_halfwidth = display_plan.domain_halfwidth
+    pml_thickness = display_plan.pml_thickness
     fine_mesh_size = minimum(getproperty.(region_plans, :mesh_size))
     coarse_mesh_size = display_plan.domain_mesh_size
     maximum_frequency = maximum(problem.frequencies)
@@ -845,14 +1012,16 @@ function _resolved_fem_model(
         earth = 1_002,
         outer_boundary = 2_001,
         interface = 2_002,
-        inner_shell_boundary = 2_003,
+        pml_inner_boundary = 2_003,
         outer_air_boundary = 2_004,
         outer_earth_boundary = 2_005,
-        air_infinite = 1_003,
-        earth_infinite = 1_004,
-        infinite_domain = 1_005,
+        air_pml = 1_003,
+        earth_pml = 1_004,
+        pml = 1_005,
         terminal_base = 3_000,
         terminal_contour_base = 4_000,
+        voltage_path_base = 7_000,
+        voltage_reference_base = 8_000,
         cable_contour_base = 5_000
     )
     return FEMResolvedModel(
@@ -866,13 +1035,19 @@ function _resolved_fem_model(
         cable_hosts,
         tags,
         (centre_x, zero(T)),
-        domain_radius,
-        shell_outer_radius,
+        domain_halfwidth,
+        pml_thickness,
         fine_mesh_size,
         coarse_mesh_size,
         maximum_frequency,
         cable_outer_mesh_sizes,
         mesh_growth_factor,
+        convert(T,options.data.interface_refinement_factor),
+        (geometry_tolerance=convert(T,options.data.conductor_geometry_tolerance),
+         skin_depth_elements=convert(T,options.data.conductor_skin_depth_elements),
+         growth=convert(T,options.data.conductor_mesh_growth),
+         skin_depths=convert(T,options.data.conductor_skin_depths),
+         thickness_elements=options.data.conductor_thickness_elements),
         mesh_plans
     )
 end

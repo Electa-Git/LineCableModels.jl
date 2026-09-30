@@ -26,29 +26,32 @@ $(TYPEDEF)
 
 Select the Julia-native Gmsh/GetDP finite-element backend.
 
-`options` stores the field-model choice and matrix reductions. Set
-`options=(physics=:quasi_tem,)` (default) or `(physics=:quasi_fw,)`.
+`options` stores the field-model choice, prescribed Γ and matrix reductions.
+`options=(physics=:quasi_fw,)` is the supported field model and the default.
+Prescribe the longitudinal propagation constant with `options=(physics=:quasi_fw, Γ=value)`.
+The default is zero; a finite scalar applies at every frequency, and a vector
+contains one value per frequency in problem order.
 Execution controls belong to `compute(...; options=(...))` and are validated
 by [`computation_options`](@ref) for `LineCableModelsFEM`.
 
-The quasi-TEM model solves independent axial ``A_z/u`` and scalar electric
-Helmholtz blocks in one factorization. The magnetic excitation is one ampere;
-the electric excitation is one ampere per meter. Both models retain conduction
+The axial current excitation is one ampere. The model retains conduction
 and displacement through ``κ=σ+jωε`` \\[S/m\\], where ``ω`` is angular
 frequency \\[rad/s\\], ``σ`` conductivity \\[S/m\\], and ``ε`` permittivity \\[F/m\\].
 
-The quasi-full-wave model uses phasors ``e^{jωt-Γz}`` and expands
-``A_z=a``, ``A_t=Γb``, ``φ=Γv`` before taking ``Γ→0``. Here ``Γ`` is
-the longitudinal propagation constant \\[1/m\\], ``a`` has units \\[T m\\],
-``b`` \\[T m²\\], and ``v`` \\[V m\\]. In the media outside the equipotential
-metal terminals, the retained equations are
+The quasi-full-wave model uses phasors ``e^{jωt-Γz}`` and the exact substitution
+``A_z=a``, ``A_t=Γb``, ``φ=Γv``. Here ``Γ`` is prescribed \\[1/m\\],
+``a`` has units \\[T m\\], ``b`` \\[T m²\\], and ``v`` \\[V m\\].
+In the media outside the equipotential metal terminals the equations are
 
 ```math
--\\nabla_t\\!\\cdot(\\nu\\nabla_t a)+j\\omega\\kappa a=0,
+-\\nabla_t\\!\\cdot[\\nu(\\nabla_t a+\\Gamma^2 b)]
++j\\omega\\kappa a-\\Gamma^2\\kappa v=0,
 \\qquad
-C^*(\\nu Cb)+j\\omega\\kappa b+\\kappa\\nabla_t v-\\nu\\nabla_t a=0,
+C^*(\\nu Cb)+(j\\omega\\kappa-\\Gamma^2\\nu)b
++\\kappa\\nabla_t v-\\nu\\nabla_t a=0,
 \\qquad
--\\nabla_t\\!\\cdot[\\kappa(j\\omega b+\\nabla_t v)]+j\\omega\\kappa a=0.
+-\\nabla_t\\!\\cdot[\\kappa(j\\omega b+\\nabla_t v)]
++\\kappa(j\\omega a-\\Gamma^2v)=0.
 ```
 
 Here ``\\nu=1/\\mu`` \\[m/H\\], ``μ`` is permeability \\[H/m\\],
@@ -57,34 +60,51 @@ The finite-conductivity axial ``a/u`` block supplies both the series voltage
 drop and the normalized transverse-current source; there is no independent
 electric excitation. A tree gauge removes the gradient freedom of ``b``.
 Its tangential trace vanishes on every terminal contour and the entire outer
-boundary; ``v=0`` on the earth-side outer reference, with natural electric
-conditions on the air side.
+boundary; ``v=0`` on both the air-side and earth-side outer boundaries.
 
-Terms of order ``Γ^2`` in the axial equation are omitted. The transverse
-Ampère equation remains at the order used to extract shunt response: continuity
-alone constrains a divergence and cannot supply that vector balance across a
-material interface. Choosing a smaller numerical ``Γ`` cannot restore it.
+``Γ^2`` is the complex square, not the squared modulus. These equations
+retain all longitudinal terms. At exactly ``Γ=0`` they give the normalized
+first-order limit; no small-Γ threshold or numerical division is used.
+The exterior fields are ``E_t=-Γ(jωb+\\nabla_t v)`` and
+``E_z=-jωa+Γ^2v``. Finite metal retains the axial model and the transverse
+equipotential approximation. It solves for ``w_i=u_i-Γ^2v_i`` \\[V/m\\], giving
+``E_z=-jωa-w_i`` inside terminal ``i``. This exact substitution cancels the
+identical metal drive/potential basis contributions before assembly; it avoids
+subtracting large terms to obtain the small driven current. The physical axial
+drive is recovered as ``u_i=w_i+Γ^2v_i`` for output. At Γ=0, ``w_i=u_i``.
 
-Terminal voltage includes the vector potential. For a path ``ℓ_i`` oriented
-from the earth reference to terminal ``i``, the inverse-admittance matrix is
+GetDP uses ``x`` horizontal, ``y`` vertical and ``z`` axial; the interface is
+``y=0``. The receiving row owns the voltage reference for every source column:
+air receivers use their local surface projection and buried receivers retain
+earth infinity. The surface trace remains a solved field quantity.
+
+For quasi-full-wave, paths ``ℓ_i`` run from the receiver reference to its
+conductor contour. The normalized inverse-admittance coefficient is
 
 ```math
-P_{ij}=\\frac{v_i-v_{\\rm ref}+j\\omega\\int_{\\ell_i}b\\cdot d\\ell}{I_j},
+P_{ij}=\\frac{v_i-v_{R_i}+j\\omega\\int_{\\ell_i}b\\cdot d\\ell}{I_j},
 \\qquad Y=P^{-1},\\qquad P_e=j\\omega P.
 ```
 
 ``I_j`` is the imposed axial current \\[A\\], ``P`` has units \\[Ω m\\],
 ``Y`` \\[S/m\\], and the analytical potential coefficient ``P_e`` \\[m/F\\].
-The backend uses physical vertical paths to the lowest mesh node of each
-terminal contour, with zero transverse field inside equipotential metal.
-It integrates the pulled-back edge field through the infinite shell.
+The model forms complex primitive ``P`` before reductions and matrix inversion;
+no additional ``jω`` factor is applied to ``Y``. Each terminal has one vertical
+measurement curve ending at its lowest CAD contour vertex (lowest ``x`` breaks
+ties). Native GetDP field interpolation and line integration evaluate this
+path; neither contour averaging nor external mesh-derived quadrature is used.
+Transverse fields vanish inside equipotential metal. Buried paths retain the
+pulled-back edge-field integration along a straight vertical path through the
+finite Cartesian PML. Its truncation error must be checked by PML refinement.
+No division by ``Γ`` is used during extraction.
 The scalar trace ``v_i/I_j`` alone is gauge dependent and is saved separately
-as `Pscalar.tsv` diagnostics. Series impedance is ``Z_{ij}=-U_i/I_j`` \\[Ω/m\\],
-where ``U_i`` is the axial electric unknown \\[V/m\\].
+as `Pscalar.tsv` diagnostics. The longitudinal drive coefficient is
+``K_{ij}=-U_i/I_j`` \\[Ω/m\\], where ``U_i`` is the axial drive \\[V/m\\].
+The measured series coefficient is ``Z_{ij}=K_{ij}+Γ^2P_{ij}`` \\[Ω/m\\].
+For a PEC contour, ``K_{ij}=(jωA_i-Γ^2v_i)/I_j``.
 
-This is a two-dimensional first-order reduction of Maxwell's potential
-equations, retaining transverse induction and displacement. It does not solve
-for a finite propagation constant or constitute the Darwin approximation.
+This is a two-dimensional Maxwell potential formulation with prescribed Γ,
+transverse induction and displacement. It does not constitute the Darwin approximation.
 The full-vector potential equations and the role of terminal conditions and
 gauging are described by G. Ciuprina and R. V. Sabriego, *Electric circuit
 element boundary conditions for electromagneto-quasistatic and full wave
@@ -100,7 +120,7 @@ struct LineCableModelsFEM{M <: NamedTuple, O <: FormulationOptions, D <: NamedTu
        AbstractFormulation
     "Shared scientific formula selections, independent of FEM execution controls."
     methods::M
-    "Field model and line-parameter matrix reductions."
+    "Field model, prescribed longitudinal propagation constant, and matrix reductions."
     options::O
     "Requested formula definitions."
     definitions::D
@@ -452,7 +472,8 @@ scalar or an explicit `Grid`/`Gridspace`; varying inputs return a
 - `temperature_dependence`: Cable-material resistivity law; `:default` selects
   the linear law and `nothing` retains reference resistivity. Operating
   temperature belongs to `LineParametersProblem`.
-- `options=(;)`: Field model (`physics=:quasi_tem` or `:quasi_fw`) and bundle,
+- `options=(;)`: Field model (`physics=:quasi_fw`, the default), prescribed
+  `Γ=0` [1/m] (scalar or frequency-aligned vector), and bundle,
   Kron, and ideal-transposition reductions. Hyphenated strings and symbols
   are also accepted for `physics`. Julia parses `:quasi-fw` as subtraction;
   use `:quasi_fw` or `Symbol("quasi-fw")`.

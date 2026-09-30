@@ -186,6 +186,8 @@ using .Engine: LineParameters, LineParametersProblem, CableConstants,
                LineParamsDomain, PhaseDomain, ModalDomain
 
 public LineParamsDomain
+using .Engine: FEMMesh, FEMFieldMap
+public FEMMesh, FEMFieldMap
 
 # Submodule `Transforms`
 include("transforms/Transforms.jl")

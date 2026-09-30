@@ -45,8 +45,8 @@ elapsed time and completion/failure. A started item is not necessarily completed
 
 | Command | What it executes |
 | --- | --- |
-| `DISPLAY= julia --project=test --compiled-modules=no test/runtests.jl tag:fem_numerical` | Native GetDP/Gmsh execution, extraction, material transport, reductions, failure and resume. The UI item is skipped here. |
-| `julia --project=test test/runtests.jl extensions/fem_ui.jl` | Four UI lifecycle scenarios in fresh processes; requires an accessible `DISPLAY`. CI uses `xvfb-run -a`. |
+| `DISPLAY= julia --project=test --compiled-modules=no test/runtests.jl tag:fem_numerical` | Native GetDP/Gmsh execution, extraction, material transport, reductions, failure and resume. |
+| `LINECABLEMODELS_TEST_PLOTTING=true julia --project=test test/runtests.jl integration/native_makie_fem.jl` | Saved mesh and field inspection through Makie without GetDP or a display. |
 | `julia --project=test/core test/runtests.jl tag:core_only` | Optional-extension boundaries with core dependencies only. |
 | `LINECABLEMODELS_TEST_PLOTTING=true julia --project=test/visual --compiled-modules=no test/runtests.jl tag:visual` | Existing rendering, plot lifecycle, layout and output contracts; no new calibration. |
 | `julia --project=test test/runtests.jl tag:pscad_native` | Real PSCAD acceptance. Set `LINECABLEMODELS_PSCAD_CONFIG` to your private TOML filename; requires the configured live station. |
@@ -55,14 +55,10 @@ elapsed time and completion/failure. A started item is not necessarily completed
 | `julia --project=ext/LineCableModelsPSCADExt/remote test/integration/pscad/remote_runner_boundary.jl` | Remote-runner protocol against a mocked Python automation boundary; does not execute PSCAD or validate solver numerics. |
 
 Ordinary exclusions are `quality`, `aqua`, `visual`, `core_only`, `fem_numerical` and `pscad_native`.
-These tags describe purpose/environment, never outcome.
-PSCAD native tests require the explicit `tag:pscad_native` selector; a file/name
-search alone cannot launch a station. Ordinary local PSCAD tests use Julia protocol
-fixtures. The dedicated remote-runner boundary test mocks only the Python automation
-surface needed to verify runner orchestration; it does not imitate PSCAD numerics.
-Native coverage gaps remain visible in the unchanged production coverage inventory
-and 95% gate.
-There is no required scientific-study job or `scientific` selection.
+
+The detached ONELAB numerical tests invoke native Gmsh and GetDP executables.
+They require no interpreter or extra package environment in the detached bundle.
+Julia is used only by the repository test harness to export and check results.
 
 ## Coverage and release verification
 
@@ -82,7 +78,7 @@ julia --project=. -e 'using Pkg; Pkg.test(coverage=true)'
 Run the additional environments above with `--code-coverage=@.`. For activation,
 use `julia --project=test/visual --code-coverage=@. test/runtests.jl "loaded extension activation"`
 for Cairo; CI contains the temporary-environment commands for GLMakie and WGLMakie.
-Complete the display-dependent UI run as well. Then merge and enforce the gate:
+Complete the independent FEM inspection run as well. Then merge and enforce the gate:
 
 ```sh
 julia --project=test/coverage test/coverage.jl check
@@ -112,3 +108,9 @@ The earlier FEM/analytical mutual-admittance difference, transformed-exterior
 quadrature sensitivity and unresolved derivative-reference study remain in the
 [dated evidence](../local/validation-refoundation/2026-09-15/test-system-audit.md).
 They are research observations, not fabricated code failures or release approvals.
+
+The optional physical acceptance runner
+`test/manual/fem/validate_onelab_export.jl /new/evidence/directory` checks grounded
+and insulated bundled terminals, native conductivity/amplitude edits, and
+Julia/detached parity after remeshing. It executes real solves and requires
+native Gmsh/GetDP executables; it is excluded from automatic discovery.

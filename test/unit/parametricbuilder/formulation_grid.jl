@@ -109,8 +109,8 @@
 
     fem=LineCableModelsFEM(
         options = Grid((
-        (; physics = :quasi_tem),
-        (; physics = :quasi_fw)
+        (; physics = :quasi_fw, Γ = 0.),
+        (; physics = :quasi_fw, Γ = .01im)
     )),
     )
     @test fem isa Gridspace{LineCableModelsFEM}

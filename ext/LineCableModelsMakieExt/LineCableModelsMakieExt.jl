@@ -10,6 +10,8 @@ using LineCableModels: EarthLayer, Material, RadialDielectric,
                        SeriesImpedance, ShuntAdmittance, label, nominal,
                        observables, outer_radius
 import Makie
+import GeometryBasics
+import InteractiveUtils
 using Makie: Auto, Axis, Button, Colorbar, DataAspect, Figure,
              Fixed, GridLayout, Label, Legend, LineElement,
              Mixed,
@@ -410,5 +412,7 @@ function show_material_scale(
         kwargs...
     )
 end
+
+include("recipes/fem.jl")
 
 end # module LineCableModelsMakieExt

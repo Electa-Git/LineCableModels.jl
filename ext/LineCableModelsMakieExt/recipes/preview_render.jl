@@ -8,6 +8,11 @@ function _addon_preview_axis!(
         groups,
         group_order,
         group_labels;
+        mesh = nothing,
+        mesh_color = (:black, 0.3),
+        mesh_linewidth = 0.5,
+        mesh_color_by = :uniform,
+        mesh_inspect = :none,
         earth_model = nothing,
         display_surface_gradient::Bool = true
 )
@@ -57,6 +62,17 @@ function _addon_preview_axis!(
             translate!(surface_gradient, 0, 0, -90)
         end
     end
+    mesh_inspection = nothing
+    if mesh !== nothing
+        rendered = _fem_layer!(axis, mesh; color=mesh_color, linewidth=mesh_linewidth,
+            color_by=mesh_color_by, inspect=mesh_inspect, depth=-10)
+        sidebar = _fem_mesh_sidebar!(shell, panel, rendered.mesh_view;
+            controls=!isempty(shell.chrome))
+        mesh_inspection = (; view=rendered.mesh_view, sidebar)
+        groups[:mesh] = rendered.layers
+        push!(group_order, :mesh)
+        group_labels[:mesh] = "Mesh"
+    end
     for reference in references
         plot = hlines!(
             axis,
@@ -79,6 +95,23 @@ function _addon_preview_axis!(
             strokecolor = polygon.stroke,
             strokewidth = polygon.width
         )
+        if mesh_inspection !== nothing
+            view = mesh_inspection.view
+            # Leave material/pattern inputs intact. Native alpha hides the full
+            # polygon while a separate boundary retains the geometry outline.
+            outline = lines!(axis, polygon.geometry; color=polygon.stroke,
+                linewidth=polygon.width, visible=false, inspectable=false,
+                xautolimits=false, yautolimits=false)
+            function outline_geometry(_)
+                active = view.color_by[] !== :uniform || view.mode[] !== :none
+                plot.alpha = active ? 0.0 : 1.0
+                outline.visible = plot.visible[] && active
+            end
+            on(outline_geometry, axis.scene, view.color_by)
+            on(outline_geometry, axis.scene, view.mode)
+            on(outline_geometry, axis.scene, plot.visible)
+            outline_geometry(nothing)
+        end
         if !haskey(groups, polygon.group)
             groups[polygon.group] = Any[]
             push!(group_order, polygon.group)
@@ -112,7 +145,7 @@ function _addon_preview_axis!(
             end
         end
     end
-    return axis, reset!, panel
+    return axis, reset!, panel, mesh_inspection
 end
 
 function _addon_preview_finish!(
@@ -398,6 +431,11 @@ end
 
 function _addon_preview(
         system::DataModel.LineCableSystem;
+        mesh = nothing,
+        mesh_color = (:black, 0.3),
+        mesh_linewidth = 0.5,
+        mesh_color_by = :uniform,
+        mesh_inspect = :none,
         earth_model = nothing,
         zoom_factor = nothing,
         display_dielectric_pattern::Bool = true,
@@ -430,6 +468,7 @@ function _addon_preview(
 )
     _addon_activate_backend(backend)
     limits = _native_system_limits(system, zoom_factor)
+    loaded_mesh = mesh === nothing ? nothing : _fem_mesh_input(mesh)
     polygons,
     references = _native_system_shapes(
         system,
@@ -450,8 +489,7 @@ function _addon_preview(
         groups = Dict{Symbol, Vector{Any}}()
         order = Symbol[]
         labels = Dict{Symbol, Any}()
-        axis, reset!,
-        panel = _addon_preview_axis!(
+        axis, reset!, panel, mesh_inspection = _addon_preview_axis!(
             shell,
             (1, 1),
             panel_title,
@@ -461,10 +499,15 @@ function _addon_preview(
             groups,
             order,
             labels;
+            mesh = loaded_mesh,
+            mesh_color,
+            mesh_linewidth,
+            mesh_color_by,
+            mesh_inspect,
             earth_model,
             display_surface_gradient
         )
-        _addon_preview_finish!(
+        p = _addon_preview_finish!(
             shell,
             Any[axis],
             Function[reset!],
@@ -485,12 +528,15 @@ function _addon_preview(
             colorbar_position = display_colorbars ? colorbar_position : nothing,
             colorbar_attributes,
             controls,
-            display_plot,
+            display_plot=false,
             export_name = system.system_id,
             series_attributes,
             export_theme,
             open_export
         )
+        mesh_inspection === nothing || _fem_mesh_controls!(p, mesh_inspection.view, mesh_inspection.sidebar)
+        display_plot && _addon_display!(p.figure, display_title)
+        p
     end
 end
 

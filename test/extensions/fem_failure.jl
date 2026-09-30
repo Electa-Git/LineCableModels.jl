@@ -47,7 +47,7 @@
                     @test state.getdp_invocations == 1
                     @test occursin("GetDP", state.message)
                     @test isfile(joinpath(run_path, "input", "problem.json"))
-                    @test isfile(joinpath(run_path, "input", "getdp", "quasi-tem.pro"))
+                    @test isfile(joinpath(run_path, "input", "getdp", "quasi-full.pro"))
                     @test isfile(joinpath(run_path, "logs", "getdp.log"))
                     @test !isfile(joinpath(run_path, "raw", "checksums.json"))
                     messages = read(log_file, String)

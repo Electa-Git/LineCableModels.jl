@@ -17,14 +17,13 @@ formulation = Formulation(:LineCableModelsFEM;
 execution = computation_options(LineCableModelsFEM, ComputationOptions(;mesh_policy=:remesh, gmsh_verbosity=2, getdp_verbosity=3,
         plot_field_maps=false, solver_threads=1, keep_run_directory=true))
 
-# Reuse the package's material resolver and mesher. No production FEM solve is
-# called: the only equations executed below are the new quasi-full.pro.
+# Native perfect-conductor control: reuse the production material resolver,
+# mesher and quasi-fw equations, selecting PerfectConductors=1 below.
 model = FEM._resolved_fem_model(FEM._preflight_fem_problem(problem), formulation)
 runtime_root = joinpath(get(ENV, "LINECABLEMODELS_MANUAL_OUTPUT",
     joinpath(tempdir(), "linecablemodels-manual")), "quasi-full")
 manual_run = FEM._create_run(runtime_root)
 run_directory = manual_run.path
-path_files = String[]
 lock(FEM.FEM_SESSION_LOCK) do
     session = FEM._start_gmsh(execution.data.gmsh_verbosity)
     try
@@ -32,20 +31,12 @@ lock(FEM.FEM_SESSION_LOCK) do
         global mesh_paths = FEM._select_meshes!(manual_run, model, geometry,
             execution, runtime_root)
         FEM._prepare_run_inputs!(manual_run, model)
-        for (mesh, plan) in zip(mesh_paths, model.mesh_plans)
-            path = joinpath(run_directory, "input", @sprintf("paths-f%04d.pro", plan.frequency_index))
-            # Before: quasi_full_paths.jl forwarded to the extension. The extension
-            # now owns this voltage-path operation directly; no adapter is needed.
-            FEM._write_voltage_paths(path, mesh, plan, model;
-                endpoints=[(x,y-radius) for (x,y) in positions])
-            push!(path_files, path)
-        end
     finally
         FEM._finish_gmsh(session)
     end
 end
 
-# model.pro selects the coupled file through its ONELAB Physics constant.
+# model.pro selects the coupled file through its explicit Physics constant.
 pro_file = joinpath(run_directory, "input", "getdp", "model.pro")
 model_data = joinpath(run_directory, "input", "model_data.pro")
 basis_file = joinpath(run_directory, "input", "bases.pro")
@@ -59,15 +50,22 @@ Yqf = similar(Zqf)                               # S/m
 for (index, plan) in enumerate(model.mesh_plans)
     job = joinpath(run_directory, @sprintf("f%04d", index))
     mkpath(job)
-    mesh, paths = mesh_paths[index], path_files[index]
+    mesh = mesh_paths[index]
     prefix = joinpath(job, "solver")
     maps = Int(execution.data.plot_field_maps)
     command = `$getdp $pro_file -solve LineCableModelsFEMScan
         -msh $mesh -name $prefix -v $(execution.data.getdp_verbosity)
         -setstring ModelDataPath $model_data -setstring RunDirectory $job
-        -setstring BasisListPath $basis_file -setstring PathDataPath $paths
+        -setstring BasisListPath $basis_file
         -setnumber FrequencyIndex $index -setnumber FrequencyHz $(plan.frequency)
-        -setnumber Val_Rint $(plan.domain_radius) -setnumber Val_Rext $(plan.shell_outer_radius)
+        -setnumber DomainHalfwidth $(plan.domain_halfwidth)
+        -setnumber PmlSideThickness $(plan.pml_thickness[1])
+        -setnumber PmlTopThickness $(plan.pml_thickness[2])
+        -setnumber PmlBottomThickness $(plan.pml_thickness[3])
+        -setnumber PmlSideStrength $(plan.pml_strength[1])
+        -setnumber PmlTopStrength $(plan.pml_strength[2])
+        -setnumber PmlBottomStrength $(plan.pml_strength[3])
+        -setnumber VolumeQuadrature $(plan.volume_quadrature)
         -setnumber PlotFieldMaps $maps -setnumber ReuseFactorization 1
         -setnumber Physics 1 -setnumber PerfectConductors 1`
     println("\n", command)

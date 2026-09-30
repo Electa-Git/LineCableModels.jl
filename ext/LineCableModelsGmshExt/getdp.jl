@@ -1,15 +1,10 @@
 const FEM_FIELD_QUANTITIES = (
-    "az", "b", "bm", "e", "ez", "em", "jz", "jm", "rhoj2"
+    "az", "b", "bm", "e", "ez", "em", "jz", "jm", "rhoj2",
+    "v_local", "material_region", "pml_mask", "jt", "jt_mesh", "bt_mesh", "hz_scaled"
 )
 
-_quasi_full(physics::Symbol) = physics === Symbol("quasi-fw")
-function _fem_physics_code(formulation::LineCableModelsFEM)
-    Int(_quasi_full(formulation.options.data.physics))
-end
-function _field_quantities(physics::Symbol)
-    _quasi_full(physics) ?
-    (FEM_FIELD_QUANTITIES..., "bt_mesh", "v_local", "hz_scaled") : FEM_FIELD_QUANTITIES
-end
+_fem_physics_code(::LineCableModelsFEM) = 1
+_field_quantities(::Symbol) = FEM_FIELD_QUANTITIES
 
 function _pro_string(value::AbstractString)
     escaped = replace(String(value), '\\' => "\\\\", '"' => "\\\"")
@@ -40,18 +35,24 @@ function _write_model_data(path::String, model::FEMResolvedModel)
         println(io, "NumCables = ", length(model.problem.system.designs), ";")
         println(io, "NumMaterialRegions = ", length(materials), ";")
         println(io, "FrequencyCount = ", length(model.problem.frequencies), ";")
+        println(io, "GammaReValues() = ", _pro_array(real.([plan.Γ for plan in model.mesh_plans])), ";")
+        println(io, "GammaImValues() = ", _pro_array(imag.([plan.Γ for plan in model.mesh_plans])), ";")
         println(io, "AIR_EM = ", model.tags.air, ";")
         println(io, "EARTH_EM = ", model.tags.earth, ";")
-        println(io, "AIR_INF = ", model.tags.air_infinite, ";")
-        println(io, "EARTH_INF = ", model.tags.earth_infinite, ";")
-        println(io, "DOMAIN_INF = ", model.tags.infinite_domain, ";")
+        println(io, "AIR_PML = ", model.tags.air_pml, ";")
+        println(io, "EARTH_PML = ", model.tags.earth_pml, ";")
+        println(io, "DOMAIN_PML = ", model.tags.pml, ";")
         println(io, "OUTBND_EM = ", model.tags.outer_boundary, ";")
-        println(io, "OUTBND_ELE_INS = ", model.tags.outer_air_boundary, ";")
+        println(io, "OUTBND_ELE_AIR = ", model.tags.outer_air_boundary, ";")
         println(io, "OUTBND_ELE_REF = ", model.tags.outer_earth_boundary, ";")
         println(io, "INTERFACE_AIR_SOIL = ", model.tags.interface, ";")
-        println(io, "INNER_INF_BND = ", model.tags.inner_shell_boundary, ";")
+        println(io, "INNER_PML_BND = ", model.tags.pml_inner_boundary, ";")
         println(io, "TERMINAL = ", model.tags.terminal_base + 1, ";")
         println(io, "TERMINAL_CONTOUR = ", model.tags.terminal_contour_base + 1, ";")
+        println(io, "VOLTAGE_PATH = ", model.tags.voltage_path_base + 1, ";")
+        println(io, "VOLTAGE_REFERENCE = ", model.tags.voltage_reference_base + 1, ";")
+        println(io, "ReceiverInAir() = ", _pro_array([
+            model.cable_hosts[t.cable] === :air for t in model.problem.system.terminal_order]), ";")
         println(io, "CABLE_CONTOUR = ", model.tags.cable_contour_base + 1, ";")
         println(io, "TerminalNames() = Str[",
             join(_pro_string.(model.terminal_ids), ", "), "];")
@@ -80,8 +81,6 @@ function _write_model_data(path::String, model::FEMResolvedModel)
         println(io, "EarthMu() = ", _pro_array([state.mu_r * 4π * 1e-7 for state in earth]), ";")
         println(io, "AirEpsilon = ", _pro_number(air.eps_r * 8.8541878128e-12), ";")
         println(io, "AirMu = ", _pro_number(air.mu_r * 4π * 1e-7), ";")
-        println(io, "DomainRadius = ", _pro_number(model.domain_radius), ";")
-        println(io, "ShellOuterRadius = ", _pro_number(model.shell_outer_radius), ";")
         println(io, "Xcenter = ", _pro_number(model.centre[1]), ";")
         println(io, "Ycenter = ", _pro_number(model.centre[2]), ";")
         println(io, "Zcenter = 0.0;")
@@ -95,8 +94,10 @@ function _getdp_assets(root::AbstractString = joinpath(@__DIR__, "getdp"))
         jacobian = joinpath(root, "jacobian.pro"),
         integration = joinpath(root, "integration.pro"),
         materials = joinpath(root, "materials.pro"),
-        quasi_tem = joinpath(root, "quasi-tem.pro"),
-        quasi_full = joinpath(root, "quasi-full.pro")
+        pml = joinpath(root, "pml.pro"),
+        quasi_full = joinpath(root, "quasi-full.pro"),
+        line_parameters = joinpath(root, "line-parameters.pro"),
+        onelab = joinpath(root, "onelab.pro")
     )
 end
 

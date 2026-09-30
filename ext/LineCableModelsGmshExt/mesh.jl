@@ -26,7 +26,10 @@ function _mesh_fingerprint(
     mesh_plan::FEMMeshPlan = last(model.mesh_plans)
 )
     evidence = (
-        material_partition_version = 2,
+        material_partition_version = 18,
+        conductor_mesh = model.conductor_mesh,
+        conductor_materials = [(material.mu_r, material.admittivity[mesh_plan.frequency_index])
+            for material in model.material_plans if material.kind === :conductor],
         system = ImportExport.serialize_value(model.problem.system),
         temperature = ImportExport.serialize_value(model.problem.temperature),
         earth_props = ImportExport.serialize_value(model.problem.earth_props),
@@ -43,14 +46,21 @@ function _mesh_fingerprint(
         region_mesh_sizes = getproperty.(model.region_plans, :mesh_size),
         cable_outer_mesh_sizes = model.cable_outer_mesh_sizes,
         mesh_growth_factor = model.mesh_growth_factor,
+        interface_refinement_factor = model.interface_refinement_factor,
         mesh_frequency = mesh_plan.frequency,
-        domain_radius = mesh_plan.domain_radius,
-        shell_outer_radius = mesh_plan.shell_outer_radius,
+        domain_halfwidth = mesh_plan.domain_halfwidth,
+        pml_thickness = mesh_plan.pml_thickness,
+        pml_layers = mesh_plan.pml_layers,
+        pml_grading = mesh_plan.pml_grading,
+        pml_strips = mesh_plan.pml_strips,
+        pml_element_family = mesh_plan.pml_element_family,
         domain_mesh_size = mesh_plan.domain_mesh_size,
-        infinite_mesh_size = mesh_plan.infinite_mesh_size,
+        exterior_mesh_sizes = mesh_plan.exterior_mesh_sizes,
+        exterior_start_radius = mesh_plan.exterior_start_radius,
         interface_mesh_size = mesh_plan.interface_mesh_size,
         cable_interface_mesh_sizes = mesh_plan.cable_interface_mesh_sizes,
         wave_mesh_sizes = mesh_plan.wave_mesh_sizes,
+        wave_size_limits = mesh_plan.wave_size_limits,
         wave_decay_radii = mesh_plan.wave_decay_radii,
         gmsh_version,
         geometry_tolerance = _GMSH_GEOMETRY_TOLERANCE,
@@ -70,11 +80,11 @@ function _expected_physical_groups(model::FEMResolvedModel)
         (
             2, model.tags.earth, "LCM/domain/earth"),
         (
-            2, model.tags.air_infinite, "LCM/domain/air_infinite"),
+            2, model.tags.air_pml, "LCM/domain/air_pml"),
         (
-            2, model.tags.earth_infinite, "LCM/domain/earth_infinite"),
+            2, model.tags.earth_pml, "LCM/domain/earth_pml"),
         (
-            2, model.tags.infinite_domain, "LCM/domain/infinite_shell"),
+            2, model.tags.pml, "LCM/domain/pml"),
         (
             1,
             model.tags.outer_boundary,
@@ -82,15 +92,15 @@ function _expected_physical_groups(model::FEMResolvedModel)
         (
             1,
             model.tags.outer_air_boundary,
-            "LCM/boundary/electric_insulation_air"),
+            "LCM/boundary/electric_reference_air"),
         (
             1,
             model.tags.outer_earth_boundary,
             "LCM/boundary/electric_reference_earth"),
         (
             1,
-            model.tags.inner_shell_boundary,
-            "LCM/boundary/inner_infinite_shell"
+            model.tags.pml_inner_boundary,
+            "LCM/boundary/pml_inner"
         ),
         (
             1, model.tags.interface, "LCM/interface/air_earth"),
@@ -100,6 +110,10 @@ function _expected_physical_groups(model::FEMResolvedModel)
             2, 6_003, "LCM/domain/field_maps")
     ]
     for (index, name) in enumerate(model.terminal_names)
+        push!(groups, (1, model.tags.voltage_path_base + index,
+            @sprintf("LCM/voltage_path/%04d", index)))
+        push!(groups, (0, model.tags.voltage_reference_base + index,
+            @sprintf("LCM/voltage_reference/%04d", index)))
         push!(groups, (2, model.tags.terminal_base + index, name))
         push!(groups,
             (
@@ -172,6 +186,34 @@ function _inspect_loaded_mesh(model::FEMResolvedModel, mesh_path::String)
         "$(length(model.terminal_ids))"
     )
     _inspect_material_coverage(model, mesh_path)
+    # A detached line would introduce unrelated BF_Edge coefficients instead
+    # of the trace of the solved field. Reject legacy and supplied meshes with
+    # such paths before GetDP assembles the system.
+    metal = Set(s for material in model.material_plans if material.kind === :conductor
+        for s in gmsh.model.get_entities_for_physical_group(2, material.physical_tag))
+    field_edges = Set{Tuple{UInt64, UInt64}}()
+    for (_, surface) in gmsh.model.get_entities(2)
+        surface in metal && continue
+        for kind in first(gmsh.model.mesh.get_elements(2, surface))
+            nodes = gmsh.model.mesh.get_element_edge_nodes(kind, surface, true)
+            for k in 1:2:length(nodes)
+                push!(field_edges, minmax(nodes[k], nodes[k+1]))
+            end
+        end
+    end
+    for i in eachindex(model.terminal_ids)
+        for curve in gmsh.model.get_entities_for_physical_group(1, model.tags.voltage_path_base+i)
+            kinds, _, blocks = gmsh.model.mesh.get_elements(1, curve)
+            for (kind, nodes) in zip(kinds, blocks)
+                count = gmsh.model.mesh.get_element_properties(kind)[4]
+                for k in 1:count:length(nodes)
+                    minmax(nodes[k], nodes[k+1]) in field_edges || _fem_error(
+                        :mesh, model.problem.system.system_id, :voltage_path,
+                        "voltage path $i is not conforming to the electric field mesh; regenerate the mesh")
+                end
+            end
+        end
+    end
     return nothing
 end
 
@@ -338,20 +380,23 @@ function _validate_mesh_file(model::FEMResolvedModel, mesh_path::String)
     return nothing
 end
 
+_interface_footprint(design, position) =
+    (position.x, abs(position.y) + LineCableModels.outer_radius(design))
+
 function _configure_mesh!(
         model::FEMResolvedModel,
         geometry::FEMGeometry,
         mesh_plan::FEMMeshPlan = last(model.mesh_plans)
 )
     gmsh.option.set_number("Mesh.MshFileVersion", 4.1)
+    gmsh.option.set_number("Mesh.Binary", 1)
     # Preserve boundary elements even on internal same-material seams. MSH 4
     # retains physical groups with SaveAll, enabling coverage checks on reload.
     gmsh.option.set_number("Mesh.SaveAll", 1)
     gmsh.option.set_number("Mesh.MeshSizeMin",
         Float64(min(model.fine_mesh_size, minimum(mesh_plan.wave_mesh_sizes))))
-    gmsh.option.set_number(
-        "Mesh.MeshSizeMax", Float64(mesh_plan.infinite_mesh_size)
-    )
+    exterior_size = max(mesh_plan.domain_mesh_size, maximum(mesh_plan.exterior_mesh_sizes))
+    gmsh.option.set_number("Mesh.MeshSizeMax", Float64(exterior_size))
     gmsh.option.set_number("Mesh.MeshSizeFromPoints", 1)
     gmsh.option.set_number("Mesh.MeshSizeExtendFromBoundary", 0)
     transition_fields = Int[]
@@ -368,12 +413,12 @@ function _configure_mesh!(
             threshold, "SizeMin", Float64(cable_size)
         )
         gmsh.model.mesh.field.set_number(
-            threshold, "SizeMax", Float64(mesh_plan.domain_mesh_size)
+            threshold, "SizeMax", Float64(exterior_size)
         )
         gmsh.model.mesh.field.set_number(threshold, "DistMin", 0.0)
         transition_distance = max(
             cable_size,
-            (mesh_plan.domain_mesh_size - cable_size) /
+            (exterior_size - cable_size) /
             max(model.mesh_growth_factor - one(model.mesh_growth_factor), 1e-12)
         )
         gmsh.model.mesh.field.set_number(
@@ -381,27 +426,85 @@ function _configure_mesh!(
         )
         push!(transition_fields, threshold)
     end
-    # Gmsh owns interpolation and restriction of the size field. Include the
-    # air/soil interface as a source of transmitted fields, also for overhead
-    # conductors whose distance from the soil exceeds its attenuation length.
-    for (surfaces, wave_size, decay_radius) in zip(
+    if exterior_size > mesh_plan.domain_mesh_size
+        # The previous global cap also bounded cable interiors. Retain it on
+        # every cable material, including cores whose local target is larger.
+        constant = gmsh.model.mesh.field.add("MathEval")
+        gmsh.model.mesh.field.set_string(constant, "F", string(mesh_plan.domain_mesh_size))
+        restricted = gmsh.model.mesh.field.add("Restrict")
+        gmsh.model.mesh.field.set_number(restricted, "InField", constant)
+        gmsh.model.mesh.field.set_numbers(restricted, "SurfacesList",
+            reduce(vcat, geometry.material_surfaces; init=Int[]))
+        gmsh.model.mesh.field.set_number(restricted, "IncludeBoundary", 1)
+        push!(transition_fields, restricted)
+    end
+    # Retain the central bulk cap, then grow gradually into the remote buffer.
+    # This does not multiply conductor sizes or change the local growth slope.
+    for (surfaces, size) in zip((geometry.air_surfaces, geometry.earth_surfaces),
+            mesh_plan.exterior_mesh_sizes)
+        size == mesh_plan.domain_mesh_size && exterior_size == size && continue
+        radial = gmsh.model.mesh.field.add("MathEval")
+        cx = model.centre[1]
+        expression = "Min($(size), $(mesh_plan.domain_mesh_size) + " *
+            "$(model.mesh_growth_factor-1) * Max(0, " *
+            "Sqrt((x-($(cx)))^2+y^2)-$(mesh_plan.exterior_start_radius)))"
+        gmsh.model.mesh.field.set_string(radial, "F", expression)
+        restricted = gmsh.model.mesh.field.add("Restrict")
+        gmsh.model.mesh.field.set_number(restricted, "InField", radial)
+        gmsh.model.mesh.field.set_numbers(restricted, "SurfacesList", surfaces)
+        gmsh.model.mesh.field.set_number(restricted, "IncludeBoundary", 1)
+        push!(transition_fields, restricted)
+    end
+    # Localize the interface forcing to projected cable footprints in each
+    # medium. Keep the prescribed wave sizes, decay distances and remote caps.
+    for (surfaces, wave_size, decay_radius, remote_size) in zip(
         (geometry.air_surfaces, geometry.earth_surfaces),
-        mesh_plan.wave_mesh_sizes, mesh_plan.wave_decay_radii)
-        wave_size < mesh_plan.domain_mesh_size || continue
-        curves = unique([geometry.interface_curves; reduce(vcat, geometry.cable_curves; init=Int[])])
+        mesh_plan.wave_mesh_sizes,
+        mesh_plan.wave_decay_radii, mesh_plan.exterior_mesh_sizes)
+        wave_size < remote_size || continue
+        cable_curves = reduce(vcat, geometry.cable_curves; init=Int[])
         distance = gmsh.model.mesh.field.add("Distance")
-        gmsh.model.mesh.field.set_numbers(distance, "CurvesList", curves)
+        gmsh.model.mesh.field.set_numbers(distance, "CurvesList", unique(cable_curves))
         gmsh.model.mesh.field.set_number(distance, "Sampling", 200)
+        sources = [distance]
+        for (design,position) in zip(model.problem.system.designs,model.problem.system.positions)
+            x,width = _interface_footprint(design,position)
+            footprint = gmsh.model.mesh.field.add("MathEval")
+            gmsh.model.mesh.field.set_string(footprint,"F",
+                "Sqrt(y^2+Max(Abs(x-($x))-($(model.interface_refinement_factor*width)),0)^2)")
+            push!(sources,footprint)
+        end
+        distance = gmsh.model.mesh.field.add("Min")
+        gmsh.model.mesh.field.set_numbers(distance,"FieldsList",sources)
         threshold = gmsh.model.mesh.field.add("Threshold")
         gmsh.model.mesh.field.set_number(threshold, "InField", distance)
         gmsh.model.mesh.field.set_number(threshold, "SizeMin", Float64(wave_size))
-        gmsh.model.mesh.field.set_number(threshold, "SizeMax", Float64(mesh_plan.domain_mesh_size))
+        gmsh.model.mesh.field.set_number(threshold, "SizeMax", Float64(remote_size))
         gmsh.model.mesh.field.set_number(threshold, "DistMin", Float64(decay_radius))
         gmsh.model.mesh.field.set_number(threshold, "DistMax", Float64(2decay_radius))
         restricted = gmsh.model.mesh.field.add("Restrict")
         gmsh.model.mesh.field.set_number(restricted, "InField", threshold)
         gmsh.model.mesh.field.set_numbers(restricted, "SurfacesList", surfaces)
         gmsh.model.mesh.field.set_number(restricted, "IncludeBoundary", 1)
+        push!(transition_fields, restricted)
+    end
+    _configure_conductor_mesh!(model, geometry, mesh_plan, transition_fields)
+    # Extend the actual boundary-edge sizes into cable insulation. Keep this
+    # local: global boundary-size extension would also refine the remote domain.
+    for cable_index in eachindex(model.cable_boundaries)
+        surfaces = reduce(vcat, (geometry.region_surfaces[index]
+            for (index,region) in enumerate(model.region_plans)
+            if region.cable_index == cable_index &&
+                model.material_plans[region.material_index].kind !== :conductor); init=Int[])
+        isempty(surfaces) && continue
+        extension = gmsh.model.mesh.field.add("Extend")
+        gmsh.model.mesh.field.set_numbers(extension, "CurvesList", _entity_boundary(surfaces))
+        size = model.cable_outer_mesh_sizes[cable_index]
+        gmsh.model.mesh.field.set_number(extension, "SizeMax", size)
+        gmsh.model.mesh.field.set_number(extension, "DistMax", size/(model.mesh_growth_factor-1))
+        restricted = gmsh.model.mesh.field.add("Restrict")
+        gmsh.model.mesh.field.set_number(restricted, "InField", extension)
+        gmsh.model.mesh.field.set_numbers(restricted, "SurfacesList", surfaces)
         push!(transition_fields, restricted)
     end
     isempty(transition_fields) && return nothing
@@ -415,6 +518,77 @@ function _configure_mesh!(
         combined
     end
     gmsh.model.mesh.field.set_as_background_mesh(background)
+    return nothing
+end
+
+function _configure_conductor_mesh!(model, geometry, plan, background_fields)
+    empty!(geometry.conductor_fields)
+    controls = model.conductor_mesh
+    segments = _conductor_circle_segments(controls.geometry_tolerance)
+    all_surfaces = last.(gmsh.model.get_entities(2))
+    for (index, region) in enumerate(model.region_plans)
+        sizes = _conductor_mesh_sizes(model, region, plan)
+        sizes === nothing && continue
+        surfaces = geometry.region_surfaces[index]
+        curves = _entity_boundary(surfaces)
+        partition = get(geometry.sector_partitions,index,nothing)
+        layer = 0
+        if partition !== nothing
+            # Sectors use twice the round tangential resolution, retaining
+            # the qualified straight-side cap as well as exact arc curvature.
+            sector_segments = 2segments
+            radius = region.shape.primitive.r_back
+            for (outer,inner,length,turn) in partition.curve_pairs
+                count = max(2,ceil(Int,turn*sector_segments/(2π)),
+                    ceil(Int,length/(radius/5*96/sector_segments))) + 1
+                for curve in (outer,inner)
+                    gmsh.model.mesh.set_transfinite_curve(curve,count)
+                    geometry.transfinite_curves[curve] = (count,1.0)
+                end
+            end
+            intervals = controls.growth == 1 ? ceil(Int,partition.depth/sizes.first_size) :
+                ceil(Int,log1p((controls.growth-1)*partition.depth/sizes.first_size)/log(controls.growth))
+            for spoke in partition.spokes
+                ratio = spoke > 0 ? controls.growth : inv(controls.growth)
+                gmsh.model.mesh.set_transfinite_curve(abs(spoke),intervals+1,"Progression",ratio)
+                geometry.transfinite_curves[abs(spoke)] = (intervals+1,ratio)
+            end
+        else
+            for curve in curves
+                arc = _conductor_curve_geometry(region.shape, curve)
+                intervals = segments * arc.fraction
+                # Angular fidelity is a lower bound on resolution, not a reason
+                # to discard the user's existing local characteristic length.
+                count = max(2, ceil(Int, intervals - 64eps(intervals)) + 1,
+                    ceil(Int, arc.length/region.mesh_size) + 1)
+                gmsh.model.mesh.set_transfinite_curve(curve, count)
+                geometry.transfinite_curves[curve] = (count, 1.0)
+            end
+            layer = gmsh.model.mesh.field.add("BoundaryLayer")
+            gmsh.model.mesh.field.set_numbers(layer, "CurvesList", curves)
+            # Gmsh retains activated boundary-layer IDs after field removal. An
+            # inactive replacement must exclude every surface, including when a
+            # frequency scan reuses an ID that was previously active.
+            gmsh.model.mesh.field.set_numbers(layer, "ExcludedSurfacesList",
+                sizes.active ? setdiff(all_surfaces, surfaces) : all_surfaces)
+            gmsh.model.mesh.field.set_number(layer, "Size", sizes.first_size)
+            gmsh.model.mesh.field.set_number(layer, "Ratio", controls.growth)
+            gmsh.model.mesh.field.set_number(layer, "Thickness", sizes.extent * (1+1e-8))
+            gmsh.model.mesh.field.set_number(layer, "Quads", 0)
+            sizes.active && gmsh.model.mesh.field.set_as_boundary_layer(layer)
+        end
+        bulk = gmsh.model.mesh.field.add("MathEval")
+        gmsh.model.mesh.field.set_string(bulk, "F", string(sizes.bulk))
+        restricted = gmsh.model.mesh.field.add("Restrict")
+        gmsh.model.mesh.field.set_number(restricted, "InField", bulk)
+        gmsh.model.mesh.field.set_numbers(restricted, "SurfacesList",
+            partition === nothing ? surfaces : [partition.core])
+        push!(background_fields, restricted)
+        geometry.conductor_fields[index] = (layer, bulk)
+    end
+    # Local conductor fields own the small sizes. The former global floor
+    # would erase them, including on the conductor side of shared interfaces.
+    isempty(geometry.conductor_fields) || gmsh.option.set_number("Mesh.MeshSizeMin", 0.0)
     return nothing
 end
 
@@ -438,15 +612,22 @@ function _mesh_metadata(
                            for (dim, tag, name) in _expected_physical_groups(model)],
         frequency_index = mesh_plan.frequency_index,
         frequency_hz = mesh_plan.frequency,
-        inner_shell_radius_m = mesh_plan.domain_radius,
-        outer_shell_radius_m = mesh_plan.shell_outer_radius,
-        minimum_mesh_size_m = min(model.fine_mesh_size, minimum(mesh_plan.wave_mesh_sizes)),
+        physical_domain_halfwidth_m = mesh_plan.domain_halfwidth,
+        pml_thickness_m = mesh_plan.pml_thickness,
+        pml_element_family = mesh_plan.pml_element_family,
+        pml_layers = mesh_plan.pml_layers,
+        pml_grading = mesh_plan.pml_grading,
+        pml_strips = mesh_plan.pml_strips,
+        conductor_mesh = model.conductor_mesh,
+        minimum_mesh_size_m = any(r -> _conductor_mesh_sizes(model,r,mesh_plan) !== nothing,
+            model.region_plans) ? 0.0 : min(model.fine_mesh_size, minimum(mesh_plan.wave_mesh_sizes)),
         region_mesh_sizes_m = getproperty.(model.region_plans, :mesh_size),
         cable_outer_mesh_sizes_m = model.cable_outer_mesh_sizes,
         interface_mesh_size_m = mesh_plan.interface_mesh_size,
         cable_interface_mesh_sizes_m = mesh_plan.cable_interface_mesh_sizes,
         domain_mesh_size_m = mesh_plan.domain_mesh_size,
-        infinite_mesh_size_m = mesh_plan.infinite_mesh_size,
+        exterior_mesh_sizes_m = mesh_plan.exterior_mesh_sizes,
+        exterior_start_radius_m = mesh_plan.exterior_start_radius,
         wave_mesh_sizes_m = mesh_plan.wave_mesh_sizes,
         wave_decay_radii_m = mesh_plan.wave_decay_radii,
         adjacent_growth_factor = model.mesh_growth_factor
@@ -489,13 +670,6 @@ function _cache_mesh!(
     return cache_mesh
 end
 
-function _load_mesh_for_display!(mesh_path::String)
-    name = "LineCableModelsFEM-mesh-$(time_ns())"
-    gmsh.model.add(name)
-    gmsh.merge(mesh_path)
-    return name
-end
-
 function _select_mesh!(
         run::FEMRun,
         model::FEMResolvedModel,
@@ -506,12 +680,12 @@ function _select_mesh!(
 )
     gmsh_version = _gmsh_version()
     fingerprint = _mesh_fingerprint(model, gmsh_version, mesh_plan)
-    displayed = mesh_plan.frequency_index == length(model.mesh_plans)
-    displayed && (run.mesh_fingerprint = fingerprint)
+    reference_mesh = mesh_plan.frequency_index == length(model.mesh_plans)
+    reference_mesh && (run.mesh_fingerprint = fingerprint)
     cache_directory = joinpath(runtime_root, "meshes", fingerprint)
     cache_mesh = joinpath(cache_directory, "model.msh")
     cache_metadata = joinpath(cache_directory, "mesh.json")
-    stem = displayed ? "model" : @sprintf(
+    stem = reference_mesh ? "model" : @sprintf(
         "frequency_%04d", mesh_plan.frequency_index
     )
     run_mesh = joinpath(run.path, "mesh", "$stem.msh")
@@ -530,7 +704,7 @@ function _select_mesh!(
             @warn "Ignoring an invalid retained FEM mesh" run_mesh exception
         end
     end
-    if selected === nothing && displayed && execution.data.mesh_policy === :reuse &&
+    if selected === nothing && reference_mesh && execution.data.mesh_policy === :reuse &&
        execution.data.mesh_path !== nothing
         explicit = abspath(execution.data.mesh_path)
         _validate_mesh_file(model, explicit)
@@ -567,11 +741,8 @@ function _select_mesh!(
             model, fingerprint, gmsh_version, source, mesh_plan
         )
         _copy_mesh_snapshot!(selected, run_mesh, run_metadata, metadata)
-        execution.data.ui && displayed && _load_mesh_for_display!(run_mesh)
-    elseif execution.data.ui && displayed
-        _load_mesh_for_display!(run_mesh)
     end
-    displayed && (run.mesh_source = source)
+    reference_mesh && (run.mesh_source = source)
     return run_mesh
 end
 
@@ -584,19 +755,26 @@ function _update_exterior_mesh!(model, geometry, plan)
     # Rebuild only the small exterior domain. GEO coordinate transforms can
     # invalidate cached arcs elsewhere in the model; cable entities stay fixed.
     gmsh.model.remove_physical_groups()
+    gmsh.model.mesh.remove_embedded(
+        [(2, s) for s in Iterators.flatten(geometry.material_surfaces)], 1)
     surfaces = unique([geometry.air_surfaces; geometry.earth_surfaces])
-    curves = unique([geometry.inner_shell_curves; geometry.outer_curves; geometry.interface_curves])
+    curves = geometry.exterior_curves
     gmsh.model.geo.remove([(2, tag) for tag in surfaces], false)
     gmsh.model.geo.remove([(1, tag) for tag in curves], false)
     gmsh.model.geo.remove([(0, tag) for tag in geometry.exterior_points], false)
     gmsh.model.geo.synchronize()
     rebuilt = _build_geometry!(model, geometry.model_name, plan; reuse=geometry)
-    for field in (:terminal_curves, :air_surfaces, :earth_surfaces, :infinite_surfaces,
+    for field in (:terminal_curves, :air_surfaces, :earth_surfaces, :pml_surfaces,
                   :outer_curves, :outer_air_curves, :outer_earth_curves,
-                  :inner_shell_curves, :interface_curves, :exterior_points)
+                  :pml_inner_curves, :interface_curves, :exterior_curves, :exterior_points)
         target = getproperty(geometry, field)
         empty!(target)
         append!(target, getproperty(rebuilt, field))
+    end
+    for field in (:transfinite_curves,:transfinite_surfaces)
+        target = getproperty(geometry,field)
+        empty!(target)
+        merge!(target,getproperty(rebuilt,field))
     end
     return nothing
 end

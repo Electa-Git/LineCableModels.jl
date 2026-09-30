@@ -1,0 +1,12 @@
+SetFactory("Built-in");
+Point(1)={0,0,0,0.15}; Point(2)={1,0,0,0.15};
+Point(3)={1,1,0,0.15}; Point(4)={0,1,0,0.15};
+Line(1)={1,2}; Line(2)={2,3}; Line(3)={3,4}; Line(4)={4,1};
+Curve Loop(1)={1,2,3,4}; Plane Surface(1)={1};
+Point(5)={0.3,0.1,0,0.1}; Point(6)={0.3,0.9,0,0.1};
+Line(5)={5,6};
+Curve{5} In Surface{1};
+Physical Surface("Domain",100)={1};
+Physical Curve("Measurement",101)={5};
+Physical Curve("Loop",102)={1,2,3,4};
+Mesh.MshFileVersion=2.2;

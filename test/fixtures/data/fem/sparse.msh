@@ -1,0 +1,19 @@
+$MeshFormat
+2.2 0 8
+$EndMeshFormat
+$PhysicalNames
+1
+2 8 "sample material"
+$EndPhysicalNames
+$Nodes
+4
+7 0 0 0
+23 1 0 0
+64 0 1 0
+105 1 1 0
+$EndNodes
+$Elements
+2
+5 2 2 8 11 7 23 64
+19 2 2 8 11 23 105 64
+$EndElements

@@ -1,0 +1,332 @@
+provenance = "Frozen from the independently qualified pre-feature prototype, 2026-09-29; two aerial radius-0.085 wires, rho=0.1, domain=24 skin depths, interpolation_cells=72, coefficient_change=0.12"
+
+[[cases]]
+frequency_hz = 0.1
+
+    [[cases.bottom]]
+    stop = 0.42855263783775815
+    start = 0.0
+    ratio = 0.8181546974449714
+    count = 12
+    [[cases.bottom]]
+    stop = 0.5847099909357201
+    start = 0.42855263783775815
+    ratio = 0.9719842682354185
+    count = 12
+    [[cases.bottom]]
+    stop = 0.706620772472394
+    start = 0.5847099909357201
+    ratio = 0.9866213550105385
+    count = 13
+    [[cases.bottom]]
+    stop = 0.8047392534284348
+    start = 0.706620772472394
+    ratio = 0.9914965131249741
+    count = 12
+    [[cases.bottom]]
+    stop = 0.812677732730351
+    start = 0.8047392534284348
+    ratio = 0.9976167404729989
+    count = 3
+    [[cases.bottom]]
+    stop = 0.9094384529835889
+    start = 0.812677732730351
+    ratio = 0.9936527526113564
+    count = 12
+    [[cases.bottom]]
+    stop = 1.0
+    start = 0.9094384529835889
+    ratio = 0.9952386719449877
+    count = 12
+
+    [[cases.side]]
+    stop = 0.008191842958868342
+    start = 0.0
+    ratio = 0.7557403134503876
+    count = 8
+    [[cases.side]]
+    stop = 0.01550100256365269
+    start = 0.008191842958868342
+    ratio = 1.0203121100916972
+    count = 13
+    [[cases.side]]
+    stop = 0.036355498043000235
+    start = 0.01550100256365269
+    ratio = 1.0381274534779183
+    count = 21
+    [[cases.side]]
+    stop = 0.08353907542690543
+    start = 0.036355498043000235
+    ratio = 1.040151049982098
+    count = 21
+    [[cases.side]]
+    stop = 0.19165193408095504
+    start = 0.08353907542690543
+    ratio = 1.0403122435214796
+    count = 21
+    [[cases.side]]
+    stop = 0.43962287276575196
+    start = 0.19165193408095504
+    ratio = 1.0403251280762968
+    count = 21
+    [[cases.side]]
+    stop = 1.0
+    start = 0.43962287276575196
+    ratio = 1.0338117167076155
+    count = 21
+
+    [[cases.top]]
+    stop = 0.008191842958868342
+    start = 0.0
+    ratio = 0.7557403134503876
+    count = 8
+    [[cases.top]]
+    stop = 0.01550100256365269
+    start = 0.008191842958868342
+    ratio = 1.0203121100916972
+    count = 13
+    [[cases.top]]
+    stop = 0.036355498043000235
+    start = 0.01550100256365269
+    ratio = 1.0381274534779183
+    count = 21
+    [[cases.top]]
+    stop = 0.08353907542690543
+    start = 0.036355498043000235
+    ratio = 1.040151049982098
+    count = 21
+    [[cases.top]]
+    stop = 0.19165193408095504
+    start = 0.08353907542690543
+    ratio = 1.0403122435214796
+    count = 21
+    [[cases.top]]
+    stop = 0.43962287276575196
+    start = 0.19165193408095504
+    ratio = 1.0403251280762968
+    count = 21
+    [[cases.top]]
+    stop = 1.0
+    start = 0.43962287276575196
+    ratio = 1.0338117167076155
+    count = 21
+[[cases]]
+frequency_hz = 21.544346900318832
+
+    [[cases.bottom]]
+    stop = 0.4285526378371661
+    start = 0.0
+    ratio = 0.828667138064868
+    count = 13
+    [[cases.bottom]]
+    stop = 0.5847099909361277
+    start = 0.4285526378371661
+    ratio = 0.9740985994067406
+    count = 13
+    [[cases.bottom]]
+    stop = 0.7066207724730428
+    start = 0.5847099909361277
+    ratio = 0.9866213550102949
+    count = 13
+    [[cases.bottom]]
+    stop = 0.8047392534444358
+    start = 0.7066207724730428
+    ratio = 0.9914965131236946
+    count = 12
+    [[cases.bottom]]
+    stop = 0.8126777327309279
+    start = 0.8047392534444358
+    ratio = 0.997616740478189
+    count = 3
+    [[cases.bottom]]
+    stop = 0.9094384529839267
+    start = 0.8126777327309279
+    ratio = 0.9941391200744967
+    count = 13
+    [[cases.bottom]]
+    stop = 1.0
+    start = 0.9094384529839267
+    ratio = 0.9956039191114607
+    count = 13
+
+    [[cases.side]]
+    stop = 0.020057209324690167
+    start = 0.0
+    ratio = 0.7558779448141151
+    count = 8
+    [[cases.side]]
+    stop = 0.03261989471959996
+    start = 0.020057209324690167
+    ratio = 1.0150223142342738
+    count = 10
+    [[cases.side]]
+    stop = 0.06738575492785137
+    start = 0.03261989471959996
+    ratio = 1.0353321667276365
+    count = 18
+    [[cases.side]]
+    stop = 0.13517979540637984
+    start = 0.06738575492785137
+    ratio = 1.0387765980095067
+    count = 18
+    [[cases.side]]
+    stop = 0.26565327829421576
+    start = 0.13517979540637984
+    ratio = 1.0351436163379113
+    count = 18
+    [[cases.side]]
+    stop = 0.5276304021414034
+    start = 0.26565327829421576
+    ratio = 1.0393708637585797
+    count = 18
+    [[cases.side]]
+    stop = 1.0
+    start = 0.5276304021414034
+    ratio = 1.0249893486123527
+    count = 18
+
+    [[cases.top]]
+    stop = 0.020057209324690167
+    start = 0.0
+    ratio = 0.7558779448141151
+    count = 8
+    [[cases.top]]
+    stop = 0.03261989471959996
+    start = 0.020057209324690167
+    ratio = 1.0150223142342738
+    count = 10
+    [[cases.top]]
+    stop = 0.06738575492785137
+    start = 0.03261989471959996
+    ratio = 1.0353321667276365
+    count = 18
+    [[cases.top]]
+    stop = 0.13517979540637984
+    start = 0.06738575492785137
+    ratio = 1.0387765980095067
+    count = 18
+    [[cases.top]]
+    stop = 0.26565327829421576
+    start = 0.13517979540637984
+    ratio = 1.0351436163379113
+    count = 18
+    [[cases.top]]
+    stop = 0.5276304021414034
+    start = 0.26565327829421576
+    ratio = 1.0393708637585797
+    count = 18
+    [[cases.top]]
+    stop = 1.0
+    start = 0.5276304021414034
+    ratio = 1.0249893486123527
+    count = 18
+[[cases]]
+frequency_hz = 1.0e6
+
+    [[cases.bottom]]
+    stop = 0.4346216473374755
+    start = 0.0
+    ratio = 0.8281836240581624
+    count = 13
+    [[cases.bottom]]
+    stop = 0.5913796769532568
+    start = 0.4346216473374755
+    ratio = 0.9733522950911191
+    count = 13
+    [[cases.bottom]]
+    stop = 0.7125520190176974
+    start = 0.5913796769532568
+    ratio = 0.9859164027266121
+    count = 13
+    [[cases.bottom]]
+    stop = 0.8170723332957519
+    start = 0.7125520190176974
+    ratio = 0.9910271050908026
+    count = 13
+    [[cases.bottom]]
+    stop = 0.880308980048448
+    start = 0.8170723332957519
+    ratio = 0.9929001609900637
+    count = 8
+    [[cases.bottom]]
+    stop = 0.9117946177997267
+    start = 0.880308980048448
+    ratio = 0.9949621440090061
+    count = 5
+    [[cases.bottom]]
+    stop = 1.0
+    start = 0.9117946177997267
+    ratio = 0.9952701178089606
+    count = 13
+
+    [[cases.side]]
+    stop = 0.13153091109799508
+    start = 0.0
+    ratio = 0.786235261122115
+    count = 9
+    [[cases.side]]
+    stop = 0.17191049283123555
+    start = 0.13153091109799508
+    ratio = 1.0060874285147858
+    count = 5
+    [[cases.side]]
+    stop = 0.3018142107565653
+    start = 0.17191049283123555
+    ratio = 1.0217776079464138
+    count = 13
+    [[cases.side]]
+    stop = 0.4530315283825602
+    start = 0.3018142107565653
+    ratio = 1.0034890364464648
+    count = 13
+    [[cases.side]]
+    stop = 0.6079348032308842
+    start = 0.4530315283825602
+    ratio = 1.0016430429800773
+    count = 13
+    [[cases.side]]
+    stop = 0.7857733217177206
+    start = 0.6079348032308842
+    ratio = 1.0207778618691472
+    count = 13
+    [[cases.side]]
+    stop = 1.0
+    start = 0.7857733217177206
+    ratio = 1.0012171718371814
+    count = 13
+
+    [[cases.top]]
+    stop = 0.13153091109799508
+    start = 0.0
+    ratio = 0.786235261122115
+    count = 9
+    [[cases.top]]
+    stop = 0.17191049283123555
+    start = 0.13153091109799508
+    ratio = 1.0060874285147858
+    count = 5
+    [[cases.top]]
+    stop = 0.3018142107565653
+    start = 0.17191049283123555
+    ratio = 1.0217776079464138
+    count = 13
+    [[cases.top]]
+    stop = 0.4530315283825602
+    start = 0.3018142107565653
+    ratio = 1.0034890364464648
+    count = 13
+    [[cases.top]]
+    stop = 0.6079348032308842
+    start = 0.4530315283825602
+    ratio = 1.0016430429800773
+    count = 13
+    [[cases.top]]
+    stop = 0.7857733217177206
+    start = 0.6079348032308842
+    ratio = 1.0207778618691472
+    count = 13
+    [[cases.top]]
+    stop = 1.0
+    start = 0.7857733217177206
+    ratio = 1.0012171718371814
+    count = 13

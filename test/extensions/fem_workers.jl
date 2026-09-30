@@ -31,7 +31,7 @@ assert all(os.environ[x]=='1' for x in ('OPENBLAS_NUM_THREADS','OMP_NUM_THREADS'
 for b in bases:
     time.sleep(control.get('delay',0.0)*(3-f))
     stem=root/'raw'/'jobs'/f'getdp-f{f:04d}-b{b:04d}'
-    for q in ('Z','P'):
+    for q in ('Z','P','Pscalar'):
         text=''.join(f'{f}\t{hz:.17g}\t{r}\t{b}\t{100*f+10*r+b}\t{r-b}\n' for r in (1,2))
         pathlib.Path(str(stem)+f'-{q}.tsv').write_text(text)
     pathlib.Path(str(stem)+'-timing.tsv').write_text(f'{f}\t{b}\t0\t0\t0\t0\t{int(b==bases[0])}\n')
@@ -137,8 +137,18 @@ with open(sys.argv[1],'a+') as f:
             @test E._assert_no_live_attempts(unsupported)===nothing
             # Cancellation kills and reaps workers and leaves no completion claim.
             stopped=fresh();write(config,JSON3.write((delay=2.0,fail=false)))
-            @test_throws LineCableModelsFEMError E._run_getdp!(stopped,model,form, execution_options,meshes;
-                pump=()->stopped.getdp_invocations==0)
+            task = @async try
+                E._run_getdp!(stopped, model, form, execution_options, meshes)
+            catch exception
+                exception
+            end
+            deadline = time() + 30
+            while stopped.getdp_invocations == 0 && !istaskdone(task)
+                time() < deadline || error("worker launch timed out")
+                sleep(0.01)
+            end
+            schedule(task, InterruptException(); error=true)
+            @test fetch(task) isa InterruptException
             @test stopped.state===E.cancelled
             @test E._assert_no_live_attempts(stopped)===nothing
             @test_throws LineCableModelsFEMError E._parse_scan(stopped,model,form, execution_options)

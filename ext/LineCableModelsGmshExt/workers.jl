@@ -32,12 +32,11 @@ end
 _column_stem(frequency::Int, basis::Int) = @sprintf("getdp-f%04d-b%04d", frequency, basis)
 
 function _column_paths(root::String, frequency::Int, basis::Int, maps::Bool;
-        physics::Symbol=Symbol("quasi-tem"))
+        physics::Symbol=Symbol("quasi-fw"))
     stem = _column_stem(frequency, basis)
     raw = _job_raw_paths(root, stem)
     return (; raw...,
-        diagnostics = _quasi_full(physics) ?
-            [joinpath(root, "raw", "jobs", "$stem-Pscalar.tsv")] : String[],
+        diagnostics = [joinpath(root, "raw", "jobs", "$stem-Pscalar.tsv")],
         timing = joinpath(root, "raw", "jobs", "$stem-timing.tsv"),
         marker = joinpath(root, "raw", "jobs", "$stem.done"),
         checkpoint = joinpath(root, "raw", "jobs", "$stem.json"),
@@ -85,14 +84,14 @@ end
 
 function _valid_column_checkpoint(
         root, frequency_index, frequency, basis, terminals, maps, mesh_digest;
-        physics::Symbol=Symbol("quasi-tem"))
+        physics::Symbol=Symbol("quasi-fw"))
     paths = _column_paths(root, frequency_index, basis, maps; physics)
     isfile(paths.checkpoint) || return false
     return try
         record = JSON3.read(read(paths.checkpoint, String))
         record.protocol == 2 && record.frequency_index == frequency_index &&
         record.basis == basis && record.terminals == terminals &&
-        get(record, :physics, "quasi-tem") == String(physics) &&
+        get(record, :physics, nothing) == String(physics) &&
         record.plot_field_maps == maps && record.mesh_digest == mesh_digest &&
         isapprox(record.frequency_hz, frequency; rtol = 16eps(Float64), atol = 0) ||
             return false
@@ -125,7 +124,7 @@ end
 
 function _adopt_column!(
         run, source, frequency_index, frequency, basis, terminals, maps, mesh_digest;
-        physics::Symbol=Symbol("quasi-tem"))
+        physics::Symbol=Symbol("quasi-fw"))
     paths = _column_paths(source, frequency_index, basis, maps; physics)
     _valid_column_marker(
         paths.marker, frequency_index, frequency, basis, terminals, maps) || return false
@@ -163,14 +162,30 @@ function _getdp_command(executable, model_path, mesh_path, run, formulation, exe
         "-setstring", "BasisListPath", basis_path,
         "-setnumber", "FrequencyIndex", string(mesh_plan.frequency_index),
         "-setnumber", "FrequencyHz", _pro_number(mesh_plan.frequency),
-        "-setnumber", "Val_Rint", _pro_number(mesh_plan.domain_radius),
-        "-setnumber", "Val_Rext", _pro_number(mesh_plan.shell_outer_radius),
+        "-setnumber", "GammaRe", _pro_number(real(mesh_plan.Γ)),
+        "-setnumber", "GammaIm", _pro_number(imag(mesh_plan.Γ)),
+        "-setnumber", "DomainHalfwidth", _pro_number(mesh_plan.domain_halfwidth),
+        "-setnumber", "PmlSideThickness", _pro_number(mesh_plan.pml_thickness[1]),
+        "-setnumber", "PmlTopThickness", _pro_number(mesh_plan.pml_thickness[2]),
+        "-setnumber", "PmlBottomThickness", _pro_number(mesh_plan.pml_thickness[3]),
+        "-setnumber", "PmlSideStrength", _pro_number(mesh_plan.pml_strength[1]),
+        "-setnumber", "PmlTopStrength", _pro_number(mesh_plan.pml_strength[2]),
+        "-setnumber", "PmlBottomStrength", _pro_number(mesh_plan.pml_strength[3]),
+        "-setnumber", "PmlSlope", _pro_number(mesh_plan.pml_slope),
+        "-setnumber", "VolumeQuadrature", string(mesh_plan.volume_quadrature),
+        "-setnumber", "PhysicalVolumeQuadrature", string(something(mesh_plan.physical_volume_quadrature, 0)),
+        "-setnumber", "PmlQuadrature", string(mesh_plan.pml_quadrature),
+        "-setnumber", "PmlQuadrangles", string(Int(mesh_plan.pml_element_family === :quadrangle)),
         "-setnumber", "PlotFieldMaps", string(Int(execution.data.plot_field_maps)),
-        "-setnumber", "ReuseFactorization", string(Int(reuse_factorization))]
-    if _quasi_full(formulation.options.data.physics)
-        append!(arguments, ["-setstring", "PathDataPath",
-            _voltage_path_file(run, mesh_plan.frequency_index)])
-    end
+        "-setnumber", "ReuseFactorization", string(Int(reuse_factorization)),
+        # The mixed potentials and low-frequency PML have very different
+        # coefficient scales. Restore A and b after each solve so residuals
+        # and subsequent right-hand sides retain their original units.
+        "-ksp_diagonal_scale", "-ksp_diagonal_scale_fix"]
+    execution.data.mumps_ordering === nothing ||
+        append!(arguments, ["-mat_mumps_icntl_7", string(execution.data.mumps_ordering)])
+    execution.data.petsc_prealloc === nothing ||
+        append!(arguments, ["-petsc_prealloc", string(execution.data.petsc_prealloc)])
     if verbosity >= 4
         append!(arguments, [
             "-cpu", "-ksp_view", "-log_view", ":" * joinpath(directory, "petsc.log")])
@@ -247,7 +262,7 @@ function _record_progress!(run, valid)
         "$(run.completed_columns)/$(length(valid)) terminal columns validated")
 end
 
-function _collect_worker_columns!(run, worker, valid, maps; physics::Symbol=Symbol("quasi-tem"))
+function _collect_worker_columns!(run, worker, valid, maps; physics::Symbol=Symbol("quasi-fw"))
     job = worker.job
     for basis in sort!(collect(worker.pending))
         if _adopt_column!(run, job.directory, job.frequency_index, job.frequency,
@@ -353,7 +368,7 @@ function _assert_no_live_attempts(run)
     return nothing
 end
 
-function _recover_columns!(run, model, maps, mesh_digests; physics::Symbol=Symbol("quasi-tem"))
+function _recover_columns!(run, model, maps, mesh_digests; physics::Symbol=Symbol("quasi-fw"))
     valid = falses(length(model.terminal_ids), length(model.problem.frequencies))
     for frequency in axes(valid, 2), basis in axes(valid, 1)
 
@@ -409,7 +424,7 @@ function _assemble_columns!(run, model)
 end
 
 function _run_getdp!(run::FEMRun, model::FEMResolvedModel, formulation::LineCableModelsFEM,
-        execution::ComputationOptions, mesh_paths::AbstractVector{<:AbstractString}; pump = () -> true,
+        execution::ComputationOptions, mesh_paths::AbstractVector{<:AbstractString};
         reuse_factorization::Bool = true, batch_terminals::Bool = true)
     length(mesh_paths) == length(model.problem.frequencies) ||
         throw(DimensionMismatch("one FEM mesh path is required per frequency"))
@@ -442,8 +457,6 @@ function _run_getdp!(run::FEMRun, model::FEMResolvedModel, formulation::LineCabl
     average_seconds = 0.0
     try
         while next_job <= length(pending) || !isempty(active)
-            pump() || _fem_error(:cancelled, "GetDP", :ui,
-                "FEM solve cancelled; completed terminal columns are retained"; run_directory = run.path)
             while next_job <= length(pending) &&
                 length(active) < execution.data.frequency_workers
                 frequency, bases = pending[next_job]

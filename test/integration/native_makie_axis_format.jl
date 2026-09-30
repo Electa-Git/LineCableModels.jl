@@ -131,6 +131,44 @@ end
     @test 1.8 < low < 2 < high < 2.2
 end
 
+@testitem "Makie addons / signed log separates small conductances in displayed units" tags=[:visual] begin
+    using CairoMakie
+    f = 10.0 .^ range(-1, 6; length = 8)
+    g = -10.0 .^ range(-27, -6; length = 8)
+    y = reshape(complex.(g, 1e-8), 1, 1, :)
+    source = LineParameters(ones(ComplexF64, 1, 1, 8), y, f)
+    rendered = Vector{Float64}[]
+    # Exercise disabled clipping and zero cutoffs through the public API.
+    for (length_unit, clip) in ((:base, false), (:kilo, true))
+        page = LineCableModels.plot(source; ydata=(G,), backend=:cairo,
+            display_plot=false, open_export=false, length_unit, clip, atol=(G=0.,),
+            yscale=:log10)
+        axis = only(page.axes)
+        line = only(filter(p -> p isa Makie.Lines, axis.scene.plots))
+        factor = length_unit === :base ? 1.0 : 1000.0
+        @test last.(line[1][]) ≈ factor .* g
+        @test page.controls[:ylog].active[]
+        for _ in 1:2
+            Makie.colorbuffer(page.figure)
+            pixels = Makie.transform_and_project(line, :data, :pixel, Makie.Point2d.(line[1][]))
+            positions = last.(pixels)
+            normalized = (positions .- first(positions)) ./ (last(positions) - first(positions))
+            # Each three-decade step must occupy visible space, including the
+            # smallest values. Equal raw samples alone cannot detect flattening.
+            @test all(>(0.1), diff(normalized))
+            push!(rendered, normalized)
+            @test any(t -> 0 < abs(t) < factor * 1e-18, axis.yaxis.tickvalues[])
+            inverse = Makie.inverse_transform(axis.yscale[])
+            @test inverse.(axis.yscale[].(factor .* g)) ≈ factor .* g rtol=1e-13
+            page.controls[:ylog].active[] = false
+            @test axis.yscale[] === identity
+            page.controls[:ylog].active[] = true
+        end
+    end
+    @test all(values -> values ≈ first(rendered), rendered)
+    @test Y(source) == y
+end
+
 @testitem "Makie addons / native override precedence and custom transforms" tags=[:visual] begin
     using CairoMakie
     source = LineParameters(reshape(ComplexF64[2,4,8],1,1,:),ones(ComplexF64,1,1,3),[2.0,4.0,8.0])

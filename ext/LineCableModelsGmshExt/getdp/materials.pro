@@ -16,14 +16,15 @@ Group {
     EndIf
   EndFor
   DomainCWithI = Region[{Terminals}];
-  DomainC = Region[{ConductorMaterialRegions, Earth, EarthInf}];
-  DomainCC = Region[{Air, AirInf, PassiveMaterialRegions}];
+  DomainC = Region[{ConductorMaterialRegions, Earth, EarthPml}];
+  DomainCC = Region[{Air, AirPml, PassiveMaterialRegions}];
   DomainLoss = Region[{DomainC, LossyMaterialRegions}];
   Domain_Mag = Region[{DomainC, DomainCC}];
 }
 
 Function {
   For material In {1:NumMaterialRegions}
+    material_tag[MaterialRegion~{material}] = MaterialRegionTags(material - 1);
     nu[MaterialRegion~{material}] = 1. / MaterialMu(material - 1);
     mu[MaterialRegion~{material}] = MaterialMu(material - 1);
     // Sigma is effective conductivity: selected dielectric losses are already

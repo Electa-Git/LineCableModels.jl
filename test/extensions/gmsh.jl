@@ -1,4 +1,4 @@
-@testitem "Gmsh FEM / public API, strict parsing, and UI transitions" tags=[:extension] begin
+@testitem "Gmsh FEM / public API and strict parsing" tags=[:extension] begin
     import LineCableModels
     using Gmsh
     using LinearAlgebra
@@ -52,23 +52,6 @@
     @test formulation isa LineCableModels.LineCableModelsFEM
     @test !formulation.options.data.ideal_transposition
     @test !hasproperty(formulation, :execution)
-
-    transition = extension_module._ui_transition
-    @test transition(:geometry_ready, :run_model) === :mesh_required
-    @test transition(:geometry_ready, :generate_mesh) === :mesh_requested
-    @test transition(:mesh_ready, :run_model) === :solve_requested
-    @test transition(:geometry_ready, Symbol("")) === :geometry_ready
-    @test transition(:geometry_ready, Symbol(""), false) === :closed_before_mesh
-    @test transition(:mesh_ready, Symbol(""), false) === :closed_before_solve
-    @test extension_module._ui_state_labels(:geometry_ready) == (
-        mesh_state = "not generated", solve_state = "not run"
-    )
-    @test extension_module._ui_state_labels(:mesh_ready) == (
-        mesh_state = "ready", solve_state = "not run"
-    )
-    @test extension_module._ui_state_labels(:results_ready) == (
-        mesh_state = "ready", solve_state = "completed"
-    )
 
     mktempdir() do directory
         run = extension_module.FEMRun(
@@ -301,10 +284,10 @@ end
     @test getproperty.(model.material_plans, :physical_tag) == 10_001:10_002
     @test getproperty.(model.region_plans, :material_index) == [1, 2, 1, 2]
     @test model.tags.terminal_base == 3_000
-    @test model.tags.infinite_domain == 1_005
+    @test model.tags.pml == 1_005
     @test model.tags.outer_air_boundary == 2_004
     @test model.tags.outer_earth_boundary == 2_005
-    @test model.shell_outer_radius == 1.25model.domain_radius
+    @test model.pml_thickness == ntuple(_ -> model.domain_halfwidth, 3)
     @test getproperty.(model.region_plans, :mesh_size) ≈ [
         0.001, 0.0025, 0.0005, 0.001
     ]
@@ -313,9 +296,9 @@ end
     @test model.mesh_growth_factor == 1.2
     @test length(model.mesh_plans) == 1
     skin_depth = sqrt(100.0 / (π * 50.0 * 4π * 1e-7))
-    @test model.domain_radius ≈ 2skin_depth
+    @test model.domain_halfwidth ≈ 2skin_depth
     @test only(model.mesh_plans).domain_mesh_size ≈ skin_depth / 20
-    @test only(model.mesh_plans).infinite_mesh_size ≈ skin_depth / 10
+    @test only(model.mesh_plans).pml_layers == (128,128,128)
     @test only(model.mesh_plans).cable_interface_mesh_sizes ≈ [
         min(
         skin_depth / 20,
@@ -325,13 +308,13 @@ end
     smaller_model = extension_module._resolved_fem_model(problem, formulation,
         computation_options(LineCableModelsFEM, ComputationOptions((;domain_skin_depths=1.5))))
     smaller, larger = only(smaller_model.mesh_plans), only(model.mesh_plans)
-    @test smaller.domain_radius ≈ 1.5skin_depth
-    @test smaller.shell_outer_radius ≈ 1.25smaller.domain_radius
+    @test smaller.domain_halfwidth ≈ 1.5skin_depth
+    @test smaller.pml_thickness == ntuple(_ -> smaller.domain_halfwidth, 3)
     # Enlarging the finite domain preserves conductor, interface and medium
     # resolution targets; it does not apply a global mesh coarsening/refinement.
     @test getproperty.(smaller_model.region_plans, :mesh_size) ==
         getproperty.(model.region_plans, :mesh_size)
-    for property in (:domain_mesh_size, :infinite_mesh_size, :interface_mesh_size,
+    for property in (:domain_mesh_size, :interface_mesh_size,
         :cable_interface_mesh_sizes, :wave_mesh_sizes, :wave_decay_radii)
         @test getproperty(smaller, property) == getproperty(larger, property)
     end
@@ -349,10 +332,10 @@ end
     @test getproperty.(multifrequency_model.mesh_plans, :frequency) == [
         50.0, 1000.0
     ]
-    @test multifrequency_model.mesh_plans[1].domain_radius >
-          multifrequency_model.mesh_plans[2].domain_radius
-    @test multifrequency_model.domain_radius ==
-          multifrequency_model.mesh_plans[2].domain_radius
+    @test multifrequency_model.mesh_plans[1].domain_halfwidth >
+          multifrequency_model.mesh_plans[2].domain_halfwidth
+    @test multifrequency_model.domain_halfwidth ==
+          multifrequency_model.mesh_plans[2].domain_halfwidth
 
     matrix = Material(kind = :insulator, rho = Inf, eps_r = 1.0)
     sector_core = Stack(
@@ -569,7 +552,7 @@ end
     gmsh.option.set_number("Geometry.Tolerance", 2.0e-7)
     gmsh.option.set_number("Geometry.ToleranceBoolean", 3.0e-7)
     gmsh.option.set_string("Solver.SocketName", "caller-owned-socket")
-    caller_parameter = extension_module._onelab_name("caller_parameter")
+    caller_parameter = "LineCableModels/FEM/caller_parameter"
     gmsh.onelab.set_string(caller_parameter, ["preserve-me"])
     caller_models = Set(String.(gmsh.model.list()))
     try
@@ -778,8 +761,10 @@ end
                 @test isfile(first_mesh)
                 @test first_run.mesh_source === :generated
                 @test !isempty(first_run.mesh_fingerprint)
-                @test length(first_geometry.infinite_surfaces) == 2
-                @test length(first_geometry.inner_shell_curves) == 4
+                # The buried measurement adds a conforming vertical PML boundary
+                # and splits the corresponding top/bottom Cartesian blocks.
+                @test length(first_geometry.pml_surfaces) == 12
+                @test length(first_geometry.pml_inner_curves) == 8
                 @test !isempty(first_geometry.outer_air_curves)
                 @test !isempty(first_geometry.outer_earth_curves)
                 @test isempty(intersect(
@@ -1450,7 +1435,6 @@ end
         @test Z(recovered) == Z(result) && Y(recovered) == Y(result)
         rm(lossy.details.data.fem.run.run_directory; recursive = true, force = true)
 
-        # The display lifecycle belongs to fem_ui.jl and its isolated children.
         rm(run_directory; recursive = true, force = true)
 end
 

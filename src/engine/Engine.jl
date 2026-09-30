@@ -83,6 +83,7 @@ using QuadGK: alloc_segbuf, quadgk
 
 include("interfaces.jl")
 include("formulations.jl")
+include("fem_data.jl")
 include("specialfunctions.jl")
 
 # Problem and coaxial formulation definitions
@@ -143,6 +144,7 @@ include("lineparameters/base.jl")
 include("textdisplay.jl")
 
 public completion_details, completed_inputs, completed_formulation, retain_gridpoint
+public FEMMesh, FEMElementBlock, FEMFieldMap, FEMFieldBlock
 public SpectralIntegral, integrate, integration_workspace
 public earth_bindings, initialize_buffers, earth!, materials!, homogenize!,
        same_physical_state, layer_index, computation_type

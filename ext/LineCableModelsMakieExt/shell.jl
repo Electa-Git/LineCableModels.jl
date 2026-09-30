@@ -159,17 +159,22 @@ function _addon_icon(value)
     )
 end
 
-function _addon_scale(symbol::Symbol)
+function _addon_scale(symbol::Symbol, linear_width::Float64 = 1.0)
     symbol === :linear && return Base.identity
     symbol === :log10 && return Base.log10
     # Same signed-log scale, with no cancellation in its linear neighbourhood.
     symbol === :pseudolog10 && return Makie.ReversibleScale(
-        x -> sign(x) * log1p(abs(x)) / log(10),
-        x -> sign(x) * expm1(abs(x) * log(10));
+        x -> sign(x) * (abs(x) <= linear_width ? log1p(abs(x) / linear_width) / log(10) :
+                       log10(abs(x)) - log10(linear_width) + log1p(linear_width / abs(x)) / log(10)),
+        x -> sign(x) * (abs(x) <= log10(2) ? linear_width * expm1(abs(x) * log(10)) :
+                       exp(log(linear_width) + abs(x) * log(10)) * -expm1(-abs(x) * log(10)));
         limits = (0.0f0, 3.0f0), name = :pseudolog10)
     throw(ArgumentError("unsupported axis scale :$symbol"))
 end
 _addon_scale(scale) = scale
+_addon_is_signed_scale(scale) = scale isa typeof(_addon_scale(:pseudolog10))
+# For this transform, the inverse of log10(2) is its linear reference magnitude.
+_addon_signed_width(scale) = Makie.inverse_transform(scale)(log10(2.0))
 
 function _addon_scientific_exponent(values)
     magnitudes = Float64[]
@@ -263,10 +268,15 @@ function _addon_set_axis!(entries::AbstractVector, dim::Symbol, scale = nothing)
         bounds = requested[index] === nothing ? () : requested[index]
         all(value -> value === nothing || isfinite(value), bounds) ||
             throw(DomainError(bounds, "$context requires finite explicit limits"))
-        values = _addon_visible_values(entry.axis, dim, entry.series)
+        values = _addon_visible_values(entry.axis, dim, entry.series;
+            all_samples = requested_scale === :log10)
         if requested_scale === :log10 &&
            (any(<=(0), values) || any(value -> value!==nothing && value<=0, bounds))
-            target = _addon_scale(:pseudolog10)
+            smallest = minimum((abs(value) for value in Iterators.flatten((values, bounds))
+                                if value !== nothing && !iszero(value)); init = Inf)
+            width = isfinite(smallest) ? 10.0^floor(log10(smallest)) : 1.0
+            iszero(width) && (width = smallest)
+            target = _addon_scale(:pseudolog10, width)
         end
         if target === Base.log10
             all(>(0), values) && all(value -> value === nothing || value > 0, bounds) ||
@@ -460,7 +470,7 @@ function _addon_points!(axis, xdata, ydata; dependent_plots, label, color = noth
     return plots
 end
 
-function _addon_visible_values(axis::Axis, dim::Symbol, series = ())
+function _addon_visible_values(axis::Axis, dim::Symbol, series = (); all_samples::Bool = false)
     index = dim === :x ? 1 : 2
     bounds = Makie.data_limits(axis.scene,
         plot -> !to_value(get(plot, :visible, true)) ||
@@ -468,6 +478,20 @@ function _addon_visible_values(axis::Axis, dim::Symbol, series = ())
                 to_value(get(plot, :space, :data)) !== :data)
     lower, upper = bounds.origin[index], bounds.origin[index] + bounds.widths[index]
     values = isfinite(lower) && isfinite(upper) ? [lower, upper] : Float64[]
+    # Bounds alone lose small samples when origin + width cancels to zero.
+    # Read native positions so signed-log scaling also covers interior samples
+    # and respects later edits to the plotted curves.
+    if all_samples
+        for plot in axis.scene.plots
+            plot isa Union{Makie.Lines, Makie.Scatter, Makie.ScatterLines, Makie.LineSegments} || continue
+            plot.visible[] && to_value(get(plot, Symbol(dim, :autolimits), true)) &&
+                to_value(get(plot, :space, :data)) === :data || continue
+            for point in plot[1][]
+                value = point[index]
+                isfinite(value) && push!(values, value)
+            end
+        end
+    end
     for item in series
         get(item, :sampled_intervals, false) || continue
         # Undrawn intervals still constrain scientific axes. Independently hidden
@@ -481,7 +505,7 @@ function _addon_visible_values(axis::Axis, dim::Symbol, series = ())
             item.plots) || continue
         append!(values, _addon_visible_values((item,), dim; include_uncertainty = true))
     end
-    return isempty(values) ? values : collect(extrema(values))
+    return all_samples || isempty(values) ? values : collect(extrema(values))
 end
 
 function LineCableModels.plotwindow(
@@ -699,8 +723,8 @@ function _addon_axis_format!(axis)
                 decades = current_scale === Base.log10 && 0 < lower < upper &&
                           log10(upper) - log10(lower) >= 2
                 exponent = something(_addon_scientific_exponent((lower, upper)), 0)
-                signed_linear = current_scale === _addon_scale(:pseudolog10) &&
-                                max(abs(lower), abs(upper)) < 1
+                signed_linear = _addon_is_signed_scale(current_scale) &&
+                                max(abs(lower), abs(upper)) < _addon_signed_width(current_scale)
                 mode = if numeric && (current_scale === Base.identity || signed_linear) &&
                           (owned_ticks || current_ticks isa AbstractVector{<:Real})
                     (:linear, exponent)
@@ -763,7 +787,7 @@ function _addon_axis_format!(axis)
                             end
                         elseif current_scale === Base.log10
                             _addon_decade_ticks(lower, upper, count)
-                        elseif current_scale === _addon_scale(:pseudolog10)
+                        elseif _addon_is_signed_scale(current_scale)
                             # Native PseudologTicks dispatches on Makie's scale
                             # instance. Reuse its placement, not its cancelling
                             # transform, and pass numeric positions to this axis.
@@ -772,8 +796,9 @@ function _addon_axis_format!(axis)
                             else
                                 locator = signed_linear ? Makie.LinearTicks(count) :
                                           Makie.PseudologTicks(count)
+                                width = _addon_signed_width(current_scale)
                                 first(Makie.get_ticks(locator, Makie.pseudolog10,
-                                    Makie.automatic, lower, upper))
+                                    Makie.automatic, lower / width, upper / width)) .* width
                             end
                         else
                             Makie.automatic
@@ -1793,8 +1818,8 @@ function _addon_finish!(
         end
         filter(entries) do entry
             _addon_numeric_axis(entry.axis, dim) &&
-                getproperty(entry.axis, Symbol(dim, :scale))[] in
-                (identity, log10, _addon_scale(:pseudolog10)) &&
+                (getproperty(entry.axis, Symbol(dim, :scale))[] in (identity, log10) ||
+                 _addon_is_signed_scale(getproperty(entry.axis, Symbol(dim, :scale))[])) &&
                 !isempty(_addon_visible_values(entry.axis, dim, entry.series))
         end
     end

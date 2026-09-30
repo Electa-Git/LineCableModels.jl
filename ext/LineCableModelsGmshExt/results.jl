@@ -1,5 +1,5 @@
 """
-Invert each reduced quasi-TEM potential-coefficient slice to obtain shunt
+Invert each reduced FEM inverse-admittance coefficient slice to obtain shunt
 admittance directly:
 
 ```math
@@ -272,7 +272,7 @@ function _validate_completion(
 end
 
 function _expected_map_paths(run::FEMRun, frequency_count::Int, terminal_count::Int;
-        physics::Symbol=Symbol("quasi-tem"))
+        physics::Symbol=Symbol("quasi-fw"))
     return [joinpath(
                 run.path,
                 "maps",
@@ -288,7 +288,7 @@ function _validate_maps(
         frequency_count::Int,
         terminal_count::Int,
         enabled::Bool;
-        physics::Symbol=Symbol("quasi-tem")
+        physics::Symbol=Symbol("quasi-fw")
 )
     expected = enabled ? _expected_map_paths(run, frequency_count, terminal_count; physics) :
                String[]
@@ -471,11 +471,4 @@ function _line_parameters(
         model.problem.frequencies,
         details
     )
-end
-
-function _merge_maps!(paths::Vector{String})
-    for path in paths
-        gmsh.merge(path)
-    end
-    return nothing
 end

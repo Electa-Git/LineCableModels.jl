@@ -53,7 +53,6 @@ struct FEMGmshSession
     verbosity_option::Float64
     geometry_tolerance::Float64
     boolean_tolerance::Float64
-    onelab::FEMOnelabSnapshot
 end
 
 const FEM_SESSION_LOCK = ReentrantLock()
@@ -102,7 +101,6 @@ function _start_gmsh(verbosity::Int)
     verbosity_option = gmsh.option.get_number("General.Verbosity")
     geometry_tolerance = gmsh.option.get_number("Geometry.Tolerance")
     boolean_tolerance = gmsh.option.get_number("Geometry.ToleranceBoolean")
-    onelab = _snapshot_onelab()
     gmsh.option.set_number("General.Terminal", verbosity > 0 ? 1 : 0)
     gmsh.option.set_number("General.Verbosity", verbosity)
     gmsh.option.set_number("Geometry.Tolerance", _GMSH_GEOMETRY_TOLERANCE)
@@ -115,8 +113,7 @@ function _start_gmsh(verbosity::Int)
         terminal_option,
         verbosity_option,
         geometry_tolerance,
-        boolean_tolerance,
-        onelab
+        boolean_tolerance
     )
 end
 
@@ -146,7 +143,6 @@ function _finish_gmsh(session::FEMGmshSession)
     gmsh.option.set_number("General.Verbosity", session.verbosity_option)
     gmsh.option.set_number("Geometry.Tolerance", session.geometry_tolerance)
     gmsh.option.set_number("Geometry.ToleranceBoolean", session.boolean_tolerance)
-    _restore_onelab(session.onelab)
     return nothing
 end
 
@@ -196,7 +192,6 @@ function _resume_inputs_match(path::String, model::FEMResolvedModel, inputs::Nam
     inputs.owned_gmsh || return false
     if String(run_state.state) == string(completed)
         inputs.getdp_identity === nothing && return false
-        inputs.execution.ui && return false
         inputs.execution.mesh_policy === :remesh && return false
         isfile(joinpath(path, "raw", "checksums.json")) || return false
     end
@@ -205,7 +200,7 @@ function _resume_inputs_match(path::String, model::FEMResolvedModel, inputs::Nam
     requested = Dict(String(key)=>value
     for (key, value) in pairs(JSON3.read(JSON3.write(inputs))))
     # A solver-input schema change is an intentional restart boundary.
-    get(comparable, "schema_version", 0) == inputs.schema_version == 7 || return false
+    get(comparable, "schema_version", 0) == inputs.schema_version == 8 || return false
     get(comparable, "solver_protocol", 0) == inputs.solver_protocol == 3 || return false
     # Scheduling and executable location do not change the numerical problem.
     for record in (comparable, requested)
@@ -360,126 +355,15 @@ function _headless_solve!(
     )
     _transition!(run, mesh_ready, "mesh ready")
     @debug "FEM mesh ready" source=run.mesh_source fingerprint=run.mesh_fingerprint
-    model_data_path = _prepare_run_inputs!(run, model)
-    _prepare_voltage_paths!(run, model, formulation, mesh_paths)
-    _publish_transport!(
-        run, model, model_data_path, last(mesh_paths), formulation, execution
-    )
+    _prepare_run_inputs!(run, model)
     _transition!(run, running, "GetDP frequency batches running")
     @debug "Starting isolated GetDP frequency batches" workers=execution.data.frequency_workers
     _run_getdp!(run, model, formulation, execution, mesh_paths)
     scan = _parse_scan(run, model, formulation, execution)
     _write_scan_checksums(run, scan)
-    gmsh.onelab.set_number(_onelab_name("completion_status"), [1.0])
     _transition!(run, completed, "results validated")
     parameters = _line_parameters(run, model, formulation, execution, scan, inputs)
     return parameters
-end
-
-function _ui_solve!(
-        run::FEMRun,
-        model::FEMResolvedModel,
-        formulation::LineCableModelsFEM,
-        execution::ComputationOptions,
-        runtime_root::String,
-        inputs::NamedTuple
-)
-    geometry = _build_geometry!(
-        model, "LineCableModelsFEM-$(basename(run.path))"
-    )
-    _transition!(run, geometry_ready, "geometry ready")
-    state = :geometry_ready
-    _publish_ui!(run, model, state)
-    Bool(gmsh.fltk.is_available()) || gmsh.fltk.initialize()
-    gmsh.fltk.wait(0.05)
-    yield()
-    mesh_paths = nothing
-    model_data_path = nothing
-    parameters = nothing
-    while true
-        available = Bool(gmsh.fltk.is_available())
-        transition = _ui_transition(state, _take_ui_action(), available)
-        if transition === :closed_before_mesh
-            _transition!(run, not_executed, "UI closed before mesh generation")
-            _fem_error(
-                :not_executed,
-                model.problem.system.system_id,
-                :ui,
-                "Gmsh UI closed before mesh generation; no FEM solve was executed";
-                run_directory = run.path
-            )
-        elseif transition === :closed_before_solve
-            _transition!(run, not_executed, "UI closed after mesh generation before solve")
-            _fem_error(
-                :not_executed,
-                model.problem.system.system_id,
-                :ui,
-                "Gmsh UI closed after mesh generation but before Run model; " *
-                "no FEM solve was executed";
-                run_directory = run.path
-            )
-        elseif !available
-            parameters === nothing || return parameters
-            _transition!(run, not_executed, "UI closed without a solve")
-            _fem_error(
-                :not_executed,
-                model.problem.system.system_id,
-                :ui,
-                "Gmsh UI closed before a FEM solve was executed";
-                run_directory = run.path
-            )
-        elseif transition === :mesh_required
-            _set_ui_status(:mesh_required)
-        elseif transition === :mesh_requested
-            mesh_paths = _select_meshes!(
-                run, model, geometry, execution, runtime_root
-            )
-            model_data_path = _prepare_run_inputs!(run, model)
-            _prepare_voltage_paths!(run, model, formulation, mesh_paths)
-            _publish_transport!(
-                run, model, model_data_path, last(mesh_paths), formulation, execution
-            )
-            _transition!(run, mesh_ready, "mesh ready")
-            state = _set_ui_status(:mesh_ready)
-        elseif transition === :solve_requested
-            mesh_paths === nothing && begin
-                _set_ui_status(:mesh_required)
-                gmsh.fltk.wait(0.05)
-                continue
-            end
-            state = _set_ui_status(:running)
-            _transition!(run, running, "GetDP frequency batches running")
-            progress = (-1, -1)
-            _run_getdp!(run,
-                model,
-                formulation,
-                execution,
-                mesh_paths;
-                pump = () -> begin
-                    # fltk.wait can initialize a GUI again after it was closed.
-                    Bool(gmsh.fltk.is_available()) || return false
-                    current = (run.completed_frequencies, run.completed_columns)
-                    if current != progress
-                        gmsh.onelab.set_number(_onelab_name("ui/completed_frequencies"), [current[1]])
-                        gmsh.onelab.set_number(_onelab_name("ui/completed_columns"), [current[2]])
-                        progress = current
-                    end
-                    gmsh.fltk.wait(0.01)
-                    Bool(gmsh.fltk.is_available())
-                end)
-            scan = _parse_scan(run, model, formulation, execution)
-            _write_scan_checksums(run, scan)
-            execution.data.plot_field_maps && _merge_maps!(scan.map_paths)
-            gmsh.onelab.set_number(_onelab_name("completion_status"), [1.0])
-            gmsh.onelab.set_number(_onelab_name("ui/completed_frequencies"), [run.completed_frequencies])
-            gmsh.onelab.set_number(_onelab_name("ui/completed_columns"), [run.completed_columns])
-            _transition!(run, completed, "results ready")
-            parameters = _line_parameters(run, model, formulation, execution, scan, inputs)
-            state = _set_ui_status(:results_ready)
-        end
-        gmsh.fltk.wait(0.05)
-        yield()
-    end
 end
 
 function _attach_run_directory(
@@ -552,15 +436,19 @@ function _compute_owned_fem(
     session = nothing
     try
         session = _start_gmsh(execution.data.gmsh_verbosity)
-        parameters = execution.data.ui ?
-                     _ui_solve!(run, model, formulation, execution, runtime_root, inputs) :
-                     _headless_solve!(
+        parameters = _headless_solve!(
             run, model, formulation, execution, runtime_root, inputs)
         return parameters
     catch exception
         LineCableModels.verbosity(execution, :progress) > 0 &&
             @info "FEM computation failed" _group=:progress run_directory=run.path exception
-        if run.state ∉ (not_executed, cancelled)
+        if exception isa InterruptException
+            _transition!(run, cancelled, "computation interrupted")
+            _fem_error(:cancelled, problem.system.system_id, :execution,
+                "FEM computation interrupted; completed checkpoints are retained";
+                run_directory=run.path)
+        end
+        if run.state !== cancelled
             _transition!(run, failed, sprint(showerror, exception))
         end
         if exception isa LineCableModelsFEMError
@@ -578,8 +466,8 @@ function _compute_owned_fem(
     end
 end
 
-const FEM_ADAPTER_SOURCES = let files = ("model.jl", "geometry.jl", "mesh.jl",
-        "onelab.jl", "getdp.jl", "voltage_paths.jl", "workers.jl", "results.jl", "compute.jl")
+const FEM_ADAPTER_SOURCES = let files = ("model.jl", "pml_mesh.jl", "geometry.jl", "mesh.jl",
+        "getdp.jl", "workers.jl", "results.jl", "compute.jl")
     digests = map(files) do file
         path = joinpath(@__DIR__, file)
         Base.include_dependency(path)
@@ -595,7 +483,7 @@ function _fem_input_record(model::FEMResolvedModel, formulation::LineCableModels
     getdp_selection = selection
     mesh_path = execution.data.mesh_path
     return (
-        schema_version = 7,
+        schema_version = 8,
         solver_protocol = 3,
         mesh_fingerprint = _mesh_fingerprint(model, gmsh.GMSH_API_VERSION),
         materials = [(kind = material.kind, tag = material.physical_tag,
@@ -722,7 +610,7 @@ function _compute_fem(
         formulation = formulations[index]
         previous = get(completed, keys[index], nothing)
         scan_started = execution.data.timing ? time_ns() : UInt64(0)
-        value = if previous === nothing || execution.data.ui ||
+        value = if previous === nothing ||
                    execution.data.mesh_policy === :remesh
             _compute_fem(problem, formulation, execution, models[index])
         else

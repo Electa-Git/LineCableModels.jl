@@ -16,10 +16,10 @@ problem = loaded_case.problem
 system = problem.system
 
 # Keep core, wire screen and aluminium foil as separate terminals on each cable.
-# Explicitly selects quasi-tem.pro, NOT the coupled quasi-full.pro.
+# Uses the coupled quasi-full.pro formulation.
 fem_formulation = Formulation(:LineCableModelsFEM;
     options=(
-        physics=:quasi_tem,
+        physics=:quasi_fw,
         reduce_bundle=false,
         kron_reduction=false,
         ideal_transposition=false,

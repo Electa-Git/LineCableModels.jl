@@ -55,6 +55,10 @@ jobs:
       - uses: julia-actions/cache@v3
         with:
           delete-old-caches: "false"
+      - name: Install native Gmsh system libraries
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes --no-install-recommends libglu1-mesa
       - name: Run FEM execution tests (headless)
         run: |
           julia --project=test --startup-file=no --compiled-modules=no --code-coverage=@. --color=yes -e 'using Pkg; Pkg.instantiate()'
@@ -159,9 +163,9 @@ jobs:
             push!(ARGS, "loaded extension activation")
             include(joinpath(pwd(), "test", "runtests.jl"))
           '
-      - name: Collect native FEM UI lifecycle coverage
+      - name: Collect independent FEM inspection coverage
         if: ${{ !cancelled() }}
-        run: xvfb-run -a julia --project=test --code-coverage=@. test/runtests.jl extensions/fem_ui.jl
+        run: DISPLAY= LINECABLEMODELS_TEST_PLOTTING=true julia --project=test --code-coverage=@. test/runtests.jl integration/native_makie_fem.jl
       - name: Collect WGLMakie boundary coverage
         if: ${{ !cancelled() }}
         run: |

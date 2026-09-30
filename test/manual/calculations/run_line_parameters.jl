@@ -51,7 +51,7 @@ if run_fem
     # FEM field-model choices. Execution controls belong to compute(...; options).
     fem_formulation = Formulation(:LineCableModelsFEM;
         options = (
-            physics = :quasi_tem,
+            physics = :quasi_fw,
             reduce_bundle = false,
             kron_reduction = false,
             ideal_transposition = false

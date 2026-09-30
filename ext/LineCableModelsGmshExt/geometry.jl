@@ -19,6 +19,7 @@ mutable struct FEMLoopRegistry
     circle_break_points::Dict{Any, Dict{Float64, Tuple{Float64, Float64}}}
     loops::Dict{Any, FEMLoop}
     mesh_size::Float64
+    voltage_abscissae::Vector{Float64}
 end
 
 function FEMLoopRegistry(mesh_size)
@@ -33,7 +34,8 @@ function FEMLoopRegistry(mesh_size)
         Dict{Any, Set{Float64}}(),
         Dict{Any, Dict{Float64, Tuple{Float64, Float64}}}(),
         Dict{Any, FEMLoop}(),
-        Float64(mesh_size)
+        Float64(mesh_size),
+        Float64[]
     )
 end
 
@@ -298,7 +300,7 @@ function _annular_sector_surface!(
         first_point = outer_start_point,
         last_point = outer_stop_point
     )
-    push!(curves, _line!(registry, outer_stop, inner_stop))
+    append!(curves, _line_path!(registry, outer_stop_point, inner_stop_point; mesh_size))
     append!(curves,
         _circle_arc_path!(
             registry,
@@ -310,7 +312,7 @@ function _annular_sector_surface!(
             first_point = inner_stop_point,
             last_point = inner_start_point
         ))
-    push!(curves, _line!(registry, inner_start, outer_start))
+    append!(curves, _line_path!(registry, inner_start_point, outer_start_point; mesh_size))
     loop = gmsh.model.geo.add_curve_loop(curves)
     return gmsh.model.geo.add_plane_surface([loop])
 end
@@ -566,10 +568,11 @@ end
 function _line!(registry::FEMLoopRegistry, first_point::Int, last_point::Int)
     key = minmax(first_point, last_point)
     tag = get!(registry.lines, key) do
-        gmsh.model.geo.add_line(key[1], key[2])
+        value = gmsh.model.geo.add_line(key[1], key[2])
+        registry.curve_points[value] = key
+        value
     end
-    registry.curve_points[tag] = key
-    return first_point == key[1] ? tag : -tag
+    return first_point == registry.curve_points[tag][1] ? tag : -tag
 end
 
 function _line_path!(registry::FEMLoopRegistry, first, last;
@@ -581,6 +584,15 @@ function _line_path!(registry::FEMLoopRegistry, first, last;
     distance > 0 || return Int[]
     tolerance = 64eps(max(abs(first[1]), abs(first[2]), abs(last[1]), abs(last[2]), 1.0))
     points = Tuple{Float64, Int}[(0.0, first_point), (1.0, last_point)]
+    # Split CAD interfaces at the measurement abscissae before making surfaces.
+    # Gmsh can then embed each path interval using the shared interface vertices.
+    if !iszero(dx)
+        for x in registry.voltage_abscissae
+            position = (x - first[1]) / dx
+            tolerance / distance < position < 1 - tolerance / distance || continue
+            _point!(registry, (x, first[2] + position * dy); mesh_size)
+        end
+    end
     # Visit only buckets intersecting this edge's bounding box. Scanning every
     # vertex for every strand edge is quadratic for large bounded formations.
     x_bins = range(floor(Int, (min(first[1], last[1]) - tolerance) / registry.mesh_size),
@@ -719,15 +731,27 @@ function _ellipse_loop!(
             (-shape.a, 0.0),
             (0.0, -shape.b)
         )
-        point_tags = [_point!(registry, _transform_point(point, shape.at); mesh_size)
-                      for point in local_points]
+        angles = Float64[0, π/2, π, 3π/2, 2π]
+        ax, bx = shape.a*cos(shape.at.φ), -shape.b*sin(shape.at.φ)
+        phase, amplitude = atan(bx, ax), hypot(ax, bx)
+        for x in registry.voltage_abscissae
+            offset = (x - shape.at.x)/amplitude
+            abs(offset) < 1 || continue
+            for angle in mod.((phase-acos(offset),phase+acos(offset)),2π)
+                all(a -> abs(a-angle)>FEM_BOUNDARY_ANGLE_TOLERANCE,angles) && push!(angles,angle)
+            end
+        end
+        sort!(unique!(angles))
+        point_tags = [_point!(registry,
+            _transform_point((shape.a*cos(a),shape.b*sin(a)),shape.at); mesh_size)
+            for a in angles[1:end-1]]
         major_point = shape.a >= shape.b ? local_points[1] : local_points[2]
         major_tag = _point!(
             registry, _transform_point(major_point, shape.at); mesh_size
         )
         curves = Int[]
-        for index in 1:4
-            next_index = mod1(index + 1, 4)
+        for index in eachindex(point_tags)
+            next_index = mod1(index + 1, length(point_tags))
             curve = gmsh.model.geo.add_ellipse_arc(
                 point_tags[index], centre_tag, major_tag, point_tags[next_index]
             )
@@ -741,7 +765,7 @@ function _ellipse_loop!(
         for (index, curve) in enumerate(curves)
             registry.curve_samples[curve] = [
                 _transform_point((shape.a * cos(angle), shape.b * sin(angle)), shape.at)
-                for angle in range((index - 1) * π / 2, index * π / 2; length = 17)
+                for angle in range(angles[index], angles[index+1]; length = 17)
             ]
         end
         FEMLoop(ccw, cw, curves, curves)
@@ -778,6 +802,15 @@ function _circle_arc_path!(
     # Span-relative subdivisions create overlapping curves when another
     # material traverses the same interface over a different angular range.
     _register_full_circle_breaks!(registry, centre, radius)
+    for x in registry.voltage_abscissae
+        offset = (x - centre[1]) / radius
+        abs(offset) < 1 || continue
+        angle = acos(offset)
+        for a in (angle, -angle)
+            _register_circle_break!(registry, centre, radius, a;
+                point=(x, centre[2] + radius * sin(a)))
+        end
+    end
     _register_circle_break!(registry, centre, radius, start_angle)
     _register_circle_break!(registry, centre, radius, start_angle + value_span)
     circle_key = _circle_key(centre, radius)
@@ -823,7 +856,8 @@ function _circle_arc_path!(
                 end
                 first_tag == stored_first && last_tag == stored_last ? tag : -tag
             end
-            for index in 1:(length(point_tags) - 1)]
+            for index in 1:(length(point_tags) - 1)
+            if point_tags[index] != point_tags[index + 1]]
 end
 
 function _sector_loop!(
@@ -865,9 +899,8 @@ function _sector_loop!(
             if iszero(arc.radius)
                 arc_curves[name] = point_tags[first_index] == point_tags[last_index] ?
                                    Int[] :
-                                   Int[_line!(
-                    registry, point_tags[first_index], point_tags[last_index]
-                )]
+                                   _line_path!(registry,
+                    transformed[first_index], transformed[last_index]; mesh_size)
                 continue
             end
             centre = _transform_point(arc.center, shape.at)
@@ -935,14 +968,14 @@ function _bent_strip_loop!(
         )
         if iszero(shape.ri)
             centre_point = _point!(registry, centre; mesh_size)
-            push!(curves, _line!(registry, outer_stop, centre_point))
-            push!(curves, _line!(registry, centre_point, outer_start))
+            append!(curves, _line_path!(registry, outer_stop_point, centre; mesh_size))
+            append!(curves, _line_path!(registry, centre, outer_start_point; mesh_size))
         else
             inner_start_point = _circle_point(centre, shape.ri, start_angle)
             inner_stop_point = _circle_point(centre, shape.ri, stop_angle)
             inner_start = _point!(registry, inner_start_point; mesh_size)
             inner_stop = _point!(registry, inner_stop_point; mesh_size)
-            push!(curves, _line!(registry, outer_stop, inner_stop))
+            append!(curves, _line_path!(registry, outer_stop_point, inner_stop_point; mesh_size))
             append!(curves,
                 _circle_arc_path!(
                     registry,
@@ -954,7 +987,7 @@ function _bent_strip_loop!(
                     first_point = inner_stop_point,
                     last_point = inner_start_point
                 ))
-            push!(curves, _line!(registry, inner_start, outer_start))
+            append!(curves, _line_path!(registry, inner_start_point, outer_start_point; mesh_size))
         end
         ccw = gmsh.model.geo.add_curve_loop(curves)
         cw = gmsh.model.geo.add_curve_loop(-reverse(curves))
@@ -1332,15 +1365,152 @@ function _interface_mesh_sizes(model::FEMResolvedModel, mesh_plan::FEMMeshPlan)
     return sizes
 end
 
+# Geometric intervals from the interface towards the far boundary. The
+# logarithmic mean chooses a count that bounds both endpoint element sizes.
+function _exterior_edge_grading(length, first_size, last_size)
+    first_size = min(first_size, last_size)
+    first_size == last_size && return (max(2, ceil(Int, length / last_size)), 1.0)
+    relative_gap = (last_size - first_size) / first_size
+    # Avoid losing the size difference when the endpoint targets are close.
+    log_ratio = relative_gap < 0.5 ? log1p(relative_gap) : log(last_size / first_size)
+    count = max(2, ceil(Int, length * log_ratio / (last_size - first_size)))
+    return count, exp(log_ratio / (count - 1))
+end
+
+# Native geometric progression, with representable nodes from interface to wall.
+# Evaluate the normalized exponential without overflowing exp(g). The rounded
+# native ratio defines the check: sufficiently small exponents round to one.
+function _pml_progression(count, grading, inner, outer)
+    ratio = count == 1 ? 1.0 : exp(grading / count)
+    isfinite(ratio) && isfinite(inner) && isfinite(outer) && inner != outer ||
+        throw(ArgumentError("PML progression or endpoints are not representable"))
+    exponent = count * log(ratio)
+    previous = inner
+    direction = sign(outer - inner)
+    for i in 1:count-1
+        fraction = ratio == 1 ? i / count :
+            exp(exponent * (i / count - 1)) *
+            (-expm1(-exponent * i / count)) / (-expm1(-exponent))
+        coordinate = inner + (outer - inner) * fraction
+        isfinite(coordinate) && direction * (coordinate - previous) > 0 &&
+            direction * (outer - coordinate) > 0 || throw(ArgumentError(
+                "PML spacing is not representable for count=$count, grading=$grading, endpoints=($inner, $outer)"))
+        previous = coordinate
+    end
+    return ratio
+end
+
+# The same CAD vertices used by the primitive constructors select the voltage
+# endpoint. This is geometry bookkeeping, independent of mesh nodes or fields.
+_voltage_endpoint(shape) = argmin(p -> (p[2],p[1]), _shape_points(shape))
+_voltage_endpoint(shape::DataModel.Disk) = (shape.at.x,shape.at.y-shape.r)
+_voltage_endpoint(shape::DataModel.Annulus) = (shape.at.x,shape.at.y-shape.ro)
+_voltage_endpoint(shape::Union{DataModel.ShellShape,DataModel.DifferenceShape}) =
+    _voltage_endpoint(shape.outer)
+_voltage_endpoint(shape::DataModel.AssemblyShape) =
+    argmin(p -> (p[2],p[1]), _voltage_endpoint.(shape.members))
+function _voltage_endpoint(shape::DataModel.Ellipse)
+    return argmin(p -> (p[2],p[1]), [_transform_point(p,shape.at)
+        for p in ((shape.a,0.),(0.,shape.b),(-shape.a,0.),(0.,-shape.b))])
+end
+function _voltage_endpoint(shape::DataModel.SectorShape)
+    points = [_transform_point(p,shape.at) for p in values(shape.contacts.points)]
+    for arc in values(shape.contacts.arcs)
+        iszero(arc.radius) && continue
+        start, span = shape.at.φ+arc.start, arc.stop-arc.start
+        if mod(3π/2-start,2π) <= span
+            centre = _transform_point(arc.center,shape.at)
+            push!(points,(centre[1],centre[2]-arc.radius))
+        end
+    end
+    return argmin(p -> (p[2],p[1]),points)
+end
+function _voltage_endpoint(shape::DataModel.BentStrip)
+    centre = (shape.at.x,shape.at.y)
+    start, stop = shape.at.φ-shape.span/2, shape.at.φ+shape.span/2
+    angles = mod(3π/2-start,2π) <= shape.span ? (start,stop,3π/2) : (start,stop)
+    return argmin(p -> (p[2],p[1]), [_circle_point(centre,r,a)
+        for r in (shape.ri,shape.ro) for a in angles])
+end
+
+# Relative circle-area error is bounded by 2pi^2/(3N^2). Dyadic multiples
+# of twelve reproduce the qualified 96/192-point levels without measuring
+# a mesh or refining in response to its result.
+_conductor_circle_segments(tolerance) = 12 * 2^max(0,
+    ceil(Int, log2(sqrt(2π^2/(3tolerance))/12)))
+
+function _conductor_curve_geometry(shape, curve)
+    lower, upper = gmsh.model.get_parametrization_bounds(1, curve)
+    a = gmsh.model.get_value(1, curve, lower)[1:2] .- (shape.at.x, shape.at.y)
+    b = gmsh.model.get_value(1, curve, upper)[1:2] .- (shape.at.x, shape.at.y)
+    angle = atan(abs(a[1]*b[2]-a[2]*b[1]), a[1]*b[1]+a[2]*b[2])
+    return (; fraction=angle/(2π), length=angle*hypot(a...))
+end
+
+function _sector_partition!(registry, shape::DataModel.SectorShape, mesh_size)
+    outer = _boundary_loop!(registry, shape; mesh_size)
+    centre = DataModel.centroid(shape)
+    # Retain the physical contour. A 0.1-scale internal copy gives one native
+    # four-sided strip per contour segment and an unstructured central patch.
+    coordinates = Dict(tag => point for (point,tag) in registry.points)
+    inner_point = Dict{Int,Int}()
+    spokes = Dict{Int,Int}()
+    depth = 0.0
+    for curve in outer.curves, p in registry.curve_points[curve]
+        haskey(inner_point,p) && continue
+        point = coordinates[p]
+        target = centre .+ 0.1 .* (point .- centre)
+        q = _point!(registry,target;mesh_size)
+        inner_point[p] = q
+        spokes[p] = _line!(registry,p,q)
+        depth = max(depth,0.9hypot((point .- centre)...))
+    end
+    circles = Dict(tag => key[2] for (key,(tag,_,_)) in registry.circle_arcs)
+    inner_curves = Int[]
+    curve_pairs = Tuple{Int,Int,Float64,Float64}[]
+    patches = Dict{Int,NTuple{4,Int}}()
+    for curve in outer.oriented
+        a,b = registry.curve_points[abs(curve)]
+        p,q = curve > 0 ? (a,b) : (b,a)
+        ip,iq = inner_point[p],inner_point[q]
+        if haskey(circles,abs(curve))
+            x,y,radius = circles[abs(curve)]
+            copied_centre = centre .+ 0.1 .* ((x,y) .- centre)
+            c = _point!(registry,copied_centre;mesh_size)
+            inner = gmsh.model.geo.add_circle_arc(ip,c,iq)
+            u,v = coordinates[p] .- (x,y), coordinates[q] .- (x,y)
+            turn = atan(abs(u[1]*v[2]-u[2]*v[1]),u[1]*v[1]+u[2]*v[2])
+            length = radius*turn
+        else
+            inner = _line!(registry,ip,iq)
+            length,turn = hypot((coordinates[q] .- coordinates[p])...),0.0
+        end
+        push!(inner_curves,inner)
+        push!(curve_pairs,(abs(curve),abs(inner),length,turn))
+        loop = gmsh.model.geo.add_curve_loop([curve,spokes[q],-inner,-spokes[p]])
+        surface = gmsh.model.geo.add_plane_surface([loop])
+        patches[surface] = (p,q,iq,ip)
+        gmsh.model.geo.mesh.set_transfinite_surface(surface,"AlternateLeft",[p,q,iq,ip])
+    end
+    core = gmsh.model.geo.add_plane_surface([gmsh.model.geo.add_curve_loop(inner_curves)])
+    partition = FEMSectorPartition(core,curve_pairs,collect(values(spokes)),depth,patches)
+    return [sort!(collect(keys(patches)));core],partition
+end
+
 function _build_geometry!(
         model::FEMResolvedModel,
         model_name::String,
         mesh_plan::FEMMeshPlan = last(model.mesh_plans);
         reuse::Union{Nothing, FEMGeometry} = nothing
 )
+    endpoints = [argmin(p -> (p[2],p[1]),
+        [_voltage_endpoint(region.shape) for region in model.region_plans
+         if region.terminal_index == i]) for i in eachindex(model.terminal_ids)]
+    abscissae = sort!(unique(_coordinate_key(p[1]) for p in endpoints))
     if reuse === nothing
         gmsh.model.add(model_name)
         registry = FEMLoopRegistry(model.fine_mesh_size)
+        append!(registry.voltage_abscissae,abscissae)
         for region in model.region_plans
             _register_shape_breaks!(registry, region.shape)
         end
@@ -1350,9 +1520,19 @@ function _build_geometry!(
         )
         _register_circle_contacts!(registry)
         material_surfaces = [Int[] for _ in model.material_plans]
+        region_surfaces = Vector{Int}[]
+        sector_partitions = Dict{Int,FEMSectorPartition}()
         terminal_surfaces = [Int[] for _ in model.terminal_ids]
-        for region in model.region_plans
-            surfaces = _surfaces!(registry, region.shape, region.mesh_size)
+        for (index,region) in enumerate(model.region_plans)
+            surfaces = if region.shape isa DataModel.SectorShape &&
+                          model.material_plans[region.material_index].kind === :conductor
+                members,partition = _sector_partition!(registry,region.shape,region.mesh_size)
+                sector_partitions[index] = partition
+                members
+            else
+                _surfaces!(registry, region.shape, region.mesh_size)
+            end
+            push!(region_surfaces, surfaces)
             append!(material_surfaces[region.material_index], surfaces)
             region.terminal_index > 0 && append!(
                 terminal_surfaces[region.terminal_index], surfaces
@@ -1372,6 +1552,8 @@ function _build_geometry!(
     else
         gmsh.model.set_current(model_name)
         material_surfaces = reuse.material_surfaces
+        region_surfaces = reuse.region_surfaces
+        sector_partitions = reuse.sector_partitions
         terminal_surfaces = reuse.terminal_surfaces
         cable_curves = reuse.cable_curves
         cable_loops = reuse.cable_loops
@@ -1379,86 +1561,154 @@ function _build_geometry!(
 
     # Keep exterior bookkeeping separate so frequency changes never recreate
     # or transform the authoritative cable geometry.
+    gmsh.model.geo.synchronize()
+    material_curves = unique(abs.(last.(gmsh.model.get_boundary(
+        [(2,s) for s in Iterators.flatten(material_surfaces)],false,true,false))))
+    material_points = unique(last.(gmsh.model.get_boundary(
+        [(1,c) for c in material_curves],false,false,false)))
     registry = FEMLoopRegistry(model.fine_mesh_size)
+    for tag in material_points
+        point = Tuple(_coordinate_key.(gmsh.model.get_value(0,tag,Float64[])[1:2]))
+        registry.points[point] = tag
+        bucket = (floor(Int,point[1]/registry.mesh_size),floor(Int,point[2]/registry.mesh_size))
+        push!(get!(Vector{Tuple{Float64,Float64}},registry.point_buckets,bucket),point)
+    end
+    for curve in material_curves
+        gmsh.model.get_type(1,curve) == "Line" || continue
+        lo,hi = gmsh.model.get_parametrization_bounds(1,curve)
+        a,b = [registry.points[_matching_point_key(registry,
+            gmsh.model.get_value(1,curve,[u]))] for u in (only(lo),only(hi))]
+        registry.lines[minmax(a,b)] = curve
+        registry.curve_points[curve] = (a,b)
+    end
     centre_x, _ = model.centre
-    radius = mesh_plan.domain_radius
-    shell_radius = mesh_plan.shell_outer_radius
-    inner = _circle_loop!(
-        registry,
-        (centre_x, 0.0),
-        radius;
-        mesh_size = mesh_plan.domain_mesh_size
-    )
-    outer = _circle_loop!(
-        registry,
-        (centre_x, 0.0),
-        shell_radius;
-        mesh_size = mesh_plan.infinite_mesh_size
-    )
-    inner_left = _point!(
-        registry,
-        (centre_x - radius, 0.0);
-        mesh_size = mesh_plan.domain_mesh_size
-    )
-    inner_right = _point!(
-        registry,
-        (centre_x + radius, 0.0);
-        mesh_size = mesh_plan.domain_mesh_size
-    )
-    outer_left = _point!(
-        registry,
-        (centre_x - shell_radius, 0.0);
-        mesh_size = mesh_plan.infinite_mesh_size
-    )
-    outer_right = _point!(
-        registry,
-        (centre_x + shell_radius, 0.0);
-        mesh_size = mesh_plan.infinite_mesh_size
-    )
+    halfwidth = mesh_plan.domain_halfwidth
+    side, top, bottom = mesh_plan.pml_thickness
+    # Split the Cartesian PML into columns at buried measurement paths. Each
+    # path is then a shared transfinite edge, with the bottom PML grading.
+    left, right = centre_x-halfwidth, centre_x+halfwidth
+    buried_x = [endpoints[i][1] for i in eachindex(endpoints)
+        if model.cable_hosts[model.problem.system.terminal_order[i].cable] !== :air]
+    prescription = NamedTuple{(:side,:top,:bottom)}(mesh_plan.pml_strips)
+    # Structural representability only; this does not validate field accuracy.
+    for (strips,origin,distance) in ((prescription.side,right,side),
+            (prescription.side,left,-side),(prescription.top,halfwidth,top),
+            (prescription.bottom,-halfwidth,-bottom)), strip in strips
+        _pml_progression(strip.count,strip.count*log(strip.ratio),
+            origin+distance*strip.start,origin+distance*strip.stop)
+    end
+ns, nt, nb = length(prescription.side), length(prescription.top), length(prescription.bottom)
+inner_xs = sort!(unique([left,buried_x...,right]))
+xs = [left .- side .* reverse([s.stop for s in prescription.side]);
+    inner_xs; right .+ side .* [s.stop for s in prescription.side]]
+
+    inner_left = _point!(registry,(left,0.0);mesh_size=mesh_plan.domain_mesh_size)
+    inner_right = _point!(registry,(right,0.0);mesh_size=mesh_plan.domain_mesh_size)
+    air_outline = [(right,0.0), [(x,halfwidth) for x in reverse(inner_xs)]..., (left,0.0)]
+    earth_outline = [(left,0.0), [(x,-halfwidth) for x in inner_xs]..., (right,0.0)]
+    outlines = map((air_outline,earth_outline)) do points
+        tags = [_point!(registry,p;mesh_size=mesh_plan.domain_mesh_size) for p in points]
+        [_line!(registry,tags[k],tags[k+1]) for k in 1:length(tags)-1]
+    end
+    inner_curves = [outlines[1];outlines[2]]
     interface_sizes = _interface_mesh_sizes(model, mesh_plan)
+    for x in abscissae
+        interface_sizes[x] = min(get(interface_sizes,x,Inf),mesh_plan.interface_mesh_size)
+    end
     interface_points = Int[inner_left]
     for (x, mesh_size) in sort!(collect(interface_sizes); by = first)
-        centre_x - radius < x < centre_x + radius || continue
+        centre_x - halfwidth < x < centre_x + halfwidth || continue
         push!(interface_points, _point!(registry, (x, 0.0); mesh_size))
     end
     push!(interface_points, inner_right)
     finite_interfaces = [_line!(registry, interface_points[index], interface_points[index + 1])
                          for index in 1:(length(interface_points) - 1)]
-    left_connector = _line!(registry, outer_left, inner_left)
-    right_connector = _line!(registry, inner_right, outer_right)
     air_holes = Int[]
     earth_holes = Int[]
     for cable_index in eachindex(cable_loops)
         target = model.cable_hosts[cable_index] === :air ? air_holes : earth_holes
         append!(target, cable_loops[cable_index])
     end
-    air_loop = gmsh.model.geo.add_curve_loop([finite_interfaces; inner.curves[1];
-                                              inner.curves[2]])
-    earth_loop = gmsh.model.geo.add_curve_loop([-reverse(finite_interfaces);
-                                                inner.curves[3]; inner.curves[4]])
+    air_loop = gmsh.model.geo.add_curve_loop([finite_interfaces; outlines[1]])
+    earth_loop = gmsh.model.geo.add_curve_loop([-reverse(finite_interfaces); outlines[2]])
     air_surface = gmsh.model.geo.add_plane_surface([air_loop; air_holes])
     earth_surface = gmsh.model.geo.add_plane_surface([earth_loop; earth_holes])
 
-    air_infinite_loop = gmsh.model.geo.add_curve_loop([
-        right_connector,
-        outer.curves[1],
-        outer.curves[2],
-        left_connector,
-        -inner.curves[2],
-        -inner.curves[1]
-    ])
-    earth_infinite_loop = gmsh.model.geo.add_curve_loop([
-        outer.curves[3],
-        outer.curves[4],
-        -right_connector,
-        -inner.curves[4],
-        -inner.curves[3],
-        -left_connector
-    ])
-    air_infinite_surface = gmsh.model.geo.add_plane_surface([air_infinite_loop])
-    earth_infinite_surface = gmsh.model.geo.add_plane_surface([
-        earth_infinite_loop
-    ])
+    air_pml_surfaces, earth_pml_surfaces = Int[], Int[]
+    interface_curves = copy(finite_interfaces)
+    air_size, earth_size = mesh_plan.exterior_mesh_sizes
+    vertical_grading = map((air_size, earth_size), mesh_plan.wave_mesh_sizes) do remote, wave
+        first_size = remote == mesh_plan.domain_mesh_size ? remote : min(mesh_plan.domain_mesh_size, wave)
+        _exterior_edge_grading(halfwidth, first_size, remote)
+    end
+ys = [-halfwidth .- bottom .* reverse([s.stop for s in prescription.bottom]);
+    -halfwidth; 0.0; halfwidth; halfwidth .+ top .* [s.stop for s in prescription.top]]
+    vertices = [_point!(registry, (x,y); mesh_size=mesh_plan.domain_mesh_size)
+        for x in xs, y in ys]
+    transfinite_curves = Dict{Int, Tuple{Int, Float64}}()
+    transfinite_surfaces = Dict{Int, Tuple{String, NTuple{4, Int}}}()
+    for partition in values(sector_partitions), (surface,corners) in partition.patches
+        transfinite_surfaces[surface] = ("AlternateLeft",corners)
+    end
+    function mesh_line(first_point, last_point, count, ratio=1.0)
+        curve = _line!(registry, first_point, last_point)
+        coefficient = curve > 0 ? ratio : inv(ratio)
+        assignment = (count+1, coefficient)
+        if haskey(transfinite_curves, abs(curve))
+            transfinite_curves[abs(curve)] == assignment || throw(ArgumentError(
+                "inconsistent transfinite constraints on shared PML curve $(abs(curve))"))
+            return curve
+        end
+        gmsh.model.geo.mesh.set_transfinite_curve(abs(curve), count+1,
+            "Progression", coefficient)
+        transfinite_curves[abs(curve)] = assignment
+        return curve
+    end
+    outer_air_curves, outer_earth_curves = Int[], Int[]
+    for i in 1:length(xs)-1, j in 1:length(ys)-1
+    interior = ns < i < length(xs)-ns
+    physical_row = nb < j <= nb+2
+    interior && physical_row && continue
+    medium = ys[j] >= 0 ? 1 : 2
+    nx, rx = if interior
+        (max(2,ceil(Int,(xs[i+1]-xs[i])/mesh_plan.exterior_mesh_sizes[medium])),1.0)
+    else
+        strip = i <= ns ? prescription.side[ns+1-i] : prescription.side[i-(length(xs)-ns-1)]
+        (strip.count, i <= ns ? inv(strip.ratio) : strip.ratio)
+    end
+    ny, ry = if physical_row
+        count, ratio = vertical_grading[medium]
+        (count, medium == 2 ? inv(ratio) : ratio)
+    else
+        strip = j <= nb ? prescription.bottom[nb+1-j] : prescription.top[j-nb-2]
+        (strip.count, j <= nb ? inv(strip.ratio) : strip.ratio)
+    end
+        a, b, c, d = vertices[i,j], vertices[i+1,j], vertices[i+1,j+1], vertices[i,j+1]
+        lower = mesh_line(a,b,nx,rx)
+        right = mesh_line(b,c,ny,ry)
+        upper = mesh_line(d,c,nx,rx)
+        left = mesh_line(a,d,ny,ry)
+        loop = gmsh.model.geo.add_curve_loop([lower,right,-upper,-left])
+        surface = gmsh.model.geo.add_plane_surface([loop])
+        arrangement, corners = "AlternateLeft", (a,b,c,d)
+        gmsh.model.geo.mesh.set_transfinite_surface(surface,arrangement,collect(corners))
+        if mesh_plan.pml_element_family === :quadrangle
+            gmsh.model.geo.mesh.set_recombine(2, surface)
+        end
+        transfinite_surfaces[surface] = (arrangement,corners)
+        push!(medium == 1 ? air_pml_surfaces : earth_pml_surfaces, surface)
+        outer = medium == 1 ? outer_air_curves : outer_earth_curves
+        i == 1 && push!(outer,left)
+        i == length(xs)-1 && push!(outer,right)
+        j == 1 && push!(outer,lower)
+        j == length(ys)-1 && push!(outer,upper)
+        j == nb+1 && !interior && push!(interface_curves,upper)
+    end
+    pml_inner_curves = abs.(inner_curves)
+    outer_air_curves = sort!(unique(abs.(outer_air_curves)))
+    outer_earth_curves = sort!(unique(abs.(outer_earth_curves)))
+    outer_curves = sort!([outer_air_curves;outer_earth_curves])
+    interface_curves = sort!(unique(abs.(interface_curves)))
 
     _apply_point_mesh_sizes!(registry)
     gmsh.model.geo.synchronize()
@@ -1474,6 +1724,78 @@ function _build_geometry!(
         )
     end
     terminal_curves = [_entity_boundary(surfaces) for surfaces in terminal_surfaces]
+    # Each interval belongs to one CAD surface. Its endpoints share that
+    # surface's boundary vertices; embedding makes its line elements actual
+    # field edges. Metal intervals are excluded from the electric measurement.
+    voltage_paths, voltage_references = Vector{Int}[], Int[]
+    embeddings = Dict{Int,Vector{Int}}()
+    surfaces = [(s,material.kind !== :conductor) for (i,material) in enumerate(model.material_plans)
+        for s in material_surfaces[i]]
+    append!(surfaces,[(air_surface,true),(earth_surface,true)])
+    for (index, endpoint) in enumerate(endpoints)
+        cable = model.problem.system.terminal_order[index].cable
+        overhead = model.cable_hosts[cable] === :air
+        reference_y = overhead ? 0.0 : -halfwidth-bottom
+        reference = _point!(registry, (endpoint[1], reference_y);
+            mesh_size=mesh_plan.interface_mesh_size)
+        push!(voltage_references, reference)
+        curves = Int[]
+        physical_reference = if overhead
+            reference
+        else
+            inner = _point!(registry, (endpoint[1], -halfwidth);
+                mesh_size=mesh_plan.exterior_mesh_sizes[2])
+        previous = reference
+        for strip in reverse(prescription.bottom)
+            next = _point!(registry, (endpoint[1], -halfwidth-bottom*strip.start);
+                mesh_size=mesh_plan.exterior_mesh_sizes[2])
+            push!(curves, mesh_line(previous, next, strip.count, inv(strip.ratio)))
+            previous = next
+        end
+
+            inner
+        end
+        receiver = registry.points[_matching_point_key(registry,endpoint)]
+        physical_y = overhead ? 0.0 : -halfwidth
+        points = [(physical_y,physical_reference),(endpoint[2],receiver)]
+        append!(points,[(point[2],tag) for (point,tag) in registry.points
+            if abs(point[1]-endpoint[1]) <= 64eps(max(abs(endpoint[1]),1.0)) &&
+               tag != physical_reference && tag != receiver &&
+               physical_y < point[2] < endpoint[2]])
+        sort!(points)
+        remote_size = overhead ? mesh_plan.interface_mesh_size : mesh_plan.exterior_mesh_sizes[2]
+        for k in 1:length(points)-1
+            y0,a = points[k]; y1,b = points[k+1]
+            y1 > y0 || continue
+            middle = [endpoint[1],(y0+y1)/2,0.0]
+            host = findfirst(pair -> gmsh.model.is_inside(2,first(pair),middle)>0,surfaces)
+            host === nothing && _fem_error(:geometry,model.problem.system.system_id,
+                :voltage_path,"measurement interval has no CAD host surface")
+            surface, electric = surfaces[host]
+            electric || continue
+            key = minmax(a,b)
+            existing = get(registry.lines,key,nothing)
+            if existing === nothing
+                # Only air/earth paths grow towards the remote boundary. A
+                # cable interval uses local spacing: applying the far-field
+                # ratio to a short insulation gap creates nearly coincident
+                # nodes and can prevent Gmsh from recovering its field edges.
+                last_size = surface in (air_surface,earth_surface) ?
+                    remote_size : model.fine_mesh_size
+                count, ratio = _exterior_edge_grading(y1-y0,model.fine_mesh_size,last_size)
+                curve = mesh_line(a,b,count,inv(ratio))
+                push!(get!(Vector{Int},embeddings,surface),abs(curve))
+            else
+                curve = existing
+            end
+            push!(curves,curve)
+        end
+        push!(voltage_paths, abs.(curves))
+    end
+    gmsh.model.geo.synchronize()
+    for (surface,curves) in embeddings
+        gmsh.model.mesh.embed(1,curves,2,surface)
+    end
     for index in eachindex(terminal_surfaces)
         _physical_group(
             2,
@@ -1487,6 +1809,10 @@ function _build_geometry!(
             model.tags.terminal_contour_base + index,
             @sprintf("LCM/terminal_contour/%04d", index)
         )
+        _physical_group(1, voltage_paths[index], model.tags.voltage_path_base + index,
+            @sprintf("LCM/voltage_path/%04d", index))
+        _physical_group(0, [voltage_references[index]], model.tags.voltage_reference_base + index,
+            @sprintf("LCM/voltage_reference/%04d", index))
     end
     for index in eachindex(cable_curves)
         _physical_group(
@@ -1499,74 +1825,13 @@ function _build_geometry!(
     end
     _physical_group(2, [air_surface], model.tags.air, "LCM/domain/air")
     _physical_group(2, [earth_surface], model.tags.earth, "LCM/domain/earth")
-    _physical_group(
-        2,
-        [air_infinite_surface],
-        model.tags.air_infinite,
-        "LCM/domain/air_infinite"
-    )
-    _physical_group(
-        2,
-        [earth_infinite_surface],
-        model.tags.earth_infinite,
-        "LCM/domain/earth_infinite"
-    )
-    _physical_group(
-        2,
-        [air_infinite_surface, earth_infinite_surface],
-        model.tags.infinite_domain,
-        "LCM/domain/infinite_shell"
-    )
-
-    interface_curves = sort!(unique(abs.([finite_interfaces; left_connector;
-                                          right_connector])))
-    outer_curves = sort!(unique(outer.curves))
-    outer_air_curves = intersect(
-        outer_curves,
-        _entity_boundary([air_infinite_surface])
-    )
-    outer_earth_curves = intersect(
-        outer_curves,
-        _entity_boundary([earth_infinite_surface])
-    )
-    isempty(intersect(outer_air_curves, outer_earth_curves)) || _fem_error(
-        :geometry,
-        model.problem.system.system_id,
-        :outer_electric_boundary,
-        "air and earth outer electric boundaries overlap"
-    )
-    sort!(unique([outer_air_curves; outer_earth_curves])) == outer_curves ||
-        _fem_error(
-            :geometry,
-            model.problem.system.system_id,
-            :outer_electric_boundary,
-            "air and earth outer electric boundaries do not partition the outer shell"
-        )
-    inner_shell_curves = sort!(unique(inner.curves))
-    _physical_group(
-        1,
-        outer_curves,
-        model.tags.outer_boundary,
-        "LCM/boundary/magnetic_dirichlet"
-    )
-    _physical_group(
-        1,
-        outer_air_curves,
-        model.tags.outer_air_boundary,
-        "LCM/boundary/electric_insulation_air"
-    )
-    _physical_group(
-        1,
-        outer_earth_curves,
-        model.tags.outer_earth_boundary,
-        "LCM/boundary/electric_reference_earth"
-    )
-    _physical_group(
-        1,
-        inner_shell_curves,
-        model.tags.inner_shell_boundary,
-        "LCM/boundary/inner_infinite_shell"
-    )
+    _physical_group(2, air_pml_surfaces, model.tags.air_pml, "LCM/domain/air_pml")
+    _physical_group(2, earth_pml_surfaces, model.tags.earth_pml, "LCM/domain/earth_pml")
+    _physical_group(2, [air_pml_surfaces; earth_pml_surfaces], model.tags.pml, "LCM/domain/pml")
+    _physical_group(1, outer_curves, model.tags.outer_boundary, "LCM/boundary/magnetic_dirichlet")
+    _physical_group(1, outer_air_curves, model.tags.outer_air_boundary, "LCM/boundary/electric_reference_air")
+    _physical_group(1, outer_earth_curves, model.tags.outer_earth_boundary, "LCM/boundary/electric_reference_earth")
+    _physical_group(1, pml_inner_curves, model.tags.pml_inner_boundary, "LCM/boundary/pml_inner")
     _physical_group(1, interface_curves, model.tags.interface, "LCM/interface/air_earth")
     conductor_surfaces = reduce(vcat,
         [material_surfaces[index]
@@ -1586,8 +1851,8 @@ function _build_geometry!(
          passive_surfaces;
          air_surface;
          earth_surface;
-         air_infinite_surface;
-         earth_infinite_surface],
+         air_pml_surfaces;
+         earth_pml_surfaces],
         6_003,
         "LCM/domain/field_maps"
     )
@@ -1597,16 +1862,22 @@ function _build_geometry!(
         terminal_surfaces,
         terminal_curves,
         material_surfaces,
+        region_surfaces,
         cable_curves,
-        [air_surface, air_infinite_surface],
-        [earth_surface, earth_infinite_surface],
-        [air_infinite_surface, earth_infinite_surface],
+        [air_surface; air_pml_surfaces],
+        [earth_surface; earth_pml_surfaces],
+        [air_pml_surfaces; earth_pml_surfaces],
         outer_curves,
         outer_air_curves,
         outer_earth_curves,
-        inner_shell_curves,
+        pml_inner_curves,
         interface_curves,
         cable_loops,
-        sort!(collect(values(registry.points)))
+        sort!(setdiff(collect(values(registry.lines)),material_curves)),
+        sort!(setdiff(collect(values(registry.points)),material_points)),
+        transfinite_curves,
+        transfinite_surfaces,
+        Dict{Int, Tuple{Int, Int}}(),
+        sector_partitions
     )
 end

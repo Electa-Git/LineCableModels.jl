@@ -348,6 +348,8 @@ function _addon_fit_panel_aspects!(p)
     isempty(p.axes) && return p
     all(axis -> axis.aspect[] isa DataAspect, p.axes) || return p
     state=p.addon_state
+    # A custom native canvas owns its internal layout and aspect constraints.
+    state.panel_page===nothing && return p
     shell=state.shell
     panels=collect(values(state.panel_data))
     all(data -> data.panel.layout!==nothing, panels) || return p

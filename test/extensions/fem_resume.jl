@@ -24,7 +24,9 @@
     formulation_controls = (getdp_executable=artifact.path, gmsh_verbosity=0,)
     model = extension._resolved_fem_model(problem, formulation)
     inputs = extension._fem_input_record(model, formulation, computation_options(LineCableModelsFEM, ComputationOptions(formulation_controls)))
-    @test inputs.schema_version == 7
+    @test inputs.schema_version == 8
+    @test only(unique(p.pml_layers for p in inputs.mesh_plans)) == (128,128,128)
+    @test only(unique(p.pml_grading for p in inputs.mesh_plans)) == ntuple(_ -> (192/191)*log(1536),3)
     @test inputs.getdp_selection.source === :explicit
     @test inputs.getdp_selection.artifact_hash === nothing
     @test isfile(inputs.getdp_selection.path)
@@ -52,6 +54,7 @@
     @test extension._mesh_fingerprint(model, "different-gmsh-version") != recorded_key
     @test inputs.adapter_sources isa NamedTuple
     @test haskey(inputs.adapter_sources, Symbol("geometry.jl"))
+    @test !haskey(inputs.adapter_sources, Symbol("voltage_paths.jl"))
     @test !haskey(inputs.adapter_sources, Symbol("formulations.jl"))
     other = Formulation(:LineCableModelsFEM; earth_properties = nothing,
         options = formulation.options)
@@ -118,21 +121,35 @@
         extension._prepare_run_inputs!(run, model)
         assets = extension._getdp_assets(joinpath(run.path, "input", "getdp"))
         @test keys(assets) ==
-              (:model, :jacobian, :integration, :materials, :quasi_tem, :quasi_full)
+              (:model, :jacobian, :integration, :materials, :pml, :quasi_full,
+                  :line_parameters, :onelab)
         @test map(basename, values(assets)) ==
-              ("model.pro", "jacobian.pro", "integration.pro", "materials.pro",
-                  "quasi-tem.pro", "quasi-full.pro")
+              ("model.pro", "jacobian.pro", "integration.pro", "materials.pro", "pml.pro",
+                  "quasi-full.pro", "line-parameters.pro", "onelab.pro")
         captured = map(path -> (read(path), stat(path).mtime), assets)
         extension._prepare_run_inputs!(run, model)
         @test map(path -> (read(path), stat(path).mtime), assets) == captured
         # A changed equation file must not be silently repaired or reused.
-        write(assets.quasi_tem, "// changed equation snapshot\n")
+        write(assets.quasi_full, "// changed equation snapshot\n")
         @test_throws LineCableModelsFEMError extension._prepare_run_inputs!(run, model)
-        @test read(assets.quasi_tem, String) == "// changed equation snapshot\n"
-        write(assets.quasi_tem, captured.quasi_tem[1])
+        @test read(assets.quasi_full, String) == "// changed equation snapshot\n"
+        write(assets.quasi_full, captured.quasi_full[1])
         @test !extension._resume_inputs_match(run.path, model, inputs)
         extension._write_json_atomic(joinpath(run.path, "input", "computation.json"), inputs)
         @test extension._resume_inputs_match(run.path, model, other_inputs)
+        tuple_controls = computation_options(LineCableModelsFEM,ComputationOptions(;
+            formulation_controls...,pml_layers=(128,128,128),
+            pml_grading=ntuple(_ -> (192/191)*log(1536),3)))
+        tuple_model = extension._resolved_fem_model(problem,formulation,tuple_controls)
+        tuple_inputs = extension._fem_input_record(tuple_model,formulation,tuple_controls)
+        @test extension._resume_inputs_match(run.path,tuple_model,tuple_inputs)
+        for controls in ((pml_layers=(128,128,127),), (pml_grading=(7.,7.,7.),))
+            execution = computation_options(LineCableModelsFEM,ComputationOptions(;
+                formulation_controls...,controls...))
+            changed = extension._resolved_fem_model(problem,formulation,execution)
+            candidate = extension._fem_input_record(changed,formulation,execution)
+            @test !extension._resume_inputs_match(run.path,changed,candidate)
+        end
         @test !extension._resume_inputs_match(run.path,hot_model,hot_inputs)
         @test !extension._resume_inputs_match(run.path,dispersive_model,dispersive_inputs)
         # Current missing metadata is corruption; obsolete development schema
@@ -180,10 +197,14 @@
             adapter_sources = Dict("geometry.jl"=>"different implementation")))
         @test !extension._resume_inputs_match(run.path, model, changed)
         @test !extension._resume_inputs_match(run.path, model, merge(retained_inputs, (;
+            adapter_sources=merge(inputs.adapter_sources,
+                NamedTuple{(Symbol("voltage_paths.jl"),)}(("old deep extraction",))))))
+        @test !extension._resume_inputs_match(run.path, model, merge(retained_inputs, (;
+            solver_sources=merge(inputs.solver_sources, (; quasi_full="old deep extraction")))))
+        @test !extension._resume_inputs_match(run.path, model, merge(retained_inputs, (;
             owned_gmsh = false)))
         for execution in
-            (merge(inputs.execution, (ui=true,)),
-            merge(inputs.execution, (mesh_policy=:remesh,)))
+            (merge(inputs.execution, (mesh_policy=:remesh,)),)
             excluded = merge(retained_inputs, (; execution))
             extension._write_json_atomic(joinpath(run.path, "input", "computation.json"), excluded)
             @test !extension._resume_inputs_match(run.path, model, excluded)

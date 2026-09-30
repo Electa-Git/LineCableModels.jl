@@ -148,7 +148,7 @@ function run_three_bare_wires_baseline(; analytical = true, fem = true)
         "fem" => (
             Formulation(:LineCableModelsFEM;
                 options = merge((physics = :quasi_fw,), reductions)),
-            (ui = false, mesh_policy = :remesh, resume_run_directory = nothing,
+            (mesh_policy = :remesh, resume_run_directory = nothing,
                 keep_run_directory = true, trace = true, output_basis = :pul,
                 verbosity = (default = 1,), gmsh_verbosity = 2, getdp_verbosity = 4,
                 frequency_workers = 2, solver_threads = 4, plot_field_maps = false)))
