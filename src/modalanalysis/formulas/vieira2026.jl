@@ -28,9 +28,8 @@ Adapted from P. H. N. Vieira's `eig_levenberg_marquardt` implementation in
 [Parametric-Eigenvalues-and-Vectors-of-Transmission-Lines](https://github.com/pedrohnv/Parametric-Eigenvalues-and-Vectors-of-Transmission-Lines).
 The method is from A. I. Chrysochos, T. A. Papadopoulos and G. K. Papagiannis, *Robust Calculation of Frequency-Dependent Transmission-Line Transformation Matrices Using the
 Levenberg–Marquardt Method*, IEEE Transactions on Power Delivery 29(4),
-1621–1629 (2014), DOI: 10.1109/TPWRD.2013.2284504. This adaptation uses the
-package vacuum permittivity, 8.8541878128e-12 F/m, rather than the supplied
-file's 8.854187817e-12 F/m, and evaluates only `s = j2πf`.
+1621–1629 (2014), DOI: 10.1109/TPWRD.2013.2284504. The implementation uses the
+package vacuum permittivity, 8.8541878128e-12 F/m, and evaluates `s = j2πf`.
 """
 function description(::Type{<:Formula{:vieira2026}}; compact::Bool = false)
     return compact ? "Vieira" :

@@ -1,9 +1,8 @@
 """
 $(TYPEDEF)
 
-Represent the integral of one complete scalar callable on `[0, Inf)`.
-The formula supplies the entire integrand, including any weights and Jacobians.
-Construction does not evaluate the callable.
+Store the complete scalar integrand for integration on `[0, Inf)`.
+The formula supplies the callable, including any weights and Jacobians.
 
 $(TYPEDFIELDS)
 """
@@ -16,7 +15,7 @@ end
 $(TYPEDSIGNATURES)
 
 Allocate reusable QuadGK segments for real coordinate type `R` and scalar
-integrand value type `V`. No physical model or sampled values are retained.
+integrand value type `V`.
 `size` is the initial segment capacity; zero leaves all numerical arrays empty.
 """
 function integration_workspace(::Type{R}, ::Type{V} = Complex{R};

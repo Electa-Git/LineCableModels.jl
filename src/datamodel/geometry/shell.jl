@@ -3,7 +3,6 @@ $(TYPEDEF)
 
 Declare an outward conformal layer relative to an exact resolved boundary.
 
-`Shell` is contextual construction input rather than an intrinsic primitive.
 Calling [`resolve`](@ref) against the preceding boundary produces the exact
 material domain occupied by the layer.
 

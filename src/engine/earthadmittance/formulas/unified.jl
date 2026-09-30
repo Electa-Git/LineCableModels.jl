@@ -7,7 +7,6 @@ $(TYPEDSIGNATURES)
 
 Validate Unified's prescribed longitudinal wavenumber Γ \\[1/m\\]. A scalar
 applies at every frequency; a nonempty vector follows the frequency order.
-This is a prescribed formulation option, not a modal solve or a UQ sampling law.
 """
 function validate(::Type{<:Union{EarthImpedance.Formula{:unified}, Formula{:unified}}},
         ::Val{:Γ}, argument)

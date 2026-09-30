@@ -17,7 +17,7 @@ in the type and may be `:product` or `:zip`. `Target` identifies the semantic
 result family. A nonempty deterministic space records the concrete type
 returned by its callable when Julia can prove it without evaluating a point.
 Otherwise the space declares its iterator element type unknown until values
-are materialized; it never advertises a `UnionAll` result type.
+are materialized.
 
 $(TYPEDFIELDS)
 """

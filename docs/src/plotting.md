@@ -59,8 +59,8 @@ In `plotwindow`, groups follow native plot insertion order across its axes.
 
 The same scopes are mutable after construction. `figuretitle!` and
 `paneltitle!` replace titles. `figurelegend!` and `panellegend!` rebuild a
-native legend from the retained native plots in each visibility group, so relabeling does not
-destroy grouped visibility behavior.
+native legend from the plots in each visibility group, preserving grouped
+visibility controls when labels change.
 
 ### Observation, facet, page, and legend semantics
 
@@ -69,7 +69,7 @@ is what turns those tensors into displayable physical quantities: ``Z``
 expands to ``R`` then ``X``; ``Y`` expands to ``G`` then ``B``. An exact
 request such as `@observe Z[1,1,:]` keeps its conductor coordinates while
 selecting the complete frequency range. Plotting consumes that resolved
-request; it does not ask the caller to repeat `(R, X)`.
+request and displays both components.
 The plot-facing name for this ordinate selection is `ydata`; pass it
 positionally or as a keyword, for example `plot(result; ydata=(R, L))`.
 
@@ -85,8 +85,6 @@ unlabeled curve has no legend by default.
 statistical meaning has its own figure family. Omitted layout chooses capacity
 independently for each family; an explicit `(rows, columns)` sets the same
 nominal capacity for all families.
-Before: `blocks` paginated matrices and `layout` could pair quantities. Now
-`layout` alone sets capacity within each quantity; `blocks` has been removed.
 
 | `layout` | Page grouping |
 |:--|:--|
@@ -146,12 +144,12 @@ internal holes: selecting (1,1) and (1,3) still spans three columns.
 Native decoration measurements establish equal initial data frames. `fig_size`
 is the reference size for the nominal capacity; `figure.size` takes precedence.
 Legends use at most the fraction specified by `legend_cap=0.5`
-of their associated data area. Extra entries become `(...)`; legend length
-does not enlarge the initial window. All curves remain plotted.
+of their associated data area. Extra entries become `(...)` within that
+allocation. All curves remain plotted.
 Each finished window fits its actual occupied panels, titles, guides, and
 enabled controls. A singleton with explicit `layout=(1,2)` retains the smaller
 frame from that two-column reference, without allocating an empty second cell.
-Later manual resizing affects only that page. There is no window aspect lock.
+Each page can be resized independently in both dimensions.
 Explicit diagonal observations and preview collections use the same capacity,
 preserving their source order and original identities in compact flow pages.
 
@@ -193,10 +191,9 @@ owner-dispatched `description(...; compact=true)` methods used by report tables:
 `FEM (reference)`, `PSCAD (reference)`, `Monte Carlo (reference)`, and results
 such as `LEP` or `earth Z=Saad`, without result numbering.
 `formulations=[3,1]` selects recorded original formulation identities, preserving
-order and colors. Explicit `series_labels` and styles follow the retained source;
-they do not create new formula identities. When nothing varies, labels use the
-applicable compact owner description. Automatic results are chromatic;
-the separate reference is black and does not change result colors.
+order and colors. Explicit `series_labels` and styles follow the retained source.
+When nothing varies, labels use the applicable compact owner description.
+Automatic results are chromatic; the separate reference is black.
 Full scientific explanations and common settings remain in `formula_details`.
 
 Top/bottom legends fit a measured row-major grid and wrap long labels without
@@ -263,9 +260,8 @@ cable_system = build(
 nothing #hide
 ````
 
-A small synthetic retained fixture demonstrates the completed UQ storage used
-below. It does not run a Monte Carlo campaign or claim a physical cable study.
-Moments, samples, and histograms belong to the UQ owner before plotting begins.
+The following synthetic samples, moments, and histograms illustrate the
+UQ plotting methods.
 
 ````@example plotting
 retained_samples = (
@@ -454,8 +450,7 @@ legend_scope_demo.figure #hide
 The same panel legends can be requested at construction time with
 `panel_legends=Dict((1, 1) => (position=:inside, halign=:left, valign=:bottom,
 legend_labels=("base R", "alternative R")))`. Runtime dictionaries target
-stable source keys such as `:result_1`. These labels do not alter result
-tensors or observation coordinates.
+stable source keys such as `:result_1`.
 
 ### Derived R/L/G/C dashboard
 
@@ -466,7 +461,7 @@ units. For this 2×2 result, `layout=(2,2)` requests one matrix dashboard per
 physical quantity.
 
 ````@example plotting
-# `layout` fixes the requested panel grid; it does not restrict later Makie edits.
+# `layout` sets the initial panel grid. The returned Makie objects remain editable.
 rlgc_dashboards = Makie.plot(
     parameters,
     (R, L, G, C);
@@ -484,14 +479,12 @@ rlgc_dashboards[3].figure #hide
 rlgc_dashboards[4].figure #hide
 ````
 
-Changing `layout` never merges or reinterprets physical quantities. `(1,1)`
-would instead return one figure for every quantity/coordinate facet.
+With `layout=(1,1)`, each quantity/coordinate facet has its own figure.
 
 ### Polar impedance and admittance
 
 Function selectors are resolved through the same observation grammar.
-`abs` and `angle` publish magnitude and phase for both ``Z`` and ``Y``; the
-Makie extension does not infer those transforms from plot labels.
+`abs` and `angle` publish magnitude and phase for both ``Z`` and ``Y``.
 
 ````@example plotting
 # The four transformed quantities become four matrix dashboards.
@@ -512,16 +505,14 @@ polar_dashboards[3].figure #hide
 polar_dashboards[4].figure #hide
 ````
 
-`real`, `imag`, `Z`, or `Y` are valid selectors as well. New scientific
-transforms belong in the observation grammar; plot-specific
-transforms should not be hidden in the Makie extension.
+`real`, `imag`, `Z`, and `Y` are also valid selectors. Implement additional
+scientific transforms in the observation grammar.
 
 ### Standalone series-impedance result
 
 `SeriesImpedance` can be plotted before it is bundled into `LineParameters`.
-Because that object does not own a frequency vector, the frequency samples are
-an explicit positional argument. The rest of the native dashboard behavior is
-identical.
+Supply its frequency samples as an explicit positional argument. The same
+native dashboard controls are available.
 
 ````@example plotting
 standalone_impedance = Makie.plot(
@@ -643,11 +634,10 @@ stacked_self_impedance[2].figure #hide
 With the default matrix arrangement, select more coordinates to add panels,
 more result containers to add curves, or more quantities to add figure
 families. `overlay=:coordinates` instead makes selected coordinates the
-curves and selected gridpoints the panels. No layout changes request meaning.
+curves and selected gridpoints the panels.
 
-Modal results retain their physical domain. A diagonal request is therefore
-explicit rather than being smuggled through an `i`, `j`, or plotting adapter
-keyword.
+Modal results retain their physical domain. Use `diag` to select the diagonal
+coefficients, as in the following inductance plot.
 
 ````@example plotting
 modal_parameters = compute(
@@ -678,12 +668,12 @@ Full uncertainty support participates in limits even when intervals are sparse.
 `ObservedResult` classifies engineering zero using absolute nominal magnitude
 and owner-defined cutoffs. With `clip=true`, values within those cutoffs
 become exact zero with zero uncertainty. Phase unavailability and
-linked X/L or B/C thresholds are observation concerns. Plotting applies no
-further clipping and never applies an operand floor to retained RMS errors.
+linked X/L or B/C thresholds are resolved when observations are acquired.
+Plotting uses the resulting values and the stored RMS errors directly.
 `clip=false` and `atol` are raw acquisition options. Compatible display units
 also work directly on retained inputs: `plot(observed; length_unit=:base)`.
-Plotting delegates re-expression to ObservedResult; it preserves recorded
-clipping decisions and does not rerun comparison or change saved RMS units.
+Plotting delegates unit conversion to ObservedResult, preserving the recorded
+clipping decisions and saved RMS values and units.
 
 Legend actions hide or restore the nominal line, its markers, and its x/y
 error bars together. Figure legends act across the figure; panel legends act
@@ -722,8 +712,7 @@ uncertainty_plot[1].figure #hide
 uncertainty_plot[2].figure #hide
 ````
 
-A new uncertainty scalar owner extends nominal/error extraction. The plotting
-code remains unchanged and should not inspect a package-specific storage type.
+An uncertainty scalar owner supplies nominal/error extraction for plotting.
 
 ### Comparing completed line results
 
@@ -815,8 +804,8 @@ for interactive display and documentation.
 
 ````@example plotting
 # `display_id=true` promotes the design identifier into the panel title.
-# Previously scales shared the right dock with the legend. Preview now defaults
-# to a horizontal strip below the plot, with each property label on the left.
+# Preview scales form a horizontal strip below the plot by default,
+# with each property label on the left.
 cable_preview = preview(
     mv_design;
     backend = :cairo,
@@ -883,14 +872,14 @@ Gaps separate complete visible siblings, including labels and endpoint ticks.
 Bars in a column share their left/right edges; bars in a row share their
 baseline. Different label widths and fonts change the reserved decoration
 space, not those alignments. `halign` moves the complete group once.
-They do not change figure padding, plot clearance (`guide_gap`), legend-entry
-spacing, or bar dimensions. Hidden scales remove their complete items from
-packing and keep their native handles for restoration.
+Figure padding, plot clearance (`guide_gap`), legend-entry spacing, and bar
+dimensions have separate controls. Hidden scales keep their native handles
+for restoration and release their occupied space.
 
 Omitted group settings survive live updates. `layout=nothing` restores one
 row at top/bottom or one column at left/right and explicit side-grid slots.
 Standalone scales in main content default to one column. Explicit capacity
-fills row-major and omits unoccupied tracks; it never changes matrix panels.
+fills row-major and omits unoccupied tracks within the colorbar group.
 `rowgap=nothing` and `colgap=nothing` restore inheritance from `guide_spacing`.
 A partial live `guide_spacing=(rowgap=18,)` preserves the current column gap;
 omitted constructor components use 12. Fractions and zero are valid, while
@@ -1000,8 +989,7 @@ bitmap tiles in SVG/PDF output while preserving the surrounding geometry.
 ### High-level material-scale reference
 
 `show_material_scale` is a preview option that combines the three
-default property schemes. Its result still exposes three independent native
-colorbars; it is not the reusable unit of the color API.
+default property schemes and returns three independent native colorbars.
 
 ````@example plotting
 material_scale = show_material_scale(
@@ -1057,7 +1045,7 @@ Pass ordinary `hist!` attributes such as `color`, `strokewidth`, or
 ### Retained-model probability density
 
 `Makie.stairs` consumes the retained histogram model and calls native
-`stairs!` with post-step edges. It does not regenerate a stochastic result.
+`stairs!` with post-step edges.
 
 ````@example plotting
 model_density = Makie.stairs(
@@ -1075,8 +1063,7 @@ model_density.figure #hide
 ````
 
 With `bins=n`, a different binning is derived from retained samples; the
-stored model is unchanged and no stochastic calculation is repeated. If
-samples were not retained, only the stored model's bin count is available.
+stored model is unchanged. Changing its bin count requires retained samples.
 With `bins=nothing` (the default), the retained model is reused, or a model
 is derived with automatic binning if only samples were retained. Constant
 samples always produce one finite-width bin. Use native `stairs!` keywords
@@ -1108,7 +1095,7 @@ curves; the addon only owns the initial empirical series and its legend group.
 ### Retained-model cumulative distribution
 
 Raw `Makie.lines` first acquires the UQ-owned CDF product. Its observed method
-draws retained coordinates with `lines!`; the renderer does not estimate a CDF.
+draws the retained CDF coordinates with `lines!`.
 
 ````@example plotting
 model_cdf = Makie.lines(
@@ -1234,19 +1221,18 @@ end
 custom_dashboard.figure #hide
 ````
 
-Nothing prevents nested layouts, `Axis3`, `Colorbar`, `Slider`, custom Makie
-recipes, or arbitrary plot primitives in the callback. If a native composition
+The callback supports nested layouts, `Axis3`, `Colorbar`, `Slider`, custom
+Makie recipes, and arbitrary plot primitives. If a native composition
 needs no LineCableModels controls or export settings, use `Figure` directly.
 
-## What the addons do
+## Plot controls and layout
 
 ### Scientific axes, scale controls, and limits
 
 Scientific recipes supply quantity and unit labels. PlotBuilder formats
 every linear numeric axis, including previews, statistical plots, and `plotwindow`
 axes: the displayed limits determine one engineering power-of-ten multiplier
-(powers of three) in the axis label. Ticks show plain decimal mantissas, never
-another exponent. Tick density follows each data rectangle and the rendered
+(powers of three) in the axis label. Ticks show plain decimal mantissas. Tick density follows each data rectangle and the rendered
 label size. For example, a linear frequency view can show `0, 2, 4, 6, 8, 10`
 with `Frequency [Hz] ×10⁶`; the retained frequencies are unchanged.
 Zooming, panning, changing limits, and resetting keep the ticks and multiplier
@@ -1267,7 +1253,7 @@ same tick-spacing rule, fitting actual label spacing after the coordinate transf
 The x/y toggles validate current visible data and uncertainty bounds before
 changing the page. Native numeric `plotwindow` axes share these controls.
 Automatic near-constant positive log ranges use modest multiplicative padding
-(`c/1.05` to `c*1.05`, enlarged for uncertainty), not whole-decade bounds.
+(`c/1.05` to `c*1.05`, enlarged for uncertainty).
 
 Native Axis keywords (`xticks`, `limits`, `ytickformat`, etc.) and native
 series attributes (`linewidth`, `color`, etc.) can be passed at construction.
@@ -1277,11 +1263,11 @@ For names shared by Axis and a plot, the unqualified form targets Axis.
 An explicit native `figure.size` overrides `fig_size`; portrait sizes stay portrait.
 
 UQ benchmark plots with ordinary `ydata=(R,L,G,C)` overlay mean ±1 standard
-deviation from retained owner moments. No uncertain result is constructed to draw error bars. Explicit `(statistics,L,std)`
-requests retain statistic-only plots; request these two products in separate
-calls. `uncertain(result, configuration)` returns the stored uncertainty-bearing
-core without reconstruction. MC constructs this marginal representation during
-aggregation, without inferring joint correlations.
+deviation from retained moments. Explicit `(statistics,L,std)` requests show
+the standard deviation alone; request these two products in separate calls.
+`uncertain(result, configuration)` returns the uncertainty-bearing core stored
+during MC aggregation. This marginal representation retains each output's mean
+and standard deviation; joint output correlations require the retained samples.
 Every eligible numeric route retains log controls for zero or negative support;
 adaptive logarithmic panels use a sign-preserving pseudo-log transform with
 `log1p`/`expm1` evaluation: `sign(v)*log10(1+abs(v)/s)`. The reference `s` is
@@ -1292,8 +1278,8 @@ Thus small signed conductances span decades instead of appearing linear.
 Reapply `axisscale!(page, :y, :log10)` or switch log off/on to select the
 reference from current data. Zooming and resetting limits keep it fixed.
 Explicit `:pseudolog10` retains a reference of 1 in displayed units.
-Switching log off selects a linear axis; it does not change observation
-clipping. Use `clip=false` or component cutoffs such as `atol=(G=0., B=0.)`
+Switching log off selects a linear axis. Observation clipping is set during
+acquisition. Use `clip=false` or component cutoffs such as `atol=(G=0., B=0.)`
 when acquiring observations to preserve nonzero components. Retained
 observations must be reconstructed from their primary result to undo clipping.
 
@@ -1302,11 +1288,10 @@ bounds. Constant and near-constant series receive at least ±5% padding around
 a nonzero baseline, enlarged for visible uncertainty. An exactly zero series
 without uncertainty uses a neutral nonzero range. Near-constant means that the
 endpoints agree within `sqrt(eps(Float64))` relatively in view coordinates.
-This is only an automatic-view rule: no sample is rounded. Small physical
-values with meaningful relative variation still receive a tightly fitted view.
-Legend visibility changes
-trigger another limit pass, so hiding a dominant curve exposes the remaining
-data instead of leaving a stale range.
+These bounds affect the displayed view; the samples retain their original
+values. Small values with meaningful relative variation receive a tightly
+fitted view. Legend visibility changes trigger another limit pass, so hiding
+a dominant curve fits the view to the remaining data.
 Explicit native limits, including one-sided limits, remain authoritative.
 Reset refits automatic bounds and restores explicit bounds. Changing x/y scale
 refits that automatic dimension while preserving the other dimension's current
@@ -1329,7 +1314,7 @@ Entries that exceed the cap are replaced by `(...)` and return when resizing
 provides room. If the title and ellipsis cannot fit, the legend remains hidden
 until space returns. The cap includes padding and margins, and never removes
 plotted curves. Use `max_fraction` with `figurelegend!`, `panellegend!`, or a
-`panel_legends` configuration. Symbolic overflow choices are no longer accepted.
+`panel_legends` configuration.
 `figurelegend!` and `panellegend!` move retained native objects. Label changes
 retain their source bindings, so placement, title, and legend labels can be
 changed after construction. Clicking/toggling a grouped Makie legend entry
@@ -1337,8 +1322,7 @@ continues to affect every plot handle in that group.
 
 High-level recipes may put a legend and colorbars in the same dock. PlotBuilder
 creates a nested `GridLayout` and gives each block its own cell. Resizing moves
-the entire canvas/dock group; it does not anchor a block to the raw window
-while stretching only the outer figure.
+the canvas and dock blocks together.
 
 ### Colorbars
 
@@ -1352,12 +1336,10 @@ arrangement; `guide_spacing` supplies minimum sibling gaps unless group
 
 ### Observables and ownership
 
-Two distinct concepts are intentionally present. `@observe` belongs to the
-scientific observation grammar: it selects a physically meaningful view of a
-result, including matrix and frequency coordinates. Makie's
-`Observable` type drives live UI state such as controls, scales, limits,
-visibility, and layout bounds. The adapter consumes the former and wires the
-latter; it does not replace either one with an `AxisBehavior` aggregate.
+`@observe` selects a scientific quantity and its matrix and frequency
+coordinates. Makie's `Observable` type drives live UI state: controls, scales,
+limits, visibility, and layout bounds. The adapter renders the selected
+observations and connects the native UI subscriptions.
 Keeping the `UIPlot` alive keeps the native figure and its subscriptions alive.
 
 Native mutation is therefore the normal extension mechanism:
@@ -1391,17 +1373,15 @@ title, or widget change refits only that window around its current data frames.
 
 Load CairoMakie before creating a plot to include its Save button. For GL
 interactivity and SVG export, import both CairoMakie and GLMakie, then select
-`backend=:gl`. Installed but unloaded CairoMakie does not enable the button.
-Loading CairoMakie later enables direct export of an existing plot; recreate
-the plot to add its button. Export never loads packages. The toolbar reports
+`backend=:gl`. Loading CairoMakie later enables direct export of an existing
+plot; recreate the plot to add its button. The toolbar reports
 file errors in the status row; direct `export_svg` calls throw them to the caller.
 
 [`export_svg`](@ref) saves the current live figure through CairoMakie. For a
 publication export it temporarily hides the toolbar and status row, switches
 the figure's font roles to Makie's LaTeX font theme, uses a white background,
-and then restores every changed observable. Saving does not activate a backend.
-Caller-added plots, visibility, scales, limits, and annotations are saved
-because export does not reconstruct an earlier specification.
+and then restores every changed observable, preserving the active backend.
+The SVG includes caller-added plots, visibility, scales, limits, and annotations.
 Interactive zoom and pan are retained in both the SVG and the live window.
 
 ````@example plotting

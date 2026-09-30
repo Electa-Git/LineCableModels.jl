@@ -50,9 +50,9 @@ abstract type AbstractUncertaintyResult{T} <: AbstractResultSpace{T} end
 """
 $(TYPEDEF)
 
-Retain formulation-owned inputs without interpreting their schema. The selected
-formulation owns defaults and validation. Construction preserves the supplied
-named tuple and does not copy mutable values within it.
+Retain formulation-owned inputs. The selected formulation owns defaults and
+validation. Construction preserves the supplied named tuple, including the
+identity of mutable values within it.
 
 $(TYPEDFIELDS)
 """
@@ -74,9 +74,8 @@ FormulationOptions(; kwargs...) = FormulationOptions((; kwargs...))
 """
 $(TYPEDEF)
 
-Retain computation-owned inputs without interpreting their schema. The receiving
-calculation or backend owns defaults and validation. The record identifies its
-role, not a backend or a completed validation stage.
+Retain computation-owned inputs. The receiving calculation or backend owns
+defaults and validation.
 
 $(TYPEDFIELDS)
 """
@@ -112,8 +111,8 @@ end
 """
 $(TYPEDSIGNATURES)
 
-Construct supplemental output from keywords, or a successful empty record with
-no keywords. An empty record does not represent a failed or unavailable result.
+Construct supplemental output from keywords. With no keywords, return an empty
+record indicating that the computation supplied no supplemental output.
 """
 ComputationDetails(; kwargs...) = ComputationDetails((; kwargs...))
 
@@ -139,7 +138,7 @@ $(TYPEDEF)
 
 Bind a concrete formulation and semantic selectors to its native domain method.
 Calling the binding passes the selection, selectors, and runtime arguments in
-that order; the binding is not a second implementation registry.
+that order.
 
 $(TYPEDFIELDS)
 """

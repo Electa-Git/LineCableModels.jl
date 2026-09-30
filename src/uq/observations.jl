@@ -391,7 +391,6 @@ $(TYPEDSIGNATURES)
 Observe first-order nominal values or propagated standard uncertainties in the
 quantity's native units. Complex standard deviation is the nonnegative root
 sum of component variances; it is not a magnitude-distribution statistic.
-No output distribution or independent Measurement values are constructed.
 """
 function observe(value::LinearErrorResult, ::typeof(statistics),
         selector::_MonteCarloScientificSelector,

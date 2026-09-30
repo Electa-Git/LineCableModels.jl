@@ -182,8 +182,8 @@ supported VDE/DIN 0271 and 0276 designation fields:
 fields = LineCableModels.DataModel.vdeparse("N2XS(FL)2Y 1x630/35 76/132 kV RM")
 ```
 
-Unparsed compact-token text remains under `:unparsed_stub`. Parsing a
-designation does not construct a cable.
+The returned fields describe the designation; unparsed compact-token text is
+stored under `:unparsed_stub`.
 
 ## Reference
 

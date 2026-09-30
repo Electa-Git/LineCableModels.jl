@@ -1,9 +1,8 @@
 """
 $(TYPEDSIGNATURES)
 
-Tabulate completed timing records as scalar columns. No timings are collected
-and no files are opened. Allocated bytes are Julia allocations, not peak memory.
-Native backend timing scopes are preserved rather than relabelled as wall time.
+Tabulate completed timing records as scalar columns. Allocated bytes measure
+Julia allocation volume. Each record keeps its backend's timing scope.
 
 The optional `labels` are supplied by the same formulation descriptions used
 by the comparison report. Full workload/session records remain in the observation.

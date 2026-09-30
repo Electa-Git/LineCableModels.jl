@@ -26,20 +26,15 @@ Gridspace{Target}(build, grids::Tuple; combine=:product)
 Gridspace{Target}(grids::Tuple; combine=:product)
 ```
 
-Every member of `grids` must already be a `Grid` or nested `Gridspace`. The
-constructor never interprets a raw tuple, vector, matrix, or other domain value
-as an axis. `Target` is the semantic result family used for dispatch and
+Every member of `grids` must already be a `Grid` or nested `Gridspace`. Wrap
+finite alternatives in `Grid` before passing them to this constructor.
+`Target` is the result family used for dispatch and
 `build` is the callable that constructs it. A nonempty deterministic space
 advertises a concrete iterator element type when Julia can prove that type
 without evaluating a point. Otherwise—including uncertainty-bearing and empty
-spaces—its iterator uses `Base.EltypeUnknown`; a Gridspace never advertises a
-`UnionAll` element type. `combine` is normalized into the concrete Gridspace
+spaces—its iterator uses `Base.EltypeUnknown`. `combine` is normalized into the concrete Gridspace
 type. The space is lazy and has an analytic length. `rand(space)` selects and
 realizes one point without collecting the space.
-
-The internal selected point contains only the callable and its selected
-arguments. The point is unresolved, unexported, and temporary. The point never enters a
-completed calculation result.
 
 ## Grid is the variation marker
 
@@ -53,9 +48,8 @@ Grid((1.0, 2.0), AbsoluteError(0.1))   # nominal × absolute error
 ```
 
 The uncertainty-bearing forms yield `UncertainValue(nominal, sigma)`
-descriptors. An `UncertainValue` does not depend on an uncertainty package. The descriptor becomes
-Measurements values during direct propagation or ordinary scalars during
-Monte Carlo realization.
+descriptors defined by the core package. A descriptor becomes a Measurements
+value during direct propagation or an ordinary scalar during Monte Carlo realization.
 
 The constructor laws are:
 
@@ -117,8 +111,7 @@ collect(space)
 # [(1, 10), (2, 10), (3, 10), (1, 20), (2, 20), (3, 20)]
 ```
 
-Its length is the product of the direct source lengths. Computing `length`
-does not traverse or materialize any point.
+Its length is computed directly as the product of the source lengths.
 
 ### Zip
 
@@ -288,7 +281,7 @@ per problem point, constructs its formulation-independent local input once,
 then allocates and solves one independent workspace per formulation. The
 cable-constant path independently follows the same one-flatten rule. Mutable
 matrices, formula-dependent earth data, reduction maps, and diagnostic storage
-are never shared. Modal transformation needs no special lowering and uses the
+belong to each workspace. Modal transformation needs no special lowering and uses the
 generic route on the same phase-domain matrices.
 
 `ParametricResult` retains both axes:
@@ -303,8 +296,7 @@ Its `values` vector and ordinary linear iteration remain available. Storage is
 column-major in `(problem, formulation)` coordinates: the problem index varies
 fastest. Thus every selected value can be traced to its completed formulation,
 for example with
-`formula_id(run.axes.formulations[j].methods.earth_impedance)`. The result does
-not retain unresolved points or traversal state.
+`formula_id(run.axes.formulations[j].methods.earth_impedance)`.
 
 Direct linear propagation uses the same traversal. The Measurements extension
 changes only how an uncertain descriptor materializes. `LinearErrorResult`
@@ -316,8 +308,7 @@ that exact result type with the analytic Cartesian cardinality, and rejects any
 later type change. Optional detail records follow the same rule and are
 resolved through each scalar formulation's computation owner. `Combinatorial`
 constructs its result space from `values`, `axes`, and `details`. `LinearError`
-continues to use one scalar formulation and consumes `values` and `details`;
-Monte Carlo does not use this traversal.
+uses one scalar formulation and consumes `values` and `details`.
 
 Monte Carlo selects each outer point once, derives a deterministic point seed,
 and repeatedly realizes that same point:
@@ -333,8 +324,7 @@ for each selected outer point
 end
 ```
 
-Multiple nominal/error points therefore produce multiple aggregates, not one
-mixture. `MonteCarloResult` directly owns sample-mean core results, statistics,
+Each nominal/error point produces its own aggregate. `MonteCarloResult` directly owns sample-mean core results, statistics,
 optional retained samples, optional histograms, the root seed, point seeds,
 and trial counts.
 
@@ -350,10 +340,9 @@ For cable-constant Monte Carlo calculations, the representative stored in the
 result space remains a `CableConstants` core result. Retained samples,
 statistics, and histograms are concrete named tuples with keys `R`, `L`, `C`,
 and `G`; cable samples have assembly × trial dimensions. Line-parameter
-products retain conductor × conductor × frequency × trial dimensions. These
-are internal point-aligned storage, not result types or observation surfaces.
-`MonteCarloResult` validates their keys and dimensions and owns every public
-observation method.
+products retain conductor × conductor × frequency × trial dimensions.
+`MonteCarloResult` validates these point-aligned arrays' keys and dimensions
+and supplies their public observation methods.
 
 ### Observe and compare retained uncertainty
 
@@ -466,14 +455,13 @@ The first axis of each completed result space follows the source order; for
 the product, the linear index is `source_index + (formulation_index-1)*N`.
 The quantity arrays
 remain single outer elements under ordinary Julia broadcast. A completed
-formulation `Grid` can be used directly; it is never wrapped as a second
-modal formulation.
+formulation `Grid` can be passed directly to `compute`.
 
 The dispatched method `Gridspace{Target}(source::SourceResult)` defines how the
 source result family supplies arguments to the target problem constructor. The
 transport preserves source cardinality and order unless that source-specific
-method explicitly documents another operation. It produces a target-bearing
-problem space, never a nested result envelope.
+method explicitly documents another operation. It produces a `Gridspace` of
+the target problem type.
 
 `ParametricResult` transports its completed combinatorial results directly.
 `LinearErrorResult` and `MonteCarloResult` transport their stored
@@ -595,15 +583,12 @@ Distributions.
   deviation. Samples are transformed to the descriptor's nominal value and
   standard uncertainty.
 
-Neither extension knows about finite-source identity, result presentation, or
-Engine internals.
-
 ## Performance and conformance
 
 The implementation relies on tuple-specialized recursion and Julia's public
 product and zip iterators. The implementation guarantees:
 
-- `length` is analytic and never enumerates points.
+- `length` is computed analytically from source cardinalities.
 - Product and zip traversal are linear in yielded work.
 - Materialization and realization use no dictionary or identity lookup.
 - Immutable scalar targets infer through selection, materialization, and
@@ -615,8 +600,8 @@ product and zip iterators. The implementation guarantees:
   storage intrinsically require.
 
 The conformance suite in `test/unit/parametricbuilder/conformance.jl` checks
-these properties, exact structural reuse, explicit variation, scalar public
-construction, and the absence of a random-access Gridspace API.
+these properties, exact structural reuse, explicit variation, and scalar public
+construction.
 
 ## Implementation map
 

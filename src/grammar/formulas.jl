@@ -15,7 +15,7 @@ $(TYPEDSIGNATURES)
 Normalize supplied formulation options against defaults declared by the actual
 selected equation. A family with multiple cases projects supplied options to
 each consuming binding before calling this constructor. Empty defaults admit
-no options; they do not declare equation availability. Each option's dispatched
+no options. Each option's dispatched
 normalizer owns its value type, including scalar physical choices and structured
 numerical controls.
 """

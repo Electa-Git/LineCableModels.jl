@@ -1,7 +1,7 @@
 # Extension API
 
 Extension code adds methods to the owner that defines their meaning. The public
-calculation entry points remain `compute`, `observe`, `observables`,
+calculation entry points are `compute`, `observe`, `observables`,
 `report`, `plot`, and `preview`.
 
 `PlotBuilder` owns only optional plotting entry points and the live `UIPlot`
@@ -28,20 +28,17 @@ including default branches, in quantity-relevant legends.
 
 Formulation owners expose ordered `(owner, route_tuple) => selection` pairs
 through `pairs(source; quantity)` and `pairs(owner, retained; quantity)`.
-Each selected leaf is paired with its passive declaration controls. Formula
-normalizers do not read retained formula selections and controls;
-`formulation_options(selection)` reads
-the live selection's `FormulationOptions`. `description` remains
-a text interface: consumers must not parse its output for identity, child
-structure, ordering or quantity relevance. Backend-specific scientific meaning
-belongs to the contextual `description(owner, selection; compact)` method;
-PSCAD's native defaults must not be described as the analytical default equations.
+Each selected leaf is paired with its declaration controls.
+`formulation_options(selection)` reads the live selection's `FormulationOptions`.
+Consumers obtain identity from `formula_id`, structure and ordering from `pairs`,
+and display text from `description`. The contextual
+`description(owner, selection; compact)` method describes the backend's equations,
+including PSCAD's native defaults.
 
 ## User-owned equations
 
 Select a concrete type directly in the physical slot, for example
-`Formulation(earth_properties=MySoil(...))`. Built-in `Formula` lists do not
-need edits. There is no callback bag or replacement of a built-in identity.
+`Formulation(earth_properties=MySoil(...))`.
 `FormulaMethod(selected, operation, Val(...), ...)` calls the operation with the
 selected object first; IDs are for inspection only. `:default` resolves to an
 explicit implementation before physical validation or computation.
@@ -60,23 +57,18 @@ explicit implementation before physical validation or computation.
 | Pipe applicability | `Engine.PipeImpedanceFormulation`; `Formulation(backend, selected, Val(topology))`. No analytical pipe equation is supplied. |
 
 `parameters` are model data and `options` are formulation-owned physical choices
-and numerical controls, never callable
-implementations. Custom constructors validate and normalize their own `FormulationOptions`.
+and numerical controls. Custom constructors validate and normalize their own `FormulationOptions`.
 Execution controls use `ComputationOptions`; completed supplemental output uses
 `ComputationDetails`. Read their payloads explicitly through `.data`.
 Indexed families declare numerical defaults for the actual selected type and
 case with `formulation_options(::FormulaMethod{<:MyType,typeof(operation),...})`.
-No numerical section selects physical input construction. Earth field equations consume
-evaluated material properties. Their wave numbers and field approximations are
-local to the equation, not material constitutive laws. `constitutive` requires a
-valid material argument and is implemented by material-law families, not earth
-impedance or potential-coefficient formulas.
-An explicit Γ belongs to Unified's formulation options, not the problem or shared
-earth functor. It may be a scalar or a frequency-aligned vector; its precision
-participates in allocation of the calculation's numerical storage. It prescribes
-longitudinal dependence; it is not an independent UQ sampling input. The existing
-positive-time convention and any explicit convention conversion are documented
-with the Unified equations.
+Earth field equations consume evaluated material properties and define their
+own wave numbers and field approximations. Material-law families implement
+`constitutive` with a valid material argument.
+Unified's formulation options accept a prescribed longitudinal coefficient Γ
+as a scalar or a frequency-aligned vector. Its precision participates in
+allocation of the calculation's numerical storage. The positive-time convention
+and explicit convention conversions are documented with the Unified equations.
 
 Coaxial equations and material laws receive the owning computation workspace,
 or `nothing` for a standalone evaluation that does not require it. Numerical arrays are in
@@ -95,10 +87,8 @@ same buffer-initialization method with its local numerical input and no earth in
 
 Each formula owns its complete integrand, transformations, Jacobians, branch
 choices and physical subdivision hints. `SpectralIntegral` contains only that
-callable. `integrate` accepts opaque numeric subdivision points; it neither
-discovers physical features nor samples a kernel before handing it to QuadGK.
-There is no shared spectral sampler. Repeated short physical expressions can
-remain local to their formulas.
+callable. `integrate` passes it and the supplied numeric subdivision points to
+QuadGK. Physical expressions and subdivision choices belong to each formula.
 
 `ShuntModel` owns conductor and dielectric geometry extraction, numerical coefficients and the requested fallback
 model. Its `blueprint_dependencies` methods identify the actual local selections
@@ -111,13 +101,13 @@ output entries. A coupled formula can extend its selected-type method to require
 the complete system and its two-selection method to bind compatible Z/P consumers.
 `Engine.earth!` then performs the actual calculation from completed material
 inputs and writes the selected destinations. Unpaired selections use its ordinary
-indexed implementation. New equations do not change the Engine frequency sequence
-or create a second workspace, validity flag, reset method or material-law callback.
+indexed implementation. All selections use the Engine frequency sequence and
+its computation workspace.
 
 Internal state is constructed once per conductor and frequency through the selected
 type's physical constructor and `InternalImpedance.Functor`. Shunt geometry
-construction must be frequency independent and returns blueprint blocks and
-diagnostics; it is never repeated in the frequency loop. A consuming earth
+construction runs once before the frequency loop and returns frequency-independent
+blueprint blocks and diagnostics. A consuming earth
 equation explicitly admits a custom equivalent-earth rule using `validate`.
 
 Results use result-type and unit checks for each formula family, including custom types.
@@ -223,9 +213,8 @@ function validate(value::Annulus)
 end
 ```
 
-Do not delegate the method to private checking helpers. Constructors normalize
-their admitted grammar; `validate` only checks the completed value and does not
-convert, repair, or mutate it.
+Constructors normalize their admitted grammar; the owning `validate` method
+checks the completed value directly and returns it unchanged.
 
 ```@docs
 LineCableModels.InputValidation

@@ -92,7 +92,7 @@ $(TYPEDSIGNATURES)
 
 Return a retained empirical percentile in the summary's physical units.
 Only probabilities 0, 0.05, 0.5, 0.95 and 1 are retained; other probabilities
-raise `ArgumentError`. No distribution is reconstructed from summary moments.
+raise `ArgumentError`.
 """
 function Statistics.quantile(summary::SampleSummary, probability::Real)
     probability == 0 && return minimum(summary)

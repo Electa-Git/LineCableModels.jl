@@ -56,7 +56,7 @@ $(TYPEDEF)
 Store one lossless terminal-capacitance block in its owner's conductor indices.
 Blueprint indices are cable-local; local assembly data remap them to the system.
 `C` is shield-referenced capacitance \\[F/m\\]; `P` is its charge-potential
-inverse \\[m/F\\]. Dense boundary matrices are not retained.
+inverse \\[m/F\\].
 
 $(TYPEDFIELDS)
 """

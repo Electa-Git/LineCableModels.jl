@@ -84,9 +84,7 @@ end
 """
 $(TYPEDSIGNATURES)
 
-Read a user-selected TOML file into a station configuration. No directory is
-created and no command is executed. The backend does not discover configuration
-files or read environment variables.
+Read a user-selected TOML file into a station configuration.
 
 # Arguments
 

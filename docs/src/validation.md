@@ -16,9 +16,8 @@ validated = validate(value)
 @assert validated === value
 ```
 
-Input validation never converts, fills defaults, rewrites nested values, or
-mutates its input. Constructors normalize admitted scalar grammar before
-checking the resulting object. A selected `Gridpoint` is checked when it
+Constructors normalize admitted scalar grammar and fill defaults before
+validating the resulting object. A selected `Gridpoint` is checked when it
 materializes, and computation entry points check their complete problem again.
 
 ## Validation failures
@@ -52,9 +51,9 @@ Mutable libraries validate a complete library replacement before changing owned 
 Earth models, cable designs, and line systems are immutable descriptions;
 rebuild the authoritative declaration when it changes.
 
-Operating temperature is not a cable-part constructor input. Cable designs represent
-the common material reference state and reject mixed material reference temperatures.
-The line problem owns the finite operating temperature. The formulation selects
+Cable designs represent a common material reference state and reject mixed
+material reference temperatures. The line problem owns the finite operating
+temperature. The formulation selects
 `temperature_dependence`; its default linear law validates the material-specific
 range and positive correction factor. Identity and custom laws retain their own
 applicability. [`compute`](@ref) applies the selected
@@ -69,11 +68,11 @@ inputs to make them fit. The ring diagnostic reports its count, radius, member
 width, required chord, available chord and deficit in meters.
 
 Declare dependent dimensions with a joint builder and justify feasibility over
-its complete support. A few successful draws are a useful regression check,
-not a support proof. Arbitrary callbacks and independent unbounded normal
+its complete support. Successful draws establish feasibility for those
+realizations only. Arbitrary callbacks and independent unbounded normal
 inputs cannot be certified from marginal means and standard uncertainties.
-`MonteCarlo(...; on_error=:resample, retain_details=true)` explicitly conditions on
-successful construction and calculation; it does not preserve the original law.
+`MonteCarlo(...; options=(on_error=:resample, retain_details=true))` conditions
+the output distribution on successful construction and calculation.
 
 The existing exterior cable-clearance rule is separate. System construction
 may adjust practically touching cable placements with a warning, retaining its
@@ -101,8 +100,5 @@ samples to obtain a favorable subset. Empty bands and unsupported quantities
 remain distinct. Absolute RMS always measures the original arrays. A resolved
 discrepancy is not evidence that the designated reference is physical truth.
 
-`clip=false` and `observe` retain raw values. Detachment does not erase measurement
-uncertainty, break measurement correlations, or clip Monte Carlo standard
-deviations. Tests cover prefix/basis scaling, numerical types, threshold equality,
-weak signals, complex phase, retained analysis revisions and zero solver calls
-during explicit reanalysis.
+`clip=false` and `observe` retain raw values. Detachment preserves measurement
+uncertainty, measurement correlations, and Monte Carlo standard deviations.

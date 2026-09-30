@@ -114,22 +114,18 @@ execution environments.
 
 ### Release status and regressions
 
-The codebase is moving toward its first stable release. Everything currently
-pushed to `main`, including the `0.1.0` tag, is unreleased. The intended `0.2.0`
-candidate does not create a previous stable release or a compatibility promise.
+The package has no published stable API. Development changes update the
+implementation, callers, and relevant tests together.
 
-In this repository, a regression test protects against a real bug detected in
-released stable code. It identifies the reported tracker issue, affected stable
-release and protected behavior. Current development defects are bugs to fix;
-they are not regressions against an unreleased prototype. Ordinary behavior,
-mathematical implementation, integration and architecture tests need no invented
-issue. Existing useful tests remain under those purposes. Stable publication
-does not retroactively turn WIP tests into bug-regression tests.
+In this repository, a regression test protects against a bug detected in a
+published stable release. It identifies the reported tracker issue, affected
+release, and protected behavior. Tests of current development behavior belong
+to the behavior, mathematical implementation, integration, or architecture
+suites, according to what they exercise.
 
-Deliberate API and architectural changes update the implementation, callers and
-relevant tests together. Do not restore obsolete APIs or preserve prototype
-outputs to satisfy tests. A test whose only purpose is to prove an old name
-vanished or a new spelling appeared is not an architectural safeguard.
+Tests follow the current API and its intended behavior. Preserve independent
+scientific expectations when updating callers. Architecture tests exercise
+responsibilities through their consumers and native interfaces.
 
 ### What the harness checks
 
@@ -186,12 +182,6 @@ denominator changes and fabricated expectations cannot satisfy this objective.
 Keep incomplete executions and real bugs visible; coverage does not turn them
 into successes.
 
-The completed fixture reset and useful rendering, reporting and harness repairs
-stand. Do not repeat the reset, restore legacy expected output, or turn completed
-calibration into a recurring obligation. Prior completion does not justify a
-test or numerical change whose requirement was unsupported, including the
-accuracy-driven Float32 surface-evaluation change.
-
 ## External interface methods
 
 `test/quality/explicit_imports.jl` loads the numerical, XLSX and Cairo adapters
@@ -199,14 +189,14 @@ explicitly. All mechanical ownership/import checks remain active. Its exact
 consumer/owner/name exceptions recognize documented upstream interfaces that
 lack Julia `public` annotations; they grant no package-private access.
 
-The inspected external accesses have these dispositions:
+The following external interfaces are used by the package:
 
 | Access | Supported use |
 | --- | --- |
 | `CairoMakie.activate!` | Documented [backend activation](https://docs.makie.org/stable/explanations/backends/cairomakie.html); Cairo adapter only. |
 | `Base.IOError` | Native I/O exception, including [filesystem errors](https://docs.julialang.org/en/v1/base/file/); renderer export error handling only. |
 | `Base.unalias` | Documented native preventative-copy operation in Julia 1.12's `base/abstractarray.jl`. Used only by Engine's allocating Kron entry point to preserve source/destination aliasing; the workspace path uses separate preallocated buffers. |
-| `Base.require` | Removed from the renderer. `Base.get_extension` identifies the loaded Cairo extension, whose public `CairoMakie` binding supplies the native save backend. Export never loads packages. |
+| `Base.get_extension` | Identifies the loaded Cairo extension; its public `CairoMakie` binding supplies the native save backend. |
 | `Makie.automatic` | Documented [native attribute default](https://docs.makie.org/stable/api); renderer only. |
 | `Makie.current_backend` | Documented [backend-dependent API default](https://docs.makie.org/stable/api); renderer only. |
 | `Makie.get_ticks`, `Makie.get_tickvalues` | Documented [axis extension hooks](https://docs.makie.org/stable/reference/blocks/axis.html); renderer only. |
@@ -214,10 +204,10 @@ The inspected external accesses have these dispositions:
 | `Makie.inverse_transform` | Documented [custom axis scale interface](https://docs.makie.org/stable/reference/blocks/axis.html#xscale); the renderer applies axis margins to full uncertainty bounds in the selected scale, then maps them back without a second inverse-scale mapping. |
 | `Makie.CategoricalConversion` | Documented [categorical axis conversion](https://docs.makie.org/stable/reference/generic/dimensional/); renderer assembly axes only. |
 | `Makie.defaultlimits` | The documented native scale-default hook named by Makie's Axis attributes; the renderer queries it only when an empty axis changes scale, so the native scale supplies its valid interval. |
-| `Makie.attribute_names` | Removed. Axis uses its `propertynames` interface plus the native `palette` keyword; Scatter uses the exported [`default_theme`](https://docs.makie.org/v0.24/explanations/recipes) method. |
-| `Makie.get_plots` | Removed. Legend glyphs use the `plots` vector required by the [LegendElement extension interface](https://github.com/MakieOrg/Makie.jl/blob/v0.24.13/Makie/src/makielayout/types.jl). This is the documented source association, not arbitrary private-field inspection. |
-| `Makie.get_plot_visibilities` | Removed. Native `on`/`off` and the documented [`ObserverFunction.observable`](https://juliagizmos.github.io/Observables.jl/stable/#Observables.ObserverFunction) supply the notification target without changing visibility. |
-| `Makie.fast_string_boundingboxes_obs` | Removed. Public attribute subscriptions query the documented [`fast_string_boundingboxes(Text)`](https://github.com/MakieOrg/Makie.jl/blob/v0.24.13/Makie/src/basic_recipes/text.jl) result, preserving marker-space extents without the internal observable helper. The exact documented query is allowed for the renderer. |
+| `propertynames`, `Makie.default_theme` | Axis attributes use `propertynames` and the native `palette` keyword; Scatter attributes use the exported [`default_theme`](https://docs.makie.org/v0.24/explanations/recipes) method. |
+| `LegendElement.plots` | Associates legend glyphs with source plots through the documented [LegendElement extension interface](https://github.com/MakieOrg/Makie.jl/blob/v0.24.13/Makie/src/makielayout/types.jl). |
+| `on`, `off`, `ObserverFunction.observable` | Manage visibility subscriptions using the documented [`ObserverFunction.observable`](https://juliagizmos.github.io/Observables.jl/stable/#Observables.ObserverFunction) notification target. |
+| `Makie.fast_string_boundingboxes(Text)` | Public attribute subscriptions query the documented [text bounds](https://github.com/MakieOrg/Makie.jl/blob/v0.24.13/Makie/src/basic_recipes/text.jl), retaining marker-space extents. |
 | `GridLayoutBase.remove_from_gridlayout!` | Retained as the [maintainer-prescribed nested-layout removal](https://discourse.julialang.org/t/makie-removing-gridlayouts/103935) workaround. It is not an exported stable API. Only this renderer call is admitted; existing legend recreation/layout tests protect it. |
 
 These integration methods are scoped to the supported Makie 0.24 family.

@@ -299,8 +299,8 @@ end
 Write a deterministic, depth-, row-, and width-bounded tree.
 
 Each child is either a string or a named tuple with `label`, optional
-`children`, and optional `noun` fields. The tuples are detached display input;
-the formatter does not inspect domain objects.
+`children`, and optional `noun` fields. The formatter consumes these detached
+display records.
 """
 function tree(
         io::IO,

@@ -47,9 +47,8 @@ $(TYPEDEF)
 
 Store the exact annular deformation of one rectangular strip.
 
-`BentStrip` is resolved geometry, not a modeling declaration. The source
-remains a [`Rectangle`](@ref); the strip preserves its source area while its
-radial faces follow the containing circular course.
+Resolve a [`Rectangle`](@ref) onto a circular course, preserving its area and
+bending its radial faces to follow that course.
 
 For angular coverage ``\\Delta\\phi`` and radial limits ``r_i`` and ``r_o``,
 

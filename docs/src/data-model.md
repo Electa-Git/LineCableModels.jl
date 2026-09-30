@@ -288,10 +288,9 @@ input. The exact sectors and their centroids remain authoritative in the
 completed design and in persisted declarations.
 
 `design.origin` retains the physical declaration used to build the cable;
-`design.geometry` is its resolved geometry. The former `design.root` field is
-not an alias. New serialized cable-design records use `"origin"`; older records
-with `"root"` are translated only when imported. This does not rename the outer
-JSON document's `"root"` key.
+`design.geometry` is its resolved geometry. Serialized cable-design records
+store the declaration under `"origin"`. The outer JSON document uses `"root"`
+for its top-level value.
 
 ## Parameter spaces
 
@@ -333,8 +332,8 @@ supports the resulting cable topology.
 
 Homogeneous dielectric geometry retains a `RadialDielectric`: the original
 insulation and semicon materials with their logarithmic radius weights.
-It does not fit their losses at 50 Hz. In computation, the selected law is
-evaluated for each constituent and the radial responses combine in series.
+In computation, the selected law is evaluated for each constituent at each
+frequency, and the radial responses combine in series.
 Thus `:default` remains lossless before and after homogenization; explicitly
 selected lossy formulations retain their frequency dependence. The displayed
 resistivity is the DC series value and the displayed permittivity is the
@@ -511,7 +510,6 @@ preview(
     backend=:cairo,
     display_plot=false,
     controls=false,
-    # Previously an explicit override; the bottom material strip is now default.
 ).figure
 ```
 
@@ -943,7 +941,6 @@ preview(
     backend=:cairo,
     display_plot=false,
     controls=false,
-    # Previously an explicit override; the bottom material strip is now default.
 ).figure
 ```
 
@@ -1017,6 +1014,5 @@ preview(
     backend=:cairo,
     display_plot=false,
     controls=false,
-    # Previously an explicit override; the bottom material strip is now default.
 ).figure
 ```

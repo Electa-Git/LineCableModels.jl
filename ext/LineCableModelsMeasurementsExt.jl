@@ -70,8 +70,8 @@ end
 
 """
 Encode one UQ result with shared independent-source identities and sparse signed
-sensitivities. Source IDs are local to this record; separate outputs are never
-reconstructed as independent measurements.
+sensitivities. Source IDs are local to this record and preserve shared
+uncertainties across outputs when decoded.
 """
 function serialize_value(value::Union{UQ.LinearErrorResult{T},
         UQ.MonteCarloResult{T}}) where {

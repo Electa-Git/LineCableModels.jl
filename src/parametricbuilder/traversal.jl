@@ -217,8 +217,8 @@ end
 $(TYPEDSIGNATURES)
 
 Compute one target-bearing scalar grid point. Core workflows may add a more
-specific lowering route; the general compatibility path materializes exactly
-that selected point and never the surrounding finite space.
+specific lowering method; the default method materializes the selected point
+and computes its result.
 """
 function compute(
         point::Gridpoint{Target},

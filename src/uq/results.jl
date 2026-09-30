@@ -280,8 +280,8 @@ end
 $(TYPEDEF)
 
 Store uncertainty-bearing core results and their empirical Monte Carlo products.
-The marginal representation is materialized during computation and retained;
-reading the result does not reconstruct independent uncertainty sources.
+The marginal representation is materialized during computation. Access reuses
+the retained uncertainty-source identities.
 
 $(TYPEDFIELDS)
 """

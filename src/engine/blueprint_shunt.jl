@@ -3,7 +3,7 @@ $(TYPEDSIGNATURES)
 
 Construct cable blueprints for each selected formulation. Identical local
 selections share the completed blueprints; equivalent lossless domains share
-their coefficient matrices. Earth-return choices do not enter this calculation.
+their coefficient matrices.
 The returned outer vector follows formulation order, and each inner vector
 follows design order. Sharing is confined to this construction call.
 """

@@ -290,7 +290,7 @@ end
 """
 $(TYPEDSIGNATURES)
 
-Construct detached atomic observations. Ordinary collections lift the atomic
-constructor; scientific values are never tabulated or rendered on this path.
+Construct detached atomic observations. For an ordinary collection, apply the
+atomic constructor to each element.
 """
 observables(source,requests::Tuple=();kwargs...) = ObservedResult(source,requests;kwargs...)

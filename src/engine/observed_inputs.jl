@@ -56,7 +56,7 @@ end
 $(TYPEDSIGNATURES)
 
 Capture actual formulation selections, controls, and structured description
-fields when a result completes. No live formulation objects are retained.
+fields when a result completes.
 """
 function completed_formulation(formulation, declaration::NamedTuple=NamedTuple(formulation))
     function control_fields(owner, controls, path=())

@@ -1208,9 +1208,8 @@ $(TYPEDSIGNATURES)
 Reduce each radial terminal section of a completed cable design to equivalent
 conductor geometry and its ordered physical dielectric layers.
 
-The reduction combines conductor resistance and GMR but does not evaluate a
-dielectric circuit. It performs no constitutive, frequency, line-parameter,
-mutual-coupling, earth-return, or matrix calculation.
+The reduction combines conductor resistance and GMR and retains each physical
+dielectric layer for subsequent material evaluation.
 
 # Arguments
 

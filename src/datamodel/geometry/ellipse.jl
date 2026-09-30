@@ -10,8 +10,7 @@ has support
 h_t(\\phi) = h(\\phi) + t.
 ```
 
-`EllipseOffset` is resolved geometry produced by applying [`Shell`](@ref); it
-is not a modeling declaration.
+`EllipseOffset` is resolved geometry produced by applying [`Shell`](@ref).
 
 $(TYPEDFIELDS)
 """

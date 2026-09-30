@@ -92,10 +92,10 @@ function deserialize_value(::Val{:formulation},family::Type,value,definition)
     return (selected,settings)
 end
 
-"""Retain current owner records unchanged when decoding historical selections."""
+"""Pass decoded formulation records through unchanged."""
 deserialize_value(::Val{:formulation},owner::Type,record,::Val{:historical})=record
 
-"""Read historical internal surface names without changing earth interactions or saved files."""
+"""Map stored internal-impedance `mutual` keys to `transfer`."""
 function deserialize_value(::Val{:formulation},::Type{<:Engine.InternalImpedance.Formula},
         record::NamedTuple,::Val{:historical})
     rename=fields -> begin

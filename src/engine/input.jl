@@ -6,14 +6,14 @@ calculation.
 
 The constructor adapts a completed physical system once, validates the aligned
 numerical representation, constructs cable and reduction indices, and
-allocates every matrix used by the frequency loop. Each `compute` call owns one
-workspace; no mutable state is shared between calculations. Constant fields fix
+allocates every matrix used by the frequency loop. Each `compute` call owns an
+independent workspace. Constant fields fix
 its input and buffer bindings; reference identity avoids copying this large
 record when dispatching heterogeneous equation groups.
 
 Bound earth calculations and their material arrays are stored as tuples.
 The complete scan specializes on their concrete types once, before frequency
-traversal; the workspace type itself does not depend on conductor layout.
+traversal. Conductor layout is stored as runtime data.
 
 $(TYPEDFIELDS)
 """
@@ -134,9 +134,7 @@ line-parameter problem.
 
 The selected designs have already been flattened into frequency-independent
 blueprints. This step constructs local cable arrays, physical geometry,
-terminal indices, and frequency coordinates once. It does not apply
-temperature correction, earth-property/EquivalentHomogeneous formulas, reduction choices, or
-allocate formula-specific buffers.
+terminal indices, and frequency coordinates once.
 
 # Arguments
 

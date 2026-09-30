@@ -11,7 +11,7 @@ call the same public observed-input method. `PlotBuilder.plot` and
 `selection` and `ydata` are alternative spellings of the same request; supplying
 both is an error. Requests retain `@observe` syntax and original coordinates.
 An existing observation supplies values, units, descriptions, uncertainty, and
-scientific groups. Rendering does not reacquire a result or run a comparison.
+scientific groups.
 
 # Selection and acquisition
 
@@ -36,7 +36,7 @@ result and reference curves per meter without rebuilding the report.
 
 `problem` and `formulations` select original recorded identities. `band` selects
 saved comparison samples through the observation owner, retaining each trace's
-own coordinates and reference association. It does not calculate new errors.
+own coordinates and reference association.
 
 `overlay=:auto` chooses the overlaid dimension after filtering and before
 equivalent-result grouping. A lone modal vector uses selected modes as curves
@@ -70,7 +70,7 @@ lengths require separate calls.
   Explicit diagonal products paginate compactly with original `(i,i)` identities.
   With `overlay=:rows`, automatic capacity uses the selected column count per
   gridpoint. An explicit layout is the shared block capacity for every point;
-  partially filled pages never include another point's columns. Panel addresses
+  each page contains columns from one point. Panel addresses
   are `(original_point_position, original_column)`, with a reference appended
   after the input points. Row styles retain original row identities across pages
   and points; positional labels and attributes follow the selected row order.
@@ -85,11 +85,10 @@ lengths require separate calls.
 - `series_labels`, `reference`, and `series_attributes` control the overlaid
   trace identity and native appearance. Attributes accept one NamedTuple or an
   aligned tuple/vector.
-  Result slots are assigned before filtering; a separate reference does not
-  shift them. References default to black solid curves and hollow circles.
+  Result slots are assigned before filtering and adding a reference. References default to black solid curves and hollow circles.
 - `errorbar_sampling` defaults to `:staggered` for multiple displayed series and
-  `:all` for one. Full uncertainty support still controls limits. Explicit curve
-  markers use every original sample; categorical/scalar points are never thinned.
+  `:all` for one. Full uncertainty support controls limits. Explicit curve
+  markers and categorical/scalar points use every original sample.
 - `xscale`, `yscale`, `xlabel`, `ylabel`, native limits/ticks/formatters, `axis=(;)`,
   and `figure=(;)` configure native objects. Constructor groups beat shared
   attributes; per-series overrides beat shared series settings. Later native
@@ -115,7 +114,7 @@ lengths require separate calls.
   and restored when space returns; every curve remains plotted. If even the
   ellipsis and title cannot fit, the legend is hidden until space returns.
 - `colorbar_position`, `colorbar_group_attributes`, `colorbar_attributes`, and
-  `guide_gap=8` place existing scale content; they do not fabricate scales.
+  `guide_gap=8` place existing scale content.
   Native `halign`/`valign` supply symbolic or fractional alignment.
 - `guide_spacing=12` sets minimum spacing between neighboring complete guides
   in logical pixels. A `(rowgap=..., colgap=...)` NamedTuple controls each
@@ -129,13 +128,13 @@ lengths require separate calls.
   `nothing`. `colorbar_attributes.vertical` orients each bar independently.
 - `backend`, `display_plot=true`, `controls=true`, `widgets=()`,
   `export_theme=:default`, and `open_export=true` control display and UI behavior.
-  Widget callables receive the final live handle once per figure. Hiding controls
-  does not disable [`axisscale!`](@ref) or [`resetview!`](@ref).
+  Widget callables receive the final live handle once per figure.
+  [`axisscale!`](@ref) and [`resetview!`](@ref) are also available with controls hidden.
 
 Numerical axes share size-aware ticks, engineering multipliers, and relative
 near-constant padding. Scale changes preflight the complete page and preserve
-orthogonal views and configured bounds. Observation owns clipping and uncertainty
-meaning; the shell never clips, rounds, or recalculates scientific eligibility.
+orthogonal views and configured bounds. Rendering uses the values, uncertainty,
+and availability recorded by the observation owner.
 Guide/title/widget changes refit the affected outer window around its current
 frames. Closing a display window leaves its retained handle reusable.
 
@@ -255,7 +254,7 @@ Load CairoMakie explicitly before exporting. For an interactive GLMakie window
 with SVG export, import both backends and select `backend=:gl` when plotting.
 The SVG button is created only when CairoMakie is already loaded. Loading it
 later enables this function on existing plots; recreate a plot to add its button.
-Export does not activate a backend and restores the live figure state. The toolbar
+Export preserves the active backend and restores the live figure state. The toolbar
 reports file errors in the window's status row; direct calls throw the
 corresponding exception. An unloaded CairoMakie renderer raises `ArgumentError`
 before filesystem or figure changes.
@@ -331,8 +330,7 @@ function materialcolors end
     materialscale!(position, scheme; kwargs...)
 
 Place one native Makie color scale at `position`. `scheme` supplies one label,
-colormap, limits, and tick definition. The primitive never chooses or combines
-material properties.
+colormap, limits, and tick definition.
 """
 function materialscale! end
 
@@ -404,7 +402,6 @@ Layout changes retain the native Colorbar objects and edits; hidden items retain
 their handles and supplied order without reserving empty group tracks. Invalid
 prospective settings fail before changing the displayed arrangement.
 
-Return the current native colorbar collection. This operation does not fabricate
-scales for line results.
+Return the current native colorbar collection.
 """
 function figurecolorbars! end

@@ -67,10 +67,10 @@ Each solver job selects its material coefficients by frequency index. When
 quantities with frequency/source-specific filenames and labels. The maintained GetDP
 files are captured with each run so later edits cannot change an active scan.
 
-The former `fem_options` keyword and `LineCableModelsFEMOptions` struct have been
-removed. Move their execution keys into `compute` options and `physics` into
-formulation options. Benchmark calls use `reference_options` for FEM execution
-controls. Supplemental run metadata is a named tuple under `details(result).data.fem.run`.
+Pass execution controls through `compute(...; options=(...))` and select
+`physics` through formulation options. Benchmark calls use `reference_options`
+for FEM execution controls. Supplemental run metadata is a named tuple under
+`details(result).data.fem.run`.
 
 ## Physics selection
 
@@ -131,9 +131,7 @@ Supported enclosing geometry is represented directly in the field domain.
 resistivity as ``\rho(T)=\rho_0[1+\alpha(T-T_0)]``. `T` comes from
 `problem.temperature`; reference resistivity, `T0`, and `alpha` come from the
 material. Select `nothing` to retain reference resistivity. This law is shared
-with analytical calculations, cable constants, and PSCAD export. The retired
-`options.temperature_correction` Boolean is rejected: replace `true` with the
-`:default` temperature selection and `false` with `nothing`.
+with analytical calculations, cable constants, and PSCAD export.
 
 The default law requires a positive finite correction factor and
 ``|T-T_0|<150`` K. These are limits of this approximation, independent of thermal
@@ -285,7 +283,7 @@ rebuilds continuous problem data as `Float64`; when a
 retained. Discrete topology such as terminal assignments, material tags, and
 pattern counts remains integral. The caller-owned problem is not mutated. Evaluated material-law outputs pass the
 same checked conversion to nominal `Float64` before transport; finite overflow is
-rejected. Analytical scalar and uncertainty propagation remain unchanged.
+rejected.
 
 | FEM datum | Authoritative LineCableModels property | Handling |
 |---|---|---|
@@ -299,7 +297,7 @@ rejected. Analytical scalar and uncertainty propagation remain unchanged.
 | Earth material | `LineParametersProblem.earth_props` | Declared air plus one horizontal soil half-space; the soil law is evaluated per frequency |
 | Optional environment declaration | `LineCableSystem.environment` | `nothing` and `EarthModel` are accepted; other declarations produce a typed unsupported-feature error |
 | Line length and output basis | `LineCableSystem.line_length` and shared `compute` options | Per-unit-length is the default; total basis scales Z and Y by line length |
-| Propagation constant | backend-owned ``\Gamma\to0`` limit, with independent or first-order coupled fields selected by formulation `options.physics` | Problem-level `Γ` is not a current input; obsolete serialized `Gamma` fields are rejected |
+| Propagation constant | backend-owned ``\Gamma\to0`` limit, with independent or first-order coupled fields selected by formulation `options.physics` | Selected by the formulation; the FEM problem supplies geometry, materials, and frequencies |
 | Mesh resolution | local characteristic lengths derived from each resolved solid, tube, strand, foil, and passive region; per-frequency earth skin depth controls the exterior domain, and air/soil propagation scales constrain surrounding-medium resolution | Thin internal features remain local and cannot refine unrelated layers or the earth domain |
 
 Disks, ellipses, and cable sectors retain exact Gmsh circle/ellipse arcs;

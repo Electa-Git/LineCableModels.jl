@@ -184,7 +184,7 @@ and gridpoints. Compact display remains a single-line summary.
 vector in reported-result order for a collection. `artifact[i, R]` returns the
 table for result position `i`. Complete transformation and statistical requests
 retain their own identities. Lookup preserves the selection made by `values`,
-requires an exact match for indexed requests, and performs no new observation or tabulation.
+and requires an exact match for indexed requests.
 Returned tables are shared with the report; use `copy` for independent edits.
 The `.tables` field remains available for inspection of the underlying grouped
 tables and specialized summaries.

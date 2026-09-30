@@ -224,8 +224,8 @@ delete!(materials, "copper_trial");
 #=
 ## Removing materials
 
-Use `delete!` with the stored name. Removing an entry does not delete a material
-kept under another name or change a value already retrieved from the library.
+Use `delete!` with the stored name. Other entries and previously retrieved
+material values remain available.
 The following example adds and removes an extra EPR entry while retaining
 `"epr"`.
 =#
@@ -251,8 +251,8 @@ save(materials; file_name = output_file);
 ## Loading and retrieving materials
 
 Start with an empty library when the saved file supplies all its entries.
-`load!` replaces the destination library's contents with the file's records;
-it does not merge them with built-in defaults. A parsing or validation failure
+`load!` replaces the destination library's entire contents with the file's
+records. A parsing or validation failure
 leaves the destination unchanged.
 =#
 
@@ -268,8 +268,7 @@ copper = materials_from_json["copper_corrected"]
 ### Reading individual properties
 
 Named material properties are available directly. Their units are those listed
-in the material-property table above; reading a property does not perform a
-calculation or modify the library.
+in the material-property table above.
 =#
 
 # Electrical resistivity at the reference temperature, in Ω·m:
@@ -287,7 +286,7 @@ copper.alpha
 ### Optional lookup
 
 Indexed lookup raises `KeyError` when a required entry is absent. Use `get`
-with an explicit fallback for an optional lookup; it does not insert a record.
+with an explicit fallback for an optional lookup.
 =#
 
 get(materials_from_json, "unlisted_material", nothing)

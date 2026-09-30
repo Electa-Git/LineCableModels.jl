@@ -74,9 +74,8 @@ require full-system inputs even when only some of its entries are selected.
 Those inputs and compatible Z/P consumers are bound during initialization.
 Compatible consumers calculate one response per frequency; different
 configurations calculate separately and publish their selected entries before
-reusing scratch. The binding records the fixed correspondence, not the validity
-of a previously calculated response. Every call calculates anew: there is no
-subordinate workspace or readiness/reset lifecycle.
+reusing scratch. The binding records the correspondence between inputs and
+selected output entries. Each call evaluates a fresh response.
 
 ## Internal shunt geometry
 
@@ -85,18 +84,17 @@ the dielectric material laws. Both `Formulation()` and
 `CableConstantsFormulation()` default to `shunt_model=:default`: ordinary
 coaxial annuli, with no boundary solve. `:coaxial` selects this explicitly.
 
-`insulation_admittance` and `semicon_admittance` still select material
-admittivity κ [S/m]. They do not select geometry. For one homogeneous annulus,
+`insulation_admittance` and `semicon_admittance` select the material
+admittivity κ [S/m]. For one homogeneous annulus,
 the shunt branch is `y = 2πκ/log(ro/ri)` [S/m]; successive dielectric layers
 combine in series. This is the same reduced geometry used by the coaxial
 backend, including its equivalent wire-screen geometry.
 
 Select `shunt_model=:boundary` to resolve eligible open wire and finite-tape
-groups inside a closed circular shield before the frequency sweep. This is an
-explicit local refinement of the coaxial backend, not another earth formula.
-It supplies a coupled terminal operator, not a fitted scalar permittivity:
-an annular chain cannot retain direct coupling across an open intermediate
-screen. The same blueprint construction supplies `CableConstants`.
+groups inside a closed circular shield before the frequency sweep. This local
+shunt calculation supplies a coupled terminal operator that retains direct
+coupling across open intermediate screens. The same blueprint construction
+supplies `CableConstants`.
 
 The resolved local calculation preserves physical filler permittivity, finite
 tape thickness, conductor terminal membership and concentric dielectric layers.
@@ -104,12 +102,10 @@ It couples all intermediate terminals in a qualifying domain together. Round
 wires use auxiliary sources; tapes use integrated corner-weighted charges on
 their two circular faces and two ends. The inner core retains the existing
 equivalent-core assumption, including bounded circular, rectangular, compacted
-and sector stranded constructions. Strand packing and clearance are unchanged.
-Series impedance, earth return, terminal ordering and matrix reductions are
-also unchanged. Only the applicable internal shunt contribution changes.
-Existing coaxial lowering requirements, including radial terminal ordering,
-remain in force; this does not add support for declarations that lowering
-already rejects.
+and sector stranded constructions. This calculation supplies the internal
+shunt contribution and requires the radial terminal ordering of coaxial lowering.
+Series impedance, earth return, and matrix reductions use their respective
+selected formulations.
 
 Qualification currently requires an explicitly filled annular host, continuous
 concentric dielectric paths, exposed whole wire/tape boundaries, and a closed
@@ -279,14 +275,12 @@ result = compute(problem, selected; options=(trace=true,))
 `options`, and an optional formula-local `equivalent_earth`. It is a passive
 request. A family constructor resolves a symbol or declaration to a concrete
 selection; a completed user-owned selection passes through unchanged. Built-in
-formula lists are explicit inventories, not admission registries for user code.
-There is no `hooks` field or callable-override channel.
+formula lists enumerate the implementations supplied by the package.
 
 A `FormulaMethod(selection, operation, Val(...), ...)` binds the actual selected
 type to the family operation. The first argument of every equation is that
-selection—not its identity symbol. `formula_id` is descriptive metadata; it
-cannot redirect execution to a different implementation. `:default` only
-routes, never implements an equation and never catches a failed calculation.
+selection. `formula_id` supplies descriptive metadata. The family constructor
+resolves `:default` to a concrete implementation before computation.
 
 For the analytical families, the default routes are:
 
@@ -303,17 +297,18 @@ For the analytical families, the default routes are:
 | Local shunt geometry | `:coaxial` |
 | Pipe contribution | `:none` |
 
-These routes do not expand applicability: `:none` does not implement a pipe
-solver, and `:unified` still requires its supported earth geometry. PSCAD owns
-separate native selections; FEM owns its field equations and accepts supported
-material selections, not analytical impedance equations.
+Each selected equation enforces its applicability requirements. `:none` accepts
+coaxial geometry, which requires no additional pipe term; conductive pipe systems
+require a pipe formulation. `:unified` requires supported earth geometry. PSCAD owns
+its native selections. FEM owns its field equations and accepts supported
+material selections.
 
 Numerical defaults belong to `formulation_options(::FormulaMethod{<:MySelection,
 typeof(operation), ...})`. Empty defaults admit no controls. Unknown or unused
 numerical sections are errors. The selected formula provisions QuadGK storage
 through `initialize_buffers` when its required indexed consumers need integration.
-An option key alone does not allocate storage. Full-system earth physics also
-belongs to the selected physical formulation.
+Full-system earth equations provision their required storage through the same
+selected-formulation dispatch.
 
 Custom types implement the existing family operation and expose `parameters`
 and `options` records. Internal selections expose per-surface options;
@@ -326,21 +321,16 @@ code; unknown saved leaf identities remain passive identities.
 Unified accepts a prescribed longitudinal argument [1/m] through
 `formula(:unified; options=(Γ=value,))`. A finite scalar applies to every
 sample; a finite vector aligns one-to-one with the problem's frequency vector,
-without sorting or interpolation. Zero is the default. This formulation option is not a
-problem field or a common earth-formula requirement. No propagation-constant
-root solver is implied. Material constitutive
-laws evaluate valid material objects before field calculations. Selected earth
-equations consume those properties and calculate their own wave numbers and
-field approximations without redefining the material values.
+in the supplied order. Zero is the default. Material constitutive laws evaluate
+material objects before field calculations. Selected earth equations consume
+those properties and calculate their own wave numbers and field approximations.
 
 The implemented equations use `s=jω` and the positive-time `exp(jωt)` phasor
 convention. For the same real field expressed as `F̂₋ exp(Γ₋ x-jωt)`, the
 positive-time representation has `F̂₊=conj(F̂₋)` and `Γ₊=conj(Γ₋)`; complex
 material coefficients and response phasors must use that convention consistently.
-The API accepts Γ verbatim and does not silently perform this conversion.
-Γ is a prescribed longitudinal wavenumber, not an independent UQ input or a
-request for modal iterations. Ordinary uncertainty in physical materials retains
-its existing treatment.
+Supply Γ in this positive-time convention; the API uses its value directly.
+Uncertainty propagation applies to the physical material inputs.
 
 `EarthPair` carries conductor row/column indices, integer source/target layer indices,
 heights, horizontal separation and an explicit self radius. Self means the same
@@ -374,12 +364,10 @@ selected = Formulation(earth_impedance = (
 The same syntax applies independently to `earth_admittance`. The labels resolve
 `(1,1)`, `(2,2)` and the two cross-layer directions before the existing indexed
 method dispatch. Each case retains its own formula, numerical options and
-material inputs. There is no combined formula identity. The example covers an
-all-buried problem, not an overhead or mixed problem. Whole-family omission or
-`nothing` routes to `:default`; an explicit recipe receives no implicit completion.
-An unused leaf does not allocate numerical buffers, supply missing cases or
-execute a kernel. True layered inputs require a scalar
-selection; scalar multilayer and explicit EHEM behavior are unchanged.
+material inputs. The example covers an all-buried problem. Whole-family
+omission or `nothing` routes to `:default`; an explicit recipe must cover every
+required case. Allocation and evaluation include only the leaves used by those
+cases. True layered inputs require a scalar selection.
 
 The default potential formulation supplies both mixed directions. Selecting a
 default leaf for only part of a matrix still assembles its complete auxiliary
@@ -438,9 +426,8 @@ phase = compute(problem, selection; options=phase_options)
 ```
 
 The numerical-method docstrings state each formula's material approximations.
-The formulas consume the material values supplied by the frequency loop; they do not reevaluate laws or
-change the defaults. Other registered identities retain explicit unimplemented
-methods without numerical fallback. External-backend methods are unaffected.
+The formulas consume the material values evaluated by the frequency loop.
+Registered identities with unimplemented numerical methods raise an error.
 The defaults supply air/air, earth/earth and both mixed directions with
 independent medium permeabilities. Every circumference must lie wholly in its
 half-space and exterior circles must not overlap. The default requires homogeneous
@@ -452,7 +439,7 @@ Unified binds the [averaged axial-field coefficient](@ref LineCableModels.Engine
 and the [referenced source-potential coefficient](@ref LineCableModels.Engine.EarthAdmittance.source_potential_coefficient(::Union{LineCableModels.Engine.EarthAdmittance.Formula{:unified}, Val{:unified}}, ::Union{Val{:self}, Val{:mutual}}, ::Val, ::Val, ::Any, ::Any, ::Any)).
 These actual numerical methods use the same indexed traversal as ordinary
 impedance and potential equations. Both coefficients are required by either
-selected physical output; their calculation does not add another user selection.
+selected physical output and are calculated from the selected Unified formulation.
 
 The [complete-current matrix calculation](@ref LineCableModels.Engine.earth!(::Union{LineCableModels.Engine.EarthImpedance.Formula{:unified}, LineCableModels.Engine.EarthAdmittance.Formula{:unified}}, ::Any, ::Any))
 converts the source coefficients into physical exterior matrices before Engine
@@ -583,24 +570,23 @@ matrix-accuracy assertions belong in tests.
 
 Selected numerical formulas within one calculation share reusable segment storage.
 The main workspace holds formula-owned subdivision and coupled-response arrays.
-`initialize_buffers` is the single allocation extension point for both earth and
-local formulas; numerical options do not determine allocation by key inspection.
-Each formula supplies the complete callable and its own numeric subdivision hints.
-Engine contains no physical feature finder or spectral sampler. Compatible
+`initialize_buffers` allocates storage for both earth and local formulas through
+dispatch on the selected formulation. Each formula supplies the complete
+integrand and its numeric subdivision hints. Compatible
 unified consumers share one current calculation per frequency and publish the
 completed entries directly; independent calculations never share mutable buffers.
 
 Each family explicitly includes its supported formula files, each returning one
 identifier. `FormulaMethod` binds a selected formulation and its indexed case to
 the family-owned equation generic.
-The hot loop has no lookup table. Later unchanged reproductions of an equation
-receive no entry; distinct contributions require their own verified equations.
+The frequency loop calls the bound methods directly. Register each distinct
+equation under its own identity.
 
 Result details retain one requested/resolved formulation record. Its `requested`
 field preserves the declaration; `methods` records the selected identities,
 physical parameters and owner-held numerical controls, including each explicit
 equivalent-earth choice and order. Unspecified numerical defaults remain owned by
-the selected equation rather than a second retained inventory of indexed calls.
+the selected equation.
 Absence of an equivalent-earth selection remains `nothing`.
 
 PSCAD extends the same equation generics with a `Val(:pscad)` execution payload:
@@ -852,9 +838,8 @@ observe(parameters, L, 1, 1, Colon())
 observe(parameters, Y, angle, 1, 1, Colon())
 ```
 
-The public `Z`, `L`, and other laconic accessors delegate to these methods.
-Consumers do not inspect `LineParameters` storage or repeat the R/X/L/G/B/C
-formulae.
+The public `Z`, `L`, and other quantity accessors delegate to these methods,
+which define the R/X/L/G/B/C extraction formulas.
 
 Direct numerical access remains available:
 
@@ -875,9 +860,8 @@ magnitude_request = @observe (Z, abs)[:, :, :]
 magnitude = @observe parameters (Z, abs)[1, 2, :]
 ```
 
-The request tuple is an implementation representation, not a second selector
-type. `quantity(Z, abs)` and `quantity(Z, angle)` remain the transformed
-scientific identities.
+Each request tuple contains the selected quantity and its coordinates.
+`quantity(Z, abs)` and `quantity(Z, angle)` identify the transformed quantities.
 
 [`ObservedResult`](@ref) detaches the selected scientific representation of one
 completed gridpoint. `observables` lifts the same construction over collections:
@@ -912,8 +896,8 @@ that decision; all individual observations and quantity tables remain available.
 `LineCableModels.Units` owns `Unit`, `UnitExpr`, `Quantity`, `units`,
 `quantity`, `native_unit`, `display_unit`, `scale_factor`, `label`, and
 `symbol`. The plotting extension derives scientific axes from publication payloads.
-ReportBuilder derives human-facing tables through `report`. Neither consumer
-owns a quantity map, physical transform, or ordinary scientific unit string.
+ReportBuilder derives human-facing tables through `report`. Both consumers use
+the quantities, transforms, and unit metadata supplied by the observation grammar.
 
 `Quantity{Q}` is a fieldless typed identity for extension methods and internal
 publication payloads. Ordinary calls use scientific selector functions:
@@ -925,9 +909,8 @@ native_unit(R, :pul)
 display_unit(Z, abs, :total)
 ```
 
-The selector methods delegate through `quantity`; they do not contain a second
-label or unit map. An external selector adds its identity and metadata at the
-Units API:
+The selector methods delegate to the quantity's label and unit methods. An
+external selector adds its identity and metadata at the Units API:
 
 ```julia
 function profile_response end
@@ -960,13 +943,11 @@ package root exports only the six metadata functions used with scientific
 selectors.
 
 Higher-order results remain containers of owned products. `result`,
-`statistics`, `samples`, and `histograms` select those products; they are not
-zero-argument aliases for publication. UQ reads trial results with
+`statistics`, `samples`, and `histograms` select those products. UQ reads trial results with
 `observe`, while its retained statistics, samples, and histograms implement
 the same selector grammar for later publication. Monte Carlo run settings and
 resolved point values are read through `root_seed`, `point_seed`,
 `trial_count`, `confidence`, `cdf_tolerance`, and `sampling_distribution`.
-Consumers do not inspect the result or its formulation fields.
 
 ## Coaxial workspace and supplemental output
 
@@ -974,16 +955,14 @@ Consumers do not inspect the result or its formulation fields.
 stranded, or otherwise nonconcentric part must be represented by the equivalent
 round/concentric properties owned by DataModel before it reaches this backend.
 The backend then owns frequency scans, self and mutual line parameters, earth
-effects, and reduction; it does not redefine cable-design equivalence or modal
-coordinates.
+effects, and reduction. DataModel supplies the equivalent cable properties;
+ModalAnalysis defines transformations to modal coordinates.
 
 `LineParametersWorkspace` is the coaxial backend's per-computation working
 state. Its constructor adapts a completed physical system once, binds equations,
 constructs cable and reduction indices, and allocates numerical buffers. Material
-evaluation is an explicit calculation stage, not a constructor side effect.
-QuadGK arrays remain empty when no selected equation requires integration. The
-workspace is not a result, public data model, or alternate cable
-representation. Its shunt solvers consume DataModel's ordered physical
+evaluation follows workspace construction. QuadGK arrays are allocated when
+a selected equation requires integration. Its shunt solvers consume DataModel's ordered physical
 dielectric layers directly, so the analysis is independent of the frequency
 used when a lossy homogeneous export representation is requested.
 
@@ -996,7 +975,7 @@ The workspace separates four owned concerns:
 
 The ordinary result is always `LineParameters`. Requesting
 `options=(trace=true,)` retains completed diagnostic arrays under
-`details(parameters).data.trace`; it does not select another result type.
+`details(parameters).data.trace`.
 
 ## Modal transformations
 
@@ -1042,14 +1021,11 @@ The default tracks eigenpairs with Levenberg–Marquardt iteration, retaining a
 matched conventional eigensolution when iteration fails. Its bibliography stays
 in `src/modalanalysis/formulas/chrysochos2014.jl`.
 
-[`ComputationDetails`](@ref) is an immutable, nominal record parameterized by its
-named-tuple payload. Access its fields through `.data`; it is not a tuple and
-cannot be used as either kind of options.
-[`computation_details`](@ref) returns the fixed-key details record owned by a
-registered formulation type. There is no general method: an unregistered
-formulation raises `MethodError`. Higher-order calculations dispatch directly
-on `typeof(formulation)` while collecting retained records; no owner lookup table
-or wrapper token intervenes.
+[`ComputationDetails`](@ref) is an immutable record of supplemental computation
+output, parameterized by its named-tuple payload. Access its fields through `.data`.
+[`computation_details`](@ref) returns the fixed-key details record supplied by the
+formulation's owner. Higher-order calculations dispatch on `typeof(formulation)`
+when collecting these records. A formulation without a method raises `MethodError`.
 
 [`ParametricResult`](@ref), [`LinearErrorResult`](@ref), and
 [`MonteCarloResult`](@ref) store the concrete details record type. Retention is
@@ -1094,11 +1070,10 @@ Connection assignments use one-based active phase IDs. A zero assignment marks
 a grounded/eliminated conductor, while repeated active IDs identify conductors
 that belong to the same bundle.
 
-`Formulation()` constructs the default method bundle without a backend
-tag. `LineParametersFormulation` owns the formulation options;
-`LineCableModelsCoaxial` separately owns execution. Symbol and `Val` selectors
-remain available for external backends, but there is no
-`:line_cable_models` or legacy `:analytical` selector.
+`Formulation()` constructs the default coaxial formulation.
+`LineParametersFormulation` owns its formulation options, and
+`LineCableModelsCoaxial` executes it. External backends are selected through
+their registered Symbol or `Val` selectors.
 
 Modal formulas carry an `iteration` section containing convergence, iteration
 count, damping and the `:matched` or `:none` fallback settings. The computation action
@@ -1209,12 +1184,13 @@ logging and native Gmsh/GetDP/PSCAD diagnostic settings retain their own behavio
 An outer traversal suppresses child progress while preserving other options and
 backend diagnostics. It logs start and successful completion and checks for
 intermediate publication at existing completion points, at most every five
-seconds per traversal. It creates no periodic timer or remote heartbeat.
+seconds per traversal.
 ETA uses an exponential moving average with weight 0.2 on the newest completed
 interval. Parametric intervals are divided by the returned batch's result count;
 MC intervals between accepted trials include rejected attempts. MC resets the
 sampling estimate for each population and estimates overall remaining time only
-after a population completes. Estimates use no historical timing records.
+after a population completes. Estimates use the current traversal's completed
+intervals.
 Successful completion is reported after result construction and callbacks.
 
 For bounded repetition, use [`LineCableModels.benchmark`](@ref):
@@ -1235,10 +1211,10 @@ retain formulation order; parametric results retain problem-index-fastest value
 order; linear-error results retain value order; MC retains population/trial order.
 Missing requested timing raises an error; empty reuse records remain empty.
 
-The callable defines options, seeds, callbacks, and reuse. Repetition adds no
-outer stopwatch, quiet mode, forced GC, automatic warmup, retry, adaptive budget,
-or speedup calculation. Earlier large results are released after projection.
-These payloads do not automatically populate the existing reporting tables.
+The callable defines options, seeds, callbacks, and reuse. The returned timings
+are the measurements recorded by each computation. Earlier results are released
+after their timing records are extracted. Read the repetition records through
+the returned `timings` value.
 
 The coaxial backend accepts:
 
@@ -1261,8 +1237,7 @@ formulation, including a reused result, before computing the next selection.
 The index refers to the submitted formulation collection (`1` for a scalar
 call). This allows manual campaigns to save completed results without waiting
 for the whole batch. The callback must not mutate its arguments; its return
-value is ignored and any exception stops execution. It is an execution option,
-not a formula or a frequency-loop operation. Ordinary calls leave it as `nothing`.
+value is ignored and any exception stops execution. The default is `nothing`.
 
 The PSCAD backend accepts:
 
@@ -1286,10 +1261,10 @@ station = PSCAD.RemoteConfig(ENV["LINECABLEMODELS_PSCAD_CONFIG"])
 result = compute(problem, Formulation(:pscad); options=(remote=station,))
 ```
 
-The caller reads the environment variable in this example. The backend does not
-search for configuration files, read implicit environment configuration, or create
-directories while loading the TOML file. Keep machine settings outside version
-control; a sanitized template is provided in `examples/pscad/remote.example.toml`.
+Pass the configuration filename explicitly; this example reads it from a
+caller-selected environment variable. Loading the TOML file reads station
+settings and resolves paths. Keep machine settings outside version control;
+a sanitized template is provided in `examples/pscad/remote.example.toml`.
 Relative `local_root` paths are resolved against the configuration file's directory.
 `local_root` and `shared_root` expose the same files on caller and station;
 `remote_root` is separate station scratch storage. Executable and station paths
@@ -1306,7 +1281,7 @@ Fresh calls execute PSCAD once per distinct native request. Explicit
 `resume_run_directory=:latest` or a completed-run path requests verified native
 reuse; `solver_identity` optionally pins the installation. Reuse checks the current
 station, exported project, complete native settings, worker sources, and outputs.
-The version-4 completion protocol requires fresh native runs after this repair.
+Resuming requires a complete version-4 run record that passes these checks.
 `work_root` defaults to the configured `local_root`. These are computation options.
 
 PSCAD requires deterministic inputs, including base frequency, and rejects
@@ -1389,9 +1364,8 @@ function compute(
 end
 ```
 
-An external implementation does not need a dedicated options struct or private
-wrapper around the two normalization functions. If it omits either Grammar
-method, Julia raises `MethodError`.
+External implementations extend these two normalization functions for their
+formulation and backend types. An omitted method raises `MethodError`.
 
 The same backend may expose supplemental output without changing the generic
 higher-order result types:
@@ -1423,8 +1397,8 @@ payloads.
 
 The outer keys and their types are fixed for `ExternalFormulation`. Dynamic
 vendor channels remain inside the explicit `raw` leaf. ParametricBuilder and
-UQ collect these records only when `retain_details=true`; they do not inspect
-the fields.
+UQ collect these records when `retain_details=true`, preserving the fields
+provided by the backend.
 
 ## Reports and XLSX output
 
@@ -1449,11 +1423,11 @@ artifact.tables.terms
 plot(artifact, (Z, Y))
 ```
 
-The default request compares all Z/Y/R/L/G/C matrix terms in five bands. It creates
-no figure. Completed comparisons are joined to their result identities before
-observation construction. `artifact.reference` is a separate atomic observation.
-Retained reports never recalculate RMS; changed numerical settings require explicit
-comparison. Arithmetic dimensions, coordinates, and units must be usable; scientific
+The default request compares all Z/Y/R/L/G/C matrix terms in five bands and
+returns tables in memory. Completed comparisons are joined to their result
+identities before observation construction. `artifact.reference` is a separate
+atomic observation. To change numerical settings, compute the comparison again.
+Arithmetic dimensions, coordinates, and units must be usable; scientific
 comparability remains the caller's responsibility. A single reference is overlaid
 once alongside all selected study points.
 
@@ -1490,7 +1464,5 @@ as `record.requested.earth_admittance.identifier` (or through the corresponding
 `air`, `earth`, `mixed` leaf). Resolved identities are under `methods`; a leaf's
 `equivalent_earth` field contains its reduction choice and order. Realized local
 shunt outcomes, including explicit fallback, remain in `details(result).data.shunt_model`.
-There are no parallel `effective` or `numerical` inventories. Optional `trace`
-contains detached evaluation data, not another formulation authority.
-Reports use these records directly; they do not infer a selection from numerical
-agreement or collapse different voltage references into the same formula label.
+Optional `trace` contains detached evaluation data. Reports use the recorded
+formulation selections and voltage references to describe each result.

@@ -3,8 +3,7 @@ $(TYPEDEF)
 
 Detached geometry and material identity for one physical cable region.
 
-This is domain data, not a plotting instruction. Renderers choose colors,
-strokes, labels, and legend grouping themselves.
+Renderers choose colors, strokes, labels, and legend grouping for each region.
 
 $(TYPEDFIELDS)
 """

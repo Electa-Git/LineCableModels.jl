@@ -85,8 +85,7 @@ position `i`, independently of its recorded scientific gridpoint identifier.
 
 An unindexed request returns the product with its reported selection intact.
 An indexed request must match that original selection exactly. Complete
-transformation and statistical identities remain distinct. Lookup never
-acquires, slices, converts, or tabulates quantities.
+transformation and statistical identities remain distinct.
 
 # Arguments
 
@@ -285,8 +284,9 @@ units and numerical eligibility unless compatible display units are requested.
 - `clip`, `atol`, `frequencies`: Raw observation options. Cutoffs use native
   units; standalone tensor frequency context is in \\[Hz\\]. These keywords
   cannot be supplied for retained inputs.
-- `reference=nothing`: A separate atomic raw or observed reference. It does not
-  trigger a numerical comparison or become another reported result.
+- `reference=nothing`: A separate atomic raw or observed reference, stored in
+  `artifact.reference`. Numerical comparisons are supplied as completed records
+  in the observed inputs.
 - `illustration=nothing`: `true` or a plotting callable requests an illustration
   of the retained observations with the matching `ydata` selection.
 - `plot_options=(;)`: Options for an explicitly requested illustration.
@@ -294,7 +294,7 @@ units and numerical eligibility unless compatible display units are requested.
 # Returns
 
 - A [`ReportArtifact`](@ref) containing observed inputs and separate quantity
-  DataFrames. Default reporting creates no figure and writes no files.
+  DataFrames in memory.
 
 # Errors
 

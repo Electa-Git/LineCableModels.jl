@@ -122,7 +122,7 @@ $(TYPEDSIGNATURES)
 Save current observed data as JSON or a native Julia archive. One shared source table
 preserves shared uncertainties across quantities, points, and a report reference;
 BigFloat values retain their precision. Report tables and figures are rebuilt
-from these observations after loading, rather than persisted as competing data.
+from these observations after loading.
 """
 function save(value::Union{Grammar.ObservedResult,AbstractVector{<:Grammar.ObservedResult},ReportBuilder.ReportArtifact},path::AbstractString)
     encoded=serialize_value(value)

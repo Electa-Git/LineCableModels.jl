@@ -37,9 +37,9 @@ modal = compute(line_problem, line_formulation;
 `modal`. The upstream solver, including its selected backend and batched path,
 completes before modal analysis begins. Upstream `on_result`, progress, and
 timing belong to that upstream call; modal `on_result`, progress, and timing
-belong to the downstream call. Enabling timing does not change the source
-gridpoint identity. A missed iteration or coupling target is recorded and
-warned about; it does not discard finite results. The iteration convergence
+belong to the downstream call. Timed results preserve the source gridpoint
+identity. A missed iteration or coupling target produces a warning and a
+diagnostic record; finite results are returned. The iteration convergence
 setting is a numerical target, not a physical error bound. Inspect
 `details(modal).data.modal.diagnostics` for fallback and missed frequency
 indices, Z/Y residual coupling, returned eigen-residuals, iteration counts,
@@ -191,13 +191,13 @@ H(segment, PhaseDomain; field=:current) # ordered phase current response
 
 The modal forward factors are `exp.(-gamma(segment) .* line_length(segment))`.
 `alpha` and `beta` are the real and imaginary parts of the per-unit-length
-`gamma`; they do not depend on the selected segment length. `velocity` is
+`gamma`, independent of segment length. `velocity` is
 `2πf / beta` at each retained mode and frequency. Undefined values remain
-unavailable in observations rather than being clipped or assigned a finite
-surrogate. The default display units for the first two are Np/km and rad/km.
+unavailable in observations, with their masks and reasons retained. The default
+display units for the first two are Np/km and rad/km.
 The phase voltage and current responses use `Tv` and `Ti`, respectively.
-Zero length gives identity propagation. Rebinding does not change the embedded
-source, and a changed length receives a new gridpoint identity. Indexing a
+Zero length gives identity propagation. Rebinding preserves the embedded source;
+a changed length receives a new gridpoint identity. Indexing a
 modal or finite result by frequency slices coefficients, bases, roots, and
 frequency-aligned diagnostics together without a new solve.
 
@@ -268,23 +268,18 @@ transform_space = observables.(segment_results, Ref(requests))
 plot(transform_space; overlay=:rows, layout=(3,3))
 ```
 
-Each gridpoint starts its own figures with the same block layout. Curves and
-panels from different points never share a figure under `overlay=:rows`, even
-for equivalent results or an explicit reference. Figure titles identify the
-point through its compact description. Conductor styles stay consistent across
-modes, pages and points. Existing automatic matrix plots and explicit
-`overlay=:coordinates` remain available.
+With `overlay=:rows`, each gridpoint starts its own figures with the same block
+layout, including equivalent results and an explicit reference. Figure titles
+identify the point through its compact description. Conductor styles stay
+consistent across modes, pages, and points.
 
 Unavailable nonlinear values retain masks and reasons. Selection, tables,
-plots, unit conversion, and archive loading use stored observations without
-reconstructing a segment or acquiring another representation. Save and load
-observations with the existing `.json` or `.jls` archive functions; loaded
-selectors identify retained data and are never evaluated.
-Reacquire old modal observations to obtain the corrected component identities
-and vector coordinates; existing non-modal archives remain supported.
+plots, unit conversion, and archive loading use stored observations. Save and
+load observations with the `.json` or `.jls` archive functions; loaded selectors
+identify the retained quantities and coordinates.
 
-`H` binds to a line segment only. There is no distance option on `H` for a
-modal scan. A phase `H` selector binds both `domain=PhaseDomain` and
+`H` uses the length bound to a line segment. A phase `H` selector binds both
+`domain=PhaseDomain` and
 `field=:voltage` or `:current`. A phase `Zc` or `Yc` selector binds
 `domain=PhaseDomain`. Exact request unit overrides take precedence over
 broader selector overrides. Retained rows record mode indices, ordered phase

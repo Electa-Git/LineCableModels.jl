@@ -1,9 +1,9 @@
 """
 $(TYPEDSIGNATURES)
 
-Copy retained records and arrays without replacing uncertainty-source identities.
-Numerical leaves keep their scalar representation; no problem or formulation is
-reconstructed. Structured scientific owners supply their own conversion.
+Copy retained records and arrays, preserving uncertainty-source identities.
+Numerical leaves keep their scalar representation. Structured scientific owners
+supply their own conversion.
 """
 detach(value::Union{Number,Symbol,Nothing,Missing,Type,Val,UUIDs.UUID}) = value
 detach(value::AbstractString) = String(value)
@@ -23,8 +23,7 @@ detach(value::Base.Fix2) = Base.Fix2(detach(value.f),detach(value.x))
 $(TYPEDSIGNATURES)
 
 Read the retained physical description and original identity of a completed
-gridpoint. Result owners extend this method; consumers never inspect a lazy
-computation axis or materialize a problem to recover its description.
+gridpoint. Result owners supply these descriptions through methods of `observation_gridpoint`.
 
 The fallback identifies an externally supplied result with unspecified inputs.
 Such a record cannot establish physical equivalence with another observation.

@@ -251,7 +251,7 @@ names and units; common formulation fields are compared structurally before
 labels are formatted.
 All group identities, original observations, tables, and files remain available.
 
-## Numerical reporting and current behavior
+## Numerical reporting
 
 An available scalar is engineering zero precisely when
 `abs(nominal(value)) <= cutoff`. Nonfinite and unavailable values are separate.
@@ -276,21 +276,14 @@ reference in report tables. Equal elapsed times do not identify a shared event.
 A measurement for a whole calculation retains that scope when several observed
 points carry it; reporting does not invent per-point timings.
 
-Intentional changes replace current internal behavior. Persistence and consumer
-dependencies do not require generations of that behavior. Do not introduce a
-renamed behavior-version counter, code fingerprint, compatibility branch, or maintenance
-instruction to recreate that obligation. File checksums and source revisions
-retain their actual integrity and source-identification meanings.
-
-| Removed owned representation | Scientific meaning and current owner |
-| --- | --- |
-| `ObservationPublication`, `publication_table`, parallel flattened columns | One `ObservedResult` per point; `ReportBuilder.tabulate` creates quantity tables on demand |
-| Flattened publication columns | Explicit quantity, basis, units, coordinates, cutoffs, availability, and reasons in each quantity record |
-| Raw source references in observation records | Captured inputs, formulations, original identities, sampling information, and completed measurements in the four observation sections |
-| GetDP source metadata | `getdp_selection` in FEM completion, retained details, recovery, and their tests |
-| Resolution and behavior-version checks | Deleted; actual applied numerical settings are retained |
-| `ReportArtifact.published` / `.table` | `.observed`, separate `.reference`, and `.tables`; no compatibility getters |
-| Raw result-specific report/renderer construction | Constructor conveniences delegate to the common observed workflow |
+Each `ObservedResult` stores one point's inputs, selected formulations,
+quantities, comparisons, and execution measurements. Quantity records include
+basis, units, coordinates, applied cutoffs, availability, and missing-value
+reasons. `ReportBuilder.tabulate` creates tables from these records on demand.
+`ReportArtifact` retains `.observed`, a separate `.reference`, and `.tables`.
+FEM completion records identify the selected GetDP executable through
+`getdp_selection`. File checksums verify integrity; source revisions identify
+the code used for the calculation.
 
 ## Text display and tables
 
@@ -314,6 +307,8 @@ with the implementation.
 - Use triple double quotes, except for concise field and constant docstrings.
 - Describe implemented behavior. Do not infer equations, units, or defaults
   from a name.
+- Describe the current API directly. Keep development history, removed APIs,
+  and migration notes out of reference documentation and docstrings.
 - State each fact once.
 - Link related local bindings inline when the relationship helps the reader.
 
@@ -442,9 +437,7 @@ unit.
 
 ## Repository practice
 
-After the first stable publication, versions follow [Semantic Versioning](https://semver.org/).
-The current 0.2.0 candidate establishes the initial intended API; development API
-renames are not regressions merely because an earlier spelling existed.
+Stable releases follow [Semantic Versioning](https://semver.org/).
 
 Commit subjects use scoped Conventional Commits, begin with a lowercase
 description, and stay within 72 characters:
@@ -460,9 +453,9 @@ dedicated test environments. Public examples should be executable and self-conta
 
 ## Testing requirements
 
-The [developer testing requirements](developers.md#testing-requirements) is authoritative for
-release status, regression terminology, test scope, architecture and the unchanged
-95% coverage gate. Everything currently on `main`, including `0.1.0`, is unreleased.
+The [developer testing requirements](developers.md#testing-requirements) define
+release status, regression terminology, test scope, architecture, and the
+95% coverage gate.
 The harness checks implementation correctness and architectural conformance;
 scientific acceptance is outside it. User-selected numerical snapshots are
 deferred until after the first stable publication. Do not duplicate those requirements

@@ -123,9 +123,9 @@ Conditional Monte Carlo propagation returns
 computation: MC stores marginal Measurements built from accepted sample means
 and sample standard deviations, without joint output correlations. `uncertain`
 and downstream transport reuse those stored values. Result order is
-problem-index-fastest within formulation order. Unresolved traversal state is
-not copied into completed results. Parametric, linear-error, and Monte Carlo results are ordinary finite
-collections: indexing and iteration return stored core results, and Base
+problem-index-fastest within formulation order. Parametric, linear-error, and
+Monte Carlo results are ordinary finite collections: indexing and iteration
+return stored core results, and Base
 `first`, `last`, `only`, `collect`, `map`, and `zip` retain their standard
 meanings.
 Select the statistics to include in a marginal summary before converting it
@@ -151,8 +151,8 @@ default; its payload is available through `.data`. Construct `Combinatorial`, `L
 registered a `computation_details` method and those records are needed.
 Monte Carlo uses strict failure propagation by default. Physically unsupported
 draws can be rejected explicitly with
-`options=(retain_details=true, on_error=:retry, max_failures=100)`. Only
-`DomainError` is retryable; retained details report every rejected argument
+`options=(retain_details=true, on_error=:resample, max_failures=100)`. Only
+`DomainError` permits resampling; retained details report every rejected argument
 tuple and its error summary. The resulting statistics are conditional on a
 successful realization.
 

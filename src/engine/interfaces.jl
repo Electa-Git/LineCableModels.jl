@@ -37,8 +37,8 @@ the open-circuit limit.
 """
 Return a real scalar magnitude for numerical error estimates and physical-state
 comparisons. Deterministic values use absolute magnitude. Uncertainty extensions
-also account for uncertain contributions with zero nominal value; this operation
-does not discard correlations from the evaluated physical quantities.
+also account for uncertain contributions with zero nominal value. Evaluated
+physical quantities retain their correlations.
 """
 @inline numerical_magnitude(z) = abs(complex(nominal(real(z)), nominal(imag(z))))
 
@@ -87,8 +87,8 @@ function layer_index end
 
 """
 Resolve the real scalar representation needed by an active formulation before
-allocating numerical storage. Formula-owned arguments may widen `T`; omitted
-or unused selections do not participate. Frequency-aligned arguments are
+allocating numerical storage. Arguments of active formulations may widen `T`.
+Frequency-aligned arguments are
 validated by their scientific owner against `frequencies`.
 """
 computation_type(::Type{T}, ::AbstractFormulation, frequencies) where {T <: Real} = T

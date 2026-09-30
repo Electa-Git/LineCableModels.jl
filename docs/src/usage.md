@@ -215,8 +215,7 @@ per sample and columns for every ordered coefficient, including both
 off-diagonals. Cable constants have one operating-frequency row and named
 assembly columns. Displaying the report shows these labelled tables in text or
 HTML. Collections retain separate tables
-for each gridpoint in its original order. Default reporting creates no figure
-and writes no files.
+for each gridpoint in its original order.
 
 `phase_report[R]` returns the resistance DataFrame already produced by the
 report, including any requested coefficient or sample subset. For a collection,
@@ -226,8 +225,8 @@ observed-result collection, not its original gridpoint identifier. A one-result
 collection still returns a vector.
 Use `copy(phase_report[R])` when edits should leave the report unchanged.
 
-Lookup does not perform further selection or calculation. An indexed request
-must match the reported selection; absent or ambiguous products raise an error.
+An indexed request must match the reported selection; absent or ambiguous
+products raise an error.
 Select different scientific contents with `report(...; values=...)`.
 
 For statistical products, select the statistic explicitly:
@@ -241,8 +240,8 @@ mean_resistance = statistics_report[1, (statistics, R, mean)]
 Explicit `ObservedResult` snapshots are useful when retaining selected scientific
 products independently of their source. Reporting a snapshot preserves its
 recorded units; supplied compatible unit options re-express the retained values.
-It cannot revise prior clipping or recover discarded samples. `DataFrame(observed)`
-is not an aggregate conversion; inspect the report's quantity tables instead.
+Clipping decisions and sample retention are fixed when the observation is
+created. Use the report's quantity tables to access these values as DataFrames.
 
 Loading XLSX activates one workbook per gridpoint and quantity. All
 destinations are checked before writing; replacing files requires `overwrite=true`:

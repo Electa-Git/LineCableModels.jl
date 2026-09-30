@@ -165,9 +165,6 @@ Base.hash(value::Polygon, seed::UInt) = hash(value.at, hash(value.points, seed))
 
 """
 Store one exact outer shape with exact material-free holes removed from it.
-
-`DifferenceShape` is a resolved geometry value used by downstream geometry
-consumers; it is not a new modeling declaration.
 """
 struct DifferenceShape{
     T <: Real,

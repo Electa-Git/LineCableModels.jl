@@ -423,8 +423,8 @@ end
 """
     tessellate(shape::SectorShape; points_per_arc=32)
 
-Approximate the exact boundary with ordinary coordinate tuples for rendering
-or meshing. Exact geometric properties never use these points.
+Approximate the exact boundary with coordinate tuples for rendering or meshing.
+Geometric properties are computed from the exact sector boundary.
 """
 function tessellate(shape::SectorShape; points_per_arc::Integer = 32)
     points_per_arc >= 2 || throw(ArgumentError(

@@ -1,16 +1,15 @@
 """
 $(TYPEDSIGNATURES)
 
-Select a registered formula without exposing its owner module or concrete
-wrapper type. The receiving formulation determines the formula family from the
+Select a registered formula. The receiving formulation determines its family from the
 keyword slot in which the selection appears.
 
 # Arguments
 
 - `identifier`: Stable formula identifier.
   `:default` routes to the owning family's explicit default implementation for
-  the chosen backend. The resulting selection is checked against the problem;
-  it is not a fallback after a failed or inapplicable formula.
+  the chosen backend. The resulting selection is checked against the problem
+  before computation.
   Cable-insulation and semicon-admittance `:default` selections route to the
   explicit `:lossless` dielectric relation. Unsupported contexts fail before
   frequency evaluation.
@@ -50,13 +49,13 @@ function formula(identifier::Symbol; order::Symbol = :default,
         parameters, options, equivalent_earth)
 end
 
-"Return the selected formulation's identifier without evaluating its equation."
+"Return the selected formulation's identifier."
 formula_id(bound::FormulaMethod) = formula_id(bound.selection)
 
 formula_id(::FormulaDefinition{ID}) where {ID} = ID
 formula_id(::Type{<:FormulaDefinition{ID}}) where {ID} = ID
 
-"""Describe an opaque retained identity without claiming or reconstructing an implementation."""
+"""Describe a retained formula identifier."""
 description(::Type{<:FormulaDefinition{ID}}; compact::Bool=false) where {ID} = string(ID)
 
 """Expose a requested formula identifier and its explicit model and numerical controls."""
@@ -68,8 +67,7 @@ end
 """
 $(TYPEDSIGNATURES)
 
-Describe a retained selection through its owning type. This does not construct
-a formula, evaluate equations, or substitute current defaults.
+Describe a retained selection through its owning type.
 """
 description(source::Pair{<:Type,<:NamedTuple}; compact::Bool=false) = description(first(source); compact)
 formula_id(source::Pair{<:Type,<:NamedTuple}) = formula_id(first(source))
@@ -86,7 +84,7 @@ formula_id(::Nothing) = :none
 """
 $(TYPEDSIGNATURES)
 
-Label ordered formulation selections without interpreting their representation.
+Label ordered formulation selections using their owner-supplied descriptions.
 
 # Arguments
 

@@ -182,8 +182,7 @@ conductor_outer = d_core / 2
 screen_wire_locus = conductor_outer + t_sct + t_sc_in + t_ins +
                     t_sc_out + t_sct + d_ws / 2
 
-# Catalogue information is associated with the library entry. It does not
-# replace the physical geometry or the selected numerical material properties.
+# Store catalogue information with the library entry.
 cable_id = "18kV_1000mm2"
 datasheet_info = DatasheetInfo(
     designation_code = "NA2XS(FL)2Y",
@@ -254,8 +253,7 @@ cable_preview.figure #hide
 
 Calculate the local cable constants at the defaults of 50 Hz and 20 °C.
 The cable-constant calculation treats the innermost terminal of each concentric
-assembly as active and the outward terminals as grounded. It does not yet
-calculate the three-cable installation introduced later.
+assembly as active and the outward terminals as grounded.
 =#
 
 constants = CableConstants(cable_design);
@@ -300,9 +298,8 @@ core_resistance_report = report(
 #=
 ### Catalogue comparison
 
-The following displays keep the three quantities separate. They inspect the
-DataFrames already produced by the report; they do not read numerical result
-fields or repeat unit conversion.
+Display the three quantity DataFrames produced by the report in their recorded
+units.
 
 The datasheet resistance is a DC value, whereas the calculated resistance is
 at 50 Hz. Compare their magnitudes with those different conditions in mind:
@@ -347,9 +344,8 @@ constants_report[G]
 #=
 ## Homogeneous equivalent design
 
-A homogeneous equivalent is a separate physical design, not a report or an
-observation of the cable constants. Request it explicitly when that geometry
-is needed; the detailed design remains available for inspection and reuse.
+`homogenize` constructs a homogeneous equivalent as a separate physical design.
+The detailed design remains available for inspection and reuse.
 =#
 
 equivalent_design = homogenize(cable_design; new_id = cable_id * "_equivalent")
@@ -381,7 +377,7 @@ The installed arrangement is represented by [`LineCableSystem`](@ref). A
 [`LineParametersProblem`](@ref LineCableModels.Engine.LineParametersProblem)
 adds the operating temperature, earth properties, and analysis frequencies to
 that completed physical system. This tutorial constructs the problem and exports
-the system; it does not execute a frequency-dependent line-parameter scan.
+the system. Tutorial 3 computes its frequency-dependent line parameters.
 
 ### Earth model
 
@@ -459,10 +455,8 @@ system_preview.figure #hide
 ## PSCAD and ATPDraw export
 
 Export the physical system and earth parameters through the public exporters.
-These calls write input files for electromagnetic-transient analysis; they do
-not launch PSCAD or ATPDraw and do not compute the line-parameter frequency
-scan. Tutorial 3 covers the frequency-dependent calculation and its reports
-and plots.
+These calls write input files for use in PSCAD and ATPDraw. Tutorial 3 covers
+the frequency-dependent calculation in LineCableModels and its reports and plots.
 =#
 
 pscad_file = export_data(

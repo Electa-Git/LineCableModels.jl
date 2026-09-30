@@ -17,7 +17,7 @@ the source references remain part of each implementation's documentation.
 | `:visacro1987` | Visacro | Visacro–Portela empirical soil dispersion (1987) |
 | `:visacro2012` | Visacro | Visacro–Alipio empirical soil dispersion (2012) |
 
-`:default` is a routing alias for `:constant` and is not a second soil law.
+`:default` selects `:constant`.
 The concrete formulas accept their source-specific physical parameters through
 the `parameters` field of the formula selection.
 

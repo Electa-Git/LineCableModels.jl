@@ -60,7 +60,7 @@ par utilisation des matrices complexes,” *EDF Bulletin de la Direction des
 complex-image expression reproduced in
 [PSCAD's earth-return impedance documentation](https://www.pscad.com/webhelp-v5-ol/EMTDC/Transmission_Lines/Mutual_Impedance_with_Earth_Return.htm),
 Eq. (8-28) and its complex-depth diagram. PSCAD calls its native implementation
-Deri–Semlyen; this does not introduce another package selector.
+Deri–Semlyen.
 """
 function earth_impedance(
         ::Formula{:gary1976}, ::Val{:self}, ::Val{1}, ::Val{1},

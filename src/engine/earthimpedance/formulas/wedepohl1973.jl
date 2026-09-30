@@ -45,8 +45,7 @@ Z_{e,ij}=\\frac{j\\omega\\mu_g}{2\\pi}
 \\left[-\\ln\\left(\\frac{e_cmd}{2}\\right)+\\frac12-\\frac23m(h_i+h_j)\\right].
 ```
 
-The implementation evaluates the selected approximation directly; it does not
-switch equations at a frequency threshold. Coincident mutual axes are invalid
+The implementation evaluates this approximation at every requested frequency. Coincident mutual axes are invalid
 physical geometry; a vertical pair at distinct depths has ``d>0`` and needs
 no special case.
 

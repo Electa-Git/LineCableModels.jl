@@ -265,7 +265,6 @@ Units are printed in the XML file according to the ATPDraw specifications:
 
 # Notes
 
-- The exporter does not scale or recompute the matrices.
 - [`nominal`](@ref) removes uncertainty before numeric values are written.
 
   """

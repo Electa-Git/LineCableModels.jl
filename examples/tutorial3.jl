@@ -231,8 +231,7 @@ equivalent_design = homogenize(cable_design; new_id = cable_id * "_equivalent")
 ## Saving the cable design
 
 Load an existing [`CablesLibrary`](@ref) or create one, then add the design and
-its datasheet information. This saves the physical declaration for reuse; it
-does not save a plotting recipe or a computed frequency scan.
+its datasheet information. This saves the physical declaration for reuse.
 =#
 
 library = CablesLibrary()
@@ -321,7 +320,7 @@ system_preview.figure #hide
 ## PSCAD and ATPDraw export
 
 Export the physical system and earth parameters using the public exporters.
-These calls write input files; they do not launch either external solver.
+These calls write input files for use in PSCAD and ATPDraw.
 =#
 
 pscad_file = export_data(
@@ -356,7 +355,7 @@ formulation = Formulation()
 ### Numerical access
 
 The immediate form of `@observe` extracts numerical values for further
-calculation. It does not construct a table or figure. Inspect the range of the
+calculation. Inspect the range of the
 computed first self-conductance coefficient before reporting resolution is
 applied:
 =#
@@ -370,8 +369,7 @@ Use the same R/L and G/C selection declared for the cable constants. The report
 contains four separate quantity tables. Each full matrix table has one frequency
 column followed by all ordered matrix coefficients, including both off-diagonals.
 
-`length_unit=:kilo` selects per-kilometre reporting units. It does not change
-the numerical result or the physical system length.
+`length_unit=:kilo` displays the per-unit-length quantities per kilometre.
 =#
 
 phase_report = report(
@@ -502,8 +500,6 @@ first_modal_term_report = report(
 Keep the off-diagonal coefficients in the modal view. Entries reduced to zero
 by the observation layer remain visible as zero traces; residual coupling that
 survives reporting resolution remains visible in its original matrix position.
-The plot does not select the diagonal merely because the result is in
-`ModalDomain`.
 
 This uses the same quantity selection and plotting call as the phase-domain
 view, so the full transformed matrices remain available for inspection.

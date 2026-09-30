@@ -2,8 +2,7 @@
 $(TYPEDEF)
 
 Retain detached scientific products for one completed gridpoint. Collections
-are ordinary vectors of these objects. No result source, parent collection,
-construction function, or flattened table is retained.
+are ordinary vectors of these objects.
 
 $(TYPEDFIELDS)
 """
@@ -142,8 +141,7 @@ end
 $(TYPEDSIGNATURES)
 
 Construct one detached observation from a completed primary result and already
-completed comparison/timing records. This action never computes comparisons,
-collects timings, or evaluates a problem.
+completed comparison/timing records.
 
 # Keywords
 
@@ -246,7 +244,7 @@ end
 $(TYPEDSIGNATURES)
 
 Select a retained quantity record and optional original coordinates. Missing or
-ambiguous requests fail; this operation never extracts or derives a quantity.
+ambiguous requests fail.
 """
 function observation_product(observed::ObservedResult,request;unit=nothing,frequency_unit=nothing)
     identity=normalize_observation_selector(request_identity(request))
@@ -414,9 +412,8 @@ end
 
 """
 Describe differences in captured physical inputs, active methods, and individual
-controls. Scientific text comes from completion-time owner descriptions; no
-formula or problem is reconstructed. Administrative gridpoint IDs are retained
-in the observations but do not form automatic legend prefixes.
+controls. Labels use the scientific descriptions captured when the computation
+completed. Gridpoint IDs are available in the observation metadata.
 `fallback` supplies text when no captured description or varying field is
 available; `nothing` retains the default positional result label.
 """

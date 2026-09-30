@@ -6,7 +6,7 @@ end
 $(TYPEDSIGNATURES)
 
 **Identification.** Generalized underground potential coefficient. The
-registered expression is referenced to infinite earth depth; the infinite-depth expression preserves the former default.
+registered expression is referenced to infinite earth depth.
 
 **Availability.** Registered scientific identity; the coaxial implementation is
 not yet implemented. No numerical fallback is provided.
