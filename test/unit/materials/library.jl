@@ -126,7 +126,7 @@ end
     @test occursin("more materials", narrow)
 
     # MaterialsLibrary owns deterministic semantic display. Its backing Dict
-    # retains ordinary Base display; the package does not pirate Dict methods.
+    # retains ordinary Base display. The package leaves Dict methods unchanged.
     dictionary_summary=sprint(show, MIME"text/plain"(), library.data)
     @test occursin("Dict{String", dictionary_summary)
     @test parentmodule(which(show, (

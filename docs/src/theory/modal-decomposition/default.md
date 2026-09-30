@@ -11,7 +11,7 @@
 
 **Description.** Levenberg–Marquardt tracking of complex modal eigenpairs,
 initialized from the preceding frequency. The package default and
-`:chrysochos2014` use the same route; the latter exposes the author-year
+`:chrysochos2014` use the same route. The latter exposes the author-year
 identity.
 
 **Assumptions.**
@@ -27,8 +27,8 @@ tracked by a real least-squares residual with ``t^Tt=1``.
 
 **Approximation.**
 
-An analytic real Jacobian and damped normal-equation step track the modes;
-matched conventional eigensolutions are retained when iteration fails.
+An analytic real Jacobian and damped normal-equation step track the modes.
+Matched conventional eigensolutions are retained when iteration fails.
 
 **Limitations.**
 

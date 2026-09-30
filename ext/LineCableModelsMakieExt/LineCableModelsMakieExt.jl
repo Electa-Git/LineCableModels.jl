@@ -87,9 +87,9 @@ function preview(
     )
 end
 
-# The public extension method consumes backend/display choices and forwards the
+# The public extension method consumes backend and display choices and forwards the
 # remaining preview options unchanged. DataModel retains only detached geometry
-# and material attributes; Makie objects and backend state stay here.
+# and material attributes. Makie objects and backend state stay here.
 function preview(
         designs::AbstractVector{<:DataModel.CableDesign};
         backend = nothing,

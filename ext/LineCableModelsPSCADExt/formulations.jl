@@ -118,17 +118,17 @@ end
 Select PSCAD through the shared formula grammar. All formula slots and options
 accept Grid inputs with product or zip composition. Earth-impedance
 `:default` resolves to `(air=:carson1926, earth=:pollaczek1926, mixed=:lucca1994)`.
-Internal impedance selects `:wedepohl1973` for inner, outer, and transfer surfaces;
-magnetic insulation impedance selects `:ametani1980`. Earth potential coefficients
+Internal impedance selects `:wedepohl1973` for inner, outer, and transfer surfaces.
+Magnetic insulation impedance selects `:ametani1980`. Earth potential coefficients
 select `:ideal`: electrostatic images in air, zero for buried and mixed pairs.
-Every scientific selection is registered by its Engine owner. Dielectric
+Each scientific selection is registered by its Engine owner. Dielectric
 `:default` routes to `:lossless`. An explicit `:lossy` selection is represented
 by the equivalent capacitance and loss tangent at the export reference
-frequency; PSCAD's native frequency law and loss-tangent cap of ten still apply.
+frequency. PSCAD's native frequency law and loss-tangent cap of ten still apply.
 External selections accept the same `(air, earth, mixed)` shorthand as LCM.
-Every required native field is compiled from the indexed Engine selections.
+Each required native field is compiled from the indexed Engine selections.
 PSCAD has no separate potential-model selector. Native direct integration can
-produce nonzero aerial conductance under the `:ideal` selection; raw native
+produce nonzero aerial conductance under the `:ideal` selection. Raw native
 matrices are preserved. Unsupported equations and analytical integration settings
 fail before export.
 """
@@ -163,7 +163,7 @@ function Formulation(::Val{:pscad}, ::PipeImpedance.Formula{:none}, ::Val{:pipe}
     throw(ArgumentError("PSCAD Cable_Coax does not support an eccentric or multicore metallic pipe enclosure"))
 end
 
-# The Engine owns each selected formula and its kind/s/t binding. These methods
+# The Engine defines each selected formula and its kind/s/t binding. These methods
 # translate that binding to PSCAD settings without evaluating the Julia equation.
 function earth_impedance(
         ::EarthImpedance.Formula{ID}, ::Val{Kind}, ::Val{S}, ::Val{T}, ::Val{:pscad}) where {ID, Kind, S, T}
@@ -218,8 +218,8 @@ function earth_impedance(
 end
 
 # The documented external potential law uses ideal images in air and zero
-# coefficients for buried/mixed pairs. There is no independent native selector;
-# direct integration can deviate from strict ideal behavior in the aerial block.
+# coefficients for buried and mixed pairs. There is no independent native selector.
+# Direct integration can deviate from strict ideal behavior in the aerial block.
 function earth_potential_coefficient(::EarthAdmittance.Formula{:ideal}, ::Union{Val{:self}, Val{:mutual}},
         ::Val{1}, ::Val{1}, ::Val{:pscad})
     (;)
@@ -247,8 +247,8 @@ insulation_impedance(::InsulationImpedance.Formula{:ametani1980}, ::Val{:pscad})
     formulas(owner, kind, source, target)
 
 List native external equations using the shared indexed method declarations.
-`owner` is `EarthImpedance` or `EarthAdmittance`; selectors are `Val` values.
-This lists individual cases, not complete models or combined author identities.
+`owner` is `EarthImpedance` or `EarthAdmittance`. Selectors are `Val` values.
+The list contains individual cases and excludes complete models and combined author identities.
 """
 function formulas(owner::Module, kind::Val, source::Val, target::Val)
     equation = owner === EarthImpedance ? earth_impedance :
@@ -300,8 +300,8 @@ function pscad_setting(formulation::PSCADFormulation, problem::LineParametersPro
             validate(pair)
             selected = Formulation(selection, Val.(pair.layers)...)
             binding = FormulaMethod(selected, pair)
-            # Registration and physical validity belong to the equation owner;
-            # execution availability is selected by the native binding.
+            # Registration and physical validity belong to the equation owner.
+            # Execution availability is selected by the native binding.
             validate(selected, pair)
             record = (formula = formula_id(selected),
                 kind = pair.row == pair.column ? :self : :mutual,
@@ -326,7 +326,7 @@ function pscad_setting(formulation::PSCADFormulation, problem::LineParametersPro
             internal_impedance, Val(kind))(Val(:pscad))
     end
     FormulaMethod(formulation.methods.insulation_impedance, insulation_impedance)(Val(:pscad))
-    # Unused native slots are set deterministically and retained too; they do not
+    # Unused native slots are set deterministically and retained too. They do not
     # authorize any additional physical case.
     ground = (
         EarthForm2 = get(settings, :EarthForm2, (

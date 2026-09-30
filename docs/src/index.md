@@ -25,8 +25,8 @@ in geometry and material data.
   `Grid`/`Gridspace` grammar and evaluate them with `compute`.
 - Calculate base cable parameters for solid, tubular, and stranded cores,
   semiconductors, screens, armors, sheaths, tapes, and water-blocking materials.
-- Apply temperature, stranding, and twisting corrections to DC resistance
-  [app14198982](@cite), GMR [6521501](@cite), and base inductance
+- Apply temperature, wire stranding and twisting corrections to DC resistance
+  [app14198982](@cite), GMR [6521501](@cite) and base inductance
   [yang2008gmr](@cite).
 - Calculate dielectric loss and equivalent insulation resistance
   [916943](@cite), including the solenoid contribution of twisted strands to
@@ -80,7 +80,7 @@ and do not represent country-level telemetry.
 
 The source code is licensed under the
 [BSD 3-Clause License](https://github.com/Electa-Git/LineCableModels.jl/LICENSE).
-The optional FEM backend invokes GetDP as an external program; its notice and
+The optional FEM backend invokes GetDP as an external program. Its notice and
 source link are recorded in
 [`THIRD_PARTY_NOTICES.md`](https://github.com/Electa-Git/LineCableModels.jl/blob/main/THIRD_PARTY_NOTICES.md).
 

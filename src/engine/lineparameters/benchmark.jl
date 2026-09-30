@@ -205,20 +205,20 @@ and domain. Comparison does not reorder conductors, interpolate frequency
 samples, convert basis, or apply a reduction.
 
 Every original operand sample must pass the shared engineering-zero classifier.
-Complex zero requires both Cartesian components to satisfy their own cutoffs;
-unavailable samples are separately ineligible. Otherwise both error metrics are
+Complex zero requires both Cartesian components to satisfy their own cutoffs.
+Unavailable samples are separately ineligible. Otherwise both error metrics are
 `missing`, including for identical ineligible traces. Eligible identical traces
-retain zero errors.
+retain errors equal to zero.
 
 Keyword arguments are shared with the single-observable `compare` method:
 `normalization`, `band`, `fundamental`, `harmonics`, `atol`, and `unsupported`. Full-band error
-is the default; optional sub-bands only slice the stored results. Each Z/Y
+is the default. Optional sub-bands only slice the stored results. Each Z/Y
 error retains its selected samples and numerical-zero classification.
 
 # Arguments
 
-- `reference`: Reference line parameters.
-- `result`: Result line parameters on the same frequency samples.
+- `reference`: reference line parameters.
+- `result`: result line parameters on the same frequency samples.
 
 # Returns
 
@@ -244,9 +244,9 @@ The first operand sets the relative-error normalization, not scientific truth.
 
 # Arguments
 
-- `reference`, `result`: Results with identical frequency coordinates, basis,
+- `reference`, `result`: results with identical frequency coordinates, basis,
   domain, and matrix dimensions.
-- `quantity`: `Z`, `Y`, `R`, `X`, `L`, `G`, `B`, or `C`. In particular, comparing `G`
+- `quantity`: `Z`, `Y`, `R`, `X`, `L`, `G`, `B`, or `C`. Comparing `G`
   separately prevents displacement current from hiding dielectric-loss differences.
 
 # Keywords
@@ -257,15 +257,15 @@ The first operand sets the relative-error normalization, not scientific truth.
 - `band`: `:all` (default), explicit closed `(lower, upper)` Hz bounds, or
   `:dc` (0.1–100 Hz), `:harmonic` (`fundamental` to `harmonics*fundamental`),
   `:narrow` (1000–1000000 Hz), or `:wide` (strictly above 1000000 Hz).
-- `fundamental`: Fundamental frequency in Hz; default 50.
-- `harmonics`: Upper harmonic order; default 50. Every stored sample in the
+- `fundamental`: fundamental frequency in Hz. Default 50.
+- `harmonics`: upper harmonic order. Default 50. Every stored sample in the
   harmonic band is used, not only samples at integer harmonics.
-- `atol`: Declared absolute reporting resolution in the observable's native basis
+- `atol`: declared absolute reporting resolution in the observable's native basis
   units, not a certified floating-point error bound.
-  A scalar applies to the requested quantity; a NamedTuple selects tolerances
+  Use a scalar for the requested quantity or a NamedTuple to select tolerances
   by component symbol. Defaults per meter are 1e-10 Ω/m for R, 1e-12 S/m for G,
   1e-15 H/m for L, and 1e-16 F/m for C. X and B thresholds are linked through
-  2πf. Total-basis defaults scale by retained physical length; otherwise explicit
+  2πf. Total-basis defaults scale by retained physical length. Otherwise explicit
   total-unit cutoffs are required. Complex requests require component-keyed cutoffs.
   Unless overridden directly, X/B use `2πf*atol_L`/`2πf*atol_C`,
   Z uses `atol_R + 2πf*atol_L` and Y uses
@@ -275,20 +275,20 @@ The first operand sets the relative-error normalization, not scientific truth.
   explicitly unavailable comparisons. Backend declarations may also supply
   this map as `details.comparison_unsupported` in either result.
 
-Closed endpoints snap to the nearest stored frequency by absolute Hz distance;
-ties select the lower frequency. Partial overlap uses the available portion.
+Closed endpoints snap to the nearest stored frequency by absolute Hz distance.
+Ties select the lower frequency. Partial overlap uses the available portion.
 Disjoint bands and an empty `:wide` band return `missing` errors with
 `:no_samples`. No interpolation, extrapolation, weighting, or computation runs
 are introduced. A one-sample band is valid.
 
 Both RMS metrics require every original operand sample to pass
 `observation_resolution`, for either normalization. Real quantities use absolute
-nominal magnitude; complex zero requires both components to satisfy their own
+nominal magnitude. Complex zero requires both components to satisfy their own
 cutoffs. An entire trace within tolerance gives `missing` for both metrics with status
-`:reference_below_tolerance` or `:result_below_tolerance`; a partially
+`:reference_below_tolerance` or `:result_below_tolerance`. A partially
 negligible trace gives `:reference_sample_below_tolerance` or
 `:result_sample_below_tolerance`. The check is local to the selected band.
-No denominator floor is introduced. Source arrays are never modified.
+The denominator is used without a floor. Source arrays are never modified.
 
 For `normalization=:pointwise`, the relative error is
 
@@ -303,7 +303,7 @@ in `details.normalization_reason`.
 
 # Returns
 
-- [`RMSError`](@ref), including actual bounds, sample indices/count, tolerance,
+- [`RMSError`](@ref), including actual bounds, sample indices and count, tolerance,
   reason, and a per-term status matrix in `details`.
 """
 function compare(reference::AbstractCoreResult, result::AbstractCoreResult,
@@ -338,9 +338,8 @@ $(TYPEDSIGNATURES)
 
 Compare physical tensors on an explicit frequency axis using the same band and
 two-sided resolution rules as core results. Arrays use native units in
-`result_basis` (`:pul` or `:total`); frequencies use Hz. Owner-supplied resolution
-records preserve operand-specific precision. No samples are omitted and no
-physical calculation is performed.
+`result_basis` (`:pul` or `:total`). Frequencies use Hz. Owner-supplied resolution
+records preserve operand-specific precision. The operation preserves each sample without a physical calculation.
 """
 function compare(left::AbstractArray{<:Union{Missing,Number},3}, right::AbstractArray{<:Union{Missing,Number},3},
         quantity::Function; frequencies::AbstractVector, result_basis::Symbol,
@@ -427,7 +426,7 @@ function compare(left::AbstractArray{<:Union{Missing,Number},3}, right::Abstract
         unresolved_samples,
         resolution=(; resolution.kind, resolution.unit))
     # Empty bands and supported bands have the same result type on a Gridspace.
-    # Preserve the frequency scalar type while admitting an absent bound/reason.
+    # Preserve the frequency scalar type while admitting an absent bound or reason.
     detail_types=map(keys(comparison_details)) do key
         key === :actual_bounds ? NTuple{2,Union{Missing,eltype(f)}} :
         key === :reason ? Union{Nothing,String} : typeof(getproperty(comparison_details,key))
@@ -510,7 +509,7 @@ $(TYPEDSIGNATURES)
 
 Validate RMS comparison controls before accessing results or starting a calculation.
 Frequency bounds and `fundamental` use Hz. Absolute tolerances use the units of
-the selected quantities. This method performs no numerical calculation.
+the selected quantities. Numerical calculation is outside this method.
 """
 function validate(::typeof(compare); normalization = :reference_rms, band = :all,
         fundamental = 50.0, harmonics = 50, atol = nothing, unsupported = (;))

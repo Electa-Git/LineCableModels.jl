@@ -149,7 +149,7 @@ const _phase_Yc = Base.Fix2(Yc,(domain=PhaseDomain,))
 const _voltage_H = Base.Fix2(H,(domain=PhaseDomain,field=:voltage))
 const _current_H = Base.Fix2(H,(domain=PhaseDomain,field=:current))
 
-# Finite representation bindings carry only domain and, for H, field.
+# Finite representation bindings include only domain and, for H, field.
 function _validate_phase_selector(selector::Base.Fix2)
     selector.f in (H,Zc,Yc) || throw(ArgumentError("unsupported finite representation selector"))
     value=selector.x

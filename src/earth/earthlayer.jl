@@ -77,14 +77,14 @@ Declare one static earth layer directly or as an explicit finite space.
 
 # Keywords
 
-- `rho`: Electrical resistivity \\[Ω·m\\].
-- `eps_r=nothing`: Relative permittivity \\[dimensionless\\]; `nothing`
+- `rho`: electrical resistivity \\[Ω·m\\].
+- `eps_r=nothing`: relative permittivity \\[dimensionless\\]. `nothing`
   selects unity in the resistivity scalar type.
-- `mu_r=nothing`: Relative permeability \\[dimensionless\\]; `nothing`
+- `mu_r=nothing`: relative permeability \\[dimensionless\\]. `nothing`
   selects unity in the resistivity scalar type.
-- `thickness=nothing`: Layer thickness \\[m\\]; `nothing` selects a
+- `thickness=nothing`: layer thickness \\[m\\]. `nothing` selects a
   semi-infinite layer.
-- `combine=:product`: Gridspace composition rule.
+- `combine=:product`: gridspace composition rule.
 
 # Returns
 

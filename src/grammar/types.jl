@@ -50,7 +50,7 @@ abstract type AbstractUncertaintyResult{T} <: AbstractResultSpace{T} end
 """
 $(TYPEDEF)
 
-Retain formulation-owned inputs. The selected formulation owns defaults and
+Retain formulation-owned inputs. The selected formulation defines defaults and
 validation. Construction preserves the supplied named tuple, including the
 identity of mutable values within it.
 
@@ -96,8 +96,7 @@ ComputationOptions(; kwargs...) = ComputationOptions((; kwargs...))
 """
 $(TYPEDEF)
 
-Retain computation-owned supplemental output. The producing computation owns
-its contents. Immutability is shallow: arrays and other mutable payload values
+Retain computation-owned supplemental output. The producing computation defines its contents. Immutability is shallow: arrays and other mutable payload values
 are neither copied nor frozen. Nested diagnostic type bounds are preserved.
 
 $(TYPEDFIELDS)
@@ -119,7 +118,7 @@ ComputationDetails(; kwargs...) = ComputationDetails((; kwargs...))
 """
 $(TYPEDEF)
 
-Store one passive formula selection until its owning formulation resolves the
+Store one passive formula selection until its defining formulation resolves the
 identifier, model parameters, and formulation-owned physical and numerical options.
 
 $(TYPEDFIELDS)

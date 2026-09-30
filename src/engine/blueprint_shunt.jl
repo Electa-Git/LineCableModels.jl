@@ -2,7 +2,7 @@
 $(TYPEDSIGNATURES)
 
 Construct cable blueprints for each selected formulation. Identical local
-selections share the completed blueprints; equivalent lossless domains share
+selections share the completed blueprints. Equivalent lossless domains share
 their coefficient matrices.
 The returned outer vector follows formulation order, and each inner vector
 follows design order. Sharing is confined to this construction call.
@@ -26,7 +26,7 @@ function flatten(engine::LineCableModelsCoaxial, designs::AbstractVector,
     return blueprints
 end
 
-# Install completed terminal coefficients; no boundary equation is evaluated.
+# Install completed terminal coefficients. No boundary equation is evaluated.
 function _shunt_potential!(destination, blocks::AbstractVector{<:InternalShuntBlock})
     for block in blocks
         inner, reference = first(block.terminals), last(block.terminals)

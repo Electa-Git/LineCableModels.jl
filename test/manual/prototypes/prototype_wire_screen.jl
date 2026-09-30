@@ -1,10 +1,10 @@
 # Disposable 18 kV internal-shunt experiment.
-# Run: include("test/manual/prototypes/prototype_wire_screen.jl")
+# Run: `include("test/manual/prototypes/prototype_wire_screen.jl")`
 # No engine extensions, FEM solves, campaign writes, or fitting to FEM data.
 # A LOCAL layered-annulus Laplace Green function couples round-wire auxiliary
 # sources to continuous, corner-weighted charge modes on all four tape faces. The core remains the
-# analytical equivalent circle; the foil is the local voltage reference.
-# This is a cross-section approximation, not a helical/full-wave field solver.
+# analytical equivalent circle. The foil is the local voltage reference.
+# This approximation solves the cross-section. Helical and full-wave fields are outside its scope.
 # Before: this experiment activated Gauntlet. Now preserve the active IDE project.
 gauntlet_project = normpath(joinpath(@__DIR__, "..", "..", "..", "gauntlet"))
 gauntlet_project in LOAD_PATH || push!(LOAD_PATH, gauntlet_project)
@@ -12,10 +12,11 @@ using LineCableModels, LinearAlgebra, DataFrames, JLD2, SHA, TOML, Test
 isdefined(@__MODULE__, :Gauntlet) ||
     include(joinpath(gauntlet_project, "Gauntlet.jl"))
 
-# ---- Manual controls ----
+#  Manual controls
 ws_campaign = joinpath(gauntlet_project, ".work", "all-references")
 ws_case_id = :cable_18kv_1000mm2_trefoil
-# Each named trial changes one numerical control from the baseline; last combines them.
+# Each labeled trial changes one numerical control from the baseline.
+# The final trial combines these changes.
 ws_levels = (
     (label = "baseline", wire = 32, order = 16, quadrature = 128, modes = 512),
     (label = "tape order", wire = 32, order = 32, quadrature = 128, modes = 512),
@@ -26,7 +27,7 @@ ws_levels = (
 ws_log_rtol = 1e-10
 ws_penetration_target = 0.01  # 1% target on core-to-foil coupling, not the matrix norm.
 ws_source_fraction = 0.75  # Numerical source location inside metal, NOT a geometry change.
-ws_make_plots = true     # Set true in a graphical REPL; uses the owned plot recipe.
+ws_make_plots = true     # Set true in a graphical REPL. Uses the owned plot recipe.
 
 # All helper names are local to this disposable experiment, not engine methods.
 function ws_read_result(path)
@@ -65,7 +66,7 @@ function ws_geometry(design)
         @assert layers[i - 1].ro ≈ layers[i].ri
     end
     # Default owned dielectric laws are lossless with frequency-independent eps_r.
-    # Do not silently extend this one-solve experiment to lossy/dispersive laws.
+    # Do not silently extend this one-solve experiment to lossy or dispersive laws.
     epsilon = filler.source.material.eps_r
     Rleft = sum(log(l.ro/l.ri)/l.epsilon for l in left)
     Rright = sum(log(l.ro/l.ri)/l.epsilon for l in right)
@@ -159,11 +160,11 @@ function ws_selfchecks()
 end
 
 # Potential per auxiliary charge scaled by 2pi*epsilon0. The direct logarithm
-# and the nearest dielectric images are exact; only the distant reflections are
-# Fourier-truncated. This avoids slow convergence at the tape/dielectric contact.
+# and the nearest dielectric images are exact. Only the distant reflections are
+# Fourier-truncated. This avoids slow convergence where the tape touches the dielectric.
 # The zero mode is the exact radial series solution. Nonzero modes sum repeated
 # reflections between the two layered Robin boundaries. No Sommerfeld kernel
-# appears here: this domain ends at the CLOSED aluminium foil.
+# appears here: this domain ends at the CLOSED aluminum foil.
 function ws_kernel(z, source, g, k; regular = false, split_images = false)
     r, s = abs(z), abs(source)
     Rr = g.Rleft + log(r/g.a)/g.epsilon
@@ -195,7 +196,7 @@ end
 
 function ws_kernel_matrix(targets, sources, g, k; regular = false, split_images = false)
     # Same Green function, batched into small Fourier blocks for BLAS. No dense
-    # N-by-modes cache: working storage is only 4*64 columns per boundary set.
+    # N-by-modes cache: working storage is only 4*64 columns per geometric boundary set.
     zero_modes = merge(k, (; A = Float64[], B = Float64[], D = Float64[]))
     matrix = [ws_kernel(z, s, g, zero_modes; regular,split_images) for z in targets, s in sources]
     ta, tb = g.a ./ conj.(targets), targets ./ g.b
@@ -253,7 +254,7 @@ include(joinpath(@__DIR__, "prototype_tape_element.jl"))
 function ws_replace_internal(baseline, C, expected_previous)
     f = frequencies(baseline)
     corrected = copy(observe(baseline, Y))
-    # Core and screen voltages/charges relative to the foil; cancels both the
+    # Core and screen voltages and charges relative to the foil. Cancels both the
     # external jacket interval and the full existing earth contribution.
     H = [1.0 0.0; 0.0 1.0; -1.0 -1.0]
     replacement = inv(C)
@@ -374,7 +375,7 @@ function ws_run(campaign, case_id, levels, source_fraction;
         couplings_df,summary_df,attempt,converged_boundary)
 end
 
-# One BLAS thread; restore the user's setting even if the prototype fails.
+# One BLAS thread. Restore the user's setting even if the prototype fails.
 ws_previous_threads = BLAS.get_num_threads()
 ws_experiment = try
     BLAS.set_num_threads(1)

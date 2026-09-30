@@ -34,7 +34,7 @@ end
     E=LineCableModels.Engine
     IO=LineCableModels.ImportExport
 
-    # Equal text must not become an identity, and a new leaf must reach the real
+    # Equal text must not become an identity, and a new leaf must appear in the real
     # report without being added to a reader or plotting lookup table.
     struct TestEarthLeaf{ID} <: E.EarthImpedanceFormulation end
     formula_id(::TestEarthLeaf{ID}) where {ID} = ID
@@ -181,7 +181,7 @@ end
     @test only(description([unknown_inner];roles=[:reference]))=="Reference · Monte Carlo"
     @test any(occursin("method unavailable",description(scope,value;compact=false))
         for (scope,value) in pairs(unknown_inner...))
-    # Read retained consumed IDs when present; never advertise a saved inactive
+    # Read retained consumed IDs when present. Never advertise a saved inactive
     # route as used, or replace an explicit unknown selection with today's default.
     declared=NamedTuple(normal)
     consumed=merge(declared,(methods=merge(declared.methods,

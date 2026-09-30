@@ -35,7 +35,7 @@ end
     end
     raw=LineParameters(z,z.*1e-6,[1.,10.])
     retained=ObservedResult(raw,(R,L);clip=false,length_unit=:base)
-    # The source owner declares modal coordinates; the renderer must not infer diag.
+    # The source owner declares modal coordinates. The renderer must not infer diag.
     modal=ObservedResult(retained.gridpoint,
         [merge(q,(coordinates=merge(q.coordinates,(domain=:ModalDomain,)),)) for q in retained.quantities],
         retained.errors,retained.timings)

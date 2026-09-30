@@ -1,7 +1,7 @@
 # Load in the IDE or run with
-# julia --startup-file=no test/manual/fem/run_three_bare_wires_baseline.jl.
-# Uses the active environment, without activating/installing anything. Every run
-# creates a new attempt; retained results are never replaced. No plotting needed.
+# `julia --startup-file=no test/manual/fem/run_three_bare_wires_baseline.jl`.
+# Uses the active environment without activating or installing anything. Each run
+# creates a new attempt. Retained results are never replaced. The run completes without plotting.
 using LineCableModels
 using Gmsh
 using Printf, TOML, SHA, Dates, Logging, Pkg
@@ -89,7 +89,7 @@ function compare_three_bare_wires_baseline(attempt)
                                                            NaN :
                                                            abs(reference[worst_relative]),
             "near_zero_threshold"=>near_zero)
-        # Near-zero components retain their absolute difference; no arbitrary
+        # Near-zero components retain their absolute difference. No arbitrary
         # denominator floor turns them into apparently small relative errors.
         open(joinpath(attempt, name, "$(quantity)-differences.csv"), "w") do io
             println(io,
@@ -120,7 +120,7 @@ function run_three_bare_wires_baseline(; analytical = true, fem = true)
     write(joinpath(attempt, "source.patch"), read(`git -C $repository diff HEAD --binary`, String))
     write(joinpath(attempt, "source-status.txt"), read(`git -C $repository status --short`, String))
     # Before: capture required an unrelated historical local plan. Now retain
-    # the executable fixture and runner; source.patch records the actual code.
+    # the executable fixture and runner. Source.patch records the actual code.
     for source in ("test/support/scenarios.jl",
         "test/manual/fem/run_three_bare_wires_baseline.jl")
         target = joinpath(attempt, "sources", source)
@@ -152,7 +152,7 @@ function run_three_bare_wires_baseline(; analytical = true, fem = true)
                 keep_run_directory = true, trace = true, output_basis = :pul,
                 verbosity = (default = 1,), gmsh_verbosity = 2, getdp_verbosity = 4,
                 frequency_workers = 2, solver_threads = 4, plot_field_maps = false)))
-    # Each public call is a complete fresh scan, not a permutation or a resumed solve.
+    # Each public call computes a complete fresh scan without reordering or resuming a previous solve.
     for (backend, (formulation, options)) in selections,
         (placement, heights) in pairs(CurrentScenarios.three_bare_wires_layouts)
 

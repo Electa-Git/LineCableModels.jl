@@ -30,7 +30,7 @@ const _EARTH_COLORS = [
 ]
 
 # Two staggered, disconnected slashes per tile. The signed distance gives a
-# one-pixel antialiased edge; Makie's polygon fill owns clipping and placement.
+# one-pixel antialiased edge. Makie's polygon fill owns clipping and placement.
 const _DIELECTRIC_PATTERN_MASK = map(Iterators.product(1:32, 1:56)) do (i, j)
     distance = minimum(((8, 14), (24, 42))) do (cx, cy)
         x, y = i - 0.5 - cx, j - 0.5 - cy
@@ -114,7 +114,7 @@ function _magnetic_overlay(base, relative_permeability::Real)
         max(relative_permeability, 1.0), _MAGNETIC_MU_RANGE...
     )
     iszero(fraction) && return RGB(base)
-    # Keep the visible lower/middle range indigo; introduce magenta only in
+    # Keep the visible lower and middle range indigo. Introduce magenta only in
     # the upper third of the logarithmic permeability range.
     tint = _gradient(_MAGNETIC_COLORS, max(0.0, (fraction - 0.65) / 0.35))
     return _oklab_blend(base, tint, 0.35fraction^0.7)

@@ -132,18 +132,18 @@ connections, or compose an outer transform onto a placement collection.
 
 # Arguments
 
-- `x`: Horizontal translation \\[m\\].
-- `y`: Vertical translation \\[m\\].
-- `subject`: Physical part, completed design, or placement collection.
-- `pose`: Existing `Pose2` declaration.
+- `x`: horizontal translation \\[m\\].
+- `y`: vertical translation \\[m\\].
+- `subject`: physical part, completed design or placement collection.
+- `pose`: existing `Pose2` declaration.
 
 # Keywords
 
-- `φ=0`: Counter-clockwise rotation \\[rad\\].
-- `connections`: Terminal-to-active-phase declaration required for a completed
-  cable design. Use one-based active phase IDs and `0` for a grounded/eliminated
+- `φ=0`: counter-clockwise rotation \\[rad\\].
+- `connections`: terminal-to-active-phase declaration required for a completed
+  cable design. Use one-based active phase IDs and `0` for a grounded or eliminated
   conductor.
-- `combine=:product`: Gridspace composition rule.
+- `combine=:product`: gridspace composition rule.
 
 # Returns
 
@@ -234,15 +234,15 @@ Place three copies of one completed cable in an equilateral trefoil formation.
 
 # Arguments
 
-- `design`: Completed cable design reused by all three members.
+- `design`: completed cable design reused by all three members.
 
 # Keywords
 
-- `center=at(0, 0)`: Formation-center pose \\[m, m, rad\\].
-- `spacing`: Cable center-to-center distance \\[m\\].
-- `connections`: Scalar or three-member terminal connection schedules.
-- `φ0=0`: Formation rotation \\[rad\\].
-- `combine=:product`: Gridspace composition rule.
+- `center=at(0, 0)`: formation-center pose \\[m, m, rad\\].
+- `spacing`: cable center-to-center distance \\[m\\].
+- `connections`: scalar or three-member terminal connection schedules.
+- `φ0=0`: formation rotation \\[rad\\].
+- `combine=:product`: gridspace composition rule.
 
 # Returns
 
@@ -278,7 +278,7 @@ $(TYPEDSIGNATURES)
 Place three copies of one completed cable in a horizontal flat formation.
 
 `spacing` is the adjacent center-to-center distance \\[m\\]. Scalar connection
-entries apply to every cable; three-element entries distribute by member.
+entries apply to every cable. Three-element entries distribute by member.
 """
 function hflat(
         design;
@@ -299,7 +299,7 @@ $(TYPEDSIGNATURES)
 Place three copies of one completed cable in a vertical flat formation.
 
 `spacing` is the adjacent center-to-center distance \\[m\\]. Scalar connection
-entries apply to every cable; three-element entries distribute by member.
+entries apply to every cable. Three-element entries distribute by member.
 """
 function vflat(
         design;

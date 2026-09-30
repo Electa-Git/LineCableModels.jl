@@ -432,27 +432,27 @@ frequency-dependent coaxial-cable schema.
 
 # Arguments
 
-- `file_name`: Existing PSCAD project with a `.pscx` extension.
+- `file_name`: existing PSCAD project with a `.pscx` extension.
 
 # Keywords
 
-- `definition`: Qualified or local name of the frequency-dependent row to import. Leave it unset when the project contains one eligible row or one row selected for output.
+- `definition`: qualified or local name of the frequency-dependent row to import. Leave it unset when the project contains one eligible row or one row selected for output.
 
 # Returns
 
-- `earth`: Materialized homogeneous [`EarthModel`](@ref).
-- `system`: Materialized [`LineCableSystem`](@ref).
+- `earth`: materialized homogeneous [`EarthModel`](@ref).
+- `system`: materialized [`LineCableSystem`](@ref).
 
 # Notes
 
 The PSCAD schema stores equivalent concentric layers but does not retain the
 source cable's detailed strand geometry, material reference temperature, or
-temperature coefficient. Imported layers therefore use the emitted equivalent
+temperature coefficient. Imported layers use the emitted equivalent
 properties at 20 °C with zero temperature coefficient. Non-eliminated PSCAD
 conductors receive consecutive phase indices in cable and layer order.
 
 PSCAD bounds dielectric loss tangent at ten. A project produced from a more
-conductive equivalent dielectric therefore contains the bounded PSCAD value,
+conductive equivalent dielectric contains the bounded PSCAD value,
 and import materializes that value rather than the pre-export resistivity.
 
 The importer accepts detailed and simplified coaxial cables. Simplified cables

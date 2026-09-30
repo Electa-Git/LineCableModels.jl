@@ -211,7 +211,7 @@ end
         :monte_carlo_result
     )
 
-    # Semantic width/compactness controls below replace saved terminal pages.
+    # Semantic width and compactness controls below replace saved terminal pages.
     # A renderer may change spacing without inheriting a historical transcript.
     for object in families
         compact=sprint(show, object)

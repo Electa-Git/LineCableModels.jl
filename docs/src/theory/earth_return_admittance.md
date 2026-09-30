@@ -7,8 +7,8 @@ CurrentModule = LineCableModels.Engine.EarthAdmittance
 These formulations describe the external electric field through potential
 coefficients or source-defined scalar admittances. The complete potential
 matrix, including the local insulation contribution, is assembled before
-conversion to shunt admittance; scalar reciprocals do not define a
-multiconductor admittance matrix. Geometry, voltage reference, and
+conversion to shunt admittance. A multiconductor admittance matrix requires matrix inversion instead of
+scalar reciprocals. Geometry, voltage reference, and
 propagation assumptions remain those of each source.
 
 - [Default two-half-space source-potential coefficients](@ref source_potential_coefficient(::Union{Formula{:unified}, Val{:unified}}, ::Union{Val{:self}, Val{:mutual}}, ::Val, ::Val, ::Any, ::Any, ::Any))

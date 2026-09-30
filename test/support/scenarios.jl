@@ -22,15 +22,15 @@ module CurrentScenarios
 
     # Keywords
 
-    - `heights`, `horizontal`: Three signed vertical and horizontal coordinates \\[m\\].
-    - `radius`: Wire radius \\[m\\].
-    - `copper`: Conductor material; defaults to the materials library's copper.
-    - `rho`: Soil resistivity \\[Ω·m\\].
-    - `eps_r`, `mu_r`: Soil relative permittivity and permeability \\[dimensionless\\].
-    - `temperature`: Operating temperature \\[°C\\].
-    - `line_length`: Line length \\[m\\].
-    - `frequencies`: Analysis frequencies \\[Hz\\].
-    - `name`: Physical system identifier.
+    - `heights`, `horizontal`: three signed vertical and horizontal coordinates \\[m\\].
+    - `radius`: wire radius \\[m\\].
+    - `copper`: conductor material. Defaults to the materials library's copper.
+    - `rho`: soil resistivity \\[Ω·m\\].
+    - `eps_r`, `mu_r`: soil relative permittivity and permeability \\[dimensionless\\].
+    - `temperature`: operating temperature \\[°C\\].
+    - `line_length`: line length \\[m\\].
+    - `frequencies`: analysis frequencies \\[Hz\\].
+    - `name`: physical system identifier.
 
     # Returns
 
@@ -106,7 +106,7 @@ module CurrentScenarios
     end
 
     # Independent arrays and histogram storage for each observable. This object
-    # tests publication/retention only; actual Monte Carlo validation runs compute.
+    # tests publication and retention only. Actual Monte Carlo validation runs compute.
     function cable_monte_carlo_result()
         samples=(R=reshape([2.0,3.0,5.0,8.0],1,:),
             L=reshape([11.0,13.0,17.0,19.0].*1e-6,1,:),

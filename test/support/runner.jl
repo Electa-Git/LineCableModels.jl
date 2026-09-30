@@ -17,7 +17,7 @@ function selection(arguments, directory; excluded=ORDINARY_EXCLUDED_TAGS)
     prefix = abspath(directory) * Base.Filesystem.path_separator
     return item -> begin
         startswith(abspath(item.filename), prefix) || return false
-        # A filename/name search must not accidentally launch a live station.
+        # A search by filename or item name must not accidentally launch a live station.
         :pscad_native in item.tags && :pscad_native ∉ tags && return false
         isempty(queries) && return isempty(intersect(excluded, item.tags))
         tag_match = isempty(tags) || any(in(item.tags), tags)
@@ -49,7 +49,7 @@ function run_tests(root; filter=(_ -> true), verbose=true, list=false)
     started = time_ns()
     root = abspath(root)
     validate_config(joinpath(root, "JuliaTestItems.toml"))
-    # File selection belongs to the installed runner. In particular, excluded
+    # File selection belongs to the installed runner. Excluded
     # source cannot introduce a setup even when an included item requests it.
     files = TestItemRunner.find_test_files(root)
     checked = Set([root])
@@ -69,7 +69,7 @@ function run_tests(root; filter=(_ -> true), verbose=true, list=false)
     selected = NamedTuple[]
     finished = false
     # Keep native Test reporting and failure propagation. This factory only
-    # announces item starts, so a terminated run reveals its last active scope.
+    # announces item starts, which identifies its last active scope.
     function testset(description; verbose)
         if any(item -> item.name == description, selected)
             println("Starting [", round((time_ns() - started) / 1e9; digits=2),

@@ -6,7 +6,7 @@ end
 $(TYPEDSIGNATURES)
 
 Validate Unified's prescribed longitudinal wavenumber Γ \\[1/m\\]. A scalar
-applies at every frequency; a nonempty vector follows the frequency order.
+applies at every frequency. A nonempty vector follows the frequency order.
 """
 function validate(::Type{<:Union{EarthImpedance.Formula{:unified}, Formula{:unified}}},
         ::Val{:Γ}, argument)
@@ -64,7 +64,7 @@ $(TYPEDSIGNATURES)
 
 Calculate the source-charge coefficient of conductor voltage \\[m/F\\] for
 circumferentially averaged fields in two half-spaces. Air targets use the
-interface z=0 as voltage reference; buried targets use deep earth. With
+interface z=0 as voltage reference. Buried targets use deep earth. With
 source amplitudes q̃ and conductor voltages U,
 
 ```math
@@ -296,15 +296,14 @@ P_e T_I=\\widetilde P,\\qquad
 Z_e T_I=\\widetilde K+\\Gamma^2\\widetilde P/s.
 ```
 
-The work arrays contain a common exponential source-column scaling. In
-particular, `current_map` stores TᵢD, not the unscaled Tᵢ; `circumference_average`
+The work arrays contain a common exponential source-column scaling. Specifically, `current_map` stores TᵢD, not the unscaled Tᵢ. `circumference_average`
 contains scaled I₀ values. The same D multiplies both source-coefficient arrays
 and cancels from these right solves. The factorization is reused without
 conjugating transposes. All conductors participate before selected physical
 entries are copied by Engine.
 
 This complete-field conversion includes both scalar- and vector-potential
-contributions. The package subsequently assembles cable contributions and
+contributions. The package then assembles cable contributions and
 reductions before calculating total Y=jωP⁻¹ \\[S/m\\].
 
 # Returns

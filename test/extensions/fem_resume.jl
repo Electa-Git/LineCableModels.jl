@@ -46,7 +46,7 @@
     smaller_inputs = extension._fem_input_record(smaller_model, formulation, smaller_controls)
     @test smaller_inputs.mesh_fingerprint != inputs.mesh_fingerprint
     # Dictionary iteration order can change between Julia versions. Resume
-    # records the Julia version; the key must be repeatable within that runtime.
+    # records the Julia version. The key must be repeatable within that runtime.
     recorded_key=extension._mesh_fingerprint(model, "recorded-gmsh-version")
     @test extension._mesh_fingerprint(deepcopy(model), "recorded-gmsh-version") == recorded_key
     @test extension._mesh_fingerprint(model, "different-gmsh-version") != recorded_key
@@ -135,7 +135,7 @@
         @test extension._resume_inputs_match(run.path, model, other_inputs)
         @test !extension._resume_inputs_match(run.path,hot_model,hot_inputs)
         @test !extension._resume_inputs_match(run.path,dispersive_model,dispersive_inputs)
-        # Current missing metadata is corruption; obsolete development schema
+        # Current missing metadata is corruption. Obsolete development schema
         # examples do not establish a compatibility obligation.
         incomplete=Dict(String(k)=>v for (k,v) in pairs(extension.JSON3.read(extension.JSON3.write(inputs))))
         delete!(incomplete,"solver_protocol")

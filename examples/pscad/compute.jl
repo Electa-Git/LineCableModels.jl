@@ -1,6 +1,6 @@
 using LineCableModels
 
-# The caller supplies the filename; the backend does not search for one.
+# The backend uses the filename supplied by the caller without searching for one.
 config_path = isempty(ARGS) ? ENV["LINECABLEMODELS_PSCAD_CONFIG"] : only(ARGS)
 station = PSCAD.RemoteConfig(config_path)
 

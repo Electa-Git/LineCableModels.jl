@@ -14,9 +14,8 @@ $(TYPEDSIGNATURES)
 
 Normalize supplied formulation options against defaults declared by the actual
 selected equation. A family with multiple cases projects supplied options to
-each consuming binding before calling this constructor. Empty defaults admit
-no options. Each option's dispatched
-normalizer owns its value type, including scalar physical choices and structured
+each consuming binding before calling this constructor. Empty defaults exclude options. Each option's dispatched
+normalizer defines its value type, including scalar physical choices and structured
 numerical controls.
 """
 function formulation_options(binding::FormulaMethod, defaults::FormulationOptions, supplied::FormulationOptions)
@@ -48,7 +47,7 @@ $(TYPEDSIGNATURES)
 
 Return the ordered, owner-scoped formula selections and controls relevant to
 `quantity`. Pass `nothing` to retain the complete formulation. Native and saved
-formulations use the same owning `pairs` methods; descriptions are not identities.
+formulations use the same owning `pairs` methods. Descriptions are not identities.
 Return `missing` if any selected identity is unavailable. No formula is evaluated.
 """
 function formula_id(source::Union{AbstractFormulation,Pair{<:Type,<:NamedTuple}}, quantity)

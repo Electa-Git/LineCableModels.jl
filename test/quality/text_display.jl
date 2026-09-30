@@ -1,7 +1,7 @@
 @testitem "Quality / TextDisplay / ownership and side effects" tags=[:quality] begin
     using DataFrames
 
-    # Current show/summary methods are owned by the domain. Observable
+    # Current show and summary methods are owned by the domain. Observable
     # publication and display side effects are exercised by the behavioral
     # ReportBuilder/TextDisplay tests, not inferred from source tokens.
     owner_modules=(

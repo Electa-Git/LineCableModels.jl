@@ -7,7 +7,7 @@ function export_data(::Val{:tralin},
         file_name::Union{String, Nothing} = nothing
 )::String
 
-    # -- helpers ---------------------------------------------------------------
+    #  helpers
     _freqs(x) = x isa AbstractVector ? collect(x) : [x]
     _fmt(x) = string(round(Float64(nominal(x)); digits = 6))
     _maybe(x) = (x === nothing) ? "" : _fmt(x)
@@ -27,15 +27,15 @@ function export_data(::Val{:tralin},
 
     num_phases = length(cable_system.designs)
     freqs = map(f -> nominal(f), _freqs(freq))
-    # TRALIN owns this explicit radial homogenization choice. Nothing is stored
-    # on CableDesign; unsupported physical geometry fails at the local
-    # homogenization boundary.
+    # TRALIN defines this explicit radial homogenization choice. The choice is not stored
+    # on CableDesign. Unsupported physical geometry fails at the local
+    # homogenization step.
     tralin_components(design) = DataModel.flatten(
         design,
         first(freqs)
     )
 
-    # -- build TRALIN lines ----------------------------------------------------
+    #  build TRALIN lines
     lines = String[]
 
     push!(lines, "TRALIN")
@@ -93,7 +93,7 @@ function export_data(::Val{:tralin},
                 # BOTTOM: no thickness -> explicit empty field `,,`
                 push!(lines, "    LAYER,$lname,$rho,,$mu_r,$eps_r")
             else
-                # TOP/CENTRAL: include thickness if available; otherwise leave it empty to keep the slot
+                # TOP/CENTRAL: include thickness if available. Otherwise leave it empty to keep the slot
                 thk = (
                     isfinite(layer.thickness)
                 ) ?
@@ -173,7 +173,7 @@ function export_data(::Val{:tralin},
     return file_name
 end
 
-# --- internal utility: slice a block between an anchor and the next page header ---
+#  internal utility: slice a block between an anchor and the next page header
 # Finds the first line that contains `anchor` and returns the lines up to (but not including)
 # the next "TRALIN package - PAGE" header. Throws if not found.
 function _block_after_anchor(fileLines::Vector{String}, anchor::AbstractString)
@@ -223,7 +223,7 @@ function _infer_tralin_order(file_or_lines)::Int
     return length(phase_set)
 end
 
-# --- public: extract the frequency vector from the "FREQUENCY OF HARMONIC CURRENT" section ---
+#  public: extract the frequency vector from the "FREQUENCY OF HARMONIC CURRENT" section
 """
 $(TYPEDSIGNATURES)
 
@@ -296,7 +296,7 @@ function parse_tralin_file(filename)
     limited_str = "GROUND WIRES ELIMINATED"
     all_idx = findall(row -> occursin(limited_str, row), fileLines)
 
-    # Initialise matrices for all frequency samples.
+    # Initialize matrices for all frequency samples.
     Z_matrices = Vector{Matrix{ComplexF64}}(undef, length(all_idx))
     Y_matrices = Vector{Matrix{ComplexF64}}(undef, length(all_idx))
     P_matrices = Vector{Matrix{ComplexF64}}(undef, length(all_idx))
@@ -354,9 +354,9 @@ Parse one upper-triangular complex matrix between two TRALIN section headers.
 # Arguments
 
 - `fileLines`: TRALIN output lines beginning before `str_init`.
-- `order`: Matrix order.
-- `str_init`: Header that begins the matrix section.
-- `str_final`: Header that ends the matrix section.
+- `order`: matrix order.
+- `str_init`: header that begins the matrix section.
+- `str_final`: header that ends the matrix section.
 
 # Returns
 
@@ -385,7 +385,7 @@ function extract_tralin_variable(fileLines, order, str_init, str_final)
     # Process, clean, and arrange data into matrix form
     variable_list_number = clean_variable_list(variable_list_number, order)
 
-    # Initialise and fill the matrix, padding incomplete rows when necessary.
+    # Initialize and fill the matrix, padding incomplete rows when necessary.
     matrix = zeros(ComplexF64, order, order)
     for (i, row) in enumerate(variable_list_number)
         matrix[i, 1:length(row)] = row
@@ -444,7 +444,7 @@ function clean_variable_list(data, order)
     # Pad each row to the requested order.
     data_padded = [vcat(lst, fill(0.0 + 0.0im, order - length(lst))) for lst in data]
 
-    # Add zero rows to reach the requested order.
+    # Append rows of zeros to reach the requested order.
     if length(data_padded) < order
         for _ in 1:(order - length(data_padded))
             push!(data_padded, fill(0.0 + 0.0im, order))
@@ -454,7 +454,7 @@ function clean_variable_list(data, order)
     return data_padded
 end
 
-# -- Direct TRALIN constructor
+#  Direct TRALIN constructor
 function LineParameters(::Val{:tralin}, file_name::AbstractString)
     f, Z_tralin, Y_tralin, _ = parse_tralin_file(file_name)
 

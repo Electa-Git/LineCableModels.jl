@@ -48,7 +48,7 @@ $(TYPEDSIGNATURES)
 
 Tabulate completed comparisons, independent maxima, sampling information, and
 recorded performance evidence. Every result remains represented. Display
-features consume the same observation-side groups as plots; no source access,
+features consume the same observation-side groups as plots. No source access,
 comparison, sampling estimate, or timing measurement occurs here.
 """
 select(definition::BenchmarkTableDefinition,observed::ObservedResult;reference=nothing) =

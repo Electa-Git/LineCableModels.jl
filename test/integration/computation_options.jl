@@ -33,8 +33,8 @@ end
         push!(calls, index)
     end
     options = (output_basis=:total, on_result=callback)
-    # The selected basis is represented by Val, so a runtime Symbol determines
-    # that field's type; the normalized record must still retain concrete fields.
+    # The selected basis is represented by Val. A runtime Symbol determines
+    # that field's type. The normalized record must still retain concrete fields.
     execution = LineCableModels.computation_options(LineCableModelsCoaxial, ComputationOptions(options))
     @test isconcretetype(typeof(execution))
     @test execution.data.on_result === callback
@@ -97,7 +97,7 @@ end
     end
     lines = filter(record -> record.message in ("callback completed", "Line parameters computation completed successfully"), log.logs)
     @test getproperty.(lines, :message) == ["callback completed", "callback completed", "Line parameters computation completed successfully"]
-    # Exercise both completed tensor checks independently at their numerical boundary.
+    # Exercise both completed tensor checks independently at their numerical entry point.
     execution = computation_options(LineCableModelsCoaxial, ComputationOptions())
     blueprints = only(E.flatten(LineCableModelsCoaxial(), ordinary.system.designs, Float64, [selected]))
     workspace = E.LineParametersWorkspace(ordinary, selected, execution, blueprints)

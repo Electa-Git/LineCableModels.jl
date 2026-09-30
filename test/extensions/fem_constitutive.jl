@@ -25,7 +25,7 @@
     @test real.(metal.admittivity) ≈ fill(inv(copper.rho*exp(0.06)), 2)
     @test real.(passive.admittivity) ≈ fill(inv(dielectric.rho*exp(0.06)), 2)
     @test problem.system.designs[1].geometry.regions[1].source.material.rho == copper.rho
-    # This single cable's envelope is below the 5 m layout floor.
+    # This cable's envelope is below the 5 m layout floor.
     for (index,f) in pairs(problem.frequencies)
         earth = model.earth_materials[index]
         @test (earth.rho,earth.eps_r,earth.mu_r) == (100/(1+f/1000),10*(1+f/2000),1+f/10000)
@@ -87,7 +87,7 @@ end
     @test all(isfinite,result.Z.values) && all(isfinite,result.Y.values)
     z = primitive.Z_primitive[:,:,1]
     p = primitive.P_primitive[:,:,1]
-    # Independently eliminate the grounded wall's current/charge unknowns.
+    # Independently eliminate the grounded wall's current and charge unknowns.
     @test result.Z.values[:,:,1] ≈ z[1:2,1:2]-z[1:2,3:3]*(z[3:3,3:3]\z[3:3,1:2])
     @test result.Y.values[:,:,1] ≈ inv(p[1:2,1:2]-p[1:2,3:3]*(p[3:3,3:3]\p[3:3,1:2]))
     @test z ≈ transpose(z) rtol=1e-10
@@ -145,7 +145,8 @@ end
     selected_controls = execution
     actual = compute(problem,selected; options=merge(selected_controls, (trace=true,)))
     for (index,f) in pairs(problem.frequencies)
-        # Explicit published inputs form the reference; no call to the fitted/selected law.
+        # Compute the reference from explicit published inputs without calling
+        # the selected constitutive law.
         static = EarthModel(100/(1+f/1000),10*(1+f/2000),1+f/10000; air_layer=air)
         reference_problem = LineParametersProblem(system;frequencies=[f],earth_props=static)
         reference = compute(reference_problem,LineCableModelsFEM(earth_properties=nothing;

@@ -48,7 +48,7 @@ struct BenchmarkTableDefinition{S <: NamedTuple, I, O <: NamedTuple} <: Abstract
     requested::Tuple{Vararg{Symbol}}
     "Whether detached display residue is replaced with exact zero."
     clip::Bool
-    "Optional explicit illustration request; nothing produces no figure."
+    "Optional explicit illustration request. Use `nothing` to omit the figure."
     illustration::I
     "Options for the explicitly requested illustration."
     plot_options::O
@@ -59,8 +59,7 @@ $(TYPEDSIGNATURES)
 
 Request per-term comparisons grouped by formulation and frequency band.
 Quantities use the observation grammar. The default bands are the entire range,
-near DC, harmonic, narrowband and wideband. `fundamental` is in Hz. No figure is
-created unless `illustration` is explicitly supplied. A benchmark report retains one scalar reference separately from its results.
+near DC, harmonic, narrowband and wideband. `fundamental` is in Hz. Creating a figure requires an explicit `illustration`. A benchmark report retains one scalar reference separately from its results.
 The explicit comparison operation also supports declared collection pairings.
 """
 function BenchmarkTableDefinition(; clip::Bool=false, illustration=nothing, plot_options=(;), kwargs...)
@@ -99,7 +98,7 @@ $(TYPEDSIGNATURES)
 Select scientific requests for per-term RMS comparisons. Statistical requests
 use `(statistics, quantity, statistic)` function tuples. Bands apply equally to
 deterministic and statistical products. Absolute limits use native physical
-units; relative errors are dimensionless. Plotting remains explicitly requested.
+units. Relative errors are dimensionless. Plotting remains explicitly requested.
 """
 function BenchmarkTableDefinition(requests::Tuple; clip::Bool=false, illustration=nothing,
         plot_options=(;), kwargs...)
@@ -253,7 +252,7 @@ end
 """
 $(TYPEDSIGNATURES)
 
-Build one table per retained quantity, grouped by the owning physical family.
+Build one table per retained quantity, grouped by the defining physical family.
 Full matrices retain every coefficient in row-major order. Each row represents
 one retained frequency or sample coordinate.
 """

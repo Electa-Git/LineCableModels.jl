@@ -110,7 +110,7 @@ public preview_shapes, preview_materials
 public PreviewShape, material_property_ranges
 public flatten
 
-# Construction interfaces shared with Engine and UQ; not modelling options.
+# Construction interfaces shared with Engine and UQ. Not modelling options.
 public clearance_geometry, interface_clearance, collect_clearance_requirements, with_clearance
 public clearance_summary, warn_clearance_summary, realize_clearance
 

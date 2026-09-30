@@ -164,5 +164,5 @@ end
 end
 
 # Retired-name and file-absence scans were development preservation guards.
-# The current constructors and single materialization path are exercised above;
-# ownership is checked by ExplicitImports through the loaded implementations.
+# The current constructors and single materialization path are exercised above.
+# Ownership is checked by ExplicitImports through the loaded implementations.

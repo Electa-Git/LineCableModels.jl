@@ -90,7 +90,7 @@ end
 """
 $(TYPEDEF)
 
-Represent the exact material domain between two resolved boundaries.
+Represent the exact material domain between two resolved geometric boundaries.
 """
 struct ShellShape{
         T <: Real,
@@ -124,8 +124,8 @@ when that magnitude is zero.
 
 # Arguments
 
-- `value`: Geometric scale in the SI units of the quantity being compared
-  (for example length \\[m\\] or area \\[m²\\]).
+- `value`: geometric scale in the SI units of the quantity being compared
+  (such as length \\[m\\] or area \\[m²\\]).
 
 # Returns
 
@@ -423,7 +423,7 @@ end
 """
     tessellate(shape::SectorShape; points_per_arc=32)
 
-Approximate the exact boundary with coordinate tuples for rendering or meshing.
+Approximate the exact geometric boundary with coordinate tuples for rendering or meshing.
 Geometric properties are computed from the exact sector boundary.
 """
 function tessellate(shape::SectorShape; points_per_arc::Integer = 32)

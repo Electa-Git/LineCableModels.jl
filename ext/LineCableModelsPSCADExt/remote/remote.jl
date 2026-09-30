@@ -220,7 +220,7 @@ Read the remote PSCAD installation identity without launching a simulation.
 
 # Arguments
 
-- `config`: Station connection and selected PSCAD installation.
+- `config`: station connection and selected PSCAD installation.
 
 # Returns
 
@@ -233,13 +233,13 @@ Read the remote PSCAD installation identity without launching a simulation.
 
 Passing this record as the `solver_identity` computation option requires that
 installation. Fresh computations verify identity inside their own application
-instance; completed-run reuse verifies the current station before acceptance.
+instance. Completed-run reuse verifies the current station before acceptance.
 """
 function identify(config::RemoteConfig)
     code = PSCAD_REMOTE_SOURCES["identity.py"] * "\nimport json\n" *
            "for key, value in identify(" * repr(config.pscad_version) * ").items():\n" *
            "    print(json.dumps(key) + ' = ' + json.dumps(value))\n"
-    # Use the existing shared work directory; embedding a whole script inside
+    # Use the existing shared work directory. Embedding a whole script inside
     # an encoded PowerShell command exceeds Windows' command-line limit.
     directory = mktempdir(mkpath(config.local_root); prefix = "pscad-identity-")
     result = try

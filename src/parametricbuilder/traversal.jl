@@ -37,7 +37,7 @@ end
 """
 $(TYPEDSIGNATURES)
 
-Evaluate established scalar problem/formulation dispatch for every completed
+Evaluate established scalar problem-formulation dispatch for every completed
 formulation in a collection. Owners may provide a more specific method to
 share immutable lowering work. Every result must have one consistent concrete
 type.
@@ -217,7 +217,7 @@ end
 $(TYPEDSIGNATURES)
 
 Compute one target-bearing scalar grid point. Core workflows may add a more
-specific lowering method; the default method materializes the selected point
+specific lowering method. The default method materializes the selected point
 and computes its result.
 """
 function compute(
@@ -254,11 +254,11 @@ $(TYPEDSIGNATURES)
 
 Evaluate a deterministic formulation `Gridspace` with default
 [`Combinatorial`](@ref) settings. A scalar problem forms a singleton problem
-axis; a problem `Gridspace` forms a Cartesian product with the formulations.
+axis. A problem `Gridspace` forms a Cartesian product with the formulations.
 
 # Keywords
 
-- `options=(;)`: Options supplied to each core computation.
+- `options=(;)`: options supplied to each core computation.
 
 # Returns
 

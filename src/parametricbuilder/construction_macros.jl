@@ -47,13 +47,13 @@ outward.
 
 # Arguments
 
-- `identifier`: Stable cable identifier.
-- `parts`: Ordered physical cable declarations.
+- `identifier`: stable cable identifier.
+- `parts`: ordered physical cable declarations.
 
 # Keywords
 
-- `nominal_data=nothing`: Descriptive catalog data stored with the design.
-- `combine=:product`: Gridspace composition rule.
+- `nominal_data=nothing`: descriptive catalog data stored with the design.
+- `combine=:product`: gridspace composition rule.
 
 # Returns
 
@@ -99,14 +99,14 @@ Build a completed line-cable system from placed cable declarations.
 
 # Arguments
 
-- `identifier`: Stable system identifier.
-- `placements`: Ordered expressions that produce placed cable declarations.
+- `identifier`: stable system identifier.
+- `placements`: ordered expressions that produce placed cable declarations.
 
 # Keywords
 
-- `environment=nothing`: Optional physical environment declaration.
-- `line_length=1`: Physical line length \\[m\\].
-- `combine=:product`: Gridspace composition rule.
+- `environment=nothing`: optional physical environment declaration.
+- `line_length=1`: physical line length \\[m\\].
+- `combine=:product`: gridspace composition rule.
 
 # Returns
 
@@ -143,18 +143,18 @@ end
     end
 
 Build a completed earth model from ordered `layer(...)` declarations. For
-horizontal interfaces, the block runs from the surface downward.
+horizontal interfaces, the block runs from the earth surface downward.
 Semi-infinite air is implicit.
 
 # Arguments
 
-- `layers`: Ordered expressions that produce completed earth layers.
+- `layers`: ordered expressions that produce completed earth layers.
 
 # Keywords
 
-- `vertical_layers=false`: Whether earth interfaces are vertical.
-- `air_layer=nothing`: Optional explicit semi-infinite air layer.
-- `combine=:product`: Gridspace composition rule.
+- `vertical_layers=false`: whether earth interfaces are vertical.
+- `air_layer=nothing`: optional explicit semi-infinite air layer.
+- `combine=:product`: gridspace composition rule.
 
 # Returns
 
@@ -193,12 +193,12 @@ Coalesce the conductive descendants in one ordered block as a terminal.
 
 # Arguments
 
-- `name`: Retained electrical terminal name.
-- `parts`: Ordered physical cable declarations.
+- `name`: retained electrical terminal name.
+- `parts`: ordered physical cable declarations.
 
 # Keywords
 
-- `combine=:product`: Gridspace composition rule.
+- `combine=:product`: gridspace composition rule.
 
 # Returns
 
@@ -234,11 +234,11 @@ identities.
 
 # Arguments
 
-- `members`: Independent physical declarations, optionally placed with `@at`.
+- `members`: independent physical declarations, optionally placed with `@at`.
 
 # Keywords
 
-- `combine=:product`: Gridspace composition rule.
+- `combine=:product`: gridspace composition rule.
 
 # Returns
 
@@ -292,15 +292,15 @@ Contain one or more physical members inside a pipe cross-section.
 
 # Arguments
 
-- `members`: Enclosed physical declarations.
+- `members`: enclosed physical declarations.
 
 # Keywords
 
-- `shape`: Intrinsic containing primitive.
-- `fill`: Filling material or explicit filling region.
-- `wall=nothing`: Optional outward wall declaration.
-- `at=nothing`: Pipe pose relative to its parent frame.
-- `combine=:product`: Gridspace composition rule.
+- `shape`: intrinsic containing primitive.
+- `fill`: filling material or explicit filling region.
+- `wall=nothing`: optional outward wall declaration.
+- `at=nothing`: pipe pose relative to its parent frame.
+- `combine=:product`: gridspace composition rule.
 
 # Returns
 
@@ -319,16 +319,16 @@ Contain one or more physical members inside a duct cross-section.
 
 # Arguments
 
-- `members`: Enclosed physical declarations.
+- `members`: enclosed physical declarations.
 
 # Keywords
 
-- `shape`: Intrinsic containing primitive.
-- `fill`: Filling material or explicit filling region.
-- `wall=nothing`: Optional outward wall declaration.
-- `formation=nothing`: Placement pattern for one repeated prototype.
-- `at=nothing`: Duct pose relative to its parent frame.
-- `combine=:product`: Gridspace composition rule.
+- `shape`: intrinsic containing primitive.
+- `fill`: filling material or explicit filling region.
+- `wall=nothing`: optional outward wall declaration.
+- `formation=nothing`: placement pattern for one repeated prototype.
+- `at=nothing`: duct pose relative to its parent frame.
+- `combine=:product`: gridspace composition rule.
 
 # Returns
 
@@ -419,7 +419,7 @@ end
     @trefoil design spacing=value [keyword=value ...]
 
 Place three copies of `design` in a trefoil formation. `center`, `φ0`,
-`connections`, and `combine` are forwarded to [`trefoil`](@ref); every other
+`connections`, and `combine` are forwarded to [`trefoil`](@ref). Every other
 keyword is terminal-connection shorthand.
 """
 macro trefoil(design, assignments...)
@@ -430,7 +430,7 @@ end
     @hflat design spacing=value [keyword=value ...]
 
 Place three copies of `design` in a horizontal flat formation. `center`,
-`connections`, and `combine` are forwarded to [`hflat`](@ref); every other
+`connections`, and `combine` are forwarded to [`hflat`](@ref). Every other
 keyword is terminal-connection shorthand.
 """
 macro hflat(design, assignments...)
@@ -441,7 +441,7 @@ end
     @vflat design spacing=value [keyword=value ...]
 
 Place three copies of `design` in a vertical flat formation. `center`,
-`connections`, and `combine` are forwarded to [`vflat`](@ref); every other
+`connections`, and `combine` are forwarded to [`vflat`](@ref). Every other
 keyword is terminal-connection shorthand.
 """
 macro vflat(design, assignments...)

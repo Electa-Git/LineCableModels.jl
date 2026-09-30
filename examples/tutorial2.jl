@@ -28,12 +28,12 @@ constants calculated below.
 conductance, and capacitance for each independent concentric assembly at a
 specified frequency and temperature. These local quantities are distinct from
 the frequency-dependent matrices of an installed cable system, which are the
-subject of Tutorial 3. In particular, a resistance evaluated at 50 Hz is not
+subject of Tutorial 3. A resistance evaluated at 50 Hz is not
 the same measurement as a datasheet DC resistance.
 
 The main operations in this tutorial are physical construction, preview,
 calculation, reporting, library persistence, and system export. The completed
-numerical result is passed directly to `report`; the reporting convenience
+numerical result is passed directly to `report`. The reporting convenience
 constructs its detached observation internally.
 =#
 
@@ -86,8 +86,7 @@ NA2XS(FL)2Y
 The numerical example uses the library's `:pe` material for the main
 insulation as well as the outer PE layers. It also uses `:polyacrylate` for the
 tapes identified below as semiconductive and water-blocking tapes. These are
-the material assignments used by this example; the construction labels do
-not substitute different material properties.
+the material assignments used by this example. The assigned material properties remain unchanged by construction labels.
 
 All dimensions in the declarations below are in metres.
 =#
@@ -123,7 +122,7 @@ radial_increments = ( #hide
 ) #hide
 layer_diameters = d_core .+ 2 .* cumsum(radial_increments) #hide
 
-# Summarize the nominal radial schedule in millimetres. The cable constructor
+# Summarize the nominal radial schedule in millimeters. The cable constructor
 # resolves the detailed strand and tape geometry from the declarations below.
 cable_dimensions = DataFrame(
     "layer" => collect(layer_names),
@@ -140,10 +139,10 @@ design, while [`@terminal`](@ref) marks its electrical terminal groups.
 
 ### Materials and stranded core
 
-The wire diameter and the 38.1 mm finished boundary define the stranded core.
-The four successive outer strand layers use the lay ratios specified below.
+The wire diameter and the 38.1 mm finished geometric boundary define the stranded core.
+The 4 successive outer strand layers use the lay ratios specified below.
 Compaction retains the area of each source wire rather than changing its
-conductive area to fill the boundary.
+conductive area to fill the geometric boundary.
 =#
 
 aluminum = Material(materials, :aluminum)
@@ -164,8 +163,8 @@ stranded_core = stranded(
 #=
 ### Insulation, screen, and jacket
 
-The inner semiconducting layer provides the conductor-to-insulation interface;
-a tape lies between it and the stranded conductor. The main insulation is
+The inner semiconducting layer provides the conductor-to-insulation interface.
+A tape lies between it and the stranded conductor. The main insulation is
 followed by the outer semiconductor and a second tape. The metallic screen
 provides shielding and a fault-current path. Outside the screen, the
 water-blocking layer, aluminum barrier, PE facing, and outer jacket complete
@@ -175,7 +174,7 @@ the construction.
 can state their thickness relative to the preceding outward boundary. The
 wire screen instead needs the physical radius of its wire-center locus. The
 copper tape retains its rectangular width and thickness when placed around
-the preceding boundary.
+the preceding geometric boundary.
 =#
 
 conductor_outer = d_core / 2
@@ -233,7 +232,7 @@ end;
 The retained terminal names are `:core`, `:sheath`, and `:jacket`. In this
 example, `:sheath` groups the copper screen wires and copper tape, while
 `:jacket` identifies the conductive aluminum barrier. The outer PE jacket is
-an insulating region, not an additional electrical terminal.
+an insulating region without an additional electrical terminal.
 =#
 
 # Inspect the completed design and its cross-section:
@@ -264,7 +263,7 @@ constants
 
 Pass the numerical result directly to `report`. The R/L and G/C selection
 produces four separate quantity tables. Each table contains the operating
-frequency and a named column for each assembly; these are not mutual-coupling
+frequency and a named column for each assembly. These are not mutual-coupling
 matrices between different cables.
 
 `report(constants)` uses the available quantities and default display units.
@@ -282,8 +281,8 @@ constants_report = report(
 #=
 ### Assembly selection
 
-For cable constants, an observation index selects an assembly, not a matrix
-coefficient or a frequency sample. To report only the resistance of the first
+For cable constants, an observation index selects an assembly. Matrix
+coefficients and frequency samples are not selected by this index. To report only the resistance of the first
 assembly, state that intent with `@observe` in the report request. The example
 has one concentric assembly, named `:core`.
 =#
@@ -309,14 +308,13 @@ this is not an equal-condition error calculation.
 # Catalogue DC resistance [Ω/km]:
 datasheet_info.resistance
 
-# Calculated resistance [Ω/km]; the frequency column records 50 Hz:
+# Calculated resistance [Ω/km]. The frequency column records 50 Hz:
 constants_report[R]
 
 #=
 The datasheet inductance is specified for trefoil. `CableConstants` supplies
 the earth-free concentric-assembly value, not a calculation of that trefoil
-installation. The two are reference values with different stated scopes, not
-a benchmark pair.
+installation. These reference values have different stated scopes and cannot form a benchmark pair.
 =#
 
 # Catalogue trefoil inductance [mH/km]:
@@ -327,9 +325,8 @@ constants_report[L]
 
 #=
 Inspect the datasheet capacitance alongside the calculated capacitance in the
-same displayed units. The supplied datasheet record does not include a
-capacitance test frequency or temperature; no such conditions are inferred.
-The main insulation in this numerical model uses `:pe` as stated above.
+same displayed units. The capacitance test frequency and temperature are absent from the supplied datasheet record. No such conditions are inferred.
+The main insulation in this numerical model uses `:pe`.
 =#
 
 # Catalogue capacitance [μF/km]:
@@ -338,7 +335,7 @@ datasheet_info.capacitance
 # Calculated local capacitance [μF/km]:
 constants_report[C]
 
-# The conductance table remains a separate result; no datasheet G is supplied:
+# The conductance table remains a separate result. No datasheet G is supplied:
 constants_report[G]
 
 #=
@@ -395,7 +392,7 @@ earth = homogeneous(rho = 100.0, eps_r = 10.0, mu_r = 1.0);
 
 Place three copies of the saved design with 70 mm center-to-center spacing
 and the trefoil center at `(0, -1)` m. The declared spacing is retained
-explicitly; it is not inferred from the nominal cable diameter.
+explicitly. It is not inferred from the nominal cable diameter.
 
 Core assignments `1`, `2`, and `3` identify the three phases. The copper-screen
 and aluminum-barrier terminals are assigned `0`, marking them for grounded
@@ -427,8 +424,8 @@ earth_params
 #=
 !!! note "Terminal mapping"
     Connection schedules use the terminal names retained by the design.
-    Reusing a nonzero assignment groups terminals for bundle reduction;
-    zero assignments identify terminals for grounded-conductor reduction.
+    Reusing a nonzero assignment groups terminals for bundle reduction.
+    Zero assignments identify terminals for grounded-conductor reduction.
     The mapping declares those relationships rather than replacing the
     physical cable regions.
 

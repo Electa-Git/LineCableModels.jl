@@ -1,6 +1,6 @@
 # Changelog
 
-All notable changes to this project are documented in this file.
+All changes to this project are documented in this file.
 
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
@@ -9,14 +9,14 @@ and versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
-- Normalized author-formula identifiers to lowercase main-author/year symbols
+- Normalized author-formula identifiers to lowercase main-author-year symbols
   and made their compact descriptions readable author names.
 - Renamed the dielectric constitutive choices to `:lossy` and `:lossless`,
-  with `:default` retained as a routing alias; Ametani (2004) remains an
+  with `:default` retained as a routing alias. Ametani (2004) remains an
   application reference rather than the formula name.
 - Registered the literature identities for the Schelkunoff internal-impedance,
   Ametani insulation-impedance, and Chrysochos modal routes while retaining
-  their package-owned `:default` selections; formula hook IDs are now directly
+  their package-owned `:default` selections. Formula hook IDs are now directly
   queryable through `formula_id`.
 - Refactored the `Material`-to-`compute` path around natural Julia promotion,
   owner-local validation, explicit definitions, immutable solver input, and scoped console
@@ -25,7 +25,7 @@ and versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   Operating temperature is owned by the line problem and applied once to local
   resistivity values inside `compute`.
 - Earth models now store static physical layers only. Analysis frequencies
-  belong to the problem; frequency-dependent soil laws and their ephemeral
+  belong to the problem. Frequency-dependent soil laws and their ephemeral
   `EarthMaterial` values belong to `EarthProps` and are selected by the
   line-parameter formulation. The default relation is an exact static
   pass-through.
@@ -57,7 +57,7 @@ and versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - Restored `PlotBuilder` as a deliberately thin owner of optional plotting
   entry points and live `UIPlot` handles. Plot request normalization, preview
   presentation, and material palettes now live exclusively in the Makie
-  extension; Engine and DataModel retain only scientific results, public
+  extension. Engine and DataModel retain only scientific results, public
   observations, physical geometry, and property ranges.
 - Split material visualization into the reusable `materialcolors(property,
   range)` palette and `materialscale!(position, scheme)` single-colorbar
@@ -83,20 +83,20 @@ and versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   and runtime coefficient files.
 - Moved equivalent homogeneous-earth rules to `EarthProps.EHEM`, separated
   before-FD and after-FD composition by dispatch, and evaluated the resulting
-  material per conductor pair before the shared earth-impedance/admittance
+  material per conductor pair before the shared earth-impedance and admittance
   calculations. Added the conductivity-only `:martinsbritto2020` and complex
   propagation-constant `:xue2021` recurrences as discovered formulas.
 - Added the public `formula(:AuthorYear; ...)` selector. Each formulation owner
   resolves the same wrapper locally, while EHEM order is selected with
   `order=:before` or `order=:after` without exposing sequence wrappers.
 - Separated modal transformations from the coaxial backend into an independent
-  problem–formulation–compute workflow. Modal results retain complete
+  problem-formulation-compute workflow. Modal results retain complete
   frequency-dependent voltage and current operators for reverse transformation.
 - Made `build` the complete construction action for cable designs and systems.
   Explicit `Grid` inputs materialize the same action through `Gridspace`.
 - Separated unresolved `*Definition` geometry from resolved primitives carrying
   absolute poses.
-- Removed `NominalData` from `CableDesign`; `CablesLibrary` now binds optional
+- Removed `NominalData` from `CableDesign`. `CablesLibrary` now binds optional
   named-tuple catalog records beside stored designs.
 - Moved Measurements.jl and Distributions.jl integrations into package
   extensions.
@@ -111,7 +111,7 @@ and versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ### Removed
 
 - Removed PlotBuilder pages, recipes, rendering contexts, backend registration,
-  and fixed legend/colorbar docks. Plotting backends are selected per call or
+  and fixed legend and colorbar docks. Plotting backends are selected per call or
   inherited from Makie's active backend.
 - Removed `Commons`, `Utils`, package scalar-union aliases, coercion macros,
   operating-temperature cable fields, `EMTWorkspace`, intermediate-storage options, file
@@ -136,7 +136,7 @@ and versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   checks.
 - Citation and contribution metadata.
 - Type-stable core and statistical result containers.
-- A single declarative PlotBuilder renderer with interactive legends and
+- One declarative PlotBuilder renderer with interactive legends and
   one-click, non-overwriting SVG export.
 
 ### Changed
@@ -146,7 +146,7 @@ and versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - Plotting requires the caller to load CairoMakie, GLMakie, or WGLMakie
   explicitly.
 - Documentation examples and development conventions were consolidated.
-- Line-parameter results now carry an explicit `:pul` or `:total` basis,
+- Line-parameter results now include an explicit `:pul` or `:total` basis,
   and use `Z`, `Y`, `R`, `X`, `L`, `G`, `B`, and `C` accessors consistently.
 - `Units` now maps physical accessors to quantity, unit, label, symbol,
   and scaling semantics without extracting values from result containers.

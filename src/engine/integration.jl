@@ -16,7 +16,7 @@ $(TYPEDSIGNATURES)
 
 Allocate reusable QuadGK segments for real coordinate type `R` and scalar
 integrand value type `V`.
-`size` is the initial segment capacity; zero leaves all numerical arrays empty.
+`size` is the initial segment capacity. Zero leaves all numerical arrays empty.
 """
 function integration_workspace(::Type{R}, ::Type{V} = Complex{R};
         size::Integer = 128) where {
@@ -46,12 +46,12 @@ quadrature error in the same units as the integral.
 
 # Keywords
 
-- `points`: Finite nonnegative subdivisions in the callable's coordinate;
-  the supplied collection is not mutated.
-- `coordinate_type`: Real coordinate type when no workspace is supplied;
-  defaults to `Float64`. A workspace supplies its own coordinate type.
-- `context`: Optional caller-provided description included in numerical warnings.
-- `observations`: Optional trace vector receiving the native result and context.
+- `points`: finite nonnegative subdivisions in the callable's coordinate.
+  The supplied collection is not mutated.
+- `coordinate_type`: real coordinate type when no workspace is supplied.
+  Defaults to `Float64`. A workspace supplies its own coordinate type.
+- `context`: optional caller-provided description included in numerical warnings.
+- `observations`: optional trace vector receiving the native result and context.
 
 An unmet requested target produces a warning and returns the finite result.
 There is no outer retry or error-budget controller. Nonfinite integral values

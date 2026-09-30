@@ -5,11 +5,11 @@ Estimate hexagonally packed strand patterns for a metallic cross-section.
 
 # Arguments
 
-- `target_area`: Required metal area \\[mm²\\]. Stored areas use \\[m²\\].
+- `target_area`: required cross-sectional area of metal \\[mm²\\]. Stored areas use \\[m²\\].
 
 # Keywords
 
-- `awg_min=-3`, `awg_max=40`: Inclusive AWG-number limits.
+- `awg_min=-3`, `awg_max=40`: inclusive AWG-number limits.
 
 # Returns
 

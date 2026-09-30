@@ -4,7 +4,7 @@ pushfirst!(LOAD_PATH, normpath(joinpath(@__DIR__, "..", "..", "..")))
 using LineCableModels
 using GLMakie
 
-# For all you unbelievers: a six-terminal, genuinely surprised electric mouse.
+# For all you unbelievers: a six-terminal, surprised electric mouse.
 const mm = 1.0e-3
 
 function ellipse_polygon(cx, cy, rx, ry; vertices = 48, rotation = 0.0)
@@ -19,7 +19,7 @@ end
 
 polygon(points) = Polygon([(x * mm, y * mm) for (x, y) in points])
 
-# The constitutive properties stay physical; the cartoon palette below is only
+# The constitutive properties remain physical. The cartoon palette below is only
 # presentation metadata applied to the native preview series.
 yellow_rubber = Material(:insulator, 1.0e14, 3.2, 1.0, 20.0, 0.0)
 copper = Material(:conductor, 1.7241e-8, 1.0, 0.999994, 20.0, 0.00393)
@@ -118,5 +118,5 @@ preview_plot = preview(
 
 # output_path = joinpath(get(ENV, "LINECABLEMODELS_MANUAL_OUTPUT",
 #     joinpath(tempdir(), "linecablemodels-manual")), "plotting", "surprised_pikachu_cable.png")
-# CairoMakie.save(output_path, preview_plot.figure; px_per_unit = 2)
+# CairoMakie.save(output_path, preview_plot.figure. Px_per_unit = 2)
 # println("Refactor morale conductor energized: $output_path")

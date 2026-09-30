@@ -28,10 +28,10 @@ function _record_sample!(
         expected_axis
 )
     value.cores == expected_axis.cores || throw(DimensionMismatch(
-        "Monte Carlo cable-constant realisations produced incompatible assembly labels",
+        "Monte Carlo cable-constant realizations produced incompatible assembly labels",
     ))
     value.frequency == expected_axis.frequency || throw(DimensionMismatch(
-        "Monte Carlo cable-constant realisations produced incompatible frequencies",
+        "Monte Carlo cable-constant realizations produced incompatible frequencies",
     ))
     storage.R[:, trial] .= observe(value, R)
     storage.L[:, trial] .= observe(value, L)
@@ -106,10 +106,10 @@ function _record_sample!(
 )
     impedance = observe(value, Engine.Z)
     size(impedance) == size(storage.R)[1:3] || throw(DimensionMismatch(
-        "Monte Carlo realisations produced incompatible impedance dimensions",
+        "Monte Carlo realizations produced incompatible impedance dimensions",
     ))
     observe(value, Engine.frequencies) == expected_frequencies || throw(DimensionMismatch(
-        "Monte Carlo realisations produced incompatible frequency axes",
+        "Monte Carlo realizations produced incompatible frequency axes",
     ))
     for index in CartesianIndices(size(impedance))
         i, j, k = index.I
@@ -367,7 +367,7 @@ function _monte_carlo(point, formulation::MonteCarlo, options, seed, details_own
             _sample_shunt_model(value) == _sample_shunt_model(first_result) || throw(ArgumentError(
                 "Monte Carlo realizations changed shunt-model coverage; select a fixed geometry model for this study"))
             typeof(value) === typeof(first_result) || throw(ArgumentError(
-                "Monte Carlo realisations produced incompatible result types",
+                "Monte Carlo realizations produced incompatible result types",
             ))
             if retained !== nothing
                 typeof(record) === eltype(retained) || throw(ArgumentError(

@@ -5,7 +5,7 @@ Store earth-free cable constants per unit length for one or more independent
 concentric assemblies.
 
 Every entry of `cores`, `R`, `L`, `C`, and `G` describes one assembly. Values
-are evaluated at `frequency`; `R`, `L`, `C`, and `G` use Ω/m, H/m, F/m, and
+are evaluated at `frequency`. `R`, `L`, `C`, and `G` use Ω/m, H/m, F/m, and
 S/m respectively.
 
 $(TYPEDFIELDS)
@@ -208,8 +208,8 @@ Construct an earth-free cable-constant problem.
 
 # Keywords
 
-- `temperature=20`: Operating temperature [°C].
-- `frequency=50`: Base frequency, either 50 Hz or 60 Hz.
+- `temperature=20`: operating temperature [°C].
+- `frequency=50`: base frequency, either 50 Hz or 60 Hz.
 
 # Returns
 
@@ -338,22 +338,22 @@ Construct the cable-constant formula bundle.
 Each formula slot and the complete `options` tuple accepts a scalar selection
 or an explicit [`Grid`](@ref LineCableModels.ParametricBuilder.Grid)/
 [`Gridspace`](@ref LineCableModels.ParametricBuilder.Gridspace) source. Scalar
-inputs return one [`CableConstantsFormulation`](@ref); varying inputs return a
+inputs return one [`CableConstantsFormulation`](@ref). Varying inputs return a
 `Gridspace{CableConstantsFormulation}` of completed formulations.
 
 # Keywords
 
-- `internal_impedance`: Conductor surface-impedance recipe.
-- `insulation_impedance`: Longitudinal insulation-impedance recipe.
-- `shunt_model`: Local geometry model; `:default`/`:coaxial` uses annuli,
+- `internal_impedance`: conductor surface-impedance recipe.
+- `insulation_impedance`: longitudinal insulation-impedance recipe.
+- `shunt_model`: local geometry model. `:default`/`:coaxial` uses annuli,
   `:boundary` explicitly computes lossless open-screen coupling.
-- `insulation_admittance`: Insulation constitutive relation.
-- `semicon_admittance`: Semiconducting-layer constitutive relation.
-- `pipe_impedance`: Pipe-type selection; the coaxial pipe implementation is not
+- `insulation_admittance`: insulation constitutive relation.
+- `semicon_admittance`: semiconducting-layer constitutive relation.
+- `pipe_impedance`: pipe-type selection. The coaxial pipe implementation is not
   yet available. Ordinary concentric assemblies have no additional pipe term.
-- `temperature_dependence`: Resistivity law; `:default` is linear and `nothing`
+- `temperature_dependence`: resistivity law. `:default` is linear and `nothing`
   retains reference resistivity.
-- `options`: Formulation controls; currently empty.
+- `options`: formulation controls. Currently empty.
 - `combine`: `:product` or `:zip` composition among varying fields.
 """
 function CableConstantsFormulation(;

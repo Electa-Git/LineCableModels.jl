@@ -20,7 +20,7 @@ struct RadialDielectric{T <: Real} <: AbstractMaterial
     materials::Vector{Material{T}}
     "Positive logarithmic radial weights, dimensionless."
     weights::Vector{T}
-    "Passive region classification; constituent kinds remain authoritative."
+    "Passive region classification. Constituent kinds remain authoritative."
     kind::Symbol
     "Series DC resistivity, in Ω·m."
     rho::T
@@ -50,14 +50,14 @@ Describe a radial series composition without selecting its dielectric law.
 
 # Arguments
 
-- `materials`: Physical [`Material`](@ref) constituents, each classified as
+- `materials`: physical [`Material`](@ref) constituents, each classified as
   `:insulator` or `:semicon`.
-- `weights`: Positive logarithmic radius ratios, dimensionless.
+- `weights`: positive logarithmic radius ratios, dimensionless.
 
 # Keywords
 
-- `mu_r`: Equivalent relative permeability. Defaults to the radial weighted
-  mean; homogenization may supply its helical-solenoid correction.
+- `mu_r`: equivalent relative permeability. Defaults to the radial weighted
+  mean. Homogenization may supply its helical-solenoid correction.
 
 # Returns
 

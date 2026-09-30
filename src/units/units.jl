@@ -98,12 +98,12 @@ Construct a unit expression with one numerator and an optional denominator.
 
 # Arguments
 
-- `prefix`: Numerator metric prefix.
-- `name`: Numerator unit name.
+- `prefix`: numerator metric prefix.
+- `name`: numerator unit name.
 
 # Keywords
 
-- `per`: Optional `(prefix, name)` denominator.
+- `per`: optional `(prefix, name)` denominator.
 
 # Returns
 

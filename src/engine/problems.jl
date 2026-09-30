@@ -77,9 +77,9 @@ type.
 
 # Keywords
 
-- `temperature`: Operating temperature \\[°C\\].
-- `earth_props`: Static earth model.
-- `frequencies`: Positive sorted analysis frequencies \\[Hz\\].
+- `temperature`: operating temperature \\[°C\\].
+- `earth_props`: static earth model.
+- `frequencies`: positive sorted analysis frequencies \\[Hz\\].
 """
 function LineParametersProblem(
         system::LineCableSystem;
@@ -114,20 +114,20 @@ placements.
 
 # Arguments
 
-- `designs`: One completed design, or a collection aligned with `placements`.
-- `placements`: One placement or a collection of physical placements.
+- `designs`: one completed design, or a collection aligned with `placements`.
+- `placements`: one placement or a collection of physical placements.
 
 # Keywords
 
-- `connections`: Terminal-to-active-phase declarations; use one-based active
-  phase IDs and `0` for grounded/eliminated conductors.
-- `environment`: Optional physical environment declaration.
-- `system_id`: Stable system identifier.
-- `line_length`: Physical line length in meters.
-- `temperature`: Operating temperature in °C.
-- `earth_props`: Static earth model.
-- `frequencies`: Positive sorted analysis frequencies in Hz.
-- `combine`: Rule used to combine designs and placements.
+- `connections`: terminal-to-active-phase declarations. Use one-based active
+  phase IDs and `0` for grounded or eliminated conductors.
+- `environment`: optional physical environment declaration.
+- `system_id`: stable system identifier.
+- `line_length`: physical line length in meters.
+- `temperature`: operating temperature in °C.
+- `earth_props`: static earth model.
+- `frequencies`: positive sorted analysis frequencies in Hz.
+- `combine`: rule used to combine designs and placements.
 
 # Returns
 
@@ -168,7 +168,7 @@ $(TYPEDFIELDS)
 """
 struct LineParametersFormulation{M <: NamedTuple, O <: FormulationOptions, D <: NamedTuple} <:
        AbstractFormulation
-    "Owner-resolved physical methods; context-dependent defaults remain deferred."
+    "Owner-resolved physical methods. Context-dependent defaults remain deferred."
     methods::M
     "Shared physical computation options."
     options::O
@@ -187,7 +187,7 @@ $(TYPEDSIGNATURES)
 
 Describe the selected earth-return methods relevant to `quantity`. This compact
 summary identifies the analytical calculation when compared with another
-backend; individual constitutive selections remain separately described.
+backend. Individual constitutive selections remain separately described.
 """
 function description(::Type{LineParametersFormulation}, source::Union{LineParametersFormulation,Pair{<:Type,<:NamedTuple{(:methods,:requested,:options)}}};
         quantity=nothing, compact::Bool=false)
@@ -255,13 +255,13 @@ formulation_options(value::LineParametersFormulation) = value.options
 $(TYPEDSIGNATURES)
 
 Iterate owner-scoped selections from a formulation's declared child interface.
-`retained.methods` contains typed children (including owner-bound saved leaves);
+`retained.methods` contains typed children (including owner-bound saved leaves).
 `retained.requested` contains their explicit controls. `pairs(owner; quantity)`
 owns child order and relevance. The empty route identifies the owner itself.
 """
 function Base.pairs(::Type{LineParametersFormulation}, retained::NamedTuple;
         quantity=nothing,owner=LineParametersFormulation)
-    # A selection pair carries passive explicit controls, not an option input.
+    # A selection pair contains passive explicit controls and excludes option inputs.
     explicit = function (value)
         record = value isa Union{FormulaDefinition, AbstractFormulation} ? NamedTuple(value) : value
         record isa NamedTuple || return (;)
@@ -362,28 +362,27 @@ $(TYPEDSIGNATURES)
 Select the complete physical-method bundle for a line-parameter calculation.
 
 `shunt_model=:default` (or `:coaxial`) selects annular local shunt geometry.
-`:boundary` explicitly computes a lossless wire/tape boundary correction.
+`:boundary` explicitly computes a lossless wire and tape boundary correction.
 This choice is independent of `insulation_admittance` and `semicon_admittance`,
-which select material constitutive laws. Boundary numerical controls and an
+which select material constitutive laws. Geometric boundary numerical controls and an
 explicit fallback belong to `formula(:boundary; options, parameters)`.
 
 `internal_impedance` accepts one formula or an explicit recipe with `inner`,
-`outer`, and `transfer` selections. A solid primitive requests only `outer`;
-a tubular primitive requests all three. Required missing cases fail without
+`outer`, and `transfer` selections. A solid primitive requests only `outer`, while a tubular primitive requests all three. Required missing cases fail without
 implicit completion. Unused selections are not initialized or evaluated.
 
 `earth_impedance` and `earth_admittance` each accept one formula or a NamedTuple
 with the required subset of `air`, `earth`, and `mixed` selections. For a physical horizontal
-air/soil two-half-space model, these select `(s,t)=(1,1)`, `(2,2)`, and the two
-cross-layer mutual directions. Actual kind/source/target method dispatch governs
+air-soil two-half-space model, these select `(s,t)=(1,1)`, `(2,2)`, and the two
+cross-layer mutual directions. Actual kind and source and target method dispatch governs
 equation applicability. Missing cases have no implicit fallback. The shorthand is
-rejected for layered soil; scalar multilayer and explicit equivalent-earth
+rejected for layered soil. Scalar multilayer and explicit equivalent-earth
 selections retain their own requirements. Model parameters and numerical options remain
 local to each selected entry.
 
 `temperature_dependence=formula(:default)` selects the Materials-owned linear
 resistivity law. `nothing` retains reference resistivity. Operating temperature
-belongs to the problem; reference temperature and coefficients belong to each
+belongs to the problem. Reference temperature and coefficients belong to each
 material.
 
 Each formula slot and the complete `options` tuple accepts either one scalar
@@ -392,8 +391,8 @@ selection or an explicit
 [`Gridspace`](@ref LineCableModels.ParametricBuilder.Gridspace) source. Scalar
 inputs return one [`LineParametersFormulation`](@ref). Varying inputs return a
 `Gridspace{LineParametersFormulation}` whose points contain only completed,
-owner-resolved formula values. `:default` routes to an explicit implementation;
-the scalar problem supplies its geometry and earth context for validation.
+owner-resolved formula values. `:default` routes to an explicit implementation.
+The scalar problem supplies its geometry and earth context for validation.
 
 `combine=:product` forms the Cartesian product among varying fields in this
 formulation. `combine=:zip` aligns equally sized fields and broadcasts
@@ -440,10 +439,10 @@ end
 $(TYPEDSIGNATURES)
 
 Expose complete requested and resolved formula selections and reduction options.
-Selections retain scientific identity and data; serialization belongs to the writer.
+Selections retain scientific identity and data. Serialization belongs to the writer.
 """
 function Base.NamedTuple(value::LineParametersFormulation)
-    # Copy record containers, not their scalar leaves: Measurement sources and
+    # Copy record containers, not their scalar leaves: measurement sources and
     # other immutable scientific values keep their identities and correlations.
     copy_containers(value) = value isa Union{NamedTuple, Tuple, AbstractArray} ?
                              map(copy_containers, value) : value

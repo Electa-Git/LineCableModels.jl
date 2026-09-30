@@ -12,15 +12,15 @@ using Statistics: mean
 
 # ## Figures, titles, and legends
 
-# A call that produces one figure returns a [`UIPlot`](@ref); a call that
+# A call that produces one figure returns a [`UIPlot`](@ref). A call that
 # produces several figures returns `Vector{UIPlot}`. The `figure`, `axes`,
 # `controls`, `legend`, `panel_legends`, and `colorbars` fields expose the
 # displayed Makie objects.
 
 # ### Naming titles and legends
 
-# Layout text has one name per scope. These keywords are presentation metadata;
-# none of them changes a result tensor or geometry tag.
+# Layout text has one name per scope. These keywords are presentation metadata.
+# The result tensors and geometry tags remain unchanged.
 #
 # | Keyword | Scope |
 # |:--|:--|
@@ -28,25 +28,25 @@ using Statistics: mean
 # | `title_attributes` | Native Makie `Label` attributes for `figure_title` |
 # | `panel_titles` | Axis-title overrides by position, request, or panel identifier |
 # | `legend_title` | Heading of the controlled figure legend |
-# | `series_labels` | Names of the overlaid gridpoints or physical coordinates; these are the legend entries |
+# | `series_labels` | Names of the overlaid gridpoints or physical coordinates. These are the legend entries |
 # | `series_attributes` | Native Makie attributes for all overlaid curves, or one named tuple per curve |
 # | `legend_position` | `:inside`, a named outer dock, or a positive dock grid position |
 # | `legend_attributes` | Native `halign`/`valign`, orientation, banks, fonts, and padding |
 #
-# Some established recipes also accept `title` as their window/export or
-# single-recipe heading. Use the explicit scoped names above when composing a
+# Some established recipes also accept `title` for the window or exported file,
+# or as the heading of one recipe. Use the explicit scoped names above when composing a
 # dashboard.
 # Benchmark windows default to `case ID — quantity`, followed by block indices
 # when split. Deterministic, mean ± std, and explicit-statistic comparisons use
-# this same rule. An explicit `title` overrides the default case prefix; subplot
+# this same rule. An explicit `title` overrides the default case prefix. Subplot
 # titles and `figure_title` remain independent.
 #
 # `series_attributes` uses the shared PlotBuilder controls for matrix and benchmark
 # plots, observed results, statistical plots, and geometry previews.
-# A named tuple applies to every group; a tuple or vector of named tuples styles
-# each group separately. For example,
+# A named tuple applies to every group. A tuple or vector of named tuples styles
+# each group separately.
 # `series_attributes=((marker=:circle, markersize=8), (;), (linestyle=:dash,))`
-# adds markers to the first series, keeps the second's defaults, and dashes the
+# adds markers to the first series, keeps the second's defaults and dashes the
 # third. Styles apply across facets and pages, including their legends and
 # visibility controls. Attributes must be supported by the group's native plots.
 # In `plotwindow`, groups follow native plot insertion order across its axes.
@@ -60,24 +60,23 @@ using Statistics: mean
 
 # `LineParameters` owns dense ``Z`` and ``Y`` tensors. The observation grammar
 # is what turns those tensors into displayable physical quantities: ``Z``
-# expands to ``R`` then ``X``; ``Y`` expands to ``G`` then ``B``. An exact
+# expands to ``R`` then ``X``. ``Y`` expands to ``G`` then ``B``. An exact
 # request such as `@observe Z[1,1,:]` keeps its conductor coordinates while
 # selecting the complete frequency range. Plotting consumes that resolved
 # request and displays both components.
-# The plot-facing name for this ordinate selection is `ydata`; pass it
-# positionally or as a keyword, for example `plot(result; ydata=(R, L))`.
+# The plot-facing name for this ordinate selection is `ydata`. Pass it
+# positionally or as a keyword, such as `plot(result; ydata=(R, L))`.
 #
 # With matrix gridpoint overlays, every `(quantity, row, column)` has one axis.
-# Its default title uses `Units.label` and the retained coordinate labels, for
-# example `Self series resistance — conductor 1` or
+# Its default title uses `Units.label` and the retained coordinate labels, such as `Self series resistance — conductor 1` or
 # `Mutual series reactance — conductor 1 → 2`. With gridpoint overlays,
 # coordinates identify panels and legends distinguish result sets. With
-# coordinate overlays, each selected coordinate is a labelled curve. A single
+# coordinate overlays, each selected coordinate is a labelled curve. One
 # unlabeled curve has no legend by default.
 #
-# `layout` is the sole nominal panel capacity. Every selected quantity or
+# `layout` is the only nominal panel capacity. Every selected quantity or
 # statistical meaning has its own figure family. Omitted layout chooses capacity
-# independently for each family; an explicit `(rows, columns)` sets the same
+# independently for each family. An explicit `(rows, columns)` sets the same
 # nominal capacity for all families.
 #
 # | `layout` | Page grouping |
@@ -93,14 +92,14 @@ using Statistics: mean
 #
 # | `overlay` | Panels | Curves |
 # |:--|:--|:--|
-# | `:auto` | Mode panels for several gridpoints or a larger explicit layout; matrix coefficient panels otherwise | Gridpoints |
+# | `:auto` | Mode panels for several gridpoints or a larger explicit layout. Matrix coefficient panels otherwise | Gridpoints |
 # | `:auto` for one modal vector with omitted layout or `(1,1)` | One panel per component | Selected modes |
 # | `:gridpoints` | Selected coordinates | Gridpoints |
 # | `:coordinates` | Selected gridpoints | Selected coordinates |
 # | `:rows` (matrices) | Selected columns, with separate figures per gridpoint | Selected rows |
 #
 # Filtering occurs before this choice. An explicit reference counts as another
-# gridpoint. Gridpoint overlays retain equivalent-result grouping; coordinate
+# gridpoint. Gridpoint overlays retain equivalent-result grouping. Coordinate
 # overlays retain a panel for every selected point. Tuple/vector labels and styles
 # address the overlaid dimension, so incompatible mixed families need separate
 # calls. A shared style NamedTuple applies to every curve.
@@ -112,10 +111,10 @@ using Statistics: mean
 # use the same operation with their own physical row and column labels.
 #
 # Row-overlay panels follow selected column order, left to right and then top to
-# bottom. `layout=(r,c)` applies the same block capacity to each point; pagination
+# bottom. `layout=(r,c)` applies the same block capacity to each point. Pagination
 # restarts at each point, even when the previous page has empty cells. Automatic
 # capacity uses the selected column count per point. Panel titles and controls
-# accept `(original_point_position, original_column)` addresses; an explicit
+# accept `(original_point_position, original_column)` addresses. An explicit
 # reference uses its appended input position. Row colors and markers remain
 # consistent across columns, points, references and reordered selections.
 # Positional `series_labels` and `series_attributes` follow selected row order.
@@ -129,14 +128,13 @@ using Statistics: mean
 # coefficient identities remain the addresses for titles, legends, scales, and reset.
 # Positional `panel_titles` bind to the complete selected population before paging.
 #
-# Automatic matrix pages cover the selected original-coordinate rectangle. For
-# example, selecting columns 2 and 3 gives a two-column overview without splitting
-# at the original block boundary. Explicit capacities keep blocks anchored at
+# Automatic matrix pages cover the selected original-coordinate rectangle. Consider this example: selecting columns 2 and 3 gives a two-column overview without splitting
+# at the original block edge. Explicit capacities keep blocks anchored at
 # original coordinate (1,1). Both remove unselected exterior tracks and retain
 # internal holes: selecting (1,1) and (1,3) still spans three columns.
 #
 # Native decoration measurements establish equal initial data frames. `fig_size`
-# is the reference size for the nominal capacity; `figure.size` takes precedence.
+# is the reference size for the nominal capacity. `figure.size` takes precedence.
 # Legends use at most the fraction specified by `legend_cap=0.5`
 # of their associated data area. Extra entries become `(...)` within that
 # allocation. All curves remain plotted.
@@ -149,7 +147,7 @@ using Statistics: mean
 #
 # Result overlays use solid lines with sparse, staggered markers on saved
 # sample points: black curves and hollow circles for references, colored curves
-# and filled shapes for results. References may themselves carry uncertainty.
+# and filled shapes for results. References may themselves include uncertainty.
 # Default routes and explicit implementations have the same styling semantics.
 # Deterministic references mark both endpoints.
 # Colors and marker identities remain stable
@@ -163,20 +161,20 @@ using Statistics: mean
 # and results retain their full mean curves. Coordinates, uncertainties,
 # comparison calculations, and full-data axis limits are unchanged. X and Y
 # intervals use the same indices. When very few samples are available, intervals
-# take priority over conflicting automatic markers; the legend retains identity.
+# take priority over conflicting automatic markers. The legend retains identity.
 # Use `errorbar_sampling=:all` to inspect every interval, with automatic markers
-# omitted on uncertain series. A single displayed series uses `:all` by default.
+# omitted on uncertain series. One displayed series uses `:all` by default.
 # Explicit native markers still use
 # all samples. Native `whiskerwidth` and `linewidth` overrides take priority.
 # Sparse glyphs are an overview: use full intervals or separate standard-deviation
 # curves to inspect uncertainty variation. Mean ± std is not mean ± standard error.
 # Many exactly coincident methods cannot all remain distinguishable at finite
-# screen resolution; use legend visibility to inspect them separately.
+# screen resolution. Use legend visibility to inspect them separately.
 #
 # Within one identified physical point, observation-owned groups may share a trace
 # for equivalent quantity-relevant selections: impedance choices on Z/R/L/X pages,
 # admittance choices on Y/G/C/B pages. Every relevant composite route, control,
-# coordinate and uncertainty meaning participates; equal curves or descriptions
+# coordinate and uncertainty meaning participates. Equal curves or descriptions
 # alone never merge cases. Different physical points remain separate. Conflicting
 # observations under the same selection raise an error. Saved results remain intact.
 # Default labels show only relevant differences across results and reference,
@@ -187,7 +185,7 @@ using Statistics: mean
 # `formulations=[3,1]` selects recorded original formulation identities, preserving
 # order and colors. Explicit `series_labels` and styles follow the retained source.
 # When nothing varies, labels use the applicable compact owner description.
-# Automatic results are chromatic; the separate reference is black.
+# Automatic results are chromatic. The separate reference is black.
 # Full scientific explanations and common settings remain in `formula_details`.
 #
 # Top/bottom legends fit a measured row-major grid and wrap long labels without
@@ -227,7 +225,7 @@ parameters = LineParameters(
     frequency
 );
 
-# The geometry gallery uses the example library shipped with the repository.
+# The geometry gallery uses the example library included in the repository.
 # A system is assembled from two placements without introducing a plotting-only
 # geometry representation.
 
@@ -279,9 +277,9 @@ mc_result = MonteCarloResult(mc_formulation, [retained_core], [retained_statisti
 default_line_pages = Makie.plot(
     parameters;
     backend = :cairo,          # choose the already-loaded native backend
-    display_plot = false,      # Documenter owns display; interactive use may omit this
+    display_plot = false,      # Documenter owns display. Interactive use may omit this
     controls = false,          # omit toolbar chrome from this static gallery
-    xscale = :log10,           # initial scale; interactive controls may change it
+    xscale = :log10,           # initial scale. Interactive controls may change it
     fig_size = (900, 680)      # reference size of the nominal capacity
 )
 default_line_pages[1].figure #hide
@@ -295,12 +293,12 @@ default_line_pages[4].figure #hide
 
 # ### Cartesian series impedance
 
-# This exact observation asks for the self impedance of conductor 1 over the
+# This exact observation selects the self impedance of conductor 1 over the
 # full frequency range. `ObservedResult` construction expands ``Z`` into resistance and
 # reactance. They remain separate quantity figures, even with a multi-panel layout.
 
-## `xscale=:log10` is an initial state; the live toolbar can still change it.
-## `figure_title` labels each figure; `panel_titles` follows the selected quantity order.
+## `xscale=:log10` is an initial state. The live toolbar can still change it.
+## `figure_title` labels each figure. `panel_titles` follows the selected quantity order.
 ## `series_labels` names result sets, so supplying one explicitly opts into a legend.
 ## `:inside` overlays the logical frame region with native alignment attributes.
 series_cartesian = Makie.plot(
@@ -326,14 +324,14 @@ series_cartesian[2].figure #hide
 
 # To modify this recipe, select other matrix coordinates with an explicit
 # observation request, pass native legend attributes, or mutate either returned
-# axis. For example, `series_cartesian[1].axes[1].title[] = "Measured resistance"`
+# axis. `series_cartesian[1].axes[1].title[] = "Measured resistance"`
 # changes the live title without asking LineCableModels to rebuild anything.
 
 # ### Cartesian shunt admittance
 
 # Conductance and susceptance are the real and imaginary parts of ``Y``. They
 # use the same dashboard implementation, retained units, limits, legend
-# groups, and controls as impedance; only the scientific requests differ.
+# groups, and controls as impedance. Only the scientific requests differ.
 
 ## A bottom dock is horizontal by default and remains a native Makie Legend.
 shunt_cartesian = Makie.plot(
@@ -415,7 +413,7 @@ legend_scope_demo.figure #hide
 # ### Derived R/L/G/C dashboard
 
 # `L` and `C` are observation-owned proxies derived from reactance or susceptance
-# and angular frequency. Their DC samples are retained as unavailable; independently
+# and angular frequency. Their DC samples are retained as unavailable. Independently
 # valid components remain available. The observation owner assigns their physical
 # units. For this 2×2 result, `layout=(2,2)` requests one matrix dashboard per
 # physical quantity.
@@ -437,14 +435,14 @@ rlgc_dashboards[2].figure #hide
 rlgc_dashboards[3].figure #hide
 rlgc_dashboards[4].figure #hide
 
-# With `layout=(1,1)`, each quantity/coordinate facet has its own figure.
+# With `layout=(1,1)`, each quantity and coordinate facet has its own figure.
 
 # ### Polar impedance and admittance
 
 # Function selectors are resolved through the same observation grammar.
 # `abs` and `angle` publish magnitude and phase for both ``Z`` and ``Y``.
 
-## The four transformed quantities become four matrix dashboards.
+## The 4 transformed quantities become 4 matrix dashboards.
 polar_dashboards = Makie.plot(
     parameters,
     (abs, angle);
@@ -532,7 +530,7 @@ selected_response[2].figure #hide
 #
 # The previous call uses an automatic 1×1 reference for each quantity. This call
 # intentionally uses a two-column reference. Its one selected panel keeps the
-# corresponding cell size; the returned figure fits around that panel.
+# corresponding cell size. The returned figure fits around that panel.
 
 capacity_example = Makie.plot(
     parameters, resistance_request;
@@ -544,7 +542,7 @@ capacity_example.figure #hide
 # ### Family requests and a vertical capacity
 
 # The observation owner expands `Z[1,1,:]` into retained R and X products.
-# `layout=(2,1)` gives each quantity its own nominal two-row capacity; it never
+# `layout=(2,1)` gives each quantity its own nominal two-row capacity. It never
 # puts different quantities into the same figure. Only selected original panels
 # are drawn, and unselected exterior rows are not allocated.
 
@@ -558,7 +556,7 @@ stacked_self_impedance = Makie.plot(
     xscale = :log10,
     layout = (2, 1),              # two-row nominal capacity per quantity
     panel_titles = ("Self resistance", "Self reactance"),
-    legend_position = :inside,    # native overlay; use any outer dock instead
+    legend_position = :inside,    # native overlay. Use any outer dock instead
     legend_attributes = (halign = :right, valign = :top),
     legend_title = "Result set",
     series_labels = ("solution",), # explicitly opt into a one-source legend
@@ -570,8 +568,7 @@ stacked_self_impedance[1].figure #hide
 stacked_self_impedance[2].figure #hide
 
 # With the default matrix arrangement, select more coordinates to add panels,
-# more result containers to add curves, or more quantities to add figure
-# families. `overlay=:coordinates` instead makes selected coordinates the
+# more result containers to add curves or more quantities to add figure families. `overlay=:coordinates` instead makes selected coordinates the
 # curves and selected gridpoints the panels.
 
 # Modal results retain their physical domain. Use `diag` to select the diagonal
@@ -594,7 +591,7 @@ modal_inductance = Makie.plot(
 )
 modal_inductance.figure #hide
 
-# Extend coordinate behavior in the grammar/domain owner. Extend only visual
+# Extend coordinate behavior in the grammar and domain owner. Extend only visual
 # appearance by mutating the returned axes or forwarding Makie plot attributes.
 
 # ### Measurement uncertainty
@@ -611,11 +608,11 @@ modal_inductance.figure #hide
 # Plotting delegates unit conversion to ObservedResult, preserving the recorded
 # clipping decisions and saved RMS values and units.
 
-# Legend actions hide or restore the nominal line, its markers, and its x/y
-# error bars together. Figure legends act across the figure; panel legends act
+# Legend actions hide or restore the nominal line, its markers and its x/y
+# error bars together. Figure legends act across the figure. Panel legends act
 # only on their panel. This also applies to overlays and report illustrations.
-# Native error-bar handles remain independently editable; the next series
-# hide/show action restores the complete set of components.
+# Native error-bar handles remain independently editable. The next action to
+# hide or show the series restores the complete set of components.
 
 measured_parameters = LineParameters(
     complex.(
@@ -644,7 +641,7 @@ uncertainty_plot[1].figure #hide
 #-
 uncertainty_plot[2].figure #hide
 
-# An uncertainty scalar owner supplies nominal/error extraction for plotting.
+# The scalar type defines how to extract nominal values and errors for plotting.
 
 # ### Comparing completed line results
 
@@ -676,7 +673,7 @@ comparison_plot.figure #hide
 # `Makie.plot(reference, result, @observe(Z[1,1,:]);
 # series_labels=("reference", "result"))`.
 # Change line styling after construction through the native plot objects in each
-# axis; change source identity through `series_labels` or named-tuple keys.
+# axis. Change source identity through `series_labels` or named-tuple keys.
 
 # ### Detached observed results
 
@@ -710,7 +707,7 @@ observed_plot[1].figure #hide
 #-
 observed_plot[2].figure #hide
 
-# A new primary result owner supplies observation methods; the same retained
+# A new primary result owner supplies observation methods. The same retained
 # quantity records reuse table and plot consumption.
 
 # ## Geometry preview recipes
@@ -719,12 +716,12 @@ observed_plot[2].figure #hide
 
 # `DataModel.preview_shapes` exposes detached physical polygons with only their
 # material and construction tag. The Makie preview adapter derives optional
-# presentation groups and `_preview_axis!` draws the polygons with native
-# `poly!`, locks the axis to `DataAspect`, and computes
+# presentation groups. `_preview_axis!` draws the polygons with native
+# `poly!` and locks the axis to `DataAspect`. It also computes
 # geometry limits. Preview `size` is an initial reference allocation. The shared
 # shell preserves physical frame sizes and view limits, then fits the window
-# around the panels and their complete decorations. A circle/sector row can
-# retain necessary space beside its shorter panel; a row of circles need not
+# around the panels and their complete decorations. A circle or sector row can
+# retain necessary space beside its shorter panel. A row of circles need not
 # retain unused vertical allocation. The same fitted native `.figure` is returned
 # for interactive display and documentation.
 
@@ -754,14 +751,14 @@ cable_preview.figure #hide
 # annotation, mutate `cable_preview.axes[1]` and add ordinary Makie plots. Each
 # object in `cable_preview.colorbars` is a native `Colorbar`.
 # All preview routes use `guide_gap=(8,8,24,8)` in left, right, bottom, top order.
-# The 24-pixel bottom clearance separates the axis label from the scale strip;
-# pass a scalar or four-sided `guide_gap` to change that clearance.
+# The 24-pixel bottom clearance separates the axis label from the scale strip.
+# Pass a scalar or four-sided `guide_gap` to change that clearance.
 
 # ### Independent scale arrangement and guide spacing
 
 # Bar orientation, group cells, and placement are independent. This uses the
-# `mv_design` constructed above; no physical property or material range changes.
-# The three horizontal bars form one row below the preview directly.
+# `mv_design` constructed above. Physical properties and material ranges remain unchanged.
+# The 3 horizontal bars form one row below the preview directly.
 
 design = mv_design
 scale_arrangement = preview(
@@ -789,7 +786,7 @@ figurelegend!(scale_arrangement; position = :right, valign = :top, guide_spacing
 scale_arrangement.figure #hide
 
 # Gaps separate complete visible siblings, including labels and endpoint ticks.
-# Bars in a column share their left/right edges; bars in a row share their
+# Bars in a column share their left and right edges. Bars in a row share their
 # baseline. Different label widths and fonts change the reserved decoration
 # space, not those alignments. `halign` moves the complete group once.
 # Figure padding, plot clearance (`guide_gap`), legend-entry spacing, and bar
@@ -797,21 +794,21 @@ scale_arrangement.figure #hide
 # for restoration and release their occupied space.
 #
 # Omitted group settings survive live updates. `layout=nothing` restores one
-# row at top/bottom or one column at left/right and explicit side-grid slots.
+# row at top and bottom or one column at left and right and explicit side-grid slots.
 # Standalone scales in main content default to one column. Explicit capacity
 # fills row-major and omits unoccupied tracks within the colorbar group.
 # `rowgap=nothing` and `colgap=nothing` restore inheritance from `guide_spacing`.
-# A partial live `guide_spacing=(rowgap=18,)` preserves the current column gap;
-# omitted constructor components use 12. Fractions and zero are valid, while
+# A partial live `guide_spacing=(rowgap=18,)` preserves the current column gap.
+# Omitted constructor components use 12. Fractions and zero are valid, while
 # negative, nonfinite and Boolean gaps are rejected. Spacing is counted only
-# between neighbors, so a single guide gains no exterior padding.
+# between neighbors, so one guide has zero exterior padding.
 
 # ### Cable-design collection
 
 # A collection preview repeats the same detached geometry path for every design
 # and assigns the caller-requested layout. The material ranges are aggregated
-# once, so every panel uses comparable colors and one shared set of scales.
-# Insulating regions carry sparse diagonal marks over their existing material
+# once. Each panel then uses comparable colors and one shared set of scales.
+# Insulating regions include sparse diagonal marks over their existing material
 # colors. Pass `display_dielectric_pattern=false` to omit these marks in a
 # design, collection, or system preview. Semicon and conductor fills retain
 # their own material colors.
@@ -828,20 +825,18 @@ design_collection = preview(
 )
 design_collection.figure #hide
 
-# Use any sufficient `(rows, columns)` layout. The default omits layer legends;
-# request selected local legends with `panel_legends`, using the same logical
+# Use any sufficient `(rows, columns)` layout. The default omits layer legends.
+# Request selected local legends with `panel_legends`, using the same logical
 # grid-position rules as line dashboards.
 
 # ### Cable-system cross-section
 
-# A system preview resolves every placed region into the system frame, adds
-# reference geometry such as the earth interface, and derives limits from the
-# physical placement or `zoom_factor`. Earth properties use the same atomic
+# A system preview resolves each placed region into the system frame and adds reference geometry such as the earth interface. Limits are derived from the physical placement or `zoom_factor`. Earth properties use the same atomic
 # color-scheme rules as cable materials, with a separate logarithmic
 # resistivity palette: slate at 0.1 Ω·m, taupe at 100 Ω·m, and ochre at 10⁴ Ω·m.
 # Horizontal earth fills follow pan, zoom and figure resizing while interfaces
 # stay at their physical depths. A semi-infinite basement covers the remainder
-# of the view; a finite final layer retains its declared bottom.
+# of the view. A finite final layer retains its declared bottom.
 
 system_preview = preview(
     cable_system;
@@ -856,12 +851,12 @@ system_preview = preview(
 )
 system_preview.figure #hide
 
-# Modify physical contents before previewing; modify visual annotations after
+# Modify physical contents before previewing. Modify visual annotations after
 # previewing. `zoom_factor` changes only the initial view, and the reset control
 # returns to those computed limits.
 # The light blue sky fades from the upper axis limit to transparency at `z=0`,
 # stretching with the view and disappearing in entirely underground views.
-# It is a surface cue with no material-property meaning; use
+# It is a visual cue with no material-property meaning. Use
 # `display_surface_gradient=false` to disable it independently of earth colors.
 # Vertical strata are currently not rendered in the system preview.
 
@@ -891,10 +886,10 @@ rho_scale_figure
 
 # The scheme contains no placement. Put that `Colorbar` in any `GridPosition`,
 # combine it with a heatmap, or reuse the same scheme in another figure. Define a
-# new property by defining another palette producer next to `materialcolors`;
-# physical range collection remains a DataModel concern.
+# new property by defining another palette producer next to `materialcolors`.
+# Physical range collection remains a DataModel concern.
 # Relative permeability uses the existing logarithmic range from 1 to 300.
-# Unity leaves the base color unchanged; indigo tint becomes visible before
+# Unity leaves the base color unchanged. Indigo tint becomes visible before
 # the progression toward magenta at high permeability. The permeability scale
 # shows that same tint over a neutral reference color.
 # Dielectric marks are native Makie pattern tiles. Cairo embeds the small
@@ -922,7 +917,7 @@ material_scale.figure #hide
 # ## Monte Carlo result recipes
 
 # Monte Carlo methods first publish the requested marginal from retained
-# samples and/or `HistogramDensity`. Cable-constant requests accept `R`, `L`,
+# samples, `HistogramDensity`, or both. Cable-constant requests accept `R`, `L`,
 # `C`, `G`, or `(selector, assembly)`. Matrix-valued line results require an
 # exact request such as `@observe R[1, 1, 3]`. Native Makie function identity
 # chooses the visual primitive.
@@ -930,7 +925,7 @@ material_scale.figure #hide
 # ### Sample histogram
 
 # `Makie.hist` uses retained samples and calls native `hist!`. `bins` and
-# `normalization` retain their Makie meanings; unit options are consumed while
+# `normalization` retain their Makie meanings. Unit options are consumed while
 # publishing the marginal.
 
 sample_histogram = Makie.hist(
@@ -970,7 +965,7 @@ model_density = Makie.stairs(
 )
 model_density.figure #hide
 
-# With `bins=n`, a different binning is derived from retained samples; the
+# With `bins=n`, a different binning is derived from retained samples. The
 # stored model is unchanged. Changing its bin count requires retained samples.
 # With `bins=nothing` (the default), the retained model is reused, or a model
 # is derived with automatic binning if only samples were retained. Constant
@@ -996,7 +991,7 @@ empirical_cdf = Makie.ecdfplot(
 empirical_cdf.figure #hide
 
 # The returned axis can be combined with confidence bands or additional native
-# curves; the addon only owns the initial empirical series and its legend group.
+# curves. The addon only defines the initial empirical series and its legend group.
 
 # ### Retained-model cumulative distribution
 
@@ -1016,14 +1011,12 @@ model_cdf = Makie.lines(
 )
 model_cdf.figure #hide
 
-# Increase visual resolution by extending the owner-side model grid settings; add
+# Increase visual resolution by extending the owner-side model grid settings. Add
 # purely visual reference curves directly to `model_cdf.axes[1]`.
 
 # ### Sample/model Q-Q plot
 
-# `Makie.qqplot` requests both retained products, lets the UQ owner calculate
-# matching quantile pairs, draws native scatter points, and optionally adds the
-# identity reference line.
+# `Makie.qqplot` requests both retained products. UQ calculates matching quantile pairs for the native scatter plot. The identity reference line is optional.
 
 quantile_plot = Makie.qqplot(
     mc_result,
@@ -1045,7 +1038,7 @@ quantile_plot = Makie.qqplot(
 quantile_plot.figure #hide
 
 # Set `qqline=:none` to remove the reference. Other scatter attributes are
-# forwarded to `scatter!`; data and units remain observation concerns.
+# forwarded to `scatter!`. Data and units remain observation concerns.
 
 # ## Callable controls and retained assembly points
 
@@ -1066,7 +1059,7 @@ widget_plot=Makie.plot(parameters; ydata = ((R, 1, 1, :),), layout = (1, 1),
 widget_plot.figure #hide
 
 # CableConstants supply categorical assembly coordinates. The first-seen union
-# below is core, sheath, screen; neither observation invents the other's point.
+# below is core, sheath, screen. Each observation uses its own requested point.
 # Their intervals retain their original uncertainty meaning. Categorical points
 # are primary data, so decorative-marker sampling does not remove them.
 
@@ -1084,10 +1077,10 @@ assembly_plot.figure #hide
 
 # `plotwindow` is the escape hatch when no high-level recipe is appropriate. It
 # creates the figure and controls, then passes its content `GridLayout` to the
-# callback. The callback uses normal Makie constructors; afterward `plotwindow`
+# callback. The callback uses normal Makie constructors. Afterward `plotwindow`
 # discovers the native axes and attaches shared numeric scale, reset and export
-# controls. Explicit `axis=(...)` overrides apply to callback-created axes;
-# otherwise their native construction settings are retained.
+# controls. Explicit `axis=(...)` overrides apply to callback-created axes.
+# Otherwise their native construction settings are retained.
 
 custom_dashboard = LineCableModels.plotwindow(
     title = "Caller-owned diagnostics",
@@ -1118,8 +1111,7 @@ end
 custom_dashboard.figure #hide
 
 # The callback supports nested layouts, `Axis3`, `Colorbar`, `Slider`, custom
-# Makie recipes, and arbitrary plot primitives. If a native composition
-# needs no LineCableModels controls or export settings, use `Figure` directly.
+# Makie recipes, and arbitrary plot primitives. Use `Figure` directly for a composition that omits LineCableModels controls and export settings.
 
 # ## Plot controls and layout
 
@@ -1129,21 +1121,22 @@ custom_dashboard.figure #hide
 # every linear numeric axis, including previews, statistical plots, and `plotwindow`
 # axes: the displayed limits determine one engineering power-of-ten multiplier
 # (powers of three) in the axis label. Ticks show plain decimal mantissas. Tick density follows each data rectangle and the rendered
-# label size. For example, a linear frequency view can show `0, 2, 4, 6, 8, 10`
-# with `Frequency [Hz] ×10⁶`; the retained frequencies are unchanged.
+# label size. A linear frequency view from 0 to 10 MHz can show ticks at
+# `0, 2, 4, 6, 8, 10` with the label `Frequency [Hz] ×10⁶`. The retained
+# frequencies are unchanged.
 # Zooming, panning, changing limits, and resetting keep the ticks and multiplier
 # synchronized. Native custom tick formatters or explicit tick labels override
-# automatic formatting; setting the formatter back to `Makie.automatic` restores
+# automatic formatting. Setting the formatter back to `Makie.automatic` restores
 # it. Native tick positions persist across scale changes. Caller tick functions
-# and custom locator objects retain native formatting; resetting the tick
+# and custom locator objects retain native formatting. Resetting the tick
 # attribute to `Makie.automatic` restores the shared locator.
 # Date/category axes and other native transforms retain Makie's own presentation.
 # These defaults use the native tick locators in Makie 0.24.11 or newer.
 # Positive and signed logarithmic views spanning less than two base-10 units
 # after transformation show decimal mantissas, with one engineering multiplier
 # when needed. Broader views show scientific tick labels without another axis
-# multiplier. Those labels retain the physical sign and any nonunit coefficient;
-# zero is displayed as `0`. The signed-log reference determines the transform,
+# multiplier. Those labels retain the physical sign and any nonunit coefficient.
+# Zero is displayed as `0`. The signed-log reference determines the transform,
 # not the displayed units or the engineering multiplier. Both x and y use the
 # same tick-spacing rule, fitting actual label spacing after the coordinate transform.
 # The x/y toggles validate current visible data and uncertainty bounds before
@@ -1151,26 +1144,27 @@ custom_dashboard.figure #hide
 # Automatic near-constant positive log ranges use modest multiplicative padding
 # (`c/1.05` to `c*1.05`, enlarged for uncertainty).
 #
-# Native Axis keywords (`xticks`, `limits`, `ytickformat`, etc.) and native
-# series attributes (`linewidth`, `color`, etc.) can be passed at construction.
+# Native Axis keywords such as `xticks`, `limits`, and `ytickformat`, and native
+# series attributes such as `linewidth` and `color` can be passed at construction.
 # Explicit `axis=(...)`, `figure=(...)` and per-series `series_attributes`
 # override shared defaults. Subsequent native mutations remain authoritative.
 # For names shared by Axis and a plot, the unqualified form targets Axis.
-# An explicit native `figure.size` overrides `fig_size`; portrait sizes stay portrait.
+# An explicit native `figure.size` overrides `fig_size`. Portrait sizes stay portrait.
 #
 # UQ benchmark plots with ordinary `ydata=(R,L,G,C)` overlay mean ±1 standard
 # deviation from retained moments. Explicit `(statistics,L,std)` requests show
-# the standard deviation alone; request these two products in separate calls.
+# the standard deviation alone. Request these two products in separate calls.
 # `uncertain(result, configuration)` returns the uncertainty-bearing core stored
 # during MC aggregation. This marginal representation retains each output's mean
-# and standard deviation; joint output correlations require the retained samples.
-# Every eligible numeric route retains log controls for zero or negative support;
-# adaptive logarithmic panels use a sign-preserving pseudo-log transform with
+# and standard deviation. Joint output correlations require the retained samples.
+# Every eligible numeric route retains log controls for zero or negative support.
+# Adaptive logarithmic panels use a sign-preserving pseudo-log transform with
 # `log1p`/`expm1` evaluation: `sign(v)*log10(1+abs(v)/s)`. The reference `s` is
 # the smallest finite nonzero magnitude among eligible visible samples,
 # enabled uncertainty endpoints and explicit limits, in the displayed units.
 # If no nonzero value exists, `s=1`. Ticks retain physical values and units.
-# Thus small signed conductances span decades instead of appearing linear.
+# This transform lets small signed conductances span decades instead of
+# appearing linear.
 # Reapply `axisscale!(page, :y, :log10)` or switch log off/on to select the
 # reference from current data. Zooming and resetting limits keep it fixed.
 # Explicit `:pseudolog10` retains a reference of 1 in displayed units.
@@ -1184,8 +1178,8 @@ custom_dashboard.figure #hide
 # a nonzero baseline, enlarged for visible uncertainty. An exactly zero series
 # without uncertainty uses a neutral nonzero range. Near-constant means that the
 # endpoints agree within `sqrt(eps(Float64))` relatively in view coordinates.
-# These bounds affect the displayed view; the samples retain their original
-# values. Small values with meaningful relative variation receive a tightly
+# These bounds affect the displayed view. The samples retain their original
+# values. Small values with measurable relative variation receive a tightly
 # fitted view. Legend visibility changes trigger another limit pass, so hiding
 # a dominant curve fits the view to the remaining data.
 # Explicit native limits, including one-sided limits, remain authoritative.
@@ -1197,15 +1191,15 @@ custom_dashboard.figure #hide
 # ### Legends and docks
 
 # `legend_position` selects only placement. `:inside` overlays the union of the
-# figure's axis viewports or the single axis viewport for a panel legend;
-# native `halign`/`valign` select corner, center, or fractional alignment. Side-grid slots
+# figure's axis viewports or the one axis viewport for a panel legend.
+# Native `halign`/`valign` select corner, center, or fractional alignment. Side-grid slots
 # remain outside the plot area. `legend_attributes` is merged into the native
 # `Legend` constructor, so orientation, bank count, padding, background,
 # alignment, and other Makie options remain available. `legend_cap=0.5`
-# is a finite, non-Boolean real number in `(0,1]`. It caps top/bottom legend
-# height or side legend width relative to the associated data area; the other
+# is a finite, non-Boolean real number in `(0,1]`. It caps top and bottom legend
+# height or side legend width relative to the associated data area. The other
 # dimension must also fit. Inside legends use the height cap. Figure legends
-# use the combined panel footprint; panel legends use their own data area.
+# use the combined panel footprint. Panel legends use their own data area.
 # Entries that exceed the cap are replaced by `(...)` and return when resizing
 # provides room. If the title and ellipsis cannot fit, the legend remains hidden
 # until space returns. The cap includes padding and margins, and never removes
@@ -1224,7 +1218,7 @@ custom_dashboard.figure #hide
 
 # `colorbar_position` and `colorbar_attributes` mirror the legend placement
 # rules. `colorbar_group_attributes.layout` determines the independent group
-# arrangement; `guide_spacing` supplies minimum sibling gaps unless group
+# arrangement. `guide_spacing` supplies minimum sibling gaps unless group
 # `rowgap`/`colgap` overrides them. A preview supplies several schemes, but
 # `_colorbar!` always consumes one scheme and creates one native
 # `Colorbar`. The reusable public atom remains
@@ -1238,7 +1232,7 @@ custom_dashboard.figure #hide
 # observations and connects the native UI subscriptions.
 # Keeping the `UIPlot` alive keeps the native figure and its subscriptions alive.
 #
-# Native mutation is therefore the normal extension mechanism:
+# Native mutation is the normal extension mechanism:
 
 owned_plot = Makie.plot(
     parameters,
@@ -1258,8 +1252,8 @@ owned_plot.figure #hide
 # ### Responsive layout
 
 # Automatic diagonal and preview flow pages may reflow locally when resized.
-# Their page membership and identities stay fixed. Explicit layouts and matrix
-# topology stay fixed. Physical aspect belongs to each panel, so circular designs,
+# Their page membership and identities remain fixed. Explicit layouts and matrix
+# topology remain fixed. Physical aspect belongs to each panel, so circular designs,
 # wide systems, and 1×4 preview collections remain correctly scaled. A later guide,
 # title, or widget change refits only that window around its current data frames.
 
@@ -1268,8 +1262,8 @@ owned_plot.figure #hide
 # Load CairoMakie before creating a plot to include its Save button. For GL
 # interactivity and SVG export, import both CairoMakie and GLMakie, then select
 # `backend=:gl`. Loading CairoMakie later enables direct export of an existing
-# plot; recreate the plot to add its button. The toolbar reports
-# file errors in the status row; direct `export_svg` calls throw them to the caller.
+# plot. Recreate the plot to add its button. The toolbar displays
+# file errors in the status row. Direct `export_svg` calls throw them to the caller.
 #
 # [`export_svg`](@ref) saves the current live figure through CairoMakie. For a
 # publication export it temporarily hides the toolbar and status row, switches
@@ -1290,8 +1284,8 @@ export_svg(
 
 # A new high-level recipe should keep these responsibilities with their owners:
 #
-# 1. Expose numerical observations or physical geometry through the owning
-#    module's existing public protocol. Do not add plot-data construction, labels,
+# 1. Expose numerical observations or physical geometry through the public
+#    methods of the module that defines them. Do not add plot-data construction, labels,
 #    colors, layout, or Makie types to scientific owners.
 # 2. Add request normalization and the narrow public dispatch method in
 #    `LineCableModelsMakieExt`, then call
@@ -1301,12 +1295,10 @@ export_svg(
 #    plot specification or an optional adapter hierarchy.
 # 4. Return `UIPlot` with the actual native objects and leave further mutation to
 #    the caller.
-# 5. Add the real call to this literate gallery, a Cairo rendering assertion,
-#    and an interactive GL inspection fixture when resizing or widgets matter.
+# 5. Add the real call to this literate gallery. Add a Cairo rendering assertion and an interactive GL inspection fixture when resizing or widgets matter.
 #
-# A purely visual variation usually needs no new managed recipe: pass a native
-# attribute, mutate the returned block, add a Makie primitive, or start from
-# `plotwindow`. A new recipe is justified when LineCableModels owns meaningful
+# A purely visual variation usually does not need a new managed recipe. Pass a native attribute or mutate the returned block. Add a Makie primitive, or start from
+# `plotwindow`. A new recipe is justified when LineCableModels implements application-specific
 # retained coordinate presentation, physical geometry, or a reusable piece
 # of scientific interaction.
 
@@ -1314,7 +1306,7 @@ export_svg(
 
 # Scientific objects supply observations, geometry, material properties, and
 # units. `LineCableModelsMakieExt` converts these values into Makie plots.
-# Matrix coordinates identify subplots; result containers identify overlaid
+# Matrix coordinates identify subplots. Result containers identify overlaid
 # series. PlotBuilder adds labels, controls, and SVG export.
 #
 # | Implementation | Responsibility |

@@ -275,9 +275,8 @@ shunt_admittance(value::Union{LineParameters, ShuntAdmittance}) = observe(value,
     Y(parameters[, i, j[, k]])
 
 Return series impedance or shunt admittance. With `(i, j)`, return the complete
-frequency response at that matrix position. `k` may be one index, a range, or
-`:`. Stored units follow [`basis`](@ref): \\[Ω/m\\] and \\[S/m\\] for
-`:pul`, or \\[Ω\\] and \\[S\\] for `:total`.
+frequency response at that matrix position. Use one index, a range or `:` for `k`. Stored units follow [`basis`](@ref): \\[Ω/m\\] and \\[S/m\\] for
+`:pul` or \\[Ω\\] and \\[S\\] for `:total`.
 """
 @inline _observe_array(values::AbstractArray) = values
 @inline _observe_array(values::AbstractArray, i, j) = view(values, i, j, :)
@@ -368,7 +367,7 @@ end
 $(TYPEDSIGNATURES)
 
 Return diagonal inductances from a standalone impedance tensor and its explicit
-frequency vector \\[Hz\\]. The output axes are conductor × frequency; optional
+frequency vector \\[Hz\\]. The output axes are conductor × frequency. Optional
 indices select those axes. Values use \\[H/m\\] for `:pul` and \\[H\\] for `:total`.
 """
 function observe(value::SeriesImpedance, ::typeof(L), ::typeof(diag),
@@ -395,7 +394,7 @@ end
 $(TYPEDSIGNATURES)
 
 Return diagonal capacitances from a standalone admittance tensor and its explicit
-frequency vector \\[Hz\\]. The output axes are conductor × frequency; optional
+frequency vector \\[Hz\\]. The output axes are conductor × frequency. Optional
 indices select those axes. Values use \\[F/m\\] for `:pul` and \\[F\\] for `:total`.
 """
 function observe(value::ShuntAdmittance, ::typeof(C), ::typeof(diag),

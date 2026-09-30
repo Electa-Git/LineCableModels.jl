@@ -31,7 +31,7 @@
         @test row.cross_section ≈ sum(area,regions)
         @test all(r -> r.source.tag !== :stranded_fill, insulated.geometry.regions)
     end
-    # Explicit enclosures remain physical even for sub-micrometre layers.
+    # Explicit enclosures remain physical even for sub-micrometer layers.
     body = stranded(copper;center=center,shape=strand,boundary=Disk(0.6e-3))
     for thickness in (1e-9, 4e-6)
         wrapped = build(CableDesign,"explicit-wrap",Enclosure(:paper,
@@ -87,7 +87,7 @@ end
         @test all(r -> r.source.tag !== :stranded_fill,design.geometry.regions)
         row = only(EN.flatten(LineCableModelsCoaxial(),design,Float64).conductors)
         @test row.cross_section ≈ pi*occupied^2+count*pi*wire_radius^2
-        # The hand-off also survives a rigid placement of the complete stack.
+        # The transfer of geometry also works after a rigid placement of the complete stack.
         shifted = build(CableDesign,"rectangular-ring-placed",
             assembly(at(Stack(core,filled,insulation(dielectric;t=0.1e-3)),
                 Pose2(0.01,-0.02,0.37))))

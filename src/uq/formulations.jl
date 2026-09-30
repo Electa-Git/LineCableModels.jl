@@ -16,7 +16,7 @@ Shared inputs must be supplied once to a joint `Gridspace` builder, which
 derives the dependent geometry. Propagation retains those correlations and
 differentiates continuous geometry at the nominal design, including bounded
 power-cell compaction. Strand counts and clipping topology are nominal discrete
-choices: a study crossing such a transition has no single smooth linear model.
+choices. A smooth linear model cannot describe a study across such a transition.
 First-order moments need not equal nonlinear Monte Carlo moments.
 
 $(TYPEDFIELDS)
@@ -78,35 +78,35 @@ $(TYPEDEF)
 Select conditional Monte Carlo propagation over a
 [`ParametricProblem`](@ref). Randomness is local and reproducible when `seed`
 is supplied. Computation option `on_error=:fail` propagates every exception.
-`on_error=:resample` rejects only realizations that raise `DomainError`, retains
-their sampled arguments and error summaries, and continues until the requested
+`on_error=:resample` rejects only realizations that raise `DomainError` and retains
+their sampled arguments and error summaries. Sampling continues until the requested
 number of successful trials is obtained or `max_failures` is reached. Resampling
 mode requires `retain_details=true` and estimates the output distribution
 conditional on successful problem construction and computation.
 
 Load `Measurements` before computation. Aggregation stores marginal
 uncertainty-bearing cores from accepted sample means and sample standard
-deviations, not histogram bins or standard errors of the mean. Sampling and
-histogram retention do not change this payload. Joint output correlations are
+deviations, not histogram bins or standard errors of the mean. This payload is independent of sampling and histogram retention. Joint output correlations are
 not retained by the marginal surrogate. Access and transport reuse the stored
 uncertainty-source identities.
 
 Line-system construction enforces exterior clearance on every realization.
 When Measurements is loaded, the propagated clearance reserve is computed
-before sampling and retained for every draw. Adjusted placements therefore
+before sampling and retained for every draw. Adjusted placements
 describe a clearance-constrained system. Adjustments emit one summary per
-parameter point, not one warning per trial; retained details include their
+parameter point, not one warning per trial. Retained details include their
 count and maximum displacement \\[m\\]. Invalid dimensions and infeasible
 internal cable constructions remain errors subject to `on_error`.
 
-Use one joint `Gridspace` builder for dependent internal dimensions; derive
-stack boundaries and wire placements from its shared inputs. Repeating a Grid
+Use one joint `Gridspace` builder for dependent internal dimensions. Derive
+stack geometric boundaries and wire placements from its shared inputs. Repeating a Grid
 as separate source arguments creates independent draws. The default normal
 law has unbounded support: marginal means and standard uncertainties cannot
 guarantee feasible geometry. `distribution=:uniform` instead has support
-`nominal ± sqrt(3)*sigma` for each primitive descriptor; the builder must map
-the complete joint support to feasible designs. Selecting this law is an
-explicit statistical assumption, not a repair or an inferred correlation.
+`nominal ± sqrt(3)*sigma` for each primitive descriptor. The builder must map
+the complete joint support to feasible designs. Select this law only when the
+uniform distribution is a justified statistical assumption. Changing the
+marginal law neither repairs the geometry nor supplies a correlation.
 
 $(TYPEDFIELDS)
 """
@@ -132,7 +132,7 @@ description(::Type{<:LinearError},::Val{:representation};compact::Bool=false) =
 description(::Type{<:MonteCarlo},::Val{:representation};compact::Bool=false) =
     "marginal mean ± std"
 
-# Capture display annotations separately from the estimator/representation IDs
+# Capture display annotations separately from the estimator and representation IDs
 # used by scientific grouping. Both names remain supplied by their UQ owner.
 function _uncertainty_descriptions(owner)
     return (estimator=(name="uncertainty estimator",unit="",text=description(owner;compact=true)),
@@ -235,24 +235,24 @@ both places is an error.
 
 # Arguments
 
-- `inner`: Formulation used for each sampled problem.
+- `inner`: formulation used for each sampled problem.
 
 # Keywords
 
-`options=(;)` holds any of the following controls. Additional keywords use
+`options=(;)` accepts these controls. Additional keywords use
 the same names and are merged into `options` before normalization.
 
-- `trials=nothing`: Positive accepted-trial count, or DKW sizing when omitted.
-- `confidence=0.95`: Simultaneous empirical-CDF confidence [dimensionless], in `(0, 1)`.
-- `cdf_tol=0.02`: Maximum empirical-CDF deviation for DKW sizing [dimensionless], in `(0, 1)`.
+- `trials=nothing`: positive accepted-trial count, or DKW sizing when omitted.
+- `confidence=0.95`: simultaneous empirical-CDF confidence [dimensionless], in `(0, 1)`.
+- `cdf_tol=0.02`: maximum empirical-CDF deviation for DKW sizing [dimensionless], in `(0, 1)`.
 - `distribution=:normal`: `:normal`, `:uniform`, a sampler function, or an extension-supported distribution.
-- `seed=nothing`: Nonnegative root seed representable as `UInt64`, or fresh randomness.
-- `return_samples=false`: Retain joint samples.
-- `return_histograms=false`: Retain marginal histogram densities.
-- `bins=nothing`: Positive histogram bin count, or automatic binning.
-- `retain_details=false`: Retain accepted-trial details and failure diagnostics.
-- `on_error=:fail`: Propagate exceptions; `:resample` rejects `DomainError` realizations and requires `retain_details=true`.
-- `max_failures=100`: Positive maximum rejected-trial count per parameter point.
+- `seed=nothing`: nonnegative root seed representable as `UInt64`, or fresh randomness.
+- `return_samples=false`: retain joint samples.
+- `return_histograms=false`: retain marginal histogram densities.
+- `bins=nothing`: positive histogram bin count, or automatic binning.
+- `retain_details=false`: retain accepted-trial details and failure diagnostics.
+- `on_error=:fail`: propagate exceptions. `:resample` rejects `DomainError` realizations and requires `retain_details=true`.
+- `max_failures=100`: positive maximum rejected-trial count per parameter point.
 
 # Returns
 

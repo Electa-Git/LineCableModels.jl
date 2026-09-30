@@ -10,7 +10,7 @@ Calculate coaxial shunt capacitance
 
 `r_in` and `r_ex` are the inner and outer dielectric radii in meters,
 with ``0<r_{in}<r_{ex}``. `eps_r` is the nonnegative, dimensionless relative
-permittivity; ``ε_0`` is vacuum permittivity in F/m.
+permittivity. The constant ``ε_0`` is vacuum permittivity in F/m.
 """
 function shunt_capacitance(r_in::Real, r_ex::Real, eps_r::Real)
     rin, rex, permittivity = promote(float(r_in), float(r_ex), float(eps_r))
@@ -48,7 +48,7 @@ $(TYPEDSIGNATURES)
 
 Combine two radial dielectric layers connected in series. Each layer is
 represented by the shunt admittance
-``Y_i=G_i+\\mathrm{j}\\omega C_i``; the equivalent is
+``Y_i=G_i+\\mathrm{j}\\omega C_i``. The equivalent is
 
 ```math
 Y_{eq}=\\frac{Y_1Y_2}{Y_1+Y_2}.
@@ -56,11 +56,11 @@ Y_{eq}=\\frac{Y_1Y_2}{Y_1+Y_2}.
 
 # Arguments
 
-- `conductance1`: Shunt conductance of the accumulated dielectric \\[S/m\\].
-- `capacitance1`: Shunt capacitance of the accumulated dielectric \\[F/m\\].
-- `conductance2`: Shunt conductance of the added dielectric \\[S/m\\].
-- `capacitance2`: Shunt capacitance of the added dielectric \\[F/m\\].
-- `omega`: Angular reference frequency \\[rad/s\\].
+- `conductance1`: shunt conductance of the accumulated dielectric \\[S/m\\].
+- `capacitance1`: shunt capacitance of the accumulated dielectric \\[F/m\\].
+- `conductance2`: shunt conductance of the added dielectric \\[S/m\\].
+- `capacitance2`: shunt capacitance of the added dielectric \\[F/m\\].
+- `omega`: angular reference frequency \\[rad/s\\].
 
 # Returns
 
@@ -99,7 +99,7 @@ Recover equivalent relative permittivity from coaxial capacitance:
 
 `capacitance` is nonnegative capacitance per unit length in F/m.
 `r_ex` and `r_in` are the outer and inner dielectric radii in meters,
-with ``0<r_{in}<r_{ex}``; ``ε_0`` is vacuum permittivity in F/m.
+with ``0<r_{in}<r_{ex}``. ``ε_0`` is vacuum permittivity in F/m.
 The returned relative permittivity is dimensionless.
 """
 function equivalent_eps(capacitance::Real, r_ex::Real, r_in::Real)

@@ -14,8 +14,8 @@
     @test :default in InsulationImpedance.formulas()
     @test all(in(InsulationAdmittance.formulas()), (:lossless, :lossy, :default))
     @test all(in(SemiconAdmittance.formulas()), (:lossless, :lossy, :default))
-    # Current lossless radial fields: H=I/(2pi*r) and
-    # E=V/(r*log(b/a)); integrate their magnetic/electric energy.
+    # Current lossless radial fields: `H=I/(2pi*r)` and
+    # `E=V/(r*log(b/a))`. Integrate their magnetic and electric energy.
     for T in (Float32, Float64, BigFloat)
         setprecision(BigFloat, 128) do
             r_in=parse(T, "0.005")

@@ -25,13 +25,12 @@ Declare one lay-length ratio or a homogeneous schedule of lay-length ratios.
 
 # Arguments
 
-- `q`: One positive lay-length to mean-diameter ratio \\[dimensionless\\].
-- `values`: Two or more ratios, or one tuple or vector of ratios, defining one
-  ratio per repeated course.
+- `q`: one positive lay-length to mean-diameter ratio \\[dimensionless\\].
+- `values`: two or more ratios, or one tuple or vector of ratios. Specify one ratio per repeated course.
 
 # Keywords
 
-- `combine=:product`: Gridspace composition rule.
+- `combine=:product`: gridspace composition rule.
 
 # Returns
 
@@ -67,13 +66,12 @@ Declare one helical pitch or a homogeneous schedule of helical pitches.
 
 # Arguments
 
-- `p`: One positive helical pitch \\[m\\].
-- `values`: Two or more pitches, or one tuple or vector of pitches, defining
-  one pitch per repeated course \\[m\\].
+- `p`: one positive helical pitch \\[m\\].
+- `values`: two or more pitches, or one tuple or vector of pitches. Specify one pitch per repeated course \\[m\\].
 
 # Keywords
 
-- `combine=:product`: Gridspace composition rule.
+- `combine=:product`: gridspace composition rule.
 
 # Returns
 
@@ -109,13 +107,12 @@ Declare one helical lay angle or a homogeneous schedule of lay angles.
 
 # Arguments
 
-- `α`: One lay angle relative to the cable axis \\[rad\\].
-- `values`: Two or more angles, or one tuple or vector of angles, defining one
-  angle per repeated course \\[rad\\].
+- `α`: one lay angle relative to the cable axis \\[rad\\].
+- `values`: two or more angles, or one tuple or vector of angles. Specify one angle per repeated course \\[rad\\].
 
 # Keywords
 
-- `combine=:product`: Gridspace composition rule.
+- `combine=:product`: gridspace composition rule.
 
 # Returns
 

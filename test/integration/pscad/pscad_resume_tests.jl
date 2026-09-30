@@ -9,7 +9,7 @@
     const station_identity=Dict("schema"=>"1", "version"=>"5.1.0",
         "pscad_sha256"=>repeat("1", 64), "line_constants_sha256"=>repeat("2", 64),
         "master_library_sha256"=>repeat("3", 64))
-    # Exercise the real export/stage/parse/checkpoint path with an isolated
+    # Exercise export, staging, parsing and checkpoints with an isolated
     # transport fixture. These matrices are protocol fixtures, not references.
     function P.remote_command(::Val{:completed_run_fixture}, config::P.RemoteConfig, command::AbstractString)
         if occursin("-SharedCase", command)

@@ -3,7 +3,7 @@
     include(joinpath(pkgdir(LineCableModels),"test/support/golden_fixtures.jl"))
     using .GoldenFixtures
     @test_throws ArgumentError scene("unknown-scene")
-    # A fresh four-corner graphic fixes the save/decode convention and rejects
+    # A fresh four-corner graphic fixes the save and decode convention and rejects
     # reflection and blank frames. View acceptance needs separate calibration.
     figure=Figure(size=(120,80),backgroundcolor=:white)
     axis=Axis(figure[1,1];limits=(0,2,0,2))
@@ -13,8 +13,8 @@
     mktempdir() do directory
         pixels=save_pixels(joinpath(directory,"first.png"),(;figure))
         repeat_pixels=save_pixels(joinpath(directory,"repeat.png"),(;figure))
-        # Cairo's public colorbuffer already uses row/column image order. Check
-        # that convention directly; never choose an orientation by comparison.
+        # Cairo's public colorbuffer already uses row and column image order. Check
+        # that convention directly. Never choose an orientation by comparison.
         buffer=Makie.colorbuffer(figure;backend=CairoMakie,px_per_unit=1)
         buffer_pixels=cat((round.(UInt8,255 .* channel.(buffer))
             for channel in (Makie.red,Makie.green,Makie.blue))...;dims=3)

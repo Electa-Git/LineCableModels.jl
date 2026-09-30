@@ -135,7 +135,7 @@ function _coordinate_algebra!(workspace::ModalAnalysisWorkspace, execution)
 end
 
 # Differentiate the diagonal product at the retained nominal branch. The maps
-# stay nominal; uncertainty in the transformed coefficients remains connected
+# stay nominal. Uncertainty in the transformed coefficients remains connected
 # to its original scalar sources.
 function _dependent_roots(workspace::ModalAnalysisWorkspace)
     nominal_roots=workspace.roots
@@ -152,7 +152,7 @@ function _dependent_roots(workspace::ModalAnalysisWorkspace)
     return roots
 end
 
-# Keep the completed record's outer key/type layout inferable even when an
+# Keep the completed record's outer key and type layout inferable even when an
 # upstream gridpoint or formula description is intentionally type-erased.
 @generated function _modal_detail_merge(record::NamedTuple{Names,Types},
         extra::NamedTuple{ExtraNames,ExtraTypes}) where {Names,Types,ExtraNames,ExtraTypes}

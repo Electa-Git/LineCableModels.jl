@@ -1,11 +1,11 @@
-"Return the dry-soil parameter of the Datsios–Mikropoulos relation."
+"Return the dry-soil parameter of the Datsios-Mikropoulos relation."
 assumptions(::Val{:datsios2019}) = (dry_permittivity = 3.5,)
 
 """
 $(TYPEDSIGNATURES)
 
-Datsios–Mikropoulos two-limit fit for sandy soil, with relative permittivity
-held at its 3 kHz value below the fitted boundary.
+Datsios-Mikropoulos two-limit fit for sandy soil, with relative permittivity
+held at its 3 kHz value below the fitted frequency limit.
 
 **Expression.** With ``\\widehat\\sigma_{42}=10^4/\\rho_0`` in μS/cm and
 dry permittivity ``\\varepsilon_d=3.5``,

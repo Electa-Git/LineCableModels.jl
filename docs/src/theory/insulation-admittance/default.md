@@ -7,7 +7,7 @@
 | Family | Insulation admittance |
 | Formula identifier | `:default` |
 | Route | `:lossless` |
-| Documentation status | Routing alias; the equation is documented separately. |
+| Documentation status | Routing alias. The equation is documented separately. |
 
 **Description.** `:default` routes to the explicit `:lossless` constitutive
 relation. It is retained as the package-level selection convention and does

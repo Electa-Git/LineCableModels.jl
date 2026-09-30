@@ -142,7 +142,7 @@ end
         @test Set(keys(restored)) == Set(keys(library))
         for id in keys(library)
             expected, actual = library[id], restored[id]
-            # JSON arrays intentionally normalize tuple/vector declarations.
+            # JSON arrays intentionally normalize tuple or vector declarations.
             @test JSON3.read(JSON3.write(IE.serialize_value(actual)), Dict{String, Any}) ==
                 JSON3.read(JSON3.write(IE.serialize_value(expected)), Dict{String, Any})
             @test actual.terminal_order == expected.terminal_order

@@ -3,7 +3,7 @@
     if isempty(get(ENV,"DISPLAY",""))
         @test_skip "An accessible display is required for UI execution"
     elseif !haskey(ENV,"LINECABLEMODELS_FEM_UI_CASE")
-        # FLTK/Gmsh retain native GUI state after finalize. Exercise each closure
+        # FLTK/Gmsh retain native GUI state after finalize. Exercise each window closure
         # scenario in a fresh process, including when other tests used the GUI.
         for action in ("before_mesh","before_solve","during_solve","complete")
             runner=joinpath(pkgdir(LineCableModels),"test","runtests.jl")

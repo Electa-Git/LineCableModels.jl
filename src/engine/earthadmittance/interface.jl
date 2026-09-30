@@ -2,9 +2,9 @@
 $(TYPEDEF)
 
 Own one earth potential coefficient formulation, its indexed equation declarations and explicit
-controls. `assumptions` contains scientific restrictions; each interaction
-is selected by its explicit kind/source-layer/target-layer equation signature.
-`parameters` stores model data; `options` stores formulation choices and numerical controls.
+controls. `assumptions` contains scientific restrictions. Each interaction
+is selected by its explicit kind and source-layer and target-layer equation signature.
+`parameters` stores model data. `options` stores formulation choices and numerical controls.
 
 $(TYPEDFIELDS)
 """
@@ -12,9 +12,9 @@ struct Formula{ID, A <: NamedTuple, P <: NamedTuple, O <: FormulationOptions, E}
        EarthAdmittanceFormulation
     "Model class and supported physical medium inventory."
     assumptions::A
-    "Explicit physical/model parameters."
+    "Explicit physical model parameters."
     parameters::P
-    "Formulation options; projected onto required indexed equations during initialization."
+    "Formulation options. Projected onto required indexed equations during initialization."
     options::O
     "Independent equivalent homogeneous-earth reduction, or nothing."
     equivalent_earth::E
@@ -30,7 +30,7 @@ when evaluating an equation that needs reusable numerical buffers.
 $(TYPEDFIELDS)
 """
 struct Functor{B, S, O <: FormulationOptions}
-    "Selected equation and its exact source/target geometry."
+    "Selected equation and its exact source-target geometry."
     binding::B
     "Evaluated material quantities and angular frequency."
     state::S
@@ -61,7 +61,7 @@ Formula(identifier::Symbol; kwargs...) = Formula(Val(identifier); kwargs...)
 $(TYPEDSIGNATURES)
 
 Resolve a formulation's model parameters and numerical controls. Its concrete
-selection type owns the indexed equation; material properties are evaluated
+selection type defines the indexed equation. Material properties are evaluated
 before equation execution.
 Formula-specific arguments are normalized by their selected owner.
 A missing physical case is unsupported.
@@ -94,20 +94,20 @@ $(TYPEDSIGNATURES)
 
 Construct one validated indexed interaction at fixed angular frequency. Material
 vectors use physical indices for a stratified equation and exactly `(air,soil)`
-for a homogeneous equation. Explicit reduction and its physical/effective
+for a homogeneous equation. Explicit reduction and its physical and effective
 mapping are owned by the computation workspace.
 
 # Arguments
 
-- `resistivity`: Aligned resistivities [Ω·m].
-- `permittivity`: Absolute permittivities [F/m].
-- `permeability`: Absolute permeabilities [H/m].
-- `jω`: Imaginary angular frequency [1/s].
-- `pair`: Indexed conductor interaction; lengths [m].
+- `resistivity`: aligned resistivities [Ω·m].
+- `permittivity`: absolute permittivities [F/m].
+- `permeability`: absolute permeabilities [H/m].
+- `jω`: imaginary angular frequency [1/s].
+- `pair`: indexed conductor interaction. Lengths [m].
 
 # Keywords
 
-- `thickness`: Aligned layer thicknesses [m] for a stratified model.
+- `thickness`: aligned layer thicknesses [m] for a stratified model.
 """
 function (formula::EarthAdmittanceFormulation)(
         resistivity::AbstractVector{T}, permittivity::AbstractVector{T},

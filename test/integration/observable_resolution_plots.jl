@@ -50,8 +50,8 @@ end
     options = (backend=:cairo, display_plot=false, controls=true,
         length_unit=:base, quantity_units=:base, open_export=false,
         errorbar_sampling=:all,fig_size=(900,500))
-    # Independent means/spreads reproduce the noisy-zero and finite-baseline
-    # failures. Clipped values have zero uncertainty; raw curves retain their bars.
+    # Independent means and spreads reproduce the noisy-zero and finite-baseline
+    # failures. Clipped values have zero uncertainty. Raw curves retain their bars.
     for (means, spreads, clean_means, clean_spreads) in (
             (range(-1e-27, 2e-27; length=13), fill(4e-27, 13), zeros(13), zeros(13)),
             (fill(-7e-10, 13) .+ (0:12) .* 1e-25,

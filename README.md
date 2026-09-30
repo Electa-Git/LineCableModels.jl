@@ -60,7 +60,7 @@ constants = CableConstants(design)
 ```
 
 Scalar `build` calls return completed domain objects. An explicit `Grid` at a
-construction boundary returns a `Gridspace` whose points invoke the same
+construction call returns a `Gridspace` whose points invoke the same
 scalar `build` method.
 
 ## Optional plotting
@@ -81,20 +81,20 @@ self_impedance = plot(line_parameters, @observe Z[1, 1, :])
 `GLMakie` and `WGLMakie` are supported in the same way. Load the backend you want
 for display and also `import CairoMakie` if SVG export is needed. The optional
 `backend=:cairo`, `:gl`, or `:wgl` keyword selects a backend for one call. Observation requests determine
-physical quantity/coordinate axes; `layout` only groups those facets into
-figures. Singular recipes return a `UIPlot`; calls that produce several figures
+physical quantity and coordinate axes. `layout` only groups those facets into
+figures. Singular recipes return a `UIPlot`. Calls that produce several figures
 return a vector. Each handle exposes native Makie objects that remain
 caller-owned. `figure_title` names the whole figure, `panel_titles` names its
 logical axes, and `series_labels` names overlaid result containers in legends.
 Matrix coordinates belong in semantic axis titles, never legend entries.
 Legends accept outer docks or
-`legend_position=:inside` with an anchor such as `:rt`; `figurelegend!`,
+`legend_position=:inside` with an anchor such as `:rt`. `figurelegend!`,
 `panellegend!`, `figuretitle!`, and `paneltitle!` can change those native blocks
 after construction. The Export SVG control appears only when CairoMakie is loaded
 before plot construction. It saves the current live state without switching
 display backends. For GL interactivity with export, import both backends and
 select `backend=:gl`. After loading CairoMakie later, `export_svg` also works on
-existing plots; recreate the plot to add its button.
+existing plots. Recreate the plot to add its button.
 
 ## Result access
 
@@ -114,7 +114,7 @@ label(display_unit(R, :pul))     # "Ω/km"
 
 Complete parameter traversals return `ParametricResult{T}`, including a space
 with cardinality one. `Formulation`, `CableConstantsFormulation`, and
-`ModalTransformationFormulation` accept explicit `Grid` fields; combinatorial
+`ModalTransformationFormulation` accept explicit `Grid` fields. Combinatorial
 calculation forms the Cartesian product of problem and formulation points and
 retains both axes for `result(run, problem_index, formulation_index)` lookup.
 Conditional Monte Carlo propagation returns
@@ -146,20 +146,20 @@ After loading a Makie package, `Makie.hist`, `Makie.stairs`, `Makie.ecdfplot`,
 
 Higher-order calculations keep supplemental computation output separate from
 their scientific products. `details(result)` returns an empty `ComputationDetails` by
-default; its payload is available through `.data`. Construct `Combinatorial`, `LinearError`, or `MonteCarlo` with
+default. Its payload is available through `.data`. Construct `Combinatorial`, `LinearError`, or `MonteCarlo` with
 `options=(retain_details=true,)` only when the core computation owner has
 registered a `computation_details` method and those records are needed.
 Monte Carlo uses strict failure propagation by default. Physically unsupported
 draws can be rejected explicitly with
 `options=(retain_details=true, on_error=:resample, max_failures=100)`. Only
-`DomainError` permits resampling; retained details report every rejected argument
+`DomainError` permits resampling. Retained details report every rejected argument
 tuple and its error summary. The resulting statistics are conditional on a
 successful realization.
 
 Physics and numerical-method choices belong to `Formulation`. Execution choices
 are passed as a named tuple. For a materialized line system, pass
 `options=(output_basis=:total,)` to `compute` to scale both Z and Y by the line
-length. Composite calculations select their operation explicitly, for example
+length. Composite calculations select their operation explicitly, such as
 `compute(ParametricProblem(space), Combinatorial(Formulation()))`.
 
 Write results to an XLSX workbook with `report`:
@@ -174,7 +174,7 @@ artifact = report(
 artifact.output
 ```
 
-XLSX is an optional dependency; loading it activates the workbook writer. The
+XLSX is an optional dependency. Loading it activates the workbook writer. The
 established `export_data(:xlsx, line_parameters; ...)` call delegates to the
 same report and returns its output path. Relative paths and the default
 `ZY_export.xlsx` resolve from the caller's current working directory.
@@ -184,7 +184,7 @@ same report and returns its output path. Relative paths and the default
 Load `Gmsh` to activate the optional `LineCableModelsFEM` formulation, which
 uses Gmsh for meshing and GetDP for field calculations. The geometry model
 includes sector-shaped conductors. Supported geometry and material assumptions
-depend on the selected formulation; see the [FEM guide](docs/src/fem.md)
+depend on the selected formulation. See the [FEM guide](docs/src/fem.md)
 and [cable data model](docs/src/data-model.md).
 
 See the [documentation](https://electa-git.github.io/LineCableModels.jl/) and
@@ -193,7 +193,7 @@ See the [documentation](https://electa-git.github.io/LineCableModels.jl/) and
 ## License and citation
 
 LineCableModels.jl is distributed under the [BSD 3-Clause License](LICENSE).
-The optional FEM backend invokes third-party GetDP under its own license; see
+The optional FEM backend invokes third-party GetDP under its own license. See
 [Third-party notices](THIRD_PARTY_NOTICES.md). Citation metadata is provided in
 [CITATION.cff](CITATION.cff).
 

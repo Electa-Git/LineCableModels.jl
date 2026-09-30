@@ -1,7 +1,7 @@
 # Manual FEM sweep for the two bare underground wires case.
 #
 # Run from the repository root with:
-#     julia --project=gauntlet test/manual/calculations/run_two_bare_wires_fem.jl
+#     `julia --project=gauntlet test/manual/calculations/run_two_bare_wires_fem.jl`
 #
 # The script leaves the scalar FEM and analytical results in the corresponding
 # `case_*_results` arrays, and their admittance tensors in the corresponding
@@ -34,7 +34,7 @@ external_radius_grid = Grid([0.1e-2, 1.0e-2, 8.5e-2])
 function build_two_bare_wires_problem(
         external_radius, earth_rho, frequencies; vert = installation_z
 )
-    # Keep this construction aligned with gauntlet/cases/two_bare_wires.jl.
+    # Keep this construction aligned with `gauntlet/cases/two_bare_wires.jl`.
     materials = MaterialsLibrary(add_defaults = true)
     copper = Material(materials, :copper)
     design = build(
@@ -202,7 +202,7 @@ case_2_admittance = [observe(result, Y) for result in case_2_results]
 case_2_run_directories = [details(result).data.fem.run.run_directory
                           for result in case_2_results]
 
-# Default analytical/coaxial formulation, evaluated over the same two problem
+# Default analytical coaxial formulation, evaluated over the same two problem
 # spaces so that each result has the same parameter ordering as its FEM peer.
 analytical_formulation = Formulation()
 
@@ -295,7 +295,7 @@ println("The 4.25 cm, 0.1 Ohm.m point for case 2 is case_1_results[1].")
 using GLMakie
 
 # Before: a Y request could pair G/B in one figure. Now plot_1 and plot_2
-# each hold separate G and B figures; layout=(2,2) is coefficient capacity.
+# each hold separate G and B figures. Layout=(2,2) is coefficient capacity.
 case_1_plot_results = vcat(case_1_results, case_1_analytical_results)
 case_1_plot_labels = vcat(
     ["FEM: ρ = $(ρ) Ω·m" for ρ in soil_resistivity_grid],

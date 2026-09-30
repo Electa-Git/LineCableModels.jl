@@ -101,10 +101,10 @@
         )))
         @test documented_files == formula_files
 
-        # Every registered choice must reach a real description. Whether its
+        # Each registered choice must produce a real description. Whether its
         # sole authority dispatches on an instance or its type is not a docs
-        # invariant; indexing the method-signature representation rejected
-        # legitimate type/instance delegation without checking this behavior.
+        # invariant. Indexing the method-signature representation rejected
+        # legitimate type or instance delegation without checking this behavior.
         for identifier in category.registry
             selected=category.module_owner.Formula(identifier)
             @test formula_id(selected)===(identifier === :default ?
@@ -127,8 +127,8 @@
         end
     end
 
-    # Scientific documentation belongs to the implemented equation method;
-    # description methods retain only their compact and full labels.
+    # Scientific documentation belongs to the implemented equation method.
+    # Description methods retain only their compact and full labels.
     for (owner, name, identifier, kind, first_layer, second_layer) in (
         (LineCableModels.Engine.EarthImpedance, :earth_impedance, :saad1996, :self, 2, 2),
         (LineCableModels.Engine.EarthImpedance,

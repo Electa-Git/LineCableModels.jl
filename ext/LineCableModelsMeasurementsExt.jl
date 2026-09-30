@@ -35,8 +35,8 @@ nominal(value::Measurements.Measurement) = measured_value(value)
 uncertainty(value::Measurements.Measurement) = measured_uncertainty(value)
 
 # Refinement must still see an uncertain contribution whose nominal value is
-# zero. Physical evaluations retain their correlated derivative information;
-# only the scalar numerical error metric and sampling coordinates are nominal.
+# zero. Physical evaluations retain their correlated derivative information.
+# Only the scalar numerical error metric and sampling coordinates are nominal.
 function Engine.numerical_magnitude(z::Complex{<:Measurements.Measurement})
     return max(abs(measured_value(z)),
         hypot(measured_uncertainty(real(z)), measured_uncertainty(imag(z))))
@@ -214,7 +214,7 @@ function _lift_complex(function_value, order, value::Complex{<:Measurements.Meas
     end
     dx, dy = derivative, im * derivative
     # Scaled I/J/Y are not holomorphic. Differentiate their scaling in Cartesian
-    # coordinates; sign(0)=0 retains the symmetric slope at an absolute-value cusp.
+    # coordinates. `sign(0)=0` retains the symmetric slope at an absolute-value cusp.
     if function_value === SpecialFunctions.besselix
         dx -= sign(real(z)) * result
     elseif function_value in (SpecialFunctions.besseljx, SpecialFunctions.besselyx)
@@ -271,8 +271,8 @@ end
 
 """
 Lift local capacitance through its fixed-resolution least-squares equations.
-Independent uncertainty directions preserve the original Measurement graph;
-only the nominal factorization and bounded Float64 derivative blocks are dense.
+Independent uncertainty directions preserve the original Measurement graph.
+Only the nominal factorization and bounded Float64 derivative blocks are dense.
 Kernel derivatives use centered steps, checked by halving the step. This avoids
 both a dense Measurement matrix and repeated perturbed factorizations.
 """
@@ -289,12 +289,12 @@ function Engine.internal_shunt_response(selected::Engine.ShuntModel.Formula{:bou
             C = eltype(values).(result.C), diagnostic = result.diagnostic, state = nothing)
     end
     # Columns are physical perturbations per standard deviation of each
-    # independent input. This normalization does not change their distribution.
+    # independent input. Their distribution remains unchanged by this normalization.
     directions = [Float64(derivative(value, tag)*tag[2]) for value in values, tag in tags]
     result = Engine.internal_shunt_response(
         selected, nominal_values, domain; directions, kwargs...)
     # Return sensitivities through the original physical arguments, including
-    # shared/dependent ones. A small rank-revealing solve handles redundant
+    # shared and dependent ones. A small rank-revealing solve handles redundant
     # descriptors without creating new independent Measurement identities.
     factor = svd(transpose(directions))
     cutoff = max(size(directions)...)*eps(Float64)*maximum(factor.S)

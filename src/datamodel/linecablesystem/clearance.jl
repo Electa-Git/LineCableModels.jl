@@ -3,18 +3,18 @@ const _CABLE_CLEARANCE = 1.0e-6
 
 # A scoped value, not process-global mutable state: nested user builders can
 # participate without acquiring an extra public argument. Each sampling task
-# owns its records and counters.
+# maintains its records and counters.
 const _CLEARANCE_CONTEXT = Base.ScopedValues.ScopedValue{Any}(nothing)
 
 function _clearance_exterior(design, pose)
     shape = boundary(design.geometry)
     if shape isa Disk
-        # Keep eccentric/uncertain local @at coordinates in the center, not
+        # Keep eccentric or uncertain local @at coordinates in the center, not
         # inside a norm about the declaration origin (undefined derivative at 0).
         reserve = uncertainty(outer_radius(design))
         if !isfinite(reserve)
-            # At the origin, norm(x,y) is not differentiable. Its RMS offset
-            # bounds the standard deviation; retain that conservative reserve
+            # At the origin, `norm(x,y)` has no derivative. Its RMS offset
+            # bounds the standard deviation. Retain that conservative reserve
             # without manufacturing an independent Measurement.
             reserve = uncertainty(shape.r) + hypot(uncertainty(shape.at.x), uncertainty(shape.at.y))
         end
@@ -54,27 +54,27 @@ where all lengths and standard uncertainties are in \\[m\\]. Diagonal entries
 retain the corresponding interface clearance. Supplied `required` values
 retain the original uncertainty budget after stochastic sampling.
 
-Circular boundaries use their composed centers and physical radii; other
-boundaries use their containing circles. A nominally zero uncertain circular
+Circular boundaries use their composed centers and physical radii. Other
+geometric boundaries use their containing circles. A nominally zero uncertain circular
 offset uses its RMS displacement as a conservative radius-uncertainty reserve.
 
-Nominal overlaps are rejected; `sampling=true` permits construction of a
+Nominal overlaps are rejected. `sampling=true` permits construction of a
 feasible realization from an already checked declaration. With `adjust=false`,
 only validate the supplied geometry and clearance requirements.
 
 # Arguments
 
-- `designs`: Completed cable designs in placement order.
-- `poses`: Cable translations \\[m\\] and rotations \\[rad\\] in the system frame.
+- `designs`: completed cable designs in placement order.
+- `poses`: cable translations \\[m\\] and rotations \\[rad\\] in the system frame.
 
 # Keywords
 
-- `required=nothing`: Retained pairwise and interface clearance matrix \\[m\\].
-- `reference=poses`: Declared poses used to distinguish nominal overlaps from sampled ones.
-- `interface=false`: Enforce clearance from the air-earth interface.
-- `sampling=false`: Permit correction of overlaps produced by a sampled declaration.
-- `adjust=true`: Resolve placements; `false` performs validation only.
-- `reference_centers=nothing`: Composed exterior-center poses retained before sampling.
+- `required=nothing`: retained pairwise and interface clearance matrix \\[m\\].
+- `reference=poses`: declared poses used to distinguish nominal overlaps from sampled ones.
+- `interface=false`: enforce clearance from the air-earth interface.
+- `sampling=false`: permit correction of overlaps produced by a sampled declaration.
+- `adjust=true`: resolve placements. `false` performs validation only.
+- `reference_centers=nothing`: composed exterior-center poses retained before sampling.
 
 # Returns
 
@@ -158,7 +158,7 @@ function clearance_geometry(designs, poses;
     end
 
     if interface
-        # A common translation within each half-space preserves all distances
+        # A common translation within each half-space leaves distances unchanged
         # within that group and increases separation from the other group.
         for side in (-1, 1)
             indices = findall(pose -> sign(nominal(pose.y)) == side, reference_centers)
@@ -236,7 +236,7 @@ $(TYPEDSIGNATURES)
 
 Materialize one unresolved line-system point to retain its uncertainty-bearing
 clearance requirements before sampling. Return task-scoped construction records
-and adjustment counters; do not consume the sampling RNG.
+and adjustment counters. Do not consume the sampling RNG.
 """
 function collect_clearance_requirements(point)
     clearance = (records = Any[], references = IdDict{Any, Any}(),
@@ -245,7 +245,7 @@ function collect_clearance_requirements(point)
     clearance.declaration[] = Base.ScopedValues.with(_CLEARANCE_CONTEXT => clearance) do
         if Base.get_extension(parentmodule(@__MODULE__), :LineCableModelsMeasurementsExt) === nothing
             # Monte Carlo remains usable without Measurements. The geometric
-            # constraint still applies to every draw; propagated uncertainty
+            # constraint still applies to every draw. Propagated uncertainty
             # reserves are available when Measurements is loaded.
             realize(point, realize_arguments(Random.Xoshiro(0), point,
                 (_rng, mean, _sigma) -> mean))
@@ -293,7 +293,7 @@ end
 $(TYPEDSIGNATURES)
 
 Emit one aggregate warning if any sampled placements required adjustment.
-Return `nothing`; no warning is emitted for an unchanged geometry.
+Return `nothing`. No warning is emitted for an unchanged geometry.
 """
 function warn_clearance_summary(clearance)
     summary = clearance_summary(clearance)

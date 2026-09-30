@@ -29,7 +29,7 @@ Construct cable datasheet information from named values.
 
 # Keywords
 
-- `values...`: Datasheet fields. Names and value types are retained exactly.
+- `values...`: datasheet fields. Names and value types are retained exactly.
 
 # Returns
 

@@ -2,7 +2,7 @@
 $(TYPEDSIGNATURES)
 
 Track current eigenpairs by Newton–Raphson refinement of the normalized
-admittance–impedance product:
+admittance-impedance product:
 
 ```math
 A = YZ/\\|YZ\\|_2,\\qquad
@@ -14,10 +14,10 @@ Here `Z` and `Y` are per-length matrices in \\[Ω/m\\] and \\[S/m\\]. Each
 eigenpair starts from the previous stored frequency. The seed is ordered by
 decreasing attenuation. Failed iterations or duplicate eigenpairs use a direct
 eigendecomposition at the same frequency, greedily matched by column overlap.
-No physical reevaluation or additional frequency samples are required.
+The calculation uses the existing physical evaluation and frequency samples.
 
 `iteration.convergence=1e-9` bounds the largest absolute Newton correction in
-the normalized problem; `iteration.max_iterations=60` limits each eigenpair.
+the normalized problem. `iteration.max_iterations=60` limits each eigenpair.
 Misses are recorded and warned about, without discarding the fallback result.
 
 Adapted from `eig_newton` in the supplied UniversalLineModel `modal.jl`, based on

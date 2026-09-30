@@ -446,9 +446,9 @@ end
 $(TYPEDSIGNATURES)
 
 Materialize retained R/L/C/G marginal summaries as an uncertainty-bearing core
-result using `source`'s physical axes. The summaries carry native units and
+result using `source`'s physical axes. The summaries include native units and
 their standard deviations describe output spread, not uncertainty of the mean.
-`details` defaults to the source's supplemental output; MC computation selects
+`details` defaults to the source's supplemental output. MC computation selects
 only its point-wide metadata. Neither histogram bins nor sample retention
 participate in this construction.
 """

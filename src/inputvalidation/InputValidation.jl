@@ -3,7 +3,7 @@
 
 Check materialized inputs before they enter another construction or numerical
 operation. Concrete input types implement [`validate`](@ref) beside their type
-definitions. A successful method returns its argument unchanged; rejected
+definitions. A successful method returns its argument unchanged. Rejected
 inputs raise a native exception identifying the failed condition.
 """
 module InputValidation

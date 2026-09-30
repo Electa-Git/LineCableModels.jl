@@ -125,7 +125,7 @@ jobs:
         run: julia --project=test/coverage --color=yes test/coverage.jl clean
       - name: Collect core and non-graphical extension coverage
         run: julia --project=. --color=yes -e 'using Pkg; Pkg.test(coverage = true)'
-      - name: Collect core-only boundary coverage
+      - name: Collect core-only loading coverage
         if: ${{ !cancelled() }}
         run: |
           julia --project=test/core --code-coverage=@. --color=yes -e 'using Pkg; Pkg.instantiate()'
@@ -141,10 +141,10 @@ jobs:
             push!(ARGS, "tag:visual")
             include("test/runtests.jl")
           '
-      - name: Collect Cairo activation boundary coverage
+      - name: Collect Cairo activation coverage
         if: ${{ !cancelled() }}
         run: julia --project=test/visual --code-coverage=@. test/runtests.jl "loaded extension activation"
-      - name: Collect GLMakie boundary coverage
+      - name: Collect GLMakie loading coverage
         if: ${{ !cancelled() }}
         shell: bash
         run: |
@@ -162,7 +162,7 @@ jobs:
       - name: Collect native FEM UI lifecycle coverage
         if: ${{ !cancelled() }}
         run: xvfb-run -a julia --project=test --code-coverage=@. test/runtests.jl extensions/fem_ui.jl
-      - name: Collect WGLMakie boundary coverage
+      - name: Collect WGLMakie loading coverage
         if: ${{ !cancelled() }}
         run: |
           julia --project=. --code-coverage=@. --color=yes -e '
@@ -174,7 +174,7 @@ jobs:
             push!(ARGS, "loaded extension activation")
             include(joinpath(pwd(), "test", "runtests.jl"))
           '
-      - name: Collect remote PSCAD runner boundary coverage
+      - name: Collect remote PSCAD runner coverage
         if: ${{ !cancelled() }}
         run: |
           julia --project=ext/LineCableModelsPSCADExt/remote --code-coverage=@. --color=yes -e 'using Pkg; Pkg.instantiate()'
@@ -284,9 +284,61 @@ jobs:
       - name: Run doctests
         run: julia --project=docs --color=yes docs/doctest.jl
       - name: Build documentation
+        id: docs_build
         run: julia --project=docs --color=yes docs/make.jl
+      - uses: actions/setup-node@v6
+        with:
+          node-version: "24"
+      - name: Install writing tools
+        id: prose_tools
+        shell: bash
+        run: |
+          set -euo pipefail
+          tools="$RUNNER_TEMP/prose-tools"
+          mkdir -p "$tools" "$RUNNER_TEMP/prose-reports"
+          release=https://github.com/vale-cli/vale/releases/download/v3.23.0
+          curl --fail --location --retry 3 "$release/vale_3.23.0_Linux_64-bit.tar.gz" -o "$tools/vale.tar.gz"
+          curl --fail --location --retry 3 "$release/vale_3.23.0_checksums.txt" -o "$tools/checksums.txt"
+          expected=$(awk '$2 == "vale_3.23.0_Linux_64-bit.tar.gz" {print $1}' "$tools/checksums.txt")
+          test -n "$expected"
+          echo "$expected  $tools/vale.tar.gz" | sha256sum --check
+          tar -xzf "$tools/vale.tar.gz" -C "$tools"
+          npm install --prefix "$tools" --no-save --package-lock=false cspell@10.3.6
+          echo "$tools" >> "$GITHUB_PATH"
+          echo "$tools/node_modules/.bin" >> "$GITHUB_PATH"
+          "$tools/vale" sync --no-global --config=.github/prose/vale.ini
+      - name: Select all maintained writing
+        id: prose_inputs
+        run: bash .github/prose/files.sh "$RUNNER_TEMP/prose-reports"
+      - name: Verify writing rules and exclusions
+        shell: bash
+        run: |
+          set -euo pipefail
+          vale test --no-global --config=.github/prose/vale.ini --coverage .github/prose/styles/Project .github/prose/fixtures | tee "$RUNNER_TEMP/prose-reports/rules.log"
+          bash .github/prose/fixtures/check.sh | tee "$RUNNER_TEMP/prose-reports/checks.log"
+      - name: Check prose with Vale
+        if: ${{ !cancelled() && steps.prose_tools.outcome == 'success' && steps.prose_inputs.outcome == 'success' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          mapfile -t files < "$RUNNER_TEMP/prose-reports/vale-files.txt"
+          vale --no-global --config=.github/prose/vale.ini --no-color "${files[@]}" 2>&1 | tee "$RUNNER_TEMP/prose-reports/vale.log"
+      - name: Check spelling with cspell
+        if: ${{ !cancelled() && steps.prose_tools.outcome == 'success' && steps.prose_inputs.outcome == 'success' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          mapfile -t files < "$RUNNER_TEMP/prose-reports/cspell-files.txt"
+          cspell lint --config=.github/prose/cspell.json --no-progress --no-cache "${files[@]}" 2>&1 | tee "$RUNNER_TEMP/prose-reports/cspell.log"
+      - name: Retain writing reports
+        if: ${{ !cancelled() && steps.docs_build.outcome == 'success' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: writing-reports
+          path: ${{ runner.temp }}/prose-reports
+          if-no-files-found: error
       - name: Deploy documentation
-        if: github.event_name == 'push'
+        if: ${{ success() && github.event_name == 'push' }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           DOCUMENTER_KEY: ${{ secrets.DOCUMENTER_KEY }}

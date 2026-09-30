@@ -39,8 +39,7 @@
         parameters, modal, benchmark, benchmark.Z, workspaces...
     )
 
-    # REPL inspection must identify the requested computation, not dump matrix
-    # contents, solve a problem, or require the optional backend to be loaded.
+    # REPL inspection identifies the requested computation. It must leave matrix contents undisplayed and avoid solving problems or loading optional backends.
     before=(copy(parent(parameters.Z)), copy(parent(parameters.Y)))
     for object in objects
         compact=sprint(show, object)
@@ -111,7 +110,7 @@ end
         for reason in estimate.reasons
             @test occursin(reason, shown)
         end
-        # Patterns share their display method; the ranked endpoints suffice.
+        # Patterns share their display method. The ranked endpoints suffice.
         for pattern in (first(patterns), last(patterns))
             @test occursin("$(pattern.wires) wires", sprint(summary, pattern))
             compact = sprint(show, pattern)

@@ -11,18 +11,18 @@ palettes, legend grouping, layout helpers, widgets, and native rendering.
 
 ## Formula selection and descriptions
 
-`formula_id` identifies a scientific selection; `description` supplies its
+`formula_id` identifies a scientific selection. `description` supplies its
 human-readable text. Registered formula types implement
 `description(::Type{<:OwnedFormula{:ID}}; compact=false)`, and their instances
 delegate with the same keyword. The default is the detailed scientific
-description; `compact=true` is the short name used in legends. Override this
+description. `compact=true` is the short name used in legends. Override this
 method to customize a name, not `formula_id`.
 
 A family declares independently selectable children through
 `pairs(Family.Formula; quantity=nothing)`, returning ordered `slot => family`
 pairs, or an empty mapping for a scalar leaf. Constructors, retained-record
 readers and formulation projections use that same owner declaration.
-Internal impedance admits `inner`, `outer`, `transfer`; the external earth
+Internal impedance admits `inner`, `outer`, `transfer`. The external earth
 families admit `air`, `earth`, `mixed`. Explicit composites retain every branch,
 including default branches, in quantity-relevant legends.
 
@@ -37,28 +37,28 @@ including PSCAD's native defaults.
 
 ## User-owned equations
 
-Select a concrete type directly in the physical slot, for example
+Select a concrete type directly in the physical slot, such as
 `Formulation(earth_properties=MySoil(...))`.
 `FormulaMethod(selected, operation, Val(...), ...)` calls the operation with the
-selected object first; IDs are for inspection only. `:default` resolves to an
+selected object first. IDs are for inspection only. `:default` resolves to an
 explicit implementation before physical validation or computation.
 
 | Family | User type and owning operation |
 |---|---|
-| Internal impedance | `Engine.InternalImpedanceFormulation`; `InternalImpedance.internal_impedance(selected, Val(kind), functor, workspace)` |
-| Insulation impedance | `Engine.InsulationImpedanceFormulation`; `InsulationImpedance.insulation_impedance(selected, r_in, r_ex, mu_r, s, parameters, options, workspace)` |
-| Insulation / semicon admittivity | Corresponding `Engine.*AdmittanceFormulation`; `insulation_material` / `semicon_material(selected, material, frequency, temperature, parameters, options, workspace)` |
-| Earth impedance / potential | Corresponding `Engine.Earth*Formulation`; `earth_impedance` / `earth_potential_coefficient(selected, Val(kind), Val(source), Val(target), functor, pair, workspace)` |
-| Soil frequency dependence | `Earth.FrequencyDependent.FrequencyDependentFormulation`; `earth_material(selected, material, frequency, parameters, options, workspace)` |
-| Temperature dependence | `Materials.TemperatureDependent.TemperatureDependentFormulation`; `temperature_resistivity(selected, material, temperature, parameters, options, workspace)` |
-| Equivalent earth | `Earth.EquivalentHomogeneous.AbstractRule`; `equivalent_material(selected, Val(kind), Val(source), Val(target), rho, eps_r, mu_r, model, pair, frequency, parameters, options, workspace)` |
-| Modal decomposition | `AbstractFormulation`, selected by `ModalAnalysisFormulation`; `Engine.initialize_buffers(selected, T, input, invariants, common)` and `ModalAnalysis.decompose!(selected, workspace, parameters, options)` |
-| Local shunt geometry | `Engine.ShuntModelFormulation`; `Engine.internal_shunt_response(selected, design, geometry, T, material_selections, solutions, design_index)` during blueprint construction |
-| Pipe applicability | `Engine.PipeImpedanceFormulation`; `Formulation(backend, selected, Val(topology))`. No analytical pipe equation is supplied. |
+| Internal impedance | `Engine.InternalImpedanceFormulation`. `InternalImpedance.internal_impedance(selected, Val(kind), functor, workspace)` |
+| Insulation impedance | `Engine.InsulationImpedanceFormulation`. `InsulationImpedance.insulation_impedance(selected, r_in, r_ex, mu_r, s, parameters, options, workspace)` |
+| Insulation / semicon admittivity | Corresponding `Engine.*AdmittanceFormulation`. `insulation_material` / `semicon_material(selected, material, frequency, temperature, parameters, options, workspace)` |
+| Earth impedance / potential | Corresponding `Engine.Earth*Formulation`. `earth_impedance` / `earth_potential_coefficient(selected, Val(kind), Val(source), Val(target), functor, pair, workspace)` |
+| Soil frequency dependence | `Earth.FrequencyDependent.FrequencyDependentFormulation`. `earth_material(selected, material, frequency, parameters, options, workspace)` |
+| Temperature dependence | `Materials.TemperatureDependent.TemperatureDependentFormulation`. `temperature_resistivity(selected, material, temperature, parameters, options, workspace)` |
+| Equivalent earth | `Earth.EquivalentHomogeneous.AbstractRule`. `equivalent_material(selected, Val(kind), Val(source), Val(target), rho, eps_r, mu_r, model, pair, frequency, parameters, options, workspace)` |
+| Modal decomposition | `AbstractFormulation`, selected by `ModalAnalysisFormulation`. `Engine.initialize_buffers(selected, T, input, invariants, common)` and `ModalAnalysis.decompose!(selected, workspace, parameters, options)` |
+| Local shunt geometry | `Engine.ShuntModelFormulation`. `Engine.internal_shunt_response(selected, design, geometry, T, material_selections, solutions, design_index)` during blueprint construction |
+| Pipe applicability | `Engine.PipeImpedanceFormulation`. `Formulation(backend, selected, Val(topology))`. No analytical pipe equation is supplied. |
 
 `parameters` are model data and `options` are formulation-owned physical choices
 and numerical controls. Custom constructors validate and normalize their own `FormulationOptions`.
-Execution controls use `ComputationOptions`; completed supplemental output uses
+Execution controls use `ComputationOptions`. Completed supplemental output uses
 `ComputationDetails`. Read their payloads explicitly through `.data`.
 Indexed families declare numerical defaults for the actual selected type and
 case with `formulation_options(::FormulaMethod{<:MyType,typeof(operation),...})`.
@@ -70,38 +70,39 @@ as a scalar or a frequency-aligned vector. Its precision participates in
 allocation of the calculation's numerical storage. The positive-time convention
 and explicit convention conversions are documented with the Unified equations.
 
-Coaxial equations and material laws receive the owning computation workspace,
+Coaxial equations and material laws receive the defining computation workspace,
 or `nothing` for a standalone evaluation that does not require it. Numerical arrays are in
-`workspace.buffers`; the workspace input and bindings remain the authority for
-geometry and material mappings. An algebraic equation needs no allocation method.
-An equation needing scratch extends
+`workspace.buffers`. The workspace input and bindings remain the authority for
+geometry and material mappings. An allocation method is unnecessary for an algebraic equation.
+For an equation that needs scratch, extend
 `Engine.initialize_buffers(selected, T, input, invariants, buffers)` to return
 the record extended with owned arrays only. Only selections reached by the
 required indexed calls participate in initialization, before evaluating materials
-or equations; unused recipe branches allocate nothing.
-The default requires no extra storage. Existing arrays may not be replaced.
+or equations. Unused recipe branches remain unallocated.
+The default uses only existing storage. Existing arrays may not be replaced.
 Numerical formulas provision the common quadrature storage through
-`Engine.initialize_buffers(Val(:quad), T, input, invariants, buffers)`; an
+`Engine.initialize_buffers(Val(:quad), T, input, invariants, buffers)`. An
 integration option is not a capability declaration. Cable constants uses this
 same buffer-initialization method with its local numerical input and no earth invariants.
 
-Each formula owns its complete integrand, transformations, Jacobians, branch
+Each formula defines its complete integrand, transformations, Jacobians, branch
 choices and physical subdivision hints. `SpectralIntegral` contains only that
 callable. `integrate` passes it and the supplied numeric subdivision points to
 QuadGK. Physical expressions and subdivision choices belong to each formula.
 
 `ShuntModel` owns conductor and dielectric geometry extraction, numerical coefficients and the requested fallback
 model. Its `blueprint_dependencies` methods identify the actual local selections
-that affect those coefficients; Engine uses that dependency record for reuse
-within one blueprint construction. Only completed coefficient blocks survive
-that construction; the charge-system factorization and workspace are reused there.
+that affect those coefficients. Engine uses that dependency record for reuse
+within one blueprint construction. Completed coefficient blocks are retained
+after construction. The charge-system factorization and workspace are reused
+only during construction.
 
 The existing `Engine.earth_bindings` constructor binds material interactions and
 output entries. A coupled formula can extend its selected-type method to require
 the complete system and its two-selection method to bind compatible Z/P consumers.
 `Engine.earth!` then performs the actual calculation from completed material
 inputs and writes the selected destinations. Unpaired selections use its ordinary
-indexed implementation. All selections use the Engine frequency sequence and
+indexed implementation. Each selection uses the Engine frequency sequence and
 its computation workspace.
 
 Internal state is constructed once per conductor and frequency through the selected
@@ -114,7 +115,7 @@ Results use result-type and unit checks for each formula family, including custo
 Impedances are in Ω/m, material admittivities in S/m, earth potential coefficients
 in m/F, and temperature-law resistivities in Ω·m. Scalar material laws return
 `EarthMaterial` or a finite scalar as appropriate. Modal equations write
-`workspace.Tv`, `workspace.Ti`, and `workspace.roots`; the owner constructs
+`workspace.Tv`, `workspace.Ti`, and `workspace.roots`. The owner constructs
 `ModalOperators` and intrinsic coefficients after decomposition. Supply
 `formula_id`, `description`, `NamedTuple` and
 `formulation_options` methods for metadata. Serialized identities and data do
@@ -124,10 +125,10 @@ not reconstruct executable methods. See the [temperature-law example](engine.md#
 
 The following complete one-mode example implements a custom modal equation.
 The modal workspace supplies common slices, coordinate conversion scratch, the
-admittance–impedance product, eigenpair history and voltage-vector scratch.
+admittance-impedance product, eigenpair history and voltage-vector scratch.
 `initialize_buffers` extends that record only for additional numerical work.
 It assumes a completed one-mode phase scan named `phase`, with nonzero
-diagonal coefficients and known source length. The example is algebraic; it
+diagonal coefficients and known source length. The example is algebraic. It
 does not replace a broadband modal model.
 
 ```julia
@@ -175,16 +176,14 @@ size(H(segment)) == size(gamma(modal))
 ```
 
 Only the selected equation's `initialize_buffers` method runs. The common
-workspace supplies per-frequency normalization and coordinate scratch; the
+workspace supplies per-frequency normalization and coordinate scratch. The
 equation owns `diagonal_product`. It writes phase-row by mode-column bases
-and mode-by-frequency roots. The owner checks structural shape and finite
-arithmetic, computes the intrinsic coefficients, copies returned arrays, and
-records diagnostics. Numerical targets are reported as warnings and facts,
+and mode-by-frequency roots. The owner checks structural shape and finite arithmetic before computing intrinsic coefficients. It then copies the returned arrays and records diagnostics. Numerical targets are reported as warnings and facts,
 without becoming result-admission rules.
 
 ## Input validation
 
-A materialized input owns one direct `validate(::OwnedType)` method. The method
+A materialized input defines one direct `validate(::OwnedType)` method. The method
 returns its argument unchanged or throws a native Julia exception identifying
 the rejected field and value:
 
@@ -213,7 +212,7 @@ function validate(value::Annulus)
 end
 ```
 
-Constructors normalize their admitted grammar; the owning `validate` method
+Constructors normalize their admitted grammar. The owning `validate` method
 checks the completed value directly and returns it unchanged.
 
 ```@docs

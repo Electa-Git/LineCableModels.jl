@@ -1,8 +1,8 @@
 @testmodule ModalStudyFixtures begin
     using LineCableModels
 
-    # Explicit toy, nondispersive properties. These are not measured or certified
-    # broadband cable data. The armor is an annular equivalent, not discrete wires.
+    # Explicit toy, nondispersive properties. These properties lack measurement or certification
+    # as broadband cable data. The armor uses an equivalent annulus without discrete wires.
     function material(kind,rho,eps_r,mu_r,alpha;tan_delta=0.0)
         return Material(kind,rho,eps_r,mu_r,20.0,alpha;
             rho_thermal=0.0,theta_max=90.0,tan_delta,sigma_solar=0.0)

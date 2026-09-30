@@ -51,8 +51,8 @@
         @test !endswith(sprint(show, MIME"text/plain"(), object), '\n')
     end
 
-    # These are scientific descriptions, not dumps of implementation type
-    # parameters. Check the quantities and identities, not cosmetic whitespace.
+    # Scientific descriptions report physical quantities and identities. Implementation
+    # type parameters are excluded. Check the quantities and identities, not cosmetic whitespace.
     @test occursin("mm", sprint(show, Disk(1e-3)))
     @test occursin("capacity()", sprint(show, Ring(capacity())))
     @test occursin("at=", sprint(show, DM.resolve(pose, Disk(1e-3))))

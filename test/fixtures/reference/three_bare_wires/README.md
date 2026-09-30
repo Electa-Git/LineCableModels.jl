@@ -1,24 +1,24 @@
-# Three bare wires: retained baseline
+# 3 bare wires: retained baseline
 
 The physical fixtures live in `test/support/scenarios.jl` and select no formula.
 Run `dev/run_three_bare_wires_baseline.jl` in an environment with this package
-and Gmsh available; the script does not activate or install an environment.
+and Gmsh available. The script does not activate or install an environment.
 
 Each additive `capture-*` directory retains five complete nine-frequency scans
 for current unified and FEM (`quasi_tem`), or the actual failure for each scan.
 CSV files contain every ordered entry of phase-domain Z [Ω/m] and Y [S/m] with
 round-trip Float64 precision. The manifest records inputs, source revisions,
 timings, failures and file hashes. FEM artifacts remain at the recorded persistent
-run directories under `.linecablemodels/fem`; preserve those directories with
-the capture. Nothing here silently approves a reference or sets tolerances.
+run directories under `.linecablemodels/fem`. Preserve those directories with
+the capture. Reference approval and tolerance selection require a separate decision.
 
 The baseline was reviewed before production cleanup. The human authorized
 non-degradation of the observed agreement, allowing improvement and insignificant
-Y changes; this does not assert exact FEM agreement. Other formulas can reuse the
+Y changes. This does not assert exact FEM agreement. Other formulas can reuse the
 physical fixtures without inheriting the unified comparison requirement.
 
 `capture-20260917T102438-Nt9nic` is the immutable pre-refactor baseline.
-`validation-20260917T111424-R4HWRE` retains all post-refactor entries, before/after
+`validation-20260917T111424-R4HWRE` retains all post-refactor entries, before and after
 errors and fresh-workspace timings. Its comparison never reruns FEM or replaces
 the captured reference.
 
@@ -27,6 +27,6 @@ metadata, plus the Engine-convergence starting scan
 `validation-20260919T144543-aqKVmx` and final scan
 `validation-20260919T170632-eFIkJx`. Historical source copies, dirty patches,
 execution logs, native FEM artifacts and other intermediate validation captures
-remain local evidence; they are not required to run the maintained fixture tests.
+remain local evidence. They are not required to run the maintained fixture tests.
 Historical serialized problems retain their original schema and are not current
 execution inputs. Tests construct the physical fixture from `scenarios.jl`.

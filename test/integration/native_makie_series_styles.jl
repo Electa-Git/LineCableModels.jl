@@ -91,7 +91,7 @@ end
     options = (backend=:cairo, display_plot=false, controls=false, open_export=false)
     attributes = (color=:magenta,)
     parameters = TestFixtures.two_conductor_results()
-    # A common override reaches every matrix facet on every Z/Y page.
+    # A common override applies to each matrix facet on every Z/Y page.
     pages = LineCableModels.plot(parameters, (Z, Y); options...,
         series_attributes=attributes)
     @test length(pages) == 4
@@ -164,7 +164,7 @@ end
             fields=merge(completed_formulation(formulation),(inputs=inputs,)))
     end
     a=point(analytical,1)
-    # Synthetic numerical fixture retains a FEM identity; no FEM solve is claimed.
+    # Synthetic numerical fixture retains a FEM identity. No FEM solve is claimed.
     reference=point(fem,2)
     pages=LineCableModels.plot(a;ydata=(R,X,G,B),reference,length_unit=:base,options...)
     @test length(pages)==4

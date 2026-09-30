@@ -1,6 +1,6 @@
 # Shared numerical operations for frequency-tracked eigensystems.
 
-# Minimize the current column's imaginary norm, preserve the voltage/current
+# Minimize the current column's imaginary norm, preserve the voltage and current
 # pairing, then resolve the remaining sign against the previous frequency.
 function orient_modes!(voltage::AbstractArray{T, 3}, current::AbstractArray{T, 3},
         rotate::Bool) where {T <: Complex}

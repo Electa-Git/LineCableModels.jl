@@ -1,9 +1,9 @@
 // Quasi-TEM series impedance and scalar electrodynamic potential coefficients.
 // The independent A_z/u_r and v blocks share one assembled system and one
-// factorization per frequency. Z uses unit axial current [A]; P uses unit
-// outward transverse terminal current [A/m]. No small Gamma is required.
-// Each invocation owns one mesh/frequency and reuses its operator across
-// terminal excitations. Julia owns frequency scheduling and checkpoints.
+// factorization per frequency. Z uses unit axial current [A]. P uses unit
+// outward transverse terminal current [A/m]. Gamma need not be small.
+// Each invocation uses one mesh at one frequency and reuses its operator across
+// terminal excitations. Julia schedules frequencies and writes checkpoints.
 
 If(!Exists(RunDirectory))
   RunDirectory = "";
@@ -59,7 +59,7 @@ Group {
 
 Include "materials.pro";
 Group {
-  // Conductors are equipotential electrodes, not electric field media.
+  // Conductors are equipotential electrodes and are excluded from electric field media.
   DomainMedia_Ele = Region[{Air, AirInf, Earth, EarthInf, PassiveMaterialRegions}];
 }
 
@@ -207,7 +207,7 @@ Formulation {
       }
 
       // div(se grad(v)) + se k^2 v = 0, k^2 = -j omega mu se.
-      // The electric block retains diffusion/displacement at Gamma = 0.
+      // The electric block retains diffusion and displacement at Gamma = 0.
       Galerkin {
         [se[] * Dof{d v}, {d v}];
         In DomainMedia_Ele; Jacobian Vol; Integration I1;
@@ -268,7 +268,7 @@ Resolution {
       SetFrequency[Sys_FEM, FrequencyHz];
       SetTimeStep[1];
       // GetDP time is an output-step identity, not the physical frequency.
-      // The scan index avoids time-range failures; SetFrequency owns physics.
+      // Using the scan index avoids failures from time ranges. `SetFrequency` sets the physical frequency.
       SetTime[FrequencyIndex];
       Evaluate[$FEMFirstSolve = 1];
       For basis_slot In {0:#RequestedBases()-1}
@@ -299,7 +299,7 @@ PostProcessing {
       { Name bm; Value {
         Term { [Norm[{d a}]]; In Domain_Mag; Jacobian Vol; }
       }}
-      // These are two independent terminal excitations. Do not combine their
+      // The 2 terminal excitations are independent. Do not combine their
       // axial and transverse electric fields into a fictitious full-wave field.
       { Name e; Value {
         Term { [-{d v}]; In DomainMedia_Ele; Jacobian Vol; }

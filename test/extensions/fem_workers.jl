@@ -106,7 +106,7 @@ with open(sys.argv[1],'a+') as f:
             attempts=filter(isfile,[joinpath(d,"observed.json") for d in readdir(joinpath(run.path,"attempts");join=true)])
             @test any(p->JSON3.read(read(p,String)).bases==[2],attempts)
             @test E._parse_scan(run,model,form, execution_options).Z==scan.Z
-            # Concurrency is scheduling metadata; thread count records numerical execution.
+            # Concurrency is scheduling metadata. Thread count records numerical execution.
             one=merge(inputs,(execution=merge(execution,(frequency_workers=1,)),))
             threads=merge(inputs,(execution=merge(execution,(solver_threads=2,)),))
             @test E._resume_inputs_match(run.path,model,one)
@@ -135,7 +135,7 @@ with open(sys.argv[1],'a+') as f:
             @test failure isa LineCableModelsFEMError
             @test failure.field===:capability
             @test E._assert_no_live_attempts(unsupported)===nothing
-            # Cancellation kills and reaps workers and leaves no completion claim.
+            # Cancellation kills and reaps workers and does not report completion.
             stopped=fresh();write(config,JSON3.write((delay=2.0,fail=false)))
             @test_throws LineCableModelsFEMError E._run_getdp!(stopped,model,form, execution_options,meshes;
                 pump=()->stopped.getdp_invocations==0)

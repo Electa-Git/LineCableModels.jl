@@ -1,4 +1,4 @@
-"Return the normalization parameter of the Visacro–Portela soil relation."
+"Return the normalization parameter of the Visacro-Portela soil relation."
 assumptions(::Val{:visacro1987}) = (normalization_frequency = 100.0,)
 
 function validate(selected::Formula{:visacro1987})
@@ -10,7 +10,7 @@ end
 """
 $(TYPEDSIGNATURES)
 
-Visacro–Portela empirical power laws for soil conductivity and permittivity.
+Visacro-Portela empirical power laws for soil conductivity and permittivity.
 
 **Expression.** With ``\\sigma_0=1/\\rho_0``,
 

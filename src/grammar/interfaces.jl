@@ -4,13 +4,13 @@ $(SIGNATURES)
 Validate and normalize the options owned by a formulation type.
 
 The implementation that owns `FormulationType` defines a method for the type
-itself. No broad fallback exists. An unregistered formulation
+itself. Dispatch requires an explicitly supported type. An unregistered formulation
 raises `MethodError`.
 
 # Arguments
 
-- `owner`: Formulation-type dispatch token.
-- `options`: `FormulationOptions` supplied to the owning normalizer. Public
+- `owner`: formulation-type dispatch token.
+- `options`: `FormulationOptions` supplied to the defining normalizer. Public
   constructors also accept `options=(...)` shorthand and wrap it at entry.
 
 # Returns
@@ -27,12 +27,12 @@ Validate and normalize the options owned by one computation.
 
 The implementation that owns `OwnerType` defines a method for the type itself.
 `OwnerType` may identify a core solver or another composite calculation owner.
-No broad fallback exists. An unregistered owner raises `MethodError`.
+Dispatch requires an explicitly supported type. An unregistered owner raises `MethodError`.
 
 # Arguments
 
-- `owner`: Computation-owner dispatch token.
-- `options`: `ComputationOptions` supplied to the owning normalizer. Public
+- `owner`: computation-owner dispatch token.
+- `options`: `ComputationOptions` supplied to the defining normalizer. Public
   compute calls also accept `options=(...)` shorthand and wrap it at entry.
 
 # Returns
@@ -48,8 +48,8 @@ $(SIGNATURES)
 Return supplemental output owned by one core or composite computation.
 
 The formulation type defines a method for itself and returns a
-fixed-key [`ComputationDetails`](@ref) record. No broad fallback exists;
-an unregistered formulation raises `MethodError`.
+fixed-key [`ComputationDetails`](@ref) record. Dispatch requires an explicitly supported type.
+An unregistered formulation raises `MethodError`.
 """
 function computation_details end
 
@@ -69,7 +69,7 @@ Calculate a completed result from an explicit problem and formulation.
 Concrete solver methods validate and normalize execution `options` through
 [`computation_options`](@ref) for their owner. Composite computations may
 forward caller options to that solver for validation. Scientific choices use [`formulation_options`](@ref), and supplemental
-results use [`computation_details`](@ref). Unsupported problem/formulation
+results use [`computation_details`](@ref). Unsupported problem-formulation
 pairs fail through ordinary Julia dispatch.
 """
 function compute end
@@ -125,7 +125,7 @@ end
 
 Expand indexed observable syntax into an immediate [`observe`](@ref) call. The
 indices follow the selected observable. Ordinary line quantities use row,
-column, and sample indices; diagonal transforms use mode and sample indices.
+column, and sample indices. Diagonal transforms use mode and sample indices.
 """
 macro observe(source, request)
     selectors, indices = _observe_macro_parts(request)
@@ -147,11 +147,10 @@ descriptions, quantities, completed errors, and recorded timings. Quantity-wise
 tables are materialized by `ReportBuilder.tabulate` from these detached records. `units` is empty or
 positionally aligned with `requests`. With `clip=true` (default), the result
 owner's declared native-unit reporting resolution is applied before conversion.
-`atol` optionally overrides that resolution; multiple quantities require keyed
+`atol` optionally overrides that resolution. Multiple quantities require keyed
 cutoffs. `frequencies` supplies standalone tensor context \\[Hz\\]. These cutoffs
 are not certified floating-point error bounds. Each clipped value becomes exact
-zero, including its uncertainty. Quantities without a declared resolution or an
-explicit cutoff are unchanged. `clip=false` retains raw values in
+zero, including its uncertainty. Quantities lacking both a declared resolution and an explicit cutoff remain unchanged. `clip=false` retains raw values in
 the requested display units. Absolute/relative error products are never clipped
 using their operands' physical cutoffs.
 """

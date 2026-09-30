@@ -33,13 +33,12 @@ factors.
 
 # Arguments
 
-- `η`: One material-area fraction \\[dimensionless\\].
-- `values`: Two or more factors, or one tuple or vector of factors, defining
-  one factor per repeated course.
+- `η`: one material-area fraction \\[dimensionless\\].
+- `values`: two or more factors, or one tuple or vector of factors. Specify one factor per repeated course.
 
 # Keywords
 
-- `combine=:product`: Gridspace composition rule.
+- `combine=:product`: gridspace composition rule.
 
 # Returns
 

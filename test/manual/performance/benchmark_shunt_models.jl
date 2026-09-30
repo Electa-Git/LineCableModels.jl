@@ -1,6 +1,6 @@
-# Disposable public-API timings. Uses the active environment; never activates,
+# Disposable public-API timings. Uses the active environment. Never activates,
 # installs, updates, exports, or writes Gauntlet campaign artifacts.
-# The local Gauntlet environment supplies study dependencies through LOAD_PATH.
+# Study dependencies come from the local Gauntlet environment through LOAD_PATH.
 gauntlet_project = normpath(joinpath(@__DIR__, "..", "..", "..", "gauntlet"))
 gauntlet_project in LOAD_PATH || push!(LOAD_PATH, gauntlet_project)
 using LineCableModels, LinearAlgebra
@@ -24,7 +24,7 @@ for case_id in shunt_benchmark_cases
     coaxial=Formulation(; options = physical)
     println(
         "\n", case_id, " | default coaxial | ", length(problem.frequencies), " frequencies")
-    @time compute(problem, coaxial) # Warm-up; do not mix with the warm timings.
+    @time compute(problem, coaxial) # Warm-up. Do not mix with the warm timings.
     for repetition in 1:shunt_benchmark_repeats
         sample=@timed @time compute(problem, coaxial)
         push!(shunt_benchmark_rows,

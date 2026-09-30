@@ -38,7 +38,7 @@ const MAP = Dict{Symbol, Dict{String, String}}(
         "L" => "radially water-proof protection"
     ),
 
-    # Inner sheath (e.g., …XSH… : H before outer sheath)
+    # Inner sheath (such as `…XSH…`, with `H` before the outer sheath)
     :inner_sheath => Dict(
         "H" => "LSOH compound inner sheath",
     ),
@@ -79,7 +79,7 @@ const ORDER = [
     :insulation,
     :metallic_screen,
     :waterblocking,   # immediately after :metallic_screen, parenthesized
-    :inner_sheath,    # H before metallic sheath (e.g., …XSH…)
+    :inner_sheath,    # H before metallic sheath (such as …XSH…)
     :sheath,
     :armouring,
     :outer_sheath,
@@ -90,7 +90,7 @@ const ORDER = [
 
 escape_for_rx(s) = replace(s, r"([.^$|?*+\[\]{}\\])" => "\\\\\1")
 
-# Return the non-capturing alternation **as a string**, e.g. "(?:FL|F|L)"
+# Return the non-capturing alternation **as a string**, such as "(?:FL|F|L)"
 function union_pat_str(tokens::Vector{String})
     ts = sort(tokens; by = length, rev = true) # longest first
     "(?:" * join(escape_for_rx.(ts), "|") * ")"
@@ -103,11 +103,11 @@ const RXS = let rxs = Dict{Symbol, Regex}()
     for fld in ORDER
         fld_keys = collect(keys(MAP[fld]))
         if fld == :waterblocking
-            # parenthesized immediately after :metallic_screen (e.g., "(FL)"), anchored
+            # parenthesized immediately after :metallic_screen (such as "(FL)"), anchored
             core = union_pat_str(fld_keys)          # "(?:FL|F|L)"
             rxs[fld] = Regex("^\\(" * core * "\\)") # "^\((?:FL|F|L)\)"
         else
-            rxs[fld] = union_pat(fld_keys)          # e.g. "^(?:CE|SE|CW|S|C|H)"
+            rxs[fld] = union_pat(fld_keys)          # such as "^(?:CE|SE|CW|S|C|H)"
         end
     end
     rxs
@@ -158,7 +158,7 @@ Parse a VDE/DIN 0271 or 0276 cable designation.
 
 # Arguments
 
-- `code`: Cable designation containing the compact type token followed by
+- `code`: cable designation containing the compact type token followed by
   optional conductor count, cross-sections, voltage, and conductor form.
 
 # Returns
@@ -168,7 +168,7 @@ Parse a VDE/DIN 0271 or 0276 cable designation.
   text is returned under `:unparsed_stub`.
 """
 function vdeparse(code::AbstractString)::Dict{Symbol, String}
-    # Normalise spaces (NBSP to space) and trim the result.
+    # Normalize spaces (NBSP to space) and trim the result.
     s = replace(code, '\u00A0' => ' ')
     s = strip(s)
 
@@ -177,7 +177,7 @@ function vdeparse(code::AbstractString)::Dict{Symbol, String}
     if m === nothing
         return Dict{Symbol, String}()  # empty / whitespace line
     end
-    stub = m.match                   # e.g., "2XS(F)2Y"
+    stub = m.match                   # such as "2XS(F)2Y"
     tail = strip(s[(length(stub) + 1):end])
 
     # parse stub left-to-right
@@ -192,7 +192,7 @@ function vdeparse(code::AbstractString)::Dict{Symbol, String}
             out[fld] = MAP[fld][key]
             rest = rest[(length(tok) + 1):end]  # consume
         else
-            # Materialise values omitted by the source format.
+            # Materialize values omitted by the source format.
             if fld == :conductor
                 out[fld] = "copper conductor"
             elseif fld == :insulation

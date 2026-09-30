@@ -1,7 +1,7 @@
 # Insulation parameters
 
-The magnetic field in a dielectric region contributes series impedance;
-dielectric conduction and polarization contribute shunt admittance.
+The magnetic field in a dielectric region contributes to the series impedance.
+Dielectric conduction and polarization contribute to the shunt admittance.
 Potential coefficients from insulation layers and shared dielectric regions
 are assembled before matrix inversion, as set out in the
 [matrix formulation](matrix_formulation.md).

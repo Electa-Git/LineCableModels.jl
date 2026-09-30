@@ -17,8 +17,8 @@
     E.initialize_buffers(::BufferReplacement, ::Type, input, invariants,
         buffers) = merge(buffers, (destination = copy(buffers.destination),))
 
-    # These are consumer-owned scientific selections, not registrations or
-    # private constructors of built-in Formula types. The built-in formula lists stay closed.
+    # These scientific selections belong to the consumer and leave built-in
+    # Formula registrations and private constructors unchanged. The built-in formula lists remain closed.
     for (name, parent, owner, operation) in (
         (:LayerImpedance, E.EarthImpedanceFormulation, EI, EI.earth_impedance),
         (:LayerPotential, E.EarthAdmittanceFormulation, EA, EA.earth_potential_coefficient))
@@ -469,7 +469,7 @@
                 s::Val{2}, t::Val{2},
                 functor, pair, workspace)
             push!(selected.events, $(QuoteNode(event)))
-            # Manufactured diagonal-dominant coefficients test stage order,
+            # Manufactured coefficients with diagonal dominance test the stage order,
             # independently of any built-in author's numerical implementation.
             return $(owner === EI ? :(1e-4 + 1e-3im) : :(1e9)) *
                    (pair.row == pair.column ? 10 : 1)

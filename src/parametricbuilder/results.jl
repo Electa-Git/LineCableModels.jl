@@ -4,7 +4,7 @@ $(TYPEDEF)
 Evaluate every point in a [`ParametricProblem`](@ref) with `inner`.
 
 `inner` may be one completed formulation, a deterministic target-bearing
-formulation [`Gridspace`](@ref), or a deterministic [`Grid`](@ref) containing
+formulation [`Gridspace`](@ref) or a deterministic [`Grid`](@ref) containing
 completed formulations. Problem and formulation points always form a
 Cartesian product. Uncertainty belongs to the problem space and is rejected
 from the formulation source.
@@ -80,7 +80,7 @@ $(TYPEDEF)
 
 Pair a lazy parameter space with computation options for a higher-order
 calculation. A completed scalar problem is normalized to a singleton
-target-bearing `Gridspace`; the problem itself need not implement iteration.
+target-bearing `Gridspace`. The problem itself need not implement iteration.
 
 $(TYPEDFIELDS)
 """
@@ -249,7 +249,7 @@ end
 $(TYPEDSIGNATURES)
 
 Expose the formulation, ordered values, resolved axes and calculation details as
-a native record. Arrays and axes retain their identity; no calculation or copy is made.
+a native record. Arrays and axes retain their identity. The method returns these retained objects without calculating or copying them.
 """
 function Base.NamedTuple(value::ParametricResult)
     return (formulation=value.formulation, values=value.values, axes=value.axes, details=value.details)

@@ -306,7 +306,7 @@ end
         @test all(bar -> bar.width[]==160 && bar.height[]==14 && !bar.vertical[], bars)
         @test length(guide.subscriptions)==listeners
     end
-    # Compare local geometry; independent windows retain their own frame sizes.
+    # Compare local geometry. Independent windows retain their own frame sizes.
     Makie.colorbuffer(direct.figure)
     function local_boxes(q)
         g=q.plot_state.guides[(:colorbars, nothing)]
@@ -439,7 +439,7 @@ end
     end
     boxes=check_items(p, 1, 16.5)
     # With identical font sizes these horizontal items need only their visible
-    # height, not a second copy of the native tick/property-label protrusion.
+    # height, not a second copy of the native tick and property-label protrusion.
     @test first(guide.items).layout.layoutobservables.computedbbox[].widths[2] <=
           first(boxes).high[2]-first(boxes).low[2]+3
     legend=p.legend.layoutobservables.computedbbox[]
@@ -649,7 +649,7 @@ end
             @test all(a===b for (a, b) in zip(bars, p.colorbars))
         end
     end
-    # The shared setting reaches result panels and a caller-owned native canvas.
+    # The shared setting applies to result panels and a caller-owned native canvas.
     raw=TestFixtures.two_conductor_results(; frequencies = [1.0, 10.0, 100.0])
     result=LineCableModels.plot(raw, raw; ydata = ((R, 1, 1:2, :),), layout = (1, 2),
         backend = :cairo, display_plot = false, controls = false, guide_spacing = (rowgap = 7.5,),

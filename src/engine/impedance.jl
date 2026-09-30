@@ -10,11 +10,11 @@ outer, inner, transfer, and longitudinal-insulation terms directly to
 
 # Arguments
 
-- `destination`: Reusable primitive series-impedance matrix [Ω/m].
-- `input`: Concrete local cable arrays.
-- `rho_cond`: Temperature-corrected conductor resistivities [Ω·m].
-- `methods`: Resolved formulation methods.
-- `s`: Complex angular frequency ``jω`` [1/s].
+- `destination`: reusable primitive series-impedance matrix [Ω/m].
+- `input`: concrete local cable arrays.
+- `rho_cond`: temperature-corrected conductor resistivities [Ω·m].
+- `methods`: resolved formulation methods.
+- `s`: complex angular frequency ``jω`` [1/s].
 
 # Returns
 

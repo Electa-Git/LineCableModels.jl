@@ -13,7 +13,7 @@ struct Formula{ID, P <: NamedTuple, O <: FormulationOptions} <: ShuntModelFormul
     options::O
 end
 
-"Reference boundary discretization; accuracy depends on geometry and the requested terminal quantity."
+"Reference boundary discretization. Accuracy depends on geometry and the requested terminal quantity."
 const DEFAULT_RESOLUTION = (wire = 64, order = 32, quadrature = 256, modes = 1024)
 "Default controls for dimensionless logarithmic-moment integration."
 const DEFAULT_INTEGRATION = (rtol = 1e-8, atol = 1e-10, maxevals = 100_000)
@@ -41,13 +41,13 @@ domains before frequency evaluation.
 
 # Keywords
 
-- `parameters=(;)`: Boundary `fallback=:error` (default) or explicitly
-  `:coaxial` after an unsupported boundary assumption or numerical failure.
+- `parameters=(;)`: geometric boundary `fallback=:error` (default) or explicitly
+  `:coaxial` after an unsupported geometric boundary assumption or numerical failure.
   A finite result's quality warning never triggers this fallback.
-- `options=(;)`: Boundary `resolution=(wire=64, order=32, quadrature=256,
+- `options=(;)`: geometric boundary `resolution=(wire=64, order=32, quadrature=256,
   modes=1024)`, `integration=(rtol=1e-8, atol=1e-10, maxevals=100_000)`, and
   `audit=false`. The audit recomputes an independent boundary grid and checks
-  derivative step refinement. Coaxial models accept no numerical controls.
+  derivative step refinement. Numerical controls are unsupported for coaxial models.
 
 # Returns
 
@@ -112,7 +112,7 @@ end
 function description(::Type{<:Formula{:default}}; compact::Bool = false)
     description(Formula{:coaxial}; compact)
 end
-"""Describe the lossless wire/tape boundary approximation."""
+"""Describe the lossless wire and tape geometric boundary approximation."""
 function description(::Type{<:Formula{:boundary}}; compact::Bool = false)
     compact ? "boundary" :
     "Lossless wire/tape boundary shunt geometry"

@@ -1,5 +1,5 @@
-# Independent boundary construction for the rounded disk/wedge intersection.
-# Circle centers follow signed-distance constraints to the two wedge lines;
+# Independent geometric boundary construction for the rounded disk-wedge intersection.
+# Circle centers follow signed-distance constraints to the two wedge lines.
 # Green integrals establish area and first moments without production contacts.
 module SectorControl
 using QuadGK

@@ -173,7 +173,7 @@ _fem_float64_document(value) = value
 Rebuild one FEM problem from uncertainty-free `Float64` declarations.
 
 The conversion is deliberately performed before adaptation or runtime setup.
-Integer-valued topology is retained as integer data; all serialized floating
+Integer-valued topology is retained as integer data. All serialized floating
 values, including the nominal component of `Measurements.Measurement`, become
 `Float64`.
 """

@@ -16,19 +16,19 @@ it opens the project.
 
 # Arguments
 
-- `system`: Materialized line and cable geometry.
-- `earth`: Physical air and one infinite homogeneous soil half-space.
-- `base_freq`: Base frequency in hertz.
-- `file_name`: Destination `.pscx` file. The system identifier is prepended to
+- `system`: materialized line and cable geometry.
+- `earth`: physical air and one infinite homogeneous soil half-space.
+- `base_freq`: base frequency in hertz.
+- `file_name`: destination `.pscx` file. The system identifier is prepended to
   an explicitly supplied basename.
-- `formulation`: Selected line-parameter or cable-constant formulation.
+- `formulation`: selected line-parameter or cable-constant formulation.
   The default routes to the lossless dielectric relation. Request `:lossy`
   explicitly to include the supplied material losses.
-- `native_settings=(;)`: Optional validated native `ground` and `frequency`
-  field records supplied by the PSCAD formula adapter. Each field carries its
+- `native_settings=(;)`: optional validated native `ground` and `frequency`
+  field records supplied by the PSCAD formula adapter. Each field includes its
   `value` and expected `readback`. The same record accompanies native execution.
-- `temperature=nothing`: Optional operating temperature \\[°C\\]. Correction is
-  applied here during export, not in geometric flattening; `nothing` retains
+- `temperature=nothing`: optional operating temperature \\[°C\\]. Correction is
+  applied here during export, not in geometric flattening. `nothing` retains
   the material reference temperatures.
 
 !!! note

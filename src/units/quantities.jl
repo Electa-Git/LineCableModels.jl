@@ -11,7 +11,7 @@ struct Quantity{Q} end
     quantity(selector::Function, transform::Function)
 
 Return the typed [`Quantity`](@ref) identity registered for a scientific
-selector or selector/transform pair.
+selector or selector-transform pair.
 
 Unsupported selectors have no fallback method.
 """

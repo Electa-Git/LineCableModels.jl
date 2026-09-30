@@ -20,8 +20,8 @@ Remove the material stored under `name`.
 
 # Arguments
 
-- `library`: Material library.
-- `name`: Stored material name.
+- `library`: material library.
+- `name`: stored material name.
 
 # Returns
 
@@ -40,9 +40,9 @@ Return the material stored under `name`, or `default` when absent.
 
 # Arguments
 
-- `library`: Material library.
-- `name`: Stored material name.
-- `default`: Value returned when `name` is absent.
+- `library`: material library.
+- `name`: stored material name.
+- `default`: value returned when `name` is absent.
 
 # Returns
 

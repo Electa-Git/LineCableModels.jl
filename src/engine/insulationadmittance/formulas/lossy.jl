@@ -16,8 +16,8 @@ j\\omega\\varepsilon_0\\varepsilon_r.
 The annular layer operator converts this material admittivity to
 ``Y=2\\pi\\kappa/\\ln(b/a)``. This is the standard frequency-domain
 constitutive relation, not an author-specific empirical law. Ametani,
-Miyamoto, and Nagaoka (2004), Eqs. (14)–(15), remain a useful cable-layer
-application reference; the paper's main-insulation term is the lossless
+Miyamoto, and Nagaoka (2004), Eqs. (14)-(15), remain a useful cable-layer
+application reference. The paper's main-insulation term is the lossless
 specialization.
 """
 function description(::Type{<:Formula{:lossy}}; compact::Bool=false)
@@ -34,18 +34,18 @@ Evaluate the standard lossy material admittivity for a cable-insulation layer:
 j\\omega\\varepsilon_0\\varepsilon_r.
 ```
 
-`material.tan_delta` represents polarization loss only; conduction is supplied
+`material.tan_delta` represents polarization loss only. Conduction is supplied
 by `material.rho`. The common coaxial operator applies the annular geometry.
 
 # Arguments
 
-- `material`: Insulation material properties, including resistivity and
+- `material`: insulation material properties, including resistivity and
   relative permittivity.
-- `frequency`: Evaluation frequency \\[Hz\\].
-- `temperature`: Operating temperature \\[°C\\].
-- `values`: Explicit physical/model parameters.
-- `options`: Normalized numerical sections for this contribution.
-- `workspace`: Optional computation workspace supplying reusable numerical buffers.
+- `frequency`: evaluation frequency \\[Hz\\].
+- `temperature`: operating temperature \\[°C\\].
+- `values`: explicit physical model parameters.
+- `options`: normalized numerical sections for this contribution.
+- `workspace`: optional computation workspace supplying reusable numerical buffers.
 
 # Returns
 
@@ -55,7 +55,7 @@ by `material.rho`. The common coaxial operator applies the annular geometry.
 
 Ametani, Miyamoto, and Nagaoka (2004), DOI
 10.1109/TPWRD.2003.822502, is retained as a cable-layer application
-reference; the constitutive relation itself is standard frequency-domain
+reference. The constitutive relation itself is standard frequency-domain
 electromagnetism.
 """
 @inline function insulation_material(

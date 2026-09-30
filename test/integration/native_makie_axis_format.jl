@@ -49,8 +49,8 @@ end
             end
             for bars in filter(p -> p isa Makie.Errorbars,axis.scene.plots), child in bars.plots
                 @test child.transformation.transform_func[] == line.transformation.transform_func[]
-                # Check rendered bar endpoints as well as their parent scale;
-                # a pre-logged child could otherwise pass a transform-only check.
+                # Check rendered bar endpoints as well as their parent scale.
+                # A pre-logged child could otherwise pass a transform-only check.
                 endpoints = filter(point -> all(isfinite,point),Makie.Point2d.(child[1][]))
                 projected = Makie.transform_and_project(child,:data,:pixel,endpoints)
                 limits = axis.finallimits[]
@@ -86,7 +86,7 @@ end
             native = getproperty(axis,Symbol(dim,:axis))
             @test all(label -> label isa AbstractString,native.ticklabels[])
             # Measure actual strings against their native projected positions.
-            # Density may change; collisions or identical labels may not.
+            # Density may change. Collisions or identical labels may not.
             dimension = dim === :x ? 1 : 2
             fontsize = getproperty(axis,Symbol(dim,:ticklabelsize))[]
             probe = text!(axis.blockscene,0,0;visible=false,fontsize,
@@ -279,7 +279,7 @@ end
     end
     signed_axis=page.axes[3]
     # The signed reference is 3.7e-10, not a power of ten. Labels must include
-    # its coefficient, rather than rounding physical positions to whole decades.
+    # its coefficient. Physical positions must retain their values between whole decades.
     labels=signed_axis.ytickformat[]([-3.7e-7, -0.0, 3.7e-7])
     @test String.(labels) == ["−3.7×10−7", "0", "3.7×10−7"]
     @test ScientificTickLabels.value.(labels) == [-3.7e-7, 0.0, 3.7e-7]
@@ -486,7 +486,7 @@ end
     @test axis.finallimits[].widths[1] ≈ 0.1
     @test axis.finallimits[].widths[2] ≈ 0.1abs(first(response))
     @test axis.limits[] == (nothing, nothing)
-    # Native zoom and explicit narrow views remain possible; padding belongs
+    # Native zoom and explicit narrow views remain possible. Padding belongs
     # only to automatic fitting, not to tick updates or every targetlimits write.
     manual = Makie.Rect2d(1.0, minimum(response), 1e-12, 1e-20)
     axis.targetlimits[] = manual
@@ -612,7 +612,7 @@ end
     @test axis.finallimits[].origin[1] ≈ 1e6
     @test sum((axis.finallimits[].origin[2], axis.finallimits[].widths[2])) ≈ 0.8
     # A labelled tuple must release the managed formatter BEFORE native tick
-    # conversion sees the new value; a late observer cannot repair that error.
+    # conversion sees the new value. A late observer cannot repair that error.
     labelled = ([1e6, 3e6], ["low", "high"])
     axis.xticks[] = labelled
     Makie.colorbuffer(page.figure)
@@ -640,7 +640,7 @@ end
     page = LineCableModels.plot(data; ydata=(R,), backend=:cairo, display_plot=false,
         controls=true, open_export=false, length_unit=:base, xscale=:linear)
     first_axis, last_axis = first(page.axes), last(page.axes)
-    # Model a native pan/zoom: target limits change, the stored request does not.
+    # Model a native pan and zoom: target limits change, the stored request does not.
     first_axis.targetlimits[] = Makie.Rect2d(2.0, 3.0, 30.0, 2.0)
     page.controls[:xlog].active[] = true
     @test first_axis.limits[] == (nothing, nothing)
@@ -712,7 +712,7 @@ end
     Makie.colorbuffer(page.figure)
     @test allunique(axis.xaxis.ticklabels[])
     # Unchanged native layout notifications must not restart automatic density
-    # fitting and propagate temporary tick/protrusion changes to peer axes.
+    # fitting and propagate temporary tick and protrusion changes to peer axes.
     notify(axis.scene.viewport)
     tick_updates=Ref(0)
     binding=on(axis.xticks) do _

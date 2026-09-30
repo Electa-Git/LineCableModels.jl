@@ -3,7 +3,7 @@ const LONGMIRE_SMITH_COEFFICIENTS = (
     1.25e1, 4.8, 2.17, 0.98, 0.392, 0.173
 )
 
-"Return the high-frequency and relaxation parameters of Longmire–Smith."
+"Return the high-frequency and relaxation parameters of Longmire-Smith."
 assumptions(::Val{:longmire1975}) = (
     epsilon_infinity = 5.0,
     corner_scale = 125.0,
@@ -19,7 +19,7 @@ end
 """
 $(TYPEDSIGNATURES)
 
-Longmire–Smith thirteen-term dielectric-relaxation soil model.
+Longmire-Smith thirteen-term dielectric-relaxation soil model.
 
 **Expression.** With ``\\sigma_0=1/\\rho_0``, base corner
 ``f_c=(125\\sigma_0)^{0.8312}``, tabulated coefficients ``a_n``, and

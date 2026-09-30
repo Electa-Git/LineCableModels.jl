@@ -50,7 +50,7 @@ function _preview_axis!(
             top = bottom
         end
         if display_surface_gradient
-            # One sky decoration, anchored at the surface and independent of
+            # One sky decoration, anchored at the earth surface and independent of
             # the soil layers. Transparency reveals the background near z=0.
             surface_gradient = hspan!(axis, zeros(64), zeros(64);
                 color = [RGBA(0.55, 0.76, 0.90, 0.45 * ((i - 1) / 63)^1.3)
@@ -219,7 +219,7 @@ function _preview(
         design,
         x_offset,
         y_offset;
-        # Retain presentation metadata even when the initial legend is hidden;
+        # Retain presentation metadata even when the initial legend is hidden.
         # `figurelegend!` may place it later without rebuilding geometry.
         display_legend = true,
         display_dielectric_pattern,
@@ -520,7 +520,7 @@ function _material_scale(;
         kwargs...
 )
     _activate_plot_backend(backend)
-    title = "Material property colour scale"
+    title = "Material property color scale"
     return with_theme(_plot_theme(export_theme = export_theme)) do
         shell = _figure_layout(; size, controls, kwargs...)
         _finish_plot!(

@@ -33,7 +33,7 @@
         (air=:carson1926, earth=:pollaczek1926, mixed=:lucca1994)
     # Independent electrostatic reference: air images plus each wire's insulation.
     # Buried and mixed external coefficients are zero. Matrix output has 8-digit
-    # magnitudes, so the relative comparison allows their printed rounding.
+    # magnitudes. The relative comparison allows their printed rounding.
     epsilon0 = 8.8541878128e-12
     radii = [0.003 + i*0.0005 for i in 1:4]
     exterior = radii .+ 0.002
@@ -82,7 +82,7 @@
     @test Z(batch[1]) == Z(batch[2])
     @test Z(batch[1]) !== Z(batch[2])
     # The Gary/Wedepohl case agrees with strict ideal images. Direct integration
-    # departs from that law; the adapter must retain the measured conductance.
+    # departs from that law. The adapter must retain the measured conductance.
     for k in (1,51,101)
         expected_y = (2pi*problem.frequencies[k]*im) .* inv(potential)
         @test Y(batch[3])[:,:,k] ≈ expected_y rtol=1e-7

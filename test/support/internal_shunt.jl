@@ -1,5 +1,5 @@
-# Current local-domain inputs. The open screen permits testing wire/tape charge
-# scattering; the independent annular operator controls are in internal_shunt.jl.
+# Current local-domain inputs. The open screen permits testing wire and tape charge
+# scattering. The independent annular operator controls are in internal_shunt.jl.
 function internal_shunt_test_design(;
         radius = 0.0003, epsilon = 3.0, tapes = true, count = 6,
         suffix = "", core_radius = 0.002, wire_angle = 0.17)

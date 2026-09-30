@@ -54,7 +54,7 @@ function SampleSummary(mean::Real, std::Real, min::Real, q05::Real,
 end
 
 function SampleSummary(values::AbstractVector{<:Real})
-    isempty(values) && throw(ArgumentError("cannot summarise an empty sample"))
+    isempty(values) && throw(ArgumentError("cannot summarize an empty sample"))
     all(isfinite, values) || throw(ArgumentError("sample values must be finite"))
     sigma = length(values) == 1 ? zero(float(first(values))) : Statistics.std(values)
     promoted = promote(
@@ -77,7 +77,7 @@ $(TYPEDSIGNATURES)
 
 Materialize an empirical marginal as its mean and sample standard deviation in
 the observation's native units. Requires the Measurements extension. This is
-output spread, not the standard error of the estimated mean; no joint output
+output spread, not the standard error of the estimated mean. No joint output
 covariance is inferred.
 """
 materialize(summary::SampleSummary) = materialize(UncertainValue(summary.mean, summary.std))
@@ -91,7 +91,7 @@ Base.NamedTuple(summary::SampleSummary) = (mean=summary.mean,std=summary.std,min
 $(TYPEDSIGNATURES)
 
 Return a retained empirical percentile in the summary's physical units.
-Only probabilities 0, 0.05, 0.5, 0.95 and 1 are retained; other probabilities
+Only probabilities 0, 0.05, 0.5, 0.95 and 1 are retained. Other probabilities
 raise `ArgumentError`.
 """
 function Statistics.quantile(summary::SampleSummary, probability::Real)
@@ -149,18 +149,18 @@ Estimate a normalized piecewise-constant density without modifying the samples.
 
 # Arguments
 
-- `values`: Nonempty finite observations in the sampled quantity's native units.
+- `values`: nonempty finite observations in the sampled quantity's native units.
 
 # Keywords
 
-- `bins=nothing`: Maximum bin count for varying samples; the default is the
+- `bins=nothing`: maximum bin count for varying samples. The default is the
   ceiling of the square root of the sample count. Coincident floating-point
   edges are merged. Constant samples use one finite-width bin.
 
 # Returns
 
 - A `HistogramDensity` with density in reciprocal sample units. Bins include
-  their left endpoint; the last bin also includes its right endpoint.
+  their left endpoint. The last bin also includes its right endpoint.
 
 # Notes
 
@@ -186,9 +186,9 @@ function HistogramDensity(
         count = something(bins, max(1, ceil(Int, sqrt(length(values)))))
         unique(collect(range(float(lo), float(hi); length = count + 1)))
     end
-    # Extreme finite inputs can overflow a padded endpoint, bin width, or its
-    # reciprocal. Re-evaluate this same bin construction at higher precision;
-    # do not move the observations or collapse a varying population to its mean.
+    # Extreme finite inputs can overflow a padded endpoint, bin width or its
+    # reciprocal. Re-evaluate this same bin construction at higher precision.
+    # Do not move the observations or collapse a varying population to its mean.
     if length(edges) < 2 || !all(isfinite, edges) ||
             !all(width -> isfinite(width) && width > 0 && isfinite(inv(width)), diff(edges))
         bits = max(precision(BigFloat), precision(float(lo)), precision(float(hi))) +
@@ -238,7 +238,7 @@ function Statistics.quantile(histogram::HistogramDensity, probability::Real)
 end
 
 """
-Return model/sample quantile coordinates and identity-line endpoints.
+Return model and sample quantile coordinates and identity-line endpoints.
 """
 function quantile_pairs(histogram::HistogramDensity, samples::AbstractVector{<:Real})
     isempty(samples) && throw(ArgumentError("Q-Q coordinates require retained samples"))

@@ -6,19 +6,19 @@ CurrentModule = LineCableModels.Engine.EarthImpedance
 
 Earth-return formulas supply the self and mutual series terms associated
 with the media outside each conductor or cable boundary. Their assumptions
-distinguish overhead, buried, and mixed arrangements; homogeneous and
-layered earth; and the treatment of displacement current and longitudinal
-propagation. The [matrix formulation](matrix_formulation.md) determines
+specify the conductor arrangement (overhead, buried, or mixed), the earth
+structure (homogeneous or layered), and the treatment of displacement current
+and longitudinal propagation. The [matrix formulation](matrix_formulation.md) determines
 where each contribution enters.
 
 - [Default two-half-space axial-field source coefficients](@ref axial_field_coefficient(::Union{Formula{:unified}, Val{:unified}}, ::Union{Val{:self}, Val{:mutual}}, ::Val, ::Val, ::Any, ::Any, ::Any))
 - [Carson homogeneous-earth overhead correction integral](external-impedance/1926/homogeneous-earth-overhead-integral/Carson1926.md)
-- [Gary complex-depth overhead approximation](@ref earth_impedance(::Formula{:gary1976}, ::Val{:self}, ::Val{1}, ::Val{1}, ::Any, ::Any, ::Any))
-- [Lucca mixed-pair homogeneous-earth impedance](@ref earth_impedance(::Formula{:lucca1994}, ::Val{:mutual}, ::Val{1}, ::Val{2}, ::Any, ::Any, ::Any))
+- [Gary approximation for overhead wires using complex depth](@ref earth_impedance(::Formula{:gary1976}, ::Val{:self}, ::Val{1}, ::Val{1}, ::Any, ::Any, ::Any))
+- [Lucca impedance for a mixed pair in homogeneous earth](@ref earth_impedance(::Formula{:lucca1994}, ::Val{:mutual}, ::Val{1}, ::Val{2}, ::Any, ::Any, ::Any))
 - [Pollaczek generalized induction coefficients for overhead, buried, and mixed conductors](external-impedance/1926/homogeneous-earth-generalized-induction-green-function/Pollaczek1926.md)
 - [Saad homogeneous-earth underground closed form](@ref earth_impedance(::Formula{:saad1996}, ::Val{:self}, ::Val{2}, ::Val{2}, ::Any, ::Any, ::Any))
 - [Wise high-frequency overhead displacement-current integral](external-impedance/1934/homogeneous-earth-overhead-displacement-current-integral/Wise1934.md)
-- [Wedepohl–Wilcox underground low-order impedance](@ref earth_impedance(::Formula{:wedepohl1973}, ::Val{:self}, ::Val{2}, ::Val{2}, ::Any, ::Any, ::Any))
+- [Wedepohl-Wilcox underground low-order impedance](@ref earth_impedance(::Formula{:wedepohl1973}, ::Val{:self}, ::Val{2}, ::Val{2}, ::Any, ::Any, ::Any))
 - [Xue underground earth-return impedance](external-impedance/2018/complete-field-and-quasi-tem-underground/Xue2018.md)
 - [Ametani mixed-pair exponential-image approximation](external-impedance/2009/homogeneous-earth-mixed-exponential-image/Ametani2009.md)
 

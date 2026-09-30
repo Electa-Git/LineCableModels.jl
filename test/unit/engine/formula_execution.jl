@@ -103,7 +103,7 @@ end
     prescribed=[1e-4im, 2e-4im]
     sweep=compute(problem, make(prescribed))
     # Run scalar samples in reverse call order. Prescriptions follow the
-    # existing frequency coordinates; neither side is sorted independently.
+    # existing frequency coordinates. Both sides retain their original order.
     for index in reverse(eachindex(problem.frequencies))
         single=LineParametersProblem(problem.system; earth_props = problem.earth_props,
             temperature = problem.temperature, frequencies = [problem.frequencies[index]])

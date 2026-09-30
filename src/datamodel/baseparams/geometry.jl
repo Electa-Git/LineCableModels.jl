@@ -11,8 +11,8 @@ k=\\sqrt{1+(\\pi D_e/L_p)^2}.
 `r_in` and `r_ex` are the inner and outer layer radii in meters, with
 ``0\\le r_{in}\\le r_{ex}``. `lay_ratio` is the nonnegative, dimensionless
 ratio ``\\lambda=L_p/D_e`` used in EN 50182. All inputs must be finite.
-The returned diameter and pitch are in meters; overlength ``k`` is dimensionless.
-A zero pitch returns unit overlength. In particular, `lay_ratio=0` represents
+The returned diameter and pitch are in meters. Overlength ``k`` is dimensionless.
+The overlength equals one when pitch is zero. `lay_ratio=0` represents
 a straight layer and returns a pitch of zero.
 """
 function helix(r_in::Real, r_ex::Real, lay_ratio::Real)
@@ -49,7 +49,7 @@ the wire layer, both in meters. `C` is the layer center `(x, y)` in meters
 and defaults to `(0, 0)`. Coordinates and radii must be finite.
 
 The result is a vector of `(x, y)` tuples in meters, ordered counterclockwise
-from the positive x direction. Zero wires return an empty vector; one wire
+from the positive x direction. Zero wires return an empty vector. One wire
 is placed at `C`.
 """
 function wire_coordinates(

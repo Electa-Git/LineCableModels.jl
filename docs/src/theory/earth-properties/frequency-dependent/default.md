@@ -7,7 +7,7 @@
 | Family | Frequency-dependent earth properties |
 | Formula identifier | `:default` |
 | Route | `:constant` |
-| Documentation status | Routing alias; the pass-through is documented separately. |
+| Documentation status | Routing alias. The pass-through is documented separately. |
 
 **Description.** `:default` routes to the explicit `:constant` static
 earth-material pass-through. The registered frequency-dependent relations are
@@ -34,6 +34,6 @@ same pass-through explicitly, or select one of the registered empirical laws.
 
 **Reference.**
 
-Package routing default; no author equation is claimed by this registration.
+Package routing default. No author equation is claimed by this registration.
 
 [Back to the relevant theory overview](../../earth_properties.md)

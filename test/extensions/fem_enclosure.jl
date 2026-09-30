@@ -44,7 +44,7 @@
         @test area.(getproperty.(first(models).region_plans, :shape)) ≈
             area.(getproperty.(last(models).region_plans, :shape))
     end
-    # Coalescing is a detached FEM adaptation, not a mutation of strand identity.
+    # Coalescing adapts detached geometry for FEM and preserves strand identity.
     @test length(first(designs).geometry.regions) == 8
     @test length(source_fill.holes) == 7
 end

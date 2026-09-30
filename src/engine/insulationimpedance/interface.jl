@@ -6,7 +6,7 @@ Select one insulation-impedance formula by its stable identifier.
 $(TYPEDFIELDS)
 """
 struct Formula{ID, P <: NamedTuple, O <: FormulationOptions} <: InsulationImpedanceFormulation
-    "Resolved physical/model parameters."
+    "Resolved physical model parameters."
     parameters::P
     "Normalized numerical sections for this equation."
     options::O

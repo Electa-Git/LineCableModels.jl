@@ -39,7 +39,7 @@
         @test_throws ArgumentError show(IOBuffer(),mime,artifact;problem=2)
     end
     # These compare actual retained values and availability masks, not just table
-    # shapes: formatting must not clip noise, replace missing, or normalize again.
+    # shapes: formatting must not clip noise, replace missing or normalize again.
     for (prior,after) in zip(before.features,artifact.tables.features)
         @test isequal(prior.relative,after.relative)
         @test isequal(prior.absolute,after.absolute)

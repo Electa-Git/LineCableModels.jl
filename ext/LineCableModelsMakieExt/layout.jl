@@ -33,7 +33,7 @@ function _panel_footprint(positions)
 end
 
 # The original block identity and the occupied rectangle are independent.
-# Explicit capacities use origin (1,1); automatic overviews use the selected
+# Explicit capacities use origin (1,1). Automatic overviews use the selected
 # minimum coordinate. Empty perimeter tracks disappear, internal holes remain.
 function _matrix_pages(positions, extent, capacity; origin = (1, 1))
     all(p -> all(d -> 1<=p[d]<=extent[d], 1:2), positions) ||
@@ -189,7 +189,7 @@ function _observation_pages(facets, capacities; automatic = false)
 end
 
 # Equalize actual native panel frames at construction. Native protrusions keep
-# their scientific labels/ticks; only the space allocated around them changes.
+# their scientific labels and ticks. Only the space allocated around them changes.
 # The original alignmode remains available for fresh local measurements after a
 # title or guide edit. A caller's subsequent alignmode edit releases this padding.
 function _panel_padding!(p; minimum_decoration = (0.0, 0.0, 0.0, 0.0))
@@ -212,7 +212,7 @@ function _panel_padding!(p; minimum_decoration = (0.0, 0.0, 0.0, 0.0))
     for m in measurements
         axis=m.axis
         original=haskey(managed, axis) ? managed[axis].original : axis.alignmode[]
-        # Respect constructor/native alignmode choices beyond ordinary Inside.
+        # Respect constructor and native alignmode choices beyond ordinary Inside.
         axis.alignmode[] isa GridLayoutBase.Inside || continue
         native=axis.layoutobservables.protrusions[]
         values=ntuple(i -> Float32(getfield(native, i)+max(0.0, maximum_decoration[i]-m.decoration[i])), 4)
@@ -236,8 +236,8 @@ function _frame_size(axis, allocation = Tuple(axis.layoutobservables.computedbbo
     return ratio===nothing ? (w, h) : (min(w, h*ratio), min(h, w/ratio))
 end
 
-# Native width/height refer to the Axis inner size. Outside/Mixed margins
-# consume part of its assigned track; Relative sizes consume a fraction of it.
+# Native width and height refer to the Axis inner size. Outside/Mixed margins
+# consume part of its assigned track. Relative sizes consume a fraction of it.
 function _axis_insets(axis)
     mode=axis.alignmode[]
     native=axis.layoutobservables.protrusions[]
@@ -259,9 +259,9 @@ function _axis_span(axis, frame)
     end
 end
 
-# Native autosize includes protrusions/padding without tight_bbox's one-pixel
+# Native autosize includes protrusions and padding without tight_bbox's one-pixel
 # minimum for zero-sized reserved guide tracks. Opaque native content can leave
-# a dimension undetermined; its current declared allocation is then retained.
+# a dimension undetermined. Its current declared allocation is then retained.
 function _required_size(grid)
     automatic=grid.layoutobservables.autosize[]
     allocated=grid.layoutobservables.computedbbox[].widths
@@ -270,7 +270,7 @@ end
 
 function _panel_size(data)
     required=_required_size(data.panel.layout)
-    # GridLayout's automatic track measurement reads native protrusions; its
+    # GridLayout's automatic track measurement reads native protrusions. Its
     # placement also honors Mixed protrusion overrides. Include the latter's
     # actual extra reservation in a fitted cell, without counting either twice.
     axis=data.axis
@@ -312,7 +312,7 @@ end
 
 # Constrain only shell-owned tracks around current per-panel frames. Native
 # grids measure axis protrusions, titles, panel guides, figure guides and chrome.
-# Empty internal matrix tracks inherit the common cell span; no axis is added.
+# Empty internal matrix tracks inherit the common cell span. The tracks remain empty.
 function _fit_frames!(p, frames; canvas = nothing)
     state=p.plot_state
     shell=state.shell
@@ -346,7 +346,7 @@ function _fit_frames!(p, frames; canvas = nothing)
                 heights[row]=max(heights[row], bounds[2])
             end
             # Calibrated matrix frames share decorated cell spans. Physical
-            # aspect galleries retain their individual row/column requirements.
+            # aspect galleries retain their individual row and column requirements.
             if !isempty(state.frame_padding)
                 widths.=maximum(widths)
                 heights.=maximum(heights)
@@ -363,7 +363,7 @@ function _fit_frames!(p, frames; canvas = nothing)
             shell.canvas.height[]=Auto()
         else
             # plotwindow's declared native canvas is opaque. Preserve its own
-            # topology and allocation; only fit the surrounding managed shell.
+            # topology and allocation. Only fit the surrounding managed shell.
             canvas===nothing &&
                 (canvas=Tuple(shell.canvas.layoutobservables.computedbbox[].widths))
             shell.canvas.width[]=canvas[1]
@@ -394,7 +394,7 @@ function _fit_frames!(p, frames; canvas = nothing)
 end
 
 # A native resize is a new local allocation, not another content-fit request.
-# Release the shell's fitted tracks before the existing aspect/reflow behavior.
+# Release the shell's fitted tracks before the existing aspect and reflow behavior.
 function _release_frames!(p)
     state=p.plot_state
     shell=state.shell
@@ -471,7 +471,7 @@ end
 
 # Physical aspect is a panel requirement. Fit native panel cells into the
 # available canvas using each panel's data ratio, including wide systems and
-# one-row collections. No figure or window aspect ratio is imposed.
+# one-row collections. The figure and window aspect ratios remain free.
 function _fit_panel_aspects!(p)
     isempty(p.axes) && return p
     all(axis -> axis.aspect[] isa DataAspect, p.axes) || return p
@@ -623,8 +623,8 @@ end
 
 # Native attribute changes use the same local fitting operation as public guide
 # mutators. Capture frames before native layout listeners run, then measure the
-# completed native edit. Internal composition and resize notifications do not
-# enter this path, and subscriptions belong to the actual edited block.
+# completed native edit. Internal composition and resize notifications are excluded
+# from this path. Subscriptions belong to the actual edited block.
 function _watch_presentation!(p, block, names)
     subscriptions=Any[]
     for name in names

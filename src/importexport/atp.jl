@@ -9,13 +9,13 @@ length, system frequency, and the resistivity of the last earth layer.
 # Arguments
 
 - `::Val{:atp}`: ATP format selector.
-- `cable_system`: Positioned cable designs and line length.
-- `earth_props`: Earth model. The last layer supplies `Grnd resis`.
+- `cable_system`: positioned cable designs and line length.
+- `earth_props`: earth model. The last layer supplies `Grnd resis`.
 
 # Keywords
 
 - `base_freq`: ATP system frequency \\[Hz\\]. Default: `50.0`.
-- `file_name`: Output path. Relative paths are resolved beside this exporter.
+- `file_name`: output path. Relative paths are resolved beside this exporter.
   a supplied basename is prefixed with `cable_system.system_id`. Default:
   `nothing`, which writes `<system_id>_export.xml`.
 
@@ -39,7 +39,7 @@ Units are printed in the XML file according to the ATPDraw specifications:
 # Notes
 
 - The exporter writes explicitly adapted equivalent properties at the common material
-  reference state. The exporter does not apply operating-temperature correction.
+  reference state. Operating-temperature correction is excluded from the export.
 - [`nominal`](@ref) removes uncertainty before numeric values are written.
 - LineCableSystem construction, rather than export, checks cable overlap.
 
@@ -50,8 +50,8 @@ function export_data(::Val{:atp},
         base_freq = 50.0,
         file_name::Union{String, Nothing} = nothing
 )::String
-    # ATP owns this explicit homogenization choice. The physical design remains
-    # authoritative; DataModel reduces only the local concentric parts required
+    # ATP defines this explicit homogenization choice. The physical design remains
+    # authoritative. DataModel reduces only the local concentric parts required
     # by ATPDraw's LCC record.
     atp_components(design) = DataModel.flatten(design, base_freq)
     function _set_attributes!(element, attrs::Dict)
@@ -59,12 +59,12 @@ function export_data(::Val{:atp},
             element[k] = string(v)
         end
     end
-    # --- 1. Setup Constants and Variables ---
+    #  1. Setup Constants and Variables
     if isnothing(file_name)
         # Derive the name from cable_system when the caller omits it.
         file_name = joinpath(@__DIR__, "$(cable_system.system_id)_export.xml")
     else
-        # caller supplied a path/name -> respect directory, but prepend system_id to basename
+        # caller supplied a path and name -> respect directory, but prepend system_id to basename
         requested = isabspath(file_name) ? file_name : joinpath(@__DIR__, file_name)
         if isnothing(cable_system)
             file_name = requested
@@ -242,12 +242,12 @@ comma-separated `R+Xi` and `G+Bi` entries.
 # Arguments
 
 - `::Val{:atp}`: ATP format selector.
-- `line_params`: Frequency-dependent matrices and frequency vector.
+- `line_params`: frequency-dependent matrices and frequency vector.
 
 # Keywords
 
-- `file_name`: Output path. Default: `ZY_export.xml` beside this exporter.
-- `cable_system`: Optional system supplying the line length and output-name
+- `file_name`: output path. Default: `ZY_export.xml` beside this exporter.
+- `cable_system`: optional system supplying the line length and output-name
   prefix. Default: `nothing`.
 
 # Returns
@@ -283,7 +283,7 @@ function export_data(::Val{:atp},
             file_name = joinpath(@__DIR__, "$(cable_system.system_id)_ZY_export.xml")
         end
     else
-        # caller supplied a path/name -> respect directory, but prepend system_id to basename if cable_system provided
+        # caller supplied a path and name -> respect directory, but prepend system_id to basename if cable_system provided
         requested = isabspath(file_name) ? file_name : joinpath(@__DIR__, file_name)
         if isnothing(cable_system)
             file_name = requested
@@ -316,7 +316,7 @@ function export_data(::Val{:atp},
             cable_length,
             y_fmt)
 
-        # --- Z Matrix Printing ---
+        #  Z Matrix Printing
         for (k, freq_val) in enumerate(freq)
             @printf(fid, "  <Z Freq=\"%.16E\">\n", nominal(freq_val))
             for i in 1:num_phases
@@ -332,7 +332,7 @@ function export_data(::Val{:atp},
             @printf(fid, "  </Z>\n")
         end
 
-        # --- Y Matrix Printing ---
+        #  Y Matrix Printing
         if atp_format == "C"
             freq1 = nominal(freq[1])
             @printf(fid, "  <Y Freq=\"%.16E\">\n", freq1)
@@ -363,7 +363,7 @@ function export_data(::Val{:atp},
             end
         end
 
-        # --- Footer ---
+        #  Footer
         println(fid, "</ZY>")
     end
     @info "XML file saved to: $(_display_path(file_name))"

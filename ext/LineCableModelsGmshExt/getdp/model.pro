@@ -20,7 +20,7 @@ If(!Exists(Val_Rext))
 EndIf
 Group {
   // Keep the two primary physical regions explicit here. DOMAIN_INF is an
-  // overlapping Gmsh inventory group; selecting it directly does not preserve
+  // overlapping Gmsh inventory group. Direct selection would break
   // GetDP's region dispatch for the VolSphShell Jacobian.
   AirInfJacobian = Region[{AIR_INF}];
   EarthInfJacobian = Region[{EARTH_INF}];

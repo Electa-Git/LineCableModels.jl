@@ -42,8 +42,8 @@
     @test @observe(parameters, L[i, j, samples]) ≈ inductance[1, 1, :]
     @test @observe(parameters, Z[1, 1]) == impedance[1, 1, :]
     @test @observe((Z, diag)[:, :]) == (Z, diag, Colon(), Colon())
-    # Three selectors carry owner-defined statistical requests. The macro
-    # preserves them; whether a result supports the request belongs to dispatch.
+    # 3 selectors include owner-defined statistical requests. The macro
+    # preserves them. Whether a result supports the request belongs to dispatch.
     @test @observe((statistics, R, mean)[1, 1]) == (statistics, R, mean, 1, 1)
     @test_throws ArgumentError macroexpand(
         @__MODULE__,

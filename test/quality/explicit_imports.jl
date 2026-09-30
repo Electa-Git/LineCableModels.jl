@@ -1,7 +1,7 @@
 @testitem "Quality / explicit imports / package ownership" tags = [:quality] begin
     using ExplicitImports: test_explicit_imports, improper_qualified_accesses
     # These adapters participate in the numerical/UQ paths. Check the loaded
-    # extensions too; a cold root-only scan cannot see their ownership errors.
+    # extensions too. A cold root-only scan cannot see their ownership errors.
     import Measurements, Distributions, Gmsh, Calculus, XLSX, CairoMakie
     for name in (:LineCableModelsMeasurementsExt, :LineCableModelsDistributionsExt,
             :LineCableModelsGmshExt, :LineCableModelsXLSXExt)
@@ -15,7 +15,7 @@
 
     # Gmsh's generated API deliberately uses qualified calls without export/
     # public annotations. Accept its documented bindings, not arbitrary private
-    # names. The same applies to the documented logger and JSON protocols below.
+    # names. The documented logger and JSON protocols below also require these checks.
     function documented_fem_access(owner::Module, name::Symbol)
         # Generated API/build metadata needed to identify the numerical library.
         owner === Gmsh.gmsh && name in (:GMSH_API_VERSION, :lib) && return true
@@ -34,9 +34,9 @@
             (value isa Function && Base.Docs.hasdoc(parentmodule(value), nameof(value)))
     end
 
-    # Exact external methods, classified in docs/src/developers.md. Public
+    # Exact external methods, classified in `docs/src/developers.md`. Public
     # annotations alone miss documented qualified APIs. The one layout removal
-    # workaround is explicitly recommended by its upstream maintainer; it is
+    # workaround is explicitly recommended by its upstream maintainer. It is
     # not a general permission to consume Makie or package-owned internals.
     function supported_external_access(consumer, owner, name)
         consumer === LineCableModels.Engine && owner === Base && name === :unalias &&

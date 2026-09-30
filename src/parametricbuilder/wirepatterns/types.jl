@@ -47,8 +47,8 @@ $(TYPEDEF)
 
 Store ranked patterns from a wire-pattern search.
 
-For stranding, `feasible` means at least one pattern reaches the target metal
-area; the ranked list can also contain undersized patterns. For screening, it
+For wire stranding, `feasible` means at least one pattern reaches the target metal
+area. The ranked list can also contain undersized patterns. For screening, it
 means at least one pattern satisfies the area, coverage and overshoot bounds,
 and only those feasible patterns are retained. When none is feasible, the
 geometrically valid alternatives remain ranked and `reasons` describes the limits.

@@ -27,7 +27,7 @@
             capacitance=circumference*ε0*relative_permittivity/log_ratio
             conductance=circumference*inv(resistivity)/log_ratio
             recovered_admittance=frequency_point/coefficient
-            # Radial current integration gives 2πκ/log(b/a); this expectation
+            # Radial current integration gives 2πκ/log(b/a). This expectation
             # is derived here, without reading engine output or saved values.
             expected_conductance=conductance
             expected_capacitance=capacitance
@@ -115,7 +115,7 @@ end
         for temperature in (Inf, NaN)
             @test_throws DomainError constitutive(selected, material, 50.0, temperature)
         end
-        # The boundary is shared by both physical dielectric owners.
+        # Both dielectric implementations use the same validation checks.
         @test validate(selected, Float64, 1+2im) === 1.0+2.0im
         @test validate(selected, Float64, 1.0f0+2.0f0im) === 1.0+2.0im
         @test_throws ArgumentError validate(selected, Float32, 1.0+2.0im)

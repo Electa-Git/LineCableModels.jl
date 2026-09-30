@@ -1,5 +1,5 @@
 # Package-local formatting support. Domain owners select semantic names, fields,
-# units, and child relationships; this module supplies bounded writers only.
+# units, and child relationships. This module supplies bounded writers only.
 module TextDisplay
 
 import ..Units
@@ -161,7 +161,7 @@ end
 
 Return text occupying at most `width` display columns, appending an ellipsis
 when truncated. Nonpositive widths return an empty string. Character widths
-follow `textwidth`; the ellipsis occupies one column.
+follow `textwidth`. The ellipsis occupies one column.
 """
 function truncate_text(text::AbstractString, width::Integer)
     width <= 0 && return ""

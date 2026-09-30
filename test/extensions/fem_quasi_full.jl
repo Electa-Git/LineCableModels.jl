@@ -115,7 +115,7 @@ end
                     computation_options(LineCableModelsFEM, ComputationOptions(fem_controls)),
                     root))
                 # Exercise a caller model whose name collides with the mesh
-                # basename; file writing must preserve both its identity
+                # basename. File writing must preserve both its identity
                 # and its contents rather than opening another "model".
                 gmsh.model.add(splitext(basename(mesh))[1])
                 caller_model = gmsh.model.get_current()

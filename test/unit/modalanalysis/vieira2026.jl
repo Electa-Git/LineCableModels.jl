@@ -69,7 +69,7 @@ end
         @test value ≈ matrix[1, 1]
         @test sum(vector .^ 2) ≈ one(T)
         @test norm(matrix*vector-value*vector) < tolerance
-        # An exact eigenpair needs no iterations; a stationary non-root stalls.
+        # An exact eigenpair does not need iterations. A stationary non-root stalls.
         value, converged, iterations = M.levenberg_marquardt_step!(selector,
             T[1, 0], matrix[1, 1], matrix, (convergence = tolerance, max_iterations = 100), work)
         @test converged && iterations == 0

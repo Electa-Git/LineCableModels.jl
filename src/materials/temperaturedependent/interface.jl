@@ -14,7 +14,7 @@ $(TYPEDFIELDS)
 """
 struct Formula{ID, P <: NamedTuple, O <: FormulationOptions} <:
        TemperatureDependentFormulation
-    "Resolved physical/model parameters."
+    "Resolved physical model parameters."
     parameters::P
     "Normalized numerical sections for this equation."
     options::O
@@ -62,7 +62,7 @@ end
 $(TYPEDSIGNATURES)
 
 Validate evaluated resistivity \\[Ω·m\\] for a reference material and prescribed
-temperature \\[°C\\]. Resistivity must be real and positive; conductors require a
+temperature \\[°C\\]. Resistivity must be real and positive. Conductors require a
 finite value. Passive materials admit infinite resistivity. Return `rho`.
 """
 function validate(::Union{Nothing, TemperatureDependentFormulation}, material::Material, temperature::Real, rho)
@@ -93,7 +93,7 @@ function (formula::TemperatureDependentFormulation)(
     return formula(convert(Material{U}, material), convert(U, temperature); workspace)
 end
 
-"""Evaluate a selected resistivity law at prescribed temperature in °C; return Ω·m."""
+"""Evaluate a selected resistivity law at prescribed temperature in °C. Return Ω·m."""
 function constitutive(
         formula::TemperatureDependentFormulation, material::Material, temperature::Real;
         workspace = nothing)

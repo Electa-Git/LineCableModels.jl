@@ -240,7 +240,7 @@ end
     )
     Makie.colorbuffer(compact.figure)
     viewport=compact.figure.scene.viewport[]
-    # size is the reference allocation; the physical frame and complete
+    # size is the reference allocation. The physical frame and complete
     # right-side guides determine the fitted width.
     @test 0<viewport.widths[1]<900
     @test viewport.widths[2]>=350

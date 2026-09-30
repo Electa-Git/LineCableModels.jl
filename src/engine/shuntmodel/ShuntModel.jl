@@ -2,7 +2,7 @@
     LineCableModels.Engine.ShuntModel
 
 Select the cable-local shunt geometry model independently of dielectric
-constitutive laws. Coaxial annuli are the default; the boundary approximation
+constitutive laws. Coaxial annuli are the default. The geometric boundary approximation
 resolves eligible open wires and tapes inside a closed circular shield.
 
 # Dependencies

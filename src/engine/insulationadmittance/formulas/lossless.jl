@@ -28,12 +28,12 @@ Evaluate lossless cable-insulation admittivity:
 
 # Arguments
 
-- `material`: Insulation material and relative permittivity.
-- `frequency`: Evaluation frequency \\[Hz\\].
-- `temperature`: Operating temperature \\[°C\\].
-- `values`: Explicit physical/model parameters.
-- `options`: Normalized numerical sections for this contribution.
-- `workspace`: Optional computation workspace supplying reusable numerical buffers.
+- `material`: insulation material and relative permittivity.
+- `frequency`: evaluation frequency \\[Hz\\].
+- `temperature`: operating temperature \\[°C\\].
+- `values`: explicit physical model parameters.
+- `options`: normalized numerical sections for this contribution.
+- `workspace`: optional computation workspace supplying reusable numerical buffers.
 
 # Returns
 

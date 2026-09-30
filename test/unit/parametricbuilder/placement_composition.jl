@@ -96,7 +96,7 @@ end
         end
         direct = LineParametersProblem(assembled; earth_props=soil,
             frequencies=problem.frequencies, temperature=problem.temperature)
-        # Exercise the complete publication path; its runtime-selected details
+        # Exercise the complete publication path. Its runtime-selected details
         # have no single-concrete-return-type guarantee.
         actual = compute(problem)
         expected = compute(direct)

@@ -2,8 +2,8 @@
 $(TYPEDSIGNATURES)
 
 Compare the selected statistic of two UQ result spaces without pooling points
-or trials. `pairing` lists one reference/result pair per result, in any
-order. A singleton reference can be broadcast; multiple references require
+or trials. `pairing` lists one reference-result pair per result, in any
+order. A singleton reference can be broadcast. Multiple references require
 explicit pairing. Return RMS results in result order. Physical cutoffs,
 frequency bands and normalization are owned by Engine.
 """

@@ -192,7 +192,7 @@ function _resume_inputs_match(path::String, model::FEMResolvedModel, inputs::Nam
     catch
         return false
     end
-    # External Gmsh sessions can carry arbitrary caller-owned meshing settings.
+    # External Gmsh sessions can include arbitrary caller-owned meshing settings.
     inputs.owned_gmsh || return false
     if String(run_state.state) == string(completed)
         inputs.getdp_identity === nothing && return false
@@ -508,8 +508,8 @@ function _compute_fem(
         runtime_root, execution.data.resume_run_directory, model, inputs
     )
     if run.state === completed
-        # Read-only reuse: no Gmsh session, scratch reset, log append, state
-        # transition, or successful-run cleanup may touch historical evidence.
+        # Reuse only reads the completed run. Do not start Gmsh, reset scratch
+        # files, append logs, change run state or clean up its files.
         scan = _parse_scan(run, model, formulation, execution)
         _check_scan_checksums(run, scan)
         @debug "FEM reuses completed resolved inputs" run_directory=run.path
@@ -519,7 +519,7 @@ function _compute_fem(
     ownership = _claim_run(run)
     parameters = try
         # Another coordinator can finish between run_directory selection and our
-        # lock acquisition. Refresh counters/state while holding ownership,
+        # lock acquisition. Refresh counters and state while holding ownership,
         # and preserve a now-completed run as a read-only result.
         if isfile(joinpath(run.path, "input", "computation.json")) &&
            isfile(joinpath(run.path, "input", "problem.json"))
@@ -648,7 +648,8 @@ end
 function _compute_request(problem, formulation; options)
     problem = _preflight_fem_problem(problem)
     execution = computation_options(LineCableModelsFEM, options)
-    # Scalar and collection calls share completion notification and reuse rules.
+    # The same rules for completion notification and reuse apply to scalar
+    # and collection calls.
     formulations = formulation isa LineCableModelsFEM ? [formulation] : formulation
     logger = LineCableModels.VerbosityLogger(Logging.current_logger(), execution.data.verbosity)
     values = if execution.data.log_file === nothing
@@ -686,7 +687,7 @@ function _compute_fem(
     models = [_resolved_fem_model(problem, formulation, execution)
               for formulation in formulations]
     # The problem and loaded solver source are common to this batch. Only actual
-    # material/mesh inputs and execution settings distinguish its calculations.
+    # material and mesh inputs and execution settings distinguish its calculations.
     keys = [JSON3.write(_fem_input_record(model, formulation, execution))
             for (model, formulation) in zip(models, formulations)]
     function completion_fields(formulation)
@@ -697,8 +698,8 @@ function _compute_fem(
                 inputs = physical_inputs
             ))
     end
-    # Caller wall time covers native execution and completed result construction;
-    # native worker durations remain separate, never Julia allocation estimates.
+    # Caller wall time covers native execution and completed result construction.
+    # Native worker durations remain separate, never Julia allocation estimates.
     scan_started = execution.data.timing ? time_ns() : UInt64(0)
     first_result = Engine.retain_gridpoint(
         _compute_fem(problem, first(formulations), execution, first(models)),

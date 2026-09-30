@@ -46,7 +46,7 @@
         end
     end
 
-    # Selections retain their original slots, not a packed/renumbered submatrix.
+    # Selections retain their original slots, not a packed and renumbered submatrix.
     sparse = LineCableModels.plot(parameters; ydata=((R,[1,5],[2,5],:),),
         layout=(2,3), options...)
     @test [page.plot_state.panel_page.index for page in sparse] == [(1,1),(1,2),(3,1),(3,2)]

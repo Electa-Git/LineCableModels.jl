@@ -37,7 +37,7 @@
     @test sampled.trial_counts==[N,N]
     @test all(isempty,sampled.details.data.failures)
     @test length(unique(sampled.point_seeds))==2
-    # The builder log contains the inputs that reached actual scalar compute.
+    # The builder log contains the inputs passed to the actual scalar computation.
     # Reconstruct the exact retained draws through the current sampler, then
     # compare the resulting channel arrays and independently aggregate them.
     recorded=copy(calls)

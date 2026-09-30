@@ -87,11 +87,11 @@ Compose physical parts in outward order.
 
 # Arguments
 
-- `parts`: Physical declarations ordered from the center outward.
+- `parts`: physical declarations ordered from the center outward.
 
 # Keywords
 
-- `combine=:product`: Gridspace composition rule.
+- `combine=:product`: gridspace composition rule.
 
 # Returns
 
@@ -147,15 +147,15 @@ pattern, retain one or more heterogeneous members and their local poses.
 
 # Arguments
 
-- `members`: Physical members, optionally placed with [`at`](@ref).
+- `members`: physical members, optionally placed with [`at`](@ref).
 
 # Keywords
 
-- `pattern=nothing`: Placement pattern for one repeated prototype, or explicit members.
-- `names=nothing`: Exact terminal names for repeated terminal-bearing members.
-- `path=nothing`: Shared longitudinal path declaration.
-- `compact=nothing`: Explicit compaction law.
-- `combine=:product`: Gridspace composition rule.
+- `pattern=nothing`: placement pattern for one repeated prototype, or explicit members.
+- `names=nothing`: exact terminal names for repeated terminal-bearing members.
+- `path=nothing`: shared longitudinal path declaration.
+- `compact=nothing`: explicit compaction law.
+- `combine=:product`: gridspace composition rule.
 
 # Returns
 
@@ -238,12 +238,12 @@ retained terminal.
 
 # Arguments
 
-- `name`: Retained electrical terminal name.
-- `parts`: Physical declarations ordered from the center outward.
+- `name`: retained electrical terminal name.
+- `parts`: physical declarations ordered from the center outward.
 
 # Keywords
 
-- `combine=:product`: Gridspace composition rule.
+- `combine=:product`: gridspace composition rule.
 
 # Returns
 
@@ -278,13 +278,13 @@ Bind an intrinsic primitive definition to one material and local physical tag.
 
 # Arguments
 
-- `material`: Constitutive material record.
-- `primitive`: Intrinsic cross-sectional primitive definition.
+- `material`: constitutive material record.
+- `primitive`: intrinsic cross-sectional primitive definition.
 
 # Keywords
 
-- `tag=:solid`: Local physical identity.
-- `combine=:product`: Gridspace composition rule.
+- `tag=:solid`: local physical identity.
+- `combine=:product`: gridspace composition rule.
 
 # Returns
 
@@ -301,13 +301,13 @@ Declare one outward material layer of thickness `t` \\[m\\].
 
 # Arguments
 
-- `material`: Constitutive material record.
+- `material`: constitutive material record.
 
 # Keywords
 
-- `t`: Normal layer thickness \\[m\\].
-- `tag=:shell`: Local physical identity.
-- `combine=:product`: Gridspace composition rule.
+- `t`: normal layer thickness \\[m\\].
+- `tag=:shell`: local physical identity.
+- `combine=:product`: gridspace composition rule.
 
 # Returns
 
@@ -325,15 +325,15 @@ Declare a conductive core region.
 
 # Arguments
 
-- `material`: Material with `kind == :conductor`.
-- `primitive`: Intrinsic core geometry. The keyword form constructs a disk of
+- `material`: material with `kind == :conductor`.
+- `primitive`: intrinsic core geometry. The keyword form constructs a disk of
   radius `r` \\[m\\].
 
 # Keywords
 
-- `r`: Disk radius \\[m\\].
-- `tag=:core`: Local physical identity.
-- `combine=:product`: Gridspace composition rule.
+- `r`: disk radius \\[m\\].
+- `tag=:core`: local physical identity.
+- `combine=:product`: gridspace composition rule.
 
 # Returns
 
@@ -404,13 +404,13 @@ Bind a nonconducting filler material to an intrinsic primitive definition.
 
 # Arguments
 
-- `material`: Material with `kind == :insulator`.
-- `primitive`: Intrinsic filler geometry.
+- `material`: material with `kind == :insulator`.
+- `primitive`: intrinsic filler geometry.
 
 # Keywords
 
-- `tag=:filler`: Local physical identity.
-- `combine=:product`: Gridspace composition rule.
+- `tag=:filler`: local physical identity.
+- `combine=:product`: gridspace composition rule.
 
 # Returns
 
@@ -458,22 +458,22 @@ and `lay` for the practical ring-course form.
 
 # Arguments
 
-- `material`: Material with `kind == :conductor`.
+- `material`: material with `kind == :conductor`.
 
 # Keywords
 
-- `shape`: Intrinsic member primitive.
-- `pattern=nothing`: Explicit member placement pattern.
-- `path=nothing`: Explicit longitudinal path.
-- `n=nothing`: Exact ring cardinality or `capacity()`.
-- `r=nothing`: Member-center ring radius \\[m\\].
-- `gap_frac=0`: Fractional adjacent clearance \\[dimensionless\\].
-- `lay=nothing`: One lay law used to construct a `Helix`.
-- `dir=1`: Helix handedness, `1` or `-1` \\[dimensionless\\].
-- `φ0=0`: Initial angular position \\[rad\\].
-- `compact=nothing`: Explicit compaction law.
-- `tag=:wire`: Local member and group identity.
-- `combine=:product`: Gridspace composition rule.
+- `shape`: intrinsic member primitive.
+- `pattern=nothing`: explicit member placement pattern.
+- `path=nothing`: explicit longitudinal path.
+- `n=nothing`: exact ring cardinality or `capacity()`.
+- `r=nothing`: member-center ring radius \\[m\\].
+- `gap_frac=0`: fractional adjacent clearance \\[dimensionless\\].
+- `lay=nothing`: one lay law used to construct a `Helix`.
+- `dir=1`: helix handedness, `1` or `-1` \\[dimensionless\\].
+- `φ0=0`: initial angular position \\[rad\\].
+- `compact=nothing`: explicit compaction law.
+- `tag=:wire`: local member and group identity.
+- `combine=:product`: gridspace composition rule.
 
 # Returns
 
@@ -687,41 +687,41 @@ $(TYPEDSIGNATURES)
 Fill one authoritative core boundary with the maximum admissible inventory of
 equal source strands.
 
-Circular source bundles have one center strand and `6k` strands in course `k`.
+Circular source bundles have one center strand and `6k` wire strands in course `k`.
 A sector admits the largest complete inventory satisfying
 ``[1 + 3L(L+1)]\\,\\pi a^2 \\leq A_{\\mathrm{sector}}``. Its mapped sites define
-a prescribed-area power diagram; disks clipped to those cells retain each
+a prescribed-area power diagram. Disks clipped to those cells retain each
 source area. This geometric reconstruction preserves the declared copper
 fill and does not model mechanical forming or plasticity.
 
 Rectangular strands occupy complete, area-preserving annular courses, including
-a full annulus when a course contains one strand. Their requested boundary is
-a packing limit; the resolved boundary is the occupied metal disk. Subsequent
+a full annulus when a course contains one strand. Their requested geometric boundary is
+a packing limit. The resolved geometric boundary is the occupied metal disk. Subsequent
 layers start there, without an automatically generated outer filler film.
 
 # Arguments
 
-- `material`: Material with `kind == :conductor`.
+- `material`: material with `kind == :conductor`.
 
 # Keywords
 
-- `center=nothing`: Circular center member for a disk-bounded core. Circular
-  strands default to one center wire equal to `shape`; rectangular strands
+- `center=nothing`: circular center member for a disk-bounded core. Circular
+  strands default to one center wire equal to `shape`. Rectangular strands
   require an explicit `Disk`. A sector bundle infers its center strand from
   `shape` and does not admit a separate center declaration.
-- `shape`: Circular wire or rectangular strand primitive.
-- `boundary`: Nonhollow `Disk` or `Sector` core boundary; for rectangular
+- `shape`: circular wire or rectangular strand primitive.
+- `boundary`: nonhollow `Disk` or `Sector` core boundary. For rectangular
   strands, a `Disk` packing limit rather than an imposed finished radius.
-- `fill=air`: Interstitial insulating or semiconducting material, unused by
+- `fill=air`: interstitial insulating or semiconducting material, unused by
   contiguous rectangular courses. The default
   is lossless air (``\\rho=\\infty``, ``\\epsilon_r=\\mu_r=1``).
-- `lay=nothing`: One lay law or a schedule matching the inferred radial courses.
-- `dir=1`: Helix handedness or a schedule matching `lay`.
-- `φ0=0`: Helix initial angle or a schedule matching `lay` \\[rad\\].
-- `compact=nothing`: Circular disk-bounded strands remain circular by default;
+- `lay=nothing`: one lay law or a schedule matching the inferred radial courses.
+- `dir=1`: helix handedness or a schedule matching `lay`.
+- `φ0=0`: helix initial angle or a schedule matching `lay` \\[rad\\].
+- `compact=nothing`: circular disk-bounded strands remain circular by default.
   `true` requests area-preserving deformation. Sector and rectangular
-  stranding are intrinsically deformed and do not admit this keyword.
-- `combine=:product`: Gridspace composition rule.
+  wire stranding are intrinsically deformed and do not admit this keyword.
+- `combine=:product`: gridspace composition rule.
 
 # Returns
 
@@ -907,24 +907,24 @@ $(TYPEDSIGNATURES)
 
 Declare one Milliken conductor as a cable-center wire surrounded by equal
 stranded sector segments. Each segment contains its own bundle-center strand
-and complete `6k` courses. Every conductive descendant resolves to one `:core`
+and complete `6k` courses. Each conductive descendant resolves to one `:core`
 terminal.
 
 # Arguments
 
-- `material`: Conductor material shared by the center and segment strands.
+- `material`: conductor material shared by the center and segment strands.
 
 # Keywords
 
-- `shape`: Circular source wire repeated inside every segment.
-- `segment`: Authoritative boundary of one sector segment. Its span must equal
+- `shape`: circular source wire repeated inside every segment.
+- `segment`: authoritative geometric boundary of one sector segment. Its span must equal
   ``2\\pi/N`` for `segments=N`.
-- `segments=6`: Number of equal sector segments \\[dimensionless\\].
-- `lay=nothing`: Common strand lay law.
-- `dir=1`: Helix handedness \\[dimensionless\\].
-- `φ0=0`: Helix initial angle \\[rad\\].
-- `fill=air`: Interstitial material around the center and every segment strand.
-- `combine=:product`: Gridspace composition rule.
+- `segments=6`: number of equal sector segments \\[dimensionless\\].
+- `lay=nothing`: common strand lay law.
+- `dir=1`: helix handedness \\[dimensionless\\].
+- `φ0=0`: helix initial angle \\[rad\\].
+- `fill=air`: interstitial material around the center and every segment strand.
+- `combine=:product`: gridspace composition rule.
 
 The center-wire radius is inferred from the resolved segment packing so that
 the center wire is tangent to the innermost strand of every equal segment.
@@ -994,21 +994,21 @@ Repeat one physical item as a central child and concentric outer courses.
 
 # Arguments
 
-- `item`: Physical cable part repeated by the rope.
+- `item`: physical cable part repeated by the rope.
 
 # Keywords
 
-- `layers`: Number of outer courses \\[dimensionless\\].
-- `n=6`: Base count, exact course schedule, or deferred maximum count `capacity()`.
-- `lay=nothing`: One lay law or one law per outer course. Homogeneous schedules
-  may be declared as `LayRatio(q...)`, `Pitch(p...)`, or `LayAngle(α...)`.
-- `dir=1`: One handedness or one value per outer course.
-- `φ0=0`: One initial angle or one value per outer course \\[rad\\].
-- `compact=nothing`: One compaction law or one law per outer course.
+- `layers`: number of outer courses \\[dimensionless\\].
+- `n=6`: base count, exact course schedule or deferred maximum count `capacity()`.
+- `lay=nothing`: one lay law or one law per outer course. Homogeneous schedules
+  may be declared as `LayRatio(q...)`, `Pitch(p...)` or `LayAngle(α...)`.
+- `dir=1`: one handedness or one value per outer course.
+- `φ0=0`: one initial angle or one value per outer course \\[rad\\].
+- `compact=nothing`: one compaction law or one law per outer course.
   Homogeneous scalar schedules may be declared as `FillFactor(η...)`.
-- `gap_frac=0`: One clearance fraction or one value per outer course
+- `gap_frac=0`: one clearance fraction or one value per outer course
   \\[dimensionless\\].
-- `combine=:product`: Gridspace composition rule.
+- `combine=:product`: gridspace composition rule.
 
 # Returns
 
@@ -1057,19 +1057,19 @@ outer boundary.
 
 # Arguments
 
-- `material`: Material with `kind == :conductor`.
+- `material`: material with `kind == :conductor`.
 
 # Keywords
 
-- `shape`: Intrinsic armor-member primitive.
-- `n`: Exact cardinality or deferred maximum count `capacity()`.
-- `lay=nothing`: One helical lay law.
-- `dir=1`: Helix handedness, `1` or `-1` \\[dimensionless\\].
-- `φ0=0`: Initial angular position \\[rad\\].
-- `compact=nothing`: Explicit compaction law.
-- `gap_frac=0`: Fractional adjacent clearance \\[dimensionless\\].
-- `tag=:armor`: Local member and group identity.
-- `combine=:product`: Gridspace composition rule.
+- `shape`: intrinsic armor-member primitive.
+- `n`: exact cardinality or deferred maximum count `capacity()`.
+- `lay=nothing`: one helical lay law.
+- `dir=1`: helix handedness, `1` or `-1` \\[dimensionless\\].
+- `φ0=0`: initial angular position \\[rad\\].
+- `compact=nothing`: explicit compaction law.
+- `gap_frac=0`: fractional adjacent clearance \\[dimensionless\\].
+- `tag=:armor`: local member and group identity.
+- `combine=:product`: gridspace composition rule.
 
 # Returns
 
@@ -1137,17 +1137,17 @@ Declare a repeated conductive, semiconductive, or insulating tape system.
 
 # Arguments
 
-- `material`: Tape material.
+- `material`: tape material.
 
 # Keywords
 
-- `section`: Intrinsic tape cross-section.
-- `n`: Exact angular cardinality or deferred maximum count `capacity()`.
-- `lay=nothing`: One helical lay law.
-- `gap_frac=0`: Fractional angular clearance \\[dimensionless\\].
-- `compact=nothing`: Explicit compaction law.
-- `tag=:tape`: Local tape identity.
-- `combine=:product`: Gridspace composition rule.
+- `section`: intrinsic tape cross-section.
+- `n`: exact angular cardinality or deferred maximum count `capacity()`.
+- `lay=nothing`: one helical lay law.
+- `gap_frac=0`: fractional angular clearance \\[dimensionless\\].
+- `compact=nothing`: explicit compaction law.
+- `tag=:tape`: local tape identity.
+- `combine=:product`: gridspace composition rule.
 
 # Returns
 
@@ -1177,18 +1177,18 @@ heterogeneous members and their local poses.
 
 # Arguments
 
-- `members`: Explicit core members.
+- `members`: explicit core members.
 
 # Keywords
 
-- `n=nothing`: Repeated cardinality; omit for explicit members.
-- `r=nothing`: Member-center ring radius \\[m\\], required when `n` is supplied.
-- `names=nothing`: Exact terminal names required for repeated terminal-bearing members.
-- `φ0=0`: Starting angle \\[rad\\].
-- `span=2π`: Angular span \\[rad\\].
-- `path=nothing`: Shared longitudinal path.
-- `compact=nothing`: Explicit compaction law.
-- `combine=:product`: Gridspace composition rule.
+- `n=nothing`: repeated cardinality. Omit for explicit members.
+- `r=nothing`: member-center ring radius \\[m\\], required when `n` is supplied.
+- `names=nothing`: exact terminal names required for repeated terminal-bearing members.
+- `φ0=0`: starting angle \\[rad\\].
+- `span=2π`: angular span \\[rad\\].
+- `path=nothing`: shared longitudinal path.
+- `compact=nothing`: explicit compaction law.
+- `combine=:product`: gridspace composition rule.
 
 # Returns
 
@@ -1198,7 +1198,7 @@ heterogeneous members and their local poses.
 
 Origin-centered repeated sectors require the sector span to equal their angular
 pitch. Their resolved sides must not overlap. An outer insulating layer may
-close the clearance to zero; bare sectors require positive side clearance.
+close the clearance to zero. Bare sectors require positive side clearance.
 """
 function cores(
         members...;
@@ -1256,16 +1256,16 @@ Contain one or more physical members inside a pipe cross-section.
 
 # Arguments
 
-- `items`: Enclosed physical members. Several members form an explicit
+- `items`: enclosed physical members. Several members form an explicit
   assembly.
 
 # Keywords
 
-- `shape`: Intrinsic containing primitive.
-- `fill`: Filling material or explicit filling region.
-- `wall=nothing`: Optional outward wall declaration.
-- `at=nothing`: Pipe pose relative to its parent frame.
-- `combine=:product`: Gridspace composition rule.
+- `shape`: intrinsic containing primitive.
+- `fill`: filling material or explicit filling region.
+- `wall=nothing`: optional outward wall declaration.
+- `at=nothing`: pipe pose relative to its parent frame.
+- `combine=:product`: gridspace composition rule.
 
 # Returns
 
@@ -1299,16 +1299,16 @@ members may differ in geometry and terminal structure.
 
 # Arguments
 
-- `items`: Enclosed physical members.
+- `items`: enclosed physical members.
 
 # Keywords
 
-- `shape`: Intrinsic containing primitive.
-- `fill`: Filling material or explicit filling region.
-- `wall=nothing`: Optional outward wall declaration.
-- `formation=nothing`: Placement pattern for one repeated prototype.
-- `at=nothing`: Duct pose relative to its parent frame.
-- `combine=:product`: Gridspace composition rule.
+- `shape`: intrinsic containing primitive.
+- `fill`: filling material or explicit filling region.
+- `wall=nothing`: optional outward wall declaration.
+- `formation=nothing`: placement pattern for one repeated prototype.
+- `at=nothing`: duct pose relative to its parent frame.
+- `combine=:product`: gridspace composition rule.
 
 # Returns
 

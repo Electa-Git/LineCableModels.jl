@@ -1,9 +1,9 @@
 # Run in an environment containing LineCableModels and GLMakie:
-#     include("test/manual/calculations/run_two_bare_wires.jl")
+#     `include("test/manual/calculations/run_two_bare_wires.jl")`
 # The active project and LOAD_PATH belong to the caller and remain unchanged.
 using LineCableModels, GLMakie
 
-# Two bare copper wires: 42.5 mm radius, 1 m spacing, buried 1 m deep.
+# 2 bare copper wires: 42.5 mm radius, 1 m spacing, buried 1 m deep.
 # Geometry, temperature and static earth inputs match the two_bare_wires case.
 materials = MaterialsLibrary(add_defaults=true)
 copper = Material(materials, :copper)
@@ -19,7 +19,7 @@ problem = LineParametersProblem(system;
     temperature=20.0, earth_props=earth, frequencies=frequency)
 
 # Both calculations use Unified earth return. Compare constant earth properties
-# with the implemented Longmire–Smith dispersion model, keeping static inputs
+# with the implemented Longmire-Smith dispersion model, keeping static inputs
 # fixed. The legend identifies the differing soil law automatically.
 formulations = [Formulation(
     earth_impedance=:unified, earth_admittance=:unified,

@@ -242,8 +242,9 @@ end
         z=inv(incidence*Diagonal(inv.(r.+s.*l))*transpose(incidence))
         y=incidence*Diagonal(g.+s.*c)*transpose(incidence)
         p=s*inv(y)
-        # Original equations have eliminated voltage/potential zero. Solve for
-        # constrained currents/charges without constructing a Schur complement.
+        # Set the eliminated conductor's voltage or potential to zero in the
+        # original equations. Solve for the constrained currents or charges
+        # without constructing a Schur complement.
         for matrix in (z,p)
             excitation=Matrix{ComplexF64}(I,3,3)[:,1:2]
             currents=matrix\excitation

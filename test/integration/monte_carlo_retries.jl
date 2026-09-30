@@ -140,7 +140,7 @@ end
     @test failure isa ErrorException
     @test occursin("3 attempts (0 accepted)",sprint(showerror,failure))
     @test occursin("physical radius must be positive",sprint(showerror,failure))
-    # This deterministic control tests conditioning and source records only; no claim
+    # This deterministic control tests conditioning and source records only. No claim
     # is made that accepted draws follow an unconditioned input law.
     calls=Ref(0)
     alternating=(_rng,mean,_sigma)->begin

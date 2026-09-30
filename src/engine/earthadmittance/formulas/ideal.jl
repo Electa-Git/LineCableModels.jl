@@ -32,14 +32,14 @@ D_{ij}=\\sqrt{x_{ij}^2+(h_i+h_j)^2}.
 ```
 
 Here ``h_i`` is aerial height, ``r_i`` is the exterior radius, and ``x_{ij}``
-is horizontal separation; ``d_{ij}`` and ``D_{ij}`` are distances to the real
+is horizontal separation. ``d_{ij}`` and ``D_{ij}`` are distances to the real
 conductor and its image, respectively, all in meters.
 For lossless materials, the complete potential matrix gives purely imaginary
-admittance ``Y=j\\omega P^{-1}``; capacitance itself is real.
+admittance ``Y=j\\omega P^{-1}``. Capacitance itself is real.
 
 The coaxial backend evaluates these equations directly. PSCAD maps this
 selection to its native potential model. Its direct-integration setting can
-produce nonzero aerial conductance even with lossless insulation; the adapter
+produce nonzero aerial conductance even with lossless insulation. The adapter
 preserves that native deviation rather than changing these equations.
 
 # Reference

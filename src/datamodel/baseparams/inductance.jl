@@ -5,9 +5,9 @@ Calculate the GMR of a circular wire array:
 ``GMR=(r_g N a^{N-1})^{1/N}``, with
 ``r_g=r_w\\exp(-\\mu_r/4)``.
 
-`lay_radius` is the radius `a` of the strand-center circle in meters;
-`count` is the positive integer strand count `N`; `wire_radius` is the
-positive strand radius `r_w` in meters; and `mu_r` is the positive,
+`lay_radius` is the radius `a` of the strand-center circle in meters.
+`count` is the positive integer strand count `N`. `wire_radius` is the
+positive strand radius `r_w` in meters. `mu_r` is the positive,
 dimensionless relative permeability. The lay radius must be positive for
 multiple wires and may be zero for one wire. The returned geometric mean
 radius (GMR) is in meters.
@@ -43,9 +43,9 @@ r_g=r_w\\exp(-\\mu_r/4).
 
 # Arguments
 
-- `coordinates`: Strand-center coordinates \\[m\\].
-- `wire_radius`: Strand radius \\[m\\].
-- `mu_r`: Relative permeability \\[dimensionless\\].
+- `coordinates`: strand-center coordinates \\[m\\].
+- `wire_radius`: strand radius \\[m\\].
+- `mu_r`: relative permeability \\[dimensionless\\].
 
 # Returns
 
@@ -129,10 +129,10 @@ GMR_{eq}=GMR_1^{\\beta^2}GMR_2^{(1-\\beta)^2}
 # Arguments
 
 - `gmr1`: GMR of the accumulated conductor zone \\[m\\].
-- `area1`: Cross-sectional area of the accumulated conductor zone \\[m²\\].
+- `area1`: cross-sectional area of the accumulated conductor zone \\[m²\\].
 - `gmr2`: GMR of the added conductor zone \\[m\\].
-- `area2`: Cross-sectional area of the added conductor zone \\[m²\\].
-- `gmd`: Geometric mean distance between the zones \\[m\\].
+- `area2`: cross-sectional area of the added conductor zone \\[m²\\].
+- `gmd`: geometric mean distance between the zones \\[m\\].
 
 # Returns
 

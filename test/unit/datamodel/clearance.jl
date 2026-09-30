@@ -56,7 +56,7 @@ end
     @test_throws DomainError fixture.pair(0.01, 0.02 - 1e-10)
     @test_throws DomainError fixture.pair(0.01, 0.0)
 
-    # Several neighbours must be resolved together, not by a one-pass pair push.
+    # Several neighbors must be resolved together, not by a one-pass pair push.
     line=@test_logs (:warn, r"Cable placements adjusted") build(LineCableSystem,
         fill(design, 5), [Pose2(0.02i, -1) for i in 1:5])
     @test minimum(fixture.gaps(line)) >= 1e-6
@@ -160,7 +160,7 @@ end
     zipped=Gridspace{LineCableSystem}(space.build, space.grids; combine = :zip)
     @test_logs (:warn, r"Sampled cable placements adjusted") rand(MersenneTwister(8), zipped)
 
-    # Even a draw that swaps air/earth sides must remain pairwise feasible.
+    # Even a draw that swaps air-earth sides must remain pairwise feasible.
     design=fixture.cable()
     reference=[Pose2(0, 0.1), Pose2(0, -0.1)]
     required=[0.001 0.1; 0.1 0.001]

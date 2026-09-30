@@ -15,8 +15,9 @@ conductor, in Ω/m.
 # Assumptions
 
 Homogeneous, nonmagnetic conductive earth, neglecting displacement current.
-Both ordered aerial/buried interactions use the same reciprocal expression.
-The formula supplies no self or same-half-space interactions; those remain
+Both ordered interactions between an aerial conductor and a buried conductor
+use the same reciprocal expression.
+The formula supplies no self or same-half-space interactions. Those remain
 separate selections.
 
 # Expression

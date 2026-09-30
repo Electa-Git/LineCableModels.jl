@@ -38,12 +38,12 @@ cross-sectional participation.
 
 # Arguments
 
-- `left_coordinates`: Element centers of the accumulated zone \\[m\\].
-- `left_radius`: Element radius of the accumulated zone \\[m\\].
-- `right_coordinates`: Element centers of the added zone \\[m\\].
-- `right_radius`: Element radius of the added zone \\[m\\].
-- `left_element_area`: Area represented by each accumulated element \\[m²\\].
-- `right_element_area`: Area represented by each added element \\[m²\\].
+- `left_coordinates`: element centers of the accumulated zone \\[m\\].
+- `left_radius`: element radius of the accumulated zone \\[m\\].
+- `right_coordinates`: element centers of the added zone \\[m\\].
+- `right_radius`: element radius of the added zone \\[m\\].
+- `left_element_area`: area represented by each accumulated element \\[m²\\].
+- `right_element_area`: area represented by each added element \\[m²\\].
 
 # Returns
 
@@ -140,11 +140,11 @@ the helical-solenoid correction associated with the enclosed conductor.
 
 # Arguments
 
-- `layers`: Ordered dielectric layers with radii \\[m\\] and material
+- `layers`: ordered dielectric layers with radii \\[m\\] and material
   permeability \\[dimensionless\\].
-- `turns`: Equivalent conductor turns per unit length \\[1/m\\].
-- `conductor_radius`: Outer conductor radius \\[m\\].
-- `dielectric_radius`: Outer dielectric radius \\[m\\].
+- `turns`: equivalent conductor turns per unit length \\[1/m\\].
+- `conductor_radius`: outer conductor radius \\[m\\].
+- `dielectric_radius`: outer dielectric radius \\[m\\].
 
 # Returns
 
@@ -551,7 +551,7 @@ Rosa [rosa1908](@cite), Eq. (57):
 
 # Arguments
 
-- `left`, `right`: Resolved strand cross-sections, with coordinates in \\[m\\].
+- `left`, `right`: resolved strand cross-sections, with coordinates in \\[m\\].
 
 # Returns
 
@@ -562,11 +562,11 @@ Rosa [rosa1908](@cite), Eq. (57):
 The annular expression is independent of the enclosed section's shape or
 eccentricity while that section remains entirely inside the annular hole.
 It does not replace the separate annular self-GMR or imply an exact integral
-for arbitrary deformed strands.
+for arbitrary deformed wire strands.
 
 # Errors
 
-- `ArgumentError`: Coincident centroids without an enclosing annular section.
+- `ArgumentError`: coincident centroids without an enclosing annular section.
 """
 function geometric_mean_distance(left::AbstractShape, right::AbstractShape)
     left_center, right_center = centroid(left), centroid(right)
@@ -580,7 +580,7 @@ end
 function geometric_mean_distance(left::Annulus, right::AbstractShape)
     tolerance = 64eps(float(nominal(left.ro)))
     if left.ri > zero(left.ri) && radial_extent(right, centroid(left)) <= left.ri + tolerance
-        # Dimensionless radius ratio avoids subtraction of nearly equal
+        # A dimensionless ratio of radii avoids subtraction of nearly equal
         # squared radii in Rosa's area average for a thin annulus.
         ratio = (left.ro - left.ri) / left.ri
         return left.ri * exp(log1p(ratio) * (1 + ratio)^2 / (ratio * (2 + ratio)) - one(ratio) / 2)
@@ -716,7 +716,7 @@ end
 $(TYPEDSIGNATURES)
 
 Return the transverse position \\[m\\] used for a radial shape or placed region.
-Disks and annuli use their stored center; sectors use their centroid, and sector
+Disks and annuli use their stored center. Sectors use their centroid, and sector
 shells use the inner sector's centroid. A placed region uses its primitive.
 """
 radial_position(shape::Union{Disk, Annulus}) = (shape.at.x, shape.at.y)
@@ -736,8 +736,8 @@ radial_position(region::PlacedRegion) = radial_position(region.primitive)
 $(TYPEDSIGNATURES)
 
 Return the transverse center \\[m\\] of a nonempty collection of resolved
-conductor regions. Use a shared bounded-placement or group center when present;
-otherwise use the primitive centroid for one region or the area-weighted
+conductor regions. Use a shared bounded-placement or group center when present.
+Otherwise, use the primitive centroid for one region or the area-weighted
 centroid for several regions.
 """
 function conductor_zone_position(sources)
@@ -1208,12 +1208,12 @@ $(TYPEDSIGNATURES)
 Reduce each radial terminal section of a completed cable design to equivalent
 conductor geometry and its ordered physical dielectric layers.
 
-The reduction combines conductor resistance and GMR and retains each physical
+The reduction combines the resistance of conductors and GMR and retains each physical
 dielectric layer for subsequent material evaluation.
 
 # Arguments
 
-- `design`: Completed physical cable design.
+- `design`: completed physical cable design.
 # Returns
 
 An ordered vector of named tuples containing equivalent conductor fields and
@@ -1432,15 +1432,15 @@ components at one dielectric reference frequency.
 This reference-frequency operation serves the scalar ATP and TRALIN export
 adapters. It includes the supplied physical material losses at their reference
 temperature and combines radial layers in series. The resulting scalar
-material reproduces capacitance and conductance at the requested frequency;
-it is not a broadband replacement. It does not calculate mutual coupling or
-earth return. Reusable [`homogenize`](@ref) designs instead retain their
+material reproduces capacitance and conductance at the requested frequency.
+Its validity is restricted to that frequency. Mutual coupling and earth
+return are outside this reduction. Reusable [`homogenize`](@ref) designs retain their
 constituents without calling this frequency-dependent operation.
 
 # Arguments
 
-- `design`: Completed physical cable design.
-- `dielectric_frequency`: Reference frequency used to match the equivalent
+- `design`: completed physical cable design.
+- `dielectric_frequency`: reference frequency used to match the equivalent
   dielectric [Hz].
 
 # Returns
@@ -1542,11 +1542,11 @@ or explicit reference-frequency export. The source design is not modified.
 
 # Arguments
 
-- `original`: Completed physical cable design.
+- `original`: completed physical cable design.
 
 # Keywords
 
-- `new_id`: Identifier for the returned design. An empty value appends
+- `new_id`: identifier for the returned design. An empty value appends
   `"_equivalent"` to the source identifier.
 
 # Returns

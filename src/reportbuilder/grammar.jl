@@ -31,7 +31,7 @@ struct ReportArtifact{T,I,O}
     output::O
 end
 
-# Only ordinary report containers are traversed; DataFrame cells are leaves.
+# Only ordinary report containers are traversed. DataFrame cells are leaves.
 _reported_leaves(table::DataFrame) = (table,)
 _reported_leaves(tables::Union{NamedTuple,Tuple,AbstractVector}) =
     Iterators.flatten(_reported_leaves(child) for child in tables)
@@ -79,7 +79,7 @@ end
 $(TYPEDSIGNATURES)
 
 Retrieve an already-produced quantity DataFrame using an observation request.
-An atomic report returns one DataFrame; a collection returns an ordered vector,
+For an atomic report, the result is one DataFrame. Collections return an ordered vector,
 including for one result. `artifact[i, request]` returns the table for result
 position `i`, independently of its recorded scientific gridpoint identifier.
 
@@ -89,13 +89,13 @@ transformation and statistical identities remain distinct.
 
 # Arguments
 
-- `artifact`: A completed report.
-- `request`: A quantity selector or complete observation request.
+- `artifact`: a completed report.
+- `request`: a quantity selector or complete observation request.
 
 # Returns
 
 The stored DataFrame itself, or a vector of those DataFrames. Use `copy` for an
-independent table; editing a returned table does not edit retained observations.
+independent table. Editing a returned table does not edit retained observations.
 
 # Errors
 
@@ -134,7 +134,7 @@ construct [`ObservedResult`](@ref). Illustrations consume those same observation
 $(TYPEDFIELDS)
 """
 struct TableReportDefinition{R<:Tuple,U<:Tuple,P,O<:NamedTuple} <: AbstractReportDefinition
-    "Quantity requests; an empty tuple selects all retained quantities."
+    "Quantity requests. An empty tuple selects all retained quantities."
     requests::R
     "Display units used only when constructing a raw-input observation."
     units::U
@@ -222,7 +222,7 @@ function report(definition::TableReportDefinition,
     return invoke(report,Tuple{AbstractReportDefinition,typeof(observed)},definition,observed;reference)
 end
 
-# These are acquisition keywords, not a second set of observation defaults.
+# These keywords control acquisition. Observation defaults remain with the source.
 function _report_observation_options(options; retained = false)
     for key in keys(options)
         key in (:ydata, :rdata, :requests, :quantities) && throw(ArgumentError(
@@ -264,32 +264,32 @@ $(TYPEDSIGNATURES)
 
 Build separate in-memory quantity tables from a completed result or collection.
 The same scientific selection used by plotting's `ydata` is named `values` here.
-Raw results are observed first; retained observations preserve their recorded
+Raw results are observed first. Retained observations preserve their recorded
 units and numerical eligibility unless compatible display units are requested.
 
 # Arguments
 
-- `source`: A completed primary result, standalone Z/Y tensor, result space,
-  ordinary collection, or retained observation.
-- `selection`: Optional positional alternative to `values`; do not supply both.
+- `source`: completed data supplied as a primary result or standalone Z/Y tensor.
+  A result space, ordinary collection or retained observation is also accepted.
+- `selection`: optional positional alternative to `values`. Do not supply both.
 
 # Keywords
 
-- `values=nothing`: A selector, one `@observe` request, or a tuple of requests.
-  `nothing` and `()` use the source owner's defaults, or all retained products.
-- `units`, `length_unit`, `quantity_units`, `frequency_unit`: Observation unit
-  options. Raw defaults belong to the observation owner; omitted retained
+- `values=nothing`: a selector, one `@observe` request or a tuple of requests.
+  `nothing` and `()` use the source owner's defaults or all retained products.
+- `units`, `length_unit`, `quantity_units`, `frequency_unit`: observation unit
+  options. Raw defaults belong to the observation owner. Omitted retained
   options preserve recorded units. `freq_unit` is an alternative spelling of
-  `frequency_unit`; supplying both is an error.
-- `clip`, `atol`, `frequencies`: Raw observation options. Cutoffs use native
-  units; standalone tensor frequency context is in \\[Hz\\]. These keywords
+  `frequency_unit`. Supplying both is an error.
+- `clip`, `atol`, `frequencies`: raw observation options. Cutoffs use native
+  units. Frequencies for a standalone tensor are in \\[Hz\\]. These keywords
   cannot be supplied for retained inputs.
-- `reference=nothing`: A separate atomic raw or observed reference, stored in
+- `reference=nothing`: a separate atomic raw or observed reference, stored in
   `artifact.reference`. Numerical comparisons are supplied as completed records
   in the observed inputs.
 - `illustration=nothing`: `true` or a plotting callable requests an illustration
   of the retained observations with the matching `ydata` selection.
-- `plot_options=(;)`: Options for an explicitly requested illustration.
+- `plot_options=(;)`: options for an explicitly requested illustration.
 
 # Returns
 

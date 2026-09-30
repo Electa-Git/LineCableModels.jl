@@ -3,8 +3,8 @@
     const DM = LineCableModels.DataModel
     epsilon0 = 8.8541878128e-12
     mktempdir() do directory
-        # A minimal imported project, not an exported file used as its own
-        # oracle. PSCAD resistance and capacitance inputs use Ω/km and μF/km.
+        # A minimal imported project constructed independently of the exporter
+        # under test. PSCAD resistance and capacitance inputs use Ω/km and μF/km.
         function write_project(overrides=Dict{String,String}(); binding="master:Cable_CoaxSimpl")
             document = parsexml("""
                 <project name="Imported">

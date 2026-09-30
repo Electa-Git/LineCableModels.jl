@@ -36,8 +36,9 @@ direct linear uncertainty propagation. `MonteCarlo` samples independent
 realizations within each selected point.
 
 Any final formulation slot can be an explicit finite source. The constructor
-then returns a target-bearing formulation space. For example, compare constant
-earth properties with Portela's frequency-dependent material law:
+then returns a target-bearing formulation space. The following declaration
+selects both constant earth properties and Portela's frequency-dependent
+material law for comparison:
 
 ```julia
 formulations = Formulation(
@@ -53,9 +54,10 @@ run = compute(
 The calculation contains `length(problem_space) * length(formulations)`
 results. Each problem point is materialized once and is evaluated against all
 resolved formulations. Use `combine=:product` or `combine=:zip` on the
-formulation constructor only to compose fields inside that formulation; the
-outer problem/formulation relation is always Cartesian. Formula-owned numerical
-controls also vary as complete selections; for example, modal iteration convergence:
+formulation constructor only to compose fields inside that formulation. The
+outer problem-formulation relation is always Cartesian. Formula-owned numerical
+controls also vary as complete selections. The following declaration selects
+two convergence tolerances for the modal iteration:
 
 ```julia
 modal_formulations = ModalAnalysisFormulation(Grid((
@@ -91,7 +93,7 @@ placement, propagation constant, transposition, or bundle option.
 ## Completed results
 
 [`CableConstants`](@ref) stores R/L/C/G values per meter. Its aligned vectors
-contain one row per independent concentric assembly; `only(constants)` returns
+contain one row per independent concentric assembly. `only(constants)` returns
 the scalar row of a conventional single-core coaxial cable. [`LineParameters`](@ref)
 stores frequency-dependent Z/Y matrices and records their physical domain and
 `:pul` or `:total` basis. Scientific extraction goes through `observe` or
@@ -146,8 +148,7 @@ selected = run[problem_index, formulation_index]
 formula_id(run.axes.formulations[formulation_index].methods.earth_impedance)
 ```
 
-Linear storage is column-major in `(problem, formulation)` coordinates, so the
-problem index varies fastest. Scalar formulations produce a singleton
+Linear storage is column-major in `(problem, formulation)` coordinates, with the problem index varying fastest. Scalar formulations produce a singleton
 formulation axis and preserve the established scalar numerical calculation.
 
 Use the product accessors for uncertainty calculations:
@@ -165,10 +166,10 @@ Monte Carlo settings and resolved point data are available through
 `sampling_distribution`.
 
 Every Monte Carlo execution control may be supplied in an ordinary named
-tuple, for example `MonteCarlo(formulation; options=(trials=1000, seed=42))`.
+tuple, such as `MonteCarlo(formulation; options=(trials=1000, seed=42))`.
 Existing keyword shorthand such as `MonteCarlo(formulation; trials=1000, seed=42)`
 uses the same validation. Normalized settings are stored in
-`formulation.options`; no options type or cast is required.
+`formulation.options`. An options type or cast is unnecessary.
 
 The default error mode propagates every exception. Conditional rejection of
 unsupported realizations is explicit:
@@ -192,10 +193,10 @@ The resulting distribution is conditional on successful problem construction
 and calculation.
 
 When `trials=nothing`, Monte Carlo uses a simultaneous
-Dvoretzky–Kiefer–Wolfowitz bound. For `M` scalar marginals and confidence
+Dvoretzky-Kiefer-Wolfowitz bound. For `M` scalar marginals and confidence
 `1-α`, the trial count is
-`ceil(log(2M/α) / (2*cdf_tol^2))`. `cdf_tol` bounds empirical-CDF deviation;
-it does not bound the mean error or the joint distribution.
+`ceil(log(2M/α) / (2*cdf_tol^2))`. `cdf_tol` bounds empirical-CDF deviation.
+It does not bound the mean error or the joint distribution.
 
 ## Tables and reports
 
@@ -225,7 +226,7 @@ observed-result collection, not its original gridpoint identifier. A one-result
 collection still returns a vector.
 Use `copy(phase_report[R])` when edits should leave the report unchanged.
 
-An indexed request must match the reported selection; absent or ambiguous
+An indexed request must match the reported selection. Absent or ambiguous
 products raise an error.
 Select different scientific contents with `report(...; values=...)`.
 
@@ -239,12 +240,11 @@ mean_resistance = statistics_report[1, (statistics, R, mean)]
 
 Explicit `ObservedResult` snapshots are useful when retaining selected scientific
 products independently of their source. Reporting a snapshot preserves its
-recorded units; supplied compatible unit options re-express the retained values.
+recorded units. Supplied compatible unit options re-express the retained values.
 Clipping decisions and sample retention are fixed when the observation is
 created. Use the report's quantity tables to access these values as DataFrames.
 
-Loading XLSX activates one workbook per gridpoint and quantity. All
-destinations are checked before writing; replacing files requires `overwrite=true`:
+Loading XLSX activates one workbook per gridpoint and quantity. Each destination is checked before writing. Replacing files requires `overwrite=true`:
 
 ```julia
 using XLSX
@@ -285,7 +285,7 @@ Each non-mutating managed plotting call returns [`UIPlot`](@ref). Use
 The core `Grid`/`Gridspace` grammar does not load Measurements.jl or
 Distributions.jl. Load Measurements before `LinearError` or `MonteCarlo`
 computation. MC constructs and stores marginal Measurements from accepted raw
-sample means and standard deviations; `uncertain` returns those stored cores.
+sample means and standard deviations. `uncertain` returns those stored cores.
 It does not recover joint output correlations. Loading
 Distributions enables supported univariate distributions as Monte Carlo
 samplers and `pdf`/`cdf` evaluation for [`HistogramDensity`](@ref).

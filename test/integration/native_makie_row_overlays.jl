@@ -169,7 +169,7 @@ end
     @test !isempty(Makie.colorbuffer(page.figure))
     empty!(page.figure)
 
-    # A band selects saved comparison samples; it is not a new plotting-side
+    # A band selects saved comparison samples. It is not a new plotting-side
     # frequency filter. The same retained selection works with row overlays.
     reference=LineCableModels.Engine.retain_gridpoint(source,LineCableModels.Grammar.gridpoint_id())
     comparisons=LineCableModels.Engine.compare(reference,source,[R];bands=((20.0,40.0),))

@@ -1,5 +1,5 @@
 # Exact decimal engineering floors in native per-metre units. Convert before
-# frequency or length scaling; these are not solver-error estimates.
+# frequency or length scaling. These are not solver-error estimates.
 const _LINE_RESOLUTION_DEFAULTS = (R=1//10^10, L=1//10^15, G=1//10^12, C=1//10^16)
 const _LINE_RESOLUTION_QUANTITIES = (Z, Y, R, X, L, G, B, C)
 
@@ -46,7 +46,7 @@ function _line_resolution_tolerance(quantity, ::Type{T}, f, atol;
             other = _line_resolution_tolerance(getfield(@__MODULE__,partner),T,f,overrides;
                 result_basis,line_length)
             other === nothing && return nothing
-            # L/C at zero frequency are unavailable; never divide by zero.
+            # L/C at zero frequency are unavailable. Never divide by zero.
             return key in (:X,:B) ? angular .* other :
                 broadcast((cutoff,w) -> iszero(w) ? zero(cutoff) : cutoff/w,other,angular)
         end
@@ -85,14 +85,14 @@ $(TYPEDSIGNATURES)
 
 Classify original quantities using `abs(nominal(value)) ≤ cutoff`. Complex zero
 requires both Cartesian components to satisfy their cutoffs. Availability is
-separate; physical standard uncertainty never contributes to a reporting floor.
+separate. Physical standard uncertainty never contributes to a reporting floor.
 
 # Keywords
 
-- `atol`: Component cutoffs in native basis units.
-- `frequencies`: Aligned frequencies \\[Hz\\] for linked X/L and B/C cutoffs.
-- `result_basis=:pul`: Per-metre or `:total` quantities.
-- `line_length`: Physical length \\[m\\] for scaling default total-unit floors.
+- `atol`: component cutoffs in native basis units.
+- `frequencies`: aligned frequencies \\[Hz\\] for linked X/L and B/C cutoffs.
+- `result_basis=:pul`: per-metre or `:total` quantities.
+- `line_length`: physical length \\[m\\] for scaling default total-unit floors.
 
 # Returns
 

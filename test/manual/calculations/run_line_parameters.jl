@@ -1,13 +1,13 @@
 # Disposable manual runner. Nothing here is part of the package or Gauntlet.
 #
-# Open this file in the IDE and run/include it. This script does not activate
-# or replace the IDE's active project environment.
+# Open this file in the IDE and run or include it. The script uses the IDE's
+# active project environment without changing it.
 #
 # One-time setup in the user's Julia 1.12 default environment (`@v1.12`):
 #     import Pkg
-#     Pkg.develop(path = "/home/amartins/Documents/KUL/LineCableModels")
+#     `Pkg.develop(path = "/home/amartins/Documents/KUL/LineCableModels")`
 # Then run this file with that consumer environment active. `develop` is used
-# only because LineCableModels is not registered yet; dependency resolution is
+# only because LineCableModels is not registered yet. Dependency resolution is
 # otherwise the same as for a registry install.
 #
 # Edit `run_fem`, `case_id`, and `frequency_grid` below, then re-include this
@@ -17,11 +17,11 @@ repository = normpath(joinpath(@__DIR__, "..", "..", ".."))
 gauntlet_project = joinpath(repository, "gauntlet")
 gauntlet_project in LOAD_PATH || push!(LOAD_PATH, gauntlet_project)
 
-# The one backend switch: false runs the analytical/coaxial solver, true runs FEM.
+# Set `run_fem` to false for the analytical coaxial solver, or true for FEM.
 run_fem = false
 
-# Before: Revise was mandatory even for a one-shot include. It is an optional
-# IDE convenience; load it in your session if you want live package revision.
+# Revise is optional. Load it in your IDE session to update loaded package
+# methods as you edit their source.
 using LineCableModels
 run_fem && (@eval using Gmsh)
 isdefined(@__MODULE__, :Gauntlet) || include(joinpath(gauntlet_project, "Gauntlet.jl"))
@@ -33,7 +33,7 @@ fullfile(filename) = joinpath(manual_output, filename); #hide
 
 # Edit these inputs for a different datasheet case or frequency sweep.
 case_id = :cable_220kv_milliken_1x2500_252_trefoil
-frequency_grid = 10.0 .^ range(-1, 7; length = 101)  # Hz; use [50.0] for one frequency.
+frequency_grid = 10.0 .^ range(-1, 7; length = 101)  # Hz. Use [50.0] for one frequency.
 loaded_case = Gauntlet.load_case(case_id;
     variation = Gauntlet.ExactOverrides(; frequencies = frequency_grid))
 problem = loaded_case.problem
@@ -48,7 +48,7 @@ output_file = fullfile("pscad_export.pscx")
 export_file = export_data(:pscad, system, earth, file_name = output_file);
 
 if run_fem
-    # FEM field-model choices. Execution controls belong to compute(...; options).
+    # FEM field-model choices. Execution controls belong to compute(.... Options).
     fem_formulation = Formulation(:LineCableModelsFEM;
         options = (
             physics = :quasi_tem,
@@ -82,7 +82,7 @@ analytical_formulation = Formulation(
     internal_impedance = :default,
     insulation_impedance = :default,
     earth_impedance = :default,
-    shunt_model = :default,  # Coaxial annuli; :boundary opts into the local field solve.
+    shunt_model = :default,  # Coaxial annuli. `:boundary` opts into the local field solve.
     insulation_admittance = :default,
     semicon_admittance = :default,
     earth_admittance = :default,

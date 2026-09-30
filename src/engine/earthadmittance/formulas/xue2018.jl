@@ -8,8 +8,8 @@ $(TYPEDSIGNATURES)
 **Identification.** Generalized underground potential coefficient. The
 registered expression is referenced to infinite earth depth.
 
-**Availability.** Registered scientific identity; the coaxial implementation is
-not yet implemented. No numerical fallback is provided.
+**Availability.** Registered scientific identity. The coaxial implementation is
+not yet implemented. The method fails without a numerical fallback.
 
 **Expression.**
 

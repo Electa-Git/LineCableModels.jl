@@ -130,14 +130,14 @@ layers. A semi-infinite air layer is prepended unless `air_layer` is supplied.
 
 # Arguments
 
-- `layers`: One `EarthLayer` or an ordered collection. Horizontal models are
-  ordered from the surface downward.
+- `layers`: one `EarthLayer` or an ordered collection. Horizontal models are
+  ordered from the earth surface downward.
 
 # Keywords
 
-- `vertical_layers=false`: Whether earth interfaces are vertical.
-- `air_layer=nothing`: Optional explicit semi-infinite air layer.
-- `combine=:product`: Gridspace composition rule.
+- `vertical_layers=false`: whether earth interfaces are vertical.
+- `air_layer=nothing`: optional explicit semi-infinite air layer.
+- `combine=:product`: gridspace composition rule.
 
 # Returns
 
@@ -174,16 +174,16 @@ Declare a homogeneous earth model through [`layer`](@ref) and
 
 # Keywords
 
-- `rho`: Electrical resistivity \\[Ω·m\\].
-- `eps_r=nothing`: Relative permittivity \\[dimensionless\\]; `nothing`
+- `rho`: electrical resistivity \\[Ω·m\\].
+- `eps_r=nothing`: relative permittivity \\[dimensionless\\]. `nothing`
   selects unity in the resistivity scalar type.
-- `mu_r=nothing`: Relative permeability \\[dimensionless\\]; `nothing`
+- `mu_r=nothing`: relative permeability \\[dimensionless\\]. `nothing`
   selects unity in the resistivity scalar type.
-- `thickness=nothing`: Earth-layer thickness \\[m\\]; `nothing` selects a
+- `thickness=nothing`: earth-layer thickness \\[m\\]. `nothing` selects a
   semi-infinite earth layer.
-- `vertical_layers=false`: Whether earth interfaces are vertical.
-- `air_layer=nothing`: Optional explicit semi-infinite air layer.
-- `combine=:product`: Gridspace composition rule.
+- `vertical_layers=false`: whether earth interfaces are vertical.
+- `air_layer=nothing`: optional explicit semi-infinite air layer.
+- `combine=:product`: gridspace composition rule.
 
 # Returns
 

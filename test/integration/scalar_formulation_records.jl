@@ -6,7 +6,7 @@
     system=build(LineCableSystem, [design, design], [Pose2(0, -1), Pose2(1, -1)];
         connections = [Dict(:core=>1), Dict(:core=>2)])
     problem=LineParametersProblem(system; earth_props = homogeneous(rho = 100.0), frequencies = [1e5])
-    # Material coefficients are selectable; receiving-layer voltage references
+    # Material coefficients are selectable. Receiving-layer voltage references
     # are determined by the physical geometry, not formulation parameters.
     coefficients=(0.1, 1.0)
     choices=[Formulation(earth_properties = formula(:portela1999; parameters = (; beta)))
@@ -31,7 +31,7 @@
     serialize(io, results);
     seekstart(io)
     restored=deserialize(io)
-    # Unavailable cells must stay unavailable after serialization; == propagates
+    # Unavailable cells must remain unavailable after serialization. == propagates
     # missing instead of comparing the retained availability mask.
     @test isequal(
         report(BenchmarkTableDefinition(), (

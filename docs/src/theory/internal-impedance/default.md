@@ -5,13 +5,13 @@
 | Field | Value |
 | --- | --- |
 | Family | Internal impedance |
-| Formula identifier | `:schelkunoff1934`; `:default` routes to this implementation |
+| Formula identifier | `:schelkunoff1934`. `:default` routes to this implementation |
 | Explicit literature identifier | `:schelkunoff1934` |
 | Documentation status | Registered and documented. |
 
 **Description.** Exact cylindrical surface impedances for solid and hollow
 round conductors. The package default and `:schelkunoff1934` use the same
-Schelkunoff route; the latter exposes the author-year identity.
+Schelkunoff route. The latter exposes the author-year identity.
 
 **Assumptions.**
 
@@ -38,7 +38,7 @@ It does not model arbitrary proximity-induced angular current redistribution.
 **Reference.**
 
 S. A. Schelkunoff, *The Electromagnetic Theory of Coaxial Transmission Lines
-and Cylindrical Shields*, 1934; A. Ametani, *A General Formulation of
+and Cylindrical Shields*, 1934. A. Ametani, *A General Formulation of
 Impedance and Admittance of Cables*, 1980.
 
 [Back to the relevant theory overview](../internal_impedance.md)

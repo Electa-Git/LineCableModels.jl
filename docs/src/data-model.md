@@ -36,7 +36,7 @@ design = @cable "example" begin
 end
 ```
 
-`design` is a completed `CableDesign`; no second resolution call is required.
+`design` is a completed `CableDesign`. A second resolution call is unnecessary.
 Its physical declaration remains authoritative while geometry and terminal
 indices are derived once by `build`.
 
@@ -57,17 +57,17 @@ parameters = compute(problem)
 ```
 
 System `phase` values are one-based active phase identifiers. They label retained
-electrical matrix coordinates and carry no voltage polarity or phase-angle
-meaning. Use `0` for a conductor selected as a grounded/eliminated conductor by
+electrical matrix coordinates and include no voltage polarity or phase-angle
+meaning. Use `0` for a conductor selected as a grounded or eliminated conductor by
 the line-parameter reduction.
 
-System placement composes an outer transform with the design; it does not
+System placement composes an outer transform with the design. It does not
 rewrite the design's local geometry.
 
 ## Declaring earth
 
-`homogeneous(...)` declares a single homogeneous earth. A layered model is
-declared from the surface downward with `layer(...)`; the semi-infinite air
+`homogeneous(...)` declares one homogeneous earth. A layered model is
+declared from the earth surface downward with `layer(...)`. The semi-infinite air
 layer is implicit:
 
 ```julia
@@ -77,17 +77,17 @@ earth = @earth begin
 end
 ```
 
-Omitting `thickness` makes that earth layer semi-infinite. Consequently, every
-finite layer must precede the bottom half-space. Use
+Omitting `thickness` makes that earth layer semi-infinite, so layers with a
+finite thickness must precede the bottom half-space. Use
 `@earth vertical_layers=true` for vertical interfaces, or supply
 `air_layer=layer(...)` when the air properties must be explicit. Layer
-properties may contain `Grid` values; the result is then a
+properties may contain `Grid` values. The result is then a
 `Gridspace{EarthModel}` through the same construction path.
 
 The completed `EarthModel` is immutable. Its read-only `layers` tuple begins
 with the implicit or explicitly supplied air layer, followed by the declared
-earth layers in block order. Programmatic code that already owns a complete
-layer collection uses `build(EarthModel, layers; ...)`; earth models are never
+earth layers in block order. Programmatic code that already has a complete
+layer collection uses `build(EarthModel, layers; ...)`. Earth models are never
 extended incrementally with `add!`.
 
 ## Terminals and physical tags
@@ -105,8 +105,7 @@ end
 physical regions locally. The same local tags may be used under another
 terminal because qualified identities are derived from the tree.
 
-A nonconductive repeated group is valid and contributes no terminal. A
-conductive screen becomes a separate terminal only when requested explicitly:
+A nonconductive repeated group is valid and contributes no terminal. Request a separate terminal explicitly for a conductive screen:
 
 ```julia
 @terminal :screen begin
@@ -116,7 +115,7 @@ end
 
 ## Repeated conductors
 
-`stranded` accepts circular wire shapes. For a `Disk` boundary, it infers the
+`stranded` accepts circular wire shapes. For a `Disk` geometric boundary, it infers the
 largest complete family of concentric courses: one center wire and exactly
 `6k` wires in course `k`. With `compact=nothing`, those wires remain circles on
 their natural course radii.
@@ -130,7 +129,7 @@ core_part = stranded(
 )
 ```
 
-`boundary` is the authoritative finished core. The wire radius and boundary
+`boundary` is the authoritative finished core. The wire radius and geometric boundary
 infer the maximum complete `6k` course inventory. A lay schedule must match the
 radial courses found by that inventory. No `Ring`, layer count, or
 wire count is stored as a second description of the same geometry.
@@ -149,18 +148,18 @@ compact_core = stranded(
 )
 ```
 
-A `Sector` boundary infers one bundle-center strand and complete `6k` courses,
+A `Sector` geometric boundary infers one bundle-center strand and complete `6k` courses,
 with total inventory `1 + 3L(L+1)`. The circular sites are mapped into the
 resolved sector and retained while a prescribed-area power diagram allocates
 space. Each strand is a disk grown inside its allocated cell until its clipped
-area matches the source wire area. Free portions remain round; contact faces
+area matches the source wire area. Free portions remain round. Contact faces
 follow cell boundaries. Sector deformation is intrinsic, so it has no separate
 compaction choice. All remaining area belongs to the declared fill material.
 
 Course schedules are ordinary physical tuples. Wrap a complete schedule in
 `Grid` only when the schedule itself should vary.
 
-A stranded construction may prescribe the aggregate boundary separately from
+A stranded construction may prescribe the aggregate geometric boundary separately from
 the geometry of each strand:
 
 ```julia
@@ -176,9 +175,10 @@ sector_core = stranded(
 )
 ```
 
-`shape` defines each source strand and its conserved area; sector reconstruction
-changes the resolved outline. The boundary adds no homogeneous conductor and
-no fictitious strand at the cable origin.
+`shape` specifies each source strand and its conserved area, while sector
+reconstruction determines the resolved outline. The geometric boundary constrains
+the aggregate shape without adding a homogeneous conductor or a fictitious wire
+at the cable origin.
 Rectangular strands are admitted only in a circular core with an explicit
 center wire. They are always bent area-preservingly into annular courses.
 
@@ -213,7 +213,7 @@ contained = @pipe shape=Disk(15e-3) fill=air begin
 end
 ```
 
-Nested ducts use the same operation; there is no separate duct-bank object.
+Nested ducts use the same operation. There is no separate duct-bank object.
 
 When repeated sectors share an origin, their intrinsic span must equal the
 angular pitch imposed by the repetition. This keeps neighboring sides parallel.
@@ -239,13 +239,12 @@ Stack / Group / Assembly / Enclosure
 
 `Stack` owns ordered outward composition. `Group` repeats and coalesces
 conductive descendants into zero or one terminal. `Assembly` preserves child
-terminal identities. `Enclosure` owns one containing domain, its fill, its
-contents, and an optional wall. These types remain available for extension
-code and unusual geometry; ordinary cable declarations use the vocabulary
+terminal identities. `Enclosure` defines a containing domain together with its fill and contents, and an optional wall. These types remain available for extension
+code and unusual geometry. Ordinary cable declarations use the vocabulary
 shown above.
 
 Primitives describe intrinsic local geometry. Construction resolves them
-against a boundary and records absolute geometry in `PlacedRegion` values
+against a geometric boundary and records absolute geometry in `PlacedRegion` values
 inside `CableGeometry`. `EmptyBoundary` represents the first stacking state.
 
 Adding a primitive requires local `resolve`, `boundary`, `area`, `centroid`, and
@@ -254,7 +253,7 @@ Adding a primitive requires local `resolve`, `boundary`, `area`, `centroid`, and
 ## Sector cores
 
 `Sector` describes one material-neutral cable-sector cross-section with an
-optional fillet. Its symmetry axis is local `+x`; placement and terminal
+optional fillet. Its symmetry axis is local `+x`. Placement and terminal
 identity remain outside the primitive.
 
 ```julia
@@ -276,10 +275,10 @@ end
 ```
 
 `resolve` derives exact arc contacts and composes each `Pose2`. `area`,
-`perimeter`, `centroid`, and `support` use the exact boundary. `tessellate`
+`perimeter`, `centroid`, and `support` use the exact geometric boundary. `tessellate`
 returns ordinary coordinate tuples solely for renderers and mesh adapters.
-Resolving `Shell(t)` against one sector produces its exact parallel boundary;
-a common layer around the disconnected assembly requires an explicit
+Resolving `Shell(t)` against one sector produces its exact parallel boundary.
+A common layer around the disconnected assembly requires an explicit
 `Enclosure`.
 
 The package-owned formulation converts each sector conductor and conformal
@@ -287,7 +286,7 @@ dielectric to equivalent-area circles only while constructing its numerical
 input. The exact sectors and their centroids remain authoritative in the
 completed design and in persisted declarations.
 
-`design.origin` retains the physical declaration used to build the cable;
+`design.origin` retains the physical declaration used to build the cable.
 `design.geometry` is its resolved geometry. Serialized cable-design records
 store the declaration under `"origin"`. The outer JSON document uses `"root"`
 for its top-level value.
@@ -309,7 +308,7 @@ eltype(designs) === CableDesign
 
 Every block macro forwards `combine=:product` or `combine=:zip` to the same
 construction used by its functional form. `@cable` also accepts
-`nominal_data=(...)`; that descriptive data follows each completed design
+`nominal_data=(...)`. That descriptive data follows each completed design
 without affecting its physical resolution.
 
 Iteration and stochastic realization return completed ordinary designs. Raw
@@ -319,13 +318,14 @@ atomic unless wrapped in `Grid`.
 ## Formulation support
 
 A physically valid design may build even when a formulation does not support
-its geometry. `DataModel.flatten(design, frequency)` performs only local scalar circuit reductions:
-parallel conductor resistance, recursive GMR, series dielectric admittance,
-and the inverse conversions to effective material properties, returning a flat
-component payload without changing the design.
+its geometry. `DataModel.flatten(design, frequency)` performs local scalar circuit
+reductions. It combines conductor resistances in parallel, calculates GMR
+recursively and combines dielectric admittances in series. Inverse conversions
+then give effective material properties. The returned component payload is flat,
+and the design remains unchanged.
 
 `homogenize(design)` is an explicit request for a new homogeneous
-`CableDesign`. Independent assembly members are flattened separately; the
+`CableDesign`. Independent assembly members are flattened separately. The
 operation calculates no mutual coupling, earth return, or line-parameter
 matrix. The selected engine separately validates whether its formulation
 supports the resulting cable topology.
@@ -334,7 +334,7 @@ Homogeneous dielectric geometry retains a `RadialDielectric`: the original
 insulation and semicon materials with their logarithmic radius weights.
 In computation, the selected law is evaluated for each constituent at each
 frequency, and the radial responses combine in series.
-Thus `:default` remains lossless before and after homogenization; explicitly
+`:default` remains lossless before and after homogenization. Explicitly
 selected lossy formulations retain their frequency dependence. The displayed
 resistivity is the DC series value and the displayed permittivity is the
 lossless series value, not a broadband complex-permittivity fit.
@@ -346,7 +346,7 @@ multi-material response away from that reference point.
 `CableConstants(design)` uses this reduction through the
 Engine-owned `CableConstantsProblem → CableConstantsFormulation → compute`
 workflow. It evaluates one concentric assembly at a time at the requested
-temperature and frequency. It contains no earth-return calculation; the
+temperature and frequency. It contains no earth-return calculation. The
 innermost terminal is active and every outward terminal is grounded. The
 result stores aligned `R`, `L`, `C`, and `G` vectors with one entry per
 assembly.
@@ -366,13 +366,13 @@ come from `CableConstants(design)` or observed `LineParameters` results.
 The following gallery uses the high-level block macros: `@cable` completes a
 design, `@terminal` names its conductive descendants, and `@pipe` / `@duct`
 express containment. Shapes and leaf operations such as `stranded` remain
-ordinary calls inside those blocks. Each example keeps insulation simple so
+ordinary calls inside those blocks. Each example uses simple insulation so
 the conductor formation remains visible.
 
 ### Solid circular and sector cores
 
 A solid conductor may use either a circular disk or the exact filleted sector
-primitive. Insulation follows the resolved boundary in both cases.
+primitive. Insulation follows the resolved geometric boundary in both cases.
 
 ```@example supported_formations
 using LineCableModels
@@ -418,9 +418,9 @@ preview(
 
 ### Circular stranded cores
 
-Omitting `compact` preserves every strand as a circle on its concentric `6k`
+Omitting `compact` preserves each strand as a circle on its concentric `6k`
 courses. `compact=true` infers a complete `6k` inventory by area and deforms it
-while preserving every strand area and identity.
+while preserving each strand area and identity.
 
 ```@example supported_formations
 circular_strand_radius = 0.45e-3
@@ -464,30 +464,29 @@ preview(
 Bounded circular and sector compaction preserves continuous input uncertainty:
 cell weights are differentiated through their prescribed-area constraint, and
 clipped strands through their area constraint. This retains motion of cell
-boundaries, sites, centroids, scale and fillets; it does not model mechanical
+boundaries, sites, centroids, scale and fillets. It does not model mechanical
 deformation. Nominal polygons, strand areas, filler regions and terminal groups
 remain the same construction used by deterministic rebuilding.
 
 Course counts and clipping choices are discrete nominal decisions. Linear
 uncertainty propagation is valid locally within a stable topology, not across a
 course-count transition. A joint uncertainty declaration must preserve feasible
-geometry throughout its support; see [joint geometric inputs](gridspace.md#Feasible-geometric-dependence).
+geometry throughout its support. See [joint geometric inputs](gridspace.md#Feasible-geometric-dependence).
 
 ### Rectangular stranded core
 
 Rectangular source strands require a circular center wire. They are always
-bent into contiguous annular courses; the radial deformation preserves the
+bent into contiguous annular courses. The radial deformation preserves the
 area of every source rectangle. A one-strand course remains a complete annulus.
 The specified `boundary` determines the strand inventory, but the resolved
 physical boundary is the actual occupied metal disk. No outer `stranded_fill`
-film is generated; insulation starts at that occupied boundary. Rectangular
-`stranded` declarations therefore return a bounded `Group`, while circular and
+film is generated. Insulation starts at that occupied geometric boundary. Rectangular
+`stranded` declarations return a bounded `Group`, while circular and
 sector stranding retain their material-complete `Enclosure` declarations.
 
-When a filled circular-wire course follows the core, its declared filler owns
-the space from the occupied core boundary to the course enclosure, including
-the interstices between wires. Explicit wire-center radii remain fixed;
-contextual `Ring(...; r=nothing)` radii follow the occupied core boundary.
+When a filled circular-wire course follows the core, its declared filler fills the space from the occupied core boundary to the course enclosure, including
+the interstices between wires. Explicit wire-center radii remain fixed.
+Contextual `Ring(...; r=nothing)` radii follow the occupied core boundary.
 Explicit enclosing layers and coatings are retained, including thin layers.
 
 ```@example supported_formations
@@ -517,13 +516,13 @@ preview(
 
 A sectorized phase core contains its own bundle-center strand and complete
 `6k` courses. The source wire area and sector area determine the inventory.
-Mapped circular sites retain these identities; prescribed-area power cells
+Mapped circular sites retain these identities. Prescribed-area power cells
 allocate space, and a clipped-disk area solve determines each copper shape.
 The polygons approximate circular arcs while preserving the source areas.
 
 The supplied 0.55 mm wire radius below admits 37 wires and 74.23% copper fill.
 The second design explicitly changes the wire radius to obtain 93% fill with
-the same inventory and boundary. Compaction cannot remove the remaining void
+the same inventory and geometric boundary. Compaction cannot remove the remaining void
 while preserving both the source wire area and its count.
 
 ```@example supported_formations
@@ -574,13 +573,13 @@ preview(
 ### Three- and four-core sector cables
 
 A complete sector cable preserves the electrical identity of every core. Each
-solid or stranded sector therefore owns its insulation before `cores` rotates
+solid or stranded sector has its own insulation before `cores` rotates
 the members into a three- or four-phase assembly. The outer `@pipe` fills the
 interstices and adds one common tubular insulation layer. A sector's angular
-span equals the assembly pitch, keeping every pair of facing wedge sides
+span equals the assembly pitch, which makes each pair of facing wedge sides
 parallel. The rows below show solid and intrinsically compacted stranded cores.
-At the supplied 0.35 mm strand radius, both stranded cores contain 37 wires;
-the three-core sector has 66.62% copper fill and the four-core sector 88.53%.
+At the supplied 0.35 mm strand radius, both stranded cores contain 37 wires.
+The three-core sector has 66.62% copper fill and the four-core sector 88.53%.
 
 ```@example supported_formations
 three_core_sector = Sector(
@@ -672,11 +671,11 @@ preview(
 
 ### Milliken core
 
-A Milliken core owns one cable-center wire and six separately bounded stranded
-segments, each with its own bundle-center strand and `6k` courses.
+A Milliken core contains one cable-center wire and six separately bounded stranded
+wire segments, each with its own bundle-center strand and `6k` courses.
 `milliken` binds every conductor to one terminal. The segment
-boundaries govern packing without becoming overlapping material domains; one
-explicit fill owns every interstice around the center and segment wires. Its
+geometric boundaries govern packing without becoming overlapping material domains. One
+explicit fill occupies the interstices around the center and segment wires. Its
 center-wire radius is inferred after resolving one segment so that the center
 is tangent to the innermost strand in every rotated segment.
 
@@ -684,12 +683,12 @@ This example deliberately uses a densely filled segment: a source-wire radius
 of approximately **0.238628 mm** gives **61 wires per segment**, with the
 inventory `1 + 6 + 12 + 18 + 24`, and **93% segment copper fill**. There are
 366 segment wires plus the shared central conductor. The latter has an inferred
-radius of approximately 0.560 mm; including the inter-segment separators, the
-complete core is approximately **84.6% copper by area**. These are illustrative
-design dimensions, not measurements recovered from a cable photograph.
+radius of approximately 0.560 mm. Including the inter-segment separators, the
+complete core is approximately **84.6% copper by area**. These dimensions describe an illustrative
+design. They were not measured from a cable photograph.
 
 The radius is chosen from ``a=\sqrt{\eta A_{\mathrm{segment}}/(61\pi)}``,
-with ``\eta=0.93``. Only the radius and boundary are passed to `milliken`:
+with ``\eta=0.93``. Only the radius and geometric boundary are passed to `milliken`:
 the constructor still infers the complete-course inventory. Copper fill within
 a segment is distinct from copper fill across the complete core, which also
 includes the central conductor and the material between segments.
@@ -725,7 +724,7 @@ preview(
 
 ### Four-pair umbilical
 
-An umbilical can contain complete subcables rather than copies of a single
+An umbilical can contain complete subcables rather than copies of one
 terminal. Here four screened two-core subcables surround a central polyethylene
 (PE) filler, with four more PE fillers between them. Each subcable contains two
 copper cores with high-density polyethylene (HDPE) insulation, two PE fillers,
@@ -736,7 +735,7 @@ wrap and a finite galvanized-steel armor layer.
 The dimensions and material constants below are **illustrative**, chosen to
 reproduce the supplied cross-section's composition without claiming a
 manufacturer specification. TNT is represented as a homogeneous insulating
-material; the galvanized steel is one effective material, without a separate
+material. The galvanized steel is one effective material, without a separate
 zinc coating. This example demonstrates construction and preview, not support
 for this topology in every numerical backend.
 
@@ -795,11 +794,11 @@ preview(
 ).figure
 ```
 
-The top and bottom subcables are rotated by 90° with `@at`; their complete
-geometry rotates together. The four independent subcables retain **eight core
+The top and bottom subcables are rotated by 90° with `@at`. Their complete
+geometry rotates together. The 4 independent subcables retain **8 core
 terminals and four sheath terminals**, plus the common armor terminal.
-Every remaining region is assigned an insulating material, including the
-interstices. No implicit air or unassigned gaps are introduced.
+Each remaining region is assigned an insulating material, including the
+interstices. The construction excludes implicit air and unassigned gaps.
 
 ```@example supported_formations
 umbilical_filler = filler(umbilical_pe, Disk(2.0e-3); tag=:pe_filler)
@@ -839,9 +838,9 @@ preview(
 
 `rope` repeats a complete stranded core as one central member surrounded by six
 peers. Here each member's six course wires have `LayRatio(12)` about their own
-member axis. The six outer members also have `LayRatio(18)` about the rope
+member axis. The 6 outer members also have `LayRatio(18)` about the rope
 axis. These are separate paths: the accepted approximation **multiplies their
-overlength factors**, rather than replacing the inner lay with the outer one.
+overlength factors**. Both lays contribute to the overlength.
 The enclosing terminal and insulation belong to the finished rope.
 
 ```@example supported_formations
@@ -887,10 +886,10 @@ For a wire following both paths,
 ```
 
 The central wire of the central member has neither path and factor 1. Its six
-neighbors have only the strand factor; the central wire of each outer member
+neighbors have only the strand factor. The central wire of each outer member
 has only the rope factor. The remaining 36 wires have both. The table below
 evaluates these factors using [`overlength`](@ref). Its radius argument is
-immaterial for these `LayRatio` laws; a `Pitch` law would require the actual
+immaterial for these `LayRatio` laws. A `Pitch` law would require the actual
 local radius of each path.
 
 ```@example supported_formations
@@ -908,14 +907,14 @@ DataFrame(
 )
 ```
 
-These factors multiply each wire's resistance before the parallel reduction;
-one blanket factor is not applied to all 49 wires. The transverse wire areas
+These factors multiply each wire's resistance before the parallel reduction.
+One blanket factor is not applied to all 49 wires. The transverse wire areas
 and preview are unchanged by the lay choices.
 
-### Three coaxial cores in a pipe
+### 3 coaxial cores in a pipe
 
-Three independently named solid-core coaxials form a trefoil inside a circular
-pipe. The pipe carries one outward insulating wall.
+3 independently named solid-core coaxials form a trefoil inside a circular
+pipe. The pipe includes one outward insulating wall.
 
 ```@example supported_formations
 coaxial_member = @terminal :phase begin
@@ -949,7 +948,7 @@ preview(
 The composition grammar is not restricted to geometries currently admitted by
 every numerical backend. Here a pipe containing three stranded coaxials sits
 beside a pipe containing three insulated sector-stranded cores, all inside one
-elliptical duct. The duct interior remains air; its concrete wall is a finite
+elliptical duct. The duct interior remains air. Its concrete wall is a finite
 normal offset of the ellipse rather than a zero-thickness outline.
 
 ```@example supported_formations

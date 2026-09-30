@@ -4,7 +4,7 @@
     const EI, EA=E.EarthImpedance, E.EarthAdmittance
     const FM=LineCableModels.FormulaMethod
 
-    # The indexed methods calculate the coefficients; the engine supplies reuse.
+    # The indexed methods calculate the coefficients. The engine supplies reuse.
     for (name, parent, operation, multiplier) in
         ((:PairImpedance, E.EarthImpedanceFormulation, EI.earth_impedance, 1e-4+1e-3im),
         (:PairPotential, E.EarthAdmittanceFormulation, EA.earth_potential_coefficient, 1e9))

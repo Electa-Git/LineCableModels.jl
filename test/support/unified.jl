@@ -2,7 +2,7 @@
     using LineCableModels
     const E=LineCableModels.Engine
 
-    # Numerical controls use the production allocator; there is no second array layout.
+    # Numerical controls use the production allocator. There is no second array layout.
     function buffers(geometry)
         T=eltype(geometry.radius)
         R=typeof(float(LineCableModels.nominal(one(T))))
@@ -15,8 +15,8 @@
     end
 
     # Build a real public problem and workspace. Independent equal-medium controls
-    # replace completed material values after material evaluation;
-    # their artificial air conductivity is confined to this test fixture.
+    # replace completed material values after material evaluation.
+    # Their artificial air conductivity is confined to this test fixture.
     function workspace(geometry,
             state,
             integration = E.formulation_options(E.SpectralIntegral, (

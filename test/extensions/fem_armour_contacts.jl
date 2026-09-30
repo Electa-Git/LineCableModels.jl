@@ -24,7 +24,7 @@
             fill_index = only(findall(m -> m.field === :matrix_fill, model.material_plans))
             geometry = FEM._build_geometry!(model, "touching-armour-$count")
             surfaces = geometry.material_surfaces[fill_index]
-            # Every pair of neighbouring wires encloses an inner and an outer
+            # Every pair of neighboring wires encloses an inner and an outer
             # filler lobe. A point contact cannot join them into one CAD face.
             @test length(surfaces) == 2count
             for surface in surfaces

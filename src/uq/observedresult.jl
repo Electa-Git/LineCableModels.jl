@@ -101,8 +101,8 @@ function Grammar.observation_quantity(source::Union{MonteCarloResult,LinearError
         trial_index=length(indices)>rank ? indices[rank+1] : Colon()
         coordinates=merge(coordinates,(kind=:samples,indices=(coordinates.indices...,trial_index),trials=observation_indices(trial_index,trial_count(source,point))))
     end
-    # These are selected estimators or individual trials, not replacements for
-    # primary uncertain numbers. In particular, a retained std is never clipped.
+    # These selected estimators or individual trials leave primary uncertain numbers
+    # unchanged. A retained standard deviation is never clipped.
     available=Engine.resolution_available.(values)
     retained=map((value,valid) -> valid ? value : missing,values,available)
     statistic=product===samples ? :samples : last(identity) isa Base.Fix2 ?
@@ -118,7 +118,7 @@ $(TYPEDSIGNATURES)
 
 Detach one UQ point using its owner's point-indexed accessors. Product requests
 omit the point index because `point` already identifies the atomic observation.
-For example, `(statistics,R,mean)` retains an estimator and
+`(statistics,R,mean)` retains an estimator and
 `(histograms,R,1,2,3,20)` retains a marginal distribution with up to twenty bins.
 Primary requests follow the ordinary primary-result pair rules.
 """

@@ -4,9 +4,7 @@
 Calculate electrical parameters for overhead and underground cable systems.
 
 The public API constructs materialized or finite parametric cable models,
-selects numerical formulations, evaluates cable constants and line-parameter
-matrices, propagates declared uncertainty, and adds a small high-level plotting
-surface when Makie is loaded.
+evaluates cable constants and line-parameter matrices with selected numerical formulations. It propagates declared uncertainty and provides plotting methods when Makie is loaded.
 """
 module LineCableModels
 
@@ -67,7 +65,7 @@ export estimate_stranding, estimate_screen, WireEstimate
 
 public Gridpoint
 
-# Materialised results, reusable designs, and presentation:
+# Materialized results, reusable designs, and presentation:
 export CableDesign, LineCableSystem, DatasheetInfo, datasheet
 export CableGeometry, PlacedRegion
 export CableConstants, CableConstantsProblem, CableConstantsFormulation,
@@ -235,7 +233,7 @@ using .ReportBuilder:
 include("importexport/ImportExport.jl")
 using .ImportExport: export_data, import_data, load!, save
 
-# External-tool integration; native execution is deferred until compute.
+# External-tool integration. Native execution is deferred until compute.
 include("../ext/LineCableModelsPSCADExt/PSCAD.jl")
 export PSCAD
 

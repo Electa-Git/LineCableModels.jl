@@ -8,7 +8,7 @@ $(TYPEDSIGNATURES)
 
 Bind a retained formulation declaration to its scientific owner for inspection.
 Native formulations pass through unchanged. Unknown leaf identities retain a
-passive `FormulaDefinition` identity; unknown owners return `missing`. Errors
+passive `FormulaDefinition` identity. Unknown owners return `missing`. Errors
 raised by a supported owner description are not intercepted. No runnable
 formulation, problem, or solver configuration is reconstructed.
 """
@@ -228,11 +228,11 @@ function deserialize_value(value)
             return deserialize_extension(Val(Symbol(marker)),value)
         if marker in ("Measurement", "MeasurementLinearErrorResult")
             applicable(deserialize_extension, Val(Symbol(marker)), value) || throw(
-                ArgumentError("deserialising Measurement values requires Measurements.jl")
+                ArgumentError("deserializing Measurement values requires Measurements.jl")
             )
             return deserialize_extension(Val(Symbol(marker)), value)
         end
-        throw(ArgumentError("unsupported serialised scalar tag '$marker'"))
+        throw(ArgumentError("unsupported serialized scalar tag '$marker'"))
     end
     if haskey(value, "grid")
         values = deserialize_value(value["grid"])
@@ -247,7 +247,7 @@ function deserialize_value(value)
         return _decode_material_record(_required(value, "value", "material"))
     end
     haskey(value, "type") && throw(ArgumentError(
-        "unsupported serialised object type '$(value["type"])'"
+        "unsupported serialized object type '$(value["type"])'"
     ))
     haskey(value, "kind") && return _decode_node(Val(Symbol(value["kind"])), value)
     return Dict(String(key) => deserialize_value(item) for (key, item) in value)
@@ -496,7 +496,7 @@ function _decode_design_resolved(value, materials)
     get(value, "kind", nothing) == "cable_design" || throw(ArgumentError(
         "cable declaration must have kind 'cable_design'"
     ))
-    # Historical records used "root"; only this decoder accepts that key.
+    # Historical records used "root". Only this decoder accepts that key.
     # Never silently choose between two competing physical declarations.
     haskey(value, "origin") && haskey(value, "root") && throw(ArgumentError(
         "cable_design must not contain both 'origin' and legacy 'root'"

@@ -142,8 +142,8 @@ function deserialize_extension(::Val{:LineParameters}, record)
     detail=merge(detail,retained_description)
     haskey(record, "timing") && (detail=merge(detail, (timing=deserialize_value(record["timing"]),)))
     # Reading a primary result binds its passive selections to their owners.
-    # Capture current compact descriptions here, before any observation exists;
-    # retained ObservedResult loading and plotting never reopen this path.
+    # Capture current compact descriptions here, before any observation exists.
+    # Retained ObservedResult loading and plotting never reopen this path.
     if formulations !== nothing
         selected=deserialize_value(Val(:formulation),formulations)
         ismissing(selected) || (detail=merge(detail,Engine.completed_formulation(selected,formulations)))
@@ -183,7 +183,7 @@ $(TYPEDSIGNATURES)
 
 Encode a UQ result envelope with already encoded core `points`. Optional
 `sources` are shared Measurement source records supplied by the Measurements
-extension; their point records retain signed sensitivities. This codec keeps
+extension. Their point records retain signed sensitivities. This codec keeps
 empirical products, source identities and details under the scientific result codec.
 """
 function serialize_value(value::Union{UQ.MonteCarloResult,UQ.LinearErrorResult},

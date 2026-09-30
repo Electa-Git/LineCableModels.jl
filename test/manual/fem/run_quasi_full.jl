@@ -1,12 +1,12 @@
-# Run from the REPL: include("test/manual/fem/run_quasi_full.jl")
-# Edit the inputs below, then include again. Every run gets a fresh directory.
+# Run from the REPL: `include("test/manual/fem/run_quasi_full.jl")`
+# Edit the inputs below, then include again. Each run gets a fresh directory.
 using LineCableModels, Gmsh, LinearAlgebra, Printf
 FEM = Base.get_extension(LineCableModels, :LineCableModelsGmshExt)
 
 frequencies = 10.0 .^ (-1:6)                    # Hz
-radius = 0.0425                                # m; no insulation
+radius = 0.0425                                # m. No insulation
 positions = [(0.0, -1.0), (1.0, -1.0)]          # m
-metal = Material(kind=:conductor, rho=1e-12)     # geometry/material input; PEC CLI below excludes its interior
+metal = Material(kind=:conductor, rho=1e-12)     # geometry and material input. PEC CLI below excludes its interior
 wire = build(CableDesign, "bare", terminal(:core, core(metal; r=radius)))
 system = build(LineCableSystem, [wire, wire], positions;
     connections=[Dict(:core=>1), Dict(:core=>2)], line_length=1.0)
@@ -35,7 +35,7 @@ lock(FEM.FEM_SESSION_LOCK) do
         for (mesh, plan) in zip(mesh_paths, model.mesh_plans)
             path = joinpath(run_directory, "input", @sprintf("paths-f%04d.pro", plan.frequency_index))
             # Before: quasi_full_paths.jl forwarded to the extension. The extension
-            # now owns this voltage-path operation directly; no adapter is needed.
+            # now defines this voltage-path operation directly. An adapter is unnecessary.
             FEM._write_voltage_paths(path, mesh, plan, model;
                 endpoints=[(x,y-radius) for (x,y) in positions])
             push!(path_files, path)
@@ -52,7 +52,7 @@ basis_file = joinpath(run_directory, "input", "bases.pro")
 write(basis_file, "RequestedBases() = {1,2};\n")
 getdp = FEM._getdp_selection(execution).path
 Zqf = zeros(ComplexF64, 2, 2, length(frequencies))  # ohm/m
-Mqf = similar(Zqf)                               # ohm m; raw inverse admittance
+Mqf = similar(Zqf)                               # ohm m. Raw inverse admittance
 Peqf = similar(Zqf)                              # m/F
 Yqf = similar(Zqf)                               # S/m
 
@@ -71,7 +71,7 @@ for (index, plan) in enumerate(model.mesh_plans)
         -setnumber PlotFieldMaps $maps -setnumber ReuseFactorization 1
         -setnumber Physics 1 -setnumber PerfectConductors 1`
     println("\n", command)
-    # Native progress is visible in the REPL; raw columns/maps stay in job.
+    # Native progress is visible in the REPL. Raw columns and maps stay in job.
     run(addenv(Cmd(command; dir=job), "OMP_NUM_THREADS"=>"1", "OPENBLAS_NUM_THREADS"=>"1"))
     for (quantity, matrix) in (("Z", Zqf), ("P", Mqf)), basis in 1:2
         path = joinpath(job, "raw", "jobs", @sprintf("getdp-f%04d-b%04d-%s.tsv", index, basis, quantity))
@@ -91,6 +91,6 @@ for (index, plan) in enumerate(model.mesh_plans)
 end
 println("\nRun directory: ", run_directory)
 # REPL results: system, problem, formulation, Zqf, Mqf, Peqf, Yqf, run_directory.
-# PerfectConductors=1 gives earth/exterior matrices only. Set it to 0 to
+# PerfectConductors=1 gives earth and exterior matrices only. Set it to 0 to
 # exercise the existing finite-metal a/u block with the chosen material.
 nothing

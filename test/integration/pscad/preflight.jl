@@ -8,7 +8,7 @@
     end
     function model(; radius=0.004, rho=1.72e-8, soil=100.0, temperature=20.0,
             frequency=10.0 .^ range(-1, 5; length=101))
-        # Materialize the system at the problem's numeric type; this test targets
+        # Materialize the system at the problem's numeric type. This test targets
         # PSCAD numeric input construction, not the shared constructor's conversion methods.
         T = promote_type(typeof(radius), typeof(rho), typeof(soil), typeof(temperature), eltype(frequency))
         design = build(CableDesign, "numeric-preflight", terminal(:core,

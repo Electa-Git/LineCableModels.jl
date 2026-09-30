@@ -230,7 +230,7 @@ end
 """
 $(TYPEDSIGNATURES)
 
-Calculate current modal eigenvectors with the Chrysochos–Papadopoulos–
+Calculate current modal eigenvectors with the Chrysochos-Papadopoulos,
 Papagiannis Levenberg–Marquardt formulation. At each frequency, the current
 eigenproblem is scaled as
 
@@ -245,9 +245,9 @@ the initial eigenpair.
 
 # Arguments
 
-- `lp`: Fully coupled phase-domain line parameters, with `Z` in \\[Ω/m\\], `Y`
+- `lp`: fully coupled phase-domain line parameters, with `Z` in \\[Ω/m\\], `Y`
   in \\[S/m\\], and frequency in \\[Hz\\].
-- `values`: Modal controls containing the modal-residue `tolerance`, LM
+- `values`: modal controls containing the modal-residue `tolerance`, LM
   `convergence`, `max_iterations`, and initial `damping` coefficient.
 
 # Returns

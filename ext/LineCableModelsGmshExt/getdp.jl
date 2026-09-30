@@ -101,7 +101,7 @@ function _getdp_assets(root::AbstractString = joinpath(@__DIR__, "getdp"))
 end
 
 # Capture solver text with the loaded Julia implementation, not halfway through
-# a long mesh/solve sequence. Include dependencies invalidate the Julia cache.
+# a long mesh and solve sequence. Include dependencies invalidate the Julia cache.
 const FEM_GETDP_SOURCES = map(_getdp_assets()) do path
     Base.include_dependency(path)
     read(path, String)

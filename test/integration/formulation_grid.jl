@@ -185,7 +185,7 @@ end
     import LineCableModels.Engine as EN
 
     # Specialize only designs bearing a test-owned nominal-data type. invoke
-    # then runs the unmodified production lowering; no global method is replaced.
+    # then runs the unmodified production lowering. Global methods remain unchanged.
     struct LoweringCounter
         calls::Base.RefValue{Int}
     end

@@ -1,4 +1,4 @@
-"Return the lower-frequency boundary of the Visacro–Alipio soil relation."
+"Return the lower frequency limit of the Visacro-Alipio soil relation."
 assumptions(::Val{:visacro2012}) = (frequency_boundary = 100.0,)
 
 function validate(selected::Formula{:visacro2012})
@@ -10,8 +10,8 @@ end
 """
 $(TYPEDSIGNATURES)
 
-Visacro–Alipio empirical causal soil-dispersion fit with a 100 Hz lower
-frequency boundary.
+Visacro-Alipio empirical causal soil-dispersion fit with a 100 Hz lower
+frequency limit.
 
 **Expression.** With ``f_e=\\max(f,100)`` and ``\\sigma_0=1/\\rho_0``,
 

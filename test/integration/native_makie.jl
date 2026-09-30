@@ -91,7 +91,7 @@ end
         @test ticklabels_fit(plot)
         # A manual resize is an explicit local allocation, even below the
         # complete guide stack's minimum width. It must not snap back or
-        # silently shrink/reflow the requested scale arrangement.
+        # silently shrink or reflow the requested scale arrangement.
         resize!(plot.figure, 700, 650)
         @test Tuple(plot.figure.scene.viewport[].widths)==(700, 650)
         if position in (:top, :bottom) && !vertical
@@ -135,8 +135,8 @@ end
     frequency=[50.0, 100.0, 500.0]
     parameters=TestFixtures.two_conductor_results(; frequencies = frequency)
 
-    # With no selection, Z is processed before Y and their physically meaningful
-    # components are rendered as four matrix dashboards: R, X, G, then B.
+    # With no selection, Z is processed before Y and their physical
+    # components are rendered as four matrix dashboards: `R`, `X`, `G`, then `B`.
     automatic=Makie.plot(
         parameters;
         backend = :cairo,
@@ -490,7 +490,7 @@ end
         controls = false,
         display_colorbars = false,
         # Both independently tagged metal regions share one caller-defined
-        # legend entry; the dielectric regions retain their own identities.
+        # legend entry. The dielectric regions retain their own identities.
         legend_group = region->region.source.tag in (:metal, :return) ?
                                :conductors : region.source.tag,
         legend_labels = Dict(:conductors=>"Conductors")

@@ -1,4 +1,4 @@
-# Line faceting --------------------------------------------------------------
+# Line faceting
 #
 # The recipe supplies physical coordinate descriptions. Shared plotting chooses
 # panel and curve identities before native blocks are constructed.
@@ -169,7 +169,7 @@ function _line_page(
             xlabelvisible = row == bottom_row,
             xticklabelsvisible = row == bottom_row,
             xticksvisible = row == bottom_row,
-            # Matrix cells have independent y limits; each must expose its scale.
+            # Matrix cells have independent y limits. Each must expose its scale.
             ylabelvisible = true,
             yticklabelsvisible = true,
             yticksvisible = true

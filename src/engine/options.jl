@@ -98,39 +98,39 @@ The field model is selected separately by `formulation_options(LineCableModelsFE
 
 # Arguments
 
-- `owner`: The `LineCableModelsFEM` computation owner.
-- `options`: Caller-supplied named tuple. Supported keys and defaults are:
-  - `ui=false`: Open the Gmsh graphical interface.
-  - `plot_field_maps=false`: Emit spatial field maps for every solve.
-  - `mesh_mode=:reuse`: Reuse compatible meshes; `:remesh` regenerates them.
-  - `mesh_path=nothing`: Optional existing `.msh` path.
-  - `domain_skin_depths=2.0`: Minimum finite earth-domain radius in conductive
-    skin depths \\[dimensionless\\]; the layout can require a larger radius.
+- `owner`: the `LineCableModelsFEM` computation owner.
+- `options`: caller-supplied named tuple. Supported keys and defaults are:
+  - `ui=false`: open the Gmsh graphical interface.
+  - `plot_field_maps=false`: emit spatial field maps for every solve.
+  - `mesh_mode=:reuse`: reuse compatible meshes. `:remesh` regenerates them.
+  - `mesh_path=nothing`: optional existing `.msh` path.
+  - `domain_skin_depths=2.0`: minimum finite earth-domain radius in conductive
+    skin depths \\[dimensionless\\]. The layout can require a larger radius.
     Must be finite and positive. Changing it retains local mesh-size targets.
-  - `keep_run_directory=false`: Retain successful run artifacts.
-  - `getdp_executable=nothing`: Executable override; otherwise resolve the
+  - `keep_run_directory=false`: retain successful run artifacts.
+  - `getdp_executable=nothing`: executable override. Otherwise resolve the
     environment override, package artifact, or unsupported-platform `PATH` fallback.
-  - `gmsh_verbosity=2`, `getdp_verbosity=2`: Native message levels from 0 through 5.
-  - `frequency_workers=2`: Maximum concurrent frequency solver processes.
+  - `gmsh_verbosity=2`, `getdp_verbosity=2`: native message levels from 0 through 5.
+  - `frequency_workers=2`: maximum concurrent frequency solver processes.
   - `solver_threads=1`: BLAS and OpenMP threads per solver process.
-  - `verbosity=(default=0,)`: Julia logging levels from 0 through 2.
-  - `output_basis=:pul`: Per-unit-length matrices; `:total` scales by line length.
-  - `trace=false`: Retain `Z_primitive`, `P_primitive` and a copied `phase_map`
+  - `verbosity=(default=0,)`: logging in Julia levels from 0 through 2.
+  - `output_basis=:pul`: per-unit-length matrices. `:total` scales by line length.
+  - `trace=false`: retain `Z_primitive`, `P_primitive` and a copied `phase_map`
     under `details(result).data.fem.primitive`. The primitive arrays refer to the
     completed FEM scan arrays.
-  - `timing=false`: Retain fresh complete-scan measurements in result details.
-  - `on_result=nothing`: Optional callback `(problem, index, result)`.
-  - `log_file=nothing`: Optional Julia log path.
-  - `resume_run_directory=nothing`: Resume a compatible path or `:latest`.
+  - `timing=false`: retain fresh complete-scan measurements in result details.
+  - `on_result=nothing`: optional callback `(problem, index, result)`.
+  - `log_file=nothing`: optional Julia log path.
+  - `resume_run_directory=nothing`: resume a compatible path or `:latest`.
 
 # Returns
 
 - A fixed-key [`ComputationOptions`](@ref) named tuple. Paths and integer controls
-  are normalized; `output_basis` and `trace` are lowered to `Val` values.
+  are normalized. `output_basis` and `trace` are lowered to `Val` values.
 
 # Errors
 
-- `ArgumentError`: Unknown keys, invalid controls, or empty paths.
+- `ArgumentError`: unknown keys, invalid controls or empty paths.
 """
 function computation_options(::Type{LineCableModelsFEM}, record::ComputationOptions)::ComputationOptions
     options = record.data

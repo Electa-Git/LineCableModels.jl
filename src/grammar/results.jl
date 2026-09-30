@@ -9,7 +9,7 @@ to subtype [`AbstractCoreResult`](@ref).
 
 # Arguments
 
-- `T`: Proposed result-space element type.
+- `T`: proposed result-space element type.
 
 # Returns
 
@@ -17,7 +17,7 @@ to subtype [`AbstractCoreResult`](@ref).
 
 # Errors
 
-- `ArgumentError`: `T` is abstract, is `Any`, or subtypes
+- `ArgumentError`: `T` is abstract, is `Any` or subtypes
   [`AbstractResultSpace`](@ref).
 """
 function check_core_result(::Type{T}) where {T}

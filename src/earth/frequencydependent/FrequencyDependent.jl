@@ -5,7 +5,7 @@ Define measured and material-physics relations that map one soil material and
 one frequency to its frequency-dependent electromagnetic properties.
 
 The explicit `:constant` formula is the frequency-independent pass-through.
-The `:default` formula is a routing alias for `:constant`; the remaining
+The `:default` formula is a routing alias for `:constant`. The remaining
 registered identifiers implement literature-based frequency-dispersive laws.
 
 # Dependencies

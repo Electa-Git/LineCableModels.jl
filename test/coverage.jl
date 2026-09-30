@@ -2,7 +2,8 @@ module CoverageGate
 
 using Printf
 
-# Cleanup is a stdlib-only operation, available even after environment/test failure.
+# Cleanup uses only the standard library and remains available if environment
+# setup or tests fail.
 if !(abspath(PROGRAM_FILE) == (@__FILE__) && ARGS == ["traces"])
     using CoverageTools
 end

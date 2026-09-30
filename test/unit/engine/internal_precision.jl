@@ -30,7 +30,7 @@
         end
     end
     # Derive the approach to DC from the same independently bounded radial
-    # solution; no exact DC equality is imposed at a positive frequency.
+    # solution. Exact DC equality is not required at a positive frequency.
     previous=Ref(Inf)
     for f in (1.0,.1,.01)
         reference=setprecision(BigFloat,256) do

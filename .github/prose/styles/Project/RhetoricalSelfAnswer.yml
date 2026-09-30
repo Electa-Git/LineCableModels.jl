@@ -1,0 +1,9 @@
+extends: ai-tells.RhetoricalSelfAnswer
+scope: text
+tests:
+  - name: rhetorical question
+    input: "The result? A failure."
+    contains: Project.RhetoricalSelfAnswer
+  - name: literal code
+    input: '`println("The result? A failure.")`'
+    want: ""

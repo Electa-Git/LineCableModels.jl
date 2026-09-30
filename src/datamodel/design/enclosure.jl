@@ -356,8 +356,8 @@ function resolve(context::AbstractShape, enclosure::Enclosure)
         context,
         "an annular Enclosure must be concentric with and outside the preceding circular boundary"
     ))
-    # A filled course owns its complement down to the preceding physical
-    # boundary. Explicit wire radii stay fixed; contextual rings use this disk.
+    # A filled course defines its complement down to the preceding physical
+    # boundary. Explicit wire radii remain fixed. Contextual rings use this disk.
     # An explicit fill Region has its own geometry and is not extended.
     enclosure.fill isa Material || isapprox(context.r, placed.ri;
         rtol=0, atol=geometry_tolerance(placed.ri)) || throw(DomainError(

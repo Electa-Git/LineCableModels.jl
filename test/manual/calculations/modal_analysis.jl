@@ -1,6 +1,6 @@
 # Manual study of the nine underground coaxial cables in Case 3, Fig. 17 and
 # Table IV. Run with LineCableModels and GLMakie in the active REPL project:
-#     include("test/manual/calculations/modal_analysis.jl")
+#     `include("test/manual/calculations/modal_analysis.jl")`
 # Completed values and interactive figures remain available in the REPL.
 # This file does not activate a project or write images to disk.
 
@@ -11,8 +11,8 @@ frequency_grid = 10.0 .^ range(-1, 8; length = 321)
 source_length = 2_000.0
 phase_options = (output_basis = :pul, verbosity = (default = 0,))
 
-# Table IV radii are measured from the cable center. The table does not give
-# dielectric bulk resistivity or conductor temperature coefficients; infinite
+# Table IV radii are measured from the cable center. The table omits
+# dielectric bulk resistivity and conductor temperature coefficients. Infinite
 # dielectric resistivity and zero temperature coefficient avoid adding losses
 # beyond its stated insulation loss factor and metal resistivity.
 core_radius = 12.38e-3
@@ -57,7 +57,7 @@ display(problem)
 geometry_plot = preview(system; earth_model = earth, backend = :gl,
     display_plot = true, open_export = false)
 
-# Two public calculations, followed by the finite line from Table IV.
+# 2 public calculations, followed by the finite line from Table IV.
 phase = @time compute(problem, Formulation(earth_impedance = :unified, 
 earth_admittance = :unified, shunt_model = :coaxial, insulation_admittance = :lossy;
     options = (reduce_bundle = false, kron_reduction = false,
@@ -104,7 +104,7 @@ display(report(observed))
 # Every retained mode is a curve for scalar modal quantities. For Tv and Ti,
 # every phase-row × mode-column coefficient is a curve, including off-diagonals.
 # The observation owner supplies physical labels, units and original indices.
-# real/imag of Zc and Yc are R꜀/X꜀ and G꜀/B꜀, respectively.
+# real and imag of Zc and Yc are R꜀/X꜀ and G꜀/B꜀, respectively.
 plot_options = (overlay = :coordinates, backend = :gl,
     display_plot = true, open_export = false)
 plots = (

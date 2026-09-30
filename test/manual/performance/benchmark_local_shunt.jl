@@ -1,13 +1,13 @@
 # Disposable local-shunt audit. No FEM/PSCAD launches and no campaign writes.
 # Run from a fresh Julia:
-# julia --project=gauntlet test/manual/performance/benchmark_local_shunt.jl
+# `julia --project=gauntlet test/manual/performance/benchmark_local_shunt.jl`
 gauntlet_project=normpath(joinpath(@__DIR__,"..","..","..","gauntlet"))
 gauntlet_project in LOAD_PATH || push!(LOAD_PATH,gauntlet_project)
 using LineCableModels, LinearAlgebra, BenchmarkTools, DataFrames, TOML, JLD2, SHA
 isdefined(@__MODULE__,:Gauntlet) || include(joinpath(gauntlet_project,"Gauntlet.jl"))
 
 shunt_case = :cable_18kv_1000mm2_trefoil
-shunt_warm_repeats = 1 # Increase for stable coefficient-construction timings; each is a fresh solve.
+shunt_warm_repeats = 1 # Increase for stable coefficient-construction timings. Each is a fresh solve.
 shunt_compute_sweep = true
 shunt_compare_saved = true
 shunt_saved_folder = joinpath(gauntlet_project,".work","all-references",
@@ -16,7 +16,7 @@ shunt_blas_threads = 2
 BLAS.set_num_threads(shunt_blas_threads)
 println("Julia threads: ",Threads.nthreads(),"; BLAS threads: ",BLAS.get_num_threads())
 
-# Numerical inspection only; this does not validate the auxiliary solver files.
+# Numerical inspection only. This does not validate the auxiliary solver files.
 function shunt_read_arrays(path)
     bytes2hex(open(sha256,path)) == first(split(read(path*".sha256",String))) ||
         error("Changed numerical payload: $path")
@@ -57,8 +57,8 @@ println("Allocated MiB is cumulative allocation, not peak/live memory. Dense mat
 
 if shunt_compute_sweep
     shunt_physical = (reduce_bundle=false,kron_reduction=false,ideal_transposition=false)
-    # Before: prescribed Γ was under parameters. Now Unified owns it in options;
-    # its value remains verbatim and this is not a comparison with withdrawn formulas.
+    # Before: prescribed Γ was under parameters. Now Unified owns it in options.
+    # Its value remains verbatim and this is not a comparison with withdrawn formulas.
     shunt_formulations = [Formulation(shunt_model=shunt_selection;options=shunt_physical),
         Formulation(shunt_model=shunt_selection,
             earth_impedance=formula(:unified;options=(Γ=1e-4im,));options=shunt_physical)]

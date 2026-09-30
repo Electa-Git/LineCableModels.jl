@@ -10,7 +10,7 @@
     end
 
     # A split dielectric with distinct laws exercises the actual multilayer
-    # exporter. A generic coaxial recipe need not carry this extra scenario.
+    # exporter. A generic coaxial recipe need not include this extra scenario.
     metal=TestFixtures.conductor_material()
     first_layer=Material(kind=:insulator,rho=1e8,eps_r=3.0)
     second_layer=Material(kind=:insulator,rho=2e8,eps_r=5.0)
@@ -233,7 +233,7 @@ end
     TestFixtures
 ] begin
     # A split dielectric with distinct laws exercises the actual multilayer
-    # exporter. A generic coaxial recipe need not carry this extra scenario.
+    # exporter. A generic coaxial recipe need not include this extra scenario.
     metal=TestFixtures.conductor_material()
     first_layer=Material(kind=:insulator,rho=1e8,eps_r=3.0)
     second_layer=Material(kind=:insulator,rho=2e8,eps_r=5.0)

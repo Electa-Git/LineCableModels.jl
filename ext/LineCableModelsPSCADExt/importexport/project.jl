@@ -363,7 +363,7 @@ function _pscad_cable_parameters(
     length(connections) == length(components) || throw(DimensionMismatch(
         "PSCAD phase mapping must match the cable component count",
     ))
-    # LL=0 is PSCAD's bare-conductor configuration; LL=1 includes insulation.
+    # LL=0 is PSCAD's bare-conductor configuration. LL=1 includes insulation.
     bare = length(components) == 1 &&
            only(components).dielectric.r_ex == only(components).conductor.r_ex
     parameters = Pair{String, String}[

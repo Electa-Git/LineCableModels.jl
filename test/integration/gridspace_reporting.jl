@@ -21,7 +21,7 @@
     artifact=report(definition,(;reference,result=results))
     @test artifact.illustration === nothing
     @test nrow(artifact.tables.maxima)==60
-    # The three shunt quantities share one result; numerical records for
+    # The 3 shunt quantities share one result. Numerical records for
     # both completed calculations remain available to the saved-result writer.
     @test length(metadata(artifact.tables.maxima,"comparison_records"))==60
     @test nrow(artifact.tables.comparisons)==60

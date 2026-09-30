@@ -7,7 +7,7 @@ function earth!(workspace::LineParametersWorkspace, frequency::Int,
     return workspace
 end
 
-# One fixed sequence: construct formula state, evaluate indexed coefficients,
+# Construct formula state, evaluate indexed coefficients,
 # convert the complete matrix when required, then select physical outputs.
 function earth!(binding::NamedTuple, materials::NamedTuple, workspace, frequency::Int)
     calculation = binding.selection(materials, binding, workspace, frequency)
@@ -47,7 +47,7 @@ end
 $(TYPEDSIGNATURES)
 
 Evaluate bound indexed earth equations and distribute their scalar coefficients
-into aligned matrices. The binding retains `EarthPair` geometry, source/target
+into aligned matrices. The binding retains `EarthPair` geometry, source-target
 layer dispatch, earlier interactions with matching inputs, and selected equation controls.
 
 Interactions share values only when all declared invariant inputs and current

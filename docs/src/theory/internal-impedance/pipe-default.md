@@ -6,7 +6,7 @@
 | --- | --- |
 | Family | Pipe impedance |
 | Formula identifier | `:default` |
-| Documentation status | Placeholder; formula transcription is intentionally pending. |
+| Documentation status | Placeholder. Formula transcription is intentionally pending. |
 
 **Description.** This page reserves the documentation slot for the registered
 `:default` formulation.

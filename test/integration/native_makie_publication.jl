@@ -171,7 +171,7 @@ end
     ylims!(axis, -0.002, 0.002)
     plot.figure.scene.backgroundcolor[] = Makie.to_color(:lightgray)
     # These are the caller-owned observables that publication export temporarily
-    # changes, in addition to the live content that it must leave untouched.
+    # changes, as well as the live content that it must leave untouched.
     observables = Any[plot.figure.scene.backgroundcolor, axis.titlefont,
         axis.xlabelfont, axis.ylabelfont, axis.xticklabelfont, axis.yticklabelfont,
         plot.legend.labelfont, plot.legend.titlefont]

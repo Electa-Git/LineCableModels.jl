@@ -1,6 +1,6 @@
-# Included by prototype_wire_screen.jl. Four exact tape faces, not a general BEM
+# Included by prototype_wire_screen.jl. 4 exact tape faces, not a general BEM
 # backend. Jacobi-weighted continuous charge measures replace fictitious tape
-# sources. All kernels, core/foil functions and round-wire sources stay owned by
+# sources. All kernels, core and foil functions and round-wire sources stay owned by
 # the parent experiment. References for the representation and integration:
 # https://idus.us.es/server/api/core/bitstreams/aae30e40-44f5-4243-9c30-35d64123f0e5/content
 # https://ars.copernicus.org/articles/9/39/2011/
@@ -32,7 +32,7 @@ function ws_gauss_jacobi(n,alpha,beta)
         [2/(2k+s)*sqrt(k*(k+alpha)*(k+beta)*(k+s)/
             ((2k+s-1)*(2k+s+1))) for k in 2:n-1]]
     decomposition = eigen(SymTridiagonal(diagonal,off))
-    # Normalized measure w(t)dt / integral(w); no arclength factor belongs here.
+    # Normalized measure w(t)dt / integral(w). No arclength factor belongs here.
     decomposition.values,vec(decomposition.vectors[1,:].^2)
 end
 
@@ -124,7 +124,7 @@ function ws_log_moments(z,face; rtol = 1e-10)
     end
     # Weighted logarithmic product integration: compute the log moments of the
     # Jacobi modes, independently of the smooth Green remainder. t=cos(theta)
-    # absorbs endpoint weights; split at the logarithmic singularity/near peak.
+    # absorbs endpoint weights. Split at the logarithmic singularity or near peak.
     theta0 = acos(clamp(u,-1,1))
     splits = [0.0,theta0,pi]
     if delta > 0
@@ -146,13 +146,13 @@ function ws_log_moments(z,face; rtol = 1e-10)
             hypot(face.half*difference,imag(z*cis(-face.phi)))
         end
         # Roundoff may identify the endpoint only after its contribution is
-        # below integration accuracy; never manufacture a finite log(0) floor.
+        # below integration accuracy. Never manufacture a finite log(0) floor.
         distance > 0 || error("Unresolved logarithmic integration point.")
         weight = sin(theta/2)^(2face.alpha+1)*cos(theta/2)^(2face.beta+1)/face.beta_norm
         ws_jacobi!(output,t,face.alpha,face.beta)
         output .*= log(distance)*weight
     end
-    # Reuse quadrature work vectors; modal integration must not allocate a new
+    # Reuse quadrature work vectors. Modal integration must not allocate a new
     # polynomial vector at each of its thousands of function evaluations.
     parentmodule(LineCableModels.Engine.quadgk).quadgk!(integrand!,zeros(face.p+1),splits...;
         rtol,atol = rtol*0.01,order = max(7,cld(face.p+1,2)),maxevals = 100000)
@@ -301,7 +301,7 @@ function ws_tape_selfchecks()
             ws_kernel(3.0+0im,3cis(2e-7),h,k)
         @test difference ≈ (2/5)*log(2) rtol=1e-5
         # The charge measure contains no extra face-length Jacobian. Scaling all
-        # radii and target/source positions leaves the potential columns unchanged.
+        # radii and target-source positions leaves the potential columns unchanged.
         targets = [1.4cis(0.1),2.5cis(0.3)]
         original = ws_tape_columns(targets,[face],h,k).columns
         scaled_h = merge(h,(a = 10h.a,b = 10h.b,

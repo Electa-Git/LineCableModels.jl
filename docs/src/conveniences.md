@@ -1,8 +1,7 @@
 # Construction vocabulary
 
 The practical construction functions lower directly to `Region`, `Stack`,
-`Group`, `Assembly`, and `Enclosure`. They carry no state and introduce no
-serialized wrapper types.
+`Group`, `Assembly`, and `Enclosure`. These stateless functions omit serialized wrapper types.
 
 ## Regions and ordered layers
 
@@ -20,7 +19,7 @@ from the center outward. `solid` and `shell` are the general escape hatches for
 physical roles not covered by `core`, `insulation`, `screen`, `sheath`,
 `bedding`, `jacket`, and `filler`.
 
-## Wires, strands, and ropes
+## Wires, wire strands, and ropes
 
 Declare one fixed wire course with `wires`:
 
@@ -35,12 +34,12 @@ screen_wires = wires(
 )
 ```
 
-With a `Disk` boundary, `stranded` creates a center wire and infers the maximum
+With a `Disk` geometric boundary, `stranded` creates a center wire and infers the maximum
 complete `6k` course inventory. Without compaction circular wires retain their
 natural shape. `compact=true` requests area-preserving deformation of those
-same complete courses. A `Sector` boundary maps a center strand and complete
+same complete courses. A `Sector` geometric boundary maps a center strand and complete
 `6k` courses into the sector, then reconstructs each strand as an
-area-preserving clipped disk. Its deformation is intrinsic; it has no
+area-preserving clipped disk. Its deformation is intrinsic. It has no
 compaction selector or separately supplied center wire.
 
 ```julia
@@ -67,9 +66,9 @@ round_core = stranded(
 The explicit tuple form above remains available when course definitions differ.
 
 `rope(item; ...)` applies the same course grammar to an existing physical
-item. Every child retains its internal path declarations; an outer course adds
+item. Every child retains its internal path declarations. An outer course adds
 its own path. `armor` uses the same ring, path, clearance, and compaction
-operations while resolving its course radius from the preceding boundary.
+operations while resolving its course radius from the preceding geometric boundary.
 
 `@distribute` inserts only `n=capacity()`:
 
@@ -153,8 +152,8 @@ Formation functions return ordinary placed-cable declarations:
 placements = @trefoil design spacing=0.09 center=(0.0, -1.0) phase=(1, 2, 3) sheath=0
 ```
 
-Nonzero one-based values identify active phases; `0` marks a conductor selected
-for grounded/eliminated-conductor reduction. The values are identifiers, not
+Nonzero one-based values identify active phases. `0` marks a conductor selected
+for grounded or eliminated-conductor reduction. The values are identifiers, not
 electrical polarity or phase-angle signs.
 
 The function forms `trefoil`, `hflat`, and `vflat` accept the same data.
@@ -182,7 +181,7 @@ supported VDE/DIN 0271 and 0276 designation fields:
 fields = LineCableModels.DataModel.vdeparse("N2XS(FL)2Y 1x630/35 76/132 kV RM")
 ```
 
-The returned fields describe the designation; unparsed compact-token text is
+The returned fields describe the designation. Unparsed compact-token text is
 stored under `:unparsed_stub`.
 
 ## Reference

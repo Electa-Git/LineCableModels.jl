@@ -3,7 +3,7 @@ $(TYPEDEF)
 
 Represent one repeated-member coalescing scope.
 
-All conductive descendants resolve to terminal `name`. A group containing no
+Each conductive descendant resolves to terminal `name`. A group containing no
 conductive descendant is a valid physical group and contributes no terminal.
 
 $(TYPEDFIELDS)
@@ -21,7 +21,7 @@ struct Group{A, E <: AbstractCablePart, P, H, C, B} <: AbstractCablePart
     path::H
     "Compaction definition or `nothing`."
     compact::C
-    "Formation boundary, or rectangular-course packing limit; `nothing` for unbounded groups."
+    "Formation boundary, or rectangular-course packing limit. `nothing` for unbounded groups."
     boundary::B
 
     function Group(
@@ -258,8 +258,8 @@ bounded_members(boundary_shape::SectorShape, parts, ::Nothing) =
 $(TYPEDSIGNATURES)
 
 Resolve a bounded wire group into `(boundary_shape, members, primitives)`.
-The returned boundary follows the group's pose and the occupied rectangular
-courses when present. Coordinates and dimensions are in meters; member and
+The returned geometric boundary follows the group's pose and the occupied rectangular
+courses when present. Coordinates and dimensions are in meters. Member and
 primitive order follows construction. An empty formation raises `ArgumentError`.
 """
 function bounded_members(group::Group)

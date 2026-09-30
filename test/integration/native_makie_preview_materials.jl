@@ -105,7 +105,7 @@ end
                 clear_pixels += plain[row, column] == patterned[row, column]
             end
         end
-        # Compare complete hole/notch interiors, independent of the tile layout.
+        # Compare complete hole or notch interiors, independent of the tile layout.
         @test clear_pixels == expected_clear > 100
         # Native image tiles and solid fills can round one color level apart.
         # Count visible ink rather than that 8-bit raster conversion difference.
@@ -224,7 +224,7 @@ end
     controlled.controls[:reset].clicks[] += 1
     Makie.colorbuffer(controlled.figure)
     @test controlled_axis.finallimits[] == initial
-    # An explicit later request must instead survive the same reset action.
+    # An explicit later request must remain unchanged by the same reset action.
     limits!(controlled_axis, -10, 10, -10, 10)
     requested = controlled_axis.limits[]
     controlled.controls[:reset].clicks[] += 1

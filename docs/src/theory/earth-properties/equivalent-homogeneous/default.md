@@ -5,7 +5,7 @@
 | Field | Value |
 | --- | --- |
 | Family | Equivalent homogeneous earth |
-| Formula identifier | `:bottommost`; `:default` routes to this rule |
+| Formula identifier | `:bottommost`. `:default` routes to this rule |
 | Documentation status | Registered and documented. |
 
 **Description.** `:default` routes to the explicit `:bottommost` rule.
@@ -34,14 +34,14 @@ equivalent-conductivity equation.
 **Limitations.**
 
 The approximation may be unsuitable for strong conductivity contrasts or
-frequency ranges outside the supporting study, and no accuracy claim is made
+frequency ranges outside the supporting study, and accuracy is not claimed
 for selecting permittivity or permeability from the deepest layer.
 
 **Reference.**
 
 A. G. Martins-Britto, F. V. Lopes, and S. R. M. J. Rondineau, *Multilayer
 Earth Structure Approximation by a Homogeneous Conductivity Soil for Ground
-Return Impedance Calculations*, 2020 (context only; not the implemented
+Return Impedance Calculations*, 2020 (context only. Not the implemented
 equation).
 
 [Back to the relevant theory overview](../../earth_properties.md)

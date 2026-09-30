@@ -45,8 +45,7 @@ end
 """
 $(TYPEDEF)
 
-Pair one physical region with its resolved primitive, retained terminal, and
-resolved placement and path declarations.
+Pair one physical region with its resolved primitive and retained terminal, with resolved declarations for placement and paths.
 
 Each placement retains its physical scope through the existing owner type.
 `Assembly` placements preserve independent terminals and are not strand courses.
@@ -67,7 +66,7 @@ struct PlacedRegion{
     primitive::S
     "Retained electrical terminal, or `nothing` for a nonconductive region."
     terminal::Union{Nothing, Symbol}
-    "Ordered `(owner, pattern, member, pose)` placements; `Group` coalesces terminals, `Assembly` preserves them."
+    "Ordered `(owner, pattern, member, pose)` placements. `Group` coalesces terminals, `Assembly` preserves them."
     placement::P
     "Ordered `(path, radius)` declarations traversed by the region."
     paths::H

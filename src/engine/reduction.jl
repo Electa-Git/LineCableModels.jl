@@ -61,9 +61,9 @@ M_{\\mathrm{red}} = M_{11} - M_{12}M_{22}^{-1}M_{21}.
 
 # Arguments
 
-- `M`: Square complex matrix.
-- `phase_map`: Active-phase assignment for each row and column. Nonzero IDs
-  identify active phases; zero marks a grounded/eliminated conductor.
+- `M`: square complex matrix.
+- `phase_map`: active-phase assignment for each row and column. Nonzero IDs
+  identify active phases. Zero marks a grounded or eliminated conductor.
 
 # Returns
 
@@ -86,10 +86,10 @@ Write the Kron-reduced matrix from [`kron_reduce`](@ref) into `Mred`.
 
 # Arguments
 
-- `M`: Square complex matrix.
-- `phase_map`: Active-phase assignment for each row and column. Nonzero IDs
-  identify active phases; zero marks a grounded/eliminated conductor.
-- `Mred`: Destination matrix.
+- `M`: square complex matrix.
+- `phase_map`: active-phase assignment for each row and column. Nonzero IDs
+  identify active phases. Zero marks a grounded or eliminated conductor.
+- `Mred`: destination matrix.
 
 # Returns
 
@@ -215,7 +215,7 @@ $(TYPEDSIGNATURES)
 
 Apply the bundle change of basis to conductors assigned to the same active
 phase. A zero assignment denotes an independent conductor selected for
-grounded/eliminated-conductor reduction and is never interpreted as a bundle
+grounded or eliminated-conductor reduction and is never interpreted as a bundle
 identity.
 """
 function merge_bundles!(
@@ -286,13 +286,13 @@ frequency scans.
 
 # Arguments
 
-- `Z_primitive`: Primitive series impedance \\[Ω/m\\], ordered by terminal.
-- `P_primitive`: Primitive inverse-admittance coefficient \\[m/S\\], ordered
+- `Z_primitive`: primitive series impedance \\[Ω/m\\], ordered by terminal.
+- `P_primitive`: primitive inverse-admittance coefficient \\[m/S\\], ordered
   by terminal. Its inverse is shunt admittance in S/m.
-- `phase_map`: Active-phase assignment aligned with primitive terminal order.
-  Nonzero IDs identify retained phases; zero identifies a grounded/eliminated
+- `phase_map`: active-phase assignment aligned with primitive terminal order.
+  Nonzero IDs identify retained phases. Zero identifies a grounded or eliminated
   conductor.
-- `options`: Normalized shared line-parameter formulation options.
+- `options`: normalized shared line-parameter formulation options.
 
 # Returns
 

@@ -25,9 +25,9 @@ Return the cable design stored under `cable_id`, or `default` when absent.
 
 # Arguments
 
-- `library`: Cable-design library.
-- `cable_id`: Stored cable identifier.
-- `default`: Value returned when `cable_id` is absent.
+- `library`: cable-design library.
+- `cable_id`: stored cable identifier.
+- `default`: value returned when `cable_id` is absent.
 
 # Returns
 
@@ -51,8 +51,8 @@ Remove the cable design stored under `cable_id`.
 
 # Arguments
 
-- `library`: Cable-design library.
-- `cable_id`: Stored cable identifier.
+- `library`: cable-design library.
+- `cable_id`: stored cable identifier.
 
 # Returns
 

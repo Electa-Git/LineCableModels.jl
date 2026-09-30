@@ -1,9 +1,9 @@
 """
 $(TYPEDEF)
 
-Declare an outward conformal layer relative to an exact resolved boundary.
+Declare a conformal layer extending outward from an exact resolved geometric boundary.
 
-Calling [`resolve`](@ref) against the preceding boundary produces the exact
+Calling [`resolve`](@ref) against the preceding geometric boundary produces the exact
 material domain occupied by the layer.
 
 $(TYPEDFIELDS)

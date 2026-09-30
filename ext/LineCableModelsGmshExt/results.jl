@@ -12,7 +12,7 @@ number.
 
 # Arguments
 
-- `P`: Reduced inverse-admittance scan \\[m/S\\], with dimensions
+- `P`: reduced inverse-admittance scan \\[m/S\\], with dimensions
   `(terminal, terminal, frequency)`.
 
 This FEM coefficient differs from the analytical engine's charge-based
@@ -21,7 +21,7 @@ coefficient ``p=sY^{-1}`` in m/F. For the same admittance and reference,
 
 # Keywords
 
-- `diagnostics=false`: Also return residuals and condition numbers.
+- `diagnostics=false`: also return residuals and condition numbers.
 
 # Returns
 
@@ -30,8 +30,8 @@ coefficient ``p=sY^{-1}`` in m/F. For the same admittance and reference,
 
 # Errors
 
-- `ArgumentError`: A physical input or computed admittance contains nonfinite
-  values. Actual factorization/solve failures propagate. An unavailable condition
+- `ArgumentError`: a physical input or computed admittance contains nonfinite
+  values. Actual factorization and solve failures propagate. An unavailable condition
   estimate or unmet inversion-residual target produces a warning, not rejection
   or a replacement solve.
 """

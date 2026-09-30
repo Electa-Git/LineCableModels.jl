@@ -116,7 +116,7 @@ function documented_owned_target(code, meta, doc, roots)
 
     # Public-but-unexported names are common in this package. A bare name is
     # still safe to link when the generated inventory has exactly one owned
-    # binding with that name; duplicate names remain deliberately unlinked.
+    # binding with that name. Duplicate names remain deliberately unlinked.
     expression isa Symbol || return nothing
     targets = Set{String}()
     for binding in keys(doc.internal.bindings)
@@ -132,7 +132,7 @@ end
 function is_owned(binding, roots)
     any(root -> is_descendant(binding.mod, root), roots) && return true
 
-    # A module's binding belongs to its parent, so handle an owning root module
+    # A module's binding belongs to its parent, so handle the root module
     # (and its documented submodules) explicitly.
     isdefined(binding.mod, binding.var) || return false
     value = getfield(binding.mod, binding.var)

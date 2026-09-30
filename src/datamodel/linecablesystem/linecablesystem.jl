@@ -6,7 +6,7 @@ Store completed cable placements and their global terminal state.
 `designs`, `input_positions`, `connections`, and `environment` are declarations.
 `positions` contains the resolved poses after automatic exterior-clearance
 adjustment. Touching cables are separated by at least 1 μm plus the propagated
-uncertainty reserve; nominal designs overlapping beyond the roundoff allowance are rejected.
+uncertainty reserve. Nominal designs overlapping beyond the roundoff allowance are rejected.
 Global geometry, terminal order, terminal indices, and the flattened
 connection order are derived by the constructor.
 
@@ -30,7 +30,7 @@ struct LineCableSystem{
     positions::P
     "Cable poses before automatic clearance adjustment \\[m, m, rad\\]."
     input_positions::P
-    "Retained pairwise clearance requirements; diagonal entries concern the interface \\[m\\]."
+    "Retained pairwise clearance requirements. Diagonal entries concern the interface \\[m\\]."
     clearances::Matrix{T}
     "Per-cable terminal connection declarations in terminal order."
     connections::C
@@ -42,7 +42,7 @@ struct LineCableSystem{
     terminal_order::Vector{NamedTuple{(:cable, :terminal), Tuple{Int, Symbol}}}
     "Global terminal index for every resolved system region."
     terminal_map::Vector{Int}
-    "Active phase IDs aligned with `terminal_order`; zero selects a conductor for elimination."
+    "Active phase IDs aligned with `terminal_order`. Zero selects a conductor for elimination."
     connection_order::Vector{Int}
 
     function LineCableSystem{T, D, P, C, E, G}(
@@ -261,7 +261,7 @@ function build(
     end
 
     # 1. Place every completed design in the system frame. Coordinate tuples
-    # are construction shorthand; the stored declaration is always Pose2.
+    # are construction shorthand. The stored declaration is always Pose2.
     isempty(declared_input) && throw(ArgumentError("a line system requires one cable"))
     identifier = String(system_id)
     isempty(identifier) && throw(ArgumentError("system_id cannot be empty"))
@@ -408,7 +408,7 @@ function build(
     connection_order = collect(Iterators.flatten(normalized_connections))
 
     # 4. Place the resolved cable geometry. An explicit environment owns any
-    # interface constraint; formulation-specific media checks occur in the
+    # interface constraint. Formulation-specific media checks occur in the
     # problem that consumes the system.
     global_geometry = PlacedRegion[]
     terminal_map = Int[]

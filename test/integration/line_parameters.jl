@@ -108,8 +108,8 @@
     @test shared.impedance_indices == shared.potential_indices
     @test !isempty(shared.impedance_indices)
     @test length(complete_workspace.buffers.earth_materials) == 1
-    # Distinct configurations use separate calculations and material tables;
-    # the main numerical arrays are reused after publishing selected entries.
+    # Distinct configurations use separate calculations and material tables.
+    # The main numerical arrays are reused after publishing selected entries.
     distinct_formulation=Formulation(
         earth_admittance = formula(
             :default; options = (integration = (method = :quad, options = (rtol = 1e-9,)),)),

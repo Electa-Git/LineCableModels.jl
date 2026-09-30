@@ -28,7 +28,7 @@
     @test !E.ShuntModel._shunt_domain_equal(domain, independent)
     rng = MersenneTwister(314)
     samples = [deterministic(2.5+0.0025randn(rng))[1, 1] for _ in 1:24]
-    # Three standard errors of the sampled standard deviation; no requirement
+    # 3 standard errors of the sampled standard deviation. No requirement
     # that a finite MC sample exactly equals the linearized variance.
     sigma = Measurements.uncertainty(propagated.C[1, 1])
     @test abs(std(samples)-sigma) < 3sigma/sqrt(2(length(samples)-1))

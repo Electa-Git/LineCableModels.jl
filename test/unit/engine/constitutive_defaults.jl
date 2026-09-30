@@ -23,7 +23,7 @@
         end
     end
 
-    # Ametani (2004), Fig. 4 geometry and Eqs. (14)–(15), not a regenerated baseline.
+    # Ametani (2004), Fig. 4 geometry and Eqs. (14)-(15), not a regenerated baseline.
     b, c, r0 = 30.45e-3, 35.45e-3, 71.15e-3
     screen = Material(:semicon, 1.0, 1000.0)
     insulation_material = Material(:insulator, Inf, 3.1)

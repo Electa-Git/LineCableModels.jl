@@ -273,8 +273,8 @@ function _compute(
     end
     values = map(formulations, inputs, eachindex(formulations)) do formulation, input, index
         gridpoint = Grammar.gridpoint_id(; source_id, formulation_index=index)
-        # One full scan: workspace, solve, and validated result construction.
-        # Shared input/workspace construction, attachment, callbacks and progress are excluded.
+        # Measure a full scan from workspace creation through the solve and result validation.
+        # Shared input and workspace construction, attachment, callbacks and progress are excluded.
         value = if timing isa Val{true}
             measured = Base.@timed _compute(engine, problem, formulation, execution,
                 input, physical_inputs, gridpoint)
@@ -318,11 +318,11 @@ Compute line parameters with the coaxial backend and default formulation.
 
 # Arguments
 
-- `problem`: Completed line-parameter problem.
+- `problem`: completed line-parameter problem.
 
 # Keywords
 
-- `options`: Coaxial-backend computation options.
+- `options`: coaxial-backend computation options.
 
 # Returns
 
@@ -348,30 +348,30 @@ Compute frequency-dependent line parameters with the coaxial backend.
 
 The completed data model supplies the equivalent concentric representation
 used for series impedance and ordinary radial dielectric intervals. Eligible
-open wire/tape domains retain their physical geometry for the explicitly selected
-`shunt_model=:boundary` calculation; the default uses annular geometry. The
+open wire and tape domains retain their physical geometry for the explicitly selected
+`shunt_model=:boundary` calculation. The default uses annular geometry. The
 physical system is normalized once into a backend-owned
 workspace, and all reusable numerical storage is allocated before the frequency
 loop. `trace=true` copies `Zin`, `Pin`, `Zg`, `Pg`, `Z`, `P`, `phase_map`,
 `cable_map` and the integration records into `details(result).data.trace`.
-These arrays remain available after the workspace is reused; the result type
-is unchanged.
+These arrays remain available after the workspace is reused. The result type
+remains unchanged.
 
 # Arguments
 
-- `problem`: Completed line-parameter problem.
-- `formulation`: Selected line-parameter physical methods.
+- `problem`: completed line-parameter problem.
+- `formulation`: selected line-parameter physical methods.
 
 # Keywords
 
-- `options`: Named tuple containing `verbosity`, `output_basis`, `trace`, and
+- `options`: named tuple containing `verbosity`, `output_basis`, `trace`, and
   `on_result`. The optional callable `on_result(problem, index, result)` runs
   synchronously after each completed formulation and
   before the next calculation. `index` is local to the formulation collection
-  (`1` for a scalar call). Its return value is ignored; exceptions propagate.
+  (`1` for a scalar call). Its return value is ignored. Exceptions propagate.
   The callback must not mutate the problem or result. The default is `nothing`.
-  The selected local shunt coefficients are constructed in the cable blueprints;
-  the compute call constructs them without an additional execution option.
+  The compute call constructs the selected local shunt coefficients in the
+  cable blueprints without an additional execution option.
 
 # Returns
 

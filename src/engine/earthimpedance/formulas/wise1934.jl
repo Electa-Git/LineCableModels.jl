@@ -8,8 +8,8 @@ $(TYPEDSIGNATURES)
 **Identification.** Homogeneous-earth wideband overhead integral retaining
 earth displacement current and magnetic permeability.
 
-**Availability.** Registered scientific identity; the coaxial implementation is
-not yet implemented. No numerical fallback is provided.
+**Availability.** Registered scientific identity. The coaxial implementation is
+not yet implemented. The method fails without a numerical fallback.
 
 **Expression.**
 

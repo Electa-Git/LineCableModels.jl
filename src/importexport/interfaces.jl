@@ -5,8 +5,8 @@ Export LineCableModels data in the format selected by `format`.
 
 # Arguments
 
-- `format`: Format selector.
-- `args`: Inputs required by the selected format.
+- `format`: format selector.
+- `args`: inputs required by the selected format.
 
 # Keywords
 
@@ -45,8 +45,8 @@ Import data in the format selected by `format`.
 
 # Arguments
 
-- `format`: Format selector.
-- `args`: Inputs required by the selected format.
+- `format`: format selector.
+- `args`: inputs required by the selected format.
 
 # Keywords
 

@@ -24,7 +24,8 @@ end
 $(TYPEDSIGNATURES)
 
 Convert compatible units using constants evaluated in scalar precision `T`.
-In particular, degree/radian conversion does not round π through Float64.
+Conversion between degrees and radians preserves this precision instead of
+rounding π through `Float64`.
 """
 function scale_factor(from::UnitExpr,to::UnitExpr,::Type{T}) where {T<:AbstractFloat}
     _dimensions(from) == _dimensions(to) || throw(

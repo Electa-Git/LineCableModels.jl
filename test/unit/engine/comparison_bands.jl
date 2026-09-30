@@ -56,7 +56,7 @@
         details = ComputationDetails(;comparison_unsupported = (G = "Dielectric conduction not represented",),))
     @test only(compare(declared, b, G).details.data.status) === :unsupported
     @test only(compare(declared, b).Y.details.data.status) === :compared
-    # Numerical-zero classification is local to the selected band, not the full sweep.
+    # Numerical-zero classification uses only the selected band. Values elsewhere in the sweep are excluded.
     tiny = fill(1e-15+1e-15im, 1, 1, length(f))
     signal = copy(tiny)
     signal[1, 1, end] = 1.0

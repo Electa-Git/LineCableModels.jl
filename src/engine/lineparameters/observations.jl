@@ -109,15 +109,15 @@ Select physical matrix coordinates for an indexed line-parameter observation.
 
 # Arguments
 
-- `source`: Line parameters, series impedance, or shunt admittance tensor.
-- `request`: Normalized observable request with row/column/sample indices, or
-  diagonal/sample indices for a diagonal request.
-- `frequencies`: Supplied frequency samples \\[Hz\\], or `nothing`. Line parameters
+- `source`: line parameters, series impedance or shunt admittance tensor.
+- `request`: normalized observable request with row and column and sample indices, or
+  diagonal and sample indices for a diagonal request.
+- `frequencies`: supplied frequency samples \\[Hz\\] or `nothing`. Line parameters
   use their stored frequencies and reject a differing supplied vector.
 
 # Returns
 
-- A named tuple retaining the original indices, selected row/column/sample
+- A named tuple retaining the original indices, selected row and column and sample
   positions, frequencies \\[Hz\\], coordinate labels, full tensor extent, domain,
   and `:matrix` or `:diagonal` representation. Selection order is preserved.
 """
@@ -184,8 +184,8 @@ function _line_observation_quantity(source::_ObservedLineSource,request;
     threshold_factor=phase ? one(T) : factor
     undefined=polar && !phase && any(x -> x===:undefined_first_order_magnitude,
         reasons isa AbstractArray ? reasons : (reasons,))
-    # Components are retained only for the undefined first-order polar value;
-    # they are scientific values, never a reference back to the source tensor.
+    # Components are retained only for the undefined first-order polar value.
+    # They are scientific values, never a reference back to the source tensor.
     components=undefined ? (nominal_magnitude=Grammar.detach(abs.(nominal.(original))),real=Grammar.detach(real.(original)),imaginary=Grammar.detach(imag.(original)),
         unit=Units.native_unit(selector,basis(source))) : nothing
     return (request,quantity=q,family=Symbol(nameof(_primary_family(selector))),statistic=:value,

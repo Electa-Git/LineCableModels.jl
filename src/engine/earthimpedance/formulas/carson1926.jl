@@ -8,8 +8,8 @@ $(TYPEDSIGNATURES)
 **Identification.** Classical homogeneous, conductive-earth overhead
 impedance. Displacement currents and longitudinal propagation are neglected.
 
-**Availability.** Registered scientific identity; the coaxial implementation is
-not yet implemented. No numerical fallback is provided.
+**Availability.** Registered scientific identity. The coaxial implementation is
+not yet implemented. The method fails without a numerical fallback.
 
 **Expression.**
 

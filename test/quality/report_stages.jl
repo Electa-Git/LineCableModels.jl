@@ -18,7 +18,7 @@
     end
     benchmark=report(RB.BenchmarkTableDefinition(bands=(:all,)),(reference=line,result=line))
     @test RB.tabulate(RB.BenchmarkTableDefinition(bands=(:all,)),benchmark.observed;reference=benchmark.reference) !== nothing
-    # Selection and tabulation are required; the remaining stages have explicit defaults.
+    # Selection and tabulation are required. The remaining stages have explicit defaults.
     struct UnimplementedReport <: RB.AbstractReportDefinition end
     @test_throws MethodError report(UnimplementedReport(),ObservedResult(line))
     @test_throws MethodError report(UnimplementedReport(),line)

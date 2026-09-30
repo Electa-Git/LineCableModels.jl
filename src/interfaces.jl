@@ -17,8 +17,8 @@ point.
 
 # Arguments
 
-- `Target`: Completed domain type to construct.
-- `declarations`: Complete physical declarations owned by `Target`.
+- `Target`: completed domain type to construct.
+- `declarations`: complete physical declarations owned by `Target`.
 
 # Returns
 
@@ -46,22 +46,22 @@ function Gridpoint{Target}(build, args::A) where {Target, A <: Tuple}
 end
 
 """
-homogenize(design; new_id="")
+homogenize(design. New_id="")
 
 Build a homogeneous cable design that preserves each radial assembly member
 and matches the effective conductor and dielectric properties of `design`.
 
 The physical source design remains unchanged. The reduction uses only scalar
-series and parallel circuit calculations; it does not calculate line-parameter
+series and parallel circuit calculations. It does not calculate line-parameter
 matrices, mutual coupling, or earth return.
 
 # Arguments
 
-- `design`: Completed physical cable design.
+- `design`: completed physical cable design.
 
 # Keywords
 
-- `new_id`: Identifier for the returned design. An empty value appends
+- `new_id`: identifier for the returned design. An empty value appends
   `"_equivalent"` to the source identifier.
 
 # Returns
@@ -90,7 +90,7 @@ function capacitance end
 
 """
 Return owned scientific text for a formulation. `compact=true` selects its
-short display name; `formula_id` remains its scientific identity.
+short display name. `formula_id` remains its scientific identity.
 """
 function description end
 

@@ -166,7 +166,7 @@ handle = first(plots)
         ymax
     )
     # Short logarithmic spans use readable mantissas, not necessarily decade
-    # powers. Check the rendered scale/labels, not a superseded formatter type.
+    # powers. Check the rendered scale and labels, not a superseded formatter type.
     @test length(tick_values) == length(tick_labels) >= 2
     @test issorted(tick_values) && allunique(tick_values)
     @test all(value -> isfinite(value) && value > 0, tick_values)
@@ -215,7 +215,7 @@ end
         event=button -> button.clicks,callback=(p,_) -> (clicks[]+=1))
     GLMakie.save(joinpath(ARTIFACT_DIRECTORY,"guide-bottom.png"),p.figure)
     @test size(guide.layout[])==(1,3)
-    # Complete item bounds reserve spacing; bar frames share a baseline/edge
+    # Complete item bounds reserve spacing. Bar frames share a baseline and edge
     # independently of the unequal property labels inside those items.
     frames=[bar.layoutobservables.computedbbox[] for bar in bars]
     @test maximum(frame.origin[2] for frame in frames)-minimum(frame.origin[2] for frame in frames)<=1

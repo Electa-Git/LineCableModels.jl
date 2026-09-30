@@ -68,7 +68,7 @@ $(TYPEDSIGNATURES)
 
 Select or re-express an existing observation without acquiring a source.
 Omitted unit options preserve recorded units. Explicit units convert from each
-product's recorded unit; frequency conversion preserves sample identities.
+product's recorded unit. Frequency conversion preserves sample identities.
 Coordinates, availability, uncertainty dependencies, comparisons, and timing
 associations remain retained. New clipping, thresholds, or frequency samples
 require a new observation of the primary result.
@@ -103,10 +103,10 @@ $(TYPEDSIGNATURES)
 Interpret a retained request across observations. Convert compatible
 quantity and frequency units to the first product's units (or explicit targets),
 and order coefficients by the first product's original coordinates. Every trace
-keeps its own samples. Missing coefficients and incompatible units fail without
+retains its samples. Missing coefficients and incompatible units fail without
 interpolation, numerical acquisition, or changes to scientific eligibility.
 With `band`, select original sample identities from completed comparison
-records. `reference_id` disambiguates the recorded reference; a separately
+records. `reference_id` disambiguates the recorded reference. A separately
 included reference uses the same unambiguous saved selection. Missing or
 conflicting records fail before returning any products.
 """

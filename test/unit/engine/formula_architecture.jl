@@ -123,7 +123,7 @@ end
     pairs=[E.EarthPair(t, s, (heights[s], heights[t]), s==t ? 0.0 : 1.0,
                (s, t); radius = s==t ? 0.01 : nothing) for s in 1:3 for t in 1:3]
     bound=validate(selected, pairs)
-    @test isempty(M.calls) # Structural preflight executes no kernels.
+    @test isempty(M.calls) # Structural preflight does not execute kernels.
     @test count(case -> haskey(case.options.data, :integration), bound) == 1
     @test bound[1].options.data.integration.method === Val(:quad)
     @test_throws ArgumentError validate(selected, pairs[2:end]) # Unconsumed integral controls.
@@ -262,7 +262,7 @@ end
         @test length(w.buffers.earth_materials) == 1
         calculation=only(w.invariants.earth_calculations)
         @test calculation.impedance_indices == calculation.potential_indices
-        # Poison only numerical buffers; identity matrices and geometry are inputs.
+        # Poison only numerical buffers. Identity matrices and geometry are inputs.
         for array in (w.buffers.Zearth, w.buffers.Pearth, w.buffers.Zprimitive,
             w.buffers.Pprimitive, w.buffers.rho_cond, w.buffers.dielectric_admittivity,
             w.buffers.earth.evaluated...)
@@ -295,7 +295,7 @@ end
         @test details(first_result).data.trace.Zg !== w.capture.Zg
         @test details(first_result).data.trace.integrals !== w.capture.integrals
         @test length(w.capture.integrals) == 2*3^2*3 # Trace belongs to this solve only.
-        # Public scans remain sorted. Revisit the actual material/earth stages
+        # Public scans remain sorted. Revisit the actual material-earth stages
         # in reverse index order to expose any prior-frequency readiness state.
         for frequency in (3, 2, 1)
             E.materials!(w, selection, frequency)

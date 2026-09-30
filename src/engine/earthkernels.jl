@@ -241,7 +241,7 @@ function earth_valid_pole(state, candidate, ::Type{R}) where {R}
     return abs(a+b)<=sqrt(eps(R))*(abs(a)+abs(b))
 end
 
-# The medium and denominator scales are independent; retain both, even when
+# The medium and denominator scales are independent. Retain both, even when
 # their ratio spans many decades. Bridge them without prescribing a fixed grid.
 function earth_spectral_points!(arrays, state, height, separation, radius, angle)
     R=typeof(float(nominal(real(state.jω))))
@@ -302,7 +302,7 @@ function earth_spectral_neighbourhood!(points::Vector{R}, location) where {R}
 end
 
 # A prescribed Γ can move a branch point into the first quadrant. Keep the
-# contour below it; the usual passive Γ=0 roots do not restrict the upper ray.
+# contour below it. The usual passive Γ=0 roots do not restrict the upper ray.
 function earth_contour_angle(state, proposed)
     result=proposed
     for k in state.k, sign in (-1, 1)

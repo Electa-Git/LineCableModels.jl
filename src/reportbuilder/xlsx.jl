@@ -31,7 +31,7 @@ $(TYPEDFIELDS)
 struct XLSXSheet
     "Worksheet name."
     name::String
-    "Numeric cells, textual metadata, or missing cells."
+    "Numeric cells or textual metadata. Cells may also be missing."
     cells::Matrix{Any}
 end
 """
@@ -53,7 +53,7 @@ $(TYPEDSIGNATURES)
 
 Convert a spreadsheet number to Float64. Reject nonfinite values, overflow, and
 nonzero underflow. Native persistence retains original precision and uncertainty
-dependencies; spreadsheets contain nominal values and standard deviations.
+dependencies. Spreadsheets contain nominal values and standard deviations.
 """
 function encode_cell(::XLSXReportDefinition,value::Real)
     number=Float64(value)

@@ -119,7 +119,7 @@ function _reported_heading(table;families=false,limited=false)
     return title
 end
 
-# Native DataFrames writers own cell formatting and whole-row/column omission.
+# Native DataFrames writers own cell formatting and whole-row and column omission.
 # A limited table is buffered only within its allotted display area, to account
 # for its actual line use. Unlimited inspection streams directly to the caller.
 function _report_table(io,mime::MIME"text/plain",table,height,width,limited)

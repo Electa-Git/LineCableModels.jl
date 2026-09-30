@@ -25,7 +25,7 @@
                 @test readdir(directory) == ["model_data.pro"]
                 text = read(path, String)
                 push!(line_counts, length(readlines(path)))
-                # Input serialization must not grow a second solver/output program.
+                # Serialized inputs must contain data without solver or output instructions.
                 @test !occursin(r"(?m)^\s*(Group|Function|Macro|PostOperation|For|If|Include)\b", text)
                 @test !occursin("MaterialSigma()", text)
                 @test !occursin("MaterialEpsilon()", text)

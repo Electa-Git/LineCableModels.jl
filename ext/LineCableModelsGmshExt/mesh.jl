@@ -382,7 +382,7 @@ function _configure_mesh!(
         push!(transition_fields, threshold)
     end
     # Gmsh owns interpolation and restriction of the size field. Include the
-    # air/soil interface as a source of transmitted fields, also for overhead
+    # air-soil interface as a source of transmitted fields, also for overhead
     # conductors whose distance from the soil exceeds its attenuation length.
     for (surfaces, wave_size, decay_radius) in zip(
         (geometry.air_surfaces, geometry.earth_surfaces),
@@ -582,7 +582,7 @@ function _update_exterior_mesh!(model, geometry, plan)
         gmsh.model.mesh.field.remove(tag)
     end
     # Rebuild only the small exterior domain. GEO coordinate transforms can
-    # invalidate cached arcs elsewhere in the model; cable entities stay fixed.
+    # invalidate cached arcs elsewhere in the model. Cable entities remain fixed.
     gmsh.model.remove_physical_groups()
     surfaces = unique([geometry.air_surfaces; geometry.earth_surfaces])
     curves = unique([geometry.inner_shell_curves; geometry.outer_curves; geometry.interface_curves])

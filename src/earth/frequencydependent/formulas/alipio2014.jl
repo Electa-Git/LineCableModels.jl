@@ -1,4 +1,4 @@
-"Return the fitted parameters of the Alipio–Visacro causal soil model."
+"Return the fitted parameters of the Alipio-Visacro causal soil model."
 assumptions(::Val{:alipio2014}) = (
     exponent = 0.54,
     epsilon_infinity = 12.0,
@@ -16,7 +16,7 @@ end
 """
 $(TYPEDSIGNATURES)
 
-Alipio–Visacro causal power-law soil dispersion fitted from measured data.
+Causal power law fitted by Alipio and Visacro to measured soil dispersion.
 The relation evaluates conductivity and relative permittivity from the static
 reference resistivity. Ametani is not involved in this model.
 

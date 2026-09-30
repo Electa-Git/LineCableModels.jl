@@ -3,16 +3,16 @@ $(TYPEDEF)
 
 Record the formation boundary and radial course of one resolved member.
 
-The boundary identifies the complete formation while `course` records the
+The geometric boundary identifies the complete formation while `course` records the
 inferred radial course. Course zero identifies the center strand of a circular
 bundle or of one sector segment.
 
 $(TYPEDFIELDS)
 """
 struct BoundedPlacement{B <: AbstractShape}
-    "Resolved boundary shared by every member of the formation."
+    "Resolved geometric boundary shared by every member of the formation."
     boundary::B
-    "Inferred radial course; zero denotes a center member."
+    "Inferred radial course. Zero denotes a center member."
     course::Int
 
     function BoundedPlacement(boundary::B, course::Integer) where {
@@ -153,7 +153,7 @@ function tessellate(shape::BentStrip; points_per_arc::Integer = 32)
 end
 
 """
-Return a counter-clockwise polygonal approximation of a resolved boundary.
+Return a counter-clockwise polygonal approximation of a resolved geometric boundary.
 """
 function boundary_polygon(shape::Disk; points::Integer = 512)
     points >= 16 || throw(ArgumentError(
@@ -624,9 +624,9 @@ $(TYPEDSIGNATURES)
 
 Map one center strand and complete circular `6k` courses into a sector.
 The mapped sites retain their course identities while a prescribed-area power
-diagram allocates space; clipped disks supply the actual conductor shapes.
+diagram allocates space. Clipped disks supply the actual conductor shapes.
 
-For `L` courses and `N = 1 + 3L(L+1)` strands, the course sites are
+For `L` courses and `N = 1 + 3L(L+1)` wire strands, the course sites are
 
 ```math
 p_0=c,\\qquad
@@ -634,13 +634,13 @@ p_{k,m}=c+\\sqrt{\\frac{1+3k^2}{N}}\\,[q(t_{k,m})-c],
 \\qquad t_{k,m}=\\frac{m+\\delta_k}{6k}.
 ```
 
-Here `c` is the polygonal sector centroid and `q` traverses the boundary
+Here `c` is the polygonal sector centroid and `q` traverses the geometric boundary
 by normalized swept area. Sites remain fixed during power-cell balancing.
 
 # Arguments
 
-- `shape`: Resolved sector boundary, with coordinates in meters.
-- `wire`: Circular source strand; its area is preserved in every member.
+- `shape`: resolved sector boundary, with coordinates in meters.
+- `wire`: circular source strand. Its area is preserved in every member.
 
 # Returns
 
@@ -721,19 +721,19 @@ W_i=P_i\\cap D(c_i,\\rho_i),\\qquad |W_i|=A_i,
 
 The disk is approximated by a regular polygon. Bisection solves its radius
 against the area of the clipped polygon, so the area tolerance is independent
-of the arc tessellation. Cell faces bound contact regions; free boundaries
-follow the disk. Full occupancy returns the cell within the boundary's
+of the arc tessellation. Cell faces bound contact regions. Free geometric boundaries
+follow the disk. Full occupancy returns the cell within the geometric boundary's
 geometric tolerance.
 
 # Arguments
 
-- `cell`: Counter-clockwise vertices of an allocated convex cell \\[m\\].
-- `source_area`: Prescribed transverse conductor area \\[m²\\].
+- `cell`: counter-clockwise vertices of an allocated convex cell \\[m\\].
+- `source_area`: prescribed transverse conductor area \\[m²\\].
 
 # Keywords
 
-- `angle=0`: Orientation of the disk tessellation \\[rad\\].
-- `points=128`: Vertices in the disk approximation.
+- `angle=0`: orientation of the disk tessellation \\[rad\\].
+- `points=128`: vertices in the disk approximation.
 
 # Returns
 
@@ -776,8 +776,8 @@ function area_preserving_strand(cell, source_area; angle = 0, points::Integer = 
         value < 1 ? (lower = radius) : (upper = radius)
     end
 
-    # Differentiate the scalar area constraint for uncertainty-bearing inputs;
-    # the nominal cell topology is fixed, as in the existing compaction model.
+    # Differentiate the scalar area constraint for uncertainty-bearing inputs.
+    # The nominal cell topology is fixed, as in the existing compaction model.
     if any(point -> any(x -> !iszero(uncertainty(x)), point), local_cell) ||
        !iszero(uncertainty(angle))
         step = cbrt(eps(float(radius))) * radius

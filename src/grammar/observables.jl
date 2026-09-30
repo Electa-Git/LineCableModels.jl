@@ -19,7 +19,7 @@ end
 $(TYPEDSIGNATURES)
 
 Normalize a selector prefix to the retained component selector used for lookup.
-The input excludes positional indices; [`request_identity`](@ref) extracts that
+The input excludes positional indices. [`request_identity`](@ref) extracts that
 prefix from a complete request. Scientific owners may extend this method for
 accessor aliases. The default leaves selectors unchanged. `Val` selector names
 also support keyed display-unit overrides such as `:alpha` and `:beta`.
@@ -65,8 +65,8 @@ quantity, and positional indices.
 
 # Arguments
 
-- `source`: Value whose type declares the supported observable identities.
-- `request`: Selector function or plain observable request tuple.
+- `source`: value whose type declares the supported observable identities.
+- `request`: selector function or plain observable request tuple.
 
 # Returns
 
@@ -74,7 +74,7 @@ quantity, and positional indices.
 
 # Errors
 
-- `ArgumentError`: The declaration is malformed or the request is unsupported.
+- `ArgumentError`: the declaration is malformed or the request is unsupported.
 """
 function observation_request(source, request)
     supported = _observable_declaration(source)
@@ -99,8 +99,8 @@ length `count`.
 
 # Errors
 
-- `ArgumentError`: The selector form is unsupported.
-- `BoundsError`: At least one resolved index is outside `1:count`.
+- `ArgumentError`: the selector form is unsupported.
+- `BoundsError`: at least one resolved index is outside `1:count`.
 """
 function observation_indices(selector, count::Integer)
     indices = if selector isa Colon
@@ -138,9 +138,9 @@ against the observable declaration for `source`.
 
 # Arguments
 
-- `source`: Result or retained product that owns observable selectors.
-- `requests`: Tuple of selector functions or selector tuples.
-- `unit_overrides`: Empty tuple or one display unit for each request.
+- `source`: result or retained product that owns observable selectors.
+- `requests`: tuple of selector functions or selector tuples.
+- `unit_overrides`: empty tuple or one display unit for each request.
 
 # Returns
 
@@ -217,14 +217,13 @@ Resolve display-unit targets aligned with a tuple of scientific requests.
 
 # Arguments
 
-- `requests`: Selector functions or selector tuples.
+- `requests`: selector functions or selector tuples.
 - `result_basis`: `:pul` or `:total`.
 
 # Keywords
 
-- `length_prefix`: Metric prefix applied to per-length denominators.
-- `overrides`: A global prefix or `UnitExpr`, a keyed collection of those values,
-  or nothing.
+- `length_prefix`: metric prefix applied to per-length denominators.
+- `overrides`: a global prefix or `UnitExpr`, a keyed collection of those values or `nothing`.
 
 # Returns
 
@@ -263,17 +262,17 @@ detach(values::AbstractArray, factor) = map(value -> detach(value, factor), valu
 $(TYPEDSIGNATURES)
 
 Resolve the declared physical reporting resolution for one scientific request.
-Result owners extend this operation; the fallback makes no precision claim.
+Result owners extend this operation. The fallback leaves precision unspecified.
 
 # Arguments
 
-- `source`: Result owning the requested values and native physical basis.
-- `request`: An observable selector or indexed request.
+- `source`: result defining the requested values and native physical basis.
+- `request`: an observable selector or indexed request.
 
 # Keywords
 
-- `atol`: Optional absolute reporting cutoff in the requested native units.
-- `frequencies`: Optional frequency context \\[Hz\\] for standalone tensors.
+- `atol`: optional absolute reporting cutoff in the requested native units.
+- `frequencies`: optional frequency context \\[Hz\\] for standalone tensors.
 
 # Returns
 

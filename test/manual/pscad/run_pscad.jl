@@ -1,5 +1,5 @@
 # Include from an IDE/REPL or run with
-# julia --project=. test/manual/pscad/run_pscad.jl.
+# `julia --project=. test/manual/pscad/run_pscad.jl`.
 # Uses the active environment. Each execution starts a fresh PSCAD calculation.
 using LineCableModels
 
@@ -7,7 +7,7 @@ using LineCableModels
 config_path = joinpath(@__DIR__, "local-pscad.toml")
 station = PSCAD.RemoteConfig(config_path)
 
-# Two insulated copper wires, buried 1 m deep and spaced 1 m apart.
+# 2 insulated copper wires, buried 1 m deep and spaced 1 m apart.
 copper = Material(:conductor, 1.72e-8, 1.0)
 dielectric = Material(:insulator, 1e14, 2.3)
 design = build(CableDesign, "toy-insulated-wire", terminal(:core,

@@ -6,8 +6,8 @@ keyword slot in which the selection appears.
 
 # Arguments
 
-- `identifier`: Stable formula identifier.
-  `:default` routes to the owning family's explicit default implementation for
+- `identifier`: stable formula identifier.
+  `:default` routes to the defining family's explicit default implementation for
   the chosen backend. The resulting selection is checked against the problem
   before computation.
   Cable-insulation and semicon-admittance `:default` selections route to the
@@ -16,14 +16,14 @@ keyword slot in which the selection appears.
 
 # Keywords
 
-- `order`: Position of an equivalent homogeneous-earth reduction relative to
+- `order`: position of an equivalent homogeneous-earth reduction relative to
   material frequency dependence. `:before` applies EquivalentHomogeneous before FrequencyDependent, `:after`
   applies EquivalentHomogeneous after FrequencyDependent, and `:default` selects the receiving formulation's
   default. Non-EquivalentHomogeneous formula slots accept only `:default`.
-- `parameters=(;)`: Explicit model parameters accepted by the owning formula.
-- `options=(;)`: Formulation-owned physical choices and numerical controls, such
+- `parameters=(;)`: explicit model parameters accepted by the defining formula.
+- `options=(;)`: formulation-owned physical choices and numerical controls, such
   as Unified's `Γ` \\[1/m\\] and `integration=(method=:quad, options=(;))`.
-- `equivalent_earth=nothing`: Explicit reduction for a compatible external formula.
+- `equivalent_earth=nothing`: explicit reduction for a compatible external formula.
 
 # Returns
 
@@ -67,7 +67,7 @@ end
 """
 $(TYPEDSIGNATURES)
 
-Describe a retained selection through its owning type.
+Describe a retained selection through its defining type.
 """
 description(source::Pair{<:Type,<:NamedTuple}; compact::Bool=false) = description(first(source); compact)
 formula_id(source::Pair{<:Type,<:NamedTuple}) = formula_id(first(source))
@@ -75,7 +75,7 @@ formula_id(source::Pair{<:Type,<:NamedTuple}) = formula_id(first(source))
 description(::Missing; compact::Bool=false) = "method unavailable"
 description(::Nothing; compact::Bool=false) = "none"
 
-"""Describe a scalar, explicitly selected control at its owning formula."""
+"""Describe a scalar, explicitly selected control at its defining formula."""
 description(::Type, ::Val{key}, value::Union{Number,Symbol,AbstractString};
     compact::Bool=false) where {key} = string(key,"=",value)
 formula_id(::Missing) = missing
@@ -88,14 +88,14 @@ Label ordered formulation selections using their owner-supplied descriptions.
 
 # Arguments
 
-- `sources`: Native formulations or owner-bound retained declarations.
+- `sources`: native formulations or owner-bound retained declarations.
 
 # Keywords
 
-- `roles`: One `:reference`, `:result`, or `:none` role per source.
-- `quantity`: Physical quantity selected through the observation grammar, or
+- `roles`: one `:reference`, `:result`, or `:none` role per source.
+- `quantity`: physical quantity selected through the observation grammar, or
   `nothing` for all equation choices.
-- `compact=true`: Use the short owned names for both root and child selections.
+- `compact=true`: use the short owned names for both root and child selections.
 
 # Returns
 
@@ -155,8 +155,8 @@ function description(sources::AbstractVector;
                 standalone=length(sources)==1 && !ismissing(formula_id(value)) &&
                     formula_id(value)!==:none
                 # Common scalar choices are omitted independently of their IDs.
-                # Branch structure and controls remain visible in comparisons;
-                # a standalone description shows its concrete selections.
+                # Branch structure and controls remain visible in comparisons.
+                # A standalone description shows its concrete selections.
                 (length(last(scope))>1 || !isempty(retained(value)) ||
                     scope in varying || changed || standalone) &&
                     push!(parts,description(scope,value;compact))

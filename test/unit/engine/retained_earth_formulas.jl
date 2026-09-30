@@ -28,7 +28,7 @@
                         estimate=quadgk(kernel, big"0", abs(scale/ratio),
                             abs(scale), inv(big(H)), cutoff;
                             rtol = big"1e-12", maxevals = 10^6)
-                        # Re(ratio)=10 and Re(sqrt(lambda²+g1-g0))>0, hence
+                        # Re(ratio)=10 and Re(sqrt(lambda²+g1-g0))>0, so
                         # |denominator|>=10lambda: this bounds the omitted real-axis tail.
                         tail=exp(-H*cutoff)/(10H*cutoff)
                         value=(log(hypot(big(y), big(H))/big(distance))+2integral)/(2big(pi)*e0)

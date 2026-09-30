@@ -17,7 +17,7 @@ $(TYPEDSIGNATURES)
 
 Compare two retained result spaces with an explicit reference index for every
 result point. `pairing` is a vector of `(reference_index, result_index)`
-pairs; each result must occur exactly once. Equal lengths do not imply pairing.
+pairs. Each result must occur exactly once. Use the declared pairs even when the lengths are equal.
 """
 function compare(reference::ParametricResult, result::ParametricResult,
         quantity::Union{Function,Tuple}; pairing=nothing, kwargs...)

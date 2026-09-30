@@ -1,4 +1,4 @@
-# Enclosed-current matrix identities check algebra and conventions; independent
+# Enclosed-current matrix identities check algebra and conventions. Independent
 # cylindrical controls below provide physical validation for equal media.
 @testitem "Engine / unified retains five-layout FEM baseline agreement" tags=[:unit] setup=[TestFixtures] begin
     root=joinpath(pkgdir(LineCableModels), "test/fixtures/reference/three_bare_wires",
@@ -10,7 +10,7 @@
     for layout in (:all_air, :all_earth, :air_1, :air_2, :air_3)
         directory=joinpath(root, "three_bare_wires_$layout")
         # The original problem JSON is historical input with problem-owned Γ.
-        # Rebuild the same physical fixture; the retained numerical CSVs stay fixed.
+        # Rebuild the same physical fixture. The retained numerical CSVs remain fixed.
         problem=TestFixtures.three_bare_wires_problem(
             heights = TestFixtures.three_bare_wires_layouts[layout])
         @test problem.frequencies==10.0 .^ (-1:7)
@@ -25,7 +25,7 @@
             values=observe(result, selector)
             actual=[values[i, j, k] for k in 1:9 for i in 1:3 for j in 1:3]
             @test length(actual)==length(old)==length(fem)==81
-            # Preserve the observed worst discrepancy; this does not claim
+            # Preserve the observed worst discrepancy. This does not claim
             # exact FEM agreement or impose a solver-side acceptance test.
             roundoff=64eps(Float64)*max(maximum(abs, old), maximum(abs, fem))
             @test maximum(abs.(actual-fem))<=maximum(abs.(old-fem))+roundoff
@@ -147,7 +147,7 @@ end
     selected=Formulation(earth_impedance = definition, earth_admittance = definition,
         options = (
             reduce_bundle = false, kron_reduction = false, ideal_transposition = false))
-    # Public compute installs its normal console logger; observe its real
+    # Public compute installs its normal console logger. Observe its real
     # stderr output rather than replacing the outer task logger.
     result,
     warning=mktemp() do path, io
@@ -161,7 +161,7 @@ end
     @test occursin("QuadGK returned an estimated error", warning)
     @test occursin("estimated_error", warning)&&occursin("context", warning)
     records=details(result).data.trace.integrals
-    @test length(records)==18 # One shared assembly, not one per owner or entry request.
+    @test length(records)==18 # Assembly is shared across owners and entry requests.
     @test all(r->isfinite(r.value)&&isfinite(r.estimated_error)&&r.estimated_error>=0, records)
     @test Set(r.context.formula for r in records)==Set([:unified])
     @test Set(r.context.term for r in records)==Set([:Z, :air_voltage])
@@ -233,7 +233,7 @@ end
     @test !E.same_physical_state(rho, measurement(0.1, 0.001))
     @test E.same_physical_state(rho, 2rho-rho)
     # Check the propagated physical derivatives against independent central
-    # perturbations of the material/geometry inputs to the earth-return calculation.
+    # perturbations of the material and geometry inputs to the earth-return calculation.
     function perturbed(values)
         rho, r, h, d=values
         geometry=(horizontal = [0.0, d], height = [-h, -h], radius = [r, r])
@@ -330,7 +330,7 @@ end
     using LinearAlgebra, QuadGK
     include(joinpath(pkgdir(LineCableModels), "test/support/radial_control.jl"))
     const E=LineCableModels.Engine
-    # I0/I1 use an independently coded Frobenius recurrence; K0 uses its
+    # I0/I1 use an independently coded Frobenius recurrence. K0 uses its
     # decaying integral, not the engine's selected spectral integrator.
     function reference(positions, radii, f)
         s=2big(pi)*im*BigFloat(f);
@@ -416,7 +416,7 @@ end
             E.SpectralIntegral, (method = :quad, options = (rtol = 1e-10, maxevals = 10^6)))
         w=UnifiedFormulaFixtures.calculate(geometry, state, controls)
         column_scale=reshape(exp.(abs.(real.(expected.k .* radii))), 1, :)
-        # Equal-medium impedance/current maps erase the interface. Air
+        # Equal-medium impedance and current maps erase the interface. Air
         # voltages deliberately retain an interface reference, so only buried
         # layouts have the unbounded-medium P/Y used by this independent control.
         for quantity in
@@ -478,7 +478,7 @@ end
             @test actual≈original rtol=2e-10 atol=1e-20
         end
         # At a_receiver=0, I0(κ_receiver*r)=J0(r*λ). The removable
-        # quotient tends to -h_receiver*J0, including the spectral padding.
+        # quotient converges to -h_receiver*J0, including the spectral padding.
         roots=ntuple(m->m==P ? complex(-1.0) : u.k2[m], 2)
         branch=merge(u, (; k2 = roots))
         kernel=E.AirVoltageSpectrum{Q, typeof(branch), typeof(g)}(branch, g)
@@ -506,7 +506,7 @@ end
         iszero(Γ)||@test angle<pi/6
         for P in (1, 2), Q in (1, 2), kind in (:Z, :phi, :voltage)
             # At Γ=0 the separate air-voltage term has a branch-point
-            # singularity; production combines its cancelling endpoints.
+            # singularity. Production combines its cancelling endpoints.
             # Here the added zero-Γ check concerns the scalar coordinate.
             iszero(Γ)&&kind!==:phi&&continue
             kernel=E.EarthSpectrum{kind, P, Q}(state, (hp = 1.0, hq = 1.0, logscale = 0.0))

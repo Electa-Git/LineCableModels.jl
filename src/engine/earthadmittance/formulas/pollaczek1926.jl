@@ -7,8 +7,8 @@ $(TYPEDSIGNATURES)
 
 **Identification.** Classical homogeneous-earth underground potential coefficient.
 
-**Availability.** Registered scientific identity; the coaxial implementation is
-not yet implemented. No numerical fallback is provided.
+**Availability.** Registered scientific identity. The coaxial implementation is
+not yet implemented. The method fails without a numerical fallback.
 
 **Expression.**
 
@@ -19,7 +19,7 @@ P_{e,ij}^{11}=\\frac{j\\omega}{2\\pi(\\sigma_1+j\\omega\\varepsilon_1)}
 
 **Reference.** F. Pollaczek, “Über das Feld einer unendlich langen
 wechselstromdurchflossenen Einfachleitung,” *Elektrische Nachrichtentechnik*,
-3, 339–360, 1926; potential-coefficient transcription follows Ametani et al.,
+3, 339–360, 1926. Potential-coefficient transcription follows Ametani et al.,
 IET, 2021.
 """
 function description(::Type{<:Formula{:pollaczek1926}}; compact::Bool = false)

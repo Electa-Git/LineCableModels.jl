@@ -6,7 +6,7 @@ $(TYPEDEF)
 Station connection and filesystem mapping for native PSCAD execution.
 `local_root` and `shared_root` name the same directory on the caller and station.
 `remote_root` is scratch space on the station. Construction from field values
-performs no I/O. Construction from a TOML filename only reads that file.
+does not perform I/O. Construction from a TOML filename only reads that file.
 `timeout` is the remote execution limit \\[s\\], defaulting to 1800.
 
 $(TYPEDFIELDS)
@@ -22,7 +22,7 @@ struct RemoteConfig
     transport::Symbol
     "Remote execution timeout \\[s\\]."
     timeout::Int
-    "Argument array for `:command` transport; exact `{host}` arguments are replaced."
+    "Argument array for `:command` transport. Exact `{host}` arguments are replaced."
     command::Vector{String}
 end
 
@@ -95,11 +95,11 @@ Read a user-selected TOML file into a station configuration.
 # Returns
 
 - A `RemoteConfig`. A relative `local_root` is resolved against the file's
-  directory; station-side paths are retained verbatim.
+  directory. Station-side paths are retained verbatim.
 
 # Notes
 
-`transport` is a string naming a transport method. For `"command"`, `command`
+`transport` is a string identifying a transport method. For `"command"`, `command`
 is an argument array, with exact `{host}` arguments replaced by `host`.
 Encoded PowerShell arguments are appended without shell evaluation.
 """

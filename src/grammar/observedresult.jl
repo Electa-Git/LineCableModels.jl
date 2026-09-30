@@ -39,9 +39,9 @@ end
 """
 $(TYPEDSIGNATURES)
 
-Distinguish a bare selector or one composed/indexed request from a tuple of
+Distinguish a bare selector or one composed or indexed request from a tuple of
 requests using the source's declared observable identities. This operation
-only resolves syntax; [`observation_requests`](@ref) resolves scientific meaning.
+only resolves syntax. [`observation_requests`](@ref) resolves scientific meaning.
 """
 function observation_selection(source,selection)
     selection===nothing && return ()
@@ -64,7 +64,7 @@ $(TYPEDSIGNATURES)
 
 Normalize requests for retained observations. Concrete scientific
 owners enforce their complete representations. `complete_pairs=true` is used
-by raw display conveniences; an observed-input consumer only selects retained
+by raw display conveniences. An observed-input consumer only selects retained
 products. The return record separates `retained` from `displayed` requests.
 """
 function observation_requests(source,requests::Tuple;complete_pairs::Bool=false)
@@ -141,20 +141,20 @@ end
 $(TYPEDSIGNATURES)
 
 Construct one detached observation from a completed primary result and already
-completed comparison/timing records.
+completed comparison and timing records.
 
 # Keywords
 
-- `comparisons=()`: Completed records identifying this result and its reference.
-- `timings=(;)`: Recorded measurements; absent evidence stays absent.
-- `gridpoint=nothing`: Explicit description for an external numerical source.
-- `clip=true`, `atol=nothing`: Replace assessed values at or below the native-unit
+- `comparisons=()`: completed records identifying this result and its reference.
+- `timings=(;)`: recorded measurements. Absent evidence stays absent.
+- `gridpoint=nothing`: explicit description for an external numerical source.
+- `clip=true`, `atol=nothing`: replace assessed values at or below the native-unit
   cutoffs with exact zero, including zero uncertainty. Unresolved phase is
   unavailable. Source results and values outside the cutoffs are unchanged.
-- `length_unit=:kilo`, `frequency_unit=:base`: Display-unit prefixes.
-- `units=()`, `quantity_units=nothing`: Aligned or quantity-keyed unit overrides.
-- `frequencies=nothing`: Frequency context \\[Hz\\] for standalone numerical tensors.
-- `complete_pairs=false`: Complete a raw display selection through the shared normalizer.
+- `length_unit=:kilo`, `frequency_unit=:base`: display-unit prefixes.
+- `units=()`, `quantity_units=nothing`: aligned or quantity-keyed unit overrides.
+- `frequencies=nothing`: frequency context \\[Hz\\] for standalone numerical tensors.
+- `complete_pairs=false`: complete a raw display selection through the shared normalizer.
 """
 function ObservedResult(source,requests::Tuple=();comparisons=(),timings=(;),gridpoint=nothing,
         clip::Bool=true,atol=nothing,units::Tuple=(),length_unit::Symbol=:kilo,
@@ -198,7 +198,7 @@ end
 $(TYPEDSIGNATURES)
 
 Read a retained quantity in its recorded unit. Selection uses original
-coordinates; no source extraction, clipping, or absent-quantity derivation occurs.
+coordinates. No source extraction, clipping, or absent-quantity derivation occurs.
 """
 function observe(observed::ObservedResult,selectors...)
     request=length(selectors)==1 ? only(selectors) : selectors
@@ -415,7 +415,7 @@ Describe differences in captured physical inputs, active methods, and individual
 controls. Labels use the scientific descriptions captured when the computation
 completed. Gridpoint IDs are available in the observation metadata.
 `fallback` supplies text when no captured description or varying field is
-available; `nothing` retains the default positional result label.
+available. `nothing` retains the default positional result label.
 """
 function observation_labels(observed;request=nothing,fallback=nothing)
     points=observed isa ObservedResult ? [observed] : observed
@@ -457,7 +457,7 @@ function observation_labels(observed;request=nothing,fallback=nothing)
         parts=String[]
         methods=filter(varies,fields[index])
         for field in methods
-            # When differing child methods already name the calculation, use
+            # When differing child methods already identify the calculation, use
             # the backend itself instead of repeating its method summary.
             text=isempty(field.meaning) && all(other -> isempty(other.meaning),methods) ? field.summary : field.value
             if !isempty(field.name) && count(other -> !isempty(other.meaning),methods)>1

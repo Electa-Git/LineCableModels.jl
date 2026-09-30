@@ -33,7 +33,7 @@
         besselix,besselkx,besseljx,besselyx,besselhx)
     # At tiny arguments, regular I/J values are nearly constant and subtracting
     # two Float64 outputs cannot resolve their slopes. Use the exact K0 test
-    # above for that regime; rebuilt differences below are well-scaled controls.
+    # above for that regime. Rebuilt differences below are well-scaled controls.
     for magnitude in (1.,20.), sx in (-1.,1.), sy in (-1.,1.),
             order in (0.,0.5,1.,2.), kernel in kernels
         nominal_z=magnitude*complex(1.25sx,0.75sy)

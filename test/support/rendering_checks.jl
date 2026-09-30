@@ -1,5 +1,5 @@
 # Included inside GoldenFixtures. These assertions inspect the actual native
-# scene; the independent recipes describe routing and rendering, not physics.
+# scene. The independent recipes describe routing and rendering, not physics.
 native_primitives(plots)=collect(Iterators.flatten(
     plot isa Makie.PlotList ? native_primitives(plot.plots) : [plot] for plot in plots))
 function check_scene(name,handles)
@@ -17,7 +17,7 @@ function check_scene(name,handles)
         parameters=two_conductor_results()
         arrays=name=="line_rlcg" ? (R(parameters),L(parameters),G(parameters),C(parameters)) :
             name=="line_zy_cartesian" ? (real.(Z(parameters)),imag.(Z(parameters)),real.(Y(parameters)),imag.(Y(parameters))) :
-            # :base specifies an SI prefix; the current angle display unit is
+            # :base specifies an SI prefix. The current angle display unit is
             # degrees. Derive that conversion explicitly from radian phase.
             name=="line_zy_polar" ? (abs.(Z(parameters)),abs.(Y(parameters)),180/pi.*angle.(Z(parameters)),180/pi.*angle.(Y(parameters))) : (R(parameters),)
         for (handle,array) in zip(handles,arrays)

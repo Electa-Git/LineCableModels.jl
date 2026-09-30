@@ -5,11 +5,11 @@ Write one fully materialized line-parameter problem as versioned JSON.
 
 # Arguments
 
-- `problem`: Completed scalar line-parameter problem.
+- `problem`: completed scalar line-parameter problem.
 
 # Keywords
 
-- `file_name`: Destination JSON file.
+- `file_name`: destination JSON file.
 
 # Returns
 
@@ -36,11 +36,11 @@ Read one fully materialized line-parameter problem from versioned JSON.
 
 # Arguments
 
-- `LineParametersProblem`: Requested result type.
+- `LineParametersProblem`: requested result type.
 
 # Keywords
 
-- `file_name`: Source JSON file.
+- `file_name`: source JSON file.
 
 # Returns
 

@@ -19,7 +19,7 @@ $(TYPEDFIELDS)
 """
 struct Formula{ID, P <: NamedTuple, O <: FormulationOptions} <:
        FrequencyDependentFormulation
-    "Resolved physical/model parameters."
+    "Resolved physical model parameters."
     parameters::P
     "Normalized numerical sections for this equation."
     options::O

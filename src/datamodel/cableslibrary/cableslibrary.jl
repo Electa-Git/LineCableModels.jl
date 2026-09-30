@@ -46,12 +46,12 @@ Add a cable design under its `cable_id`.
 
 # Arguments
 
-- `library`: Destination library.
-- `design`: Validated cable design.
+- `library`: destination library.
+- `design`: validated cable design.
 
 # Keywords
 
-- `datasheet=design.nominal_data`: Datasheet information stored beside the
+- `datasheet=design.nominal_data`: datasheet information stored beside the
   design. A named tuple is normalized to [`DatasheetInfo`](@ref).
 
 # Returns

@@ -172,13 +172,13 @@ end
         Z2m = measurement(10.0, 0.2)
         @test parallel(Z1m, Z2m) isa Measurement
 
-        # Mixed: Measurement and Float64 -> Measurement
+        # Mixed: measurement and Float64 -> Measurement
         @test parallel(Z1m, 10.0) isa Measurement
         @test parallel(5.0, Z2m) isa Measurement
     end
 
     @testset "Uncertainty Quantification with Measurements.jl" begin
-        # Mixed Case 1: First argument is a Measurement
+        # Mixed Case 1: first argument is a Measurement
         Z1_meas = measurement(5.0, 0.1)
         Z2_float = 10.0
         result_mixed1 = parallel(Z1_meas, Z2_float)
@@ -189,7 +189,7 @@ end
         @test isapprox(uncertainty(result_mixed1), uncertainty(expected_mixed1);
             atol = TestNumerics.absolute_floor(Float64))
 
-        # Mixed Case 2: Second argument is a Measurement
+        # Mixed Case 2: second argument is a Measurement
         Z1_float = 5.0
         Z2_meas = measurement(10.0, 0.2)
         result_mixed2 = parallel(Z1_float, Z2_meas)
@@ -200,7 +200,7 @@ end
         @test isapprox(uncertainty(result_mixed2), uncertainty(expected_mixed2);
             atol = TestNumerics.absolute_floor(Float64))
 
-        # Fully Promoted Case: Both inputs are Measurements
+        # Fully Promoted Case: both inputs are Measurements
         result_full_meas = parallel(Z1_meas, Z2_meas)
         expected_full_meas = 1 / (1 / Z1_meas + 1 / Z2_meas)
         @test result_full_meas isa Measurement{Float64}
@@ -305,13 +305,13 @@ end
         result = equivalent_alpha(alpha1, R1, alpha2, R2)
         @test isapprox(result, expected; atol = TestNumerics.absolute_floor(Float64))
 
-        # Edge case: Identical conductors
+        # Edge case: identical conductors
         alpha = 0.00393
         R = 1.0
         @test isapprox(equivalent_alpha(alpha, R, alpha, R), alpha;
             atol = TestNumerics.absolute_floor(Float64))
 
-        # Edge case: One resistance much larger than the other
+        # Edge case: one resistance much larger than the other
         @test isapprox(equivalent_alpha(0.003, 1e6, 0.005, 1.0),
             0.005; atol = TestNumerics.absolute_floor(Float64))
         @test isapprox(equivalent_alpha(0.003, 1.0, 0.005, 1e6),
@@ -325,27 +325,27 @@ end
         r2 = 1.0 ± 0.01
 
         @testset "Type Promotion with Measurements.jl" begin
-            # Base case: All Float64
+            # Base case: all Float64
             @test equivalent_alpha(alpha1, R1, alpha2, R2) isa Float64
 
-            # Fully promoted: All Measurement
+            # Fully promoted: all Measurement
             res = equivalent_alpha(m1, r1, m2, r2)
             @test res isa Measurement{Float64}
             @test isapprox(value(res), expected; atol = TestNumerics.absolute_floor(Float64))
             # Uncertainty should be nonzero
             @test uncertainty(res) > 0
 
-            # Mixed case 1: First argument is Measurement
+            # Mixed case 1: first argument is Measurement
             res = equivalent_alpha(m1, R1, alpha2, R2)
             @test res isa Measurement{Float64}
             @test isapprox(value(res), expected; atol = TestNumerics.absolute_floor(Float64))
 
-            # Mixed case 2: Middle argument is Measurement
+            # Mixed case 2: middle argument is Measurement
             res = equivalent_alpha(alpha1, r1, alpha2, R2)
             @test res isa Measurement{Float64}
             @test isapprox(value(res), expected; atol = TestNumerics.absolute_floor(Float64))
 
-            # Mixed case 3: Last argument is Measurement
+            # Mixed case 3: last argument is Measurement
             res = equivalent_alpha(alpha1, R1, alpha2, r2)
             @test res isa Measurement{Float64}
             @test isapprox(value(res), expected; atol = TestNumerics.absolute_floor(Float64))
@@ -362,7 +362,7 @@ end # End of test file
 @testitem "BaseParams / equivalent_rho / resistivity identity" tags=[:unit] setup=[
     UseBaseParamsSupport, TestNumerics] begin
     @testset "Basic Functionality" begin
-        # Example from docstring: R=0.01 Ω, r_ext=0.02 m, r_in=0.01 m
+        # Example from docstring: `R=0.01` Ω, `r_ext=0.02` m, `r_in=0.01` m
         result = equivalent_rho(0.01, 0.02, 0.01)
         expected = 0.01 * π * (0.02^2 - 0.01^2)
         @test isapprox(result, expected; atol = TestNumerics.absolute_floor(Float64))
@@ -412,7 +412,7 @@ end # End of test file
         # All Measurement
         r2 = equivalent_rho(measurement(0.01, 1e-4), measurement(0.02, 1e-5), measurement(0.01, 1e-5))
         @test r2 isa Measurement{Float64}
-        # Mixed: R as Measurement
+        # Mixed inputs with `R` as a `Measurement`
         r3 = equivalent_rho(measurement(0.01, 1e-4), 0.02, 0.01)
         @test r3 isa Measurement{Float64}
         # Mixed: radius_ext_con as Measurement

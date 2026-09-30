@@ -327,8 +327,8 @@ end
     smaller, larger = only(smaller_model.mesh_plans), only(model.mesh_plans)
     @test smaller.domain_radius ≈ 1.5skin_depth
     @test smaller.shell_outer_radius ≈ 1.25smaller.domain_radius
-    # Enlarging the finite domain preserves conductor, interface and medium
-    # resolution targets; it does not apply a global mesh coarsening/refinement.
+    # A larger finite domain retains the conductor, interface and medium
+    # resolution targets without globally coarsening or refining the mesh.
     @test getproperty.(smaller_model.region_plans, :mesh_size) ==
         getproperty.(model.region_plans, :mesh_size)
     for property in (:domain_mesh_size, :infinite_mesh_size, :interface_mesh_size,
@@ -1191,7 +1191,7 @@ end
                 end
                 @test isnothing(extension_module._inspect_loaded_mesh(model, name))
                 # Physical tags alone do not prove a material was meshed. This
-                # also guards validation of reused/imported mesh files.
+                # also guards validation of reused or imported mesh files.
                 surface = first(first(geometry.material_surfaces))
                 gmsh.model.mesh.clear([(2, surface)])
                 @test_throws LineCableModelsFEMError extension_module._inspect_loaded_mesh(
@@ -1454,5 +1454,5 @@ end
         rm(run_directory; recursive = true, force = true)
 end
 
-# Historical Python records/operators are retired. Current formulation and
+# Historical Python records and operators are retired. Current formulation and
 # extraction controls are owned by fem_electrodynamics.jl and fem_quasi_full.jl.

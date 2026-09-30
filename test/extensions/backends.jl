@@ -18,7 +18,7 @@
             makie_extension=Base.get_extension(LineCableModels, :LineCableModelsMakieExt)
             @test extension !== nothing
             @test makie_extension !== nothing
-            # Exercise the consumer boundary, not only the activation symbol.
+            # Exercise the consumer method, not only the activation symbol.
             # The GL-only CI environment does not install CairoMakie.
             Base.invokelatest() do
                 @test extension.activate!() === backend

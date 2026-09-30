@@ -14,8 +14,8 @@
             @test first(edges)<=minimum(values)<=maximum(values)<=last(edges)
             @test all(isfinite,density.density)
             @test sum(density.density .* diff(edges))≈1
-            # Count the original population in each documented half-open bin;
-            # the final bin alone includes the right endpoint.
+            # Count the original population in each documented half-open bin.
+            # The final bin alone includes the right endpoint.
             expected=[count(x->edges[i]<=x &&
                 (i==length(edges)-1 ? x<=edges[i+1] : x<edges[i+1]),values)
                 for i in 1:length(edges)-1] ./ length(values)

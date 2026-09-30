@@ -6,7 +6,7 @@
 | --- | --- |
 | Family | External admittance |
 | Formula identifier | `:pollaczek1926` |
-| Documentation status | Placeholder; formula transcription is intentionally pending. |
+| Documentation status | Placeholder. Formula transcription is intentionally pending. |
 
 **Description.** This page reserves the documentation slot for the registered
 `:pollaczek1926` formulation.

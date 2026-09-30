@@ -116,7 +116,7 @@ end
                       2pi*problem.frequencies[k]*im*inv(trace.P[:, :, k])
                 @test trace.P[:, :, k] ≈ trace.Pin[:, :, k]+trace.Pg[:, :, k]
             end
-            # The existing frequency loop supplies the law once per soil/frequency.
+            # The existing frequency loop supplies the law once per soil and frequency.
             fd=FormulaFixtures.DispersiveEarth()
             dispersive=Formulation(earth_impedance = selected.methods.earth_impedance,
                 earth_admittance = :ideal, earth_properties = fd; options)

@@ -7,7 +7,7 @@ The actual conductor geometry determines which surfaces are required.
 $(TYPEDFIELDS)
 """
 struct Formula{ID, P <: NamedTuple, O <: FormulationOptions} <: InternalImpedanceFormulation
-    "Resolved physical/model parameters."
+    "Resolved physical model parameters."
     parameters::P
     "Normalized numerical sections indexed by surface kind."
     options::O
@@ -43,7 +43,7 @@ function surface_impedances end
 $(TYPEDSIGNATURES)
 
 Construct an internal-impedance formulation. Numerical controls are projected
-onto its surface equations; unknown numerical sections are rejected.
+onto its surface equations. Unknown numerical sections are rejected.
 Custom formulations subtype `InternalImpedanceFormulation`, supply their
 shared-state constructor, and extend `internal_impedance` on their own type.
 """
@@ -107,12 +107,12 @@ Assemblers own basis transformation and matrix placement.
 
 # Arguments
 
-- `formula`: One formulation or an explicit surface recipe covering the primitive.
-- `r_in`, `r_ex`: Inner and outer conductor radii \\[m\\].
-- `rho`: Conductor resistivity \\[Ω·m\\].
-- `mu_r`: Relative permeability \\[dimensionless\\].
-- `jω`: Imaginary angular frequency \\[1/s\\].
-- `workspace`: Optional computation workspace passed to each selected equation.
+- `formula`: one formulation or an explicit surface recipe covering the primitive.
+- `r_in`, `r_ex`: inner and outer conductor radii \\[m\\].
+- `rho`: conductor resistivity \\[Ω·m\\].
+- `mu_r`: relative permeability \\[dimensionless\\].
+- `jω`: imaginary angular frequency \\[1/s\\].
+- `workspace`: optional computation workspace passed to each selected equation.
 
 # Returns
 

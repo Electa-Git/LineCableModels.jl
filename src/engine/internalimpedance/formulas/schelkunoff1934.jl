@@ -26,12 +26,12 @@ Each surface impedance is in Ω/m.
 For ``a=0``, ``Z_{int}=\\rho mI_0(mb)/(2\\pi bI_1(mb))``.
 
 Schelkunoff's surface terms were later recovered by Ametani to assemble the
-complete core/sheath/armor impedance matrix. The Engine applies that outward
+complete core-sheath-armor impedance matrix. The Engine applies that outward
 assembly recursively to any number of concentric conductive terminals.
 
 **Reference.** S. A. Schelkunoff, “The Electromagnetic Theory of Coaxial
 Transmission Lines and Cylindrical Shields,” *Bell System Technical Journal*,
-13, 532–579, 1934; A. Ametani, “A General Formulation of Impedance and
+13, 532–579, 1934. A. Ametani, “A General Formulation of Impedance and
 Admittance of Cables,” *IEEE Transactions on Power Apparatus and Systems*,
 PAS-99(3), 902–910, 1980. DOI: 10.1109/TPAS.1980.319718.
 
@@ -72,11 +72,11 @@ are modified Bessel functions. For ``a=0``, the outer term is evaluated from the
 
 # Arguments
 
-- `r_in`: Inner conductor radius ``a`` \\[m\\].
-- `r_ex`: Outer conductor radius ``b`` \\[m\\].
-- `rho_c`: Conductor resistivity ``\\rho`` \\[Ω·m\\].
-- `mur_c`: Relative conductor permeability \\[dimensionless\\].
-- `jω`: Complex angular frequency ``j\\omega`` \\[rad/s\\].
+- `r_in`: inner conductor radius ``a`` \\[m\\].
+- `r_ex`: outer conductor radius ``b`` \\[m\\].
+- `rho_c`: conductor resistivity ``\\rho`` \\[Ω·m\\].
+- `mur_c`: relative conductor permeability \\[dimensionless\\].
+- `jω`: complex angular frequency ``j\\omega`` \\[rad/s\\].
 
 # Returns
 
@@ -86,7 +86,7 @@ are modified Bessel functions. For ``a=0``, the outer term is evaluated from the
 # Notes
 
 Implements Schelkunoff's cylindrical surface terms. Ametani (1980) recovered
-these terms for the complete core/sheath/armor impedance assembly performed
+these terms for the complete core-sheath-armor impedance assembly performed
 recursively by the Engine.
 """
 function (formula::Formula{:schelkunoff1934})(

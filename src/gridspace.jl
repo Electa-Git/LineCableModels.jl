@@ -12,7 +12,7 @@ _gridspace_callable(::Type{Target}) where {Target} = _TypeConstructor{Target}()
 $(TYPEDEF)
 
 Represent a typed finite space assembled from explicit [`Grid`](@ref), nested
-`Gridspace`, or admitted completed result-space sources. `combine` is encoded
+`Gridspace` or admitted completed result-space sources. `combine` is encoded
 in the type and may be `:product` or `:zip`. `Target` identifies the semantic
 result family. A nonempty deterministic space records the concrete type
 returned by its callable when Julia can prove it without evaluating a point.
@@ -272,7 +272,7 @@ materialize(value) = value
 
 function materialize(value::UncertainValue)
     throw(ArgumentError(
-        "direct materialisation of an uncertainty-bearing Gridspace requires " *
+        "direct materialization of an uncertainty-bearing Gridspace requires " *
         "Measurements.jl; load it with `using Measurements` before " *
         "iteration or MonteCarlo computation",
     ))

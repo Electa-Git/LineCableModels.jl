@@ -23,7 +23,7 @@
         @test all(isnothing, diagnostics.iterations[:, 1])
         @test all(isfinite, diagnostics.eigen_residual)
         work=M.ModalAnalysisWorkspace(phase, selected.formula).buffers.newton
-        # The kernel consumes an n+1 complex system; use an independent diagonal problem.
+        # The kernel consumes an n+1 complex system. Use an independent diagonal problem.
         matrix=Matrix(Diagonal(T[1 + 0.2im, 3 + 0.7im, 5 + 0.1im]))
         vector=T[1, 0.01im, 0.02]
         tolerance=R===Float32 ? R(1e-5) : R(1e-10)
@@ -37,7 +37,7 @@
             (convergence = tolerance, max_iterations = 60), work)
         @test !converged
     end
-    # Both Newton trajectories reach the same eigenpair; direct fallback restores rank.
+    # Both Newton trajectories reach the same eigenpair. Direct fallback restores rank.
     z=cat(Matrix{ComplexF64}(I, 2, 2), ComplexF64[2 -1; -1 2]; dims = 3)
     y=cat(Matrix{ComplexF64}(I, 2, 2), Matrix{ComplexF64}(I, 2, 2); dims = 3)
     collapsed=compute(ModalAnalysisProblem(LineParameters(z, y, [1.0, 2.0])),
@@ -57,7 +57,7 @@
         @test Y(phase)[:, :, k]*Z(phase)[:, :, k]*Ti(limited)[:, :, k]≈Ti(limited)[:, :, k]*Diagonal(gamma(limited)[
             :, k] .^ 2)
     end
-    # A zero product is a valid normalized eigensystem; it must not divide by zero.
+    # A zero product is a valid normalized eigensystem. It must not divide by zero.
     zero_product=compute(
         ModalAnalysisProblem(LineParameters(ones(ComplexF64, 1, 1, 2),
             zeros(ComplexF64, 1, 1, 2), [1.0, 2.0])),

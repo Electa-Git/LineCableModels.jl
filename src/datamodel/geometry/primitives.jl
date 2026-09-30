@@ -17,7 +17,7 @@ $(TYPEDEF)
 Supertype for intrinsic cross-sectional primitives.
 
 A primitive states material-neutral dimensions. During construction, simple
-primitives also carry the `Pose2` produced by coordinate composition. Shapes
+primitives also include the `Pose2` produced by coordinate composition. Shapes
 that require additional exact contact geometry use a separate resolved
 `AbstractShape` implementation.
 """
@@ -283,7 +283,7 @@ function Base.convert(
 end
 
 """
-Return the outer resolved boundary of `primitive`.
+Return the outer resolved geometric boundary of `primitive`.
 """
 function boundary end
 

@@ -9,7 +9,7 @@ end
 """
 $(TYPEDSIGNATURES)
 
-Evaluate the Wedepohl–Wilcox low-order approximation for underground
+Evaluate the Wedepohl-Wilcox low-order approximation for underground
 self and mutual exterior impedance, in Ω/m.
 
 # Assumptions
@@ -46,18 +46,17 @@ Z_{e,ij}=\\frac{j\\omega\\mu_g}{2\\pi}
 ```
 
 The implementation evaluates this approximation at every requested frequency. Coincident mutual axes are invalid
-physical geometry; a vertical pair at distinct depths has ``d>0`` and needs
-no special case.
+physical geometry. A vertical pair at distinct depths has ``d>0`` and uses the same equation.
 
 # Reference
 
 L. M. Wedepohl and D. J. Wilcox, “Transient Analysis of Underground
 Power-Transmission Systems: System-Model and Wave-Propagation Characteristics,”
-*Proceedings of the IEE* 120, 253–260 (1973), p. 255, Eqs. (7)–(8),
+*Proceedings of the IEE* 120, 253–260 (1973), p. 255, Eqs. (7)-(8),
 [doi:10.1049/piee.1973.0056](https://doi.org/10.1049/piee.1973.0056).
 The equations and rounded constant are also reproduced in
 [PSCAD's earth-return impedance documentation](https://www.pscad.com/webhelp-v5-ol/EMTDC/Transmission_Lines/Mutual_Impedance_with_Earth_Return.htm),
-Eqs. (8-31)–(8-32).
+Eqs. (8-31)-(8-32).
 """
 function earth_impedance(
         ::Formula{:wedepohl1973}, ::Val{:self}, ::Val{2}, ::Val{2},

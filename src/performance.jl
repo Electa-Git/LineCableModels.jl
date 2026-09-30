@@ -7,19 +7,19 @@ No additional stopwatch surrounds the callable.
 
 # Arguments
 
-- `f`: Zero-argument callable returning line parameters, an ordinary batch,
+- `f`: zero-argument callable returning line parameters, an ordinary batch,
   a parametric or linear-error result, or a Monte Carlo result.
 
 # Keywords
 
-- `samples=1`: Positive number of measured repetitions; Boolean values are rejected.
-- `warmup=0`: Nonnegative number of discarded repetitions; Boolean values are rejected.
+- `samples=1`: positive number of measured repetitions. Boolean values are rejected.
+- `warmup=0`: nonnegative number of discarded repetitions. Boolean values are rejected.
 
 # Returns
 
-- `(; result, timings)`: The last scientific result and detached timing payloads
-  for each measured repetition. Batches and parametric/linear-error results keep
-  their value order; Monte Carlo measurements keep population/trial order.
+- `(; result, timings)`: the last scientific result and detached timing payloads
+  for each measured repetition. Batches and parametric and linear-error results keep
+  their value order. Monte Carlo measurements keep population and trial order.
   Reused results retain empty timing records.
 
 # Notes
@@ -28,11 +28,11 @@ Owned scans retain wall, GC, compilation, and recompilation durations in seconds
 and Julia allocation volume in bytes. Native scans retain caller wall time and
 their backend measurements in seconds. These describe complete frequency scans,
 excluding shared input construction, measurement attachment, and callbacks.
-The callable controls verbosity, seeds, callbacks, and reuse. No options are changed.
+The callable controls verbosity, seeds, callbacks, and reuse. Options remain unchanged.
 
 # Errors
 
-- `ArgumentError`: Invalid counts, unsupported results, or absent requested timing.
+- `ArgumentError`: invalid counts, unsupported results or absent requested timing.
 - Exceptions from `f` propagate immediately without retry.
 
 # Examples
@@ -51,7 +51,7 @@ function benchmark(f; samples = 1, warmup = 0)
     for _ in 1:warmup
         f()
     end
-    # Projection consumes completed outputs only; it never visits input spaces.
+    # Projection consumes completed outputs only. It never visits input spaces.
     function measurement(value)
         if value isa Union{LineParameters, MonteCarloResult}
             haskey(details(value).data, :timing) || throw(ArgumentError(

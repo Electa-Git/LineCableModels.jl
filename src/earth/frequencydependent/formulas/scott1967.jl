@@ -1,10 +1,10 @@
-"Return the fixed assumptions of the Scott–Carroll–Cunningham soil fit."
+"Return the fixed assumptions of the Scott-Carroll-Cunningham soil fit."
 assumptions(::Val{:scott1967}) = (;)
 
 """
 $(TYPEDSIGNATURES)
 
-Scott–Carroll–Cunningham empirical moist-rock soil fit over its measured range
+Scott-Carroll-Cunningham empirical moist-rock soil fit over its measured range
 of 100 Hz to 1 MHz.
 
 **Expression.** Let ``s=\\log_{10}(1000/\\rho_0)`` and ``x=\\log_{10}f``.

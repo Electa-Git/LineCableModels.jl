@@ -36,25 +36,26 @@ The failure type communicates the category:
 
 ## Materialized constructors
 
-Cable-part constructors accept resolved numeric geometry. For example:
+Cable-part constructors accept resolved numeric geometry. This call constructs
+a circular core from its radius and material:
 
 ```julia
 part = Region(:core, Disk(radius), material)
 ```
 
 Radius or thickness selection, repetition, and variation use explicit
-`Grid` inputs. Scalar-complete calls invoke the action directly; varying calls
-materialize the same action through `Gridspace`. Completed objects therefore
+`Grid` inputs. Scalar-complete calls invoke the action directly. Varying calls
+materialize the same action through `Gridspace`. Completed objects
 contain one resolved geometry and cannot drift from their declarations.
 
 Mutable libraries validate a complete library replacement before changing owned state.
-Earth models, cable designs, and line systems are immutable descriptions;
-rebuild the authoritative declaration when it changes.
+Earth models, cable designs, and line systems are immutable descriptions.
+Rebuild the authoritative declaration when it changes.
 
 Cable designs represent a common material reference state and reject mixed
-material reference temperatures. The line problem owns the finite operating
+material reference temperatures. The line problem defines the finite operating
 temperature. The formulation selects
-`temperature_dependence`; its default linear law validates the material-specific
+`temperature_dependence`. Its default linear law validates the material-specific
 range and positive correction factor. Identity and custom laws retain their own
 applicability. [`compute`](@ref) applies the selected
 correction without mutating the design.
@@ -63,7 +64,7 @@ correction without mutating the design.
 
 A feasible nominal design is not a guarantee about its input distribution.
 Internal wire overlaps and crossing layer boundaries remain construction
-errors; sampling does not inflate bedding, shrink metal, change counts, or clip
+errors. Sampling does not inflate bedding, shrink metal, change counts, or clip
 inputs to make them fit. The ring diagnostic reports its count, radius, member
 width, required chord, available chord and deficit in meters.
 
@@ -76,8 +77,7 @@ the output distribution on successful construction and calculation.
 
 The existing exterior cable-clearance rule is separate. System construction
 may adjust practically touching cable placements with a warning, retaining its
-propagated uncertainty reserve across Monte Carlo draws. That rule does not
-authorize internal geometric or statistical repairs. Gmsh's tolerances are not
+propagated uncertainty reserve across Monte Carlo draws. Internal geometric and statistical repairs remain prohibited. Gmsh's tolerances are not
 used as manufacturing clearances.
 
 ## Reference
@@ -91,11 +91,10 @@ LineCableModels.validate
 `observables(...; clip=true)` and `compare` share declared, quantity-aware
 resolution in native physical units. No dimensionless epsilon is applied after
 unit conversion. This reporting rule is independent of matrix blocks, selected
-formulations and visible plot ranges. It is a reporting cutoff, not a certified
-bound on solver error or physical uncertainty.
+formulations and visible plot ranges. A certified bound on solver error or physical uncertainty cannot be inferred from this reporting cutoff.
 
 Relative RMS requires both operands above resolution at every selected sample.
-If not, it returns `missing`, with the operand counts and reason; it never removes
+If not, it returns `missing`, with the operand counts and reason. It never removes
 samples to obtain a favorable subset. Empty bands and unsupported quantities
 remain distinct. Absolute RMS always measures the original arrays. A resolved
 discrepancy is not evidence that the designated reference is physical truth.

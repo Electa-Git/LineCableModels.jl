@@ -72,8 +72,8 @@
     cells, weights = DM.balance_power_cells(cell,[(0.,0.)],[4z^2])
     @test only(cells) == cell
     @test only(weights) == 0
-    # Inventory transitions are discrete; no continuous derivative claims are
-    # made across the boundary where the next complete course appears.
+    # Inventory transitions are discrete. No continuous derivative claims are
+    # made across the packing threshold where the next complete course appears.
     @test DM.course_count(18-1e-5,1.) == 1
     @test DM.course_count(18+1e-5,1.) == 2
 end

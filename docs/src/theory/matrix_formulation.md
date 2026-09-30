@@ -2,7 +2,7 @@
 
 LineCableModels calculates line and cable parameters by assembling the per-unit-length series-impedance matrix ``\mathbf Z`` and shunt-admittance matrix ``\mathbf Y``. These matrices contain the conductor self and mutual coefficients in the multiconductor transmission-line equations. They determine the propagation of voltages and currents along the line.
 
-The matrix entries combine contributions from conducting materials, insulation, and the external medium. Each contribution is evaluated with a selected formulation. Any formulation expressible in this framework can be incorporated with compatible conductor definitions, reference conventions, and physical assumptions. The formulation sections linked below document the available equations and their domains of validity.
+The matrix entries combine contributions from conducting materials, insulation and the external medium. Each contribution is evaluated with a selected formulation. Any formulation expressible in this framework can be incorporated with compatible conductor definitions, reference conventions and physical assumptions. The formulation sections linked below document the available equations and their domains of validity.
 
 ## Transmission-line equations
 
@@ -16,7 +16,7 @@ At angular frequency ``\omega``, with time dependence ``e^{j\omega t}``, the mul
 
 The coordinate ``x`` measures distance along the line. The matrices ``\mathbf Z`` and ``\mathbf Y`` have units ``\Omega/\mathrm m`` and ``\mathrm S/\mathrm m``, respectively. Their order equals the number of retained electrical conductors [Ametani1980, Ametani2015b](@cite).
 
-In the conductor representation, each component of ``\mathbf V`` and ``\mathbf I`` corresponds to one retained conductor. All voltages are referred to a common external reference, and all currents are positive in the same longitudinal direction. Matrix indices enumerate conductors independently of their physical cross-sectional coordinates.
+In the conductor representation, each component of ``\mathbf V`` and ``\mathbf I`` corresponds to one retained conductor. The same external reference is used for all voltages, and all currents are positive in the same longitudinal direction. Matrix indices enumerate conductors independently of their physical cross-sectional coordinates.
 
 Sheaths, armor, and enclosing pipes remain electrical conductors when retained in this representation. Bonding conditions, return-current constraints, and modal transformations are applied separately from parameter assembly.
 
@@ -34,7 +34,7 @@ Shunt formulations often provide Maxwell potential coefficients rather than admi
 
 The units of ``\mathbf P`` and ``\mathbf C`` are ``\mathrm m/\mathrm F`` and ``\mathrm F/\mathrm m``, respectively. The admittance calculation requires the inverse of the complete potential-coefficient matrix [Ametani1980, Ametani2015b](@cite). Matrix inversion couples the coefficients, so ``Y_{jk}`` cannot be calculated as ``j\omega/P_{jk}``.
 
-Lossy formulations may use complex-permittivity potential coefficients or provide the shunt response directly. Their normalization determines the conversion to ``\mathbf Y=\mathbf G+j\omega\mathbf C`` [Gustavsen2005](@cite). Under the charge-based, lossless definition above, ``\mathbf P=j\omega\mathbf Y^{-1}`` for invertible matrices and ``\omega\ne0``. The potential-coefficient matrix is therefore distinct from an inverse-admittance matrix.
+Lossy formulations may use complex-permittivity potential coefficients or provide the shunt response directly. Their normalization determines the conversion to ``\mathbf Y=\mathbf G+j\omega\mathbf C`` [Gustavsen2005](@cite). Under the charge-based, lossless definition above, ``\mathbf P=j\omega\mathbf Y^{-1}`` for invertible matrices and ``\omega\ne0``. The potential-coefficient matrix is distinct from an inverse-admittance matrix.
 
 ## Physical contributions and formulation families
 
@@ -48,13 +48,13 @@ The formulation families correspond to the physical contributions required by th
 | Electric fields in the external medium | External potential coefficients used in the shunt-admittance calculation | [External admittance and earth return](earth_return_admittance.md) |
 | Earth conductivity, permittivity, and their frequency dependence | Material inputs to the external-field formulations | [Earth properties](earth_properties.md) |
 
-Each contribution has a selectable formulation. Formulations used together must have compatible geometry, material properties, voltage references, current conventions, and propagation assumptions.
+Each contribution has a selectable formulation. Formulations used together require compatible geometry and material properties. Their voltage references and current conventions must agree, as must their propagation assumptions.
 
-A formulation may provide a scalar coefficient, a coupled block, or a complete matrix. Its output must correspond to the physical contribution and conductor representation required by the assembly. An earth-return correction requires the associated geometric term to form a complete external impedance. Radial branch admittances and loop impedances require conversion before use in a conductor matrix. Contributions already included in one term must not be repeated in another.
+A formulation may provide a scalar coefficient, a coupled block or a complete matrix. Its output must correspond to the physical contribution and conductor representation required by the assembly. An earth-return correction requires the associated geometric term to form a complete external impedance. Radial branch admittances and loop impedances require conversion before use in a conductor matrix. Contributions already included in one term must not be repeated in another.
 
 ## Block matrix assembly
 
-In the cylindrical construction considered here, each local unit consists of one round conductor or a concentric assembly of metallic conductors and dielectric regions. The shared regions comprise the air, earth, or pipe cavity outside the individual units. The following arbitrary-dimension notation reformulates the block patterns in [Ametani1980, Ametani2015b](@cite). The cylindrical assumptions apply to this decomposition, rather than to the transmission-line matrix formulation itself.
+In the cylindrical construction considered here, each local unit consists of one round conductor or a concentric assembly of metallic conductors and dielectric regions. The shared regions comprise the air, earth or pipe cavity outside the individual units. The following arbitrary-dimension notation reformulates the block patterns in [Ametani1980, Ametani2015b](@cite). The cylindrical assumptions apply to this decomposition, rather than to the transmission-line matrix formulation itself.
 
 Consider ``m`` local units. Unit ``j`` contains ``N_j`` longitudinal metallic conductors, ordered from the center outward when the unit is coaxial. The conductor count, excluding a possible common pipe, is
 
@@ -110,7 +110,7 @@ For a shared-region impedance matrix ``\mathbf H_Z`` and potential-coefficient m
 \Delta\mathbf P=\mathbf S\mathbf H_P\mathbf S^{\mathsf T}.
 ```
 
-The same membership matrix applies to both quantities. For example, the impedance block between units ``j`` and ``k`` is
+The same membership matrix applies to both quantities. For impedance, the block between units ``j`` and ``k`` is
 
 ```math
 \left(\mathbf S\mathbf H_Z\mathbf S^{\mathsf T}\right)_{jk}
@@ -162,11 +162,11 @@ The [internal-impedance formulations](internal_impedance.md) describe electromag
 
 For annular conductors, ``k=2,\ldots,N_j``. The solid core has a disk cross-section. All quantities in the table are per-unit-length impedances in ``\Omega/\mathrm m``, rather than unnormalized electric-to-magnetic-field ratios [Schelkunoff1934, Ametani1980, Ametani2015b](@cite).
 
-Inner- and outer-surface impedances both describe the response inside the metal. The surface designation specifies the boundary at which that response is represented. It does not assign an outer-surface impedance to the surrounding air or earth.
+Inner- and outer-surface impedances both describe the response inside the metal. The surface designation specifies the geometric boundary at which that response is represented. It does not assign an outer-surface impedance to the surrounding air or earth.
 
 The surface and transfer impedances describe one coupled annular-metal problem. They are not independent series elements. Transfer impedance represents coupling through one conductor wall, distinct from mutual impedance between separate cables. Its sign and position in ``\mathbf B_j`` follow the conversion from surface quantities to conductor voltages and currents.
 
-The conventional radial conductor solution assumes concentric homogeneous metals and linear materials. The conductor-diffusion approximation neglects displacement current in the metal. It retains skin effect but does not resolve arbitrary proximity-induced angular redistribution [Schelkunoff1934, Ametani2015b](@cite).
+The conventional radial conductor solution assumes concentric homogeneous metals and linear materials. The conductor-diffusion approximation neglects displacement current in the metal. It retains skin effect while neglecting arbitrary proximity-induced angular redistribution [Schelkunoff1934, Ametani2015b](@cite).
 
 A skin- and proximity-effect formulation can provide a coupled conductor response [Patel2014](@cite). That response must retain its coupling and exclude shared-region contributions already present elsewhere in the assembly.
 
@@ -176,7 +176,7 @@ The local series block ``\mathbf B_j`` contains both metallic impedances and mag
 
 Electric-field storage and dielectric leakage in the same regions contribute to the shunt problem. Their potential-coefficient representation enters ``\mathbf D_j``. The [insulation-parameter formulations](insulation_parameters.md) describe the series and shunt contributions, including semiconducting regions and material losses.
 
-Radial branch or loop quantities require conversion to the conductor representation before assembly into the local blocks. This requirement applies to individual annuli, combined insulation paths, and multilayer radial networks [Weeks1984, Ametani2004, Ghosh2022](@cite).
+Radial branch or loop quantities require conversion to the conductor representation before assembly into the local blocks. This requirement applies to individual annuli, combined insulation paths and multilayer radial networks [Weeks1984, Ametani2004, Ghosh2022](@cite).
 
 The local and external calculations must use the same separating surface. When ``\mathbf B_j`` includes the outer jacket, the external series calculation begins at the jacket's outer radius. Beginning at the outer metal surface would include the jacket field twice. The potential-coefficient calculation requires the same consistency for its dielectric regions.
 
@@ -184,7 +184,7 @@ The local and external calculations must use the same separating surface. When `
 
 Each additional concentric metallic layer introduces an annular-metal response and the intervening dielectric region, increasing the order of the local blocks.
 
-For a core/sheath unit, the conductor ordering is ``(c,s)``. For a core/sheath/armor unit, it is ``(c,s,a)``. Their series matrices are
+For a core-sheath unit, the conductor ordering is ``(c,s)``. For a core-sheath-armor unit, it is ``(c,s,a)``. Their series matrices are
 
 ```math
 \mathbf Z_{cs}
@@ -196,7 +196,7 @@ For a core/sheath unit, the conductor ordering is ``(c,s)``. For a core/sheath/a
 +z_{\mathrm{env}}\mathbf 1_3\mathbf 1_3^{\mathsf T}.
 ```
 
-Each external coefficient corresponds to the outer geometry of its construction. The local blocks contain the metallic responses, dielectric gaps, and outer jacket. Both expressions are particular cases of
+Each external coefficient corresponds to the outer geometry of its construction. The local blocks contain the metallic responses, dielectric gaps, and outer jacket. Both expressions are special cases of
 
 ```math
 \mathbf Z^{(N)}
@@ -204,13 +204,13 @@ Each external coefficient corresponds to the outer geometry of its construction.
 +z_{\mathrm{env}}\mathbf 1_N\mathbf 1_N^{\mathsf T}.
 ```
 
-A round line conductor corresponds to ``N=1``. The relative positions of several such conductors enter the external matrix. Cylindrical symmetry is assumed locally and does not require the complete installation to be coaxial [Ametani1980, Ametani2015b](@cite).
+For a round conductor in the line, ``N=1``. The relative positions of several such conductors enter the external matrix. Cylindrical symmetry is assumed locally and does not require the complete installation to be coaxial [Ametani1980, Ametani2015b](@cite).
 
 ## External fields and earth properties
 
 The [external-impedance formulations](earth_return_impedance.md) describe the series response outside the local cable boundaries. The [external-admittance formulations](earth_return_admittance.md) describe the corresponding electric-field response, commonly through potential coefficients. Where the external medium includes earth, both calculations use the selected [earth-property model](earth_properties.md).
 
-The conductor arrangement determines the required self and mutual coefficients. Overhead, buried, and mixed installations require formulations for the corresponding conductor pairs. In a mixed installation, the overhead–buried mutual coefficients belong to the same external matrices as the overhead–overhead and buried–buried coefficients.
+The conductor arrangement determines the required self and mutual coefficients. Overhead, buried, and mixed installations require formulations for the corresponding conductor pairs. In a mixed installation, the overhead-buried mutual coefficients belong to the same external matrices as the overhead-overhead and buried-buried coefficients.
 
 The selected formulations specify the treatment of stratification, permeability, displacement current, and longitudinal propagation. Under the cylindrical construction above, these choices determine the external coefficients while ``\mathbf S`` specifies conductor membership.
 
@@ -218,7 +218,7 @@ An imperfect-earth impedance correction must be combined with its compatible geo
 
 The voltage reference is part of the external shunt formulation. The conventional electrostatic treatment of directly buried cables assumes equipotential soil. Under this assumption, the separate exterior potential-coefficient term vanishes, while the insulation and jacket contributions remain [Ametani1980, Ametani2015b](@cite).
 
-A finite-conductivity-earth formulation can retain the external potential coefficients instead of imposing an equipotential soil. Neither shunt treatment removes the earth-return impedance from ``\mathbf Z``.
+A finite-conductivity-earth formulation can retain the external potential coefficients instead of imposing an equipotential soil. Both shunt treatments retain the earth-return impedance in ``\mathbf Z``.
 
 ## Common metallic pipe
 
@@ -234,7 +234,7 @@ Retain the pipe as an additional conductor, with ordering
 =\begin{bmatrix}\mathbf V\\V_p\end{bmatrix}.
 ```
 
-The complete matrices have order ``n+1=1+\sum_jN_j``. For a single enclosed unit with ``N`` conductors, the order is ``N+1``.
+The complete matrices have order ``n+1=1+\sum_jN_j``. For one enclosed unit with ``N`` conductors, the order is ``N+1``.
 
 ### Series-impedance assembly
 
@@ -244,7 +244,7 @@ The series decomposition is
 \mathbf Z=\mathbf Z_i+\mathbf Z_p+\mathbf Z_c+\mathbf Z_0.
 ```
 
-The four terms describe the individual units, pipe-interior response, remaining pipe-wall and jacket contributions, and exterior return response [Ametani1980, Ametani2015b](@cite).
+The 4 terms describe the individual units, pipe-interior response, remaining pipe-wall and jacket contributions, and exterior return response [Ametani1980, Ametani2015b](@cite).
 
 Let ``\mathbf H_p\in\mathbb C^{m\times m}`` describe the pipe-interior impedances relative to the pipe inner surface. Then
 
@@ -264,7 +264,7 @@ Let ``\mathbf H_p\in\mathbb C^{m\times m}`` describe the pipe-interior impedance
 
 The matrix ``\mathbf H_p`` contains the cavity self and mutual impedances together with the pipe's inner-surface metallic response. Its coefficients depend on the positions and radii of the enclosed units and on the selected pipe formulation.
 
-A formulation using a different partition requires conversion to this decomposition before assembly. In particular, a complete core–pipe loop impedance may already contain a conductor contribution assigned to ``\mathbf B``. That contribution must be excluded from ``\mathbf H_p``.
+A formulation using a different partition requires conversion to this decomposition before assembly. A complete core-pipe loop impedance may already contain a conductor contribution assigned to ``\mathbf B``. That contribution must be excluded from ``\mathbf H_p``.
 
 For the remaining terms, define
 
@@ -292,7 +292,7 @@ With the common longitudinal-current convention,
 \mathbf Z_0=z_e\mathbf v\mathbf v^{\mathsf T}.
 ```
 
-The scalar ``z_e`` is the pipe's external self/return impedance, evaluated outside its jacket surface. The corresponding source current is ``\mathbf u^{\mathsf T}\mathbf I+I_p``. The external-field calculation excludes the pipe-metal and jacket contributions already assigned to the other terms [Ametani2015b](@cite).
+The scalar ``z_e`` is the pipe's external self and return impedance, evaluated outside its physical jacket surface. The corresponding source current is ``\mathbf u^{\mathsf T}\mathbf I+I_p``. The external-field calculation excludes the pipe-metal and jacket contributions already assigned to the other terms [Ametani2015b](@cite).
 
 With ``g_p=a_p+z_e``, the complete matrix is
 
@@ -308,7 +308,7 @@ With ``g_p=a_p+z_e``, the complete matrix is
 }
 ```
 
-The upper-left block contains the enclosed-conductor coefficients. Its cross-unit entries consist of the cavity mutual impedance and the common pipe/exterior contribution. The last row and column contain the pipe self impedance and its mutual impedances with the enclosed conductors. No pipe-return current has been prescribed.
+The upper-left block contains the enclosed-conductor coefficients. Its cross-unit entries consist of the cavity mutual impedance and the common pipe-exterior contribution. The last row and column contain the pipe self impedance and its mutual impedances with the enclosed conductors. No pipe-return current has been prescribed.
 
 ### Potential-coefficient assembly
 
@@ -331,7 +331,7 @@ The voltage reference must leave independent electrical variables for inversion.
 
 ### Pipe-model assumptions
 
-The cavity kernel and pipe surface/transfer impedances must use consistent finite-wall or thick-wall assumptions. Retaining the pipe as an explicit conductor does not alter the approximations in these quantities. Incompatible wall assumptions can invalidate their low-frequency combination [Ametani2015b, Hoidalen2013](@cite).
+The cavity kernel and pipe surface and transfer impedances must use consistent finite-wall or thick-wall assumptions. Retaining the pipe as an explicit conductor does not alter the approximations in these quantities. Incompatible wall assumptions can invalidate their low-frequency combination [Ametani2015b, Hoidalen2013](@cite).
 
 A cavity model that includes eccentric positions does not necessarily resolve proximity-induced current redistribution within the enclosed conductors. A proximity correction must contain only the response absent from its compatible base formulation, excluding the base skin-effect contribution [Hoidalen2025](@cite).
 
@@ -349,7 +349,7 @@ The [internal-impedance formulations](internal_impedance.md) include equivalent-
 
 ## Circuit constraints and modal decomposition
 
-The assembled matrices retain each conductor's electromagnetic contribution before the application of return-current or terminal constraints. Grounded sheaths and bonded armor therefore remain in the parameter calculation. A reduced circuit representation requires the corresponding electrical constraints.
+The assembled matrices retain each conductor's electromagnetic contribution before the application of return-current or terminal constraints. Grounded sheaths and bonded armor remain in the parameter calculation. A reduced circuit representation requires the corresponding electrical constraints.
 
 ### Pipe-return loop impedance
 
@@ -390,9 +390,9 @@ where ``\mathbf I_n`` is the identity matrix. The loop currents ``\mathbf i`` im
 }
 ```
 
-For this balanced pipe-return excitation, the common exterior and remaining pipe-wall terms cancel. The pipe's inner-surface impedance remains in ``\mathbf H_p``. The result retains finite pipe conductivity and depends on the imposed return-current distribution. Terminal grounding alone does not impose that distribution.
+For this balanced pipe-return excitation, the common exterior and remaining pipe-wall terms cancel. The pipe's inner-surface impedance remains in ``\mathbf H_p``. The result retains finite pipe conductivity and depends on the imposed return-current distribution. That distribution requires constraints beyond terminal grounding alone.
 
-For one enclosed coaxial unit, ``\mathbf H_p`` reduces to a scalar ``h_p``. The core/sheath and core/sheath/armor loop matrices are
+For one enclosed coaxial unit, ``\mathbf H_p`` reduces to a scalar ``h_p``. The core-sheath and core-sheath-armor loop matrices are
 
 ```math
 \mathbf Z_{cs,p}^{\mathrm{loop}}

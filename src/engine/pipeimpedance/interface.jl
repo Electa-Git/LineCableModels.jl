@@ -2,7 +2,7 @@
 $(TYPEDEF)
 
 Store a pipe-type impedance selection until the backend checks the topology.
-This value provides no substitute numerical formula for an unsupported pipe.
+Unsupported pipes require a separate numerical formula.
 
 """
 struct Formula{ID} <: PipeImpedanceFormulation end
@@ -13,7 +13,7 @@ formula_id(::Formula{ID}) where {ID} = ID
 $(TYPEDSIGNATURES)
 
 Construct a registered pipe-type selection. Unknown identifiers or controls
-raise `ArgumentError`; backend applicability is checked against the design.
+raise `ArgumentError`. Backend applicability is checked against the design.
 """
 Formula(identifier::Symbol; kwargs...) = Formula(Val(identifier); kwargs...)
 

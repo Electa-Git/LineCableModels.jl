@@ -54,8 +54,8 @@ end
 $(TYPEDEF)
 
 Store one lossless terminal-capacitance block in its owner's conductor indices.
-Blueprint indices are cable-local; local assembly data remap them to the system.
-`C` is shield-referenced capacitance \\[F/m\\]; `P` is its charge-potential
+Blueprint indices are cable-local. Local assembly data remap them to the system.
+`C` is shield-referenced capacitance \\[F/m\\]. `P` is its charge-potential
 inverse \\[m/F\\].
 
 $(TYPEDFIELDS)
@@ -101,7 +101,7 @@ struct CableBlueprint{T <: Real}
     dielectric_ranges::Vector{UnitRange{Int}}
     "Contiguous conductor ranges for independent concentric assemblies."
     assembly_ranges::Vector{UnitRange{Int}}
-    "Completed boundary shunt blocks; empty for the annular model."
+    "Completed boundary shunt blocks. Empty for the annular model."
     shunt::Vector{InternalShuntBlock{T}}
     "Requested/effective local model, domain outcomes and numerical diagnostics."
     shunt_details::NamedTuple
@@ -279,10 +279,10 @@ description consumed by the coaxial backend.
 
 # Arguments
 
-- `engine`: Coaxial backend identity.
-- `design`: Completed physical cable design.
-- `T`: Scalar type used by the numerical payload.
-- `formulation`: Selected local formulas; defaults to [`Formulation`](@ref).
+- `engine`: coaxial backend identity.
+- `design`: completed physical cable design.
+- `T`: scalar type used by the numerical payload.
+- `formulation`: selected local formulas. Defaults to [`Formulation`](@ref).
 
 # Returns
 

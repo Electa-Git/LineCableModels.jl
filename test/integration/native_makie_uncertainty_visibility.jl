@@ -78,7 +78,7 @@ end
     f = collect(1.0:101.0)
     resistance = 1 .+ f ./ 100
     errors = fill(0.05, length(f))
-    errors[1] = 3.0 # An endpoint interval, not a sparse interior glyph.
+    errors[1] = 3.0 # Use an endpoint interval. A sparse interior glyph would omit the endpoint.
     z = reshape(complex.(measurement.(resistance, errors), 0.1), 1, 1, :)
     reference = LineParameters(z, z .* 1e-6, measurement.(f, 0.01))
     other_z = reshape(complex.(measurement.(1.05 .* resistance, 0.02), 0.1), 1, 1, :)
@@ -250,7 +250,7 @@ end
                 end
             end
         end
-        # Panel actions are local; figure actions recover a genuinely mixed
+        # Panel actions are local. Figure actions recover a mixed
         # panel state. No assumption about private dependency storage is needed.
         panel_entry = first(last(only(page.panel_legends[(1, 1)].entrygroups[])))
         Makie.toggle_visibility!(panel_entry)
@@ -350,7 +350,7 @@ end
     bar.visible[] = false
     @test line.visible[] # Independent native edits are still allowed.
     figurelegend!(page; position = :bottom, max_fraction = 0.5, legend_labels = ("uncertain",))
-    @test !bar.visible[] # A legend rebuild is not a series hide/show action.
+    @test !bar.visible[] # Rebuilding the legend preserves the series visibility.
     line.visible[] = false
     @test !bar.visible[]
     line.visible[] = true
@@ -399,8 +399,8 @@ end
     view = Makie.Rect2d(2.0, 1.0, 30.0, 1.0)
     axis.targetlimits[] = view
     figurelegend!(page; position = :bottom, max_fraction = 0.5)
-    # Reinitialising native legend shading is not a visibility change and
-    # must not reset a caller's current zoom/pan.
+    # Reinitializing native legend shading is not a visibility change and
+    # must not reset a caller's current zoom and pan.
     @test axis.targetlimits[] == view
 end
 
@@ -423,7 +423,7 @@ end
     Makie.colorbuffer(page.figure)
     entries = last(only(page.legend.entrygroups[]))
     @test last(entries).label[] == "Uncertain result 24"
-    # This entry was absent from the compact legend. Normalising only visible
+    # This entry was absent from the compact legend. Normalizing only visible
     # entries would allow its old derived-child click targets to reappear.
     Makie.toggle_visibility!(last(entries))
     axis = only(page.axes)

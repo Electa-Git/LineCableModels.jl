@@ -1,13 +1,13 @@
 # Integrated finite-face charge element for the explicit boundary shunt model.
-# Coordinates are in m; Green functions use charge/(2pi*epsilon0).
+# Coordinates are in m. Green functions use charge/(2pi*epsilon0).
 # Dense numerical arrays are local to a boundary solve, never a global cache.
 
 """
 $(TYPEDEF)
 
-Report a recognized failure of the local boundary approximation. Numerical
+Report a recognized failure of the local geometric boundary approximation. Numerical
 failure is distinct from invalid physical input and must not trigger Monte
-Carlo rejection/resampling.
+Carlo rejection and resampling.
 
 $(TYPEDFIELDS)
 """
@@ -46,7 +46,7 @@ $(TYPEDSIGNATURES)
 Propagate the radial Dirichlet-to-Neumann load of one positive angular mode
 through concentric dielectric layers. In log-radius coordinates, the load
 transformation is the admittance form of the uniform-line input-impedance
-relation [Sunde1968](@cite), Section 1.6, Eqs. (1.39)–(1.42), p. 15:
+relation [Sunde1968](@cite), Section 1.6, Eqs. (1.39)-(1.42), p. 15:
 
 ```math
 Y_{\\mathrm{in}}=Y_c\\frac{Y_L+Y_c\\tanh(m\\ell)}
@@ -61,18 +61,18 @@ the log-radius construction used here, not a cable propagation calculation.
 
 # Arguments
 
-- `layers`: Radially ordered layers with inner/outer radii \\[m\\] and
+- `layers`: radially ordered layers with inner and outer radii \\[m\\] and
   positive relative permittivities \\[dimensionless\\].
-- `m`: Positive angular mode order.
+- `m`: positive angular mode order.
 
 # Keywords
 
-- `reverse_layers=false`: Reverse the layer order to propagate from the
+- `reverse_layers=false`: reverse the layer order to propagate from the
   outer grounded shield toward the host instead of from the inner conductor.
 
 # Returns
 
-- Modal load seen at the host boundary \\[dimensionless\\]; `Inf` when the
+- Modal load seen at the host boundary \\[dimensionless\\]. `Inf` when the
   layer sequence is empty, representing an immediately adjacent metal boundary.
 """
 function _shunt_load(layers, m; reverse_layers = false)
@@ -91,11 +91,11 @@ $(TYPEDSIGNATURES)
 
 Evaluate the reflected Fourier modes of the local electrostatic Green function
 in a concentric layered annulus. The radial basis ``r^{\\pm m}``, with
-``1,\\log r`` for the zero mode, is the classical cylindrical Laplace basis;
-see [Schelkunoff1934](@cite), Eqs. (122)–(124), p. 573, in the small-radius-to-
+``1,\\log r`` for the zero mode, is the classical cylindrical Laplace basis.
+See [Schelkunoff1934](@cite), Eqs. (122)-(124), p. 573, in the small-radius-to-
 wavelength limit of cylindrical fields. Here it is used for the electrostatic
 potential. The layered-kernel strategy is also supported by [Bernal1997](@cite),
-Sections II–III, whose planar Prony/matrix-pencil kernel is not used here.
+Sections II-III, whose planar Prony/matrix-pencil kernel is not used here.
 
 With ``t=\\log(r/a)``, each source-free dielectric layer satisfies
 ``d^2u_m/dt^2-m^2u_m=0``. Matching potential and normal displacement gives
@@ -107,29 +107,29 @@ G_0(r,s)=\\frac{R_< (R_{\\mathrm{total}}-R_>)}{R_{\\mathrm{total}}},
 \\qquad R(r)=R_{\\mathrm{left}}+\\frac{\\log(r/a)}{\\varepsilon_h}.
 ```
 
-Here ``R_<`` and ``R_>`` are the smaller and larger of ``R(r),R(s)``;
-the dielectric log-radius sums ``R`` and host relative permittivity
+Here ``R_<`` and ``R_>`` are the smaller and larger of ``R(r),R(s)``.
+The dielectric log-radius sums ``R`` and host relative permittivity
 ``\\varepsilon_h`` are dimensionless. The log-radius normalization follows
 the coaxial capacitance ``C=2\\pi\\varepsilon/\\log(r_o/r_i)`` \\[F/m\\], with
-absolute permittivity ``\\varepsilon`` \\[F/m\\]; see [Sunde1968](@cite),
+absolute permittivity ``\\varepsilon`` \\[F/m\\]. See [Sunde1968](@cite),
 Section 1.5, Eq. (1.20), p. 11. Direct and nearest-interface logarithms
-are extracted analytically; only the remaining reflections are truncated.
+are extracted analytically. Only the remaining reflections are truncated.
 For an adjacent dielectric, the extracted contrast is
 ``(\\varepsilon_h-\\varepsilon_j)/(\\varepsilon_h+\\varepsilon_j)``, also used
 in [Campione2018](@cite), Section 2, Eq. (3). That paper uses a local planar
-approximation to the braid geometry; it supports these dielectric image
+approximation to the braid geometry. It supports these dielectric image
 factors, not this concentric annular Green function or its radial load recursion.
 
 # Arguments
 
-- `g`: Host radii and layer boundaries \\[m\\], positive relative
-  permittivities \\[dimensionless\\], and dielectric log-radius sums.
-- `modes`: Number of retained positive Fourier modes.
+- `g`: host radii and layer boundaries \\[m\\], with positive relative
+  permittivities \\[dimensionless\\] and dielectric log-radius sums.
+- `modes`: number of retained positive Fourier modes.
 
 # Returns
 
-- `A`, `B`, `D`: Smooth Fourier reflection coefficients \\[dimensionless\\].
-- `ra0`, `rb0`: Nearest inner/outer interface reflection coefficients
+- `A`, `B`, `D`: smooth Fourier reflection coefficients \\[dimensionless\\].
+- `ra0`, `rb0`: reflection coefficients at the nearest inner and outer interfaces
   \\[dimensionless\\]. The resulting kernel multiplies charge per unit length
   divided by ``2\\pi\\varepsilon_0`` \\[V\\] to give potential \\[V\\].
 """
@@ -194,7 +194,7 @@ end
 function _shunt_kernel_matrix!(matrix, targets, sources, g, k; regular = false,
         split_images = false, scratch = nothing)
     # Same Green function, batched into small Fourier blocks for BLAS. No dense
-    # N-by-modes cache: working storage is only 4*64 columns per boundary set.
+    # N-by-modes cache: working storage is only 4*64 columns per geometric boundary set.
     zero_modes = merge(k, (; A = (), B = (), D = ()))
     @inbounds for j in eachindex(sources), i in eachindex(targets)
 
@@ -295,7 +295,7 @@ function _shunt_gauss_jacobi(n, alpha, beta)
            [2/(2k+s)*sqrt(k*(k+alpha)*(k+beta)*(k+s) /
                           ((2k+s-1)*(2k+s+1))) for k in 2:(n - 1)]]
     decomposition = eigen(SymTridiagonal(diagonal, off))
-    # Normalized measure w(t)dt / integral(w); no arclength factor belongs here.
+    # Normalized measure w(t)dt / integral(w). No arclength factor belongs here.
     decomposition.values, vec(decomposition.vectors[1, :] .^ 2)
 end
 
@@ -316,14 +316,14 @@ The smallest root ``0<\\nu<1`` gives potential relative to the metal proportiona
 to ``\\rho^\\nu`` and surface charge density proportional to ``\\rho^{\\nu-1}``,
 where ``\\rho`` is distance from the corner \\[m\\]. The admissible branch
 obeys Meixner's finite-energy edge condition [Meixner1972](@cite).
-Material-dependent metal–dielectric wedge singularities, rather than a
+Material-dependent metal-dielectric wedge singularities, rather than a
 universal homogeneous exponent, are treated by [VanBladel1985](@cite).
 For equal permittivities this equation recovers ``\\nu=2/3``.
 
 # Arguments
 
-- `epsilon_host`: Host relative permittivity \\[dimensionless\\].
-- `epsilon_outer`: Adjacent dielectric relative permittivity \\[dimensionless\\].
+- `epsilon_host`: host relative permittivity \\[dimensionless\\].
+- `epsilon_outer`: adjacent dielectric relative permittivity \\[dimensionless\\].
 
 # Returns
 
@@ -383,23 +383,23 @@ d\\mu(t)=\\frac{(1-t)^\\alpha(1+t)^\\beta\\,dt}
 Here ``t\\in[-1,1]`` is the face parameter, ``\\nu_\\pm`` are its endpoint
 exponents, and ``P_n`` are Jacobi polynomials. The normalized charge measure
 ``d\\widehat q=dq/(2\\pi\\varepsilon_0)`` and coefficients ``a_n`` have units
-\\[V\\]; ``dq`` is charge per cable length \\[C/m\\]. Each face's total charge
+\\[V\\]. ``dq`` is charge per cable length \\[C/m\\]. Each face's total charge
 is ``2\\pi\\varepsilon_0 a_0``. Do not multiply this measure by a second
 arclength Jacobian. Encoding known singularities in the approximation space
-is also supported by [Classen2011](@cite), Sections 2 and 4; their FIT/DG
+is also supported by [Classen2011](@cite), Sections 2 and 4. Their FIT/DG
 discretizations are not the boundary-integral element implemented here.
 
 # Arguments
 
-- `g`: Host/layer radii \\[m\\] and relative permittivities \\[dimensionless\\].
-- `s`: Tape inner/outer radii \\[m\\], center angle and angular span \\[rad\\],
-  and terminal index.
-- `p`: Highest Jacobi degree on each face.
-- `quadrature`: Number of normalized Gauss–Jacobi nodes per face.
+- `g`: host and layer radii \\[m\\] and relative permittivities \\[dimensionless\\].
+- `s`: tape geometry and terminal index. The inner and outer radii are in
+  \\[m\\], and the center angle and angular span are in \\[rad\\].
+- `p`: highest Jacobi degree on each face.
+- `quadrature`: number of normalized Gauss–Jacobi nodes per face.
 
 # Returns
 
-- Four face records with physical coordinates \\[m\\], endpoint exponents,
+- 4 face records with physical coordinates \\[m\\], endpoint exponents,
   quadrature weights and weighted polynomial values.
 
 # Errors
@@ -465,39 +465,39 @@ M_n(z)=\\int_{-1}^{1} P_n^{(\\alpha,\\beta)}(t)
 \\log\\!\\left(\\frac{|z-\\zeta(t)|}{1\\,\\mathrm{m}}\\right)d\\mu(t).
 ```
 
-The face position is ``\\zeta(t)`` \\[m\\]; ``d\\mu`` is the normalized measure
+The face position is ``\\zeta(t)`` \\[m\\]. ``d\\mu`` is the normalized measure
 in `_shunt_tape_faces`. Ordinary quadrature can lose accuracy close to a
 source boundary [HelsingOjala2008](@cite), Section 1. Here direct and image
 logarithms are integrated separately from the smooth Green remainder.
 Nearby targets use ``t=\\cos\\theta`` and adaptive Gauss–Kronrod integration,
-split at the projected singularity or near peak; distant targets use the
-face's Gauss–Jacobi rule. This is not Helsing–Ojala's rational-quadrature
+split at the projected singularity or near peak. Distant targets use the
+face's Gauss–Jacobi rule. This is not Helsing-Ojala's rational-quadrature
 algorithm, and that reference does not prescribe the corner basis.
 
 # Arguments
 
-- `z`: Target coordinate in the complex cross-sectional plane \\[m\\].
-- `face`: Physical face geometry, normalized weights and Jacobi degree.
+- `z`: target coordinate in the complex cross-sectional plane \\[m\\].
+- `face`: physical face geometry, normalized weights and Jacobi degree.
 
 # Keywords
 
-- `rtol=1e-10`: Relative adaptive quadrature tolerance; the absolute tolerance
+- `rtol=1e-10`: relative adaptive quadrature tolerance. The absolute tolerance
   is `0.01rtol` for these dimensionless moments.
-- `atol=0.01rtol`: Absolute tolerance for the dimensionless moment vector.
-- `maxevals=100_000`: Adaptive quadrature evaluation budget.
-- `result=zeros(face.p+1)`: In-place moment workspace, also returned.
-- `segments=nothing`: Optional reusable QuadGK segment buffer.
+- `atol=0.01rtol`: absolute tolerance for the dimensionless moment vector.
+- `maxevals=100_000`: adaptive quadrature evaluation budget.
+- `result=zeros(face.p+1)`: in-place moment workspace, also returned.
+- `segments=nothing`: optional reusable QuadGK segment buffer.
 
 # Returns
 
 - Logarithmic moments \\[dimensionless\\].
-- Adaptive error estimate; the far-field fixed rule returns zero because it
+- Adaptive error estimate. The far-field fixed rule returns zero because it
   supplies no estimate, not because its error is known to vanish.
 
 # Errors
 
 An unresolved zero-distance evaluation or failed adaptive quadrature raises
-`BoundarySolveError`; the logarithm is not replaced by an arbitrary finite floor.
+`BoundarySolveError`. The logarithm is not replaced by an arbitrary finite floor.
 """
 function _shunt_log_moments(z, face; rtol = 1e-10, atol = 0.01rtol,
         maxevals = 100_000, result = zeros(face.p+1), segments = nothing)
@@ -514,7 +514,7 @@ function _shunt_log_moments(z, face; rtol = 1e-10, atol = 0.01rtol,
     end
     # Weighted logarithmic product integration: compute the log moments of the
     # Jacobi modes, independently of the smooth Green remainder. t=cos(theta)
-    # absorbs endpoint weights; split at the logarithmic singularity/near peak.
+    # absorbs endpoint weights. Split at the logarithmic singularity or near peak.
     theta0 = acos(clamp(u, -1, 1))
     splits = [0.0, theta0, pi]
     if delta > 0
@@ -539,14 +539,14 @@ function _shunt_log_moments(z, face; rtol = 1e-10, atol = 0.01rtol,
             hypot(face.half*difference, imag(z*cis(-face.phi)))
         end
         # Roundoff may identify the endpoint only after its contribution is
-        # below integration accuracy; never manufacture a finite log(0) floor.
+        # below integration accuracy. Never manufacture a finite log(0) floor.
         distance > 0 || throw(BoundarySolveError(:quadrature,
             (; point = z, theta, face = face.kind), "unresolved logarithmic integration point"))
         weight = sin(theta/2)^(2face.alpha+1)*cos(theta/2)^(2face.beta+1)/face.beta_norm
         _shunt_jacobi!(output, t, face.alpha, face.beta)
         output .*= log(distance)*weight
     end
-    # Reuse quadrature work vectors; modal integration must not allocate a new
+    # Reuse quadrature work vectors. Modal integration must not allocate a new
     # polynomial vector at each of its thousands of function evaluations.
     integral,
     estimate = quadgk!(integrand!, result, splits;
@@ -764,16 +764,16 @@ moments, not by symmetrizing the answer.
 
 # Arguments
 
-- `g`: Local radii/positions \\[m\\] and relative dielectric permittivities.
+- `g`: local radii and positions \\[m\\] and relative dielectric permittivities.
 
 # Keywords
 
-- `level`: Fixed numerical resolution; the reference settings are not an
+- `level`: fixed numerical resolution. The reference settings are not an
   accuracy guarantee for arbitrary geometry or weak terminal couplings.
-- `retain=false`: Retain the factorization only for local differentiation.
-- `integration`: Dimensionless logarithmic-moment quadrature controls.
-- `audit=false`: Evaluate independent boundary-grid residuals. When disabled,
-  those diagnostic fields are `nothing`; the terminal solve is unchanged.
+- `retain=false`: retain the factorization only for local differentiation.
+- `integration`: dimensionless logarithmic-moment quadrature controls.
+- `audit=false`: evaluate independent boundary-grid residuals. When disabled,
+  those diagnostic fields are `nothing`. The terminal solve is unchanged.
 
 # Returns
 
@@ -786,14 +786,14 @@ The layered Green function and whole-face charge approach has precedent in
 [Bernal1997](@cite), but this solve uses oversampled boundary collocation and
 pivoted QR, not that paper's Galerkin system. The circular kernel, wire-source
 placement at `0.75` times each wire radius, Jacobi adaptation, resolution and
-acceptance checks are implementation choices. The cited methods do not
-establish an accuracy bound for this combined discretization.
+acceptance checks are implementation choices. An accuracy bound for this combined discretization
+is not established by the cited methods.
 
 # Errors
 
 Memory-budget failures, degenerate charge columns and nonfinite capacitance are
-`BoundarySolveError`, not geometry `DomainError`; Monte Carlo must not condition
-its samples on them. Estimated rank, reciprocity, passivity and sampled boundary
+`BoundarySolveError`, not geometry `DomainError`. Monte Carlo must not condition
+its samples on them. Estimated rank, reciprocity, passivity and sampled geometric boundary
 quality are reported as warnings without substituting a different calculation.
 """
 Base.@constprop :aggressive function _shunt_capacitance(g; level = DEFAULT_RESOLUTION,
@@ -914,8 +914,8 @@ end
 $(TYPEDSIGNATURES)
 
 Differentiate the fixed-resolution local least-squares problem in one physical
-parameter direction. Centered differences evaluate only kernel/charge-map
-derivatives; the nominal pivoted QR is reused. Include the nonzero collocation
+parameter direction. Centered differences evaluate only kernel and charge-map
+derivatives. The nominal pivoted QR is reused. Include the nonzero collocation
 residual in the differentiated stationarity equation:
 
 ```math
@@ -923,9 +923,9 @@ A^T A\\,dx=A^T(db-dA\\,x)+dA^T(b-Ax).
 ```
 
 Triangular QR solves evaluate this equation without forming normal equations.
-Boundary derivatives are streamed in bounded row blocks, not stored as a dense
+Geometric boundary derivatives are streamed in bounded row blocks, not stored as a dense
 matrix of uncertain scalars. Input directions retain their original physical
-units; the direction parameter and `step` are dimensionless.
+units. The direction parameter and `step` are dimensionless.
 
 # Returns
 
@@ -993,18 +993,18 @@ without introducing uncertain scalars into dense numerical workspaces.
 
 # Arguments
 
-- `values`: Host/layer radii, wire coordinates/radii and tape dimensions
+- `values`: host and layer radii, wire coordinates and radii and tape dimensions
   \\[m\\], relative permittivities and tape angles \\[rad\\], in the order
   supplied during blueprint construction.
-- `domain`: Extracted local geometry and terminal ownership.
+- `domain`: extracted local geometry and terminal ownership.
 
 # Keywords
 
-- `level`: Wire, tape, and Fourier discretization controls.
-- `integration`: Dimensionless logarithmic-moment quadrature controls.
-- `audit=false`: Enable independent boundary-grid and derivative step checks.
-- `retain=false`: Retain the nominal factorization for differentiation tests.
-- `directions=nothing`: Optional columns of physical input perturbations per
+- `level`: wire, tape, and Fourier discretization controls.
+- `integration`: dimensionless logarithmic-moment quadrature controls.
+- `audit=false`: enable independent boundary-grid and derivative step checks.
+- `retain=false`: retain the nominal factorization for differentiation tests.
+- `directions=nothing`: optional columns of physical input perturbations per
   unit dimensionless direction parameter.
 
 # Returns

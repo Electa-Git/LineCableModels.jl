@@ -34,7 +34,7 @@ end
 $(TYPEDSIGNATURES)
 
 Capture physical declarations from a completed package-owned problem. Store the
-returned record in result details at completion, once per physical point; later
+returned record in result details at completion, once per physical point. Later
 observation reads that record without evaluating problem builders.
 """
 function completed_inputs(problem::LineParametersProblem)
@@ -94,7 +94,7 @@ function completed_formulation(formulation, declaration::NamedTuple=NamedTuple(f
             control_owner=isempty(route) ? owner : leaf isa Type ? leaf : typeof(leaf)
             # Routes are the scientific slots declared by pairs(owner), shared
             # by backends using the same constitutive meaning. Storage owners
-            # remain recorded separately; they are not a commonness criterion.
+            # remain recorded separately. They are not a commonness criterion.
             (scope=(owner_name,route),meaning=route,
                 selection=(identifier=formula_id(selected),controls),name,
                 value=isempty(route) ? description(selected;compact=true) : description(owner,selected;compact=true),
@@ -133,7 +133,7 @@ function Grammar.observation_gridpoint(source::Union{LineParameters,CableConstan
         missing_reason=inputs===nothing ? :physical_inputs_not_supplied : nothing))
 end
 
-# Updating an association reuses numerical storage; it does not recompute or
+# Updating an association reuses numerical storage. It does not recompute or
 # copy a physical problem. External result owners can supply their own method.
 """
 $(TYPEDSIGNATURES)

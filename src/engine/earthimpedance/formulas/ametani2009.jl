@@ -7,8 +7,8 @@ $(TYPEDSIGNATURES)
 
 **Identification.** Homogeneous-earth approximation for mixed overhead-underground pairs.
 
-**Availability.** Registered scientific identity; the coaxial implementation is
-not yet implemented. No numerical fallback is provided.
+**Availability.** Registered scientific identity. The coaxial implementation is
+not yet implemented. The method fails without a numerical fallback.
 
 **Expression.** Its distinctive mixed term is
 
@@ -27,7 +27,7 @@ Investigation of Earth-Return Impedance Between Overhead and Underground
 Conductors and Its Approximation,” *IEEE Transactions on Electromagnetic
 Compatibility*, 51, 860–867, 2009.
 DOI: 10.1109/TEMC.2009.2019953.
-PSCAD's help lists this journal article with a 2005 date; its journal volume
+PSCAD's help lists this journal article with a 2005 date. Its journal volume
 and DOI identify the 2009 publication used by this registration.
 """
 function description(::Type{<:Formula{:ametani2009}}; compact::Bool = false)

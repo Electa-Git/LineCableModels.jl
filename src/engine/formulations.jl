@@ -32,8 +32,8 @@ Execution controls belong to `compute(...; options=(...))` and are validated
 by [`computation_options`](@ref) for `LineCableModelsFEM`.
 
 The quasi-TEM model solves independent axial ``A_z/u`` and scalar electric
-Helmholtz blocks in one factorization. The magnetic excitation is one ampere;
-the electric excitation is one ampere per meter. Both models retain conduction
+Helmholtz blocks in one factorization. The magnetic excitation is one ampere.
+The electric excitation is one ampere per meter. Both models retain conduction
 and displacement through ``κ=σ+jωε`` \\[S/m\\], where ``ω`` is angular
 frequency \\[rad/s\\], ``σ`` conductivity \\[S/m\\], and ``ε`` permittivity \\[F/m\\].
 
@@ -54,10 +54,10 @@ C^*(\\nu Cb)+j\\omega\\kappa b+\\kappa\\nabla_t v-\\nu\\nabla_t a=0,
 Here ``\\nu=1/\\mu`` \\[m/H\\], ``μ`` is permeability \\[H/m\\],
 ``Cb=∂_x b_y-∂_y b_x`` and ``C^*h=(∂_y h,-∂_x h)``.
 The finite-conductivity axial ``a/u`` block supplies both the series voltage
-drop and the normalized transverse-current source; there is no independent
+drop and the normalized transverse-current source. There is no independent
 electric excitation. A tree gauge removes the gradient freedom of ``b``.
 Its tangential trace vanishes on every terminal contour and the entire outer
-boundary; ``v=0`` on the earth-side outer reference, with natural electric
+boundary. ``v=0`` on the earth-side outer reference, with natural electric
 conditions on the air side.
 
 Terms of order ``Γ^2`` in the axial equation are omitted. The transverse
@@ -92,7 +92,7 @@ models in A, φ potentials and their finite element implementation*, Journal
 of Mathematics in Industry **14**, 27 (2024),
 [doi:10.1186/s13362-024-00165-6](https://doi.org/10.1186/s13362-024-00165-6),
 Sect. 4 and Appendix B. The longitudinal reduction and vertical voltage-path
-convention above are specific to this backend; the paper validates 3D models.
+convention above are specific to this backend. The paper validates 3D models.
 
 $(TYPEDFIELDS)
 """
@@ -146,7 +146,7 @@ $(TYPEDFIELDS)
 struct LineCableModelsFEMError <: Exception
     "Failure category."
     category::Symbol
-    "Stable identifier of the object that owns the failure."
+    "Stable identifier of the object associated with the failure."
     object_id::String
     "Field or derived datum that failed validation."
     field::Symbol
@@ -193,16 +193,15 @@ Supertype for Engine impedance formulations.
 """
 abstract type AbstractImpedanceFormulation <: AbstractFormulation end
 """
-Select conductor surface impedance equations [Ω/m]. Concrete subtypes construct
+Select equations for the surface impedance of conductors [Ω/m]. Concrete subtypes construct
 shared state when called with conductor dimensions and material properties,
 and implement `InternalImpedance.internal_impedance` for their supported
 `inner`, `outer`, and `transfer` cases.
 """
 abstract type InternalImpedanceFormulation <: AbstractImpedanceFormulation end
 """
-Select the pipe contribution and its backend/topology applicability. Concrete
-subtypes extend `Formulation(backend, selected, Val(topology))`; admission alone
-does not supply an impedance equation.
+Select the pipe contribution and its backend and topology applicability. Concrete
+subtypes extend `Formulation(backend, selected, Val(topology))`. An impedance equation must be supplied separately from admission.
 """
 abstract type PipeImpedanceFormulation <: AbstractImpedanceFormulation end
 """
@@ -217,7 +216,7 @@ Air, earth, and mixed selections refer to conductor locations.
 """
 abstract type EarthImpedanceFormulation <: AbstractImpedanceFormulation end
 
-"""Supertype for local shunt geometry and dielectric/earth admittance selections."""
+"""Supertype for local shunt geometry and dielectric and earth admittance selections."""
 abstract type AbstractAdmittanceFormulation <: AbstractFormulation end
 """
 Select cable-local shunt geometry, independently of material admittivity.
@@ -226,12 +225,12 @@ Concrete subtypes implement `internal_shunt_response` during blueprint construct
 abstract type ShuntModelFormulation <: AbstractAdmittanceFormulation end
 """
 Select insulation admittivity [S/m]. Concrete subtypes implement
-`InsulationAdmittance.insulation_material`; radial geometry is applied separately.
+`InsulationAdmittance.insulation_material`. Radial geometry is applied separately.
 """
 abstract type InsulationAdmittanceFormulation <: AbstractAdmittanceFormulation end
 """
 Select semiconducting-layer admittivity [S/m]. Concrete subtypes implement
-`SemiconAdmittance.semicon_material`; radial geometry is applied separately.
+`SemiconAdmittance.semicon_material`. Radial geometry is applied separately.
 """
 abstract type SemiconAdmittanceFormulation <: AbstractAdmittanceFormulation end
 """
@@ -276,7 +275,7 @@ function Formulation(::Type{F},
     all(in(keys(children)), keys(selected)) || throw(ArgumentError(
         "$F selections admit only $(join(keys(children), ", "))"))
     names = filter(in(keys(selected)), keys(children))
-    # An explicit recipe stays explicit: a missing or `nothing` leaf supplies
+    # Within an explicit recipe, a missing or `nothing` leaf supplies
     # no equation. Only omission of the whole family chooses its default.
     return NamedTuple{names}(map(names) do name
         value = selected[name]
@@ -434,32 +433,32 @@ end
 """
 $(TYPEDSIGNATURES)
 
-Construct the Gmsh/GetDP finite-element formulation. FEM owns its field equations
+Construct the Gmsh/GetDP finite-element formulation. FEM defines its field equations
 and selects four material laws. Each law and `options` accepts a
-scalar or an explicit `Grid`/`Gridspace`; varying inputs return a
+scalar or an explicit `Grid`/`Gridspace`. Varying inputs return a
 `Gridspace{LineCableModelsFEM}`.
 
 # Keywords
 
-- `insulation_admittance`: Insulation admittivity law; `:default` routes to
+- `insulation_admittance`: insulation admittivity law. `:default` routes to
   `:lossless`.
-- `semicon_admittance`: Semicon admittivity law; `:default` routes to
+- `semicon_admittance`: semicon admittivity law. `:default` routes to
   `:lossless`.
-- `earth_properties`: Soil frequency-dependent constitutive law; `:default`
+- `earth_properties`: soil frequency-dependent constitutive law. `:default`
   routes to the explicit `:constant` pass-through, while `nothing` preserves
   the declared static soil. Equivalent-earth reductions are unsupported. Air
   uses its declared static properties.
-- `temperature_dependence`: Cable-material resistivity law; `:default` selects
+- `temperature_dependence`: cable-material resistivity law. `:default` selects
   the linear law and `nothing` retains reference resistivity. Operating
   temperature belongs to `LineParametersProblem`.
-- `options=(;)`: Field model (`physics=:quasi_tem` or `:quasi_fw`) and bundle,
+- `options=(;)`: field model (`physics=:quasi_tem` or `:quasi_fw`) and bundle,
   Kron, and ideal-transposition reductions. Hyphenated strings and symbols
-  are also accepted for `physics`. Julia parses `:quasi-fw` as subtraction;
+  are also accepted for `physics`. Julia parses `:quasi-fw` as subtraction.
   use `:quasi_fw` or `Symbol("quasi-fw")`.
   Pass execution controls to `compute(...; options=(...))`.
-- `combine=:product`: Product or zip composition among varying inputs.
+- `combine=:product`: product or zip composition among varying inputs.
 
-Analytical impedance/admittance kernel keywords are rejected. Supported enclosure
+Analytical impedance and admittance kernel keywords are rejected. Supported enclosure
 geometry is represented directly in the FEM domain.
 """
 function Formulation(
@@ -489,7 +488,7 @@ function validate(binding::FormulaMethod, reduction::EquivalentHomogeneous.Abstr
     throw(ArgumentError("$binding does not admit equivalent-earth reduction :$(formula_id(reduction))"))
 end
 
-"""Expose FEM constitutive/admittance selections, field model, and reductions."""
+"""Expose FEM constitutive and admittance selections, field model, and reductions."""
 function Base.NamedTuple(value::LineCableModelsFEM)
     record = function (selected)
         selected === nothing && return nothing

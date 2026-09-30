@@ -7,9 +7,9 @@ struct AssemblyMember{E <: AbstractCablePart, P <: Pose2}
 end
 
 """
-Store the resolved, potentially disconnected boundary of an `Assembly`.
+Store the resolved, potentially disconnected geometric boundary of an `Assembly`.
 
-The member boundaries remain exact. In particular, an assembly of sector
+The member geometric boundaries remain exact. An assembly of sector
 cores is not replaced by a circular envelope. Consumers that require one
 containing domain must request an explicit `Enclosure`.
 """

@@ -14,7 +14,7 @@ under the GNU General Public License, version 2 or later.
 
 The upstream binary archives bound by `Artifacts.toml` include `LICENSE.txt`,
 `CREDITS.txt`, and `README.txt`. LineCableModels invokes GetDP as an external
-program; GetDP is not incorporated into the LineCableModels library.
+program. GetDP is not incorporated into the LineCableModels library.
 
 Maintainers can revalidate every supported archive, tree hash, executable and
 license file with `julia test/manual/verification/verify_getdp_artifact.jl`.

@@ -48,9 +48,9 @@ The material declarations below specify the following properties:
 | `T0` | Reference temperature | °C |
 | `alpha` | Temperature coefficient of resistivity | 1/°C |
 
-A material's library name identifies the entry; `kind` describes its physical
-class. For example, several entries can have `kind=:conductor` while retaining
-different resistivities and names.
+A material's library name identifies the entry, while `kind` describes its
+physical class. Materials with different names and resistivities can share
+`kind=:conductor` because they belong to the same physical class.
 
 Construct a material with named properties, then use [`add!`](@ref) to insert
 it under a new name. `add!` rejects an existing name rather than silently
@@ -214,7 +214,7 @@ materials["copper_trial"] = Material(
     rho = 1.835e-8,
 );
 
-# The trial has the new resistivity; the built-in copper is unchanged:
+# The trial has the new resistivity. The built-in copper is unchanged:
 materials["copper_trial"]
 materials["copper"]
 

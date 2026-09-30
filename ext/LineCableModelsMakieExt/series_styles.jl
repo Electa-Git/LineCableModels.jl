@@ -6,7 +6,7 @@ function _series_styles!(groups, order, attributes; defaults=nothing, shared=(;)
     # Nest coincident intervals in insertion order, without moving or sampling
     # their coordinates. Stroke widths stay in screen units on logarithmic axes.
     error_groups = filter(order) do group
-        # Only grouped curve/interval series receive defaults. A plotwindow
+        # Only grouped curve and interval series receive defaults. A plotwindow
         # caller's individually styled native primitives remain caller-owned.
         any(handle -> handle isa Makie.Lines, groups[group]) &&
             any(handle -> handle isa Makie.Errorbars, groups[group])
@@ -64,7 +64,7 @@ function _series_styles!(groups, order, attributes; defaults=nothing, shared=(;)
                     color=hollow ? :transparent : handle.color[],
                     visible=handle.visible[], marker_attributes...)
                 # Visibility follows the same owner visibility rule as uncertainty
-                # bars; the shared shell binds it once for the complete series.
+                # bars. The shared shell binds it once for the complete series.
                 push!(dependents, points => handle)
                 on(handle.parent, handle.color) do value
                     if hollow
@@ -90,7 +90,7 @@ end
 
 # Select retained sample indices for both glyph kinds. Stable series slots,
 # rather than visible-series count, preserve phases when formulas are filtered.
-# Interval positions have priority; short series may have no marker positions.
+# Interval positions have priority. Short series may have no marker positions.
 function _glyph_indices(n, width, phase; endpoints=false, uncertain_indices=Int[],
         errorbar_sampling=:staggered)
     slot, count = phase
@@ -150,9 +150,9 @@ end
 # A deterministic farthest-point palette in perceptual space. Candidate RGB
 # colors are in gamut and avoid very light strokes on the white axis background.
 # The prefix is stable: requesting more colors never changes existing identities.
-# Oklab display criteria: L in [0.38,0.72], chroma >= 0.10, distance
-# from white >= 0.30 and from black >= 0.40. These are finite-palette
-# engineering choices, not a guarantee for arbitrarily many simultaneous curves.
+# Oklab display criteria: lightness in [0.38,0.72], chroma >= 0.10, distance
+# from white >= 0.30 and from black >= 0.40. These choices apply to a finite palette
+# without guaranteeing distinguishability for arbitrarily many simultaneous curves.
 _color_distance(a,b) = (a.l-b.l)^2 + (a.a-b.a)^2 + (a.b-b.b)^2
 function _curve_color_allowed(color)
     lab=convert(Oklab,color)

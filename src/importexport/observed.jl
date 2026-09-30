@@ -1,5 +1,5 @@
-# Each archive owns one uncertainty-source table spanning all points and the
-# reference. No process-global source registry or behavior-generation tag exists.
+# Each archive defines one uncertainty-source table spanning all points and the
+# reference. The archive is independent of process-global source registries and behavior-generation tags.
 _observed_encoding() = (indices=Dict{Any,Int}(),sources=Any[])
 """
 $(TYPEDSIGNATURES)
@@ -120,7 +120,7 @@ end
 $(TYPEDSIGNATURES)
 
 Save current observed data as JSON or a native Julia archive. One shared source table
-preserves shared uncertainties across quantities, points, and a report reference;
+preserves shared uncertainties across quantities, points, and a report reference.
 BigFloat values retain their precision. Report tables and figures are rebuilt
 from these observations after loading.
 """

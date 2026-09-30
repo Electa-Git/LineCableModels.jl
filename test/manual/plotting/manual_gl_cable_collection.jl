@@ -7,7 +7,7 @@ const CABLE_COLLECTION_GALLERY_SMOKE_ONLY = lowercase(
     get(ENV, "LINECABLEMODELS_GL_GALLERY_SMOKE", "false")
 ) == "true"
 
-# Current construction inputs; no serialized historical model is loaded.
+# Current construction inputs. No serialized historical model is loaded.
 include(joinpath(@__DIR__,"../../../test/support/scenarios.jl"))
 designs=[CurrentScenarios.coaxial_design(;scale=1+index/10,name="Cable $index") for index in 1:5]
 display_plot = !CABLE_COLLECTION_GALLERY_SMOKE_ONLY
@@ -23,7 +23,7 @@ automatic = preview(
 )
 
 # Passing `(rows, columns)` exercises the caller-owned layout choice. The same
-# preview data is used; only the native grid differs.
+# preview data is used. Only the native grid differs.
 explicit = preview(
     designs[1:4];
     layout = (1, 4),

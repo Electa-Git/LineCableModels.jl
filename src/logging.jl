@@ -3,7 +3,7 @@ $(TYPEDSIGNATURES)
 
 Validate verbosity levels, or select a level from execution options. Levels
 0, 1, and 2 permit warnings, information, and debug messages respectively.
-The `progress` group uses its explicit level or `default`; other messages use
+The `progress` group uses its explicit level or `default`. Other messages use
 the nearest explicitly configured module ancestor before falling back to `default`.
 """
 function verbosity(levels::NamedTuple)
@@ -34,7 +34,7 @@ $(TYPEDEF)
 
 Filter ordinary Julia log records by execution verbosity and forward accepted
 records to the caller's logger. The parent logger retains its filtering and
-exception handling. This filter owns no progress counters or output resources.
+exception handling. Progress counters and output resources remain outside this filter.
 
 $(TYPEDFIELDS)
 """

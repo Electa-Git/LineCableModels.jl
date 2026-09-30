@@ -2,7 +2,7 @@
 
 Modal decomposition acts on the assembled phase-domain impedance and
 admittance matrices. Frequency-dependent methods track eigenpairs across
-the frequency sweep, including their ordering and normalization; a fixed
+the frequency sweep, including their ordering and normalization. A fixed
 symmetrical-component transform is a separate choice whose decoupling
 depends on the symmetry of the line.
 

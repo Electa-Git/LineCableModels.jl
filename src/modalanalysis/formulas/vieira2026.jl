@@ -2,7 +2,7 @@
 $(TYPEDSIGNATURES)
 
 Track current eigenpairs with Vieira's complex implementation of the
-Chrysochos–Papadopoulos–Papagiannis Levenberg–Marquardt method:
+Chrysochos-Papadopoulos-Papagiannis Levenberg–Marquardt method:
 
 ```math
 S = \\frac{YZ}{-(2\\pi f)^2\\mu_0\\epsilon_0}-I,\\qquad
@@ -14,8 +14,8 @@ Here `Z` and `Y` are per-length matrices in \\[Ω/m\\] and \\[S/m\\], and `f`
 is frequency in \\[Hz\\]. Complex SVD least-squares steps minimize the Euclidean
 residual norm. A two-sample predictor, greedy eigenvalue matching and clustered
 eigenvector refinement track the supplied samples. Failed tracking uses a
-correlation-matched eigensolution at the same frequency; no samples are inserted.
-Internal vectors use the bilinear constraint; returned `Ti` and paired `Tv`
+correlation-matched eigensolution at the same frequency. No samples are inserted.
+Internal vectors use the bilinear constraint. Returned `Ti` and paired `Tv`
 columns have unit Euclidean norm and map modal quantities to phase quantities.
 
 `iteration` controls `convergence=1e-13` and `max_iterations=100`. `tracking`
@@ -111,7 +111,7 @@ function initialize_buffers(
                 converged = Vector{Union{Nothing, Bool}}(undef, n))))
 end
 
-# Truncated SVD minimum-norm solve; matrix is disposable factorization storage.
+# Truncated SVD minimum-norm solve. Matrix is disposable factorization storage.
 function minimum_norm!(solution, matrix::AbstractMatrix{T}, rhs, projection) where {T <:
                                                                                     Complex}
     factor = svd!(matrix)

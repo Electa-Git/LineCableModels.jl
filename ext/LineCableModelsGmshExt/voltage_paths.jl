@@ -65,8 +65,8 @@ function _write_voltage_paths(path, mesh, plan, model; endpoints=nothing, shell_
     scratch_model = "LineCableModels-voltage-$(basename(tempname()))"
     gmsh.model.add(scratch_model)
     try
-        # Merge into a uniquely named empty model: gmsh.open names its model
-        # after the mesh file and can collide with a caller-owned model.
+        # Merge into a uniquely named empty model. `gmsh.open` uses the mesh
+        # filename as the model name, which can collide with a caller-owned model.
         gmsh.merge(mesh)
         tags, coords, _ = gmsh.model.mesh.get_nodes()
         nodes = Dict(tag => (coords[3i-2], coords[3i-1]) for (i, tag) in enumerate(tags))
@@ -103,7 +103,7 @@ function _write_voltage_paths(path, mesh, plan, model; endpoints=nothing, shell_
                 for t in range(0, 1; length=shell_segments+1)]
             push!(vertices, (x, y))
             # The electric model extends v constantly and bt=0 inside each
-            # equipotential metal. Vertical paths can therefore cross shields
+            # equipotential metal. Vertical paths can cross shields
             # or other terminals without introducing a transverse voltage there.
             points = _voltage_path_points(triangles, vertices; active)
             push!(starts, length(allpoints))

@@ -44,7 +44,7 @@ end
 Engine.validate_modal_operators(maps::ModalOperators) = size(maps.Tv)
 
 """
-Return the modal operators carried by modal-domain line parameters.
+Return the modal operators stored in modal-domain line parameters.
 """
 function operators(parameters::LineParameters{T, U, D}) where {T, U, D <: ModalDomain}
     parameters.domain.operators

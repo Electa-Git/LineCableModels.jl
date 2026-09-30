@@ -8,7 +8,7 @@ end
     UseImportExportSupport, TestNumerics,
     TestFixtures, CableSystemFixture, deps_export_atp] begin
 
-    # 1. ARRANGE & ACT: Run the export in a temporary directory
+    # 1. ARRANGE & ACT: run the export in a temporary directory
     mktempdir() do tmpdir
         output_file=joinpath(tmpdir, "atp_export_test.xml")
         result_path=export_data(:atp, cable_system, earth_props, file_name = output_file)
@@ -17,11 +17,11 @@ end
             "$(cable_system.system_id)_$(basename(output_file))"
         )
 
-        # 2. ASSERT: Basic file checks (exporter prefixes basename with system_id)
+        # 2. ASSERT: basic file checks (exporter prefixes basename with system_id)
         @test result_path == expected_file
         @test isfile(expected_file)
 
-        # 3. ASSERT: General XML structure and LCC data
+        # 3. ASSERT: general XML structure and LCC data
         doc=readxml(expected_file)
         root_node=root(doc)
 
@@ -44,7 +44,7 @@ end
             findfirst("data[@Name='Grnd resis']", comp_content_node)["Value"]
         ) ≈ problem_atp.earth_props.layers[end].rho
 
-        # 4. ASSERT: Detailed validation of ALL cables and conductors
+        # 4. ASSERT: detailed validation of ALL cables and conductors
         lcc_node=findfirst("/project/objects/comp/LCC", root_node)
         cable_header=findfirst("cable_header", lcc_node)
         cable_nodes=findall("cable", cable_header)
@@ -103,7 +103,7 @@ end
     TestFixtures, deps_export_atp] begin
     source=TestFixtures.two_conductor_results()
     z,y=copy(Z(source)),copy(Y(source))
-    # Distinct self/mutual entries and both signs expose ordering and parsing errors.
+    # Distinct self and mutual entries and both signs expose ordering and parsing errors.
     z[1,2,:].*=-1
     y[2,1,:].*=-1
     parameters=LineParameters(z,y,frequencies(source))

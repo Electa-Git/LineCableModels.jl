@@ -150,19 +150,19 @@ report(line_parameters; values=@observe(R[1, 1, 1:12]))
 ```
 
 Omitted `values`, `nothing`, and `()` select the source owner's defaults or all
-retained products. Complete line results default to R/X and G/B; selecting
-R/L/G/C requests those four quantities instead. A single selector such as `R`
+retained products. Complete line results default to R/X and G/B. Selecting
+R/L/G/C requests those four quantities instead. One selector such as `R`
 produces only that quantity's table. Positional and keyword selections cannot
-be supplied together. Reporting uses `values`; plotting uses `ydata`.
+be supplied together. Reporting uses `values`. Plotting uses `ydata`.
 
 `units`, `length_unit`, `quantity_units`, and `frequency_unit` express display
 units through the observation owner. `freq_unit` is an alternative spelling of
-`frequency_unit`; supplying both is an error. Retained observations preserve
+`frequency_unit`. Supplying both is an error. Retained observations preserve
 recorded units when these options are omitted. Raw-only `clip`, `atol`, and
 `frequencies` cannot be supplied for retained inputs.
 
 A separate atomic `reference` is retained without computing comparisons.
-`illustration=true` or a callable explicitly requests a plot; its options belong
+`illustration=true` or a callable explicitly requests a plot. Its options belong
 in `plot_options`, and its `ydata` selection must agree with the report's `values`.
 The illustration receives the retained observations. Default reporting returns
 in-memory tables without loading a plotting backend or writing files.
@@ -171,13 +171,13 @@ Explicit snapshots are useful for saving detached scientific products. Report
 definitions remain useful for specialized operations: `BenchmarkTableDefinition`
 organizes comparisons, and `XLSXReportDefinition` requests file output.
 `TableReportDefinition` selects retained products within the definition-based
-extension workflow; ordinary quantity tables need only `report(source)`.
+extension workflow. Ordinary quantity tables need only `report(source)`.
 
 ### Display and quantity-table access
 
 Ordinary quantity reports display their completed tables, with recorded units
 and owner-provided gridpoint descriptions. Plain and HTML output provide bounded
-previews; an IO context with `:limit => false` shows all reported rows, columns,
+previews. An IO context with `:limit => false` shows all reported rows, columns,
 and gridpoints. Compact display remains a single-line summary.
 
 `artifact[R]` returns the stored resistance DataFrame for an atomic report, or a
@@ -185,7 +185,7 @@ vector in reported-result order for a collection. `artifact[i, R]` returns the
 table for result position `i`. Complete transformation and statistical requests
 retain their own identities. Lookup preserves the selection made by `values`,
 and requires an exact match for indexed requests.
-Returned tables are shared with the report; use `copy` for independent edits.
+Returned tables are shared with the report. Use `copy` for independent edits.
 The `.tables` field remains available for inspection of the underlying grouped
 tables and specialized summaries.
 

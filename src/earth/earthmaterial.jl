@@ -12,7 +12,7 @@ $(TYPEDFIELDS)
 struct EarthMaterial{T <: Real} <: AbstractEarthMaterial
     "Electrical resistivity \\[Ω·m\\]."
     rho::T
-    "Relative permittivity \\[dimensionless\\]; may be negative for an artificial EquivalentHomogeneous."
+    "Relative permittivity \\[dimensionless\\]. May be negative for an artificial EquivalentHomogeneous."
     eps_r::T
     "Relative permeability \\[dimensionless\\]."
     mu_r::T
@@ -54,10 +54,10 @@ electromagnetic properties.
 
 # Arguments
 
-- `rho`: Electrical resistivity \\[Ω·m\\].
-- `eps_r`: Relative permittivity \\[dimensionless\\]. Artificial equivalent
+- `rho`: electrical resistivity \\[Ω·m\\].
+- `eps_r`: relative permittivity \\[dimensionless\\]. Artificial equivalent
   earth models may produce a negative value.
-- `mu_r`: Relative permeability \\[dimensionless\\].
+- `mu_r`: relative permeability \\[dimensionless\\].
 """
 @inline function EarthMaterial(rho::Real, eps_r::Real, mu_r::Real)
     values = promote(float(rho), float(eps_r), float(mu_r))

@@ -76,7 +76,7 @@ function special_besselkx(order::Integer, value::Complex{BigFloat})
         "complex BigFloat K requires a nonzero argument on the outgoing right half-plane"))
     # DLMF 10.32.8, w=z(t−1), rotate the w contour to the positive real
     # axis, then w=u². This remains exponentially decaying in the lossless
-    # imaginary-argument limit; exp(-z*cosh(t)) does not.
+    # imaginary-argument limit. Exp(-z*cosh(t)) does not.
     exponent=BigFloat(order)-BigFloat(1)/2
     f=u->exp(-u*u)*u^(2order)*(1+u*u/(2value))^exponent
     feature=min(sqrt(abs(value)), BigFloat(1)/2)

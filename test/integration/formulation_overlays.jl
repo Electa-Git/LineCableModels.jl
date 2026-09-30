@@ -127,7 +127,7 @@ end
         @test size(feature.relative,1)==(feature.quantity in (:Z,:R,:L,:X) ? 5 : 3)
     end
     @test length(artifact.tables.quantities)==5
-    # Full composite descriptions remain captured; a standalone legend uses
+    # Full composite descriptions remain captured. A standalone legend uses
     # the compact owner summary rather than dumping all constant branches.
     physical=Formulation(internal_impedance=(inner=:default,outer=:default,transfer=:default),
         earth_impedance=(air=:default,earth=:pollaczek1926,mixed=:default),

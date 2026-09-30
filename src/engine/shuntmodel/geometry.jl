@@ -7,7 +7,7 @@ const ShuntLayer{T} = NamedTuple{(:ri, :ro, :material), Tuple{T, T, Material{T}}
 $(TYPEDEF)
 
 Describe an open-conductor domain inside a circular layered shield. The first
-terminal is the equivalent inner conductor; the last is the closed reference
+terminal is the equivalent inner conductor. The last is the closed reference
 shield. Intermediate terminals retain their exposed circular wires and tapes.
 Coordinates and radii are in \\[m\\]. Materials are not homogenized.
 
@@ -43,8 +43,8 @@ function _shunt_concentric(shape, x, y, scale)
     _shunt_same(shape.at.x, x, scale) && _shunt_same(shape.at.y, y, scale)
 end
 
-# Preserve ordering and dependency information. Nominal values decide ordering;
-# coincident interfaces/centers must also have matching uncertain dependencies.
+# Preserve ordering and dependency information. Nominal values decide ordering.
+# Coincident interfaces and centers must also have matching uncertain dependencies.
 function _shunt_layers(regions, inner, outer, x, y, ::Type{T}) where {T}
     layers = ShuntLayer{T}[]
     _shunt_same(inner, outer, outer) && return layers
@@ -159,7 +159,7 @@ function _shunt_host_domain(
         end
     end
     # The whole-face element admits exposed faces only. Overlapping/touching
-    # faces require an exposed-union adapter; never impose buried boundaries.
+    # faces require an exposed-union adapter. Never impose buried geometric boundaries.
     for i in eachindex(wires), j in 1:(i - 1)
 
         l, r = wires[i], wires[j]

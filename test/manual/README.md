@@ -18,7 +18,7 @@ that `plotting/` has an explicit environment for its optional backends.
 | `pscad/` | A manual PSCAD station run and its private local configuration. |
 | `verification/` | Manually invoked packaging checks. |
 
-The filename states the runnable experiment. In particular:
+The filename states the runnable experiment.
 
 Run `calculations/modal_analysis.jl` with the existing
 `test/manual/plotting` project when the active REPL project does not already
@@ -36,8 +36,8 @@ provide GLMakie.
 | `fem/run_18kv_trefoil_fem.jl` | Run the current 18 kV datasheet case through quasi-TEM FEM. |
 | `fem/run_quasi_full.jl` | Exercise the disposable quasi-full GetDP formulation directly. |
 | `fem/run_three_bare_wires_baseline.jl` | Capture analytical/FEM baseline data for human comparison. |
-| `prototypes/prototype_wire_screen.jl` | Investigate the disposable wire-screen boundary model. |
-| `plotting/surprised_pikachu_cable.jl` | Exercise arbitrary-polygon preview geometry. |
+| `prototypes/prototype_wire_screen.jl` | Investigate the disposable wire-screen geometric boundary model. |
+| `plotting/surprised_pikachu_cable.jl` | Preview geometry with arbitrary polygons. |
 | `pscad/run_pscad.jl` | Run a two-wire problem on the configured PSCAD station. |
 | `verification/verify_getdp_artifact.jl` | Download and verify the packaged GetDP archives. |
 
@@ -50,10 +50,10 @@ write reports or images default outside the checkout, under
 `joinpath(tempdir(), "linecablemodels-manual", ...)`. Set
 `LINECABLEMODELS_MANUAL_OUTPUT` to an absolute directory when the output should
 survive temporary-directory cleanup. Backend-specific plotting variables remain
-available as overrides and must likewise point outside the checkout.
+available as overrides and must point outside the checkout.
 
 FEM and PSCAD engines may retain their own ignored runtime directories according
-to their explicit execution configuration; those directories are runtime state,
+to their explicit execution configuration. Those directories are runtime state,
 not manual-test fixtures.
 
 For PSCAD, edit the ignored `pscad/local-pscad.toml`, then run

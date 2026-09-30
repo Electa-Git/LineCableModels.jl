@@ -98,7 +98,7 @@
                 relative_error)))
     end
     # A physically nonzero LEP uncertainty remains visible and compared even
-    # when its corresponding mean is zero; the two are separate requests.
+    # when its corresponding mean is zero. Both are separate requests.
     uncertain_core=LineParameters(
         complex.(measurement.(zeros(2, 2, 6), fill(1e-4, 2, 2, 6))),
         zeros(ComplexF64, 2, 2, 6), f)

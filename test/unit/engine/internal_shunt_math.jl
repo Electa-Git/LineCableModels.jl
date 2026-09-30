@@ -118,7 +118,7 @@
                      E.ShuntModel._shunt_kernel(3.0+0im, 3cis(2e-7), h, k)
         @test difference ≈ (2/5)*log(2) rtol=1e-5
         # The charge measure contains no extra face-length Jacobian. Scaling all
-        # radii and target/source positions leaves the potential columns unchanged.
+        # radii and target-source positions leaves the potential columns unchanged.
         targets = [1.4cis(0.1), 2.5cis(0.3)]
         original = E.ShuntModel._shunt_tape_columns(targets, [face], h, k).columns
         scaled_h = merge(h, (a = 10h.a, b = 10h.b,

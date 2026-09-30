@@ -60,7 +60,7 @@ table {
     overflow-x: auto;
     /* Use auto instead of scroll */
     max-width: 100%;
-    /* Ensure content doesn't exceed container */
+    /* Ensure content does not exceed its container */
 }
 
 /* Modern scrollbar styling using standard CSS */

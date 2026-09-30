@@ -4,11 +4,9 @@ $(TYPEDEF)
 Own the numerical input and reusable storage for one coaxial line-parameter
 calculation.
 
-The constructor adapts a completed physical system once, validates the aligned
-numerical representation, constructs cable and reduction indices, and
-allocates every matrix used by the frequency loop. Each `compute` call owns an
-independent workspace. Constant fields fix
-its input and buffer bindings; reference identity avoids copying this large
+The constructor adapts a completed physical system once and validates the aligned numerical representation. It constructs cable and reduction indices, and
+allocates every matrix used by the frequency loop. Each `compute` call uses an independent workspace. Constant fields fix
+its input and buffer bindings. Reference identity avoids copying this large
 record when dispatching heterogeneous equation groups.
 
 Bound earth calculations and their material arrays are stored as tuples.
@@ -138,8 +136,8 @@ terminal indices, and frequency coordinates once.
 
 # Arguments
 
-- `problem`: Completed line-parameter problem.
-- `blueprints`: One frequency-independent blueprint per selected design.
+- `problem`: completed line-parameter problem.
+- `blueprints`: one frequency-independent blueprint per selected design.
 
 # Returns
 
@@ -333,7 +331,7 @@ function LineParametersWorkspace{T}(
         radius = _outer_radii(input.cable_map, cable.r_ext, cable.r_ins_ext),
         layers = invariants.geometry.layers)
     # Resolve shared physical outputs once. These temporary lists are not used
-    # by the frequency loop; each completed calculation has its concrete type.
+    # by the frequency loop. Each completed calculation has its concrete type.
     calculations = NamedTuple[]
     remaining_potential = copy(bindings.earth_admittance.cases)
     for impedance in bindings.earth_impedance.cases
@@ -448,7 +446,7 @@ function LineParametersWorkspace{T}(
     buffers = merge(buffers,
         NamedTuple{(:earth_materials,), Tuple{Tuple}}((earth_materials,)))
     # Allocation consumes the same active selections as indexed execution.
-    # Unused declarations impose no storage requirement.
+    # Unused declarations do not impose a storage requirement.
     external = map(bindings) do bound
         bound.selection isa NamedTuple ? Tuple(call.selection for call in bound.cases) :
         bound.selection
@@ -590,15 +588,15 @@ end
 $(TYPEDSIGNATURES)
 
 Construct every ordered external interaction from resolved conductor geometry.
-Source columns and target rows retain physical earth-layer indices; air is 1.
+Source columns and target rows retain physical earth-layer indices. Air is 1.
 
 `cables` contains representative conductor indices. `horizontal`, `vertical`,
-and `separation` are aligned coordinates/distances in meters. Diagonal
+and `separation` are aligned coordinates and distances in meters. Diagonal
 separations supply the external self radius. Layer assignment uses `earth`'s
-physical interfaces and rejects conductors on the air/earth interface.
+physical interfaces and rejects conductors on the interface between air and earth.
 
-Return ordered geometry payloads for indexed formula dispatch. No formula
-selection or equivalent-earth reduction is performed here.
+Return ordered geometry payloads for indexed formula dispatch. Formula
+selection and equivalent-earth reduction occur separately.
 """
 function earth_pairs(
         cables::AbstractVector{Int},

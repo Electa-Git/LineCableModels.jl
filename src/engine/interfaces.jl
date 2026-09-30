@@ -65,7 +65,7 @@ $(TYPEDSIGNATURES)
 Bind selected earth equations to their required material interactions and output
 entries. Coupled equations may require the complete physical system, even when
 only a subset of its output entries is selected. Joint methods determine whether
-impedance and potential selections can use one calculation; `nothing` requires
+impedance and potential selections can use one calculation. `nothing` requires
 separate calculations. Engine records each calculation once with explicit
 impedance and potential output indices. Its material evaluation and indexed
 equation traversal execute once per frequency.
@@ -73,7 +73,7 @@ equation traversal execute once per frequency.
 After scalar promotion and geometry construction, `earth_bindings(selection,
 binding, geometry)` declares the invariant arithmetic inputs used for exact reuse.
 All selections execute their bound indexed equations through the same traversal.
-The default includes destination indices; an equation may omit those only when
+The default includes destination indices. An equation may omit those only when
 they do not participate in its arithmetic.
 """
 function earth_bindings end
@@ -81,7 +81,7 @@ function earth_bindings end
 """
 Resolve a placed conductor's earth-layer index from the problem and coordinates
 [m], or read `(source, target)` indices from an initialized `EarthPair`. Air is
-layer 1; subsequent indices retain the physical earth model's layer order.
+layer 1. Subsequent indices retain the physical earth model's layer order.
 """
 function layer_index end
 
@@ -98,10 +98,9 @@ $(TYPEDSIGNATURES)
 
 Allocate a selected formula's reusable arrays during computation initialization.
 The arguments are the resolved selection, scalar type, completed numerical input,
-fixed index/geometry invariants, and existing buffer record. Return the extended
+fixed index and geometry invariants, and existing buffer record. Return the extended
 record without replacing another owner's storage. Array blocks contain no copied
-geometry, material model, selection or validity state. The default requires no
-additional storage. No material law or integrand is evaluated here.
+geometry, material model, selection or validity state. The default uses the existing storage. No material law or integrand is evaluated here.
 """
 function initialize_buffers end
 
@@ -114,10 +113,10 @@ function internal_shunt_response end
 $(TYPEDSIGNATURES)
 
 Calculate both selected earth contributions for a frequency from completed
-material inputs. Ordinary methods evaluate indexed equations; a coupled formula
+material inputs. Ordinary methods evaluate indexed equations. A coupled formula
 may fill both destinations in one calculation. Matrix rows are receivers and
 columns are sources. Impedance
-contributions are \\[Ω/m\\]; potential-coefficient contributions are \\[m/F\\].
+contributions are \\[Ω/m\\]. Potential-coefficient contributions are \\[m/F\\].
 """
 function earth! end
 function homogenize! end
@@ -126,8 +125,8 @@ function homogenize! end
 $(TYPEDSIGNATURES)
 
 Evaluate the material quantities required by a coaxial calculation into its
-allocated buffers. Material-law methods receive the original material values;
-field equations consume these completed quantities without reevaluating them.
+allocated buffers. Material-law methods receive the original material values.
+Field equations consume these completed quantities without reevaluating them.
 """
 function materials! end
 
@@ -154,13 +153,13 @@ struct EarthPair{T <: Real}
     row::Int
     "Destination column."
     column::Int
-    "Source and target heights, in that order, relative to the air-earth interface \\[m\\]."
+    "Source and target heights relative to the air-earth interface, in that order \\[m\\]."
     heights::Tuple{T, T}
     "Horizontal distance between conductor centers \\[m\\]."
     separation::T
     "Physical layer indices of the source and target conductors."
     layers::Tuple{Int, Int}
-    "Conductor outer radius for a self interaction [m]; nothing for a mutual. "
+    "Conductor outer radius for a self interaction [m]. Nothing for a mutual. "
     radius::Union{Nothing, T}
 end
 
@@ -176,8 +175,9 @@ Check the resolved geometry of an earth-return interaction.
 
 # Arguments
 
-- `pair`: Matrix indices, signed heights, horizontal separation, explicit self radius,
-  and physical layer indices. Lengths are in \\[m\\]; layer 1 is air.
+- `pair`: matrix indices and physical layer indices, with signed heights and
+  horizontal separation. An explicit self radius completes the geometry.
+  Lengths are in \\[m\\]. Layer 1 is air.
 
 # Returns
 
@@ -229,8 +229,8 @@ Check conductor depths against their resolved horizontal earth layers.
 
 # Arguments
 
-- `pair`: Resolved earth-return geometry.
-- `thickness`: Layer thicknesses \\[m\\], including semi-infinite air first.
+- `pair`: resolved earth-return geometry.
+- `thickness`: layer thicknesses \\[m\\], including semi-infinite air first.
 
 # Returns
 
@@ -267,9 +267,9 @@ struct PhaseDomain <: LineParamsDomain end
 Store the coordinate system of a calculated modal transformation.
 
 The operator tensor type parameterizes the domain because inverse transforms
-consume it numerically. The owning transform module may use one formula-family
+consume it numerically. The defining transform module may use one formula-family
 parameter to record the selected formula, so different concrete formula identities can
-share one concrete result-space element type.
+share one concrete element type for the result space.
 """
 struct ModalDomain{O, G} <: LineParamsDomain
     "Frequency-dependent modal-to-phase voltage and current bases."

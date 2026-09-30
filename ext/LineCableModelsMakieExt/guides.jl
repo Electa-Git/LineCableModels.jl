@@ -1,5 +1,5 @@
 # One current placement for each native guide. Construction and mutations enter
-# the same composition operation; detached guides retain their native edits.
+# the same composition operation. Detached guides retain their native edits.
 function _guide_position(position;legend=false,main=false)
     position===nothing && return nothing
     legend && position===:inside && return position
@@ -52,8 +52,8 @@ function _colorbar_group_attributes(attributes,count=nothing)
     return attributes
 end
 
-# Ordered one-dimensional packing. Explicit spacer tracks carry each adjacency
-# once; native gaps on those tracks remain zero. The caller handles overflow.
+# Ordered one-dimensional packing. Explicit spacer tracks include each adjacency
+# once. Native gaps on those tracks remain zero. The caller handles overflow.
 function _pack_guides(extents,span,gap,fractions;desired=nothing)
     isempty(extents) && return (;starts=Float64[],extent=0.0,span=Float64(span))
     suffix=reverse(cumsum(reverse(extents)))
@@ -231,7 +231,7 @@ function _compose_guides!(p)
             body===nothing || any(existing -> existing===body,bodies) || push!(bodies,body)
         end
         for body in bodies
-            # Keep the reserved 3×3 content scaffold; remove abandoned extension tracks.
+            # Keep the reserved 3×3 content scaffold. Remove abandoned extension tracks.
             for row in size(body)[1]:-1:4
                 GridLayoutBase.deleterow!(body,row)
             end
@@ -277,7 +277,7 @@ function _compose_guides!(p)
             slot,orientation=_legend_slot(body,position)
             rows,columns=orientation===:vertical ? (2length(guides)+1,1) : (1,2length(guides)+1)
             # Both complete extents participate in content fitting. Flexible
-            # construction/resize tracks still resolve the reference allocation.
+            # construction and resize tracks still resolve the reference allocation.
             dock=GridLayout(rows,columns;tellwidth=true,tellheight=true)
             slot[]=dock
             push!(state.guide_docks,dock)
@@ -307,7 +307,7 @@ function _compose_guides!(p)
                 _alignment(to_value(getproperty(object,dimension==1 ? :halign : :valign)),dimension)
             end
             # Fixed native tracks retain complete guide extents. Equal anchors
-            # form one compact stack; different anchors pack in declaration order.
+            # form one compact stack. Different anchors pack in declaration order.
             fractions=dimension==1 ? anchors : 1 .- anchors
             gap=dimension==1 ? state.guide_spacing[].colgap : state.guide_spacing[].rowgap
             desired=if any(guide -> guide.scope!==nothing && state.panel_data[guide.scope].axis.scene.viewport[]!=bounds,guides)
@@ -518,7 +518,7 @@ function _reflow_colorbars!(p,guide)
             rowgap!(item.layout,0);colgap!(item.layout,8)
             colsize!(item.layout,1,Auto())
             # Outside grids consume raw child protrusions. Include only the extra
-            # measured border/text offset; folding all text into the bar's inner
+            # measured border and text offset. Folding all text into the bar's inner
             # size would count native perpendicular decorations twice here.
             raw=bar.layoutobservables.protrusions[]
             complete=bar.layoutobservables.reporteddimensions[].outer
@@ -530,7 +530,7 @@ function _reflow_colorbars!(p,guide)
         item.layout.layoutobservables.suggestedbbox[]=item.layout.layoutobservables.suggestedbbox[]
     end
     # Label and endpoint tracks are shared down each group column. Keep the
-    # native bar dimensions; only their surrounding decoration space expands.
+    # native bar dimensions. Only their surrounding decoration space expands.
     for column in 1:min(columns,length(active))
         members=active[column:columns:end]
         compact=filter(item -> item.companion.blockscene.visible[],members)
@@ -546,8 +546,8 @@ function _reflow_colorbars!(p,guide)
         end
     end
     # Complete item boxes are for collision clearance, not alignment anchors.
-    # Reserve the same measured insets about each bar in a column/row. This
-    # keeps equal bar edges/baselines aligned despite unequal native decoration.
+    # Reserve the same measured insets about each bar in a column or row. This
+    # keeps equal bar edges and baselines aligned despite unequal native decoration.
     insets=map(active) do item
         frame=item.bar.layoutobservables.computedbbox[]
         outer=item.layout.layoutobservables.computedbbox[]

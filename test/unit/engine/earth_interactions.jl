@@ -3,7 +3,7 @@
     using Measurements
     const E=LineCableModels.Engine
     const F=EarthInteractionFixtures
-    # Equal plain floating-point infinities need no subtraction (Inf-Inf is NaN).
+    # Equal plain floating-point infinities do not need subtraction (Inf-Inf is NaN).
     @test E.same_physical_state(BigFloat(Inf), BigFloat(Inf))
     @test !E.same_physical_state(BigFloat(Inf), BigFloat(-Inf))
     problem=TestFixtures.three_bare_wires_problem(

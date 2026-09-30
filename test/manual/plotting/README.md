@@ -20,7 +20,7 @@ julia --project=. test/manual/plotting/manual_gl.jl --backends-first
 
 Both runs begin with CairoMakie installed but unloaded: GL controls work and
 SVG controls are absent. They then explicitly import CairoMakie, export the old
-window through the API, and recreate a GL window with a working SVG button.
+window through the API and recreate a GL window with a working SVG button.
 Export preserves the live view and does not switch display backends.
 
 Run the complete interactive gallery under a real display:
@@ -46,17 +46,17 @@ julia --project=. test/manual/plotting/manual_gl_monte_carlo.jl
 ```
 
 It opens five native Makie views: histogram, density, empirical CDF, model CDF,
-and Q–Q. Its synthetic completed fixture needs no new Monte Carlo calculation.
+and Q-Q. Its synthetic completed fixture is sufficient without a new Monte Carlo calculation.
 
 Resize the gallery windows from their initial size to a tall window and back.
 Confirm that:
 
-- axes and canvas remain inside the window;
-- the legend stays in its selected native layout dock;
-- automatic `:show_all` legends wrap without omitting entries;
-- all three material colorbars stay inside the side dock;
-- the toolbar and status row retain their positions;
-- reset, log toggles, and visibility toggles remain functional;
+- axes and canvas remain inside the window.
+- the legend stays in its selected native layout dock.
+- automatic `:show_all` legends wrap without omitting entries.
+- all three material colorbars stay inside the side dock.
+- the toolbar and status row retain their positions.
+- reset, log toggles, and visibility toggles remain functional.
 - SVG export is available when CairoMakie was loaded before plot construction.
 
 For the comparison grid, run:
@@ -71,5 +71,5 @@ is hidden in every panel.
 
 Before the refactor, `blocks` paginated matrices and `layout` could pair
 quantities. Now `layout` is the only panel capacity and each quantity has its
-own figures. Result plots use `fig_size`; previews and `plotwindow` retain
+own figures. Result plots use `fig_size`. Previews and `plotwindow` retain
 `size`. The complete script and saved-run disposition is in [../README.md](../README.md).

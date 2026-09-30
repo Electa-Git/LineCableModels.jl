@@ -40,7 +40,7 @@
     @test result.diagnostic.boundary_residual < 0.06
     @test result.state === nothing
     @test result.diagnostic.matrix_bytes <= E.ShuntModel.INTERNAL_SHUNT_MATRIX_BYTES
-    # The explicit owner matrix budget is retained. The inherited warmed
+    # The explicit budget for the matrix is retained. The inherited warmed
     # allocation number had no current performance requirement and is retired.
     doubled = merge(g,
         (epsilon = 2g.epsilon,
@@ -86,7 +86,7 @@ end
 @testitem "Engine / internal shunt / nested shields and reduction" tags=[:unit] begin
     using LinearAlgebra
     E = LineCableModels.Engine
-    # Two local domains share a closed shield (terminal 3). The outer domain's
+    # 2 local domains share a closed shield (terminal 3). The outer domain's
     # inner-anchor charge includes all terminals enclosed by that shield.
     a = (Diagonal([2.0, 3.0])+[1.0, -1.0]*[1.0 -1.0]) .* 1e-9
     b = (Diagonal([5.0, 7.0])+2*[1.0, -1.0]*[1.0 -1.0]) .* 1e-9
@@ -100,7 +100,7 @@ end
     E._shunt_potential!(p, blocks)
     E._shunt_admittance!(y, blocks, s)
     @test y ≈ s*inv(p) rtol=1e-12
-    # Ordinary terminal bundling sums charges and imposes equal potentials.
+    # Bundling terminals sums their charges and imposes equal potentials.
     incidence = [1 0 0; 0 1 0; 0 1 0; 0 0 1; 0 0 1]
     bundled = transpose(incidence)*y*incidence
     @test bundled ≈ transpose(bundled)

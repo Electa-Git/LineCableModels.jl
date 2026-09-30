@@ -184,7 +184,7 @@ end
 function _axis_scale(symbol::Symbol, reference::Real = 1.0)
     symbol === :linear && return Base.identity
     symbol === :log10 && return Base.log10
-    # Keep the reference with the transform; ticks and controls use this same scale.
+    # Keep the reference with the transform. Ticks and controls use this same scale.
     symbol === :pseudolog10 && return Makie.ReversibleScale(
         _SignedLog10(reference);
         limits = (0.0f0, 3.0f0), name = :pseudolog10)
@@ -298,7 +298,7 @@ function _set_axis!(entries::AbstractVector, dim::Symbol, scale = nothing)
     dim in (:x, :y) || throw(ArgumentError("axis dimension must be :x or :y"))
     index = dim === :x ? 1 : 2
     # Resolve and validate the complete page before any native observable changes.
-    # These are native axis bindings, not another interpretation of result data.
+    # These bindings use the native axes without reinterpreting result data.
     targets = map(entries) do entry
         requested_scale = scale === nothing ? entry.scale : scale
         target = _axis_scale(requested_scale)
@@ -574,7 +574,7 @@ function LineCableModels.plotwindow(
         callback(shell.canvas)
         axes = Any[content for content in shell.figure.content if content isa Axis]
         # Only caller-supplied overrides apply to caller-constructed axes. Keep
-        # native defaults/conversions intact; scale changes use common preflight.
+        # native defaults and conversions intact. Scale changes use common preflight.
         for axis in axes, (key, value) in pairs(shell.axis_attributes)
 
             key in (:xscale, :yscale) || setproperty!(axis, key, value)
@@ -760,7 +760,7 @@ function _axis_format!(axis)
                 # Native layout can notify every peer axis without changing
                 # these inputs. Restarting density fitting then briefly installs
                 # denser ticks and recursively changes all peer protrusions.
-                # Explicit native overrides/automatic resets still run below.
+                # Explicit native overrides and automatic resets still run below.
                 owned_ticks && owned_format && !label_changed &&
                     current_ticks===installed_ticks[] &&
                     current_format===installed_format[] &&
@@ -806,7 +806,7 @@ function _axis_format!(axis)
                     probe.font[] = labelfont[]
                     probe.fontsize[] = labelsize[]
                     probe.rotation[] = rotation[]
-                    # Native locator/formatter notification is synchronous. Fit
+                    # Native locator and formatter notification is synchronous. Fit
                     # its rendered strings, reducing only automatic tick density.
                     for _ in 1:9
                         selected = if !numeric
@@ -905,8 +905,8 @@ function _axis_format!(axis)
         # Run before native tick conversion: a newly assigned labelled tuple
         # cannot be consumed with the previously installed numeric formatter.
         onany((_...) -> update!(), axis.scene, ticks, tickformat; priority = 1)
-        # Range/transform updates must instead follow native LineAxis propagation;
-        # changing its formatter while it still has the old limits is unsafe.
+        # Range/transform updates must instead follow native LineAxis propagation.
+        # Changing its formatter while it still has the old limits is unsafe.
         onany((_...) -> update!(), axis.scene, axis.finallimits, scale, label,
             axis.scene.viewport, labelsize, labelfont, rotation, conversion;
             priority = -3, update = true)
@@ -989,8 +989,8 @@ function _reset!(axis, series = ())
     end
     # Makie also refits before displaying a Figure. Preserve our degenerate-data
     # padding without storing automatic limits as user requests. Only the exact
-    # native auto-fit for the same scale/request is corrected; zooms are untouched.
-    # This callback uses two cached bounds, not a data scan on every view update.
+    # native auto-fit for the same scale and request is corrected. Zooms are untouched.
+    # This callback uses two cached bounds without scanning data on view updates.
     on(axis.scene, axis.targetlimits; priority = 1) do view
         requested = axis.limits[]
         requested = length(requested) == 4 ? (requested[1:2], requested[3:4]) : requested
@@ -1028,7 +1028,7 @@ function _reset!(axis, series = ())
                 any(plot -> plot isa Makie.Errorbars, item.plots),
         series)
         # A resize changes the drawn interval subset. Refresh the cached native
-        # auto-fit after glyph/layout updates, without replacing the user's view.
+        # auto-fit after glyph and layout updates, without replacing the user's view.
         # A subsequent native display fit then still restores complete bounds.
         on(_ -> reset!(; preserve_view = true), axis.scene, axis.scene.viewport; priority = -4)
     end
@@ -1066,7 +1066,7 @@ function _axis!(
         ),
         attributes, native_attributes)
     scales = (x = options.xscale, y = options.yscale)
-    # Draw on safe axes, then validate complete native extents in the common
+    # Render with safe axes, then validate complete native extents in the common
     # finish before applying requested transforms to any axis on the page.
     axis = Axis(position; merge(options, (xscale = identity, yscale = identity))...)
     return axis, scales
@@ -1097,7 +1097,7 @@ function _panel!(shell, position::Tuple{Int, Int})
         tellwidth = false,
         tellheight = false
     )
-    # Empty docks are layout-neutral; a legend's own padding supplies spacing
+    # Empty docks are layout-neutral. A legend's own padding supplies spacing
     # only after the caller activates one of these tracks.
     layout.default_rowgap = Fixed(0)
     layout.default_colgap = Fixed(0)
@@ -1194,11 +1194,11 @@ function _legend_sources!(legend, entries, groups, dependents)
             append!(targets, resolved)
         end
     end
-    # Targets are assigned before native listeners are constructed. Initialise
+    # Targets are assigned before native listeners are constructed. Initialize
     # shades after publication, including entries restored after truncation.
     visibilities = map(collect(keys(owners))) do plot
         # on returns an ObserverFunction with a documented `observable` field.
-        # Release the temporary subscription; native legend listeners own the
+        # Release the temporary subscription. Native legend listeners own the
         # updates. notify(plot.visible) is a no-op for Makie Computed inputs.
         subscription = on(identity, plot.visible)
         observable = subscription.observable
@@ -1268,8 +1268,8 @@ function _legend_fraction(value)
     return Float64(value)
 end
 
-# Measure labels before publishing entries. Native Legend owns the graphics,
-# glyphs, layout and visibility actions; this owner selects their visible prefix.
+# Measure labels before publishing entries. Native Legend controls the graphics,
+# glyphs, layout and visibility actions. This function selects the visible prefix.
 function _fit_legend!(legend, entries, ellipsis, bounds, position, max_fraction;
         automatic, fitting_geometry, bbox = nothing)
     for entry in Iterators.flatten((entries, (ellipsis,))),
@@ -1433,7 +1433,7 @@ function _fit_legend!(legend, entries, ellipsis, bounds, position, max_fraction;
                     attribute[]==bounded || (attribute[]=bounded)
                 end
             end
-            # Native font/layout measurements settle the final capacity. This
+            # Native font and layout measurements settle the final capacity. This
             # also accounts for native attributes outside the text measurement.
             while capacity[]>0 &&
                   any(d -> something(legend.layoutobservables.autosize[][d], 0.0)>limits[d], 1:2)
@@ -1458,7 +1458,7 @@ function _fit_legend!(legend, entries, ellipsis, bounds, position, max_fraction;
     on(legend.blockscene, legend.entrygroups) do _
         fitting[] || fit!(force = true)
     end
-    # Native labels must finish measuring before fitting; shared frame fitting
+    # Native labels must finish measuring before fitting. Shared frame fitting
     # follows at priority -100.
     onany(
         (_...) -> fit!(force = true), legend.blockscene, legend.labelsize, legend.labelfont,
@@ -1796,7 +1796,8 @@ function _colorbar!(position, scale; attributes)
             before=max(before, border)
             after=max(after, border)
             # Enclose the visible border as well as native perpendicular text.
-            # These are measured protrusions, not sibling-spacing margins.
+            # These measurements describe protrusions. Spacing between siblings
+            # is calculated separately.
             # Native LineAxis places text beyond a full spine width, while
             # its reported text protrusion omits that offset.
             side(name) = GridLayoutBase.Protrusion(max(
@@ -1942,8 +1943,8 @@ function _finish_plot!(
         dependent.visible[] = owner.visible[]
         previous = Ref(owner.visible[])
         on(shell.figure.scene, owner.visible) do visible
-            # Legend relayout re-emits the current state to initialise shading;
-            # it is not a series action and must preserve native component edits.
+            # Legend relayout re-emits the current state to initialize shading.
+            # It is not a series action and must preserve native component edits.
             visible == previous[] && return nothing
             previous[] = visible
             dependent.visible[] = visible

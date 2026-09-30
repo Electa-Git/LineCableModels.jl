@@ -25,11 +25,11 @@ Preserve the supplied static earth properties at the requested frequency.
 
 # Arguments
 
-- `material`: Static earth material.
-- `frequency`: Evaluation frequency \\[Hz\\].
-- `parameters`: Physical parameters of the selected relation.
-- `options`: Normalized numerical sections for this contribution.
-- `workspace`: Optional execution resources.
+- `material`: static earth material.
+- `frequency`: evaluation frequency \\[Hz\\].
+- `parameters`: physical parameters of the selected relation.
+- `options`: normalized numerical sections for this contribution.
+- `workspace`: optional execution resources.
 
 # Returns
 

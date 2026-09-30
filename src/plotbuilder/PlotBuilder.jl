@@ -2,7 +2,7 @@
     PlotBuilder
 
 Provide plotting functions and live figure handles for the Makie extension.
-Load a Makie backend to draw figures; returned handles expose the Makie objects
+Load a Makie backend to draw figures. Returned handles expose the Makie objects
 for further editing.
 """
 module PlotBuilder

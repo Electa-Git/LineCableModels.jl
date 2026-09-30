@@ -36,19 +36,19 @@ Estimate single-layer wire-screen patterns.
 
 # Arguments
 
-- `target_area`: Required metallic cross-section \\[mm²\\].
-- `lay_diameter`: Diameter beneath the wire layer \\[mm\\].
+- `target_area`: required metallic cross-section \\[mm²\\].
+- `lay_diameter`: diameter beneath the wire layer \\[mm\\].
 
 # Keywords
 
-- `lay_angle=15`: Wire lay angle \\[degrees\\], with positive sine.
-- `coverage_min=85`, `coverage_max=100`: Circumferential coverage bounds \\[%\\].
-- `gap_frac=0`: Additional wire clearance as a fraction of wire diameter.
-- `min_wires=6`: Minimum wire count.
-- `extra_span=8`: Additional wire counts examined above the required count.
-- `awg_min=-3`, `awg_max=40`: Inclusive AWG-number limits.
-- `max_area_overshoot=10`: Maximum excess metallic area relative to the target \\[%\\].
-- `wire_diameters=[]`: Additional wire diameters \\[mm\\].
+- `lay_angle=15`: wire lay angle \\[degrees\\], with positive sine.
+- `coverage_min=85`, `coverage_max=100`: circumferential coverage bounds \\[%\\].
+- `gap_frac=0`: additional wire clearance as a fraction of wire diameter.
+- `min_wires=6`: minimum wire count.
+- `extra_span=8`: additional wire counts examined above the required count.
+- `awg_min=-3`, `awg_max=40`: inclusive AWG-number limits.
+- `max_area_overshoot=10`: maximum excess metallic area relative to the target \\[%\\].
+- `wire_diameters=[]`: additional wire diameters \\[mm\\].
 
 # Returns
 

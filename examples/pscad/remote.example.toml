@@ -15,6 +15,6 @@ transport = "ssh"
 # remote_root must be separate scratch storage.
 
 # For a custom wrapper, replace transport above with "command" and supply:
-# command = ["ts", "ssh", "{host}", "--direct", "-o", "ServerAliveInterval=15", "-o", "ServerAliveCountMax=3", "--"]
-# Remove "--direct" to use that wrapper's Tailscale network route.
-# Ordinary SSH can instead use a user-configured SSH alias/tunnel.
+# `command = ["ts", "ssh", "{host}", "--direct", "-o", "ServerAliveInterval=15", "-o", "ServerAliveCountMax=3", "--"]`
+# Remove `--direct` to use that wrapper's Tailscale network route.
+# Ordinary SSH can instead use a user-configured SSH alias or tunnel.

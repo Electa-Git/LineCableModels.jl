@@ -3,8 +3,8 @@
 
 Compute frequency-dependent line parameters for a 525 kV cable with a
 1600 mm² copper conductor, a 3.3 mm lead sheath, and 68 galvanized steel armor
-wires of 5.827 mm diameter. The construction is based on [Karmokar2025](@cite);
-the dimensions used in this calculation are listed below.
+wires of 5.827 mm diameter. The construction is based on [Karmokar2025](@cite).
+The dimensions used in this calculation are listed below.
 
 The example covers cable construction, cable constants, an underground bipole,
 external-tool export, frequency-dependent parameters, and modal transformation.
@@ -32,8 +32,8 @@ steel wire armor for mechanical protection and tensile strength. A reference
 [manufacturer's datasheet](https://nkt.widen.net/content/pnwgwjfudf/pdf/Extruded_DC_525kV_DS_EN_DEHV_HV_DS_DE-EN.pdf).
 
 The reference construction is described with XLPE main insulation. This calculation uses
-the library material `:pe` for the main insulation and the PE inner sheath;
-the reference's XLPE designation describes a different material choice.
+the library material `:pe` for the main insulation and the PE inner sheath.
+The reference's XLPE designation describes a different material choice.
 =#
 
 #=
@@ -88,7 +88,7 @@ radial_increments = ( #hide
 ) #hide
 layer_diameters = d_core .+ 2 .* cumsum(radial_increments) #hide
 
-# Summarize the nominal radial dimensions in millimetres:
+# Summarize the nominal radial dimensions in millimeters:
 cable_dimensions = DataFrame(
     "layer" => collect(layer_names),
     "thickness [mm]" => [ismissing(t) ? missing : round(1000t, sigdigits = 2)
@@ -128,7 +128,7 @@ stranded_core = stranded(
 The inner semiconductor, main insulation, and outer semiconductor are specified
 by `t_sc_in`, `t_ins`, and `t_sc_out`. The material records are `semicon1`, `pe`,
 and `semicon2`, respectively. The source example lists nominal semiconductor
-resistivities of 1000 Ω·m and 500 Ω·m, with a reference to IEC 840; the calculation
+resistivities of 1000 Ω·m and 500 Ω·m, with a reference to IEC 840. The calculation
 uses the properties in the selected library records.
 
 Water-blocking tape follows the outer semiconductor. The complete declaration
@@ -159,7 +159,7 @@ datasheet_info = DatasheetInfo(
 ### Lead sheath, armor, and outer jacket
 
 The lead sheath is followed by the PE inner sheath and PP bedding. The armor
-contains 68 steel wires with `LayRatio(10)`; the PP jacket encloses the armor.
+contains 68 steel wires with `LayRatio(10)`. The PP jacket encloses the armor.
 The thickness-based layers take their inner boundary from the preceding region.
 
 The core, lead sheath, and armor are separate terminals. Their connections are
@@ -212,7 +212,7 @@ Calculate the cable constants and select R/L and G/C with `values`.
 
 The report displays four separate quantity tables.
 Each cable-constant table contains the operating frequency and named assembly
-columns; quantities with different units are not combined into one table.
+columns. Quantities with different units are not combined into one table.
 =#
 
 constants = CableConstants(cable_design);
@@ -266,7 +266,7 @@ earth = homogeneous(rho = 100.0, eps_r = 10.0, mu_r = 1.0);
 ### Underground bipole configuration
 
 Place the pole cables at horizontal positions −0.5 m and 0.5 m, both at depth
-1 m. The core connections are numbered 1 and 2; the sheath and armor connections
+1 m. The core connections are numbered 1 and 2. The sheath and armor connections
 are assigned 0. The system length is 1000 m.
 =#
 
@@ -300,7 +300,7 @@ earth_params
 ### Cable system preview
 
 Inspect the completed bipole and its cross-section. The earth model supplies the
-background layers; `zoom_factor` controls the initial view around the cables.
+background layers. `zoom_factor` controls the initial view around the cables.
 =#
 
 cable_system
@@ -369,7 +369,7 @@ Use the same R/L and G/C selection declared for the cable constants. The report
 contains four separate quantity tables. Each full matrix table has one frequency
 column followed by all ordered matrix coefficients, including both off-diagonals.
 
-`length_unit=:kilo` displays the per-unit-length quantities per kilometre.
+`length_unit=:kilo` displays the per-unit-length quantities per kilometer.
 =#
 
 phase_report = report(
@@ -379,7 +379,7 @@ phase_report = report(
 )
 
 #=
-To tabulate a particular coefficient or frequency subset, express that request
+To tabulate a selected coefficient or frequency subset, express that request
 with `@observe` in `values`. The following selects the first
 self-resistance coefficient at the first twelve frequencies. No knowledge of
 the generated DataFrame column names is needed to make the selection.
@@ -398,7 +398,7 @@ Pass the computed result directly to `LineCableModels.plot`. Plotting uses
 `ydata` for the same quantity selection that reporting names `values`.
 
 Each requested quantity has its own matrix dashboard. Matrix coordinates
-identify subplots; each trace follows that coefficient over frequency. The
+identify subplots. Each trace follows that coefficient over frequency. The
 plots retain the complete matrices rather than assuming symmetry or discarding
 small entries in the renderer.
 =#
@@ -498,11 +498,11 @@ first_modal_term_report = report(
 ### Full modal matrix plots
 
 Keep the off-diagonal coefficients in the modal view. Entries reduced to zero
-by the observation layer remain visible as zero traces; residual coupling that
+by the observation layer remain visible as zero traces. Residual coupling that
 survives reporting resolution remains visible in its original matrix position.
 
 This uses the same quantity selection and plotting call as the phase-domain
-view, so the full transformed matrices remain available for inspection.
+view. The full transformed matrices remain available for inspection.
 =#
 
 modal_plots = LineCableModels.plot(

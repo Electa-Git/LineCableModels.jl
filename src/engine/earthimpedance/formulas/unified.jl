@@ -25,8 +25,8 @@ caller-prescribed Γ \\[1/m\\] give
 \\widetilde K_{ij}=\\mathcal Z_{ij}-\\Gamma^2\\mathcal P_{\\phi,ij}/(j\\omega).
 ```
 
-Source columns carry exp(abs(real(κⱼrⱼ))) scaling, shared with the source-potential
-and enclosed-current matrices. `pair` retains source/target geometry \\[m\\];
+Source columns include exp(abs(real(κⱼrⱼ))) scaling, shared with the source-potential
+and enclosed-current matrices. `pair` retains source-target geometry \\[m\\].
 `functor` contains evaluated media and circumferential factors. The complete
 current map converts these coefficients to physical series impedance.
 

@@ -23,9 +23,7 @@ Use Julia's existing meanings before adding package vocabulary. Check, in
 order, whether the operation is already expressed by Core, Base, a standard
 library, a direct dependency, or an existing package generic.
 
-A new name must identify a domain action, an invariant, a numerical method, an
-external format, or real state. A name that only forwards arguments, reads one
-field, repacks a tuple, or merges defaults does not add meaning.
+New names require a domain meaning. They can describe an invariant or numerical method, identify an external format or represent real state. Mere forwarding and field access are insufficient reasons to add a name. Tuple repacking and merging defaults are also insufficient.
 
 | Prefer | Avoid |
 |:--|:--|
@@ -35,8 +33,8 @@ field, repacks a tuple, or merges defaults does not add meaning.
 | dispatch on a scientific type | a symbol switch or dictionary that repeats dispatch |
 | a local method beside its owner | a global `helpers` or `utils` bucket |
 
-For example, a result that is a finite collection implements Julia's collection
-methods:
+For a result that represents a finite collection, implement Julia's collection
+methods as shown below:
 
 ```julia
 Base.length(result::MyResult) = length(result.values)
@@ -47,7 +45,7 @@ Base.iterate(result::MyResult, state...) = iterate(result.values, state...)
 It does not add `get_results`, `result_count`, and `iterate_results` as parallel
 names.
 
-Small methods are appropriate when each method owns a dispatch choice or an
+Small methods are appropriate when each method defines a dispatch choice or an
 invariant. Tiny forwarding helpers that only rename another operation are not.
 Do not add speculative compatibility shims, runtime `eval`, exception-driven
 feature tests, or lookup tables that duplicate Julia methods.
@@ -59,7 +57,7 @@ externally visible state.
 
 Use one public action when an operation has one required stage order. The
 action method shows the complete sequence, and concrete definition types add
-methods for the stages they own.
+methods for the stages they implement.
 
 ```julia
 function process(definition::AbstractDefinition, source)
@@ -94,10 +92,10 @@ owned_action(::Val{:example}, args...; kwargs...) = ...
 ```
 
 Use an explicit no-op method only when doing nothing is a valid stage result.
-Reject unsupported definition/source pairs through required stage dispatch
+Reject unsupported definition and source pairs through required stage dispatch
 before partial work. Introduce a mutable context only when several stages
-share buffers, resources, or evolving state. CI checks the fixed
-actions listed in [Grammar invariants](developers.md) directly; runtime
+share buffers, resources, or changing state. CI checks the fixed
+actions listed in [Grammar invariants](developers.md) directly. Runtime
 metadata that merely repeats their method definitions is not part of the
 grammar.
 
@@ -107,10 +105,10 @@ Place code first by the owner that defines when it changes, then by its precise
 responsibility. Files, directories, and Julia modules solve different
 problems:
 
-- a file separates one responsibility within an owner;
-- a directory groups several responsibilities that still belong to one owner;
+- a file separates one responsibility within an owner.
+- a directory groups several responsibilities that still belong to one owner.
 - a submodule supplies a separate namespace, dependency set, or stated
-  interface;
+  interface.
 - a package is warranted only when the code has independent users and releases.
 
 Grow code recursively:
@@ -127,10 +125,8 @@ imports, public names, includes in dependency order, and deliberate child
 reexports. Constructors, algorithms, validation, plotting descriptions, and
 format translations belong in focused files selected by the owner.
 
-Place a method according to the reason it changes. A method that exposes an
-Engine result through `observe` belongs with that result. A method that draws a
-native figure with Makie belongs in the Makie extension. Scientific
-observations and physical preview geometry remain with their owner; plot
+Place a method according to the reason it changes. Keep `observe` methods beside the Engine results they expose. Place methods that draw native Makie figures in the Makie extension. Scientific
+observations and physical preview geometry remain with their owner. Plot
 request normalization, presentation groups, palettes, Makie blocks, layouts,
 widgets, callbacks, and backend activation do not. A method that parses an
 external file belongs with the format owner.
@@ -174,29 +170,29 @@ storage. Completion captures actual physical inputs, formulation selections and
 controls, coordinates, and original point identity. Basic descriptions are always
 retained. Observation and presentation never reconstruct a problem from lazy axes.
 
-The complete primary pairs are R/X, magnitude/angle of Z, or R/L for Z, and G/B,
-magnitude/angle of Y, or G/C for Y. Defaults are R/X and G/B. The strict constructor
+The complete primary pairs are R/X, magnitude and angle of Z, or R/L for Z, and G/B,
+magnitude and angle of Y, or G/C for Y. Defaults are R/X and G/B. The strict constructor
 rejects an incomplete pair. Raw plotting conveniences use the same request
-normalizer with `complete_pairs=true`; `plot(line; ydata=(R,))` retains R/X and G/B
+normalizer with `complete_pairs=true`. `plot(line; ydata=(R,))` retains R/X and G/B
 and displays R. `plot(observed; ydata=(R,))` selects retained R only. Different
 representations require a new explicit construction. No consumer derives an
-absent quantity, repeats clipping, or acquires a raw source.
+absent quantity, repeats clipping or acquires a raw source.
 
 Re-observation selects retained products and preserves their recorded units by
-default. Explicit unit changes convert from those recorded units; they never
+default. Explicit unit changes convert from those recorded units. They never
 reapply native-unit scaling or clipping. Comparison and timing associations
 survive selection. The atomic constructor validates coordinates, dimensions,
 units, masks, and completed-comparison records, including during archive loading.
 
 The shared `Grammar.observation_product(points, request)` operation aligns matrix
 coefficients by original indices and converts compatible units for overlays.
-Each trace keeps its own frequency samples; no interpolation occurs. Z and Y
+Each trace retains its original frequency samples without interpolation. Z and Y
 products may retain different frequency selections.
 
 UQ acquisition belongs to the UQ owner: `ObservedResult(uq, point, requests)` joins
 that point's primary values and requested statistics, samples, or histograms.
 Product requests omit the point index. Mean/std estimates and precomputed
-histogram/CDF/Q–Q coordinates remain ordinary records in `quantities`; sampling
+histogram/CDF/Q-Q coordinates remain ordinary records in `quantities`. Sampling
 information belongs to `gridpoint.sampling`. Uncertain primary values in an ordinary
 collection use the primary owner and preserve their dependencies.
 
@@ -206,22 +202,22 @@ tables = ReportBuilder.tabulate(observed)  # tables.Z.R, tables.Z.L, tables.Y.G,
 plot(observed; ydata=(R,))
 ```
 
-Every quantity has its own table. A full n×n matrix on m frequencies has m rows and
-1+n² columns, in row-major coefficient order; both off-diagonals remain present.
+Each quantity has its own table. A full n×n matrix on m frequencies has m rows and
+1+n² columns, in row-major coefficient order. Both off-diagonals remain present.
 Sparse and diagonal requests preserve original indices and matrix extent.
 Modal vectors use one `:vector` mode axis with original mode positions and
 retained frequency samples. Bare complex modal requests acquire Cartesian
-component pairs; explicit components display only the selected product.
+component pairs. Explicit components display only the selected product.
 `alpha` and `beta` share the physical identities of the real and imaginary
 parts of `gamma`, and `velocity` is a separate real quantity. Modal archives
 written before these coordinate and identity changes must be reacquired.
 `DataFrame(observed)` rejects aggregate conversion and directs the caller to a
 quantity leaf such as `ReportBuilder.tabulate(observed, R)`. `ObservedResult` is
 not a Tables.jl table. CableConstants quantity tables have one operating-frequency
-row and a named column per assembly. XLSX writes one numeric values/std workbook per point and quantity;
-native observation persistence preserves precision and uncertainty dependencies
-across the complete result/reference archive. XLSX preflights all destinations
-and worksheet sizes before writing; existing files require `overwrite=true`.
+row and a named column per assembly. XLSX writes one numeric value and standard-deviation workbook per point and quantity.
+Native observation persistence preserves precision and uncertainty dependencies
+across the complete result-reference archive. XLSX preflights all destinations
+and worksheet sizes before writing. Existing files require `overwrite=true`.
 
 Explicit benchmark comparison precedes construction:
 
@@ -235,19 +231,19 @@ plot(artifact; ydata=(R,))
 
 Comparison records join by original result identities. A reference remains
 outside the result collection. External data needs explicit retained identity
-for a benchmark; absent physical descriptions remain explicitly absent. Arithmetic
+for a benchmark. Absent physical descriptions remain explicitly absent. Arithmetic
 checks cover coordinates, dimensions, units, basis, and frequency agreement.
-Scientific comparability is the caller's responsibility; no interpolation occurs.
-`ReportArtifact.observed` and `.reference` contain only observations; `.tables`
+Scientific comparability is the caller's responsibility. The samples retain their original frequencies without interpolation.
+`ReportArtifact.observed` and `.reference` contain only observations. `.tables`
 contains the organized tables. Raw conveniences construct and delegate once.
 
 `observation_groups` is the shared grouping owner. Eligibility requires the same
-physical point, relevant selected formulas and controls, quantity/statistical
+physical point, relevant selected formulas and controls, quantity and statistical
 meaning, units, uncertainty interpretation, and coordinates. Exact numerical and
 dependency agreement verifies that eligibility. It does not discover equivalence.
 Conflicting numerical values under the same semantics and uncertainty dependencies
-raise a consistency diagnostic. Captured physical fields carry owner-defined
-names and units; common formulation fields are compared structurally before
+raise a consistency diagnostic. Captured physical fields include owner-defined
+names and units. Common formulation fields are compared structurally before
 labels are formatted.
 All group identities, original observations, tables, and files remain available.
 
@@ -255,7 +251,7 @@ All group identities, original observations, tables, and files remain available.
 
 An available scalar is engineering zero precisely when
 `abs(nominal(value)) <= cutoff`. Nonfinite and unavailable values are separate.
-Defaults per meter are R=1e-10 Ω/m, L=1e-15 H/m, G=1e-12 S/m, C=1e-16 F/m;
+Defaults per meter are R=1e-10 Ω/m, L=1e-15 H/m, G=1e-12 S/m, C=1e-16 F/m.
 X and B use 2πf times their L and C cutoffs. Total quantities scale by a retained
 physical length or require explicit cutoffs. L/C are unavailable at DC. No inferred
 `eps`, matrix-norm, largest-coefficient, or uncertainty contribution is added.
@@ -263,18 +259,18 @@ Complex zero requires both Cartesian components to be zero. Polar products come
 from the original complex values. Clipped values become exact zero, including
 their uncertainty. Unclipped values and source calculations preserve their
 uncertainty dependencies. Undefined first-order magnitude retains its components and zero
-nominal magnitude with an explicit reason; its value and phase remain missing.
+nominal magnitude with an explicit reason. Its value and phase remain missing.
 
 Comparison classifies original operands first. Any ineligible sample makes both
-RMS metrics missing for that coefficient/band. Otherwise existing RMS mathematics
-applies to original values. Small and zero errors remain valid; operand cutoffs
+RMS metrics missing for that coefficient and band. Otherwise existing RMS mathematics
+applies to original values. Small and zero errors remain valid. Operand cutoffs
 are never applied to errors. Actual cutoffs, units, selections, settings, and
 missing reasons are retained.
 
 Recorded timings remain associated with the original result and separate
-reference in report tables. Equal elapsed times do not identify a shared event.
+reference in report tables. Matching elapsed times alone are insufficient to identify a shared event.
 A measurement for a whole calculation retains that scope when several observed
-points carry it; reporting does not invent per-point timings.
+points include it. Reporting does not invent per-point timings.
 
 Each `ObservedResult` stores one point's inputs, selected formulations,
 quantities, comparisons, and execution measurements. Quantity records include
@@ -282,15 +278,15 @@ basis, units, coordinates, applied cutoffs, availability, and missing-value
 reasons. `ReportBuilder.tabulate` creates tables from these records on demand.
 `ReportArtifact` retains `.observed`, a separate `.reference`, and `.tables`.
 FEM completion records identify the selected GetDP executable through
-`getdp_selection`. File checksums verify integrity; source revisions identify
+`getdp_selection`. File checksums verify integrity. Source revisions identify
 the code used for the calculation.
 
 ## Text display and tables
 
 Human inspection (`show`), scientific extraction (`observe`), detached acquisition
 (`ObservedResult`/`observables`), and tabulation (`tabulate`) are separate actions.
-Each public owned type defines `summary`, two-argument `show`, and text/plain
-`show`. Display reads stored state only; it must not run builders, comparisons,
+Each public owned type defines `summary`, two-argument `show`, and `text/plain`
+`show`. Display reads stored state only. It must not run builders, comparisons,
 solvers, or lazy-grid materialization. Ordinary report display renders retained
 tables and never constructs a figure implicitly. Existing Makie axes and the
 plot window own drawing, controls, layout, and backend behavior.
@@ -364,14 +360,14 @@ Do not repeat generated text by hand.
 
 ### Function structure
 
-Use this section order, omitting sections that add no information:
+Use this section order, omitting sections that do not add information:
 
-1. description and any implemented equation;
-2. `# Arguments`;
-3. `# Keywords`;
-4. `# Returns`;
-5. `# Notes` for assumptions or limitations;
-6. `# Errors` for deliberate exceptions;
+1. description and any implemented equation.
+2. `# Arguments`.
+3. `# Keywords`.
+4. `# Returns`.
+5. `# Notes` for assumptions or limitations.
+6. `# Errors` for deliberate exceptions.
 7. `# Examples`.
 
 ````julia
@@ -431,8 +427,7 @@ end
 ````
 
 A module docstring begins with the indented module name, states its purpose,
-then uses `$(IMPORTS)` and `$(EXPORTS)` when those lists aid the reader. A
-physical constant uses a concise single-line docstring with its symbol and SI
+then uses `$(IMPORTS)` and `$(EXPORTS)` when those lists aid the reader. For a physical constant, use a concise single-line docstring with its symbol and SI
 unit.
 
 ## Repository practice
@@ -446,8 +441,7 @@ description, and stay within 72 characters:
 fix(engine): reject unsupported formulation options
 ```
 
-Every change includes tests at the closest relevant scope. Core tests do not
-load optional packages. CairoMakie is an optional dependency; its rendering extension activates when
+Every change includes tests at the closest relevant scope. Core tests load only required packages. CairoMakie is an optional dependency. Its rendering extension activates when
 CairoMakie and Makie are loaded. Rendering and other extension paths run in their
 dedicated test environments. Public examples should be executable and self-contained.
 
@@ -456,7 +450,7 @@ dedicated test environments. Public examples should be executable and self-conta
 The [developer testing requirements](developers.md#testing-requirements) define
 release status, regression terminology, test scope, architecture, and the
 95% coverage gate.
-The harness checks implementation correctness and architectural conformance;
-scientific acceptance is outside it. User-selected numerical snapshots are
+The harness verifies correctness of the implementation and architectural conformance.
+Scientific acceptance is outside it. User-selected numerical snapshots are
 deferred until after the first stable publication. Do not duplicate those requirements
 as a separate validation or baseline-approval scheme.

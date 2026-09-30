@@ -66,7 +66,7 @@
             E.completed_inputs(problem),LineCableModels.Grammar.gridpoint_id()), Y) ==
           observe(results[2], Y)
     # The same physical API supports independent translated assemblies inside
-    # one design; their local operators must be scattered into distinct ports.
+    # one design. Their local operators must be scattered into distinct ports.
     left = internal_shunt_test_design(count = 4, suffix = "_left")
     right = internal_shunt_test_design(count = 4, suffix = "_right")
     pair = build(CableDesign, "two-local-domains",

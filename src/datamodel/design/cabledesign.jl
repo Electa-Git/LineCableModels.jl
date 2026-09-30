@@ -24,7 +24,7 @@ struct CableDesign{
     geometry::G
     "Retained terminals in physical order."
     terminal_order::Vector{Symbol}
-    "Terminal index for every resolved region; zero denotes no terminal."
+    "Terminal index for every resolved region. Zero denotes no terminal."
     terminal_map::Vector{Int}
 
     function CableDesign{T, O, G, N}(
@@ -220,21 +220,20 @@ $(TYPEDSIGNATURES)
 
 Build a completed cable design from v1 physical declarations.
 
-The method validates physical invariants, resolves contextual geometry,
-assigns retained terminals, and freezes the resulting [`CableGeometry`](@ref).
-It performs no formulation calculation.
+The method validates physical invariants before resolving contextual geometry and assigning retained terminals, and freezes the resulting [`CableGeometry`](@ref).
+It does not perform a formulation calculation.
 
 # Arguments
 
-- `CableDesign`: Completed target type.
-- `cable_id`: Stable cable identifier.
-- `parts`: Physical `Region`, `Stack`, `Group`, `Assembly`, or `Enclosure` declarations.
-- `nominal_data`: Descriptive nominal_data data, or `nothing`.
+- `CableDesign`: completed target type.
+- `cable_id`: stable cable identifier.
+- `parts`: physical `Region`, `Stack`, `Group`, `Assembly`, or `Enclosure` declarations.
+- `nominal_data`: descriptive nominal_data data, or `nothing`.
 
 # Keywords
 
-- `combine`: Gridspace composition mode. It is validated here for a common
-  scalar and parametric API; scalar construction uses one value.
+- `combine`: gridspace composition mode. It is validated here for a common
+  scalar and parametric API. Scalar construction uses one value.
 
 # Returns
 
@@ -264,7 +263,7 @@ function build(
         "nominal_data must be a named tuple or nothing"
     ))
 
-    # 3. Resolve intrinsic primitives against their contextual boundaries.
+    # 3. Resolve intrinsic primitives against their contextual geometric boundaries.
     # 4. Resolve pattern placements and compaction through `placements` dispatch.
     # 5. Resolve longitudinal path radii while traversing the same physical tree.
     # 6. Collect the resolved primitives as one CableGeometry in physical order.

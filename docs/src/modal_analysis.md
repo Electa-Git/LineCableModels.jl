@@ -19,7 +19,7 @@ Zc(modal, PhaseDomain)  # ordered phase × phase × frequency
 ```
 
 The bases map modal coordinates to phase coordinates. At each frequency the
-coefficients are `Tv \ (Zphase * Ti)` and `Ti \ (Yphase * Tv)`; inverse conversion
+coefficients are `Tv \ (Zphase * Ti)` and `Ti \ (Yphase * Tv)`. Inverse conversion
 uses the retained bases. The characteristic quantities use the diagonal modal
 approximation and the retained root branch. Phase characteristic matrices
 preserve row and column order and need not be symmetric.
@@ -36,23 +36,23 @@ modal = compute(line_problem, line_formulation;
 `modal_options` controls the modal action only. A nonempty value requires
 `modal`. The upstream solver, including its selected backend and batched path,
 completes before modal analysis begins. Upstream `on_result`, progress, and
-timing belong to that upstream call; modal `on_result`, progress, and timing
+timing belong to that upstream call. Modal `on_result`, progress, and timing
 belong to the downstream call. Timed results preserve the source gridpoint
 identity. A missed iteration or coupling target produces a warning and a
-diagnostic record; finite results are returned. The iteration convergence
-setting is a numerical target, not a physical error bound. Inspect
+diagnostic record. Finite results are returned. The iteration convergence
+setting is a numerical target. It does not bound the physical error. Inspect
 `details(modal).data.modal.diagnostics` for fallback and missed frequency
 indices, Z/Y residual coupling, returned eigen-residuals, iteration counts,
-and convergence flags. These are numerical diagnostics, not a scientific
-acceptance decision. The scalar characteristic and response construction
+and convergence flags. These diagnostics describe the numerical solve. Scientific
+acceptance requires a separate decision. The scalar characteristic and response construction
 uses the selected modal approximation when coupling remains.
 
 The built-in formula selects paired voltage and current eigenvectors and
 retains a forward root with nonnegative real part, or nonnegative imaginary
 part for a purely imaginary root. The modal workspace supplies impedance and
-admittance slices, coordinate conversion scratch, the admittance–impedance
+admittance slices, coordinate conversion scratch, the admittance-impedance
 product, eigenpair history and voltage-vector scratch. The built-in formula
-tracks eigenvalues of its normalized, shifted eigenproblem; multiplying
+tracks eigenvalues of its normalized, shifted eigenproblem. Multiplying
 `eigenvalue + 1` by the scale gives an eigenvalue of the physical product,
 distinct from a propagation root. The selected formula allocates its
 normalized eigenproblem, Hungarian assignment work and Levenberg–Marquardt
@@ -100,10 +100,10 @@ larger of one and the largest normalized eigenvalue magnitude. Clusters connect
 normalized eigenvalues whose gap is below `cluster_tolerance` times the larger
 of their shifted magnitudes and `1e-3`. `predictor_tolerance` bounds relative
 eigenvalue and isolated-vector changes from the predictor. These decisions select
-the numerical tracking route; finite results are retained with warning diagnostics.
+the numerical tracking route. Finite results are retained with warning diagnostics.
 
 Tracking history uses `transpose(t)*t = 1`. Published current bases have unit
-Euclidean column norms; voltage bases are the normalized paired `Z*Ti` columns.
+Euclidean column norms. Voltage bases are the normalized paired `Z*Ti` columns.
 With `order_by_velocity=true`, decreasing phase constant at the final frequency
 sets one mode order for the entire scan, including its diagnostics. Disable this
 option to retain the seed's tracked order. The first frequency is obtained by
@@ -112,7 +112,7 @@ Subsequent flags describe LM convergence even when a conventional eigensolution
 is ultimately returned. The reported eigen-residual describes that returned pair.
 
 This adaptation uses `s=j2πf` and the package's vacuum permittivity
-`8.8541878128e-12 F/m`; the supplied `EigTrack.jl` used `8.854187817e-12 F/m` and
+`8.8541878128e-12 F/m`. The supplied `EigTrack.jl` used `8.854187817e-12 F/m` and
 also supported complex-frequency reevaluation. The formula allocates its complex
 least-squares, predictor and assignment work through the existing allocator and
 reuses common modal storage. The detailed method attribution is attached to its
@@ -136,8 +136,8 @@ spectral norm), with the bilinear constraint `transpose(t)*t = 1`. The
 convergence target bounds the largest absolute correction in this normalized
 problem. A singular iteration, missed target or duplicate eigenpair causes
 same-frequency direct eigendecomposition and greedy correlation matching.
-These events remain warning diagnostics; no physical samples are reevaluated.
-The identifier is spelled `:wedehpol1996` as selected for this package; the
+These events remain warning diagnostics. No physical samples are reevaluated.
+The identifier is spelled `:wedehpol1996` as selected for this package. The
 bibliographic author is Wedepohl.
 
 ## Shared basis rotation and sign continuity
@@ -146,7 +146,7 @@ All modal formulations, including user-defined formulations, use
 `options=(rotate=true,)` by default. After decomposition and before computing
 modal Z/Y, each Ti column is multiplied by a unit complex factor that minimizes
 its squared imaginary norm. The same factor multiplies its Tv column, preserving
-the voltage/current pairing. This does not independently minimize the imaginary
+the voltage and current pairing. This does not independently minimize the imaginary
 part of Tv. The remaining 180-degree ambiguity is resolved by requiring a
 nonnegative real overlap with the previous frequency's Ti column. Mode order
 and the decomposition's tracking history are unchanged.
@@ -163,16 +163,16 @@ tracking. The choice is retained at `details(modal).data.modal.rotate` and in
 observation assumptions. Rotated and unrotated observations remain distinct
 when grouped.
 
-The paired operation preserves column norms, diagonal modal Z/Y/Zc/Yc,
-propagation constants, and reconstructed phase quantities, including H. Residual
+Column norms, diagonal modal Z/Y/Zc/Yc, propagation constants and reconstructed
+phase quantities (including H) remain unchanged under the paired operation. Residual
 off-diagonal modal entries retain their magnitudes but can change phase with the
 coordinate choice. No values are clipped or set to zero by this operation.
 
 ## Finite segments and source length
 
 `PropagationParameters` binds a modal scan to one physical segment. A source
-with total coefficients retains its positive source normalization length;
-the line segment may have another length. For an external scan without a
+with total coefficients retains its positive source normalization length.
+The line segment may have another length. For an external scan without a
 known source length, supply the target length explicitly.
 
 ```julia
@@ -196,26 +196,26 @@ The modal forward factors are `exp.(-gamma(segment) .* line_length(segment))`.
 unavailable in observations, with their masks and reasons retained. The default
 display units for the first two are Np/km and rad/km.
 The phase voltage and current responses use `Tv` and `Ti`, respectively.
-Zero length gives identity propagation. Rebinding preserves the embedded source;
-a changed length receives a new gridpoint identity. Indexing a
+Zero length gives identity propagation. Rebinding preserves the embedded source.
+A changed length receives a new gridpoint identity. Indexing a
 modal or finite result by frequency slices coefficients, bases, roots, and
 frequency-aligned diagnostics together without a new solve.
 
 ## Collections and observations
 
 Completed phase result spaces transport through
-`Gridspace{ModalAnalysisProblem}(phase_results)`. A single modal formulation
-keeps one downstream result per source point; a formulation Gridspace forms
+`Gridspace{ModalAnalysisProblem}(phase_results)`. One modal formulation
+keeps one downstream result per source point. A formulation Gridspace forms
 the ordinary product or zip selection. Completed modal results transport
 through `Gridspace{PropagationParameters}(modal_results)` for finite lengths.
-Scalar quantities compose with broadcasting, for example `gamma.(modal_results)`
-and `H.(segment_results)`; each tensor remains one value.
+Scalar quantities compose with broadcasting, such as `gamma.(modal_results)`
+and `H.(segment_results)`. Each tensor remains one value.
 
 `ObservedResult` retains detached quantities and the existing four sections:
 gridpoint, quantities, errors, and timings. Requests can mix phase coefficients
 with `gamma`, `Zc`, `Yc`, `Tv`, and `Ti`. A line segment also offers `H`,
 `alpha`, `beta`, and `velocity`. Bare complex requests acquire complete real and
-imaginary pairs; a raw plotting convenience also completes a single component
+imaginary pairs. A raw plotting convenience also completes one component
 while displaying only that component. An observed-input plot selects retained
 components without calculating an absent representation.
 Bind phase representations explicitly:
@@ -233,15 +233,15 @@ plot(observed_pair; ydata=(gamma,), overlay=:coordinates)
 ```
 
 Mode vectors have a mode axis and a frequency axis. `Tv` and `Ti` have phase
-rows, mode columns, and frequency samples; retained coordinates keep both
+rows, mode columns, and frequency samples. Retained coordinates keep both
 label sets. Phase matrices have ordered phase rows and columns. `abs`, `angle`,
 `real`, and `imag` can be requested through the existing request tuples.
-For example, `@observe alpha[:, :]` and `@observe Tv[:, :, :]` keep original
-indices; `@observe (H, abs)[:, :]` requests the explicit magnitude component.
-Complete magnitude/angle pairs are acquired separately from the default
+`@observe alpha[:, :]` and `@observe Tv[:, :, :]` keep original
+indices. `@observe (H, abs)[:, :]` requests the explicit magnitude component.
+Complete magnitude and angle pairs are acquired separately from the default
 Cartesian components. Each component has its own physical name, unit, table,
 and plot family. A vector component table has frequency rows and one column
-per selected mode, named `Mode 1`, `Mode 2`, and so on. Full transformation
+per selected mode, named `Mode i`, where `i` is the mode index. Full transformation
 tables include every phase × mode entry, including off-diagonals.
 
 To view how each conductor participates in each mode, overlay the rows of the
@@ -255,8 +255,8 @@ plot(transform_matrices; overlay=:rows, layout=(3,3))
 ```
 
 Each component has mode panels containing conductor curves. Panel titles name
-modes; legends name conductors. Selected modes fill each page left to right and
-then top to bottom. For example, 18 modes produce two pages per component with
+modes. Legends name conductors. Selected modes fill each page left to right and
+then top to bottom. 18 modes produce two pages per component with
 `layout=(3,3)`. Every selected coefficient remains plotted.
 
 For a collection, acquire the same requests at each point and pass the retained
@@ -275,16 +275,16 @@ consistent across modes, pages, and points.
 
 Unavailable nonlinear values retain masks and reasons. Selection, tables,
 plots, unit conversion, and archive loading use stored observations. Save and
-load observations with the `.json` or `.jls` archive functions; loaded selectors
+load observations with the `.json` or `.jls` archive functions. Loaded selectors
 identify the retained quantities and coordinates.
 
 `H` uses the length bound to a line segment. A phase `H` selector binds both
 `domain=PhaseDomain` and
 `field=:voltage` or `:current`. A phase `Zc` or `Yc` selector binds
 `domain=PhaseDomain`. Exact request unit overrides take precedence over
-broader selector overrides. Retained rows record mode indices, ordered phase
+broader selector overrides. The retained rows contain indices of modes, ordered phase
 labels where applicable, source gridpoint ancestry, and relevant upstream and
-modal formulation assumptions; unknown assumptions remain unknown.
+modal formulation assumptions. Unknown assumptions remain unknown.
 
 ## Manual broadband study
 

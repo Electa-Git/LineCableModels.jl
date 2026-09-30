@@ -7,17 +7,17 @@ nested [`Gridspace`](@ref) lifts the construction to a finite space.
 
 # Keywords
 
-- `rho`: Electrical resistivity \\[Ω·m\\].
-- `kind`: Broad physical class. Deterministic symbol grids are accepted.
-- `eps_r=1`: Relative permittivity \\[dimensionless\\].
-- `mu_r=1`: Relative permeability \\[dimensionless\\].
-- `T0=20`: Reference temperature \\[°C\\].
-- `alpha=0`: Temperature coefficient of resistivity \\[1/°C\\].
-- `rho_thermal=0`: Thermal resistivity \\[K·m/W\\].
-- `theta_max=90`: Maximum continuous operating temperature \\[°C\\].
-- `tan_delta=0`: Dielectric loss tangent.
-- `sigma_solar=0`: Solar-absorption coefficient.
-- `combine=:product`: Local composition rule when an input varies.
+- `rho`: electrical resistivity \\[Ω·m\\].
+- `kind`: broad physical class. Deterministic symbol grids are accepted.
+- `eps_r=1`: relative permittivity \\[dimensionless\\].
+- `mu_r=1`: relative permeability \\[dimensionless\\].
+- `T0=20`: reference temperature \\[°C\\].
+- `alpha=0`: temperature coefficient of resistivity \\[1/°C\\].
+- `rho_thermal=0`: thermal resistivity \\[K·m/W\\].
+- `theta_max=90`: maximum continuous operating temperature \\[°C\\].
+- `tan_delta=0`: dielectric loss tangent.
+- `sigma_solar=0`: solar-absorption coefficient.
+- `combine=:product`: local composition rule when an input varies.
 
 # Returns
 
@@ -88,7 +88,7 @@ end
 """
 $(TYPEDSIGNATURES)
 
-Add the single deterministic material represented by `space` to a material
+Add the one deterministic material represented by `space` to a material
 library.
 
 # Errors

@@ -28,8 +28,8 @@ zero inner radius or zero-thickness annulus contributes zero.
 
 Here `r_in` and `r_ex` are the dielectric radii in meters, `κ` is complex
 admittivity in S/m, and `s` is complex frequency in s⁻¹. For sinusoidal
-evaluation, ``s=jω``. This definition gives ``y=s/p``; the FEM reduction
-instead accepts an inverse-admittance coefficient ``P=1/y`` in m/S.
+evaluation, ``s=jω``. This definition gives ``y=s/p``. The FEM reduction
+accepts an inverse-admittance coefficient ``P=1/y`` in m/S.
 For the same admittance and reference, ``p=sP``.
 """
 @inline function potential_coefficient(
@@ -51,9 +51,9 @@ $(TYPEDSIGNATURES)
 
 Evaluate the selected dielectric law at frequency in Hz and temperature in °C.
 The selected `temperature_dependence` law evaluates resistivity exactly once
-before the dielectric equation. Its default is the linear resistivity law;
-`nothing` retains reference resistivity. The temporary material records the
-operating temperature when resistivity changes; the source material is unchanged.
+before the dielectric equation. Its default is the linear resistivity law.
+Use `nothing` to retain reference resistivity. The temporary material records the
+operating temperature when resistivity changes. The source material remains unchanged.
 The lossless dielectric law ignores resistivity and loss tangent.
 Returns complex admittivity in S/m.
 """
@@ -85,7 +85,7 @@ $(TYPEDSIGNATURES)
 Evaluate a homogeneous radial dielectric from its original constituents.
 `relations` contains the selected insulation and semicon material callables,
 in that order. Each callable returns complex admittivity in S/m at the supplied
-frequency in Hz and temperature in °C. No constituent loss is added a second time.
+frequency in Hz and temperature in °C. Each constituent loss is added only once.
 
 The effective admittivity is the logarithmically weighted harmonic mean of
 the selected constituent responses. This is radial circuit equivalence, not
@@ -250,7 +250,7 @@ $(TYPEDSIGNATURES)
 
 Add the already calculated exterior potential coefficients to the cable-local
 primitive potential matrix \\[m/F\\] and retain its optional trace at `frequency`.
-The caller subsequently forms admittance from this matrix. No equation or
+The caller then forms admittance from this matrix. No equation or
 material law is evaluated here. Return the mutated `destination`.
 """
 function admittance!(

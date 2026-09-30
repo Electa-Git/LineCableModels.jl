@@ -77,7 +77,7 @@ $(TYPEDSIGNATURES)
 
 Construct an equivalent-earth rule with model parameters and numerical controls.
 Custom rules subtype `AbstractRule` and extend `equivalent_material` on their
-own concrete type. The selected sequence owns its position relative to the
+own concrete type. The selected sequence defines its position relative to the
 frequency-dependent material law.
 """
 Formula(identifier::Symbol; kwargs...) = Formula(Val(identifier); kwargs...)

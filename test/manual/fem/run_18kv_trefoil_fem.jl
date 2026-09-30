@@ -1,4 +1,4 @@
-# Manual run: include("test/manual/fem/run_18kv_trefoil_fem.jl")
+# Manual run: `include("test/manual/fem/run_18kv_trefoil_fem.jl")`
 # Uses the current datasheet case, not saved campaign results. No gauntlet run.
 # Before: this include activated Gauntlet. Now preserve the IDE's active project.
 gauntlet_project = normpath(joinpath(@__DIR__, "..", "..", "..", "gauntlet"))
@@ -9,13 +9,13 @@ isdefined(@__MODULE__, :Gauntlet) ||
 
 # Edit these inputs and re-include. Each inclusion starts a fresh FEM run.
 case_id = :cable_18kv_1000mm2_trefoil
-frequency_grid = 10.0 .^ range(-1, 7; length=101)  # Hz; use [1e7] for one frequency.
+frequency_grid = 10.0 .^ range(-1, 7; length=101)  # Hz. Use [1e7] for one frequency.
 loaded_case = Gauntlet.load_case(case_id;
     variation=Gauntlet.ExactOverrides(; frequencies=frequency_grid))
 problem = loaded_case.problem
 system = problem.system
 
-# Keep core, wire screen and aluminium foil as separate terminals on each cable.
+# Keep core, wire screen and aluminum foil as separate terminals on each cable.
 # Explicitly selects quasi-tem.pro, NOT the coupled quasi-full.pro.
 fem_formulation = Formulation(:LineCableModelsFEM;
     options=(
@@ -46,7 +46,7 @@ fem_result = compute(problem, fem_formulation; options=fem_options)
 # Raw per-unit-length matrices, indexed [response, source, frequency], for the IDE.
 Zfem = observe(fem_result, Z)  # ohm/m
 Yfem = observe(fem_result, Y)  # S/m
-Pfem = details(fem_result).data.fem.primitive.P_primitive  # ohm m; Y = inv(P) per frequency.
+Pfem = details(fem_result).data.fem.primitive.P_primitive  # ohm m. Y = inv(P) per frequency.
 run_directory = details(fem_result).data.fem.run.run_directory
 println("\nRun directory: ", run_directory)
 println("Zfem / Yfem / Pfem: ", size(Zfem), " | result: fem_result")
@@ -54,5 +54,5 @@ println("Zfem / Yfem / Pfem: ", size(Zfem), " | result: fem_result")
 # Optional matrix plots after the solve:
 # using GLMakie
 # Before: blocks selected matrix pages. Now layout is the only panel capacity.
-# plots = LineCableModels.plot(fem_result; ydata=(R, X, G, B), layout=(3, 3))
+# plots = LineCableModels.plot(fem_result. Ydata=(R, X, G, B), layout=(3, 3))
 nothing

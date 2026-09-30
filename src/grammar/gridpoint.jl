@@ -46,7 +46,7 @@ gridpoint_id(; source_id=UUIDs.uuid4(Random.RandomDevice()),
 $(TYPEDSIGNATURES)
 
 Return owner-defined physical field names and units for captured inputs.
-Each entry is `(name, unit)`; unregistered fields retain their explicit field
+Each entry is `(name, unit)`. Unregistered fields retain their explicit field
 names without an inferred physical unit. Completion stores this passive metadata
 beside the original values for source-free description formatting.
 """

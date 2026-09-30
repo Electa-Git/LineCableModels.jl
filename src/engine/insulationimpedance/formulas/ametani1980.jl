@@ -36,13 +36,13 @@ z_{ab}=\\frac{s\\mu_0\\mu_i}{2\\pi}\\ln\\frac{b}{a}.
 
 # Arguments
 
-- `r_in`: Inner insulation radius ``a`` \\[m\\].
-- `r_ex`: Outer insulation radius ``b`` \\[m\\].
-- `mu_r`: Relative insulation permeability ``\\mu_i`` \\[dimensionless\\].
-- `s`: Complex angular frequency ``s=j\\omega`` \\[rad/s\\].
-- `values`: Explicit physical/model parameters.
-- `options`: Normalized numerical sections for this contribution.
-- `workspace`: Optional computation workspace supplying reusable numerical buffers.
+- `r_in`: inner insulation radius ``a`` \\[m\\].
+- `r_ex`: outer insulation radius ``b`` \\[m\\].
+- `mu_r`: relative insulation permeability ``\\mu_i`` \\[dimensionless\\].
+- `s`: complex angular frequency ``s=j\\omega`` \\[rad/s\\].
+- `values`: explicit physical model parameters.
+- `options`: normalized numerical sections for this contribution.
+- `workspace`: optional computation workspace supplying reusable numerical buffers.
 
 # Returns
 

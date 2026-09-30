@@ -16,7 +16,7 @@ j\\omega\\varepsilon_0\\varepsilon_r.
 The annular layer operator converts this material admittivity to
 ``Y=2\\pi\\kappa/\\ln(b/a)``. This is the standard frequency-domain
 constitutive relation, not an author-specific empirical law. Ametani,
-Miyamoto, and Nagaoka (2004), Eqs. (14)–(15), remain a useful application
+Miyamoto, and Nagaoka (2004), Eqs. (14)-(15), remain a useful application
 reference for its zero-``\\tan\\delta_p`` semiconducting-screen specialization
 and radial series assembly.
 """
@@ -34,18 +34,18 @@ Evaluate the standard lossy material admittivity for a semiconducting layer:
 j\\omega\\varepsilon_0\\varepsilon_r.
 ```
 
-`material.tan_delta` represents polarization loss only; conduction is supplied
+`material.tan_delta` represents polarization loss only. Conduction is supplied
 by `material.rho`. The common coaxial operator applies the annular geometry.
 
 # Arguments
 
-- `material`: Semiconducting material properties, including resistivity and
+- `material`: semiconducting material properties, including resistivity and
   relative permittivity.
-- `frequency`: Evaluation frequency \\[Hz\\].
-- `temperature`: Operating temperature \\[°C\\].
-- `values`: Explicit physical/model parameters.
-- `options`: Normalized numerical sections for this contribution.
-- `workspace`: Optional computation workspace supplying reusable numerical buffers.
+- `frequency`: evaluation frequency \\[Hz\\].
+- `temperature`: operating temperature \\[°C\\].
+- `values`: explicit physical model parameters.
+- `options`: normalized numerical sections for this contribution.
+- `workspace`: optional computation workspace supplying reusable numerical buffers.
 
 # Returns
 
@@ -55,7 +55,7 @@ by `material.rho`. The common coaxial operator applies the annular geometry.
 
 Ametani, Miyamoto, and Nagaoka (2004), DOI
 10.1109/TPWRD.2003.822502, is retained as an application reference for the
-semiconducting-screen specialization; the constitutive relation itself is
+semiconducting-screen specialization. The constitutive relation itself is
 standard frequency-domain electromagnetism.
 """
 @inline function semicon_material(

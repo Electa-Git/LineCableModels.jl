@@ -153,8 +153,8 @@ function _tangent_circular_fill_plan(shape)
     computed_outer_radius <= Float64(outer.ro) + tolerance || return nothing
 
     # Prefer the radius declared by the enclosing material boundary.  The
-    # contact radius obtained from distance + wire radius can differ by an ULP;
-    # using it as a separate circle would make coincident material interfaces
+    # contact radius obtained from distance + wire radius can differ by an ULP.
+    # Using it as a separate circle would make coincident material interfaces
     # overlap instead of sharing the same Gmsh curves.
     tangent_outer_radius = if !isempty(cutouts)
         Float64(first(cutouts).ri)
@@ -370,7 +370,7 @@ end
 _register_shape_breaks!(::FEMLoopRegistry, shape) = nothing
 
 function _register_shape_breaks!(registry::FEMLoopRegistry, shape::DataModel.Polygon)
-    # Register topology first; the consuming material supplies the mesh size.
+    # Register topology first. The consuming material supplies the mesh size.
     foreach(point -> _point!(registry, point; mesh_size = nothing), _shape_points(shape))
     return nothing
 end
@@ -543,7 +543,7 @@ function _circle_point(center, radius, angle)
 end
 
 function _point!(registry::FEMLoopRegistry, point; mesh_size = registry.mesh_size)
-    # Equivalent boundary constructions can differ by one or two Float64 ULPs.
+    # Equivalent geometric boundary constructions can differ by one or two Float64 ULPs.
     # Reuse the existing topological point without applying a physical-scale
     # tolerance to every coordinate in the model.
     key = _matching_point_key(registry, point)
@@ -638,8 +638,8 @@ end
 
 """
 Remove an approximately repeated closing vertex, orient the polygon
-counterclockwise and start at the least coordinate key. Coordinates use Float64;
-the closing-point distance tolerance is 1e-14 m.
+counterclockwise and start at the least coordinate key. Coordinates use Float64.
+The closing-point distance tolerance is 1e-14 m.
 """
 function _normalize_polygon_vertices(points)
     values = [(Float64(point[1]), Float64(point[2])) for point in points]
@@ -1249,7 +1249,7 @@ function _tangent_fill_surfaces!(registry::FEMLoopRegistry, shape, mesh_size)
                 first_point = inner_point,
                 last_point = outer_point
             ))
-        # Neighbouring wires may also touch each other. The annular sector is
+        # Neighboring wires may also touch each other. The annular sector is
         # then a pinched walk, not one face: trace each material-left component
         # with the same contact rule used by every other enclosure boundary.
         append!(surfaces, _material_faces!(registry, (curves,)))

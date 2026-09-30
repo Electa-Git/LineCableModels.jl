@@ -57,23 +57,23 @@ $(TYPEDSIGNATURES)
 Construct a material after floating and promoting its real-valued properties.
 
 # Arguments
-- `kind`: Broad physical class, such as `:conductor`, `:insulator`, or
+- `kind`: broad physical class, such as `:conductor`, `:insulator`, or
   `:semicon`.
-- `rho`: Resistivity \\[Ω·m\\].
-- `eps_r`: Relative permittivity \\[dimensionless\\].
-- `mu_r`: Relative permeability \\[dimensionless\\].
-- `T0`: Reference temperature \\[°C\\].
-- `alpha`: Temperature coefficient of resistivity \\[1/°C\\].
+- `rho`: resistivity \\[Ω·m\\].
+- `eps_r`: relative permittivity \\[dimensionless\\].
+- `mu_r`: relative permeability \\[dimensionless\\].
+- `T0`: reference temperature \\[°C\\].
+- `alpha`: temperature coefficient of resistivity \\[1/°C\\].
 
 # Keywords
 
-- `rho_thermal=0`: Thermal resistivity \\[K·m/W\\].
-- `theta_max=90`: Maximum continuous operating temperature \\[°C\\].
-- `tan_delta=0`: Polarization loss tangent \\[dimensionless\\], excluding the
+- `rho_thermal=0`: thermal resistivity \\[K·m/W\\].
+- `theta_max=90`: maximum continuous operating temperature \\[°C\\].
+- `tan_delta=0`: polarization loss tangent \\[dimensionless\\], excluding the
   conduction contribution already represented by `rho`. A measured total loss
   tangent must be separated into those contributions before supplying both.
   Lossless constitutive selections explicitly suppress this input and conductivity.
-- `sigma_solar=0`: Solar-absorption coefficient.
+- `sigma_solar=0`: solar-absorption coefficient.
 
 # Returns
 - A validated `Material` whose scalar type is the promoted floating type of

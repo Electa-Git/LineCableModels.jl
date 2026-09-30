@@ -176,7 +176,7 @@
     @test run.axes.formulations isa Vector{<:AbstractFormulation}
     @test_throws BoundsError run[3, 1]
 
-    # A completed scalar problem is an admitted singleton, not an iterable object.
+    # A completed scalar problem is admitted as a singleton without iteration.
     scalar=CountedProblem(7)
     scalar_problem=ParametricProblem(scalar)
     @test length(scalar_problem.space) == 1

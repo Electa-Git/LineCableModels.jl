@@ -276,7 +276,7 @@ function _compute_pscad(problem::LineParametersProblem, formulation::PSCADFormul
         source = joinpath(directory, name), sha256 = bytes2hex(open(sha256, joinpath(directory, name))))
         for (directory, _, names) in walkdir(source_root) for name in sort(names)]
     # Reused and fresh native records have the same execution-fact schema.
-    # The public remote call's duration is transient; the scan projects it once.
+    # The public remote call's duration is transient. The scan projects it once.
     execution = (; (key => value for (key, value) in pairs(execution)
         if key ∉ (:elapsed_seconds, :elapsed_scope))...)
     execution = merge(execution, (backend = :pscad, pscad_version = config.pscad_version,

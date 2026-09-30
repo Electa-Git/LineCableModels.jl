@@ -17,7 +17,7 @@ function fundamental(z)
         ratio=abs(z)^2/(4(n+1)^2)*(n+2)/(n+1)
         if ratio<1/2
             # The ratios of subsequent terms, harmonic weights and derivative
-            # weights decrease; this bounds all four omitted series tails.
+            # weights decrease. This bounds all four omitted series tails.
             next=abs(t)*abs(z)^2/(4(n+1)^2)
             remainder=next*(1+harmonic+inv(oftype(harmonic,n+1)))*(1+2(n+1)/abs(z))/(1-ratio)
             remainder < eps(real(z))*magnitude && break

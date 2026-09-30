@@ -42,7 +42,7 @@ function sample_uncertainty(
         "Monte Carlo distributions must have finite mean and positive finite standard deviation",
     ))
     isfinite(standardized) || throw(ArgumentError(
-        "Monte Carlo distribution produced a non-finite realisation",
+        "Monte Carlo distribution produced a non-finite realization",
     ))
     return value.nominal +
            value.sigma *

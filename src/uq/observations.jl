@@ -94,9 +94,8 @@ $(TYPEDSIGNATURES)
 
 Return the simultaneous DKW bound for all retained real marginal summaries at
 one outer point. Both matrix orientations are counted conservatively. This is
-an iid-sampling bound, not measured CDF error; resampling concerns the
-population conditional on success. Fixed trial counts do not certify the
-configured target automatically.
+an iid-sampling bound, not measured CDF error. Resampling concerns the
+population conditional on success. A fixed trial count is insufficient to certify the configured target.
 """
 function confidence(value::MonteCarloResult, point::Integer)
     count = sum(length, values(value.stats[point]))
@@ -248,17 +247,16 @@ end
 $(TYPEDSIGNATURES)
 
 Observe a cable-constant marginal as a [`HistogramDensity`](@ref), using
-retained samples when a new binning is requested. No simulation is performed
-and retained products are not modified.
+retained samples when a new binning is requested. Simulation is unnecessary and retained products remain unchanged.
 
 # Arguments
 
-- `value`: Monte Carlo result.
-- `histograms`: Histogram product selector.
+- `value`: monte Carlo result.
+- `histograms`: histogram product selector.
 - `selector`: `R`, `L`, `C`, or `G`.
-- `point`: Gridspace point index.
-- `assembly`: Cable assembly index.
-- `bins`: Positive maximum bin count, or `nothing` to reuse the retained model. Without
+- `point`: gridspace point index.
+- `assembly`: cable assembly index.
+- `bins`: positive maximum bin count, or `nothing` to reuse the retained model. Without
   a retained model, `nothing` selects the sample-based automatic bin count.
 
 # Returns
@@ -289,7 +287,7 @@ $(TYPEDSIGNATURES)
 
 Observe a line-parameter histogram at one matrix element and frequency index.
 The `bins` argument follows the same retention and derivation rules as the
-cable-constant histogram observation; `row`, `column`, and `frequency` select
+cable-constant histogram observation. `row`, `column`, and `frequency` select
 the marginal in place of `assembly`.
 """
 function observe(
@@ -390,7 +388,7 @@ $(TYPEDSIGNATURES)
 
 Observe first-order nominal values or propagated standard uncertainties in the
 quantity's native units. Complex standard deviation is the nonnegative root
-sum of component variances; it is not a magnitude-distribution statistic.
+sum of component variances. It is not a magnitude-distribution statistic.
 """
 function observe(value::LinearErrorResult, ::typeof(statistics),
         selector::_MonteCarloScientificSelector,

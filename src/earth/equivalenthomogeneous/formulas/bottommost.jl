@@ -6,7 +6,7 @@ $(TYPEDSIGNATURES)
 
 **Expression.** Select the deepest layer's resistivity \\[Ω·m\\], relative
 permittivity, and relative permeability (both dimensionless). Property
-vectors use index 1 for air and indices 2 through N for soil; this default
+vectors use index 1 for air and indices 2 through N for soil. This default
 selects index N for every conductor-pair layout.
 
 **Scope.** Martins-Britto et al. found that deep-layer conductivity predominated
@@ -17,7 +17,7 @@ high-frequency effects limit that approximation. Selecting one layer does
 not implement their equivalent-conductivity formula, and their result does
 not establish the accuracy of selecting its permittivity or permeability.
 
-Select a different rule to change the equivalent material; see [`Formula`](@ref).
+Select a different rule to change the equivalent material. See [`Formula`](@ref).
 
 **Reference.** A. G. Martins-Britto, F. V. Lopes, and S. R. M. J. Rondineau,
 “Multilayer Earth Structure Approximation by a Homogeneous Conductivity Soil

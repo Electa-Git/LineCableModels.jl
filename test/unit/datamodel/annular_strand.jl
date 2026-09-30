@@ -16,7 +16,7 @@
     @test final_strip.primitive isa Annulus
     @test area(final_strip.primitive) ≈ area(strand)
     # A partial course member keeps its exact curved boundary. Directional
-    # support must agree with that boundary after a rigid placement too.
+    # support must agree with that geometric boundary after a rigid placement too.
     bent = first(member.primitive for member in metal if member.primitive isa DM.BentStrip)
     for shape in (bent, DM.resolve(Pose2(0.002, -0.003, 0.47), bent))
         @test area(shape) ≈ area(strand)

@@ -21,9 +21,9 @@ $(TYPEDSIGNATURES)
 
 Return the parallel equivalent ``Z_{eq}=Z_1Z_2/(Z_1+Z_2)``.
 
-`Z1` and `Z2` must have the same units and length basis, for example Ω/m
+`Z1` and `Z2` must have the same units and length basis, such as Ω/m
 or Ω. The result has those same units. An infinite input returns the other
-input; two zero inputs return zero.
+input. 2 zero inputs return zero.
 """
 function parallel(Z1::Number, Z2::Number)
     z1, z2 = promote(Z1, Z2)
@@ -44,9 +44,9 @@ R=\\frac{\\rho}{w t}.
 
 # Arguments
 
-- `thickness`: Strip thickness \\[m\\].
-- `width`: Strip width \\[m\\].
-- `rho`: Material resistivity at its reference temperature \\[Ω·m\\].
+- `thickness`: strip thickness \\[m\\].
+- `width`: strip width \\[m\\].
+- `rho`: material resistivity at its reference temperature \\[Ω·m\\].
 
 # Returns
 
@@ -72,9 +72,9 @@ R=\\frac{\\rho}{\\pi(r_{ex}^2-r_{in}^2)}.
 
 # Arguments
 
-- `r_in`: Inner conductor radius \\[m\\].
-- `r_ex`: Outer conductor radius \\[m\\].
-- `rho`: Material resistivity at its reference temperature \\[Ω·m\\].
+- `r_in`: inner conductor radius \\[m\\].
+- `r_ex`: outer conductor radius \\[m\\].
+- `rho`: material resistivity at its reference temperature \\[Ω·m\\].
 
 # Returns
 

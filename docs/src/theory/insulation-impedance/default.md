@@ -5,12 +5,12 @@
 | Field | Value |
 | --- | --- |
 | Family | Insulation impedance |
-| Formula identifier | `:ametani1980`; `:default` routes to this implementation |
+| Formula identifier | `:ametani1980`. `:default` routes to this implementation |
 | Explicit literature identifier | `:ametani1980` |
 | Documentation status | Registered and documented. |
 
 **Description.** Longitudinal magnetic impedance of one concentric insulation
-region. The package default and `:ametani1980` use the same Ametani route; the
+region. The package default and `:ametani1980` use the same Ametani route. The
 latter exposes the author-year identity.
 
 **Assumptions.**
@@ -25,13 +25,12 @@ For inner and outer radii ``a`` and ``b``,
 
 **Approximation.**
 
-The term is assembled with conductor surface impedances in the cable series
-impedance matrix.
+The term is assembled with conductor surface impedances in the matrix of series impedance for the cable.
 
 **Limitations.**
 
 The term vanishes for zero-thickness or zero-inner-radius regions under the
-package's boundary convention.
+package's geometric boundary convention.
 
 **Reference.**
 

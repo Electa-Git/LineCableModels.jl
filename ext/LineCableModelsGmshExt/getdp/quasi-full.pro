@@ -5,13 +5,13 @@ Jacobian { { Name Plain; Case { { Region All; Jacobian Vol; } } } }
 
 // First-order Maxwell formulation for exp(j omega t - Gamma z).
 // A_z=a, A_t=Gamma*bt, phi=Gamma*v. The equations are the normalized
-// Gamma -> 0 limit; all O(Gamma) transverse fields are retained. This is
-// not a finite-Gamma modal solver. The finite-metal A_z/u branch is retained;
+// Gamma -> 0 limit. All O(Gamma) transverse fields are retained. This is
+// not a finite-Gamma modal solver. The finite-metal A_z/u branch is retained.
 // PerfectConductors=1 instead uses exact PEC contour current constraints.
 //
 // One imposed axial current supplies both the magnetic equation and the
 // normalized transverse leakage. There is no independent electric drive.
-// The transverse domain treats metal surfaces as equipotential electrodes;
+// The transverse domain treats metal interfaces as equipotential electrodes.
 // the magnetic block either retains the specified finite metal conductivity
 // or excludes metal interiors when PerfectConductors=1.
 //
@@ -20,8 +20,9 @@ Jacobian { { Name Plain; Case { { Region All; Jacobian Vol; } } } }
 // reference at earth infinity to each electrode. Jacobian Plain evaluates
 // the pulled-back 1-form: its circulation equals the physical circulation,
 // including in the infinite-element shell. The backend generates these paths
-// from the mesh; test/manual/fem/run_quasi_full.jl also exposes a manual PEC CLI experiment.
-// Raw P has units ohm m (inverse admittance); analytical Pe = j omega P.
+// from the mesh. `test/manual/fem/run_quasi_full.jl` also provides a manual
+// PEC CLI experiment.
+// Raw P has units ohm m (inverse admittance). Analytical Pe = j omega P.
 //
 // Reference: G. Ciuprina and R. V. Sabriego, "Electric circuit element boundary
 // conditions for electromagneto-quasistatic and full wave models in A, phi
@@ -103,15 +104,15 @@ Group {
   Sur_Dirichlet_Mag = Region[{OUTBND_EM}];
   Sur_Insulation_Ele = Region[{OUTBND_ELE_INS}];
   Sur_Dirichlet_Ele = Region[{OUTBND_ELE_REF}];
-  // Complete the gauge tree on EVERY boundary with prescribed bt circulation.
+  // Complete the gauge tree on EVERY geometric boundary with prescribed bt circulation.
   // Omitting the electrode contours would constrain physical loop degrees of
-  // freedom in addition to the potential gauge.
+  // freedom as well as the potential gauge.
   GaugeBoundary = Region[{Sur_Dirichlet_Mag, TerminalContours}];
 }
 
 Include "materials.pro";
 Group {
-  // Conductors are equipotential electrodes, not electric field media.
+  // Conductors are equipotential electrodes and are excluded from electric field media.
   DomainMedia_Ele = Region[{Air, AirInf, Earth, EarthInf, PassiveMaterialRegions}];
   If(PerfectConductors)
     DomainFields = Region[{DomainMedia_Ele}];
@@ -311,9 +312,9 @@ Formulation {
 
         GlobalTerm { [Dof{I}, {U}]; In DomainCWithI; }
       EndIf
-      // First-order transverse Ampere, A_t = Gamma * bt, phi = Gamma * v:
-      // C*(nu C bt) + j omega se bt + se grad(v) - nu grad(a) = 0.
-      // The tree gauge removes gradient degrees of freedom from bt; the
+      // First-order transverse Ampere with `A_t = Gamma * bt` and `phi = Gamma * v`.
+      // `C*(nu C bt) + j omega se bt + se grad(v) - nu grad(a) = 0`.
+      // The tree gauge removes gradient degrees of freedom from bt. The
       // continuity rows below provide that part of Ampere in the nodal space.
       Galerkin { [nu[] * Dof{d bt}, {d bt}];
         In DomainMedia_Ele; Jacobian Vol; Integration I1; }
@@ -321,10 +322,10 @@ Formulation {
         In DomainMedia_Ele; Jacobian Vol; Integration I1; }
       Galerkin { [se[] * Dof{d v}, {bt}];
         In DomainMedia_Ele; Jacobian Vol; Integration I1; }
-      // d a = (d_y a, -d_x a, 0); rotating restores grad_t(a).
+      // d a = (d_y a, -d_x a, 0). Rotating restores grad_t(a).
       Galerkin { [-nu[] * (Vector[0,0,1] /\ Dof{d a}), {bt}];
         In DomainMedia_Ele; Jacobian Vol; Integration I1; }
-      // Normalized continuity; the source is the axial current, not a second drive.
+      // Normalized continuity. The source is the axial current, not a second drive.
       Galerkin { [se[] * Dof{d v}, {d v}];
         In DomainMedia_Ele; Jacobian Vol; Integration I1; }
       Galerkin { [Complex[0,omega[]] * se[] * Dof{bt}, {d v}];
@@ -376,7 +377,7 @@ Resolution {
       SetFrequency[Sys_FEM, FrequencyHz];
       SetTimeStep[1];
       // GetDP time is an output-step identity, not the physical frequency.
-      // The scan index avoids time-range failures; SetFrequency owns physics.
+      // Using the scan index avoids failures from time ranges. `SetFrequency` sets the physical frequency.
       SetTime[FrequencyIndex];
       Evaluate[$FEMFirstSolve = 1];
       For basis_slot In {0:#RequestedBases()-1}
@@ -415,7 +416,7 @@ PostProcessing {
       { Name bm; Value {
         Term { [Norm[{d a}]]; In DomainFields; Jacobian Vol; }
       }}
-      // e is E_t/Gamma [V]; ez is the driven axial field [V/m].
+      // `e` is `E_t/Gamma` [V]. `ez` is the driven axial field [V/m].
       { Name e; Value {
         Term { [-{d v}-Complex[0,omega[]]*{bt}]; In DomainMedia_Ele; Jacobian Vol; }
       }}

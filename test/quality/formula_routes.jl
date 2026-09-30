@@ -32,7 +32,7 @@
                     radius=kind === :self ? 0.01 : nothing)
                 binding=FM(selected,pair)
                 # Registration and indexed binding do not claim an implemented
-                # equation. Actual supported/stub/unsupported calls are covered
+                # equation. Actual supported, stub and unsupported calls are covered
                 # by the execution tests, not a reflected coverage list.
                 push!(bindings,binding)
             end

@@ -50,7 +50,8 @@
               details(reference).data.trace.Zg[p,q,:] rtol=1e-10
     end
 
-    # Potential coefficients use exactly the same air/earth/mixed grammar.
+    # Potential coefficients use the same selection syntax for air, earth
+    # and mixed conductor pairs.
     empty!(M.calls)
     potential_choices=(air=M.selection(E.EarthAdmittance;layers=2:2,scale=1.0),
         earth=M.selection(E.EarthAdmittance;layers=2:2,scale=2.0),

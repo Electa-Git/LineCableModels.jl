@@ -20,7 +20,7 @@ Construct a material library.
 
 # Keywords
 
-- `add_defaults`: Add the package's built-in material records. Default: `true`.
+- `add_defaults`: add the package's built-in material records. Default: `true`.
 
 # Returns
 
@@ -54,7 +54,7 @@ Add the built-in material records to `library`.
 
 # Arguments
 
-- `library`: Destination material library.
+- `library`: destination material library.
 
 # Returns
 
@@ -103,9 +103,9 @@ Add `material` under `name`.
 
 # Arguments
 
-- `library`: Destination material library.
-- `name`: Name of the material.
-- `material`: Validated material record.
+- `library`: destination material library.
+- `name`: name of the material.
+- `material`: validated material record.
 
 # Returns
 

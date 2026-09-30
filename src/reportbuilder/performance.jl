@@ -5,7 +5,7 @@ Tabulate completed timing records as scalar columns. Allocated bytes measure
 Julia allocation volume. Each record keeps its backend's timing scope.
 
 The optional `labels` are supplied by the same formulation descriptions used
-by the comparison report. Full workload/session records remain in the observation.
+by the comparison report. Full workload and session records remain in the observation.
 """
 function _timing_tables(measurements::Union{Nothing, NamedTuple};
         labels=(reference="Reference",result="Result"))
@@ -63,8 +63,8 @@ function _timing_tables(measurements::Union{Nothing, NamedTuple};
                         reused=get(observation,:reused,missing));cols=:union)
                 end
                 for (key,value) in pairs(measured.environment)
-                    # Full calculation/workload bindings remain retained,
-                    # not printed as one opaque default table cell.
+                    # Full calculation and workload bindings remain retained,
+                    # not printed as one opaque cell in the default table.
                     key in (:calculation,:workload,:settings) && continue
                     value isa NamedTuple && continue
                     push!(performance_environment,(;role,method,property=string(key),
@@ -81,7 +81,7 @@ function _timing_tables(measurements::Union{Nothing, NamedTuple};
         performance_environment,performance_comparison)
 end
 
-# Associate retained evidence with every result that owns it. A batch-scoped
+# Attach each retained measurement to the results it describes. A batch-scoped
 # measurement keeps that scope even when several observations refer to it.
 # Equal numbers never establish that two measurements are the same event.
 function _timing_tables(points::AbstractVector,reference)
